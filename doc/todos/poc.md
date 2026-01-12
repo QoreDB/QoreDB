@@ -58,4 +58,16 @@
 * [ ] **Sessions sauvegardées**
 * [ ] **Logs d’erreurs**
 
----
+### 🧱 Data Engine Kernel
+
+- [ ] **Interface DataEngine** — Définir une API commune pour toutes les bases
+- [ ] **Driver PostgreSQL** — Implémentation du kernel
+- [ ] **Driver MySQL** — Implémentation du kernel
+- [ ] **Driver MongoDB** — Implémentation NoSQL du kernel
+- [ ] **Registry de drivers** — Système de plugins internes
+- [ ] **Mapping universel**
+  - namespace (db / schema / bucket)
+  - collection (table / collection)
+  - record
+- [ ] **Normalisation des erreurs**
+- [ ] **Normalisation des résultats (cursor / rows / json)**

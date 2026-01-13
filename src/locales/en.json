@@ -14,6 +14,7 @@
         "username": "Username",
         "password": "Password",
         "database": "Database",
+        "databaseInitial": "Initial Database",
         "useSSL": "Use SSL/TLS",
         "cancel": "Cancel",
         "test": "Test",
@@ -24,7 +25,21 @@
         "connectedSuccess": "Connected successfully!",
         "connectFail": "Failed to connect",
         "saveSuccess": "Connection saved",
-        "updateSuccess": "Connection updated"
+        "updateSuccess": "Connection updated",
+        "failedRetrieveCredentials": "Failed to retrieve credentials",
+        "failedRetrieveCredentialsEdit": "Failed to retrieve credentials for editing",
+        "menu": {
+            "testConnection": "Test Connection",
+            "edit": "Edit",
+            "duplicate": "Duplicate",
+            "delete": "Delete",
+            "duplicateComingSoon": "Duplicate feature coming soon",
+            "deleteConfirm": "Delete connection \"{{name}}\"? This cannot be undone.",
+            "deletedSuccess": "Connection \"{{name}}\" deleted",
+            "deleteFail": "Failed to delete connection",
+            "credentialLoadFail": "Failed to load connection details",
+            "testTitleSuccess": "Connection to {{name}} successful!"
+        }
     },
     "sidebar": {
         "connections": "Connections",
@@ -32,7 +47,12 @@
         "newConnection": "New Connection",
         "errorLogs": "Error Logs",
         "themeLight": "Switch to light mode",
-        "themeDark": "Switch to dark mode"
+        "themeDark": "Switch to dark mode",
+        "connectError": "Connection error",
+        "failedToGetCredentials": "Failed to get credentials",
+        "couldNotRetrievePassword": "Could not retrieve password from vault",
+        "connectedTo": "Connected to {{name}}",
+        "connectionToFailed": "Connection to {{name}} failed"
     },
     "search": {
         "placeholder": "Type a command or search...",
@@ -89,8 +109,20 @@
     },
     "database": {
         "newTitle": "New Database",
+        "newSchema": "New Schema",
+        "newDatabase": "New Database",
+        "nameLabel": "Database Name",
+        "schemaNameLabel": "Schema Name",
+        "databaseNameLabel": "Database Name",
         "createSuccess": "Database created successfully",
-        "createError": "Failed to create database"
+        "schemaCreateSuccess": "Schema created successfully",
+        "databaseCreateSuccess": "Database created successfully",
+        "createError": "Failed to create database",
+        "schemaCreateError": "Failed to create schema",
+        "databaseCreateError": "Failed to create database",
+        "creationNotSupported": "Driver not supported for database creation",
+        "schemaNamePlaceholder": "My schema",
+        "databaseNamePlaceholder": "My database"
     },
     "common": {
         "loading": "Loading...",
@@ -98,6 +130,7 @@
         "success": "Success",
         "create": "Create",
         "cancel": "Cancel",
+        "unknownError": "Unknown error",
         "mongoCreateDbHint": "For MongoDB, simply insert data into a namespace to create it."
     },
     "logs": {
@@ -113,5 +146,19 @@
         "clearConfirm": "Clear all error logs?",
         "noLogs": "No error logs",
         "refresh": "Refresh"
+    },
+    "dbtree": {
+        "schemasHeader": "SCHEMAS",
+        "databasesHeader": "DATABASES",
+        "schema": "Schema",
+        "schemas": "Schemas",
+        "database": "Database",
+        "databases": "Databases",
+        "table": "Table",
+        "tables": "Tables",
+        "collection": "Collection",
+        "collections": "Collections",
+        "noCollections": "No tables",
+        "noDocuments": "No documents"
     }
 }

@@ -10,6 +10,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useTranslation } from 'react-i18next';
 
 interface ConnectionMenuProps {
   connection: SavedConnection;
@@ -22,6 +23,7 @@ export function ConnectionMenu({ connection, onEdit, onDeleted }: ConnectionMenu
   const [testing, setTesting] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const { t } = useTranslation();
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -42,7 +44,7 @@ export function ConnectionMenu({ connection, onEdit, onDeleted }: ConnectionMenu
       // Get password from vault
       const credsResult = await getConnectionCredentials('default', connection.id);
       if (!credsResult.success || !credsResult.password) {
-        toast.error('Failed to retrieve credentials');
+        toast.error(t('connection.failedRetrieveCredentials'));
         return;
       }
 
@@ -59,17 +61,17 @@ export function ConnectionMenu({ connection, onEdit, onDeleted }: ConnectionMenu
       const result = await testConnection(config);
       
       if (result.success) {
-        toast.success(`Connection to ${connection.name} successful!`, {
+        toast.success(t('connection.menu.testTitleSuccess', { name: connection.name }), {
           description: `${connection.host}:${connection.port}`,
         });
       } else {
-        toast.error(`Connection failed`, {
-          description: result.error || 'Unknown error',
+        toast.error(t('connection.testFail'), {
+          description: result.error || t('common.unknownError'),
         });
       }
     } catch (err) {
-      toast.error('Test failed', {
-        description: err instanceof Error ? err.message : 'Unknown error',
+      toast.error(t('connection.testFail'), {
+        description: err instanceof Error ? err.message : t('common.unknownError'),
       });
     } finally {
       setTesting(false);
@@ -82,18 +84,18 @@ export function ConnectionMenu({ connection, onEdit, onDeleted }: ConnectionMenu
       // Get password from vault for editing
       const credsResult = await getConnectionCredentials('default', connection.id);
       if (!credsResult.success || !credsResult.password) {
-        toast.error('Failed to retrieve credentials for editing');
+        toast.error(t('connection.failedRetrieveCredentialsEdit'));
         return;
       }
       onEdit(connection, credsResult.password);
       setIsOpen(false);
     } catch (err) {
-      toast.error('Failed to load connection details');
+      toast.error(t('connection.menu.credentialLoadFail'));
     }
   }
 
   async function handleDelete() {
-    if (!confirm(`Delete connection "${connection.name}"? This cannot be undone.`)) {
+    if (!confirm(t('connection.menu.deleteConfirm', { name: connection.name }))) {
       return;
     }
 
@@ -101,16 +103,16 @@ export function ConnectionMenu({ connection, onEdit, onDeleted }: ConnectionMenu
     try {
       const result = await deleteSavedConnection('default', connection.id);
       if (result.success) {
-        toast.success(`Connection "${connection.name}" deleted`);
+        toast.success(t('connection.menu.deletedSuccess', { name: connection.name }));
         onDeleted();
       } else {
-        toast.error('Failed to delete connection', {
+        toast.error(t('connection.menu.deleteFail'), {
           description: result.error,
         });
       }
     } catch (err) {
-      toast.error('Delete failed', {
-        description: err instanceof Error ? err.message : 'Unknown error',
+      toast.error(t('connection.menu.deleteFail'), {
+        description: err instanceof Error ? err.message : t('common.unknownError'),
       });
     } finally {
       setDeleting(false);
@@ -120,7 +122,7 @@ export function ConnectionMenu({ connection, onEdit, onDeleted }: ConnectionMenu
 
   function handleDuplicate() {
     // For now just show a message - could be implemented later
-    toast.info('Duplicate feature coming soon');
+    toast.info(t('connection.menu.duplicateComingSoon'));
     setIsOpen(false);
   }
 
@@ -153,7 +155,7 @@ export function ConnectionMenu({ connection, onEdit, onDeleted }: ConnectionMenu
             ) : (
               <Zap size={14} />
             )}
-            Test Connection
+            {t('connection.menu.testConnection')}
           </button>
 
           <button
@@ -161,7 +163,7 @@ export function ConnectionMenu({ connection, onEdit, onDeleted }: ConnectionMenu
             onClick={handleEdit}
           >
             <Pencil size={14} />
-            Edit
+            {t('connection.menu.edit')}
           </button>
 
           <button
@@ -169,7 +171,7 @@ export function ConnectionMenu({ connection, onEdit, onDeleted }: ConnectionMenu
             onClick={handleDuplicate}
           >
             <Copy size={14} />
-            Duplicate
+            {t('connection.menu.duplicate')}
           </button>
 
           <div className="h-px bg-border my-1" />
@@ -184,7 +186,7 @@ export function ConnectionMenu({ connection, onEdit, onDeleted }: ConnectionMenu
             ) : (
               <Trash2 size={14} />
             )}
-            Delete
+            {t('connection.menu.delete')}
           </button>
         </div>
       )}

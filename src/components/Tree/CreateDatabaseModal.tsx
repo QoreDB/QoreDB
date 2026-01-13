@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { 
@@ -12,6 +12,7 @@ import { executeQuery } from '../../lib/tauri';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { getDriverMetadata } from '../../lib/drivers';
 
 interface CreateDatabaseModalProps {
   isOpen: boolean;
@@ -31,6 +32,15 @@ export function CreateDatabaseModal({
   const { t } = useTranslation();
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
+  
+  const driverMeta = getDriverMetadata(driver);
+
+  useEffect(() => {
+    if (isOpen && driverMeta.createAction === 'none') {
+      toast.info(t('common.mongoCreateDbHint'));
+      onClose();
+    }
+  }, [isOpen, driverMeta.createAction, onClose, t]);
 
   async function handleCreate() {
     if (!name.trim()) return;
@@ -38,35 +48,37 @@ export function CreateDatabaseModal({
     setLoading(true);
     try {
       let query = '';
-      if (driver === 'postgres' || driver === 'mysql' || driver === 'mariadb') {
-        query = `CREATE DATABASE "${name}"`;
-        if (driver === 'mysql' || driver === 'mariadb') {
-           query = `CREATE DATABASE \`${name}\``;
-        }
-      } else if (driver === 'mongodb') {
-        toast.info(t('common.mongoCreateDbHint') || 'For MongoDB, simply insert data into a namespace to create it.');
-        onClose();
-        return;
+      
+      if (driverMeta.createAction === 'schema') {
+        query = `CREATE SCHEMA "${name}"`;
+      } else if (driverMeta.createAction === 'database') {
+        query = `CREATE DATABASE \`${name}\``;
       } else {
-        toast.error('Driver not supported for database creation');
+        toast.error(t('database.creationNotSupported'));
         return;
       }
 
       const result = await executeQuery(sessionId, query);
       
       if (result.success) {
-        toast.success(t('database.createSuccess') || 'Database created successfully');
+        const successKey = driverMeta.createAction === 'schema' 
+          ? 'database.schemaCreateSuccess' 
+          : 'database.databaseCreateSuccess';
+        toast.success(t(successKey));
         onCreated();
         onClose();
         setName('');
       } else {
-        toast.error(t('database.createError') || 'Failed to create database', {
+        const errorKey = driverMeta.createAction === 'schema'
+          ? 'database.schemaCreateError'
+          : 'database.databaseCreateError';
+        toast.error(t(errorKey), {
           description: result.error
         });
       }
     } catch (err) {
       toast.error(t('common.error'), {
-        description: err instanceof Error ? err.message : 'Unknown error'
+        description: err instanceof Error ? err.message : t('common.unknownError')
       });
     } finally {
       setLoading(false);
@@ -76,24 +88,37 @@ export function CreateDatabaseModal({
   function handleOpenChange(open: boolean) {
     if (!open) {
       onClose();
+      setName('');
     }
   }
+
+  if (driverMeta.createAction === 'none') {
+    return null;
+  }
+
+  const titleKey = driverMeta.createAction === 'schema' 
+    ? 'database.newSchema' 
+    : 'database.newDatabase';
+  
+  const nameLabelKey = driverMeta.createAction === 'schema'
+    ? 'database.schemaNameLabel'
+    : 'database.databaseNameLabel';
 
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle>
-            {t('database.newTitle') || 'New Database'}
+            {t(titleKey)}
           </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-2 py-4">
-          <label className="text-sm font-medium">Database Name</label>
+          <label className="text-sm font-medium">{t(nameLabelKey)}</label>
           <Input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="my_new_db"
+            placeholder={driverMeta.createAction === 'schema' ? t('database.schemaNamePlaceholder') : t('database.databaseNamePlaceholder')}
             autoFocus
             onKeyDown={(e) => {
               if (e.key === 'Enter') handleCreate();
@@ -107,7 +132,7 @@ export function CreateDatabaseModal({
           </Button>
           <Button onClick={handleCreate} disabled={loading || !name.trim()}>
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {t('common.create') || 'Create'}
+            {t('common.create')}
           </Button>
         </DialogFooter>
       </DialogContent>

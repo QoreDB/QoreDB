@@ -22,7 +22,8 @@ import {
   Driver, 
   DRIVER_LABELS, 
   DRIVER_ICONS, 
-  DEFAULT_PORTS 
+  DEFAULT_PORTS,
+  getDriverMetadata
 } from '../../lib/drivers';
 import { toast } from 'sonner';
 
@@ -74,6 +75,7 @@ export function ConnectionModal({
   const [error, setError] = useState<string | null>(null);
 
   const isEditMode = !!editConnection;
+  const driverMeta = getDriverMetadata(formData.driver);
 
   useEffect(() => {
     if (isOpen) {
@@ -259,9 +261,9 @@ export function ConnectionModal({
               <button
                 key={driver}
                 className={cn(
-                  "flex flex-col items-center gap-2 p-3 rounded-md border transition-all hover:bg-[var(--q-accent-soft)]",
+                  "flex flex-col items-center gap-2 p-3 rounded-md border transition-all hover:bg-(--q-accent-soft)",
                   formData.driver === driver 
-                    ? "border-accent bg-[var(--q-accent-soft)] text-[var(--q-accent)]" 
+                    ? "border-accent bg-(--q-accent-soft) text-(--q-accent)" 
                     : "border-border bg-background"
                 )}
                 onClick={() => handleDriverChange(driver)}
@@ -269,7 +271,7 @@ export function ConnectionModal({
               >
                 <div className={cn(
                   "flex items-center justify-center w-10 h-10 rounded-lg p-1.5 transition-colors",
-                  formData.driver === driver ? "bg-[var(--q-accent-soft)]" : "bg-muted"
+                  formData.driver === driver ? "bg-(--q-accent-soft)" : "bg-muted"
                 )}>
                   <img 
                     src={`/databases/${DRIVER_ICONS[driver]}`} 
@@ -332,7 +334,7 @@ export function ConnectionModal({
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">{t('connection.database')}</label>
+              <label className="text-sm font-medium">{t(driverMeta.databaseFieldLabel)}</label>
               <Input
                 placeholder={formData.driver === 'postgres' ? 'postgres' : ''}
                 value={formData.database}

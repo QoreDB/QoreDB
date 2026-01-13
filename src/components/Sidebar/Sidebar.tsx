@@ -52,8 +52,8 @@ export function Sidebar({ onNewConnection, onConnected, connectedSessionId, onTa
       const credsResult = await getConnectionCredentials('default', conn.id);
       
       if (!credsResult.success || !credsResult.password) {
-        toast.error('Failed to get credentials', {
-          description: credsResult.error || 'Could not retrieve password from vault',
+        toast.error(t('sidebar.failedToGetCredentials'), {
+          description: credsResult.error || t('sidebar.couldNotRetrievePassword'),
         });
         return;
       }
@@ -71,17 +71,17 @@ export function Sidebar({ onNewConnection, onConnected, connectedSessionId, onTa
       const result = await connect(config);
       
       if (result.success && result.session_id) {
-        toast.success(`Connected to ${conn.name}`);
+        toast.success(t('sidebar.connectedTo', { name: conn.name }));
         onConnected(result.session_id, conn.driver);
         setExpandedId(conn.id);
       } else {
-        toast.error(`Connection to ${conn.name} failed`, {
-          description: result.error || 'Unknown error',
+        toast.error(t('sidebar.connectionToFailed', { name: conn.name }), {
+          description: result.error || t('common.unknownError'),
         });
       }
     } catch (err) {
-      toast.error('Connection error', {
-        description: err instanceof Error ? err.message : 'Unknown error',
+      toast.error(t('sidebar.connectError'), {
+        description: err instanceof Error ? err.message : t('common.unknownError'),
       });
     } finally {
       setConnecting(null);

@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { CreateDatabaseModal } from './CreateDatabaseModal';
 import { useTranslation } from 'react-i18next';
+import { getDriverMetadata } from '../../lib/drivers';
 
 interface DBTreeProps {
   connectionId: string;
@@ -19,6 +20,8 @@ export function DBTree({ connectionId, driver, onTableSelect }: DBTreeProps) {
   const [collections, setCollections] = useState<Collection[]>([]);
   const [loading, setLoading] = useState(false);
   const [createModalOpen, setCreateModalOpen] = useState(false);
+  
+  const driverMeta = getDriverMetadata(driver);
 
   // TODO: Get sessionId from connection
   const sessionId = connectionId;
@@ -86,16 +89,20 @@ export function DBTree({ connectionId, driver, onTableSelect }: DBTreeProps) {
   return (
     <div className="flex flex-col text-sm">
       <div className="flex items-center justify-between px-2 py-1 mb-1">
-         <span className="text-xs font-semibold text-muted-foreground">DATABASES</span>
-         <Button 
-            variant="ghost" 
-            size="icon" 
-            className="h-5 w-5" 
-            onClick={() => setCreateModalOpen(true)}
-            title={t('database.newTitle') || 'New Database'}
-         >
-            <Plus size={12} />
-         </Button>
+         <span className="text-xs font-semibold text-muted-foreground">
+           {t(driverMeta.treeRootLabel)}
+         </span>
+         {driverMeta.createAction !== 'none' && (
+           <Button 
+              variant="ghost" 
+              size="icon" 
+              className="h-5 w-5" 
+              onClick={() => setCreateModalOpen(true)}
+              title={t(driverMeta.createAction === 'schema' ? 'database.newSchema' : 'database.newDatabase')}
+           >
+              <Plus size={12} />
+           </Button>
+         )}
       </div>
 
       <CreateDatabaseModal
@@ -129,7 +136,7 @@ export function DBTree({ connectionId, driver, onTableSelect }: DBTreeProps) {
             {isExpanded && (
               <div className="flex flex-col ml-2 pl-2 border-l border-border mt-0.5 space-y-0.5">
                 {collections.length === 0 ? (
-                  <div className="px-2 py-1 text-xs text-muted-foreground italic">No collections</div>
+                  <div className="px-2 py-1 text-xs text-muted-foreground italic">{t('dbtree.noCollections')}</div>
                 ) : (
                   collections.map(col => (
                     <button

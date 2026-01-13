@@ -7,7 +7,7 @@ services:
       POSTGRES_PASSWORD: qoredb_test
       POSTGRES_DB: testdb
     ports:
-      - "5432:5432"
+      - "54321:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
 

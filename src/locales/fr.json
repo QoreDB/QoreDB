@@ -14,6 +14,7 @@
         "username": "Nom d'utilisateur",
         "password": "Mot de passe",
         "database": "Base de données",
+        "databaseInitial": "Base de données initiale",
         "useSSL": "Utiliser SSL/TLS",
         "cancel": "Annuler",
         "test": "Tester",
@@ -24,7 +25,21 @@
         "connectedSuccess": "Connecté avec succès !",
         "connectFail": "Échec de la connexion",
         "saveSuccess": "Connexion enregistrée",
-        "updateSuccess": "Connexion mise à jour"
+        "updateSuccess": "Connexion mise à jour",
+        "failedRetrieveCredentials": "Échec de la récupération des identifiants",
+        "failedRetrieveCredentialsEdit": "Échec de la récupération des identifiants pour modification",
+        "menu": {
+            "testConnection": "Tester la connexion",
+            "edit": "Modifier",
+            "duplicate": "Dupliquer",
+            "delete": "Supprimer",
+            "duplicateComingSoon": "La fonctionnalité de duplication sera bientôt disponible",
+            "deleteConfirm": "Supprimer la connexion \"{{name}}\" ? Cette action est irréversible.",
+            "deletedSuccess": "Connexion \"{{name}}\" supprimée",
+            "deleteFail": "Échec de la suppression de la connexion",
+            "credentialLoadFail": "Échec du chargement des détails de la connexion",
+            "testTitleSuccess": "Connexion à {{name}} réussie !"
+        }
     },
     "sidebar": {
         "connections": "Connexions",
@@ -32,7 +47,12 @@
         "newConnection": "Nouvelle connexion",
         "errorLogs": "Journaux d'erreurs",
         "themeLight": "Passer en mode clair",
-        "themeDark": "Passer en mode sombre"
+        "themeDark": "Passer en mode sombre",
+        "connectError": "Erreur de connexion",
+        "failedToGetCredentials": "Échec de la récupération des identifiants",
+        "couldNotRetrievePassword": "Impossible de récupérer le mot de passe du coffre-fort",
+        "connectedTo": "Connecté à {{name}}",
+        "connectionToFailed": "La connexion à {{name}} a échoué"
     },
     "search": {
         "placeholder": "Tapez une commande ou recherchez...",
@@ -56,8 +76,7 @@
         "themeDark": "Sombre",
         "themeSystem": "Système",
         "languageDescription": "Sélectionnez votre langue préférée pour l'interface.",
-        "themeDescription": "Personnalisez l'apparence de l'application.",
-        "mongoCreateDbHint": "Pour MongoDB, insérez simplement des données dans un espace de noms pour le créer."
+        "themeDescription": "Personnalisez l'apparence de l'application."
     },
     "table": {
         "rows": "lignes",
@@ -88,10 +107,31 @@
         "rowCount": "{{count}} ligne(s)",
         "timeMs": "{{time}}ms"
     },
+    "database": {
+        "newTitle": "Nouvelle base de données",
+        "newSchema": "Nouveau schéma",
+        "newDatabase": "Nouvelle base de données",
+        "nameLabel": "Nom de la base de données",
+        "schemaNameLabel": "Nom du schéma",
+        "databaseNameLabel": "Nom de la base de données",
+        "createSuccess": "Base de données créée avec succès",
+        "schemaCreateSuccess": "Schéma créé avec succès",
+        "databaseCreateSuccess": "Base de données créée avec succès",
+        "createError": "Échec de la création de la base de données",
+        "schemaCreateError": "Échec de la création du schéma",
+        "databaseCreateError": "Échec de la création de la base de données",
+        "creationNotSupported": "Pilote non pris en charge pour la création de base de données",
+        "schemaNamePlaceholder": "Mon schéma",
+        "databaseNamePlaceholder": "Mon base de données"
+    },
     "common": {
         "loading": "Chargement...",
         "error": "Erreur",
-        "success": "Succès"
+        "success": "Succès",
+        "create": "Créer",
+        "cancel": "Annuler",
+        "unknownError": "Erreur inconnue",
+        "mongoCreateDbHint": "Pour MongoDB, insérez simplement des données dans un espace de noms pour le créer."
     },
     "logs": {
         "title": "Journaux d'erreurs",
@@ -106,5 +146,19 @@
         "clearConfirm": "Effacer tous les journaux d'erreurs ?",
         "noLogs": "Aucun journal d'erreur",
         "refresh": "Actualiser"
+    },
+    "dbtree": {
+        "schemasHeader": "SCHÉMAS",
+        "databasesHeader": "BASES DE DONNÉES",
+        "schema": "Schéma",
+        "schemas": "Schémas",
+        "database": "Base de données",
+        "databases": "Bases de données",
+        "table": "Table",
+        "tables": "Tables",
+        "collection": "Collection",
+        "collections": "Collections",
+        "noCollections": "Aucune table",
+        "noDocuments": "Aucun document"
     }
 }

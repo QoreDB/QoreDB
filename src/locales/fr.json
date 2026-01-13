@@ -1,0 +1,95 @@
+{
+    "app": {
+        "welcome": "Bienvenue sur QoreDB",
+        "description": "Ajoutez une connexion dans la barre latérale pour commencer, ou recherchez des ressources existantes.",
+        "newConnection": "Nouvelle connexion",
+        "search": "Rechercher"
+    },
+    "connection": {
+        "modalTitleNew": "Nouvelle connexion",
+        "modalTitleEdit": "Modifier la connexion",
+        "connectionName": "Nom de la connexion",
+        "host": "Hôte",
+        "port": "Port",
+        "username": "Nom d'utilisateur",
+        "password": "Mot de passe",
+        "database": "Base de données",
+        "useSSL": "Utiliser SSL/TLS",
+        "cancel": "Annuler",
+        "test": "Tester",
+        "saveChanges": "Enregistrer",
+        "saveConnect": "Enregistrer & Connecter",
+        "testSuccess": "Test de connexion réussi !",
+        "testFail": "Échec du test de connexion",
+        "connectedSuccess": "Connecté avec succès !",
+        "connectFail": "Échec de la connexion",
+        "saveSuccess": "Connexion enregistrée",
+        "updateSuccess": "Connexion mise à jour"
+    },
+    "sidebar": {
+        "connections": "Connexions",
+        "noConnections": "Aucune connexion enregistrée",
+        "newConnection": "Nouvelle connexion",
+        "errorLogs": "Journaux d'erreurs",
+        "themeLight": "Passer en mode clair",
+        "themeDark": "Passer en mode sombre"
+    },
+    "search": {
+        "placeholder": "Tapez une commande ou recherchez...",
+        "noResults": "Aucun résultat trouvé."
+    },
+    "tabs": {
+        "newQuery": "Nouvelle requête (Cmd+T)"
+    },
+    "browser": {
+        "searchPlaceholder": "Rechercher connexions, tables...",
+        "typeToSearch": "Tapez correctement pour rechercher...",
+        "navigate": "Naviguer",
+        "select": "Sélectionner",
+        "close": "Fermer"
+    },
+    "settings": {
+        "title": "Paramètres",
+        "language": "Langue",
+        "theme": "Thème",
+        "themeLight": "Clair",
+        "themeDark": "Sombre",
+        "themeSystem": "Système",
+        "languageDescription": "Sélectionnez votre langue préférée pour l'interface.",
+        "themeDescription": "Personnalisez l'apparence de l'application."
+    },
+    "table": {
+        "rows": "lignes",
+        "data": "Données",
+        "structure": "Structure",
+        "loading": "Chargement des données...",
+        "noSchema": "Aucune information de schéma disponible",
+        "column": "Colonne",
+        "type": "Type",
+        "nullable": "Nullable",
+        "default": "Défaut",
+        "primaryKey": "Clé primaire"
+    },
+    "query": {
+        "run": "Exécuter",
+        "running": "En cours...",
+        "stop": "Arrêter",
+        "history": "Historique",
+        "runHint": "Cmd+Entrée pour exécuter • Sélectionnez du texte pour exécuter partiellement",
+        "noConnection": "Aucune connexion",
+        "noResults": "Exécutez une requête pour voir les résultats",
+        "queryFailed": "Échec de la requête",
+        "noConnectionError": "Aucune connexion sélectionnée"
+    },
+    "results": {
+        "affectedRows": "{{count}} ligne(s) affectée(s) en {{time}}ms",
+        "noResults": "Aucun résultat à afficher",
+        "rowCount": "{{count}} ligne(s)",
+        "timeMs": "{{time}}ms"
+    },
+    "common": {
+        "loading": "Chargement...",
+        "error": "Erreur",
+        "success": "Succès"
+    }
+}

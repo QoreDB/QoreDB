@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Search, Database, Table, FileCode } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -16,6 +17,7 @@ interface SearchResult {
 }
 
 export function GlobalSearch({ isOpen, onClose, onSelect }: GlobalSearchProps) {
+  const { t } = useTranslation();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -85,7 +87,7 @@ export function GlobalSearch({ isOpen, onClose, onSelect }: GlobalSearchProps) {
             ref={inputRef}
             className="flex-1 h-14 bg-transparent outline-none placeholder:text-muted-foreground text-base"
             type="text"
-            placeholder="Search connections, tables..."
+            placeholder={t('browser.searchPlaceholder')}
             value={query}
             onChange={e => handleSearch(e.target.value)}
           />
@@ -134,14 +136,14 @@ export function GlobalSearch({ isOpen, onClose, onSelect }: GlobalSearchProps) {
         
         {query === '' && results.length === 0 && (
             <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-                Type correctly to search...
+                {t('browser.typeToSearch')}
             </div>
         )}
         
         <div className="flex items-center justify-end gap-3 px-4 py-2 border-t border-border bg-muted/20 text-xs text-muted-foreground select-none">
-          <div className="flex items-center gap-1"><kbd className="px-1.5 py-0.5 rounded bg-muted border border-border font-mono text-[10px]">↑↓</kbd> Navigate</div>
-          <div className="flex items-center gap-1"><kbd className="px-1.5 py-0.5 rounded bg-muted border border-border font-mono text-[10px]">↵</kbd> Select</div>
-          <div className="flex items-center gap-1"><kbd className="px-1.5 py-0.5 rounded bg-muted border border-border font-mono text-[10px]">esc</kbd> Close</div>
+          <div className="flex items-center gap-1"><kbd className="px-1.5 py-0.5 rounded bg-muted border border-border font-mono text-[10px]">↑↓</kbd> {t('browser.navigate')}</div>
+          <div className="flex items-center gap-1"><kbd className="px-1.5 py-0.5 rounded bg-muted border border-border font-mono text-[10px]">↵</kbd> {t('browser.select')}</div>
+          <div className="flex items-center gap-1"><kbd className="px-1.5 py-0.5 rounded bg-muted border border-border font-mono text-[10px]">esc</kbd> {t('browser.close')}</div>
         </div>
       </div>
     </div>

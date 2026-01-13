@@ -1,18 +1,24 @@
 import { useState, useEffect } from 'react';
 import { Namespace, Collection, listNamespaces, listCollections } from '../../lib/tauri';
-import { Folder, FolderOpen, Table, Eye, Loader2 } from 'lucide-react';
+import { Folder, FolderOpen, Table, Eye, Loader2, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { CreateDatabaseModal } from './CreateDatabaseModal';
+import { useTranslation } from 'react-i18next';
 
 interface DBTreeProps {
   connectionId: string;
+  driver: string;
   onTableSelect?: (namespace: Namespace, tableName: string) => void;
 }
 
-export function DBTree({ connectionId, onTableSelect }: DBTreeProps) {
+export function DBTree({ connectionId, driver, onTableSelect }: DBTreeProps) {
+  const { t } = useTranslation();
   const [namespaces, setNamespaces] = useState<Namespace[]>([]);
   const [expandedNs, setExpandedNs] = useState<string | null>(null);
   const [collections, setCollections] = useState<Collection[]>([]);
   const [loading, setLoading] = useState(false);
+  const [createModalOpen, setCreateModalOpen] = useState(false);
 
   // TODO: Get sessionId from connection
   const sessionId = connectionId;
@@ -79,6 +85,26 @@ export function DBTree({ connectionId, onTableSelect }: DBTreeProps) {
 
   return (
     <div className="flex flex-col text-sm">
+      <div className="flex items-center justify-between px-2 py-1 mb-1">
+         <span className="text-xs font-semibold text-muted-foreground">DATABASES</span>
+         <Button 
+            variant="ghost" 
+            size="icon" 
+            className="h-5 w-5" 
+            onClick={() => setCreateModalOpen(true)}
+            title={t('database.newTitle') || 'New Database'}
+         >
+            <Plus size={12} />
+         </Button>
+      </div>
+
+      <CreateDatabaseModal
+        isOpen={createModalOpen}
+        onClose={() => setCreateModalOpen(false)}
+        sessionId={sessionId}
+        driver={driver}
+        onCreated={loadNamespaces}
+      />
       {namespaces.map(ns => {
         const key = getNsKey(ns);
         const isExpanded = expandedNs === key;

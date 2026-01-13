@@ -1,12 +1,21 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { 
   testConnection, 
   connect, 
   saveConnection, 
-  ConnectionConfig 
+  ConnectionConfig,
+  SavedConnection
 } from '../../lib/tauri';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { 
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter
+} from '@/components/ui/dialog';
 import { Check, X, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { 
@@ -15,11 +24,16 @@ import {
   DRIVER_ICONS, 
   DEFAULT_PORTS 
 } from '../../lib/drivers';
+import { toast } from 'sonner';
 
 interface ConnectionModalProps {
   isOpen: boolean;
   onClose: () => void;
   onConnected: (sessionId: string, driver: string) => void;
+  // Edit mode props
+  editConnection?: SavedConnection;
+  editPassword?: string;
+  onSaved?: () => void;
 }
 
 interface FormData {
@@ -44,20 +58,44 @@ const initialFormData: FormData = {
   ssl: false,
 };
 
-export function ConnectionModal({ isOpen, onClose, onConnected }: ConnectionModalProps) {
+export function ConnectionModal({ 
+  isOpen, 
+  onClose, 
+  onConnected,
+  editConnection,
+  editPassword,
+  onSaved
+}: ConnectionModalProps) {
+  const { t } = useTranslation();
   const [formData, setFormData] = useState<FormData>(initialFormData);
   const [testing, setTesting] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [testResult, setTestResult] = useState<'success' | 'error' | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const isEditMode = !!editConnection;
+
   useEffect(() => {
     if (isOpen) {
-      setFormData(initialFormData);
+      if (editConnection && editPassword) {
+        // Populate form with existing connection data
+        setFormData({
+          name: editConnection.name,
+          driver: editConnection.driver as Driver,
+          host: editConnection.host,
+          port: editConnection.port,
+          username: editConnection.username,
+          password: editPassword,
+          database: editConnection.database || '',
+          ssl: editConnection.ssl,
+        });
+      } else {
+        setFormData(initialFormData);
+      }
       setTestResult(null);
       setError(null);
     }
-  }, [isOpen]);
+  }, [isOpen, editConnection, editPassword]);
 
   function handleDriverChange(driver: Driver) {
     setFormData(prev => ({
@@ -95,13 +133,17 @@ export function ConnectionModal({ isOpen, onClose, onConnected }: ConnectionModa
       
       if (result.success) {
         setTestResult('success');
+        toast.success(t('connection.testSuccess'));
       } else {
         setTestResult('error');
-        setError(result.error || 'Connection failed');
+        setError(result.error || t('connection.testFail'));
+        toast.error(t('connection.testFail'), { description: result.error });
       }
     } catch (err) {
       setTestResult('error');
-      setError(err instanceof Error ? err.message : 'Unknown error');
+      const errorMsg = err instanceof Error ? err.message : t('common.error');
+      setError(errorMsg);
+      toast.error(t('connection.testFail'), { description: errorMsg });
     } finally {
       setTesting(false);
     }
@@ -122,7 +164,8 @@ export function ConnectionModal({ isOpen, onClose, onConnected }: ConnectionModa
         ssl: formData.ssl,
       };
 
-      const connectionId = `conn_${Date.now()}`;
+      const connectionId = editConnection?.id || `conn_${Date.now()}`;
+      
       await saveConnection({
         id: connectionId,
         name: formData.name || `${formData.host}:${formData.port}`,
@@ -136,52 +179,97 @@ export function ConnectionModal({ isOpen, onClose, onConnected }: ConnectionModa
         project_id: 'default',
       });
 
-      const connectResult = await connect(config);
-      
-      if (connectResult.success && connectResult.session_id) {
-        onConnected(connectResult.session_id, formData.driver);
+      if (isEditMode) {
+        toast.success(t('connection.updateSuccess'));
+        onSaved?.();
         onClose();
       } else {
-        setError(connectResult.error || 'Failed to connect');
+        const connectResult = await connect(config);
+        
+        if (connectResult.success && connectResult.session_id) {
+          toast.success(t('connection.connectedSuccess'));
+          onConnected(connectResult.session_id, formData.driver);
+          onClose();
+        } else {
+          setError(connectResult.error || t('connection.connectFail'));
+          toast.error(t('connection.connectFail'), { description: connectResult.error });
+        }
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
+      const errorMsg = err instanceof Error ? err.message : t('common.error');
+      setError(errorMsg);
+      toast.error(t('common.error'), { description: errorMsg });
     } finally {
       setConnecting(false);
     }
   }
 
-  if (!isOpen) return null;
+  async function handleSaveOnly() {
+    setConnecting(true);
+    setError(null);
+
+    try {
+      const connectionId = editConnection?.id || `conn_${Date.now()}`;
+      
+      await saveConnection({
+        id: connectionId,
+        name: formData.name || `${formData.host}:${formData.port}`,
+        driver: formData.driver,
+        host: formData.host,
+        port: formData.port,
+        username: formData.username,
+        password: formData.password,
+        database: formData.database || undefined,
+        ssl: formData.ssl,
+        project_id: 'default',
+      });
+
+      toast.success(isEditMode ? t('connection.updateSuccess') : t('connection.saveSuccess'));
+      onSaved?.();
+      onClose();
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : t('common.error');
+      setError(errorMsg);
+      toast.error(t('common.error'), { description: errorMsg });
+    } finally {
+      setConnecting(false);
+    }
+  }
+
+  function handleOpenChange(open: boolean) {
+    if (!open) {
+      onClose();
+    }
+  }
 
   const isValid = formData.host && formData.username && formData.password;
 
   return (
-    <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="w-full max-w-lg bg-background border border-border rounded-lg shadow-lg flex flex-col max-h-[90vh]">
-        <header className="flex items-center justify-between p-4 border-b border-border">
-          <h2 className="text-lg font-semibold">New Connection</h2>
-          <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8">
-            <X size={18} />
-          </Button>
-        </header>
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>
+            {isEditMode ? t('connection.modalTitleEdit') : t('connection.modalTitleNew')}
+          </DialogTitle>
+        </DialogHeader>
 
-        <div className="p-6 space-y-6 overflow-y-auto">
-          {/* Driver Selection */}
+        <div className="grid gap-6 py-4">
           <div className="grid grid-cols-3 gap-3">
             {(Object.keys(DRIVER_LABELS) as Driver[]).map(driver => (
               <button
                 key={driver}
                 className={cn(
-                  "flex flex-col items-center gap-2 p-3 rounded-md border transition-all hover:bg-muted",
+                  "flex flex-col items-center gap-2 p-3 rounded-md border transition-all hover:bg-[var(--q-accent-soft)]",
                   formData.driver === driver 
-                    ? "border-accent bg-accent/5 text-accent" 
+                    ? "border-accent bg-[var(--q-accent-soft)] text-[var(--q-accent)]" 
                     : "border-border bg-background"
                 )}
                 onClick={() => handleDriverChange(driver)}
+                disabled={isEditMode}
               >
                 <div className={cn(
                   "flex items-center justify-center w-10 h-10 rounded-lg p-1.5 transition-colors",
-                  formData.driver === driver ? "bg-accent/20" : "bg-muted"
+                  formData.driver === driver ? "bg-[var(--q-accent-soft)]" : "bg-muted"
                 )}>
                   <img 
                     src={`/databases/${DRIVER_ICONS[driver]}`} 
@@ -196,7 +284,7 @@ export function ConnectionModal({ isOpen, onClose, onConnected }: ConnectionModa
 
           <div className="space-y-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Connection Name</label>
+              <label className="text-sm font-medium">{t('connection.connectionName')}</label>
               <Input
                 placeholder="My Database"
                 value={formData.name}
@@ -206,7 +294,7 @@ export function ConnectionModal({ isOpen, onClose, onConnected }: ConnectionModa
 
             <div className="grid grid-cols-3 gap-4">
               <div className="col-span-2 space-y-2">
-                <label className="text-sm font-medium">Host <span className="text-error">*</span></label>
+                <label className="text-sm font-medium">{t('connection.host')} <span className="text-error">*</span></label>
                 <Input
                   placeholder="localhost"
                   value={formData.host}
@@ -214,7 +302,7 @@ export function ConnectionModal({ isOpen, onClose, onConnected }: ConnectionModa
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium">Port</label>
+                <label className="text-sm font-medium">{t('connection.port')}</label>
                 <Input
                   type="number"
                   value={formData.port}
@@ -225,7 +313,7 @@ export function ConnectionModal({ isOpen, onClose, onConnected }: ConnectionModa
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium">Username <span className="text-error">*</span></label>
+                <label className="text-sm font-medium">{t('connection.username')} <span className="text-error">*</span></label>
                 <Input
                   placeholder="user"
                   value={formData.username}
@@ -233,7 +321,7 @@ export function ConnectionModal({ isOpen, onClose, onConnected }: ConnectionModa
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium">Password <span className="text-error">*</span></label>
+                <label className="text-sm font-medium">{t('connection.password')} <span className="text-error">*</span></label>
                 <Input
                   type="password"
                   placeholder="••••••••"
@@ -244,7 +332,7 @@ export function ConnectionModal({ isOpen, onClose, onConnected }: ConnectionModa
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Database</label>
+              <label className="text-sm font-medium">{t('connection.database')}</label>
               <Input
                 placeholder={formData.driver === 'postgres' ? 'postgres' : ''}
                 value={formData.database}
@@ -260,7 +348,7 @@ export function ConnectionModal({ isOpen, onClose, onConnected }: ConnectionModa
                 checked={formData.ssl}
                 onChange={e => handleChange('ssl', e.target.checked)}
               />
-              <label htmlFor="ssl" className="text-sm font-medium cursor-pointer">Use SSL/TLS</label>
+              <label htmlFor="ssl" className="text-sm font-medium cursor-pointer">{t('connection.useSSL')}</label>
             </div>
           </div>
 
@@ -273,14 +361,14 @@ export function ConnectionModal({ isOpen, onClose, onConnected }: ConnectionModa
           {testResult === 'success' && (
             <div className="p-3 rounded-md bg-success/10 border border-success/20 text-success text-sm flex items-center gap-2">
               <Check size={14} />
-              Connection successful!
+              {t('connection.testSuccess')}
             </div>
           )}
         </div>
 
-        <footer className="p-4 border-t border-border bg-muted/20 flex justify-end gap-2 rounded-b-lg">
+        <DialogFooter>
           <Button variant="outline" onClick={onClose}>
-            Cancel
+            {t('connection.cancel')}
           </Button>
           <Button
             variant="secondary"
@@ -288,17 +376,27 @@ export function ConnectionModal({ isOpen, onClose, onConnected }: ConnectionModa
             disabled={!isValid || testing}
           >
             {testing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Test Connection
+            {t('connection.test')}
           </Button>
-          <Button
-            onClick={handleSaveAndConnect}
-            disabled={!isValid || connecting}
-          >
-            {connecting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Save & Connect
-          </Button>
-        </footer>
-      </div>
-    </div>
+          {isEditMode ? (
+            <Button
+              onClick={handleSaveOnly}
+              disabled={!isValid || connecting}
+            >
+              {connecting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {t('connection.saveChanges')}
+            </Button>
+          ) : (
+            <Button
+              onClick={handleSaveAndConnect}
+              disabled={!isValid || connecting}
+            >
+              {connecting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {t('connection.saveConnect')}
+            </Button>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

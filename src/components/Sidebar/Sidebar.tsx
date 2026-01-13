@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { ConnectionItem } from './ConnectionItem';
 import { DBTree } from '../Tree/DBTree';
+import { ErrorLogPanel } from '../Logs/ErrorLogPanel';
 import { listSavedConnections, connect, getConnectionCredentials, SavedConnection, ConnectionConfig, Namespace } from '../../lib/tauri';
-import { useTheme } from '../../hooks/useTheme';
-import { Plus, Sun, Moon } from 'lucide-react';
+import { Plus, Bug } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { toast } from 'sonner';
+import { useTranslation } from 'react-i18next'
 
 const DEFAULT_PROJECT = 'default';
 
@@ -13,14 +15,17 @@ interface SidebarProps {
   onConnected: (sessionId: string, driver: string) => void;
   connectedSessionId: string | null;
   onTableSelect?: (namespace: Namespace, tableName: string) => void;
+  onEditConnection: (connection: SavedConnection, password: string) => void;
 }
 
-export function Sidebar({ onNewConnection, onConnected, connectedSessionId, onTableSelect }: SidebarProps) {
+export function Sidebar({ onNewConnection, onConnected, connectedSessionId, onTableSelect, onEditConnection }: SidebarProps) {
   const [connections, setConnections] = useState<SavedConnection[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [connecting, setConnecting] = useState<string | null>(null);
-  const { isDark, toggleTheme } = useTheme();
+  const [logsOpen, setLogsOpen] = useState(false);
+
+  const { t } = useTranslation();
 
   useEffect(() => {
     loadConnections();
@@ -47,7 +52,9 @@ export function Sidebar({ onNewConnection, onConnected, connectedSessionId, onTa
       const credsResult = await getConnectionCredentials('default', conn.id);
       
       if (!credsResult.success || !credsResult.password) {
-        console.error('Failed to get credentials:', credsResult.error);
+        toast.error('Failed to get credentials', {
+          description: credsResult.error || 'Could not retrieve password from vault',
+        });
         return;
       }
 
@@ -64,13 +71,18 @@ export function Sidebar({ onNewConnection, onConnected, connectedSessionId, onTa
       const result = await connect(config);
       
       if (result.success && result.session_id) {
+        toast.success(`Connected to ${conn.name}`);
         onConnected(result.session_id, conn.driver);
         setExpandedId(conn.id);
       } else {
-        console.error('Connection failed:', result.error);
+        toast.error(`Connection to ${conn.name} failed`, {
+          description: result.error || 'Unknown error',
+        });
       }
     } catch (err) {
-      console.error('Connection error:', err);
+      toast.error('Connection error', {
+        description: err instanceof Error ? err.message : 'Unknown error',
+      });
     } finally {
       setConnecting(null);
     }
@@ -91,25 +103,16 @@ export function Sidebar({ onNewConnection, onConnected, connectedSessionId, onTa
           <img src="/logo.png" alt="QoreDB" width={24} height={24} />
           QoreDB
         </div>
-        <Button
-          variant="ghost" 
-          size="icon"
-          onClick={toggleTheme}
-          title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-          className="h-8 w-8 text-muted-foreground hover:text-foreground"
-        >
-          {isDark ? <Sun size={16} /> : <Moon size={16} />}
-        </Button>
       </header>
 
       <section className="flex-1 overflow-auto py-2">
         <div className="px-3 mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-          Connections
+          {t('sidebar.connections')}
         </div>
         <div className="px-2 space-y-0.5">
           {connections.length === 0 ? (
             <p className="px-2 py-4 text-sm text-center text-muted-foreground">
-              No saved connections
+              {t('sidebar.noConnections')}
             </p>
           ) : (
             connections.map(conn => (
@@ -121,11 +124,14 @@ export function Sidebar({ onNewConnection, onConnected, connectedSessionId, onTa
                   isConnected={connectedSessionId !== null && selectedId === conn.id}
                   isConnecting={connecting === conn.id}
                   onSelect={() => handleSelect(conn)}
+                  onEdit={onEditConnection}
+                  onDeleted={loadConnections}
                 />
                 {expandedId === conn.id && connectedSessionId && (
                   <div className="pl-4 border-l border-border ml-4 mt-1">
                     <DBTree 
                       connectionId={connectedSessionId} 
+                      driver={conn.driver}
                       onTableSelect={onTableSelect}
                     />
                   </div>
@@ -136,16 +142,26 @@ export function Sidebar({ onNewConnection, onConnected, connectedSessionId, onTa
         </div>
       </section>
 
-      <footer className="p-3 border-t border-border">
+      <footer className="p-3 border-t border-border space-y-1">
         <Button 
           className="w-full justify-start text-muted-foreground hover:text-foreground hover:bg-muted" 
           variant="ghost"
           onClick={onNewConnection}
         >
           <Plus size={16} className="mr-2" />
-          New Connection
+          {t('sidebar.newConnection')}
+        </Button>
+        <Button 
+          className="w-full justify-start text-muted-foreground hover:text-foreground hover:bg-muted" 
+          variant="ghost"
+          onClick={() => setLogsOpen(true)}
+        >
+          <Bug size={16} className="mr-2" />
+          {t('sidebar.errorLogs')}
         </Button>
       </footer>
+
+      <ErrorLogPanel isOpen={logsOpen} onClose={() => setLogsOpen(false)} />
     </aside>
   );
 }

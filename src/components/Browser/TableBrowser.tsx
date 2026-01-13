@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { 
   Namespace, 
   TableSchema, 
@@ -35,6 +36,7 @@ export function TableBrowser({
   tableName, 
   onClose 
 }: TableBrowserProps) {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<Tab>('data');
   const [schema, setSchema] = useState<TableSchema | null>(null);
   const [data, setData] = useState<QueryResult | null>(null);
@@ -94,7 +96,7 @@ export function TableBrowser({
               {schema?.row_count_estimate !== undefined && (
                 <>
                   <span>•</span>
-                  <span>~{schema.row_count_estimate.toLocaleString()} rows</span>
+                  <span>~{schema.row_count_estimate.toLocaleString()} {t('table.rows')}</span>
                 </>
               )}
             </div>
@@ -118,7 +120,7 @@ export function TableBrowser({
         >
           <span className="flex items-center gap-2">
             <Columns3 size={14} />
-            Data
+            {t('table.data')}
           </span>
         </button>
         <button
@@ -132,7 +134,7 @@ export function TableBrowser({
         >
           <span className="flex items-center gap-2">
             <Key size={14} />
-            Structure
+            {t('table.structure')}
           </span>
         </button>
       </div>
@@ -142,7 +144,7 @@ export function TableBrowser({
         {loading ? (
           <div className="flex items-center justify-center h-full gap-2 text-muted-foreground">
             <Loader2 size={20} className="animate-spin" />
-            <span>Loading table data...</span>
+            <span>{t('table.loading')}</span>
           </div>
         ) : error ? (
           <div className="flex items-center gap-3 p-4 rounded-md bg-error/10 border border-error/20 text-error">
@@ -164,10 +166,12 @@ interface StructureTableProps {
 }
 
 function StructureTable({ schema }: StructureTableProps) {
+  const { t } = useTranslation();
+
   if (!schema || schema.columns.length === 0) {
     return (
       <div className="flex items-center justify-center h-40 text-muted-foreground text-sm">
-        No schema information available
+        {t('table.noSchema')}
       </div>
     );
   }
@@ -177,10 +181,10 @@ function StructureTable({ schema }: StructureTableProps) {
       {/* Header */}
       <div className="flex items-center bg-muted/50 border-b border-border text-xs font-semibold text-muted-foreground uppercase tracking-wider">
         <div className="w-8 p-2 text-center">#</div>
-        <div className="flex-1 p-2">Column</div>
-        <div className="w-32 p-2">Type</div>
-        <div className="w-24 p-2 text-center">Nullable</div>
-        <div className="w-48 p-2">Default</div>
+        <div className="flex-1 p-2">{t('table.column')}</div>
+        <div className="w-32 p-2">{t('table.type')}</div>
+        <div className="w-24 p-2 text-center">{t('table.nullable')}</div>
+        <div className="w-48 p-2">{t('table.default')}</div>
       </div>
 
       {/* Rows */}
@@ -220,7 +224,7 @@ function StructureTable({ schema }: StructureTableProps) {
       {schema.primary_key && schema.primary_key.length > 0 && (
         <div className="flex items-center gap-2 p-3 bg-warning/10 border-t border-warning/20 text-sm">
           <Hash size={14} className="text-warning" />
-          <span className="text-muted-foreground">Primary Key:</span>
+          <span className="text-muted-foreground">{t('table.primaryKey')}:</span>
           <span className="font-mono font-medium">
             {schema.primary_key.join(', ')}
           </span>

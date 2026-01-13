@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { QueryResult } from '../../lib/tauri';
 import { cn } from '@/lib/utils';
 import { Check } from 'lucide-react';
@@ -16,18 +17,20 @@ function formatValue(value: unknown): string {
 }
 
 export function ResultsTable({ result, height = 400 }: ResultsTableProps) {
+  const { t } = useTranslation();
+
   if (!result || result.columns.length === 0) {
     if (result?.affected_rows !== undefined) {
       return (
         <div className="flex items-center gap-2 p-4 text-sm text-success bg-success/10 border border-success/20 rounded-md">
           <Check size={16} />
-          {result.affected_rows} row(s) affected in {result.execution_time_ms}ms
+          {t('results.affectedRows', { count: result.affected_rows, time: result.execution_time_ms })}
         </div>
       );
     }
     return (
       <div className="flex items-center justify-center p-8 text-muted-foreground text-sm border rounded-md border-dashed">
-        No results to display
+        {t('results.noResults')}
       </div>
     );
   }
@@ -76,7 +79,7 @@ export function ResultsTable({ result, height = 400 }: ResultsTableProps) {
 
       {/* Footer */}
       <div className="px-3 py-1 text-xs text-muted-foreground border-t border-border bg-muted/20 shrink-0">
-        {rows.length} row(s) • {result.execution_time_ms}ms
+        {t('results.rowCount', { count: rows.length })} • {t('results.timeMs', { time: result.execution_time_ms })}
       </div>
     </div>
   );

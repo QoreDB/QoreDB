@@ -1,11 +1,15 @@
 import { useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { SQLEditor } from '../Editor/SQLEditor';
 import { MongoEditor, MONGO_TEMPLATES } from '../Editor/MongoEditor';
 import { DataGrid } from '../Grid/DataGrid';
 import { JSONViewer } from '../Results/JSONViewer';
+import { QueryHistory } from '../History/QueryHistory';
 import { executeQuery, cancelQuery, QueryResult } from '../../lib/tauri';
+import { addToHistory } from '../../lib/history';
+import { logError } from '../../lib/errorLog';
 import { Button } from '@/components/ui/button';
-import { Play, Square, AlertCircle } from 'lucide-react';
+import { Play, Square, AlertCircle, History } from 'lucide-react';
 
 import { Driver } from '../../lib/drivers';
 
@@ -15,6 +19,7 @@ interface QueryPanelProps {
 }
 
 export function QueryPanel({ sessionId, dialect = 'postgres' }: QueryPanelProps) {
+  const { t } = useTranslation();
   const isMongo = dialect === 'mongodb';
   const defaultQuery = isMongo ? MONGO_TEMPLATES.find : 'SELECT 1;';
   
@@ -23,10 +28,11 @@ export function QueryPanel({ sessionId, dialect = 'postgres' }: QueryPanelProps)
   const [loading, setLoading] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   const handleExecute = useCallback(async (queryText?: string) => {
     if (!sessionId) {
-      setError('No connection selected');
+      setError(t('query.noConnectionError'));
       return;
     }
 
@@ -37,20 +43,45 @@ export function QueryPanel({ sessionId, dialect = 'postgres' }: QueryPanelProps)
     setError(null);
     setResult(null);
 
+    const startTime = Date.now();
+
     try {
       const response = await executeQuery(sessionId, queryToRun);
+      const executionTimeMs = Date.now() - startTime;
       
       if (response.success && response.result) {
         setResult(response.result);
+        // Save to history
+        addToHistory({
+          query: queryToRun,
+          sessionId,
+          driver: dialect,
+          executedAt: startTime,
+          executionTimeMs,
+          rowCount: response.result.rows.length,
+        });
       } else {
-        setError(response.error || 'Query failed');
+        setError(response.error || t('query.queryFailed'));
+        // Save failed query to history
+        addToHistory({
+          query: queryToRun,
+          sessionId,
+          driver: dialect,
+          executedAt: startTime,
+          executionTimeMs: Date.now() - startTime,
+          error: response.error || t('query.queryFailed'),
+        });
+        // Log to error panel
+        logError('QueryPanel', response.error || t('query.queryFailed'), queryToRun, sessionId);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
+      const errorMessage = err instanceof Error ? err.message : t('common.error');
+      setError(errorMessage);
+      logError('QueryPanel', errorMessage, queryToRun, sessionId || undefined);
     } finally {
       setLoading(false);
     }
-  }, [sessionId, query]);
+  }, [sessionId, query, dialect, t]);
 
   const handleCancel = useCallback(async () => {
     if (!sessionId || !loading) return;
@@ -76,10 +107,10 @@ export function QueryPanel({ sessionId, dialect = 'postgres' }: QueryPanelProps)
           className="w-24 gap-2"
         >
           {loading ? (
-             <span className="flex items-center gap-2">Running...</span>
+             <span className="flex items-center gap-2">{t('query.running')}</span>
           ) : (
             <>
-              <Play size={16} className="fill-current" /> Run
+              <Play size={16} className="fill-current" /> {t('query.run')}
             </>
           )}
         </Button>
@@ -91,7 +122,7 @@ export function QueryPanel({ sessionId, dialect = 'postgres' }: QueryPanelProps)
             disabled={cancelling}
             className="w-24 gap-2"
           >
-            <Square size={16} className="fill-current" /> Stop
+            <Square size={16} className="fill-current" /> {t('query.stop')}
           </Button>
         )}
 
@@ -113,13 +144,24 @@ export function QueryPanel({ sessionId, dialect = 'postgres' }: QueryPanelProps)
 
         <div className="flex-1" />
 
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setHistoryOpen(true)}
+          className="h-9 px-2 text-muted-foreground hover:text-foreground"
+          title={t('query.history')}
+        >
+          <History size={16} className="mr-1" />
+          {t('query.history')}
+        </Button>
+
         <span className="text-xs text-muted-foreground hidden sm:inline-block">
-          Cmd+Enter to run{!isMongo && ' • Select text to run partial'}
+          {t('query.runHint')}
         </span>
 
         {!sessionId && (
           <span className="flex items-center gap-1.5 text-xs text-warning bg-warning/10 px-2 py-1 rounded-full border border-warning/20">
-            <AlertCircle size={12} /> No connection
+            <AlertCircle size={12} /> {t('query.noConnection')}
           </span>
         )}
       </div>
@@ -162,10 +204,19 @@ export function QueryPanel({ sessionId, dialect = 'postgres' }: QueryPanelProps)
           )
         ) : (
           <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
-            Run a query to see results
+            {t('query.noResults')}
           </div>
         )}
       </div>
+
+      {/* History Modal */}
+      <QueryHistory
+        isOpen={historyOpen}
+        onClose={() => setHistoryOpen(false)}
+        onSelectQuery={setQuery}
+        sessionId={sessionId || undefined}
+      />
     </div>
   );
 }
+

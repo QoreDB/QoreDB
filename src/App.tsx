@@ -1,14 +1,18 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Sidebar } from './components/Sidebar/Sidebar';
 import { TabBar } from './components/Tabs/TabBar';
 import { GlobalSearch } from './components/Search/GlobalSearch';
 import { QueryPanel } from './components/Query/QueryPanel';
 import { TableBrowser } from './components/Browser/TableBrowser';
 import { ConnectionModal } from './components/Connection/ConnectionModal';
+import { SettingsPage } from './components/Settings/SettingsPage';
 import { Button } from './components/ui/button';
-import { Search } from 'lucide-react';
-import { Namespace } from './lib/tauri';
+import { Search, Settings } from 'lucide-react';
+import { Namespace, SavedConnection } from './lib/tauri';
 import { Driver } from './lib/drivers';
+import { Toaster } from 'sonner';
+import { useTheme } from './hooks/useTheme';
 import './index.css';
 
 interface SelectedTable {
@@ -17,11 +21,18 @@ interface SelectedTable {
 }
 
 function App() {
+  const { t } = useTranslation();
+  const { theme } = useTheme();
   const [searchOpen, setSearchOpen] = useState(false);
   const [connectionModalOpen, setConnectionModalOpen] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [driver, setDriver] = useState<Driver>('postgres');
   const [selectedTable, setSelectedTable] = useState<SelectedTable | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  
+  // Edit connection state
+  const [editConnection, setEditConnection] = useState<SavedConnection | null>(null);
+  const [editPassword, setEditPassword] = useState<string>('');
 
   // Global keyboard shortcuts
   useEffect(() => {
@@ -35,28 +46,48 @@ function App() {
         e.preventDefault();
         setConnectionModalOpen(true);
       }
-      // Escape: Close table browser
-      if (e.key === 'Escape' && selectedTable) {
-        setSelectedTable(null);
+      // Cmd+,: Settings
+      if ((e.metaKey || e.ctrlKey) && e.key === ',') {
+        e.preventDefault();
+        setSettingsOpen(true);
+      }
+      // Escape: Close table browser or settings
+      if (e.key === 'Escape') {
+        if (selectedTable) setSelectedTable(null);
+        if (settingsOpen) setSettingsOpen(false);
       }
     }
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedTable]);
+  }, [selectedTable, settingsOpen]);
 
   function handleConnected(newSessionId: string, newDriver: string) {
     setSessionId(newSessionId);
     setDriver(newDriver as Driver);
     setSelectedTable(null);
+    setSettingsOpen(false);
   }
 
   function handleTableSelect(namespace: Namespace, tableName: string) {
     setSelectedTable({ namespace, tableName });
+    setSettingsOpen(false);
   }
 
   function handleCloseTableBrowser() {
     setSelectedTable(null);
+  }
+
+  function handleEditConnection(connection: SavedConnection, password: string) {
+    setEditConnection(connection);
+    setEditPassword(password);
+    setConnectionModalOpen(true);
+  }
+
+  function handleCloseConnectionModal() {
+    setConnectionModalOpen(false);
+    setEditConnection(null);
+    setEditPassword('');
   }
 
   return (
@@ -67,11 +98,27 @@ function App() {
           onConnected={handleConnected}
           connectedSessionId={sessionId}
           onTableSelect={handleTableSelect}
+          onEditConnection={handleEditConnection}
         />
-        <main className="flex-1 flex flex-col min-w-0 bg-background">
-          <TabBar />
-          <div className="flex-1 overflow-auto p-4">
-            {sessionId ? (
+        <main className="flex-1 flex flex-col min-w-0 bg-background relative">
+          <header className="flex items-center justify-end absolute right-0 top-0 h-[40px] z-50 pr-2">
+             <Button
+               variant="ghost"
+               size="icon"
+               onClick={() => setSettingsOpen(!settingsOpen)}
+               className="text-muted-foreground hover:text-foreground"
+               title={t('settings.title')}
+             >
+               <Settings size={20} />
+             </Button>
+          </header>
+          
+          {!settingsOpen && <TabBar />}
+
+          <div className="flex-1 overflow-auto p-4 pt-12">
+            {settingsOpen ? (
+              <SettingsPage />
+            ) : sessionId ? (
               selectedTable ? (
                 <TableBrowser
                   sessionId={sessionId}
@@ -87,16 +134,16 @@ function App() {
                 <div className="p-4 rounded-full bg-accent/10 text-accent mb-4">
                   <img src="/logo.png" alt="QoreDB" width={48} height={48} />
                 </div>
-                <h2 className="text-2xl font-semibold tracking-tight">Welcome to QoreDB</h2>
+                <h2 className="text-2xl font-semibold tracking-tight">{t('app.welcome')}</h2>
                 <p className="text-muted-foreground max-w-[400px]">
-                  Add a connection in the sidebar to get started, or search for existing resources.
+                  {t('app.description')}
                 </p>
                 <div className="flex flex-col gap-2 min-w-[200px]">
                   <Button 
                     onClick={() => setConnectionModalOpen(true)}
                     className="w-full"
                   >
-                    + New Connection
+                    + {t('app.newConnection')}
                   </Button>
                   <Button 
                     variant="outline" 
@@ -104,7 +151,7 @@ function App() {
                     className="w-full text-muted-foreground"
                   >
                     <Search className="mr-2 h-4 w-4" />
-                    Search <kbd className="ml-auto pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground opacity-100"><span className="text-xs">⌘</span>K</kbd>
+                    {t('app.search')} <kbd className="ml-auto pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground opacity-100"><span className="text-xs">⌘</span>K</kbd>
                   </Button>
                 </div>
               </div>
@@ -115,17 +162,31 @@ function App() {
 
       <ConnectionModal
         isOpen={connectionModalOpen}
-        onClose={() => setConnectionModalOpen(false)}
+        onClose={handleCloseConnectionModal}
         onConnected={handleConnected}
+        editConnection={editConnection || undefined}
+        editPassword={editPassword || undefined}
+        onSaved={handleCloseConnectionModal}
       />
 
       <GlobalSearch
         isOpen={searchOpen}
         onClose={() => setSearchOpen(false)}
       />
+
+      <Toaster 
+        theme={theme === 'dark' ? 'dark' : 'light'} 
+        closeButton
+        position="bottom-right"
+        toastOptions={{
+          className: 'bg-background border-border text-foreground',
+          duration: 4000,
+        }}
+      />
     </>
   );
 }
 
 export default App;
+
 

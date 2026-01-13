@@ -1,5 +1,6 @@
 import { X, Plus, FileCode, Table, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useTranslation } from 'react-i18next';
 
 export interface TabItem {
   id: string;
@@ -22,6 +23,8 @@ export function TabBar({
   onClose, 
   onNew 
 }: TabBarProps) {
+  const { t } = useTranslation();
+
   return (
     <div className="flex items-center w-full bg-muted/30 border-b border-border h-[40px] select-none pl-1 gap-1 overflow-x-auto no-scrollbar">
       {tabs.map(tab => (
@@ -58,10 +61,11 @@ export function TabBar({
       <button 
         className="flex items-center justify-center w-8 h-8 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground ml-1 transition-colors"
         onClick={onNew} 
-        title="New Query (Cmd+T)"
+        title={t('tabs.newQuery')}
       >
         <Plus size={16} />
       </button>
     </div>
   );
 }
+

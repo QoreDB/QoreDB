@@ -1,0 +1,103 @@
+{
+    "app": {
+        "welcome": "Welcome to QoreDB",
+        "description": "Add a connection in the sidebar to get started, or search for existing resources.",
+        "newConnection": "New Connection",
+        "search": "Search"
+    },
+    "connection": {
+        "modalTitleNew": "New Connection",
+        "modalTitleEdit": "Edit Connection",
+        "connectionName": "Connection Name",
+        "host": "Host",
+        "port": "Port",
+        "username": "Username",
+        "password": "Password",
+        "database": "Database",
+        "useSSL": "Use SSL/TLS",
+        "cancel": "Cancel",
+        "test": "Test",
+        "saveChanges": "Save Changes",
+        "saveConnect": "Save & Connect",
+        "testSuccess": "Connection test successful!",
+        "testFail": "Connection test failed",
+        "connectedSuccess": "Connected successfully!",
+        "connectFail": "Failed to connect",
+        "saveSuccess": "Connection saved",
+        "updateSuccess": "Connection updated"
+    },
+    "sidebar": {
+        "connections": "Connections",
+        "noConnections": "No saved connections",
+        "newConnection": "New Connection",
+        "errorLogs": "Error Logs",
+        "themeLight": "Switch to light mode",
+        "themeDark": "Switch to dark mode"
+    },
+    "search": {
+        "placeholder": "Type a command or search...",
+        "noResults": "No results found."
+    },
+    "tabs": {
+        "newQuery": "New Query (Cmd+T)"
+    },
+    "browser": {
+        "searchPlaceholder": "Search connections, tables...",
+        "typeToSearch": "Type correctly to search...",
+        "navigate": "Navigate",
+        "select": "Select",
+        "close": "Close"
+    },
+    "settings": {
+        "title": "Settings",
+        "language": "Language",
+        "theme": "Theme",
+        "themeLight": "Light",
+        "themeDark": "Dark",
+        "themeSystem": "System",
+        "languageDescription": "Select your preferred language for the interface.",
+        "themeDescription": "Customize the appearance of the application."
+    },
+    "table": {
+        "rows": "rows",
+        "data": "Data",
+        "structure": "Structure",
+        "loading": "Loading table data...",
+        "noSchema": "No schema information available",
+        "column": "Column",
+        "type": "Type",
+        "nullable": "Nullable",
+        "default": "Default",
+        "primaryKey": "Primary Key"
+    },
+    "query": {
+        "run": "Run",
+        "running": "Running...",
+        "stop": "Stop",
+        "history": "History",
+        "runHint": "Cmd+Enter to run • Select text to run partial",
+        "noConnection": "No connection",
+        "noResults": "Run a query to see results",
+        "queryFailed": "Query failed",
+        "noConnectionError": "No connection selected"
+    },
+    "results": {
+        "affectedRows": "{{count}} row(s) affected in {{time}}ms",
+        "noResults": "No results to display",
+        "rowCount": "{{count}} row(s)",
+        "timeMs": "{{time}}ms"
+    },
+    "database": {
+        "newTitle": "New Database",
+        "createSuccess": "Database created successfully",
+        "createError": "Failed to create database"
+    },
+    "common": {
+        "loading": "Loading...",
+        "error": "Error",
+        "success": "Success",
+        "create": "Create",
+        "cancel": "Cancel",
+        "mongoCreateDbHint": "For MongoDB, simply insert data into a namespace to create it."
+    }
+}

@@ -60,16 +60,16 @@
 
 ### 📊 Data grid
 
-* [x] **Affichage performant** — Pas de freeze (TanStack Table + Virtual Scroll)
+* [x] **Affichage performant** — Pas de freeze
 * [x] **Copy / paste** — Vers Excel, code, etc.
 * [x] **Sélection multiple**
 * [x] **Tri simple**
-* [x] **Colonnes auto-size** (via TanStack Table)
+* [x] **Colonnes auto-size**
 
 ### 🧰 Qualité de vie
 
-* [ ] **Historique des requêtes**
-* [ ] **Favoris**
-* [ ] **Sessions sauvegardées**
-* [ ] **Logs d’erreurs**
+* [x] **Historique des requêtes**
+* [x] **Favoris**
+* [x] **Sessions sauvegardées**
+* [x] **Logs d’erreurs**
 

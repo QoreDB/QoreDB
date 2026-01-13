@@ -144,6 +144,13 @@ export async function listCollections(sessionId: string, namespace: Namespace): 
   return invoke('list_collections', { sessionId, namespace });
 }
 
+export async function cancelQuery(sessionId: string): Promise<{
+  success: boolean;
+  error?: string;
+}> {
+  return invoke('cancel_query', { sessionId });
+}
+
 // ============================================
 // VAULT COMMANDS
 // ============================================

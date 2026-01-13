@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
-import { ConnectionItem } from './ConnectionItem';
 import { DBTree } from '../Tree/DBTree';
 import { listSavedConnections, SavedConnection } from '../../lib/tauri';
 import { useTheme } from '../../hooks/useTheme';
 import './Sidebar.css';
+import { ConnectionItem } from './ConnectionItem'
 
 const DEFAULT_PROJECT = 'default';
 

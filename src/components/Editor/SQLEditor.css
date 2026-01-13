@@ -1,0 +1,45 @@
+.sql-editor {
+  flex: 1;
+  min-height: 200px;
+  border: 1px solid var(--q-border);
+  border-radius: var(--q-radius-md);
+  overflow: hidden;
+  background: var(--q-bg-0);
+}
+
+.sql-editor .cm-editor {
+  height: 100%;
+  font-family: var(--q-font-mono);
+  font-size: var(--q-text-sm);
+}
+
+.sql-editor .cm-scroller {
+  overflow: auto;
+}
+
+.sql-editor .cm-content {
+  padding: var(--q-space-2) 0;
+}
+
+.sql-editor .cm-line {
+  padding: 0 var(--q-space-2);
+}
+
+.sql-editor .cm-gutters {
+  background: var(--q-bg-1);
+  border-right: 1px solid var(--q-border);
+  color: var(--q-text-2);
+}
+
+.sql-editor .cm-activeLineGutter {
+  background: var(--q-bg-2);
+}
+
+/* Light theme overrides */
+[data-theme="light"] .sql-editor .cm-editor {
+  background: var(--q-bg-0);
+}
+
+[data-theme="light"] .sql-editor .cm-content {
+  caret-color: var(--q-text-0);
+}

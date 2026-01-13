@@ -3,10 +3,12 @@ import {
   useReactTable,
   getCoreRowModel,
   getSortedRowModel,
+  getPaginationRowModel,
   flexRender,
   createColumnHelper,
   SortingState,
   RowSelectionState,
+  PaginationState,
   ColumnDef,
 } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
@@ -19,9 +21,14 @@ import {
   Check,
   FileJson,
   FileSpreadsheet,
-  Code2
+  Code2,
+  ChevronFirst,
+  ChevronLast,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useTranslation } from 'react-i18next';
 
 interface DataGridProps {
   result: QueryResult | null;
@@ -55,8 +62,13 @@ function convertToRowData(result: QueryResult): RowData[] {
 }
 
 export function DataGrid({ result, height = 400 }: DataGridProps) {
+  const { t } = useTranslation();
   const [sorting, setSorting] = useState<SortingState>([]);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+  const [pagination, setPagination] = useState<PaginationState>({
+    pageIndex: 0,
+    pageSize: 50,
+  });
   const [copied, setCopied] = useState<string | null>(null);
   
   const parentRef = useRef<HTMLDivElement>(null);
@@ -151,11 +163,13 @@ export function DataGrid({ result, height = 400 }: DataGridProps) {
   const table = useReactTable({
     data,
     columns,
-    state: { sorting, rowSelection },
+    state: { sorting, rowSelection, pagination },
     onSortingChange: setSorting,
     onRowSelectionChange: setRowSelection,
+    onPaginationChange: setPagination,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
     enableRowSelection: true,
   });
 
@@ -243,7 +257,7 @@ export function DataGrid({ result, height = 400 }: DataGridProps) {
   if (!result || result.columns.length === 0) {
     return (
       <div className="flex items-center justify-center h-40 text-muted-foreground text-sm">
-        No data to display
+        {t('grid.noData')}
       </div>
     );
   }
@@ -256,9 +270,9 @@ export function DataGrid({ result, height = 400 }: DataGridProps) {
       <div className="flex items-center justify-between px-1">
         <div className="text-xs text-muted-foreground">
           {selectedCount > 0 ? (
-            <span>{selectedCount} row{selectedCount > 1 ? 's' : ''} selected</span>
+            <span>{t('grid.rowsSelected', { count: selectedCount })}</span>
           ) : (
-            <span>{data.length} row{data.length !== 1 ? 's' : ''}</span>
+            <span>{t('grid.rowsTotal', { count: data.length })}</span>
           )}
         </div>
         <div className="flex items-center gap-1">
@@ -267,7 +281,7 @@ export function DataGrid({ result, height = 400 }: DataGridProps) {
             size="sm"
             className="h-7 px-2 text-xs"
             onClick={() => copyToClipboard('csv')}
-            title="Copy as CSV (Cmd+C)"
+            title={t('grid.copyCSV')}
           >
             {copied === 'csv' ? <Check size={14} className="text-green-500" /> : <FileSpreadsheet size={14} />}
             <span className="ml-1">CSV</span>
@@ -277,7 +291,7 @@ export function DataGrid({ result, height = 400 }: DataGridProps) {
             size="sm"
             className="h-7 px-2 text-xs"
             onClick={() => copyToClipboard('json')}
-            title="Copy as JSON"
+            title={t('grid.copyJSON')}
           >
             {copied === 'json' ? <Check size={14} className="text-green-500" /> : <FileJson size={14} />}
             <span className="ml-1">JSON</span>
@@ -287,7 +301,7 @@ export function DataGrid({ result, height = 400 }: DataGridProps) {
             size="sm"
             className="h-7 px-2 text-xs"
             onClick={() => copyToClipboard('sql')}
-            title="Copy as INSERT statements"
+            title={t('grid.copySQL')}
           >
             {copied === 'sql' ? <Check size={14} className="text-green-500" /> : <Code2 size={14} />}
             <span className="ml-1">SQL</span>
@@ -323,7 +337,7 @@ export function DataGrid({ result, height = 400 }: DataGridProps) {
             {rowVirtualizer.getVirtualItems().length === 0 ? (
               <tr>
                 <td colSpan={columns.length} className="px-3 py-8 text-center text-muted-foreground">
-                  No results
+                  {t('grid.noResults')}
                 </td>
               </tr>
             ) : (
@@ -369,6 +383,68 @@ export function DataGrid({ result, height = 400 }: DataGridProps) {
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* Pagination */}
+      <div className="flex items-center justify-between px-2 py-1 border-t border-border bg-muted/20">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <span>{t('grid.rowsPerPage')}:</span>
+          <select
+            value={pagination.pageSize}
+            onChange={e => table.setPageSize(Number(e.target.value))}
+            className="h-7 px-2 rounded border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-1 focus:ring-accent"
+          >
+            {[25, 50, 100, 250].map(size => (
+              <option key={size} value={size}>{size}</option>
+            ))}
+          </select>
+        </div>
+        
+        <div className="flex items-center gap-1">
+          <span className="text-xs text-muted-foreground mr-2">
+            {t('grid.page')} {pagination.pageIndex + 1} {t('grid.of')} {table.getPageCount() || 1}
+          </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 w-7 p-0"
+            onClick={() => table.setPageIndex(0)}
+            disabled={!table.getCanPreviousPage()}
+            title={t('grid.firstPage')}
+          >
+            <ChevronFirst size={14} />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 w-7 p-0"
+            onClick={() => table.previousPage()}
+            disabled={!table.getCanPreviousPage()}
+            title={t('grid.previousPage')}
+          >
+            <ChevronLeft size={14} />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 w-7 p-0"
+            onClick={() => table.nextPage()}
+            disabled={!table.getCanNextPage()}
+            title={t('grid.nextPage')}
+          >
+            <ChevronRight size={14} />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 w-7 p-0"
+            onClick={() => table.setPageIndex(table.getPageCount() - 1)}
+            disabled={!table.getCanNextPage()}
+            title={t('grid.lastPage')}
+          >
+            <ChevronLast size={14} />
+          </Button>
+        </div>
       </div>
     </div>
   );

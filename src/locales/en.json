@@ -39,6 +39,15 @@
             "deleteFail": "Failed to delete connection",
             "credentialLoadFail": "Failed to load connection details",
             "testTitleSuccess": "Connection to {{name}} successful!"
+        },
+        "ssh": {
+            "enableTunnel": "Use SSH Tunnel",
+            "host": "SSH Host",
+            "port": "SSH Port",
+            "username": "SSH Username",
+            "keyPath": "Private Key Path",
+            "passphrase": "Key Passphrase (optional)",
+            "keyPathPlaceholder": "~/.ssh/id_rsa"
         }
     },
     "sidebar": {
@@ -106,6 +115,22 @@
         "noResults": "No results to display",
         "rowCount": "{{count}} row(s)",
         "timeMs": "{{time}}ms"
+    },
+    "grid": {
+        "rowsSelected": "{{count}} row(s) selected",
+        "rowsTotal": "{{count}} row(s)",
+        "page": "Page",
+        "of": "of",
+        "rowsPerPage": "Rows per page",
+        "firstPage": "First page",
+        "previousPage": "Previous page",
+        "nextPage": "Next page",
+        "lastPage": "Last page",
+        "noData": "No data to display",
+        "noResults": "No results",
+        "copyCSV": "Copy as CSV",
+        "copyJSON": "Copy as JSON",
+        "copySQL": "Copy as SQL"
     },
     "database": {
         "newTitle": "New Database",

@@ -39,6 +39,15 @@
             "deleteFail": "Échec de la suppression de la connexion",
             "credentialLoadFail": "Échec du chargement des détails de la connexion",
             "testTitleSuccess": "Connexion à {{name}} réussie !"
+        },
+        "ssh": {
+            "enableTunnel": "Utiliser un tunnel SSH",
+            "host": "Hôte SSH",
+            "port": "Port SSH",
+            "username": "Nom d'utilisateur SSH",
+            "keyPath": "Chemin de la clé privée",
+            "passphrase": "Phrase secrète (optionnel)",
+            "keyPathPlaceholder": "~/.ssh/id_rsa"
         }
     },
     "sidebar": {
@@ -106,6 +115,22 @@
         "noResults": "Aucun résultat à afficher",
         "rowCount": "{{count}} ligne(s)",
         "timeMs": "{{time}}ms"
+    },
+    "grid": {
+        "rowsSelected": "{{count}} ligne(s) sélectionnée(s)",
+        "rowsTotal": "{{count}} ligne(s)",
+        "page": "Page",
+        "of": "sur",
+        "rowsPerPage": "Lignes par page",
+        "firstPage": "Première page",
+        "previousPage": "Page précédente",
+        "nextPage": "Page suivante",
+        "lastPage": "Dernière page",
+        "noData": "Aucune donnée à afficher",
+        "noResults": "Aucun résultat",
+        "copyCSV": "Copier en CSV",
+        "copyJSON": "Copier en JSON",
+        "copySQL": "Copier en SQL"
     },
     "database": {
         "newTitle": "Nouvelle base de données",

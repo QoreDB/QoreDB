@@ -16,7 +16,7 @@ import {
   DialogTitle,
   DialogFooter
 } from '@/components/ui/dialog';
-import { Check, X, Loader2 } from 'lucide-react';
+import { Check, X, Loader2, ChevronDown, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { 
   Driver, 
@@ -46,6 +46,13 @@ interface FormData {
   password: string;
   database: string;
   ssl: boolean;
+  // SSH Tunnel
+  useSshTunnel: boolean;
+  sshHost: string;
+  sshPort: number;
+  sshUsername: string;
+  sshKeyPath: string;
+  sshPassphrase: string;
 }
 
 const initialFormData: FormData = {
@@ -57,6 +64,13 @@ const initialFormData: FormData = {
   password: '',
   database: '',
   ssl: false,
+  // SSH Tunnel
+  useSshTunnel: false,
+  sshHost: '',
+  sshPort: 22,
+  sshUsername: '',
+  sshKeyPath: '',
+  sshPassphrase: '',
 };
 
 export function ConnectionModal({ 
@@ -90,6 +104,13 @@ export function ConnectionModal({
           password: editPassword,
           database: editConnection.database || '',
           ssl: editConnection.ssl,
+          // SSH Tunnel
+          useSshTunnel: !!editConnection.ssh_tunnel,
+          sshHost: editConnection.ssh_tunnel?.host || '',
+          sshPort: editConnection.ssh_tunnel?.port || 22,
+          sshUsername: editConnection.ssh_tunnel?.username || '',
+          sshKeyPath: editConnection.ssh_tunnel?.key_path || '',
+          sshPassphrase: '',
         });
       } else {
         setFormData(initialFormData);
@@ -129,6 +150,12 @@ export function ConnectionModal({
         password: formData.password,
         database: formData.database || undefined,
         ssl: formData.ssl,
+        ssh_tunnel: formData.useSshTunnel ? {
+          host: formData.sshHost,
+          port: formData.sshPort,
+          username: formData.sshUsername,
+          auth: { Key: { private_key_path: formData.sshKeyPath, passphrase: formData.sshPassphrase || undefined } },
+        } : undefined,
       };
 
       const result = await testConnection(config);
@@ -164,6 +191,12 @@ export function ConnectionModal({
         password: formData.password,
         database: formData.database || undefined,
         ssl: formData.ssl,
+        ssh_tunnel: formData.useSshTunnel ? {
+          host: formData.sshHost,
+          port: formData.sshPort,
+          username: formData.sshUsername,
+          auth: { Key: { private_key_path: formData.sshKeyPath, passphrase: formData.sshPassphrase || undefined } },
+        } : undefined,
       };
 
       const connectionId = editConnection?.id || `conn_${Date.now()}`;
@@ -179,6 +212,14 @@ export function ConnectionModal({
         database: formData.database || undefined,
         ssl: formData.ssl,
         project_id: 'default',
+        ssh_tunnel: formData.useSshTunnel ? {
+          host: formData.sshHost,
+          port: formData.sshPort,
+          username: formData.sshUsername,
+          auth_type: 'key',
+          key_path: formData.sshKeyPath,
+          key_passphrase: formData.sshPassphrase || undefined,
+        } : undefined,
       });
 
       if (isEditMode) {
@@ -224,6 +265,14 @@ export function ConnectionModal({
         database: formData.database || undefined,
         ssl: formData.ssl,
         project_id: 'default',
+        ssh_tunnel: formData.useSshTunnel ? {
+          host: formData.sshHost,
+          port: formData.sshPort,
+          username: formData.sshUsername,
+          auth_type: 'key',
+          key_path: formData.sshKeyPath,
+          key_passphrase: formData.sshPassphrase || undefined,
+        } : undefined,
       });
 
       toast.success(isEditMode ? t('connection.updateSuccess') : t('connection.saveSuccess'));
@@ -244,7 +293,8 @@ export function ConnectionModal({
     }
   }
 
-  const isValid = formData.host && formData.username && formData.password;
+  const isValid = formData.host && formData.username && formData.password && 
+    (!formData.useSshTunnel || (formData.sshHost && formData.sshUsername && formData.sshKeyPath));
 
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
@@ -351,6 +401,77 @@ export function ConnectionModal({
                 onChange={e => handleChange('ssl', e.target.checked)}
               />
               <label htmlFor="ssl" className="text-sm font-medium cursor-pointer">{t('connection.useSSL')}</label>
+            </div>
+
+            {/* SSH Tunnel Section */}
+            <div className="border border-border rounded-md">
+              <button
+                type="button"
+                className="flex items-center justify-between w-full px-3 py-2 text-sm font-medium hover:bg-muted/50 transition-colors"
+                onClick={() => handleChange('useSshTunnel', !formData.useSshTunnel)}
+              >
+                <span className="flex items-center gap-2">
+                  {formData.useSshTunnel ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                  {t('connection.ssh.enableTunnel')}
+                </span>
+                <input
+                  type="checkbox"
+                  checked={formData.useSshTunnel}
+                  onChange={e => { e.stopPropagation(); handleChange('useSshTunnel', e.target.checked); }}
+                  className="h-4 w-4 rounded border-border text-accent focus:ring-accent"
+                />
+              </button>
+              
+              {formData.useSshTunnel && (
+                <div className="px-3 pb-3 space-y-3 border-t border-border">
+                  <div className="grid grid-cols-3 gap-3 pt-3">
+                    <div className="col-span-2 space-y-1">
+                      <label className="text-xs font-medium text-muted-foreground">{t('connection.ssh.host')}</label>
+                      <Input
+                        placeholder="bastion.example.com"
+                        value={formData.sshHost}
+                        onChange={e => handleChange('sshHost', e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-muted-foreground">{t('connection.ssh.port')}</label>
+                      <Input
+                        type="number"
+                        value={formData.sshPort}
+                        onChange={e => handleChange('sshPort', parseInt(e.target.value) || 22)}
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground">{t('connection.ssh.username')}</label>
+                    <Input
+                      placeholder="ssh_user"
+                      value={formData.sshUsername}
+                      onChange={e => handleChange('sshUsername', e.target.value)}
+                    />
+                  </div>
+                  
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground">{t('connection.ssh.keyPath')}</label>
+                    <Input
+                      placeholder={t('connection.ssh.keyPathPlaceholder')}
+                      value={formData.sshKeyPath}
+                      onChange={e => handleChange('sshKeyPath', e.target.value)}
+                    />
+                  </div>
+                  
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground">{t('connection.ssh.passphrase')}</label>
+                    <Input
+                      type="password"
+                      placeholder="••••••••"
+                      value={formData.sshPassphrase}
+                      onChange={e => handleChange('sshPassphrase', e.target.value)}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

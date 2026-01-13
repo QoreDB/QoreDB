@@ -1,15 +1,17 @@
 import { useState, useCallback } from 'react';
 import { SQLEditor } from '../Editor/SQLEditor';
 import { MongoEditor, MONGO_TEMPLATES } from '../Editor/MongoEditor';
-import { ResultsTable } from '../Results/ResultsTable';
+import { DataGrid } from '../Grid/DataGrid';
 import { JSONViewer } from '../Results/JSONViewer';
 import { executeQuery, cancelQuery, QueryResult } from '../../lib/tauri';
 import { Button } from '@/components/ui/button';
 import { Play, Square, AlertCircle } from 'lucide-react';
 
+import { Driver } from '../../lib/drivers';
+
 interface QueryPanelProps {
   sessionId: string | null;
-  dialect?: 'postgres' | 'mysql' | 'mongodb';
+  dialect?: Driver;
 }
 
 export function QueryPanel({ sessionId, dialect = 'postgres' }: QueryPanelProps) {
@@ -154,8 +156,8 @@ export function QueryPanel({ sessionId, dialect = 'postgres' }: QueryPanelProps)
           isMongo ? (
             <JSONViewer data={result.rows.map(r => r.values[0])} />
           ) : (
-            <div className="flex-1 overflow-hidden">
-               <ResultsTable result={result} height={400} />
+            <div className="flex-1 overflow-hidden p-2">
+               <DataGrid result={result} height={400} />
             </div>
           )
         ) : (

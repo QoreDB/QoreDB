@@ -9,14 +9,18 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Check, X, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { 
+  Driver, 
+  DRIVER_LABELS, 
+  DRIVER_ICONS, 
+  DEFAULT_PORTS 
+} from '../../lib/drivers';
 
 interface ConnectionModalProps {
   isOpen: boolean;
   onClose: () => void;
   onConnected: (sessionId: string, driver: string) => void;
 }
-
-type Driver = 'postgres' | 'mysql' | 'mongodb';
 
 interface FormData {
   name: string;
@@ -28,25 +32,6 @@ interface FormData {
   database: string;
   ssl: boolean;
 }
-
-const DEFAULT_PORTS: Record<Driver, number> = {
-  postgres: 5432,
-  mysql: 3306,
-  mongodb: 27017,
-};
-
-const DRIVER_LABELS: Record<Driver, string> = {
-  postgres: 'PostgreSQL',
-  mysql: 'MySQL / MariaDB',
-  mongodb: 'MongoDB',
-};
-
-// Simple text icons until we have proper Lucide equivalents for DBs
-const DRIVER_ICONS: Record<Driver, string> = {
-  postgres: 'PG',
-  mysql: 'MY',
-  mongodb: 'MG',
-};
 
 const initialFormData: FormData = {
   name: '',
@@ -195,10 +180,14 @@ export function ConnectionModal({ isOpen, onClose, onConnected }: ConnectionModa
                 onClick={() => handleDriverChange(driver)}
               >
                 <div className={cn(
-                  "flex items-center justify-center w-10 h-10 rounded-full font-bold text-sm",
-                  formData.driver === driver ? "bg-accent text-accent-foreground" : "bg-muted text-muted-foreground"
+                  "flex items-center justify-center w-10 h-10 rounded-lg p-1.5 transition-colors",
+                  formData.driver === driver ? "bg-accent/20" : "bg-muted"
                 )}>
-                  {DRIVER_ICONS[driver]}
+                  <img 
+                    src={`/databases/${DRIVER_ICONS[driver]}`} 
+                    alt={DRIVER_LABELS[driver]}
+                    className="w-full h-full object-contain"
+                  />
                 </div>
                 <span className="text-xs font-medium">{DRIVER_LABELS[driver]}</span>
               </button>

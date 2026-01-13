@@ -6,12 +6,14 @@ import { oneDark } from '@codemirror/theme-one-dark';
 import { defaultKeymap } from '@codemirror/commands';
 import { useTheme } from '../../hooks/useTheme';
 
+import { Driver } from '../../lib/drivers';
+
 interface SQLEditorProps {
   value: string;
   onChange: (value: string) => void;
   onExecute?: () => void;
   onExecuteSelection?: (selection: string) => void;
-  dialect?: 'postgres' | 'mysql' | 'mongodb';
+  dialect?: Driver;
   readOnly?: boolean;
 }
 

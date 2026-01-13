@@ -67,6 +67,8 @@ pub fn run() {
             commands::query::cancel_query,
             commands::query::list_namespaces,
             commands::query::list_collections,
+            commands::query::describe_table,
+            commands::query::preview_table,
             // Vault commands
             commands::vault::get_vault_status,
             commands::vault::setup_master_password,

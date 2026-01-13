@@ -60,11 +60,11 @@
 
 ### 📊 Data grid
 
-* [ ] **Affichage performant** — Pas de freeze
-* [ ] **Copy / paste** — Vers Excel, code, etc.
-* [ ] **Sélection multiple**
-* [ ] **Tri simple**
-* [ ] **Colonnes auto-size**
+* [x] **Affichage performant** — Pas de freeze (TanStack Table + Virtual Scroll)
+* [x] **Copy / paste** — Vers Excel, code, etc.
+* [x] **Sélection multiple**
+* [x] **Tri simple**
+* [x] **Colonnes auto-size** (via TanStack Table)
 
 ### 🧰 Qualité de vie
 

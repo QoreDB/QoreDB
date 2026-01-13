@@ -15,7 +15,7 @@ use crate::engine::error::{EngineError, EngineResult};
 use crate::engine::traits::DataEngine;
 use crate::engine::types::{
     Collection, CollectionType, ColumnInfo, ConnectionConfig, Namespace, QueryResult,
-    Row as QRow, SessionId, Value,
+    Row as QRow, SessionId, TableColumn, TableSchema, Value,
 };
 
 /// MongoDB driver implementation
@@ -286,6 +286,146 @@ impl DataEngine for MongoDriver {
                 break;
             }
         }
+
+        let execution_time_ms = start.elapsed().as_millis() as u64;
+
+        if documents.is_empty() {
+            return Ok(QueryResult {
+                columns: Vec::new(),
+                rows: Vec::new(),
+                affected_rows: None,
+                execution_time_ms,
+            });
+        }
+
+        let columns = Self::get_column_info(&documents[0]);
+        let rows: Vec<QRow> = documents.iter().map(Self::document_to_row).collect();
+
+        Ok(QueryResult {
+            columns,
+            rows,
+            affected_rows: None,
+            execution_time_ms,
+        })
+    }
+
+    async fn describe_table(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        table: &str,
+    ) -> EngineResult<TableSchema> {
+        let sessions = self.sessions.read().await;
+        let client = sessions
+            .get(&session)
+            .ok_or_else(|| EngineError::session_not_found(session.0.to_string()))?;
+
+        let collection = client
+            .database(&namespace.database)
+            .collection::<Document>(table);
+
+        // Sample documents to infer schema (MongoDB is schemaless)
+        use futures::TryStreamExt;
+        let cursor = collection
+            .find(doc! {})
+            .limit(100)
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        let documents: Vec<Document> = cursor
+            .try_collect()
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        // Collect all unique field names and their types
+        let mut fields: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+        for doc in &documents {
+            for (key, value) in doc.iter() {
+                if !fields.contains_key(key) {
+                    let type_name = match value {
+                        mongodb::bson::Bson::Null => "null",
+                        mongodb::bson::Bson::Boolean(_) => "boolean",
+                        mongodb::bson::Bson::Int32(_) => "int32",
+                        mongodb::bson::Bson::Int64(_) => "int64",
+                        mongodb::bson::Bson::Double(_) => "double",
+                        mongodb::bson::Bson::String(_) => "string",
+                        mongodb::bson::Bson::ObjectId(_) => "ObjectId",
+                        mongodb::bson::Bson::DateTime(_) => "datetime",
+                        mongodb::bson::Bson::Array(_) => "array",
+                        mongodb::bson::Bson::Document(_) => "document",
+                        mongodb::bson::Bson::Binary(_) => "binary",
+                        _ => "mixed",
+                    };
+                    fields.insert(key.clone(), type_name.to_string());
+                }
+            }
+        }
+
+        // Build columns (sorted, with _id first if present)
+        let mut columns: Vec<TableColumn> = fields
+            .into_iter()
+            .map(|(name, data_type)| TableColumn {
+                is_primary_key: name == "_id",
+                name,
+                data_type,
+                nullable: true, // MongoDB fields are always nullable
+                default_value: None,
+            })
+            .collect();
+
+        // Sort with _id first
+        columns.sort_by(|a, b| {
+            if a.name == "_id" {
+                std::cmp::Ordering::Less
+            } else if b.name == "_id" {
+                std::cmp::Ordering::Greater
+            } else {
+                a.name.cmp(&b.name)
+            }
+        });
+
+        // Get estimated document count
+        let count = collection
+            .estimated_document_count()
+            .await
+            .ok();
+
+        Ok(TableSchema {
+            columns,
+            primary_key: Some(vec!["_id".to_string()]),
+            row_count_estimate: count,
+        })
+    }
+
+    async fn preview_table(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        table: &str,
+        limit: u32,
+    ) -> EngineResult<QueryResult> {
+        let sessions = self.sessions.read().await;
+        let client = sessions
+            .get(&session)
+            .ok_or_else(|| EngineError::session_not_found(session.0.to_string()))?;
+
+        let start = Instant::now();
+
+        let collection = client
+            .database(&namespace.database)
+            .collection::<Document>(table);
+
+        use futures::TryStreamExt;
+        let cursor = collection
+            .find(doc! {})
+            .limit(limit as i64)
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        let documents: Vec<Document> = cursor
+            .try_collect()
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
 
         let execution_time_ms = start.elapsed().as_millis() as u64;
 

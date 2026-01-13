@@ -3,19 +3,25 @@ import { Sidebar } from './components/Sidebar/Sidebar';
 import { TabBar } from './components/Tabs/TabBar';
 import { GlobalSearch } from './components/Search/GlobalSearch';
 import { QueryPanel } from './components/Query/QueryPanel';
+import { TableBrowser } from './components/Browser/TableBrowser';
 import { ConnectionModal } from './components/Connection/ConnectionModal';
 import { Button } from './components/ui/button';
-import { Search, Database } from 'lucide-react';
+import { Search } from 'lucide-react';
+import { Namespace } from './lib/tauri';
+import { Driver } from './lib/drivers';
 import './index.css';
 
-type Driver = 'postgres' | 'mysql' | 'mongodb';
+interface SelectedTable {
+  namespace: Namespace;
+  tableName: string;
+}
 
 function App() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [connectionModalOpen, setConnectionModalOpen] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [driver, setDriver] = useState<Driver>('postgres');
+  const [selectedTable, setSelectedTable] = useState<SelectedTable | null>(null);
 
   // Global keyboard shortcuts
   useEffect(() => {
@@ -29,15 +35,28 @@ function App() {
         e.preventDefault();
         setConnectionModalOpen(true);
       }
+      // Escape: Close table browser
+      if (e.key === 'Escape' && selectedTable) {
+        setSelectedTable(null);
+      }
     }
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [selectedTable]);
 
   function handleConnected(newSessionId: string, newDriver: string) {
     setSessionId(newSessionId);
     setDriver(newDriver as Driver);
+    setSelectedTable(null);
+  }
+
+  function handleTableSelect(namespace: Namespace, tableName: string) {
+    setSelectedTable({ namespace, tableName });
+  }
+
+  function handleCloseTableBrowser() {
+    setSelectedTable(null);
   }
 
   return (
@@ -47,16 +66,26 @@ function App() {
           onNewConnection={() => setConnectionModalOpen(true)}
           onConnected={handleConnected}
           connectedSessionId={sessionId}
+          onTableSelect={handleTableSelect}
         />
         <main className="flex-1 flex flex-col min-w-0 bg-background">
           <TabBar />
           <div className="flex-1 overflow-auto p-4">
             {sessionId ? (
-              <QueryPanel sessionId={sessionId} dialect={driver} />
+              selectedTable ? (
+                <TableBrowser
+                  sessionId={sessionId}
+                  namespace={selectedTable.namespace}
+                  tableName={selectedTable.tableName}
+                  onClose={handleCloseTableBrowser}
+                />
+              ) : (
+                <QueryPanel sessionId={sessionId} dialect={driver} />
+              )
             ) : (
               <div className="flex flex-col items-center justify-center h-full text-center space-y-4">
-                <div className="p-4 rounded-full bg-accent/10 text-accent mb-2">
-                  <Database size={48} strokeWidth={1.5} />
+                <div className="p-4 rounded-full bg-accent/10 text-accent mb-4">
+                  <img src="/logo.png" alt="QoreDB" width={48} height={48} />
                 </div>
                 <h2 className="text-2xl font-semibold tracking-tight">Welcome to QoreDB</h2>
                 <p className="text-muted-foreground max-w-[400px]">
@@ -99,3 +128,4 @@ function App() {
 }
 
 export default App;
+

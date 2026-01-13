@@ -1,6 +1,7 @@
 import { SavedConnection } from '../../lib/tauri';
 import { Loader2, ChevronRight, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Driver, DRIVER_ICONS, DRIVER_LABELS } from '../../lib/drivers';
 
 interface ConnectionItemProps {
   connection: SavedConnection;
@@ -11,11 +12,6 @@ interface ConnectionItemProps {
   onSelect: () => void;
 }
 
-const DRIVER_ICONS: Record<string, string> = {
-  postgres: '🐘',
-  mysql: '🐬',
-  mongodb: '🍃',
-};
 
 export function ConnectionItem({ 
   connection, 
@@ -25,7 +21,8 @@ export function ConnectionItem({
   isConnecting,
   onSelect 
 }: ConnectionItemProps) {
-  const icon = DRIVER_ICONS[connection.driver] || '📦';
+  const driver = connection.driver as Driver;
+  const iconSrc = `/databases/${DRIVER_ICONS[driver]}`;
 
   return (
     <button
@@ -39,9 +36,13 @@ export function ConnectionItem({
       onClick={onSelect}
       disabled={isConnecting}
     >
-      <span className="shrink-0 text-base opacity-80 group-hover:opacity-100">
-        {icon}
-      </span>
+      <div className="shrink-0 w-4 h-4 rounded-sm overflow-hidden bg-background/50 p-0.5">
+        <img 
+          src={iconSrc} 
+          alt={DRIVER_LABELS[driver]} 
+          className="w-full h-full object-contain"
+        />
+      </div>
       
       <span className="flex-1 truncate text-left">
         {connection.name}

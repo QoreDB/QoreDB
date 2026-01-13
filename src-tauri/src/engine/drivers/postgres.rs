@@ -15,7 +15,7 @@ use crate::engine::error::{EngineError, EngineResult};
 use crate::engine::traits::DataEngine;
 use crate::engine::types::{
     Collection, CollectionType, ColumnInfo, ConnectionConfig, Namespace, QueryResult,
-    Row as QRow, SessionId, Value,
+    Row as QRow, SessionId, TableColumn, TableSchema, Value,
 };
 
 /// PostgreSQL driver implementation
@@ -326,6 +326,112 @@ impl DataEngine for PostgresDriver {
                 execution_time_ms,
             ))
         }
+    }
+
+    async fn describe_table(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        table: &str,
+    ) -> EngineResult<TableSchema> {
+        let sessions = self.sessions.read().await;
+        let pool = sessions
+            .get(&session)
+            .ok_or_else(|| EngineError::session_not_found(session.0.to_string()))?;
+
+        let schema = namespace.schema.as_deref().unwrap_or("public");
+
+        // Get column info
+        let column_rows: Vec<(String, String, String, Option<String>)> = sqlx::query_as(
+            r#"
+            SELECT 
+                column_name::text,
+                data_type::text,
+                is_nullable::text,
+                column_default::text
+            FROM information_schema.columns
+            WHERE table_schema = $1 AND table_name = $2
+            ORDER BY ordinal_position
+            "#,
+        )
+        .bind(schema)
+        .bind(table)
+        .fetch_all(pool)
+        .await
+        .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        // Get primary key columns
+        let pk_rows: Vec<(String,)> = sqlx::query_as(
+            r#"
+            SELECT a.attname::text
+            FROM pg_index i
+            JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey)
+            JOIN pg_class c ON c.oid = i.indrelid
+            JOIN pg_namespace n ON n.oid = c.relnamespace
+            WHERE i.indisprimary
+              AND n.nspname = $1
+              AND c.relname = $2
+            ORDER BY array_position(i.indkey, a.attnum)
+            "#,
+        )
+        .bind(schema)
+        .bind(table)
+        .fetch_all(pool)
+        .await
+        .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        let pk_columns: Vec<String> = pk_rows.into_iter().map(|(name,)| name).collect();
+
+        // Build columns vec
+        let columns: Vec<TableColumn> = column_rows
+            .into_iter()
+            .map(|(name, data_type, is_nullable, default_value)| TableColumn {
+                is_primary_key: pk_columns.contains(&name),
+                name,
+                data_type,
+                nullable: is_nullable == "YES",
+                default_value,
+            })
+            .collect();
+
+        // Get row count estimate
+        let count_row: Option<(i64,)> = sqlx::query_as(
+            r#"
+            SELECT reltuples::bigint
+            FROM pg_class c
+            JOIN pg_namespace n ON n.oid = c.relnamespace
+            WHERE n.nspname = $1 AND c.relname = $2
+            "#,
+        )
+        .bind(schema)
+        .bind(table)
+        .fetch_optional(pool)
+        .await
+        .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        let row_count_estimate = count_row.map(|(c,)| c as u64);
+
+        Ok(TableSchema {
+            columns,
+            primary_key: if pk_columns.is_empty() { None } else { Some(pk_columns) },
+            row_count_estimate,
+        })
+    }
+
+    async fn preview_table(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        table: &str,
+        limit: u32,
+    ) -> EngineResult<QueryResult> {
+        let schema = namespace.schema.as_deref().unwrap_or("public");
+        // Use quoted identifiers to handle special characters
+        let query = format!(
+            "SELECT * FROM \"{}\".\"{}\" LIMIT {}",
+            schema, table, limit
+        );
+        self.execute(session, &query).await
     }
 
     async fn cancel(&self, session: SessionId) -> EngineResult<()> {

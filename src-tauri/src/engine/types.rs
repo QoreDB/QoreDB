@@ -176,3 +176,29 @@ impl QueryResult {
         }
     }
 }
+
+/// Table schema metadata
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TableSchema {
+    /// Column definitions
+    pub columns: Vec<TableColumn>,
+    /// Primary key columns (if any)
+    pub primary_key: Option<Vec<String>>,
+    /// Estimated row count (if available)
+    pub row_count_estimate: Option<u64>,
+}
+
+/// Column metadata for table schema
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TableColumn {
+    /// Column name
+    pub name: String,
+    /// Data type (database-specific)
+    pub data_type: String,
+    /// Whether the column allows NULL values
+    pub nullable: bool,
+    /// Default value expression (if any)
+    pub default_value: Option<String>,
+    /// Whether this column is part of the primary key
+    pub is_primary_key: bool,
+}

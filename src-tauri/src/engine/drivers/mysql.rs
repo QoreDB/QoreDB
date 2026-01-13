@@ -15,7 +15,7 @@ use crate::engine::error::{EngineError, EngineResult};
 use crate::engine::traits::DataEngine;
 use crate::engine::types::{
     Collection, CollectionType, ColumnInfo, ConnectionConfig, Namespace, QueryResult,
-    Row as QRow, SessionId, Value,
+    Row as QRow, SessionId, TableColumn, TableSchema, Value,
 };
 
 /// MySQL driver implementation
@@ -54,11 +54,12 @@ impl MySqlDriver {
 
     /// Extracts a value from a MySqlRow at the given index
     fn extract_value(row: &MySqlRow, idx: usize) -> Value {
-        if let Ok(v) = row.try_get::<Option<i64>, _>(idx) {
-            return v.map(Value::Int).unwrap_or(Value::Null);
-        }
+        // Try u64 first for BIGINT UNSIGNED columns
         if let Ok(v) = row.try_get::<Option<u64>, _>(idx) {
             return v.map(|u| Value::Int(u as i64)).unwrap_or(Value::Null);
+        }
+        if let Ok(v) = row.try_get::<Option<i64>, _>(idx) {
+            return v.map(Value::Int).unwrap_or(Value::Null);
         }
         if let Ok(v) = row.try_get::<Option<i32>, _>(idx) {
             return v.map(|i| Value::Int(i as i64)).unwrap_or(Value::Null);
@@ -229,12 +230,13 @@ impl DataEngine for MySqlDriver {
             .get(&session)
             .ok_or_else(|| EngineError::session_not_found(session.0.to_string()))?;
 
+        // Cast to CHAR to avoid BINARY type mismatch with Rust String
         let rows: Vec<(String, String)> = sqlx::query_as(
             r#"
-            SELECT table_name, table_type
-            FROM information_schema.tables
-            WHERE table_schema = ?
-            ORDER BY table_name
+            SELECT CAST(TABLE_NAME AS CHAR) AS table_name, CAST(TABLE_TYPE AS CHAR) AS table_type
+            FROM information_schema.TABLES
+            WHERE TABLE_SCHEMA = ?
+            ORDER BY TABLE_NAME
             "#,
         )
         .bind(&namespace.database)
@@ -324,6 +326,95 @@ impl DataEngine for MySqlDriver {
                 execution_time_ms,
             ))
         }
+    }
+
+    async fn describe_table(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        table: &str,
+    ) -> EngineResult<TableSchema> {
+        let sessions = self.sessions.read().await;
+        let pool = sessions
+            .get(&session)
+            .ok_or_else(|| EngineError::session_not_found(session.0.to_string()))?;
+
+        let database = &namespace.database;
+        // Cast to CHAR to avoid BINARY type mismatch with Rust String
+        let column_rows: Vec<(String, String, String, Option<String>, String)> = sqlx::query_as(
+            r#"
+            SELECT 
+                CAST(c.COLUMN_NAME AS CHAR) AS column_name,
+                CAST(c.COLUMN_TYPE AS CHAR) AS column_type,
+                CAST(c.IS_NULLABLE AS CHAR) AS is_nullable,
+                CAST(c.COLUMN_DEFAULT AS CHAR) AS column_default,
+                CAST(c.COLUMN_KEY AS CHAR) AS column_key
+            FROM information_schema.COLUMNS c
+            WHERE c.TABLE_SCHEMA = ? AND c.TABLE_NAME = ?
+            ORDER BY c.ORDINAL_POSITION
+            "#,
+        )
+        .bind(database)
+        .bind(table)
+        .fetch_all(pool)
+        .await
+        .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        // Build columns vec, collecting primary keys
+        let mut pk_columns: Vec<String> = Vec::new();
+        let columns: Vec<TableColumn> = column_rows
+            .into_iter()
+            .map(|(name, data_type, is_nullable, default_value, column_key)| {
+                let is_primary_key = column_key == "PRI";
+                if is_primary_key {
+                    pk_columns.push(name.clone());
+                }
+                TableColumn {
+                    name,
+                    data_type,
+                    nullable: is_nullable == "YES",
+                    default_value,
+                    is_primary_key,
+                }
+            })
+            .collect();
+
+        // Get row count estimate from table_rows (u64 for BIGINT UNSIGNED)
+        let count_row: Option<(u64,)> = sqlx::query_as(
+            r#"
+            SELECT TABLE_ROWS
+            FROM information_schema.TABLES
+            WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?
+            "#,
+        )
+        .bind(database)
+        .bind(table)
+        .fetch_optional(pool)
+        .await
+        .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        let row_count_estimate = count_row.map(|(c,)| c);
+
+        Ok(TableSchema {
+            columns,
+            primary_key: if pk_columns.is_empty() { None } else { Some(pk_columns) },
+            row_count_estimate,
+        })
+    }
+
+    async fn preview_table(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        table: &str,
+        limit: u32,
+    ) -> EngineResult<QueryResult> {
+        // Use backticks for MySQL identifier quoting
+        let query = format!(
+            "SELECT * FROM `{}`.`{}` LIMIT {}",
+            namespace.database, table, limit
+        );
+        self.execute(session, &query).await
     }
 
     async fn cancel(&self, session: SessionId) -> EngineResult<()> {

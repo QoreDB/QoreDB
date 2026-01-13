@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { ConnectionItem } from './ConnectionItem';
 import { DBTree } from '../Tree/DBTree';
-import { listSavedConnections, connect, getConnectionCredentials, SavedConnection, ConnectionConfig } from '../../lib/tauri';
+import { listSavedConnections, connect, getConnectionCredentials, SavedConnection, ConnectionConfig, Namespace } from '../../lib/tauri';
 import { useTheme } from '../../hooks/useTheme';
 import { Plus, Sun, Moon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -12,9 +12,10 @@ interface SidebarProps {
   onNewConnection: () => void;
   onConnected: (sessionId: string, driver: string) => void;
   connectedSessionId: string | null;
+  onTableSelect?: (namespace: Namespace, tableName: string) => void;
 }
 
-export function Sidebar({ onNewConnection, onConnected, connectedSessionId }: SidebarProps) {
+export function Sidebar({ onNewConnection, onConnected, connectedSessionId, onTableSelect }: SidebarProps) {
   const [connections, setConnections] = useState<SavedConnection[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -123,7 +124,10 @@ export function Sidebar({ onNewConnection, onConnected, connectedSessionId }: Si
                 />
                 {expandedId === conn.id && connectedSessionId && (
                   <div className="pl-4 border-l border-border ml-4 mt-1">
-                    <DBTree connectionId={conn.id} />
+                    <DBTree 
+                      connectionId={connectedSessionId} 
+                      onTableSelect={onTableSelect}
+                    />
                   </div>
                 )}
               </div>

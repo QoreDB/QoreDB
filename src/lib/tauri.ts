@@ -152,6 +152,49 @@ export async function cancelQuery(sessionId: string): Promise<{
 }
 
 // ============================================
+// TABLE BROWSING
+// ============================================
+
+export interface TableSchema {
+  columns: TableColumn[];
+  primary_key?: string[];
+  row_count_estimate?: number;
+}
+
+export interface TableColumn {
+  name: string;
+  data_type: string;
+  nullable: boolean;
+  default_value?: string;
+  is_primary_key: boolean;
+}
+
+export async function describeTable(
+  sessionId: string,
+  namespace: Namespace,
+  table: string
+): Promise<{
+  success: boolean;
+  schema?: TableSchema;
+  error?: string;
+}> {
+  return invoke('describe_table', { sessionId, namespace, table });
+}
+
+export async function previewTable(
+  sessionId: string,
+  namespace: Namespace,
+  table: string,
+  limit: number = 100
+): Promise<{
+  success: boolean;
+  result?: QueryResult;
+  error?: string;
+}> {
+  return invoke('preview_table', { sessionId, namespace, table, limit });
+}
+
+// ============================================
 // VAULT COMMANDS
 // ============================================
 

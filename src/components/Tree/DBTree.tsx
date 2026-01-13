@@ -5,9 +5,10 @@ import { cn } from '@/lib/utils';
 
 interface DBTreeProps {
   connectionId: string;
+  onTableSelect?: (namespace: Namespace, tableName: string) => void;
 }
 
-export function DBTree({ connectionId }: DBTreeProps) {
+export function DBTree({ connectionId, onTableSelect }: DBTreeProps) {
   const [namespaces, setNamespaces] = useState<Namespace[]>([]);
   const [expandedNs, setExpandedNs] = useState<string | null>(null);
   const [collections, setCollections] = useState<Collection[]>([]);
@@ -46,13 +47,22 @@ export function DBTree({ connectionId }: DBTreeProps) {
     setExpandedNs(key);
     
     try {
+      console.log('[DBTree] Calling listCollections with:', { sessionId, namespace: ns });
       const result = await listCollections(sessionId, ns);
+      console.log('[DBTree] listCollections result:', result);
       if (result.success && result.collections) {
+        console.log('[DBTree] Setting collections:', result.collections.length, 'items');
         setCollections(result.collections);
+      } else {
+        console.error('[DBTree] listCollections failed:', result.error);
       }
     } catch (err) {
       console.error('Failed to load collections:', err);
     }
+  }
+
+  function handleTableClick(col: Collection) {
+    onTableSelect?.(col.namespace, col.name);
   }
 
   function getNsKey(ns: Namespace): string {
@@ -99,6 +109,7 @@ export function DBTree({ connectionId }: DBTreeProps) {
                     <button
                       key={col.name}
                       className="flex items-center gap-2 px-2 py-1 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground text-left"
+                      onClick={() => handleTableClick(col)}
                     >
                       <span className="shrink-0">
                         {col.collection_type === 'View' ? <Eye size={13} /> : <Table size={13} />}
@@ -115,3 +126,4 @@ export function DBTree({ connectionId }: DBTreeProps) {
     </div>
   );
 }
+

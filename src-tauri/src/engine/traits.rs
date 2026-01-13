@@ -8,7 +8,7 @@ use async_trait::async_trait;
 
 use crate::engine::error::EngineResult;
 use crate::engine::types::{
-    Collection, ConnectionConfig, Namespace, QueryResult, SessionId,
+    Collection, ConnectionConfig, Namespace, QueryResult, SessionId, TableSchema,
 };
 
 /// Core trait that all database drivers must implement
@@ -52,6 +52,25 @@ pub trait DataEngine: Send + Sync {
     /// For SQL engines: executes SQL statements
     /// For MongoDB: expects JSON query format
     async fn execute(&self, session: SessionId, query: &str) -> EngineResult<QueryResult>;
+
+    /// Returns the schema of a table/collection
+    ///
+    /// Includes column types, nullability, default values, and primary key info.
+    async fn describe_table(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        table: &str,
+    ) -> EngineResult<TableSchema>;
+
+    /// Returns a preview of the table data (first N rows)
+    async fn preview_table(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        table: &str,
+        limit: u32,
+    ) -> EngineResult<QueryResult>;
 
     /// Cancels a running query for the given session
     async fn cancel(&self, session: SessionId) -> EngineResult<()>;

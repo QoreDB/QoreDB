@@ -41,6 +41,12 @@ pub enum EngineError {
 
     #[error("Internal error: {message}")]
     Internal { message: String },
+
+    #[error("Feature not supported: {message}")]
+    NotSupported { message: String },
+
+    #[error("Transaction error: {message}")]
+    TransactionError { message: String },
 }
 
 impl EngineError {
@@ -70,6 +76,14 @@ impl EngineError {
 
     pub fn internal(msg: impl Into<String>) -> Self {
         Self::Internal { message: msg.into() }
+    }
+
+    pub fn not_supported(msg: impl Into<String>) -> Self {
+        Self::NotSupported { message: msg.into() }
+    }
+
+    pub fn transaction_error(msg: impl Into<String>) -> Self {
+        Self::TransactionError { message: msg.into() }
     }
 }
 

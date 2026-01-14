@@ -195,7 +195,83 @@ export async function previewTable(
 }
 
 // ============================================
-// VAULT COMMANDS
+// TRANSACTIONS
+// ============================================
+
+export async function beginTransaction(sessionId: string): Promise<{
+  success: boolean;
+  error?: string;
+}> {
+  return invoke('begin_transaction', { sessionId });
+}
+
+export async function commitTransaction(sessionId: string): Promise<{
+  success: boolean;
+  error?: string;
+}> {
+  return invoke('commit_transaction', { sessionId });
+}
+
+export async function rollbackTransaction(sessionId: string): Promise<{
+  success: boolean;
+  error?: string;
+}> {
+  return invoke('rollback_transaction', { sessionId });
+}
+
+export async function supportsTransactions(sessionId: string): Promise<boolean> {
+  return invoke('supports_transactions', { sessionId });
+}
+
+// ============================================
+// MUTATIONS
+// ============================================
+
+export interface RowData {
+  columns: Record<string, Value>;
+}
+
+export interface MutationResponse {
+  success: boolean;
+  result?: QueryResult;
+  error?: string;
+}
+
+export async function insertRow(
+  sessionId: string,
+  database: string,
+  schema: string | null | undefined,
+  table: string,
+  data: RowData
+): Promise<MutationResponse> {
+  return invoke('insert_row', { sessionId, database, schema, table, data });
+}
+
+export async function updateRow(
+  sessionId: string,
+  database: string,
+  schema: string | null | undefined,
+  table: string,
+  primaryKey: RowData,
+  data: RowData
+): Promise<MutationResponse> {
+  return invoke('update_row', { sessionId, database, schema, table, primaryKey, data });
+}
+
+export async function deleteRow(
+  sessionId: string,
+  database: string,
+  schema: string | null | undefined,
+  table: string,
+  primaryKey: RowData
+): Promise<MutationResponse> {
+  return invoke('delete_row', { sessionId, database, schema, table, primaryKey });
+}
+
+export async function supportsMutations(sessionId: string): Promise<boolean> {
+  return invoke('supports_mutations', { sessionId });
+}
+
 // ============================================
 
 export async function getVaultStatus(): Promise<VaultStatus> {

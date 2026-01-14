@@ -457,4 +457,31 @@ impl DataEngine for MongoDriver {
             Err(EngineError::session_not_found(session.0.to_string()))
         }
     }
+
+    // ==================== Transaction Methods ====================
+    // MongoDB transactions require a replica set configuration.
+    // Standalone MongoDB instances do not support multi-document transactions.
+
+    async fn begin_transaction(&self, _session: SessionId) -> EngineResult<()> {
+        Err(EngineError::not_supported(
+            "MongoDB transactions require a replica set. Standalone instances do not support transactions."
+        ))
+    }
+
+    async fn commit(&self, _session: SessionId) -> EngineResult<()> {
+        Err(EngineError::not_supported(
+            "MongoDB transactions require a replica set. Standalone instances do not support transactions."
+        ))
+    }
+
+    async fn rollback(&self, _session: SessionId) -> EngineResult<()> {
+        Err(EngineError::not_supported(
+            "MongoDB transactions require a replica set. Standalone instances do not support transactions."
+        ))
+    }
+
+    fn supports_transactions(&self) -> bool {
+        // Returns false because we can't know at this point if the server is a replica set
+        false
+    }
 }

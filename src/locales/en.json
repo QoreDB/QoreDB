@@ -130,7 +130,20 @@
         "noResults": "No results",
         "copyCSV": "Copy as CSV",
         "copyJSON": "Copy as JSON",
-        "copySQL": "Copy as SQL"
+        "copySQL": "Copy as SQL",
+        "confirmDelete": "Are you sure you want to delete {{count}} selected row(s)?",
+        "delete": "Delete",
+        "deleting": "Deleting...",
+        "deleteSuccess": "Successfully deleted {{count}} row(s)",
+        "deleteError": "Failed to delete rows"
+    },
+    "rowModal": {
+        "insertTitle": "Insert New Row",
+        "updateTitle": "Update Row in {{table}}",
+        "insertSuccess": "Row inserted successfully",
+        "insertError": "Failed to insert row",
+        "updateSuccess": "Row updated successfully",
+        "updateError": "Failed to update row"
     },
     "database": {
         "newTitle": "New Database",
@@ -154,6 +167,8 @@
         "error": "Error",
         "success": "Success",
         "create": "Create",
+        "insert": "Insert",
+        "save": "Save",
         "cancel": "Cancel",
         "unknownError": "Unknown error",
         "mongoCreateDbHint": "For MongoDB, simply insert data into a namespace to create it."

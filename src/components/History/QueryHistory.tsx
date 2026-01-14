@@ -7,6 +7,7 @@ import {
   toggleFavorite,
   isFavorite,
   getFavorites,
+  getSessionHistory,
   HistoryEntry
 } from '../../lib/history';
 import { cn } from '@/lib/utils';
@@ -40,7 +41,7 @@ export function QueryHistory({ isOpen, onClose, onSelectQuery, sessionId }: Quer
   useEffect(() => {
     if (!isOpen) return;
     loadEntries();
-  }, [isOpen, tab, search]);
+  }, [isOpen, tab, search, sessionId]);
 
   function loadEntries() {
     if (tab === 'favorites') {
@@ -48,7 +49,11 @@ export function QueryHistory({ isOpen, onClose, onSelectQuery, sessionId }: Quer
     } else if (search) {
       setEntries(searchHistory(search));
     } else {
-      setEntries(getHistory());
+      if (sessionId) {
+        setEntries(getSessionHistory(sessionId));
+      } else {
+        setEntries(getHistory());
+      }
     }
   }
 

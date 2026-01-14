@@ -12,11 +12,17 @@ import {
   ColumnDef,
 } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { QueryResult, Value } from '../../lib/tauri';
+import { 
+  QueryResult, 
+  Value, 
+  Namespace,
+  deleteRow,
+  RowData as TauriRowData 
+} from '../../lib/tauri';
 import { cn } from '@/lib/utils';
 import { 
-  ArrowUpDown, 
-  ArrowUp, 
+  ArrowUpDown,
+  ArrowUp,
   ArrowDown, 
   Check,
   FileJson,
@@ -26,13 +32,21 @@ import {
   ChevronLast,
   ChevronLeft,
   ChevronRight,
+  Trash2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
 
 interface DataGridProps {
   result: QueryResult | null;
   height?: number;
+  sessionId?: string;
+  namespace?: Namespace;
+  tableName?: string;
+  primaryKey?: string[];
+  onRowsDeleted?: () => void;
+  onRowClick?: (row: RowData) => void;
 }
 
 type RowData = Record<string, Value>;
@@ -61,7 +75,16 @@ function convertToRowData(result: QueryResult): RowData[] {
   });
 }
 
-export function DataGrid({ result, height = 400 }: DataGridProps) {
+export function DataGrid({ 
+  result, 
+  height = 400,
+  sessionId,
+  namespace,
+  tableName,
+  primaryKey,
+  onRowsDeleted,
+  onRowClick
+}: DataGridProps) {
   const { t } = useTranslation();
   const [sorting, setSorting] = useState<SortingState>([]);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
@@ -70,16 +93,15 @@ export function DataGrid({ result, height = 400 }: DataGridProps) {
     pageSize: 50,
   });
   const [copied, setCopied] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   
   const parentRef = useRef<HTMLDivElement>(null);
 
-  // Convert data to row format
   const data = useMemo(() => {
     if (!result) return [];
     return convertToRowData(result);
   }, [result]);
 
-  // Create columns dynamically from result
   const columns = useMemo<ColumnDef<RowData, Value>[]>(() => {
     if (!result || result.columns.length === 0) return [];
     
@@ -183,6 +205,63 @@ export function DataGrid({ result, height = 400 }: DataGridProps) {
     overscan: 10,
   });
 
+  // Handle Deletion
+  async function handleDelete() {
+    if (!sessionId || !namespace || !tableName || !primaryKey || primaryKey.length === 0) return;
+    
+    const selectedRows = table.getSelectedRowModel().rows;
+    if (selectedRows.length === 0) return;
+
+    if (!confirm(t('grid.confirmDelete', { count: selectedRows.length }))) return;
+
+    setIsDeleting(true);
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const row of selectedRows) {
+      const pkData: TauriRowData = { columns: {} };
+      let missingPk = false;
+
+      for (const key of primaryKey) {
+        if (row.original[key] === undefined) {
+          missingPk = true;
+          break;
+        }
+        pkData.columns[key] = row.original[key];
+      }
+
+      if (missingPk) {
+        failCount++;
+        continue;
+      }
+
+      try {
+        const res = await deleteRow(sessionId, namespace.database, namespace.schema, tableName, pkData);
+        if (res.success) {
+          successCount++;
+        } else {
+          failCount++;
+          console.error('Delete failed:', res.error);
+        }
+      } catch (e) {
+        failCount++;
+        console.error('Delete error:', e);
+      }
+    }
+
+    setIsDeleting(false);
+    setRowSelection({}); // Clear selection
+
+    if (successCount > 0) {
+      toast.success(t('grid.deleteSuccess', { count: successCount }));
+      if (onRowsDeleted) onRowsDeleted();
+    }
+    
+    if (failCount > 0) {
+      toast.error(t('grid.deleteError', { count: failCount }));
+    }
+  }
+
   // Copy functionality
   const copyToClipboard = useCallback(async (format: 'csv' | 'json' | 'sql') => {
     const selectedRows = table.getSelectedRowModel().rows;
@@ -214,7 +293,7 @@ export function DataGrid({ result, height = 400 }: DataGridProps) {
       }
       case 'sql': {
         if (!result) return;
-        const tableName = 'table_name'; // TODO: get from context
+        const targetTable = tableName || 'table_name';
         const inserts = rowsToCopy.map(row => {
           const values = columnNames.map(col => {
             const value = row.original[col];
@@ -224,7 +303,7 @@ export function DataGrid({ result, height = 400 }: DataGridProps) {
             // Escape single quotes
             return `'${String(value).replace(/'/g, "''")}'`;
           });
-          return `INSERT INTO ${tableName} (${columnNames.join(', ')}) VALUES (${values.join(', ')});`;
+          return `INSERT INTO ${targetTable} (${columnNames.join(', ')}) VALUES (${values.join(', ')});`;
         });
         content = inserts.join('\n');
         break;
@@ -234,7 +313,7 @@ export function DataGrid({ result, height = 400 }: DataGridProps) {
     await navigator.clipboard.writeText(content);
     setCopied(format);
     setTimeout(() => setCopied(null), 2000);
-  }, [rows, table, result]);
+  }, [rows, table, result, tableName]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -263,16 +342,29 @@ export function DataGrid({ result, height = 400 }: DataGridProps) {
   }
 
   const selectedCount = Object.keys(rowSelection).length;
+  const canDelete = sessionId && tableName && primaryKey && primaryKey.length > 0 && selectedCount > 0;
 
   return (
     <div className="flex flex-col gap-2" data-datagrid>
-      {/* Toolbar */}
       <div className="flex items-center justify-between px-1">
-        <div className="text-xs text-muted-foreground">
+        <div className="text-xs text-muted-foreground flex items-center gap-3">
           {selectedCount > 0 ? (
             <span>{t('grid.rowsSelected', { count: selectedCount })}</span>
           ) : (
             <span>{t('grid.rowsTotal', { count: data.length })}</span>
+          )}
+          
+          {canDelete && (
+            <Button
+              variant="destructive"
+              size="sm"
+              className="h-6 px-2 text-xs"
+              onClick={handleDelete}
+              disabled={isDeleting}
+            >
+              <Trash2 size={12} className="mr-1" />
+              {isDeleting ? t('grid.deleting') : t('grid.delete')}
+            </Button>
           )}
         </div>
         <div className="flex items-center gap-1">
@@ -356,6 +448,10 @@ export function DataGrid({ result, height = 400 }: DataGridProps) {
                         row.getIsSelected() && "bg-accent/10"
                       )}
                       onClick={() => row.toggleSelected()}
+                      onDoubleClick={(e) => {
+                        e.stopPropagation();
+                        if (onRowClick) onRowClick(row.original);
+                      }}
                     >
                       {row.getVisibleCells().map(cell => (
                         <td

@@ -130,7 +130,20 @@
         "noResults": "Aucun résultat",
         "copyCSV": "Copier en CSV",
         "copyJSON": "Copier en JSON",
-        "copySQL": "Copier en SQL"
+        "copySQL": "Copier en SQL",
+        "confirmDelete": "Voulez-vous vraiment supprimer {{count}} ligne(s) sélectionnée(s) ?",
+        "delete": "Supprimer",
+        "deleting": "Suppression...",
+        "deleteSuccess": "{{count}} ligne(s) supprimée(s) avec succès",
+        "deleteError": "Échec de la suppression des lignes"
+    },
+    "rowModal": {
+        "insertTitle": "Insérer une nouvelle ligne",
+        "updateTitle": "Modifier la ligne dans {{table}}",
+        "insertSuccess": "Ligne insérée avec succès",
+        "insertError": "Échec de l'insertion de la ligne",
+        "updateSuccess": "Ligne modifiée avec succès",
+        "updateError": "Échec de la modification de la ligne"
     },
     "database": {
         "newTitle": "Nouvelle base de données",
@@ -154,6 +167,8 @@
         "error": "Erreur",
         "success": "Succès",
         "create": "Créer",
+        "insert": "Insérer",
+        "save": "Enregistrer",
         "cancel": "Annuler",
         "unknownError": "Erreur inconnue",
         "mongoCreateDbHint": "Pour MongoDB, insérez simplement des données dans un espace de noms pour le créer."

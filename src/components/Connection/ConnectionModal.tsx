@@ -31,7 +31,6 @@ interface ConnectionModalProps {
   isOpen: boolean;
   onClose: () => void;
   onConnected: (sessionId: string, driver: string) => void;
-  // Edit mode props
   editConnection?: SavedConnection;
   editPassword?: string;
   onSaved?: () => void;
@@ -46,7 +45,6 @@ interface FormData {
   password: string;
   database: string;
   ssl: boolean;
-  // SSH Tunnel
   useSshTunnel: boolean;
   sshHost: string;
   sshPort: number;
@@ -64,7 +62,6 @@ const initialFormData: FormData = {
   password: '',
   database: '',
   ssl: false,
-  // SSH Tunnel
   useSshTunnel: false,
   sshHost: '',
   sshPort: 22,

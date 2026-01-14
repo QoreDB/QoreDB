@@ -138,10 +138,38 @@ pub struct ColumnInfo {
     pub nullable: bool,
 }
 
-/// A single row of data
+/// A single row of data (indexed by column order)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Row {
     pub values: Vec<Value>,
+}
+
+/// Row data for mutation operations (indexed by column name)
+///
+/// Used for INSERT and UPDATE operations where values are specified by column name.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RowData {
+    /// Map of column name to value
+    pub columns: std::collections::HashMap<String, Value>,
+}
+
+impl RowData {
+    pub fn new() -> Self {
+        Self {
+            columns: std::collections::HashMap::new(),
+        }
+    }
+
+    pub fn with_column(mut self, name: impl Into<String>, value: Value) -> Self {
+        self.columns.insert(name.into(), value);
+        self
+    }
+}
+
+impl Default for RowData {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 /// Query execution result

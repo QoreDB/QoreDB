@@ -17,9 +17,12 @@ import {
   Hash, 
   Loader2, 
   AlertCircle,
-  X 
+  X,
+  Plus
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Value } from '../../lib/tauri';
+import { RowModal } from './RowModal'
 
 interface TableBrowserProps {
   sessionId: string;
@@ -42,6 +45,11 @@ export function TableBrowser({
   const [data, setData] = useState<QueryResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Modal state
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalMode, setModalMode] = useState<'insert' | 'update'>('insert');
+  const [selectedRow, setSelectedRow] = useState<Record<string, Value> | undefined>(undefined);
 
   useEffect(() => {
     loadData();
@@ -102,9 +110,24 @@ export function TableBrowser({
             </div>
           </div>
         </div>
-        <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8">
-          <X size={16} />
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="h-8 gap-1.5"
+            onClick={() => {
+              setModalMode('insert');
+              setSelectedRow(undefined);
+              setIsModalOpen(true);
+            }}
+          >
+            <Plus size={14} />
+            {t('common.insert')}
+          </Button>
+          <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8">
+            <X size={16} />
+          </Button>
+        </div>
       </div>
 
       {/* Tabs */}
@@ -152,11 +175,38 @@ export function TableBrowser({
             <pre className="text-sm font-mono whitespace-pre-wrap">{error}</pre>
           </div>
         ) : activeTab === 'data' ? (
-          <DataGrid result={data} height={500} />
+          <DataGrid 
+            result={data} 
+            height={500} 
+            sessionId={sessionId}
+            namespace={namespace}
+            tableName={tableName}
+            primaryKey={schema?.primary_key}
+            onRowsDeleted={loadData}
+            onRowClick={(row) => {
+              setModalMode('update');
+              setSelectedRow(row);
+              setIsModalOpen(true);
+            }}
+          />
         ) : (
           <StructureTable schema={schema} />
         )}
       </div>
+
+      {schema && (
+        <RowModal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          mode={modalMode}
+          sessionId={sessionId}
+          namespace={namespace}
+          tableName={tableName}
+          schema={schema}
+          initialData={selectedRow}
+          onSuccess={loadData}
+        />
+      )}
     </div>
   );
 }

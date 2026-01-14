@@ -1,32 +1,73 @@
 //! MySQL Driver
 //!
 //! Implements the DataEngine trait for MySQL/MariaDB databases using SQLx.
+//!
+//! ## Transaction Handling
+//!
+//! Same architecture as PostgreSQL: dedicated connection acquired from pool
+//! on BEGIN and released on COMMIT/ROLLBACK.
 
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Instant;
 
 use async_trait::async_trait;
-use sqlx::mysql::{MySqlPool, MySqlPoolOptions, MySqlRow};
+use sqlx::mysql::{MySql, MySqlPool, MySqlPoolOptions, MySqlRow};
+use sqlx::pool::PoolConnection;
 use sqlx::{Column, Row, TypeInfo};
-use tokio::sync::RwLock;
+use tokio::sync::Mutex;
 
 use crate::engine::error::{EngineError, EngineResult};
 use crate::engine::traits::DataEngine;
 use crate::engine::types::{
     Collection, CollectionType, ColumnInfo, ConnectionConfig, Namespace, QueryResult,
-    Row as QRow, SessionId, TableColumn, TableSchema, Value,
+    Row as QRow, RowData, SessionId, TableColumn, TableSchema, Value,
 };
+
+/// Holds the connection state for a MySQL session.
+pub struct MySqlSession {
+    /// The connection pool for this session
+    pub pool: MySqlPool,
+    /// Dedicated connection when a transaction is active
+    pub transaction_conn: Option<PoolConnection<MySql>>,
+}
+
+impl MySqlSession {
+    pub fn new(pool: MySqlPool) -> Self {
+        Self {
+            pool,
+            transaction_conn: None,
+        }
+    }
+}
 
 /// MySQL driver implementation
 pub struct MySqlDriver {
-    sessions: Arc<RwLock<HashMap<SessionId, MySqlPool>>>,
+    sessions: Arc<Mutex<HashMap<SessionId, MySqlSession>>>,
 }
 
 impl MySqlDriver {
     pub fn new() -> Self {
         Self {
-            sessions: Arc::new(RwLock::new(HashMap::new())),
+            sessions: Arc::new(Mutex::new(HashMap::new())),
+        }
+    }
+
+    /// Helper to bind a Value to a MySQL query
+    fn bind_param<'q>(
+        query: sqlx::query::Query<'q, MySql, sqlx::mysql::MySqlArguments>,
+        value: &'q Value,
+    ) -> sqlx::query::Query<'q, MySql, sqlx::mysql::MySqlArguments> {
+        match value {
+            Value::Null => query.bind(Option::<String>::None),
+            Value::Bool(b) => query.bind(b),
+            Value::Int(i) => query.bind(i),
+            Value::Float(f) => query.bind(f),
+            Value::Text(s) => query.bind(s),
+            Value::Bytes(b) => query.bind(b),
+            Value::Json(j) => query.bind(j),
+            // Fallback for arrays
+            Value::Array(_) => query.bind(Option::<String>::None),
         }
     }
 
@@ -179,18 +220,19 @@ impl DataEngine for MySqlDriver {
             .map_err(|e| EngineError::connection_failed(e.to_string()))?;
 
         let session_id = SessionId::new();
+        let session = MySqlSession::new(pool);
 
-        let mut sessions = self.sessions.write().await;
-        sessions.insert(session_id, pool);
+        let mut sessions = self.sessions.lock().await;
+        sessions.insert(session_id, session);
 
         Ok(session_id)
     }
 
     async fn disconnect(&self, session: SessionId) -> EngineResult<()> {
-        let mut sessions = self.sessions.write().await;
+        let mut sessions = self.sessions.lock().await;
 
-        if let Some(pool) = sessions.remove(&session) {
-            pool.close().await;
+        if let Some(mysql_session) = sessions.remove(&session) {
+            mysql_session.pool.close().await;
             Ok(())
         } else {
             Err(EngineError::session_not_found(session.0.to_string()))
@@ -198,10 +240,11 @@ impl DataEngine for MySqlDriver {
     }
 
     async fn list_namespaces(&self, session: SessionId) -> EngineResult<Vec<Namespace>> {
-        let sessions = self.sessions.read().await;
-        let pool = sessions
+        let sessions = self.sessions.lock().await;
+        let mysql_session = sessions
             .get(&session)
             .ok_or_else(|| EngineError::session_not_found(session.0.to_string()))?;
+        let pool = &mysql_session.pool;
 
         let rows: Vec<(String,)> = sqlx::query_as(
             r#"
@@ -225,10 +268,11 @@ impl DataEngine for MySqlDriver {
         session: SessionId,
         namespace: &Namespace,
     ) -> EngineResult<Vec<Collection>> {
-        let sessions = self.sessions.read().await;
-        let pool = sessions
+        let sessions = self.sessions.lock().await;
+        let mysql_session = sessions
             .get(&session)
             .ok_or_else(|| EngineError::session_not_found(session.0.to_string()))?;
+        let pool = &mysql_session.pool;
 
         // Cast to CHAR to avoid BINARY type mismatch with Rust String
         let rows: Vec<(String, String)> = sqlx::query_as(
@@ -262,10 +306,13 @@ impl DataEngine for MySqlDriver {
         Ok(collections)
     }
 
+    /// Executes a query and returns the result
+    /// 
+    /// Routes to transaction connection if active, otherwise uses pool.
     async fn execute(&self, session: SessionId, query: &str) -> EngineResult<QueryResult> {
-        let sessions = self.sessions.read().await;
-        let pool = sessions
-            .get(&session)
+        let mut sessions = self.sessions.lock().await;
+        let mysql_session = sessions
+            .get_mut(&session)
             .ok_or_else(|| EngineError::session_not_found(session.0.to_string()))?;
 
         let start = Instant::now();
@@ -276,11 +323,101 @@ impl DataEngine for MySqlDriver {
             || trimmed.starts_with("DESCRIBE")
             || trimmed.starts_with("EXPLAIN");
 
-        if is_select {
-            let mysql_rows: Vec<MySqlRow> = sqlx::query(query)
-                .fetch_all(pool)
-                .await
-                .map_err(|e| {
+        // Route to transaction connection if active, otherwise use pool
+        if let Some(ref mut conn) = mysql_session.transaction_conn {
+            // Execute on dedicated transaction connection
+            if is_select {
+                let mysql_rows: Vec<MySqlRow> = sqlx::query(query)
+                    .fetch_all(&mut **conn)
+                    .await
+                    .map_err(|e| {
+                        let msg = e.to_string();
+                        if msg.contains("syntax") {
+                            EngineError::syntax_error(msg)
+                        } else {
+                            EngineError::execution_error(msg)
+                        }
+                    })?;
+
+                let execution_time_ms = start.elapsed().as_millis() as u64;
+
+                if mysql_rows.is_empty() {
+                    return Ok(QueryResult {
+                        columns: Vec::new(),
+                        rows: Vec::new(),
+                        affected_rows: None,
+                        execution_time_ms,
+                    });
+                }
+
+                let columns = Self::get_column_info(&mysql_rows[0]);
+                let rows: Vec<QRow> = mysql_rows.iter().map(Self::convert_row).collect();
+
+                Ok(QueryResult {
+                    columns,
+                    rows,
+                    affected_rows: None,
+                    execution_time_ms,
+                })
+            } else {
+                let result = sqlx::query(query)
+                    .execute(&mut **conn)
+                    .await
+                    .map_err(|e| {
+                        let msg = e.to_string();
+                        if msg.contains("syntax") {
+                            EngineError::syntax_error(msg)
+                        } else {
+                            EngineError::execution_error(msg)
+                        }
+                    })?;
+
+                let execution_time_ms = start.elapsed().as_millis() as u64;
+
+                Ok(QueryResult::with_affected_rows(
+                    result.rows_affected(),
+                    execution_time_ms,
+                ))
+            }
+        } else {
+            // No transaction active - use pool
+            let pool = &mysql_session.pool;
+
+            if is_select {
+                let mysql_rows: Vec<MySqlRow> = sqlx::query(query)
+                    .fetch_all(pool)
+                    .await
+                    .map_err(|e| {
+                        let msg = e.to_string();
+                        if msg.contains("syntax") {
+                            EngineError::syntax_error(msg)
+                        } else {
+                            EngineError::execution_error(msg)
+                        }
+                    })?;
+
+                let execution_time_ms = start.elapsed().as_millis() as u64;
+
+                if mysql_rows.is_empty() {
+                    return Ok(QueryResult {
+                        columns: Vec::new(),
+                        rows: Vec::new(),
+                        affected_rows: None,
+                        execution_time_ms,
+                    });
+                }
+
+                let columns = Self::get_column_info(&mysql_rows[0]);
+                let rows: Vec<QRow> = mysql_rows.iter().map(Self::convert_row).collect();
+
+                Ok(QueryResult {
+                    columns,
+                    rows,
+                    affected_rows: None,
+                    execution_time_ms,
+                })
+            } else {
+                let result = sqlx::query(query).execute(pool).await.map_err(|e| {
                     let msg = e.to_string();
                     if msg.contains("syntax") {
                         EngineError::syntax_error(msg)
@@ -289,42 +426,13 @@ impl DataEngine for MySqlDriver {
                     }
                 })?;
 
-            let execution_time_ms = start.elapsed().as_millis() as u64;
+                let execution_time_ms = start.elapsed().as_millis() as u64;
 
-            if mysql_rows.is_empty() {
-                return Ok(QueryResult {
-                    columns: Vec::new(),
-                    rows: Vec::new(),
-                    affected_rows: None,
+                Ok(QueryResult::with_affected_rows(
+                    result.rows_affected(),
                     execution_time_ms,
-                });
+                ))
             }
-
-            let columns = Self::get_column_info(&mysql_rows[0]);
-            let rows: Vec<QRow> = mysql_rows.iter().map(Self::convert_row).collect();
-
-            Ok(QueryResult {
-                columns,
-                rows,
-                affected_rows: None,
-                execution_time_ms,
-            })
-        } else {
-            let result = sqlx::query(query).execute(pool).await.map_err(|e| {
-                let msg = e.to_string();
-                if msg.contains("syntax") {
-                    EngineError::syntax_error(msg)
-                } else {
-                    EngineError::execution_error(msg)
-                }
-            })?;
-
-            let execution_time_ms = start.elapsed().as_millis() as u64;
-
-            Ok(QueryResult::with_affected_rows(
-                result.rows_affected(),
-                execution_time_ms,
-            ))
         }
     }
 
@@ -334,10 +442,11 @@ impl DataEngine for MySqlDriver {
         namespace: &Namespace,
         table: &str,
     ) -> EngineResult<TableSchema> {
-        let sessions = self.sessions.read().await;
-        let pool = sessions
+        let sessions = self.sessions.lock().await;
+        let mysql_session = sessions
             .get(&session)
             .ok_or_else(|| EngineError::session_not_found(session.0.to_string()))?;
+        let pool = &mysql_session.pool;
 
         let database = &namespace.database;
         // Cast to CHAR to avoid BINARY type mismatch with Rust String
@@ -418,11 +527,276 @@ impl DataEngine for MySqlDriver {
     }
 
     async fn cancel(&self, session: SessionId) -> EngineResult<()> {
-        let sessions = self.sessions.read().await;
+        let sessions = self.sessions.lock().await;
         if sessions.contains_key(&session) {
             Ok(())
         } else {
             Err(EngineError::session_not_found(session.0.to_string()))
         }
+    }
+
+    // ==================== Transaction Methods ====================
+
+    async fn begin_transaction(&self, session: SessionId) -> EngineResult<()> {
+        let mut sessions = self.sessions.lock().await;
+        let mysql_session = sessions
+            .get_mut(&session)
+            .ok_or_else(|| EngineError::session_not_found(session.0.to_string()))?;
+
+        if mysql_session.transaction_conn.is_some() {
+            return Err(EngineError::transaction_error(
+                "A transaction is already active on this session"
+            ));
+        }
+
+        let mut conn = mysql_session.pool.acquire().await
+            .map_err(|e| EngineError::connection_failed(format!(
+                "Failed to acquire connection for transaction: {}", e
+            )))?;
+
+        sqlx::query("START TRANSACTION")
+            .execute(&mut *conn)
+            .await
+            .map_err(|e| EngineError::execution_error(format!(
+                "Failed to begin transaction: {}", e
+            )))?;
+
+        mysql_session.transaction_conn = Some(conn);
+        Ok(())
+    }
+
+    async fn commit(&self, session: SessionId) -> EngineResult<()> {
+        let mut sessions = self.sessions.lock().await;
+        let mysql_session = sessions
+            .get_mut(&session)
+            .ok_or_else(|| EngineError::session_not_found(session.0.to_string()))?;
+
+        let mut conn = mysql_session.transaction_conn.take()
+            .ok_or_else(|| EngineError::transaction_error(
+                "No active transaction to commit"
+            ))?;
+
+        sqlx::query("COMMIT")
+            .execute(&mut *conn)
+            .await
+            .map_err(|e| EngineError::execution_error(format!(
+                "Failed to commit transaction: {}", e
+            )))?;
+
+        Ok(())
+    }
+
+    async fn rollback(&self, session: SessionId) -> EngineResult<()> {
+        let mut sessions = self.sessions.lock().await;
+        let mysql_session = sessions
+            .get_mut(&session)
+            .ok_or_else(|| EngineError::session_not_found(session.0.to_string()))?;
+
+        let mut conn = mysql_session.transaction_conn.take()
+            .ok_or_else(|| EngineError::transaction_error(
+                "No active transaction to rollback"
+            ))?;
+
+        sqlx::query("ROLLBACK")
+            .execute(&mut *conn)
+            .await
+            .map_err(|e| EngineError::execution_error(format!(
+                "Failed to rollback transaction: {}", e
+            )))?;
+
+        Ok(())
+    }
+
+    fn supports_transactions(&self) -> bool {
+        true
+    }
+
+    // ==================== Mutation Methods ====================
+
+    async fn insert_row(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        table: &str,
+        data: &RowData,
+    ) -> EngineResult<QueryResult> {
+        let mut sessions = self.sessions.lock().await;
+        let mysql_session = sessions
+            .get_mut(&session)
+            .ok_or_else(|| EngineError::session_not_found(session.0.to_string()))?;
+
+        // 1. Build Query String
+        // MySQL uses backticks for identifiers
+        let table_name = format!("`{}`.`{}`", 
+            namespace.database.replace("`", "``"), 
+            table.replace("`", "``")
+        );
+
+        let mut keys: Vec<&String> = data.columns.keys().collect();
+        keys.sort();
+
+        let sql = if keys.is_empty() {
+             // MySQL: INSERT INTO table () VALUES ()
+             format!("INSERT INTO {} () VALUES ()", table_name)
+        } else {
+            let cols_str = keys.iter().map(|k| format!("`{}`", k.replace("`", "``"))).collect::<Vec<_>>().join(", ");
+            let params_str = vec!["?"; keys.len()].join(", ");
+            format!("INSERT INTO {} ({}) VALUES ({})", table_name, cols_str, params_str)
+        };
+
+        // 2. Prepare Query
+        let mut query = sqlx::query(&sql);
+        for k in &keys {
+            let val = data.columns.get(*k).unwrap();
+            query = Self::bind_param(query, val);
+        }
+
+        // 3. Execute
+        let start = Instant::now();
+        let result = if let Some(ref mut conn) = mysql_session.transaction_conn {
+             query.execute(&mut **conn).await
+        } else {
+             query.execute(&mysql_session.pool).await
+        };
+
+        let result = result.map_err(|e| EngineError::execution_error(e.to_string()))?;
+        
+        Ok(QueryResult::with_affected_rows(
+            result.rows_affected(),
+            start.elapsed().as_millis() as u64,
+        ))
+    }
+
+    async fn update_row(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        table: &str,
+        primary_key: &RowData,
+        data: &RowData,
+    ) -> EngineResult<QueryResult> {
+        let mut sessions = self.sessions.lock().await;
+        let mysql_session = sessions
+            .get_mut(&session)
+            .ok_or_else(|| EngineError::session_not_found(session.0.to_string()))?;
+
+        if primary_key.columns.is_empty() {
+            return Err(EngineError::execution_error("Primary key required for update operations".to_string()));
+        }
+
+        if data.columns.is_empty() {
+             return Ok(QueryResult::with_affected_rows(0, 0));
+        }
+
+        let table_name = format!("`{}`.`{}`", 
+            namespace.database.replace("`", "``"), 
+            table.replace("`", "``")
+        );
+
+        let mut data_keys: Vec<&String> = data.columns.keys().collect();
+        data_keys.sort();
+
+        let mut pk_keys: Vec<&String> = primary_key.columns.keys().collect();
+        pk_keys.sort();
+
+        // UPDATE table SET col1=?, col2=? WHERE pk1=? AND pk2=?
+        let set_clauses: Vec<String> = data_keys.iter()
+            .map(|k| format!("`{}`=?", k.replace("`", "``")))
+            .collect();
+
+        let where_clauses: Vec<String> = pk_keys.iter()
+            .map(|k| format!("`{}`=?", k.replace("`", "``")))
+            .collect();
+
+        let sql = format!(
+            "UPDATE {} SET {} WHERE {}", 
+            table_name, 
+            set_clauses.join(", "), 
+            where_clauses.join(" AND ")
+        );
+
+        let mut query = sqlx::query(&sql);
+        
+        // Bind data values
+        for k in &data_keys {
+            let val = data.columns.get(*k).unwrap();
+            query = Self::bind_param(query, val);
+        }
+        
+        // Bind PK values
+        for k in &pk_keys {
+            let val = primary_key.columns.get(*k).unwrap();
+            query = Self::bind_param(query, val);
+        }
+
+        let start = Instant::now();
+        let result = if let Some(ref mut conn) = mysql_session.transaction_conn {
+             query.execute(&mut **conn).await
+        } else {
+             query.execute(&mysql_session.pool).await
+        };
+
+        let result = result.map_err(|e| EngineError::execution_error(e.to_string()))?;
+        
+        Ok(QueryResult::with_affected_rows(
+            result.rows_affected(),
+            start.elapsed().as_millis() as u64,
+        ))
+    }
+
+    async fn delete_row(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        table: &str,
+        primary_key: &RowData,
+    ) -> EngineResult<QueryResult> {
+        let mut sessions = self.sessions.lock().await;
+        let mysql_session = sessions
+            .get_mut(&session)
+            .ok_or_else(|| EngineError::session_not_found(session.0.to_string()))?;
+
+        if primary_key.columns.is_empty() {
+            return Err(EngineError::execution_error("Primary key required for delete operations".to_string()));
+        }
+
+        let table_name = format!("`{}`.`{}`", 
+            namespace.database.replace("`", "``"), 
+            table.replace("`", "``")
+        );
+
+        let mut pk_keys: Vec<&String> = primary_key.columns.keys().collect();
+        pk_keys.sort();
+
+        // DELETE FROM table WHERE pk1=?
+        let where_clauses: Vec<String> = pk_keys.iter()
+            .map(|k| format!("`{}`=?", k.replace("`", "``")))
+            .collect();
+
+        let sql = format!("DELETE FROM {} WHERE {}", table_name, where_clauses.join(" AND "));
+
+        let mut query = sqlx::query(&sql);
+        for k in &pk_keys {
+            let val = primary_key.columns.get(*k).unwrap();
+            query = Self::bind_param(query, val);
+        }
+
+        let start = Instant::now();
+        let result = if let Some(ref mut conn) = mysql_session.transaction_conn {
+             query.execute(&mut **conn).await
+        } else {
+             query.execute(&mysql_session.pool).await
+        };
+
+        let result = result.map_err(|e| EngineError::execution_error(e.to_string()))?;
+        
+        Ok(QueryResult::with_affected_rows(
+            result.rows_affected(),
+            start.elapsed().as_millis() as u64,
+        ))
+    }
+
+    fn supports_mutations(&self) -> bool {
+        true
     }
 }

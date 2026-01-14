@@ -8,7 +8,7 @@ use async_trait::async_trait;
 
 use crate::engine::error::EngineResult;
 use crate::engine::types::{
-    Collection, ConnectionConfig, Namespace, QueryResult, SessionId, TableSchema,
+    Collection, ConnectionConfig, Namespace, QueryResult, RowData, SessionId, TableSchema,
 };
 
 /// Core trait that all database drivers must implement
@@ -74,4 +74,126 @@ pub trait DataEngine: Send + Sync {
 
     /// Cancels a running query for the given session
     async fn cancel(&self, session: SessionId) -> EngineResult<()>;
+
+    // ==================== Transaction Methods ====================
+    // These have default implementations that return NotSupported.
+    // Drivers that support transactions should override these.
+
+    /// Begin a transaction for the session.
+    /// 
+    /// After calling this, all subsequent queries will be part of the transaction
+    /// until commit() or rollback() is called.
+    /// 
+    /// Note: For connection-pooled drivers (SQLx), this acquires a dedicated connection.
+    async fn begin_transaction(&self, session: SessionId) -> EngineResult<()> {
+        let _ = session;
+        Err(crate::engine::error::EngineError::not_supported(
+            "Transactions are not supported by this driver"
+        ))
+    }
+
+    /// Commit the current transaction.
+    /// 
+    /// All changes made since begin_transaction() will be persisted.
+    async fn commit(&self, session: SessionId) -> EngineResult<()> {
+        let _ = session;
+        Err(crate::engine::error::EngineError::not_supported(
+            "Transactions are not supported by this driver"
+        ))
+    }
+
+    /// Rollback the current transaction.
+    /// 
+    /// All changes made since begin_transaction() will be discarded.
+    async fn rollback(&self, session: SessionId) -> EngineResult<()> {
+        let _ = session;
+        Err(crate::engine::error::EngineError::not_supported(
+            "Transactions are not supported by this driver"
+        ))
+    }
+
+    /// Check if the driver supports transactions.
+    fn supports_transactions(&self) -> bool {
+        false
+    }
+
+    // ==================== Mutation Methods ====================
+    // These have default implementations that return NotSupported.
+    // Drivers should override these to provide CRUD functionality.
+
+    /// Insert a new row into a table.
+    ///
+    /// # Arguments
+    /// * `session` - The session ID
+    /// * `namespace` - The namespace (database/schema) containing the table
+    /// * `table` - The table name
+    /// * `data` - The row data to insert (column name -> value mapping)
+    ///
+    /// # Returns
+    /// QueryResult with affected_rows = 1 on success
+    async fn insert_row(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        table: &str,
+        data: &RowData,
+    ) -> EngineResult<QueryResult> {
+        let _ = (session, namespace, table, data);
+        Err(crate::engine::error::EngineError::not_supported(
+            "Insert operations are not supported by this driver"
+        ))
+    }
+
+    /// Update a row identified by primary key.
+    ///
+    /// # Arguments
+    /// * `session` - The session ID
+    /// * `namespace` - The namespace (database/schema) containing the table
+    /// * `table` - The table name
+    /// * `primary_key` - The primary key columns and their values
+    /// * `data` - The columns to update (column name -> new value mapping)
+    ///
+    /// # Returns
+    /// QueryResult with affected_rows indicating how many rows were updated
+    async fn update_row(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        table: &str,
+        primary_key: &RowData,
+        data: &RowData,
+    ) -> EngineResult<QueryResult> {
+        let _ = (session, namespace, table, primary_key, data);
+        Err(crate::engine::error::EngineError::not_supported(
+            "Update operations are not supported by this driver"
+        ))
+    }
+
+    /// Delete a row identified by primary key.
+    ///
+    /// # Arguments
+    /// * `session` - The session ID
+    /// * `namespace` - The namespace (database/schema) containing the table
+    /// * `table` - The table name
+    /// * `primary_key` - The primary key columns and their values
+    ///
+    /// # Returns
+    /// QueryResult with affected_rows indicating how many rows were deleted
+    async fn delete_row(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        table: &str,
+        primary_key: &RowData,
+    ) -> EngineResult<QueryResult> {
+        let _ = (session, namespace, table, primary_key);
+        Err(crate::engine::error::EngineError::not_supported(
+            "Delete operations are not supported by this driver"
+        ))
+    }
+
+    /// Check if the driver supports CRUD mutations.
+    fn supports_mutations(&self) -> bool {
+        false
+    }
 }

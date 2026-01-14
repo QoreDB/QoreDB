@@ -69,6 +69,16 @@ pub fn run() {
             commands::query::list_collections,
             commands::query::describe_table,
             commands::query::preview_table,
+            // Transaction commands
+            commands::query::begin_transaction,
+            commands::query::commit_transaction,
+            commands::query::rollback_transaction,
+            commands::query::supports_transactions,
+            // Mutation commands
+            commands::mutation::insert_row,
+            commands::mutation::update_row,
+            commands::mutation::delete_row,
+            commands::mutation::supports_mutations,
             // Vault commands
             commands::vault::get_vault_status,
             commands::vault::setup_master_password,

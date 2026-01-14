@@ -1,32 +1,67 @@
 //! PostgreSQL Driver
 //!
 //! Implements the DataEngine trait for PostgreSQL databases using SQLx.
+//!
+//! ## Transaction Handling
+//!
+//! When a transaction is started via `begin_transaction()`, a dedicated connection
+//! is acquired from the pool and held until `commit()` or `rollback()` is called.
+//! All queries during the transaction are executed on this dedicated connection
+//! to ensure proper isolation.
 
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Instant;
 
 use async_trait::async_trait;
-use sqlx::postgres::{PgPool, PgPoolOptions, PgRow};
+use sqlx::pool::PoolConnection;
+use sqlx::postgres::{PgPool, PgPoolOptions, PgRow, Postgres};
 use sqlx::{Column, Row, TypeInfo};
-use tokio::sync::RwLock;
+use tokio::sync::Mutex;
 
 use crate::engine::error::{EngineError, EngineResult};
 use crate::engine::traits::DataEngine;
 use crate::engine::types::{
     Collection, CollectionType, ColumnInfo, ConnectionConfig, Namespace, QueryResult,
-    Row as QRow, SessionId, TableColumn, TableSchema, Value,
+    Row as QRow, RowData, SessionId, TableColumn, TableSchema, Value,
 };
+
+/// Holds the connection state for a PostgreSQL session.
+///
+/// A session always has a pool for regular operations.
+/// When a transaction is active, a dedicated connection is held
+/// to ensure all queries within the transaction use the same connection.
+pub struct PostgresSession {
+    /// The connection pool for this session
+    pub pool: PgPool,
+    /// Dedicated connection when a transaction is active
+    /// This connection is acquired on BEGIN and released on COMMIT/ROLLBACK
+    pub transaction_conn: Option<PoolConnection<Postgres>>,
+}
+
+impl PostgresSession {
+    pub fn new(pool: PgPool) -> Self {
+        Self {
+            pool,
+            transaction_conn: None,
+        }
+    }
+
+    /// Returns true if a transaction is currently active
+    pub fn has_active_transaction(&self) -> bool {
+        self.transaction_conn.is_some()
+    }
+}
 
 /// PostgreSQL driver implementation
 pub struct PostgresDriver {
-    sessions: Arc<RwLock<HashMap<SessionId, PgPool>>>,
+    sessions: Arc<Mutex<HashMap<SessionId, PostgresSession>>>,
 }
 
 impl PostgresDriver {
     pub fn new() -> Self {
         Self {
-            sessions: Arc::new(RwLock::new(HashMap::new())),
+            sessions: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
@@ -50,6 +85,24 @@ impl PostgresDriver {
             .collect();
 
         QRow { values }
+    }
+
+    /// Helper to bind a Value to a Postgres query
+    fn bind_param<'q>(
+        query: sqlx::query::Query<'q, Postgres, sqlx::postgres::PgArguments>,
+        value: &'q Value,
+    ) -> sqlx::query::Query<'q, Postgres, sqlx::postgres::PgArguments> {
+        match value {
+            Value::Null => query.bind(Option::<String>::None),
+            Value::Bool(b) => query.bind(b),
+            Value::Int(i) => query.bind(i),
+            Value::Float(f) => query.bind(f),
+            Value::Text(s) => query.bind(s),
+            Value::Bytes(b) => query.bind(b),
+            Value::Json(j) => query.bind(j),
+            // Fallback for arrays or other complex types not yet fully mapped
+            Value::Array(_) => query.bind(Option::<String>::None),
+        }
     }
 
     /// Extracts a value from a PgRow at the given index
@@ -172,18 +225,19 @@ impl DataEngine for PostgresDriver {
             .map_err(|e| EngineError::connection_failed(e.to_string()))?;
 
         let session_id = SessionId::new();
+        let session = PostgresSession::new(pool);
 
-        let mut sessions = self.sessions.write().await;
-        sessions.insert(session_id, pool);
+        let mut sessions = self.sessions.lock().await;
+        sessions.insert(session_id, session);
 
         Ok(session_id)
     }
 
     async fn disconnect(&self, session: SessionId) -> EngineResult<()> {
-        let mut sessions = self.sessions.write().await;
+        let mut sessions = self.sessions.lock().await;
 
-        if let Some(pool) = sessions.remove(&session) {
-            pool.close().await;
+        if let Some(pg_session) = sessions.remove(&session) {
+            pg_session.pool.close().await;
             Ok(())
         } else {
             Err(EngineError::session_not_found(session.0.to_string()))
@@ -191,10 +245,11 @@ impl DataEngine for PostgresDriver {
     }
 
     async fn list_namespaces(&self, session: SessionId) -> EngineResult<Vec<Namespace>> {
-        let sessions = self.sessions.read().await;
-        let pool = sessions
+        let sessions = self.sessions.lock().await;
+        let pg_session = sessions
             .get(&session)
             .ok_or_else(|| EngineError::session_not_found(session.0.to_string()))?;
+        let pool = &pg_session.pool;
 
         // Get all schemas grouped by database
         let rows: Vec<(String, String)> = sqlx::query_as(
@@ -222,10 +277,11 @@ impl DataEngine for PostgresDriver {
         session: SessionId,
         namespace: &Namespace,
     ) -> EngineResult<Vec<Collection>> {
-        let sessions = self.sessions.read().await;
-        let pool = sessions
+        let sessions = self.sessions.lock().await;
+        let pg_session = sessions
             .get(&session)
             .ok_or_else(|| EngineError::session_not_found(session.0.to_string()))?;
+        let pool = &pg_session.pool;
 
         let schema = namespace.schema.as_deref().unwrap_or("public");
 
@@ -261,9 +317,9 @@ impl DataEngine for PostgresDriver {
     }
 
     async fn execute(&self, session: SessionId, query: &str) -> EngineResult<QueryResult> {
-        let sessions = self.sessions.read().await;
-        let pool = sessions
-            .get(&session)
+        let mut sessions = self.sessions.lock().await;
+        let pg_session = sessions
+            .get_mut(&session)
             .ok_or_else(|| EngineError::session_not_found(session.0.to_string()))?;
 
         let start = Instant::now();
@@ -275,11 +331,101 @@ impl DataEngine for PostgresDriver {
             || trimmed.starts_with("SHOW")
             || trimmed.starts_with("EXPLAIN");
 
-        if is_select {
-            let pg_rows: Vec<PgRow> = sqlx::query(query)
-                .fetch_all(pool)
-                .await
-                .map_err(|e| {
+        // Route to transaction connection if active, otherwise use pool
+        if let Some(ref mut conn) = pg_session.transaction_conn {
+            // Execute on dedicated transaction connection
+            if is_select {
+                let pg_rows: Vec<PgRow> = sqlx::query(query)
+                    .fetch_all(&mut **conn)
+                    .await
+                    .map_err(|e| {
+                        let msg = e.to_string();
+                        if msg.contains("syntax error") {
+                            EngineError::syntax_error(msg)
+                        } else {
+                            EngineError::execution_error(msg)
+                        }
+                    })?;
+
+                let execution_time_ms = start.elapsed().as_millis() as u64;
+
+                if pg_rows.is_empty() {
+                    return Ok(QueryResult {
+                        columns: Vec::new(),
+                        rows: Vec::new(),
+                        affected_rows: None,
+                        execution_time_ms,
+                    });
+                }
+
+                let columns = Self::get_column_info(&pg_rows[0]);
+                let rows: Vec<QRow> = pg_rows.iter().map(Self::convert_row).collect();
+
+                Ok(QueryResult {
+                    columns,
+                    rows,
+                    affected_rows: None,
+                    execution_time_ms,
+                })
+            } else {
+                let result = sqlx::query(query)
+                    .execute(&mut **conn)
+                    .await
+                    .map_err(|e| {
+                        let msg = e.to_string();
+                        if msg.contains("syntax error") {
+                            EngineError::syntax_error(msg)
+                        } else {
+                            EngineError::execution_error(msg)
+                        }
+                    })?;
+
+                let execution_time_ms = start.elapsed().as_millis() as u64;
+
+                Ok(QueryResult::with_affected_rows(
+                    result.rows_affected(),
+                    execution_time_ms,
+                ))
+            }
+        } else {
+            // No transaction active - use pool
+            let pool = &pg_session.pool;
+
+            if is_select {
+                let pg_rows: Vec<PgRow> = sqlx::query(query)
+                    .fetch_all(pool)
+                    .await
+                    .map_err(|e| {
+                        let msg = e.to_string();
+                        if msg.contains("syntax error") {
+                            EngineError::syntax_error(msg)
+                        } else {
+                            EngineError::execution_error(msg)
+                        }
+                    })?;
+
+                let execution_time_ms = start.elapsed().as_millis() as u64;
+
+                if pg_rows.is_empty() {
+                    return Ok(QueryResult {
+                        columns: Vec::new(),
+                        rows: Vec::new(),
+                        affected_rows: None,
+                        execution_time_ms,
+                    });
+                }
+
+                let columns = Self::get_column_info(&pg_rows[0]);
+                let rows: Vec<QRow> = pg_rows.iter().map(Self::convert_row).collect();
+
+                Ok(QueryResult {
+                    columns,
+                    rows,
+                    affected_rows: None,
+                    execution_time_ms,
+                })
+            } else {
+                let result = sqlx::query(query).execute(pool).await.map_err(|e| {
                     let msg = e.to_string();
                     if msg.contains("syntax error") {
                         EngineError::syntax_error(msg)
@@ -288,43 +434,13 @@ impl DataEngine for PostgresDriver {
                     }
                 })?;
 
-            let execution_time_ms = start.elapsed().as_millis() as u64;
+                let execution_time_ms = start.elapsed().as_millis() as u64;
 
-            if pg_rows.is_empty() {
-                return Ok(QueryResult {
-                    columns: Vec::new(),
-                    rows: Vec::new(),
-                    affected_rows: None,
+                Ok(QueryResult::with_affected_rows(
+                    result.rows_affected(),
                     execution_time_ms,
-                });
+                ))
             }
-
-            let columns = Self::get_column_info(&pg_rows[0]);
-            let rows: Vec<QRow> = pg_rows.iter().map(Self::convert_row).collect();
-
-            Ok(QueryResult {
-                columns,
-                rows,
-                affected_rows: None,
-                execution_time_ms,
-            })
-        } else {
-            // Non-SELECT query
-            let result = sqlx::query(query).execute(pool).await.map_err(|e| {
-                let msg = e.to_string();
-                if msg.contains("syntax error") {
-                    EngineError::syntax_error(msg)
-                } else {
-                    EngineError::execution_error(msg)
-                }
-            })?;
-
-            let execution_time_ms = start.elapsed().as_millis() as u64;
-
-            Ok(QueryResult::with_affected_rows(
-                result.rows_affected(),
-                execution_time_ms,
-            ))
         }
     }
 
@@ -334,10 +450,11 @@ impl DataEngine for PostgresDriver {
         namespace: &Namespace,
         table: &str,
     ) -> EngineResult<TableSchema> {
-        let sessions = self.sessions.read().await;
-        let pool = sessions
+        let sessions = self.sessions.lock().await;
+        let pg_session = sessions
             .get(&session)
             .ok_or_else(|| EngineError::session_not_found(session.0.to_string()))?;
+        let pool = &pg_session.pool;
 
         let schema = namespace.schema.as_deref().unwrap_or("public");
 
@@ -437,13 +554,299 @@ impl DataEngine for PostgresDriver {
     async fn cancel(&self, session: SessionId) -> EngineResult<()> {
         // PostgreSQL cancellation requires pg_cancel_backend
         // For now, we just verify the session exists
-        let sessions = self.sessions.read().await;
+        let sessions = self.sessions.lock().await;
         if sessions.contains_key(&session) {
             // TODO: Implement proper query cancellation with pg_cancel_backend
             Ok(())
         } else {
             Err(EngineError::session_not_found(session.0.to_string()))
         }
+    }
+
+    // ==================== Transaction Methods ====================
+
+    async fn begin_transaction(&self, session: SessionId) -> EngineResult<()> {
+        let mut sessions = self.sessions.lock().await;
+        let pg_session = sessions
+            .get_mut(&session)
+            .ok_or_else(|| EngineError::session_not_found(session.0.to_string()))?;
+
+        // Check if a transaction is already active
+        if pg_session.transaction_conn.is_some() {
+            return Err(EngineError::transaction_error(
+                "A transaction is already active on this session"
+            ));
+        }
+
+        // Acquire a dedicated connection from the pool
+        let mut conn = pg_session.pool.acquire().await
+            .map_err(|e| EngineError::connection_failed(format!(
+                "Failed to acquire connection for transaction: {}", e
+            )))?;
+
+        // Execute BEGIN on the dedicated connection
+        sqlx::query("BEGIN")
+            .execute(&mut *conn)
+            .await
+            .map_err(|e| EngineError::execution_error(format!(
+                "Failed to begin transaction: {}", e
+            )))?;
+
+        // Store the dedicated connection
+        pg_session.transaction_conn = Some(conn);
+
+        Ok(())
+    }
+
+    async fn commit(&self, session: SessionId) -> EngineResult<()> {
+        let mut sessions = self.sessions.lock().await;
+        let pg_session = sessions
+            .get_mut(&session)
+            .ok_or_else(|| EngineError::session_not_found(session.0.to_string()))?;
+
+        // Get the dedicated connection, or error if no transaction active
+        let mut conn = pg_session.transaction_conn.take()
+            .ok_or_else(|| EngineError::transaction_error(
+                "No active transaction to commit"
+            ))?;
+
+        // Execute COMMIT on the dedicated connection
+        sqlx::query("COMMIT")
+            .execute(&mut *conn)
+            .await
+            .map_err(|e| EngineError::execution_error(format!(
+                "Failed to commit transaction: {}", e
+            )))?;
+
+        // Connection is automatically returned to the pool when dropped
+        Ok(())
+    }
+
+    async fn rollback(&self, session: SessionId) -> EngineResult<()> {
+        let mut sessions = self.sessions.lock().await;
+        let pg_session = sessions
+            .get_mut(&session)
+            .ok_or_else(|| EngineError::session_not_found(session.0.to_string()))?;
+
+        // Get the dedicated connection, or error if no transaction active
+        let mut conn = pg_session.transaction_conn.take()
+            .ok_or_else(|| EngineError::transaction_error(
+                "No active transaction to rollback"
+            ))?;
+
+        // Execute ROLLBACK on the dedicated connection
+        sqlx::query("ROLLBACK")
+            .execute(&mut *conn)
+            .await
+            .map_err(|e| EngineError::execution_error(format!(
+                "Failed to rollback transaction: {}", e
+            )))?;
+
+        // Connection is automatically returned to the pool when dropped
+        Ok(())
+    }
+
+    fn supports_transactions(&self) -> bool {
+        true
+    }
+
+    // ==================== Mutation Methods ====================
+
+    async fn insert_row(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        table: &str,
+        data: &RowData,
+    ) -> EngineResult<QueryResult> {
+        let mut sessions = self.sessions.lock().await;
+        let pg_session = sessions
+            .get_mut(&session)
+            .ok_or_else(|| EngineError::session_not_found(session.0.to_string()))?;
+
+        // 1. Build Query String
+        let table_name = if let Some(schema) = &namespace.schema {
+            format!("\"{}\".\"{}\"", schema.replace("\"", "\"\""), table.replace("\"", "\"\""))
+        } else {
+            format!("\"{}\"", table.replace("\"", "\"\""))
+        };
+
+        let mut keys: Vec<&String> = data.columns.keys().collect();
+        keys.sort();
+
+        let sql = if keys.is_empty() {
+            format!("INSERT INTO {} DEFAULT VALUES", table_name)
+        } else {
+            let cols_str = keys.iter().map(|k| format!("\"{}\"", k.replace("\"", "\"\""))).collect::<Vec<_>>().join(", ");
+            let params_str = (1..=keys.len()).map(|i| format!("${}", i)).collect::<Vec<_>>().join(", ");
+            format!("INSERT INTO {} ({}) VALUES ({})", table_name, cols_str, params_str)
+        };
+
+        // 2. Prepare Query
+        let mut query = sqlx::query(&sql);
+        for k in &keys {
+            let val = data.columns.get(*k).unwrap();
+            query = Self::bind_param(query, val);
+        }
+
+        // 3. Execute
+        let start = Instant::now();
+        let result = if let Some(ref mut conn) = pg_session.transaction_conn {
+             query.execute(&mut **conn).await
+        } else {
+             query.execute(&pg_session.pool).await
+        };
+
+        let result = result.map_err(|e| EngineError::execution_error(e.to_string()))?;
+        
+        Ok(QueryResult::with_affected_rows(
+            result.rows_affected(),
+            start.elapsed().as_millis() as u64,
+        ))
+    }
+
+    async fn update_row(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        table: &str,
+        primary_key: &RowData,
+        data: &RowData,
+    ) -> EngineResult<QueryResult> {
+        let mut sessions = self.sessions.lock().await;
+        let pg_session = sessions
+            .get_mut(&session)
+            .ok_or_else(|| EngineError::session_not_found(session.0.to_string()))?;
+
+        if primary_key.columns.is_empty() {
+            return Err(EngineError::execution_error("Primary key required for update operations".to_string()));
+        }
+
+        if data.columns.is_empty() {
+             // Nothing to update
+             return Ok(QueryResult::with_affected_rows(0, 0));
+        }
+
+        let table_name = if let Some(schema) = &namespace.schema {
+            format!("\"{}\".\"{}\"", schema.replace("\"", "\"\""), table.replace("\"", "\"\""))
+        } else {
+            format!("\"{}\"", table.replace("\"", "\"\""))
+        };
+
+        let mut data_keys: Vec<&String> = data.columns.keys().collect();
+        data_keys.sort();
+
+        let mut pk_keys: Vec<&String> = primary_key.columns.keys().collect();
+        pk_keys.sort();
+
+        // UPDATE table SET col1=$1, col2=$2 WHERE pk1=$3 AND pk2=$4
+        let mut set_clauses = Vec::new();
+        let mut i = 1;
+        for k in &data_keys {
+            set_clauses.push(format!("\"{}\"=${}", k.replace("\"", "\"\""), i));
+            i += 1;
+        }
+
+        let mut where_clauses = Vec::new();
+        for k in &pk_keys {
+            where_clauses.push(format!("\"{}\"=${}", k.replace("\"", "\"\""), i));
+            i += 1;
+        }
+
+        let sql = format!(
+            "UPDATE {} SET {} WHERE {}", 
+            table_name, 
+            set_clauses.join(", "), 
+            where_clauses.join(" AND ")
+        );
+
+        let mut query = sqlx::query(&sql);
+        
+        // Bind data values
+        for k in &data_keys {
+            let val = data.columns.get(*k).unwrap();
+            query = Self::bind_param(query, val);
+        }
+        
+        // Bind PK values
+        for k in &pk_keys {
+            let val = primary_key.columns.get(*k).unwrap();
+            query = Self::bind_param(query, val);
+        }
+
+        let start = Instant::now();
+        let result = if let Some(ref mut conn) = pg_session.transaction_conn {
+             query.execute(&mut **conn).await
+        } else {
+             query.execute(&pg_session.pool).await
+        };
+
+        let result = result.map_err(|e| EngineError::execution_error(e.to_string()))?;
+        
+        Ok(QueryResult::with_affected_rows(
+            result.rows_affected(),
+            start.elapsed().as_millis() as u64,
+        ))
+    }
+
+    async fn delete_row(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        table: &str,
+        primary_key: &RowData,
+    ) -> EngineResult<QueryResult> {
+        let mut sessions = self.sessions.lock().await;
+        let pg_session = sessions
+            .get_mut(&session)
+            .ok_or_else(|| EngineError::session_not_found(session.0.to_string()))?;
+
+        if primary_key.columns.is_empty() {
+            return Err(EngineError::execution_error("Primary key required for delete operations".to_string()));
+        }
+
+        let table_name = if let Some(schema) = &namespace.schema {
+            format!("\"{}\".\"{}\"", schema.replace("\"", "\"\""), table.replace("\"", "\"\""))
+        } else {
+            format!("\"{}\"", table.replace("\"", "\"\""))
+        };
+
+        let mut pk_keys: Vec<&String> = primary_key.columns.keys().collect();
+        pk_keys.sort();
+
+        // DELETE FROM table WHERE pk1=$1
+        let mut where_clauses = Vec::new();
+        let mut i = 1;
+        for k in &pk_keys {
+            where_clauses.push(format!("\"{}\"=${}", k.replace("\"", "\"\""), i));
+            i += 1;
+        }
+
+        let sql = format!("DELETE FROM {} WHERE {}", table_name, where_clauses.join(" AND "));
+
+        let mut query = sqlx::query(&sql);
+        for k in &pk_keys {
+            let val = primary_key.columns.get(*k).unwrap();
+            query = Self::bind_param(query, val);
+        }
+
+        let start = Instant::now();
+        let result = if let Some(ref mut conn) = pg_session.transaction_conn {
+             query.execute(&mut **conn).await
+        } else {
+             query.execute(&pg_session.pool).await
+        };
+
+        let result = result.map_err(|e| EngineError::execution_error(e.to_string()))?;
+        
+        Ok(QueryResult::with_affected_rows(
+            result.rows_affected(),
+            start.elapsed().as_millis() as u64,
+        ))
+    }
+
+    fn supports_mutations(&self) -> bool {
+        true
     }
 }
 

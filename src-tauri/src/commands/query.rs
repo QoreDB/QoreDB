@@ -256,3 +256,142 @@ pub async fn preview_table(
         }),
     }
 }
+
+// ==================== Transaction Commands ====================
+
+/// Response wrapper for transaction operations
+#[derive(Debug, Serialize)]
+pub struct TransactionResponse {
+    pub success: bool,
+    pub error: Option<String>,
+}
+
+/// Response for transaction support check
+#[derive(Debug, Serialize)]
+pub struct TransactionSupportResponse {
+    pub supported: bool,
+}
+
+/// Begins a transaction on the given session
+///
+/// Acquires a dedicated connection from the pool and executes BEGIN.
+/// All subsequent queries on this session will use this connection
+/// until commit or rollback is called.
+#[tauri::command]
+pub async fn begin_transaction(
+    state: State<'_, crate::SharedState>,
+    session_id: String,
+) -> Result<TransactionResponse, String> {
+    let state = state.lock().await;
+    let session = parse_session_id(&session_id)?;
+
+    let driver = match state.session_manager.get_driver(session).await {
+        Ok(d) => d,
+        Err(e) => {
+            return Ok(TransactionResponse {
+                success: false,
+                error: Some(e.to_string()),
+            });
+        }
+    };
+
+    match driver.begin_transaction(session).await {
+        Ok(()) => Ok(TransactionResponse {
+            success: true,
+            error: None,
+        }),
+        Err(e) => Ok(TransactionResponse {
+            success: false,
+            error: Some(e.to_string()),
+        }),
+    }
+}
+
+/// Commits the current transaction on the given session
+///
+/// Executes COMMIT and releases the dedicated connection back to the pool.
+#[tauri::command]
+pub async fn commit_transaction(
+    state: State<'_, crate::SharedState>,
+    session_id: String,
+) -> Result<TransactionResponse, String> {
+    let state = state.lock().await;
+    let session = parse_session_id(&session_id)?;
+
+    let driver = match state.session_manager.get_driver(session).await {
+        Ok(d) => d,
+        Err(e) => {
+            return Ok(TransactionResponse {
+                success: false,
+                error: Some(e.to_string()),
+            });
+        }
+    };
+
+    match driver.commit(session).await {
+        Ok(()) => Ok(TransactionResponse {
+            success: true,
+            error: None,
+        }),
+        Err(e) => Ok(TransactionResponse {
+            success: false,
+            error: Some(e.to_string()),
+        }),
+    }
+}
+
+/// Rolls back the current transaction on the given session
+///
+/// Executes ROLLBACK and releases the dedicated connection back to the pool.
+#[tauri::command]
+pub async fn rollback_transaction(
+    state: State<'_, crate::SharedState>,
+    session_id: String,
+) -> Result<TransactionResponse, String> {
+    let state = state.lock().await;
+    let session = parse_session_id(&session_id)?;
+
+    let driver = match state.session_manager.get_driver(session).await {
+        Ok(d) => d,
+        Err(e) => {
+            return Ok(TransactionResponse {
+                success: false,
+                error: Some(e.to_string()),
+            });
+        }
+    };
+
+    match driver.rollback(session).await {
+        Ok(()) => Ok(TransactionResponse {
+            success: true,
+            error: None,
+        }),
+        Err(e) => Ok(TransactionResponse {
+            success: false,
+            error: Some(e.to_string()),
+        }),
+    }
+}
+
+/// Checks if the driver for the given session supports transactions
+#[tauri::command]
+pub async fn supports_transactions(
+    state: State<'_, crate::SharedState>,
+    session_id: String,
+) -> Result<TransactionSupportResponse, String> {
+    let state = state.lock().await;
+    let session = parse_session_id(&session_id)?;
+
+    let driver = match state.session_manager.get_driver(session).await {
+        Ok(d) => d,
+        Err(_) => {
+            return Ok(TransactionSupportResponse {
+                supported: false,
+            });
+        }
+    };
+
+    Ok(TransactionSupportResponse {
+        supported: driver.supports_transactions(),
+    })
+}

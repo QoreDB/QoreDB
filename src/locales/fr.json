@@ -225,10 +225,12 @@
         "error": "Erreur",
         "success": "Succès",
         "create": "Créer",
+        "creating": "Création...",
         "insert": "Insérer",
         "save": "Enregistrer",
         "cancel": "Annuler",
         "confirm": "Confirmer",
+        "delete": "Supprimer",
         "unknownError": "Erreur inconnue",
         "mongoCreateDbHint": "MongoDB crée une base lorsque la première collection est créée.",
         "time": "Temps",
@@ -280,5 +282,28 @@
         "collections": "Collections",
         "noCollections": "Aucune table",
         "noDocuments": "Aucun document"
+    },
+    "createTable": {
+        "title": "Créer une table",
+        "tableName": "Nom de la table",
+        "columns": "Colonnes",
+        "addColumn": "Ajouter colonne",
+        "columnName": "Nom",
+        "type": "Type",
+        "length": "Longueur",
+        "showSQL": "Voir SQL",
+        "hideSQL": "Cacher SQL",
+        "generatedSQL": "SQL généré",
+        "create": "Créer la table",
+        "tableNameRequired": "Le nom de la table est requis",
+        "success": "Table \"{{name}}\" créée avec succès",
+        "failed": "Échec de la création de la table"
+    },
+    "dropTable": {
+        "title": "Supprimer la table",
+        "confirm": "Voulez-vous vraiment supprimer la table \"{{name}}\" ? Cette action est irréversible.",
+        "confirmProduction": "Vous êtes en PRODUCTION. Tapez le nom de la table pour confirmer :",
+        "success": "Table \"{{name}}\" supprimée avec succès",
+        "failed": "Échec de la suppression de la table"
     }
 }

@@ -20,10 +20,12 @@ import {
   Hash,
   ChevronRight,
   Shield,
-  ShieldAlert
+  ShieldAlert,
+  Plus
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getDriverMetadata, Driver, DRIVER_LABELS, DRIVER_ICONS } from '../../lib/drivers';
+import { CreateTableModal } from '../Table/CreateTableModal';
 
 interface DatabaseBrowserProps {
   sessionId: string;
@@ -62,6 +64,7 @@ export function DatabaseBrowser({
   const [collections, setCollections] = useState<Collection[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [createTableOpen, setCreateTableOpen] = useState(false);
 
   const driverMeta = getDriverMetadata(driver);
 
@@ -186,9 +189,22 @@ export function DatabaseBrowser({
             </div>
           </div>
         </div>
-        <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8">
-          <X size={16} />
-        </Button>
+        <div className="flex items-center gap-1">
+          {driverMeta.supportsSQL && !readOnly && (
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={() => setCreateTableOpen(true)} 
+              className="h-8 w-8"
+              title={t('createTable.title')}
+            >
+              <Plus size={16} />
+            </Button>
+          )}
+          <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8">
+            <X size={16} />
+          </Button>
+        </div>
       </div>
 
       {/* Tabs */}
@@ -337,6 +353,19 @@ export function DatabaseBrowser({
           </div>
         )}
       </div>
+      <CreateTableModal
+        isOpen={createTableOpen}
+        onClose={() => setCreateTableOpen(false)}
+        sessionId={sessionId}
+        namespace={namespace}
+        driver={driver}
+        onTableCreated={() => {
+          loadData();
+          if (activeTab === 'tables') {
+            loadData(); // Re-fetch to update tables list
+          }
+        }}
+      />
     </div>
   );
 }

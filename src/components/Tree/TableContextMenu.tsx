@@ -13,6 +13,7 @@ import {
 import { DangerConfirmDialog } from '@/components/Guard/DangerConfirmDialog';
 import { Collection, Environment, executeQuery } from '../../lib/tauri';
 import { getDriverMetadata } from '../../lib/drivers';
+import { buildDropTableSQL } from '@/lib/column-types';
 
 interface TableContextMenuProps {
   collection: Collection;
@@ -72,7 +73,6 @@ export function TableContextMenu({
     }
     setLoading(true);
     try {
-      const qualifiedName = buildQualifiedName();
       let query: string;
 
       if (isMongo) {
@@ -83,17 +83,18 @@ export function TableContextMenu({
         };
         query = JSON.stringify(payload);
       } else {
-        query = `DROP TABLE ${qualifiedName}`;
+        const schemaOrDb = collection.namespace.schema || collection.namespace.database;
+        query = buildDropTableSQL(schemaOrDb, tableName, driver as any); // Cast driver as any/Driver
       }
 
       const result = await executeQuery(sessionId, query);
 
       if (result.success) {
-        toast.success(t('tableMenu.dropSuccess', { name: tableName }));
+        toast.success(t('dropTable.success', { name: tableName }));
         onRefresh();
         setDangerAction(null);
       } else {
-        toast.error(t('tableMenu.dropError'), {
+        toast.error(t('dropTable.failed'), {
           description: result.error,
         });
       }
@@ -193,10 +194,10 @@ export function TableContextMenu({
       <DangerConfirmDialog
         open={dangerAction === 'drop'}
         onOpenChange={(open) => !open && setDangerAction(null)}
-        title={t('tableMenu.dropTitle')}
-        description={t('tableMenu.dropDescription', { name: tableName })}
+        title={t('dropTable.title')}
+        description={t('dropTable.confirm', { name: tableName })}
         confirmationLabel={confirmationLabel}
-        confirmLabel={t('tableMenu.dropConfirm')}
+        confirmLabel={t('common.delete')}
         loading={loading}
         onConfirm={handleDropTable}
       />

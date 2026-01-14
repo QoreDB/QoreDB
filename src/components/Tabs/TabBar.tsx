@@ -1,11 +1,11 @@
-import { X, Plus, FileCode, Table, Settings } from 'lucide-react';
+import { X, Plus, FileCode, Table, Settings, Database } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTranslation } from 'react-i18next';
 
 export interface TabItem {
   id: string;
   title: string;
-  type: 'query' | 'table' | 'settings';
+  type: 'query' | 'table' | 'database' | 'settings';
 }
 
 interface TabBarProps {
@@ -25,6 +25,15 @@ export function TabBar({
 }: TabBarProps) {
   const { t } = useTranslation();
 
+  const getTabIcon = (type: TabItem['type']) => {
+    switch (type) {
+      case 'query': return <FileCode size={14} />;
+      case 'table': return <Table size={14} />;
+      case 'database': return <Database size={14} />;
+      case 'settings': return <Settings size={14} />;
+    }
+  };
+
   return (
     <div className="flex items-center w-full bg-muted/30 border-b border-border h-[40px] select-none pl-1 gap-1 overflow-x-auto no-scrollbar">
       {tabs.map(tab => (
@@ -37,11 +46,16 @@ export function TabBar({
               : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
           )}
           onClick={() => onSelect?.(tab.id)}
+          onMouseDown={(e) => {
+            if (e.button === 1) {
+              e.preventDefault();
+              onClose?.(tab.id);
+            }
+          }}
           title={tab.title}
         >
           <span className="shrink-0 opacity-70">
-            {tab.type === 'query' ? <FileCode size={14} /> : 
-             tab.type === 'table' ? <Table size={14} /> : <Settings size={14} />}
+            {getTabIcon(tab.type)}
           </span>
           <span className="truncate flex-1 text-left">{tab.title}</span>
           <span

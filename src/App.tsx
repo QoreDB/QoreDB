@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Sidebar } from './components/Sidebar/Sidebar';
 import { TabBar } from './components/Tabs/TabBar';
@@ -14,14 +14,10 @@ import { Search, Settings } from 'lucide-react';
 import { Namespace, SavedConnection, connect, getConnectionCredentials, ConnectionConfig } from './lib/tauri';
 import { HistoryEntry } from './lib/history';
 import { Driver } from './lib/drivers';
+import { OpenTab, createTableTab, createDatabaseTab, createQueryTab } from './lib/tabs';
 import { Toaster, toast } from 'sonner';
 import { useTheme } from './hooks/useTheme';
 import './index.css';
-
-interface SelectedTable {
-  namespace: Namespace;
-  tableName: string;
-}
 
 function App() {
   const { t } = useTranslation();
@@ -31,8 +27,11 @@ function App() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [driver, setDriver] = useState<Driver>('postgres');
   const [activeConnection, setActiveConnection] = useState<SavedConnection | null>(null);
-  const [selectedTable, setSelectedTable] = useState<SelectedTable | null>(null);
-  const [selectedDatabase, setSelectedDatabase] = useState<Namespace | null>(null);
+  
+  // Tab system
+  const [tabs, setTabs] = useState<OpenTab[]>([]);
+  const [activeTabId, setActiveTabId] = useState<string | null>(null);
+  
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [sidebarRefreshTrigger, setSidebarRefreshTrigger] = useState(0);
   
@@ -90,7 +89,8 @@ function App() {
       const entry = result.data as HistoryEntry;
       if (entry?.query) {
         setPendingQuery(entry.query);
-        setSelectedTable(null);
+        // Clear tabs to show query panel
+        setActiveTabId(null);
         setSettingsOpen(false);
       }
     }
@@ -113,43 +113,84 @@ function App() {
         e.preventDefault();
         setSettingsOpen(true);
       }
-      // Escape: Close table browser or settings
+      // Escape: Close active tab or settings
       if (e.key === 'Escape') {
-        if (selectedTable) setSelectedTable(null);
-        if (settingsOpen) setSettingsOpen(false);
+        if (activeTabId) {
+          closeTab(activeTabId);
+        } else if (settingsOpen) {
+          setSettingsOpen(false);
+        }
+      }
+      // Cmd+W: Close active tab
+      if ((e.metaKey || e.ctrlKey) && e.key === 'w') {
+        e.preventDefault();
+        if (activeTabId) closeTab(activeTabId);
+      }
+      // Cmd+T: New query tab
+      if ((e.metaKey || e.ctrlKey) && e.key === 't') {
+        e.preventDefault();
+        handleNewQuery();
       }
     }
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedTable, settingsOpen]);
+  }, [activeTabId, settingsOpen, closeTab, handleNewQuery]);
 
   function handleConnected(newSessionId: string, connection: SavedConnection) {
     setSessionId(newSessionId);
     setDriver(connection.driver as Driver);
     setActiveConnection(connection);
-    setSelectedTable(null);
+    setTabs([]);
+    setActiveTabId(null);
     setSettingsOpen(false);
+  }
+
+  // Tab management
+  const activeTab = useMemo(() => tabs.find(t => t.id === activeTabId), [tabs, activeTabId]);
+
+  function openTab(tab: OpenTab) {
+    // Check if already open
+    const existing = tabs.find(t => 
+      t.type === tab.type && 
+      t.namespace?.database === tab.namespace?.database &&
+      t.namespace?.schema === tab.namespace?.schema &&
+      t.tableName === tab.tableName
+    );
+    if (existing) {
+      setActiveTabId(existing.id);
+    } else {
+      setTabs(prev => [...prev, tab]);
+      setActiveTabId(tab.id);
+    }
+    setSettingsOpen(false);
+  }
+
+  function closeTab(tabId: string) {
+    setTabs(prev => {
+      const newTabs = prev.filter(t => t.id !== tabId);
+      if (activeTabId === tabId) {
+        // Activate previous or next tab
+        const closedIndex = prev.findIndex(t => t.id === tabId);
+        const newActiveTab = newTabs[closedIndex] || newTabs[closedIndex - 1] || null;
+        setActiveTabId(newActiveTab?.id || null);
+      }
+      return newTabs;
+    });
   }
 
   function handleTableSelect(namespace: Namespace, tableName: string) {
-    setSelectedTable({ namespace, tableName });
-    setSelectedDatabase(null);
-    setSettingsOpen(false);
+    openTab(createTableTab(namespace, tableName));
   }
 
   function handleDatabaseSelect(namespace: Namespace) {
-    setSelectedDatabase(namespace);
-    setSelectedTable(null);
-    setSettingsOpen(false);
+    openTab(createDatabaseTab(namespace));
   }
 
-  function handleCloseTableBrowser() {
-    setSelectedTable(null);
-  }
-
-  function handleCloseDatabaseBrowser() {
-    setSelectedDatabase(null);
+  function handleNewQuery() {
+    if (sessionId) {
+      openTab(createQueryTab());
+    }
   }
 
   function handleEditConnection(connection: SavedConnection, password: string) {
@@ -202,47 +243,57 @@ function App() {
 							</Button>
 						</header>
 
-						{!settingsOpen && <TabBar />}
+						{!settingsOpen && sessionId && (
+							<TabBar 
+								tabs={tabs.map(t => ({ id: t.id, title: t.title, type: t.type }))}
+								activeId={activeTabId || undefined}
+								onSelect={setActiveTabId}
+								onClose={closeTab}
+								onNew={handleNewQuery}
+							/>
+						)}
 
           <div className="flex-1 overflow-auto p-4 pt-12">
             {settingsOpen ? (
               <SettingsPage />
-							) : sessionId ? (
-								selectedTable ? (
-									<TableBrowser
-										sessionId={sessionId}
-										namespace={selectedTable.namespace}
-										tableName={selectedTable.tableName}
-										driver={driver}
-										environment={activeConnection?.environment || "development"}
-										readOnly={activeConnection?.read_only || false}
-										connectionName={activeConnection?.name}
-										connectionDatabase={activeConnection?.database}
-										onClose={handleCloseTableBrowser}
-									/>
-								) : selectedDatabase ? (
-									<DatabaseBrowser
-										sessionId={sessionId}
-										namespace={selectedDatabase}
-										driver={driver}
-										environment={activeConnection?.environment || "development"}
-										readOnly={activeConnection?.read_only || false}
-										connectionName={activeConnection?.name}
-										onTableSelect={handleTableSelect}
-										onClose={handleCloseDatabaseBrowser}
-									/>
-								) : (
-									<QueryPanel
-										key={sessionId}
-										sessionId={sessionId}
-										dialect={driver}
-										environment={activeConnection?.environment || "development"}
-										readOnly={activeConnection?.read_only || false}
-										connectionName={activeConnection?.name}
-										connectionDatabase={activeConnection?.database}
-										initialQuery={pendingQuery}
-									/>
-								)
+						) : sessionId ? (
+							activeTab?.type === 'table' && activeTab.namespace && activeTab.tableName ? (
+								<TableBrowser
+									key={activeTab.id}
+									sessionId={sessionId}
+									namespace={activeTab.namespace}
+									tableName={activeTab.tableName}
+									driver={driver}
+									environment={activeConnection?.environment || "development"}
+									readOnly={activeConnection?.read_only || false}
+									connectionName={activeConnection?.name}
+									connectionDatabase={activeConnection?.database}
+									onClose={() => closeTab(activeTab.id)}
+								/>
+							) : activeTab?.type === 'database' && activeTab.namespace ? (
+								<DatabaseBrowser
+									key={activeTab.id}
+									sessionId={sessionId}
+									namespace={activeTab.namespace}
+									driver={driver}
+									environment={activeConnection?.environment || "development"}
+									readOnly={activeConnection?.read_only || false}
+									connectionName={activeConnection?.name}
+									onTableSelect={handleTableSelect}
+									onClose={() => closeTab(activeTab.id)}
+								/>
+							) : (
+								<QueryPanel
+									key={activeTab?.id || sessionId}
+									sessionId={sessionId}
+									dialect={driver}
+									environment={activeConnection?.environment || "development"}
+									readOnly={activeConnection?.read_only || false}
+									connectionName={activeConnection?.name}
+									connectionDatabase={activeConnection?.database}
+									initialQuery={pendingQuery}
+								/>
+							)
 							) : (
 								<div className="flex flex-col items-center justify-center h-full text-center space-y-4">
 									<div className="p-4 rounded-full bg-accent/10 text-accent mb-4">

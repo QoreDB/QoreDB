@@ -225,10 +225,12 @@
         "error": "Error",
         "success": "Success",
         "create": "Create",
+        "creating": "Creating...",
         "insert": "Insert",
         "save": "Save",
         "cancel": "Cancel",
         "confirm": "Confirm",
+        "delete": "Delete",
         "unknownError": "Unknown error",
         "mongoCreateDbHint": "MongoDB creates a database when the first collection is created.",
         "time": "Time",
@@ -280,5 +282,28 @@
         "collections": "Collections",
         "noCollections": "No tables",
         "noDocuments": "No documents"
+    },
+    "createTable": {
+        "title": "Create Table",
+        "tableName": "Table Name",
+        "columns": "Columns",
+        "addColumn": "Add Column",
+        "columnName": "Name",
+        "type": "Type",
+        "length": "Length",
+        "showSQL": "Show SQL",
+        "hideSQL": "Hide SQL",
+        "generatedSQL": "Generated SQL",
+        "create": "Create Table",
+        "tableNameRequired": "Table name is required",
+        "success": "Table \"{{name}}\" created successfully",
+        "failed": "Failed to create table"
+    },
+    "dropTable": {
+        "title": "Drop Table",
+        "confirm": "Are you sure you want to drop table \"{{name}}\"? This action cannot be undone.",
+        "confirmProduction": "You are in PRODUCTION. Type the table name to confirm:",
+        "success": "Table \"{{name}}\" dropped successfully",
+        "failed": "Failed to drop table"
     }
 }

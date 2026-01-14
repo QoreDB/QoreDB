@@ -60,11 +60,14 @@ export function TableBrowser({
     setError(null);
 
     try {
+      const startTime = performance.now();
       // Load both schema and preview in parallel
       const [schemaResult, dataResult] = await Promise.all([
         describeTable(sessionId, namespace, tableName),
         previewTable(sessionId, namespace, tableName, 100)
       ]);
+      const endTime = performance.now();
+      const totalTime = endTime - startTime;
 
       if (schemaResult.success && schemaResult.schema) {
         setSchema(schemaResult.schema);
@@ -73,7 +76,10 @@ export function TableBrowser({
       }
 
       if (dataResult.success && dataResult.result) {
-        setData(dataResult.result);
+        setData({
+          ...dataResult.result,
+          total_time_ms: totalTime
+        } as QueryResult & { total_time_ms: number });
       } else if (dataResult.error && !error) {
         setError(dataResult.error);
       }

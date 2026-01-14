@@ -43,12 +43,16 @@ pub async fn insert_row(
         schema,
     };
 
+    let start_time = std::time::Instant::now();
     match driver.insert_row(session, &namespace, &table, &data).await {
-        Ok(result) => Ok(MutationResponse {
-            success: true,
-            result: Some(result),
-            error: None,
-        }),
+        Ok(mut result) => {
+            result.execution_time_ms = start_time.elapsed().as_micros() as f64 / 1000.0;
+            Ok(MutationResponse {
+                success: true,
+                result: Some(result),
+                error: None,
+            })
+        },
         Err(e) => Ok(MutationResponse {
             success: false,
             result: None,
@@ -79,12 +83,16 @@ pub async fn update_row(
         schema,
     };
 
+    let start_time = std::time::Instant::now();
     match driver.update_row(session, &namespace, &table, &primary_key, &data).await {
-        Ok(result) => Ok(MutationResponse {
-            success: true,
-            result: Some(result),
-            error: None,
-        }),
+        Ok(mut result) => {
+            result.execution_time_ms = start_time.elapsed().as_micros() as f64 / 1000.0;
+            Ok(MutationResponse {
+                success: true,
+                result: Some(result),
+                error: None,
+            })
+        },
         Err(e) => Ok(MutationResponse {
             success: false,
             result: None,
@@ -114,12 +122,16 @@ pub async fn delete_row(
         schema,
     };
 
+    let start_time = std::time::Instant::now();
     match driver.delete_row(session, &namespace, &table, &primary_key).await {
-        Ok(result) => Ok(MutationResponse {
-            success: true,
-            result: Some(result),
-            error: None,
-        }),
+        Ok(mut result) => {
+            result.execution_time_ms = start_time.elapsed().as_micros() as f64 / 1000.0;
+            Ok(MutationResponse {
+                success: true,
+                result: Some(result),
+                error: None,
+            })
+        },
         Err(e) => Ok(MutationResponse {
             success: false,
             result: None,

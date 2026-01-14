@@ -345,13 +345,34 @@ export function DataGrid({
   const canDelete = sessionId && tableName && primaryKey && primaryKey.length > 0 && selectedCount > 0;
 
   return (
-    <div className="flex flex-col gap-2" data-datagrid>
-      <div className="flex items-center justify-between px-1">
+    <div className="flex flex-col gap-2 h-full min-h-0" data-datagrid>
+      <div className="flex items-center justify-between px-1 shrink-0">
         <div className="text-xs text-muted-foreground flex items-center gap-3">
           {selectedCount > 0 ? (
             <span>{t('grid.rowsSelected', { count: selectedCount })}</span>
           ) : (
-            <span>{t('grid.rowsTotal', { count: data.length })}</span>
+            <div className="flex items-center gap-3">
+              <span>{t('grid.rowsTotal', { count: data.length })}</span>
+              {result && typeof result.execution_time_ms === 'number' && (
+                <div className="flex items-center gap-2 border-l border-border pl-3 ml-1">
+                  <span title={t('query.time.execTooltip')}>
+                    {t('query.time.exec')}: <span className="font-mono text-foreground font-medium">{result.execution_time_ms.toFixed(2)}ms</span>
+                  </span>
+                  {(result as any).total_time_ms !== undefined && (
+                    <>
+                      <span className="text-border/50">|</span>
+                      <span title={t('query.time.transferTooltip')}>
+                        {t('query.time.transfer')}: <span className="font-mono text-foreground font-medium">{((result as any).total_time_ms - result.execution_time_ms).toFixed(2)}ms</span>
+                      </span>
+                      <span className="text-border/50">|</span>
+                      <span title={t('query.time.totalTooltip')}>
+                        {t('query.time.total')}: <span className="font-mono text-foreground font-bold">{(result as any).total_time_ms.toFixed(2)}ms</span>
+                      </span>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
           )}
           
           {canDelete && (
@@ -404,11 +425,11 @@ export function DataGrid({
       {/* Table */}
       <div 
         ref={parentRef}
-        className="border border-border rounded-md overflow-auto"
-        style={{ height }}
+        className="border border-border rounded-md overflow-auto flex-1 min-h-0"
+        style={height && height !== 400 ? { height } : undefined}
       >
-        <table className="w-full text-sm border-collapse">
-          <thead className="sticky top-0 z-10 bg-muted/80 backdrop-blur-sm">
+        <table className="w-full text-sm border-collapse relative">
+          <thead className="sticky top-0 z-10 bg-muted/80 backdrop-blur-sm shadow-sm">
             {table.getHeaderGroups().map(headerGroup => (
               <tr key={headerGroup.id}>
                 {headerGroup.headers.map(header => (
@@ -483,17 +504,19 @@ export function DataGrid({
 
       {/* Pagination */}
       <div className="flex items-center justify-between px-2 py-1 border-t border-border bg-muted/20">
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <span>{t('grid.rowsPerPage')}:</span>
-          <select
-            value={pagination.pageSize}
-            onChange={e => table.setPageSize(Number(e.target.value))}
-            className="h-7 px-2 rounded border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-1 focus:ring-accent"
-          >
-            {[25, 50, 100, 250].map(size => (
-              <option key={size} value={size}>{size}</option>
-            ))}
-          </select>
+        <div className="flex items-center gap-4 text-xs text-muted-foreground">
+          <div className="flex items-center gap-2">
+            <span>{t('grid.rowsPerPage')}:</span>
+            <select
+              value={pagination.pageSize}
+              onChange={e => table.setPageSize(Number(e.target.value))}
+              className="h-7 px-2 rounded border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-1 focus:ring-accent"
+            >
+              {[25, 50, 100, 250].map(size => (
+                <option key={size} value={size}>{size}</option>
+              ))}
+            </select>
+          </div>
         </div>
         
         <div className="flex items-center gap-1">

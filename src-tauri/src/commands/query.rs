@@ -59,12 +59,18 @@ pub async fn execute_query(
         }
     };
 
+    let start_time = std::time::Instant::now();
     match driver.execute(session, &query).await {
-        Ok(result) => Ok(QueryResponse {
-            success: true,
-            result: Some(result),
-            error: None,
-        }),
+        Ok(mut result) => {
+            let elapsed = start_time.elapsed().as_micros() as f64 / 1000.0;
+            result.execution_time_ms = elapsed;
+            
+            Ok(QueryResponse {
+                success: true,
+                result: Some(result),
+                error: None,
+            })
+        },
         Err(e) => Ok(QueryResponse {
             success: false,
             result: None,

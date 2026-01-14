@@ -43,21 +43,27 @@ export function QueryPanel({ sessionId, dialect = 'postgres' }: QueryPanelProps)
     setError(null);
     setResult(null);
 
-    const startTime = Date.now();
-
+    const startTime = performance.now();
     try {
       const response = await executeQuery(sessionId, queryToRun);
-      const executionTimeMs = Date.now() - startTime;
+      const endTime = performance.now();
+      const totalTime = endTime - startTime;
       
       if (response.success && response.result) {
-        setResult(response.result);
+        const enrichedResult = {
+          ...response.result,
+          total_time_ms: totalTime
+        };
+        setResult(enrichedResult);
+        
         // Save to history
         addToHistory({
           query: queryToRun,
           sessionId,
           driver: dialect,
-          executedAt: startTime,
-          executionTimeMs,
+          executedAt: Date.now(),
+          executionTimeMs: response.result.execution_time_ms,
+          totalTimeMs: totalTime,
           rowCount: response.result.rows.length,
         });
       } else {
@@ -67,11 +73,11 @@ export function QueryPanel({ sessionId, dialect = 'postgres' }: QueryPanelProps)
           query: queryToRun,
           sessionId,
           driver: dialect,
-          executedAt: startTime,
-          executionTimeMs: Date.now() - startTime,
+          executedAt: Date.now(),
+          executionTimeMs: 0,
+          totalTimeMs: totalTime, 
           error: response.error || t('query.queryFailed'),
         });
-        // Log to error panel
         logError('QueryPanel', response.error || t('query.queryFailed'), queryToRun, sessionId);
       }
     } catch (err) {
@@ -155,6 +161,7 @@ export function QueryPanel({ sessionId, dialect = 'postgres' }: QueryPanelProps)
           {t('query.history')}
         </Button>
 
+
         <span className="text-xs text-muted-foreground hidden sm:inline-block">
           {t('query.runHint')}
         </span>
@@ -166,7 +173,6 @@ export function QueryPanel({ sessionId, dialect = 'postgres' }: QueryPanelProps)
         )}
       </div>
 
-      {/* Editor - SQL or MongoDB */}
       <div className="flex-1 min-h-[200px] border-b border-border relative">
         {isMongo ? (
           <MongoEditor
@@ -198,8 +204,9 @@ export function QueryPanel({ sessionId, dialect = 'postgres' }: QueryPanelProps)
           isMongo ? (
             <JSONViewer data={result.rows.map(r => r.values[0])} />
           ) : (
-            <div className="flex-1 overflow-hidden p-2">
-               <DataGrid result={result} height={400} />
+            <div className="flex-1 overflow-hidden p-2 flex flex-col h-full">
+               {/* DataGrid fills container */}
+               <DataGrid result={result} />
             </div>
           )
         ) : (

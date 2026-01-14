@@ -12,6 +12,7 @@ export interface HistoryEntry {
   database?: string;
   executedAt: number; // timestamp
   executionTimeMs?: number;
+  totalTimeMs?: number;
   rowCount?: number;
   error?: string;
 }

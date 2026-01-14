@@ -182,7 +182,7 @@ pub struct QueryResult {
     /// Number of affected rows (for INSERT/UPDATE/DELETE)
     pub affected_rows: Option<u64>,
     /// Execution time in milliseconds
-    pub execution_time_ms: u64,
+    pub execution_time_ms: f64,
 }
 
 impl QueryResult {
@@ -191,11 +191,11 @@ impl QueryResult {
             columns: Vec::new(),
             rows: Vec::new(),
             affected_rows: None,
-            execution_time_ms: 0,
+            execution_time_ms: 0.0,
         }
     }
 
-    pub fn with_affected_rows(affected: u64, time_ms: u64) -> Self {
+    pub fn with_affected_rows(affected: u64, time_ms: f64) -> Self {
         Self {
             columns: Vec::new(),
             rows: Vec::new(),

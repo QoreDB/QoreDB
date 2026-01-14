@@ -141,7 +141,8 @@ export function RowModal({
       if (mode === 'insert') {
         const res = await insertRow(sessionId, namespace.database, namespace.schema, tableName, data);
         if (res.success) {
-          toast.success(t('rowModal.insertSuccess'));
+          const timeMsg = res.result?.execution_time_ms ? ` (${res.result.execution_time_ms.toFixed(2)}ms)` : '';
+          toast.success(t('rowModal.insertSuccess') + timeMsg);
           onSuccess();
           onClose();
         } else {
@@ -167,7 +168,8 @@ export function RowModal({
         
         const res = await updateRow(sessionId, namespace.database, namespace.schema, tableName, pkData, data);
         if (res.success) {
-          toast.success(t('rowModal.updateSuccess'));
+          const timeMsg = res.result?.execution_time_ms ? ` (${res.result.execution_time_ms.toFixed(2)}ms)` : '';
+          toast.success(t('rowModal.updateSuccess') + timeMsg);
           onSuccess();
           onClose();
         } else {

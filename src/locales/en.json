@@ -104,11 +104,19 @@
         "running": "Running...",
         "stop": "Stop",
         "history": "History",
-        "runHint": "Cmd+Enter to run • Select text to run partial",
+        "runHint": "Cmd+Enter to run",
         "noConnection": "No connection",
         "noResults": "Run a query to see results",
         "queryFailed": "Query failed",
-        "noConnectionError": "No connection selected"
+        "noConnectionError": "No connection selected",
+        "time": {
+            "exec": "EXEC",
+            "transfer": "TRANSFER",
+            "total": "TOTAL",
+            "execTooltip": "Backend Process Time",
+            "transferTooltip": "Network/Transfer Time",
+            "totalTooltip": "Total Round Trip"
+        }
     },
     "results": {
         "affectedRows": "{{count}} row(s) affected in {{time}}ms",
@@ -171,7 +179,8 @@
         "save": "Save",
         "cancel": "Cancel",
         "unknownError": "Unknown error",
-        "mongoCreateDbHint": "For MongoDB, simply insert data into a namespace to create it."
+        "mongoCreateDbHint": "For MongoDB, simply insert data into a namespace to create it.",
+        "time": "Time"
     },
     "logs": {
         "title": "Error Logs",

@@ -287,7 +287,7 @@ impl DataEngine for MongoDriver {
             }
         }
 
-        let execution_time_ms = start.elapsed().as_millis() as u64;
+        let execution_time_ms = start.elapsed().as_micros() as f64 / 1000.0;
 
         if documents.is_empty() {
             return Ok(QueryResult {
@@ -427,7 +427,7 @@ impl DataEngine for MongoDriver {
             .await
             .map_err(|e| EngineError::execution_error(e.to_string()))?;
 
-        let execution_time_ms = start.elapsed().as_millis() as u64;
+        let execution_time_ms = start.elapsed().as_micros() as f64 / 1000.0;
 
         if documents.is_empty() {
             return Ok(QueryResult {

@@ -104,11 +104,19 @@
         "running": "En cours...",
         "stop": "Arrêter",
         "history": "Historique",
-        "runHint": "Cmd+Entrée pour exécuter • Sélectionnez du texte pour exécuter partiellement",
+        "runHint": "Cmd+Entrée pour exécuter",
         "noConnection": "Aucune connexion",
         "noResults": "Exécutez une requête pour voir les résultats",
         "queryFailed": "Échec de la requête",
-        "noConnectionError": "Aucune connexion sélectionnée"
+        "noConnectionError": "Aucune connexion sélectionnée",
+        "time": {
+            "exec": "EXEC",
+            "transfer": "TRANSFERT",
+            "total": "TOTAL",
+            "execTooltip": "Temps de traitement Backend",
+            "transferTooltip": "Temps réseau/transfert",
+            "totalTooltip": "Temps total aller-retour"
+        }
     },
     "results": {
         "affectedRows": "{{count}} ligne(s) affectée(s) en {{time}}ms",
@@ -171,7 +179,8 @@
         "save": "Enregistrer",
         "cancel": "Annuler",
         "unknownError": "Erreur inconnue",
-        "mongoCreateDbHint": "Pour MongoDB, insérez simplement des données dans un espace de noms pour le créer."
+        "mongoCreateDbHint": "Pour MongoDB, insérez simplement des données dans un espace de noms pour le créer.",
+        "time": "Temps"
     },
     "logs": {
         "title": "Journaux d'erreurs",

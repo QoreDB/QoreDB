@@ -339,7 +339,7 @@ impl DataEngine for MySqlDriver {
                         }
                     })?;
 
-                let execution_time_ms = start.elapsed().as_millis() as u64;
+                let execution_time_ms = start.elapsed().as_micros() as f64 / 1000.0;
 
                 if mysql_rows.is_empty() {
                     return Ok(QueryResult {
@@ -372,7 +372,7 @@ impl DataEngine for MySqlDriver {
                         }
                     })?;
 
-                let execution_time_ms = start.elapsed().as_millis() as u64;
+                let execution_time_ms = start.elapsed().as_micros() as f64 / 1000.0;
 
                 Ok(QueryResult::with_affected_rows(
                     result.rows_affected(),
@@ -396,7 +396,7 @@ impl DataEngine for MySqlDriver {
                         }
                     })?;
 
-                let execution_time_ms = start.elapsed().as_millis() as u64;
+                let execution_time_ms = start.elapsed().as_micros() as f64 / 1000.0;
 
                 if mysql_rows.is_empty() {
                     return Ok(QueryResult {
@@ -426,7 +426,7 @@ impl DataEngine for MySqlDriver {
                     }
                 })?;
 
-                let execution_time_ms = start.elapsed().as_millis() as u64;
+                let execution_time_ms = start.elapsed().as_micros() as f64 / 1000.0;
 
                 Ok(QueryResult::with_affected_rows(
                     result.rows_affected(),
@@ -663,7 +663,7 @@ impl DataEngine for MySqlDriver {
         
         Ok(QueryResult::with_affected_rows(
             result.rows_affected(),
-            start.elapsed().as_millis() as u64,
+            start.elapsed().as_micros() as f64 / 1000.0,
         ))
     }
 
@@ -685,7 +685,7 @@ impl DataEngine for MySqlDriver {
         }
 
         if data.columns.is_empty() {
-             return Ok(QueryResult::with_affected_rows(0, 0));
+             return Ok(QueryResult::with_affected_rows(0, 0.0));
         }
 
         let table_name = format!("`{}`.`{}`", 
@@ -740,7 +740,7 @@ impl DataEngine for MySqlDriver {
         
         Ok(QueryResult::with_affected_rows(
             result.rows_affected(),
-            start.elapsed().as_millis() as u64,
+            start.elapsed().as_micros() as f64 / 1000.0,
         ))
     }
 
@@ -792,7 +792,7 @@ impl DataEngine for MySqlDriver {
         
         Ok(QueryResult::with_affected_rows(
             result.rows_affected(),
-            start.elapsed().as_millis() as u64,
+            start.elapsed().as_micros() as f64 / 1000.0,
         ))
     }
 

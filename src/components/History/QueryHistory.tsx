@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { 
   getHistory, 
   searchHistory, 
@@ -34,6 +35,7 @@ interface QueryHistoryProps {
 type Tab = 'history' | 'favorites';
 
 export function QueryHistory({ isOpen, onClose, onSelectQuery, sessionId }: QueryHistoryProps) {
+  const { t } = useTranslation();
   const [tab, setTab] = useState<Tab>('history');
   const [search, setSearch] = useState('');
   const [entries, setEntries] = useState<HistoryEntry[]>([]);
@@ -202,9 +204,13 @@ export function QueryHistory({ isOpen, onClose, onSelectQuery, sessionId }: Quer
                     </pre>
                     <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground">
                       <span>{formatTime(entry.executedAt)}</span>
-                      {entry.executionTimeMs && (
-                        <span>{entry.executionTimeMs}ms</span>
-                      )}
+                      {entry.executionTimeMs && entry.totalTimeMs ? (
+                        <span title={`${t('query.time.exec')}: ${entry.executionTimeMs.toFixed(2)}ms | ${t('query.time.transfer')}: ${(entry.totalTimeMs - entry.executionTimeMs).toFixed(2)}ms`}>
+                          {entry.totalTimeMs.toFixed(2)}ms
+                        </span>
+                      ) : entry.executionTimeMs ? (
+                         <span>{entry.executionTimeMs.toFixed(2)}ms</span>
+                      ) : null}
                       {entry.rowCount !== undefined && (
                         <span>{entry.rowCount} rows</span>
                       )}

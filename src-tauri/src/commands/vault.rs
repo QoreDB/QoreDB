@@ -5,7 +5,7 @@
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
-use crate::vault::credentials::{SavedConnection, SshTunnelInfo, StoredCredentials};
+use crate::vault::credentials::{Environment, SavedConnection, SshTunnelInfo, StoredCredentials};
 use crate::vault::storage::VaultStorage;
 use crate::SharedState;
 
@@ -29,6 +29,10 @@ pub struct SaveConnectionInput {
     pub id: String,
     pub name: String,
     pub driver: String,
+    #[serde(default)]
+    pub environment: Environment,
+    #[serde(default)]
+    pub read_only: bool,
     pub host: String,
     pub port: u16,
     pub username: String,
@@ -151,6 +155,8 @@ pub async fn save_connection(
         id: input.id.clone(),
         name: input.name,
         driver: input.driver,
+        environment: input.environment,
+        read_only: input.read_only,
         host: input.host,
         port: input.port,
         username: input.username,

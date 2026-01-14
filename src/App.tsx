@@ -9,7 +9,7 @@ import { ConnectionModal } from './components/Connection/ConnectionModal';
 import { SettingsPage } from './components/Settings/SettingsPage';
 import { Button } from './components/ui/button';
 import { Search, Settings } from 'lucide-react';
-import { Namespace, SavedConnection } from './lib/tauri';
+import { Namespace, SavedConnection, Environment } from './lib/tauri';
 import { Driver } from './lib/drivers';
 import { Toaster } from 'sonner';
 import { useTheme } from './hooks/useTheme';
@@ -27,8 +27,10 @@ function App() {
   const [connectionModalOpen, setConnectionModalOpen] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [driver, setDriver] = useState<Driver>('postgres');
+  const [environment, setEnvironment] = useState<Environment>('development');
   const [selectedTable, setSelectedTable] = useState<SelectedTable | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [sidebarRefreshTrigger, setSidebarRefreshTrigger] = useState(0);
   
   // Edit connection state
   const [editConnection, setEditConnection] = useState<SavedConnection | null>(null);
@@ -62,9 +64,10 @@ function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedTable, settingsOpen]);
 
-  function handleConnected(newSessionId: string, newDriver: string) {
+  function handleConnected(newSessionId: string, newDriver: string, newEnvironment: Environment) {
     setSessionId(newSessionId);
     setDriver(newDriver as Driver);
+    setEnvironment(newEnvironment);
     setSelectedTable(null);
     setSettingsOpen(false);
   }
@@ -84,6 +87,11 @@ function App() {
     setConnectionModalOpen(true);
   }
 
+  function handleConnectionSaved() {
+    handleCloseConnectionModal();
+    setSidebarRefreshTrigger(prev => prev + 1);
+  }
+
   function handleCloseConnectionModal() {
     setConnectionModalOpen(false);
     setEditConnection(null);
@@ -99,6 +107,7 @@ function App() {
           connectedSessionId={sessionId}
           onTableSelect={handleTableSelect}
           onEditConnection={handleEditConnection}
+          refreshTrigger={sidebarRefreshTrigger}
         />
         <main className="flex-1 flex flex-col min-w-0 bg-background relative">
           <header className="flex items-center justify-end absolute right-0 top-0 h-[40px] z-50 pr-2">
@@ -127,7 +136,12 @@ function App() {
                   onClose={handleCloseTableBrowser}
                 />
               ) : (
-                <QueryPanel sessionId={sessionId} dialect={driver} />
+                <QueryPanel 
+                  key={sessionId}
+                  sessionId={sessionId} 
+                  dialect={driver} 
+                  environment={environment} 
+                />
               )
             ) : (
               <div className="flex flex-col items-center justify-center h-full text-center space-y-4">
@@ -166,7 +180,7 @@ function App() {
         onConnected={handleConnected}
         editConnection={editConnection || undefined}
         editPassword={editPassword || undefined}
-        onSaved={handleCloseConnectionModal}
+        onSaved={handleConnectionSaved}
       />
 
       <GlobalSearch

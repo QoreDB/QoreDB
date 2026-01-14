@@ -61,6 +61,14 @@
     --q-warning: #F59E0B;
     --q-error: #DC2626;
     --q-info: #3B82F6;
+
+    /* Environment Colors */
+    --q-env-dev: #16A34A;
+    --q-env-dev-soft: rgba(22, 163, 74, 0.15);
+    --q-env-staging: #F59E0B;
+    --q-env-staging-soft: rgba(245, 158, 11, 0.15);
+    --q-env-prod: #DC2626;
+    --q-env-prod-soft: rgba(220, 38, 38, 0.15);
   }
 
   /* Dark Mode */
@@ -84,6 +92,14 @@
     --q-warning: #FBBF24;
     --q-error: #F87171;
     --q-info: #60A5FA;
+
+    /* Environment Colors Dark */
+    --q-env-dev: #22C55E;
+    --q-env-dev-soft: rgba(34, 197, 94, 0.15);
+    --q-env-staging: #FBBF24;
+    --q-env-staging-soft: rgba(251, 191, 36, 0.15);
+    --q-env-prod: #F87171;
+    --q-env-prod-soft: rgba(248, 113, 113, 0.15);
   }
 
   * {

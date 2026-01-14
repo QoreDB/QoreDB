@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
+
 import { 
   TableSchema,
   Value,
@@ -18,8 +21,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-import { Loader2 } from "lucide-react";
-import { toast } from "sonner";
+
 
 import { Label } from '../ui/label'
 import { Checkbox } from '../ui/checkbox'
@@ -61,7 +63,6 @@ export function RowModal({
       schema.columns.forEach(col => {
         let val = initialData?.[col.name];
         
-        // If update mode and we have data
         if (mode === 'update' && val !== undefined) {
           if (val === null) {
             initialNulls[col.name] = true;
@@ -71,9 +72,7 @@ export function RowModal({
             initialForm[col.name] = String(val);
           }
         } else {
-          // Insert mode or no data
           initialForm[col.name] = '';
-          // Default to null if nullable and no default value
           if (col.nullable && !col.default_value) {
             initialNulls[col.name] = true;
           } else {

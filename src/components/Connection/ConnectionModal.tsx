@@ -5,8 +5,10 @@ import {
   connect, 
   saveConnection, 
   ConnectionConfig,
-  SavedConnection
+  SavedConnection,
+  Environment
 } from '../../lib/tauri';
+import { ENVIRONMENT_CONFIG } from '../../lib/environment';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { 
@@ -16,7 +18,7 @@ import {
   DialogTitle,
   DialogFooter
 } from '@/components/ui/dialog';
-import { Check, X, Loader2, ChevronDown, ChevronRight } from 'lucide-react';
+import { Check, X, Loader2, ChevronDown, ChevronRight, Shield, Lock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { 
   Driver, 
@@ -30,7 +32,7 @@ import { toast } from 'sonner';
 interface ConnectionModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConnected: (sessionId: string, driver: string) => void;
+  onConnected: (sessionId: string, driver: string, environment: Environment) => void;
   editConnection?: SavedConnection;
   editPassword?: string;
   onSaved?: () => void;
@@ -39,6 +41,8 @@ interface ConnectionModalProps {
 interface FormData {
   name: string;
   driver: Driver;
+  environment: Environment;
+  readOnly: boolean;
   host: string;
   port: number;
   username: string;
@@ -56,6 +60,8 @@ interface FormData {
 const initialFormData: FormData = {
   name: '',
   driver: 'postgres',
+  environment: 'development',
+  readOnly: false,
   host: 'localhost',
   port: 5432,
   username: '',
@@ -95,6 +101,8 @@ export function ConnectionModal({
         setFormData({
           name: editConnection.name,
           driver: editConnection.driver as Driver,
+          environment: editConnection.environment || 'development',
+          readOnly: editConnection.read_only || false,
           host: editConnection.host,
           port: editConnection.port,
           username: editConnection.username,
@@ -202,6 +210,8 @@ export function ConnectionModal({
         id: connectionId,
         name: formData.name || `${formData.host}:${formData.port}`,
         driver: formData.driver,
+        environment: formData.environment,
+        read_only: formData.readOnly,
         host: formData.host,
         port: formData.port,
         username: formData.username,
@@ -228,7 +238,7 @@ export function ConnectionModal({
         
         if (connectResult.success && connectResult.session_id) {
           toast.success(t('connection.connectedSuccess'));
-          onConnected(connectResult.session_id, formData.driver);
+          onConnected(connectResult.session_id, formData.driver, formData.environment);
           onClose();
         } else {
           setError(connectResult.error || t('connection.connectFail'));
@@ -255,6 +265,8 @@ export function ConnectionModal({
         id: connectionId,
         name: formData.name || `${formData.host}:${formData.port}`,
         driver: formData.driver,
+        environment: formData.environment,
+        read_only: formData.readOnly,
         host: formData.host,
         port: formData.port,
         username: formData.username,
@@ -339,6 +351,69 @@ export function ConnectionModal({
                 value={formData.name}
                 onChange={e => handleChange('name', e.target.value)}
               />
+            </div>
+
+            {/* Environment & Read-Only */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium flex items-center gap-2">
+                  <Shield size={14} className="text-muted-foreground" />
+                  {t('environment.label')}
+                </label>
+                <div className="flex gap-2">
+                  {(['development', 'staging', 'production'] as const).map(env => {
+                    const config = ENVIRONMENT_CONFIG[env];
+                    const isSelected = formData.environment === env;
+                    return (
+                      <button
+                        key={env}
+                        type="button"
+                        className={cn(
+                          "flex-1 px-3 py-2 rounded-md text-xs font-medium border transition-all",
+                          isSelected 
+                            ? "border-transparent" 
+                            : "border-border bg-background hover:bg-muted"
+                        )}
+                        style={isSelected ? { 
+                          backgroundColor: config.bgSoft, 
+                          color: config.color,
+                          borderColor: config.color 
+                        } : undefined}
+                        onClick={() => handleChange('environment', env)}
+                      >
+                        {config.labelShort}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium flex items-center gap-2">
+                  <Lock size={14} className="text-muted-foreground" />
+                  {t('environment.readOnly')}
+                </label>
+                <button
+                  type="button"
+                  className={cn(
+                    "w-full flex items-center justify-between px-3 py-2 rounded-md border transition-all text-sm",
+                    formData.readOnly 
+                      ? "bg-warning/10 border-warning text-warning" 
+                      : "border-border bg-background hover:bg-muted text-muted-foreground"
+                  )}
+                  onClick={() => handleChange('readOnly', !formData.readOnly)}
+                >
+                  <span>{formData.readOnly ? t('common.enabled') : t('common.disabled')}</span>
+                  <div className={cn(
+                    "w-8 h-4 rounded-full transition-colors relative",
+                    formData.readOnly ? "bg-warning" : "bg-muted"
+                  )}>
+                    <div className={cn(
+                      "absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all shadow-sm",
+                      formData.readOnly ? "left-4" : "left-0.5"
+                    )} />
+                  </div>
+                </button>
+              </div>
             </div>
 
             <div className="grid grid-cols-3 gap-4">

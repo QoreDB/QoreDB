@@ -180,7 +180,21 @@
         "cancel": "Cancel",
         "unknownError": "Unknown error",
         "mongoCreateDbHint": "For MongoDB, simply insert data into a namespace to create it.",
-        "time": "Time"
+        "time": "Time",
+        "enabled": "Enabled",
+        "disabled": "Disabled"
+    },
+    "environment": {
+        "label": "Environment",
+        "development": "Development",
+        "staging": "Staging",
+        "production": "Production",
+        "readOnly": "Read-only",
+        "prodWarning": "This is a production database",
+        "confirmTitle": "Confirm Production Operation",
+        "confirmMessage": "Type the database name to confirm:",
+        "dangerousQuery": "This query may cause data loss",
+        "blocked": "Operation blocked: read-only mode"
     },
     "logs": {
         "title": "Error Logs",

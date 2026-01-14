@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { ConnectionItem } from './ConnectionItem';
 import { DBTree } from '../Tree/DBTree';
 import { ErrorLogPanel } from '../Logs/ErrorLogPanel';
-import { listSavedConnections, connect, getConnectionCredentials, SavedConnection, ConnectionConfig, Namespace } from '../../lib/tauri';
+import { listSavedConnections, connect, getConnectionCredentials, SavedConnection, ConnectionConfig, Namespace, Environment } from '../../lib/tauri';
 import { Plus, Bug } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
@@ -12,13 +12,14 @@ const DEFAULT_PROJECT = 'default';
 
 interface SidebarProps {
   onNewConnection: () => void;
-  onConnected: (sessionId: string, driver: string) => void;
+  onConnected: (sessionId: string, driver: string, environment: Environment) => void;
   connectedSessionId: string | null;
   onTableSelect?: (namespace: Namespace, tableName: string) => void;
   onEditConnection: (connection: SavedConnection, password: string) => void;
+  refreshTrigger?: number;
 }
 
-export function Sidebar({ onNewConnection, onConnected, connectedSessionId, onTableSelect, onEditConnection }: SidebarProps) {
+export function Sidebar({ onNewConnection, onConnected, connectedSessionId, onTableSelect, onEditConnection, refreshTrigger }: SidebarProps) {
   const [connections, setConnections] = useState<SavedConnection[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -33,7 +34,7 @@ export function Sidebar({ onNewConnection, onConnected, connectedSessionId, onTa
 
   useEffect(() => {
     loadConnections();
-  }, [connectedSessionId]);
+  }, [connectedSessionId, refreshTrigger]);
 
   async function loadConnections() {
     try {
@@ -72,7 +73,7 @@ export function Sidebar({ onNewConnection, onConnected, connectedSessionId, onTa
       
       if (result.success && result.session_id) {
         toast.success(t('sidebar.connectedTo', { name: conn.name }));
-        onConnected(result.session_id, conn.driver);
+        onConnected(result.session_id, conn.driver, conn.environment || 'development');
         setExpandedId(conn.id);
       } else {
         toast.error(t('sidebar.connectionToFailed', { name: conn.name }), {

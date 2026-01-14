@@ -5,20 +5,21 @@ import { MongoEditor, MONGO_TEMPLATES } from '../Editor/MongoEditor';
 import { DataGrid } from '../Grid/DataGrid';
 import { JSONViewer } from '../Results/JSONViewer';
 import { QueryHistory } from '../History/QueryHistory';
-import { executeQuery, cancelQuery, QueryResult } from '../../lib/tauri';
+import { executeQuery, cancelQuery, QueryResult, Environment } from '../../lib/tauri';
 import { addToHistory } from '../../lib/history';
 import { logError } from '../../lib/errorLog';
 import { Button } from '@/components/ui/button';
-import { Play, Square, AlertCircle, History } from 'lucide-react';
-
+import { Play, Square, AlertCircle, History, Shield } from 'lucide-react';
+import { ENVIRONMENT_CONFIG } from '../../lib/environment';
 import { Driver } from '../../lib/drivers';
 
 interface QueryPanelProps {
   sessionId: string | null;
   dialect?: Driver;
+  environment?: Environment;
 }
 
-export function QueryPanel({ sessionId, dialect = 'postgres' }: QueryPanelProps) {
+export function QueryPanel({ sessionId, dialect = 'postgres', environment = 'development' }: QueryPanelProps) {
   const { t } = useTranslation();
   const isMongo = dialect === 'mongodb';
   const defaultQuery = isMongo ? MONGO_TEMPLATES.find : 'SELECT 1;';
@@ -29,6 +30,8 @@ export function QueryPanel({ sessionId, dialect = 'postgres' }: QueryPanelProps)
   const [cancelling, setCancelling] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
+
+  const envConfig = ENVIRONMENT_CONFIG[environment];
 
   const handleExecute = useCallback(async (queryText?: string) => {
     if (!sessionId) {
@@ -120,6 +123,21 @@ export function QueryPanel({ sessionId, dialect = 'postgres' }: QueryPanelProps)
             </>
           )}
         </Button>
+
+        {/* Environment Badge - prominent for staging/prod */}
+        {sessionId && environment !== 'development' && (
+          <span 
+            className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold rounded-full border"
+            style={{ 
+              backgroundColor: envConfig.bgSoft, 
+              color: envConfig.color,
+              borderColor: envConfig.color
+            }}
+          >
+            <Shield size={12} />
+            {envConfig.labelShort}
+          </span>
+        )}
 
         {loading && (
           <Button

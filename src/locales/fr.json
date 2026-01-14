@@ -180,7 +180,21 @@
         "cancel": "Annuler",
         "unknownError": "Erreur inconnue",
         "mongoCreateDbHint": "Pour MongoDB, insérez simplement des données dans un espace de noms pour le créer.",
-        "time": "Temps"
+        "time": "Temps",
+        "enabled": "Activé",
+        "disabled": "Désactivé"
+    },
+    "environment": {
+        "label": "Environnement",
+        "development": "Développement",
+        "staging": "Pré-production",
+        "production": "Production",
+        "readOnly": "Lecture seule",
+        "prodWarning": "Ceci est une base de production",
+        "confirmTitle": "Confirmer l'opération en production",
+        "confirmMessage": "Tapez le nom de la base pour confirmer :",
+        "dangerousQuery": "Cette requête peut causer une perte de données",
+        "blocked": "Opération bloquée : mode lecture seule"
     },
     "logs": {
         "title": "Journaux d'erreurs",

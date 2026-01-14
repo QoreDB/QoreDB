@@ -6,6 +6,16 @@ use serde::{Deserialize, Serialize};
 
 use crate::engine::types::{ConnectionConfig, SshTunnelConfig};
 
+/// Environment classification for connections
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum Environment {
+    #[default]
+    Development,
+    Staging,
+    Production,
+}
+
 /// A saved connection (credentials stored separately in vault)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SavedConnection {
@@ -15,6 +25,12 @@ pub struct SavedConnection {
     pub name: String,
     /// Driver type (postgres, mysql, mongodb)
     pub driver: String,
+    /// Environment classification (dev/staging/prod)
+    #[serde(default)]
+    pub environment: Environment,
+    /// Read-only mode (blocks mutations)
+    #[serde(default)]
+    pub read_only: bool,
     /// Host address
     pub host: String,
     /// Port number

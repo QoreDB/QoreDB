@@ -7,6 +7,8 @@ import { invoke } from '@tauri-apps/api/core';
 // TYPES
 // ============================================
 
+export type Environment = 'development' | 'staging' | 'production';
+
 export interface ConnectionConfig {
   driver: string;
   host: string;
@@ -44,6 +46,8 @@ export interface SavedConnection {
   id: string;
   name: string;
   driver: string;
+  environment: Environment;
+  read_only: boolean;
   host: string;
   port: number;
   username: string;
@@ -294,6 +298,8 @@ export async function saveConnection(input: {
   id: string;
   name: string;
   driver: string;
+  environment?: Environment;
+  read_only?: boolean;
   host: string;
   port: number;
   username: string;

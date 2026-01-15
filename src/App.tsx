@@ -259,7 +259,7 @@ function App() {
 							/>
 						)}
 
-          <div className="flex-1 min-h-0 overflow-auto p-4 pt-12">
+          <div className="flex-1 min-h-0 overflow-hidden p-4 pt-12">
             {settingsOpen ? (
               <SettingsPage />
 						) : sessionId ? (

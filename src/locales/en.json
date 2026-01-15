@@ -247,6 +247,8 @@
         "confirmTitle": "Confirm Production Operation",
         "confirmMessage": "Type {{name}} to confirm:",
         "dangerousQuery": "This query may cause data loss",
+        "dangerousQueryTitle": "Dangerous Query",
+        "dangerousQueryTarget": "Target: {{target}}",
         "blocked": "Operation blocked: read-only mode"
     },
     "status": {
@@ -290,7 +292,9 @@
         "addColumn": "Add Column",
         "columnName": "Name",
         "type": "Type",
-        "length": "Length",
+        "length": "Size",
+        "precision": "Precision",
+        "scale": "Scale",
         "showSQL": "Show SQL",
         "hideSQL": "Hide SQL",
         "generatedSQL": "Generated SQL",

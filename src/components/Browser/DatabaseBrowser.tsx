@@ -35,6 +35,7 @@ interface DatabaseBrowserProps {
   readOnly?: boolean;
   connectionName?: string;
   onTableSelect: (namespace: Namespace, tableName: string) => void;
+  onSchemaChange?: () => void;
   onClose: () => void;
 }
 
@@ -56,6 +57,7 @@ export function DatabaseBrowser({
   readOnly = false,
   connectionName,
   onTableSelect,
+  onSchemaChange,
   onClose,
 }: DatabaseBrowserProps) {
   const { t } = useTranslation();
@@ -364,6 +366,7 @@ export function DatabaseBrowser({
           if (activeTab === 'tables') {
             loadData(); // Re-fetch to update tables list
           }
+          onSchemaChange?.();
         }}
       />
     </div>

@@ -18,9 +18,19 @@ interface SidebarProps {
   onDatabaseSelect?: (namespace: Namespace) => void;
   onEditConnection: (connection: SavedConnection, password: string) => void;
   refreshTrigger?: number;
+  schemaRefreshTrigger?: number;
 }
 
-export function Sidebar({ onNewConnection, onConnected, connectedSessionId, onTableSelect, onDatabaseSelect, onEditConnection, refreshTrigger }: SidebarProps) {
+export function Sidebar({
+  onNewConnection,
+  onConnected,
+  connectedSessionId,
+  onTableSelect,
+  onDatabaseSelect,
+  onEditConnection,
+  refreshTrigger,
+  schemaRefreshTrigger,
+}: SidebarProps) {
   const [connections, setConnections] = useState<SavedConnection[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -147,6 +157,7 @@ export function Sidebar({ onNewConnection, onConnected, connectedSessionId, onTa
                       connection={conn}
                       onTableSelect={onTableSelect}
                       onDatabaseSelect={onDatabaseSelect}
+                      refreshTrigger={schemaRefreshTrigger}
                     />
                   </div>
                 )}

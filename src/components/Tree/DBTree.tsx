@@ -14,9 +14,17 @@ interface DBTreeProps {
   connection?: SavedConnection;
   onTableSelect?: (namespace: Namespace, tableName: string) => void;
   onDatabaseSelect?: (namespace: Namespace) => void;
+  refreshTrigger?: number;
 }
 
-export function DBTree({ connectionId, driver, connection, onTableSelect, onDatabaseSelect }: DBTreeProps) {
+export function DBTree({
+  connectionId,
+  driver,
+  connection,
+  onTableSelect,
+  onDatabaseSelect,
+  refreshTrigger,
+}: DBTreeProps) {
   const { t } = useTranslation();
   const [namespaces, setNamespaces] = useState<Namespace[]>([]);
   const [expandedNs, setExpandedNs] = useState<string | null>(null);
@@ -31,6 +39,10 @@ export function DBTree({ connectionId, driver, connection, onTableSelect, onData
   useEffect(() => {
     loadNamespaces();
   }, [connectionId]);
+
+  useEffect(() => {
+    refreshExpandedNamespace();
+  }, [refreshTrigger]);
 
   async function loadNamespaces() {
     try {
@@ -67,6 +79,25 @@ export function DBTree({ connectionId, driver, connection, onTableSelect, onData
     } catch (err) {
       console.error('Failed to load collections:', err);
     }
+  }
+
+  async function refreshCollections(ns: Namespace) {
+    try {
+      const result = await listCollections(sessionId, ns);
+      if (result.success && result.collections) {
+        setCollections(result.collections);
+      } else {
+        console.error('[DBTree] listCollections failed:', result.error);
+      }
+    } catch (err) {
+      console.error('Failed to refresh collections:', err);
+    }
+  }
+
+  async function refreshExpandedNamespace() {
+    if (!expandedNs) return;
+    const [database, schema] = expandedNs.split(':');
+    await refreshCollections({ database, schema: schema || undefined });
   }
 
   function handleTableClick(col: Collection) {
@@ -157,7 +188,7 @@ export function DBTree({ connectionId, driver, connection, onTableSelect, onData
                       driver={driver}
                       environment={connection?.environment || 'development'}
                       readOnly={connection?.read_only || false}
-                      onRefresh={loadNamespaces}
+                      onRefresh={() => refreshCollections(col.namespace)}
                       onOpen={() => handleTableClick(col)}
                     >
                       <button

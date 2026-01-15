@@ -34,6 +34,7 @@ function App() {
   
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [sidebarRefreshTrigger, setSidebarRefreshTrigger] = useState(0);
+  const [schemaRefreshTrigger, setSchemaRefreshTrigger] = useState(0);
   
   // Edit connection state
   const [editConnection, setEditConnection] = useState<SavedConnection | null>(null);
@@ -41,6 +42,10 @@ function App() {
   
   // Query injection from search
   const [pendingQuery, setPendingQuery] = useState<string | undefined>(undefined);
+
+  function triggerSchemaRefresh() {
+    setSchemaRefreshTrigger(prev => prev + 1);
+  }
 
   // Handle search result selection
   async function handleSearchSelect(result: SearchResult) {
@@ -229,6 +234,7 @@ function App() {
 						onDatabaseSelect={handleDatabaseSelect}
 						onEditConnection={handleEditConnection}
 						refreshTrigger={sidebarRefreshTrigger}
+						schemaRefreshTrigger={schemaRefreshTrigger}
 					/>
 					<main className="flex-1 flex flex-col min-w-0 bg-background relative">
 						<header className="flex items-center justify-end absolute right-0 top-0 h-10 z-50 pr-2">
@@ -280,6 +286,7 @@ function App() {
 									readOnly={activeConnection?.read_only || false}
 									connectionName={activeConnection?.name}
 									onTableSelect={handleTableSelect}
+									onSchemaChange={triggerSchemaRefresh}
 									onClose={() => closeTab(activeTab.id)}
 								/>
 							) : (

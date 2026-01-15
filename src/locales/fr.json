@@ -247,6 +247,8 @@
         "confirmTitle": "Confirmer l'opération en production",
         "confirmMessage": "Tapez {{name}} pour confirmer :",
         "dangerousQuery": "Cette requête peut causer une perte de données",
+        "dangerousQueryTitle": "Requête dangereuse",
+        "dangerousQueryTarget": "Cible : {{target}}",
         "blocked": "Opération bloquée : mode lecture seule"
     },
     "status": {
@@ -290,7 +292,9 @@
         "addColumn": "Ajouter colonne",
         "columnName": "Nom",
         "type": "Type",
-        "length": "Longueur",
+        "length": "Taille",
+        "precision": "Précision",
+        "scale": "Échelle",
         "showSQL": "Voir SQL",
         "hideSQL": "Cacher SQL",
         "generatedSQL": "SQL généré",

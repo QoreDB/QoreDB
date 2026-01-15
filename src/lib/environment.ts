@@ -62,6 +62,19 @@ const DANGEROUS_PATTERNS = [
   /^\s*DROP\s+ALL\b/i,
 ];
 
+const SQL_IDENTIFIER = '(?:"[^"]+"|`[^`]+`|[^\\s;]+)';
+const SQL_QUALIFIED_IDENTIFIER = `${SQL_IDENTIFIER}(?:\\.${SQL_IDENTIFIER})*`;
+const SQL_TARGET_PATTERNS: RegExp[] = [
+  new RegExp(
+    `^\\s*DROP\\s+(?:TABLE|DATABASE|SCHEMA|INDEX|VIEW|FUNCTION|TRIGGER)\\s+(?:IF\\s+EXISTS\\s+)?(${SQL_QUALIFIED_IDENTIFIER})`,
+    'i'
+  ),
+  new RegExp(`^\\s*TRUNCATE\\s+(?:TABLE\\s+)?(${SQL_QUALIFIED_IDENTIFIER})`, 'i'),
+  new RegExp(`^\\s*DELETE\\s+FROM\\s+(${SQL_QUALIFIED_IDENTIFIER})`, 'i'),
+  new RegExp(`^\\s*UPDATE\\s+(${SQL_QUALIFIED_IDENTIFIER})`, 'i'),
+  new RegExp(`^\\s*ALTER\\s+TABLE\\s+(${SQL_QUALIFIED_IDENTIFIER})`, 'i'),
+];
+
 const MONGO_MUTATION_PATTERNS = [
   /\.insert(?:one|many)?\s*\(/i,
   /\.update(?:one|many)?\s*\(/i,
@@ -88,6 +101,19 @@ function splitSqlStatements(sql: string): string[] {
     .split(';')
     .map(statement => statement.trim())
     .filter(Boolean);
+}
+
+function splitRawSqlStatements(sql: string): string[] {
+  return sql
+    .split(';')
+    .map(statement => statement.trim())
+    .filter(Boolean);
+}
+
+function normalizeSqlTarget(target: string): string {
+  const trimmed = target.trim().replace(/;$/, '');
+  const first = trimmed.split(',')[0]?.trim() || '';
+  return first.replace(/["`]/g, '');
 }
 
 function tokenizeSql(sql: string): string[] {
@@ -128,6 +154,10 @@ export function isDangerousQuery(sql: string): boolean {
   });
 }
 
+export function isDropDatabaseQuery(sql: string): boolean {
+  return splitSqlStatements(sql).some(statement => /^\s*DROP\s+DATABASE\b/i.test(statement));
+}
+
 /**
  * Get a human-readable description of why a query is dangerous
  */
@@ -147,6 +177,22 @@ export function getDangerousQueryReason(sql: string): string | null {
     }
     if (/^\s*ALTER\s+TABLE\b.*\bDROP\b/i.test(statement)) {
       return 'This query will drop columns or constraints';
+    }
+  }
+
+  return null;
+}
+
+export function getDangerousQueryTarget(sql: string): string | null {
+  for (const statement of splitRawSqlStatements(sql)) {
+    for (const pattern of SQL_TARGET_PATTERNS) {
+      const match = statement.match(pattern);
+      if (match && match[1]) {
+        const target = normalizeSqlTarget(match[1]);
+        if (target) {
+          return target;
+        }
+      }
     }
   }
 

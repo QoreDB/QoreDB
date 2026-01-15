@@ -10,9 +10,10 @@ import { addToHistory } from '../../lib/history';
 import { logError } from '../../lib/errorLog';
 import { Button } from '@/components/ui/button';
 import { Play, Square, AlertCircle, History, Shield, Lock } from 'lucide-react';
-import { ENVIRONMENT_CONFIG, isDangerousQuery, isMutationQuery } from '../../lib/environment';
+import { ENVIRONMENT_CONFIG, getDangerousQueryTarget, isDangerousQuery, isDropDatabaseQuery, isMutationQuery } from '../../lib/environment';
 import { Driver } from '../../lib/drivers';
 import { ProductionConfirmDialog } from '../Guard/ProductionConfirmDialog';
+import { DangerConfirmDialog } from '../Guard/DangerConfirmDialog';
 import { toast } from 'sonner';
 
 interface QueryPanelProps {
@@ -45,8 +46,10 @@ export function QueryPanel({
   const [error, setError] = useState<string | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [dangerConfirmOpen, setDangerConfirmOpen] = useState(false);
+  const [dangerConfirmLabel, setDangerConfirmLabel] = useState<string | undefined>(undefined);
+  const [dangerConfirmInfo, setDangerConfirmInfo] = useState<string | undefined>(undefined);
   const [pendingQuery, setPendingQuery] = useState<string | null>(null);
-  const [confirmDescription, setConfirmDescription] = useState<string | null>(null);
 
   // Update query when initialQuery prop changes
   useEffect(() => {
@@ -129,20 +132,34 @@ export function QueryPanel({
       return;
     }
 
-    if (environment === 'production' && isMutation) {
-      const isDangerous = !isMongo && isDangerousQuery(queryToRun);
+    const isDangerous = !isMongo && isDangerousQuery(queryToRun);
+    if (isDangerous) {
+      const fallbackLabel = (connectionDatabase || connectionName || 'PROD').trim() || 'PROD';
+      const target = getDangerousQueryTarget(queryToRun);
+      const isDropDatabase = !isMongo && isDropDatabaseQuery(queryToRun);
+      const requiresTyping = environment === 'production' || isDropDatabase;
+      const warningInfoParts = [];
+      if (target) {
+        warningInfoParts.push(t('environment.dangerousQueryTarget', { target }));
+      }
+      if (environment === 'production') {
+        warningInfoParts.push(t('environment.prodWarning'));
+      }
       setPendingQuery(queryToRun);
-      setConfirmDescription(isDangerous ? t('environment.dangerousQuery') : null);
+      setDangerConfirmLabel(requiresTyping ? target || fallbackLabel : undefined);
+      setDangerConfirmInfo(warningInfoParts.length ? warningInfoParts.join(' | ') : undefined);
+      setDangerConfirmOpen(true);
+      return;
+    }
+
+    if (environment === 'production' && isMutation) {
+      setPendingQuery(queryToRun);
       setConfirmOpen(true);
       return;
     }
 
-    if (!isMongo && environment !== 'production' && isDangerousQuery(queryToRun)) {
-      toast(t('environment.dangerousQuery'));
-    }
-
     await runQuery(queryToRun);
-  }, [sessionId, query, isMongo, readOnly, environment, t, runQuery]);
+  }, [sessionId, query, isMongo, readOnly, environment, t, runQuery, connectionDatabase, connectionName]);
 
   const handleConfirm = useCallback(async () => {
     if (!pendingQuery) {
@@ -153,6 +170,20 @@ export function QueryPanel({
     const queryToRun = pendingQuery;
     setPendingQuery(null);
     setConfirmOpen(false);
+    await runQuery(queryToRun);
+  }, [pendingQuery, runQuery]);
+
+  const handleDangerConfirm = useCallback(async () => {
+    if (!pendingQuery) {
+      setDangerConfirmOpen(false);
+      return;
+    }
+
+    const queryToRun = pendingQuery;
+    setPendingQuery(null);
+    setDangerConfirmOpen(false);
+    setDangerConfirmInfo(undefined);
+    setDangerConfirmLabel(undefined);
     await runQuery(queryToRun);
   }, [pendingQuery, runQuery]);
 
@@ -327,16 +358,32 @@ export function QueryPanel({
 						setConfirmOpen(open);
 						if (!open) {
 							setPendingQuery(null);
-							setConfirmDescription(null);
 						}
 					}}
 					title={t("environment.confirmTitle")}
-					description={confirmDescription || undefined}
 					confirmationLabel={
 						(connectionDatabase || connectionName || "PROD").trim() || "PROD"
 					}
 					confirmLabel={t("common.confirm")}
 					onConfirm={handleConfirm}
+				/>
+
+				<DangerConfirmDialog
+					open={dangerConfirmOpen}
+					onOpenChange={(open) => {
+						setDangerConfirmOpen(open);
+						if (!open) {
+							setPendingQuery(null);
+							setDangerConfirmInfo(undefined);
+							setDangerConfirmLabel(undefined);
+						}
+					}}
+					title={t('environment.dangerousQueryTitle')}
+					description={t('environment.dangerousQuery')}
+					warningInfo={dangerConfirmInfo}
+					confirmationLabel={dangerConfirmLabel}
+					confirmLabel={t('common.confirm')}
+					onConfirm={handleDangerConfirm}
 				/>
 			</div>
 		);

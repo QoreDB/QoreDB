@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { 
   Namespace, 
@@ -26,6 +26,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { getDriverMetadata, Driver, DRIVER_LABELS, DRIVER_ICONS } from '../../lib/drivers';
 import { CreateTableModal } from '../Table/CreateTableModal';
+import { emitTableChange, onTableChange } from '@/lib/tableEvents';
 
 interface DatabaseBrowserProps {
   sessionId: string;
@@ -70,11 +71,7 @@ export function DatabaseBrowser({
 
   const driverMeta = getDriverMetadata(driver);
 
-  useEffect(() => {
-    loadData();
-  }, [sessionId, namespace]);
-
-  async function loadData() {
+  const loadData = useCallback(async () => {
     setLoading(true);
     setError(null);
 
@@ -141,7 +138,28 @@ export function DatabaseBrowser({
     } finally {
       setLoading(false);
     }
-  }
+  }, [sessionId, namespace, driverMeta]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  useEffect(() => {
+    return onTableChange((event) => {
+      if (
+        event.type !== 'create' &&
+        event.type !== 'drop'
+      ) {
+        return;
+      }
+      if (
+        event.namespace.database === namespace.database &&
+        (event.namespace.schema || '') === (namespace.schema || '')
+      ) {
+        loadData();
+      }
+    });
+  }, [loadData, namespace.database, namespace.schema]);
 
   function formatBytes(bytes: number): string {
     if (!bytes || bytes < 1024) return `${bytes || 0} B`;
@@ -361,12 +379,15 @@ export function DatabaseBrowser({
         sessionId={sessionId}
         namespace={namespace}
         driver={driver}
-        onTableCreated={() => {
+        onTableCreated={(tableName) => {
           loadData();
           if (activeTab === 'tables') {
             loadData(); // Re-fetch to update tables list
           }
           onSchemaChange?.();
+          if (tableName) {
+            emitTableChange({ type: 'create', namespace, tableName });
+          }
         }}
       />
     </div>

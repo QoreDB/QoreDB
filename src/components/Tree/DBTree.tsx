@@ -6,7 +6,10 @@ import { Button } from '@/components/ui/button';
 import { CreateDatabaseModal } from './CreateDatabaseModal';
 import { TableContextMenu } from './TableContextMenu';
 import { useTranslation } from 'react-i18next';
-import { getDriverMetadata } from '../../lib/drivers';
+import { Driver, getDriverMetadata } from '../../lib/drivers';
+import { CreateTableModal } from '../Table/CreateTableModal';
+import { DatabaseContextMenu } from './DatabaseContextMenu';
+import { emitTableChange } from '@/lib/tableEvents';
 
 interface DBTreeProps {
   connectionId: string;
@@ -31,6 +34,8 @@ export function DBTree({
   const [collections, setCollections] = useState<Collection[]>([]);
   const [loading, setLoading] = useState(false);
   const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [createTableOpen, setCreateTableOpen] = useState(false);
+  const [createTableNamespace, setCreateTableNamespace] = useState<Namespace | null>(null);
   
   const driverMeta = getDriverMetadata(driver);
 
@@ -60,7 +65,7 @@ export function DBTree({
 
   async function handleExpandNamespace(ns: Namespace) {
     const key = `${ns.database}:${ns.schema || ''}`;
-    
+
     if (expandedNs === key) {
       setExpandedNs(null);
       setCollections([]);
@@ -68,17 +73,7 @@ export function DBTree({
     }
 
     setExpandedNs(key);
-    
-    try {
-      const result = await listCollections(sessionId, ns);
-      if (result.success && result.collections) {
-        setCollections(result.collections);
-      } else {
-        console.error('[DBTree] listCollections failed:', result.error);
-      }
-    } catch (err) {
-      console.error('Failed to load collections:', err);
-    }
+    await refreshCollections(ns);
   }
 
   async function refreshCollections(ns: Namespace) {
@@ -98,6 +93,15 @@ export function DBTree({
     if (!expandedNs) return;
     const [database, schema] = expandedNs.split(':');
     await refreshCollections({ database, schema: schema || undefined });
+  }
+
+  async function openNamespace(ns: Namespace) {
+    const key = getNsKey(ns);
+    if (expandedNs !== key) {
+      setExpandedNs(key);
+      await refreshCollections(ns);
+    }
+    onDatabaseSelect?.(ns);
   }
 
   function handleTableClick(col: Collection) {
@@ -153,27 +157,37 @@ export function DBTree({
         
         return (
           <div key={key}>
-            <button
-              className={cn(
-                "flex items-center gap-2 w-full px-2 py-1.5 rounded-md hover:bg-accent/10 transition-colors text-left",
-                isExpanded ? "text-foreground" : "text-muted-foreground"
-              )}
-              onClick={() => {
-                // Expand tables + open Database Overview
-                handleExpandNamespace(ns);
-                onDatabaseSelect?.(ns);
+            <DatabaseContextMenu
+              onOpen={() => openNamespace(ns)}
+              onRefresh={() => refreshCollections(ns)}
+              onCreateTable={() => {
+                setCreateTableNamespace(ns);
+                setCreateTableOpen(true);
               }}
+              canCreateTable={driverMeta.supportsSQL && !connection?.read_only}
             >
-              <span className="shrink-0">
-                {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-              </span>
-              <span className="shrink-0">
-                {isExpanded ? <FolderOpen size={14} /> : <Folder size={14} />}
-              </span>
-              <span className="truncate">
-                {ns.schema ? `${ns.database}.${ns.schema}` : ns.database}
-              </span>
-            </button>
+              <button
+                className={cn(
+                  "flex items-center gap-2 w-full px-2 py-1.5 rounded-md hover:bg-accent/10 transition-colors text-left",
+                  isExpanded ? "text-foreground" : "text-muted-foreground"
+                )}
+                onClick={() => {
+                  // Expand tables + open Database Overview
+                  handleExpandNamespace(ns);
+                  onDatabaseSelect?.(ns);
+                }}
+              >
+                <span className="shrink-0">
+                  {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                </span>
+                <span className="shrink-0">
+                  {isExpanded ? <FolderOpen size={14} /> : <Folder size={14} />}
+                </span>
+                <span className="truncate">
+                  {ns.schema ? `${ns.database}.${ns.schema}` : ns.database}
+                </span>
+              </button>
+            </DatabaseContextMenu>
             
             {isExpanded && (
               <div className="flex flex-col ml-2 pl-2 border-l border-border mt-0.5 space-y-0.5">
@@ -185,7 +199,7 @@ export function DBTree({
                       key={col.name}
                       collection={col}
                       sessionId={sessionId}
-                      driver={driver}
+                      driver={driver as Driver}
                       environment={connection?.environment || 'development'}
                       readOnly={connection?.read_only || false}
                       onRefresh={() => refreshCollections(col.namespace)}
@@ -208,6 +222,26 @@ export function DBTree({
           </div>
         );
       })}
+
+      {createTableNamespace && (
+        <CreateTableModal
+          isOpen={createTableOpen}
+          onClose={() => {
+            setCreateTableOpen(false);
+            setCreateTableNamespace(null);
+          }}
+          sessionId={sessionId}
+          namespace={createTableNamespace}
+          driver={driver as Driver}
+          onTableCreated={(tableName) => {
+            if (!createTableNamespace) return;
+            refreshCollections(createTableNamespace);
+            if (tableName) {
+              emitTableChange({ type: 'create', namespace: createTableNamespace, tableName });
+            }
+          }}
+        />
+      )}
     </div>
   );
 }

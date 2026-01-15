@@ -282,6 +282,8 @@
         "tables": "Tables",
         "collection": "Collection",
         "collections": "Collections",
+        "open": "Ouvrir",
+        "refresh": "Actualiser",
         "noCollections": "Aucune table",
         "noDocuments": "Aucun document"
     },

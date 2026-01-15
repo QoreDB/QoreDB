@@ -12,13 +12,14 @@ import {
 } from '@/components/ui/context-menu';
 import { DangerConfirmDialog } from '@/components/Guard/DangerConfirmDialog';
 import { Collection, Environment, executeQuery } from '../../lib/tauri';
-import { getDriverMetadata } from '../../lib/drivers';
-import { buildDropTableSQL } from '@/lib/column-types';
+import { Driver, getDriverMetadata } from '../../lib/drivers';
+import { buildDropTableSQL, buildTruncateTableSQL } from '@/lib/column-types';
+import { emitTableChange } from '@/lib/tableEvents';
 
 interface TableContextMenuProps {
   collection: Collection;
   sessionId: string;
-  driver: string;
+  driver: Driver;
   environment: Environment;
   readOnly: boolean;
   rowCountEstimate?: number;
@@ -54,18 +55,6 @@ export function TableContextMenu({
   const tableName = collection.name;
   const confirmationLabel = isProduction ? tableName : undefined;
 
-  function buildQualifiedName(): string {
-    const { namespace } = collection;
-    if (driverMeta.createAction === 'schema' && namespace.schema) {
-      // PostgreSQL: "schema"."table"
-      return `"${namespace.schema}"."${tableName}"`;
-    } else if (driverMeta.supportsSQL) {
-      // MySQL: `table`
-      return `\`${tableName}\``;
-    }
-    return tableName;
-  }
-
   async function handleDropTable() {
     if (readOnly) {
       toast.error(t('environment.blocked'));
@@ -84,7 +73,7 @@ export function TableContextMenu({
         query = JSON.stringify(payload);
       } else {
         const schemaOrDb = collection.namespace.schema || collection.namespace.database;
-        query = buildDropTableSQL(schemaOrDb, tableName, driver as any); // Cast driver as any/Driver
+        query = buildDropTableSQL(schemaOrDb, tableName, driver);
       }
 
       const result = await executeQuery(sessionId, query);
@@ -93,6 +82,7 @@ export function TableContextMenu({
         toast.success(t('dropTable.success', { name: tableName }));
         onRefresh();
         setDangerAction(null);
+        emitTableChange({ type: 'drop', namespace: collection.namespace, tableName });
       } else {
         toast.error(t('dropTable.failed'), {
           description: result.error,
@@ -114,7 +104,6 @@ export function TableContextMenu({
     }
     setLoading(true);
     try {
-      const qualifiedName = buildQualifiedName();
       let query: string;
 
       if (isMongo) {
@@ -126,7 +115,7 @@ export function TableContextMenu({
         };
         query = JSON.stringify(payload);
       } else {
-        query = `TRUNCATE TABLE ${qualifiedName}`;
+        query = buildTruncateTableSQL(collection.namespace, tableName, driver);
       }
 
       const result = await executeQuery(sessionId, query);
@@ -135,6 +124,7 @@ export function TableContextMenu({
         toast.success(t('tableMenu.truncateSuccess', { name: tableName }));
         onRefresh();
         setDangerAction(null);
+        emitTableChange({ type: 'truncate', namespace: collection.namespace, tableName });
       } else {
         toast.error(t('tableMenu.truncateError'), {
           description: result.error,

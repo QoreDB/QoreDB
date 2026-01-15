@@ -4,6 +4,7 @@
 
 use serde::Serialize;
 use tauri::State;
+use std::sync::Arc;
 use uuid::Uuid;
 
 use crate::engine::types::ConnectionConfig;
@@ -29,9 +30,12 @@ pub async fn test_connection(
     state: State<'_, crate::SharedState>,
     config: ConnectionConfig,
 ) -> Result<ConnectionResponse, String> {
-    let state = state.lock().await;
+    let session_manager = {
+        let state = state.lock().await;
+        Arc::clone(&state.session_manager)
+    };
 
-    match state.session_manager.test_connection(&config).await {
+    match session_manager.test_connection(&config).await {
         Ok(()) => Ok(ConnectionResponse {
             success: true,
             session_id: None,
@@ -51,9 +55,12 @@ pub async fn connect(
     state: State<'_, crate::SharedState>,
     config: ConnectionConfig,
 ) -> Result<ConnectionResponse, String> {
-    let state = state.lock().await;
+    let session_manager = {
+        let state = state.lock().await;
+        Arc::clone(&state.session_manager)
+    };
 
-    match state.session_manager.connect(config).await {
+    match session_manager.connect(config).await {
         Ok(session_id) => Ok(ConnectionResponse {
             success: true,
             session_id: Some(session_id.0.to_string()),
@@ -73,16 +80,17 @@ pub async fn disconnect(
     state: State<'_, crate::SharedState>,
     session_id: String,
 ) -> Result<ConnectionResponse, String> {
-    let state = state.lock().await;
+    let session_manager = {
+        let state = state.lock().await;
+        Arc::clone(&state.session_manager)
+    };
 
     let uuid = Uuid::parse_str(&session_id)
         .map_err(|e| format!("Invalid session ID: {}", e))?;
 
-    match state
-        .session_manager
+    match session_manager
         .disconnect(crate::engine::types::SessionId(uuid))
-        .await
-    {
+        .await {
         Ok(()) => Ok(ConnectionResponse {
             success: true,
             session_id: None,
@@ -101,9 +109,12 @@ pub async fn disconnect(
 pub async fn list_sessions(
     state: State<'_, crate::SharedState>,
 ) -> Result<Vec<SessionListItem>, String> {
-    let state = state.lock().await;
+    let session_manager = {
+        let state = state.lock().await;
+        Arc::clone(&state.session_manager)
+    };
 
-    let sessions = state.session_manager.list_sessions().await;
+    let sessions = session_manager.list_sessions().await;
 
     Ok(sessions
         .into_iter()

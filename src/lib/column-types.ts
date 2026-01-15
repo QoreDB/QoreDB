@@ -4,7 +4,7 @@
  * Provides driver-aware column type definitions for table creation
  */
 
-import { Driver } from './drivers';
+import { Driver, getDriverMetadata } from './drivers';
 
 export type ColumnCategory = 'integer' | 'float' | 'string' | 'text' | 'date' | 'binary' | 'json' | 'boolean' | 'other';
 
@@ -27,6 +27,11 @@ export interface ColumnDef {
   isPrimaryKey: boolean;
   isUnique: boolean;
   isAutoIncrement?: boolean;
+}
+
+export interface NamespaceLike {
+  database: string;
+  schema?: string | null;
 }
 
 // PostgreSQL column types
@@ -135,6 +140,40 @@ export function buildColumnSQL(col: ColumnDef, driver: Driver): string {
   }
   
   return sql;
+}
+
+function quoteIdentifier(identifier: string, driver: Driver): string {
+  const quote = driver === 'mysql' ? '`' : '"';
+  const escaped = identifier.replace(new RegExp(quote, 'g'), `${quote}${quote}`);
+  return `${quote}${escaped}${quote}`;
+}
+
+export function buildQualifiedTableName(
+  namespace: NamespaceLike,
+  tableName: string,
+  driver: Driver
+): string {
+  const driverMeta = getDriverMetadata(driver);
+  const schema = namespace.schema || undefined;
+  const database = namespace.database;
+
+  if (driverMeta.supportsSchemas && schema) {
+    return `${quoteIdentifier(schema, driver)}.${quoteIdentifier(tableName, driver)}`;
+  }
+
+  if (!driverMeta.supportsSchemas && database) {
+    return `${quoteIdentifier(database, driver)}.${quoteIdentifier(tableName, driver)}`;
+  }
+
+  return quoteIdentifier(tableName, driver);
+}
+
+export function buildTruncateTableSQL(
+  namespace: NamespaceLike,
+  tableName: string,
+  driver: Driver
+): string {
+  return `TRUNCATE TABLE ${buildQualifiedTableName(namespace, tableName, driver)}`;
 }
 
 /** Build CREATE TABLE SQL */

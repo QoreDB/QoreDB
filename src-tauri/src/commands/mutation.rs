@@ -5,6 +5,7 @@
 use serde::Serialize;
 use tauri::State;
 use uuid::Uuid;
+use std::sync::Arc;
 
 use crate::engine::{types::{Namespace, QueryResult, RowData, SessionId}};
 
@@ -34,11 +35,13 @@ pub async fn insert_row(
     table: String,
     data: RowData,
 ) -> Result<MutationResponse, String> {
-    let state = state.lock().await;
+    let session_manager = {
+        let state = state.lock().await;
+        Arc::clone(&state.session_manager)
+    };
     let session = parse_session_id(&session_id)?;
 
-    if state
-        .session_manager
+    if session_manager
         .is_read_only(session)
         .await
         .map_err(|e| e.to_string())?
@@ -50,7 +53,7 @@ pub async fn insert_row(
         });
     }
 
-    let driver = state.session_manager.get_driver(session).await
+    let driver = session_manager.get_driver(session).await
         .map_err(|e| e.to_string())?;
 
     let namespace = Namespace {
@@ -87,11 +90,13 @@ pub async fn update_row(
     primary_key: RowData,
     data: RowData,
 ) -> Result<MutationResponse, String> {
-    let state = state.lock().await;
+    let session_manager = {
+        let state = state.lock().await;
+        Arc::clone(&state.session_manager)
+    };
     let session = parse_session_id(&session_id)?;
 
-    if state
-        .session_manager
+    if session_manager
         .is_read_only(session)
         .await
         .map_err(|e| e.to_string())?
@@ -103,7 +108,7 @@ pub async fn update_row(
         });
     }
 
-    let driver = state.session_manager.get_driver(session).await
+    let driver = session_manager.get_driver(session).await
         .map_err(|e| e.to_string())?;
 
     let namespace = Namespace {
@@ -139,11 +144,13 @@ pub async fn delete_row(
     table: String,
     primary_key: RowData,
 ) -> Result<MutationResponse, String> {
-    let state = state.lock().await;
+    let session_manager = {
+        let state = state.lock().await;
+        Arc::clone(&state.session_manager)
+    };
     let session = parse_session_id(&session_id)?;
 
-    if state
-        .session_manager
+    if session_manager
         .is_read_only(session)
         .await
         .map_err(|e| e.to_string())?
@@ -155,7 +162,7 @@ pub async fn delete_row(
         });
     }
 
-    let driver = state.session_manager.get_driver(session).await
+    let driver = session_manager.get_driver(session).await
         .map_err(|e| e.to_string())?;
 
     let namespace = Namespace {
@@ -187,10 +194,13 @@ pub async fn supports_mutations(
     state: State<'_, crate::SharedState>,
     session_id: String,
 ) -> Result<bool, String> {
-    let state = state.lock().await;
+    let session_manager = {
+        let state = state.lock().await;
+        Arc::clone(&state.session_manager)
+    };
     let session = parse_session_id(&session_id)?;
 
-    let driver = state.session_manager.get_driver(session).await
+    let driver = session_manager.get_driver(session).await
         .map_err(|e| e.to_string())?;
 
     Ok(driver.supports_mutations())

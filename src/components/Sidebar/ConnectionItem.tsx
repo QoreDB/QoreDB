@@ -3,36 +3,42 @@ import { Loader2, ChevronRight, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Driver, DRIVER_ICONS, DRIVER_LABELS } from '../../lib/drivers';
 import { ConnectionMenu } from '../Connection/ConnectionMenu';
-import { ENVIRONMENT_CONFIG } from '../../lib/environment';
+import { ConnectionContextMenu } from "../Connection/ConnectionContextMenu";
+import { ENVIRONMENT_CONFIG } from "../../lib/environment";
 
 interface ConnectionItemProps {
-  connection: SavedConnection;
-  isSelected: boolean;
-  isExpanded: boolean;
-  isConnected?: boolean;
-  isConnecting?: boolean;
-  onSelect: () => void;
-  onEdit: (connection: SavedConnection, password: string) => void;
-  onDeleted: () => void;
+	connection: SavedConnection;
+	isSelected: boolean;
+	isExpanded: boolean;
+	isConnected?: boolean;
+	isConnecting?: boolean;
+	onSelect: () => void;
+	onEdit: (connection: SavedConnection, password: string) => void;
+	onDeleted: () => void;
 }
 
-export function ConnectionItem({ 
-  connection, 
-  isSelected, 
-  isExpanded, 
-  isConnected,
-  isConnecting,
-  onSelect,
-  onEdit,
-  onDeleted
+export function ConnectionItem({
+	connection,
+	isSelected,
+	isExpanded,
+	isConnected,
+	isConnecting,
+	onSelect,
+	onEdit,
+	onDeleted,
 }: ConnectionItemProps) {
-  const driver = connection.driver as Driver;
-  const iconSrc = `/databases/${DRIVER_ICONS[driver]}`;
-  const env = connection.environment || 'development';
-  const envConfig = ENVIRONMENT_CONFIG[env];
-  const isProduction = env === 'production';
+	const driver = connection.driver as Driver;
+	const iconSrc = `/databases/${DRIVER_ICONS[driver]}`;
+	const env = connection.environment || "development";
+	const envConfig = ENVIRONMENT_CONFIG[env];
+	const isProduction = env === "production";
 
-  return (
+	return (
+		<ConnectionContextMenu
+			connection={connection}
+			onEdit={onEdit}
+			onDeleted={onDeleted}
+		>
 			<div
 				className={cn(
 					"group flex items-center transition-all",
@@ -46,7 +52,7 @@ export function ConnectionItem({
 				)}
 				style={{
 					borderLeft: isProduction ? `3px solid ${envConfig.color}` : undefined,
-					paddingLeft: isProduction ? undefined : "3px", // maintain alignment
+					paddingLeft: isProduction ? undefined : "3px",
 				}}
 			>
 				<button
@@ -101,5 +107,6 @@ export function ConnectionItem({
 					onDeleted={onDeleted}
 				/>
 			</div>
-		);
+		</ConnectionContextMenu>
+	);
 }

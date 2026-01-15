@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { SavedConnection, deleteSavedConnection, testConnection, getConnectionCredentials, ConnectionConfig } from '../../lib/tauri';
+import { SavedConnection } from '../../lib/tauri';
 import { Button } from '@/components/ui/button';
 import { 
   MoreVertical, 
@@ -9,7 +9,7 @@ import {
   Copy,
   Loader2
 } from 'lucide-react';
-import { toast } from 'sonner';
+import { useConnectionActions } from './useConnectionActions';
 import { useTranslation } from 'react-i18next';
 
 interface ConnectionMenuProps {
@@ -20,10 +20,22 @@ interface ConnectionMenuProps {
 
 export function ConnectionMenu({ connection, onEdit, onDeleted }: ConnectionMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [testing, setTesting] = useState(false);
-  const [deleting, setDeleting] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const { t } = useTranslation();
+
+  const {
+    testing,
+    deleting,
+    handleTest,
+    handleEdit,
+    handleDelete,
+    handleDuplicate,
+  } = useConnectionActions({
+    connection,
+    onEdit,
+    onDeleted,
+    onAfterAction: () => setIsOpen(false),
+  });
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -37,94 +49,6 @@ export function ConnectionMenu({ connection, onEdit, onDeleted }: ConnectionMenu
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }
   }, [isOpen]);
-
-  async function handleTest() {
-    setTesting(true);
-    try {
-      // Get password from vault
-      const credsResult = await getConnectionCredentials('default', connection.id);
-      if (!credsResult.success || !credsResult.password) {
-        toast.error(t('connection.failedRetrieveCredentials'));
-        return;
-      }
-
-      const config: ConnectionConfig = {
-        driver: connection.driver,
-        host: connection.host,
-        port: connection.port,
-        username: connection.username,
-        password: credsResult.password,
-        database: connection.database,
-        ssl: connection.ssl,
-      };
-
-      const result = await testConnection(config);
-      
-      if (result.success) {
-        toast.success(t('connection.menu.testTitleSuccess', { name: connection.name }), {
-          description: `${connection.host}:${connection.port}`,
-        });
-      } else {
-        toast.error(t('connection.testFail'), {
-          description: result.error || t('common.unknownError'),
-        });
-      }
-    } catch (err) {
-      toast.error(t('connection.testFail'), {
-        description: err instanceof Error ? err.message : t('common.unknownError'),
-      });
-    } finally {
-      setTesting(false);
-      setIsOpen(false);
-    }
-  }
-
-  async function handleEdit() {
-    try {
-      // Get password from vault for editing
-      const credsResult = await getConnectionCredentials('default', connection.id);
-      if (!credsResult.success || !credsResult.password) {
-        toast.error(t('connection.failedRetrieveCredentialsEdit'));
-        return;
-      }
-      onEdit(connection, credsResult.password);
-      setIsOpen(false);
-    } catch (err) {
-      toast.error(t('connection.menu.credentialLoadFail'));
-    }
-  }
-
-  async function handleDelete() {
-    if (!confirm(t('connection.menu.deleteConfirm', { name: connection.name }))) {
-      return;
-    }
-
-    setDeleting(true);
-    try {
-      const result = await deleteSavedConnection('default', connection.id);
-      if (result.success) {
-        toast.success(t('connection.menu.deletedSuccess', { name: connection.name }));
-        onDeleted();
-      } else {
-        toast.error(t('connection.menu.deleteFail'), {
-          description: result.error,
-        });
-      }
-    } catch (err) {
-      toast.error(t('connection.menu.deleteFail'), {
-        description: err instanceof Error ? err.message : t('common.unknownError'),
-      });
-    } finally {
-      setDeleting(false);
-      setIsOpen(false);
-    }
-  }
-
-  function handleDuplicate() {
-    // For now just show a message - could be implemented later
-    toast.info(t('connection.menu.duplicateComingSoon'));
-    setIsOpen(false);
-  }
 
   return (
 			<div className="relative" ref={menuRef}>

@@ -5,6 +5,7 @@
 use serde::Serialize;
 use tauri::State;
 use uuid::Uuid;
+use std::sync::Arc;
 
 use crate::engine::{TableSchema, types::{Collection, Namespace, QueryResult, SessionId}};
 
@@ -118,10 +119,13 @@ pub async fn execute_query(
     session_id: String,
     query: String,
 ) -> Result<QueryResponse, String> {
-    let state = state.lock().await;
+    let session_manager = {
+        let state = state.lock().await;
+        Arc::clone(&state.session_manager)
+    };
     let session = parse_session_id(&session_id)?;
 
-    let read_only = match state.session_manager.is_read_only(session).await {
+    let read_only = match session_manager.is_read_only(session).await {
         Ok(read_only) => read_only,
         Err(e) => {
             return Ok(QueryResponse {
@@ -132,7 +136,7 @@ pub async fn execute_query(
         }
     };
 
-    let driver = match state.session_manager.get_driver(session).await {
+    let driver = match session_manager.get_driver(session).await {
         Ok(d) => d,
         Err(e) => {
             return Ok(QueryResponse {
@@ -177,10 +181,13 @@ pub async fn cancel_query(
     state: State<'_, crate::SharedState>,
     session_id: String,
 ) -> Result<QueryResponse, String> {
-    let state = state.lock().await;
+    let session_manager = {
+        let state = state.lock().await;
+        Arc::clone(&state.session_manager)
+    };
     let session = parse_session_id(&session_id)?;
 
-    let driver = match state.session_manager.get_driver(session).await {
+    let driver = match session_manager.get_driver(session).await {
         Ok(d) => d,
         Err(e) => {
             return Ok(QueryResponse {
@@ -211,10 +218,13 @@ pub async fn list_namespaces(
     state: State<'_, crate::SharedState>,
     session_id: String,
 ) -> Result<NamespacesResponse, String> {
-    let state = state.lock().await;
+    let session_manager = {
+        let state = state.lock().await;
+        Arc::clone(&state.session_manager)
+    };
     let session = parse_session_id(&session_id)?;
 
-    let driver = match state.session_manager.get_driver(session).await {
+    let driver = match session_manager.get_driver(session).await {
         Ok(d) => d,
         Err(e) => {
             return Ok(NamespacesResponse {
@@ -246,10 +256,13 @@ pub async fn list_collections(
     session_id: String,
     namespace: Namespace,
 ) -> Result<CollectionsResponse, String> {
-    let state = state.lock().await;
+    let session_manager = {
+        let state = state.lock().await;
+        Arc::clone(&state.session_manager)
+    };
     let session = parse_session_id(&session_id)?;
 
-    let driver = match state.session_manager.get_driver(session).await {
+    let driver = match session_manager.get_driver(session).await {
         Ok(d) => d,
         Err(e) => {
             return Ok(CollectionsResponse {
@@ -290,10 +303,13 @@ pub async fn describe_table(
     namespace: Namespace,
     table: String,
 ) -> Result<TableSchemaResponse, String> {
-    let state = state.lock().await;
+    let session_manager = {
+        let state = state.lock().await;
+        Arc::clone(&state.session_manager)
+    };
     let session = parse_session_id(&session_id)?;
 
-    let driver = match state.session_manager.get_driver(session).await {
+    let driver = match session_manager.get_driver(session).await {
         Ok(d) => d,
         Err(e) => {
             return Ok(TableSchemaResponse {
@@ -327,10 +343,13 @@ pub async fn preview_table(
     table: String,
     limit: u32,
 ) -> Result<QueryResponse, String> {
-    let state = state.lock().await;
+    let session_manager = {
+        let state = state.lock().await;
+        Arc::clone(&state.session_manager)
+    };
     let session = parse_session_id(&session_id)?;
 
-    let driver = match state.session_manager.get_driver(session).await {
+    let driver = match session_manager.get_driver(session).await {
         Ok(d) => d,
         Err(e) => {
             return Ok(QueryResponse {
@@ -380,10 +399,13 @@ pub async fn begin_transaction(
     state: State<'_, crate::SharedState>,
     session_id: String,
 ) -> Result<TransactionResponse, String> {
-    let state = state.lock().await;
+    let session_manager = {
+        let state = state.lock().await;
+        Arc::clone(&state.session_manager)
+    };
     let session = parse_session_id(&session_id)?;
 
-    let driver = match state.session_manager.get_driver(session).await {
+    let driver = match session_manager.get_driver(session).await {
         Ok(d) => d,
         Err(e) => {
             return Ok(TransactionResponse {
@@ -413,10 +435,13 @@ pub async fn commit_transaction(
     state: State<'_, crate::SharedState>,
     session_id: String,
 ) -> Result<TransactionResponse, String> {
-    let state = state.lock().await;
+    let session_manager = {
+        let state = state.lock().await;
+        Arc::clone(&state.session_manager)
+    };
     let session = parse_session_id(&session_id)?;
 
-    let driver = match state.session_manager.get_driver(session).await {
+    let driver = match session_manager.get_driver(session).await {
         Ok(d) => d,
         Err(e) => {
             return Ok(TransactionResponse {
@@ -446,10 +471,13 @@ pub async fn rollback_transaction(
     state: State<'_, crate::SharedState>,
     session_id: String,
 ) -> Result<TransactionResponse, String> {
-    let state = state.lock().await;
+    let session_manager = {
+        let state = state.lock().await;
+        Arc::clone(&state.session_manager)
+    };
     let session = parse_session_id(&session_id)?;
 
-    let driver = match state.session_manager.get_driver(session).await {
+    let driver = match session_manager.get_driver(session).await {
         Ok(d) => d,
         Err(e) => {
             return Ok(TransactionResponse {
@@ -477,10 +505,13 @@ pub async fn supports_transactions(
     state: State<'_, crate::SharedState>,
     session_id: String,
 ) -> Result<TransactionSupportResponse, String> {
-    let state = state.lock().await;
+    let session_manager = {
+        let state = state.lock().await;
+        Arc::clone(&state.session_manager)
+    };
     let session = parse_session_id(&session_id)?;
 
-    let driver = match state.session_manager.get_driver(session).await {
+    let driver = match session_manager.get_driver(session).await {
         Ok(d) => d,
         Err(_) => {
             return Ok(TransactionSupportResponse {

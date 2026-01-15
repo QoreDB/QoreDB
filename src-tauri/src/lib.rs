@@ -17,7 +17,7 @@ use vault::VaultLock;
 pub type SharedState = Arc<Mutex<AppState>>;
 pub struct AppState {
     pub registry: Arc<DriverRegistry>,
-    pub session_manager: SessionManager,
+    pub session_manager: Arc<SessionManager>,
     pub vault_lock: VaultLock,
 }
 
@@ -30,7 +30,7 @@ impl AppState {
         registry.register(Arc::new(MongoDriver::new()));
 
         let registry = Arc::new(registry);
-        let session_manager = SessionManager::new(Arc::clone(&registry));
+        let session_manager = Arc::new(SessionManager::new(Arc::clone(&registry)));
         let mut vault_lock = VaultLock::new();
 
         let _ = vault_lock.auto_unlock_if_no_password();

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { 
   Namespace, 
@@ -31,6 +31,7 @@ import { Value } from '../../lib/tauri';
 import { RowModal } from './RowModal'
 import { toast } from 'sonner';
 import { getDriverMetadata } from '../../lib/drivers';
+import { onTableChange } from '@/lib/tableEvents';
 
 interface TableBrowserProps {
   sessionId: string;
@@ -69,11 +70,7 @@ export function TableBrowser({
   const [modalMode, setModalMode] = useState<'insert' | 'update'>('insert');
   const [selectedRow, setSelectedRow] = useState<Record<string, Value> | undefined>(undefined);
 
-  useEffect(() => {
-    loadData();
-  }, [sessionId, namespace, tableName]);
-
-  async function loadData() {
+  const loadData = useCallback(async () => {
     setLoading(true);
     setError(null);
 
@@ -106,7 +103,23 @@ export function TableBrowser({
     } finally {
       setLoading(false);
     }
-  }
+  }, [sessionId, namespace, tableName]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  useEffect(() => {
+    return onTableChange((event) => {
+      if (
+        event.tableName === tableName &&
+        event.namespace.database === namespace.database &&
+        (event.namespace.schema || '') === (namespace.schema || '')
+      ) {
+        loadData();
+      }
+    });
+  }, [loadData, namespace.database, namespace.schema, tableName]);
 
   const displayName = namespace.schema 
     ? `${namespace.schema}.${tableName}` 

@@ -266,6 +266,7 @@ export function RowModal({
 	};
 
 	const preview = computePreview();
+	const updatePreview = preview.type === "update" ? preview : null;
 	const hasPreviewChanges =
 		preview.type === "insert" ? true : preview.changes.length > 0;
 	const previewIsEmpty =
@@ -333,57 +334,43 @@ export function RowModal({
 						))}
 					</div>
 
-					<div
-						className="border rounded-md p-3 mb-4 bg-(--q-accent-soft)"
-						style={{ borderColor: "var(--q-accent)" }}
-					>
-						<div className="text-xs font-semibold uppercase tracking-wide text-(--q-accent)">
-							{t("rowModal.previewTitle")}
+					{mode === "update" && (
+						<div
+							className="border rounded-md p-3 mb-4 bg-(--q-accent-soft)"
+							style={{ borderColor: "var(--q-accent)" }}
+						>
+							<div className="text-xs font-semibold uppercase tracking-wide text-(--q-accent)">
+								{t("rowModal.previewTitle")}
+							</div>
+							{previewIsEmpty ? (
+								<div className="text-xs text-muted-foreground mt-2">
+									{t("rowModal.previewEmpty")}
+								</div>
+							) : (
+								<div className="mt-2 space-y-1">
+									{(updatePreview?.changes ?? []).map((item) => (
+										<div
+											key={item.key}
+											className="flex items-center justify-between text-xs gap-3"
+										>
+											<span className="font-mono text-muted-foreground min-w-0">
+												{item.key}
+											</span>
+											<span className="font-mono text-muted-foreground line-through truncate">
+												{formatPreviewValue(item.previous)}
+											</span>
+											<span className="font-mono font-semibold truncate text-(--q-accent-strong)">
+												{formatPreviewValue(item.next)}
+											</span>
+										</div>
+									))}
+								</div>
+							)}
+							{previewError && (
+								<div className="text-xs text-error mt-2">{previewError}</div>
+							)}
 						</div>
-						{previewIsEmpty ? (
-							<div className="text-xs text-muted-foreground mt-2">
-								{preview.type === "insert"
-									? t("rowModal.previewDefaults")
-									: t("rowModal.previewEmpty")}
-							</div>
-						) : preview.type === "insert" ? (
-							<div className="mt-2 space-y-1">
-								{preview.values.map((item) => (
-									<div
-										key={item.key}
-										className="flex items-center justify-between text-xs"
-									>
-										<span className="font-mono text-muted-foreground">{item.key}</span>
-										<span className="font-mono font-semibold text-(--q-accent-strong)">
-											{formatPreviewValue(item.value)}
-										</span>
-									</div>
-								))}
-							</div>
-						) : (
-							<div className="mt-2 space-y-1">
-								{preview.changes.map((item) => (
-									<div
-										key={item.key}
-										className="flex items-center justify-between text-xs gap-3"
-									>
-										<span className="font-mono text-muted-foreground min-w-0">
-											{item.key}
-										</span>
-										<span className="font-mono text-muted-foreground line-through truncate">
-											{formatPreviewValue(item.previous)}
-										</span>
-										<span className="font-mono font-semibold truncate text-(--q-accent-strong)">
-											{formatPreviewValue(item.next)}
-										</span>
-									</div>
-								))}
-							</div>
-						)}
-						{previewError && (
-							<div className="text-xs text-error mt-2">{previewError}</div>
-						)}
-					</div>
+					)}
 
 					<DialogFooter>
 						<Button type="button" variant="outline" onClick={onClose}>

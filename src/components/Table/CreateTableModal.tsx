@@ -29,7 +29,7 @@ interface CreateTableModalProps {
   sessionId: string;
   namespace: Namespace;
   driver: Driver;
-  onTableCreated?: () => void;
+  onTableCreated?: (tableName: string) => void;
 }
 
 function createEmptyColumn(): ColumnDef {
@@ -132,7 +132,7 @@ export function CreateTableModal({
 			const result = await executeQuery(sessionId, generatedSQL);
 			if (result.success) {
 				toast.success(t("createTable.success", { name: tableName }));
-				onTableCreated?.();
+				onTableCreated?.(tableName.trim());
 				handleClose();
 			} else {
 				toast.error(t("createTable.failed"), { description: result.error });

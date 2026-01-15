@@ -7,6 +7,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use tokio::sync::RwLock;
+use tokio::time::{timeout, Duration};
 
 use crate::engine::error::{EngineError, EngineResult};
 use crate::engine::ssh_tunnel::SshTunnel;
@@ -30,6 +31,8 @@ pub struct SessionManager {
 }
 
 impl SessionManager {
+    const CONNECT_TIMEOUT_MS: u64 = 15000;
+    const TEST_TIMEOUT_MS: u64 = 10000;
     pub fn new(registry: Arc<DriverRegistry>) -> Self {
         Self {
             registry,
@@ -44,20 +47,26 @@ impl SessionManager {
             .get(&config.driver)
             .ok_or_else(|| EngineError::driver_not_found(&config.driver))?;
 
-        // If SSH tunnel is configured, we need to test through it
-        let effective_config = if let Some(ref ssh_config) = config.ssh_tunnel {
-            let tunnel = SshTunnel::open(ssh_config, &config.host, config.port).await?;
-            let mut tunneled_config = config.clone();
-            tunneled_config.host = "127.0.0.1".to_string();
-            tunneled_config.port = tunnel.local_port();
-            // Tunnel will be dropped after test, closing the connection
-            let result = driver.test_connection(&tunneled_config).await;
-            return result;
-        } else {
-            config.clone()
+        let test_future = async {
+            // If SSH tunnel is configured, we need to test through it
+            if let Some(ref ssh_config) = config.ssh_tunnel {
+                let tunnel = SshTunnel::open(ssh_config, &config.host, config.port).await?;
+                let mut tunneled_config = config.clone();
+                tunneled_config.host = "127.0.0.1".to_string();
+                tunneled_config.port = tunnel.local_port();
+                // Tunnel will be dropped after test, closing the connection
+                return driver.test_connection(&tunneled_config).await;
+            }
+
+            driver.test_connection(config).await
         };
 
-        driver.test_connection(&effective_config).await
+        match timeout(Duration::from_millis(Self::TEST_TIMEOUT_MS), test_future).await {
+            Ok(result) => result,
+            Err(_) => Err(EngineError::Timeout {
+                timeout_ms: Self::TEST_TIMEOUT_MS,
+            }),
+        }
     }
 
     /// Establishes a new connection and returns its session ID
@@ -67,38 +76,47 @@ impl SessionManager {
             .get(&config.driver)
             .ok_or_else(|| EngineError::driver_not_found(&config.driver))?;
 
-        // Setup SSH tunnel if configured
-        let (effective_config, tunnel) = if let Some(ref ssh_config) = config.ssh_tunnel {
-            let tunnel = SshTunnel::open(ssh_config, &config.host, config.port).await?;
-            let mut tunneled_config = config.clone();
-            tunneled_config.host = "127.0.0.1".to_string();
-            tunneled_config.port = tunnel.local_port();
-            (tunneled_config, Some(tunnel))
-        } else {
-            (config.clone(), None)
+        let connect_future = async {
+            // Setup SSH tunnel if configured
+            let (effective_config, tunnel) = if let Some(ref ssh_config) = config.ssh_tunnel {
+                let tunnel = SshTunnel::open(ssh_config, &config.host, config.port).await?;
+                let mut tunneled_config = config.clone();
+                tunneled_config.host = "127.0.0.1".to_string();
+                tunneled_config.port = tunnel.local_port();
+                (tunneled_config, Some(tunnel))
+            } else {
+                (config.clone(), None)
+            };
+
+            let session_id = driver.connect(&effective_config).await?;
+
+            let display_name = format!(
+                "{}@{}:{}{}",
+                config.username,
+                config.host,
+                config.database.as_deref().unwrap_or("default"),
+                if tunnel.is_some() { " (SSH)" } else { "" }
+            );
+
+            let session = ActiveSession {
+                driver_id: config.driver.clone(),
+                config,
+                display_name,
+                tunnel,
+            };
+
+            let mut sessions = self.sessions.write().await;
+            sessions.insert(session_id, session);
+
+            Ok(session_id)
         };
 
-        let session_id = driver.connect(&effective_config).await?;
-
-        let display_name = format!(
-            "{}@{}:{}{}",
-            config.username,
-            config.host,
-            config.database.as_deref().unwrap_or("default"),
-            if tunnel.is_some() { " (SSH)" } else { "" }
-        );
-
-        let session = ActiveSession {
-            driver_id: config.driver.clone(),
-            config,
-            display_name,
-            tunnel,
-        };
-
-        let mut sessions = self.sessions.write().await;
-        sessions.insert(session_id, session);
-
-        Ok(session_id)
+        match timeout(Duration::from_millis(Self::CONNECT_TIMEOUT_MS), connect_future).await {
+            Ok(result) => result,
+            Err(_) => Err(EngineError::Timeout {
+                timeout_ms: Self::CONNECT_TIMEOUT_MS,
+            }),
+        }
     }
 
     /// Disconnects a session

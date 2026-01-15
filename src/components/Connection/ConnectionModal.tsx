@@ -156,6 +156,7 @@ export function ConnectionModal({
 				password: formData.password,
 				database: formData.database || undefined,
 				ssl: formData.ssl,
+				environment: formData.environment,
 				read_only: formData.readOnly,
 				ssh_tunnel: formData.useSshTunnel
 					? {
@@ -205,6 +206,7 @@ export function ConnectionModal({
 				password: formData.password,
 				database: formData.database || undefined,
 				ssl: formData.ssl,
+				environment: formData.environment,
 				read_only: formData.readOnly,
 				ssh_tunnel: formData.useSshTunnel
 					? {

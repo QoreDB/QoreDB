@@ -60,7 +60,7 @@ export function QueryPanel({
 
   const envConfig = ENVIRONMENT_CONFIG[environment];
 
-  const runQuery = useCallback(async (queryToRun: string) => {
+  const runQuery = useCallback(async (queryToRun: string, acknowledgedDangerous = false) => {
     if (!sessionId) {
       setError(t('query.noConnectionError'));
       return;
@@ -72,7 +72,9 @@ export function QueryPanel({
 
     const startTime = performance.now();
     try {
-      const response = await executeQuery(sessionId, queryToRun);
+      const response = await executeQuery(sessionId, queryToRun, {
+        acknowledgedDangerous,
+      });
       const endTime = performance.now();
       const totalTime = endTime - startTime;
       
@@ -184,7 +186,7 @@ export function QueryPanel({
     setDangerConfirmOpen(false);
     setDangerConfirmInfo(undefined);
     setDangerConfirmLabel(undefined);
-    await runQuery(queryToRun);
+    await runQuery(queryToRun, true);
   }, [pendingQuery, runQuery]);
 
   const handleCancel = useCallback(async () => {

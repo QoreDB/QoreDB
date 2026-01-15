@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../hooks/useTheme';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -8,10 +10,31 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Settings, Moon, Sun, ChevronDown } from 'lucide-react';
+import { clearErrorLogs } from '@/lib/errorLog';
+import { clearHistory } from '@/lib/history';
+import {
+  getDiagnosticsSettings,
+  setDiagnosticsSettings,
+  DiagnosticsSettings,
+} from '@/lib/diagnosticsSettings';
 
 export function SettingsPage() {
   const { t, i18n } = useTranslation();
   const { theme, setTheme } = useTheme();
+  const [diagnostics, setDiagnostics] = useState<DiagnosticsSettings>(
+    getDiagnosticsSettings()
+  );
+
+  function updateDiagnostics(next: DiagnosticsSettings) {
+    setDiagnostics(next);
+    setDiagnosticsSettings(next);
+    if (!next.storeHistory) {
+      clearHistory();
+    }
+    if (!next.storeErrorLogs) {
+      clearErrorLogs();
+    }
+  }
 
   return (
     <div className="flex flex-col h-full bg-background p-8 overflow-auto">
@@ -87,6 +110,54 @@ export function SettingsPage() {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-border bg-card text-card-foreground shadow-sm">
+            <div className="flex flex-col space-y-1.5 p-6">
+              <h3 className="font-semibold leading-none tracking-tight">
+                {t('settings.diagnostics')}
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                {t('settings.diagnosticsDescription')}
+              </p>
+            </div>
+            <div className="p-6 pt-0 space-y-4">
+              <label className="flex items-start gap-3 text-sm">
+                <Checkbox
+                  checked={diagnostics.storeHistory}
+                  onCheckedChange={(checked) =>
+                    updateDiagnostics({
+                      ...diagnostics,
+                      storeHistory: !!checked,
+                    })
+                  }
+                />
+                <span>
+                  <span className="font-medium">{t('settings.storeHistory')}</span>
+                  <span className="block text-xs text-muted-foreground">
+                    {t('settings.storeHistoryDescription')}
+                  </span>
+                </span>
+              </label>
+
+              <label className="flex items-start gap-3 text-sm">
+                <Checkbox
+                  checked={diagnostics.storeErrorLogs}
+                  onCheckedChange={(checked) =>
+                    updateDiagnostics({
+                      ...diagnostics,
+                      storeErrorLogs: !!checked,
+                    })
+                  }
+                />
+                <span>
+                  <span className="font-medium">{t('settings.storeErrorLogs')}</span>
+                  <span className="block text-xs text-muted-foreground">
+                    {t('settings.storeErrorLogsDescription')}
+                  </span>
+                </span>
+              </label>
             </div>
           </div>
         </div>

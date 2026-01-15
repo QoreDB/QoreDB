@@ -76,7 +76,9 @@ export function TableContextMenu({
         query = buildDropTableSQL(schemaOrDb, tableName, driver);
       }
 
-      const result = await executeQuery(sessionId, query);
+      const result = await executeQuery(sessionId, query, {
+        acknowledgedDangerous: true,
+      });
 
       if (result.success) {
         toast.success(t('dropTable.success', { name: tableName }));
@@ -118,7 +120,9 @@ export function TableContextMenu({
         query = buildTruncateTableSQL(collection.namespace, tableName, driver);
       }
 
-      const result = await executeQuery(sessionId, query);
+      const result = await executeQuery(sessionId, query, {
+        acknowledgedDangerous: true,
+      });
 
       if (result.success) {
         toast.success(t('tableMenu.truncateSuccess', { name: tableName }));

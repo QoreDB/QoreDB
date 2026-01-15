@@ -236,7 +236,7 @@ function App() {
 						refreshTrigger={sidebarRefreshTrigger}
 						schemaRefreshTrigger={schemaRefreshTrigger}
 					/>
-					<main className="flex-1 flex flex-col min-w-0 bg-background relative">
+					<main className="flex-1 flex flex-col min-w-0 min-h-0 bg-background relative">
 						<header className="flex items-center justify-end absolute right-0 top-0 h-10 z-50 pr-2">
 							<Button
 								variant="ghost"
@@ -259,7 +259,7 @@ function App() {
 							/>
 						)}
 
-          <div className="flex-1 overflow-auto p-4 pt-12">
+          <div className="flex-1 min-h-0 overflow-auto p-4 pt-12">
             {settingsOpen ? (
               <SettingsPage />
 						) : sessionId ? (

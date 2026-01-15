@@ -85,7 +85,13 @@
         "themeDark": "Sombre",
         "themeSystem": "Système",
         "languageDescription": "Sélectionnez votre langue préférée pour l'interface.",
-        "themeDescription": "Personnalisez l'apparence de l'application."
+        "themeDescription": "Personnalisez l'apparence de l'application.",
+        "diagnostics": "Diagnostics & confidentialité",
+        "diagnosticsDescription": "Contrôlez si QoreDB stocke des logs et l'historique sur cet appareil.",
+        "storeHistory": "Stocker l'historique des requêtes",
+        "storeHistoryDescription": "Enregistre un historique local masqué pour faciliter le recall.",
+        "storeErrorLogs": "Stocker les logs d'erreur",
+        "storeErrorLogsDescription": "Enregistre des erreurs masquées pour aider au debug."
     },
     "table": {
         "rows": "lignes",

@@ -4,6 +4,9 @@
  * Persists query history to localStorage with session isolation.
  */
 
+import { shouldStoreHistory } from './diagnosticsSettings';
+import { redactQuery } from './redaction';
+
 export interface HistoryEntry {
   id: string;
   query: string;
@@ -19,6 +22,9 @@ export interface HistoryEntry {
 
 const STORAGE_KEY = 'qoredb_query_history';
 const MAX_ENTRIES = 100;
+const MAX_IN_MEMORY = 100;
+
+let inMemoryHistory: HistoryEntry[] = [];
 
 function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
@@ -28,6 +34,9 @@ function generateId(): string {
  * Get all history entries
  */
 export function getHistory(): HistoryEntry[] {
+  if (!shouldStoreHistory()) {
+    return inMemoryHistory;
+  }
   try {
     const data = localStorage.getItem(STORAGE_KEY);
     if (!data) return [];
@@ -46,17 +55,25 @@ export function addToHistory(entry: Omit<HistoryEntry, 'id'>): HistoryEntry {
   const newEntry: HistoryEntry = {
     ...entry,
     id: generateId(),
+    query: shouldStoreHistory() ? redactQuery(entry.query) : entry.query,
   };
   
   // Add to beginning
   history.unshift(newEntry);
-  
-  // Trim to max entries
-  if (history.length > MAX_ENTRIES) {
-    history.splice(MAX_ENTRIES);
+
+  if (shouldStoreHistory()) {
+    // Trim to max entries
+    if (history.length > MAX_ENTRIES) {
+      history.splice(MAX_ENTRIES);
+    }
+
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+  } else {
+    if (history.length > MAX_IN_MEMORY) {
+      history.splice(MAX_IN_MEMORY);
+    }
+    inMemoryHistory = history;
   }
-  
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
   
   return newEntry;
 }
@@ -82,6 +99,7 @@ export function searchHistory(query: string): HistoryEntry[] {
  * Clear all history
  */
 export function clearHistory(): void {
+  inMemoryHistory = [];
   localStorage.removeItem(STORAGE_KEY);
 }
 
@@ -90,13 +108,20 @@ export function clearHistory(): void {
  */
 export function removeFromHistory(id: string): void {
   const history = getHistory().filter(e => e.id !== id);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+  if (shouldStoreHistory()) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+  } else {
+    inMemoryHistory = history;
+  }
 }
 
 /**
  * Mark entry as favorite (moves to separate storage)
  */
 export function toggleFavorite(id: string): boolean {
+  if (!shouldStoreHistory()) {
+    return false;
+  }
   const favorites = getFavorites();
   const isFavorite = favorites.some(f => f.id === id);
   
@@ -109,7 +134,10 @@ export function toggleFavorite(id: string): boolean {
     // Add to favorites
     const entry = getHistory().find(e => e.id === id);
     if (entry) {
-      favorites.unshift(entry);
+      favorites.unshift({
+        ...entry,
+        query: redactQuery(entry.query),
+      });
       localStorage.setItem('qoredb_favorites', JSON.stringify(favorites));
     }
     return true;
@@ -120,6 +148,9 @@ export function toggleFavorite(id: string): boolean {
  * Get favorite queries
  */
 export function getFavorites(): HistoryEntry[] {
+  if (!shouldStoreHistory()) {
+    return [];
+  }
   try {
     const data = localStorage.getItem('qoredb_favorites');
     if (!data) return [];
@@ -133,5 +164,8 @@ export function getFavorites(): HistoryEntry[] {
  * Check if an entry is a favorite
  */
 export function isFavorite(id: string): boolean {
+  if (!shouldStoreHistory()) {
+    return false;
+  }
   return getFavorites().some(f => f.id === id);
 }

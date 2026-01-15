@@ -43,6 +43,7 @@ export function useConnectionActions({
         password: credsResult.password,
         database: connection.database,
         ssl: connection.ssl,
+        environment: connection.environment,
       };
 
       const result = await testConnection(config);

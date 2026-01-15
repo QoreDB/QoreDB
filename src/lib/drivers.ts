@@ -21,6 +21,12 @@ export interface DriverQueryBuilders {
   maintenanceQuery?: (schemaOrDb: string, tableName: string) => string;
 }
 
+export interface IdentifierRules {
+  quoteStart: string;
+  quoteEnd: string;
+  namespaceStrategy: 'schema' | 'database';
+}
+
 export interface DriverMetadata {
   id: Driver;
   label: string;
@@ -39,6 +45,7 @@ export interface DriverMetadata {
   // Capabilities
   supportsSchemas: boolean;
   supportsSQL: boolean;
+  identifier: IdentifierRules;
   // Query builders
   queries: DriverQueryBuilders;
 }
@@ -58,6 +65,11 @@ export const DRIVERS: Record<Driver, DriverMetadata> = {
     databaseFieldLabel: 'connection.databaseInitial',
     supportsSchemas: true,
     supportsSQL: true,
+    identifier: {
+      quoteStart: '"',
+      quoteEnd: '"',
+      namespaceStrategy: 'schema',
+    },
     queries: {
       databaseSizeQuery: () => 
         `SELECT pg_size_pretty(pg_database_size(current_database())) as size`,
@@ -87,6 +99,11 @@ export const DRIVERS: Record<Driver, DriverMetadata> = {
     databaseFieldLabel: 'connection.database',
     supportsSchemas: false,
     supportsSQL: true,
+    identifier: {
+      quoteStart: '`',
+      quoteEnd: '`',
+      namespaceStrategy: 'database',
+    },
     queries: {
       databaseSizeQuery: (db) =>
         `SELECT COALESCE(SUM(IFNULL(data_length, 0) + IFNULL(index_length, 0)), 0) as size
@@ -116,6 +133,11 @@ export const DRIVERS: Record<Driver, DriverMetadata> = {
     databaseFieldLabel: 'connection.database',
     supportsSchemas: false,
     supportsSQL: false,
+    identifier: {
+      quoteStart: '"',
+      quoteEnd: '"',
+      namespaceStrategy: 'database',
+    },
     queries: {
     },
   },

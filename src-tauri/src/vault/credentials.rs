@@ -16,6 +16,16 @@ pub enum Environment {
     Production,
 }
 
+impl Environment {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Development => "development",
+            Self::Staging => "staging",
+            Self::Production => "production",
+        }
+    }
+}
+
 /// A saved connection (credentials stored separately in vault)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SavedConnection {
@@ -100,6 +110,7 @@ impl SavedConnection {
             password: creds.db_password.clone(),
             database: self.database.clone(),
             ssl: self.ssl,
+            environment: Some(self.environment.as_str().to_string()),
             read_only: self.read_only,
             ssh_tunnel,
         }

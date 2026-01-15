@@ -107,18 +107,13 @@ export function getColumnTypes(driver: Driver): ColumnType[] {
 
 /** Build column definition SQL for a single column */
 export function buildColumnSQL(col: ColumnDef, driver: Driver): string {
-  let sql = `"${col.name}" ${col.type}`;
+  let sql = `${quoteIdentifier(col.name, driver)} ${col.type}`;
   
   // Add length/precision
   if (col.length) {
-    sql = `"${col.name}" ${col.type}(${col.length})`;
+    sql = `${quoteIdentifier(col.name, driver)} ${col.type}(${col.length})`;
   } else if (col.precision) {
-    sql = `"${col.name}" ${col.type}(${col.precision}${col.scale ? `, ${col.scale}` : ''})`;
-  }
-  
-  // MySQL uses backticks
-  if (driver === 'mysql') {
-    sql = sql.replace(/"/g, '`');
+    sql = `${quoteIdentifier(col.name, driver)} ${col.type}(${col.precision}${col.scale ? `, ${col.scale}` : ''})`;
   }
   
   // Constraints
@@ -143,9 +138,17 @@ export function buildColumnSQL(col: ColumnDef, driver: Driver): string {
 }
 
 function quoteIdentifier(identifier: string, driver: Driver): string {
-  const quote = driver === 'mysql' ? '`' : '"';
-  const escaped = identifier.replace(new RegExp(quote, 'g'), `${quote}${quote}`);
-  return `${quote}${escaped}${quote}`;
+  const driverMeta = getDriverMetadata(driver);
+  const { quoteStart, quoteEnd } = driverMeta.identifier;
+  let escaped = identifier;
+  if (quoteStart === quoteEnd) {
+    escaped = identifier.replace(new RegExp(quoteStart, 'g'), `${quoteStart}${quoteStart}`);
+  } else {
+    escaped = identifier
+      .replace(new RegExp(quoteStart, 'g'), `${quoteStart}${quoteStart}`)
+      .replace(new RegExp(quoteEnd, 'g'), `${quoteEnd}${quoteEnd}`);
+  }
+  return `${quoteStart}${escaped}${quoteEnd}`;
 }
 
 export function buildQualifiedTableName(
@@ -157,11 +160,11 @@ export function buildQualifiedTableName(
   const schema = namespace.schema || undefined;
   const database = namespace.database;
 
-  if (driverMeta.supportsSchemas && schema) {
+  if (driverMeta.identifier.namespaceStrategy === 'schema' && schema) {
     return `${quoteIdentifier(schema, driver)}.${quoteIdentifier(tableName, driver)}`;
   }
 
-  if (!driverMeta.supportsSchemas && database) {
+  if (driverMeta.identifier.namespaceStrategy === 'database' && database) {
     return `${quoteIdentifier(database, driver)}.${quoteIdentifier(tableName, driver)}`;
   }
 
@@ -183,10 +186,7 @@ export function buildCreateTableSQL(
   columns: ColumnDef[],
   driver: Driver
 ): string {
-  const quote = driver === 'mysql' ? '`' : '"';
-  const fullName = driver === 'postgres' 
-    ? `${quote}${schemaOrDb}${quote}.${quote}${tableName}${quote}`
-    : `${quote}${schemaOrDb}${quote}.${quote}${tableName}${quote}`;
+  const fullName = `${quoteIdentifier(schemaOrDb, driver)}.${quoteIdentifier(tableName, driver)}`;
   
   const columnDefs = columns.map(col => buildColumnSQL(col, driver));
   
@@ -199,8 +199,7 @@ export function buildDropTableSQL(
   tableName: string,
   driver: Driver
 ): string {
-  const quote = driver === 'mysql' ? '`' : '"';
-  const fullName = `${quote}${schemaOrDb}${quote}.${quote}${tableName}${quote}`;
+  const fullName = `${quoteIdentifier(schemaOrDb, driver)}.${quoteIdentifier(tableName, driver)}`;
   
   return `DROP TABLE ${fullName};`;
 }

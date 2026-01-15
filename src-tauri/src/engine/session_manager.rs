@@ -181,6 +181,19 @@ impl SessionManager {
         Ok(session.config.read_only)
     }
 
+    /// Checks if the session is a production environment
+    pub async fn is_production(&self, session_id: SessionId) -> EngineResult<bool> {
+        let sessions = self.sessions.read().await;
+        let session = sessions
+            .get(&session_id)
+            .ok_or_else(|| EngineError::session_not_found(session_id.0.to_string()))?;
+
+        Ok(matches!(
+            session.config.environment.as_deref(),
+            Some("production")
+        ))
+    }
+
     /// Checks if a session exists
     pub async fn session_exists(&self, session_id: SessionId) -> bool {
         let sessions = self.sessions.read().await;

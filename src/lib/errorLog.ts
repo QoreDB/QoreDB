@@ -4,6 +4,9 @@
  * Captures and persists error logs for debugging purposes.
  */
 
+import { shouldStoreErrorLogs } from './diagnosticsSettings';
+import { redactText } from './redaction';
+
 export interface ErrorLogEntry {
   id: string;
   timestamp: number;
@@ -16,6 +19,9 @@ export interface ErrorLogEntry {
 
 const STORAGE_KEY = 'qoredb_error_logs';
 const MAX_ENTRIES = 200;
+const MAX_IN_MEMORY = 200;
+
+let inMemoryLogs: ErrorLogEntry[] = [];
 
 function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
@@ -25,6 +31,9 @@ function generateId(): string {
  * Get all error logs
  */
 export function getErrorLogs(): ErrorLogEntry[] {
+  if (!shouldStoreErrorLogs()) {
+    return inMemoryLogs;
+  }
   try {
     const data = localStorage.getItem(STORAGE_KEY);
     if (!data) return [];
@@ -51,8 +60,8 @@ export function logError(
     timestamp: Date.now(),
     level,
     source,
-    message,
-    details,
+    message: redactText(message),
+    details: details ? redactText(details) : undefined,
     sessionId,
   };
   
@@ -60,11 +69,17 @@ export function logError(
   logs.unshift(entry);
   
   // Trim to max entries
-  if (logs.length > MAX_ENTRIES) {
-    logs.splice(MAX_ENTRIES);
+  if (shouldStoreErrorLogs()) {
+    if (logs.length > MAX_ENTRIES) {
+      logs.splice(MAX_ENTRIES);
+    }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(logs));
+  } else {
+    if (logs.length > MAX_IN_MEMORY) {
+      logs.splice(MAX_IN_MEMORY);
+    }
+    inMemoryLogs = logs;
   }
-  
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(logs));
   
   return entry;
 }
@@ -84,6 +99,7 @@ export function logInfo(source: string, message: string, details?: string, sessi
  * Clear all error logs
  */
 export function clearErrorLogs(): void {
+  inMemoryLogs = [];
   localStorage.removeItem(STORAGE_KEY);
 }
 

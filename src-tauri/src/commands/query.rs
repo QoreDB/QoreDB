@@ -6,10 +6,12 @@ use serde::Serialize;
 use tauri::State;
 use uuid::Uuid;
 use std::sync::Arc;
+use tokio::time::{timeout, Duration};
 
 use crate::engine::{TableSchema, types::{Collection, Namespace, QueryResult, SessionId}};
 
 const READ_ONLY_BLOCKED: &str = "Operation blocked: read-only mode";
+const DANGEROUS_BLOCKED: &str = "Dangerous query blocked: confirmation required";
 
 fn is_sql_mutation(query: &str) -> bool {
     const MUTATION_KEYWORDS: [&str; 15] = [
@@ -82,6 +84,89 @@ fn is_mutation_query(driver_id: &str, query: &str) -> bool {
     }
 }
 
+fn strip_sql_comments(sql: &str) -> String {
+    let mut out = String::with_capacity(sql.len());
+    let mut chars = sql.chars().peekable();
+    let mut in_single = false;
+
+    while let Some(c) = chars.next() {
+        if c == '\'' {
+            in_single = !in_single;
+            out.push(c);
+            continue;
+        }
+
+        if !in_single {
+            if c == '-' && chars.peek() == Some(&'-') {
+                while let Some(next) = chars.next() {
+                    if next == '\n' {
+                        out.push('\n');
+                        break;
+                    }
+                }
+                continue;
+            }
+
+            if c == '/' && chars.peek() == Some(&'*') {
+                chars.next();
+                while let Some(next) = chars.next() {
+                    if next == '*' && chars.peek() == Some(&'/') {
+                        chars.next();
+                        break;
+                    }
+                }
+                continue;
+            }
+        }
+
+        out.push(c);
+    }
+
+    out
+}
+
+fn split_sql_statements(sql: &str) -> Vec<String> {
+    strip_sql_comments(sql)
+        .split(';')
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .collect()
+}
+
+fn is_dangerous_sql(sql: &str) -> bool {
+    for statement in split_sql_statements(sql) {
+        let upper = statement.to_ascii_uppercase();
+        let trimmed = upper.trim_start();
+
+        if trimmed.starts_with("DROP TABLE")
+            || trimmed.starts_with("DROP DATABASE")
+            || trimmed.starts_with("DROP SCHEMA")
+            || trimmed.starts_with("DROP INDEX")
+            || trimmed.starts_with("DROP VIEW")
+            || trimmed.starts_with("DROP FUNCTION")
+            || trimmed.starts_with("DROP TRIGGER")
+            || trimmed.starts_with("TRUNCATE")
+            || trimmed.starts_with("DROP ALL")
+        {
+            return true;
+        }
+
+        if trimmed.starts_with("DELETE FROM") && !trimmed.contains(" WHERE ") {
+            return true;
+        }
+
+        if trimmed.starts_with("UPDATE") && !trimmed.contains(" WHERE ") {
+            return true;
+        }
+
+        if trimmed.starts_with("ALTER TABLE") && trimmed.contains(" DROP ") {
+            return true;
+        }
+    }
+
+    false
+}
+
 /// Response wrapper for query results
 #[derive(Debug, Serialize)]
 pub struct QueryResponse {
@@ -118,6 +203,8 @@ pub async fn execute_query(
     state: State<'_, crate::SharedState>,
     session_id: String,
     query: String,
+    acknowledged_dangerous: Option<bool>,
+    timeout_ms: Option<u64>,
 ) -> Result<QueryResponse, String> {
     let session_manager = {
         let state = state.lock().await;
@@ -155,18 +242,54 @@ pub async fn execute_query(
         });
     }
 
+    let is_production = match session_manager.is_production(session).await {
+        Ok(value) => value,
+        Err(_) => false,
+    };
+
+    let acknowledged = acknowledged_dangerous.unwrap_or(false);
+    if is_production
+        && !driver.driver_id().eq_ignore_ascii_case("mongodb")
+        && is_dangerous_sql(&query)
+        && !acknowledged
+    {
+        return Ok(QueryResponse {
+            success: false,
+            result: None,
+            error: Some(DANGEROUS_BLOCKED.to_string()),
+        });
+    }
+
     let start_time = std::time::Instant::now();
-    match driver.execute(session, &query).await {
+    let execution = driver.execute(session, &query);
+
+    let result = if let Some(timeout_value) = timeout_ms {
+        match timeout(Duration::from_millis(timeout_value), execution).await {
+            Ok(res) => res,
+            Err(_) => {
+                let _ = driver.cancel(session).await;
+                return Ok(QueryResponse {
+                    success: false,
+                    result: None,
+                    error: Some(format!("Operation timed out after {}ms", timeout_value)),
+                });
+            }
+        }
+    } else {
+        execution.await
+    };
+
+    match result {
         Ok(mut result) => {
             let elapsed = start_time.elapsed().as_micros() as f64 / 1000.0;
             result.execution_time_ms = elapsed;
-            
+
             Ok(QueryResponse {
                 success: true,
                 result: Some(result),
                 error: None,
             })
-        },
+        }
         Err(e) => Ok(QueryResponse {
             success: false,
             result: None,

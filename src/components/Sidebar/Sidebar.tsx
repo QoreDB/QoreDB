@@ -78,6 +78,7 @@ export function Sidebar({
         password: credsResult.password,
         database: conn.database,
         ssl: conn.ssl,
+        environment: conn.environment,
         read_only: conn.read_only,
       };
 

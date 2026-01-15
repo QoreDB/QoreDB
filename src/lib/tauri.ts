@@ -17,6 +17,7 @@ export interface ConnectionConfig {
   password: string;
   database?: string;
   ssl: boolean;
+  environment?: Environment;
   read_only?: boolean;
   ssh_tunnel?: SshTunnelConfig;
 }
@@ -125,12 +126,21 @@ export async function listSessions(): Promise<SessionListItem[]> {
 // QUERY COMMANDS
 // ============================================
 
-export async function executeQuery(sessionId: string, query: string): Promise<{
+export async function executeQuery(
+  sessionId: string,
+  query: string,
+  options?: { acknowledgedDangerous?: boolean; timeoutMs?: number }
+): Promise<{
   success: boolean;
   result?: QueryResult;
   error?: string;
 }> {
-  return invoke('execute_query', { sessionId, query });
+  return invoke('execute_query', {
+    sessionId,
+    query,
+    acknowledgedDangerous: options?.acknowledgedDangerous,
+    timeoutMs: options?.timeoutMs,
+  });
 }
 
 export async function listNamespaces(sessionId: string): Promise<{

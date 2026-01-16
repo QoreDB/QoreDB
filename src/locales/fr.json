@@ -199,7 +199,10 @@
         "exportSuccess": "{{count}} ligne(s) exportée(s) vers {{path}}",
         "exportError": "Échec de l'export des données",
         "copyToClipboard": "Copier dans le presse-papiers",
-        "downloadToFile": "Télécharger en fichier"
+        "downloadToFile": "Télécharger en fichier",
+        "searchPlaceholder": "Rechercher...",
+        "columns": "Colonnes",
+        "toggleColumns": "Afficher/masquer colonnes"
     },
     "rowModal": {
         "insertTitle": "Insérer une nouvelle ligne",

@@ -199,7 +199,10 @@
         "exportSuccess": "Exported {{count}} row(s) to {{path}}",
         "exportError": "Failed to export data",
         "copyToClipboard": "Copy to clipboard",
-        "downloadToFile": "Download to file"
+        "downloadToFile": "Download to file",
+        "searchPlaceholder": "Search...",
+        "columns": "Columns",
+        "toggleColumns": "Toggle columns"
     },
     "rowModal": {
         "insertTitle": "Insert New Row",

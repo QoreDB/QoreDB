@@ -32,21 +32,16 @@ export interface DriverMetadata {
   label: string;
   icon: string;
   defaultPort: number;
-  // Namespace semantics
-  namespaceLabel: string;        // "Schema" for pg, "Database" for mysql/mongo
-  namespacePluralLabel: string;  // "Schemas" for pg, "Databases" for mysql/mongo
-  collectionLabel: string;       // "Table" for SQL, "Collection" for NoSQL
-  collectionPluralLabel: string; // "Tables" for SQL, "Collections" for NoSQL
-  // Tree behavior
-  treeRootLabel: string;         // What to show as header in DBTree (i18n key)
+  namespaceLabel: string;
+  namespacePluralLabel: string;
+  collectionLabel: string;
+  collectionPluralLabel: string;
+  treeRootLabel: string;
   createAction: 'schema' | 'database' | 'none';
-  // Connection modal
-  databaseFieldLabel: string;    // i18n key for the database field in connection modal
-  // Capabilities
+  databaseFieldLabel: string;
   supportsSchemas: boolean;
   supportsSQL: boolean;
   identifier: IdentifierRules;
-  // Query builders
   queries: DriverQueryBuilders;
 }
 

@@ -4,12 +4,14 @@ import {
   getCoreRowModel,
   getSortedRowModel,
   getPaginationRowModel,
+  getFilteredRowModel,
   flexRender,
   createColumnHelper,
   SortingState,
   RowSelectionState,
   PaginationState,
   ColumnDef,
+  VisibilityState,
 } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { 
@@ -19,40 +21,20 @@ import {
   deleteRow,
   RowData as TauriRowData,
   Environment
-} from '../../lib/tauri';
+} from '@/lib/tauri';
 import { cn } from '@/lib/utils';
-import { 
-  ArrowUpDown,
-  ArrowUp,
-  ArrowDown, 
-  Check,
-  FileJson,
-  FileSpreadsheet,
-  Code2,
-  ChevronFirst,
-  ChevronLast,
-  ChevronLeft,
-  ChevronRight,
-  Trash2,
-  Download,
-  Copy,
-  ChevronDown
-} from 'lucide-react';
+import { ArrowUpDown, ArrowUp, ArrowDown, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Input } from '@/components/ui/input';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { save } from '@tauri-apps/plugin-dialog';
-import { writeTextFile } from '@tauri-apps/plugin-fs';
+
+// Modular imports
+import { RowData, formatValue, convertToRowData } from './utils/dataGridUtils';
+import { useDataGridCopy } from './hooks/useDataGridCopy';
+import { useDataGridExport } from './hooks/useDataGridExport';
+import { DataGridToolbar } from './DataGridToolbar';
+import { DataGridPagination } from './DataGridPagination';
+import { DeleteConfirmDialog } from './DeleteConfirmDialog';
 
 interface DataGridProps {
   result: QueryResult | null;
@@ -67,32 +49,6 @@ interface DataGridProps {
   connectionDatabase?: string;
   onRowsDeleted?: () => void;
   onRowClick?: (row: RowData) => void;
-}
-
-type RowData = Record<string, Value>;
-
-// Format a Value for display
-function formatValue(value: Value): string {
-  if (value === null) return 'NULL';
-  if (typeof value === 'boolean') return value ? 'true' : 'false';
-  if (typeof value === 'number') return String(value);
-  if (typeof value === 'string') return value;
-  if (typeof value === 'object') {
-    if (Array.isArray(value)) return JSON.stringify(value);
-    return JSON.stringify(value);
-  }
-  return String(value);
-}
-
-// Convert QueryResult rows to RowData format
-function convertToRowData(result: QueryResult): RowData[] {
-  return result.rows.map(row => {
-    const data: RowData = {};
-    result.columns.forEach((col, idx) => {
-      data[col.name] = row.values[idx];
-    });
-    return data;
-  });
 }
 
 export function DataGrid({ 
@@ -110,31 +66,39 @@ export function DataGrid({
   onRowClick
 }: DataGridProps) {
   const { t } = useTranslation();
+  
+  // Table state
   const [sorting, setSorting] = useState<SortingState>([]);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: 50,
   });
-  const [copied, setCopied] = useState<string | null>(null);
+  const [globalFilter, setGlobalFilter] = useState('');
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
+  
+  // Delete state
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteConfirmValue, setDeleteConfirmValue] = useState('');
   
+  // Refs
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const parentRef = useRef<HTMLDivElement>(null);
   const confirmationLabel = (connectionDatabase || connectionName || 'PROD').trim() || 'PROD';
 
+  // Convert data
   const data = useMemo(() => {
     if (!result) return [];
     return convertToRowData(result);
   }, [result]);
 
+  // Build columns
   const columns = useMemo<ColumnDef<RowData, Value>[]>(() => {
     if (!result || result.columns.length === 0) return [];
     
     const columnHelper = createColumnHelper<RowData>();
     
-    // Selection column
     const selectColumn = columnHelper.display({
       id: 'select',
       header: ({ table }) => (
@@ -156,7 +120,6 @@ export function DataGrid({
       size: 40,
     });
 
-    // Data columns
     const dataColumns = result.columns.map(col =>
       columnHelper.accessor(row => row[col.name], {
         id: col.name,
@@ -180,10 +143,7 @@ export function DataGrid({
           const formatted = formatValue(value);
           const isNull = value === null;
           return (
-            <span className={cn(
-              "truncate block",
-              isNull && "text-muted-foreground italic"
-            )}>
+            <span className={cn("truncate block", isNull && "text-muted-foreground italic")}>
               {formatted}
             </span>
           );
@@ -191,16 +151,10 @@ export function DataGrid({
         sortingFn: (rowA, rowB, columnId) => {
           const a = rowA.getValue(columnId) as Value;
           const b = rowB.getValue(columnId) as Value;
-          
-          // Handle nulls
           if (a === null && b === null) return 0;
           if (a === null) return 1;
           if (b === null) return -1;
-          
-          // Compare by type
-          if (typeof a === 'number' && typeof b === 'number') {
-            return a - b;
-          }
+          if (typeof a === 'number' && typeof b === 'number') return a - b;
           return String(a).localeCompare(String(b));
         },
       })
@@ -209,17 +163,24 @@ export function DataGrid({
     return [selectColumn, ...dataColumns];
   }, [result]);
 
+  // Configure table
   const table = useReactTable({
     data,
     columns,
-    state: { sorting, rowSelection, pagination },
+    state: { sorting, rowSelection, pagination, globalFilter, columnVisibility },
     onSortingChange: setSorting,
     onRowSelectionChange: setRowSelection,
     onPaginationChange: setPagination,
+    onGlobalFilterChange: setGlobalFilter,
+    onColumnVisibilityChange: setColumnVisibility,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
     enableRowSelection: true,
+    globalFilterFn: 'includesString',
+    enableColumnResizing: true,
+    columnResizeMode: 'onChange',
   });
 
   const { rows } = table.getRowModel();
@@ -232,7 +193,24 @@ export function DataGrid({
     overscan: 10,
   });
 
-  // Handle Deletion
+  // Hooks
+  const getSelectedRows = useCallback(() => table.getSelectedRowModel().rows, [table]);
+  
+  const { copyToClipboard, copied } = useDataGridCopy({
+    rows,
+    getSelectedRows,
+    result,
+    tableName,
+  });
+
+  const { exportToFile } = useDataGridExport({
+    rows,
+    getSelectedRows,
+    result,
+    tableName,
+  });
+
+  // Delete functionality
   async function performDelete() {
     if (!sessionId || !namespace || !tableName || !primaryKey || primaryKey.length === 0) return;
     
@@ -271,24 +249,21 @@ export function DataGrid({
           successCount++;
         } else {
           failCount++;
-          console.error('Delete failed:', res.error);
         }
-      } catch (e) {
+      } catch {
         failCount++;
-        console.error('Delete error:', e);
       }
     }
 
     setIsDeleting(false);
-    setRowSelection({}); // Clear selection
+    table.resetRowSelection();
 
     if (successCount > 0) {
       toast.success(t('grid.deleteSuccess', { count: successCount }));
-      if (onRowsDeleted) onRowsDeleted();
+      onRowsDeleted?.();
     }
-    
     if (failCount > 0) {
-      toast.error(t('grid.deleteError', { count: failCount }));
+      toast.error(t('grid.deleteError'));
     }
   }
 
@@ -305,120 +280,15 @@ export function DataGrid({
     setDeleteDialogOpen(true);
   }
 
-  // Copy functionality
-  const copyToClipboard = useCallback(async (format: 'csv' | 'json' | 'sql') => {
-    const selectedRows = table.getSelectedRowModel().rows;
-    const rowsToCopy = selectedRows.length > 0 ? selectedRows : rows;
-    
-    if (rowsToCopy.length === 0) return;
-
-    let content = '';
-    const columnNames = result?.columns.map(c => c.name) || [];
-
-    switch (format) {
-      case 'csv': {
-        const header = columnNames.join('\t');
-        const dataRows = rowsToCopy.map(row => 
-          columnNames.map(col => {
-            const value = row.original[col];
-            const formatted = formatValue(value);
-            // Escape tabs and newlines
-            return formatted.replace(/[\t\n]/g, ' ');
-          }).join('\t')
-        );
-        content = [header, ...dataRows].join('\n');
-        break;
-      }
-      case 'json': {
-        const jsonData = rowsToCopy.map(row => row.original);
-        content = JSON.stringify(jsonData, null, 2);
-        break;
-      }
-      case 'sql': {
-        if (!result) return;
-        const targetTable = tableName || 'table_name';
-        const inserts = rowsToCopy.map(row => {
-          const values = columnNames.map(col => {
-            const value = row.original[col];
-            if (value === null) return 'NULL';
-            if (typeof value === 'number') return String(value);
-            if (typeof value === 'boolean') return value ? 'TRUE' : 'FALSE';
-            // Escape single quotes
-            return `'${String(value).replace(/'/g, "''")}'`;
-          });
-          return `INSERT INTO ${targetTable} (${columnNames.join(', ')}) VALUES (${values.join(', ')});`;
-        });
-        content = inserts.join('\n');
-        break;
-      }
-    }
-
-    await navigator.clipboard.writeText(content);
-    setCopied(format);
-    setTimeout(() => setCopied(null), 2000);
-  }, [rows, table, result, tableName]);
-
-  // Export to file functionality
-  const exportToFile = useCallback(async (format: 'csv' | 'json') => {
-    const selectedRows = table.getSelectedRowModel().rows;
-    const rowsToExport = selectedRows.length > 0 ? selectedRows : rows;
-    
-    if (rowsToExport.length === 0) {
-      toast.error(t('grid.noDataToExport'));
-      return;
-    }
-
-    const columnNames = result?.columns.map(c => c.name) || [];
-    let content = '';
-    let extension = '';
-    let defaultName = tableName || 'export';
-
-    if (format === 'csv') {
-      extension = 'csv';
-      // Use comma separator for actual CSV files
-      const header = columnNames.join(',');
-      const dataRows = rowsToExport.map(row => 
-        columnNames.map(col => {
-          const value = row.original[col];
-          const formatted = formatValue(value);
-          // Escape quotes and wrap in quotes if contains comma, quote, or newline
-          if (formatted.includes(',') || formatted.includes('"') || formatted.includes('\n')) {
-            return `"${formatted.replace(/"/g, '""')}"`;
-          }
-          return formatted;
-        }).join(',')
-      );
-      content = [header, ...dataRows].join('\n');
-    } else {
-      extension = 'json';
-      const jsonData = rowsToExport.map(row => row.original);
-      content = JSON.stringify(jsonData, null, 2);
-    }
-
-    try {
-      const filePath = await save({
-        defaultPath: `${defaultName}.${extension}`,
-        filters: [{
-          name: format.toUpperCase(),
-          extensions: [extension]
-        }]
-      });
-
-      if (filePath) {
-        await writeTextFile(filePath, content);
-        toast.success(t('grid.exportSuccess', { count: rowsToExport.length, path: filePath.split(/[\\/]/).pop() }));
-      }
-    } catch (err) {
-      console.error('Export failed:', err);
-      toast.error(t('grid.exportError'), {
-        description: err instanceof Error ? err.message : String(err)
-      });
-    }
-  }, [rows, table, result, tableName, t]);
-
   // Keyboard shortcuts
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
+        if (document.activeElement?.closest('[data-datagrid]')) {
+          e.preventDefault();
+          searchInputRef.current?.focus();
+        }
+      }
       if ((e.metaKey || e.ctrlKey) && e.key === 'c') {
         e.preventDefault();
         copyToClipboard('csv');
@@ -435,6 +305,7 @@ export function DataGrid({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [copyToClipboard, table]);
 
+  // Early return for empty state
   if (!result || result.columns.length === 0) {
     return (
       <div className="flex items-center justify-center h-40 text-muted-foreground text-sm">
@@ -443,28 +314,28 @@ export function DataGrid({
     );
   }
 
+  // Computed values
   const selectedCount = Object.keys(rowSelection).length;
-  const canDelete = sessionId && tableName && primaryKey && primaryKey.length > 0 && selectedCount > 0;
-  const deleteDisabled = readOnly || isDeleting;
   const selectedRows = table.getSelectedRowModel().rows;
+  const canDelete = sessionId && namespace && tableName && primaryKey && primaryKey.length > 0 && selectedCount > 0;
+  const deleteDisabled = selectedCount === 0 || isDeleting || readOnly;
+  const deleteRequiresConfirm = environment === 'production';
+
   const previewRows = selectedRows.slice(0, 10).map((row, index) => {
     const values = primaryKey?.map(pk => ({
       key: pk,
       value: row.original[pk],
     })) || [];
-
-    const hasMissing = values.some(entry => entry.value === undefined);
     return {
       index: index + 1,
       values,
-      hasMissing,
+      hasMissing: values.some(entry => entry.value === undefined),
     };
   });
-  const deleteRequiresConfirm = environment === 'production';
-  const deleteConfirmReady = !deleteRequiresConfirm || deleteConfirmValue.trim() === confirmationLabel;
 
   return (
     <div className="flex flex-col gap-2 h-full min-h-0" data-datagrid>
+      {/* Header */}
       <div className="flex items-center justify-between px-1 shrink-0">
         <div className="text-xs text-muted-foreground flex items-center gap-3">
           {selectedCount > 0 ? (
@@ -479,10 +350,6 @@ export function DataGrid({
                   </span>
                   {(result as any).total_time_ms !== undefined && (
                     <>
-                      <span className="text-border/50">|</span>
-                      <span title={t('query.time.transferTooltip')}>
-                        {t('query.time.transfer')}: <span className="font-mono text-foreground font-medium">{((result as any).total_time_ms - result.execution_time_ms).toFixed(2)}ms</span>
-                      </span>
                       <span className="text-border/50">|</span>
                       <span title={t('query.time.totalTooltip')}>
                         {t('query.time.total')}: <span className="font-mono text-foreground font-bold">{(result as any).total_time_ms.toFixed(2)}ms</span>
@@ -508,42 +375,16 @@ export function DataGrid({
             </Button>
           )}
         </div>
-        <div className="flex items-center gap-1">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-7 px-2 text-xs">
-                {copied ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
-                <span className="ml-1">Export</span>
-                <ChevronDown size={12} className="ml-1" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-40">
-              <DropdownMenuLabel className="text-xs">{t('grid.copyToClipboard')}</DropdownMenuLabel>
-              <DropdownMenuItem onClick={() => copyToClipboard('csv')} className="text-xs">
-                <FileSpreadsheet size={14} className="mr-2" />
-                CSV
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => copyToClipboard('json')} className="text-xs">
-                <FileJson size={14} className="mr-2" />
-                JSON
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => copyToClipboard('sql')} className="text-xs">
-                <Code2 size={14} className="mr-2" />
-                SQL
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuLabel className="text-xs">{t('grid.downloadToFile')}</DropdownMenuLabel>
-              <DropdownMenuItem onClick={() => exportToFile('csv')} className="text-xs">
-                <Download size={14} className="mr-2" />
-                CSV
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => exportToFile('json')} className="text-xs">
-                <Download size={14} className="mr-2" />
-                JSON
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+        
+        <DataGridToolbar
+          table={table}
+          globalFilter={globalFilter}
+          setGlobalFilter={setGlobalFilter}
+          searchInputRef={searchInputRef}
+          copyToClipboard={copyToClipboard}
+          exportToFile={exportToFile}
+          copied={copied}
+        />
       </div>
 
       {/* Table */}
@@ -559,50 +400,49 @@ export function DataGrid({
                 {headerGroup.headers.map(header => (
                   <th
                     key={header.id}
-                    className="px-3 py-2 text-left font-medium text-muted-foreground border-b border-border"
+                    className="px-3 py-2 text-left font-medium text-muted-foreground border-b border-border relative group"
                     style={{ width: header.getSize() }}
                   >
                     {header.isPlaceholder
                       ? null
                       : flexRender(header.column.columnDef.header, header.getContext())}
+                    {header.column.getCanResize() && (
+                      <div
+                        onMouseDown={header.getResizeHandler()}
+                        onTouchStart={header.getResizeHandler()}
+                        onDoubleClick={() => header.column.resetSize()}
+                        className={cn(
+                          "absolute right-0 top-0 h-full w-1 cursor-col-resize select-none touch-none",
+                          "opacity-0 group-hover:opacity-100 hover:bg-accent transition-opacity",
+                          header.column.getIsResizing() && "bg-accent opacity-100"
+                        )}
+                      />
+                    )}
                   </th>
                 ))}
               </tr>
             ))}
           </thead>
           <tbody>
-            {rowVirtualizer.getVirtualItems().length === 0 ? (
-              <tr>
-                <td colSpan={columns.length} className="px-3 py-8 text-center text-muted-foreground">
-                  {t('grid.noResults')}
-                </td>
-              </tr>
-            ) : (
+            {rowVirtualizer.getVirtualItems().length > 0 ? (
               <>
-                {/* Spacer for virtual scroll */}
-                {rowVirtualizer.getVirtualItems()[0]?.start > 0 && (
-                  <tr style={{ height: rowVirtualizer.getVirtualItems()[0].start }} />
-                )}
+                <tr style={{ height: `${rowVirtualizer.getVirtualItems()[0]?.start ?? 0}px` }} />
                 {rowVirtualizer.getVirtualItems().map(virtualRow => {
                   const row = rows[virtualRow.index];
                   return (
                     <tr
                       key={row.id}
                       className={cn(
-                        "border-b border-border/50 hover:bg-muted/30 transition-colors",
+                        "border-b border-border hover:bg-muted/50 transition-colors cursor-pointer",
                         row.getIsSelected() && "bg-accent/10"
                       )}
-                      onClick={() => row.toggleSelected()}
-                      onDoubleClick={(e) => {
-                        e.stopPropagation();
-                        if (onRowClick) onRowClick(row.original);
-                      }}
+                      onClick={() => onRowClick?.(row.original)}
                     >
                       {row.getVisibleCells().map(cell => (
                         <td
                           key={cell.id}
-                          className="px-3 py-1.5 font-mono text-xs"
-                          style={{ maxWidth: 300 }}
+                          className="px-3 py-1.5 max-w-xs"
+                          style={{ width: cell.column.getSize() }}
                         >
                           {flexRender(cell.column.columnDef.cell, cell.getContext())}
                         </td>
@@ -610,155 +450,37 @@ export function DataGrid({
                     </tr>
                   );
                 })}
-                {/* Bottom spacer */}
-                {rowVirtualizer.getVirtualItems().length > 0 && (
-                  <tr
-                    style={{
-                      height:
-                        rowVirtualizer.getTotalSize() -
-                        (rowVirtualizer.getVirtualItems()[rowVirtualizer.getVirtualItems().length - 1]?.end || 0),
-                    }}
-                  />
-                )}
+                <tr style={{ height: `${rowVirtualizer.getTotalSize() - (rowVirtualizer.getVirtualItems()[rowVirtualizer.getVirtualItems().length - 1]?.end ?? 0)}px` }} />
               </>
+            ) : (
+              <tr>
+                <td colSpan={columns.length} className="text-center py-8 text-muted-foreground">
+                  {t('grid.noResults')}
+                </td>
+              </tr>
             )}
           </tbody>
         </table>
       </div>
 
-      {/* Pagination */}
-      <div className="flex items-center justify-between px-2 py-1 border-t border-border bg-muted/20">
-        <div className="flex items-center gap-4 text-xs text-muted-foreground">
-          <div className="flex items-center gap-2">
-            <span>{t('grid.rowsPerPage')}:</span>
-            <select
-              value={pagination.pageSize}
-              onChange={e => table.setPageSize(Number(e.target.value))}
-              className="h-7 px-2 rounded border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-1 focus:ring-accent"
-            >
-              {[25, 50, 100, 250].map(size => (
-                <option key={size} value={size}>{size}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-        
-        <div className="flex items-center gap-1">
-          <span className="text-xs text-muted-foreground mr-2">
-            {t('grid.page')} {pagination.pageIndex + 1} {t('grid.of')} {table.getPageCount() || 1}
-          </span>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 w-7 p-0"
-            onClick={() => table.setPageIndex(0)}
-            disabled={!table.getCanPreviousPage()}
-            title={t('grid.firstPage')}
-          >
-            <ChevronFirst size={14} />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 w-7 p-0"
-            onClick={() => table.previousPage()}
-            disabled={!table.getCanPreviousPage()}
-            title={t('grid.previousPage')}
-          >
-            <ChevronLeft size={14} />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 w-7 p-0"
-            onClick={() => table.nextPage()}
-            disabled={!table.getCanNextPage()}
-            title={t('grid.nextPage')}
-          >
-            <ChevronRight size={14} />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 w-7 p-0"
-            onClick={() => table.setPageIndex(table.getPageCount() - 1)}
-            disabled={!table.getCanNextPage()}
-            title={t('grid.lastPage')}
-          >
-            <ChevronLast size={14} />
-          </Button>
-        </div>
-      </div>
+      <DataGridPagination table={table} pagination={pagination} />
 
-      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>{t('grid.deleteTitle', { count: selectedCount })}</DialogTitle>
-          </DialogHeader>
-
-          <div className="space-y-3 text-sm">
-            <p className="text-muted-foreground">
-              {t('grid.confirmDelete', { count: selectedCount })}
-            </p>
-
-            {previewRows.length > 0 && (
-              <div className="border border-border rounded-md bg-muted/20 p-2">
-                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-                  {t('grid.preview')}
-                </div>
-                <div className="space-y-1 text-xs">
-                  {previewRows.map(row => (
-                    <div key={row.index} className="flex items-center justify-between gap-2">
-                      <span className="text-muted-foreground">#{row.index}</span>
-                      {row.hasMissing ? (
-                        <span className="text-error">{t('grid.previewMissingPk')}</span>
-                      ) : (
-                        <span className="font-mono text-foreground">
-                          {row.values.map(entry => `${entry.key}=${formatValue(entry.value)}`).join(', ')}
-                        </span>
-                      )}
-                    </div>
-                  ))}
-                  {selectedRows.length > previewRows.length && (
-                    <div className="text-muted-foreground">
-                      {t('grid.previewMore', { count: selectedRows.length - previewRows.length })}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {deleteRequiresConfirm && (
-              <div className="space-y-2">
-                <label className="text-xs font-medium">
-                  {t('environment.confirmMessage', { name: confirmationLabel })}
-                </label>
-                <Input
-                  value={deleteConfirmValue}
-                  onChange={(event) => setDeleteConfirmValue(event.target.value)}
-                  placeholder={confirmationLabel}
-                />
-              </div>
-            )}
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)} disabled={isDeleting}>
-              {t('common.cancel')}
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={async () => {
-                await performDelete();
-                setDeleteDialogOpen(false);
-              }}
-              disabled={!deleteConfirmReady || isDeleting}
-            >
-              {t('common.confirm')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <DeleteConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        selectedCount={selectedCount}
+        previewRows={previewRows}
+        totalSelectedRows={selectedRows.length}
+        requiresConfirm={deleteRequiresConfirm}
+        confirmLabel={confirmationLabel}
+        confirmValue={deleteConfirmValue}
+        onConfirmValueChange={setDeleteConfirmValue}
+        onConfirm={async () => {
+          await performDelete();
+          setDeleteDialogOpen(false);
+        }}
+        isDeleting={isDeleting}
+      />
     </div>
   );
 }

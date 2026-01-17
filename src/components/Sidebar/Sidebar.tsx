@@ -19,6 +19,7 @@ interface SidebarProps {
   onNewConnection: () => void;
   onConnected: (sessionId: string, connection: SavedConnection) => void;
   connectedSessionId: string | null;
+  connectedConnectionId?: string | null;
   onTableSelect?: (namespace: Namespace, tableName: string) => void;
   onDatabaseSelect?: (namespace: Namespace) => void;
   onEditConnection: (connection: SavedConnection, password: string) => void;
@@ -30,6 +31,7 @@ export function Sidebar({
   onNewConnection,
   onConnected,
   connectedSessionId,
+  connectedConnectionId,
   onTableSelect,
   onDatabaseSelect,
   onEditConnection,
@@ -127,7 +129,7 @@ export function Sidebar({
                   connection={conn}
                   isSelected={selectedId === conn.id}
                   isExpanded={expandedId === conn.id}
-                  isConnected={connectedSessionId !== null && selectedId === conn.id}
+                  isConnected={connectedConnectionId === conn.id}
                   isConnecting={connecting === conn.id}
                   onSelect={() => handleSelect(conn)}
                   onEdit={onEditConnection}

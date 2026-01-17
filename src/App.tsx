@@ -210,6 +210,7 @@ function App() {
           onNewConnection={() => setConnectionModalOpen(true)}
           onConnected={handleConnected}
           connectedSessionId={sessionId}
+          connectedConnectionId={activeConnection?.id || null}
           onTableSelect={handleTableSelect}
           onDatabaseSelect={handleDatabaseSelect}
           onEditConnection={handleEditConnection}

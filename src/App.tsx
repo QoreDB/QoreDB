@@ -11,7 +11,7 @@ import { SettingsPage } from './components/Settings/SettingsPage';
 import { StatusBar } from './components/Status/StatusBar';
 import { Button } from './components/ui/button';
 import { Search, Settings } from 'lucide-react';
-import { Namespace, SavedConnection, connect, getConnectionCredentials, ConnectionConfig } from './lib/tauri';
+import { Namespace, SavedConnection, connectSavedConnection } from './lib/tauri';
 import { HistoryEntry } from './lib/history';
 import { Driver } from './lib/drivers';
 import { OpenTab, createTableTab, createDatabaseTab, createQueryTab } from './lib/tabs';
@@ -55,25 +55,7 @@ function App() {
 					// Connect to the selected connection
 					const conn = result.data as SavedConnection;
 					try {
-						const credsResult = await getConnectionCredentials("default", conn.id);
-						if (!credsResult.success || !credsResult.password) {
-							toast.error(t("sidebar.failedToGetCredentials"));
-							return;
-						}
-
-						const config: ConnectionConfig = {
-							driver: conn.driver,
-							host: conn.host,
-							port: conn.port,
-							username: conn.username,
-							password: credsResult.password,
-							database: conn.database,
-							ssl: conn.ssl,
-							environment: conn.environment,
-							read_only: conn.read_only,
-						};
-
-						const connectResult = await connect(config);
+						const connectResult = await connectSavedConnection("default", conn.id);
 						if (connectResult.success && connectResult.session_id) {
 							toast.success(t("sidebar.connectedTo", { name: conn.name }));
 							handleConnected(connectResult.session_id, {

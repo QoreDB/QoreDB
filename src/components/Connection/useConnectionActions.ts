@@ -2,10 +2,9 @@ import { useCallback, useState } from 'react';
 import {
   SavedConnection,
   deleteSavedConnection,
-  testConnection,
+  testSavedConnection,
   getConnectionCredentials,
 } from '../../lib/tauri';
-import { buildConnectionConfigFromSavedConnection } from '../../lib/connectionConfig';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 
@@ -29,15 +28,7 @@ export function useConnectionActions({
   const handleTest = useCallback(async () => {
     setTesting(true);
     try {
-      const credsResult = await getConnectionCredentials('default', connection.id);
-      if (!credsResult.success || !credsResult.password) {
-        toast.error(t('connection.failedRetrieveCredentials'));
-        return;
-      }
-
-      const config = buildConnectionConfigFromSavedConnection(connection, credsResult.password);
-
-      const result = await testConnection(config);
+      const result = await testSavedConnection('default', connection.id);
 
       if (result.success) {
         toast.success(t('connection.menu.testTitleSuccess', { name: connection.name }), {

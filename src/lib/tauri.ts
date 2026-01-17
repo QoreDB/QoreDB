@@ -127,10 +127,24 @@ export async function testConnection(
 	return invoke("test_connection", { config });
 }
 
+export async function testSavedConnection(
+	projectId: string,
+	connectionId: string,
+): Promise<ConnectionResponse> {
+	return invoke("test_saved_connection", { projectId, connectionId });
+}
+
 export async function connect(
 	config: ConnectionConfig,
 ): Promise<ConnectionResponse> {
 	return invoke("connect", { config });
+}
+
+export async function connectSavedConnection(
+	projectId: string,
+	connectionId: string,
+): Promise<ConnectionResponse> {
+	return invoke("connect_saved_connection", { projectId, connectionId });
 }
 
 export async function disconnect(

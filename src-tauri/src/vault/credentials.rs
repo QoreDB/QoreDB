@@ -99,20 +99,27 @@ impl SavedConnection {
             use crate::engine::types::SshAuth;
             use crate::engine::types::SshHostKeyPolicy;
             
-            let auth = if ssh.auth_type == "key" {
-                SshAuth::Key {
-                    private_key_path: ssh
-                        .key_path
-                        .clone()
-                        .expect("key_path must be set when auth_type is 'key'"),
-                    passphrase: creds.ssh_key_passphrase.clone(),
+            let auth = match ssh.auth_type.as_str() {
+                "key" => {
+                    let key_path = ssh.key_path.clone().ok_or_else(|| {
+                        EngineError::internal("key_path must be set when auth_type is 'key'")
+                    })?;
+                    SshAuth::Key {
+                        private_key_path: key_path,
+                        passphrase: creds.ssh_key_passphrase.clone(),
+                    }
                 }
-            } else {
-                SshAuth::Password {
+                "password" => SshAuth::Password {
                     password: creds
                         .ssh_password
                         .clone()
                         .ok_or_else(|| EngineError::internal("ssh_password is missing"))?,
+                },
+                other => {
+                    return Err(EngineError::internal(format!(
+                        "Invalid ssh auth_type: {}",
+                        other
+                    )))
                 }
             };
 

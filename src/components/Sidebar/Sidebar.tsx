@@ -4,12 +4,10 @@ import { DBTree } from '../Tree/DBTree';
 import { ErrorLogPanel } from '../Logs/ErrorLogPanel';
 import {
   listSavedConnections,
-  connect,
-  getConnectionCredentials,
+  connectSavedConnection,
   SavedConnection,
   Namespace,
 } from '../../lib/tauri';
-import { buildConnectionConfigFromSavedConnection } from '../../lib/connectionConfig';
 import { Plus, Bug } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
@@ -68,18 +66,7 @@ export function Sidebar({
     setSelectedId(conn.id);
 
     try {
-      const credsResult = await getConnectionCredentials('default', conn.id);
-
-      if (!credsResult.success || !credsResult.password) {
-        toast.error(t('sidebar.failedToGetCredentials'), {
-          description: credsResult.error || t('sidebar.couldNotRetrievePassword'),
-        });
-        return;
-      }
-
-      const config = buildConnectionConfigFromSavedConnection(conn, credsResult.password);
-
-      const result = await connect(config);
+      const result = await connectSavedConnection(DEFAULT_PROJECT, conn.id);
 
       if (result.success && result.session_id) {
         toast.success(t('sidebar.connectedTo', { name: conn.name }));

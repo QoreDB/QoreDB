@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { 
   testConnection, 
-  connect, 
+  connectSavedConnection,
   saveConnection, 
   ConnectionConfig,
   SavedConnection,
@@ -223,36 +223,6 @@ export function ConnectionModal({
 		setError(null);
 
 		try {
-			const config: ConnectionConfig = {
-				driver: formData.driver,
-				host: formData.host,
-				port: formData.port,
-				username: formData.username,
-				password: formData.password,
-				database: formData.database || undefined,
-				ssl: formData.ssl,
-				environment: formData.environment,
-				read_only: formData.readOnly,
-				ssh_tunnel: formData.useSshTunnel
-					? {
-							host: formData.sshHost,
-							port: formData.sshPort,
-							username: formData.sshUsername,
-							auth: {
-								Key: {
-									private_key_path: formData.sshKeyPath,
-									passphrase: formData.sshPassphrase || undefined,
-								},
-							},
-							host_key_policy: formData.sshHostKeyPolicy,
-							proxy_jump: formData.sshProxyJump || undefined,
-							connect_timeout_secs: formData.sshConnectTimeoutSecs,
-							keepalive_interval_secs: formData.sshKeepaliveIntervalSecs,
-							keepalive_count_max: formData.sshKeepaliveCountMax,
-						}
-					: undefined,
-			};
-
 			const connectionId = editConnection?.id || `conn_${Date.now()}`;
 			const savedConnection: SavedConnection = {
 				id: connectionId,
@@ -307,7 +277,7 @@ export function ConnectionModal({
 				onSaved?.(savedConnection);
 				onClose();
 			} else {
-				const connectResult = await connect(config);
+				const connectResult = await connectSavedConnection("default", connectionId);
 
 				if (connectResult.success && connectResult.session_id) {
 					toast.success(t("connection.connectedSuccess"));

@@ -8,8 +8,8 @@ use async_trait::async_trait;
 
 use crate::engine::error::EngineResult;
 use crate::engine::types::{
-    CancelSupport, Collection, ConnectionConfig, Namespace, QueryId, QueryResult, RowData,
-    SessionId, TableSchema,
+    CancelSupport, Collection, ConnectionConfig, DriverCapabilities, Namespace, QueryId,
+    QueryResult, RowData, SessionId, TableSchema,
 };
 
 /// Core trait that all database drivers must implement
@@ -89,6 +89,21 @@ pub trait DataEngine: Send + Sync {
     /// Reports cancellation support level for this driver.
     fn cancel_support(&self) -> CancelSupport {
         CancelSupport::None
+    }
+
+    /// Reports whether the driver supports SSH tunneling.
+    fn supports_ssh(&self) -> bool {
+        true
+    }
+
+    /// Aggregated driver capabilities.
+    fn capabilities(&self) -> DriverCapabilities {
+        DriverCapabilities {
+            transactions: self.supports_transactions(),
+            mutations: self.supports_mutations(),
+            cancel: self.cancel_support(),
+            supports_ssh: self.supports_ssh(),
+        }
     }
 
     // ==================== Transaction Methods ====================

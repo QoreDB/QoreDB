@@ -33,7 +33,7 @@ Goal: raise architecture/extensibility, reliability, security, observability, an
 
 Avant toute chose sur ce point il faut bien regarder tout ce qui a déjà été fait coté SSH.
 
-- [ ] Add a pluggable SSH tunnel backend (`SshTunnelBackend` trait).
+- [x] Add a pluggable SSH tunnel backend (`SshTunnelBackend` trait).
 - [ ] Keep OpenSSH backend for key-based auth; add an embedded backend (libssh2/ssh2 crate) for password auth.
 - [ ] Support host key policy and known_hosts handling in the embedded backend.
 - [ ] Choose backend automatically based on `SshAuth` (password => embedded, key => openssh by default).
@@ -55,8 +55,8 @@ Avant toute chose sur ce point il faut bien regarder tout ce qui a déjà été 
 
 ## 7) Driver API + Capabilities (Architecture)
 
-- [ ] Add a `DriverCapabilities` struct (transactions, mutations, cancel, supports_ssh, etc.).
-- [ ] Enforce capability checks in commands and report clear errors to the UI.
+- [x] Add a `DriverCapabilities` struct (transactions, mutations, cancel, supports_ssh, etc.).
+- [x] Enforce capability checks in commands and report clear errors to the UI.
 - [ ] Document driver-specific limitations and provide consistent fallback behavior.
 
 ## 8) Documentation + Release Readiness

@@ -110,6 +110,15 @@ pub enum CancelSupport {
     Driver,
 }
 
+/// Reported capabilities for a driver.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct DriverCapabilities {
+    pub transactions: bool,
+    pub mutations: bool,
+    pub cancel: CancelSupport,
+    pub supports_ssh: bool,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

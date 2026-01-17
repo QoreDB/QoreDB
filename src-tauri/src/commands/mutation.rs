@@ -10,6 +10,7 @@ use std::sync::Arc;
 use crate::engine::{types::{Namespace, QueryResult, RowData, SessionId}};
 
 const READ_ONLY_BLOCKED: &str = "Operation blocked: read-only mode";
+const MUTATIONS_NOT_SUPPORTED: &str = "Mutations are not supported by this driver";
 
 /// Response wrapper for mutation results
 #[derive(Debug, Serialize)]
@@ -55,6 +56,14 @@ pub async fn insert_row(
 
     let driver = session_manager.get_driver(session).await
         .map_err(|e| e.to_string())?;
+
+    if !driver.capabilities().mutations {
+        return Ok(MutationResponse {
+            success: false,
+            result: None,
+            error: Some(MUTATIONS_NOT_SUPPORTED.to_string()),
+        });
+    }
 
     let namespace = Namespace {
         database,
@@ -111,6 +120,14 @@ pub async fn update_row(
     let driver = session_manager.get_driver(session).await
         .map_err(|e| e.to_string())?;
 
+    if !driver.capabilities().mutations {
+        return Ok(MutationResponse {
+            success: false,
+            result: None,
+            error: Some(MUTATIONS_NOT_SUPPORTED.to_string()),
+        });
+    }
+
     let namespace = Namespace {
         database,
         schema,
@@ -165,6 +182,14 @@ pub async fn delete_row(
     let driver = session_manager.get_driver(session).await
         .map_err(|e| e.to_string())?;
 
+    if !driver.capabilities().mutations {
+        return Ok(MutationResponse {
+            success: false,
+            result: None,
+            error: Some(MUTATIONS_NOT_SUPPORTED.to_string()),
+        });
+    }
+
     let namespace = Namespace {
         database,
         schema,
@@ -203,5 +228,5 @@ pub async fn supports_mutations(
     let driver = session_manager.get_driver(session).await
         .map_err(|e| e.to_string())?;
 
-    Ok(driver.supports_mutations())
+    Ok(driver.capabilities().mutations)
 }

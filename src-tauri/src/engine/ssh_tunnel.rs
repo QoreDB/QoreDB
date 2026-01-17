@@ -6,31 +6,118 @@
 use std::process::Stdio;
 use std::{fs, path::PathBuf};
 
+use async_trait::async_trait;
 use tokio::io::AsyncReadExt;
 use tokio::process::{Child, Command};
+use tokio::sync::Mutex;
 
 use crate::engine::error::{EngineError, EngineResult};
 use crate::engine::types::{SshAuth, SshHostKeyPolicy, SshTunnelConfig};
 
-/// Represents an active SSH tunnel using native OpenSSH
+/// Handle for an active SSH tunnel.
+#[async_trait]
+pub trait SshTunnelHandle: Send {
+    fn local_port(&self) -> u16;
+    async fn close(&mut self) -> EngineResult<()>;
+}
+
+/// Pluggable backend for SSH tunnels.
+#[async_trait]
+pub trait SshTunnelBackend: Send + Sync {
+    fn name(&self) -> &'static str;
+    fn supports_auth(&self, auth: &SshAuth) -> bool;
+    async fn open(
+        &self,
+        config: &SshTunnelConfig,
+        remote_host: &str,
+        remote_port: u16,
+    ) -> EngineResult<Box<dyn SshTunnelHandle>>;
+}
+
+/// Represents an active SSH tunnel, regardless of backend.
 pub struct SshTunnel {
     local_port: u16,
-    process: Option<Child>,
+    handle: Mutex<Box<dyn SshTunnelHandle + Send>>,
 }
 
 impl SshTunnel {
-    const STARTUP_TIMEOUT_MS: u64 = 5_000;
-    const STARTUP_POLL_INTERVAL_MS: u64 = 50;
-
-    /// Opens an SSH tunnel to the remote database using native OpenSSH
-    ///
-    /// This spawns an `ssh -L` process for port forwarding.
-    /// Requires OpenSSH to be installed on the system.
+    /// Opens an SSH tunnel to the remote database using the selected backend.
     pub async fn open(
         config: &SshTunnelConfig,
         remote_host: &str,
         remote_port: u16,
     ) -> EngineResult<Self> {
+        let backend = select_backend(config)?;
+        let handle = backend.open(config, remote_host, remote_port).await?;
+        let local_port = handle.local_port();
+        Ok(Self {
+            local_port,
+            handle: Mutex::new(handle),
+        })
+    }
+
+    /// Returns the local port to connect to
+    pub fn local_port(&self) -> u16 {
+        self.local_port
+    }
+
+    /// Returns the local address to use for database connection
+    pub fn local_addr(&self) -> String {
+        format!("127.0.0.1:{}", self.local_port())
+    }
+
+    /// Closes the tunnel
+    pub async fn close(&mut self) -> EngineResult<()> {
+        let mut handle = self.handle.lock().await;
+        handle.close().await
+    }
+}
+
+fn select_backend(config: &SshTunnelConfig) -> EngineResult<Box<dyn SshTunnelBackend>> {
+    let backends: Vec<Box<dyn SshTunnelBackend>> = vec![Box::new(OpenSshBackend)];
+
+    for backend in backends {
+        if backend.supports_auth(&config.auth) {
+            return Ok(backend);
+        }
+    }
+
+    let auth_label = match config.auth {
+        SshAuth::Password { .. } => "password",
+        SshAuth::Key { .. } => "key",
+    };
+
+    Err(EngineError::SshError {
+        message: format!(
+            "No SSH tunnel backend supports {} authentication. Configure key-based auth or enable the embedded backend.",
+            auth_label
+        ),
+    })
+}
+
+struct OpenSshTunnel {
+    local_port: u16,
+    process: Option<Child>,
+}
+
+struct OpenSshBackend;
+
+#[async_trait]
+impl SshTunnelBackend for OpenSshBackend {
+    fn name(&self) -> &'static str {
+        "openssh"
+    }
+
+    fn supports_auth(&self, auth: &SshAuth) -> bool {
+        matches!(auth, SshAuth::Key { .. })
+    }
+
+    async fn open(
+        &self,
+        config: &SshTunnelConfig,
+        remote_host: &str,
+        remote_port: u16,
+    ) -> EngineResult<Box<dyn SshTunnelHandle>> {
         // Find an available local port
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
             .await
@@ -130,24 +217,25 @@ impl SshTunnel {
             }
         }
 
-        Ok(Self {
+        Ok(Box::new(OpenSshTunnel {
             local_port,
             process: Some(process),
-        })
+        }))
     }
+}
 
-    /// Returns the local port to connect to
-    pub fn local_port(&self) -> u16 {
+impl OpenSshBackend {
+    const STARTUP_TIMEOUT_MS: u64 = 5_000;
+    const STARTUP_POLL_INTERVAL_MS: u64 = 50;
+}
+
+#[async_trait]
+impl SshTunnelHandle for OpenSshTunnel {
+    fn local_port(&self) -> u16 {
         self.local_port
     }
 
-    /// Returns the local address to use for database connection
-    pub fn local_addr(&self) -> String {
-        format!("127.0.0.1:{}", self.local_port)
-    }
-
-    /// Closes the tunnel
-    pub async fn close(&mut self) -> EngineResult<()> {
+    async fn close(&mut self) -> EngineResult<()> {
         if let Some(mut process) = self.process.take() {
             process.kill().await.map_err(|e| EngineError::SshError {
                 message: format!("Failed to kill SSH process: {}", e),
@@ -343,7 +431,7 @@ mod tests {
     }
 }
 
-impl Drop for SshTunnel {
+impl Drop for OpenSshTunnel {
     fn drop(&mut self) {
         if let Some(mut process) = self.process.take() {
             // Best effort kill on drop

@@ -18,6 +18,7 @@ const READ_ONLY_BLOCKED: &str = "Operation blocked: read-only mode";
 const DANGEROUS_BLOCKED: &str = "Dangerous query blocked: confirmation required";
 const DANGEROUS_BLOCKED_POLICY: &str = "Dangerous query blocked by policy";
 const SQL_PARSE_BLOCKED: &str = "Operation blocked: SQL parser could not classify the query";
+const TRANSACTIONS_NOT_SUPPORTED: &str = "Transactions are not supported by this driver";
 
 fn is_mongo_mutation(query: &str) -> bool {
     let normalized = query.to_ascii_lowercase();
@@ -557,6 +558,13 @@ pub async fn begin_transaction(
         }
     };
 
+    if !driver.capabilities().transactions {
+        return Ok(TransactionResponse {
+            success: false,
+            error: Some(TRANSACTIONS_NOT_SUPPORTED.to_string()),
+        });
+    }
+
     match driver.begin_transaction(session).await {
         Ok(()) => Ok(TransactionResponse {
             success: true,
@@ -592,6 +600,13 @@ pub async fn commit_transaction(
             });
         }
     };
+
+    if !driver.capabilities().transactions {
+        return Ok(TransactionResponse {
+            success: false,
+            error: Some(TRANSACTIONS_NOT_SUPPORTED.to_string()),
+        });
+    }
 
     match driver.commit(session).await {
         Ok(()) => Ok(TransactionResponse {
@@ -629,6 +644,13 @@ pub async fn rollback_transaction(
         }
     };
 
+    if !driver.capabilities().transactions {
+        return Ok(TransactionResponse {
+            success: false,
+            error: Some(TRANSACTIONS_NOT_SUPPORTED.to_string()),
+        });
+    }
+
     match driver.rollback(session).await {
         Ok(()) => Ok(TransactionResponse {
             success: true,
@@ -663,6 +685,6 @@ pub async fn supports_transactions(
     };
 
     Ok(TransactionSupportResponse {
-        supported: driver.supports_transactions(),
+        supported: driver.capabilities().transactions,
     })
 }

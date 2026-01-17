@@ -2,11 +2,18 @@ import { useState, useEffect } from 'react';
 import { ConnectionItem } from './ConnectionItem';
 import { DBTree } from '../Tree/DBTree';
 import { ErrorLogPanel } from '../Logs/ErrorLogPanel';
-import { listSavedConnections, connect, getConnectionCredentials, SavedConnection, ConnectionConfig, Namespace } from '../../lib/tauri';
+import {
+  listSavedConnections,
+  connect,
+  getConnectionCredentials,
+  SavedConnection,
+  Namespace,
+} from '../../lib/tauri';
+import { buildConnectionConfigFromSavedConnection } from '../../lib/connectionConfig';
 import { Plus, Bug } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { useTranslation } from 'react-i18next'
+import { useTranslation } from 'react-i18next';
 
 const DEFAULT_PROJECT = 'default';
 
@@ -62,7 +69,7 @@ export function Sidebar({
 
     try {
       const credsResult = await getConnectionCredentials('default', conn.id);
-      
+
       if (!credsResult.success || !credsResult.password) {
         toast.error(t('sidebar.failedToGetCredentials'), {
           description: credsResult.error || t('sidebar.couldNotRetrievePassword'),
@@ -70,27 +77,17 @@ export function Sidebar({
         return;
       }
 
-      const config: ConnectionConfig = {
-        driver: conn.driver,
-        host: conn.host,
-        port: conn.port,
-        username: conn.username,
-        password: credsResult.password,
-        database: conn.database,
-        ssl: conn.ssl,
-        environment: conn.environment,
-        read_only: conn.read_only,
-      };
+      const config = buildConnectionConfigFromSavedConnection(conn, credsResult.password);
 
       const result = await connect(config);
-      
+
       if (result.success && result.session_id) {
         toast.success(t('sidebar.connectedTo', { name: conn.name }));
         onConnected(result.session_id, {
-									...conn,
-									environment: conn.environment,
-									read_only: conn.read_only,
-								});
+          ...conn,
+          environment: conn.environment,
+          read_only: conn.read_only,
+        });
         setExpandedId(conn.id);
       } else {
         toast.error(t('sidebar.connectionToFailed', { name: conn.name }), {
@@ -118,14 +115,13 @@ export function Sidebar({
     <aside className="w-64 h-full flex flex-col border-r border-border bg-muted/30">
       <header className="h-14 flex items-center justify-between px-4 border-b border-border">
         <button
-          onClick={() => window.location.href = '/'}
-           className="flex items-center gap-2 font-semibold text-foreground">
+          onClick={() => (window.location.href = '/')}
+          className="flex items-center gap-2 font-semibold text-foreground"
+        >
           <img src="/logo.png" alt="QoreDB" width={24} height={24} />
           QoreDB
         </button>
-        <p className="text-xs text-muted-foreground">
-          v1.0.0
-        </p>
+        <p className="text-xs text-muted-foreground">v1.0.0</p>
       </header>
 
       <section className="flex-1 overflow-auto py-2">
@@ -152,8 +148,8 @@ export function Sidebar({
                 />
                 {expandedId === conn.id && connectedSessionId && (
                   <div className="pl-4 border-l border-border ml-4 mt-1">
-                    <DBTree 
-                      connectionId={connectedSessionId} 
+                    <DBTree
+                      connectionId={connectedSessionId}
                       driver={conn.driver}
                       connection={conn}
                       onTableSelect={onTableSelect}
@@ -169,16 +165,16 @@ export function Sidebar({
       </section>
 
       <footer className="p-3 border-t border-border space-y-1">
-        <Button 
-          className="w-full justify-start text-muted-foreground hover:text-foreground hover:bg-muted" 
+        <Button
+          className="w-full justify-start text-muted-foreground hover:text-foreground hover:bg-muted"
           variant="ghost"
           onClick={onNewConnection}
         >
           <Plus size={16} className="mr-2" />
           {t('sidebar.newConnection')}
         </Button>
-        <Button 
-          className="w-full justify-start text-muted-foreground hover:text-foreground hover:bg-muted" 
+        <Button
+          className="w-full justify-start text-muted-foreground hover:text-foreground hover:bg-muted"
           variant="ghost"
           onClick={() => setLogsOpen(true)}
         >

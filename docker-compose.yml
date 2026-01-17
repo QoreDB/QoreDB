@@ -12,6 +12,7 @@ services:
       - "2222:2222"
     volumes:
       - ./dev/ssh:/config/ssh:ro
+      - ./dev/ssh/sshd_config.d/10-qoredb-forwarding.conf:/config/sshd/sshd_config.d/10-qoredb-forwarding.conf:ro
 
   postgres:
     image: postgres:16-alpine

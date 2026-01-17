@@ -37,7 +37,6 @@ export function ConnectionMenu({ connection, onEdit, onDeleted }: ConnectionMenu
     onAfterAction: () => setIsOpen(false),
   });
 
-  // Close menu when clicking outside
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {

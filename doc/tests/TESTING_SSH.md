@@ -20,6 +20,12 @@ Exemple (PowerShell) :
 
 - `docker compose up -d`
 
+Note : l'image `linuxserver/openssh-server` désactive le port-forwarding par défaut (`AllowTcpForwarding no`).
+Pour que QoreDB puisse faire un tunnel `ssh -L`, on monte un override `sshd_config.d` :
+
+- Fichier : `dev\\ssh\\sshd_config.d\\10-qoredb-forwarding.conf`
+- Monté dans le conteneur : `/config/sshd/sshd_config.d/10-qoredb-forwarding.conf`
+
 Ça démarre :
 
 - `ssh-bastion` sur `localhost:2222` (utilisateur `qoredb`)
@@ -46,6 +52,7 @@ Tunnel SSH :
 - Utilisateur SSH : `qoredb`
 - Chemin de clé privée : par ex. `C:\\Users\\<vous>\\.ssh\\qoredb_dev`
 - Politique de host key : commencer avec `accept_new`
+- ProxyJump : laisser vide (inutile en local)
 
 Pourquoi l'hôte DB est `postgres` (et pas `localhost`) :
 

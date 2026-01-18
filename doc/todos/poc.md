@@ -12,9 +12,9 @@
 - [x] **Driver MongoDB** — Implémentation NoSQL du kernel
 - [x] **Registry de drivers** — Système de plugins internes
 - [x] **Mapping universel**
-  - [x] namespace (db / schema / bucket)
-  - [x] collection (table / collection)
-  - [x] record
+- [x] namespace (db / schema / bucket)
+- [x] collection (table / collection)
+- [x] record
 - [x] **Normalisation des erreurs**
 - [x] **Normalisation des résultats (cursor / rows / json)**
 

@@ -37,7 +37,18 @@ export default tseslint.config(
       'react/jsx-uses-react': 'off',
       'react/prop-types': 'off',
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
+      // Relax new react-hooks v7 rules that are noisy for this codebase
+      'react-hooks/immutability': 'off',
+      'react-hooks/incompatible-library': 'off',
+      'react-hooks/set-state-in-effect': 'off',
+      // Reduce severity for common migration issues
+      'react/no-unescaped-entities': 'warn',
+      '@typescript-eslint/no-explicit-any': 'warn',
+      '@typescript-eslint/no-unused-vars': [
+        'warn',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
+      ],
     },
   },
-  prettier,
+  prettier
 );

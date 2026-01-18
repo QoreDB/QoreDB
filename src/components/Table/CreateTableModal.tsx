@@ -137,7 +137,7 @@ export function CreateTableModal({
 			} else {
 				toast.error(t("createTable.failed"), { description: result.error });
 			}
-		} catch (err) {
+		} catch {
 			toast.error(t("createTable.failed"));
 		} finally {
 			setLoading(false);

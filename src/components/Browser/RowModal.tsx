@@ -64,7 +64,7 @@ export function RowModal({
 			const initialNulls: Record<string, boolean> = {};
 
 			schema.columns.forEach((col) => {
-				let val = initialData?.[col.name];
+				const val = initialData?.[col.name];
 
 				if (mode === "update" && val !== undefined) {
 					if (val === null) {
@@ -232,7 +232,7 @@ export function RowModal({
 
 				schema.primary_key.forEach((pk) => {
 					// Use initial data for PK components to identify the row
-					let val = initialData?.[pk];
+					const val = initialData?.[pk];
 					pkData.columns[pk] = val ?? null;
 				});
 

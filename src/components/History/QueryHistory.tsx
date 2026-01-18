@@ -1,28 +1,28 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { 
-  getHistory, 
-  searchHistory, 
-  removeFromHistory, 
+import {
+  getHistory,
+  searchHistory,
+  removeFromHistory,
   clearHistory,
   toggleFavorite,
   isFavorite,
   getFavorites,
   getSessionHistory,
-  HistoryEntry
+  HistoryEntry,
 } from '../../lib/history';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { 
-  History, 
-  Star, 
-  Search, 
-  Trash2, 
-  Play, 
+import {
+  History,
+  Star,
+  Search,
+  Trash2,
+  Play,
   Clock,
   AlertCircle,
   CheckCircle2,
-  X
+  X,
 } from 'lucide-react';
 
 interface QueryHistoryProps {
@@ -40,12 +40,7 @@ export function QueryHistory({ isOpen, onClose, onSelectQuery, sessionId }: Quer
   const [search, setSearch] = useState('');
   const [entries, setEntries] = useState<HistoryEntry[]>([]);
 
-  useEffect(() => {
-    if (!isOpen) return;
-    loadEntries();
-  }, [isOpen, tab, search, sessionId]);
-
-  function loadEntries() {
+  const loadEntries = useCallback(() => {
     if (tab === 'favorites') {
       setEntries(getFavorites());
     } else if (search) {
@@ -57,7 +52,12 @@ export function QueryHistory({ isOpen, onClose, onSelectQuery, sessionId }: Quer
         setEntries(getHistory());
       }
     }
-  }
+  }, [tab, search, sessionId]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    loadEntries();
+  }, [isOpen, loadEntries]);
 
   function handleSelectQuery(entry: HistoryEntry) {
     onSelectQuery(entry.query);
@@ -117,10 +117,10 @@ export function QueryHistory({ isOpen, onClose, onSelectQuery, sessionId }: Quer
           <div className="flex items-center gap-1">
             <button
               className={cn(
-                "px-3 py-1.5 text-sm font-medium rounded-md transition-colors",
+                'px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
                 tab === 'history'
-                  ? "bg-accent text-accent-foreground"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                  ? 'bg-accent text-accent-foreground'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted'
               )}
               onClick={() => setTab('history')}
             >
@@ -131,10 +131,10 @@ export function QueryHistory({ isOpen, onClose, onSelectQuery, sessionId }: Quer
             </button>
             <button
               className={cn(
-                "px-3 py-1.5 text-sm font-medium rounded-md transition-colors",
+                'px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
                 tab === 'favorites'
-                  ? "bg-accent text-accent-foreground"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                  ? 'bg-accent text-accent-foreground'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted'
               )}
               onClick={() => setTab('favorites')}
             >
@@ -149,7 +149,10 @@ export function QueryHistory({ isOpen, onClose, onSelectQuery, sessionId }: Quer
 
           {/* Search */}
           <div className="relative">
-            <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Search
+              size={14}
+              className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground"
+            />
             <input
               type="text"
               placeholder="Search queries..."
@@ -205,18 +208,16 @@ export function QueryHistory({ isOpen, onClose, onSelectQuery, sessionId }: Quer
                     <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground">
                       <span>{formatTime(entry.executedAt)}</span>
                       {entry.executionTimeMs && entry.totalTimeMs ? (
-                        <span title={`${t('query.time.exec')}: ${entry.executionTimeMs.toFixed(2)}ms | ${t('query.time.transfer')}: ${(entry.totalTimeMs - entry.executionTimeMs).toFixed(2)}ms`}>
+                        <span
+                          title={`${t('query.time.exec')}: ${entry.executionTimeMs.toFixed(2)}ms | ${t('query.time.transfer')}: ${(entry.totalTimeMs - entry.executionTimeMs).toFixed(2)}ms`}
+                        >
                           {entry.totalTimeMs.toFixed(2)}ms
                         </span>
                       ) : entry.executionTimeMs ? (
-                         <span>{entry.executionTimeMs.toFixed(2)}ms</span>
+                        <span>{entry.executionTimeMs.toFixed(2)}ms</span>
                       ) : null}
-                      {entry.rowCount !== undefined && (
-                        <span>{entry.rowCount} rows</span>
-                      )}
-                      {entry.database && (
-                        <span className="font-mono">{entry.database}</span>
-                      )}
+                      {entry.rowCount !== undefined && <span>{entry.rowCount} rows</span>}
+                      {entry.database && <span className="font-mono">{entry.database}</span>}
                     </div>
                   </div>
 
@@ -234,14 +235,11 @@ export function QueryHistory({ isOpen, onClose, onSelectQuery, sessionId }: Quer
                     <Button
                       variant="ghost"
                       size="icon"
-                      className={cn(
-                        "h-7 w-7",
-                        isFavorite(entry.id) && "text-yellow-500"
-                      )}
+                      className={cn('h-7 w-7', isFavorite(entry.id) && 'text-yellow-500')}
                       onClick={() => handleToggleFavorite(entry.id)}
-                      title={isFavorite(entry.id) ? "Remove from favorites" : "Add to favorites"}
+                      title={isFavorite(entry.id) ? 'Remove from favorites' : 'Add to favorites'}
                     >
-                      <Star size={14} className={isFavorite(entry.id) ? "fill-current" : ""} />
+                      <Star size={14} className={isFavorite(entry.id) ? 'fill-current' : ''} />
                     </Button>
                     <Button
                       variant="ghost"

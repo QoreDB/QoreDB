@@ -1,9 +1,11 @@
-/**
- * Delete Confirmation Dialog for DataGrid
- */
-
 import { useTranslation } from 'react-i18next';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { formatValue } from './utils/dataGridUtils';
@@ -71,7 +73,9 @@ export function DeleteConfirmDialog({
                       <span className="text-error">{t('grid.previewMissingPk')}</span>
                     ) : (
                       <span className="font-mono text-foreground">
-                        {row.values.map(entry => `${entry.key}=${formatValue(entry.value)}`).join(', ')}
+                        {row.values
+                          .map(entry => `${entry.key}=${formatValue(entry.value)}`)
+                          .join(', ')}
                       </span>
                     )}
                   </div>
@@ -92,7 +96,7 @@ export function DeleteConfirmDialog({
               </label>
               <Input
                 value={confirmValue}
-                onChange={(event) => onConfirmValueChange(event.target.value)}
+                onChange={event => onConfirmValueChange(event.target.value)}
                 placeholder={confirmLabel}
               />
             </div>
@@ -103,11 +107,7 @@ export function DeleteConfirmDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isDeleting}>
             {t('common.cancel')}
           </Button>
-          <Button
-            variant="destructive"
-            onClick={onConfirm}
-            disabled={!confirmReady || isDeleting}
-          >
+          <Button variant="destructive" onClick={onConfirm} disabled={!confirmReady || isDeleting}>
             {t('common.confirm')}
           </Button>
         </DialogFooter>

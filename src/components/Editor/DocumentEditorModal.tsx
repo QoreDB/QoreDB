@@ -66,20 +66,24 @@ export function DocumentEditorModal({
 
     try {
       // 1. Validate JSON
-      let parsed: any;
+      let parsed: unknown;
       try {
         parsed = JSON.parse(value);
-      } catch (e) {
+      } catch {
         setError(t('document.invalidJson'));
         setLoading(false);
         return;
       }
 
       // 2. Prepare RowData
+      if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+        setError(t('document.invalidJson'));
+        setLoading(false);
+        return;
+      }
       const rowData: RowData = { columns: {} };
-      
-      for (const [k, v] of Object.entries(parsed)) {
-        rowData.columns[k] = v as any; 
+      for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
+        rowData.columns[k] = v as unknown as import('../../lib/tauri').Value;
       }
 
       // 3. Execute Mutation

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Sidebar } from './components/Sidebar/Sidebar';
 import { TabBar } from './components/Tabs/TabBar';
@@ -48,39 +48,128 @@ function App() {
   }
 
   // Handle search result selection
-  async function handleSearchSelect(result: SearchResult) {
-    setSearchOpen(false);
+  const handleSearchSelect = useCallback(
+    async (result: SearchResult) => {
+      setSearchOpen(false);
 
-    if (result.type === 'connection' && result.data) {
-      // Connect to the selected connection
-      const conn = result.data as SavedConnection;
-      try {
-        const connectResult = await connectSavedConnection('default', conn.id);
-        if (connectResult.success && connectResult.session_id) {
-          toast.success(t('sidebar.connectedTo', { name: conn.name }));
-          handleConnected(connectResult.session_id, {
-            ...conn,
-            environment: conn.environment,
-            read_only: conn.read_only,
-          });
-          setSidebarRefreshTrigger(prev => prev + 1);
-        } else {
-          toast.error(t('sidebar.connectionToFailed', { name: conn.name }), {
-            description: connectResult.error,
-          });
+      if (result.type === 'connection' && result.data) {
+        // Connect to the selected connection
+        const conn = result.data as SavedConnection;
+        try {
+          const connectResult = await connectSavedConnection('default', conn.id);
+          if (connectResult.success && connectResult.session_id) {
+            toast.success(t('sidebar.connectedTo', { name: conn.name }));
+            handleConnected(connectResult.session_id, {
+              ...conn,
+              environment: conn.environment,
+              read_only: conn.read_only,
+            });
+            setSidebarRefreshTrigger(prev => prev + 1);
+          } else {
+            toast.error(t('sidebar.connectionToFailed', { name: conn.name }), {
+              description: connectResult.error,
+            });
+          }
+        } catch {
+          toast.error(t('sidebar.connectError'));
         }
-      } catch (err) {
-        toast.error(t('sidebar.connectError'));
+      } else if (result.type === 'query' || result.type === 'favorite') {
+        const entry = result.data as HistoryEntry;
+        if (entry?.query) {
+          setPendingQuery(entry.query);
+          setActiveTabId(null);
+          setSettingsOpen(false);
+        }
       }
-    } else if (result.type === 'query' || result.type === 'favorite') {
-      const entry = result.data as HistoryEntry;
-      if (entry?.query) {
-        setPendingQuery(entry.query);
-        setActiveTabId(null);
-        setSettingsOpen(false);
-      }
-    }
+    },
+    [t]
+  );
+
+  function handleConnected(newSessionId: string, connection: SavedConnection) {
+    setSessionId(newSessionId);
+    setDriver(connection.driver as Driver);
+    setActiveConnection(connection);
+    setTabs([]);
+    setActiveTabId(null);
+    setSettingsOpen(false);
   }
+
+  // Tab management
+  const activeTab = useMemo(() => tabs.find(t => t.id === activeTabId), [tabs, activeTabId]);
+
+  const openTab = useCallback((tab: OpenTab) => {
+    setTabs(prev => {
+      const existing = prev.find(
+        t =>
+          t.type === tab.type &&
+          t.namespace?.database === tab.namespace?.database &&
+          t.namespace?.schema === tab.namespace?.schema &&
+          t.tableName === tab.tableName
+      );
+      if (existing) {
+        setActiveTabId(existing.id);
+        return prev;
+      }
+      setActiveTabId(tab.id);
+      return [...prev, tab];
+    });
+    setSettingsOpen(false);
+  }, []);
+
+  const closeTab = useCallback(
+    (tabId: string) => {
+      setTabs(prev => {
+        const newTabs = prev.filter(t => t.id !== tabId);
+        if (activeTabId === tabId) {
+          const closedIndex = prev.findIndex(t => t.id === tabId);
+          const newActiveTab = newTabs[closedIndex] || newTabs[closedIndex - 1] || null;
+          setActiveTabId(newActiveTab?.id || null);
+        }
+        return newTabs;
+      });
+    },
+    [activeTabId]
+  );
+
+  function handleTableSelect(namespace: Namespace, tableName: string) {
+    openTab(createTableTab(namespace, tableName));
+  }
+
+  function handleDatabaseSelect(namespace: Namespace) {
+    openTab(createDatabaseTab(namespace));
+  }
+
+  const handleNewQuery = useCallback(() => {
+    if (sessionId) {
+      openTab(createQueryTab());
+    }
+  }, [sessionId, openTab]);
+
+  const handleEditConnection = useCallback((connection: SavedConnection, password: string) => {
+    setEditConnection(connection);
+    setEditPassword(password);
+    setConnectionModalOpen(true);
+  }, []);
+
+  const handleCloseConnectionModal = useCallback(() => {
+    setConnectionModalOpen(false);
+    setEditConnection(null);
+    setEditPassword('');
+  }, []);
+
+  const handleConnectionSaved = useCallback(
+    (updatedConnection: SavedConnection) => {
+      const isEditingActive = activeConnection?.id === updatedConnection.id;
+      if (isEditingActive) {
+        setActiveConnection(prev => (prev ? { ...prev, ...updatedConnection } : updatedConnection));
+        setDriver(updatedConnection.driver as Driver);
+      }
+
+      handleCloseConnectionModal();
+      setSidebarRefreshTrigger(prev => prev + 1);
+    },
+    [activeConnection?.id, handleCloseConnectionModal]
+  );
 
   // Global keyboard shortcuts
   useEffect(() => {
@@ -122,86 +211,6 @@ function App() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [activeTabId, settingsOpen, closeTab, handleNewQuery]);
-
-  function handleConnected(newSessionId: string, connection: SavedConnection) {
-    setSessionId(newSessionId);
-    setDriver(connection.driver as Driver);
-    setActiveConnection(connection);
-    setTabs([]);
-    setActiveTabId(null);
-    setSettingsOpen(false);
-  }
-
-  // Tab management
-  const activeTab = useMemo(() => tabs.find(t => t.id === activeTabId), [tabs, activeTabId]);
-
-  function openTab(tab: OpenTab) {
-    // Check if already open
-    const existing = tabs.find(
-      t =>
-        t.type === tab.type &&
-        t.namespace?.database === tab.namespace?.database &&
-        t.namespace?.schema === tab.namespace?.schema &&
-        t.tableName === tab.tableName
-    );
-    if (existing) {
-      setActiveTabId(existing.id);
-    } else {
-      setTabs(prev => [...prev, tab]);
-      setActiveTabId(tab.id);
-    }
-    setSettingsOpen(false);
-  }
-
-  function closeTab(tabId: string) {
-    setTabs(prev => {
-      const newTabs = prev.filter(t => t.id !== tabId);
-      if (activeTabId === tabId) {
-        // Activate previous or next tab
-        const closedIndex = prev.findIndex(t => t.id === tabId);
-        const newActiveTab = newTabs[closedIndex] || newTabs[closedIndex - 1] || null;
-        setActiveTabId(newActiveTab?.id || null);
-      }
-      return newTabs;
-    });
-  }
-
-  function handleTableSelect(namespace: Namespace, tableName: string) {
-    openTab(createTableTab(namespace, tableName));
-  }
-
-  function handleDatabaseSelect(namespace: Namespace) {
-    openTab(createDatabaseTab(namespace));
-  }
-
-  function handleNewQuery() {
-    if (sessionId) {
-      openTab(createQueryTab());
-    }
-  }
-
-  function handleEditConnection(connection: SavedConnection, password: string) {
-    setEditConnection(connection);
-    setEditPassword(password);
-    setConnectionModalOpen(true);
-  }
-
-  function handleConnectionSaved(updatedConnection: SavedConnection) {
-    const isEditingActive = activeConnection?.id === updatedConnection.id;
-    if (isEditingActive) {
-      setActiveConnection(prev => (prev ? { ...prev, ...updatedConnection } : updatedConnection));
-      setDriver(updatedConnection.driver as Driver);
-    }
-
-    handleCloseConnectionModal();
-    setSidebarRefreshTrigger(prev => prev + 1);
-  }
-
-  function handleCloseConnectionModal() {
-    setConnectionModalOpen(false);
-    setEditConnection(null);
-    setEditPassword('');
-  }
 
   return (
     <>

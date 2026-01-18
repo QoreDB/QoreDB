@@ -70,16 +70,16 @@ export function MongoEditor({
       json(),
       executeKeymap,
       keymap.of(defaultKeymap),
-      EditorView.updateListener.of((update) => {
+      EditorView.updateListener.of(update => {
         if (update.docChanged) {
           onChange(update.state.doc.toString());
         }
       }),
       EditorView.editable.of(!readOnly),
       EditorView.theme({
-        "&": { height: "100%" },
-        ".cm-scroller": { overflow: "auto" },
-      })
+        '&': { height: '100%' },
+        '.cm-scroller': { overflow: 'auto' },
+      }),
     ];
 
     if (isDark) {
@@ -101,7 +101,7 @@ export function MongoEditor({
     return () => {
       view.destroy();
     };
-  }, [isDark]);
+  }, [isDark, onChange, onExecute, readOnly, value]);
 
   useEffect(() => {
     const view = viewRef.current;

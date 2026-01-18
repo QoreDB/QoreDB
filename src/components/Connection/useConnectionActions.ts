@@ -58,7 +58,7 @@ export function useConnectionActions({
       }
       onEdit(connection, credsResult.password);
       onAfterAction?.();
-    } catch (err) {
+    } catch {
       toast.error(t('connection.menu.credentialLoadFail'));
     }
   }, [connection, onAfterAction, onEdit, t]);

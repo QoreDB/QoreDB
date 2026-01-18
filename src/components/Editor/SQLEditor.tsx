@@ -47,12 +47,12 @@ export function SQLEditor({
     const executeKeymap = keymap.of([
       {
         key: 'Mod-Enter',
-        run: (view) => {
+        run: view => {
           const selection = view.state.sliceDoc(
             view.state.selection.main.from,
             view.state.selection.main.to
           );
-          
+
           if (selection && onExecuteSelection) {
             onExecuteSelection(selection);
           } else if (onExecute) {
@@ -69,16 +69,16 @@ export function SQLEditor({
       sql({ dialect: sqlDialect }),
       executeKeymap,
       keymap.of(defaultKeymap),
-      EditorView.updateListener.of((update) => {
+      EditorView.updateListener.of(update => {
         if (update.docChanged) {
           onChange(update.state.doc.toString());
         }
       }),
       EditorView.editable.of(!readOnly),
       EditorView.theme({
-        "&": { height: "100%" },
-        ".cm-scroller": { overflow: "auto" },
-      })
+        '&': { height: '100%' },
+        '.cm-scroller': { overflow: 'auto' },
+      }),
     ];
 
     // Add dark theme if needed
@@ -101,7 +101,7 @@ export function SQLEditor({
     return () => {
       view.destroy();
     };
-  }, [isDark, dialect]); // Recreate on theme/dialect change
+  }, [isDark, sqlDialect, onChange, onExecute, onExecuteSelection, readOnly, value]); // Recreate when relevant inputs change
 
   // Sync external value changes
   useEffect(() => {
@@ -117,7 +117,5 @@ export function SQLEditor({
     }
   }, [value]);
 
-  return (
-    <div className="flex-1 overflow-hidden h-full text-base" ref={editorRef} />
-  );
+  return <div className="flex-1 overflow-hidden h-full text-base" ref={editorRef} />;
 }

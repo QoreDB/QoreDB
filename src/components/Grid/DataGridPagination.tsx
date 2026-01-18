@@ -1,7 +1,3 @@
-/**
- * DataGrid Pagination - Footer with page size and navigation
- */
-
 import { Table, PaginationState } from '@tanstack/react-table';
 import { useTranslation } from 'react-i18next';
 import { ChevronFirst, ChevronLast, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -29,12 +25,14 @@ export function DataGridPagination({ table, pagination }: DataGridPaginationProp
             className="h-7 px-2 rounded border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-1 focus:ring-accent"
           >
             {PAGE_SIZES.map(size => (
-              <option key={size} value={size}>{size}</option>
+              <option key={size} value={size}>
+                {size}
+              </option>
             ))}
           </select>
         </div>
       </div>
-      
+
       <div className="flex items-center gap-1">
         <span className="text-xs text-muted-foreground mr-2">
           {t('grid.page')} {pagination.pageIndex + 1} {t('grid.of')} {table.getPageCount() || 1}

@@ -93,7 +93,7 @@ function normalizeSql(sql: string): string {
     .replace(/--.*$/gm, ' ')
     .replace(/\/\*[\s\S]*?\*\//g, ' ')
     .replace(/'(?:''|[^'])*'/g, "''")
-    .replace(/\"(?:\"\"|[^\"])*\"/g, '""');
+    .replace(/"(?:""|[^"])*"/g, '""');
 }
 
 function splitSqlStatements(sql: string): string[] {

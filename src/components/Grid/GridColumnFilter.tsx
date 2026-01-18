@@ -31,9 +31,9 @@ export function GridColumnFilter({ column }: GridColumnFilterProps) {
     <Input
       className="h-7 w-full text-xs px-2 mt-1 bg-background/50"
       placeholder={t('grid.filterPlaceholder')}
-      value={(value as string) ?? ""}
-      onChange={(e) => setValue(e.target.value)}
-      onClick={(e) => e.stopPropagation()} // Prevent sorting when clicking input
+      value={(value as string) ?? ''}
+      onChange={e => setValue(e.target.value)}
+      onClick={e => e.stopPropagation()}
     />
   );
 }

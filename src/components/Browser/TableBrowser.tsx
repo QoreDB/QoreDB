@@ -47,16 +47,16 @@ interface TableBrowserProps {
 
 type Tab = 'structure' | 'data' | 'info';
 
-export function TableBrowser({ 
-  sessionId, 
-  namespace, 
-  tableName, 
+export function TableBrowser({
+  sessionId,
+  namespace,
+  tableName,
   driver = 'postgres',
   environment = 'development',
   readOnly = false,
   connectionName,
   connectionDatabase,
-  onClose 
+  onClose,
 }: TableBrowserProps) {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<Tab>('data');
@@ -64,7 +64,7 @@ export function TableBrowser({
   const [data, setData] = useState<QueryResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<'insert' | 'update'>('insert');
@@ -82,7 +82,7 @@ export function TableBrowser({
       // Load schema from cache, data fresh
       const [cachedSchema, dataResult] = await Promise.all([
         schemaCache.getTableSchema(namespace, tableName),
-        previewTable(sessionId, namespace, tableName, 100)
+        previewTable(sessionId, namespace, tableName, 100),
       ]);
       const endTime = performance.now();
       const totalTime = endTime - startTime;
@@ -96,7 +96,7 @@ export function TableBrowser({
       if (dataResult.success && dataResult.result) {
         setData({
           ...dataResult.result,
-          total_time_ms: totalTime
+          total_time_ms: totalTime,
         } as QueryResult & { total_time_ms: number });
       } else if (dataResult.error && !error) {
         setError(dataResult.error);
@@ -106,14 +106,14 @@ export function TableBrowser({
     } finally {
       setLoading(false);
     }
-  }, [sessionId, namespace, tableName, schemaCache]);
+  }, [sessionId, namespace, tableName, schemaCache, error]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
 
   useEffect(() => {
-    return onTableChange((event) => {
+    return onTableChange(event => {
       if (
         event.tableName === tableName &&
         event.namespace.database === namespace.database &&
@@ -124,9 +124,7 @@ export function TableBrowser({
     });
   }, [loadData, namespace.database, namespace.schema, tableName]);
 
-  const displayName = namespace.schema 
-    ? `${namespace.schema}.${tableName}` 
-    : tableName;
+  const displayName = namespace.schema ? `${namespace.schema}.${tableName}` : tableName;
 
   return (
     <div className="flex flex-col h-full bg-background rounded-lg border border-border shadow-sm overflow-hidden">
@@ -144,16 +142,18 @@ export function TableBrowser({
               {schema?.row_count_estimate !== undefined && (
                 <>
                   <span>•</span>
-                  <span>~{schema.row_count_estimate.toLocaleString()} {t('table.rows')}</span>
+                  <span>
+                    ~{schema.row_count_estimate.toLocaleString()} {t('table.rows')}
+                  </span>
                 </>
               )}
             </div>
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button 
-            variant="outline" 
-            size="sm" 
+          <Button
+            variant="outline"
+            size="sm"
             className="h-8 gap-1.5"
             disabled={readOnly}
             title={readOnly ? t('environment.blocked') : undefined}
@@ -180,10 +180,10 @@ export function TableBrowser({
       <div className="flex items-center gap-1 px-4 py-2 border-b border-border bg-muted/10">
         <button
           className={cn(
-            "px-3 py-1.5 text-sm font-medium rounded-md transition-colors",
-            activeTab === 'data' 
-              ? "bg-accent text-accent-foreground" 
-              : "text-muted-foreground hover:text-foreground hover:bg-muted"
+            'px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
+            activeTab === 'data'
+              ? 'bg-accent text-accent-foreground'
+              : 'text-muted-foreground hover:text-foreground hover:bg-muted'
           )}
           onClick={() => setActiveTab('data')}
         >
@@ -194,10 +194,10 @@ export function TableBrowser({
         </button>
         <button
           className={cn(
-            "px-3 py-1.5 text-sm font-medium rounded-md transition-colors",
-            activeTab === 'structure' 
-              ? "bg-accent text-accent-foreground" 
-              : "text-muted-foreground hover:text-foreground hover:bg-muted"
+            'px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
+            activeTab === 'structure'
+              ? 'bg-accent text-accent-foreground'
+              : 'text-muted-foreground hover:text-foreground hover:bg-muted'
           )}
           onClick={() => setActiveTab('structure')}
         >
@@ -208,10 +208,10 @@ export function TableBrowser({
         </button>
         <button
           className={cn(
-            "px-3 py-1.5 text-sm font-medium rounded-md transition-colors",
-            activeTab === 'info' 
-              ? "bg-accent text-accent-foreground" 
-              : "text-muted-foreground hover:text-foreground hover:bg-muted"
+            'px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
+            activeTab === 'info'
+              ? 'bg-accent text-accent-foreground'
+              : 'text-muted-foreground hover:text-foreground hover:bg-muted'
           )}
           onClick={() => setActiveTab('info')}
         >
@@ -235,9 +235,9 @@ export function TableBrowser({
             <pre className="text-sm font-mono whitespace-pre-wrap">{error}</pre>
           </div>
         ) : activeTab === 'data' ? (
-          <DataGrid 
-            result={data} 
-            height={500} 
+          <DataGrid
+            result={data}
+            height={500}
             sessionId={sessionId}
             namespace={namespace}
             tableName={tableName}
@@ -247,7 +247,7 @@ export function TableBrowser({
             connectionName={connectionName}
             connectionDatabase={connectionDatabase}
             onRowsDeleted={loadData}
-            onRowClick={(row) => {
+            onRowClick={row => {
               if (readOnly) {
                 toast.error(t('environment.blocked'));
                 return;
@@ -260,7 +260,7 @@ export function TableBrowser({
         ) : activeTab === 'structure' ? (
           <StructureTable schema={schema} />
         ) : (
-          <TableInfoPanel 
+          <TableInfoPanel
             sessionId={sessionId}
             namespace={namespace}
             tableName={tableName}
@@ -316,24 +316,16 @@ function StructureTable({ schema }: StructureTableProps) {
 
       {/* Rows */}
       {schema.columns.map((col, idx) => (
-        <div 
+        <div
           key={col.name}
           className="flex items-center border-b border-border last:border-b-0 hover:bg-muted/30 transition-colors text-sm"
         >
-          <div className="w-8 p-2 text-center text-muted-foreground text-xs">
-            {idx + 1}
-          </div>
+          <div className="w-8 p-2 text-center text-muted-foreground text-xs">{idx + 1}</div>
           <div className="flex-1 p-2 font-mono flex items-center gap-2">
-            {col.is_primary_key && (
-              <Key size={12} className="text-warning shrink-0" />
-            )}
-            <span className={cn(col.is_primary_key && "font-semibold")}>
-              {col.name}
-            </span>
+            {col.is_primary_key && <Key size={12} className="text-warning shrink-0" />}
+            <span className={cn(col.is_primary_key && 'font-semibold')}>{col.name}</span>
           </div>
-          <div className="w-32 p-2 font-mono text-xs text-accent">
-            {col.data_type}
-          </div>
+          <div className="w-32 p-2 font-mono text-xs text-accent">{col.data_type}</div>
           <div className="w-24 p-2 text-center">
             {col.nullable ? (
               <span className="text-muted-foreground">NULL</span>
@@ -352,9 +344,7 @@ function StructureTable({ schema }: StructureTableProps) {
         <div className="flex items-center gap-2 p-3 bg-warning/10 border-t border-warning/20 text-sm">
           <Hash size={14} className="text-warning" />
           <span className="text-muted-foreground">{t('table.primaryKey')}:</span>
-          <span className="font-mono font-medium">
-            {schema.primary_key.join(', ')}
-          </span>
+          <span className="font-mono font-medium">{schema.primary_key.join(', ')}</span>
         </div>
       )}
     </div>
@@ -390,21 +380,16 @@ function TableInfoPanel({ sessionId, namespace, tableName, driver, schema }: Tab
   const [stats, setStats] = useState<TableStats>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   const driverMeta = getDriverMetadata(driver);
-
-  useEffect(() => {
-    loadStats();
-  }, [sessionId, namespace, tableName]);
-
-  async function loadStats() {
+  const loadStats = useCallback(async () => {
     setLoading(true);
     setError(null);
 
     try {
       const schemaName = namespace.schema || 'public';
       const newStats: TableStats = {};
-      
+
       if (driverMeta.supportsSQL) {
         // PostgreSQL stats query
         if (driver === 'postgres') {
@@ -452,10 +437,10 @@ function TableInfoPanel({ sessionId, namespace, tableName, driver, schema }: Tab
           const maintenanceResult = await executeQuery(sessionId, maintenanceQuery);
           if (maintenanceResult.success && maintenanceResult.result?.rows[0]) {
             const row = maintenanceResult.result.rows[0].values;
-            newStats.lastVacuum = row[0] as string || undefined;
-            newStats.lastAnalyze = row[1] as string || undefined;
+            newStats.lastVacuum = (row[0] as string) || undefined;
+            newStats.lastAnalyze = (row[1] as string) || undefined;
           }
-        } 
+        }
         // MySQL/MariaDB
         else if (driver === 'mysql') {
           const statsQuery = `
@@ -497,7 +482,11 @@ function TableInfoPanel({ sessionId, namespace, tableName, driver, schema }: Tab
     } finally {
       setLoading(false);
     }
-  }
+  }, [sessionId, namespace, tableName, driver, driverMeta]);
+
+  useEffect(() => {
+    loadStats();
+  }, [loadStats]);
 
   function formatBytes(bytes: number): string {
     if (bytes < 1024) return `${bytes} B`;
@@ -528,22 +517,22 @@ function TableInfoPanel({ sessionId, namespace, tableName, driver, schema }: Tab
     <div className="space-y-4">
       {/* Overview Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard 
+        <StatCard
           icon={<HardDrive size={16} />}
           label={t('tableInfo.size')}
           value={stats.sizeFormatted || '—'}
         />
-        <StatCard 
+        <StatCard
           icon={<List size={16} />}
           label={t('tableInfo.rowCount')}
           value={stats.rowCount !== undefined ? stats.rowCount.toLocaleString() : '—'}
         />
-        <StatCard 
+        <StatCard
           icon={<Key size={16} />}
           label={t('tableInfo.columnCount')}
           value={schema?.columns.length?.toString() || '—'}
         />
-        <StatCard 
+        <StatCard
           icon={<Hash size={16} />}
           label={t('tableInfo.indexCount')}
           value={stats.indexCount?.toString() || '—'}
@@ -557,7 +546,7 @@ function TableInfoPanel({ sessionId, namespace, tableName, driver, schema }: Tab
             {t('tableInfo.indexes')}
           </div>
           <div className="divide-y divide-border">
-            {stats.indexes.map((idx) => (
+            {stats.indexes.map(idx => (
               <div key={idx.name} className="flex items-center justify-between px-3 py-2 text-sm">
                 <span className="font-mono font-medium">{idx.name}</span>
                 <span className="text-muted-foreground font-mono text-xs">{idx.columns}</span>

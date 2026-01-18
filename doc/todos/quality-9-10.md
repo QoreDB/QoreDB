@@ -32,10 +32,10 @@ Goal: raise architecture/extensibility, reliability, security, observability, an
 ## 4) SSH Password Auth Support (Security + UX)
 
 - [x] Add a pluggable SSH tunnel backend (`SshTunnelBackend` trait).
-- [ ] Keep OpenSSH backend for key-based auth; add an embedded backend (libssh2/ssh2 crate) for password auth.
-- [ ] Support host key policy and known_hosts handling in the embedded backend.
-- [ ] Choose backend automatically based on `SshAuth` (password => embedded, key => openssh by default).
-- [ ] Add tests for both backends and error handling.
+- [x] Keep OpenSSH backend for key-based auth; add an embedded backend (libssh2/ssh2 crate) for password auth.
+- [x] Support host key policy and known_hosts handling in the embedded backend.
+- [x] Choose backend automatically based on `SshAuth` (password => embedded, key => openssh by default).
+- [x] Add tests for both backends and error handling.
 
 ## 5) Observability (Operability)
 

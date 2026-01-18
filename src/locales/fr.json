@@ -16,6 +16,8 @@
         "database": "Base de données",
         "databaseInitial": "Base de données initiale",
         "useSSL": "Utiliser SSL/TLS",
+        "advanced": "Paramètres avancés",
+        "advancedHint": "SSL, DB, SSH…",
         "cancel": "Annuler",
         "test": "Tester",
         "saveChanges": "Enregistrer",
@@ -42,12 +44,26 @@
         },
         "ssh": {
             "enableTunnel": "Utiliser un tunnel SSH",
+            "configure": "Configurer",
             "host": "Hôte SSH",
             "port": "Port SSH",
             "username": "Nom d'utilisateur SSH",
             "keyPath": "Chemin de la clé privée",
             "passphrase": "Phrase secrète (optionnel)",
-            "keyPathPlaceholder": "~/.ssh/id_rsa"
+            "keyPathPlaceholder": "~/.ssh/id_rsa",
+            "passphraseHelp": "Actuellement, le backend OpenSSH peut nécessiter une clé chargée dans ssh-agent pour éviter les prompts interactifs.",
+            "advancedOptions": "Options avancées",
+            "hostKeyPolicy": "Politique de clé hôte",
+            "hostKeyPolicyAcceptNew": "Accepter nouvelle (TOFU)",
+            "hostKeyPolicyStrict": "Strict",
+            "hostKeyPolicyInsecure": "Sans vérification (dangereux)",
+            "proxyJump": "ProxyJump (optionnel)",
+            "connectTimeoutSecs": "Timeout connexion (s)",
+            "keepaliveIntervalSecs": "Keepalive interval (s)",
+            "keepaliveCountMax": "Keepalive max",
+            "summaryMissingHost": "(hôte ?) ",
+            "summaryKey": "clé:",
+            "summaryMissingKey": "clé:?"
         }
     },
     "sidebar": {

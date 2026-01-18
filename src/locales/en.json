@@ -16,6 +16,8 @@
         "database": "Database",
         "databaseInitial": "Initial Database",
         "useSSL": "Use SSL/TLS",
+        "advanced": "Advanced settings",
+        "advancedHint": "SSL, DB, SSH…",
         "cancel": "Cancel",
         "test": "Test",
         "saveChanges": "Save Changes",
@@ -42,12 +44,26 @@
         },
         "ssh": {
             "enableTunnel": "Use SSH Tunnel",
+            "configure": "Configure",
             "host": "SSH Host",
             "port": "SSH Port",
             "username": "SSH Username",
             "keyPath": "Private Key Path",
             "passphrase": "Key Passphrase (optional)",
-            "keyPathPlaceholder": "~/.ssh/id_rsa"
+            "keyPathPlaceholder": "~/.ssh/id_rsa",
+            "passphraseHelp": "Currently, the OpenSSH backend may require the key to be loaded into ssh-agent to avoid interactive prompts.",
+            "advancedOptions": "Advanced options",
+            "hostKeyPolicy": "Host key policy",
+            "hostKeyPolicyAcceptNew": "Accept new (TOFU)",
+            "hostKeyPolicyStrict": "Strict",
+            "hostKeyPolicyInsecure": "No checking (unsafe)",
+            "proxyJump": "ProxyJump (optional)",
+            "connectTimeoutSecs": "Connect timeout (s)",
+            "keepaliveIntervalSecs": "Keepalive interval (s)",
+            "keepaliveCountMax": "Keepalive max",
+            "summaryMissingHost": "(host?)",
+            "summaryKey": "key:",
+            "summaryMissingKey": "key:?"
         }
     },
     "sidebar": {

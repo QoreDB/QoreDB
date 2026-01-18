@@ -1,33 +1,30 @@
-import { useState, useEffect } from 'react';
-import { useTranslation } from 'react-i18next';
-import { 
-  testConnection, 
-  connectSavedConnection,
-  saveConnection, 
-  ConnectionConfig,
-  SavedConnection,
-  Environment
-} from '../../lib/tauri';
-import { ENVIRONMENT_CONFIG } from '../../lib/environment';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { 
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter
-} from '@/components/ui/dialog';
-import { Check, X, Loader2, ChevronDown, ChevronRight, Shield, Lock } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { 
-  Driver, 
-  DRIVER_LABELS, 
-  DRIVER_ICONS, 
-  DEFAULT_PORTS,
-  getDriverMetadata
-} from '../../lib/drivers';
-import { toast } from 'sonner';
+import { useState } from "react";
+import { useTranslation } from "react-i18next";
+
+import {
+	connectSavedConnection,
+	saveConnection,
+	testConnection,
+	type SavedConnection,
+} from "@/lib/tauri";
+
+import { Button } from "@/components/ui/button";
+import {
+	Dialog,
+	DialogContent,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Check, Loader2, X } from "lucide-react";
+import { toast } from "sonner";
+
+import { DriverPicker } from "./connection-modal/DriverPicker";
+import { BasicSection } from "./connection-modal/BasicSection";
+import { AdvancedSection } from "./connection-modal/AdvancedSection";
+import { buildConnectionConfig, buildSaveConnectionInput, buildSavedConnection } from "./connection-modal/mappers";
+import { useConnectionForm } from "./connection-modal/useConnectionForm";
 
 interface ConnectionModalProps {
 	isOpen: boolean;
@@ -38,54 +35,6 @@ interface ConnectionModalProps {
 	onSaved?: (connection: SavedConnection) => void;
 }
 
-interface FormData {
-	name: string;
-	driver: Driver;
-	environment: Environment;
-	readOnly: boolean;
-	host: string;
-	port: number;
-	username: string;
-	password: string;
-	database: string;
-	ssl: boolean;
-	useSshTunnel: boolean;
-	sshHost: string;
-	sshPort: number;
-	sshUsername: string;
-	sshKeyPath: string;
-	sshPassphrase: string;
-	sshHostKeyPolicy: "accept_new" | "strict" | "insecure_no_check";
-	sshProxyJump: string;
-	sshConnectTimeoutSecs: number;
-	sshKeepaliveIntervalSecs: number;
-	sshKeepaliveCountMax: number;
-}
-
-const initialFormData: FormData = {
-	name: "",
-	driver: "postgres",
-	environment: "development",
-	readOnly: false,
-	host: "localhost",
-	port: 5432,
-	username: "",
-	password: "",
-	database: "",
-	ssl: false,
-	useSshTunnel: false,
-	sshHost: "",
-	sshPort: 22,
-	sshUsername: "",
-	sshKeyPath: "",
-	sshPassphrase: "",
-	sshHostKeyPolicy: "accept_new",
-	sshProxyJump: "",
-	sshConnectTimeoutSecs: 10,
-	sshKeepaliveIntervalSecs: 30,
-	sshKeepaliveCountMax: 3,
-};
-
 export function ConnectionModal({
 	isOpen,
 	onClose,
@@ -95,69 +44,23 @@ export function ConnectionModal({
 	onSaved,
 }: ConnectionModalProps) {
 	const { t } = useTranslation();
-	const [formData, setFormData] = useState<FormData>(initialFormData);
+	const { formData, handleChange: setField, handleDriverChange, isValid } =
+		useConnectionForm({ isOpen, editConnection, editPassword });
 	const [testing, setTesting] = useState(false);
 	const [connecting, setConnecting] = useState(false);
 	const [testResult, setTestResult] = useState<"success" | "error" | null>(null);
 	const [error, setError] = useState<string | null>(null);
 
 	const isEditMode = !!editConnection;
-	const driverMeta = getDriverMetadata(formData.driver);
 
-	useEffect(() => {
-		if (isOpen) {
-			if (editConnection && editPassword) {
-				const sshTunnel = editConnection.ssh_tunnel;
-				setFormData({
-					name: editConnection.name,
-					driver: editConnection.driver as Driver,
-					environment: editConnection.environment || "development",
-					readOnly: editConnection.read_only || false,
-					host: editConnection.host,
-					port: editConnection.port,
-					username: editConnection.username,
-					password: editPassword,
-					database: editConnection.database || "",
-					ssl: editConnection.ssl,
-					useSshTunnel: !!sshTunnel,
-					sshHost: sshTunnel ? sshTunnel.host : "",
-					sshPort: sshTunnel ? sshTunnel.port : 22,
-					sshUsername: sshTunnel ? sshTunnel.username : "",
-					sshKeyPath: sshTunnel ? sshTunnel.key_path || "" : "",
-					sshPassphrase: "",
-					sshHostKeyPolicy: sshTunnel
-						? (sshTunnel.host_key_policy as FormData["sshHostKeyPolicy"])
-						: "accept_new",
-					sshProxyJump: sshTunnel ? sshTunnel.proxy_jump || "" : "",
-					sshConnectTimeoutSecs: sshTunnel ? sshTunnel.connect_timeout_secs : 10,
-					sshKeepaliveIntervalSecs: sshTunnel
-						? sshTunnel.keepalive_interval_secs
-						: 30,
-					sshKeepaliveCountMax: sshTunnel ? sshTunnel.keepalive_count_max : 3,
-				});
-			} else {
-				setFormData(initialFormData);
-			}
-			setTestResult(null);
-			setError(null);
-		}
-	}, [isOpen, editConnection, editPassword]);
-
-	function handleDriverChange(driver: Driver) {
-		setFormData((prev) => ({
-			...prev,
-			driver,
-			port: DEFAULT_PORTS[driver],
-		}));
+	function handleDriverChangeWithReset(nextDriver: Parameters<typeof handleDriverChange>[0]) {
+		handleDriverChange(nextDriver);
 		setTestResult(null);
 		setError(null);
 	}
 
-	function handleChange(
-		field: keyof FormData,
-		value: string | number | boolean,
-	) {
-		setFormData((prev) => ({ ...prev, [field]: value }));
+	function handleChange(field: Parameters<typeof setField>[0], value: Parameters<typeof setField>[1]) {
+		setField(field, value);
 		setTestResult(null);
 		setError(null);
 	}
@@ -168,35 +71,7 @@ export function ConnectionModal({
 		setError(null);
 
 		try {
-			const config: ConnectionConfig = {
-				driver: formData.driver,
-				host: formData.host,
-				port: formData.port,
-				username: formData.username,
-				password: formData.password,
-				database: formData.database || undefined,
-				ssl: formData.ssl,
-				environment: formData.environment,
-				read_only: formData.readOnly,
-				ssh_tunnel: formData.useSshTunnel
-					? {
-							host: formData.sshHost,
-							port: formData.sshPort,
-							username: formData.sshUsername,
-							auth: {
-								Key: {
-									private_key_path: formData.sshKeyPath,
-									passphrase: formData.sshPassphrase || undefined,
-								},
-							},
-							host_key_policy: formData.sshHostKeyPolicy,
-							proxy_jump: formData.sshProxyJump || undefined,
-							connect_timeout_secs: formData.sshConnectTimeoutSecs,
-							keepalive_interval_secs: formData.sshKeepaliveIntervalSecs,
-							keepalive_count_max: formData.sshKeepaliveCountMax,
-						}
-					: undefined,
-			};
+			const config = buildConnectionConfig(formData);
 
 			const result = await testConnection(config);
 
@@ -224,53 +99,8 @@ export function ConnectionModal({
 
 		try {
 			const connectionId = editConnection?.id || `conn_${Date.now()}`;
-			const savedConnection: SavedConnection = {
-				id: connectionId,
-				name: formData.name || `${formData.host}:${formData.port}`,
-				driver: formData.driver,
-				environment: formData.environment,
-				read_only: formData.readOnly,
-				host: formData.host,
-				port: formData.port,
-				username: formData.username,
-				database: formData.database || undefined,
-				ssl: formData.ssl,
-				project_id: "default",
-				ssh_tunnel: formData.useSshTunnel
-					? {
-							host: formData.sshHost,
-							port: formData.sshPort,
-							username: formData.sshUsername,
-							auth_type: "key",
-							key_path: formData.sshKeyPath,
-							host_key_policy: formData.sshHostKeyPolicy,
-							proxy_jump: formData.sshProxyJump || undefined,
-							connect_timeout_secs: formData.sshConnectTimeoutSecs,
-							keepalive_interval_secs: formData.sshKeepaliveIntervalSecs,
-							keepalive_count_max: formData.sshKeepaliveCountMax,
-						}
-					: undefined,
-			};
-
-			await saveConnection({
-				...savedConnection,
-				password: formData.password,
-				ssh_tunnel: formData.useSshTunnel
-					? {
-							host: formData.sshHost,
-							port: formData.sshPort,
-							username: formData.sshUsername,
-							auth_type: "key",
-							key_path: formData.sshKeyPath,
-							key_passphrase: formData.sshPassphrase || undefined,
-							host_key_policy: formData.sshHostKeyPolicy,
-							proxy_jump: formData.sshProxyJump || undefined,
-							connect_timeout_secs: formData.sshConnectTimeoutSecs,
-							keepalive_interval_secs: formData.sshKeepaliveIntervalSecs,
-							keepalive_count_max: formData.sshKeepaliveCountMax,
-						}
-					: undefined,
-			});
+			const savedConnection = buildSavedConnection(formData, connectionId);
+			await saveConnection(buildSaveConnectionInput(formData, connectionId));
 
 			if (isEditMode) {
 				toast.success(t("connection.updateSuccess"));
@@ -305,54 +135,8 @@ export function ConnectionModal({
 
 		try {
 			const connectionId = editConnection?.id || `conn_${Date.now()}`;
-
-			const savedConnection: SavedConnection = {
-				id: connectionId,
-				name: formData.name || `${formData.host}:${formData.port}`,
-				driver: formData.driver,
-				environment: formData.environment,
-				read_only: formData.readOnly,
-				host: formData.host,
-				port: formData.port,
-				username: formData.username,
-				database: formData.database || undefined,
-				ssl: formData.ssl,
-				project_id: "default",
-				ssh_tunnel: formData.useSshTunnel
-					? {
-							host: formData.sshHost,
-							port: formData.sshPort,
-							username: formData.sshUsername,
-							auth_type: "key",
-							key_path: formData.sshKeyPath,
-							host_key_policy: formData.sshHostKeyPolicy,
-							proxy_jump: formData.sshProxyJump || undefined,
-							connect_timeout_secs: formData.sshConnectTimeoutSecs,
-							keepalive_interval_secs: formData.sshKeepaliveIntervalSecs,
-							keepalive_count_max: formData.sshKeepaliveCountMax,
-						}
-					: undefined,
-			};
-
-			await saveConnection({
-				...savedConnection,
-				password: formData.password,
-				ssh_tunnel: formData.useSshTunnel
-					? {
-							host: formData.sshHost,
-							port: formData.sshPort,
-							username: formData.sshUsername,
-							auth_type: "key",
-							key_path: formData.sshKeyPath,
-							key_passphrase: formData.sshPassphrase || undefined,
-							host_key_policy: formData.sshHostKeyPolicy,
-							proxy_jump: formData.sshProxyJump || undefined,
-							connect_timeout_secs: formData.sshConnectTimeoutSecs,
-							keepalive_interval_secs: formData.sshKeepaliveIntervalSecs,
-							keepalive_count_max: formData.sshKeepaliveCountMax,
-						}
-					: undefined,
-			});
+			const savedConnection = buildSavedConnection(formData, connectionId);
+			await saveConnection(buildSaveConnectionInput(formData, connectionId));
 
 			toast.success(
 				isEditMode ? t("connection.updateSuccess") : t("connection.saveSuccess"),
@@ -369,21 +153,12 @@ export function ConnectionModal({
 	}
 
 	function handleOpenChange(open: boolean) {
-		if (!open) {
-			onClose();
-		}
+		if (!open) onClose();
 	}
-
-	const isValid =
-		formData.host &&
-		formData.username &&
-		formData.password &&
-		(!formData.useSshTunnel ||
-			(formData.sshHost && formData.sshUsername && formData.sshKeyPath));
 
 	return (
 		<Dialog open={isOpen} onOpenChange={handleOpenChange}>
-			<DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+			<DialogContent className="max-w-xl">
 				<DialogHeader>
 					<DialogTitle>
 						{isEditMode
@@ -392,331 +167,30 @@ export function ConnectionModal({
 					</DialogTitle>
 				</DialogHeader>
 
-				<div className="grid gap-6 py-4">
-					<div className="grid grid-cols-3 gap-3">
-						{(Object.keys(DRIVER_LABELS) as Driver[]).map((driver) => (
-							<button
-								key={driver}
-								className={cn(
-									"flex flex-col items-center gap-2 p-3 rounded-md border transition-all hover:bg-(--q-accent-soft)",
-									formData.driver === driver
-										? "border-accent bg-(--q-accent-soft) text-(--q-accent)"
-										: "border-border bg-background",
-								)}
-								onClick={() => handleDriverChange(driver)}
-								disabled={isEditMode}
-							>
-								<div
-									className={cn(
-										"flex items-center justify-center w-10 h-10 rounded-lg p-1.5 transition-colors",
-										formData.driver === driver ? "bg-(--q-accent-soft)" : "bg-muted",
-									)}
-								>
-									<img
-										src={`/databases/${DRIVER_ICONS[driver]}`}
-										alt={DRIVER_LABELS[driver]}
-										className="w-full h-full object-contain"
-									/>
-								</div>
-								<span className="text-xs font-medium">{DRIVER_LABELS[driver]}</span>
-							</button>
-						))}
+				<ScrollArea className="max-h-[75vh]">
+					<div className="grid gap-4 py-4">
+						<DriverPicker
+							driver={formData.driver}
+							isEditMode={isEditMode}
+							onChange={handleDriverChangeWithReset}
+						/>
+						<BasicSection formData={formData} onChange={handleChange} />
+						<AdvancedSection formData={formData} onChange={handleChange} />
+
+						{error && (
+							<div className="p-3 rounded-md bg-error/10 border border-error/20 text-error text-sm flex items-center gap-2">
+								<X size={14} />
+								{error}
+							</div>
+						)}
+						{testResult === "success" && (
+							<div className="p-3 rounded-md bg-success/10 border border-success/20 text-success text-sm flex items-center gap-2">
+								<Check size={14} />
+								{t("connection.testSuccess")}
+							</div>
+						)}
 					</div>
-
-					<div className="space-y-4">
-						<div className="space-y-2">
-							<label className="text-sm font-medium">
-								{t("connection.connectionName")}
-							</label>
-							<Input
-								placeholder="My Database"
-								value={formData.name}
-								onChange={(e) => handleChange("name", e.target.value)}
-							/>
-						</div>
-
-						{/* Environment & Read-Only */}
-						<div className="grid grid-cols-2 gap-4">
-							<div className="space-y-2">
-								<label className="text-sm font-medium flex items-center gap-2">
-									<Shield size={14} className="text-muted-foreground" />
-									{t("environment.label")}
-								</label>
-								<div className="flex gap-2">
-									{(["development", "staging", "production"] as const).map((env) => {
-										const config = ENVIRONMENT_CONFIG[env];
-										const isSelected = formData.environment === env;
-										return (
-											<button
-												key={env}
-												type="button"
-												className={cn(
-													"flex-1 px-3 py-2 rounded-md text-xs font-medium border transition-all",
-													isSelected
-														? "border-transparent"
-														: "border-border bg-background hover:bg-muted",
-												)}
-												style={
-													isSelected
-														? {
-																backgroundColor: config.bgSoft,
-																color: config.color,
-																borderColor: config.color,
-															}
-														: undefined
-												}
-												onClick={() => handleChange("environment", env)}
-											>
-												{config.labelShort}
-											</button>
-										);
-									})}
-								</div>
-							</div>
-							<div className="space-y-2">
-								<label className="text-sm font-medium flex items-center gap-2">
-									<Lock size={14} className="text-muted-foreground" />
-									{t("environment.readOnly")}
-								</label>
-								<button
-									type="button"
-									className={cn(
-										"w-full flex items-center justify-between px-3 py-2 rounded-md border transition-all text-sm",
-										formData.readOnly
-											? "bg-warning/10 border-warning text-warning"
-											: "border-border bg-background hover:bg-muted text-muted-foreground",
-									)}
-									onClick={() => handleChange("readOnly", !formData.readOnly)}
-								>
-									<span>
-										{formData.readOnly ? t("common.enabled") : t("common.disabled")}
-									</span>
-									<div
-										className={cn(
-											"w-8 h-4 rounded-full transition-colors relative",
-											formData.readOnly ? "bg-warning" : "bg-muted",
-										)}
-									>
-										<div
-											className={cn(
-												"absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all shadow-sm",
-												formData.readOnly ? "left-4" : "left-0.5",
-											)}
-										/>
-									</div>
-								</button>
-							</div>
-						</div>
-
-						<div className="grid grid-cols-3 gap-4">
-							<div className="col-span-2 space-y-2">
-								<label className="text-sm font-medium">
-									{t("connection.host")} <span className="text-error">*</span>
-								</label>
-								<Input
-									placeholder="localhost"
-									value={formData.host}
-									onChange={(e) => handleChange("host", e.target.value)}
-								/>
-							</div>
-							<div className="space-y-2">
-								<label className="text-sm font-medium">{t("connection.port")}</label>
-								<Input
-									type="number"
-									value={formData.port}
-									onChange={(e) => handleChange("port", parseInt(e.target.value) || 0)}
-								/>
-							</div>
-						</div>
-
-						<div className="grid grid-cols-2 gap-4">
-							<div className="space-y-2">
-								<label className="text-sm font-medium">
-									{t("connection.username")} <span className="text-error">*</span>
-								</label>
-								<Input
-									placeholder="user"
-									value={formData.username}
-									onChange={(e) => handleChange("username", e.target.value)}
-								/>
-							</div>
-							<div className="space-y-2">
-								<label className="text-sm font-medium">
-									{t("connection.password")} <span className="text-error">*</span>
-								</label>
-								<Input
-									type="password"
-									placeholder="••••••••"
-									value={formData.password}
-									onChange={(e) => handleChange("password", e.target.value)}
-								/>
-							</div>
-						</div>
-
-						<div className="space-y-2">
-							<label className="text-sm font-medium">
-								{t(driverMeta.databaseFieldLabel)}
-							</label>
-							<Input
-								placeholder={formData.driver === "postgres" ? "postgres" : ""}
-								value={formData.database}
-								onChange={(e) => handleChange("database", e.target.value)}
-							/>
-						</div>
-
-						<div className="flex items-center space-x-2">
-							<input
-								type="checkbox"
-								id="ssl"
-								className="h-4 w-4 rounded border-border text-accent focus:ring-accent"
-								checked={formData.ssl}
-								onChange={(e) => handleChange("ssl", e.target.checked)}
-							/>
-							<label htmlFor="ssl" className="text-sm font-medium cursor-pointer">
-								{t("connection.useSSL")}
-							</label>
-						</div>
-
-						{/* SSH Tunnel Section */}
-						<div className="border border-border rounded-md">
-							<button
-								type="button"
-								className="flex items-center justify-between w-full px-3 py-2 text-sm font-medium hover:bg-muted/50 transition-colors"
-								onClick={() => handleChange("useSshTunnel", !formData.useSshTunnel)}
-							>
-								<span className="flex items-center gap-2">
-									{formData.useSshTunnel ? (
-										<ChevronDown size={16} />
-									) : (
-										<ChevronRight size={16} />
-									)}
-									{t("connection.ssh.enableTunnel")}
-								</span>
-								<input
-									type="checkbox"
-									checked={formData.useSshTunnel}
-									onChange={(e) => {
-										e.stopPropagation();
-										handleChange("useSshTunnel", e.target.checked);
-									}}
-									className="h-4 w-4 rounded border-border text-accent focus:ring-accent"
-								/>
-							</button>
-
-							{formData.useSshTunnel && (
-								<div className="px-3 pb-3 space-y-3 border-t border-border">
-									<div className="grid grid-cols-3 gap-3 pt-3">
-										<div className="col-span-2 space-y-1">
-											<label className="text-xs font-medium text-muted-foreground">
-												{t("connection.ssh.host")}
-											</label>
-											<Input
-												placeholder="bastion.example.com"
-												value={formData.sshHost}
-												onChange={(e) => handleChange("sshHost", e.target.value)}
-											/>
-										</div>
-										<div className="space-y-1">
-											<label className="text-xs font-medium text-muted-foreground">
-												{t("connection.ssh.port")}
-											</label>
-											<Input
-												type="number"
-												value={formData.sshPort}
-												onChange={(e) =>
-													handleChange("sshPort", parseInt(e.target.value) || 22)
-												}
-											/>
-										</div>
-									</div>
-
-									<div className="space-y-1">
-										<label className="text-xs font-medium text-muted-foreground">
-											{t("connection.ssh.username")}
-										</label>
-										<Input
-											placeholder="ssh_user"
-											value={formData.sshUsername}
-											onChange={(e) => handleChange("sshUsername", e.target.value)}
-										/>
-									</div>
-
-									<div className="space-y-1">
-										<label className="text-xs font-medium text-muted-foreground">
-											{t("connection.ssh.keyPath")}
-										</label>
-										<Input
-											placeholder={t("connection.ssh.keyPathPlaceholder")}
-											value={formData.sshKeyPath}
-											onChange={(e) => handleChange("sshKeyPath", e.target.value)}
-										/>
-									</div>
-
-									<div className="space-y-1">
-										<label className="text-xs font-medium text-muted-foreground">
-											{t("connection.ssh.passphrase")}
-										</label>
-										<Input
-											type="password"
-											placeholder="••••••••"
-											value={formData.sshPassphrase}
-											onChange={(e) => handleChange("sshPassphrase", e.target.value)}
-										/>
-										<p className="text-xs text-muted-foreground">
-											Passphrase: actuellement le backend OpenSSH requiert un key chargé
-											dans ssh-agent pour éviter les prompts interactifs.
-										</p>
-									</div>
-
-									<div className="grid grid-cols-2 gap-3">
-										<div className="space-y-1">
-											<label className="text-xs font-medium text-muted-foreground">
-												Host key policy
-											</label>
-											<select
-												className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm"
-												value={formData.sshHostKeyPolicy}
-												onChange={(e) =>
-													handleChange(
-														"sshHostKeyPolicy",
-														e.target.value as FormData["sshHostKeyPolicy"],
-													)
-												}
-											>
-												<option value="accept_new">accept_new (TOFU)</option>
-												<option value="strict">strict</option>
-												<option value="insecure_no_check">insecure_no_check</option>
-											</select>
-										</div>
-										<div className="space-y-1">
-											<label className="text-xs font-medium text-muted-foreground">
-												ProxyJump (optionnel)
-											</label>
-											<Input
-												placeholder="user@bastion:22"
-												value={formData.sshProxyJump}
-												onChange={(e) => handleChange("sshProxyJump", e.target.value)}
-											/>
-										</div>
-									</div>
-								</div>
-							)}
-						</div>
-					</div>
-
-					{error && (
-						<div className="p-3 rounded-md bg-error/10 border border-error/20 text-error text-sm flex items-center gap-2">
-							<X size={14} />
-							{error}
-						</div>
-					)}
-					{testResult === "success" && (
-						<div className="p-3 rounded-md bg-success/10 border border-success/20 text-success text-sm flex items-center gap-2">
-							<Check size={14} />
-							{t("connection.testSuccess")}
-						</div>
-					)}
-				</div>
+				</ScrollArea>
 
 				<DialogFooter>
 					<Button variant="outline" onClick={onClose}>

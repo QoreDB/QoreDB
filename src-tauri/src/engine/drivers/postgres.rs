@@ -23,8 +23,9 @@ use crate::engine::error::{EngineError, EngineResult};
 use crate::engine::sql_safety;
 use crate::engine::traits::DataEngine;
 use crate::engine::types::{
-    CancelSupport, Collection, CollectionType, ColumnInfo, ConnectionConfig, Namespace, QueryId,
-    QueryResult, Row as QRow, RowData, SessionId, TableColumn, TableSchema, Value,
+    CancelSupport, Collection, CollectionList, CollectionListOptions, CollectionType, ColumnInfo,
+    ConnectionConfig, Namespace, QueryId, QueryResult, Row as QRow, RowData, SessionId,
+    TableColumn, TableSchema, Value,
 };
 
 /// Holds the connection state for a PostgreSQL session.
@@ -303,24 +304,52 @@ impl DataEngine for PostgresDriver {
         &self,
         session: SessionId,
         namespace: &Namespace,
-    ) -> EngineResult<Vec<Collection>> {
+        options: CollectionListOptions,
+    ) -> EngineResult<CollectionList> {
         let pg_session = self.get_session(session).await?;
         let pool = &pg_session.pool;
 
         let schema = namespace.schema.as_deref().unwrap_or("public");
+        let search_pattern = options.search.as_ref().map(|s| format!("%{}%", s));
 
-        let rows: Vec<(String, String)> = sqlx::query_as(
-            r#"
+        // 1. Get total count
+        let count_query = r#"
+            SELECT COUNT(*)::bigint
+            FROM information_schema.tables
+            WHERE table_schema = $1
+            AND ($2::text IS NULL OR table_name ILIKE $2)
+        "#;
+
+        let total_count: i64 = sqlx::query_scalar(count_query)
+            .bind(schema)
+            .bind(&search_pattern)
+            .fetch_one(pool)
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        // 2. Get paginated results
+        let mut query_str = r#"
             SELECT table_name::text, table_type::text
             FROM information_schema.tables
             WHERE table_schema = $1
+            AND ($2::text IS NULL OR table_name ILIKE $2)
             ORDER BY table_name
-            "#,
-        )
-        .bind(schema)
-        .fetch_all(pool)
-        .await
-        .map_err(|e| EngineError::execution_error(e.to_string()))?;
+        "#.to_string();
+
+        if let Some(limit) = options.page_size {
+             query_str.push_str(&format!(" LIMIT {}", limit));
+             if let Some(page) = options.page {
+                 let offset = (page.max(1) - 1) * limit;
+                 query_str.push_str(&format!(" OFFSET {}", offset));
+             }
+        }
+
+        let rows: Vec<(String, String)> = sqlx::query_as(&query_str)
+            .bind(schema)
+            .bind(&search_pattern)
+            .fetch_all(pool)
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
 
         let collections = rows
             .into_iter()
@@ -337,7 +366,10 @@ impl DataEngine for PostgresDriver {
             })
             .collect();
 
-        Ok(collections)
+        Ok(CollectionList {
+            collections,
+            total_count: total_count as u32,
+        })
     }
 
     async fn execute(

@@ -2,7 +2,7 @@ use qoredb_lib::engine::{
     drivers::{mongodb::MongoDriver, mysql::MySqlDriver, postgres::PostgresDriver},
     error::{EngineError, EngineResult},
     traits::DataEngine,
-    types::{ConnectionConfig, Namespace, QueryId, RowData, SessionId, Value},
+    types::{CollectionListOptions, ConnectionConfig, Namespace, QueryId, RowData, SessionId, Value},
 };
 use serde_json::json;
 use std::sync::Arc;
@@ -187,8 +187,8 @@ async fn postgres_e2e() -> EngineResult<()> {
         .find(|ns| ns.schema.as_deref() == Some("public"))
         .unwrap_or_else(|| Namespace::with_schema(db_name.clone(), "public"));
 
-    let collections = driver.list_collections(session, &namespace).await?;
-    assert!(collections.iter().any(|c| c.name == table));
+    let collections = driver.list_collections(session, &namespace, CollectionListOptions::default()).await?;
+    assert!(collections.collections.iter().any(|c| c.name == table));
 
     let result = driver
         .execute(
@@ -293,8 +293,8 @@ async fn mysql_e2e() -> EngineResult<()> {
     assert!(namespaces.iter().any(|ns| ns.database == db_name));
 
     let namespace = Namespace::new(db_name.clone());
-    let collections = driver.list_collections(session, &namespace).await?;
-    assert!(collections.iter().any(|c| c.name == table));
+    let collections = driver.list_collections(session, &namespace, CollectionListOptions::default()).await?;
+    assert!(collections.collections.iter().any(|c| c.name == table));
 
     let result = driver
         .execute(
@@ -385,8 +385,8 @@ async fn mongodb_e2e() -> EngineResult<()> {
     let namespaces = driver.list_namespaces(session).await?;
     assert!(namespaces.iter().any(|ns| ns.database == db_name));
 
-    let collections = driver.list_collections(session, &namespace).await?;
-    assert!(collections.iter().any(|c| c.name == collection));
+    let collections = driver.list_collections(session, &namespace, CollectionListOptions::default()).await?;
+    assert!(collections.collections.iter().any(|c| c.name == collection));
 
     let query = json!({
         "database": db_name,

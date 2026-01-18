@@ -195,12 +195,12 @@ export function useSchemaCache(sessionId: string): UseSchemaCache {
       setLoading(true);
       try {
         const result = await listCollections(sessionId, ns);
-        if (result.success && result.collections) {
+        if (result.success && result.data) {
           cache.collections.set(key, {
-            collections: result.collections,
+            collections: result.data.collections,
             timestamp: Date.now(),
           });
-          return result.collections;
+          return result.data.collections;
         }
         return [];
       } finally {

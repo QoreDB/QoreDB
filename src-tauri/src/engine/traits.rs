@@ -8,8 +8,8 @@ use async_trait::async_trait;
 
 use crate::engine::error::EngineResult;
 use crate::engine::types::{
-    CancelSupport, Collection, ConnectionConfig, DriverCapabilities, Namespace, QueryId,
-    QueryResult, RowData, SessionId, TableSchema,
+    CancelSupport, CollectionList, CollectionListOptions, ConnectionConfig, DriverCapabilities, Namespace,
+    QueryId, QueryResult, RowData, SessionId, TableSchema,
 };
 
 /// Core trait that all database drivers must implement
@@ -46,7 +46,8 @@ pub trait DataEngine: Send + Sync {
         &self,
         session: SessionId,
         namespace: &Namespace,
-    ) -> EngineResult<Vec<Collection>>;
+        options: CollectionListOptions,
+    ) -> EngineResult<CollectionList>;
 
     /// Executes a query and returns the result
     ///

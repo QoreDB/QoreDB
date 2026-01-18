@@ -165,7 +165,9 @@
         "tableCount": "Tables",
         "indexCount": "Index",
         "noTables": "Aucune table dans cette base",
-        "viewAll": "Voir les {{count}} tables"
+        "viewAll": "Voir les {{count}} tables",
+        "searchTables": "Rechercher des tables...",
+        "noResults": "Aucune table trouvée."
     },
     "query": {
         "run": "Exécuter",
@@ -276,7 +278,8 @@
         "mongoCreateDbHint": "MongoDB crée une base lorsque la première collection est créée.",
         "time": "Temps",
         "enabled": "Activé",
-        "disabled": "Désactivé"
+        "disabled": "Désactivé",
+        "pagination": "Affichage {{start}}-{{end}} sur {{total}}"
     },
     "environment": {
         "label": "Environnement",

@@ -15,8 +15,9 @@ use tokio::sync::{Mutex, RwLock};
 use crate::engine::error::{EngineError, EngineResult};
 use crate::engine::traits::DataEngine;
 use crate::engine::types::{
-    CancelSupport, Collection, CollectionType, ColumnInfo, ConnectionConfig, Namespace, QueryId,
-    QueryResult, Row as QRow, SessionId, TableColumn, TableSchema, Value,
+    CancelSupport, Collection, CollectionList, CollectionListOptions, CollectionType, ColumnInfo,
+    ConnectionConfig, Namespace, QueryId, QueryResult, Row as QRow, SessionId, TableColumn,
+    TableSchema, Value,
 };
 
 /// MongoDB driver implementation
@@ -262,7 +263,8 @@ impl DataEngine for MongoDriver {
         &self,
         session: SessionId,
         namespace: &Namespace,
-    ) -> EngineResult<Vec<Collection>> {
+        options: CollectionListOptions,
+    ) -> EngineResult<CollectionList> {
         let sessions = self.sessions.read().await;
         let client = sessions
             .get(&session)
@@ -274,7 +276,40 @@ impl DataEngine for MongoDriver {
             .await
             .map_err(|e| EngineError::execution_error(e.to_string()))?;
 
-        let collections = collection_names
+        // In-memory filtering and pagination
+        let mut filtered: Vec<String> = if let Some(search) = &options.search {
+            let search = search.to_lowercase();
+            collection_names
+                .into_iter()
+                .filter(|name| name.to_lowercase().contains(&search))
+                .collect()
+        } else {
+            collection_names
+        };
+
+        filtered.sort();
+        
+        let total_count = filtered.len();
+
+        let paginated = if let Some(limit) = options.page_size {
+            let page = options.page.unwrap_or(1).max(1);
+            let offset = ((page - 1) * limit) as usize;
+            let limit = limit as usize;
+            
+            if offset >= filtered.len() {
+                Vec::new()
+            } else {
+                filtered
+                    .into_iter()
+                    .skip(offset)
+                    .take(limit)
+                    .collect()
+            }
+        } else {
+            filtered
+        };
+
+        let collections = paginated
             .into_iter()
             .map(|name| Collection {
                 namespace: namespace.clone(),
@@ -283,7 +318,10 @@ impl DataEngine for MongoDriver {
             })
             .collect();
 
-        Ok(collections)
+        Ok(CollectionList {
+            collections,
+            total_count: total_count as u32,
+        })
     }
 
     async fn execute(

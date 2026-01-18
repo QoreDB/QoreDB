@@ -22,8 +22,9 @@ use crate::engine::error::{EngineError, EngineResult};
 use crate::engine::sql_safety;
 use crate::engine::traits::DataEngine;
 use crate::engine::types::{
-    CancelSupport, Collection, CollectionType, ColumnInfo, ConnectionConfig, Namespace, QueryId,
-    QueryResult, Row as QRow, RowData, SessionId, TableColumn, TableSchema, Value,
+    CancelSupport, Collection, CollectionList, CollectionListOptions, CollectionType, ColumnInfo,
+    ConnectionConfig, Namespace, QueryId, QueryResult, Row as QRow, RowData, SessionId,
+    TableColumn, TableSchema, Value,
 };
 
 /// Holds the connection state for a MySQL session.
@@ -298,23 +299,56 @@ impl DataEngine for MySqlDriver {
         &self,
         session: SessionId,
         namespace: &Namespace,
-    ) -> EngineResult<Vec<Collection>> {
+        options: CollectionListOptions,
+    ) -> EngineResult<CollectionList> {
         let mysql_session = self.get_session(session).await?;
         let pool = &mysql_session.pool;
 
+        let search_pattern = options.search.as_ref().map(|s| format!("%{}%", s));
+
+        // 1. Get total count
+        let count_query = r#"
+            SELECT COUNT(*)
+            FROM information_schema.TABLES
+            WHERE TABLE_SCHEMA = ?
+            AND (? IS NULL OR TABLE_NAME LIKE ?)
+        "#;
+
+        let count_row: (i64,) = sqlx::query_as(count_query)
+            .bind(&namespace.database)
+            .bind(&search_pattern)
+            .bind(&search_pattern)
+            .fetch_one(pool)
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+        
+        let total_count = count_row.0;
+
+        // 2. Get paginated results
         // Cast to CHAR to avoid BINARY type mismatch with Rust String
-        let rows: Vec<(String, String)> = sqlx::query_as(
-            r#"
+        let mut query_str = r#"
             SELECT CAST(TABLE_NAME AS CHAR) AS table_name, CAST(TABLE_TYPE AS CHAR) AS table_type
             FROM information_schema.TABLES
             WHERE TABLE_SCHEMA = ?
+            AND (? IS NULL OR TABLE_NAME LIKE ?)
             ORDER BY TABLE_NAME
-            "#,
-        )
-        .bind(&namespace.database)
-        .fetch_all(pool)
-        .await
-        .map_err(|e| EngineError::execution_error(e.to_string()))?;
+        "#.to_string();
+
+        if let Some(limit) = options.page_size {
+             query_str.push_str(&format!(" LIMIT {}", limit));
+             if let Some(page) = options.page {
+                 let offset = (page.max(1) - 1) * limit;
+                 query_str.push_str(&format!(" OFFSET {}", offset));
+             }
+        }
+
+        let rows: Vec<(String, String)> = sqlx::query_as(&query_str)
+            .bind(&namespace.database)
+            .bind(&search_pattern)
+            .bind(&search_pattern)
+            .fetch_all(pool)
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
 
         let collections = rows
             .into_iter()
@@ -331,7 +365,10 @@ impl DataEngine for MySqlDriver {
             })
             .collect();
 
-        Ok(collections)
+        Ok(CollectionList {
+            collections,
+            total_count: total_count as u32,
+        })
     }
 
     /// Executes a query and returns the result

@@ -165,7 +165,9 @@
         "tableCount": "Tables",
         "indexCount": "Indexes",
         "noTables": "No tables in this database",
-        "viewAll": "View all {{count}} tables"
+        "viewAll": "View all {{count}} tables",
+        "searchTables": "Search tables...",
+        "noResults": "No tables found matching your search."
     },
     "query": {
         "run": "Run",
@@ -278,7 +280,8 @@
         "mongoCreateDbHint": "MongoDB creates a database when the first collection is created.",
         "time": "Time",
         "enabled": "Enabled",
-        "disabled": "Disabled"
+        "disabled": "Disabled",
+        "pagination": "Showing {{start}}-{{end}} of {{total}}"
     },
     "environment": {
         "label": "Environment",

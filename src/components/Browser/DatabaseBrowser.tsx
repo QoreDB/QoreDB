@@ -19,11 +19,14 @@ import {
   List,
   Hash,
   ChevronRight,
+  ChevronLeft,
   Shield,
   ShieldAlert,
-  Plus
+  Plus,
+  Search
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { getDriverMetadata, Driver, DRIVER_LABELS, DRIVER_ICONS } from '../../lib/drivers';
 import { CreateTableModal } from '../Table/CreateTableModal';
 import { emitTableChange, onTableChange } from '@/lib/tableEvents';
@@ -69,6 +72,12 @@ export function DatabaseBrowser({
   const [error, setError] = useState<string | null>(null);
   const [createTableOpen, setCreateTableOpen] = useState(false);
 
+  // Search & Pagination
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const pageSize = 20;
+
   const driverMeta = getDriverMetadata(driver);
 
   const loadData = useCallback(async () => {
@@ -76,17 +85,31 @@ export function DatabaseBrowser({
     setError(null);
 
     try {
+      // Determine fetch options based on tab
+      const isOverview = activeTab === 'overview';
+      const fetchPage = isOverview ? 1 : page;
+      const fetchLimit = isOverview ? 10 : pageSize;
+      const fetchSearch = isOverview ? undefined : (search || undefined);
+
       // Load collections
-      const collectionsResult = await listCollections(sessionId, namespace);
-      if (collectionsResult.success && collectionsResult.collections) {
-        setCollections(collectionsResult.collections);
+      const collectionsResult = await listCollections(
+        sessionId,
+        namespace,
+        fetchSearch,
+        fetchPage,
+        fetchLimit
+      );
+
+      if (collectionsResult.success && collectionsResult.data) {
+        setCollections(collectionsResult.data.collections);
+        setTotalCount(collectionsResult.data.total_count);
       }
 
       const newStats: DatabaseStats = {
-        tableCount: collectionsResult.collections?.length || 0,
+        tableCount: collectionsResult.data?.total_count || 0,
       };
 
-      if (driverMeta.supportsSQL) {
+      if (driverMeta.supportsSQL && isOverview) {
         const schemaOrDb = namespace.schema || namespace.database;
         const queries = driverMeta.queries;
 
@@ -138,7 +161,7 @@ export function DatabaseBrowser({
     } finally {
       setLoading(false);
     }
-  }, [sessionId, namespace, driverMeta]);
+  }, [sessionId, namespace, driverMeta, activeTab, page, search]);
 
   useEffect(() => {
     loadData();
@@ -254,122 +277,182 @@ export function DatabaseBrowser({
         >
           <span className="flex items-center gap-2">
             <Table size={14} />
-            {t('databaseBrowser.tables')} ({collections.length})
+            {t('databaseBrowser.tables')} ({totalCount})
           </span>
         </button>
       </div>
 
       {/* Content */}
       <div className="flex-1 overflow-auto p-4">
-        {loading ? (
-          <div className="flex items-center justify-center h-full gap-2 text-muted-foreground">
-            <Loader2 size={20} className="animate-spin" />
-            <span>{t('common.loading')}</span>
-          </div>
-        ) : error ? (
-          <div className="flex items-center gap-3 p-4 rounded-md bg-error/10 border border-error/20 text-error">
-            <AlertCircle size={18} />
-            <pre className="text-sm font-mono whitespace-pre-wrap">{error}</pre>
-          </div>
-        ) : activeTab === 'overview' ? (
-          <div className="space-y-6">
-            {/* Stats Grid */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {stats.sizeFormatted && (
+        {activeTab === 'overview' ? (
+          loading ? (
+            <div className="flex items-center justify-center h-full gap-2 text-muted-foreground">
+              <Loader2 size={20} className="animate-spin" />
+              <span>{t('common.loading')}</span>
+            </div>
+          ) : error ? (
+            <div className="flex items-center gap-3 p-4 rounded-md bg-error/10 border border-error/20 text-error">
+              <AlertCircle size={18} />
+              <pre className="text-sm font-mono whitespace-pre-wrap">{error}</pre>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {/* Stats Grid */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {stats.sizeFormatted && (
+                  <StatCard 
+                    icon={<HardDrive size={16} />}
+                    label={t('databaseBrowser.size')}
+                    value={stats.sizeFormatted}
+                  />
+                )}
                 <StatCard 
-                  icon={<HardDrive size={16} />}
-                  label={t('databaseBrowser.size')}
-                  value={stats.sizeFormatted}
+                  icon={<List size={16} />}
+                  label={t('databaseBrowser.tableCount')}
+                  value={stats.tableCount?.toString() || '0'}
                 />
+                {stats.indexCount !== undefined && (
+                  <StatCard 
+                    icon={<Hash size={16} />}
+                    label={t('databaseBrowser.indexCount')}
+                    value={stats.indexCount.toString()}
+                  />
+                )}
+              </div>
+
+              {/* Quick Tables List */}
+              <div className="space-y-2">
+                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+                  {t('databaseBrowser.tables')}
+                </h3>
+                {collections.length === 0 ? (
+                  <div className="text-sm text-muted-foreground italic p-4 text-center border border-dashed border-border rounded-md">
+                    {t('databaseBrowser.noTables')}
+                  </div>
+                ) : (
+                  <div className="border border-border rounded-md divide-y divide-border">
+                    {collections.slice(0, 10).map(col => (
+                      <button
+                        key={col.name}
+                        className="flex items-center justify-between w-full px-3 py-2 hover:bg-muted/50 transition-colors text-left"
+                        onClick={() => onTableSelect(namespace, col.name)}
+                      >
+                        <div className="flex items-center gap-2">
+                          {col.collection_type === 'View' ? (
+                            <Eye size={14} className="text-muted-foreground" />
+                          ) : (
+                            <Table size={14} className="text-muted-foreground" />
+                          )}
+                          <span className="font-mono text-sm">{col.name}</span>
+                          {col.collection_type === 'View' && (
+                            <span className="text-xs text-muted-foreground">(view)</span>
+                          )}
+                        </div>
+                        <ChevronRight size={14} className="text-muted-foreground" />
+                      </button>
+                    ))}
+                    {collections.length > 10 && (
+                      <button
+                        className="w-full px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+                        onClick={() => setActiveTab('tables')}
+                      >
+                        {t('databaseBrowser.viewAll', { count: collections.length })}
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          )
+        ) : (
+          /* Tables Tab */
+          <div className="flex flex-col h-full gap-4">
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder={t('databaseBrowser.searchTables')}
+                  value={search}
+                  onChange={(e) => {
+                    setSearch(e.target.value);
+                    setPage(1);
+                  }}
+                  className="pl-9"
+                />
+              </div>
+            </div>
+
+            <div className="border border-border rounded-md divide-y divide-border flex-1 overflow-auto relative min-h-[200px]">
+              {loading && (
+                <div className="absolute inset-0 z-10 bg-background/50 flex items-center justify-center backdrop-blur-[1px]">
+                  <Loader2 size={24} className="animate-spin text-primary" />
+                </div>
               )}
-              <StatCard 
-                icon={<List size={16} />}
-                label={t('databaseBrowser.tableCount')}
-                value={stats.tableCount?.toString() || '0'}
-              />
-              {stats.indexCount !== undefined && (
-                <StatCard 
-                  icon={<Hash size={16} />}
-                  label={t('databaseBrowser.indexCount')}
-                  value={stats.indexCount.toString()}
-                />
+              
+              {!loading && error ? (
+                <div className="flex items-center gap-3 p-4 m-4 rounded-md bg-error/10 border border-error/20 text-error">
+                  <AlertCircle size={18} />
+                  <pre className="text-sm font-mono whitespace-pre-wrap">{error}</pre>
+                </div>
+              ) : collections.length === 0 && !loading ? (
+                <div className="text-sm text-muted-foreground italic p-8 text-center">
+                  {search ? t('databaseBrowser.noResults') : t('databaseBrowser.noTables')}
+                </div>
+              ) : (
+                collections.map(col => (
+                  <button
+                    key={col.name}
+                    className="flex items-center justify-between w-full px-4 py-3 hover:bg-muted/50 transition-colors text-left"
+                    onClick={() => onTableSelect(namespace, col.name)}
+                  >
+                    <div className="flex items-center gap-3">
+                      {col.collection_type === 'View' ? (
+                        <Eye size={16} className="text-muted-foreground" />
+                      ) : (
+                        <Table size={16} className="text-muted-foreground" />
+                      )}
+                      <div>
+                        <span className="font-mono text-sm">{col.name}</span>
+                        {col.collection_type === 'View' && (
+                          <span className="ml-2 text-xs text-muted-foreground">(view)</span>
+                        )}
+                      </div>
+                    </div>
+                    <ChevronRight size={16} className="text-muted-foreground" />
+                  </button>
+                ))
               )}
             </div>
 
-            {/* Quick Tables List */}
-            <div className="space-y-2">
-              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-                {t('databaseBrowser.tables')}
-              </h3>
-              {collections.length === 0 ? (
-                <div className="text-sm text-muted-foreground italic p-4 text-center border border-dashed border-border rounded-md">
-                  {t('databaseBrowser.noTables')}
-                </div>
-              ) : (
-                <div className="border border-border rounded-md divide-y divide-border">
-                  {collections.slice(0, 10).map(col => (
-                    <button
-                      key={col.name}
-                      className="flex items-center justify-between w-full px-3 py-2 hover:bg-muted/50 transition-colors text-left"
-                      onClick={() => onTableSelect(namespace, col.name)}
-                    >
-                      <div className="flex items-center gap-2">
-                        {col.collection_type === 'View' ? (
-                          <Eye size={14} className="text-muted-foreground" />
-                        ) : (
-                          <Table size={14} className="text-muted-foreground" />
-                        )}
-                        <span className="font-mono text-sm">{col.name}</span>
-                        {col.collection_type === 'View' && (
-                          <span className="text-xs text-muted-foreground">(view)</span>
-                        )}
-                      </div>
-                      <ChevronRight size={14} className="text-muted-foreground" />
-                    </button>
-                  ))}
-                  {collections.length > 10 && (
-                    <button
-                      className="w-full px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
-                      onClick={() => setActiveTab('tables')}
-                    >
-                      {t('databaseBrowser.viewAll', { count: collections.length })}
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        ) : (
-          /* Tables Tab */
-          <div className="border border-border rounded-md divide-y divide-border">
-            {collections.length === 0 ? (
-              <div className="text-sm text-muted-foreground italic p-8 text-center">
-                {t('databaseBrowser.noTables')}
+            {/* Pagination */}
+            <div className="flex items-center justify-between border-t border-border pt-4">
+              <div className="text-sm text-muted-foreground">
+                {t('common.pagination', { 
+                  start: totalCount === 0 ? 0 : (page - 1) * pageSize + 1, 
+                  end: Math.min(page * pageSize, totalCount),
+                  total: totalCount 
+                })}
               </div>
-            ) : (
-              collections.map(col => (
-                <button
-                  key={col.name}
-                  className="flex items-center justify-between w-full px-4 py-3 hover:bg-muted/50 transition-colors text-left"
-                  onClick={() => onTableSelect(namespace, col.name)}
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  disabled={page === 1 || loading}
                 >
-                  <div className="flex items-center gap-3">
-                    {col.collection_type === 'View' ? (
-                      <Eye size={16} className="text-muted-foreground" />
-                    ) : (
-                      <Table size={16} className="text-muted-foreground" />
-                    )}
-                    <div>
-                      <span className="font-mono text-sm">{col.name}</span>
-                      {col.collection_type === 'View' && (
-                        <span className="ml-2 text-xs text-muted-foreground">(view)</span>
-                      )}
-                    </div>
-                  </div>
-                  <ChevronRight size={16} className="text-muted-foreground" />
-                </button>
-              ))
-            )}
+                  <ChevronLeft size={16} />
+                </Button>
+                <div className="text-sm font-medium w-8 text-center">{page}</div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage(p => p + 1)}
+                  disabled={page * pageSize >= totalCount || loading}
+                >
+                  <ChevronRight size={16} />
+                </Button>
+              </div>
+            </div>
           </div>
         )}
       </div>

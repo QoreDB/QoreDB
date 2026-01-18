@@ -13,7 +13,7 @@ use crate::engine::{
     mongo_safety,
     sql_safety,
     TableSchema,
-    types::{Collection, Namespace, QueryId, QueryResult, SessionId},
+    types::{CollectionList, CollectionListOptions, Namespace, QueryId, QueryResult, SessionId},
 };
 use crate::metrics;
 
@@ -51,7 +51,7 @@ pub struct NamespacesResponse {
 #[derive(Debug, Serialize)]
 pub struct CollectionsResponse {
     pub success: bool,
-    pub collections: Option<Vec<Collection>>,
+    pub data: Option<CollectionList>,
     pub error: Option<String>,
 }
 
@@ -390,6 +390,9 @@ pub async fn list_collections(
     state: State<'_, crate::SharedState>,
     session_id: String,
     namespace: Namespace,
+    search: Option<String>,
+    page: Option<u32>,
+    page_size: Option<u32>,
 ) -> Result<CollectionsResponse, String> {
     let session_manager = {
         let state = state.lock().await;
@@ -402,21 +405,27 @@ pub async fn list_collections(
         Err(e) => {
             return Ok(CollectionsResponse {
                 success: false,
-                collections: None,
+                data: None,
                 error: Some(e.to_string()),
             });
         }
     };
 
-    match driver.list_collections(session, &namespace).await {
-        Ok(collections) => Ok(CollectionsResponse {
+    let options = CollectionListOptions {
+        search,
+        page,
+        page_size,
+    };
+
+    match driver.list_collections(session, &namespace, options).await {
+        Ok(list) => Ok(CollectionsResponse {
             success: true,
-            collections: Some(collections),
+            data: Some(list),
             error: None,
         }),
         Err(e) => Ok(CollectionsResponse {
             success: false,
-            collections: None,
+            data: None,
             error: Some(e.to_string()),
         }),
     }

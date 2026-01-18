@@ -112,6 +112,17 @@ export interface Collection {
 	collection_type: "Table" | "View" | "Collection";
 }
 
+export interface CollectionListOptions {
+    search?: string;
+    page?: number;
+    page_size?: number;
+}
+
+export interface CollectionList {
+    collections: Collection[];
+    total_count: number;
+}
+
 export interface QueryResult {
 	columns: ColumnInfo[];
 	rows: Row[];
@@ -220,12 +231,15 @@ export async function listNamespaces(sessionId: string): Promise<{
 export async function listCollections(
 	sessionId: string,
 	namespace: Namespace,
+    search?: string,
+    page?: number,
+    page_size?: number,
 ): Promise<{
 	success: boolean;
-	collections?: Collection[];
+	data?: CollectionList;
 	error?: string;
 }> {
-	return invoke("list_collections", { sessionId, namespace });
+	return invoke("list_collections", { sessionId, namespace, search, page, page_size });
 }
 
 export async function cancelQuery(

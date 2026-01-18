@@ -3,6 +3,7 @@
 
 pub mod commands;
 pub mod engine;
+pub mod metrics;
 pub mod observability;
 pub mod policy;
 pub mod vault;
@@ -95,6 +96,8 @@ pub fn run() {
             commands::mutation::supports_mutations,
             // Logs
             commands::logs::export_logs,
+            // Metrics (dev-only)
+            commands::metrics::get_metrics,
             // Vault commands
             commands::vault::get_vault_status,
             commands::vault::setup_master_password,

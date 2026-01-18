@@ -388,6 +388,21 @@ export async function exportLogs(): Promise<{
 	return invoke("export_logs");
 }
 
+export async function getMetrics(): Promise<{
+	success: boolean;
+	metrics?: {
+		total: number;
+		failed: number;
+		cancelled: number;
+		timeouts: number;
+		avg_ms?: number;
+		max_ms?: number;
+	};
+	error?: string;
+}> {
+	return invoke("get_metrics");
+}
+
 // ============================================
 
 export async function getVaultStatus(): Promise<VaultStatus> {

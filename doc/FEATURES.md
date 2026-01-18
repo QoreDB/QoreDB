@@ -42,6 +42,10 @@
 | ⬜ | Redaction des logs (pas de secrets) | V1 |
 | ⬜ | Modes lecture seule | V1 |
 
+Notes:
+* Le backend est la source de vérité pour `environment` et `read_only` (métadonnées vault).
+* Les garde-fous de production (confirmation/blocks) sont appliqués côté backend.
+
 ### Réseau
 
 | Status | Feature | Version |
@@ -112,6 +116,15 @@
 | ⬜ | Résultats multiples (plusieurs statements) | V1 |
 | ⬜ | Export du script | V1 |
 | ⬜ | Macros / variables d'environnement | V3 |
+
+---
+
+### Modèle d'annulation des requêtes
+
+* Postgres: `pg_cancel_backend(pid)` via une connexion dédiée.
+* MySQL: `KILL QUERY <id>` (fallback `KILL CONNECTION` si nécessaire).
+* MongoDB: best effort (abort task + fermeture cursor/session), pas de garantie.
+* Les timeouts déclenchent une annulation côté driver quand c'est possible.
 
 ---
 

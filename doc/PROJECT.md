@@ -192,7 +192,28 @@ The UI must protect the user from mistakes.
 
 ---
 
-## 10. What QoreDB is NOT
+## 10. Backend trust boundaries
+
+QoreDB enforces safety on the backend, not in the UI:
+
+* `environment` and `read_only` come from vault metadata and are authoritative
+* Production safety policies are enforced server-side (confirmations or blocks)
+* Secrets never reach logs; sensitive query text is redacted where needed
+* UI flags are advisory only and are not trusted for enforcement
+
+---
+
+## 11. Production safeguards
+
+When a connection is marked as production, QoreDB applies extra guardrails:
+
+* dangerous SQL is blocked or requires explicit confirmation
+* read-only mode is enforced server-side
+* cancel/timeout behavior is deterministic and logged
+
+---
+
+## 12. What QoreDB is NOT
 
 QoreDB must never become:
 
@@ -207,7 +228,7 @@ It is a **professional instrument**.
 
 ---
 
-## 11. Decision rule
+## 13. Decision rule
 
 When in doubt:
 

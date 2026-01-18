@@ -1,6 +1,7 @@
 // Tauri Commands Module
 
 pub mod connection;
+pub mod metrics;
 pub mod mutation;
 pub mod logs;
 pub mod policy;

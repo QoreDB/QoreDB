@@ -14,6 +14,7 @@ use crate::engine::{
     TableSchema,
     types::{Collection, Namespace, QueryId, QueryResult, SessionId},
 };
+use crate::metrics;
 
 const READ_ONLY_BLOCKED: &str = "Operation blocked: read-only mode";
 const DANGEROUS_BLOCKED: &str = "Dangerous query blocked: confirmation required";
@@ -268,6 +269,7 @@ pub async fn execute_query(
             Err(_) => {
                 let _ = driver.cancel(session, Some(query_id)).await;
                 query_manager.finish(query_id).await;
+                metrics::record_timeout();
                 return Ok(QueryResponse {
                     success: false,
                     result: None,
@@ -280,10 +282,11 @@ pub async fn execute_query(
         execution.await
     };
 
+    let duration_ms = start_time.elapsed().as_micros() as f64 / 1000.0;
     let response = match result {
         Ok(mut result) => {
-            let elapsed = start_time.elapsed().as_micros() as f64 / 1000.0;
-            result.execution_time_ms = elapsed;
+            result.execution_time_ms = duration_ms;
+            metrics::record_query(duration_ms, true);
 
             Ok(QueryResponse {
                 success: true,
@@ -292,12 +295,15 @@ pub async fn execute_query(
                 query_id: Some(query_id_str),
             })
         }
-        Err(e) => Ok(QueryResponse {
-            success: false,
-            result: None,
-            error: Some(e.to_string()),
-            query_id: Some(query_id_str),
-        }),
+        Err(e) => {
+            metrics::record_query(duration_ms, false);
+            Ok(QueryResponse {
+                success: false,
+                result: None,
+                error: Some(e.to_string()),
+                query_id: Some(query_id_str),
+            })
+        }
     };
 
     query_manager.finish(query_id).await;
@@ -353,12 +359,15 @@ pub async fn cancel_query(
     let query_id_str = query_id.0.to_string();
 
     match driver.cancel(session, Some(query_id)).await {
-        Ok(()) => Ok(QueryResponse {
-            success: true,
-            result: None,
-            error: None,
-            query_id: Some(query_id_str),
-        }),
+        Ok(()) => {
+            metrics::record_cancel();
+            Ok(QueryResponse {
+                success: true,
+                result: None,
+                error: None,
+                query_id: Some(query_id_str),
+            })
+        }
         Err(e) => Ok(QueryResponse {
             success: false,
             result: None,

@@ -43,7 +43,7 @@ Goal: raise architecture/extensibility, reliability, security, observability, an
 - [x] Persist logs to file with rotation.
 - [x] Add a UI command to export logs for support.
 - [x] Add correlation IDs (session_id, query_id) to logs without leaking secrets.
-- [ ] Track query durations and cancellations, expose basic metrics in dev builds.
+- [x] Track query durations and cancellations, expose basic metrics in dev builds.
 
 ## 6) Tests + CI (Quality & Maintenance)
 
@@ -60,6 +60,6 @@ Goal: raise architecture/extensibility, reliability, security, observability, an
 
 ## 8) Documentation + Release Readiness
 
-- [ ] Update `doc/PROJECT.md` and `doc/FEATURES.md` with the new backend trust model.
-- [ ] Document the cancel model and its limits per driver.
-- [ ] Add a security note explaining production safeguards and vault trust boundaries.
+- [x] Update `doc/PROJECT.md` and `doc/FEATURES.md` with the new backend trust model.
+- [x] Document the cancel model and its limits per driver.
+- [x] Add a security note explaining production safeguards and vault trust boundaries.

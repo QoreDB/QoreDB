@@ -376,6 +376,19 @@ export async function supportsMutations(sessionId: string): Promise<boolean> {
 }
 
 // ============================================
+// LOGS
+// ============================================
+
+export async function exportLogs(): Promise<{
+	success: boolean;
+	filename?: string;
+	content?: string;
+	error?: string;
+}> {
+	return invoke("export_logs");
+}
+
+// ============================================
 
 export async function getVaultStatus(): Promise<VaultStatus> {
 	return invoke("get_vault_status");

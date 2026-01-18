@@ -294,7 +294,10 @@
         "clear": "Effacer",
         "clearConfirm": "Effacer tous les journaux d'erreurs ?",
         "noLogs": "Aucun journal d'erreur",
-        "refresh": "Actualiser"
+        "refresh": "Actualiser",
+        "export": "Exporter les logs",
+        "exportSuccess": "Logs exportés : {{name}}",
+        "exportError": "Échec de l'export des logs"
     },
     "dbtree": {
         "schemasHeader": "SCHÉMAS",

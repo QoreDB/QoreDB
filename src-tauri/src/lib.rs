@@ -93,6 +93,8 @@ pub fn run() {
             commands::mutation::update_row,
             commands::mutation::delete_row,
             commands::mutation::supports_mutations,
+            // Logs
+            commands::logs::export_logs,
             // Vault commands
             commands::vault::get_vault_status,
             commands::vault::setup_master_password,

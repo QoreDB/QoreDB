@@ -296,7 +296,10 @@
         "clear": "Clear",
         "clearConfirm": "Clear all error logs?",
         "noLogs": "No error logs",
-        "refresh": "Refresh"
+        "refresh": "Refresh",
+        "export": "Export logs",
+        "exportSuccess": "Logs exported: {{name}}",
+        "exportError": "Failed to export logs"
     },
     "dbtree": {
         "schemasHeader": "SCHEMAS",

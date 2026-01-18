@@ -5,6 +5,7 @@ import {
   clearErrorLogs, 
   ErrorLogEntry 
 } from '../../lib/errorLog';
+import { exportLogs } from '../../lib/tauri';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { 
@@ -20,8 +21,12 @@ import {
   AlertTriangle, 
   Info,
   Search,
-  RefreshCw
+  RefreshCw,
+  Download
 } from 'lucide-react';
+import { save } from '@tauri-apps/plugin-dialog';
+import { writeTextFile } from '@tauri-apps/plugin-fs';
+import { toast } from 'sonner';
 
 interface ErrorLogPanelProps {
   isOpen: boolean;
@@ -35,6 +40,7 @@ export function ErrorLogPanel({ isOpen, onClose }: ErrorLogPanelProps) {
   const [logs, setLogs] = useState<ErrorLogEntry[]>([]);
   const [filter, setFilter] = useState<FilterLevel>('all');
   const [search, setSearch] = useState('');
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -86,6 +92,36 @@ export function ErrorLogPanel({ isOpen, onClose }: ErrorLogPanelProps) {
   function handleOpenChange(open: boolean) {
     if (!open) {
       onClose();
+    }
+  }
+
+  async function handleExport() {
+    setExporting(true);
+    try {
+      const response = await exportLogs();
+      if (!response.success || !response.content) {
+        toast.error(t('logs.exportError'), {
+          description: response.error || t('common.unknownError'),
+        });
+        return;
+      }
+
+      const filePath = await save({
+        defaultPath: response.filename || 'qoredb-logs.log',
+        filters: [{ name: 'Logs', extensions: ['log', 'txt'] }],
+      });
+
+      if (!filePath) return;
+
+      await writeTextFile(filePath, response.content);
+      const name = filePath.split(/[\\/]/).pop() || filePath;
+      toast.success(t('logs.exportSuccess', { name }));
+    } catch (err) {
+      toast.error(t('logs.exportError'), {
+        description: err instanceof Error ? err.message : String(err),
+      });
+    } finally {
+      setExporting(false);
     }
   }
 
@@ -141,6 +177,17 @@ export function ErrorLogPanel({ isOpen, onClose }: ErrorLogPanelProps) {
             title={t('logs.refresh')}
           >
             <RefreshCw size={14} />
+          </Button>
+
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleExport}
+            className="h-8 text-xs text-muted-foreground hover:text-foreground"
+            disabled={exporting}
+          >
+            <Download size={14} className="mr-1" />
+            {t('logs.export')}
           </Button>
 
           <Button

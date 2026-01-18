@@ -41,7 +41,7 @@ Goal: raise architecture/extensibility, reliability, security, observability, an
 
 - [x] Add structured logging with `tracing` (per request + per query + per connection).
 - [x] Persist logs to file with rotation.
-- [ ] Add a UI command to export logs for support.
+- [x] Add a UI command to export logs for support.
 - [x] Add correlation IDs (session_id, query_id) to logs without leaking secrets.
 - [ ] Track query durations and cancellations, expose basic metrics in dev builds.
 

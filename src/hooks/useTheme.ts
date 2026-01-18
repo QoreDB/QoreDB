@@ -6,12 +6,10 @@ const STORAGE_KEY = 'qoredb-theme';
 
 export function useTheme() {
   const [theme, setTheme] = useState<Theme>(() => {
-    // Check localStorage first
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored === 'light' || stored === 'dark') {
       return stored;
     }
-    // Check system preference
     if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
       return 'dark';
     }
@@ -19,7 +17,6 @@ export function useTheme() {
   });
 
   useEffect(() => {
-    // Apply theme to document
     const root = document.documentElement;
     root.setAttribute('data-theme', theme);
     if (theme === 'dark') {

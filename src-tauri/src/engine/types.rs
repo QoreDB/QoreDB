@@ -83,7 +83,7 @@ pub struct SshTunnelConfig {
 }
 
 /// Host key verification policy for SSH.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum SshHostKeyPolicy {
     /// Trust on first use: auto-add new hosts to an app-owned known_hosts file.

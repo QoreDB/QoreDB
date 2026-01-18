@@ -1,237 +1,178 @@
-# **QoreDB — Design & Product DNA**
+# **QoreDB — Fiche produit (v0.1)**
 
-> This document defines the **visual, UX and product direction** of QoreDB.
-> It is the source of truth for all UI, UX and product decisions.
+## **1\. Vision**
 
----
+QoreDB est un **client de bases de données desktop, local-first**, conçu pour les **développeurs modernes** qui travaillent avec des bases SQL et NoSQL et qui en ont marre des outils **lents, lourds et mal conçus**.
 
-## 1. What QoreDB is
+L’objectif est simple :
 
-QoreDB is a **modern, local-first database client** for developers.
+**faire pour les bases de données ce que Linear, Raycast ou VS Code ont fait pour leurs domaines.**
 
-It is designed for:
+QoreDB doit être :
 
-* SQL + NoSQL
-* production data
-* long sessions
-* high-stakes operations
+* rapide  
+* clair  
+* agréable  
+* puissant  
+* et sûr  
+-> sans devenir une usine à gaz.
 
-It must feel:
+## **2\. Cible principale**
 
-> **calm, precise, fast, and trustworthy**
+QoreDB s’adresse en priorité à :
 
-Not playful.
-Not flashy.
-Not enterprise-bloated.
+* **Startups early-stage (2–10 devs)**  
+* **PME tech (10–50 devs)**  
+* **Développeurs solo** (freelance, indie, side projects)
 
----
+Il ne vise pas au départ :
 
-## 2. Design Philosophy
+* les équipes data (BI, analysts)  
+* les DBA enterprise  
+* les grandes entreprises régulées
 
-QoreDB UI is based on two references:
+Ces segments pourront être abordés plus tard (V3+), mais **le cœur de QoreDB est le développeur produit** qui :
 
-### 🧱 GitHub Primer — Structure
+* écrit du code  
+* gère sa propre DB  
+* et veut un outil qui ne le ralentit pas.
 
-We take from Primer:
+## **3\. Problème principal à résoudre**
 
-* layout logic
-* spacing discipline
-* accessibility
-* component hierarchy
-* data-dense patterns
+Les outils actuels (DBeaver, phpMyAdmin, pgAdmin, etc.) sont perçus comme :
 
-Primer defines **how things work**.
+* **lents**  
+* **lourds**  
+* **moches**  
+* **mal pensés**  
+* **fatiguants à utiliser au quotidien**
 
----
+Ils font “le job”, mais :
 
-### 🎨 Stripe Sessions — Visual language
+* l’UX est médiocre  
+* les workflows sont mal optimisés  
+* ils n’ont pas évolué avec la façon moderne de travailler
 
-We take from Stripe Sessions:
+QoreDB ne cherche pas à battre ces outils sur la **quantité de features**, mais sur la **qualité de l’expérience**.
 
-* typography contrast
-* elegance
-* rhythm
-* subtle accents
-* premium feel
+## **4\. Proposition de valeur**
 
-Stripe defines **how things feel**.
+QoreDB propose :
 
----
+**Un outil unique pour gérer SQL et NoSQL, avec une interface moderne, rapide et agréable, augmentée par une intelligence contextuelle.**
 
-### QoreDB = Primer × Stripe
+Plus précisément :
 
-> **Primer gives us bones.
-> Stripe gives us skin.**
+* Une **interface claire** pour explorer, interroger et modifier des bases  
+* Un **moteur rapide** capable de gérer de gros volumes sans ramer  
+* Une **expérience cohérente** entre SQL et NoSQL  
+* Un **assistant intelligent** qui comprend ton contexte
 
----
+L’utilisateur doit avoir la sensation que :
 
-## 3. What QoreDB UI must feel like
+QoreDB travaille avec lui, pas contre lui.
 
-When opening QoreDB, users should feel:
+## **5\. Positionnement technique**
 
-* “I can trust this with production data”
-* “Nothing here is accidental”
-* “Everything is where it should be”
-* “This tool respects my time”
+QoreDB est :
 
-The UI should feel:
+* une **application desktop**  
+* **local-first**  
+* **offline-capable**  
+* installée sur la machine du développeur
 
-* calm
-* quiet
-* confident
-* extremely clear
+Il n’est pas :
 
----
+* un SaaS web  
+* un outil qui envoie les données par défaut dans le cloud
 
-## 4. Density rules
+La collaboration et les services distants seront **optionnels**, jamais obligatoires.
 
-QoreDB is a **data-heavy tool**, not a marketing site.
+## **6\. SQL \+ NoSQL comme fondation**
 
-Rules:
+QoreDB est conçu dès le départ pour :
 
-* Tables and editors are dense
-* Navigation and chrome are light
-* Whitespace is used to separate **meaning**, not to decorate
+* PostgreSQL  
+* MySQL / MariaDB  
+* MongoDB  
+* Redis  
+* Firebase / Firestore  
+   (et d’autres plus tard)
 
-If forced to choose:
+L’objectif n’est pas seulement de les supporter, mais de proposer :
 
-> **Clarity beats beauty.**
+**une expérience unifiée, cohérente et fluide entre ces mondes.**
 
----
+Pas “un outil SQL \+ un outil NoSQL collés”,  
+ mais une vraie plateforme de données développeur.
 
-## 5. Color philosophy
+## **7\. IA : assistant global**
 
-* The base UI is neutral (dark & light)
-* Data must always be more visible than the UI
-* Color is used only for:
+L’IA dans QoreDB n’est pas un gadget.
 
-  * state
-  * selection
-  * focus
-  * danger / success
-  * key actions
+Elle est conçue comme :
 
-Bright colors and gradients:
+**un assistant global qui comprend ta base, ton schéma et tes habitudes.**
 
-* are allowed only in
+Elle doit pouvoir :
 
-  * onboarding
-  * empty states
-  * highlights
-* never in tables, grids or editors
+* t’aider à écrire des requêtes  
+* expliquer des résultats  
+* t’aider à naviguer  
+* détecter des erreurs ou incohérences  
+* suggérer des optimisations
 
----
+L’IA doit être :
 
-## 6. Typography philosophy
-
-* Sans-serif for UI
-* Monospace for data and code
-* High contrast between:
-
-  * titles
-  * sections
-  * content
-* Titles are expressive (Stripe-inspired)
-* UI labels are subtle (Primer-inspired)
-
-The typography must:
-
-> guide the eye without screaming.
+* **contextuelle**  
+* **respectueuse de la confidentialité**  
+* **progressivement plus utile avec le temps**
 
 ---
 
-## 7. Layout philosophy
+## **8\. Collaboration sans cloud obligatoire**
 
-Base layout:
+QoreDB doit permettre :
 
-```
-┌────────────────────────────────────┐
-│ Top bar (context, actions)          │
-├──────────────┬─────────────────────┤
-│ Sidebar      │ Main work area       │
-│ (databases)  │ (tabs, editors, data)│
-│              │                     │
-├──────────────┴─────────────────────┤
-│ Status bar (env, connection, state) │
-└────────────────────────────────────┘
-```
+* de partager des requêtes  
+* de partager des résultats  
+* de collaborer sur une base
 
-* Sidebar = navigation
-* Main area = work
-* Status bar = truth (prod/dev, connected, etc)
+Mais **sans forcer** :
 
----
+* un compte cloud  
+* l’upload des données  
+* un SaaS centralisé
 
-## 8. UX principles
+La collaboration peut passer par :
 
-QoreDB is optimized for:
+* des serveurs auto-hébergés  
+* du peer-to-peer  
+* ou un cloud optionnel
 
-* keyboard
-* power users
-* long sessions
+## **9\. Open source & modèle économique**
 
-Rules:
+QoreDB est conçu comme un **projet open source**.
 
-* everything should be reachable via keyboard
-* no modal spam
-* no “are you sure?” for safe actions
-* dangerous actions must be visually distinct
+Le modèle cible est :
 
----
+* cœur et application ouverts  
+* services premium optionnels (ex : hébergement, sync, features avancées)
 
-## 9. Data respect
+L’idée est :
 
-QoreDB UI must **respect data**:
+construire d’abord un excellent produit open source, puis monétiser les usages avancés.
 
-* no truncation without explicit control
-* no hidden mutations
-* no auto-destructive actions
-* production must always look different from dev
+## **10\. Identité produit**
 
-The UI must protect the user from mistakes.
+QoreDB doit être perçu comme :
 
----
+* moderne  
+* propre  
+* rapide  
+* sérieux  
+* agréable
 
-## 10. Backend trust boundaries
+Il doit donner envie de :
 
-QoreDB enforces safety on the backend, not in the UI:
-
-* `environment` and `read_only` come from vault metadata and are authoritative
-* Production safety policies are enforced server-side (confirmations or blocks)
-* Secrets never reach logs; sensitive query text is redacted where needed
-* UI flags are advisory only and are not trusted for enforcement
-
----
-
-## 11. Production safeguards
-
-When a connection is marked as production, QoreDB applies extra guardrails:
-
-* dangerous SQL is blocked or requires explicit confirmation
-* read-only mode is enforced server-side
-* cancel/timeout behavior is deterministic and logged
-
----
-
-## 12. What QoreDB is NOT
-
-QoreDB must never become:
-
-* QoreDB is built on a universal data engine, not per-database hacks.
-* a BI dashboard
-* a charting tool
-* a marketing UI
-* a SaaS-first product
-* a toy admin panel
-
-It is a **professional instrument**.
-
----
-
-## 13. Decision rule
-
-When in doubt:
-
-> **Would a developer trust this UI with their production database at 2am?**
-
-If the answer is no → redesign.
+l’ouvrir tous les jours sans grimacer.

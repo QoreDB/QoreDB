@@ -166,3 +166,119 @@ impl SavedConnection {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::engine::types::{SshAuth, SshHostKeyPolicy};
+
+    fn base_connection(auth_type: &str, host_key_policy: &str) -> SavedConnection {
+        SavedConnection {
+            id: "conn1".to_string(),
+            name: "Test".to_string(),
+            driver: "postgres".to_string(),
+            environment: Environment::Development,
+            read_only: false,
+            host: "localhost".to_string(),
+            port: 5432,
+            username: "qoredb".to_string(),
+            database: Some("testdb".to_string()),
+            ssl: false,
+            ssh_tunnel: Some(SshTunnelInfo {
+                host: "ssh.local".to_string(),
+                port: 22,
+                username: "sshuser".to_string(),
+                auth_type: auth_type.to_string(),
+                key_path: Some("id_ed25519".to_string()),
+                host_key_policy: host_key_policy.to_string(),
+                proxy_jump: None,
+                connect_timeout_secs: 10,
+                keepalive_interval_secs: 30,
+                keepalive_count_max: 3,
+            }),
+            project_id: "proj".to_string(),
+        }
+    }
+
+    #[test]
+    fn ssh_password_config_is_built() -> EngineResult<()> {
+        let mut connection = base_connection("password", "accept_new");
+        if let Some(ref mut ssh) = connection.ssh_tunnel {
+            ssh.key_path = None;
+        }
+
+        let creds = StoredCredentials {
+            db_password: "db".to_string(),
+            ssh_password: Some("sshpw".to_string()),
+            ssh_key_passphrase: None,
+        };
+
+        let config = connection.to_connection_config(&creds)?;
+        let ssh = config.ssh_tunnel.expect("ssh config missing");
+
+        match ssh.auth {
+            SshAuth::Password { password } => assert_eq!(password, "sshpw"),
+            other => panic!("unexpected auth: {other:?}"),
+        }
+        assert_eq!(ssh.host_key_policy, SshHostKeyPolicy::AcceptNew);
+
+        Ok(())
+    }
+
+    #[test]
+    fn ssh_key_config_is_built() -> EngineResult<()> {
+        let connection = base_connection("key", "strict");
+        let creds = StoredCredentials {
+            db_password: "db".to_string(),
+            ssh_password: None,
+            ssh_key_passphrase: Some("passphrase".to_string()),
+        };
+
+        let config = connection.to_connection_config(&creds)?;
+        let ssh = config.ssh_tunnel.expect("ssh config missing");
+
+        match ssh.auth {
+            SshAuth::Key {
+                private_key_path,
+                passphrase,
+            } => {
+                assert_eq!(private_key_path, "id_ed25519");
+                assert_eq!(passphrase.as_deref(), Some("passphrase"));
+            }
+            other => panic!("unexpected auth: {other:?}"),
+        }
+        assert_eq!(ssh.host_key_policy, SshHostKeyPolicy::Strict);
+
+        Ok(())
+    }
+
+    #[test]
+    fn rejects_invalid_auth_type() {
+        let connection = base_connection("token", "accept_new");
+        let creds = StoredCredentials {
+            db_password: "db".to_string(),
+            ssh_password: Some("sshpw".to_string()),
+            ssh_key_passphrase: None,
+        };
+
+        let err = connection
+            .to_connection_config(&creds)
+            .expect_err("invalid auth_type should error");
+        assert!(err.to_string().contains("Invalid ssh auth_type"));
+    }
+
+    #[test]
+    fn rejects_invalid_host_key_policy() {
+        let connection = base_connection("password", "unknown");
+        let creds = StoredCredentials {
+            db_password: "db".to_string(),
+            ssh_password: Some("sshpw".to_string()),
+            ssh_key_passphrase: None,
+        };
+
+        let err = connection
+            .to_connection_config(&creds)
+            .expect_err("invalid host_key_policy should error");
+        assert!(err.to_string().contains("Invalid ssh host_key_policy"));
+    }
+}

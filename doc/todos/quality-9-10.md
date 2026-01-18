@@ -47,16 +47,16 @@ Goal: raise architecture/extensibility, reliability, security, observability, an
 
 ## 6) Tests + CI (Quality & Maintenance)
 
-- [ ] Add integration tests for Postgres/MySQL/Mongo using `docker-compose` and seeded data.
-- [ ] Add end-to-end tests for: connect, list namespaces/collections, execute query, cancel query, begin/commit/rollback.
-- [ ] Add tests for vault storage (save/list/delete/lock) and for SSH tunnel config.
-- [ ] Add CI steps to run unit + integration tests on Linux.
+- [x] Add integration tests for Postgres/MySQL/Mongo using `docker-compose` and seeded data.
+- [x] Add end-to-end tests for: connect, list namespaces/collections, execute query, cancel query, begin/commit/rollback.
+- [x] Add tests for vault storage (save/list/delete/lock) and for SSH tunnel config.
+- [x] Add CI steps to run unit + integration tests on Linux.
 
 ## 7) Driver API + Capabilities (Architecture)
 
 - [x] Add a `DriverCapabilities` struct (transactions, mutations, cancel, supports_ssh, etc.).
 - [x] Enforce capability checks in commands and report clear errors to the UI.
-- [ ] Document driver-specific limitations and provide consistent fallback behavior.
+- [x] Document driver-specific limitations and provide consistent fallback behavior.
 
 ## 8) Documentation + Release Readiness
 

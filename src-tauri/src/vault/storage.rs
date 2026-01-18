@@ -218,3 +218,71 @@ struct CredsJson {
     ssh_password: Option<String>,
     ssh_key_passphrase: Option<String>,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::vault::credentials::{Environment, SavedConnection, SshTunnelInfo, StoredCredentials};
+    use uuid::Uuid;
+
+    #[test]
+    fn save_list_delete_roundtrip() -> EngineResult<()> {
+        let project_id = format!("qoredb_test_{}", Uuid::new_v4().simple());
+        let connection_id = Uuid::new_v4().simple().to_string();
+        let storage = VaultStorage::new(&project_id);
+
+        let connection = SavedConnection {
+            id: connection_id.clone(),
+            name: "test-connection".to_string(),
+            driver: "postgres".to_string(),
+            environment: Environment::Development,
+            read_only: false,
+            host: "localhost".to_string(),
+            port: 5432,
+            username: "qoredb".to_string(),
+            database: Some("testdb".to_string()),
+            ssl: false,
+            ssh_tunnel: Some(SshTunnelInfo {
+                host: "ssh.local".to_string(),
+                port: 22,
+                username: "sshuser".to_string(),
+                auth_type: "password".to_string(),
+                key_path: None,
+                host_key_policy: "accept_new".to_string(),
+                proxy_jump: None,
+                connect_timeout_secs: 10,
+                keepalive_interval_secs: 30,
+                keepalive_count_max: 3,
+            }),
+            project_id: project_id.clone(),
+        };
+
+        let credentials = StoredCredentials {
+            db_password: "db_secret".to_string(),
+            ssh_password: Some("ssh_secret".to_string()),
+            ssh_key_passphrase: None,
+        };
+
+        storage.save_connection(&connection, &credentials)?;
+
+        let ids = storage.list_connections()?;
+        assert!(ids.contains(&connection_id));
+
+        let loaded = storage.get_connection(&connection_id)?;
+        assert_eq!(loaded.name, connection.name);
+
+        let loaded_creds = storage.get_credentials(&connection_id)?;
+        assert_eq!(loaded_creds.db_password, credentials.db_password);
+        assert_eq!(loaded_creds.ssh_password, credentials.ssh_password);
+
+        let full = storage.list_connections_full()?;
+        assert_eq!(full.len(), 1);
+        assert_eq!(full[0].id, connection_id);
+
+        storage.delete_connection(&connection_id)?;
+        let ids = storage.list_connections()?;
+        assert!(!ids.contains(&connection_id));
+
+        Ok(())
+    }
+}

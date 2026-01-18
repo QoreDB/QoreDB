@@ -35,6 +35,7 @@ function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [sidebarRefreshTrigger, setSidebarRefreshTrigger] = useState(0);
   const [schemaRefreshTrigger, setSchemaRefreshTrigger] = useState(0);
+  const [queryNamespace, setQueryNamespace] = useState<Namespace | null>(null);
 
   // Edit connection state
   const [editConnection, setEditConnection] = useState<SavedConnection | null>(null);
@@ -46,6 +47,43 @@ function App() {
   function triggerSchemaRefresh() {
     setSchemaRefreshTrigger(prev => prev + 1);
   }
+
+  function handleConnected(newSessionId: string, connection: SavedConnection) {
+    setSessionId(newSessionId);
+    setDriver(connection.driver as Driver);
+    setActiveConnection(connection);
+    setTabs([]);
+    setActiveTabId(null);
+    setSettingsOpen(false);
+    setQueryNamespace(
+      connection.database ? { database: connection.database } : null
+    );
+  }
+
+  // Tab management
+  const activeTab = useMemo(() => tabs.find(t => t.id === activeTabId), [tabs, activeTabId]);
+
+  const openTab = useCallback((tab: OpenTab) => {
+    setTabs(prev => {
+      const existing =
+        tab.type === 'query'
+          ? undefined
+          : prev.find(
+              t =>
+                t.type === tab.type &&
+                t.namespace?.database === tab.namespace?.database &&
+                t.namespace?.schema === tab.namespace?.schema &&
+                t.tableName === tab.tableName
+            );
+      if (existing) {
+        setActiveTabId(existing.id);
+        return prev;
+      }
+      setActiveTabId(tab.id);
+      return [...prev, tab];
+    });
+    setSettingsOpen(false);
+  }, []);
 
   // Handle search result selection
   const handleSearchSelect = useCallback(
@@ -76,45 +114,18 @@ function App() {
       } else if (result.type === 'query' || result.type === 'favorite') {
         const entry = result.data as HistoryEntry;
         if (entry?.query) {
-          setPendingQuery(entry.query);
-          setActiveTabId(null);
+          if (sessionId) {
+            openTab(createQueryTab(entry.query));
+            setPendingQuery(undefined);
+          } else {
+            setPendingQuery(entry.query);
+          }
           setSettingsOpen(false);
         }
       }
     },
-    [t]
+    [t, sessionId, openTab]
   );
-
-  function handleConnected(newSessionId: string, connection: SavedConnection) {
-    setSessionId(newSessionId);
-    setDriver(connection.driver as Driver);
-    setActiveConnection(connection);
-    setTabs([]);
-    setActiveTabId(null);
-    setSettingsOpen(false);
-  }
-
-  // Tab management
-  const activeTab = useMemo(() => tabs.find(t => t.id === activeTabId), [tabs, activeTabId]);
-
-  const openTab = useCallback((tab: OpenTab) => {
-    setTabs(prev => {
-      const existing = prev.find(
-        t =>
-          t.type === tab.type &&
-          t.namespace?.database === tab.namespace?.database &&
-          t.namespace?.schema === tab.namespace?.schema &&
-          t.tableName === tab.tableName
-      );
-      if (existing) {
-        setActiveTabId(existing.id);
-        return prev;
-      }
-      setActiveTabId(tab.id);
-      return [...prev, tab];
-    });
-    setSettingsOpen(false);
-  }, []);
 
   const closeTab = useCallback(
     (tabId: string) => {
@@ -132,10 +143,12 @@ function App() {
   );
 
   function handleTableSelect(namespace: Namespace, tableName: string) {
+    setQueryNamespace(namespace);
     openTab(createTableTab(namespace, tableName));
   }
 
   function handleDatabaseSelect(namespace: Namespace) {
+    setQueryNamespace(namespace);
     openTab(createDatabaseTab(namespace));
   }
 
@@ -286,17 +299,43 @@ function App() {
                   onClose={() => closeTab(activeTab.id)}
                 />
               ) : (
-                <QueryPanel
-                  key={activeTab?.id || sessionId}
-                  sessionId={sessionId}
-                  dialect={driver}
-                  environment={activeConnection?.environment || 'development'}
-                  readOnly={activeConnection?.read_only || false}
-                  connectionName={activeConnection?.name}
-                  connectionDatabase={activeConnection?.database}
-                  initialQuery={pendingQuery}
-                  onSchemaChange={triggerSchemaRefresh}
-                />
+                <div className="flex-1 min-h-0">
+                  {tabs.filter(tab => tab.type === 'query').length > 0 ? (
+                    tabs
+                      .filter(tab => tab.type === 'query')
+                      .map(tab => (
+                        <div
+                          key={tab.id}
+                          className={tab.id === activeTabId ? 'flex h-full w-full' : 'hidden'}
+                        >
+                          <QueryPanel
+                            sessionId={sessionId}
+                            dialect={driver}
+                            environment={activeConnection?.environment || 'development'}
+                            readOnly={activeConnection?.read_only || false}
+                            connectionName={activeConnection?.name}
+                            connectionDatabase={activeConnection?.database}
+                            activeNamespace={queryNamespace}
+                            initialQuery={tab.initialQuery}
+                            onSchemaChange={triggerSchemaRefresh}
+                          />
+                        </div>
+                      ))
+                  ) : (
+                    <QueryPanel
+                      key={sessionId}
+                      sessionId={sessionId}
+                      dialect={driver}
+                      environment={activeConnection?.environment || 'development'}
+                      readOnly={activeConnection?.read_only || false}
+                      connectionName={activeConnection?.name}
+                      connectionDatabase={activeConnection?.database}
+                      activeNamespace={queryNamespace}
+                      initialQuery={pendingQuery}
+                      onSchemaChange={triggerSchemaRefresh}
+                    />
+                  )}
+                </div>
               )
             ) : (
               <div className="flex flex-col items-center justify-center h-full text-center space-y-4">

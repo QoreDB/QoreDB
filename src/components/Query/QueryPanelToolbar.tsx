@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Play, Square, AlertCircle, History, Shield, Lock, Plus } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { Environment } from '../../lib/tauri';
 import { ENVIRONMENT_CONFIG } from '../../lib/environment';
 import { MONGO_TEMPLATES } from '../Editor/MongoEditor';
@@ -15,8 +16,12 @@ interface QueryPanelToolbarProps {
   envConfig: EnvConfig;
   readOnly: boolean;
   isMongo: boolean;
+  keepResults: boolean;
+  isExplainSupported: boolean;
   onExecute: () => void;
   onCancel: () => void;
+  onExplain: () => void;
+  onToggleKeepResults: () => void;
   onNewDocument: () => void;
   onHistoryOpen: () => void;
   onTemplateSelect: (templateKey: keyof typeof MONGO_TEMPLATES) => void;
@@ -30,8 +35,12 @@ export function QueryPanelToolbar({
   envConfig,
   readOnly,
   isMongo,
+  keepResults,
+  isExplainSupported,
   onExecute,
   onCancel,
+  onExplain,
+  onToggleKeepResults,
   onNewDocument,
   onHistoryOpen,
   onTemplateSelect,
@@ -93,7 +102,10 @@ export function QueryPanelToolbar({
       {isMongo && (
         <select
           className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-          onChange={e => onTemplateSelect(e.target.value as keyof typeof MONGO_TEMPLATES)}
+          onChange={e => {
+            onTemplateSelect(e.target.value as keyof typeof MONGO_TEMPLATES);
+            e.currentTarget.value = '';
+          }}
           defaultValue=""
         >
           <option value="" disabled>
@@ -108,7 +120,39 @@ export function QueryPanelToolbar({
         </select>
       )}
 
+      {!isMongo && (
+        <>
+          {isExplainSupported && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onExplain}
+              disabled={!sessionId || loading}
+              className="h-9 px-2 text-muted-foreground hover:text-foreground"
+            >
+              {t('query.explain')}
+            </Button>
+          )}
+        </>
+      )}
+
       <div className="flex-1" />
+
+      {!isMongo && (
+        <button
+          type="button"
+          onClick={onToggleKeepResults}
+          className={cn(
+            'h-9 px-3 rounded-md border border-transparent text-xs font-medium transition-colors',
+            keepResults
+              ? 'bg-accent/10 text-accent border-accent/30'
+              : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+          )}
+          aria-pressed={keepResults}
+        >
+          {t('query.keepResults')}
+        </button>
+      )}
 
       <Button
         variant="ghost"

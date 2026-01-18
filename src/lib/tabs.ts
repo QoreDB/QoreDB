@@ -11,6 +11,7 @@ export interface OpenTab {
   id: string;
   type: TabType;
   title: string;
+  initialQuery?: string;
   // Table-specific
   namespace?: Namespace;
   tableName?: string;
@@ -46,10 +47,11 @@ export function createDatabaseTab(namespace: Namespace): OpenTab {
 }
 
 /** Create a query tab */
-export function createQueryTab(): OpenTab {
+export function createQueryTab(initialQuery?: string): OpenTab {
   return {
     id: generateTabId(),
     type: 'query',
     title: 'Query',
+    initialQuery,
   };
 }

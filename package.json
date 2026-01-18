@@ -14,6 +14,7 @@
     "format:write": "prettier . --write"
   },
   "dependencies": {
+    "@codemirror/autocomplete": "^6.20.0",
     "@codemirror/commands": "^6.10.1",
     "@codemirror/lang-json": "^6.0.2",
     "@codemirror/lang-sql": "^6.10.0",
@@ -43,6 +44,7 @@
     "react-dom": "^19.1.0",
     "react-i18next": "^16.5.3",
     "react-window": "^2.2.5",
+    "sql-formatter": "^15.7.0",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.4.0"
   },

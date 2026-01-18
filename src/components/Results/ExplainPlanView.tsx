@@ -37,7 +37,7 @@ export function ExplainPlanView({ result }: ExplainPlanViewProps) {
 
   return (
     <div className="flex-1 overflow-auto p-3">
-      <pre className="text-xs font-mono whitespace-pre-wrap break-words">{planText}</pre>
+      <pre className="text-xs font-mono whitespace-pre-wrap wrap-break-word">{planText}</pre>
     </div>
   );
 }

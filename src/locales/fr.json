@@ -343,7 +343,8 @@
         "open": "Ouvrir",
         "refresh": "Actualiser",
         "noCollections": "Aucune table",
-        "noDocuments": "Aucun document"
+        "noDocuments": "Aucun document",
+        "loadMore": "Charger plus"
     },
     "createTable": {
         "title": "Créer une table",

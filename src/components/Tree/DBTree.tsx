@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Namespace, Collection, SavedConnection } from '../../lib/tauri';
+import { Namespace, Collection, SavedConnection, listCollections } from '../../lib/tauri';
 import { useSchemaCache } from '../../hooks/useSchemaCache';
 import { Folder, FolderOpen, Table, Eye, Loader2, Plus, ChevronRight, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -32,11 +32,16 @@ export function DBTree({
   const { t } = useTranslation();
   const [namespaces, setNamespaces] = useState<Namespace[]>([]);
   const [expandedNs, setExpandedNs] = useState<string | null>(null);
+  const [expandedNamespace, setExpandedNamespace] = useState<Namespace | null>(null);
   const [collections, setCollections] = useState<Collection[]>([]);
+  const [collectionsTotal, setCollectionsTotal] = useState(0);
+  const [collectionsPage, setCollectionsPage] = useState(1);
+  const [collectionsLoading, setCollectionsLoading] = useState(false);
   const schemaCache = useSchemaCache(connectionId);
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [createTableOpen, setCreateTableOpen] = useState(false);
   const [createTableNamespace, setCreateTableNamespace] = useState<Namespace | null>(null);
+  const collectionsPageSize = 100;
   
   const driverMeta = getDriverMetadata(driver);
 
@@ -53,20 +58,38 @@ export function DBTree({
     return [];
   }, [schemaCache]);
 
-  const refreshCollections = useCallback(async (ns: Namespace) => {
-    try {
-      const cols = await schemaCache.getCollections(ns);
-      setCollections(cols);
-    } catch (err) {
-      console.error('Failed to refresh collections:', err);
-    }
-  }, [schemaCache]);
+  const refreshCollections = useCallback(
+    async (ns: Namespace, page = 1, append = false) => {
+      setCollectionsLoading(true);
+      try {
+        const cols = await listCollections(connectionId, ns, undefined, page, collectionsPageSize);
+        if (!cols.success || !cols.data) return;
+
+        const data = cols.data;
+        setCollectionsTotal(data.total_count);
+        setCollectionsPage(page);
+        setCollections(prev => (append ? [...prev, ...data.collections] : data.collections));
+      } catch (err) {
+        console.error('Failed to refresh collections:', err);
+      } finally {
+        setCollectionsLoading(false);
+      }
+    },
+    [connectionId, collectionsPageSize]
+  );
+
+  const canLoadMore = collections.length > 0 && collections.length < collectionsTotal;
+
+  const handleLoadMore = useCallback(async () => {
+    if (!expandedNamespace || collectionsLoading) return;
+    const nextPage = collectionsPage + 1;
+    await refreshCollections(expandedNamespace, nextPage, true);
+  }, [expandedNamespace, collectionsLoading, collectionsPage, refreshCollections]);
 
   const refreshExpandedNamespace = useCallback(async () => {
-    if (!expandedNs) return;
-    const [database, schema] = expandedNs.split(':');
-    await refreshCollections({ database, schema: schema || undefined });
-  }, [expandedNs, refreshCollections]);
+    if (!expandedNamespace) return;
+    await refreshCollections(expandedNamespace, 1, false);
+  }, [expandedNamespace, refreshCollections]);
 
   useEffect(() => {
     loadNamespaces();
@@ -79,7 +102,9 @@ export function DBTree({
       const updated = await loadNamespaces();
       if (expandedNs && !updated.some(ns => getNsKey(ns) === expandedNs)) {
         setExpandedNs(null);
+        setExpandedNamespace(null);
         setCollections([]);
+        setCollectionsTotal(0);
         return;
       }
       await refreshExpandedNamespace();
@@ -92,19 +117,23 @@ export function DBTree({
 
     if (expandedNs === key) {
       setExpandedNs(null);
+      setExpandedNamespace(null);
       setCollections([]);
+      setCollectionsTotal(0);
       return;
     }
 
     setExpandedNs(key);
-    await refreshCollections(ns);
+    setExpandedNamespace(ns);
+    await refreshCollections(ns, 1, false);
   }
 
   async function openNamespace(ns: Namespace) {
     const key = getNsKey(ns);
     if (expandedNs !== key) {
       setExpandedNs(key);
-      await refreshCollections(ns);
+      setExpandedNamespace(ns);
+      await refreshCollections(ns, 1, false);
     }
     onDatabaseSelect?.(ns);
   }
@@ -225,6 +254,22 @@ export function DBTree({
                       </button>
                     </TableContextMenu>
                   ))
+                )}
+                {collectionsLoading && (
+                  <div className="flex items-center gap-2 px-2 py-1 text-xs text-muted-foreground">
+                    <Loader2 size={12} className="animate-spin" />
+                    {t('common.loading')}
+                  </div>
+                )}
+                {canLoadMore && !collectionsLoading && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 justify-start px-2 text-xs text-muted-foreground hover:text-foreground"
+                    onClick={handleLoadMore}
+                  >
+                    {t('dbtree.loadMore')}
+                  </Button>
                 )}
               </div>
             )}

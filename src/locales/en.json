@@ -345,7 +345,8 @@
         "open": "Open",
         "refresh": "Refresh",
         "noCollections": "No tables",
-        "noDocuments": "No documents"
+        "noDocuments": "No documents",
+        "loadMore": "Load more"
     },
     "createTable": {
         "title": "Create Table",

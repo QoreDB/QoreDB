@@ -49,7 +49,15 @@ export function MongoEditor({
 }: MongoEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
+  const initialValueRef = useRef(value);
+  const onChangeRef = useRef(onChange);
+  const onExecuteRef = useRef(onExecute);
   const { isDark } = useTheme();
+
+  useEffect(() => {
+    onChangeRef.current = onChange;
+    onExecuteRef.current = onExecute;
+  }, [onChange, onExecute]);
 
   useEffect(() => {
     if (!editorRef.current) return;
@@ -58,7 +66,7 @@ export function MongoEditor({
       {
         key: 'Mod-Enter',
         run: () => {
-          onExecute?.();
+          onExecuteRef.current?.();
           return true;
         },
       },
@@ -72,7 +80,7 @@ export function MongoEditor({
       keymap.of(defaultKeymap),
       EditorView.updateListener.of(update => {
         if (update.docChanged) {
-          onChange(update.state.doc.toString());
+          onChangeRef.current(update.state.doc.toString());
         }
       }),
       EditorView.editable.of(!readOnly),
@@ -87,7 +95,7 @@ export function MongoEditor({
     }
 
     const state = EditorState.create({
-      doc: value,
+      doc: initialValueRef.current,
       extensions,
     });
 
@@ -101,7 +109,7 @@ export function MongoEditor({
     return () => {
       view.destroy();
     };
-  }, [isDark, onChange, onExecute, readOnly, value]);
+  }, [isDark, readOnly]);
 
   useEffect(() => {
     const view = viewRef.current;

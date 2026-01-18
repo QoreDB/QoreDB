@@ -5,7 +5,11 @@
  * enabling the UI to adapt terminology and behavior per database type.
  */
 
-export type Driver = 'postgres' | 'mysql' | 'mongodb';
+export enum Driver {
+  Postgres = 'postgres',
+  Mysql = 'mysql',
+  Mongodb = 'mongodb',
+}
 
 /** Query builder functions for driver-specific SQL/commands */
 export interface DriverQueryBuilders {
@@ -46,8 +50,8 @@ export interface DriverMetadata {
 }
 
 export const DRIVERS: Record<Driver, DriverMetadata> = {
-  postgres: {
-    id: 'postgres',
+  [Driver.Postgres]: {
+    id: Driver.Postgres,
     label: 'PostgreSQL',
     icon: 'postgresql.png',
     defaultPort: 5432,
@@ -80,8 +84,8 @@ export const DRIVERS: Record<Driver, DriverMetadata> = {
          WHERE schemaname = '${schema}' AND relname = '${table}'`,
     },
   },
-  mysql: {
-    id: 'mysql',
+  [Driver.Mysql]: {
+    id: Driver.Mysql,
     label: 'MySQL / MariaDB',
     icon: 'mysql.png',
     defaultPort: 3306,
@@ -114,8 +118,8 @@ export const DRIVERS: Record<Driver, DriverMetadata> = {
         `SHOW INDEX FROM \`${table}\``,
     },
   },
-  mongodb: {
-    id: 'mongodb',
+  [Driver.Mongodb]: {
+    id: Driver.Mongodb,
     label: 'MongoDB',
     icon: 'mongodb.png',
     defaultPort: 27017,
@@ -139,8 +143,8 @@ export const DRIVERS: Record<Driver, DriverMetadata> = {
 };
 
 // Helper to get driver metadata with fallback
-export function getDriverMetadata(driver: string): DriverMetadata {
-  return DRIVERS[driver as Driver] ?? DRIVERS.postgres;
+export function getDriverMetadata(driver: Driver | string): DriverMetadata {
+  return DRIVERS[driver as Driver] ?? DRIVERS[Driver.Postgres];
 }
 
 // Legacy exports for backward compatibility

@@ -95,9 +95,9 @@ const MYSQL_TYPES: ColumnType[] = [
 
 // Driver to column types mapping
 export const COLUMN_TYPES: Record<Driver, ColumnType[]> = {
-  postgres: POSTGRES_TYPES,
-  mysql: MYSQL_TYPES,
-  mongodb: [], // MongoDB is schemaless
+  [Driver.Postgres]: POSTGRES_TYPES,
+  [Driver.Mysql]: MYSQL_TYPES,
+  [Driver.Mongodb]: [], // MongoDB is schemaless
 };
 
 /** Get column types for a driver */
@@ -130,7 +130,7 @@ export function buildColumnSQL(col: ColumnDef, driver: Driver): string {
     sql += ' UNIQUE';
   }
   // MySQL AUTO_INCREMENT
-  if (col.isAutoIncrement && driver === 'mysql') {
+  if (col.isAutoIncrement && driver === Driver.Mysql) {
     sql += ' AUTO_INCREMENT';
   }
   

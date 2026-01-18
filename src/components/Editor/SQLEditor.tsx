@@ -22,23 +22,33 @@ export function SQLEditor({
   onChange,
   onExecute,
   onExecuteSelection,
-  dialect = 'postgres',
+  dialect = Driver.Postgres,
   readOnly = false,
 }: SQLEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
+  const initialValueRef = useRef(value);
+  const onChangeRef = useRef(onChange);
+  const onExecuteRef = useRef(onExecute);
+  const onExecuteSelectionRef = useRef(onExecuteSelection);
   const { isDark } = useTheme();
 
   // Get SQL dialect
   const sqlDialect = useMemo(() => {
     switch (dialect) {
-      case 'mysql':
+      case Driver.Mysql:
         return MySQL;
-      case 'postgres':
+      case Driver.Postgres:
       default:
         return PostgreSQL;
     }
   }, [dialect]);
+
+  useEffect(() => {
+    onChangeRef.current = onChange;
+    onExecuteRef.current = onExecute;
+    onExecuteSelectionRef.current = onExecuteSelection;
+  }, [onChange, onExecute, onExecuteSelection]);
 
   useEffect(() => {
     if (!editorRef.current) return;
@@ -53,10 +63,10 @@ export function SQLEditor({
             view.state.selection.main.to
           );
 
-          if (selection && onExecuteSelection) {
-            onExecuteSelection(selection);
-          } else if (onExecute) {
-            onExecute();
+          if (selection && onExecuteSelectionRef.current) {
+            onExecuteSelectionRef.current(selection);
+          } else if (onExecuteRef.current) {
+            onExecuteRef.current();
           }
           return true;
         },
@@ -71,7 +81,7 @@ export function SQLEditor({
       keymap.of(defaultKeymap),
       EditorView.updateListener.of(update => {
         if (update.docChanged) {
-          onChange(update.state.doc.toString());
+          onChangeRef.current(update.state.doc.toString());
         }
       }),
       EditorView.editable.of(!readOnly),
@@ -87,7 +97,7 @@ export function SQLEditor({
     }
 
     const state = EditorState.create({
-      doc: value,
+      doc: initialValueRef.current,
       extensions,
     });
 
@@ -101,7 +111,7 @@ export function SQLEditor({
     return () => {
       view.destroy();
     };
-  }, [isDark, sqlDialect, onChange, onExecute, onExecuteSelection, readOnly, value]); // Recreate when relevant inputs change
+  }, [isDark, sqlDialect, readOnly]); // Recreate when relevant inputs change
 
   // Sync external value changes
   useEffect(() => {

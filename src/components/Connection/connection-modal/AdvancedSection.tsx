@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
-import { getDriverMetadata } from "@/lib/drivers";
+import { Driver, getDriverMetadata } from "@/lib/drivers";
 
 import type { ConnectionFormData } from "./types";
 import { SshTunnelSection } from "./SshTunnelSection";
@@ -43,7 +43,7 @@ export function AdvancedSection(props: {
 					<div className="space-y-2">
 						<Label>{t(driverMeta.databaseFieldLabel)}</Label>
 						<Input
-							placeholder={formData.driver === "postgres" ? "postgres" : ""}
+							placeholder={formData.driver === Driver.Postgres ? "postgres" : ""}
 							value={formData.database}
 							onChange={(e) => onChange("database", e.target.value)}
 						/>

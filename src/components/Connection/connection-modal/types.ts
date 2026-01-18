@@ -1,5 +1,5 @@
 import type { Environment } from "@/lib/tauri";
-import type { Driver } from "@/lib/drivers";
+import { Driver } from "@/lib/drivers";
 
 export interface ConnectionFormData {
 	name: string;
@@ -27,7 +27,7 @@ export interface ConnectionFormData {
 
 export const initialConnectionFormData: ConnectionFormData = {
 	name: "",
-	driver: "postgres",
+	driver: Driver.Postgres,
 	environment: "development",
 	readOnly: false,
 	host: "localhost",

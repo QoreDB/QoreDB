@@ -1,5 +1,5 @@
 import type { ConnectionConfig, Environment, SavedConnection } from "@/lib/tauri";
-import type { Driver } from "@/lib/drivers";
+import { Driver } from "@/lib/drivers";
 
 import type { ConnectionFormData } from "./types";
 
@@ -125,8 +125,8 @@ export function isConnectionFormValid(formData: ConnectionFormData): boolean {
 }
 
 export function normalizePortForDriver(driver: Driver): number {
-	if (driver === "postgres") return 5432;
-	if (driver === "mysql") return 3306;
-	if (driver === "mongodb") return 27017;
+	if (driver === Driver.Postgres) return 5432;
+	if (driver === Driver.Mysql) return 3306;
+	if (driver === Driver.Mongodb) return 27017;
 	return 5432;
 }

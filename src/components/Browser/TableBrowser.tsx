@@ -30,14 +30,14 @@ import { Button } from '@/components/ui/button';
 import { Value } from '../../lib/tauri';
 import { RowModal } from './RowModal'
 import { toast } from 'sonner';
-import { getDriverMetadata } from '../../lib/drivers';
+import { Driver, getDriverMetadata } from '../../lib/drivers';
 import { onTableChange } from '@/lib/tableEvents';
 
 interface TableBrowserProps {
   sessionId: string;
   namespace: Namespace;
   tableName: string;
-  driver?: string;
+  driver?: Driver;
   environment?: Environment;
   readOnly?: boolean;
   connectionName?: string;
@@ -51,7 +51,7 @@ export function TableBrowser({
   sessionId,
   namespace,
   tableName,
-  driver = 'postgres',
+  driver = Driver.Postgres,
   environment = 'development',
   readOnly = false,
   connectionName,
@@ -393,7 +393,7 @@ function TableInfoPanel({ sessionId, namespace, tableName, driver, schema }: Tab
 
       if (driverMeta.supportsSQL) {
         // PostgreSQL stats query
-        if (driver === 'postgres') {
+        if (driver === Driver.Postgres) {
           // Table size
           const sizeQuery = `
             SELECT pg_total_relation_size('"${schemaName}"."${tableName}"') as total_bytes,
@@ -443,7 +443,7 @@ function TableInfoPanel({ sessionId, namespace, tableName, driver, schema }: Tab
           }
         }
         // MySQL/MariaDB
-        else if (driver === 'mysql') {
+        else if (driver === Driver.Mysql) {
           const statsQuery = `
             SELECT data_length + index_length as total_bytes, table_rows
             FROM information_schema.tables 

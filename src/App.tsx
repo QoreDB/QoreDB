@@ -25,7 +25,7 @@ function App() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [connectionModalOpen, setConnectionModalOpen] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
-  const [driver, setDriver] = useState<Driver>('postgres');
+  const [driver, setDriver] = useState<Driver>(Driver.Postgres);
   const [activeConnection, setActiveConnection] = useState<SavedConnection | null>(null);
 
   // Tab system

@@ -18,14 +18,14 @@ i18n
     },
     fallbackLng: 'en',
     interpolation: {
-      escapeValue: false, // react already safes from xss
+      escapeValue: false,
     },
     detection: {
-        order: ['querystring', 'localStorage', 'navigator'],
-        lookupQuerystring: 'lang',
-        lookupLocalStorage: 'i18nextLng',
-        caches: ['localStorage'],
-    }
+      order: ['querystring', 'localStorage', 'navigator'],
+      lookupQuerystring: 'lang',
+      lookupLocalStorage: 'i18nextLng',
+      caches: ['localStorage'],
+    },
   });
 
 export default i18n;

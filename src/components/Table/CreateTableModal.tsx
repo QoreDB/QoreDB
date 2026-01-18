@@ -71,7 +71,7 @@ export function CreateTableModal({
 
 	function addColumn() {
 		// Set default type based on driver
-		const defaultType = driver === "mysql" ? "VARCHAR" : "VARCHAR";
+		const defaultType = driver === Driver.Mysql ? "VARCHAR" : "VARCHAR";
 		setColumns((prev) => [
 			...prev,
 			{ ...createEmptyColumn(), type: defaultType },

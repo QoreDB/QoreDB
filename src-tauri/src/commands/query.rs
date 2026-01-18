@@ -10,6 +10,7 @@ use tokio::time::{timeout, Duration};
 use tracing::{field, instrument};
 
 use crate::engine::{
+    mongo_safety,
     sql_safety,
     TableSchema,
     types::{Collection, Namespace, QueryId, QueryResult, SessionId},
@@ -23,41 +24,10 @@ const SQL_PARSE_BLOCKED: &str = "Operation blocked: SQL parser could not classif
 const TRANSACTIONS_NOT_SUPPORTED: &str = "Transactions are not supported by this driver";
 
 fn is_mongo_mutation(query: &str) -> bool {
-    let normalized = query.to_ascii_lowercase();
-    let compact: String = normalized.split_whitespace().collect();
-
-    let raw_patterns = [
-        ".insert(",
-        ".insertone(",
-        ".insertmany(",
-        ".update(",
-        ".updateone(",
-        ".updatemany(",
-        ".replaceone(",
-        ".delete(",
-        ".deleteone(",
-        ".deletemany(",
-        ".remove(",
-        ".createcollection(",
-        ".drop(",
-        ".dropdatabase(",
-        ".bulkwrite(",
-        ".findoneandupdate(",
-        ".findoneanddelete(",
-        ".findoneandreplace(",
-    ];
-
-    if raw_patterns.iter().any(|pattern| normalized.contains(pattern)) {
-        return true;
-    }
-
-    let json_patterns = [
-        "\"operation\":\"create_collection\"",
-        "\"operation\":\"drop_collection\"",
-        "\"operation\":\"drop_database\"",
-    ];
-
-    json_patterns.iter().any(|pattern| compact.contains(pattern))
+    matches!(
+        mongo_safety::classify(query),
+        mongo_safety::MongoQueryClass::Mutation | mongo_safety::MongoQueryClass::Unknown
+    )
 }
 
 /// Response wrapper for query results

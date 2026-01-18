@@ -21,7 +21,7 @@ interface DocumentEditorModalProps {
   sessionId: string;
   database: string;
   collection: string;
-  originalId?: string; 
+  originalId?: import('../../lib/tauri').Value; 
   onSuccess: () => void;
   readOnly?: boolean;
 }
@@ -98,7 +98,7 @@ export function DocumentEditorModal({
         }
       } else {
         // Update
-        if (!originalId) {
+        if (originalId === undefined) {
           setError("Missing original ID for update");
           return;
         }

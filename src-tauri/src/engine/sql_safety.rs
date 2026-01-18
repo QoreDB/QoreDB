@@ -39,6 +39,29 @@ pub fn analyze_sql(driver_id: &str, sql: &str) -> Result<SqlSafetyAnalysis, Stri
     Ok(analysis)
 }
 
+pub fn returns_rows(driver_id: &str, sql: &str) -> Result<bool, String> {
+    let trimmed = sql.trim();
+    if trimmed.is_empty() {
+        return Err("Empty SQL".to_string());
+    }
+
+    let dialect = dialect_for_driver(driver_id);
+    let statements =
+        Parser::parse_sql(&*dialect, trimmed).map_err(|err| err.to_string())?;
+
+    let first = statements.first().ok_or_else(|| "Empty SQL".to_string())?;
+    Ok(statement_returns_rows(first))
+}
+
+pub fn is_select_prefix(sql: &str) -> bool {
+    let trimmed = sql.trim_start().to_ascii_uppercase();
+    trimmed.starts_with("SELECT")
+        || trimmed.starts_with("WITH")
+        || trimmed.starts_with("SHOW")
+        || trimmed.starts_with("EXPLAIN")
+        || trimmed.starts_with("DESCRIBE")
+}
+
 fn dialect_for_driver(driver_id: &str) -> Box<dyn Dialect> {
     if driver_id.eq_ignore_ascii_case("postgres") {
         Box::new(PostgreSqlDialect {})
@@ -85,6 +108,28 @@ fn is_mutation_statement(statement: &Statement) -> bool {
         | Statement::Savepoint { .. }
         | Statement::ReleaseSavepoint { .. } => false,
         _ => true,
+    }
+}
+
+fn statement_returns_rows(statement: &Statement) -> bool {
+    match statement {
+        Statement::Query(_) => true,
+        Statement::Explain { .. } => true,
+        Statement::ExplainTable { .. } => true,
+        Statement::ShowFunctions { .. }
+        | Statement::ShowVariable { .. }
+        | Statement::ShowStatus { .. }
+        | Statement::ShowVariables { .. }
+        | Statement::ShowCreate { .. }
+        | Statement::ShowColumns { .. }
+        | Statement::ShowDatabases { .. }
+        | Statement::ShowSchemas { .. }
+        | Statement::ShowCharset(_)
+        | Statement::ShowObjects(_)
+        | Statement::ShowTables { .. }
+        | Statement::ShowViews { .. }
+        | Statement::ShowCollation { .. } => true,
+        _ => false,
     }
 }
 

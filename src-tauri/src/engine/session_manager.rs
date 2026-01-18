@@ -155,8 +155,12 @@ impl SessionManager {
             .get(&session.driver_id)
             .ok_or_else(|| EngineError::driver_not_found(&session.driver_id))?;
 
-        // Disconnect from database
-        driver.disconnect(session_id).await?;
+        // Disconnect from database; restore session on failure.
+        if let Err(err) = driver.disconnect(session_id).await {
+            let mut sessions = self.sessions.write().await;
+            sessions.insert(session_id, session);
+            return Err(err);
+        }
 
         // Close SSH tunnel if present
         if let Some(ref mut tunnel) = session.tunnel {

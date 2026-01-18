@@ -3,9 +3,10 @@ import { useTranslation } from 'react-i18next';
 import { SQLEditor } from '../Editor/SQLEditor';
 import { MongoEditor, MONGO_TEMPLATES } from '../Editor/MongoEditor';
 import { DataGrid } from '../Grid/DataGrid';
+import { DocumentResults } from '../Results/DocumentResults';
 import { DocumentEditorModal } from '../Editor/DocumentEditorModal';
 import { QueryHistory } from '../History/QueryHistory';
-import { executeQuery, cancelQuery, QueryResult, Environment } from '../../lib/tauri';
+import { executeQuery, cancelQuery, QueryResult, Environment, Value } from '../../lib/tauri';
 import { addToHistory } from '../../lib/history';
 import { logError } from '../../lib/errorLog';
 import { Button } from '@/components/ui/button';
@@ -59,10 +60,25 @@ export function QueryPanel({
   const [docModalOpen, setDocModalOpen] = useState(false);
   const [docModalMode, setDocModalMode] = useState<'insert' | 'edit'>('insert');
   const [docModalData, setDocModalData] = useState('{}'); // JSON string
-  const [docOriginalId, setDocOriginalId] = useState<string | undefined>(undefined);
+  const [docOriginalId, setDocOriginalId] = useState<Value | undefined>(undefined);
   const getCollectionFromQuery = (q: string) => {
-    const match = q.trim().match(/^db\.([a-zA-Z0-9_-]+)\./);
-    return match ? match[1] : '';
+    const trimmed = q.trim();
+    if (trimmed.startsWith('{')) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (parsed && typeof parsed === 'object' && parsed.collection) {
+          return String(parsed.collection);
+        }
+      } catch {
+        return '';
+      }
+    }
+
+    const directMatch = trimmed.match(/^db\.([a-zA-Z0-9_-]+)\./);
+    if (directMatch) return directMatch[1];
+
+    const getCollectionMatch = trimmed.match(/db\.getCollection\(['"]([^'"]+)['"]\)/);
+    return getCollectionMatch ? getCollectionMatch[1] : '';
   };
 
   useEffect(() => {
@@ -261,12 +277,11 @@ export function QueryPanel({
     }
   }, [sessionId, loading, activeQueryId]);
 
-    // Row Click Handler
-    const handleRowClick = useCallback((row: any) => {
+    const handleEditDocument = useCallback((doc: Record<string, unknown>, idValue?: Value) => {
         if (!isMongo) return;
         setDocModalMode('edit');
-        setDocModalData(JSON.stringify(row, null, 2));
-        setDocOriginalId(row._id ? String(row._id) : undefined);
+        setDocModalData(JSON.stringify(doc, null, 2));
+        setDocOriginalId(idValue);
         setDocModalOpen(true);
     }, [isMongo]);
 
@@ -419,22 +434,19 @@ export function QueryPanel({
 					</div>
 				) : result ? (
 					isMongo ? (
-                        // Use DataGrid for MongoDB too, to enable Actions
 						<div className="flex-1 overflow-hidden p-2 flex flex-col h-full">
-							<DataGrid 
-                                result={result} 
-                                sessionId={sessionId || undefined}
-                                namespace={connectionDatabase ? { database: connectionDatabase, schema: "" } : undefined}
-                                // For MongoDB, we need to extract collection name to enable Delete
-                                tableName={getCollectionFromQuery(query)}
-                                primaryKey={["_id"]}
-                                environment={environment}
-                                readOnly={readOnly}
-                                connectionName={connectionName}
-                                connectionDatabase={connectionDatabase}
-                                onRowsDeleted={runCurrentQuery}
-                                onRowClick={handleRowClick}
-                            />
+							<DocumentResults
+								result={result}
+								sessionId={sessionId || undefined}
+								database={connectionDatabase || 'admin'}
+								collection={getCollectionFromQuery(query)}
+								environment={environment}
+								readOnly={readOnly}
+								connectionName={connectionName}
+								connectionDatabase={connectionDatabase}
+								onRowsDeleted={runCurrentQuery}
+								onEditDocument={handleEditDocument}
+							/>
 						</div>
 					) : (
 						<div className="flex-1 overflow-hidden p-2 flex flex-col h-full">

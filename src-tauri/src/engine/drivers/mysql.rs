@@ -19,6 +19,7 @@ use sqlx::{Column, Row, TypeInfo};
 use tokio::sync::{Mutex, RwLock};
 
 use crate::engine::error::{EngineError, EngineResult};
+use crate::engine::sql_safety;
 use crate::engine::traits::DataEngine;
 use crate::engine::types::{
     CancelSupport, Collection, CollectionType, ColumnInfo, ConnectionConfig, Namespace, QueryId,
@@ -345,11 +346,8 @@ impl DataEngine for MySqlDriver {
         let mysql_session = self.get_session(session).await?;
         let start = Instant::now();
 
-        let trimmed = query.trim().to_uppercase();
-        let is_select = trimmed.starts_with("SELECT")
-            || trimmed.starts_with("SHOW")
-            || trimmed.starts_with("DESCRIBE")
-            || trimmed.starts_with("EXPLAIN");
+        let returns_rows = sql_safety::returns_rows(self.driver_id(), query)
+            .unwrap_or_else(|_| sql_safety::is_select_prefix(query));
 
         let mut tx_guard = mysql_session.transaction_conn.lock().await;
         let result = if let Some(ref mut conn) = *tx_guard {
@@ -359,7 +357,7 @@ impl DataEngine for MySqlDriver {
                 active.insert(query_id, connection_id);
             }
 
-            let result = if is_select {
+            let result = if returns_rows {
                 let mysql_rows: Vec<MySqlRow> = sqlx::query(query)
                     .fetch_all(&mut **conn)
                     .await
@@ -428,7 +426,7 @@ impl DataEngine for MySqlDriver {
                 active.insert(query_id, connection_id);
             }
 
-            let result = if is_select {
+            let result = if returns_rows {
                 let mysql_rows: Vec<MySqlRow> = sqlx::query(query)
                     .fetch_all(&mut *conn)
                     .await

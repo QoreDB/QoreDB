@@ -44,45 +44,21 @@ impl MongoDriver {
         )
     }
 
-    /// Converts a BSON document to our universal Row type
+    /// Converts a BSON document to a single JSON value for document-centric rendering.
     fn document_to_row(doc: &Document) -> QRow {
-        let values: Vec<Value> = doc.values().map(Self::bson_to_value).collect();
-        QRow { values }
-    }
-
-    /// Converts a BSON value to our universal Value type
-    fn bson_to_value(bson: &mongodb::bson::Bson) -> Value {
-        use mongodb::bson::Bson;
-
-        match bson {
-            Bson::Null => Value::Null,
-            Bson::Boolean(b) => Value::Bool(*b),
-            Bson::Int32(i) => Value::Int(*i as i64),
-            Bson::Int64(i) => Value::Int(*i),
-            Bson::Double(f) => Value::Float(*f),
-            Bson::String(s) => Value::Text(s.clone()),
-            Bson::Binary(b) => Value::Bytes(b.bytes.clone()),
-            Bson::ObjectId(oid) => Value::Text(oid.to_hex()),
-            Bson::DateTime(dt) => Value::Text(dt.to_string()),
-            Bson::Array(arr) => {
-                Value::Array(arr.iter().map(Self::bson_to_value).collect())
-            }
-            Bson::Document(doc) => {
-                Value::Json(serde_json::to_value(doc).unwrap_or(serde_json::Value::Null))
-            }
-            _ => Value::Text(bson.to_string()),
+        let json = serde_json::to_value(doc).unwrap_or(serde_json::Value::Null);
+        QRow {
+            values: vec![Value::Json(json)],
         }
     }
 
-    /// Gets column info from a document
-    fn get_column_info(doc: &Document) -> Vec<ColumnInfo> {
-        doc.keys()
-            .map(|key| ColumnInfo {
-                name: key.clone(),
-                data_type: "mixed".to_string(), // MongoDB is schemaless
-                nullable: true,
-            })
-            .collect()
+    /// Column info for document-centric output.
+    fn document_column_info() -> Vec<ColumnInfo> {
+        vec![ColumnInfo {
+            name: "document".to_string(),
+            data_type: "json".to_string(),
+            nullable: true,
+        }]
     }
 
     /// Parses a MongoDB query string (JSON format)
@@ -399,7 +375,7 @@ impl DataEngine for MongoDriver {
                     });
                 }
 
-                let columns = Self::get_column_info(&documents[0]);
+                let columns = Self::document_column_info();
                 let rows: Vec<QRow> = documents.iter().map(Self::document_to_row).collect();
 
                 Ok(QueryResult {
@@ -553,7 +529,7 @@ impl DataEngine for MongoDriver {
             });
         }
 
-        let columns = Self::get_column_info(&documents[0]);
+        let columns = Self::document_column_info();
         let rows: Vec<QRow> = documents.iter().map(Self::document_to_row).collect();
 
         Ok(QueryResult {
@@ -669,6 +645,16 @@ impl DataEngine for MongoDriver {
         primary_key: &QRowData,
         data: &QRowData,
     ) -> EngineResult<QueryResult> {
+        if primary_key.columns.is_empty() {
+            return Err(EngineError::execution_error(
+                "Primary key required for update operations".to_string(),
+            ));
+        }
+
+        if data.columns.is_empty() {
+            return Ok(QueryResult::with_affected_rows(0, 0.0));
+        }
+
         let sessions = self.sessions.read().await;
         let client = sessions
             .get(&session)
@@ -707,6 +693,12 @@ impl DataEngine for MongoDriver {
         table: &str,
         primary_key: &QRowData,
     ) -> EngineResult<QueryResult> {
+        if primary_key.columns.is_empty() {
+            return Err(EngineError::execution_error(
+                "Primary key required for delete operations".to_string(),
+            ));
+        }
+
         let sessions = self.sessions.read().await;
         let client = sessions
             .get(&session)

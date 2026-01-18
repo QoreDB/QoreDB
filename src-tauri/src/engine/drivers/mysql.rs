@@ -240,10 +240,14 @@ impl DataEngine for MySqlDriver {
 
     async fn connect(&self, config: &ConnectionConfig) -> EngineResult<SessionId> {
         let conn_str = Self::build_connection_string(config);
+        let max_connections = config.pool_max_connections.unwrap_or(5);
+        let min_connections = config.pool_min_connections.unwrap_or(0);
+        let acquire_timeout = config.pool_acquire_timeout_secs.unwrap_or(30);
 
         let pool = MySqlPoolOptions::new()
-            .max_connections(5)
-            .acquire_timeout(std::time::Duration::from_secs(30))
+            .max_connections(max_connections)
+            .min_connections(min_connections)
+            .acquire_timeout(std::time::Duration::from_secs(acquire_timeout as u64))
             .connect(&conn_str)
             .await
             .map_err(|e| EngineError::connection_failed(e.to_string()))?;

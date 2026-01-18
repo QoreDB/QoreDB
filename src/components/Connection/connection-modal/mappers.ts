@@ -18,6 +18,9 @@ export function buildConnectionConfig(formData: ConnectionFormData): ConnectionC
 		password: formData.password,
 		database: formData.database || undefined,
 		ssl: formData.ssl,
+		pool_max_connections: formData.poolMaxConnections,
+		pool_min_connections: formData.poolMinConnections,
+		pool_acquire_timeout_secs: formData.poolAcquireTimeoutSecs,
 		environment: formData.environment,
 		read_only: formData.readOnly,
 		ssh_tunnel: formData.useSshTunnel
@@ -57,6 +60,9 @@ export function buildSavedConnection(
 		username: formData.username,
 		database: formData.database || undefined,
 		ssl: formData.ssl,
+		pool_max_connections: formData.poolMaxConnections,
+		pool_min_connections: formData.poolMinConnections,
+		pool_acquire_timeout_secs: formData.poolAcquireTimeoutSecs,
 		project_id: projectId,
 		ssh_tunnel: formData.useSshTunnel
 			? {

@@ -20,6 +20,10 @@ export function AdvancedSection(props: {
 	const [open, setOpen] = useState(false);
 
 	const driverMeta = getDriverMetadata(formData.driver);
+	const parseNumber = (value: string, fallback: number) => {
+		const parsed = Number(value);
+		return Number.isFinite(parsed) ? parsed : fallback;
+	};
 
 	return (
 		<div className="rounded-md border border-border bg-background">
@@ -56,6 +60,68 @@ export function AdvancedSection(props: {
 							onCheckedChange={(checked) => onChange("ssl", checked)}
 						/>
 					</div>
+
+					{driverMeta.supportsSQL && (
+						<div className="space-y-2">
+							<Label>{t("connection.poolSettings")}</Label>
+							<div className="grid grid-cols-3 gap-3">
+								<div className="space-y-1">
+									<Label className="text-xs text-muted-foreground">
+										{t("connection.poolMax")}
+									</Label>
+										<Input
+											type="number"
+											min={1}
+											max={50}
+											value={formData.poolMaxConnections}
+											onChange={(e) =>
+												onChange(
+													"poolMaxConnections",
+													parseNumber(e.target.value, formData.poolMaxConnections),
+												)
+											}
+										/>
+									</div>
+								<div className="space-y-1">
+									<Label className="text-xs text-muted-foreground">
+										{t("connection.poolMin")}
+									</Label>
+										<Input
+											type="number"
+											min={0}
+											max={50}
+											value={formData.poolMinConnections}
+											onChange={(e) =>
+												onChange(
+													"poolMinConnections",
+													parseNumber(e.target.value, formData.poolMinConnections),
+												)
+											}
+										/>
+									</div>
+								<div className="space-y-1">
+									<Label className="text-xs text-muted-foreground">
+										{t("connection.poolAcquireTimeout")}
+									</Label>
+										<Input
+											type="number"
+											min={5}
+											max={120}
+											value={formData.poolAcquireTimeoutSecs}
+											onChange={(e) =>
+												onChange(
+													"poolAcquireTimeoutSecs",
+													parseNumber(
+														e.target.value,
+														formData.poolAcquireTimeoutSecs,
+													),
+												)
+											}
+										/>
+									</div>
+							</div>
+						</div>
+					)}
 
 					<SshTunnelSection formData={formData} onChange={onChange} />
 				</div>

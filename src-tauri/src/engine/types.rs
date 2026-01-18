@@ -51,6 +51,9 @@ pub struct ConnectionConfig {
     pub ssl: bool,
     pub environment: String,
     pub read_only: bool,
+    pub pool_max_connections: Option<u32>,
+    pub pool_min_connections: Option<u32>,
+    pub pool_acquire_timeout_secs: Option<u32>,
     pub ssh_tunnel: Option<SshTunnelConfig>,
 }
 

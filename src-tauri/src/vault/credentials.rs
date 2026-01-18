@@ -50,6 +50,15 @@ pub struct SavedConnection {
     pub database: Option<String>,
     /// Use SSL/TLS
     pub ssl: bool,
+    /// Pool max connections
+    #[serde(default)]
+    pub pool_max_connections: Option<u32>,
+    /// Pool min connections
+    #[serde(default)]
+    pub pool_min_connections: Option<u32>,
+    /// Pool acquire timeout (seconds)
+    #[serde(default)]
+    pub pool_acquire_timeout_secs: Option<u32>,
     /// SSH tunnel configuration (without credentials)
     pub ssh_tunnel: Option<SshTunnelInfo>,
     /// Project ID for isolation
@@ -162,6 +171,9 @@ impl SavedConnection {
             ssl: self.ssl,
             environment: self.environment.as_str().to_string(),
             read_only: self.read_only,
+            pool_max_connections: self.pool_max_connections,
+            pool_min_connections: self.pool_min_connections,
+            pool_acquire_timeout_secs: self.pool_acquire_timeout_secs,
             ssh_tunnel,
         })
     }
@@ -184,6 +196,9 @@ mod tests {
             username: "qoredb".to_string(),
             database: Some("testdb".to_string()),
             ssl: false,
+            pool_max_connections: None,
+            pool_min_connections: None,
+            pool_acquire_timeout_secs: None,
             ssh_tunnel: Some(SshTunnelInfo {
                 host: "ssh.local".to_string(),
                 port: 22,

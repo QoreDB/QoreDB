@@ -37,6 +37,9 @@ pub struct SaveConnectionInput {
     pub password: String,
     pub database: Option<String>,
     pub ssl: bool,
+    pub pool_max_connections: Option<u32>,
+    pub pool_min_connections: Option<u32>,
+    pub pool_acquire_timeout_secs: Option<u32>,
     pub project_id: String,
     pub ssh_tunnel: Option<SshTunnelInput>,
 }
@@ -173,6 +176,9 @@ pub async fn save_connection(
         username: input.username,
         database: input.database,
         ssl: input.ssl,
+        pool_max_connections: input.pool_max_connections,
+        pool_min_connections: input.pool_min_connections,
+        pool_acquire_timeout_secs: input.pool_acquire_timeout_secs,
         ssh_tunnel,
         project_id: input.project_id,
     };

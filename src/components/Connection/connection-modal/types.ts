@@ -12,6 +12,9 @@ export interface ConnectionFormData {
 	password: string;
 	database: string;
 	ssl: boolean;
+	poolMaxConnections: number;
+	poolMinConnections: number;
+	poolAcquireTimeoutSecs: number;
 	useSshTunnel: boolean;
 	sshHost: string;
 	sshPort: number;
@@ -36,6 +39,9 @@ export const initialConnectionFormData: ConnectionFormData = {
 	password: "",
 	database: "",
 	ssl: false,
+	poolMaxConnections: 5,
+	poolMinConnections: 0,
+	poolAcquireTimeoutSecs: 30,
 	useSshTunnel: false,
 	sshHost: "",
 	sshPort: 22,

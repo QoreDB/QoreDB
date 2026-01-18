@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { Copy, Pencil, Trash2, Search } from 'lucide-react';
@@ -93,7 +93,10 @@ export function DocumentResults({
   onRowsDeleted,
 }: DocumentResultsProps) {
   const { t } = useTranslation();
+  const DEFAULT_RENDER_LIMIT = 500;
+  const RENDER_STEP = 500;
   const [filter, setFilter] = useState('');
+  const [renderLimit, setRenderLimit] = useState<number | null>(DEFAULT_RENDER_LIMIT);
   const [pendingDelete, setPendingDelete] = useState<DocumentRow | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteConfirmValue, setDeleteConfirmValue] = useState('');
@@ -103,8 +106,18 @@ export function DocumentResults({
     (connectionDatabase || connectionName || 'PROD').trim() || 'PROD';
   const requiresConfirm = environment === 'production';
 
+  const totalRows = result.rows.length;
+
+  useEffect(() => {
+    setRenderLimit(DEFAULT_RENDER_LIMIT);
+  }, [result]);
+
+  const effectiveLimit = renderLimit === null ? totalRows : renderLimit;
+  const isLimited = totalRows > effectiveLimit;
+
   const documents = useMemo<DocumentRow[]>(() => {
-    return result.rows.map((row) => {
+    const renderRows = renderLimit === null ? result.rows : result.rows.slice(0, renderLimit);
+    return renderRows.map((row) => {
       const doc = normalizeDocument(result, row.values);
       const json = JSON.stringify(doc ?? null, null, 2);
       const search = json.toLowerCase();
@@ -123,7 +136,7 @@ export function DocumentResults({
         search,
       };
     });
-  }, [result]);
+  }, [result, renderLimit]);
 
   const filteredDocs = useMemo(() => {
     const query = filter.trim().toLowerCase();
@@ -138,6 +151,15 @@ export function DocumentResults({
     estimateSize: () => 180,
     overscan: 8,
   });
+
+  const handleLoadMore = () => {
+    if (renderLimit === null) return;
+    setRenderLimit((prev) => Math.min(totalRows, (prev || 0) + RENDER_STEP));
+  };
+
+  const handleShowAll = () => {
+    setRenderLimit(null);
+  };
 
   const handleCopy = async (row: DocumentRow) => {
     await navigator.clipboard.writeText(row.json);
@@ -202,7 +224,10 @@ export function DocumentResults({
     <div className="flex flex-col h-full min-h-0 gap-3">
       <div className="flex items-center justify-between px-1 gap-3">
         <div className="flex items-center gap-3 text-xs text-muted-foreground">
-          <span>{t('grid.rowsTotal', { count: filteredDocs.length })}</span>
+          <span>{t('grid.rowsTotal', { count: totalRows })}</span>
+          {isLimited && (
+            <span>{t('grid.rowsShowing', { shown: filteredDocs.length, total: totalRows })}</span>
+          )}
           {typeof result.execution_time_ms === 'number' && (
             <div className="flex items-center gap-2 border-l border-border pl-3">
               <span title={t('query.time.execTooltip')}>
@@ -225,6 +250,27 @@ export function DocumentResults({
             </div>
           )}
         </div>
+
+        {isLimited && (
+          <div className="flex items-center gap-2 text-xs">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-xs"
+              onClick={handleLoadMore}
+            >
+              {t('grid.loadMore')}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-xs"
+              onClick={handleShowAll}
+            >
+              {t('grid.showAll')}
+            </Button>
+          </div>
+        )}
 
         <div className="relative w-64">
           <Search

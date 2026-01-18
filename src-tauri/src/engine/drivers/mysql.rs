@@ -24,7 +24,7 @@ use crate::engine::traits::DataEngine;
 use crate::engine::types::{
     CancelSupport, Collection, CollectionList, CollectionListOptions, CollectionType, ColumnInfo,
     ConnectionConfig, Namespace, QueryId, QueryResult, Row as QRow, RowData, SessionId,
-    TableColumn, TableSchema, Value,
+    TableColumn, TableSchema, Value, ForeignKey
 };
 
 /// Holds the connection state for a MySQL session.
@@ -574,6 +574,37 @@ impl DataEngine for MySqlDriver {
             })
             .collect();
 
+        // Get foreign keys
+        // Filter for REFERENCED_TABLE_NAME IS NOT NULL to find FKs
+        let fk_rows: Vec<(String, String, String, String)> = sqlx::query_as(
+            r#"
+            SELECT
+                CAST(kcu.COLUMN_NAME AS CHAR) AS column_name,
+                CAST(kcu.REFERENCED_TABLE_NAME AS CHAR) AS referenced_table,
+                CAST(kcu.REFERENCED_COLUMN_NAME AS CHAR) AS referenced_column,
+                CAST(kcu.CONSTRAINT_NAME AS CHAR) AS constraint_name
+            FROM information_schema.KEY_COLUMN_USAGE kcu
+            WHERE kcu.TABLE_SCHEMA = ?
+                AND kcu.TABLE_NAME = ?
+                AND kcu.REFERENCED_TABLE_NAME IS NOT NULL
+            "#,
+        )
+        .bind(database)
+        .bind(table)
+        .fetch_all(pool)
+        .await
+        .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        let foreign_keys: Vec<ForeignKey> = fk_rows
+            .into_iter()
+            .map(|(column, referenced_table, referenced_column, constraint_name)| ForeignKey {
+                column,
+                referenced_table,
+                referenced_column,
+                constraint_name: Some(constraint_name),
+            })
+            .collect();
+
         // Get row count estimate from table_rows (u64 for BIGINT UNSIGNED)
         let count_row: Option<(u64,)> = sqlx::query_as(
             r#"
@@ -593,6 +624,7 @@ impl DataEngine for MySqlDriver {
         Ok(TableSchema {
             columns,
             primary_key: if pk_columns.is_empty() { None } else { Some(pk_columns) },
+            foreign_keys,
             row_count_estimate,
         })
     }

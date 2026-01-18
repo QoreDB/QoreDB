@@ -241,7 +241,11 @@
         "insertSuccess": "Row inserted successfully",
         "insertError": "Failed to insert row",
         "updateSuccess": "Row updated successfully",
-        "updateError": "Failed to update row"
+        "updateError": "Failed to update row",
+        "addCustomField": "Add custom field",
+        "fieldName": "Field name",
+        "fieldType": "Field type",
+        "fieldNamePlaceholder": "My new field"
     },
     "database": {
         "newTitle": "New Database",
@@ -281,7 +285,8 @@
         "time": "Time",
         "enabled": "Enabled",
         "disabled": "Disabled",
-        "pagination": "Showing {{start}}-{{end}} of {{total}}"
+        "pagination": "Showing {{start}}-{{end}} of {{total}}",
+        "add": "Add"
     },
     "environment": {
         "label": "Environment",

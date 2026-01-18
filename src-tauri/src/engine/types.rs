@@ -293,6 +293,19 @@ impl QueryResult {
     }
 }
 
+/// Foreign Key definition
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ForeignKey {
+    /// The column in this table
+    pub column: String,
+    /// The referenced table
+    pub referenced_table: String,
+    /// The referenced column
+    pub referenced_column: String,
+    /// The constraint name (optional)
+    pub constraint_name: Option<String>,
+}
+
 /// Table schema metadata
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TableSchema {
@@ -300,6 +313,8 @@ pub struct TableSchema {
     pub columns: Vec<TableColumn>,
     /// Primary key columns (if any)
     pub primary_key: Option<Vec<String>>,
+    /// Foreign keys
+    pub foreign_keys: Vec<ForeignKey>,
     /// Estimated row count (if available)
     pub row_count_estimate: Option<u64>,
 }

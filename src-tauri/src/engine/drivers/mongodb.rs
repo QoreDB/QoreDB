@@ -522,6 +522,7 @@ impl DataEngine for MongoDriver {
         Ok(TableSchema {
             columns,
             primary_key: Some(vec!["_id".to_string()]),
+            foreign_keys: Vec::new(),
             row_count_estimate: count,
         })
     }

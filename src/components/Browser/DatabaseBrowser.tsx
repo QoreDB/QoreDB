@@ -51,7 +51,7 @@ interface DatabaseStats {
   documentCount?: number;
 }
 
-type Tab = 'overview' | 'tables';
+type Tab = 'overview' | 'tables' | 'schema';
 
 export function DatabaseBrowser({
   sessionId,
@@ -204,7 +204,7 @@ export function DatabaseBrowser({
       <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/20">
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-md bg-accent/10 text-accent">
-            <img src={iconSrc} alt={DRIVER_LABELS[driver]} className="w-4 h-4"/>
+            <img src={iconSrc} alt={DRIVER_LABELS[driver]} className="w-4 h-4 object-contain"/>
           </div>
           <div>
             <h2 className="font-semibold text-foreground flex items-center gap-2">
@@ -465,7 +465,7 @@ export function DatabaseBrowser({
         onTableCreated={(tableName) => {
           loadData();
           if (activeTab === 'tables') {
-            loadData(); // Re-fetch to update tables list
+            loadData();
           }
           onSchemaChange?.();
           if (tableName) {

@@ -25,19 +25,14 @@ use crate::engine::traits::DataEngine;
 use crate::engine::types::{
     CancelSupport, Collection, CollectionList, CollectionListOptions, CollectionType, ColumnInfo,
     ConnectionConfig, Namespace, QueryId, QueryResult, Row as QRow, RowData, SessionId,
-    TableColumn, TableSchema, Value,
+    TableColumn, TableSchema, Value, ForeignKey
 };
 
 /// Holds the connection state for a PostgreSQL session.
-///
-/// A session always has a pool for regular operations.
-/// When a transaction is active, a dedicated connection is held
-/// to ensure all queries within the transaction use the same connection.
 pub struct PostgresSession {
     /// The connection pool for this session
     pub pool: PgPool,
     /// Dedicated connection when a transaction is active
-    /// This connection is acquired on BEGIN and released on COMMIT/ROLLBACK
     pub transaction_conn: Mutex<Option<PoolConnection<Postgres>>>,
     /// Active queries (query_id -> backend_pid)
     pub active_queries: Mutex<HashMap<QueryId, i32>>,
@@ -49,14 +44,6 @@ impl PostgresSession {
             pool,
             transaction_conn: Mutex::new(None),
             active_queries: Mutex::new(HashMap::new()),
-        }
-    }
-
-    /// Returns true if a transaction is currently active
-    pub fn has_active_transaction(&self) -> bool {
-        match self.transaction_conn.try_lock() {
-            Ok(guard) => guard.is_some(),
-            Err(_) => true,
         }
     }
 }
@@ -81,28 +68,6 @@ impl PostgresDriver {
             .ok_or_else(|| EngineError::session_not_found(session.0.to_string()))
     }
 
-    /// Builds a connection string from config
-    fn build_connection_string(config: &ConnectionConfig) -> String {
-        let ssl_mode = if config.ssl { "require" } else { "disable" };
-        let db = config.database.as_deref().unwrap_or("postgres");
-
-        format!(
-            "postgres://{}:{}@{}:{}/{}?sslmode={}",
-            config.username, config.password, config.host, config.port, db, ssl_mode
-        )
-    }
-
-    /// Converts a SQLx row to our universal Row type
-    fn convert_row(pg_row: &PgRow) -> QRow {
-        let values: Vec<Value> = pg_row
-            .columns()
-            .iter()
-            .map(|col| Self::extract_value(pg_row, col.ordinal()))
-            .collect();
-
-        QRow { values }
-    }
-
     /// Helper to bind a Value to a Postgres query
     fn bind_param<'q>(
         query: sqlx::query::Query<'q, Postgres, sqlx::postgres::PgArguments>,
@@ -116,15 +81,27 @@ impl PostgresDriver {
             Value::Text(s) => query.bind(s),
             Value::Bytes(b) => query.bind(b),
             Value::Json(j) => query.bind(j),
-            // Fallback for arrays or other complex types not yet fully mapped
+             // Fallback for arrays
             Value::Array(_) => query.bind(Option::<String>::None),
         }
     }
 
+    /// Converts a SQLx row to our universal Row type
+    fn convert_row(pg_row: &PgRow) -> QRow {
+        let values: Vec<Value> = pg_row
+            .columns()
+            .iter()
+            .map(|col| Self::extract_value(pg_row, col.ordinal()))
+            .collect();
+
+        QRow { values }
+    }
+
     /// Extracts a value from a PgRow at the given index
     fn extract_value(row: &PgRow, idx: usize) -> Value {
-        // IMPORTANT: Test integers BEFORE bool to avoid misinterpretation
-        // Try different integer types in order of likelihood
+        // Try to interpret value based on common types
+        // We use try_get with Option<T> to handle NULLs gracefully
+        
         if let Ok(v) = row.try_get::<Option<i64>, _>(idx) {
             return v.map(Value::Int).unwrap_or(Value::Null);
         }
@@ -134,22 +111,24 @@ impl PostgresDriver {
         if let Ok(v) = row.try_get::<Option<i16>, _>(idx) {
             return v.map(|i| Value::Int(i as i64)).unwrap_or(Value::Null);
         }
-        // Bool AFTER integers
         if let Ok(v) = row.try_get::<Option<bool>, _>(idx) {
             return v.map(Value::Bool).unwrap_or(Value::Null);
         }
-        // Floats
         if let Ok(v) = row.try_get::<Option<f64>, _>(idx) {
             return v.map(Value::Float).unwrap_or(Value::Null);
         }
         if let Ok(v) = row.try_get::<Option<f32>, _>(idx) {
             return v.map(|f| Value::Float(f as f64)).unwrap_or(Value::Null);
         }
-        // String
         if let Ok(v) = row.try_get::<Option<String>, _>(idx) {
             return v.map(Value::Text).unwrap_or(Value::Null);
         }
-        // Date/Time types - convert to ISO 8601 string
+        if let Ok(v) = row.try_get::<Option<Vec<u8>>, _>(idx) {
+            return v.map(Value::Bytes).unwrap_or(Value::Null);
+        }
+        if let Ok(v) = row.try_get::<Option<serde_json::Value>, _>(idx) {
+            return v.map(Value::Json).unwrap_or(Value::Null);
+        }
         if let Ok(v) = row.try_get::<Option<chrono::DateTime<chrono::Utc>>, _>(idx) {
             return v.map(|dt| Value::Text(dt.to_rfc3339())).unwrap_or(Value::Null);
         }
@@ -162,17 +141,21 @@ impl PostgresDriver {
         if let Ok(v) = row.try_get::<Option<chrono::NaiveTime>, _>(idx) {
             return v.map(|t| Value::Text(t.format("%H:%M:%S").to_string())).unwrap_or(Value::Null);
         }
-        // Binary
-        if let Ok(v) = row.try_get::<Option<Vec<u8>>, _>(idx) {
-            return v.map(Value::Bytes).unwrap_or(Value::Null);
-        }
-        // JSON/JSONB
-        if let Ok(v) = row.try_get::<Option<serde_json::Value>, _>(idx) {
-            return v.map(Value::Json).unwrap_or(Value::Null);
-        }
 
-        // Fallback: try to get as string representation
+        // Fallback or unknown types treated as null or string if possible
         Value::Null
+    }
+    
+    /// Gets column info from a PgRow
+    fn get_column_info(row: &PgRow) -> Vec<ColumnInfo> {
+        row.columns()
+            .iter()
+            .map(|col| ColumnInfo {
+                name: col.name().to_string(),
+                data_type: col.type_info().name().to_string(),
+                nullable: true, // Postgres doesn't easily expose nullability in metadata from rows
+            })
+            .collect()
     }
 
     async fn fetch_backend_pid(
@@ -182,18 +165,6 @@ impl PostgresDriver {
             .fetch_one(&mut **conn)
             .await
             .map_err(|e| EngineError::execution_error(e.to_string()))
-    }
-
-    /// Gets column info from a PgRow
-    fn get_column_info(row: &PgRow) -> Vec<ColumnInfo> {
-        row.columns()
-            .iter()
-            .map(|col| ColumnInfo {
-                name: col.name().to_string(),
-                data_type: col.type_info().name().to_string(),
-                nullable: true, // SQLx doesn't expose nullability easily at runtime
-            })
-            .collect()
     }
 }
 
@@ -222,14 +193,14 @@ impl DataEngine for PostgresDriver {
             .connect(&conn_str)
             .await
             .map_err(|e| {
-                if e.to_string().contains("password authentication failed") {
-                    EngineError::auth_failed(e.to_string())
+                let msg = e.to_string();
+                if msg.contains("password authentication failed") {
+                    EngineError::auth_failed(msg)
                 } else {
-                    EngineError::connection_failed(e.to_string())
+                    EngineError::connection_failed(msg)
                 }
             })?;
 
-        // Test with a simple query
         sqlx::query("SELECT 1")
             .execute(&pool)
             .await
@@ -279,13 +250,20 @@ impl DataEngine for PostgresDriver {
         let pg_session = self.get_session(session).await?;
         let pool = &pg_session.pool;
 
-        // Get all schemas grouped by database
-        let rows: Vec<(String, String)> = sqlx::query_as(
+        // Get current database name
+        let current_db: (String,) = sqlx::query_as("SELECT current_database()")
+            .fetch_one(pool)
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+        let db_name = current_db.0;
+
+        let rows: Vec<(String,)> = sqlx::query_as(
             r#"
-            SELECT current_database()::text as database, schema_name::text
-            FROM information_schema.schemata
-            WHERE schema_name NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
-            ORDER BY schema_name
+            SELECT nspname
+            FROM pg_catalog.pg_namespace
+            WHERE nspname NOT IN ('information_schema', 'pg_catalog', 'pg_toast')
+              AND nspname NOT LIKE 'pg_temp_%'
+            ORDER BY nspname
             "#,
         )
         .fetch_all(pool)
@@ -294,7 +272,7 @@ impl DataEngine for PostgresDriver {
 
         let namespaces = rows
             .into_iter()
-            .map(|(db, schema)| Namespace::with_schema(db, schema))
+            .map(|(name,)| Namespace::with_schema(&db_name, name))
             .collect();
 
         Ok(namespaces)
@@ -314,25 +292,29 @@ impl DataEngine for PostgresDriver {
 
         // 1. Get total count
         let count_query = r#"
-            SELECT COUNT(*)::bigint
-            FROM information_schema.tables
-            WHERE table_schema = $1
-            AND ($2::text IS NULL OR table_name ILIKE $2)
+            SELECT COUNT(*) 
+            FROM information_schema.tables 
+            WHERE table_schema = $1 
+            AND table_type = 'BASE TABLE'
+            AND ($2 IS NULL OR table_name LIKE $3)
         "#;
 
-        let total_count: i64 = sqlx::query_scalar(count_query)
+        let count_row: (i64,) = sqlx::query_as(count_query)
             .bind(schema)
+            .bind(&search_pattern)
             .bind(&search_pattern)
             .fetch_one(pool)
             .await
             .map_err(|e| EngineError::execution_error(e.to_string()))?;
+        
+        let total_count = count_row.0;
 
         // 2. Get paginated results
         let mut query_str = r#"
-            SELECT table_name::text, table_type::text
-            FROM information_schema.tables
+            SELECT table_name, table_type 
+            FROM information_schema.tables 
             WHERE table_schema = $1
-            AND ($2::text IS NULL OR table_name ILIKE $2)
+            AND ($2 IS NULL OR table_name LIKE $3)
             ORDER BY table_name
         "#.to_string();
 
@@ -346,6 +328,7 @@ impl DataEngine for PostgresDriver {
 
         let rows: Vec<(String, String)> = sqlx::query_as(&query_str)
             .bind(schema)
+            .bind(&search_pattern)
             .bind(&search_pattern)
             .fetch_all(pool)
             .await
@@ -384,27 +367,32 @@ impl DataEngine for PostgresDriver {
         let returns_rows = sql_safety::returns_rows(self.driver_id(), query)
             .unwrap_or_else(|_| sql_safety::is_select_prefix(query));
 
+        // Check for active transaction
         let mut tx_guard = pg_session.transaction_conn.lock().await;
-        let result = if let Some(ref mut conn) = *tx_guard {
-            let backend_pid = Self::fetch_backend_pid(conn).await?;
-            {
-                let mut active = pg_session.active_queries.lock().await;
-                active.insert(query_id, backend_pid);
-            }
 
-            let result = if returns_rows {
+        let result = if let Some(ref mut conn) = *tx_guard {
+             // Use dedicated connection
+             
+             // Register active query
+             let backend_pid = Self::fetch_backend_pid(conn).await?;
+             {
+                 let mut active = pg_session.active_queries.lock().await;
+                 active.insert(query_id, backend_pid);
+             }
+
+             let result = if returns_rows {
                 let pg_rows: Vec<PgRow> = sqlx::query(query)
                     .fetch_all(&mut **conn)
                     .await
                     .map_err(|e| {
                         let msg = e.to_string();
-                        if msg.contains("syntax error") {
+                         if msg.contains("syntax") {
                             EngineError::syntax_error(msg)
                         } else {
                             EngineError::execution_error(msg)
                         }
                     })?;
-
+                
                 let execution_time_ms = start.elapsed().as_micros() as f64 / 1000.0;
 
                 if pg_rows.is_empty() {
@@ -425,13 +413,13 @@ impl DataEngine for PostgresDriver {
                         execution_time_ms,
                     })
                 }
-            } else {
-                let result = sqlx::query(query)
+             } else {
+                 let result = sqlx::query(query)
                     .execute(&mut **conn)
                     .await
                     .map_err(|e| {
                         let msg = e.to_string();
-                        if msg.contains("syntax error") {
+                         if msg.contains("syntax") {
                             EngineError::syntax_error(msg)
                         } else {
                             EngineError::execution_error(msg)
@@ -439,41 +427,44 @@ impl DataEngine for PostgresDriver {
                     })?;
 
                 let execution_time_ms = start.elapsed().as_micros() as f64 / 1000.0;
-
+                
                 Ok(QueryResult::with_affected_rows(
                     result.rows_affected(),
                     execution_time_ms,
                 ))
-            };
+             };
 
             let mut active = pg_session.active_queries.lock().await;
             active.remove(&query_id);
             result
+
         } else {
-            let mut conn = pg_session
+            // Use pool
+             let mut conn = pg_session
                 .pool
                 .acquire()
                 .await
                 .map_err(|e| EngineError::connection_failed(e.to_string()))?;
-            let backend_pid = Self::fetch_backend_pid(&mut conn).await?;
-            {
-                let mut active = pg_session.active_queries.lock().await;
-                active.insert(query_id, backend_pid);
-            }
 
-            let result = if returns_rows {
+             let backend_pid = Self::fetch_backend_pid(&mut conn).await?;
+             {
+                 let mut active = pg_session.active_queries.lock().await;
+                 active.insert(query_id, backend_pid);
+             }
+
+             let result = if returns_rows {
                 let pg_rows: Vec<PgRow> = sqlx::query(query)
                     .fetch_all(&mut *conn)
                     .await
                     .map_err(|e| {
                         let msg = e.to_string();
-                        if msg.contains("syntax error") {
+                         if msg.contains("syntax") {
                             EngineError::syntax_error(msg)
                         } else {
                             EngineError::execution_error(msg)
                         }
                     })?;
-
+                
                 let execution_time_ms = start.elapsed().as_micros() as f64 / 1000.0;
 
                 if pg_rows.is_empty() {
@@ -494,13 +485,13 @@ impl DataEngine for PostgresDriver {
                         execution_time_ms,
                     })
                 }
-            } else {
-                let result = sqlx::query(query)
+             } else {
+                 let result = sqlx::query(query)
                     .execute(&mut *conn)
                     .await
                     .map_err(|e| {
                         let msg = e.to_string();
-                        if msg.contains("syntax error") {
+                         if msg.contains("syntax") {
                             EngineError::syntax_error(msg)
                         } else {
                             EngineError::execution_error(msg)
@@ -508,12 +499,12 @@ impl DataEngine for PostgresDriver {
                     })?;
 
                 let execution_time_ms = start.elapsed().as_micros() as f64 / 1000.0;
-
+                
                 Ok(QueryResult::with_affected_rows(
                     result.rows_affected(),
                     execution_time_ms,
                 ))
-            };
+             };
 
             let mut active = pg_session.active_queries.lock().await;
             active.remove(&query_id);
@@ -575,7 +566,45 @@ impl DataEngine for PostgresDriver {
 
         let pk_columns: Vec<String> = pk_rows.into_iter().map(|(name,)| name).collect();
 
-        // Build columns vec
+        // Get foreign keys
+        // Note: This query joins information_schema views to find FK definitions matches
+        let fk_rows: Vec<(String, String, String, Option<String>)> = sqlx::query_as(
+            r#"
+            SELECT
+                kcu.column_name::text,
+                ccu.table_name::text AS foreign_table_name,
+                ccu.column_name::text AS foreign_column_name,
+                tc.constraint_name::text
+            FROM
+                information_schema.table_constraints AS tc
+                JOIN information_schema.key_column_usage AS kcu
+                  ON tc.constraint_name = kcu.constraint_name
+                  AND tc.table_schema = kcu.table_schema
+                JOIN information_schema.constraint_column_usage AS ccu
+                  ON ccu.constraint_name = tc.constraint_name
+                  AND ccu.table_schema = tc.table_schema
+            WHERE tc.constraint_type = 'FOREIGN KEY'
+                AND tc.table_schema = $1
+                AND tc.table_name = $2
+            "#,
+        )
+        .bind(schema)
+        .bind(table)
+        .fetch_all(pool)
+        .await
+        .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        let foreign_keys: Vec<ForeignKey> = fk_rows
+            .into_iter()
+            .map(|(column, referenced_table, referenced_column, constraint_name)| ForeignKey {
+                column,
+                referenced_table,
+                referenced_column,
+                constraint_name: constraint_name,
+            })
+            .collect();
+
+        // Get columns vec
         let columns: Vec<TableColumn> = column_rows
             .into_iter()
             .map(|(name, data_type, is_nullable, default_value)| TableColumn {
@@ -607,6 +636,7 @@ impl DataEngine for PostgresDriver {
         Ok(TableSchema {
             columns,
             primary_key: if pk_columns.is_empty() { None } else { Some(pk_columns) },
+            foreign_keys,
             row_count_estimate,
         })
     }
@@ -939,6 +969,19 @@ impl DataEngine for PostgresDriver {
 
     fn supports_mutations(&self) -> bool {
         true
+    }
+}
+
+impl PostgresDriver {
+    /// Builds a connection string from config
+    fn build_connection_string(config: &ConnectionConfig) -> String {
+        let db = config.database.as_deref().unwrap_or("postgres");
+        let ssl_mode = if config.ssl { "require" } else { "disable" };
+
+        format!(
+            "postgres://{}:{}@{}:{}/{}?sslmode={}",
+            config.username, config.password, config.host, config.port, db, ssl_mode
+        )
     }
 }
 

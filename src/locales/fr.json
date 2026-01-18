@@ -239,7 +239,11 @@
         "insertSuccess": "Ligne insérée avec succès",
         "insertError": "Échec de l'insertion de la ligne",
         "updateSuccess": "Ligne modifiée avec succès",
-        "updateError": "Échec de la modification de la ligne"
+        "updateError": "Échec de la modification de la ligne",
+        "addCustomField": "Ajouter un champ personnalisé",
+        "fieldName": "Nom du champ",
+        "fieldType": "Type du champ",
+        "fieldNamePlaceholder": "Mon nouveau champ"
     },
     "database": {
         "newTitle": "Nouvelle base de données",
@@ -279,7 +283,8 @@
         "time": "Temps",
         "enabled": "Activé",
         "disabled": "Désactivé",
-        "pagination": "Affichage {{start}}-{{end}} sur {{total}}"
+        "pagination": "Affichage {{start}}-{{end}} sur {{total}}",
+        "add": "Ajouter"
     },
     "environment": {
         "label": "Environnement",

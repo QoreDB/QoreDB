@@ -279,6 +279,7 @@ export function TableBrowser({
           namespace={namespace}
           tableName={tableName}
           schema={schema}
+          driver={driver}
           readOnly={readOnly}
           initialData={selectedRow}
           onSuccess={loadData}

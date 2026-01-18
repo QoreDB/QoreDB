@@ -257,9 +257,18 @@ export async function cancelQuery(
 // TABLE BROWSING
 // ============================================
 
+
+export interface ForeignKey {
+    column: string;
+    referenced_table: string;
+    referenced_column: string;
+    constraint_name?: string;
+}
+
 export interface TableSchema {
 	columns: TableColumn[];
 	primary_key?: string[];
+    foreign_keys: ForeignKey[];
 	row_count_estimate?: number;
 }
 

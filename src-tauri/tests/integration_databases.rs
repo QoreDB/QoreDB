@@ -34,6 +34,9 @@ fn postgres_config() -> ConnectionConfig {
         environment: "development".to_string(),
         read_only: false,
         ssh_tunnel: None,
+        pool_acquire_timeout_secs: None,
+        pool_max_connections: None,
+        pool_min_connections: None
     }
 }
 
@@ -49,6 +52,9 @@ fn mysql_config() -> ConnectionConfig {
         environment: "development".to_string(),
         read_only: false,
         ssh_tunnel: None,
+        pool_acquire_timeout_secs: None,
+        pool_max_connections: None,
+        pool_min_connections: None
     }
 }
 
@@ -64,6 +70,9 @@ fn mongo_config() -> ConnectionConfig {
         environment: "development".to_string(),
         read_only: false,
         ssh_tunnel: None,
+        pool_acquire_timeout_secs: None,
+        pool_max_connections: None,
+        pool_min_connections: None
     }
 }
 

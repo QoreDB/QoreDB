@@ -21,6 +21,17 @@ import { useTheme } from './hooks/useTheme';
 import { QueryLibraryModal } from './components/Query/QueryLibraryModal';
 import './index.css';
 
+function isTextInputTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  const tag = target.tagName.toLowerCase();
+  return (
+    tag === 'input' ||
+    tag === 'textarea' ||
+    tag === 'select' ||
+    target.isContentEditable
+  );
+}
+
 function App() {
   const { t } = useTranslation();
   const { theme, toggleTheme } = useTheme();
@@ -248,6 +259,25 @@ function App() {
   // Global keyboard shortcuts
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
+      const isOverlayOpen = searchOpen || connectionModalOpen || libraryModalOpen;
+      if (isOverlayOpen) {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          setSearchOpen(false);
+          setConnectionModalOpen(false);
+          setLibraryModalOpen(false);
+        }
+        return;
+      }
+
+      if (isTextInputTarget(e.target)) {
+        if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+          e.preventDefault();
+          setSearchOpen(true);
+        }
+        return;
+      }
+
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
         setSearchOpen(true);
@@ -256,6 +286,11 @@ function App() {
       if ((e.metaKey || e.ctrlKey) && e.key === 'n') {
         e.preventDefault();
         setConnectionModalOpen(true);
+      }
+      // Cmd+Shift+L: Open library
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'l') {
+        e.preventDefault();
+        setLibraryModalOpen(true);
       }
       // Cmd+,: Settings
       if ((e.metaKey || e.ctrlKey) && e.key === ',') {
@@ -284,7 +319,15 @@ function App() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeTabId, settingsOpen, closeTab, handleNewQuery]);
+  }, [
+    activeTabId,
+    closeTab,
+    connectionModalOpen,
+    handleNewQuery,
+    libraryModalOpen,
+    searchOpen,
+    settingsOpen,
+  ]);
 
   return (
     <>
@@ -380,6 +423,7 @@ function App() {
                             initialQuery={tab.initialQuery}
                             onSchemaChange={triggerSchemaRefresh}
                             onOpenLibrary={() => setLibraryModalOpen(true)}
+                            isActive={tab.id === activeTabId}
                           />
                         </div>
                       ))
@@ -396,6 +440,7 @@ function App() {
                       initialQuery={pendingQuery}
                       onSchemaChange={triggerSchemaRefresh}
                       onOpenLibrary={() => setLibraryModalOpen(true)}
+                      isActive
                     />
                   )}
                 </div>

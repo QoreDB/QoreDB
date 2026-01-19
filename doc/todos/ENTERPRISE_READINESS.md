@@ -52,10 +52,10 @@
 
 | Domaine     | Action                      | Statut | Notes        |
 | ----------- | --------------------------- | ------ | ------------ |
-| Logging     | Logs structurés (`tracing`) | ⬜     | JSON         |
-| Correlation | `session_id`, `query_id`    | ⬜     | Sans secrets |
-| Persistence | Logs locaux avec rotation   | ⬜     | Exportable   |
-| Support     | Export logs depuis l’UI     | ⬜     | One-click    |
+| Logging     | Logs structurés (`tracing`) | ✅     | JSON         |
+| Correlation | `session_id`, `query_id`    | ✅     | Sans secrets |
+| Persistence | Logs locaux avec rotation   | ✅     | Exportable   |
+| Support     | Export logs depuis l’UI     | ✅     | One-click    |
 
 ---
 

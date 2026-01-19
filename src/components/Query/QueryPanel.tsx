@@ -21,6 +21,17 @@ import { SQLEditorHandle } from '../Editor/SQLEditor';
 import { SaveQueryDialog } from './SaveQueryDialog';
 import { QueryLibraryModal } from './QueryLibraryModal';
 
+function isTextInputTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  const tag = target.tagName.toLowerCase();
+  return (
+    tag === 'input' ||
+    tag === 'textarea' ||
+    tag === 'select' ||
+    target.isContentEditable
+  );
+}
+
 interface QueryPanelProps {
 	sessionId: string | null;
 	dialect?: Driver;
@@ -32,6 +43,7 @@ interface QueryPanelProps {
 	initialQuery?: string;
 	onSchemaChange?: () => void;
   onOpenLibrary?: () => void;
+  isActive?: boolean;
 }
 
 export function QueryPanel({
@@ -45,6 +57,7 @@ export function QueryPanel({
   initialQuery,
   onSchemaChange,
   onOpenLibrary,
+  isActive = true,
 }: QueryPanelProps) {
   const { t } = useTranslation();
   const isMongo = dialect === Driver.Mongodb;
@@ -372,6 +385,39 @@ export function QueryPanel({
     setQueryToSave(candidate);
     setSaveDialogOpen(true);
   }, [isMongo, query]);
+
+  useEffect(() => {
+    if (!isActive) return;
+
+    function handleKeyDown(e: KeyboardEvent) {
+      if (isTextInputTarget(e.target)) return;
+      if (saveDialogOpen || historyOpen || libraryOpen || confirmOpen || dangerConfirmOpen) return;
+
+      // Cmd/Ctrl+S: Save query to library
+      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        handleSaveToLibrary();
+        return;
+      }
+
+      // Cmd/Ctrl+Shift+H: Open query history
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'h') {
+        e.preventDefault();
+        setHistoryOpen(true);
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [
+    confirmOpen,
+    dangerConfirmOpen,
+    handleSaveToLibrary,
+    historyOpen,
+    isActive,
+    libraryOpen,
+    saveDialogOpen,
+  ]);
 
   return (
     <div className="flex flex-col flex-1 bg-background rounded-lg border border-border shadow-sm overflow-hidden">

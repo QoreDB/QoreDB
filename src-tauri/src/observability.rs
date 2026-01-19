@@ -21,6 +21,9 @@ pub fn init_tracing() {
     let _ = tracing_subscriber::fmt()
         .with_env_filter(env_filter)
         .with_writer(file_appender)
+        .json()
+        .with_current_span(true)
+        .with_span_list(true)
         .with_ansi(false)
         .with_span_events(FmtSpan::CLOSE)
         .try_init();

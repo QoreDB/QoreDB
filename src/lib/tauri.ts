@@ -490,3 +490,14 @@ export async function getConnectionCredentials(projectId: string, connectionId: 
 export async function deleteSavedConnection(projectId: string, connectionId: string): Promise<VaultResponse> {
   return invoke('delete_saved_connection', { projectId, connectionId });
 }
+
+export async function duplicateSavedConnection(
+  projectId: string,
+  connectionId: string
+): Promise<{
+  success: boolean;
+  connection?: SavedConnection;
+  error?: string;
+}> {
+  return invoke('duplicate_saved_connection', { projectId, connectionId });
+}

@@ -106,6 +106,7 @@ pub fn run() {
             commands::vault::save_connection,
             commands::vault::list_saved_connections,
             commands::vault::delete_saved_connection,
+            commands::vault::duplicate_saved_connection,
             commands::vault::get_connection_credentials,
             // Policy commands
             commands::policy::get_safety_policy,

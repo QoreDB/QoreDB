@@ -26,6 +26,7 @@ export function ConnectionMenu({ connection, onEdit, onDeleted }: ConnectionMenu
   const {
     testing,
     deleting,
+    duplicating,
     handleTest,
     handleEdit,
     handleDelete,
@@ -92,8 +93,13 @@ export function ConnectionMenu({ connection, onEdit, onDeleted }: ConnectionMenu
 						<button
 							className="w-full flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-muted transition-colors text-left"
 							onClick={handleDuplicate}
+							disabled={duplicating}
 						>
-							<Copy size={14} />
+							{duplicating ? (
+								<Loader2 size={14} className="animate-spin" />
+							) : (
+								<Copy size={14} />
+							)}
 							{t("connection.menu.duplicate")}
 						</button>
 

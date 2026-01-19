@@ -16,6 +16,14 @@ pub struct VaultResponse {
     pub error: Option<String>,
 }
 
+/// Response for duplicating a saved connection
+#[derive(Debug, Serialize)]
+pub struct DuplicateConnectionResponse {
+    pub success: bool,
+    pub connection: Option<SavedConnection>,
+    pub error: Option<String>,
+}
+
 /// Response for checking vault status
 #[derive(Debug, Serialize)]
 pub struct VaultStatusResponse {
@@ -245,6 +253,39 @@ pub async fn delete_saved_connection(
         }),
         Err(e) => Ok(VaultResponse {
             success: false,
+            error: Some(e.to_string()),
+        }),
+    }
+}
+
+/// Duplicates a saved connection (metadata + secrets) entirely within the vault.
+#[tauri::command]
+pub async fn duplicate_saved_connection(
+    state: State<'_, SharedState>,
+    project_id: String,
+    connection_id: String,
+) -> Result<DuplicateConnectionResponse, String> {
+    let state = state.lock().await;
+
+    if state.vault_lock.is_locked() {
+        return Ok(DuplicateConnectionResponse {
+            success: false,
+            connection: None,
+            error: Some("Vault is locked".to_string()),
+        });
+    }
+
+    let storage = VaultStorage::new(&project_id);
+
+    match storage.duplicate_connection(&connection_id) {
+        Ok(connection) => Ok(DuplicateConnectionResponse {
+            success: true,
+            connection: Some(connection),
+            error: None,
+        }),
+        Err(e) => Ok(DuplicateConnectionResponse {
+            success: false,
+            connection: None,
             error: Some(e.to_string()),
         }),
     }

@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import {
   SavedConnection,
   deleteSavedConnection,
+  duplicateSavedConnection,
   testSavedConnection,
   getConnectionCredentials,
 } from '../../lib/tauri';
@@ -23,6 +24,7 @@ export function useConnectionActions({
 }: UseConnectionActionsOptions) {
   const [testing, setTesting] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [duplicating, setDuplicating] = useState(false);
   const { t } = useTranslation();
 
   const handleTest = useCallback(async () => {
@@ -89,14 +91,32 @@ export function useConnectionActions({
     }
   }, [connection, onAfterAction, onDeleted, t]);
 
-  const handleDuplicate = useCallback(() => {
-    toast.info(t('connection.menu.duplicateComingSoon'));
-    onAfterAction?.();
-  }, [onAfterAction, t]);
+  const handleDuplicate = useCallback(async () => {
+    setDuplicating(true);
+    try {
+      const result = await duplicateSavedConnection('default', connection.id);
+      if (result.success && result.connection) {
+        toast.success(t('connection.menu.duplicateSuccess', { name: result.connection.name }));
+        onDeleted();
+      } else {
+        toast.error(t('connection.menu.duplicateFail'), {
+          description: result.error || t('common.unknownError'),
+        });
+      }
+    } catch (err) {
+      toast.error(t('connection.menu.duplicateFail'), {
+        description: err instanceof Error ? err.message : t('common.unknownError'),
+      });
+    } finally {
+      setDuplicating(false);
+      onAfterAction?.();
+    }
+  }, [connection.id, onAfterAction, onDeleted, t]);
 
   return {
     testing,
     deleting,
+    duplicating,
     handleTest,
     handleEdit,
     handleDelete,

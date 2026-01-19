@@ -56,6 +56,19 @@ A modern, powerful, and intuitive database management tool built with Tauri, Rea
 - **Rust** 1.70+ (for Tauri backend)
 - **System Dependencies** for Tauri ([see Tauri prerequisites](https://tauri.app/start/prerequisites/))
 
+On Ubuntu/Debian, the following packages are commonly required to build the Rust/Tauri backend (they provide `pkg-config` files like `glib-2.0.pc`):
+
+```bash
+sudo apt-get update
+sudo apt-get install -y \
+  pkg-config \
+  libglib2.0-dev \
+  libgtk-3-dev \
+  libwebkit2gtk-4.1-dev \
+  libayatana-appindicator3-dev \
+  librsvg2-dev
+```
+
 ### Download
 
 Download the latest release for your platform from the [Releases page](https://github.com/raphplt/QoreDB/releases).

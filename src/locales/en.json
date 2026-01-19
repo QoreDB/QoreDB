@@ -35,16 +35,18 @@
         "failedRetrieveCredentials": "Failed to retrieve credentials",
         "failedRetrieveCredentialsEdit": "Failed to retrieve credentials for editing",
         "menu": {
-            "testConnection": "Test Connection",
-            "edit": "Edit",
-            "duplicate": "Duplicate",
-            "delete": "Delete",
-            "duplicateComingSoon": "Duplicate feature coming soon",
-            "deleteConfirm": "Delete connection \"{{name}}\"? This cannot be undone.",
-            "deletedSuccess": "Connection \"{{name}}\" deleted",
-            "deleteFail": "Failed to delete connection",
-            "credentialLoadFail": "Failed to load connection details",
-            "testTitleSuccess": "Connection to {{name}} successful!"
+      "testConnection": "Test Connection",
+      "edit": "Edit",
+      "duplicate": "Duplicate",
+      "delete": "Delete",
+      "duplicateComingSoon": "Duplicate feature coming soon",
+      "duplicateSuccess": "Duplicated: {{name}}",
+      "duplicateFail": "Failed to duplicate connection",
+      "deleteConfirm": "Delete connection \"{{name}}\"? This cannot be undone.",
+      "deletedSuccess": "Connection \"{{name}}\" deleted",
+      "deleteFail": "Failed to delete connection",
+      "credentialLoadFail": "Failed to load connection details",
+      "testTitleSuccess": "Connection to {{name}} successful!"
         },
         "ssh": {
             "enableTunnel": "Use SSH Tunnel",

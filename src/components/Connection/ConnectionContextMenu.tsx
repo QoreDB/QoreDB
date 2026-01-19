@@ -28,6 +28,7 @@ export function ConnectionContextMenu({
   const {
     testing,
     deleting,
+    duplicating,
     handleTest,
     handleEdit,
     handleDelete,
@@ -50,8 +51,8 @@ export function ConnectionContextMenu({
           <Pencil size={14} />
           {t('connection.menu.edit')}
         </ContextMenuItem>
-        <ContextMenuItem onSelect={() => handleDuplicate()}>
-          <Copy size={14} />
+        <ContextMenuItem onSelect={() => handleDuplicate()} disabled={duplicating}>
+          {duplicating ? <Loader2 size={14} className="animate-spin" /> : <Copy size={14} />}
           {t('connection.menu.duplicate')}
         </ContextMenuItem>
         <ContextMenuSeparator />

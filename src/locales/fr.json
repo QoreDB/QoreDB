@@ -35,16 +35,18 @@
         "failedRetrieveCredentials": "Échec de la récupération des identifiants",
         "failedRetrieveCredentialsEdit": "Échec de la récupération des identifiants pour modification",
         "menu": {
-            "testConnection": "Tester la connexion",
-            "edit": "Modifier",
-            "duplicate": "Dupliquer",
-            "delete": "Supprimer",
-            "duplicateComingSoon": "La fonctionnalité de duplication sera bientôt disponible",
-            "deleteConfirm": "Supprimer la connexion \"{{name}}\" ? Cette action est irréversible.",
-            "deletedSuccess": "Connexion \"{{name}}\" supprimée",
-            "deleteFail": "Échec de la suppression de la connexion",
-            "credentialLoadFail": "Échec du chargement des détails de la connexion",
-            "testTitleSuccess": "Connexion à {{name}} réussie !"
+      "testConnection": "Tester la connexion",
+      "edit": "Modifier",
+      "duplicate": "Dupliquer",
+      "delete": "Supprimer",
+      "duplicateComingSoon": "La fonctionnalité de duplication sera bientôt disponible",
+      "duplicateSuccess": "Dupliquée : {{name}}",
+      "duplicateFail": "Échec de la duplication de la connexion",
+      "deleteConfirm": "Supprimer la connexion \"{{name}}\" ? Cette action est irréversible.",
+      "deletedSuccess": "Connexion \"{{name}}\" supprimée",
+      "deleteFail": "Échec de la suppression de la connexion",
+      "credentialLoadFail": "Échec du chargement des détails de la connexion",
+      "testTitleSuccess": "Connexion à {{name}} réussie !"
         },
         "ssh": {
             "enableTunnel": "Utiliser un tunnel SSH",

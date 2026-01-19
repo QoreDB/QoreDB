@@ -4,6 +4,8 @@
 
 use keyring::Entry;
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
+use uuid::Uuid;
 
 use crate::engine::error::{EngineError, EngineResult};
 use crate::vault::credentials::{SavedConnection, StoredCredentials};
@@ -141,6 +143,31 @@ impl VaultStorage {
         Ok(())
     }
 
+    /// Duplicates a saved connection (metadata + credentials) under a new ID.
+    ///
+    /// Secrets never leave the vault: duplication is performed fully on the backend.
+    pub fn duplicate_connection(&self, source_connection_id: &str) -> EngineResult<SavedConnection> {
+        let mut source = self.get_connection(source_connection_id)?;
+        let creds = self.get_credentials(source_connection_id)?;
+
+        let existing_names: HashSet<String> = self
+            .list_connections_full()?
+            .into_iter()
+            .map(|c| c.name)
+            .collect();
+
+        let new_id = format!("conn_{}", Uuid::new_v4().simple());
+        let new_name = make_copy_name(&source.name, &existing_names);
+
+        source.id = new_id;
+        source.name = new_name;
+        source.project_id = self.project_id.clone();
+
+        self.save_connection(&source, &creds)?;
+
+        Ok(source)
+    }
+
     /// Lists all saved connection IDs
     pub fn list_connections(&self) -> EngineResult<Vec<String>> {
         let service = self.service_name();
@@ -208,6 +235,22 @@ impl VaultStorage {
             .map_err(|e| EngineError::internal(format!("Failed to save list: {}", e)))?;
 
         Ok(())
+    }
+}
+
+fn make_copy_name(base_name: &str, existing_names: &HashSet<String>) -> String {
+    let candidate = format!("{} (copy)", base_name);
+    if !existing_names.contains(&candidate) {
+        return candidate;
+    }
+
+    let mut index = 2;
+    loop {
+        let candidate = format!("{} (copy {})", base_name, index);
+        if !existing_names.contains(&candidate) {
+            return candidate;
+        }
+        index += 1;
     }
 }
 

@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Play, Square, AlertCircle, History, Shield, Lock, Plus, BookmarkPlus, Folder } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Tooltip } from '@/components/ui/tooltip';
 import { Environment } from '../../lib/tauri';
 import { ENVIRONMENT_CONFIG } from '../../lib/environment';
 import { MONGO_TEMPLATES } from '../Editor/MongoEditor';
@@ -169,25 +170,29 @@ export function QueryPanelToolbar({
         {t('query.history')}
       </Button>
 
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={onSaveToLibrary}
-        className="h-9 w-9 text-muted-foreground hover:text-foreground"
-        title={t('library.save')}
-      >
-        <BookmarkPlus size={16} />
-      </Button>
+      <Tooltip content={t('library.save')}>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onSaveToLibrary}
+          className="h-9 w-9 text-muted-foreground hover:text-foreground"
+          aria-label={t('library.save')}
+        >
+          <BookmarkPlus size={16} />
+        </Button>
+      </Tooltip>
 
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={onLibraryOpen}
-        className="h-9 w-9 text-muted-foreground hover:text-foreground"
-        title={t('library.open')}
-      >
-        <Folder size={16} />
-      </Button>
+      <Tooltip content={t('library.open')}>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onLibraryOpen}
+          className="h-9 w-9 text-muted-foreground hover:text-foreground"
+          aria-label={t('library.open')}
+        >
+          <Folder size={16} />
+        </Button>
+      </Tooltip>
 
       <span className="text-xs text-muted-foreground hidden sm:inline-block">
         {t('query.runHint')}

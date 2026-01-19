@@ -7,6 +7,7 @@ import { writeTextFile, readTextFile } from '@tauri-apps/plugin-fs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tooltip } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
 import {
@@ -254,16 +255,22 @@ export function QueryLibraryModal({ isOpen, onClose, onSelectQuery }: QueryLibra
             </Label>
           </div>
 
-          <Button variant="ghost" size="icon" onClick={reload} className="h-8 w-8" title={t('library.refresh')}>
-            <RefreshCw size={14} />
-          </Button>
+          <Tooltip content={t('library.refresh')}>
+            <Button variant="ghost" size="icon" onClick={reload} className="h-8 w-8" aria-label={t('library.refresh')}>
+              <RefreshCw size={14} />
+            </Button>
+          </Tooltip>
 
-          <Button variant="ghost" size="icon" onClick={handleImport} className="h-8 w-8" title={t('library.import')}>
-            <Upload size={14} />
-          </Button>
-          <Button variant="ghost" size="icon" onClick={handleExport} className="h-8 w-8" title={t('library.export')}>
-            <Download size={14} />
-          </Button>
+          <Tooltip content={t('library.import')}>
+            <Button variant="ghost" size="icon" onClick={handleImport} className="h-8 w-8" aria-label={t('library.import')}>
+              <Upload size={14} />
+            </Button>
+          </Tooltip>
+          <Tooltip content={t('library.export')}>
+            <Button variant="ghost" size="icon" onClick={handleExport} className="h-8 w-8" aria-label={t('library.export')}>
+              <Download size={14} />
+            </Button>
+          </Tooltip>
         </div>
 
         <div className="flex items-center gap-2 px-4 py-2 border-b border-border">

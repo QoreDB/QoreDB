@@ -10,6 +10,7 @@ import { ConnectionModal } from './components/Connection/ConnectionModal';
 import { SettingsPage } from './components/Settings/SettingsPage';
 import { StatusBar } from './components/Status/StatusBar';
 import { Button } from './components/ui/button';
+import { Tooltip } from './components/ui/tooltip';
 import { Search, Settings, X } from 'lucide-react';
 import { Namespace, SavedConnection, connectSavedConnection } from './lib/tauri';
 import { HistoryEntry } from './lib/history';
@@ -345,21 +346,23 @@ function App() {
         />
         <main className="flex-1 flex flex-col min-w-0 min-h-0 bg-background relative">
           <header className="flex items-center justify-end absolute right-0 top-0 h-10 z-50 pr-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setSettingsOpen(!settingsOpen)}
-              className="text-muted-foreground hover:text-foreground transition-transform duration-150 active:scale-95"
-              title={t('settings.title')}
-            >
-              <span
-                className={`inline-flex transition-transform duration-200 ${
-                  settingsOpen ? 'rotate-90 scale-110' : 'rotate-0 scale-100'
-                }`}
+            <Tooltip content={t('settings.title')} side="left">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setSettingsOpen(!settingsOpen)}
+                className="text-muted-foreground hover:text-foreground transition-transform duration-150 active:scale-95"
+                aria-label={t('settings.title')}
               >
-                {settingsOpen ? <X size={16} /> : <Settings size={16} />}
-              </span>
-            </Button>
+                <span
+                  className={`inline-flex transition-transform duration-200 ${
+                    settingsOpen ? 'rotate-90 scale-110' : 'rotate-0 scale-100'
+                  }`}
+                >
+                  {settingsOpen ? <X size={16} /> : <Settings size={16} />}
+                </span>
+              </Button>
+            </Tooltip>
           </header>
 
           {!settingsOpen && sessionId && (

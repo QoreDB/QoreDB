@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Loader2 } from 'lucide-react';
-import { toast } from "sonner";
+import { notify } from '../../lib/notify';
 
 import { 
   TableSchema,
@@ -95,7 +95,7 @@ export function RowModal({
   const handleAddExtraField = () => {
     if (!newFieldName.trim()) return;
     if (effectiveColumns.find(c => c.name === newFieldName)) {
-      toast.error(t("rowModal.fieldExists"));
+      notify.error(t("rowModal.fieldExists"));
       return;
     }
 
@@ -140,7 +140,7 @@ export function RowModal({
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		if (readOnly) {
-			toast.error(t("environment.blocked"));
+			notify.error(t("environment.blocked"));
 			return;
 		}
 		setPreviewError(null);
@@ -167,11 +167,11 @@ export function RowModal({
 					const timeMsg = res.result?.execution_time_ms
 						? ` (${res.result.execution_time_ms.toFixed(2)}ms)`
 						: "";
-					toast.success(t("rowModal.insertSuccess") + timeMsg);
+					notify.success(t("rowModal.insertSuccess") + timeMsg);
 					onSuccess();
 					onClose();
 				} else {
-					toast.error(res.error || t("rowModal.insertError"));
+					notify.error(t("rowModal.insertError"), res.error);
 				}
 			} else {
 				// Update
@@ -199,18 +199,18 @@ export function RowModal({
 					const timeMsg = res.result?.execution_time_ms
 						? ` (${res.result.execution_time_ms.toFixed(2)}ms)`
 						: "";
-					toast.success(t("rowModal.updateSuccess") + timeMsg);
+					notify.success(t("rowModal.updateSuccess") + timeMsg);
 					onSuccess();
 					onClose();
 				} else {
-					toast.error(res.error || t("rowModal.updateError"));
+					notify.error(t("rowModal.updateError"), res.error);
 				}
 			}
 		} catch (err) {
 			console.error(err);
 			const message = err instanceof Error ? err.message : "Operation failed";
 			setPreviewError(message);
-			toast.error(message);
+			notify.error(message, err);
 		} finally {
 			setLoading(false);
 		}

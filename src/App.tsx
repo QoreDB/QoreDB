@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import { notify } from './lib/notify';
 import { Sidebar } from './components/Sidebar/Sidebar';
 import { TabBar } from './components/Tabs/TabBar';
 import { GlobalSearch, SearchResult } from './components/Search/GlobalSearch';
@@ -17,7 +18,7 @@ import { HistoryEntry } from './lib/history';
 import { QueryLibraryItem } from './lib/queryLibrary';
 import { Driver } from './lib/drivers';
 import { OpenTab, createTableTab, createDatabaseTab, createQueryTab } from './lib/tabs';
-import { Toaster, toast } from 'sonner';
+import { Toaster } from 'sonner';
 import { useTheme } from './hooks/useTheme';
 import { QueryLibraryModal } from './components/Query/QueryLibraryModal';
 import './index.css';
@@ -140,7 +141,7 @@ function App() {
           }
           case 'cmd_new_query': {
             if (!sessionId) {
-              toast.error(t('query.noConnectionError'));
+              notify.error(t('query.noConnectionError'));
               return;
             }
             openTab(createQueryTab());
@@ -173,7 +174,7 @@ function App() {
         try {
           const connectResult = await connectSavedConnection('default', conn.id);
           if (connectResult.success && connectResult.session_id) {
-            toast.success(t('sidebar.connectedTo', { name: conn.name }));
+            notify.success(t('sidebar.connectedTo', { name: conn.name }));
             handleConnected(connectResult.session_id, {
               ...conn,
               environment: conn.environment,
@@ -181,12 +182,10 @@ function App() {
             });
             setSidebarRefreshTrigger(prev => prev + 1);
           } else {
-            toast.error(t('sidebar.connectionToFailed', { name: conn.name }), {
-              description: connectResult.error,
-            });
+            notify.error(t('sidebar.connectionToFailed', { name: conn.name }), connectResult.error);
           }
         } catch {
-          toast.error(t('sidebar.connectError'));
+          notify.error(t('sidebar.connectError'));
         }
       } else if (result.type === 'query' || result.type === 'favorite') {
         const entry = result.data as HistoryEntry;

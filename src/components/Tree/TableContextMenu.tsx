@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Eye, Trash2, Eraser } from 'lucide-react';
-import { toast } from 'sonner';
+import { notify } from '../../lib/notify';
 
 import {
   ContextMenu,
@@ -58,7 +58,7 @@ export function TableContextMenu({
 
   async function handleDropTable() {
     if (readOnly) {
-      toast.error(t('environment.blocked'));
+      notify.error(t('environment.blocked'));
       return;
     }
     setLoading(true);
@@ -85,19 +85,15 @@ export function TableContextMenu({
         // Invalidate cache before refresh
         invalidateCollectionsCache(sessionId, collection.namespace);
         invalidateTableSchemaCache(sessionId, collection.namespace, tableName);
-        toast.success(t('dropTable.success', { name: tableName }));
+        notify.success(t('dropTable.success', { name: tableName }));
         onRefresh();
         setDangerAction(null);
         emitTableChange({ type: 'drop', namespace: collection.namespace, tableName });
       } else {
-        toast.error(t('dropTable.failed'), {
-          description: result.error,
-        });
+        notify.error(t('dropTable.failed'), result.error);
       }
     } catch (err) {
-      toast.error(t('common.error'), {
-        description: err instanceof Error ? err.message : t('common.unknownError'),
-      });
+      notify.error(t('common.error'), err);
     } finally {
       setLoading(false);
     }
@@ -105,7 +101,7 @@ export function TableContextMenu({
 
   async function handleTruncateTable() {
     if (readOnly) {
-      toast.error(t('environment.blocked'));
+      notify.error(t('environment.blocked'));
       return;
     }
     setLoading(true);
@@ -131,19 +127,15 @@ export function TableContextMenu({
       if (result.success) {
         // Invalidate table schema cache (data changed, schema may have stats)
         invalidateTableSchemaCache(sessionId, collection.namespace, tableName);
-        toast.success(t('tableMenu.truncateSuccess', { name: tableName }));
+        notify.success(t('tableMenu.truncateSuccess', { name: tableName }));
         onRefresh();
         setDangerAction(null);
         emitTableChange({ type: 'truncate', namespace: collection.namespace, tableName });
       } else {
-        toast.error(t('tableMenu.truncateError'), {
-          description: result.error,
-        });
+        notify.error(t('tableMenu.truncateError'), result.error);
       }
     } catch (err) {
-      toast.error(t('common.error'), {
-        description: err instanceof Error ? err.message : t('common.unknownError'),
-      });
+      notify.error(t('common.error'), err);
     } finally {
       setLoading(false);
     }

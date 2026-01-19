@@ -21,7 +21,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Driver } from '@/lib/drivers';
 import { ColumnDef, getColumnTypes, buildCreateTableSQL, ColumnType } from '@/lib/column-types';
 import { Namespace, executeQuery } from '@/lib/tauri';
-import { toast } from 'sonner';
+import { notify } from '@/lib/notify';
 
 interface CreateTableModalProps {
   isOpen: boolean;
@@ -123,7 +123,7 @@ export function CreateTableModal({
 
 	async function handleCreate() {
 		if (!tableName.trim() || !generatedSQL) {
-			toast.error(t("createTable.tableNameRequired"));
+			notify.error(t("createTable.tableNameRequired"));
 			return;
 		}
 
@@ -131,14 +131,14 @@ export function CreateTableModal({
 		try {
 			const result = await executeQuery(sessionId, generatedSQL);
 			if (result.success) {
-				toast.success(t("createTable.success", { name: tableName }));
+				notify.success(t("createTable.success", { name: tableName }));
 				onTableCreated?.(tableName.trim());
 				handleClose();
 			} else {
-				toast.error(t("createTable.failed"), { description: result.error });
+				notify.error(t("createTable.failed"), result.error);
 			}
-		} catch {
-			toast.error(t("createTable.failed"));
+		} catch (err) {
+			notify.error(t("createTable.failed"), err);
 		} finally {
 			setLoading(false);
 		}

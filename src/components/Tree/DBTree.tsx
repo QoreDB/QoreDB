@@ -255,12 +255,12 @@ export function DBTree({
                     </TableContextMenu>
                   ))
                 )}
-                {collectionsLoading && (
+                {/* {collectionsLoading && (
                   <div className="flex items-center gap-2 px-2 py-1 text-xs text-muted-foreground">
                     <Loader2 size={12} className="animate-spin" />
                     {t('common.loading')}
                   </div>
-                )}
+                )} */}
                 {canLoadMore && !collectionsLoading && (
                   <Button
                     variant="ghost"

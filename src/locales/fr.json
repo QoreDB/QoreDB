@@ -488,5 +488,10 @@
             "privacyHint": "Nous ne collectons que les rapports de crash. Aucune donnée de requête ni identifiant ne quitte votre machine.",
             "finish": "C'est parti !"
         }
+    },
+    "errorBoundary": {
+        "title": "Une erreur est survenue",
+        "description": "Une erreur inattendue s'est produite. L'erreur a été journalisée.",
+        "reload": "Recharger l'application"
     }
 }

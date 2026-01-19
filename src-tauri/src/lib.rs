@@ -96,6 +96,7 @@ pub fn run() {
             commands::mutation::supports_mutations,
             // Logs
             commands::logs::export_logs,
+            commands::logs::log_frontend_message,
             // Metrics (dev-only)
             commands::metrics::get_metrics,
             // Vault commands

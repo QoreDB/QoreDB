@@ -502,5 +502,10 @@
             "privacyHint": "We only collect crash reports and feature usage counts. No query data or credentials ever leave your machine.",
             "finish": "Get Started"
         }
+    },
+    "errorBoundary": {
+        "title": "Something went wrong",
+        "description": "An unexpected error occurred. The error has been logged.",
+        "reload": "Reload Application"
     }
 }

@@ -31,3 +31,23 @@ pub async fn export_logs() -> Result<LogsExportResponse, String> {
         }),
     }
 }
+
+#[derive(Debug, serde::Deserialize)]
+pub struct FrontendLogEntry {
+    pub level: String,
+    pub message: String,
+    pub stack: Option<String>,
+    pub timestamp: String,
+}
+
+#[tauri::command]
+pub async fn log_frontend_message(entry: FrontendLogEntry) -> Result<(), String> {
+    match entry.level.as_str() {
+        "error" => tracing::error!(target: "frontend", stack = ?entry.stack, "{}", entry.message),
+        "warn" => tracing::warn!(target: "frontend", stack = ?entry.stack, "{}", entry.message),
+        "info" => tracing::info!(target: "frontend", "{}", entry.message),
+        "debug" => tracing::debug!(target: "frontend", "{}", entry.message),
+        _ => tracing::info!(target: "frontend", level = %entry.level, "{}", entry.message),
+    }
+    Ok(())
+}

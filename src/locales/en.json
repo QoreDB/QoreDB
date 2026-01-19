@@ -444,6 +444,30 @@
         "success": "Table \"{{name}}\" dropped successfully",
         "failed": "Failed to drop table"
     },
+    "history": {
+        "title": "Query History",
+        "recent": "Recent",
+        "favorites": "Favorites",
+        "searchPlaceholder": "Search queries...",
+        "clear": "Clear",
+        "clearConfirm": "Clear all query history?",
+        "noFavorites": "No favorite queries yet",
+        "noHistory": "No query history",
+        "entryCount": "{{count}} entry",
+        "entryCount_other": "{{count}} entries",
+        "matching": "matching \"{{search}}\"",
+        "rows": "rows",
+        "useQuery": "Use this query",
+        "addToFavorites": "Add to favorites",
+        "removeFromFavorites": "Remove from favorites",
+        "removeFromHistory": "Remove from history",
+        "time": {
+            "justNow": "just now",
+            "minutesAgo": "{{count}}m ago",
+            "hoursAgo": "{{count}}h ago",
+            "daysAgo": "{{count}}d ago"
+        }
+    },
     "document": {
         "new": "New Document",
         "edit": "Edit Document",

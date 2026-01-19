@@ -66,9 +66,7 @@ export function useConnectionActions({
   }, [connection, onAfterAction, onEdit, t]);
 
   const handleDelete = useCallback(async () => {
-    if (!confirm(t('connection.menu.deleteConfirm', { name: connection.name }))) {
-      return;
-    }
+
 
     setDeleting(true);
     try {

@@ -441,5 +441,29 @@
         "confirmProduction": "Vous êtes en PRODUCTION. Tapez le nom de la table pour confirmer :",
         "success": "Table \"{{name}}\" supprimée avec succès",
         "failed": "Échec de la suppression de la table"
+    },
+    "history": {
+        "title": "Historique des requêtes",
+        "recent": "Récent",
+        "favorites": "Favoris",
+        "searchPlaceholder": "Rechercher...",
+        "clear": "Effacer",
+        "clearConfirm": "Effacer tout l'historique ?",
+        "noFavorites": "Aucun favori pour l'instant",
+        "noHistory": "Aucun historique",
+        "entryCount": "{{count}} entrée",
+        "entryCount_other": "{{count}} entrées",
+        "matching": "correspondant à \"{{search}}\"",
+        "rows": "lignes",
+        "useQuery": "Utiliser cette requête",
+        "addToFavorites": "Ajouter aux favoris",
+        "removeFromFavorites": "Retirer des favoris",
+        "removeFromHistory": "Supprimer de l'historique",
+        "time": {
+            "justNow": "à l'instant",
+            "minutesAgo": "il y a {{count}}m",
+            "hoursAgo": "il y a {{count}}h",
+            "daysAgo": "il y a {{count}}j"
+        }
     }
 }

@@ -22,8 +22,8 @@ import {
   Clock,
   AlertCircle,
   CheckCircle2,
-  X,
 } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 interface QueryHistoryProps {
   isOpen: boolean;
@@ -75,7 +75,7 @@ export function QueryHistory({ isOpen, onClose, onSelectQuery, sessionId }: Quer
   }
 
   function handleClearAll() {
-    if (confirm('Clear all query history?')) {
+    if (confirm(t('history.clearConfirm'))) {
       clearHistory();
       loadEntries();
     }
@@ -89,30 +89,23 @@ export function QueryHistory({ isOpen, onClose, onSelectQuery, sessionId }: Quer
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
 
-    if (diffMins < 1) return 'just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
+    if (diffMins < 1) return t('history.time.justNow');
+    if (diffMins < 60) return t('history.time.minutesAgo', { count: diffMins });
+    if (diffHours < 24) return t('history.time.hoursAgo', { count: diffHours });
+    if (diffDays < 7) return t('history.time.daysAgo', { count: diffDays });
     return date.toLocaleDateString();
   }
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className="w-full max-w-2xl max-h-[80vh] bg-background border border-border rounded-lg shadow-xl flex flex-col overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col p-0 gap-0 overflow-hidden sm:rounded-lg">
+        <DialogHeader className="px-4 py-3 border-b border-border flex flex-row items-center justify-between space-y-0">
           <div className="flex items-center gap-2">
             <History size={18} className="text-accent" />
-            <h2 className="font-semibold">Query History</h2>
+            <DialogTitle>{t('history.title')}</DialogTitle>
           </div>
-          <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8">
-            <X size={16} />
-          </Button>
-        </div>
+        </DialogHeader>
 
-        {/* Tabs & Search */}
         <div className="flex items-center gap-2 px-4 py-2 border-b border-border bg-muted/20">
           <div className="flex items-center gap-1">
             <button
@@ -126,7 +119,7 @@ export function QueryHistory({ isOpen, onClose, onSelectQuery, sessionId }: Quer
             >
               <span className="flex items-center gap-1.5">
                 <Clock size={14} />
-                Recent
+                {t('history.recent')}
               </span>
             </button>
             <button
@@ -140,14 +133,13 @@ export function QueryHistory({ isOpen, onClose, onSelectQuery, sessionId }: Quer
             >
               <span className="flex items-center gap-1.5">
                 <Star size={14} />
-                Favorites
+                {t('history.favorites')}
               </span>
             </button>
           </div>
 
           <div className="flex-1" />
 
-          {/* Search */}
           <div className="relative">
             <Search
               size={14}
@@ -155,7 +147,7 @@ export function QueryHistory({ isOpen, onClose, onSelectQuery, sessionId }: Quer
             />
             <input
               type="text"
-              placeholder="Search queries..."
+              placeholder={t('history.searchPlaceholder')}
               value={search}
               onChange={e => setSearch(e.target.value)}
               className="h-8 pl-8 pr-3 text-sm rounded-md border border-input bg-background focus:outline-none focus:ring-1 focus:ring-ring w-48"
@@ -170,7 +162,7 @@ export function QueryHistory({ isOpen, onClose, onSelectQuery, sessionId }: Quer
               className="h-8 text-xs text-muted-foreground hover:text-error"
             >
               <Trash2 size={14} className="mr-1" />
-              Clear
+              {t('history.clear')}
             </Button>
           )}
         </div>
@@ -181,7 +173,7 @@ export function QueryHistory({ isOpen, onClose, onSelectQuery, sessionId }: Quer
             <div className="flex flex-col items-center justify-center h-48 text-muted-foreground">
               <History size={32} className="mb-2 opacity-50" />
               <p className="text-sm">
-                {tab === 'favorites' ? 'No favorite queries yet' : 'No query history'}
+                {tab === 'favorites' ? t('history.noFavorites') : t('history.noHistory')}
               </p>
             </div>
           ) : (
@@ -216,7 +208,7 @@ export function QueryHistory({ isOpen, onClose, onSelectQuery, sessionId }: Quer
                       ) : entry.executionTimeMs ? (
                         <span>{entry.executionTimeMs.toFixed(2)}ms</span>
                       ) : null}
-                      {entry.rowCount !== undefined && <span>{entry.rowCount} rows</span>}
+                      {entry.rowCount !== undefined && <span>{entry.rowCount} {t('history.rows')}</span>}
                       {entry.database && <span className="font-mono">{entry.database}</span>}
                     </div>
                   </div>
@@ -228,7 +220,7 @@ export function QueryHistory({ isOpen, onClose, onSelectQuery, sessionId }: Quer
                       size="icon"
                       className="h-7 w-7"
                       onClick={() => handleSelectQuery(entry)}
-                      title="Use this query"
+                      title={t('history.useQuery')}
                     >
                       <Play size={14} />
                     </Button>
@@ -237,7 +229,11 @@ export function QueryHistory({ isOpen, onClose, onSelectQuery, sessionId }: Quer
                       size="icon"
                       className={cn('h-7 w-7', isFavorite(entry.id) && 'text-yellow-500')}
                       onClick={() => handleToggleFavorite(entry.id)}
-                      title={isFavorite(entry.id) ? 'Remove from favorites' : 'Add to favorites'}
+                      title={
+                        isFavorite(entry.id)
+                          ? t('history.removeFromFavorites')
+                          : t('history.addToFavorites')
+                      }
                     >
                       <Star size={14} className={isFavorite(entry.id) ? 'fill-current' : ''} />
                     </Button>
@@ -246,7 +242,7 @@ export function QueryHistory({ isOpen, onClose, onSelectQuery, sessionId }: Quer
                       size="icon"
                       className="h-7 w-7 text-muted-foreground hover:text-error"
                       onClick={() => handleRemove(entry.id)}
-                      title="Remove from history"
+                      title={t('history.removeFromHistory')}
                     >
                       <Trash2 size={14} />
                     </Button>
@@ -259,10 +255,10 @@ export function QueryHistory({ isOpen, onClose, onSelectQuery, sessionId }: Quer
 
         {/* Footer */}
         <div className="px-4 py-2 border-t border-border text-xs text-muted-foreground bg-muted/10">
-          {entries.length} {entries.length === 1 ? 'entry' : 'entries'}
-          {search && ` matching "${search}"`}
+          {t('history.entryCount', { count: entries.length })}
+          {search && ` ${t('history.matching', { search })}`}
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

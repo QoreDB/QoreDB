@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
-import { Play, Square, AlertCircle, History, Shield, Lock, Plus, BookmarkPlus, Folder } from 'lucide-react';
+import { Play, Square, AlertCircle, History, Shield, Lock, Plus, BookmarkPlus, Folder, Layers } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Tooltip } from '@/components/ui/tooltip';
 import { Environment } from '../../lib/tauri';
@@ -54,7 +54,7 @@ export function QueryPanelToolbar({
 
   return (
     <div className="flex items-center gap-2 p-2 border-b border-border bg-muted/20">
-      <Button onClick={onExecute} disabled={loading || !sessionId} className="w-24 gap-2">
+      <Button onClick={onExecute} disabled={loading || !sessionId} className="gap-2">
         {loading ? (
           <span className="flex items-center gap-2">{t('query.running')}</span>
         ) : (
@@ -144,31 +144,33 @@ export function QueryPanelToolbar({
       <div className="flex-1" />
 
       {!isMongo && (
-        <button
-          type="button"
-          onClick={onToggleKeepResults}
-          className={cn(
-            'h-9 px-3 rounded-md border border-transparent text-xs font-medium transition-colors',
-            keepResults
-              ? 'bg-accent/10 text-accent border-accent/30'
-              : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-          )}
-          aria-pressed={keepResults}
-        >
-          {t('query.keepResults')}
-        </button>
+        <Tooltip content={t('query.keepResults')}>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onToggleKeepResults}
+            className={cn(
+              'h-9 w-9',
+              keepResults
+                ? 'text-accent bg-accent/10 hover:bg-accent/20'
+                : 'text-muted-foreground hover:text-foreground'
+            )}
+          >
+            <Layers size={16} />
+          </Button>
+        </Tooltip>
       )}
 
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={onHistoryOpen}
-        className="h-9 px-2 text-muted-foreground hover:text-foreground"
-        title={t('query.history')}
-      >
-        <History size={16} className="mr-1" />
-        {t('query.history')}
-      </Button>
+      <Tooltip content={t('query.history')}>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onHistoryOpen}
+          className="h-9 w-9 text-muted-foreground hover:text-foreground"
+        >
+          <History size={16} />
+        </Button>
+      </Tooltip>
 
       <Tooltip content={t('library.save')}>
         <Button

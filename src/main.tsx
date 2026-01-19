@@ -4,8 +4,12 @@ import "./i18n"; // Import i18n configuration
 import App from "./App";
 import "./index.css";
 
+import { TooltipProvider } from "@/components/ui/tooltip";
+
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
-    <App />
+    <TooltipProvider>
+      <App />
+    </TooltipProvider>
   </React.StrictMode>,
 );

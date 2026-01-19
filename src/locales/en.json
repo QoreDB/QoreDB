@@ -153,6 +153,14 @@
             "unknown": "Unknown"
         }
     },
+    "palette": {
+        "newConnection": "New connection",
+        "newQuery": "New query",
+        "openLibrary": "Open query library",
+        "openSettings": "Settings",
+        "toggleTheme": "Toggle theme",
+        "closeTab": "Close tab"
+    },
     "settings": {
         "title": "Settings",
         "language": "Language",

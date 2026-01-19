@@ -31,6 +31,7 @@ interface QueryPanelProps {
 	activeNamespace?: Namespace | null;
 	initialQuery?: string;
 	onSchemaChange?: () => void;
+  onOpenLibrary?: () => void;
 }
 
 export function QueryPanel({
@@ -43,6 +44,7 @@ export function QueryPanel({
   activeNamespace,
   initialQuery,
   onSchemaChange,
+  onOpenLibrary,
 }: QueryPanelProps) {
   const { t } = useTranslation();
   const isMongo = dialect === Driver.Mongodb;
@@ -389,7 +391,7 @@ export function QueryPanel({
         onToggleKeepResults={handleToggleKeepResults}
         onNewDocument={handleNewDocument}
         onHistoryOpen={() => setHistoryOpen(true)}
-        onLibraryOpen={() => setLibraryOpen(true)}
+        onLibraryOpen={() => (onOpenLibrary ? onOpenLibrary() : setLibraryOpen(true))}
         onSaveToLibrary={handleSaveToLibrary}
         onTemplateSelect={handleTemplateSelect}
       />

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Search, Database, FileCode, Star, Folder } from 'lucide-react';
+import { Search, Database, FileCode, Star, Folder, Command } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { listSavedConnections, SavedConnection } from '../../lib/tauri';
 import { searchHistory, getFavorites, HistoryEntry } from '../../lib/history';
@@ -10,19 +10,28 @@ interface GlobalSearchProps {
   isOpen: boolean;
   onClose: () => void;
   onSelect?: (result: SearchResult) => void;
+  commands?: CommandItem[];
 }
 
-export interface SearchResult {
-  type: 'connection' | 'query' | 'favorite' | 'library';
+export interface CommandItem {
   id: string;
   label: string;
   sublabel?: string;
+  shortcut?: string;
+}
+
+export interface SearchResult {
+  type: 'command' | 'connection' | 'query' | 'favorite' | 'library';
+  id: string;
+  label: string;
+  sublabel?: string;
+  shortcut?: string;
   data?: SavedConnection | HistoryEntry | QueryLibraryItem;
 }
 
 const DEFAULT_PROJECT = 'default';
 
-export function GlobalSearch({ isOpen, onClose, onSelect }: GlobalSearchProps) {
+export function GlobalSearch({ isOpen, onClose, onSelect, commands = [] }: GlobalSearchProps) {
   const { t } = useTranslation();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -37,7 +46,15 @@ export function GlobalSearch({ isOpen, onClose, onSelect }: GlobalSearchProps) {
     if (isOpen) {
       inputRef.current?.focus();
       setQuery('');
-      setResults([]);
+      setResults(
+        commands.map(cmd => ({
+          type: 'command',
+          id: cmd.id,
+          label: cmd.label,
+          sublabel: cmd.sublabel,
+          shortcut: cmd.shortcut,
+        }))
+      );
       setSelectedIndex(0);
       
       // Fetch connections from vault
@@ -82,13 +99,29 @@ export function GlobalSearch({ isOpen, onClose, onSelect }: GlobalSearchProps) {
 				setQuery(value);
 				setSelectedIndex(0);
 
-				if (!value.trim()) {
-					setResults([]);
-					return;
-				}
-
-				const lowerQuery = value.toLowerCase();
+        const trimmed = value.trim();
+        const lowerQuery = trimmed.toLowerCase();
 				const searchResults: SearchResult[] = [];
+
+        // Commands first (always available, also searchable)
+        const matchingCommands = trimmed
+          ? commands.filter(cmd => cmd.label.toLowerCase().includes(lowerQuery))
+          : commands;
+        matchingCommands.forEach(cmd => {
+          searchResults.push({
+            type: 'command',
+            id: cmd.id,
+            label: cmd.label,
+            sublabel: cmd.sublabel,
+            shortcut: cmd.shortcut,
+          });
+        });
+
+        if (!trimmed) {
+          setResults(searchResults);
+          return;
+        }
+
         const folderById = new Map<string, string>();
         libraryFolders.forEach(f => folderById.set(f.id, f.name));
 
@@ -165,7 +198,7 @@ export function GlobalSearch({ isOpen, onClose, onSelect }: GlobalSearchProps) {
 
 				setResults(searchResults.slice(0, 10));
 			},
-			[connections, libraryFolders, libraryItems, t]
+			[commands, connections, libraryFolders, libraryItems, t]
 		);
 
 		if (!isOpen) return null;
@@ -185,13 +218,13 @@ export function GlobalSearch({ isOpen, onClose, onSelect }: GlobalSearchProps) {
 							ref={inputRef}
 							className="flex-1 h-14 bg-transparent outline-none placeholder:text-muted-foreground text-base"
 							type="text"
-							placeholder={t("browser.searchPlaceholder")}
+							placeholder={t("search.placeholder")}
 							value={query}
 							onChange={(e) => handleSearch(e.target.value)}
 						/>
 					</div>
 
-					{results.length > 0 && (
+					{results.length > 0 ? (
 						<div className="max-h-75 overflow-y-auto py-1">
 							{results.map((result, i) => (
 								<button
@@ -214,7 +247,9 @@ export function GlobalSearch({ isOpen, onClose, onSelect }: GlobalSearchProps) {
 											i === selectedIndex && "text-accent-foreground/70"
 										)}
 									>
-										{result.type === "connection" ? (
+										{result.type === "command" ? (
+											<Command size={16} />
+										) : result.type === "connection" ? (
 											<Database size={16} />
 										) : result.type === "favorite" ? (
 											<Star size={16} />
@@ -242,14 +277,23 @@ export function GlobalSearch({ isOpen, onClose, onSelect }: GlobalSearchProps) {
 											</span>
 										)}
 									</div>
+
+                  {result.shortcut && (
+                    <kbd
+                      className={cn(
+                        "ml-auto pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground opacity-100",
+                        i === selectedIndex && "border-accent-foreground/30 bg-accent-foreground/10 text-accent-foreground"
+                      )}
+                    >
+                      {result.shortcut}
+                    </kbd>
+                  )}
 								</button>
 							))}
 						</div>
-					)}
-
-					{query === "" && results.length === 0 && (
+					) : (
 						<div className="px-4 py-8 text-center text-sm text-muted-foreground">
-							{t("browser.typeToSearch")}
+							{query.trim() ? t("search.noResults") : t("browser.typeToSearch")}
 						</div>
 					)}
 

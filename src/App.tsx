@@ -18,13 +18,15 @@ import { Driver } from './lib/drivers';
 import { OpenTab, createTableTab, createDatabaseTab, createQueryTab } from './lib/tabs';
 import { Toaster, toast } from 'sonner';
 import { useTheme } from './hooks/useTheme';
+import { QueryLibraryModal } from './components/Query/QueryLibraryModal';
 import './index.css';
 
 function App() {
   const { t } = useTranslation();
-  const { theme } = useTheme();
+  const { theme, toggleTheme } = useTheme();
   const [searchOpen, setSearchOpen] = useState(false);
   const [connectionModalOpen, setConnectionModalOpen] = useState(false);
+  const [libraryModalOpen, setLibraryModalOpen] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [driver, setDriver] = useState<Driver>(Driver.Postgres);
   const [activeConnection, setActiveConnection] = useState<SavedConnection | null>(null);
@@ -86,10 +88,72 @@ function App() {
     setSettingsOpen(false);
   }, []);
 
+  const closeTab = useCallback(
+    (tabId: string) => {
+      setTabs(prev => {
+        const newTabs = prev.filter(t => t.id !== tabId);
+        if (activeTabId === tabId) {
+          const closedIndex = prev.findIndex(t => t.id === tabId);
+          const newActiveTab = newTabs[closedIndex] || newTabs[closedIndex - 1] || null;
+          setActiveTabId(newActiveTab?.id || null);
+        }
+        return newTabs;
+      });
+    },
+    [activeTabId]
+  );
+
+  const paletteCommands = useMemo(
+    () => [
+      { id: 'cmd_new_connection', label: t('palette.newConnection'), shortcut: '⌘N' },
+      { id: 'cmd_new_query', label: t('palette.newQuery'), shortcut: '⌘T' },
+      { id: 'cmd_open_library', label: t('palette.openLibrary') },
+      { id: 'cmd_open_settings', label: t('palette.openSettings'), shortcut: '⌘,' },
+      { id: 'cmd_toggle_theme', label: t('palette.toggleTheme') },
+      ...(activeTabId ? [{ id: 'cmd_close_tab', label: t('palette.closeTab'), shortcut: '⌘W' }] : []),
+    ],
+    [activeTabId, t]
+  );
+
   // Handle search result selection
   const handleSearchSelect = useCallback(
     async (result: SearchResult) => {
       setSearchOpen(false);
+
+      if (result.type === 'command') {
+        switch (result.id) {
+          case 'cmd_new_connection': {
+            setConnectionModalOpen(true);
+            return;
+          }
+          case 'cmd_new_query': {
+            if (!sessionId) {
+              toast.error(t('query.noConnectionError'));
+              return;
+            }
+            openTab(createQueryTab());
+            return;
+          }
+          case 'cmd_open_library': {
+            setLibraryModalOpen(true);
+            return;
+          }
+          case 'cmd_open_settings': {
+            setSettingsOpen(true);
+            return;
+          }
+          case 'cmd_toggle_theme': {
+            toggleTheme();
+            return;
+          }
+          case 'cmd_close_tab': {
+            if (activeTabId) closeTab(activeTabId);
+            return;
+          }
+          default:
+            return;
+        }
+      }
 
       if (result.type === 'connection' && result.data) {
         // Connect to the selected connection
@@ -136,22 +200,7 @@ function App() {
         }
       }
     },
-    [t, sessionId, openTab]
-  );
-
-  const closeTab = useCallback(
-    (tabId: string) => {
-      setTabs(prev => {
-        const newTabs = prev.filter(t => t.id !== tabId);
-        if (activeTabId === tabId) {
-          const closedIndex = prev.findIndex(t => t.id === tabId);
-          const newActiveTab = newTabs[closedIndex] || newTabs[closedIndex - 1] || null;
-          setActiveTabId(newActiveTab?.id || null);
-        }
-        return newTabs;
-      });
-    },
-    [activeTabId]
+    [t, sessionId, openTab, toggleTheme, activeTabId, closeTab]
   );
 
   function handleTableSelect(namespace: Namespace, tableName: string) {
@@ -330,6 +379,7 @@ function App() {
                             activeNamespace={queryNamespace}
                             initialQuery={tab.initialQuery}
                             onSchemaChange={triggerSchemaRefresh}
+                            onOpenLibrary={() => setLibraryModalOpen(true)}
                           />
                         </div>
                       ))
@@ -345,6 +395,7 @@ function App() {
                       activeNamespace={queryNamespace}
                       initialQuery={pendingQuery}
                       onSchemaChange={triggerSchemaRefresh}
+                      onOpenLibrary={() => setLibraryModalOpen(true)}
                     />
                   )}
                 </div>
@@ -392,6 +443,20 @@ function App() {
         isOpen={searchOpen}
         onClose={() => setSearchOpen(false)}
         onSelect={handleSearchSelect}
+        commands={paletteCommands}
+      />
+
+      <QueryLibraryModal
+        isOpen={libraryModalOpen}
+        onClose={() => setLibraryModalOpen(false)}
+        onSelectQuery={q => {
+          if (sessionId) {
+            openTab(createQueryTab(q));
+            setPendingQuery(undefined);
+          } else {
+            setPendingQuery(q);
+          }
+        }}
       />
 
       <Toaster

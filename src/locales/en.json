@@ -363,7 +363,8 @@
         "enabled": "Enabled",
         "disabled": "Disabled",
         "pagination": "Showing {{start}}-{{end}} of {{total}}",
-        "add": "Add"
+        "add": "Add",
+        "back": "Back"
     },
     "environment": {
         "label": "Environment",
@@ -479,5 +480,27 @@
         "deleteConfirm": "Are you sure you want to delete this document?",
         "idLabel": "Document ID (_id)",
         "jsonLabel": "JSON Document"
+    },
+    "onboarding": {
+        "welcome": {
+            "title": "Welcome to QoreDB",
+            "subtitle": "The universal database client for the modern era.",
+            "next": "Start Tour"
+        },
+        "concepts": {
+            "title": "Why QoreDB?",
+            "universalTitle": "Universal Client",
+            "universalDesc": "Manage SQL (Postgres, MySQL) and NoSQL (MongoDB, Redis) databases in one unified interface.",
+            "localTitle": "Local-First",
+            "localDesc": "Your data stays on your machine. No cloud intermediaries, no hidden tracking.",
+            "next": "Continue"
+        },
+        "analytics": {
+            "title": "Help us improve",
+            "subtitle": "We are an open-source project. Anonymous usage data helps us prioritize features and fix bugs.",
+            "checkbox": "Allow anonymous usage statistics",
+            "privacyHint": "We only collect crash reports and feature usage counts. No query data or credentials ever leave your machine.",
+            "finish": "Get Started"
+        }
     }
 }

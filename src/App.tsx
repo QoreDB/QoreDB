@@ -21,6 +21,8 @@ import { OpenTab, createTableTab, createDatabaseTab, createQueryTab } from './li
 import { Toaster } from 'sonner';
 import { useTheme } from './hooks/useTheme';
 import { QueryLibraryModal } from './components/Query/QueryLibraryModal';
+import { OnboardingModal } from './components/Onboarding/OnboardingModal';
+import { AnalyticsService } from './components/Onboarding/AnalyticsService';
 import './index.css';
 
 function isTextInputTarget(target: EventTarget | null): boolean {
@@ -43,6 +45,16 @@ function App() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [driver, setDriver] = useState<Driver>(Driver.Postgres);
   const [activeConnection, setActiveConnection] = useState<SavedConnection | null>(null);
+
+  // Onboarding state
+  const [showOnboarding, setShowOnboarding] = useState(false);
+
+  useEffect(() => {
+    // Check if onboarding is needed
+    if (!AnalyticsService.isOnboardingCompleted()) {
+      setShowOnboarding(true);
+    }
+  }, []);
 
   // Tab system
   const [tabs, setTabs] = useState<OpenTab[]>([]);
@@ -516,6 +528,10 @@ function App() {
           duration: 4000,
         }}
       />
+
+      {showOnboarding && (
+        <OnboardingModal onComplete={() => setShowOnboarding(false)} />
+      )}
     </>
   );
 }

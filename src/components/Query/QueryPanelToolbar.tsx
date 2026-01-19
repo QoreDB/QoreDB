@@ -125,7 +125,7 @@ export function QueryPanelToolbar({
         </select>
       )}
 
-      {!isMongo && (
+      {/* {!isMongo && (
         <>
           {isExplainSupported && (
             <Button
@@ -139,7 +139,7 @@ export function QueryPanelToolbar({
             </Button>
           )}
         </>
-      )}
+      )} */}
 
       <div className="flex-1" />
 

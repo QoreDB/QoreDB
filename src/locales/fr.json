@@ -361,7 +361,8 @@
         "enabled": "Activé",
         "disabled": "Désactivé",
         "pagination": "Affichage {{start}}-{{end}} sur {{total}}",
-        "add": "Ajouter"
+        "add": "Ajouter",
+        "back": "Retour"
     },
     "environment": {
         "label": "Environnement",
@@ -464,6 +465,28 @@
             "minutesAgo": "il y a {{count}}m",
             "hoursAgo": "il y a {{count}}h",
             "daysAgo": "il y a {{count}}j"
+        }
+    },
+    "onboarding": {
+        "welcome": {
+            "title": "Bienvenue sur QoreDB",
+            "subtitle": "Le client de base de données universel pour l'ère moderne.",
+            "next": "Commencer la visite"
+        },
+        "concepts": {
+            "title": "Pourquoi QoreDB ?",
+            "universalTitle": "Client Universel",
+            "universalDesc": "Gérez vos bases SQL (Postgres, MySQL) et NoSQL (MongoDB, Redis) dans une interface unifiée.",
+            "localTitle": "Local-First",
+            "localDesc": "Vos données restent sur votre machine. Pas d'intermédiaires cloud, pas de tracking caché.",
+            "next": "Continuer"
+        },
+        "analytics": {
+            "title": "Aidez-nous à nous améliorer",
+            "subtitle": "Nous sommes un projet open-source. Les données d'utilisation anonymes nous aident à prioriser les fonctionnalités.",
+            "checkbox": "Autoriser les statistiques anonymes",
+            "privacyHint": "Nous ne collectons que les rapports de crash. Aucune donnée de requête ni identifiant ne quitte votre machine.",
+            "finish": "C'est parti !"
         }
     }
 }

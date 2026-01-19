@@ -5,6 +5,24 @@
         "newConnection": "Nouvelle connexion",
         "search": "Rechercher"
     },
+    "recovery": {
+        "title": "Restaurer la session précédente ?",
+        "description": "Une session inachevée a été trouvée pour {{name}}.",
+        "descriptionUnknown": "Une session inachevée a été trouvée.",
+        "restore": "Restaurer la session",
+        "restoring": "Restauration…",
+        "discard": "Ignorer",
+        "missingConnection": "Connexion sauvegardée introuvable.",
+        "restoreFailed": "Échec de la restauration de la session."
+    },
+    "updates": {
+        "available": "Mise à jour {{version}} disponible",
+        "install": "Installer et redémarrer",
+        "installing": "Installation de la mise à jour…",
+        "installed": "Mise à jour installée.",
+        "restartRequired": "Redémarrez QoreDB pour terminer l'installation.",
+        "installFailed": "Échec de l'installation de la mise à jour."
+    },
     "connection": {
         "modalTitleNew": "Nouvelle connexion",
         "modalTitleEdit": "Modifier la connexion",

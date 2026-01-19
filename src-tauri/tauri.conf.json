@@ -21,6 +21,16 @@
       "csp": null
     }
   },
+  "plugins": {
+    "updater": {
+      "active": true,
+      "endpoints": [
+        "https://github.com/raphplt/QoreDB/releases/latest/download/latest.json"
+      ],
+      "pubkey": "${TAURI_UPDATER_PUBKEY}",
+      "dialog": false
+    }
+  },
   "bundle": {
     "active": true,
     "targets": "all",

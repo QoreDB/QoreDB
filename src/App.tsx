@@ -13,7 +13,7 @@ import { StatusBar } from './components/Status/StatusBar';
 import { Button } from './components/ui/button';
 import { Tooltip } from './components/ui/tooltip';
 import { Search, Settings, X } from 'lucide-react';
-import { Namespace, SavedConnection, connectSavedConnection } from './lib/tauri';
+import { Namespace, SavedConnection, connectSavedConnection, listSavedConnections } from './lib/tauri';
 import { HistoryEntry } from './lib/history';
 import { QueryLibraryItem } from './lib/queryLibrary';
 import { Driver } from './lib/drivers';
@@ -23,6 +23,13 @@ import { useTheme } from './hooks/useTheme';
 import { QueryLibraryModal } from './components/Query/QueryLibraryModal';
 import { OnboardingModal } from './components/Onboarding/OnboardingModal';
 import { AnalyticsService } from './components/Onboarding/AnalyticsService';
+import {
+  CrashRecoverySnapshot,
+  clearCrashRecoverySnapshot,
+  getCrashRecoverySnapshot,
+  saveCrashRecoverySnapshot,
+} from './lib/crashRecovery';
+import { check } from '@tauri-apps/plugin-updater';
 import './index.css';
 
 function isTextInputTarget(target: EventTarget | null): boolean {
@@ -36,6 +43,10 @@ function isTextInputTarget(target: EventTarget | null): boolean {
   );
 }
 
+const DEFAULT_PROJECT = 'default';
+const RECOVERY_SCRATCH_TAB_ID = 'scratch_query';
+const RECOVERY_SAVE_DEBOUNCE_MS = 600;
+
 function App() {
   const { t } = useTranslation();
   const { theme, toggleTheme } = useTheme();
@@ -45,6 +56,12 @@ function App() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [driver, setDriver] = useState<Driver>(Driver.Postgres);
   const [activeConnection, setActiveConnection] = useState<SavedConnection | null>(null);
+  const [queryDrafts, setQueryDrafts] = useState<Record<string, string>>({});
+  const [recoverySnapshot, setRecoverySnapshot] = useState<CrashRecoverySnapshot | null>(null);
+  const [recoveryConnectionName, setRecoveryConnectionName] = useState<string | null>(null);
+  const [recoveryMissing, setRecoveryMissing] = useState(false);
+  const [recoveryLoading, setRecoveryLoading] = useState(false);
+  const [recoveryError, setRecoveryError] = useState<string | null>(null);
 
   // Onboarding state
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -54,6 +71,58 @@ function App() {
     if (!AnalyticsService.isOnboardingCompleted()) {
       setShowOnboarding(true);
     }
+  }, []);
+
+  useEffect(() => {
+    if (!import.meta.env.PROD) return;
+
+    let cancelled = false;
+    const handle = window.setTimeout(async () => {
+      try {
+        const update = await check();
+        if (!update || cancelled) return;
+
+        notify.info(t('updates.available', { version: update.version }), {
+          action: {
+            label: t('updates.install'),
+            onClick: async () => {
+              try {
+                notify.info(t('updates.installing'));
+                await update.downloadAndInstall();
+                notify.success(t('updates.installed'));
+                notify.info(t('updates.restartRequired'));
+              } catch (err) {
+                notify.error(t('updates.installFailed'), err);
+              }
+            },
+          },
+        });
+      } catch (err) {
+        console.warn('Update check failed', err);
+      }
+    }, 4000);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(handle);
+    };
+  }, [t]);
+
+  useEffect(() => {
+    const snapshot = getCrashRecoverySnapshot();
+    if (!snapshot) return;
+
+    setRecoverySnapshot(snapshot);
+    listSavedConnections(DEFAULT_PROJECT)
+      .then(saved => {
+        const match = saved.find(conn => conn.id === snapshot.connectionId);
+        setRecoveryConnectionName(match?.name ?? null);
+        setRecoveryMissing(!match);
+      })
+      .catch(() => {
+        setRecoveryConnectionName(null);
+        setRecoveryMissing(true);
+      });
   }, []);
 
   // Tab system
@@ -76,13 +145,32 @@ function App() {
     setSchemaRefreshTrigger(prev => prev + 1);
   }
 
-  function handleConnected(newSessionId: string, connection: SavedConnection) {
+  const updateQueryDraft = useCallback((tabId: string, value: string) => {
+    setQueryDrafts(prev => {
+      if (prev[tabId] === value) return prev;
+      return { ...prev, [tabId]: value };
+    });
+  }, []);
+
+  function handleConnected(
+    newSessionId: string,
+    connection: SavedConnection,
+    options?: {
+      tabs?: OpenTab[];
+      activeTabId?: string | null;
+      queryDrafts?: Record<string, string>;
+    }
+  ) {
     setSessionId(newSessionId);
     setDriver(connection.driver as Driver);
     setActiveConnection(connection);
-    setTabs([]);
-    setActiveTabId(null);
+    setTabs(options?.tabs ?? []);
+    setActiveTabId(
+      options?.activeTabId ?? options?.tabs?.[0]?.id ?? null
+    );
+    setQueryDrafts(options?.queryDrafts ?? {});
     setSettingsOpen(false);
+    setPendingQuery(undefined);
     setQueryNamespace(
       connection.database ? { database: connection.database } : null
     );
@@ -110,6 +198,9 @@ function App() {
       setActiveTabId(tab.id);
       return [...prev, tab];
     });
+    if (tab.type === 'query' && tab.initialQuery) {
+      setQueryDrafts(prev => (prev[tab.id] ? prev : { ...prev, [tab.id]: tab.initialQuery || '' }));
+    }
     setSettingsOpen(false);
   }, []);
 
@@ -123,6 +214,12 @@ function App() {
           setActiveTabId(newActiveTab?.id || null);
         }
         return newTabs;
+      });
+      setQueryDrafts(prev => {
+        if (!(tabId in prev)) return prev;
+        const next = { ...prev };
+        delete next[tabId];
+        return next;
       });
     },
     [activeTabId]
@@ -184,7 +281,7 @@ function App() {
         // Connect to the selected connection
         const conn = result.data as SavedConnection;
         try {
-          const connectResult = await connectSavedConnection('default', conn.id);
+          const connectResult = await connectSavedConnection(DEFAULT_PROJECT, conn.id);
           if (connectResult.success && connectResult.session_id) {
             notify.success(t('sidebar.connectedTo', { name: conn.name }));
             handleConnected(connectResult.session_id, {
@@ -267,6 +364,101 @@ function App() {
     },
     [activeConnection?.id, handleCloseConnectionModal]
   );
+
+  async function handleRestoreSession() {
+    if (!recoverySnapshot) return;
+    setRecoveryLoading(true);
+    setRecoveryError(null);
+
+    try {
+      const saved = await listSavedConnections(DEFAULT_PROJECT);
+      const match = saved.find(conn => conn.id === recoverySnapshot.connectionId);
+
+      if (!match) {
+        setRecoveryMissing(true);
+        setRecoveryError(t('recovery.missingConnection'));
+        return;
+      }
+
+      const result = await connectSavedConnection(DEFAULT_PROJECT, match.id);
+      if (result.success && result.session_id) {
+        const restoredTabs: OpenTab[] = recoverySnapshot.tabs.map(tab => {
+          const restored: OpenTab = {
+            id: tab.id,
+            type: tab.type,
+            title: tab.title,
+            namespace: tab.namespace,
+            tableName: tab.tableName,
+          };
+
+          if (tab.type === 'query') {
+            const query = recoverySnapshot.queryDrafts[tab.id];
+            if (query) {
+              restored.initialQuery = query;
+            }
+          }
+
+          return restored;
+        });
+
+        handleConnected(
+          result.session_id,
+          {
+            ...match,
+            environment: match.environment,
+            read_only: match.read_only,
+          },
+          {
+            tabs: restoredTabs,
+            activeTabId: recoverySnapshot.activeTabId,
+            queryDrafts: recoverySnapshot.queryDrafts,
+          }
+        );
+        setRecoverySnapshot(null);
+        setRecoveryMissing(false);
+      } else {
+        setRecoveryError(result.error || t('recovery.restoreFailed'));
+      }
+    } catch (err) {
+      setRecoveryError(err instanceof Error ? err.message : t('common.unknownError'));
+    } finally {
+      setRecoveryLoading(false);
+    }
+  }
+
+  const handleDiscardRecovery = useCallback(() => {
+    clearCrashRecoverySnapshot();
+    setRecoverySnapshot(null);
+    setRecoveryConnectionName(null);
+    setRecoveryMissing(false);
+    setRecoveryError(null);
+  }, []);
+
+  useEffect(() => {
+    if (!activeConnection || !sessionId) return;
+
+    const snapshot: CrashRecoverySnapshot = {
+      version: 1,
+      updatedAt: Date.now(),
+      projectId: DEFAULT_PROJECT,
+      connectionId: activeConnection.id,
+      activeTabId,
+      tabs: tabs.map(tab => ({
+        id: tab.id,
+        type: tab.type,
+        title: tab.title,
+        namespace: tab.namespace,
+        tableName: tab.tableName,
+      })),
+      queryDrafts,
+    };
+
+    const handle = window.setTimeout(() => {
+      saveCrashRecoverySnapshot(snapshot);
+    }, RECOVERY_SAVE_DEBOUNCE_MS);
+
+    return () => window.clearTimeout(handle);
+  }, [activeConnection, sessionId, tabs, activeTabId, queryDrafts]);
 
   // Global keyboard shortcuts
   useEffect(() => {
@@ -434,10 +626,11 @@ function App() {
                             connectionName={activeConnection?.name}
                             connectionDatabase={activeConnection?.database}
                             activeNamespace={queryNamespace}
-                            initialQuery={tab.initialQuery}
+                            initialQuery={queryDrafts[tab.id] ?? tab.initialQuery}
                             onSchemaChange={triggerSchemaRefresh}
                             onOpenLibrary={() => setLibraryModalOpen(true)}
                             isActive={tab.id === activeTabId}
+                            onQueryDraftChange={value => updateQueryDraft(tab.id, value)}
                           />
                         </div>
                       ))
@@ -451,16 +644,56 @@ function App() {
                       connectionName={activeConnection?.name}
                       connectionDatabase={activeConnection?.database}
                       activeNamespace={queryNamespace}
-                      initialQuery={pendingQuery}
+                      initialQuery={queryDrafts[RECOVERY_SCRATCH_TAB_ID] ?? pendingQuery}
                       onSchemaChange={triggerSchemaRefresh}
                       onOpenLibrary={() => setLibraryModalOpen(true)}
                       isActive
+                      onQueryDraftChange={value => updateQueryDraft(RECOVERY_SCRATCH_TAB_ID, value)}
                     />
                   )}
                 </div>
               )
             ) : (
               <div className="flex flex-col items-center justify-center h-full text-center space-y-4">
+                {recoverySnapshot && (
+                  <div className="w-full max-w-xl text-left rounded-lg border border-border bg-muted/50 p-4 shadow-sm">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-sm font-semibold text-foreground">
+                          {t('recovery.title')}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {recoveryConnectionName
+                            ? t('recovery.description', { name: recoveryConnectionName })
+                            : t('recovery.descriptionUnknown')}
+                        </p>
+                        {recoveryMissing && (
+                          <p className="text-xs text-error mt-2">
+                            {t('recovery.missingConnection')}
+                          </p>
+                        )}
+                        {recoveryError && !recoveryMissing && (
+                          <p className="text-xs text-error mt-2">{recoveryError}</p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          onClick={handleDiscardRecovery}
+                          disabled={recoveryLoading}
+                        >
+                          {t('recovery.discard')}
+                        </Button>
+                        <Button
+                          onClick={handleRestoreSession}
+                          disabled={recoveryLoading || recoveryMissing}
+                        >
+                          {recoveryLoading ? t('recovery.restoring') : t('recovery.restore')}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 <div className="p-4 rounded-full bg-accent/10 text-accent mb-4">
                   <img src="/logo.png" alt="QoreDB" width={48} height={48} />
                 </div>

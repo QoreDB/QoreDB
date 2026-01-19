@@ -44,6 +44,7 @@ interface QueryPanelProps {
 	onSchemaChange?: () => void;
   onOpenLibrary?: () => void;
   isActive?: boolean;
+  onQueryDraftChange?: (query: string) => void;
 }
 
 export function QueryPanel({
@@ -58,6 +59,7 @@ export function QueryPanel({
   onSchemaChange,
   onOpenLibrary,
   isActive = true,
+  onQueryDraftChange,
 }: QueryPanelProps) {
   const { t } = useTranslation();
   const isMongo = dialect === Driver.Mongodb;
@@ -99,6 +101,10 @@ export function QueryPanel({
       setPanelError(null);
     }
   }, [initialQuery]);
+
+  useEffect(() => {
+    onQueryDraftChange?.(query);
+  }, [query, onQueryDraftChange]);
 
   const envConfig = ENVIRONMENT_CONFIG[environment];
 

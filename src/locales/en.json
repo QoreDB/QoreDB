@@ -5,6 +5,24 @@
         "newConnection": "New Connection",
         "search": "Search"
     },
+    "recovery": {
+        "title": "Restore previous session?",
+        "description": "We found an unfinished session for {{name}}.",
+        "descriptionUnknown": "We found an unfinished session.",
+        "restore": "Restore session",
+        "restoring": "Restoring…",
+        "discard": "Discard",
+        "missingConnection": "Saved connection not found.",
+        "restoreFailed": "Failed to restore session."
+    },
+    "updates": {
+        "available": "Update {{version}} available",
+        "install": "Install & restart",
+        "installing": "Installing update…",
+        "installed": "Update installed.",
+        "restartRequired": "Restart QoreDB to finish applying the update.",
+        "installFailed": "Failed to install update."
+    },
     "connection": {
         "modalTitleNew": "New Connection",
         "modalTitleEdit": "Edit Connection",

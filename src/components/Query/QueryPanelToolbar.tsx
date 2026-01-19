@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
-import { Play, Square, AlertCircle, History, Shield, Lock, Plus } from 'lucide-react';
+import { Play, Square, AlertCircle, History, Shield, Lock, Plus, BookmarkPlus, Folder } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Environment } from '../../lib/tauri';
 import { ENVIRONMENT_CONFIG } from '../../lib/environment';
@@ -24,6 +24,8 @@ interface QueryPanelToolbarProps {
   onToggleKeepResults: () => void;
   onNewDocument: () => void;
   onHistoryOpen: () => void;
+  onLibraryOpen: () => void;
+  onSaveToLibrary: () => void;
   onTemplateSelect: (templateKey: keyof typeof MONGO_TEMPLATES) => void;
 }
 
@@ -43,6 +45,8 @@ export function QueryPanelToolbar({
   onToggleKeepResults,
   onNewDocument,
   onHistoryOpen,
+  onLibraryOpen,
+  onSaveToLibrary,
   onTemplateSelect,
 }: QueryPanelToolbarProps) {
   const { t } = useTranslation();
@@ -163,6 +167,26 @@ export function QueryPanelToolbar({
       >
         <History size={16} className="mr-1" />
         {t('query.history')}
+      </Button>
+
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={onSaveToLibrary}
+        className="h-9 w-9 text-muted-foreground hover:text-foreground"
+        title={t('library.save')}
+      >
+        <BookmarkPlus size={16} />
+      </Button>
+
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={onLibraryOpen}
+        className="h-9 w-9 text-muted-foreground hover:text-foreground"
+        title={t('library.open')}
+      >
+        <Folder size={16} />
       </Button>
 
       <span className="text-xs text-muted-foreground hidden sm:inline-block">

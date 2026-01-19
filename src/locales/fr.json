@@ -99,6 +99,60 @@
         "select": "Sélectionner",
         "close": "Fermer"
     },
+    "library": {
+        "title": "Bibliothèque de requêtes",
+        "open": "Bibliothèque",
+        "save": "Sauvegarder",
+        "saveTitle": "Sauvegarder dans la bibliothèque",
+        "saved": "Sauvegardé dans la bibliothèque",
+        "saveError": "Échec de la sauvegarde",
+        "updateError": "Échec de la mise à jour",
+        "searchLabel": "Bibliothèque",
+        "searchPlaceholder": "Rechercher par titre ou requête...",
+        "tagPlaceholder": "Tag…",
+        "favoritesOnly": "Favoris",
+        "toggleFavorite": "Basculer favori",
+        "filterByTag": "Filtrer par tag",
+        "useQuery": "Utiliser",
+        "deleteItem": "Supprimer",
+        "deleteItemConfirm": "Supprimer \"{{title}}\" de la bibliothèque ?",
+        "empty": "Aucune requête sauvegardée",
+        "refresh": "Rafraîchir",
+        "import": "Importer",
+        "export": "Exporter",
+        "redactExport": "Caviarder les valeurs à l’export",
+        "exportSuccess": "Exporté vers {{name}}",
+        "exportError": "Échec de l’export",
+        "importSuccess": "{{items}} requête(s) importée(s), {{folders}} dossier(s)",
+        "importError": "Échec de l’import",
+        "createFolder": "Nouveau dossier",
+        "newFolderPlaceholder": "Nom du dossier…",
+        "folderCreated": "Dossier créé : {{name}}",
+        "folderCreateError": "Échec de création du dossier",
+        "deleteFolder": "Supprimer le dossier",
+        "deleteFolderConfirm": "Supprimer le dossier \"{{name}}\" ? Les requêtes seront déplacées dans \"Sans dossier\".",
+        "fields": {
+            "title": "Titre",
+            "folder": "Dossier",
+            "tags": "Tags",
+            "favorite": "Favori"
+        },
+        "placeholders": {
+            "title": "ex : Trouver un user par email",
+            "folder": "Choisir un dossier",
+            "newFolder": "Nom du nouveau dossier",
+            "tags": "ex : auth, billing, prod"
+        },
+        "folderMode": {
+            "existing": "Existant",
+            "new": "Nouveau"
+        },
+        "folder": {
+            "all": "Tous les dossiers",
+            "none": "Sans dossier",
+            "unknown": "Inconnu"
+        }
+    },
     "settings": {
         "title": "Paramètres",
         "language": "Langue",

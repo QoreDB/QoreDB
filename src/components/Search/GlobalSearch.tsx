@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Search, Database, FileCode, Star } from 'lucide-react';
+import { Search, Database, FileCode, Star, Folder } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { listSavedConnections, SavedConnection } from '../../lib/tauri';
 import { searchHistory, getFavorites, HistoryEntry } from '../../lib/history';
+import { listFolders, listItems, type QueryFolder, type QueryLibraryItem } from '../../lib/queryLibrary';
 
 interface GlobalSearchProps {
   isOpen: boolean;
@@ -12,11 +13,11 @@ interface GlobalSearchProps {
 }
 
 export interface SearchResult {
-  type: 'connection' | 'query' | 'favorite';
+  type: 'connection' | 'query' | 'favorite' | 'library';
   id: string;
   label: string;
   sublabel?: string;
-  data?: SavedConnection | HistoryEntry;
+  data?: SavedConnection | HistoryEntry | QueryLibraryItem;
 }
 
 const DEFAULT_PROJECT = 'default';
@@ -27,6 +28,8 @@ export function GlobalSearch({ isOpen, onClose, onSelect }: GlobalSearchProps) {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [connections, setConnections] = useState<SavedConnection[]>([]);
+  const [libraryItems, setLibraryItems] = useState<QueryLibraryItem[]>([]);
+  const [libraryFolders, setLibraryFolders] = useState<QueryFolder[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Load connections when search opens
@@ -41,6 +44,14 @@ export function GlobalSearch({ isOpen, onClose, onSelect }: GlobalSearchProps) {
       listSavedConnections(DEFAULT_PROJECT)
         .then(setConnections)
         .catch(console.error);
+
+      // Load query library
+      try {
+        setLibraryItems(listItems());
+        setLibraryFolders(listFolders());
+      } catch (err) {
+        console.error(err);
+      }
     }
   }, [isOpen]);
 
@@ -78,6 +89,8 @@ export function GlobalSearch({ isOpen, onClose, onSelect }: GlobalSearchProps) {
 
 				const lowerQuery = value.toLowerCase();
 				const searchResults: SearchResult[] = [];
+        const folderById = new Map<string, string>();
+        libraryFolders.forEach(f => folderById.set(f.id, f.name));
 
 				// Search saved connections
 				connections.forEach((conn) => {
@@ -126,9 +139,33 @@ export function GlobalSearch({ isOpen, onClose, onSelect }: GlobalSearchProps) {
 					});
 				});
 
+        // Search query library
+        libraryItems.forEach(item => {
+          const matches =
+            item.title.toLowerCase().includes(lowerQuery) ||
+            item.query.toLowerCase().includes(lowerQuery) ||
+            item.tags.some(tag => tag.includes(lowerQuery));
+
+          if (!matches) return;
+
+          const folderName = item.folderId ? folderById.get(item.folderId) : undefined;
+          const sublabelParts = [];
+          sublabelParts.push(t('library.searchLabel'));
+          if (folderName) sublabelParts.push(folderName);
+          if (item.tags.length) sublabelParts.push(item.tags.slice(0, 2).map(tag => `#${tag}`).join(' '));
+
+          searchResults.push({
+            type: 'library',
+            id: `lib-${item.id}`,
+            label: item.title,
+            sublabel: sublabelParts.join(' · '),
+            data: item,
+          });
+        });
+
 				setResults(searchResults.slice(0, 10));
 			},
-			[connections]
+			[connections, libraryFolders, libraryItems, t]
 		);
 
 		if (!isOpen) return null;
@@ -181,6 +218,12 @@ export function GlobalSearch({ isOpen, onClose, onSelect }: GlobalSearchProps) {
 											<Database size={16} />
 										) : result.type === "favorite" ? (
 											<Star size={16} />
+										) : result.type === "library" ? (
+											(result.data as QueryLibraryItem | undefined)?.isFavorite ? (
+												<Star size={16} />
+											) : (
+												<Folder size={16} />
+											)
 										) : (
 											<FileCode size={16} />
 										)}

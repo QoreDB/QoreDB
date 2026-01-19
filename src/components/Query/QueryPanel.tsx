@@ -18,6 +18,8 @@ import { QueryPanelResults, QueryResultEntry } from './QueryPanelResults';
 import { getCollectionFromQuery, getDefaultQuery, shouldRefreshSchema } from './queryPanelUtils';
 import { formatSql } from '../../lib/sqlFormatter';
 import { SQLEditorHandle } from '../Editor/SQLEditor';
+import { SaveQueryDialog } from './SaveQueryDialog';
+import { QueryLibraryModal } from './QueryLibraryModal';
 
 interface QueryPanelProps {
 	sessionId: string | null;
@@ -61,6 +63,9 @@ export function QueryPanel({
   const [dangerConfirmInfo, setDangerConfirmInfo] = useState<string | undefined>(undefined);
   const [pendingQuery, setPendingQuery] = useState<string | null>(null);
   const sqlEditorRef = useRef<SQLEditorHandle>(null);
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
+  const [libraryOpen, setLibraryOpen] = useState(false);
+  const [queryToSave, setQueryToSave] = useState<string>('');
 
   const isExplainSupported = useMemo(() => dialect === Driver.Postgres, [dialect]);
 
@@ -359,8 +364,15 @@ export function QueryPanel({
 
   const runCurrentQuery = useCallback(() => handleExecute(), [handleExecute]);
 
+  const handleSaveToLibrary = useCallback(() => {
+    const selection = !isMongo ? sqlEditorRef.current?.getSelection() : '';
+    const candidate = selection && selection.trim().length > 0 ? selection : query;
+    setQueryToSave(candidate);
+    setSaveDialogOpen(true);
+  }, [isMongo, query]);
+
   return (
-    <div className="flex flex-col h-full bg-background rounded-lg border border-border shadow-sm overflow-hidden">
+    <div className="flex flex-col flex-1 bg-background rounded-lg border border-border shadow-sm overflow-hidden">
       <QueryPanelToolbar
         loading={loading}
         cancelling={cancelling}
@@ -377,6 +389,8 @@ export function QueryPanel({
         onToggleKeepResults={handleToggleKeepResults}
         onNewDocument={handleNewDocument}
         onHistoryOpen={() => setHistoryOpen(true)}
+        onLibraryOpen={() => setLibraryOpen(true)}
+        onSaveToLibrary={handleSaveToLibrary}
         onTemplateSelect={handleTemplateSelect}
       />
 
@@ -475,7 +489,23 @@ export function QueryPanel({
         }}
         readOnly={readOnly}
       />
+
+      <SaveQueryDialog
+        open={saveDialogOpen}
+        onOpenChange={setSaveDialogOpen}
+        initialQuery={queryToSave || query}
+        driver={dialect}
+        database={connectionDatabase}
+        onSaved={() => {
+          // no-op for now (modal pulls from storage)
+        }}
+      />
+
+      <QueryLibraryModal
+        isOpen={libraryOpen}
+        onClose={() => setLibraryOpen(false)}
+        onSelectQuery={q => setQuery(q)}
+      />
     </div>
   );
 }
-

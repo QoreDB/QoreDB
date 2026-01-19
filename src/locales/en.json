@@ -99,6 +99,60 @@
         "select": "Select",
         "close": "Close"
     },
+    "library": {
+        "title": "Query Library",
+        "open": "Library",
+        "save": "Save",
+        "saveTitle": "Save to library",
+        "saved": "Saved to library",
+        "saveError": "Failed to save",
+        "updateError": "Failed to update",
+        "searchLabel": "Library",
+        "searchPlaceholder": "Search title or query...",
+        "tagPlaceholder": "Tag…",
+        "favoritesOnly": "Favorites",
+        "toggleFavorite": "Toggle favorite",
+        "filterByTag": "Filter by tag",
+        "useQuery": "Use query",
+        "deleteItem": "Delete",
+        "deleteItemConfirm": "Delete \"{{title}}\" from library?",
+        "empty": "No saved queries yet",
+        "refresh": "Refresh",
+        "import": "Import",
+        "export": "Export",
+        "redactExport": "Redact values on export",
+        "exportSuccess": "Exported to {{name}}",
+        "exportError": "Export failed",
+        "importSuccess": "Imported {{items}} query(ies), {{folders}} folder(s)",
+        "importError": "Import failed",
+        "createFolder": "New folder",
+        "newFolderPlaceholder": "Folder name…",
+        "folderCreated": "Folder created: {{name}}",
+        "folderCreateError": "Failed to create folder",
+        "deleteFolder": "Delete folder",
+        "deleteFolderConfirm": "Delete folder \"{{name}}\"? Queries will be moved to \"No folder\".",
+        "fields": {
+            "title": "Title",
+            "folder": "Folder",
+            "tags": "Tags",
+            "favorite": "Favorite"
+        },
+        "placeholders": {
+            "title": "e.g. Find users by email",
+            "folder": "Choose a folder",
+            "newFolder": "New folder name",
+            "tags": "e.g. auth, billing, prod"
+        },
+        "folderMode": {
+            "existing": "Existing",
+            "new": "New"
+        },
+        "folder": {
+            "all": "All folders",
+            "none": "No folder",
+            "unknown": "Unknown"
+        }
+    },
     "settings": {
         "title": "Settings",
         "language": "Language",

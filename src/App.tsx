@@ -13,6 +13,7 @@ import { Button } from './components/ui/button';
 import { Search, Settings, X } from 'lucide-react';
 import { Namespace, SavedConnection, connectSavedConnection } from './lib/tauri';
 import { HistoryEntry } from './lib/history';
+import { QueryLibraryItem } from './lib/queryLibrary';
 import { Driver } from './lib/drivers';
 import { OpenTab, createTableTab, createDatabaseTab, createQueryTab } from './lib/tabs';
 import { Toaster, toast } from 'sonner';
@@ -119,6 +120,17 @@ function App() {
             setPendingQuery(undefined);
           } else {
             setPendingQuery(entry.query);
+          }
+          setSettingsOpen(false);
+        }
+      } else if (result.type === 'library') {
+        const item = result.data as QueryLibraryItem;
+        if (item?.query) {
+          if (sessionId) {
+            openTab(createQueryTab(item.query));
+            setPendingQuery(undefined);
+          } else {
+            setPendingQuery(item.query);
           }
           setSettingsOpen(false);
         }

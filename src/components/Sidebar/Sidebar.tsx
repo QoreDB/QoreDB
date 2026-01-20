@@ -86,11 +86,19 @@ export function Sidebar({
         });
         setExpandedId(conn.id);
       } else {
+        AnalyticsService.capture('connected_failed', {
+          source: 'sidebar',
+          driver: conn.driver,
+        });
         toast.error(t('sidebar.connectionToFailed', { name: conn.name }), {
           description: result.error || t('common.unknownError'),
         });
       }
     } catch (err) {
+      AnalyticsService.capture('connected_failed', {
+        source: 'sidebar',
+        driver: conn.driver,
+      });
       toast.error(t('sidebar.connectError'), {
         description: err instanceof Error ? err.message : t('common.unknownError'),
       });

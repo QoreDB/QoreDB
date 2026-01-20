@@ -84,11 +84,19 @@ export function ConnectionModal({
           driver: formData.driver,
         });
 			} else {
+        AnalyticsService.capture('connection_tested_failed', {
+          source: 'modal',
+          driver: formData.driver,
+        });
 				setTestResult("error");
 				setError(result.error || t("connection.testFail"));
 				toast.error(t("connection.testFail"), { description: result.error });
 			}
 		} catch (err) {
+			AnalyticsService.capture('connection_tested_failed', {
+        source: 'modal',
+        driver: formData.driver,
+      });
 			setTestResult("error");
 			const errorMsg = err instanceof Error ? err.message : t("common.error");
 			setError(errorMsg);
@@ -129,6 +137,10 @@ export function ConnectionModal({
 					onConnected(connectResult.session_id, savedConnection);
 					onClose();
 				} else {
+          AnalyticsService.capture('connected_failed', {
+            source: 'modal',
+            driver: formData.driver,
+          });
 					setError(connectResult.error || t("connection.connectFail"));
 					toast.error(t("connection.connectFail"), {
 						description: connectResult.error,
@@ -136,6 +148,10 @@ export function ConnectionModal({
 				}
 			}
 		} catch (err) {
+			AnalyticsService.capture('connected_failed', {
+        source: 'modal',
+        driver: formData.driver,
+      });
 			const errorMsg = err instanceof Error ? err.message : t("common.error");
 			setError(errorMsg);
 			toast.error(t("common.error"), { description: errorMsg });

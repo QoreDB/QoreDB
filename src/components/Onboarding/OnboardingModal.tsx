@@ -14,7 +14,7 @@ interface OnboardingModalProps {
 export function OnboardingModal({ onComplete }: OnboardingModalProps) {
   const { t } = useTranslation();
   const [step, setStep] = useState(0);
-  const [analyticsEnabled, setAnalyticsEnabled] = useState(true);
+  const [analyticsEnabled, setAnalyticsEnabled] = useState(false);
   const [isExiting, setIsExiting] = useState(false);
 
   const totalSteps = 3;

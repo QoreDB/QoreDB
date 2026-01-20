@@ -49,9 +49,7 @@ function markFiredToday(event: string): void {
 let sdkInitialized = false;
 
 function ensureSdkInitialized(): boolean {
-  if (sdkInitialized) return !!getPosthogKey();
-  sdkInitialized = true;
-
+  if (sdkInitialized) return true;
   if (!shouldLoadSdk()) return false;
 
   const key = getPosthogKey();
@@ -66,17 +64,17 @@ function ensureSdkInitialized(): boolean {
     disable_session_recording: true,
   });
 
+  sdkInitialized = true;
   return true;
 }
 
 function captureAppOpenedOncePerDay(): void {
+  if (!isEnabledFromStorage()) return;
   if (!ensureSdkInitialized()) return;
   const event = 'app_opened';
   if (hasFiredToday(event)) return;
   markFiredToday(event);
-  posthog.capture(event, {
-    pre_consent: !isEnabledFromStorage(),
-  });
+  posthog.capture(event);
 }
 
 export const AnalyticsService = {
@@ -85,14 +83,14 @@ export const AnalyticsService = {
   },
 
   capture: (event: string, properties?: Properties) => {
-    if (!ensureSdkInitialized()) return;
     if (!isEnabledFromStorage()) return;
+    if (!ensureSdkInitialized()) return;
     posthog.capture(event, properties);
   },
 
   captureOncePerDay: (event: string, properties?: Properties) => {
-    if (!ensureSdkInitialized()) return;
     if (!isEnabledFromStorage()) return;
+    if (!ensureSdkInitialized()) return;
     if (hasFiredToday(event)) return;
     markFiredToday(event);
     posthog.capture(event, properties);
@@ -114,14 +112,19 @@ export const AnalyticsService = {
   setAnalyticsEnabled: (enabled: boolean) => {
     localStorage.setItem(ANALYTICS_KEY, String(enabled));
     if (enabled) {
+      if (!ensureSdkInitialized()) return;
+      posthog.opt_in_capturing();
       AnalyticsService.capture('analytics_opt_in');
     } else {
+      if (sdkInitialized) {
+        posthog.opt_out_capturing();
+      }
       AnalyticsService.resetIdentity();
     }
   },
 
   resetIdentity: () => {
-    if (ensureSdkInitialized()) {
+    if (sdkInitialized) {
       posthog.reset(true);
     }
   },

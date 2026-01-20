@@ -115,14 +115,20 @@ export const AnalyticsService = {
     localStorage.setItem(ANALYTICS_KEY, String(enabled));
     if (enabled) {
       AnalyticsService.capture('analytics_opt_in');
+    } else {
+      AnalyticsService.resetIdentity();
+    }
+  },
+
+  resetIdentity: () => {
+    if (ensureSdkInitialized()) {
+      posthog.reset(true);
     }
   },
 
   reset: () => {
     localStorage.removeItem(ONBOARDING_KEY);
     localStorage.removeItem(ANALYTICS_KEY);
-    if (ensureSdkInitialized()) {
-      posthog.reset();
-    }
+    AnalyticsService.resetIdentity();
   },
 };

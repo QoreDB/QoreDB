@@ -20,6 +20,7 @@ import { formatSql } from '../../lib/sqlFormatter';
 import { SQLEditorHandle } from '../Editor/SQLEditor';
 import { SaveQueryDialog } from './SaveQueryDialog';
 import { QueryLibraryModal } from './QueryLibraryModal';
+import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
 
 function isTextInputTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
@@ -169,6 +170,14 @@ export function QueryPanel({
             totalTimeMs: totalTime,
             rowCount: response.result.rows.length,
           });
+
+          if (kind === 'query') {
+            AnalyticsService.capture('query_executed', {
+              dialect: isMongo ? 'mongodb' : 'sql',
+              driver: dialect,
+              row_count: response.result.rows.length,
+            });
+          }
 
           if (shouldRefreshSchema(queryToRun, isMongo)) {
             forceRefreshCache(sessionId);

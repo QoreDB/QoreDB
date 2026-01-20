@@ -1,37 +1,38 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { 
-  Namespace, 
-  TableSchema, 
+import {
+  Namespace,
+  TableSchema,
   QueryResult,
   previewTable,
   executeQuery,
-  Environment 
+  Environment,
 } from '../../lib/tauri';
 import { useSchemaCache } from '../../hooks/useSchemaCache';
 import { DataGrid } from '../Grid/DataGrid';
 import { cn } from '@/lib/utils';
-import { 
-  Table, 
-  Columns3, 
-  Database, 
-  Key, 
-  Hash, 
-  Loader2, 
+import {
+  Table,
+  Columns3,
+  Database,
+  Key,
+  Hash,
+  Loader2,
   AlertCircle,
   X,
   Plus,
   Info,
   HardDrive,
   List,
-  Clock
+  Clock,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Value } from '../../lib/tauri';
-import { RowModal } from './RowModal'
+import { RowModal } from './RowModal';
 import { toast } from 'sonner';
 import { Driver, getDriverMetadata } from '../../lib/drivers';
 import { onTableChange } from '@/lib/tableEvents';
+import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
 
 interface TableBrowserProps {
   sessionId: string;
@@ -59,6 +60,7 @@ export function TableBrowser({
   onClose,
 }: TableBrowserProps) {
   const { t } = useTranslation();
+  const viewTrackedRef = useRef(false);
   const [activeTab, setActiveTab] = useState<Tab>('data');
   const [schema, setSchema] = useState<TableSchema | null>(null);
   const [data, setData] = useState<QueryResult | null>(null);
@@ -98,6 +100,14 @@ export function TableBrowser({
           ...dataResult.result,
           total_time_ms: totalTime,
         } as QueryResult & { total_time_ms: number });
+
+        if (!viewTrackedRef.current) {
+          viewTrackedRef.current = true;
+          AnalyticsService.capture('table_view_loaded', {
+            driver,
+            resource_type: driver === Driver.Mongodb ? 'collection' : 'table',
+          });
+        }
       } else if (dataResult.error && !error) {
         setError(dataResult.error);
       }

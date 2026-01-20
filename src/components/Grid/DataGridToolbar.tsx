@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { RowData } from "./utils/dataGridUtils";
+import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
 
 interface DataGridToolbarProps {
 	table: Table<RowData>;
@@ -117,7 +118,10 @@ export function DataGridToolbar({
                 {column.getIsVisible() ? (
                   <Eye size={14} className="mr-2 text-muted-foreground" />
                 ) : (
-                  <EyeOff size={14} className="mr-2 text-accent group-hover:text-accent-foreground" />
+                  <EyeOff
+                    size={14}
+                    className="mr-2 text-accent group-hover:text-accent-foreground"
+                  />
                 )}
                 {column.id}
               </DropdownMenuItem>
@@ -136,11 +140,29 @@ export function DataGridToolbar({
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-40">
           <DropdownMenuLabel className="text-xs">{t('grid.copyToClipboard')}</DropdownMenuLabel>
-          <DropdownMenuItem onClick={() => copyToClipboard('csv')} className="text-xs">
+          <DropdownMenuItem
+            onClick={() => {
+              AnalyticsService.capture('export_used', {
+                format: 'csv',
+                destination: 'clipboard',
+              });
+              copyToClipboard('csv');
+            }}
+            className="text-xs"
+          >
             <FileSpreadsheet size={14} className="mr-2" />
             CSV
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => copyToClipboard('json')} className="text-xs">
+          <DropdownMenuItem
+            onClick={() => {
+              AnalyticsService.capture('export_used', {
+                format: 'json',
+                destination: 'clipboard',
+              });
+              copyToClipboard('json');
+            }}
+            className="text-xs"
+          >
             <FileJson size={14} className="mr-2" />
             JSON
           </DropdownMenuItem>
@@ -150,11 +172,29 @@ export function DataGridToolbar({
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuLabel className="text-xs">{t('grid.downloadToFile')}</DropdownMenuLabel>
-          <DropdownMenuItem onClick={() => exportToFile('csv')} className="text-xs">
+          <DropdownMenuItem
+            onClick={() => {
+              AnalyticsService.capture('export_used', {
+                format: 'csv',
+                destination: 'file',
+              });
+              exportToFile('csv');
+            }}
+            className="text-xs"
+          >
             <Download size={14} className="mr-2" />
             CSV
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => exportToFile('json')} className="text-xs">
+          <DropdownMenuItem
+            onClick={() => {
+              AnalyticsService.capture('export_used', {
+                format: 'json',
+                destination: 'file',
+              });
+              exportToFile('json');
+            }}
+            className="text-xs"
+          >
             <Download size={14} className="mr-2" />
             JSON
           </DropdownMenuItem>

@@ -12,6 +12,7 @@ import { Plus, Bug } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
+import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
 
 const DEFAULT_PROJECT = 'default';
 
@@ -72,6 +73,12 @@ export function Sidebar({
 
       if (result.success && result.session_id) {
         toast.success(t('sidebar.connectedTo', { name: conn.name }));
+
+        AnalyticsService.capture('connected_success', {
+          source: 'sidebar',
+          driver: conn.driver,
+        });
+
         onConnected(result.session_id, {
           ...conn,
           environment: conn.environment,
@@ -165,7 +172,10 @@ export function Sidebar({
         <Button
           className="w-full justify-start text-muted-foreground hover:text-foreground hover:bg-muted"
           variant="ghost"
-          onClick={() => setLogsOpen(true)}
+          onClick={() => {
+            AnalyticsService.capture('error_view_opened', { source: 'sidebar' });
+            setLogsOpen(true);
+          }}
         >
           <Bug size={16} className="mr-2" />
           {t('sidebar.errorLogs')}

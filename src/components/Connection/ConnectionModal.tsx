@@ -19,6 +19,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Check, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
+import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
 
 import { DriverPicker } from "./connection-modal/DriverPicker";
 import { BasicSection } from "./connection-modal/BasicSection";
@@ -78,6 +79,10 @@ export function ConnectionModal({
 			if (result.success) {
 				setTestResult("success");
 				toast.success(t("connection.testSuccess"));
+				AnalyticsService.capture('connection_tested_success', {
+          source: 'modal',
+          driver: formData.driver,
+        });
 			} else {
 				setTestResult("error");
 				setError(result.error || t("connection.testFail"));
@@ -101,6 +106,12 @@ export function ConnectionModal({
 			const connectionId = editConnection?.id || `conn_${Date.now()}`;
 			const savedConnection = buildSavedConnection(formData, connectionId);
 			await saveConnection(buildSaveConnectionInput(formData, connectionId));
+			if (!isEditMode) {
+        AnalyticsService.capture('connection_created', {
+          source: 'modal',
+          driver: formData.driver,
+        });
+      }
 
 			if (isEditMode) {
 				toast.success(t("connection.updateSuccess"));
@@ -111,6 +122,10 @@ export function ConnectionModal({
 
 				if (connectResult.success && connectResult.session_id) {
 					toast.success(t("connection.connectedSuccess"));
+					AnalyticsService.capture('connected_success', {
+            source: 'modal',
+            driver: formData.driver,
+          });
 					onConnected(connectResult.session_id, savedConnection);
 					onClose();
 				} else {
@@ -137,6 +152,12 @@ export function ConnectionModal({
 			const connectionId = editConnection?.id || `conn_${Date.now()}`;
 			const savedConnection = buildSavedConnection(formData, connectionId);
 			await saveConnection(buildSaveConnectionInput(formData, connectionId));
+			if (!isEditMode) {
+        AnalyticsService.capture('connection_created', {
+          source: 'modal',
+          driver: formData.driver,
+        });
+      }
 
 			toast.success(
 				isEditMode ? t("connection.updateSuccess") : t("connection.saveSuccess"),

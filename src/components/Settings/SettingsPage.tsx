@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Settings, Moon, Sun, ChevronDown } from 'lucide-react';
+
 import { useTheme } from '../../hooks/useTheme';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -9,7 +11,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Settings, Moon, Sun, ChevronDown } from 'lucide-react';
+import { SettingsCard } from './SettingsCard';
+import { ConfigBackupCard } from './ConfigBackupCard';
+import { ProjectTransferCard } from './ProjectTransferCard';
+
+import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
+
 import { clearErrorLogs } from '@/lib/errorLog';
 import { clearHistory } from '@/lib/history';
 import {
@@ -17,21 +24,21 @@ import {
   setDiagnosticsSettings,
   DiagnosticsSettings,
 } from '@/lib/diagnosticsSettings';
-import {
-  getSafetyPolicy,
-  setSafetyPolicy,
-  SafetyPolicy,
-} from '@/lib/tauri';
+import { getSafetyPolicy, setSafetyPolicy, SafetyPolicy } from '@/lib/tauri';
 
 export function SettingsPage() {
   const { t, i18n } = useTranslation();
   const { theme, setTheme } = useTheme();
-  const [diagnostics, setDiagnostics] = useState<DiagnosticsSettings>(
-    getDiagnosticsSettings()
+  const [diagnostics, setDiagnostics] = useState<DiagnosticsSettings>(getDiagnosticsSettings());
+  const [analyticsEnabled, setAnalyticsEnabled] = useState<boolean>(
+    AnalyticsService.isAnalyticsEnabled()
   );
+
   const [policy, setPolicy] = useState<SafetyPolicy | null>(null);
   const [policyError, setPolicyError] = useState<string | null>(null);
   const [policySaving, setPolicySaving] = useState(false);
+
+  const DEFAULT_PROJECT_ID = 'default';
 
   useEffect(() => {
     let active = true;
@@ -98,77 +105,61 @@ export function SettingsPage() {
         </div>
 
         <div className="grid gap-6">
-          <div className="rounded-lg border border-border bg-card text-card-foreground shadow-sm">
-            <div className="flex flex-col space-y-1.5 p-6">
-              <h3 className="font-semibold leading-none tracking-tight">
-                {t('settings.language')}
-              </h3>
-              <p className="text-sm text-muted-foreground">{t('settings.languageDescription')}</p>
-            </div>
-            <div className="p-6 pt-0">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="w-50 justify-between">
-                    {i18n.language.startsWith('fr') ? 'Français' : 'English'}
-                    <ChevronDown className="ml-2 h-4 w-4 opacity-50" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-50">
-                  <DropdownMenuItem onClick={() => i18n.changeLanguage('en')}>
-                    English
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => i18n.changeLanguage('fr')}>
-                    Français
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          </div>
+          <SettingsCard
+            title={t('settings.language')}
+            description={t('settings.languageDescription')}
+          >
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="w-50 justify-between">
+                  {i18n.language.startsWith('fr') ? 'Français' : 'English'}
+                  <ChevronDown className="ml-2 h-4 w-4 opacity-50" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-50">
+                <DropdownMenuItem onClick={() => i18n.changeLanguage('en')}>
+                  English
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => i18n.changeLanguage('fr')}>
+                  Français
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </SettingsCard>
 
-          <div className="rounded-lg border border-border bg-card text-card-foreground shadow-sm">
-            <div className="flex flex-col space-y-1.5 p-6">
-              <h3 className="font-semibold leading-none tracking-tight">{t('settings.theme')}</h3>
-              <p className="text-sm text-muted-foreground">{t('settings.themeDescription')}</p>
-            </div>
-            <div className="p-6 pt-0">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="w-50 justify-between">
-                    <div className="flex items-center gap-2">
-                      {theme === 'dark' ? <Moon size={16} /> : <Sun size={16} />}
-                      {theme === 'dark' ? t('settings.themeDark') : t('settings.themeLight')}
-                    </div>
-                    <ChevronDown className="ml-2 h-4 w-4 opacity-50" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-50">
-                  <DropdownMenuItem onClick={() => setTheme('light')}>
-                    <div className="flex items-center gap-2">
-                      <Sun size={16} />
-                      {t('settings.themeLight')}
-                    </div>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setTheme('dark')}>
-                    <div className="flex items-center gap-2">
-                      <Moon size={16} />
-                      {t('settings.themeDark')}
-                    </div>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          </div>
+          <SettingsCard title={t('settings.theme')} description={t('settings.themeDescription')}>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="w-50 justify-between">
+                  <div className="flex items-center gap-2">
+                    {theme === 'dark' ? <Moon size={16} /> : <Sun size={16} />}
+                    {theme === 'dark' ? t('settings.themeDark') : t('settings.themeLight')}
+                  </div>
+                  <ChevronDown className="ml-2 h-4 w-4 opacity-50" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-50">
+                <DropdownMenuItem onClick={() => setTheme('light')}>
+                  <div className="flex items-center gap-2">
+                    <Sun size={16} />
+                    {t('settings.themeLight')}
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setTheme('dark')}>
+                  <div className="flex items-center gap-2">
+                    <Moon size={16} />
+                    {t('settings.themeDark')}
+                  </div>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </SettingsCard>
 
-          <div className="rounded-lg border border-border bg-card text-card-foreground shadow-sm">
-            <div className="flex flex-col space-y-1.5 p-6">
-              <h3 className="font-semibold leading-none tracking-tight">
-                {t('settings.diagnostics')}
-              </h3>
-              <p className="text-sm text-muted-foreground">
-                {t('settings.diagnosticsDescription')}
-              </p>
-            </div>
-            <div className="p-6 pt-0 space-y-4">
+          <SettingsCard
+            title={t('settings.diagnostics')}
+            description={t('settings.diagnosticsDescription')}
+          >
+            <div className="space-y-4">
               <label className="flex items-start gap-3 text-sm">
                 <Checkbox
                   checked={diagnostics.storeHistory}
@@ -204,19 +195,31 @@ export function SettingsPage() {
                   </span>
                 </span>
               </label>
-            </div>
-          </div>
 
-          <div className="rounded-lg border border-border bg-card text-card-foreground shadow-sm">
-            <div className="flex flex-col space-y-1.5 p-6">
-              <h3 className="font-semibold leading-none tracking-tight">
-                {t('settings.safetyPolicy')}
-              </h3>
-              <p className="text-sm text-muted-foreground">
-                {t('settings.safetyPolicyDescription')}
-              </p>
+              <label className="flex items-start gap-3 text-sm">
+                <Checkbox
+                  checked={analyticsEnabled}
+                  onCheckedChange={checked => {
+                    const enabled = !!checked;
+                    setAnalyticsEnabled(enabled);
+                    AnalyticsService.setAnalyticsEnabled(enabled);
+                  }}
+                />
+                <span>
+                  <span className="font-medium">{t('settings.analyticsEnabled')}</span>
+                  <span className="block text-xs text-muted-foreground">
+                    {t('settings.analyticsEnabledDescription')}
+                  </span>
+                </span>
+              </label>
             </div>
-            <div className="p-6 pt-0 space-y-4">
+          </SettingsCard>
+
+          <SettingsCard
+            title={t('settings.safetyPolicy')}
+            description={t('settings.safetyPolicyDescription')}
+          >
+            <div className="space-y-4">
               <label className="flex items-start gap-3 text-sm">
                 <Checkbox
                   checked={policy?.prod_require_confirmation ?? false}
@@ -252,24 +255,29 @@ export function SettingsPage() {
                   }
                 />
                 <span>
-                  <span className="font-medium">
-                    {t('settings.safetyPolicyBlockDangerous')}
-                  </span>
+                  <span className="font-medium">{t('settings.safetyPolicyBlockDangerous')}</span>
                   <span className="block text-xs text-muted-foreground">
                     {t('settings.safetyPolicyBlockDangerousDescription')}
                   </span>
                 </span>
               </label>
 
-              <p className="text-xs text-muted-foreground">
-                {t('settings.safetyPolicyNote')}
-              </p>
-
-              {policyError && (
-                <p className="text-xs text-destructive">{policyError}</p>
-              )}
+              <p className="text-xs text-muted-foreground">{t('settings.safetyPolicyNote')}</p>
+              {policyError ? <p className="text-xs text-destructive">{policyError}</p> : null}
             </div>
-          </div>
+          </SettingsCard>
+
+          <ConfigBackupCard
+            policy={policy}
+            onApplyDiagnostics={updateDiagnostics}
+            onApplyPolicy={updatePolicy}
+            onApplyAnalyticsEnabled={(enabled: boolean) => {
+              setAnalyticsEnabled(enabled);
+              AnalyticsService.setAnalyticsEnabled(enabled);
+            }}
+          />
+
+          <ProjectTransferCard projectId={DEFAULT_PROJECT_ID} />
         </div>
       </div>
     </div>

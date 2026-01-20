@@ -67,6 +67,12 @@ function App() {
   const [showOnboarding, setShowOnboarding] = useState(false);
 
   useEffect(() => {
+    const handler = () => setSidebarRefreshTrigger(prev => prev + 1);
+    window.addEventListener('qoredb:connections-changed', handler);
+    return () => window.removeEventListener('qoredb:connections-changed', handler);
+  }, []);
+
+  useEffect(() => {
     // Check if onboarding is needed
     if (!AnalyticsService.isOnboardingCompleted()) {
       setShowOnboarding(true);
@@ -325,11 +331,21 @@ function App() {
 
   function handleTableSelect(namespace: Namespace, tableName: string) {
     setQueryNamespace(namespace);
+    AnalyticsService.capture('resource_opened', {
+      source: 'tree',
+      resource_type: driver === Driver.Mongodb ? 'collection' : 'table',
+      driver,
+    });
     openTab(createTableTab(namespace, tableName));
   }
 
   function handleDatabaseSelect(namespace: Namespace) {
     setQueryNamespace(namespace);
+    AnalyticsService.capture('resource_opened', {
+      source: 'tree',
+      resource_type: driver === Driver.Mongodb ? 'database' : 'schema',
+      driver,
+    });
     openTab(createDatabaseTab(namespace));
   }
 

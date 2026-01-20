@@ -278,6 +278,24 @@ export interface TableColumn {
   is_primary_key: boolean;
 }
 
+export type CancelSupport = 'none' | 'best_effort' | 'driver';
+
+export interface DriverCapabilities {
+  transactions: boolean;
+  mutations: boolean;
+  cancel: CancelSupport;
+  supports_ssh: boolean;
+  schema: boolean;
+  streaming: boolean;
+  explain: boolean;
+}
+
+export interface DriverInfo {
+  id: string;
+  name: string;
+  capabilities: DriverCapabilities;
+}
+
 export async function describeTable(
   sessionId: string,
   namespace: Namespace,
@@ -301,6 +319,26 @@ export async function previewTable(
   error?: string;
 }> {
   return invoke('preview_table', { sessionId, namespace, table, limit });
+}
+
+// ============================================
+// DRIVER METADATA
+// ============================================
+
+export async function getDriverInfo(sessionId: string): Promise<{
+  success: boolean;
+  driver?: DriverInfo;
+  error?: string;
+}> {
+  return invoke('get_driver_info', { sessionId });
+}
+
+export async function listDrivers(): Promise<{
+  success: boolean;
+  drivers: DriverInfo[];
+  error?: string;
+}> {
+  return invoke('list_drivers');
 }
 
 // ============================================

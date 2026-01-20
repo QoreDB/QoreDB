@@ -46,6 +46,7 @@ interface DataGridProps {
 	primaryKey?: string[];
 	environment?: Environment;
 	readOnly?: boolean;
+	mutationsSupported?: boolean;
 	connectionName?: string;
 	connectionDatabase?: string;
 	onRowsDeleted?: () => void;
@@ -61,6 +62,7 @@ export function DataGrid({
 	primaryKey,
 	environment = "development",
 	readOnly = false,
+	mutationsSupported = true,
 	connectionName,
 	connectionDatabase,
 	onRowsDeleted,
@@ -255,6 +257,10 @@ export function DataGrid({
       toast.error(t('environment.blocked'));
       return;
     }
+    if (!mutationsSupported) {
+      toast.error(t('grid.mutationsNotSupported'));
+      return;
+    }
 
     setIsDeleting(true);
     let successCount = 0;
@@ -315,6 +321,10 @@ export function DataGrid({
       toast.error(t('environment.blocked'));
       return;
     }
+    if (!mutationsSupported) {
+      toast.error(t('grid.mutationsNotSupported'));
+      return;
+    }
 
     setDeleteConfirmValue('');
     setDeleteDialogOpen(true);
@@ -359,7 +369,7 @@ export function DataGrid({
   const selectedRows = table.getSelectedRowModel().rows;
   const canDelete =
     sessionId && namespace && tableName && primaryKey && primaryKey.length > 0 && selectedCount > 0;
-  const deleteDisabled = selectedCount === 0 || isDeleting || readOnly;
+  const deleteDisabled = selectedCount === 0 || isDeleting || readOnly || !mutationsSupported;
   const deleteRequiresConfirm = environment === 'production';
 
   const previewRows = selectedRows.slice(0, 10).map((row, index) => {
@@ -445,7 +455,13 @@ export function DataGrid({
               className="h-6 px-2 text-xs"
               onClick={handleDelete}
               disabled={deleteDisabled}
-              title={readOnly ? t('environment.blocked') : undefined}
+              title={
+                readOnly
+                  ? t('environment.blocked')
+                  : !mutationsSupported
+                    ? t('grid.mutationsNotSupported')
+                    : undefined
+              }
             >
               <Trash2 size={12} className="mr-1" />
               {isDeleting ? t('grid.deleting') : t('grid.delete')}

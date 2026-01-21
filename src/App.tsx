@@ -70,8 +70,6 @@ function App() {
   const [recoveryMissing, setRecoveryMissing] = useState(false);
   const [recoveryLoading, setRecoveryLoading] = useState(false);
   const [recoveryError, setRecoveryError] = useState<string | null>(null);
-
-  // Onboarding state
   const [showOnboarding, setShowOnboarding] = useState(false);
 
   useEffect(() => {
@@ -81,7 +79,6 @@ function App() {
   }, []);
 
   useEffect(() => {
-    // Check if onboarding is needed
     if (!AnalyticsService.isOnboardingCompleted()) {
       setShowOnboarding(true);
     }
@@ -686,22 +683,26 @@ function App() {
                         </div>
                       ))
                   ) : (
-                    <QueryPanel
-                      key={sessionId}
-                      sessionId={sessionId}
-                      dialect={driver}
-                      driverCapabilities={driverCapabilities}
-                      environment={activeConnection?.environment || 'development'}
-                      readOnly={activeConnection?.read_only || false}
-                      connectionName={activeConnection?.name}
-                      connectionDatabase={activeConnection?.database}
-                      activeNamespace={queryNamespace}
-                      initialQuery={queryDrafts[RECOVERY_SCRATCH_TAB_ID] ?? pendingQuery}
-                      onSchemaChange={triggerSchemaRefresh}
-                      onOpenLibrary={() => setLibraryModalOpen(true)}
-                      isActive
-                      onQueryDraftChange={value => updateQueryDraft(RECOVERY_SCRATCH_TAB_ID, value)}
-                    />
+                    <div className="flex h-full w-full">
+                      <QueryPanel
+                        key={sessionId}
+                        sessionId={sessionId}
+                        dialect={driver}
+                        driverCapabilities={driverCapabilities}
+                        environment={activeConnection?.environment || 'development'}
+                        readOnly={activeConnection?.read_only || false}
+                        connectionName={activeConnection?.name}
+                        connectionDatabase={activeConnection?.database}
+                        activeNamespace={queryNamespace}
+                        initialQuery={queryDrafts[RECOVERY_SCRATCH_TAB_ID] ?? pendingQuery}
+                        onSchemaChange={triggerSchemaRefresh}
+                        onOpenLibrary={() => setLibraryModalOpen(true)}
+                        isActive
+                        onQueryDraftChange={value =>
+                          updateQueryDraft(RECOVERY_SCRATCH_TAB_ID, value)
+                        }
+                      />
+                    </div>
                   )}
                 </div>
               )
@@ -814,9 +815,7 @@ function App() {
         }}
       />
 
-      {showOnboarding && (
-        <OnboardingModal onComplete={() => setShowOnboarding(false)} />
-      )}
+      {showOnboarding && <OnboardingModal onComplete={() => setShowOnboarding(false)} />}
     </>
   );
 }

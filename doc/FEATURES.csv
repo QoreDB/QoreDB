@@ -1,0 +1,39 @@
+Domaine,Feature,Composant,Description courte,État,Priorité,Scope,Complexité,Notes
+Data Engine Kernel,Interface DataEngine,Backend / Core,Définition de l'API abstraite commune pour l'unification des drivers (SQL & NoSQL).,Terminé,P0,POC,4,Socle indispensable pour le mapping universel.
+Data Engine Kernel,Driver PostgreSQL,Backend / Core,Implémentation complète du driver PostgreSQL avec support transactions.,Terminé,P0,POC,4,Basé sur sqlx.
+Data Engine Kernel,Driver MySQL,Backend / Core,Implémentation complète du driver MySQL/MariaDB.,Terminé,P0,POC,4,Basé sur sqlx.
+Data Engine Kernel,Driver MongoDB,Backend / Core,Implémentation complète du driver MongoDB (NoSQL).,Terminé,P0,POC,4,Supporte les collections et BSON.
+Data Engine Kernel,Mapping Universel,Backend / Core,Abstraction des concepts (Namespace / Collection / Record).,Terminé,P0,POC,4,Permet une UI unifiée.
+Sécurité,Vault / Chiffrement,Backend / Security,Stockage sécurisé des credentials via keyring système + Argon2.,Terminé,P0,POC,5,Indispensable pour la sécurité locale.
+Sécurité,SSH Tunneling,Backend / Network,Support natif des tunnels SSH pour accès bases distantes.,Terminé,P1,POC,3,Utilise le binaire OpenSSH système.
+Sécurité,App Lock,Backend / Security,Verrouillage de l'application au démarrage.,Terminé,P1,POC,2,Protection physique.
+Sécurité,Safety Policy,Backend / Security,Middleware de sécurité pour appliquer les règles d'environnement (blocage mutations).,Terminé,P0,V1,4,Vérification systématique regex côté backend.
+Sécurité,Redaction / Privacy,App / Privacy,Nettoyage automatique des données sensibles (mots de passe) dans les logs et exports.,Terminé,P1,V1,3,Implémenté dans `redaction.ts` et history.
+UX / Interface,Global Search,Frontend / Shell,Recherche universelle "Spotlight" (Cmd+K) : connexions - historique - commandes - librairie.,Terminé,P1,V1,4,Composant central de navigation.
+UX / Interface,Status Bar Contextuelle,Frontend / Shell,Barre d'état affichant environnement (couleur) - session - et lock status.,Terminé,P2,V1,2,Visual feedback permanent.
+UX / Interface,Sidebar Connexions,Frontend / Sidebar,Arbre de navigation multi-serveurs et bases.,Terminé,P0,POC,2,Support drag & drop à venir.
+UX / Interface,Gestion Onglets,Frontend / Tabs,Système d'onglets pour requêtes et tables multiples.,Terminé,P1,POC,2,État persistant par onglet.
+UX / Interface,Dark Mode,Frontend / UI,Thème sombre natif et soigné.,Terminé,P1,POC,1,Intégré avec Tailwind.
+UX / Interface,Onboarding,Frontend / Onboarding,Flow de bienvenue pour les nouveaux utilisateurs.,Terminé,P2,V1,2,Configuration initiale.
+SQL Editor,Éditeur SQL,Frontend / Editor,Éditeur avec syntax highlighting et autocomplétion basique.,Terminé,P0,POC,3,Basé sur Monaco/CodeMirror.
+SQL Editor,Éditeur Mongo,Frontend / Editor,Éditeur spécifique pour requêtes JSON/BSON.,Terminé,P0,POC,3,Support syntaxe MongoDB.
+SQL Editor,Query Library,Frontend / Library,Bibliothèque de requêtes avec Dossiers - Tags - et Export/Import JSON.,Terminé,P1,V1,4,Feature avancée de partage et organisation.
+SQL Editor,Formattage SQL,Frontend / Editor,Prettify automatique des requêtes SQL.,Terminé,P2,V1,2,Librairie sql-formatter.
+SQL Editor,Snippets,Frontend / Editor,Insertion rapide de fragments de code SQL.,Terminé,P2,V1,2,Productivité.
+SQL Editor,Historique Requêtes,Fullstack,Journal local persisté (localStorage) avec isolation par session.,Terminé,P1,POC,2,Stockage persistant 100 entrées.
+Data Grid,Tableau de données,Frontend / Grid,Grille haute performance pour affichage datasets.,Terminé,P0,POC,4,Virtualisation.
+Data Grid,Filtres & Tri,Frontend / Grid,Filtrage par colonne et tri server-side.,Terminé,P0,POC,3,UX fluide.
+Data Grid,Inline Edit,Frontend / Grid,Modification directe des cellules dans la grille.,Terminé,P1,V1,4,Support SQL UPDATE + NoSQL.
+Data Grid,Pagination,Frontend / Grid,Gestion offset/limit standardisée.,Terminé,P0,POC,2,Navigation pages.
+Environnements,Classification Env,Frontend / Logic,Distinction Dev / Staging / Prod avec codes couleurs.,Terminé,P1,V1,2,Sécurité visuelle.
+Environnements,Read-only Mode,Fullstack,Blocage des écritures sur environnements critiques.,Terminé,P0,V1,3,Protection accidentelle.
+Environnements,Détection Dangers,Fullstack,Analyse regex pour prévenir les DROP/DELETE sans WHERE.,Terminé,P1,V1,3,Safety net.
+Environnements,Connection Testing,Backend / Network,Vérification de connectivité avant sauvegarde avec feedback user.,Terminé,P1,POC,2,"Dry-run" de connexion.
+Infra,Auto-Update,App / Tauri,Mise à jour automatique de l'application.,Terminé,P1,V1,3,Plugin tauri-updater.
+Infra,Crash Recovery,App / Logic,Restauration de l'état de session après plantage.,Terminé,P2,V1,3,Robustesse.
+Infra,Backup Settings,App / Logic,Sauvegarde automatique de la configuration json.,Terminé,P2,V1,2,Backup local.
+Infra,Import / Export Projet,App / Logic,Transfert complet de configuration via fichier JSON.,Terminé,P2,V1,2,Portabilité.
+Infra,Telemetry / Analytics,App / Logic,Tracking anonyme des actions clés (connexion - crash) pour debugging.,Terminé,P3,V1,2,Module `AnalyticsService`.
+Infra,Dev Metrics,Backlog / Dev,Métriques de performance internes (query time - pool usage).,En cours,P3,V2,3,Exposé uniquement en dev build.
+IA (Future),Génération SQL,Backend / AI,Génération de requêtes par LLM.,A faire,P2,V2,5,Prévu pour versions futures.
+Performance,Streaming Résultats,Backend / Core,Lecture curseur streamée pour gros datasets.,Backlog,P2,V1,4,Optimisation mémoire.

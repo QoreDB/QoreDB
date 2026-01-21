@@ -3671,6 +3671,7 @@ dependencies = [
  "tauri-plugin-fs",
  "tauri-plugin-opener",
  "tauri-plugin-updater",
+ "tempfile",
  "thiserror 2.0.17",
  "tokio",
  "tracing",

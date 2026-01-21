@@ -14,6 +14,7 @@ use tokio::sync::{Mutex, RwLock};
 
 use crate::engine::error::{EngineError, EngineResult};
 use crate::engine::traits::DataEngine;
+use crate::engine::traits::{StreamEvent, StreamSender};
 use crate::engine::types::{
     CancelSupport, Collection, CollectionList, CollectionListOptions, CollectionType, ColumnInfo,
     ConnectionConfig, Namespace, QueryId, QueryResult, Row as QRow, SessionId, TableColumn,
@@ -322,6 +323,121 @@ impl DataEngine for MongoDriver {
             collections,
             total_count: total_count as u32,
         })
+    }
+
+    async fn execute_stream(
+        &self,
+        session: SessionId,
+        query: &str,
+        query_id: QueryId,
+        sender: StreamSender,
+    ) -> EngineResult<()> {
+        let sessions = self.sessions.read().await;
+        let client = sessions
+            .get(&session)
+            .ok_or_else(|| EngineError::session_not_found(session.0.to_string()))?
+            .clone();
+        drop(sessions);
+
+        let (abort_handle, abort_reg) = AbortHandle::new_pair();
+        {
+            let mut active = self.active_queries.lock().await;
+            active.insert(query_id, (session, abort_handle));
+        }
+
+        let query = query.to_string();
+        let sender_inner = sender.clone();
+        let result = Abortable::new(
+            async move {
+                let sender = sender_inner;
+                let trimmed = query.trim();
+
+                // Handle special commands that don't stream (Create Collection, etc)
+                if trimmed.starts_with('{') {
+                     // Parse partially to check operation
+                     if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(trimmed) {
+                        if let Some(op) = parsed.get("operation").and_then(|v| v.as_str()) {
+                            if op == "create_collection" {
+                                 // Execute standard execute for non-streaming ops
+                                 // We can't reuse self.execute easily here due to ownership/async
+                                 // So we just return early and let the caller handle it or 
+                                 // better yet, we implement the logic here.
+                                 
+                                 // Re-use logic from execute
+                                 let database = parsed["database"]
+                                    .as_str()
+                                    .ok_or_else(|| EngineError::syntax_error("Missing 'database' field"))?;
+                                let collection = parsed["collection"]
+                                    .as_str()
+                                    .ok_or_else(|| EngineError::syntax_error("Missing 'collection' field"))?;
+
+                                client
+                                    .database(database)
+                                    .run_command(doc! { "create": collection })
+                                    .await
+                                    .map_err(|e| EngineError::execution_error(e.to_string()))?;
+                                
+                                let _ = sender.send(StreamEvent::Done(0)).await;
+                                return Ok(());
+                            }
+                        }
+                     }
+                }
+
+                let (database, collection_name, filter) = Self::parse_query(&query)?;
+
+                let collection = client.database(&database).collection::<Document>(&collection_name);
+                
+                let mut cursor = collection
+                    .find(filter)
+                    .await
+                    .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+                // Send columns info first
+                let columns = Self::document_column_info();
+                if sender.send(StreamEvent::Columns(columns)).await.is_err() {
+                    return Ok(());
+                }
+
+                let mut row_count = 0;
+                use futures::TryStreamExt;
+                
+                while let Some(doc) = cursor
+                    .try_next()
+                    .await
+                    .map_err(|e| EngineError::execution_error(e.to_string()))?
+                {
+                    let row = Self::document_to_row(&doc);
+                    if sender.send(StreamEvent::Row(row)).await.is_err() {
+                        break;
+                    }
+                    row_count += 1;
+                    
+                    // Limit for POC safety
+                    if row_count >= 1000 {
+                        break;
+                    }
+                }
+
+                let _ = sender.send(StreamEvent::Done(row_count)).await;
+                Ok(())
+            },
+            abort_reg,
+        )
+        .await;
+
+        {
+            let mut active = self.active_queries.lock().await;
+            active.remove(&query_id);
+        }
+
+        match result {
+            Ok(inner) => inner,
+            Err(_) => {
+                let _ = sender.send(StreamEvent::Error("Query cancelled".to_string())).await;
+                Err(EngineError::Cancelled)
+            },
+        }
     }
 
     async fn execute(
@@ -766,6 +882,10 @@ impl DataEngine for MongoDriver {
     }
 
     fn supports_mutations(&self) -> bool {
+        true
+    }
+
+    fn supports_streaming(&self) -> bool {
         true
     }
 }

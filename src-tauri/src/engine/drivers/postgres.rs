@@ -27,6 +27,8 @@ use crate::engine::types::{
     ConnectionConfig, Namespace, QueryId, QueryResult, Row as QRow, RowData, SessionId,
     TableColumn, TableSchema, Value, ForeignKey
 };
+use crate::engine::traits::{StreamEvent, StreamSender};
+use futures::StreamExt;
 
 /// Holds the connection state for a PostgreSQL session.
 pub struct PostgresSession {
@@ -357,6 +359,79 @@ impl DataEngine for PostgresDriver {
             collections,
             total_count: total_count as u32,
         })
+    }
+
+    async fn execute_stream(
+        &self,
+        session: SessionId,
+        query: &str,
+        query_id: QueryId,
+        sender: StreamSender,
+    ) -> EngineResult<()> {
+        let pg_session = self.get_session(session).await?;
+
+        // Use pool for streaming to avoid locking transaction connection for long duration
+        let mut conn = pg_session
+                .pool
+                .acquire()
+                .await
+                .map_err(|e| EngineError::connection_failed(e.to_string()))?;
+
+        // Check if query returns rows (select)
+        let returns_rows = sql_safety::returns_rows(self.driver_id(), query)
+            .unwrap_or_else(|_| sql_safety::is_select_prefix(query));
+
+        if !returns_rows {
+             // Fallback to normal execute and send "Done"
+             let result = self.execute(session, query, query_id).await?;
+             let _ = sender.send(StreamEvent::Done(result.affected_rows.unwrap_or(0))).await;
+             return Ok(());
+        }
+
+        // Register active query
+        let backend_pid = Self::fetch_backend_pid(&mut conn).await?;
+        {
+            let mut active = pg_session.active_queries.lock().await;
+            active.insert(query_id, backend_pid);
+        }
+
+        let mut stream = sqlx::query(query).fetch(&mut *conn);
+        let mut columns_sent = false;
+        let mut row_count = 0;
+
+        while let Some(item) = stream.next().await {
+            match item {
+                Ok(pg_row) => {
+                    if !columns_sent {
+                        let columns = Self::get_column_info(&pg_row);
+                        if sender.send(StreamEvent::Columns(columns)).await.is_err() {
+                            break; // Receiver dropped
+                        }
+                        columns_sent = true;
+                    }
+
+                    let row = Self::convert_row(&pg_row);
+                    if sender.send(StreamEvent::Row(row)).await.is_err() {
+                        break;
+                    }
+                    row_count += 1;
+                }
+                Err(e) => {
+                    let _ = sender.send(StreamEvent::Error(e.to_string())).await;
+                    break;
+                }
+            }
+        }
+
+        // Cleanup
+        {
+            let mut active = pg_session.active_queries.lock().await;
+            active.remove(&query_id);
+        }
+
+        let _ = sender.send(StreamEvent::Done(row_count)).await;
+
+        Ok(())
     }
 
     async fn execute(
@@ -972,6 +1047,16 @@ impl DataEngine for PostgresDriver {
     }
 
     fn supports_mutations(&self) -> bool {
+        true
+    }
+
+
+
+    fn supports_streaming(&self) -> bool {
+        true
+    }
+
+    fn supports_explain(&self) -> bool {
         true
     }
 

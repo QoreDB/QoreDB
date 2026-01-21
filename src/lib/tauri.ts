@@ -201,7 +201,7 @@ export async function executeQuery(
   query: string,
   options?: {
     acknowledgedDangerous?: boolean;
-    timeoutMs?: number;
+    timeoutMs?: number; stream?: boolean;
     queryId?: string;
   }
 ): Promise<{
@@ -215,7 +215,7 @@ export async function executeQuery(
     query,
     acknowledgedDangerous: options?.acknowledgedDangerous,
     queryId: options?.queryId,
-    timeoutMs: options?.timeoutMs,
+    timeoutMs: options?.timeoutMs, stream: options?.stream,
   });
 }
 

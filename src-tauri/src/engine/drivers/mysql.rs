@@ -26,6 +26,8 @@ use crate::engine::types::{
     ConnectionConfig, Namespace, QueryId, QueryResult, Row as QRow, RowData, SessionId,
     TableColumn, TableSchema, Value, ForeignKey
 };
+use crate::engine::traits::{StreamEvent, StreamSender};
+use futures::StreamExt;
 
 /// Holds the connection state for a MySQL session.
 pub struct MySqlSession {
@@ -378,6 +380,77 @@ impl DataEngine for MySqlDriver {
     /// Executes a query and returns the result
     /// 
     /// Routes to transaction connection if active, otherwise uses pool.
+    async fn execute_stream(
+        &self,
+        session: SessionId,
+        query: &str,
+        query_id: QueryId,
+        sender: StreamSender,
+    ) -> EngineResult<()> {
+        let mysql_session = self.get_session(session).await?;
+
+        // Use pool for streaming
+        let mut conn = mysql_session
+                .pool
+                .acquire()
+                .await
+                .map_err(|e| EngineError::connection_failed(e.to_string()))?;
+
+        // Check if query returns rows
+        let returns_rows = sql_safety::returns_rows(self.driver_id(), query)
+            .unwrap_or_else(|_| sql_safety::is_select_prefix(query));
+
+        if !returns_rows {
+             // Fallback
+             let result = self.execute(session, query, query_id).await?;
+             let _ = sender.send(StreamEvent::Done(result.affected_rows.unwrap_or(0))).await;
+             return Ok(());
+        }
+
+        let connection_id = Self::fetch_connection_id(&mut conn).await?;
+        {
+            let mut active = mysql_session.active_queries.lock().await;
+            active.insert(query_id, connection_id);
+        }
+
+        let mut stream = sqlx::query(query).fetch(&mut *conn);
+        let mut columns_sent = false;
+        let mut row_count = 0;
+
+        while let Some(item) = stream.next().await {
+            match item {
+                Ok(mysql_row) => {
+                    if !columns_sent {
+                        let columns = Self::get_column_info(&mysql_row);
+                        if sender.send(StreamEvent::Columns(columns)).await.is_err() {
+                            break;
+                        }
+                        columns_sent = true;
+                    }
+
+                    let row = Self::convert_row(&mysql_row);
+                    if sender.send(StreamEvent::Row(row)).await.is_err() {
+                        break;
+                    }
+                    row_count += 1;
+                }
+                Err(e) => {
+                    let _ = sender.send(StreamEvent::Error(e.to_string())).await;
+                    break;
+                }
+            }
+        }
+
+        {
+            let mut active = mysql_session.active_queries.lock().await;
+            active.remove(&query_id);
+        }
+
+        let _ = sender.send(StreamEvent::Done(row_count)).await;
+
+        Ok(())
+    }
+
     async fn execute(
         &self,
         session: SessionId,
@@ -755,6 +828,10 @@ impl DataEngine for MySqlDriver {
     }
 
     fn supports_transactions(&self) -> bool {
+        true
+    }
+
+    fn supports_streaming(&self) -> bool {
         true
     }
 

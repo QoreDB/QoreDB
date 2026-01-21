@@ -83,6 +83,9 @@ pub fn run() {
             commands::connection::connect_saved_connection,
             commands::connection::disconnect,
             commands::connection::list_sessions,
+            // Driver commands
+            commands::driver::get_driver_info,
+            commands::driver::list_drivers,
             // Query commands
             commands::query::execute_query,
             commands::query::cancel_query,

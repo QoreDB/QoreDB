@@ -3,7 +3,18 @@ import { useTranslation } from 'react-i18next';
 import { MONGO_TEMPLATES } from '../Editor/MongoEditor';
 import { DocumentEditorModal } from '../Editor/DocumentEditorModal';
 import { QueryHistory } from '../History/QueryHistory';
-import { executeQuery, cancelQuery, QueryResult, Environment, Value, Namespace } from '../../lib/tauri';
+import {
+  executeQuery,
+  cancelQuery,
+  QueryResult,
+  Environment,
+  Value,
+  Namespace,
+  DriverCapabilities,
+  ColumnInfo,
+  Row,
+} from '../../lib/tauri';
+import { listen, UnlistenFn } from '@tauri-apps/api/event';
 import { addToHistory } from '../../lib/history';
 import { logError } from '../../lib/errorLog';
 import { ENVIRONMENT_CONFIG, getDangerousQueryTarget, isDangerousQuery, isDropDatabaseQuery, isMutationQuery } from '../../lib/environment';
@@ -35,9 +46,10 @@ function isTextInputTarget(target: EventTarget | null): boolean {
 
 interface QueryPanelProps {
 	sessionId: string | null;
-	dialect?: Driver;
-	environment?: Environment;
-	readOnly?: boolean;
+  dialect?: Driver;
+  driverCapabilities?: DriverCapabilities | null;
+  environment?: Environment;
+  readOnly?: boolean;
 	connectionName?: string;
 	connectionDatabase?: string;
 	activeNamespace?: Namespace | null;
@@ -51,6 +63,7 @@ interface QueryPanelProps {
 export function QueryPanel({
   sessionId,
   dialect = Driver.Postgres,
+  driverCapabilities = null,
   environment = 'development',
   readOnly = false,
   connectionName,
@@ -85,7 +98,14 @@ export function QueryPanel({
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [queryToSave, setQueryToSave] = useState<string>('');
 
-  const isExplainSupported = useMemo(() => dialect === Driver.Postgres, [dialect]);
+  const isExplainSupported = useMemo(
+    () => driverCapabilities?.explain ?? dialect === Driver.Postgres,
+    [driverCapabilities, dialect]
+  );
+  const canCancel = useMemo(
+    () => (driverCapabilities ? driverCapabilities.cancel !== 'none' : true),
+    [driverCapabilities]
+  );
 
   // Document Modal State
   const [docModalOpen, setDocModalOpen] = useState(false);
@@ -128,63 +148,175 @@ export function QueryPanel({
       setActiveQueryId(queryId);
 
       const startTime = performance.now();
+      
+      const streamDisposal: UnlistenFn[] = [];
+      const streamingRows: Row[] = [];
+      let streamingCols: ColumnInfo[] = [];
+
       try {
-        const response = await executeQuery(sessionId, queryToRun, {
-          acknowledgedDangerous,
-          queryId,
-        });
-        const endTime = performance.now();
-        const totalTime = endTime - startTime;
+        // Setup streaming listeners if supported
+        if (driverCapabilities?.streaming && kind === 'query' && !isMongo) {
+          const unlistenCols = await listen<ColumnInfo[]>(`query_stream_columns:${queryId}`, (event) => {
+             streamingCols = event.payload;
+              // Initialize result entry with columns
+             setResults(prev => {
+                const updated = [...prev];
+                const index = updated.findIndex(e => e.id === queryId);
+                if (index !== -1) {
+                   updated[index] = {
+                      ...updated[index],
+                      result: {
+                         columns: streamingCols,
+                         rows: [],
+                         execution_time_ms: 0,
+                         total_time_ms: 0
+                      }
+                   };
+                }
+                return updated;
+             });
+          });
 
-        if (response.success && response.result) {
-          const enrichedResult: QueryResult = {
-            ...response.result,
-            total_time_ms: totalTime,
-          } as QueryResult & { total_time_ms: number };
+          const unlistenRow = await listen<Row>(`query_stream_row:${queryId}`, (event) => {
+             streamingRows.push(event.payload);
+              setResults(prev => {
+                const updated = [...prev];
+                const index = updated.findIndex(e => e.id === queryId);
+                if (index !== -1 && updated[index].result) {
+                    const existingRows = updated[index].result.rows;
+                    updated[index].result.rows = [...existingRows, event.payload];
+                }
+                return updated;
+             });
+          });
 
-          const entry: QueryResultEntry = {
+          const unlistenError = await listen<string>(`query_stream_error:${queryId}`, (event) => {
+             setResults(prev => {
+                const updated = [...prev];
+                const index = updated.findIndex(e => e.id === queryId);
+                if (index !== -1) {
+                   updated[index].error = event.payload;
+                }
+                return updated;
+             });
+          });
+          
+          streamDisposal.push(unlistenCols, unlistenRow, unlistenError);
+          
+          // Pre-create result entry
+           const entry: QueryResultEntry = {
             id: queryId,
             kind,
             query: queryToRun,
-            result: enrichedResult,
+            result: {
+              columns: [],
+              rows: [],
+              execution_time_ms: 0,
+              total_time_ms: 0
+            },
             executedAt: Date.now(),
-            totalTimeMs: totalTime,
-            executionTimeMs: response.result.execution_time_ms,
-            rowCount: response.result.rows.length,
+            totalTimeMs: 0,
+            executionTimeMs: 0,
+            rowCount: 0,
           };
           setResults(prev => {
             const next = keepResults ? [...prev, entry] : [entry];
-            if (next.length > 12) {
-              return next.slice(next.length - 12);
-            }
+            if (next.length > 12) return next.slice(next.length - 12);
             return next;
           });
           setActiveResultId(queryId);
+        }
 
-          addToHistory({
-            query: queryToRun,
-            sessionId,
-            driver: dialect,
-            executedAt: Date.now(),
-            executionTimeMs: response.result.execution_time_ms,
-            totalTimeMs: totalTime,
-            rowCount: response.result.rows.length,
-          });
+        const response = await executeQuery(sessionId, queryToRun, {
+          acknowledgedDangerous,
+          queryId,
+          stream: driverCapabilities?.streaming && kind === 'query' && !isMongo,
+        });
+        const endTime = performance.now();
+        const totalTime = endTime - startTime;
+        
+        // Clean up listeners
+        streamDisposal.forEach(unlisten => unlisten());
 
-          if (kind === 'query') {
-            AnalyticsService.capture('query_executed', {
-              dialect: isMongo ? 'mongodb' : 'sql',
-              driver: dialect,
-              row_count: response.result.rows.length,
+        if (response.success) {
+           let finalResult = response.result;
+           // If streaming, construct final result from accumulated data if not returned
+           if (!finalResult && driverCapabilities?.streaming && kind === 'query' && !isMongo) {
+              finalResult = {
+                 columns: streamingCols,
+                 rows: streamingRows,
+                 execution_time_ms: totalTime, 
+                 total_time_ms: totalTime
+              };
+           }
+
+          if (finalResult) {
+            const enrichedResult: QueryResult = {
+              ...finalResult,
+              total_time_ms: totalTime,
+            } as QueryResult & { total_time_ms: number };
+
+            setResults(prev => {
+               const updated = [...prev];
+               const index = updated.findIndex(e => e.id === queryId);
+               if (index !== -1) {
+                  updated[index] = {
+                     id: queryId,
+                     kind,
+                     query: queryToRun,
+                     result: enrichedResult,
+                     executedAt: Date.now(),
+                     totalTimeMs: totalTime,
+                     executionTimeMs: enrichedResult.execution_time_ms,
+                     rowCount: enrichedResult.rows.length,
+                  };
+               } else {
+                   updated.push({
+                        id: queryId,
+                        kind,
+                        query: queryToRun,
+                        result: enrichedResult,
+                        executedAt: Date.now(),
+                        totalTimeMs: totalTime,
+                        executionTimeMs: enrichedResult.execution_time_ms,
+                        rowCount: enrichedResult.rows.length,
+                   });
+               }
+               
+               if (!keepResults) return [updated[updated.length - 1]];
+               if (updated.length > 12) return updated.slice(updated.length - 12);
+               return updated;
             });
-          }
+            
+             if (!driverCapabilities?.streaming || kind !== 'query' || isMongo) {
+                 setActiveResultId(queryId);
+            }
 
-          if (shouldRefreshSchema(queryToRun, isMongo)) {
-            forceRefreshCache(sessionId);
-            onSchemaChange?.();
+            addToHistory({
+              query: queryToRun,
+              sessionId,
+              driver: dialect,
+              executedAt: Date.now(),
+              executionTimeMs: enrichedResult.execution_time_ms,
+              totalTimeMs: totalTime,
+              rowCount: enrichedResult.rows.length,
+            });
+
+            if (kind === 'query') {
+              AnalyticsService.capture('query_executed', {
+                dialect: isMongo ? 'mongodb' : 'sql',
+                driver: dialect,
+                row_count: enrichedResult.rows.length,
+              });
+            }
+
+            if (shouldRefreshSchema(queryToRun, isMongo)) {
+              forceRefreshCache(sessionId);
+              onSchemaChange?.();
+            }
           }
         } else {
-          const entry: QueryResultEntry = {
+           const entry: QueryResultEntry = {
             id: queryId,
             kind,
             query: queryToRun,
@@ -192,6 +324,12 @@ export function QueryPanel({
             executedAt: Date.now(),
           };
           setResults(prev => {
+             const updated = [...prev];
+             const index = updated.findIndex(e => e.id === queryId);
+             if (index !== -1) {
+                updated[index] = entry;
+                return updated;
+             }
             const next = keepResults ? [...prev, entry] : [entry];
             if (next.length > 12) {
               return next.slice(next.length - 12);
@@ -211,6 +349,8 @@ export function QueryPanel({
           logError('QueryPanel', response.error || t('query.queryFailed'), queryToRun, sessionId);
         }
       } catch (err) {
+        streamDisposal.forEach(unlisten => unlisten());
+        
         const errorMessage = err instanceof Error ? err.message : t('common.error');
         const entry: QueryResultEntry = {
           id: queryId,
@@ -220,6 +360,12 @@ export function QueryPanel({
           executedAt: Date.now(),
         };
         setResults(prev => {
+           const updated = [...prev];
+           const index = updated.findIndex(e => e.id === queryId);
+           if (index !== -1) {
+              updated[index] = entry;
+              return updated;
+           }
           const next = keepResults ? [...prev, entry] : [entry];
           if (next.length > 12) {
             return next.slice(next.length - 12);
@@ -233,7 +379,7 @@ export function QueryPanel({
         setActiveQueryId(null);
       }
     },
-    [sessionId, dialect, t, onSchemaChange, isMongo, keepResults]
+    [sessionId, dialect, t, onSchemaChange, isMongo, keepResults, driverCapabilities]
   );
 
   const handleExecute = useCallback(
@@ -322,6 +468,10 @@ export function QueryPanel({
 
   const handleCancel = useCallback(async () => {
     if (!sessionId || !loading) return;
+    if (!canCancel) {
+      toast.error(t('query.cancelNotSupported'));
+      return;
+    }
 
     setCancelling(true);
     try {
@@ -332,7 +482,7 @@ export function QueryPanel({
       setCancelling(false);
       setLoading(false);
     }
-  }, [sessionId, loading, activeQueryId]);
+  }, [sessionId, loading, activeQueryId, canCancel, t]);
 
   const handleEditDocument = useCallback(
     (doc: Record<string, unknown>, idValue?: Value) => {
@@ -446,6 +596,7 @@ export function QueryPanel({
         isMongo={isMongo}
         keepResults={keepResults}
         isExplainSupported={isExplainSupported}
+        canCancel={canCancel}
         onExecute={handleExecuteCurrent}
         onCancel={handleCancel}
         onExplain={handleExplain}

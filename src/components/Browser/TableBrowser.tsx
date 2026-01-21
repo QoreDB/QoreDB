@@ -7,6 +7,7 @@ import {
   previewTable,
   executeQuery,
   Environment,
+  DriverCapabilities,
 } from '../../lib/tauri';
 import { useSchemaCache } from '../../hooks/useSchemaCache';
 import { DataGrid } from '../Grid/DataGrid';
@@ -39,6 +40,7 @@ interface TableBrowserProps {
   namespace: Namespace;
   tableName: string;
   driver?: Driver;
+  driverCapabilities?: DriverCapabilities | null;
   environment?: Environment;
   readOnly?: boolean;
   connectionName?: string;
@@ -53,6 +55,7 @@ export function TableBrowser({
   namespace,
   tableName,
   driver = Driver.Postgres,
+  driverCapabilities = null,
   environment = 'development',
   readOnly = false,
   connectionName,
@@ -71,6 +74,7 @@ export function TableBrowser({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<'insert' | 'update'>('insert');
   const [selectedRow, setSelectedRow] = useState<Record<string, Value> | undefined>(undefined);
+  const mutationsSupported = driverCapabilities?.mutations ?? true;
 
   // Schema cache
   const schemaCache = useSchemaCache(sessionId);
@@ -165,11 +169,21 @@ export function TableBrowser({
             variant="outline"
             size="sm"
             className="h-8 gap-1.5"
-            disabled={readOnly}
-            title={readOnly ? t('environment.blocked') : undefined}
+            disabled={readOnly || !mutationsSupported}
+            title={
+              readOnly
+                ? t('environment.blocked')
+                : !mutationsSupported
+                  ? t('grid.mutationsNotSupported')
+                  : undefined
+            }
             onClick={() => {
               if (readOnly) {
                 toast.error(t('environment.blocked'));
+                return;
+              }
+              if (!mutationsSupported) {
+                toast.error(t('grid.mutationsNotSupported'));
                 return;
               }
               setModalMode('insert');
@@ -254,12 +268,17 @@ export function TableBrowser({
             primaryKey={schema?.primary_key}
             environment={environment}
             readOnly={readOnly}
+            mutationsSupported={mutationsSupported}
             connectionName={connectionName}
             connectionDatabase={connectionDatabase}
             onRowsDeleted={loadData}
             onRowClick={row => {
               if (readOnly) {
                 toast.error(t('environment.blocked'));
+                return;
+              }
+              if (!mutationsSupported) {
+                toast.error(t('grid.mutationsNotSupported'));
                 return;
               }
               setModalMode('update');

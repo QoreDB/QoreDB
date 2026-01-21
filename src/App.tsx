@@ -13,7 +13,14 @@ import { StatusBar } from './components/Status/StatusBar';
 import { Button } from './components/ui/button';
 import { Tooltip } from './components/ui/tooltip';
 import { Search, Settings, X } from 'lucide-react';
-import { Namespace, SavedConnection, connectSavedConnection, listSavedConnections } from './lib/tauri';
+import {
+  Namespace,
+  SavedConnection,
+  connectSavedConnection,
+  listSavedConnections,
+  getDriverInfo,
+  DriverCapabilities,
+} from './lib/tauri';
 import { HistoryEntry } from './lib/history';
 import { QueryLibraryItem } from './lib/queryLibrary';
 import { Driver } from './lib/drivers';
@@ -55,6 +62,7 @@ function App() {
   const [libraryModalOpen, setLibraryModalOpen] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [driver, setDriver] = useState<Driver>(Driver.Postgres);
+  const [driverCapabilities, setDriverCapabilities] = useState<DriverCapabilities | null>(null);
   const [activeConnection, setActiveConnection] = useState<SavedConnection | null>(null);
   const [queryDrafts, setQueryDrafts] = useState<Record<string, string>>({});
   const [recoverySnapshot, setRecoverySnapshot] = useState<CrashRecoverySnapshot | null>(null);
@@ -127,6 +135,31 @@ function App() {
         setRecoveryMissing(true);
       });
   }, []);
+
+  useEffect(() => {
+    if (!sessionId) {
+      setDriverCapabilities(null);
+      return;
+    }
+
+    let cancelled = false;
+    getDriverInfo(sessionId)
+      .then(response => {
+        if (cancelled) return;
+        if (response.success && response.driver) {
+          setDriverCapabilities(response.driver.capabilities);
+        } else {
+          setDriverCapabilities(null);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setDriverCapabilities(null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionId]);
 
   // Tab system
   const [tabs, setTabs] = useState<OpenTab[]>([]);
@@ -602,6 +635,7 @@ function App() {
                   namespace={activeTab.namespace}
                   tableName={activeTab.tableName}
                   driver={driver}
+                  driverCapabilities={driverCapabilities}
                   environment={activeConnection?.environment || 'development'}
                   readOnly={activeConnection?.read_only || false}
                   connectionName={activeConnection?.name}
@@ -634,6 +668,7 @@ function App() {
                           <QueryPanel
                             sessionId={sessionId}
                             dialect={driver}
+                            driverCapabilities={driverCapabilities}
                             environment={activeConnection?.environment || 'development'}
                             readOnly={activeConnection?.read_only || false}
                             connectionName={activeConnection?.name}
@@ -652,6 +687,7 @@ function App() {
                       key={sessionId}
                       sessionId={sessionId}
                       dialect={driver}
+                      driverCapabilities={driverCapabilities}
                       environment={activeConnection?.environment || 'development'}
                       readOnly={activeConnection?.read_only || false}
                       connectionName={activeConnection?.name}

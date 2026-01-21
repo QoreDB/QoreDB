@@ -7,6 +7,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use crate::engine::traits::DataEngine;
+use crate::engine::types::DriverInfo;
 
 /// Registry that holds all available database drivers
 pub struct DriverRegistry {
@@ -37,6 +38,21 @@ impl DriverRegistry {
     /// Lists all registered driver IDs
     pub fn list(&self) -> Vec<&str> {
         self.drivers.keys().map(|s| s.as_str()).collect()
+    }
+
+    /// Lists all registered drivers with their metadata.
+    pub fn list_infos(&self) -> Vec<DriverInfo> {
+        let mut infos: Vec<DriverInfo> = self
+            .drivers
+            .values()
+            .map(|driver| DriverInfo {
+                id: driver.driver_id().to_string(),
+                name: driver.driver_name().to_string(),
+                capabilities: driver.capabilities(),
+            })
+            .collect();
+        infos.sort_by(|a, b| a.id.cmp(&b.id));
+        infos
     }
 
     /// Returns the number of registered drivers

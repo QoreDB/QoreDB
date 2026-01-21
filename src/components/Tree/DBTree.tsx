@@ -46,17 +46,18 @@ export function DBTree({
   const driverMeta = getDriverMetadata(driver);
 
   const sessionId = connectionId;
+  const { getNamespaces, invalidateNamespaces } = schemaCache;
 
   const loadNamespaces = useCallback(async () => {
     try {
-      const ns = await schemaCache.getNamespaces();
+      const ns = await getNamespaces();
       setNamespaces(ns);
       return ns;
     } catch (err) {
       console.error('Failed to load namespaces:', err);
     }
     return [];
-  }, [schemaCache]);
+  }, [getNamespaces]);
 
   const refreshCollections = useCallback(
     async (ns: Namespace, page = 1, append = false) => {
@@ -98,7 +99,7 @@ export function DBTree({
   useEffect(() => {
     if (refreshTrigger === undefined) return;
     const refresh = async () => {
-      schemaCache.invalidateNamespaces();
+      invalidateNamespaces();
       const updated = await loadNamespaces();
       if (expandedNs && !updated.some(ns => getNsKey(ns) === expandedNs)) {
         setExpandedNs(null);
@@ -110,7 +111,7 @@ export function DBTree({
       await refreshExpandedNamespace();
     };
     refresh();
-  }, [refreshTrigger, schemaCache, loadNamespaces, refreshExpandedNamespace, expandedNs]);
+  }, [refreshTrigger, invalidateNamespaces, loadNamespaces, refreshExpandedNamespace, expandedNs]);
 
   async function handleExpandNamespace(ns: Namespace) {
     const key = `${ns.database}:${ns.schema || ''}`;

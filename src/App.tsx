@@ -62,8 +62,6 @@ function App() {
   const [recoveryMissing, setRecoveryMissing] = useState(false);
   const [recoveryLoading, setRecoveryLoading] = useState(false);
   const [recoveryError, setRecoveryError] = useState<string | null>(null);
-
-  // Onboarding state
   const [showOnboarding, setShowOnboarding] = useState(false);
 
   useEffect(() => {
@@ -73,7 +71,6 @@ function App() {
   }, []);
 
   useEffect(() => {
-    // Check if onboarding is needed
     if (!AnalyticsService.isOnboardingCompleted()) {
       setShowOnboarding(true);
     }

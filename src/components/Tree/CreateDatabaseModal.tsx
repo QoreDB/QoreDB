@@ -8,7 +8,7 @@ import {
   DialogTitle,
   DialogFooter
 } from '@/components/ui/dialog';
-import { executeQuery, Environment } from '../../lib/tauri';
+import { createDatabase, Environment } from '../../lib/tauri';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -58,25 +58,12 @@ export function CreateDatabaseModal({
   async function performCreate() {
     setLoading(true);
     try {
-      let query = '';
-
-      if (driverMeta.createAction === 'schema') {
-        query = `CREATE SCHEMA "${name}"`;
-      } else if (driverMeta.createAction === 'database' && !isMongo) {
-        query = `CREATE DATABASE \`${name}\``;
-      } else if (isMongo) {
-        const payload = {
-          database: name.trim(),
-          collection: collectionName.trim(),
-          operation: 'create_collection',
-        };
-        query = JSON.stringify(payload);
-      } else {
-        toast.error(t('database.creationNotSupported'));
-        return;
+      let options = undefined;
+      if (isMongo) {
+        options = { collection: collectionName.trim() };
       }
 
-      const result = await executeQuery(sessionId, query);
+      const result = await createDatabase(sessionId, name.trim(), options);
 
       if (result.success) {
         const successKey = isMongo
@@ -90,14 +77,20 @@ export function CreateDatabaseModal({
         setName('');
         setCollectionName('');
       } else {
-        const errorKey = isMongo
-          ? 'database.mongoCreateError'
-          : driverMeta.createAction === 'schema'
-            ? 'database.schemaCreateError'
-            : 'database.databaseCreateError';
-        toast.error(t(errorKey), {
-          description: result.error,
-        });
+        if (result.error && (result.error.includes("1044") || result.error.includes("Access denied") || result.error.includes("Permission denied"))) {
+            toast.error(t('database.permissionDenied'), {
+                description: t('database.permissionDeniedHint')
+            });
+        } else {
+            const errorKey = isMongo
+              ? 'database.mongoCreateError'
+              : driverMeta.createAction === 'schema'
+                ? 'database.schemaCreateError'
+                : 'database.databaseCreateError';
+            toast.error(t(errorKey), {
+              description: result.error,
+            });
+        }
       }
     } catch (err) {
       toast.error(t('common.error'), {

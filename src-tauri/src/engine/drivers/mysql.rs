@@ -286,6 +286,8 @@ impl DataEngine for MySqlDriver {
         let mysql_session = self.get_session(session).await?;
         let pool = &mysql_session.pool;
 
+        tracing::info!("MySQL: Listing namespaces for session {}", session.0);
+
         let rows: Vec<(String,)> = sqlx::query_as(
             r#"
             SELECT schema_name
@@ -296,7 +298,12 @@ impl DataEngine for MySqlDriver {
         )
         .fetch_all(pool)
         .await
-        .map_err(|e| EngineError::execution_error(e.to_string()))?;
+        .map_err(|e| {
+            tracing::error!("MySQL: Failed to list namespaces: {}", e);
+            EngineError::execution_error(e.to_string())
+        })?;
+
+        tracing::info!("MySQL: Found {} namespaces", rows.len());
 
         let namespaces = rows.into_iter().map(|(db,)| Namespace::new(db)).collect();
 
@@ -377,6 +384,38 @@ impl DataEngine for MySqlDriver {
             collections,
             total_count: total_count as u32,
         })
+    }
+
+    async fn create_database(&self, session: SessionId, name: &str, _options: Option<Value>) -> EngineResult<()> {
+        let mysql_session = self.get_session(session).await?;
+        let pool = &mysql_session.pool;
+
+        // Basic validation
+        if name.is_empty() || name.len() > 64 {
+            return Err(EngineError::validation("Database name must be between 1 and 64 characters"));
+        }
+
+        // Identifier quoting with backticks for MySQL
+        // Simple escape of backticks to avoid injection
+        let escaped_name = name.replace('`', "``");
+        let query = format!("CREATE DATABASE `{}`", escaped_name);
+
+        sqlx::query(&query)
+            .execute(pool)
+            .await
+            .map_err(|e| {
+                tracing::error!("MySQL: Failed to create database: {}", e);
+                let msg = e.to_string();
+                if msg.contains("Access denied") {
+                    EngineError::auth_failed(format!("Permission denied: {}", msg))
+                } else if msg.contains("exists") {
+                    EngineError::validation(format!("Database '{}' already exists", name))
+                } else {
+                    EngineError::execution_error(msg)
+                }
+            })?;
+
+        Ok(())
     }
 
     /// Executes a query and returns the result

@@ -252,6 +252,17 @@ export async function cancelQuery(
   return invoke('cancel_query', { sessionId, queryId });
 }
 
+export async function createDatabase(
+  sessionId: string,
+  name: string,
+  options?: Record<string, unknown>
+): Promise<{
+  success: boolean;
+  error?: string;
+}> {
+  return invoke('create_database', { sessionId, name, options });
+}
+
 // ============================================
 // TABLE BROWSING
 // ============================================

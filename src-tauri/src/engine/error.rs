@@ -47,6 +47,9 @@ pub enum EngineError {
 
     #[error("Transaction error: {message}")]
     TransactionError { message: String },
+
+    #[error("Validation error: {message}")]
+    ValidationError { message: String },
 }
 
 impl EngineError {
@@ -84,6 +87,10 @@ impl EngineError {
 
     pub fn transaction_error(msg: impl Into<String>) -> Self {
         Self::TransactionError { message: msg.into() }
+    }
+
+    pub fn validation(msg: impl Into<String>) -> Self {
+        Self::ValidationError { message: msg.into() }
     }
 }
 

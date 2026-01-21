@@ -603,6 +603,50 @@ pub async fn preview_table(
     }
 }
 
+/// Creates a new database (or schema)
+#[tauri::command]
+pub async fn create_database(
+    state: State<'_, crate::SharedState>,
+    session_id: String,
+    name: String,
+    options: Option<serde_json::Value>,
+) -> Result<QueryResponse, String> {
+    let session_manager = {
+        let state = state.lock().await;
+        Arc::clone(&state.session_manager)
+    };
+    let session = parse_session_id(&session_id)?;
+
+    let driver = match session_manager.get_driver(session).await {
+        Ok(d) => d,
+        Err(e) => {
+             return Ok(QueryResponse {
+                success: false,
+                result: None,
+                error: Some(e.to_string()),
+                query_id: None,
+            });
+        }
+    };
+
+    let engine_options = options.map(|v| crate::engine::types::Value::Json(v));
+
+    match driver.create_database(session, &name, engine_options).await {
+        Ok(()) => Ok(QueryResponse {
+            success: true,
+            result: None,
+            error: None,
+            query_id: None,
+        }),
+        Err(e) => Ok(QueryResponse {
+            success: false,
+            result: None,
+            error: Some(e.to_string()),
+            query_id: None,
+        }),
+    }
+}
+
 // ==================== Transaction Commands ====================
 
 /// Response wrapper for transaction operations

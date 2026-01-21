@@ -260,6 +260,40 @@ impl DataEngine for MongoDriver {
         Ok(namespaces)
     }
 
+    async fn create_database(&self, session: SessionId, name: &str, options: Option<Value>) -> EngineResult<()> {
+        let sessions = self.sessions.read().await;
+        let client = sessions
+            .get(&session)
+            .ok_or_else(|| EngineError::session_not_found(session.0.to_string()))?;
+
+        // In MongoDB, a database is created when the first collection is created.
+        // We require a collection name in the options for explicit creation.
+        let collection_name = if let Some(opts) = options {
+             match opts {
+                 Value::Json(json) => {
+                     json.get("collection")
+                        .and_then(|v| v.as_str())
+                        .map(|s| s.to_string())
+                 },
+                 _ => None,
+             }
+        } else {
+            None
+        };
+
+        let collection_name = collection_name.ok_or_else(|| 
+            EngineError::validation("Collection name is required to create a MongoDB database")
+        )?;
+
+        client
+            .database(name)
+            .run_command(doc! { "create": collection_name })
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        Ok(())
+    }
+
     async fn list_collections(
         &self,
         session: SessionId,

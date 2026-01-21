@@ -9,7 +9,7 @@ use async_trait::async_trait;
 use crate::engine::error::EngineResult;
 use crate::engine::types::{
     CancelSupport, CollectionList, CollectionListOptions, ConnectionConfig, DriverCapabilities, Namespace,
-    QueryId, QueryResult, Row, RowData, SessionId, TableSchema, ColumnInfo,
+    QueryId, QueryResult, Row, RowData, SessionId, TableSchema, ColumnInfo, Value
 };
 
 /// Events emitted during query streaming
@@ -64,6 +64,11 @@ pub trait DataEngine: Send + Sync {
         namespace: &Namespace,
         options: CollectionListOptions,
     ) -> EngineResult<CollectionList>;
+
+    /// Creates a new database (or schema in PostgreSQL)
+    /// 
+    /// For MongoDB, 'options' can contain {"collection": "name"} to create the initial collection.
+    async fn create_database(&self, session: SessionId, name: &str, options: Option<Value>) -> EngineResult<()>;
 
     /// Executes a query and returns the result
     ///

@@ -6,39 +6,49 @@ use argon2::{
     password_hash::{rand_core::OsRng, PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
     Argon2,
 };
-use keyring::Entry;
 
 use crate::engine::error::{EngineError, EngineResult};
+use crate::vault::backend::CredentialProvider;
 
 const SERVICE_NAME: &str = "qoredb";
 const MASTER_PASSWORD_KEY: &str = "__master_password_hash__";
 
-fn master_entry() -> EngineResult<Entry> {
-    let service = std::env::var("QOREDB_VAULT_SERVICE").unwrap_or_else(|_| SERVICE_NAME.to_string());
-    let key =
-        std::env::var("QOREDB_VAULT_MASTER_KEY").unwrap_or_else(|_| MASTER_PASSWORD_KEY.to_string());
-    Entry::new(&service, &key)
-        .map_err(|e| EngineError::internal(format!("Keyring error: {}", e)))
-}
-
 /// Manages vault locking with master password
 pub struct VaultLock {
     is_unlocked: bool,
+    provider: Box<dyn CredentialProvider>,
 }
 
 impl VaultLock {
-    pub fn new() -> Self {
-        Self { is_unlocked: false }
+    pub fn new(provider: Box<dyn CredentialProvider>) -> Self {
+        Self { 
+            is_unlocked: false,
+            provider,
+        }
+    }
+
+    fn master_key_params(&self) -> (String, String) {
+        let service = std::env::var("QOREDB_VAULT_SERVICE").unwrap_or_else(|_| SERVICE_NAME.to_string());
+        let key = std::env::var("QOREDB_VAULT_MASTER_KEY").unwrap_or_else(|_| MASTER_PASSWORD_KEY.to_string());
+        (service, key)
     }
 
     /// Checks if a master password has been set
-    pub fn has_master_password() -> EngineResult<bool> {
-        let entry = master_entry()?;
-
-        match entry.get_password() {
+    pub fn has_master_password(&self) -> EngineResult<bool> {
+        let (service, key) = self.master_key_params();
+        
+        match self.provider.get_password(&service, &key) {
             Ok(_) => Ok(true),
-            Err(keyring::Error::NoEntry) => Ok(false),
-            Err(e) => Err(EngineError::internal(format!("Keyring error: {}", e))),
+            Err(e) if e.to_string().contains("not found") => Ok(false),
+            Err(e) if e.to_string().contains("NoEntry") => Ok(false),
+            Err(e) if e.to_string().contains("internal") => {
+                 // Check if it's "Credentials not found" which is what MockProvider/Backend returns
+                 if e.to_string().contains("Credentials not found") {
+                     return Ok(false);
+                 }
+                 Err(e)
+            },
+            Err(e) => Err(e),
         }
     }
 
@@ -54,11 +64,10 @@ impl VaultLock {
             .to_string();
 
         // Store the hash in keyring
-        let entry = master_entry()?;
+        let (service, key) = self.master_key_params();
 
-        entry
-            .set_password(&hash)
-            .map_err(|e| EngineError::internal(format!("Failed to store master password: {}", e)))?;
+        self.provider.set_password(&service, &key, &hash)
+             .map_err(|e| EngineError::internal(format!("Failed to store master password: {}", e)))?;
 
         self.is_unlocked = true;
         Ok(())
@@ -66,11 +75,10 @@ impl VaultLock {
 
     /// Attempts to unlock the vault with the given password
     pub fn unlock(&mut self, password: &str) -> EngineResult<bool> {
-        let entry = master_entry()?;
+        let (service, key) = self.master_key_params();
 
-        let stored_hash = entry
-            .get_password()
-            .map_err(|e| EngineError::internal(format!("No master password set: {}", e)))?;
+        let stored_hash = self.provider.get_password(&service, &key)
+             .map_err(|e| EngineError::internal(format!("No master password set: {}", e)))?;
 
         let parsed_hash = PasswordHash::new(&stored_hash)
             .map_err(|e| EngineError::internal(format!("Invalid stored hash: {}", e)))?;
@@ -107,10 +115,9 @@ impl VaultLock {
             return Err(EngineError::auth_failed("Invalid password"));
         }
 
-        let entry = master_entry()?;
+        let (service, key) = self.master_key_params();
 
-        entry
-            .delete_credential()
+        self.provider.delete_password(&service, &key)
             .map_err(|e| EngineError::internal(format!("Failed to delete: {}", e)))?;
 
         self.is_unlocked = true; // No password = always unlocked
@@ -119,16 +126,10 @@ impl VaultLock {
 
     /// Auto-unlocks if no master password is set
     pub fn auto_unlock_if_no_password(&mut self) -> EngineResult<()> {
-        if !Self::has_master_password()? {
+        if !self.has_master_password()? {
             self.is_unlocked = true;
         }
         Ok(())
-    }
-}
-
-impl Default for VaultLock {
-    fn default() -> Self {
-        Self::new()
     }
 }
 
@@ -136,34 +137,23 @@ impl Default for VaultLock {
 mod tests {
     use super::*;
     use std::sync::{Mutex, OnceLock};
-    use uuid::Uuid;
+    use crate::vault::backend::MockProvider;
 
     fn env_lock() -> &'static Mutex<()> {
         static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
         LOCK.get_or_init(|| Mutex::new(()))
     }
 
-    fn cleanup(service: &str, key: &str) {
-        if let Ok(entry) = Entry::new(service, key) {
-            let _ = entry.delete_credential();
-        }
-    }
-
     #[test]
     fn master_password_roundtrip() -> EngineResult<()> {
         let _guard = env_lock().lock().expect("env lock poisoned");
-        let service = format!("qoredb_test_{}", Uuid::new_v4().simple());
-        let key = format!("__master_password_hash__{}", Uuid::new_v4().simple());
-
-        std::env::set_var("QOREDB_VAULT_SERVICE", &service);
-        std::env::set_var("QOREDB_VAULT_MASTER_KEY", &key);
-        cleanup(&service, &key);
-
-        let mut lock = VaultLock::new();
-        assert!(!VaultLock::has_master_password()?);
+        // Use MockProvider for testing
+        let mut lock = VaultLock::new(Box::new(MockProvider::new()));
+        
+        assert!(!lock.has_master_password()?);
 
         lock.setup_master_password("secret")?;
-        assert!(VaultLock::has_master_password()?);
+        assert!(lock.has_master_password()?);
 
         lock.lock();
         assert!(lock.is_locked());
@@ -173,15 +163,11 @@ mod tests {
         assert!(lock.is_unlocked());
 
         lock.remove_master_password("secret")?;
-        assert!(!VaultLock::has_master_password()?);
+        assert!(!lock.has_master_password()?);
 
         lock.lock();
         lock.auto_unlock_if_no_password()?;
         assert!(lock.is_unlocked());
-
-        cleanup(&service, &key);
-        std::env::remove_var("QOREDB_VAULT_SERVICE");
-        std::env::remove_var("QOREDB_VAULT_MASTER_KEY");
 
         Ok(())
     }

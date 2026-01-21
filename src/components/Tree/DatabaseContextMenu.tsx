@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { Database, Plus, RefreshCw } from 'lucide-react';
+import { Database, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import {
   ContextMenu,
   ContextMenuContent,
@@ -13,7 +13,9 @@ interface DatabaseContextMenuProps {
   onOpen: () => void;
   onRefresh: () => void;
   onCreateTable?: () => void;
+  onDelete?: () => void;
   canCreateTable: boolean;
+  canDelete: boolean;
   children: ReactNode;
 }
 
@@ -21,7 +23,9 @@ export function DatabaseContextMenu({
   onOpen,
   onRefresh,
   onCreateTable,
+  onDelete,
   canCreateTable,
+  canDelete,
   children,
 }: DatabaseContextMenuProps) {
   const { t } = useTranslation();
@@ -44,6 +48,18 @@ export function DatabaseContextMenu({
             <ContextMenuItem onSelect={onCreateTable}>
               <Plus size={14} />
               {t('createTable.title')}
+            </ContextMenuItem>
+          </>
+        )}
+        {canDelete && onDelete && (
+          <>
+            <ContextMenuSeparator />
+            <ContextMenuItem
+              onSelect={onDelete}
+              className="text-destructive focus:text-destructive focus:bg-destructive/10"
+            >
+              <Trash2 size={14} />
+              {t('dropDatabase.menuItem')}
             </ContextMenuItem>
           </>
         )}

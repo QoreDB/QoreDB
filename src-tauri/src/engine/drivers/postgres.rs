@@ -392,6 +392,38 @@ impl DataEngine for PostgresDriver {
         Ok(())
     }
 
+    async fn drop_database(&self, session: SessionId, name: &str) -> EngineResult<()> {
+        let pg_session = self.get_session(session).await?;
+        let pool = &pg_session.pool;
+
+        // Basic validation
+        if name.is_empty() || name.len() > 63 {
+            return Err(EngineError::validation("Schema name must be between 1 and 63 characters"));
+        }
+
+        // Identifier quoting with double quotes for Postgres
+        let escaped_name = name.replace('"', "\"\"");
+        let query = format!("DROP SCHEMA \"{}\" CASCADE", escaped_name);
+
+        sqlx::query(&query)
+            .execute(pool)
+            .await
+            .map_err(|e| {
+                tracing::error!("Postgres: Failed to drop schema: {}", e);
+                let msg = e.to_string();
+                if msg.contains("permission denied") {
+                    EngineError::auth_failed(format!("Permission denied: {}", msg))
+                } else if msg.contains("does not exist") {
+                    EngineError::validation(format!("Schema '{}' does not exist", name))
+                } else {
+                    EngineError::execution_error(msg)
+                }
+            })?;
+
+        tracing::info!("Postgres: Successfully dropped schema '{}'", name);
+        Ok(())
+    }
+
     async fn execute_stream(
         &self,
         session: SessionId,

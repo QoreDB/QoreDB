@@ -70,6 +70,9 @@ pub trait DataEngine: Send + Sync {
     /// For MongoDB, 'options' can contain {"collection": "name"} to create the initial collection.
     async fn create_database(&self, session: SessionId, name: &str, options: Option<Value>) -> EngineResult<()>;
 
+    /// Drops an existing database (or schema in PostgreSQL)
+    async fn drop_database(&self, session: SessionId, name: &str) -> EngineResult<()>;
+
     /// Executes a query and returns the result
     ///
     /// For SQL engines: executes SQL statements

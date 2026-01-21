@@ -5,8 +5,10 @@ import { Folder, FolderOpen, Table, Eye, Loader2, Plus, ChevronRight, ChevronDow
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { CreateDatabaseModal } from './CreateDatabaseModal';
+import { DeleteDatabaseModal } from './DeleteDatabaseModal';
 import { TableContextMenu } from './TableContextMenu';
 import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
 import { Driver, getDriverMetadata } from '../../lib/drivers';
 import { CreateTableModal } from '../Table/CreateTableModal';
 import { DatabaseContextMenu } from './DatabaseContextMenu';
@@ -41,6 +43,8 @@ export function DBTree({
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [createTableOpen, setCreateTableOpen] = useState(false);
   const [createTableNamespace, setCreateTableNamespace] = useState<Namespace | null>(null);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deleteTargetNamespace, setDeleteTargetNamespace] = useState<Namespace | null>(null);
   const collectionsPageSize = 100;
   
   const driverMeta = getDriverMetadata(driver);
@@ -53,8 +57,14 @@ export function DBTree({
       const ns = await getNamespaces();
       setNamespaces(ns);
       return ns;
-    } catch (err) {
-      console.error('Failed to load namespaces:', err);
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        console.error('Failed to load namespaces:', err);
+        toast.error(`Failed to load databases: ${err.message}`);
+      } else {
+        console.error('Failed to load namespaces:', err);
+        toast.error(`Failed to load databases: ${err}`);
+      }
     }
     return [];
   }, [getNamespaces]);
@@ -203,7 +213,12 @@ export function DBTree({
                 setCreateTableNamespace(ns);
                 setCreateTableOpen(true);
               }}
+              onDelete={() => {
+                setDeleteTargetNamespace(ns);
+                setDeleteModalOpen(true);
+              }}
               canCreateTable={driverMeta.supportsSQL && !connection?.read_only}
+              canDelete={!connection?.read_only}
             >
               <button
                 className={cn(
@@ -211,7 +226,6 @@ export function DBTree({
                   isExpanded ? "text-foreground" : "text-muted-foreground"
                 )}
                 onClick={() => {
-                  // Expand tables + open Database Overview
                   handleExpandNamespace(ns);
                   onDatabaseSelect?.(ns);
                 }}
@@ -256,12 +270,6 @@ export function DBTree({
                     </TableContextMenu>
                   ))
                 )}
-                {/* {collectionsLoading && (
-                  <div className="flex items-center gap-2 px-2 py-1 text-xs text-muted-foreground">
-                    <Loader2 size={12} className="animate-spin" />
-                    {t('common.loading')}
-                  </div>
-                )} */}
                 {canLoadMore && !collectionsLoading && (
                   <Button
                     variant="ghost"
@@ -295,6 +303,31 @@ export function DBTree({
             refreshCollections(createTableNamespace);
             if (tableName) {
               emitTableChange({ type: 'create', namespace: createTableNamespace, tableName });
+            }
+          }}
+        />
+      )}
+
+      {deleteTargetNamespace && (
+        <DeleteDatabaseModal
+          isOpen={deleteModalOpen}
+          onClose={() => {
+            setDeleteModalOpen(false);
+            setDeleteTargetNamespace(null);
+          }}
+          sessionId={sessionId}
+          namespace={deleteTargetNamespace}
+          driver={driver}
+          environment={connection?.environment || 'development'}
+          onDeleted={() => {
+            schemaCache.invalidateNamespaces();
+            loadNamespaces();
+            // Clear expanded state if we deleted the expanded namespace
+            if (expandedNs && getNsKey(deleteTargetNamespace) === expandedNs) {
+              setExpandedNs(null);
+              setExpandedNamespace(null);
+              setCollections([]);
+              setCollectionsTotal(0);
             }
           }}
         />

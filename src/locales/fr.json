@@ -404,6 +404,7 @@
         "cancel": "Annuler",
         "confirm": "Confirmer",
         "delete": "Supprimer",
+        "deleting": "Suppression...",
         "unknownError": "Erreur inconnue",
         "mongoCreateDbHint": "MongoDB crée une base lorsque la première collection est créée.",
         "time": "Temps",
@@ -483,7 +484,8 @@
         "create": "Créer la table",
         "tableNameRequired": "Le nom de la table est requis",
         "success": "Table \"{{name}}\" créée avec succès",
-        "failed": "Échec de la création de la table"
+        "failed": "Échec de la création de la table",
+        "tableNamePlaceholder": "Ma table"
     },
     "dropTable": {
         "title": "Supprimer la table",
@@ -491,6 +493,19 @@
         "confirmProduction": "Vous êtes en PRODUCTION. Tapez le nom de la table pour confirmer :",
         "success": "Table \"{{name}}\" supprimée avec succès",
         "failed": "Échec de la suppression de la table"
+    },
+    "dropDatabase": {
+        "menuItem": "Supprimer la base",
+        "title": "Supprimer la base de données",
+        "schemaTitle": "Supprimer le schéma",
+        "confirm": "Voulez-vous vraiment supprimer la base \"{{name}}\" et toutes ses données ? Cette action est irréversible.",
+        "schemaConfirm": "Voulez-vous vraiment supprimer le schéma \"{{name}}\" et toutes ses tables ? Cette action est irréversible.",
+        "productionWarning": "Vous êtes sur une base de PRODUCTION !",
+        "typeToConfirm": "Tapez \"{{name}}\" pour confirmer :",
+        "continue": "Continuer",
+        "success": "Base \"{{name}}\" supprimée avec succès",
+        "schemaSuccess": "Schéma \"{{name}}\" supprimé avec succès",
+        "failed": "Échec de la suppression"
     },
     "history": {
         "title": "Historique des requêtes",

@@ -98,12 +98,14 @@ impl MySqlDriver {
 
     /// Builds a connection string from config
     fn build_connection_string(config: &ConnectionConfig) -> String {
-        let db = config.database.as_deref().unwrap_or("mysql");
+        let db = config.database.as_deref().unwrap_or("");
+        let target_db = if db.is_empty() { "information_schema" } else { db };
+        
         let ssl_mode = if config.ssl { "REQUIRED" } else { "DISABLED" };
 
         format!(
             "mysql://{}:{}@{}:{}/{}?ssl-mode={}",
-            config.username, config.password, config.host, config.port, db, ssl_mode
+            config.username, config.password, config.host, config.port, target_db, ssl_mode
         )
     }
 

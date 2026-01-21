@@ -11,6 +11,7 @@ use tracing::instrument;
 
 use crate::engine::types::{ConnectionConfig, SshAuth};
 use crate::vault::VaultStorage;
+use crate::vault::backend::KeyringProvider;
 
 /// Response for connection operations
 #[derive(Debug, Serialize)]
@@ -32,7 +33,7 @@ fn load_saved_connection_config(
     connection_id: &str,
     storage_dir: PathBuf,
 ) -> Result<ConnectionConfig, String> {
-    let storage = VaultStorage::new(project_id, storage_dir);
+    let storage = VaultStorage::new(project_id, storage_dir, Box::new(KeyringProvider::new()));
     let saved = storage
         .get_connection(connection_id)
         .map_err(|e| e.to_string())?;

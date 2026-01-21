@@ -3,7 +3,7 @@
 //! Secure storage for database credentials using OS keychain.
 //! Connection metadata is stored in a local JSON file to avoid excessive keychain prompts.
 
-use keyring::Entry;
+use crate::vault::backend::CredentialProvider;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::fs;
@@ -21,14 +21,16 @@ const CONNECTIONS_FILE: &str = "connections.json";
 pub struct VaultStorage {
     project_id: String,
     storage_dir: PathBuf,
+    provider: Box<dyn CredentialProvider>,
 }
 
 impl VaultStorage {
     /// Creates a new vault storage with project isolation
-    pub fn new(project_id: &str, storage_dir: PathBuf) -> Self {
+    pub fn new(project_id: &str, storage_dir: PathBuf, provider: Box<dyn CredentialProvider>) -> Self {
         Self {
             project_id: project_id.to_string(),
             storage_dir,
+            provider,
         }
     }
 
@@ -96,9 +98,7 @@ impl VaultStorage {
 
         // 2. Save credentials to Keychain (secrets only)
         let service = self.service_name();
-        let creds_entry = Entry::new(&service, &self.credentials_key(&connection.id))
-            .map_err(|e| EngineError::internal(format!("Keyring error: {}", e)))?;
-
+        
         let creds_json = serde_json::to_string(&CredsJson {
             db_password: credentials.db_password.expose().clone(),
             ssh_password: credentials.ssh_password.as_ref().map(|s| s.expose().clone()),
@@ -106,9 +106,8 @@ impl VaultStorage {
         })
         .map_err(|e| EngineError::internal(format!("Serialization error: {}", e)))?;
 
-        creds_entry
-            .set_password(&creds_json)
-            .map_err(|e| EngineError::internal(format!("Failed to save credentials: {}", e)))?;
+        self.provider.set_password(&service, &self.credentials_key(&connection.id), &creds_json)
+             .map_err(|e| EngineError::internal(format!("Failed to save credentials: {}", e)))?;
 
         Ok(())
     }
@@ -126,12 +125,7 @@ impl VaultStorage {
     /// Retrieves credentials for a connection
     pub fn get_credentials(&self, connection_id: &str) -> EngineResult<StoredCredentials> {
         let service = self.service_name();
-        let entry = Entry::new(&service, &self.credentials_key(connection_id))
-            .map_err(|e| EngineError::internal(format!("Keyring error: {}", e)))?;
-
-        let creds_json = entry
-            .get_password()
-            .map_err(|_| EngineError::internal("Credentials not found"))?;
+        let creds_json = self.provider.get_password(&service, &self.credentials_key(connection_id))?;
 
         let creds: CredsJson = serde_json::from_str(&creds_json)
             .map_err(|e| EngineError::internal(format!("Deserialization error: {}", e)))?;
@@ -155,16 +149,13 @@ impl VaultStorage {
         }
 
         // 2. Remove credentials from Keychain
+        // 2. Remove credentials from Keychain
         let service = self.service_name();
-        if let Ok(entry) = Entry::new(&service, &self.credentials_key(connection_id)) {
-            let _ = entry.delete_credential();
-        }
+        let _ = self.provider.delete_password(&service, &self.credentials_key(connection_id));
 
         // Try to clean up old metadata from keychain if it exists (migration cleanup)
         // We don't error if this fails, just best effort
-        if let Ok(entry) = Entry::new(&service, &format!("meta_{}", connection_id)) {
-            let _ = entry.delete_credential();
-        }
+        let _ = self.provider.delete_password(&service, &format!("meta_{}", connection_id));
 
         Ok(())
     }
@@ -226,6 +217,7 @@ struct CredsJson {
 mod tests {
     use super::*;
     use crate::vault::credentials::{Environment, SavedConnection, SshTunnelInfo, StoredCredentials};
+    use crate::vault::backend::MockProvider;
     use uuid::Uuid;
     use tempfile::TempDir;
 
@@ -234,7 +226,11 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let project_id = format!("qoredb_test_{}", Uuid::new_v4().simple());
         let connection_id = Uuid::new_v4().simple().to_string();
-        let storage = VaultStorage::new(&project_id, temp_dir.path().to_path_buf());
+        let storage = VaultStorage::new(
+            &project_id, 
+            temp_dir.path().to_path_buf(),
+            Box::new(MockProvider::new())
+        );
 
         let connection = SavedConnection {
             id: connection_id.clone(),

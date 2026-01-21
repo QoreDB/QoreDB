@@ -7,6 +7,7 @@ use tauri::{AppHandle, Manager, State};
 
 use crate::vault::credentials::{Environment, SavedConnection, SshTunnelInfo, StoredCredentials};
 use crate::vault::storage::VaultStorage;
+use crate::vault::backend::KeyringProvider;
 use crate::SharedState;
 use crate::observability::Sensitive;
 
@@ -79,7 +80,7 @@ pub async fn get_vault_status(
 ) -> Result<VaultStatusResponse, String> {
     let state = state.lock().await;
 
-    let has_master_password = crate::vault::VaultLock::has_master_password()
+    let has_master_password = state.vault_lock.has_master_password()
         .map_err(|e| e.to_string())?;
 
     Ok(VaultStatusResponse {
@@ -161,7 +162,7 @@ pub async fn save_connection(
     }
 
     let storage_dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
-    let storage = VaultStorage::new(&input.project_id, storage_dir);
+    let storage = VaultStorage::new(&input.project_id, storage_dir, Box::new(KeyringProvider::new()));
 
     let ssh_tunnel = input.ssh_tunnel.as_ref().map(|ssh| SshTunnelInfo {
         host: ssh.host.clone(),
@@ -226,7 +227,7 @@ pub async fn list_saved_connections(
     }
 
     let storage_dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
-    let storage = VaultStorage::new(&project_id, storage_dir);
+    let storage = VaultStorage::new(&project_id, storage_dir, Box::new(KeyringProvider::new()));
 
     storage
         .list_connections_full()
@@ -251,7 +252,7 @@ pub async fn delete_saved_connection(
     }
 
     let storage_dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
-    let storage = VaultStorage::new(&project_id, storage_dir);
+    let storage = VaultStorage::new(&project_id, storage_dir, Box::new(KeyringProvider::new()));
 
     match storage.delete_connection(&connection_id) {
         Ok(()) => Ok(VaultResponse {
@@ -284,7 +285,7 @@ pub async fn duplicate_saved_connection(
     }
 
     let storage_dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
-    let storage = VaultStorage::new(&project_id, storage_dir);
+    let storage = VaultStorage::new(&project_id, storage_dir, Box::new(KeyringProvider::new()));
 
     match storage.duplicate_connection(&connection_id) {
         Ok(connection) => Ok(DuplicateConnectionResponse {
@@ -327,7 +328,7 @@ pub async fn get_connection_credentials(
     }
 
     let storage_dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
-    let storage = VaultStorage::new(&project_id, storage_dir);
+    let storage = VaultStorage::new(&project_id, storage_dir, Box::new(KeyringProvider::new()));
 
     match storage.get_credentials(&connection_id) {
         Ok(creds) => Ok(CredentialsResponse {

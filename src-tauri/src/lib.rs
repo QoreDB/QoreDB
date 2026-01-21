@@ -16,7 +16,7 @@ use engine::drivers::mysql::MySqlDriver;
 use engine::drivers::postgres::PostgresDriver;
 use engine::{DriverRegistry, QueryManager, SessionManager};
 use policy::SafetyPolicy;
-use vault::VaultLock;
+use vault::{VaultLock, backend::KeyringProvider};
 
 pub type SharedState = Arc<Mutex<AppState>>;
 pub struct AppState {
@@ -37,7 +37,7 @@ impl AppState {
 
         let registry = Arc::new(registry);
         let session_manager = Arc::new(SessionManager::new(Arc::clone(&registry)));
-        let mut vault_lock = VaultLock::new();
+        let mut vault_lock = VaultLock::new(Box::new(KeyringProvider::new()));
         let policy = SafetyPolicy::load();
         let query_manager = Arc::new(QueryManager::new());
 

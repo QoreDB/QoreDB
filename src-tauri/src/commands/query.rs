@@ -13,9 +13,11 @@ use crate::engine::{
     mongo_safety,
     sql_safety,
     TableSchema,
+    traits::StreamEvent,
     types::{CollectionList, CollectionListOptions, Namespace, QueryId, QueryResult, SessionId},
 };
 use crate::metrics;
+use tauri::Emitter;
 
 const READ_ONLY_BLOCKED: &str = "Operation blocked: read-only mode";
 const DANGEROUS_BLOCKED: &str = "Dangerous query blocked: confirmation required";
@@ -74,11 +76,13 @@ fn parse_session_id(id: &str) -> Result<SessionId, String> {
 )]
 pub async fn execute_query(
     state: State<'_, crate::SharedState>,
+    window: tauri::Window,
     session_id: String,
     query: String,
     acknowledged_dangerous: Option<bool>,
     query_id: Option<String>,
     timeout_ms: Option<u64>,
+    stream: Option<bool>,
 ) -> Result<QueryResponse, String> {
     let (session_manager, query_manager, policy) = {
         let state = state.lock().await;
@@ -230,54 +234,132 @@ pub async fn execute_query(
     };
     let query_id_str = query_id.0.to_string();
 
-    let start_time = std::time::Instant::now();
-    let execution = driver.execute(session, &query, query_id);
 
-    let result = if let Some(timeout_value) = timeout_ms {
-        match timeout(Duration::from_millis(timeout_value), execution).await {
-            Ok(res) => res,
-            Err(_) => {
-                let _ = driver.cancel(session, Some(query_id)).await;
-                query_manager.finish(query_id).await;
-                metrics::record_timeout();
-                return Ok(QueryResponse {
-                    success: false,
-                    result: None,
-                    error: Some(format!("Operation timed out after {}ms", timeout_value)),
-                    query_id: Some(query_id_str),
-                });
+
+    let should_stream = stream.unwrap_or(false) && driver.capabilities().streaming;
+
+    if should_stream {
+        // Create channel for stream events
+        let (sender, mut receiver) = tokio::sync::mpsc::channel(100);
+        let qid_cloned = query_id_str.clone();
+        let window_cloned = window.clone();
+
+        // Spawn task to handle events and emit to frontend
+        tokio::spawn(async move {
+            while let Some(event) = receiver.recv().await {
+                match event {
+                    StreamEvent::Columns(cols) => {
+                        let _ = window_cloned.emit(&format!("query_stream_columns:{}", qid_cloned), cols);
+                    }
+                    StreamEvent::Row(row) => {
+                        let _ = window_cloned.emit(&format!("query_stream_row:{}", qid_cloned), row);
+                    }
+                    StreamEvent::Error(e) => {
+                        let _ = window_cloned.emit(&format!("query_stream_error:{}", qid_cloned), e);
+                    }
+                    StreamEvent::Done(affected) => {
+                        let _ = window_cloned.emit(&format!("query_stream_done:{}", qid_cloned), affected);
+                    }
+                }
             }
-        }
-    } else {
-        execution.await
-    };
+        });
 
-    let duration_ms = start_time.elapsed().as_micros() as f64 / 1000.0;
-    let response = match result {
-        Ok(mut result) => {
-            result.execution_time_ms = duration_ms;
-            metrics::record_query(duration_ms, true);
+        // Execute streaming
+        let execution = driver.execute_stream(session, &query, query_id, sender);
+        
+        // Handle timeout for the *start* or completion? 
+        // With streaming, the execution future completes when the stream is DONE.
+        // So we can still await it with timeout.
+        
+        let result = if let Some(timeout_value) = timeout_ms {
+            match timeout(Duration::from_millis(timeout_value), execution).await {
+                Ok(res) => res,
+                Err(_) => {
+                    let _ = driver.cancel(session, Some(query_id)).await;
+                    query_manager.finish(query_id).await;
+                    metrics::record_timeout();
+                     // Emit timeout error as stream event
+                    let _ = window.emit(&format!("query_stream_error:{}", query_id_str), "Operation timed out");
+                    return Ok(QueryResponse {
+                        success: false,
+                        result: None,
+                        error: Some(format!("Operation timed out after {}ms", timeout_value)),
+                        query_id: Some(query_id_str),
+                    });
+                }
+            }
+        } else {
+            execution.await
+        };
 
-            Ok(QueryResponse {
+        query_manager.finish(query_id).await;
+
+        match result {
+            Ok(_) => Ok(QueryResponse {
                 success: true,
-                result: Some(result),
+                result: None, // Results are streamed
                 error: None,
                 query_id: Some(query_id_str),
-            })
-        }
-        Err(e) => {
-            metrics::record_query(duration_ms, false);
-            Ok(QueryResponse {
+            }),
+            Err(e) => Ok(QueryResponse {
                 success: false,
                 result: None,
                 error: Some(e.to_string()),
                 query_id: Some(query_id_str),
-            })
+            }),
         }
-    };
 
-    query_manager.finish(query_id).await;
-    response
+    } else {
+        // Normal execution
+        let start_time = std::time::Instant::now();
+        let execution = driver.execute(session, &query, query_id);
+
+        let result = if let Some(timeout_value) = timeout_ms {
+            match timeout(Duration::from_millis(timeout_value), execution).await {
+                Ok(res) => res,
+                Err(_) => {
+                    let _ = driver.cancel(session, Some(query_id)).await;
+                    query_manager.finish(query_id).await;
+                    metrics::record_timeout();
+                    return Ok(QueryResponse {
+                        success: false,
+                        result: None,
+                        error: Some(format!("Operation timed out after {}ms", timeout_value)),
+                        query_id: Some(query_id_str),
+                    });
+                }
+            }
+        } else {
+            execution.await
+        };
+
+        let duration_ms = start_time.elapsed().as_micros() as f64 / 1000.0;
+        let response = match result {
+            Ok(mut result) => {
+                result.execution_time_ms = duration_ms;
+                metrics::record_query(duration_ms, true);
+
+                Ok(QueryResponse {
+                    success: true,
+                    result: Some(result),
+                    error: None,
+                    query_id: Some(query_id_str),
+                })
+            }
+            Err(e) => {
+                metrics::record_query(duration_ms, false);
+                Ok(QueryResponse {
+                    success: false,
+                    result: None,
+                    error: Some(e.to_string()),
+                    query_id: Some(query_id_str),
+                })
+            }
+        };
+
+        query_manager.finish(query_id).await;
+        response
+    }
 }
 
 /// Cancels a running query

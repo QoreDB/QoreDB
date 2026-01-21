@@ -296,6 +296,7 @@
         "explainNoPlan": "Aucun plan d'exécution disponible.",
         "history": "Historique",
         "runHint": "Cmd+Entrée pour exécuter",
+        "cancelNotSupported": "Annulation non supportée par ce driver",
         "noConnection": "Aucune connexion",
         "noResults": "Exécutez une requête pour voir les résultats",
         "queryFailed": "Échec de la requête",
@@ -352,7 +353,8 @@
         "downloadToFile": "Télécharger en fichier",
         "searchPlaceholder": "Rechercher...",
         "columns": "Colonnes",
-        "toggleColumns": "Afficher/masquer colonnes"
+        "toggleColumns": "Afficher/masquer colonnes",
+        "mutationsNotSupported": "Les mutations ne sont pas supportées par ce driver"
     },
     "rowModal": {
         "insertTitle": "Insérer une nouvelle ligne",

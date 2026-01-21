@@ -296,6 +296,7 @@
         "explainNoPlan": "No explain plan available.",
         "history": "History",
         "runHint": "Cmd+Enter to run",
+        "cancelNotSupported": "Cancel is not supported by this driver",
         "noConnection": "No connection",
         "noResults": "Run a query to see results",
         "queryFailed": "Query failed",
@@ -354,7 +355,8 @@
         "columns": "Columns",
         "toggleColumns": "Toggle columns",
         "toggleFilters": "Show/Hide Filters",
-        "filterPlaceholder": "Filter..."
+        "filterPlaceholder": "Filter...",
+        "mutationsNotSupported": "Mutations are not supported by this driver"
     },
     "rowModal": {
         "insertTitle": "Insert New Row",

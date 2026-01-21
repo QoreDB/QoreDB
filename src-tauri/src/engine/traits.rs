@@ -9,8 +9,24 @@ use async_trait::async_trait;
 use crate::engine::error::EngineResult;
 use crate::engine::types::{
     CancelSupport, CollectionList, CollectionListOptions, ConnectionConfig, DriverCapabilities, Namespace,
-    QueryId, QueryResult, RowData, SessionId, TableSchema,
+    QueryId, QueryResult, Row, RowData, SessionId, TableSchema, ColumnInfo,
 };
+
+/// Events emitted during query streaming
+#[derive(Debug, Clone)]
+pub enum StreamEvent {
+    /// Column definitions (emitted once at the start)
+    Columns(Vec<ColumnInfo>),
+    /// A single data row
+    Row(Row),
+    /// Error occurred during streaming
+    Error(String),
+    /// Streaming complete. Contains affected rows count if applicable.
+    Done(u64),
+}
+
+/// Sender for streaming events
+pub type StreamSender = tokio::sync::mpsc::Sender<StreamEvent>;
 
 /// Core trait that all database drivers must implement
 ///
@@ -60,6 +76,20 @@ pub trait DataEngine: Send + Sync {
         query_id: QueryId,
     ) -> EngineResult<QueryResult>;
 
+    /// Executes a query and streams results via the provided sender
+    async fn execute_stream(
+        &self,
+        session: SessionId,
+        query: &str,
+        query_id: QueryId,
+        sender: StreamSender,
+    ) -> EngineResult<()> {
+        let _ = (session, query, query_id, sender);
+        Err(crate::engine::error::EngineError::not_supported(
+            "Streaming is not supported by this driver",
+        ))
+    }
+
     /// Returns the schema of a table/collection
     ///
     /// Includes column types, nullability, default values, and primary key info.
@@ -104,6 +134,9 @@ pub trait DataEngine: Send + Sync {
             mutations: self.supports_mutations(),
             cancel: self.cancel_support(),
             supports_ssh: self.supports_ssh(),
+            schema: self.supports_schema(),
+            streaming: self.supports_streaming(),
+            explain: self.supports_explain(),
         }
     }
 
@@ -146,6 +179,21 @@ pub trait DataEngine: Send + Sync {
 
     /// Check if the driver supports transactions.
     fn supports_transactions(&self) -> bool {
+        false
+    }
+
+    /// Check if the driver supports schema inspection (describe, list, etc).
+    fn supports_schema(&self) -> bool {
+        true
+    }
+
+    /// Check if the driver supports streaming results.
+    fn supports_streaming(&self) -> bool {
+        false
+    }
+
+    /// Check if the driver supports explain plans.
+    fn supports_explain(&self) -> bool {
         false
     }
 

@@ -19,6 +19,7 @@ interface QueryPanelToolbarProps {
   isMongo: boolean;
   keepResults: boolean;
   isExplainSupported: boolean;
+  canCancel: boolean;
   onExecute: () => void;
   onCancel: () => void;
   onExplain: () => void;
@@ -39,10 +40,11 @@ export function QueryPanelToolbar({
   readOnly,
   isMongo,
   keepResults,
-  // isExplainSupported,
+  isExplainSupported,
+  canCancel,
   onExecute,
   onCancel,
-  // onExplain,
+  onExplain,
   onToggleKeepResults,
   onNewDocument,
   onHistoryOpen,
@@ -86,9 +88,24 @@ export function QueryPanelToolbar({
       )}
 
       {loading && (
-        <Button variant="destructive" onClick={onCancel} disabled={cancelling} className="w-24 gap-2">
-          <Square size={16} className="fill-current" /> {t('query.stop')}
-        </Button>
+        canCancel ? (
+          <Button
+            variant="destructive"
+            onClick={onCancel}
+            disabled={cancelling}
+            className="w-24 gap-2"
+          >
+            <Square size={16} className="fill-current" /> {t('query.stop')}
+          </Button>
+        ) : (
+          <Tooltip content={t('query.cancelNotSupported')}>
+            <span>
+              <Button variant="destructive" disabled className="w-24 gap-2">
+                <Square size={16} className="fill-current" /> {t('query.stop')}
+              </Button>
+            </span>
+          </Tooltip>
+        )
       )}
 
       {isMongo && sessionId && (
@@ -125,21 +142,17 @@ export function QueryPanelToolbar({
         </select>
       )}
 
-      {/* {!isMongo && (
-        <>
-          {isExplainSupported && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onExplain}
-              disabled={!sessionId || loading}
-              className="h-9 px-2 text-muted-foreground hover:text-foreground"
-            >
-              {t('query.explain')}
-            </Button>
-          )}
-        </>
-      )} */}
+      {!isMongo && isExplainSupported && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onExplain}
+          disabled={!sessionId || loading}
+          className="h-9 px-2 text-muted-foreground hover:text-foreground"
+        >
+          {t('query.explain')}
+        </Button>
+      )}
 
       <div className="flex-1" />
 

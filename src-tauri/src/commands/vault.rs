@@ -3,7 +3,7 @@
 //! Commands for managing saved connections and vault lock.
 
 use serde::{Deserialize, Serialize};
-use tauri::State;
+use tauri::{AppHandle, Manager, State};
 
 use crate::vault::credentials::{Environment, SavedConnection, SshTunnelInfo, StoredCredentials};
 use crate::vault::storage::VaultStorage;
@@ -146,6 +146,7 @@ pub async fn lock_vault(state: State<'_, SharedState>) -> Result<VaultResponse, 
 /// Saves a connection to the vault
 #[tauri::command]
 pub async fn save_connection(
+    app: AppHandle,
     state: State<'_, SharedState>,
     input: SaveConnectionInput,
 ) -> Result<VaultResponse, String> {
@@ -158,7 +159,8 @@ pub async fn save_connection(
         });
     }
 
-    let storage = VaultStorage::new(&input.project_id);
+    let storage_dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
+    let storage = VaultStorage::new(&input.project_id, storage_dir);
 
     let ssh_tunnel = input.ssh_tunnel.as_ref().map(|ssh| SshTunnelInfo {
         host: ssh.host.clone(),
@@ -212,6 +214,7 @@ pub async fn save_connection(
 /// Lists all saved connections (metadata only, no passwords)
 #[tauri::command]
 pub async fn list_saved_connections(
+    app: AppHandle,
     state: State<'_, SharedState>,
     project_id: String,
 ) -> Result<Vec<SavedConnection>, String> {
@@ -221,7 +224,8 @@ pub async fn list_saved_connections(
         return Err("Vault is locked".to_string());
     }
 
-    let storage = VaultStorage::new(&project_id);
+    let storage_dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
+    let storage = VaultStorage::new(&project_id, storage_dir);
 
     storage
         .list_connections_full()
@@ -231,6 +235,7 @@ pub async fn list_saved_connections(
 /// Deletes a saved connection
 #[tauri::command]
 pub async fn delete_saved_connection(
+    app: AppHandle,
     state: State<'_, SharedState>,
     project_id: String,
     connection_id: String,
@@ -244,7 +249,8 @@ pub async fn delete_saved_connection(
         });
     }
 
-    let storage = VaultStorage::new(&project_id);
+    let storage_dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
+    let storage = VaultStorage::new(&project_id, storage_dir);
 
     match storage.delete_connection(&connection_id) {
         Ok(()) => Ok(VaultResponse {
@@ -261,6 +267,7 @@ pub async fn delete_saved_connection(
 /// Duplicates a saved connection (metadata + secrets) entirely within the vault.
 #[tauri::command]
 pub async fn duplicate_saved_connection(
+    app: AppHandle,
     state: State<'_, SharedState>,
     project_id: String,
     connection_id: String,
@@ -275,7 +282,8 @@ pub async fn duplicate_saved_connection(
         });
     }
 
-    let storage = VaultStorage::new(&project_id);
+    let storage_dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
+    let storage = VaultStorage::new(&project_id, storage_dir);
 
     match storage.duplicate_connection(&connection_id) {
         Ok(connection) => Ok(DuplicateConnectionResponse {
@@ -302,6 +310,7 @@ pub struct CredentialsResponse {
 /// Gets the password for a saved connection
 #[tauri::command]
 pub async fn get_connection_credentials(
+    app: AppHandle,
     state: State<'_, SharedState>,
     project_id: String,
     connection_id: String,
@@ -316,7 +325,8 @@ pub async fn get_connection_credentials(
         });
     }
 
-    let storage = VaultStorage::new(&project_id);
+    let storage_dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
+    let storage = VaultStorage::new(&project_id, storage_dir);
 
     match storage.get_credentials(&connection_id) {
         Ok(creds) => Ok(CredentialsResponse {

@@ -409,3 +409,110 @@ async fn mongodb_e2e() -> EngineResult<()> {
     driver.disconnect(session).await?;
     Ok(())
 }
+
+async fn test_streaming<D: DataEngine + ?Sized>(
+    driver: &D,
+    session: SessionId,
+    query: &str,
+    expected_count: u64,
+) -> EngineResult<()> {
+    let (tx, mut rx) = tokio::sync::mpsc::channel(100);
+    
+    // Launch streaming in background
+    let stream_future = driver.execute_stream(session, query, QueryId::new(), tx);
+    
+    let receive_future = async {
+        let mut columns_received = false;
+        let mut rows_received = 0;
+        let mut done_received = false;
+        
+        while let Some(event) = rx.recv().await {
+            match event {
+                qoredb_lib::engine::traits::StreamEvent::Columns(cols) => {
+                    assert!(!columns_received, "Columns received twice");
+                    assert!(!cols.is_empty(), "Columns should not be empty");
+                    columns_received = true;
+                }
+                qoredb_lib::engine::traits::StreamEvent::Row(_row) => {
+                    rows_received += 1;
+                }
+                qoredb_lib::engine::traits::StreamEvent::Error(e) => {
+                    panic!("Stream error: {}", e);
+                }
+                qoredb_lib::engine::traits::StreamEvent::Done(count) => {
+                    assert!(!done_received, "Done received twice");
+                    assert_eq!(count, rows_received, "Done count mismatch");
+                    done_received = true;
+                }
+            }
+        }
+        
+        assert!(columns_received, "Never received columns");
+        assert!(done_received, "Never received done signal");
+        assert_eq!(rows_received, expected_count, "Row count mismatch");
+        Ok::<(), EngineError>(())
+    };
+
+    // run both
+    let (res_stream, res_receive) = tokio::join!(stream_future, receive_future);
+    
+    res_stream?;
+    res_receive?;
+    
+    Ok(())
+}
+
+#[tokio::test]
+async fn postgres_streaming() -> EngineResult<()> {
+    let (driver, session, _config) = connect_postgres().await?;
+    let table = unique_name("qoredb_pg_stream");
+
+    driver.execute(session, &format!("CREATE TABLE IF NOT EXISTS {} (id INT)", table), QueryId::new()).await?;
+    driver.execute(session, &format!("INSERT INTO {} VALUES (1), (2), (3)", table), QueryId::new()).await?;
+
+    test_streaming(driver.as_ref(), session, &format!("SELECT * FROM {}", table), 3).await?;
+
+    driver.execute(session, &format!("DROP TABLE {}", table), QueryId::new()).await?;
+    driver.disconnect(session).await?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn mysql_streaming() -> EngineResult<()> {
+    let (driver, session, _config) = connect_mysql().await?;
+    let table = unique_name("qoredb_mysql_stream");
+
+    driver.execute(session, &format!("CREATE TABLE IF NOT EXISTS {} (id INT)", table), QueryId::new()).await?;
+    driver.execute(session, &format!("INSERT INTO {} VALUES (1), (2), (3)", table), QueryId::new()).await?;
+
+    test_streaming(driver.as_ref(), session, &format!("SELECT * FROM {}", table), 3).await?;
+
+    driver.execute(session, &format!("DROP TABLE {}", table), QueryId::new()).await?;
+    driver.disconnect(session).await?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn mongodb_streaming() -> EngineResult<()> {
+    let (driver, session, config) = connect_mongo().await?;
+    let db_name = config.database.unwrap_or_else(|| DEFAULT_DB.to_string());
+    let collection = unique_name("qoredb_mongo_stream");
+
+    // Insert 3 documents
+    for i in 1..=3 {
+        let data = RowData::new().with_column("val", Value::Int(i));
+        let namespace = Namespace::new(db_name.clone());
+        driver.insert_row(session, &namespace, &collection, &data).await?;
+    }
+
+    let query = json!({
+        "database": db_name,
+        "collection": collection,
+        "query": {}
+    }).to_string();
+
+    test_streaming(driver.as_ref(), session, &query, 3).await?;
+
+    driver.disconnect(session).await?;
+    Ok(())
+}

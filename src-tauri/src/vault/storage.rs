@@ -12,6 +12,7 @@ use uuid::Uuid;
 
 use crate::engine::error::{EngineError, EngineResult};
 use crate::vault::credentials::{SavedConnection, StoredCredentials};
+use crate::observability::Sensitive;
 
 const SERVICE_PREFIX: &str = "qoredb";
 const CONNECTIONS_FILE: &str = "connections.json";
@@ -99,9 +100,9 @@ impl VaultStorage {
             .map_err(|e| EngineError::internal(format!("Keyring error: {}", e)))?;
 
         let creds_json = serde_json::to_string(&CredsJson {
-            db_password: credentials.db_password.clone(),
-            ssh_password: credentials.ssh_password.clone(),
-            ssh_key_passphrase: credentials.ssh_key_passphrase.clone(),
+            db_password: credentials.db_password.expose().clone(),
+            ssh_password: credentials.ssh_password.as_ref().map(|s| s.expose().clone()),
+            ssh_key_passphrase: credentials.ssh_key_passphrase.as_ref().map(|s| s.expose().clone()),
         })
         .map_err(|e| EngineError::internal(format!("Serialization error: {}", e)))?;
 
@@ -136,9 +137,9 @@ impl VaultStorage {
             .map_err(|e| EngineError::internal(format!("Deserialization error: {}", e)))?;
 
         Ok(StoredCredentials {
-            db_password: creds.db_password,
-            ssh_password: creds.ssh_password,
-            ssh_key_passphrase: creds.ssh_key_passphrase,
+            db_password: Sensitive::new(creds.db_password),
+            ssh_password: creds.ssh_password.map(Sensitive::new),
+            ssh_key_passphrase: creds.ssh_key_passphrase.map(Sensitive::new),
         })
     }
 
@@ -265,8 +266,8 @@ mod tests {
         };
 
         let credentials = StoredCredentials {
-            db_password: "db_secret".to_string(),
-            ssh_password: Some("ssh_secret".to_string()),
+            db_password: Sensitive::new("db_secret".to_string()),
+            ssh_password: Some(Sensitive::new("ssh_secret".to_string())),
             ssh_key_passphrase: None,
         };
 

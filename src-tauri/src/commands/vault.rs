@@ -8,6 +8,7 @@ use tauri::{AppHandle, Manager, State};
 use crate::vault::credentials::{Environment, SavedConnection, SshTunnelInfo, StoredCredentials};
 use crate::vault::storage::VaultStorage;
 use crate::SharedState;
+use crate::observability::Sensitive;
 
 /// Response for vault operations
 #[derive(Debug, Serialize)]
@@ -194,9 +195,9 @@ pub async fn save_connection(
     };
 
     let credentials = StoredCredentials {
-        db_password: input.password,
-        ssh_password: input.ssh_tunnel.as_ref().and_then(|s| s.password.clone()),
-        ssh_key_passphrase: input.ssh_tunnel.as_ref().and_then(|s| s.key_passphrase.clone()),
+        db_password: Sensitive::new(input.password),
+        ssh_password: input.ssh_tunnel.as_ref().and_then(|s| s.password.clone().map(Sensitive::new)),
+        ssh_key_passphrase: input.ssh_tunnel.as_ref().and_then(|s| s.key_passphrase.clone().map(Sensitive::new)),
     };
 
     match storage.save_connection(&connection, &credentials) {
@@ -331,7 +332,7 @@ pub async fn get_connection_credentials(
     match storage.get_credentials(&connection_id) {
         Ok(creds) => Ok(CredentialsResponse {
             success: true,
-            password: Some(creds.db_password),
+            password: Some(creds.db_password.expose().clone()),
             error: None,
         }),
         Err(e) => Ok(CredentialsResponse {

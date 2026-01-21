@@ -92,12 +92,14 @@ pub struct SshTunnelInfo {
     pub keepalive_count_max: u32,
 }
 
+use crate::observability::Sensitive;
+
 /// Credentials stored in the vault (never serialized to frontend)
 #[derive(Debug, Clone)]
 pub struct StoredCredentials {
-    pub db_password: String,
-    pub ssh_password: Option<String>,
-    pub ssh_key_passphrase: Option<String>,
+    pub db_password: Sensitive<String>,
+    pub ssh_password: Option<Sensitive<String>>,
+    pub ssh_key_passphrase: Option<Sensitive<String>>,
 }
 
 impl SavedConnection {
@@ -115,14 +117,16 @@ impl SavedConnection {
                     })?;
                     SshAuth::Key {
                         private_key_path: key_path,
-                        passphrase: creds.ssh_key_passphrase.clone(),
+                        passphrase: creds.ssh_key_passphrase.as_ref().map(|s| s.expose().clone()),
                     }
                 }
                 "password" => SshAuth::Password {
                     password: creds
                         .ssh_password
-                        .clone()
-                        .ok_or_else(|| EngineError::internal("ssh_password is missing"))?,
+                        .as_ref()
+                        .ok_or_else(|| EngineError::internal("ssh_password is missing"))?
+                        .expose()
+                        .clone(),
                 },
                 other => {
                     return Err(EngineError::internal(format!(
@@ -166,7 +170,7 @@ impl SavedConnection {
             host: self.host.clone(),
             port: self.port,
             username: self.username.clone(),
-            password: creds.db_password.clone(),
+            password: creds.db_password.expose().clone(),
             database: self.database.clone(),
             ssl: self.ssl,
             environment: self.environment.as_str().to_string(),
@@ -223,8 +227,8 @@ mod tests {
         }
 
         let creds = StoredCredentials {
-            db_password: "db".to_string(),
-            ssh_password: Some("sshpw".to_string()),
+            db_password: Sensitive::new("db".to_string()),
+            ssh_password: Some(Sensitive::new("sshpw".to_string())),
             ssh_key_passphrase: None,
         };
 
@@ -244,9 +248,9 @@ mod tests {
     fn ssh_key_config_is_built() -> EngineResult<()> {
         let connection = base_connection("key", "strict");
         let creds = StoredCredentials {
-            db_password: "db".to_string(),
+            db_password: Sensitive::new("db".to_string()),
             ssh_password: None,
-            ssh_key_passphrase: Some("passphrase".to_string()),
+            ssh_key_passphrase: Some(Sensitive::new("passphrase".to_string())),
         };
 
         let config = connection.to_connection_config(&creds)?;
@@ -271,8 +275,8 @@ mod tests {
     fn rejects_invalid_auth_type() {
         let connection = base_connection("token", "accept_new");
         let creds = StoredCredentials {
-            db_password: "db".to_string(),
-            ssh_password: Some("sshpw".to_string()),
+            db_password: Sensitive::new("db".to_string()),
+            ssh_password: Some(Sensitive::new("sshpw".to_string())),
             ssh_key_passphrase: None,
         };
 
@@ -286,8 +290,8 @@ mod tests {
     fn rejects_invalid_host_key_policy() {
         let connection = base_connection("password", "unknown");
         let creds = StoredCredentials {
-            db_password: "db".to_string(),
-            ssh_password: Some("sshpw".to_string()),
+            db_password: Sensitive::new("db".to_string()),
+            ssh_password: Some(Sensitive::new("sshpw".to_string())),
             ssh_key_passphrase: None,
         };
 

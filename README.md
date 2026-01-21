@@ -224,7 +224,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 👤 Author
 
 **Raphaël Plassart**
-- Email: raphael.plassart@gmail.com
+- Email: qoredb@gmail.com
 - GitHub: [@raphplt](https://github.com/raphplt)
 
 ---

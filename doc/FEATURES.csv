@@ -36,4 +36,9 @@ Infra,Import / Export Projet,App / Logic,Transfert complet de configuration via 
 Infra,Telemetry / Analytics,App / Logic,Tracking anonyme des actions clés (connexion - crash) pour debugging.,Terminé,P3,V1,2,Module `AnalyticsService`.
 Infra,Dev Metrics,Backlog / Dev,Métriques de performance internes (query time - pool usage).,En cours,P3,V2,3,Exposé uniquement en dev build.
 IA (Future),Génération SQL,Backend / AI,Génération de requêtes par LLM.,A faire,P2,V2,5,Prévu pour versions futures.
-Performance,Streaming Résultats,Backend / Core,Lecture curseur streamée pour gros datasets.,Backlog,P2,V1,4,Optimisation mémoire.
+Performance,Streaming Résultats,Backend / Core,Lecture curseur streamée pour gros datasets.,Terminé,P2,V1,4,Optimisation mémoire.
+DDL / Management,Suppression Base de Données,Fullstack,Suppression de base de données avec double confirmation.,Terminé,P1,V1,3,Support sélectif par driver.
+DDL / Management,Création Base de Données,Fullstack,Création de base de données / schéma depuis l'interface.,Terminé,P1,V1,3,Support multi-driver.
+DDL / Management,Gestion Tables,Fullstack,Création et suppression de tables avec support types par driver.,Terminé,P1,V1,4,Interface graphique dédiée.
+Data Grid,Export Données,Frontend / Grid,Export CSV/JSON des résultats filtrés.,Terminé,P2,V1,2,Côté client.
+Infra,Journal d'erreurs,Frontend / Shell,Panneau dédié pour visualiser les erreurs backend/frontend.,Terminé,P2,V1,2,Persistant.

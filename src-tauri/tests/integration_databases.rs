@@ -329,7 +329,17 @@ async fn mysql_e2e() -> EngineResult<()> {
         .await
         .map_err(|_| EngineError::execution_error("Cancel did not return in time"))?
         .map_err(|e| EngineError::execution_error(format!("Join error: {}", e)))?;
-    assert!(exec_result.is_err());
+    match exec_result {
+        Ok(res) => {
+            // MySQL SLEEP() can return 1 (interrupted) instead of error
+            assert!(
+                res.execution_time_ms < 4000.0, 
+                "Query passed but took too long ({}ms), likely not canceled", 
+                res.execution_time_ms
+            );
+        }
+        Err(_) => {} // Expected error
+    }
 
     driver.begin_transaction(session).await?;
     driver

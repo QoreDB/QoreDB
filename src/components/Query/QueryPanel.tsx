@@ -3,7 +3,15 @@ import { useTranslation } from 'react-i18next';
 import { MONGO_TEMPLATES } from '../Editor/MongoEditor';
 import { DocumentEditorModal } from '../Editor/DocumentEditorModal';
 import { QueryHistory } from '../History/QueryHistory';
-import { executeQuery, cancelQuery, QueryResult, Environment, Value, Namespace } from '../../lib/tauri';
+import {
+  executeQuery,
+  cancelQuery,
+  QueryResult,
+  Environment,
+  Value,
+  Namespace,
+  DriverCapabilities,
+} from '../../lib/tauri';
 import { addToHistory } from '../../lib/history';
 import { logError } from '../../lib/errorLog';
 import { ENVIRONMENT_CONFIG, getDangerousQueryTarget, isDangerousQuery, isDropDatabaseQuery, isMutationQuery } from '../../lib/environment';
@@ -35,9 +43,10 @@ function isTextInputTarget(target: EventTarget | null): boolean {
 
 interface QueryPanelProps {
 	sessionId: string | null;
-	dialect?: Driver;
-	environment?: Environment;
-	readOnly?: boolean;
+  dialect?: Driver;
+  driverCapabilities?: DriverCapabilities | null;
+  environment?: Environment;
+  readOnly?: boolean;
 	connectionName?: string;
 	connectionDatabase?: string;
 	activeNamespace?: Namespace | null;
@@ -51,6 +60,7 @@ interface QueryPanelProps {
 export function QueryPanel({
   sessionId,
   dialect = Driver.Postgres,
+  driverCapabilities = null,
   environment = 'development',
   readOnly = false,
   connectionName,
@@ -85,7 +95,14 @@ export function QueryPanel({
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [queryToSave, setQueryToSave] = useState<string>('');
 
-  const isExplainSupported = useMemo(() => dialect === Driver.Postgres, [dialect]);
+  const isExplainSupported = useMemo(
+    () => driverCapabilities?.explain ?? dialect === Driver.Postgres,
+    [driverCapabilities, dialect]
+  );
+  const canCancel = useMemo(
+    () => (driverCapabilities ? driverCapabilities.cancel !== 'none' : true),
+    [driverCapabilities]
+  );
 
   // Document Modal State
   const [docModalOpen, setDocModalOpen] = useState(false);
@@ -322,6 +339,10 @@ export function QueryPanel({
 
   const handleCancel = useCallback(async () => {
     if (!sessionId || !loading) return;
+    if (!canCancel) {
+      toast.error(t('query.cancelNotSupported'));
+      return;
+    }
 
     setCancelling(true);
     try {
@@ -332,7 +353,7 @@ export function QueryPanel({
       setCancelling(false);
       setLoading(false);
     }
-  }, [sessionId, loading, activeQueryId]);
+  }, [sessionId, loading, activeQueryId, canCancel, t]);
 
   const handleEditDocument = useCallback(
     (doc: Record<string, unknown>, idValue?: Value) => {
@@ -446,6 +467,7 @@ export function QueryPanel({
         isMongo={isMongo}
         keepResults={keepResults}
         isExplainSupported={isExplainSupported}
+        canCancel={canCancel}
         onExecute={handleExecuteCurrent}
         onCancel={handleCancel}
         onExplain={handleExplain}

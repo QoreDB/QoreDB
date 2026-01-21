@@ -104,6 +104,9 @@ pub trait DataEngine: Send + Sync {
             mutations: self.supports_mutations(),
             cancel: self.cancel_support(),
             supports_ssh: self.supports_ssh(),
+            schema: self.supports_schema(),
+            streaming: self.supports_streaming(),
+            explain: self.supports_explain(),
         }
     }
 
@@ -146,6 +149,21 @@ pub trait DataEngine: Send + Sync {
 
     /// Check if the driver supports transactions.
     fn supports_transactions(&self) -> bool {
+        false
+    }
+
+    /// Check if the driver supports schema inspection (describe, list, etc).
+    fn supports_schema(&self) -> bool {
+        true
+    }
+
+    /// Check if the driver supports streaming results.
+    fn supports_streaming(&self) -> bool {
+        false
+    }
+
+    /// Check if the driver supports explain plans.
+    fn supports_explain(&self) -> bool {
         false
     }
 

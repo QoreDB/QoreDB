@@ -120,6 +120,17 @@ pub struct DriverCapabilities {
     pub mutations: bool,
     pub cancel: CancelSupport,
     pub supports_ssh: bool,
+    pub schema: bool,
+    pub streaming: bool,
+    pub explain: bool,
+}
+
+/// Driver metadata exposed to the frontend.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DriverInfo {
+    pub id: String,
+    pub name: String,
+    pub capabilities: DriverCapabilities,
 }
 
 #[cfg(test)]

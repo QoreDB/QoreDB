@@ -974,6 +974,10 @@ impl DataEngine for PostgresDriver {
     fn supports_mutations(&self) -> bool {
         true
     }
+
+    fn supports_explain(&self) -> bool {
+        true
+    }
 }
 
 impl PostgresDriver {

@@ -294,6 +294,22 @@ impl DataEngine for MongoDriver {
         Ok(())
     }
 
+    async fn drop_database(&self, session: SessionId, name: &str) -> EngineResult<()> {
+        let sessions = self.sessions.read().await;
+        let client = sessions
+            .get(&session)
+            .ok_or_else(|| EngineError::session_not_found(session.0.to_string()))?;
+
+        client
+            .database(name)
+            .drop()
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        tracing::info!("MongoDB: Successfully dropped database '{}'", name);
+        Ok(())
+    }
+
     async fn list_collections(
         &self,
         session: SessionId,

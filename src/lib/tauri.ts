@@ -263,6 +263,16 @@ export async function createDatabase(
   return invoke('create_database', { sessionId, name, options });
 }
 
+export async function dropDatabase(
+  sessionId: string,
+  name: string
+): Promise<{
+  success: boolean;
+  error?: string;
+}> {
+  return invoke('drop_database', { sessionId, name });
+}
+
 // ============================================
 // TABLE BROWSING
 // ============================================

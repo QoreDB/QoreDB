@@ -288,24 +288,22 @@ impl DataEngine for MySqlDriver {
 
         tracing::info!("MySQL: Listing namespaces for session {}", session.0);
 
-        let rows: Vec<(String,)> = sqlx::query_as(
-            r#"
-            SELECT schema_name
-            FROM information_schema.schemata
-            WHERE schema_name NOT IN ('information_schema', 'mysql', 'performance_schema', 'sys')
-            ORDER BY schema_name
-            "#,
-        )
-        .fetch_all(pool)
-        .await
-        .map_err(|e| {
-            tracing::error!("MySQL: Failed to list namespaces: {}", e);
-            EngineError::execution_error(e.to_string())
-        })?;
+        let rows: Vec<(String,)> = sqlx::query_as("SELECT CAST(schema_name AS CHAR) FROM information_schema.schemata")
+            .fetch_all(pool)
+            .await
+            .map_err(|e| {
+                tracing::error!("MySQL: Failed to list namespaces: {}", e);
+                EngineError::execution_error(e.to_string())
+            })?;
 
-        tracing::info!("MySQL: Found {} namespaces", rows.len());
+        tracing::info!("MySQL: Found {} raw databases: {:?}", rows.len(), rows.iter().map(|(n,)| n).collect::<Vec<_>>());
 
-        let namespaces = rows.into_iter().map(|(db,)| Namespace::new(db)).collect();
+        let system_dbs = ["information_schema", "mysql", "performance_schema", "sys"];
+        let namespaces = rows.into_iter()
+            .map(|(db,)| db)
+            .filter(|db| !system_dbs.contains(&db.as_str()))
+            .map(Namespace::new)
+            .collect();
 
         Ok(namespaces)
     }
@@ -415,6 +413,39 @@ impl DataEngine for MySqlDriver {
                 }
             })?;
 
+        tracing::info!("MySQL: Successfully created database '{}'", name);
+        Ok(())
+    }
+
+    async fn drop_database(&self, session: SessionId, name: &str) -> EngineResult<()> {
+        let mysql_session = self.get_session(session).await?;
+        let pool = &mysql_session.pool;
+
+        // Basic validation
+        if name.is_empty() || name.len() > 64 {
+            return Err(EngineError::validation("Database name must be between 1 and 64 characters"));
+        }
+
+        // Identifier quoting with backticks for MySQL
+        let escaped_name = name.replace('`', "``");
+        let query = format!("DROP DATABASE `{}`", escaped_name);
+
+        sqlx::query(&query)
+            .execute(pool)
+            .await
+            .map_err(|e| {
+                tracing::error!("MySQL: Failed to drop database: {}", e);
+                let msg = e.to_string();
+                if msg.contains("Access denied") {
+                    EngineError::auth_failed(format!("Permission denied: {}", msg))
+                } else if msg.contains("doesn't exist") || msg.contains("Unknown database") {
+                    EngineError::validation(format!("Database '{}' does not exist", name))
+                } else {
+                    EngineError::execution_error(msg)
+                }
+            })?;
+
+        tracing::info!("MySQL: Successfully dropped database '{}'", name);
         Ok(())
     }
 

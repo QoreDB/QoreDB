@@ -406,6 +406,7 @@
         "cancel": "Cancel",
         "confirm": "Confirm",
         "delete": "Delete",
+        "deleting": "Deleting...",
         "unknownError": "Unknown error",
         "mongoCreateDbHint": "MongoDB creates a database when the first collection is created.",
         "time": "Time",
@@ -485,7 +486,8 @@
         "create": "Create Table",
         "tableNameRequired": "Table name is required",
         "success": "Table \"{{name}}\" created successfully",
-        "failed": "Failed to create table"
+        "failed": "Failed to create table",
+        "my_table": "Ma table"
     },
     "dropTable": {
         "title": "Drop Table",
@@ -493,6 +495,19 @@
         "confirmProduction": "You are in PRODUCTION. Type the table name to confirm:",
         "success": "Table \"{{name}}\" dropped successfully",
         "failed": "Failed to drop table"
+    },
+    "dropDatabase": {
+        "menuItem": "Delete Database",
+        "title": "Delete Database",
+        "schemaTitle": "Delete Schema",
+        "confirm": "Are you sure you want to delete database \"{{name}}\" and all its data? This action cannot be undone.",
+        "schemaConfirm": "Are you sure you want to delete schema \"{{name}}\" and all its tables? This action cannot be undone.",
+        "productionWarning": "This is a PRODUCTION database!",
+        "typeToConfirm": "Type \"{{name}}\" to confirm:",
+        "continue": "Continue",
+        "success": "Database \"{{name}}\" deleted successfully",
+        "schemaSuccess": "Schema \"{{name}}\" deleted successfully",
+        "failed": "Failed to delete"
     },
     "history": {
         "title": "Query History",

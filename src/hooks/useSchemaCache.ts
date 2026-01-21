@@ -176,6 +176,9 @@ export function useSchemaCache(sessionId: string): UseSchemaCache {
         };
         return result.namespaces;
       }
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to list namespaces');
+      }
       return [];
     } finally {
       setLoading(false);

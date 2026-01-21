@@ -647,6 +647,47 @@ pub async fn create_database(
     }
 }
 
+/// Drops an existing database (or schema)
+#[tauri::command]
+pub async fn drop_database(
+    state: State<'_, crate::SharedState>,
+    session_id: String,
+    name: String,
+) -> Result<QueryResponse, String> {
+    let session_manager = {
+        let state = state.lock().await;
+        Arc::clone(&state.session_manager)
+    };
+    let session = parse_session_id(&session_id)?;
+
+    let driver = match session_manager.get_driver(session).await {
+        Ok(d) => d,
+        Err(e) => {
+            return Ok(QueryResponse {
+                success: false,
+                result: None,
+                error: Some(e.to_string()),
+                query_id: None,
+            });
+        }
+    };
+
+    match driver.drop_database(session, &name).await {
+        Ok(()) => Ok(QueryResponse {
+            success: true,
+            result: None,
+            error: None,
+            query_id: None,
+        }),
+        Err(e) => Ok(QueryResponse {
+            success: false,
+            result: None,
+            error: Some(e.to_string()),
+            query_id: None,
+        }),
+    }
+}
+
 // ==================== Transaction Commands ====================
 
 /// Response wrapper for transaction operations

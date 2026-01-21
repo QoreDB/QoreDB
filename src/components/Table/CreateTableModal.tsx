@@ -178,7 +178,7 @@ export function CreateTableModal({
 						<Input
 							value={tableName}
 							onChange={(e) => setTableName(e.target.value)}
-							placeholder="my_table"
+							placeholder={t("createTable.tableNamePlaceholder")}
 							className="flex-1"
 						/>
 					</div>

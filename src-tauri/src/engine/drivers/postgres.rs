@@ -361,6 +361,37 @@ impl DataEngine for PostgresDriver {
         })
     }
 
+    async fn create_database(&self, session: SessionId, name: &str, _options: Option<Value>) -> EngineResult<()> {
+        let pg_session = self.get_session(session).await?;
+        let pool = &pg_session.pool;
+
+        // Basic validation
+        if name.is_empty() || name.len() > 63 {
+             return Err(EngineError::validation("Schema name must be between 1 and 63 characters"));
+        }
+
+        // Identifier quoting with double quotes for Postgres
+        let escaped_name = name.replace('"', "\"\"");
+        let query = format!("CREATE SCHEMA \"{}\"", escaped_name);
+
+        sqlx::query(&query)
+            .execute(pool)
+            .await
+            .map_err(|e| {
+                tracing::error!("Postgres: Failed to create schema: {}", e);
+                let msg = e.to_string();
+                if msg.contains("permission denied") {
+                    EngineError::auth_failed(format!("Permission denied: {}", msg))
+                } else if msg.contains("exists") {
+                    EngineError::validation(format!("Schema '{}' already exists", name))
+                } else {
+                    EngineError::execution_error(msg)
+                }
+            })?;
+
+        Ok(())
+    }
+
     async fn execute_stream(
         &self,
         session: SessionId,

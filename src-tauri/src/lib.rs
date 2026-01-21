@@ -93,6 +93,7 @@ pub fn run() {
             commands::query::list_collections,
             commands::query::describe_table,
             commands::query::preview_table,
+            commands::query::create_database,
             // Transaction commands
             commands::query::begin_transaction,
             commands::query::commit_transaction,

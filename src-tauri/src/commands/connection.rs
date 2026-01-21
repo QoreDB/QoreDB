@@ -3,7 +3,8 @@
 //! Commands for managing database connections.
 
 use serde::Serialize;
-use tauri::State;
+use std::path::PathBuf;
+use tauri::{AppHandle, Manager, State};
 use std::sync::Arc;
 use uuid::Uuid;
 use tracing::instrument;
@@ -29,8 +30,9 @@ pub struct SessionListItem {
 fn load_saved_connection_config(
     project_id: &str,
     connection_id: &str,
+    storage_dir: PathBuf,
 ) -> Result<ConnectionConfig, String> {
-    let storage = VaultStorage::new(project_id);
+    let storage = VaultStorage::new(project_id, storage_dir);
     let saved = storage
         .get_connection(connection_id)
         .map_err(|e| e.to_string())?;
@@ -193,8 +195,9 @@ pub async fn test_connection(
 
 /// Tests a saved connection using vault metadata + credentials
 #[tauri::command]
-#[instrument(skip(state), fields(project_id = %project_id, connection_id = %connection_id))]
+#[instrument(skip(app, state), fields(project_id = %project_id, connection_id = %connection_id))]
 pub async fn test_saved_connection(
+    app: AppHandle,
     state: State<'_, crate::SharedState>,
     project_id: String,
     connection_id: String,
@@ -211,7 +214,9 @@ pub async fn test_saved_connection(
         Arc::clone(&state.session_manager)
     };
 
-    let config = match load_saved_connection_config(&project_id, &connection_id)
+    let storage_dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
+
+    let config = match load_saved_connection_config(&project_id, &connection_id, storage_dir)
         .and_then(normalize_config)
     {
         Ok(cfg) => cfg,
@@ -294,8 +299,9 @@ pub async fn connect(
 
 /// Establishes a new database connection from a saved connection
 #[tauri::command]
-#[instrument(skip(state), fields(project_id = %project_id, connection_id = %connection_id))]
+#[instrument(skip(app, state), fields(project_id = %project_id, connection_id = %connection_id))]
 pub async fn connect_saved_connection(
+    app: AppHandle,
     state: State<'_, crate::SharedState>,
     project_id: String,
     connection_id: String,
@@ -312,7 +318,9 @@ pub async fn connect_saved_connection(
         Arc::clone(&state.session_manager)
     };
 
-    let config = match load_saved_connection_config(&project_id, &connection_id)
+    let storage_dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
+
+    let config = match load_saved_connection_config(&project_id, &connection_id, storage_dir)
         .and_then(normalize_config)
     {
         Ok(cfg) => cfg,

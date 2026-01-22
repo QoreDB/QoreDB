@@ -42,12 +42,7 @@ import './index.css';
 function isTextInputTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
   const tag = target.tagName.toLowerCase();
-  return (
-    tag === 'input' ||
-    tag === 'textarea' ||
-    tag === 'select' ||
-    target.isContentEditable
-  );
+  return tag === 'input' || tag === 'textarea' || tag === 'select' || target.isContentEditable;
 }
 
 const DEFAULT_PROJECT = 'default';
@@ -201,15 +196,11 @@ function App() {
     setDriver(connection.driver as Driver);
     setActiveConnection(connection);
     setTabs(options?.tabs ?? []);
-    setActiveTabId(
-      options?.activeTabId ?? options?.tabs?.[0]?.id ?? null
-    );
+    setActiveTabId(options?.activeTabId ?? options?.tabs?.[0]?.id ?? null);
     setQueryDrafts(options?.queryDrafts ?? {});
     setSettingsOpen(false);
     setPendingQuery(undefined);
-    setQueryNamespace(
-      connection.database ? { database: connection.database } : null
-    );
+    setQueryNamespace(connection.database ? { database: connection.database } : null);
   }
 
   // Tab management
@@ -268,7 +259,9 @@ function App() {
       { id: 'cmd_open_library', label: t('palette.openLibrary') },
       { id: 'cmd_open_settings', label: t('palette.openSettings'), shortcut: '⌘,' },
       { id: 'cmd_toggle_theme', label: t('palette.toggleTheme') },
-      ...(activeTabId ? [{ id: 'cmd_close_tab', label: t('palette.closeTab'), shortcut: '⌘W' }] : []),
+      ...(activeTabId
+        ? [{ id: 'cmd_close_tab', label: t('palette.closeTab'), shortcut: '⌘W' }]
+        : []),
     ],
     [activeTabId, t]
   );
@@ -683,26 +676,22 @@ function App() {
                         </div>
                       ))
                   ) : (
-                    <div className="flex h-full w-full">
-                      <QueryPanel
-                        key={sessionId}
-                        sessionId={sessionId}
-                        dialect={driver}
-                        driverCapabilities={driverCapabilities}
-                        environment={activeConnection?.environment || 'development'}
-                        readOnly={activeConnection?.read_only || false}
-                        connectionName={activeConnection?.name}
-                        connectionDatabase={activeConnection?.database}
-                        activeNamespace={queryNamespace}
-                        initialQuery={queryDrafts[RECOVERY_SCRATCH_TAB_ID] ?? pendingQuery}
-                        onSchemaChange={triggerSchemaRefresh}
-                        onOpenLibrary={() => setLibraryModalOpen(true)}
-                        isActive
-                        onQueryDraftChange={value =>
-                          updateQueryDraft(RECOVERY_SCRATCH_TAB_ID, value)
-                        }
-                      />
-                    </div>
+                    <QueryPanel
+                      key={sessionId}
+                      sessionId={sessionId}
+                      dialect={driver}
+                      driverCapabilities={driverCapabilities}
+                      environment={activeConnection?.environment || 'development'}
+                      readOnly={activeConnection?.read_only || false}
+                      connectionName={activeConnection?.name}
+                      connectionDatabase={activeConnection?.database}
+                      activeNamespace={queryNamespace}
+                      initialQuery={queryDrafts[RECOVERY_SCRATCH_TAB_ID] ?? pendingQuery}
+                      onSchemaChange={triggerSchemaRefresh}
+                      onOpenLibrary={() => setLibraryModalOpen(true)}
+                      isActive
+                      onQueryDraftChange={value => updateQueryDraft(RECOVERY_SCRATCH_TAB_ID, value)}
+                    />
                   )}
                 </div>
               )

@@ -168,8 +168,6 @@ function App() {
   const [editConnection, setEditConnection] = useState<SavedConnection | null>(null);
   const [editPassword, setEditPassword] = useState<string>('');
 
-  const [_pendingQuery, setPendingQuery] = useState<string | undefined>(undefined);
-
   function triggerSchemaRefresh() {
     setSchemaRefreshTrigger(prev => prev + 1);
   }
@@ -197,7 +195,7 @@ function App() {
     setActiveTabId(options?.activeTabId ?? options?.tabs?.[0]?.id ?? null);
     setQueryDrafts(options?.queryDrafts ?? {});
     setSettingsOpen(false);
-    setPendingQuery(undefined);
+
     setQueryNamespace(connection.database ? { database: connection.database } : null);
   }
 
@@ -328,9 +326,8 @@ function App() {
         if (entry?.query) {
           if (sessionId) {
             openTab(createQueryTab(entry.query));
-            setPendingQuery(undefined);
           } else {
-            setPendingQuery(entry.query);
+            // No session
           }
           setSettingsOpen(false);
         }
@@ -339,9 +336,8 @@ function App() {
         if (item?.query) {
           if (sessionId) {
             openTab(createQueryTab(item.query));
-            setPendingQuery(undefined);
           } else {
-            setPendingQuery(item.query);
+             // No session
           }
           setSettingsOpen(false);
         }
@@ -757,9 +753,8 @@ function App() {
         onSelectQuery={q => {
           if (sessionId) {
             openTab(createQueryTab(q));
-            setPendingQuery(undefined);
           } else {
-            setPendingQuery(q);
+            // No session
           }
         }}
       />

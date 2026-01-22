@@ -88,3 +88,48 @@ pub fn snapshot() -> QueryMetricsSnapshot {
         max_ms: if max_ms > 0 { Some(max_ms) } else { None },
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_metrics_flow() {
+        // Capture initial state
+        let initial = snapshot();
+
+        // 1. Record a successful query
+        record_query(100.0, true);
+        let s1 = snapshot();
+        assert_eq!(s1.total, initial.total + 1);
+        assert_eq!(s1.failed, initial.failed);
+        // We can't strictly assert avg/max because other tests might run in parallel,
+        // but we can check it updated logically if we were alone.
+        // With deltas it is safer.
+
+        // 2. Record a failed query
+        record_query(50.0, false);
+        let s2 = snapshot();
+        assert_eq!(s2.total, s1.total + 1);
+        assert_eq!(s2.failed, s1.failed + 1);
+
+        // 3. Record cancel
+        record_cancel();
+        let s3 = snapshot();
+        assert_eq!(s3.cancelled, initial.cancelled + 1);
+
+        // 4. Record timeout
+        record_timeout();
+        let s4 = snapshot();
+        assert_eq!(s4.timeouts, initial.timeouts + 1);
+
+        // 5. Max duration update
+        // We need to ensure this duration is larger than any previous max to test the update logic
+        // But since we can't know previous max easily without race, we'll just record a large value
+        // and hope it updates, or at least doesn't crash.
+        // Actually, we can check if max_ms is at least what we sent.
+        record_query(99999.0, true);
+        let s5 = snapshot();
+        assert!(s5.max_ms.unwrap() >= 99999);
+    }
+}

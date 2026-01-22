@@ -46,7 +46,6 @@ function isTextInputTarget(target: EventTarget | null): boolean {
 }
 
 const DEFAULT_PROJECT = 'default';
-const RECOVERY_SCRATCH_TAB_ID = 'scratch_query';
 const RECOVERY_SAVE_DEBOUNCE_MS = 600;
 
 function App() {
@@ -169,8 +168,7 @@ function App() {
   const [editConnection, setEditConnection] = useState<SavedConnection | null>(null);
   const [editPassword, setEditPassword] = useState<string>('');
 
-  // Query injection from search
-  const [pendingQuery, setPendingQuery] = useState<string | undefined>(undefined);
+  const [_pendingQuery, setPendingQuery] = useState<string | undefined>(undefined);
 
   function triggerSchemaRefresh() {
     setSchemaRefreshTrigger(prev => prev + 1);
@@ -648,57 +646,26 @@ function App() {
                   onSchemaChange={triggerSchemaRefresh}
                   onClose={() => closeTab(activeTab.id)}
                 />
-              ) : (
+              ) : activeTab?.type === 'query' ? (
                 <div className="flex-1 min-h-0">
-                  {tabs.filter(tab => tab.type === 'query').length > 0 ? (
-                    tabs
-                      .filter(tab => tab.type === 'query')
-                      .map(tab => (
-                        <div
-                          key={tab.id}
-                          // className={tab.id === activeTabId ? lex h-full w-full' : 'hidden'}
-                        >
-                          <QueryPanel
-                            sessionId={sessionId}
-                            dialect={driver}
-                            driverCapabilities={driverCapabilities}
-                            environment={activeConnection?.environment || 'development'}
-                            readOnly={activeConnection?.read_only || false}
-                            connectionName={activeConnection?.name}
-                            connectionDatabase={activeConnection?.database}
-                            activeNamespace={queryNamespace}
-                            initialQuery={queryDrafts[tab.id] ?? tab.initialQuery}
-                            onSchemaChange={triggerSchemaRefresh}
-                            onOpenLibrary={() => setLibraryModalOpen(true)}
-                            isActive={tab.id === activeTabId}
-                            onQueryDraftChange={value => updateQueryDraft(tab.id, value)}
-                          />
-                        </div>
-                      ))
-                  ) : (
-                    <div className={''}>
-                      <QueryPanel
-                        key={sessionId}
-                        sessionId={sessionId}
-                        dialect={driver}
-                        driverCapabilities={driverCapabilities}
-                        environment={activeConnection?.environment || 'development'}
-                        readOnly={activeConnection?.read_only || false}
-                        connectionName={activeConnection?.name}
-                        connectionDatabase={activeConnection?.database}
-                        activeNamespace={queryNamespace}
-                        initialQuery={queryDrafts[RECOVERY_SCRATCH_TAB_ID] ?? pendingQuery}
-                        onSchemaChange={triggerSchemaRefresh}
-                        onOpenLibrary={() => setLibraryModalOpen(true)}
-                        isActive
-                        onQueryDraftChange={value =>
-                          updateQueryDraft(RECOVERY_SCRATCH_TAB_ID, value)
-                        }
-                      />
-                    </div>
-                  )}
+                  <QueryPanel
+                    key={activeTab.id}
+                    sessionId={sessionId}
+                    dialect={driver}
+                    driverCapabilities={driverCapabilities}
+                    environment={activeConnection?.environment || 'development'}
+                    readOnly={activeConnection?.read_only || false}
+                    connectionName={activeConnection?.name}
+                    connectionDatabase={activeConnection?.database}
+                    activeNamespace={queryNamespace}
+                    initialQuery={queryDrafts[activeTab.id] ?? activeTab.initialQuery}
+                    onSchemaChange={triggerSchemaRefresh}
+                    onOpenLibrary={() => setLibraryModalOpen(true)}
+                    isActive
+                    onQueryDraftChange={value => updateQueryDraft(activeTab.id, value)}
+                  />
                 </div>
-              )
+              ) : null
             ) : (
               <div className="flex flex-col items-center justify-center h-full text-center space-y-4">
                 {recoverySnapshot && (
@@ -741,7 +708,7 @@ function App() {
                   </div>
                 )}
                 <div className="p-4 rounded-full bg-accent/10 text-accent mb-4">
-                  <img src="/logo.png" alt="QoreDB" width={48} height={48} />
+                  <img src="/logo.png" alt="QoreDB" width={60} height={60} />
                 </div>
                 <h2 className="text-2xl font-semibold tracking-tight">{t('app.welcome')}</h2>
                 <p className="text-muted-foreground max-w-100">{t('app.description')}</p>

@@ -71,8 +71,7 @@ export function QueryPanelResults({
           {showTabs && (
             <div className="flex items-center gap-1 px-2 py-1 border-b border-border bg-muted/20 overflow-x-auto no-scrollbar">
               {results.map(entry => {
-                const label =
-                  entry.kind === 'explain' ? t('query.explain') : t('query.results');
+                const label = entry.kind === 'explain' ? t('query.explain') : t('query.results');
                 const isActive = entry.id === activeResultId;
                 return (
                   <button
@@ -101,6 +100,11 @@ export function QueryPanelResults({
               })}
             </div>
           )}
+          <div className="shrink-0 border-b border-border bg-muted/10 px-4 py-2">
+            <pre className="text-xs font-mono text-muted-foreground whitespace-pre-wrap break-all max-h-32 overflow-y-auto">
+              {activeResult.query}
+            </pre>
+          </div>
           {activeResult.error ? (
             <div className="p-4 m-4 rounded-md bg-error/10 border border-error/20 text-error flex items-start gap-3">
               <AlertCircle className="mt-0.5 shrink-0" size={18} />

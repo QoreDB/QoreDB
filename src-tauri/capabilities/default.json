@@ -7,8 +7,7 @@
     "core:default",
     "opener:default",
     "dialog:default",
-    "fs:default",
-    "fs:allow-write-text-file",
-    "fs:write-all"
+    "fs:allow-read-text-file",
+    "fs:allow-write-text-file"
   ]
 }

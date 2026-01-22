@@ -15,7 +15,7 @@ use async_trait::async_trait;
 use rust_decimal::Decimal;
 use sqlx::mysql::{MySql, MySqlPool, MySqlPoolOptions, MySqlRow};
 use sqlx::pool::PoolConnection;
-use sqlx::{Column, Row, TypeInfo};
+use sqlx::{Column, Row, TypeInfo, Executor};
 use tokio::sync::{Mutex, RwLock};
 
 use crate::engine::error::{EngineError, EngineResult};
@@ -850,8 +850,7 @@ impl DataEngine for MySqlDriver {
                 "Failed to acquire connection for transaction: {}", e
             )))?;
 
-        sqlx::query("START TRANSACTION")
-            .execute(&mut *conn)
+        conn.execute(sqlx::raw_sql("START TRANSACTION"))
             .await
             .map_err(|e| EngineError::execution_error(format!(
                 "Failed to begin transaction: {}", e
@@ -870,8 +869,7 @@ impl DataEngine for MySqlDriver {
                 "No active transaction to commit"
             ))?;
 
-        sqlx::query("COMMIT")
-            .execute(&mut *conn)
+        conn.execute(sqlx::raw_sql("COMMIT"))
             .await
             .map_err(|e| EngineError::execution_error(format!(
                 "Failed to commit transaction: {}", e
@@ -889,8 +887,7 @@ impl DataEngine for MySqlDriver {
                 "No active transaction to rollback"
             ))?;
 
-        sqlx::query("ROLLBACK")
-            .execute(&mut *conn)
+        conn.execute(sqlx::raw_sql("ROLLBACK"))
             .await
             .map_err(|e| EngineError::execution_error(format!(
                 "Failed to rollback transaction: {}", e

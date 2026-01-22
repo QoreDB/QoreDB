@@ -87,3 +87,80 @@ impl Default for SafetyPolicy {
         Self::load()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::Mutex;
+
+    static ENV_LOCK: Mutex<()> = Mutex::new(());
+
+    #[test]
+    fn test_defaults() {
+        let policy = SafetyPolicy::defaults();
+        assert!(policy.prod_require_confirmation);
+        assert!(!policy.prod_block_dangerous_sql);
+    }
+
+    #[test]
+    fn test_env_overrides() {
+        let _guard = ENV_LOCK.lock().unwrap();
+
+        // Helper to safely set/unset env
+        let set_env = |key: &str, val: Option<&str>| {
+            if let Some(v) = val {
+                std::env::set_var(key, v);
+            } else {
+                std::env::remove_var(key);
+            }
+        };
+
+        // Save original vars
+        let orig_confirm = std::env::var("QOREDB_PROD_REQUIRE_CONFIRMATION").ok();
+        let orig_block = std::env::var("QOREDB_PROD_BLOCK_DANGEROUS").ok();
+
+        // Case 1: Override both to true
+        set_env("QOREDB_PROD_REQUIRE_CONFIRMATION", Some("true"));
+        set_env("QOREDB_PROD_BLOCK_DANGEROUS", Some("1"));
+
+        let mut policy = SafetyPolicy::defaults();
+        policy.apply_env_overrides();
+
+        assert!(policy.prod_require_confirmation);
+        assert!(policy.prod_block_dangerous_sql);
+
+        // Case 2: Override both to false
+        set_env("QOREDB_PROD_REQUIRE_CONFIRMATION", Some("false"));
+        set_env("QOREDB_PROD_BLOCK_DANGEROUS", Some("off"));
+
+        let mut policy = SafetyPolicy::defaults();
+        policy.apply_env_overrides();
+
+        assert!(!policy.prod_require_confirmation);
+        assert!(!policy.prod_block_dangerous_sql);
+
+        // Cleanup
+        set_env("QOREDB_PROD_REQUIRE_CONFIRMATION", orig_confirm.as_deref());
+        set_env("QOREDB_PROD_BLOCK_DANGEROUS", orig_block.as_deref());
+    }
+
+    #[test]
+    fn test_env_bool_parsing() {
+        let _guard = ENV_LOCK.lock().unwrap();
+
+        std::env::set_var("TEST_BOOL_TRUE", "true");
+        assert_eq!(env_bool_opt("TEST_BOOL_TRUE"), Some(true));
+
+        std::env::set_var("TEST_BOOL_1", "1");
+        assert_eq!(env_bool_opt("TEST_BOOL_1"), Some(true));
+
+        std::env::set_var("TEST_BOOL_FALSE", "false");
+        assert_eq!(env_bool_opt("TEST_BOOL_FALSE"), Some(false));
+
+        std::env::remove_var("TEST_BOOL_TRUE");
+        std::env::remove_var("TEST_BOOL_1");
+        std::env::remove_var("TEST_BOOL_FALSE");
+
+        assert_eq!(env_bool_opt("NON_EXISTENT"), None);
+    }
+}

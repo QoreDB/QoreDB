@@ -656,7 +656,7 @@ function App() {
                       .map(tab => (
                         <div
                           key={tab.id}
-                          className={tab.id === activeTabId ? 'flex h-full w-full' : 'hidden'}
+                          // className={tab.id === activeTabId ? lex h-full w-full' : 'hidden'}
                         >
                           <QueryPanel
                             sessionId={sessionId}
@@ -676,22 +676,26 @@ function App() {
                         </div>
                       ))
                   ) : (
-                    <QueryPanel
-                      key={sessionId}
-                      sessionId={sessionId}
-                      dialect={driver}
-                      driverCapabilities={driverCapabilities}
-                      environment={activeConnection?.environment || 'development'}
-                      readOnly={activeConnection?.read_only || false}
-                      connectionName={activeConnection?.name}
-                      connectionDatabase={activeConnection?.database}
-                      activeNamespace={queryNamespace}
-                      initialQuery={queryDrafts[RECOVERY_SCRATCH_TAB_ID] ?? pendingQuery}
-                      onSchemaChange={triggerSchemaRefresh}
-                      onOpenLibrary={() => setLibraryModalOpen(true)}
-                      isActive
-                      onQueryDraftChange={value => updateQueryDraft(RECOVERY_SCRATCH_TAB_ID, value)}
-                    />
+                    <div className={''}>
+                      <QueryPanel
+                        key={sessionId}
+                        sessionId={sessionId}
+                        dialect={driver}
+                        driverCapabilities={driverCapabilities}
+                        environment={activeConnection?.environment || 'development'}
+                        readOnly={activeConnection?.read_only || false}
+                        connectionName={activeConnection?.name}
+                        connectionDatabase={activeConnection?.database}
+                        activeNamespace={queryNamespace}
+                        initialQuery={queryDrafts[RECOVERY_SCRATCH_TAB_ID] ?? pendingQuery}
+                        onSchemaChange={triggerSchemaRefresh}
+                        onOpenLibrary={() => setLibraryModalOpen(true)}
+                        isActive
+                        onQueryDraftChange={value =>
+                          updateQueryDraft(RECOVERY_SCRATCH_TAB_ID, value)
+                        }
+                      />
+                    </div>
                   )}
                 </div>
               )

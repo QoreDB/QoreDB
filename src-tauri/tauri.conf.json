@@ -27,7 +27,7 @@
       "endpoints": [
         "https://github.com/raphplt/QoreDB/releases/latest/download/latest.json"
       ],
-      "pubkey": "${TAURI_UPDATER_PUBKEY}",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDU3MDNDOTQ2MDg1QUFGM0MKUldROHIxb0lSc2tEVjg5LzZZNFhDOGFWRHR2L1M3ZzBTMm82VjVPa1hYWC9xNXU1UHpNeXVSbjIK",
       "dialog": false
     }
   },

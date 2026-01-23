@@ -122,7 +122,7 @@ export function Sidebar({
           onClick={() => (window.location.href = '/')}
           className="flex items-center gap-2 font-semibold text-foreground"
         >
-          <img src="/logo.png" alt="QoreDB" width={30} height={30} />
+          <img src="/logo-white.png" alt="QoreDB" width={28} height={28} />
           QoreDB
         </button>
         <p className="text-xs text-muted-foreground">v1.0.0</p>

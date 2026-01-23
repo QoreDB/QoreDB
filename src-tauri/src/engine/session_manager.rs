@@ -223,3 +223,195 @@ impl SessionManager {
         sessions.contains_key(&session_id)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::engine::types::{
+        CollectionList, CollectionListOptions, ConnectionConfig, Namespace, QueryId, QueryResult,
+        SessionId, TableSchema, Value,
+    };
+    use async_trait::async_trait;
+
+    #[derive(Debug)]
+    struct MockDriver {
+        id: &'static str,
+    }
+
+    impl MockDriver {
+        fn new(id: &'static str) -> Self {
+            Self { id }
+        }
+    }
+
+    #[async_trait]
+    impl DataEngine for MockDriver {
+        fn driver_id(&self) -> &'static str {
+            self.id
+        }
+
+        fn driver_name(&self) -> &'static str {
+            "Mock Driver"
+        }
+
+        async fn test_connection(&self, _config: &ConnectionConfig) -> EngineResult<()> {
+            Ok(())
+        }
+
+        async fn connect(&self, _config: &ConnectionConfig) -> EngineResult<SessionId> {
+            Ok(SessionId::new())
+        }
+
+        async fn disconnect(&self, _session: SessionId) -> EngineResult<()> {
+            Ok(())
+        }
+
+        async fn list_namespaces(&self, _session: SessionId) -> EngineResult<Vec<Namespace>> {
+            Ok(vec![])
+        }
+
+        async fn list_collections(
+            &self,
+            _session: SessionId,
+            _namespace: &Namespace,
+            _options: CollectionListOptions,
+        ) -> EngineResult<CollectionList> {
+            Ok(CollectionList {
+                collections: vec![],
+                total_count: 0,
+            })
+        }
+
+        async fn create_database(
+            &self,
+            _session: SessionId,
+            _name: &str,
+            _options: Option<Value>,
+        ) -> EngineResult<()> {
+            Ok(())
+        }
+
+        async fn drop_database(&self, _session: SessionId, _name: &str) -> EngineResult<()> {
+            Ok(())
+        }
+
+        async fn execute(
+            &self,
+            _session: SessionId,
+            _query: &str,
+            _query_id: QueryId,
+        ) -> EngineResult<QueryResult> {
+            Ok(QueryResult::empty())
+        }
+
+        async fn describe_table(
+            &self,
+            _session: SessionId,
+            _namespace: &Namespace,
+            _table: &str,
+        ) -> EngineResult<TableSchema> {
+            Ok(TableSchema {
+                columns: vec![],
+                primary_key: None,
+                foreign_keys: vec![],
+                row_count_estimate: None,
+            })
+        }
+
+        async fn preview_table(
+            &self,
+            _session: SessionId,
+            _namespace: &Namespace,
+            _table: &str,
+            _limit: u32,
+        ) -> EngineResult<QueryResult> {
+            Ok(QueryResult::empty())
+        }
+    }
+
+    fn create_manager() -> SessionManager {
+        let mut registry = DriverRegistry::new();
+        registry.register(Arc::new(MockDriver::new("mock")));
+        SessionManager::new(Arc::new(registry))
+    }
+
+    fn create_config() -> ConnectionConfig {
+        ConnectionConfig {
+            driver: "mock".to_string(),
+            host: "localhost".to_string(),
+            port: 5432,
+            username: "user".to_string(),
+            password: "password".to_string(),
+            database: Some("test_db".to_string()),
+            ssl: false,
+            environment: "development".to_string(),
+            read_only: false,
+            pool_max_connections: None,
+            pool_min_connections: None,
+            pool_acquire_timeout_secs: None,
+            ssh_tunnel: None,
+        }
+    }
+
+    #[tokio::test]
+    async fn test_connect_and_disconnect() {
+        let manager = create_manager();
+        let config = create_config();
+
+        let session_id = manager.connect(config).await.expect("connect failed");
+        assert!(manager.session_exists(session_id).await);
+
+        let sessions = manager.list_sessions().await;
+        assert_eq!(sessions.len(), 1);
+        assert_eq!(sessions[0].0, session_id);
+
+        manager.disconnect(session_id).await.expect("disconnect failed");
+        assert!(!manager.session_exists(session_id).await);
+    }
+
+    #[tokio::test]
+    async fn test_test_connection() {
+        let manager = create_manager();
+        let config = create_config();
+
+        manager.test_connection(&config).await.expect("test connection failed");
+    }
+
+    #[tokio::test]
+    async fn test_get_driver() {
+        let manager = create_manager();
+        let config = create_config();
+
+        let session_id = manager.connect(config).await.expect("connect failed");
+
+        let driver = manager.get_driver(session_id).await.expect("get_driver failed");
+        assert_eq!(driver.driver_id(), "mock");
+    }
+
+    #[tokio::test]
+    async fn test_connect_invalid_driver() {
+        let manager = create_manager();
+        let mut config = create_config();
+        config.driver = "nonexistent".to_string();
+
+        let result = manager.connect(config).await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_session_properties() {
+        let manager = create_manager();
+        let config = create_config();
+
+        let session_id = manager.connect(config).await.expect("connect failed");
+
+        assert!(!manager.is_read_only(session_id).await.unwrap());
+        assert!(!manager.is_production(session_id).await.unwrap());
+
+        // Test production flag
+        let mut prod_config = create_config();
+        prod_config.environment = "production".to_string();
+        let prod_session = manager.connect(prod_config).await.expect("connect prod failed");
+        assert!(manager.is_production(prod_session).await.unwrap());
+    }
+}

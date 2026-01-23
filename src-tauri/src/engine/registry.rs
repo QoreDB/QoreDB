@@ -74,5 +74,147 @@ impl Default for DriverRegistry {
 
 #[cfg(test)]
 mod tests {
-    // Tests will be added when we have mock drivers
+    use super::*;
+    use crate::engine::types::{
+        CollectionList, CollectionListOptions, ConnectionConfig, Namespace, QueryId, QueryResult,
+        SessionId, TableSchema, Value,
+    };
+    use crate::engine::error::EngineResult;
+    use async_trait::async_trait;
+
+    #[derive(Debug)]
+    struct MockDriver {
+        id: &'static str,
+    }
+
+    impl MockDriver {
+        fn new(id: &'static str) -> Self {
+            Self { id }
+        }
+    }
+
+    #[async_trait]
+    impl DataEngine for MockDriver {
+        fn driver_id(&self) -> &'static str {
+            self.id
+        }
+
+        fn driver_name(&self) -> &'static str {
+            "Mock Driver"
+        }
+
+        async fn test_connection(&self, _config: &ConnectionConfig) -> EngineResult<()> {
+            Ok(())
+        }
+
+        async fn connect(&self, _config: &ConnectionConfig) -> EngineResult<SessionId> {
+            Ok(SessionId::new())
+        }
+
+        async fn disconnect(&self, _session: SessionId) -> EngineResult<()> {
+            Ok(())
+        }
+
+        async fn list_namespaces(&self, _session: SessionId) -> EngineResult<Vec<Namespace>> {
+            Ok(vec![])
+        }
+
+        async fn list_collections(
+            &self,
+            _session: SessionId,
+            _namespace: &Namespace,
+            _options: CollectionListOptions,
+        ) -> EngineResult<CollectionList> {
+            Ok(CollectionList {
+                collections: vec![],
+                total_count: 0,
+            })
+        }
+
+        async fn create_database(
+            &self,
+            _session: SessionId,
+            _name: &str,
+            _options: Option<Value>,
+        ) -> EngineResult<()> {
+            Ok(())
+        }
+
+        async fn drop_database(&self, _session: SessionId, _name: &str) -> EngineResult<()> {
+            Ok(())
+        }
+
+        async fn execute(
+            &self,
+            _session: SessionId,
+            _query: &str,
+            _query_id: QueryId,
+        ) -> EngineResult<QueryResult> {
+            Ok(QueryResult::empty())
+        }
+
+        async fn describe_table(
+            &self,
+            _session: SessionId,
+            _namespace: &Namespace,
+            _table: &str,
+        ) -> EngineResult<TableSchema> {
+            Ok(TableSchema {
+                columns: vec![],
+                primary_key: None,
+                foreign_keys: vec![],
+                row_count_estimate: None,
+            })
+        }
+
+        async fn preview_table(
+            &self,
+            _session: SessionId,
+            _namespace: &Namespace,
+            _table: &str,
+            _limit: u32,
+        ) -> EngineResult<QueryResult> {
+            Ok(QueryResult::empty())
+        }
+    }
+
+    #[test]
+    fn test_registry_basics() {
+        let mut registry = DriverRegistry::new();
+        assert!(registry.is_empty());
+
+        registry.register(Arc::new(MockDriver::new("mock1")));
+        assert_eq!(registry.len(), 1);
+        assert!(!registry.is_empty());
+
+        registry.register(Arc::new(MockDriver::new("mock2")));
+        assert_eq!(registry.len(), 2);
+
+        assert!(registry.get("mock1").is_some());
+        assert!(registry.get("mock2").is_some());
+        assert!(registry.get("nonexistent").is_none());
+    }
+
+    #[test]
+    fn test_list_drivers() {
+        let mut registry = DriverRegistry::new();
+        registry.register(Arc::new(MockDriver::new("a")));
+        registry.register(Arc::new(MockDriver::new("b")));
+
+        let list = registry.list();
+        assert!(list.contains(&"a"));
+        assert!(list.contains(&"b"));
+        assert_eq!(list.len(), 2);
+    }
+
+    #[test]
+    fn test_list_infos() {
+        let mut registry = DriverRegistry::new();
+        registry.register(Arc::new(MockDriver::new("test")));
+
+        let infos = registry.list_infos();
+        assert_eq!(infos.len(), 1);
+        assert_eq!(infos[0].id, "test");
+        assert_eq!(infos[0].name, "Mock Driver");
+    }
 }

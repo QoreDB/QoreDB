@@ -47,11 +47,12 @@ export function createDatabaseTab(namespace: Namespace): OpenTab {
 }
 
 /** Create a query tab */
-export function createQueryTab(initialQuery?: string): OpenTab {
+export function createQueryTab(initialQuery?: string, namespace?: Namespace): OpenTab {
   return {
     id: generateTabId(),
     type: 'query',
     title: 'Query',
     initialQuery,
+    namespace,
   };
 }

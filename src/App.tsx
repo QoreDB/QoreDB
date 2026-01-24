@@ -12,7 +12,7 @@ import { SettingsPage } from './components/Settings/SettingsPage';
 import { StatusBar } from './components/Status/StatusBar';
 import { Button } from './components/ui/button';
 import { Tooltip } from './components/ui/tooltip';
-import { Search, Settings, X } from 'lucide-react';
+import { Plus, Search, Settings, X } from 'lucide-react';
 import {
   Namespace,
   SavedConnection,
@@ -162,7 +162,7 @@ function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [sidebarRefreshTrigger, setSidebarRefreshTrigger] = useState(0);
   const [schemaRefreshTrigger, setSchemaRefreshTrigger] = useState(0);
-  const [queryNamespace, setQueryNamespace] = useState<Namespace | null>(null);
+
 
   // Edit connection state
   const [editConnection, setEditConnection] = useState<SavedConnection | null>(null);
@@ -196,7 +196,7 @@ function App() {
     setQueryDrafts(options?.queryDrafts ?? {});
     setSettingsOpen(false);
 
-    setQueryNamespace(connection.database ? { database: connection.database } : null);
+
   }
 
   // Tab management
@@ -278,7 +278,7 @@ function App() {
               notify.error(t('query.noConnectionError'));
               return;
             }
-            openTab(createQueryTab());
+            openTab(createQueryTab(undefined, activeTab?.namespace));
             return;
           }
           case 'cmd_open_library': {
@@ -337,17 +337,17 @@ function App() {
           if (sessionId) {
             openTab(createQueryTab(item.query));
           } else {
-             // No session
+            // No session
           }
           setSettingsOpen(false);
         }
       }
     },
-    [t, sessionId, openTab, toggleTheme, activeTabId, closeTab]
+    [t, sessionId, openTab, toggleTheme, activeTabId, closeTab, activeTab]
   );
 
   function handleTableSelect(namespace: Namespace, tableName: string) {
-    setQueryNamespace(namespace);
+
     AnalyticsService.capture('resource_opened', {
       source: 'tree',
       resource_type: driver === Driver.Mongodb ? 'collection' : 'table',
@@ -357,7 +357,7 @@ function App() {
   }
 
   function handleDatabaseSelect(namespace: Namespace) {
-    setQueryNamespace(namespace);
+
     AnalyticsService.capture('resource_opened', {
       source: 'tree',
       resource_type: driver === Driver.Mongodb ? 'database' : 'schema',
@@ -368,9 +368,9 @@ function App() {
 
   const handleNewQuery = useCallback(() => {
     if (sessionId) {
-      openTab(createQueryTab());
+      openTab(createQueryTab(undefined, activeTab?.namespace));
     }
-  }, [sessionId, openTab]);
+  }, [sessionId, openTab, activeTab]);
 
   const handleEditConnection = useCallback((connection: SavedConnection, password: string) => {
     setEditConnection(connection);
@@ -640,6 +640,9 @@ function App() {
                   connectionName={activeConnection?.name}
                   onTableSelect={handleTableSelect}
                   onSchemaChange={triggerSchemaRefresh}
+                  onOpenQueryTab={ns => {
+                    openTab(createQueryTab(undefined, ns));
+                  }}
                   onClose={() => closeTab(activeTab.id)}
                 />
               ) : activeTab?.type === 'query' ? (
@@ -653,7 +656,7 @@ function App() {
                     readOnly={activeConnection?.read_only || false}
                     connectionName={activeConnection?.name}
                     connectionDatabase={activeConnection?.database}
-                    activeNamespace={queryNamespace}
+                    activeNamespace={activeTab.namespace}
                     initialQuery={queryDrafts[activeTab.id] ?? activeTab.initialQuery}
                     onSchemaChange={triggerSchemaRefresh}
                     onOpenLibrary={() => setLibraryModalOpen(true)}
@@ -710,7 +713,8 @@ function App() {
                 <p className="text-muted-foreground max-w-100">{t('app.description')}</p>
                 <div className="flex flex-col gap-2 min-w-50">
                   <Button onClick={() => setConnectionModalOpen(true)} className="w-full">
-                    + {t('app.newConnection')}
+                    <Plus className="mr-2 h-4 w-4" />
+                    {t('app.newConnection')}
                   </Button>
                   <Button
                     variant="outline"

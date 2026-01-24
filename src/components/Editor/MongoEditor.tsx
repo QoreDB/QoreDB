@@ -124,7 +124,5 @@ export function MongoEditor({
     }
   }, [value]);
 
-  return (
-    <div className="flex-1 overflow-hidden h-full text-base" ref={editorRef} />
-  );
+  return <div className="flex-1 overflow-hidden h-50 text-base" ref={editorRef} />;
 }

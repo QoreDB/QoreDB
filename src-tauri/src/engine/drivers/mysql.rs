@@ -488,6 +488,7 @@ impl DataEngine for MySqlDriver {
         let mut stream = sqlx::query(query).fetch(&mut *conn);
         let mut columns_sent = false;
         let mut row_count = 0;
+        let mut stream_error: Option<String> = None;
 
         while let Some(item) = stream.next().await {
             match item {
@@ -507,7 +508,9 @@ impl DataEngine for MySqlDriver {
                     row_count += 1;
                 }
                 Err(e) => {
-                    let _ = sender.send(StreamEvent::Error(e.to_string())).await;
+                    let error_msg = e.to_string();
+                    let _ = sender.send(StreamEvent::Error(error_msg.clone())).await;
+                    stream_error = Some(error_msg);
                     break;
                 }
             }
@@ -518,7 +521,15 @@ impl DataEngine for MySqlDriver {
             active.remove(&query_id);
         }
 
-        let _ = sender.send(StreamEvent::Done(row_count)).await;
+        // Only send Done if no error occurred
+        if stream_error.is_none() {
+            let _ = sender.send(StreamEvent::Done(row_count)).await;
+        }
+
+        // Return error if stream failed, so frontend knows about it
+        if let Some(err) = stream_error {
+            return Err(EngineError::execution_error(err));
+        }
 
         Ok(())
     }

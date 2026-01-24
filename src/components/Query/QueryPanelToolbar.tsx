@@ -1,9 +1,21 @@
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
-import { Play, Square, AlertCircle, History, Shield, Lock, Plus, BookmarkPlus, Folder, Layers } from 'lucide-react';
+import {
+  Play,
+  Square,
+  AlertCircle,
+  History,
+  Shield,
+  Lock,
+  Plus,
+  BookmarkPlus,
+  Folder,
+  Layers,
+  Database,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Tooltip } from '@/components/ui/tooltip';
-import { Environment } from '../../lib/tauri';
+import { Environment, Namespace } from '../../lib/tauri';
 import { ENVIRONMENT_CONFIG } from '../../lib/environment';
 import { MONGO_TEMPLATES } from '../Editor/MongoEditor';
 
@@ -20,6 +32,9 @@ interface QueryPanelToolbarProps {
   keepResults: boolean;
   isExplainSupported: boolean;
   canCancel: boolean;
+  connectionName?: string;
+  connectionDatabase?: string;
+  activeNamespace?: Namespace | null;
   onExecute: () => void;
   onCancel: () => void;
   onExplain: () => void;
@@ -42,6 +57,9 @@ export function QueryPanelToolbar({
   keepResults,
   isExplainSupported,
   canCancel,
+  connectionName,
+  connectionDatabase,
+  activeNamespace,
   onExecute,
   onCancel,
   onExplain,
@@ -54,6 +72,10 @@ export function QueryPanelToolbar({
 }: QueryPanelToolbarProps) {
   const { t } = useTranslation();
 
+  // Priority: activeNamespace.database > connectionDatabase
+  const displayDatabase = activeNamespace?.database || connectionDatabase;
+  const displaySchema = activeNamespace?.schema;
+
   return (
     <div className="flex items-center gap-2 p-2 border-b border-border bg-muted/20">
       <Button onClick={onExecute} disabled={loading || !sessionId} className="gap-2">
@@ -65,6 +87,26 @@ export function QueryPanelToolbar({
           </>
         )}
       </Button>
+
+      {/* Database context badge */}
+      {sessionId && (connectionName || displayDatabase) && (
+        <span className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md bg-muted/50 text-muted-foreground border border-border">
+          <Database size={12} className="text-accent" />
+          {connectionName && <span className="truncate max-w-32">{connectionName}</span>}
+          {displayDatabase && (
+            <>
+              {connectionName && <span className="text-muted-foreground/50">→</span>}
+              <span className="truncate max-w-24 font-mono">{displayDatabase}</span>
+              {displaySchema && (
+                <>
+                  <span className="text-muted-foreground/40">.</span>
+                  <span className="truncate max-w-20 font-mono">{displaySchema}</span>
+                </>
+              )}
+            </>
+          )}
+        </span>
+      )}
 
       {sessionId && environment !== 'development' && (
         <span
@@ -87,8 +129,8 @@ export function QueryPanelToolbar({
         </span>
       )}
 
-      {loading && (
-        canCancel ? (
+      {loading &&
+        (canCancel ? (
           <Button
             variant="destructive"
             onClick={onCancel}
@@ -105,8 +147,7 @@ export function QueryPanelToolbar({
               </Button>
             </span>
           </Tooltip>
-        )
-      )}
+        ))}
 
       {isMongo && sessionId && (
         <Button

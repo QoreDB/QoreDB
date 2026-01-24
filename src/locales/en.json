@@ -282,7 +282,8 @@
         "noTables": "No tables in this database",
         "viewAll": "View all {{count}} tables",
         "searchTables": "Search tables...",
-        "noResults": "No tables found matching your search."
+        "noResults": "No tables found matching your search.",
+        "openEditor": "SQL Editor"
     },
     "query": {
         "run": "Run",
@@ -299,6 +300,7 @@
         "cancelNotSupported": "Cancel is not supported by this driver",
         "noConnection": "No connection",
         "noResults": "Run a query to see results",
+        "emptyResults": "Query returned 0 rows",
         "queryFailed": "Query failed",
         "noConnectionError": "No connection selected",
         "time": {

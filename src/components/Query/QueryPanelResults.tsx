@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { AlertCircle, X } from 'lucide-react';
+import { AlertCircle, X, CheckCircle2 } from 'lucide-react';
 import { DataGrid } from '../Grid/DataGrid';
 import { DocumentResults } from '../Results/DocumentResults';
 import { ExplainPlanView } from '../Results/ExplainPlanView';
@@ -67,7 +67,7 @@ export function QueryPanelResults({
           <pre className="text-sm font-mono whitespace-pre-wrap break-all">{panelError}</pre>
         </div>
       ) : activeResult ? (
-        <>
+        <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
           {showTabs && (
             <div className="flex items-center gap-1 px-2 py-1 border-b border-border bg-muted/20 overflow-x-auto no-scrollbar">
               {results.map(entry => {
@@ -116,7 +116,7 @@ export function QueryPanelResults({
             <ExplainPlanView result={activeResult.result} />
           ) : activeResult.result ? (
             isMongo ? (
-              <div className="flex-1 overflow-hidden p-2 flex flex-col h-full">
+              <div className="flex-1 min-h-0 flex flex-col relative">
                 <DocumentResults
                   result={activeResult.result}
                   sessionId={sessionId || undefined}
@@ -131,7 +131,7 @@ export function QueryPanelResults({
                 />
               </div>
             ) : (
-              <div className="flex-1 overflow-hidden p-2 flex flex-col h-full">
+              <div className="flex-1 min-h-0 p-2 flex flex-col">
                 <DataGrid
                   result={activeResult.result}
                   sessionId={sessionId || undefined}
@@ -143,11 +143,17 @@ export function QueryPanelResults({
               </div>
             )
           ) : (
-            <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
-              {t('query.noResults')}
+            <div className="flex flex-col items-center justify-center h-full gap-2">
+              <CheckCircle2 size={24} className="text-muted-foreground/50" />
+              <span className="text-muted-foreground text-sm">{t('query.emptyResults')}</span>
+              {activeResult.totalTimeMs !== undefined && (
+                <span className="text-xs text-muted-foreground/70">
+                  {activeResult.totalTimeMs.toFixed(0)}ms
+                </span>
+              )}
             </div>
           )}
-        </>
+        </div>
       ) : (
         <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
           {t('query.noResults')}

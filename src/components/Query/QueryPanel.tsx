@@ -597,6 +597,9 @@ export function QueryPanel({
         keepResults={keepResults}
         isExplainSupported={isExplainSupported}
         canCancel={canCancel}
+        connectionName={connectionName}
+        connectionDatabase={connectionDatabase}
+        activeNamespace={activeNamespace}
         onExecute={handleExecuteCurrent}
         onCancel={handleCancel}
         onExplain={handleExplain}
@@ -649,7 +652,6 @@ export function QueryPanel({
         onEditDocument={handleEditDocument}
       />
 
-      {/* History Modal */}
       <QueryHistory
         isOpen={historyOpen}
         onClose={() => setHistoryOpen(false)}

@@ -89,7 +89,6 @@ export const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQ
   const schemaCache = useSchemaCache(sessionId || '');
   const schemaStateRef = useRef<SchemaState>(createSchemaState());
 
-  // Get SQL dialect
   const sqlDialect = useMemo(() => {
     switch (dialect) {
       case Driver.Mysql:
@@ -416,7 +415,6 @@ export const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQ
       }),
     ];
 
-    // Add dark theme if needed
     if (isDark) {
       extensions.push(oneDark);
     }
@@ -452,5 +450,5 @@ export const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQ
     }
   }, [value]);
 
-  return <div className="flex-1 overflow-hidden h-full text-base" ref={editorRef} />;
+  return <div className="flex-1 overflow-hidden h-50 text-base" ref={editorRef} />;
 });

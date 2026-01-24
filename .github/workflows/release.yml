@@ -96,9 +96,9 @@ jobs:
           $version = node -p "require('./package.json').version"
           $productName = node -p "require('./src-tauri/tauri.conf.json').productName"
           $identifier = $env:MSIX_IDENTITY_NAME
+          if ($identifier) { $identifier = $identifier.Trim() }
 
           if (-not $productName) { $productName = "QoreDB" }
-          if ($identifier) { $identifier = $identifier.Trim() }
           if (-not $identifier) { $identifier = "QoreDB.QoreDB" }
 
           $semver = $version.Split('-')[0].Split('+')[0]
@@ -131,8 +131,8 @@ jobs:
           Copy-Item $iconSmall -Destination (Join-Path $staging "Square44x44Logo.png") -Force
 
           $publisher = $env:MSIX_PUBLISHER
-          if (-not $publisher) { $publisher = "CN=B4F140BE-726E-4427-93B8-EAF78B5D2E9" }
           if ($publisher) { $publisher = $publisher.Trim() }
+          if (-not $publisher) { $publisher = "CN=B4F140BE-726E-4427-93B8-EAF78B5D2E9E" }
 
           function ConvertTo-CrockfordBase32([byte[]]$bytes) {
             $alphabet = "0123456789abcdefghjkmnpqrstvwxyz"
@@ -156,7 +156,9 @@ jobs:
           }
 
           function Get-PublisherId([string]$publisherName) {
-            $normalized = $publisherName.Trim().ToLowerInvariant()
+            # PFN uses UTF-16LE of the Publisher string (case-sensitive in practice).
+            # Do not force lower/upper here; Partner Center expects a specific hash.
+            $normalized = $publisherName.Trim()
             $bytes = [System.Text.Encoding]::Unicode.GetBytes($normalized) # UTF-16LE
             $sha = [System.Security.Cryptography.SHA256]::Create()
             $hash = $sha.ComputeHash($bytes)
@@ -206,8 +208,7 @@ jobs:
             try {
               if ($env:MSIX_CERT_PASSWORD) {
                 $pfxBytes = [IO.File]::ReadAllBytes($pfxPath)
-                $cert = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2
-                $cert.Import(
+                $cert = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new(
                   $pfxBytes,
                   $env:MSIX_CERT_PASSWORD,
                   [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::DefaultKeySet

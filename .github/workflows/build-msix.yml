@@ -96,7 +96,7 @@ jobs:
 
           $publisher = $env:MSIX_PUBLISHER
           if ($publisher) { $publisher = $publisher.Trim() }
-          if (-not $publisher) { $publisher = "CN=B4F140BE-726E-4427-93B8-EAF78B5D2E9" }
+          if (-not $publisher) { $publisher = "CN=B4F140BE-726E-4427-93B8-EAF78B5D2E9E" }
 
           function ConvertTo-CrockfordBase32([byte[]]$bytes) {
             $alphabet = "0123456789abcdefghjkmnpqrstvwxyz"
@@ -120,7 +120,7 @@ jobs:
           }
 
           function Get-PublisherId([string]$publisherName) {
-            $normalized = $publisherName.Trim().ToLowerInvariant()
+            $normalized = $publisherName.Trim()
             $bytes = [System.Text.Encoding]::Unicode.GetBytes($normalized) # UTF-16LE
             $sha = [System.Security.Cryptography.SHA256]::Create()
             $hash = $sha.ComputeHash($bytes)
@@ -170,8 +170,7 @@ jobs:
             try {
               if ($env:MSIX_CERT_PASSWORD) {
                 $pfxBytes = [IO.File]::ReadAllBytes($pfxPath)
-                $cert = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2
-                $cert.Import(
+                $cert = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new(
                   $pfxBytes,
                   $env:MSIX_CERT_PASSWORD,
                   [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::DefaultKeySet

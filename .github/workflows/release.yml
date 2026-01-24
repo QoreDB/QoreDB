@@ -179,17 +179,17 @@ jobs:
           $appinstallerUrl = "https://github.com/$repo/releases/download/$tag/$appinstallerName"
           $msixUrl = "https://github.com/$repo/releases/download/$tag/$msixFile"
 
-          $appinstaller = @"
-          <?xml version="1.0" encoding="utf-8"?>
-          <AppInstaller Uri="$appinstallerUrl" Version="$msixVersion" xmlns="http://schemas.microsoft.com/appx/appinstaller/2018">
-            <MainPackage Name="$identifier" Publisher="$publisher" Version="$msixVersion" ProcessorArchitecture="x64" Uri="$msixUrl" />
-            <UpdateSettings>
-              <OnLaunch HoursBetweenUpdateChecks="6" />
-            </UpdateSettings>
-          </AppInstaller>
-          "@
+          $appinstaller = @(
+            '<?xml version="1.0" encoding="utf-8"?>',
+            "<AppInstaller Uri=""$appinstallerUrl"" Version=""$msixVersion"" xmlns=""http://schemas.microsoft.com/appx/appinstaller/2018"">",
+            "  <MainPackage Name=""$identifier"" Publisher=""$publisher"" Version=""$msixVersion"" ProcessorArchitecture=""x64"" Uri=""$msixUrl"" />",
+            "  <UpdateSettings>",
+            "    <OnLaunch HoursBetweenUpdateChecks=""6"" />",
+            "  </UpdateSettings>",
+            "</AppInstaller>"
+          ) -join "`n"
 
-                    $appinstaller | Set-Content $appinstallerPath -Encoding utf8
+          $appinstaller | Set-Content $appinstallerPath -Encoding utf8
 
                 - name: Upload MSIX to release
                   if: matrix.platform == 'windows-latest'

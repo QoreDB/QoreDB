@@ -31,6 +31,14 @@ Ensuite, pour que la CI signe le package :
 - `MSIX_CERT_BASE64` : le `.pfx` encodé en base64
 - `MSIX_CERT_PASSWORD` : le mot de passe du `.pfx`
 
+Important : `MSIX_PUBLISHER` doit être **exactement** la valeur Partner Center (zéro espace / zéro retour ligne). Même un caractère en plus change le `PackageFamilyName`.
+
+Si tu génères le `.pfx` sur macOS via OpenSSL et que `signtool` échoue, essaie un export plus compatible :
+
+```bash
+openssl pkcs12 -export -legacy -out qoredb-store.pfx -inkey qoredb.key -in qoredb.crt -name "QoreDB Store Upload Signing"
+```
+
 Sur macOS, pour créer `MSIX_CERT_BASE64` à partir d'un `.pfx` (sans le commiter) :
 
 ```bash

@@ -100,8 +100,20 @@ export function TableBrowser({
       }
 
       if (dataResult.success && dataResult.result) {
-        setData({
+        const hydratedResult: QueryResult = {
           ...dataResult.result,
+          columns:
+            dataResult.result.columns.length === 0 && cachedSchema?.columns?.length
+              ? cachedSchema.columns.map(c => ({
+                  name: c.name,
+                  data_type: c.data_type,
+                  nullable: c.nullable,
+                }))
+              : dataResult.result.columns,
+        };
+
+        setData({
+          ...hydratedResult,
           total_time_ms: totalTime,
         } as QueryResult & { total_time_ms: number });
 

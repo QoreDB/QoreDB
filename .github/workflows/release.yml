@@ -153,7 +153,8 @@ jobs:
 
           $safeName = ($productName -replace '[^A-Za-z0-9._-]', '')
           if (-not $safeName) { $safeName = "QoreDB" }
-          $msixPath = Join-Path $outDir ("{0}_{1}_x64.msix" -f $safeName, $version)
+          $msixFile = ("{0}_{1}_x64.msix" -f $safeName, $version)
+          $msixPath = Join-Path $outDir $msixFile
 
           & $makeappx pack /d $staging /p $msixPath /o | Out-Null
 
@@ -171,10 +172,31 @@ jobs:
             & $signtool sign /fd SHA256 /f $pfxPath /p $env:MSIX_CERT_PASSWORD /tr http://timestamp.digicert.com /td SHA256 $msixPath | Out-Null
           }
 
-      - name: Upload MSIX to release
-        if: matrix.platform == 'windows-latest'
-        uses: softprops/action-gh-release@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          files: src-tauri/target/release/bundle/msix/*.msix
+          $repo = "${{ github.repository }}"
+          $tag = "${{ github.ref_name }}"
+          $appinstallerName = "$safeName.appinstaller"
+          $appinstallerPath = Join-Path $outDir $appinstallerName
+          $appinstallerUrl = "https://github.com/$repo/releases/download/$tag/$appinstallerName"
+          $msixUrl = "https://github.com/$repo/releases/download/$tag/$msixFile"
+
+          $appinstaller = @"
+          <?xml version="1.0" encoding="utf-8"?>
+          <AppInstaller Uri="$appinstallerUrl" Version="$msixVersion" xmlns="http://schemas.microsoft.com/appx/appinstaller/2018">
+            <MainPackage Name="$identifier" Publisher="$publisher" Version="$msixVersion" ProcessorArchitecture="x64" Uri="$msixUrl" />
+            <UpdateSettings>
+              <OnLaunch HoursBetweenUpdateChecks="6" />
+            </UpdateSettings>
+          </AppInstaller>
+          "@
+
+                    $appinstaller | Set-Content $appinstallerPath -Encoding utf8
+
+                - name: Upload MSIX to release
+                  if: matrix.platform == 'windows-latest'
+                  uses: softprops/action-gh-release@v2
+                  env:
+                    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  with:
+                    files: |
+                      src-tauri/target/release/bundle/msix/*.msix
+                      src-tauri/target/release/bundle/msix/*.appinstaller

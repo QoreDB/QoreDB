@@ -357,10 +357,10 @@ export function DataGrid({
 
   // Early return for empty state
   if (!result || result.columns.length === 0) {
-    if (result) {
+    if (result && typeof result.affected_rows === 'number') {
       const time = Math.round(result.execution_time_ms ?? 0);
       const message =
-        typeof result.affected_rows === 'number'
+        result.affected_rows > 0
           ? t('results.affectedRows', { count: result.affected_rows, time })
           : t('results.commandOk', { time });
 

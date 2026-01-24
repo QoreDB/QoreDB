@@ -100,8 +100,20 @@ export function TableBrowser({
       }
 
       if (dataResult.success && dataResult.result) {
-        setData({
+        const hydratedResult: QueryResult = {
           ...dataResult.result,
+          columns:
+            dataResult.result.columns.length === 0 && cachedSchema?.columns?.length
+              ? cachedSchema.columns.map(c => ({
+                  name: c.name,
+                  data_type: c.data_type,
+                  nullable: c.nullable,
+                }))
+              : dataResult.result.columns,
+        };
+
+        setData({
+          ...hydratedResult,
           total_time_ms: totalTime,
         } as QueryResult & { total_time_ms: number });
 
@@ -153,7 +165,7 @@ export function TableBrowser({
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <Database size={12} />
               <span>{namespace.database}</span>
-              {schema?.row_count_estimate !== undefined && (
+              {typeof schema?.row_count_estimate === 'number' && (
                 <>
                   <span>•</span>
                   <span>

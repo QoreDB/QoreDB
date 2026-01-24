@@ -142,7 +142,7 @@ export function TableContextMenu({
   }
 
   function getWarningInfo(): string | undefined {
-    if (rowCountEstimate !== undefined && rowCountEstimate > 0) {
+    if (typeof rowCountEstimate === 'number' && rowCountEstimate > 0) {
       return t('tableMenu.rowsWillBeDeleted', { count: rowCountEstimate });
     }
     return undefined;

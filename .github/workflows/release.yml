@@ -64,6 +64,7 @@ jobs:
 
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
+        timeout-minutes: 30
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
@@ -81,4 +82,121 @@ jobs:
           releaseDraft: true
           prerelease: false
           includeUpdaterJson: true
-          args: ${{ matrix.args }}
+          args: ${{ matrix.args }} --verbose
+
+      - name: Build MSIX (Windows only)
+        if: matrix.platform == 'windows-latest'
+        shell: pwsh
+        env:
+          MSIX_CERT_BASE64: ${{ secrets.MSIX_CERT_BASE64 }}
+          MSIX_CERT_PASSWORD: ${{ secrets.MSIX_CERT_PASSWORD }}
+          MSIX_PUBLISHER: ${{ secrets.MSIX_PUBLISHER }}
+        run: |
+          $ErrorActionPreference = "Stop"
+
+          $version = node -p "require('./package.json').version"
+          $productName = node -p "require('./src-tauri/tauri.conf.json').productName"
+          $identifier = node -p "require('./src-tauri/tauri.conf.json').identifier"
+
+          if (-not $productName) { $productName = "QoreDB" }
+          if (-not $identifier) { $identifier = "com.rapha.qoredb" }
+
+          $semver = $version.Split('-')[0].Split('+')[0]
+          $parts = $semver.Split('.')
+          while ($parts.Length -lt 4) { $parts += "0" }
+          $msixVersion = ($parts[0..3] -join '.')
+
+          $exePath = "src-tauri/target/release/qoredb.exe"
+          if (-not (Test-Path $exePath)) {
+            $candidate = "src-tauri/target/release/$productName.exe"
+            if (Test-Path $candidate) {
+              $exePath = $candidate
+            }
+          }
+          if (-not (Test-Path $exePath)) {
+            throw "Executable not found at $exePath"
+          }
+
+          $staging = "src-tauri/target/release/bundle/msix-staging"
+          $outDir = "src-tauri/target/release/bundle/msix"
+          New-Item -ItemType Directory -Force -Path $staging | Out-Null
+          New-Item -ItemType Directory -Force -Path $outDir | Out-Null
+
+          Copy-Item $exePath -Destination (Join-Path $staging "qoredb.exe") -Force
+
+          $iconLarge = "src-tauri/icons/128x128.png"
+          $iconSmall = "src-tauri/icons/32x32.png"
+          if (-not (Test-Path $iconSmall)) { $iconSmall = $iconLarge }
+          Copy-Item $iconLarge -Destination (Join-Path $staging "Square150x150Logo.png") -Force
+          Copy-Item $iconSmall -Destination (Join-Path $staging "Square44x44Logo.png") -Force
+
+          $publisher = $env:MSIX_PUBLISHER
+          if (-not $publisher) { $publisher = "CN=QoreDB" }
+
+          $manifestTemplate = Get-Content "scripts/msix/AppxManifest.xml" -Raw
+          $manifest = $manifestTemplate `
+            -replace "{{IDENTIFIER}}", $identifier `
+            -replace "{{PUBLISHER}}", $publisher `
+            -replace "{{VERSION}}", $msixVersion `
+            -replace "{{DISPLAY_NAME}}", $productName `
+            -replace "{{EXECUTABLE}}", "qoredb.exe" `
+            -replace "{{APP_ID}}", "QoreDB"
+
+          $manifest | Set-Content (Join-Path $staging "AppxManifest.xml") -Encoding utf8
+
+          $makeappx = (Get-Command makeappx.exe -ErrorAction SilentlyContinue).Source
+          if (-not $makeappx) {
+            $makeappx = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin\*\x64\makeappx.exe" `
+              -ErrorAction SilentlyContinue | Sort-Object FullName -Descending | Select-Object -First 1 | ForEach-Object { $_.FullName }
+          }
+          if (-not $makeappx) { throw "makeappx.exe not found on runner" }
+
+          $safeName = ($productName -replace '[^A-Za-z0-9._-]', '')
+          if (-not $safeName) { $safeName = "QoreDB" }
+          $msixFile = ("{0}_{1}_x64.msix" -f $safeName, $version)
+          $msixPath = Join-Path $outDir $msixFile
+
+          & $makeappx pack /d $staging /p $msixPath /o | Out-Null
+
+          if ($env:MSIX_CERT_BASE64) {
+            $pfxPath = Join-Path $env:RUNNER_TEMP "msixcert.pfx"
+            [IO.File]::WriteAllBytes($pfxPath, [Convert]::FromBase64String($env:MSIX_CERT_BASE64))
+
+            $signtool = (Get-Command signtool.exe -ErrorAction SilentlyContinue).Source
+            if (-not $signtool) {
+              $signtool = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin\*\x64\signtool.exe" `
+                -ErrorAction SilentlyContinue | Sort-Object FullName -Descending | Select-Object -First 1 | ForEach-Object { $_.FullName }
+            }
+            if (-not $signtool) { throw "signtool.exe not found on runner" }
+
+            & $signtool sign /fd SHA256 /f $pfxPath /p $env:MSIX_CERT_PASSWORD /tr http://timestamp.digicert.com /td SHA256 $msixPath | Out-Null
+          }
+
+          $repo = "${{ github.repository }}"
+          $tag = "${{ github.ref_name }}"
+          $appinstallerName = "$safeName.appinstaller"
+          $appinstallerPath = Join-Path $outDir $appinstallerName
+          $appinstallerUrl = "https://github.com/$repo/releases/download/$tag/$appinstallerName"
+          $msixUrl = "https://github.com/$repo/releases/download/$tag/$msixFile"
+
+          $appinstaller = @"
+          <?xml version="1.0" encoding="utf-8"?>
+          <AppInstaller Uri="$appinstallerUrl" Version="$msixVersion" xmlns="http://schemas.microsoft.com/appx/appinstaller/2018">
+            <MainPackage Name="$identifier" Publisher="$publisher" Version="$msixVersion" ProcessorArchitecture="x64" Uri="$msixUrl" />
+            <UpdateSettings>
+              <OnLaunch HoursBetweenUpdateChecks="6" />
+            </UpdateSettings>
+          </AppInstaller>
+          "@
+
+                    $appinstaller | Set-Content $appinstallerPath -Encoding utf8
+
+                - name: Upload MSIX to release
+                  if: matrix.platform == 'windows-latest'
+                  uses: softprops/action-gh-release@v2
+                  env:
+                    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  with:
+                    files: |
+                      src-tauri/target/release/bundle/msix/*.msix
+                      src-tauri/target/release/bundle/msix/*.appinstaller

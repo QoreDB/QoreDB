@@ -24,7 +24,7 @@ import {
 	Environment,
 } from "@/lib/tauri";
 import { cn } from "@/lib/utils";
-import { ArrowUpDown, ArrowUp, ArrowDown, Trash2 } from "lucide-react";
+import { ArrowUpDown, ArrowUp, ArrowDown, Trash2, CheckCircle2 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -54,22 +54,22 @@ interface DataGridProps {
 }
 
 export function DataGrid({
-	result,
-	height = 400,
-	sessionId,
-	namespace,
-	tableName,
-	primaryKey,
-	environment = "development",
-	readOnly = false,
-	mutationsSupported = true,
-	connectionName,
-	connectionDatabase,
-	onRowsDeleted,
-	onRowClick,
+  result,
+  // height = 400, // Removed unused prop
+  sessionId,
+  namespace,
+  tableName,
+  primaryKey,
+  environment = 'development',
+  readOnly = false,
+  mutationsSupported = true,
+  connectionName,
+  connectionDatabase,
+  onRowsDeleted,
+  onRowClick,
 }: DataGridProps) {
-	const { t } = useTranslation();
-	const DEFAULT_RENDER_LIMIT = 2000;
+  const { t } = useTranslation();
+  const DEFAULT_RENDER_LIMIT = 2000;
   const RENDER_STEP = 2000;
 
   // Table state
@@ -357,6 +357,20 @@ export function DataGrid({
 
   // Early return for empty state
   if (!result || result.columns.length === 0) {
+    if (result && typeof result.affected_rows === 'number') {
+      const time = Math.round(result.execution_time_ms ?? 0);
+      const message =
+        result.affected_rows > 0
+          ? t('results.affectedRows', { count: result.affected_rows, time })
+          : t('results.commandOk', { time });
+
+      return (
+        <div className="flex flex-col items-center justify-center h-40 text-muted-foreground text-sm gap-2">
+          <CheckCircle2 size={22} className="text-muted-foreground/60" />
+          <span>{message}</span>
+        </div>
+      );
+    }
     return (
       <div className="flex items-center justify-center h-40 text-muted-foreground text-sm">
         {t('grid.noData')}
@@ -386,7 +400,7 @@ export function DataGrid({
   });
 
   return (
-    <div className="flex flex-col gap-2 h-full min-h-0" data-datagrid>
+    <div className="flex flex-col gap-2 h-full min-h-0 overflow-hidden" data-datagrid>
       {/* Header */}
       <div className="flex items-center justify-between px-1 shrink-0">
         <div className="text-xs text-muted-foreground flex items-center gap-3">
@@ -483,11 +497,7 @@ export function DataGrid({
       </div>
 
       {/* Table */}
-      <div
-        ref={parentRef}
-        className="border border-border rounded-md overflow-auto flex-1 min-h-0"
-        style={height && height !== 400 ? { height } : undefined}
-      >
+      <div ref={parentRef} className="border border-border rounded-md overflow-auto flex-1 min-h-0">
         <table className="w-full text-sm border-collapse relative">
           <thead className="sticky top-0 z-10 bg-muted/80 backdrop-blur-sm shadow-sm">
             {table.getHeaderGroups().map(headerGroup => (

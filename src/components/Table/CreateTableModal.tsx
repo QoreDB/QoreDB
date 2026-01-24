@@ -129,7 +129,7 @@ export function CreateTableModal({
 
 		setLoading(true);
 		try {
-			const result = await executeQuery(sessionId, generatedSQL);
+			const result = await executeQuery(sessionId, generatedSQL, { namespace });
 			if (result.success) {
 				notify.success(t("createTable.success", { name: tableName }));
 				onTableCreated?.(tableName.trim());

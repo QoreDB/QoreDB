@@ -19,7 +19,6 @@ interface SaveQueryDialogProps {
   database?: string;
   defaultTitle?: string;
   defaultFolderId?: string | null;
-  onSaved?: () => void;
 }
 
 type FolderMode = 'existing' | 'new';
@@ -39,7 +38,6 @@ export function SaveQueryDialog({
   database,
   defaultTitle,
   defaultFolderId = null,
-  onSaved,
 }: SaveQueryDialogProps) {
   const { t } = useTranslation();
   const [folders, setFolders] = useState<QueryFolder[]>([]);
@@ -88,7 +86,6 @@ export function SaveQueryDialog({
         database,
       });
       toast.success(t('library.saved'));
-      onSaved?.();
       close();
     } catch (err) {
       toast.error(t('library.saveError'), {
@@ -132,7 +129,10 @@ export function SaveQueryDialog({
               </Select>
 
               {folderMode === 'existing' ? (
-                <Select value={folderId ?? '__none__'} onValueChange={value => setFolderId(value === '__none__' ? null : value)}>
+                <Select
+                  value={folderId ?? '__none__'}
+                  onValueChange={value => setFolderId(value === '__none__' ? null : value)}
+                >
                   <SelectTrigger className="flex-1">
                     <SelectValue placeholder={t('library.placeholders.folder')} />
                   </SelectTrigger>

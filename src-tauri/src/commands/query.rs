@@ -79,6 +79,7 @@ pub async fn execute_query(
     window: tauri::Window,
     session_id: String,
     query: String,
+    namespace: Option<Namespace>,
     acknowledged_dangerous: Option<bool>,
     query_id: Option<String>,
     timeout_ms: Option<u64>,
@@ -265,7 +266,7 @@ pub async fn execute_query(
         });
 
         // Execute streaming
-        let execution = driver.execute_stream(session, &query, query_id, sender);
+        let execution = driver.execute_stream_in_namespace(session, namespace.clone(), &query, query_id, sender);
         
         // Handle timeout for the *start* or completion? 
         // With streaming, the execution future completes when the stream is DONE.
@@ -312,7 +313,7 @@ pub async fn execute_query(
     } else {
         // Normal execution
         let start_time = std::time::Instant::now();
-        let execution = driver.execute(session, &query, query_id);
+        let execution = driver.execute_in_namespace(session, namespace.clone(), &query, query_id);
 
         let result = if let Some(timeout_value) = timeout_ms {
             match timeout(Duration::from_millis(timeout_value), execution).await {

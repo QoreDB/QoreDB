@@ -24,7 +24,7 @@ Si tu soumets un `.msix` dans Partner Center, le Store impose que le manifeste d
 À récupérer dans **Partner Center → Identité du produit / Product identity** :
 
 - **Package/Identity name** (ex: `QoreDB.QoreDB`) → à mettre dans le secret `MSIX_IDENTITY_NAME`
-- **Publisher ID** (ex: `CN=B4F140BE-726E-4427-93B8-EAF78B5D2E9`) → à mettre dans le secret `MSIX_PUBLISHER`
+- **Publisher ID** (ex: `CN=B4F140BE-726E-4427-93B8-EAF78B5D2E9E`) → à mettre dans le secret `MSIX_PUBLISHER`
 
 Ensuite, pour que la CI signe le package :
 

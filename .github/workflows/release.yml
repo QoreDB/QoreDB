@@ -90,16 +90,15 @@ jobs:
         env:
           MSIX_CERT_BASE64: ${{ secrets.MSIX_CERT_BASE64 }}
           MSIX_CERT_PASSWORD: ${{ secrets.MSIX_CERT_PASSWORD }}
-          MSIX_PUBLISHER: ${{ secrets.MSIX_PUBLISHER }}
         run: |
           $ErrorActionPreference = "Stop"
 
           $version = node -p "require('./package.json').version"
           $productName = node -p "require('./src-tauri/tauri.conf.json').productName"
-          $identifier = node -p "require('./src-tauri/tauri.conf.json').identifier"
+          $identifier = $env:MSIX_IDENTITY_NAME
 
           if (-not $productName) { $productName = "QoreDB" }
-          if (-not $identifier) { $identifier = "com.rapha.qoredb" }
+          if (-not $identifier) { $identifier = "QoreDB.QoreDB" }
 
           $semver = $version.Split('-')[0].Split('+')[0]
           $parts = $semver.Split('.')
@@ -131,7 +130,7 @@ jobs:
           Copy-Item $iconSmall -Destination (Join-Path $staging "Square44x44Logo.png") -Force
 
           $publisher = $env:MSIX_PUBLISHER
-          if (-not $publisher) { $publisher = "CN=QoreDB" }
+          if (-not $publisher) { $publisher = "CN=B4F140BE-726E-4427-93B8-EAF78B5D2E9" }
 
           $manifestTemplate = Get-Content "scripts/msix/AppxManifest.xml" -Raw
           $manifest = $manifestTemplate `
@@ -143,6 +142,12 @@ jobs:
             -replace "{{APP_ID}}", "QoreDB"
 
           $manifest | Set-Content (Join-Path $staging "AppxManifest.xml") -Encoding utf8
+
+          # Diagnostics (safe): verify manifest identity matches Partner Center expectations
+          $manifestPath = Join-Path $staging "AppxManifest.xml"
+          [xml]$manifestXml = Get-Content $manifestPath
+          Write-Host "MSIX Manifest Identity.Name: $($manifestXml.Package.Identity.Name)"
+          Write-Host "MSIX Manifest Identity.Publisher: $($manifestXml.Package.Identity.Publisher)"
 
           $makeappx = (Get-Command makeappx.exe -ErrorAction SilentlyContinue).Source
           if (-not $makeappx) {
@@ -161,6 +166,16 @@ jobs:
           if ($env:MSIX_CERT_BASE64) {
             $pfxPath = Join-Path $env:RUNNER_TEMP "msixcert.pfx"
             [IO.File]::WriteAllBytes($pfxPath, [Convert]::FromBase64String($env:MSIX_CERT_BASE64))
+
+            # Diagnostics (safe): print the subject of the signing cert
+            try {
+              $cert = Get-PfxCertificate -FilePath $pfxPath
+              if ($cert -and $cert.Subject) {
+                Write-Host "MSIX Signing cert subject: $($cert.Subject)"
+              }
+            } catch {
+              Write-Host "Could not read PFX subject: $($_.Exception.Message)"
+            }
 
             $signtool = (Get-Command signtool.exe -ErrorAction SilentlyContinue).Source
             if (-not $signtool) {

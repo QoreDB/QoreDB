@@ -36,7 +36,12 @@ export function QueryPanelEditor({
   return (
     <div className="flex-1 min-h-50 border-b border-border relative">
       {isMongo ? (
-        <MongoEditor value={query} onChange={onQueryChange} onExecute={onExecute} readOnly={loading} />
+        <MongoEditor
+          value={query}
+          onChange={onQueryChange}
+          onExecute={onExecute}
+          readOnly={loading}
+        />
       ) : (
         <SQLEditor
           ref={sqlEditorRef}

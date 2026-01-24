@@ -282,7 +282,8 @@
         "noTables": "Aucune table dans cette base",
         "viewAll": "Voir les {{count}} tables",
         "searchTables": "Rechercher des tables...",
-        "noResults": "Aucune table trouvée."
+        "noResults": "Aucune table trouvée.",
+        "openEditor": "Éditeur SQL"
     },
     "query": {
         "run": "Exécuter",
@@ -299,6 +300,7 @@
         "cancelNotSupported": "Annulation non supportée par ce driver",
         "noConnection": "Aucune connexion",
         "noResults": "Exécutez une requête pour voir les résultats",
+        "emptyResults": "La requête a retourné 0 lignes",
         "queryFailed": "Échec de la requête",
         "noConnectionError": "Aucune connexion sélectionnée",
         "time": {
@@ -312,6 +314,7 @@
     },
     "results": {
         "affectedRows": "{{count}} ligne(s) affectée(s) en {{time}}ms",
+        "commandOk": "Commande exécutée en {{time}}ms",
         "noResults": "Aucun résultat à afficher",
         "rowCount": "{{count}} ligne(s)",
         "timeMs": "{{time}}ms"

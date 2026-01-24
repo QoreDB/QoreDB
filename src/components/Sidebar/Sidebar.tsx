@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
+import { APP_VERSION } from '@/lib/version';
 
 const DEFAULT_PROJECT = 'default';
 
@@ -125,7 +126,7 @@ export function Sidebar({
           <img src="/logo-white.png" alt="QoreDB" width={28} height={28} />
           QoreDB
         </button>
-        <p className="text-xs text-muted-foreground">v1.0.0</p>
+        <p className="text-xs text-muted-foreground">v{APP_VERSION}</p>
       </header>
 
       <section className="flex-1 overflow-auto py-2">

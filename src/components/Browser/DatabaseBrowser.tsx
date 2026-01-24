@@ -8,11 +8,11 @@ import {
   Environment
 } from '../../lib/tauri';
 import { cn } from '@/lib/utils';
-import { 
+import {
   Database,
   Table,
   Eye,
-  Loader2, 
+  Loader2,
   AlertCircle,
   X,
   HardDrive,
@@ -23,7 +23,8 @@ import {
   Shield,
   ShieldAlert,
   Plus,
-  Search
+  Search,
+  TerminalSquare,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -40,6 +41,7 @@ interface DatabaseBrowserProps {
   connectionName?: string;
   onTableSelect: (namespace: Namespace, tableName: string) => void;
   onSchemaChange?: () => void;
+  onOpenQueryTab?: (namespace: Namespace) => void;
   onClose: () => void;
 }
 
@@ -62,6 +64,7 @@ export function DatabaseBrowser({
   connectionName,
   onTableSelect,
   onSchemaChange,
+  onOpenQueryTab,
   onClose,
 }: DatabaseBrowserProps) {
   const { t } = useTranslation();
@@ -89,7 +92,7 @@ export function DatabaseBrowser({
       const isOverview = activeTab === 'overview';
       const fetchPage = isOverview ? 1 : page;
       const fetchLimit = isOverview ? 10 : pageSize;
-      const fetchSearch = isOverview ? undefined : (search || undefined);
+      const fetchSearch = isOverview ? undefined : search || undefined;
 
       // Load collections
       const collectionsResult = await listCollections(
@@ -145,9 +148,8 @@ export function DatabaseBrowser({
             const indexResult = await executeQuery(sessionId, indexQuery);
             if (indexResult.success && indexResult.result?.rows[0]) {
               const rawValue = indexResult.result.rows[0].values[0];
-              newStats.indexCount = typeof rawValue === 'number' 
-                ? rawValue 
-                : parseInt(String(rawValue), 10) || 0;
+              newStats.indexCount =
+                typeof rawValue === 'number' ? rawValue : parseInt(String(rawValue), 10) || 0;
             }
           } catch (err) {
             console.error('[DatabaseBrowser] Index query error:', err);
@@ -168,11 +170,8 @@ export function DatabaseBrowser({
   }, [loadData]);
 
   useEffect(() => {
-    return onTableChange((event) => {
-      if (
-        event.type !== 'create' &&
-        event.type !== 'drop'
-      ) {
+    return onTableChange(event => {
+      if (event.type !== 'create' && event.type !== 'drop') {
         return;
       }
       if (
@@ -191,12 +190,11 @@ export function DatabaseBrowser({
     return `${(bytes / 1024 / 1024 / 1024).toFixed(2)} GB`;
   }
 
-  const displayName = namespace.schema 
-    ? `${namespace.database}.${namespace.schema}` 
+  const displayName = namespace.schema
+    ? `${namespace.database}.${namespace.schema}`
     : namespace.database;
 
   const iconSrc = `/databases/${DRIVER_ICONS[driver]}`;
-
 
   return (
     <div className="flex flex-col h-full bg-background rounded-lg border border-border shadow-sm overflow-hidden">
@@ -204,22 +202,26 @@ export function DatabaseBrowser({
       <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/20">
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-md bg-accent/10 text-accent">
-            <img src={iconSrc} alt={DRIVER_LABELS[driver]} className="w-4 h-4 object-contain"/>
+            <img src={iconSrc} alt={DRIVER_LABELS[driver]} className="w-4 h-4 object-contain" />
           </div>
           <div>
             <h2 className="font-semibold text-foreground flex items-center gap-2">
               {displayName}
               {connectionName && (
-                <span className="text-xs text-muted-foreground font-normal">({connectionName})</span>
+                <span className="text-xs text-muted-foreground font-normal">
+                  ({connectionName})
+                </span>
               )}
             </h2>
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <span>{DRIVER_LABELS[driver]}</span>
               <span>•</span>
-              <span className={cn(
-                "flex items-center gap-1",
-                environment === 'production' && "text-destructive"
-              )}>
+              <span
+                className={cn(
+                  'flex items-center gap-1',
+                  environment === 'production' && 'text-destructive'
+                )}
+              >
                 {environment === 'production' ? <ShieldAlert size={10} /> : <Shield size={10} />}
                 {t(`environment.${environment}`)}
               </span>
@@ -233,11 +235,22 @@ export function DatabaseBrowser({
           </div>
         </div>
         <div className="flex items-center gap-1">
+          {driverMeta.supportsSQL && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 gap-1.5 text-xs"
+              onClick={() => onOpenQueryTab?.(namespace)}
+            >
+              <TerminalSquare size={14} />
+              {t('databaseBrowser.openEditor')}
+            </Button>
+          )}
           {driverMeta.supportsSQL && !readOnly && (
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              onClick={() => setCreateTableOpen(true)} 
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setCreateTableOpen(true)}
               className="h-8 w-8"
               title={t('createTable.title')}
             >
@@ -254,10 +267,10 @@ export function DatabaseBrowser({
       <div className="flex items-center gap-1 px-4 py-2 border-b border-border bg-muted/10">
         <button
           className={cn(
-            "px-3 py-1.5 text-sm font-medium rounded-md transition-colors",
-            activeTab === 'overview' 
-              ? "bg-accent text-accent-foreground" 
-              : "text-muted-foreground hover:text-foreground hover:bg-muted"
+            'px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
+            activeTab === 'overview'
+              ? 'bg-accent text-accent-foreground'
+              : 'text-muted-foreground hover:text-foreground hover:bg-muted'
           )}
           onClick={() => setActiveTab('overview')}
         >
@@ -268,10 +281,10 @@ export function DatabaseBrowser({
         </button>
         <button
           className={cn(
-            "px-3 py-1.5 text-sm font-medium rounded-md transition-colors",
-            activeTab === 'tables' 
-              ? "bg-accent text-accent-foreground" 
-              : "text-muted-foreground hover:text-foreground hover:bg-muted"
+            'px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
+            activeTab === 'tables'
+              ? 'bg-accent text-accent-foreground'
+              : 'text-muted-foreground hover:text-foreground hover:bg-muted'
           )}
           onClick={() => setActiveTab('tables')}
         >
@@ -300,19 +313,19 @@ export function DatabaseBrowser({
               {/* Stats Grid */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {stats.sizeFormatted && (
-                  <StatCard 
+                  <StatCard
                     icon={<HardDrive size={16} />}
                     label={t('databaseBrowser.size')}
                     value={stats.sizeFormatted}
                   />
                 )}
-                <StatCard 
+                <StatCard
                   icon={<List size={16} />}
                   label={t('databaseBrowser.tableCount')}
                   value={stats.tableCount?.toString() || '0'}
                 />
                 {stats.indexCount !== undefined && (
-                  <StatCard 
+                  <StatCard
                     icon={<Hash size={16} />}
                     label={t('databaseBrowser.indexCount')}
                     value={stats.indexCount.toString()}
@@ -373,7 +386,7 @@ export function DatabaseBrowser({
                 <Input
                   placeholder={t('databaseBrowser.searchTables')}
                   value={search}
-                  onChange={(e) => {
+                  onChange={e => {
                     setSearch(e.target.value);
                     setPage(1);
                   }}
@@ -388,7 +401,7 @@ export function DatabaseBrowser({
                   <Loader2 size={24} className="animate-spin text-primary" />
                 </div>
               )}
-              
+
               {!loading && error ? (
                 <div className="flex items-center gap-3 p-4 m-4 rounded-md bg-error/10 border border-error/20 text-error">
                   <AlertCircle size={18} />
@@ -427,10 +440,10 @@ export function DatabaseBrowser({
             {/* Pagination */}
             <div className="flex items-center justify-between border-t border-border pt-4">
               <div className="text-sm text-muted-foreground">
-                {t('common.pagination', { 
-                  start: totalCount === 0 ? 0 : (page - 1) * pageSize + 1, 
+                {t('common.pagination', {
+                  start: totalCount === 0 ? 0 : (page - 1) * pageSize + 1,
                   end: Math.min(page * pageSize, totalCount),
-                  total: totalCount 
+                  total: totalCount,
                 })}
               </div>
               <div className="flex items-center gap-2">
@@ -462,7 +475,7 @@ export function DatabaseBrowser({
         sessionId={sessionId}
         namespace={namespace}
         driver={driver}
-        onTableCreated={(tableName) => {
+        onTableCreated={tableName => {
           loadData();
           if (activeTab === 'tables') {
             loadData();

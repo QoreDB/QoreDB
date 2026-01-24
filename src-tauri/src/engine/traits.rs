@@ -84,6 +84,22 @@ pub trait DataEngine: Send + Sync {
         query_id: QueryId,
     ) -> EngineResult<QueryResult>;
 
+    /// Executes a query with an optional namespace context.
+    ///
+    /// Default implementation ignores the namespace and delegates to `execute()`.
+    /// Drivers that need per-query database/schema selection (e.g. MySQL `USE db`,
+    /// PostgreSQL `SET LOCAL search_path`) can override this.
+    async fn execute_in_namespace(
+        &self,
+        session: SessionId,
+        namespace: Option<Namespace>,
+        query: &str,
+        query_id: QueryId,
+    ) -> EngineResult<QueryResult> {
+        let _ = namespace;
+        self.execute(session, query, query_id).await
+    }
+
     /// Executes a query and streams results via the provided sender
     async fn execute_stream(
         &self,
@@ -96,6 +112,21 @@ pub trait DataEngine: Send + Sync {
         Err(crate::engine::error::EngineError::not_supported(
             "Streaming is not supported by this driver",
         ))
+    }
+
+    /// Streams query results with an optional namespace context.
+    ///
+    /// Default implementation ignores the namespace and delegates to `execute_stream()`.
+    async fn execute_stream_in_namespace(
+        &self,
+        session: SessionId,
+        namespace: Option<Namespace>,
+        query: &str,
+        query_id: QueryId,
+        sender: StreamSender,
+    ) -> EngineResult<()> {
+        let _ = namespace;
+        self.execute_stream(session, query, query_id, sender).await
     }
 
     /// Returns the schema of a table/collection

@@ -201,8 +201,10 @@ export async function executeQuery(
   query: string,
   options?: {
     acknowledgedDangerous?: boolean;
-    timeoutMs?: number; stream?: boolean;
+    timeoutMs?: number;
+    stream?: boolean;
     queryId?: string;
+    namespace?: Namespace;
   }
 ): Promise<{
   success: boolean;
@@ -213,9 +215,11 @@ export async function executeQuery(
   return invoke('execute_query', {
     sessionId,
     query,
+    namespace: options?.namespace,
     acknowledgedDangerous: options?.acknowledgedDangerous,
     queryId: options?.queryId,
-    timeoutMs: options?.timeoutMs, stream: options?.stream,
+    timeoutMs: options?.timeoutMs,
+    stream: options?.stream,
   });
 }
 
@@ -288,7 +292,7 @@ export interface TableSchema {
   columns: TableColumn[];
   primary_key?: string[];
   foreign_keys: ForeignKey[];
-  row_count_estimate?: number;
+  row_count_estimate?: number | null;
 }
 
 export interface TableColumn {

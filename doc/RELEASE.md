@@ -5,6 +5,7 @@
 ### Prérequis (une seule fois)
 
 1. **Générer une paire de clés de signature** :
+
    ```bash
    pnpm tauri signer generate -w ~/.tauri/qoredb.key
    ```
@@ -16,6 +17,28 @@
 
 3. **La clé publique** est déjà dans `src-tauri/tauri.conf.json` (champ `pubkey`).
 
+#### (Optionnel) Publication Microsoft Store (MSIX)
+
+Si tu soumets un `.msix` dans Partner Center, le Store impose que le manifeste du package corresponde exactement à l'identité réservée dans le Store.
+
+À récupérer dans **Partner Center → Identité du produit / Product identity** :
+
+- **Package/Identity name** (ex: `QoreDB.QoreDB`) → à mettre dans le secret `MSIX_IDENTITY_NAME`
+- **Publisher ID** (ex: `CN=B4F140BE-726E-4427-93B8-EAF78B5D2E9`) → à mettre dans le secret `MSIX_PUBLISHER`
+
+Ensuite, pour que la CI signe le package :
+
+- `MSIX_CERT_BASE64` : le `.pfx` encodé en base64
+- `MSIX_CERT_PASSWORD` : le mot de passe du `.pfx`
+
+Sur macOS, pour créer `MSIX_CERT_BASE64` à partir d'un `.pfx` (sans le commiter) :
+
+```bash
+base64 -i path/to/cert.pfx | pbcopy
+```
+
+Note : le **Package Family Name** est dérivé automatiquement de `Identity.Name` + `Publisher`.
+
 ### Publier une release
 
 1. **Bump les versions** dans :
@@ -24,6 +47,7 @@
    - `package.json` → `version`
 
 2. **Commit et tag** :
+
    ```bash
    git add .
    git commit -m "chore: bump version to X.Y.Z"
@@ -44,7 +68,7 @@
 ### Plateformes générées
 
 | Plateforme | Fichiers |
-|------------|----------|
+| ---------- | -------- |
 | macOS ARM (M1/M2/M3) | `.dmg`, `.app.tar.gz`, `.app.tar.gz.sig` |
 | macOS Intel | `.dmg`, `.app.tar.gz`, `.app.tar.gz.sig` |
 | Windows | `.msi`, `.exe`, `.nsis.zip`, `.nsis.zip.sig` |
@@ -74,7 +98,8 @@ Les artefacts sont générés dans `src-tauri/target/release/bundle/`.
 ## Auto-updater
 
 L'app vérifie les mises à jour via :
-```
+
+```text
 https://github.com/raphplt/QoreDB/releases/latest/download/latest.json
 ```
 

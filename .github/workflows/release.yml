@@ -205,6 +205,7 @@ jobs:
             [IO.File]::WriteAllBytes($pfxPath, [Convert]::FromBase64String($env:MSIX_CERT_BASE64))
 
             # Diagnostics (safe): print the subject of the signing cert
+            $certSubject = $null
             try {
               if ($env:MSIX_CERT_PASSWORD) {
                 $pfxBytes = [IO.File]::ReadAllBytes($pfxPath)
@@ -213,14 +214,19 @@ jobs:
                   $env:MSIX_CERT_PASSWORD,
                   [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::DefaultKeySet
                 )
-                if ($cert.Subject) {
-                  Write-Host "MSIX Signing cert subject: $($cert.Subject)"
+                $certSubject = $cert.Subject
+                if ($certSubject) {
+                  Write-Host "MSIX Signing cert subject: $certSubject"
                 }
               } else {
                 Write-Host "MSIX Signing cert subject: (skipped, MSIX_CERT_PASSWORD not set)"
               }
             } catch {
               Write-Host "Could not read PFX subject: $($_.Exception.Message)"
+            }
+
+            if ($certSubject -and ($certSubject.Trim() -ne $publisher.Trim())) {
+              throw "Signing certificate subject mismatch. Expected '$publisher' but got '$certSubject'. Regenerate your .pfx so its Subject matches the Publisher exactly (including any trailing characters), then update MSIX_CERT_BASE64/MSIX_CERT_PASSWORD."
             }
 
             $signtool = (Get-Command signtool.exe -ErrorAction SilentlyContinue).Source
@@ -230,7 +236,17 @@ jobs:
             }
             if (-not $signtool) { throw "signtool.exe not found on runner" }
 
-            & $signtool sign /fd SHA256 /f $pfxPath /p $env:MSIX_CERT_PASSWORD /tr http://timestamp.digicert.com /td SHA256 $msixPath | Out-Null
+            $timestampUrl = $env:MSIX_TIMESTAMP_URL
+            if (-not $timestampUrl) { $timestampUrl = "http://timestamp.digicert.com" }
+
+            & $signtool sign /fd SHA256 /f $pfxPath /p $env:MSIX_CERT_PASSWORD /tr $timestampUrl /td SHA256 $msixPath | Out-Null
+            if ($LASTEXITCODE -ne 0) {
+              Write-Host "signtool failed with timestamp ($timestampUrl). Retrying without timestamp..."
+              & $signtool sign /fd SHA256 /f $pfxPath /p $env:MSIX_CERT_PASSWORD $msixPath | Out-Null
+            }
+            if ($LASTEXITCODE -ne 0) {
+              throw "signtool sign failed (exit code $LASTEXITCODE)."
+            }
           }
 
           $repo = "${{ github.repository }}"

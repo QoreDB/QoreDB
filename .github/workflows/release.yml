@@ -169,9 +169,19 @@ jobs:
 
             # Diagnostics (safe): print the subject of the signing cert
             try {
-              $cert = Get-PfxCertificate -FilePath $pfxPath
-              if ($cert -and $cert.Subject) {
-                Write-Host "MSIX Signing cert subject: $($cert.Subject)"
+              if ($env:MSIX_CERT_PASSWORD) {
+                $pfxBytes = [IO.File]::ReadAllBytes($pfxPath)
+                $cert = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2
+                $cert.Import(
+                  $pfxBytes,
+                  $env:MSIX_CERT_PASSWORD,
+                  [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::DefaultKeySet
+                )
+                if ($cert.Subject) {
+                  Write-Host "MSIX Signing cert subject: $($cert.Subject)"
+                }
+              } else {
+                Write-Host "MSIX Signing cert subject: (skipped, MSIX_CERT_PASSWORD not set)"
               }
             } catch {
               Write-Host "Could not read PFX subject: $($_.Exception.Message)"

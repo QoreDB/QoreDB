@@ -24,7 +24,7 @@ import {
 	Environment,
 } from "@/lib/tauri";
 import { cn } from "@/lib/utils";
-import { ArrowUpDown, ArrowUp, ArrowDown, Trash2, CheckCircle2 } from 'lucide-react';
+import { ArrowUpDown, ArrowUp, ArrowDown, Trash2, CheckCircle2, Pencil } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -117,6 +117,30 @@ export function DataGrid({
 
     const columnHelper = createColumnHelper<RowData>();
 
+    const actionColumn = onRowClick
+      ? columnHelper.display({
+          id: 'actions',
+          header: () => <span className="sr-only">{t('grid.openRow')}</span>,
+          cell: ({ row }) => (
+            <div className="flex justify-center">
+              <button
+                type="button"
+                className="h-6 w-6 inline-flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors"
+                onClick={event => {
+                  event.stopPropagation();
+                  onRowClick(row.original);
+                }}
+                aria-label={t('grid.openRow')}
+                title={t('grid.openRow')}
+              >
+                <Pencil size={13} />
+              </button>
+            </div>
+          ),
+          size: 36,
+        })
+      : null;
+
     const selectColumn = columnHelper.display({
       id: 'select',
       header: ({ table }) => (
@@ -124,6 +148,7 @@ export function DataGrid({
           type="checkbox"
           checked={table.getIsAllRowsSelected()}
           onChange={table.getToggleAllRowsSelectedHandler()}
+          onClick={event => event.stopPropagation()}
           className="h-4 w-4 rounded border-border cursor-pointer"
         />
       ),
@@ -132,6 +157,7 @@ export function DataGrid({
           type="checkbox"
           checked={row.getIsSelected()}
           onChange={row.getToggleSelectedHandler()}
+          onClick={event => event.stopPropagation()}
           className="h-4 w-4 rounded border-border cursor-pointer"
         />
       ),
@@ -178,8 +204,9 @@ export function DataGrid({
       })
     );
 
-    return [selectColumn, ...dataColumns];
-  }, [result]);
+    const leadingColumns = actionColumn ? [selectColumn, actionColumn] : [selectColumn];
+    return [...leadingColumns, ...dataColumns];
+  }, [onRowClick, result, t]);
 
   // Configure table
   const table = useReactTable({
@@ -548,10 +575,9 @@ export function DataGrid({
                     <tr
                       key={row.id}
                       className={cn(
-                        'border-b border-border hover:bg-muted/50 transition-colors cursor-pointer',
+                        'border-b border-border hover:bg-muted/50 transition-colors',
                         row.getIsSelected() && 'bg-accent/10'
                       )}
-                      onClick={() => onRowClick?.(row.original)}
                     >
                       {row.getVisibleCells().map(cell => (
                         <td

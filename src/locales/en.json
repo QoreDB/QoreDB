@@ -354,6 +354,7 @@
         "exportError": "Failed to export data",
         "copyToClipboard": "Copy to clipboard",
         "downloadToFile": "Download to file",
+        "openRow": "Open row",
         "searchPlaceholder": "Search...",
         "columns": "Columns",
         "toggleColumns": "Toggle columns",

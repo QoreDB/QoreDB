@@ -148,7 +148,7 @@ export function QueryPanel({
       setActiveQueryId(queryId);
 
       const startTime = performance.now();
-      
+
       const streamDisposal: UnlistenFn[] = [];
       const streamingRows: Row[] = [];
       let streamingCols: ColumnInfo[] = [];
@@ -156,55 +156,58 @@ export function QueryPanel({
       try {
         // Setup streaming listeners if supported
         if (driverCapabilities?.streaming && kind === 'query' && !isMongo) {
-          const unlistenCols = await listen<ColumnInfo[]>(`query_stream_columns:${queryId}`, (event) => {
-             streamingCols = event.payload;
+          const unlistenCols = await listen<ColumnInfo[]>(
+            `query_stream_columns:${queryId}`,
+            event => {
+              streamingCols = event.payload;
               // Initialize result entry with columns
-             setResults(prev => {
-                const updated = [...prev];
-                const index = updated.findIndex(e => e.id === queryId);
-                if (index !== -1) {
-                   updated[index] = {
-                      ...updated[index],
-                      result: {
-                         columns: streamingCols,
-                         rows: [],
-                         execution_time_ms: 0,
-                         total_time_ms: 0
-                      }
-                   };
-                }
-                return updated;
-             });
-          });
-
-          const unlistenRow = await listen<Row>(`query_stream_row:${queryId}`, (event) => {
-             streamingRows.push(event.payload);
               setResults(prev => {
                 const updated = [...prev];
                 const index = updated.findIndex(e => e.id === queryId);
-                if (index !== -1 && updated[index].result) {
-                    const existingRows = updated[index].result.rows;
-                    updated[index].result.rows = [...existingRows, event.payload];
+                if (index !== -1) {
+                  updated[index] = {
+                    ...updated[index],
+                    result: {
+                      columns: streamingCols,
+                      rows: [],
+                      execution_time_ms: 0,
+                      total_time_ms: 0,
+                    },
+                  };
                 }
                 return updated;
-             });
+              });
+            }
+          );
+
+          const unlistenRow = await listen<Row>(`query_stream_row:${queryId}`, event => {
+            streamingRows.push(event.payload);
+            setResults(prev => {
+              const updated = [...prev];
+              const index = updated.findIndex(e => e.id === queryId);
+              if (index !== -1 && updated[index].result) {
+                const existingRows = updated[index].result.rows;
+                updated[index].result.rows = [...existingRows, event.payload];
+              }
+              return updated;
+            });
           });
 
-          const unlistenError = await listen<string>(`query_stream_error:${queryId}`, (event) => {
-             setResults(prev => {
-                const updated = [...prev];
-                const index = updated.findIndex(e => e.id === queryId);
-                if (index !== -1) {
-                   updated[index].error = event.payload;
-                }
-                return updated;
-             });
+          const unlistenError = await listen<string>(`query_stream_error:${queryId}`, event => {
+            setResults(prev => {
+              const updated = [...prev];
+              const index = updated.findIndex(e => e.id === queryId);
+              if (index !== -1) {
+                updated[index].error = event.payload;
+              }
+              return updated;
+            });
           });
-          
+
           streamDisposal.push(unlistenCols, unlistenRow, unlistenError);
-          
+
           // Pre-create result entry
-           const entry: QueryResultEntry = {
+          const entry: QueryResultEntry = {
             id: queryId,
             kind,
             query: queryToRun,
@@ -212,7 +215,7 @@ export function QueryPanel({
               columns: [],
               rows: [],
               execution_time_ms: 0,
-              total_time_ms: 0
+              total_time_ms: 0,
             },
             executedAt: Date.now(),
             totalTimeMs: 0,
@@ -231,24 +234,26 @@ export function QueryPanel({
           acknowledgedDangerous,
           queryId,
           stream: driverCapabilities?.streaming && kind === 'query' && !isMongo,
+          namespace:
+            activeNamespace ?? (connectionDatabase ? { database: connectionDatabase } : undefined),
         });
         const endTime = performance.now();
         const totalTime = endTime - startTime;
-        
+
         // Clean up listeners
         streamDisposal.forEach(unlisten => unlisten());
 
         if (response.success) {
-           let finalResult = response.result;
-           // If streaming, construct final result from accumulated data if not returned
-           if (!finalResult && driverCapabilities?.streaming && kind === 'query' && !isMongo) {
-              finalResult = {
-                 columns: streamingCols,
-                 rows: streamingRows,
-                 execution_time_ms: totalTime, 
-                 total_time_ms: totalTime
-              };
-           }
+          let finalResult = response.result;
+          // If streaming, construct final result from accumulated data if not returned
+          if (!finalResult && driverCapabilities?.streaming && kind === 'query' && !isMongo) {
+            finalResult = {
+              columns: streamingCols,
+              rows: streamingRows,
+              execution_time_ms: totalTime,
+              total_time_ms: totalTime,
+            };
+          }
 
           if (finalResult) {
             const enrichedResult: QueryResult = {
@@ -256,40 +261,55 @@ export function QueryPanel({
               total_time_ms: totalTime,
             } as QueryResult & { total_time_ms: number };
 
+            const didMutate = isMutationQuery(queryToRun, isMongo ? 'mongodb' : 'sql');
+            if (!isMongo && kind === 'query' && didMutate) {
+              const time = Math.round(enrichedResult.execution_time_ms ?? totalTime);
+              if (typeof enrichedResult.affected_rows === 'number') {
+                toast.success(
+                  t('results.affectedRows', {
+                    count: enrichedResult.affected_rows,
+                    time,
+                  })
+                );
+              } else {
+                toast.success(t('results.commandOk', { time }));
+              }
+            }
+
             setResults(prev => {
-               const updated = [...prev];
-               const index = updated.findIndex(e => e.id === queryId);
-               if (index !== -1) {
-                  updated[index] = {
-                     id: queryId,
-                     kind,
-                     query: queryToRun,
-                     result: enrichedResult,
-                     executedAt: Date.now(),
-                     totalTimeMs: totalTime,
-                     executionTimeMs: enrichedResult.execution_time_ms,
-                     rowCount: enrichedResult.rows.length,
-                  };
-               } else {
-                   updated.push({
-                        id: queryId,
-                        kind,
-                        query: queryToRun,
-                        result: enrichedResult,
-                        executedAt: Date.now(),
-                        totalTimeMs: totalTime,
-                        executionTimeMs: enrichedResult.execution_time_ms,
-                        rowCount: enrichedResult.rows.length,
-                   });
-               }
-               
-               if (!keepResults) return [updated[updated.length - 1]];
-               if (updated.length > 12) return updated.slice(updated.length - 12);
-               return updated;
+              const updated = [...prev];
+              const index = updated.findIndex(e => e.id === queryId);
+              if (index !== -1) {
+                updated[index] = {
+                  id: queryId,
+                  kind,
+                  query: queryToRun,
+                  result: enrichedResult,
+                  executedAt: Date.now(),
+                  totalTimeMs: totalTime,
+                  executionTimeMs: enrichedResult.execution_time_ms,
+                  rowCount: enrichedResult.rows.length,
+                };
+              } else {
+                updated.push({
+                  id: queryId,
+                  kind,
+                  query: queryToRun,
+                  result: enrichedResult,
+                  executedAt: Date.now(),
+                  totalTimeMs: totalTime,
+                  executionTimeMs: enrichedResult.execution_time_ms,
+                  rowCount: enrichedResult.rows.length,
+                });
+              }
+
+              if (!keepResults) return [updated[updated.length - 1]];
+              if (updated.length > 12) return updated.slice(updated.length - 12);
+              return updated;
             });
-            
-             if (!driverCapabilities?.streaming || kind !== 'query' || isMongo) {
-                 setActiveResultId(queryId);
+
+            if (!driverCapabilities?.streaming || kind !== 'query' || isMongo) {
+              setActiveResultId(queryId);
             }
 
             addToHistory({
@@ -316,7 +336,7 @@ export function QueryPanel({
             }
           }
         } else {
-           const entry: QueryResultEntry = {
+          const entry: QueryResultEntry = {
             id: queryId,
             kind,
             query: queryToRun,
@@ -324,12 +344,12 @@ export function QueryPanel({
             executedAt: Date.now(),
           };
           setResults(prev => {
-             const updated = [...prev];
-             const index = updated.findIndex(e => e.id === queryId);
-             if (index !== -1) {
-                updated[index] = entry;
-                return updated;
-             }
+            const updated = [...prev];
+            const index = updated.findIndex(e => e.id === queryId);
+            if (index !== -1) {
+              updated[index] = entry;
+              return updated;
+            }
             const next = keepResults ? [...prev, entry] : [entry];
             if (next.length > 12) {
               return next.slice(next.length - 12);
@@ -350,7 +370,7 @@ export function QueryPanel({
         }
       } catch (err) {
         streamDisposal.forEach(unlisten => unlisten());
-        
+
         const errorMessage = err instanceof Error ? err.message : t('common.error');
         const entry: QueryResultEntry = {
           id: queryId,
@@ -360,12 +380,12 @@ export function QueryPanel({
           executedAt: Date.now(),
         };
         setResults(prev => {
-           const updated = [...prev];
-           const index = updated.findIndex(e => e.id === queryId);
-           if (index !== -1) {
-              updated[index] = entry;
-              return updated;
-           }
+          const updated = [...prev];
+          const index = updated.findIndex(e => e.id === queryId);
+          if (index !== -1) {
+            updated[index] = entry;
+            return updated;
+          }
           const next = keepResults ? [...prev, entry] : [entry];
           if (next.length > 12) {
             return next.slice(next.length - 12);
@@ -379,7 +399,17 @@ export function QueryPanel({
         setActiveQueryId(null);
       }
     },
-    [sessionId, dialect, t, onSchemaChange, isMongo, keepResults, driverCapabilities]
+    [
+      sessionId,
+      dialect,
+      t,
+      onSchemaChange,
+      isMongo,
+      keepResults,
+      driverCapabilities,
+      activeNamespace,
+      connectionDatabase,
+    ]
   );
 
   const handleExecute = useCallback(
@@ -712,9 +742,6 @@ export function QueryPanel({
         initialQuery={queryToSave || query}
         driver={dialect}
         database={connectionDatabase}
-        onSaved={() => {
-          // no-op for now (modal pulls from storage)
-        }}
       />
 
       <QueryLibraryModal

@@ -314,6 +314,7 @@
     },
     "results": {
         "affectedRows": "{{count}} ligne(s) affectée(s) en {{time}}ms",
+        "commandOk": "Commande exécutée en {{time}}ms",
         "noResults": "Aucun résultat à afficher",
         "rowCount": "{{count}} ligne(s)",
         "timeMs": "{{time}}ms"

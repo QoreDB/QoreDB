@@ -24,7 +24,7 @@ import {
 	Environment,
 } from "@/lib/tauri";
 import { cn } from "@/lib/utils";
-import { ArrowUpDown, ArrowUp, ArrowDown, Trash2 } from "lucide-react";
+import { ArrowUpDown, ArrowUp, ArrowDown, Trash2, CheckCircle2 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -357,6 +357,20 @@ export function DataGrid({
 
   // Early return for empty state
   if (!result || result.columns.length === 0) {
+    if (result) {
+      const time = Math.round(result.execution_time_ms ?? 0);
+      const message =
+        typeof result.affected_rows === 'number'
+          ? t('results.affectedRows', { count: result.affected_rows, time })
+          : t('results.commandOk', { time });
+
+      return (
+        <div className="flex flex-col items-center justify-center h-40 text-muted-foreground text-sm gap-2">
+          <CheckCircle2 size={22} className="text-muted-foreground/60" />
+          <span>{message}</span>
+        </div>
+      );
+    }
     return (
       <div className="flex items-center justify-center h-40 text-muted-foreground text-sm">
         {t('grid.noData')}

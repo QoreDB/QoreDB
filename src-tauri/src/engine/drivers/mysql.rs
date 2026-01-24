@@ -13,9 +13,9 @@ use std::time::Instant;
 
 use async_trait::async_trait;
 use rust_decimal::Decimal;
-use sqlx::mysql::{MySql, MySqlPool, MySqlPoolOptions, MySqlRow};
+use sqlx::mysql::{MySql, MySqlConnectOptions, MySqlPool, MySqlPoolOptions, MySqlRow, MySqlSslMode};
 use sqlx::pool::PoolConnection;
-use sqlx::{Column, Row, TypeInfo, Executor};
+use sqlx::{Column, Executor, Row, TypeInfo};
 use tokio::sync::{Mutex, RwLock};
 
 use crate::engine::error::{EngineError, EngineResult};
@@ -96,17 +96,52 @@ impl MySqlDriver {
             .map_err(|e| EngineError::execution_error(e.to_string()))
     }
 
-    /// Builds a connection string from config
-    fn build_connection_string(config: &ConnectionConfig) -> String {
-        let db = config.database.as_deref().unwrap_or("");
-        let target_db = if db.is_empty() { "information_schema" } else { db };
-        
-        let ssl_mode = if config.ssl { "REQUIRED" } else { "DISABLED" };
+    fn build_connect_options(config: &ConnectionConfig) -> MySqlConnectOptions {
+        let mut opts = MySqlConnectOptions::new()
+            .host(&config.host)
+            .port(config.port)
+            .username(&config.username)
+            .password(&config.password)
+            .ssl_mode(if config.ssl {
+                MySqlSslMode::Required
+            } else {
+                MySqlSslMode::Disabled
+            });
 
-        format!(
-            "mysql://{}:{}@{}:{}/{}?ssl-mode={}",
-            config.username, config.password, config.host, config.port, target_db, ssl_mode
-        )
+        if let Some(db) = config.database.as_deref() {
+            let db = db.trim();
+            if !db.is_empty() {
+                opts = opts.database(db);
+            }
+        }
+
+        opts
+    }
+
+    fn quote_ident(name: &str) -> String {
+        format!("`{}`", name.replace('`', "``"))
+    }
+
+    async fn apply_namespace_on_conn(
+        conn: &mut PoolConnection<MySql>,
+        namespace: &Option<Namespace>,
+        query: &str,
+    ) -> EngineResult<()> {
+        // Avoid overriding explicit USE statements.
+        if query.trim_start().to_ascii_lowercase().starts_with("use ") {
+            return Ok(());
+        }
+        if let Some(ns) = namespace {
+            let db = ns.database.trim();
+            if !db.is_empty() {
+                let use_sql = format!("USE {}", Self::quote_ident(db));
+                // Use simple query protocol for maximum compatibility.
+                conn.execute(sqlx::raw_sql(&use_sql))
+                    .await
+                    .map_err(|e| EngineError::execution_error(e.to_string()))?;
+            }
+        }
+        Ok(())
     }
 
     /// Converts a SQLx row to our universal Row type
@@ -217,12 +252,12 @@ impl DataEngine for MySqlDriver {
     }
 
     async fn test_connection(&self, config: &ConnectionConfig) -> EngineResult<()> {
-        let conn_str = Self::build_connection_string(config);
+        let opts = Self::build_connect_options(config);
 
         let pool = MySqlPoolOptions::new()
             .max_connections(1)
             .acquire_timeout(std::time::Duration::from_secs(10))
-            .connect(&conn_str)
+            .connect_with(opts)
             .await
             .map_err(|e| {
                 let msg = e.to_string();
@@ -243,7 +278,7 @@ impl DataEngine for MySqlDriver {
     }
 
     async fn connect(&self, config: &ConnectionConfig) -> EngineResult<SessionId> {
-        let conn_str = Self::build_connection_string(config);
+        let opts = Self::build_connect_options(config);
         let max_connections = config.pool_max_connections.unwrap_or(5);
         let min_connections = config.pool_min_connections.unwrap_or(0);
         let acquire_timeout = config.pool_acquire_timeout_secs.unwrap_or(30);
@@ -252,7 +287,7 @@ impl DataEngine for MySqlDriver {
             .max_connections(max_connections)
             .min_connections(min_connections)
             .acquire_timeout(std::time::Duration::from_secs(acquire_timeout as u64))
-            .connect(&conn_str)
+            .connect_with(opts)
             .await
             .map_err(|e| EngineError::connection_failed(e.to_string()))?;
 
@@ -459,6 +494,18 @@ impl DataEngine for MySqlDriver {
         query_id: QueryId,
         sender: StreamSender,
     ) -> EngineResult<()> {
+        self.execute_stream_in_namespace(session, None, query, query_id, sender)
+            .await
+    }
+
+    async fn execute_stream_in_namespace(
+        &self,
+        session: SessionId,
+        namespace: Option<Namespace>,
+        query: &str,
+        query_id: QueryId,
+        sender: StreamSender,
+    ) -> EngineResult<()> {
         let mysql_session = self.get_session(session).await?;
 
         // Use pool for streaming
@@ -468,13 +515,15 @@ impl DataEngine for MySqlDriver {
                 .await
                 .map_err(|e| EngineError::connection_failed(e.to_string()))?;
 
+        Self::apply_namespace_on_conn(&mut conn, &namespace, query).await?;
+
         // Check if query returns rows
         let returns_rows = sql_safety::returns_rows(self.driver_id(), query)
             .unwrap_or_else(|_| sql_safety::is_select_prefix(query));
 
-        if !returns_rows {
+           if !returns_rows {
              // Fallback
-             let result = self.execute(session, query, query_id).await?;
+               let result = self.execute_in_namespace(session, namespace, query, query_id).await?;
              let _ = sender.send(StreamEvent::Done(result.affected_rows.unwrap_or(0))).await;
              return Ok(());
         }
@@ -540,6 +589,16 @@ impl DataEngine for MySqlDriver {
         query: &str,
         query_id: QueryId,
     ) -> EngineResult<QueryResult> {
+        self.execute_in_namespace(session, None, query, query_id).await
+    }
+
+    async fn execute_in_namespace(
+        &self,
+        session: SessionId,
+        namespace: Option<Namespace>,
+        query: &str,
+        query_id: QueryId,
+    ) -> EngineResult<QueryResult> {
         let mysql_session = self.get_session(session).await?;
         let start = Instant::now();
 
@@ -553,6 +612,8 @@ impl DataEngine for MySqlDriver {
                 let mut active = mysql_session.active_queries.lock().await;
                 active.insert(query_id, connection_id);
             }
+
+            Self::apply_namespace_on_conn(conn, &namespace, query).await?;
 
             let result = if returns_rows {
                 let mysql_rows: Vec<MySqlRow> = sqlx::query(query)
@@ -588,8 +649,10 @@ impl DataEngine for MySqlDriver {
                     })
                 }
             } else {
-                let result = sqlx::query(query)
-                    .execute(&mut **conn)
+                // Use simple query protocol for DDL and other statements that may not be
+                // supported via the prepared statement protocol on some MySQL/MariaDB versions.
+                let result = conn
+                    .execute(sqlx::raw_sql(query))
                     .await
                     .map_err(|e| {
                         let msg = e.to_string();
@@ -622,6 +685,8 @@ impl DataEngine for MySqlDriver {
                 let mut active = mysql_session.active_queries.lock().await;
                 active.insert(query_id, connection_id);
             }
+
+            Self::apply_namespace_on_conn(&mut conn, &namespace, query).await?;
 
             let result = if returns_rows {
                 let mysql_rows: Vec<MySqlRow> = sqlx::query(query)
@@ -657,8 +722,10 @@ impl DataEngine for MySqlDriver {
                     })
                 }
             } else {
-                let result = sqlx::query(query)
-                    .execute(&mut *conn)
+                // Use simple query protocol for DDL and other statements that may not be
+                // supported via the prepared statement protocol on some MySQL/MariaDB versions.
+                let result = conn
+                    .execute(sqlx::raw_sql(query))
                     .await
                     .map_err(|e| {
                         let msg = e.to_string();

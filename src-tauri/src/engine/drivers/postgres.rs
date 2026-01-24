@@ -70,6 +70,51 @@ impl PostgresDriver {
             .ok_or_else(|| EngineError::session_not_found(session.0.to_string()))
     }
 
+    fn quote_ident(name: &str) -> String {
+        format!("\"{}\"", name.replace('"', "\"\""))
+    }
+
+    async fn apply_namespace_on_conn(
+        conn: &mut PoolConnection<Postgres>,
+        namespace: &Option<Namespace>,
+        query: &str,
+        in_transaction: bool,
+    ) -> EngineResult<()> {
+        let lower = query.trim_start().to_ascii_lowercase();
+        // Avoid overriding explicit search_path changes.
+        if lower.starts_with("set ") && lower.contains("search_path") {
+            return Ok(());
+        }
+
+        let schema = namespace
+            .as_ref()
+            .and_then(|ns| ns.schema.as_ref())
+            .map(|s| s.trim())
+            .filter(|s| !s.is_empty());
+
+        if let Some(schema) = schema {
+            let schema_sql = Self::quote_ident(schema);
+            let list = if schema.eq_ignore_ascii_case("public") {
+                schema_sql
+            } else {
+                format!("{}, public", schema_sql)
+            };
+
+            let set_sql = if in_transaction {
+                format!("SET LOCAL search_path TO {}", list)
+            } else {
+                format!("SET search_path TO {}", list)
+            };
+
+            sqlx::query(&set_sql)
+                .execute(&mut **conn)
+                .await
+                .map_err(|e| EngineError::execution_error(e.to_string()))?;
+        }
+
+        Ok(())
+    }
+
     /// Helper to bind a Value to a Postgres query
     fn bind_param<'q>(
         query: sqlx::query::Query<'q, Postgres, sqlx::postgres::PgArguments>,
@@ -431,6 +476,18 @@ impl DataEngine for PostgresDriver {
         query_id: QueryId,
         sender: StreamSender,
     ) -> EngineResult<()> {
+        self.execute_stream_in_namespace(session, None, query, query_id, sender)
+            .await
+    }
+
+    async fn execute_stream_in_namespace(
+        &self,
+        session: SessionId,
+        namespace: Option<Namespace>,
+        query: &str,
+        query_id: QueryId,
+        sender: StreamSender,
+    ) -> EngineResult<()> {
         let pg_session = self.get_session(session).await?;
 
         // Use pool for streaming to avoid locking transaction connection for long duration
@@ -440,13 +497,15 @@ impl DataEngine for PostgresDriver {
                 .await
                 .map_err(|e| EngineError::connection_failed(e.to_string()))?;
 
+        Self::apply_namespace_on_conn(&mut conn, &namespace, query, false).await?;
+
         // Check if query returns rows (select)
         let returns_rows = sql_safety::returns_rows(self.driver_id(), query)
             .unwrap_or_else(|_| sql_safety::is_select_prefix(query));
 
         if !returns_rows {
              // Fallback to normal execute and send "Done"
-             let result = self.execute(session, query, query_id).await?;
+               let result = self.execute_in_namespace(session, namespace, query, query_id).await?;
              let _ = sender.send(StreamEvent::Done(result.affected_rows.unwrap_or(0))).await;
              return Ok(());
         }
@@ -514,6 +573,16 @@ impl DataEngine for PostgresDriver {
         query: &str,
         query_id: QueryId,
     ) -> EngineResult<QueryResult> {
+        self.execute_in_namespace(session, None, query, query_id).await
+    }
+
+    async fn execute_in_namespace(
+        &self,
+        session: SessionId,
+        namespace: Option<Namespace>,
+        query: &str,
+        query_id: QueryId,
+    ) -> EngineResult<QueryResult> {
         let pg_session = self.get_session(session).await?;
         let start = Instant::now();
 
@@ -532,6 +601,8 @@ impl DataEngine for PostgresDriver {
                  let mut active = pg_session.active_queries.lock().await;
                  active.insert(query_id, backend_pid);
              }
+
+             Self::apply_namespace_on_conn(conn, &namespace, query, true).await?;
 
              let result = if returns_rows {
                 let pg_rows: Vec<PgRow> = sqlx::query(query)
@@ -604,6 +675,8 @@ impl DataEngine for PostgresDriver {
                  let mut active = pg_session.active_queries.lock().await;
                  active.insert(query_id, backend_pid);
              }
+
+             Self::apply_namespace_on_conn(&mut conn, &namespace, query, false).await?;
 
              let result = if returns_rows {
                 let pg_rows: Vec<PgRow> = sqlx::query(query)

@@ -153,7 +153,7 @@ export function TableBrowser({
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <Database size={12} />
               <span>{namespace.database}</span>
-              {schema?.row_count_estimate !== undefined && (
+              {typeof schema?.row_count_estimate === 'number' && (
                 <>
                   <span>•</span>
                   <span>

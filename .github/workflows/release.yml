@@ -98,6 +98,7 @@ jobs:
           $identifier = $env:MSIX_IDENTITY_NAME
 
           if (-not $productName) { $productName = "QoreDB" }
+          if ($identifier) { $identifier = $identifier.Trim() }
           if (-not $identifier) { $identifier = "QoreDB.QoreDB" }
 
           $semver = $version.Split('-')[0].Split('+')[0]
@@ -131,7 +132,41 @@ jobs:
 
           $publisher = $env:MSIX_PUBLISHER
           if (-not $publisher) { $publisher = "CN=B4F140BE-726E-4427-93B8-EAF78B5D2E9" }
+          if ($publisher) { $publisher = $publisher.Trim() }
 
+          function ConvertTo-CrockfordBase32([byte[]]$bytes) {
+            $alphabet = "0123456789abcdefghjkmnpqrstvwxyz"
+            $bits = 0
+            $value = 0
+            $output = ""
+            foreach ($b in $bytes) {
+              $value = (($value -shl 8) -bor $b)
+              $bits += 8
+              while ($bits -ge 5) {
+                $index = ($value -shr ($bits - 5)) -band 31
+                $output += $alphabet[$index]
+                $bits -= 5
+              }
+            }
+            if ($bits -gt 0) {
+              $index = ($value -shl (5 - $bits)) -band 31
+              $output += $alphabet[$index]
+            }
+            return $output
+          }
+
+          function Get-PublisherId([string]$publisherName) {
+            $normalized = $publisherName.Trim().ToLowerInvariant()
+            $bytes = [System.Text.Encoding]::Unicode.GetBytes($normalized) # UTF-16LE
+            $sha = [System.Security.Cryptography.SHA256]::Create()
+            $hash = $sha.ComputeHash($bytes)
+            $b32 = ConvertTo-CrockfordBase32 $hash
+            return $b32.Substring(0, 13)
+          }
+
+          $publisherId = Get-PublisherId $publisher
+          Write-Host "MSIX Computed PublisherId: $publisherId"
+          Write-Host "MSIX Computed PackageFamilyName: ${identifier}_$publisherId"
           $manifestTemplate = Get-Content "scripts/msix/AppxManifest.xml" -Raw
           $manifest = $manifestTemplate `
             -replace "{{IDENTIFIER}}", $identifier `

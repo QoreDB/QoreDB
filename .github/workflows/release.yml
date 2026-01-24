@@ -191,12 +191,12 @@ jobs:
 
           $appinstaller | Set-Content $appinstallerPath -Encoding utf8
 
-                - name: Upload MSIX to release
-                  if: matrix.platform == 'windows-latest'
-                  uses: softprops/action-gh-release@v2
-                  env:
-                    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-                  with:
-                    files: |
-                      src-tauri/target/release/bundle/msix/*.msix
-                      src-tauri/target/release/bundle/msix/*.appinstaller
+      - name: Upload MSIX to release
+        if: matrix.platform == 'windows-latest'
+        uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          files: |
+            src-tauri/target/release/bundle/msix/*.msix
+            src-tauri/target/release/bundle/msix/*.appinstaller

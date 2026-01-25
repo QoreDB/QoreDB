@@ -355,10 +355,17 @@
         "copyToClipboard": "Copier dans le presse-papiers",
         "downloadToFile": "Télécharger en fichier",
         "openRow": "Ouvrir la ligne",
+        "editCell": "Éditer la cellule",
         "searchPlaceholder": "Rechercher...",
         "columns": "Colonnes",
         "toggleColumns": "Afficher/masquer colonnes",
-        "mutationsNotSupported": "Les mutations ne sont pas supportées par ce driver"
+        "mutationsNotSupported": "Les mutations ne sont pas supportées par ce driver",
+        "updateConfirmTitle": "Confirmer la modification",
+        "updateConfirmDescription": "Vous êtes sur le point de modifier {{column}} dans {{table}}.",
+        "updateConfirmLabel": "Modifier la valeur",
+        "updateSuccess": "Ligne modifiée avec succès",
+        "updateError": "Échec de la modification de la ligne",
+        "updateNoPrimaryKey": "L’édition inline nécessite une clé primaire"
     },
     "rowModal": {
         "insertTitle": "Insérer une nouvelle ligne",

@@ -22,6 +22,7 @@ import {
 	deleteRow,
 	RowData as TauriRowData,
 	Environment,
+	updateRow,
 } from "@/lib/tauri";
 import { cn } from "@/lib/utils";
 import { ArrowUpDown, ArrowUp, ArrowDown, Trash2, CheckCircle2, Pencil } from 'lucide-react';
@@ -36,6 +37,7 @@ import { DataGridToolbar } from "./DataGridToolbar";
 import { DataGridPagination } from "./DataGridPagination";
 import { DeleteConfirmDialog } from "./DeleteConfirmDialog";
 import { GridColumnFilter } from "./GridColumnFilter";
+import { DangerConfirmDialog } from "@/components/Guard/DangerConfirmDialog";
 
 interface DataGridProps {
 	result: QueryResult | null;
@@ -51,6 +53,7 @@ interface DataGridProps {
 	connectionDatabase?: string;
 	onRowsDeleted?: () => void;
 	onRowClick?: (row: RowData) => void;
+	onRowsUpdated?: () => void;
 }
 
 export function DataGrid({
@@ -67,6 +70,7 @@ export function DataGrid({
   connectionDatabase,
   onRowsDeleted,
   onRowClick,
+  onRowsUpdated,
 }: DataGridProps) {
   const { t } = useTranslation();
   const DEFAULT_RENDER_LIMIT = 2000;
@@ -84,6 +88,19 @@ export function DataGrid({
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [showFilters, setShowFilters] = useState(false);
   const [renderLimit, setRenderLimit] = useState<number | null>(DEFAULT_RENDER_LIMIT);
+  const [editingCell, setEditingCell] = useState<{ rowId: string; columnId: string } | null>(null);
+  const [, setEditingValue] = useState('');
+  const [, setEditingInitialValue] = useState('');
+  const [, setEditingOriginalValue] = useState<Value | undefined>(undefined);
+  const [, setEditingRow] = useState<RowData | null>(null);
+  const [updateConfirmOpen, setUpdateConfirmOpen] = useState(false);
+  const [pendingUpdate, setPendingUpdate] = useState<{
+    row: RowData;
+    columnId: string;
+    value: Value;
+    originalValue: Value;
+  } | null>(null);
+  const [isUpdating, setIsUpdating] = useState(false);
 
   // Delete state
   const [isDeleting, setIsDeleting] = useState(false);
@@ -93,13 +110,45 @@ export function DataGrid({
   // Refs
   const searchInputRef = useRef<HTMLInputElement>(null);
   const parentRef = useRef<HTMLDivElement>(null);
+  const editInputRef = useRef<HTMLInputElement>(null);
+  const skipCommitRef = useRef(false);
+  const editingCellRef = useRef<{ rowId: string; columnId: string } | null>(null);
+  const editingRowRef = useRef<RowData | null>(null);
+  const editingValueRef = useRef('');
+  const editingInitialValueRef = useRef('');
+  const editingOriginalValueRef = useRef<Value | undefined>(undefined);
   const confirmationLabel = (connectionDatabase || connectionName || 'PROD').trim() || 'PROD';
 
   const totalRows = result?.rows.length ?? 0;
 
+  const resetEditingState = useCallback(() => {
+    setEditingCell(null);
+    setEditingRow(null);
+    setEditingValue('');
+    setEditingInitialValue('');
+    setEditingOriginalValue(undefined);
+    editingCellRef.current = null;
+    editingRowRef.current = null;
+    editingValueRef.current = '';
+    editingInitialValueRef.current = '';
+    editingOriginalValueRef.current = undefined;
+  }, []);
+
   useEffect(() => {
     setRenderLimit(DEFAULT_RENDER_LIMIT);
   }, [result]);
+
+  useEffect(() => {
+    resetEditingState();
+  }, [resetEditingState, result]);
+
+  useEffect(() => {
+    if (!editingCell) return;
+    requestAnimationFrame(() => {
+      editInputRef.current?.focus();
+      editInputRef.current?.select();
+    });
+  }, [editingCell]);
 
   const effectiveLimit = renderLimit === null ? totalRows : renderLimit;
   const isLimited = totalRows > effectiveLimit;
@@ -110,6 +159,205 @@ export function DataGrid({
     const limitedRows = renderLimit === null ? result.rows : result.rows.slice(0, renderLimit);
     return convertToRowData({ ...result, rows: limitedRows });
   }, [result, renderLimit]);
+
+  const columnTypeMap = useMemo(() => {
+    const map = new Map<string, string>();
+    result?.columns.forEach(col => map.set(col.name, col.data_type));
+    return map;
+  }, [result]);
+
+  const hasInlineEditContext = Boolean(sessionId && namespace && tableName);
+  const hasPrimaryKey = Boolean(primaryKey && primaryKey.length > 0);
+  const inlineEditAvailable = hasInlineEditContext && hasPrimaryKey;
+
+  const getEditableValue = (value: Value) => {
+    if (value === null) return 'NULL';
+    if (typeof value === 'boolean') return value ? 'true' : 'false';
+    if (typeof value === 'number') return String(value);
+    if (typeof value === 'string') return value;
+    if (typeof value === 'object') return JSON.stringify(value);
+    return String(value);
+  };
+
+  const parseInputValue = (raw: string, dataType?: string): Value => {
+    const trimmed = raw.trim();
+    if (trimmed.toLowerCase() === 'null') return null;
+
+    const normalizedType = dataType?.toLowerCase() ?? '';
+    if (normalizedType.includes('bool')) {
+      if (trimmed.toLowerCase() === 'true') return true;
+      if (trimmed.toLowerCase() === 'false') return false;
+      return raw;
+    }
+
+    const numericTypes = ['int', 'decimal', 'numeric', 'float', 'double', 'real', 'serial'];
+    if (numericTypes.some(type => normalizedType.includes(type))) {
+      if (trimmed === '') return '';
+      const numericValue = Number(trimmed);
+      return Number.isNaN(numericValue) ? raw : numericValue;
+    }
+
+    if (normalizedType.includes('json')) {
+      if (trimmed === '') return '';
+      try {
+        return JSON.parse(trimmed);
+      } catch {
+        return raw;
+      }
+    }
+
+    return raw;
+  };
+
+  const valuesEqual = (a: Value, b: Value) => {
+    if (a === b) return true;
+    if (typeof a === 'object' && typeof b === 'object' && a && b) {
+      try {
+        return JSON.stringify(a) === JSON.stringify(b);
+      } catch {
+        return false;
+      }
+    }
+    return false;
+  };
+
+  const startInlineEdit = useCallback(
+    (row: RowData, rowId: string, columnId: string, currentValue: Value) => {
+      skipCommitRef.current = false;
+      if (
+        editingCellRef.current?.rowId === rowId &&
+        editingCellRef.current.columnId === columnId
+      ) {
+        return;
+      }
+      if (!hasInlineEditContext) return;
+      if (!hasPrimaryKey) {
+        toast.error(t('grid.updateNoPrimaryKey'));
+        return;
+      }
+      if (readOnly) {
+        toast.error(t('environment.blocked'));
+        return;
+      }
+      if (!mutationsSupported) {
+        toast.error(t('grid.mutationsNotSupported'));
+        return;
+      }
+
+      const displayValue = getEditableValue(currentValue);
+      const cellRef = { rowId, columnId };
+      setEditingCell(cellRef);
+      setEditingRow(row);
+      setEditingValue(displayValue);
+      setEditingInitialValue(displayValue);
+      setEditingOriginalValue(currentValue);
+      editingCellRef.current = cellRef;
+      editingRowRef.current = row;
+      editingValueRef.current = displayValue;
+      editingInitialValueRef.current = displayValue;
+      editingOriginalValueRef.current = currentValue;
+    },
+    [hasInlineEditContext, hasPrimaryKey, readOnly, mutationsSupported, t]
+  );
+
+  const performInlineUpdate = useCallback(
+    async (payload: { row: RowData; columnId: string; value: Value; originalValue: Value }) => {
+      if (!sessionId || !namespace || !tableName || !primaryKey || primaryKey.length === 0) {
+        toast.error(t('grid.updateNoPrimaryKey'));
+        return;
+      }
+      if (readOnly) {
+        toast.error(t('environment.blocked'));
+        return;
+      }
+      if (!mutationsSupported) {
+        toast.error(t('grid.mutationsNotSupported'));
+        return;
+      }
+
+      const pkData: TauriRowData = { columns: {} };
+      for (const key of primaryKey) {
+        if (payload.row[key] === undefined) {
+          toast.error(t('grid.updateNoPrimaryKey'));
+          return;
+        }
+        pkData.columns[key] = payload.row[key];
+      }
+
+      setIsUpdating(true);
+      try {
+        const res = await updateRow(
+          sessionId,
+          namespace.database,
+          namespace.schema,
+          tableName,
+          pkData,
+          { columns: { [payload.columnId]: payload.value } }
+        );
+        if (res.success) {
+          toast.success(t('grid.updateSuccess'));
+          onRowsUpdated?.();
+        } else {
+          toast.error(t('grid.updateError'));
+        }
+      } catch {
+        toast.error(t('grid.updateError'));
+      } finally {
+        setIsUpdating(false);
+      }
+    },
+    [
+      sessionId,
+      namespace,
+      tableName,
+      primaryKey,
+      readOnly,
+      mutationsSupported,
+      onRowsUpdated,
+      t,
+    ]
+  );
+
+  const commitInlineEdit = useCallback(async () => {
+    if (skipCommitRef.current) {
+      skipCommitRef.current = false;
+      return;
+    }
+    const currentCell = editingCellRef.current;
+    const currentRow = editingRowRef.current;
+    const initialValue = editingInitialValueRef.current;
+    const currentValue = editingValueRef.current;
+    const originalValue = editingOriginalValueRef.current;
+
+    if (!currentCell || !currentRow || originalValue === undefined) return;
+    const currentColumnId = currentCell.columnId;
+
+    resetEditingState();
+
+    if (currentValue === initialValue) return;
+
+    const parsedValue = parseInputValue(currentValue, columnTypeMap.get(currentColumnId));
+    if (valuesEqual(parsedValue, originalValue)) return;
+
+    const payload = {
+      row: currentRow,
+      columnId: currentColumnId,
+      value: parsedValue,
+      originalValue,
+    };
+
+    if (environment === 'development') {
+      await performInlineUpdate(payload);
+    } else {
+      setPendingUpdate(payload);
+      setUpdateConfirmOpen(true);
+    }
+  }, [columnTypeMap, environment, performInlineUpdate, resetEditingState]);
+
+  const cancelInlineEdit = useCallback(() => {
+    skipCommitRef.current = true;
+    resetEditingState();
+  }, [resetEditingState]);
 
   // Build columns
   const columns = useMemo<ColumnDef<RowData, Value>[]>(() => {
@@ -186,10 +434,50 @@ export function DataGrid({
           const value = info.getValue();
           const formatted = formatValue(value);
           const isNull = value === null;
+          const isEditing =
+            editingCellRef.current?.rowId === info.row.id &&
+            editingCellRef.current.columnId === info.column.id;
           return (
-            <span className={cn('truncate block', isNull && 'text-muted-foreground italic')}>
-              {formatted}
-            </span>
+            <div
+              className={cn(
+                'block',
+                !isEditing && 'truncate',
+                !isEditing && inlineEditAvailable && 'cursor-text'
+              )}
+              onClick={() => startInlineEdit(info.row.original, info.row.id, info.column.id, value)}
+              onDoubleClick={() =>
+                startInlineEdit(info.row.original, info.row.id, info.column.id, value)
+              }
+            >
+              {isEditing ? (
+                <input
+                  ref={editInputRef}
+                  value={editingValueRef.current}
+                  onChange={event => {
+                    const nextValue = event.target.value;
+                    setEditingValue(nextValue);
+                    editingValueRef.current = nextValue;
+                  }}
+                  onBlur={() => void commitInlineEdit()}
+                  onKeyDown={event => {
+                    if (event.key === 'Enter') {
+                      event.preventDefault();
+                      void commitInlineEdit();
+                    }
+                    if (event.key === 'Escape') {
+                      event.preventDefault();
+                      cancelInlineEdit();
+                    }
+                  }}
+                  className="w-full bg-background border border-accent/50 rounded px-1.5 py-0.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-accent/40"
+                  aria-label={t('grid.editCell')}
+                />
+              ) : (
+                <span className={cn('truncate block', isNull && 'text-muted-foreground italic')}>
+                  {formatted}
+                </span>
+              )}
+            </div>
           );
         },
         sortingFn: (rowA, rowB, columnId) => {
@@ -206,7 +494,15 @@ export function DataGrid({
 
     const leadingColumns = actionColumn ? [selectColumn, actionColumn] : [selectColumn];
     return [...leadingColumns, ...dataColumns];
-  }, [onRowClick, result, t]);
+  }, [
+    onRowClick,
+    result,
+    t,
+    startInlineEdit,
+    commitInlineEdit,
+    cancelInlineEdit,
+    inlineEditAvailable,
+  ]);
 
   // Configure table
   const table = useReactTable({
@@ -360,6 +656,11 @@ export function DataGrid({
   // Keyboard shortcuts
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName.toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || target?.isContentEditable) {
+        return;
+      }
       if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
         if (document.activeElement?.closest('[data-datagrid]')) {
           e.preventDefault();
@@ -367,8 +668,10 @@ export function DataGrid({
         }
       }
       if ((e.metaKey || e.ctrlKey) && e.key === 'c') {
-        e.preventDefault();
-        copyToClipboard('csv');
+        if (document.activeElement?.closest('[data-datagrid]')) {
+          e.preventDefault();
+          copyToClipboard('csv');
+        }
       }
       if ((e.metaKey || e.ctrlKey) && e.key === 'a') {
         if (document.activeElement?.closest('[data-datagrid]')) {
@@ -625,6 +928,37 @@ export function DataGrid({
           setDeleteDialogOpen(false);
         }}
         isDeleting={isDeleting}
+      />
+
+      <DangerConfirmDialog
+        open={updateConfirmOpen}
+        onOpenChange={open => {
+          setUpdateConfirmOpen(open);
+          if (!open) {
+            setPendingUpdate(null);
+          }
+        }}
+        title={t('grid.updateConfirmTitle')}
+        description={t('grid.updateConfirmDescription', {
+          table: tableName || '',
+          column: pendingUpdate?.columnId || '',
+        })}
+        warningInfo={
+          pendingUpdate && primaryKey?.length
+            ? primaryKey
+                .map(pk => `${pk}=${formatValue(pendingUpdate.row[pk] ?? null)}`)
+                .join(' | ')
+            : undefined
+        }
+        confirmationLabel={environment === 'production' ? confirmationLabel : undefined}
+        confirmLabel={t('grid.updateConfirmLabel')}
+        loading={isUpdating}
+        onConfirm={async () => {
+          if (!pendingUpdate) return;
+          await performInlineUpdate(pendingUpdate);
+          setUpdateConfirmOpen(false);
+          setPendingUpdate(null);
+        }}
       />
     </div>
   );

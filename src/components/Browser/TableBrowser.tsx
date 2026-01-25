@@ -284,6 +284,7 @@ export function TableBrowser({
             connectionName={connectionName}
             connectionDatabase={connectionDatabase}
             onRowsDeleted={loadData}
+            onRowsUpdated={loadData}
             onRowClick={row => {
               if (readOnly) {
                 toast.error(t('environment.blocked'));

@@ -285,6 +285,15 @@
         "noResults": "No tables found matching your search.",
         "openEditor": "SQL Editor"
     },
+    "connectionDashboard": {
+        "title": "Connected to {{name}}",
+        "descriptionSchema": "Choose a schema or open the query editor.",
+        "descriptionDatabase": "Choose a database or open the query editor.",
+        "openQuery": "Open Query Editor",
+        "emptySchemas": "No schemas found yet.",
+        "emptyDatabases": "No databases found yet.",
+        "unknownConnection": "Unknown connection"
+    },
     "query": {
         "run": "Run",
         "running": "Running...",

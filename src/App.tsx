@@ -7,6 +7,7 @@ import { GlobalSearch, SearchResult } from './components/Search/GlobalSearch';
 import { QueryPanel } from './components/Query/QueryPanel';
 import { TableBrowser } from './components/Browser/TableBrowser';
 import { DatabaseBrowser } from './components/Browser/DatabaseBrowser';
+import { ConnectionDashboard } from './components/Dashboard/ConnectionDashboard';
 import { ConnectionModal } from './components/Connection/ConnectionModal';
 import { SettingsPage } from './components/Settings/SettingsPage';
 import { StatusBar } from './components/Status/StatusBar';
@@ -664,6 +665,16 @@ function App() {
                     onQueryDraftChange={value => updateQueryDraft(activeTab.id, value)}
                   />
                 </div>
+              ) : activeConnection ? (
+                <ConnectionDashboard
+                  sessionId={sessionId}
+                  driver={driver}
+                  connection={activeConnection}
+                  schemaRefreshTrigger={schemaRefreshTrigger}
+                  onSchemaChange={triggerSchemaRefresh}
+                  onOpenQuery={handleNewQuery}
+                  onOpenDatabase={handleDatabaseSelect}
+                />
               ) : null
             ) : (
               <div className="flex flex-col items-center justify-center h-full text-center space-y-4">

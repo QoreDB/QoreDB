@@ -285,6 +285,15 @@
         "noResults": "Aucune table trouvée.",
         "openEditor": "Éditeur SQL"
     },
+    "connectionDashboard": {
+        "title": "Connecté à {{name}}",
+        "descriptionSchema": "Choisissez un schéma ou ouvrez l’éditeur de requêtes.",
+        "descriptionDatabase": "Choisissez une base de données ou ouvrez l’éditeur de requêtes.",
+        "openQuery": "Ouvrir l’éditeur de requêtes",
+        "emptySchemas": "Aucun schéma trouvé pour l’instant.",
+        "emptyDatabases": "Aucune base de données trouvée pour l’instant.",
+        "unknownConnection": "Connexion inconnue"
+    },
     "query": {
         "run": "Exécuter",
         "running": "En cours...",

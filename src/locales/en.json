@@ -355,12 +355,19 @@
         "copyToClipboard": "Copy to clipboard",
         "downloadToFile": "Download to file",
         "openRow": "Open row",
+        "editCell": "Edit cell",
         "searchPlaceholder": "Search...",
         "columns": "Columns",
         "toggleColumns": "Toggle columns",
         "toggleFilters": "Show/Hide Filters",
         "filterPlaceholder": "Filter...",
-        "mutationsNotSupported": "Mutations are not supported by this driver"
+        "mutationsNotSupported": "Mutations are not supported by this driver",
+        "updateConfirmTitle": "Confirm update",
+        "updateConfirmDescription": "You are about to update {{column}} in {{table}}.",
+        "updateConfirmLabel": "Update value",
+        "updateSuccess": "Row updated successfully",
+        "updateError": "Failed to update row",
+        "updateNoPrimaryKey": "Inline edit requires a primary key"
     },
     "rowModal": {
         "insertTitle": "Insert New Row",

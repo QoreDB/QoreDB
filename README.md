@@ -4,7 +4,7 @@
 
 **Next Generation Database Client**
 
-A modern, powerful, and intuitive database management tool built with Tauri, React, and Rust. 
+A modern, powerful, and intuitive database management tool built with Tauri, React, and Rust.
 
 [![License](https://img.shields.io/badge/license-Apache%20License%202.0-blue.svg)](LICENSE)
 [![Tauri](https://img.shields.io/badge/Tauri-2.0-blue.svg)](https://tauri.app/)
@@ -21,11 +21,13 @@ A modern, powerful, and intuitive database management tool built with Tauri, Rea
 ## ✨ Features
 
 ### 🎯 Multi-Database Support
+
 - **PostgreSQL** - Full support with advanced features
 - **MySQL** - Complete integration
 - **MongoDB** - NoSQL database support
 
 ### 🚀 Core Capabilities
+
 - **SQL Query Editor** - Syntax highlighting with CodeMirror
 - **Table Browser** - Intuitive data exploration and visualization
 - **Database Browser** - Schema navigation and management
@@ -35,12 +37,14 @@ A modern, powerful, and intuitive database management tool built with Tauri, Rea
 - **Global Search** - Quick access to connections, queries, and favorites
 
 ### 🔐 Security & Features
+
 - **Secure Credential Storage** - Using native OS keychains
 - **SSH Tunneling Support** - Secure connections via SSH
 - **Environment Labels** - Distinguish between dev, staging, and production
 - **Read-Only Mode** - Protect production databases from accidental modifications
 
 ### 🎨 User Experience
+
 - **Multi-Tab Interface** - Work with multiple queries and tables simultaneously
 - **Dark/Light Theme** - Adaptive theming for your preference
 - **Internationalization** - Multi-language support (EN, FR)
@@ -52,6 +56,7 @@ A modern, powerful, and intuitive database management tool built with Tauri, Rea
 ## 📦 Installation
 
 ### Prerequisites
+
 - **Node.js** 18+ and **pnpm**
 - **Rust** 1.70+ (for Tauri backend)
 - **System Dependencies** for Tauri ([see Tauri prerequisites](https://tauri.app/start/prerequisites/))
@@ -132,6 +137,7 @@ pnpm tauri build
 ### Tech Stack
 
 **Frontend:**
+
 - React 19.1
 - TypeScript 5.8
 - Vite 7
@@ -141,6 +147,7 @@ pnpm tauri build
 - TanStack Table
 
 **Backend:**
+
 - Rust (Edition 2021)
 - Tauri 2.0
 - SQLx (PostgreSQL, MySQL)
@@ -224,7 +231,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 👤 Author
 
 **Raphaël Plassart**
-- Email: qoredb@gmail.com
+
+- Email: <qoredb@gmail.com>
+- LinkedIn: [raphaël-plassart](www.linkedin.com/in/raphaël-plassart)
 - GitHub: [@raphplt](https://github.com/raphplt)
 
 ---
@@ -235,12 +244,11 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [CodeMirror](https://codemirror.net/) - SQL editor component
 - [Radix UI](https://www.radix-ui.com/) - Accessible component primitives
 - [Tailwind CSS](https://tailwindcss.com/) - Styling framework
+- [SQLx](https://github.com/launchbadge/sqlx) - Async SQL toolkit
 
 ---
 
 <div align="center">
-
-**[⬆ Back to Top](#-qoredb)**
 
 Made with ❤️ by [raphplt](https://github.com/raphplt)
 

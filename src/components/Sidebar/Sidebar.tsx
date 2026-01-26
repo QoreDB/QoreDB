@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
 import { APP_VERSION } from '@/lib/version';
+import { useTheme } from '@/hooks/useTheme';
 
 const DEFAULT_PROJECT = 'default';
 
@@ -47,6 +48,7 @@ export function Sidebar({
   const [logsOpen, setLogsOpen] = useState(false);
 
   const { t } = useTranslation();
+  const { resolvedTheme } = useTheme();
 
   useEffect(() => {
     loadConnections();
@@ -123,7 +125,12 @@ export function Sidebar({
           onClick={() => (window.location.href = '/')}
           className="flex items-center gap-2 font-semibold text-foreground"
         >
-          <img src="/logo-white.png" alt="QoreDB" width={28} height={28} />
+          <img
+            src={resolvedTheme === 'dark' ? '/logo-white.png' : '/logo.png'}
+            alt="QoreDB"
+            width={28}
+            height={28}
+          />
           QoreDB
         </button>
         <p className="text-xs text-muted-foreground">v{APP_VERSION}</p>

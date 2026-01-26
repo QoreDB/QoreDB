@@ -51,7 +51,7 @@ const RECOVERY_SAVE_DEBOUNCE_MS = 600;
 
 function App() {
   const { t } = useTranslation();
-  const { theme, toggleTheme } = useTheme();
+  const { resolvedTheme, toggleTheme } = useTheme();
   const [searchOpen, setSearchOpen] = useState(false);
   const [connectionModalOpen, setConnectionModalOpen] = useState(false);
   const [libraryModalOpen, setLibraryModalOpen] = useState(false);
@@ -164,7 +164,6 @@ function App() {
   const [sidebarRefreshTrigger, setSidebarRefreshTrigger] = useState(0);
   const [schemaRefreshTrigger, setSchemaRefreshTrigger] = useState(0);
 
-
   // Edit connection state
   const [editConnection, setEditConnection] = useState<SavedConnection | null>(null);
   const [editPassword, setEditPassword] = useState<string>('');
@@ -196,8 +195,6 @@ function App() {
     setActiveTabId(options?.activeTabId ?? options?.tabs?.[0]?.id ?? null);
     setQueryDrafts(options?.queryDrafts ?? {});
     setSettingsOpen(false);
-
-
   }
 
   // Tab management
@@ -348,7 +345,6 @@ function App() {
   );
 
   function handleTableSelect(namespace: Namespace, tableName: string) {
-
     AnalyticsService.capture('resource_opened', {
       source: 'tree',
       resource_type: driver === Driver.Mongodb ? 'collection' : 'table',
@@ -358,7 +354,6 @@ function App() {
   }
 
   function handleDatabaseSelect(namespace: Namespace) {
-
     AnalyticsService.capture('resource_opened', {
       source: 'tree',
       resource_type: driver === Driver.Mongodb ? 'database' : 'schema',
@@ -775,7 +770,7 @@ function App() {
       />
 
       <Toaster
-        theme={theme === 'dark' ? 'dark' : 'light'}
+        theme={resolvedTheme}
         closeButton
         position="bottom-right"
         richColors

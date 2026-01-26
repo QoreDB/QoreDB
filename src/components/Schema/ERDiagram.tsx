@@ -9,6 +9,7 @@ import {
   Crosshair,
   Loader2,
   Table as TableIcon,
+  Filter,
 } from 'lucide-react';
 import { Namespace, TableSchema, TableColumn, ForeignKey } from '@/lib/tauri';
 import { useSchemaCache } from '@/hooks/useSchemaCache';
@@ -35,8 +36,10 @@ interface TableInfo {
   id: string;
   name: string;
   schema: TableSchema;
-  displayColumns: DiagramColumn[];
-  overflowCount: number;
+  columns: TableColumn[];
+  primaryKey: string[];
+  foreignKeyColumns: string[];
+  incomingColumns: string[];
 }
 
 interface DiagramNode extends TableInfo {
@@ -44,6 +47,8 @@ interface DiagramNode extends TableInfo {
   y: number;
   width: number;
   height: number;
+  displayColumns: DiagramColumn[];
+  overflowCount: number;
   columnIndex: Map<string, number>;
 }
 
@@ -71,7 +76,7 @@ const ROW_GAP = 56;
 const HEADER_HEIGHT = 32;
 const ROW_HEIGHT = 20;
 const FOOTER_HEIGHT = 14;
-const MIN_ZOOM = 0.2;
+const MIN_ZOOM = 0.4;
 const MAX_ZOOM = 1.6;
 const SCHEMA_CONCURRENCY = 6;
 
@@ -126,7 +131,10 @@ function estimateNodeHeight(displayColumns: DiagramColumn[], overflowCount: numb
   return HEADER_HEIGHT + rows * ROW_HEIGHT + footer;
 }
 
-function buildLayout(tables: TableInfo[]): { nodes: DiagramNode[]; width: number; height: number } {
+function buildLayout(
+  tables: TableInfo[],
+  expandedTables: Set<string>
+): { nodes: DiagramNode[]; width: number; height: number } {
   if (tables.length === 0) {
     return { nodes: [], width: 0, height: 0 };
   }
@@ -137,7 +145,24 @@ function buildLayout(tables: TableInfo[]): { nodes: DiagramNode[]; width: number
   const nodes: DiagramNode[] = [];
 
   for (const table of sorted) {
-    const height = estimateNodeHeight(table.displayColumns, table.overflowCount);
+    const isExpanded = expandedTables.has(table.id);
+    const primaryKey = new Set(table.primaryKey);
+    const foreignKeys = new Set(table.foreignKeyColumns);
+    const incomingRefs = new Set(table.incomingColumns);
+
+    const { displayColumns, overflow } = isExpanded
+      ? {
+          displayColumns: table.columns.map(column => ({
+            name: column.name,
+            data_type: column.data_type,
+            isPrimary: primaryKey.has(column.name),
+            isForeign: foreignKeys.has(column.name),
+          })),
+          overflow: 0,
+        }
+      : buildDisplayColumns(table.columns, primaryKey, foreignKeys, incomingRefs);
+
+    const height = estimateNodeHeight(displayColumns, overflow);
     let targetColumn = 0;
     for (let i = 1; i < columnCount; i += 1) {
       if (columnHeights[i] < columnHeights[targetColumn]) {
@@ -155,7 +180,9 @@ function buildLayout(tables: TableInfo[]): { nodes: DiagramNode[]; width: number
       y,
       width: NODE_WIDTH,
       height,
-      columnIndex: new Map(table.displayColumns.map((col, idx) => [col.name, idx])),
+      displayColumns,
+      overflowCount: overflow,
+      columnIndex: new Map(displayColumns.map((col, idx) => [col.name, idx])),
     });
   }
 
@@ -221,6 +248,9 @@ export function ERDiagram({
   const [search, setSearch] = useState('');
   const [hoveredTable, setHoveredTable] = useState<string | null>(null);
   const [hoveredEdge, setHoveredEdge] = useState<string | null>(null);
+  const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
+  const [isolatedTableId, setIsolatedTableId] = useState<string | null>(null);
+  const [expandedTables, setExpandedTables] = useState<string[]>([]);
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [hasFit, setHasFit] = useState(false);
@@ -304,7 +334,7 @@ export function ERDiagram({
         await Promise.all(workers);
         if (loadId !== loadIdRef.current) return;
 
-        schemaMap.forEach((schema, tableName) => {
+        schemaMap.forEach(schema => {
           schema.foreign_keys?.forEach(fk => {
             const refDb = fk.referenced_database ?? namespace.database;
             const refSchema = fk.referenced_schema ?? namespace.schema;
@@ -322,21 +352,15 @@ export function ERDiagram({
             foreign_keys: [],
             primary_key: [],
           };
-          const primaryKey = new Set(schema.primary_key ?? []);
-          const foreignKeyColumns = new Set(schema.foreign_keys?.map(fk => fk.column) ?? []);
           const incoming = incomingRefs.get(col.name) ?? new Set<string>();
-          const { displayColumns, overflow } = buildDisplayColumns(
-            schema.columns ?? [],
-            primaryKey,
-            foreignKeyColumns,
-            incoming
-          );
           return {
             id: makeTableId(namespace, col.name),
             name: col.name,
             schema,
-            displayColumns,
-            overflowCount: overflow,
+            columns: schema.columns ?? [],
+            primaryKey: schema.primary_key ?? [],
+            foreignKeyColumns: schema.foreign_keys?.map(fk => fk.column) ?? [],
+            incomingColumns: Array.from(incoming),
           };
         });
 
@@ -402,12 +426,59 @@ export function ERDiagram({
     });
   }, [loadSchema, namespace.database, namespace.schema]);
 
-  const layout = useMemo(() => buildLayout(tables), [tables]);
+  useEffect(() => {
+    const ids = new Set(tables.map(table => table.id));
+    setExpandedTables(prev => {
+      const next = prev.filter(id => ids.has(id));
+      return next.length === prev.length ? prev : next;
+    });
+    if (selectedTableId && !ids.has(selectedTableId)) {
+      setSelectedTableId(null);
+    }
+    if (isolatedTableId && !ids.has(isolatedTableId)) {
+      setIsolatedTableId(null);
+    }
+  }, [tables, selectedTableId, isolatedTableId]);
+
+  const expandedSet = useMemo(() => new Set(expandedTables), [expandedTables]);
+
+  const isolationSet = useMemo(() => {
+    if (!isolatedTableId) return null;
+    const set = new Set<string>([isolatedTableId]);
+    edges.forEach(edge => {
+      if (edge.fromId === isolatedTableId || edge.toId === isolatedTableId) {
+        set.add(edge.fromId);
+        set.add(edge.toId);
+      }
+    });
+    return set;
+  }, [isolatedTableId, edges]);
+
+  const visibleTables = useMemo(
+    () => (isolationSet ? tables.filter(table => isolationSet.has(table.id)) : tables),
+    [tables, isolationSet]
+  );
+
+  const visibleEdges = useMemo(
+    () =>
+      isolationSet
+        ? edges.filter(edge => isolationSet.has(edge.fromId) && isolationSet.has(edge.toId))
+        : edges,
+    [edges, isolationSet]
+  );
+
+  const layout = useMemo(
+    () => buildLayout(visibleTables, expandedSet),
+    [visibleTables, expandedSet]
+  );
   const nodesById = useMemo(
     () => new Map(layout.nodes.map(node => [node.id, node])),
     [layout.nodes]
   );
-  const edgePaths = useMemo(() => buildEdgePaths(edges, nodesById), [edges, nodesById]);
+  const edgePaths = useMemo(
+    () => buildEdgePaths(visibleEdges, nodesById),
+    [visibleEdges, nodesById]
+  );
   const hoveredEdgeData = useMemo(
     () => edgePaths.find(item => item.id === hoveredEdge) ?? null,
     [edgePaths, hoveredEdge]
@@ -527,6 +598,33 @@ export function ERDiagram({
     setZoom(current => Math.max(current - 0.1, MIN_ZOOM));
   }, []);
 
+  const toggleTableExpanded = useCallback((tableId: string) => {
+    setExpandedTables(prev => {
+      if (prev.includes(tableId)) {
+        return prev.filter(id => id !== tableId);
+      }
+      return [...prev, tableId];
+    });
+  }, []);
+
+  const isolateTable = useCallback((tableId: string) => {
+    setSelectedTableId(tableId);
+    setIsolatedTableId(tableId);
+    setHasFit(false);
+  }, []);
+
+  const clearIsolation = useCallback(() => {
+    setIsolatedTableId(null);
+    setHasFit(false);
+  }, []);
+
+  const isolatedTableName = useMemo(() => {
+    if (!isolatedTableId) return null;
+    return tables.find(table => table.id === isolatedTableId)?.name ?? null;
+  }, [isolatedTableId, tables]);
+
+  const isolateCandidateId = selectedTableId ?? primaryMatch?.id ?? null;
+
   const diagramEmpty = !loading && tables.length === 0 && !error;
 
   return (
@@ -576,6 +674,29 @@ export function ERDiagram({
           </Button>
         </div>
         <div className="flex items-center gap-2 ml-auto">
+          {isolatedTableId ? (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">
+                {t('databaseBrowser.diagramIsolated', {
+                  name: isolatedTableName ?? t('databaseBrowser.diagramUnknownTable'),
+                })}
+              </span>
+              <Button variant="outline" size="sm" className="h-8" onClick={clearIsolation}>
+                {t('databaseBrowser.diagramShowAll')}
+              </Button>
+            </div>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 gap-2"
+              onClick={() => isolateCandidateId && isolateTable(isolateCandidateId)}
+              disabled={!isolateCandidateId}
+            >
+              <Filter size={14} />
+              {t('databaseBrowser.diagramIsolate')}
+            </Button>
+          )}
           {primaryMatch && (
             <Button
               variant="outline"
@@ -670,10 +791,13 @@ export function ERDiagram({
 
               {layout.nodes.map(node => {
                 const isMatch = !searchValue || node.name.toLowerCase().includes(searchValue);
+                const isExpanded = expandedSet.has(node.id);
+                const isSelected = selectedTableId === node.id;
                 const isActive =
                   hoveredTable === node.id ||
                   (hoveredEdgeData &&
                     (hoveredEdgeData.fromId === node.id || hoveredEdgeData.toId === node.id));
+                const isHighlighted = isActive || isSelected;
 
                 return (
                   <div
@@ -682,9 +806,19 @@ export function ERDiagram({
                     tabIndex={0}
                     onMouseEnter={() => setHoveredTable(node.id)}
                     onMouseLeave={() => setHoveredTable(null)}
-                    onFocus={() => setHoveredTable(node.id)}
+                    onFocus={() => {
+                      setHoveredTable(node.id);
+                      setSelectedTableId(node.id);
+                    }}
                     onBlur={() => setHoveredTable(null)}
-                    onClick={() => onTableSelect(namespace, node.name)}
+                    onClick={event => {
+                      setSelectedTableId(node.id);
+                      if (event.altKey) {
+                        isolateTable(node.id);
+                        return;
+                      }
+                      onTableSelect(namespace, node.name);
+                    }}
                     onKeyDown={event => {
                       if (event.key === 'Enter') {
                         onTableSelect(namespace, node.name);
@@ -693,7 +827,7 @@ export function ERDiagram({
                     className={cn(
                       'absolute rounded-md border bg-background shadow-sm transition-colors outline-none',
                       'focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background',
-                      isActive ? 'border-accent' : 'border-border',
+                      isHighlighted ? 'border-accent' : 'border-border',
                       isMatch ? 'opacity-100' : 'opacity-30'
                     )}
                     style={{
@@ -710,9 +844,22 @@ export function ERDiagram({
                           {node.name}
                         </span>
                       </div>
-                      <span className="text-xs text-muted-foreground">
-                        {node.schema.columns?.length ?? 0}
-                      </span>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={event => {
+                            event.stopPropagation();
+                            isolateTable(node.id);
+                          }}
+                          title={t('databaseBrowser.diagramIsolate')}
+                          className="h-6 w-6 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted"
+                        >
+                          <Filter size={12} />
+                        </button>
+                        <span className="text-xs text-muted-foreground">
+                          {node.schema.columns?.length ?? 0}
+                        </span>
+                      </div>
                     </div>
                     <div className="px-3 py-2 space-y-1">
                       {node.displayColumns.length === 0 ? (
@@ -750,10 +897,22 @@ export function ERDiagram({
                           </div>
                         ))
                       )}
-                      {node.overflowCount > 0 && (
-                        <div className="text-[11px] text-muted-foreground">
-                          +{node.overflowCount} columns
-                        </div>
+                      {(node.overflowCount > 0 ||
+                        (isExpanded && node.columns.length > MAX_COLUMNS)) && (
+                        <button
+                          type="button"
+                          className="text-[11px] text-muted-foreground hover:text-foreground"
+                          onClick={event => {
+                            event.stopPropagation();
+                            toggleTableExpanded(node.id);
+                          }}
+                        >
+                          {isExpanded
+                            ? t('databaseBrowser.diagramHideColumns')
+                            : t('databaseBrowser.diagramShowColumns', {
+                                count: node.overflowCount,
+                              })}
+                        </button>
                       )}
                     </div>
                   </div>
@@ -786,7 +945,7 @@ export function ERDiagram({
             </div>
           </div>
 
-          {edges.length === 0 && (
+          {visibleEdges.length === 0 && (
             <div className="absolute left-4 top-4 rounded-md border border-border bg-background/80 px-3 py-2 text-xs text-muted-foreground shadow-sm">
               {t('databaseBrowser.diagramNoRelations')}
             </div>

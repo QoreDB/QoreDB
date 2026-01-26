@@ -291,6 +291,12 @@
         "diagramRefresh": "Rafraîchir",
         "diagramZoomIn": "Zoom +",
         "diagramZoomOut": "Zoom -",
+        "diagramIsolate": "Isoler",
+        "diagramShowAll": "Tout afficher",
+        "diagramIsolated": "Isolé : {{name}}",
+        "diagramUnknownTable": "Inconnue",
+        "diagramShowColumns": "Afficher +{{count}} colonnes",
+        "diagramHideColumns": "Afficher moins de colonnes",
         "diagramEmpty": "Aucune table disponible pour le schéma",
         "diagramNoRelations": "Aucune relation détectée"
     },

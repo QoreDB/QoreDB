@@ -23,12 +23,17 @@ import {
 	RowData as TauriRowData,
 	Environment,
 	updateRow,
+  TableSchema,
+  ForeignKey,
+  peekForeignKey,
+  RelationFilter,
 } from "@/lib/tauri";
 import { cn } from "@/lib/utils";
-import { ArrowUpDown, ArrowUp, ArrowDown, Trash2, CheckCircle2, Pencil } from 'lucide-react';
+import { ArrowUpDown, ArrowUp, ArrowDown, Trash2, CheckCircle2, Pencil, Loader2, Link2 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
+import { TooltipRoot, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 
 import { RowData, formatValue, convertToRowData } from "./utils/dataGridUtils";
 import { useDataGridCopy } from "./hooks/useDataGridCopy";
@@ -45,6 +50,7 @@ interface DataGridProps {
 	sessionId?: string;
 	namespace?: Namespace;
 	tableName?: string;
+  tableSchema?: TableSchema | null;
 	primaryKey?: string[];
 	environment?: Environment;
 	readOnly?: boolean;
@@ -54,6 +60,33 @@ interface DataGridProps {
 	onRowsDeleted?: () => void;
 	onRowClick?: (row: RowData) => void;
 	onRowsUpdated?: () => void;
+  onOpenRelatedTable?: (
+    namespace: Namespace,
+    tableName: string,
+    relationFilter?: RelationFilter
+  ) => void;
+}
+
+interface PeekState {
+  status: 'idle' | 'loading' | 'ready' | 'error';
+  result?: QueryResult;
+  error?: string;
+}
+
+const MAX_PEEK_ROWS = 3;
+const MAX_PEEK_COLUMNS = 6;
+const PEEK_QUERY_LIMIT = 6;
+
+function serializePeekValue(value: Value): string {
+  if (value === null) return 'null';
+  if (typeof value === 'object') {
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return String(value);
+    }
+  }
+  return String(value);
 }
 
 export function DataGrid({
@@ -62,6 +95,7 @@ export function DataGrid({
   sessionId,
   namespace,
   tableName,
+  tableSchema,
   primaryKey,
   environment = 'development',
   readOnly = false,
@@ -71,6 +105,7 @@ export function DataGrid({
   onRowsDeleted,
   onRowClick,
   onRowsUpdated,
+  onOpenRelatedTable,
 }: DataGridProps) {
   const { t } = useTranslation();
   const DEFAULT_RENDER_LIMIT = 2000;
@@ -101,6 +136,10 @@ export function DataGrid({
     originalValue: Value;
   } | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
+
+  // Foreign key peek state
+  const [peekCache, setPeekCache] = useState<Map<string, PeekState>>(new Map());
+  const peekRequests = useRef(new Set<string>());
 
   // Delete state
   const [isDeleting, setIsDeleting] = useState(false);
@@ -166,9 +205,96 @@ export function DataGrid({
     return map;
   }, [result]);
 
+  const foreignKeyMap = useMemo(() => {
+    const map = new Map<string, ForeignKey[]>();
+    if (!tableSchema?.foreign_keys?.length) return map;
+    tableSchema.foreign_keys.forEach(fk => {
+      if (!fk?.column) return;
+      const entries = map.get(fk.column) ?? [];
+      entries.push(fk);
+      map.set(fk.column, entries);
+    });
+    return map;
+  }, [tableSchema]);
+
   const hasInlineEditContext = Boolean(sessionId && namespace && tableName);
   const hasPrimaryKey = Boolean(primaryKey && primaryKey.length > 0);
   const inlineEditAvailable = hasInlineEditContext && hasPrimaryKey;
+
+  const updatePeekCache = useCallback((key: string, next: PeekState) => {
+    setPeekCache(prev => {
+      const updated = new Map(prev);
+      updated.set(key, next);
+      return updated;
+    });
+  }, []);
+
+  const resolveReferencedNamespace = useCallback(
+    (foreignKey: ForeignKey): Namespace | null => {
+      if (!namespace) return null;
+      const database = foreignKey.referenced_database ?? namespace.database;
+      const schema = foreignKey.referenced_schema ?? namespace.schema;
+      return { database, schema };
+    },
+    [namespace]
+  );
+
+  const getRelationLabel = useCallback(
+    (foreignKey: ForeignKey): string => {
+      if (foreignKey.referenced_database) {
+        return `${foreignKey.referenced_database}.${foreignKey.referenced_table}`;
+      }
+      if (foreignKey.referenced_schema) {
+        return `${foreignKey.referenced_schema}.${foreignKey.referenced_table}`;
+      }
+      return foreignKey.referenced_table;
+    },
+    []
+  );
+
+  const buildPeekKey = useCallback(
+    (foreignKey: ForeignKey, value: Value): string => {
+      const nsKey = namespace ? `${namespace.database}:${namespace.schema ?? ''}` : 'unknown';
+      const valueKey = serializePeekValue(value);
+      return `${nsKey}:${foreignKey.referenced_table}:${foreignKey.referenced_column}:${valueKey}`;
+    },
+    [namespace]
+  );
+
+  const ensurePeekLoaded = useCallback(
+    async (foreignKey: ForeignKey, value: Value) => {
+      if (!sessionId || !namespace) return;
+      const key = buildPeekKey(foreignKey, value);
+      const cached = peekCache.get(key);
+      if (cached?.status === 'loading' || cached?.status === 'ready') return;
+      if (peekRequests.current.has(key)) return;
+      peekRequests.current.add(key);
+      updatePeekCache(key, { status: 'loading' });
+
+      try {
+        const response = await peekForeignKey(sessionId, namespace, foreignKey, value, PEEK_QUERY_LIMIT);
+        if (response.success && response.result) {
+          updatePeekCache(key, { status: 'ready', result: response.result });
+        } else {
+          updatePeekCache(key, {
+            status: 'error',
+            error: response.error || t('grid.peekFailed', { defaultValue: 'Preview unavailable' }),
+          });
+        }
+      } catch (error) {
+        updatePeekCache(key, {
+          status: 'error',
+          error:
+            error instanceof Error
+              ? error.message
+              : t('grid.peekFailed', { defaultValue: 'Preview unavailable' }),
+        });
+      } finally {
+        peekRequests.current.delete(key);
+      }
+    },
+    [buildPeekKey, namespace, sessionId, t, updatePeekCache, peekCache]
+  );
 
   const getEditableValue = (value: Value) => {
     if (value === null) return 'NULL';
@@ -437,12 +563,26 @@ export function DataGrid({
           const isEditing =
             editingCellRef.current?.rowId === info.row.id &&
             editingCellRef.current.columnId === info.column.id;
-          return (
+          const foreignKeys = foreignKeyMap.get(info.column.id);
+          const foreignKey = foreignKeys?.[0];
+          const canPeek =
+            Boolean(foreignKey) &&
+            !isEditing &&
+            value !== null &&
+            Boolean(sessionId && namespace && tableName);
+          const peekKey = canPeek && foreignKey ? buildPeekKey(foreignKey, value) : null;
+          const peekState = peekKey ? peekCache.get(peekKey) : undefined;
+          const relationLabel = foreignKey ? getRelationLabel(foreignKey) : '';
+          const referencedNamespace = foreignKey ? resolveReferencedNamespace(foreignKey) : null;
+          const hasMultipleRelations = Boolean(foreignKeys && foreignKeys.length > 1);
+
+          const cellNode = (
             <div
               className={cn(
                 'block',
                 !isEditing && 'truncate',
-                !isEditing && inlineEditAvailable && 'cursor-text'
+                !isEditing && inlineEditAvailable && 'cursor-text',
+                canPeek && 'group'
               )}
               onClick={() => startInlineEdit(info.row.original, info.row.id, info.column.id, value)}
               onDoubleClick={() =>
@@ -473,11 +613,144 @@ export function DataGrid({
                   aria-label={t('grid.editCell')}
                 />
               ) : (
-                <span className={cn('truncate block', isNull && 'text-muted-foreground italic')}>
+                <span
+                  className={cn(
+                    'truncate block',
+                    isNull && 'text-muted-foreground italic',
+                    canPeek && 'group-hover:text-foreground'
+                  )}
+                >
                   {formatted}
                 </span>
               )}
             </div>
+          );
+
+          if (!canPeek || !foreignKey || !peekKey) {
+            return cellNode;
+          }
+
+          const previewColumns = peekState?.result?.columns?.slice(0, MAX_PEEK_COLUMNS) ?? [];
+          const previewRows = peekState?.result?.rows?.slice(0, MAX_PEEK_ROWS) ?? [];
+          const extraColumns =
+            peekState?.result?.columns && peekState.result.columns.length > MAX_PEEK_COLUMNS
+              ? peekState.result.columns.length - MAX_PEEK_COLUMNS
+              : 0;
+          const extraRows =
+            peekState?.result?.rows && peekState.result.rows.length > MAX_PEEK_ROWS
+              ? peekState.result.rows.length - MAX_PEEK_ROWS
+              : 0;
+
+          return (
+            <TooltipRoot
+              delayDuration={400}
+              disableHoverableContent={false}
+              onOpenChange={open => {
+                if (open) {
+                  void ensurePeekLoaded(foreignKey, value);
+                }
+              }}
+            >
+              <TooltipTrigger asChild>{cellNode}</TooltipTrigger>
+              <TooltipContent side="right" align="start" className="w-80 max-h-80 overflow-auto p-3 text-xs">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <div className="text-xs uppercase tracking-wide text-muted-foreground">
+                      {t('grid.peekTitle', { defaultValue: 'Relation' })}
+                    </div>
+                    <div className="text-sm font-medium text-foreground">{relationLabel}</div>
+                    {hasMultipleRelations && (
+                      <div className="text-xs text-muted-foreground">
+                        {t('grid.peekMultiple', { defaultValue: 'Multiple relations detected' })}
+                      </div>
+                    )}
+                    {foreignKey.constraint_name && (
+                      <div className="text-xs text-muted-foreground">
+                        {foreignKey.constraint_name}
+                      </div>
+                    )}
+                  </div>
+                  {onOpenRelatedTable && referencedNamespace && (
+                    <Button
+                      variant="link"
+                      size="sm"
+                      className="h-auto px-0 text-xs"
+                      onClick={event => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        onOpenRelatedTable(referencedNamespace, foreignKey.referenced_table, {
+                          foreignKey,
+                          value,
+                        });
+                      }}
+                    >
+                      <Link2 size={12} />
+                      {t('grid.openRelatedTable', { defaultValue: 'Open table' })}
+                    </Button>
+                  )}
+                </div>
+                <div className="mt-3 border-t border-border pt-3">
+                  {peekState?.status === 'error' ? (
+                    <div className="text-xs text-error">
+                      {peekState.error || t('grid.peekFailed', { defaultValue: 'Preview unavailable' })}
+                    </div>
+                  ) : !peekState || peekState.status === 'loading' ? (
+                    <div className="flex items-center gap-2 text-muted-foreground text-xs">
+                      <Loader2 size={14} className="animate-spin" />
+                      {t('grid.peekLoading', { defaultValue: 'Loading preview...' })}
+                    </div>
+                  ) : previewRows.length === 0 ? (
+                    <div className="text-xs text-muted-foreground">
+                      {t('grid.peekEmpty', { defaultValue: 'No matching row found' })}
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {previewRows.map((row, rowIndex) => (
+                        <div key={`${peekKey}-row-${rowIndex}`} className="space-y-1">
+                          <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)] gap-x-3 gap-y-1">
+                            {previewColumns.map((col, colIndex) => {
+                              const rawValue = row.values[colIndex];
+                              const displayValue = formatValue(rawValue);
+                              return (
+                                <div key={`${peekKey}-${rowIndex}-${col.name}`} className="contents">
+                                  <div className="text-xs text-muted-foreground truncate">
+                                    {col.name}
+                                  </div>
+                                  <div
+                                    className={cn(
+                                      'text-xs font-mono text-foreground truncate',
+                                      rawValue === null && 'italic text-muted-foreground'
+                                    )}
+                                  >
+                                    {displayValue}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                          {rowIndex === 0 && extraColumns > 0 && (
+                            <div className="text-xs text-muted-foreground">
+                              {t('grid.peekColumnsMore', {
+                                defaultValue: '+{{count}} more columns',
+                                count: extraColumns,
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                      {extraRows > 0 && (
+                        <div className="text-xs text-muted-foreground">
+                          {t('grid.peekRowsMore', {
+                            defaultValue: '+{{count}} more rows',
+                            count: extraRows,
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </TooltipContent>
+            </TooltipRoot>
           );
         },
         sortingFn: (rowA, rowB, columnId) => {
@@ -502,6 +775,16 @@ export function DataGrid({
     commitInlineEdit,
     cancelInlineEdit,
     inlineEditAvailable,
+    foreignKeyMap,
+    buildPeekKey,
+    peekCache,
+    ensurePeekLoaded,
+    getRelationLabel,
+    resolveReferencedNamespace,
+    onOpenRelatedTable,
+    sessionId,
+    namespace,
+    tableName,
   ]);
 
   // Configure table

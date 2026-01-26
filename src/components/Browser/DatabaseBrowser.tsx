@@ -5,7 +5,8 @@ import {
   Collection,
   listCollections,
   executeQuery,
-  Environment
+  Environment,
+  RelationFilter
 } from '../../lib/tauri';
 import { cn } from '@/lib/utils';
 import {
@@ -39,7 +40,7 @@ interface DatabaseBrowserProps {
   environment?: Environment;
   readOnly?: boolean;
   connectionName?: string;
-  onTableSelect: (namespace: Namespace, tableName: string) => void;
+  onTableSelect: (namespace: Namespace, tableName: string, relationFilter?: RelationFilter) => void;
   onSchemaChange?: () => void;
   onOpenQueryTab?: (namespace: Namespace) => void;
   onClose: () => void;

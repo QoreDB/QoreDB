@@ -8,6 +8,8 @@ import {
   executeQuery,
   Environment,
   DriverCapabilities,
+  RelationFilter,
+  peekForeignKey,
 } from '../../lib/tauri';
 import { useSchemaCache } from '../../hooks/useSchemaCache';
 import { DataGrid } from '../Grid/DataGrid';
@@ -46,6 +48,8 @@ interface TableBrowserProps {
   connectionName?: string;
   connectionDatabase?: string;
   onClose: () => void;
+  onOpenRelatedTable?: (namespace: Namespace, tableName: string) => void;
+  relationFilter?: RelationFilter;
 }
 
 type Tab = 'structure' | 'data' | 'info';
@@ -61,6 +65,8 @@ export function TableBrowser({
   connectionName,
   connectionDatabase,
   onClose,
+  onOpenRelatedTable,
+  relationFilter,
 }: TableBrowserProps) {
   const { t } = useTranslation();
   const viewTrackedRef = useRef(false);
@@ -86,9 +92,19 @@ export function TableBrowser({
     try {
       const startTime = performance.now();
       // Load schema from cache, data fresh
+      const dataPromise = relationFilter
+        ? peekForeignKey(
+            sessionId,
+            namespace,
+            relationFilter.foreignKey,
+            relationFilter.value,
+            100
+          )
+        : previewTable(sessionId, namespace, tableName, 100);
+
       const [cachedSchema, dataResult] = await Promise.all([
         schemaCache.getTableSchema(namespace, tableName),
-        previewTable(sessionId, namespace, tableName, 100),
+        dataPromise,
       ]);
       const endTime = performance.now();
       const totalTime = endTime - startTime;
@@ -132,7 +148,7 @@ export function TableBrowser({
     } finally {
       setLoading(false);
     }
-  }, [sessionId, namespace, tableName, schemaCache, error]);
+  }, [sessionId, namespace, tableName, schemaCache, error, relationFilter]);
 
   useEffect(() => {
     loadData();
@@ -277,6 +293,7 @@ export function TableBrowser({
             sessionId={sessionId}
             namespace={namespace}
             tableName={tableName}
+            tableSchema={schema}
             primaryKey={schema?.primary_key}
             environment={environment}
             readOnly={readOnly}
@@ -285,6 +302,7 @@ export function TableBrowser({
             connectionDatabase={connectionDatabase}
             onRowsDeleted={loadData}
             onRowsUpdated={loadData}
+            onOpenRelatedTable={onOpenRelatedTable}
             onRowClick={row => {
               if (readOnly) {
                 toast.error(t('environment.blocked'));

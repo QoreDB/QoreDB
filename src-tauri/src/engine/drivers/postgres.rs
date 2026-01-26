@@ -794,12 +794,13 @@ impl DataEngine for PostgresDriver {
 
         // Get foreign keys
         // Note: This query joins information_schema views to find FK definitions matches
-        let fk_rows: Vec<(String, String, String, Option<String>)> = sqlx::query_as(
+        let fk_rows: Vec<(String, String, String, String, Option<String>)> = sqlx::query_as(
             r#"
             SELECT
                 kcu.column_name::text,
                 ccu.table_name::text AS foreign_table_name,
                 ccu.column_name::text AS foreign_column_name,
+                ccu.table_schema::text AS foreign_table_schema,
                 tc.constraint_name::text
             FROM
                 information_schema.table_constraints AS tc
@@ -822,11 +823,13 @@ impl DataEngine for PostgresDriver {
 
         let foreign_keys: Vec<ForeignKey> = fk_rows
             .into_iter()
-            .map(|(column, referenced_table, referenced_column, constraint_name)| ForeignKey {
+            .map(|(column, referenced_table, referenced_column, referenced_schema, constraint_name)| ForeignKey {
                 column,
                 referenced_table,
                 referenced_column,
-                constraint_name: constraint_name,
+                referenced_schema: Some(referenced_schema),
+                referenced_database: None,
+                constraint_name,
             })
             .collect();
 
@@ -881,6 +884,64 @@ impl DataEngine for PostgresDriver {
             schema, table, limit
         );
         self.execute(session, &query, QueryId::new()).await
+    }
+
+    async fn peek_foreign_key(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        foreign_key: &ForeignKey,
+        value: &Value,
+        limit: u32,
+    ) -> EngineResult<QueryResult> {
+        let pg_session = self.get_session(session).await?;
+        let limit = limit.max(1).min(50);
+        let schema = foreign_key
+            .referenced_schema
+            .as_deref()
+            .or(namespace.schema.as_deref())
+            .unwrap_or("public");
+
+        let table_ref = format!(
+            "{}.{}",
+            Self::quote_ident(schema),
+            Self::quote_ident(&foreign_key.referenced_table)
+        );
+        let column_ref = Self::quote_ident(&foreign_key.referenced_column);
+        let sql = format!("SELECT * FROM {} WHERE {} = $1 LIMIT {}", table_ref, column_ref, limit);
+
+        let mut query = sqlx::query(&sql);
+        query = Self::bind_param(query, value);
+
+        let start = Instant::now();
+        let mut tx_guard = pg_session.transaction_conn.lock().await;
+        let pg_rows: Vec<PgRow> = if let Some(ref mut conn) = *tx_guard {
+            query.fetch_all(&mut **conn).await
+        } else {
+            query.fetch_all(&pg_session.pool).await
+        }
+        .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        let execution_time_ms = start.elapsed().as_micros() as f64 / 1000.0;
+
+        if pg_rows.is_empty() {
+            return Ok(QueryResult {
+                columns: Vec::new(),
+                rows: Vec::new(),
+                affected_rows: None,
+                execution_time_ms,
+            });
+        }
+
+        let columns = Self::get_column_info(&pg_rows[0]);
+        let rows: Vec<QRow> = pg_rows.iter().map(Self::convert_row).collect();
+
+        Ok(QueryResult {
+            columns,
+            rows,
+            affected_rows: None,
+            execution_time_ms,
+        })
     }
 
     async fn cancel(&self, session: SessionId, query_id: Option<QueryId>) -> EngineResult<()> {

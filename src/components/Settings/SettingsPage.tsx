@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Settings, Moon, Sun, ChevronDown } from 'lucide-react';
+import { Settings, Moon, Sun, Monitor, ChevronDown } from 'lucide-react';
 
 import { useTheme } from '../../hooks/useTheme';
 import { Button } from '@/components/ui/button';
@@ -28,7 +28,7 @@ import { getSafetyPolicy, setSafetyPolicy, SafetyPolicy } from '@/lib/tauri';
 
 export function SettingsPage() {
   const { t, i18n } = useTranslation();
-  const { theme, setTheme } = useTheme();
+  const { theme, resolvedTheme, setTheme } = useTheme();
   const [diagnostics, setDiagnostics] = useState<DiagnosticsSettings>(getDiagnosticsSettings());
   const [analyticsEnabled, setAnalyticsEnabled] = useState<boolean>(
     AnalyticsService.isAnalyticsEnabled()
@@ -132,13 +132,30 @@ export function SettingsPage() {
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" className="w-50 justify-between">
                   <div className="flex items-center gap-2">
-                    {theme === 'dark' ? <Moon size={16} /> : <Sun size={16} />}
-                    {theme === 'dark' ? t('settings.themeDark') : t('settings.themeLight')}
+                    {theme === 'auto' ? (
+                      <Monitor size={16} />
+                    ) : theme === 'dark' ? (
+                      <Moon size={16} />
+                    ) : (
+                      <Sun size={16} />
+                    )}
+
+                    {theme === 'auto'
+                      ? `${t('settings.themeSystem')} (${resolvedTheme === 'dark' ? t('settings.themeDark') : t('settings.themeLight')})`
+                      : theme === 'dark'
+                        ? t('settings.themeDark')
+                        : t('settings.themeLight')}
                   </div>
                   <ChevronDown className="ml-2 h-4 w-4 opacity-50" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent className="w-50">
+                <DropdownMenuItem onClick={() => setTheme('auto')}>
+                  <div className="flex items-center gap-2">
+                    <Monitor size={16} />
+                    {t('settings.themeSystem')}
+                  </div>
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setTheme('light')}>
                   <div className="flex items-center gap-2">
                     <Sun size={16} />

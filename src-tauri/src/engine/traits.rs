@@ -6,10 +6,10 @@
 
 use async_trait::async_trait;
 
-use crate::engine::error::EngineResult;
+use crate::engine::error::{EngineError, EngineResult};
 use crate::engine::types::{
     CancelSupport, CollectionList, CollectionListOptions, ConnectionConfig, DriverCapabilities, Namespace,
-    QueryId, QueryResult, Row, RowData, SessionId, TableSchema, ColumnInfo, Value
+    QueryId, QueryResult, Row, RowData, SessionId, TableSchema, ColumnInfo, Value, ForeignKey
 };
 
 /// Events emitted during query streaming
@@ -147,6 +147,23 @@ pub trait DataEngine: Send + Sync {
         table: &str,
         limit: u32,
     ) -> EngineResult<QueryResult>;
+
+    /// Fetches rows from a referenced table for a given foreign key value.
+    ///
+    /// Default implementation returns NotSupported. SQL drivers should override.
+    async fn peek_foreign_key(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        foreign_key: &ForeignKey,
+        value: &Value,
+        limit: u32,
+    ) -> EngineResult<QueryResult> {
+        let _ = (session, namespace, foreign_key, value, limit);
+        Err(EngineError::not_supported(
+            "Foreign key peek is not supported by this driver",
+        ))
+    }
 
     /// Cancels a running query for the given session
     async fn cancel(&self, session: SessionId, query_id: Option<QueryId>) -> EngineResult<()> {

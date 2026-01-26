@@ -316,6 +316,10 @@ pub struct ForeignKey {
     pub referenced_table: String,
     /// The referenced column
     pub referenced_column: String,
+    /// The referenced schema (if available)
+    pub referenced_schema: Option<String>,
+    /// The referenced database (if available)
+    pub referenced_database: Option<String>,
     /// The constraint name (optional)
     pub constraint_name: Option<String>,
 }

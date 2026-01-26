@@ -7,7 +7,7 @@ export interface ConfigBackupV1 {
   version: 1;
   exportedAt: number;
   ui: {
-    theme?: 'light' | 'dark';
+    theme?: 'light' | 'dark' | 'auto';
     language?: string;
     diagnostics?: DiagnosticsSettings;
     onboardingCompleted?: boolean;
@@ -35,7 +35,8 @@ function readBool(key: string): boolean | undefined {
 
 export function buildConfigBackupV1(input: { safetyPolicy?: SafetyPolicy }): ConfigBackupV1 {
   const themeRaw = localStorage.getItem(THEME_KEY);
-  const theme = themeRaw === 'light' || themeRaw === 'dark' ? themeRaw : undefined;
+  const theme =
+    themeRaw === 'light' || themeRaw === 'dark' || themeRaw === 'auto' ? themeRaw : undefined;
 
   const languageRaw = localStorage.getItem(LANGUAGE_KEY);
   const language = typeof languageRaw === 'string' && languageRaw.trim() ? languageRaw : undefined;
@@ -64,7 +65,7 @@ export function isConfigBackupV1(value: unknown): value is ConfigBackupV1 {
 }
 
 export function applyConfigBackupV1(payload: ConfigBackupV1): {
-  theme?: 'light' | 'dark';
+  theme?: 'light' | 'dark' | 'auto';
   language?: string;
   diagnostics?: DiagnosticsSettings;
   onboardingCompleted?: boolean;

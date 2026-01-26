@@ -14,7 +14,7 @@ use crate::engine::{
     sql_safety,
     TableSchema,
     traits::StreamEvent,
-    types::{CollectionList, CollectionListOptions, Namespace, QueryId, QueryResult, SessionId},
+    types::{CollectionList, CollectionListOptions, ForeignKey, Namespace, QueryId, QueryResult, SessionId, Value},
 };
 use crate::metrics;
 use tauri::Emitter;
@@ -589,6 +589,71 @@ pub async fn preview_table(
     };
 
     match driver.preview_table(session, &namespace, &table, limit).await {
+        Ok(result) => Ok(QueryResponse {
+            success: true,
+            result: Some(result),
+            error: None,
+            query_id: None,
+        }),
+        Err(e) => Ok(QueryResponse {
+            success: false,
+            result: None,
+            error: Some(e.to_string()),
+            query_id: None,
+        }),
+    }
+}
+
+/// Fetches a related row based on a foreign key value
+#[tauri::command]
+pub async fn peek_foreign_key(
+    state: State<'_, crate::SharedState>,
+    session_id: String,
+    namespace: Namespace,
+    foreign_key: ForeignKey,
+    value: Value,
+    limit: Option<u32>,
+) -> Result<QueryResponse, String> {
+    let session_manager = {
+        let state = state.lock().await;
+        Arc::clone(&state.session_manager)
+    };
+    let session = parse_session_id(&session_id)?;
+    let limit = limit.unwrap_or(3).max(1).min(25);
+
+    if foreign_key.referenced_table.trim().is_empty()
+        || foreign_key.referenced_column.trim().is_empty()
+        || matches!(value, Value::Null)
+    {
+        return Ok(QueryResponse {
+            success: true,
+            result: Some(QueryResult {
+                columns: Vec::new(),
+                rows: Vec::new(),
+                affected_rows: None,
+                execution_time_ms: 0.0,
+            }),
+            error: None,
+            query_id: None,
+        });
+    }
+
+    let driver = match session_manager.get_driver(session).await {
+        Ok(d) => d,
+        Err(e) => {
+            return Ok(QueryResponse {
+                success: false,
+                result: None,
+                error: Some(e.to_string()),
+                query_id: None,
+            });
+        }
+    };
+
+    match driver
+        .peek_foreign_key(session, &namespace, &foreign_key, &value, limit)
+        .await
+    {
         Ok(result) => Ok(QueryResponse {
             success: true,
             result: Some(result),

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Namespace, Collection, SavedConnection, listCollections } from '../../lib/tauri';
+import { Namespace, Collection, SavedConnection, listCollections, RelationFilter } from '../../lib/tauri';
 import { useSchemaCache } from '../../hooks/useSchemaCache';
 import { Folder, FolderOpen, Table, Eye, Loader2, Plus, ChevronRight, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -18,7 +18,7 @@ interface DBTreeProps {
   connectionId: string;
   driver: string;
   connection?: SavedConnection;
-  onTableSelect?: (namespace: Namespace, tableName: string) => void;
+  onTableSelect?: (namespace: Namespace, tableName: string, relationFilter?: RelationFilter) => void;
   onDatabaseSelect?: (namespace: Namespace) => void;
   refreshTrigger?: number;
 }

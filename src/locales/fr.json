@@ -285,6 +285,15 @@
         "noResults": "Aucune table trouvée.",
         "openEditor": "Éditeur SQL"
     },
+    "connectionDashboard": {
+        "title": "Connecté à {{name}}",
+        "descriptionSchema": "Choisissez un schéma ou ouvrez l’éditeur de requêtes.",
+        "descriptionDatabase": "Choisissez une base de données ou ouvrez l’éditeur de requêtes.",
+        "openQuery": "Ouvrir l’éditeur de requêtes",
+        "emptySchemas": "Aucun schéma trouvé pour l’instant.",
+        "emptyDatabases": "Aucune base de données trouvée pour l’instant.",
+        "unknownConnection": "Connexion inconnue"
+    },
     "query": {
         "run": "Exécuter",
         "running": "En cours...",
@@ -342,6 +351,14 @@
         "preview": "Aperçu",
         "previewMissingPk": "Clé primaire manquante",
         "previewMore": "+{{count}} de plus",
+        "peekTitle": "Relation",
+        "peekLoading": "Chargement de l'aperçu...",
+        "peekEmpty": "Aucune ligne correspondante",
+        "peekFailed": "Aperçu indisponible",
+        "peekColumnsMore": "+{{count}} colonnes",
+        "peekRowsMore": "+{{count}} lignes",
+        "peekMultiple": "Plusieurs relations détectées",
+        "openRelatedTable": "Ouvrir la ligne liée",
         "delete": "Supprimer",
         "deleting": "Suppression...",
         "deleteSuccess": "{{count}} ligne(s) supprimée(s) avec succès",

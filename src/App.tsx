@@ -7,6 +7,7 @@ import { GlobalSearch, SearchResult } from './components/Search/GlobalSearch';
 import { QueryPanel } from './components/Query/QueryPanel';
 import { TableBrowser } from './components/Browser/TableBrowser';
 import { DatabaseBrowser } from './components/Browser/DatabaseBrowser';
+import { ConnectionDashboard } from './components/Dashboard/ConnectionDashboard';
 import { ConnectionModal } from './components/Connection/ConnectionModal';
 import { SettingsPage } from './components/Settings/SettingsPage';
 import { StatusBar } from './components/Status/StatusBar';
@@ -20,6 +21,7 @@ import {
   listSavedConnections,
   getDriverInfo,
   DriverCapabilities,
+  RelationFilter,
 } from './lib/tauri';
 import { HistoryEntry } from './lib/history';
 import { QueryLibraryItem } from './lib/queryLibrary';
@@ -50,7 +52,7 @@ const RECOVERY_SAVE_DEBOUNCE_MS = 600;
 
 function App() {
   const { t } = useTranslation();
-  const { theme, toggleTheme } = useTheme();
+  const { resolvedTheme, toggleTheme } = useTheme();
   const [searchOpen, setSearchOpen] = useState(false);
   const [connectionModalOpen, setConnectionModalOpen] = useState(false);
   const [libraryModalOpen, setLibraryModalOpen] = useState(false);
@@ -163,7 +165,6 @@ function App() {
   const [sidebarRefreshTrigger, setSidebarRefreshTrigger] = useState(0);
   const [schemaRefreshTrigger, setSchemaRefreshTrigger] = useState(0);
 
-
   // Edit connection state
   const [editConnection, setEditConnection] = useState<SavedConnection | null>(null);
   const [editPassword, setEditPassword] = useState<string>('');
@@ -195,8 +196,6 @@ function App() {
     setActiveTabId(options?.activeTabId ?? options?.tabs?.[0]?.id ?? null);
     setQueryDrafts(options?.queryDrafts ?? {});
     setSettingsOpen(false);
-
-
   }
 
   // Tab management
@@ -216,7 +215,17 @@ function App() {
             );
       if (existing) {
         setActiveTabId(existing.id);
-        return prev;
+        return prev.map(t =>
+          t.id === existing.id
+            ? {
+                ...t,
+                title: tab.title,
+                namespace: tab.namespace,
+                tableName: tab.tableName,
+                relationFilter: tab.relationFilter,
+              }
+            : t
+        );
       }
       setActiveTabId(tab.id);
       return [...prev, tab];
@@ -346,18 +355,20 @@ function App() {
     [t, sessionId, openTab, toggleTheme, activeTabId, closeTab, activeTab]
   );
 
-  function handleTableSelect(namespace: Namespace, tableName: string) {
-
+  function handleTableSelect(
+    namespace: Namespace,
+    tableName: string,
+    relationFilter?: RelationFilter
+  ) {
     AnalyticsService.capture('resource_opened', {
-      source: 'tree',
+      source: relationFilter ? 'relation' : 'tree',
       resource_type: driver === Driver.Mongodb ? 'collection' : 'table',
       driver,
     });
-    openTab(createTableTab(namespace, tableName));
+    openTab(createTableTab(namespace, tableName, relationFilter));
   }
 
   function handleDatabaseSelect(namespace: Namespace) {
-
     AnalyticsService.capture('resource_opened', {
       source: 'tree',
       resource_type: driver === Driver.Mongodb ? 'database' : 'schema',
@@ -627,6 +638,8 @@ function App() {
                   readOnly={activeConnection?.read_only || false}
                   connectionName={activeConnection?.name}
                   connectionDatabase={activeConnection?.database}
+                  onOpenRelatedTable={handleTableSelect}
+                  relationFilter={activeTab.relationFilter}
                   onClose={() => closeTab(activeTab.id)}
                 />
               ) : activeTab?.type === 'database' && activeTab.namespace ? (
@@ -664,6 +677,16 @@ function App() {
                     onQueryDraftChange={value => updateQueryDraft(activeTab.id, value)}
                   />
                 </div>
+              ) : activeConnection ? (
+                <ConnectionDashboard
+                  sessionId={sessionId}
+                  driver={driver}
+                  connection={activeConnection}
+                  schemaRefreshTrigger={schemaRefreshTrigger}
+                  onSchemaChange={triggerSchemaRefresh}
+                  onOpenQuery={handleNewQuery}
+                  onOpenDatabase={handleDatabaseSelect}
+                />
               ) : null
             ) : (
               <div className="flex flex-col items-center justify-center h-full text-center space-y-4">
@@ -764,7 +787,7 @@ function App() {
       />
 
       <Toaster
-        theme={theme === 'dark' ? 'dark' : 'light'}
+        theme={resolvedTheme}
         closeButton
         position="bottom-right"
         richColors

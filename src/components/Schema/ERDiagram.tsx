@@ -840,7 +840,7 @@ export function ERDiagram({
                     <div className="flex items-center justify-between border-b border-border px-3 py-2">
                       <div className="flex items-center gap-2">
                         <TableIcon size={14} className="text-muted-foreground" />
-                        <span className="font-mono text-sm text-foreground truncate max-w-[140px]">
+                        <span className="font-mono text-sm text-foreground truncate max-w-35">
                           {node.name}
                         </span>
                       </div>
@@ -891,7 +891,7 @@ export function ERDiagram({
                                 {col.name}
                               </span>
                             </div>
-                            <span className="text-[10px] text-muted-foreground truncate max-w-[88px]">
+                            <span className="text-[10px] text-muted-foreground truncate max-w-22">
                               {col.data_type}
                             </span>
                           </div>

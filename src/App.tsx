@@ -21,6 +21,7 @@ import {
   listSavedConnections,
   getDriverInfo,
   DriverCapabilities,
+  RelationFilter,
 } from './lib/tauri';
 import { HistoryEntry } from './lib/history';
 import { QueryLibraryItem } from './lib/queryLibrary';
@@ -214,7 +215,17 @@ function App() {
             );
       if (existing) {
         setActiveTabId(existing.id);
-        return prev;
+        return prev.map(t =>
+          t.id === existing.id
+            ? {
+                ...t,
+                title: tab.title,
+                namespace: tab.namespace,
+                tableName: tab.tableName,
+                relationFilter: tab.relationFilter,
+              }
+            : t
+        );
       }
       setActiveTabId(tab.id);
       return [...prev, tab];
@@ -344,13 +355,17 @@ function App() {
     [t, sessionId, openTab, toggleTheme, activeTabId, closeTab, activeTab]
   );
 
-  function handleTableSelect(namespace: Namespace, tableName: string) {
+  function handleTableSelect(
+    namespace: Namespace,
+    tableName: string,
+    relationFilter?: RelationFilter
+  ) {
     AnalyticsService.capture('resource_opened', {
-      source: 'tree',
+      source: relationFilter ? 'relation' : 'tree',
       resource_type: driver === Driver.Mongodb ? 'collection' : 'table',
       driver,
     });
-    openTab(createTableTab(namespace, tableName));
+    openTab(createTableTab(namespace, tableName, relationFilter));
   }
 
   function handleDatabaseSelect(namespace: Namespace) {
@@ -623,6 +638,8 @@ function App() {
                   readOnly={activeConnection?.read_only || false}
                   connectionName={activeConnection?.name}
                   connectionDatabase={activeConnection?.database}
+                  onOpenRelatedTable={handleTableSelect}
+                  relationFilter={activeTab.relationFilter}
                   onClose={() => closeTab(activeTab.id)}
                 />
               ) : activeTab?.type === 'database' && activeTab.namespace ? (

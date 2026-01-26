@@ -7,6 +7,7 @@ import {
   connectSavedConnection,
   SavedConnection,
   Namespace,
+  RelationFilter,
 } from '../../lib/tauri';
 import { Plus, Bug } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -23,7 +24,7 @@ interface SidebarProps {
   onConnected: (sessionId: string, connection: SavedConnection) => void;
   connectedSessionId: string | null;
   connectedConnectionId?: string | null;
-  onTableSelect?: (namespace: Namespace, tableName: string) => void;
+  onTableSelect?: (namespace: Namespace, tableName: string, relationFilter?: RelationFilter) => void;
   onDatabaseSelect?: (namespace: Namespace) => void;
   onEditConnection: (connection: SavedConnection, password: string) => void;
   refreshTrigger?: number;

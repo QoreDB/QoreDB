@@ -285,7 +285,14 @@ export interface ForeignKey {
   column: string;
   referenced_table: string;
   referenced_column: string;
+  referenced_schema?: string;
+  referenced_database?: string;
   constraint_name?: string;
+}
+
+export interface RelationFilter {
+  foreignKey: ForeignKey;
+  value: Value;
 }
 
 export interface TableSchema {
@@ -344,6 +351,20 @@ export async function previewTable(
   error?: string;
 }> {
   return invoke('preview_table', { sessionId, namespace, table, limit });
+}
+
+export async function peekForeignKey(
+  sessionId: string,
+  namespace: Namespace,
+  foreignKey: ForeignKey,
+  value: Value,
+  limit: number = 3
+): Promise<{
+  success: boolean;
+  result?: QueryResult;
+  error?: string;
+}> {
+  return invoke('peek_foreign_key', { sessionId, namespace, foreignKey, value, limit });
 }
 
 // ============================================

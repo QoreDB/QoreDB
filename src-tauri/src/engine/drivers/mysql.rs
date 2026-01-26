@@ -803,12 +803,13 @@ impl DataEngine for MySqlDriver {
 
         // Get foreign keys
         // Filter for REFERENCED_TABLE_NAME IS NOT NULL to find FKs
-        let fk_rows: Vec<(String, String, String, String)> = sqlx::query_as(
+        let fk_rows: Vec<(String, String, String, String, String)> = sqlx::query_as(
             r#"
             SELECT
                 CAST(kcu.COLUMN_NAME AS CHAR) AS column_name,
                 CAST(kcu.REFERENCED_TABLE_NAME AS CHAR) AS referenced_table,
                 CAST(kcu.REFERENCED_COLUMN_NAME AS CHAR) AS referenced_column,
+                CAST(kcu.REFERENCED_TABLE_SCHEMA AS CHAR) AS referenced_database,
                 CAST(kcu.CONSTRAINT_NAME AS CHAR) AS constraint_name
             FROM information_schema.KEY_COLUMN_USAGE kcu
             WHERE kcu.TABLE_SCHEMA = ?
@@ -824,10 +825,12 @@ impl DataEngine for MySqlDriver {
 
         let foreign_keys: Vec<ForeignKey> = fk_rows
             .into_iter()
-            .map(|(column, referenced_table, referenced_column, constraint_name)| ForeignKey {
+            .map(|(column, referenced_table, referenced_column, referenced_database, constraint_name)| ForeignKey {
                 column,
                 referenced_table,
                 referenced_column,
+                referenced_schema: None,
+                referenced_database: Some(referenced_database),
                 constraint_name: Some(constraint_name),
             })
             .collect();
@@ -869,6 +872,63 @@ impl DataEngine for MySqlDriver {
             namespace.database, table, limit
         );
         self.execute(session, &query, QueryId::new()).await
+    }
+
+    async fn peek_foreign_key(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        foreign_key: &ForeignKey,
+        value: &Value,
+        limit: u32,
+    ) -> EngineResult<QueryResult> {
+        let mysql_session = self.get_session(session).await?;
+        let limit = limit.max(1).min(50);
+        let database = foreign_key
+            .referenced_database
+            .as_deref()
+            .unwrap_or(namespace.database.as_str());
+
+        let table_ref = format!(
+            "{}.{}",
+            Self::quote_ident(database),
+            Self::quote_ident(&foreign_key.referenced_table)
+        );
+        let column_ref = Self::quote_ident(&foreign_key.referenced_column);
+        let sql = format!("SELECT * FROM {} WHERE {} = ? LIMIT {}", table_ref, column_ref, limit);
+
+        let mut query = sqlx::query(&sql);
+        query = Self::bind_param(query, value);
+
+        let start = Instant::now();
+        let mut tx_guard = mysql_session.transaction_conn.lock().await;
+        let mysql_rows: Vec<MySqlRow> = if let Some(ref mut conn) = *tx_guard {
+            query.fetch_all(&mut **conn).await
+        } else {
+            query.fetch_all(&mysql_session.pool).await
+        }
+        .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        let execution_time_ms = start.elapsed().as_micros() as f64 / 1000.0;
+
+        if mysql_rows.is_empty() {
+            return Ok(QueryResult {
+                columns: Vec::new(),
+                rows: Vec::new(),
+                affected_rows: None,
+                execution_time_ms,
+            });
+        }
+
+        let columns = Self::get_column_info(&mysql_rows[0]);
+        let rows: Vec<QRow> = mysql_rows.iter().map(Self::convert_row).collect();
+
+        Ok(QueryResult {
+            columns,
+            rows,
+            affected_rows: None,
+            execution_time_ms,
+        })
     }
 
     async fn cancel(&self, session: SessionId, query_id: Option<QueryId>) -> EngineResult<()> {

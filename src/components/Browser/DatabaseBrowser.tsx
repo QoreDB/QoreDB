@@ -32,6 +32,7 @@ import { Input } from '@/components/ui/input';
 import { getDriverMetadata, Driver, DRIVER_LABELS, DRIVER_ICONS } from '../../lib/drivers';
 import { CreateTableModal } from '../Table/CreateTableModal';
 import { emitTableChange, onTableChange } from '@/lib/tableEvents';
+import { ERDiagram } from '@/components/Schema/ERDiagram';
 
 interface DatabaseBrowserProps {
   sessionId: string;
@@ -41,6 +42,7 @@ interface DatabaseBrowserProps {
   readOnly?: boolean;
   connectionName?: string;
   onTableSelect: (namespace: Namespace, tableName: string, relationFilter?: RelationFilter) => void;
+  schemaRefreshTrigger?: number;
   onSchemaChange?: () => void;
   onOpenQueryTab?: (namespace: Namespace) => void;
   onClose: () => void;
@@ -64,6 +66,7 @@ export function DatabaseBrowser({
   readOnly = false,
   connectionName,
   onTableSelect,
+  schemaRefreshTrigger,
   onSchemaChange,
   onOpenQueryTab,
   onClose,
@@ -85,6 +88,10 @@ export function DatabaseBrowser({
   const driverMeta = getDriverMetadata(driver);
 
   const loadData = useCallback(async () => {
+    if (activeTab === 'schema') {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
 
@@ -167,6 +174,12 @@ export function DatabaseBrowser({
   }, [sessionId, namespace, driverMeta, activeTab, page, search]);
 
   useEffect(() => {
+    if (!driverMeta.supportsSQL && activeTab === 'schema') {
+      setActiveTab('overview');
+    }
+  }, [activeTab, driverMeta.supportsSQL]);
+
+  useEffect(() => {
     loadData();
   }, [loadData]);
 
@@ -183,6 +196,11 @@ export function DatabaseBrowser({
       }
     });
   }, [loadData, namespace.database, namespace.schema]);
+
+  useEffect(() => {
+    if (schemaRefreshTrigger === undefined) return;
+    loadData();
+  }, [schemaRefreshTrigger, loadData]);
 
   function formatBytes(bytes: number): string {
     if (!bytes || bytes < 1024) return `${bytes || 0} B`;
@@ -294,6 +312,22 @@ export function DatabaseBrowser({
             {t('databaseBrowser.tables')} ({totalCount})
           </span>
         </button>
+        {driverMeta.supportsSQL && (
+          <button
+            className={cn(
+              'px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
+              activeTab === 'schema'
+                ? 'bg-accent text-accent-foreground'
+                : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+            )}
+            onClick={() => setActiveTab('schema')}
+          >
+            <span className="flex items-center gap-2">
+              <List size={14} />
+              {t('databaseBrowser.schema')}
+            </span>
+          </button>
+        )}
       </div>
 
       {/* Content */}
@@ -378,7 +412,7 @@ export function DatabaseBrowser({
               </div>
             </div>
           )
-        ) : (
+        ) : activeTab === 'tables' ? (
           /* Tables Tab */
           <div className="flex flex-col h-full gap-4">
             <div className="flex items-center gap-2">
@@ -467,6 +501,15 @@ export function DatabaseBrowser({
                 </Button>
               </div>
             </div>
+          </div>
+        ) : (
+          <div className="h-full">
+            <ERDiagram
+              sessionId={sessionId}
+              namespace={namespace}
+              schemaRefreshTrigger={schemaRefreshTrigger}
+              onTableSelect={onTableSelect}
+            />
           </div>
         )}
       </div>

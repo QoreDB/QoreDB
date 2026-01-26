@@ -275,6 +275,7 @@
     "databaseBrowser": {
         "overview": "Overview",
         "tables": "Tables",
+        "schema": "Schema",
         "export": "Export",
         "size": "Size",
         "tableCount": "Tables",
@@ -283,7 +284,15 @@
         "viewAll": "View all {{count}} tables",
         "searchTables": "Search tables...",
         "noResults": "No tables found matching your search.",
-        "openEditor": "SQL Editor"
+        "openEditor": "SQL Editor",
+        "diagramFit": "Fit",
+        "diagramReset": "Reset",
+        "diagramFocus": "Focus",
+        "diagramRefresh": "Refresh",
+        "diagramZoomIn": "Zoom in",
+        "diagramZoomOut": "Zoom out",
+        "diagramEmpty": "No tables available for diagram",
+        "diagramNoRelations": "No relations detected"
     },
     "connectionDashboard": {
         "title": "Connected to {{name}}",

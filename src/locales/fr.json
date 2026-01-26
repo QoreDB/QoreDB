@@ -275,6 +275,7 @@
     "databaseBrowser": {
         "overview": "Vue d'ensemble",
         "tables": "Tables",
+        "schema": "Schéma",
         "export": "Export",
         "size": "Taille",
         "tableCount": "Tables",
@@ -283,7 +284,15 @@
         "viewAll": "Voir les {{count}} tables",
         "searchTables": "Rechercher des tables...",
         "noResults": "Aucune table trouvée.",
-        "openEditor": "Éditeur SQL"
+        "openEditor": "Éditeur SQL",
+        "diagramFit": "Cadrer",
+        "diagramReset": "Réinitialiser",
+        "diagramFocus": "Centrer",
+        "diagramRefresh": "Rafraîchir",
+        "diagramZoomIn": "Zoom +",
+        "diagramZoomOut": "Zoom -",
+        "diagramEmpty": "Aucune table disponible pour le schéma",
+        "diagramNoRelations": "Aucune relation détectée"
     },
     "connectionDashboard": {
         "title": "Connecté à {{name}}",

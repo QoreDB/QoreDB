@@ -1,7 +1,9 @@
 import { motion, HTMLMotionProps } from "framer-motion";
-import { cn } from "@/lib/utils";
+// import { cn } from "@/lib/utils"; // 
 import { cva, type VariantProps } from "class-variance-authority";
 import React from "react";
+
+const cn = (cls: string) => cls; // Mock implementation
 
 // 1. Define Variants using CVA
 // Guide: Use semantic names (primary, destructive) over colors (blue, red)

@@ -652,6 +652,7 @@ function App() {
                   readOnly={activeConnection?.read_only || false}
                   connectionName={activeConnection?.name}
                   onTableSelect={handleTableSelect}
+                  schemaRefreshTrigger={schemaRefreshTrigger}
                   onSchemaChange={triggerSchemaRefresh}
                   onOpenQueryTab={ns => {
                     openTab(createQueryTab(undefined, ns));

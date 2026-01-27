@@ -196,6 +196,19 @@
         "storeErrorLogsDescription": "Saves redacted error details to help debugging.",
         "analyticsEnabled": "Share anonymous usage analytics",
         "analyticsEnabledDescription": "Helps improve QoreDB by sending anonymous events (no queries or credentials).",
+        "sandbox": {
+            "title": "Sandbox",
+            "description": "Customize how sandbox changes are tracked and displayed.",
+            "confirmDiscard": "Confirm before discarding changes",
+            "confirmDiscardDescription": "Ask before exiting sandbox when there are pending changes.",
+            "autoCollapse": "Auto-collapse changes panel",
+            "autoCollapseDescription": "Close the changes panel automatically when there are no pending changes.",
+            "deleteDisplay": "Deleted rows display",
+            "deleteDisplayStrikethrough": "Show with strikethrough",
+            "deleteDisplayHidden": "Hide deleted rows",
+            "panelPageSize": "Changes per page",
+            "panelPageSizeDescription": "Controls pagination in the changes panel."
+        },
         "safetyPolicy": "Production Safety",
         "safetyPolicyDescription": "Control server-side guardrails for production queries.",
         "safetyPolicyRequireConfirmation": "Require confirmation for dangerous SQL",
@@ -450,6 +463,7 @@
         "confirm": "Confirm",
         "delete": "Delete",
         "deleting": "Deleting...",
+        "close": "Close",
         "unknownError": "Unknown error",
         "mongoCreateDbHint": "MongoDB creates a database when the first collection is created.",
         "time": "Time",
@@ -614,5 +628,76 @@
         "title": "Something went wrong",
         "description": "An unexpected error occurred. The error has been logged.",
         "reload": "Reload Application"
+    },
+    "sandbox": {
+        "activate": "Sandbox",
+        "active": "Sandbox",
+        "deactivate": "Exit Sandbox",
+        "activateHint": "Enable sandbox mode to make changes locally without affecting the database",
+        "deactivateHint": "Exit sandbox mode",
+        "envWarningStaging": "Sandbox is active on a STAGING connection. Changes are local until applied.",
+        "envWarningProduction": "Sandbox is active on a PRODUCTION connection. Review carefully before applying.",
+        "indicator": {
+            "label": "SANDBOX",
+            "tooltip": "Sandbox mode active ({{count}} pending changes)"
+        },
+        "confirmDeactivate": {
+            "title": "Exit Sandbox Mode?",
+            "message": "You have pending changes that haven't been applied to the database. What would you like to do?",
+            "keepChanges": "Keep Changes",
+            "discardChanges": "Discard Changes"
+        },
+        "changes": {
+            "title": "Pending Changes",
+            "empty": "No changes",
+            "count": "{{count}} change(s)",
+            "noChanges": "No changes yet",
+            "noChangesHint": "Edit data in the grid to create changes",
+            "undo": "Undo",
+            "clearAll": "Clear all",
+            "clearTable": "Discard changes",
+            "moreFields": "more fields",
+            "viewDetails": "View details",
+            "toggleAll": "Toggle all details",
+            "showing": "Showing {{shown}} of {{total}}",
+            "loadMore": "Load more"
+        },
+        "generateSQL": "Generate SQL",
+        "migration": {
+            "title": "Migration Script",
+            "generating": "Generating script...",
+            "statements": "{{count}} statement(s)",
+            "copy": "Copy",
+            "download": "Download",
+            "apply": "Apply",
+            "applying": "Applying...",
+            "copied": "Copied to clipboard",
+            "copyFailed": "Failed to copy",
+            "downloaded": "Script downloaded",
+            "noScript": "No script generated",
+            "applySuccess": "Applied {{count}} change(s) successfully",
+            "applyFailed": "Failed to apply changes",
+            "confirmRequired": "Type APPLY to confirm",
+            "confirmLabel": "Type APPLY to confirm:",
+            "prodWarning": "You are about to apply changes to a PRODUCTION database. This action cannot be undone."
+        },
+        "restore": {
+            "title": "Restore sandbox changes?",
+            "message": "We found {{count}} pending sandbox change(s) from a previous session.",
+            "savedAt": "Saved at: {{date}}",
+            "restore": "Restore",
+            "discard": "Discard"
+        },
+        "validation": {
+            "schemaMissing": "Unable to validate schema for {{table}}. Proceed with caution.",
+            "schemaMismatch": "Schema changed for {{table}}. Refresh the table before applying changes.",
+            "noPrimaryKey": "Table {{table}} has no primary key. Updates/deletes may be unsafe.",
+            "missingPrimaryKey": "Missing primary key data for {{table}} changes."
+        },
+        "row": {
+            "new": "NEW",
+            "modified": "Modified",
+            "deleted": "Deleted"
+        }
     }
 }

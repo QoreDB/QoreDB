@@ -43,6 +43,8 @@ import { DataGridPagination } from "./DataGridPagination";
 import { DeleteConfirmDialog } from "./DeleteConfirmDialog";
 import { GridColumnFilter } from "./GridColumnFilter";
 import { DangerConfirmDialog } from "@/components/Guard/DangerConfirmDialog";
+import { SandboxChange, SandboxDeleteDisplay, SandboxRowMetadata } from "@/lib/sandboxTypes";
+import { applyOverlay, OverlayResult, emptyOverlayResult } from "@/lib/sandboxOverlay";
 
 interface DataGridProps {
 	result: QueryResult | null;
@@ -65,6 +67,13 @@ interface DataGridProps {
     tableName: string,
     relationFilter?: RelationFilter
   ) => void;
+  // Sandbox props
+  sandboxMode?: boolean;
+  pendingChanges?: SandboxChange[];
+  sandboxDeleteDisplay?: SandboxDeleteDisplay;
+  onSandboxInsert?: (newValues: Record<string, Value>) => void;
+  onSandboxUpdate?: (primaryKey: Record<string, Value>, oldValues: Record<string, Value>, newValues: Record<string, Value>) => void;
+  onSandboxDelete?: (primaryKey: Record<string, Value>, oldValues: Record<string, Value>) => void;
 }
 
 interface PeekState {
@@ -106,6 +115,13 @@ export function DataGrid({
   onRowClick,
   onRowsUpdated,
   onOpenRelatedTable,
+  // Sandbox props
+  sandboxMode = false,
+  pendingChanges = [],
+  sandboxDeleteDisplay = 'strikethrough',
+  onSandboxInsert,
+  onSandboxUpdate,
+  onSandboxDelete,
 }: DataGridProps) {
   const { t } = useTranslation();
   const DEFAULT_RENDER_LIMIT = 2000;
@@ -192,12 +208,24 @@ export function DataGrid({
   const effectiveLimit = renderLimit === null ? totalRows : renderLimit;
   const isLimited = totalRows > effectiveLimit;
 
-  // Convert data
+  // Apply sandbox overlay to results
+  const overlayResult: OverlayResult = useMemo(() => {
+    if (!result || !sandboxMode || pendingChanges.length === 0 || !namespace || !tableName) {
+      return result ? emptyOverlayResult(result) : { result: { columns: [], rows: [], affected_rows: undefined, execution_time_ms: 0 }, rowMetadata: new Map(), stats: { insertedRows: 0, modifiedRows: 0, deletedRows: 0, hiddenRows: 0 } };
+    }
+    return applyOverlay(result, pendingChanges, tableSchema ?? null, namespace, tableName, {
+      deleteDisplay: sandboxDeleteDisplay,
+      primaryKey,
+    });
+  }, [result, sandboxMode, pendingChanges, namespace, tableName, tableSchema, sandboxDeleteDisplay, primaryKey]);
+
+  // Convert data (use overlayed result when in sandbox mode)
   const data = useMemo(() => {
-    if (!result) return [];
-    const limitedRows = renderLimit === null ? result.rows : result.rows.slice(0, renderLimit);
-    return convertToRowData({ ...result, rows: limitedRows });
-  }, [result, renderLimit]);
+    const effectiveResult = sandboxMode ? overlayResult.result : result;
+    if (!effectiveResult) return [];
+    const limitedRows = renderLimit === null ? effectiveResult.rows : effectiveResult.rows.slice(0, renderLimit);
+    return convertToRowData({ ...effectiveResult, rows: limitedRows });
+  }, [result, overlayResult.result, sandboxMode, renderLimit]);
 
   const columnTypeMap = useMemo(() => {
     const map = new Map<string, string>();
@@ -388,7 +416,7 @@ export function DataGrid({
 
   const performInlineUpdate = useCallback(
     async (payload: { row: RowData; columnId: string; value: Value; originalValue: Value }) => {
-      if (!sessionId || !namespace || !tableName || !primaryKey || primaryKey.length === 0) {
+      if (!namespace || !tableName || !primaryKey || primaryKey.length === 0) {
         toast.error(t('grid.updateNoPrimaryKey'));
         return;
       }
@@ -396,18 +424,32 @@ export function DataGrid({
         toast.error(t('environment.blocked'));
         return;
       }
-      if (!mutationsSupported) {
+      if (!mutationsSupported && !sandboxMode) {
         toast.error(t('grid.mutationsNotSupported'));
         return;
       }
 
-      const pkData: TauriRowData = { columns: {} };
+      const pkData: Record<string, Value> = {};
       for (const key of primaryKey) {
         if (payload.row[key] === undefined) {
           toast.error(t('grid.updateNoPrimaryKey'));
           return;
         }
-        pkData.columns[key] = payload.row[key];
+        pkData[key] = payload.row[key];
+      }
+
+      // Sandbox mode: add change locally
+      if (sandboxMode && onSandboxUpdate) {
+        const oldValues: Record<string, Value> = { [payload.columnId]: payload.originalValue };
+        const newValues: Record<string, Value> = { [payload.columnId]: payload.value };
+        onSandboxUpdate(pkData, oldValues, newValues);
+        return;
+      }
+
+      // Real update
+      if (!sessionId) {
+        toast.error(t('grid.updateNoPrimaryKey'));
+        return;
       }
 
       setIsUpdating(true);
@@ -417,7 +459,7 @@ export function DataGrid({
           namespace.database,
           namespace.schema,
           tableName,
-          pkData,
+          { columns: pkData },
           { columns: { [payload.columnId]: payload.value } }
         );
         if (res.success) {
@@ -439,6 +481,8 @@ export function DataGrid({
       primaryKey,
       readOnly,
       mutationsSupported,
+      sandboxMode,
+      onSandboxUpdate,
       onRowsUpdated,
       t,
     ]
@@ -854,7 +898,7 @@ export function DataGrid({
 
   // Delete functionality
   async function performDelete() {
-    if (!sessionId || !namespace || !tableName || !primaryKey || primaryKey.length === 0) return;
+    if (!namespace || !tableName || !primaryKey || primaryKey.length === 0) return;
 
     const selectedRows = table.getSelectedRowModel().rows;
     if (selectedRows.length === 0) return;
@@ -863,10 +907,41 @@ export function DataGrid({
       toast.error(t('environment.blocked'));
       return;
     }
-    if (!mutationsSupported) {
+    if (!mutationsSupported && !sandboxMode) {
       toast.error(t('grid.mutationsNotSupported'));
       return;
     }
+
+    // Sandbox mode: add changes locally instead of executing
+    if (sandboxMode && onSandboxDelete) {
+      for (const row of selectedRows) {
+        const pkData: Record<string, Value> = {};
+        const oldValues: Record<string, Value> = {};
+        let missingPk = false;
+
+        for (const key of primaryKey) {
+          if (row.original[key] === undefined) {
+            missingPk = true;
+            break;
+          }
+          pkData[key] = row.original[key];
+        }
+
+        if (missingPk) continue;
+
+        // Capture all values for oldValues
+        for (const [key, val] of Object.entries(row.original)) {
+          oldValues[key] = val;
+        }
+
+        onSandboxDelete(pkData, oldValues);
+      }
+      table.resetRowSelection();
+      return;
+    }
+
+    // Real deletion
+    if (!sessionId) return;
 
     setIsDeleting(true);
     let successCount = 0;
@@ -927,7 +1002,7 @@ export function DataGrid({
       toast.error(t('environment.blocked'));
       return;
     }
-    if (!mutationsSupported) {
+    if (!mutationsSupported && !sandboxMode) {
       toast.error(t('grid.mutationsNotSupported'));
       return;
     }
@@ -1157,23 +1232,47 @@ export function DataGrid({
                 />
                 {rowVirtualizer.getVirtualItems().map(virtualRow => {
                   const row = rows[virtualRow.index];
+                  const rowMeta = sandboxMode ? overlayResult.rowMetadata.get(virtualRow.index) : undefined;
+                  const isInserted = rowMeta?.isInserted ?? false;
+                  const isDeleted = rowMeta?.isDeleted ?? false;
+                  const isModified = rowMeta?.isModified ?? false;
+
                   return (
                     <tr
                       key={row.id}
                       className={cn(
                         'border-b border-border hover:bg-muted/50 transition-colors',
-                        row.getIsSelected() && 'bg-accent/10'
+                        row.getIsSelected() && 'bg-accent/10',
+                        // Sandbox visual highlighting
+                        isInserted && 'bg-success/10 hover:bg-success/15',
+                        isDeleted && 'bg-error/10 hover:bg-error/15 line-through opacity-60',
+                        isModified && !isInserted && !isDeleted && 'bg-warning/5 hover:bg-warning/10'
                       )}
                     >
-                      {row.getVisibleCells().map(cell => (
-                        <td
-                          key={cell.id}
-                          className="px-3 py-1.5 max-w-xs"
-                          style={{ width: cell.column.getSize() }}
-                        >
-                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                        </td>
-                      ))}
+                      {row.getVisibleCells().map(cell => {
+                        const columnId = cell.column.id;
+                        const isCellModified = rowMeta?.modifiedColumns.has(columnId) ?? false;
+
+                        return (
+                          <td
+                            key={cell.id}
+                            className={cn(
+                              'px-3 py-1.5 max-w-xs',
+                              // Highlight modified cells
+                              isCellModified && !isInserted && !isDeleted && 'bg-warning/20'
+                            )}
+                            style={{ width: cell.column.getSize() }}
+                          >
+                            {/* Show NEW badge for inserted rows */}
+                            {isInserted && cell.column.id === '__select' && (
+                              <span className="inline-flex items-center px-1.5 py-0.5 text-[9px] font-bold rounded bg-success text-success-foreground mr-1.5">
+                                {t('sandbox.row.new')}
+                              </span>
+                            )}
+                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                          </td>
+                        );
+                      })}
                     </tr>
                   );
                 })}

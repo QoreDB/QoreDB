@@ -272,10 +272,18 @@ function matchesPrimaryKey(
   return pkColumns.every(col => {
     const v1 = valueMap[col];
     const v2 = primaryKey.columns[col];
+    
+    // Use strict equality for primitives and same reference
     if (v1 === v2) return true;
-    if (typeof v1 === 'object' && typeof v2 === 'object' && v1 !== null && v2 !== null) {
+    
+    // Handle null/undefined cases
+    if (v1 == null || v2 == null) return false;
+    
+    // For objects and arrays, use stable stringify for deep comparison
+    if (typeof v1 === 'object' || typeof v2 === 'object') {
       return stableStringify(v1) === stableStringify(v2);
     }
+    
     return false;
   });
 }

@@ -644,7 +644,7 @@
         "confirmDeactivate": {
             "title": "Exit Sandbox Mode?",
             "message": "You have pending changes that haven't been applied to the database. What would you like to do?",
-            "keepChanges": "Keep Changes",
+            "keepChanges": "Keep Changes (Preserve for Later)",
             "discardChanges": "Discard Changes"
         },
         "changes": {

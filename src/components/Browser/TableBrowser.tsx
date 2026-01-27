@@ -93,6 +93,8 @@ function schemasCompatible(a: TableSchema, b: TableSchema): boolean {
   return true;
 }
 
+export type TableBrowserTab = 'structure' | 'data' | 'info';
+
 interface TableBrowserProps {
   sessionId: string;
   namespace: Namespace;
@@ -107,9 +109,9 @@ interface TableBrowserProps {
   onClose: () => void;
   onOpenRelatedTable?: (namespace: Namespace, tableName: string) => void;
   relationFilter?: RelationFilter;
+  initialTab?: TableBrowserTab;
+  onActiveTabChange?: (tab: TableBrowserTab) => void;
 }
-
-type Tab = 'structure' | 'data' | 'info';
 
 export function TableBrowser({
   sessionId,
@@ -125,10 +127,12 @@ export function TableBrowser({
   onClose,
   onOpenRelatedTable,
   relationFilter,
+  initialTab,
+  onActiveTabChange,
 }: TableBrowserProps) {
   const { t } = useTranslation();
   const viewTrackedRef = useRef(false);
-  const [activeTab, setActiveTab] = useState<Tab>('data');
+  const [activeTab, setActiveTab] = useState<TableBrowserTab>(initialTab ?? 'data');
   const [schema, setSchema] = useState<TableSchema | null>(null);
   const [data, setData] = useState<QueryResult | null>(null);
   const [loading, setLoading] = useState(true);
@@ -148,6 +152,14 @@ export function TableBrowser({
   const [migrationScript, setMigrationScript] = useState<MigrationScript | null>(null);
   const [migrationLoading, setMigrationLoading] = useState(false);
   const [migrationError, setMigrationError] = useState<string | null>(null);
+
+  const handleTabChange = useCallback(
+    (tab: TableBrowserTab) => {
+      setActiveTab(tab);
+      onActiveTabChange?.(tab);
+    },
+    [onActiveTabChange]
+  );
   const [sandboxPrefs, setSandboxPrefs] = useState(() => getSandboxPreferences());
   const [restoreBackupOpen, setRestoreBackupOpen] = useState(false);
   const [pendingBackup, setPendingBackup] = useState<{
@@ -564,7 +576,7 @@ export function TableBrowser({
               ? 'bg-accent text-accent-foreground'
               : 'text-muted-foreground hover:text-foreground hover:bg-muted'
           )}
-          onClick={() => setActiveTab('data')}
+          onClick={() => handleTabChange('data')}
         >
           <span className="flex items-center gap-2">
             <Columns3 size={14} />
@@ -578,7 +590,7 @@ export function TableBrowser({
               ? 'bg-accent text-accent-foreground'
               : 'text-muted-foreground hover:text-foreground hover:bg-muted'
           )}
-          onClick={() => setActiveTab('structure')}
+          onClick={() => handleTabChange('structure')}
         >
           <span className="flex items-center gap-2">
             <Key size={14} />
@@ -592,7 +604,7 @@ export function TableBrowser({
               ? 'bg-accent text-accent-foreground'
               : 'text-muted-foreground hover:text-foreground hover:bg-muted'
           )}
-          onClick={() => setActiveTab('info')}
+          onClick={() => handleTabChange('info')}
         >
           <span className="flex items-center gap-2">
             <Info size={14} />

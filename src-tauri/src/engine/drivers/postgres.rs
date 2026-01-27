@@ -25,7 +25,7 @@ use crate::engine::traits::DataEngine;
 use crate::engine::types::{
     CancelSupport, Collection, CollectionList, CollectionListOptions, CollectionType, ColumnInfo,
     ConnectionConfig, Namespace, QueryId, QueryResult, Row as QRow, RowData, SessionId,
-    TableColumn, TableSchema, Value, ForeignKey
+    TableColumn, TableIndex, TableSchema, Value, ForeignKey
 };
 use crate::engine::traits::{StreamEvent, StreamSender};
 use futures::StreamExt;
@@ -905,11 +905,45 @@ impl DataEngine for PostgresDriver {
             estimate_rows.and_then(|c| if c < 0 { None } else { Some(c as u64) })
         };
 
+        // Get indexes
+        let index_rows: Vec<(String, Vec<String>, bool, bool)> = sqlx::query_as(
+            r#"
+            SELECT i.relname AS index_name,
+                   array_agg(a.attname ORDER BY x.ordinality)::text[] AS columns,
+                   ix.indisunique AS is_unique,
+                   ix.indisprimary AS is_primary
+            FROM pg_index ix
+            JOIN pg_class i ON i.oid = ix.indexrelid
+            JOIN pg_class t ON t.oid = ix.indrelid
+            JOIN pg_namespace n ON n.oid = t.relnamespace
+            CROSS JOIN LATERAL unnest(ix.indkey) WITH ORDINALITY AS x(attnum, ordinality)
+            JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = x.attnum
+            WHERE n.nspname = $1 AND t.relname = $2
+            GROUP BY i.relname, ix.indisunique, ix.indisprimary
+            "#,
+        )
+        .bind(schema)
+        .bind(table)
+        .fetch_all(pool)
+        .await
+        .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        let indexes: Vec<TableIndex> = index_rows
+            .into_iter()
+            .map(|(name, columns, is_unique, is_primary)| TableIndex {
+                name,
+                columns,
+                is_unique,
+                is_primary,
+            })
+            .collect();
+
         Ok(TableSchema {
             columns,
             primary_key: if pk_columns.is_empty() { None } else { Some(pk_columns) },
             foreign_keys,
             row_count_estimate,
+            indexes,
         })
     }
 

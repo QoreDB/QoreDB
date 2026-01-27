@@ -295,11 +295,19 @@ export interface RelationFilter {
   value: Value;
 }
 
+export interface TableIndex {
+  name: string;
+  columns: string[];
+  is_unique: boolean;
+  is_primary: boolean;
+}
+
 export interface TableSchema {
   columns: TableColumn[];
   primary_key?: string[];
   foreign_keys: ForeignKey[];
   row_count_estimate?: number | null;
+  indexes: TableIndex[];
 }
 
 export interface TableColumn {

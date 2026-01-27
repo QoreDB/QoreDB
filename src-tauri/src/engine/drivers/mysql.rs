@@ -24,7 +24,7 @@ use crate::engine::traits::DataEngine;
 use crate::engine::types::{
     CancelSupport, Collection, CollectionList, CollectionListOptions, CollectionType, ColumnInfo,
     ConnectionConfig, Namespace, QueryId, QueryResult, Row as QRow, RowData, SessionId,
-    TableColumn, TableSchema, Value, ForeignKey
+    TableColumn, TableIndex, TableSchema, Value, ForeignKey
 };
 use crate::engine::traits::{StreamEvent, StreamSender};
 use futures::StreamExt;
@@ -851,11 +851,50 @@ impl DataEngine for MySqlDriver {
 
         let row_count_estimate = count_row.map(|(c,)| c);
 
+        // Get indexes
+        let index_rows: Vec<(String, String, i32, i32)> = sqlx::query_as(
+            r#"
+            SELECT
+                CAST(INDEX_NAME AS CHAR) AS name,
+                CAST(COLUMN_NAME AS CHAR) AS column_name,
+                CAST(NON_UNIQUE AS SIGNED) AS non_unique,
+                CAST(SEQ_IN_INDEX AS SIGNED) AS seq_in_index
+            FROM information_schema.STATISTICS
+            WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?
+            ORDER BY INDEX_NAME, SEQ_IN_INDEX
+            "#,
+        )
+        .bind(database)
+        .bind(table)
+        .fetch_all(pool)
+        .await
+        .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        // Group by index name
+        let mut index_map: std::collections::HashMap<String, (Vec<String>, bool, bool)> = std::collections::HashMap::new();
+        for (name, column_name, non_unique, _seq) in index_rows {
+            let is_unique = non_unique == 0;
+            let is_primary = name == "PRIMARY";
+            let entry = index_map.entry(name).or_insert_with(|| (Vec::new(), is_unique, is_primary));
+            entry.0.push(column_name);
+        }
+
+        let indexes: Vec<TableIndex> = index_map
+            .into_iter()
+            .map(|(name, (columns, is_unique, is_primary))| TableIndex {
+                name,
+                columns,
+                is_unique,
+                is_primary,
+            })
+            .collect();
+
         Ok(TableSchema {
             columns,
             primary_key: if pk_columns.is_empty() { None } else { Some(pk_columns) },
             foreign_keys,
             row_count_estimate,
+            indexes,
         })
     }
 

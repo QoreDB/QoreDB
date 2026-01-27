@@ -34,6 +34,8 @@ import { CreateTableModal } from '../Table/CreateTableModal';
 import { emitTableChange, onTableChange } from '@/lib/tableEvents';
 import { ERDiagram } from '@/components/Schema/ERDiagram';
 
+export type DatabaseBrowserTab = 'overview' | 'tables' | 'schema';
+
 interface DatabaseBrowserProps {
   sessionId: string;
   namespace: Namespace;
@@ -46,6 +48,8 @@ interface DatabaseBrowserProps {
   onSchemaChange?: () => void;
   onOpenQueryTab?: (namespace: Namespace) => void;
   onClose: () => void;
+  initialTab?: DatabaseBrowserTab;
+  onActiveTabChange?: (tab: DatabaseBrowserTab) => void;
 }
 
 interface DatabaseStats {
@@ -55,8 +59,6 @@ interface DatabaseStats {
   indexCount?: number;
   documentCount?: number;
 }
-
-type Tab = 'overview' | 'tables' | 'schema';
 
 export function DatabaseBrowser({
   sessionId,
@@ -70,9 +72,11 @@ export function DatabaseBrowser({
   onSchemaChange,
   onOpenQueryTab,
   onClose,
+  initialTab,
+  onActiveTabChange,
 }: DatabaseBrowserProps) {
   const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState<Tab>('overview');
+  const [activeTab, setActiveTab] = useState<DatabaseBrowserTab>(initialTab ?? 'overview');
   const [stats, setStats] = useState<DatabaseStats>({});
   const [collections, setCollections] = useState<Collection[]>([]);
   const [loading, setLoading] = useState(true);
@@ -86,6 +90,14 @@ export function DatabaseBrowser({
   const pageSize = 20;
 
   const driverMeta = getDriverMetadata(driver);
+
+  const handleTabChange = useCallback(
+    (tab: DatabaseBrowserTab) => {
+      setActiveTab(tab);
+      onActiveTabChange?.(tab);
+    },
+    [onActiveTabChange]
+  );
 
   const loadData = useCallback(async () => {
     if (activeTab === 'schema') {
@@ -175,9 +187,9 @@ export function DatabaseBrowser({
 
   useEffect(() => {
     if (!driverMeta.supportsSQL && activeTab === 'schema') {
-      setActiveTab('overview');
+      handleTabChange('overview');
     }
-  }, [activeTab, driverMeta.supportsSQL]);
+  }, [activeTab, driverMeta.supportsSQL, handleTabChange]);
 
   useEffect(() => {
     loadData();
@@ -291,7 +303,7 @@ export function DatabaseBrowser({
               ? 'bg-accent text-accent-foreground'
               : 'text-muted-foreground hover:text-foreground hover:bg-muted'
           )}
-          onClick={() => setActiveTab('overview')}
+          onClick={() => handleTabChange('overview')}
         >
           <span className="flex items-center gap-2">
             <Database size={14} />
@@ -305,7 +317,7 @@ export function DatabaseBrowser({
               ? 'bg-accent text-accent-foreground'
               : 'text-muted-foreground hover:text-foreground hover:bg-muted'
           )}
-          onClick={() => setActiveTab('tables')}
+          onClick={() => handleTabChange('tables')}
         >
           <span className="flex items-center gap-2">
             <Table size={14} />
@@ -320,7 +332,7 @@ export function DatabaseBrowser({
                 ? 'bg-accent text-accent-foreground'
                 : 'text-muted-foreground hover:text-foreground hover:bg-muted'
             )}
-            onClick={() => setActiveTab('schema')}
+            onClick={() => handleTabChange('schema')}
           >
             <span className="flex items-center gap-2">
               <List size={14} />

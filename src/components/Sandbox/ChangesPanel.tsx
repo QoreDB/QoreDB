@@ -172,7 +172,7 @@ export function ChangesPanel({
             'left-auto translate-x-0 translate-y-0 rounded-none sm:rounded-none',
             '[&>button.absolute]:hidden'
           )}
-          overlayClassName="bg-transparent backdrop-blur-0 pointer-events-none"
+          overlayClassName="bg-background/40 backdrop-blur-sm"
         >
         <motion.div
           initial={{ x: '100%' }}

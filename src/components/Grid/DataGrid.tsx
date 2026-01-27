@@ -29,20 +29,31 @@ import {
   RelationFilter,
 } from "@/lib/tauri";
 import { cn } from "@/lib/utils";
-import { ArrowUpDown, ArrowUp, ArrowDown, Trash2, CheckCircle2, Pencil, Loader2, Link2 } from 'lucide-react';
-import { Button } from "@/components/ui/button";
-import { useTranslation } from "react-i18next";
-import { toast } from "sonner";
-import { TooltipRoot, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import {
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  Trash2,
+  CheckCircle2,
+  Pencil,
+  Loader2,
+  Link2,
+  KeyRound,
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
+import { TooltipRoot, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 
-import { RowData, formatValue, convertToRowData } from "./utils/dataGridUtils";
-import { useDataGridCopy } from "./hooks/useDataGridCopy";
-import { useDataGridExport } from "./hooks/useDataGridExport";
-import { DataGridToolbar } from "./DataGridToolbar";
-import { DataGridPagination } from "./DataGridPagination";
-import { DeleteConfirmDialog } from "./DeleteConfirmDialog";
-import { GridColumnFilter } from "./GridColumnFilter";
-import { DangerConfirmDialog } from "@/components/Guard/DangerConfirmDialog";
+import { RowData, formatValue, convertToRowData } from './utils/dataGridUtils';
+import { useDataGridCopy } from './hooks/useDataGridCopy';
+import { useDataGridExport } from './hooks/useDataGridExport';
+import { DataGridToolbar } from './DataGridToolbar';
+import { DataGridPagination } from './DataGridPagination';
+import { DeleteConfirmDialog } from './DeleteConfirmDialog';
+import { GridColumnFilter } from './GridColumnFilter';
+import { DangerConfirmDialog } from '@/components/Guard/DangerConfirmDialog';
 import { SandboxChange, SandboxDeleteDisplay } from '@/lib/sandboxTypes';
 import { applyOverlay, OverlayResult, emptyOverlayResult } from '@/lib/sandboxOverlay';
 
@@ -269,6 +280,10 @@ export function DataGrid({
     });
     return map;
   }, [tableSchema]);
+
+  const primaryKeySet = useMemo(() => {
+    return new Set(primaryKey ?? []);
+  }, [primaryKey]);
 
   const hasInlineEditContext = Boolean(sessionId && namespace && tableName);
   const hasPrimaryKey = Boolean(primaryKey && primaryKey.length > 0);
@@ -587,34 +602,63 @@ export function DataGrid({
     const selectColumn = columnHelper.display({
       id: 'select',
       header: ({ table }) => (
-        <input
-          type="checkbox"
-          checked={table.getIsAllRowsSelected()}
-          onChange={table.getToggleAllRowsSelectedHandler()}
+        <Checkbox
+          checked={
+            table.getIsAllRowsSelected()
+              ? true
+              : table.getIsSomeRowsSelected()
+                ? 'indeterminate'
+                : false
+          }
+          onCheckedChange={checked => table.toggleAllRowsSelected(checked === true)}
           onClick={event => event.stopPropagation()}
+          aria-label={t('grid.selectAllRows', { defaultValue: 'Select all rows' })}
           className="h-4 w-4 rounded border-border cursor-pointer"
         />
       ),
       cell: ({ row }) => (
-        <input
-          type="checkbox"
+        <Checkbox
           checked={row.getIsSelected()}
-          onChange={row.getToggleSelectedHandler()}
+          onCheckedChange={checked => row.toggleSelected(checked === true)}
           onClick={event => event.stopPropagation()}
+          aria-label={t('grid.selectRow', { defaultValue: 'Select row' })}
           className="h-4 w-4 rounded border-border cursor-pointer"
         />
       ),
       size: 40,
     });
 
-    const dataColumns = result.columns.map(col =>
-      columnHelper.accessor(row => row[col.name], {
+    const dataColumns = result.columns.map(col => {
+      const isPrimaryKey = primaryKeySet.has(col.name);
+      const columnForeignKeys = foreignKeyMap.get(col.name);
+      const isForeignKey = Boolean(columnForeignKeys?.length);
+      const fkTable = columnForeignKeys?.[0]?.referenced_table;
+
+      return columnHelper.accessor(row => row[col.name], {
         id: col.name,
         header: ({ column }) => (
           <button
             className="flex items-center gap-1 hover:text-foreground transition-colors w-full text-left"
             onClick={() => column.toggleSorting()}
           >
+            {isPrimaryKey && (
+              <TooltipRoot>
+                <TooltipTrigger asChild>
+                  <KeyRound size={12} className="shrink-0 text-accent" />
+                </TooltipTrigger>
+                <TooltipContent side="top">{t('grid.columnIndicators.primaryKey')}</TooltipContent>
+              </TooltipRoot>
+            )}
+            {isForeignKey && (
+              <TooltipRoot>
+                <TooltipTrigger asChild>
+                  <Link2 size={12} className="shrink-0 text-info" />
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  {t('grid.columnIndicators.foreignKey', { table: fkTable })}
+                </TooltipContent>
+              </TooltipRoot>
+            )}
             <span className="truncate">{col.name}</span>
             {column.getIsSorted() === 'asc' ? (
               <ArrowUp size={14} className="shrink-0 text-accent" />
@@ -839,8 +883,8 @@ export function DataGrid({
           if (typeof a === 'number' && typeof b === 'number') return a - b;
           return String(a).localeCompare(String(b));
         },
-      })
-    );
+      });
+    });
 
     const leadingColumns = actionColumn ? [selectColumn, actionColumn] : [selectColumn];
     return [...leadingColumns, ...dataColumns];
@@ -853,6 +897,7 @@ export function DataGrid({
     cancelInlineEdit,
     inlineEditAvailable,
     foreignKeyMap,
+    primaryKeySet,
     buildPeekKey,
     peekCache,
     ensurePeekLoaded,
@@ -1278,7 +1323,6 @@ export function DataGrid({
                       className={cn(
                         'border-b border-border hover:bg-muted/50 transition-colors',
                         row.getIsSelected() && 'bg-accent/10',
-                        // Sandbox visual highlighting
                         isInserted && 'bg-success/10 hover:bg-success/15',
                         isDeleted && 'bg-error/10 hover:bg-error/15 line-through opacity-60',
                         isModified &&
@@ -1296,12 +1340,10 @@ export function DataGrid({
                             key={cell.id}
                             className={cn(
                               'px-3 py-1.5 max-w-xs',
-                              // Highlight modified cells
                               isCellModified && !isInserted && !isDeleted && 'bg-warning/20'
                             )}
                             style={{ width: cell.column.getSize() }}
                           >
-                            {/* Show NEW badge for inserted rows */}
                             {isInserted && cell.column.id === '__select' && (
                               <span className="inline-flex items-center px-1.5 py-0.5 text-[9px] font-bold rounded bg-success text-success-foreground mr-1.5">
                                 {t('sandbox.row.new')}

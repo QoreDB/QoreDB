@@ -324,6 +324,15 @@ pub struct ForeignKey {
     pub constraint_name: Option<String>,
 }
 
+/// Table index definition
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TableIndex {
+    pub name: String,
+    pub columns: Vec<String>,
+    pub is_unique: bool,
+    pub is_primary: bool,
+}
+
 /// Table schema metadata
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TableSchema {
@@ -335,6 +344,8 @@ pub struct TableSchema {
     pub foreign_keys: Vec<ForeignKey>,
     /// Estimated row count (if available)
     pub row_count_estimate: Option<u64>,
+    /// Table indexes
+    pub indexes: Vec<TableIndex>,
 }
 
 /// Column metadata for table schema

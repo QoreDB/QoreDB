@@ -1,12 +1,12 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { notify } from './lib/notify';
 import { Sidebar } from './components/Sidebar/Sidebar';
 import { TabBar } from './components/Tabs/TabBar';
 import { GlobalSearch, SearchResult } from './components/Search/GlobalSearch';
 import { QueryPanel } from './components/Query/QueryPanel';
-import { TableBrowser } from './components/Browser/TableBrowser';
-import { DatabaseBrowser } from './components/Browser/DatabaseBrowser';
+import { TableBrowser, type TableBrowserTab } from './components/Browser/TableBrowser';
+import { DatabaseBrowser, type DatabaseBrowserTab } from './components/Browser/DatabaseBrowser';
 import { ConnectionDashboard } from './components/Dashboard/ConnectionDashboard';
 import { ConnectionModal } from './components/Connection/ConnectionModal';
 import { SettingsPage } from './components/Settings/SettingsPage';
@@ -50,6 +50,32 @@ function isTextInputTarget(target: EventTarget | null): boolean {
 
 const DEFAULT_PROJECT = 'default';
 const RECOVERY_SAVE_DEBOUNCE_MS = 600;
+
+function sanitizeTableBrowserTabs(
+  input?: Record<string, string>
+): Record<string, TableBrowserTab> {
+  const result: Record<string, TableBrowserTab> = {};
+  if (!input) return result;
+  for (const [id, tab] of Object.entries(input)) {
+    if (tab === 'data' || tab === 'structure' || tab === 'info') {
+      result[id] = tab;
+    }
+  }
+  return result;
+}
+
+function sanitizeDatabaseBrowserTabs(
+  input?: Record<string, string>
+): Record<string, DatabaseBrowserTab> {
+  const result: Record<string, DatabaseBrowserTab> = {};
+  if (!input) return result;
+  for (const [id, tab] of Object.entries(input)) {
+    if (tab === 'overview' || tab === 'tables' || tab === 'schema') {
+      result[id] = tab;
+    }
+  }
+  return result;
+}
 
 function App() {
   const { t } = useTranslation();
@@ -161,6 +187,9 @@ function App() {
   // Tab system
   const [tabs, setTabs] = useState<OpenTab[]>([]);
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
+  const tableBrowserTabsRef = useRef<Record<string, TableBrowserTab>>({});
+  const databaseBrowserTabsRef = useRef<Record<string, DatabaseBrowserTab>>({});
+  const recoverySaveHandleRef = useRef<number | null>(null);
 
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [sidebarRefreshTrigger, setSidebarRefreshTrigger] = useState(0);
@@ -188,6 +217,8 @@ function App() {
       tabs?: OpenTab[];
       activeTabId?: string | null;
       queryDrafts?: Record<string, string>;
+      tableBrowserTabs?: Record<string, TableBrowserTab>;
+      databaseBrowserTabs?: Record<string, DatabaseBrowserTab>;
     }
   ) {
     setSessionId(newSessionId);
@@ -196,6 +227,8 @@ function App() {
     setTabs(options?.tabs ?? []);
     setActiveTabId(options?.activeTabId ?? options?.tabs?.[0]?.id ?? null);
     setQueryDrafts(options?.queryDrafts ?? {});
+    tableBrowserTabsRef.current = options?.tableBrowserTabs ?? {};
+    databaseBrowserTabsRef.current = options?.databaseBrowserTabs ?? {};
     setSettingsOpen(false);
   }
 
@@ -254,6 +287,8 @@ function App() {
         delete next[tabId];
         return next;
       });
+      delete tableBrowserTabsRef.current[tabId];
+      delete databaseBrowserTabsRef.current[tabId];
     },
     [activeTabId]
   );
@@ -457,6 +492,8 @@ function App() {
             tabs: restoredTabs,
             activeTabId: recoverySnapshot.activeTabId,
             queryDrafts: recoverySnapshot.queryDrafts,
+            tableBrowserTabs: sanitizeTableBrowserTabs(recoverySnapshot.tableBrowserTabs),
+            databaseBrowserTabs: sanitizeDatabaseBrowserTabs(recoverySnapshot.databaseBrowserTabs),
           }
         );
         setRecoverySnapshot(null);
@@ -479,11 +516,10 @@ function App() {
     setRecoveryError(null);
   }, []);
 
-  useEffect(() => {
+  const scheduleRecoverySave = useCallback(() => {
     if (!activeConnection || !sessionId) return;
 
     const snapshot: CrashRecoverySnapshot = {
-      version: 1,
       updatedAt: Date.now(),
       projectId: DEFAULT_PROJECT,
       connectionId: activeConnection.id,
@@ -496,14 +532,27 @@ function App() {
         tableName: tab.tableName,
       })),
       queryDrafts,
+      tableBrowserTabs: { ...tableBrowserTabsRef.current },
+      databaseBrowserTabs: { ...databaseBrowserTabsRef.current },
     };
 
-    const handle = window.setTimeout(() => {
+    if (recoverySaveHandleRef.current) {
+      window.clearTimeout(recoverySaveHandleRef.current);
+    }
+
+    recoverySaveHandleRef.current = window.setTimeout(() => {
       saveCrashRecoverySnapshot(snapshot);
     }, RECOVERY_SAVE_DEBOUNCE_MS);
-
-    return () => window.clearTimeout(handle);
   }, [activeConnection, sessionId, tabs, activeTabId, queryDrafts]);
+
+  useEffect(() => {
+    scheduleRecoverySave();
+    return () => {
+      if (recoverySaveHandleRef.current) {
+        window.clearTimeout(recoverySaveHandleRef.current);
+      }
+    };
+  }, [scheduleRecoverySave]);
 
   // Global keyboard shortcuts
   useEffect(() => {
@@ -646,6 +695,11 @@ function App() {
                   connectionId={activeConnection?.id}
                   onOpenRelatedTable={handleTableSelect}
                   relationFilter={activeTab.relationFilter}
+                  initialTab={tableBrowserTabsRef.current[activeTab.id]}
+                  onActiveTabChange={tab => {
+                    tableBrowserTabsRef.current[activeTab.id] = tab;
+                    scheduleRecoverySave();
+                  }}
                   onClose={() => closeTab(activeTab.id)}
                 />
               ) : activeTab?.type === 'database' && activeTab.namespace ? (
@@ -660,6 +714,11 @@ function App() {
                   onTableSelect={handleTableSelect}
                   schemaRefreshTrigger={schemaRefreshTrigger}
                   onSchemaChange={triggerSchemaRefresh}
+                  initialTab={databaseBrowserTabsRef.current[activeTab.id]}
+                  onActiveTabChange={tab => {
+                    databaseBrowserTabsRef.current[activeTab.id] = tab;
+                    scheduleRecoverySave();
+                  }}
                   onOpenQueryTab={ns => {
                     openTab(createQueryTab(undefined, ns));
                   }}

@@ -663,7 +663,7 @@ impl DataEngine for MongoDriver {
                 is_primary_key: name == "_id",
                 name,
                 data_type,
-                nullable: true, // MongoDB fields are always nullable
+                nullable: true,
                 default_value: None,
             })
             .collect();
@@ -690,6 +690,7 @@ impl DataEngine for MongoDriver {
             primary_key: Some(vec!["_id".to_string()]),
             foreign_keys: Vec::new(),
             row_count_estimate: count,
+            indexes: Vec::new(),
         })
     }
 
@@ -807,6 +808,7 @@ impl DataEngine for MongoDriver {
 
     fn supports_transactions(&self) -> bool {
         // Returns false because we can't know at this point if the server is a replica set
+        //TODO : Implement a check to see if the connected MongoDB instance is a replica set
         false
     }
     

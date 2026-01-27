@@ -360,7 +360,10 @@
     "grid": {
         "columnIndicators": {
             "primaryKey": "Primary key",
-            "foreignKey": "Foreign key to {{table}}"
+            "foreignKey": "Foreign key to {{table}}",
+            "indexed": "Indexed",
+            "indexComposite": "Indexed (composite: {{name}})",
+            "unique": "Unique constraint"
         },
         "rowsSelected": "{{count}} row(s) selected",
         "rowsTotal": "{{count}} row(s)",

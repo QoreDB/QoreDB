@@ -4,7 +4,7 @@
 //! Used by the sandbox feature to create migration scripts.
 
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use crate::engine::types::{Namespace, RowData, Value};
 
@@ -206,17 +206,15 @@ pub fn generate_insert(
 ) -> String {
     let table = dialect.qualified_table(namespace, table_name);
 
-    let mut column_names: Vec<&String> = data.keys().collect();
-    column_names.sort();
+    // Use BTreeMap for deterministic column ordering
+    let mut sorted_data: BTreeMap<&String, &Value> = data.iter().collect();
 
-    let mut columns: Vec<String> = Vec::with_capacity(column_names.len());
-    let mut values: Vec<String> = Vec::with_capacity(column_names.len());
+    let mut columns: Vec<String> = Vec::with_capacity(sorted_data.len());
+    let mut values: Vec<String> = Vec::with_capacity(sorted_data.len());
 
-    for col in column_names {
-        if let Some(val) = data.get(col) {
-            columns.push(dialect.quote_ident(col));
-            values.push(dialect.format_value(val));
-        }
+    for (col, val) in sorted_data.iter() {
+        columns.push(dialect.quote_ident(col));
+        values.push(dialect.format_value(val));
     }
 
     format!(

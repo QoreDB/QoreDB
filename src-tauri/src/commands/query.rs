@@ -320,7 +320,12 @@ pub async fn execute_query(
         }
 
     } else {
-        // Normal execution
+        // Normal execution (non-streaming)
+        // When executing multiple SQL statements:
+        // - All statements are executed sequentially
+        // - Only the result of the last statement is returned
+        // - If any statement fails, execution stops and an error is returned
+        //   indicating which statements succeeded before the failure
         let start_time = std::time::Instant::now();
         let execution = async {
             if let Some(statements) = sql_statements {

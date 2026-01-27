@@ -430,7 +430,7 @@ export function DatabaseBrowser({
               </div>
             </div>
 
-            <div className="border border-border rounded-md divide-y divide-border flex-1 overflow-auto relative min-h-[200px]">
+            <div className="border border-border rounded-md divide-y divide-border flex-1 overflow-auto relative min-h-50">
               {loading && (
                 <div className="absolute inset-0 z-10 bg-background/50 flex items-center justify-center backdrop-blur-[1px]">
                   <Loader2 size={24} className="animate-spin text-primary" />

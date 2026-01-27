@@ -471,8 +471,6 @@ export function TableBrowser({
 
   const displayName = namespace.schema ? `${namespace.schema}.${tableName}` : tableName;
 
-  console.log('schema?.row_count_estimate', schema?.row_count_estimate);
-
   return (
     <div className="flex flex-col h-full bg-background rounded-lg border border-border shadow-sm overflow-hidden">
       {/* Header */}

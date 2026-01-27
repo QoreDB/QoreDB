@@ -119,6 +119,8 @@ Notes:
 
 ---
 
+Note: en exécution multi-statements, seul le dernier résultat est affiché (UI avertit).
+
 ### Modèle d'annulation des requêtes
 
 * Postgres: `pg_cancel_backend(pid)` via une connexion dédiée.

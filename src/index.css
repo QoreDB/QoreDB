@@ -38,6 +38,8 @@
   --color-warning: var(--q-warning);
   --color-error: var(--q-error);
   --color-info: var(--q-info);
+  --color-sandbox: var(--q-info);
+  --color-sandbox-foreground: #ffffff;
 }
 
 @layer base {

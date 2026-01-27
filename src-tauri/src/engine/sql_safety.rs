@@ -53,6 +53,27 @@ pub fn returns_rows(driver_id: &str, sql: &str) -> Result<bool, String> {
     Ok(statement_returns_rows(first))
 }
 
+pub fn split_sql_statements(driver_id: &str, sql: &str) -> Result<Vec<String>, String> {
+    let trimmed = sql.trim();
+    if trimmed.is_empty() {
+        return Err("Empty SQL".to_string());
+    }
+
+    let dialect = dialect_for_driver(driver_id);
+    let statements =
+        Parser::parse_sql(&*dialect, trimmed).map_err(|err| err.to_string())?;
+
+    let mut rendered = Vec::with_capacity(statements.len());
+    for statement in statements {
+        let statement_sql = statement.to_string();
+        if !statement_sql.trim().is_empty() {
+            rendered.push(statement_sql);
+        }
+    }
+
+    Ok(rendered)
+}
+
 pub fn is_select_prefix(sql: &str) -> bool {
     let trimmed = sql.trim_start().to_ascii_uppercase();
     trimmed.starts_with("SELECT")
@@ -259,5 +280,18 @@ mod tests {
 
         assert!(!analysis.is_mutation);
         assert!(!analysis.is_dangerous);
+    }
+
+    #[test]
+    fn splits_postgres_multi_statement() {
+        let statements = split_sql_statements(
+            "postgres",
+            "CREATE TABLE a (id INT); CREATE TABLE b (id INT);",
+        )
+        .expect("should parse");
+
+        assert_eq!(statements.len(), 2);
+        assert!(statements[0].to_ascii_uppercase().starts_with("CREATE TABLE"));
+        assert!(statements[1].to_ascii_uppercase().starts_with("CREATE TABLE"));
     }
 }

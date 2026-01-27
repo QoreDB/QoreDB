@@ -1,11 +1,12 @@
 import { useTranslation } from 'react-i18next';
-import { AlertCircle, X, CheckCircle2 } from 'lucide-react';
+import { AlertCircle, X, CheckCircle2, Info } from 'lucide-react';
 import { DataGrid } from '../Grid/DataGrid';
 import { DocumentResults } from '../Results/DocumentResults';
 import { ExplainPlanView } from '../Results/ExplainPlanView';
 import { Environment, QueryResult, Value } from '../../lib/tauri';
 import { getCollectionFromQuery } from './queryPanelUtils';
 import { cn } from '@/lib/utils';
+import { countSqlStatements } from '../../lib/environment';
 
 export interface QueryResultEntry {
   id: string;
@@ -58,6 +59,8 @@ export function QueryPanelResults({
   const activeQuery = activeResult?.query || query;
   const collection = getCollectionFromQuery(activeQuery);
   const showTabs = results.length > 1;
+  const statementCount = !isMongo ? countSqlStatements(activeQuery) : 1;
+  const showMultiStatementNotice = !isMongo && statementCount > 1;
 
   return (
     <div className="flex-1 flex flex-col min-h-0 bg-background overflow-hidden relative">
@@ -105,6 +108,12 @@ export function QueryPanelResults({
               {activeResult.query}
             </pre>
           </div>
+          {showMultiStatementNotice && (
+            <div className="shrink-0 border-b border-border bg-muted/5 px-4 py-2 text-xs text-muted-foreground flex items-start gap-2">
+              <Info size={14} className="mt-0.5 shrink-0 text-muted-foreground" />
+              <span>{t('query.multiStatementNotice', { count: statementCount })}</span>
+            </div>
+          )}
           {activeResult.error ? (
             <div className="p-4 m-4 rounded-md bg-error/10 border border-error/20 text-error flex items-start gap-3">
               <AlertCircle className="mt-0.5 shrink-0" size={18} />

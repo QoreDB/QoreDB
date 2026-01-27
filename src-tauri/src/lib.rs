@@ -124,6 +124,9 @@ pub fn run() {
             // Policy commands
             commands::policy::get_safety_policy,
             commands::policy::set_safety_policy,
+            // Sandbox commands
+            commands::sandbox::generate_migration_sql,
+            commands::sandbox::apply_sandbox_changes,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -45,6 +45,10 @@ interface RowModalProps {
   readOnly?: boolean;
   initialData?: Record<string, Value>;
   onSuccess: () => void;
+
+  sandboxMode?: boolean;
+  onSandboxInsert?: (newValues: Record<string, Value>) => void;
+  onSandboxUpdate?: (primaryKey: Record<string, Value>, oldValues: Record<string, Value>, newValues: Record<string, Value>) => void;
 }
 
 export function RowModal({
@@ -58,7 +62,10 @@ export function RowModal({
   driver,
   readOnly = false,
   initialData,
-  onSuccess
+  onSuccess,
+  sandboxMode = false,
+  onSandboxInsert,
+  onSandboxUpdate,
 }: RowModalProps) {
 	const { t } = useTranslation();
 	const [loading, setLoading] = useState(false);
@@ -144,16 +151,63 @@ export function RowModal({
 			return;
 		}
 		setPreviewError(null);
-		setLoading(true);
 
 		try {
-      const data: TauriRowData = {
-        columns: buildColumnsData({
-          columns: effectiveColumns,
-          formData,
-          nulls,
-        }),
-      };
+      const columnsData = buildColumnsData({
+        columns: effectiveColumns,
+        formData,
+        nulls,
+      });
+
+      // Sandbox mode: add changes locally instead of executing
+      if (sandboxMode) {
+        if (mode === "insert" && onSandboxInsert) {
+          onSandboxInsert(columnsData);
+          notify.success(t("rowModal.insertSuccess") + " (sandbox)");
+          onSuccess();
+          onClose();
+          return;
+        }
+
+        if (mode === "update" && onSandboxUpdate) {
+          if (!schema.primary_key || schema.primary_key.length === 0) {
+            throw new Error("No primary key found for update");
+          }
+
+          const pkData: Record<string, Value> = {};
+          schema.primary_key.forEach((pk) => {
+            pkData[pk] = initialData?.[pk] ?? null;
+          });
+
+          // Compute old values from initial data
+          const oldValues: Record<string, Value> = {};
+          const newValues: Record<string, Value> = {};
+
+          for (const col of Object.keys(columnsData)) {
+            const oldVal = initialData?.[col];
+            const newVal = columnsData[col];
+
+            // Only track changed values
+            if (JSON.stringify(oldVal) !== JSON.stringify(newVal)) {
+              oldValues[col] = oldVal ?? null;
+              newValues[col] = newVal;
+            }
+          }
+
+          if (Object.keys(newValues).length > 0) {
+            onSandboxUpdate(pkData, oldValues, newValues);
+            notify.success(t("rowModal.updateSuccess") + " (sandbox)");
+          }
+          onSuccess();
+          onClose();
+          return;
+        }
+      }
+
+      // Real database operations
+      setLoading(true);
+
+      const data: TauriRowData = { columns: columnsData };
 
 			if (mode === "insert") {
 				const res = await insertRow(

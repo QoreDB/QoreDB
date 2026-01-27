@@ -11,6 +11,7 @@ import { ConnectionDashboard } from './components/Dashboard/ConnectionDashboard'
 import { ConnectionModal } from './components/Connection/ConnectionModal';
 import { SettingsPage } from './components/Settings/SettingsPage';
 import { StatusBar } from './components/Status/StatusBar';
+import { SandboxBorder } from './components/Sandbox';
 import { Button } from './components/ui/button';
 import { Tooltip } from './components/ui/tooltip';
 import { Plus, Search, Settings, X } from 'lucide-react';
@@ -592,7 +593,7 @@ function App() {
           schemaRefreshTrigger={schemaRefreshTrigger}
         />
         <main className="flex-1 flex flex-col min-w-0 min-h-0 bg-background relative">
-          <header className="flex items-center justify-end absolute right-0 top-0 h-10 z-50 pr-2">
+          <header className="flex items-center justify-end absolute right-0 top-0 h-10 z-30 pr-2">
             <Tooltip content={t('settings.title')} side="left">
               <Button
                 variant="ghost"
@@ -622,7 +623,11 @@ function App() {
             />
           )}
 
-          <div className="flex-1 min-h-0 overflow-hidden p-4 pt-12">
+          <SandboxBorder
+            sessionId={sessionId}
+            environment={activeConnection?.environment || 'development'}
+            className="flex-1 min-h-0 overflow-hidden p-4 pt-12"
+          >
             {settingsOpen ? (
               <SettingsPage />
             ) : sessionId ? (
@@ -638,6 +643,7 @@ function App() {
                   readOnly={activeConnection?.read_only || false}
                   connectionName={activeConnection?.name}
                   connectionDatabase={activeConnection?.database}
+                  connectionId={activeConnection?.id}
                   onOpenRelatedTable={handleTableSelect}
                   relationFilter={activeTab.relationFilter}
                   onClose={() => closeTab(activeTab.id)}
@@ -652,6 +658,7 @@ function App() {
                   readOnly={activeConnection?.read_only || false}
                   connectionName={activeConnection?.name}
                   onTableSelect={handleTableSelect}
+                  schemaRefreshTrigger={schemaRefreshTrigger}
                   onSchemaChange={triggerSchemaRefresh}
                   onOpenQueryTab={ns => {
                     openTab(createQueryTab(undefined, ns));
@@ -753,7 +760,7 @@ function App() {
                 </div>
               </div>
             )}
-          </div>
+          </SandboxBorder>
           <StatusBar sessionId={sessionId} connection={activeConnection} />
         </main>
       </div>
@@ -780,8 +787,6 @@ function App() {
         onSelectQuery={q => {
           if (sessionId) {
             openTab(createQueryTab(q));
-          } else {
-            // No session
           }
         }}
       />

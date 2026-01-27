@@ -150,33 +150,40 @@ export function applyOverlay(
   }
 
   // Add inserted rows at the beginning
+  // Build all insert rows first
+  const insertRows: Array<{ values: Value[]; change: SandboxChange }> = [];
   for (const insert of inserts) {
     if (!insert.newValues) continue;
-
-    // Build a row from the inserted values
     const values: Value[] = columnNames.map(col => insert.newValues![col] ?? null);
+    insertRows.push({ values, change: insert });
+  }
 
-    // Insert at the beginning for visibility
-    newRows.unshift({ values });
+  // Prepend all insert rows at once
+  newRows.unshift(...insertRows.map(ir => ({ values: ir.values })));
 
-    // Adjust all existing metadata indices
-    const adjustedMetadata = new Map<number, SandboxRowMetadata>();
-    for (const [idx, meta] of rowMetadata) {
-      adjustedMetadata.set(idx + 1, meta);
-    }
-
-    adjustedMetadata.set(0, {
+  // Rebuild metadata map with adjusted indices
+  const adjustedMetadata = new Map<number, SandboxRowMetadata>();
+  
+  // Add metadata for inserted rows
+  for (let i = 0; i < insertRows.length; i++) {
+    adjustedMetadata.set(i, {
       isModified: false,
       isInserted: true,
       isDeleted: false,
-      modifiedColumns: new Set(Object.keys(insert.newValues)),
-      change: insert,
+      modifiedColumns: new Set(Object.keys(insertRows[i].change.newValues!)),
+      change: insertRows[i].change,
     });
+  }
+  
+  // Shift existing metadata by the number of inserts
+  const offset = insertRows.length;
+  for (const [idx, meta] of rowMetadata) {
+    adjustedMetadata.set(idx + offset, meta);
+  }
 
-    rowMetadata.clear();
-    for (const [idx, meta] of adjustedMetadata) {
-      rowMetadata.set(idx, meta);
-    }
+  rowMetadata.clear();
+  for (const [idx, meta] of adjustedMetadata) {
+    rowMetadata.set(idx, meta);
   }
 
   return {

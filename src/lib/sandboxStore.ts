@@ -469,11 +469,17 @@ function getSandboxBackups(): Record<string, SandboxBackup> {
 export function saveSandboxBackup(connectionId: string, sessionId: string): void {
   const session = getSandboxSession(sessionId);
   const backups = getSandboxBackups();
+  
+  // Use the most recent change timestamp, or current time if no changes
+  const mostRecentChangeTime = session.changes.length > 0
+    ? Math.max(...session.changes.map(change => change.timestamp))
+    : Date.now();
+  
   backups[connectionId] = {
     sessionId,
     isActive: session.isActive,
     changes: session.changes,
-    savedAt: Date.now(),
+    savedAt: mostRecentChangeTime,
   };
   localStorage.setItem(BACKUP_KEY, JSON.stringify(backups));
 }

@@ -43,36 +43,54 @@ import { DataGridPagination } from "./DataGridPagination";
 import { DeleteConfirmDialog } from "./DeleteConfirmDialog";
 import { GridColumnFilter } from "./GridColumnFilter";
 import { DangerConfirmDialog } from "@/components/Guard/DangerConfirmDialog";
-import { SandboxChange, SandboxDeleteDisplay, SandboxRowMetadata } from "@/lib/sandboxTypes";
-import { applyOverlay, OverlayResult, emptyOverlayResult } from "@/lib/sandboxOverlay";
+import { SandboxChange, SandboxDeleteDisplay } from '@/lib/sandboxTypes';
+import { applyOverlay, OverlayResult, emptyOverlayResult } from '@/lib/sandboxOverlay';
+
+const EMPTY_OVERLAY_RESULT: OverlayResult = {
+  result: {
+    columns: [],
+    rows: [],
+    affected_rows: undefined,
+    execution_time_ms: 0,
+  },
+  rowMetadata: new Map(),
+  stats: {
+    insertedRows: 0,
+    modifiedRows: 0,
+    deletedRows: 0,
+    hiddenRows: 0,
+  },
+};
 
 interface DataGridProps {
-	result: QueryResult | null;
-	height?: number;
-	sessionId?: string;
-	namespace?: Namespace;
-	tableName?: string;
+  result: QueryResult | null;
+  height?: number;
+  sessionId?: string;
+  namespace?: Namespace;
+  tableName?: string;
   tableSchema?: TableSchema | null;
-	primaryKey?: string[];
-	environment?: Environment;
-	readOnly?: boolean;
-	mutationsSupported?: boolean;
-	connectionName?: string;
-	connectionDatabase?: string;
-	onRowsDeleted?: () => void;
-	onRowClick?: (row: RowData) => void;
-	onRowsUpdated?: () => void;
+  primaryKey?: string[];
+  environment?: Environment;
+  readOnly?: boolean;
+  mutationsSupported?: boolean;
+  connectionName?: string;
+  connectionDatabase?: string;
+  onRowsDeleted?: () => void;
+  onRowClick?: (row: RowData) => void;
+  onRowsUpdated?: () => void;
   onOpenRelatedTable?: (
     namespace: Namespace,
     tableName: string,
     relationFilter?: RelationFilter
   ) => void;
-  // Sandbox props
   sandboxMode?: boolean;
   pendingChanges?: SandboxChange[];
   sandboxDeleteDisplay?: SandboxDeleteDisplay;
-  onSandboxInsert?: (newValues: Record<string, Value>) => void;
-  onSandboxUpdate?: (primaryKey: Record<string, Value>, oldValues: Record<string, Value>, newValues: Record<string, Value>) => void;
+  onSandboxUpdate?: (
+    primaryKey: Record<string, Value>,
+    oldValues: Record<string, Value>,
+    newValues: Record<string, Value>
+  ) => void;
   onSandboxDelete?: (primaryKey: Record<string, Value>, oldValues: Record<string, Value>) => void;
 }
 
@@ -100,7 +118,6 @@ function serializePeekValue(value: Value): string {
 
 export function DataGrid({
   result,
-  // height = 400, // Removed unused prop
   sessionId,
   namespace,
   tableName,
@@ -115,11 +132,9 @@ export function DataGrid({
   onRowClick,
   onRowsUpdated,
   onOpenRelatedTable,
-  // Sandbox props
   sandboxMode = false,
   pendingChanges = [],
   sandboxDeleteDisplay = 'strikethrough',
-  onSandboxInsert,
   onSandboxUpdate,
   onSandboxDelete,
 }: DataGridProps) {
@@ -211,19 +226,29 @@ export function DataGrid({
   // Apply sandbox overlay to results
   const overlayResult: OverlayResult = useMemo(() => {
     if (!result || !sandboxMode || pendingChanges.length === 0 || !namespace || !tableName) {
-      return result ? emptyOverlayResult(result) : { result: { columns: [], rows: [], affected_rows: undefined, execution_time_ms: 0 }, rowMetadata: new Map(), stats: { insertedRows: 0, modifiedRows: 0, deletedRows: 0, hiddenRows: 0 } };
+      return result ? emptyOverlayResult(result) : EMPTY_OVERLAY_RESULT;
     }
     return applyOverlay(result, pendingChanges, tableSchema ?? null, namespace, tableName, {
       deleteDisplay: sandboxDeleteDisplay,
       primaryKey,
     });
-  }, [result, sandboxMode, pendingChanges, namespace, tableName, tableSchema, sandboxDeleteDisplay, primaryKey]);
+  }, [
+    result,
+    sandboxMode,
+    pendingChanges,
+    namespace,
+    tableName,
+    tableSchema,
+    sandboxDeleteDisplay,
+    primaryKey,
+  ]);
 
   // Convert data (use overlayed result when in sandbox mode)
   const data = useMemo(() => {
     const effectiveResult = sandboxMode ? overlayResult.result : result;
     if (!effectiveResult) return [];
-    const limitedRows = renderLimit === null ? effectiveResult.rows : effectiveResult.rows.slice(0, renderLimit);
+    const limitedRows =
+      renderLimit === null ? effectiveResult.rows : effectiveResult.rows.slice(0, renderLimit);
     return convertToRowData({ ...effectiveResult, rows: limitedRows });
   }, [result, overlayResult.result, sandboxMode, renderLimit]);
 
@@ -267,18 +292,15 @@ export function DataGrid({
     [namespace]
   );
 
-  const getRelationLabel = useCallback(
-    (foreignKey: ForeignKey): string => {
-      if (foreignKey.referenced_database) {
-        return `${foreignKey.referenced_database}.${foreignKey.referenced_table}`;
-      }
-      if (foreignKey.referenced_schema) {
-        return `${foreignKey.referenced_schema}.${foreignKey.referenced_table}`;
-      }
-      return foreignKey.referenced_table;
-    },
-    []
-  );
+  const getRelationLabel = useCallback((foreignKey: ForeignKey): string => {
+    if (foreignKey.referenced_database) {
+      return `${foreignKey.referenced_database}.${foreignKey.referenced_table}`;
+    }
+    if (foreignKey.referenced_schema) {
+      return `${foreignKey.referenced_schema}.${foreignKey.referenced_table}`;
+    }
+    return foreignKey.referenced_table;
+  }, []);
 
   const buildPeekKey = useCallback(
     (foreignKey: ForeignKey, value: Value): string => {
@@ -300,7 +322,13 @@ export function DataGrid({
       updatePeekCache(key, { status: 'loading' });
 
       try {
-        const response = await peekForeignKey(sessionId, namespace, foreignKey, value, PEEK_QUERY_LIMIT);
+        const response = await peekForeignKey(
+          sessionId,
+          namespace,
+          foreignKey,
+          value,
+          PEEK_QUERY_LIMIT
+        );
         if (response.success && response.result) {
           updatePeekCache(key, { status: 'ready', result: response.result });
         } else {
@@ -378,10 +406,7 @@ export function DataGrid({
   const startInlineEdit = useCallback(
     (row: RowData, rowId: string, columnId: string, currentValue: Value) => {
       skipCommitRef.current = false;
-      if (
-        editingCellRef.current?.rowId === rowId &&
-        editingCellRef.current.columnId === columnId
-      ) {
+      if (editingCellRef.current?.rowId === rowId && editingCellRef.current.columnId === columnId) {
         return;
       }
       if (!hasInlineEditContext) return;
@@ -696,7 +721,11 @@ export function DataGrid({
               }}
             >
               <TooltipTrigger asChild>{cellNode}</TooltipTrigger>
-              <TooltipContent side="right" align="start" className="w-80 max-h-80 overflow-auto p-3 text-xs">
+              <TooltipContent
+                side="right"
+                align="start"
+                className="w-80 max-h-80 overflow-auto p-3 text-xs"
+              >
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <div className="text-xs uppercase tracking-wide text-muted-foreground">
@@ -736,7 +765,8 @@ export function DataGrid({
                 <div className="mt-3 border-t border-border pt-3">
                   {peekState?.status === 'error' ? (
                     <div className="text-xs text-error">
-                      {peekState.error || t('grid.peekFailed', { defaultValue: 'Preview unavailable' })}
+                      {peekState.error ||
+                        t('grid.peekFailed', { defaultValue: 'Preview unavailable' })}
                     </div>
                   ) : !peekState || peekState.status === 'loading' ? (
                     <div className="flex items-center gap-2 text-muted-foreground text-xs">
@@ -756,7 +786,10 @@ export function DataGrid({
                               const rawValue = row.values[colIndex];
                               const displayValue = formatValue(rawValue);
                               return (
-                                <div key={`${peekKey}-${rowIndex}-${col.name}`} className="contents">
+                                <div
+                                  key={`${peekKey}-${rowIndex}-${col.name}`}
+                                  className="contents"
+                                >
                                   <div className="text-xs text-muted-foreground truncate">
                                     {col.name}
                                   </div>
@@ -1232,7 +1265,9 @@ export function DataGrid({
                 />
                 {rowVirtualizer.getVirtualItems().map(virtualRow => {
                   const row = rows[virtualRow.index];
-                  const rowMeta = sandboxMode ? overlayResult.rowMetadata.get(virtualRow.index) : undefined;
+                  const rowMeta = sandboxMode
+                    ? overlayResult.rowMetadata.get(virtualRow.index)
+                    : undefined;
                   const isInserted = rowMeta?.isInserted ?? false;
                   const isDeleted = rowMeta?.isDeleted ?? false;
                   const isModified = rowMeta?.isModified ?? false;
@@ -1246,7 +1281,10 @@ export function DataGrid({
                         // Sandbox visual highlighting
                         isInserted && 'bg-success/10 hover:bg-success/15',
                         isDeleted && 'bg-error/10 hover:bg-error/15 line-through opacity-60',
-                        isModified && !isInserted && !isDeleted && 'bg-warning/5 hover:bg-warning/10'
+                        isModified &&
+                          !isInserted &&
+                          !isDeleted &&
+                          'bg-warning/5 hover:bg-warning/10'
                       )}
                     >
                       {row.getVisibleCells().map(cell => {

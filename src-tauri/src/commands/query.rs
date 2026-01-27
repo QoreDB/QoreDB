@@ -325,11 +325,27 @@ pub async fn execute_query(
         let execution = async {
             if let Some(statements) = sql_statements {
                 let mut last_result = None;
-                for statement in statements {
-                    let result = driver
-                        .execute_in_namespace(session, namespace.clone(), &statement, query_id)
-                        .await?;
-                    last_result = Some(result);
+                let mut executed_count = 0usize;
+                for (idx, statement) in statements.iter().enumerate() {
+                    match driver
+                        .execute_in_namespace(session, namespace.clone(), statement, query_id)
+                        .await
+                    {
+                        Ok(result) => {
+                            executed_count += 1;
+                            last_result = Some(result);
+                        }
+                        Err(e) => {
+                            return Err(crate::engine::error::EngineError::execution_error(
+                                format!(
+                                    "Statement {} failed after {} succeeded: {}",
+                                    idx + 1,
+                                    executed_count,
+                                    e
+                                ),
+                            ));
+                        }
+                    }
                 }
 
                 last_result.ok_or_else(|| {

@@ -845,12 +845,20 @@ impl DataEngine for PostgresDriver {
             })
             .collect();
 
-        // Get row count estimate
-        let count_row: Option<(i64,)> = sqlx::query_as(
+        // Row count: exact for small tables, estimate for large ones.
+        // Prefer pg_stat_user_tables.n_live_tup, then pg_class.reltuples (can be stale).
+        const SMALL_TABLE_MAX_ROWS: i64 = 100_000;
+        const SMALL_TABLE_MAX_BYTES: i64 = 64 * 1024 * 1024; // 64 MiB
+
+        let stats_row: Option<(Option<i64>, Option<f64>, i64)> = sqlx::query_as(
             r#"
-            SELECT reltuples::bigint
+            SELECT
+                s.n_live_tup::bigint AS n_live_tup,
+                c.reltuples::double precision AS reltuples,
+                pg_total_relation_size(c.oid)::bigint AS total_bytes
             FROM pg_class c
             JOIN pg_namespace n ON n.oid = c.relnamespace
+            LEFT JOIN pg_stat_user_tables s ON s.relid = c.oid
             WHERE n.nspname = $1 AND c.relname = $2
             "#,
         )
@@ -860,7 +868,42 @@ impl DataEngine for PostgresDriver {
         .await
         .map_err(|e| EngineError::execution_error(e.to_string()))?;
 
-        let row_count_estimate = count_row.map(|(c,)| c as u64);
+        let (n_live_tup, reltuples, total_bytes) = stats_row
+            .map(|(n_live_tup, reltuples, total_bytes)| (n_live_tup, reltuples, total_bytes))
+            .unwrap_or((None, None, 0));
+
+        let estimate_rows: Option<i64> = if let Some(n_live) = n_live_tup {
+            Some(n_live)
+        } else if let Some(rel) = reltuples {
+            if rel >= 0.0 {
+                Some(rel.floor() as i64)
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
+        let small_by_rows = estimate_rows.map(|v| v <= SMALL_TABLE_MAX_ROWS).unwrap_or(false);
+        let small_by_bytes = total_bytes <= SMALL_TABLE_MAX_BYTES;
+        let should_count_exact = small_by_rows || small_by_bytes;
+
+        let row_count_estimate = if should_count_exact {
+            let schema_ident = Self::quote_ident(schema);
+            let table_ident = Self::quote_ident(table);
+            let count_sql = format!("SELECT COUNT(*)::bigint FROM {}.{}", schema_ident, table_ident);
+            let exact_count: i64 = sqlx::query_scalar(&count_sql)
+                .fetch_one(pool)
+                .await
+                .map_err(|e| EngineError::execution_error(e.to_string()))?;
+            if exact_count < 0 {
+                None
+            } else {
+                Some(exact_count as u64)
+            }
+        } else {
+            estimate_rows.and_then(|c| if c < 0 { None } else { Some(c as u64) })
+        };
 
         Ok(TableSchema {
             columns,

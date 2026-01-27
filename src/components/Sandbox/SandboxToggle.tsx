@@ -86,7 +86,7 @@ export function SandboxToggle({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [disabled, handleToggle, isActive, sessionId]);
+  }, [disabled, handleToggle]);
 
   const handleConfirmDeactivate = useCallback(
     (clearChanges: boolean) => {

@@ -204,7 +204,7 @@
             "autoCollapse": "Replier automatiquement le panneau",
             "autoCollapseDescription": "Ferme le panneau des changements lorsqu'il n'y a plus de modifications en attente.",
             "deleteDisplay": "Affichage des lignes supprimées",
-            "deleteDisplayStrikethrough": "Afficher avec barré",
+            "deleteDisplayStrikethrough": "Texte barré",
             "deleteDisplayHidden": "Masquer les lignes supprimées",
             "panelPageSize": "Changements par page",
             "panelPageSizeDescription": "Contrôle la pagination dans le panneau des changements."

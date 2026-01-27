@@ -11,7 +11,6 @@ import {
   SandboxChange,
   SandboxPreferences,
   SandboxChangeGroup,
-  SandboxDeleteDisplay,
 } from './sandboxTypes';
 import { Namespace, Value, RowData, TableSchema } from './tauri';
 
@@ -272,11 +271,24 @@ function matchesPrimaryKey(
     const v1 = valueMap[col];
     const v2 = primaryKey.columns[col];
     if (v1 === v2) return true;
-    if (typeof v1 === 'object' && typeof v2 === 'object') {
-      return JSON.stringify(v1) === JSON.stringify(v2);
+    if (typeof v1 === 'object' && typeof v2 === 'object' && v1 !== null && v2 !== null) {
+      return stableStringify(v1) === stableStringify(v2);
     }
     return false;
   });
+}
+
+function stableStringify(value: unknown): string {
+  if (value === null) return 'null';
+  if (Array.isArray(value)) {
+    return `[${value.map(stableStringify).join(',')}]`;
+  }
+  if (typeof value === 'object') {
+    const obj = value as Record<string, unknown>;
+    const keys = Object.keys(obj).sort();
+    return `{${keys.map(k => `${k}:${stableStringify(obj[k])}`).join(',')}}`;
+  }
+  return JSON.stringify(value);
 }
 
 /**

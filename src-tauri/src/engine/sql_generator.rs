@@ -130,15 +130,31 @@ impl SqlDialect {
     fn escape_string(&self, s: &str) -> String {
         match self {
             SqlDialect::Postgres => {
-                // Use E'...' syntax for strings with special characters
-                let escaped = s
-                    .replace('\\', "\\\\")
-                    .replace('\'', "''");
-                if s.contains('\n') || s.contains('\r') || s.contains('\t') {
-                    format!("E'{}'", escaped
-                        .replace('\n', "\\n")
-                        .replace('\r', "\\r")
-                        .replace('\t', "\\t"))
+                let mut escaped = String::with_capacity(s.len());
+                let mut needs_e_prefix = false;
+
+                for ch in s.chars() {
+                    match ch {
+                        '\\' => escaped.push_str("\\\\"),
+                        '\'' => escaped.push_str("''"),
+                        '\n' => {
+                            needs_e_prefix = true;
+                            escaped.push_str("\\n");
+                        }
+                        '\r' => {
+                            needs_e_prefix = true;
+                            escaped.push_str("\\r");
+                        }
+                        '\t' => {
+                            needs_e_prefix = true;
+                            escaped.push_str("\\t");
+                        }
+                        _ => escaped.push(ch),
+                    }
+                }
+
+                if needs_e_prefix {
+                    format!("E'{}'", escaped)
                 } else {
                     format!("'{}'", escaped)
                 }
@@ -190,12 +206,17 @@ pub fn generate_insert(
 ) -> String {
     let table = dialect.qualified_table(namespace, table_name);
 
-    let mut columns: Vec<String> = Vec::new();
-    let mut values: Vec<String> = Vec::new();
+    let mut column_names: Vec<&String> = data.keys().collect();
+    column_names.sort();
 
-    for (col, val) in data {
-        columns.push(dialect.quote_ident(col));
-        values.push(dialect.format_value(val));
+    let mut columns: Vec<String> = Vec::with_capacity(column_names.len());
+    let mut values: Vec<String> = Vec::with_capacity(column_names.len());
+
+    for col in column_names {
+        if let Some(val) = data.get(col) {
+            columns.push(dialect.quote_ident(col));
+            values.push(dialect.format_value(val));
+        }
     }
 
     format!(

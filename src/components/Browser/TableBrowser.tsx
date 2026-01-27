@@ -332,10 +332,12 @@ export function TableBrowser({
 
   useEffect(() => {
     return () => {
-      const session = getSandboxSession(sessionId);
-      if (session.isActive && session.changes.length === 0) {
-        deactivateSandbox(sessionId);
-      }
+      window.setTimeout(() => {
+        const session = getSandboxSession(sessionId);
+        if (session.isActive && session.changes.length === 0) {
+          deactivateSandbox(sessionId);
+        }
+      }, 0);
     };
   }, [sessionId]);
 
@@ -468,6 +470,8 @@ export function TableBrowser({
   }, [sessionId, loadData, sandboxPrefs.autoCollapsePanel, validateSandboxChanges]);
 
   const displayName = namespace.schema ? `${namespace.schema}.${tableName}` : tableName;
+
+  console.log('schema?.row_count_estimate', schema?.row_count_estimate);
 
   return (
     <div className="flex flex-col h-full bg-background rounded-lg border border-border shadow-sm overflow-hidden">
@@ -614,7 +618,6 @@ export function TableBrowser({
         ) : activeTab === 'data' ? (
           <DataGrid
             result={data}
-            height={500}
             sessionId={sessionId}
             namespace={namespace}
             tableName={tableName}
@@ -628,11 +631,9 @@ export function TableBrowser({
             onRowsDeleted={loadData}
             onRowsUpdated={loadData}
             onOpenRelatedTable={onOpenRelatedTable}
-            // Sandbox props
             sandboxMode={sandboxActive}
             pendingChanges={sandboxChanges}
             sandboxDeleteDisplay={sandboxPrefs.deleteDisplay}
-            onSandboxInsert={handleSandboxInsert}
             onSandboxUpdate={handleSandboxUpdate}
             onSandboxDelete={handleSandboxDelete}
             onRowClick={row => {
@@ -675,7 +676,6 @@ export function TableBrowser({
           readOnly={readOnly}
           initialData={selectedRow}
           onSuccess={loadData}
-          // Sandbox props
           sandboxMode={sandboxActive}
           onSandboxInsert={handleSandboxInsert}
           onSandboxUpdate={handleSandboxUpdate}

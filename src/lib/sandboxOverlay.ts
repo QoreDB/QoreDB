@@ -41,36 +41,6 @@ function buildPkKey(pk: RowData | undefined, primaryKey: string[]): string {
 }
 
 /**
- * Build a key from new values (for inserts)
- */
-function buildValuesKey(values: Record<string, Value> | undefined, primaryKey: string[]): string {
-  if (!values) return '';
-  return primaryKey.map(col => JSON.stringify(values[col])).join('|');
-}
-
-/**
- * Check if a row matches a primary key
- */
-function rowMatchesPk(
-  row: Row,
-  columnNames: string[],
-  pk: RowData | undefined
-): boolean {
-  if (!pk?.columns) return false;
-
-  return Object.entries(pk.columns).every(([col, value]) => {
-    const colIndex = columnNames.indexOf(col);
-    if (colIndex < 0) return false;
-    const rowValue = row.values[colIndex];
-    if (rowValue === value) return true;
-    if (typeof rowValue === 'object' && typeof value === 'object') {
-      return JSON.stringify(rowValue) === JSON.stringify(value);
-    }
-    return false;
-  });
-}
-
-/**
  * Apply sandbox changes as an overlay on QueryResult
  */
 export function applyOverlay(
@@ -185,7 +155,6 @@ export function applyOverlay(
 
     // Build a row from the inserted values
     const values: Value[] = columnNames.map(col => insert.newValues![col] ?? null);
-    const newIndex = newRows.length;
 
     // Insert at the beginning for visibility
     newRows.unshift({ values });
@@ -262,51 +231,6 @@ export function emptyOverlayResult(result: QueryResult): OverlayResult {
       hiddenRows: 0,
     },
   };
-}
-
-/**
- * Check if a row from original data would be affected by sandbox changes
- */
-export function isRowAffected(
-  row: Row,
-  columnNames: string[],
-  changes: SandboxChange[],
-  primaryKey: string[]
-): boolean {
-  const updates = changes.filter(c => c.type === 'update');
-  const deletes = changes.filter(c => c.type === 'delete');
-
-  for (const change of [...updates, ...deletes]) {
-    if (rowMatchesPk(row, columnNames, change.primaryKey)) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-/**
- * Get the original value of a cell before sandbox modifications
- */
-export function getOriginalValue(
-  rowIndex: number,
-  columnName: string,
-  overlayResult: OverlayResult,
-  originalResult: QueryResult
-): Value | undefined {
-  const metadata = overlayResult.rowMetadata.get(rowIndex);
-
-  if (!metadata?.change) return undefined;
-
-  // For inserts, there's no original value
-  if (metadata.isInserted) return undefined;
-
-  // For updates, check oldValues
-  if (metadata.isModified && metadata.change.oldValues) {
-    return metadata.change.oldValues[columnName];
-  }
-
-  return undefined;
 }
 
 /**

@@ -235,9 +235,18 @@ pub async fn execute_query(
     };
     let query_id_str = query_id.0.to_string();
 
+    let sql_statements = if is_sql_driver {
+        match sql_safety::split_sql_statements(driver.driver_id(), &query) {
+            Ok(statements) if statements.len() > 1 => Some(statements),
+            _ => None,
+        }
+    } else {
+        None
+    };
 
-
-    let should_stream = stream.unwrap_or(false) && driver.capabilities().streaming;
+    let should_stream = sql_statements.is_none()
+        && stream.unwrap_or(false)
+        && driver.capabilities().streaming;
 
     if should_stream {
         // Create channel for stream events
@@ -313,7 +322,41 @@ pub async fn execute_query(
     } else {
         // Normal execution
         let start_time = std::time::Instant::now();
-        let execution = driver.execute_in_namespace(session, namespace.clone(), &query, query_id);
+        let execution = async {
+            if let Some(statements) = sql_statements {
+                let mut last_result = None;
+                let mut executed_count = 0usize;
+                for (idx, statement) in statements.iter().enumerate() {
+                    match driver
+                        .execute_in_namespace(session, namespace.clone(), statement, query_id)
+                        .await
+                    {
+                        Ok(result) => {
+                            executed_count += 1;
+                            last_result = Some(result);
+                        }
+                        Err(e) => {
+                            return Err(crate::engine::error::EngineError::execution_error(
+                                format!(
+                                    "Statement {} failed after {} succeeded: {}",
+                                    idx + 1,
+                                    executed_count,
+                                    e
+                                ),
+                            ));
+                        }
+                    }
+                }
+
+                last_result.ok_or_else(|| {
+                    crate::engine::error::EngineError::syntax_error("Empty SQL".to_string())
+                })
+            } else {
+                driver
+                    .execute_in_namespace(session, namespace.clone(), &query, query_id)
+                    .await
+            }
+        };
 
         let result = if let Some(timeout_value) = timeout_ms {
             match timeout(Duration::from_millis(timeout_value), execution).await {

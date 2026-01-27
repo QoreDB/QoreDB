@@ -10,6 +10,10 @@ import {
   DriverCapabilities,
   RelationFilter,
   peekForeignKey,
+  Value,
+  generateMigrationSql,
+  applySandboxChanges,
+  SandboxChangeDto,
 } from '../../lib/tauri';
 import { useSchemaCache } from '../../hooks/useSchemaCache';
 import { DataGrid } from '../Grid/DataGrid';
@@ -30,12 +34,64 @@ import {
   Clock,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Value } from '../../lib/tauri';
 import { RowModal } from './RowModal';
 import { toast } from 'sonner';
 import { Driver, getDriverMetadata } from '../../lib/drivers';
 import { onTableChange } from '@/lib/tableEvents';
 import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
+import { SandboxToggle, ChangesPanel, MigrationPreview } from '@/components/Sandbox';
+import {
+  isSandboxActive,
+  getChangesForTable,
+  createInsertChange,
+  createUpdateChange,
+  createDeleteChange,
+  clearSandboxChanges,
+  getSandboxSession,
+  getSandboxPreferences,
+  subscribeSandbox,
+  subscribeSandboxPreferences,
+  saveSandboxBackup,
+  getSandboxBackup,
+  clearSandboxBackup,
+  importChanges,
+  activateSandbox,
+  deactivateSandbox,
+} from '@/lib/sandboxStore';
+import { SandboxChange, MigrationScript } from '@/lib/sandboxTypes';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+
+function formatTableName(namespace: Namespace, tableName: string): string {
+  return namespace.schema ? `${namespace.schema}.${tableName}` : tableName;
+}
+
+function schemasCompatible(a: TableSchema, b: TableSchema): boolean {
+  const mapA = new Map(a.columns.map(col => [col.name, col]));
+  const mapB = new Map(b.columns.map(col => [col.name, col]));
+
+  if (mapA.size !== mapB.size) return false;
+  for (const [name, colA] of mapA) {
+    const colB = mapB.get(name);
+    if (!colB) return false;
+    if (colA.data_type.toLowerCase() !== colB.data_type.toLowerCase()) return false;
+    if (colA.nullable !== colB.nullable) return false;
+  }
+
+  const pkA = new Set(a.primary_key ?? []);
+  const pkB = new Set(b.primary_key ?? []);
+  if (pkA.size !== pkB.size) return false;
+  for (const col of pkA) {
+    if (!pkB.has(col)) return false;
+  }
+
+  return true;
+}
 
 interface TableBrowserProps {
   sessionId: string;
@@ -47,6 +103,7 @@ interface TableBrowserProps {
   readOnly?: boolean;
   connectionName?: string;
   connectionDatabase?: string;
+  connectionId?: string;
   onClose: () => void;
   onOpenRelatedTable?: (namespace: Namespace, tableName: string) => void;
   relationFilter?: RelationFilter;
@@ -64,6 +121,7 @@ export function TableBrowser({
   readOnly = false,
   connectionName,
   connectionDatabase,
+  connectionId,
   onClose,
   onOpenRelatedTable,
   relationFilter,
@@ -82,8 +140,95 @@ export function TableBrowser({
   const [selectedRow, setSelectedRow] = useState<Record<string, Value> | undefined>(undefined);
   const mutationsSupported = driverCapabilities?.mutations ?? true;
 
+  // Sandbox state
+  const [sandboxActive, setSandboxActive] = useState(() => isSandboxActive(sessionId));
+  const [sandboxChanges, setSandboxChanges] = useState<SandboxChange[]>([]);
+  const [changesPanelOpen, setChangesPanelOpen] = useState(false);
+  const [migrationPreviewOpen, setMigrationPreviewOpen] = useState(false);
+  const [migrationScript, setMigrationScript] = useState<MigrationScript | null>(null);
+  const [migrationLoading, setMigrationLoading] = useState(false);
+  const [migrationError, setMigrationError] = useState<string | null>(null);
+  const [sandboxPrefs, setSandboxPrefs] = useState(() => getSandboxPreferences());
+  const [restoreBackupOpen, setRestoreBackupOpen] = useState(false);
+  const [pendingBackup, setPendingBackup] = useState<{
+    changes: SandboxChange[];
+    savedAt: number;
+  } | null>(null);
+
   // Schema cache
   const schemaCache = useSchemaCache(sessionId);
+
+  useEffect(() => {
+    const unsubscribe = subscribeSandboxPreferences(prefs => {
+      setSandboxPrefs(prefs);
+    });
+    return unsubscribe;
+  }, []);
+
+  const validateSandboxChanges = useCallback(
+    async (changes: SandboxChange[]) => {
+      const warnings: string[] = [];
+      const errors: string[] = [];
+
+      const tableMap = new Map<
+        string,
+        { namespace: Namespace; tableName: string; schema?: TableSchema; changes: SandboxChange[] }
+      >();
+
+      for (const change of changes) {
+        const key = `${change.namespace.database}:${change.namespace.schema ?? ''}:${change.tableName}`;
+        const entry = tableMap.get(key);
+        if (entry) {
+          entry.changes.push(change);
+          if (!entry.schema && change.schema) {
+            entry.schema = change.schema;
+          }
+        } else {
+          tableMap.set(key, {
+            namespace: change.namespace,
+            tableName: change.tableName,
+            schema: change.schema,
+            changes: [change],
+          });
+        }
+      }
+
+      for (const entry of tableMap.values()) {
+        const currentSchema = await schemaCache.getTableSchema(entry.namespace, entry.tableName);
+        const displayName = formatTableName(entry.namespace, entry.tableName);
+
+        if (!currentSchema) {
+          warnings.push(t('sandbox.validation.schemaMissing', { table: displayName }));
+          continue;
+        }
+
+        if (entry.schema && !schemasCompatible(entry.schema, currentSchema)) {
+          errors.push(t('sandbox.validation.schemaMismatch', { table: displayName }));
+        }
+
+        const hasWriteChanges = entry.changes.some(
+          change => change.type === 'update' || change.type === 'delete'
+        );
+
+        if (
+          hasWriteChanges &&
+          (!currentSchema.primary_key || currentSchema.primary_key.length === 0)
+        ) {
+          warnings.push(t('sandbox.validation.noPrimaryKey', { table: displayName }));
+        }
+
+        for (const change of entry.changes) {
+          if ((change.type === 'update' || change.type === 'delete') && !change.primaryKey) {
+            errors.push(t('sandbox.validation.missingPrimaryKey', { table: displayName }));
+            break;
+          }
+        }
+      }
+
+      return { warnings, errors };
+    },
+    [schemaCache, t]
+  );
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -93,13 +238,7 @@ export function TableBrowser({
       const startTime = performance.now();
       // Load schema from cache, data fresh
       const dataPromise = relationFilter
-        ? peekForeignKey(
-            sessionId,
-            namespace,
-            relationFilter.foreignKey,
-            relationFilter.value,
-            100
-          )
+        ? peekForeignKey(sessionId, namespace, relationFilter.foreignKey, relationFilter.value, 100)
         : previewTable(sessionId, namespace, tableName, 100);
 
       const [cachedSchema, dataResult] = await Promise.all([
@@ -148,7 +287,7 @@ export function TableBrowser({
     } finally {
       setLoading(false);
     }
-  }, [sessionId, namespace, tableName, schemaCache, error, relationFilter]);
+  }, [relationFilter, sessionId, namespace, tableName, schemaCache, error, driver]);
 
   useEffect(() => {
     loadData();
@@ -165,6 +304,170 @@ export function TableBrowser({
       }
     });
   }, [loadData, namespace.database, namespace.schema, tableName]);
+
+  // Sandbox subscription
+  useEffect(() => {
+    const loadSandboxState = () => {
+      setSandboxActive(isSandboxActive(sessionId));
+      const changes = getChangesForTable(sessionId, namespace, tableName);
+      setSandboxChanges(changes);
+      if (sandboxPrefs.autoCollapsePanel && changes.length === 0) {
+        setChangesPanelOpen(false);
+      }
+      if (connectionId) {
+        saveSandboxBackup(connectionId, sessionId);
+      }
+    };
+
+    loadSandboxState();
+
+    const unsubscribe = subscribeSandbox(changedSessionId => {
+      if (changedSessionId === sessionId) {
+        loadSandboxState();
+      }
+    });
+
+    return unsubscribe;
+  }, [sessionId, namespace, tableName, sandboxPrefs.autoCollapsePanel, connectionId]);
+
+  useEffect(() => {
+    return () => {
+      window.setTimeout(() => {
+        const session = getSandboxSession(sessionId);
+        if (session.isActive && session.changes.length === 0) {
+          deactivateSandbox(sessionId);
+        }
+      }, 0);
+    };
+  }, [sessionId]);
+
+  useEffect(() => {
+    if (!connectionId) return;
+    const backup = getSandboxBackup(connectionId);
+    if (!backup || backup.changes.length === 0) return;
+    const current = getSandboxSession(sessionId);
+    if (current.changes.length > 0) return;
+    setPendingBackup({ changes: backup.changes, savedAt: backup.savedAt });
+    setRestoreBackupOpen(true);
+  }, [connectionId, sessionId]);
+
+  // Sandbox handlers
+  const handleSandboxInsert = useCallback(
+    (newValues: Record<string, Value>) => {
+      createInsertChange(sessionId, namespace, tableName, newValues, schema ?? undefined);
+    },
+    [sessionId, namespace, tableName, schema]
+  );
+
+  const handleSandboxUpdate = useCallback(
+    (
+      primaryKey: Record<string, Value>,
+      oldValues: Record<string, Value>,
+      newValues: Record<string, Value>
+    ) => {
+      createUpdateChange(
+        sessionId,
+        namespace,
+        tableName,
+        { columns: primaryKey },
+        oldValues,
+        newValues,
+        schema ?? undefined
+      );
+    },
+    [sessionId, namespace, tableName, schema]
+  );
+
+  const handleSandboxDelete = useCallback(
+    (primaryKey: Record<string, Value>, oldValues: Record<string, Value>) => {
+      createDeleteChange(
+        sessionId,
+        namespace,
+        tableName,
+        { columns: primaryKey },
+        oldValues,
+        schema ?? undefined
+      );
+    },
+    [sessionId, namespace, tableName, schema]
+  );
+
+  const handleGenerateSQL = useCallback(async () => {
+    setMigrationLoading(true);
+    setMigrationError(null);
+
+    try {
+      const session = getSandboxSession(sessionId);
+      const validation = await validateSandboxChanges(session.changes);
+
+      if (validation.errors.length > 0) {
+        setMigrationError(validation.errors.join('\n'));
+        setMigrationLoading(false);
+        return;
+      }
+
+      const changes: SandboxChangeDto[] = session.changes.map(c => ({
+        change_type: c.type,
+        namespace: c.namespace,
+        table_name: c.tableName,
+        primary_key: c.primaryKey,
+        old_values: c.oldValues,
+        new_values: c.newValues,
+      }));
+
+      const result = await generateMigrationSql(sessionId, changes);
+      if (result.success && result.script) {
+        const mergedWarnings = [...validation.warnings, ...(result.script.warnings ?? [])];
+        setMigrationScript({
+          ...result.script,
+          warnings: mergedWarnings,
+        });
+        setMigrationPreviewOpen(true);
+      } else {
+        setMigrationError(result.error || 'Failed to generate SQL');
+      }
+    } catch (err) {
+      setMigrationError(err instanceof Error ? err.message : 'Failed to generate SQL');
+    } finally {
+      setMigrationLoading(false);
+    }
+  }, [sessionId, validateSandboxChanges]);
+
+  const handleApplySandbox = useCallback(async () => {
+    const session = getSandboxSession(sessionId);
+    const validation = await validateSandboxChanges(session.changes);
+    if (validation.errors.length > 0) {
+      const error = validation.errors.join('\n');
+      return {
+        success: false,
+        applied_count: 0,
+        error,
+        failed_changes: [],
+      };
+    }
+
+    const changes: SandboxChangeDto[] = session.changes.map(c => ({
+      change_type: c.type,
+      namespace: c.namespace,
+      table_name: c.tableName,
+      primary_key: c.primaryKey,
+      old_values: c.oldValues,
+      new_values: c.newValues,
+    }));
+
+    const result = await applySandboxChanges(sessionId, changes, true);
+
+    if (result.success) {
+      clearSandboxChanges(sessionId);
+      deactivateSandbox(sessionId, true);
+      loadData();
+      if (sandboxPrefs.autoCollapsePanel) {
+        setChangesPanelOpen(false);
+      }
+    }
+
+    return result;
+  }, [sessionId, loadData, sandboxPrefs.autoCollapsePanel, validateSandboxChanges]);
 
   const displayName = namespace.schema ? `${namespace.schema}.${tableName}` : tableName;
 
@@ -193,6 +496,30 @@ export function TableBrowser({
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {/* Sandbox Toggle */}
+          <SandboxToggle
+            sessionId={sessionId}
+            environment={environment}
+            onToggle={active => {
+              setSandboxActive(active);
+              if (active) {
+                setChangesPanelOpen(true);
+              }
+            }}
+          />
+
+          {/* Sandbox Changes Panel Toggle */}
+          {sandboxActive && sandboxChanges.length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8"
+              onClick={() => setChangesPanelOpen(true)}
+            >
+              {t('sandbox.changes.count', { count: sandboxChanges.length })}
+            </Button>
+          )}
+
           <Button
             variant="outline"
             size="sm"
@@ -289,7 +616,6 @@ export function TableBrowser({
         ) : activeTab === 'data' ? (
           <DataGrid
             result={data}
-            height={500}
             sessionId={sessionId}
             namespace={namespace}
             tableName={tableName}
@@ -303,6 +629,11 @@ export function TableBrowser({
             onRowsDeleted={loadData}
             onRowsUpdated={loadData}
             onOpenRelatedTable={onOpenRelatedTable}
+            sandboxMode={sandboxActive}
+            pendingChanges={sandboxChanges}
+            sandboxDeleteDisplay={sandboxPrefs.deleteDisplay}
+            onSandboxUpdate={handleSandboxUpdate}
+            onSandboxDelete={handleSandboxDelete}
             onRowClick={row => {
               if (readOnly) {
                 toast.error(t('environment.blocked'));
@@ -343,8 +674,87 @@ export function TableBrowser({
           readOnly={readOnly}
           initialData={selectedRow}
           onSuccess={loadData}
+          sandboxMode={sandboxActive}
+          onSandboxInsert={handleSandboxInsert}
+          onSandboxUpdate={handleSandboxUpdate}
         />
       )}
+
+      {connectionId && (
+        <Dialog
+          open={restoreBackupOpen}
+          onOpenChange={open => {
+            setRestoreBackupOpen(open);
+            if (!open) {
+              setPendingBackup(null);
+            }
+          }}
+        >
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>{t('sandbox.restore.title')}</DialogTitle>
+            </DialogHeader>
+            <div className="text-sm text-muted-foreground space-y-2">
+              <p>
+                {t('sandbox.restore.message', {
+                  count: pendingBackup?.changes.length ?? 0,
+                })}
+              </p>
+              {pendingBackup?.savedAt && (
+                <p>
+                  {t('sandbox.restore.savedAt', {
+                    date: new Date(pendingBackup.savedAt).toLocaleString(),
+                  })}
+                </p>
+              )}
+            </div>
+            <DialogFooter className="gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  clearSandboxBackup(connectionId);
+                  setRestoreBackupOpen(false);
+                }}
+              >
+                {t('sandbox.restore.discard')}
+              </Button>
+              <Button
+                onClick={() => {
+                  if (pendingBackup?.changes?.length) {
+                    importChanges(sessionId, pendingBackup.changes);
+                    activateSandbox(sessionId);
+                    clearSandboxBackup(connectionId);
+                  }
+                  setRestoreBackupOpen(false);
+                }}
+              >
+                {t('sandbox.restore.restore')}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Sandbox Changes Panel */}
+      <ChangesPanel
+        sessionId={sessionId}
+        isOpen={changesPanelOpen}
+        onClose={() => setChangesPanelOpen(false)}
+        onGenerateSQL={handleGenerateSQL}
+        environment={environment}
+      />
+
+      {/* Migration Preview Modal */}
+      <MigrationPreview
+        isOpen={migrationPreviewOpen}
+        onClose={() => setMigrationPreviewOpen(false)}
+        script={migrationScript}
+        loading={migrationLoading}
+        error={migrationError}
+        environment={environment}
+        dialect={driver}
+        onApply={handleApplySandbox}
+      />
     </div>
   );
 }

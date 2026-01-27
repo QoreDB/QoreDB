@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { SavedConnection } from '@/lib/tauri';
 import { ENVIRONMENT_CONFIG } from '@/lib/environment';
 import { getDriverMetadata } from '@/lib/drivers';
+import { SandboxIndicator } from '@/components/Sandbox';
 
 interface StatusBarProps {
   sessionId: string | null;
@@ -55,6 +56,12 @@ export function StatusBar({ sessionId, connection }: StatusBarProps) {
       <div className="flex items-center gap-2">
         {isConnected ? (
           <>
+            {/* Sandbox Indicator */}
+            <SandboxIndicator
+              sessionId={sessionId}
+              environment={environment}
+            />
+
             <span
               className="flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-bold rounded-full border"
               style={{

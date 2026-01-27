@@ -1,10 +1,18 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Settings, Moon, Sun, Monitor, ChevronDown } from 'lucide-react';
+import { Settings, Moon, Sun, Monitor, ChevronDown, FlaskConical } from 'lucide-react';
 
 import { useTheme } from '../../hooks/useTheme';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,6 +33,8 @@ import {
   DiagnosticsSettings,
 } from '@/lib/diagnosticsSettings';
 import { getSafetyPolicy, setSafetyPolicy, SafetyPolicy } from '@/lib/tauri';
+import { getSandboxPreferences, setSandboxPreferences } from '@/lib/sandboxStore';
+import { SandboxDeleteDisplay } from '@/lib/sandboxTypes';
 
 export function SettingsPage() {
   const { t, i18n } = useTranslation();
@@ -32,6 +42,10 @@ export function SettingsPage() {
   const [diagnostics, setDiagnostics] = useState<DiagnosticsSettings>(getDiagnosticsSettings());
   const [analyticsEnabled, setAnalyticsEnabled] = useState<boolean>(
     AnalyticsService.isAnalyticsEnabled()
+  );
+  const [sandboxPrefs, setSandboxPrefs] = useState(getSandboxPreferences());
+  const [panelPageSizeInput, setPanelPageSizeInput] = useState(
+    String(getSandboxPreferences().panelPageSize)
   );
 
   const [policy, setPolicy] = useState<SafetyPolicy | null>(null);
@@ -71,6 +85,13 @@ export function SettingsPage() {
     if (!next.storeErrorLogs) {
       clearErrorLogs();
     }
+  }
+
+  function updateSandboxPrefs(next: Partial<typeof sandboxPrefs>) {
+    setSandboxPreferences(next);
+    const updated = getSandboxPreferences();
+    setSandboxPrefs(updated);
+    setPanelPageSizeInput(String(updated.panelPageSize));
   }
 
   async function updatePolicy(next: SafetyPolicy) {
@@ -229,6 +250,95 @@ export function SettingsPage() {
                   </span>
                 </span>
               </label>
+            </div>
+          </SettingsCard>
+
+          <SettingsCard
+            title={t('settings.sandbox.title')}
+            description={t('settings.sandbox.description')}
+          >
+            <div className="space-y-4">
+              <label className="flex items-start gap-3 text-sm">
+                <Checkbox
+                  checked={sandboxPrefs.confirmOnDiscard}
+                  onCheckedChange={checked =>
+                    updateSandboxPrefs({ confirmOnDiscard: !!checked })
+                  }
+                />
+                <span>
+                  <span className="font-medium">{t('settings.sandbox.confirmDiscard')}</span>
+                  <span className="block text-xs text-muted-foreground">
+                    {t('settings.sandbox.confirmDiscardDescription')}
+                  </span>
+                </span>
+              </label>
+
+              <label className="flex items-start gap-3 text-sm">
+                <Checkbox
+                  checked={sandboxPrefs.autoCollapsePanel}
+                  onCheckedChange={checked =>
+                    updateSandboxPrefs({ autoCollapsePanel: !!checked })
+                  }
+                />
+                <span>
+                  <span className="font-medium">{t('settings.sandbox.autoCollapse')}</span>
+                  <span className="block text-xs text-muted-foreground">
+                    {t('settings.sandbox.autoCollapseDescription')}
+                  </span>
+                </span>
+              </label>
+
+              <div className="flex items-center gap-3 text-sm">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <FlaskConical size={16} />
+                  <span className="font-medium text-foreground">
+                    {t('settings.sandbox.deleteDisplay')}
+                  </span>
+                </div>
+                <Select
+                  value={sandboxPrefs.deleteDisplay}
+                  onValueChange={(value: SandboxDeleteDisplay) =>
+                    updateSandboxPrefs({ deleteDisplay: value })
+                  }
+                >
+                  <SelectTrigger className="w-56">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="strikethrough">
+                      {t('settings.sandbox.deleteDisplayStrikethrough')}
+                    </SelectItem>
+                    <SelectItem value="hidden">
+                      {t('settings.sandbox.deleteDisplayHidden')}
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex items-center gap-3 text-sm">
+                <span className="font-medium text-foreground">
+                  {t('settings.sandbox.panelPageSize')}
+                </span>
+                <Input
+                  type="number"
+                  min={20}
+                  step={10}
+                  className="w-24"
+                  value={panelPageSizeInput}
+                  onChange={event => setPanelPageSizeInput(event.target.value)}
+                  onBlur={() => {
+                    const parsed = Number(panelPageSizeInput);
+                    if (Number.isFinite(parsed) && parsed >= 20) {
+                      updateSandboxPrefs({ panelPageSize: Math.floor(parsed) });
+                    } else {
+                      setPanelPageSizeInput(String(sandboxPrefs.panelPageSize));
+                    }
+                  }}
+                />
+                <span className="text-xs text-muted-foreground">
+                  {t('settings.sandbox.panelPageSizeDescription')}
+                </span>
+              </div>
             </div>
           </SettingsCard>
 

@@ -848,7 +848,7 @@ impl DataEngine for PostgresDriver {
         // Row count: exact for small tables, estimate for large ones.
         // Prefer pg_stat_user_tables.n_live_tup, then pg_class.reltuples (can be stale).
         const SMALL_TABLE_MAX_ROWS: i64 = 100_000;
-        const SMALL_TABLE_MAX_BYTES: i64 = 64 * 1024 * 1024; // 64 MiB
+        const SMALL_TABLE_MAX_BYTES: i64 = 64 * 1024 * 1024;
 
         let stats_row: Option<(Option<i64>, Option<f64>, i64)> = sqlx::query_as(
             r#"

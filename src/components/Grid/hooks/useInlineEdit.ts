@@ -32,7 +32,7 @@ export interface UseInlineEditReturn {
   editingCell: { rowId: string; columnId: string } | null;
   editingValue: string;
   setEditingValue: (value: string) => void;
-  editInputRef: React.RefObject<HTMLInputElement>;
+  editInputRef: React.RefObject<HTMLInputElement | null>;
   isUpdating: boolean;
   startInlineEdit: (row: RowData, rowId: string, columnId: string, value: Value) => void;
   commitInlineEdit: () => Promise<void>;
@@ -50,12 +50,14 @@ export interface UseInlineEditReturn {
     value: Value;
     originalValue: Value;
   } | null;
-  setPendingUpdate: (update: {
-    row: RowData;
-    columnId: string;
-    value: Value;
-    originalValue: Value;
-  } | null) => void;
+  setPendingUpdate: (
+    update: {
+      row: RowData;
+      columnId: string;
+      value: Value;
+      originalValue: Value;
+    } | null
+  ) => void;
   performInlineUpdate: (payload: {
     row: RowData;
     columnId: string;

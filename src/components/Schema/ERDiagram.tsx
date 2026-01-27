@@ -319,7 +319,7 @@ export function ERDiagram({
               const schema = await getTableSchema(namespace, table.name);
               schemaMap.set(
                 table.name,
-                schema ?? { columns: [], foreign_keys: [], primary_key: [] }
+                schema ?? { columns: [], foreign_keys: [], primary_key: [], indexes: [] }
               );
               if (loadId !== loadIdRef.current) break;
               progressRef.current = {
@@ -351,6 +351,7 @@ export function ERDiagram({
             columns: [],
             foreign_keys: [],
             primary_key: [],
+            indexes: [],
           };
           const incoming = incomingRefs.get(col.name) ?? new Set<string>();
           return {

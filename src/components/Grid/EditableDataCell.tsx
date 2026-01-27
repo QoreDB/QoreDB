@@ -19,7 +19,7 @@ export interface EditableDataCellProps {
   // Editing props
   isEditing: boolean;
   editingValue: string;
-  editInputRef: RefObject<HTMLInputElement>;
+  editInputRef: RefObject<HTMLInputElement | null>;
   onStartEdit: () => void;
   onCommitEdit: () => void;
   onCancelEdit: () => void;

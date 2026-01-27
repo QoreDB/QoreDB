@@ -787,8 +787,6 @@ function App() {
         onSelectQuery={q => {
           if (sessionId) {
             openTab(createQueryTab(q));
-          } else {
-            // No session
           }
         }}
       />

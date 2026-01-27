@@ -358,6 +358,10 @@
         "timeMs": "{{time}}ms"
     },
     "grid": {
+        "columnIndicators": {
+            "primaryKey": "Primary key",
+            "foreignKey": "Foreign key to {{table}}"
+        },
         "rowsSelected": "{{count}} row(s) selected",
         "rowsTotal": "{{count}} row(s)",
         "rowsShowing": "Showing {{shown}} of {{total}} rows",

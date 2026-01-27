@@ -218,9 +218,27 @@ export function TableBrowser({
         }
 
         for (const change of entry.changes) {
-          if ((change.type === 'update' || change.type === 'delete') && !change.primaryKey) {
-            errors.push(t('sandbox.validation.missingPrimaryKey', { table: displayName }));
-            break;
+          if (change.type === 'update' || change.type === 'delete') {
+            // Require a primary key value for write operations
+            if (!change.primaryKey) {
+              errors.push(t('sandbox.validation.missingPrimaryKey', { table: displayName }));
+              break;
+            }
+
+            // If the table has a defined primary key in the current schema,
+            // ensure the columns referenced in the change's primaryKey match it.
+            if (currentSchema.primary_key && currentSchema.primary_key.length > 0) {
+              const schemaPrimaryKeySet = new Set(currentSchema.primary_key);
+              const changePrimaryKeyColumns = Object.keys(change.primaryKey.columns);
+              const invalidColumns = changePrimaryKeyColumns.filter(
+                column => !schemaPrimaryKeySet.has(column)
+              );
+
+              if (invalidColumns.length > 0) {
+                errors.push(t('sandbox.validation.invalidPrimaryKeyColumns', { table: displayName }));
+                break;
+              }
+            }
           }
         }
       }
@@ -332,12 +350,10 @@ export function TableBrowser({
 
   useEffect(() => {
     return () => {
-      window.setTimeout(() => {
-        const session = getSandboxSession(sessionId);
-        if (session.isActive && session.changes.length === 0) {
-          deactivateSandbox(sessionId);
-        }
-      }, 0);
+      const session = getSandboxSession(sessionId);
+      if (session && session.isActive && session.changes.length === 0) {
+        deactivateSandbox(sessionId);
+      }
     };
   }, [sessionId]);
 
@@ -470,8 +486,6 @@ export function TableBrowser({
   }, [sessionId, loadData, sandboxPrefs.autoCollapsePanel, validateSandboxChanges]);
 
   const displayName = namespace.schema ? `${namespace.schema}.${tableName}` : tableName;
-
-  console.log('schema?.row_count_estimate', schema?.row_count_estimate);
 
   return (
     <div className="flex flex-col h-full bg-background rounded-lg border border-border shadow-sm overflow-hidden">

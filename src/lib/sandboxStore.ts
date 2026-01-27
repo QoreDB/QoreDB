@@ -60,7 +60,8 @@ export function getSandboxState(): SandboxState {
     const data = localStorage.getItem(STATE_KEY);
     if (!data) return { sessions: {} };
     return JSON.parse(data) as SandboxState;
-  } catch {
+  } catch (error) {
+    console.error('Failed to load sandbox state from localStorage:', error);
     return { sessions: {} };
   }
 }
@@ -85,7 +86,8 @@ export function getSandboxPreferences(): SandboxPreferences {
         ? Math.floor(parsed.panelPageSize)
         : DEFAULT_PREFERENCES.panelPageSize;
     return { ...DEFAULT_PREFERENCES, ...parsed, panelPageSize };
-  } catch {
+  } catch (error) {
+    console.error('Failed to load sandbox preferences from localStorage:', error);
     return { ...DEFAULT_PREFERENCES };
   }
 }

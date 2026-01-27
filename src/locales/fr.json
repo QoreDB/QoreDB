@@ -678,7 +678,8 @@
             "schemaMissing": "Impossible de valider le schéma pour {{table}}. Procédez avec prudence.",
             "schemaMismatch": "Le schéma a changé pour {{table}}. Rafraîchissez la table avant d'appliquer.",
             "noPrimaryKey": "La table {{table}} n'a pas de clé primaire. Les modifications peuvent être risquées.",
-            "missingPrimaryKey": "Clé primaire manquante pour les changements de {{table}}."
+            "missingPrimaryKey": "Clé primaire manquante pour les changements de {{table}}.",
+            "invalidPrimaryKeyColumns": "Les colonnes de clé primaire pour {{table}} ne correspondent pas au schéma actuel."
         },
         "row": {
             "new": "NOUVEAU",

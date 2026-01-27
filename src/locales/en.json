@@ -692,7 +692,8 @@
             "schemaMissing": "Unable to validate schema for {{table}}. Proceed with caution.",
             "schemaMismatch": "Schema changed for {{table}}. Refresh the table before applying changes.",
             "noPrimaryKey": "Table {{table}} has no primary key. Updates/deletes may be unsafe.",
-            "missingPrimaryKey": "Missing primary key data for {{table}} changes."
+            "missingPrimaryKey": "Missing primary key data for {{table}} changes.",
+            "invalidPrimaryKeyColumns": "Primary key columns for {{table}} do not match current schema."
         },
         "row": {
             "new": "NEW",

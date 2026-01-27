@@ -230,11 +230,19 @@ export function TableBrowser({
             if (currentSchema.primary_key && currentSchema.primary_key.length > 0) {
               const schemaPrimaryKeySet = new Set(currentSchema.primary_key);
               const changePrimaryKeyColumns = Object.keys(change.primaryKey.columns);
+              const changePrimaryKeySet = new Set(changePrimaryKeyColumns);
+              
+              // Check for columns in change that aren't in schema
               const invalidColumns = changePrimaryKeyColumns.filter(
                 column => !schemaPrimaryKeySet.has(column)
               );
+              
+              // Check for required schema columns missing from change
+              const missingColumns = currentSchema.primary_key.filter(
+                column => !changePrimaryKeySet.has(column)
+              );
 
-              if (invalidColumns.length > 0) {
+              if (invalidColumns.length > 0 || missingColumns.length > 0) {
                 errors.push(t('sandbox.validation.invalidPrimaryKeyColumns', { table: displayName }));
                 break;
               }

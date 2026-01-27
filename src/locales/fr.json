@@ -630,7 +630,7 @@
         "confirmDeactivate": {
             "title": "Quitter le mode bac à sable ?",
             "message": "Vous avez des modifications en attente qui n'ont pas été appliquées à la base de données. Que souhaitez-vous faire ?",
-            "keepChanges": "Garder les modifications (Préserver pour Plus Tard)",
+            "keepChanges": "Garder les modifications (préserver pour plus tard)",
             "discardChanges": "Abandonner les modifications"
         },
         "changes": {

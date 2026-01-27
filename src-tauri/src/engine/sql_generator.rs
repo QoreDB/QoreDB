@@ -207,7 +207,7 @@ pub fn generate_insert(
     let table = dialect.qualified_table(namespace, table_name);
 
     // Use BTreeMap for deterministic column ordering
-    let mut sorted_data: BTreeMap<&String, &Value> = data.iter().collect();
+    let sorted_data: BTreeMap<&String, &Value> = data.iter().collect();
 
     let mut columns: Vec<String> = Vec::with_capacity(sorted_data.len());
     let mut values: Vec<String> = Vec::with_capacity(sorted_data.len());

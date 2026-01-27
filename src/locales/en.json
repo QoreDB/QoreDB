@@ -340,6 +340,7 @@
         "emptyResults": "Query returned 0 rows",
         "queryFailed": "Query failed",
         "noConnectionError": "No connection selected",
+        "multiStatementNotice": "Multiple statements detected ({{count}}). Only the last result is shown.",
         "time": {
             "exec": "EXEC",
             "transfer": "TRANSFER",

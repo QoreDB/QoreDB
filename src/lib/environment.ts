@@ -158,6 +158,10 @@ export function isDropDatabaseQuery(sql: string): boolean {
   return splitSqlStatements(sql).some(statement => /^\s*DROP\s+DATABASE\b/i.test(statement));
 }
 
+export function countSqlStatements(sql: string): number {
+  return splitSqlStatements(sql).length;
+}
+
 /**
  * Get a human-readable description of why a query is dangerous
  */

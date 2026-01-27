@@ -340,6 +340,7 @@
         "emptyResults": "La requête a retourné 0 lignes",
         "queryFailed": "Échec de la requête",
         "noConnectionError": "Aucune connexion sélectionnée",
+        "multiStatementNotice": "Plusieurs instructions détectées ({{count}}). Seul le dernier résultat est affiché.",
         "time": {
             "exec": "EXEC",
             "transfer": "TRANSFERT",

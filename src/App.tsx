@@ -15,7 +15,7 @@ import { StatusBar } from './components/Status/StatusBar';
 import { SandboxBorder } from './components/Sandbox';
 import { Button } from './components/ui/button';
 import { Tooltip } from './components/ui/tooltip';
-import { Plus, Search, Settings, X } from 'lucide-react';
+import { Plus, Search, Settings } from 'lucide-react';
 import {
   Namespace,
   SavedConnection,
@@ -652,17 +652,7 @@ function App() {
   return (
     <>
       <div className="flex flex-col h-screen w-screen overflow-hidden bg-background text-foreground font-sans">
-        <CustomTitlebar>
-          {!settingsOpen && sessionId && (
-            <TabBar
-              tabs={tabs.map(t => ({ id: t.id, title: t.title, type: t.type }))}
-              activeId={activeTabId || undefined}
-              onSelect={setActiveTabId}
-              onClose={closeTab}
-              onNew={handleNewQuery}
-            />
-          )}
-        </CustomTitlebar>
+        <CustomTitlebar />
         <div className="flex flex-1 overflow-hidden">
           <Sidebar
             onNewConnection={() => setConnectionModalOpen(true)}
@@ -676,7 +666,18 @@ function App() {
             schemaRefreshTrigger={schemaRefreshTrigger}
           />
           <main className="flex-1 flex flex-col min-w-0 min-h-0 bg-background relative">
-            <header className="flex items-center justify-end absolute right-0 top-0 h-10 z-30 pr-2">
+            <header className="flex items-center h-10 z-30 px-2 border-b border-border gap-2">
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                {!settingsOpen && sessionId && (
+                  <TabBar
+                    tabs={tabs.map(t => ({ id: t.id, title: t.title, type: t.type }))}
+                    activeId={activeTabId || undefined}
+                    onSelect={setActiveTabId}
+                    onClose={closeTab}
+                    onNew={handleNewQuery}
+                  />
+                )}
+              </div>
               <Tooltip content={t('settings.title')} side="left">
                 <Button
                   variant="ghost"
@@ -685,13 +686,12 @@ function App() {
                   className="text-muted-foreground hover:text-foreground transition-transform duration-150 active:scale-95"
                   aria-label={t('settings.title')}
                 >
-                  <span
-                    className={`inline-flex transition-transform duration-200 ${
+                  <Settings
+                    size={16}
+                    className={`transition-transform duration-300 ${
                       settingsOpen ? 'rotate-90 scale-110' : 'rotate-0 scale-100'
                     }`}
-                  >
-                    {settingsOpen ? <X size={16} /> : <Settings size={16} />}
-                  </span>
+                  />
                 </Button>
               </Tooltip>
             </header>
@@ -699,7 +699,7 @@ function App() {
             <SandboxBorder
               sessionId={sessionId}
               environment={activeConnection?.environment || 'development'}
-              className="flex-1 min-h-0 overflow-hidden p-4 pt-12"
+              className="flex-1 min-h-0 overflow-hidden p-4"
             >
               {settingsOpen ? (
                 <SettingsPage />

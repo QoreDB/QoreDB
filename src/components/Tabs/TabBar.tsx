@@ -35,7 +35,7 @@ export function TabBar({
   };
 
   return (
-    <div className="flex items-center w-full bg-muted/30 border-b border-border h-10 select-none pl-1 gap-1 overflow-x-auto overflow-y-hidden no-scrollbar">
+    <div className="flex items-center w-full bg-background border-b border-border h-10 select-none pl-1 gap-1 overflow-x-auto overflow-y-hidden no-scrollbar">
       {tabs.map(tab => (
         <button
           key={tab.id}

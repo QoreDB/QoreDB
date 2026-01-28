@@ -4,11 +4,7 @@ import { Minus, Square, X, Copy } from 'lucide-react';
 
 const appWindow = getCurrentWindow();
 
-interface CustomTitlebarProps {
-  children?: React.ReactNode;
-}
-
-export const CustomTitlebar = ({ children }: CustomTitlebarProps) => {
+export const CustomTitlebar = () => {
   const [isMaximized, setIsMaximized] = useState(false);
   const [isMacOS, setIsMacOS] = useState(false);
 
@@ -52,7 +48,7 @@ export const CustomTitlebar = ({ children }: CustomTitlebarProps) => {
   };
 
   return (
-    <div className="h-10 bg-background border-b border-border flex items-center justify-between select-none shrink-0">
+    <div className="h-10 bg-background border-b border-border flex items-center select-none shrink-0">
       {/* macOS : boutons à gauche */}
       {isMacOS && (
         <div className="flex items-center gap-2 px-3 h-full">
@@ -92,24 +88,15 @@ export const CustomTitlebar = ({ children }: CustomTitlebarProps) => {
         </div>
       )}
 
-      {/* Zone draggable - Logo et titre */}
+      {/* Zone draggable - Logo à gauche pour Windows */}
       {!isMacOS && (
         <div className="flex items-center px-3 h-full" onMouseDown={handleDragStart}>
           <span className="text-sm font-semibold">QoreDB</span>
         </div>
       )}
 
-      {/* Zone pour vos onglets */}
-      <div className="flex-1 h-full flex items-center px-2 overflow-hidden" onMouseDown={handleDragStart}>
-        {children}
-      </div>
-
-      {/* macOS : titre à droite pour équilibrer */}
-      {isMacOS && (
-        <div className="flex items-center px-3 h-full" onMouseDown={handleDragStart}>
-          <span className="text-sm font-semibold">QoreDB</span>
-        </div>
-      )}
+      {/* Zone centrale draggable */}
+      <div className="flex-1 h-full" onMouseDown={handleDragStart} />
 
       {/* Windows/Linux : boutons à droite */}
       {!isMacOS && (

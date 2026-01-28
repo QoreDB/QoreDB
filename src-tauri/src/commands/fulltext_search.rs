@@ -19,7 +19,7 @@ use tracing::{debug, instrument, warn};
 
 use crate::engine::fulltext_strategy::{
     get_capability_cache, get_search_strategy, FulltextIndexInfo, SearchMethod,
-    TableSearchCapability, TableSearchOptions,
+    TableSearchOptions,
 };
 use crate::engine::types::{CollectionListOptions, CollectionType, Namespace, QueryId, Value};
 

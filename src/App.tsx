@@ -43,6 +43,7 @@ import {
 } from './lib/crashRecovery';
 import { check } from '@tauri-apps/plugin-updater';
 import './index.css';
+import { CustomTitlebar } from './components/CustomTitlebar';
 
 function isTextInputTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
@@ -53,9 +54,7 @@ function isTextInputTarget(target: EventTarget | null): boolean {
 const DEFAULT_PROJECT = 'default';
 const RECOVERY_SAVE_DEBOUNCE_MS = 600;
 
-function sanitizeTableBrowserTabs(
-  input?: Record<string, string>
-): Record<string, TableBrowserTab> {
+function sanitizeTableBrowserTabs(input?: Record<string, string>): Record<string, TableBrowserTab> {
   const result: Record<string, TableBrowserTab> = {};
   if (!input) return result;
   for (const [id, tab] of Object.entries(input)) {
@@ -571,7 +570,8 @@ function App() {
   // Global keyboard shortcuts
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
-      const isOverlayOpen = searchOpen || fulltextSearchOpen || connectionModalOpen || libraryModalOpen;
+      const isOverlayOpen =
+        searchOpen || fulltextSearchOpen || connectionModalOpen || libraryModalOpen;
       if (isOverlayOpen) {
         if (e.key === 'Escape') {
           e.preventDefault();
@@ -651,39 +651,8 @@ function App() {
 
   return (
     <>
-      <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground font-sans">
-        <Sidebar
-          onNewConnection={() => setConnectionModalOpen(true)}
-          onConnected={handleConnected}
-          connectedSessionId={sessionId}
-          connectedConnectionId={activeConnection?.id || null}
-          onTableSelect={handleTableSelect}
-          onDatabaseSelect={handleDatabaseSelect}
-          onEditConnection={handleEditConnection}
-          refreshTrigger={sidebarRefreshTrigger}
-          schemaRefreshTrigger={schemaRefreshTrigger}
-        />
-        <main className="flex-1 flex flex-col min-w-0 min-h-0 bg-background relative">
-          <header className="flex items-center justify-end absolute right-0 top-0 h-10 z-30 pr-2">
-            <Tooltip content={t('settings.title')} side="left">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setSettingsOpen(!settingsOpen)}
-                className="text-muted-foreground hover:text-foreground transition-transform duration-150 active:scale-95"
-                aria-label={t('settings.title')}
-              >
-                <span
-                  className={`inline-flex transition-transform duration-200 ${
-                    settingsOpen ? 'rotate-90 scale-110' : 'rotate-0 scale-100'
-                  }`}
-                >
-                  {settingsOpen ? <X size={16} /> : <Settings size={16} />}
-                </span>
-              </Button>
-            </Tooltip>
-          </header>
-
+      <div className="flex flex-col h-screen w-screen overflow-hidden bg-background text-foreground font-sans">
+        <CustomTitlebar>
           {!settingsOpen && sessionId && (
             <TabBar
               tabs={tabs.map(t => ({ id: t.id, title: t.title, type: t.type }))}
@@ -693,159 +662,193 @@ function App() {
               onNew={handleNewQuery}
             />
           )}
+        </CustomTitlebar>
+        <div className="flex flex-1 overflow-hidden">
+          <Sidebar
+            onNewConnection={() => setConnectionModalOpen(true)}
+            onConnected={handleConnected}
+            connectedSessionId={sessionId}
+            connectedConnectionId={activeConnection?.id || null}
+            onTableSelect={handleTableSelect}
+            onDatabaseSelect={handleDatabaseSelect}
+            onEditConnection={handleEditConnection}
+            refreshTrigger={sidebarRefreshTrigger}
+            schemaRefreshTrigger={schemaRefreshTrigger}
+          />
+          <main className="flex-1 flex flex-col min-w-0 min-h-0 bg-background relative">
+            <header className="flex items-center justify-end absolute right-0 top-0 h-10 z-30 pr-2">
+              <Tooltip content={t('settings.title')} side="left">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setSettingsOpen(!settingsOpen)}
+                  className="text-muted-foreground hover:text-foreground transition-transform duration-150 active:scale-95"
+                  aria-label={t('settings.title')}
+                >
+                  <span
+                    className={`inline-flex transition-transform duration-200 ${
+                      settingsOpen ? 'rotate-90 scale-110' : 'rotate-0 scale-100'
+                    }`}
+                  >
+                    {settingsOpen ? <X size={16} /> : <Settings size={16} />}
+                  </span>
+                </Button>
+              </Tooltip>
+            </header>
 
-          <SandboxBorder
-            sessionId={sessionId}
-            environment={activeConnection?.environment || 'development'}
-            className="flex-1 min-h-0 overflow-hidden p-4 pt-12"
-          >
-            {settingsOpen ? (
-              <SettingsPage />
-            ) : sessionId ? (
-              activeTab?.type === 'table' && activeTab.namespace && activeTab.tableName ? (
-                <TableBrowser
-                  key={activeTab.id}
-                  sessionId={sessionId}
-                  namespace={activeTab.namespace}
-                  tableName={activeTab.tableName}
-                  driver={driver}
-                  driverCapabilities={driverCapabilities}
-                  environment={activeConnection?.environment || 'development'}
-                  readOnly={activeConnection?.read_only || false}
-                  connectionName={activeConnection?.name}
-                  connectionDatabase={activeConnection?.database}
-                  connectionId={activeConnection?.id}
-                  onOpenRelatedTable={handleTableSelect}
-                  relationFilter={activeTab.relationFilter}
-                  searchFilter={activeTab.searchFilter}
-                  initialTab={tableBrowserTabsRef.current[activeTab.id]}
-                  onActiveTabChange={tab => {
-                    tableBrowserTabsRef.current[activeTab.id] = tab;
-                    scheduleRecoverySave();
-                  }}
-                  onClose={() => closeTab(activeTab.id)}
-                />
-              ) : activeTab?.type === 'database' && activeTab.namespace ? (
-                <DatabaseBrowser
-                  key={activeTab.id}
-                  sessionId={sessionId}
-                  namespace={activeTab.namespace}
-                  driver={driver}
-                  environment={activeConnection?.environment || 'development'}
-                  readOnly={activeConnection?.read_only || false}
-                  connectionName={activeConnection?.name}
-                  onTableSelect={handleTableSelect}
-                  schemaRefreshTrigger={schemaRefreshTrigger}
-                  onSchemaChange={triggerSchemaRefresh}
-                  initialTab={databaseBrowserTabsRef.current[activeTab.id]}
-                  onActiveTabChange={tab => {
-                    databaseBrowserTabsRef.current[activeTab.id] = tab;
-                    scheduleRecoverySave();
-                  }}
-                  onOpenQueryTab={ns => {
-                    openTab(createQueryTab(undefined, ns));
-                  }}
-                  onOpenFulltextSearch={() => setFulltextSearchOpen(true)}
-                  onClose={() => closeTab(activeTab.id)}
-                />
-              ) : activeTab?.type === 'query' ? (
-                <div className="flex-1 min-h-0">
-                  <QueryPanel
+            <SandboxBorder
+              sessionId={sessionId}
+              environment={activeConnection?.environment || 'development'}
+              className="flex-1 min-h-0 overflow-hidden p-4 pt-12"
+            >
+              {settingsOpen ? (
+                <SettingsPage />
+              ) : sessionId ? (
+                activeTab?.type === 'table' && activeTab.namespace && activeTab.tableName ? (
+                  <TableBrowser
                     key={activeTab.id}
                     sessionId={sessionId}
-                    dialect={driver}
+                    namespace={activeTab.namespace}
+                    tableName={activeTab.tableName}
+                    driver={driver}
                     driverCapabilities={driverCapabilities}
                     environment={activeConnection?.environment || 'development'}
                     readOnly={activeConnection?.read_only || false}
                     connectionName={activeConnection?.name}
                     connectionDatabase={activeConnection?.database}
-                    activeNamespace={activeTab.namespace}
-                    initialQuery={queryDrafts[activeTab.id] ?? activeTab.initialQuery}
-                    onSchemaChange={triggerSchemaRefresh}
-                    onOpenLibrary={() => setLibraryModalOpen(true)}
-                    isActive
-                    onQueryDraftChange={value => updateQueryDraft(activeTab.id, value)}
+                    connectionId={activeConnection?.id}
+                    onOpenRelatedTable={handleTableSelect}
+                    relationFilter={activeTab.relationFilter}
+                    searchFilter={activeTab.searchFilter}
+                    initialTab={tableBrowserTabsRef.current[activeTab.id]}
+                    onActiveTabChange={tab => {
+                      tableBrowserTabsRef.current[activeTab.id] = tab;
+                      scheduleRecoverySave();
+                    }}
+                    onClose={() => closeTab(activeTab.id)}
                   />
-                </div>
-              ) : activeConnection ? (
-                <ConnectionDashboard
-                  sessionId={sessionId}
-                  driver={driver}
-                  connection={activeConnection}
-                  schemaRefreshTrigger={schemaRefreshTrigger}
-                  onSchemaChange={triggerSchemaRefresh}
-                  onOpenQuery={handleNewQuery}
-                  onOpenDatabase={handleDatabaseSelect}
-                />
-              ) : null
-            ) : (
-              <div className="flex flex-col items-center justify-center h-full text-center space-y-4">
-                {recoverySnapshot && (
-                  <div className="w-full max-w-xl text-left rounded-lg border border-border bg-muted/50 p-4 shadow-sm">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                      <div>
-                        <p className="text-sm font-semibold text-foreground">
-                          {t('recovery.title')}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          {recoveryConnectionName
-                            ? t('recovery.description', { name: recoveryConnectionName })
-                            : t('recovery.descriptionUnknown')}
-                        </p>
-                        {recoveryMissing && (
-                          <p className="text-xs text-error mt-2">
-                            {t('recovery.missingConnection')}
+                ) : activeTab?.type === 'database' && activeTab.namespace ? (
+                  <DatabaseBrowser
+                    key={activeTab.id}
+                    sessionId={sessionId}
+                    namespace={activeTab.namespace}
+                    driver={driver}
+                    environment={activeConnection?.environment || 'development'}
+                    readOnly={activeConnection?.read_only || false}
+                    connectionName={activeConnection?.name}
+                    onTableSelect={handleTableSelect}
+                    schemaRefreshTrigger={schemaRefreshTrigger}
+                    onSchemaChange={triggerSchemaRefresh}
+                    initialTab={databaseBrowserTabsRef.current[activeTab.id]}
+                    onActiveTabChange={tab => {
+                      databaseBrowserTabsRef.current[activeTab.id] = tab;
+                      scheduleRecoverySave();
+                    }}
+                    onOpenQueryTab={ns => {
+                      openTab(createQueryTab(undefined, ns));
+                    }}
+                    onOpenFulltextSearch={() => setFulltextSearchOpen(true)}
+                    onClose={() => closeTab(activeTab.id)}
+                  />
+                ) : activeTab?.type === 'query' ? (
+                  <div className="flex-1 min-h-0">
+                    <QueryPanel
+                      key={activeTab.id}
+                      sessionId={sessionId}
+                      dialect={driver}
+                      driverCapabilities={driverCapabilities}
+                      environment={activeConnection?.environment || 'development'}
+                      readOnly={activeConnection?.read_only || false}
+                      connectionName={activeConnection?.name}
+                      connectionDatabase={activeConnection?.database}
+                      activeNamespace={activeTab.namespace}
+                      initialQuery={queryDrafts[activeTab.id] ?? activeTab.initialQuery}
+                      onSchemaChange={triggerSchemaRefresh}
+                      onOpenLibrary={() => setLibraryModalOpen(true)}
+                      isActive
+                      onQueryDraftChange={value => updateQueryDraft(activeTab.id, value)}
+                    />
+                  </div>
+                ) : activeConnection ? (
+                  <ConnectionDashboard
+                    sessionId={sessionId}
+                    driver={driver}
+                    connection={activeConnection}
+                    schemaRefreshTrigger={schemaRefreshTrigger}
+                    onSchemaChange={triggerSchemaRefresh}
+                    onOpenQuery={handleNewQuery}
+                    onOpenDatabase={handleDatabaseSelect}
+                  />
+                ) : null
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full text-center space-y-4">
+                  {recoverySnapshot && (
+                    <div className="w-full max-w-xl text-left rounded-lg border border-border bg-muted/50 p-4 shadow-sm">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <p className="text-sm font-semibold text-foreground">
+                            {t('recovery.title')}
                           </p>
-                        )}
-                        {recoveryError && !recoveryMissing && (
-                          <p className="text-xs text-error mt-2">{recoveryError}</p>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="outline"
-                          onClick={handleDiscardRecovery}
-                          disabled={recoveryLoading}
-                        >
-                          {t('recovery.discard')}
-                        </Button>
-                        <Button
-                          onClick={handleRestoreSession}
-                          disabled={recoveryLoading || recoveryMissing}
-                        >
-                          {recoveryLoading ? t('recovery.restoring') : t('recovery.restore')}
-                        </Button>
+                          <p className="text-sm text-muted-foreground">
+                            {recoveryConnectionName
+                              ? t('recovery.description', { name: recoveryConnectionName })
+                              : t('recovery.descriptionUnknown')}
+                          </p>
+                          {recoveryMissing && (
+                            <p className="text-xs text-error mt-2">
+                              {t('recovery.missingConnection')}
+                            </p>
+                          )}
+                          {recoveryError && !recoveryMissing && (
+                            <p className="text-xs text-error mt-2">{recoveryError}</p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            onClick={handleDiscardRecovery}
+                            disabled={recoveryLoading}
+                          >
+                            {t('recovery.discard')}
+                          </Button>
+                          <Button
+                            onClick={handleRestoreSession}
+                            disabled={recoveryLoading || recoveryMissing}
+                          >
+                            {recoveryLoading ? t('recovery.restoring') : t('recovery.restore')}
+                          </Button>
+                        </div>
                       </div>
                     </div>
+                  )}
+                  <div className="p-4 rounded-full bg-accent/10 text-accent mb-4">
+                    <img src="/logo.png" alt="QoreDB" width={60} height={60} />
                   </div>
-                )}
-                <div className="p-4 rounded-full bg-accent/10 text-accent mb-4">
-                  <img src="/logo.png" alt="QoreDB" width={60} height={60} />
+                  <h2 className="text-2xl font-semibold tracking-tight">{t('app.welcome')}</h2>
+                  <p className="text-muted-foreground max-w-100">{t('app.description')}</p>
+                  <div className="flex flex-col gap-2 min-w-50">
+                    <Button onClick={() => setConnectionModalOpen(true)} className="w-full">
+                      <Plus className="mr-2 h-4 w-4" />
+                      {t('app.newConnection')}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => setSearchOpen(true)}
+                      className="w-full text-muted-foreground"
+                    >
+                      <Search className="mr-2 h-4 w-4" />
+                      {t('app.search')}{' '}
+                      <kbd className="ml-auto pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground opacity-100">
+                        <span className="text-xs">⌘</span>K
+                      </kbd>
+                    </Button>
+                  </div>
                 </div>
-                <h2 className="text-2xl font-semibold tracking-tight">{t('app.welcome')}</h2>
-                <p className="text-muted-foreground max-w-100">{t('app.description')}</p>
-                <div className="flex flex-col gap-2 min-w-50">
-                  <Button onClick={() => setConnectionModalOpen(true)} className="w-full">
-                    <Plus className="mr-2 h-4 w-4" />
-                    {t('app.newConnection')}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => setSearchOpen(true)}
-                    className="w-full text-muted-foreground"
-                  >
-                    <Search className="mr-2 h-4 w-4" />
-                    {t('app.search')}{' '}
-                    <kbd className="ml-auto pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground opacity-100">
-                      <span className="text-xs">⌘</span>K
-                    </kbd>
-                  </Button>
-                </div>
-              </div>
-            )}
-          </SandboxBorder>
-          <StatusBar sessionId={sessionId} connection={activeConnection} />
-        </main>
+              )}
+            </SandboxBorder>
+            <StatusBar sessionId={sessionId} connection={activeConnection} />
+          </main>
+        </div>
       </div>
 
       <ConnectionModal

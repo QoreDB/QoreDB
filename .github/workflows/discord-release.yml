@@ -1,0 +1,41 @@
+name: Announce Release
+on:
+    release:
+        types: [published]
+
+jobs:
+    discord-announcement:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Send Discord Webhook
+              uses: actions/github-script@v7
+              env:
+                  WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK }}
+              with:
+                  script: |
+                      const release = context.payload.release;
+                      const body = release.body.substring(0, 1500); // Limite Discord
+
+                      const message = {
+                        embeds: [{
+                          title: `🚀 Nouvelle Release : ${release.tag_name}`,
+                          url: release.html_url,
+                          description: body,
+                          color: 5814783, // Bleu Blurple Discord
+                          author: {
+                            name: "QoreDB Updates",
+                            icon_url: "https://github.com/github.png"
+                          },
+                          fields: [
+                            { name: "Version", value: release.tag_name, inline: true },
+                            { name: "Auteur", value: release.author.login, inline: true }
+                          ],
+                          timestamp: new Date().toISOString()
+                        }]
+                      };
+
+                      await fetch(process.env.WEBHOOK_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(message)
+                      });

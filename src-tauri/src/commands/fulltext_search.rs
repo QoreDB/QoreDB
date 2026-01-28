@@ -2,17 +2,24 @@
 //!
 //! Provides global search functionality across all tables and columns in a database.
 //! Uses driver-specific optimized strategies with automatic fallback.
+//!
+//! Features:
+//! - Auto-detection of full-text indexes
+//! - Caching of table capabilities
+//! - Parallel table search with timeouts
+//! - Progressive result streaming
 
 use futures::stream::{self, StreamExt};
 use serde::Serialize;
 use std::sync::Arc;
 use std::time::Duration;
-use tauri::State;
+use tauri::{AppHandle, Emitter, State};
 use tokio::time::timeout;
-use tracing::{instrument, warn};
+use tracing::{debug, instrument, warn};
 
 use crate::engine::fulltext_strategy::{
-    get_search_strategy, SearchMethod, TableSearchCapability, TableSearchOptions,
+    get_capability_cache, get_search_strategy, FulltextIndexInfo, SearchMethod,
+    TableSearchCapability, TableSearchOptions,
 };
 use crate::engine::types::{CollectionListOptions, CollectionType, Namespace, QueryId, Value};
 
@@ -25,28 +32,19 @@ const DEFAULT_TABLE_TIMEOUT_MS: u64 = 5000;
 /// A single match found during full-text search
 #[derive(Debug, Clone, Serialize)]
 pub struct FulltextMatch {
-    /// The namespace (database/schema) containing the match
     pub namespace: Namespace,
-    /// The table name where the match was found
     pub table_name: String,
-    /// The column name where the match was found
     pub column_name: String,
-    /// Preview of the matching value
     pub value_preview: String,
-    /// The full row data for context
     pub row_preview: Vec<(String, Value)>,
 }
 
 /// Statistics about the search execution
 #[derive(Debug, Clone, Serialize)]
 pub struct SearchStats {
-    /// Number of tables that used native full-text search
     pub native_fulltext_count: u32,
-    /// Number of tables that used pattern matching (LIKE)
     pub pattern_match_count: u32,
-    /// Number of tables that timed out
     pub timeout_count: u32,
-    /// Number of tables that had errors
     pub error_count: u32,
 }
 
@@ -54,39 +52,36 @@ pub struct SearchStats {
 #[derive(Debug, Serialize)]
 pub struct FulltextSearchResponse {
     pub success: bool,
-    /// All matches found, grouped by table/column
     pub matches: Vec<FulltextMatch>,
-    /// Total number of matches found
     pub total_matches: u64,
-    /// Number of tables searched
     pub tables_searched: u32,
-    /// Time taken in milliseconds
     pub search_time_ms: f64,
-    /// Error message if any
     pub error: Option<String>,
-    /// Whether the search was cancelled due to limits
     pub truncated: bool,
-    /// Detailed statistics
     pub stats: SearchStats,
+}
+
+/// Progressive search event for streaming results
+#[derive(Debug, Clone, Serialize)]
+pub struct SearchProgressEvent {
+    pub tables_searched: u32,
+    pub total_tables: u32,
+    pub matches_found: u32,
+    pub current_table: Option<String>,
 }
 
 /// Options for full-text search
 #[derive(Debug, Clone, serde::Deserialize)]
 pub struct FulltextSearchOptions {
-    /// Maximum results per table (default: 10)
     pub max_results_per_table: Option<u32>,
-    /// Maximum total results (default: 100)
     pub max_total_results: Option<u32>,
-    /// Case sensitive search (default: false)
     pub case_sensitive: Option<bool>,
-    /// Specific namespaces to search (if empty, search all)
     pub namespaces: Option<Vec<Namespace>>,
-    /// Specific tables to search (if empty, search all)
     pub tables: Option<Vec<String>>,
-    /// Timeout per table in milliseconds (default: 5000)
     pub timeout_per_table_ms: Option<u64>,
-    /// Maximum tables to search in parallel (default: 5)
     pub max_parallel: Option<usize>,
+    /// Enable streaming of results (emit events as results come in)
+    pub stream_results: Option<bool>,
 }
 
 fn parse_session_id(id: &str) -> Result<crate::engine::types::SessionId, String> {
@@ -94,12 +89,9 @@ fn parse_session_id(id: &str) -> Result<crate::engine::types::SessionId, String>
     Ok(crate::engine::types::SessionId(uuid))
 }
 
-/// Check if a data type is text-like (searchable)
 fn is_text_type(data_type: &str) -> bool {
     let dt = data_type.to_lowercase();
-
-    // Common SQL text types
-    if dt.contains("char")
+    dt.contains("char")
         || dt.contains("text")
         || dt.contains("varchar")
         || dt.contains("string")
@@ -109,19 +101,10 @@ fn is_text_type(data_type: &str) -> bool {
         || dt.contains("json")
         || dt.contains("xml")
         || dt.contains("enum")
-    {
-        return true;
-    }
-
-    // MongoDB types
-    if dt == "string" || dt == "objectid" {
-        return true;
-    }
-
-    false
+        || dt == "string"
+        || dt == "objectid"
 }
 
-/// Check if a namespace should be skipped (system databases)
 fn is_system_namespace(namespace: &Namespace) -> bool {
     let db_lower = namespace.database.to_lowercase();
     matches!(
@@ -138,7 +121,6 @@ fn is_system_namespace(namespace: &Namespace) -> bool {
     )
 }
 
-/// Check if a table should be skipped (system tables)
 fn is_system_table(table_name: &str) -> bool {
     let lower = table_name.to_lowercase();
     lower.starts_with("pg_")
@@ -147,7 +129,6 @@ fn is_system_table(table_name: &str) -> bool {
         || lower.starts_with("_")
 }
 
-/// Extract a preview string from a Value
 fn value_to_preview(value: &Value, max_len: usize) -> String {
     let s = match value {
         Value::Null => "NULL".to_string(),
@@ -161,13 +142,12 @@ fn value_to_preview(value: &Value, max_len: usize) -> String {
     };
 
     if s.len() > max_len {
-        format!("{}...", &s[..max_len - 3])
+        format!("{}...", &s[..max_len.saturating_sub(3)])
     } else {
         s
     }
 }
 
-/// Check if a value contains the search term
 fn value_contains(value: &Value, search_term: &str, case_sensitive: bool) -> bool {
     let text = match value {
         Value::Text(t) => t.clone(),
@@ -192,9 +172,10 @@ struct TableSearchResult {
 
 /// Performs a full-text search across all tables and columns in the database
 #[tauri::command]
-#[instrument(skip(state), fields(session_id = %session_id, search_term_len = search_term.len()))]
+#[instrument(skip(state, app_handle), fields(session_id = %session_id, search_term_len = search_term.len()))]
 pub async fn fulltext_search(
     state: State<'_, crate::SharedState>,
+    app_handle: AppHandle,
     session_id: String,
     search_term: String,
     options: Option<FulltextSearchOptions>,
@@ -204,56 +185,20 @@ pub async fn fulltext_search(
     // Validate search term
     let search_term = search_term.trim();
     if search_term.is_empty() {
-        return Ok(FulltextSearchResponse {
-            success: false,
-            matches: vec![],
-            total_matches: 0,
-            tables_searched: 0,
-            search_time_ms: 0.0,
-            error: Some("Search term cannot be empty".to_string()),
-            truncated: false,
-            stats: SearchStats {
-                native_fulltext_count: 0,
-                pattern_match_count: 0,
-                timeout_count: 0,
-                error_count: 0,
-            },
-        });
+        return Ok(empty_response("Search term cannot be empty"));
     }
 
     if search_term.len() < 2 {
-        return Ok(FulltextSearchResponse {
-            success: false,
-            matches: vec![],
-            total_matches: 0,
-            tables_searched: 0,
-            search_time_ms: 0.0,
-            error: Some("Search term must be at least 2 characters".to_string()),
-            truncated: false,
-            stats: SearchStats {
-                native_fulltext_count: 0,
-                pattern_match_count: 0,
-                timeout_count: 0,
-                error_count: 0,
-            },
-        });
+        return Ok(empty_response("Search term must be at least 2 characters"));
     }
 
-    let opts = options.unwrap_or(FulltextSearchOptions {
-        max_results_per_table: None,
-        max_total_results: None,
-        case_sensitive: None,
-        namespaces: None,
-        tables: None,
-        timeout_per_table_ms: None,
-        max_parallel: None,
-    });
-
+    let opts = options.unwrap_or_default();
     let max_per_table = opts.max_results_per_table.unwrap_or(10).min(50);
     let max_total = opts.max_total_results.unwrap_or(100).min(500);
     let case_sensitive = opts.case_sensitive.unwrap_or(false);
     let table_timeout_ms = opts.timeout_per_table_ms.unwrap_or(DEFAULT_TABLE_TIMEOUT_MS);
     let max_parallel = opts.max_parallel.unwrap_or(MAX_PARALLEL_TABLES).min(10);
+    let stream_results = opts.stream_results.unwrap_or(false);
 
     let session_manager = {
         let state = state.lock().await;
@@ -265,26 +210,16 @@ pub async fn fulltext_search(
     let driver = match session_manager.get_driver(session).await {
         Ok(d) => d,
         Err(e) => {
-            return Ok(FulltextSearchResponse {
-                success: false,
-                matches: vec![],
-                total_matches: 0,
-                tables_searched: 0,
-                search_time_ms: start_time.elapsed().as_secs_f64() * 1000.0,
-                error: Some(e.to_string()),
-                truncated: false,
-                stats: SearchStats {
-                    native_fulltext_count: 0,
-                    pattern_match_count: 0,
-                    timeout_count: 0,
-                    error_count: 0,
-                },
-            });
+            return Ok(error_response(
+                &e.to_string(),
+                start_time.elapsed().as_secs_f64() * 1000.0,
+            ));
         }
     };
 
     let driver_id = driver.driver_id();
     let search_strategy = get_search_strategy(driver_id);
+    let capability_cache = get_capability_cache();
 
     // Get namespaces to search
     let namespaces = if let Some(ns) = opts.namespaces {
@@ -293,26 +228,15 @@ pub async fn fulltext_search(
         match driver.list_namespaces(session).await {
             Ok(ns) => ns,
             Err(e) => {
-                return Ok(FulltextSearchResponse {
-                    success: false,
-                    matches: vec![],
-                    total_matches: 0,
-                    tables_searched: 0,
-                    search_time_ms: start_time.elapsed().as_secs_f64() * 1000.0,
-                    error: Some(format!("Failed to list namespaces: {}", e)),
-                    truncated: false,
-                    stats: SearchStats {
-                        native_fulltext_count: 0,
-                        pattern_match_count: 0,
-                        timeout_count: 0,
-                        error_count: 0,
-                    },
-                });
+                return Ok(error_response(
+                    &format!("Failed to list namespaces: {}", e),
+                    start_time.elapsed().as_secs_f64() * 1000.0,
+                ));
             }
         }
     };
 
-    // Collect all tables to search
+    // Collect all tables to search with their capabilities
     let mut tables_to_search: Vec<(Namespace, String, Vec<String>)> = Vec::new();
 
     for namespace in namespaces {
@@ -349,7 +273,6 @@ pub async fn fulltext_search(
                 }
             }
 
-            // Get table schema to find text columns
             let schema = match driver
                 .describe_table(session, &namespace, &collection.name)
                 .await
@@ -371,9 +294,27 @@ pub async fn fulltext_search(
         }
     }
 
-    let tables_searched = tables_to_search.len() as u32;
+    let total_tables = tables_to_search.len() as u32;
 
-    // Search tables in parallel with timeout
+    if total_tables == 0 {
+        return Ok(FulltextSearchResponse {
+            success: true,
+            matches: vec![],
+            total_matches: 0,
+            tables_searched: 0,
+            search_time_ms: start_time.elapsed().as_secs_f64() * 1000.0,
+            error: None,
+            truncated: false,
+            stats: SearchStats {
+                native_fulltext_count: 0,
+                pattern_match_count: 0,
+                timeout_count: 0,
+                error_count: 0,
+            },
+        });
+    }
+
+    // Search options
     let search_options = TableSearchOptions {
         search_term: search_term.to_string(),
         case_sensitive,
@@ -382,59 +323,81 @@ pub async fn fulltext_search(
         prefer_native: true,
     };
 
+    // Counter for streaming progress
+    let tables_searched_counter = Arc::new(std::sync::atomic::AtomicU32::new(0));
+    let matches_found_counter = Arc::new(std::sync::atomic::AtomicU32::new(0));
+
     let driver_ref = &driver;
     let strategy_ref = search_strategy.as_ref();
     let search_options_ref = &search_options;
+    let capability_cache_ref = &capability_cache;
+    let app_handle_ref = &app_handle;
+    let session_id_ref = &session_id;
+    let tables_searched_counter_ref = &tables_searched_counter;
+    let matches_found_counter_ref = &matches_found_counter;
 
+    // Search tables in parallel
     let results: Vec<TableSearchResult> = stream::iter(tables_to_search)
         .map(|(namespace, table_name, text_columns)| async move {
-            // Analyze table capabilities
-            let capability = match strategy_ref
-                .analyze_table(&namespace, &table_name, &text_columns)
-                .await
+            // Check cache first
+            let capability = if let Some(cached) =
+                capability_cache_ref.get(&namespace, &table_name).await
             {
-                Ok(cap) => cap,
-                Err(_) => TableSearchCapability {
-                    searchable_columns: text_columns
-                        .iter()
-                        .map(|name| crate::engine::fulltext_strategy::ColumnSearchInfo {
-                            name: name.clone(),
-                            data_type: "text".to_string(),
-                            has_fulltext_index: false,
-                            fulltext_index_name: None,
-                        })
-                        .collect(),
-                    recommended_method: SearchMethod::PatternMatch,
-                    estimated_rows: None,
-                },
+                debug!("Using cached capability for {}.{}", namespace.database, table_name);
+                cached
+            } else {
+                // Detect full-text indexes
+                let detected_indexes = detect_fulltext_indexes(
+                    driver_ref,
+                    session,
+                    strategy_ref,
+                    &namespace,
+                    &table_name,
+                )
+                .await;
+
+                let capability =
+                    strategy_ref.build_capability(&text_columns, &detected_indexes, None);
+
+                // Cache the result
+                capability_cache_ref
+                    .set(&namespace, &table_name, capability.clone())
+                    .await;
+
+                capability
             };
 
-            // Build query using strategy
-            let (query, method) =
-                strategy_ref.build_search_query(&namespace, &table_name, &capability, search_options_ref);
-
-            // Execute with timeout
-            let query_id = QueryId::new();
-            let search_future = driver_ref.execute_in_namespace(
-                session,
-                Some(namespace.clone()),
-                &query,
-                query_id,
+            // Build and execute query
+            let (query, method) = strategy_ref.build_search_query(
+                &namespace,
+                &table_name,
+                &capability,
+                search_options_ref,
             );
+
+            let query_id = QueryId::new();
+            let search_future =
+                driver_ref.execute_in_namespace(session, Some(namespace.clone()), &query, query_id);
 
             let timeout_duration = Duration::from_millis(table_timeout_ms);
             let result = timeout(timeout_duration, search_future).await;
 
-            match result {
+            // Update progress counter
+            tables_searched_counter_ref.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+
+            let table_result = match result {
                 Ok(Ok(query_result)) => {
-                    // Process matching rows
                     let mut matches = Vec::new();
 
                     for row in query_result.rows {
                         for (idx, col_info) in query_result.columns.iter().enumerate() {
                             if let Some(value) = row.values.get(idx) {
                                 if is_text_type(&col_info.data_type)
-                                    && value_contains(value, &search_options_ref.search_term, case_sensitive)
+                                    && value_contains(
+                                        value,
+                                        &search_options_ref.search_term,
+                                        case_sensitive,
+                                    )
                                 {
                                     let row_preview: Vec<(String, Value)> = query_result
                                         .columns
@@ -462,6 +425,10 @@ pub async fn fulltext_search(
                         }
                     }
 
+                    // Update matches counter
+                    matches_found_counter_ref
+                        .fetch_add(matches.len() as u32, std::sync::atomic::Ordering::SeqCst);
+
                     TableSearchResult {
                         matches,
                         method,
@@ -470,7 +437,10 @@ pub async fn fulltext_search(
                     }
                 }
                 Ok(Err(e)) => {
-                    warn!("Search error in {}.{}: {}", namespace.database, table_name, e);
+                    warn!(
+                        "Search error in {}.{}: {}",
+                        namespace.database, table_name, e
+                    );
                     TableSearchResult {
                         matches: vec![],
                         method,
@@ -487,7 +457,25 @@ pub async fn fulltext_search(
                         error: None,
                     }
                 }
+            };
+
+            // Emit progress event if streaming
+            if stream_results {
+                let progress = SearchProgressEvent {
+                    tables_searched: tables_searched_counter_ref
+                        .load(std::sync::atomic::Ordering::SeqCst),
+                    total_tables,
+                    matches_found: matches_found_counter_ref
+                        .load(std::sync::atomic::Ordering::SeqCst),
+                    current_table: Some(format!("{}.{}", namespace.database, table_name)),
+                };
+                let _ = app_handle_ref.emit(
+                    &format!("fulltext_search_progress:{}", session_id_ref),
+                    progress,
+                );
             }
+
+            table_result
         })
         .buffer_unordered(max_parallel)
         .collect()
@@ -537,14 +525,111 @@ pub async fn fulltext_search(
     let total_matches = all_matches.len() as u64;
     let search_time_ms = start_time.elapsed().as_secs_f64() * 1000.0;
 
+    debug!(
+        "Search completed: {} matches in {:.0}ms (native: {}, pattern: {}, timeouts: {})",
+        total_matches,
+        search_time_ms,
+        stats.native_fulltext_count,
+        stats.pattern_match_count,
+        stats.timeout_count
+    );
+
     Ok(FulltextSearchResponse {
         success: true,
         matches: all_matches,
         total_matches,
-        tables_searched,
+        tables_searched: total_tables,
         search_time_ms,
         error: None,
         truncated,
         stats,
     })
+}
+
+/// Detect full-text indexes for a table
+async fn detect_fulltext_indexes(
+    driver: &Arc<dyn crate::engine::traits::DataEngine>,
+    session: crate::engine::types::SessionId,
+    strategy: &dyn crate::engine::fulltext_strategy::FulltextSearchStrategy,
+    namespace: &Namespace,
+    table_name: &str,
+) -> Vec<FulltextIndexInfo> {
+    // Get index detection query from strategy
+    let Some(detection_query) = strategy.build_index_detection_query(namespace, table_name) else {
+        return Vec::new();
+    };
+
+    // Execute detection query
+    let query_id = QueryId::new();
+    let result = match driver
+        .execute_in_namespace(session, Some(namespace.clone()), &detection_query, query_id)
+        .await
+    {
+        Ok(r) => r,
+        Err(e) => {
+            debug!(
+                "Index detection failed for {}.{}: {}",
+                namespace.database, table_name, e
+            );
+            return Vec::new();
+        }
+    };
+
+    // Convert rows to Vec<Vec<Value>> format
+    let rows: Vec<Vec<Value>> = result.rows.into_iter().map(|r| r.values).collect();
+    let columns: Vec<String> = result.columns.into_iter().map(|c| c.name).collect();
+
+    // Parse results using strategy
+    strategy.parse_index_detection_result(&rows, &columns)
+}
+
+fn empty_response(error: &str) -> FulltextSearchResponse {
+    FulltextSearchResponse {
+        success: false,
+        matches: vec![],
+        total_matches: 0,
+        tables_searched: 0,
+        search_time_ms: 0.0,
+        error: Some(error.to_string()),
+        truncated: false,
+        stats: SearchStats {
+            native_fulltext_count: 0,
+            pattern_match_count: 0,
+            timeout_count: 0,
+            error_count: 0,
+        },
+    }
+}
+
+fn error_response(error: &str, time_ms: f64) -> FulltextSearchResponse {
+    FulltextSearchResponse {
+        success: false,
+        matches: vec![],
+        total_matches: 0,
+        tables_searched: 0,
+        search_time_ms: time_ms,
+        error: Some(error.to_string()),
+        truncated: false,
+        stats: SearchStats {
+            native_fulltext_count: 0,
+            pattern_match_count: 0,
+            timeout_count: 0,
+            error_count: 0,
+        },
+    }
+}
+
+impl Default for FulltextSearchOptions {
+    fn default() -> Self {
+        Self {
+            max_results_per_table: None,
+            max_total_results: None,
+            case_sensitive: None,
+            namespaces: None,
+            tables: None,
+            timeout_per_table_ms: None,
+            max_parallel: None,
+            stream_results: None,
+        }
+    }
 }

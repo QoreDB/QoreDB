@@ -593,7 +593,7 @@ export function DataGrid({
   const selectedRows = table.getSelectedRowModel().rows;
 
   return (
-    <div className="flex flex-col gap-2 h-full min-h-0 overflow-hidden" data-datagrid>
+    <div className="flex flex-col gap-2 h-full min-h-0" data-datagrid>
       {/* Header */}
       <div className="flex items-center justify-between px-1 shrink-0">
         <DataGridHeader

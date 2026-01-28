@@ -88,56 +88,69 @@ export function FulltextSearchPanel({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
-  const performSearch = useCallback(async (searchTerm: string) => {
-    if (!sessionId || searchTerm.trim().length < 2) {
-      setResult(null);
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const response = await fulltextSearch(sessionId, searchTerm, {
-        case_sensitive: caseSensitive,
-        max_results_per_table: 10,
-        max_total_results: 100,
-      });
-      setResult(response);
-
-      // Auto-expand all groups with matches
-      if (response.success && response.matches.length > 0) {
-        const groups = groupMatchesByTable(response.matches);
-        setExpandedGroups(new Set(groups.map(g =>
-          `${g.namespace.database}:${g.namespace.schema ?? ''}:${g.tableName}`
-        )));
+  const performSearch = useCallback(
+    async (searchTerm: string) => {
+      if (!sessionId || searchTerm.trim().length < 2) {
+        setResult(null);
+        return;
       }
-    } catch (err) {
-      setResult({
-        success: false,
-        matches: [],
-        total_matches: 0,
-        tables_searched: 0,
-        search_time_ms: 0,
-        error: err instanceof Error ? err.message : 'Unknown error',
-        truncated: false,
-      });
-    } finally {
-      setLoading(false);
-    }
-  }, [sessionId, caseSensitive]);
 
-  const handleSearchChange = useCallback((value: string) => {
-    setQuery(value);
+      setLoading(true);
+      try {
+        const response = await fulltextSearch(sessionId, searchTerm, {
+          case_sensitive: caseSensitive,
+          max_results_per_table: 10,
+          max_total_results: 100,
+        });
+        setResult(response);
 
-    // Clear previous debounce
-    if (debounceRef.current) {
-      clearTimeout(debounceRef.current);
-    }
+        if (response.success && response.matches.length > 0) {
+          const groups = groupMatchesByTable(response.matches);
+          setExpandedGroups(
+            new Set(
+              groups.map(g => `${g.namespace.database}:${g.namespace.schema ?? ''}:${g.tableName}`)
+            )
+          );
+        }
+      } catch (err) {
+        setResult({
+          success: false,
+          matches: [],
+          total_matches: 0,
+          tables_searched: 0,
+          search_time_ms: 0,
+          error: err instanceof Error ? err.message : 'Unknown error',
+          truncated: false,
+          stats: {
+            native_fulltext_count: 0,
+            pattern_match_count: 0,
+            timeout_count: 0,
+            error_count: 1,
+          },
+        });
+      } finally {
+        setLoading(false);
+      }
+    },
+    [sessionId, caseSensitive]
+  );
 
-    // Debounce the search
-    debounceRef.current = setTimeout(() => {
-      performSearch(value);
-    }, 300);
-  }, [performSearch]);
+  const handleSearchChange = useCallback(
+    (value: string) => {
+      setQuery(value);
+
+      // Clear previous debounce
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
+
+      // Debounce the search
+      debounceRef.current = setTimeout(() => {
+        performSearch(value);
+      }, 300);
+    },
+    [performSearch]
+  );
 
   const toggleGroup = useCallback((key: string) => {
     setExpandedGroups(prev => {
@@ -151,15 +164,18 @@ export function FulltextSearchPanel({
     });
   }, []);
 
-  const handleTableClick = useCallback((namespace: Namespace, tableName: string, columnName: string) => {
-    const filter: SearchFilter = {
-      column: columnName,
-      value: query,
-      caseSensitive,
-    };
-    onNavigateToTable?.(namespace, tableName, filter);
-    onClose();
-  }, [onNavigateToTable, onClose, query, caseSensitive]);
+  const handleTableClick = useCallback(
+    (namespace: Namespace, tableName: string, columnName: string) => {
+      const filter: SearchFilter = {
+        column: columnName,
+        value: query,
+        caseSensitive,
+      };
+      onNavigateToTable?.(namespace, tableName, filter);
+      onClose();
+    },
+    [onNavigateToTable, onClose, query, caseSensitive]
+  );
 
   if (!isOpen) return null;
 
@@ -172,7 +188,7 @@ export function FulltextSearchPanel({
     >
       <div
         className="w-full max-w-2xl bg-background border border-border rounded-lg shadow-2xl overflow-hidden flex flex-col ring-1 ring-border max-h-[80vh]"
-        onClick={(e) => e.stopPropagation()}
+        onClick={e => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/30">
@@ -196,12 +212,10 @@ export function FulltextSearchPanel({
                 type="text"
                 placeholder={t('fulltextSearch.placeholder')}
                 value={query}
-                onChange={(e) => handleSearchChange(e.target.value)}
+                onChange={e => handleSearchChange(e.target.value)}
               />
             </div>
-            {loading && (
-              <Loader2 className="w-5 h-5 animate-spin text-primary" />
-            )}
+            {loading && <Loader2 className="w-5 h-5 animate-spin text-primary" />}
           </div>
 
           <div className="flex items-center gap-4 text-sm">
@@ -209,7 +223,7 @@ export function FulltextSearchPanel({
               <Switch
                 id="case-sensitive"
                 checked={caseSensitive}
-                onCheckedChange={(checked) => {
+                onCheckedChange={checked => {
                   setCaseSensitive(checked);
                   if (query.trim().length >= 2) {
                     performSearch(query);
@@ -253,14 +267,12 @@ export function FulltextSearchPanel({
                   time: result!.search_time_ms.toFixed(0),
                 })}
                 {result!.truncated && (
-                  <span className="ml-2 text-amber-500">
-                    ({t('fulltextSearch.truncated')})
-                  </span>
+                  <span className="ml-2 text-amber-500">({t('fulltextSearch.truncated')})</span>
                 )}
               </div>
 
               {/* Grouped results */}
-              {groupedMatches.map((group) => {
+              {groupedMatches.map(group => {
                 const key = `${group.namespace.database}:${group.namespace.schema ?? ''}:${group.tableName}`;
                 const isExpanded = expandedGroups.has(key);
 
@@ -295,7 +307,9 @@ export function FulltextSearchPanel({
                           <div
                             key={idx}
                             className="px-4 py-2 pl-10 border-t border-border/50 hover:bg-muted/30 cursor-pointer"
-                            onClick={() => handleTableClick(match.namespace, match.table_name, match.column_name)}
+                            onClick={() =>
+                              handleTableClick(match.namespace, match.table_name, match.column_name)
+                            }
                           >
                             <div className="flex items-center gap-2 text-sm">
                               <span className="text-muted-foreground font-mono text-xs">
@@ -312,7 +326,7 @@ export function FulltextSearchPanel({
                             {/* Row preview */}
                             <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1 text-xs text-muted-foreground">
                               {match.row_preview.slice(0, 4).map(([colName, value]) => (
-                                <span key={colName} className="truncate max-w-[150px]">
+                                <span key={colName} className="truncate max-w-37.5">
                                   <span className="font-medium">{colName}:</span>{' '}
                                   {formatValue(value)}
                                 </span>

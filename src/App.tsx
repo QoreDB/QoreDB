@@ -430,6 +430,7 @@ function App() {
             onEditConnection={handleEditConnection}
             refreshTrigger={sidebarRefreshTrigger}
             schemaRefreshTrigger={schemaRefreshTrigger}
+            activeNamespace={activeTab?.namespace}
           />
 
           <main className="flex-1 flex flex-col min-w-0 min-h-0 bg-background relative">

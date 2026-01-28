@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Namespace, Collection, SavedConnection, listCollections, RelationFilter } from '../../lib/tauri';
 import { useSchemaCache } from '../../hooks/useSchemaCache';
-import { Folder, FolderOpen, Table, Eye, Loader2, Plus, ChevronRight, ChevronDown } from 'lucide-react';
+import { Folder, FolderOpen, Table, Eye, Loader2, Plus, ChevronRight, ChevronDown, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { CreateDatabaseModal } from './CreateDatabaseModal';
 import { DeleteDatabaseModal } from './DeleteDatabaseModal';
 import { TableContextMenu } from './TableContextMenu';
@@ -21,6 +22,7 @@ interface DBTreeProps {
   onTableSelect?: (namespace: Namespace, tableName: string, relationFilter?: RelationFilter) => void;
   onDatabaseSelect?: (namespace: Namespace) => void;
   refreshTrigger?: number;
+  activeNamespace?: Namespace | null;
 }
 
 export function DBTree({
@@ -30,6 +32,7 @@ export function DBTree({
   onTableSelect,
   onDatabaseSelect,
   refreshTrigger,
+  activeNamespace,
 }: DBTreeProps) {
   const { t } = useTranslation();
   const [namespaces, setNamespaces] = useState<Namespace[]>([]);
@@ -45,12 +48,22 @@ export function DBTree({
   const [createTableNamespace, setCreateTableNamespace] = useState<Namespace | null>(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deleteTargetNamespace, setDeleteTargetNamespace] = useState<Namespace | null>(null);
-  const collectionsPageSize = 100;
+  const [search, setSearch] = useState("");
+  const [searchValue, setSearchValue] = useState("");  
+  const collectionsPageSize = 50; 
   
   const driverMeta = getDriverMetadata(driver);
 
   const sessionId = connectionId;
   const { getNamespaces, invalidateNamespaces } = schemaCache;
+
+  // Debounce search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearch(searchValue);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchValue]);
 
   const loadNamespaces = useCallback(async () => {
     try {
@@ -73,23 +86,47 @@ export function DBTree({
     async (ns: Namespace, page = 1, append = false) => {
       setCollectionsLoading(true);
       try {
-        const cols = await listCollections(connectionId, ns, undefined, page, collectionsPageSize);
+        const cols = await listCollections(connectionId, ns, search, page, collectionsPageSize);
         if (!cols.success || !cols.data) return;
 
         const data = cols.data;
         setCollectionsTotal(data.total_count);
         setCollectionsPage(page);
-        setCollections(prev => (append ? [...prev, ...data.collections] : data.collections));
+        
+        if (!append || (page === 1 && !append)) {
+          setCollections(data.collections);
+        } else {
+          setCollections(prev => [...prev, ...data.collections]);
+        }
       } catch (err) {
         console.error('Failed to refresh collections:', err);
       } finally {
         setCollectionsLoading(false);
       }
     },
-    [connectionId, collectionsPageSize]
+    [connectionId, collectionsPageSize, search]
   );
 
+  // Sync expanded state with activeNamespace
+  useEffect(() => {
+    if (activeNamespace) {
+      const key = getNsKey(activeNamespace);
+      if (expandedNs !== key) {
+        setExpandedNs(key);
+        setExpandedNamespace(activeNamespace);
+        refreshCollections(activeNamespace, 1, false);
+      }
+    }
+  }, [activeNamespace, expandedNs, refreshCollections]);
+
   const canLoadMore = collections.length > 0 && collections.length < collectionsTotal;
+
+  // Reload when search changes
+  useEffect(() => {
+    if (expandedNamespace) {
+      refreshCollections(expandedNamespace, 1, false);
+    }
+  }, [search, expandedNamespace, refreshCollections]);
 
   const handleLoadMore = useCallback(async () => {
     if (!expandedNamespace || collectionsLoading) return;
@@ -131,11 +168,15 @@ export function DBTree({
       setExpandedNamespace(null);
       setCollections([]);
       setCollectionsTotal(0);
+      setSearch("");
+      setSearchValue("");
       return;
     }
 
     setExpandedNs(key);
     setExpandedNamespace(ns);
+    setSearch("");
+    setSearchValue("");
     await refreshCollections(ns, 1, false);
   }
 
@@ -244,10 +285,23 @@ export function DBTree({
             
             {isExpanded && (
               <div className="flex flex-col ml-2 pl-2 border-l border-border mt-0.5 space-y-0.5">
+                <div className="px-2 mb-1 relative">
+                   <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground z-10" />
+                   <Input
+                      className="h-7 text-xs pl-7 bg-muted/50 border-transparent focus-visible:bg-background shadow-none"
+                      placeholder={t('dbtree.searchPlaceholder')}
+                      value={searchValue}
+                      onChange={(e) => setSearchValue(e.target.value)}
+                      onClick={(e) => e.stopPropagation()}
+                   />
+                </div>
                 {collections.length === 0 ? (
-                  <div className="px-2 py-1 text-xs text-muted-foreground italic">{t('dbtree.noCollections')}</div>
+                  <div className="px-2 py-1 text-xs text-muted-foreground italic">
+                    {search ? t('common.noResults') : t('dbtree.noCollections')}
+                  </div>
                 ) : (
-                  collections.map(col => (
+                  <>
+                  {collections.map(col => (
                     <TableContextMenu
                       key={col.name}
                       collection={col}
@@ -259,27 +313,29 @@ export function DBTree({
                       onOpen={() => handleTableClick(col)}
                     >
                       <button
-                        className="flex items-center gap-2 w-full px-2 py-1 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground text-left"
+                        className="flex items-center gap-2 w-full px-2 py-1 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground text-left group"
                         onClick={() => handleTableClick(col)}
                       >
-                        <span className="shrink-0">
+                        <span className="shrink-0 group-hover:text-foreground/80 transition-colors">
                           {col.collection_type === 'View' ? <Eye size={13} /> : <Table size={13} />}
                         </span>
                         <span className="truncate font-mono text-xs">{col.name}</span>
                       </button>
                     </TableContextMenu>
-                  ))
+                  ))}
+                  {canLoadMore && !collectionsLoading && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 justify-start px-2 text-xs text-muted-foreground hover:text-foreground w-full"
+                      onClick={handleLoadMore}
+                    >
+                      {t('dbtree.loadMore')} ({collectionsTotal - collections.length})
+                    </Button>
+                  )}
+                  </>
                 )}
-                {canLoadMore && !collectionsLoading && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 justify-start px-2 text-xs text-muted-foreground hover:text-foreground"
-                    onClick={handleLoadMore}
-                  >
-                    {t('dbtree.loadMore')}
-                  </Button>
-                )}
+
               </div>
             )}
           </div>

@@ -6,6 +6,7 @@ import { CreateDatabaseModal } from '@/components/Tree/CreateDatabaseModal';
 import { useSchemaCache } from '@/hooks/useSchemaCache';
 import { getDriverMetadata, Driver } from '@/lib/drivers';
 import type { Namespace, SavedConnection } from '@/lib/tauri';
+import { ENVIRONMENT_CONFIG } from '@/lib/environment';
 
 interface ConnectionDashboardProps {
   sessionId: string;
@@ -79,9 +80,24 @@ export function ConnectionDashboard({
     <div className="h-full flex flex-col gap-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-1">
-          <h2 className="text-xl font-semibold text-foreground">
-            {t('connectionDashboard.title', { name: titleLabel })}
-          </h2>
+          <div className="flex items-center gap-3">
+             <h2 className="text-xl font-semibold text-foreground">
+               {t('connectionDashboard.title', { name: titleLabel })}
+             </h2>
+             {connection?.environment && connection.environment !== 'development' && (
+                (() => {
+                   const config = ENVIRONMENT_CONFIG[connection.environment];
+                   return (
+                      <span 
+                         className="px-2 py-0.5 text-xs font-bold rounded"
+                         style={{ backgroundColor: config.bgSoft, color: config.color }}
+                      >
+                         {config.labelShort}
+                      </span>
+                   );
+                })()
+             )}
+          </div>
           <p className="text-sm text-muted-foreground">
             {t(descriptionKey)}
           </p>
@@ -124,8 +140,20 @@ export function ConnectionDashboard({
         )}
 
         {sortedNamespaces.length === 0 && !loading ? (
-          <div className="px-4 py-6 text-sm text-muted-foreground">
-            {t(emptyKey)}
+          <div className="px-4 py-8 flex flex-col items-center justify-center text-center gap-4">
+            <p className="text-sm text-muted-foreground">{t(emptyKey)}</p>
+            <div className="flex gap-2">
+               <Button variant="outline" size="sm" onClick={onOpenQuery}>
+                 <Terminal size={14} className="mr-2" />
+                 {t('connectionDashboard.openQuery')}
+               </Button>
+               {driverMeta.createAction !== 'none' && !connection.read_only && (
+                 <Button size="sm" onClick={() => setCreateOpen(true)}>
+                   <Plus size={14} className="mr-2" />
+                   {t(createLabelKey)}
+                 </Button>
+               )}
+            </div>
           </div>
         ) : (
           <div className="divide-y divide-border">

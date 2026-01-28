@@ -8,7 +8,7 @@
         "noSession": {
             "title": "No active session",
             "description": "Select a connection from the sidebar to get started.",
-            "sidebarHint": "Select a connection in the sidebar to start a session",
+            "sidebarHint": "Select a connection on the left to start exploring",
             "or": "or",
             "quickActions": "Quick actions",
             "newConnection": "New connection",
@@ -96,6 +96,10 @@
             "configure": "Configure",
             "host": "SSH Host",
             "port": "SSH Port",
+            "selectDriver": "Select a driver",
+            "configureConnection": "Configure Connection",
+            "driverSelected": "Selected driver",
+            "changeDriver": "Change...",
             "username": "SSH Username",
             "keyPath": "Private Key Path",
             "passphrase": "Key Passphrase (optional)",
@@ -517,7 +521,8 @@
         "disabled": "Disabled",
         "pagination": "Showing {{start}}-{{end}} of {{total}}",
         "add": "Add",
-        "back": "Back"
+        "back": "Back",
+        "noResults": "No results found"
     },
     "environment": {
         "label": "Environment",
@@ -571,7 +576,8 @@
         "refresh": "Refresh",
         "noCollections": "No tables",
         "noDocuments": "No documents",
-        "loadMore": "Load more"
+        "loadMore": "Load more",
+        "searchPlaceholder": "Search tables..."
     },
     "createTable": {
         "title": "Create Table",

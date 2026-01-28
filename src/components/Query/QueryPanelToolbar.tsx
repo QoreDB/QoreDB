@@ -19,7 +19,6 @@ import { Tooltip } from '@/components/ui/tooltip';
 import { Environment, Namespace } from '../../lib/tauri';
 import { ENVIRONMENT_CONFIG } from '../../lib/environment';
 import { MONGO_TEMPLATES } from '../Editor/MongoEditor';
-import { SandboxToggle } from '@/components/Sandbox';
 
 type EnvConfig = (typeof ENVIRONMENT_CONFIG)[keyof typeof ENVIRONMENT_CONFIG];
 
@@ -131,13 +130,7 @@ export function QueryPanelToolbar({
         </span>
       )}
 
-      {sessionId && (
-        <SandboxToggle
-          sessionId={sessionId}
-          environment={environment}
-          className="h-8"
-        />
-      )}
+
 
       {loading &&
         (canCancel ? (

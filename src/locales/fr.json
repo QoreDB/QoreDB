@@ -8,7 +8,7 @@
         "noSession": {
             "title": "Aucune session active",
             "description": "Sélectionnez une connexion dans la barre latérale pour commencer.",
-            "sidebarHint": "Sélectionnez une connexion dans la barre latérale pour démarrer",
+            "sidebarHint": "Sélectionnez une connexion à gauche pour explorer",
             "or": "ou",
             "quickActions": "Actions rapides",
             "newConnection": "Nouvelle connexion",
@@ -49,6 +49,11 @@
         "installFailed": "Échec de l'installation de la mise à jour."
     },
     "connection": {
+        "selectDriver": "Sélectionner un moteur",
+        "configureConnection": "Configurer la connexion",
+        "validationError": "Veuillez remplir tous les champs requis",
+        "driverSelected": "Moteur sélectionné",
+        "changeDriver": "Modifier...",
         "modalTitleNew": "Nouvelle connexion",
         "modalTitleEdit": "Modifier la connexion",
         "connectionName": "Nom de la connexion",
@@ -515,7 +520,8 @@
         "disabled": "Désactivé",
         "pagination": "Affichage {{start}}-{{end}} sur {{total}}",
         "add": "Ajouter",
-        "back": "Retour"
+        "back": "Retour",
+        "noResults": "Aucun résultat"
     },
     "environment": {
         "label": "Environnement",
@@ -569,7 +575,8 @@
         "refresh": "Actualiser",
         "noCollections": "Aucune table",
         "noDocuments": "Aucun document",
-        "loadMore": "Charger plus"
+        "loadMore": "Charger plus",
+        "searchPlaceholder": "Rechercher des tables..."
     },
     "createTable": {
         "title": "Créer une table",

@@ -133,7 +133,7 @@ export function WelcomeScreen({
           )}
 
           {/* Indication vers la sidebar */}
-          <div className="flex items-center justify-center gap-2 py-3 px-4 rounded-lg bg-muted/30 border border-border/50 text-sm text-muted-foreground">
+          <div className="flex items-center justify-center gap-2 py-3 px-4 rounded-lg bg-muted/30 border border-border/50 text-sm text-muted-foreground animate-pulse">
             <PanelLeft size={16} className="shrink-0" />
             <span>{t('home.noSession.sidebarHint')}</span>
           </div>

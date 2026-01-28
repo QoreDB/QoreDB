@@ -1,4 +1,29 @@
 {
+    "home": {
+        "noConnections": {
+            "title": "No connections configured",
+            "description": "Create your first connection to start working with your databases.",
+            "action": "Create a connection"
+        },
+        "noSession": {
+            "title": "No active session",
+            "description": "Select a connection from the sidebar to get started.",
+            "sidebarHint": "Select a connection in the sidebar to start a session",
+            "or": "or",
+            "quickActions": "Quick actions",
+            "newConnection": "New connection",
+            "keyboardHint": "Use keyboard shortcuts for faster navigation"
+        },
+        "recovery": {
+            "title": "Resume previous session",
+            "description": "An unfinished session was found for: {{name}}",
+            "descriptionUnknown": "An unfinished session was found.",
+            "restore": "Restore session",
+            "restoring": "Restoring…",
+            "discard": "Ignore",
+            "missingConnection": "Saved connection not found."
+        }
+    },
     "app": {
         "welcome": "Welcome to QoreDB",
         "description": "Add a connection in the sidebar to get started, or search for existing resources.",
@@ -120,7 +145,7 @@
         "footerHint": "Click a result to open the table"
     },
     "tabs": {
-        "newQuery": "New Query (Cmd+T)"
+        "newQuery": "New Query ({{modifier}}+T)"
     },
     "browser": {
         "searchPlaceholder": "Search connections, tables...",
@@ -346,7 +371,7 @@
         "results": "Results",
         "explainNoPlan": "No explain plan available.",
         "history": "History",
-        "runHint": "Cmd+Enter to run",
+        "runHint": "{{modifier}}+Enter to run",
         "cancelNotSupported": "Cancel is not supported by this driver",
         "noConnection": "No connection",
         "noResults": "Run a query to see results",
@@ -751,7 +776,7 @@
             }
         },
         "search": {
-            "placeholder": "Search or run a command...",
+            "placeholder": "Quick actions & search",
             "shortcut": "Ctrl K"
         },
         "controls": {

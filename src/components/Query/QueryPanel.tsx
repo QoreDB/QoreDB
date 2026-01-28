@@ -588,14 +588,14 @@ export function QueryPanel({
       if (isTextInputTarget(e.target)) return;
       if (saveDialogOpen || historyOpen || libraryOpen || confirmOpen || dangerConfirmOpen) return;
 
-      // Cmd/Ctrl+S: Save query to library
+      // Mod+S: Save query to library
       if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key.toLowerCase() === 's') {
         e.preventDefault();
         handleSaveToLibrary();
         return;
       }
 
-      // Cmd/Ctrl+Shift+H: Open query history
+      // Mod+Shift+H: Open query history
       if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'h') {
         e.preventDefault();
         setHistoryOpen(true);

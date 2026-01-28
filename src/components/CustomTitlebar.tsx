@@ -1,10 +1,9 @@
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { 
-  Minus, Square, X, Copy, 
-  Search, Lock, LockOpen, Settings,
-  Bell
+import {
+  Minus, Square, X, Copy,
+  Search, Lock, LockOpen, Bell
 } from 'lucide-react';
 import { 
   DropdownMenu, 
@@ -18,22 +17,17 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { TFunction } from 'i18next'
+import { isMacOS, getShortcut } from '@/utils/platform';
 
 const appWindow = getCurrentWindow();
 
 export const CustomTitlebar = () => {
   const { t } = useTranslation();
   const [isMaximized, setIsMaximized] = useState(false);
-  const [isMacOS, setIsMacOS] = useState(false);
+  const isMac = isMacOS();
   const [readOnly, setReadOnly] = useState(false);
 
   useEffect(() => {
-    const detectPlatform = () => {
-      const userAgent = window.navigator.userAgent.toLowerCase();
-      setIsMacOS(userAgent.includes('mac'));
-    };
-    detectPlatform();
-
     const checkMaximized = async () => {
       const maximized = await appWindow.isMaximized();
       setIsMaximized(maximized);
@@ -50,16 +44,32 @@ export const CustomTitlebar = () => {
     };
   }, []);
 
+
+  const [activeMenu, setActiveMenu] = useState<string | null>(null);
+
+  const handleMenuOpenChange = (menu: string, open: boolean) => {
+    if (open) {
+      setActiveMenu(menu);
+    } else if (activeMenu === menu) {
+      setActiveMenu(null);
+    }
+  };
+
+  const handleMenuHover = (menu: string) => {
+    if (activeMenu) {
+      setActiveMenu(menu);
+    }
+  };
+
   const minimize = () => appWindow.minimize();
   const toggleMaximize = () => appWindow.toggleMaximize();
   const close = () => appWindow.close();
 
   return (
-    <div className="h-10 bg-background border-b border-border flex items-center select-none shrink-0" data-tauri-drag-region>
-      {/* GAUCHE : Logo & Menus */}
-      <div className="flex items-center px-2 gap-1 z-20"> 
-        {isMacOS ? (
-           <div className="flex items-center gap-2 px-2 mr-2">
+    <div className="h-10 bg-muted/80 border-b border-border shadow-sm flex items-center select-none shrink-0" data-tauri-drag-region>
+      <div className="flex items-center pl-2 z-20">
+        {isMac ? (
+           <div className="flex items-center gap-2 px-2">
               <button onClick={close} className="w-3 h-3 rounded-full bg-[#ff5f57] hover:bg-[#ff3b30] flex items-center justify-center group"><X className="w-2 h-2 opacity-0 group-hover:opacity-100 text-[#4d0000]" strokeWidth={3} /></button>
               <button onClick={minimize} className="w-3 h-3 rounded-full bg-[#febc2e] hover:bg-[#ffb000] flex items-center justify-center group"><Minus className="w-2 h-2 opacity-0 group-hover:opacity-100 text-[#6b4600]" strokeWidth={3} /></button>
               <button onClick={toggleMaximize} className="w-3 h-3 rounded-full bg-[#28c840] hover:bg-[#1faa34] flex items-center justify-center group">
@@ -69,52 +79,63 @@ export const CustomTitlebar = () => {
               </button>
            </div>
         ) : (
-           <div className="flex items-center gap-2 mr-2 ml-1">
-              <img src="/logo.png" alt=""
-                className='w-5 h-5'
-              />
+           <div className="flex items-center ml-1">
+              <img src="/logo.png" alt="" className='w-5 h-5' />
            </div>
         )}
 
-         <div className="flex items-center">
-            <MenuFile t={t} />
-            <MenuView t={t} />
-            <MenuData t={t} />
-            <MenuTools t={t} />
-         </div>
+        <div className="h-4 w-px bg-border/50 mx-2" />
+
+        <div className="flex items-center gap-0.5">
+            <MenuFile 
+              t={t} 
+              isOpen={activeMenu === 'file'}
+              onOpenChange={(open) => handleMenuOpenChange('file', open)}
+              onMouseEnter={() => handleMenuHover('file')}
+            />
+            <MenuView 
+              t={t} 
+              isOpen={activeMenu === 'view'}
+              onOpenChange={(open) => handleMenuOpenChange('view', open)}
+              onMouseEnter={() => handleMenuHover('view')}
+            />
+            <MenuData 
+              t={t} 
+              isOpen={activeMenu === 'data'}
+              onOpenChange={(open) => handleMenuOpenChange('data', open)}
+              onMouseEnter={() => handleMenuHover('data')}
+            />
+            <MenuTools 
+              t={t} 
+              isOpen={activeMenu === 'tools'}
+              onOpenChange={(open) => handleMenuOpenChange('tools', open)}
+              onMouseEnter={() => handleMenuHover('tools')}
+            />
+        </div>
       </div>
 
-      {/* CENTRE : OmniBar (Command Palette) */}
       <div className="flex-1 flex justify-center px-4" data-tauri-drag-region>
-          <div className="w-full max-w-xl h-7 bg-muted/40 hover:bg-muted/70 transition-colors rounded-md border border-transparent hover:border-border flex items-center px-3 gap-2 text-muted-foreground cursor-text group">
+          <div className="w-full max-w-xl h-7 bg-background/80 hover:bg-background transition-colors rounded-md border border-border/60 hover:border-border flex items-center px-3 gap-2 text-muted-foreground cursor-text group shadow-sm">
              <Search className="w-3.5 h-3.5 group-hover:text-foreground transition-colors" />
              <span className="text-xs group-hover:text-foreground transition-colors truncate">{t('titlebar.search.placeholder')}</span>
-             <span className="ml-auto text-[9px] font-mono border border-border px-1 rounded bg-background/50 opacity-0 group-hover:opacity-100 transition-opacity">{t('titlebar.search.shortcut')}</span>
+             <span className="ml-auto text-[9px] font-mono border border-border px-1.5 py-0.5 rounded bg-muted/50">{getShortcut('K', { symbol: true })}</span>
           </div>
       </div>
 
-      {/* DROITE : Outils & Windows Controls */}
-      <div className="flex items-center px-2 gap-2 z-20">
-          <div className="flex items-center gap-3 mr-1">
-              {/* Read Only Toggle */}
-              <div className="flex items-center gap-2" title={t('titlebar.controls.readOnly')}>
-                  {readOnly ? <Lock className="w-3.5 h-3.5 text-red-500" /> : <LockOpen className="w-3.5 h-3.5 text-muted-foreground" />}
-                  <Switch checked={readOnly} onCheckedChange={setReadOnly} className="scale-75 origin-right data-[state=checked]:bg-red-500" />
-              </div>
-              
-              <div className="h-4 w-px bg-border mx-1" />
-
-              <Button variant="ghost" size="icon" className="h-7 w-7">
-                  <Bell className="w-4 h-4 text-muted-foreground" />
-              </Button>
-
-              <Button variant="ghost" size="icon" className="h-7 w-7">
-                  <Settings className="w-4 h-4 text-muted-foreground" />
-              </Button>
+      <div className="flex items-center pr-2 z-20">
+          <div className="flex items-center gap-2 px-2" title={t('titlebar.controls.readOnly')}>
+              {readOnly ? <Lock className="w-3.5 h-3.5 text-red-500" /> : <LockOpen className="w-3.5 h-3.5 text-muted-foreground" />}
+              <Switch checked={readOnly} onCheckedChange={setReadOnly} className="scale-75 origin-right data-[state=checked]:bg-red-500" />
           </div>
 
-          {!isMacOS && (
-            <div className="flex items-center h-10 -mr-2 pl-2 border-l border-border/50">
+          <div className="h-4 w-px bg-border/50 mx-1" />
+
+          <Button variant="ghost" size="icon" className="h-6 w-6">
+              <Bell className="w-3.5 h-3.5 text-muted-foreground" />
+          </Button>
+
+          {!isMac && (
+            <div className="flex items-center h-10 -mr-2 ml-2 pl-2 border-l border-border/50">
                <WindowButton onClick={minimize}><Minus className="w-4 h-4" /></WindowButton>
                <WindowButton onClick={toggleMaximize}>
                   {isMaximized ? <Copy className="w-3.5 h-3.5" /> : <Square className="w-3.5 h-3.5" />}
@@ -127,26 +148,31 @@ export const CustomTitlebar = () => {
   );
 };
 
-/* --- MENUS --- */
+interface TitlebarMenuProps {
+  t: TFunction;
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
+  onMouseEnter: () => void;
+}
 
-const MenuFile = ({ t }: { t: TFunction }) => (
-  <DropdownMenu>
-    <DropdownMenuTrigger asChild>
-      <Button variant="ghost" size="sm" className="h-7 px-2 text-xs font-normal hover:bg-accent/50 data-[state=open]:bg-accent">{t('titlebar.menu.file.label')}</Button>
+const MenuFile = ({ t, isOpen, onOpenChange, onMouseEnter }: TitlebarMenuProps) => (
+  <DropdownMenu open={isOpen} onOpenChange={onOpenChange} modal={false}>
+    <DropdownMenuTrigger asChild onMouseEnter={onMouseEnter}>
+      <Button variant="ghost" size="sm" className="h-7 px-2 text-xs font-normal text-muted-foreground hover:text-foreground hover:bg-accent/50 data-[state=open]:bg-accent data-[state=open]:text-foreground">{t('titlebar.menu.file.label')}</Button>
     </DropdownMenuTrigger>
     <DropdownMenuContent align="start" className="w-56">
       <DropdownMenuItem>
         <span>{t('titlebar.menu.file.newConnection')}</span>
-        <DropdownMenuShortcut>Ctrl+N</DropdownMenuShortcut>
+        <DropdownMenuShortcut>{getShortcut('N')}</DropdownMenuShortcut>
       </DropdownMenuItem>
       <DropdownMenuItem>
         <span>{t('titlebar.menu.file.newWindow')}</span>
-        <DropdownMenuShortcut>Ctrl+Shift+N</DropdownMenuShortcut>
+        <DropdownMenuShortcut>{getShortcut('N', { shift: true })}</DropdownMenuShortcut>
       </DropdownMenuItem>
       <DropdownMenuSeparator />
       <DropdownMenuItem>
         <span>{t('titlebar.menu.file.settings')}</span>
-        <DropdownMenuShortcut>Ctrl+,</DropdownMenuShortcut>
+        <DropdownMenuShortcut>{getShortcut(',')}</DropdownMenuShortcut>
       </DropdownMenuItem>
       <DropdownMenuItem className="text-red-500 focus:text-red-500 focus:bg-red-500/10">
         <span>{t('titlebar.menu.file.quit')}</span>
@@ -156,44 +182,44 @@ const MenuFile = ({ t }: { t: TFunction }) => (
   </DropdownMenu>
 );
 
-const MenuView = ({ t }: { t: TFunction }) => (
-  <DropdownMenu>
-    <DropdownMenuTrigger asChild>
-      <Button variant="ghost" size="sm" className="h-7 px-2 text-xs font-normal hover:bg-accent/50 data-[state=open]:bg-accent">{t('titlebar.menu.view.label')}</Button>
+const MenuView = ({ t, isOpen, onOpenChange, onMouseEnter }: TitlebarMenuProps) => (
+  <DropdownMenu open={isOpen} onOpenChange={onOpenChange} modal={false}>
+    <DropdownMenuTrigger asChild onMouseEnter={onMouseEnter}>
+      <Button variant="ghost" size="sm" className="h-7 px-2 text-xs font-normal text-muted-foreground hover:text-foreground hover:bg-accent/50 data-[state=open]:bg-accent data-[state=open]:text-foreground">{t('titlebar.menu.view.label')}</Button>
     </DropdownMenuTrigger>
     <DropdownMenuContent align="start" className="w-56">
       <DropdownMenuItem>
         <span>{t('titlebar.menu.view.explorer')}</span>
-        <DropdownMenuShortcut>Ctrl+B</DropdownMenuShortcut>
+        <DropdownMenuShortcut>{getShortcut('B')}</DropdownMenuShortcut>
       </DropdownMenuItem>
       <DropdownMenuItem>
         <span>{t('titlebar.menu.view.logs')}</span>
-        <DropdownMenuShortcut>Ctrl+J</DropdownMenuShortcut>
+        <DropdownMenuShortcut>{getShortcut('J')}</DropdownMenuShortcut>
       </DropdownMenuItem>
       <DropdownMenuSeparator />
       <DropdownMenuItem>
         <span>{t('titlebar.menu.view.zenMode')}</span>
-        <DropdownMenuShortcut>Ctrl+K Z</DropdownMenuShortcut>
+        <DropdownMenuShortcut>{getShortcut('K')} Z</DropdownMenuShortcut>
       </DropdownMenuItem>
     </DropdownMenuContent>
   </DropdownMenu>
 );
 
-const MenuData = ({ t }: { t: TFunction }) => (
-  <DropdownMenu>
-    <DropdownMenuTrigger asChild>
-      <Button variant="ghost" size="sm" className="h-7 px-2 text-xs font-normal hover:bg-accent/50 data-[state=open]:bg-accent">{t('titlebar.menu.data.label')}</Button>
+const MenuData = ({ t, isOpen, onOpenChange, onMouseEnter }: TitlebarMenuProps) => (
+  <DropdownMenu open={isOpen} onOpenChange={onOpenChange} modal={false}>
+    <DropdownMenuTrigger asChild onMouseEnter={onMouseEnter}>
+      <Button variant="ghost" size="sm" className="h-7 px-2 text-xs font-normal text-muted-foreground hover:text-foreground hover:bg-accent/50 data-[state=open]:bg-accent data-[state=open]:text-foreground">{t('titlebar.menu.data.label')}</Button>
     </DropdownMenuTrigger>
     <DropdownMenuContent align="start" className="w-56">
       <DropdownMenuItem>
         <span>{t('titlebar.menu.data.refresh')}</span>
-        <DropdownMenuShortcut>Ctrl+R</DropdownMenuShortcut>
+        <DropdownMenuShortcut>{getShortcut('R')}</DropdownMenuShortcut>
       </DropdownMenuItem>
       <DropdownMenuItem>
         <span>{t('titlebar.menu.data.import')}</span>
       </DropdownMenuItem>
       <DropdownMenuItem>
-         <span>{t('titlebar.menu.data.export')}</span>
+        <span>{t('titlebar.menu.data.export')}</span>
       </DropdownMenuItem>
       <DropdownMenuSeparator />
       <DropdownMenuItem disabled>
@@ -203,10 +229,10 @@ const MenuData = ({ t }: { t: TFunction }) => (
   </DropdownMenu>
 );
 
-const MenuTools = ({ t }: { t: TFunction }) => (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="sm" className="h-7 px-2 text-xs font-normal hover:bg-accent/50 data-[state=open]:bg-accent">{t('titlebar.menu.tools.label')}</Button>
+const MenuTools = ({ t, isOpen, onOpenChange, onMouseEnter }: TitlebarMenuProps) => (
+    <DropdownMenu open={isOpen} onOpenChange={onOpenChange} modal={false}>
+      <DropdownMenuTrigger asChild onMouseEnter={onMouseEnter}>
+        <Button variant="ghost" size="sm" className="h-7 px-2 text-xs font-normal text-muted-foreground hover:text-foreground hover:bg-accent/50 data-[state=open]:bg-accent data-[state=open]:text-foreground">{t('titlebar.menu.tools.label')}</Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-56">
         <DropdownMenuItem>

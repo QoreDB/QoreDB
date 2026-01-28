@@ -1,4 +1,29 @@
 {
+    "home": {
+        "noConnections": {
+            "title": "Aucune connexion configurée",
+            "description": "Créez votre première connexion pour commencer à travailler avec vos bases de données.",
+            "action": "Créer une connexion"
+        },
+        "noSession": {
+            "title": "Aucune session active",
+            "description": "Sélectionnez une connexion dans la barre latérale pour commencer.",
+            "sidebarHint": "Sélectionnez une connexion dans la barre latérale pour démarrer",
+            "or": "ou",
+            "quickActions": "Actions rapides",
+            "newConnection": "Nouvelle connexion",
+            "keyboardHint": "Utilisez les raccourcis clavier pour naviguer plus vite"
+        },
+        "recovery": {
+            "title": "Reprendre la session précédente",
+            "description": "Une session inachevée a été trouvée pour : {{name}}",
+            "descriptionUnknown": "Une session inachevée a été trouvée.",
+            "restore": "Restaurer la session",
+            "restoring": "Restauration…",
+            "discard": "Ignorer",
+            "missingConnection": "Connexion sauvegardée introuvable."
+        }
+    },
     "app": {
         "welcome": "Bienvenue sur QoreDB",
         "description": "Ajoutez une connexion dans la barre latérale pour commencer, ou recherchez des ressources existantes.",
@@ -120,7 +145,7 @@
         "footerHint": "Cliquez sur un résultat pour ouvrir la table"
     },
     "tabs": {
-        "newQuery": "Nouvelle requête (Cmd+T)"
+        "newQuery": "Nouvelle requête ({{modifier}}+T)"
     },
     "browser": {
         "searchPlaceholder": "Rechercher connexions, tables...",
@@ -346,7 +371,7 @@
         "results": "Résultats",
         "explainNoPlan": "Aucun plan d'exécution disponible.",
         "history": "Historique",
-        "runHint": "Cmd+Entrée pour exécuter",
+        "runHint": "{{modifier}}+Entrée pour exécuter",
         "cancelNotSupported": "Annulation non supportée par ce driver",
         "noConnection": "Aucune connexion",
         "noResults": "Exécutez une requête pour voir les résultats",
@@ -737,7 +762,7 @@
             }
         },
         "search": {
-            "placeholder": "Rechercher ou exécuter une commande...",
+            "placeholder": "Actions rapides & recherche",
             "shortcut": "Ctrl K"
         },
         "controls": {

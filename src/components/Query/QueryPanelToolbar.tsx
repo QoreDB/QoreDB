@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
+import { getModifierKey } from '@/utils/platform';
 import {
   Play,
   Square,
@@ -260,7 +261,7 @@ export function QueryPanelToolbar({
       </Tooltip>
 
       <span className="text-xs text-muted-foreground hidden sm:inline-block">
-        {t('query.runHint')}
+        {t('query.runHint', { modifier: getModifierKey() })}
       </span>
 
       {!sessionId && (

@@ -1,6 +1,7 @@
 import { X, Plus, FileCode, Table, Settings, Database } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTranslation } from 'react-i18next';
+import { getModifierKey } from '@/utils/platform';
 
 export interface TabItem {
   id: string;
@@ -34,6 +35,9 @@ export function TabBar({
     }
   };
 
+  // Les onglets "query" sont des documents temporaires, les autres sont des vues persistantes
+  const isTemporaryTab = (type: TabItem['type']) => type === 'query';
+
   return (
     <div className="flex items-center w-full bg-background border-b border-border h-10 select-none pl-1 gap-1 overflow-x-auto overflow-y-hidden no-scrollbar">
       {tabs.map(tab => (
@@ -54,8 +58,12 @@ export function TabBar({
           }}
           title={tab.title}
         >
-          <span className="shrink-0 opacity-70">{getTabIcon(tab.type)}</span>
-          <span className="truncate flex-1 text-left">{tab.title}</span>
+          <span className={cn('shrink-0', isTemporaryTab(tab.type) ? 'text-accent/70' : 'opacity-70')}>
+            {getTabIcon(tab.type)}
+          </span>
+          <span className={cn('truncate flex-1 text-left', isTemporaryTab(tab.type) && 'italic')}>
+            {tab.title}
+          </span>
           <span
             className={cn(
               'opacity-0 group-hover:opacity-100 p-0.5 rounded-sm hover:bg-muted-foreground/20 text-muted-foreground transition-all shrink-0',
@@ -71,9 +79,9 @@ export function TabBar({
         </button>
       ))}
       <button
-        className="flex items-center justify-center w-8 h-8 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground ml-1 transition-colors"
+        className="flex items-center justify-center w-8 h-8 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
         onClick={onNew}
-        title={t('tabs.newQuery')}
+        title={t('tabs.newQuery', { modifier: getModifierKey() })}
       >
         <Plus size={16} />
       </button>

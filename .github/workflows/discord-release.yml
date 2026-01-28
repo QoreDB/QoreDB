@@ -1,7 +1,7 @@
 name: Announce Release
 on:
     release:
-        types: [published, edited]
+        types: [published, released, edited]
 
 jobs:
     discord-announcement:

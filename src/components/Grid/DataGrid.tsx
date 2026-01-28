@@ -43,6 +43,7 @@ import { DataGridTableBody } from './DataGridTableBody';
 import { EditableDataCell } from './EditableDataCell';
 import { SandboxChange, SandboxDeleteDisplay } from '@/lib/sandboxTypes';
 import { applyOverlay, OverlayResult, emptyOverlayResult } from '@/lib/sandboxOverlay';
+import { ExportDataDetail, UI_EVENT_EXPORT_DATA } from '@/lib/uiEvents';
 
 const EMPTY_OVERLAY_RESULT: OverlayResult = {
   result: {
@@ -564,6 +565,16 @@ export function DataGrid({
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [copyToClipboard, table]);
+
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent<ExportDataDetail>).detail;
+      const format = detail?.format ?? 'csv';
+      exportToFile(format);
+    };
+    window.addEventListener(UI_EVENT_EXPORT_DATA, handler);
+    return () => window.removeEventListener(UI_EVENT_EXPORT_DATA, handler);
+  }, [exportToFile]);
 
   // Early return for empty state
   if (!result || result.columns.length === 0) {

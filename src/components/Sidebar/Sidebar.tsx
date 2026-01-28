@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
 import { useTheme } from '@/hooks/useTheme';
+import { UI_EVENT_OPEN_LOGS } from '@/lib/uiEvents';
 
 const DEFAULT_PROJECT = 'default';
 
@@ -66,6 +67,12 @@ export function Sidebar({
       setExpandedId(connectedConnectionId);
     }
   }, [connectedConnectionId]);
+
+  useEffect(() => {
+    const handler = () => setLogsOpen(true);
+    window.addEventListener(UI_EVENT_OPEN_LOGS, handler);
+    return () => window.removeEventListener(UI_EVENT_OPEN_LOGS, handler);
+  }, []);
 
   async function loadConnections() {
     try {

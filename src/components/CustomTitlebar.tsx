@@ -21,11 +21,44 @@ import { isMacOS, getShortcut } from '@/utils/platform';
 
 const appWindow = getCurrentWindow();
 
-export const CustomTitlebar = () => {
+interface CustomTitlebarProps {
+  onOpenSearch?: () => void;
+  onNewConnection?: () => void;
+  onNewWindow?: () => void;
+  onOpenSettings?: () => void;
+  onOpenLogs?: () => void;
+  onOpenHistory?: () => void;
+  onToggleSidebar?: () => void;
+  onRefreshData?: () => void;
+  onImportData?: () => void;
+  onExportData?: () => void;
+  onToggleSandbox?: () => void;
+  onOpenSchemaGenerator?: () => void;
+  onOpenNotifications?: () => void;
+  onToggleReadOnly?: (next: boolean) => void;
+  readOnly?: boolean;
+}
+
+export const CustomTitlebar = ({
+  onOpenSearch,
+  onNewConnection,
+  onNewWindow,
+  onOpenSettings,
+  onOpenLogs,
+  onOpenHistory,
+  onToggleSidebar,
+  onRefreshData,
+  onImportData,
+  onExportData,
+  onToggleSandbox,
+  onOpenSchemaGenerator,
+  onOpenNotifications,
+  onToggleReadOnly,
+  readOnly = false,
+}: CustomTitlebarProps) => {
   const { t } = useTranslation();
   const [isMaximized, setIsMaximized] = useState(false);
   const isMac = isMacOS();
-  const [readOnly, setReadOnly] = useState(false);
 
   useEffect(() => {
     const checkMaximized = async () => {
@@ -92,30 +125,58 @@ export const CustomTitlebar = () => {
               isOpen={activeMenu === 'file'}
               onOpenChange={(open) => handleMenuOpenChange('file', open)}
               onMouseEnter={() => handleMenuHover('file')}
+              onNewConnection={onNewConnection}
+              onNewWindow={onNewWindow}
+              onOpenSettings={onOpenSettings}
+              onQuit={close}
             />
             <MenuView 
               t={t} 
               isOpen={activeMenu === 'view'}
               onOpenChange={(open) => handleMenuOpenChange('view', open)}
               onMouseEnter={() => handleMenuHover('view')}
+              onToggleSidebar={onToggleSidebar}
+              onOpenLogs={onOpenLogs}
             />
             <MenuData 
               t={t} 
               isOpen={activeMenu === 'data'}
               onOpenChange={(open) => handleMenuOpenChange('data', open)}
               onMouseEnter={() => handleMenuHover('data')}
+              onRefreshData={onRefreshData}
+              onImportData={onImportData}
+              onExportData={onExportData}
             />
             <MenuTools 
               t={t} 
               isOpen={activeMenu === 'tools'}
               onOpenChange={(open) => handleMenuOpenChange('tools', open)}
               onMouseEnter={() => handleMenuHover('tools')}
+              onOpenHistory={onOpenHistory}
+              onOpenSchemaGenerator={onOpenSchemaGenerator}
+              onToggleSandbox={onToggleSandbox}
             />
         </div>
       </div>
 
       <div className="flex-1 flex justify-center px-4" data-tauri-drag-region>
-          <div className="w-full max-w-xl h-7 bg-background/80 hover:bg-background transition-colors rounded-md border border-border/60 hover:border-border flex items-center px-3 gap-2 text-muted-foreground cursor-text group shadow-sm">
+          <div
+            className={cn(
+              "w-full max-w-xl h-7 bg-background/80 hover:bg-background transition-colors rounded-md border border-border/60 hover:border-border flex items-center px-3 gap-2 text-muted-foreground group shadow-sm",
+              onOpenSearch ? "cursor-text" : "cursor-default opacity-70"
+            )}
+            role={onOpenSearch ? "button" : undefined}
+            tabIndex={onOpenSearch ? 0 : -1}
+            aria-label={t('titlebar.search.placeholder')}
+            onClick={() => onOpenSearch?.()}
+            onKeyDown={(event) => {
+              if (!onOpenSearch) return;
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                onOpenSearch();
+              }
+            }}
+          >
              <Search className="w-3.5 h-3.5 group-hover:text-foreground transition-colors" />
              <span className="text-xs group-hover:text-foreground transition-colors truncate">{t('titlebar.search.placeholder')}</span>
              <span className="ml-auto text-[9px] font-mono border border-border px-1.5 py-0.5 rounded bg-muted/50">{getShortcut('K', { symbol: true })}</span>
@@ -125,12 +186,24 @@ export const CustomTitlebar = () => {
       <div className="flex items-center pr-2 z-20">
           <div className="flex items-center gap-2 px-2" title={t('titlebar.controls.readOnly')}>
               {readOnly ? <Lock className="w-3.5 h-3.5 text-red-500" /> : <LockOpen className="w-3.5 h-3.5 text-muted-foreground" />}
-              <Switch checked={readOnly} onCheckedChange={setReadOnly} className="scale-75 origin-right data-[state=checked]:bg-red-500" />
+              <Switch
+                checked={readOnly}
+                onCheckedChange={(next) => onToggleReadOnly?.(next)}
+                disabled={!onToggleReadOnly}
+                className="scale-75 origin-right data-[state=checked]:bg-red-500"
+              />
           </div>
 
           <div className="h-4 w-px bg-border/50 mx-1" />
 
-          <Button variant="ghost" size="icon" className="h-6 w-6">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6"
+            onClick={() => onOpenNotifications?.()}
+            disabled={!onOpenNotifications}
+            aria-label="Notifications"
+          >
               <Bell className="w-3.5 h-3.5 text-muted-foreground" />
           </Button>
 
@@ -155,26 +228,46 @@ interface TitlebarMenuProps {
   onMouseEnter: () => void;
 }
 
-const MenuFile = ({ t, isOpen, onOpenChange, onMouseEnter }: TitlebarMenuProps) => (
+interface MenuFileProps extends TitlebarMenuProps {
+  onNewConnection?: () => void;
+  onNewWindow?: () => void;
+  onOpenSettings?: () => void;
+  onQuit?: () => void;
+}
+
+const MenuFile = ({
+  t,
+  isOpen,
+  onOpenChange,
+  onMouseEnter,
+  onNewConnection,
+  onNewWindow,
+  onOpenSettings,
+  onQuit,
+}: MenuFileProps) => (
   <DropdownMenu open={isOpen} onOpenChange={onOpenChange} modal={false}>
     <DropdownMenuTrigger asChild onMouseEnter={onMouseEnter}>
       <Button variant="ghost" size="sm" className="h-7 px-2 text-xs font-normal text-muted-foreground hover:text-foreground hover:bg-accent/50 data-[state=open]:bg-accent data-[state=open]:text-foreground">{t('titlebar.menu.file.label')}</Button>
     </DropdownMenuTrigger>
     <DropdownMenuContent align="start" className="w-56">
-      <DropdownMenuItem>
+      <DropdownMenuItem onClick={onNewConnection} disabled={!onNewConnection}>
         <span>{t('titlebar.menu.file.newConnection')}</span>
         <DropdownMenuShortcut>{getShortcut('N')}</DropdownMenuShortcut>
       </DropdownMenuItem>
-      <DropdownMenuItem>
+      <DropdownMenuItem onClick={onNewWindow} disabled={!onNewWindow}>
         <span>{t('titlebar.menu.file.newWindow')}</span>
         <DropdownMenuShortcut>{getShortcut('N', { shift: true })}</DropdownMenuShortcut>
       </DropdownMenuItem>
       <DropdownMenuSeparator />
-      <DropdownMenuItem>
+      <DropdownMenuItem onClick={onOpenSettings} disabled={!onOpenSettings}>
         <span>{t('titlebar.menu.file.settings')}</span>
         <DropdownMenuShortcut>{getShortcut(',')}</DropdownMenuShortcut>
       </DropdownMenuItem>
-      <DropdownMenuItem className="text-red-500 focus:text-red-500 focus:bg-red-500/10">
+      <DropdownMenuItem
+        onClick={onQuit}
+        disabled={!onQuit}
+        className="text-red-500 focus:text-red-500 focus:bg-red-500/10"
+      >
         <span>{t('titlebar.menu.file.quit')}</span>
         <DropdownMenuShortcut>Alt+F4</DropdownMenuShortcut>
       </DropdownMenuItem>
@@ -182,22 +275,36 @@ const MenuFile = ({ t, isOpen, onOpenChange, onMouseEnter }: TitlebarMenuProps) 
   </DropdownMenu>
 );
 
-const MenuView = ({ t, isOpen, onOpenChange, onMouseEnter }: TitlebarMenuProps) => (
+interface MenuViewProps extends TitlebarMenuProps {
+  onToggleSidebar?: () => void;
+  onOpenLogs?: () => void;
+  onToggleZenMode?: () => void;
+}
+
+const MenuView = ({
+  t,
+  isOpen,
+  onOpenChange,
+  onMouseEnter,
+  onToggleSidebar,
+  onOpenLogs,
+  onToggleZenMode,
+}: MenuViewProps) => (
   <DropdownMenu open={isOpen} onOpenChange={onOpenChange} modal={false}>
     <DropdownMenuTrigger asChild onMouseEnter={onMouseEnter}>
       <Button variant="ghost" size="sm" className="h-7 px-2 text-xs font-normal text-muted-foreground hover:text-foreground hover:bg-accent/50 data-[state=open]:bg-accent data-[state=open]:text-foreground">{t('titlebar.menu.view.label')}</Button>
     </DropdownMenuTrigger>
     <DropdownMenuContent align="start" className="w-56">
-      <DropdownMenuItem>
+      <DropdownMenuItem onClick={onToggleSidebar} disabled={!onToggleSidebar}>
         <span>{t('titlebar.menu.view.explorer')}</span>
         <DropdownMenuShortcut>{getShortcut('B')}</DropdownMenuShortcut>
       </DropdownMenuItem>
-      <DropdownMenuItem>
+      <DropdownMenuItem onClick={onOpenLogs} disabled={!onOpenLogs}>
         <span>{t('titlebar.menu.view.logs')}</span>
         <DropdownMenuShortcut>{getShortcut('J')}</DropdownMenuShortcut>
       </DropdownMenuItem>
       <DropdownMenuSeparator />
-      <DropdownMenuItem>
+      <DropdownMenuItem onClick={onToggleZenMode} disabled={!onToggleZenMode}>
         <span>{t('titlebar.menu.view.zenMode')}</span>
         <DropdownMenuShortcut>{getShortcut('K')} Z</DropdownMenuShortcut>
       </DropdownMenuItem>
@@ -205,20 +312,34 @@ const MenuView = ({ t, isOpen, onOpenChange, onMouseEnter }: TitlebarMenuProps) 
   </DropdownMenu>
 );
 
-const MenuData = ({ t, isOpen, onOpenChange, onMouseEnter }: TitlebarMenuProps) => (
+interface MenuDataProps extends TitlebarMenuProps {
+  onRefreshData?: () => void;
+  onImportData?: () => void;
+  onExportData?: () => void;
+}
+
+const MenuData = ({
+  t,
+  isOpen,
+  onOpenChange,
+  onMouseEnter,
+  onRefreshData,
+  onImportData,
+  onExportData,
+}: MenuDataProps) => (
   <DropdownMenu open={isOpen} onOpenChange={onOpenChange} modal={false}>
     <DropdownMenuTrigger asChild onMouseEnter={onMouseEnter}>
       <Button variant="ghost" size="sm" className="h-7 px-2 text-xs font-normal text-muted-foreground hover:text-foreground hover:bg-accent/50 data-[state=open]:bg-accent data-[state=open]:text-foreground">{t('titlebar.menu.data.label')}</Button>
     </DropdownMenuTrigger>
     <DropdownMenuContent align="start" className="w-56">
-      <DropdownMenuItem>
+      <DropdownMenuItem onClick={onRefreshData} disabled={!onRefreshData}>
         <span>{t('titlebar.menu.data.refresh')}</span>
         <DropdownMenuShortcut>{getShortcut('R')}</DropdownMenuShortcut>
       </DropdownMenuItem>
-      <DropdownMenuItem>
+      <DropdownMenuItem onClick={onImportData} disabled={!onImportData}>
         <span>{t('titlebar.menu.data.import')}</span>
       </DropdownMenuItem>
-      <DropdownMenuItem>
+      <DropdownMenuItem onClick={onExportData} disabled={!onExportData}>
         <span>{t('titlebar.menu.data.export')}</span>
       </DropdownMenuItem>
       <DropdownMenuSeparator />
@@ -229,20 +350,34 @@ const MenuData = ({ t, isOpen, onOpenChange, onMouseEnter }: TitlebarMenuProps) 
   </DropdownMenu>
 );
 
-const MenuTools = ({ t, isOpen, onOpenChange, onMouseEnter }: TitlebarMenuProps) => (
+interface MenuToolsProps extends TitlebarMenuProps {
+  onOpenHistory?: () => void;
+  onOpenSchemaGenerator?: () => void;
+  onToggleSandbox?: () => void;
+}
+
+const MenuTools = ({
+  t,
+  isOpen,
+  onOpenChange,
+  onMouseEnter,
+  onOpenHistory,
+  onOpenSchemaGenerator,
+  onToggleSandbox,
+}: MenuToolsProps) => (
     <DropdownMenu open={isOpen} onOpenChange={onOpenChange} modal={false}>
       <DropdownMenuTrigger asChild onMouseEnter={onMouseEnter}>
         <Button variant="ghost" size="sm" className="h-7 px-2 text-xs font-normal text-muted-foreground hover:text-foreground hover:bg-accent/50 data-[state=open]:bg-accent data-[state=open]:text-foreground">{t('titlebar.menu.tools.label')}</Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-56">
-        <DropdownMenuItem>
+        <DropdownMenuItem onClick={onOpenHistory} disabled={!onOpenHistory}>
           <span>{t('titlebar.menu.tools.history')}</span>
         </DropdownMenuItem>
-        <DropdownMenuItem>
+        <DropdownMenuItem onClick={onOpenSchemaGenerator} disabled={!onOpenSchemaGenerator}>
           <span>{t('titlebar.menu.tools.schemaGenerator')}</span>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem>
+        <DropdownMenuItem onClick={onToggleSandbox} disabled={!onToggleSandbox}>
            <span>{t('titlebar.menu.tools.sandbox')}</span>
         </DropdownMenuItem>
       </DropdownMenuContent>

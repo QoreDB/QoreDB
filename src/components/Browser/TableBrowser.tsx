@@ -60,6 +60,7 @@ import {
   deactivateSandbox,
 } from '@/lib/sandboxStore';
 import { SandboxChange, MigrationScript } from '@/lib/sandboxTypes';
+import { UI_EVENT_REFRESH_TABLE } from '@/lib/uiEvents';
 import {
   Dialog,
   DialogContent,
@@ -307,6 +308,15 @@ export function TableBrowser({
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  useEffect(() => {
+    const handler = () => {
+      schemaCache.forceRefresh();
+      loadData();
+    };
+    window.addEventListener(UI_EVENT_REFRESH_TABLE, handler);
+    return () => window.removeEventListener(UI_EVENT_REFRESH_TABLE, handler);
+  }, [loadData, schemaCache]);
 
   useEffect(() => {
     return onTableChange(event => {

@@ -49,6 +49,20 @@ import { OpenTab, createTableTab, createDatabaseTab, createQueryTab } from './li
 import { CrashRecoverySnapshot, saveCrashRecoverySnapshot } from './lib/crashRecovery';
 import { AnalyticsService } from './components/Onboarding/AnalyticsService';
 import { getShortcut } from '@/utils/platform';
+import {
+  activateSandbox,
+  deactivateSandbox,
+  getSandboxPreferences,
+  hasPendingChanges,
+  isSandboxActive,
+} from '@/lib/sandboxStore';
+import {
+  emitUiEvent,
+  UI_EVENT_EXPORT_DATA,
+  UI_EVENT_OPEN_HISTORY,
+  UI_EVENT_OPEN_LOGS,
+  UI_EVENT_REFRESH_TABLE,
+} from '@/lib/uiEvents';
 
 import './index.css';
 
@@ -66,6 +80,7 @@ function App() {
   const [libraryModalOpen, setLibraryModalOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [sidebarVisible, setSidebarVisible] = useState(true);
 
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [driver, setDriver] = useState<Driver>(Driver.Postgres);
@@ -282,6 +297,67 @@ function App() {
     }
   }, [sessionId, openTab, activeTab]);
 
+  const handleToggleSidebar = useCallback(() => {
+    setSidebarVisible(prev => !prev);
+  }, []);
+
+  const handleOpenLogs = useCallback(() => {
+    emitUiEvent(UI_EVENT_OPEN_LOGS);
+  }, []);
+
+  const handleRefreshData = useCallback(() => {
+    emitUiEvent(UI_EVENT_REFRESH_TABLE);
+  }, []);
+
+  const handleExportData = useCallback(() => {
+    emitUiEvent(UI_EVENT_EXPORT_DATA, { format: 'csv' });
+  }, []);
+
+  const handleOpenHistory = useCallback(() => {
+    if (!sessionId) {
+      notify.error(t('query.noConnectionError'));
+      return;
+    }
+    setSettingsOpen(false);
+    if (activeTab?.type !== 'query') {
+      openTab(createQueryTab(undefined, activeTab?.namespace));
+      window.setTimeout(() => emitUiEvent(UI_EVENT_OPEN_HISTORY), 0);
+      return;
+    }
+    emitUiEvent(UI_EVENT_OPEN_HISTORY);
+  }, [activeTab?.namespace, activeTab?.type, openTab, sessionId, t]);
+
+  const handleToggleSandbox = useCallback(() => {
+    if (!sessionId) {
+      notify.error(t('query.noConnectionError'));
+      return;
+    }
+
+    const isActive = isSandboxActive(sessionId);
+    if (isActive) {
+      const prefs = getSandboxPreferences();
+      if (prefs.confirmOnDiscard && hasPendingChanges(sessionId)) {
+        const confirmExit = window.confirm(
+          `${t('sandbox.confirmDeactivate.title')}\n\n${t('sandbox.confirmDeactivate.message')}`
+        );
+        if (!confirmExit) return;
+        const discard = window.confirm(t('sandbox.confirmDeactivate.discardChanges'));
+        deactivateSandbox(sessionId, discard);
+        return;
+      }
+      deactivateSandbox(sessionId);
+      return;
+    }
+
+    activateSandbox(sessionId);
+    if (activeConnection?.environment === 'staging') {
+      notify.warning(t('sandbox.envWarningStaging'));
+    }
+    if (activeConnection?.environment === 'production') {
+      notify.warning(t('sandbox.envWarningProduction'));
+    }
+  }, [activeConnection?.environment, sessionId, t]);
+
   const handleEditConnection = useCallback((connection: SavedConnection, password: string) => {
     setEditConnection(connection);
     setEditPassword(password);
@@ -413,25 +489,47 @@ function App() {
     hasActiveTab: Boolean(activeTabId),
   });
 
+  const activeTableSubTab =
+    activeTab?.type === 'table'
+      ? (tableBrowserTabsRef.current[activeTab.id] ?? 'data')
+      : null;
+  const canRefreshData = Boolean(sessionId && activeTab?.type === 'table' && activeTableSubTab === 'data');
+  const canExportData = Boolean(sessionId && activeTab?.type === 'table' && activeTableSubTab === 'data');
+  const canOpenHistory = Boolean(sessionId);
+  const canToggleSandbox = Boolean(sessionId);
+
   return (
     <>
       <div className="flex flex-col h-screen w-screen overflow-hidden bg-background text-foreground font-sans">
-        <CustomTitlebar />
+        <CustomTitlebar
+          onOpenSearch={() => setSearchOpen(true)}
+          onNewConnection={() => setConnectionModalOpen(true)}
+          onOpenSettings={() => setSettingsOpen(true)}
+          onOpenLogs={handleOpenLogs}
+          onOpenHistory={canOpenHistory ? handleOpenHistory : undefined}
+          onToggleSidebar={handleToggleSidebar}
+          onRefreshData={canRefreshData ? handleRefreshData : undefined}
+          onExportData={canExportData ? handleExportData : undefined}
+          onToggleSandbox={canToggleSandbox ? handleToggleSandbox : undefined}
+          readOnly={activeConnection?.read_only || false}
+        />
 
         <div className="flex flex-1 overflow-hidden">
           {/* Sidebar */}
-          <Sidebar
-            onNewConnection={() => setConnectionModalOpen(true)}
-            onConnected={handleConnected}
-            connectedSessionId={sessionId}
-            connectedConnectionId={activeConnection?.id || null}
-            onTableSelect={handleTableSelect}
-            onDatabaseSelect={handleDatabaseSelect}
-            onEditConnection={handleEditConnection}
-            refreshTrigger={sidebarRefreshTrigger}
-            schemaRefreshTrigger={schemaRefreshTrigger}
-            activeNamespace={activeTab?.namespace}
-          />
+          <div className={sidebarVisible ? '' : 'hidden'}>
+            <Sidebar
+              onNewConnection={() => setConnectionModalOpen(true)}
+              onConnected={handleConnected}
+              connectedSessionId={sessionId}
+              connectedConnectionId={activeConnection?.id || null}
+              onTableSelect={handleTableSelect}
+              onDatabaseSelect={handleDatabaseSelect}
+              onEditConnection={handleEditConnection}
+              refreshTrigger={sidebarRefreshTrigger}
+              schemaRefreshTrigger={schemaRefreshTrigger}
+              activeNamespace={activeTab?.namespace}
+            />
+          </div>
 
           <main className="flex-1 flex flex-col min-w-0 min-h-0 bg-background relative">
             <header className="flex items-center h-10 z-30 px-2 gap-2">

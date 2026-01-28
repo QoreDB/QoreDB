@@ -23,6 +23,7 @@ import { ProductionConfirmDialog } from '../Guard/ProductionConfirmDialog';
 import { DangerConfirmDialog } from '../Guard/DangerConfirmDialog';
 import { toast } from 'sonner';
 import { forceRefreshCache } from '../../hooks/useSchemaCache';
+import { UI_EVENT_OPEN_HISTORY } from '@/lib/uiEvents';
 import { QueryPanelToolbar } from './QueryPanelToolbar';
 import { QueryPanelEditor } from './QueryPanelEditor';
 import { QueryPanelResults, QueryResultEntry } from './QueryPanelResults';
@@ -613,6 +614,13 @@ export function QueryPanel({
     libraryOpen,
     saveDialogOpen,
   ]);
+
+  useEffect(() => {
+    if (!isActive) return;
+    const handler = () => setHistoryOpen(true);
+    window.addEventListener(UI_EVENT_OPEN_HISTORY, handler);
+    return () => window.removeEventListener(UI_EVENT_OPEN_HISTORY, handler);
+  }, [isActive]);
 
   return (
     <div className="flex flex-col flex-1 bg-background rounded-lg border border-border shadow-sm overflow-hidden">

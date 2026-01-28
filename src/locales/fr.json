@@ -107,6 +107,18 @@
         "placeholder": "Tapez une commande ou recherchez...",
         "noResults": "Aucun résultat trouvé."
     },
+    "fulltextSearch": {
+        "title": "Rechercher dans la base",
+        "placeholder": "Rechercher dans toutes les tables et colonnes...",
+        "caseSensitive": "Sensible à la casse",
+        "noConnection": "Aucune connexion active",
+        "noResults": "Aucun résultat trouvé",
+        "searchedTables": "{{count}} tables analysées",
+        "stats": "{{matches}} résultats dans {{tables}} tables ({{time}}ms)",
+        "truncated": "Résultats tronqués",
+        "hint": "Entrez au moins 2 caractères pour rechercher",
+        "footerHint": "Cliquez sur un résultat pour ouvrir la table"
+    },
     "tabs": {
         "newQuery": "Nouvelle requête (Cmd+T)"
     },
@@ -175,9 +187,10 @@
         "newConnection": "Nouvelle connexion",
         "newQuery": "Nouvelle requête",
         "openLibrary": "Ouvrir la bibliothèque de requêtes",
+        "fulltextSearch": "Rechercher dans la base",
         "openSettings": "Paramètres",
         "toggleTheme": "Basculer le thème",
-        "closeTab": "Fermer l’onglet"
+        "closeTab": "Fermer l'onglet"
     },
     "settings": {
         "title": "Paramètres",

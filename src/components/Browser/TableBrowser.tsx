@@ -9,6 +9,7 @@ import {
   Environment,
   DriverCapabilities,
   RelationFilter,
+  SearchFilter,
   peekForeignKey,
   Value,
   generateMigrationSql,
@@ -109,6 +110,7 @@ interface TableBrowserProps {
   onClose: () => void;
   onOpenRelatedTable?: (namespace: Namespace, tableName: string) => void;
   relationFilter?: RelationFilter;
+  searchFilter?: SearchFilter;
   initialTab?: TableBrowserTab;
   onActiveTabChange?: (tab: TableBrowserTab) => void;
 }
@@ -127,6 +129,7 @@ export function TableBrowser({
   onClose,
   onOpenRelatedTable,
   relationFilter,
+  searchFilter,
   initialTab,
   onActiveTabChange,
 }: TableBrowserProps) {
@@ -638,6 +641,7 @@ export function TableBrowser({
             mutationsSupported={mutationsSupported}
             connectionName={connectionName}
             connectionDatabase={connectionDatabase}
+            initialFilter={searchFilter?.value}
             onRowsDeleted={loadData}
             onRowsUpdated={loadData}
             onOpenRelatedTable={onOpenRelatedTable}

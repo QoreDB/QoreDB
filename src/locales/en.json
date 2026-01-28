@@ -107,6 +107,18 @@
         "placeholder": "Type a command or search...",
         "noResults": "No results found."
     },
+    "fulltextSearch": {
+        "title": "Search in Database",
+        "placeholder": "Search in all tables and columns...",
+        "caseSensitive": "Case sensitive",
+        "noConnection": "No active connection",
+        "noResults": "No matches found",
+        "searchedTables": "Searched {{count}} tables",
+        "stats": "{{matches}} matches in {{tables}} tables ({{time}}ms)",
+        "truncated": "Results truncated",
+        "hint": "Enter at least 2 characters to search",
+        "footerHint": "Click a result to open the table"
+    },
     "tabs": {
         "newQuery": "New Query (Cmd+T)"
     },
@@ -175,6 +187,7 @@
         "newConnection": "New connection",
         "newQuery": "New query",
         "openLibrary": "Open query library",
+        "fulltextSearch": "Search in database",
         "openSettings": "Settings",
         "toggleTheme": "Toggle theme",
         "closeTab": "Close tab"

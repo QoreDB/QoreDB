@@ -2,6 +2,7 @@
 
 pub mod connection;
 pub mod driver;
+pub mod fulltext_search;
 pub mod metrics;
 pub mod mutation;
 pub mod logs;

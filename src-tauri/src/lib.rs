@@ -127,6 +127,8 @@ pub fn run() {
             // Sandbox commands
             commands::sandbox::generate_migration_sql,
             commands::sandbox::apply_sandbox_changes,
+            // Full-text search
+            commands::fulltext_search::fulltext_search,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

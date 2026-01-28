@@ -4,6 +4,7 @@ import { notify } from './lib/notify';
 import { Sidebar } from './components/Sidebar/Sidebar';
 import { TabBar } from './components/Tabs/TabBar';
 import { GlobalSearch, SearchResult } from './components/Search/GlobalSearch';
+import { FulltextSearchPanel } from './components/Search/FulltextSearchPanel';
 import { QueryPanel } from './components/Query/QueryPanel';
 import { TableBrowser, type TableBrowserTab } from './components/Browser/TableBrowser';
 import { DatabaseBrowser, type DatabaseBrowserTab } from './components/Browser/DatabaseBrowser';
@@ -23,6 +24,7 @@ import {
   getDriverInfo,
   DriverCapabilities,
   RelationFilter,
+  SearchFilter,
 } from './lib/tauri';
 import { HistoryEntry } from './lib/history';
 import { QueryLibraryItem } from './lib/queryLibrary';
@@ -81,6 +83,7 @@ function App() {
   const { t } = useTranslation();
   const { resolvedTheme, toggleTheme } = useTheme();
   const [searchOpen, setSearchOpen] = useState(false);
+  const [fulltextSearchOpen, setFulltextSearchOpen] = useState(false);
   const [connectionModalOpen, setConnectionModalOpen] = useState(false);
   const [libraryModalOpen, setLibraryModalOpen] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -257,6 +260,7 @@ function App() {
                 namespace: tab.namespace,
                 tableName: tab.tableName,
                 relationFilter: tab.relationFilter,
+                searchFilter: tab.searchFilter,
               }
             : t
         );
@@ -298,13 +302,16 @@ function App() {
       { id: 'cmd_new_connection', label: t('palette.newConnection'), shortcut: '⌘N' },
       { id: 'cmd_new_query', label: t('palette.newQuery'), shortcut: '⌘T' },
       { id: 'cmd_open_library', label: t('palette.openLibrary') },
+      ...(sessionId
+        ? [{ id: 'cmd_fulltext_search', label: t('palette.fulltextSearch'), shortcut: '⌘⇧F' }]
+        : []),
       { id: 'cmd_open_settings', label: t('palette.openSettings'), shortcut: '⌘,' },
       { id: 'cmd_toggle_theme', label: t('palette.toggleTheme') },
       ...(activeTabId
         ? [{ id: 'cmd_close_tab', label: t('palette.closeTab'), shortcut: '⌘W' }]
         : []),
     ],
-    [activeTabId, t]
+    [activeTabId, sessionId, t]
   );
 
   // Handle search result selection
@@ -328,6 +335,12 @@ function App() {
           }
           case 'cmd_open_library': {
             setLibraryModalOpen(true);
+            return;
+          }
+          case 'cmd_fulltext_search': {
+            if (sessionId) {
+              setFulltextSearchOpen(true);
+            }
             return;
           }
           case 'cmd_open_settings': {
@@ -394,14 +407,15 @@ function App() {
   function handleTableSelect(
     namespace: Namespace,
     tableName: string,
-    relationFilter?: RelationFilter
+    relationFilter?: RelationFilter,
+    searchFilter?: SearchFilter
   ) {
     AnalyticsService.capture('resource_opened', {
-      source: relationFilter ? 'relation' : 'tree',
+      source: searchFilter ? 'search' : relationFilter ? 'relation' : 'tree',
       resource_type: driver === Driver.Mongodb ? 'collection' : 'table',
       driver,
     });
-    openTab(createTableTab(namespace, tableName, relationFilter));
+    openTab(createTableTab(namespace, tableName, relationFilter, searchFilter));
   }
 
   function handleDatabaseSelect(namespace: Namespace) {
@@ -557,11 +571,12 @@ function App() {
   // Global keyboard shortcuts
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
-      const isOverlayOpen = searchOpen || connectionModalOpen || libraryModalOpen;
+      const isOverlayOpen = searchOpen || fulltextSearchOpen || connectionModalOpen || libraryModalOpen;
       if (isOverlayOpen) {
         if (e.key === 'Escape') {
           e.preventDefault();
           setSearchOpen(false);
+          setFulltextSearchOpen(false);
           setConnectionModalOpen(false);
           setLibraryModalOpen(false);
         }
@@ -589,6 +604,13 @@ function App() {
       if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'l') {
         e.preventDefault();
         setLibraryModalOpen(true);
+      }
+      // Cmd+Shift+F: Open full-text search
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'f') {
+        e.preventDefault();
+        if (sessionId) {
+          setFulltextSearchOpen(true);
+        }
       }
       // Cmd+,: Settings
       if ((e.metaKey || e.ctrlKey) && e.key === ',') {
@@ -695,6 +717,7 @@ function App() {
                   connectionId={activeConnection?.id}
                   onOpenRelatedTable={handleTableSelect}
                   relationFilter={activeTab.relationFilter}
+                  searchFilter={activeTab.searchFilter}
                   initialTab={tableBrowserTabsRef.current[activeTab.id]}
                   onActiveTabChange={tab => {
                     tableBrowserTabsRef.current[activeTab.id] = tab;
@@ -722,6 +745,7 @@ function App() {
                   onOpenQueryTab={ns => {
                     openTab(createQueryTab(undefined, ns));
                   }}
+                  onOpenFulltextSearch={() => setFulltextSearchOpen(true)}
                   onClose={() => closeTab(activeTab.id)}
                 />
               ) : activeTab?.type === 'query' ? (
@@ -848,6 +872,13 @@ function App() {
             openTab(createQueryTab(q));
           }
         }}
+      />
+
+      <FulltextSearchPanel
+        isOpen={fulltextSearchOpen}
+        onClose={() => setFulltextSearchOpen(false)}
+        sessionId={sessionId}
+        onNavigateToTable={(ns, table, filter) => handleTableSelect(ns, table, undefined, filter)}
       />
 
       <Toaster

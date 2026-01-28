@@ -3,7 +3,7 @@
  * Defines the structure of open tabs for multi-table navigation
  */
 
-import { Namespace, RelationFilter } from './tauri';
+import { Namespace, RelationFilter, SearchFilter } from './tauri';
 
 export type TabType = 'query' | 'table' | 'database';
 
@@ -16,6 +16,7 @@ export interface OpenTab {
   namespace?: Namespace;
   tableName?: string;
   relationFilter?: RelationFilter;
+  searchFilter?: SearchFilter;
 }
 
 /** Generate unique tab ID */
@@ -27,7 +28,8 @@ export function generateTabId(): string {
 export function createTableTab(
   namespace: Namespace,
   tableName: string,
-  relationFilter?: RelationFilter
+  relationFilter?: RelationFilter,
+  searchFilter?: SearchFilter
 ): OpenTab {
   return {
     id: generateTabId(),
@@ -36,6 +38,7 @@ export function createTableTab(
     namespace,
     tableName,
     relationFilter,
+    searchFilter,
   };
 }
 

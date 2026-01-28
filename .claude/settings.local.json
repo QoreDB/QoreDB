@@ -5,7 +5,9 @@
       "Bash(npx tsc:*)",
       "Bash(wc:*)",
       "Bash(ls:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(cargo check:*)",
+      "Bash(pnpm tsc:*)"
     ]
   }
 }

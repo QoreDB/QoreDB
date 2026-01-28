@@ -73,6 +73,7 @@ interface DataGridProps {
   mutationsSupported?: boolean;
   connectionName?: string;
   connectionDatabase?: string;
+  initialFilter?: string;
   onRowsDeleted?: () => void;
   onRowClick?: (row: RowData) => void;
   onRowsUpdated?: () => void;
@@ -104,6 +105,7 @@ export function DataGrid({
   mutationsSupported = true,
   connectionName,
   connectionDatabase,
+  initialFilter,
   onRowsDeleted,
   onRowClick,
   onRowsUpdated,
@@ -125,11 +127,18 @@ export function DataGrid({
     pageIndex: 0,
     pageSize: 50,
   });
-  const [globalFilter, setGlobalFilter] = useState('');
+  const [globalFilter, setGlobalFilter] = useState(initialFilter ?? '');
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [showFilters, setShowFilters] = useState(false);
   const [renderLimit, setRenderLimit] = useState<number | null>(DEFAULT_RENDER_LIMIT);
+
+  // Update globalFilter when initialFilter changes (e.g., from full-text search)
+  useEffect(() => {
+    if (initialFilter !== undefined) {
+      setGlobalFilter(initialFilter);
+    }
+  }, [initialFilter]);
 
   // Refs
   const searchInputRef = useRef<HTMLInputElement>(null);

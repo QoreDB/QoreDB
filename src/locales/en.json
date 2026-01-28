@@ -720,5 +720,46 @@
             "modified": "Modified",
             "deleted": "Deleted"
         }
+    },
+    "titlebar": {
+        "menu": {
+            "file": {
+                "label": "File",
+                "newConnection": "New Connection",
+                "newWindow": "New Window",
+                "settings": "Settings",
+                "quit": "Quit"
+            },
+            "view": {
+                "label": "View",
+                "explorer": "Explorer",
+                "logs": "Error Logs",
+                "zenMode": "Zen Mode"
+            },
+            "data": {
+                "label": "Data",
+                "refresh": "Refresh Table",
+                "import": "Import...",
+                "export": "Export...",
+                "commit": "Commit Transaction"
+            },
+            "tools": {
+                "label": "Tools",
+                "history": "Query History",
+                "schemaGenerator": "Schema Generator",
+                "sandbox": "SQL Sandbox"
+            }
+        },
+        "search": {
+            "placeholder": "Search or run a command...",
+            "shortcut": "Ctrl K"
+        },
+        "controls": {
+            "readOnly": "Read-Only Mode",
+            "minimize": "Minimize",
+            "maximize": "Maximize",
+            "restore": "Restore",
+            "close": "Close"
+        }
     }
 }

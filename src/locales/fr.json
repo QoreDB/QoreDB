@@ -706,5 +706,46 @@
             "modified": "Modifié",
             "deleted": "Supprimé"
         }
+    },
+    "titlebar": {
+        "menu": {
+            "file": {
+                "label": "Fichier",
+                "newConnection": "Nouvelle connexion",
+                "newWindow": "Nouvelle fenêtre",
+                "settings": "Paramètres",
+                "quit": "Quitter"
+            },
+            "view": {
+                "label": "Affichage",
+                "explorer": "Explorateur",
+                "logs": "Journaux d'erreurs",
+                "zenMode": "Mode Zen"
+            },
+            "data": {
+                "label": "Données",
+                "refresh": "Actualiser la table",
+                "import": "Importer...",
+                "export": "Exporter...",
+                "commit": "Commit Transaction"
+            },
+            "tools": {
+                "label": "Outils",
+                "history": "Historique des requêtes",
+                "schemaGenerator": "Générateur de schéma",
+                "sandbox": "Bac à sable SQL"
+            }
+        },
+        "search": {
+            "placeholder": "Rechercher ou exécuter une commande...",
+            "shortcut": "Ctrl K"
+        },
+        "controls": {
+            "readOnly": "Mode Lecture Seule",
+            "minimize": "Réduire",
+            "maximize": "Agrandir",
+            "restore": "Restaurer",
+            "close": "Fermer"
+        }
     }
 }

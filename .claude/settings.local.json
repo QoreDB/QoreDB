@@ -4,7 +4,8 @@
       "Bash(npm run check:*)",
       "Bash(npx tsc:*)",
       "Bash(wc:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(find:*)"
     ]
   }
 }

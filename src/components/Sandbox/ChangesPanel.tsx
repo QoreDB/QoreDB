@@ -214,7 +214,7 @@ export function ChangesPanel({
             </div>
           )}
 
-          {/* Actions */}
+          {/* Actions - avec labels explicites pour actions sensibles */}
           <div className="flex gap-2 px-4 py-2 border-b border-border">
             <Button
               variant="outline"
@@ -229,22 +229,23 @@ export function ChangesPanel({
             <Button
               variant="ghost"
               size="sm"
-              className="h-8 text-error hover:text-error hover:bg-error/10"
-              onClick={handleClearAll}
-              disabled={totalChanges === 0}
-              title={t('sandbox.changes.clearAll')}
-            >
-              <Trash2 size={14} />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8"
+              className="h-8 px-2 text-muted-foreground hover:text-foreground"
               onClick={handleToggleAll}
               disabled={totalChanges === 0}
               title={t('sandbox.changes.toggleAll')}
             >
               {expandedChanges.size > 0 ? <EyeOff size={14} /> : <Eye size={14} />}
+            </Button>
+            {/* Action destructive avec label explicite */}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 px-2 text-error hover:text-error hover:bg-error/10"
+              onClick={handleClearAll}
+              disabled={totalChanges === 0}
+            >
+              <Trash2 size={14} className="mr-1" />
+              <span className="text-xs">{t('sandbox.changes.clearAll')}</span>
             </Button>
           </div>
 

@@ -16,24 +16,27 @@ interface ChangeItemProps {
 
 const CHANGE_TYPE_CONFIG: Record<
   SandboxChangeType,
-  { icon: typeof Plus; color: string; bgColor: string; label: string }
+  { icon: typeof Plus; color: string; bgColor: string; borderColor: string; label: string }
 > = {
   insert: {
     icon: Plus,
     color: 'text-success',
     bgColor: 'bg-success/10',
+    borderColor: 'border-success/20',
     label: 'INSERT',
   },
   update: {
     icon: Pencil,
     color: 'text-warning',
     bgColor: 'bg-warning/10',
+    borderColor: 'border-warning/20',
     label: 'UPDATE',
   },
   delete: {
     icon: Trash2,
     color: 'text-error',
-    bgColor: 'bg-error/10',
+    bgColor: 'bg-error/15',
+    borderColor: 'border-error/30',
     label: 'DELETE',
   },
 };
@@ -100,8 +103,9 @@ export function ChangeItem({
     return (
       <div
         className={cn(
-          'flex flex-col gap-2 px-2 py-1.5 rounded text-xs',
-          config.bgColor
+          'flex flex-col gap-2 px-2 py-1.5 rounded text-xs border-l-2',
+          config.bgColor,
+          config.borderColor
         )}
       >
         <div className="flex items-center gap-2">
@@ -154,7 +158,7 @@ export function ChangeItem({
   }
 
   return (
-    <div className={cn('rounded-md border overflow-hidden', config.bgColor, 'border-border/50')}>
+    <div className={cn('rounded-md border-l-2 border overflow-hidden', config.bgColor, config.borderColor, 'border-r-border/50 border-t-border/50 border-b-border/50')}>
       {/* Header */}
       <div className="flex items-center gap-2 px-3 py-2 border-b border-border/30">
         <div

@@ -42,3 +42,10 @@ DDL / Management,Création Base de Données,Fullstack,Création de base de donn�
 DDL / Management,Gestion Tables,Fullstack,Création et suppression de tables avec support types par driver.,Terminé,P1,V1,4,Interface graphique dédiée.
 Data Grid,Export Données,Frontend / Grid,Export CSV/JSON des résultats filtrés.,Terminé,P2,V1,2,Côté client.
 Infra,Journal d'erreurs,Frontend / Shell,Panneau dédié pour visualiser les erreurs backend/frontend.,Terminé,P2,V1,2,Persistant.
+SQL Editor,Multi-statement Execution,Backend / Core,Séparation et comptage des statements SQL multiples avec notices de résultats.,Terminé,P1,V1,3,Exécution batch améliorée.
+Schema,ER Diagram,Frontend / Schema,Visualisation schéma relationnel avec isolation et visibilité colonnes.,Terminé,P1,V1,5,Diagramme entité-relation interactif.
+Data Engine Kernel,Sandbox Mode,Fullstack,Mode bac à sable pour changements locaux isolés avec génération de migrations.,Terminé,P1,V1,5,Indicateur visuel et commandes Tauri.
+Data Grid,Foreign Key Peek,Frontend / Grid,Tooltips affichant les valeurs des clés étrangères au survol.,Terminé,P2,V1,2,Amélioration UX pour relations.
+Schema,Index Support,Backend / Core,Support complet des index dans le schéma des tables.,Terminé,P1,V1,3,Extension du modèle de métadonnées.
+Data Grid,Row Count Estimation,Backend / Core,Estimation optimisée du nombre de lignes pour grandes tables.,Terminé,P2,V1,3,Performance améliorée.
+Infra,Localization FR/EN,Frontend / i18n,Traduction complète interface en français et anglais.,Terminé,P2,V1,2,Support multilingue.

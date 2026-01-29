@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
+import { getModifierKey } from '@/utils/platform';
 import {
   Play,
   Square,
@@ -18,7 +19,6 @@ import { Tooltip } from '@/components/ui/tooltip';
 import { Environment, Namespace } from '../../lib/tauri';
 import { ENVIRONMENT_CONFIG } from '../../lib/environment';
 import { MONGO_TEMPLATES } from '../Editor/MongoEditor';
-import { SandboxToggle } from '@/components/Sandbox';
 
 type EnvConfig = (typeof ENVIRONMENT_CONFIG)[keyof typeof ENVIRONMENT_CONFIG];
 
@@ -130,13 +130,7 @@ export function QueryPanelToolbar({
         </span>
       )}
 
-      {sessionId && (
-        <SandboxToggle
-          sessionId={sessionId}
-          environment={environment}
-          className="h-8"
-        />
-      )}
+
 
       {loading &&
         (canCancel ? (
@@ -260,7 +254,7 @@ export function QueryPanelToolbar({
       </Tooltip>
 
       <span className="text-xs text-muted-foreground hidden sm:inline-block">
-        {t('query.runHint')}
+        {t('query.runHint', { modifier: getModifierKey() })}
       </span>
 
       {!sessionId && (

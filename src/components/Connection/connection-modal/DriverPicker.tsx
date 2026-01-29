@@ -10,24 +10,24 @@ export function DriverPicker(props: {
 	const { driver, isEditMode, onChange } = props;
 
 	return (
-		<div className="grid grid-cols-3 gap-3">
+		<div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
 			{(Object.keys(DRIVER_LABELS) as Driver[]).map((d) => (
 				<button
 					key={d}
 					type="button"
 					className={cn(
-						"flex flex-col items-center gap-2 p-3 rounded-md border transition-all hover:bg-(--q-accent-soft)",
+						"flex flex-col items-center gap-3 p-4 rounded-xl border-2 transition-all hover:scale-[1.02] active:scale-[0.98]",
 						driver === d
-							? "border-accent bg-(--q-accent-soft) text-(--q-accent)"
-							: "border-border bg-background",
+							? "border-accent bg-accent/5"
+							: "border-border bg-background hover:border-foreground/20 hover:bg-muted/50",
 					)}
 					onClick={() => onChange(d)}
 					disabled={isEditMode}
 				>
 					<div
 						className={cn(
-							"flex items-center justify-center w-10 h-10 rounded-lg p-1.5 transition-colors",
-							driver === d ? "bg-(--q-accent-soft)" : "bg-muted",
+							"flex items-center justify-center w-16 h-16 rounded-2xl p-3 transition-colors shadow-sm",
+							driver === d ? "bg-accent/10" : "bg-muted",
 						)}
 					>
 						<img
@@ -36,7 +36,10 @@ export function DriverPicker(props: {
 							className="w-full h-full object-contain"
 						/>
 					</div>
-					<span className="text-xs font-medium">{DRIVER_LABELS[d]}</span>
+					<span className={cn(
+            "text-sm font-semibold",
+            driver === d ? "text-accent" : "text-foreground"
+          )}>{DRIVER_LABELS[d]}</span>
 				</button>
 			))}
 		</div>

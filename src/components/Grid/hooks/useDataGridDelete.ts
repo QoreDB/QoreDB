@@ -37,7 +37,7 @@ export interface UseDataGridDeleteReturn {
   deleteConfirmValue: string;
   setDeleteConfirmValue: (value: string) => void;
   handleDelete: () => void;
-  performDelete: () => Promise<void>;
+  performDelete: (acknowledgedDangerous?: boolean) => Promise<void>;
   canDelete: boolean;
   deleteDisabled: boolean;
   deleteRequiresConfirm: boolean;
@@ -94,7 +94,7 @@ export function useDataGridDelete({
   });
 
   // Perform the actual delete operation
-  const performDelete = useCallback(async () => {
+  const performDelete = useCallback(async (acknowledgedDangerous = false) => {
     if (!namespace || !tableName || !primaryKey || primaryKey.length === 0) return;
 
     const rowsToDelete = table.getSelectedRowModel().rows;
@@ -167,7 +167,8 @@ export function useDataGridDelete({
           namespace.database,
           namespace.schema,
           tableName,
-          pkData
+          pkData,
+          acknowledgedDangerous
         );
         if (res.success) {
           successCount++;

@@ -42,15 +42,17 @@ export function BasicSection(props: {
                   key={env}
                   type="button"
                   className={cn(
-                    'flex-1 px-3 py-2 rounded-md text-xs font-medium border transition-all',
-                    isSelected ? 'border-transparent' : 'border-border bg-background hover:bg-muted'
+                    'flex-1 px-3 py-2 rounded-md text-xs font-semibold border-2 transition-all',
+                    isSelected ? 'border-transparent shadow-sm' : 'border-border bg-background hover:bg-muted text-muted-foreground'
                   )}
                   style={
                     isSelected
                       ? {
                           backgroundColor: config.bgSoft,
                           color: config.color,
-                          borderColor: config.color,
+                          borderColor: config.color, // Actually used if border-transparent is overridden, but here explicit style usually wins if needed. 
+                          // Better: use style only for colors, class for structure.
+                          border: `2px solid ${config.color}`,
                         }
                       : undefined
                   }

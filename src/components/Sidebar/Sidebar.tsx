@@ -14,8 +14,8 @@ import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
-import { APP_VERSION } from '@/lib/version';
 import { useTheme } from '@/hooks/useTheme';
+import { UI_EVENT_OPEN_LOGS } from '@/lib/uiEvents';
 
 const DEFAULT_PROJECT = 'default';
 
@@ -29,6 +29,7 @@ interface SidebarProps {
   onEditConnection: (connection: SavedConnection, password: string) => void;
   refreshTrigger?: number;
   schemaRefreshTrigger?: number;
+  activeNamespace?: Namespace | null;
 }
 
 export function Sidebar({
@@ -41,6 +42,7 @@ export function Sidebar({
   onEditConnection,
   refreshTrigger,
   schemaRefreshTrigger,
+  activeNamespace,
 }: SidebarProps) {
   const [connections, setConnections] = useState<SavedConnection[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -58,6 +60,19 @@ export function Sidebar({
   useEffect(() => {
     loadConnections();
   }, [connectedSessionId, refreshTrigger]);
+
+  useEffect(() => {
+    if (connectedConnectionId) {
+      setSelectedId(connectedConnectionId);
+      setExpandedId(connectedConnectionId);
+    }
+  }, [connectedConnectionId]);
+
+  useEffect(() => {
+    const handler = () => setLogsOpen(true);
+    window.addEventListener(UI_EVENT_OPEN_LOGS, handler);
+    return () => window.removeEventListener(UI_EVENT_OPEN_LOGS, handler);
+  }, []);
 
   async function loadConnections() {
     try {
@@ -121,20 +136,20 @@ export function Sidebar({
 
   return (
     <aside className="w-64 h-full flex flex-col border-r border-border bg-muted/30">
-      <header className="h-14 flex items-center justify-between px-4 border-b border-border">
+      <header className="h-12 flex items-center px-4 border-b border-border bg-muted/10">
         <button
           onClick={() => (window.location.href = '/')}
-          className="flex items-center gap-2 font-semibold text-foreground"
+          className="flex items-center gap-2.5 font-medium text-foreground/90 hover:text-foreground transition-colors"
         >
           <img
             src={resolvedTheme === 'dark' ? '/logo-white.png' : '/logo.png'}
             alt="QoreDB"
-            width={28}
-            height={28}
+            width={22}
+            height={22}
+            className="opacity-90"
           />
-          QoreDB
+          <span className="text-sm tracking-tight">QoreDB</span>
         </button>
-        <p className="text-xs text-muted-foreground">v{APP_VERSION}</p>
       </header>
 
       <section className="flex-1 overflow-auto py-2">
@@ -168,6 +183,7 @@ export function Sidebar({
                       onTableSelect={onTableSelect}
                       onDatabaseSelect={onDatabaseSelect}
                       refreshTrigger={schemaRefreshTrigger}
+                      activeNamespace={activeNamespace}
                     />
                   </div>
                 )}

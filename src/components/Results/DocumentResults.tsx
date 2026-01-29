@@ -93,7 +93,7 @@ export function DocumentResults({
   onRowsDeleted,
 }: DocumentResultsProps) {
   const { t } = useTranslation();
-  const DEFAULT_RENDER_LIMIT = 500;
+  const DEFAULT_RENDER_LIMIT = 500; //TODO : est ce limitant ?
   const RENDER_STEP = 500;
   const [filter, setFilter] = useState('');
   const [renderLimit, setRenderLimit] = useState<number | null>(DEFAULT_RENDER_LIMIT);
@@ -179,7 +179,7 @@ export function DocumentResults({
     setDeleteDialogOpen(true);
   };
 
-  const performDelete = async () => {
+  const performDelete = async (acknowledgedDangerous = false) => {
     if (!pendingDelete || !sessionId || !database || !collection) return;
     if (pendingDelete.idValue === undefined) {
       toast.error(t('grid.previewMissingPk'));
@@ -196,6 +196,7 @@ export function DocumentResults({
         '',
         collection,
         pkData,
+        acknowledgedDangerous,
       );
       if (res.success) {
         toast.success(t('grid.deleteSuccess', { count: 1 }));
@@ -389,7 +390,7 @@ export function DocumentResults({
         confirmValue={deleteConfirmValue}
         onConfirmValueChange={setDeleteConfirmValue}
         onConfirm={async () => {
-          await performDelete();
+          await performDelete(true);
           setDeleteDialogOpen(false);
         }}
         isDeleting={isDeleting}

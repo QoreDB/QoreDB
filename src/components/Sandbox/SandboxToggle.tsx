@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { getShortcut } from '@/utils/platform';
 import { useTranslation } from 'react-i18next';
 import { FlaskConical } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -120,7 +121,7 @@ export function SandboxToggle({
         </TooltipTrigger>
         <TooltipContent side="bottom">
           <p>{isActive ? t('sandbox.deactivateHint') : t('sandbox.activateHint')}</p>
-          <p className="text-xs text-muted-foreground mt-1">Ctrl+Shift+S</p>
+          <p className="text-xs text-muted-foreground mt-1">{getShortcut('S', { shift: true })}</p>
         </TooltipContent>
       </TooltipRoot>
 

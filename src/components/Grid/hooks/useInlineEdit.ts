@@ -58,12 +58,15 @@ export interface UseInlineEditReturn {
       originalValue: Value;
     } | null
   ) => void;
-  performInlineUpdate: (payload: {
+  performInlineUpdate: (
+    payload: {
     row: RowData;
     columnId: string;
     value: Value;
     originalValue: Value;
-  }) => Promise<void>;
+    },
+    acknowledgedDangerous?: boolean
+  ) => Promise<void>;
 }
 
 /**
@@ -178,7 +181,10 @@ export function useInlineEdit({
 
   // Perform the actual update operation
   const performInlineUpdate = useCallback(
-    async (payload: { row: RowData; columnId: string; value: Value; originalValue: Value }) => {
+    async (
+      payload: { row: RowData; columnId: string; value: Value; originalValue: Value },
+      acknowledgedDangerous = false
+    ) => {
       if (!namespace || !tableName || !primaryKey || primaryKey.length === 0) {
         toast.error(t('grid.updateNoPrimaryKey'));
         return;
@@ -223,7 +229,8 @@ export function useInlineEdit({
           namespace.schema,
           tableName,
           { columns: pkData },
-          { columns: { [payload.columnId]: payload.value } }
+          { columns: { [payload.columnId]: payload.value } },
+          acknowledgedDangerous
         );
         if (res.success) {
           toast.success(t('grid.updateSuccess'));
@@ -281,7 +288,7 @@ export function useInlineEdit({
     };
 
     if (environment === 'development') {
-      await performInlineUpdate(payload);
+      await performInlineUpdate(payload, false);
     } else {
       setPendingUpdate(payload);
       setUpdateConfirmOpen(true);

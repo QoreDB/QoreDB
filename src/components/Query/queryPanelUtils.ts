@@ -1,7 +1,7 @@
 import { MONGO_TEMPLATES } from '../Editor/MongoEditor';
 
 export function getDefaultQuery(isMongo: boolean): string {
-  return isMongo ? MONGO_TEMPLATES.find : 'SELECT 1;';
+  return isMongo ? MONGO_TEMPLATES.find : 'SELECT 1;'; //TODO : à améliorer, ce n'est pas assez universel
 }
 
 export function getCollectionFromQuery(query: string): string {

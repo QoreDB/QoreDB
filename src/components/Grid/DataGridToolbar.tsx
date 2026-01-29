@@ -68,7 +68,7 @@ export function DataGridToolbar({
           placeholder={t('grid.searchPlaceholder')}
           value={globalFilter}
           onChange={e => setGlobalFilter(e.target.value)}
-          className="h-7 w-40 pl-7 pr-7 text-xs"
+          className="h-7 max-w-50 pl-7 pr-7 text-xs"
         />
         {globalFilter && (
           <button
@@ -79,7 +79,6 @@ export function DataGridToolbar({
           </button>
         )}
       </div>
-
       {/* Filter Toggle */}
       <Button
         variant="ghost"
@@ -90,7 +89,6 @@ export function DataGridToolbar({
       >
         <ListFilter size={14} />
       </Button>
-
       {/* Column Visibility */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
@@ -128,7 +126,6 @@ export function DataGridToolbar({
             ))}
         </DropdownMenuContent>
       </DropdownMenu>
-
       {/* Export Dropdown */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>

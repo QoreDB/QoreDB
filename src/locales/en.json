@@ -285,7 +285,41 @@
         "projectExportError": "Failed to export project",
         "projectImportSuccess": "Project imported from {{name}} ({{connections}} connections)",
         "projectImportPartial": "{{skipped}} connections were skipped.",
-        "projectImportError": "Failed to import project"
+        "projectImportError": "Failed to import project",
+        "sections": {
+            "general": "General",
+            "editor": "Editor",
+            "security": "Security",
+            "data": "Data & Privacy",
+            "shortcuts": "Keyboard Shortcuts"
+        },
+        "search": {
+            "placeholder": "Search settings...",
+            "noResults": "No settings found"
+        },
+        "startup": {
+            "title": "Startup",
+            "description": "Configure application startup behavior.",
+            "restoreSession": "Restore previous session",
+            "restoreSessionDescription": "Automatically restore tabs and connection from your last session.",
+            "checkUpdates": "Check for updates on startup",
+            "checkUpdatesDescription": "Automatically check for new versions when QoreDB starts."
+        },
+        "modified": "Modified",
+        "shortcuts": {
+            "categoryNavigation": "Navigation",
+            "categoryEditor": "Editor",
+            "categoryGeneral": "General",
+            "search": "Command palette",
+            "newConnection": "New connection",
+            "settings": "Open settings",
+            "library": "Open query library",
+            "fulltextSearch": "Search in database",
+            "newQuery": "New query tab",
+            "runQuery": "Run query",
+            "closeTab": "Close tab",
+            "escape": "Close overlay / Cancel"
+        }
     },
     "table": {
         "rows": "rows",

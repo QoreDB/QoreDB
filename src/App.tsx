@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Toaster } from 'sonner';
-import { Settings } from 'lucide-react';
 import { check } from '@tauri-apps/plugin-updater';
 
 // Components
@@ -21,8 +20,6 @@ import { GlobalSearch, SearchResult } from './components/Search/GlobalSearch';
 import { FulltextSearchPanel } from './components/Search/FulltextSearchPanel';
 import { QueryLibraryModal } from './components/Query/QueryLibraryModal';
 import { OnboardingModal } from './components/Onboarding/OnboardingModal';
-import { Button } from './components/ui/button';
-import { Tooltip } from './components/ui/tooltip';
 
 // Hooks
 import { useTheme } from './hooks/useTheme';
@@ -504,7 +501,8 @@ function App() {
         <CustomTitlebar
           onOpenSearch={() => setSearchOpen(true)}
           onNewConnection={() => setConnectionModalOpen(true)}
-          onOpenSettings={() => setSettingsOpen(true)}
+          onOpenSettings={() => setSettingsOpen(!settingsOpen)}
+          settingsOpen={settingsOpen}
           onOpenLogs={handleOpenLogs}
           onOpenHistory={canOpenHistory ? handleOpenHistory : undefined}
           onToggleSidebar={handleToggleSidebar}
@@ -514,7 +512,14 @@ function App() {
           readOnly={activeConnection?.read_only || false}
         />
 
-        <div className="flex flex-1 overflow-hidden">
+        <div className="flex flex-1 overflow-hidden relative">
+          {/* Settings overlay - full width */}
+          {settingsOpen && (
+            <div className="absolute inset-0 z-40 bg-background">
+              <SettingsPage />
+            </div>
+          )}
+
           {/* Sidebar */}
           <div className={sidebarVisible ? '' : 'hidden'}>
             <Sidebar
@@ -544,20 +549,6 @@ function App() {
                   />
                 )}
               </div>
-              <Tooltip content={t('settings.title')} side="left">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setSettingsOpen(!settingsOpen)}
-                  className="text-muted-foreground hover:text-foreground transition-transform duration-150 active:scale-95"
-                  aria-label={t('settings.title')}
-                >
-                  <Settings
-                    size={16}
-                    className={`transition-transform duration-300 ${settingsOpen ? 'rotate-90 scale-110' : 'rotate-0 scale-100'}`}
-                  />
-                </Button>
-              </Tooltip>
             </header>
 
             {/* Content Area */}
@@ -619,10 +610,6 @@ function App() {
   );
 
   function renderContent() {
-    if (settingsOpen) {
-      return <SettingsPage />;
-    }
-
     // No session: Welcome screen
     if (!sessionId) {
       return (

@@ -286,7 +286,41 @@
         "projectExportError": "Échec de l'export du projet",
         "projectImportSuccess": "Projet importé depuis {{name}} ({{connections}} connexions)",
         "projectImportPartial": "{{skipped}} connexions ont été ignorées.",
-        "projectImportError": "Échec de l'import du projet"
+        "projectImportError": "Échec de l'import du projet",
+        "sections": {
+            "general": "Général",
+            "editor": "Éditeur",
+            "security": "Sécurité",
+            "data": "Données & Confidentialité",
+            "shortcuts": "Raccourcis clavier"
+        },
+        "search": {
+            "placeholder": "Rechercher dans les paramètres...",
+            "noResults": "Aucun paramètre trouvé"
+        },
+        "startup": {
+            "title": "Démarrage",
+            "description": "Configurez le comportement au démarrage de l'application.",
+            "restoreSession": "Restaurer la session précédente",
+            "restoreSessionDescription": "Restaurer automatiquement les onglets et la connexion de votre dernière session.",
+            "checkUpdates": "Vérifier les mises à jour au démarrage",
+            "checkUpdatesDescription": "Vérifier automatiquement les nouvelles versions au lancement de QoreDB."
+        },
+        "modified": "Modifié",
+        "shortcuts": {
+            "categoryNavigation": "Navigation",
+            "categoryEditor": "Éditeur",
+            "categoryGeneral": "Général",
+            "search": "Palette de commandes",
+            "newConnection": "Nouvelle connexion",
+            "settings": "Ouvrir les paramètres",
+            "library": "Ouvrir la bibliothèque de requêtes",
+            "fulltextSearch": "Rechercher dans la base",
+            "newQuery": "Nouvel onglet requête",
+            "runQuery": "Exécuter la requête",
+            "closeTab": "Fermer l'onglet",
+            "escape": "Fermer la fenêtre / Annuler"
+        }
     },
     "table": {
         "rows": "lignes",

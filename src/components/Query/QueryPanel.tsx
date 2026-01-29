@@ -77,7 +77,7 @@ export function QueryPanel({
   onQueryDraftChange,
 }: QueryPanelProps) {
   const { t } = useTranslation();
-  const isMongo = dialect === Driver.Mongodb;
+  const isMongo = dialect === Driver.Mongodb; //TODO : à améliorer, ce n'est pas assez universel
   const defaultQuery = getDefaultQuery(isMongo);
 
   const [query, setQuery] = useState(initialQuery || defaultQuery);
@@ -325,7 +325,7 @@ export function QueryPanel({
 
             if (kind === 'query') {
               AnalyticsService.capture('query_executed', {
-                dialect: isMongo ? 'mongodb' : 'sql',
+                dialect: isMongo ? 'mongodb' : 'sql', //TODO : à améliorer, ce n'est pas assez universel
                 driver: dialect,
                 row_count: enrichedResult.rows.length,
               });

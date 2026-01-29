@@ -1,7 +1,7 @@
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Minus, Square, X, Copy, Search, Lock, LockOpen, Bell } from 'lucide-react';
+import { Minus, Square, X, Copy, Search, Lock, LockOpen, Bell, Settings } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -34,6 +34,7 @@ interface CustomTitlebarProps {
   onOpenNotifications?: () => void;
   onToggleReadOnly?: (next: boolean) => void;
   readOnly?: boolean;
+  settingsOpen?: boolean;
 }
 
 export const CustomTitlebar = ({
@@ -52,6 +53,7 @@ export const CustomTitlebar = ({
   onOpenNotifications,
   onToggleReadOnly,
   readOnly = false,
+  settingsOpen = false,
 }: CustomTitlebarProps) => {
   const { t } = useTranslation();
   const [isMaximized, setIsMaximized] = useState(false);
@@ -224,6 +226,21 @@ export const CustomTitlebar = ({
         </div>
 
         <div className="h-4 w-px bg-border/50 mx-1" />
+
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-6 w-6"
+          onClick={() => onOpenSettings?.()}
+          disabled={!onOpenSettings}
+          aria-label={t('settings.title')}
+        >
+          {settingsOpen ? (
+            <X className="w-3.5 h-3.5 text-foreground" />
+          ) : (
+            <Settings className="w-3.5 h-3.5 text-muted-foreground" />
+          )}
+        </Button>
 
         <Button
           variant="ghost"

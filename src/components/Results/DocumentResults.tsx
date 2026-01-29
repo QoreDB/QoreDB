@@ -93,7 +93,7 @@ export function DocumentResults({
   onRowsDeleted,
 }: DocumentResultsProps) {
   const { t } = useTranslation();
-  const DEFAULT_RENDER_LIMIT = 500;
+  const DEFAULT_RENDER_LIMIT = 500; //TODO : est ce limitant ?
   const RENDER_STEP = 500;
   const [filter, setFilter] = useState('');
   const [renderLimit, setRenderLimit] = useState<number | null>(DEFAULT_RENDER_LIMIT);

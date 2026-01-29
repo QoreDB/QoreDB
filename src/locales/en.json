@@ -791,7 +791,7 @@
     },
     "interceptor": {
         "title": "Query Interceptor",
-        "description": "Enterprise-grade query interception for profiling, audit logging, and safety.",
+        "description": "Query interception for profiling, audit logging, and safety.",
         "enabled": "Interceptor enabled",
         "disabled": "Interceptor disabled",
         "settings": {
@@ -1055,6 +1055,20 @@
             "maximize": "Maximize",
             "restore": "Restore",
             "close": "Close"
+        }
+    },
+    "notifications": {
+        "title": "Notifications",
+        "clearAll": "Clear all",
+        "empty": "No notifications",
+        "categories": {
+            "system": "System",
+            "query": "Queries",
+            "security": "Security"
+        },
+        "actions": {
+            "dismiss": "Dismiss",
+            "markRead": "Mark as read"
         }
     }
 }

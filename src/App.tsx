@@ -513,14 +513,12 @@ function App() {
         />
 
         <div className="flex flex-1 overflow-hidden relative">
-          {/* Settings overlay - full width */}
           {settingsOpen && (
-            <div className="absolute inset-0 z-40 bg-background">
-              <SettingsPage />
+            <div className="absolute inset-0 z-40 bg-background animate-in fade-in slide-in-from-right-2 duration-200">
+              <SettingsPage onClose={() => setSettingsOpen(false)} />
             </div>
           )}
 
-          {/* Sidebar */}
           <div className={sidebarVisible ? '' : 'hidden'}>
             <Sidebar
               onNewConnection={() => setConnectionModalOpen(true)}
@@ -551,7 +549,6 @@ function App() {
               </div>
             </header>
 
-            {/* Content Area */}
             <SandboxBorder
               sessionId={sessionId}
               environment={activeConnection?.environment || 'development'}

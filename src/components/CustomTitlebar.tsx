@@ -1,7 +1,7 @@
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Minus, Square, X, Copy, Search, Lock, LockOpen, Bell, Settings } from 'lucide-react';
+import { Minus, Square, X, Copy, Search, Bell, Settings } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,11 +10,13 @@ import {
   DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
-import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { TFunction } from 'i18next';
 import { isMacOS, getShortcut } from '@/utils/platform';
+import { NotificationPanel } from '@/components/Notification/NotificationPanel';
+import { useNotificationBadge } from '@/lib/notificationStore';
 
 const appWindow = getCurrentWindow();
 
@@ -31,7 +33,7 @@ interface CustomTitlebarProps {
   onExportData?: () => void;
   onToggleSandbox?: () => void;
   onOpenSchemaGenerator?: () => void;
-  onOpenNotifications?: () => void;
+
   onToggleReadOnly?: (next: boolean) => void;
   readOnly?: boolean;
   settingsOpen?: boolean;
@@ -50,9 +52,9 @@ export const CustomTitlebar = ({
   onExportData,
   onToggleSandbox,
   onOpenSchemaGenerator,
-  onOpenNotifications,
-  onToggleReadOnly,
-  readOnly = false,
+
+  // onToggleReadOnly,
+  // readOnly = false,
   settingsOpen = false,
 }: CustomTitlebarProps) => {
   const { t } = useTranslation();
@@ -211,7 +213,7 @@ export const CustomTitlebar = ({
       </div>
 
       <div className="flex items-center pr-2 z-20">
-        <div className="flex items-center gap-2 px-2" title={t('titlebar.controls.readOnly')}>
+        {/* <div className="flex items-center gap-2 px-2" title={t('titlebar.controls.readOnly')}>
           {readOnly ? (
             <Lock className="w-3.5 h-3.5 text-red-500" />
           ) : (
@@ -223,35 +225,39 @@ export const CustomTitlebar = ({
             disabled={!onToggleReadOnly}
             className="scale-75 origin-right data-[state=checked]:bg-red-500"
           />
-        </div>
+        </div> */}
 
         <div className="h-4 w-px bg-border/50 mx-1" />
 
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-6 w-6"
-          onClick={() => onOpenSettings?.()}
-          disabled={!onOpenSettings}
-          aria-label={t('settings.title')}
-        >
-          {settingsOpen ? (
-            <X className="w-3.5 h-3.5 text-foreground" />
-          ) : (
-            <Settings className="w-3.5 h-3.5 text-muted-foreground" />
-          )}
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 transition-transform duration-200 active:scale-90"
+            onClick={() => onOpenSettings?.()}
+            disabled={!onOpenSettings}
+            aria-label={t('settings.title')}
+          >
+            <div className="relative w-4 h-4">
+              <Settings
+                className={`w-4 h-4 absolute inset-0 transition-all duration-300 ${
+                  settingsOpen
+                    ? 'opacity-0 rotate-90 scale-75'
+                    : 'opacity-100 rotate-0 scale-100 text-muted-foreground'
+                }`}
+              />
+              <X
+                className={`w-4 h-4 absolute inset-0 transition-all duration-300 ${
+                  settingsOpen
+                    ? 'opacity-100 rotate-0 scale-100 text-foreground'
+                    : 'opacity-0 -rotate-90 scale-75'
+                }`}
+              />
+            </div>
+          </Button>
 
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-6 w-6"
-          onClick={() => onOpenNotifications?.()}
-          disabled={!onOpenNotifications}
-          aria-label="Notifications"
-        >
-          <Bell className="w-3.5 h-3.5 text-muted-foreground" />
-        </Button>
+          <NotificationBell />
+        </div>
 
         {!isMac && (
           <div className="flex items-center h-10 -mr-2 ml-2 pl-2 border-l border-border/50">
@@ -477,3 +483,35 @@ const WindowButton = ({
     {children}
   </button>
 );
+
+/**
+ * NotificationBell - Bell icon with popover panel and badge
+ */
+const NotificationBell = () => {
+  const { t } = useTranslation();
+  const badgeCount = useNotificationBadge();
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7 relative"
+          aria-label={t('notifications.title')}
+        >
+          <Bell className="w-4 h-4 text-muted-foreground" />
+          {badgeCount > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 min-w-[14px] h-[14px] px-1 text-[9px] font-medium bg-red-500 text-white rounded-full flex items-center justify-center">
+              {badgeCount > 9 ? '9+' : badgeCount}
+            </span>
+          )}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-auto p-3">
+        <NotificationPanel />
+      </PopoverContent>
+    </Popover>
+  );
+};
+

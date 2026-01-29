@@ -209,20 +209,7 @@ export function InterceptorSettingsPanel() {
   const customRules = rules.filter(r => !r.builtin);
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-semibold">{t('interceptor.title')}</h2>
-          <p className="text-sm text-muted-foreground">{t('interceptor.description')}</p>
-        </div>
-        <Button variant="ghost" size="icon" onClick={loadConfig}>
-          <RefreshCw className="w-4 h-4" />
-        </Button>
-      </div>
-
-      {/* Sections */}
-      <div className="space-y-4">
+    <div className="space-y-4">
         {/* Audit Logging */}
         <Section
           title={t('interceptor.audit.title')}
@@ -423,7 +410,6 @@ export function InterceptorSettingsPanel() {
             )}
           </div>
         </Section>
-      </div>
 
       {/* Rule Editor Modal */}
       {showRuleEditor && (

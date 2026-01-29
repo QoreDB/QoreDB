@@ -778,7 +778,7 @@
     },
     "interceptor": {
         "title": "Intercepteur de requêtes",
-        "description": "Interception de requêtes de niveau entreprise pour le profilage, l'audit et la sécurité.",
+        "description": "Interception des requêtes pour l’audit et la sécurité",
         "enabled": "Intercepteur activé",
         "disabled": "Intercepteur désactivé",
         "settings": {
@@ -1042,6 +1042,20 @@
             "maximize": "Agrandir",
             "restore": "Restaurer",
             "close": "Fermer"
+        }
+    },
+    "notifications": {
+        "title": "Notifications",
+        "clearAll": "Tout effacer",
+        "empty": "Aucune notification",
+        "categories": {
+            "system": "Système",
+            "query": "Requêtes",
+            "security": "Sécurité"
+        },
+        "actions": {
+            "dismiss": "Ignorer",
+            "markRead": "Marquer comme lu"
         }
     }
 }

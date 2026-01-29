@@ -18,8 +18,14 @@ import {
 } from './settingsConfig';
 
 import { getSafetyPolicy, setSafetyPolicy, SafetyPolicy } from '@/lib/tauri';
+import { X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
-export function SettingsPage() {
+interface SettingsPageProps {
+  onClose?: () => void;
+}
+
+export function SettingsPage({ onClose }: SettingsPageProps) {
   const { t } = useTranslation();
   const [activeSection, setActiveSection] = useState<SettingsSectionId>('general');
   const [searchQuery, setSearchQuery] = useState('');
@@ -137,6 +143,17 @@ export function SettingsPage() {
             />
           </div>
           <SettingsSearch value={searchQuery} onChange={setSearchQuery} />
+          {onClose && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="gap-1.5 text-muted-foreground hover:text-foreground"
+              onClick={onClose}
+            >
+              <X size={14} />
+              <span className="text-xs">{t('common.close')}</span>
+            </Button>
+          )}
         </header>
 
         {/* Content area */}

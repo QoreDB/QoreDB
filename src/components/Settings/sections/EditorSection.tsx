@@ -18,7 +18,6 @@ interface EditorSectionProps {
   searchQuery?: string;
 }
 
-// Default values for detecting modifications
 const DEFAULTS = {
   confirmOnDiscard: true,
   autoCollapsePanel: false,

@@ -752,6 +752,147 @@
             "deleted": "Deleted"
         }
     },
+    "interceptor": {
+        "title": "Query Interceptor",
+        "description": "Enterprise-grade query interception for profiling, audit logging, and safety.",
+        "enabled": "Interceptor enabled",
+        "disabled": "Interceptor disabled",
+        "settings": {
+            "title": "Interceptor Settings",
+            "globalEnable": "Enable Query Interceptor",
+            "globalEnableDescription": "Master switch for all interception features"
+        },
+        "audit": {
+            "title": "Audit Logging",
+            "description": "Track all query executions for compliance and debugging",
+            "enabled": "Enable audit logging",
+            "redactQueries": "Redact sensitive values",
+            "redactQueriesDescription": "Replace literals in logged queries with placeholders",
+            "maxEntries": "Maximum log entries",
+            "logSuccess": "Log successful queries",
+            "logFailures": "Log failed queries",
+            "logBlocked": "Log blocked queries",
+            "environments": "Environments to audit",
+            "viewLog": "View Audit Log",
+            "exportLog": "Export Log",
+            "clearLog": "Clear Log",
+            "clearConfirm": "Clear all audit log entries? This cannot be undone.",
+            "noEntries": "No audit log entries",
+            "stats": {
+                "total": "Total queries",
+                "executed": "Executed",
+                "blocked": "Blocked",
+                "success": "Successful",
+                "failed": "Failed"
+            }
+        },
+        "profiling": {
+            "title": "Query Profiling",
+            "description": "Monitor query performance and identify slow queries",
+            "enabled": "Enable profiling",
+            "slowQueryThreshold": "Slow query threshold (ms)",
+            "slowQueryThresholdDescription": "Queries exceeding this time are flagged as slow",
+            "collectStats": "Collect execution statistics",
+            "viewMetrics": "View Metrics",
+            "viewSlowQueries": "View Slow Queries",
+            "resetMetrics": "Reset Metrics",
+            "noSlowQueries": "No slow queries detected",
+            "metrics": {
+                "avgTime": "Avg execution time",
+                "maxTime": "Max execution time",
+                "p50": "P50 latency",
+                "p95": "P95 latency",
+                "p99": "P99 latency",
+                "slowCount": "Slow queries",
+                "successRate": "Success rate"
+            }
+        },
+        "safety": {
+            "title": "Safety Net",
+            "description": "Prevent dangerous queries from executing",
+            "enabled": "Enable safety checks",
+            "blockDangerousInProd": "Block dangerous queries in production",
+            "blockDangerousInProdDescription": "Automatically block DROP, TRUNCATE, and DELETE/UPDATE without WHERE in production",
+            "requireConfirmation": "Require confirmation for mutations",
+            "requireConfirmationDescription": "Ask for explicit confirmation before running mutations in production",
+            "blockDropDatabase": "Block DROP DATABASE",
+            "blockDropDatabaseDescription": "Prevent DROP DATABASE in all environments",
+            "blockTruncateInProd": "Block TRUNCATE in production",
+            "blockTruncateInProdDescription": "Prevent TRUNCATE TABLE in production environments",
+            "customRules": "Custom Rules",
+            "addRule": "Add Rule",
+            "editRule": "Edit Rule",
+            "deleteRule": "Delete Rule",
+            "deleteRuleConfirm": "Delete this safety rule?",
+            "noRules": "No custom safety rules",
+            "ruleFields": {
+                "name": "Rule name",
+                "description": "Description",
+                "enabled": "Enabled",
+                "environments": "Apply to environments",
+                "operations": "Match operations",
+                "action": "Action",
+                "pattern": "Query pattern (regex)"
+            },
+            "actions": {
+                "block": "Block query",
+                "warn": "Show warning",
+                "require_confirmation": "Require confirmation"
+            }
+        },
+        "analysis": {
+            "riskLevel": "Risk level",
+            "operationType": "Operation type",
+            "targets": "Targets",
+            "riskFactors": "Risk factors",
+            "safe": "Safe",
+            "low": "Low risk",
+            "medium": "Medium risk",
+            "high": "High risk",
+            "critical": "Critical risk"
+        },
+        "decision": {
+            "allowed": "Query allowed",
+            "blocked": "Query blocked",
+            "warned": "Query warned",
+            "modified": "Query modified",
+            "reason": "Reason"
+        },
+        "operations": {
+            "select": "SELECT",
+            "insert": "INSERT",
+            "update": "UPDATE",
+            "delete": "DELETE",
+            "create": "CREATE",
+            "alter": "ALTER",
+            "drop": "DROP",
+            "truncate": "TRUNCATE",
+            "grant": "GRANT",
+            "revoke": "REVOKE",
+            "execute": "EXECUTE",
+            "other": "Other"
+        },
+        "riskFactors": {
+            "no_where_clause": "No WHERE clause",
+            "drop_operation": "DROP operation",
+            "truncate_operation": "TRUNCATE operation",
+            "delete_all": "DELETE without WHERE",
+            "update_all": "UPDATE without WHERE",
+            "alter_table": "Schema modification",
+            "grant_revoke": "Permission change",
+            "execute_procedure": "Stored procedure",
+            "production_env": "Production environment",
+            "multiple_statements": "Multiple statements"
+        },
+        "blocked": {
+            "title": "Query Blocked",
+            "readOnly": "Connection is in read-only mode",
+            "dropDatabase": "DROP DATABASE is blocked by safety policy",
+            "truncateProd": "TRUNCATE is blocked in production",
+            "dangerousProd": "Dangerous query blocked in production",
+            "confirmRequired": "Confirmation required"
+        }
+    },
     "titlebar": {
         "menu": {
             "file": {

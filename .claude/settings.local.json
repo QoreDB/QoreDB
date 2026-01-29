@@ -8,7 +8,9 @@
       "Bash(find:*)",
       "Bash(cargo check:*)",
       "Bash(pnpm tsc:*)",
-      "Bash(npm run build)"
+      "Bash(npm run build)",
+      "Bash(tree:*)",
+      "Bash(pnpm build:*)"
     ]
   }
 }

@@ -739,6 +739,147 @@
             "deleted": "Supprimé"
         }
     },
+    "interceptor": {
+        "title": "Intercepteur de requêtes",
+        "description": "Interception de requêtes de niveau entreprise pour le profilage, l'audit et la sécurité.",
+        "enabled": "Intercepteur activé",
+        "disabled": "Intercepteur désactivé",
+        "settings": {
+            "title": "Paramètres de l'intercepteur",
+            "globalEnable": "Activer l'intercepteur de requêtes",
+            "globalEnableDescription": "Interrupteur principal pour toutes les fonctionnalités d'interception"
+        },
+        "audit": {
+            "title": "Journal d'audit",
+            "description": "Suivre toutes les exécutions de requêtes pour la conformité et le débogage",
+            "enabled": "Activer le journal d'audit",
+            "redactQueries": "Masquer les valeurs sensibles",
+            "redactQueriesDescription": "Remplacer les littéraux dans les requêtes journalisées par des placeholders",
+            "maxEntries": "Nombre maximum d'entrées",
+            "logSuccess": "Journaliser les requêtes réussies",
+            "logFailures": "Journaliser les requêtes échouées",
+            "logBlocked": "Journaliser les requêtes bloquées",
+            "environments": "Environnements à auditer",
+            "viewLog": "Voir le journal d'audit",
+            "exportLog": "Exporter le journal",
+            "clearLog": "Effacer le journal",
+            "clearConfirm": "Effacer toutes les entrées du journal d'audit ? Cette action est irréversible.",
+            "noEntries": "Aucune entrée dans le journal d'audit",
+            "stats": {
+                "total": "Total des requêtes",
+                "executed": "Exécutées",
+                "blocked": "Bloquées",
+                "success": "Réussies",
+                "failed": "Échouées"
+            }
+        },
+        "profiling": {
+            "title": "Profilage des requêtes",
+            "description": "Surveiller les performances des requêtes et identifier les requêtes lentes",
+            "enabled": "Activer le profilage",
+            "slowQueryThreshold": "Seuil de requête lente (ms)",
+            "slowQueryThresholdDescription": "Les requêtes dépassant ce temps sont signalées comme lentes",
+            "collectStats": "Collecter les statistiques d'exécution",
+            "viewMetrics": "Voir les métriques",
+            "viewSlowQueries": "Voir les requêtes lentes",
+            "resetMetrics": "Réinitialiser les métriques",
+            "noSlowQueries": "Aucune requête lente détectée",
+            "metrics": {
+                "avgTime": "Temps moyen d'exécution",
+                "maxTime": "Temps maximum d'exécution",
+                "p50": "Latence P50",
+                "p95": "Latence P95",
+                "p99": "Latence P99",
+                "slowCount": "Requêtes lentes",
+                "successRate": "Taux de réussite"
+            }
+        },
+        "safety": {
+            "title": "Filet de sécurité",
+            "description": "Empêcher l'exécution des requêtes dangereuses",
+            "enabled": "Activer les vérifications de sécurité",
+            "blockDangerousInProd": "Bloquer les requêtes dangereuses en production",
+            "blockDangerousInProdDescription": "Bloquer automatiquement DROP, TRUNCATE et DELETE/UPDATE sans WHERE en production",
+            "requireConfirmation": "Exiger une confirmation pour les mutations",
+            "requireConfirmationDescription": "Demander une confirmation explicite avant d'exécuter des mutations en production",
+            "blockDropDatabase": "Bloquer DROP DATABASE",
+            "blockDropDatabaseDescription": "Empêcher DROP DATABASE dans tous les environnements",
+            "blockTruncateInProd": "Bloquer TRUNCATE en production",
+            "blockTruncateInProdDescription": "Empêcher TRUNCATE TABLE dans les environnements de production",
+            "customRules": "Règles personnalisées",
+            "addRule": "Ajouter une règle",
+            "editRule": "Modifier la règle",
+            "deleteRule": "Supprimer la règle",
+            "deleteRuleConfirm": "Supprimer cette règle de sécurité ?",
+            "noRules": "Aucune règle de sécurité personnalisée",
+            "ruleFields": {
+                "name": "Nom de la règle",
+                "description": "Description",
+                "enabled": "Activée",
+                "environments": "Appliquer aux environnements",
+                "operations": "Opérations correspondantes",
+                "action": "Action",
+                "pattern": "Pattern de requête (regex)"
+            },
+            "actions": {
+                "block": "Bloquer la requête",
+                "warn": "Afficher un avertissement",
+                "require_confirmation": "Exiger une confirmation"
+            }
+        },
+        "analysis": {
+            "riskLevel": "Niveau de risque",
+            "operationType": "Type d'opération",
+            "targets": "Cibles",
+            "riskFactors": "Facteurs de risque",
+            "safe": "Sûr",
+            "low": "Risque faible",
+            "medium": "Risque moyen",
+            "high": "Risque élevé",
+            "critical": "Risque critique"
+        },
+        "decision": {
+            "allowed": "Requête autorisée",
+            "blocked": "Requête bloquée",
+            "warned": "Requête avec avertissement",
+            "modified": "Requête modifiée",
+            "reason": "Raison"
+        },
+        "operations": {
+            "select": "SELECT",
+            "insert": "INSERT",
+            "update": "UPDATE",
+            "delete": "DELETE",
+            "create": "CREATE",
+            "alter": "ALTER",
+            "drop": "DROP",
+            "truncate": "TRUNCATE",
+            "grant": "GRANT",
+            "revoke": "REVOKE",
+            "execute": "EXECUTE",
+            "other": "Autre"
+        },
+        "riskFactors": {
+            "no_where_clause": "Pas de clause WHERE",
+            "drop_operation": "Opération DROP",
+            "truncate_operation": "Opération TRUNCATE",
+            "delete_all": "DELETE sans WHERE",
+            "update_all": "UPDATE sans WHERE",
+            "alter_table": "Modification de schéma",
+            "grant_revoke": "Modification de permissions",
+            "execute_procedure": "Procédure stockée",
+            "production_env": "Environnement de production",
+            "multiple_statements": "Instructions multiples"
+        },
+        "blocked": {
+            "title": "Requête bloquée",
+            "readOnly": "La connexion est en mode lecture seule",
+            "dropDatabase": "DROP DATABASE est bloqué par la politique de sécurité",
+            "truncateProd": "TRUNCATE est bloqué en production",
+            "dangerousProd": "Requête dangereuse bloquée en production",
+            "confirmRequired": "Confirmation requise"
+        }
+    },
     "titlebar": {
         "menu": {
             "file": {

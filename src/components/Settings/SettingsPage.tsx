@@ -22,6 +22,7 @@ import {
 import { SettingsCard } from './SettingsCard';
 import { ConfigBackupCard } from './ConfigBackupCard';
 import { ProjectTransferCard } from './ProjectTransferCard';
+import { InterceptorSettingsPanel } from '@/components/Interceptor';
 
 import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
 
@@ -392,6 +393,14 @@ export function SettingsPage() {
               <p className="text-xs text-muted-foreground">{t('settings.safetyPolicyNote')}</p>
               {policyError ? <p className="text-xs text-destructive">{policyError}</p> : null}
             </div>
+          </SettingsCard>
+
+          {/* Query Interceptor Settings */}
+          <SettingsCard
+            title={t('interceptor.title')}
+            description={t('interceptor.description')}
+          >
+            <InterceptorSettingsPanel />
           </SettingsCard>
 
           <ConfigBackupCard

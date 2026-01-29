@@ -217,6 +217,16 @@ impl SessionManager {
         Ok(session.config.environment == "production")
     }
 
+    /// Gets the session environment (development/staging/production)
+    pub async fn get_environment(&self, session_id: SessionId) -> EngineResult<String> {
+        let sessions = self.sessions.read().await;
+        let session = sessions
+            .get(&session_id)
+            .ok_or_else(|| EngineError::session_not_found(session_id.0.to_string()))?;
+
+        Ok(session.config.environment.clone())
+    }
+
     /// Checks if a session exists
     pub async fn session_exists(&self, session_id: SessionId) -> bool {
         let sessions = self.sessions.read().await;

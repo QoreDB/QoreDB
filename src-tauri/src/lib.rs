@@ -3,6 +3,7 @@
 
 pub mod commands;
 pub mod engine;
+pub mod interceptor;
 pub mod metrics;
 pub mod observability;
 pub mod policy;
@@ -15,6 +16,7 @@ use engine::drivers::mongodb::MongoDriver;
 use engine::drivers::mysql::MySqlDriver;
 use engine::drivers::postgres::PostgresDriver;
 use engine::{DriverRegistry, QueryManager, SessionManager};
+use interceptor::InterceptorPipeline;
 use policy::SafetyPolicy;
 use vault::{VaultLock, backend::KeyringProvider};
 
@@ -25,6 +27,7 @@ pub struct AppState {
     pub vault_lock: VaultLock,
     pub policy: SafetyPolicy,
     pub query_manager: Arc<QueryManager>,
+    pub interceptor: Arc<InterceptorPipeline>,
 }
 
 impl AppState {
@@ -41,6 +44,14 @@ impl AppState {
         let policy = SafetyPolicy::load();
         let query_manager = Arc::new(QueryManager::new());
 
+        // Initialize interceptor with data directory
+        let data_dir = dirs::data_local_dir()
+            .unwrap_or_else(|| std::path::PathBuf::from("."))
+            .join("com.qoredb.app")
+            .join("interceptor");
+        let interceptor = Arc::new(InterceptorPipeline::new(data_dir));
+        let _ = interceptor.load_config();
+
         let _ = vault_lock.auto_unlock_if_no_password();
 
         Self {
@@ -49,6 +60,7 @@ impl AppState {
             vault_lock,
             policy,
             query_manager,
+            interceptor,
         }
     }
 }
@@ -129,6 +141,22 @@ pub fn run() {
             commands::sandbox::apply_sandbox_changes,
             // Full-text search
             commands::fulltext_search::fulltext_search,
+            // Interceptor commands
+            commands::interceptor::get_interceptor_config,
+            commands::interceptor::update_interceptor_config,
+            commands::interceptor::get_audit_entries,
+            commands::interceptor::get_audit_stats,
+            commands::interceptor::clear_audit_log,
+            commands::interceptor::export_audit_log,
+            commands::interceptor::get_profiling_metrics,
+            commands::interceptor::get_slow_queries,
+            commands::interceptor::clear_slow_queries,
+            commands::interceptor::reset_profiling,
+            commands::interceptor::export_profiling,
+            commands::interceptor::get_safety_rules,
+            commands::interceptor::add_safety_rule,
+            commands::interceptor::update_safety_rule,
+            commands::interceptor::remove_safety_rule,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

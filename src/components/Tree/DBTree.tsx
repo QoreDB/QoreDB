@@ -50,6 +50,7 @@ export function DBTree({
   const [deleteTargetNamespace, setDeleteTargetNamespace] = useState<Namespace | null>(null);
   const [search, setSearch] = useState("");
   const [searchValue, setSearchValue] = useState("");  
+  const [collapsedActiveNsKey, setCollapsedActiveNsKey] = useState<string | null>(null);
   const collectionsPageSize = 50; 
   
   const driverMeta = getDriverMetadata(driver);
@@ -111,6 +112,12 @@ export function DBTree({
   useEffect(() => {
     if (activeNamespace) {
       const key = getNsKey(activeNamespace);
+      if (collapsedActiveNsKey === key) {
+        return;
+      }
+      if (collapsedActiveNsKey && collapsedActiveNsKey !== key) {
+        setCollapsedActiveNsKey(null);
+      }
       if (expandedNs !== key) {
         setExpandedNs(key);
         setExpandedNamespace(activeNamespace);
@@ -170,11 +177,15 @@ export function DBTree({
       setCollectionsTotal(0);
       setSearch("");
       setSearchValue("");
+      if (activeNamespace && getNsKey(activeNamespace) === key) {
+        setCollapsedActiveNsKey(key);
+      }
       return;
     }
 
     setExpandedNs(key);
     setExpandedNamespace(ns);
+    setCollapsedActiveNsKey(null);
     setSearch("");
     setSearchValue("");
     await refreshCollections(ns, 1, false);
@@ -185,6 +196,7 @@ export function DBTree({
     if (expandedNs !== key) {
       setExpandedNs(key);
       setExpandedNamespace(ns);
+      setCollapsedActiveNsKey(null);
       await refreshCollections(ns, 1, false);
     }
     onDatabaseSelect?.(ns);

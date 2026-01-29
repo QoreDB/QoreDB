@@ -54,7 +54,11 @@ export function ForeignKeyPeekTooltip({
   return (
     <TooltipRoot delayDuration={300} disableHoverableContent={false} onOpenChange={onOpenChange}>
       <TooltipTrigger asChild>{children}</TooltipTrigger>
-      <TooltipContent side="right" align="start" className="max-h-80 overflow-auto p-3 text-xs">
+      <TooltipContent
+        side="right"
+        align="start"
+        className="max-h-80 max-w-sm overflow-auto p-3 text-xs"
+      >
         <div className="flex items-start justify-between gap-2">
           <div>
             <div className="text-xs uppercase tracking-wide text-muted-foreground">

@@ -12,6 +12,7 @@ import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { MongoEditor } from './MongoEditor';
 import { insertRow, updateRow, RowData } from '../../lib/tauri';
+import { DangerConfirmDialog } from '@/components/Guard/DangerConfirmDialog';
 
 interface DocumentEditorModalProps {
   isOpen: boolean;
@@ -24,6 +25,9 @@ interface DocumentEditorModalProps {
   originalId?: import('../../lib/tauri').Value; 
   onSuccess: () => void;
   readOnly?: boolean;
+  environment?: 'development' | 'staging' | 'production';
+  connectionName?: string;
+  connectionDatabase?: string;
 }
 
 export function DocumentEditorModal({
@@ -36,12 +40,22 @@ export function DocumentEditorModal({
   collection,
   originalId,
   onSuccess,
-  readOnly = false
+  readOnly = false,
+  environment = 'development',
+  connectionName,
+  connectionDatabase,
 }: DocumentEditorModalProps) {
   const { t } = useTranslation();
   const [value, setValue] = useState(initialData);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [pendingAction, setPendingAction] = useState<null | (() => Promise<void>)>(null);
+  const confirmationLabel = (connectionDatabase || connectionName || 'PROD').trim() || 'PROD';
+  const mutationDescription =
+    mode === 'insert'
+      ? t('environment.mutationConfirmInsert', { table: collection })
+      : t('environment.mutationConfirmUpdate', { table: collection });
 
   // Reset state when opening
   useEffect(() => {
@@ -61,7 +75,6 @@ export function DocumentEditorModal({
       return;
     }
 
-    setLoading(true);
     setError(null);
 
     try {
@@ -86,9 +99,33 @@ export function DocumentEditorModal({
         rowData.columns[k] = v as unknown as import('../../lib/tauri').Value;
       }
 
+      if (environment !== 'development') {
+        setPendingAction(() => () => handleSaveConfirmed(rowData, true));
+        setConfirmOpen(true);
+        return;
+      }
+
+      await handleSaveConfirmed(rowData, false);
+    } catch (err) {
+      console.error(err);
+      setError(err instanceof Error ? err.message : t('common.unknownError'));
+    }
+  }
+
+  async function handleSaveConfirmed(rowData: RowData, acknowledgedDangerous: boolean) {
+    setLoading(true);
+    setError(null);
+    try {
       // 3. Execute Mutation
       if (mode === 'insert') {
-        const result = await insertRow(sessionId, database, '', collection, rowData);
+        const result = await insertRow(
+          sessionId,
+          database,
+          '',
+          collection,
+          rowData,
+          acknowledgedDangerous
+        );
         if (result.success) {
           toast.success(t('document.insertSuccess'));
           onSuccess();
@@ -105,7 +142,15 @@ export function DocumentEditorModal({
 
         const pkData: RowData = { columns: { _id: originalId } };
         
-        const result = await updateRow(sessionId, database, '', collection, pkData, rowData);
+        const result = await updateRow(
+          sessionId,
+          database,
+          '',
+          collection,
+          pkData,
+          rowData,
+          acknowledgedDangerous
+        );
          if (result.success) {
           toast.success(t('document.updateSuccess'));
           onSuccess();
@@ -123,6 +168,7 @@ export function DocumentEditorModal({
   }
 
   return (
+    <>
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-3xl h-[80vh] flex flex-col p-0 gap-0">
         <DialogHeader className="p-4 border-b border-border">
@@ -156,5 +202,28 @@ export function DocumentEditorModal({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    <DangerConfirmDialog
+      open={confirmOpen}
+      onOpenChange={(open) => {
+        setConfirmOpen(open);
+        if (!open) {
+          setPendingAction(null);
+        }
+      }}
+      title={t('environment.mutationConfirmTitle')}
+      description={mutationDescription}
+      confirmationLabel={environment === 'production' ? confirmationLabel : undefined}
+      confirmLabel={t('common.confirm')}
+      loading={loading}
+      onConfirm={() => {
+        const action = pendingAction;
+        setPendingAction(null);
+        if (action) {
+          void action();
+        }
+      }}
+    />
+    </>
   );
 }

@@ -252,4 +252,18 @@ button {
   body {
     @apply bg-background text-foreground;
   }
+  
+  /* Titlebar personnalisée - zone draggable */
+  [data-tauri-drag-region] {
+    -webkit-app-region: drag;
+    app-region: drag;
+    user-select: none;
+  }
+
+  [data-tauri-drag-region] button,
+  [data-tauri-drag-region] a,
+  [data-tauri-drag-region] input {
+    -webkit-app-region: no-drag;
+    app-region: no-drag;
+  }
 }

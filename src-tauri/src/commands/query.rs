@@ -16,6 +16,7 @@ use crate::engine::{
     traits::StreamEvent,
     types::{CollectionList, CollectionListOptions, ForeignKey, Namespace, QueryId, QueryResult, SessionId, Value},
 };
+use crate::interceptor::{Environment, QueryExecutionResult, SafetyAction};
 use crate::metrics;
 use tauri::Emitter;
 
@@ -24,12 +25,21 @@ const DANGEROUS_BLOCKED: &str = "Dangerous query blocked: confirmation required"
 const DANGEROUS_BLOCKED_POLICY: &str = "Dangerous query blocked by policy";
 const SQL_PARSE_BLOCKED: &str = "Operation blocked: SQL parser could not classify the query";
 const TRANSACTIONS_NOT_SUPPORTED: &str = "Transactions are not supported by this driver";
+const SAFETY_RULE_BLOCKED: &str = "Query blocked by safety rule";
 
 fn is_mongo_mutation(query: &str) -> bool {
     matches!(
         mongo_safety::classify(query),
         mongo_safety::MongoQueryClass::Mutation | mongo_safety::MongoQueryClass::Unknown
     )
+}
+
+fn map_environment(env: &str) -> Environment {
+    match env {
+        "production" => Environment::Production,
+        "staging" => Environment::Staging,
+        _ => Environment::Development,
+    }
 }
 
 /// Response wrapper for query results
@@ -85,12 +95,13 @@ pub async fn execute_query(
     timeout_ms: Option<u64>,
     stream: Option<bool>,
 ) -> Result<QueryResponse, String> {
-    let (session_manager, query_manager, policy) = {
+    let (session_manager, query_manager, policy, interceptor) = {
         let state = state.lock().await;
         (
             Arc::clone(&state.session_manager),
             Arc::clone(&state.query_manager),
             state.policy.clone(),
+            Arc::clone(&state.interceptor),
         )
     };
     let session = parse_session_id(&session_id)?;
@@ -120,10 +131,12 @@ pub async fn execute_query(
     };
     tracing::Span::current().record("driver", &field::display(driver.driver_id()));
 
-    let is_production = match session_manager.is_production(session).await {
+    let environment = match session_manager.get_environment(session).await {
         Ok(value) => value,
-        Err(_) => false,
+        Err(_) => "development".to_string(),
     };
+    let interceptor_env = map_environment(&environment);
+    let is_production = matches!(interceptor_env, Environment::Production);
 
     let acknowledged = acknowledged_dangerous.unwrap_or(false);
     let is_sql_driver = !driver.driver_id().eq_ignore_ascii_case("mongodb");
@@ -222,6 +235,79 @@ pub async fn execute_query(
         }
     }
 
+    // Build interceptor context
+    let is_mutation_for_context = if is_sql_driver {
+        sql_analysis
+            .as_ref()
+            .map(|a| a.is_mutation)
+            .unwrap_or(false)
+    } else {
+        is_mongo_mutation(&query)
+    };
+
+    let interceptor_context = interceptor.build_context(
+        &session_id,
+        &query,
+        driver.driver_id(),
+        interceptor_env,
+        read_only,
+        acknowledged,
+        namespace.as_ref().map(|n| n.database.as_str()),
+        sql_analysis.as_ref(),
+        is_mutation_for_context,
+    );
+
+    // Run interceptor pre-execution checks (safety rules)
+    let safety_result = interceptor.pre_execute(&interceptor_context);
+    if !safety_result.allowed {
+        // Record blocked query in interceptor
+        interceptor.post_execute(
+            &interceptor_context,
+            &QueryExecutionResult {
+                success: false,
+                error: safety_result.message.clone(),
+                execution_time_ms: 0.0,
+                row_count: None,
+            },
+            true,
+            safety_result.triggered_rule.as_deref(),
+        );
+
+        let error_msg = match safety_result.action {
+            SafetyAction::Block => {
+                format!(
+                    "{}: {}",
+                    SAFETY_RULE_BLOCKED,
+                    safety_result.message.unwrap_or_default()
+                )
+            }
+            SafetyAction::RequireConfirmation => {
+                format!(
+                    "{}: {}",
+                    DANGEROUS_BLOCKED,
+                    safety_result.message.unwrap_or_default()
+                )
+            }
+            SafetyAction::Warn => {
+                // Warn allows execution, so this shouldn't happen
+                "Warning triggered".to_string()
+            }
+        };
+
+        return Ok(QueryResponse {
+            success: false,
+            result: None,
+            error: Some(error_msg),
+            query_id: None,
+        });
+    }
+
+    let safety_warning = if matches!(safety_result.action, SafetyAction::Warn) {
+        safety_result.triggered_rule.clone()
+    } else {
+        None
+    };
+
     let query_id = if let Some(raw) = query_id {
         let parsed = Uuid::parse_str(&raw).map_err(|e| format!("Invalid query ID: {}", e))?;
         let qid = QueryId(parsed);
@@ -275,12 +361,13 @@ pub async fn execute_query(
         });
 
         // Execute streaming
+        let start_time = std::time::Instant::now();
         let execution = driver.execute_stream_in_namespace(session, namespace.clone(), &query, query_id, sender);
-        
-        // Handle timeout for the *start* or completion? 
+
+        // Handle timeout for the *start* or completion?
         // With streaming, the execution future completes when the stream is DONE.
         // So we can still await it with timeout.
-        
+
         let result = if let Some(timeout_value) = timeout_ms {
             match timeout(Duration::from_millis(timeout_value), execution).await {
                 Ok(res) => res,
@@ -288,6 +375,21 @@ pub async fn execute_query(
                     let _ = driver.cancel(session, Some(query_id)).await;
                     query_manager.finish(query_id).await;
                     metrics::record_timeout();
+
+                    // Record timeout in interceptor
+                    let duration_ms = start_time.elapsed().as_micros() as f64 / 1000.0;
+                    interceptor.post_execute(
+                        &interceptor_context,
+                        &QueryExecutionResult {
+                            success: false,
+                            error: Some(format!("Operation timed out after {}ms", timeout_value)),
+                            execution_time_ms: duration_ms,
+                            row_count: None,
+                        },
+                        false,
+                        safety_warning.as_deref(),
+                    );
+
                      // Emit timeout error as stream event
                     let _ = window.emit(&format!("query_stream_error:{}", query_id_str), "Operation timed out");
                     return Ok(QueryResponse {
@@ -302,21 +404,52 @@ pub async fn execute_query(
             execution.await
         };
 
+        let duration_ms = start_time.elapsed().as_micros() as f64 / 1000.0;
         query_manager.finish(query_id).await;
 
         match result {
-            Ok(_) => Ok(QueryResponse {
-                success: true,
-                result: None, // Results are streamed
-                error: None,
-                query_id: Some(query_id_str),
-            }),
-            Err(e) => Ok(QueryResponse {
-                success: false,
-                result: None,
-                error: Some(e.to_string()),
-                query_id: Some(query_id_str),
-            }),
+            Ok(_) => {
+                // Record successful streaming execution
+                interceptor.post_execute(
+                    &interceptor_context,
+                    &QueryExecutionResult {
+                        success: true,
+                        error: None,
+                        execution_time_ms: duration_ms,
+                        row_count: None, // Row count tracked via stream events
+                    },
+                    false,
+                    safety_warning.as_deref(),
+                );
+
+                Ok(QueryResponse {
+                    success: true,
+                    result: None, // Results are streamed
+                    error: None,
+                    query_id: Some(query_id_str),
+                })
+            }
+            Err(e) => {
+                // Record failed streaming execution
+                interceptor.post_execute(
+                    &interceptor_context,
+                    &QueryExecutionResult {
+                        success: false,
+                        error: Some(e.to_string()),
+                        execution_time_ms: duration_ms,
+                        row_count: None,
+                    },
+                    false,
+                    safety_warning.as_deref(),
+                );
+
+                Ok(QueryResponse {
+                    success: false,
+                    result: None,
+                    error: Some(e.to_string()),
+                    query_id: Some(query_id_str),
+                })
+            }
         }
 
     } else {
@@ -365,6 +498,21 @@ pub async fn execute_query(
                     let _ = driver.cancel(session, Some(query_id)).await;
                     query_manager.finish(query_id).await;
                     metrics::record_timeout();
+
+                    // Record timeout in interceptor
+                    let duration_ms = start_time.elapsed().as_micros() as f64 / 1000.0;
+                    interceptor.post_execute(
+                        &interceptor_context,
+                        &QueryExecutionResult {
+                            success: false,
+                            error: Some(format!("Operation timed out after {}ms", timeout_value)),
+                            execution_time_ms: duration_ms,
+                            row_count: None,
+                        },
+                        false,
+                        safety_warning.as_deref(),
+                    );
+
                     return Ok(QueryResponse {
                         success: false,
                         result: None,
@@ -383,6 +531,19 @@ pub async fn execute_query(
                 result.execution_time_ms = duration_ms;
                 metrics::record_query(duration_ms, true);
 
+                // Record successful execution in interceptor
+                interceptor.post_execute(
+                    &interceptor_context,
+                    &QueryExecutionResult {
+                        success: true,
+                        error: None,
+                        execution_time_ms: duration_ms,
+                        row_count: result.affected_rows.map(|a| a as i64),
+                    },
+                    false,
+                    safety_warning.as_deref(),
+                );
+
                 Ok(QueryResponse {
                     success: true,
                     result: Some(result),
@@ -392,6 +553,20 @@ pub async fn execute_query(
             }
             Err(e) => {
                 metrics::record_query(duration_ms, false);
+
+                // Record failed execution in interceptor
+                interceptor.post_execute(
+                    &interceptor_context,
+                    &QueryExecutionResult {
+                        success: false,
+                        error: Some(e.to_string()),
+                        execution_time_ms: duration_ms,
+                        row_count: None,
+                    },
+                    false,
+                    safety_warning.as_deref(),
+                );
+
                 Ok(QueryResponse {
                     success: false,
                     result: None,
@@ -719,12 +894,21 @@ pub async fn create_database(
     session_id: String,
     name: String,
     options: Option<serde_json::Value>,
+    acknowledged_dangerous: Option<bool>,
 ) -> Result<QueryResponse, String> {
-    let session_manager = {
+    let (session_manager, interceptor) = {
         let state = state.lock().await;
-        Arc::clone(&state.session_manager)
+        (
+            Arc::clone(&state.session_manager),
+            Arc::clone(&state.interceptor),
+        )
     };
     let session = parse_session_id(&session_id)?;
+
+    let read_only = session_manager
+        .is_read_only(session)
+        .await
+        .unwrap_or(false);
 
     let driver = match session_manager.get_driver(session).await {
         Ok(d) => d,
@@ -738,21 +922,116 @@ pub async fn create_database(
         }
     };
 
-    let engine_options = options.map(|v| crate::engine::types::Value::Json(v));
+    let environment = session_manager
+        .get_environment(session)
+        .await
+        .unwrap_or_else(|_| "development".to_string());
+    let interceptor_env = map_environment(&environment);
 
-    match driver.create_database(session, &name, engine_options).await {
-        Ok(()) => Ok(QueryResponse {
-            success: true,
-            result: None,
-            error: None,
-            query_id: None,
-        }),
-        Err(e) => Ok(QueryResponse {
+    let query_preview = format!("CREATE DATABASE {}", name);
+    let acknowledged = acknowledged_dangerous.unwrap_or(false);
+    let interceptor_context = interceptor.build_context(
+        &session_id,
+        &query_preview,
+        driver.driver_id(),
+        interceptor_env,
+        read_only,
+        acknowledged,
+        Some(&name),
+        None,
+        true,
+    );
+
+    let safety_result = interceptor.pre_execute(&interceptor_context);
+    if !safety_result.allowed {
+        interceptor.post_execute(
+            &interceptor_context,
+            &QueryExecutionResult {
+                success: false,
+                error: safety_result.message.clone(),
+                execution_time_ms: 0.0,
+                row_count: None,
+            },
+            true,
+            safety_result.triggered_rule.as_deref(),
+        );
+
+        let error_msg = match safety_result.action {
+            SafetyAction::Block => {
+                format!(
+                    "{}: {}",
+                    SAFETY_RULE_BLOCKED,
+                    safety_result.message.unwrap_or_default()
+                )
+            }
+            SafetyAction::RequireConfirmation => {
+                format!(
+                    "{}: {}",
+                    DANGEROUS_BLOCKED,
+                    safety_result.message.unwrap_or_default()
+                )
+            }
+            SafetyAction::Warn => "Warning triggered".to_string(),
+        };
+
+        return Ok(QueryResponse {
             success: false,
             result: None,
-            error: Some(e.to_string()),
+            error: Some(error_msg),
             query_id: None,
-        }),
+        });
+    }
+
+    let safety_warning = if matches!(safety_result.action, SafetyAction::Warn) {
+        safety_result.triggered_rule.clone()
+    } else {
+        None
+    };
+
+    let engine_options = options.map(|v| crate::engine::types::Value::Json(v));
+
+    let start_time = std::time::Instant::now();
+    match driver.create_database(session, &name, engine_options).await {
+        Ok(()) => {
+            let duration_ms = start_time.elapsed().as_micros() as f64 / 1000.0;
+            interceptor.post_execute(
+                &interceptor_context,
+                &QueryExecutionResult {
+                    success: true,
+                    error: None,
+                    execution_time_ms: duration_ms,
+                    row_count: None,
+                },
+                false,
+                safety_warning.as_deref(),
+            );
+            Ok(QueryResponse {
+                success: true,
+                result: None,
+                error: None,
+                query_id: None,
+            })
+        }
+        Err(e) => {
+            let duration_ms = start_time.elapsed().as_micros() as f64 / 1000.0;
+            interceptor.post_execute(
+                &interceptor_context,
+                &QueryExecutionResult {
+                    success: false,
+                    error: Some(e.to_string()),
+                    execution_time_ms: duration_ms,
+                    row_count: None,
+                },
+                false,
+                safety_warning.as_deref(),
+            );
+            Ok(QueryResponse {
+                success: false,
+                result: None,
+                error: Some(e.to_string()),
+                query_id: None,
+            })
+        }
     }
 }
 
@@ -762,12 +1041,21 @@ pub async fn drop_database(
     state: State<'_, crate::SharedState>,
     session_id: String,
     name: String,
+    acknowledged_dangerous: Option<bool>,
 ) -> Result<QueryResponse, String> {
-    let session_manager = {
+    let (session_manager, interceptor) = {
         let state = state.lock().await;
-        Arc::clone(&state.session_manager)
+        (
+            Arc::clone(&state.session_manager),
+            Arc::clone(&state.interceptor),
+        )
     };
     let session = parse_session_id(&session_id)?;
+
+    let read_only = session_manager
+        .is_read_only(session)
+        .await
+        .unwrap_or(false);
 
     let driver = match session_manager.get_driver(session).await {
         Ok(d) => d,
@@ -781,19 +1069,114 @@ pub async fn drop_database(
         }
     };
 
-    match driver.drop_database(session, &name).await {
-        Ok(()) => Ok(QueryResponse {
-            success: true,
-            result: None,
-            error: None,
-            query_id: None,
-        }),
-        Err(e) => Ok(QueryResponse {
+    let environment = session_manager
+        .get_environment(session)
+        .await
+        .unwrap_or_else(|_| "development".to_string());
+    let interceptor_env = map_environment(&environment);
+
+    let query_preview = format!("DROP DATABASE {}", name);
+    let acknowledged = acknowledged_dangerous.unwrap_or(false);
+    let interceptor_context = interceptor.build_context(
+        &session_id,
+        &query_preview,
+        driver.driver_id(),
+        interceptor_env,
+        read_only,
+        acknowledged,
+        Some(&name),
+        None,
+        true,
+    );
+
+    let safety_result = interceptor.pre_execute(&interceptor_context);
+    if !safety_result.allowed {
+        interceptor.post_execute(
+            &interceptor_context,
+            &QueryExecutionResult {
+                success: false,
+                error: safety_result.message.clone(),
+                execution_time_ms: 0.0,
+                row_count: None,
+            },
+            true,
+            safety_result.triggered_rule.as_deref(),
+        );
+
+        let error_msg = match safety_result.action {
+            SafetyAction::Block => {
+                format!(
+                    "{}: {}",
+                    SAFETY_RULE_BLOCKED,
+                    safety_result.message.unwrap_or_default()
+                )
+            }
+            SafetyAction::RequireConfirmation => {
+                format!(
+                    "{}: {}",
+                    DANGEROUS_BLOCKED,
+                    safety_result.message.unwrap_or_default()
+                )
+            }
+            SafetyAction::Warn => "Warning triggered".to_string(),
+        };
+
+        return Ok(QueryResponse {
             success: false,
             result: None,
-            error: Some(e.to_string()),
+            error: Some(error_msg),
             query_id: None,
-        }),
+        });
+    }
+
+    let safety_warning = if matches!(safety_result.action, SafetyAction::Warn) {
+        safety_result.triggered_rule.clone()
+    } else {
+        None
+    };
+
+    let start_time = std::time::Instant::now();
+    match driver.drop_database(session, &name).await {
+        Ok(()) => {
+            let duration_ms = start_time.elapsed().as_micros() as f64 / 1000.0;
+            interceptor.post_execute(
+                &interceptor_context,
+                &QueryExecutionResult {
+                    success: true,
+                    error: None,
+                    execution_time_ms: duration_ms,
+                    row_count: None,
+                },
+                false,
+                safety_warning.as_deref(),
+            );
+            Ok(QueryResponse {
+                success: true,
+                result: None,
+                error: None,
+                query_id: None,
+            })
+        }
+        Err(e) => {
+            let duration_ms = start_time.elapsed().as_micros() as f64 / 1000.0;
+            interceptor.post_execute(
+                &interceptor_context,
+                &QueryExecutionResult {
+                    success: false,
+                    error: Some(e.to_string()),
+                    execution_time_ms: duration_ms,
+                    row_count: None,
+                },
+                false,
+                safety_warning.as_deref(),
+            );
+            Ok(QueryResponse {
+                success: false,
+                result: None,
+                error: Some(e.to_string()),
+                query_id: None,
+            })
+        }
     }
 }
 

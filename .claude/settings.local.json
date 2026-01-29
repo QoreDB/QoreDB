@@ -4,7 +4,13 @@
       "Bash(npm run check:*)",
       "Bash(npx tsc:*)",
       "Bash(wc:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(find:*)",
+      "Bash(cargo check:*)",
+      "Bash(pnpm tsc:*)",
+      "Bash(npm run build)",
+      "Bash(tree:*)",
+      "Bash(pnpm build:*)"
     ]
   }
 }

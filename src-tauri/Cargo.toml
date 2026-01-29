@@ -39,6 +39,8 @@ sqlparser = "0.60"
 tracing = "0.1"
 tracing-appender = "0.2"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+regex = "1"
+dirs = "5"
 
 # Note: SSH tunneling uses native OpenSSH command (ssh -L), no external crate needed
 

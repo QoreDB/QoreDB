@@ -47,6 +47,7 @@ interface DatabaseBrowserProps {
   schemaRefreshTrigger?: number;
   onSchemaChange?: () => void;
   onOpenQueryTab?: (namespace: Namespace) => void;
+  onOpenFulltextSearch?: () => void;
   onClose: () => void;
   initialTab?: DatabaseBrowserTab;
   onActiveTabChange?: (tab: DatabaseBrowserTab) => void;
@@ -71,6 +72,7 @@ export function DatabaseBrowser({
   schemaRefreshTrigger,
   onSchemaChange,
   onOpenQueryTab,
+  onOpenFulltextSearch,
   onClose,
   initialTab,
   onActiveTabChange,
@@ -266,6 +268,17 @@ export function DatabaseBrowser({
           </div>
         </div>
         <div className="flex items-center gap-1">
+          {onOpenFulltextSearch && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={onOpenFulltextSearch}
+              title={t('fulltextSearch.title')}
+            >
+              <Search size={16} />
+            </Button>
+          )}
           {driverMeta.supportsSQL && (
             <Button
               variant="outline"

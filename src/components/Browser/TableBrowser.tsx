@@ -9,6 +9,7 @@ import {
   Environment,
   DriverCapabilities,
   RelationFilter,
+  SearchFilter,
   peekForeignKey,
   Value,
   generateMigrationSql,
@@ -59,6 +60,7 @@ import {
   deactivateSandbox,
 } from '@/lib/sandboxStore';
 import { SandboxChange, MigrationScript } from '@/lib/sandboxTypes';
+import { UI_EVENT_REFRESH_TABLE } from '@/lib/uiEvents';
 import {
   Dialog,
   DialogContent,
@@ -109,6 +111,7 @@ interface TableBrowserProps {
   onClose: () => void;
   onOpenRelatedTable?: (namespace: Namespace, tableName: string) => void;
   relationFilter?: RelationFilter;
+  searchFilter?: SearchFilter;
   initialTab?: TableBrowserTab;
   onActiveTabChange?: (tab: TableBrowserTab) => void;
 }
@@ -127,6 +130,7 @@ export function TableBrowser({
   onClose,
   onOpenRelatedTable,
   relationFilter,
+  searchFilter,
   initialTab,
   onActiveTabChange,
 }: TableBrowserProps) {
@@ -304,6 +308,15 @@ export function TableBrowser({
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  useEffect(() => {
+    const handler = () => {
+      schemaCache.forceRefresh();
+      loadData();
+    };
+    window.addEventListener(UI_EVENT_REFRESH_TABLE, handler);
+    return () => window.removeEventListener(UI_EVENT_REFRESH_TABLE, handler);
+  }, [loadData, schemaCache]);
 
   useEffect(() => {
     return onTableChange(event => {
@@ -638,6 +651,7 @@ export function TableBrowser({
             mutationsSupported={mutationsSupported}
             connectionName={connectionName}
             connectionDatabase={connectionDatabase}
+            initialFilter={searchFilter?.value}
             onRowsDeleted={loadData}
             onRowsUpdated={loadData}
             onOpenRelatedTable={onOpenRelatedTable}
@@ -683,6 +697,9 @@ export function TableBrowser({
           tableName={tableName}
           schema={schema}
           driver={driver}
+          environment={environment}
+          connectionName={connectionName}
+          connectionDatabase={connectionDatabase}
           readOnly={readOnly}
           initialData={selectedRow}
           onSuccess={loadData}

@@ -23,6 +23,7 @@ import { ProductionConfirmDialog } from '../Guard/ProductionConfirmDialog';
 import { DangerConfirmDialog } from '../Guard/DangerConfirmDialog';
 import { toast } from 'sonner';
 import { forceRefreshCache } from '../../hooks/useSchemaCache';
+import { UI_EVENT_OPEN_HISTORY } from '@/lib/uiEvents';
 import { QueryPanelToolbar } from './QueryPanelToolbar';
 import { QueryPanelEditor } from './QueryPanelEditor';
 import { QueryPanelResults, QueryResultEntry } from './QueryPanelResults';
@@ -76,7 +77,7 @@ export function QueryPanel({
   onQueryDraftChange,
 }: QueryPanelProps) {
   const { t } = useTranslation();
-  const isMongo = dialect === Driver.Mongodb;
+  const isMongo = dialect === Driver.Mongodb; //TODO : à améliorer, ce n'est pas assez universel
   const defaultQuery = getDefaultQuery(isMongo);
 
   const [query, setQuery] = useState(initialQuery || defaultQuery);
@@ -324,7 +325,7 @@ export function QueryPanel({
 
             if (kind === 'query') {
               AnalyticsService.capture('query_executed', {
-                dialect: isMongo ? 'mongodb' : 'sql',
+                dialect: isMongo ? 'mongodb' : 'sql', //TODO : à améliorer, ce n'est pas assez universel
                 driver: dialect,
                 row_count: enrichedResult.rows.length,
               });
@@ -588,14 +589,14 @@ export function QueryPanel({
       if (isTextInputTarget(e.target)) return;
       if (saveDialogOpen || historyOpen || libraryOpen || confirmOpen || dangerConfirmOpen) return;
 
-      // Cmd/Ctrl+S: Save query to library
+      // Mod+S: Save query to library
       if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key.toLowerCase() === 's') {
         e.preventDefault();
         handleSaveToLibrary();
         return;
       }
 
-      // Cmd/Ctrl+Shift+H: Open query history
+      // Mod+Shift+H: Open query history
       if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'h') {
         e.preventDefault();
         setHistoryOpen(true);
@@ -613,6 +614,13 @@ export function QueryPanel({
     libraryOpen,
     saveDialogOpen,
   ]);
+
+  useEffect(() => {
+    if (!isActive) return;
+    const handler = () => setHistoryOpen(true);
+    window.addEventListener(UI_EVENT_OPEN_HISTORY, handler);
+    return () => window.removeEventListener(UI_EVENT_OPEN_HISTORY, handler);
+  }, [isActive]);
 
   return (
     <div className="flex flex-col flex-1 bg-background rounded-lg border border-border shadow-sm overflow-hidden">
@@ -734,6 +742,9 @@ export function QueryPanel({
           handleExecuteCurrent();
         }}
         readOnly={readOnly}
+        environment={environment}
+        connectionName={connectionName}
+        connectionDatabase={connectionDatabase}
       />
 
       <SaveQueryDialog

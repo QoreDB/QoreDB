@@ -1,4 +1,29 @@
 {
+    "home": {
+        "noConnections": {
+            "title": "No connections configured",
+            "description": "Create your first connection to start working with your databases.",
+            "action": "Create a connection"
+        },
+        "noSession": {
+            "title": "No active session",
+            "description": "Select a connection from the sidebar to get started.",
+            "sidebarHint": "Select a connection on the left to start exploring",
+            "or": "or",
+            "quickActions": "Quick actions",
+            "newConnection": "New connection",
+            "keyboardHint": "Use keyboard shortcuts for faster navigation"
+        },
+        "recovery": {
+            "title": "Resume previous session",
+            "description": "An unfinished session was found for: {{name}}",
+            "descriptionUnknown": "An unfinished session was found.",
+            "restore": "Restore session",
+            "restoring": "Restoring…",
+            "discard": "Ignore",
+            "missingConnection": "Saved connection not found."
+        }
+    },
     "app": {
         "welcome": "Welcome to QoreDB",
         "description": "Add a connection in the sidebar to get started, or search for existing resources.",
@@ -71,6 +96,10 @@
             "configure": "Configure",
             "host": "SSH Host",
             "port": "SSH Port",
+            "selectDriver": "Select a driver",
+            "configureConnection": "Configure Connection",
+            "driverSelected": "Selected driver",
+            "changeDriver": "Change...",
             "username": "SSH Username",
             "keyPath": "Private Key Path",
             "passphrase": "Key Passphrase (optional)",
@@ -107,8 +136,20 @@
         "placeholder": "Type a command or search...",
         "noResults": "No results found."
     },
+    "fulltextSearch": {
+        "title": "Search in Database",
+        "placeholder": "Search in all tables and columns...",
+        "caseSensitive": "Case sensitive",
+        "noConnection": "No active connection",
+        "noResults": "No matches found",
+        "searchedTables": "Searched {{count}} tables",
+        "stats": "{{matches}} matches in {{tables}} tables ({{time}}ms)",
+        "truncated": "Results truncated",
+        "hint": "Enter at least 2 characters to search",
+        "footerHint": "Click a result to open the table"
+    },
     "tabs": {
-        "newQuery": "New Query (Cmd+T)"
+        "newQuery": "New Query ({{modifier}}+T)"
     },
     "browser": {
         "searchPlaceholder": "Search connections, tables...",
@@ -175,6 +216,7 @@
         "newConnection": "New connection",
         "newQuery": "New query",
         "openLibrary": "Open query library",
+        "fulltextSearch": "Search in database",
         "openSettings": "Settings",
         "toggleTheme": "Toggle theme",
         "closeTab": "Close tab"
@@ -243,7 +285,41 @@
         "projectExportError": "Failed to export project",
         "projectImportSuccess": "Project imported from {{name}} ({{connections}} connections)",
         "projectImportPartial": "{{skipped}} connections were skipped.",
-        "projectImportError": "Failed to import project"
+        "projectImportError": "Failed to import project",
+        "sections": {
+            "general": "General",
+            "editor": "Editor",
+            "security": "Security",
+            "data": "Data & Privacy",
+            "shortcuts": "Keyboard Shortcuts"
+        },
+        "search": {
+            "placeholder": "Search settings...",
+            "noResults": "No settings found"
+        },
+        "startup": {
+            "title": "Startup",
+            "description": "Configure application startup behavior.",
+            "restoreSession": "Restore previous session",
+            "restoreSessionDescription": "Automatically restore tabs and connection from your last session.",
+            "checkUpdates": "Check for updates on startup",
+            "checkUpdatesDescription": "Automatically check for new versions when QoreDB starts."
+        },
+        "modified": "Modified",
+        "shortcuts": {
+            "categoryNavigation": "Navigation",
+            "categoryEditor": "Editor",
+            "categoryGeneral": "General",
+            "search": "Command palette",
+            "newConnection": "New connection",
+            "settings": "Open settings",
+            "library": "Open query library",
+            "fulltextSearch": "Search in database",
+            "newQuery": "New query tab",
+            "runQuery": "Run query",
+            "closeTab": "Close tab",
+            "escape": "Close overlay / Cancel"
+        }
     },
     "table": {
         "rows": "rows",
@@ -333,7 +409,7 @@
         "results": "Results",
         "explainNoPlan": "No explain plan available.",
         "history": "History",
-        "runHint": "Cmd+Enter to run",
+        "runHint": "{{modifier}}+Enter to run",
         "cancelNotSupported": "Cancel is not supported by this driver",
         "noConnection": "No connection",
         "noResults": "Run a query to see results",
@@ -479,7 +555,8 @@
         "disabled": "Disabled",
         "pagination": "Showing {{start}}-{{end}} of {{total}}",
         "add": "Add",
-        "back": "Back"
+        "back": "Back",
+        "noResults": "No results found"
     },
     "environment": {
         "label": "Environment",
@@ -493,7 +570,10 @@
         "dangerousQuery": "This query may cause data loss",
         "dangerousQueryTitle": "Dangerous Query",
         "dangerousQueryTarget": "Target: {{target}}",
-        "blocked": "Operation blocked: read-only mode"
+        "blocked": "Operation blocked: read-only mode",
+        "mutationConfirmTitle": "Confirm data change",
+        "mutationConfirmInsert": "You are about to insert a new row into {{table}}.",
+        "mutationConfirmUpdate": "You are about to update data in {{table}}."
     },
     "status": {
         "connected": "Connected",
@@ -533,7 +613,8 @@
         "refresh": "Refresh",
         "noCollections": "No tables",
         "noDocuments": "No documents",
-        "loadMore": "Load more"
+        "loadMore": "Load more",
+        "searchPlaceholder": "Search tables..."
     },
     "createTable": {
         "title": "Create Table",
@@ -706,6 +787,288 @@
             "new": "NEW",
             "modified": "Modified",
             "deleted": "Deleted"
+        }
+    },
+    "interceptor": {
+        "title": "Query Interceptor",
+        "description": "Query interception for profiling, audit logging, and safety.",
+        "enabled": "Interceptor enabled",
+        "disabled": "Interceptor disabled",
+        "settings": {
+            "title": "Interceptor Settings",
+            "globalEnable": "Enable Query Interceptor",
+            "globalEnableDescription": "Master switch for all interception features"
+        },
+        "audit": {
+            "title": "Audit Logging",
+            "description": "Track all query executions for compliance and debugging",
+            "enabled": "Enable audit logging",
+            "enabledDescription": "Store a local audit trail of every query",
+            "redactQueries": "Redact sensitive values",
+            "redactQueriesDescription": "Replace literals in logged queries with placeholders",
+            "maxEntries": "Maximum log entries",
+            "maxEntriesDescription": "Older entries are discarded once the limit is reached",
+            "logSuccess": "Log successful queries",
+            "logFailures": "Log failed queries",
+            "logBlocked": "Log blocked queries",
+            "environments": "Environments to audit",
+            "viewLog": "View Audit Log",
+            "exportLog": "Export Log",
+            "clearLog": "Clear Log",
+            "clearConfirm": "Clear all audit log entries? This cannot be undone.",
+            "noEntries": "No audit log entries",
+            "blockedBy": "Blocked by: {{rule}}",
+            "filters": {
+                "environment": "Environment",
+                "allEnvironments": "All Environments",
+                "status": "Status",
+                "all": "All"
+            },
+            "status": {
+                "success": "Success",
+                "failed": "Failed",
+                "blocked": "Blocked"
+            },
+            "time": {
+                "justNow": "Just now",
+                "minutesAgo": "{{count}}m ago",
+                "hoursAgo": "{{count}}h ago",
+                "daysAgo": "{{count}}d ago"
+            },
+            "pagination": "Page {{page}} ({{count}} entries)",
+            "detail": {
+                "title": "Query Details",
+                "query": "Query",
+                "timestamp": "Timestamp",
+                "sessionId": "Session ID",
+                "database": "Database",
+                "executionTime": "Execution Time",
+                "rowCount": "Row Count",
+                "blockedBy": "Blocked by Safety Rule",
+                "error": "Error"
+            },
+            "stats": {
+                "total": "Total queries",
+                "executed": "Executed",
+                "blocked": "Blocked",
+                "success": "Successful",
+                "failed": "Failed",
+                "lastHour": "Last hour"
+            }
+        },
+        "profiling": {
+            "title": "Query Profiling",
+            "description": "Monitor query performance and identify slow queries",
+            "enabled": "Enable profiling",
+            "enabledDescription": "Collect performance metrics for executed queries",
+            "slowQueryThreshold": "Slow query threshold (ms)",
+            "slowQueryThresholdDescription": "Queries exceeding this time are flagged as slow",
+            "maxSlowQueries": "Maximum slow queries",
+            "maxSlowQueriesDescription": "Keep the most recent slow queries up to this limit",
+            "collectStats": "Collect execution statistics",
+            "viewMetrics": "View Metrics",
+            "viewSlowQueries": "View Slow Queries",
+            "resetMetrics": "Reset Metrics",
+            "noSlowQueries": "No slow queries detected",
+            "noData": "No data available",
+            "loadError": "Failed to load profiling data",
+            "resetConfirm": "Reset all profiling metrics? This cannot be undone.",
+            "actions": {
+                "refresh": "Refresh",
+                "export": "Export",
+                "reset": "Reset"
+            },
+            "tabs": {
+                "overview": "Overview",
+                "slowQueries": "Slow Queries ({{count}})"
+            },
+            "metrics": {
+                "totalQueries": "Total Queries",
+                "avgTime": "Avg execution time",
+                "maxTime": "Max execution time",
+                "p50": "P50 latency",
+                "p95": "P95 latency",
+                "p99": "P99 latency",
+                "slowCount": "Slow queries",
+                "successRate": "Success rate"
+            },
+            "latency": {
+                "title": "Latency Distribution",
+                "p50": "P50 (Median)",
+                "p95": "P95",
+                "p99": "P99",
+                "max": "Max"
+            },
+            "operations": {
+                "title": "Operations Breakdown"
+            },
+            "environments": {
+                "title": "By Environment"
+            },
+            "period": "Data collected from {{date}}"
+        },
+        "safety": {
+            "title": "Safety Net",
+            "description": "Prevent dangerous queries from executing",
+            "enabled": "Enable safety checks",
+            "enabledDescription": "Apply safety rules before executing queries",
+            "blockDangerousInProd": "Block dangerous queries in production",
+            "blockDangerousInProdDescription": "Automatically block DROP, TRUNCATE, and DELETE/UPDATE without WHERE in production",
+            "requireConfirmation": "Require confirmation for mutations",
+            "requireConfirmationDescription": "Ask for explicit confirmation before running mutations in production",
+            "blockDropDatabase": "Block DROP DATABASE",
+            "blockDropDatabaseDescription": "Prevent DROP DATABASE in all environments",
+            "blockTruncateInProd": "Block TRUNCATE in production",
+            "blockTruncateInProdDescription": "Prevent TRUNCATE TABLE in production environments",
+            "builtinRules": "Built-in Rules",
+            "customRules": "Custom Rules",
+            "addRule": "Add Rule",
+            "editRule": "Edit Rule",
+            "deleteRule": "Delete Rule",
+            "deleteRuleConfirm": "Delete this safety rule?",
+            "noRules": "No custom safety rules",
+            "builtinRuleNames": {
+                "builtin-no-drop-production": "Block DROP in Production",
+                "builtin-no-truncate-production": "Block TRUNCATE in Production",
+                "builtin-confirm-delete-production": "Confirm DELETE in Production",
+                "builtin-confirm-update-no-where": "Confirm UPDATE without WHERE",
+                "builtin-confirm-delete-no-where": "Confirm DELETE without WHERE",
+                "builtin-warn-alter-production": "Warn ALTER in Production"
+            },
+            "builtinRuleDescriptions": {
+                "builtin-no-drop-production": "Prevents DROP statements in production environments",
+                "builtin-no-truncate-production": "Prevents TRUNCATE statements in production environments",
+                "builtin-confirm-delete-production": "Requires confirmation for DELETE statements in production",
+                "builtin-confirm-update-no-where": "Requires confirmation for UPDATE statements without WHERE clause",
+                "builtin-confirm-delete-no-where": "Requires confirmation for DELETE statements without WHERE clause",
+                "builtin-warn-alter-production": "Warns before ALTER statements in production"
+            },
+            "action": {
+                "block": "Block",
+                "warn": "Warn",
+                "confirm": "Require confirmation"
+            },
+            "ruleFields": {
+                "name": "Rule name",
+                "description": "Description",
+                "enabled": "Enabled",
+                "environments": "Apply to environments",
+                "operations": "Match operations",
+                "action": "Action",
+                "pattern": "Query pattern (regex)"
+            },
+            "actions": {
+                "block": "Block query",
+                "warn": "Show warning",
+                "require_confirmation": "Require confirmation"
+            }
+        },
+        "analysis": {
+            "riskLevel": "Risk level",
+            "operationType": "Operation type",
+            "targets": "Targets",
+            "riskFactors": "Risk factors",
+            "safe": "Safe",
+            "low": "Low risk",
+            "medium": "Medium risk",
+            "high": "High risk",
+            "critical": "Critical risk"
+        },
+        "decision": {
+            "allowed": "Query allowed",
+            "blocked": "Query blocked",
+            "warned": "Query warned",
+            "modified": "Query modified",
+            "reason": "Reason"
+        },
+        "operations": {
+            "select": "SELECT",
+            "insert": "INSERT",
+            "update": "UPDATE",
+            "delete": "DELETE",
+            "create": "CREATE",
+            "alter": "ALTER",
+            "drop": "DROP",
+            "truncate": "TRUNCATE",
+            "grant": "GRANT",
+            "revoke": "REVOKE",
+            "execute": "EXECUTE",
+            "other": "Other"
+        },
+        "riskFactors": {
+            "no_where_clause": "No WHERE clause",
+            "drop_operation": "DROP operation",
+            "truncate_operation": "TRUNCATE operation",
+            "delete_all": "DELETE without WHERE",
+            "update_all": "UPDATE without WHERE",
+            "alter_table": "Schema modification",
+            "grant_revoke": "Permission change",
+            "execute_procedure": "Stored procedure",
+            "production_env": "Production environment",
+            "multiple_statements": "Multiple statements"
+        },
+        "blocked": {
+            "title": "Query Blocked",
+            "readOnly": "Connection is in read-only mode",
+            "dropDatabase": "DROP DATABASE is blocked by safety policy",
+            "truncateProd": "TRUNCATE is blocked in production",
+            "dangerousProd": "Dangerous query blocked in production",
+            "confirmRequired": "Confirmation required"
+        }
+    },
+    "titlebar": {
+        "menu": {
+            "file": {
+                "label": "File",
+                "newConnection": "New Connection",
+                "newWindow": "New Window",
+                "settings": "Settings",
+                "quit": "Quit"
+            },
+            "view": {
+                "label": "View",
+                "explorer": "Explorer",
+                "logs": "Error Logs",
+                "zenMode": "Zen Mode"
+            },
+            "data": {
+                "label": "Data",
+                "refresh": "Refresh Table",
+                "import": "Import...",
+                "export": "Export...",
+                "commit": "Commit Transaction"
+            },
+            "tools": {
+                "label": "Tools",
+                "history": "Query History",
+                "schemaGenerator": "Schema Generator",
+                "sandbox": "SQL Sandbox"
+            }
+        },
+        "search": {
+            "placeholder": "Quick actions & search",
+            "shortcut": "Ctrl K"
+        },
+        "controls": {
+            "readOnly": "Read-Only Mode",
+            "minimize": "Minimize",
+            "maximize": "Maximize",
+            "restore": "Restore",
+            "close": "Close"
+        }
+    },
+    "notifications": {
+        "title": "Notifications",
+        "clearAll": "Clear all",
+        "empty": "No notifications",
+        "categories": {
+            "system": "System",
+            "query": "Queries",
+            "security": "Security"
+        },
+        "actions": {
+            "dismiss": "Dismiss",
+            "markRead": "Mark as read"
         }
     }
 }

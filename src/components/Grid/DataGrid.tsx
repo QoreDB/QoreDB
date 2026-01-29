@@ -43,6 +43,7 @@ import { DataGridTableBody } from './DataGridTableBody';
 import { EditableDataCell } from './EditableDataCell';
 import { SandboxChange, SandboxDeleteDisplay } from '@/lib/sandboxTypes';
 import { applyOverlay, OverlayResult, emptyOverlayResult } from '@/lib/sandboxOverlay';
+import { ExportDataDetail, UI_EVENT_EXPORT_DATA } from '@/lib/uiEvents';
 
 const EMPTY_OVERLAY_RESULT: OverlayResult = {
   result: {
@@ -73,6 +74,7 @@ interface DataGridProps {
   mutationsSupported?: boolean;
   connectionName?: string;
   connectionDatabase?: string;
+  initialFilter?: string;
   onRowsDeleted?: () => void;
   onRowClick?: (row: RowData) => void;
   onRowsUpdated?: () => void;
@@ -104,6 +106,7 @@ export function DataGrid({
   mutationsSupported = true,
   connectionName,
   connectionDatabase,
+  initialFilter,
   onRowsDeleted,
   onRowClick,
   onRowsUpdated,
@@ -125,11 +128,18 @@ export function DataGrid({
     pageIndex: 0,
     pageSize: 50,
   });
-  const [globalFilter, setGlobalFilter] = useState('');
+  const [globalFilter, setGlobalFilter] = useState(initialFilter ?? '');
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [showFilters, setShowFilters] = useState(false);
   const [renderLimit, setRenderLimit] = useState<number | null>(DEFAULT_RENDER_LIMIT);
+
+  // Update globalFilter when initialFilter changes (e.g., from full-text search)
+  useEffect(() => {
+    if (initialFilter !== undefined) {
+      setGlobalFilter(initialFilter);
+    }
+  }, [initialFilter]);
 
   // Refs
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -556,6 +566,16 @@ export function DataGrid({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [copyToClipboard, table]);
 
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent<ExportDataDetail>).detail;
+      const format = detail?.format ?? 'csv';
+      exportToFile(format);
+    };
+    window.addEventListener(UI_EVENT_EXPORT_DATA, handler);
+    return () => window.removeEventListener(UI_EVENT_EXPORT_DATA, handler);
+  }, [exportToFile]);
+
   // Early return for empty state
   if (!result || result.columns.length === 0) {
     if (result && typeof result.affected_rows === 'number') {
@@ -584,7 +604,7 @@ export function DataGrid({
   const selectedRows = table.getSelectedRowModel().rows;
 
   return (
-    <div className="flex flex-col gap-2 h-full min-h-0 overflow-hidden" data-datagrid>
+    <div className="flex flex-col gap-2 h-full min-h-0" data-datagrid>
       {/* Header */}
       <div className="flex items-center justify-between px-1 shrink-0">
         <DataGridHeader
@@ -643,7 +663,7 @@ export function DataGrid({
         confirmValue={deleteConfirmValue}
         onConfirmValueChange={setDeleteConfirmValue}
         onConfirm={async () => {
-          await performDelete();
+          await performDelete(true);
           setDeleteDialogOpen(false);
         }}
         isDeleting={isDeleting}
@@ -674,7 +694,7 @@ export function DataGrid({
         loading={isUpdating}
         onConfirm={async () => {
           if (!pendingUpdate) return;
-          await performInlineUpdate(pendingUpdate);
+          await performInlineUpdate(pendingUpdate, true);
           setUpdateConfirmOpen(false);
           setPendingUpdate(null);
         }}

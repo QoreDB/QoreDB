@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { DRIVER_ICONS, DRIVER_LABELS } from "@/lib/drivers";
+import { cn } from "@/lib/utils";
 
 import {
 	connectSavedConnection,
@@ -51,14 +53,29 @@ export function ConnectionModal({
 	const [connecting, setConnecting] = useState(false);
 	const [testResult, setTestResult] = useState<"success" | "error" | null>(null);
 	const [error, setError] = useState<string | null>(null);
+  
+  // Step 1: "driver" | Step 2: "form"
+  const [step, setStep] = useState<"driver" | "form">("driver");
 
 	const isEditMode = !!editConnection;
+  
+  // Initialize step based on mode
+  if (step === "driver" && isEditMode) {
+    setStep("form");
+  }
 
-	function handleDriverChangeWithReset(nextDriver: Parameters<typeof handleDriverChange>[0]) {
+	function handleDriverSelect(nextDriver: Parameters<typeof handleDriverChange>[0]) {
 		handleDriverChange(nextDriver);
 		setTestResult(null);
 		setError(null);
+    setStep("form");
 	}
+  
+  function handleBackToDriver() {
+    setStep("driver");
+    setTestResult(null);
+    setError(null);
+  }
 
 	function handleChange(field: Parameters<typeof setField>[0], value: Parameters<typeof setField>[1]) {
 		setField(field, value);
@@ -190,69 +207,114 @@ export function ConnectionModal({
 	}
 
 	function handleOpenChange(open: boolean) {
-		if (!open) onClose();
+		if (!open) { 
+      onClose();
+      // Reset to step 1 after close animation ideally, but here just immediately is fine or usually handled by unmount/isOpen
+      if (!isEditMode) setTimeout(() => setStep("driver"), 200); 
+    }
 	}
 
 	return (
 		<Dialog open={isOpen} onOpenChange={handleOpenChange}>
-			<DialogContent className="max-w-xl">
+			<DialogContent className={cn("max-w-xl duration-200", step === "driver" ? "max-w-3xl" : "max-w-xl")}>
 				<DialogHeader>
 					<DialogTitle>
 						{isEditMode
 							? t("connection.modalTitleEdit")
-							: t("connection.modalTitleNew")}
+							: step === "driver" 
+                ? t("connection.selectDriver") 
+                : t("connection.configureConnection")}
 					</DialogTitle>
 				</DialogHeader>
 
-				<ScrollArea className="max-h-[75vh]">
-					<div className="grid gap-4 py-4">
-						<DriverPicker
-							driver={formData.driver}
-							isEditMode={isEditMode}
-							onChange={handleDriverChangeWithReset}
-						/>
-						<BasicSection formData={formData} onChange={handleChange} />
-						<AdvancedSection formData={formData} onChange={handleChange} />
+        {step === "driver" ? (
+          <div className="py-6">
+  					<DriverPicker
+  						driver={formData.driver}
+  						isEditMode={isEditMode}
+  						onChange={handleDriverSelect}
+  					/>
+            <div className="mt-6 flex justify-end">
+              <Button variant="outline" onClick={onClose}>
+                {t("connection.cancel")}
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <>
+    				<ScrollArea className="max-h-[75vh]">
+    					<div className="grid gap-4 py-4">
+                {/* Driver Header in Form Step */}
+                <div className="flex items-center justify-between p-3 rounded-md bg-muted/30 border border-border">
+                  <div className="flex items-center gap-3">
+                     <div className="w-8 h-8 rounded p-1 bg-background border border-border flex items-center justify-center">
+                        <img 
+                          src={`/databases/${DRIVER_ICONS[formData.driver]}`} 
+                          alt={DRIVER_LABELS[formData.driver]} 
+                          className="w-full h-full object-contain"
+                        />
+                     </div>
+                     <div className="flex flex-col">
+                        <span className="text-sm font-semibold">{DRIVER_LABELS[formData.driver]}</span>
+                        <span className="text-xs text-muted-foreground">{t('connection.driverSelected')}</span>
+                     </div>
+                  </div>
+                  {!isEditMode && (
+                    <Button variant="ghost" size="sm" onClick={handleBackToDriver}>
+                      {t('connection.changeDriver')}
+                    </Button>
+                  )}
+                </div>
 
-						{error && (
-							<div className="p-3 rounded-md bg-error/10 border border-error/20 text-error text-sm flex items-center gap-2">
-								<X size={14} />
-								{error}
-							</div>
-						)}
-						{testResult === "success" && (
-							<div className="p-3 rounded-md bg-success/10 border border-success/20 text-success text-sm flex items-center gap-2">
-								<Check size={14} />
-								{t("connection.testSuccess")}
-							</div>
-						)}
-					</div>
-				</ScrollArea>
-
-				<DialogFooter>
-					<Button variant="outline" onClick={onClose}>
-						{t("connection.cancel")}
-					</Button>
-					<Button
-						variant="secondary"
-						onClick={handleTestConnection}
-						disabled={!isValid || testing}
-					>
-						{testing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-						{t("connection.test")}
-					</Button>
-					{isEditMode ? (
-						<Button onClick={handleSaveOnly} disabled={!isValid || connecting}>
-							{connecting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-							{t("connection.saveChanges")}
-						</Button>
-					) : (
-						<Button onClick={handleSaveAndConnect} disabled={!isValid || connecting}>
-							{connecting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-							{t("connection.saveConnect")}
-						</Button>
-					)}
-				</DialogFooter>
+    						<BasicSection formData={formData} onChange={handleChange} />
+    						<AdvancedSection formData={formData} onChange={handleChange} />
+    
+    						{error && (
+    							<div className="p-3 rounded-md bg-error/10 border border-error/20 text-error text-sm flex items-center gap-2">
+    								<X size={14} />
+    								{error}
+    							</div>
+    						)}
+    						{testResult === "success" && (
+    							<div className="p-3 rounded-md bg-success/10 border border-success/20 text-success text-sm flex items-center gap-2">
+    								<Check size={14} />
+    								{t("connection.testSuccess")}
+    							</div>
+    						)}
+    					</div>
+    				</ScrollArea>
+    
+    				<DialogFooter>
+    					<Button variant="outline" onClick={onClose}>
+    						{t("connection.cancel")}
+    					</Button>
+    					<Button
+    						variant="secondary"
+                            className="transition-all"
+    						onClick={handleTestConnection}
+    						disabled={!isValid || testing}
+    					>
+    						{testing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+    						{t("connection.test")}
+    					</Button>
+    					{isEditMode ? (
+                            <div title={!isValid ? t('connection.validationError') : undefined}>
+        						<Button onClick={handleSaveOnly} disabled={!isValid || connecting}>
+        							{connecting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+        							{t("connection.saveChanges")}
+        						</Button>
+                            </div>
+    					) : (
+                            <div title={!isValid ? t('connection.validationError') : undefined}>
+        						<Button onClick={handleSaveAndConnect} disabled={!isValid || connecting}>
+        							{connecting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+        							{t("connection.saveConnect")}
+        						</Button>
+                            </div>
+    					)}
+    				</DialogFooter>
+          </>
+        )}
 			</DialogContent>
 		</Dialog>
 	);

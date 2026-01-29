@@ -3,6 +3,7 @@
 
 pub mod drivers;
 pub mod error;
+pub mod fulltext_strategy;
 pub mod mongo_safety;
 pub mod query_manager;
 pub mod registry;

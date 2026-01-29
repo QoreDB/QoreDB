@@ -43,12 +43,14 @@ export function ConnectionItem({
 				className={cn(
 					"group flex items-center transition-all",
 					isProduction ? "rounded-r-md rounded-l-none" : "rounded-md",
+					// État: Sélectionné mais pas connecté
 					isSelected && !isConnected && "bg-muted text-foreground",
-					isSelected &&
-						isConnected &&
-						"bg-(--q-accent-soft) text-(--q-accent) font-medium",
-					!isSelected &&
-						"text-muted-foreground hover:bg-accent/10 hover:text-accent-foreground"
+					// État: Connecté (actif)
+					isSelected && isConnected && "bg-(--q-accent-soft) text-(--q-accent) font-medium",
+					// État: Déplié (expanded) mais pas sélectionné
+					!isSelected && isExpanded && "bg-muted/50 text-foreground",
+					// État: Normal (non sélectionné, non déplié)
+					!isSelected && !isExpanded && "text-muted-foreground hover:bg-accent/10 hover:text-accent-foreground"
 				)}
 				style={{
 					borderLeft: isProduction ? `3px solid ${envConfig.color}` : undefined,

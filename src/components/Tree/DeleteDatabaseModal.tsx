@@ -64,7 +64,7 @@ export function DeleteDatabaseModal({
 
     setLoading(true);
     try {
-      const result = await dropDatabase(sessionId, targetName);
+      const result = await dropDatabase(sessionId, targetName, true);
       if (result.success) {
         toast.success(
           t(isSchema ? 'dropDatabase.schemaSuccess' : 'dropDatabase.success', {

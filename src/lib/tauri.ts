@@ -259,22 +259,24 @@ export async function cancelQuery(
 export async function createDatabase(
   sessionId: string,
   name: string,
-  options?: Record<string, unknown>
+  options?: Record<string, unknown>,
+  acknowledgedDangerous?: boolean
 ): Promise<{
   success: boolean;
   error?: string;
 }> {
-  return invoke('create_database', { sessionId, name, options });
+  return invoke('create_database', { sessionId, name, options, acknowledgedDangerous });
 }
 
 export async function dropDatabase(
   sessionId: string,
-  name: string
+  name: string,
+  acknowledgedDangerous?: boolean
 ): Promise<{
   success: boolean;
   error?: string;
 }> {
-  return invoke('drop_database', { sessionId, name });
+  return invoke('drop_database', { sessionId, name, acknowledgedDangerous });
 }
 
 // ============================================
@@ -443,9 +445,10 @@ export async function insertRow(
   database: string,
   schema: string | null | undefined,
   table: string,
-  data: RowData
+  data: RowData,
+  acknowledgedDangerous?: boolean
 ): Promise<MutationResponse> {
-  return invoke('insert_row', { sessionId, database, schema, table, data });
+  return invoke('insert_row', { sessionId, database, schema, table, data, acknowledgedDangerous });
 }
 
 export async function updateRow(
@@ -454,7 +457,8 @@ export async function updateRow(
   schema: string | null | undefined,
   table: string,
   primaryKey: RowData,
-  data: RowData
+  data: RowData,
+  acknowledgedDangerous?: boolean
 ): Promise<MutationResponse> {
   return invoke('update_row', {
     sessionId,
@@ -463,6 +467,7 @@ export async function updateRow(
     table,
     primaryKey,
     data,
+    acknowledgedDangerous,
   });
 }
 
@@ -471,7 +476,8 @@ export async function deleteRow(
   database: string,
   schema: string | null | undefined,
   table: string,
-  primaryKey: RowData
+  primaryKey: RowData,
+  acknowledgedDangerous?: boolean
 ): Promise<MutationResponse> {
   return invoke('delete_row', {
     sessionId,
@@ -479,6 +485,7 @@ export async function deleteRow(
     schema,
     table,
     primaryKey,
+    acknowledgedDangerous,
   });
 }
 
@@ -644,4 +651,56 @@ export async function applySandboxChanges(
   useTransaction: boolean = true
 ): Promise<ApplySandboxResult> {
   return invoke('apply_sandbox_changes', { sessionId, changes, useTransaction });
+}
+
+// ============================================
+// FULL-TEXT SEARCH
+// ============================================
+
+export interface FulltextMatch {
+  namespace: Namespace;
+  table_name: string;
+  column_name: string;
+  value_preview: string;
+  row_preview: [string, Value][];
+}
+
+export interface SearchFilter {
+  column: string;
+  value: string;
+  caseSensitive?: boolean;
+}
+
+export interface FulltextSearchOptions {
+  max_results_per_table?: number;
+  max_total_results?: number;
+  case_sensitive?: boolean;
+  namespaces?: Namespace[];
+  tables?: string[];
+}
+
+export interface SearchStats {
+  native_fulltext_count: number;
+  pattern_match_count: number;
+  timeout_count: number;
+  error_count: number;
+}
+
+export interface FulltextSearchResponse {
+  success: boolean;
+  matches: FulltextMatch[];
+  total_matches: number;
+  tables_searched: number;
+  search_time_ms: number;
+  error?: string;
+  truncated: boolean;
+  stats: SearchStats;
+}
+
+export async function fulltextSearch(
+  sessionId: string,
+  searchTerm: string,
+  options?: FulltextSearchOptions
+): Promise<FulltextSearchResponse> {
+  return invoke('fulltext_search', { sessionId, searchTerm, options });
 }

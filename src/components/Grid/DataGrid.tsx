@@ -663,7 +663,7 @@ export function DataGrid({
         confirmValue={deleteConfirmValue}
         onConfirmValueChange={setDeleteConfirmValue}
         onConfirm={async () => {
-          await performDelete();
+          await performDelete(true);
           setDeleteDialogOpen(false);
         }}
         isDeleting={isDeleting}
@@ -694,7 +694,7 @@ export function DataGrid({
         loading={isUpdating}
         onConfirm={async () => {
           if (!pendingUpdate) return;
-          await performInlineUpdate(pendingUpdate);
+          await performInlineUpdate(pendingUpdate, true);
           setUpdateConfirmOpen(false);
           setPendingUpdate(null);
         }}

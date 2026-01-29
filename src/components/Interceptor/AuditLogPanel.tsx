@@ -6,6 +6,7 @@
  */
 
 import { useState, useCallback, useEffect } from 'react';
+import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 import {
   Search,
@@ -23,13 +24,7 @@ import {
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { ScrollArea } from '../ui/scroll-area';
 import {
   getAuditEntries,
@@ -41,20 +36,32 @@ import {
   type AuditStats,
   type AuditFilter,
   type Environment,
-  type QueryOperationType,
+  BUILTIN_SAFETY_RULE_I18N,
 } from '../../lib/tauri/interceptor';
 
 const PAGE_SIZE = 50;
 
-function formatTimestamp(timestamp: string): string {
+function formatTimestamp(timestamp: string, t: TFunction): string {
   const date = new Date(timestamp);
   const now = new Date();
   const diff = now.getTime() - date.getTime();
 
-  if (diff < 60000) return 'Just now';
-  if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
-  if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
-  if (diff < 604800000) return `${Math.floor(diff / 86400000)}d ago`;
+  if (diff < 60000) return t('interceptor.audit.time.justNow');
+  if (diff < 3600000) {
+    return t('interceptor.audit.time.minutesAgo', {
+      count: Math.floor(diff / 60000),
+    });
+  }
+  if (diff < 86400000) {
+    return t('interceptor.audit.time.hoursAgo', {
+      count: Math.floor(diff / 3600000),
+    });
+  }
+  if (diff < 604800000) {
+    return t('interceptor.audit.time.daysAgo', {
+      count: Math.floor(diff / 86400000),
+    });
+  }
 
   return date.toLocaleDateString();
 }
@@ -75,16 +82,13 @@ function getEnvironmentColor(env: Environment): string {
 interface AuditEntryItemProps {
   entry: AuditLogEntry;
   onSelect?: (entry: AuditLogEntry) => void;
+  getSafetyRuleLabel?: (ruleId?: string | null) => string;
 }
 
-function AuditEntryItem({ entry, onSelect }: AuditEntryItemProps) {
+function AuditEntryItem({ entry, onSelect, getSafetyRuleLabel }: AuditEntryItemProps) {
   const { t } = useTranslation();
 
-  const StatusIcon = entry.blocked
-    ? Shield
-    : entry.success
-      ? CheckCircle2
-      : XCircle;
+  const StatusIcon = entry.blocked ? Shield : entry.success ? CheckCircle2 : XCircle;
 
   const statusColor = entry.blocked
     ? 'text-yellow-500'
@@ -99,7 +103,7 @@ function AuditEntryItem({ entry, onSelect }: AuditEntryItemProps) {
       onClick={() => onSelect?.(entry)}
     >
       <div className="flex items-start gap-3">
-        <StatusIcon className={`w-4 h-4 mt-0.5 flex-shrink-0 ${statusColor}`} />
+        <StatusIcon className={`w-4 h-4 mt-0.5 shrink-0 ${statusColor}`} />
 
         <div className="flex-1 min-w-0 space-y-1">
           <div className="flex items-center gap-2 flex-wrap">
@@ -108,41 +112,35 @@ function AuditEntryItem({ entry, onSelect }: AuditEntryItemProps) {
             >
               {entry.environment.toUpperCase()}
             </span>
-            <span className="text-xs text-muted-foreground">
-              {entry.operation_type}
-            </span>
-            <span className="text-xs text-muted-foreground">
-              {entry.driver_id}
-            </span>
+            <span className="text-xs text-muted-foreground">{entry.operation_type}</span>
+            <span className="text-xs text-muted-foreground">{entry.driver_id}</span>
           </div>
 
-          <p className="text-sm font-mono truncate text-foreground">
-            {entry.query_preview}
-          </p>
+          <p className="text-sm font-mono truncate text-foreground">{entry.query_preview}</p>
 
           <div className="flex items-center gap-3 text-xs text-muted-foreground">
-            <span>{formatTimestamp(entry.timestamp)}</span>
+            <span>{formatTimestamp(entry.timestamp, t)}</span>
             {entry.database && <span>{entry.database}</span>}
             <span className="flex items-center gap-1">
               <Clock className="w-3 h-3" />
               {formatExecutionTime(entry.execution_time_ms)}
             </span>
             {entry.row_count != null && (
-              <span>{entry.row_count} rows</span>
+              <span>
+                {entry.row_count} {t('table.rows')}
+              </span>
             )}
           </div>
 
           {entry.blocked && entry.safety_rule && (
             <p className="text-xs text-yellow-600 dark:text-yellow-400">
-              Blocked by: {entry.safety_rule}
+              {t('interceptor.audit.blockedBy', {
+                rule: getSafetyRuleLabel?.(entry.safety_rule) ?? entry.safety_rule,
+              })}
             </p>
           )}
 
-          {entry.error && (
-            <p className="text-xs text-red-500 truncate">
-              {entry.error}
-            </p>
-          )}
+          {entry.error && <p className="text-xs text-red-500 truncate">{entry.error}</p>}
         </div>
       </div>
     </button>
@@ -166,6 +164,18 @@ function StatsCard({ label, value, color = 'text-foreground' }: StatsCardProps) 
 
 export function AuditLogPanel() {
   const { t } = useTranslation();
+
+  const getSafetyRuleLabel = useCallback(
+    (ruleId?: string | null) => {
+      if (!ruleId) return '';
+      const keys = BUILTIN_SAFETY_RULE_I18N[ruleId];
+      if (keys) {
+        return t(keys.nameKey);
+      }
+      return ruleId;
+    },
+    [t]
+  );
 
   // State
   const [entries, setEntries] = useState<AuditLogEntry[]>([]);
@@ -255,8 +265,6 @@ export function AuditLogPanel() {
     }
   }, []);
 
-  // Estimate total pages based on stats
-  const estimatedTotal = stats?.total ?? entries.length;
   const hasMore = entries.length === PAGE_SIZE;
 
   if (loading && entries.length === 0) {
@@ -342,28 +350,25 @@ export function AuditLogPanel() {
           onValueChange={v => setEnvironmentFilter(v as Environment | 'all')}
         >
           <SelectTrigger className="w-40">
-            <SelectValue placeholder="Environment" />
+            <SelectValue placeholder={t('interceptor.audit.filters.environment')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Environments</SelectItem>
+            <SelectItem value="all">{t('interceptor.audit.filters.allEnvironments')}</SelectItem>
             <SelectItem value="development">{t('environment.development')}</SelectItem>
             <SelectItem value="staging">{t('environment.staging')}</SelectItem>
             <SelectItem value="production">{t('environment.production')}</SelectItem>
           </SelectContent>
         </Select>
 
-        <Select
-          value={statusFilter}
-          onValueChange={v => setStatusFilter(v as typeof statusFilter)}
-        >
+        <Select value={statusFilter} onValueChange={v => setStatusFilter(v as typeof statusFilter)}>
           <SelectTrigger className="w-32">
-            <SelectValue placeholder="Status" />
+            <SelectValue placeholder={t('interceptor.audit.filters.status')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All</SelectItem>
-            <SelectItem value="success">Success</SelectItem>
-            <SelectItem value="failed">Failed</SelectItem>
-            <SelectItem value="blocked">Blocked</SelectItem>
+            <SelectItem value="all">{t('interceptor.audit.filters.all')}</SelectItem>
+            <SelectItem value="success">{t('interceptor.audit.status.success')}</SelectItem>
+            <SelectItem value="failed">{t('interceptor.audit.status.failed')}</SelectItem>
+            <SelectItem value="blocked">{t('interceptor.audit.status.blocked')}</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -377,7 +382,12 @@ export function AuditLogPanel() {
             </p>
           ) : (
             entries.map(entry => (
-              <AuditEntryItem key={entry.id} entry={entry} onSelect={setSelectedEntry} />
+              <AuditEntryItem
+                key={entry.id}
+                entry={entry}
+                onSelect={setSelectedEntry}
+                getSafetyRuleLabel={getSafetyRuleLabel}
+              />
             ))
           )}
         </div>
@@ -386,7 +396,10 @@ export function AuditLogPanel() {
       {/* Pagination */}
       <div className="flex items-center justify-between p-4 border-t border-border">
         <p className="text-sm text-muted-foreground">
-          Page {page + 1} ({entries.length} entries)
+          {t('interceptor.audit.pagination', {
+            page: page + 1,
+            count: entries.length,
+          })}
         </p>
         <div className="flex items-center gap-2">
           <Button
@@ -410,7 +423,11 @@ export function AuditLogPanel() {
 
       {/* Entry Detail Modal */}
       {selectedEntry && (
-        <AuditEntryDetail entry={selectedEntry} onClose={() => setSelectedEntry(null)} />
+        <AuditEntryDetail
+          entry={selectedEntry}
+          onClose={() => setSelectedEntry(null)}
+          getSafetyRuleLabel={getSafetyRuleLabel}
+        />
       )}
     </div>
   );
@@ -419,9 +436,10 @@ export function AuditLogPanel() {
 interface AuditEntryDetailProps {
   entry: AuditLogEntry;
   onClose: () => void;
+  getSafetyRuleLabel?: (ruleId?: string | null) => string;
 }
 
-function AuditEntryDetail({ entry, onClose }: AuditEntryDetailProps) {
+function AuditEntryDetail({ entry, onClose, getSafetyRuleLabel }: AuditEntryDetailProps) {
   const { t } = useTranslation();
 
   return (
@@ -430,7 +448,7 @@ function AuditEntryDetail({ entry, onClose }: AuditEntryDetailProps) {
 
       <div className="relative bg-background rounded-lg shadow-xl border border-border w-full max-w-2xl mx-4 max-h-[80vh] overflow-hidden flex flex-col">
         <div className="flex items-center justify-between p-4 border-b border-border">
-          <h3 className="font-semibold">Query Details</h3>
+          <h3 className="font-semibold">{t('interceptor.audit.detail.title')}</h3>
           <button
             type="button"
             onClick={onClose}
@@ -449,12 +467,8 @@ function AuditEntryDetail({ entry, onClose }: AuditEntryDetailProps) {
               >
                 {entry.environment.toUpperCase()}
               </span>
-              <span className="text-xs px-2 py-1 rounded bg-muted">
-                {entry.operation_type}
-              </span>
-              <span className="text-xs px-2 py-1 rounded bg-muted">
-                {entry.driver_id}
-              </span>
+              <span className="text-xs px-2 py-1 rounded bg-muted">{entry.operation_type}</span>
+              <span className="text-xs px-2 py-1 rounded bg-muted">{entry.driver_id}</span>
               <span
                 className={`text-xs px-2 py-1 rounded ${
                   entry.blocked
@@ -464,13 +478,17 @@ function AuditEntryDetail({ entry, onClose }: AuditEntryDetailProps) {
                       : 'bg-red-500/10 text-red-600'
                 }`}
               >
-                {entry.blocked ? 'Blocked' : entry.success ? 'Success' : 'Failed'}
+                {entry.blocked
+                  ? t('interceptor.audit.status.blocked')
+                  : entry.success
+                    ? t('interceptor.audit.status.success')
+                    : t('interceptor.audit.status.failed')}
               </span>
             </div>
 
             {/* Query */}
             <div>
-              <Label className="text-sm font-medium">Query</Label>
+              <Label className="text-sm font-medium">{t('interceptor.audit.detail.query')}</Label>
               <pre className="mt-1 p-3 rounded bg-muted font-mono text-sm whitespace-pre-wrap break-all">
                 {entry.query}
               </pre>
@@ -479,24 +497,34 @@ function AuditEntryDetail({ entry, onClose }: AuditEntryDetailProps) {
             {/* Details Grid */}
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
-                <Label className="text-muted-foreground">Timestamp</Label>
+                <Label className="text-muted-foreground">
+                  {t('interceptor.audit.detail.timestamp')}
+                </Label>
                 <p>{new Date(entry.timestamp).toLocaleString()}</p>
               </div>
               <div>
-                <Label className="text-muted-foreground">Session ID</Label>
+                <Label className="text-muted-foreground">
+                  {t('interceptor.audit.detail.sessionId')}
+                </Label>
                 <p className="font-mono text-xs">{entry.session_id}</p>
               </div>
               <div>
-                <Label className="text-muted-foreground">Database</Label>
+                <Label className="text-muted-foreground">
+                  {t('interceptor.audit.detail.database')}
+                </Label>
                 <p>{entry.database || '-'}</p>
               </div>
               <div>
-                <Label className="text-muted-foreground">Execution Time</Label>
+                <Label className="text-muted-foreground">
+                  {t('interceptor.audit.detail.executionTime')}
+                </Label>
                 <p>{formatExecutionTime(entry.execution_time_ms)}</p>
               </div>
               {entry.row_count != null && (
                 <div>
-                  <Label className="text-muted-foreground">Row Count</Label>
+                  <Label className="text-muted-foreground">
+                    {t('interceptor.audit.detail.rowCount')}
+                  </Label>
                   <p>{entry.row_count}</p>
                 </div>
               )}
@@ -506,16 +534,20 @@ function AuditEntryDetail({ entry, onClose }: AuditEntryDetailProps) {
             {entry.blocked && entry.safety_rule && (
               <div>
                 <Label className="text-sm font-medium text-yellow-600">
-                  Blocked by Safety Rule
+                  {t('interceptor.audit.detail.blockedBy')}
                 </Label>
-                <p className="mt-1 text-sm text-yellow-600">{entry.safety_rule}</p>
+                <p className="mt-1 text-sm text-yellow-600">
+                  {getSafetyRuleLabel?.(entry.safety_rule) ?? entry.safety_rule}
+                </p>
               </div>
             )}
 
             {/* Error */}
             {entry.error && (
               <div>
-                <Label className="text-sm font-medium text-red-600">Error</Label>
+                <Label className="text-sm font-medium text-red-600">
+                  {t('interceptor.audit.detail.error')}
+                </Label>
                 <p className="mt-1 text-sm text-red-600">{entry.error}</p>
               </div>
             )}

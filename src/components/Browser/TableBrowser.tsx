@@ -697,6 +697,9 @@ export function TableBrowser({
           tableName={tableName}
           schema={schema}
           driver={driver}
+          environment={environment}
+          connectionName={connectionName}
+          connectionDatabase={connectionDatabase}
           readOnly={readOnly}
           initialData={selectedRow}
           onSuccess={loadData}

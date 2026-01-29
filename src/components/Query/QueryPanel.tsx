@@ -742,6 +742,9 @@ export function QueryPanel({
           handleExecuteCurrent();
         }}
         readOnly={readOnly}
+        environment={environment}
+        connectionName={connectionName}
+        connectionDatabase={connectionDatabase}
       />
 
       <SaveQueryDialog

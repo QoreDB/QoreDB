@@ -41,6 +41,35 @@ export interface SafetyRule {
   builtin: boolean;
 }
 
+export const BUILTIN_SAFETY_RULE_I18N: Record<string, { nameKey: string; descriptionKey: string }> =
+  {
+    'builtin-no-drop-production': {
+      nameKey: 'interceptor.safety.builtinRuleNames.builtin-no-drop-production',
+      descriptionKey: 'interceptor.safety.builtinRuleDescriptions.builtin-no-drop-production',
+    },
+    'builtin-no-truncate-production': {
+      nameKey: 'interceptor.safety.builtinRuleNames.builtin-no-truncate-production',
+      descriptionKey: 'interceptor.safety.builtinRuleDescriptions.builtin-no-truncate-production',
+    },
+    'builtin-confirm-delete-production': {
+      nameKey: 'interceptor.safety.builtinRuleNames.builtin-confirm-delete-production',
+      descriptionKey:
+        'interceptor.safety.builtinRuleDescriptions.builtin-confirm-delete-production',
+    },
+    'builtin-confirm-update-no-where': {
+      nameKey: 'interceptor.safety.builtinRuleNames.builtin-confirm-update-no-where',
+      descriptionKey: 'interceptor.safety.builtinRuleDescriptions.builtin-confirm-update-no-where',
+    },
+    'builtin-confirm-delete-no-where': {
+      nameKey: 'interceptor.safety.builtinRuleNames.builtin-confirm-delete-no-where',
+      descriptionKey: 'interceptor.safety.builtinRuleDescriptions.builtin-confirm-delete-no-where',
+    },
+    'builtin-warn-alter-production': {
+      nameKey: 'interceptor.safety.builtinRuleNames.builtin-warn-alter-production',
+      descriptionKey: 'interceptor.safety.builtinRuleDescriptions.builtin-warn-alter-production',
+    },
+  };
+
 export interface AuditLogEntry {
   id: string;
   timestamp: string;

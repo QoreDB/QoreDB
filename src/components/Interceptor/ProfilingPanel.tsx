@@ -101,7 +101,9 @@ function OperationChart({ data }: OperationChartProps) {
 
   if (total === 0) {
     return (
-      <p className="text-sm text-muted-foreground text-center py-4">No data available</p>
+      <p className="text-sm text-muted-foreground text-center py-4">
+        {t('interceptor.profiling.noData')}
+      </p>
     );
   }
 
@@ -135,6 +137,7 @@ interface SlowQueryItemProps {
 }
 
 function SlowQueryItem({ query }: SlowQueryItemProps) {
+  const { t } = useTranslation();
   const perfClass = getPerformanceClass(query.execution_time_ms);
   const color = getPerformanceColor(perfClass);
 
@@ -147,7 +150,7 @@ function SlowQueryItem({ query }: SlowQueryItemProps) {
   return (
     <div className="p-3 rounded-lg border border-border hover:bg-muted/50 transition-colors">
       <div className="flex items-start gap-3">
-        <AlertTriangle className="w-4 h-4 mt-0.5 text-yellow-500 flex-shrink-0" />
+        <AlertTriangle className="w-4 h-4 mt-0.5 text-yellow-500 shrink-0" />
         <div className="flex-1 min-w-0 space-y-1">
           <div className="flex items-center gap-2">
             <span
@@ -160,12 +163,10 @@ function SlowQueryItem({ query }: SlowQueryItemProps) {
             </span>
             {query.row_count != null && (
               <span className="text-xs text-muted-foreground">
-                {query.row_count} rows
+                {query.row_count} {t('table.rows')}
               </span>
             )}
-            <span className="text-xs text-muted-foreground">
-              {query.driver_id}
-            </span>
+            <span className="text-xs text-muted-foreground">{query.driver_id}</span>
           </div>
           <p className="text-sm font-mono truncate">{query.query}</p>
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -195,36 +196,30 @@ export function ProfilingPanel() {
     try {
       setLoading(true);
       setError(null);
-      const [metricsData, slowData] = await Promise.all([
-        getProfilingMetrics(),
-        getSlowQueries(),
-      ]);
+      const [metricsData, slowData] = await Promise.all([getProfilingMetrics(), getSlowQueries()]);
       setMetrics(metricsData);
       setSlowQueries(slowData);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load profiling data');
+      setError(err instanceof Error ? err.message : t('interceptor.profiling.loadError'));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
 
   const handleReset = useCallback(async () => {
-    if (window.confirm('Reset all profiling metrics? This cannot be undone.')) {
+    if (window.confirm(t('interceptor.profiling.resetConfirm'))) {
       try {
-        await Promise.all([
-          resetProfilingMetrics(),
-          clearSlowQueries(),
-        ]);
+        await Promise.all([resetProfilingMetrics(), clearSlowQueries()]);
         loadData();
       } catch (err) {
         console.error('Failed to reset profiling:', err);
       }
     }
-  }, [loadData]);
+  }, [loadData, t]);
 
   const handleExport = useCallback(async () => {
     try {
@@ -252,7 +247,7 @@ export function ProfilingPanel() {
   if (error || !metrics) {
     return (
       <div className="p-4 text-center">
-        <p className="text-destructive mb-2">{error || 'Failed to load profiling data'}</p>
+        <p className="text-destructive mb-2">{error || t('interceptor.profiling.loadError')}</p>
         <Button variant="outline" size="sm" onClick={loadData}>
           {t('common.retry')}
         </Button>
@@ -261,9 +256,8 @@ export function ProfilingPanel() {
   }
 
   const executedQueries = metrics.successful_queries + metrics.failed_queries;
-  const successRate = executedQueries > 0
-    ? ((metrics.successful_queries / executedQueries) * 100).toFixed(1)
-    : '100';
+  const successRate =
+    executedQueries > 0 ? ((metrics.successful_queries / executedQueries) * 100).toFixed(1) : '100';
 
   return (
     <div className="flex flex-col h-full">
@@ -273,15 +267,15 @@ export function ProfilingPanel() {
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={loadData} disabled={loading}>
             <RefreshCw className={`w-4 h-4 mr-1 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
+            {t('interceptor.profiling.actions.refresh')}
           </Button>
           <Button variant="outline" size="sm" onClick={handleExport}>
             <Download className="w-4 h-4 mr-1" />
-            Export
+            {t('interceptor.profiling.actions.export')}
           </Button>
           <Button variant="outline" size="sm" onClick={handleReset}>
             <Trash2 className="w-4 h-4 mr-1" />
-            Reset
+            {t('interceptor.profiling.actions.reset')}
           </Button>
         </div>
       </div>
@@ -291,24 +285,22 @@ export function ProfilingPanel() {
         <button
           type="button"
           className={`px-3 py-1.5 text-sm rounded transition-colors ${
-            activeTab === 'overview'
-              ? 'bg-primary text-primary-foreground'
-              : 'hover:bg-muted'
+            activeTab === 'overview' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'
           }`}
           onClick={() => setActiveTab('overview')}
         >
-          Overview
+          {t('interceptor.profiling.tabs.overview')}
         </button>
         <button
           type="button"
           className={`px-3 py-1.5 text-sm rounded transition-colors ${
-            activeTab === 'slow'
-              ? 'bg-primary text-primary-foreground'
-              : 'hover:bg-muted'
+            activeTab === 'slow' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'
           }`}
           onClick={() => setActiveTab('slow')}
         >
-          Slow Queries ({slowQueries.length})
+          {t('interceptor.profiling.tabs.slowQueries', {
+            count: slowQueries.length,
+          })}
         </button>
       </div>
 
@@ -319,23 +311,23 @@ export function ProfilingPanel() {
             {/* Key Metrics */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <MetricCard
-                label="Total Queries"
+                label={t('interceptor.profiling.metrics.totalQueries')}
                 value={metrics.total_queries.toLocaleString()}
                 icon={<Activity className="w-4 h-4" />}
               />
               <MetricCard
-                label="Success Rate"
+                label={t('interceptor.profiling.metrics.successRate')}
                 value={`${successRate}%`}
                 color={parseFloat(successRate) >= 95 ? 'text-green-500' : 'text-yellow-500'}
                 icon={<Database className="w-4 h-4" />}
               />
               <MetricCard
-                label="Avg Time"
+                label={t('interceptor.profiling.metrics.avgTime')}
                 value={formatExecutionTime(metrics.avg_execution_time_ms)}
                 icon={<Clock className="w-4 h-4" />}
               />
               <MetricCard
-                label="Slow Queries"
+                label={t('interceptor.profiling.metrics.slowCount')}
                 value={metrics.slow_query_count}
                 color={metrics.slow_query_count > 0 ? 'text-yellow-500' : 'text-green-500'}
                 icon={<AlertTriangle className="w-4 h-4" />}
@@ -344,25 +336,25 @@ export function ProfilingPanel() {
 
             {/* Latency Percentiles */}
             <div className="space-y-3">
-              <h3 className="text-sm font-medium">Latency Distribution</h3>
+              <h3 className="text-sm font-medium">{t('interceptor.profiling.latency.title')}</h3>
               <div className="space-y-3">
                 <PercentileBar
-                  label="P50 (Median)"
+                  label={t('interceptor.profiling.latency.p50')}
                   value={metrics.p50_execution_time_ms}
                   max={metrics.p99_execution_time_ms || 1000}
                 />
                 <PercentileBar
-                  label="P95"
+                  label={t('interceptor.profiling.latency.p95')}
                   value={metrics.p95_execution_time_ms}
                   max={metrics.p99_execution_time_ms || 1000}
                 />
                 <PercentileBar
-                  label="P99"
+                  label={t('interceptor.profiling.latency.p99')}
                   value={metrics.p99_execution_time_ms}
                   max={metrics.p99_execution_time_ms || 1000}
                 />
                 <PercentileBar
-                  label="Max"
+                  label={t('interceptor.profiling.latency.max')}
                   value={metrics.max_execution_time_ms}
                   max={metrics.max_execution_time_ms || 1000}
                 />
@@ -371,21 +363,20 @@ export function ProfilingPanel() {
 
             {/* Operations Breakdown */}
             <div className="space-y-3">
-              <h3 className="text-sm font-medium">Operations Breakdown</h3>
+              <h3 className="text-sm font-medium">{t('interceptor.profiling.operations.title')}</h3>
               <OperationChart data={metrics.by_operation_type} />
             </div>
 
             {/* Environment Breakdown */}
             <div className="space-y-3">
-              <h3 className="text-sm font-medium">By Environment</h3>
+              <h3 className="text-sm font-medium">
+                {t('interceptor.profiling.environments.title')}
+              </h3>
               <div className="grid grid-cols-3 gap-2">
                 {Object.entries(metrics.by_environment).map(([env, count]) => (
-                  <div
-                    key={env}
-                    className="p-3 rounded-lg border border-border text-center"
-                  >
+                  <div key={env} className="p-3 rounded-lg border border-border text-center">
                     <p className="text-lg font-semibold">{count}</p>
-                    <p className="text-xs text-muted-foreground capitalize">{env}</p>
+                    <p className="text-xs text-muted-foreground">{t(`environment.${env}`)}</p>
                   </div>
                 ))}
               </div>
@@ -393,19 +384,19 @@ export function ProfilingPanel() {
 
             {/* Period Info */}
             <div className="text-xs text-muted-foreground text-center pt-4 border-t border-border">
-              Data collected from {new Date(metrics.period_start).toLocaleString()}
+              {t('interceptor.profiling.period', {
+                date: new Date(metrics.period_start).toLocaleString(),
+              })}
             </div>
           </div>
         ) : (
           <div className="p-4 space-y-2">
             {slowQueries.length === 0 ? (
               <p className="text-center text-muted-foreground py-8">
-                No slow queries detected
+                {t('interceptor.profiling.noSlowQueries')}
               </p>
             ) : (
-              slowQueries.map(query => (
-                <SlowQueryItem key={query.id} query={query} />
-              ))
+              slowQueries.map(query => <SlowQueryItem key={query.id} query={query} />)
             )}
           </div>
         )}

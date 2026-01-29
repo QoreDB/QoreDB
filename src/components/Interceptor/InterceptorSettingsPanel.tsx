@@ -21,6 +21,7 @@ import {
   updateSafetyRule,
   type InterceptorConfig,
   type SafetyRule,
+  BUILTIN_SAFETY_RULE_I18N,
 } from '../../lib/tauri/interceptor';
 import { SafetyRuleEditor } from './SafetyRuleEditor';
 
@@ -71,7 +72,7 @@ function SettingRow({ label, description, children }: SettingRowProps) {
         <Label className="text-sm font-medium">{label}</Label>
         {description && <p className="text-xs text-muted-foreground">{description}</p>}
       </div>
-      <div className="flex-shrink-0">{children}</div>
+      <div className="shrink-0">{children}</div>
     </div>
   );
 }
@@ -85,15 +86,29 @@ export function InterceptorSettingsPanel() {
   const [editingRule, setEditingRule] = useState<SafetyRule | null>(null);
   const [showRuleEditor, setShowRuleEditor] = useState(false);
 
+  const getRuleLabels = useCallback(
+    (rule: SafetyRule) => {
+      if (rule.builtin) {
+        const keys = BUILTIN_SAFETY_RULE_I18N[rule.id];
+        if (keys) {
+          return {
+            name: t(keys.nameKey),
+            description: t(keys.descriptionKey),
+          };
+        }
+      }
+
+      return { name: rule.name, description: rule.description };
+    },
+    [t]
+  );
+
   // Load configuration from backend
   const loadConfig = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const [configData, rulesData] = await Promise.all([
-        getInterceptorConfig(),
-        getSafetyRules(),
-      ]);
+      const [configData, rulesData] = await Promise.all([getInterceptorConfig(), getSafetyRules()]);
       setConfig(configData);
       setRules(rulesData);
     } catch (err) {
@@ -108,33 +123,39 @@ export function InterceptorSettingsPanel() {
   }, [loadConfig]);
 
   // Update config helper
-  const updateConfig = useCallback(async (updates: Partial<InterceptorConfig>) => {
-    if (!config) return;
-    try {
-      const newConfig = { ...config, ...updates };
-      const updated = await updateInterceptorConfig(newConfig);
-      setConfig(updated);
-    } catch (err) {
-      console.error('Failed to update config:', err);
-    }
-  }, [config]);
+  const updateConfig = useCallback(
+    async (updates: Partial<InterceptorConfig>) => {
+      if (!config) return;
+      try {
+        const newConfig = { ...config, ...updates };
+        const updated = await updateInterceptorConfig(newConfig);
+        setConfig(updated);
+      } catch (err) {
+        console.error('Failed to update config:', err);
+      }
+    },
+    [config]
+  );
 
   // Safety rule handlers
-  const handleRuleSave = useCallback(async (rule: SafetyRule) => {
-    try {
-      if (editingRule) {
-        const updated = await updateSafetyRule(rule);
-        setRules(updated);
-      } else {
-        const updated = await addSafetyRule(rule);
-        setRules(updated);
+  const handleRuleSave = useCallback(
+    async (rule: SafetyRule) => {
+      try {
+        if (editingRule) {
+          const updated = await updateSafetyRule(rule);
+          setRules(updated);
+        } else {
+          const updated = await addSafetyRule(rule);
+          setRules(updated);
+        }
+        setShowRuleEditor(false);
+        setEditingRule(null);
+      } catch (err) {
+        console.error('Failed to save rule:', err);
       }
-      setShowRuleEditor(false);
-      setEditingRule(null);
-    } catch (err) {
-      console.error('Failed to save rule:', err);
-    }
-  }, [editingRule]);
+    },
+    [editingRule]
+  );
 
   const handleRuleDelete = useCallback(async (ruleId: string) => {
     try {
@@ -305,7 +326,9 @@ export function InterceptorSettingsPanel() {
 
           {/* Built-in Rules */}
           <div className="pt-4 border-t border-border">
-            <Label className="text-sm font-medium mb-3 block">{t('interceptor.safety.builtinRules')}</Label>
+            <Label className="text-sm font-medium mb-3 block">
+              {t('interceptor.safety.builtinRules')}
+            </Label>
             <div className="space-y-2">
               {builtinRules.map(rule => (
                 <div
@@ -319,14 +342,18 @@ export function InterceptorSettingsPanel() {
                       disabled={!config.safety_enabled}
                     />
                     <div className="min-w-0">
-                      <p className="text-sm font-medium truncate">{rule.name}</p>
-                      <p className="text-xs text-muted-foreground truncate">{rule.description}</p>
+                      <p className="text-sm font-medium truncate">{getRuleLabels(rule).name}</p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {getRuleLabels(rule).description}
+                      </p>
                     </div>
                   </div>
                   <span className="text-xs bg-muted px-2 py-1 rounded">
-                    {rule.action === 'block' ? t('interceptor.safety.action.block') :
-                     rule.action === 'warn' ? t('interceptor.safety.action.warn') :
-                     t('interceptor.safety.action.confirm')}
+                    {rule.action === 'block'
+                      ? t('interceptor.safety.action.block')
+                      : rule.action === 'warn'
+                        ? t('interceptor.safety.action.warn')
+                        : t('interceptor.safety.action.confirm')}
                   </span>
                 </div>
               ))}
@@ -366,11 +393,13 @@ export function InterceptorSettingsPanel() {
                         disabled={!config.safety_enabled}
                       />
                       <div className="min-w-0">
-                        <p className="text-sm font-medium truncate">{rule.name}</p>
-                        <p className="text-xs text-muted-foreground truncate">{rule.description}</p>
+                        <p className="text-sm font-medium truncate">{getRuleLabels(rule).name}</p>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {getRuleLabels(rule).description}
+                        </p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-1 flex-shrink-0">
+                    <div className="flex items-center gap-1 shrink-0">
                       <Button
                         variant="ghost"
                         size="sm"

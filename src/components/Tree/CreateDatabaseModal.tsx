@@ -55,7 +55,7 @@ export function CreateDatabaseModal({
     setCollectionName('');
   }, [isOpen]);
 
-  async function performCreate() {
+  async function performCreate(acknowledgedDangerous: boolean) {
     setLoading(true);
     try {
       let options = undefined;
@@ -63,7 +63,7 @@ export function CreateDatabaseModal({
         options = { collection: collectionName.trim() };
       }
 
-      const result = await createDatabase(sessionId, name.trim(), options);
+      const result = await createDatabase(sessionId, name.trim(), options, acknowledgedDangerous);
 
       if (result.success) {
         const successKey = isMongo
@@ -110,13 +110,13 @@ export function CreateDatabaseModal({
       return;
     }
 
-    if (environment === 'production') {
-      setPendingAction(() => performCreate);
+    if (environment !== 'development') {
+      setPendingAction(() => () => performCreate(true));
       setConfirmOpen(true);
       return;
     }
 
-    void performCreate();
+    void performCreate(false);
   }
 
   function handleOpenChange(open: boolean) {

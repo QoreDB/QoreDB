@@ -259,22 +259,24 @@ export async function cancelQuery(
 export async function createDatabase(
   sessionId: string,
   name: string,
-  options?: Record<string, unknown>
+  options?: Record<string, unknown>,
+  acknowledgedDangerous?: boolean
 ): Promise<{
   success: boolean;
   error?: string;
 }> {
-  return invoke('create_database', { sessionId, name, options });
+  return invoke('create_database', { sessionId, name, options, acknowledgedDangerous });
 }
 
 export async function dropDatabase(
   sessionId: string,
-  name: string
+  name: string,
+  acknowledgedDangerous?: boolean
 ): Promise<{
   success: boolean;
   error?: string;
 }> {
-  return invoke('drop_database', { sessionId, name });
+  return invoke('drop_database', { sessionId, name, acknowledgedDangerous });
 }
 
 // ============================================
@@ -443,9 +445,10 @@ export async function insertRow(
   database: string,
   schema: string | null | undefined,
   table: string,
-  data: RowData
+  data: RowData,
+  acknowledgedDangerous?: boolean
 ): Promise<MutationResponse> {
-  return invoke('insert_row', { sessionId, database, schema, table, data });
+  return invoke('insert_row', { sessionId, database, schema, table, data, acknowledgedDangerous });
 }
 
 export async function updateRow(
@@ -454,7 +457,8 @@ export async function updateRow(
   schema: string | null | undefined,
   table: string,
   primaryKey: RowData,
-  data: RowData
+  data: RowData,
+  acknowledgedDangerous?: boolean
 ): Promise<MutationResponse> {
   return invoke('update_row', {
     sessionId,
@@ -463,6 +467,7 @@ export async function updateRow(
     table,
     primaryKey,
     data,
+    acknowledgedDangerous,
   });
 }
 
@@ -471,7 +476,8 @@ export async function deleteRow(
   database: string,
   schema: string | null | undefined,
   table: string,
-  primaryKey: RowData
+  primaryKey: RowData,
+  acknowledgedDangerous?: boolean
 ): Promise<MutationResponse> {
   return invoke('delete_row', {
     sessionId,
@@ -479,6 +485,7 @@ export async function deleteRow(
     schema,
     table,
     primaryKey,
+    acknowledgedDangerous,
   });
 }
 

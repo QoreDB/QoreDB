@@ -894,6 +894,7 @@ pub async fn create_database(
     session_id: String,
     name: String,
     options: Option<serde_json::Value>,
+    acknowledged_dangerous: Option<bool>,
 ) -> Result<QueryResponse, String> {
     let (session_manager, interceptor) = {
         let state = state.lock().await;
@@ -928,13 +929,14 @@ pub async fn create_database(
     let interceptor_env = map_environment(&environment);
 
     let query_preview = format!("CREATE DATABASE {}", name);
+    let acknowledged = acknowledged_dangerous.unwrap_or(false);
     let interceptor_context = interceptor.build_context(
         &session_id,
         &query_preview,
         driver.driver_id(),
         interceptor_env,
         read_only,
-        false,
+        acknowledged,
         Some(&name),
         None,
         true,
@@ -1039,6 +1041,7 @@ pub async fn drop_database(
     state: State<'_, crate::SharedState>,
     session_id: String,
     name: String,
+    acknowledged_dangerous: Option<bool>,
 ) -> Result<QueryResponse, String> {
     let (session_manager, interceptor) = {
         let state = state.lock().await;
@@ -1073,13 +1076,14 @@ pub async fn drop_database(
     let interceptor_env = map_environment(&environment);
 
     let query_preview = format!("DROP DATABASE {}", name);
+    let acknowledged = acknowledged_dangerous.unwrap_or(false);
     let interceptor_context = interceptor.build_context(
         &session_id,
         &query_preview,
         driver.driver_id(),
         interceptor_env,
         read_only,
-        false,
+        acknowledged,
         Some(&name),
         None,
         true,

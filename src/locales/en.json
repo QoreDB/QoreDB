@@ -536,7 +536,10 @@
         "dangerousQuery": "This query may cause data loss",
         "dangerousQueryTitle": "Dangerous Query",
         "dangerousQueryTarget": "Target: {{target}}",
-        "blocked": "Operation blocked: read-only mode"
+        "blocked": "Operation blocked: read-only mode",
+        "mutationConfirmTitle": "Confirm data change",
+        "mutationConfirmInsert": "You are about to insert a new row into {{table}}.",
+        "mutationConfirmUpdate": "You are about to update data in {{table}}."
     },
     "status": {
         "connected": "Connected",
@@ -766,9 +769,11 @@
             "title": "Audit Logging",
             "description": "Track all query executions for compliance and debugging",
             "enabled": "Enable audit logging",
+            "enabledDescription": "Store a local audit trail of every query",
             "redactQueries": "Redact sensitive values",
             "redactQueriesDescription": "Replace literals in logged queries with placeholders",
             "maxEntries": "Maximum log entries",
+            "maxEntriesDescription": "Older entries are discarded once the limit is reached",
             "logSuccess": "Log successful queries",
             "logFailures": "Log failed queries",
             "logBlocked": "Log blocked queries",
@@ -778,26 +783,73 @@
             "clearLog": "Clear Log",
             "clearConfirm": "Clear all audit log entries? This cannot be undone.",
             "noEntries": "No audit log entries",
+            "blockedBy": "Blocked by: {{rule}}",
+            "filters": {
+                "environment": "Environment",
+                "allEnvironments": "All Environments",
+                "status": "Status",
+                "all": "All"
+            },
+            "status": {
+                "success": "Success",
+                "failed": "Failed",
+                "blocked": "Blocked"
+            },
+            "time": {
+                "justNow": "Just now",
+                "minutesAgo": "{{count}}m ago",
+                "hoursAgo": "{{count}}h ago",
+                "daysAgo": "{{count}}d ago"
+            },
+            "pagination": "Page {{page}} ({{count}} entries)",
+            "detail": {
+                "title": "Query Details",
+                "query": "Query",
+                "timestamp": "Timestamp",
+                "sessionId": "Session ID",
+                "database": "Database",
+                "executionTime": "Execution Time",
+                "rowCount": "Row Count",
+                "blockedBy": "Blocked by Safety Rule",
+                "error": "Error"
+            },
             "stats": {
                 "total": "Total queries",
                 "executed": "Executed",
                 "blocked": "Blocked",
                 "success": "Successful",
-                "failed": "Failed"
+                "failed": "Failed",
+                "lastHour": "Last hour"
             }
         },
         "profiling": {
             "title": "Query Profiling",
             "description": "Monitor query performance and identify slow queries",
             "enabled": "Enable profiling",
+            "enabledDescription": "Collect performance metrics for executed queries",
             "slowQueryThreshold": "Slow query threshold (ms)",
             "slowQueryThresholdDescription": "Queries exceeding this time are flagged as slow",
+            "maxSlowQueries": "Maximum slow queries",
+            "maxSlowQueriesDescription": "Keep the most recent slow queries up to this limit",
             "collectStats": "Collect execution statistics",
             "viewMetrics": "View Metrics",
             "viewSlowQueries": "View Slow Queries",
             "resetMetrics": "Reset Metrics",
             "noSlowQueries": "No slow queries detected",
+            "noData": "No data available",
+            "loadError": "Failed to load profiling data",
+            "resetConfirm": "Reset all profiling metrics? This cannot be undone.",
+            "actions": {
+                "refresh": "Refresh",
+                "export": "Export",
+                "reset": "Reset"
+            },
+            "tabs": {
+                "overview": "Overview",
+                "slowQueries": "Slow Queries ({{count}})"
+            },
             "metrics": {
+                "totalQueries": "Total Queries",
                 "avgTime": "Avg execution time",
                 "maxTime": "Max execution time",
                 "p50": "P50 latency",
@@ -805,12 +857,27 @@
                 "p99": "P99 latency",
                 "slowCount": "Slow queries",
                 "successRate": "Success rate"
-            }
+            },
+            "latency": {
+                "title": "Latency Distribution",
+                "p50": "P50 (Median)",
+                "p95": "P95",
+                "p99": "P99",
+                "max": "Max"
+            },
+            "operations": {
+                "title": "Operations Breakdown"
+            },
+            "environments": {
+                "title": "By Environment"
+            },
+            "period": "Data collected from {{date}}"
         },
         "safety": {
             "title": "Safety Net",
             "description": "Prevent dangerous queries from executing",
             "enabled": "Enable safety checks",
+            "enabledDescription": "Apply safety rules before executing queries",
             "blockDangerousInProd": "Block dangerous queries in production",
             "blockDangerousInProdDescription": "Automatically block DROP, TRUNCATE, and DELETE/UPDATE without WHERE in production",
             "requireConfirmation": "Require confirmation for mutations",
@@ -819,12 +886,34 @@
             "blockDropDatabaseDescription": "Prevent DROP DATABASE in all environments",
             "blockTruncateInProd": "Block TRUNCATE in production",
             "blockTruncateInProdDescription": "Prevent TRUNCATE TABLE in production environments",
+            "builtinRules": "Built-in Rules",
             "customRules": "Custom Rules",
             "addRule": "Add Rule",
             "editRule": "Edit Rule",
             "deleteRule": "Delete Rule",
             "deleteRuleConfirm": "Delete this safety rule?",
             "noRules": "No custom safety rules",
+            "builtinRuleNames": {
+                "builtin-no-drop-production": "Block DROP in Production",
+                "builtin-no-truncate-production": "Block TRUNCATE in Production",
+                "builtin-confirm-delete-production": "Confirm DELETE in Production",
+                "builtin-confirm-update-no-where": "Confirm UPDATE without WHERE",
+                "builtin-confirm-delete-no-where": "Confirm DELETE without WHERE",
+                "builtin-warn-alter-production": "Warn ALTER in Production"
+            },
+            "builtinRuleDescriptions": {
+                "builtin-no-drop-production": "Prevents DROP statements in production environments",
+                "builtin-no-truncate-production": "Prevents TRUNCATE statements in production environments",
+                "builtin-confirm-delete-production": "Requires confirmation for DELETE statements in production",
+                "builtin-confirm-update-no-where": "Requires confirmation for UPDATE statements without WHERE clause",
+                "builtin-confirm-delete-no-where": "Requires confirmation for DELETE statements without WHERE clause",
+                "builtin-warn-alter-production": "Warns before ALTER statements in production"
+            },
+            "action": {
+                "block": "Block",
+                "warn": "Warn",
+                "confirm": "Require confirmation"
+            },
             "ruleFields": {
                 "name": "Rule name",
                 "description": "Description",

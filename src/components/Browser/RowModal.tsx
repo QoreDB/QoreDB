@@ -25,6 +25,7 @@ import { RowModalCustomFields } from './RowModalCustomFields';
 import { RowModalSchemaFields } from './RowModalSchemaFields';
 import { RowModalExtraFields } from './RowModalExtraFields';
 import { RowModalUpdatePreview } from './RowModalUpdatePreview';
+import { DangerConfirmDialog } from '@/components/Guard/DangerConfirmDialog';
 import {
   buildColumnsData,
   buildInitialRowModalState,
@@ -41,6 +42,9 @@ interface RowModalProps {
   tableName: string;
   schema: TableSchema;
   driver?: Driver;
+  environment?: 'development' | 'staging' | 'production';
+  connectionName?: string;
+  connectionDatabase?: string;
 
   readOnly?: boolean;
   initialData?: Record<string, Value>;
@@ -60,6 +64,9 @@ export function RowModal({
   tableName,
   schema,
   driver,
+  environment = 'development',
+  connectionName,
+  connectionDatabase,
   readOnly = false,
   initialData,
   onSuccess,
@@ -72,6 +79,8 @@ export function RowModal({
 	const [formData, setFormData] = useState<Record<string, string>>({});
 	const [nulls, setNulls] = useState<Record<string, boolean>>({});
   const [previewError, setPreviewError] = useState<string | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [pendingAction, setPendingAction] = useState<null | (() => Promise<void>)>(null);
 
   // Dynamic fields for NoSQL
   const [extraColumns, setExtraColumns] = useState<TableColumn[]>([]);
@@ -79,6 +88,11 @@ export function RowModal({
   const [newFieldType, setNewFieldType] = useState("string");
 
   const effectiveColumns = [...schema.columns, ...extraColumns];
+  const confirmationLabel = (connectionDatabase || connectionName || 'PROD').trim() || 'PROD';
+  const mutationDescription =
+    mode === 'insert'
+      ? t('environment.mutationConfirmInsert', { table: tableName })
+      : t('environment.mutationConfirmUpdate', { table: tableName });
 
   // Initialize form data
   useEffect(() => {
@@ -204,71 +218,92 @@ export function RowModal({
         }
       }
 
-      // Real database operations
-      setLoading(true);
+      if (environment !== 'development') {
+        setPendingAction(() => () => handleSubmitConfirmed(columnsData, true));
+        setConfirmOpen(true);
+        return;
+      }
 
-      const data: TauriRowData = { columns: columnsData };
-
-			if (mode === "insert") {
-				const res = await insertRow(
-					sessionId,
-					namespace.database,
-					namespace.schema,
-					tableName,
-					data
-				);
-				if (res.success) {
-					const timeMsg = res.result?.execution_time_ms
-						? ` (${res.result.execution_time_ms.toFixed(2)}ms)`
-						: "";
-					notify.success(t("rowModal.insertSuccess") + timeMsg);
-					onSuccess();
-					onClose();
-				} else {
-					notify.error(t("rowModal.insertError"), res.error);
-				}
-			} else {
-				// Update
-				// Construct Primary Key
-				const pkData: TauriRowData = { columns: {} };
-				if (!schema.primary_key || schema.primary_key.length === 0) {
-					throw new Error("No primary key found for update");
-				}
-
-				schema.primary_key.forEach((pk) => {
-					// Use initial data for PK components to identify the row
-					const val = initialData?.[pk];
-					pkData.columns[pk] = val ?? null;
-				});
-
-				const res = await updateRow(
-					sessionId,
-					namespace.database,
-					namespace.schema,
-					tableName,
-					pkData,
-					data
-				);
-				if (res.success) {
-					const timeMsg = res.result?.execution_time_ms
-						? ` (${res.result.execution_time_ms.toFixed(2)}ms)`
-						: "";
-					notify.success(t("rowModal.updateSuccess") + timeMsg);
-					onSuccess();
-					onClose();
-				} else {
-					notify.error(t("rowModal.updateError"), res.error);
-				}
-			}
+      await handleSubmitConfirmed(columnsData, false);
 		} catch (err) {
 			console.error(err);
 			const message = err instanceof Error ? err.message : "Operation failed";
 			setPreviewError(message);
 			notify.error(message, err);
-		} finally {
-			setLoading(false);
 		}
 	};
+
+  const handleSubmitConfirmed = async (
+    columnsData: Record<string, Value>,
+    acknowledgedDangerous: boolean
+  ) => {
+    setLoading(true);
+
+    const data: TauriRowData = { columns: columnsData };
+
+    try {
+      if (mode === "insert") {
+        const res = await insertRow(
+          sessionId,
+          namespace.database,
+          namespace.schema,
+          tableName,
+          data,
+          acknowledgedDangerous
+        );
+        if (res.success) {
+          const timeMsg = res.result?.execution_time_ms
+            ? ` (${res.result.execution_time_ms.toFixed(2)}ms)`
+            : "";
+          notify.success(t("rowModal.insertSuccess") + timeMsg);
+          onSuccess();
+          onClose();
+        } else {
+          notify.error(t("rowModal.insertError"), res.error);
+        }
+      } else {
+        // Update
+        // Construct Primary Key
+        const pkData: TauriRowData = { columns: {} };
+        if (!schema.primary_key || schema.primary_key.length === 0) {
+          throw new Error("No primary key found for update");
+        }
+
+        schema.primary_key.forEach((pk) => {
+          // Use initial data for PK components to identify the row
+          const val = initialData?.[pk];
+          pkData.columns[pk] = val ?? null;
+        });
+
+        const res = await updateRow(
+          sessionId,
+          namespace.database,
+          namespace.schema,
+          tableName,
+          pkData,
+          data,
+          acknowledgedDangerous
+        );
+        if (res.success) {
+          const timeMsg = res.result?.execution_time_ms
+            ? ` (${res.result.execution_time_ms.toFixed(2)}ms)`
+            : "";
+          notify.success(t("rowModal.updateSuccess") + timeMsg);
+          onSuccess();
+          onClose();
+        } else {
+          notify.error(t("rowModal.updateError"), res.error);
+        }
+      }
+    } catch (err) {
+      console.error(err);
+      const message = err instanceof Error ? err.message : "Operation failed";
+      setPreviewError(message);
+      notify.error(message, err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
 	const preview = computePreview({
     mode,
@@ -287,8 +322,9 @@ export function RowModal({
 			: preview.changes.length === 0;
 
 	return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
+    <>
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {mode === 'insert'
@@ -359,7 +395,30 @@ export function RowModal({
             </Button>
           </DialogFooter>
         </form>
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+
+      <DangerConfirmDialog
+        open={confirmOpen}
+        onOpenChange={(open) => {
+          setConfirmOpen(open);
+          if (!open) {
+            setPendingAction(null);
+          }
+        }}
+        title={t('environment.mutationConfirmTitle')}
+        description={mutationDescription}
+        confirmationLabel={environment === 'production' ? confirmationLabel : undefined}
+        confirmLabel={t('common.confirm')}
+        loading={loading}
+        onConfirm={() => {
+          const action = pendingAction;
+          setPendingAction(null);
+          if (action) {
+            void action();
+          }
+        }}
+      />
+    </>
   );
 }

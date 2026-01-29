@@ -59,6 +59,7 @@ pub async fn insert_row(
     schema: Option<String>,
     table: String,
     data: RowData,
+    acknowledged_dangerous: Option<bool>,
 ) -> Result<MutationResponse, String> {
     let (session_manager, interceptor) = {
         let state = state.lock().await;
@@ -69,11 +70,11 @@ pub async fn insert_row(
     };
     let session = parse_session_id(&session_id)?;
 
-    if session_manager
+    let read_only = session_manager
         .is_read_only(session)
         .await
-        .map_err(|e| e.to_string())?
-    {
+        .map_err(|e| e.to_string())?;
+    if read_only {
         return Ok(MutationResponse {
             success: false,
             result: None,
@@ -102,13 +103,14 @@ pub async fn insert_row(
         format_table_ref(&database, &schema, &table)
     );
 
+    let acknowledged = acknowledged_dangerous.unwrap_or(false);
     let interceptor_context = interceptor.build_context(
         &session_id,
         &query_preview,
         driver.driver_id(),
         interceptor_env,
-        false,
-        true,
+        read_only,
+        acknowledged,
         Some(&database),
         None,
         true,
@@ -221,6 +223,7 @@ pub async fn update_row(
     table: String,
     primary_key: RowData,
     data: RowData,
+    acknowledged_dangerous: Option<bool>,
 ) -> Result<MutationResponse, String> {
     let (session_manager, interceptor) = {
         let state = state.lock().await;
@@ -231,11 +234,11 @@ pub async fn update_row(
     };
     let session = parse_session_id(&session_id)?;
 
-    if session_manager
+    let read_only = session_manager
         .is_read_only(session)
         .await
-        .map_err(|e| e.to_string())?
-    {
+        .map_err(|e| e.to_string())?;
+    if read_only {
         return Ok(MutationResponse {
             success: false,
             result: None,
@@ -264,13 +267,14 @@ pub async fn update_row(
         format_table_ref(&database, &schema, &table)
     );
 
+    let acknowledged = acknowledged_dangerous.unwrap_or(false);
     let interceptor_context = interceptor.build_context(
         &session_id,
         &query_preview,
         driver.driver_id(),
         interceptor_env,
-        false,
-        true,
+        read_only,
+        acknowledged,
         Some(&database),
         None,
         true,
@@ -382,6 +386,7 @@ pub async fn delete_row(
     schema: Option<String>,
     table: String,
     primary_key: RowData,
+    acknowledged_dangerous: Option<bool>,
 ) -> Result<MutationResponse, String> {
     let (session_manager, interceptor) = {
         let state = state.lock().await;
@@ -392,11 +397,11 @@ pub async fn delete_row(
     };
     let session = parse_session_id(&session_id)?;
 
-    if session_manager
+    let read_only = session_manager
         .is_read_only(session)
         .await
-        .map_err(|e| e.to_string())?
-    {
+        .map_err(|e| e.to_string())?;
+    if read_only {
         return Ok(MutationResponse {
             success: false,
             result: None,
@@ -425,13 +430,14 @@ pub async fn delete_row(
         format_table_ref(&database, &schema, &table)
     );
 
+    let acknowledged = acknowledged_dangerous.unwrap_or(false);
     let interceptor_context = interceptor.build_context(
         &session_id,
         &query_preview,
         driver.driver_id(),
         interceptor_env,
-        false,
-        true,
+        read_only,
+        acknowledged,
         Some(&database),
         None,
         true,

@@ -535,7 +535,10 @@
         "dangerousQuery": "Cette requête peut causer une perte de données",
         "dangerousQueryTitle": "Requête dangereuse",
         "dangerousQueryTarget": "Cible : {{target}}",
-        "blocked": "Opération bloquée : mode lecture seule"
+        "blocked": "Opération bloquée : mode lecture seule",
+        "mutationConfirmTitle": "Confirmer la modification des données",
+        "mutationConfirmInsert": "Vous êtes sur le point d'insérer une nouvelle ligne dans {{table}}.",
+        "mutationConfirmUpdate": "Vous êtes sur le point de modifier des données dans {{table}}."
     },
     "status": {
         "connected": "Connecté",
@@ -753,9 +756,11 @@
             "title": "Journal d'audit",
             "description": "Suivre toutes les exécutions de requêtes pour la conformité et le débogage",
             "enabled": "Activer le journal d'audit",
+            "enabledDescription": "Conserver une trace locale de chaque requête",
             "redactQueries": "Masquer les valeurs sensibles",
             "redactQueriesDescription": "Remplacer les littéraux dans les requêtes journalisées par des placeholders",
             "maxEntries": "Nombre maximum d'entrées",
+            "maxEntriesDescription": "Les entrées les plus anciennes sont supprimées après la limite",
             "logSuccess": "Journaliser les requêtes réussies",
             "logFailures": "Journaliser les requêtes échouées",
             "logBlocked": "Journaliser les requêtes bloquées",
@@ -765,26 +770,73 @@
             "clearLog": "Effacer le journal",
             "clearConfirm": "Effacer toutes les entrées du journal d'audit ? Cette action est irréversible.",
             "noEntries": "Aucune entrée dans le journal d'audit",
+            "blockedBy": "Bloqué par : {{rule}}",
+            "filters": {
+                "environment": "Environnement",
+                "allEnvironments": "Tous les environnements",
+                "status": "Statut",
+                "all": "Tous"
+            },
+            "status": {
+                "success": "Succès",
+                "failed": "Échec",
+                "blocked": "Bloquée"
+            },
+            "time": {
+                "justNow": "À l'instant",
+                "minutesAgo": "il y a {{count}}m",
+                "hoursAgo": "il y a {{count}}h",
+                "daysAgo": "il y a {{count}}j"
+            },
+            "pagination": "Page {{page}} ({{count}} entrées)",
+            "detail": {
+                "title": "Détails de la requête",
+                "query": "Requête",
+                "timestamp": "Horodatage",
+                "sessionId": "ID de session",
+                "database": "Base de données",
+                "executionTime": "Temps d'exécution",
+                "rowCount": "Nombre de lignes",
+                "blockedBy": "Bloquée par une règle de sécurité",
+                "error": "Erreur"
+            },
             "stats": {
                 "total": "Total des requêtes",
                 "executed": "Exécutées",
                 "blocked": "Bloquées",
                 "success": "Réussies",
-                "failed": "Échouées"
+                "failed": "Échouées",
+                "lastHour": "Dernière heure"
             }
         },
         "profiling": {
             "title": "Profilage des requêtes",
             "description": "Surveiller les performances des requêtes et identifier les requêtes lentes",
             "enabled": "Activer le profilage",
+            "enabledDescription": "Collecter des métriques de performance pour les requêtes exécutées",
             "slowQueryThreshold": "Seuil de requête lente (ms)",
             "slowQueryThresholdDescription": "Les requêtes dépassant ce temps sont signalées comme lentes",
+            "maxSlowQueries": "Nombre maximum de requêtes lentes",
+            "maxSlowQueriesDescription": "Conserver les requêtes lentes les plus récentes jusqu'à cette limite",
             "collectStats": "Collecter les statistiques d'exécution",
             "viewMetrics": "Voir les métriques",
             "viewSlowQueries": "Voir les requêtes lentes",
             "resetMetrics": "Réinitialiser les métriques",
             "noSlowQueries": "Aucune requête lente détectée",
+            "noData": "Aucune donnée disponible",
+            "loadError": "Échec du chargement des données de profilage",
+            "resetConfirm": "Réinitialiser toutes les métriques de profilage ? Cette action est irréversible.",
+            "actions": {
+                "refresh": "Rafraîchir",
+                "export": "Exporter",
+                "reset": "Réinitialiser"
+            },
+            "tabs": {
+                "overview": "Vue d'ensemble",
+                "slowQueries": "Requêtes lentes ({{count}})"
+            },
             "metrics": {
+                "totalQueries": "Total des requêtes",
                 "avgTime": "Temps moyen d'exécution",
                 "maxTime": "Temps maximum d'exécution",
                 "p50": "Latence P50",
@@ -792,12 +844,27 @@
                 "p99": "Latence P99",
                 "slowCount": "Requêtes lentes",
                 "successRate": "Taux de réussite"
-            }
+            },
+            "latency": {
+                "title": "Distribution des latences",
+                "p50": "P50 (médiane)",
+                "p95": "P95",
+                "p99": "P99",
+                "max": "Max"
+            },
+            "operations": {
+                "title": "Répartition des opérations"
+            },
+            "environments": {
+                "title": "Par environnement"
+            },
+            "period": "Données collectées depuis {{date}}"
         },
         "safety": {
             "title": "Filet de sécurité",
             "description": "Empêcher l'exécution des requêtes dangereuses",
             "enabled": "Activer les vérifications de sécurité",
+            "enabledDescription": "Appliquer les règles de sécurité avant l'exécution des requêtes",
             "blockDangerousInProd": "Bloquer les requêtes dangereuses en production",
             "blockDangerousInProdDescription": "Bloquer automatiquement DROP, TRUNCATE et DELETE/UPDATE sans WHERE en production",
             "requireConfirmation": "Exiger une confirmation pour les mutations",
@@ -806,12 +873,34 @@
             "blockDropDatabaseDescription": "Empêcher DROP DATABASE dans tous les environnements",
             "blockTruncateInProd": "Bloquer TRUNCATE en production",
             "blockTruncateInProdDescription": "Empêcher TRUNCATE TABLE dans les environnements de production",
+            "builtinRules": "Règles intégrées",
             "customRules": "Règles personnalisées",
             "addRule": "Ajouter une règle",
             "editRule": "Modifier la règle",
             "deleteRule": "Supprimer la règle",
             "deleteRuleConfirm": "Supprimer cette règle de sécurité ?",
             "noRules": "Aucune règle de sécurité personnalisée",
+            "builtinRuleNames": {
+                "builtin-no-drop-production": "Bloquer DROP en production",
+                "builtin-no-truncate-production": "Bloquer TRUNCATE en production",
+                "builtin-confirm-delete-production": "Confirmer DELETE en production",
+                "builtin-confirm-update-no-where": "Confirmer UPDATE sans WHERE",
+                "builtin-confirm-delete-no-where": "Confirmer DELETE sans WHERE",
+                "builtin-warn-alter-production": "Avertir ALTER en production"
+            },
+            "builtinRuleDescriptions": {
+                "builtin-no-drop-production": "Empêche les instructions DROP en environnement de production",
+                "builtin-no-truncate-production": "Empêche les instructions TRUNCATE en environnement de production",
+                "builtin-confirm-delete-production": "Exige une confirmation pour les DELETE en production",
+                "builtin-confirm-update-no-where": "Exige une confirmation pour les UPDATE sans clause WHERE",
+                "builtin-confirm-delete-no-where": "Exige une confirmation pour les DELETE sans clause WHERE",
+                "builtin-warn-alter-production": "Avertit avant les instructions ALTER en production"
+            },
+            "action": {
+                "block": "Bloquer",
+                "warn": "Avertir",
+                "confirm": "Exiger une confirmation"
+            },
             "ruleFields": {
                 "name": "Nom de la règle",
                 "description": "Description",

@@ -17,6 +17,7 @@ use sqlx::mysql::{MySql, MySqlConnectOptions, MySqlPool, MySqlPoolOptions, MySql
 use sqlx::pool::PoolConnection;
 use sqlx::{Column, Executor, Row, TypeInfo};
 use tokio::sync::{Mutex, RwLock};
+use uuid::Uuid;
 
 use crate::engine::error::{EngineError, EngineResult};
 use crate::engine::sql_safety;
@@ -190,6 +191,9 @@ impl MySqlDriver {
         }
         if let Ok(v) = row.try_get::<Option<f32>, _>(idx) {
             return v.map(|f| Value::Float(f as f64)).unwrap_or(Value::Null);
+        }
+        if let Ok(v) = row.try_get::<Option<Uuid>, _>(idx) {
+            return v.map(|u| Value::Text(u.to_string())).unwrap_or(Value::Null);
         }
         if let Ok(v) = row.try_get::<Option<Decimal>, _>(idx) {
             return v.map(|d| {

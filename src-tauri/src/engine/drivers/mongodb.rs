@@ -800,6 +800,32 @@ impl DataEngine for MongoDriver {
             }
         }
 
+        // Handle search across string fields
+        if let Some(ref search_term) = options.search {
+            if !search_term.trim().is_empty() {
+                // Sample one document to discover string fields
+                let sample_doc = collection.find_one(doc! {}).await
+                    .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+                let mut search_conditions: Vec<Document> = Vec::new();
+                
+                if let Some(doc) = sample_doc {
+                    for (key, value) in doc.iter() {
+                        // Only search string fields
+                        if matches!(value, mongodb::bson::Bson::String(_)) {
+                            search_conditions.push(doc! {
+                                key: { "$regex": search_term.as_str(), "$options": "i" }
+                            });
+                        }
+                    }
+                }
+
+                if !search_conditions.is_empty() {
+                    filter_doc.insert("$or", search_conditions);
+                }
+            }
+        }
+
         // Get total count with filters
         let total_rows = collection
             .count_documents(filter_doc.clone())

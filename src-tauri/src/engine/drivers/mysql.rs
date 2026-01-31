@@ -975,6 +975,54 @@ impl DataEngine for MySqlDriver {
             }
         }
 
+        // Handle search across text columns
+        if let Some(ref search_term) = options.search {
+            if !search_term.trim().is_empty() {
+                // Get column info to find text columns
+                let columns_sql = "SELECT COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?";
+                let columns_rows: Vec<MySqlRow> = {
+                    let mut tx_guard = mysql_session.transaction_conn.lock().await;
+                    if let Some(ref mut conn) = *tx_guard {
+                        sqlx::query(columns_sql)
+                            .bind(&namespace.database)
+                            .bind(table)
+                            .fetch_all(&mut **conn)
+                            .await
+                    } else {
+                        sqlx::query(columns_sql)
+                            .bind(&namespace.database)
+                            .bind(table)
+                            .fetch_all(&mysql_session.pool)
+                            .await
+                    }
+                }
+                .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+                let mut search_clauses: Vec<String> = Vec::new();
+                for col_row in &columns_rows {
+                    let col_name: String = col_row.try_get("COLUMN_NAME")
+                        .map_err(|e| EngineError::execution_error(e.to_string()))?;
+                    let data_type: String = col_row.try_get("DATA_TYPE")
+                        .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+                    // Only search text-like columns
+                    let is_text = matches!(data_type.to_lowercase().as_str(),
+                        "varchar" | "char" | "text" | "tinytext" | "mediumtext" | "longtext" | "enum" | "set"
+                    );
+
+                    if is_text {
+                        let col_ident = Self::quote_ident(&col_name);
+                        bind_values.push(Value::Text(format!("%{}%", search_term)));
+                        search_clauses.push(format!("{} LIKE ?", col_ident));
+                    }
+                }
+
+                if !search_clauses.is_empty() {
+                    where_clauses.push(format!("({})", search_clauses.join(" OR ")));
+                }
+            }
+        }
+
         let where_sql = if where_clauses.is_empty() {
             String::new()
         } else {

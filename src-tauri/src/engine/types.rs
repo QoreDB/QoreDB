@@ -435,6 +435,8 @@ pub struct TableQueryOptions {
     pub sort_direction: Option<SortDirection>,
     /// Column filters
     pub filters: Option<Vec<ColumnFilter>>,
+    /// Full-text search term (searches all string columns)
+    pub search: Option<String>,
 }
 
 impl TableQueryOptions {

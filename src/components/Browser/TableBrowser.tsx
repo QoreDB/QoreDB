@@ -148,6 +148,23 @@ export function TableBrowser({
   const [pageSize, setPageSize] = useState(50);
   const [totalRows, setTotalRows] = useState(0);
 
+  // Search state
+  const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+
+  // Debounce search term
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  // Reset page when search changes
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearchTerm]);
+
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<'insert' | 'update'>('insert');
@@ -299,8 +316,9 @@ export function TableBrowser({
       } else {
         // Use queryTable with pagination
         const options: TableQueryOptions = {
-          page,
+          page: !relationFilter ? page : 1, // Reset page for relation preview if needed, but mostly use browser state
           page_size: pageSize,
+          search: debouncedSearchTerm,
         };
 
         const [cachedSchema, dataResult] = await Promise.all([
@@ -352,7 +370,7 @@ export function TableBrowser({
     } finally {
       setLoading(false);
     }
-  }, [relationFilter, sessionId, namespace, tableName, schemaCache, error, driver, page, pageSize]);
+  }, [relationFilter, sessionId, namespace, tableName, schemaCache, error, driver, page, pageSize, debouncedSearchTerm]);
 
   useEffect(() => {
     loadData();
@@ -714,6 +732,8 @@ export function TableBrowser({
             serverSidePageSize={!relationFilter ? pageSize : undefined}
             onServerPageChange={!relationFilter ? setPage : undefined}
             onServerPageSizeChange={!relationFilter ? setPageSize : undefined}
+            serverSearchTerm={!relationFilter ? searchTerm : undefined}
+            onServerSearchChange={!relationFilter ? setSearchTerm : undefined}
             onRowClick={row => {
               if (readOnly) {
                 toast.error(t('environment.blocked'));

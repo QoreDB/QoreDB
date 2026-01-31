@@ -147,6 +147,38 @@ export type Row = { values: Value[] };
 export type Value = null | boolean | number | string | object;
 
 // ============================================
+// CONNECTION URL PARSING
+// ============================================
+
+export type ParseErrorCode = 'invalid_url' | 'unsupported_scheme' | 'missing_host' | 'invalid_port' | 'invalid_utf8';
+
+export interface PartialConnectionConfig {
+  driver?: string;
+  host?: string;
+  port?: number;
+  username?: string;
+  password?: string;
+  database?: string;
+  ssl?: boolean;
+  options: Record<string, string>;
+}
+
+export interface ParseConnectionUrlResponse {
+  success: boolean;
+  config?: PartialConnectionConfig;
+  error?: string;
+  error_code?: ParseErrorCode;
+}
+
+export async function parseConnectionUrl(url: string): Promise<ParseConnectionUrlResponse> {
+  return invoke('parse_url', { url });
+}
+
+export async function getSupportedUrlSchemes(): Promise<string[]> {
+  return invoke('get_supported_url_schemes');
+}
+
+// ============================================
 // CONNECTION COMMANDS
 // ============================================
 

@@ -65,6 +65,7 @@
         "poolAcquireTimeout": "Acquire (s)",
         "advanced": "Advanced settings",
         "advancedHint": "SSL, DB, SSH…",
+        "advancedHintUrlMode": "Pool, SSH…",
         "cancel": "Cancel",
         "test": "Test",
         "saveChanges": "Save Changes",
@@ -90,6 +91,17 @@
       "deleteFail": "Failed to delete connection",
       "credentialLoadFail": "Failed to load connection details",
       "testTitleSuccess": "Connection to {{name}} successful!"
+        },
+        "url": {
+            "useUrl": "Connect using URL/DSN",
+            "label": "Connection URL",
+            "parse": "Parse",
+            "parseError": "Failed to parse connection URL",
+            "parseSuccess": "URL parsed successfully",
+            "parsed": "Parsed",
+            "supportedSchemes": "Supported: postgres://, postgresql://, mysql://, mongodb://, mongodb+srv://",
+            "overrideInfo": "You can override any field below. URL-derived values will be used as defaults.",
+            "pressParseHint": "Press Parse to extract connection details"
         },
         "ssh": {
             "enableTunnel": "Use SSH Tunnel",

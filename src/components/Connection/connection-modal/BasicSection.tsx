@@ -9,11 +9,14 @@ import { ENVIRONMENT_CONFIG } from "@/lib/environment";
 
 import type { ConnectionFormData } from "./types";
 
-export function BasicSection(props: {
+interface BasicSectionProps {
 	formData: ConnectionFormData;
 	onChange: (field: keyof ConnectionFormData, value: string | number | boolean) => void;
-}) {
-	const { formData, onChange } = props;
+	/** Hide host/port/username/password fields (used when URL mode provides these) */
+	hideConnectionFields?: boolean;
+}
+
+export function BasicSection({ formData, onChange, hideConnectionFields = false }: BasicSectionProps) {
 	const { t } = useTranslation();
 
 	return (
@@ -50,8 +53,6 @@ export function BasicSection(props: {
                       ? {
                           backgroundColor: config.bgSoft,
                           color: config.color,
-                          borderColor: config.color, // Actually used if border-transparent is overridden, but here explicit style usually wins if needed. 
-                          // Better: use style only for colors, class for structure.
                           border: `2px solid ${config.color}`,
                         }
                       : undefined
@@ -87,50 +88,55 @@ export function BasicSection(props: {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
-        <div className="col-span-2 space-y-2">
-          <Label>
-            {t('connection.host')} <span className="text-error">*</span>
-          </Label>
-          <Input
-            placeholder="localhost"
-            value={formData.host}
-            onChange={e => onChange('host', e.target.value)}
-          />
-        </div>
-        <div className="space-y-2">
-          <Label>{t('connection.port')}</Label>
-          <Input
-            type="number"
-            value={formData.port}
-            onChange={e => onChange('port', parseInt(e.target.value) || 0)}
-          />
-        </div>
-      </div>
+      {/* Connection fields - hidden when URL mode provides them */}
+      {!hideConnectionFields && (
+        <>
+          <div className="grid grid-cols-3 gap-4">
+            <div className="col-span-2 space-y-2">
+              <Label>
+                {t('connection.host')} <span className="text-error">*</span>
+              </Label>
+              <Input
+                placeholder="localhost"
+                value={formData.host}
+                onChange={e => onChange('host', e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>{t('connection.port')}</Label>
+              <Input
+                type="number"
+                value={formData.port}
+                onChange={e => onChange('port', parseInt(e.target.value) || 0)}
+              />
+            </div>
+          </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label>
-            {t('connection.username')} <span className="text-error">*</span>
-          </Label>
-          <Input
-            placeholder="user"
-            value={formData.username}
-            onChange={e => onChange('username', e.target.value)}
-          />
-        </div>
-        <div className="space-y-2">
-          <Label>
-            {t('connection.password')} <span className="text-error">*</span>
-          </Label>
-          <Input
-            type="password"
-            placeholder="••••••••"
-            value={formData.password}
-            onChange={e => onChange('password', e.target.value)}
-          />
-        </div>
-      </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>
+                {t('connection.username')} <span className="text-error">*</span>
+              </Label>
+              <Input
+                placeholder="user"
+                value={formData.username}
+                onChange={e => onChange('username', e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>
+                {t('connection.password')} <span className="text-error">*</span>
+              </Label>
+              <Input
+                type="password"
+                placeholder="••••••••"
+                value={formData.password}
+                onChange={e => onChange('password', e.target.value)}
+              />
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

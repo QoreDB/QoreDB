@@ -10,7 +10,8 @@
       "Bash(pnpm tsc:*)",
       "Bash(npm run build)",
       "Bash(tree:*)",
-      "Bash(pnpm build:*)"
+      "Bash(pnpm build:*)",
+      "Bash(cargo test:*)"
     ]
   }
 }

@@ -147,6 +147,38 @@ export type Row = { values: Value[] };
 export type Value = null | boolean | number | string | object;
 
 // ============================================
+// CONNECTION URL PARSING
+// ============================================
+
+export type ParseErrorCode = 'invalid_url' | 'unsupported_scheme' | 'missing_host' | 'invalid_port' | 'invalid_utf8';
+
+export interface PartialConnectionConfig {
+  driver?: string;
+  host?: string;
+  port?: number;
+  username?: string;
+  password?: string;
+  database?: string;
+  ssl?: boolean;
+  options: Record<string, string>;
+}
+
+export interface ParseConnectionUrlResponse {
+  success: boolean;
+  config?: PartialConnectionConfig;
+  error?: string;
+  error_code?: ParseErrorCode;
+}
+
+export async function parseConnectionUrl(url: string): Promise<ParseConnectionUrlResponse> {
+  return invoke('parse_url', { url });
+}
+
+export async function getSupportedUrlSchemes(): Promise<string[]> {
+  return invoke('get_supported_url_schemes');
+}
+
+// ============================================
 // CONNECTION COMMANDS
 // ============================================
 
@@ -362,6 +394,50 @@ export async function previewTable(
 }> {
   return invoke('preview_table', { sessionId, namespace, table, limit });
 }
+
+// ============================================
+// PAGINATION TYPES AND QUERY
+// ============================================
+
+export type SortDirection = 'asc' | 'desc';
+
+export type FilterOperator = 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'like' | 'is_null' | 'is_not_null';
+
+export interface ColumnFilter {
+  column: string;
+  operator: FilterOperator;
+  value: Value;
+}
+
+export interface TableQueryOptions {
+  page?: number;
+  page_size?: number;
+  sort_column?: string;
+  sort_direction?: SortDirection;
+  filters?: ColumnFilter[];
+  search?: string;
+}
+
+export interface PaginatedQueryResult {
+  result: QueryResult;
+  total_rows: number;
+  page: number;
+  page_size: number;
+}
+
+export async function queryTable(
+  sessionId: string,
+  namespace: Namespace,
+  table: string,
+  options: TableQueryOptions = {}
+): Promise<{
+  success: boolean;
+  result?: PaginatedQueryResult;
+  error?: string;
+}> {
+  return invoke('query_table', { sessionId, namespace, table, options });
+}
+
 
 export async function peekForeignKey(
   sessionId: string,

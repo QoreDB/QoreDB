@@ -1,6 +1,7 @@
 // Tauri Commands Module
 
 pub mod connection;
+pub mod connection_url;
 pub mod driver;
 pub mod fulltext_search;
 pub mod interceptor;

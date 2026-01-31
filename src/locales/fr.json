@@ -70,6 +70,7 @@
         "poolAcquireTimeout": "Acquisition (s)",
         "advanced": "Paramètres avancés",
         "advancedHint": "SSL, DB, SSH…",
+        "advancedHintUrlMode": "Pool, SSH…",
         "cancel": "Annuler",
         "test": "Tester",
         "saveChanges": "Enregistrer",
@@ -95,6 +96,17 @@
       "deleteFail": "Échec de la suppression de la connexion",
       "credentialLoadFail": "Échec du chargement des détails de la connexion",
       "testTitleSuccess": "Connexion à {{name}} réussie !"
+        },
+        "url": {
+            "useUrl": "Se connecter via URL/DSN",
+            "label": "URL de connexion",
+            "parse": "Parser",
+            "parseError": "Échec du parsing de l'URL de connexion",
+            "parseSuccess": "URL parsée avec succès",
+            "parsed": "Extrait",
+            "supportedSchemes": "Supportés : postgres://, postgresql://, mysql://, mongodb://, mongodb+srv://",
+            "overrideInfo": "Vous pouvez modifier les champs ci-dessous. Les valeurs extraites de l'URL serviront de valeurs par défaut.",
+            "pressParseHint": "Appuyez sur Parser pour extraire les détails de connexion"
         },
         "ssh": {
             "enableTunnel": "Utiliser un tunnel SSH",
@@ -448,6 +460,7 @@
         "page": "Page",
         "of": "sur",
         "rowsPerPage": "Lignes par page",
+        "totalRows": "lignes au total",
         "firstPage": "Première page",
         "previousPage": "Page précédente",
         "nextPage": "Page suivante",

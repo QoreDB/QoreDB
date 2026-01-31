@@ -4,7 +4,8 @@ import {
   Namespace,
   TableSchema,
   QueryResult,
-  previewTable,
+  queryTable,
+  TableQueryOptions,
   executeQuery,
   Environment,
   DriverCapabilities,
@@ -142,6 +143,28 @@ export function TableBrowser({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Pagination state
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
+  const [totalRows, setTotalRows] = useState(0);
+
+  // Search state
+  const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+
+  // Debounce search term
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  // Reset page when search changes
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearchTerm]);
+
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<'insert' | 'update'>('insert');
@@ -252,58 +275,102 @@ export function TableBrowser({
 
     try {
       const startTime = performance.now();
-      // Load schema from cache, data fresh
-      const dataPromise = relationFilter
-        ? peekForeignKey(sessionId, namespace, relationFilter.foreignKey, relationFilter.value, 100)
-        : previewTable(sessionId, namespace, tableName, 100);
+      
+      // For relation filters, use previewTable (limited view)
+      // For normal table view, use queryTable with pagination
+      if (relationFilter) {
+        const [cachedSchema, dataResult] = await Promise.all([
+          schemaCache.getTableSchema(namespace, tableName),
+          peekForeignKey(sessionId, namespace, relationFilter.foreignKey, relationFilter.value, 100),
+        ]);
+        const endTime = performance.now();
+        const totalTime = endTime - startTime;
 
-      const [cachedSchema, dataResult] = await Promise.all([
-        schemaCache.getTableSchema(namespace, tableName),
-        dataPromise,
-      ]);
-      const endTime = performance.now();
-      const totalTime = endTime - startTime;
+        if (cachedSchema) {
+          setSchema(cachedSchema);
+        } else {
+          setError('Failed to load table schema');
+        }
 
-      if (cachedSchema) {
-        setSchema(cachedSchema);
+        if (dataResult.success && dataResult.result) {
+          const hydratedResult: QueryResult = {
+            ...dataResult.result,
+            columns:
+              dataResult.result.columns.length === 0 && cachedSchema?.columns?.length
+                ? cachedSchema.columns.map(c => ({
+                    name: c.name,
+                    data_type: c.data_type,
+                    nullable: c.nullable,
+                  }))
+                : dataResult.result.columns,
+          };
+
+          setData({
+            ...hydratedResult,
+            total_time_ms: totalTime,
+          } as QueryResult & { total_time_ms: number });
+          setTotalRows(dataResult.result.rows.length);
+        } else if (dataResult.error && !error) {
+          setError(dataResult.error);
+        }
       } else {
-        setError('Failed to load table schema');
-      }
-
-      if (dataResult.success && dataResult.result) {
-        const hydratedResult: QueryResult = {
-          ...dataResult.result,
-          columns:
-            dataResult.result.columns.length === 0 && cachedSchema?.columns?.length
-              ? cachedSchema.columns.map(c => ({
-                  name: c.name,
-                  data_type: c.data_type,
-                  nullable: c.nullable,
-                }))
-              : dataResult.result.columns,
+        // Use queryTable with pagination
+        const options: TableQueryOptions = {
+          page: !relationFilter ? page : 1, // Reset page for relation preview if needed, but mostly use browser state
+          page_size: pageSize,
+          search: debouncedSearchTerm,
         };
 
-        setData({
-          ...hydratedResult,
-          total_time_ms: totalTime,
-        } as QueryResult & { total_time_ms: number });
+        const [cachedSchema, dataResult] = await Promise.all([
+          schemaCache.getTableSchema(namespace, tableName),
+          queryTable(sessionId, namespace, tableName, options),
+        ]);
+        const endTime = performance.now();
+        const totalTime = endTime - startTime;
 
-        if (!viewTrackedRef.current) {
-          viewTrackedRef.current = true;
-          AnalyticsService.capture('table_view_loaded', {
-            driver,
-            resource_type: driver === Driver.Mongodb ? 'collection' : 'table',
-          });
+        if (cachedSchema) {
+          setSchema(cachedSchema);
+        } else {
+          setError('Failed to load table schema');
         }
-      } else if (dataResult.error && !error) {
-        setError(dataResult.error);
+
+        if (dataResult.success && dataResult.result) {
+          const paginatedResult = dataResult.result;
+          const hydratedResult: QueryResult = {
+            ...paginatedResult.result,
+            columns:
+              paginatedResult.result.columns.length === 0 && cachedSchema?.columns?.length
+                ? cachedSchema.columns.map(c => ({
+                    name: c.name,
+                    data_type: c.data_type,
+                    nullable: c.nullable,
+                  }))
+                : paginatedResult.result.columns,
+          };
+
+          setData({
+            ...hydratedResult,
+            total_time_ms: totalTime,
+          } as QueryResult & { total_time_ms: number });
+          setTotalRows(paginatedResult.total_rows);
+
+          if (!viewTrackedRef.current) {
+            viewTrackedRef.current = true;
+            AnalyticsService.capture('table_view_loaded', {
+              driver,
+              resource_type: driver === Driver.Mongodb ? 'collection' : 'table',
+            });
+          }
+        } else if (dataResult.error && !error) {
+          setError(dataResult.error);
+        }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load table data');
     } finally {
       setLoading(false);
     }
-  }, [relationFilter, sessionId, namespace, tableName, schemaCache, error, driver]);
+  }, [relationFilter, sessionId, namespace, tableName, schemaCache, error, driver, page, pageSize, debouncedSearchTerm]);
 
   useEffect(() => {
     loadData();
@@ -660,6 +727,13 @@ export function TableBrowser({
             sandboxDeleteDisplay={sandboxPrefs.deleteDisplay}
             onSandboxUpdate={handleSandboxUpdate}
             onSandboxDelete={handleSandboxDelete}
+            serverSideTotalRows={!relationFilter ? totalRows : undefined}
+            serverSidePage={!relationFilter ? page : undefined}
+            serverSidePageSize={!relationFilter ? pageSize : undefined}
+            onServerPageChange={!relationFilter ? setPage : undefined}
+            onServerPageSizeChange={!relationFilter ? setPageSize : undefined}
+            serverSearchTerm={!relationFilter ? searchTerm : undefined}
+            onServerSearchChange={!relationFilter ? setSearchTerm : undefined}
             onRowClick={row => {
               if (readOnly) {
                 toast.error(t('environment.blocked'));

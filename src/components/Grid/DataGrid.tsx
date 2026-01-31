@@ -92,6 +92,13 @@ interface DataGridProps {
     newValues: Record<string, Value>
   ) => void;
   onSandboxDelete?: (primaryKey: Record<string, Value>, oldValues: Record<string, Value>) => void;
+  serverSideTotalRows?: number;
+  serverSidePage?: number;
+  serverSidePageSize?: number;
+  onServerPageChange?: (page: number) => void;
+  onServerPageSizeChange?: (pageSize: number) => void;
+  serverSearchTerm?: string;
+  onServerSearchChange?: (term: string) => void;
 }
 
 export function DataGrid({
@@ -116,32 +123,40 @@ export function DataGrid({
   sandboxDeleteDisplay = 'strikethrough',
   onSandboxUpdate,
   onSandboxDelete,
+  serverSideTotalRows,
+  serverSidePage,
+  serverSidePageSize,
+  onServerPageChange,
+  onServerPageSizeChange,
+  serverSearchTerm,
+  onServerSearchChange,
 }: DataGridProps) {
   const { t } = useTranslation();
   const DEFAULT_RENDER_LIMIT = 2000;
   const RENDER_STEP = 2000;
 
-  // Table state
   const [sorting, setSorting] = useState<SortingState>([]);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: 50,
   });
-  const [globalFilter, setGlobalFilter] = useState(initialFilter ?? '');
+  const [internalGlobalFilter, setInternalGlobalFilter] = useState(initialFilter ?? '');
+  
+  const globalFilter = serverSearchTerm !== undefined ? serverSearchTerm : internalGlobalFilter;
+  const setGlobalFilter = onServerSearchChange || setInternalGlobalFilter;
+
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [showFilters, setShowFilters] = useState(false);
   const [renderLimit, setRenderLimit] = useState<number | null>(DEFAULT_RENDER_LIMIT);
 
-  // Update globalFilter when initialFilter changes (e.g., from full-text search)
   useEffect(() => {
     if (initialFilter !== undefined) {
       setGlobalFilter(initialFilter);
     }
-  }, [initialFilter]);
+  }, [initialFilter, setGlobalFilter]);
 
-  // Refs
   const searchInputRef = useRef<HTMLInputElement>(null);
   const parentRef = useRef<HTMLDivElement>(null);
   const confirmationLabel = (connectionDatabase || connectionName || 'PROD').trim() || 'PROD';
@@ -155,7 +170,6 @@ export function DataGrid({
   const effectiveLimit = renderLimit === null ? totalRows : renderLimit;
   const isLimited = totalRows > effectiveLimit;
 
-  // Apply sandbox overlay to results
   const overlayResult: OverlayResult = useMemo(() => {
     if (!result || !sandboxMode || pendingChanges.length === 0 || !namespace || !tableName) {
       return result ? emptyOverlayResult(result) : EMPTY_OVERLAY_RESULT;
@@ -468,6 +482,8 @@ export function DataGrid({
     globalFilterFn: 'includesString',
     enableColumnResizing: true,
     columnResizeMode: 'onChange',
+    manualPagination: serverSideTotalRows !== undefined,
+    manualFiltering: serverSearchTerm !== undefined,
   });
 
   const { rows } = table.getRowModel();
@@ -650,7 +666,15 @@ export function DataGrid({
         </table>
       </div>
 
-      <DataGridPagination table={table} pagination={pagination} />
+      <DataGridPagination 
+        table={table} 
+        pagination={pagination}
+        serverSideTotalRows={serverSideTotalRows}
+        serverSidePage={serverSidePage}
+        serverSidePageSize={serverSidePageSize}
+        onServerPageChange={onServerPageChange}
+        onServerPageSizeChange={onServerPageSizeChange}
+      />
 
       <DeleteConfirmDialog
         open={deleteDialogOpen}

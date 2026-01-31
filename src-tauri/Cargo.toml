@@ -1,6 +1,6 @@
 [package]
 name = "qoredb"
-version = "0.1.12"
+version = "0.1.13"
 description = "Next gen DB Client"
 authors = ["Raphaël Plassart <raphael.plassart@protonmail.com>"]
 edition = "2021"
@@ -41,6 +41,8 @@ tracing-appender = "0.2"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 regex = "1"
 dirs = "5"
+url = "2"
+percent-encoding = "2"
 
 # Note: SSH tunneling uses native OpenSSH command (ssh -L), no external crate needed
 

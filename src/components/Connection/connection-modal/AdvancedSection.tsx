@@ -11,11 +11,14 @@ import { Driver, getDriverMetadata } from "@/lib/drivers";
 import type { ConnectionFormData } from "./types";
 import { SshTunnelSection } from "./SshTunnelSection";
 
-export function AdvancedSection(props: {
+interface AdvancedSectionProps {
 	formData: ConnectionFormData;
 	onChange: (field: keyof ConnectionFormData, value: string | number | boolean) => void;
-}) {
-	const { formData, onChange } = props;
+	/** Hide database and SSL fields (used when URL mode provides them) */
+	hideUrlDerivedFields?: boolean;
+}
+
+export function AdvancedSection({ formData, onChange, hideUrlDerivedFields = false }: AdvancedSectionProps) {
 	const { t } = useTranslation();
 	const [open, setOpen] = useState(false);
 
@@ -24,6 +27,12 @@ export function AdvancedSection(props: {
 		const parsed = Number(value);
 		return Number.isFinite(parsed) ? parsed : fallback;
 	};
+
+	// Check if there's any content to show in advanced section
+	const hasPoolSettings = driverMeta.supportsSQL;
+	const hasDatabaseField = !hideUrlDerivedFields;
+	const hasSslField = !hideUrlDerivedFields;
+	const hasContent = hasDatabaseField || hasSslField || hasPoolSettings || true; // SSH always shown
 
 	return (
 		<div className="rounded-md border border-border bg-background">
@@ -39,28 +48,37 @@ export function AdvancedSection(props: {
 					{open ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
 					{t("connection.advanced")}
 				</span>
-				<span className="text-xs text-muted-foreground">{t("connection.advancedHint")}</span>
+				<span className="text-xs text-muted-foreground">
+					{hideUrlDerivedFields ? t("connection.advancedHintUrlMode") : t("connection.advancedHint")}
+				</span>
 			</button>
 
-			{open && (
+			{open && hasContent && (
 				<div className="border-t border-border px-4 py-4 space-y-4">
-					<div className="space-y-2">
-						<Label>{t(driverMeta.databaseFieldLabel)}</Label>
-						<Input
-							placeholder={formData.driver === Driver.Postgres ? "postgres" : ""}
-							value={formData.database}
-							onChange={(e) => onChange("database", e.target.value)}
-						/>
-					</div>
+					{/* Database field - hidden in URL mode */}
+					{!hideUrlDerivedFields && (
+						<div className="space-y-2">
+							<Label>{t(driverMeta.databaseFieldLabel)}</Label>
+							<Input
+								placeholder={formData.driver === Driver.Postgres ? "postgres" : ""}
+								value={formData.database}
+								onChange={(e) => onChange("database", e.target.value)}
+							/>
+						</div>
+					)}
 
-					<div className="flex items-center justify-between rounded-md border border-border bg-background px-3 py-2">
-						<Label className="text-sm">{t("connection.useSSL")}</Label>
-						<Switch
-							checked={formData.ssl}
-							onCheckedChange={(checked) => onChange("ssl", checked)}
-						/>
-					</div>
+					{/* SSL toggle - hidden in URL mode */}
+					{!hideUrlDerivedFields && (
+						<div className="flex items-center justify-between rounded-md border border-border bg-background px-3 py-2">
+							<Label className="text-sm">{t("connection.useSSL")}</Label>
+							<Switch
+								checked={formData.ssl}
+								onCheckedChange={(checked) => onChange("ssl", checked)}
+							/>
+						</div>
+					)}
 
+					{/* Pool settings - always shown for SQL drivers */}
 					{driverMeta.supportsSQL && (
 						<div className="space-y-2">
 							<Label>{t("connection.poolSettings")}</Label>
@@ -123,6 +141,7 @@ export function AdvancedSection(props: {
 						</div>
 					)}
 
+					{/* SSH tunnel - always shown */}
 					<SshTunnelSection formData={formData} onChange={onChange} />
 				</div>
 			)}

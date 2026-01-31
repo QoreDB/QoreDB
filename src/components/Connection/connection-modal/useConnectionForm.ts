@@ -1,10 +1,29 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
-import type { SavedConnection } from "@/lib/tauri";
-import { DEFAULT_PORTS, type Driver } from "@/lib/drivers";
+import type { PartialConnectionConfig, SavedConnection } from "@/lib/tauri";
+import { DEFAULT_PORTS, Driver } from "@/lib/drivers";
 
 import { initialConnectionFormData, type ConnectionFormData } from "./types";
 import { isConnectionFormValid } from "./mappers";
+
+/**
+ * Maps a driver string from URL parsing to the Driver enum
+ */
+function mapDriverString(driver: string | undefined): Driver | undefined {
+	if (!driver) return undefined;
+	const normalized = driver.toLowerCase();
+	switch (normalized) {
+		case "postgres":
+		case "postgresql":
+			return Driver.Postgres;
+		case "mysql":
+			return Driver.Mysql;
+		case "mongodb":
+			return Driver.Mongodb;
+		default:
+			return undefined;
+	}
+}
 
 export function useConnectionForm(options: {
 	isOpen: boolean;
@@ -50,6 +69,8 @@ export function useConnectionForm(options: {
 					? sshTunnel.keepalive_interval_secs
 					: 30,
 				sshKeepaliveCountMax: sshTunnel ? sshTunnel.keepalive_count_max : 3,
+				useUrl: false,
+				connectionUrl: "",
 			});
 		} else {
 			setFormData(initialConnectionFormData);
@@ -68,6 +89,30 @@ export function useConnectionForm(options: {
 		setFormData((prev) => ({ ...prev, [field]: value }));
 	}
 
+	/**
+	 * Apply parsed URL configuration to form fields.
+	 * URL-derived values are applied, but existing non-empty values for name,
+	 * environment, readOnly, and pool settings are preserved (user overrides).
+	 */
+	const applyParsedConfig = useCallback((config: PartialConnectionConfig) => {
+		setFormData((prev) => {
+			const driver = mapDriverString(config.driver) ?? prev.driver;
+			const port = config.port ?? DEFAULT_PORTS[driver];
+
+			return {
+				...prev,
+				// Apply URL-derived values
+				driver,
+				host: config.host ?? prev.host,
+				port,
+				username: config.username ?? prev.username,
+				password: config.password ?? prev.password,
+				database: config.database ?? prev.database,
+				ssl: config.ssl ?? prev.ssl,
+			};
+		});
+	}, []);
+
 	const isValid = useMemo(() => isConnectionFormValid(formData), [formData]);
 
 	return {
@@ -75,6 +120,7 @@ export function useConnectionForm(options: {
 		setFormData,
 		handleDriverChange,
 		handleChange,
+		applyParsedConfig,
 		isValid,
 	};
 }

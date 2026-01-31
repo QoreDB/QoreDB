@@ -95,6 +95,9 @@ pub fn run() {
             commands::connection::connect_saved_connection,
             commands::connection::disconnect,
             commands::connection::list_sessions,
+            // Connection URL parsing
+            commands::connection_url::parse_url,
+            commands::connection_url::get_supported_url_schemes,
             // Driver commands
             commands::driver::get_driver_info,
             commands::driver::list_drivers,
@@ -105,6 +108,7 @@ pub fn run() {
             commands::query::list_collections,
             commands::query::describe_table,
             commands::query::preview_table,
+            commands::query::query_table,
             commands::query::peek_foreign_key,
             commands::query::create_database,
             commands::query::drop_database,

@@ -386,3 +386,105 @@ pub struct CollectionList {
     pub collections: Vec<Collection>,
     pub total_count: u32,
 }
+
+// ==================== Table Query Types (Pagination) ====================
+
+/// Sort direction for query results
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum SortDirection {
+    #[default]
+    Asc,
+    Desc,
+}
+
+/// Filter operator for WHERE clauses
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum FilterOperator {
+    #[default]
+    Eq,
+    Neq,
+    Gt,
+    Gte,
+    Lt,
+    Lte,
+    Like,
+    IsNull,
+    IsNotNull,
+}
+
+/// Column filter for WHERE clauses
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ColumnFilter {
+    pub column: String,
+    pub operator: FilterOperator,
+    pub value: Value,
+}
+
+/// Options for querying table data with pagination, sorting, and filtering
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct TableQueryOptions {
+    /// Page number (0-indexed)
+    pub page: Option<u32>,
+    /// Page size (default: 100, max: 10000)
+    pub page_size: Option<u32>,
+    /// Column to sort by
+    pub sort_column: Option<String>,
+    /// Sort direction (default: Asc)
+    pub sort_direction: Option<SortDirection>,
+    /// Column filters
+    pub filters: Option<Vec<ColumnFilter>>,
+    /// Full-text search term (searches all string columns)
+    pub search: Option<String>,
+}
+
+impl TableQueryOptions {
+    /// Returns the effective page number (0-indexed)
+    pub fn effective_page(&self) -> u32 {
+        self.page.unwrap_or(0)
+    }
+
+    /// Returns the effective page size, clamped to [1, 10000]
+    pub fn effective_page_size(&self) -> u32 {
+        self.page_size.unwrap_or(100).clamp(1, 10000)
+    }
+
+    /// Returns the SQL OFFSET for pagination
+    pub fn offset(&self) -> u64 {
+        self.effective_page() as u64 * self.effective_page_size() as u64
+    }
+}
+
+/// Paginated query result with metadata
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PaginatedQueryResult {
+    /// The data rows for the current page
+    pub result: QueryResult,
+    /// Total number of rows matching the query (before pagination)
+    pub total_rows: u64,
+    /// Current page (0-indexed)
+    pub page: u32,
+    /// Page size used
+    pub page_size: u32,
+    /// Total number of pages
+    pub total_pages: u32,
+}
+
+impl PaginatedQueryResult {
+    /// Creates a new paginated result from query result and pagination info
+    pub fn new(result: QueryResult, total_rows: u64, page: u32, page_size: u32) -> Self {
+        let total_pages = if page_size == 0 {
+            0
+        } else {
+            ((total_rows + page_size as u64 - 1) / page_size as u64) as u32
+        };
+        Self {
+            result,
+            total_rows,
+            page,
+            page_size,
+            total_pages,
+        }
+    }
+}

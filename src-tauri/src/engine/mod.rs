@@ -1,6 +1,7 @@
 // Data Engine Module
 // Universal abstraction layer for all database engines
 
+pub mod connection_url;
 pub mod drivers;
 pub mod error;
 pub mod fulltext_strategy;

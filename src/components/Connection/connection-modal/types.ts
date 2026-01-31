@@ -26,6 +26,9 @@ export interface ConnectionFormData {
 	sshConnectTimeoutSecs: number;
 	sshKeepaliveIntervalSecs: number;
 	sshKeepaliveCountMax: number;
+	// URL mode fields
+	useUrl: boolean;
+	connectionUrl: string;
 }
 
 export const initialConnectionFormData: ConnectionFormData = {
@@ -53,4 +56,7 @@ export const initialConnectionFormData: ConnectionFormData = {
 	sshConnectTimeoutSecs: 10,
 	sshKeepaliveIntervalSecs: 30,
 	sshKeepaliveCountMax: 3,
+	// URL mode defaults
+	useUrl: false,
+	connectionUrl: "",
 };

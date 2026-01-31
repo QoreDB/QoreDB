@@ -9,7 +9,8 @@ use async_trait::async_trait;
 use crate::engine::error::{EngineError, EngineResult};
 use crate::engine::types::{
     CancelSupport, CollectionList, CollectionListOptions, ConnectionConfig, DriverCapabilities, Namespace,
-    QueryId, QueryResult, Row, RowData, SessionId, TableSchema, ColumnInfo, Value, ForeignKey
+    QueryId, QueryResult, Row, RowData, SessionId, TableSchema, ColumnInfo, Value, ForeignKey,
+    TableQueryOptions, PaginatedQueryResult,
 };
 
 /// Events emitted during query streaming
@@ -147,6 +148,25 @@ pub trait DataEngine: Send + Sync {
         table: &str,
         limit: u32,
     ) -> EngineResult<QueryResult>;
+
+    /// Queries table data with pagination, sorting, and filtering support.
+    ///
+    /// This is the preferred method for table browsing. Default implementation
+    /// falls back to preview_table for backwards compatibility.
+    async fn query_table(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        table: &str,
+        options: TableQueryOptions,
+    ) -> EngineResult<PaginatedQueryResult> {
+        // Default: fall back to preview_table (no real pagination)
+        let page = options.effective_page();
+        let page_size = options.effective_page_size();
+        let result = self.preview_table(session, namespace, table, page_size).await?;
+        let total = result.rows.len() as u64;
+        Ok(PaginatedQueryResult::new(result, total, page, page_size))
+    }
 
     /// Fetches rows from a referenced table for a given foreign key value.
     ///

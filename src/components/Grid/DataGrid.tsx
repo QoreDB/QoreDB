@@ -134,7 +134,7 @@ export function DataGrid({
   const [showFilters, setShowFilters] = useState(false);
   const [renderLimit, setRenderLimit] = useState<number | null>(DEFAULT_RENDER_LIMIT);
 
-  // Update globalFilter when initialFilter changes (e.g., from full-text search)
+  // Update globalFilter when initialFilter changes
   useEffect(() => {
     if (initialFilter !== undefined) {
       setGlobalFilter(initialFilter);

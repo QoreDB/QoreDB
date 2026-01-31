@@ -92,6 +92,10 @@ interface DataGridProps {
     newValues: Record<string, Value>
   ) => void;
   onSandboxDelete?: (primaryKey: Record<string, Value>, oldValues: Record<string, Value>) => void;
+  // Server-side pagination props
+  serverSideTotalRows?: number;
+  onServerPageChange?: (page: number) => void;
+  onServerPageSizeChange?: (pageSize: number) => void;
 }
 
 export function DataGrid({
@@ -116,6 +120,9 @@ export function DataGrid({
   sandboxDeleteDisplay = 'strikethrough',
   onSandboxUpdate,
   onSandboxDelete,
+  serverSideTotalRows,
+  onServerPageChange,
+  onServerPageSizeChange,
 }: DataGridProps) {
   const { t } = useTranslation();
   const DEFAULT_RENDER_LIMIT = 2000;
@@ -650,7 +657,13 @@ export function DataGrid({
         </table>
       </div>
 
-      <DataGridPagination table={table} pagination={pagination} />
+      <DataGridPagination 
+        table={table} 
+        pagination={pagination}
+        serverSideTotalRows={serverSideTotalRows}
+        onServerPageChange={onServerPageChange}
+        onServerPageSizeChange={onServerPageSizeChange}
+      />
 
       <DeleteConfirmDialog
         open={deleteDialogOpen}

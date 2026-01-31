@@ -108,6 +108,7 @@ pub fn run() {
             commands::query::list_collections,
             commands::query::describe_table,
             commands::query::preview_table,
+            commands::query::query_table,
             commands::query::peek_foreign_key,
             commands::query::create_database,
             commands::query::drop_database,

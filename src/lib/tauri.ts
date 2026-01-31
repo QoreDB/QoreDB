@@ -395,6 +395,50 @@ export async function previewTable(
   return invoke('preview_table', { sessionId, namespace, table, limit });
 }
 
+// ============================================
+// PAGINATION TYPES AND QUERY
+// ============================================
+
+export type SortDirection = 'asc' | 'desc';
+
+export type FilterOperator = 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'like' | 'is_null' | 'is_not_null';
+
+export interface ColumnFilter {
+  column: string;
+  operator: FilterOperator;
+  value: Value;
+}
+
+export interface TableQueryOptions {
+  page?: number;
+  page_size?: number;
+  sort_column?: string;
+  sort_direction?: SortDirection;
+  filters?: ColumnFilter[];
+  search?: string;
+}
+
+export interface PaginatedQueryResult {
+  result: QueryResult;
+  total_rows: number;
+  page: number;
+  page_size: number;
+}
+
+export async function queryTable(
+  sessionId: string,
+  namespace: Namespace,
+  table: string,
+  options: TableQueryOptions = {}
+): Promise<{
+  success: boolean;
+  result?: PaginatedQueryResult;
+  error?: string;
+}> {
+  return invoke('query_table', { sessionId, namespace, table, options });
+}
+
+
 export async function peekForeignKey(
   sessionId: string,
   namespace: Namespace,

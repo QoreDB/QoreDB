@@ -460,6 +460,7 @@
         "page": "Page",
         "of": "sur",
         "rowsPerPage": "Lignes par page",
+        "totalRows": "lignes au total",
         "firstPage": "Première page",
         "previousPage": "Page précédente",
         "nextPage": "Page suivante",

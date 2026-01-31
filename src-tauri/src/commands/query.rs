@@ -14,7 +14,7 @@ use crate::engine::{
     sql_safety,
     TableSchema,
     traits::StreamEvent,
-    types::{CollectionList, CollectionListOptions, ForeignKey, Namespace, QueryId, QueryResult, SessionId, Value},
+    types::{CollectionList, CollectionListOptions, ForeignKey, Namespace, QueryId, QueryResult, SessionId, Value, TableQueryOptions, PaginatedQueryResult},
 };
 use crate::interceptor::{Environment, QueryExecutionResult, SafetyAction};
 use crate::metrics;
@@ -818,6 +818,54 @@ pub async fn preview_table(
             result: None,
             error: Some(e.to_string()),
             query_id: None,
+        }),
+    }
+}
+
+/// Response wrapper for paginated table queries
+#[derive(Debug, Serialize)]
+pub struct PaginatedQueryResponse {
+    pub success: bool,
+    pub result: Option<PaginatedQueryResult>,
+    pub error: Option<String>,
+}
+
+/// Queries table data with pagination, sorting, and filtering support
+#[tauri::command]
+pub async fn query_table(
+    state: State<'_, crate::SharedState>,
+    session_id: String,
+    namespace: Namespace,
+    table: String,
+    options: TableQueryOptions,
+) -> Result<PaginatedQueryResponse, String> {
+    let session_manager = {
+        let state = state.lock().await;
+        Arc::clone(&state.session_manager)
+    };
+    let session = parse_session_id(&session_id)?;
+
+    let driver = match session_manager.get_driver(session).await {
+        Ok(d) => d,
+        Err(e) => {
+            return Ok(PaginatedQueryResponse {
+                success: false,
+                result: None,
+                error: Some(e.to_string()),
+            });
+        }
+    };
+
+    match driver.query_table(session, &namespace, &table, options).await {
+        Ok(result) => Ok(PaginatedQueryResponse {
+            success: true,
+            result: Some(result),
+            error: None,
+        }),
+        Err(e) => Ok(PaginatedQueryResponse {
+            success: false,
+            result: None,
+            error: Some(e.to_string()),
         }),
     }
 }

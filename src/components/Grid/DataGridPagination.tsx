@@ -7,12 +7,73 @@ import { RowData } from './utils/dataGridUtils';
 interface DataGridPaginationProps {
   table: Table<RowData>;
   pagination: PaginationState;
+  // Server-side pagination props
+  serverSideTotalRows?: number;
+  onServerPageChange?: (page: number) => void;
+  onServerPageSizeChange?: (pageSize: number) => void;
 }
 
 const PAGE_SIZES = [25, 50, 100, 250];
 
-export function DataGridPagination({ table, pagination }: DataGridPaginationProps) {
+export function DataGridPagination({ 
+  table, 
+  pagination,
+  serverSideTotalRows,
+  onServerPageChange,
+  onServerPageSizeChange,
+}: DataGridPaginationProps) {
   const { t } = useTranslation();
+  
+  // Calculate server-side pagination info
+  const isServerSide = serverSideTotalRows !== undefined;
+  const totalRows = isServerSide ? serverSideTotalRows : table.getFilteredRowModel().rows.length;
+  const pageCount = isServerSide 
+    ? Math.ceil(serverSideTotalRows / pagination.pageSize) 
+    : table.getPageCount() || 1;
+  const currentPage = pagination.pageIndex + 1; // 1-indexed for display
+  
+  const canPreviousPage = isServerSide ? currentPage > 1 : table.getCanPreviousPage();
+  const canNextPage = isServerSide ? currentPage < pageCount : table.getCanNextPage();
+
+  const handlePageSizeChange = (newPageSize: number) => {
+    if (isServerSide && onServerPageSizeChange) {
+      onServerPageSizeChange(newPageSize);
+    } else {
+      table.setPageSize(newPageSize);
+    }
+  };
+
+  const handleFirstPage = () => {
+    if (isServerSide && onServerPageChange) {
+      onServerPageChange(1);
+    } else {
+      table.setPageIndex(0);
+    }
+  };
+
+  const handlePreviousPage = () => {
+    if (isServerSide && onServerPageChange) {
+      onServerPageChange(currentPage - 1);
+    } else {
+      table.previousPage();
+    }
+  };
+
+  const handleNextPage = () => {
+    if (isServerSide && onServerPageChange) {
+      onServerPageChange(currentPage + 1);
+    } else {
+      table.nextPage();
+    }
+  };
+
+  const handleLastPage = () => {
+    if (isServerSide && onServerPageChange) {
+      onServerPageChange(pageCount);
+    } else {
+      table.setPageIndex(pageCount - 1);
+    }
+  };
 
   return (
     <div className="flex items-center justify-between px-2 py-1 border-t border-border bg-muted/20">
@@ -21,7 +82,7 @@ export function DataGridPagination({ table, pagination }: DataGridPaginationProp
           <span>{t('grid.rowsPerPage')}:</span>
           <select
             value={pagination.pageSize}
-            onChange={e => table.setPageSize(Number(e.target.value))}
+            onChange={e => handlePageSizeChange(Number(e.target.value))}
             className="h-7 px-2 rounded border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-1 focus:ring-accent"
           >
             {PAGE_SIZES.map(size => (
@@ -31,18 +92,23 @@ export function DataGridPagination({ table, pagination }: DataGridPaginationProp
             ))}
           </select>
         </div>
+        {isServerSide && (
+          <span className="text-muted-foreground/70">
+            {totalRows.toLocaleString()} {t('grid.totalRows')}
+          </span>
+        )}
       </div>
 
       <div className="flex items-center gap-1">
         <span className="text-xs text-muted-foreground mr-2">
-          {t('grid.page')} {pagination.pageIndex + 1} {t('grid.of')} {table.getPageCount() || 1}
+          {t('grid.page')} {currentPage} {t('grid.of')} {pageCount}
         </span>
         <Button
           variant="ghost"
           size="sm"
           className="h-7 w-7 p-0"
-          onClick={() => table.setPageIndex(0)}
-          disabled={!table.getCanPreviousPage()}
+          onClick={handleFirstPage}
+          disabled={!canPreviousPage}
           title={t('grid.firstPage')}
         >
           <ChevronFirst size={14} />
@@ -51,8 +117,8 @@ export function DataGridPagination({ table, pagination }: DataGridPaginationProp
           variant="ghost"
           size="sm"
           className="h-7 w-7 p-0"
-          onClick={() => table.previousPage()}
-          disabled={!table.getCanPreviousPage()}
+          onClick={handlePreviousPage}
+          disabled={!canPreviousPage}
           title={t('grid.previousPage')}
         >
           <ChevronLeft size={14} />
@@ -61,8 +127,8 @@ export function DataGridPagination({ table, pagination }: DataGridPaginationProp
           variant="ghost"
           size="sm"
           className="h-7 w-7 p-0"
-          onClick={() => table.nextPage()}
-          disabled={!table.getCanNextPage()}
+          onClick={handleNextPage}
+          disabled={!canNextPage}
           title={t('grid.nextPage')}
         >
           <ChevronRight size={14} />
@@ -71,8 +137,8 @@ export function DataGridPagination({ table, pagination }: DataGridPaginationProp
           variant="ghost"
           size="sm"
           className="h-7 w-7 p-0"
-          onClick={() => table.setPageIndex(table.getPageCount() - 1)}
-          disabled={!table.getCanNextPage()}
+          onClick={handleLastPage}
+          disabled={!canNextPage}
           title={t('grid.lastPage')}
         >
           <ChevronLast size={14} />

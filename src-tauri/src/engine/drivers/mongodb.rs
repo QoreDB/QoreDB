@@ -19,6 +19,7 @@ use crate::engine::types::{
     CancelSupport, Collection, CollectionList, CollectionListOptions, CollectionType, ColumnInfo,
     ConnectionConfig, Namespace, QueryId, QueryResult, Row as QRow, SessionId, TableColumn,
     TableSchema, Value,
+    TableQueryOptions, PaginatedQueryResult, SortDirection, FilterOperator,
 };
 
 /// MongoDB driver implementation
@@ -744,6 +745,115 @@ impl DataEngine for MongoDriver {
             affected_rows: None,
             execution_time_ms,
         })
+    }
+
+    async fn query_table(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        table: &str,
+        options: TableQueryOptions,
+    ) -> EngineResult<PaginatedQueryResult> {
+        let sessions = self.sessions.read().await;
+        let client = sessions
+            .get(&session)
+            .ok_or_else(|| EngineError::session_not_found(session.0.to_string()))?;
+
+        let start = Instant::now();
+
+        let collection = client
+            .database(&namespace.database)
+            .collection::<Document>(table);
+
+        let page = options.effective_page();
+        let page_size = options.effective_page_size();
+        let offset = options.offset();
+
+        // Build $match filter document
+        let mut filter_doc = Document::new();
+
+        if let Some(filters) = &options.filters {
+            for filter in filters {
+                let bson_value = Self::value_to_bson(&filter.value);
+
+                let condition = match filter.operator {
+                    FilterOperator::Eq => bson_value,
+                    FilterOperator::Neq => mongodb::bson::Bson::Document(doc! { "$ne": bson_value }),
+                    FilterOperator::Gt => mongodb::bson::Bson::Document(doc! { "$gt": bson_value }),
+                    FilterOperator::Gte => mongodb::bson::Bson::Document(doc! { "$gte": bson_value }),
+                    FilterOperator::Lt => mongodb::bson::Bson::Document(doc! { "$lt": bson_value }),
+                    FilterOperator::Lte => mongodb::bson::Bson::Document(doc! { "$lte": bson_value }),
+                    FilterOperator::Like => {
+                        // Convert LIKE pattern to regex
+                        if let mongodb::bson::Bson::String(s) = &bson_value {
+                            let pattern = s.replace('%', ".*").replace('_', ".");
+                            mongodb::bson::Bson::Document(doc! { "$regex": pattern, "$options": "i" })
+                        } else {
+                            bson_value
+                        }
+                    }
+                    FilterOperator::IsNull => mongodb::bson::Bson::Document(doc! { "$eq": mongodb::bson::Bson::Null }),
+                    FilterOperator::IsNotNull => mongodb::bson::Bson::Document(doc! { "$ne": mongodb::bson::Bson::Null }),
+                };
+
+                filter_doc.insert(&filter.column, condition);
+            }
+        }
+
+        // Get total count with filters
+        let total_rows = collection
+            .count_documents(filter_doc.clone())
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        // Build find options with sort, skip, limit
+        use mongodb::options::FindOptions;
+        let mut find_options = FindOptions::builder()
+            .skip(Some(offset))
+            .limit(Some(page_size as i64))
+            .build();
+
+        if let Some(sort_col) = &options.sort_column {
+            let sort_direction = match options.sort_direction.unwrap_or_default() {
+                SortDirection::Asc => 1,
+                SortDirection::Desc => -1,
+            };
+            find_options.sort = Some(doc! { sort_col: sort_direction });
+        }
+
+        use futures::TryStreamExt;
+        let cursor = collection
+            .find(filter_doc)
+            .with_options(find_options)
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        let documents: Vec<Document> = cursor
+            .try_collect()
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        let execution_time_ms = start.elapsed().as_micros() as f64 / 1000.0;
+
+        let result = if documents.is_empty() {
+            QueryResult {
+                columns: Vec::new(),
+                rows: Vec::new(),
+                affected_rows: None,
+                execution_time_ms,
+            }
+        } else {
+            let columns = Self::document_column_info();
+            let rows: Vec<QRow> = documents.iter().map(Self::document_to_row).collect();
+            QueryResult {
+                columns,
+                rows,
+                affected_rows: None,
+                execution_time_ms,
+            }
+        };
+
+        Ok(PaginatedQueryResult::new(result, total_rows, page, page_size))
     }
 
     async fn cancel(&self, session: SessionId, query_id: Option<QueryId>) -> EngineResult<()> {

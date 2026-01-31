@@ -459,6 +459,7 @@
         "page": "Page",
         "of": "of",
         "rowsPerPage": "Rows per page",
+        "totalRows": "rows total",
         "firstPage": "First page",
         "previousPage": "Previous page",
         "nextPage": "Next page",

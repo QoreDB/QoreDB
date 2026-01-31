@@ -25,18 +25,15 @@ use crate::engine::traits::DataEngine;
 use crate::engine::types::{
     CancelSupport, Collection, CollectionList, CollectionListOptions, CollectionType, ColumnInfo,
     ConnectionConfig, Namespace, QueryId, QueryResult, Row as QRow, RowData, SessionId,
-    TableColumn, TableIndex, TableSchema, Value, ForeignKey
+    TableColumn, TableIndex, TableSchema, Value, ForeignKey,
+    TableQueryOptions, PaginatedQueryResult, SortDirection, FilterOperator,
 };
 use crate::engine::traits::{StreamEvent, StreamSender};
 use futures::StreamExt;
 
-/// Holds the connection state for a MySQL session.
 pub struct MySqlSession {
-    /// The connection pool for this session
-    pub pool: MySqlPool,
-    /// Dedicated connection when a transaction is active
+    pub pool: MySqlPool, 
     pub transaction_conn: Mutex<Option<PoolConnection<MySql>>>,
-    /// Active queries (query_id -> connection_id)
     pub active_queries: Mutex<HashMap<QueryId, u64>>,
 }
 
@@ -50,7 +47,6 @@ impl MySqlSession {
     }
 }
 
-/// MySQL driver implementation
 pub struct MySqlDriver {
     sessions: Arc<RwLock<HashMap<SessionId, Arc<MySqlSession>>>>,
 }
@@ -915,6 +911,151 @@ impl DataEngine for MySqlDriver {
             namespace.database, table, limit
         );
         self.execute(session, &query, QueryId::new()).await
+    }
+
+    async fn query_table(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        table: &str,
+        options: TableQueryOptions,
+    ) -> EngineResult<PaginatedQueryResult> {
+        let mysql_session = self.get_session(session).await?;
+        let start = Instant::now();
+
+        let db_ident = Self::quote_ident(&namespace.database);
+        let table_ident = Self::quote_ident(table);
+        let table_ref = format!("{}.{}", db_ident, table_ident);
+
+        let page = options.effective_page();
+        let page_size = options.effective_page_size();
+        let offset = options.offset();
+
+        // Build WHERE clause from filters
+        let mut where_clauses: Vec<String> = Vec::new();
+        let mut bind_values: Vec<Value> = Vec::new();
+
+        if let Some(filters) = &options.filters {
+            for filter in filters {
+                let col_ident = Self::quote_ident(&filter.column);
+
+                let clause = match filter.operator {
+                    FilterOperator::Eq => {
+                        bind_values.push(filter.value.clone());
+                        format!("{} = ?", col_ident)
+                    }
+                    FilterOperator::Neq => {
+                        bind_values.push(filter.value.clone());
+                        format!("{} != ?", col_ident)
+                    }
+                    FilterOperator::Gt => {
+                        bind_values.push(filter.value.clone());
+                        format!("{} > ?", col_ident)
+                    }
+                    FilterOperator::Gte => {
+                        bind_values.push(filter.value.clone());
+                        format!("{} >= ?", col_ident)
+                    }
+                    FilterOperator::Lt => {
+                        bind_values.push(filter.value.clone());
+                        format!("{} < ?", col_ident)
+                    }
+                    FilterOperator::Lte => {
+                        bind_values.push(filter.value.clone());
+                        format!("{} <= ?", col_ident)
+                    }
+                    FilterOperator::Like => {
+                        bind_values.push(filter.value.clone());
+                        format!("{} LIKE ?", col_ident)
+                    }
+                    FilterOperator::IsNull => format!("{} IS NULL", col_ident),
+                    FilterOperator::IsNotNull => format!("{} IS NOT NULL", col_ident),
+                };
+                where_clauses.push(clause);
+            }
+        }
+
+        let where_sql = if where_clauses.is_empty() {
+            String::new()
+        } else {
+            format!(" WHERE {}", where_clauses.join(" AND "))
+        };
+
+        // Build ORDER BY clause
+        let order_sql = if let Some(sort_col) = &options.sort_column {
+            let sort_ident = Self::quote_ident(sort_col);
+            let direction = match options.sort_direction.unwrap_or_default() {
+                SortDirection::Asc => "ASC",
+                SortDirection::Desc => "DESC",
+            };
+            format!(" ORDER BY {} {}", sort_ident, direction)
+        } else {
+            String::new()
+        };
+
+        // Execute COUNT query for total rows
+        let count_sql = format!("SELECT COUNT(*) AS cnt FROM {}{}", table_ref, where_sql);
+        let mut count_query = sqlx::query(&count_sql);
+        for val in &bind_values {
+            count_query = Self::bind_param(count_query, val);
+        }
+
+        let count_row: MySqlRow = {
+            let mut tx_guard = mysql_session.transaction_conn.lock().await;
+            if let Some(ref mut conn) = *tx_guard {
+                count_query.fetch_one(&mut **conn).await
+            } else {
+                count_query.fetch_one(&mysql_session.pool).await
+            }
+        }
+        .map_err(|e| EngineError::execution_error(e.to_string()))?;
+        
+        let total_rows: i64 = count_row.try_get("cnt")
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+        let total_rows = total_rows.max(0) as u64;
+
+        // Execute data query with pagination
+        let data_sql = format!(
+            "SELECT * FROM {}{}{} LIMIT {} OFFSET {}",
+            table_ref, where_sql, order_sql, page_size, offset
+        );
+
+        let mut data_query = sqlx::query(&data_sql);
+        for val in &bind_values {
+            data_query = Self::bind_param(data_query, val);
+        }
+
+        let mysql_rows: Vec<MySqlRow> = {
+            let mut tx_guard = mysql_session.transaction_conn.lock().await;
+            if let Some(ref mut conn) = *tx_guard {
+                data_query.fetch_all(&mut **conn).await
+            } else {
+                data_query.fetch_all(&mysql_session.pool).await
+            }
+        }
+        .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        let execution_time_ms = start.elapsed().as_micros() as f64 / 1000.0;
+
+        let result = if mysql_rows.is_empty() {
+            QueryResult {
+                columns: Vec::new(),
+                rows: Vec::new(),
+                affected_rows: None,
+                execution_time_ms,
+            }
+        } else {
+            let columns = Self::get_column_info(&mysql_rows[0]);
+            let rows: Vec<QRow> = mysql_rows.iter().map(Self::convert_row).collect();
+            QueryResult {
+                columns,
+                rows,
+                affected_rows: None,
+                execution_time_ms,
+            }
+        };
+
+        Ok(PaginatedQueryResult::new(result, total_rows, page, page_size))
     }
 
     async fn peek_foreign_key(

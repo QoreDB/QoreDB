@@ -92,8 +92,9 @@ interface DataGridProps {
     newValues: Record<string, Value>
   ) => void;
   onSandboxDelete?: (primaryKey: Record<string, Value>, oldValues: Record<string, Value>) => void;
-  // Server-side pagination props
   serverSideTotalRows?: number;
+  serverSidePage?: number;
+  serverSidePageSize?: number;
   onServerPageChange?: (page: number) => void;
   onServerPageSizeChange?: (pageSize: number) => void;
 }
@@ -121,6 +122,8 @@ export function DataGrid({
   onSandboxUpdate,
   onSandboxDelete,
   serverSideTotalRows,
+  serverSidePage,
+  serverSidePageSize,
   onServerPageChange,
   onServerPageSizeChange,
 }: DataGridProps) {
@@ -661,6 +664,8 @@ export function DataGrid({
         table={table} 
         pagination={pagination}
         serverSideTotalRows={serverSideTotalRows}
+        serverSidePage={serverSidePage}
+        serverSidePageSize={serverSidePageSize}
         onServerPageChange={onServerPageChange}
         onServerPageSizeChange={onServerPageSizeChange}
       />

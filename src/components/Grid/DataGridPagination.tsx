@@ -9,6 +9,8 @@ interface DataGridPaginationProps {
   pagination: PaginationState;
   // Server-side pagination props
   serverSideTotalRows?: number;
+  serverSidePage?: number;
+  serverSidePageSize?: number;
   onServerPageChange?: (page: number) => void;
   onServerPageSizeChange?: (pageSize: number) => void;
 }
@@ -19,6 +21,8 @@ export function DataGridPagination({
   table, 
   pagination,
   serverSideTotalRows,
+  serverSidePage,
+  serverSidePageSize,
   onServerPageChange,
   onServerPageSizeChange,
 }: DataGridPaginationProps) {
@@ -27,10 +31,11 @@ export function DataGridPagination({
   // Calculate server-side pagination info
   const isServerSide = serverSideTotalRows !== undefined;
   const totalRows = isServerSide ? serverSideTotalRows : table.getFilteredRowModel().rows.length;
+  const effectivePageSize = isServerSide && serverSidePageSize ? serverSidePageSize : pagination.pageSize;
   const pageCount = isServerSide 
-    ? Math.ceil(serverSideTotalRows / pagination.pageSize) 
+    ? Math.ceil(serverSideTotalRows / effectivePageSize) 
     : table.getPageCount() || 1;
-  const currentPage = pagination.pageIndex + 1; // 1-indexed for display
+  const currentPage = isServerSide && serverSidePage ? serverSidePage : pagination.pageIndex + 1;
   
   const canPreviousPage = isServerSide ? currentPage > 1 : table.getCanPreviousPage();
   const canNextPage = isServerSide ? currentPage < pageCount : table.getCanNextPage();
@@ -81,7 +86,7 @@ export function DataGridPagination({
         <div className="flex items-center gap-2">
           <span>{t('grid.rowsPerPage')}:</span>
           <select
-            value={pagination.pageSize}
+            value={effectivePageSize}
             onChange={e => handlePageSizeChange(Number(e.target.value))}
             className="h-7 px-2 rounded border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-1 focus:ring-accent"
           >

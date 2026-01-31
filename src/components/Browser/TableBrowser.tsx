@@ -710,6 +710,8 @@ export function TableBrowser({
             onSandboxUpdate={handleSandboxUpdate}
             onSandboxDelete={handleSandboxDelete}
             serverSideTotalRows={!relationFilter ? totalRows : undefined}
+            serverSidePage={!relationFilter ? page : undefined}
+            serverSidePageSize={!relationFilter ? pageSize : undefined}
             onServerPageChange={!relationFilter ? setPage : undefined}
             onServerPageSizeChange={!relationFilter ? setPageSize : undefined}
             onRowClick={row => {

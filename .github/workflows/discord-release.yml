@@ -14,14 +14,14 @@ jobs:
               with:
                   script: |
                       const release = context.payload.release;
-                      const body = release.body.substring(0, 1500); // Limite Discord
+                      const body = release.body.substring(0, 1500);
 
                       const message = {
                         embeds: [{
                           title: `🚀 Nouvelle Release : ${release.tag_name}`,
                           url: release.html_url,
                           description: body,
-                          color: 5814783, // Bleu Blurple Discord
+                          color: 5814783,
                           author: {
                             name: "QoreDB Updates",
                             icon_url: "https://github.com/github.png"

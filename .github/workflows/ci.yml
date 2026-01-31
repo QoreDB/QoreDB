@@ -1,7 +1,6 @@
 name: Backend Tests
 
 on:
-  push:
   pull_request:
 
 jobs:

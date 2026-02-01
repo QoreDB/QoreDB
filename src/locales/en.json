@@ -451,7 +451,8 @@
             "foreignKey": "Foreign key to {{table}}",
             "indexed": "Indexed",
             "indexComposite": "Indexed (composite: {{name}})",
-            "unique": "Unique constraint"
+            "unique": "Unique constraint",
+            "copySuccess": "Row copied to clipboard"
         },
         "rowsSelected": "{{count}} row(s) selected",
         "rowsTotal": "{{count}} row(s)",
@@ -571,7 +572,8 @@
         "pagination": "Showing {{start}}-{{end}} of {{total}}",
         "add": "Add",
         "back": "Back",
-        "noResults": "No results found"
+        "noResults": "No results found",
+        "copied": "Copied"
     },
     "environment": {
         "label": "Environment",

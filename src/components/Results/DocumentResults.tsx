@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { Copy, Pencil, Trash2, Search, ChevronDown, ChevronUp } from 'lucide-react';
+import { Copy, Pencil, Trash2, Search, ChevronDown, ChevronUp, Check } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
@@ -26,6 +26,7 @@ function DocumentRowItem({
   const lineCount = doc.json.split('\n').length;
   const isLong = lineCount > 12; 
   const [expanded, setExpanded] = useState(false);
+  const [isCopied, setIsCopied] = useState(false);
 
   const shouldShowToggle = isLong;
 
@@ -51,12 +52,21 @@ function DocumentRowItem({
             <Button
               variant="ghost"
               size="sm"
-              className="h-6 px-2 text-xs"
-              onClick={() => onCopy(doc)}
+              className={cn("h-6 px-2 text-xs", isCopied && "text-green-500")}
+              onClick={() => {
+                onCopy(doc);
+                setIsCopied(true);
+                toast.success(t('grid.copySuccess'));
+                setTimeout(() => setIsCopied(false), 2000);
+              }}
               title={t('grid.copyToClipboard')}
             >
-              <Copy size={12} className="mr-1" />
-              {t('grid.copyJSON')}
+              {isCopied ? (
+                <Check size={12} className="mr-1" />
+              ) : (
+                <Copy size={12} className="mr-1" />
+              )}
+              {isCopied ? t('common.copied') : t('grid.copyJSON')}
             </Button>
             <Button
               variant="ghost"
@@ -257,7 +267,6 @@ export function DocumentResults({
     <div className="flex flex-col h-full min-h-0 gap-3">
       <div className="flex items-center justify-between px-1 gap-3">
         <div className="flex items-center gap-3 text-xs text-muted-foreground">
-          <span>{t('grid.rowsTotal', { count: totalRows })}</span>
           <span>{t('grid.rowsTotal', { count: totalRows })}</span>
           {typeof result.execution_time_ms === 'number' && (
             <div className="flex items-center gap-2 border-l border-border pl-3">

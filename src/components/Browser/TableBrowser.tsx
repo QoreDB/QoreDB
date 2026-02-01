@@ -40,7 +40,7 @@ import { Button } from '@/components/ui/button';
 import { RowModal } from './RowModal';
 import { toast } from 'sonner';
 import { Driver, getDriverMetadata } from '../../lib/drivers';
-import { isDocumentDatabase, getTerminology } from '../../lib/driverCapabilities';
+import { isDocumentDatabase } from '../../lib/driverCapabilities';
 import { onTableChange } from '@/lib/tableEvents';
 import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
 import { SandboxToggle, ChangesPanel, MigrationPreview } from '@/components/Sandbox';
@@ -573,11 +573,9 @@ export function TableBrowser({
 
   const displayName = namespace.schema ? `${namespace.schema}.${tableName}` : tableName;
 
-  const terminology = getTerminology(driver);
 
   return (
     <div className="flex flex-col h-full bg-background rounded-lg border border-border shadow-sm overflow-hidden">
-      {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/20">
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-md bg-(--q-accent-soft) text-(--q-accent)">
@@ -681,7 +679,7 @@ export function TableBrowser({
         >
           <span className="flex items-center gap-2">
             <Columns3 size={14} />
-            {t(terminology.tableLabel)}: {t('table.data')}
+            {t('table.data')}
           </span>
         </button>
         {!isDocument && (
@@ -738,7 +736,6 @@ export function TableBrowser({
             connectionName={connectionName}
             connectionDatabase={connectionDatabase}
             onRowsDeleted={loadData}
-            // SQL-specific props
             namespace={namespace}
             tableName={tableName}
             tableSchema={schema}
@@ -772,7 +769,6 @@ export function TableBrowser({
               setSelectedRow(row);
               setIsModalOpen(true);
             }}
-            // NoSQL-specific props
             database={namespace.database}
             collection={tableName}
             onEditDocument={(doc, idValue) => {
@@ -799,7 +795,6 @@ export function TableBrowser({
         )}
       </div>
 
-      {/* SQL Row Modal */}
       {schema && !isDocument && (
         <RowModal
           isOpen={isModalOpen}
@@ -822,7 +817,6 @@ export function TableBrowser({
         />
       )}
 
-      {/* NoSQL Document Editor Modal */}
       {isDocument && (
         <DocumentEditorModal
           isOpen={docEditorOpen}

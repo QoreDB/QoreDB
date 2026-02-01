@@ -454,6 +454,7 @@
             "indexComposite": "Indexé (composite: {{name}})",
             "unique": "Contrainte unique"
         },
+        "copySuccess": "Ligne copiée dans le presse-papiers",
         "rowsSelected": "{{count}} ligne(s) sélectionnée(s)",
         "rowsTotal": "{{count}} ligne(s)",
         "rowsShowing": "Affichage de {{shown}} sur {{total}} lignes",
@@ -570,7 +571,8 @@
         "pagination": "Affichage {{start}}-{{end}} sur {{total}}",
         "add": "Ajouter",
         "back": "Retour",
-        "noResults": "Aucun résultat"
+        "noResults": "Aucun résultat",
+        "copied": "Copié"
     },
     "environment": {
         "label": "Environnement",

@@ -23,7 +23,6 @@ interface ResultsViewerProps {
   connectionDatabase?: string;
   onRowsDeleted?: () => void;
 
-  // SQL-specific props (passed to DataGrid)
   namespace?: Namespace;
   tableName?: string;
   tableSchema?: TableSchema | null;
@@ -34,7 +33,6 @@ interface ResultsViewerProps {
   onOpenRelatedTable?: (namespace: Namespace, tableName: string) => void;
   onRowClick?: (row: Record<string, Value>) => void;
   
-  // Server-side pagination (DataGrid)
   serverSideTotalRows?: number;
   serverSidePage?: number;
   serverSidePageSize?: number;
@@ -43,7 +41,6 @@ interface ResultsViewerProps {
   serverSearchTerm?: string;
   onServerSearchChange?: (search: string) => void;
 
-  // Sandbox props
   sandboxMode?: boolean;
   pendingChanges?: SandboxChange[];
   sandboxDeleteDisplay?: SandboxDeleteDisplay;
@@ -54,7 +51,6 @@ interface ResultsViewerProps {
   ) => void;
   onSandboxDelete?: (primaryKey: Record<string, Value>, oldValues: Record<string, Value>) => void;
 
-  // NoSQL-specific props
   database?: string;
   collection?: string;
   onEditDocument?: (doc: Record<string, unknown>, idValue?: Value) => void;
@@ -69,8 +65,6 @@ export function ResultsViewer({
   connectionName,
   connectionDatabase,
   onRowsDeleted,
-
-  // SQL-specific
   namespace,
   tableName,
   tableSchema,
@@ -92,8 +86,6 @@ export function ResultsViewer({
   sandboxDeleteDisplay,
   onSandboxUpdate,
   onSandboxDelete,
-
-  // NoSQL-specific
   database,
   collection,
   onEditDocument,
@@ -122,7 +114,6 @@ export function ResultsViewer({
     );
   }
 
-  // Relational/SQL databases use DataGrid
   return (
     <DataGrid
       result={result}

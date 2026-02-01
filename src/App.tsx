@@ -33,6 +33,7 @@ import {
   Namespace,
   SavedConnection,
   connectSavedConnection,
+  disconnect,
   listSavedConnections,
   getDriverInfo,
   DriverCapabilities,
@@ -55,6 +56,7 @@ import {
 } from '@/lib/sandboxStore';
 import {
   emitUiEvent,
+  UI_EVENT_CONNECTIONS_CHANGED,
   UI_EVENT_EXPORT_DATA,
   UI_EVENT_OPEN_HISTORY,
   UI_EVENT_OPEN_LOGS,
@@ -66,6 +68,34 @@ import './index.css';
 // Constants
 const DEFAULT_PROJECT = 'default';
 const RECOVERY_SAVE_DEBOUNCE_MS = 600;
+
+function getConnectionSignature(connection: SavedConnection): string {
+  return JSON.stringify({
+    driver: connection.driver,
+    host: connection.host,
+    port: connection.port,
+    username: connection.username,
+    database: connection.database ?? null,
+    ssl: connection.ssl,
+    pool_max_connections: connection.pool_max_connections ?? null,
+    pool_min_connections: connection.pool_min_connections ?? null,
+    pool_acquire_timeout_secs: connection.pool_acquire_timeout_secs ?? null,
+    ssh_tunnel: connection.ssh_tunnel
+      ? {
+          host: connection.ssh_tunnel.host,
+          port: connection.ssh_tunnel.port,
+          username: connection.ssh_tunnel.username,
+          auth_type: connection.ssh_tunnel.auth_type,
+          key_path: connection.ssh_tunnel.key_path ?? null,
+          host_key_policy: connection.ssh_tunnel.host_key_policy,
+          proxy_jump: connection.ssh_tunnel.proxy_jump ?? null,
+          connect_timeout_secs: connection.ssh_tunnel.connect_timeout_secs,
+          keepalive_interval_secs: connection.ssh_tunnel.keepalive_interval_secs,
+          keepalive_count_max: connection.ssh_tunnel.keepalive_count_max,
+        }
+      : null,
+  });
+}
 
 function App() {
   const { t } = useTranslation();
@@ -108,6 +138,8 @@ function App() {
 
   const recovery = useRecovery();
   const recoverySaveHandleRef = useRef<number | null>(null);
+  const reconnectAttemptRef = useRef(0);
+  const pendingReconnectRef = useRef<string | null>(null);
 
   useEffect(() => {
     listSavedConnections(DEFAULT_PROJECT)
@@ -117,8 +149,8 @@ function App() {
 
   useEffect(() => {
     const handler = () => setSidebarRefreshTrigger(prev => prev + 1);
-    window.addEventListener('qoredb:connections-changed', handler);
-    return () => window.removeEventListener('qoredb:connections-changed', handler);
+    window.addEventListener(UI_EVENT_CONNECTIONS_CHANGED, handler);
+    return () => window.removeEventListener(UI_EVENT_CONNECTIONS_CHANGED, handler);
   }, []);
 
   useEffect(() => {
@@ -233,6 +265,8 @@ function App() {
         databaseBrowserTabs?: Record<string, DatabaseBrowserTab>;
       }
     ) => {
+      reconnectAttemptRef.current += 1;
+      pendingReconnectRef.current = null;
       setSessionId(newSessionId);
       setDriver(connection.driver as Driver);
       setActiveConnection(connection);
@@ -369,14 +403,64 @@ function App() {
 
   const handleConnectionSaved = useCallback(
     (updatedConnection: SavedConnection) => {
-      if (activeConnection?.id === updatedConnection.id) {
+      const isActive = activeConnection?.id === updatedConnection.id;
+      const shouldReconnect =
+        (Boolean(isActive && sessionId && activeConnection) &&
+          getConnectionSignature(activeConnection as SavedConnection) !==
+            getConnectionSignature(updatedConnection)) ||
+        pendingReconnectRef.current === updatedConnection.id;
+      if (isActive) {
         setActiveConnection(prev => (prev ? { ...prev, ...updatedConnection } : updatedConnection));
         setDriver(updatedConnection.driver as Driver);
       }
       handleCloseConnectionModal();
       setSidebarRefreshTrigger(prev => prev + 1);
+
+      if (shouldReconnect) {
+        const previousSessionId = sessionId;
+        reconnectAttemptRef.current += 1;
+        const attemptId = reconnectAttemptRef.current;
+        void (async () => {
+          try {
+            const reconnectResult = await connectSavedConnection(DEFAULT_PROJECT, updatedConnection.id);
+            if (attemptId !== reconnectAttemptRef.current) return;
+            if (reconnectResult.success && reconnectResult.session_id) {
+              pendingReconnectRef.current = null;
+              handleConnected(reconnectResult.session_id, updatedConnection);
+              try {
+                if (previousSessionId) await disconnect(previousSessionId);
+              } catch (err) {
+                console.warn('Failed to disconnect previous session', err);
+              }
+            } else {
+              notify.error(t('sidebar.connectionToFailed', { name: updatedConnection.name }), reconnectResult.error);
+              pendingReconnectRef.current = updatedConnection.id;
+              try {
+                if (previousSessionId) await disconnect(previousSessionId);
+              } catch (err) {
+                console.warn('Failed to disconnect previous session after reconnect failure', err);
+              }
+              setSessionId(null);
+              setActiveConnection(null);
+              resetTabs();
+            }
+          } catch (err) {
+            if (attemptId !== reconnectAttemptRef.current) return;
+            notify.error(t('sidebar.connectError'), err);
+            pendingReconnectRef.current = updatedConnection.id;
+            try {
+              if (previousSessionId) await disconnect(previousSessionId);
+            } catch (disconnectErr) {
+              console.warn('Failed to disconnect previous session after reconnect error', disconnectErr);
+            }
+            setSessionId(null);
+            setActiveConnection(null);
+            resetTabs();
+          }
+        })();
+      }
     },
-    [activeConnection?.id, handleCloseConnectionModal]
+    [activeConnection, handleCloseConnectionModal, handleConnected, resetTabs, sessionId, t]
   );
 
   const triggerSchemaRefresh = useCallback(() => {

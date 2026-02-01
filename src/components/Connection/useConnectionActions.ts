@@ -8,6 +8,7 @@ import {
 } from '../../lib/tauri';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
+import { emitUiEvent, UI_EVENT_CONNECTIONS_CHANGED } from '@/lib/uiEvents';
 
 interface UseConnectionActionsOptions {
   connection: SavedConnection;
@@ -73,6 +74,7 @@ export function useConnectionActions({
       const result = await deleteSavedConnection('default', connection.id);
       if (result.success) {
         toast.success(t('connection.menu.deletedSuccess', { name: connection.name }));
+        emitUiEvent(UI_EVENT_CONNECTIONS_CHANGED);
         onDeleted();
       } else {
         toast.error(t('connection.menu.deleteFail'), {
@@ -95,6 +97,7 @@ export function useConnectionActions({
       const result = await duplicateSavedConnection('default', connection.id);
       if (result.success && result.connection) {
         toast.success(t('connection.menu.duplicateSuccess', { name: result.connection.name }));
+        emitUiEvent(UI_EVENT_CONNECTIONS_CHANGED);
         onDeleted();
       } else {
         toast.error(t('connection.menu.duplicateFail'), {

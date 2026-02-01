@@ -13,9 +13,6 @@ import {  RowData as TauriRowData, deleteRow,  } from '@/lib/tauri';
 import { cn } from '@/lib/utils';
 import { coerceIdValue, DocumentResultsProps, DocumentRow, DocumentRowItemProps, formatIdLabel, normalizeDocument } from '@/utils/document'
 
-
-
-
 function DocumentRowItem({
   virtualRow,
   doc,
@@ -196,8 +193,6 @@ export function DocumentResults({
     overscan: 8,
   });
 
-
-
   const handleCopy = async (row: DocumentRow) => {
     await navigator.clipboard.writeText(row.json);
   };
@@ -287,8 +282,6 @@ export function DocumentResults({
           )}
         </div>
 
-
-
         <div className="relative w-64">
           <Search
             size={14}
@@ -327,7 +320,6 @@ export function DocumentResults({
         </div>
       </div>
 
-      {/* Server-side pagination */}
       {isServerSidePaginated && (
         <DataGridPagination
           table={null}

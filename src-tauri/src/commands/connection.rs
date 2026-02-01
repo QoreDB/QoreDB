@@ -75,8 +75,9 @@ fn normalize_config(mut config: ConnectionConfig) -> Result<ConnectionConfig, St
     }
     config.host = host.to_string();
 
+    // Username is required for SQL databases but optional for MongoDB (dev mode often has no auth)
     let username = config.username.trim();
-    if username.is_empty() {
+    if username.is_empty() && config.driver != "mongodb" {
         return Err("Username is required".to_string());
     }
     config.username = username.to_string();

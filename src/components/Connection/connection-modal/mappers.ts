@@ -121,10 +121,13 @@ export function getSshSummary(formData: ConnectionFormData): string {
 }
 
 export function isConnectionFormValid(formData: ConnectionFormData): boolean {
+	// MongoDB often runs without authentication in dev mode
+	const authRequired = formData.driver !== Driver.Mongodb;
+	
 	return Boolean(
 		formData.host &&
-			formData.username &&
-			formData.password &&
+			(formData.username || !authRequired) &&
+			(formData.password || !authRequired) &&
 			(!formData.useSshTunnel ||
 				(formData.sshHost && formData.sshUsername && formData.sshKeyPath)),
 	);

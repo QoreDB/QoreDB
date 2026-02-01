@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { RowData } from './utils/dataGridUtils';
 
 interface DataGridPaginationProps {
-  table: Table<RowData>;
+  table?: Table<RowData> | null;
   pagination: PaginationState;
   // Server-side pagination props
   serverSideTotalRows?: number;
@@ -30,20 +30,20 @@ export function DataGridPagination({
   
   // Calculate server-side pagination info
   const isServerSide = serverSideTotalRows !== undefined;
-  const totalRows = isServerSide ? serverSideTotalRows : table.getFilteredRowModel().rows.length;
+  const totalRows = isServerSide ? serverSideTotalRows : (table?.getFilteredRowModel().rows.length ?? 0);
   const effectivePageSize = isServerSide && serverSidePageSize ? serverSidePageSize : pagination.pageSize;
   const pageCount = isServerSide 
     ? Math.ceil(serverSideTotalRows / effectivePageSize) 
-    : table.getPageCount() || 1;
+    : (table?.getPageCount() || 1);
   const currentPage = isServerSide && serverSidePage ? serverSidePage : pagination.pageIndex + 1;
   
-  const canPreviousPage = isServerSide ? currentPage > 1 : table.getCanPreviousPage();
-  const canNextPage = isServerSide ? currentPage < pageCount : table.getCanNextPage();
+  const canPreviousPage = isServerSide ? currentPage > 1 : (table?.getCanPreviousPage() ?? false);
+  const canNextPage = isServerSide ? currentPage < pageCount : (table?.getCanNextPage() ?? false);
 
   const handlePageSizeChange = (newPageSize: number) => {
     if (isServerSide && onServerPageSizeChange) {
       onServerPageSizeChange(newPageSize);
-    } else {
+    } else if (table) {
       table.setPageSize(newPageSize);
     }
   };
@@ -51,7 +51,7 @@ export function DataGridPagination({
   const handleFirstPage = () => {
     if (isServerSide && onServerPageChange) {
       onServerPageChange(1);
-    } else {
+    } else if (table) {
       table.setPageIndex(0);
     }
   };
@@ -59,7 +59,7 @@ export function DataGridPagination({
   const handlePreviousPage = () => {
     if (isServerSide && onServerPageChange) {
       onServerPageChange(currentPage - 1);
-    } else {
+    } else if (table) {
       table.previousPage();
     }
   };
@@ -67,7 +67,7 @@ export function DataGridPagination({
   const handleNextPage = () => {
     if (isServerSide && onServerPageChange) {
       onServerPageChange(currentPage + 1);
-    } else {
+    } else if (table) {
       table.nextPage();
     }
   };
@@ -75,7 +75,7 @@ export function DataGridPagination({
   const handleLastPage = () => {
     if (isServerSide && onServerPageChange) {
       onServerPageChange(pageCount);
-    } else {
+    } else if (table) {
       table.setPageIndex(pageCount - 1);
     }
   };

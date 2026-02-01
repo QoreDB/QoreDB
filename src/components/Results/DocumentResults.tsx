@@ -1,83 +1,129 @@
-import { useMemo, useRef, useState, useEffect } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { Copy, Pencil, Trash2, Search } from 'lucide-react';
+import { Copy, Pencil, Trash2, Search, ChevronDown, ChevronUp } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { JSONViewer } from './JSONViewer';
 import { DeleteConfirmDialog } from '../Grid/DeleteConfirmDialog';
-import { QueryResult, Value, RowData as TauriRowData, deleteRow, Environment } from '@/lib/tauri';
+import { DataGridPagination } from '../Grid/DataGridPagination';
+import {  RowData as TauriRowData, deleteRow,  } from '@/lib/tauri';
 import { cn } from '@/lib/utils';
+import { coerceIdValue, DocumentResultsProps, DocumentRow, DocumentRowItemProps, formatIdLabel, normalizeDocument } from '@/utils/document'
 
-interface DocumentResultsProps {
-  result: QueryResult;
-  sessionId?: string;
-  database?: string;
-  collection?: string;
-  environment?: Environment;
-  readOnly?: boolean;
-  connectionName?: string;
-  connectionDatabase?: string;
-  onEditDocument?: (doc: Record<string, unknown>, idValue?: Value) => void;
-  onRowsDeleted?: () => void;
-}
 
-type DocumentRow = {
-  doc: Record<string, unknown> | unknown;
-  idValue?: Value;
-  idLabel?: string;
-  json: string;
-  search: string;
-};
 
-const DOCUMENT_COLUMN = 'document';
 
-function coerceIdValue(id: unknown): Value | undefined {
-  if (id && typeof id === 'object' && !Array.isArray(id)) {
-    const oid = (id as Record<string, unknown>).$oid;
-    if (typeof oid === 'string') {
-      return oid;
-    }
-  }
-  if (
-    id === null ||
-    typeof id === 'string' ||
-    typeof id === 'number' ||
-    typeof id === 'boolean' ||
-    typeof id === 'object'
-  ) {
-    return id as Value;
-  }
-  return undefined;
-}
+function DocumentRowItem({
+  virtualRow,
+  doc,
+  measureElement,
+  readOnly,
+  t,
+  onCopy,
+  onEdit,
+  onDelete
+}: DocumentRowItemProps) {
+  const lineCount = doc.json.split('\n').length;
+  const isLong = lineCount > 12; 
+  const [expanded, setExpanded] = useState(false);
 
-function formatIdLabel(id: unknown): string {
-  if (id === undefined) return '-';
-  if (typeof id === 'string' || typeof id === 'number' || typeof id === 'boolean') {
-    return String(id);
-  }
-  if (id && typeof id === 'object' && !Array.isArray(id)) {
-    const oid = (id as Record<string, unknown>).$oid;
-    if (typeof oid === 'string') return oid;
-  }
-  return JSON.stringify(id);
-}
+  const shouldShowToggle = isLong;
 
-function normalizeDocument(
-  result: QueryResult,
-  rowValues: Value[],
-): Record<string, unknown> | unknown {
-  if (result.columns.length === 1 && result.columns[0]?.name === DOCUMENT_COLUMN) {
-    return rowValues[0] ?? {};
-  }
+  return (
+    <div
+      key={virtualRow.key}
+      data-index={virtualRow.index}
+      ref={measureElement}
+      className="absolute left-0 right-0 px-3 py-1"
+      style={{
+        transform: `translateY(${virtualRow.start}px)`,
+      }}
+    >
+      <div className="rounded-md border border-border bg-muted/10 shadow-sm flex flex-col">
+        <div className="flex items-center justify-between gap-3 px-3 py-1.5 border-b border-border bg-muted/20">
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">_id:</span>
+            <span className="font-mono text-xs text-foreground truncate max-w-[240px]">
+              {doc.idLabel}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 px-2 text-xs"
+              onClick={() => onCopy(doc)}
+              title={t('grid.copyToClipboard')}
+            >
+              <Copy size={12} className="mr-1" />
+              {t('grid.copyJSON')}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className={cn('h-6 px-2 text-xs', readOnly && 'opacity-50')}
+              onClick={() => {
+                if (readOnly) {
+                  toast.error(t('environment.blocked'));
+                  return;
+                }
+                if (doc.doc && typeof doc.doc === 'object' && !Array.isArray(doc.doc)) {
+                  onEdit(doc.doc as Record<string, unknown>, doc.idValue);
+                }
+              }}
+              disabled={readOnly}
+              title={t('document.edit')}
+            >
+              <Pencil size={12} className="mr-1" />
+              {t('document.edit')}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className={cn(
+                'h-6 px-2 text-xs text-destructive hover:text-destructive',
+                readOnly && 'opacity-50'
+              )}
+              onClick={() => onDelete(doc)}
+              disabled={readOnly}
+              title={t('common.delete')}
+            >
+              <Trash2 size={12} className="mr-1" />
+              {t('common.delete')}
+            </Button>
+          </div>
+        </div>
 
-  const data: Record<string, unknown> = {};
-  result.columns.forEach((col, idx) => {
-    data[col.name] = rowValues[idx];
-  });
-  return data;
+        <div className="relative">
+          <div className={cn(
+            "overflow-hidden transition-all duration-200", 
+            !expanded && shouldShowToggle ? "max-h-[180px]" : "h-auto"
+          )}>
+            <JSONViewer data={doc.doc ?? null} initialExpanded={true} maxDepth={2} />
+          </div>
+          
+          {!expanded && shouldShowToggle && (
+            <div className="absolute bottom-0 left-0 right-0 h-16 bg-linear-to-t from-background to-transparent pointer-events-none" />
+          )}
+        </div>
+
+        {shouldShowToggle && (
+           <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => setExpanded(!expanded)} 
+            className="h-6 w-full rounded-t-none border-t border-border/50 text-[10px] text-muted-foreground hover:bg-muted/30 hover:text-foreground"
+          >
+              {expanded ? <ChevronUp size={12} className="mr-1"/> : <ChevronDown size={12} className="mr-1"/>}
+              {expanded ? t('grid.showLess') : t('grid.showMore')}
+           </Button>
+        )}
+      </div>
+    </div>
+  );
 }
 
 export function DocumentResults({
@@ -91,32 +137,30 @@ export function DocumentResults({
   connectionDatabase,
   onEditDocument,
   onRowsDeleted,
+  serverSideTotalRows,
+  serverSidePage,
+  serverSidePageSize,
+  onServerPageChange,
+  onServerPageSizeChange,
 }: DocumentResultsProps) {
   const { t } = useTranslation();
-  const DEFAULT_RENDER_LIMIT = 500; //TODO : est ce limitant ?
-  const RENDER_STEP = 500;
   const [filter, setFilter] = useState('');
-  const [renderLimit, setRenderLimit] = useState<number | null>(DEFAULT_RENDER_LIMIT);
   const [pendingDelete, setPendingDelete] = useState<DocumentRow | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteConfirmValue, setDeleteConfirmValue] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
 
+
+
   const confirmationLabel =
     (connectionDatabase || connectionName || 'PROD').trim() || 'PROD';
   const requiresConfirm = environment === 'production';
 
-  const totalRows = result.rows.length;
-
-  useEffect(() => {
-    setRenderLimit(DEFAULT_RENDER_LIMIT);
-  }, [result]);
-
-  const effectiveLimit = renderLimit === null ? totalRows : renderLimit;
-  const isLimited = totalRows > effectiveLimit;
+  const isServerSidePaginated = serverSideTotalRows !== undefined;
+  const totalRows = isServerSidePaginated ? serverSideTotalRows : result.rows.length;
 
   const documents = useMemo<DocumentRow[]>(() => {
-    const renderRows = renderLimit === null ? result.rows : result.rows.slice(0, renderLimit);
+    const renderRows = result.rows;
     return renderRows.map((row) => {
       const doc = normalizeDocument(result, row.values);
       const json = JSON.stringify(doc ?? null, null, 2);
@@ -136,7 +180,7 @@ export function DocumentResults({
         search,
       };
     });
-  }, [result, renderLimit]);
+  }, [result]);
 
   const filteredDocs = useMemo(() => {
     const query = filter.trim().toLowerCase();
@@ -148,18 +192,11 @@ export function DocumentResults({
   const rowVirtualizer = useVirtualizer({
     count: filteredDocs.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 180,
+    estimateSize: () => 250,
     overscan: 8,
   });
 
-  const handleLoadMore = () => {
-    if (renderLimit === null) return;
-    setRenderLimit((prev) => Math.min(totalRows, (prev || 0) + RENDER_STEP));
-  };
 
-  const handleShowAll = () => {
-    setRenderLimit(null);
-  };
 
   const handleCopy = async (row: DocumentRow) => {
     await navigator.clipboard.writeText(row.json);
@@ -226,9 +263,7 @@ export function DocumentResults({
       <div className="flex items-center justify-between px-1 gap-3">
         <div className="flex items-center gap-3 text-xs text-muted-foreground">
           <span>{t('grid.rowsTotal', { count: totalRows })}</span>
-          {isLimited && (
-            <span>{t('grid.rowsShowing', { shown: filteredDocs.length, total: totalRows })}</span>
-          )}
+          <span>{t('grid.rowsTotal', { count: totalRows })}</span>
           {typeof result.execution_time_ms === 'number' && (
             <div className="flex items-center gap-2 border-l border-border pl-3">
               <span title={t('query.time.execTooltip')}>
@@ -252,26 +287,7 @@ export function DocumentResults({
           )}
         </div>
 
-        {isLimited && (
-          <div className="flex items-center gap-2 text-xs">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 px-2 text-xs"
-              onClick={handleLoadMore}
-            >
-              {t('grid.loadMore')}
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 px-2 text-xs"
-              onClick={handleShowAll}
-            >
-              {t('grid.showAll')}
-            </Button>
-          </div>
-        )}
+
 
         <div className="relative w-64">
           <Search
@@ -289,87 +305,40 @@ export function DocumentResults({
 
       <div
         ref={parentRef}
-        className="flex-1 min-h-0 overflow-auto border border-border rounded-md bg-background"
+        className="flex-1 min-h-0 overflow-auto rounded-md bg-background"
       >
         <div
           className="relative"
           style={{ height: `${rowVirtualizer.getTotalSize()}px` }}
         >
-          {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-            const doc = filteredDocs[virtualRow.index];
-            return (
-              <div
-                key={virtualRow.key}
-                className="absolute left-0 right-0 px-3 py-3"
-                style={{
-                  transform: `translateY(${virtualRow.start}px)`,
-                }}
-              >
-                <div className="rounded-md border border-border bg-muted/10 shadow-sm">
-                  <div className="flex items-center justify-between gap-3 px-3 py-2 border-b border-border">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground">
-                        _id:
-                      </span>
-                      <span className="font-mono text-xs text-foreground truncate max-w-[240px]">
-                        {doc.idLabel}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 px-2 text-xs"
-                        onClick={() => handleCopy(doc)}
-                        title={t('grid.copyToClipboard')}
-                      >
-                        <Copy size={12} className="mr-1" />
-                        {t('grid.copyJSON')}
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className={cn('h-7 px-2 text-xs', readOnly && 'opacity-50')}
-                        onClick={() => {
-                          if (readOnly) {
-                            toast.error(t('environment.blocked'));
-                            return;
-                          }
-                          if (doc.doc && typeof doc.doc === 'object' && !Array.isArray(doc.doc)) {
-                            onEditDocument?.(doc.doc as Record<string, unknown>, doc.idValue);
-                          }
-                        }}
-                        disabled={readOnly}
-                        title={t('document.edit')}
-                      >
-                        <Pencil size={12} className="mr-1" />
-                        {t('document.edit')}
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className={cn(
-                          'h-7 px-2 text-xs text-destructive hover:text-destructive',
-                          readOnly && 'opacity-50'
-                        )}
-                        onClick={() => handleDeleteClick(doc)}
-                        disabled={readOnly}
-                        title={t('common.delete')}
-                      >
-                        <Trash2 size={12} className="mr-1" />
-                        {t('common.delete')}
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="max-h-96 overflow-auto">
-                    <JSONViewer data={doc.doc ?? null} initialExpanded={false} maxDepth={6} />
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+          {rowVirtualizer.getVirtualItems().map((virtualRow) => (
+             <DocumentRowItem
+               key={virtualRow.key}
+               virtualRow={virtualRow}
+               doc={filteredDocs[virtualRow.index]}
+               measureElement={rowVirtualizer.measureElement}
+               readOnly={readOnly}
+               t={t}
+               onCopy={handleCopy}
+               onEdit={onEditDocument || (() => {})}
+               onDelete={handleDeleteClick}
+             />
+          ))}
         </div>
       </div>
+
+      {/* Server-side pagination */}
+      {isServerSidePaginated && (
+        <DataGridPagination
+          table={null}
+          pagination={{ pageIndex: (serverSidePage || 1) - 1, pageSize: serverSidePageSize || 100 }}
+          serverSideTotalRows={serverSideTotalRows}
+          serverSidePage={serverSidePage}
+          serverSidePageSize={serverSidePageSize}
+          onServerPageChange={onServerPageChange}
+          onServerPageSizeChange={onServerPageSizeChange}
+        />
+      )}
 
       <DeleteConfirmDialog
         open={deleteDialogOpen}

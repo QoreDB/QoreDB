@@ -451,8 +451,12 @@ impl TableQueryOptions {
     }
 
     /// Returns the SQL OFFSET for pagination
+    /// Frontend sends 1-indexed pages, so we subtract 1 for offset calculation
     pub fn offset(&self) -> u64 {
-        self.effective_page() as u64 * self.effective_page_size() as u64
+        let page = self.effective_page();
+        // Convert 1-indexed to 0-indexed, saturating at 0 for safety
+        let zero_indexed_page = if page > 0 { page - 1 } else { 0 };
+        zero_indexed_page as u64 * self.effective_page_size() as u64
     }
 }
 

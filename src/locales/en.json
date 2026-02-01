@@ -164,7 +164,7 @@
         "newQuery": "New Query ({{modifier}}+T)"
     },
     "browser": {
-        "searchPlaceholder": "Search connections, tables...",
+        "searchPlaceholder": "Search {{label}}...",
         "typeToSearch": "Type correctly to search...",
         "navigate": "Navigate",
         "select": "Select",
@@ -468,6 +468,8 @@
         "noResults": "No results",
         "loadMore": "Load more",
         "showAll": "Show all",
+        "showLess": "Show less",
+        "showMore": "Show more",
         "copyCSV": "Copy as CSV",
         "copyJSON": "Copy as JSON",
         "copySQL": "Copy as SQL",
@@ -1083,5 +1085,15 @@
             "dismiss": "Dismiss",
             "markRead": "Mark as read"
         }
+    },
+    "terminology": {
+        "table": "Table",
+        "tables": "Tables",
+        "collection": "Collection",
+        "collections": "Collections",
+        "row": "Row",
+        "rows": "Rows",
+        "document": "Document",
+        "documents": "Documents"
     }
 }

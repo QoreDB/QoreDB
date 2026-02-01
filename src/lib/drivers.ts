@@ -31,6 +31,9 @@ export interface IdentifierRules {
   namespaceStrategy: 'schema' | 'database';
 }
 
+/** Data model paradigm for database drivers */
+export type DataModel = 'relational' | 'document' | 'key-value' | 'graph' | 'time-series';
+
 export interface DriverMetadata {
   id: Driver;
   label: string;
@@ -45,6 +48,8 @@ export interface DriverMetadata {
   databaseFieldLabel: string;
   supportsSchemas: boolean;
   supportsSQL: boolean;
+  dataModel: DataModel;
+  isDocumentBased: boolean;
   identifier: IdentifierRules;
   queries: DriverQueryBuilders;
 }
@@ -64,6 +69,8 @@ export const DRIVERS: Record<Driver, DriverMetadata> = {
     databaseFieldLabel: 'connection.databaseInitial',
     supportsSchemas: true,
     supportsSQL: true,
+    dataModel: 'relational',
+    isDocumentBased: false,
     identifier: {
       quoteStart: '"',
       quoteEnd: '"',
@@ -98,6 +105,8 @@ export const DRIVERS: Record<Driver, DriverMetadata> = {
     databaseFieldLabel: 'connection.database',
     supportsSchemas: false,
     supportsSQL: true,
+    dataModel: 'relational',
+    isDocumentBased: false,
     identifier: {
       quoteStart: '`',
       quoteEnd: '`',
@@ -132,6 +141,8 @@ export const DRIVERS: Record<Driver, DriverMetadata> = {
     databaseFieldLabel: 'connection.database',
     supportsSchemas: false,
     supportsSQL: false,
+    dataModel: 'document',
+    isDocumentBased: true,
     identifier: {
       quoteStart: '"',
       quoteEnd: '"',

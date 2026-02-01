@@ -13,33 +13,7 @@ interface MongoEditorProps {
   readOnly?: boolean;
 }
 
-// Template queries for MongoDB
-export const MONGO_TEMPLATES = {
-  find: `db.collection.find({
-  // query filter
-})`,
-  findOne: `db.collection.findOne({
-  // query filter
-})`,
-  aggregate: `db.collection.aggregate([
-  { $match: { } },
-  { $group: { _id: "$field", count: { $sum: 1 } } }
-])`,
-  insertOne: `db.collection.insertOne({
-  // document
-})`,
-  updateOne: `db.collection.updateOne(
-  { /* filter */ },
-  { $set: { /* update */ } }
-)`,
-  updateMany: `db.collection.updateMany(
-  { /* filter */ },
-  { $set: { /* update */ } }
-)`,
-  deleteOne: `db.collection.deleteOne({
-  // filter
-})`,
-};
+
 
 export function MongoEditor({
   value,
@@ -124,5 +98,5 @@ export function MongoEditor({
     }
   }, [value]);
 
-  return <div className="flex-1 overflow-hidden h-50 text-base" ref={editorRef} />;
+  return <div className="flex-1 overflow-hidden h-full text-base" ref={editorRef} />;
 }

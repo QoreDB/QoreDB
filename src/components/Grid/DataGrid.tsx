@@ -132,8 +132,7 @@ export function DataGrid({
   onServerSearchChange,
 }: DataGridProps) {
   const { t } = useTranslation();
-  const DEFAULT_RENDER_LIMIT = 2000;
-  const RENDER_STEP = 2000;
+
 
   const [sorting, setSorting] = useState<SortingState>([]);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
@@ -149,7 +148,7 @@ export function DataGrid({
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [showFilters, setShowFilters] = useState(false);
-  const [renderLimit, setRenderLimit] = useState<number | null>(DEFAULT_RENDER_LIMIT);
+
 
   useEffect(() => {
     if (initialFilter !== undefined) {
@@ -163,12 +162,7 @@ export function DataGrid({
 
   const totalRows = result?.rows.length ?? 0;
 
-  useEffect(() => {
-    setRenderLimit(DEFAULT_RENDER_LIMIT);
-  }, [result]);
 
-  const effectiveLimit = renderLimit === null ? totalRows : renderLimit;
-  const isLimited = totalRows > effectiveLimit;
 
   const overlayResult: OverlayResult = useMemo(() => {
     if (!result || !sandboxMode || pendingChanges.length === 0 || !namespace || !tableName) {
@@ -189,14 +183,11 @@ export function DataGrid({
     primaryKey,
   ]);
 
-  // Convert data (use overlayed result when in sandbox mode)
   const data = useMemo(() => {
     const effectiveResult = sandboxMode ? overlayResult.result : result;
     if (!effectiveResult) return [];
-    const limitedRows =
-      renderLimit === null ? effectiveResult.rows : effectiveResult.rows.slice(0, renderLimit);
-    return convertToRowData({ ...effectiveResult, rows: limitedRows });
-  }, [result, overlayResult.result, sandboxMode, renderLimit]);
+    return convertToRowData({ ...effectiveResult });
+  }, [result, overlayResult.result, sandboxMode]);
 
   const columnTypeMap = useMemo(() => {
     const map = new Map<string, string>();
@@ -208,7 +199,6 @@ export function DataGrid({
     return new Set(primaryKey ?? []);
   }, [primaryKey]);
 
-  // Build index lookup maps
   const { indexedColumns, uniqueColumns, indexInfoMap } = useMemo(() => {
     const indexedColumns = new Set<string>();
     const uniqueColumns = new Set<string>();
@@ -216,7 +206,6 @@ export function DataGrid({
 
     if (tableSchema?.indexes) {
       for (const index of tableSchema.indexes) {
-        // Skip primary key indexes (already shown with PK icon)
         if (index.is_primary) continue;
 
         const isComposite = index.columns.length > 1;
@@ -227,8 +216,6 @@ export function DataGrid({
           if (index.is_unique) {
             uniqueColumns.add(col);
           }
-
-          // Store index info (first index wins if column is in multiple indexes)
           if (!indexInfoMap.has(col)) {
             indexInfoMap.set(col, { name: index.name, isComposite });
           }
@@ -239,7 +226,6 @@ export function DataGrid({
     return { indexedColumns, uniqueColumns, indexInfoMap };
   }, [tableSchema?.indexes]);
 
-  // Foreign key peek hook
   const {
     peekCache,
     foreignKeyMap,
@@ -540,15 +526,7 @@ export function DataGrid({
     tableName,
   });
 
-  const handleLoadMore = useCallback(() => {
-    if (renderLimit === null) return;
-    const nextLimit = Math.min(totalRows, renderLimit + RENDER_STEP);
-    setRenderLimit(nextLimit);
-  }, [renderLimit, totalRows]);
 
-  const handleShowAll = useCallback(() => {
-    setRenderLimit(null);
-  }, []);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -615,23 +593,18 @@ export function DataGrid({
     );
   }
 
-  // Computed values
   const selectedCount = Object.keys(rowSelection).length;
   const selectedRows = table.getSelectedRowModel().rows;
 
   return (
     <div className="flex flex-col gap-2 h-full min-h-0" data-datagrid>
-      {/* Header */}
       <div className="flex items-center justify-between px-1 shrink-0">
-        <DataGridHeader
-          selectedCount={selectedCount}
-          totalRows={totalRows}
-          dataLength={data.length}
-          isLimited={isLimited}
-          result={result}
-          onLoadMore={handleLoadMore}
-          onShowAll={handleShowAll}
-          canDelete={canDelete}
+          <DataGridHeader
+            selectedCount={selectedCount}
+            totalRows={totalRows}
+
+            result={result}
+            canDelete={canDelete}
           deleteDisabled={deleteDisabled}
           isDeleting={isDeleting}
           onDelete={handleDelete}
@@ -652,7 +625,6 @@ export function DataGrid({
         />
       </div>
 
-      {/* Table */}
       <div ref={parentRef} className="border border-border rounded-md overflow-auto flex-1 min-h-0">
         <table className="w-full text-sm border-collapse relative">
           <DataGridTableHeader table={table} showFilters={showFilters} />

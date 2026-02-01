@@ -24,7 +24,7 @@ interface QueryPanelResultsProps {
   panelError: string | null;
   results: QueryResultEntry[];
   activeResultId: string | null;
-  isMongo: boolean;
+  isDocumentBased: boolean;
   sessionId: string | null;
   connectionName?: string;
   connectionDatabase?: string;
@@ -41,7 +41,7 @@ export function QueryPanelResults({
   panelError,
   results,
   activeResultId,
-  isMongo,
+  isDocumentBased,
   sessionId,
   connectionName,
   connectionDatabase,
@@ -59,8 +59,8 @@ export function QueryPanelResults({
   const activeQuery = activeResult?.query || query;
   const collection = getCollectionFromQuery(activeQuery);
   const showTabs = results.length > 1;
-  const statementCount = !isMongo ? countSqlStatements(activeQuery) : 1;
-  const showMultiStatementNotice = !isMongo && statementCount > 1;
+  const statementCount = !isDocumentBased ? countSqlStatements(activeQuery) : 1;
+  const showMultiStatementNotice = !isDocumentBased && statementCount > 1;
 
   return (
     <div className="flex-1 flex flex-col min-h-0 bg-background overflow-hidden relative">
@@ -124,7 +124,7 @@ export function QueryPanelResults({
           ) : activeResult.kind === 'explain' && activeResult.result ? (
             <ExplainPlanView result={activeResult.result} />
           ) : activeResult.result ? (
-            isMongo ? (
+            isDocumentBased ? (
               <div className="flex-1 min-h-0 flex flex-col relative">
                 <DocumentResults
                   result={activeResult.result}

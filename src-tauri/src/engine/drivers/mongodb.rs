@@ -37,13 +37,31 @@ impl MongoDriver {
     }
 
     /// Builds a connection string from config
+    /// Builds a connection string from config
     fn build_connection_string(config: &ConnectionConfig) -> String {
         let db = config.database.as_deref().unwrap_or("admin");
         let tls = if config.ssl { "true" } else { "false" };
 
+        // Only include credentials if username is provided
+        let credentials = if !config.username.is_empty() {
+            format!("{}:{}@", config.username, config.password)
+        } else {
+            String::new()
+        };
+
+        // If no auth, we shouldn't force authSource=admin unless needed
+        // But for now, let's keep it simple and just remove the credentials part
+        // We'll also optionally include authSource only if we have credentials, or leave it as is.
+        // Usually authSource is harmless without creds, but better to be safe.
+        let auth_source = if !config.username.is_empty() {
+            "?authSource=admin&tls="
+        } else {
+            "?tls="
+        };
+
         format!(
-            "mongodb://{}:{}@{}:{}/{}?authSource=admin&tls={}",
-            config.username, config.password, config.host, config.port, db, tls
+            "mongodb://{}{}:{}/{}{}{}",
+            credentials, config.host, config.port, db, auth_source, tls
         )
     }
 
@@ -769,6 +787,11 @@ impl DataEngine for MongoDriver {
         let page_size = options.effective_page_size();
         let offset = options.offset();
 
+        tracing::info!(
+            "MongoDB query_table: page={}, page_size={}, offset={}, table={}",
+            page, page_size, offset, table
+        );
+
         // Build $match filter document
         let mut filter_doc = Document::new();
 
@@ -858,6 +881,11 @@ impl DataEngine for MongoDriver {
             .try_collect()
             .await
             .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        tracing::info!(
+            "MongoDB query_table: found {} documents, total_rows={}",
+            documents.len(), total_rows
+        );
 
         let execution_time_ms = start.elapsed().as_micros() as f64 / 1000.0;
 
@@ -969,11 +997,15 @@ impl DataEngine for MongoDriver {
             .collection::<Document>(table);
 
         let doc = Self::row_data_to_document(data);
+        tracing::info!("MongoDB: Inserting document into {}: {:?}", table, doc);
 
         collection
             .insert_one(doc)
             .await
-            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+            .map_err(|e| {
+                tracing::error!("MongoDB: Insert failed: {}", e);
+                EngineError::execution_error(e.to_string())
+            })?;
 
         let execution_time_ms = start.elapsed().as_micros() as f64 / 1000.0;
 

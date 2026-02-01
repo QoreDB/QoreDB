@@ -55,10 +55,13 @@ export function useConnectionActions({
   const handleEdit = useCallback(async () => {
     try {
       const credsResult = await getConnectionCredentials('default', connection.id);
-      if (!credsResult.success || !credsResult.password) {
+      
+      // Allow empty password (e.g. for MongoDB)
+      if (!credsResult.success || credsResult.password === undefined || credsResult.password === null) {
         toast.error(t('connection.failedRetrieveCredentialsEdit'));
         return;
       }
+      
       onEdit(connection, credsResult.password);
       onAfterAction?.();
     } catch {
@@ -67,8 +70,6 @@ export function useConnectionActions({
   }, [connection, onAfterAction, onEdit, t]);
 
   const handleDelete = useCallback(async () => {
-
-
     setDeleting(true);
     try {
       const result = await deleteSavedConnection('default', connection.id);

@@ -118,6 +118,7 @@ export function DocumentEditorModal({
     try {
       // 3. Execute Mutation
       if (mode === 'insert') {
+        console.log('DocumentEditorModal: Inserting row', { sessionId, database, collection, rowData }); 
         const result = await insertRow(
           sessionId,
           database,

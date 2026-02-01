@@ -18,7 +18,8 @@ import {
   SandboxChangeDto,
 } from '../../lib/tauri';
 import { useSchemaCache } from '../../hooks/useSchemaCache';
-import { DataGrid } from '../Grid/DataGrid';
+import { ResultsViewer } from '../Results/ResultsViewer';
+import { DocumentEditorModal } from '../Editor/DocumentEditorModal';
 import { cn } from '@/lib/utils';
 import {
   Table,
@@ -39,6 +40,7 @@ import { Button } from '@/components/ui/button';
 import { RowModal } from './RowModal';
 import { toast } from 'sonner';
 import { Driver, getDriverMetadata } from '../../lib/drivers';
+import { isDocumentDatabase, getTerminology } from '../../lib/driverCapabilities';
 import { onTableChange } from '@/lib/tableEvents';
 import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
 import { SandboxToggle, ChangesPanel, MigrationPreview } from '@/components/Sandbox';
@@ -170,6 +172,14 @@ export function TableBrowser({
   const [modalMode, setModalMode] = useState<'insert' | 'update'>('insert');
   const [selectedRow, setSelectedRow] = useState<Record<string, Value> | undefined>(undefined);
   const mutationsSupported = driverCapabilities?.mutations ?? true;
+
+  // Document editor state (NoSQL)
+  const isDocument = isDocumentDatabase(driver);
+  console.log('[TableBrowser] driver:', driver, 'isDocument:', isDocument);
+  const [docEditorOpen, setDocEditorOpen] = useState(false);
+  const [docEditorMode, setDocEditorMode] = useState<'insert' | 'edit'>('insert');
+  const [docEditorData, setDocEditorData] = useState<string>('{}');
+  const [docOriginalId, setDocOriginalId] = useState<Value | undefined>(undefined);
 
   // Sandbox state
   const [sandboxActive, setSandboxActive] = useState(() => isSandboxActive(sessionId));
@@ -563,6 +573,8 @@ export function TableBrowser({
 
   const displayName = namespace.schema ? `${namespace.schema}.${tableName}` : tableName;
 
+  const terminology = getTerminology(driver);
+
   return (
     <div className="flex flex-col h-full bg-background rounded-lg border border-border shadow-sm overflow-hidden">
       {/* Header */}
@@ -633,9 +645,18 @@ export function TableBrowser({
                 toast.error(t('grid.mutationsNotSupported'));
                 return;
               }
-              setModalMode('insert');
-              setSelectedRow(undefined);
-              setIsModalOpen(true);
+              if (isDocument) {
+                // NoSQL: open document editor
+                setDocEditorMode('insert');
+                setDocEditorData('{}');
+                setDocOriginalId(undefined);
+                setDocEditorOpen(true);
+              } else {
+                // SQL: open row modal
+                setModalMode('insert');
+                setSelectedRow(undefined);
+                setIsModalOpen(true);
+              }
             }}
           >
             <Plus size={14} />
@@ -660,9 +681,10 @@ export function TableBrowser({
         >
           <span className="flex items-center gap-2">
             <Columns3 size={14} />
-            {t('table.data')}
+            {t(terminology.tableLabel)}: {t('table.data')}
           </span>
         </button>
+        {!isDocument && (
         <button
           className={cn(
             'px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
@@ -677,6 +699,7 @@ export function TableBrowser({
             {t('table.structure')}
           </span>
         </button>
+        )}
         <button
           className={cn(
             'px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
@@ -706,20 +729,22 @@ export function TableBrowser({
             <pre className="text-sm font-mono whitespace-pre-wrap">{error}</pre>
           </div>
         ) : activeTab === 'data' ? (
-          <DataGrid
+          <ResultsViewer
             result={data}
+            driver={driver}
             sessionId={sessionId}
+            environment={environment}
+            readOnly={readOnly}
+            connectionName={connectionName}
+            connectionDatabase={connectionDatabase}
+            onRowsDeleted={loadData}
+            // SQL-specific props
             namespace={namespace}
             tableName={tableName}
             tableSchema={schema}
-            primaryKey={schema?.primary_key}
-            environment={environment}
-            readOnly={readOnly}
+            primaryKey={schema?.primary_key ?? undefined}
             mutationsSupported={mutationsSupported}
-            connectionName={connectionName}
-            connectionDatabase={connectionDatabase}
             initialFilter={searchFilter?.value}
-            onRowsDeleted={loadData}
             onRowsUpdated={loadData}
             onOpenRelatedTable={onOpenRelatedTable}
             sandboxMode={sandboxActive}
@@ -747,6 +772,19 @@ export function TableBrowser({
               setSelectedRow(row);
               setIsModalOpen(true);
             }}
+            // NoSQL-specific props
+            database={namespace.database}
+            collection={tableName}
+            onEditDocument={(doc, idValue) => {
+              if (readOnly) {
+                toast.error(t('environment.blocked'));
+                return;
+              }
+              setDocEditorMode('edit');
+              setDocEditorData(JSON.stringify(doc, null, 2));
+              setDocOriginalId(idValue);
+              setDocEditorOpen(true);
+            }}
           />
         ) : activeTab === 'structure' ? (
           <StructureTable schema={schema} />
@@ -761,7 +799,8 @@ export function TableBrowser({
         )}
       </div>
 
-      {schema && (
+      {/* SQL Row Modal */}
+      {schema && !isDocument && (
         <RowModal
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
@@ -780,6 +819,25 @@ export function TableBrowser({
           sandboxMode={sandboxActive}
           onSandboxInsert={handleSandboxInsert}
           onSandboxUpdate={handleSandboxUpdate}
+        />
+      )}
+
+      {/* NoSQL Document Editor Modal */}
+      {isDocument && (
+        <DocumentEditorModal
+          isOpen={docEditorOpen}
+          onClose={() => setDocEditorOpen(false)}
+          mode={docEditorMode}
+          sessionId={sessionId}
+          database={namespace.database}
+          collection={tableName}
+          initialData={docEditorData}
+          originalId={docOriginalId}
+          onSuccess={loadData}
+          readOnly={readOnly}
+          environment={environment}
+          connectionName={connectionName}
+          connectionDatabase={connectionDatabase}
         />
       )}
 

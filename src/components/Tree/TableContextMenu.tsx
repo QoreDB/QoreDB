@@ -12,7 +12,8 @@ import {
 } from '@/components/ui/context-menu';
 import { DangerConfirmDialog } from '@/components/Guard/DangerConfirmDialog';
 import { Collection, Environment, executeQuery } from '../../lib/tauri';
-import { Driver, getDriverMetadata } from '../../lib/drivers';
+import { Driver } from '../../lib/drivers';
+import { isDocumentDatabase } from '../../lib/driverCapabilities';
 import { buildDropTableSQL, buildTruncateTableSQL } from '@/lib/column-types';
 import { emitTableChange } from '@/lib/tableEvents';
 import { invalidateCollectionsCache, invalidateTableSchemaCache } from '../../hooks/useSchemaCache';
@@ -50,9 +51,8 @@ export function TableContextMenu({
   const [dangerAction, setDangerAction] = useState<DangerAction>(null);
   const [loading, setLoading] = useState(false);
   
-  const driverMeta = getDriverMetadata(driver);
   const isProduction = environment === 'production';
-  const isMongo = !driverMeta.supportsSQL;
+  const isDocument = isDocumentDatabase(driver);
   const tableName = collection.name;
   const confirmationLabel = isProduction ? tableName : undefined;
 
@@ -65,7 +65,7 @@ export function TableContextMenu({
     try {
       let query: string;
 
-      if (isMongo) {
+      if (isDocument) {
         const payload = {
           database: collection.namespace.database,
           collection: tableName,
@@ -108,7 +108,7 @@ export function TableContextMenu({
     try {
       let query: string;
 
-      if (isMongo) {
+      if (isDocument) {
         const payload = {
           database: collection.namespace.database,
           collection: tableName,

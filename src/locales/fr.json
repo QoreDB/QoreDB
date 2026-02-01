@@ -469,6 +469,8 @@
         "noResults": "Aucun résultat",
         "loadMore": "Charger plus",
         "showAll": "Tout afficher",
+        "showLess": "Voir moins",
+        "showMore": "Voir plus",
         "copyCSV": "Copier en CSV",
         "copyJSON": "Copier en JSON",
         "copySQL": "Copier en SQL",
@@ -713,6 +715,18 @@
             "finish": "C'est parti !"
         }
     },
+        "document": {
+            "new": "Nouveau Document",
+            "edit": "Modifier le Document",
+            "save": "Enregistrer",
+            "cancel": "Annuler",
+            "invalidJson": "JSON invalide",
+            "insertSuccess": "Document inséré avec succès",
+            "updateSuccess": "Document mis à jour avec succès",
+            "deleteConfirm": "Êtes-vous sûr de vouloir supprimer ce document?",
+            "idLabel": "ID du document (_id)",
+            "jsonLabel": "Document JSON"
+        },
     "errorBoundary": {
         "title": "Une erreur est survenue",
         "description": "Une erreur inattendue s'est produite. L'erreur a été journalisée.",
@@ -1070,5 +1084,15 @@
             "dismiss": "Ignorer",
             "markRead": "Marquer comme lu"
         }
+    },
+    "terminology": {
+        "table": "Table",
+        "tables": "Tables",
+        "collection": "Collection",
+        "collections": "Collections",
+        "row": "Ligne",
+        "rows": "Lignes",
+        "document": "Document",
+        "documents": "Documents"
     }
 }

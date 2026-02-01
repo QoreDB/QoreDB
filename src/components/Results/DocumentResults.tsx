@@ -1,7 +1,7 @@
-import { useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { Copy, Pencil, Trash2, Search, ChevronDown, ChevronUp, Check } from 'lucide-react';
+import { Copy, Pencil, Trash2, Search, ChevronDown, ChevronUp, Check, Database } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
@@ -12,6 +12,9 @@ import { DataGridPagination } from '../Grid/DataGridPagination';
 import {  RowData as TauriRowData, deleteRow,  } from '@/lib/tauri';
 import { cn } from '@/lib/utils';
 import { coerceIdValue, DocumentResultsProps, DocumentRow, DocumentRowItemProps, formatIdLabel, normalizeDocument } from '@/utils/document'
+import { useStreamingExport } from '@/hooks/useStreamingExport';
+import { StreamingExportDialog } from '@/components/Export/StreamingExportDialog';
+import type { ExportConfig } from '@/lib/export';
 
 function DocumentRowItem({
   virtualRow,
@@ -144,6 +147,8 @@ export function DocumentResults({
   connectionDatabase,
   onEditDocument,
   onRowsDeleted,
+  exportQuery,
+  exportNamespace,
   serverSideTotalRows,
   serverSidePage,
   serverSidePageSize,
@@ -156,12 +161,16 @@ export function DocumentResults({
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteConfirmValue, setDeleteConfirmValue] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
+  const { startStreamingExport } = useStreamingExport(sessionId);
+  const [streamingDialogOpen, setStreamingDialogOpen] = useState(false);
+  const canStreamExport = Boolean(sessionId && exportQuery);
 
 
 
   const confirmationLabel =
     (connectionDatabase || connectionName || 'PROD').trim() || 'PROD';
   const requiresConfirm = environment === 'production';
+  const resolvedNamespace = exportNamespace ?? (database ? { database, schema: undefined } : undefined);
 
   const isServerSidePaginated = serverSideTotalRows !== undefined;
   const totalRows = isServerSidePaginated ? serverSideTotalRows : result.rows.length;
@@ -253,6 +262,16 @@ export function DocumentResults({
     }
   };
 
+  const handleStreamingExportConfirm = useCallback(
+    async (config: ExportConfig) => {
+      const exportId = await startStreamingExport(config);
+      if (exportId) {
+        setStreamingDialogOpen(false);
+      }
+    },
+    [startStreamingExport]
+  );
+
   const totalTimeMs = (result as { total_time_ms?: number }).total_time_ms;
 
   if (filteredDocs.length === 0) {
@@ -291,17 +310,30 @@ export function DocumentResults({
           )}
         </div>
 
-        <div className="relative w-64">
-          <Search
-            size={14}
-            className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground"
-          />
-          <Input
-            value={filter}
-            onChange={(event) => setFilter(event.target.value)}
-            placeholder={t('grid.searchPlaceholder')}
-            className="h-8 pl-7 text-xs"
-          />
+        <div className="flex items-center gap-2">
+          {canStreamExport && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 px-2 text-xs"
+              onClick={() => setStreamingDialogOpen(true)}
+            >
+              <Database size={14} className="mr-1" />
+              {t('grid.exportAllRows')}
+            </Button>
+          )}
+          <div className="relative w-64">
+            <Search
+              size={14}
+              className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground"
+            />
+            <Input
+              value={filter}
+              onChange={(event) => setFilter(event.target.value)}
+              placeholder={t('grid.searchPlaceholder')}
+              className="h-8 pl-7 text-xs"
+            />
+          </div>
         </div>
       </div>
 
@@ -338,6 +370,17 @@ export function DocumentResults({
           serverSidePageSize={serverSidePageSize}
           onServerPageChange={onServerPageChange}
           onServerPageSizeChange={onServerPageSizeChange}
+        />
+      )}
+
+      {canStreamExport && exportQuery && (
+        <StreamingExportDialog
+          open={streamingDialogOpen}
+          onOpenChange={setStreamingDialogOpen}
+          query={exportQuery}
+          namespace={resolvedNamespace}
+          tableName={collection}
+          onConfirm={handleStreamingExportConfirm}
         />
       )}
 

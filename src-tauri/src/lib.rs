@@ -3,6 +3,7 @@
 
 pub mod commands;
 pub mod engine;
+pub mod export;
 pub mod interceptor;
 pub mod metrics;
 pub mod observability;
@@ -19,6 +20,7 @@ use engine::{DriverRegistry, QueryManager, SessionManager};
 use interceptor::InterceptorPipeline;
 use policy::SafetyPolicy;
 use vault::{VaultLock, backend::KeyringProvider};
+use export::ExportPipeline;
 
 pub type SharedState = Arc<Mutex<AppState>>;
 pub struct AppState {
@@ -28,6 +30,7 @@ pub struct AppState {
     pub policy: SafetyPolicy,
     pub query_manager: Arc<QueryManager>,
     pub interceptor: Arc<InterceptorPipeline>,
+    pub export_pipeline: Arc<ExportPipeline>,
 }
 
 impl AppState {
@@ -43,6 +46,7 @@ impl AppState {
         let mut vault_lock = VaultLock::new(Box::new(KeyringProvider::new()));
         let policy = SafetyPolicy::load();
         let query_manager = Arc::new(QueryManager::new());
+        let export_pipeline = Arc::new(ExportPipeline::new());
 
         // Initialize interceptor with data directory
         let data_dir = dirs::data_local_dir()
@@ -61,6 +65,7 @@ impl AppState {
             policy,
             query_manager,
             interceptor,
+            export_pipeline,
         }
     }
 }
@@ -125,6 +130,9 @@ pub fn run() {
             // Logs
             commands::logs::export_logs,
             commands::logs::log_frontend_message,
+            // Export
+            commands::export::start_export,
+            commands::export::cancel_export,
             // Metrics (dev-only)
             commands::metrics::get_metrics,
             // Vault commands

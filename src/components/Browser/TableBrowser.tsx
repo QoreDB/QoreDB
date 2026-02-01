@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Namespace,
@@ -74,6 +74,35 @@ import {
 
 function formatTableName(namespace: Namespace, tableName: string): string {
   return namespace.schema ? `${namespace.schema}.${tableName}` : tableName;
+}
+
+function buildStreamingExportQuery(driver: Driver, namespace: Namespace, tableName: string): string {
+  const metadata = getDriverMetadata(driver);
+
+  if (metadata.isDocumentBased) {
+    return JSON.stringify({
+      database: namespace.database,
+      collection: tableName,
+      query: {},
+    });
+  }
+
+  const { quoteStart, quoteEnd, namespaceStrategy } = metadata.identifier;
+  const quote = (name: string) => {
+    const escaped = name.split(quoteEnd).join(`${quoteEnd}${quoteEnd}`);
+    return `${quoteStart}${escaped}${quoteEnd}`;
+  };
+
+  const table = quote(tableName);
+  let qualified = table;
+
+  if (namespaceStrategy === 'schema' && namespace.schema) {
+    qualified = `${quote(namespace.schema)}.${table}`;
+  } else if (namespaceStrategy === 'database' && namespace.database) {
+    qualified = `${quote(namespace.database)}.${table}`;
+  }
+
+  return `SELECT * FROM ${qualified};`;
 }
 
 function schemasCompatible(a: TableSchema, b: TableSchema): boolean {
@@ -176,6 +205,10 @@ export function TableBrowser({
   // Document editor state (NoSQL)
   const isDocument = isDocumentDatabase(driver);
   console.log('[TableBrowser] driver:', driver, 'isDocument:', isDocument);
+  const streamingExportQuery = useMemo(() => {
+    if (!namespace || !tableName || relationFilter) return undefined;
+    return buildStreamingExportQuery(driver, namespace, tableName);
+  }, [driver, namespace, tableName, relationFilter]);
   const [docEditorOpen, setDocEditorOpen] = useState(false);
   const [docEditorMode, setDocEditorMode] = useState<'insert' | 'edit'>('insert');
   const [docEditorData, setDocEditorData] = useState<string>('{}');
@@ -749,6 +782,8 @@ export function TableBrowser({
             sandboxDeleteDisplay={sandboxPrefs.deleteDisplay}
             onSandboxUpdate={handleSandboxUpdate}
             onSandboxDelete={handleSandboxDelete}
+            exportQuery={streamingExportQuery}
+            exportNamespace={namespace}
             serverSideTotalRows={!relationFilter ? totalRows : undefined}
             serverSidePage={!relationFilter ? page : undefined}
             serverSidePageSize={!relationFilter ? pageSize : undefined}

@@ -1,4 +1,4 @@
-import { Environment, QueryResult, Value } from "@/lib/tauri"
+import { Environment, QueryResult, Value, Namespace } from "@/lib/tauri"
 import { VirtualItem } from "@tanstack/react-virtual"
 import { UseTranslationOptions } from "react-i18next"
 
@@ -13,6 +13,8 @@ export interface DocumentResultsProps {
   connectionDatabase?: string;
   onEditDocument?: (doc: Record<string, unknown>, idValue?: Value) => void;
   onRowsDeleted?: () => void;
+  exportQuery?: string;
+  exportNamespace?: Namespace;
   
   serverSideTotalRows?: number;
   serverSidePage?: number;

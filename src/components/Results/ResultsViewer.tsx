@@ -13,7 +13,6 @@ import { QueryResult, Value, Environment, Namespace, TableSchema } from '@/lib/t
 import { SandboxChange, SandboxDeleteDisplay } from '@/lib/sandboxTypes';
 
 interface ResultsViewerProps {
-  // Common props
   result: QueryResult | null;
   sessionId?: string;
   driver: Driver;
@@ -32,7 +31,7 @@ interface ResultsViewerProps {
   onRowsUpdated?: () => void;
   onOpenRelatedTable?: (namespace: Namespace, tableName: string) => void;
   onRowClick?: (row: Record<string, Value>) => void;
-  
+
   serverSideTotalRows?: number;
   serverSidePage?: number;
   serverSidePageSize?: number;
@@ -54,6 +53,8 @@ interface ResultsViewerProps {
   database?: string;
   collection?: string;
   onEditDocument?: (doc: Record<string, unknown>, idValue?: Value) => void;
+  exportQuery?: string;
+  exportNamespace?: Namespace;
 }
 
 export function ResultsViewer({
@@ -89,6 +90,8 @@ export function ResultsViewer({
   database,
   collection,
   onEditDocument,
+  exportQuery,
+  exportNamespace,
 }: ResultsViewerProps) {
   const isDocument = isDocumentDatabase(driver);
 
@@ -105,6 +108,8 @@ export function ResultsViewer({
         connectionDatabase={connectionDatabase}
         onEditDocument={onEditDocument}
         onRowsDeleted={onRowsDeleted}
+        exportQuery={exportQuery}
+        exportNamespace={exportNamespace}
         serverSideTotalRows={serverSideTotalRows}
         serverSidePage={serverSidePage}
         serverSidePageSize={serverSidePageSize}
@@ -115,13 +120,13 @@ export function ResultsViewer({
   }
 
   return (
-    <DataGrid
-      result={result}
-      sessionId={sessionId}
-      namespace={namespace}
-      tableName={tableName}
-      tableSchema={tableSchema}
-      primaryKey={primaryKey}
+      <DataGrid
+        result={result}
+        sessionId={sessionId}
+        namespace={namespace}
+        tableName={tableName}
+        tableSchema={tableSchema}
+        primaryKey={primaryKey}
       environment={environment}
       readOnly={readOnly}
       mutationsSupported={mutationsSupported}
@@ -144,6 +149,7 @@ export function ResultsViewer({
       sandboxDeleteDisplay={sandboxDeleteDisplay}
       onSandboxUpdate={onSandboxUpdate}
       onSandboxDelete={onSandboxDelete}
+      exportQuery={exportQuery}
     />
   );
 }

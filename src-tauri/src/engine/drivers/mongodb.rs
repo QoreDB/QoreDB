@@ -481,11 +481,6 @@ impl DataEngine for MongoDriver {
                         break;
                     }
                     row_count += 1;
-                    
-                    // Limit for POC safety
-                    if row_count >= 1000 {
-                        break;
-                    }
                 }
 
                 let _ = sender.send(StreamEvent::Done(row_count)).await;

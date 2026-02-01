@@ -32,6 +32,7 @@ import { useDataGridExport } from './hooks/useDataGridExport';
 import { useForeignKeyPeek } from './hooks/useForeignKeyPeek';
 import { useInlineEdit } from './hooks/useInlineEdit';
 import { useDataGridDelete } from './hooks/useDataGridDelete';
+import { useStreamingExport } from '@/hooks/useStreamingExport';
 import { DataGridToolbar } from './DataGridToolbar';
 import { DataGridPagination } from './DataGridPagination';
 import { DeleteConfirmDialog } from './DeleteConfirmDialog';
@@ -44,6 +45,8 @@ import { EditableDataCell } from './EditableDataCell';
 import { SandboxChange, SandboxDeleteDisplay } from '@/lib/sandboxTypes';
 import { applyOverlay, OverlayResult, emptyOverlayResult } from '@/lib/sandboxOverlay';
 import { ExportDataDetail, UI_EVENT_EXPORT_DATA } from '@/lib/uiEvents';
+import { StreamingExportDialog } from '@/components/Export/StreamingExportDialog';
+import type { ExportConfig } from '@/lib/export';
 
 const EMPTY_OVERLAY_RESULT: OverlayResult = {
   result: {
@@ -99,6 +102,7 @@ interface DataGridProps {
   onServerPageSizeChange?: (pageSize: number) => void;
   serverSearchTerm?: string;
   onServerSearchChange?: (term: string) => void;
+  exportQuery?: string;
 }
 
 export function DataGrid({
@@ -130,6 +134,7 @@ export function DataGrid({
   onServerPageSizeChange,
   serverSearchTerm,
   onServerSearchChange,
+  exportQuery,
 }: DataGridProps) {
   const { t } = useTranslation();
 
@@ -526,6 +531,20 @@ export function DataGrid({
     tableName,
   });
 
+  const { startStreamingExport } = useStreamingExport(sessionId);
+  const [streamingDialogOpen, setStreamingDialogOpen] = useState(false);
+  const canStreamExport = Boolean(sessionId && exportQuery);
+
+  const handleStreamingExportConfirm = useCallback(
+    async (config: ExportConfig) => {
+      const exportId = await startStreamingExport(config);
+      if (exportId) {
+        setStreamingDialogOpen(false);
+      }
+    },
+    [startStreamingExport]
+  );
+
 
 
   // Keyboard shortcuts
@@ -618,7 +637,7 @@ export function DataGrid({
           setGlobalFilter={setGlobalFilter}
           searchInputRef={searchInputRef}
           copyToClipboard={copyToClipboard}
-          exportToFile={exportToFile}
+          onStreamingExport={canStreamExport ? () => setStreamingDialogOpen(true) : undefined}
           copied={!!copied}
           showFilters={showFilters}
           setShowFilters={setShowFilters}
@@ -647,6 +666,17 @@ export function DataGrid({
         onServerPageChange={onServerPageChange}
         onServerPageSizeChange={onServerPageSizeChange}
       />
+
+      {canStreamExport && exportQuery && (
+        <StreamingExportDialog
+          open={streamingDialogOpen}
+          onOpenChange={setStreamingDialogOpen}
+          query={exportQuery}
+          namespace={namespace}
+          tableName={tableName}
+          onConfirm={handleStreamingExportConfirm}
+        />
+      )}
 
       <DeleteConfirmDialog
         open={deleteDialogOpen}

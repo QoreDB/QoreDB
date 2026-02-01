@@ -17,7 +17,7 @@ use tokio::sync::RwLock;
 
 use crate::engine::types::{Namespace, Value};
 
-/// Cache TTL for table capabilities (5 minutes)
+/// Cache TTL for table capabilities
 const CAPABILITY_CACHE_TTL: Duration = Duration::from_secs(300);
 
 /// Information about a column's full-text search capability
@@ -25,9 +25,7 @@ const CAPABILITY_CACHE_TTL: Duration = Duration::from_secs(300);
 pub struct ColumnSearchInfo {
     pub name: String,
     pub data_type: String,
-    /// Whether this column has a full-text index
     pub has_fulltext_index: bool,
-    /// Name of the full-text index if any
     pub fulltext_index_name: Option<String>,
 }
 
@@ -49,7 +47,6 @@ pub struct TableSearchOptions {
     pub case_sensitive: bool,
     pub max_results: u32,
     pub timeout_ms: Option<u64>,
-    /// If true, prefer native full-text even if slower for small tables
     pub prefer_native: bool,
 }
 
@@ -68,17 +65,13 @@ impl Default for TableSearchOptions {
 /// Result of analyzing a table's search capabilities
 #[derive(Debug, Clone)]
 pub struct TableSearchCapability {
-    /// Columns that can be searched
     pub searchable_columns: Vec<ColumnSearchInfo>,
-    /// Recommended search method
     pub recommended_method: SearchMethod,
-    /// Estimated row count (for optimization decisions)
     pub estimated_rows: Option<u64>,
-    /// Whether at least one column has a full-text index
     pub has_any_fulltext_index: bool,
 }
 
-/// Cached capability with timestamp
+/// Cached capability
 #[derive(Debug, Clone)]
 struct CachedCapability {
     capability: TableSearchCapability,
@@ -140,7 +133,8 @@ impl CapabilityCache {
             },
         );
 
-        // Clean up old entries (simple eviction)
+        // Clean up old entries
+        // TODO: Use a better eviction strategy if needed
         if cache.len() > 1000 {
             let now = Instant::now();
             cache.retain(|_, v| now.duration_since(v.cached_at) < CAPABILITY_CACHE_TTL);

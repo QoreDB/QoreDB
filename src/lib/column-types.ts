@@ -93,11 +93,40 @@ const MYSQL_TYPES: ColumnType[] = [
   { name: 'JSON', category: 'json' },
 ];
 
+// SQLite column types
+const SQLITE_TYPES: ColumnType[] = [
+  // Integers
+  { name: 'INTEGER', category: 'integer' },
+  { name: 'INT', category: 'integer' },
+  { name: 'BIGINT', category: 'integer' },
+  { name: 'SMALLINT', category: 'integer' },
+  { name: 'TINYINT', category: 'integer' },
+  // Floats
+  { name: 'REAL', category: 'float' },
+  { name: 'DOUBLE', category: 'float' },
+  { name: 'FLOAT', category: 'float' },
+  { name: 'NUMERIC', category: 'float', hasPrecision: true },
+  { name: 'DECIMAL', category: 'float', hasPrecision: true },
+  // Strings
+  { name: 'TEXT', category: 'text' },
+  { name: 'VARCHAR', category: 'string', hasLength: true },
+  { name: 'CHAR', category: 'string', hasLength: true },
+  { name: 'CLOB', category: 'text' },
+  // Dates
+  { name: 'DATE', category: 'date' },
+  { name: 'DATETIME', category: 'date' },
+  { name: 'TIMESTAMP', category: 'date' },
+  // Others
+  { name: 'BOOLEAN', category: 'boolean' },
+  { name: 'BLOB', category: 'binary' },
+];
+
 // Driver to column types mapping
 export const COLUMN_TYPES: Record<Driver, ColumnType[]> = {
   [Driver.Postgres]: POSTGRES_TYPES,
   [Driver.Mysql]: MYSQL_TYPES,
   [Driver.Mongodb]: [], // MongoDB is schemaless
+  [Driver.Sqlite]: SQLITE_TYPES,
 };
 
 /** Get column types for a driver */

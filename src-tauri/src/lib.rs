@@ -16,6 +16,7 @@ use tokio::sync::Mutex;
 use engine::drivers::mongodb::MongoDriver;
 use engine::drivers::mysql::MySqlDriver;
 use engine::drivers::postgres::PostgresDriver;
+use engine::drivers::sqlite::SqliteDriver;
 use engine::{DriverRegistry, QueryManager, SessionManager};
 use interceptor::InterceptorPipeline;
 use policy::SafetyPolicy;
@@ -40,6 +41,7 @@ impl AppState {
         registry.register(Arc::new(PostgresDriver::new()));
         registry.register(Arc::new(MySqlDriver::new()));
         registry.register(Arc::new(MongoDriver::new()));
+        registry.register(Arc::new(SqliteDriver::new()));
 
         let registry = Arc::new(registry);
         let session_manager = Arc::new(SessionManager::new(Arc::clone(&registry)));

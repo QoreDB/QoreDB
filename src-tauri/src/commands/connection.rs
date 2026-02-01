@@ -75,14 +75,17 @@ fn normalize_config(mut config: ConnectionConfig) -> Result<ConnectionConfig, St
     }
     config.host = host.to_string();
 
-    // Username is required for SQL databases but optional for MongoDB (dev mode often has no auth)
+    let is_mongodb = config.driver == "mongodb";
+    let is_sqlite = config.driver == "sqlite";
+
+    // Username is required for SQL databases but optional for MongoDB and SQLite.
     let username = config.username.trim();
-    if username.is_empty() && config.driver != "mongodb" {
+    if username.is_empty() && !is_mongodb && !is_sqlite {
         return Err("Username is required".to_string());
     }
     config.username = username.to_string();
 
-    if config.port == 0 {
+    if config.port == 0 && !is_sqlite {
         return Err("Port must be greater than 0".to_string());
     }
 

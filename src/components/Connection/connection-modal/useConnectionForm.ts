@@ -21,6 +21,7 @@ function mapDriverString(driver: string | undefined): Driver | undefined {
     case 'mongodb':
       return Driver.Mongodb;
     case 'sqlite':
+		case 'sqlite3':
       return Driver.Sqlite;
     default:
       return undefined;

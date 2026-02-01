@@ -67,7 +67,15 @@ fn normalize_config(mut config: ConnectionConfig) -> Result<ConnectionConfig, St
     if driver.is_empty() {
         return Err("Driver is required".to_string());
     }
-    config.driver = driver.to_string();
+
+    let normalized_driver = driver.to_ascii_lowercase();
+    let normalized_driver = match normalized_driver.as_str() {
+        "postgresql" => "postgres",
+        "sqlite3" => "sqlite",
+        other => other,
+    };
+
+    config.driver = normalized_driver.to_string();
 
     let host = config.host.trim();
     if host.is_empty() {

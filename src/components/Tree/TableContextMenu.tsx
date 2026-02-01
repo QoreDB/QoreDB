@@ -73,8 +73,7 @@ export function TableContextMenu({
         };
         query = JSON.stringify(payload);
       } else {
-        const schemaOrDb = collection.namespace.schema || collection.namespace.database;
-        query = buildDropTableSQL(schemaOrDb, tableName, driver);
+        query = buildDropTableSQL(collection.namespace, tableName, driver);
       }
 
       const result = await executeQuery(sessionId, query, {

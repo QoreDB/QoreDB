@@ -40,6 +40,7 @@ import { Button } from '@/components/ui/button';
 import { RowModal } from './RowModal';
 import { toast } from 'sonner';
 import { Driver, getDriverMetadata } from '../../lib/drivers';
+import { buildQualifiedTableName } from '@/lib/column-types';
 import { isDocumentDatabase } from '../../lib/driverCapabilities';
 import { onTableChange } from '@/lib/tableEvents';
 import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
@@ -87,21 +88,7 @@ function buildStreamingExportQuery(driver: Driver, namespace: Namespace, tableNa
     });
   }
 
-  const { quoteStart, quoteEnd, namespaceStrategy } = metadata.identifier;
-  const quote = (name: string) => {
-    const escaped = name.split(quoteEnd).join(`${quoteEnd}${quoteEnd}`);
-    return `${quoteStart}${escaped}${quoteEnd}`;
-  };
-
-  const table = quote(tableName);
-  let qualified = table;
-
-  if (namespaceStrategy === 'schema' && namespace.schema) {
-    qualified = `${quote(namespace.schema)}.${table}`;
-  } else if (namespaceStrategy === 'database' && namespace.database) {
-    qualified = `${quote(namespace.database)}.${table}`;
-  }
-
+  const qualified = buildQualifiedTableName(namespace, tableName, driver);
   return `SELECT * FROM ${qualified};`;
 }
 

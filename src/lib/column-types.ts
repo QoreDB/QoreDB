@@ -185,6 +185,10 @@ export function buildQualifiedTableName(
   tableName: string,
   driver: Driver
 ): string {
+  if (driver === Driver.Sqlite) {
+    return quoteIdentifier(tableName, driver);
+  }
+
   const driverMeta = getDriverMetadata(driver);
   const schema = namespace.schema || undefined;
   const database = namespace.database;
@@ -210,12 +214,12 @@ export function buildTruncateTableSQL(
 
 /** Build CREATE TABLE SQL */
 export function buildCreateTableSQL(
-  schemaOrDb: string,
+  namespace: NamespaceLike,
   tableName: string,
   columns: ColumnDef[],
   driver: Driver
 ): string {
-  const fullName = `${quoteIdentifier(schemaOrDb, driver)}.${quoteIdentifier(tableName, driver)}`;
+  const fullName = buildQualifiedTableName(namespace, tableName, driver);
   
   const columnDefs = columns.map(col => buildColumnSQL(col, driver));
   
@@ -224,11 +228,11 @@ export function buildCreateTableSQL(
 
 /** Build DROP TABLE SQL */
 export function buildDropTableSQL(
-  schemaOrDb: string,
+  namespace: NamespaceLike,
   tableName: string,
   driver: Driver
 ): string {
-  const fullName = `${quoteIdentifier(schemaOrDb, driver)}.${quoteIdentifier(tableName, driver)}`;
+  const fullName = buildQualifiedTableName(namespace, tableName, driver);
   
   return `DROP TABLE ${fullName};`;
 }

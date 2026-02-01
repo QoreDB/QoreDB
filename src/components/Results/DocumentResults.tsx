@@ -47,7 +47,7 @@ function DocumentRowItem({
         <div className="flex items-center justify-between gap-3 px-3 py-1.5 border-b border-border bg-muted/20">
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground">_id:</span>
-            <span className="font-mono text-xs text-foreground truncate max-w-[240px]">
+            <span className="font-mono text-xs text-foreground truncate max-w-60">
               {doc.idLabel}
             </span>
           </div>
@@ -55,7 +55,7 @@ function DocumentRowItem({
             <Button
               variant="ghost"
               size="sm"
-              className={cn("h-6 px-2 text-xs", isCopied && "text-green-500")}
+              className={cn('h-6 px-2 text-xs', isCopied && 'text-green-500')}
               onClick={() => {
                 onCopy(doc);
                 setIsCopied(true);
@@ -108,28 +108,34 @@ function DocumentRowItem({
         </div>
 
         <div className="relative">
-          <div className={cn(
-            "overflow-hidden transition-all duration-200", 
-            !expanded && shouldShowToggle ? "max-h-[180px]" : "h-auto"
-          )}>
+          <div
+            className={cn(
+              'overflow-hidden transition-all duration-200',
+              !expanded && shouldShowToggle ? 'max-h-45' : 'h-auto'
+            )}
+          >
             <JSONViewer data={doc.doc ?? null} initialExpanded={true} maxDepth={2} />
           </div>
-          
+
           {!expanded && shouldShowToggle && (
             <div className="absolute bottom-0 left-0 right-0 h-16 bg-linear-to-t from-background to-transparent pointer-events-none" />
           )}
         </div>
 
         {shouldShowToggle && (
-           <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={() => setExpanded(!expanded)} 
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setExpanded(!expanded)}
             className="h-6 w-full rounded-t-none border-t border-border/50 text-[10px] text-muted-foreground hover:bg-muted/30 hover:text-foreground"
           >
-              {expanded ? <ChevronUp size={12} className="mr-1"/> : <ChevronDown size={12} className="mr-1"/>}
-              {expanded ? t('grid.showLess') : t('grid.showMore')}
-           </Button>
+            {expanded ? (
+              <ChevronUp size={12} className="mr-1" />
+            ) : (
+              <ChevronDown size={12} className="mr-1" />
+            )}
+            {expanded ? t('grid.showLess') : t('grid.showMore')}
+          </Button>
         )}
       </div>
     </div>

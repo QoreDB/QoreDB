@@ -1,13 +1,6 @@
 //! PostgreSQL Driver
 //!
 //! Implements the DataEngine trait for PostgreSQL databases using SQLx.
-//!
-//! ## Transaction Handling
-//!
-//! When a transaction is started via `begin_transaction()`, a dedicated connection
-//! is acquired from the pool and held until `commit()` or `rollback()` is called.
-//! All queries during the transaction are executed on this dedicated connection
-//! to ensure proper isolation.
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -15,10 +8,13 @@ use std::time::Instant;
 
 use async_trait::async_trait;
 use sqlx::pool::PoolConnection;
-use sqlx::postgres::{PgPool, PgPoolOptions, PgRow, Postgres};
-use sqlx::{Column, Row, TypeInfo};
+use sqlx::postgres::{PgColumn, PgPool, PgPoolOptions, PgRow, PgTypeKind, PgValueFormat, Postgres};
+use sqlx::{Column, Executor, Row, TypeInfo, ValueRef};
 use tokio::sync::{Mutex, RwLock};
 use uuid::Uuid;
+use rust_decimal::Decimal;
+use bigdecimal::BigDecimal;
+use bigdecimal::ToPrimitive as BigDecimalToPrimitive;
 use futures::StreamExt;
 
 use crate::engine::error::{EngineError, EngineResult};
@@ -31,7 +27,6 @@ use crate::engine::types::{
     TableQueryOptions, PaginatedQueryResult, SortDirection, FilterOperator,
 };
 
-/// Holds the connection state for a PostgreSQL session.
 pub struct PostgresSession {
     pub pool: PgPool,
     pub transaction_conn: Mutex<Option<PoolConnection<Postgres>>>,
@@ -48,6 +43,198 @@ impl PostgresSession {
     }
 }
 
+/// Map from enum value OID to its label string
+type EnumLabelMap = HashMap<u32, String>;
+
+/// Read a big-endian i32 from a byte slice, advancing the slice
+fn read_i32(buf: &mut &[u8]) -> Option<i32> {
+    if buf.len() < 4 {
+        return None;
+    }
+    let (bytes, rest) = buf.split_at(4);
+    *buf = rest;
+    Some(i32::from_be_bytes(bytes.try_into().ok()?))
+}
+
+/// Read a big-endian u32 from a byte slice, advancing the slice
+fn read_u32(buf: &mut &[u8]) -> Option<u32> {
+    if buf.len() < 4 {
+        return None;
+    }
+    let (bytes, rest) = buf.split_at(4);
+    *buf = rest;
+    Some(u32::from_be_bytes(bytes.try_into().ok()?))
+}
+
+/// Collect all enum type OIDs from column metadata (both scalar enums and enum arrays)
+fn collect_enum_type_oids(columns: &[PgColumn]) -> Vec<u32> {
+    let mut oids = Vec::new();
+    for col in columns {
+        let type_info = col.type_info();
+        match type_info.kind() {
+            PgTypeKind::Enum(_) => {
+                if let Some(oid) = type_info.oid() {
+                    oids.push(oid.0);
+                }
+            }
+            PgTypeKind::Array(elem_type) => {
+                if matches!(elem_type.kind(), PgTypeKind::Enum(_)) {
+                    if let Some(oid) = elem_type.oid() {
+                        oids.push(oid.0);
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    oids.sort();
+    oids.dedup();
+    oids
+}
+
+/// Load enum labels from pg_enum for the given type OIDs
+async fn load_enum_labels<'e, E>(executor: E, enum_type_oids: &[u32]) -> EngineResult<EnumLabelMap>
+where
+    E: Executor<'e, Database = Postgres>,
+{
+    if enum_type_oids.is_empty() {
+        return Ok(HashMap::new());
+    }
+
+    // Query pg_enum for all enum values of the specified types
+    let rows: Vec<(i64, String)> = sqlx::query_as(
+        "SELECT oid::bigint, enumlabel::text FROM pg_enum WHERE enumtypid = ANY($1::oid[])"
+    )
+    .bind(enum_type_oids.iter().map(|&o| o as i32).collect::<Vec<_>>())
+    .fetch_all(executor)
+    .await
+    .map_err(|e| EngineError::execution_error(format!("Failed to load enum labels: {}", e)))?;
+
+    let map: EnumLabelMap = rows
+        .into_iter()
+        .map(|(oid, label)| (oid as u32, label))
+        .collect();
+
+    Ok(map)
+}
+
+/// Decode a scalar enum value from raw bytes
+fn decode_enum_value(raw: &sqlx::postgres::PgValueRef<'_>, labels: &EnumLabelMap) -> Option<Value> {
+    if raw.is_null() {
+        return Some(Value::Null);
+    }
+
+    match raw.format() {
+        PgValueFormat::Text => {
+            // Text format: the label is directly in the bytes
+            raw.as_str().ok().map(|s| Value::Text(s.to_string()))
+        }
+        PgValueFormat::Binary => {
+            // Binary format: 4-byte OID of the enum value
+            let bytes = raw.as_bytes().ok()?;
+            if bytes.len() < 4 {
+                return None;
+            }
+            let oid = u32::from_be_bytes(bytes[0..4].try_into().ok()?);
+            labels.get(&oid).map(|label| Value::Text(label.clone()))
+        }
+    }
+}
+
+/// Decode an enum array from binary format
+fn decode_enum_array_binary(raw: &sqlx::postgres::PgValueRef<'_>, labels: &EnumLabelMap) -> Option<Value> {
+    if raw.is_null() {
+        return Some(Value::Null);
+    }
+
+    match raw.format() {
+        PgValueFormat::Text => {
+            // Text format: parse as {label1,label2,...}
+            let text = raw.as_str().ok()?;
+            let text = text.trim();
+            if !text.starts_with('{') || !text.ends_with('}') {
+                return None;
+            }
+            let inner = &text[1..text.len()-1];
+            if inner.is_empty() {
+                return Some(Value::Array(vec![]));
+            }
+            let values: Vec<Value> = inner
+                .split(',')
+                .map(|s| {
+                    let s = s.trim();
+                    if s.eq_ignore_ascii_case("null") {
+                        Value::Null
+                    } else {
+                        // Handle quoted strings
+                        let label = if s.starts_with('"') && s.ends_with('"') && s.len() >= 2 {
+                            &s[1..s.len()-1]
+                        } else {
+                            s
+                        };
+                        Value::Text(label.to_string())
+                    }
+                })
+                .collect();
+            Some(Value::Array(values))
+        }
+        PgValueFormat::Binary => {
+            // Binary format: PostgreSQL array format
+            // Header: ndim (4), flags (4), elem_oid (4)
+            // Per dimension: len (4), lower_bound (4)
+            // Elements: len (4) + data, where len=-1 means NULL
+            let bytes = raw.as_bytes().ok()?;
+            let mut buf = bytes;
+
+            let ndim = read_i32(&mut buf)?;
+            let _flags = read_i32(&mut buf)?;  // has nulls flag
+            let _elem_oid = read_u32(&mut buf)?;
+
+            if ndim == 0 {
+                return Some(Value::Array(vec![]));
+            }
+
+            // We only support 1-dimensional arrays
+            if ndim != 1 {
+                return None;
+            }
+
+            let array_len = read_i32(&mut buf)? as usize;
+            let _lower_bound = read_i32(&mut buf)?;
+
+            let mut values = Vec::with_capacity(array_len);
+            for _ in 0..array_len {
+                let elem_len = read_i32(&mut buf)?;
+                if elem_len == -1 {
+                    // NULL element
+                    values.push(Value::Null);
+                } else {
+                    let elem_len = elem_len as usize;
+                    if buf.len() < elem_len {
+                        return None;
+                    }
+                    // Enum elements are 4-byte OIDs in binary format
+                    if elem_len == 4 {
+                        let oid = u32::from_be_bytes(buf[0..4].try_into().ok()?);
+                        if let Some(label) = labels.get(&oid) {
+                            values.push(Value::Text(label.clone()));
+                        } else {
+                            // Unknown enum value, show OID
+                            values.push(Value::Text(format!("enum_oid:{}", oid)));
+                        }
+                    } else {
+                        // Not a standard enum OID, skip
+                        values.push(Value::Null);
+                    }
+                    buf = &buf[elem_len..];
+                }
+            }
+
+            Some(Value::Array(values))
+        }
+    }
+}
+
 /// PostgreSQL driver implementation
 pub struct PostgresDriver {
     sessions: Arc<RwLock<HashMap<SessionId, Arc<PostgresSession>>>>,
@@ -58,6 +245,41 @@ impl PostgresDriver {
         Self {
             sessions: Arc::new(RwLock::new(HashMap::new())),
         }
+    }
+
+    async fn create_pool(
+        config: &ConnectionConfig,
+        max_connections: u32,
+        min_connections: u32,
+        acquire_timeout_secs: u64,
+        classify_auth_error: bool,
+        run_test_query: bool,
+    ) -> EngineResult<PgPool> {
+        let conn_str = Self::build_connection_string(config);
+
+        let pool = PgPoolOptions::new()
+            .max_connections(max_connections)
+            .min_connections(min_connections)
+            .acquire_timeout(std::time::Duration::from_secs(acquire_timeout_secs))
+            .connect(&conn_str)
+            .await
+            .map_err(|e| {
+                let msg = e.to_string();
+                if classify_auth_error && msg.contains("password authentication failed") {
+                    EngineError::auth_failed(msg)
+                } else {
+                    EngineError::connection_failed(msg)
+                }
+            })?;
+
+        if run_test_query {
+            sqlx::query("SELECT 1")
+                .execute(&pool)
+                .await
+                .map_err(|e| EngineError::execution_error(e.to_string()))?;
+        }
+
+        Ok(pool)
     }
 
     async fn get_session(&self, session: SessionId) -> EngineResult<Arc<PostgresSession>> {
@@ -113,7 +335,7 @@ impl PostgresDriver {
         Ok(())
     }
 
-    /// Helper to bind a Value to a Postgres query
+    /// Bind a Value to a Postgres query
     fn bind_param<'q>(
         query: sqlx::query::Query<'q, Postgres, sqlx::postgres::PgArguments>,
         value: &'q Value,
@@ -126,27 +348,23 @@ impl PostgresDriver {
             Value::Text(s) => query.bind(s),
             Value::Bytes(b) => query.bind(b),
             Value::Json(j) => query.bind(j),
-             // Fallback for arrays
             Value::Array(_) => query.bind(Option::<String>::None),
         }
     }
 
-    /// Converts a SQLx row to our universal Row type
-    fn convert_row(pg_row: &PgRow) -> QRow {
+    /// Converts a SQLx row to the universal Row type
+    fn convert_row(pg_row: &PgRow, enum_labels: &EnumLabelMap) -> QRow {
         let values: Vec<Value> = pg_row
             .columns()
             .iter()
-            .map(|col| Self::extract_value(pg_row, col.ordinal()))
+            .map(|col| Self::extract_value(pg_row, col.ordinal(), enum_labels))
             .collect();
 
         QRow { values }
     }
 
     /// Extracts a value from a PgRow at the given index
-    fn extract_value(row: &PgRow, idx: usize) -> Value {
-        // Try to interpret value based on common types
-        // We use try_get with Option<T> to handle NULLs gracefully
-        
+    fn extract_value(row: &PgRow, idx: usize, enum_labels: &EnumLabelMap) -> Value {
         if let Ok(v) = row.try_get::<Option<i64>, _>(idx) {
             return v.map(Value::Int).unwrap_or(Value::Null);
         }
@@ -160,10 +378,46 @@ impl PostgresDriver {
             return v.map(Value::Bool).unwrap_or(Value::Null);
         }
         if let Ok(v) = row.try_get::<Option<f64>, _>(idx) {
-            return v.map(Value::Float).unwrap_or(Value::Null);
+            return v.map(|f| {
+                if f.is_finite() {
+                    Value::Float(f)
+                } else {
+                    // NaN, Infinity, -Infinity cannot be serialized to JSON as numbers
+                    Value::Text(f.to_string())
+                }
+            }).unwrap_or(Value::Null);
         }
         if let Ok(v) = row.try_get::<Option<f32>, _>(idx) {
-            return v.map(|f| Value::Float(f as f64)).unwrap_or(Value::Null);
+            return v.map(|f| {
+                let f64_val = f as f64;
+                if f64_val.is_finite() {
+                    Value::Float(f64_val)
+                } else {
+                    Value::Text(f.to_string())
+                }
+            }).unwrap_or(Value::Null);
+        }
+        if let Ok(v) = row.try_get::<Option<BigDecimal>, _>(idx) {
+            return v
+                .map(|d| {
+                    // Try to convert to f64; if possible and finite, use Float
+                    match d.to_f64() {
+                        Some(f) if f.is_finite() => Value::Float(f),
+                        _ => Value::Text(d.to_string()),
+                    }
+                })
+                .unwrap_or(Value::Null);
+        }
+        if let Ok(v) = row.try_get::<Option<Decimal>, _>(idx) {
+            return v
+                .map(|d| {
+                    use rust_decimal::prelude::ToPrimitive;
+                    match d.to_f64() {
+                        Some(f) if f.is_finite() => Value::Float(f),
+                        _ => Value::Text(d.to_string()),
+                    }
+                })
+                .unwrap_or(Value::Null);
         }
         if let Ok(v) = row.try_get::<Option<Uuid>, _>(idx) {
             return v.map(|u| Value::Text(u.to_string())).unwrap_or(Value::Null);
@@ -180,6 +434,9 @@ impl PostgresDriver {
         if let Ok(v) = row.try_get::<Option<chrono::DateTime<chrono::Utc>>, _>(idx) {
             return v.map(|dt| Value::Text(dt.to_rfc3339())).unwrap_or(Value::Null);
         }
+        if let Ok(v) = row.try_get::<Option<chrono::DateTime<chrono::FixedOffset>>, _>(idx) {
+            return v.map(|dt| Value::Text(dt.to_rfc3339())).unwrap_or(Value::Null);
+        }
         if let Ok(v) = row.try_get::<Option<chrono::NaiveDateTime>, _>(idx) {
             return v.map(|dt| Value::Text(dt.format("%Y-%m-%d %H:%M:%S").to_string())).unwrap_or(Value::Null);
         }
@@ -189,8 +446,116 @@ impl PostgresDriver {
         if let Ok(v) = row.try_get::<Option<chrono::NaiveTime>, _>(idx) {
             return v.map(|t| Value::Text(t.format("%H:%M:%S").to_string())).unwrap_or(Value::Null);
         }
+        if let Ok(v) = row.try_get::<Option<Vec<i64>>, _>(idx) {
+            return v
+                .map(|vals| Value::Array(vals.into_iter().map(Value::Int).collect()))
+                .unwrap_or(Value::Null);
+        }
+        if let Ok(v) = row.try_get::<Option<Vec<i32>>, _>(idx) {
+            return v
+                .map(|vals| Value::Array(vals.into_iter().map(|i| Value::Int(i as i64)).collect()))
+                .unwrap_or(Value::Null);
+        }
+        if let Ok(v) = row.try_get::<Option<Vec<f64>>, _>(idx) {
+            return v
+                .map(|vals| Value::Array(vals.into_iter().map(Value::Float).collect()))
+                .unwrap_or(Value::Null);
+        }
+        if let Ok(v) = row.try_get::<Option<Vec<f32>>, _>(idx) {
+            return v
+                .map(|vals| Value::Array(vals.into_iter().map(|f| Value::Float(f as f64)).collect()))
+                .unwrap_or(Value::Null);
+        }
+        if let Ok(v) = row.try_get::<Option<Vec<bool>>, _>(idx) {
+            return v
+                .map(|vals| Value::Array(vals.into_iter().map(Value::Bool).collect()))
+                .unwrap_or(Value::Null);
+        }
+        if let Ok(v) = row.try_get::<Option<Vec<String>>, _>(idx) {
+            return v
+                .map(|vals| Value::Array(vals.into_iter().map(Value::Text).collect()))
+                .unwrap_or(Value::Null);
+        }
+        if let Ok(v) = row.try_get::<Option<Vec<Uuid>>, _>(idx) {
+            return v
+                .map(|vals| {
+                    Value::Array(vals.into_iter().map(|u| Value::Text(u.to_string())).collect())
+                })
+                .unwrap_or(Value::Null);
+        }
+        if let Ok(v) = row.try_get::<Option<Vec<serde_json::Value>>, _>(idx) {
+            return v
+                .map(|vals| Value::Array(vals.into_iter().map(Value::Json).collect()))
+                .unwrap_or(Value::Null);
+        }
+        if let Ok(v) = row.try_get::<Option<Vec<Option<String>>>, _>(idx) {
+            return v
+                .map(|vals| {
+                    Value::Array(
+                        vals.into_iter()
+                            .map(|item| item.map(Value::Text).unwrap_or(Value::Null))
+                            .collect(),
+                    )
+                })
+                .unwrap_or(Value::Null);
+        }
+        if let Ok(v) = row.try_get::<Option<Vec<Option<i64>>>, _>(idx) {
+            return v
+                .map(|vals| {
+                    Value::Array(
+                        vals.into_iter()
+                            .map(|item| item.map(Value::Int).unwrap_or(Value::Null))
+                            .collect(),
+                    )
+                })
+                .unwrap_or(Value::Null);
+        }
+        if let Ok(v) = row.try_get::<Option<Vec<Option<f64>>>, _>(idx) {
+            return v
+                .map(|vals| {
+                    Value::Array(
+                        vals.into_iter()
+                            .map(|item| item.map(Value::Float).unwrap_or(Value::Null))
+                            .collect(),
+                    )
+                })
+                .unwrap_or(Value::Null);
+        }
 
-        // Fallback or unknown types treated as null or string if possible
+        // Handle enum types (both scalar and array)
+        if let Ok(raw) = row.try_get_raw(idx) {
+            let col = row.columns().get(idx);
+            if let Some(col) = col {
+                let type_info = col.type_info();
+                match type_info.kind() {
+                    PgTypeKind::Enum(_) => {
+                        if let Some(value) = decode_enum_value(&raw, enum_labels) {
+                            return value;
+                        }
+                    }
+                    PgTypeKind::Array(elem_type) => {
+                        if matches!(elem_type.kind(), PgTypeKind::Enum(_)) {
+                            if let Some(value) = decode_enum_array_binary(&raw, enum_labels) {
+                                return value;
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
+
+            // Generic fallback for unknown types
+            if !raw.is_null() {
+                if let Ok(text) = raw.as_str() {
+                    return Value::Text(text.to_string());
+                }
+                if let Ok(bytes) = raw.as_bytes() {
+                    if !bytes.is_empty() {
+                        return Value::Text(String::from_utf8_lossy(bytes).to_string());
+                    }
+                }
+            }
+        }
         Value::Null
     }
     
@@ -201,7 +566,7 @@ impl PostgresDriver {
             .map(|col| ColumnInfo {
                 name: col.name().to_string(),
                 data_type: col.type_info().name().to_string(),
-                nullable: true, // Postgres doesn't easily expose nullability in metadata from rows
+                nullable: true,
             })
             .collect()
     }
@@ -233,44 +598,25 @@ impl DataEngine for PostgresDriver {
     }
 
     async fn test_connection(&self, config: &ConnectionConfig) -> EngineResult<()> {
-        let conn_str = Self::build_connection_string(config);
-
-        let pool = PgPoolOptions::new()
-            .max_connections(1)
-            .acquire_timeout(std::time::Duration::from_secs(10))
-            .connect(&conn_str)
-            .await
-            .map_err(|e| {
-                let msg = e.to_string();
-                if msg.contains("password authentication failed") {
-                    EngineError::auth_failed(msg)
-                } else {
-                    EngineError::connection_failed(msg)
-                }
-            })?;
-
-        sqlx::query("SELECT 1")
-            .execute(&pool)
-            .await
-            .map_err(|e| EngineError::execution_error(e.to_string()))?;
-
+        let pool = Self::create_pool(config, 1, 0, 10, true, true).await?;
         pool.close().await;
         Ok(())
     }
 
     async fn connect(&self, config: &ConnectionConfig) -> EngineResult<SessionId> {
-        let conn_str = Self::build_connection_string(config);
         let max_connections = config.pool_max_connections.unwrap_or(5);
         let min_connections = config.pool_min_connections.unwrap_or(0);
         let acquire_timeout = config.pool_acquire_timeout_secs.unwrap_or(30);
 
-        let pool = PgPoolOptions::new()
-            .max_connections(max_connections)
-            .min_connections(min_connections)
-            .acquire_timeout(std::time::Duration::from_secs(acquire_timeout as u64))
-            .connect(&conn_str)
-            .await
-            .map_err(|e| EngineError::connection_failed(e.to_string()))?;
+        let pool = Self::create_pool(
+            config,
+            max_connections,
+            min_connections,
+            acquire_timeout as u64,
+            false,
+            false,
+        )
+        .await?;
 
         let session_id = SessionId::new();
         let session = Arc::new(PostgresSession::new(pool));
@@ -522,19 +868,32 @@ impl DataEngine for PostgresDriver {
         let mut columns_sent = false;
         let mut row_count = 0;
         let mut stream_error: Option<String> = None;
+        let mut enum_labels: EnumLabelMap = HashMap::new();
 
         while let Some(item) = stream.next().await {
             match item {
                 Ok(pg_row) => {
                     if !columns_sent {
                         let columns = Self::get_column_info(&pg_row);
-                        if sender.send(StreamEvent::Columns(columns)).await.is_err() {
+                        if sender.send(StreamEvent::Columns(columns.clone())).await.is_err() {
                             break; // Receiver dropped
                         }
                         columns_sent = true;
+
+                        // Collect enum type OIDs and load labels
+                        let enum_oids = collect_enum_type_oids(pg_row.columns());
+                        if !enum_oids.is_empty() {
+                            // We need to load enum labels using the pool since our conn is busy with the stream
+                            match load_enum_labels(&pg_session.pool, &enum_oids).await {
+                                Ok(labels) => enum_labels = labels,
+                                Err(e) => {
+                                    tracing::warn!("Failed to load enum labels: {}", e);
+                                }
+                            }
+                        }
                     }
 
-                    let row = Self::convert_row(&pg_row);
+                    let row = Self::convert_row(&pg_row, &enum_labels);
                     if sender.send(StreamEvent::Row(row)).await.is_err() {
                         break;
                     }
@@ -629,7 +988,14 @@ impl DataEngine for PostgresDriver {
                     })
                 } else {
                     let columns = Self::get_column_info(&pg_rows[0]);
-                    let rows: Vec<QRow> = pg_rows.iter().map(Self::convert_row).collect();
+                    // Load enum labels for this result set
+                    let enum_oids = collect_enum_type_oids(pg_rows[0].columns());
+                    let enum_labels = if !enum_oids.is_empty() {
+                        load_enum_labels(&pg_session.pool, &enum_oids).await.unwrap_or_default()
+                    } else {
+                        HashMap::new()
+                    };
+                    let rows: Vec<QRow> = pg_rows.iter().map(|r| Self::convert_row(r, &enum_labels)).collect();
 
                     Ok(QueryResult {
                         columns,
@@ -703,7 +1069,14 @@ impl DataEngine for PostgresDriver {
                     })
                 } else {
                     let columns = Self::get_column_info(&pg_rows[0]);
-                    let rows: Vec<QRow> = pg_rows.iter().map(Self::convert_row).collect();
+                    // Load enum labels for this result set
+                    let enum_oids = collect_enum_type_oids(pg_rows[0].columns());
+                    let enum_labels = if !enum_oids.is_empty() {
+                        load_enum_labels(&pg_session.pool, &enum_oids).await.unwrap_or_default()
+                    } else {
+                        HashMap::new()
+                    };
+                    let rows: Vec<QRow> = pg_rows.iter().map(|r| Self::convert_row(r, &enum_labels)).collect();
 
                     Ok(QueryResult {
                         columns,
@@ -726,7 +1099,7 @@ impl DataEngine for PostgresDriver {
                     })?;
 
                 let execution_time_ms = start.elapsed().as_micros() as f64 / 1000.0;
-                
+
                 Ok(QueryResult::with_affected_rows(
                     result.rows_affected(),
                     execution_time_ms,
@@ -1151,7 +1524,14 @@ impl DataEngine for PostgresDriver {
             }
         } else {
             let columns = Self::get_column_info(&pg_rows[0]);
-            let rows: Vec<QRow> = pg_rows.iter().map(Self::convert_row).collect();
+            // Load enum labels for this result set
+            let enum_oids = collect_enum_type_oids(pg_rows[0].columns());
+            let enum_labels = if !enum_oids.is_empty() {
+                load_enum_labels(&pg_session.pool, &enum_oids).await.unwrap_or_default()
+            } else {
+                HashMap::new()
+            };
+            let rows: Vec<QRow> = pg_rows.iter().map(|r| Self::convert_row(r, &enum_labels)).collect();
             QueryResult {
                 columns,
                 rows,
@@ -1211,7 +1591,14 @@ impl DataEngine for PostgresDriver {
         }
 
         let columns = Self::get_column_info(&pg_rows[0]);
-        let rows: Vec<QRow> = pg_rows.iter().map(Self::convert_row).collect();
+        // Load enum labels for this result set
+        let enum_oids = collect_enum_type_oids(pg_rows[0].columns());
+        let enum_labels = if !enum_oids.is_empty() {
+            load_enum_labels(&pg_session.pool, &enum_oids).await.unwrap_or_default()
+        } else {
+            HashMap::new()
+        };
+        let rows: Vec<QRow> = pg_rows.iter().map(|r| Self::convert_row(r, &enum_labels)).collect();
 
         Ok(QueryResult {
             columns,

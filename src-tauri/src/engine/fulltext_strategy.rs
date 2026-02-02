@@ -843,6 +843,10 @@ impl SqliteSearchStrategy {
             .replace('\'', "''")
     }
 
+    fn escape_sql_literal(term: &str) -> String {
+        term.replace('\'', "''")
+    }
+
     fn escape_match(term: &str) -> String {
         let cleaned = term
             .replace('\\', "")
@@ -1048,13 +1052,19 @@ impl FulltextSearchStrategy for SqliteSearchStrategy {
                 conditions.push(format!("{} MATCH '{}'", match_target, match_term));
 
                 if !pattern_cols.is_empty() {
-                    let pattern = format!("%{}%", Self::escape_like_pattern(&options.search_term));
+                    let term = Self::escape_sql_literal(&options.search_term);
                     for col in &pattern_cols {
                         let col_ref = format!("{}.{}", base_alias, Self::quote_identifier(&col.name));
                         let clause = if options.case_sensitive {
-                            format!("{} LIKE '{}' ESCAPE '\\\\' COLLATE BINARY", col_ref, pattern)
+                            format!(
+                                "instr(CAST({} AS TEXT), '{}') > 0",
+                                col_ref, term
+                            )
                         } else {
-                            format!("{} LIKE '{}' ESCAPE '\\\\' COLLATE NOCASE", col_ref, pattern)
+                            format!(
+                                "instr(LOWER(CAST({} AS TEXT)), LOWER('{}')) > 0",
+                                col_ref, term
+                            )
                         };
                         conditions.push(clause);
                     }
@@ -1111,16 +1121,19 @@ impl FulltextSearchStrategy for SqliteSearchStrategy {
         columns: &[String],
         options: &TableSearchOptions,
     ) -> String {
-        let pattern = format!("%{}%", Self::escape_like_pattern(&options.search_term));
+        let term = Self::escape_sql_literal(&options.search_term);
 
         let conditions: Vec<String> = columns
             .iter()
             .map(|col| {
                 let quoted = Self::quote_identifier(col);
                 if options.case_sensitive {
-                    format!("{} LIKE '{}' ESCAPE '\\\\' COLLATE BINARY", quoted, pattern)
+                    format!("instr(CAST({} AS TEXT), '{}') > 0", quoted, term)
                 } else {
-                    format!("{} LIKE '{}' ESCAPE '\\\\' COLLATE NOCASE", quoted, pattern)
+                    format!(
+                        "instr(LOWER(CAST({} AS TEXT)), LOWER('{}')) > 0",
+                        quoted, term
+                    )
                 }
             })
             .collect();

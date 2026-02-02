@@ -153,7 +153,12 @@ fn value_contains(value: &Value, search_term: &str, case_sensitive: bool) -> boo
     let text = match value {
         Value::Text(t) => t.clone(),
         Value::Json(j) => j.to_string(),
-        _ => return false,
+        Value::Int(i) => i.to_string(),
+        Value::Float(f) => f.to_string(),
+        Value::Bool(b) => b.to_string(),
+        Value::Bytes(bytes) => String::from_utf8_lossy(bytes).to_string(),
+        Value::Array(a) => format!("[{} items]", a.len()),
+        Value::Null => return false,
     };
 
     if case_sensitive {
@@ -284,18 +289,16 @@ pub async fn fulltext_search(
                 Err(_) => continue,
             };
 
-            let text_columns: Vec<String> = schema
-                .columns
-                .iter()
-                .filter(|c| {
-                    if is_sqlite {
-                        c.data_type.trim().is_empty() || is_text_type(&c.data_type)
-                    } else {
-                        is_text_type(&c.data_type)
-                    }
-                })
-                .map(|c| c.name.clone())
-                .collect();
+            let text_columns: Vec<String> = if is_sqlite {
+                schema.columns.iter().map(|c| c.name.clone()).collect()
+            } else {
+                schema
+                    .columns
+                    .iter()
+                    .filter(|c| is_text_type(&c.data_type))
+                    .map(|c| c.name.clone())
+                    .collect()
+            };
 
             if !text_columns.is_empty() {
                 tables_to_search.push((namespace.clone(), collection.name, text_columns));
@@ -385,6 +388,15 @@ pub async fn fulltext_search(
                 &capability,
                 search_options_ref,
             );
+            if is_sqlite {
+                debug!(
+                    "SQLite search query for {}.{} ({} cols): {}",
+                    namespace.database,
+                    table_name,
+                    text_columns.len(),
+                    query
+                );
+            }
 
             let query_id = QueryId::new();
             let search_future =
@@ -398,6 +410,15 @@ pub async fn fulltext_search(
 
             let table_result = match result {
                 Ok(Ok(query_result)) => {
+                    if is_sqlite {
+                        debug!(
+                            "SQLite search result {}.{}: {} rows, {} cols",
+                            namespace.database,
+                            table_name,
+                            query_result.rows.len(),
+                            query_result.columns.len()
+                        );
+                    }
                     let mut matches = Vec::new();
 
                     for row in query_result.rows {

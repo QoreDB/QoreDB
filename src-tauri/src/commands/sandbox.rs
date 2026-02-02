@@ -133,7 +133,7 @@ pub async fn apply_sandbox_changes(
     let mut failed_changes: Vec<FailedChange> = Vec::new();
 
     // Start transaction if requested and supported
-    let supports_tx = driver.capabilities().transactions;
+    let supports_tx = driver.supports_transactions_for_session(session).await;
     if use_transaction && supports_tx {
         if let Err(e) = driver.begin_transaction(session).await {
             return Ok(ApplySandboxResponse {

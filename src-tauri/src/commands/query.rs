@@ -1269,7 +1269,7 @@ pub async fn begin_transaction(
         }
     };
 
-    if !driver.capabilities().transactions {
+    if !driver.supports_transactions_for_session(session).await {
         return Ok(TransactionResponse {
             success: false,
             error: Some(TRANSACTIONS_NOT_SUPPORTED.to_string()),
@@ -1312,7 +1312,7 @@ pub async fn commit_transaction(
         }
     };
 
-    if !driver.capabilities().transactions {
+    if !driver.supports_transactions_for_session(session).await {
         return Ok(TransactionResponse {
             success: false,
             error: Some(TRANSACTIONS_NOT_SUPPORTED.to_string()),
@@ -1355,7 +1355,7 @@ pub async fn rollback_transaction(
         }
     };
 
-    if !driver.capabilities().transactions {
+    if !driver.supports_transactions_for_session(session).await {
         return Ok(TransactionResponse {
             success: false,
             error: Some(TRANSACTIONS_NOT_SUPPORTED.to_string()),
@@ -1396,6 +1396,6 @@ pub async fn supports_transactions(
     };
 
     Ok(TransactionSupportResponse {
-        supported: driver.capabilities().transactions,
+        supported: driver.supports_transactions_for_session(session).await,
     })
 }

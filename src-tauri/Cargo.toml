@@ -25,8 +25,9 @@ tokio = { version = "1", features = ["full"] }
 tokio-util = "0.7"
 
 # Database drivers
-sqlx = { version = "0.8", features = ["runtime-tokio", "tls-rustls", "postgres", "mysql", "sqlite", "chrono", "rust_decimal", "uuid"] }
+sqlx = { version = "0.8", features = ["runtime-tokio", "tls-rustls", "postgres", "mysql", "sqlite", "chrono", "rust_decimal", "bigdecimal", "uuid"] }
 rust_decimal = { version = "1", features = ["serde"] }
+bigdecimal = "0.4"
 mongodb = "3"
 chrono = { version = "0.4", features = ["serde"] }
 

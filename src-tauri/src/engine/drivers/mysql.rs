@@ -1,11 +1,6 @@
 //! MySQL Driver
 //!
 //! Implements the DataEngine trait for MySQL/MariaDB databases using SQLx.
-//!
-//! ## Transaction Handling
-//!
-//! Same architecture as PostgreSQL: dedicated connection acquired from pool
-//! on BEGIN and released on COMMIT/ROLLBACK.
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -56,6 +51,41 @@ impl MySqlDriver {
         Self {
             sessions: Arc::new(RwLock::new(HashMap::new())),
         }
+    }
+
+    async fn create_pool(
+        config: &ConnectionConfig,
+        max_connections: u32,
+        min_connections: u32,
+        acquire_timeout_secs: u64,
+        classify_auth_error: bool,
+        run_test_query: bool,
+    ) -> EngineResult<MySqlPool> {
+        let opts = Self::build_connect_options(config);
+
+        let pool = MySqlPoolOptions::new()
+            .max_connections(max_connections)
+            .min_connections(min_connections)
+            .acquire_timeout(std::time::Duration::from_secs(acquire_timeout_secs))
+            .connect_with(opts)
+            .await
+            .map_err(|e| {
+                let msg = e.to_string();
+                if classify_auth_error && msg.contains("Access denied") {
+                    EngineError::auth_failed(msg)
+                } else {
+                    EngineError::connection_failed(msg)
+                }
+            })?;
+
+        if run_test_query {
+            sqlx::query("SELECT 1")
+                .execute(&pool)
+                .await
+                .map_err(|e| EngineError::execution_error(e.to_string()))?;
+        }
+
+        Ok(pool)
     }
 
     async fn get_session(&self, session: SessionId) -> EngineResult<Arc<MySqlSession>> {
@@ -252,44 +282,25 @@ impl DataEngine for MySqlDriver {
     }
 
     async fn test_connection(&self, config: &ConnectionConfig) -> EngineResult<()> {
-        let opts = Self::build_connect_options(config);
-
-        let pool = MySqlPoolOptions::new()
-            .max_connections(1)
-            .acquire_timeout(std::time::Duration::from_secs(10))
-            .connect_with(opts)
-            .await
-            .map_err(|e| {
-                let msg = e.to_string();
-                if msg.contains("Access denied") {
-                    EngineError::auth_failed(msg)
-                } else {
-                    EngineError::connection_failed(msg)
-                }
-            })?;
-
-        sqlx::query("SELECT 1")
-            .execute(&pool)
-            .await
-            .map_err(|e| EngineError::execution_error(e.to_string()))?;
-
+        let pool = Self::create_pool(config, 1, 0, 10, true, true).await?;
         pool.close().await;
         Ok(())
     }
 
     async fn connect(&self, config: &ConnectionConfig) -> EngineResult<SessionId> {
-        let opts = Self::build_connect_options(config);
         let max_connections = config.pool_max_connections.unwrap_or(5);
         let min_connections = config.pool_min_connections.unwrap_or(0);
         let acquire_timeout = config.pool_acquire_timeout_secs.unwrap_or(30);
 
-        let pool = MySqlPoolOptions::new()
-            .max_connections(max_connections)
-            .min_connections(min_connections)
-            .acquire_timeout(std::time::Duration::from_secs(acquire_timeout as u64))
-            .connect_with(opts)
-            .await
-            .map_err(|e| EngineError::connection_failed(e.to_string()))?;
+        let pool = Self::create_pool(
+            config,
+            max_connections,
+            min_connections,
+            acquire_timeout as u64,
+            false,
+            false,
+        )
+        .await?;
 
         let session_id = SessionId::new();
         let session = Arc::new(MySqlSession::new(pool));

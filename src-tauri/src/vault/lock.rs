@@ -42,7 +42,6 @@ impl VaultLock {
             Err(e) if e.to_string().contains("not found") => Ok(false),
             Err(e) if e.to_string().contains("NoEntry") => Ok(false),
             Err(e) if e.to_string().contains("internal") => {
-                 // Check if it's "Credentials not found" which is what MockProvider/Backend returns
                  if e.to_string().contains("Credentials not found") {
                      return Ok(false);
                  }
@@ -54,7 +53,6 @@ impl VaultLock {
 
     /// Sets up a new master password
     pub fn setup_master_password(&mut self, password: &str) -> EngineResult<()> {
-        // Hash the password with Argon2
         let salt = SaltString::generate(&mut OsRng);
         let argon2 = Argon2::default();
         
@@ -63,7 +61,7 @@ impl VaultLock {
             .map_err(|e| EngineError::internal(format!("Hashing error: {}", e)))?
             .to_string();
 
-        // Store the hash in keyring
+        // Store the hash
         let (service, key) = self.master_key_params();
 
         self.provider.set_password(&service, &key, &hash)

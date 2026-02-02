@@ -159,6 +159,7 @@ mod tests {
 /// - For PostgreSQL: database + schema
 /// - For MySQL: database
 /// - For MongoDB: database
+/// - For SQLite: N/A (uses default namespace)
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Namespace {
     pub database: String,
@@ -247,8 +248,6 @@ pub struct Row {
 }
 
 /// Row data for mutation operations (indexed by column name)
-///
-/// Used for INSERT and UPDATE operations where values are specified by column name.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RowData {
     /// Map of column name to value
@@ -427,7 +426,7 @@ pub struct ColumnFilter {
 pub struct TableQueryOptions {
     /// Page number (0-indexed)
     pub page: Option<u32>,
-    /// Page size (default: 100, max: 10000)
+    /// Page size (default: 50, max: 10000)
     pub page_size: Option<u32>,
     /// Column to sort by
     pub sort_column: Option<String>,
@@ -440,21 +439,19 @@ pub struct TableQueryOptions {
 }
 
 impl TableQueryOptions {
-    /// Returns the effective page number (0-indexed)
+    /// Effective page number
     pub fn effective_page(&self) -> u32 {
         self.page.unwrap_or(0)
     }
 
-    /// Returns the effective page size, clamped to [1, 10000]
+    /// Effective page size
     pub fn effective_page_size(&self) -> u32 {
-        self.page_size.unwrap_or(100).clamp(1, 10000)
+        self.page_size.unwrap_or(50).clamp(1, 10000)
     }
 
-    /// Returns the SQL OFFSET for pagination
-    /// Frontend sends 1-indexed pages, so we subtract 1 for offset calculation
+    /// SQL OFFSET for pagination
     pub fn offset(&self) -> u64 {
         let page = self.effective_page();
-        // Convert 1-indexed to 0-indexed, saturating at 0 for safety
         let zero_indexed_page = if page > 0 { page - 1 } else { 0 };
         zero_indexed_page as u64 * self.effective_page_size() as u64
     }
@@ -465,7 +462,7 @@ impl TableQueryOptions {
 pub struct PaginatedQueryResult {
     /// The data rows for the current page
     pub result: QueryResult,
-    /// Total number of rows matching the query (before pagination)
+    /// Total number of rows matching the query
     pub total_rows: u64,
     /// Current page (0-indexed)
     pub page: u32,
@@ -476,7 +473,6 @@ pub struct PaginatedQueryResult {
 }
 
 impl PaginatedQueryResult {
-    /// Creates a new paginated result from query result and pagination info
     pub fn new(result: QueryResult, total_rows: u64, page: u32, page_size: u32) -> Self {
         let total_pages = if page_size == 0 {
             0

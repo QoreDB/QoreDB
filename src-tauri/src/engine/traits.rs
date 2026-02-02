@@ -253,6 +253,12 @@ pub trait DataEngine: Send + Sync {
         ))
     }
 
+    /// Check if the driver supports transactions for the given session.
+    async fn supports_transactions_for_session(&self, session: SessionId) -> bool {
+        let _ = session;
+        self.supports_transactions()
+    }
+
     /// Check if the driver supports transactions.
     fn supports_transactions(&self) -> bool {
         false

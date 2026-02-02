@@ -836,13 +836,6 @@ impl SqliteSearchStrategy {
         format!("\"{}\"", name.replace('"', "\"\""))
     }
 
-    fn escape_like_pattern(term: &str) -> String {
-        term.replace('\\', "\\\\")
-            .replace('%', "\\%")
-            .replace('_', "\\_")
-            .replace('\'', "''")
-    }
-
     fn escape_sql_literal(term: &str) -> String {
         term.replace('\'', "''")
     }
@@ -892,6 +885,7 @@ impl FulltextSearchStrategy for SqliteSearchStrategy {
         let like_content_double = format!("%content=\"{}\"%", table_name);
         let like_content_plain = format!("%content={}%", table_name);
 
+        //TODO : pas de queries SQL en frontend, à déplacer dans le backend (src-tauri)
         Some(format!(
             r#"
             SELECT
@@ -1326,18 +1320,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_postgres_escape_like() {
-        assert_eq!(
-            PostgresSearchStrategy::escape_like_pattern("test%user"),
-            "test\\%user"
-        );
-        assert_eq!(
-            PostgresSearchStrategy::escape_like_pattern("it's"),
-            "it''s"
-        );
-    }
-
-    #[test]
     fn test_postgres_escape_tsquery() {
         assert_eq!(PostgresSearchStrategy::escape_tsquery("hello"), "'hello:*'");
         assert_eq!(
@@ -1351,14 +1333,6 @@ mod tests {
         assert_eq!(
             MySqlSearchStrategy::escape_like_pattern("test_user"),
             "test\\_user"
-        );
-    }
-
-    #[test]
-    fn test_sqlite_escape_like() {
-        assert_eq!(
-            SqliteSearchStrategy::escape_like_pattern("test%user"),
-            "test\\%user"
         );
     }
 

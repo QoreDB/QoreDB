@@ -100,43 +100,12 @@ export const CustomTitlebar = ({
 
   return (
     <div
-      className="h-10 bg-muted/80 border-b border-border shadow-sm flex items-center select-none shrink-0"
+      className="h-9 bg-muted/80 border-b border-border shadow-sm flex items-center select-none shrink-0"
       data-tauri-drag-region
     >
       <div className="flex items-center pl-2 z-20">
         {isMac ? (
-          <div className="flex items-center gap-2 px-2">
-            <button
-              onClick={close}
-              className="w-3 h-3 rounded-full bg-[#ff5f57] hover:bg-[#ff3b30] flex items-center justify-center group"
-            >
-              <X
-                className="w-2 h-2 opacity-0 group-hover:opacity-100 text-[#4d0000]"
-                strokeWidth={3}
-              />
-            </button>
-            <button
-              onClick={minimize}
-              className="w-3 h-3 rounded-full bg-[#febc2e] hover:bg-[#ffb000] flex items-center justify-center group"
-            >
-              <Minus
-                className="w-2 h-2 opacity-0 group-hover:opacity-100 text-[#6b4600]"
-                strokeWidth={3}
-              />
-            </button>
-            <button
-              onClick={toggleMaximize}
-              className="w-3 h-3 rounded-full bg-[#28c840] hover:bg-[#1faa34] flex items-center justify-center group"
-            >
-              <div className="w-1.5 h-1.5 opacity-0 group-hover:opacity-100">
-                {isMaximized ? (
-                  <Copy className="w-1.5 h-1.5 text-[#004d0a]" strokeWidth={3} />
-                ) : (
-                  <Square className="w-1.5 h-1.5 text-[#004d0a]" strokeWidth={3} />
-                )}
-              </div>
-            </button>
-          </div>
+          <div className="w-20" />
         ) : (
           <div className="flex items-center ml-1">
             <img src="/logo.png" alt="" className="w-5 h-5" />
@@ -260,7 +229,7 @@ export const CustomTitlebar = ({
         </div>
 
         {!isMac && (
-          <div className="flex items-center h-10 -mr-2 ml-2 pl-2 border-l border-border/50">
+          <div className="flex items-center h-9 -mr-2 ml-2 pl-2 border-l border-border/50">
             <WindowButton onClick={minimize}>
               <Minus className="w-4 h-4" />
             </WindowButton>
@@ -476,7 +445,7 @@ const WindowButton = ({
   <button
     onClick={onClick}
     className={cn(
-      'w-12 h-10 flex items-center justify-center transition-colors hover:bg-muted/80',
+      'w-12 h-9 flex items-center justify-center transition-colors hover:bg-muted/80',
       isClose && 'hover:bg-red-600 hover:text-white'
     )}
   >

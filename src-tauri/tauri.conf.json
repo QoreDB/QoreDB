@@ -13,9 +13,11 @@
     "windows": [
       {
         "title": "QoreDB",
-        "width": 1600,
-        "height": 1000,
-        "decorations": false
+        "width": 1280,
+        "height": 800,
+        "decorations": true,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true
       }
     ],
     "security": {

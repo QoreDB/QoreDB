@@ -36,7 +36,7 @@ export function ExportProgressToast({ progress, onCancel }: ExportProgressToastP
   const isFailed = progress.state === 'failed';
 
   return (
-    <div className="w-[360px] rounded-md border border-border bg-background p-3 shadow-lg">
+    <div className="w-90 rounded-md border border-border bg-background p-3 shadow-lg">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-2">
           {isSuccess ? (
@@ -48,9 +48,7 @@ export function ExportProgressToast({ progress, onCancel }: ExportProgressToastP
           )}
           <div className="space-y-1">
             <p className="text-sm font-medium text-foreground">{t('export.toastTitle')}</p>
-            <p className="text-xs text-muted-foreground">
-              {t(`export.state.${progress.state}`)}
-            </p>
+            <p className="text-xs text-muted-foreground">{t(`export.state.${progress.state}`)}</p>
           </div>
         </div>
         {isActive && onCancel ? (
@@ -75,16 +73,14 @@ export function ExportProgressToast({ progress, onCancel }: ExportProgressToastP
 
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
           <span>{t('export.rows', { count: progress.rows_exported })}</span>
-          <span>{t('export.bytes', { count: formatBytes(progress.bytes_written) })}</span>
+          <span>{t('export.bytes', { size: formatBytes(progress.bytes_written) })}</span>
           <span>{t('export.elapsed', { time: formatElapsed(progress.elapsed_ms) })}</span>
           {progress.rows_per_second !== undefined && (
             <span>{t('export.speed', { speed: progress.rows_per_second.toFixed(1) })}</span>
           )}
         </div>
 
-        {progress.error ? (
-          <p className="text-xs text-destructive">{progress.error}</p>
-        ) : null}
+        {progress.error ? <p className="text-xs text-destructive">{progress.error}</p> : null}
       </div>
     </div>
   );

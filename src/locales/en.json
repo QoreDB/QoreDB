@@ -556,7 +556,7 @@
             "failed": "Export failed"
         },
         "rows": "{{count}} rows",
-        "bytes": "{{count}} written",
+        "bytes": "{{size}} written",
         "elapsed": "{{time}} elapsed",
         "speed": "{{speed}} rows/s",
         "noSession": "No active session for export",

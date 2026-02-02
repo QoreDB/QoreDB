@@ -555,7 +555,7 @@
             "failed": "Échec de l'export"
         },
         "rows": "{{count}} lignes",
-        "bytes": "{{count}} écrits",
+        "bytes": "{{size}} écrits",
         "elapsed": "{{time}} écoulé",
         "speed": "{{speed}} lignes/s",
         "noSession": "Aucune session active pour l'export",

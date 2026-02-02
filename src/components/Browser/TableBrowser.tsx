@@ -189,13 +189,14 @@ export function TableBrowser({
   const [selectedRow, setSelectedRow] = useState<Record<string, Value> | undefined>(undefined);
   const mutationsSupported = driverCapabilities?.mutations ?? true;
 
-  // Document editor state (NoSQL)
+  // Document editor state
   const isDocument = isDocumentDatabase(driver);
-  console.log('[TableBrowser] driver:', driver, 'isDocument:', isDocument);
+
   const streamingExportQuery = useMemo(() => {
     if (!namespace || !tableName || relationFilter) return undefined;
     return buildStreamingExportQuery(driver, namespace, tableName);
   }, [driver, namespace, tableName, relationFilter]);
+
   const [docEditorOpen, setDocEditorOpen] = useState(false);
   const [docEditorMode, setDocEditorMode] = useState<'insert' | 'edit'>('insert');
   const [docEditorData, setDocEditorData] = useState<string>('{}');

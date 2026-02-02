@@ -73,7 +73,7 @@ export function ConnectionItem({
 						/>
 					</div>
 
-					<span className="flex-1 truncate text-left">{connection.name}</span>
+					<span className="flex-1 truncate text-left max-w-[150px]">{connection.name}</span>
 
 					{env !== "development" && (
 						<span

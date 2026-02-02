@@ -41,7 +41,7 @@ export function useConnectionForm(options: {
 	useEffect(() => {
 		if (!isOpen) return;
 
-		if (editConnection && editPassword) {
+		if (editConnection) {
 			const sshTunnel = editConnection.ssh_tunnel;
 			setFormData({
 				name: editConnection.name,
@@ -51,7 +51,7 @@ export function useConnectionForm(options: {
 				host: editConnection.host,
 				port: editConnection.port,
 				username: editConnection.username,
-				password: editPassword,
+				password: editPassword || "",
 				database: editConnection.database || "",
 				ssl: editConnection.ssl,
 				poolMaxConnections: editConnection.pool_max_connections ?? 5,

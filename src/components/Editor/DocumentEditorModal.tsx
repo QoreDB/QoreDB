@@ -116,9 +116,7 @@ export function DocumentEditorModal({
     setLoading(true);
     setError(null);
     try {
-      // 3. Execute Mutation
       if (mode === 'insert') {
-        console.log('DocumentEditorModal: Inserting row', { sessionId, database, collection, rowData }); 
         const result = await insertRow(
           sessionId,
           database,
@@ -135,7 +133,6 @@ export function DocumentEditorModal({
           setError(result.error || t('rowModal.insertError'));
         }
       } else {
-        // Update
         if (originalId === undefined) {
           setError("Missing original ID for update");
           return;

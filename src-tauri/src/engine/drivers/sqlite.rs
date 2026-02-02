@@ -165,6 +165,38 @@ impl SqliteDriver {
             })
             .collect()
     }
+    /// Validates the SQLite connection path
+    fn validate_path(path: &str) -> EngineResult<()> {
+        let path = path.trim();
+        
+        if path == ":memory:" || path == "sqlite::memory:" {
+            return Ok(());
+        }
+
+        if path.eq_ignore_ascii_case("localhost") {
+            return Err(EngineError::connection_failed(
+                "Invalid SQLite path: 'localhost'. Please select a valid file path.".to_string(),
+            ));
+        }
+
+        if path.is_empty() {
+             return Err(EngineError::connection_failed(
+                "SQLite path cannot be empty.".to_string(),
+            ));
+        }
+        
+        let path_lower = path.to_lowercase();
+        let valid_extensions = [".db", ".sqlite", ".sqlite3", ".db3", ".s3db", ".sl3"];
+        let has_extension = valid_extensions.iter().any(|ext| path_lower.ends_with(ext));
+        
+        if !has_extension && path.contains("://") {
+             return Err(EngineError::connection_failed(
+                format!("Invalid SQLite path format: {}", path)
+            ));
+        }
+
+        Ok(())
+    }
 }
 
 impl Default for SqliteDriver {
@@ -184,6 +216,7 @@ impl DataEngine for SqliteDriver {
     }
 
     async fn test_connection(&self, config: &ConnectionConfig) -> EngineResult<()> {
+        Self::validate_path(&config.host)?;
         let opts = Self::build_connect_options(config);
 
         let pool = SqlitePoolOptions::new()
@@ -207,6 +240,8 @@ impl DataEngine for SqliteDriver {
     }
 
     async fn connect(&self, config: &ConnectionConfig) -> EngineResult<SessionId> {
+        Self::validate_path(&config.host)?;
+
         let opts = Self::build_connect_options(config);
         let max_connections = config.pool_max_connections.unwrap_or(5);
         let min_connections = config.pool_min_connections.unwrap_or(0);

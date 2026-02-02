@@ -5,6 +5,14 @@ export const isMacOS = (): boolean => {
   return false;
 };
 
+export const isWindowsOS = (): boolean => {
+  if (typeof window !== 'undefined' && window.navigator) {
+    const userAgent = window.navigator.userAgent.toLowerCase();
+    return userAgent.includes('windows');
+  }
+  return false;
+};
+
 export const getModifierKey = (): 'Cmd' | 'Ctrl' => {
   return isMacOS() ? 'Cmd' : 'Ctrl';
 };

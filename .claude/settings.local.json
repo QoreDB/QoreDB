@@ -12,7 +12,8 @@
       "Bash(tree:*)",
       "Bash(pnpm build:*)",
       "Bash(cargo test:*)",
-      "Bash(git -C /c/Users/rapha/Documents/Travail/Projets/QoreDB log --oneline -20)"
+      "Bash(git -C /c/Users/rapha/Documents/Travail/Projets/QoreDB log --oneline -20)",
+      "Bash(grep:*)"
     ]
   }
 }

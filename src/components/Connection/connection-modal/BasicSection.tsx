@@ -134,7 +134,7 @@ export function BasicSection({ formData, onChange, hideConnectionFields = false 
             </div>
             <div className="space-y-2">
               <Label>
-                {t('connection.password')} <span className="text-error">*</span>
+                {t('connection.password')}
               </Label>
               <Input
                 type="password"

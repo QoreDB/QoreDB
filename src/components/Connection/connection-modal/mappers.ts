@@ -138,7 +138,6 @@ export function isConnectionFormValid(formData: ConnectionFormData): boolean {
 	return Boolean(
 		formData.host &&
 			(formData.username || !authRequired) &&
-			(formData.password || !authRequired) &&
 			(!formData.useSshTunnel ||
 				(formData.sshHost && formData.sshUsername && formData.sshKeyPath)),
 	);

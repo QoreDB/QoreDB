@@ -1,0 +1,16 @@
+{
+  "identifier": "com.rapha.qoredb",
+  "app": {
+    
+    "windows": [
+      {
+        "title": "QoreDB",
+        "width": 1280,
+        "height": 800,
+        "decorations": true,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true
+      }
+    ]
+  }
+}

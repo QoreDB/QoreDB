@@ -14,7 +14,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { TFunction } from 'i18next';
-import { isMacOS, getShortcut } from '@/utils/platform';
+import { isMacOS, isWindowsOS, getShortcut } from '@/utils/platform';
 import { NotificationPanel } from '@/components/Notification/NotificationPanel';
 import { useNotificationBadge } from '@/lib/notificationStore';
 
@@ -60,6 +60,13 @@ export const CustomTitlebar = ({
   const { t } = useTranslation();
   const [isMaximized, setIsMaximized] = useState(false);
   const isMac = isMacOS();
+  const isWindows = isWindowsOS();
+
+  useEffect(() => {
+    if (isWindows) {
+      appWindow.setDecorations(false).catch(() => {});
+    }
+  }, [isWindows]);
 
   useEffect(() => {
     const checkMaximized = async () => {
@@ -474,7 +481,7 @@ const NotificationBell = () => {
         >
           <Bell className="w-4 h-4 text-muted-foreground" />
           {badgeCount > 0 && (
-            <span className="absolute -top-0.5 -right-0.5 min-w-[14px] h-[14px] px-1 text-[9px] font-medium bg-red-500 text-white rounded-full flex items-center justify-center">
+            <span className="absolute -top-0.5 -right-0.5 min-w-3.5 h-3.5 px-1 text-[9px] font-medium bg-red-500 text-white rounded-full flex items-center justify-center">
               {badgeCount > 9 ? '9+' : badgeCount}
             </span>
           )}

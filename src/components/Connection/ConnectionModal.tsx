@@ -232,7 +232,7 @@ export function ConnectionModal({
   function handleOpenChange(open: boolean) {
     if (!open) {
       onClose();
-      // Reset to step 1 after close animation ideally, but here just immediately is fine or usually handled by unmount/isOpen
+      // TODO: handle this better
       if (!isEditMode) setTimeout(() => setStep('driver'), 200);
     }
   }

@@ -2,59 +2,59 @@ import { RefObject } from "react";
 import { Table, Column } from "@tanstack/react-table";
 import { useTranslation } from "react-i18next";
 import {
-	Search,
-	X,
-	Eye,
-	EyeOff,
-	ChevronDown,
-	Check,
-	Copy,
-	FileSpreadsheet,
-	FileJson,
-	Code2,
-	Download,
-	ListFilter,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+  Search,
+  X,
+  Eye,
+  EyeOff,
+  ChevronDown,
+  ListFilter,
+  Database,
+  Check,
+  Copy,
+  FileSpreadsheet,
+  FileJson,
+  Code2,
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuItem,
-	DropdownMenuLabel,
-	DropdownMenuSeparator,
-	DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { cn } from "@/lib/utils";
-import { RowData } from "./utils/dataGridUtils";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { cn } from '@/lib/utils';
+import { RowData } from './utils/dataGridUtils';
 import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
 
 interface DataGridToolbarProps {
-	table: Table<RowData>;
-	globalFilter: string;
-	setGlobalFilter: (value: string) => void;
-	searchInputRef: RefObject<HTMLInputElement | null>;
-	copyToClipboard: (format: "csv" | "json" | "sql") => void;
-	exportToFile: (format: "csv" | "json") => void;
-	copied: boolean;
-	showFilters: boolean;
-	setShowFilters: (show: boolean) => void;
+  table: Table<RowData>;
+  globalFilter: string;
+  setGlobalFilter: (value: string) => void;
+  searchInputRef: RefObject<HTMLInputElement | null>;
+  copyToClipboard: (format: 'csv' | 'json' | 'sql') => void;
+  onStreamingExport?: () => void;
+  copied: boolean;
+  showFilters: boolean;
+  setShowFilters: (show: boolean) => void;
 }
 
 export function DataGridToolbar({
-	table,
-	globalFilter,
-	setGlobalFilter,
-	searchInputRef,
-	copyToClipboard,
-	exportToFile,
-	copied,
-	showFilters,
-	setShowFilters,
+  table,
+  globalFilter,
+  setGlobalFilter,
+  searchInputRef,
+  copyToClipboard,
+  onStreamingExport,
+  copied,
+  showFilters,
+  setShowFilters,
 }: DataGridToolbarProps) {
-	const { t } = useTranslation();
+  const { t } = useTranslation();
 
-	return (
+  return (
     <div className="flex items-center gap-2">
       {/* Global Search */}
       <div className="relative">
@@ -163,37 +163,24 @@ export function DataGridToolbar({
             <FileJson size={14} className="mr-2" />
             JSON
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => copyToClipboard('sql')} className="text-xs">
+          <DropdownMenuItem
+            onClick={() => {
+              AnalyticsService.capture('export_used', {
+                format: 'sql',
+                destination: 'clipboard',
+              });
+              copyToClipboard('sql');
+            }}
+            className="text-xs"
+          >
             <Code2 size={14} className="mr-2" />
             SQL
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuLabel className="text-xs">{t('grid.downloadToFile')}</DropdownMenuLabel>
-          <DropdownMenuItem
-            onClick={() => {
-              AnalyticsService.capture('export_used', {
-                format: 'csv',
-                destination: 'file',
-              });
-              exportToFile('csv');
-            }}
-            className="text-xs"
-          >
-            <Download size={14} className="mr-2" />
-            CSV
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            onClick={() => {
-              AnalyticsService.capture('export_used', {
-                format: 'json',
-                destination: 'file',
-              });
-              exportToFile('json');
-            }}
-            className="text-xs"
-          >
-            <Download size={14} className="mr-2" />
-            JSON
+          <DropdownMenuLabel className="text-xs">{t('grid.streamingExport')}</DropdownMenuLabel>
+          <DropdownMenuItem onClick={onStreamingExport} className="text-xs" disabled={!onStreamingExport}>
+            <Database size={14} className="mr-2" />
+            {t('grid.exportAllRows')}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

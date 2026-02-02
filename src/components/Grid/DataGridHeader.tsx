@@ -11,12 +11,7 @@ import { QueryResult } from '@/lib/tauri';
 export interface DataGridHeaderProps {
   selectedCount: number;
   totalRows: number;
-  dataLength: number;
-  isLimited: boolean;
   result: QueryResult | null;
-  onLoadMore: () => void;
-  onShowAll: () => void;
-  // Delete props
   canDelete: boolean;
   deleteDisabled: boolean;
   isDeleting: boolean;
@@ -28,11 +23,8 @@ export interface DataGridHeaderProps {
 export function DataGridHeader({
   selectedCount,
   totalRows,
-  dataLength,
-  isLimited,
+
   result,
-  onLoadMore,
-  onShowAll,
   canDelete,
   deleteDisabled,
   isDeleting,
@@ -47,16 +39,12 @@ export function DataGridHeader({
       {selectedCount > 0 ? (
         <>
           <span>{t('grid.rowsSelected', { count: selectedCount })}</span>
-          {isLimited && (
-            <span>{t('grid.rowsShowing', { shown: dataLength, total: totalRows })}</span>
-          )}
+
         </>
       ) : (
         <div className="flex items-center gap-3">
           <span>{t('grid.rowsTotal', { count: totalRows })}</span>
-          {isLimited && (
-            <span>{t('grid.rowsShowing', { shown: dataLength, total: totalRows })}</span>
-          )}
+
           {result && typeof result.execution_time_ms === 'number' && (
             <div className="flex items-center gap-2 border-l border-border pl-3 ml-1">
               <span title={t('query.time.execTooltip')}>
@@ -81,16 +69,7 @@ export function DataGridHeader({
         </div>
       )}
 
-      {isLimited && (
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={onLoadMore}>
-            {t('grid.loadMore')}
-          </Button>
-          <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={onShowAll}>
-            {t('grid.showAll')}
-          </Button>
-        </div>
-      )}
+
 
       {canDelete && (
         <Button

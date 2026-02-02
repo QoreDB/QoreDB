@@ -58,6 +58,11 @@
         "password": "Password",
         "database": "Database",
         "databaseInitial": "Initial Database",
+        "filePath": "Database File",
+        "filePathPlaceholder": "/path/to/database.db",
+        "browseFile": "Browse...",
+        "inMemory": "In-memory database",
+        "sqliteHelp": "Select a .db, .sqlite, or .sqlite3 file",
         "useSSL": "Use SSL/TLS",
         "poolSettings": "Connection Pool",
         "poolMax": "Max",
@@ -164,7 +169,7 @@
         "newQuery": "New Query ({{modifier}}+T)"
     },
     "browser": {
-        "searchPlaceholder": "Search connections, tables...",
+        "searchPlaceholder": "Search {{label}}...",
         "typeToSearch": "Type correctly to search...",
         "navigate": "Navigate",
         "select": "Select",
@@ -451,7 +456,8 @@
             "foreignKey": "Foreign key to {{table}}",
             "indexed": "Indexed",
             "indexComposite": "Indexed (composite: {{name}})",
-            "unique": "Unique constraint"
+            "unique": "Unique constraint",
+            "copySuccess": "Row copied to clipboard"
         },
         "rowsSelected": "{{count}} row(s) selected",
         "rowsTotal": "{{count}} row(s)",
@@ -468,6 +474,8 @@
         "noResults": "No results",
         "loadMore": "Load more",
         "showAll": "Show all",
+        "showLess": "Show less",
+        "showMore": "Show more",
         "copyCSV": "Copy as CSV",
         "copyJSON": "Copy as JSON",
         "copySQL": "Copy as SQL",
@@ -491,6 +499,8 @@
         "download": "Download",
         "downloadCSV": "Download as CSV file",
         "downloadJSON": "Download as JSON file",
+        "streamingExport": "Streaming export",
+        "exportAllRows": "Export all rows",
         "noDataToExport": "No data to export",
         "exportSuccess": "Exported {{count}} row(s) to {{path}}",
         "exportError": "Failed to export data",
@@ -510,6 +520,48 @@
         "updateSuccess": "Row updated successfully",
         "updateError": "Failed to update row",
         "updateNoPrimaryKey": "Inline edit requires a primary key"
+    },
+    "export": {
+        "dialogTitle": "Streaming export",
+        "formatLabel": "Format",
+        "formatPlaceholder": "Choose a format",
+        "format": {
+            "csv": "CSV",
+            "json": "JSON",
+            "sql": "SQL INSERT"
+        },
+        "outputLabel": "Output file",
+        "outputPlaceholder": "Select a file path",
+        "browse": "Browse",
+        "includeHeaders": "Include headers",
+        "tableLabel": "Table name",
+        "tablePlaceholder": "table_name",
+        "batchLabel": "Batch size",
+        "limitLabel": "Row limit",
+        "limitPlaceholder": "No limit",
+        "showAdvanced": "Show advanced options",
+        "hideAdvanced": "Hide advanced options",
+        "start": "Start export",
+        "starting": "Starting...",
+        "missingQuery": "No query available for export",
+        "missingPath": "Please choose an output file",
+        "missingTable": "Table name is required for SQL export",
+        "toastTitle": "Export in progress",
+        "cancel": "Cancel",
+        "state": {
+            "pending": "Preparing export",
+            "running": "Exporting",
+            "completed": "Export completed",
+            "cancelled": "Export cancelled",
+            "failed": "Export failed"
+        },
+        "rows": "{{count}} rows",
+        "bytes": "{{count}} written",
+        "elapsed": "{{time}} elapsed",
+        "speed": "{{speed}} rows/s",
+        "noSession": "No active session for export",
+        "startFailed": "Failed to start export",
+        "cancelFailed": "Failed to cancel export"
     },
     "rowModal": {
         "insertTitle": "Insert New Row",
@@ -569,7 +621,8 @@
         "pagination": "Showing {{start}}-{{end}} of {{total}}",
         "add": "Add",
         "back": "Back",
-        "noResults": "No results found"
+        "noResults": "No results found",
+        "copied": "Copied"
     },
     "environment": {
         "label": "Environment",
@@ -1083,5 +1136,15 @@
             "dismiss": "Dismiss",
             "markRead": "Mark as read"
         }
+    },
+    "terminology": {
+        "table": "Table",
+        "tables": "Tables",
+        "collection": "Collection",
+        "collections": "Collections",
+        "row": "Row",
+        "rows": "Rows",
+        "document": "Document",
+        "documents": "Documents"
     }
 }

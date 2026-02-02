@@ -41,7 +41,6 @@ export function GlobalSearch({ isOpen, onClose, onSelect, commands = [] }: Globa
   const [libraryFolders, setLibraryFolders] = useState<QueryFolder[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Load connections when search opens
   useEffect(() => {
     if (isOpen) {
       inputRef.current?.focus();
@@ -57,12 +56,10 @@ export function GlobalSearch({ isOpen, onClose, onSelect, commands = [] }: Globa
       );
       setSelectedIndex(0);
       
-      // Fetch connections from vault
       listSavedConnections(DEFAULT_PROJECT)
         .then(setConnections)
         .catch(console.error);
 
-      // Load query library
       try {
         setLibraryItems(listItems());
         setLibraryFolders(listFolders());

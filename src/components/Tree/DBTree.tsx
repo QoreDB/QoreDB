@@ -11,6 +11,7 @@ import { TableContextMenu } from './TableContextMenu';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { Driver, getDriverMetadata } from '../../lib/drivers';
+import { getTerminology } from '../../lib/driverCapabilities';
 import { CreateTableModal } from '../Table/CreateTableModal';
 import { DatabaseContextMenu } from './DatabaseContextMenu';
 import { emitTableChange } from '@/lib/tableEvents';
@@ -54,6 +55,7 @@ export function DBTree({
   const collectionsPageSize = 50; 
   
   const driverMeta = getDriverMetadata(driver);
+  const terminology = getTerminology(driver);
 
   const sessionId = connectionId;
   const { getNamespaces, invalidateNamespaces } = schemaCache;
@@ -301,7 +303,7 @@ export function DBTree({
                    <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground z-10" />
                    <Input
                       className="h-7 text-xs pl-7 bg-muted/50 border-transparent focus-visible:bg-background shadow-none"
-                      placeholder={t('dbtree.searchPlaceholder')}
+                      placeholder={t('browser.searchPlaceholder', { label: t(terminology.tablePluralLabel).toLowerCase() })}
                       value={searchValue}
                       onChange={(e) => setSearchValue(e.target.value)}
                       onClick={(e) => e.stopPropagation()}
@@ -309,7 +311,7 @@ export function DBTree({
                 </div>
                 {collections.length === 0 ? (
                   <div className="px-2 py-1 text-xs text-muted-foreground italic">
-                    {search ? t('common.noResults') : t('dbtree.noCollections')}
+                    {search ? t('common.noResults') : t('common.noResults')}
                   </div>
                 ) : (
                   <>

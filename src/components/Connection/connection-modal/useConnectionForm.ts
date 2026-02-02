@@ -13,16 +13,19 @@ function mapDriverString(driver: string | undefined): Driver | undefined {
 	if (!driver) return undefined;
 	const normalized = driver.toLowerCase();
 	switch (normalized) {
-		case "postgres":
-		case "postgresql":
-			return Driver.Postgres;
-		case "mysql":
-			return Driver.Mysql;
-		case "mongodb":
-			return Driver.Mongodb;
-		default:
-			return undefined;
-	}
+    case 'postgres':
+    case 'postgresql':
+      return Driver.Postgres;
+    case 'mysql':
+      return Driver.Mysql;
+    case 'mongodb':
+      return Driver.Mongodb;
+    case 'sqlite':
+		case 'sqlite3':
+      return Driver.Sqlite;
+    default:
+      return undefined;
+  }
 }
 
 export function useConnectionForm(options: {
@@ -38,7 +41,7 @@ export function useConnectionForm(options: {
 	useEffect(() => {
 		if (!isOpen) return;
 
-		if (editConnection && editPassword) {
+		if (editConnection) {
 			const sshTunnel = editConnection.ssh_tunnel;
 			setFormData({
 				name: editConnection.name,
@@ -48,7 +51,7 @@ export function useConnectionForm(options: {
 				host: editConnection.host,
 				port: editConnection.port,
 				username: editConnection.username,
-				password: editPassword,
+				password: editPassword || "",
 				database: editConnection.database || "",
 				ssl: editConnection.ssl,
 				poolMaxConnections: editConnection.pool_max_connections ?? 5,

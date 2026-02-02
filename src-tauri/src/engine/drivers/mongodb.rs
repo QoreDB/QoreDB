@@ -37,13 +37,31 @@ impl MongoDriver {
     }
 
     /// Builds a connection string from config
+    /// Builds a connection string from config
     fn build_connection_string(config: &ConnectionConfig) -> String {
         let db = config.database.as_deref().unwrap_or("admin");
         let tls = if config.ssl { "true" } else { "false" };
 
+        // Only include credentials if username is provided
+        let credentials = if !config.username.is_empty() {
+            format!("{}:{}@", config.username, config.password)
+        } else {
+            String::new()
+        };
+
+        // If no auth, we shouldn't force authSource=admin unless needed
+        // But for now, let's keep it simple and just remove the credentials part
+        // We'll also optionally include authSource only if we have credentials, or leave it as is.
+        // Usually authSource is harmless without creds, but better to be safe.
+        let auth_source = if !config.username.is_empty() {
+            "?authSource=admin&tls="
+        } else {
+            "?tls="
+        };
+
         format!(
-            "mongodb://{}:{}@{}:{}/{}?authSource=admin&tls={}",
-            config.username, config.password, config.host, config.port, db, tls
+            "mongodb://{}{}:{}/{}{}{}",
+            credentials, config.host, config.port, db, auth_source, tls
         )
     }
 
@@ -157,6 +175,20 @@ impl MongoDriver {
             doc.insert(key, Self::value_to_bson(value));
         }
         doc
+    }
+
+    fn escape_regex(term: &str) -> String {
+        let special_chars = [
+            '.', '^', '$', '*', '+', '?', '(', ')', '[', ']', '{', '}', '|', '\\',
+        ];
+        let mut escaped = String::with_capacity(term.len() * 2);
+        for c in term.chars() {
+            if special_chars.contains(&c) {
+                escaped.push('\\');
+            }
+            escaped.push(c);
+        }
+        escaped
     }
 }
 
@@ -463,11 +495,6 @@ impl DataEngine for MongoDriver {
                         break;
                     }
                     row_count += 1;
-                    
-                    // Limit for POC safety
-                    if row_count >= 1000 {
-                        break;
-                    }
                 }
 
                 let _ = sender.send(StreamEvent::Done(row_count)).await;
@@ -769,6 +796,11 @@ impl DataEngine for MongoDriver {
         let page_size = options.effective_page_size();
         let offset = options.offset();
 
+        tracing::info!(
+            "MongoDB query_table: page={}, page_size={}, offset={}, table={}",
+            page, page_size, offset, table
+        );
+
         // Build $match filter document
         let mut filter_doc = Document::new();
 
@@ -803,6 +835,7 @@ impl DataEngine for MongoDriver {
         // Handle search across string fields
         if let Some(ref search_term) = options.search {
             if !search_term.trim().is_empty() {
+                let escaped_term = Self::escape_regex(search_term);
                 // Sample one document to discover string fields
                 let sample_doc = collection.find_one(doc! {}).await
                     .map_err(|e| EngineError::execution_error(e.to_string()))?;
@@ -814,7 +847,7 @@ impl DataEngine for MongoDriver {
                         // Only search string fields
                         if matches!(value, mongodb::bson::Bson::String(_)) {
                             search_conditions.push(doc! {
-                                key: { "$regex": search_term.as_str(), "$options": "i" }
+                                key: { "$regex": escaped_term.as_str(), "$options": "i" }
                             });
                         }
                     }
@@ -858,6 +891,11 @@ impl DataEngine for MongoDriver {
             .try_collect()
             .await
             .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        tracing::info!(
+            "MongoDB query_table: found {} documents, total_rows={}",
+            documents.len(), total_rows
+        );
 
         let execution_time_ms = start.elapsed().as_micros() as f64 / 1000.0;
 
@@ -969,11 +1007,15 @@ impl DataEngine for MongoDriver {
             .collection::<Document>(table);
 
         let doc = Self::row_data_to_document(data);
+        tracing::info!("MongoDB: Inserting document into {}: {:?}", table, doc);
 
         collection
             .insert_one(doc)
             .await
-            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+            .map_err(|e| {
+                tracing::error!("MongoDB: Insert failed: {}", e);
+                EngineError::execution_error(e.to_string())
+            })?;
 
         let execution_time_ms = start.elapsed().as_micros() as f64 / 1000.0;
 

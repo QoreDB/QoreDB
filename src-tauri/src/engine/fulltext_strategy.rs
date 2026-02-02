@@ -822,6 +822,321 @@ impl FulltextSearchStrategy for MySqlSearchStrategy {
 }
 
 // ============================================
+// SQLITE STRATEGY
+// ============================================
+
+pub struct SqliteSearchStrategy;
+
+impl SqliteSearchStrategy {
+    pub fn new() -> Self {
+        Self
+    }
+
+    fn quote_identifier(name: &str) -> String {
+        format!("\"{}\"", name.replace('"', "\"\""))
+    }
+
+    fn escape_like_pattern(term: &str) -> String {
+        term.replace('\\', "\\\\")
+            .replace('%', "\\%")
+            .replace('_', "\\_")
+            .replace('\'', "''")
+    }
+
+    fn escape_match(term: &str) -> String {
+        let cleaned = term
+            .replace('\\', "")
+            .replace('\'', "")
+            .replace('"', "")
+            .replace(':', " ")
+            .replace('*', " ")
+            .replace('-', " ")
+            .replace('+', " ")
+            .replace('~', " ")
+            .replace('(', " ")
+            .replace(')', " ")
+            .replace('<', " ")
+            .replace('>', " ");
+
+        cleaned
+            .split_whitespace()
+            .filter(|w| !w.is_empty())
+            .collect::<Vec<_>>()
+            .join(" ")
+    }
+}
+
+impl Default for SqliteSearchStrategy {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[async_trait]
+impl FulltextSearchStrategy for SqliteSearchStrategy {
+    fn driver_id(&self) -> &str {
+        "sqlite"
+    }
+
+    fn build_index_detection_query(
+        &self,
+        _namespace: &Namespace,
+        table_name: &str,
+    ) -> Option<String> {
+        let table_name = table_name.replace('\'', "''");
+        let like_content_single = format!("%content=''{}''%", table_name);
+        let like_content_double = format!("%content=\"{}\"%", table_name);
+        let like_content_plain = format!("%content={}%", table_name);
+
+        Some(format!(
+            r#"
+            SELECT
+                m.name as index_name,
+                p.name as column_name,
+                'fts' as index_type
+            FROM sqlite_master m
+            JOIN pragma_table_info(m.name) p
+            WHERE m.type = 'table'
+              AND m.sql IS NOT NULL
+              AND m.sql LIKE 'CREATE VIRTUAL TABLE %USING fts%'
+              AND (
+                m.name = '{table_name}'
+                OR m.sql LIKE '{like_content_single}'
+                OR m.sql LIKE '{like_content_double}'
+                OR m.sql LIKE '{like_content_plain}'
+              )
+              AND p.name NOT IN ('rowid')
+            ORDER BY m.name, p.cid
+            "#,
+            table_name = table_name,
+            like_content_single = like_content_single,
+            like_content_double = like_content_double,
+            like_content_plain = like_content_plain,
+        ))
+    }
+
+    fn parse_index_detection_result(
+        &self,
+        rows: &[Vec<Value>],
+        _columns: &[String],
+    ) -> Vec<FulltextIndexInfo> {
+        let mut indexes: HashMap<String, FulltextIndexInfo> = HashMap::new();
+
+        for row in rows {
+            if row.len() >= 3 {
+                let index_name = match &row[0] {
+                    Value::Text(s) => s.clone(),
+                    _ => continue,
+                };
+                let column_name = match &row[1] {
+                    Value::Text(s) => s.clone(),
+                    _ => continue,
+                };
+                let index_type = match &row[2] {
+                    Value::Text(s) => s.clone(),
+                    _ => "fts".to_string(),
+                };
+
+                indexes
+                    .entry(index_name.clone())
+                    .or_insert_with(|| FulltextIndexInfo {
+                        index_name,
+                        columns: Vec::new(),
+                        index_type,
+                    })
+                    .columns
+                    .push(column_name);
+            }
+        }
+
+        indexes.into_values().collect()
+    }
+
+    fn build_capability(
+        &self,
+        text_columns: &[String],
+        detected_indexes: &[FulltextIndexInfo],
+        estimated_rows: Option<u64>,
+    ) -> TableSearchCapability {
+        let indexed_columns: HashMap<String, String> = detected_indexes
+            .iter()
+            .flat_map(|idx| {
+                idx.columns
+                    .iter()
+                    .map(|col| (col.clone(), idx.index_name.clone()))
+            })
+            .collect();
+
+        let searchable_columns: Vec<ColumnSearchInfo> = text_columns
+            .iter()
+            .map(|name| {
+                let index_info = indexed_columns.get(name);
+                ColumnSearchInfo {
+                    name: name.clone(),
+                    data_type: "text".to_string(),
+                    has_fulltext_index: index_info.is_some(),
+                    fulltext_index_name: index_info.cloned(),
+                }
+            })
+            .collect();
+
+        let has_any_fulltext = searchable_columns.iter().any(|c| c.has_fulltext_index);
+
+        let recommended_method = if has_any_fulltext {
+            SearchMethod::NativeFulltext
+        } else {
+            SearchMethod::PatternMatch
+        };
+
+        TableSearchCapability {
+            searchable_columns,
+            recommended_method,
+            estimated_rows,
+            has_any_fulltext_index: has_any_fulltext,
+        }
+    }
+
+    fn build_search_query(
+        &self,
+        _namespace: &Namespace,
+        table_name: &str,
+        capability: &TableSearchCapability,
+        options: &TableSearchOptions,
+    ) -> (String, SearchMethod) {
+        let fulltext_cols: Vec<_> = capability
+            .searchable_columns
+            .iter()
+            .filter(|c| c.has_fulltext_index)
+            .collect();
+
+        let pattern_cols: Vec<_> = capability
+            .searchable_columns
+            .iter()
+            .filter(|c| !c.has_fulltext_index)
+            .collect();
+
+        if !fulltext_cols.is_empty() && options.prefer_native {
+            let fts_table = fulltext_cols
+                .iter()
+                .find_map(|c| c.fulltext_index_name.as_ref())
+                .cloned();
+
+            if let Some(fts_table) = fts_table {
+                let match_term = Self::escape_match(&options.search_term);
+                if match_term.is_empty() {
+                    let columns: Vec<String> = capability
+                        .searchable_columns
+                        .iter()
+                        .map(|c| c.name.clone())
+                        .collect();
+                    return (
+                        self.build_fallback_query(_namespace, table_name, &columns, options),
+                        SearchMethod::PatternMatch,
+                    );
+                }
+
+                let base_table = Self::quote_identifier(table_name);
+                let base_alias = "t";
+                let fts_alias = "fts";
+                let mut conditions = Vec::new();
+
+                let match_target = if fts_table == table_name {
+                    base_alias.to_string()
+                } else {
+                    fts_alias.to_string()
+                };
+                conditions.push(format!("{} MATCH '{}'", match_target, match_term));
+
+                if !pattern_cols.is_empty() {
+                    let pattern = format!("%{}%", Self::escape_like_pattern(&options.search_term));
+                    for col in &pattern_cols {
+                        let col_ref = format!("{}.{}", base_alias, Self::quote_identifier(&col.name));
+                        let clause = if options.case_sensitive {
+                            format!("{} LIKE '{}' ESCAPE '\\\\' COLLATE BINARY", col_ref, pattern)
+                        } else {
+                            format!("{} LIKE '{}' ESCAPE '\\\\' COLLATE NOCASE", col_ref, pattern)
+                        };
+                        conditions.push(clause);
+                    }
+                }
+
+                let where_sql = conditions.join(" OR ");
+
+                let query = if fts_table == table_name {
+                    format!(
+                        "SELECT {}.* FROM {} {} WHERE {} LIMIT {}",
+                        base_alias, base_table, base_alias, where_sql, options.max_results
+                    )
+                } else {
+                    let fts_table = Self::quote_identifier(&fts_table);
+                    format!(
+                        "SELECT {}.* FROM {} {} JOIN {} {} ON {}.rowid = {}.rowid WHERE {} LIMIT {}",
+                        base_alias,
+                        base_table,
+                        base_alias,
+                        fts_table,
+                        fts_alias,
+                        base_alias,
+                        fts_alias,
+                        where_sql,
+                        options.max_results
+                    )
+                };
+
+                let method = if pattern_cols.is_empty() {
+                    SearchMethod::NativeFulltext
+                } else {
+                    SearchMethod::Hybrid
+                };
+
+                return (query, method);
+            }
+        }
+
+        let columns: Vec<String> = capability
+            .searchable_columns
+            .iter()
+            .map(|c| c.name.clone())
+            .collect();
+        (
+            self.build_fallback_query(_namespace, table_name, &columns, options),
+            SearchMethod::PatternMatch,
+        )
+    }
+
+    fn build_fallback_query(
+        &self,
+        _namespace: &Namespace,
+        table_name: &str,
+        columns: &[String],
+        options: &TableSearchOptions,
+    ) -> String {
+        let pattern = format!("%{}%", Self::escape_like_pattern(&options.search_term));
+
+        let conditions: Vec<String> = columns
+            .iter()
+            .map(|col| {
+                let quoted = Self::quote_identifier(col);
+                if options.case_sensitive {
+                    format!("{} LIKE '{}' ESCAPE '\\\\' COLLATE BINARY", quoted, pattern)
+                } else {
+                    format!("{} LIKE '{}' ESCAPE '\\\\' COLLATE NOCASE", quoted, pattern)
+                }
+            })
+            .collect();
+
+        let table = Self::quote_identifier(table_name);
+
+        format!(
+            "SELECT * FROM {} WHERE {} LIMIT {}",
+            table,
+            conditions.join(" OR "),
+            options.max_results
+        )
+    }
+}
+
+// ============================================
 // MONGODB STRATEGY
 // ============================================
 
@@ -987,6 +1302,7 @@ pub fn get_search_strategy(driver_id: &str) -> Box<dyn FulltextSearchStrategy> {
     match driver_id.to_lowercase().as_str() {
         "postgres" | "postgresql" => Box::new(PostgresSearchStrategy::new()),
         "mysql" | "mariadb" => Box::new(MySqlSearchStrategy::new()),
+        "sqlite" | "sqlite3" => Box::new(SqliteSearchStrategy::new()),
         "mongodb" | "mongo" => Box::new(MongoSearchStrategy::new()),
         _ => Box::new(PostgresSearchStrategy::new()),
     }
@@ -1022,6 +1338,14 @@ mod tests {
         assert_eq!(
             MySqlSearchStrategy::escape_like_pattern("test_user"),
             "test\\_user"
+        );
+    }
+
+    #[test]
+    fn test_sqlite_escape_like() {
+        assert_eq!(
+            SqliteSearchStrategy::escape_like_pattern("test%user"),
+            "test\\%user"
         );
     }
 

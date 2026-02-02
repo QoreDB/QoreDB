@@ -11,6 +11,7 @@
 
 use futures::stream::{self, StreamExt};
 use serde::Serialize;
+use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::Duration;
 use tauri::{AppHandle, Emitter, State};
@@ -239,6 +240,8 @@ pub async fn fulltext_search(
     // Collect all tables to search with their capabilities
     let mut tables_to_search: Vec<(Namespace, String, Vec<String>)> = Vec::new();
 
+    let is_sqlite = driver.driver_id().eq_ignore_ascii_case("sqlite");
+
     for namespace in namespaces {
         if is_system_namespace(&namespace) {
             continue;
@@ -284,7 +287,13 @@ pub async fn fulltext_search(
             let text_columns: Vec<String> = schema
                 .columns
                 .iter()
-                .filter(|c| is_text_type(&c.data_type))
+                .filter(|c| {
+                    if is_sqlite {
+                        c.data_type.trim().is_empty() || is_text_type(&c.data_type)
+                    } else {
+                        is_text_type(&c.data_type)
+                    }
+                })
                 .map(|c| c.name.clone())
                 .collect();
 
@@ -339,6 +348,8 @@ pub async fn fulltext_search(
     // Search tables in parallel
     let results: Vec<TableSearchResult> = stream::iter(tables_to_search)
         .map(|(namespace, table_name, text_columns)| async move {
+            let text_column_set: HashSet<String> =
+                text_columns.iter().map(|c| c.to_lowercase()).collect();
             // Check cache first
             let capability = if let Some(cached) =
                 capability_cache_ref.get(&namespace, &table_name).await
@@ -392,7 +403,11 @@ pub async fn fulltext_search(
                     for row in query_result.rows {
                         for (idx, col_info) in query_result.columns.iter().enumerate() {
                             if let Some(value) = row.values.get(idx) {
-                                if is_text_type(&col_info.data_type)
+                                let col_name = col_info.name.to_lowercase();
+                                let is_searchable =
+                                    text_column_set.contains(&col_name)
+                                        || is_text_type(&col_info.data_type);
+                                if is_searchable
                                     && value_contains(
                                         value,
                                         &search_options_ref.search_term,

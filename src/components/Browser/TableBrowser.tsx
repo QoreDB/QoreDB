@@ -158,6 +158,7 @@ export function TableBrowser({
   const [activeTab, setActiveTab] = useState<TableBrowserTab>(initialTab ?? 'data');
   const [schema, setSchema] = useState<TableSchema | null>(null);
   const [data, setData] = useState<QueryResult | null>(null);
+  const hasDataRef = useRef(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -177,6 +178,10 @@ export function TableBrowser({
     }, 500);
     return () => clearTimeout(timer);
   }, [searchTerm]);
+
+  useEffect(() => {
+    hasDataRef.current = Boolean(data);
+  }, [data]);
 
   const handleServerSearchChange = useCallback((term: string) => {
     setSearchTerm(prev => (prev !== term ? term : prev));
@@ -312,7 +317,7 @@ export function TableBrowser({
   );
 
   const loadData = useCallback(async () => {
-    if (!data) setLoading(true);
+    if (!hasDataRef.current) setLoading(true);
     setError(null);
 
     try {

@@ -167,8 +167,8 @@ export function TableBrowser({
   const [totalRows, setTotalRows] = useState(0);
 
   // Search state
-  const [searchTerm, setSearchTerm] = useState('');
-  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState(searchFilter?.value ?? '');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState(searchFilter?.value ?? '');
 
   // Debounce search term
   useEffect(() => {
@@ -177,6 +177,17 @@ export function TableBrowser({
     }, 500);
     return () => clearTimeout(timer);
   }, [searchTerm]);
+
+  const handleServerSearchChange = useCallback((term: string) => {
+    setSearchTerm(prev => (prev !== term ? term : prev));
+  }, []);
+
+  useEffect(() => {
+    if (searchFilter?.value) {
+      setSearchTerm(prev => (prev !== searchFilter.value ? searchFilter.value : prev));
+      setDebouncedSearchTerm(prev => (prev !== searchFilter.value ? searchFilter.value : prev));
+    }
+  }, [searchFilter]);
 
   // Reset page when search changes
   useEffect(() => {
@@ -301,18 +312,24 @@ export function TableBrowser({
   );
 
   const loadData = useCallback(async () => {
-    setLoading(true);
+    if (!data) setLoading(true);
     setError(null);
 
     try {
       const startTime = performance.now();
-      
+
       // For relation filters, use previewTable (limited view)
       // For normal table view, use queryTable with pagination
       if (relationFilter) {
         const [cachedSchema, dataResult] = await Promise.all([
           schemaCache.getTableSchema(namespace, tableName),
-          peekForeignKey(sessionId, namespace, relationFilter.foreignKey, relationFilter.value, 100),
+          peekForeignKey(
+            sessionId,
+            namespace,
+            relationFilter.foreignKey,
+            relationFilter.value,
+            100
+          ),
         ]);
         const endTime = performance.now();
         const totalTime = endTime - startTime;
@@ -341,13 +358,12 @@ export function TableBrowser({
             total_time_ms: totalTime,
           } as QueryResult & { total_time_ms: number });
           setTotalRows(dataResult.result.rows.length);
-        } else if (dataResult.error && !error) {
+        } else if (dataResult.error) {
           setError(dataResult.error);
         }
       } else {
-        // Use queryTable with pagination
         const options: TableQueryOptions = {
-          page: !relationFilter ? page : 1, // Reset page for relation preview if needed, but mostly use browser state
+          page: !relationFilter ? page : 1,
           page_size: pageSize,
           search: debouncedSearchTerm,
         };
@@ -392,7 +408,7 @@ export function TableBrowser({
               resource_type: driver === Driver.Mongodb ? 'collection' : 'table',
             });
           }
-        } else if (dataResult.error && !error) {
+        } else if (dataResult.error) {
           setError(dataResult.error);
         }
       }
@@ -401,7 +417,17 @@ export function TableBrowser({
     } finally {
       setLoading(false);
     }
-  }, [relationFilter, sessionId, namespace, tableName, schemaCache, error, driver, page, pageSize, debouncedSearchTerm]);
+  }, [
+    relationFilter,
+    sessionId,
+    namespace,
+    tableName,
+    schemaCache,
+    driver,
+    page,
+    pageSize,
+    debouncedSearchTerm,
+  ]);
 
   useEffect(() => {
     loadData();
@@ -594,7 +620,6 @@ export function TableBrowser({
 
   const displayName = namespace.schema ? `${namespace.schema}.${tableName}` : tableName;
 
-
   return (
     <div className="flex flex-col h-full bg-background rounded-lg border border-border shadow-sm overflow-hidden">
       <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/20">
@@ -619,7 +644,6 @@ export function TableBrowser({
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {/* Sandbox Toggle */}
           <SandboxToggle
             sessionId={sessionId}
             environment={environment}
@@ -631,7 +655,6 @@ export function TableBrowser({
             }}
           />
 
-          {/* Sandbox Changes Panel Toggle */}
           {sandboxActive && sandboxChanges.length > 0 && (
             <Button
               variant="outline"
@@ -704,20 +727,20 @@ export function TableBrowser({
           </span>
         </button>
         {!isDocument && (
-        <button
-          className={cn(
-            'px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
-            activeTab === 'structure'
-              ? 'bg-accent text-accent-foreground'
-              : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-          )}
-          onClick={() => handleTabChange('structure')}
-        >
-          <span className="flex items-center gap-2">
-            <Key size={14} />
-            {t('table.structure')}
-          </span>
-        </button>
+          <button
+            className={cn(
+              'px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
+              activeTab === 'structure'
+                ? 'bg-accent text-accent-foreground'
+                : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+            )}
+            onClick={() => handleTabChange('structure')}
+          >
+            <span className="flex items-center gap-2">
+              <Key size={14} />
+              {t('table.structure')}
+            </span>
+          </button>
         )}
         <button
           className={cn(
@@ -778,7 +801,7 @@ export function TableBrowser({
             onServerPageChange={!relationFilter ? setPage : undefined}
             onServerPageSizeChange={!relationFilter ? setPageSize : undefined}
             serverSearchTerm={!relationFilter ? searchTerm : undefined}
-            onServerSearchChange={!relationFilter ? setSearchTerm : undefined}
+            onServerSearchChange={!relationFilter ? handleServerSearchChange : undefined}
             onRowClick={row => {
               if (readOnly) {
                 toast.error(t('environment.blocked'));

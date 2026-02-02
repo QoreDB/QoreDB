@@ -979,7 +979,7 @@ impl DataEngine for MySqlDriver {
         if let Some(ref search_term) = options.search {
             if !search_term.trim().is_empty() {
                 // Get column info to find text columns
-                let columns_sql = "SELECT COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?";
+                let columns_sql = "SELECT COLUMN_NAME, CAST(DATA_TYPE AS CHAR) AS DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?";
                 let columns_rows: Vec<MySqlRow> = {
                     let mut tx_guard = mysql_session.transaction_conn.lock().await;
                     if let Some(ref mut conn) = *tx_guard {

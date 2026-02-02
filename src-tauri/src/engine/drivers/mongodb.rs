@@ -176,6 +176,20 @@ impl MongoDriver {
         }
         doc
     }
+
+    fn escape_regex(term: &str) -> String {
+        let special_chars = [
+            '.', '^', '$', '*', '+', '?', '(', ')', '[', ']', '{', '}', '|', '\\',
+        ];
+        let mut escaped = String::with_capacity(term.len() * 2);
+        for c in term.chars() {
+            if special_chars.contains(&c) {
+                escaped.push('\\');
+            }
+            escaped.push(c);
+        }
+        escaped
+    }
 }
 
 impl Default for MongoDriver {
@@ -821,6 +835,7 @@ impl DataEngine for MongoDriver {
         // Handle search across string fields
         if let Some(ref search_term) = options.search {
             if !search_term.trim().is_empty() {
+                let escaped_term = Self::escape_regex(search_term);
                 // Sample one document to discover string fields
                 let sample_doc = collection.find_one(doc! {}).await
                     .map_err(|e| EngineError::execution_error(e.to_string()))?;
@@ -832,7 +847,7 @@ impl DataEngine for MongoDriver {
                         // Only search string fields
                         if matches!(value, mongodb::bson::Bson::String(_)) {
                             search_conditions.push(doc! {
-                                key: { "$regex": search_term.as_str(), "$options": "i" }
+                                key: { "$regex": escaped_term.as_str(), "$options": "i" }
                             });
                         }
                     }

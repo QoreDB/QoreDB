@@ -146,6 +146,7 @@ export function DataGrid({
     pageSize: 50,
   });
   const [internalGlobalFilter, setInternalGlobalFilter] = useState(initialFilter ?? '');
+  const initialFilterRef = useRef<string | undefined>(undefined);
   
   const globalFilter = serverSearchTerm !== undefined ? serverSearchTerm : internalGlobalFilter;
   const setGlobalFilter = onServerSearchChange || setInternalGlobalFilter;
@@ -156,10 +157,24 @@ export function DataGrid({
 
 
   useEffect(() => {
-    if (initialFilter !== undefined) {
-      setGlobalFilter(initialFilter);
+    if (initialFilter === undefined) return;
+
+    const previousInitial = initialFilterRef.current;
+    if (previousInitial === undefined) {
+      initialFilterRef.current = initialFilter;
+      if (initialFilter !== globalFilter) {
+        setGlobalFilter(initialFilter);
+      }
+      return;
     }
-  }, [initialFilter, setGlobalFilter]);
+
+    if (previousInitial !== initialFilter) {
+      if (globalFilter === previousInitial) {
+        setGlobalFilter(initialFilter);
+      }
+      initialFilterRef.current = initialFilter;
+    }
+  }, [initialFilter, globalFilter, setGlobalFilter]);
 
   const searchInputRef = useRef<HTMLInputElement>(null);
   const parentRef = useRef<HTMLDivElement>(null);

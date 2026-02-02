@@ -18,7 +18,7 @@ import { cn } from '@/lib/utils';
 import { Tooltip } from '@/components/ui/tooltip';
 import { Environment, Namespace } from '../../lib/tauri';
 import { ENVIRONMENT_CONFIG } from '../../lib/environment';
-import { MONGO_TEMPLATES } from '../Editor/MongoEditor';
+import { MONGO_TEMPLATES } from '../Editor/mongo-constants';
 
 type EnvConfig = (typeof ENVIRONMENT_CONFIG)[keyof typeof ENVIRONMENT_CONFIG];
 
@@ -29,7 +29,7 @@ interface QueryPanelToolbarProps {
   environment: Environment;
   envConfig: EnvConfig;
   readOnly: boolean;
-  isMongo: boolean;
+  isDocumentBased: boolean;
   keepResults: boolean;
   isExplainSupported: boolean;
   canCancel: boolean;
@@ -54,7 +54,7 @@ export function QueryPanelToolbar({
   environment,
   envConfig,
   readOnly,
-  isMongo,
+  isDocumentBased,
   keepResults,
   isExplainSupported,
   canCancel,
@@ -152,7 +152,7 @@ export function QueryPanelToolbar({
           </Tooltip>
         ))}
 
-      {isMongo && sessionId && (
+      {isDocumentBased && sessionId && (
         <Button
           variant="ghost"
           size="sm"
@@ -165,7 +165,7 @@ export function QueryPanelToolbar({
         </Button>
       )}
 
-      {isMongo && (
+      {isDocumentBased && (
         <select
           className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           onChange={e => {
@@ -186,7 +186,7 @@ export function QueryPanelToolbar({
         </select>
       )}
 
-      {!isMongo && isExplainSupported && (
+      {!isDocumentBased && isExplainSupported && (
         <Button
           variant="ghost"
           size="sm"
@@ -200,7 +200,7 @@ export function QueryPanelToolbar({
 
       <div className="flex-1" />
 
-      {!isMongo && (
+      {!isDocumentBased && (
         <Tooltip content={t('query.keepResults')}>
           <Button
             variant="ghost"

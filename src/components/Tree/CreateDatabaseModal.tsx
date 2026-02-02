@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { getDriverMetadata } from '../../lib/drivers';
+import { isDocumentDatabase } from '../../lib/driverCapabilities';
 import { ProductionConfirmDialog } from '../Guard/ProductionConfirmDialog';
 
 interface CreateDatabaseModalProps {
@@ -46,7 +47,7 @@ export function CreateDatabaseModal({
   const [pendingAction, setPendingAction] = useState<null | (() => Promise<void>)>(null);
   
   const driverMeta = getDriverMetadata(driver);
-  const isMongo = !driverMeta.supportsSQL;
+  const isDocument = isDocumentDatabase(driver);
   const confirmationLabel = (connectionDatabase || connectionName || 'PROD').trim() || 'PROD';
 
   useEffect(() => {
@@ -59,14 +60,14 @@ export function CreateDatabaseModal({
     setLoading(true);
     try {
       let options = undefined;
-      if (isMongo) {
+      if (isDocument) {
         options = { collection: collectionName.trim() };
       }
 
       const result = await createDatabase(sessionId, name.trim(), options, acknowledgedDangerous);
 
       if (result.success) {
-        const successKey = isMongo
+        const successKey = isDocument
           ? 'database.mongoCreateSuccess'
           : driverMeta.createAction === 'schema'
             ? 'database.schemaCreateSuccess'
@@ -82,7 +83,7 @@ export function CreateDatabaseModal({
                 description: t('database.permissionDeniedHint')
             });
         } else {
-            const errorKey = isMongo
+            const errorKey = isDocument
               ? 'database.mongoCreateError'
               : driverMeta.createAction === 'schema'
                 ? 'database.schemaCreateError'
@@ -103,7 +104,7 @@ export function CreateDatabaseModal({
 
   function handleCreate() {
     if (!name.trim()) return;
-    if (isMongo && !collectionName.trim()) return;
+    if (isDocument && !collectionName.trim()) return;
 
     if (readOnly) {
       toast.error(t('environment.blocked'));
@@ -164,7 +165,7 @@ export function CreateDatabaseModal({
               />
             </div>
 
-            {isMongo && (
+            {isDocument && (
               <>
                 <div className="space-y-2">
                   <label className="text-sm font-medium">{t('database.collectionNameLabel')}</label>
@@ -189,7 +190,7 @@ export function CreateDatabaseModal({
             <Button variant="outline" onClick={onClose} disabled={loading}>
               {t('common.cancel')}
             </Button>
-            <Button onClick={handleCreate} disabled={loading || !name.trim() || (isMongo && !collectionName.trim())}>
+            <Button onClick={handleCreate} disabled={loading || !name.trim() || (isDocument && !collectionName.trim())}>
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {t('common.create')}
             </Button>

@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { MONGO_TEMPLATES } from '../Editor/MongoEditor';
+import { MONGO_TEMPLATES } from '../Editor/mongo-constants';
 import { DocumentEditorModal } from '../Editor/DocumentEditorModal';
 import { QueryHistory } from '../History/QueryHistory';
 import {
@@ -19,6 +19,7 @@ import { addToHistory } from '../../lib/history';
 import { logError } from '../../lib/errorLog';
 import { ENVIRONMENT_CONFIG, getDangerousQueryTarget, isDangerousQuery, isDropDatabaseQuery, isMutationQuery } from '../../lib/environment';
 import { Driver } from '../../lib/drivers';
+import { isDocumentDatabase, getQueryDialect } from '../../lib/driverCapabilities';
 import { ProductionConfirmDialog } from '../Guard/ProductionConfirmDialog';
 import { DangerConfirmDialog } from '../Guard/DangerConfirmDialog';
 import { toast } from 'sonner';
@@ -77,8 +78,9 @@ export function QueryPanel({
   onQueryDraftChange,
 }: QueryPanelProps) {
   const { t } = useTranslation();
-  const isMongo = dialect === Driver.Mongodb; //TODO : à améliorer, ce n'est pas assez universel
-  const defaultQuery = getDefaultQuery(isMongo);
+  const isDocument = isDocumentDatabase(dialect);
+  const queryDialect = getQueryDialect(dialect);
+  const defaultQuery = getDefaultQuery(isDocument);
 
   const [query, setQuery] = useState(initialQuery || defaultQuery);
   const [results, setResults] = useState<QueryResultEntry[]>([]);
@@ -156,7 +158,7 @@ export function QueryPanel({
 
       try {
         // Setup streaming listeners if supported
-        if (driverCapabilities?.streaming && kind === 'query' && !isMongo) {
+        if (driverCapabilities?.streaming && kind === 'query' && !isDocument) {
           const unlistenCols = await listen<ColumnInfo[]>(
             `query_stream_columns:${queryId}`,
             event => {
@@ -234,7 +236,7 @@ export function QueryPanel({
         const response = await executeQuery(sessionId, queryToRun, {
           acknowledgedDangerous,
           queryId,
-          stream: driverCapabilities?.streaming && kind === 'query' && !isMongo,
+          stream: driverCapabilities?.streaming && kind === 'query' && !isDocument,
           namespace:
             activeNamespace ?? (connectionDatabase ? { database: connectionDatabase } : undefined),
         });
@@ -247,7 +249,7 @@ export function QueryPanel({
         if (response.success) {
           let finalResult = response.result;
           // If streaming, construct final result from accumulated data if not returned
-          if (!finalResult && driverCapabilities?.streaming && kind === 'query' && !isMongo) {
+          if (!finalResult && driverCapabilities?.streaming && kind === 'query' && !isDocument) {
             finalResult = {
               columns: streamingCols,
               rows: streamingRows,
@@ -262,8 +264,8 @@ export function QueryPanel({
               total_time_ms: totalTime,
             } as QueryResult & { total_time_ms: number };
 
-            const didMutate = isMutationQuery(queryToRun, isMongo ? 'mongodb' : 'sql');
-            if (!isMongo && kind === 'query' && didMutate) {
+            const didMutate = isMutationQuery(queryToRun, queryDialect === 'document' ? 'mongodb' : 'sql');
+            if (!isDocument && kind === 'query' && didMutate) {
               const time = Math.round(enrichedResult.execution_time_ms ?? totalTime);
               if (typeof enrichedResult.affected_rows === 'number') {
                 toast.success(
@@ -309,7 +311,7 @@ export function QueryPanel({
               return updated;
             });
 
-            if (!driverCapabilities?.streaming || kind !== 'query' || isMongo) {
+            if (!driverCapabilities?.streaming || kind !== 'query' || isDocument) {
               setActiveResultId(queryId);
             }
 
@@ -325,13 +327,13 @@ export function QueryPanel({
 
             if (kind === 'query') {
               AnalyticsService.capture('query_executed', {
-                dialect: isMongo ? 'mongodb' : 'sql', //TODO : à améliorer, ce n'est pas assez universel
+                dialect: queryDialect,
                 driver: dialect,
                 row_count: enrichedResult.rows.length,
               });
             }
 
-            if (shouldRefreshSchema(queryToRun, isMongo)) {
+            if (shouldRefreshSchema(queryToRun, isDocument)) {
               forceRefreshCache(sessionId);
               onSchemaChange?.();
             }
@@ -405,11 +407,12 @@ export function QueryPanel({
       dialect,
       t,
       onSchemaChange,
-      isMongo,
+      isDocument,
       keepResults,
       driverCapabilities,
       activeNamespace,
       connectionDatabase,
+      queryDialect,
     ]
   );
 
@@ -423,18 +426,18 @@ export function QueryPanel({
       const queryToRun = queryText || query;
       if (!queryToRun.trim()) return;
 
-      const isMutation = isMutationQuery(queryToRun, isMongo ? 'mongodb' : 'sql');
+      const isMutation = isMutationQuery(queryToRun, queryDialect === 'document' ? 'mongodb' : 'sql');
 
       if (readOnly && isMutation) {
         toast.error(t('environment.blocked'));
         return;
       }
 
-      const isDangerous = !isMongo && isDangerousQuery(queryToRun);
+      const isDangerous = !isDocument && isDangerousQuery(queryToRun);
       if (isDangerous) {
         const fallbackLabel = (connectionDatabase || connectionName || 'PROD').trim() || 'PROD';
         const target = getDangerousQueryTarget(queryToRun);
-        const isDropDatabase = !isMongo && isDropDatabaseQuery(queryToRun);
+        const isDropDatabase = !isDocument && isDropDatabaseQuery(queryToRun);
         const requiresTyping = environment === 'production' || isDropDatabase;
         const warningInfoParts = [];
         if (target) {
@@ -461,13 +464,14 @@ export function QueryPanel({
     [
       sessionId,
       query,
-      isMongo,
+      isDocument,
       readOnly,
       environment,
       t,
       runQuery,
       connectionDatabase,
       connectionName,
+      queryDialect,
     ]
   );
 
@@ -517,13 +521,13 @@ export function QueryPanel({
 
   const handleEditDocument = useCallback(
     (doc: Record<string, unknown>, idValue?: Value) => {
-      if (!isMongo) return;
+      if (!isDocument) return;
       setDocModalMode('edit');
       setDocModalData(JSON.stringify(doc, null, 2));
       setDocOriginalId(idValue);
       setDocModalOpen(true);
     },
-    [isMongo]
+    [isDocument]
   );
 
   const handleNewDocument = () => {
@@ -538,13 +542,13 @@ export function QueryPanel({
   }, []);
 
   const handleFormat = useCallback(() => {
-    if (isMongo) return;
+    if (isDocument) return;
     const formatted = formatSql(query, dialect);
     setQuery(formatted);
-  }, [dialect, isMongo, query]);
+  }, [dialect, isDocument, query]);
 
   const handleExplain = useCallback(async () => {
-    if (!sessionId || isMongo || !isExplainSupported) {
+    if (!sessionId || isDocument || !isExplainSupported) {
       return;
     }
     const selection = sqlEditorRef.current?.getSelection();
@@ -553,7 +557,7 @@ export function QueryPanel({
     const trimmed = queryToExplain.replace(/;+\s*$/, '');
     const explainQuery = `EXPLAIN (FORMAT JSON) ${trimmed}`;
     await runQuery(explainQuery, false, 'explain');
-  }, [sessionId, isMongo, isExplainSupported, query, runQuery]);
+  }, [sessionId, isDocument, isExplainSupported, query, runQuery]);
 
   const handleToggleKeepResults = useCallback(() => {
     setKeepResults(prev => {
@@ -576,11 +580,11 @@ export function QueryPanel({
   const runCurrentQuery = useCallback(() => handleExecute(), [handleExecute]);
 
   const handleSaveToLibrary = useCallback(() => {
-    const selection = !isMongo ? sqlEditorRef.current?.getSelection() : '';
+    const selection = !isDocument ? sqlEditorRef.current?.getSelection() : '';
     const candidate = selection && selection.trim().length > 0 ? selection : query;
     setQueryToSave(candidate);
     setSaveDialogOpen(true);
-  }, [isMongo, query]);
+  }, [isDocument, query]);
 
   useEffect(() => {
     if (!isActive) return;
@@ -631,7 +635,7 @@ export function QueryPanel({
         environment={environment}
         envConfig={envConfig}
         readOnly={readOnly}
-        isMongo={isMongo}
+        isDocumentBased={isDocument}
         keepResults={keepResults}
         isExplainSupported={isExplainSupported}
         canCancel={canCancel}
@@ -650,7 +654,7 @@ export function QueryPanel({
       />
 
       <QueryPanelEditor
-        isMongo={isMongo}
+        isDocumentBased={isDocument}
         query={query}
         loading={loading}
         dialect={dialect}
@@ -668,13 +672,14 @@ export function QueryPanel({
         panelError={panelError}
         results={results}
         activeResultId={activeResultId}
-        isMongo={isMongo}
+        isDocumentBased={isDocument}
         sessionId={sessionId}
         connectionName={connectionName}
         connectionDatabase={connectionDatabase}
         environment={environment}
         readOnly={readOnly}
         query={query}
+        activeNamespace={activeNamespace}
         onSelectResult={setActiveResultId}
         onCloseResult={(resultId: string) => {
           setResults(prev => {

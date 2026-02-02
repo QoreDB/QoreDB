@@ -11,6 +11,7 @@
 
 use futures::stream::{self, StreamExt};
 use serde::Serialize;
+use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::Duration;
 use tauri::{AppHandle, Emitter, State};
@@ -152,7 +153,12 @@ fn value_contains(value: &Value, search_term: &str, case_sensitive: bool) -> boo
     let text = match value {
         Value::Text(t) => t.clone(),
         Value::Json(j) => j.to_string(),
-        _ => return false,
+        Value::Int(i) => i.to_string(),
+        Value::Float(f) => f.to_string(),
+        Value::Bool(b) => b.to_string(),
+        Value::Bytes(bytes) => String::from_utf8_lossy(bytes).to_string(),
+        Value::Array(a) => format!("[{} items]", a.len()),
+        Value::Null => return false,
     };
 
     if case_sensitive {
@@ -239,6 +245,8 @@ pub async fn fulltext_search(
     // Collect all tables to search with their capabilities
     let mut tables_to_search: Vec<(Namespace, String, Vec<String>)> = Vec::new();
 
+    let is_sqlite = driver.driver_id().eq_ignore_ascii_case("sqlite");
+
     for namespace in namespaces {
         if is_system_namespace(&namespace) {
             continue;
@@ -281,12 +289,16 @@ pub async fn fulltext_search(
                 Err(_) => continue,
             };
 
-            let text_columns: Vec<String> = schema
-                .columns
-                .iter()
-                .filter(|c| is_text_type(&c.data_type))
-                .map(|c| c.name.clone())
-                .collect();
+            let text_columns: Vec<String> = if is_sqlite {
+                schema.columns.iter().map(|c| c.name.clone()).collect()
+            } else {
+                schema
+                    .columns
+                    .iter()
+                    .filter(|c| is_text_type(&c.data_type))
+                    .map(|c| c.name.clone())
+                    .collect()
+            };
 
             if !text_columns.is_empty() {
                 tables_to_search.push((namespace.clone(), collection.name, text_columns));
@@ -339,6 +351,8 @@ pub async fn fulltext_search(
     // Search tables in parallel
     let results: Vec<TableSearchResult> = stream::iter(tables_to_search)
         .map(|(namespace, table_name, text_columns)| async move {
+            let text_column_set: HashSet<String> =
+                text_columns.iter().map(|c| c.to_lowercase()).collect();
             // Check cache first
             let capability = if let Some(cached) =
                 capability_cache_ref.get(&namespace, &table_name).await
@@ -374,6 +388,15 @@ pub async fn fulltext_search(
                 &capability,
                 search_options_ref,
             );
+            if is_sqlite {
+                debug!(
+                    "SQLite search query for {}.{} ({} cols): {}",
+                    namespace.database,
+                    table_name,
+                    text_columns.len(),
+                    query
+                );
+            }
 
             let query_id = QueryId::new();
             let search_future =
@@ -387,12 +410,25 @@ pub async fn fulltext_search(
 
             let table_result = match result {
                 Ok(Ok(query_result)) => {
+                    if is_sqlite {
+                        debug!(
+                            "SQLite search result {}.{}: {} rows, {} cols",
+                            namespace.database,
+                            table_name,
+                            query_result.rows.len(),
+                            query_result.columns.len()
+                        );
+                    }
                     let mut matches = Vec::new();
 
                     for row in query_result.rows {
                         for (idx, col_info) in query_result.columns.iter().enumerate() {
                             if let Some(value) = row.values.get(idx) {
-                                if is_text_type(&col_info.data_type)
+                                let col_name = col_info.name.to_lowercase();
+                                let is_searchable =
+                                    text_column_set.contains(&col_name)
+                                        || is_text_type(&col_info.data_type);
+                                if is_searchable
                                     && value_contains(
                                         value,
                                         &search_options_ref.search_term,

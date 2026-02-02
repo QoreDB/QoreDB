@@ -67,7 +67,15 @@ fn normalize_config(mut config: ConnectionConfig) -> Result<ConnectionConfig, St
     if driver.is_empty() {
         return Err("Driver is required".to_string());
     }
-    config.driver = driver.to_string();
+
+    let normalized_driver = driver.to_ascii_lowercase();
+    let normalized_driver = match normalized_driver.as_str() {
+        "postgresql" => "postgres",
+        "sqlite3" => "sqlite",
+        other => other,
+    };
+
+    config.driver = normalized_driver.to_string();
 
     let host = config.host.trim();
     if host.is_empty() {
@@ -75,13 +83,17 @@ fn normalize_config(mut config: ConnectionConfig) -> Result<ConnectionConfig, St
     }
     config.host = host.to_string();
 
+    let is_mongodb = config.driver == "mongodb";
+    let is_sqlite = config.driver == "sqlite";
+
+    // Username is required for SQL databases but optional for MongoDB and SQLite.
     let username = config.username.trim();
-    if username.is_empty() {
+    if username.is_empty() && !is_mongodb && !is_sqlite {
         return Err("Username is required".to_string());
     }
     config.username = username.to_string();
 
-    if config.port == 0 {
+    if config.port == 0 && !is_sqlite {
         return Err("Port must be greater than 0".to_string());
     }
 

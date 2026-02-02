@@ -3,7 +3,7 @@ import { AlertCircle, X, CheckCircle2, Info } from 'lucide-react';
 import { DataGrid } from '../Grid/DataGrid';
 import { DocumentResults } from '../Results/DocumentResults';
 import { ExplainPlanView } from '../Results/ExplainPlanView';
-import { Environment, QueryResult, Value } from '../../lib/tauri';
+import { Environment, QueryResult, Value, Namespace } from '../../lib/tauri';
 import { getCollectionFromQuery } from './queryPanelUtils';
 import { cn } from '@/lib/utils';
 import { countSqlStatements } from '../../lib/environment';
@@ -24,13 +24,14 @@ interface QueryPanelResultsProps {
   panelError: string | null;
   results: QueryResultEntry[];
   activeResultId: string | null;
-  isMongo: boolean;
+  isDocumentBased: boolean;
   sessionId: string | null;
   connectionName?: string;
   connectionDatabase?: string;
   environment: Environment;
   readOnly: boolean;
   query: string;
+  activeNamespace?: Namespace | null;
   onSelectResult: (resultId: string) => void;
   onCloseResult: (resultId: string) => void;
   onRowsDeleted: () => void;
@@ -41,13 +42,14 @@ export function QueryPanelResults({
   panelError,
   results,
   activeResultId,
-  isMongo,
+  isDocumentBased,
   sessionId,
   connectionName,
   connectionDatabase,
   environment,
   readOnly,
   query,
+  activeNamespace,
   onSelectResult,
   onCloseResult,
   onRowsDeleted,
@@ -57,10 +59,11 @@ export function QueryPanelResults({
   const activeResult =
     results.find(entry => entry.id === activeResultId) || results[results.length - 1] || null;
   const activeQuery = activeResult?.query || query;
+  const exportNamespace = activeNamespace ?? (connectionDatabase ? { database: connectionDatabase } : undefined);
   const collection = getCollectionFromQuery(activeQuery);
   const showTabs = results.length > 1;
-  const statementCount = !isMongo ? countSqlStatements(activeQuery) : 1;
-  const showMultiStatementNotice = !isMongo && statementCount > 1;
+  const statementCount = !isDocumentBased ? countSqlStatements(activeQuery) : 1;
+  const showMultiStatementNotice = !isDocumentBased && statementCount > 1;
 
   return (
     <div className="flex-1 flex flex-col min-h-0 bg-background overflow-hidden relative">
@@ -124,7 +127,7 @@ export function QueryPanelResults({
           ) : activeResult.kind === 'explain' && activeResult.result ? (
             <ExplainPlanView result={activeResult.result} />
           ) : activeResult.result ? (
-            isMongo ? (
+            isDocumentBased ? (
               <div className="flex-1 min-h-0 flex flex-col relative">
                 <DocumentResults
                   result={activeResult.result}
@@ -137,6 +140,8 @@ export function QueryPanelResults({
                   connectionDatabase={connectionDatabase}
                   onRowsDeleted={onRowsDeleted}
                   onEditDocument={onEditDocument}
+                  exportQuery={activeResult.query}
+                  exportNamespace={exportNamespace}
                 />
               </div>
             ) : (
@@ -144,10 +149,12 @@ export function QueryPanelResults({
                 <DataGrid
                   result={activeResult.result}
                   sessionId={sessionId || undefined}
+                  namespace={exportNamespace}
                   connectionName={connectionName}
                   connectionDatabase={connectionDatabase}
                   environment={environment}
                   readOnly={readOnly}
+                  exportQuery={activeResult.query}
                 />
               </div>
             )

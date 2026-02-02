@@ -1,7 +1,7 @@
-import { MONGO_TEMPLATES } from '../Editor/MongoEditor';
+import { MONGO_TEMPLATES } from '../Editor/mongo-constants';
 
-export function getDefaultQuery(isMongo: boolean): string {
-  return isMongo ? MONGO_TEMPLATES.find : 'SELECT 1;'; //TODO : à améliorer, ce n'est pas assez universel
+export function getDefaultQuery(isDocumentBased: boolean): string {
+  return isDocumentBased ? MONGO_TEMPLATES.find : 'SELECT 1;';
 }
 
 export function getCollectionFromQuery(query: string): string {
@@ -24,9 +24,9 @@ export function getCollectionFromQuery(query: string): string {
   return getCollectionMatch ? getCollectionMatch[1] : '';
 }
 
-export function shouldRefreshSchema(queryToCheck: string, isMongo: boolean): boolean {
+export function shouldRefreshSchema(queryToCheck: string, isDocumentBased: boolean): boolean {
   if (!queryToCheck.trim()) return false;
-  if (isMongo) {
+  if (isDocumentBased) {
     return (
       /\.createCollection\s*\(/i.test(queryToCheck) ||
       /\.dropDatabase\s*\(/i.test(queryToCheck) ||

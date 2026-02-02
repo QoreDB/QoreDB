@@ -60,14 +60,12 @@ export function CreateTableModal({
 	const [loading, setLoading] = useState(false);
 
 	const columnTypes = useMemo(() => getColumnTypes(driver), [driver]);
-	const schemaOrDb = namespace.schema || namespace.database;
-
 	const generatedSQL = useMemo(() => {
 		if (!tableName.trim() || columns.length === 0) return "";
 		const validColumns = columns.filter((c) => c.name.trim() && c.type);
 		if (validColumns.length === 0) return "";
-		return buildCreateTableSQL(schemaOrDb, tableName, validColumns, driver);
-	}, [schemaOrDb, tableName, columns, driver]);
+		return buildCreateTableSQL(namespace, tableName, validColumns, driver);
+	}, [namespace, tableName, columns, driver]);
 
 	function addColumn() {
 		// Set default type based on driver

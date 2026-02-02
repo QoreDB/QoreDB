@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Namespace,
@@ -18,7 +18,8 @@ import {
   SandboxChangeDto,
 } from '../../lib/tauri';
 import { useSchemaCache } from '../../hooks/useSchemaCache';
-import { DataGrid } from '../Grid/DataGrid';
+import { ResultsViewer } from '../Results/ResultsViewer';
+import { DocumentEditorModal } from '../Editor/DocumentEditorModal';
 import { cn } from '@/lib/utils';
 import {
   Table,
@@ -39,6 +40,8 @@ import { Button } from '@/components/ui/button';
 import { RowModal } from './RowModal';
 import { toast } from 'sonner';
 import { Driver, getDriverMetadata } from '../../lib/drivers';
+import { buildQualifiedTableName } from '@/lib/column-types';
+import { isDocumentDatabase } from '../../lib/driverCapabilities';
 import { onTableChange } from '@/lib/tableEvents';
 import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
 import { SandboxToggle, ChangesPanel, MigrationPreview } from '@/components/Sandbox';
@@ -72,6 +75,21 @@ import {
 
 function formatTableName(namespace: Namespace, tableName: string): string {
   return namespace.schema ? `${namespace.schema}.${tableName}` : tableName;
+}
+
+function buildStreamingExportQuery(driver: Driver, namespace: Namespace, tableName: string): string {
+  const metadata = getDriverMetadata(driver);
+
+  if (metadata.isDocumentBased) {
+    return JSON.stringify({
+      database: namespace.database,
+      collection: tableName,
+      query: {},
+    });
+  }
+
+  const qualified = buildQualifiedTableName(namespace, tableName, driver);
+  return `SELECT * FROM ${qualified};`;
 }
 
 function schemasCompatible(a: TableSchema, b: TableSchema): boolean {
@@ -140,6 +158,7 @@ export function TableBrowser({
   const [activeTab, setActiveTab] = useState<TableBrowserTab>(initialTab ?? 'data');
   const [schema, setSchema] = useState<TableSchema | null>(null);
   const [data, setData] = useState<QueryResult | null>(null);
+  const hasDataRef = useRef(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -149,8 +168,8 @@ export function TableBrowser({
   const [totalRows, setTotalRows] = useState(0);
 
   // Search state
-  const [searchTerm, setSearchTerm] = useState('');
-  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState(searchFilter?.value ?? '');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState(searchFilter?.value ?? '');
 
   // Debounce search term
   useEffect(() => {
@@ -159,6 +178,21 @@ export function TableBrowser({
     }, 500);
     return () => clearTimeout(timer);
   }, [searchTerm]);
+
+  useEffect(() => {
+    hasDataRef.current = Boolean(data);
+  }, [data]);
+
+  const handleServerSearchChange = useCallback((term: string) => {
+    setSearchTerm(prev => (prev !== term ? term : prev));
+  }, []);
+
+  useEffect(() => {
+    if (searchFilter?.value) {
+      setSearchTerm(prev => (prev !== searchFilter.value ? searchFilter.value : prev));
+      setDebouncedSearchTerm(prev => (prev !== searchFilter.value ? searchFilter.value : prev));
+    }
+  }, [searchFilter]);
 
   // Reset page when search changes
   useEffect(() => {
@@ -170,6 +204,19 @@ export function TableBrowser({
   const [modalMode, setModalMode] = useState<'insert' | 'update'>('insert');
   const [selectedRow, setSelectedRow] = useState<Record<string, Value> | undefined>(undefined);
   const mutationsSupported = driverCapabilities?.mutations ?? true;
+
+  // Document editor state
+  const isDocument = isDocumentDatabase(driver);
+
+  const streamingExportQuery = useMemo(() => {
+    if (!namespace || !tableName || relationFilter) return undefined;
+    return buildStreamingExportQuery(driver, namespace, tableName);
+  }, [driver, namespace, tableName, relationFilter]);
+
+  const [docEditorOpen, setDocEditorOpen] = useState(false);
+  const [docEditorMode, setDocEditorMode] = useState<'insert' | 'edit'>('insert');
+  const [docEditorData, setDocEditorData] = useState<string>('{}');
+  const [docOriginalId, setDocOriginalId] = useState<Value | undefined>(undefined);
 
   // Sandbox state
   const [sandboxActive, setSandboxActive] = useState(() => isSandboxActive(sessionId));
@@ -270,18 +317,24 @@ export function TableBrowser({
   );
 
   const loadData = useCallback(async () => {
-    setLoading(true);
+    if (!hasDataRef.current) setLoading(true);
     setError(null);
 
     try {
       const startTime = performance.now();
-      
+
       // For relation filters, use previewTable (limited view)
       // For normal table view, use queryTable with pagination
       if (relationFilter) {
         const [cachedSchema, dataResult] = await Promise.all([
           schemaCache.getTableSchema(namespace, tableName),
-          peekForeignKey(sessionId, namespace, relationFilter.foreignKey, relationFilter.value, 100),
+          peekForeignKey(
+            sessionId,
+            namespace,
+            relationFilter.foreignKey,
+            relationFilter.value,
+            100
+          ),
         ]);
         const endTime = performance.now();
         const totalTime = endTime - startTime;
@@ -310,13 +363,12 @@ export function TableBrowser({
             total_time_ms: totalTime,
           } as QueryResult & { total_time_ms: number });
           setTotalRows(dataResult.result.rows.length);
-        } else if (dataResult.error && !error) {
+        } else if (dataResult.error) {
           setError(dataResult.error);
         }
       } else {
-        // Use queryTable with pagination
         const options: TableQueryOptions = {
-          page: !relationFilter ? page : 1, // Reset page for relation preview if needed, but mostly use browser state
+          page: !relationFilter ? page : 1,
           page_size: pageSize,
           search: debouncedSearchTerm,
         };
@@ -361,7 +413,7 @@ export function TableBrowser({
               resource_type: driver === Driver.Mongodb ? 'collection' : 'table',
             });
           }
-        } else if (dataResult.error && !error) {
+        } else if (dataResult.error) {
           setError(dataResult.error);
         }
       }
@@ -370,7 +422,17 @@ export function TableBrowser({
     } finally {
       setLoading(false);
     }
-  }, [relationFilter, sessionId, namespace, tableName, schemaCache, error, driver, page, pageSize, debouncedSearchTerm]);
+  }, [
+    relationFilter,
+    sessionId,
+    namespace,
+    tableName,
+    schemaCache,
+    driver,
+    page,
+    pageSize,
+    debouncedSearchTerm,
+  ]);
 
   useEffect(() => {
     loadData();
@@ -565,7 +627,6 @@ export function TableBrowser({
 
   return (
     <div className="flex flex-col h-full bg-background rounded-lg border border-border shadow-sm overflow-hidden">
-      {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/20">
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-md bg-(--q-accent-soft) text-(--q-accent)">
@@ -588,7 +649,6 @@ export function TableBrowser({
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {/* Sandbox Toggle */}
           <SandboxToggle
             sessionId={sessionId}
             environment={environment}
@@ -600,7 +660,6 @@ export function TableBrowser({
             }}
           />
 
-          {/* Sandbox Changes Panel Toggle */}
           {sandboxActive && sandboxChanges.length > 0 && (
             <Button
               variant="outline"
@@ -633,9 +692,18 @@ export function TableBrowser({
                 toast.error(t('grid.mutationsNotSupported'));
                 return;
               }
-              setModalMode('insert');
-              setSelectedRow(undefined);
-              setIsModalOpen(true);
+              if (isDocument) {
+                // NoSQL: open document editor
+                setDocEditorMode('insert');
+                setDocEditorData('{}');
+                setDocOriginalId(undefined);
+                setDocEditorOpen(true);
+              } else {
+                // SQL: open row modal
+                setModalMode('insert');
+                setSelectedRow(undefined);
+                setIsModalOpen(true);
+              }
             }}
           >
             <Plus size={14} />
@@ -663,20 +731,22 @@ export function TableBrowser({
             {t('table.data')}
           </span>
         </button>
-        <button
-          className={cn(
-            'px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
-            activeTab === 'structure'
-              ? 'bg-accent text-accent-foreground'
-              : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-          )}
-          onClick={() => handleTabChange('structure')}
-        >
-          <span className="flex items-center gap-2">
-            <Key size={14} />
-            {t('table.structure')}
-          </span>
-        </button>
+        {!isDocument && (
+          <button
+            className={cn(
+              'px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
+              activeTab === 'structure'
+                ? 'bg-accent text-accent-foreground'
+                : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+            )}
+            onClick={() => handleTabChange('structure')}
+          >
+            <span className="flex items-center gap-2">
+              <Key size={14} />
+              {t('table.structure')}
+            </span>
+          </button>
+        )}
         <button
           className={cn(
             'px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
@@ -706,20 +776,21 @@ export function TableBrowser({
             <pre className="text-sm font-mono whitespace-pre-wrap">{error}</pre>
           </div>
         ) : activeTab === 'data' ? (
-          <DataGrid
+          <ResultsViewer
             result={data}
+            driver={driver}
             sessionId={sessionId}
+            environment={environment}
+            readOnly={readOnly}
+            connectionName={connectionName}
+            connectionDatabase={connectionDatabase}
+            onRowsDeleted={loadData}
             namespace={namespace}
             tableName={tableName}
             tableSchema={schema}
-            primaryKey={schema?.primary_key}
-            environment={environment}
-            readOnly={readOnly}
+            primaryKey={schema?.primary_key ?? undefined}
             mutationsSupported={mutationsSupported}
-            connectionName={connectionName}
-            connectionDatabase={connectionDatabase}
             initialFilter={searchFilter?.value}
-            onRowsDeleted={loadData}
             onRowsUpdated={loadData}
             onOpenRelatedTable={onOpenRelatedTable}
             sandboxMode={sandboxActive}
@@ -727,13 +798,15 @@ export function TableBrowser({
             sandboxDeleteDisplay={sandboxPrefs.deleteDisplay}
             onSandboxUpdate={handleSandboxUpdate}
             onSandboxDelete={handleSandboxDelete}
+            exportQuery={streamingExportQuery}
+            exportNamespace={namespace}
             serverSideTotalRows={!relationFilter ? totalRows : undefined}
             serverSidePage={!relationFilter ? page : undefined}
             serverSidePageSize={!relationFilter ? pageSize : undefined}
             onServerPageChange={!relationFilter ? setPage : undefined}
             onServerPageSizeChange={!relationFilter ? setPageSize : undefined}
             serverSearchTerm={!relationFilter ? searchTerm : undefined}
-            onServerSearchChange={!relationFilter ? setSearchTerm : undefined}
+            onServerSearchChange={!relationFilter ? handleServerSearchChange : undefined}
             onRowClick={row => {
               if (readOnly) {
                 toast.error(t('environment.blocked'));
@@ -746,6 +819,18 @@ export function TableBrowser({
               setModalMode('update');
               setSelectedRow(row);
               setIsModalOpen(true);
+            }}
+            database={namespace.database}
+            collection={tableName}
+            onEditDocument={(doc, idValue) => {
+              if (readOnly) {
+                toast.error(t('environment.blocked'));
+                return;
+              }
+              setDocEditorMode('edit');
+              setDocEditorData(JSON.stringify(doc, null, 2));
+              setDocOriginalId(idValue);
+              setDocEditorOpen(true);
             }}
           />
         ) : activeTab === 'structure' ? (
@@ -761,7 +846,7 @@ export function TableBrowser({
         )}
       </div>
 
-      {schema && (
+      {schema && !isDocument && (
         <RowModal
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
@@ -780,6 +865,24 @@ export function TableBrowser({
           sandboxMode={sandboxActive}
           onSandboxInsert={handleSandboxInsert}
           onSandboxUpdate={handleSandboxUpdate}
+        />
+      )}
+
+      {isDocument && (
+        <DocumentEditorModal
+          isOpen={docEditorOpen}
+          onClose={() => setDocEditorOpen(false)}
+          mode={docEditorMode}
+          sessionId={sessionId}
+          database={namespace.database}
+          collection={tableName}
+          initialData={docEditorData}
+          originalId={docOriginalId}
+          onSuccess={loadData}
+          readOnly={readOnly}
+          environment={environment}
+          connectionName={connectionName}
+          connectionDatabase={connectionDatabase}
         />
       )}
 

@@ -121,10 +121,24 @@ export function getSshSummary(formData: ConnectionFormData): string {
 }
 
 export function isConnectionFormValid(formData: ConnectionFormData): boolean {
+	// MongoDB often runs without authentication in dev mode
+	const authRequired = formData.driver !== Driver.Mongodb;
+	// SQLite is file-based and doesn't need host/username/password in the traditional sense
+	const isFileBased = formData.driver === Driver.Sqlite;
+
+	if (isFileBased) {
+		// SQLite only requires a file path (stored in host field)
+		return Boolean(
+			formData.host &&
+				(!formData.useSshTunnel ||
+					(formData.sshHost && formData.sshUsername && formData.sshKeyPath)),
+		);
+	}
+
 	return Boolean(
 		formData.host &&
-			formData.username &&
-			formData.password &&
+			(formData.username || !authRequired) &&
+			(formData.password || !authRequired) &&
 			(!formData.useSshTunnel ||
 				(formData.sshHost && formData.sshUsername && formData.sshKeyPath)),
 	);
@@ -134,5 +148,6 @@ export function normalizePortForDriver(driver: Driver): number {
 	if (driver === Driver.Postgres) return 5432;
 	if (driver === Driver.Mysql) return 3306;
 	if (driver === Driver.Mongodb) return 27017;
+	if (driver === Driver.Sqlite) return 0;
 	return 5432;
 }

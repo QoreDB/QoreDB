@@ -10,6 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { SettingsCard } from './SettingsCard';
 import { buildProjectExportV1, importProjectExportV1, isProjectExportV1 } from '@/lib/projectTransfer';
+import { emitUiEvent, UI_EVENT_CONNECTIONS_CHANGED } from '@/lib/uiEvents';
 
 interface ProjectTransferCardProps {
   projectId: string;
@@ -78,7 +79,7 @@ export function ProjectTransferCard({ projectId }: ProjectTransferCardProps) {
 
       const result = await importProjectExportV1(parsed, { projectId });
       if (result.connectionsImported > 0) {
-        window.dispatchEvent(new Event('qoredb:connections-changed'));
+        emitUiEvent(UI_EVENT_CONNECTIONS_CHANGED);
       }
 
       const name = filePath.split(/[\\/]/).pop() || filePath;

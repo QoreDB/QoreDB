@@ -5,7 +5,7 @@ import { Driver } from '../../lib/drivers';
 import { Namespace } from '../../lib/tauri';
 
 interface QueryPanelEditorProps {
-  isMongo: boolean;
+  isDocumentBased: boolean;
   query: string;
   loading: boolean;
   dialect: Driver;
@@ -20,7 +20,7 @@ interface QueryPanelEditorProps {
 }
 
 export function QueryPanelEditor({
-  isMongo,
+  isDocumentBased,
   query,
   loading,
   dialect,
@@ -35,7 +35,7 @@ export function QueryPanelEditor({
 }: QueryPanelEditorProps) {
   return (
     <div className="flex-1 min-h-50 border-b border-border relative">
-      {isMongo ? (
+      {isDocumentBased ? (
         <MongoEditor
           value={query}
           onChange={onQueryChange}

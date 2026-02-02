@@ -8,6 +8,7 @@ import {
   Environment,
   RelationFilter
 } from '../../lib/tauri';
+import { getTerminology } from '@/lib/driverCapabilities';
 import { cn } from '@/lib/utils';
 import {
   Database,
@@ -78,6 +79,7 @@ export function DatabaseBrowser({
   onActiveTabChange,
 }: DatabaseBrowserProps) {
   const { t } = useTranslation();
+  const terminology = getTerminology(driver);
   const [activeTab, setActiveTab] = useState<DatabaseBrowserTab>(initialTab ?? 'overview');
   const [stats, setStats] = useState<DatabaseStats>({});
   const [collections, setCollections] = useState<Collection[]>([]);
@@ -334,7 +336,7 @@ export function DatabaseBrowser({
         >
           <span className="flex items-center gap-2">
             <Table size={14} />
-            {t('databaseBrowser.tables')} ({totalCount})
+            {t(terminology.tablePluralLabel)} ({totalCount})
           </span>
         </button>
         {driverMeta.supportsSQL && (
@@ -381,7 +383,7 @@ export function DatabaseBrowser({
                 )}
                 <StatCard
                   icon={<List size={16} />}
-                  label={t('databaseBrowser.tableCount')}
+                  label={t(terminology.tablePluralLabel)}
                   value={stats.tableCount?.toString() || '0'}
                 />
                 {stats.indexCount !== undefined && (
@@ -396,7 +398,7 @@ export function DatabaseBrowser({
               {/* Quick Tables List */}
               <div className="space-y-2">
                 <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-                  {t('databaseBrowser.tables')}
+                  {t(terminology.tablePluralLabel)}
                 </h3>
                 {collections.length === 0 ? (
                   <div className="text-sm text-muted-foreground italic p-4 text-center border border-dashed border-border rounded-md">

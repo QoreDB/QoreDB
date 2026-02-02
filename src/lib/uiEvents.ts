@@ -2,6 +2,7 @@ export const UI_EVENT_OPEN_LOGS = 'qoredb:open-logs';
 export const UI_EVENT_OPEN_HISTORY = 'qoredb:open-history';
 export const UI_EVENT_REFRESH_TABLE = 'qoredb:refresh-table';
 export const UI_EVENT_EXPORT_DATA = 'qoredb:export-data';
+export const UI_EVENT_CONNECTIONS_CHANGED = 'qoredb:connections-changed';
 
 export type ExportDataDetail = {
   format?: 'csv' | 'json';

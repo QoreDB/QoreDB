@@ -116,7 +116,6 @@ export function DocumentEditorModal({
     setLoading(true);
     setError(null);
     try {
-      // 3. Execute Mutation
       if (mode === 'insert') {
         const result = await insertRow(
           sessionId,
@@ -134,7 +133,6 @@ export function DocumentEditorModal({
           setError(result.error || t('rowModal.insertError'));
         }
       } else {
-        // Update
         if (originalId === undefined) {
           setError("Missing original ID for update");
           return;

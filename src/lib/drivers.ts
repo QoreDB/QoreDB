@@ -9,6 +9,7 @@ export enum Driver {
   Postgres = 'postgres',
   Mysql = 'mysql',
   Mongodb = 'mongodb',
+  Sqlite = 'sqlite',
 }
 
 /** Query builder functions for driver-specific SQL/commands */
@@ -31,6 +32,9 @@ export interface IdentifierRules {
   namespaceStrategy: 'schema' | 'database';
 }
 
+/** Data model paradigm for database drivers */
+export type DataModel = 'relational' | 'document' | 'key-value' | 'graph' | 'time-series';
+
 export interface DriverMetadata {
   id: Driver;
   label: string;
@@ -45,6 +49,8 @@ export interface DriverMetadata {
   databaseFieldLabel: string;
   supportsSchemas: boolean;
   supportsSQL: boolean;
+  dataModel: DataModel;
+  isDocumentBased: boolean;
   identifier: IdentifierRules;
   queries: DriverQueryBuilders;
 }
@@ -64,20 +70,22 @@ export const DRIVERS: Record<Driver, DriverMetadata> = {
     databaseFieldLabel: 'connection.databaseInitial',
     supportsSchemas: true,
     supportsSQL: true,
+    dataModel: 'relational',
+    isDocumentBased: false,
     identifier: {
       quoteStart: '"',
       quoteEnd: '"',
       namespaceStrategy: 'schema',
     },
     queries: {
-      databaseSizeQuery: () => 
+      databaseSizeQuery: () =>
         `SELECT pg_size_pretty(pg_database_size(current_database())) as size`,
       tableSizeQuery: (schema, table) =>
         `SELECT pg_total_relation_size('"${schema}"."${table}"') as total_bytes,
                 pg_size_pretty(pg_total_relation_size('"${schema}"."${table}"')) as size_pretty`,
-      indexCountQuery: (schema) =>
+      indexCountQuery: schema =>
         `SELECT COUNT(*) as cnt FROM pg_indexes WHERE schemaname = '${schema}'`,
-      tableIndexesQuery: (table) =>
+      tableIndexesQuery: table =>
         `SELECT indexname, indexdef FROM pg_indexes WHERE tablename = '${table}'`,
       maintenanceQuery: (schema, table) =>
         `SELECT last_vacuum, last_analyze FROM pg_stat_user_tables 
@@ -98,24 +106,25 @@ export const DRIVERS: Record<Driver, DriverMetadata> = {
     databaseFieldLabel: 'connection.database',
     supportsSchemas: false,
     supportsSQL: true,
+    dataModel: 'relational',
+    isDocumentBased: false,
     identifier: {
       quoteStart: '`',
       quoteEnd: '`',
       namespaceStrategy: 'database',
     },
     queries: {
-      databaseSizeQuery: (db) =>
+      databaseSizeQuery: db =>
         `SELECT COALESCE(SUM(IFNULL(data_length, 0) + IFNULL(index_length, 0)), 0) as size
          FROM information_schema.tables WHERE table_schema = '${db}'`,
       tableSizeQuery: (db, table) =>
         `SELECT data_length + index_length as total_bytes, table_rows
          FROM information_schema.tables 
          WHERE table_schema = '${db}' AND table_name = '${table}'`,
-      indexCountQuery: (db) =>
+      indexCountQuery: db =>
         `SELECT COUNT(DISTINCT index_name) as cnt 
          FROM information_schema.statistics WHERE table_schema = '${db}'`,
-      tableIndexesQuery: (table) => 
-        `SHOW INDEX FROM \`${table}\``,
+      tableIndexesQuery: table => `SHOW INDEX FROM \`${table}\``,
     },
   },
   [Driver.Mongodb]: {
@@ -132,12 +141,39 @@ export const DRIVERS: Record<Driver, DriverMetadata> = {
     databaseFieldLabel: 'connection.database',
     supportsSchemas: false,
     supportsSQL: false,
+    dataModel: 'document',
+    isDocumentBased: true,
+    identifier: {
+      quoteStart: '"',
+      quoteEnd: '"',
+      namespaceStrategy: 'database',
+    },
+    queries: {},
+  },
+  [Driver.Sqlite]: {
+    id: Driver.Sqlite,
+    label: 'SQLite',
+    icon: 'sqlite.png',
+    defaultPort: 0,
+    namespaceLabel: 'dbtree.database',
+    namespacePluralLabel: 'dbtree.databases',
+    collectionLabel: 'dbtree.table',
+    collectionPluralLabel: 'dbtree.tables',
+    treeRootLabel: 'dbtree.databasesHeader',
+    createAction: 'none',
+    databaseFieldLabel: 'connection.filePath',
+    supportsSchemas: false,
+    supportsSQL: true,
+    dataModel: 'relational',
+    isDocumentBased: false,
     identifier: {
       quoteStart: '"',
       quoteEnd: '"',
       namespaceStrategy: 'database',
     },
     queries: {
+      tableSizeQuery: (_, table) =>
+        `SELECT page_count * page_size as total_bytes FROM pragma_page_count('${table}'), pragma_page_size()`,
     },
   },
 };

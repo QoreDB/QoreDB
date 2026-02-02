@@ -6,8 +6,10 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { ENVIRONMENT_CONFIG } from "@/lib/environment";
+import { Driver } from "@/lib/drivers";
 
 import type { ConnectionFormData } from "./types";
+import { FileSection } from "./FileSection";
 
 interface BasicSectionProps {
 	formData: ConnectionFormData;
@@ -18,6 +20,8 @@ interface BasicSectionProps {
 
 export function BasicSection({ formData, onChange, hideConnectionFields = false }: BasicSectionProps) {
 	const { t } = useTranslation();
+
+	const isFileBased = formData.driver === Driver.Sqlite;
 
 	return (
     <div className="rounded-md border border-border bg-background p-4 space-y-4">
@@ -88,8 +92,13 @@ export function BasicSection({ formData, onChange, hideConnectionFields = false 
         </div>
       </div>
 
-      {/* Connection fields - hidden when URL mode provides them */}
-      {!hideConnectionFields && (
+      {/* File-based connection for SQLite */}
+      {isFileBased && !hideConnectionFields && (
+        <FileSection formData={formData} onChange={onChange} />
+      )}
+
+      {/* Connection fields - hidden when URL mode provides them or for file-based drivers */}
+      {!hideConnectionFields && !isFileBased && (
         <>
           <div className="grid grid-cols-3 gap-4">
             <div className="col-span-2 space-y-2">

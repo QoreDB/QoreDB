@@ -100,7 +100,10 @@ export const CustomTitlebar = ({
 
   return (
     <div
-      className="h-9 bg-muted/80 border-b border-border shadow-sm flex items-center select-none shrink-0"
+      className={cn(
+        'bg-muted/80 border-b border-border shadow-sm flex items-center select-none shrink-0',
+        isMac ? 'h-9' : 'h-10'
+      )}
       data-tauri-drag-region
     >
       <div className="flex items-center pl-2 z-20">
@@ -229,7 +232,7 @@ export const CustomTitlebar = ({
         </div>
 
         {!isMac && (
-          <div className="flex items-center h-9 -mr-2 ml-2 pl-2 border-l border-border/50">
+          <div className="flex items-center h-10 -mr-2 ml-2 pl-2 border-l border-border/50">
             <WindowButton onClick={minimize}>
               <Minus className="w-4 h-4" />
             </WindowButton>
@@ -445,7 +448,7 @@ const WindowButton = ({
   <button
     onClick={onClick}
     className={cn(
-      'w-12 h-9 flex items-center justify-center transition-colors hover:bg-muted/80',
+      'w-12 h-10 flex items-center justify-center transition-colors hover:bg-muted/80',
       isClose && 'hover:bg-red-600 hover:text-white'
     )}
   >

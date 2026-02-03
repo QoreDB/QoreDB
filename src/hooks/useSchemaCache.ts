@@ -12,9 +12,11 @@ import {
   Namespace,
   Collection,
   TableSchema,
+  Routine,
   listNamespaces,
   listCollections,
   describeTable,
+  listRoutines,
 } from '../lib/tauri';
 
 // ============================================
@@ -36,10 +38,16 @@ interface TableSchemaCache {
   timestamp: number;
 }
 
+interface RoutineCache {
+  routines: Routine[];
+  timestamp: number;
+}
+
 interface SessionCache {
   namespaces: NamespaceCache | null;
   collections: Map<string, CollectionCache>;
   tableSchemas: Map<string, TableSchemaCache>;
+  routines: Map<string, RoutineCache>;
 }
 
 // ============================================
@@ -58,6 +66,7 @@ function getOrCreateSessionCache(sessionId: string): SessionCache {
       namespaces: null,
       collections: new Map(),
       tableSchemas: new Map(),
+      routines: new Map(),
     };
     sessionCaches.set(sessionId, cache);
   }
@@ -124,6 +133,17 @@ export function invalidateTableSchemaCache(
 }
 
 /**
+ * Invalidate routines cache for a namespace (used after CREATE/DROP FUNCTION/PROCEDURE)
+ */
+export function invalidateRoutinesCache(sessionId: string, ns: Namespace): void {
+  const cache = sessionCaches.get(sessionId);
+  if (cache) {
+    const key = getNamespaceKey(ns);
+    cache.routines.delete(key);
+  }
+}
+
+/**
  * Force refresh all caches for a session (manual refresh button)
  */
 export function forceRefreshCache(sessionId: string): void {
@@ -132,6 +152,7 @@ export function forceRefreshCache(sessionId: string): void {
     cache.namespaces = null;
     cache.collections.clear();
     cache.tableSchemas.clear();
+    cache.routines.clear();
   }
 }
 
@@ -144,11 +165,13 @@ interface UseSchemaCache {
   getNamespaces: () => Promise<Namespace[]>;
   getCollections: (ns: Namespace) => Promise<Collection[]>;
   getTableSchema: (ns: Namespace, tableName: string) => Promise<TableSchema | null>;
+  getRoutines: (ns: Namespace) => Promise<Routine[]>;
 
   // Invalidation helpers (for use after DDL)
   invalidateNamespaces: () => void;
   invalidateCollections: (ns: Namespace) => void;
   invalidateTable: (ns: Namespace, tableName: string) => void;
+  invalidateRoutines: (ns: Namespace) => void;
   forceRefresh: () => void;
 
   // Loading states
@@ -241,6 +264,34 @@ export function useSchemaCache(sessionId: string): UseSchemaCache {
     [sessionId, cache]
   );
 
+  const getRoutines = useCallback(
+    async (ns: Namespace): Promise<Routine[]> => {
+      const key = getNamespaceKey(ns);
+
+      // Check cache first
+      const cached = cache.routines.get(key);
+      if (cached && !isExpired(cached.timestamp)) {
+        return cached.routines;
+      }
+
+      setLoading(true);
+      try {
+        const result = await listRoutines(sessionId, ns);
+        if (result.success && result.data) {
+          cache.routines.set(key, {
+            routines: result.data.routines,
+            timestamp: Date.now(),
+          });
+          return result.data.routines;
+        }
+        return [];
+      } finally {
+        setLoading(false);
+      }
+    },
+    [sessionId, cache]
+  );
+
   const invalidateNamespaces = useCallback(() => {
     invalidateNamespacesCache(sessionId);
   }, [sessionId]);
@@ -259,6 +310,13 @@ export function useSchemaCache(sessionId: string): UseSchemaCache {
     [sessionId]
   );
 
+  const invalidateRoutines = useCallback(
+    (ns: Namespace) => {
+      invalidateRoutinesCache(sessionId, ns);
+    },
+    [sessionId]
+  );
+
   const forceRefresh = useCallback(() => {
     forceRefreshCache(sessionId);
   }, [sessionId]);
@@ -267,18 +325,22 @@ export function useSchemaCache(sessionId: string): UseSchemaCache {
     getNamespaces,
     getCollections,
     getTableSchema,
+    getRoutines,
     invalidateNamespaces,
     invalidateCollections,
     invalidateTable,
+    invalidateRoutines,
     forceRefresh,
     loading,
   }), [
     getNamespaces,
     getCollections,
     getTableSchema,
+    getRoutines,
     invalidateNamespaces,
     invalidateCollections,
     invalidateTable,
+    invalidateRoutines,
     forceRefresh,
     loading,
   ]);

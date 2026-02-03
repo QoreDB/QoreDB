@@ -22,6 +22,7 @@ use crate::engine::types::{
     ConnectionConfig, Namespace, QueryId, QueryResult, Row as QRow, RowData, SessionId,
     TableColumn, TableIndex, TableSchema, Value, ForeignKey,
     TableQueryOptions, PaginatedQueryResult, SortDirection, FilterOperator,
+    Routine, RoutineList, RoutineListOptions, RoutineType,
 };
 use crate::engine::traits::{StreamEvent, StreamSender};
 use futures::StreamExt;
@@ -428,6 +429,105 @@ impl DataEngine for MySqlDriver {
             collections,
             total_count: total_count as u32,
         })
+    }
+
+    async fn list_routines(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        options: RoutineListOptions,
+    ) -> EngineResult<RoutineList> {
+        let mysql_session = self.get_session(session).await?;
+        let pool = &mysql_session.pool;
+
+        let search_pattern = options.search.as_ref().map(|s| format!("%{}%", s));
+
+        // Filter by routine type if specified
+        let type_filter = match &options.routine_type {
+            Some(RoutineType::Function) => Some("FUNCTION"),
+            Some(RoutineType::Procedure) => Some("PROCEDURE"),
+            None => None,
+        };
+
+        // 1. Get total count
+        let count_query = r#"
+            SELECT COUNT(*)
+            FROM information_schema.ROUTINES
+            WHERE ROUTINE_SCHEMA = ?
+            AND (? IS NULL OR ROUTINE_NAME LIKE ?)
+            AND (? IS NULL OR ROUTINE_TYPE = ?)
+        "#;
+
+        let count_row: (i64,) = sqlx::query_as(count_query)
+            .bind(&namespace.database)
+            .bind(&search_pattern)
+            .bind(&search_pattern)
+            .bind(&type_filter)
+            .bind(&type_filter)
+            .fetch_one(pool)
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        let total_count = count_row.0;
+
+        // 2. Get paginated results
+        let mut query_str = r#"
+            SELECT
+                CAST(ROUTINE_NAME AS CHAR) AS name,
+                CAST(ROUTINE_TYPE AS CHAR) AS routine_type,
+                CAST(IFNULL(DTD_IDENTIFIER, '') AS CHAR) AS return_type,
+                CAST(IFNULL(EXTERNAL_LANGUAGE, ROUTINE_BODY) AS CHAR) AS language
+            FROM information_schema.ROUTINES
+            WHERE ROUTINE_SCHEMA = ?
+            AND (? IS NULL OR ROUTINE_NAME LIKE ?)
+            AND (? IS NULL OR ROUTINE_TYPE = ?)
+            ORDER BY ROUTINE_NAME
+        "#.to_string();
+
+        if let Some(limit) = options.page_size {
+            query_str.push_str(&format!(" LIMIT {}", limit));
+            if let Some(page) = options.page {
+                let offset = (page.max(1) - 1) * limit;
+                query_str.push_str(&format!(" OFFSET {}", offset));
+            }
+        }
+
+        let rows: Vec<(String, String, String, String)> = sqlx::query_as(&query_str)
+            .bind(&namespace.database)
+            .bind(&search_pattern)
+            .bind(&search_pattern)
+            .bind(&type_filter)
+            .bind(&type_filter)
+            .fetch_all(pool)
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        let routines = rows
+            .into_iter()
+            .map(|(name, rtype, return_type, language)| {
+                let routine_type = match rtype.as_str() {
+                    "PROCEDURE" => RoutineType::Procedure,
+                    _ => RoutineType::Function,
+                };
+                Routine {
+                    namespace: namespace.clone(),
+                    name,
+                    routine_type,
+                    arguments: String::new(), // MySQL doesn't easily expose this in information_schema
+                    return_type: if return_type.is_empty() { None } else { Some(return_type) },
+                    language: Some(language),
+                }
+            })
+            .collect();
+
+        Ok(RoutineList {
+            routines,
+            total_count: total_count as u32,
+        })
+    }
+
+    fn supports_routines(&self) -> bool {
+        true
     }
 
     async fn create_database(&self, session: SessionId, name: &str, _options: Option<Value>) -> EngineResult<()> {

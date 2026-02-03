@@ -10,7 +10,7 @@ use crate::engine::error::{EngineError, EngineResult};
 use crate::engine::types::{
     CancelSupport, CollectionList, CollectionListOptions, ConnectionConfig, DriverCapabilities, Namespace,
     QueryId, QueryResult, Row, RowData, SessionId, TableSchema, ColumnInfo, Value, ForeignKey,
-    TableQueryOptions, PaginatedQueryResult,
+    TableQueryOptions, PaginatedQueryResult, RoutineList, RoutineListOptions,
 };
 
 /// Events emitted during query streaming
@@ -65,6 +65,23 @@ pub trait DataEngine: Send + Sync {
         namespace: &Namespace,
         options: CollectionListOptions,
     ) -> EngineResult<CollectionList>;
+
+    /// Lists routines (functions/procedures) in a namespace.
+    /// Default returns empty list for drivers without routine support.
+    async fn list_routines(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        options: RoutineListOptions,
+    ) -> EngineResult<RoutineList> {
+        let _ = (session, namespace, options);
+        Ok(RoutineList { routines: Vec::new(), total_count: 0 })
+    }
+
+    /// Check if the driver supports routines (functions/procedures).
+    fn supports_routines(&self) -> bool {
+        false
+    }
 
     /// Creates a new database (or schema in PostgreSQL)
     /// 

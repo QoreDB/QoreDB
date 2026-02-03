@@ -25,6 +25,7 @@ use crate::engine::types::{
     ConnectionConfig, Namespace, QueryId, QueryResult, Row as QRow, RowData, SessionId,
     TableColumn, TableIndex, TableSchema, Value, ForeignKey,
     TableQueryOptions, PaginatedQueryResult, SortDirection, FilterOperator,
+    Routine, RoutineList, RoutineListOptions, RoutineType,
 };
 
 pub struct PostgresSession {
@@ -46,7 +47,6 @@ impl PostgresSession {
 /// Map from enum value OID to its label string
 type EnumLabelMap = HashMap<u32, String>;
 
-/// Read a big-endian i32 from a byte slice, advancing the slice
 fn read_i32(buf: &mut &[u8]) -> Option<i32> {
     if buf.len() < 4 {
         return None;
@@ -56,7 +56,6 @@ fn read_i32(buf: &mut &[u8]) -> Option<i32> {
     Some(i32::from_be_bytes(bytes.try_into().ok()?))
 }
 
-/// Read a big-endian u32 from a byte slice, advancing the slice
 fn read_u32(buf: &mut &[u8]) -> Option<u32> {
     if buf.len() < 4 {
         return None;
@@ -194,16 +193,23 @@ fn decode_enum_array_binary(raw: &sqlx::postgres::PgValueRef<'_>, labels: &EnumL
                 return Some(Value::Array(vec![]));
             }
 
-            // We only support 1-dimensional arrays
-            if ndim != 1 {
-                return None;
+            let ndim = ndim as usize;
+            let mut dims = Vec::with_capacity(ndim);
+            for _ in 0..ndim {
+                let len = read_i32(&mut buf)?;
+                let _lower_bound = read_i32(&mut buf)?;
+                if len < 0 {
+                    return None;
+                }
+                dims.push(len as usize);
             }
 
-            let array_len = read_i32(&mut buf)? as usize;
-            let _lower_bound = read_i32(&mut buf)?;
+            let total_elems = dims
+                .iter()
+                .try_fold(1usize, |acc, &len| acc.checked_mul(len))?;
 
-            let mut values = Vec::with_capacity(array_len);
-            for _ in 0..array_len {
+            let mut values = Vec::with_capacity(total_elems);
+            for _ in 0..total_elems {
                 let elem_len = read_i32(&mut buf)?;
                 if elem_len == -1 {
                     // NULL element
@@ -230,7 +236,30 @@ fn decode_enum_array_binary(raw: &sqlx::postgres::PgValueRef<'_>, labels: &EnumL
                 }
             }
 
-            Some(Value::Array(values))
+            fn build_array(
+                iter: &mut std::vec::IntoIter<Value>,
+                dims: &[usize],
+            ) -> Option<Value> {
+                if dims.is_empty() {
+                    return None;
+                }
+                let len = dims[0];
+                if dims.len() == 1 {
+                    let mut vals = Vec::with_capacity(len);
+                    for _ in 0..len {
+                        vals.push(iter.next()?);
+                    }
+                    return Some(Value::Array(vals));
+                }
+                let mut vals = Vec::with_capacity(len);
+                for _ in 0..len {
+                    vals.push(build_array(iter, &dims[1..])?);
+                }
+                Some(Value::Array(vals))
+            }
+
+            let mut iter = values.into_iter();
+            build_array(&mut iter, &dims)
         }
     }
 }
@@ -688,13 +717,19 @@ impl DataEngine for PostgresDriver {
         let schema = namespace.schema.as_deref().unwrap_or("public");
         let search_pattern = options.search.as_ref().map(|s| format!("%{}%", s));
 
-        // 1. Get total count
+        // 1. Get total count (tables + views + materialized views)
         let count_query = r#"
-            SELECT COUNT(*) 
-            FROM information_schema.tables 
-            WHERE table_schema = $1 
-            AND table_type = 'BASE TABLE'
-            AND ($2 IS NULL OR table_name LIKE $3)
+            SELECT COUNT(*) FROM (
+                SELECT table_name AS name
+                FROM information_schema.tables
+                WHERE table_schema = $1
+                AND ($2 IS NULL OR table_name LIKE $3)
+                UNION ALL
+                SELECT matviewname AS name
+                FROM pg_matviews
+                WHERE schemaname = $1
+                AND ($2 IS NULL OR matviewname LIKE $3)
+            ) combined
         "#;
 
         let count_row: (i64,) = sqlx::query_as(count_query)
@@ -704,16 +739,23 @@ impl DataEngine for PostgresDriver {
             .fetch_one(pool)
             .await
             .map_err(|e| EngineError::execution_error(e.to_string()))?;
-        
+
         let total_count = count_row.0;
 
-        // 2. Get paginated results
+        // 2. Get paginated results (tables + views + materialized views)
         let mut query_str = r#"
-            SELECT table_name, table_type 
-            FROM information_schema.tables 
-            WHERE table_schema = $1
-            AND ($2 IS NULL OR table_name LIKE $3)
-            ORDER BY table_name
+            SELECT name, ctype FROM (
+                SELECT table_name AS name,
+                    CASE WHEN table_type = 'VIEW' THEN 'View' ELSE 'Table' END AS ctype
+                FROM information_schema.tables
+                WHERE table_schema = $1
+                AND ($2 IS NULL OR table_name LIKE $3)
+                UNION ALL
+                SELECT matviewname AS name, 'MaterializedView' AS ctype
+                FROM pg_matviews
+                WHERE schemaname = $1
+                AND ($2 IS NULL OR matviewname LIKE $3)
+            ) combined ORDER BY name
         "#.to_string();
 
         if let Some(limit) = options.page_size {
@@ -734,9 +776,10 @@ impl DataEngine for PostgresDriver {
 
         let collections = rows
             .into_iter()
-            .map(|(name, table_type)| {
-                let collection_type = match table_type.as_str() {
-                    "VIEW" => CollectionType::View,
+            .map(|(name, ctype)| {
+                let collection_type = match ctype.as_str() {
+                    "View" => CollectionType::View,
+                    "MaterializedView" => CollectionType::MaterializedView,
                     _ => CollectionType::Table,
                 };
                 Collection {
@@ -751,6 +794,110 @@ impl DataEngine for PostgresDriver {
             collections,
             total_count: total_count as u32,
         })
+    }
+
+    async fn list_routines(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        options: RoutineListOptions,
+    ) -> EngineResult<RoutineList> {
+        let pg_session = self.get_session(session).await?;
+        let pool = &pg_session.pool;
+
+        let schema = namespace.schema.as_deref().unwrap_or("public");
+        let search_pattern = options.search.as_ref().map(|s| format!("%{}%", s));
+
+        // Filter by routine type if specified
+        let type_filter = match &options.routine_type {
+            Some(RoutineType::Function) => Some("f"),
+            Some(RoutineType::Procedure) => Some("p"),
+            None => None,
+        };
+
+        // 1. Get total count
+        let count_query = r#"
+            SELECT COUNT(*)
+            FROM pg_proc p
+            JOIN pg_namespace n ON p.pronamespace = n.oid
+            WHERE n.nspname = $1
+            AND p.prokind IN ('f', 'p')
+            AND ($2 IS NULL OR p.proname LIKE $3)
+            AND ($4 IS NULL OR p.prokind = $4)
+        "#;
+
+        let count_row: (i64,) = sqlx::query_as(count_query)
+            .bind(schema)
+            .bind(&search_pattern)
+            .bind(&search_pattern)
+            .bind(&type_filter)
+            .fetch_one(pool)
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        let total_count = count_row.0;
+
+        // 2. Get paginated results
+        let mut query_str = r#"
+            SELECT
+                p.proname::text AS name,
+                p.prokind::text AS kind,
+                pg_get_function_identity_arguments(p.oid)::text AS args,
+                pg_get_function_result(p.oid)::text AS return_type,
+                l.lanname::text AS language
+            FROM pg_proc p
+            JOIN pg_namespace n ON p.pronamespace = n.oid
+            LEFT JOIN pg_language l ON p.prolang = l.oid
+            WHERE n.nspname = $1
+            AND p.prokind IN ('f', 'p')
+            AND ($2 IS NULL OR p.proname LIKE $3)
+            AND ($4 IS NULL OR p.prokind = $4)
+            ORDER BY p.proname
+        "#.to_string();
+
+        if let Some(limit) = options.page_size {
+            query_str.push_str(&format!(" LIMIT {}", limit));
+            if let Some(page) = options.page {
+                let offset = (page.max(1) - 1) * limit;
+                query_str.push_str(&format!(" OFFSET {}", offset));
+            }
+        }
+
+        let rows: Vec<(String, String, String, Option<String>, Option<String>)> = sqlx::query_as(&query_str)
+            .bind(schema)
+            .bind(&search_pattern)
+            .bind(&search_pattern)
+            .bind(&type_filter)
+            .fetch_all(pool)
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        let routines = rows
+            .into_iter()
+            .map(|(name, kind, args, return_type, language)| {
+                let routine_type = match kind.as_str() {
+                    "p" => RoutineType::Procedure,
+                    _ => RoutineType::Function,
+                };
+                Routine {
+                    namespace: namespace.clone(),
+                    name,
+                    routine_type,
+                    arguments: args,
+                    return_type,
+                    language,
+                }
+            })
+            .collect();
+
+        Ok(RoutineList {
+            routines,
+            total_count: total_count as u32,
+        })
+    }
+
+    fn supports_routines(&self) -> bool {
+        true
     }
 
     async fn create_database(&self, session: SessionId, name: &str, _options: Option<Value>) -> EngineResult<()> {

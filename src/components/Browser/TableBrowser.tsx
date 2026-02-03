@@ -1070,7 +1070,7 @@ function TableInfoPanel({ sessionId, namespace, tableName, driver, schema }: Tab
       if (driverMeta.supportsSQL) {
         // PostgreSQL stats query
         if (driver === Driver.Postgres) {
-          // Table size
+          //TODO : à passer en backend ?
           const sizeQuery = `
             SELECT pg_total_relation_size('"${schemaName}"."${tableName}"') as total_bytes,
                    pg_size_pretty(pg_total_relation_size('"${schemaName}"."${tableName}"')) as size_pretty
@@ -1083,6 +1083,7 @@ function TableInfoPanel({ sessionId, namespace, tableName, driver, schema }: Tab
           }
 
           // Row count (exact)
+          //TODO : count is heavy , may by have a fallack for larges databases
           const countQuery = `SELECT COUNT(*) as cnt FROM "${schemaName}"."${tableName}"`;
           const countResult = await executeQuery(sessionId, countQuery);
           if (countResult.success && countResult.result?.rows[0]) {

@@ -14,7 +14,7 @@ use crate::engine::{
     sql_safety,
     TableSchema,
     traits::StreamEvent,
-    types::{CollectionList, CollectionListOptions, ForeignKey, Namespace, QueryId, QueryResult, SessionId, Value, TableQueryOptions, PaginatedQueryResult},
+    types::{CollectionList, CollectionListOptions, ForeignKey, Namespace, QueryId, QueryResult, SessionId, Value, TableQueryOptions, PaginatedQueryResult, RoutineList, RoutineListOptions, RoutineType},
 };
 use crate::interceptor::{Environment, QueryExecutionResult, SafetyAction};
 use crate::metrics;
@@ -725,6 +725,70 @@ pub async fn list_collections(
             error: None,
         }),
         Err(e) => Ok(CollectionsResponse {
+            success: false,
+            data: None,
+            error: Some(e.to_string()),
+        }),
+    }
+}
+
+/// Response wrapper for routine listing
+#[derive(Debug, Serialize)]
+pub struct RoutinesResponse {
+    pub success: bool,
+    pub data: Option<RoutineList>,
+    pub error: Option<String>,
+}
+
+/// Lists all routines (functions/procedures) in a namespace
+#[tauri::command]
+pub async fn list_routines(
+    state: State<'_, crate::SharedState>,
+    session_id: String,
+    namespace: Namespace,
+    search: Option<String>,
+    page: Option<u32>,
+    page_size: Option<u32>,
+    routine_type: Option<String>,
+) -> Result<RoutinesResponse, String> {
+    let session_manager = {
+        let state = state.lock().await;
+        Arc::clone(&state.session_manager)
+    };
+    let session = parse_session_id(&session_id)?;
+
+    let driver = match session_manager.get_driver(session).await {
+        Ok(d) => d,
+        Err(e) => {
+            return Ok(RoutinesResponse {
+                success: false,
+                data: None,
+                error: Some(e.to_string()),
+            });
+        }
+    };
+
+    // Parse routine_type string to enum
+    let routine_type_enum = routine_type.as_ref().and_then(|t| match t.as_str() {
+        "Function" => Some(RoutineType::Function),
+        "Procedure" => Some(RoutineType::Procedure),
+        _ => None,
+    });
+
+    let options = RoutineListOptions {
+        search,
+        page,
+        page_size,
+        routine_type: routine_type_enum,
+    };
+
+    match driver.list_routines(session, &namespace, options).await {
+        Ok(list) => Ok(RoutinesResponse {
+            success: true,
+            data: Some(list),
+            error: None,
+        }),
+        Err(e) => Ok(RoutinesResponse {
             success: false,
             data: None,
             error: Some(e.to_string()),

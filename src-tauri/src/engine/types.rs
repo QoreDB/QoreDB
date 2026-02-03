@@ -386,6 +386,42 @@ pub struct CollectionList {
     pub total_count: u32,
 }
 
+// ==================== Routine Types ====================
+
+/// Type of database routine
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum RoutineType {
+    Function,
+    Procedure,
+}
+
+/// Database routine metadata
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Routine {
+    pub namespace: Namespace,
+    pub name: String,
+    pub routine_type: RoutineType,
+    pub arguments: String,
+    pub return_type: Option<String>,
+    pub language: Option<String>,
+}
+
+/// Options for listing routines
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct RoutineListOptions {
+    pub search: Option<String>,
+    pub page: Option<u32>,
+    pub page_size: Option<u32>,
+    pub routine_type: Option<RoutineType>,
+}
+
+/// Paginated routine list
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RoutineList {
+    pub routines: Vec<Routine>,
+    pub total_count: u32,
+}
+
 // ==================== Table Query Types (Pagination) ====================
 
 /// Sort direction for query results

@@ -3,9 +3,19 @@
  * Defines the structure of open tabs for multi-table navigation
  */
 
-import { Namespace, RelationFilter, SearchFilter } from './tauri';
+import { Namespace, RelationFilter, SearchFilter, QueryResult } from './tauri';
 
-export type TabType = 'query' | 'table' | 'database';
+export type TabType = 'query' | 'table' | 'database' | 'diff';
+
+export interface DiffSource {
+  type: 'query' | 'table';
+  label: string;
+  namespace?: Namespace;
+  connectionId?: string;
+  tableName?: string;
+  query?: string;
+  result?: QueryResult;
+}
 
 export interface OpenTab {
   id: string;
@@ -17,6 +27,9 @@ export interface OpenTab {
   tableName?: string;
   relationFilter?: RelationFilter;
   searchFilter?: SearchFilter;
+  // Diff-specific
+  diffLeftSource?: DiffSource;
+  diffRightSource?: DiffSource;
 }
 
 /** Generate unique tab ID */
@@ -63,5 +76,22 @@ export function createQueryTab(initialQuery?: string, namespace?: Namespace): Op
     title: 'Query',
     initialQuery,
     namespace,
+  };
+}
+
+/** Create a diff tab for comparing two data sources */
+export function createDiffTab(
+  leftSource?: DiffSource,
+  rightSource?: DiffSource,
+  title?: string,
+  namespace?: Namespace
+): OpenTab {
+  return {
+    id: generateTabId(),
+    type: 'diff',
+    title: title ?? 'Data Diff',
+    namespace: namespace ?? leftSource?.namespace ?? rightSource?.namespace,
+    diffLeftSource: leftSource,
+    diffRightSource: rightSource,
   };
 }

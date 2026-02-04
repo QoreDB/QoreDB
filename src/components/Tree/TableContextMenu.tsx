@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Eye, Trash2, Eraser } from 'lucide-react';
+import { Eye, Trash2, Eraser, GitCompare } from 'lucide-react';
 import { notify } from '../../lib/notify';
 
 import {
@@ -27,6 +27,7 @@ interface TableContextMenuProps {
   rowCountEstimate?: number;
   onRefresh: () => void;
   onOpen: () => void;
+  onCompareWith?: (collection: Collection) => void;
   children: React.ReactNode;
 }
 
@@ -45,6 +46,7 @@ export function TableContextMenu({
   rowCountEstimate,
   onRefresh,
   onOpen,
+  onCompareWith,
   children,
 }: TableContextMenuProps) {
   const { t } = useTranslation();
@@ -158,7 +160,14 @@ export function TableContextMenu({
             <Eye size={14} className="mr-2" />
             {t('tableMenu.open')}
           </ContextMenuItem>
-          
+
+          {onCompareWith && (
+            <ContextMenuItem onClick={() => onCompareWith(collection)}>
+              <GitCompare size={14} className="mr-2" />
+              {t('diff.compareTable')}
+            </ContextMenuItem>
+          )}
+
           <ContextMenuSeparator />
           
           <ContextMenuItem

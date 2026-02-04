@@ -47,6 +47,7 @@ interface DBTreeProps {
     relationFilter?: RelationFilter
   ) => void;
   onDatabaseSelect?: (namespace: Namespace) => void;
+  onCompareTable?: (collection: Collection) => void;
   refreshTrigger?: number;
   activeNamespace?: Namespace | null;
 }
@@ -57,6 +58,7 @@ export function DBTree({
   connection,
   onTableSelect,
   onDatabaseSelect,
+  onCompareTable,
   refreshTrigger,
   activeNamespace,
 }: DBTreeProps) {
@@ -412,6 +414,7 @@ export function DBTree({
                             readOnly={connection?.read_only || false}
                             onRefresh={() => refreshCollections(col.namespace)}
                             onOpen={() => handleTableClick(col)}
+                            onCompareWith={onCompareTable}
                           >
                             <button
                               className="flex items-center gap-2 w-full px-2 py-1 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground text-left group ml-4"
@@ -458,6 +461,7 @@ export function DBTree({
                             readOnly={connection?.read_only || false}
                             onRefresh={() => refreshCollections(col.namespace)}
                             onOpen={() => handleTableClick(col)}
+                            onCompareWith={onCompareTable}
                           >
                             <button
                               className="flex items-center gap-2 w-full px-2 py-1 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground text-left group ml-4"
@@ -506,6 +510,7 @@ export function DBTree({
                             readOnly={connection?.read_only || false}
                             onRefresh={() => refreshCollections(col.namespace)}
                             onOpen={() => handleTableClick(col)}
+                            onCompareWith={onCompareTable}
                           >
                             <button
                               className="flex items-center gap-2 w-full px-2 py-1 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground text-left group ml-4"

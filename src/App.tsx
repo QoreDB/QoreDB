@@ -20,12 +20,14 @@ import { GlobalSearch, SearchResult } from './components/Search/GlobalSearch';
 import { FulltextSearchPanel } from './components/Search/FulltextSearchPanel';
 import { QueryLibraryModal } from './components/Query/QueryLibraryModal';
 import { OnboardingModal } from './components/Onboarding/OnboardingModal';
+import { DataDiffViewer } from './components/Diff/DataDiffViewer';
 
 // Hooks
 import { useTheme } from './hooks/useTheme';
 import { useTabs } from './hooks/useTabs';
 import { useRecovery } from './hooks/useRecovery';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
+import { useWebviewGuards } from './hooks/useWebviewGuards';
 
 // Lib
 import { notify } from './lib/notify';
@@ -39,11 +41,12 @@ import {
   DriverCapabilities,
   RelationFilter,
   SearchFilter,
+  Collection,
 } from './lib/tauri';
 import { HistoryEntry } from './lib/history';
 import { QueryLibraryItem } from './lib/queryLibrary';
 import { Driver } from './lib/drivers';
-import { OpenTab, createTableTab, createDatabaseTab, createQueryTab } from './lib/tabs';
+import { OpenTab, createTableTab, createDatabaseTab, createQueryTab, createDiffTab } from './lib/tabs';
 import { CrashRecoverySnapshot, saveCrashRecoverySnapshot } from './lib/crashRecovery';
 import { AnalyticsService } from './components/Onboarding/AnalyticsService';
 import { getShortcut } from '@/utils/platform';
@@ -100,6 +103,8 @@ function getConnectionSignature(connection: SavedConnection): string {
 function App() {
   const { t } = useTranslation();
   const { resolvedTheme, toggleTheme } = useTheme();
+
+  useWebviewGuards();
 
   const [searchOpen, setSearchOpen] = useState(false);
   const [fulltextSearchOpen, setFulltextSearchOpen] = useState(false);
@@ -328,6 +333,35 @@ function App() {
     }
   }, [sessionId, openTab, activeTab]);
 
+  const handleOpenDiff = useCallback(() => {
+    if (sessionId) {
+      openTab(createDiffTab(undefined, undefined, t('diff.title'), activeTab?.namespace));
+    }
+  }, [sessionId, openTab, t, activeTab]);
+
+  const handleCompareTable = useCallback(
+    (collection: Collection) => {
+      if (sessionId) {
+        const leftSource = {
+          type: 'table' as const,
+          label: collection.name,
+          namespace: collection.namespace,
+          tableName: collection.name,
+          connectionId: activeConnection?.id,
+        };
+        openTab(
+          createDiffTab(
+            leftSource,
+            undefined,
+            `${t('diff.title')}: ${collection.name}`,
+            collection.namespace
+          )
+        );
+      }
+    },
+    [sessionId, openTab, t, activeConnection]
+  );
+
   const handleToggleSidebar = useCallback(() => {
     setSidebarVisible(prev => !prev);
   }, []);
@@ -473,6 +507,7 @@ function App() {
       { id: 'cmd_new_query', label: t('palette.newQuery'), shortcut: getShortcut('T', { symbol: true }) },
       { id: 'cmd_open_library', label: t('palette.openLibrary') },
       ...(sessionId ? [{ id: 'cmd_fulltext_search', label: t('palette.fulltextSearch'), shortcut: getShortcut('F', { symbol: true, shift: true }) }] : []),
+      ...(sessionId ? [{ id: 'cmd_open_diff', label: t('diff.openDiff') }] : []),
       { id: 'cmd_open_settings', label: t('palette.openSettings'), shortcut: getShortcut(',', { symbol: true }) },
       { id: 'cmd_toggle_theme', label: t('palette.toggleTheme') },
       ...(activeTabId ? [{ id: 'cmd_close_tab', label: t('palette.closeTab'), shortcut: getShortcut('W', { symbol: true }) }] : []),
@@ -501,6 +536,9 @@ function App() {
             return;
           case 'cmd_fulltext_search':
             if (sessionId) setFulltextSearchOpen(true);
+            return;
+          case 'cmd_open_diff':
+            if (sessionId) handleOpenDiff();
             return;
           case 'cmd_open_settings':
             setSettingsOpen(true);
@@ -546,7 +584,7 @@ function App() {
         }
       }
     },
-    [t, sessionId, openTab, toggleTheme, activeTabId, closeTab, activeTab, handleConnected]
+    [t, sessionId, openTab, toggleTheme, activeTabId, closeTab, activeTab, handleConnected, handleOpenDiff]
   );
 
   useKeyboardShortcuts({
@@ -611,6 +649,7 @@ function App() {
               connectedConnectionId={activeConnection?.id || null}
               onTableSelect={handleTableSelect}
               onDatabaseSelect={handleDatabaseSelect}
+              onCompareTable={handleCompareTable}
               onEditConnection={handleEditConnection}
               refreshTrigger={sidebarRefreshTrigger}
               schemaRefreshTrigger={schemaRefreshTrigger}
@@ -784,6 +823,21 @@ function App() {
             onOpenLibrary={() => setLibraryModalOpen(true)}
             isActive
             onQueryDraftChange={value => updateQueryDraft(activeTab.id, value)}
+          />
+        </div>
+      );
+    }
+
+    // Data Diff viewer
+    if (activeTab?.type === 'diff') {
+      return (
+        <div className="flex-1 min-h-0 flex flex-col">
+          <DataDiffViewer
+            key={activeTab.id}
+            activeConnection={activeConnection}
+            namespace={activeTab.namespace}
+            leftSource={activeTab.diffLeftSource}
+            rightSource={activeTab.diffRightSource}
           />
         </div>
       );

@@ -11,7 +11,7 @@
 | ✅ | **Multi-DB** (SQL + NoSQL) avec ajout progressif de moteurs | POC |
 | ✅ | **Local-first** + offline | POC |
 | ✅ | **Performances** (UI fluide, streaming, virtualisation) | POC |
-| ⬜ | **Stabilité** (crash recovery, logs, diagnostics) | V1 |
+| ✅ | **Stabilité** (crash recovery, logs, diagnostics) | V1 |
 | ✅ | **Cross-platform** (Win/macOS/Linux) | POC |
 | ✅ | **i18n** (langues) | POC |
 | ✅ | **Thèmes** (dark/light + high contrast) | POC |
@@ -28,8 +28,8 @@
 | ✅ | Gestion multi-connexions + profils | POC |
 | ✅ | Test de connexion | POC |
 | ✅ | Paramètres par driver (PG/MySQL/Mongo/…) | POC |
-| ⬜ | Connexion via URL DSN | V1 |
-| ⬜ | Connexion via paramètres avancés (timeouts, keepalive, app_name) | V2 |
+| ✅ | Connexion via URL DSN | V1 |
+| ✅ | Connexion via paramètres avancés (timeouts, keepalive, app_name) | V2 |
 | ⬜ | Connexions "favorites", tags, recherche | V1 |
 
 ### Sécurité
@@ -39,8 +39,8 @@
 | ✅ | **Vault chiffré** (credentials, clés) | POC |
 | ✅ | Unlock à l'ouverture (PIN/OS keychain) | POC |
 | ✅ | Masquage & copy sécurisé | POC |
-| ⬜ | Redaction des logs (pas de secrets) | V1 |
-| ⬜ | Modes lecture seule | V1 |
+| ✅ | Redaction des logs (pas de secrets) | V1 |
+| ✅ | Modes lecture seule | V1 |
 
 Notes:
 * Le backend est la source de vérité pour `environment` et `read_only` (métadonnées vault).
@@ -53,7 +53,7 @@ Notes:
 | ✅ | SSL/TLS avancé (certs CA, client cert, verify) | POC |
 | ✅ | SSH tunnel (password, key, jump host/bastion) | POC |
 | ⬜ | Proxy / corporate network | V2 |
-| ⬜ | Retry / reconnexion / keepalive | V1 |
+| ✅ | Retry / reconnexion / keepalive | V1 |
 
 ---
 
@@ -64,9 +64,10 @@ Notes:
 | Status | Feature | Version |
 |--------|---------|---------|
 | ✅ | Databases, schemas, tables, views, functions, triggers, indexes | POC |
-| ⬜ | Recherche dans l'arbre | V1 |
-| ⬜ | Filtres (system schemas, etc.) | V1 |
+| ✅ | Recherche dans l'arbre | V1 |
+| ✅ | Filtres (system schemas, etc.) | V1 |
 | ⬜ | Favoris d'objets | V2 |
+| ✅ | Recherche globale (full-text) dans la base | V2 |
 
 ### Métadonnées
 
@@ -75,8 +76,8 @@ Notes:
 | ✅ | "Describe" table/collection | POC |
 | ✅ | Colonnes & types | POC |
 | ✅ | PK/FK/unique | POC |
-| ⬜ | Indexes | V1 |
-| ⬜ | Contraintes | V1 |
+| ✅ | Indexes | V1 |
+| ✅ | Contraintes | V1 |
 | ⬜ | Triggers | V2 |
 | ⬜ | Comments / descriptions | V2 |
 | ⬜ | DDL preview (CREATE TABLE, etc.) | V1 |
@@ -90,6 +91,12 @@ Notes:
 | ⬜ | Document structure sampling | V2 |
 | ⬜ | Explain/plan (si supporté) | V2 |
 
+### Visualisation
+
+| Status | Feature | Version |
+|--------|---------|---------|
+| ✅ | ER Diagram interactif (schéma relationnel cliquable) | V2 |
+
 ---
 
 ## 3) SQL editor (cœur)
@@ -97,24 +104,24 @@ Notes:
 | Status | Feature | Version |
 |--------|---------|---------|
 | ✅ | Multi-tabs | POC |
-| ⬜ | Sessions / connexions par onglet | V1 |
+| ✅ | Sessions / connexions par onglet | V1 |
 | ✅ | Exécution sélection / exécution script | POC |
 | ✅ | Stop/cancel query | POC |
-| ⬜ | Paramètres de requête (limit, timeout) | V1 |
+| ✅ | Paramètres de requête (limit, timeout) | V1 |
 | ✅ | Historique (par connexion) | POC |
 | ✅ | Favoris / snippets | POC |
-| ⬜ | Templates (INSERT, UPDATE, SELECT, joins) | V1 |
-| ⬜ | Formatter SQL (dialects) | V1 |
-| ⬜ | Autocomplétion contextuelle (schema aware) | V1 |
-| ⬜ | Hover info (type, doc, constraints) | V2 |
+| ✅ | Templates (INSERT, UPDATE, SELECT, joins) | V1 |
+| ✅ | Formatter SQL (dialects) | V1 |
+| ✅ | Autocomplétion contextuelle (schema aware) | V1 |
+| ✅ | Hover info (type, doc, constraints) | V2 |
 | ⬜ | Lint / warnings | V2 |
 | ⬜ | Gestion transactions (autocommit on/off) | V1 |
 | ✅ | Query profiler / timings | POC |
 | ⬜ | Explain plan / visual | V1 |
 | ⬜ | Bind variables / paramètres | V2 |
 | ⬜ | Exécution en batch | V2 |
-| ⬜ | Résultats multiples (plusieurs statements) | V1 |
-| ⬜ | Export du script | V1 |
+| ✅ | Résultats multiples (plusieurs statements) | V1 |
+| ✅ | Export du script | V1 |
 | ⬜ | Macros / variables d'environnement | V3 |
 
 ---
@@ -136,20 +143,21 @@ Note: en exécution multi-statements, seul le dernier résultat est affiché (UI
 |--------|---------|---------|
 | ✅ | Affichage performant (virtualisation) | POC |
 | ✅ | Tri multi-colonnes | POC |
-| ⬜ | Filtres (par colonne, global) | V1 |
-| ⬜ | Recherche dans résultats | V1 |
+| ✅ | Filtres (par colonne, global) | V1 |
+| ✅ | Recherche dans résultats | V1 |
 | ✅ | Pagination / streaming | POC |
 | ✅ | Copy/paste (cell, row, selection) | POC |
 | ✅ | Affichage types spéciaux (JSON, arrays, bytes, dates) | POC |
 | ✅ | Viewer JSON (pretty / collapse) | POC |
 | ⬜ | Viewer blobs (hex/base64, télécharger) | V2 |
-| ⬜ | Viewer dates (format local/UTC) | V1 |
-| ⬜ | Column resizing + reorder | V1 |
+| ✅ | Viewer dates (format local/UTC) | V1 |
+| ✅ | Column resizing + reorder | V1 |
 | ⬜ | Freeze columns | V2 |
-| ⬜ | Masquer/afficher colonnes | V1 |
+| ✅ | Masquer/afficher colonnes | V1 |
 | ✅ | "NULL" distinct visuellement | POC |
+| ✅ | Aperçu relationnel (peek definition FK) | V2 |
 | ⬜ | Résultats persistants (keep results) | V2 |
-| ⬜ | Comparaison de résultats | V3 |
+| ✅ | Comparaison de résultats (Visual Data Diff) | V2 |
 | ✅ | Export CSV/JSON/XLSX/SQL inserts | POC |
 | ⬜ | Import CSV | V2 |
 
@@ -161,25 +169,26 @@ Note: en exécution multi-statements, seul le dernier résultat est affiché (UI
 
 | Status | Feature | Version |
 |--------|---------|---------|
-| ⬜ | Edition inline | V1 |
-| ⬜ | Insert row | V1 |
-| ⬜ | Update cell/row | V1 |
-| ⬜ | Delete row(s) | V1 |
+| ✅ | Edition inline | V1 |
+| ✅ | Insert row | V1 |
+| ✅ | Update cell/row | V1 |
+| ✅ | Delete row(s) | V1 |
 | ⬜ | Bulk edit | V2 |
-| ⬜ | Validation type | V1 |
-| ⬜ | Commit / rollback | V1 |
-| ⬜ | Mode safe update (limit, confirmations) | V1 |
-| ⬜ | Protection prod (double confirm, read-only) | V1 |
+| ✅ | Validation type | V1 |
+| ✅ | Commit / rollback | V1 |
+| ✅ | Mode safe update (limit, confirmations) | V1 |
+| ✅ | Protection prod (double confirm, read-only) | V1 |
+| ✅ | Mode bac à sable (modifs locales + script SQL) | V2 |
 
 ### NoSQL
 
 | Status | Feature | Version |
 |--------|---------|---------|
-| ⬜ | Edition document JSON | V1 |
-| ⬜ | Insert / delete document | V1 |
+| ✅ | Edition document JSON | V1 |
+| ✅ | Insert / delete document | V1 |
 | ⬜ | Bulk update (with preview) | V2 |
 | ⬜ | Validation schema optionnelle | V2 |
-| ⬜ | Pagination/limit | V1 |
+| ✅ | Pagination/limit | V1 |
 
 ---
 
@@ -203,7 +212,7 @@ Note: en exécution multi-statements, seul le dernier résultat est affiché (UI
 | Status | Feature | Version |
 |--------|---------|---------|
 | ✅ | Export results (CSV/JSON/SQL) | POC |
-| ⬜ | Export table (dump partiel) | V1 |
+| ✅ | Export table (dump partiel) | V1 |
 | ⬜ | Import CSV → table | V2 |
 | ⬜ | Data transfer (copy table between DBs) | V2 |
 | ⬜ | Backup/restore helpers | V3 |
@@ -229,12 +238,12 @@ Note: en exécution multi-statements, seul le dernier résultat est affiché (UI
 | Status | Feature | Version |
 |--------|---------|---------|
 | ⬜ | Génération SQL depuis langage naturel | V1 |
-| ⬜ | Explication requête/résultat | V1 |
+| ✅ | Explication requête/résultat | V1 |
 | ⬜ | "What does this table do?" (schema summary) | V2 |
 | ⬜ | Suggestions d'indexes (prudentes) | V2 |
-| ⬜ | Détection requêtes dangereuses | V1 |
+| ✅ | Détection requêtes dangereuses | V1 |
 | ⬜ | Assistance navigation (command palette + IA) | V2 |
-| ⬜ | Privacy modes (local-only, anonymization, consent) | V1 |
+| ✅ | Privacy modes (local-only, anonymization, consent) | V1 |
 
 ---
 
@@ -244,10 +253,10 @@ Note: en exécution multi-statements, seul le dernier résultat est affiché (UI
 |--------|---------|---------|
 | ✅ | Command palette (type Raycast) | POC |
 | ✅ | Raccourcis clavier partout | POC |
-| ⬜ | Quick switch connections | V1 |
-| ⬜ | Quick open table/collection | V1 |
-| ⬜ | Tabs management (pin, reopen closed) | V1 |
-| ⬜ | Recent items | V1 |
+| ✅ | Quick switch connections | V1 |
+| ✅| Quick open table/collection | V1 |
+| ✅ | Tabs management (pin, reopen closed) | V1 |
+| ✅ | Recent items | V1 |
 | ⬜ | Breadcrumbs (namespace/table) | V1 |
 | ✅ | Notifications non-intrusives | POC |
 | ⬜ | Layout dockable (panels) | V2 |
@@ -262,7 +271,7 @@ Note: en exécution multi-statements, seul le dernier résultat est affiché (UI
 | ✅ | Error journal par connexion | POC |
 | ✅ | Logs filtrables | POC |
 | ⬜ | Report bug (export diagnostics) | V1 |
-| ⬜ | Crash recovery (reopen session) | V1 |
+| ✅ | Crash recovery (reopen session) | V1 |
 | ⬜ | Health checks drivers | V2 |
 | ⬜ | Versioning config + migration config | V2 |
 
@@ -286,7 +295,7 @@ Note: en exécution multi-statements, seul le dernier résultat est affiché (UI
 
 | Status | Feature | Version |
 |--------|---------|---------|
-| ⬜ | Désactivation télémétrie | V1 |
+| ✅ | Désactivation télémétrie | V1 |
 | ⬜ | Modes stricts (no network) | V2 |
 | ⬜ | Policy config (locks) | ENT |
 | ⬜ | SSO | ENT |

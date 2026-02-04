@@ -49,3 +49,8 @@ Data Grid,Foreign Key Peek,Frontend / Grid,Tooltips affichant les valeurs des cl
 Schema,Index Support,Backend / Core,Support complet des index dans le schéma des tables.,Terminé,P1,V1,3,Extension du modèle de métadonnées.
 Data Grid,Row Count Estimation,Backend / Core,Estimation optimisée du nombre de lignes pour grandes tables.,Terminé,P2,V1,3,Performance améliorée.
 Infra,Localization FR/EN,Frontend / i18n,Traduction complète interface en français et anglais.,Terminé,P2,V1,2,Support multilingue.
+Data Tools,Recherche globale (full-text),Backend / Core,Recherche d'une chaîne dans toutes les tables/colonnes.,Terminé,P1,V2,4,Scan full-text multi-tables.
+Infra,Background Job Manager,Backend / Core,Exécution asynchrone des tâches longues avec reprise sur erreur.,Terminé,P1,V2,4,Exports/migrations/gros updates.
+Data Engine Kernel,Universal Query Interceptor,Backend / Core,Hooks pour profiling/logging/audit et prévention requêtes destructrices.,Terminé,P1,V2,4,Safety net backend.
+Data Engine Kernel,Driver SQLite,Backend / Core,Driver SQLite avec support WAL et extensions.,Terminé,P1,V2,3,Support 1st class.
+Data Tools,Visual Data Diff,Frontend / Diff,Comparaison côte à côte de deux résultats de requêtes ou tables (type Git diff).,Terminé,P1,V2,3,Compare Prod vs Staging.

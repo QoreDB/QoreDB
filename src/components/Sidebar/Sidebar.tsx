@@ -8,6 +8,7 @@ import {
   SavedConnection,
   Namespace,
   RelationFilter,
+  Collection,
 } from '../../lib/tauri';
 import { Plus, Bug } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -26,6 +27,7 @@ interface SidebarProps {
   connectedConnectionId?: string | null;
   onTableSelect?: (namespace: Namespace, tableName: string, relationFilter?: RelationFilter) => void;
   onDatabaseSelect?: (namespace: Namespace) => void;
+  onCompareTable?: (collection: Collection) => void;
   onEditConnection: (connection: SavedConnection, password: string) => void;
   refreshTrigger?: number;
   schemaRefreshTrigger?: number;
@@ -39,6 +41,7 @@ export function Sidebar({
   connectedConnectionId,
   onTableSelect,
   onDatabaseSelect,
+  onCompareTable,
   onEditConnection,
   refreshTrigger,
   schemaRefreshTrigger,
@@ -135,7 +138,10 @@ export function Sidebar({
   }
 
   return (
-    <aside className="w-64 h-full flex flex-col border-r border-border bg-muted/30">
+    <aside
+      className="w-64 h-full flex flex-col border-r border-border bg-muted/30"
+      data-allow-webview-shortcuts
+    >
       <header className="h-12 flex items-center px-4 border-b border-border bg-muted/10">
         <button
           onClick={() => (window.location.href = '/')}
@@ -182,6 +188,7 @@ export function Sidebar({
                       connection={conn}
                       onTableSelect={onTableSelect}
                       onDatabaseSelect={onDatabaseSelect}
+                      onCompareTable={onCompareTable}
                       refreshTrigger={schemaRefreshTrigger}
                       activeNamespace={activeNamespace}
                     />

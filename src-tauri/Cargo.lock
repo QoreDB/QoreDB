@@ -3695,7 +3695,7 @@ dependencies = [
 
 [[package]]
 name = "qoredb"
-version = "0.1.15"
+version = "0.1.16"
 dependencies = [
  "argon2",
  "async-trait",

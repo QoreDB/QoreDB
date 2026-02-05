@@ -21,7 +21,7 @@ export interface ExportProgress {
   rows_exported: number;
   bytes_written: number;
   elapsed_ms: number;
-  rows_per_second?: number;
+  rows_per_second?: number | null;
   error?: string;
 }
 

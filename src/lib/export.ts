@@ -1,7 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import type { Namespace } from './tauri';
 
-export type ExportFormat = 'csv' | 'json' | 'sql_insert';
+export type ExportFormat = 'csv' | 'json' | 'sql_insert' | 'html';
 export type ExportState = 'pending' | 'running' | 'completed' | 'cancelled' | 'failed';
 
 export interface ExportConfig {
@@ -35,8 +35,12 @@ export interface ExportCancelResponse {
   error?: string;
 }
 
-export function startExport(sessionId: string, config: ExportConfig): Promise<ExportStartResponse> {
-  return invoke('start_export', { sessionId, config });
+export function startExport(
+  sessionId: string,
+  config: ExportConfig,
+  exportId?: string
+): Promise<ExportStartResponse> {
+  return invoke('start_export', { sessionId, config, exportId });
 }
 
 export function cancelExport(exportId: string): Promise<ExportCancelResponse> {

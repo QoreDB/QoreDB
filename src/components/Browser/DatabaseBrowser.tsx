@@ -1,12 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { 
-  Namespace, 
+import {
+  Namespace,
   Collection,
   listCollections,
   executeQuery,
   Environment,
-  RelationFilter
+  RelationFilter,
+  Routine,
+  listRoutines,
 } from '../../lib/tauri';
 import { getTerminology } from '@/lib/driverCapabilities';
 import { cn } from '@/lib/utils';
@@ -27,6 +29,8 @@ import {
   Plus,
   Search,
   TerminalSquare,
+  FunctionSquare,
+  PlayCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -34,8 +38,9 @@ import { getDriverMetadata, Driver, DRIVER_LABELS, DRIVER_ICONS } from '../../li
 import { CreateTableModal } from '../Table/CreateTableModal';
 import { emitTableChange, onTableChange } from '@/lib/tableEvents';
 import { ERDiagram } from '@/components/Schema/ERDiagram';
+import { StatCard } from './StatCard';
 
-export type DatabaseBrowserTab = 'overview' | 'tables' | 'schema';
+export type DatabaseBrowserTab = 'overview' | 'tables' | 'routines' | 'schema';
 
 interface DatabaseBrowserProps {
   sessionId: string;
@@ -83,6 +88,8 @@ export function DatabaseBrowser({
   const [activeTab, setActiveTab] = useState<DatabaseBrowserTab>(initialTab ?? 'overview');
   const [stats, setStats] = useState<DatabaseStats>({});
   const [collections, setCollections] = useState<Collection[]>([]);
+  const [routines, setRoutines] = useState<Routine[]>([]);
+  const [routinesLoading, setRoutinesLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [createTableOpen, setCreateTableOpen] = useState(false);
@@ -103,9 +110,28 @@ export function DatabaseBrowser({
     [onActiveTabChange]
   );
 
+  const loadRoutines = useCallback(async () => {
+    setRoutinesLoading(true);
+    try {
+      const result = await listRoutines(sessionId, namespace);
+      if (result.success && result.data) {
+        setRoutines(result.data.routines);
+      }
+    } catch (err) {
+      console.error('Failed to load routines:', err);
+    } finally {
+      setRoutinesLoading(false);
+    }
+  }, [sessionId, namespace]);
+
   const loadData = useCallback(async () => {
     if (activeTab === 'schema') {
       setLoading(false);
+      return;
+    }
+    if (activeTab === 'routines') {
+      setLoading(false);
+      loadRoutines();
       return;
     }
     setLoading(true);
@@ -187,7 +213,16 @@ export function DatabaseBrowser({
     } finally {
       setLoading(false);
     }
-  }, [sessionId, namespace, driverMeta, activeTab, page, search]);
+  }, [
+    activeTab,
+    loadRoutines,
+    page,
+    search,
+    sessionId,
+    namespace,
+    driverMeta.supportsSQL,
+    driverMeta.queries,
+  ]);
 
   useEffect(() => {
     if (!driverMeta.supportsSQL && activeTab === 'schema') {
@@ -339,6 +374,22 @@ export function DatabaseBrowser({
             {t(terminology.tablePluralLabel)} ({totalCount})
           </span>
         </button>
+        {driverMeta.supportsSQL && (
+          <button
+            className={cn(
+              'px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
+              activeTab === 'routines'
+                ? 'bg-accent text-accent-foreground'
+                : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+            )}
+            onClick={() => handleTabChange('routines')}
+          >
+            <span className="flex items-center gap-2">
+              <FunctionSquare size={14} />
+              {t('databaseBrowser.routines')} ({routines.length})
+            </span>
+          </button>
+        )}
         {driverMeta.supportsSQL && (
           <button
             className={cn(
@@ -529,6 +580,98 @@ export function DatabaseBrowser({
               </div>
             </div>
           </div>
+        ) : activeTab === 'routines' ? (
+          /* Routines Tab */
+          <div className="flex flex-col h-full gap-4">
+            <div className="border border-border rounded-md divide-y divide-border flex-1 overflow-auto relative min-h-50">
+              {routinesLoading && (
+                <div className="absolute inset-0 z-10 bg-background/50 flex items-center justify-center backdrop-blur-[1px]">
+                  <Loader2 size={24} className="animate-spin text-primary" />
+                </div>
+              )}
+
+              {routines.length === 0 && !routinesLoading ? (
+                <div className="text-sm text-muted-foreground italic p-8 text-center">
+                  {t('databaseBrowser.noRoutines')}
+                </div>
+              ) : (
+                <>
+                  {/* Functions */}
+                  {routines.filter(r => r.routine_type === 'Function').length > 0 && (
+                    <div className="p-3 bg-muted/30">
+                      <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                        <FunctionSquare size={12} />
+                        {t('dbtree.functions')} (
+                        {routines.filter(r => r.routine_type === 'Function').length})
+                      </h4>
+                    </div>
+                  )}
+                  {routines
+                    .filter(r => r.routine_type === 'Function')
+                    .map(routine => (
+                      <div
+                        key={`fn-${routine.name}-${routine.arguments}`}
+                        className="flex items-center justify-between w-full px-4 py-3 hover:bg-muted/50 transition-colors text-left"
+                      >
+                        <div className="flex items-center gap-3">
+                          <FunctionSquare size={16} className="text-muted-foreground" />
+                          <div>
+                            <span className="font-mono text-sm">{routine.name}</span>
+                            <span className="text-xs text-muted-foreground ml-1">
+                              ({routine.arguments})
+                            </span>
+                            {routine.return_type && (
+                              <span className="text-xs text-muted-foreground ml-1">
+                                &rarr; {routine.return_type}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        {routine.language && (
+                          <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
+                            {routine.language}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+
+                  {/* Procedures */}
+                  {routines.filter(r => r.routine_type === 'Procedure').length > 0 && (
+                    <div className="p-3 bg-muted/30">
+                      <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                        <PlayCircle size={12} />
+                        {t('dbtree.procedures')} (
+                        {routines.filter(r => r.routine_type === 'Procedure').length})
+                      </h4>
+                    </div>
+                  )}
+                  {routines
+                    .filter(r => r.routine_type === 'Procedure')
+                    .map(routine => (
+                      <div
+                        key={`proc-${routine.name}-${routine.arguments}`}
+                        className="flex items-center justify-between w-full px-4 py-3 hover:bg-muted/50 transition-colors text-left"
+                      >
+                        <div className="flex items-center gap-3">
+                          <PlayCircle size={16} className="text-muted-foreground" />
+                          <div>
+                            <span className="font-mono text-sm">{routine.name}</span>
+                            <span className="text-xs text-muted-foreground ml-1">
+                              ({routine.arguments})
+                            </span>
+                          </div>
+                        </div>
+                        {routine.language && (
+                          <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
+                            {routine.language}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                </>
+              )}
+            </div>
+          </div>
         ) : (
           <div className="h-full">
             <ERDiagram
@@ -557,24 +700,6 @@ export function DatabaseBrowser({
           }
         }}
       />
-    </div>
-  );
-}
-
-interface StatCardProps {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-}
-
-function StatCard({ icon, label, value }: StatCardProps) {
-  return (
-    <div className="flex items-center gap-3 p-4 rounded-md border border-border bg-muted/20">
-      <div className="text-accent">{icon}</div>
-      <div>
-        <div className="text-xs text-muted-foreground">{label}</div>
-        <div className="text-lg font-semibold">{value}</div>
-      </div>
     </div>
   );
 }

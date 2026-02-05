@@ -986,7 +986,7 @@ function StructureTable({ schema }: StructureTableProps) {
       <div className="flex items-center bg-muted/50 border-b border-border text-xs font-semibold text-muted-foreground uppercase tracking-wider">
         <div className="w-8 p-2 text-center">#</div>
         <div className="flex-1 p-2">{t('table.column')}</div>
-        <div className="w-32 p-2">{t('table.type')}</div>
+        <div className="w-40 p-2">{t('table.type')}</div>
         <div className="w-24 p-2 text-center">{t('table.nullable')}</div>
         <div className="w-48 p-2">{t('table.default')}</div>
       </div>
@@ -1002,7 +1002,7 @@ function StructureTable({ schema }: StructureTableProps) {
             {col.is_primary_key && <Key size={12} className="text-warning shrink-0" />}
             <span className={cn(col.is_primary_key && 'font-semibold')}>{col.name}</span>
           </div>
-          <div className="w-32 p-2 font-mono text-xs text-accent">{col.data_type}</div>
+          <div className="w-40 p-2 font-mono text-xs text-accent truncate" title={col.data_type}>{col.data_type}</div>
           <div className="w-24 p-2 text-center">
             {col.nullable ? (
               <span className="text-muted-foreground">NULL</span>
@@ -1070,7 +1070,7 @@ function TableInfoPanel({ sessionId, namespace, tableName, driver, schema }: Tab
       if (driverMeta.supportsSQL) {
         // PostgreSQL stats query
         if (driver === Driver.Postgres) {
-          // Table size
+          //TODO : à passer en backend ?
           const sizeQuery = `
             SELECT pg_total_relation_size('"${schemaName}"."${tableName}"') as total_bytes,
                    pg_size_pretty(pg_total_relation_size('"${schemaName}"."${tableName}"')) as size_pretty
@@ -1083,6 +1083,7 @@ function TableInfoPanel({ sessionId, namespace, tableName, driver, schema }: Tab
           }
 
           // Row count (exact)
+          //TODO : count is heavy , may by have a fallack for larges databases
           const countQuery = `SELECT COUNT(*) as cnt FROM "${schemaName}"."${tableName}"`;
           const countResult = await executeQuery(sessionId, countQuery);
           if (countResult.success && countResult.result?.rows[0]) {

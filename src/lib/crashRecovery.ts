@@ -1,6 +1,6 @@
 export interface RecoveryTab {
   id: string;
-  type: 'query' | 'table' | 'database';
+  type: 'query' | 'table' | 'database' | 'diff';
   title: string;
   namespace?: {
     database: string;

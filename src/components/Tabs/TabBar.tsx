@@ -1,4 +1,4 @@
-import { X, Plus, FileCode, Table, Settings, Database } from 'lucide-react';
+import { X, Plus, FileCode, Table, Settings, Database, GitCompare } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTranslation } from 'react-i18next';
 import { getModifierKey } from '@/utils/platform';
@@ -6,7 +6,7 @@ import { getModifierKey } from '@/utils/platform';
 export interface TabItem {
   id: string;
   title: string;
-  type: 'query' | 'table' | 'database' | 'settings';
+  type: 'query' | 'table' | 'database' | 'settings' | 'diff';
 }
 
 interface TabBarProps {
@@ -32,6 +32,7 @@ export function TabBar({
       case 'table': return <Table size={14} />;
       case 'database': return <Database size={14} />;
       case 'settings': return <Settings size={14} />;
+      case 'diff': return <GitCompare size={14} />;
     }
   };
 

@@ -6,6 +6,8 @@ Objectif : sélectionner un petit noyau de features qui créent un **effet “wo
 
 ## 1) Sandbox d’édition + Diff + Génération de migrations ("Git pour la data")
 
+**État :** implémenté à +90%
+
 **Idée centrale** : permettre aux devs de modifier des données/localement en toute sécurité, de visualiser précisément les changements, puis de générer un script SQL propre et reproductible.
 
 **Expérience utilisateur**
@@ -33,6 +35,8 @@ Objectif : sélectionner un petit noyau de features qui créent un **effet “wo
 
 ## 2) ER Diagram interactif (schema vivant + navigation)
 
+**État :** implémenté partiellement +75%
+
 **Idée centrale** : transformer le schéma en véritable interface, pas juste une image. Le diagramme devient un outil d’exploration actif et fluide.
 
 **Expérience utilisateur**
@@ -59,6 +63,8 @@ Objectif : sélectionner un petit noyau de features qui créent un **effet “wo
 
 ## 3) Universal Query Safety Net (prévention active des erreurs)
 
+**État :** implémenté partiellement +75%
+
 **Idée centrale** : empêcher les erreurs destructrices par défaut, et offrir un cadre de sécurité intelligent mais non bloquant.
 
 **Expérience utilisateur**
@@ -84,6 +90,8 @@ Objectif : sélectionner un petit noyau de features qui créent un **effet “wo
 
 ## 4) Visual Data Diff (comparaison claire, style Git)
 
+**État :** concept défini, à implémenter
+
 **Idée centrale** : comparer visuellement des résultats ou tables (prod vs staging, avant/après migration, query A vs query B).
 
 **Expérience utilisateur**
@@ -107,6 +115,8 @@ Objectif : sélectionner un petit noyau de features qui créent un **effet “wo
 ---
 
 ## 5) Virtual Relations Engine (relations définies par l’utilisateur)
+
+**État :** concept défini, à implémenter
 
 **Idée centrale** : permettre à l’utilisateur de créer des relations virtuelles entre tables/collections même si le schéma DB est mal conçu ou NoSQL.
 

@@ -115,7 +115,7 @@ export interface Namespace {
 export interface Collection {
   namespace: Namespace;
   name: string;
-  collection_type: 'Table' | 'View' | 'Collection';
+  collection_type: 'Table' | 'View' | 'MaterializedView' | 'Collection';
 }
 
 export interface CollectionListOptions {
@@ -275,6 +275,48 @@ export async function listCollections(
   error?: string;
 }> {
   return invoke('list_collections', { sessionId, namespace, search, page, page_size });
+}
+
+// ============================================
+// ROUTINES (Functions/Procedures)
+// ============================================
+
+export type RoutineType = 'Function' | 'Procedure';
+
+export interface Routine {
+  namespace: Namespace;
+  name: string;
+  routine_type: RoutineType;
+  arguments: string;
+  return_type?: string;
+  language?: string;
+}
+
+export interface RoutineList {
+  routines: Routine[];
+  total_count: number;
+}
+
+export async function listRoutines(
+  sessionId: string,
+  namespace: Namespace,
+  search?: string,
+  page?: number,
+  pageSize?: number,
+  routineType?: RoutineType
+): Promise<{
+  success: boolean;
+  data?: RoutineList;
+  error?: string;
+}> {
+  return invoke('list_routines', {
+    sessionId,
+    namespace,
+    search,
+    page,
+    page_size: pageSize,
+    routine_type: routineType,
+  });
 }
 
 export async function cancelQuery(

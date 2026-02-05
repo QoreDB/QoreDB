@@ -1,7 +1,28 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Namespace, Collection, SavedConnection, listCollections, RelationFilter } from '../../lib/tauri';
+import {
+  Namespace,
+  Collection,
+  SavedConnection,
+  listCollections,
+  RelationFilter,
+  Routine,
+  listRoutines,
+} from '../../lib/tauri';
 import { useSchemaCache } from '../../hooks/useSchemaCache';
-import { Folder, FolderOpen, Table, Eye, Loader2, Plus, ChevronRight, ChevronDown, Search } from 'lucide-react';
+import {
+  Folder,
+  FolderOpen,
+  Table,
+  Eye,
+  Loader2,
+  Plus,
+  ChevronRight,
+  ChevronDown,
+  Search,
+  FunctionSquare,
+  PlayCircle,
+  Layers,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,8 +41,13 @@ interface DBTreeProps {
   connectionId: string;
   driver: string;
   connection?: SavedConnection;
-  onTableSelect?: (namespace: Namespace, tableName: string, relationFilter?: RelationFilter) => void;
+  onTableSelect?: (
+    namespace: Namespace,
+    tableName: string,
+    relationFilter?: RelationFilter
+  ) => void;
   onDatabaseSelect?: (namespace: Namespace) => void;
+  onCompareTable?: (collection: Collection) => void;
   refreshTrigger?: number;
   activeNamespace?: Namespace | null;
 }
@@ -32,6 +58,7 @@ export function DBTree({
   connection,
   onTableSelect,
   onDatabaseSelect,
+  onCompareTable,
   refreshTrigger,
   activeNamespace,
 }: DBTreeProps) {
@@ -43,17 +70,20 @@ export function DBTree({
   const [collectionsTotal, setCollectionsTotal] = useState(0);
   const [collectionsPage, setCollectionsPage] = useState(1);
   const [collectionsLoading, setCollectionsLoading] = useState(false);
+  const [routines, setRoutines] = useState<Routine[]>([]);
+  const [routinesLoading, setRoutinesLoading] = useState(false);
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['tables']));
   const schemaCache = useSchemaCache(connectionId);
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [createTableOpen, setCreateTableOpen] = useState(false);
   const [createTableNamespace, setCreateTableNamespace] = useState<Namespace | null>(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deleteTargetNamespace, setDeleteTargetNamespace] = useState<Namespace | null>(null);
-  const [search, setSearch] = useState("");
-  const [searchValue, setSearchValue] = useState("");  
+  const [search, setSearch] = useState('');
+  const [searchValue, setSearchValue] = useState('');
   const [collapsedActiveNsKey, setCollapsedActiveNsKey] = useState<string | null>(null);
-  const collectionsPageSize = 50; 
-  
+  const collectionsPageSize = 50;
+
   const driverMeta = getDriverMetadata(driver);
   const terminology = getTerminology(driver);
 
@@ -95,7 +125,7 @@ export function DBTree({
         const data = cols.data;
         setCollectionsTotal(data.total_count);
         setCollectionsPage(page);
-        
+
         if (!append || (page === 1 && !append)) {
           setCollections(data.collections);
         } else {
@@ -109,6 +139,35 @@ export function DBTree({
     },
     [connectionId, collectionsPageSize, search]
   );
+
+  const refreshRoutines = useCallback(
+    async (ns: Namespace) => {
+      setRoutinesLoading(true);
+      try {
+        const result = await listRoutines(connectionId, ns, search);
+        if (result.success && result.data) {
+          setRoutines(result.data.routines);
+        }
+      } catch (err) {
+        console.error('Failed to refresh routines:', err);
+      } finally {
+        setRoutinesLoading(false);
+      }
+    },
+    [connectionId, search]
+  );
+
+  const toggleSection = useCallback((section: string) => {
+    setExpandedSections(prev => {
+      const next = new Set(prev);
+      if (next.has(section)) {
+        next.delete(section);
+      } else {
+        next.add(section);
+      }
+      return next;
+    });
+  }, []);
 
   // Sync expanded state with activeNamespace
   useEffect(() => {
@@ -126,7 +185,7 @@ export function DBTree({
         refreshCollections(activeNamespace, 1, false);
       }
     }
-  }, [activeNamespace, expandedNs, refreshCollections]);
+  }, [activeNamespace, collapsedActiveNsKey, expandedNs, refreshCollections]);
 
   const canLoadMore = collections.length > 0 && collections.length < collectionsTotal;
 
@@ -134,8 +193,9 @@ export function DBTree({
   useEffect(() => {
     if (expandedNamespace) {
       refreshCollections(expandedNamespace, 1, false);
+      refreshRoutines(expandedNamespace);
     }
-  }, [search, expandedNamespace, refreshCollections]);
+  }, [search, expandedNamespace, refreshCollections, refreshRoutines]);
 
   const handleLoadMore = useCallback(async () => {
     if (!expandedNamespace || collectionsLoading) return;
@@ -177,8 +237,9 @@ export function DBTree({
       setExpandedNamespace(null);
       setCollections([]);
       setCollectionsTotal(0);
-      setSearch("");
-      setSearchValue("");
+      setRoutines([]);
+      setSearch('');
+      setSearchValue('');
       if (activeNamespace && getNsKey(activeNamespace) === key) {
         setCollapsedActiveNsKey(key);
       }
@@ -188,9 +249,9 @@ export function DBTree({
     setExpandedNs(key);
     setExpandedNamespace(ns);
     setCollapsedActiveNsKey(null);
-    setSearch("");
-    setSearchValue("");
-    await refreshCollections(ns, 1, false);
+    setSearch('');
+    setSearchValue('');
+    await Promise.all([refreshCollections(ns, 1, false), refreshRoutines(ns)]);
   }
 
   async function openNamespace(ns: Namespace) {
@@ -199,7 +260,7 @@ export function DBTree({
       setExpandedNs(key);
       setExpandedNamespace(ns);
       setCollapsedActiveNsKey(null);
-      await refreshCollections(ns, 1, false);
+      await Promise.all([refreshCollections(ns, 1, false), refreshRoutines(ns)]);
     }
     onDatabaseSelect?.(ns);
   }
@@ -223,21 +284,29 @@ export function DBTree({
   return (
     <div className="flex flex-col text-sm">
       <div className="flex items-center justify-between px-2 py-1 mb-1">
-         <span className="text-xs font-semibold text-muted-foreground">
-           {t(driverMeta.treeRootLabel)}
-         </span>
-         {driverMeta.createAction !== 'none' && (
-           <Button 
-              variant="ghost" 
-              size="icon" 
-              className="h-5 w-5" 
-              onClick={() => setCreateModalOpen(true)}
-              disabled={connection?.read_only}
-              title={connection?.read_only ? t('environment.blocked') : t(driverMeta.createAction === 'schema' ? 'database.newSchema' : 'database.newDatabase')}
-           >
-              <Plus size={12} />
-           </Button>
-         )}
+        <span className="text-xs font-semibold text-muted-foreground">
+          {t(driverMeta.treeRootLabel)}
+        </span>
+        {driverMeta.createAction !== 'none' && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-5 w-5"
+            onClick={() => setCreateModalOpen(true)}
+            disabled={connection?.read_only}
+            title={
+              connection?.read_only
+                ? t('environment.blocked')
+                : t(
+                    driverMeta.createAction === 'schema'
+                      ? 'database.newSchema'
+                      : 'database.newDatabase'
+                  )
+            }
+          >
+            <Plus size={12} />
+          </Button>
+        )}
       </div>
 
       <CreateDatabaseModal
@@ -258,7 +327,7 @@ export function DBTree({
       {namespaces.map(ns => {
         const key = getNsKey(ns);
         const isExpanded = expandedNs === key;
-        
+
         return (
           <div key={key}>
             <DatabaseContextMenu
@@ -277,8 +346,8 @@ export function DBTree({
             >
               <button
                 className={cn(
-                  "flex items-center gap-2 w-full px-2 py-1.5 rounded-md hover:bg-accent/10 transition-colors text-left",
-                  isExpanded ? "text-foreground" : "text-muted-foreground"
+                  'flex items-center gap-2 w-full px-2 py-1.5 rounded-md hover:bg-accent/10 transition-colors text-left',
+                  isExpanded ? 'text-foreground' : 'text-muted-foreground'
                 )}
                 onClick={() => {
                   handleExpandNamespace(ns);
@@ -296,60 +365,273 @@ export function DBTree({
                 </span>
               </button>
             </DatabaseContextMenu>
-            
+
             {isExpanded && (
               <div className="flex flex-col ml-2 pl-2 border-l border-border mt-0.5 space-y-0.5">
                 <div className="px-2 mb-1 relative">
-                   <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground z-10" />
-                   <Input
-                      className="h-7 text-xs pl-7 bg-muted/50 border-transparent focus-visible:bg-background shadow-none"
-                      placeholder={t('browser.searchPlaceholder', { label: t(terminology.tablePluralLabel).toLowerCase() })}
-                      value={searchValue}
-                      onChange={(e) => setSearchValue(e.target.value)}
-                      onClick={(e) => e.stopPropagation()}
-                   />
+                  <Search
+                    size={12}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground z-10"
+                  />
+                  <Input
+                    className="h-7 text-xs pl-7 bg-muted/50 border-transparent focus-visible:bg-background shadow-none"
+                    placeholder={t('browser.searchPlaceholder', {
+                      label: t(terminology.tablePluralLabel).toLowerCase(),
+                    })}
+                    value={searchValue}
+                    onChange={e => setSearchValue(e.target.value)}
+                    onClick={e => e.stopPropagation()}
+                  />
                 </div>
-                {collections.length === 0 ? (
-                  <div className="px-2 py-1 text-xs text-muted-foreground italic">
-                    {search ? t('common.noResults') : t('common.noResults')}
-                  </div>
-                ) : (
-                  <>
-                  {collections.map(col => (
-                    <TableContextMenu
-                      key={col.name}
-                      collection={col}
-                      sessionId={sessionId}
-                      driver={driver as Driver}
-                      environment={connection?.environment || 'development'}
-                      readOnly={connection?.read_only || false}
-                      onRefresh={() => refreshCollections(col.namespace)}
-                      onOpen={() => handleTableClick(col)}
-                    >
+
+                {/* Tables Section */}
+                {(() => {
+                  const tables = collections.filter(c => c.collection_type === 'Table');
+                  if (tables.length === 0 && !collectionsLoading) return null;
+                  return (
+                    <div className="space-y-0.5">
                       <button
-                        className="flex items-center gap-2 w-full px-2 py-1 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground text-left group"
-                        onClick={() => handleTableClick(col)}
+                        className="flex items-center gap-1 px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground w-full text-left"
+                        onClick={() => toggleSection('tables')}
                       >
-                        <span className="shrink-0 group-hover:text-foreground/80 transition-colors">
-                          {col.collection_type === 'View' ? <Eye size={13} /> : <Table size={13} />}
-                        </span>
-                        <span className="truncate font-mono text-xs">{col.name}</span>
+                        {expandedSections.has('tables') ? (
+                          <ChevronDown size={12} />
+                        ) : (
+                          <ChevronRight size={12} />
+                        )}
+                        <Table size={12} />
+                        <span>{t('dbtree.tables')}</span>
+                        <span className="text-muted-foreground/60 ml-auto">{tables.length}</span>
                       </button>
-                    </TableContextMenu>
-                  ))}
-                  {canLoadMore && !collectionsLoading && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 justify-start px-2 text-xs text-muted-foreground hover:text-foreground w-full"
-                      onClick={handleLoadMore}
-                    >
-                      {t('dbtree.loadMore')} ({collectionsTotal - collections.length})
-                    </Button>
-                  )}
-                  </>
+                      {expandedSections.has('tables') &&
+                        tables.map(col => (
+                          <TableContextMenu
+                            key={col.name}
+                            collection={col}
+                            sessionId={sessionId}
+                            driver={driver as Driver}
+                            environment={connection?.environment || 'development'}
+                            readOnly={connection?.read_only || false}
+                            onRefresh={() => refreshCollections(col.namespace)}
+                            onOpen={() => handleTableClick(col)}
+                            onCompareWith={onCompareTable}
+                          >
+                            <button
+                              className="flex items-center gap-2 w-full px-2 py-1 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground text-left group ml-4"
+                              onClick={() => handleTableClick(col)}
+                            >
+                              <span className="shrink-0 group-hover:text-foreground/80 transition-colors">
+                                <Table size={13} />
+                              </span>
+                              <span className="truncate font-mono text-xs">{col.name}</span>
+                            </button>
+                          </TableContextMenu>
+                        ))}
+                    </div>
+                  );
+                })()}
+
+                {/* Views Section */}
+                {(() => {
+                  const views = collections.filter(c => c.collection_type === 'View');
+                  if (views.length === 0) return null;
+                  return (
+                    <div className="space-y-0.5">
+                      <button
+                        className="flex items-center gap-1 px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground w-full text-left"
+                        onClick={() => toggleSection('views')}
+                      >
+                        {expandedSections.has('views') ? (
+                          <ChevronDown size={12} />
+                        ) : (
+                          <ChevronRight size={12} />
+                        )}
+                        <Eye size={12} />
+                        <span>{t('dbtree.views')}</span>
+                        <span className="text-muted-foreground/60 ml-auto">{views.length}</span>
+                      </button>
+                      {expandedSections.has('views') &&
+                        views.map(col => (
+                          <TableContextMenu
+                            key={col.name}
+                            collection={col}
+                            sessionId={sessionId}
+                            driver={driver as Driver}
+                            environment={connection?.environment || 'development'}
+                            readOnly={connection?.read_only || false}
+                            onRefresh={() => refreshCollections(col.namespace)}
+                            onOpen={() => handleTableClick(col)}
+                            onCompareWith={onCompareTable}
+                          >
+                            <button
+                              className="flex items-center gap-2 w-full px-2 py-1 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground text-left group ml-4"
+                              onClick={() => handleTableClick(col)}
+                            >
+                              <span className="shrink-0 group-hover:text-foreground/80 transition-colors">
+                                <Eye size={13} />
+                              </span>
+                              <span className="truncate font-mono text-xs">{col.name}</span>
+                            </button>
+                          </TableContextMenu>
+                        ))}
+                    </div>
+                  );
+                })()}
+
+                {/* Materialized Views Section (PostgreSQL) */}
+                {(() => {
+                  const matViews = collections.filter(
+                    c => c.collection_type === 'MaterializedView'
+                  );
+                  if (matViews.length === 0) return null;
+                  return (
+                    <div className="space-y-0.5">
+                      <button
+                        className="flex items-center gap-1 px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground w-full text-left"
+                        onClick={() => toggleSection('materializedViews')}
+                      >
+                        {expandedSections.has('materializedViews') ? (
+                          <ChevronDown size={12} />
+                        ) : (
+                          <ChevronRight size={12} />
+                        )}
+                        <Layers size={12} />
+                        <span>{t('dbtree.materializedViews')}</span>
+                        <span className="text-muted-foreground/60 ml-auto">{matViews.length}</span>
+                      </button>
+                      {expandedSections.has('materializedViews') &&
+                        matViews.map(col => (
+                          <TableContextMenu
+                            key={col.name}
+                            collection={col}
+                            sessionId={sessionId}
+                            driver={driver as Driver}
+                            environment={connection?.environment || 'development'}
+                            readOnly={connection?.read_only || false}
+                            onRefresh={() => refreshCollections(col.namespace)}
+                            onOpen={() => handleTableClick(col)}
+                            onCompareWith={onCompareTable}
+                          >
+                            <button
+                              className="flex items-center gap-2 w-full px-2 py-1 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground text-left group ml-4"
+                              onClick={() => handleTableClick(col)}
+                            >
+                              <span className="shrink-0 group-hover:text-foreground/80 transition-colors">
+                                <Layers size={13} />
+                              </span>
+                              <span className="truncate font-mono text-xs">{col.name}</span>
+                            </button>
+                          </TableContextMenu>
+                        ))}
+                    </div>
+                  );
+                })()}
+
+                {/* Functions Section */}
+                {(() => {
+                  const functions = routines.filter(r => r.routine_type === 'Function');
+                  if (functions.length === 0 && !routinesLoading) return null;
+                  return (
+                    <div className="space-y-0.5">
+                      <button
+                        className="flex items-center gap-1 px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground w-full text-left"
+                        onClick={() => toggleSection('functions')}
+                      >
+                        {expandedSections.has('functions') ? (
+                          <ChevronDown size={12} />
+                        ) : (
+                          <ChevronRight size={12} />
+                        )}
+                        <FunctionSquare size={12} />
+                        <span>{t('dbtree.functions')}</span>
+                        <span className="text-muted-foreground/60 ml-auto">{functions.length}</span>
+                      </button>
+                      {expandedSections.has('functions') &&
+                        functions.map(routine => (
+                          <div
+                            key={routine.name}
+                            className="flex items-center gap-2 w-full px-2 py-1 rounded-md text-muted-foreground text-left group ml-4"
+                            title={`${routine.name}(${routine.arguments})${routine.return_type ? ` → ${routine.return_type}` : ''}`}
+                          >
+                            <span className="shrink-0">
+                              <FunctionSquare size={13} />
+                            </span>
+                            <span className="truncate font-mono text-xs">{routine.name}</span>
+                            {routine.language && (
+                              <span className="text-[10px] text-muted-foreground/60 ml-auto">
+                                {routine.language}
+                              </span>
+                            )}
+                          </div>
+                        ))}
+                    </div>
+                  );
+                })()}
+
+                {/* Procedures Section */}
+                {(() => {
+                  const procedures = routines.filter(r => r.routine_type === 'Procedure');
+                  if (procedures.length === 0 && !routinesLoading) return null;
+                  return (
+                    <div className="space-y-0.5">
+                      <button
+                        className="flex items-center gap-1 px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground w-full text-left"
+                        onClick={() => toggleSection('procedures')}
+                      >
+                        {expandedSections.has('procedures') ? (
+                          <ChevronDown size={12} />
+                        ) : (
+                          <ChevronRight size={12} />
+                        )}
+                        <PlayCircle size={12} />
+                        <span>{t('dbtree.procedures')}</span>
+                        <span className="text-muted-foreground/60 ml-auto">
+                          {procedures.length}
+                        </span>
+                      </button>
+                      {expandedSections.has('procedures') &&
+                        procedures.map(routine => (
+                          <div
+                            key={routine.name}
+                            className="flex items-center gap-2 w-full px-2 py-1 rounded-md text-muted-foreground text-left group ml-4"
+                            title={`${routine.name}(${routine.arguments})`}
+                          >
+                            <span className="shrink-0">
+                              <PlayCircle size={13} />
+                            </span>
+                            <span className="truncate font-mono text-xs">{routine.name}</span>
+                            {routine.language && (
+                              <span className="text-[10px] text-muted-foreground/60 ml-auto">
+                                {routine.language}
+                              </span>
+                            )}
+                          </div>
+                        ))}
+                    </div>
+                  );
+                })()}
+
+                {/* Load More for collections */}
+                {canLoadMore && !collectionsLoading && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 justify-start px-2 text-xs text-muted-foreground hover:text-foreground w-full"
+                    onClick={handleLoadMore}
+                  >
+                    {t('dbtree.loadMore')} ({collectionsTotal - collections.length})
+                  </Button>
                 )}
 
+                {/* Empty state */}
+                {collections.length === 0 &&
+                  routines.length === 0 &&
+                  !collectionsLoading &&
+                  !routinesLoading && (
+                    <div className="px-2 py-1 text-xs text-muted-foreground italic">
+                      {search ? t('common.noResults') : t('common.noResults')}
+                    </div>
+                  )}
               </div>
             )}
           </div>
@@ -366,7 +648,7 @@ export function DBTree({
           sessionId={sessionId}
           namespace={createTableNamespace}
           driver={driver as Driver}
-          onTableCreated={(tableName) => {
+          onTableCreated={tableName => {
             if (!createTableNamespace) return;
             // Invalidate cache before refresh
             schemaCache.invalidateCollections(createTableNamespace);

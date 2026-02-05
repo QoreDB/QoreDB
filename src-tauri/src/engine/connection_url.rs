@@ -19,11 +19,9 @@ pub struct PartialConnectionConfig {
     pub password: Option<String>,
     pub database: Option<String>,
     pub ssl: Option<bool>,
-    /// Additional driver-specific options extracted from query parameters
     pub options: HashMap<String, String>,
 }
 
-/// Errors that can occur during URL parsing
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ParseError {
     pub message: String,
@@ -60,15 +58,14 @@ impl ParseError {
 /// Result type for URL parsing operations
 pub type ParseResult<T> = Result<T, ParseError>;
 
-/// Trait for driver-specific URL parsers
 pub trait ConnectionUrlParser: Send + Sync {
-    /// Returns the driver identifier (e.g., "postgres", "mysql", "mongodb")
+    /// Return river identifier
     fn driver_id(&self) -> &str;
 
-    /// Returns the URL schemes this parser handles (e.g., ["postgres", "postgresql"])
+    /// Return URL schemes supported by this parser
     fn schemes(&self) -> &[&str];
 
-    /// Returns the default port for this database
+    /// Return default port for this database
     fn default_port(&self) -> u16;
 
     /// Parses a URL into a partial configuration

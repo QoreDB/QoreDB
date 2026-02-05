@@ -259,7 +259,7 @@ export function DataGrid({
     tableSchema,
   });
 
-  // Inline edit hook
+
   const {
     setEditingValue,
     editInputRef,

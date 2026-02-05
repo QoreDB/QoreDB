@@ -1,11 +1,6 @@
 //! MySQL Driver
 //!
 //! Implements the DataEngine trait for MySQL/MariaDB databases using SQLx.
-//!
-//! ## Transaction Handling
-//!
-//! Same architecture as PostgreSQL: dedicated connection acquired from pool
-//! on BEGIN and released on COMMIT/ROLLBACK.
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -27,6 +22,7 @@ use crate::engine::types::{
     ConnectionConfig, Namespace, QueryId, QueryResult, Row as QRow, RowData, SessionId,
     TableColumn, TableIndex, TableSchema, Value, ForeignKey,
     TableQueryOptions, PaginatedQueryResult, SortDirection, FilterOperator,
+    Routine, RoutineList, RoutineListOptions, RoutineType,
 };
 use crate::engine::traits::{StreamEvent, StreamSender};
 use futures::StreamExt;
@@ -56,6 +52,41 @@ impl MySqlDriver {
         Self {
             sessions: Arc::new(RwLock::new(HashMap::new())),
         }
+    }
+
+    async fn create_pool(
+        config: &ConnectionConfig,
+        max_connections: u32,
+        min_connections: u32,
+        acquire_timeout_secs: u64,
+        classify_auth_error: bool,
+        run_test_query: bool,
+    ) -> EngineResult<MySqlPool> {
+        let opts = Self::build_connect_options(config);
+
+        let pool = MySqlPoolOptions::new()
+            .max_connections(max_connections)
+            .min_connections(min_connections)
+            .acquire_timeout(std::time::Duration::from_secs(acquire_timeout_secs))
+            .connect_with(opts)
+            .await
+            .map_err(|e| {
+                let msg = e.to_string();
+                if classify_auth_error && msg.contains("Access denied") {
+                    EngineError::auth_failed(msg)
+                } else {
+                    EngineError::connection_failed(msg)
+                }
+            })?;
+
+        if run_test_query {
+            sqlx::query("SELECT 1")
+                .execute(&pool)
+                .await
+                .map_err(|e| EngineError::execution_error(e.to_string()))?;
+        }
+
+        Ok(pool)
     }
 
     async fn get_session(&self, session: SessionId) -> EngineResult<Arc<MySqlSession>> {
@@ -252,44 +283,25 @@ impl DataEngine for MySqlDriver {
     }
 
     async fn test_connection(&self, config: &ConnectionConfig) -> EngineResult<()> {
-        let opts = Self::build_connect_options(config);
-
-        let pool = MySqlPoolOptions::new()
-            .max_connections(1)
-            .acquire_timeout(std::time::Duration::from_secs(10))
-            .connect_with(opts)
-            .await
-            .map_err(|e| {
-                let msg = e.to_string();
-                if msg.contains("Access denied") {
-                    EngineError::auth_failed(msg)
-                } else {
-                    EngineError::connection_failed(msg)
-                }
-            })?;
-
-        sqlx::query("SELECT 1")
-            .execute(&pool)
-            .await
-            .map_err(|e| EngineError::execution_error(e.to_string()))?;
-
+        let pool = Self::create_pool(config, 1, 0, 10, true, true).await?;
         pool.close().await;
         Ok(())
     }
 
     async fn connect(&self, config: &ConnectionConfig) -> EngineResult<SessionId> {
-        let opts = Self::build_connect_options(config);
         let max_connections = config.pool_max_connections.unwrap_or(5);
         let min_connections = config.pool_min_connections.unwrap_or(0);
         let acquire_timeout = config.pool_acquire_timeout_secs.unwrap_or(30);
 
-        let pool = MySqlPoolOptions::new()
-            .max_connections(max_connections)
-            .min_connections(min_connections)
-            .acquire_timeout(std::time::Duration::from_secs(acquire_timeout as u64))
-            .connect_with(opts)
-            .await
-            .map_err(|e| EngineError::connection_failed(e.to_string()))?;
+        let pool = Self::create_pool(
+            config,
+            max_connections,
+            min_connections,
+            acquire_timeout as u64,
+            false,
+            false,
+        )
+        .await?;
 
         let session_id = SessionId::new();
         let session = Arc::new(MySqlSession::new(pool));
@@ -417,6 +429,105 @@ impl DataEngine for MySqlDriver {
             collections,
             total_count: total_count as u32,
         })
+    }
+
+    async fn list_routines(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        options: RoutineListOptions,
+    ) -> EngineResult<RoutineList> {
+        let mysql_session = self.get_session(session).await?;
+        let pool = &mysql_session.pool;
+
+        let search_pattern = options.search.as_ref().map(|s| format!("%{}%", s));
+
+        // Filter by routine type if specified
+        let type_filter = match &options.routine_type {
+            Some(RoutineType::Function) => Some("FUNCTION"),
+            Some(RoutineType::Procedure) => Some("PROCEDURE"),
+            None => None,
+        };
+
+        // 1. Get total count
+        let count_query = r#"
+            SELECT COUNT(*)
+            FROM information_schema.ROUTINES
+            WHERE ROUTINE_SCHEMA = ?
+            AND (? IS NULL OR ROUTINE_NAME LIKE ?)
+            AND (? IS NULL OR ROUTINE_TYPE = ?)
+        "#;
+
+        let count_row: (i64,) = sqlx::query_as(count_query)
+            .bind(&namespace.database)
+            .bind(&search_pattern)
+            .bind(&search_pattern)
+            .bind(&type_filter)
+            .bind(&type_filter)
+            .fetch_one(pool)
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        let total_count = count_row.0;
+
+        // 2. Get paginated results
+        let mut query_str = r#"
+            SELECT
+                CAST(ROUTINE_NAME AS CHAR) AS name,
+                CAST(ROUTINE_TYPE AS CHAR) AS routine_type,
+                CAST(IFNULL(DTD_IDENTIFIER, '') AS CHAR) AS return_type,
+                CAST(IFNULL(EXTERNAL_LANGUAGE, ROUTINE_BODY) AS CHAR) AS language
+            FROM information_schema.ROUTINES
+            WHERE ROUTINE_SCHEMA = ?
+            AND (? IS NULL OR ROUTINE_NAME LIKE ?)
+            AND (? IS NULL OR ROUTINE_TYPE = ?)
+            ORDER BY ROUTINE_NAME
+        "#.to_string();
+
+        if let Some(limit) = options.page_size {
+            query_str.push_str(&format!(" LIMIT {}", limit));
+            if let Some(page) = options.page {
+                let offset = (page.max(1) - 1) * limit;
+                query_str.push_str(&format!(" OFFSET {}", offset));
+            }
+        }
+
+        let rows: Vec<(String, String, String, String)> = sqlx::query_as(&query_str)
+            .bind(&namespace.database)
+            .bind(&search_pattern)
+            .bind(&search_pattern)
+            .bind(&type_filter)
+            .bind(&type_filter)
+            .fetch_all(pool)
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        let routines = rows
+            .into_iter()
+            .map(|(name, rtype, return_type, language)| {
+                let routine_type = match rtype.as_str() {
+                    "PROCEDURE" => RoutineType::Procedure,
+                    _ => RoutineType::Function,
+                };
+                Routine {
+                    namespace: namespace.clone(),
+                    name,
+                    routine_type,
+                    arguments: String::new(), // MySQL doesn't easily expose this in information_schema
+                    return_type: if return_type.is_empty() { None } else { Some(return_type) },
+                    language: Some(language),
+                }
+            })
+            .collect();
+
+        Ok(RoutineList {
+            routines,
+            total_count: total_count as u32,
+        })
+    }
+
+    fn supports_routines(&self) -> bool {
+        true
     }
 
     async fn create_database(&self, session: SessionId, name: &str, _options: Option<Value>) -> EngineResult<()> {

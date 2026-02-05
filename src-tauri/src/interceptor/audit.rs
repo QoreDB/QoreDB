@@ -30,11 +30,9 @@ pub struct AuditStore {
 }
 
 impl AuditStore {
-    /// Creates a new audit store
     pub fn new(data_dir: PathBuf, max_entries: usize) -> Self {
         let log_path = data_dir.join("audit.jsonl");
 
-        // Ensure directory exists
         if let Some(parent) = log_path.parent() {
             if let Err(e) = fs::create_dir_all(parent) {
                 error!("Failed to create audit log directory: {}", e);
@@ -48,7 +46,6 @@ impl AuditStore {
             enabled: RwLock::new(true),
         };
 
-        // Load recent entries from file into memory cache
         store.load_recent_entries();
 
         store
@@ -96,18 +93,15 @@ impl AuditStore {
         self.maybe_rotate();
     }
 
-    /// Check if audit logging is enabled
     pub fn is_enabled(&self) -> bool {
         *self.enabled.read().unwrap()
     }
 
-    /// Log a new audit entry
     pub fn log(&self, entry: AuditLogEntry) {
         if !self.is_enabled() {
             return;
         }
 
-        // Add to memory cache
         {
             let mut entries = self.entries.write().unwrap();
             if entries.len() >= MEMORY_CACHE_SIZE {
@@ -116,16 +110,15 @@ impl AuditStore {
             entries.push_back(entry.clone());
         }
 
-        // Append to file
         if let Err(e) = self.append_to_file(&entry) {
             error!("Failed to write audit log entry: {}", e);
         }
 
-        // Rotate if needed (async in background)
+        // Rotate if needed
         self.maybe_rotate();
     }
 
-    /// Append an entry to the log file
+    /// Append entry to log file
     fn append_to_file(&self, entry: &AuditLogEntry) -> std::io::Result<()> {
         let file = OpenOptions::new()
             .create(true)
@@ -154,7 +147,7 @@ impl AuditStore {
         }
 
         // Keep only the last max_entries
-        let entries_to_keep = max_entries * 3 / 4; // Keep 75% after rotation
+        let entries_to_keep = max_entries * 3 / 4;
 
         match self.rotate_file(entries_to_keep) {
             Ok(removed) => {

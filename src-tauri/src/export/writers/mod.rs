@@ -7,6 +7,7 @@ use crate::engine::sql_generator::SqlDialect;
 use crate::export::types::ExportFormat;
 
 pub mod csv;
+pub mod html;
 pub mod json;
 pub mod sql;
 
@@ -33,8 +34,11 @@ pub async fn create_writer(
     let writer = BufWriter::new(file);
 
     match format {
-        ExportFormat::Csv => Ok(Box::new(csv::CsvWriter::new(writer, include_headers))),
-        ExportFormat::Json => Ok(Box::new(json::JsonWriter::new(writer))),
+        ExportFormat::Csv => Ok(
+            Box::new(csv::CsvWriter::new(writer, include_headers)) as Box<dyn ExportWriter>
+        ),
+        ExportFormat::Json => Ok(Box::new(json::JsonWriter::new(writer)) as Box<dyn ExportWriter>),
+        ExportFormat::Html => Ok(Box::new(html::HtmlWriter::new(writer)) as Box<dyn ExportWriter>),
         ExportFormat::SqlInsert => {
             let table = table_name
                 .filter(|name| !name.trim().is_empty())
@@ -46,7 +50,7 @@ pub async fn create_writer(
                 dialect,
                 namespace,
                 table,
-            )))
+            )) as Box<dyn ExportWriter>)
         }
     }
 }

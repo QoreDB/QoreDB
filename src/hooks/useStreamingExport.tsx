@@ -81,28 +81,35 @@ export function useStreamingExport(sessionId?: string) {
         return null;
       }
 
+      const exportId =
+        crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
       try {
-        const response = await startExport(sessionId, config);
-        const exportId = response.export_id;
-
-        showToast({
-          export_id: exportId,
-          state: 'pending',
-          rows_exported: 0,
-          bytes_written: 0,
-          elapsed_ms: 0,
-        });
-
+        let sawProgress = false;
         const unlisten = await listen<ExportProgress>(
           exportProgressEvent(exportId),
           event => {
+            sawProgress = true;
             showToast(event.payload);
           }
         );
 
         activeExportsRef.current.set(exportId, { unlisten });
-        return exportId;
+        const response = await startExport(sessionId, config, exportId);
+
+        if (!sawProgress) {
+          showToast({
+            export_id: response.export_id,
+            state: 'pending',
+            rows_exported: 0,
+            bytes_written: 0,
+            elapsed_ms: 0,
+          });
+        }
+
+        return response.export_id;
       } catch (error) {
+        cleanupExport(exportId);
         toast.error(t('export.startFailed'), {
           description: getErrorMessage(error),
         });

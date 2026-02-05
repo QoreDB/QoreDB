@@ -57,6 +57,8 @@ export function StreamingExportDialog({
         return 'json';
       case 'sql_insert':
         return 'sql';
+      case 'html':
+        return 'html';
       default:
         return 'csv';
     }
@@ -114,7 +116,7 @@ export function StreamingExportDialog({
       output_path: outputPath,
       format,
       table_name: format === 'sql_insert' ? sqlTableName.trim() : undefined,
-      include_headers: format === 'csv' ? includeHeaders : false,
+      include_headers: format === 'csv' ? includeHeaders : true,
       batch_size: Number.isFinite(parsedBatch) && parsedBatch > 0 ? parsedBatch : undefined,
       limit: Number.isFinite(parsedLimit) && parsedLimit > 0 ? parsedLimit : undefined,
     };
@@ -145,6 +147,7 @@ export function StreamingExportDialog({
                 <SelectItem value="csv">{t('export.format.csv')}</SelectItem>
                 <SelectItem value="json">{t('export.format.json')}</SelectItem>
                 <SelectItem value="sql_insert">{t('export.format.sql')}</SelectItem>
+                <SelectItem value="html">{t('export.format.html')}</SelectItem>
               </SelectContent>
             </Select>
           </div>

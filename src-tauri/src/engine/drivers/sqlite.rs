@@ -64,6 +64,33 @@ impl SqliteDriver {
         }
     }
 
+    async fn create_pool(
+        config: &ConnectionConfig,
+        max_connections: u32,
+        min_connections: u32,
+        acquire_timeout_secs: u64,
+        run_test_query: bool,
+    ) -> EngineResult<SqlitePool> {
+        let opts = Self::build_connect_options(config);
+
+        let pool = SqlitePoolOptions::new()
+            .max_connections(max_connections)
+            .min_connections(min_connections)
+            .acquire_timeout(std::time::Duration::from_secs(acquire_timeout_secs))
+            .connect_with(opts)
+            .await
+            .map_err(|e| EngineError::connection_failed(e.to_string()))?;
+
+        if run_test_query {
+            sqlx::query("SELECT 1")
+                .execute(&pool)
+                .await
+                .map_err(|e| EngineError::execution_error(e.to_string()))?;
+        }
+
+        Ok(pool)
+    }
+
     async fn get_session(&self, session: SessionId) -> EngineResult<Arc<SqliteSession>> {
         let sessions = self.sessions.read().await;
         sessions
@@ -217,24 +244,7 @@ impl DataEngine for SqliteDriver {
 
     async fn test_connection(&self, config: &ConnectionConfig) -> EngineResult<()> {
         Self::validate_path(&config.host)?;
-        let opts = Self::build_connect_options(config);
-
-        let pool = SqlitePoolOptions::new()
-            .max_connections(1)
-            .acquire_timeout(std::time::Duration::from_secs(10))
-            .connect_with(opts)
-            .await
-            .map_err(|e| {
-                let msg = e.to_string();
-                EngineError::connection_failed(msg)
-            })?;
-
-        // Test with a simple query
-        sqlx::query("SELECT 1")
-            .execute(&pool)
-            .await
-            .map_err(|e| EngineError::execution_error(e.to_string()))?;
-
+        let pool = Self::create_pool(config, 1, 0, 10, true).await?;
         pool.close().await;
         Ok(())
     }
@@ -242,18 +252,18 @@ impl DataEngine for SqliteDriver {
     async fn connect(&self, config: &ConnectionConfig) -> EngineResult<SessionId> {
         Self::validate_path(&config.host)?;
 
-        let opts = Self::build_connect_options(config);
         let max_connections = config.pool_max_connections.unwrap_or(5);
         let min_connections = config.pool_min_connections.unwrap_or(0);
         let acquire_timeout = config.pool_acquire_timeout_secs.unwrap_or(30);
 
-        let pool = SqlitePoolOptions::new()
-            .max_connections(max_connections)
-            .min_connections(min_connections)
-            .acquire_timeout(std::time::Duration::from_secs(acquire_timeout as u64))
-            .connect_with(opts)
-            .await
-            .map_err(|e| EngineError::connection_failed(e.to_string()))?;
+        let pool = Self::create_pool(
+            config,
+            max_connections,
+            min_connections,
+            acquire_timeout as u64,
+            false,
+        )
+        .await?;
 
         let session_id = SessionId::new();
         let session = Arc::new(SqliteSession::new(pool, config.host.clone()));

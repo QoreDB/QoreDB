@@ -34,6 +34,10 @@ export function ExportProgressToast({ progress, onCancel }: ExportProgressToastP
   const isActive = progress.state === 'running' || progress.state === 'pending';
   const isSuccess = progress.state === 'completed';
   const isFailed = progress.state === 'failed';
+  const speed =
+    typeof progress.rows_per_second === 'number' && Number.isFinite(progress.rows_per_second)
+      ? progress.rows_per_second
+      : undefined;
 
   return (
     <div className="w-90 rounded-md border border-border bg-background p-3 shadow-lg">
@@ -75,8 +79,8 @@ export function ExportProgressToast({ progress, onCancel }: ExportProgressToastP
           <span>{t('export.rows', { count: progress.rows_exported })}</span>
           <span>{t('export.bytes', { size: formatBytes(progress.bytes_written) })}</span>
           <span>{t('export.elapsed', { time: formatElapsed(progress.elapsed_ms) })}</span>
-          {progress.rows_per_second !== undefined && (
-            <span>{t('export.speed', { speed: progress.rows_per_second.toFixed(1) })}</span>
+          {speed !== undefined && (
+            <span>{t('export.speed', { speed: speed.toFixed(1) })}</span>
           )}
         </div>
 

@@ -95,7 +95,6 @@ export function DiffResultsGrid({ diffResult, filteredRows }: DiffResultsGridPro
               <DiffRowComponent
                 key={row.rowKey}
                 row={row}
-                columns={columns}
                 style={{
                   position: 'absolute',
                   top: 0,
@@ -115,11 +114,10 @@ export function DiffResultsGrid({ diffResult, filteredRows }: DiffResultsGridPro
 
 interface DiffRowComponentProps {
   row: DiffRow;
-  columns: { name: string; data_type: string }[];
   style: React.CSSProperties;
 }
 
-function DiffRowComponent({ row, columns, style }: DiffRowComponentProps) {
+function DiffRowComponent({ row, style }: DiffRowComponentProps) {
   const statusIcon = useMemo(() => getStatusIcon(row.status), [row.status]);
   const rowClassName = useMemo(() => getRowClassName(row.status), [row.status]);
 

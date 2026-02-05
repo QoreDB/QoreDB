@@ -38,10 +38,6 @@ function isTrivialColumn(name: string): boolean {
   return TRIVIAL_COLUMN_SET.has(normalizeColumnName(name));
 }
 
-function getNamespaceKey(ns: Namespace): string {
-  return `${ns.database}:${ns.schema ?? ''}`;
-}
-
 function findMatchingNamespace(
   namespaces: Namespace[],
   target?: Namespace
@@ -129,7 +125,8 @@ function initSourceState(
   initialNamespace?: Namespace
 ): DiffSourceState {
   const connectionId = source?.connectionId ?? activeConnection?.id;
-  const connection = connectionId === activeConnection?.id ? activeConnection : undefined;
+  const connection =
+    activeConnection && connectionId === activeConnection.id ? activeConnection : undefined;
 
   return {
     mode: source?.type === 'query' ? 'query' : 'table',
@@ -449,16 +446,17 @@ export function useDiffSources({
   }, [rightSource.connectionId]);
 
   useEffect(() => {
+    const sharedSessions = sharedSessionsRef.current;
     return () => {
       const connections = new Set<string>();
       if (leftConnectionIdRef.current) connections.add(leftConnectionIdRef.current);
       if (rightConnectionIdRef.current) connections.add(rightConnectionIdRef.current);
       connections.forEach(connectionId => {
-        const entry = sharedSessionsRef.current.get(connectionId);
+        const entry = sharedSessions.get(connectionId);
         if (!entry) return;
         entry.refs -= 1;
         if (entry.refs > 0) return;
-        sharedSessionsRef.current.delete(connectionId);
+        sharedSessions.delete(connectionId);
         disconnect(entry.sessionId).catch(err => {
           console.warn('Failed to disconnect diff session', err);
         });

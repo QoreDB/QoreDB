@@ -6,7 +6,6 @@ use tokio::sync::RwLock;
 use tokio::time::{timeout, Duration};
 use tokio_util::sync::CancellationToken;
 use tauri::Emitter;
-use uuid::Uuid;
 
 use crate::engine::traits::{DataEngine, StreamEvent};
 use crate::engine::types::{ColumnInfo, QueryId, SessionId};
@@ -33,6 +32,7 @@ impl ExportPipeline {
         self: Arc<Self>,
         session_manager: Arc<SessionManager>,
         session_id: SessionId,
+        export_id: String,
         config: ExportConfig,
         window: tauri::Window,
     ) -> Result<String, String> {
@@ -62,11 +62,13 @@ impl ExportPipeline {
             return Err("Streaming is not supported by this driver".to_string());
         }
 
-        let export_id = Uuid::new_v4().to_string();
         let cancel = CancellationToken::new();
 
         {
             let mut jobs = self.jobs.write().await;
+            if jobs.contains_key(&export_id) {
+                return Err("Export already in progress".to_string());
+            }
             jobs.insert(export_id.clone(), ExportJob { cancel: cancel.clone() });
         }
 

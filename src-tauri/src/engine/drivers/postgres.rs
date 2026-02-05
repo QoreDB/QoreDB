@@ -1,13 +1,6 @@
 //! PostgreSQL Driver
 //!
 //! Implements the DataEngine trait for PostgreSQL databases using SQLx.
-//!
-//! ## Transaction Handling
-//!
-//! When a transaction is started via `begin_transaction()`, a dedicated connection
-//! is acquired from the pool and held until `commit()` or `rollback()` is called.
-//! All queries during the transaction are executed on this dedicated connection
-//! to ensure proper isolation.
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -16,22 +9,25 @@ use std::time::Instant;
 use async_trait::async_trait;
 use sqlx::pool::PoolConnection;
 use sqlx::postgres::{PgPool, PgPoolOptions, PgRow, Postgres};
-use sqlx::{Column, Row, TypeInfo};
+use sqlx::{Row};
 use tokio::sync::{Mutex, RwLock};
-use uuid::Uuid;
 use futures::StreamExt;
 
 use crate::engine::error::{EngineError, EngineResult};
+use crate::engine::drivers::postgres_utils::{
+    bind_param, collect_enum_type_oids, convert_row, get_column_info, load_enum_labels,
+    EnumLabelMap,
+};
 use crate::engine::sql_safety;
 use crate::engine::traits::{DataEngine, StreamEvent, StreamSender};
 use crate::engine::types::{
-    CancelSupport, Collection, CollectionList, CollectionListOptions, CollectionType, ColumnInfo,
+    CancelSupport, Collection, CollectionList, CollectionListOptions, CollectionType,
     ConnectionConfig, Namespace, QueryId, QueryResult, Row as QRow, RowData, SessionId,
     TableColumn, TableIndex, TableSchema, Value, ForeignKey,
     TableQueryOptions, PaginatedQueryResult, SortDirection, FilterOperator,
+    Routine, RoutineList, RoutineListOptions, RoutineType,
 };
 
-/// Holds the connection state for a PostgreSQL session.
 pub struct PostgresSession {
     pub pool: PgPool,
     pub transaction_conn: Mutex<Option<PoolConnection<Postgres>>>,
@@ -48,6 +44,7 @@ impl PostgresSession {
     }
 }
 
+
 /// PostgreSQL driver implementation
 pub struct PostgresDriver {
     sessions: Arc<RwLock<HashMap<SessionId, Arc<PostgresSession>>>>,
@@ -58,6 +55,41 @@ impl PostgresDriver {
         Self {
             sessions: Arc::new(RwLock::new(HashMap::new())),
         }
+    }
+
+    async fn create_pool(
+        config: &ConnectionConfig,
+        max_connections: u32,
+        min_connections: u32,
+        acquire_timeout_secs: u64,
+        classify_auth_error: bool,
+        run_test_query: bool,
+    ) -> EngineResult<PgPool> {
+        let conn_str = Self::build_connection_string(config);
+
+        let pool = PgPoolOptions::new()
+            .max_connections(max_connections)
+            .min_connections(min_connections)
+            .acquire_timeout(std::time::Duration::from_secs(acquire_timeout_secs))
+            .connect(&conn_str)
+            .await
+            .map_err(|e| {
+                let msg = e.to_string();
+                if classify_auth_error && msg.contains("password authentication failed") {
+                    EngineError::auth_failed(msg)
+                } else {
+                    EngineError::connection_failed(msg)
+                }
+            })?;
+
+        if run_test_query {
+            sqlx::query("SELECT 1")
+                .execute(&pool)
+                .await
+                .map_err(|e| EngineError::execution_error(e.to_string()))?;
+        }
+
+        Ok(pool)
     }
 
     async fn get_session(&self, session: SessionId) -> EngineResult<Arc<PostgresSession>> {
@@ -112,99 +144,7 @@ impl PostgresDriver {
 
         Ok(())
     }
-
-    /// Helper to bind a Value to a Postgres query
-    fn bind_param<'q>(
-        query: sqlx::query::Query<'q, Postgres, sqlx::postgres::PgArguments>,
-        value: &'q Value,
-    ) -> sqlx::query::Query<'q, Postgres, sqlx::postgres::PgArguments> {
-        match value {
-            Value::Null => query.bind(Option::<String>::None),
-            Value::Bool(b) => query.bind(b),
-            Value::Int(i) => query.bind(i),
-            Value::Float(f) => query.bind(f),
-            Value::Text(s) => query.bind(s),
-            Value::Bytes(b) => query.bind(b),
-            Value::Json(j) => query.bind(j),
-             // Fallback for arrays
-            Value::Array(_) => query.bind(Option::<String>::None),
-        }
-    }
-
-    /// Converts a SQLx row to our universal Row type
-    fn convert_row(pg_row: &PgRow) -> QRow {
-        let values: Vec<Value> = pg_row
-            .columns()
-            .iter()
-            .map(|col| Self::extract_value(pg_row, col.ordinal()))
-            .collect();
-
-        QRow { values }
-    }
-
-    /// Extracts a value from a PgRow at the given index
-    fn extract_value(row: &PgRow, idx: usize) -> Value {
-        // Try to interpret value based on common types
-        // We use try_get with Option<T> to handle NULLs gracefully
-        
-        if let Ok(v) = row.try_get::<Option<i64>, _>(idx) {
-            return v.map(Value::Int).unwrap_or(Value::Null);
-        }
-        if let Ok(v) = row.try_get::<Option<i32>, _>(idx) {
-            return v.map(|i| Value::Int(i as i64)).unwrap_or(Value::Null);
-        }
-        if let Ok(v) = row.try_get::<Option<i16>, _>(idx) {
-            return v.map(|i| Value::Int(i as i64)).unwrap_or(Value::Null);
-        }
-        if let Ok(v) = row.try_get::<Option<bool>, _>(idx) {
-            return v.map(Value::Bool).unwrap_or(Value::Null);
-        }
-        if let Ok(v) = row.try_get::<Option<f64>, _>(idx) {
-            return v.map(Value::Float).unwrap_or(Value::Null);
-        }
-        if let Ok(v) = row.try_get::<Option<f32>, _>(idx) {
-            return v.map(|f| Value::Float(f as f64)).unwrap_or(Value::Null);
-        }
-        if let Ok(v) = row.try_get::<Option<Uuid>, _>(idx) {
-            return v.map(|u| Value::Text(u.to_string())).unwrap_or(Value::Null);
-        }
-        if let Ok(v) = row.try_get::<Option<String>, _>(idx) {
-            return v.map(Value::Text).unwrap_or(Value::Null);
-        }
-        if let Ok(v) = row.try_get::<Option<Vec<u8>>, _>(idx) {
-            return v.map(Value::Bytes).unwrap_or(Value::Null);
-        }
-        if let Ok(v) = row.try_get::<Option<serde_json::Value>, _>(idx) {
-            return v.map(Value::Json).unwrap_or(Value::Null);
-        }
-        if let Ok(v) = row.try_get::<Option<chrono::DateTime<chrono::Utc>>, _>(idx) {
-            return v.map(|dt| Value::Text(dt.to_rfc3339())).unwrap_or(Value::Null);
-        }
-        if let Ok(v) = row.try_get::<Option<chrono::NaiveDateTime>, _>(idx) {
-            return v.map(|dt| Value::Text(dt.format("%Y-%m-%d %H:%M:%S").to_string())).unwrap_or(Value::Null);
-        }
-        if let Ok(v) = row.try_get::<Option<chrono::NaiveDate>, _>(idx) {
-            return v.map(|d| Value::Text(d.format("%Y-%m-%d").to_string())).unwrap_or(Value::Null);
-        }
-        if let Ok(v) = row.try_get::<Option<chrono::NaiveTime>, _>(idx) {
-            return v.map(|t| Value::Text(t.format("%H:%M:%S").to_string())).unwrap_or(Value::Null);
-        }
-
-        // Fallback or unknown types treated as null or string if possible
-        Value::Null
-    }
     
-    /// Gets column info from a PgRow
-    fn get_column_info(row: &PgRow) -> Vec<ColumnInfo> {
-        row.columns()
-            .iter()
-            .map(|col| ColumnInfo {
-                name: col.name().to_string(),
-                data_type: col.type_info().name().to_string(),
-                nullable: true, // Postgres doesn't easily expose nullability in metadata from rows
-            })
-            .collect()
-    }
 
     async fn fetch_backend_pid(
         conn: &mut PoolConnection<Postgres>,
@@ -233,44 +173,25 @@ impl DataEngine for PostgresDriver {
     }
 
     async fn test_connection(&self, config: &ConnectionConfig) -> EngineResult<()> {
-        let conn_str = Self::build_connection_string(config);
-
-        let pool = PgPoolOptions::new()
-            .max_connections(1)
-            .acquire_timeout(std::time::Duration::from_secs(10))
-            .connect(&conn_str)
-            .await
-            .map_err(|e| {
-                let msg = e.to_string();
-                if msg.contains("password authentication failed") {
-                    EngineError::auth_failed(msg)
-                } else {
-                    EngineError::connection_failed(msg)
-                }
-            })?;
-
-        sqlx::query("SELECT 1")
-            .execute(&pool)
-            .await
-            .map_err(|e| EngineError::execution_error(e.to_string()))?;
-
+        let pool = Self::create_pool(config, 1, 0, 10, true, true).await?;
         pool.close().await;
         Ok(())
     }
 
     async fn connect(&self, config: &ConnectionConfig) -> EngineResult<SessionId> {
-        let conn_str = Self::build_connection_string(config);
         let max_connections = config.pool_max_connections.unwrap_or(5);
         let min_connections = config.pool_min_connections.unwrap_or(0);
         let acquire_timeout = config.pool_acquire_timeout_secs.unwrap_or(30);
 
-        let pool = PgPoolOptions::new()
-            .max_connections(max_connections)
-            .min_connections(min_connections)
-            .acquire_timeout(std::time::Duration::from_secs(acquire_timeout as u64))
-            .connect(&conn_str)
-            .await
-            .map_err(|e| EngineError::connection_failed(e.to_string()))?;
+        let pool = Self::create_pool(
+            config,
+            max_connections,
+            min_connections,
+            acquire_timeout as u64,
+            false,
+            false,
+        )
+        .await?;
 
         let session_id = SessionId::new();
         let session = Arc::new(PostgresSession::new(pool));
@@ -342,13 +263,19 @@ impl DataEngine for PostgresDriver {
         let schema = namespace.schema.as_deref().unwrap_or("public");
         let search_pattern = options.search.as_ref().map(|s| format!("%{}%", s));
 
-        // 1. Get total count
+        // 1. Get total count (tables + views + materialized views)
         let count_query = r#"
-            SELECT COUNT(*) 
-            FROM information_schema.tables 
-            WHERE table_schema = $1 
-            AND table_type = 'BASE TABLE'
-            AND ($2 IS NULL OR table_name LIKE $3)
+            SELECT COUNT(*) FROM (
+                SELECT table_name AS name
+                FROM information_schema.tables
+                WHERE table_schema = $1
+                AND ($2 IS NULL OR table_name LIKE $3)
+                UNION ALL
+                SELECT matviewname AS name
+                FROM pg_matviews
+                WHERE schemaname = $1
+                AND ($2 IS NULL OR matviewname LIKE $3)
+            ) combined
         "#;
 
         let count_row: (i64,) = sqlx::query_as(count_query)
@@ -358,16 +285,23 @@ impl DataEngine for PostgresDriver {
             .fetch_one(pool)
             .await
             .map_err(|e| EngineError::execution_error(e.to_string()))?;
-        
+
         let total_count = count_row.0;
 
-        // 2. Get paginated results
+        // 2. Get paginated results (tables + views + materialized views)
         let mut query_str = r#"
-            SELECT table_name, table_type 
-            FROM information_schema.tables 
-            WHERE table_schema = $1
-            AND ($2 IS NULL OR table_name LIKE $3)
-            ORDER BY table_name
+            SELECT name, ctype FROM (
+                SELECT table_name AS name,
+                    CASE WHEN table_type = 'VIEW' THEN 'View' ELSE 'Table' END AS ctype
+                FROM information_schema.tables
+                WHERE table_schema = $1
+                AND ($2 IS NULL OR table_name LIKE $3)
+                UNION ALL
+                SELECT matviewname AS name, 'MaterializedView' AS ctype
+                FROM pg_matviews
+                WHERE schemaname = $1
+                AND ($2 IS NULL OR matviewname LIKE $3)
+            ) combined ORDER BY name
         "#.to_string();
 
         if let Some(limit) = options.page_size {
@@ -388,9 +322,10 @@ impl DataEngine for PostgresDriver {
 
         let collections = rows
             .into_iter()
-            .map(|(name, table_type)| {
-                let collection_type = match table_type.as_str() {
-                    "VIEW" => CollectionType::View,
+            .map(|(name, ctype)| {
+                let collection_type = match ctype.as_str() {
+                    "View" => CollectionType::View,
+                    "MaterializedView" => CollectionType::MaterializedView,
                     _ => CollectionType::Table,
                 };
                 Collection {
@@ -405,6 +340,110 @@ impl DataEngine for PostgresDriver {
             collections,
             total_count: total_count as u32,
         })
+    }
+
+    async fn list_routines(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        options: RoutineListOptions,
+    ) -> EngineResult<RoutineList> {
+        let pg_session = self.get_session(session).await?;
+        let pool = &pg_session.pool;
+
+        let schema = namespace.schema.as_deref().unwrap_or("public");
+        let search_pattern = options.search.as_ref().map(|s| format!("%{}%", s));
+
+        // Filter by routine type if specified
+        let type_filter = match &options.routine_type {
+            Some(RoutineType::Function) => Some("f"),
+            Some(RoutineType::Procedure) => Some("p"),
+            None => None,
+        };
+
+        // 1. Get total count
+        let count_query = r#"
+            SELECT COUNT(*)
+            FROM pg_proc p
+            JOIN pg_namespace n ON p.pronamespace = n.oid
+            WHERE n.nspname = $1
+            AND p.prokind IN ('f', 'p')
+            AND ($2 IS NULL OR p.proname LIKE $3)
+            AND ($4 IS NULL OR p.prokind = $4)
+        "#;
+
+        let count_row: (i64,) = sqlx::query_as(count_query)
+            .bind(schema)
+            .bind(&search_pattern)
+            .bind(&search_pattern)
+            .bind(&type_filter)
+            .fetch_one(pool)
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        let total_count = count_row.0;
+
+        // 2. Get paginated results
+        let mut query_str = r#"
+            SELECT
+                p.proname::text AS name,
+                p.prokind::text AS kind,
+                pg_get_function_identity_arguments(p.oid)::text AS args,
+                pg_get_function_result(p.oid)::text AS return_type,
+                l.lanname::text AS language
+            FROM pg_proc p
+            JOIN pg_namespace n ON p.pronamespace = n.oid
+            LEFT JOIN pg_language l ON p.prolang = l.oid
+            WHERE n.nspname = $1
+            AND p.prokind IN ('f', 'p')
+            AND ($2 IS NULL OR p.proname LIKE $3)
+            AND ($4 IS NULL OR p.prokind = $4)
+            ORDER BY p.proname
+        "#.to_string();
+
+        if let Some(limit) = options.page_size {
+            query_str.push_str(&format!(" LIMIT {}", limit));
+            if let Some(page) = options.page {
+                let offset = (page.max(1) - 1) * limit;
+                query_str.push_str(&format!(" OFFSET {}", offset));
+            }
+        }
+
+        let rows: Vec<(String, String, String, Option<String>, Option<String>)> = sqlx::query_as(&query_str)
+            .bind(schema)
+            .bind(&search_pattern)
+            .bind(&search_pattern)
+            .bind(&type_filter)
+            .fetch_all(pool)
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        let routines = rows
+            .into_iter()
+            .map(|(name, kind, args, return_type, language)| {
+                let routine_type = match kind.as_str() {
+                    "p" => RoutineType::Procedure,
+                    _ => RoutineType::Function,
+                };
+                Routine {
+                    namespace: namespace.clone(),
+                    name,
+                    routine_type,
+                    arguments: args,
+                    return_type,
+                    language,
+                }
+            })
+            .collect();
+
+        Ok(RoutineList {
+            routines,
+            total_count: total_count as u32,
+        })
+    }
+
+    fn supports_routines(&self) -> bool {
+        true
     }
 
     async fn create_database(&self, session: SessionId, name: &str, _options: Option<Value>) -> EngineResult<()> {
@@ -522,19 +561,32 @@ impl DataEngine for PostgresDriver {
         let mut columns_sent = false;
         let mut row_count = 0;
         let mut stream_error: Option<String> = None;
+        let mut enum_labels: EnumLabelMap = HashMap::new();
 
         while let Some(item) = stream.next().await {
             match item {
                 Ok(pg_row) => {
                     if !columns_sent {
-                        let columns = Self::get_column_info(&pg_row);
-                        if sender.send(StreamEvent::Columns(columns)).await.is_err() {
+                        let columns = get_column_info(&pg_row);
+                        if sender.send(StreamEvent::Columns(columns.clone())).await.is_err() {
                             break; // Receiver dropped
                         }
                         columns_sent = true;
+
+                        // Collect enum type OIDs and load labels
+                        let enum_oids = collect_enum_type_oids(pg_row.columns());
+                        if !enum_oids.is_empty() {
+                            // We need to load enum labels using the pool since our conn is busy with the stream
+                            match load_enum_labels(&pg_session.pool, &enum_oids).await {
+                                Ok(labels) => enum_labels = labels,
+                                Err(e) => {
+                                    tracing::warn!("Failed to load enum labels: {}", e);
+                                }
+                            }
+                        }
                     }
 
-                    let row = Self::convert_row(&pg_row);
+                    let row = convert_row(&pg_row, &enum_labels);
                     if sender.send(StreamEvent::Row(row)).await.is_err() {
                         break;
                     }
@@ -628,8 +680,15 @@ impl DataEngine for PostgresDriver {
                         execution_time_ms,
                     })
                 } else {
-                    let columns = Self::get_column_info(&pg_rows[0]);
-                    let rows: Vec<QRow> = pg_rows.iter().map(Self::convert_row).collect();
+                    let columns = get_column_info(&pg_rows[0]);
+                    // Load enum labels for this result set
+                    let enum_oids = collect_enum_type_oids(pg_rows[0].columns());
+                    let enum_labels = if !enum_oids.is_empty() {
+                        load_enum_labels(&pg_session.pool, &enum_oids).await.unwrap_or_default()
+                    } else {
+                        HashMap::new()
+                    };
+                    let rows: Vec<QRow> = pg_rows.iter().map(|r| convert_row(r, &enum_labels)).collect();
 
                     Ok(QueryResult {
                         columns,
@@ -702,8 +761,15 @@ impl DataEngine for PostgresDriver {
                         execution_time_ms,
                     })
                 } else {
-                    let columns = Self::get_column_info(&pg_rows[0]);
-                    let rows: Vec<QRow> = pg_rows.iter().map(Self::convert_row).collect();
+                    let columns = get_column_info(&pg_rows[0]);
+                    // Load enum labels for this result set
+                    let enum_oids = collect_enum_type_oids(pg_rows[0].columns());
+                    let enum_labels = if !enum_oids.is_empty() {
+                        load_enum_labels(&pg_session.pool, &enum_oids).await.unwrap_or_default()
+                    } else {
+                        HashMap::new()
+                    };
+                    let rows: Vec<QRow> = pg_rows.iter().map(|r| convert_row(r, &enum_labels)).collect();
 
                     Ok(QueryResult {
                         columns,
@@ -726,7 +792,7 @@ impl DataEngine for PostgresDriver {
                     })?;
 
                 let execution_time_ms = start.elapsed().as_micros() as f64 / 1000.0;
-                
+
                 Ok(QueryResult::with_affected_rows(
                     result.rows_affected(),
                     execution_time_ms,
@@ -1101,7 +1167,7 @@ impl DataEngine for PostgresDriver {
         let count_sql = format!("SELECT COUNT(*)::bigint AS cnt FROM {}{}", table_ref, where_sql);
         let mut count_query = sqlx::query(&count_sql);
         for val in &bind_values {
-            count_query = Self::bind_param(count_query, val);
+            count_query = bind_param(count_query, val);
         }
 
         let count_row: PgRow = {
@@ -1127,7 +1193,7 @@ impl DataEngine for PostgresDriver {
 
         let mut data_query = sqlx::query(&data_sql);
         for val in &bind_values {
-            data_query = Self::bind_param(data_query, val);
+            data_query = bind_param(data_query, val);
         }
 
         let pg_rows: Vec<PgRow> = {
@@ -1150,8 +1216,15 @@ impl DataEngine for PostgresDriver {
                 execution_time_ms,
             }
         } else {
-            let columns = Self::get_column_info(&pg_rows[0]);
-            let rows: Vec<QRow> = pg_rows.iter().map(Self::convert_row).collect();
+            let columns = get_column_info(&pg_rows[0]);
+            // Load enum labels for this result set
+            let enum_oids = collect_enum_type_oids(pg_rows[0].columns());
+            let enum_labels = if !enum_oids.is_empty() {
+                load_enum_labels(&pg_session.pool, &enum_oids).await.unwrap_or_default()
+            } else {
+                HashMap::new()
+            };
+            let rows: Vec<QRow> = pg_rows.iter().map(|r| convert_row(r, &enum_labels)).collect();
             QueryResult {
                 columns,
                 rows,
@@ -1188,7 +1261,7 @@ impl DataEngine for PostgresDriver {
         let sql = format!("SELECT * FROM {} WHERE {} = $1 LIMIT {}", table_ref, column_ref, limit);
 
         let mut query = sqlx::query(&sql);
-        query = Self::bind_param(query, value);
+        query = bind_param(query, value);
 
         let start = Instant::now();
         let mut tx_guard = pg_session.transaction_conn.lock().await;
@@ -1210,8 +1283,15 @@ impl DataEngine for PostgresDriver {
             });
         }
 
-        let columns = Self::get_column_info(&pg_rows[0]);
-        let rows: Vec<QRow> = pg_rows.iter().map(Self::convert_row).collect();
+        let columns = get_column_info(&pg_rows[0]);
+        // Load enum labels for this result set
+        let enum_oids = collect_enum_type_oids(pg_rows[0].columns());
+        let enum_labels = if !enum_oids.is_empty() {
+            load_enum_labels(&pg_session.pool, &enum_oids).await.unwrap_or_default()
+        } else {
+            HashMap::new()
+        };
+        let rows: Vec<QRow> = pg_rows.iter().map(|r| convert_row(r, &enum_labels)).collect();
 
         Ok(QueryResult {
             columns,
@@ -1375,7 +1455,7 @@ impl DataEngine for PostgresDriver {
         let mut query = sqlx::query(&sql);
         for k in &keys {
             let val = data.columns.get(*k).unwrap();
-            query = Self::bind_param(query, val);
+            query = bind_param(query, val);
         }
 
         // 3. Execute
@@ -1452,13 +1532,13 @@ impl DataEngine for PostgresDriver {
         // Bind data values
         for k in &data_keys {
             let val = data.columns.get(*k).unwrap();
-            query = Self::bind_param(query, val);
+            query = bind_param(query, val);
         }
         
         // Bind PK values
         for k in &pk_keys {
             let val = primary_key.columns.get(*k).unwrap();
-            query = Self::bind_param(query, val);
+            query = bind_param(query, val);
         }
 
         let start = Instant::now();
@@ -1512,7 +1592,7 @@ impl DataEngine for PostgresDriver {
         let mut query = sqlx::query(&sql);
         for k in &pk_keys {
             let val = primary_key.columns.get(*k).unwrap();
-            query = Self::bind_param(query, val);
+            query = bind_param(query, val);
         }
 
         let start = Instant::now();

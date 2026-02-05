@@ -8,6 +8,7 @@ pub enum ExportFormat {
     Csv,
     Json,
     SqlInsert,
+    Html,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

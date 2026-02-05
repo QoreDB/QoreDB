@@ -11,12 +11,18 @@ fn parse_session_id(id: &str) -> Result<SessionId, String> {
     Ok(SessionId(uuid))
 }
 
+fn parse_export_id(id: &str) -> Result<String, String> {
+    Uuid::parse_str(id).map_err(|e| format!("Invalid export ID: {}", e))?;
+    Ok(id.to_string())
+}
+
 #[tauri::command]
 pub async fn start_export(
     state: State<'_, crate::SharedState>,
     window: tauri::Window,
     session_id: String,
     config: ExportConfig,
+    export_id: Option<String>,
 ) -> Result<ExportStartResponse, String> {
     let (session_manager, export_pipeline) = {
         let state = state.lock().await;
@@ -27,9 +33,13 @@ pub async fn start_export(
     };
 
     let session = parse_session_id(&session_id)?;
+    let export_id = match export_id {
+        Some(id) => parse_export_id(&id)?,
+        None => Uuid::new_v4().to_string(),
+    };
     let export_id = export_pipeline
         .clone()
-        .start_export(session_manager, session, config, window)
+        .start_export(session_manager, session, export_id, config, window)
         .await?;
 
     Ok(ExportStartResponse { export_id })

@@ -530,7 +530,8 @@
         "format": {
             "csv": "CSV",
             "json": "JSON",
-            "sql": "SQL INSERT"
+            "sql": "SQL INSERT",
+            "html": "Self-contained HTML"
         },
         "outputLabel": "Output file",
         "outputPlaceholder": "Select a file path",

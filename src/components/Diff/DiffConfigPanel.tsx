@@ -55,6 +55,7 @@ export function DiffConfigPanel({
   const [autoDetectPK, setAutoDetectPK] = useState(true);
   const [detectedPK, setDetectedPK] = useState<string[]>([]);
   const [loadingPK, setLoadingPK] = useState(false);
+  type DescribeTableResponse = Awaited<ReturnType<typeof describeTable>>;
 
   // Common columns between left and right
   const commonColumns = leftColumns && rightColumns
@@ -78,10 +79,10 @@ export function DiffConfigPanel({
 
     setLoadingPK(true);
 
-    const leftPromise = canDetectLeft
+    const leftPromise: Promise<DescribeTableResponse> = canDetectLeft
       ? describeTable(leftSessionId!, leftNamespace!, leftTableName!)
       : Promise.resolve({ success: false });
-    const rightPromise = canDetectRight
+    const rightPromise: Promise<DescribeTableResponse> = canDetectRight
       ? describeTable(rightSessionId!, rightNamespace!, rightTableName!)
       : Promise.resolve({ success: false });
 

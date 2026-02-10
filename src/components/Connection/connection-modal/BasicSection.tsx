@@ -1,29 +1,33 @@
-import { useTranslation } from "react-i18next";
-import { Lock, Shield } from "lucide-react";
+import { useTranslation } from 'react-i18next';
+import { Lock, Shield } from 'lucide-react';
 
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import { cn } from "@/lib/utils";
-import { ENVIRONMENT_CONFIG } from "@/lib/environment";
-import { Driver } from "@/lib/drivers";
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+import { cn } from '@/lib/utils';
+import { ENVIRONMENT_CONFIG } from '@/lib/environment';
+import { Driver } from '@/lib/drivers';
 
-import type { ConnectionFormData } from "./types";
-import { FileSection } from "./FileSection";
+import type { ConnectionFormData } from './types';
+import { FileSection } from './FileSection';
 
 interface BasicSectionProps {
-	formData: ConnectionFormData;
-	onChange: (field: keyof ConnectionFormData, value: string | number | boolean) => void;
-	/** Hide host/port/username/password fields (used when URL mode provides these) */
-	hideConnectionFields?: boolean;
+  formData: ConnectionFormData;
+  onChange: (field: keyof ConnectionFormData, value: string | number | boolean) => void;
+  /** Hide host/port/username/password fields (used when URL mode provides these) */
+  hideConnectionFields?: boolean;
 }
 
-export function BasicSection({ formData, onChange, hideConnectionFields = false }: BasicSectionProps) {
-	const { t } = useTranslation();
+export function BasicSection({
+  formData,
+  onChange,
+  hideConnectionFields = false,
+}: BasicSectionProps) {
+  const { t } = useTranslation();
 
-	const isFileBased = formData.driver === Driver.Sqlite;
+  const isFileBased = formData.driver === Driver.Sqlite;
 
-	return (
+  return (
     <div className="rounded-md border border-border bg-background p-4 space-y-4">
       <div className="space-y-2">
         <Label>{t('connection.connectionName')}</Label>
@@ -50,7 +54,9 @@ export function BasicSection({ formData, onChange, hideConnectionFields = false 
                   type="button"
                   className={cn(
                     'flex-1 px-3 py-2 rounded-md text-xs font-semibold border-2 transition-all',
-                    isSelected ? 'border-transparent shadow-sm' : 'border-border bg-background hover:bg-muted text-muted-foreground'
+                    isSelected
+                      ? 'border-transparent shadow-sm'
+                      : 'border-border bg-background hover:bg-muted text-muted-foreground'
                   )}
                   style={
                     isSelected
@@ -133,9 +139,7 @@ export function BasicSection({ formData, onChange, hideConnectionFields = false 
               />
             </div>
             <div className="space-y-2">
-              <Label>
-                {t('connection.password')}
-              </Label>
+              <Label>{t('connection.password')}</Label>
               <Input
                 type="password"
                 placeholder="••••••••"

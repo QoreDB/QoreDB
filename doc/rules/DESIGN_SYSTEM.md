@@ -11,10 +11,10 @@ QoreDB is a **modern, local-first database client** for developers.
 
 It is designed for:
 
-* SQL + NoSQL
-* production data
-* long sessions
-* high-stakes operations
+- SQL + NoSQL
+- production data
+- long sessions
+- high-stakes operations
 
 It must feel:
 
@@ -34,11 +34,11 @@ QoreDB UI is based on two references:
 
 We take from Primer:
 
-* layout logic
-* spacing discipline
-* accessibility
-* component hierarchy
-* data-dense patterns
+- layout logic
+- spacing discipline
+- accessibility
+- component hierarchy
+- data-dense patterns
 
 Primer defines **how things work**.
 
@@ -48,11 +48,11 @@ Primer defines **how things work**.
 
 We take from Stripe Sessions:
 
-* typography contrast
-* elegance
-* rhythm
-* subtle accents
-* premium feel
+- typography contrast
+- elegance
+- rhythm
+- subtle accents
+- premium feel
 
 Stripe defines **how things feel**.
 
@@ -69,17 +69,17 @@ Stripe defines **how things feel**.
 
 When opening QoreDB, users should feel:
 
-* “I can trust this with production data”
-* “Nothing here is accidental”
-* “Everything is where it should be”
-* “This tool respects my time”
+- “I can trust this with production data”
+- “Nothing here is accidental”
+- “Everything is where it should be”
+- “This tool respects my time”
 
 The UI should feel:
 
-* calm
-* quiet
-* confident
-* extremely clear
+- calm
+- quiet
+- confident
+- extremely clear
 
 ---
 
@@ -89,9 +89,9 @@ QoreDB is a **data-heavy tool**, not a marketing site.
 
 Rules:
 
-* Tables and editors are dense
-* Navigation and chrome are light
-* Whitespace is used to separate **meaning**, not to decorate
+- Tables and editors are dense
+- Navigation and chrome are light
+- Whitespace is used to separate **meaning**, not to decorate
 
 If forced to choose:
 
@@ -101,38 +101,37 @@ If forced to choose:
 
 ## 5. Color philosophy
 
-* The base UI is neutral (dark & light)
-* Data must always be more visible than the UI
-* Color is used only for:
-
-  * state
-  * selection
-  * focus
-  * danger / success
-  * key actions
+- The base UI is neutral (dark & light)
+- Data must always be more visible than the UI
+- Color is used only for:
+  - state
+  - selection
+  - focus
+  - danger / success
+  - key actions
 
 Bright colors and gradients:
 
-* are allowed only in
+- are allowed only in
+  - onboarding
+  - empty states
+  - highlights
 
-  * onboarding
-  * empty states
-  * highlights
-* never in tables, grids or editors
+- never in tables, grids or editors
 
 ---
 
 ## 6. Typography philosophy
 
-* Sans-serif for UI
-* Monospace for data and code
-* High contrast between:
+- Sans-serif for UI
+- Monospace for data and code
+- High contrast between:
+  - titles
+  - sections
+  - content
 
-  * titles
-  * sections
-  * content
-* Titles are expressive (Stripe-inspired)
-* UI labels are subtle (Primer-inspired)
+- Titles are expressive (Stripe-inspired)
+- UI labels are subtle (Primer-inspired)
 
 The typography must:
 
@@ -156,9 +155,9 @@ Base layout:
 └────────────────────────────────────┘
 ```
 
-* Sidebar = navigation
-* Main area = work
-* Status bar = truth (prod/dev, connected, etc)
+- Sidebar = navigation
+- Main area = work
+- Status bar = truth (prod/dev, connected, etc)
 
 ---
 
@@ -166,16 +165,16 @@ Base layout:
 
 QoreDB is optimized for:
 
-* keyboard
-* power users
-* long sessions
+- keyboard
+- power users
+- long sessions
 
 Rules:
 
-* everything should be reachable via keyboard
-* no modal spam
-* no “are you sure?” for safe actions
-* dangerous actions must be visually distinct
+- everything should be reachable via keyboard
+- no modal spam
+- no “are you sure?” for safe actions
+- dangerous actions must be visually distinct
 
 ---
 
@@ -183,10 +182,10 @@ Rules:
 
 QoreDB UI must **respect data**:
 
-* no truncation without explicit control
-* no hidden mutations
-* no auto-destructive actions
-* production must always look different from dev
+- no truncation without explicit control
+- no hidden mutations
+- no auto-destructive actions
+- production must always look different from dev
 
 The UI must protect the user from mistakes.
 
@@ -196,11 +195,11 @@ The UI must protect the user from mistakes.
 
 QoreDB must never become:
 
-* a BI dashboard
-* a charting tool
-* a marketing UI
-* a SaaS-first product
-* a toy admin panel
+- a BI dashboard
+- a charting tool
+- a marketing UI
+- a SaaS-first product
+- a toy admin panel
 
 It is a **professional instrument**.
 

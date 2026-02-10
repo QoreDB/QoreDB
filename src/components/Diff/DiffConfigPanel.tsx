@@ -58,9 +58,10 @@ export function DiffConfigPanel({
   type DescribeTableResponse = Awaited<ReturnType<typeof describeTable>>;
 
   // Common columns between left and right
-  const commonColumns = leftColumns && rightColumns
-    ? leftColumns.filter((lc) => rightColumns.some((rc) => rc.name === lc.name))
-    : [];
+  const commonColumns =
+    leftColumns && rightColumns
+      ? leftColumns.filter(lc => rightColumns.some(rc => rc.name === lc.name))
+      : [];
 
   // Auto-detect primary key
   useEffect(() => {
@@ -88,16 +89,14 @@ export function DiffConfigPanel({
 
     Promise.all([leftPromise, rightPromise])
       .then(([leftRes, rightRes]) => {
-        const leftPk = leftRes.success && leftRes.schema?.primary_key
-          ? leftRes.schema.primary_key
-          : [];
-        const rightPk = rightRes.success && rightRes.schema?.primary_key
-          ? rightRes.schema.primary_key
-          : [];
+        const leftPk =
+          leftRes.success && leftRes.schema?.primary_key ? leftRes.schema.primary_key : [];
+        const rightPk =
+          rightRes.success && rightRes.schema?.primary_key ? rightRes.schema.primary_key : [];
 
         let pk = leftPk;
         if (leftPk.length > 0 && rightPk.length > 0) {
-          const intersection = leftPk.filter((col) => rightPk.includes(col));
+          const intersection = leftPk.filter(col => rightPk.includes(col));
           pk = intersection.length > 0 ? intersection : leftPk;
         } else if (rightPk.length > 0) {
           pk = rightPk;
@@ -123,7 +122,7 @@ export function DiffConfigPanel({
 
   const toggleKeyColumn = (columnName: string) => {
     if (keyColumns.includes(columnName)) {
-      onKeyColumnsChange(keyColumns.filter((c) => c !== columnName));
+      onKeyColumnsChange(keyColumns.filter(c => c !== columnName));
     } else {
       onKeyColumnsChange([...keyColumns, columnName]);
     }
@@ -146,12 +145,7 @@ export function DiffConfigPanel({
           <span className="text-sm font-medium">{t('diff.keyColumns')}</span>
         </div>
         {keyColumns.length > 0 && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-6 px-2 text-xs"
-            onClick={clearKeyColumns}
-          >
+          <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={clearKeyColumns}>
             <X size={12} className="mr-1" />
             {t('common.clear')}
           </Button>
@@ -163,7 +157,7 @@ export function DiffConfigPanel({
         <Checkbox
           id="auto-detect-pk"
           checked={autoDetectPK}
-          onCheckedChange={(checked) => setAutoDetectPK(checked === true)}
+          onCheckedChange={checked => setAutoDetectPK(checked === true)}
         />
         <Label htmlFor="auto-detect-pk" className="text-sm cursor-pointer">
           {t('diff.autoDetectPK')}
@@ -194,7 +188,7 @@ export function DiffConfigPanel({
       {/* Column selection */}
       {commonColumns.length > 0 ? (
         <div className="flex flex-wrap gap-2">
-          {commonColumns.map((col) => {
+          {commonColumns.map(col => {
             const isKey = keyColumns.includes(col.name);
             const isPK = detectedPK.includes(col.name);
             return (

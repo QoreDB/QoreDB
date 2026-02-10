@@ -897,6 +897,7 @@ impl DataEngine for PostgresDriver {
                 referenced_schema: Some(referenced_schema),
                 referenced_database: None,
                 constraint_name,
+                is_virtual: false,
             })
             .collect();
 

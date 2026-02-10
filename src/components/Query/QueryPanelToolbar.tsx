@@ -130,8 +130,6 @@ export function QueryPanelToolbar({
         </span>
       )}
 
-
-
       {loading &&
         (canCancel ? (
           <Button

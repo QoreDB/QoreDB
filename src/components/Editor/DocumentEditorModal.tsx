@@ -1,11 +1,11 @@
-import { useState, useEffect,  } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { 
+import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogFooter
+  DialogFooter,
 } from '@/components/ui/dialog';
 import { Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -18,11 +18,11 @@ interface DocumentEditorModalProps {
   isOpen: boolean;
   onClose: () => void;
   mode: 'insert' | 'edit';
-  initialData?: string; 
+  initialData?: string;
   sessionId: string;
   database: string;
   collection: string;
-  originalId?: import('../../lib/tauri').Value; 
+  originalId?: import('../../lib/tauri').Value;
   onSuccess: () => void;
   readOnly?: boolean;
   environment?: 'development' | 'staging' | 'production';
@@ -134,12 +134,12 @@ export function DocumentEditorModal({
         }
       } else {
         if (originalId === undefined) {
-          setError("Missing original ID for update");
+          setError('Missing original ID for update');
           return;
         }
 
         const pkData: RowData = { columns: { _id: originalId } };
-        
+
         const result = await updateRow(
           sessionId,
           database,
@@ -149,7 +149,7 @@ export function DocumentEditorModal({
           rowData,
           acknowledgedDangerous
         );
-         if (result.success) {
+        if (result.success) {
           toast.success(t('document.updateSuccess'));
           onSuccess();
           onClose();
@@ -167,61 +167,55 @@ export function DocumentEditorModal({
 
   return (
     <>
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-3xl h-[80vh] flex flex-col p-0 gap-0">
-        <DialogHeader className="p-4 border-b border-border">
-          <DialogTitle>
-            {mode === 'insert' ? t('document.new') : t('document.edit')}
-          </DialogTitle>
-        </DialogHeader>
+      <Dialog open={isOpen} onOpenChange={open => !open && onClose()}>
+        <DialogContent className="max-w-3xl h-[80vh] flex flex-col p-0 gap-0">
+          <DialogHeader className="p-4 border-b border-border">
+            <DialogTitle>{mode === 'insert' ? t('document.new') : t('document.edit')}</DialogTitle>
+          </DialogHeader>
 
-        <div className="flex-1 overflow-hidden min-h-0 relative">
-            <MongoEditor
-                value={value}
-                onChange={setValue}
-                readOnly={readOnly || loading}
-            />
-        </div>
+          <div className="flex-1 overflow-hidden min-h-0 relative">
+            <MongoEditor value={value} onChange={setValue} readOnly={readOnly || loading} />
+          </div>
 
-        {error && (
+          {error && (
             <div className="bg-destructive/10 text-destructive text-sm p-2 px-4 border-t border-destructive/20">
-                {error}
+              {error}
             </div>
-        )}
+          )}
 
-        <DialogFooter className="p-4 border-t border-border bg-background/50 backdrop-blur-sm z-10">
-          <Button variant="outline" onClick={onClose} disabled={loading}>
-            {t('common.cancel')}
-          </Button>
-          <Button onClick={handleSave} disabled={loading || readOnly}>
-            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {t('common.save')}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          <DialogFooter className="p-4 border-t border-border bg-background/50 backdrop-blur-sm z-10">
+            <Button variant="outline" onClick={onClose} disabled={loading}>
+              {t('common.cancel')}
+            </Button>
+            <Button onClick={handleSave} disabled={loading || readOnly}>
+              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {t('common.save')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-    <DangerConfirmDialog
-      open={confirmOpen}
-      onOpenChange={(open) => {
-        setConfirmOpen(open);
-        if (!open) {
+      <DangerConfirmDialog
+        open={confirmOpen}
+        onOpenChange={open => {
+          setConfirmOpen(open);
+          if (!open) {
+            setPendingAction(null);
+          }
+        }}
+        title={t('environment.mutationConfirmTitle')}
+        description={mutationDescription}
+        confirmationLabel={environment === 'production' ? confirmationLabel : undefined}
+        confirmLabel={t('common.confirm')}
+        loading={loading}
+        onConfirm={() => {
+          const action = pendingAction;
           setPendingAction(null);
-        }
-      }}
-      title={t('environment.mutationConfirmTitle')}
-      description={mutationDescription}
-      confirmationLabel={environment === 'production' ? confirmationLabel : undefined}
-      confirmLabel={t('common.confirm')}
-      loading={loading}
-      onConfirm={() => {
-        const action = pendingAction;
-        setPendingAction(null);
-        if (action) {
-          void action();
-        }
-      }}
-    />
+          if (action) {
+            void action();
+          }
+        }}
+      />
     </>
   );
 }

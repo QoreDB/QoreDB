@@ -1,7 +1,16 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { Copy, Pencil, Trash2, Search, ChevronDown, ChevronUp, Check, Database } from 'lucide-react';
+import {
+  Copy,
+  Pencil,
+  Trash2,
+  Search,
+  ChevronDown,
+  ChevronUp,
+  Check,
+  Database,
+} from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
@@ -9,9 +18,16 @@ import { Input } from '@/components/ui/input';
 import { JSONViewer } from './JSONViewer';
 import { DeleteConfirmDialog } from '../Grid/DeleteConfirmDialog';
 import { DataGridPagination } from '../Grid/DataGridPagination';
-import {  RowData as TauriRowData, deleteRow,  } from '@/lib/tauri';
+import { RowData as TauriRowData, deleteRow } from '@/lib/tauri';
 import { cn } from '@/lib/utils';
-import { coerceIdValue, DocumentResultsProps, DocumentRow, DocumentRowItemProps, formatIdLabel, normalizeDocument } from '@/utils/document'
+import {
+  coerceIdValue,
+  DocumentResultsProps,
+  DocumentRow,
+  DocumentRowItemProps,
+  formatIdLabel,
+  normalizeDocument,
+} from '@/utils/document';
 import { useStreamingExport } from '@/hooks/useStreamingExport';
 import { StreamingExportDialog } from '@/components/Export/StreamingExportDialog';
 import type { ExportConfig } from '@/lib/export';
@@ -24,10 +40,10 @@ function DocumentRowItem({
   t,
   onCopy,
   onEdit,
-  onDelete
+  onDelete,
 }: DocumentRowItemProps) {
   const lineCount = doc.json.split('\n').length;
-  const isLong = lineCount > 12; 
+  const isLong = lineCount > 12;
   const [expanded, setExpanded] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
 
@@ -171,19 +187,17 @@ export function DocumentResults({
   const [streamingDialogOpen, setStreamingDialogOpen] = useState(false);
   const canStreamExport = Boolean(sessionId && exportQuery);
 
-
-
-  const confirmationLabel =
-    (connectionDatabase || connectionName || 'PROD').trim() || 'PROD';
+  const confirmationLabel = (connectionDatabase || connectionName || 'PROD').trim() || 'PROD';
   const requiresConfirm = environment === 'production';
-  const resolvedNamespace = exportNamespace ?? (database ? { database, schema: undefined } : undefined);
+  const resolvedNamespace =
+    exportNamespace ?? (database ? { database, schema: undefined } : undefined);
 
   const isServerSidePaginated = serverSideTotalRows !== undefined;
   const totalRows = isServerSidePaginated ? serverSideTotalRows : result.rows.length;
 
   const documents = useMemo<DocumentRow[]>(() => {
     const renderRows = result.rows;
-    return renderRows.map((row) => {
+    return renderRows.map(row => {
       const doc = normalizeDocument(result, row.values);
       const json = JSON.stringify(doc ?? null, null, 2);
       const search = json.toLowerCase();
@@ -207,7 +221,7 @@ export function DocumentResults({
   const filteredDocs = useMemo(() => {
     const query = filter.trim().toLowerCase();
     if (!query) return documents;
-    return documents.filter((doc) => doc.search.includes(query));
+    return documents.filter(doc => doc.search.includes(query));
   }, [documents, filter]);
 
   const parentRef = useRef<HTMLDivElement>(null);
@@ -253,7 +267,7 @@ export function DocumentResults({
         '',
         collection,
         pkData,
-        acknowledgedDangerous,
+        acknowledgedDangerous
       );
       if (res.success) {
         toast.success(t('grid.deleteSuccess', { count: 1 }));
@@ -296,7 +310,7 @@ export function DocumentResults({
           {typeof result.execution_time_ms === 'number' && (
             <div className="flex items-center gap-2 border-l border-border pl-3">
               <span title={t('query.time.execTooltip')}>
-                {t('query.time.exec')}:{" "}
+                {t('query.time.exec')}:{' '}
                 <span className="font-mono text-foreground font-medium">
                   {result.execution_time_ms.toFixed(2)}ms
                 </span>
@@ -305,7 +319,7 @@ export function DocumentResults({
                 <>
                   <span className="text-border/50">|</span>
                   <span title={t('query.time.totalTooltip')}>
-                    {t('query.time.total')}:{" "}
+                    {t('query.time.total')}:{' '}
                     <span className="font-mono text-foreground font-bold">
                       {totalTimeMs.toFixed(2)}ms
                     </span>
@@ -335,7 +349,7 @@ export function DocumentResults({
             />
             <Input
               value={filter}
-              onChange={(event) => setFilter(event.target.value)}
+              onChange={event => setFilter(event.target.value)}
               placeholder={t('grid.searchPlaceholder')}
               className="h-8 pl-7 text-xs"
             />
@@ -343,26 +357,20 @@ export function DocumentResults({
         </div>
       </div>
 
-      <div
-        ref={parentRef}
-        className="flex-1 min-h-0 overflow-auto rounded-md bg-background"
-      >
-        <div
-          className="relative"
-          style={{ height: `${rowVirtualizer.getTotalSize()}px` }}
-        >
-          {rowVirtualizer.getVirtualItems().map((virtualRow) => (
-             <DocumentRowItem
-               key={virtualRow.key}
-               virtualRow={virtualRow}
-               doc={filteredDocs[virtualRow.index]}
-               measureElement={rowVirtualizer.measureElement}
-               readOnly={readOnly}
-               t={t}
-               onCopy={handleCopy}
-               onEdit={onEditDocument || (() => {})}
-               onDelete={handleDeleteClick}
-             />
+      <div ref={parentRef} className="flex-1 min-h-0 overflow-auto rounded-md bg-background">
+        <div className="relative" style={{ height: `${rowVirtualizer.getTotalSize()}px` }}>
+          {rowVirtualizer.getVirtualItems().map(virtualRow => (
+            <DocumentRowItem
+              key={virtualRow.key}
+              virtualRow={virtualRow}
+              doc={filteredDocs[virtualRow.index]}
+              measureElement={rowVirtualizer.measureElement}
+              readOnly={readOnly}
+              t={t}
+              onCopy={handleCopy}
+              onEdit={onEditDocument || (() => {})}
+              onDelete={handleDeleteClick}
+            />
           ))}
         </div>
       </div>
@@ -397,9 +405,10 @@ export function DocumentResults({
         previewRows={[
           {
             index: 1,
-            values: pendingDelete?.idValue !== undefined
-              ? [{ key: '_id', value: pendingDelete.idValue }]
-              : [],
+            values:
+              pendingDelete?.idValue !== undefined
+                ? [{ key: '_id', value: pendingDelete.idValue }]
+                : [],
             hasMissing: pendingDelete?.idValue === undefined,
           },
         ]}

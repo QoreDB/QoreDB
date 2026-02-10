@@ -1,6 +1,6 @@
-import { Environment, QueryResult, Value, Namespace } from "@/lib/tauri"
-import { VirtualItem } from "@tanstack/react-virtual"
-import { UseTranslationOptions } from "react-i18next"
+import { Environment, QueryResult, Value, Namespace } from '@/lib/tauri';
+import { VirtualItem } from '@tanstack/react-virtual';
+import { UseTranslationOptions } from 'react-i18next';
 
 export interface DocumentResultsProps {
   result: QueryResult;
@@ -15,7 +15,7 @@ export interface DocumentResultsProps {
   onRowsDeleted?: () => void;
   exportQuery?: string;
   exportNamespace?: Namespace;
-  
+
   serverSideTotalRows?: number;
   serverSidePage?: number;
   serverSidePageSize?: number;
@@ -77,7 +77,7 @@ function formatIdLabel(id: unknown): string {
 
 function normalizeDocument(
   result: QueryResult,
-  rowValues: Value[],
+  rowValues: Value[]
 ): Record<string, unknown> | unknown {
   if (result.columns.length === 1 && result.columns[0]?.name === DOCUMENT_COLUMN) {
     return rowValues[0] ?? {};
@@ -90,9 +90,4 @@ function normalizeDocument(
   return data;
 }
 
-export {
-  coerceIdValue,
-  formatIdLabel,
-  normalizeDocument,
-  DOCUMENT_COLUMN,
-}
+export { coerceIdValue, formatIdLabel, normalizeDocument, DOCUMENT_COLUMN };

@@ -74,33 +74,32 @@ export function ConnectionDashboard({
   }, [namespaces]);
 
   const titleLabel = connection?.name || t('connectionDashboard.unknownConnection');
-  const createLabelKey = driverMeta.createAction === 'schema' ? 'database.newSchema' : 'database.newDatabase';
+  const createLabelKey =
+    driverMeta.createAction === 'schema' ? 'database.newSchema' : 'database.newDatabase';
 
   return (
     <div className="h-full flex flex-col gap-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-1">
           <div className="flex items-center gap-3">
-             <h2 className="text-xl font-semibold text-foreground">
-               {t('connectionDashboard.title', { name: titleLabel })}
-             </h2>
-             {connection?.environment && connection.environment !== 'development' && (
-                (() => {
-                   const config = ENVIRONMENT_CONFIG[connection.environment];
-                   return (
-                      <span 
-                         className="px-2 py-0.5 text-xs font-bold rounded"
-                         style={{ backgroundColor: config.bgSoft, color: config.color }}
-                      >
-                         {config.labelShort}
-                      </span>
-                   );
-                })()
-             )}
+            <h2 className="text-xl font-semibold text-foreground">
+              {t('connectionDashboard.title', { name: titleLabel })}
+            </h2>
+            {connection?.environment &&
+              connection.environment !== 'development' &&
+              (() => {
+                const config = ENVIRONMENT_CONFIG[connection.environment];
+                return (
+                  <span
+                    className="px-2 py-0.5 text-xs font-bold rounded"
+                    style={{ backgroundColor: config.bgSoft, color: config.color }}
+                  >
+                    {config.labelShort}
+                  </span>
+                );
+              })()}
           </div>
-          <p className="text-sm text-muted-foreground">
-            {t(descriptionKey)}
-          </p>
+          <p className="text-sm text-muted-foreground">{t(descriptionKey)}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" onClick={onOpenQuery}>
@@ -143,16 +142,16 @@ export function ConnectionDashboard({
           <div className="px-4 py-8 flex flex-col items-center justify-center text-center gap-4">
             <p className="text-sm text-muted-foreground">{t(emptyKey)}</p>
             <div className="flex gap-2">
-               <Button variant="outline" size="sm" onClick={onOpenQuery}>
-                 <Terminal size={14} className="mr-2" />
-                 {t('connectionDashboard.openQuery')}
-               </Button>
-               {driverMeta.createAction !== 'none' && !connection.read_only && (
-                 <Button size="sm" onClick={() => setCreateOpen(true)}>
-                   <Plus size={14} className="mr-2" />
-                   {t(createLabelKey)}
-                 </Button>
-               )}
+              <Button variant="outline" size="sm" onClick={onOpenQuery}>
+                <Terminal size={14} className="mr-2" />
+                {t('connectionDashboard.openQuery')}
+              </Button>
+              {driverMeta.createAction !== 'none' && !connection.read_only && (
+                <Button size="sm" onClick={() => setCreateOpen(true)}>
+                  <Plus size={14} className="mr-2" />
+                  {t(createLabelKey)}
+                </Button>
+              )}
             </div>
           </div>
         ) : (
@@ -170,9 +169,7 @@ export function ConnectionDashboard({
                     <Database size={14} className="shrink-0 text-muted-foreground" />
                     <span className="truncate font-mono text-sm">{label}</span>
                   </span>
-                  <span className="text-xs text-muted-foreground">
-                    {t('dbtree.open')}
-                  </span>
+                  <span className="text-xs text-muted-foreground">{t('dbtree.open')}</span>
                 </button>
               );
             })}

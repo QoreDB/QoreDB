@@ -108,12 +108,12 @@ pnpm tauri build
 
 ### Keyboard Shortcuts
 
-| Shortcut | Action |
-|----------|--------|
-| `Cmd/Ctrl + K` | Global search |
-| `Cmd/Ctrl + N` | New query tab |
+| Shortcut       | Action            |
+| -------------- | ----------------- |
+| `Cmd/Ctrl + K` | Global search     |
+| `Cmd/Ctrl + N` | New query tab     |
 | `Cmd/Ctrl + W` | Close current tab |
-| `Cmd/Ctrl + ,` | Settings |
+| `Cmd/Ctrl + ,` | Settings          |
 
 ### Connection Configuration
 

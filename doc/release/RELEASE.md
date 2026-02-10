@@ -75,12 +75,12 @@ Note : le **Package Family Name** est dérivé automatiquement de `Identity.Name
 
 ### Plateformes générées
 
-| Plateforme | Fichiers |
-| ---------- | -------- |
-| macOS ARM (M1/M2/M3) | `.dmg`, `.app.tar.gz`, `.app.tar.gz.sig` |
-| macOS Intel | `.dmg`, `.app.tar.gz`, `.app.tar.gz.sig` |
-| Windows | `.msi`, `.exe`, `.nsis.zip`, `.nsis.zip.sig` |
-| Linux | `.deb`, `.AppImage`, `.AppImage.tar.gz`, `.AppImage.tar.gz.sig` |
+| Plateforme           | Fichiers                                                        |
+| -------------------- | --------------------------------------------------------------- |
+| macOS ARM (M1/M2/M3) | `.dmg`, `.app.tar.gz`, `.app.tar.gz.sig`                        |
+| macOS Intel          | `.dmg`, `.app.tar.gz`, `.app.tar.gz.sig`                        |
+| Windows              | `.msi`, `.exe`, `.nsis.zip`, `.nsis.zip.sig`                    |
+| Linux                | `.deb`, `.AppImage`, `.AppImage.tar.gz`, `.AppImage.tar.gz.sig` |
 
 ---
 

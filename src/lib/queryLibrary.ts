@@ -78,7 +78,9 @@ function writeState(next: QueryLibraryState): void {
 }
 
 export function listFolders(): QueryFolder[] {
-  return readState().folders.slice().sort((a, b) => a.name.localeCompare(b.name));
+  return readState()
+    .folders.slice()
+    .sort((a, b) => a.name.localeCompare(b.name));
 }
 
 export function createFolder(name: string): QueryFolder {
@@ -314,9 +316,7 @@ export function importLibrary(payload: QueryLibraryExportV1): {
     const query = item?.query ?? '';
     if (!title || !query.trim()) continue;
     const folderId =
-      item.folderId && folderIdMap.has(item.folderId)
-        ? folderIdMap.get(item.folderId)
-        : null;
+      item.folderId && folderIdMap.has(item.folderId) ? folderIdMap.get(item.folderId) : null;
     importedItems.push({
       id: generateId('ql'),
       title,
@@ -338,4 +338,3 @@ export function importLibrary(payload: QueryLibraryExportV1): {
 
   return { foldersImported: importedFolders.length, itemsImported: importedItems.length };
 }
-

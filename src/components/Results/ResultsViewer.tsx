@@ -1,6 +1,6 @@
 /**
  * ResultsViewer - Universal data display wrapper
- * 
+ *
  * Routes to the appropriate viewer based on driver capabilities:
  * - DocumentResults for document-based databases (MongoDB, etc.)
  * - DataGrid for relational databases (PostgreSQL, MySQL, etc.)
@@ -120,13 +120,13 @@ export function ResultsViewer({
   }
 
   return (
-      <DataGrid
-        result={result}
-        sessionId={sessionId}
-        namespace={namespace}
-        tableName={tableName}
-        tableSchema={tableSchema}
-        primaryKey={primaryKey}
+    <DataGrid
+      result={result}
+      sessionId={sessionId}
+      namespace={namespace}
+      tableName={tableName}
+      tableSchema={tableSchema}
+      primaryKey={primaryKey}
       environment={environment}
       readOnly={readOnly}
       mutationsSupported={mutationsSupported}

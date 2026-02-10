@@ -1,6 +1,6 @@
 /**
  * Session Store
- * 
+ *
  * Persists the current session state for restoring on app restart.
  */
 
@@ -44,14 +44,14 @@ export function saveSessionState(state: AppSession): void {
  */
 export function saveSession(session: SavedSession): void {
   const state = getSessionState();
-  
+
   const existingIndex = state.sessions.findIndex(s => s.sessionId === session.sessionId);
   if (existingIndex >= 0) {
     state.sessions[existingIndex] = session;
   } else {
     state.sessions.push(session);
   }
-  
+
   saveSessionState(state);
 }
 

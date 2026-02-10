@@ -150,7 +150,12 @@ export type Value = null | boolean | number | string | object;
 // CONNECTION URL PARSING
 // ============================================
 
-export type ParseErrorCode = 'invalid_url' | 'unsupported_scheme' | 'missing_host' | 'invalid_port' | 'invalid_utf8';
+export type ParseErrorCode =
+  | 'invalid_url'
+  | 'unsupported_scheme'
+  | 'missing_host'
+  | 'invalid_port'
+  | 'invalid_utf8';
 
 export interface PartialConnectionConfig {
   driver?: string;
@@ -364,6 +369,7 @@ export interface ForeignKey {
   referenced_schema?: string;
   referenced_database?: string;
   constraint_name?: string;
+  is_virtual?: boolean;
 }
 
 export interface RelationFilter {
@@ -415,13 +421,14 @@ export interface DriverInfo {
 export async function describeTable(
   sessionId: string,
   namespace: Namespace,
-  table: string
+  table: string,
+  connectionId?: string
 ): Promise<{
   success: boolean;
   schema?: TableSchema;
   error?: string;
 }> {
-  return invoke('describe_table', { sessionId, namespace, table });
+  return invoke('describe_table', { sessionId, namespace, table, connectionId });
 }
 
 export async function previewTable(
@@ -443,7 +450,16 @@ export async function previewTable(
 
 export type SortDirection = 'asc' | 'desc';
 
-export type FilterOperator = 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'like' | 'is_null' | 'is_not_null';
+export type FilterOperator =
+  | 'eq'
+  | 'neq'
+  | 'gt'
+  | 'gte'
+  | 'lt'
+  | 'lte'
+  | 'like'
+  | 'is_null'
+  | 'is_not_null';
 
 export interface ColumnFilter {
   column: string;
@@ -480,7 +496,6 @@ export async function queryTable(
   return invoke('query_table', { sessionId, namespace, table, options });
 }
 
-
 export async function peekForeignKey(
   sessionId: string,
   namespace: Namespace,
@@ -493,6 +508,52 @@ export async function peekForeignKey(
   error?: string;
 }> {
   return invoke('peek_foreign_key', { sessionId, namespace, foreignKey, value, limit });
+}
+
+// ============================================
+// VIRTUAL RELATIONS
+// ============================================
+
+export interface VirtualRelation {
+  id: string;
+  source_database: string;
+  source_schema?: string;
+  source_table: string;
+  source_column: string;
+  referenced_table: string;
+  referenced_column: string;
+  referenced_schema?: string;
+  referenced_database?: string;
+  label?: string;
+}
+
+export async function listVirtualRelations(connectionId: string): Promise<{
+  success: boolean;
+  relations?: VirtualRelation[];
+  error?: string;
+}> {
+  return invoke('list_virtual_relations', { connectionId });
+}
+
+export async function addVirtualRelation(
+  connectionId: string,
+  relation: VirtualRelation
+): Promise<{ success: boolean; error?: string }> {
+  return invoke('add_virtual_relation', { connectionId, relation });
+}
+
+export async function updateVirtualRelation(
+  connectionId: string,
+  relation: VirtualRelation
+): Promise<{ success: boolean; error?: string }> {
+  return invoke('update_virtual_relation', { connectionId, relation });
+}
+
+export async function deleteVirtualRelation(
+  connectionId: string,
+  relationId: string
+): Promise<{ success: boolean; error?: string }> {
+  return invoke('delete_virtual_relation', { connectionId, relationId });
 }
 
 // ============================================
@@ -696,7 +757,10 @@ export async function listSavedConnections(projectId: string): Promise<SavedConn
   return invoke('list_saved_connections', { projectId });
 }
 
-export async function getConnectionCredentials(projectId: string, connectionId: string): Promise<{
+export async function getConnectionCredentials(
+  projectId: string,
+  connectionId: string
+): Promise<{
   success: boolean;
   password?: string;
   error?: string;
@@ -704,7 +768,10 @@ export async function getConnectionCredentials(projectId: string, connectionId: 
   return invoke('get_connection_credentials', { projectId, connectionId });
 }
 
-export async function deleteSavedConnection(projectId: string, connectionId: string): Promise<VaultResponse> {
+export async function deleteSavedConnection(
+  projectId: string,
+  connectionId: string
+): Promise<VaultResponse> {
   return invoke('delete_saved_connection', { projectId, connectionId });
 }
 

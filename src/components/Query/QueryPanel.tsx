@@ -17,7 +17,13 @@ import {
 import { listen, UnlistenFn } from '@tauri-apps/api/event';
 import { addToHistory } from '../../lib/history';
 import { logError } from '../../lib/errorLog';
-import { ENVIRONMENT_CONFIG, getDangerousQueryTarget, isDangerousQuery, isDropDatabaseQuery, isMutationQuery } from '../../lib/environment';
+import {
+  ENVIRONMENT_CONFIG,
+  getDangerousQueryTarget,
+  isDangerousQuery,
+  isDropDatabaseQuery,
+  isMutationQuery,
+} from '../../lib/environment';
 import { Driver } from '../../lib/drivers';
 import { isDocumentDatabase, getQueryDialect } from '../../lib/driverCapabilities';
 import { ProductionConfirmDialog } from '../Guard/ProductionConfirmDialog';
@@ -38,25 +44,20 @@ import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
 function isTextInputTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
   const tag = target.tagName.toLowerCase();
-  return (
-    tag === 'input' ||
-    tag === 'textarea' ||
-    tag === 'select' ||
-    target.isContentEditable
-  );
+  return tag === 'input' || tag === 'textarea' || tag === 'select' || target.isContentEditable;
 }
 
 interface QueryPanelProps {
-	sessionId: string | null;
+  sessionId: string | null;
   dialect?: Driver;
   driverCapabilities?: DriverCapabilities | null;
   environment?: Environment;
   readOnly?: boolean;
-	connectionName?: string;
-	connectionDatabase?: string;
-	activeNamespace?: Namespace | null;
-	initialQuery?: string;
-	onSchemaChange?: () => void;
+  connectionName?: string;
+  connectionDatabase?: string;
+  activeNamespace?: Namespace | null;
+  initialQuery?: string;
+  onSchemaChange?: () => void;
   onOpenLibrary?: () => void;
   isActive?: boolean;
   onQueryDraftChange?: (query: string) => void;
@@ -264,7 +265,10 @@ export function QueryPanel({
               total_time_ms: totalTime,
             } as QueryResult & { total_time_ms: number };
 
-            const didMutate = isMutationQuery(queryToRun, queryDialect === 'document' ? 'mongodb' : 'sql');
+            const didMutate = isMutationQuery(
+              queryToRun,
+              queryDialect === 'document' ? 'mongodb' : 'sql'
+            );
             if (!isDocument && kind === 'query' && didMutate) {
               const time = Math.round(enrichedResult.execution_time_ms ?? totalTime);
               if (typeof enrichedResult.affected_rows === 'number') {
@@ -426,7 +430,10 @@ export function QueryPanel({
       const queryToRun = queryText || query;
       if (!queryToRun.trim()) return;
 
-      const isMutation = isMutationQuery(queryToRun, queryDialect === 'document' ? 'mongodb' : 'sql');
+      const isMutation = isMutationQuery(
+        queryToRun,
+        queryDialect === 'document' ? 'mongodb' : 'sql'
+      );
 
       if (readOnly && isMutation) {
         toast.error(t('environment.blocked'));

@@ -79,9 +79,7 @@ export function ExportProgressToast({ progress, onCancel }: ExportProgressToastP
           <span>{t('export.rows', { count: progress.rows_exported })}</span>
           <span>{t('export.bytes', { size: formatBytes(progress.bytes_written) })}</span>
           <span>{t('export.elapsed', { time: formatElapsed(progress.elapsed_ms) })}</span>
-          {speed !== undefined && (
-            <span>{t('export.speed', { speed: speed.toFixed(1) })}</span>
-          )}
+          {speed !== undefined && <span>{t('export.speed', { speed: speed.toFixed(1) })}</span>}
         </div>
 
         {progress.error ? <p className="text-xs text-destructive">{progress.error}</p> : null}

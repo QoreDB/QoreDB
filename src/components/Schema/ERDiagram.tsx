@@ -10,6 +10,7 @@ import {
   Loader2,
   Table as TableIcon,
   Filter,
+  Link2,
 } from 'lucide-react';
 import { Namespace, TableSchema, TableColumn, ForeignKey } from '@/lib/tauri';
 import { useSchemaCache } from '@/hooks/useSchemaCache';
@@ -17,10 +18,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { onTableChange } from '@/lib/tableEvents';
+import { VirtualRelationsPanel } from '@/components/VirtualRelations/VirtualRelationsPanel';
 
 interface ERDiagramProps {
   sessionId: string;
   namespace: Namespace;
+  connectionId?: string;
   schemaRefreshTrigger?: number;
   onTableSelect: (namespace: Namespace, tableName: string) => void;
 }
@@ -61,6 +64,7 @@ interface DiagramEdge {
   fromColumn: string;
   toColumn: string;
   constraint?: string;
+  isVirtual?: boolean;
 }
 
 interface EdgePath extends DiagramEdge {
@@ -235,11 +239,12 @@ function buildEdgePaths(edges: DiagramEdge[], nodesById: Map<string, DiagramNode
 export function ERDiagram({
   sessionId,
   namespace,
+  connectionId,
   schemaRefreshTrigger,
   onTableSelect,
 }: ERDiagramProps) {
   const { t } = useTranslation();
-  const { getCollections, getTableSchema, forceRefresh } = useSchemaCache(sessionId);
+  const { getCollections, getTableSchema, forceRefresh } = useSchemaCache(sessionId, connectionId);
   const [loading, setLoading] = useState(true);
   const [progress, setProgress] = useState({ loaded: 0, total: 0 });
   const [error, setError] = useState<string | null>(null);
@@ -248,6 +253,7 @@ export function ERDiagram({
   const [search, setSearch] = useState('');
   const [hoveredTable, setHoveredTable] = useState<string | null>(null);
   const [hoveredEdge, setHoveredEdge] = useState<string | null>(null);
+  const [vrPanelOpen, setVrPanelOpen] = useState(false);
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
   const [isolatedTableId, setIsolatedTableId] = useState<string | null>(null);
   const [expandedTables, setExpandedTables] = useState<string[]>([]);
@@ -389,6 +395,7 @@ export function ERDiagram({
               fromColumn: fk.column,
               toColumn: fk.referenced_column,
               constraint: fk.constraint_name,
+              isVirtual: fk.is_virtual,
             });
           });
         });
@@ -709,6 +716,17 @@ export function ERDiagram({
               {t('databaseBrowser.diagramFocus')}
             </Button>
           )}
+          {connectionId && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 gap-2"
+              onClick={() => setVrPanelOpen(true)}
+            >
+              <Link2 size={14} />
+              {t('virtualRelations.manage')}
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"
@@ -780,9 +798,16 @@ export function ERDiagram({
                       fill="none"
                       className={cn(
                         'transition-colors',
-                        isActive ? 'text-accent' : 'text-muted-foreground/40'
+                        isActive
+                          ? edge.isVirtual
+                            ? 'text-violet-400'
+                            : 'text-accent'
+                          : edge.isVirtual
+                            ? 'text-violet-400/40'
+                            : 'text-muted-foreground/40'
                       )}
                       strokeWidth={isActive ? 2 : 1.2}
+                      strokeDasharray={edge.isVirtual ? '6 3' : undefined}
                       onMouseEnter={() => setHoveredEdge(edge.id)}
                       onMouseLeave={() => setHoveredEdge(null)}
                     />
@@ -941,6 +966,9 @@ export function ERDiagram({
                       {hoveredEdgeData.constraint}
                     </span>
                   )}
+                  {hoveredEdgeData.isVirtual && (
+                    <span className="ml-2 text-[10px] text-violet-400">(virtual)</span>
+                  )}
                 </div>
               )}
             </div>
@@ -952,6 +980,17 @@ export function ERDiagram({
             </div>
           )}
         </div>
+      )}
+
+      {connectionId && (
+        <VirtualRelationsPanel
+          open={vrPanelOpen}
+          onOpenChange={setVrPanelOpen}
+          sessionId={sessionId}
+          connectionId={connectionId}
+          namespace={namespace}
+          onChanged={() => loadSchema(true)}
+        />
       )}
     </div>
   );

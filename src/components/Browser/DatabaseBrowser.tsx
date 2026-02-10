@@ -49,6 +49,7 @@ interface DatabaseBrowserProps {
   environment?: Environment;
   readOnly?: boolean;
   connectionName?: string;
+  connectionId?: string;
   onTableSelect: (namespace: Namespace, tableName: string, relationFilter?: RelationFilter) => void;
   schemaRefreshTrigger?: number;
   onSchemaChange?: () => void;
@@ -74,6 +75,7 @@ export function DatabaseBrowser({
   environment = 'development',
   readOnly = false,
   connectionName,
+  connectionId,
   onTableSelect,
   schemaRefreshTrigger,
   onSchemaChange,
@@ -677,6 +679,7 @@ export function DatabaseBrowser({
             <ERDiagram
               sessionId={sessionId}
               namespace={namespace}
+              connectionId={connectionId}
               schemaRefreshTrigger={schemaRefreshTrigger}
               onTableSelect={onTableSelect}
             />

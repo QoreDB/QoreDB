@@ -811,10 +811,14 @@ pub async fn describe_table(
     session_id: String,
     namespace: Namespace,
     table: String,
+    connection_id: Option<String>,
 ) -> Result<TableSchemaResponse, String> {
-    let session_manager = {
+    let (session_manager, vr_store) = {
         let state = state.lock().await;
-        Arc::clone(&state.session_manager)
+        (
+            Arc::clone(&state.session_manager),
+            Arc::clone(&state.virtual_relations),
+        )
     };
     let session = parse_session_id(&session_id)?;
 
@@ -830,11 +834,34 @@ pub async fn describe_table(
     };
 
     match driver.describe_table(session, &namespace, &table).await {
-        Ok(schema) => Ok(TableSchemaResponse {
-            success: true,
-            schema: Some(schema),
-            error: None,
-        }),
+        Ok(mut schema) => {
+            // Merge virtual foreign keys if connection_id is provided
+            if let Some(ref conn_id) = connection_id {
+                let virtual_fks = vr_store.get_foreign_keys_for_table(
+                    conn_id,
+                    &namespace.database,
+                    namespace.schema.as_deref(),
+                    &table,
+                );
+                // Filter out virtual FKs that duplicate real ones
+                for vfk in virtual_fks {
+                    let is_duplicate = schema.foreign_keys.iter().any(|fk| {
+                        fk.column == vfk.column
+                            && fk.referenced_table == vfk.referenced_table
+                            && fk.referenced_column == vfk.referenced_column
+                    });
+                    if !is_duplicate {
+                        schema.foreign_keys.push(vfk);
+                    }
+                }
+            }
+
+            Ok(TableSchemaResponse {
+                success: true,
+                schema: Some(schema),
+                error: None,
+            })
+        }
         Err(e) => Ok(TableSchemaResponse {
             success: false,
             schema: None,

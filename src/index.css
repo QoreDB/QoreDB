@@ -1,5 +1,5 @@
-@import "tailwindcss";
-@import "tw-animate-css";
+@import 'tailwindcss';
+@import 'tw-animate-css';
 
 @custom-variant dark (&:is(.dark *));
 
@@ -45,62 +45,62 @@
 @layer base {
   :root {
     /* Base (neutres) Light */
-    --q-bg-0: #FFFFFF;
-    --q-bg-1: #F6F7F9;
-    --q-bg-2: #ECEEF1;
-    --q-border: #DDE0E5;
-    --q-text-0: #0E1116;
-    --q-text-1: #5B6070;
-    --q-text-2: #8A90A0;
+    --q-bg-0: #ffffff;
+    --q-bg-1: #f6f7f9;
+    --q-bg-2: #eceef1;
+    --q-border: #dde0e5;
+    --q-text-0: #0e1116;
+    --q-text-1: #5b6070;
+    --q-text-2: #8a90a0;
 
     /* Accent Light */
-    --q-accent: #6B5CFF;
-    --q-accent-soft: #E7E5FF;
-    --q-accent-strong: #5847FF;
+    --q-accent: #6b5cff;
+    --q-accent-soft: #e7e5ff;
+    --q-accent-strong: #5847ff;
 
     /* Sémantiques Light */
-    --q-success: #16A34A;
-    --q-warning: #F59E0B;
-    --q-error: #DC2626;
-    --q-info: #3B82F6;
+    --q-success: #16a34a;
+    --q-warning: #f59e0b;
+    --q-error: #dc2626;
+    --q-info: #3b82f6;
 
     /* Environment Colors */
-    --q-env-dev: #16A34A;
+    --q-env-dev: #16a34a;
     --q-env-dev-soft: rgba(22, 163, 74, 0.15);
-    --q-env-staging: #F59E0B;
+    --q-env-staging: #f59e0b;
     --q-env-staging-soft: rgba(245, 158, 11, 0.15);
-    --q-env-prod: #DC2626;
+    --q-env-prod: #dc2626;
     --q-env-prod-soft: rgba(220, 38, 38, 0.15);
   }
 
   /* Dark Mode */
-  :root[data-theme="dark"] {
+  :root[data-theme='dark'] {
     /* Base (neutres) Dark */
-    --q-bg-0: #0B0C0F;
-    --q-bg-1: #1C1E24;
+    --q-bg-0: #0b0c0f;
+    --q-bg-1: #1c1e24;
     --q-bg-2: #272930;
-    --q-border: #2A2D35;
-    --q-text-0: #F4F6FA;
-    --q-text-1: #C0C4CC;
-    --q-text-2: #6B7280;
+    --q-border: #2a2d35;
+    --q-text-0: #f4f6fa;
+    --q-text-1: #c0c4cc;
+    --q-text-2: #6b7280;
 
     /* Accent Dark */
-    --q-accent: #7A6CFF;
+    --q-accent: #7a6cff;
     --q-accent-soft: rgba(122, 108, 255, 0.15);
-    --q-accent-strong: #9A8CFF;
+    --q-accent-strong: #9a8cff;
 
     /* Sémantiques Dark */
-    --q-success: #22C55E;
-    --q-warning: #FBBF24;
-    --q-error: #F87171;
-    --q-info: #60A5FA;
+    --q-success: #22c55e;
+    --q-warning: #fbbf24;
+    --q-error: #f87171;
+    --q-info: #60a5fa;
 
     /* Environment Colors Dark */
-    --q-env-dev: #22C55E;
+    --q-env-dev: #22c55e;
     --q-env-dev-soft: rgba(34, 197, 94, 0.15);
-    --q-env-staging: #FBBF24;
+    --q-env-staging: #fbbf24;
     --q-env-staging-soft: rgba(251, 191, 36, 0.15);
-    --q-env-prod: #F87171;
+    --q-env-prod: #f87171;
     --q-env-prod-soft: rgba(248, 113, 113, 0.15);
   }
 
@@ -252,7 +252,7 @@ button {
   body {
     @apply bg-background text-foreground;
   }
-  
+
   /* Titlebar personnalisée - zone draggable */
   [data-tauri-drag-region] {
     -webkit-app-region: drag;

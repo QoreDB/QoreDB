@@ -2,9 +2,9 @@ import { useTranslation } from 'react-i18next';
 import { Trash2, Bell } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
-import { 
-  useNotifications, 
-  getNotificationsByCategory, 
+import {
+  useNotifications,
+  getNotificationsByCategory,
   clearAllNotifications,
   NotificationCategory,
 } from '@/lib/notificationStore';
@@ -15,7 +15,7 @@ const categoryOrder: NotificationCategory[] = ['system', 'query', 'security'];
 export function NotificationPanel() {
   const { t } = useTranslation();
   const notifications = useNotifications();
-  
+
   const grouped = getNotificationsByCategory();
   const hasNotifications = notifications.length > 0;
 
@@ -23,9 +23,7 @@ export function NotificationPanel() {
     <div className="w-80">
       {/* Header */}
       <div className="flex items-center justify-between pb-3 border-b border-border">
-        <h3 className="text-sm font-semibold">
-          {t('notifications.title')}
-        </h3>
+        <h3 className="text-sm font-semibold">{t('notifications.title')}</h3>
         {hasNotifications && (
           <Button
             variant="ghost"
@@ -57,10 +55,7 @@ export function NotificationPanel() {
                   </div>
                   <div className="space-y-0.5">
                     {items.map(notification => (
-                      <NotificationItem 
-                        key={notification.id} 
-                        notification={notification} 
-                      />
+                      <NotificationItem key={notification.id} notification={notification} />
                     ))}
                   </div>
                 </div>

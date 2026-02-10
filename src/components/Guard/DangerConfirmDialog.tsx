@@ -2,7 +2,13 @@ import { useEffect, useState } from 'react';
 import { AlertTriangle, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
@@ -68,9 +74,7 @@ export function DangerConfirmDialog({
             <AlertTriangle size={16} className="mt-0.5 shrink-0" />
             <div className="space-y-1">
               <span>{description}</span>
-              {warningInfo && (
-                <p className="font-medium">{warningInfo}</p>
-              )}
+              {warningInfo && <p className="font-medium">{warningInfo}</p>}
             </div>
           </div>
 
@@ -82,10 +86,10 @@ export function DangerConfirmDialog({
               </label>
               <Input
                 value={value}
-                onChange={(event) => setValue(event.target.value)}
+                onChange={event => setValue(event.target.value)}
                 placeholder={confirmationLabel}
                 className="font-mono"
-                onKeyDown={(event) => {
+                onKeyDown={event => {
                   if (event.key === 'Enter' && isMatch && !loading) {
                     event.preventDefault();
                     handleConfirm();
@@ -101,11 +105,7 @@ export function DangerConfirmDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
             {t('common.cancel')}
           </Button>
-          <Button 
-            variant="destructive" 
-            onClick={handleConfirm} 
-            disabled={!isMatch || loading}
-          >
+          <Button variant="destructive" onClick={handleConfirm} disabled={!isMatch || loading}>
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {confirmLabel}
           </Button>

@@ -68,7 +68,6 @@ function formatTimestamp(timestamp: number): string {
   return new Date(timestamp).toLocaleDateString();
 }
 
-
 export function ChangeItem({
   change,
   onUndo,
@@ -158,12 +157,17 @@ export function ChangeItem({
   }
 
   return (
-    <div className={cn('rounded-md border-l-2 border overflow-hidden', config.bgColor, config.borderColor, 'border-r-border/50 border-t-border/50 border-b-border/50')}>
+    <div
+      className={cn(
+        'rounded-md border-l-2 border overflow-hidden',
+        config.bgColor,
+        config.borderColor,
+        'border-r-border/50 border-t-border/50 border-b-border/50'
+      )}
+    >
       {/* Header */}
       <div className="flex items-center gap-2 px-3 py-2 border-b border-border/30">
-        <div
-          className={cn('flex items-center justify-center w-6 h-6 rounded', config.bgColor)}
-        >
+        <div className={cn('flex items-center justify-center w-6 h-6 rounded', config.bgColor)}>
           <Icon size={14} className={config.color} />
         </div>
         <div className="flex-1 min-w-0">
@@ -213,10 +217,7 @@ export function ChangeItem({
           {Object.entries(change.oldValues)
             .slice(0, 3)
             .map(([k, v]) => (
-              <div
-                key={k}
-                className="text-xs font-mono text-foreground/60 line-through truncate"
-              >
+              <div key={k} className="text-xs font-mono text-foreground/60 line-through truncate">
                 {k}={formatValue(v)}
               </div>
             ))}

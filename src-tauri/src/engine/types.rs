@@ -321,6 +321,9 @@ pub struct ForeignKey {
     pub referenced_database: Option<String>,
     /// The constraint name (optional)
     pub constraint_name: Option<String>,
+    /// Whether this is a virtual relation (user-defined, not in the database)
+    #[serde(default)]
+    pub is_virtual: bool,
 }
 
 /// Table index definition

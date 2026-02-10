@@ -178,7 +178,7 @@ interface UseSchemaCache {
   loading: boolean;
 }
 
-export function useSchemaCache(sessionId: string): UseSchemaCache {
+export function useSchemaCache(sessionId: string, connectionId?: string): UseSchemaCache {
   const [loading, setLoading] = useState(false);
 
   const cache = useMemo(() => getOrCreateSessionCache(sessionId), [sessionId]);
@@ -248,7 +248,7 @@ export function useSchemaCache(sessionId: string): UseSchemaCache {
 
       setLoading(true);
       try {
-        const result = await describeTable(sessionId, ns, tableName);
+        const result = await describeTable(sessionId, ns, tableName, connectionId);
         if (result.success && result.schema) {
           cache.tableSchemas.set(key, {
             schema: result.schema,
@@ -261,7 +261,7 @@ export function useSchemaCache(sessionId: string): UseSchemaCache {
         setLoading(false);
       }
     },
-    [sessionId, cache]
+    [sessionId, cache, connectionId]
   );
 
   const getRoutines = useCallback(
@@ -321,27 +321,30 @@ export function useSchemaCache(sessionId: string): UseSchemaCache {
     forceRefreshCache(sessionId);
   }, [sessionId]);
 
-  return useMemo(() => ({
-    getNamespaces,
-    getCollections,
-    getTableSchema,
-    getRoutines,
-    invalidateNamespaces,
-    invalidateCollections,
-    invalidateTable,
-    invalidateRoutines,
-    forceRefresh,
-    loading,
-  }), [
-    getNamespaces,
-    getCollections,
-    getTableSchema,
-    getRoutines,
-    invalidateNamespaces,
-    invalidateCollections,
-    invalidateTable,
-    invalidateRoutines,
-    forceRefresh,
-    loading,
-  ]);
+  return useMemo(
+    () => ({
+      getNamespaces,
+      getCollections,
+      getTableSchema,
+      getRoutines,
+      invalidateNamespaces,
+      invalidateCollections,
+      invalidateTable,
+      invalidateRoutines,
+      forceRefresh,
+      loading,
+    }),
+    [
+      getNamespaces,
+      getCollections,
+      getTableSchema,
+      getRoutines,
+      invalidateNamespaces,
+      invalidateCollections,
+      invalidateTable,
+      invalidateRoutines,
+      forceRefresh,
+      loading,
+    ]
+  );
 }

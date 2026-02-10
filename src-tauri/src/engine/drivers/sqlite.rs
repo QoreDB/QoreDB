@@ -686,6 +686,7 @@ impl DataEngine for SqliteDriver {
                         referenced_schema: None,
                         referenced_database: None,
                         constraint_name: None,
+                        is_virtual: false,
                     }
                 },
             )

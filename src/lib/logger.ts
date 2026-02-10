@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from '@tauri-apps/api/core';
 
 export interface LogEntry {
   level: 'info' | 'warn' | 'error' | 'debug';
@@ -32,15 +32,15 @@ export const logger = {
   error: (message: string, error?: unknown) => {
     console.error(message, error);
     let stack: string | undefined;
-    
+
     if (error instanceof Error) {
       stack = error.stack;
     }
-    
+
     sendLog({ level: 'error', message, stack });
   },
   debug: (message: string) => {
     console.debug(message);
     sendLog({ level: 'debug', message });
-  }
+  },
 };

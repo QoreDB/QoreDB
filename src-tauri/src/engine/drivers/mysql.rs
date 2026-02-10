@@ -943,6 +943,7 @@ impl DataEngine for MySqlDriver {
                 referenced_schema: None,
                 referenced_database: Some(referenced_database),
                 constraint_name: Some(constraint_name),
+                is_virtual: false,
             })
             .collect();
 

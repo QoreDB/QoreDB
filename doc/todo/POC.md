@@ -18,7 +18,6 @@
 - [x] **Normalisation des erreurs**
 - [x] **Normalisation des résultats (cursor / rows / json)**
 
-
 ### 🔌 Connexions
 
 - [x] **PostgreSQL** — Connexion et exécution de requêtes
@@ -72,4 +71,3 @@
 - [x] **Favoris**
 - [x] **Sessions sauvegardées**
 - [x] **Logs d’erreurs**
-

@@ -1,6 +1,6 @@
-import { RefObject } from "react";
-import { Table, Column } from "@tanstack/react-table";
-import { useTranslation } from "react-i18next";
+import { RefObject } from 'react';
+import { Table, Column } from '@tanstack/react-table';
+import { useTranslation } from 'react-i18next';
 import {
   Search,
   X,
@@ -178,7 +178,11 @@ export function DataGridToolbar({
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuLabel className="text-xs">{t('grid.streamingExport')}</DropdownMenuLabel>
-          <DropdownMenuItem onClick={onStreamingExport} className="text-xs" disabled={!onStreamingExport}>
+          <DropdownMenuItem
+            onClick={onStreamingExport}
+            className="text-xs"
+            disabled={!onStreamingExport}
+          >
             <Database size={14} className="mr-2" />
             {t('grid.exportAllRows')}
           </DropdownMenuItem>

@@ -103,11 +103,7 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
         return <SecuritySection searchQuery={searchQuery} />;
       case 'data':
         return (
-          <DataSection
-            policy={policy}
-            onApplyPolicy={updatePolicy}
-            searchQuery={searchQuery}
-          />
+          <DataSection policy={policy} onApplyPolicy={updatePolicy} searchQuery={searchQuery} />
         );
       case 'shortcuts':
         return <KeyboardShortcutsSection searchQuery={searchQuery} />;
@@ -164,9 +160,7 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
                 <p className="text-sm">{t('settings.search.noResults')}</p>
               </div>
             ) : (
-              <div className="divide-y divide-border/50">
-                {renderSection()}
-              </div>
+              <div className="divide-y divide-border/50">{renderSection()}</div>
             )}
           </div>
         </div>

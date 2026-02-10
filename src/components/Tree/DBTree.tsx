@@ -73,7 +73,7 @@ export function DBTree({
   const [routines, setRoutines] = useState<Routine[]>([]);
   const [routinesLoading, setRoutinesLoading] = useState(false);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['tables']));
-  const schemaCache = useSchemaCache(connectionId);
+  const schemaCache = useSchemaCache(connectionId, connection?.id);
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [createTableOpen, setCreateTableOpen] = useState(false);
   const [createTableNamespace, setCreateTableNamespace] = useState<Namespace | null>(null);
@@ -409,6 +409,7 @@ export function DBTree({
                             key={col.name}
                             collection={col}
                             sessionId={sessionId}
+                            connectionId={connection?.id}
                             driver={driver as Driver}
                             environment={connection?.environment || 'development'}
                             readOnly={connection?.read_only || false}
@@ -456,6 +457,7 @@ export function DBTree({
                             key={col.name}
                             collection={col}
                             sessionId={sessionId}
+                            connectionId={connection?.id}
                             driver={driver as Driver}
                             environment={connection?.environment || 'development'}
                             readOnly={connection?.read_only || false}
@@ -505,6 +507,7 @@ export function DBTree({
                             key={col.name}
                             collection={col}
                             sessionId={sessionId}
+                            connectionId={connection?.id}
                             driver={driver as Driver}
                             environment={connection?.environment || 'development'}
                             readOnly={connection?.read_only || false}

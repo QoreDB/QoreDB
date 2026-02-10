@@ -13,32 +13,32 @@ This skill guides the creation of a complete feature in QoreDB, ensuring type sa
 
 1.  **Create Command File**:
     Create a new file in `src-tauri/src/commands/<feature>.rs` using the template below.
-    *   Define a `[Feature]Response` struct deriving `Serialize`.
-    *   Implement the function with `#[tauri::command]`.
-    *   Use `crate::SharedState` if state access involves locking (e.g. `state.lock().await`).
+    - Define a `[Feature]Response` struct deriving `Serialize`.
+    - Implement the function with `#[tauri::command]`.
+    - Use `crate::SharedState` if state access involves locking (e.g. `state.lock().await`).
 
 2.  **Register Module**:
     In `src-tauri/src/lib.rs`:
-    *   Add `pub mod <feature>;` in the `commands` module block (or `src-tauri/src/commands/mod.rs` if applicable, but QoreDB uses `lib.rs` for registration).
-    *   Add the command to the `tauri::generate_handler!` macro list.
+    - Add `pub mod <feature>;` in the `commands` module block (or `src-tauri/src/commands/mod.rs` if applicable, but QoreDB uses `lib.rs` for registration).
+    - Add the command to the `tauri::generate_handler!` macro list.
 
 ### 2. Frontend Interface (TypeScript)
 
 1.  **Update `src/lib/tauri.ts`**:
     This file acts as the central SDK for the backend.
-    *   Define the Types (Interfaces) for Arguments and Responses.
-    *   Export a typed `async function` that calls `invoke('command_name', { args })`.
-    *   **Rule**: Never call `invoke` directly in components. Always go through `src/lib/tauri.ts`.
+    - Define the Types (Interfaces) for Arguments and Responses.
+    - Export a typed `async function` that calls `invoke('command_name', { args })`.
+    - **Rule**: Never call `invoke` directly in components. Always go through `src/lib/tauri.ts`.
 
 ### 3. Frontend Logic (React)
 
 1.  **Create Hook (Optional but Recommended)**:
     If the feature involves loading states or complex side effects, create `src/hooks/use<Feature>.ts`.
-    *   Use the `assets/hook.ts` pattern.
+    - Use the `assets/hook.ts` pattern.
 
 2.  **Implement UI**:
-    *   Import the function from `@lib/tauri` (or the hook).
-    *   Handle `loading` and `error` states explicitly.
+    - Import the function from `@lib/tauri` (or the hook).
+    - Handle `loading` and `error` states explicitly.
 
 ## Templates
 
@@ -62,7 +62,7 @@ pub async fn feature_command(
 ) -> Result<FeatureResponse, String> {
     // Access state:
     // let state = state.lock().await;
-    
+
     Ok(FeatureResponse {
         success: true,
         data: Some("Success".to_string()),

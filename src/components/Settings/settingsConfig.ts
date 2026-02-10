@@ -1,18 +1,6 @@
-import {
-  Globe,
-  Code2,
-  Shield,
-  Database,
-  Keyboard,
-  type LucideIcon,
-} from 'lucide-react';
+import { Globe, Code2, Shield, Database, Keyboard, type LucideIcon } from 'lucide-react';
 
-export type SettingsSectionId =
-  | 'general'
-  | 'editor'
-  | 'security'
-  | 'data'
-  | 'shortcuts';
+export type SettingsSectionId = 'general' | 'editor' | 'security' | 'data' | 'shortcuts';
 
 export interface SettingsSection {
   id: SettingsSectionId;
@@ -44,7 +32,16 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     id: 'data',
     labelKey: 'settings.sections.data',
     icon: Database,
-    keywords: ['diagnostics', 'history', 'logs', 'backup', 'export', 'import', 'transfer', 'données'],
+    keywords: [
+      'diagnostics',
+      'history',
+      'logs',
+      'backup',
+      'export',
+      'import',
+      'transfer',
+      'données',
+    ],
   },
   {
     id: 'shortcuts',

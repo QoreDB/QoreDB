@@ -62,18 +62,18 @@ Docker pour les BDD de test : `docker-compose up -d`
 
 Consulte ces fichiers selon le contexte de ta tâche :
 
-| Sujet                        | Fichier                              |
-| ---------------------------- | ------------------------------------ |
-| Vision produit               | `doc/PROJECT.md`                     |
-| Design system UI             | `doc/rules/DESIGN_SYSTEM.md`         |
-| Fondations visuelles         | `doc/rules/VISUAL_FOUNDATION.md`     |
-| Spécificités drivers BDD     | `doc/rules/DATABASES.md`             |
-| Sécurité / menaces           | `doc/security/THREAT_MODEL.md`       |
-| Tests SSH                    | `doc/tests/TESTING_SSH.md`           |
-| Limitations drivers          | `doc/tests/DRIVER_LIMITATIONS.md`    |
-| Intercepteur de requêtes     | `doc/internals/UNIVERSAL_QUERY_INTERCEPTOR.md` |
-| URLs de connexion            | `doc/internals/connection-url-instructions.md` |
-| Roadmap v2                   | `doc/todo/v2.md`                     |
+| Sujet                    | Fichier                                        |
+| ------------------------ | ---------------------------------------------- |
+| Vision produit           | `doc/PROJECT.md`                               |
+| Design system UI         | `doc/rules/DESIGN_SYSTEM.md`                   |
+| Fondations visuelles     | `doc/rules/VISUAL_FOUNDATION.md`               |
+| Spécificités drivers BDD | `doc/rules/DATABASES.md`                       |
+| Sécurité / menaces       | `doc/security/THREAT_MODEL.md`                 |
+| Tests SSH                | `doc/tests/TESTING_SSH.md`                     |
+| Limitations drivers      | `doc/tests/DRIVER_LIMITATIONS.md`              |
+| Intercepteur de requêtes | `doc/internals/UNIVERSAL_QUERY_INTERCEPTOR.md` |
+| URLs de connexion        | `doc/internals/connection-url-instructions.md` |
+| Roadmap v2               | `doc/todo/v2.md`                               |
 
 ## Règles générales
 

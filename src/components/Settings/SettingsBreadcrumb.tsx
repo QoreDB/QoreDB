@@ -13,10 +13,7 @@ export function SettingsBreadcrumb({ currentSection, onNavigateHome }: SettingsB
 
   return (
     <nav className="flex items-center gap-1 text-sm text-muted-foreground">
-      <button
-        onClick={onNavigateHome}
-        className="hover:text-foreground transition-colors"
-      >
+      <button onClick={onNavigateHome} className="hover:text-foreground transition-colors">
         {t('settings.title')}
       </button>
       {section && (

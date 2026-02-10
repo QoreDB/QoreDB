@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       msix_identity_name:
-        description: "Optional MSIX Identity.Name (Package identity name), e.g. QoreDB.QoreDB"
+        description: 'Optional MSIX Identity.Name (Package identity name), e.g. QoreDB.QoreDB'
         required: false
-        default: ""
+        default: ''
 
 jobs:
   msix:

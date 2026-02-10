@@ -1,18 +1,27 @@
 /**
  * Column types and DDL utilities for QoreDB
- * 
+ *
  * Provides driver-aware column type definitions for table creation
  */
 
 import { Driver, getDriverMetadata } from './drivers';
 
-export type ColumnCategory = 'integer' | 'float' | 'string' | 'text' | 'date' | 'binary' | 'json' | 'boolean' | 'other';
+export type ColumnCategory =
+  | 'integer'
+  | 'float'
+  | 'string'
+  | 'text'
+  | 'date'
+  | 'binary'
+  | 'json'
+  | 'boolean'
+  | 'other';
 
 export interface ColumnType {
   name: string;
   category: ColumnCategory;
-  hasLength?: boolean;     // VARCHAR(n)
-  hasPrecision?: boolean;  // DECIMAL(p, s)
+  hasLength?: boolean; // VARCHAR(n)
+  hasPrecision?: boolean; // DECIMAL(p, s)
   isAutoIncrement?: boolean;
 }
 
@@ -137,14 +146,14 @@ export function getColumnTypes(driver: Driver): ColumnType[] {
 /** Build column definition SQL for a single column */
 export function buildColumnSQL(col: ColumnDef, driver: Driver): string {
   let sql = `${quoteIdentifier(col.name, driver)} ${col.type}`;
-  
+
   // Add length/precision
   if (col.length) {
     sql = `${quoteIdentifier(col.name, driver)} ${col.type}(${col.length})`;
   } else if (col.precision) {
     sql = `${quoteIdentifier(col.name, driver)} ${col.type}(${col.precision}${col.scale ? `, ${col.scale}` : ''})`;
   }
-  
+
   // Constraints
   if (!col.nullable) {
     sql += ' NOT NULL';
@@ -162,7 +171,7 @@ export function buildColumnSQL(col: ColumnDef, driver: Driver): string {
   if (col.isAutoIncrement && driver === Driver.Mysql) {
     sql += ' AUTO_INCREMENT';
   }
-  
+
   return sql;
 }
 
@@ -220,9 +229,9 @@ export function buildCreateTableSQL(
   driver: Driver
 ): string {
   const fullName = buildQualifiedTableName(namespace, tableName, driver);
-  
+
   const columnDefs = columns.map(col => buildColumnSQL(col, driver));
-  
+
   return `CREATE TABLE ${fullName} (\n  ${columnDefs.join(',\n  ')}\n);`;
 }
 
@@ -233,6 +242,6 @@ export function buildDropTableSQL(
   driver: Driver
 ): string {
   const fullName = buildQualifiedTableName(namespace, tableName, driver);
-  
+
   return `DROP TABLE ${fullName};`;
 }

@@ -1,6 +1,6 @@
 /**
  * Driver definitions and metadata for QoreDB
- * 
+ *
  * This module provides semantic information about each database driver,
  * enabling the UI to adapt terminology and behavior per database type.
  */

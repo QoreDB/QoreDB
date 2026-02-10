@@ -222,7 +222,9 @@ export async function getInterceptorConfig(): Promise<InterceptorConfig> {
 /**
  * Update the interceptor configuration
  */
-export async function updateInterceptorConfig(config: InterceptorConfig): Promise<InterceptorConfig> {
+export async function updateInterceptorConfig(
+  config: InterceptorConfig
+): Promise<InterceptorConfig> {
   const result = await invoke<InterceptorConfigResponse>('update_interceptor_config', { config });
   if (!result.success || !result.config) {
     throw new Error(result.error || 'Failed to update interceptor config');

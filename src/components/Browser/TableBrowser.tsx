@@ -77,7 +77,11 @@ function formatTableName(namespace: Namespace, tableName: string): string {
   return namespace.schema ? `${namespace.schema}.${tableName}` : tableName;
 }
 
-function buildStreamingExportQuery(driver: Driver, namespace: Namespace, tableName: string): string {
+function buildStreamingExportQuery(
+  driver: Driver,
+  namespace: Namespace,
+  tableName: string
+): string {
   const metadata = getDriverMetadata(driver);
 
   if (metadata.isDocumentBased) {
@@ -242,7 +246,7 @@ export function TableBrowser({
   } | null>(null);
 
   // Schema cache
-  const schemaCache = useSchemaCache(sessionId);
+  const schemaCache = useSchemaCache(sessionId, connectionId);
 
   useEffect(() => {
     const unsubscribe = subscribeSandboxPreferences(prefs => {
@@ -1002,7 +1006,9 @@ function StructureTable({ schema }: StructureTableProps) {
             {col.is_primary_key && <Key size={12} className="text-warning shrink-0" />}
             <span className={cn(col.is_primary_key && 'font-semibold')}>{col.name}</span>
           </div>
-          <div className="w-40 p-2 font-mono text-xs text-accent truncate" title={col.data_type}>{col.data_type}</div>
+          <div className="w-40 p-2 font-mono text-xs text-accent truncate" title={col.data_type}>
+            {col.data_type}
+          </div>
           <div className="w-24 p-2 text-center">
             {col.nullable ? (
               <span className="text-muted-foreground">NULL</span>

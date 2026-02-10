@@ -49,6 +49,11 @@
     "installFailed": "Failed to install update."
   },
   "connection": {
+    "selectDriver": "Select a driver",
+    "configureConnection": "Configure Connection",
+    "validationError": "Please fill in all required fields",
+    "driverSelected": "Selected driver",
+    "changeDriver": "Change...",
     "modalTitleNew": "New Connection",
     "modalTitleEdit": "Edit Connection",
     "connectionName": "Connection Name",
@@ -113,10 +118,6 @@
       "configure": "Configure",
       "host": "SSH Host",
       "port": "SSH Port",
-      "selectDriver": "Select a driver",
-      "configureConnection": "Configure Connection",
-      "driverSelected": "Selected driver",
-      "changeDriver": "Change...",
       "username": "SSH Username",
       "keyPath": "Private Key Path",
       "passphrase": "Key Passphrase (optional)",

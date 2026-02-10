@@ -1630,12 +1630,17 @@ impl DataEngine for PostgresDriver {
 impl PostgresDriver {
     /// Builds a connection string from config
     fn build_connection_string(config: &ConnectionConfig) -> String {
+        use percent_encoding::{utf8_percent_encode, NON_ALPHANUMERIC};
+
         let db = config.database.as_deref().unwrap_or("postgres");
         let ssl_mode = if config.ssl { "require" } else { "disable" };
 
+        let encoded_user = utf8_percent_encode(&config.username, NON_ALPHANUMERIC);
+        let encoded_pass = utf8_percent_encode(&config.password, NON_ALPHANUMERIC);
+
         format!(
             "postgres://{}:{}@{}:{}/{}?sslmode={}",
-            config.username, config.password, config.host, config.port, db, ssl_mode
+            encoded_user, encoded_pass, config.host, config.port, db, ssl_mode
         )
     }
 }
@@ -1644,14 +1649,13 @@ impl PostgresDriver {
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_connection_string_building() {
-        let config = ConnectionConfig {
+    fn make_config(username: &str, password: &str) -> ConnectionConfig {
+        ConnectionConfig {
             driver: "postgres".to_string(),
             host: "localhost".to_string(),
             port: 5432,
-            username: "user".to_string(),
-            password: "pass".to_string(),
+            username: username.to_string(),
+            password: password.to_string(),
             database: Some("testdb".to_string()),
             ssl: false,
             environment: "development".to_string(),
@@ -1660,11 +1664,37 @@ mod tests {
             pool_acquire_timeout_secs: None,
             pool_max_connections: None,
             pool_min_connections: None,
-        };
+        }
+    }
+
+    #[test]
+    fn test_connection_string_building() {
+        let config = make_config("user", "pass");
 
         let conn_str = PostgresDriver::build_connection_string(&config);
         assert!(conn_str.contains("localhost:5432"));
         assert!(conn_str.contains("testdb"));
         assert!(conn_str.contains("sslmode=disable"));
+    }
+
+    #[test]
+    fn test_connection_string_special_chars_in_password() {
+        let config = make_config("admin", "p@ss:word/123?#&=!");
+
+        let conn_str = PostgresDriver::build_connection_string(&config);
+        // Password must be percent-encoded so it doesn't break the URL structure
+        assert!(!conn_str.contains("p@ss:word/123?#&=!"));
+        assert!(conn_str.contains("p%40ss%3Aword%2F123%3F%23%26%3D%21"));
+        // Host and port must remain intact
+        assert!(conn_str.contains("@localhost:5432"));
+    }
+
+    #[test]
+    fn test_connection_string_special_chars_in_username() {
+        let config = make_config("user@domain", "pass");
+
+        let conn_str = PostgresDriver::build_connection_string(&config);
+        assert!(conn_str.contains("user%40domain"));
+        assert!(conn_str.contains("@localhost:5432"));
     }
 }

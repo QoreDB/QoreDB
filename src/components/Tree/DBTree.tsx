@@ -7,6 +7,10 @@ import {
   RelationFilter,
   Routine,
   listRoutines,
+  Trigger,
+  listTriggers,
+  DatabaseEvent,
+  listEvents,
 } from '../../lib/tauri';
 import { useSchemaCache } from '../../hooks/useSchemaCache';
 import {
@@ -22,6 +26,8 @@ import {
   FunctionSquare,
   PlayCircle,
   Layers,
+  Zap,
+  Calendar,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -72,6 +78,9 @@ export function DBTree({
   const [collectionsLoading, setCollectionsLoading] = useState(false);
   const [routines, setRoutines] = useState<Routine[]>([]);
   const [routinesLoading, setRoutinesLoading] = useState(false);
+  const [triggers, setTriggers] = useState<Trigger[]>([]);
+  const [triggersLoading, setTriggersLoading] = useState(false);
+  const [dbEvents, setDbEvents] = useState<DatabaseEvent[]>([]);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['tables']));
   const schemaCache = useSchemaCache(connectionId, connection?.id);
   const [createModalOpen, setCreateModalOpen] = useState(false);
@@ -157,6 +166,29 @@ export function DBTree({
     [connectionId, search]
   );
 
+  const refreshTriggers = useCallback(
+    async (ns: Namespace) => {
+      setTriggersLoading(true);
+      try {
+        const result = await listTriggers(connectionId, ns, search);
+        if (result.success && result.data) {
+          setTriggers(result.data.triggers);
+        }
+        if (driver === 'mysql') {
+          const eventsResult = await listEvents(connectionId, ns, search);
+          if (eventsResult.success && eventsResult.data) {
+            setDbEvents(eventsResult.data.events);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to refresh triggers:', err);
+      } finally {
+        setTriggersLoading(false);
+      }
+    },
+    [connectionId, search, driver]
+  );
+
   const toggleSection = useCallback((section: string) => {
     setExpandedSections(prev => {
       const next = new Set(prev);
@@ -194,8 +226,9 @@ export function DBTree({
     if (expandedNamespace) {
       refreshCollections(expandedNamespace, 1, false);
       refreshRoutines(expandedNamespace);
+      refreshTriggers(expandedNamespace);
     }
-  }, [search, expandedNamespace, refreshCollections, refreshRoutines]);
+  }, [search, expandedNamespace, refreshCollections, refreshRoutines, refreshTriggers]);
 
   const handleLoadMore = useCallback(async () => {
     if (!expandedNamespace || collectionsLoading) return;
@@ -238,6 +271,8 @@ export function DBTree({
       setCollections([]);
       setCollectionsTotal(0);
       setRoutines([]);
+      setTriggers([]);
+      setDbEvents([]);
       setSearch('');
       setSearchValue('');
       if (activeNamespace && getNsKey(activeNamespace) === key) {
@@ -251,7 +286,7 @@ export function DBTree({
     setCollapsedActiveNsKey(null);
     setSearch('');
     setSearchValue('');
-    await Promise.all([refreshCollections(ns, 1, false), refreshRoutines(ns)]);
+    await Promise.all([refreshCollections(ns, 1, false), refreshRoutines(ns), refreshTriggers(ns)]);
   }
 
   async function openNamespace(ns: Namespace) {
@@ -260,7 +295,7 @@ export function DBTree({
       setExpandedNs(key);
       setExpandedNamespace(ns);
       setCollapsedActiveNsKey(null);
-      await Promise.all([refreshCollections(ns, 1, false), refreshRoutines(ns)]);
+      await Promise.all([refreshCollections(ns, 1, false), refreshRoutines(ns), refreshTriggers(ns)]);
     }
     onDatabaseSelect?.(ns);
   }
@@ -614,6 +649,100 @@ export function DBTree({
                   );
                 })()}
 
+                {/* Triggers Section */}
+                {(() => {
+                  if (triggers.length === 0 && !triggersLoading) return null;
+                  return (
+                    <div className="space-y-0.5">
+                      <button
+                        className="flex items-center gap-1 px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground w-full text-left"
+                        onClick={() => toggleSection('triggers')}
+                      >
+                        {expandedSections.has('triggers') ? (
+                          <ChevronDown size={12} />
+                        ) : (
+                          <ChevronRight size={12} />
+                        )}
+                        <Zap size={12} />
+                        <span>{t('dbtree.triggers')}</span>
+                        <span className="text-muted-foreground/60 ml-auto">
+                          {triggers.length}
+                        </span>
+                      </button>
+                      {expandedSections.has('triggers') &&
+                        triggers.map(trigger => (
+                          <div
+                            key={trigger.name}
+                            className="flex items-center gap-2 w-full px-2 py-1 rounded-md text-muted-foreground text-left group ml-4"
+                            title={`${trigger.timing} ${trigger.events.join(' | ')} ON ${trigger.table_name}`}
+                          >
+                            <span className="shrink-0">
+                              <Zap
+                                size={13}
+                                className={cn(!trigger.enabled && 'opacity-40')}
+                              />
+                            </span>
+                            <span className="truncate font-mono text-xs">
+                              {trigger.name}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground/60 ml-auto">
+                              {trigger.table_name}
+                            </span>
+                          </div>
+                        ))}
+                    </div>
+                  );
+                })()}
+
+                {/* Events Section (MySQL only) */}
+                {(() => {
+                  if (dbEvents.length === 0) return null;
+                  return (
+                    <div className="space-y-0.5">
+                      <button
+                        className="flex items-center gap-1 px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground w-full text-left"
+                        onClick={() => toggleSection('events')}
+                      >
+                        {expandedSections.has('events') ? (
+                          <ChevronDown size={12} />
+                        ) : (
+                          <ChevronRight size={12} />
+                        )}
+                        <Calendar size={12} />
+                        <span>{t('dbtree.events')}</span>
+                        <span className="text-muted-foreground/60 ml-auto">
+                          {dbEvents.length}
+                        </span>
+                      </button>
+                      {expandedSections.has('events') &&
+                        dbEvents.map(evt => (
+                          <div
+                            key={evt.name}
+                            className="flex items-center gap-2 w-full px-2 py-1 rounded-md text-muted-foreground text-left group ml-4"
+                            title={`${evt.event_type}${evt.interval_value ? ` every ${evt.interval_value} ${evt.interval_field}` : ''}`}
+                          >
+                            <span className="shrink-0">
+                              <Calendar size={13} />
+                            </span>
+                            <span className="truncate font-mono text-xs">
+                              {evt.name}
+                            </span>
+                            <span
+                              className={cn(
+                                'text-[10px] ml-auto',
+                                evt.status === 'Enabled'
+                                  ? 'text-emerald-600'
+                                  : 'text-muted-foreground/60'
+                              )}
+                            >
+                              {evt.status === 'Enabled' ? '' : evt.status}
+                            </span>
+                          </div>
+                        ))}
+                    </div>
+                  );
+                })()}
+
                 {/* Load More for collections */}
                 {canLoadMore && !collectionsLoading && (
                   <Button
@@ -629,8 +758,10 @@ export function DBTree({
                 {/* Empty state */}
                 {collections.length === 0 &&
                   routines.length === 0 &&
+                  triggers.length === 0 &&
                   !collectionsLoading &&
-                  !routinesLoading && (
+                  !routinesLoading &&
+                  !triggersLoading && (
                     <div className="px-2 py-1 text-xs text-muted-foreground italic">
                       {search ? t('common.noResults') : t('common.noResults')}
                     </div>

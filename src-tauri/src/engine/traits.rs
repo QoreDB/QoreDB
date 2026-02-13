@@ -11,6 +11,7 @@ use crate::engine::types::{
     CancelSupport, CollectionList, CollectionListOptions, ConnectionConfig, DriverCapabilities, Namespace,
     QueryId, QueryResult, Row, RowData, SessionId, TableSchema, ColumnInfo, Value, ForeignKey,
     TableQueryOptions, PaginatedQueryResult, RoutineList, RoutineListOptions,
+    TriggerList, TriggerListOptions, EventList, EventListOptions,
 };
 
 /// Events emitted during query streaming
@@ -80,6 +81,40 @@ pub trait DataEngine: Send + Sync {
 
     /// Check if the driver supports routines (functions/procedures).
     fn supports_routines(&self) -> bool {
+        false
+    }
+
+    /// Lists triggers in a namespace.
+    /// Default returns empty list for drivers without trigger support.
+    async fn list_triggers(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        options: TriggerListOptions,
+    ) -> EngineResult<TriggerList> {
+        let _ = (session, namespace, options);
+        Ok(TriggerList { triggers: Vec::new(), total_count: 0 })
+    }
+
+    /// Check if the driver supports triggers.
+    fn supports_triggers(&self) -> bool {
+        false
+    }
+
+    /// Lists scheduled events in a namespace (MySQL only).
+    /// Default returns empty list for drivers without event support.
+    async fn list_events(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        options: EventListOptions,
+    ) -> EngineResult<EventList> {
+        let _ = (session, namespace, options);
+        Ok(EventList { events: Vec::new(), total_count: 0 })
+    }
+
+    /// Check if the driver supports scheduled events.
+    fn supports_events(&self) -> bool {
         false
     }
 

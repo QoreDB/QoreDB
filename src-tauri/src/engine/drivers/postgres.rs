@@ -26,6 +26,7 @@ use crate::engine::types::{
     TableColumn, TableIndex, TableSchema, Value, ForeignKey,
     TableQueryOptions, PaginatedQueryResult, SortDirection, FilterOperator,
     Routine, RoutineList, RoutineListOptions, RoutineType,
+    Trigger, TriggerList, TriggerListOptions, TriggerTiming, TriggerEvent,
 };
 
 pub struct PostgresSession {
@@ -443,6 +444,116 @@ impl DataEngine for PostgresDriver {
     }
 
     fn supports_routines(&self) -> bool {
+        true
+    }
+
+    async fn list_triggers(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        options: TriggerListOptions,
+    ) -> EngineResult<TriggerList> {
+        let pg_session = self.get_session(session).await?;
+        let pool = &pg_session.pool;
+
+        let schema = namespace.schema.as_deref().unwrap_or("public");
+        let search_pattern = options.search.as_ref().map(|s| format!("%{}%", s));
+
+        // Get total count
+        let count_row: (i64,) = sqlx::query_as(
+            r#"
+            SELECT COUNT(DISTINCT t.tgname)
+            FROM pg_trigger t
+            JOIN pg_class c ON t.tgrelid = c.oid
+            JOIN pg_namespace n ON c.relnamespace = n.oid
+            WHERE n.nspname = $1
+              AND NOT t.tgisinternal
+              AND ($2::text IS NULL OR t.tgname::text ILIKE $2)
+            "#,
+        )
+        .bind(schema)
+        .bind(&search_pattern)
+        .fetch_one(pool)
+        .await
+        .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        let total_count = count_row.0;
+
+        // Get paginated results
+        // tgtype bitmask: bit 0=ROW, bit 1=BEFORE, bit 2=INSERT, bit 3=DELETE,
+        //                 bit 4=UPDATE, bit 5=TRUNCATE, bit 6=INSTEAD OF
+        let mut query_str = r#"
+            SELECT
+                t.tgname::text AS trigger_name,
+                c.relname::text AS table_name,
+                t.tgtype::int AS tg_type,
+                t.tgenabled::text AS enabled,
+                p.proname::text AS function_name
+            FROM pg_trigger t
+            JOIN pg_class c ON t.tgrelid = c.oid
+            JOIN pg_namespace n ON c.relnamespace = n.oid
+            JOIN pg_proc p ON t.tgfoid = p.oid
+            WHERE n.nspname = $1
+              AND NOT t.tgisinternal
+              AND ($2::text IS NULL OR t.tgname::text ILIKE $2)
+            ORDER BY t.tgname
+        "#
+        .to_string();
+
+        if let Some(limit) = options.page_size {
+            query_str.push_str(&format!(" LIMIT {}", limit));
+            if let Some(page) = options.page {
+                let offset = (page.max(1) - 1) * limit;
+                query_str.push_str(&format!(" OFFSET {}", offset));
+            }
+        }
+
+        let rows: Vec<(String, String, i32, String, String)> = sqlx::query_as(&query_str)
+            .bind(schema)
+            .bind(&search_pattern)
+            .fetch_all(pool)
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        let triggers = rows
+            .into_iter()
+            .map(|(name, table_name, tg_type, enabled_char, function_name)| {
+                let timing = if tg_type & (1 << 6) != 0 {
+                    TriggerTiming::InsteadOf
+                } else if tg_type & (1 << 1) != 0 {
+                    TriggerTiming::Before
+                } else {
+                    TriggerTiming::After
+                };
+
+                let mut events = Vec::new();
+                if tg_type & (1 << 2) != 0 { events.push(TriggerEvent::Insert); }
+                if tg_type & (1 << 3) != 0 { events.push(TriggerEvent::Delete); }
+                if tg_type & (1 << 4) != 0 { events.push(TriggerEvent::Update); }
+                if tg_type & (1 << 5) != 0 { events.push(TriggerEvent::Truncate); }
+
+                // tgenabled: 'O' = origin (enabled), 'D' = disabled, 'R' = replica, 'A' = always
+                let is_enabled = enabled_char != "D";
+
+                Trigger {
+                    namespace: namespace.clone(),
+                    name,
+                    table_name,
+                    timing,
+                    events,
+                    enabled: is_enabled,
+                    function_name: Some(function_name),
+                }
+            })
+            .collect();
+
+        Ok(TriggerList {
+            triggers,
+            total_count: total_count as u32,
+        })
+    }
+
+    fn supports_triggers(&self) -> bool {
         true
     }
 

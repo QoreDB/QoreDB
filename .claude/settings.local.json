@@ -16,7 +16,8 @@
       "Bash(grep:*)",
       "Bash(pnpm typecheck:*)",
       "Bash(git log:*)",
-      "Bash(pnpm lint:*)"
+      "Bash(pnpm lint:*)",
+      "Bash(pnpm lint:fix:*)"
     ]
   }
 }

@@ -9,6 +9,10 @@ import {
   RelationFilter,
   Routine,
   listRoutines,
+  Trigger,
+  listTriggers,
+  DatabaseEvent,
+  listEvents,
 } from '../../lib/tauri';
 import { getTerminology } from '@/lib/driverCapabilities';
 import { cn } from '@/lib/utils';
@@ -31,6 +35,8 @@ import {
   TerminalSquare,
   FunctionSquare,
   PlayCircle,
+  Zap,
+  Calendar,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -40,7 +46,7 @@ import { emitTableChange, onTableChange } from '@/lib/tableEvents';
 import { ERDiagram } from '@/components/Schema/ERDiagram';
 import { StatCard } from './StatCard';
 
-export type DatabaseBrowserTab = 'overview' | 'tables' | 'routines' | 'schema';
+export type DatabaseBrowserTab = 'overview' | 'tables' | 'routines' | 'triggers' | 'schema';
 
 interface DatabaseBrowserProps {
   sessionId: string;
@@ -92,6 +98,9 @@ export function DatabaseBrowser({
   const [collections, setCollections] = useState<Collection[]>([]);
   const [routines, setRoutines] = useState<Routine[]>([]);
   const [routinesLoading, setRoutinesLoading] = useState(false);
+  const [triggers, setTriggers] = useState<Trigger[]>([]);
+  const [triggersLoading, setTriggersLoading] = useState(false);
+  const [dbEvents, setDbEvents] = useState<DatabaseEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [createTableOpen, setCreateTableOpen] = useState(false);
@@ -126,6 +135,26 @@ export function DatabaseBrowser({
     }
   }, [sessionId, namespace]);
 
+  const loadTriggers = useCallback(async () => {
+    setTriggersLoading(true);
+    try {
+      const result = await listTriggers(sessionId, namespace);
+      if (result.success && result.data) {
+        setTriggers(result.data.triggers);
+      }
+      if (driver === 'mysql') {
+        const eventsResult = await listEvents(sessionId, namespace);
+        if (eventsResult.success && eventsResult.data) {
+          setDbEvents(eventsResult.data.events);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load triggers:', err);
+    } finally {
+      setTriggersLoading(false);
+    }
+  }, [sessionId, namespace, driver]);
+
   const loadData = useCallback(async () => {
     if (activeTab === 'schema') {
       setLoading(false);
@@ -134,6 +163,11 @@ export function DatabaseBrowser({
     if (activeTab === 'routines') {
       setLoading(false);
       loadRoutines();
+      return;
+    }
+    if (activeTab === 'triggers') {
+      setLoading(false);
+      loadTriggers();
       return;
     }
     setLoading(true);
@@ -218,6 +252,7 @@ export function DatabaseBrowser({
   }, [
     activeTab,
     loadRoutines,
+    loadTriggers,
     page,
     search,
     sessionId,
@@ -389,6 +424,22 @@ export function DatabaseBrowser({
             <span className="flex items-center gap-2">
               <FunctionSquare size={14} />
               {t('databaseBrowser.routines')} ({routines.length})
+            </span>
+          </button>
+        )}
+        {driverMeta.supportsSQL && (
+          <button
+            className={cn(
+              'px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
+              activeTab === 'triggers'
+                ? 'bg-accent text-accent-foreground'
+                : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+            )}
+            onClick={() => handleTabChange('triggers')}
+          >
+            <span className="flex items-center gap-2">
+              <Zap size={14} />
+              {t('databaseBrowser.triggers')} ({triggers.length})
             </span>
           </button>
         )}
@@ -670,6 +721,116 @@ export function DatabaseBrowser({
                         )}
                       </div>
                     ))}
+                </>
+              )}
+            </div>
+          </div>
+        ) : activeTab === 'triggers' ? (
+          /* Triggers Tab */
+          <div className="flex flex-col h-full gap-4">
+            <div className="border border-border rounded-md divide-y divide-border flex-1 overflow-auto relative min-h-50">
+              {triggersLoading && (
+                <div className="absolute inset-0 z-10 bg-background/50 flex items-center justify-center backdrop-blur-[1px]">
+                  <Loader2 size={24} className="animate-spin text-primary" />
+                </div>
+              )}
+
+              {triggers.length === 0 && dbEvents.length === 0 && !triggersLoading ? (
+                <div className="text-sm text-muted-foreground italic p-8 text-center">
+                  {t('databaseBrowser.noTriggers')}
+                </div>
+              ) : (
+                <>
+                  {/* Triggers */}
+                  {triggers.length > 0 && (
+                    <>
+                      <div className="p-3 bg-muted/30">
+                        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                          <Zap size={12} />
+                          {t('databaseBrowser.triggers')} ({triggers.length})
+                        </h4>
+                      </div>
+                      {triggers.map(trigger => (
+                        <div
+                          key={trigger.name}
+                          className="flex items-center justify-between w-full px-4 py-3 hover:bg-muted/50 transition-colors text-left"
+                        >
+                          <div className="flex items-center gap-3">
+                            <Zap
+                              size={16}
+                              className={cn(
+                                'text-muted-foreground',
+                                !trigger.enabled && 'opacity-40'
+                              )}
+                            />
+                            <div>
+                              <span className="font-mono text-sm">{trigger.name}</span>
+                              <span className="text-xs text-muted-foreground ml-2">
+                                {trigger.timing} {trigger.events.join(' | ')} ON{' '}
+                                {trigger.table_name}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {trigger.function_name && (
+                              <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
+                                {trigger.function_name}
+                              </span>
+                            )}
+                            {!trigger.enabled && (
+                              <span className="text-xs text-orange-500 bg-orange-500/10 px-2 py-0.5 rounded">
+                                disabled
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </>
+                  )}
+
+                  {/* MySQL Events */}
+                  {dbEvents.length > 0 && (
+                    <>
+                      <div className="p-3 bg-muted/30">
+                        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                          <Calendar size={12} />
+                          {t('databaseBrowser.events')} ({dbEvents.length})
+                        </h4>
+                      </div>
+                      {dbEvents.map(evt => (
+                        <div
+                          key={evt.name}
+                          className="flex items-center justify-between w-full px-4 py-3 hover:bg-muted/50 transition-colors text-left"
+                        >
+                          <div className="flex items-center gap-3">
+                            <Calendar size={16} className="text-muted-foreground" />
+                            <div>
+                              <span className="font-mono text-sm">{evt.name}</span>
+                              <span className="text-xs text-muted-foreground ml-2">
+                                {evt.event_type}
+                                {evt.interval_value && evt.interval_field && (
+                                  <>
+                                    {' '}
+                                    every {evt.interval_value} {evt.interval_field}
+                                  </>
+                                )}
+                              </span>
+                            </div>
+                          </div>
+                          <span
+                            className={cn(
+                              'text-xs px-2 py-0.5 rounded',
+                              evt.status === 'Enabled'
+                                ? 'text-emerald-600 bg-emerald-500/10'
+                                : 'text-orange-500 bg-orange-500/10'
+                            )}
+                          >
+                            {evt.status}
+                          </span>
+                        </div>
+                      ))}
+                    </>
+                  )}
                 </>
               )}
             </div>

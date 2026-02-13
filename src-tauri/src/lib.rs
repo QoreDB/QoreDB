@@ -122,6 +122,8 @@ pub fn run() {
             commands::query::list_namespaces,
             commands::query::list_collections,
             commands::query::list_routines,
+            commands::query::list_triggers,
+            commands::query::list_events,
             commands::query::describe_table,
             commands::query::preview_table,
             commands::query::query_table,

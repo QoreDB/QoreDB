@@ -23,6 +23,8 @@ use crate::engine::types::{
     TableColumn, TableIndex, TableSchema, Value, ForeignKey,
     TableQueryOptions, PaginatedQueryResult, SortDirection, FilterOperator,
     Routine, RoutineList, RoutineListOptions, RoutineType,
+    Trigger, TriggerList, TriggerListOptions, TriggerTiming, TriggerEvent,
+    DatabaseEvent, EventList, EventListOptions, EventStatus,
 };
 use crate::engine::traits::{StreamEvent, StreamSender};
 use futures::StreamExt;
@@ -527,6 +529,190 @@ impl DataEngine for MySqlDriver {
     }
 
     fn supports_routines(&self) -> bool {
+        true
+    }
+
+    async fn list_triggers(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        options: TriggerListOptions,
+    ) -> EngineResult<TriggerList> {
+        let mysql_session = self.get_session(session).await?;
+        let pool = &mysql_session.pool;
+
+        let search_pattern = options.search.as_ref().map(|s| format!("%{}%", s));
+
+        let count_row: (i64,) = sqlx::query_as(
+            r#"
+            SELECT COUNT(*)
+            FROM information_schema.TRIGGERS
+            WHERE TRIGGER_SCHEMA = ?
+              AND (? IS NULL OR TRIGGER_NAME LIKE ?)
+            "#,
+        )
+        .bind(&namespace.database)
+        .bind(&search_pattern)
+        .bind(&search_pattern)
+        .fetch_one(pool)
+        .await
+        .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        let total_count = count_row.0;
+
+        let mut query_str = r#"
+            SELECT
+                CAST(TRIGGER_NAME AS CHAR) AS trigger_name,
+                CAST(EVENT_OBJECT_TABLE AS CHAR) AS table_name,
+                CAST(ACTION_TIMING AS CHAR) AS timing,
+                CAST(EVENT_MANIPULATION AS CHAR) AS event_type
+            FROM information_schema.TRIGGERS
+            WHERE TRIGGER_SCHEMA = ?
+              AND (? IS NULL OR TRIGGER_NAME LIKE ?)
+            ORDER BY TRIGGER_NAME
+        "#
+        .to_string();
+
+        if let Some(limit) = options.page_size {
+            query_str.push_str(&format!(" LIMIT {}", limit));
+            if let Some(page) = options.page {
+                let offset = (page.max(1) - 1) * limit;
+                query_str.push_str(&format!(" OFFSET {}", offset));
+            }
+        }
+
+        let rows: Vec<(String, String, String, String)> = sqlx::query_as(&query_str)
+            .bind(&namespace.database)
+            .bind(&search_pattern)
+            .bind(&search_pattern)
+            .fetch_all(pool)
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        let triggers = rows
+            .into_iter()
+            .map(|(name, table_name, timing_str, event_str)| {
+                let timing = match timing_str.as_str() {
+                    "BEFORE" => TriggerTiming::Before,
+                    "AFTER" => TriggerTiming::After,
+                    _ => TriggerTiming::After,
+                };
+
+                let event = match event_str.as_str() {
+                    "INSERT" => TriggerEvent::Insert,
+                    "UPDATE" => TriggerEvent::Update,
+                    "DELETE" => TriggerEvent::Delete,
+                    _ => TriggerEvent::Insert,
+                };
+
+                Trigger {
+                    namespace: namespace.clone(),
+                    name,
+                    table_name,
+                    timing,
+                    events: vec![event],
+                    enabled: true,
+                    function_name: None,
+                }
+            })
+            .collect();
+
+        Ok(TriggerList {
+            triggers,
+            total_count: total_count as u32,
+        })
+    }
+
+    fn supports_triggers(&self) -> bool {
+        true
+    }
+
+    async fn list_events(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        options: EventListOptions,
+    ) -> EngineResult<EventList> {
+        let mysql_session = self.get_session(session).await?;
+        let pool = &mysql_session.pool;
+
+        let search_pattern = options.search.as_ref().map(|s| format!("%{}%", s));
+
+        let count_row: (i64,) = sqlx::query_as(
+            r#"
+            SELECT COUNT(*)
+            FROM information_schema.EVENTS
+            WHERE EVENT_SCHEMA = ?
+              AND (? IS NULL OR EVENT_NAME LIKE ?)
+            "#,
+        )
+        .bind(&namespace.database)
+        .bind(&search_pattern)
+        .bind(&search_pattern)
+        .fetch_one(pool)
+        .await
+        .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        let total_count = count_row.0;
+
+        let mut query_str = r#"
+            SELECT
+                CAST(EVENT_NAME AS CHAR) AS event_name,
+                CAST(EVENT_TYPE AS CHAR) AS event_type,
+                CAST(IFNULL(INTERVAL_VALUE, '') AS CHAR) AS interval_value,
+                CAST(IFNULL(INTERVAL_FIELD, '') AS CHAR) AS interval_field,
+                CAST(STATUS AS CHAR) AS status
+            FROM information_schema.EVENTS
+            WHERE EVENT_SCHEMA = ?
+              AND (? IS NULL OR EVENT_NAME LIKE ?)
+            ORDER BY EVENT_NAME
+        "#
+        .to_string();
+
+        if let Some(limit) = options.page_size {
+            query_str.push_str(&format!(" LIMIT {}", limit));
+            if let Some(page) = options.page {
+                let offset = (page.max(1) - 1) * limit;
+                query_str.push_str(&format!(" OFFSET {}", offset));
+            }
+        }
+
+        let rows: Vec<(String, String, String, String, String)> = sqlx::query_as(&query_str)
+            .bind(&namespace.database)
+            .bind(&search_pattern)
+            .bind(&search_pattern)
+            .fetch_all(pool)
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        let events = rows
+            .into_iter()
+            .map(|(name, event_type, interval_value, interval_field, status)| {
+                let event_status = match status.as_str() {
+                    "ENABLED" => EventStatus::Enabled,
+                    "DISABLED" => EventStatus::Disabled,
+                    "SLAVESIDE_DISABLED" => EventStatus::SlavesideDisabled,
+                    _ => EventStatus::Disabled,
+                };
+
+                DatabaseEvent {
+                    namespace: namespace.clone(),
+                    name,
+                    event_type,
+                    interval_value: if interval_value.is_empty() { None } else { Some(interval_value) },
+                    interval_field: if interval_field.is_empty() { None } else { Some(interval_field) },
+                    status: event_status,
+                }
+            })
+            .collect();
+
+        Ok(EventList {
+            events,
+            total_count: total_count as u32,
+        })
+    }
+
+    fn supports_events(&self) -> bool {
         true
     }
 

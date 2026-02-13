@@ -14,7 +14,7 @@ use crate::engine::{
     sql_safety,
     TableSchema,
     traits::StreamEvent,
-    types::{CollectionList, CollectionListOptions, ForeignKey, Namespace, QueryId, QueryResult, SessionId, Value, TableQueryOptions, PaginatedQueryResult, RoutineList, RoutineListOptions, RoutineType},
+    types::{CollectionList, CollectionListOptions, ForeignKey, Namespace, QueryId, QueryResult, SessionId, Value, TableQueryOptions, PaginatedQueryResult, RoutineList, RoutineListOptions, RoutineType, TriggerList, TriggerListOptions, EventList, EventListOptions},
 };
 use crate::interceptor::{Environment, QueryExecutionResult, SafetyAction};
 use crate::metrics;
@@ -789,6 +789,116 @@ pub async fn list_routines(
             error: None,
         }),
         Err(e) => Ok(RoutinesResponse {
+            success: false,
+            data: None,
+            error: Some(e.to_string()),
+        }),
+    }
+}
+
+/// Response wrapper for trigger listing
+#[derive(Debug, Serialize)]
+pub struct TriggersResponse {
+    pub success: bool,
+    pub data: Option<TriggerList>,
+    pub error: Option<String>,
+}
+
+/// Lists all triggers in a namespace
+#[tauri::command]
+pub async fn list_triggers(
+    state: State<'_, crate::SharedState>,
+    session_id: String,
+    namespace: Namespace,
+    search: Option<String>,
+    page: Option<u32>,
+    page_size: Option<u32>,
+) -> Result<TriggersResponse, String> {
+    let session_manager = {
+        let state = state.lock().await;
+        Arc::clone(&state.session_manager)
+    };
+    let session = parse_session_id(&session_id)?;
+
+    let driver = match session_manager.get_driver(session).await {
+        Ok(d) => d,
+        Err(e) => {
+            return Ok(TriggersResponse {
+                success: false,
+                data: None,
+                error: Some(e.to_string()),
+            });
+        }
+    };
+
+    let options = TriggerListOptions {
+        search,
+        page,
+        page_size,
+    };
+
+    match driver.list_triggers(session, &namespace, options).await {
+        Ok(list) => Ok(TriggersResponse {
+            success: true,
+            data: Some(list),
+            error: None,
+        }),
+        Err(e) => Ok(TriggersResponse {
+            success: false,
+            data: None,
+            error: Some(e.to_string()),
+        }),
+    }
+}
+
+/// Response wrapper for event listing
+#[derive(Debug, Serialize)]
+pub struct EventsResponse {
+    pub success: bool,
+    pub data: Option<EventList>,
+    pub error: Option<String>,
+}
+
+/// Lists all scheduled events in a namespace (MySQL only)
+#[tauri::command]
+pub async fn list_events(
+    state: State<'_, crate::SharedState>,
+    session_id: String,
+    namespace: Namespace,
+    search: Option<String>,
+    page: Option<u32>,
+    page_size: Option<u32>,
+) -> Result<EventsResponse, String> {
+    let session_manager = {
+        let state = state.lock().await;
+        Arc::clone(&state.session_manager)
+    };
+    let session = parse_session_id(&session_id)?;
+
+    let driver = match session_manager.get_driver(session).await {
+        Ok(d) => d,
+        Err(e) => {
+            return Ok(EventsResponse {
+                success: false,
+                data: None,
+                error: Some(e.to_string()),
+            });
+        }
+    };
+
+    let options = EventListOptions {
+        search,
+        page,
+        page_size,
+    };
+
+    match driver.list_events(session, &namespace, options).await {
+        Ok(list) => Ok(EventsResponse {
+            success: true,
+            data: Some(list),
+            error: None,
+        }),
+        Err(e) => Ok(EventsResponse {
             success: false,
             data: None,
             error: Some(e.to_string()),

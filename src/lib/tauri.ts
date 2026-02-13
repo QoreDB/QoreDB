@@ -324,6 +324,88 @@ export async function listRoutines(
   });
 }
 
+// ============================================
+// TRIGGERS
+// ============================================
+
+export type TriggerTiming = 'Before' | 'After' | 'InsteadOf';
+export type TriggerEvent = 'Insert' | 'Update' | 'Delete' | 'Truncate';
+
+export interface Trigger {
+  namespace: Namespace;
+  name: string;
+  table_name: string;
+  timing: TriggerTiming;
+  events: TriggerEvent[];
+  enabled: boolean;
+  function_name?: string;
+}
+
+export interface TriggerList {
+  triggers: Trigger[];
+  total_count: number;
+}
+
+export async function listTriggers(
+  sessionId: string,
+  namespace: Namespace,
+  search?: string,
+  page?: number,
+  pageSize?: number
+): Promise<{
+  success: boolean;
+  data?: TriggerList;
+  error?: string;
+}> {
+  return invoke('list_triggers', {
+    sessionId,
+    namespace,
+    search,
+    page,
+    page_size: pageSize,
+  });
+}
+
+// ============================================
+// EVENTS (MySQL scheduled tasks)
+// ============================================
+
+export type EventStatus = 'Enabled' | 'Disabled' | 'SlavesideDisabled';
+
+export interface DatabaseEvent {
+  namespace: Namespace;
+  name: string;
+  event_type: string;
+  interval_value?: string;
+  interval_field?: string;
+  status: EventStatus;
+}
+
+export interface EventList {
+  events: DatabaseEvent[];
+  total_count: number;
+}
+
+export async function listEvents(
+  sessionId: string,
+  namespace: Namespace,
+  search?: string,
+  page?: number,
+  pageSize?: number
+): Promise<{
+  success: boolean;
+  data?: EventList;
+  error?: string;
+}> {
+  return invoke('list_events', {
+    sessionId,
+    namespace,
+    search,
+    page,
+    page_size: pageSize,
+  });
+}
+
 export async function cancelQuery(
   sessionId: string,
   queryId?: string

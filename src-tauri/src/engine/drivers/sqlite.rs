@@ -33,6 +33,7 @@ use crate::engine::types::{
     ConnectionConfig, FilterOperator, ForeignKey, Namespace, PaginatedQueryResult, QueryId,
     QueryResult, Row as QRow, RowData, SessionId, SortDirection, TableColumn, TableIndex,
     TableQueryOptions, TableSchema, Value,
+    Trigger, TriggerList, TriggerListOptions, TriggerTiming, TriggerEvent,
 };
 
 /// Holds the connection state for a SQLite session.
@@ -383,6 +384,98 @@ impl DataEngine for SqliteDriver {
             collections,
             total_count: total_count as u32,
         })
+    }
+
+    async fn list_triggers(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        options: TriggerListOptions,
+    ) -> EngineResult<TriggerList> {
+        let sqlite_session = self.get_session(session).await?;
+        let pool = &sqlite_session.pool;
+
+        let search_pattern = options.search.as_ref().map(|s| format!("%{}%", s));
+
+        let count_row: (i64,) = sqlx::query_as(
+            r#"
+            SELECT COUNT(*)
+            FROM sqlite_master
+            WHERE type = 'trigger'
+              AND (? IS NULL OR name LIKE ?)
+            "#,
+        )
+        .bind(&search_pattern)
+        .bind(&search_pattern)
+        .fetch_one(pool)
+        .await
+        .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        let total_count = count_row.0;
+
+        let mut query_str = r#"
+            SELECT name, tbl_name, sql
+            FROM sqlite_master
+            WHERE type = 'trigger'
+              AND (? IS NULL OR name LIKE ?)
+            ORDER BY name
+        "#
+        .to_string();
+
+        if let Some(limit) = options.page_size {
+            query_str.push_str(&format!(" LIMIT {}", limit));
+            if let Some(page) = options.page {
+                let offset = (page.max(1) - 1) * limit;
+                query_str.push_str(&format!(" OFFSET {}", offset));
+            }
+        }
+
+        let rows: Vec<(String, String, Option<String>)> = sqlx::query_as(&query_str)
+            .bind(&search_pattern)
+            .bind(&search_pattern)
+            .fetch_all(pool)
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        let triggers = rows
+            .into_iter()
+            .map(|(name, table_name, sql)| {
+                let sql_upper = sql.as_deref().unwrap_or("").to_uppercase();
+
+                let timing = if sql_upper.contains("INSTEAD OF") {
+                    TriggerTiming::InsteadOf
+                } else if sql_upper.contains("BEFORE") {
+                    TriggerTiming::Before
+                } else {
+                    TriggerTiming::After
+                };
+
+                let mut events = Vec::new();
+                if sql_upper.contains("INSERT") { events.push(TriggerEvent::Insert); }
+                if sql_upper.contains("UPDATE") { events.push(TriggerEvent::Update); }
+                if sql_upper.contains("DELETE") { events.push(TriggerEvent::Delete); }
+                if events.is_empty() { events.push(TriggerEvent::Insert); }
+
+                Trigger {
+                    namespace: namespace.clone(),
+                    name,
+                    table_name,
+                    timing,
+                    events,
+                    enabled: true,
+                    function_name: None,
+                }
+            })
+            .collect();
+
+        Ok(TriggerList {
+            triggers,
+            total_count: total_count as u32,
+        })
+    }
+
+    fn supports_triggers(&self) -> bool {
+        true
     }
 
     async fn create_database(

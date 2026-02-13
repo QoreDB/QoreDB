@@ -108,7 +108,7 @@ Les artefacts sont générés dans `src-tauri/target/release/bundle/`.
 L'app vérifie les mises à jour via :
 
 ```text
-https://github.com/raphplt/QoreDB/releases/latest/download/latest.json
+https://github.com/QoreDB/QoreDB/releases/latest/download/latest.json
 ```
 
 Le fichier `latest.json` est généré automatiquement par `tauri-action`.

@@ -77,6 +77,19 @@ import './index.css';
 // Constants
 const DEFAULT_PROJECT = 'default';
 const RECOVERY_SAVE_DEBOUNCE_MS = 600;
+const STARTUP_PREFS_KEY = 'qoredb_startup_preferences';
+
+function shouldCheckUpdatesOnStartup(): boolean {
+  try {
+    const stored = localStorage.getItem(STARTUP_PREFS_KEY);
+    if (!stored) return true;
+
+    const parsed = JSON.parse(stored) as { checkUpdates?: unknown };
+    return typeof parsed.checkUpdates === 'boolean' ? parsed.checkUpdates : true;
+  } catch {
+    return true;
+  }
+}
 
 function getConnectionSignature(connection: SavedConnection): string {
   return JSON.stringify({
@@ -172,6 +185,7 @@ function App() {
 
   useEffect(() => {
     if (!import.meta.env.PROD) return;
+    if (!shouldCheckUpdatesOnStartup()) return;
 
     let cancelled = false;
     const handle = window.setTimeout(async () => {

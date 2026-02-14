@@ -14,7 +14,9 @@ export interface UseTabsOptions {
 export function useTabs(options: UseTabsOptions = {}) {
   const [tabs, setTabs] = useState<OpenTab[]>(options.initialTabs ?? []);
   const [activeTabId, setActiveTabId] = useState<string | null>(options.initialActiveTabId ?? null);
-  const [queryDrafts, setQueryDrafts] = useState<Record<string, string>>(options.initialQueryDrafts ?? {});
+  const [queryDrafts, setQueryDrafts] = useState<Record<string, string>>(
+    options.initialQueryDrafts ?? {}
+  );
 
   const tableBrowserTabsRef = useRef<Record<string, TableBrowserTab>>(
     options.initialTableBrowserTabs ?? {}

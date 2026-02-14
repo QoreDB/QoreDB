@@ -11,13 +11,7 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Checkbox } from '../ui/checkbox';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import type { SafetyRule, QueryOperationType, Environment } from '../../lib/tauri/interceptor';
 
 interface SafetyRuleEditorProps {
@@ -59,9 +53,7 @@ export function SafetyRuleEditor({ rule, onSave, onCancel }: SafetyRuleEditorPro
   const [environments, setEnvironments] = useState<Environment[]>(
     rule?.environments || ['production']
   );
-  const [operations, setOperations] = useState<QueryOperationType[]>(
-    rule?.operations || []
-  );
+  const [operations, setOperations] = useState<QueryOperationType[]>(rule?.operations || []);
   const [action, setAction] = useState<SafetyRule['action']>(rule?.action || 'block');
   const [pattern, setPattern] = useState(rule?.pattern || '');
   const [patternError, setPatternError] = useState<string | null>(null);
@@ -91,23 +83,15 @@ export function SafetyRuleEditor({ rule, onSave, onCancel }: SafetyRuleEditorPro
   );
 
   const handleEnvironmentToggle = useCallback((env: Environment, checked: boolean) => {
-    setEnvironments(prev =>
-      checked ? [...prev, env] : prev.filter(e => e !== env)
-    );
+    setEnvironments(prev => (checked ? [...prev, env] : prev.filter(e => e !== env)));
   }, []);
 
   const handleOperationToggle = useCallback((op: QueryOperationType, checked: boolean) => {
-    setOperations(prev =>
-      checked ? [...prev, op] : prev.filter(o => o !== op)
-    );
+    setOperations(prev => (checked ? [...prev, op] : prev.filter(o => o !== op)));
   }, []);
 
   const isValid = useMemo(() => {
-    return (
-      name.trim().length > 0 &&
-      environments.length > 0 &&
-      !patternError
-    );
+    return name.trim().length > 0 && environments.length > 0 && !patternError;
   }, [name, environments, patternError]);
 
   const handleSave = useCallback(() => {
@@ -126,15 +110,23 @@ export function SafetyRuleEditor({ rule, onSave, onCancel }: SafetyRuleEditorPro
     };
 
     onSave(newRule);
-  }, [rule, name, description, enabled, environments, operations, action, pattern, isValid, onSave]);
+  }, [
+    rule,
+    name,
+    description,
+    enabled,
+    environments,
+    operations,
+    action,
+    pattern,
+    isValid,
+    onSave,
+  ]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/50"
-        onClick={onCancel}
-      />
+      <div className="absolute inset-0 bg-black/50" onClick={onCancel} />
 
       {/* Modal */}
       <div className="relative bg-background rounded-lg shadow-xl border border-border w-full max-w-lg mx-4 max-h-[90vh] overflow-hidden flex flex-col">
@@ -167,7 +159,9 @@ export function SafetyRuleEditor({ rule, onSave, onCancel }: SafetyRuleEditorPro
 
           {/* Description */}
           <div className="space-y-2">
-            <Label htmlFor="rule-description">{t('interceptor.safety.ruleFields.description')}</Label>
+            <Label htmlFor="rule-description">
+              {t('interceptor.safety.ruleFields.description')}
+            </Label>
             <Input
               id="rule-description"
               value={description}
@@ -205,9 +199,7 @@ export function SafetyRuleEditor({ rule, onSave, onCancel }: SafetyRuleEditorPro
           {/* Operations */}
           <div className="space-y-2">
             <Label>{t('interceptor.safety.ruleFields.operations')}</Label>
-            <p className="text-xs text-muted-foreground">
-              Leave empty to match all operations
-            </p>
+            <p className="text-xs text-muted-foreground">Leave empty to match all operations</p>
             <div className="grid grid-cols-3 gap-2">
               {OPERATION_TYPES.map(op => (
                 <label key={op} className="flex items-center gap-2 text-sm">
@@ -241,9 +233,7 @@ export function SafetyRuleEditor({ rule, onSave, onCancel }: SafetyRuleEditorPro
           {/* Pattern */}
           <div className="space-y-2">
             <Label htmlFor="rule-pattern">{t('interceptor.safety.ruleFields.pattern')}</Label>
-            <p className="text-xs text-muted-foreground">
-              Optional regex to match query text
-            </p>
+            <p className="text-xs text-muted-foreground">Optional regex to match query text</p>
             <Input
               id="rule-pattern"
               value={pattern}
@@ -251,9 +241,7 @@ export function SafetyRuleEditor({ rule, onSave, onCancel }: SafetyRuleEditorPro
               placeholder="DROP\s+TABLE"
               className={patternError ? 'border-destructive' : ''}
             />
-            {patternError && (
-              <p className="text-xs text-destructive">{patternError}</p>
-            )}
+            {patternError && <p className="text-xs text-destructive">{patternError}</p>}
           </div>
         </div>
 

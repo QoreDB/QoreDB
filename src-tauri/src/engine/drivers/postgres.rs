@@ -26,6 +26,7 @@ use crate::engine::types::{
     TableColumn, TableIndex, TableSchema, Value, ForeignKey,
     TableQueryOptions, PaginatedQueryResult, SortDirection, FilterOperator,
     Routine, RoutineList, RoutineListOptions, RoutineType,
+    Trigger, TriggerList, TriggerListOptions, TriggerTiming, TriggerEvent,
 };
 
 pub struct PostgresSession {
@@ -443,6 +444,116 @@ impl DataEngine for PostgresDriver {
     }
 
     fn supports_routines(&self) -> bool {
+        true
+    }
+
+    async fn list_triggers(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        options: TriggerListOptions,
+    ) -> EngineResult<TriggerList> {
+        let pg_session = self.get_session(session).await?;
+        let pool = &pg_session.pool;
+
+        let schema = namespace.schema.as_deref().unwrap_or("public");
+        let search_pattern = options.search.as_ref().map(|s| format!("%{}%", s));
+
+        // Get total count
+        let count_row: (i64,) = sqlx::query_as(
+            r#"
+            SELECT COUNT(DISTINCT t.tgname)
+            FROM pg_trigger t
+            JOIN pg_class c ON t.tgrelid = c.oid
+            JOIN pg_namespace n ON c.relnamespace = n.oid
+            WHERE n.nspname = $1
+              AND NOT t.tgisinternal
+              AND ($2::text IS NULL OR t.tgname::text ILIKE $2)
+            "#,
+        )
+        .bind(schema)
+        .bind(&search_pattern)
+        .fetch_one(pool)
+        .await
+        .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        let total_count = count_row.0;
+
+        // Get paginated results
+        // tgtype bitmask: bit 0=ROW, bit 1=BEFORE, bit 2=INSERT, bit 3=DELETE,
+        //                 bit 4=UPDATE, bit 5=TRUNCATE, bit 6=INSTEAD OF
+        let mut query_str = r#"
+            SELECT
+                t.tgname::text AS trigger_name,
+                c.relname::text AS table_name,
+                t.tgtype::int AS tg_type,
+                t.tgenabled::text AS enabled,
+                p.proname::text AS function_name
+            FROM pg_trigger t
+            JOIN pg_class c ON t.tgrelid = c.oid
+            JOIN pg_namespace n ON c.relnamespace = n.oid
+            JOIN pg_proc p ON t.tgfoid = p.oid
+            WHERE n.nspname = $1
+              AND NOT t.tgisinternal
+              AND ($2::text IS NULL OR t.tgname::text ILIKE $2)
+            ORDER BY t.tgname
+        "#
+        .to_string();
+
+        if let Some(limit) = options.page_size {
+            query_str.push_str(&format!(" LIMIT {}", limit));
+            if let Some(page) = options.page {
+                let offset = (page.max(1) - 1) * limit;
+                query_str.push_str(&format!(" OFFSET {}", offset));
+            }
+        }
+
+        let rows: Vec<(String, String, i32, String, String)> = sqlx::query_as(&query_str)
+            .bind(schema)
+            .bind(&search_pattern)
+            .fetch_all(pool)
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        let triggers = rows
+            .into_iter()
+            .map(|(name, table_name, tg_type, enabled_char, function_name)| {
+                let timing = if tg_type & (1 << 6) != 0 {
+                    TriggerTiming::InsteadOf
+                } else if tg_type & (1 << 1) != 0 {
+                    TriggerTiming::Before
+                } else {
+                    TriggerTiming::After
+                };
+
+                let mut events = Vec::new();
+                if tg_type & (1 << 2) != 0 { events.push(TriggerEvent::Insert); }
+                if tg_type & (1 << 3) != 0 { events.push(TriggerEvent::Delete); }
+                if tg_type & (1 << 4) != 0 { events.push(TriggerEvent::Update); }
+                if tg_type & (1 << 5) != 0 { events.push(TriggerEvent::Truncate); }
+
+                // tgenabled: 'O' = origin (enabled), 'D' = disabled, 'R' = replica, 'A' = always
+                let is_enabled = enabled_char != "D";
+
+                Trigger {
+                    namespace: namespace.clone(),
+                    name,
+                    table_name,
+                    timing,
+                    events,
+                    enabled: is_enabled,
+                    function_name: Some(function_name),
+                }
+            })
+            .collect();
+
+        Ok(TriggerList {
+            triggers,
+            total_count: total_count as u32,
+        })
+    }
+
+    fn supports_triggers(&self) -> bool {
         true
     }
 
@@ -897,6 +1008,7 @@ impl DataEngine for PostgresDriver {
                 referenced_schema: Some(referenced_schema),
                 referenced_database: None,
                 constraint_name,
+                is_virtual: false,
             })
             .collect();
 
@@ -1629,12 +1741,17 @@ impl DataEngine for PostgresDriver {
 impl PostgresDriver {
     /// Builds a connection string from config
     fn build_connection_string(config: &ConnectionConfig) -> String {
+        use percent_encoding::{utf8_percent_encode, NON_ALPHANUMERIC};
+
         let db = config.database.as_deref().unwrap_or("postgres");
         let ssl_mode = if config.ssl { "require" } else { "disable" };
 
+        let encoded_user = utf8_percent_encode(&config.username, NON_ALPHANUMERIC);
+        let encoded_pass = utf8_percent_encode(&config.password, NON_ALPHANUMERIC);
+
         format!(
             "postgres://{}:{}@{}:{}/{}?sslmode={}",
-            config.username, config.password, config.host, config.port, db, ssl_mode
+            encoded_user, encoded_pass, config.host, config.port, db, ssl_mode
         )
     }
 }
@@ -1643,14 +1760,13 @@ impl PostgresDriver {
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_connection_string_building() {
-        let config = ConnectionConfig {
+    fn make_config(username: &str, password: &str) -> ConnectionConfig {
+        ConnectionConfig {
             driver: "postgres".to_string(),
             host: "localhost".to_string(),
             port: 5432,
-            username: "user".to_string(),
-            password: "pass".to_string(),
+            username: username.to_string(),
+            password: password.to_string(),
             database: Some("testdb".to_string()),
             ssl: false,
             environment: "development".to_string(),
@@ -1659,11 +1775,37 @@ mod tests {
             pool_acquire_timeout_secs: None,
             pool_max_connections: None,
             pool_min_connections: None,
-        };
+        }
+    }
+
+    #[test]
+    fn test_connection_string_building() {
+        let config = make_config("user", "pass");
 
         let conn_str = PostgresDriver::build_connection_string(&config);
         assert!(conn_str.contains("localhost:5432"));
         assert!(conn_str.contains("testdb"));
         assert!(conn_str.contains("sslmode=disable"));
+    }
+
+    #[test]
+    fn test_connection_string_special_chars_in_password() {
+        let config = make_config("admin", "p@ss:word/123?#&=!");
+
+        let conn_str = PostgresDriver::build_connection_string(&config);
+        // Password must be percent-encoded so it doesn't break the URL structure
+        assert!(!conn_str.contains("p@ss:word/123?#&=!"));
+        assert!(conn_str.contains("p%40ss%3Aword%2F123%3F%23%26%3D%21"));
+        // Host and port must remain intact
+        assert!(conn_str.contains("@localhost:5432"));
+    }
+
+    #[test]
+    fn test_connection_string_special_chars_in_username() {
+        let config = make_config("user@domain", "pass");
+
+        let conn_str = PostgresDriver::build_connection_string(&config);
+        assert!(conn_str.contains("user%40domain"));
+        assert!(conn_str.contains("@localhost:5432"));
     }
 }

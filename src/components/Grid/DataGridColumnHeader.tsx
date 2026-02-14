@@ -15,6 +15,7 @@ export interface DataGridColumnHeaderProps {
   columnName: string;
   isPrimaryKey: boolean;
   isForeignKey: boolean;
+  isVirtualFk?: boolean;
   fkTable?: string;
   isIndexed?: boolean;
   isUnique?: boolean;
@@ -27,6 +28,7 @@ export function DataGridColumnHeader({
   columnName,
   isPrimaryKey,
   isForeignKey,
+  isVirtualFk = false,
   fkTable,
   isIndexed = false,
   isUnique = false,
@@ -53,10 +55,15 @@ export function DataGridColumnHeader({
       {isForeignKey && (
         <TooltipRoot>
           <TooltipTrigger asChild>
-            <Link2 size={12} className="shrink-0 text-info" />
+            <Link2
+              size={12}
+              className={isVirtualFk ? 'shrink-0 text-violet-400' : 'shrink-0 text-info'}
+            />
           </TooltipTrigger>
           <TooltipContent side="bottom" className="max-w-xs">
-            {t('grid.columnIndicators.foreignKey', { table: fkTable })}
+            {isVirtualFk
+              ? t('grid.columnIndicators.virtualForeignKey', { table: fkTable })
+              : t('grid.columnIndicators.foreignKey', { table: fkTable })}
           </TooltipContent>
         </TooltipRoot>
       )}

@@ -321,6 +321,9 @@ pub struct ForeignKey {
     pub referenced_database: Option<String>,
     /// The constraint name (optional)
     pub constraint_name: Option<String>,
+    /// Whether this is a virtual relation (user-defined, not in the database)
+    #[serde(default)]
+    pub is_virtual: bool,
 }
 
 /// Table index definition
@@ -419,6 +422,89 @@ pub struct RoutineListOptions {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RoutineList {
     pub routines: Vec<Routine>,
+    pub total_count: u32,
+}
+
+// ==================== Trigger Types ====================
+
+/// Timing of a database trigger
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum TriggerTiming {
+    Before,
+    After,
+    InsteadOf,
+}
+
+/// Event that fires a trigger
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum TriggerEvent {
+    Insert,
+    Update,
+    Delete,
+    Truncate,
+}
+
+/// Database trigger metadata
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Trigger {
+    pub namespace: Namespace,
+    pub name: String,
+    pub table_name: String,
+    pub timing: TriggerTiming,
+    pub events: Vec<TriggerEvent>,
+    pub enabled: bool,
+    /// For PostgreSQL: the function called by the trigger
+    pub function_name: Option<String>,
+}
+
+/// Options for listing triggers
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct TriggerListOptions {
+    pub search: Option<String>,
+    pub page: Option<u32>,
+    pub page_size: Option<u32>,
+}
+
+/// Paginated trigger list
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TriggerList {
+    pub triggers: Vec<Trigger>,
+    pub total_count: u32,
+}
+
+// ==================== Event Types (MySQL) ====================
+
+/// Status of a MySQL scheduled event
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum EventStatus {
+    Enabled,
+    Disabled,
+    SlavesideDisabled,
+}
+
+/// MySQL scheduled event metadata
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DatabaseEvent {
+    pub namespace: Namespace,
+    pub name: String,
+    pub event_type: String,
+    pub interval_value: Option<String>,
+    pub interval_field: Option<String>,
+    pub status: EventStatus,
+}
+
+/// Options for listing events
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct EventListOptions {
+    pub search: Option<String>,
+    pub page: Option<u32>,
+    pub page_size: Option<u32>,
+}
+
+/// Paginated event list
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EventList {
+    pub events: Vec<DatabaseEvent>,
     pub total_count: u32,
 }
 

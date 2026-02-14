@@ -56,6 +56,7 @@ impl From<crate::engine::connection_url::PartialConnectionConfig> for PartialCon
 /// - PostgreSQL: `postgres://` and `postgresql://`
 /// - MySQL: `mysql://`
 /// - MongoDB: `mongodb://` and `mongodb+srv://`
+/// - Redis: `redis://` and `rediss://` (TLS)
 ///
 /// The parsed fields can be merged with explicit form values to create a complete
 /// ConnectionConfig. URL values are parsed first, then explicit values override them.
@@ -113,6 +114,8 @@ pub fn get_supported_url_schemes() -> Vec<String> {
         "mysql".to_string(),
         "mongodb".to_string(),
         "mongodb+srv".to_string(),
+        "redis".to_string(),
+        "rediss".to_string(),
     ]
 }
 
@@ -142,8 +145,19 @@ mod tests {
 
     #[test]
     fn test_parse_url_unsupported_scheme() {
-        let response = parse_url("redis://localhost:6379".to_string());
+        let response = parse_url("ftp://localhost:21".to_string());
         assert!(!response.success);
         assert_eq!(response.error_code, Some(ParseErrorCode::UnsupportedScheme));
+    }
+
+    #[test]
+    fn test_parse_url_redis() {
+        let response = parse_url("redis://localhost:6379/0".to_string());
+        assert!(response.success);
+        let config = response.config.unwrap();
+        assert_eq!(config.driver.as_deref(), Some("redis"));
+        assert_eq!(config.host.as_deref(), Some("localhost"));
+        assert_eq!(config.port, Some(6379));
+        assert_eq!(config.database.as_deref(), Some("0"));
     }
 }

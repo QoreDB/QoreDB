@@ -3,14 +3,14 @@ import { useTranslation } from 'react-i18next';
 import { Loader2 } from 'lucide-react';
 import { notify } from '../../lib/notify';
 
-import { 
+import {
   TableSchema,
   Value,
   insertRow,
   updateRow,
   Namespace,
   TableColumn,
-  RowData as TauriRowData
+  RowData as TauriRowData,
 } from '../../lib/tauri';
 import { Driver } from '../../lib/drivers';
 import {
@@ -19,8 +19,8 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 import { RowModalCustomFields } from './RowModalCustomFields';
 import { RowModalSchemaFields } from './RowModalSchemaFields';
 import { RowModalExtraFields } from './RowModalExtraFields';
@@ -52,7 +52,11 @@ interface RowModalProps {
 
   sandboxMode?: boolean;
   onSandboxInsert?: (newValues: Record<string, Value>) => void;
-  onSandboxUpdate?: (primaryKey: Record<string, Value>, oldValues: Record<string, Value>, newValues: Record<string, Value>) => void;
+  onSandboxUpdate?: (
+    primaryKey: Record<string, Value>,
+    oldValues: Record<string, Value>,
+    newValues: Record<string, Value>
+  ) => void;
 }
 
 export function RowModal({
@@ -74,18 +78,18 @@ export function RowModal({
   onSandboxInsert,
   onSandboxUpdate,
 }: RowModalProps) {
-	const { t } = useTranslation();
-	const [loading, setLoading] = useState(false);
-	const [formData, setFormData] = useState<Record<string, string>>({});
-	const [nulls, setNulls] = useState<Record<string, boolean>>({});
+  const { t } = useTranslation();
+  const [loading, setLoading] = useState(false);
+  const [formData, setFormData] = useState<Record<string, string>>({});
+  const [nulls, setNulls] = useState<Record<string, boolean>>({});
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<null | (() => Promise<void>)>(null);
 
   // Dynamic fields for NoSQL
   const [extraColumns, setExtraColumns] = useState<TableColumn[]>([]);
-  const [newFieldName, setNewFieldName] = useState("");
-  const [newFieldType, setNewFieldType] = useState("string");
+  const [newFieldName, setNewFieldName] = useState('');
+  const [newFieldType, setNewFieldType] = useState('string');
 
   const effectiveColumns = [...schema.columns, ...extraColumns];
   const confirmationLabel = (connectionDatabase || connectionName || 'PROD').trim() || 'PROD';
@@ -108,15 +112,15 @@ export function RowModal({
       setNulls(nulls);
       setExtraColumns(extraColumns);
       setPreviewError(null);
-      setNewFieldName("");
-      setNewFieldType("string");
+      setNewFieldName('');
+      setNewFieldType('string');
     }
   }, [isOpen, schema, initialData, mode, driver]);
 
   const handleAddExtraField = () => {
     if (!newFieldName.trim()) return;
     if (effectiveColumns.find(c => c.name === newFieldName)) {
-      notify.error(t("rowModal.fieldExists"));
+      notify.error(t('rowModal.fieldExists'));
       return;
     }
 
@@ -124,13 +128,13 @@ export function RowModal({
       name: newFieldName,
       data_type: newFieldType,
       nullable: true,
-      is_primary_key: false
+      is_primary_key: false,
     };
 
     setExtraColumns([...extraColumns, newCol]);
-    setFormData(prev => ({ ...prev, [newFieldName]: "" }));
+    setFormData(prev => ({ ...prev, [newFieldName]: '' }));
     setNulls(prev => ({ ...prev, [newFieldName]: false }));
-    setNewFieldName("");
+    setNewFieldName('');
   };
 
   const handleRemoveExtraField = (colName: string) => {
@@ -147,26 +151,26 @@ export function RowModal({
     });
   };
 
-	const handleInputChange = (col: string, value: string) => {
-		setFormData((prev) => ({ ...prev, [col]: value }));
-		if (nulls[col]) {
-			setNulls((prev) => ({ ...prev, [col]: false }));
-		}
-	};
+  const handleInputChange = (col: string, value: string) => {
+    setFormData(prev => ({ ...prev, [col]: value }));
+    if (nulls[col]) {
+      setNulls(prev => ({ ...prev, [col]: false }));
+    }
+  };
 
-	const handleNullToggle = (col: string, isNull: boolean) => {
-		setNulls((prev) => ({ ...prev, [col]: isNull }));
-	};
+  const handleNullToggle = (col: string, isNull: boolean) => {
+    setNulls(prev => ({ ...prev, [col]: isNull }));
+  };
 
-	const handleSubmit = async (e: React.FormEvent) => {
-		e.preventDefault();
-		if (readOnly) {
-			notify.error(t("environment.blocked"));
-			return;
-		}
-		setPreviewError(null);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (readOnly) {
+      notify.error(t('environment.blocked'));
+      return;
+    }
+    setPreviewError(null);
 
-		try {
+    try {
       const columnsData = buildColumnsData({
         columns: effectiveColumns,
         formData,
@@ -175,21 +179,21 @@ export function RowModal({
 
       // Sandbox mode: add changes locally instead of executing
       if (sandboxMode) {
-        if (mode === "insert" && onSandboxInsert) {
+        if (mode === 'insert' && onSandboxInsert) {
           onSandboxInsert(columnsData);
-          notify.success(t("rowModal.insertSuccess") + " (sandbox)");
+          notify.success(t('rowModal.insertSuccess') + ' (sandbox)');
           onSuccess();
           onClose();
           return;
         }
 
-        if (mode === "update" && onSandboxUpdate) {
+        if (mode === 'update' && onSandboxUpdate) {
           if (!schema.primary_key || schema.primary_key.length === 0) {
-            throw new Error("No primary key found for update");
+            throw new Error('No primary key found for update');
           }
 
           const pkData: Record<string, Value> = {};
-          schema.primary_key.forEach((pk) => {
+          schema.primary_key.forEach(pk => {
             pkData[pk] = initialData?.[pk] ?? null;
           });
 
@@ -210,7 +214,7 @@ export function RowModal({
 
           if (Object.keys(newValues).length > 0) {
             onSandboxUpdate(pkData, oldValues, newValues);
-            notify.success(t("rowModal.updateSuccess") + " (sandbox)");
+            notify.success(t('rowModal.updateSuccess') + ' (sandbox)');
           }
           onSuccess();
           onClose();
@@ -225,13 +229,13 @@ export function RowModal({
       }
 
       await handleSubmitConfirmed(columnsData, false);
-		} catch (err) {
-			console.error(err);
-			const message = err instanceof Error ? err.message : "Operation failed";
-			setPreviewError(message);
-			notify.error(message, err);
-		}
-	};
+    } catch (err) {
+      console.error(err);
+      const message = err instanceof Error ? err.message : 'Operation failed';
+      setPreviewError(message);
+      notify.error(message, err);
+    }
+  };
 
   const handleSubmitConfirmed = async (
     columnsData: Record<string, Value>,
@@ -242,7 +246,7 @@ export function RowModal({
     const data: TauriRowData = { columns: columnsData };
 
     try {
-      if (mode === "insert") {
+      if (mode === 'insert') {
         const res = await insertRow(
           sessionId,
           namespace.database,
@@ -254,22 +258,22 @@ export function RowModal({
         if (res.success) {
           const timeMsg = res.result?.execution_time_ms
             ? ` (${res.result.execution_time_ms.toFixed(2)}ms)`
-            : "";
-          notify.success(t("rowModal.insertSuccess") + timeMsg);
+            : '';
+          notify.success(t('rowModal.insertSuccess') + timeMsg);
           onSuccess();
           onClose();
         } else {
-          notify.error(t("rowModal.insertError"), res.error);
+          notify.error(t('rowModal.insertError'), res.error);
         }
       } else {
         // Update
         // Construct Primary Key
         const pkData: TauriRowData = { columns: {} };
         if (!schema.primary_key || schema.primary_key.length === 0) {
-          throw new Error("No primary key found for update");
+          throw new Error('No primary key found for update');
         }
 
-        schema.primary_key.forEach((pk) => {
+        schema.primary_key.forEach(pk => {
           // Use initial data for PK components to identify the row
           const val = initialData?.[pk];
           pkData.columns[pk] = val ?? null;
@@ -287,17 +291,17 @@ export function RowModal({
         if (res.success) {
           const timeMsg = res.result?.execution_time_ms
             ? ` (${res.result.execution_time_ms.toFixed(2)}ms)`
-            : "";
-          notify.success(t("rowModal.updateSuccess") + timeMsg);
+            : '';
+          notify.success(t('rowModal.updateSuccess') + timeMsg);
           onSuccess();
           onClose();
         } else {
-          notify.error(t("rowModal.updateError"), res.error);
+          notify.error(t('rowModal.updateError'), res.error);
         }
       }
     } catch (err) {
       console.error(err);
-      const message = err instanceof Error ? err.message : "Operation failed";
+      const message = err instanceof Error ? err.message : 'Operation failed';
       setPreviewError(message);
       notify.error(message, err);
     } finally {
@@ -305,7 +309,7 @@ export function RowModal({
     }
   };
 
-	const preview = computePreview({
+  const preview = computePreview({
     mode,
     schema,
     initialData,
@@ -313,94 +317,91 @@ export function RowModal({
     formData,
     nulls,
   });
-	const updatePreview = preview.type === "update" ? preview : null;
-	const hasPreviewChanges =
-		preview.type === "insert" ? true : preview.changes.length > 0;
-	const previewIsEmpty =
-		preview.type === "insert"
-			? preview.values.length === 0
-			: preview.changes.length === 0;
+  const updatePreview = preview.type === 'update' ? preview : null;
+  const hasPreviewChanges = preview.type === 'insert' ? true : preview.changes.length > 0;
+  const previewIsEmpty =
+    preview.type === 'insert' ? preview.values.length === 0 : preview.changes.length === 0;
 
-	return (
+  return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>
-            {mode === 'insert'
-              ? t('rowModal.insertTitle')
-              : t('rowModal.updateTitle', { table: tableName })}
-          </DialogTitle>
-        </DialogHeader>
+          <DialogHeader>
+            <DialogTitle>
+              {mode === 'insert'
+                ? t('rowModal.insertTitle')
+                : t('rowModal.updateTitle', { table: tableName })}
+            </DialogTitle>
+          </DialogHeader>
 
-        <form onSubmit={handleSubmit}>
-          <RowModalSchemaFields
-            columns={schema.columns}
-            formData={formData}
-            nulls={nulls}
-            readOnly={readOnly}
-            onNullToggle={handleNullToggle}
-            onInputChange={handleInputChange}
-          />
-
-          {driver === Driver.Mongodb && (
-            <RowModalCustomFields
-              title={t('rowModal.addCustomField')}
-              fieldNameLabel={t('rowModal.fieldName')}
-              fieldTypeLabel={t('rowModal.fieldType')}
-              addLabel={t('common.add')}
-              fieldNamePlaceholder={t('fieldNamePlaceholder')}
-              newFieldName={newFieldName}
-              newFieldType={newFieldType}
+          <form onSubmit={handleSubmit}>
+            <RowModalSchemaFields
+              columns={schema.columns}
+              formData={formData}
+              nulls={nulls}
               readOnly={readOnly}
-              onNameChange={setNewFieldName}
-              onTypeChange={setNewFieldType}
-              onAdd={handleAddExtraField}
+              onNullToggle={handleNullToggle}
+              onInputChange={handleInputChange}
             />
-          )}
 
-          <RowModalExtraFields
-            columns={extraColumns}
-            formData={formData}
-            nulls={nulls}
-            readOnly={readOnly}
-            title={t('rowModal.customFields')}
-            onNullToggle={handleNullToggle}
-            onInputChange={handleInputChange}
-            onRemove={handleRemoveExtraField}
-          />
+            {driver === Driver.Mongodb && (
+              <RowModalCustomFields
+                title={t('rowModal.addCustomField')}
+                fieldNameLabel={t('rowModal.fieldName')}
+                fieldTypeLabel={t('rowModal.fieldType')}
+                addLabel={t('common.add')}
+                fieldNamePlaceholder={t('fieldNamePlaceholder')}
+                newFieldName={newFieldName}
+                newFieldType={newFieldType}
+                readOnly={readOnly}
+                onNameChange={setNewFieldName}
+                onTypeChange={setNewFieldType}
+                onAdd={handleAddExtraField}
+              />
+            )}
 
-          {mode === 'update' && (
-            <RowModalUpdatePreview
-              changes={updatePreview?.changes ?? []}
-              isEmpty={previewIsEmpty}
-              error={previewError}
-              title={t('rowModal.previewTitle')}
-              emptyLabel={t('rowModal.previewEmpty')}
-              formatValue={formatPreviewValue}
+            <RowModalExtraFields
+              columns={extraColumns}
+              formData={formData}
+              nulls={nulls}
+              readOnly={readOnly}
+              title={t('rowModal.customFields')}
+              onNullToggle={handleNullToggle}
+              onInputChange={handleInputChange}
+              onRemove={handleRemoveExtraField}
             />
-          )}
 
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>
-              {t('common.cancel')}
-            </Button>
-            <Button
-              type="submit"
-              disabled={loading || readOnly || !hasPreviewChanges}
-              title={readOnly ? t('environment.blocked') : undefined}
-            >
-              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {mode === 'insert' ? t('common.insert') : t('common.save')}
-            </Button>
-          </DialogFooter>
-        </form>
+            {mode === 'update' && (
+              <RowModalUpdatePreview
+                changes={updatePreview?.changes ?? []}
+                isEmpty={previewIsEmpty}
+                error={previewError}
+                title={t('rowModal.previewTitle')}
+                emptyLabel={t('rowModal.previewEmpty')}
+                formatValue={formatPreviewValue}
+              />
+            )}
+
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={onClose}>
+                {t('common.cancel')}
+              </Button>
+              <Button
+                type="submit"
+                disabled={loading || readOnly || !hasPreviewChanges}
+                title={readOnly ? t('environment.blocked') : undefined}
+              >
+                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {mode === 'insert' ? t('common.insert') : t('common.save')}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
 
       <DangerConfirmDialog
         open={confirmOpen}
-        onOpenChange={(open) => {
+        onOpenChange={open => {
           setConfirmOpen(open);
           if (!open) {
             setPendingAction(null);

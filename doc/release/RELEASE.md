@@ -75,12 +75,12 @@ Note : le **Package Family Name** est dérivé automatiquement de `Identity.Name
 
 ### Plateformes générées
 
-| Plateforme | Fichiers |
-| ---------- | -------- |
-| macOS ARM (M1/M2/M3) | `.dmg`, `.app.tar.gz`, `.app.tar.gz.sig` |
-| macOS Intel | `.dmg`, `.app.tar.gz`, `.app.tar.gz.sig` |
-| Windows | `.msi`, `.exe`, `.nsis.zip`, `.nsis.zip.sig` |
-| Linux | `.deb`, `.AppImage`, `.AppImage.tar.gz`, `.AppImage.tar.gz.sig` |
+| Plateforme           | Fichiers                                                        |
+| -------------------- | --------------------------------------------------------------- |
+| macOS ARM (M1/M2/M3) | `.dmg`, `.app.tar.gz`, `.app.tar.gz.sig`                        |
+| macOS Intel          | `.dmg`, `.app.tar.gz`, `.app.tar.gz.sig`                        |
+| Windows              | `.msi`, `.exe`, `.nsis.zip`, `.nsis.zip.sig`                    |
+| Linux                | `.deb`, `.AppImage`, `.AppImage.tar.gz`, `.AppImage.tar.gz.sig` |
 
 ---
 
@@ -108,7 +108,7 @@ Les artefacts sont générés dans `src-tauri/target/release/bundle/`.
 L'app vérifie les mises à jour via :
 
 ```text
-https://github.com/raphplt/QoreDB/releases/latest/download/latest.json
+https://github.com/QoreDB/QoreDB/releases/latest/download/latest.json
 ```
 
 Le fichier `latest.json` est généré automatiquement par `tauri-action`.

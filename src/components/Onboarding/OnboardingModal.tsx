@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
@@ -38,18 +37,18 @@ export function OnboardingModal({ onComplete }: OnboardingModalProps) {
   const variants = {
     enter: (direction: number) => ({
       x: direction > 0 ? 100 : -100,
-      opacity: 0
+      opacity: 0,
     }),
     center: {
       zIndex: 1,
       x: 0,
-      opacity: 1
+      opacity: 1,
     },
     exit: (direction: number) => ({
       zIndex: 0,
       x: direction < 0 ? 100 : -100,
-      opacity: 0
-    })
+      opacity: 0,
+    }),
   };
 
   return (

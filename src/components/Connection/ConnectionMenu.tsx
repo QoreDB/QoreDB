@@ -1,14 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { SavedConnection } from '../../lib/tauri';
 import { Button } from '@/components/ui/button';
-import { 
-  MoreVertical, 
-  Pencil, 
-  Trash2, 
-  Zap, 
-  Copy,
-  Loader2
-} from 'lucide-react';
+import { MoreVertical, Pencil, Trash2, Zap, Copy, Loader2 } from 'lucide-react';
 import { useConnectionActions } from './useConnectionActions';
 import { useTranslation } from 'react-i18next';
 import {
@@ -31,23 +24,16 @@ export function ConnectionMenu({ connection, onEdit, onDeleted }: ConnectionMenu
   const menuRef = useRef<HTMLDivElement>(null);
   const { t } = useTranslation();
 
-  const {
-    testing,
-    deleting,
-    duplicating,
-    handleTest,
-    handleEdit,
-    handleDelete,
-    handleDuplicate,
-  } = useConnectionActions({
-    connection,
-    onEdit,
-    onDeleted,
-    onAfterAction: () => {
-      setIsOpen(false);
-      setShowDeleteConfirm(false);
-    },
-  });
+  const { testing, deleting, duplicating, handleTest, handleEdit, handleDelete, handleDuplicate } =
+    useConnectionActions({
+      connection,
+      onEdit,
+      onDeleted,
+      onAfterAction: () => {
+        setIsOpen(false);
+        setShowDeleteConfirm(false);
+      },
+    });
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -74,7 +60,7 @@ export function ConnectionMenu({ connection, onEdit, onDeleted }: ConnectionMenu
           variant="ghost"
           size="icon"
           className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-          onClick={(e) => {
+          onClick={e => {
             e.stopPropagation();
             setIsOpen(!isOpen);
           }}
@@ -85,19 +71,15 @@ export function ConnectionMenu({ connection, onEdit, onDeleted }: ConnectionMenu
         {isOpen && (
           <div
             className="absolute right-0 top-full mt-1 z-50 min-w-40 bg-background border border-border rounded-md shadow-lg py-1 animate-in fade-in-0 zoom-in-95"
-            onClick={(e) => e.stopPropagation()}
+            onClick={e => e.stopPropagation()}
           >
             <button
               className="w-full flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-muted transition-colors text-left"
               onClick={handleTest}
               disabled={testing}
             >
-              {testing ? (
-                <Loader2 size={14} className="animate-spin" />
-              ) : (
-                <Zap size={14} />
-              )}
-              {t("connection.menu.testConnection")}
+              {testing ? <Loader2 size={14} className="animate-spin" /> : <Zap size={14} />}
+              {t('connection.menu.testConnection')}
             </button>
 
             <button
@@ -105,7 +87,7 @@ export function ConnectionMenu({ connection, onEdit, onDeleted }: ConnectionMenu
               onClick={handleEdit}
             >
               <Pencil size={14} />
-              {t("connection.menu.edit")}
+              {t('connection.menu.edit')}
             </button>
 
             <button
@@ -113,12 +95,8 @@ export function ConnectionMenu({ connection, onEdit, onDeleted }: ConnectionMenu
               onClick={handleDuplicate}
               disabled={duplicating}
             >
-              {duplicating ? (
-                <Loader2 size={14} className="animate-spin" />
-              ) : (
-                <Copy size={14} />
-              )}
-              {t("connection.menu.duplicate")}
+              {duplicating ? <Loader2 size={14} className="animate-spin" /> : <Copy size={14} />}
+              {t('connection.menu.duplicate')}
             </button>
 
             <div className="h-px bg-border my-1" />
@@ -128,12 +106,8 @@ export function ConnectionMenu({ connection, onEdit, onDeleted }: ConnectionMenu
               onClick={onSelectDelete}
               disabled={deleting}
             >
-              {deleting ? (
-                <Loader2 size={14} className="animate-spin" />
-              ) : (
-                <Trash2 size={14} />
-              )}
-              {t("connection.menu.delete")}
+              {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+              {t('connection.menu.delete')}
             </button>
           </div>
         )}
@@ -157,11 +131,7 @@ export function ConnectionMenu({ connection, onEdit, onDeleted }: ConnectionMenu
             >
               {t('common.cancel')}
             </Button>
-            <Button
-              variant="destructive"
-              onClick={handleDelete}
-              disabled={deleting}
-            >
+            <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
               {deleting ? (
                 <Loader2 size={14} className="animate-spin mr-2" />
               ) : (

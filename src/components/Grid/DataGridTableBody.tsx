@@ -65,8 +65,12 @@ export function DataGridTableBody({
               'border-b border-border hover:bg-muted/50 transition-colors',
               row.getIsSelected() && 'bg-accent/10 border-l-2 border-l-accent',
               isInserted && 'bg-success/10 hover:bg-success/15 border-l-2 border-l-success',
-              isDeleted && 'bg-error/10 hover:bg-error/15 line-through opacity-60 border-l-2 border-l-error',
-              isModified && !isInserted && !isDeleted && 'bg-warning/5 hover:bg-warning/10 border-l-2 border-l-warning'
+              isDeleted &&
+                'bg-error/10 hover:bg-error/15 line-through opacity-60 border-l-2 border-l-error',
+              isModified &&
+                !isInserted &&
+                !isDeleted &&
+                'bg-warning/5 hover:bg-warning/10 border-l-2 border-l-warning'
             )}
           >
             {row.getVisibleCells().map(cell => {

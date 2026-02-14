@@ -1,5 +1,7 @@
-const URI_PASSWORD_PATTERN = /(\b(?:postgres|postgresql|mysql|mariadb|mongodb|redis|mssql|oracle):\/\/[^:\s/]+:)([^@\s/]+)(@)/gi;
-const SECRET_ASSIGNMENT_PATTERN = /\b(password|passwd|secret|token|api[_-]?key|access[_-]?key)\b\s*=\s*([^\s,;]+)/gi;
+const URI_PASSWORD_PATTERN =
+  /(\b(?:postgres|postgresql|mysql|mariadb|mongodb|redis|mssql|oracle):\/\/[^:\s/]+:)([^@\s/]+)(@)/gi;
+const SECRET_ASSIGNMENT_PATTERN =
+  /\b(password|passwd|secret|token|api[_-]?key|access[_-]?key)\b\s*=\s*([^\s,;]+)/gi;
 const SQL_SINGLE_QUOTED_PATTERN = /'(?:''|[^'])*'/g;
 const JSON_DOUBLE_QUOTED_VALUE_PATTERN = /:\s*"([^"\\]*(?:\\.[^"\\]*)*)"/g;
 const JSON_SINGLE_QUOTED_VALUE_PATTERN = /:\s*'([^'\\]*(?:\\.[^'\\]*)*)'/g;

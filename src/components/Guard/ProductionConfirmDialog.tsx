@@ -2,7 +2,13 @@ import { useEffect, useState } from 'react';
 import { AlertCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
@@ -55,9 +61,7 @@ export function ProductionConfirmDialog({
             <span>{t('environment.prodWarning')}</span>
           </div>
 
-          {description && (
-            <p className="text-sm text-muted-foreground">{description}</p>
-          )}
+          {description && <p className="text-sm text-muted-foreground">{description}</p>}
 
           <div className="space-y-2">
             <label className="text-sm font-medium">
@@ -65,9 +69,9 @@ export function ProductionConfirmDialog({
             </label>
             <Input
               value={value}
-              onChange={(event) => setValue(event.target.value)}
+              onChange={event => setValue(event.target.value)}
               placeholder={confirmationLabel}
-              onKeyDown={(event) => {
+              onKeyDown={event => {
                 if (event.key === 'Enter' && isMatch) {
                   event.preventDefault();
                   handleConfirm();

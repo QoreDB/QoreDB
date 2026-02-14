@@ -34,20 +34,13 @@ export function ConnectionContextMenu({
 }: ConnectionContextMenuProps) {
   const { t } = useTranslation();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const {
-    testing,
-    deleting,
-    duplicating,
-    handleTest,
-    handleEdit,
-    handleDelete,
-    handleDuplicate,
-  } = useConnectionActions({
-    connection,
-    onEdit,
-    onDeleted,
-    onAfterAction: () => setShowDeleteConfirm(false),
-  });
+  const { testing, deleting, duplicating, handleTest, handleEdit, handleDelete, handleDuplicate } =
+    useConnectionActions({
+      connection,
+      onEdit,
+      onDeleted,
+      onAfterAction: () => setShowDeleteConfirm(false),
+    });
 
   return (
     <>
@@ -69,7 +62,7 @@ export function ConnectionContextMenu({
           <ContextMenuSeparator />
           <ContextMenuItem
             variant="destructive"
-            onSelect={(e) => {
+            onSelect={e => {
               e.preventDefault();
               setShowDeleteConfirm(true);
             }}
@@ -99,11 +92,7 @@ export function ConnectionContextMenu({
             >
               {t('common.cancel')}
             </Button>
-            <Button
-              variant="destructive"
-              onClick={handleDelete}
-              disabled={deleting}
-            >
+            <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
               {deleting ? (
                 <Loader2 size={14} className="animate-spin mr-2" />
               ) : (

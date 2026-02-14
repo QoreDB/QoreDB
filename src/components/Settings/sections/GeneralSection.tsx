@@ -77,12 +77,8 @@ export function GeneralSection({ searchQuery }: GeneralSectionProps) {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent className="w-44">
-            <DropdownMenuItem onClick={() => i18n.changeLanguage('en')}>
-              English
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => i18n.changeLanguage('fr')}>
-              Français
-            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => i18n.changeLanguage('en')}>English</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => i18n.changeLanguage('fr')}>Français</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </SettingsCard>

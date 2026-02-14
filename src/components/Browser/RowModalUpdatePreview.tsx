@@ -27,7 +27,7 @@ export function RowModalUpdatePreview({
         <div className="text-xs text-muted-foreground mt-2">{emptyLabel}</div>
       ) : (
         <div className="mt-2 space-y-1">
-          {changes.map((item) => (
+          {changes.map(item => (
             <div key={item.key} className="flex items-center justify-between text-xs gap-3">
               <span className="font-mono text-muted-foreground min-w-0">{item.key}</span>
               <span className="font-mono text-muted-foreground line-through truncate">

@@ -57,13 +57,13 @@ export function EditorSection({ searchQuery }: EditorSectionProps) {
         <label className="flex items-start gap-2.5 text-sm cursor-pointer">
           <Checkbox
             checked={sandboxPrefs.confirmOnDiscard}
-            onCheckedChange={checked =>
-              updateSandboxPrefs({ confirmOnDiscard: !!checked })
-            }
+            onCheckedChange={checked => updateSandboxPrefs({ confirmOnDiscard: !!checked })}
             className="mt-0.5"
           />
           <span>
-            <span className="font-medium text-foreground">{t('settings.sandbox.confirmDiscard')}</span>
+            <span className="font-medium text-foreground">
+              {t('settings.sandbox.confirmDiscard')}
+            </span>
             <span className="block text-xs text-muted-foreground mt-0.5">
               {t('settings.sandbox.confirmDiscardDescription')}
             </span>
@@ -73,13 +73,13 @@ export function EditorSection({ searchQuery }: EditorSectionProps) {
         <label className="flex items-start gap-2.5 text-sm cursor-pointer">
           <Checkbox
             checked={sandboxPrefs.autoCollapsePanel}
-            onCheckedChange={checked =>
-              updateSandboxPrefs({ autoCollapsePanel: !!checked })
-            }
+            onCheckedChange={checked => updateSandboxPrefs({ autoCollapsePanel: !!checked })}
             className="mt-0.5"
           />
           <span>
-            <span className="font-medium text-foreground">{t('settings.sandbox.autoCollapse')}</span>
+            <span className="font-medium text-foreground">
+              {t('settings.sandbox.autoCollapse')}
+            </span>
             <span className="block text-xs text-muted-foreground mt-0.5">
               {t('settings.sandbox.autoCollapseDescription')}
             </span>
@@ -87,9 +87,7 @@ export function EditorSection({ searchQuery }: EditorSectionProps) {
         </label>
 
         <div className="flex items-center gap-3 pt-2">
-          <span className="text-sm text-foreground">
-            {t('settings.sandbox.deleteDisplay')}
-          </span>
+          <span className="text-sm text-foreground">{t('settings.sandbox.deleteDisplay')}</span>
           <Select
             value={sandboxPrefs.deleteDisplay}
             onValueChange={(value: SandboxDeleteDisplay) =>
@@ -103,17 +101,13 @@ export function EditorSection({ searchQuery }: EditorSectionProps) {
               <SelectItem value="strikethrough">
                 {t('settings.sandbox.deleteDisplayStrikethrough')}
               </SelectItem>
-              <SelectItem value="hidden">
-                {t('settings.sandbox.deleteDisplayHidden')}
-              </SelectItem>
+              <SelectItem value="hidden">{t('settings.sandbox.deleteDisplayHidden')}</SelectItem>
             </SelectContent>
           </Select>
         </div>
 
         <div className="flex items-center gap-3 pt-1">
-          <span className="text-sm text-foreground">
-            {t('settings.sandbox.panelPageSize')}
-          </span>
+          <span className="text-sm text-foreground">{t('settings.sandbox.panelPageSize')}</span>
           <Input
             type="number"
             min={20}

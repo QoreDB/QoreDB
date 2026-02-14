@@ -9,7 +9,7 @@ services:
       - USER_NAME=qoredb
       - PUBLIC_KEY_FILE=/config/ssh/authorized_keys
     ports:
-      - "2222:2222"
+      - '2222:2222'
     volumes:
       - ./dev/ssh:/config/ssh:ro
       - ./dev/ssh/sshd_config.d/10-qoredb-forwarding.conf:/config/sshd/sshd_config.d/10-qoredb-forwarding.conf:ro
@@ -22,7 +22,7 @@ services:
       POSTGRES_PASSWORD: qoredb_test
       POSTGRES_DB: testdb
     ports:
-      - "54321:5432"
+      - '54321:5432'
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
@@ -35,7 +35,7 @@ services:
       MYSQL_PASSWORD: qoredb_test
       MYSQL_DATABASE: testdb
     ports:
-      - "3306:3306"
+      - '3306:3306'
     volumes:
       - mysql_data:/var/lib/mysql
 
@@ -46,11 +46,21 @@ services:
       MONGO_INITDB_ROOT_USERNAME: qoredb
       MONGO_INITDB_ROOT_PASSWORD: qoredb_test
     ports:
-      - "27017:27017"
+      - '27017:27017'
     volumes:
       - mongo_data:/data/db
+
+  redis:
+    image: redis:7-alpine
+    container_name: qoredb-redis
+    command: redis-server --requirepass qoredb_test
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
 
 volumes:
   postgres_data:
   mysql_data:
   mongo_data:
+  redis_data:

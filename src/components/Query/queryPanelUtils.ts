@@ -1,3 +1,4 @@
+import { Driver } from '@/lib/drivers';
 import { MONGO_TEMPLATES } from '../Editor/mongo-constants';
 
 export function getDefaultQuery(isDocumentBased: boolean): string {
@@ -24,8 +25,16 @@ export function getCollectionFromQuery(query: string): string {
   return getCollectionMatch ? getCollectionMatch[1] : '';
 }
 
-export function shouldRefreshSchema(queryToCheck: string, isDocumentBased: boolean): boolean {
+export function shouldRefreshSchema(
+  queryToCheck: string,
+  isDocumentBased: boolean,
+  driver?: Driver
+): boolean {
   if (!queryToCheck.trim()) return false;
+
+  // Redis: always refresh
+  if (driver === Driver.Redis) return true;
+
   if (isDocumentBased) {
     return (
       /\.createCollection\s*\(/i.test(queryToCheck) ||

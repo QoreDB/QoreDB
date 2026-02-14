@@ -2,14 +2,7 @@
  * DiffStatsBar - Statistics bar with counters and filters
  */
 import { useTranslation } from 'react-i18next';
-import {
-  PlusCircle,
-  MinusCircle,
-  ArrowLeftRight,
-  CheckCircle2,
-  Eye,
-  EyeOff,
-} from 'lucide-react';
+import { PlusCircle, MinusCircle, ArrowLeftRight, CheckCircle2, Eye, EyeOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { DiffStats, DiffRowStatus } from '@/lib/diffUtils';
 import { Button } from '@/components/ui/button';
@@ -80,10 +73,7 @@ export function DiffStatsBar({
 
       {/* Filters */}
       <div className="flex items-center gap-2">
-        <Select
-          value={filter}
-          onValueChange={(v) => onFilterChange(v as DiffFilter)}
-        >
+        <Select value={filter} onValueChange={v => onFilterChange(v as DiffFilter)}>
           <SelectTrigger className="w-36 h-8 text-sm">
             <SelectValue />
           </SelectTrigger>
@@ -100,10 +90,7 @@ export function DiffStatsBar({
           variant="ghost"
           size="sm"
           onClick={() => onShowUnchangedChange(!showUnchanged)}
-          className={cn(
-            'h-8',
-            !showUnchanged && 'text-muted-foreground'
-          )}
+          className={cn('h-8', !showUnchanged && 'text-muted-foreground')}
         >
           {showUnchanged ? (
             <Eye size={14} className="mr-1.5" />
@@ -133,9 +120,7 @@ function StatCounter({ icon, count, label, colorClass, active, onClick }: StatCo
       onClick={onClick}
       className={cn(
         'flex items-center gap-1.5 px-2 py-1 rounded-md transition-colors',
-        active
-          ? 'bg-accent ring-1 ring-accent-foreground/20'
-          : 'hover:bg-muted/50',
+        active ? 'bg-accent ring-1 ring-accent-foreground/20' : 'hover:bg-muted/50',
         colorClass
       )}
     >

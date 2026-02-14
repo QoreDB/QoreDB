@@ -9,6 +9,7 @@ pub mod metrics;
 pub mod observability;
 pub mod policy;
 pub mod vault;
+pub mod virtual_relations;
 
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -16,12 +17,14 @@ use tokio::sync::Mutex;
 use engine::drivers::mongodb::MongoDriver;
 use engine::drivers::mysql::MySqlDriver;
 use engine::drivers::postgres::PostgresDriver;
+use engine::drivers::redis::RedisDriver;
 use engine::drivers::sqlite::SqliteDriver;
 use engine::{DriverRegistry, QueryManager, SessionManager};
 use interceptor::InterceptorPipeline;
 use policy::SafetyPolicy;
 use vault::{VaultLock, backend::KeyringProvider};
 use export::ExportPipeline;
+use virtual_relations::VirtualRelationStore;
 
 pub type SharedState = Arc<Mutex<AppState>>;
 pub struct AppState {
@@ -32,6 +35,7 @@ pub struct AppState {
     pub query_manager: Arc<QueryManager>,
     pub interceptor: Arc<InterceptorPipeline>,
     pub export_pipeline: Arc<ExportPipeline>,
+    pub virtual_relations: Arc<VirtualRelationStore>,
 }
 
 impl AppState {
@@ -41,6 +45,7 @@ impl AppState {
         registry.register(Arc::new(PostgresDriver::new()));
         registry.register(Arc::new(MySqlDriver::new()));
         registry.register(Arc::new(MongoDriver::new()));
+        registry.register(Arc::new(RedisDriver::new()));
         registry.register(Arc::new(SqliteDriver::new()));
 
         let registry = Arc::new(registry);
@@ -53,10 +58,14 @@ impl AppState {
         // Initialize interceptor with data directory
         let data_dir = dirs::data_local_dir()
             .unwrap_or_else(|| std::path::PathBuf::from("."))
-            .join("com.qoredb.app")
-            .join("interceptor");
-        let interceptor = Arc::new(InterceptorPipeline::new(data_dir));
+            .join("com.qoredb.app");
+        let interceptor = Arc::new(InterceptorPipeline::new(data_dir.join("interceptor")));
         let _ = interceptor.load_config();
+
+        // Initialize virtual relations store
+        let virtual_relations = Arc::new(VirtualRelationStore::new(
+            data_dir.join("virtual_relations"),
+        ));
 
         let _ = vault_lock.auto_unlock_if_no_password();
 
@@ -68,6 +77,7 @@ impl AppState {
             query_manager,
             interceptor,
             export_pipeline,
+            virtual_relations,
         }
     }
 }
@@ -114,6 +124,8 @@ pub fn run() {
             commands::query::list_namespaces,
             commands::query::list_collections,
             commands::query::list_routines,
+            commands::query::list_triggers,
+            commands::query::list_events,
             commands::query::describe_table,
             commands::query::preview_table,
             commands::query::query_table,
@@ -172,6 +184,11 @@ pub fn run() {
             commands::interceptor::add_safety_rule,
             commands::interceptor::update_safety_rule,
             commands::interceptor::remove_safety_rule,
+            // Virtual relations commands
+            commands::virtual_relations::list_virtual_relations,
+            commands::virtual_relations::add_virtual_relation,
+            commands::virtual_relations::update_virtual_relation,
+            commands::virtual_relations::delete_virtual_relation,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

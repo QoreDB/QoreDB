@@ -56,9 +56,7 @@ export function StatusBar({ sessionId, connection }: StatusBarProps) {
 
             {/* Driver (tertiaire) */}
             {driverMeta && (
-              <span className="text-muted-foreground/70 truncate">
-                {driverMeta.label}
-              </span>
+              <span className="text-muted-foreground/70 truncate">{driverMeta.label}</span>
             )}
           </>
         )}
@@ -69,17 +67,12 @@ export function StatusBar({ sessionId, connection }: StatusBarProps) {
         {isConnected ? (
           <>
             {/* Sandbox Indicator */}
-            <SandboxIndicator
-              sessionId={sessionId}
-              environment={environment}
-            />
+            <SandboxIndicator sessionId={sessionId} environment={environment} />
 
             {/* Badge environnement - visibilité accentuée pour PROD */}
             <span
               className={`flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide rounded-full border ${
-                environment === 'production'
-                  ? 'animate-pulse shadow-sm'
-                  : ''
+                environment === 'production' ? 'animate-pulse shadow-sm' : ''
               }`}
               style={{
                 backgroundColor: environment === 'production' ? envConfig.color : envConfig.bgSoft,

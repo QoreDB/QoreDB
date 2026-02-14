@@ -85,7 +85,7 @@ export function DeleteDatabaseModal({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
+    <Dialog open={isOpen} onOpenChange={open => !open && handleClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-destructive">
@@ -105,9 +105,7 @@ export function DeleteDatabaseModal({
                 )}
               </>
             ) : (
-              <>
-                {t('dropDatabase.typeToConfirm', { name: targetName })}
-              </>
+              <>{t('dropDatabase.typeToConfirm', { name: targetName })}</>
             )}
           </DialogDescription>
         </DialogHeader>
@@ -116,7 +114,7 @@ export function DeleteDatabaseModal({
           <div className="py-4">
             <Input
               value={confirmText}
-              onChange={(e) => setConfirmText(e.target.value)}
+              onChange={e => setConfirmText(e.target.value)}
               placeholder={targetName}
               className="font-mono"
               autoFocus
@@ -133,11 +131,7 @@ export function DeleteDatabaseModal({
               {t('dropDatabase.continue')}
             </Button>
           ) : (
-            <Button
-              variant="destructive"
-              onClick={handleDelete}
-              disabled={!canProceed || loading}
-            >
+            <Button variant="destructive" onClick={handleDelete} disabled={!canProceed || loading}>
               {loading ? t('common.deleting') : t('common.delete')}
             </Button>
           )}

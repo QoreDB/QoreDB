@@ -113,11 +113,11 @@ pub trait DataEngine: Send + Sync {
 
 ## Priorités suggérées
 
-| Priorité | Database | Raison |
-|----------|----------|--------|
-| V1 | SQLite | Local-first, dev workflow |
-| V1 | Redis | Très populaire, simple |
-| V2 | SQL Server | Enterprise demand |
-| V2 | ClickHouse | Analytics use case |
-| V2 | Elasticsearch | Search use case |
-| V3 | Neo4j | Niche mais différenciant |
+| Priorité | Database      | Raison                    |
+| -------- | ------------- | ------------------------- |
+| V1       | SQLite        | Local-first, dev workflow |
+| V1       | Redis         | Très populaire, simple    |
+| V2       | SQL Server    | Enterprise demand         |
+| V2       | ClickHouse    | Analytics use case        |
+| V2       | Elasticsearch | Search use case           |
+| V3       | Neo4j         | Niche mais différenciant  |

@@ -4,9 +4,9 @@
 
 Créer une UI qui est :
 
-* aussi lisible et dense que GitHub
-* aussi élégante et moderne que Stripe Sessions
-* mais pensée pour des **outils data**
+- aussi lisible et dense que GitHub
+- aussi élégante et moderne que Stripe Sessions
+- mais pensée pour des **outils data**
 
 ---
 
@@ -134,11 +134,11 @@ Subtiles, comme Stripe.
 
 Quand tu codes QoreDB :
 
-* aucun `#fff`, `#000`, `16px`, `border-radius: 8px`
-* uniquement des tokens Qore
-* UI = neutre
-* Data = contrastée
-* Accent = rare et précis
+- aucun `#fff`, `#000`, `16px`, `border-radius: 8px`
+- uniquement des tokens Qore
+- UI = neutre
+- Data = contrastée
+- Accent = rare et précis
 
 ---
 
@@ -146,10 +146,10 @@ Quand tu codes QoreDB :
 
 Tu as :
 
-* une identité visuelle
-* une palette
-* une typographie
-* une grammaire
+- une identité visuelle
+- une palette
+- une typographie
+- une grammaire
 
 Sans Figma.
 Sans bullshit.

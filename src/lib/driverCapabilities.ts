@@ -1,6 +1,6 @@
 /**
  * Driver capability helpers for QoreDB
- * 
+ *
  * This module provides semantic helper functions for checking driver capabilities,
  * enabling agnostic SQL/NoSQL UI decisions without hardcoding driver checks.
  */

@@ -6,7 +6,13 @@ import { writeTextFile, readTextFile } from '@tauri-apps/plugin-fs';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Tooltip } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
@@ -23,7 +29,17 @@ import {
   type QueryLibraryItem,
   type QueryLibraryExportV1,
 } from '@/lib/queryLibrary';
-import { Download, FolderPlus, Star, Trash2, Upload, X, Play, Folder, RefreshCw } from 'lucide-react';
+import {
+  Download,
+  FolderPlus,
+  Star,
+  Trash2,
+  Upload,
+  X,
+  Play,
+  Folder,
+  RefreshCw,
+} from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 
@@ -67,11 +83,7 @@ export function QueryLibraryModal({ isOpen, onClose, onSelectQuery }: QueryLibra
 
   const listOptions = useMemo(() => {
     const folderIdOption =
-      folderFilter === '__all__'
-        ? undefined
-        : folderFilter === '__none__'
-          ? null
-          : folderFilter;
+      folderFilter === '__all__' ? undefined : folderFilter === '__none__' ? null : folderFilter;
 
     return {
       folderId: folderIdOption,
@@ -256,18 +268,36 @@ export function QueryLibraryModal({ isOpen, onClose, onSelectQuery }: QueryLibra
           </div>
 
           <Tooltip content={t('library.refresh')}>
-            <Button variant="ghost" size="icon" onClick={reload} className="h-8 w-8" aria-label={t('library.refresh')}>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={reload}
+              className="h-8 w-8"
+              aria-label={t('library.refresh')}
+            >
               <RefreshCw size={14} />
             </Button>
           </Tooltip>
 
           <Tooltip content={t('library.import')}>
-            <Button variant="ghost" size="icon" onClick={handleImport} className="h-8 w-8" aria-label={t('library.import')}>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleImport}
+              className="h-8 w-8"
+              aria-label={t('library.import')}
+            >
               <Upload size={14} />
             </Button>
           </Tooltip>
           <Tooltip content={t('library.export')}>
-            <Button variant="ghost" size="icon" onClick={handleExport} className="h-8 w-8" aria-label={t('library.export')}>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleExport}
+              className="h-8 w-8"
+              aria-label={t('library.export')}
+            >
               <Download size={14} />
             </Button>
           </Tooltip>

@@ -39,7 +39,7 @@ export function buildInitialRowModalState({
   const initialNulls: RowModalNulls = {};
   const initialExtraCols: TableColumn[] = [];
 
-  schema.columns.forEach((col) => {
+  schema.columns.forEach(col => {
     const val = initialData?.[col.name];
 
     if (mode === 'update' && val !== undefined) {
@@ -61,8 +61,8 @@ export function buildInitialRowModalState({
   });
 
   if (mode === 'update' && initialData && driver === Driver.Mongodb) {
-    const schemaColNames = new Set(schema.columns.map((c) => c.name));
-    Object.keys(initialData).forEach((key) => {
+    const schemaColNames = new Set(schema.columns.map(c => c.name));
+    Object.keys(initialData).forEach(key => {
       if (!schemaColNames.has(key)) {
         const val = initialData[key];
         const inferredType = typeof val;
@@ -136,7 +136,7 @@ export function buildColumnsData({
 }): Record<string, Value> {
   const data: Record<string, Value> = {};
 
-  columns.forEach((col) => {
+  columns.forEach(col => {
     if (nulls[col.name]) {
       data[col.name] = null;
       return;
@@ -178,7 +178,7 @@ export function computePreview({
     };
   }
 
-  const changes = schema.columns.flatMap((col) => {
+  const changes = schema.columns.flatMap(col => {
     if (!(col.name in data)) return [];
     const nextValue = data[col.name];
     const prevValue = initialData?.[col.name];

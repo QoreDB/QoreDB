@@ -134,7 +134,8 @@ const SQLITE_TYPES: ColumnType[] = [
 export const COLUMN_TYPES: Record<Driver, ColumnType[]> = {
   [Driver.Postgres]: POSTGRES_TYPES,
   [Driver.Mysql]: MYSQL_TYPES,
-  [Driver.Mongodb]: [], // MongoDB is schemaless
+  [Driver.Mongodb]: [],
+  [Driver.Redis]: [],
   [Driver.Sqlite]: SQLITE_TYPES,
 };
 

@@ -5,6 +5,7 @@ const DIALECT_MAP: Record<Driver, SqlLanguage> = {
   [Driver.Postgres]: 'postgresql',
   [Driver.Mysql]: 'mysql',
   [Driver.Mongodb]: 'sql',
+  [Driver.Redis]: 'sql',
   [Driver.Sqlite]: 'sqlite',
 };
 

@@ -37,3 +37,21 @@ expected by the UI and command layer.
 - Cancellation is best-effort: the client task is aborted, but server-side work
   may continue.
 - Namespace listing filters `admin`, `config`, and `local` databases.
+
+## Redis
+
+- Key browsing uses `SCAN` which is not atomic; keys may be missed or
+  duplicated if the keyspace changes during iteration.
+- Namespaces map to Redis databases (db0–db15). Only non-empty databases are
+  listed; database 0 is always shown.
+- No traditional schema — `describe_table` returns type-specific column
+  definitions based on the key's Redis data type (string, hash, list, set,
+  sorted set, stream).
+- Mutations (SET, DEL, etc.) are only available through `execute()` with raw
+  Redis commands; the mutation UI is not supported in V1.
+- The maximum number of databases depends on the server's `databases`
+  configuration (default 16).
+- Cancellation is best-effort: the client task is aborted, but server-side
+  work may continue.
+- Connection supports both `redis://` and `rediss://` (TLS) URL schemes.
+- Authentication is optional — many development setups run without a password.

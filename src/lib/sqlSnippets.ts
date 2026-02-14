@@ -40,14 +40,12 @@ export const SQL_SNIPPETS: SqlSnippet[] = [
     id: 'join',
     label: 'JOIN',
     description: 'Select with join',
-    template:
-      'SELECT ${columns}\nFROM ${table} t\nJOIN ${join_table} j ON t.${key} = j.${key};',
+    template: 'SELECT ${columns}\nFROM ${table} t\nJOIN ${join_table} j ON t.${key} = j.${key};',
   },
   {
     id: 'create_table',
     label: 'CREATE TABLE',
     description: 'Create table',
-    template:
-      'CREATE TABLE ${table} (\n  ${column} ${type} ${constraints}\n);',
+    template: 'CREATE TABLE ${table} (\n  ${column} ${type} ${constraints}\n);',
   },
 ];

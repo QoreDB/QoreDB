@@ -1,7 +1,6 @@
 {
   "identifier": "com.rapha.qoredb",
   "app": {
-    
     "windows": [
       {
         "title": "QoreDB",

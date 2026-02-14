@@ -17,8 +17,8 @@ interface DataGridPaginationProps {
 
 const PAGE_SIZES = [25, 50, 100, 250];
 
-export function DataGridPagination({ 
-  table, 
+export function DataGridPagination({
+  table,
   pagination,
   serverSideTotalRows,
   serverSidePage,
@@ -27,16 +27,19 @@ export function DataGridPagination({
   onServerPageSizeChange,
 }: DataGridPaginationProps) {
   const { t } = useTranslation();
-  
+
   // Calculate server-side pagination info
   const isServerSide = serverSideTotalRows !== undefined;
-  const totalRows = isServerSide ? serverSideTotalRows : (table?.getFilteredRowModel().rows.length ?? 0);
-  const effectivePageSize = isServerSide && serverSidePageSize ? serverSidePageSize : pagination.pageSize;
-  const pageCount = isServerSide 
-    ? Math.ceil(serverSideTotalRows / effectivePageSize) 
-    : (table?.getPageCount() || 1);
+  const totalRows = isServerSide
+    ? serverSideTotalRows
+    : (table?.getFilteredRowModel().rows.length ?? 0);
+  const effectivePageSize =
+    isServerSide && serverSidePageSize ? serverSidePageSize : pagination.pageSize;
+  const pageCount = isServerSide
+    ? Math.ceil(serverSideTotalRows / effectivePageSize)
+    : table?.getPageCount() || 1;
   const currentPage = isServerSide && serverSidePage ? serverSidePage : pagination.pageIndex + 1;
-  
+
   const canPreviousPage = isServerSide ? currentPage > 1 : (table?.getCanPreviousPage() ?? false);
   const canNextPage = isServerSide ? currentPage < pageCount : (table?.getCanNextPage() ?? false);
 

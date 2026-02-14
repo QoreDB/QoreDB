@@ -115,7 +115,9 @@ export function SecuritySection({ searchQuery }: SecuritySectionProps) {
               className="mt-0.5"
             />
             <span>
-              <span className="font-medium text-foreground">{t('settings.safetyPolicyBlockDangerous')}</span>
+              <span className="font-medium text-foreground">
+                {t('settings.safetyPolicyBlockDangerous')}
+              </span>
               <span className="block text-xs text-muted-foreground mt-0.5">
                 {t('settings.safetyPolicyBlockDangerousDescription')}
               </span>

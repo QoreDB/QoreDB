@@ -33,26 +33,26 @@ export const getShortcut = (
   options: { shift?: boolean; alt?: boolean; symbol?: boolean } = {}
 ): string => {
   const isMac = isMacOS();
-  const mod = options.symbol ? (isMac ? '⌘' : 'Ctrl') : (isMac ? 'Cmd' : 'Ctrl');
+  const mod = options.symbol ? (isMac ? '⌘' : 'Ctrl') : isMac ? 'Cmd' : 'Ctrl';
   const separator = options.symbol && isMac ? '' : '+'; // Mac symbols often don't use + (e.g. ⌘K), but Windows uses Ctrl+K
   const parts = [mod];
 
   if (options.shift) {
     parts.push(options.symbol && isMac ? '⇧' : 'Shift');
   }
-  
+
   if (options.alt) {
-     parts.push(options.symbol && isMac ? '⌥' : 'Alt');
+    parts.push(options.symbol && isMac ? '⌥' : 'Alt');
   }
 
-  // If using symbols on Mac, we usually just append the key without separator involved for the last part if we want tight packing, 
+  // If using symbols on Mac, we usually just append the key without separator involved for the last part if we want tight packing,
   // but standard practice varies. Let's keep it simple: separated for text, tight or separated for symbols.
   // For consistency with existing app style which seems to use "Cmd+T" or "⌘K", let's conform to the requested format.
   // The existing app uses "Cmd+T" in text and "⌘K" in badges.
-  
+
   if (options.symbol && isMac) {
-      // ⌘K, ⌘⇧L
-      return parts.join('') + key.toUpperCase();
+    // ⌘K, ⌘⇧L
+    return parts.join('') + key.toUpperCase();
   }
 
   // Ctrl+K, Cmd+T

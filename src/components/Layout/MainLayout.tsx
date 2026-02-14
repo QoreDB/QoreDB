@@ -18,9 +18,7 @@ export function MainLayout({ children, sidebar }: MainLayoutProps) {
       {sidebar}
       <main className="layout-main">
         <TabBar />
-        <div className="layout-content">
-          {children}
-        </div>
+        <div className="layout-content">{children}</div>
       </main>
     </div>
   );

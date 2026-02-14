@@ -4,13 +4,7 @@
 import { useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import {
-  PlusCircle,
-  MinusCircle,
-  ArrowLeftRight,
-  CheckCircle2,
-  GitCompare,
-} from 'lucide-react';
+import { PlusCircle, MinusCircle, ArrowLeftRight, CheckCircle2, GitCompare } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { DiffResult, DiffRow, DiffRowStatus, formatDiffValue } from '@/lib/diffUtils';
 
@@ -78,10 +72,7 @@ export function DiffResultsGrid({ diffResult, filteredRows }: DiffResultsGridPro
       </div>
 
       {/* Virtualized rows */}
-      <div
-        ref={parentRef}
-        className="flex-1 overflow-auto"
-      >
+      <div ref={parentRef} className="flex-1 overflow-auto">
         <div
           style={{
             height: `${rowVirtualizer.getTotalSize()}px`,
@@ -89,7 +80,7 @@ export function DiffResultsGrid({ diffResult, filteredRows }: DiffResultsGridPro
             position: 'relative',
           }}
         >
-          {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+          {rowVirtualizer.getVirtualItems().map(virtualRow => {
             const row = filteredRows[virtualRow.index];
             return (
               <DiffRowComponent
@@ -123,10 +114,7 @@ function DiffRowComponent({ row, style }: DiffRowComponentProps) {
 
   return (
     <div
-      className={cn(
-        'flex items-center border-b border-border transition-colors',
-        rowClassName
-      )}
+      className={cn('flex items-center border-b border-border transition-colors', rowClassName)}
       style={style}
     >
       {/* Status icon */}
@@ -135,43 +123,41 @@ function DiffRowComponent({ row, style }: DiffRowComponentProps) {
       </div>
 
       {/* Cells */}
-      {row.status === 'removed' ? (
-        row.leftCells.map((cell, colIdx) => (
-          <DiffCell
-            key={colIdx}
-            value={formatDiffValue(cell.value)}
-            changed={cell.changed}
-            status={row.status}
-          />
-        ))
-      ) : row.status === 'added' ? (
-        row.rightCells.map((cell, colIdx) => (
-          <DiffCell
-            key={colIdx}
-            value={formatDiffValue(cell.value)}
-            changed={cell.changed}
-            status={row.status}
-          />
-        ))
-      ) : row.status === 'modified' ? (
-        row.leftCells.map((cell, colIdx) => (
-          <DiffCellModified
-            key={colIdx}
-            oldValue={formatDiffValue(cell.value)}
-            newValue={formatDiffValue(row.rightCells[colIdx].value)}
-            changed={cell.changed}
-          />
-        ))
-      ) : (
-        row.leftCells.map((cell, colIdx) => (
-          <DiffCell
-            key={colIdx}
-            value={formatDiffValue(cell.value)}
-            changed={false}
-            status={row.status}
-          />
-        ))
-      )}
+      {row.status === 'removed'
+        ? row.leftCells.map((cell, colIdx) => (
+            <DiffCell
+              key={colIdx}
+              value={formatDiffValue(cell.value)}
+              changed={cell.changed}
+              status={row.status}
+            />
+          ))
+        : row.status === 'added'
+          ? row.rightCells.map((cell, colIdx) => (
+              <DiffCell
+                key={colIdx}
+                value={formatDiffValue(cell.value)}
+                changed={cell.changed}
+                status={row.status}
+              />
+            ))
+          : row.status === 'modified'
+            ? row.leftCells.map((cell, colIdx) => (
+                <DiffCellModified
+                  key={colIdx}
+                  oldValue={formatDiffValue(cell.value)}
+                  newValue={formatDiffValue(row.rightCells[colIdx].value)}
+                  changed={cell.changed}
+                />
+              ))
+            : row.leftCells.map((cell, colIdx) => (
+                <DiffCell
+                  key={colIdx}
+                  value={formatDiffValue(cell.value)}
+                  changed={false}
+                  status={row.status}
+                />
+              ))}
     </div>
   );
 }
@@ -222,12 +208,8 @@ function DiffCellModified({ oldValue, newValue, changed }: DiffCellModifiedProps
       title={`${oldValue} → ${newValue}`}
     >
       <div className="flex flex-col gap-0">
-        <span className="line-through text-error/70 truncate text-[10px]">
-          {oldValue}
-        </span>
-        <span className="text-success truncate">
-          {newValue}
-        </span>
+        <span className="line-through text-error/70 truncate text-[10px]">{oldValue}</span>
+        <span className="text-success truncate">{newValue}</span>
       </div>
     </div>
   );

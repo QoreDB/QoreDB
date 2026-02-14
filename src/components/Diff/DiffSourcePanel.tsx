@@ -58,9 +58,7 @@ interface DiffSourcePanelProps {
 }
 
 function formatNamespace(namespace: Namespace): string {
-  return namespace.schema
-    ? `${namespace.database}.${namespace.schema}`
-    : namespace.database;
+  return namespace.schema ? `${namespace.database}.${namespace.schema}` : namespace.database;
 }
 
 function getNamespaceKey(namespace: Namespace): string {
@@ -91,10 +89,7 @@ export function DiffSourcePanel({
     source.namespacesLoading;
 
   const canExecuteQuery =
-    source.sessionId &&
-    source.namespace &&
-    source.mode === 'query' &&
-    source.query?.trim();
+    source.sessionId && source.namespace && source.mode === 'query' && source.query?.trim();
 
   const rowCount = useMemo(
     () => (source.result?.rows ? source.result.rows.length : 0),
@@ -128,27 +123,23 @@ export function DiffSourcePanel({
           <span className="text-xs text-muted-foreground">{t('diff.connection')}</span>
           <Select
             value={source.connectionId ?? ''}
-            onValueChange={(value) => onConnectionChange(value || null)}
+            onValueChange={value => onConnectionChange(value || null)}
             disabled={disabled || connectionsLoading || source.connecting}
           >
             <SelectTrigger className="h-9">
               <SelectValue placeholder={t('diff.selectConnection')} />
             </SelectTrigger>
             <SelectContent>
-              {connections.map((conn) => (
+              {connections.map(conn => (
                 <SelectItem key={conn.id} value={conn.id}>
                   <div className="flex items-center gap-2">
                     <Server size={12} className="text-muted-foreground" />
                     <span className="truncate max-w-40">{conn.name}</span>
                     {conn.environment !== 'development' && (
-                      <span className="text-[10px] uppercase text-warning">
-                        {conn.environment}
-                      </span>
+                      <span className="text-[10px] uppercase text-warning">{conn.environment}</span>
                     )}
                     {conn.read_only && (
-                      <span className="text-[10px] uppercase text-muted-foreground">
-                        RO
-                      </span>
+                      <span className="text-[10px] uppercase text-muted-foreground">RO</span>
                     )}
                   </div>
                 </SelectItem>
@@ -161,10 +152,8 @@ export function DiffSourcePanel({
           <span className="text-xs text-muted-foreground">{t('diff.namespace')}</span>
           <Select
             value={namespaceValue}
-            onValueChange={(value) => {
-              const selected = namespaceOptions.find(
-                (ns) => getNamespaceKey(ns) === value
-              );
+            onValueChange={value => {
+              const selected = namespaceOptions.find(ns => getNamespaceKey(ns) === value);
               onNamespaceChange(selected ?? null);
             }}
             disabled={tableDisabled || namespaceOptions.length === 0}
@@ -172,14 +161,12 @@ export function DiffSourcePanel({
             <SelectTrigger className="h-9">
               <SelectValue
                 placeholder={
-                  source.namespacesLoading
-                    ? t('common.loading')
-                    : t('diff.selectNamespace')
+                  source.namespacesLoading ? t('common.loading') : t('diff.selectNamespace')
                 }
               />
             </SelectTrigger>
             <SelectContent>
-              {namespaceOptions.map((ns) => (
+              {namespaceOptions.map(ns => (
                 <SelectItem key={getNamespaceKey(ns)} value={getNamespaceKey(ns)}>
                   <div className="flex items-center gap-2">
                     <Database size={12} className="text-muted-foreground" />
@@ -230,7 +217,7 @@ export function DiffSourcePanel({
           sessionId={source.sessionId ?? ''}
           namespace={source.namespace ?? { database: '' }}
           value={source.tableName}
-          onSelect={(tableName) =>
+          onSelect={tableName =>
             onSourceChange({ tableName: tableName || undefined, error: undefined })
           }
           disabled={tableDisabled}
@@ -240,7 +227,7 @@ export function DiffSourcePanel({
         <>
           <Textarea
             value={source.query ?? ''}
-            onChange={(e) => onSourceChange({ query: e.target.value, error: undefined })}
+            onChange={e => onSourceChange({ query: e.target.value, error: undefined })}
             placeholder={t('diff.queryPlaceholder')}
             className="font-mono text-sm min-h-[100px] resize-y"
             disabled={disabled || source.connecting}
@@ -271,9 +258,7 @@ export function DiffSourcePanel({
       {(source.connectionError || source.error) && (
         <div className="flex items-start gap-2 text-sm text-destructive">
           <AlertCircle size={14} className="shrink-0 mt-0.5" />
-          <span className="break-all">
-            {source.connectionError || source.error}
-          </span>
+          <span className="break-all">{source.connectionError || source.error}</span>
         </div>
       )}
     </div>

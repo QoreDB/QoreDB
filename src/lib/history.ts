@@ -1,6 +1,6 @@
 /**
  * Query History Store
- * 
+ *
  * Persists query history to localStorage with session isolation.
  */
 
@@ -51,14 +51,14 @@ export function getHistory(): HistoryEntry[] {
  */
 export function addToHistory(entry: Omit<HistoryEntry, 'id'>): HistoryEntry {
   const history = getHistory();
-  
+
   const newEntry: HistoryEntry = {
     ...entry,
     id: generateId(),
     query: shouldStoreHistory() ? redactQuery(entry.query) : entry.query,
     error: entry.error ? redactText(entry.error) : undefined,
   };
-  
+
   // Add to beginning
   history.unshift(newEntry);
 
@@ -75,7 +75,7 @@ export function addToHistory(entry: Omit<HistoryEntry, 'id'>): HistoryEntry {
     }
     inMemoryHistory = history;
   }
-  
+
   return newEntry;
 }
 
@@ -91,9 +91,7 @@ export function getSessionHistory(sessionId: string): HistoryEntry[] {
  */
 export function searchHistory(query: string): HistoryEntry[] {
   const lowerQuery = query.toLowerCase();
-  return getHistory().filter(e => 
-    e.query.toLowerCase().includes(lowerQuery)
-  );
+  return getHistory().filter(e => e.query.toLowerCase().includes(lowerQuery));
 }
 
 /**
@@ -125,7 +123,7 @@ export function toggleFavorite(id: string): boolean {
   }
   const favorites = getFavorites();
   const isFavorite = favorites.some(f => f.id === id);
-  
+
   if (isFavorite) {
     // Remove from favorites
     const newFavorites = favorites.filter(f => f.id !== id);

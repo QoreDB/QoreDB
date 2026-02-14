@@ -62,7 +62,7 @@ export function DataDiffViewer({
   }, [loadConnections]);
 
   const connectionsById = useMemo(
-    () => new Map(connections.map((conn) => [conn.id, conn])),
+    () => new Map(connections.map(conn => [conn.id, conn])),
     [connections]
   );
 
@@ -117,7 +117,7 @@ export function DataDiffViewer({
 
   const handleLeftConnectionChange = useCallback(
     (connectionId: string | null) => {
-      const connection = connectionId ? connectionsById.get(connectionId) ?? null : null;
+      const connection = connectionId ? (connectionsById.get(connectionId) ?? null) : null;
       setLeftConnection(connection).catch(() => undefined);
     },
     [connectionsById, setLeftConnection]
@@ -125,7 +125,7 @@ export function DataDiffViewer({
 
   const handleRightConnectionChange = useCallback(
     (connectionId: string | null) => {
-      const connection = connectionId ? connectionsById.get(connectionId) ?? null : null;
+      const connection = connectionId ? (connectionsById.get(connectionId) ?? null) : null;
       setRightConnection(connection).catch(() => undefined);
     },
     [connectionsById, setRightConnection]
@@ -139,7 +139,7 @@ export function DataDiffViewer({
     const columns =
       trivialCommonColumns.length > 0
         ? trivialCommonColumns.join(', ')
-        : commonColumns.map((col) => col.name).join(', ');
+        : commonColumns.map(col => col.name).join(', ');
     return t('diff.trivialCommonColumnsWarning', { columns });
   }, [compareWarning, commonColumns, trivialCommonColumns, t]);
 
@@ -193,12 +193,12 @@ export function DataDiffViewer({
 
     // Filter by status
     if (filter !== 'all') {
-      rows = rows.filter((r) => r.status === filter);
+      rows = rows.filter(r => r.status === filter);
     }
 
     // Filter out unchanged if not showing
     if (!showUnchanged && filter === 'all') {
-      rows = rows.filter((r) => r.status !== 'unchanged');
+      rows = rows.filter(r => r.status !== 'unchanged');
     }
 
     return rows;

@@ -97,7 +97,7 @@ export function QueryHistory({ isOpen, onClose, onSelectQuery, sessionId }: Quer
   }
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+    <Dialog open={isOpen} onOpenChange={open => !open && onClose()}>
       <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col p-0 gap-0 overflow-hidden sm:rounded-lg">
         <DialogHeader className="px-4 py-3 border-b border-border flex flex-row items-center justify-between space-y-0">
           <div className="flex items-center gap-2">
@@ -208,7 +208,11 @@ export function QueryHistory({ isOpen, onClose, onSelectQuery, sessionId }: Quer
                       ) : entry.executionTimeMs ? (
                         <span>{entry.executionTimeMs.toFixed(2)}ms</span>
                       ) : null}
-                      {entry.rowCount !== undefined && <span>{entry.rowCount} {t('history.rows')}</span>}
+                      {entry.rowCount !== undefined && (
+                        <span>
+                          {entry.rowCount} {t('history.rows')}
+                        </span>
+                      )}
                       {entry.database && <span className="font-mono">{entry.database}</span>}
                     </div>
                   </div>

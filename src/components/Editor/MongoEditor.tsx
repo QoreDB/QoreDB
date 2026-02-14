@@ -13,14 +13,7 @@ interface MongoEditorProps {
   readOnly?: boolean;
 }
 
-
-
-export function MongoEditor({
-  value,
-  onChange,
-  onExecute,
-  readOnly = false,
-}: MongoEditorProps) {
+export function MongoEditor({ value, onChange, onExecute, readOnly = false }: MongoEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const initialValueRef = useRef(value);

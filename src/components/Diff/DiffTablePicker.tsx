@@ -40,7 +40,7 @@ export function DiffTablePicker({
 
     setLoading(true);
     listCollections(sessionId, namespace, search || undefined, 1, 100)
-      .then((res) => {
+      .then(res => {
         if (res.success && res.data) {
           setTables(res.data.collections);
         }
@@ -81,10 +81,10 @@ export function DiffTablePicker({
         setIsOpen(false);
       } else if (e.key === 'ArrowDown') {
         e.preventDefault();
-        setSelectedIndex((i) => Math.min(i + 1, tables.length - 1));
+        setSelectedIndex(i => Math.min(i + 1, tables.length - 1));
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
-        setSelectedIndex((i) => Math.max(i - 1, 0));
+        setSelectedIndex(i => Math.max(i - 1, 0));
       } else if (e.key === 'Enter') {
         e.preventDefault();
         if (tables[selectedIndex]) {
@@ -112,10 +112,7 @@ export function DiffTablePicker({
     <div ref={containerRef} className="relative w-full" onKeyDown={handleKeyDown}>
       <Button
         variant="outline"
-        className={cn(
-          'w-full justify-between font-normal',
-          !value && 'text-muted-foreground'
-        )}
+        className={cn('w-full justify-between font-normal', !value && 'text-muted-foreground')}
         onClick={() => !disabled && setIsOpen(!isOpen)}
         disabled={disabled}
       >
@@ -126,7 +123,7 @@ export function DiffTablePicker({
               <span className="truncate">{value}</span>
             </>
           ) : (
-            placeholder ?? t('diff.selectTable')
+            (placeholder ?? t('diff.selectTable'))
           )}
         </span>
         <span className="flex items-center gap-1">
@@ -152,7 +149,7 @@ export function DiffTablePicker({
               className="flex-1 bg-transparent outline-none text-sm placeholder:text-muted-foreground"
               placeholder={t('dbtree.searchPlaceholder')}
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={e => setSearch(e.target.value)}
             />
             {loading && <Loader2 size={14} className="animate-spin text-muted-foreground" />}
           </div>
@@ -170,9 +167,7 @@ export function DiffTablePicker({
                   type="button"
                   className={cn(
                     'w-full flex items-center gap-2 px-3 py-2 text-sm text-left transition-colors',
-                    i === selectedIndex
-                      ? 'bg-accent text-accent-foreground'
-                      : 'hover:bg-muted/50'
+                    i === selectedIndex ? 'bg-accent text-accent-foreground' : 'hover:bg-muted/50'
                   )}
                   onClick={() => handleSelect(table.name)}
                   onMouseEnter={() => setSelectedIndex(i)}

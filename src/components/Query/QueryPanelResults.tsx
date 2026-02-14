@@ -59,7 +59,8 @@ export function QueryPanelResults({
   const activeResult =
     results.find(entry => entry.id === activeResultId) || results[results.length - 1] || null;
   const activeQuery = activeResult?.query || query;
-  const exportNamespace = activeNamespace ?? (connectionDatabase ? { database: connectionDatabase } : undefined);
+  const exportNamespace =
+    activeNamespace ?? (connectionDatabase ? { database: connectionDatabase } : undefined);
   const collection = getCollectionFromQuery(activeQuery);
   const showTabs = results.length > 1;
   const statementCount = !isDocumentBased ? countSqlStatements(activeQuery) : 1;

@@ -18,11 +18,7 @@ export function DataGridTableHeader({ table, showFilters }: DataGridTableHeaderP
       {table.getHeaderGroups().map(headerGroup => (
         <tr key={headerGroup.id}>
           {headerGroup.headers.map(header => (
-            <DataGridTableHeaderCell
-              key={header.id}
-              header={header}
-              showFilters={showFilters}
-            />
+            <DataGridTableHeaderCell key={header.id} header={header} showFilters={showFilters} />
           ))}
         </tr>
       ))}

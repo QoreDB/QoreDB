@@ -2,7 +2,13 @@ import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '../ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface RowModalCustomFieldsProps {
   title: string;
@@ -43,7 +49,7 @@ export function RowModalCustomFields({
           <Input
             id="new-field-name"
             value={newFieldName}
-            onChange={(e) => onNameChange(e.target.value)}
+            onChange={e => onNameChange(e.target.value)}
             placeholder={fieldNamePlaceholder}
             className="h-8"
           />

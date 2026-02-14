@@ -11,10 +11,11 @@ use tracing::{field, instrument};
 
 use crate::engine::{
     mongo_safety,
+    redis_safety,
     sql_safety,
     TableSchema,
     traits::StreamEvent,
-    types::{CollectionList, CollectionListOptions, ForeignKey, Namespace, QueryId, QueryResult, SessionId, Value, TableQueryOptions, PaginatedQueryResult, RoutineList, RoutineListOptions, RoutineType},
+    types::{CollectionList, CollectionListOptions, ForeignKey, Namespace, QueryId, QueryResult, SessionId, Value, TableQueryOptions, PaginatedQueryResult, RoutineList, RoutineListOptions, RoutineType, TriggerList, TriggerListOptions, EventList, EventListOptions},
 };
 use crate::interceptor::{Environment, QueryExecutionResult, SafetyAction};
 use crate::metrics;
@@ -31,6 +32,22 @@ fn is_mongo_mutation(query: &str) -> bool {
     matches!(
         mongo_safety::classify(query),
         mongo_safety::MongoQueryClass::Mutation | mongo_safety::MongoQueryClass::Unknown
+    )
+}
+
+fn is_redis_mutation(query: &str) -> bool {
+    matches!(
+        redis_safety::classify(query),
+        redis_safety::RedisQueryClass::Mutation
+            | redis_safety::RedisQueryClass::Dangerous
+            | redis_safety::RedisQueryClass::Unknown
+    )
+}
+
+fn is_redis_dangerous(query: &str) -> bool {
+    matches!(
+        redis_safety::classify(query),
+        redis_safety::RedisQueryClass::Dangerous
     )
 }
 
@@ -139,7 +156,9 @@ pub async fn execute_query(
     let is_production = matches!(interceptor_env, Environment::Production);
 
     let acknowledged = acknowledged_dangerous.unwrap_or(false);
-    let is_sql_driver = !driver.driver_id().eq_ignore_ascii_case("mongodb");
+    let is_mongo_driver = driver.driver_id().eq_ignore_ascii_case("mongodb");
+    let is_redis_driver = driver.driver_id().eq_ignore_ascii_case("redis");
+    let is_sql_driver = !is_mongo_driver && !is_redis_driver;
     let sql_analysis = if is_sql_driver {
         match sql_safety::analyze_sql(driver.driver_id(), &query) {
             Ok(analysis) => Some(analysis),
@@ -190,8 +209,10 @@ pub async fn execute_query(
                 .as_ref()
                 .map(|analysis| analysis.is_mutation)
                 .unwrap_or(false)
-        } else {
+        } else if is_mongo_driver {
             is_mongo_mutation(&query)
+        } else {
+            is_redis_mutation(&query)
         };
 
         if is_mutation {
@@ -210,6 +231,8 @@ pub async fn execute_query(
                 .as_ref()
                 .map(|analysis| analysis.is_dangerous)
                 .unwrap_or(false)
+        } else if is_redis_driver {
+            is_redis_dangerous(&query)
         } else {
             false
         };
@@ -241,8 +264,10 @@ pub async fn execute_query(
             .as_ref()
             .map(|a| a.is_mutation)
             .unwrap_or(false)
-    } else {
+    } else if is_mongo_driver {
         is_mongo_mutation(&query)
+    } else {
+        is_redis_mutation(&query)
     };
 
     let interceptor_context = interceptor.build_context(
@@ -796,6 +821,116 @@ pub async fn list_routines(
     }
 }
 
+/// Response wrapper for trigger listing
+#[derive(Debug, Serialize)]
+pub struct TriggersResponse {
+    pub success: bool,
+    pub data: Option<TriggerList>,
+    pub error: Option<String>,
+}
+
+/// Lists all triggers in a namespace
+#[tauri::command]
+pub async fn list_triggers(
+    state: State<'_, crate::SharedState>,
+    session_id: String,
+    namespace: Namespace,
+    search: Option<String>,
+    page: Option<u32>,
+    page_size: Option<u32>,
+) -> Result<TriggersResponse, String> {
+    let session_manager = {
+        let state = state.lock().await;
+        Arc::clone(&state.session_manager)
+    };
+    let session = parse_session_id(&session_id)?;
+
+    let driver = match session_manager.get_driver(session).await {
+        Ok(d) => d,
+        Err(e) => {
+            return Ok(TriggersResponse {
+                success: false,
+                data: None,
+                error: Some(e.to_string()),
+            });
+        }
+    };
+
+    let options = TriggerListOptions {
+        search,
+        page,
+        page_size,
+    };
+
+    match driver.list_triggers(session, &namespace, options).await {
+        Ok(list) => Ok(TriggersResponse {
+            success: true,
+            data: Some(list),
+            error: None,
+        }),
+        Err(e) => Ok(TriggersResponse {
+            success: false,
+            data: None,
+            error: Some(e.to_string()),
+        }),
+    }
+}
+
+/// Response wrapper for event listing
+#[derive(Debug, Serialize)]
+pub struct EventsResponse {
+    pub success: bool,
+    pub data: Option<EventList>,
+    pub error: Option<String>,
+}
+
+/// Lists all scheduled events in a namespace (MySQL only)
+#[tauri::command]
+pub async fn list_events(
+    state: State<'_, crate::SharedState>,
+    session_id: String,
+    namespace: Namespace,
+    search: Option<String>,
+    page: Option<u32>,
+    page_size: Option<u32>,
+) -> Result<EventsResponse, String> {
+    let session_manager = {
+        let state = state.lock().await;
+        Arc::clone(&state.session_manager)
+    };
+    let session = parse_session_id(&session_id)?;
+
+    let driver = match session_manager.get_driver(session).await {
+        Ok(d) => d,
+        Err(e) => {
+            return Ok(EventsResponse {
+                success: false,
+                data: None,
+                error: Some(e.to_string()),
+            });
+        }
+    };
+
+    let options = EventListOptions {
+        search,
+        page,
+        page_size,
+    };
+
+    match driver.list_events(session, &namespace, options).await {
+        Ok(list) => Ok(EventsResponse {
+            success: true,
+            data: Some(list),
+            error: None,
+        }),
+        Err(e) => Ok(EventsResponse {
+            success: false,
+            data: None,
+            error: Some(e.to_string()),
+        }),
+    }
+}
+
 /// Response wrapper for table schema
 #[derive(Debug, Serialize)]
 pub struct TableSchemaResponse {
@@ -811,10 +946,14 @@ pub async fn describe_table(
     session_id: String,
     namespace: Namespace,
     table: String,
+    connection_id: Option<String>,
 ) -> Result<TableSchemaResponse, String> {
-    let session_manager = {
+    let (session_manager, vr_store) = {
         let state = state.lock().await;
-        Arc::clone(&state.session_manager)
+        (
+            Arc::clone(&state.session_manager),
+            Arc::clone(&state.virtual_relations),
+        )
     };
     let session = parse_session_id(&session_id)?;
 
@@ -830,11 +969,34 @@ pub async fn describe_table(
     };
 
     match driver.describe_table(session, &namespace, &table).await {
-        Ok(schema) => Ok(TableSchemaResponse {
-            success: true,
-            schema: Some(schema),
-            error: None,
-        }),
+        Ok(mut schema) => {
+            // Merge virtual foreign keys if connection_id is provided
+            if let Some(ref conn_id) = connection_id {
+                let virtual_fks = vr_store.get_foreign_keys_for_table(
+                    conn_id,
+                    &namespace.database,
+                    namespace.schema.as_deref(),
+                    &table,
+                );
+                // Filter out virtual FKs that duplicate real ones
+                for vfk in virtual_fks {
+                    let is_duplicate = schema.foreign_keys.iter().any(|fk| {
+                        fk.column == vfk.column
+                            && fk.referenced_table == vfk.referenced_table
+                            && fk.referenced_column == vfk.referenced_column
+                    });
+                    if !is_duplicate {
+                        schema.foreign_keys.push(vfk);
+                    }
+                }
+            }
+
+            Ok(TableSchemaResponse {
+                success: true,
+                schema: Some(schema),
+                error: None,
+            })
+        }
         Err(e) => Ok(TableSchemaResponse {
             success: false,
             schema: None,

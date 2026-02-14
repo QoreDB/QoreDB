@@ -5,6 +5,7 @@ trigger: always_on
 The AI assistant must behave like a senior engineer working on a long-term product.
 
 Before writing code, always:
+
 - reason about architecture
 - identify risks
 - identify edge cases

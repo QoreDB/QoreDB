@@ -76,7 +76,7 @@ function JSONNode({ value, keyName, depth, initialExpanded, maxDepth }: JSONNode
 
     return (
       <div className="flex flex-col">
-        <div 
+        <div
           className="flex items-center cursor-pointer hover:bg-muted/20 rounded px-1 -ml-1 select-none"
           style={indent}
           onClick={() => setExpanded(!expanded)}
@@ -111,7 +111,7 @@ function JSONNode({ value, keyName, depth, initialExpanded, maxDepth }: JSONNode
 
   if (typeof value === 'object') {
     const entries = Object.entries(value as Record<string, unknown>);
-    
+
     if (depth >= maxDepth) {
       return (
         <div className="flex" style={indent}>
@@ -123,17 +123,19 @@ function JSONNode({ value, keyName, depth, initialExpanded, maxDepth }: JSONNode
 
     return (
       <div className="flex flex-col">
-        <div 
+        <div
           className="flex items-center cursor-pointer hover:bg-muted/20 rounded px-1 -ml-1 select-none"
           style={indent}
           onClick={() => setExpanded(!expanded)}
         >
           <span className="text-muted-foreground mr-1 w-4 flex justify-center">
-             {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+            {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
           </span>
           {keyName && <span className="text-muted-foreground mr-1">"{keyName}": </span>}
           <span className="text-foreground">{'{'}</span>
-          {!expanded && <span className="text-muted-foreground ml-1">...{entries.length} keys</span>}
+          {!expanded && (
+            <span className="text-muted-foreground ml-1">...{entries.length} keys</span>
+          )}
           {!expanded && <span className="text-foreground ml-1">{'}'}</span>}
         </div>
         {expanded && (
@@ -149,7 +151,7 @@ function JSONNode({ value, keyName, depth, initialExpanded, maxDepth }: JSONNode
               />
             ))}
             <div className="flex" style={indent}>
-               <span className="ml-5 text-foreground">{'}'}</span>
+              <span className="ml-5 text-foreground">{'}'}</span>
             </div>
           </div>
         )}
@@ -157,5 +159,9 @@ function JSONNode({ value, keyName, depth, initialExpanded, maxDepth }: JSONNode
     );
   }
 
-  return <div className="flex" style={indent}>{String(value)}</div>;
+  return (
+    <div className="flex" style={indent}>
+      {String(value)}
+    </div>
+  );
 }

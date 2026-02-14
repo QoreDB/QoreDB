@@ -24,7 +24,9 @@ function sanitizeTableBrowserTabs(input?: Record<string, string>): Record<string
   return result;
 }
 
-function sanitizeDatabaseBrowserTabs(input?: Record<string, string>): Record<string, DatabaseBrowserTab> {
+function sanitizeDatabaseBrowserTabs(
+  input?: Record<string, string>
+): Record<string, DatabaseBrowserTab> {
   const result: Record<string, DatabaseBrowserTab> = {};
   if (!input) return result;
   for (const [id, tab] of Object.entries(input)) {

@@ -409,6 +409,85 @@ impl ConnectionUrlParser for MongoDbUrlParser {
 }
 
 // =============================================================================
+// Redis Parser
+// =============================================================================
+
+pub struct RedisUrlParser;
+
+impl ConnectionUrlParser for RedisUrlParser {
+    fn driver_id(&self) -> &str {
+        "redis"
+    }
+
+    fn schemes(&self) -> &[&str] {
+        &["redis", "rediss"]
+    }
+
+    fn default_port(&self) -> u16 {
+        6379
+    }
+
+    fn parse(&self, url: &Url) -> ParseResult<PartialConnectionConfig> {
+        let is_tls = url.scheme() == "rediss";
+
+        let host = url
+            .host_str()
+            .filter(|h| !h.is_empty())
+            .map(String::from);
+
+        if host.is_none() {
+            return Err(ParseError::new(
+                ParseErrorCode::MissingHost,
+                "Redis URL must specify a host",
+            ));
+        }
+
+        let port = url.port().or(Some(self.default_port()));
+
+        let username = if url.username().is_empty() {
+            None
+        } else {
+            Some(
+                percent_decode(url.username())
+                    .map_err(|_| ParseError::new(ParseErrorCode::InvalidUtf8, "Invalid username encoding"))?,
+            )
+        };
+
+        let password = url
+            .password()
+            .map(|p| percent_decode(p))
+            .transpose()
+            .map_err(|_| ParseError::new(ParseErrorCode::InvalidUtf8, "Invalid password encoding"))?;
+
+        // Database index is the path (e.g., /0, /2)
+        let database = url
+            .path()
+            .strip_prefix('/')
+            .filter(|db| !db.is_empty())
+            .map(String::from);
+
+        // Parse query parameters
+        let mut options = HashMap::new();
+        for (key, value) in url.query_pairs() {
+            options.insert(key.into_owned(), value.into_owned());
+        }
+
+        let ssl = Some(is_tls);
+
+        Ok(PartialConnectionConfig {
+            driver: Some(self.driver_id().to_string()),
+            host,
+            port,
+            username,
+            password,
+            database,
+            ssl,
+            options,
+        })
+    }
+}
+
+// =============================================================================
 // URL Parser Registry
 // =============================================================================
 
@@ -433,6 +512,7 @@ impl ConnectionUrlParserRegistry {
         registry.register(Box::new(PostgresUrlParser));
         registry.register(Box::new(MySqlUrlParser));
         registry.register(Box::new(MongoDbUrlParser));
+        registry.register(Box::new(RedisUrlParser));
 
         registry
     }
@@ -461,7 +541,7 @@ impl ConnectionUrlParserRegistry {
             ParseError::new(
                 ParseErrorCode::UnsupportedScheme,
                 format!(
-                    "Unsupported URL scheme '{}'. Supported schemes: postgres, postgresql, mysql, mongodb, mongodb+srv",
+                    "Unsupported URL scheme '{}'. Supported schemes: postgres, postgresql, mysql, mongodb, mongodb+srv, redis, rediss",
                     scheme
                 ),
             )
@@ -718,9 +798,61 @@ mod tests {
 
     #[test]
     fn test_unsupported_scheme() {
-        let result = parse_connection_url("redis://localhost:6379");
+        let result = parse_connection_url("ftp://localhost:21");
         assert!(result.is_err());
         assert_eq!(result.unwrap_err().code, ParseErrorCode::UnsupportedScheme);
+    }
+
+    // -------------------------------------------------------------------------
+    // Redis Tests
+    // -------------------------------------------------------------------------
+
+    #[test]
+    fn test_redis_full_url() {
+        let result = parse_connection_url("redis://default:secret@localhost:6379/2").unwrap();
+        assert_eq!(result.driver.as_deref(), Some("redis"));
+        assert_eq!(result.host.as_deref(), Some("localhost"));
+        assert_eq!(result.port, Some(6379));
+        assert_eq!(result.username.as_deref(), Some("default"));
+        assert_eq!(result.password.as_deref(), Some("secret"));
+        assert_eq!(result.database.as_deref(), Some("2"));
+        assert_eq!(result.ssl, Some(false));
+    }
+
+    #[test]
+    fn test_redis_default_port() {
+        let result = parse_connection_url("redis://localhost").unwrap();
+        assert_eq!(result.port, Some(6379));
+    }
+
+    #[test]
+    fn test_rediss_tls() {
+        let result = parse_connection_url("rediss://redis.example.com:6380/0").unwrap();
+        assert_eq!(result.driver.as_deref(), Some("redis"));
+        assert_eq!(result.ssl, Some(true));
+        assert_eq!(result.port, Some(6380));
+    }
+
+    #[test]
+    fn test_redis_no_auth() {
+        let result = parse_connection_url("redis://localhost:6379/0").unwrap();
+        assert_eq!(result.username, None);
+        assert_eq!(result.password, None);
+        assert_eq!(result.database.as_deref(), Some("0"));
+    }
+
+    #[test]
+    fn test_redis_password_only() {
+        let result = parse_connection_url("redis://:mypassword@localhost:6379").unwrap();
+        assert_eq!(result.username, None);
+        assert_eq!(result.password.as_deref(), Some("mypassword"));
+    }
+
+    #[test]
+    fn test_redis_missing_host() {
+        let result = parse_connection_url("redis:///0");
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err().code, ParseErrorCode::MissingHost);
     }
 
     #[test]

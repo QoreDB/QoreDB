@@ -9,6 +9,7 @@ async fn test_app_state_initialization() {
     assert!(drivers.contains(&"postgres"), "Postgres driver should be registered");
     assert!(drivers.contains(&"mysql"), "MySQL driver should be registered");
     assert!(drivers.contains(&"mongodb"), "MongoDB driver should be registered");
+    assert!(drivers.contains(&"redis"), "Redis driver should be registered");
 
 
     let _policy = &state.policy;

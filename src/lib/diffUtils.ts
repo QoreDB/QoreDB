@@ -34,11 +34,7 @@ export interface DiffStats {
 /**
  * Generate a unique key for a row based on specified key columns or all columns
  */
-function generateRowKey(
-  row: Row,
-  keyColumnIndexes: number[],
-  fallbackIndex?: number
-): string {
+function generateRowKey(row: Row, keyColumnIndexes: number[], fallbackIndex?: number): string {
   const validIndexes = keyColumnIndexes.filter(idx => idx >= 0);
   if (validIndexes.length === 0) {
     if (typeof fallbackIndex === 'number') {
@@ -47,9 +43,7 @@ function generateRowKey(
     return JSON.stringify(row.values);
   }
 
-  return validIndexes
-    .map(idx => JSON.stringify(row.values[idx]))
-    .join('|');
+  return validIndexes.map(idx => JSON.stringify(row.values[idx])).join('|');
 }
 
 /**
@@ -260,23 +254,23 @@ export function exportDiffAsCSV(diffResult: DiffResult): string {
   const { columns, rows } = diffResult;
 
   // Header row
-  const header = ['_status', ...columns.map((c) => c.name)];
+  const header = ['_status', ...columns.map(c => c.name)];
   const lines: string[] = [header.map(escapeCSV).join(',')];
 
   // Data rows
   for (const row of rows) {
     const cells =
       row.status === 'removed'
-        ? row.leftCells.map((c) => formatDiffValue(c.value))
+        ? row.leftCells.map(c => formatDiffValue(c.value))
         : row.status === 'added'
-          ? row.rightCells.map((c) => formatDiffValue(c.value))
+          ? row.rightCells.map(c => formatDiffValue(c.value))
           : row.status === 'modified'
             ? row.rightCells.map((c, i) => {
                 const oldVal = formatDiffValue(row.leftCells[i].value);
                 const newVal = formatDiffValue(c.value);
                 return row.leftCells[i].changed ? `${oldVal} → ${newVal}` : newVal;
               })
-            : row.leftCells.map((c) => formatDiffValue(c.value));
+            : row.leftCells.map(c => formatDiffValue(c.value));
 
     const line = [row.status, ...cells].map(escapeCSV).join(',');
     lines.push(line);
@@ -302,9 +296,9 @@ export function exportDiffAsJSON(diffResult: DiffResult): string {
   const { columns, rows, stats } = diffResult;
 
   const exportData = {
-    columns: columns.map((c) => ({ name: c.name, type: c.data_type })),
+    columns: columns.map(c => ({ name: c.name, type: c.data_type })),
     stats,
-    rows: rows.map((row) => {
+    rows: rows.map(row => {
       const rowData: Record<string, unknown> = {
         _status: row.status,
         _key: row.rowKey,

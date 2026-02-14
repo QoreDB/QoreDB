@@ -46,7 +46,13 @@ import {
 import { HistoryEntry } from './lib/history';
 import { QueryLibraryItem } from './lib/queryLibrary';
 import { Driver } from './lib/drivers';
-import { OpenTab, createTableTab, createDatabaseTab, createQueryTab, createDiffTab } from './lib/tabs';
+import {
+  OpenTab,
+  createTableTab,
+  createDatabaseTab,
+  createQueryTab,
+  createDiffTab,
+} from './lib/tabs';
 import { CrashRecoverySnapshot, saveCrashRecoverySnapshot } from './lib/crashRecovery';
 import { AnalyticsService } from './components/Onboarding/AnalyticsService';
 import { getShortcut } from '@/utils/platform';
@@ -71,6 +77,19 @@ import './index.css';
 // Constants
 const DEFAULT_PROJECT = 'default';
 const RECOVERY_SAVE_DEBOUNCE_MS = 600;
+const STARTUP_PREFS_KEY = 'qoredb_startup_preferences';
+
+function shouldCheckUpdatesOnStartup(): boolean {
+  try {
+    const stored = localStorage.getItem(STARTUP_PREFS_KEY);
+    if (!stored) return true;
+
+    const parsed = JSON.parse(stored) as { checkUpdates?: unknown };
+    return typeof parsed.checkUpdates === 'boolean' ? parsed.checkUpdates : true;
+  } catch {
+    return true;
+  }
+}
 
 function getConnectionSignature(connection: SavedConnection): string {
   return JSON.stringify({
@@ -166,6 +185,7 @@ function App() {
 
   useEffect(() => {
     if (!import.meta.env.PROD) return;
+    if (!shouldCheckUpdatesOnStartup()) return;
 
     let cancelled = false;
     const handle = window.setTimeout(async () => {
@@ -209,7 +229,9 @@ function App() {
     getDriverInfo(sessionId)
       .then(response => {
         if (cancelled) return;
-        setDriverCapabilities(response.success && response.driver ? response.driver.capabilities : null);
+        setDriverCapabilities(
+          response.success && response.driver ? response.driver.capabilities : null
+        );
       })
       .catch(() => {
         if (!cancelled) setDriverCapabilities(null);
@@ -247,7 +269,15 @@ function App() {
     recoverySaveHandleRef.current = window.setTimeout(() => {
       saveCrashRecoverySnapshot(snapshot);
     }, RECOVERY_SAVE_DEBOUNCE_MS);
-  }, [activeConnection, sessionId, tabs, activeTabId, queryDrafts, tableBrowserTabsRef, databaseBrowserTabsRef]);
+  }, [
+    activeConnection,
+    sessionId,
+    tabs,
+    activeTabId,
+    queryDrafts,
+    tableBrowserTabsRef,
+    databaseBrowserTabsRef,
+  ]);
 
   useEffect(() => {
     scheduleRecoverySave();
@@ -304,7 +334,12 @@ function App() {
   }, [recovery, handleConnected, t]);
 
   const handleTableSelect = useCallback(
-    (namespace: Namespace, tableName: string, relationFilter?: RelationFilter, searchFilter?: SearchFilter) => {
+    (
+      namespace: Namespace,
+      tableName: string,
+      relationFilter?: RelationFilter,
+      searchFilter?: SearchFilter
+    ) => {
       AnalyticsService.capture('resource_opened', {
         source: searchFilter ? 'search' : relationFilter ? 'relation' : 'tree',
         resource_type: driver === Driver.Mongodb ? 'collection' : 'table',
@@ -456,7 +491,10 @@ function App() {
         const attemptId = reconnectAttemptRef.current;
         void (async () => {
           try {
-            const reconnectResult = await connectSavedConnection(DEFAULT_PROJECT, updatedConnection.id);
+            const reconnectResult = await connectSavedConnection(
+              DEFAULT_PROJECT,
+              updatedConnection.id
+            );
             if (attemptId !== reconnectAttemptRef.current) return;
             if (reconnectResult.success && reconnectResult.session_id) {
               pendingReconnectRef.current = null;
@@ -467,7 +505,10 @@ function App() {
                 console.warn('Failed to disconnect previous session', err);
               }
             } else {
-              notify.error(t('sidebar.connectionToFailed', { name: updatedConnection.name }), reconnectResult.error);
+              notify.error(
+                t('sidebar.connectionToFailed', { name: updatedConnection.name }),
+                reconnectResult.error
+              );
               pendingReconnectRef.current = updatedConnection.id;
               try {
                 if (previousSessionId) await disconnect(previousSessionId);
@@ -485,7 +526,10 @@ function App() {
             try {
               if (previousSessionId) await disconnect(previousSessionId);
             } catch (disconnectErr) {
-              console.warn('Failed to disconnect previous session after reconnect error', disconnectErr);
+              console.warn(
+                'Failed to disconnect previous session after reconnect error',
+                disconnectErr
+              );
             }
             setSessionId(null);
             setActiveConnection(null);
@@ -503,14 +547,42 @@ function App() {
 
   const paletteCommands = useMemo(
     () => [
-      { id: 'cmd_new_connection', label: t('palette.newConnection'), shortcut: getShortcut('N', { symbol: true }) },
-      { id: 'cmd_new_query', label: t('palette.newQuery'), shortcut: getShortcut('T', { symbol: true }) },
+      {
+        id: 'cmd_new_connection',
+        label: t('palette.newConnection'),
+        shortcut: getShortcut('N', { symbol: true }),
+      },
+      {
+        id: 'cmd_new_query',
+        label: t('palette.newQuery'),
+        shortcut: getShortcut('T', { symbol: true }),
+      },
       { id: 'cmd_open_library', label: t('palette.openLibrary') },
-      ...(sessionId ? [{ id: 'cmd_fulltext_search', label: t('palette.fulltextSearch'), shortcut: getShortcut('F', { symbol: true, shift: true }) }] : []),
+      ...(sessionId
+        ? [
+            {
+              id: 'cmd_fulltext_search',
+              label: t('palette.fulltextSearch'),
+              shortcut: getShortcut('F', { symbol: true, shift: true }),
+            },
+          ]
+        : []),
       ...(sessionId ? [{ id: 'cmd_open_diff', label: t('diff.openDiff') }] : []),
-      { id: 'cmd_open_settings', label: t('palette.openSettings'), shortcut: getShortcut(',', { symbol: true }) },
+      {
+        id: 'cmd_open_settings',
+        label: t('palette.openSettings'),
+        shortcut: getShortcut(',', { symbol: true }),
+      },
       { id: 'cmd_toggle_theme', label: t('palette.toggleTheme') },
-      ...(activeTabId ? [{ id: 'cmd_close_tab', label: t('palette.closeTab'), shortcut: getShortcut('W', { symbol: true }) }] : []),
+      ...(activeTabId
+        ? [
+            {
+              id: 'cmd_close_tab',
+              label: t('palette.closeTab'),
+              shortcut: getShortcut('W', { symbol: true }),
+            },
+          ]
+        : []),
     ],
     [activeTabId, sessionId, t]
   );
@@ -584,7 +656,17 @@ function App() {
         }
       }
     },
-    [t, sessionId, openTab, toggleTheme, activeTabId, closeTab, activeTab, handleConnected, handleOpenDiff]
+    [
+      t,
+      sessionId,
+      openTab,
+      toggleTheme,
+      activeTabId,
+      closeTab,
+      activeTab,
+      handleConnected,
+      handleOpenDiff,
+    ]
   );
 
   useKeyboardShortcuts({
@@ -609,11 +691,13 @@ function App() {
   });
 
   const activeTableSubTab =
-    activeTab?.type === 'table'
-      ? (tableBrowserTabsRef.current[activeTab.id] ?? 'data')
-      : null;
-  const canRefreshData = Boolean(sessionId && activeTab?.type === 'table' && activeTableSubTab === 'data');
-  const canExportData = Boolean(sessionId && activeTab?.type === 'table' && activeTableSubTab === 'data');
+    activeTab?.type === 'table' ? (tableBrowserTabsRef.current[activeTab.id] ?? 'data') : null;
+  const canRefreshData = Boolean(
+    sessionId && activeTab?.type === 'table' && activeTableSubTab === 'data'
+  );
+  const canExportData = Boolean(
+    sessionId && activeTab?.type === 'table' && activeTableSubTab === 'data'
+  );
   const canOpenHistory = Boolean(sessionId);
   const canToggleSandbox = Boolean(sessionId);
 
@@ -789,6 +873,7 @@ function App() {
           environment={activeConnection?.environment || 'development'}
           readOnly={activeConnection?.read_only || false}
           connectionName={activeConnection?.name}
+          connectionId={activeConnection?.id}
           onTableSelect={handleTableSelect}
           schemaRefreshTrigger={schemaRefreshTrigger}
           onSchemaChange={triggerSchemaRefresh}

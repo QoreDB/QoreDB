@@ -1,7 +1,12 @@
 import { useTranslation } from 'react-i18next';
 import { X, AlertTriangle, AlertCircle, CheckCircle2, Info, ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Notification, NotificationLevel, dismissNotification, markAsRead } from '@/lib/notificationStore';
+import {
+  Notification,
+  NotificationLevel,
+  dismissNotification,
+  markAsRead,
+} from '@/lib/notificationStore';
 import { emitUiEvent } from '@/lib/uiEvents';
 
 interface NotificationItemProps {
@@ -25,12 +30,12 @@ const levelColors: Record<NotificationLevel, string> = {
 function formatRelativeTime(timestamp: number): string {
   const now = Date.now();
   const diff = now - timestamp;
-  
+
   const seconds = Math.floor(diff / 1000);
   const minutes = Math.floor(seconds / 60);
   const hours = Math.floor(minutes / 60);
   const days = Math.floor(hours / 24);
-  
+
   if (days > 0) return `${days}d`;
   if (hours > 0) return `${hours}h`;
   if (minutes > 0) return `${minutes}m`;
@@ -71,7 +76,7 @@ export function NotificationItem({ notification }: NotificationItemProps) {
       onClick={handleClick}
       role="button"
       tabIndex={0}
-      onKeyDown={(e) => {
+      onKeyDown={e => {
         if (e.key === 'Enter' || e.key === ' ') {
           handleClick();
         }
@@ -85,11 +90,13 @@ export function NotificationItem({ notification }: NotificationItemProps) {
       {/* Content */}
       <div className="flex-1 min-w-0">
         <div className="flex items-start justify-between gap-2">
-          <p className={cn(
-            'text-sm font-medium leading-tight',
-            !notification.read && 'text-foreground',
-            notification.read && 'text-muted-foreground'
-          )}>
+          <p
+            className={cn(
+              'text-sm font-medium leading-tight',
+              !notification.read && 'text-foreground',
+              notification.read && 'text-muted-foreground'
+            )}
+          >
             {notification.title}
           </p>
           <span className="text-[10px] text-muted-foreground shrink-0 mt-0.5">

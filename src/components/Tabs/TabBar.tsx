@@ -17,22 +17,21 @@ interface TabBarProps {
   onNew?: () => void;
 }
 
-export function TabBar({ 
-  tabs = [], 
-  activeId, 
-  onSelect, 
-  onClose, 
-  onNew 
-}: TabBarProps) {
+export function TabBar({ tabs = [], activeId, onSelect, onClose, onNew }: TabBarProps) {
   const { t } = useTranslation();
 
   const getTabIcon = (type: TabItem['type']) => {
     switch (type) {
-      case 'query': return <FileCode size={14} />;
-      case 'table': return <Table size={14} />;
-      case 'database': return <Database size={14} />;
-      case 'settings': return <Settings size={14} />;
-      case 'diff': return <GitCompare size={14} />;
+      case 'query':
+        return <FileCode size={14} />;
+      case 'table':
+        return <Table size={14} />;
+      case 'database':
+        return <Database size={14} />;
+      case 'settings':
+        return <Settings size={14} />;
+      case 'diff':
+        return <GitCompare size={14} />;
     }
   };
 
@@ -59,7 +58,9 @@ export function TabBar({
           }}
           title={tab.title}
         >
-          <span className={cn('shrink-0', isTemporaryTab(tab.type) ? 'text-accent/70' : 'opacity-70')}>
+          <span
+            className={cn('shrink-0', isTemporaryTab(tab.type) ? 'text-accent/70' : 'opacity-70')}
+          >
             {getTabIcon(tab.type)}
           </span>
           <span className={cn('truncate flex-1 text-left', isTemporaryTab(tab.type) && 'italic')}>
@@ -89,4 +90,3 @@ export function TabBar({
     </div>
   );
 }
-

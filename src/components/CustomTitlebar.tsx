@@ -493,4 +493,3 @@ const NotificationBell = () => {
     </Popover>
   );
 };
-

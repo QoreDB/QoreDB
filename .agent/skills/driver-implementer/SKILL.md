@@ -13,24 +13,24 @@ This skill guides the implementation of a new `DataEngine` driver in QoreDB.
 
 1.  **Create Driver File**:
     Create a new file in `src-tauri/src/engine/drivers/<driver_name>.rs` using the `assets/driver_template.rs`.
-    *   Rename struct `NewDriver` to `<DriverName>Driver`.
-    *   Update `driver_id()` to return the snake_case ID (e.g., "sqlite").
-    *   Update `driver_name()` to return the Display Name (e.g., "SQLite").
+    - Rename struct `NewDriver` to `<DriverName>Driver`.
+    - Update `driver_id()` to return the snake_case ID (e.g., "sqlite").
+    - Update `driver_name()` to return the Display Name (e.g., "SQLite").
 
 2.  **Declare Module**:
     In `src-tauri/src/engine/drivers/mod.rs`:
-    *   Add `pub mod <driver_name>;`
+    - Add `pub mod <driver_name>;`
 
 3.  **Register Driver**:
     In `src-tauri/src/lib.rs` (AppState::new):
-    *   Import the new module: `use engine::drivers::<driver_name>::<DriverName>Driver;`
-    *   Register it: `registry.register(Arc::new(<DriverName>Driver::new()));`
+    - Import the new module: `use engine::drivers::<driver_name>::<DriverName>Driver;`
+    - Register it: `registry.register(Arc::new(<DriverName>Driver::new()));`
 
 ### 2. Dependency Management
 
 1.  **Add Crate**:
-    *   Ask the user to add the Rust crate: `cargo add <crate_name> --package qoredb` (usually in `src-tauri`).
-    *   *Note*: Ensure `tokio` support is enabled for the crate if available, as QoreDB is async.
+    - Ask the user to add the Rust crate: `cargo add <crate_name> --package qoredb` (usually in `src-tauri`).
+    - _Note_: Ensure `tokio` support is enabled for the crate if available, as QoreDB is async.
 
 ### 3. Implementation Guide
 

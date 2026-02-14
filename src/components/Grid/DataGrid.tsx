@@ -138,7 +138,6 @@ export function DataGrid({
 }: DataGridProps) {
   const { t } = useTranslation();
 
-
   const [sorting, setSorting] = useState<SortingState>([]);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [pagination, setPagination] = useState<PaginationState>({
@@ -147,14 +146,13 @@ export function DataGrid({
   });
   const [internalGlobalFilter, setInternalGlobalFilter] = useState(initialFilter ?? '');
   const initialFilterRef = useRef<string | undefined>(undefined);
-  
+
   const globalFilter = serverSearchTerm !== undefined ? serverSearchTerm : internalGlobalFilter;
   const setGlobalFilter = onServerSearchChange || setInternalGlobalFilter;
 
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [showFilters, setShowFilters] = useState(false);
-
 
   useEffect(() => {
     if (initialFilter === undefined) return;
@@ -181,8 +179,6 @@ export function DataGrid({
   const confirmationLabel = (connectionDatabase || connectionName || 'PROD').trim() || 'PROD';
 
   const totalRows = result?.rows.length ?? 0;
-
-
 
   const overlayResult: OverlayResult = useMemo(() => {
     if (!result || !sandboxMode || pendingChanges.length === 0 || !namespace || !tableName) {
@@ -258,7 +254,6 @@ export function DataGrid({
     namespace,
     tableSchema,
   });
-
 
   const {
     setEditingValue,
@@ -358,6 +353,7 @@ export function DataGrid({
       const columnForeignKeys = foreignKeyMap.get(col.name);
       const isForeignKey = Boolean(columnForeignKeys?.length);
       const fkTable = columnForeignKeys?.[0]?.referenced_table;
+      const isVirtualFk = columnForeignKeys?.some(fk => fk.is_virtual) ?? false;
 
       return columnHelper.accessor(row => row[col.name], {
         id: col.name,
@@ -367,6 +363,7 @@ export function DataGrid({
             columnName={col.name}
             isPrimaryKey={isPrimaryKey}
             isForeignKey={isForeignKey}
+            isVirtualFk={isVirtualFk}
             fkTable={fkTable}
             isIndexed={indexedColumns.has(col.name)}
             isUnique={uniqueColumns.has(col.name)}
@@ -560,8 +557,6 @@ export function DataGrid({
     [startStreamingExport]
   );
 
-
-
   // Keyboard shortcuts
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -633,12 +628,11 @@ export function DataGrid({
   return (
     <div className="flex flex-col gap-2 h-full min-h-0" data-datagrid>
       <div className="flex items-center justify-between px-1 shrink-0">
-          <DataGridHeader
-            selectedCount={selectedCount}
-            totalRows={totalRows}
-
-            result={result}
-            canDelete={canDelete}
+        <DataGridHeader
+          selectedCount={selectedCount}
+          totalRows={totalRows}
+          result={result}
+          canDelete={canDelete}
           deleteDisabled={deleteDisabled}
           isDeleting={isDeleting}
           onDelete={handleDelete}
@@ -672,8 +666,8 @@ export function DataGrid({
         </table>
       </div>
 
-      <DataGridPagination 
-        table={table} 
+      <DataGridPagination
+        table={table}
         pagination={pagination}
         serverSideTotalRows={serverSideTotalRows}
         serverSidePage={serverSidePage}

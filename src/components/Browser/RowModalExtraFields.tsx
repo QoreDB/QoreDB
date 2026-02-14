@@ -31,7 +31,7 @@ export function RowModalExtraFields({
   return (
     <div className="grid gap-4 py-4 border-t border-border mt-2">
       <div className="text-xs font-semibold uppercase text-muted-foreground">{title}</div>
-      {columns.map((col) => (
+      {columns.map(col => (
         <div key={col.name} className="grid gap-2">
           <div className="flex items-center justify-between">
             <Label htmlFor={col.name} className="flex items-center gap-2">
@@ -47,7 +47,7 @@ export function RowModalExtraFields({
                   <Checkbox
                     id={`${col.name}-null`}
                     checked={nulls[col.name] || false}
-                    onCheckedChange={(checked) => onNullToggle(col.name, checked as boolean)}
+                    onCheckedChange={checked => onNullToggle(col.name, checked as boolean)}
                     disabled={readOnly}
                   />
                   <label
@@ -74,7 +74,7 @@ export function RowModalExtraFields({
           <Input
             id={col.name}
             value={formData[col.name] || ''}
-            onChange={(e) => onInputChange(col.name, e.target.value)}
+            onChange={e => onInputChange(col.name, e.target.value)}
             disabled={nulls[col.name] || readOnly}
             className="font-mono text-sm"
           />

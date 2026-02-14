@@ -7,13 +7,7 @@ import { useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { Table } from '@tanstack/react-table';
-import {
-  Value,
-  Namespace,
-  Environment,
-  deleteRow,
-  RowData as TauriRowData,
-} from '@/lib/tauri';
+import { Value, Namespace, Environment, deleteRow, RowData as TauriRowData } from '@/lib/tauri';
 import { RowData } from '../utils/dataGridUtils';
 
 export interface UseDataGridDeleteProps {
@@ -94,26 +88,59 @@ export function useDataGridDelete({
   });
 
   // Perform the actual delete operation
-  const performDelete = useCallback(async (acknowledgedDangerous = false) => {
-    if (!namespace || !tableName || !primaryKey || primaryKey.length === 0) return;
+  const performDelete = useCallback(
+    async (acknowledgedDangerous = false) => {
+      if (!namespace || !tableName || !primaryKey || primaryKey.length === 0) return;
 
-    const rowsToDelete = table.getSelectedRowModel().rows;
-    if (rowsToDelete.length === 0) return;
+      const rowsToDelete = table.getSelectedRowModel().rows;
+      if (rowsToDelete.length === 0) return;
 
-    if (readOnly) {
-      toast.error(t('environment.blocked'));
-      return;
-    }
-    if (!mutationsSupported && !sandboxMode) {
-      toast.error(t('grid.mutationsNotSupported'));
-      return;
-    }
+      if (readOnly) {
+        toast.error(t('environment.blocked'));
+        return;
+      }
+      if (!mutationsSupported && !sandboxMode) {
+        toast.error(t('grid.mutationsNotSupported'));
+        return;
+      }
 
-    // Sandbox mode: add changes locally instead of executing
-    if (sandboxMode && onSandboxDelete) {
+      // Sandbox mode: add changes locally instead of executing
+      if (sandboxMode && onSandboxDelete) {
+        for (const row of rowsToDelete) {
+          const pkData: Record<string, Value> = {};
+          const oldValues: Record<string, Value> = {};
+          let missingPk = false;
+
+          for (const key of primaryKey) {
+            if (row.original[key] === undefined) {
+              missingPk = true;
+              break;
+            }
+            pkData[key] = row.original[key];
+          }
+
+          if (missingPk) continue;
+
+          // Capture all values for oldValues
+          for (const [key, val] of Object.entries(row.original)) {
+            oldValues[key] = val;
+          }
+
+          onSandboxDelete(pkData, oldValues);
+        }
+        table.resetRowSelection();
+        return;
+      }
+
+      // Real deletion
+      if (!sessionId) return;
+
+      setIsDeleting(true);
+      let successCount = 0;
+      let failCount = 0;
+
       for (const row of rowsToDelete) {
-        const pkData: Record<string, Value> = {};
-        const oldValues: Record<string, Value> = {};
+        const pkData: TauriRowData = { columns: {} };
         let missingPk = false;
 
         for (const key of primaryKey) {
@@ -121,88 +148,58 @@ export function useDataGridDelete({
             missingPk = true;
             break;
           }
-          pkData[key] = row.original[key];
+          pkData.columns[key] = row.original[key];
         }
 
-        if (missingPk) continue;
-
-        // Capture all values for oldValues
-        for (const [key, val] of Object.entries(row.original)) {
-          oldValues[key] = val;
+        if (missingPk) {
+          failCount++;
+          continue;
         }
 
-        onSandboxDelete(pkData, oldValues);
-      }
-      table.resetRowSelection();
-      return;
-    }
-
-    // Real deletion
-    if (!sessionId) return;
-
-    setIsDeleting(true);
-    let successCount = 0;
-    let failCount = 0;
-
-    for (const row of rowsToDelete) {
-      const pkData: TauriRowData = { columns: {} };
-      let missingPk = false;
-
-      for (const key of primaryKey) {
-        if (row.original[key] === undefined) {
-          missingPk = true;
-          break;
-        }
-        pkData.columns[key] = row.original[key];
-      }
-
-      if (missingPk) {
-        failCount++;
-        continue;
-      }
-
-      try {
-        const res = await deleteRow(
-          sessionId,
-          namespace.database,
-          namespace.schema,
-          tableName,
-          pkData,
-          acknowledgedDangerous
-        );
-        if (res.success) {
-          successCount++;
-        } else {
+        try {
+          const res = await deleteRow(
+            sessionId,
+            namespace.database,
+            namespace.schema,
+            tableName,
+            pkData,
+            acknowledgedDangerous
+          );
+          if (res.success) {
+            successCount++;
+          } else {
+            failCount++;
+          }
+        } catch {
           failCount++;
         }
-      } catch {
-        failCount++;
       }
-    }
 
-    setIsDeleting(false);
-    table.resetRowSelection();
+      setIsDeleting(false);
+      table.resetRowSelection();
 
-    if (successCount > 0) {
-      toast.success(t('grid.deleteSuccess', { count: successCount }));
-      onRowsDeleted?.();
-    }
-    if (failCount > 0) {
-      toast.error(t('grid.deleteError'));
-    }
-  }, [
-    table,
-    sessionId,
-    namespace,
-    tableName,
-    primaryKey,
-    readOnly,
-    mutationsSupported,
-    sandboxMode,
-    onSandboxDelete,
-    onRowsDeleted,
-    t,
-  ]);
+      if (successCount > 0) {
+        toast.success(t('grid.deleteSuccess', { count: successCount }));
+        onRowsDeleted?.();
+      }
+      if (failCount > 0) {
+        toast.error(t('grid.deleteError'));
+      }
+    },
+    [
+      table,
+      sessionId,
+      namespace,
+      tableName,
+      primaryKey,
+      readOnly,
+      mutationsSupported,
+      sandboxMode,
+      onSandboxDelete,
+      onRowsDeleted,
+      t,
+    ]
+  );
 
   // Handle delete button click (open confirmation dialog)
   const handleDelete = useCallback(() => {

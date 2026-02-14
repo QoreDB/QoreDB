@@ -1,6 +1,6 @@
 /**
  * Error Log Store
- * 
+ *
  * Captures and persists error logs for debugging purposes.
  */
 
@@ -54,7 +54,7 @@ export function logError(
   level: 'error' | 'warn' | 'info' = 'error'
 ): ErrorLogEntry {
   const logs = getErrorLogs();
-  
+
   const entry: ErrorLogEntry = {
     id: generateId(),
     timestamp: Date.now(),
@@ -64,10 +64,10 @@ export function logError(
     details: details ? redactText(details) : undefined,
     sessionId,
   };
-  
+
   // Add to beginning
   logs.unshift(entry);
-  
+
   // Trim to max entries
   if (shouldStoreErrorLogs()) {
     if (logs.length > MAX_ENTRIES) {
@@ -80,7 +80,7 @@ export function logError(
     }
     inMemoryLogs = logs;
   }
-  
+
   return entry;
 }
 
@@ -115,9 +115,10 @@ export function getLogsByLevel(level: 'error' | 'warn' | 'info'): ErrorLogEntry[
  */
 export function searchLogs(query: string): ErrorLogEntry[] {
   const lowerQuery = query.toLowerCase();
-  return getErrorLogs().filter(e => 
-    e.message.toLowerCase().includes(lowerQuery) ||
-    e.source.toLowerCase().includes(lowerQuery) ||
-    e.details?.toLowerCase().includes(lowerQuery)
+  return getErrorLogs().filter(
+    e =>
+      e.message.toLowerCase().includes(lowerQuery) ||
+      e.source.toLowerCase().includes(lowerQuery) ||
+      e.details?.toLowerCase().includes(lowerQuery)
   );
 }

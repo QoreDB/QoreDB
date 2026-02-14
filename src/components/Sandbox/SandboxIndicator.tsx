@@ -1,11 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FlaskConical } from 'lucide-react';
-import {
-  isSandboxActive,
-  getChangesCount,
-  subscribeSandbox,
-} from '@/lib/sandboxStore';
+import { isSandboxActive, getChangesCount, subscribeSandbox } from '@/lib/sandboxStore';
 import { Environment } from '@/lib/tauri';
 import { cn } from '@/lib/utils';
 

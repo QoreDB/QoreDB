@@ -44,10 +44,7 @@ export function KeyboardShortcutsSection({ searchQuery }: KeyboardShortcutsSecti
           >
             <div className="space-y-2">
               {shortcuts.map(shortcut => (
-                <div
-                  key={shortcut.id}
-                  className="flex items-center justify-between py-1 text-sm"
-                >
+                <div key={shortcut.id} className="flex items-center justify-between py-1 text-sm">
                   <span className="text-muted-foreground">{t(shortcut.labelKey)}</span>
                   <ShortcutKey shortcut={shortcut} />
                 </div>

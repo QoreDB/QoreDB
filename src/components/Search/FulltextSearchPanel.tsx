@@ -2,7 +2,14 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Search, Database, Table2, Loader2, X, ChevronRight, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { fulltextSearch, FulltextMatch, FulltextSearchResponse, Namespace, Value, SearchFilter } from '../../lib/tauri';
+import {
+  fulltextSearch,
+  FulltextMatch,
+  FulltextSearchResponse,
+  Namespace,
+  Value,
+  SearchFilter,
+} from '../../lib/tauri';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Switch } from '../ui/switch';
@@ -12,7 +19,11 @@ interface FulltextSearchPanelProps {
   isOpen: boolean;
   onClose: () => void;
   sessionId: string | null;
-  onNavigateToTable?: (namespace: Namespace, tableName: string, searchFilter?: SearchFilter) => void;
+  onNavigateToTable?: (
+    namespace: Namespace,
+    tableName: string,
+    searchFilter?: SearchFilter
+  ) => void;
 }
 
 interface GroupedMatches {

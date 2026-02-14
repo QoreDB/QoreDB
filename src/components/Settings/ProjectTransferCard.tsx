@@ -9,7 +9,11 @@ import { Briefcase, Upload } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { SettingsCard } from './SettingsCard';
-import { buildProjectExportV1, importProjectExportV1, isProjectExportV1 } from '@/lib/projectTransfer';
+import {
+  buildProjectExportV1,
+  importProjectExportV1,
+  isProjectExportV1,
+} from '@/lib/projectTransfer';
 import { emitUiEvent, UI_EVENT_CONNECTIONS_CHANGED } from '@/lib/uiEvents';
 
 interface ProjectTransferCardProps {
@@ -122,7 +126,10 @@ export function ProjectTransferCard({ projectId }: ProjectTransferCardProps) {
         </div>
 
         <label className="flex items-start gap-3 text-sm">
-          <Checkbox checked={includeLibrary} onCheckedChange={checked => setIncludeLibrary(!!checked)} />
+          <Checkbox
+            checked={includeLibrary}
+            onCheckedChange={checked => setIncludeLibrary(!!checked)}
+          />
           <span>
             <span className="font-medium">{t('settings.projectIncludeLibrary')}</span>
             <span className="block text-xs text-muted-foreground">
@@ -148,4 +155,3 @@ export function ProjectTransferCard({ projectId }: ProjectTransferCardProps) {
     </SettingsCard>
   );
 }
-

@@ -60,10 +60,10 @@ export interface UseInlineEditReturn {
   ) => void;
   performInlineUpdate: (
     payload: {
-    row: RowData;
-    columnId: string;
-    value: Value;
-    originalValue: Value;
+      row: RowData;
+      columnId: string;
+      value: Value;
+      originalValue: Value;
     },
     acknowledgedDangerous?: boolean
   ) => Promise<void>;
@@ -293,7 +293,14 @@ export function useInlineEdit({
       setPendingUpdate(payload);
       setUpdateConfirmOpen(true);
     }
-  }, [columnTypeMap, environment, performInlineUpdate, resetEditingState, parseInputValue, valuesEqual]);
+  }, [
+    columnTypeMap,
+    environment,
+    performInlineUpdate,
+    resetEditingState,
+    parseInputValue,
+    valuesEqual,
+  ]);
 
   // Cancel the current edit
   const cancelInlineEdit = useCallback(() => {

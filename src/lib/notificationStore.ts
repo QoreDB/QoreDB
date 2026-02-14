@@ -1,9 +1,9 @@
 /**
  * Notification Store
- * 
+ *
  * Reactive store for managing persistent notifications in the Bell panel.
  * Follows the pattern of sandboxStore.ts for reactive updates.
- * 
+ *
  * Key distinction from toasts (Sonner):
  * - Notifications persist until dismissed
  * - Grouped by category
@@ -139,11 +139,11 @@ export function getNotificationsByCategory(): Record<NotificationCategory, Notif
     query: [],
     security: [],
   };
-  
+
   for (const n of cachedNotifications) {
     grouped[n.category].push(n);
   }
-  
+
   return grouped;
 }
 
@@ -279,22 +279,14 @@ import { useSyncExternalStore } from 'react';
  * React hook for subscribing to notifications
  */
 export function useNotifications(): Notification[] {
-  return useSyncExternalStore(
-    subscribeNotifications,
-    getNotifications,
-    getNotifications
-  );
+  return useSyncExternalStore(subscribeNotifications, getNotifications, getNotifications);
 }
 
 /**
  * React hook for badge count
  */
 export function useNotificationBadge(): number {
-  return useSyncExternalStore(
-    subscribeNotifications,
-    getUnreadBadgeCount,
-    getUnreadBadgeCount
-  );
+  return useSyncExternalStore(subscribeNotifications, getUnreadBadgeCount, getUnreadBadgeCount);
 }
 
 // ============================================
@@ -305,7 +297,6 @@ if (import.meta.env.DEV) {
   (window as unknown as Record<string, unknown>).__addTestNotification = (
     input: Omit<Notification, 'id' | 'timestamp' | 'read'>
   ) => addNotification(input);
-  
+
   (window as unknown as Record<string, unknown>).__clearNotifications = clearAllNotifications;
 }
-

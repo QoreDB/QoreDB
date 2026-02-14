@@ -10,25 +10,33 @@ This skill performs a security and quality audit of the codebase, focusing on th
 ## Audit Checklist
 
 ### 1. Sensitive Data Exposure (Logs)
+
 **Risk**: Credentials appearing in logs.
-*   [ ] Search for `console.log`, `println!`, `dbg!` containing "password", "secret", "key", "token".
-*   [ ] Verify that connection strings are redacted before logging.
+
+- [ ] Search for `console.log`, `println!`, `dbg!` containing "password", "secret", "key", "token".
+- [ ] Verify that connection strings are redacted before logging.
 
 ### 2. Dangerous Operations
+
 **Risk**: Accidental data loss.
-*   [ ] Verify that any Rust command calling `drop_database`, `delete_row`, or `truncate` checks the `SafetyPolicy`.
-*   [ ] Ensure the frontend invokes a confirmation modal (e.g., `useDoubleCheck`) before calling these commands.
+
+- [ ] Verify that any Rust command calling `drop_database`, `delete_row`, or `truncate` checks the `SafetyPolicy`.
+- [ ] Ensure the frontend invokes a confirmation modal (e.g., `useDoubleCheck`) before calling these commands.
 
 ### 3. Tauri Permissions (`src-tauri/capabilities/`)
+
 **Risk**: Excessive system access.
-*   [ ] Check `default.json` or `base.json`.
-*   [ ] Ensure `fs` scope is limited (no `$HOME/*` unless absolutely necessary).
-*   [ ] Ensure `shell` scope doesn't allow arbitrary command execution.
+
+- [ ] Check `default.json` or `base.json`.
+- [ ] Ensure `fs` scope is limited (no `$HOME/*` unless absolutely necessary).
+- [ ] Ensure `shell` scope doesn't allow arbitrary command execution.
 
 ### 4. SQL Injection / NoSQL Injection
+
 **Risk**: Malicious queries.
-*   [ ] Rust: Ensure `query` arguments are bound parameters, not string concatenation (e.g. `format!("SELECT * FROM {}", table)` is dangerous).
-*   [ ] Rust: For dynamic table names, ensure validation/escaping via `sql_safety.rs`.
+
+- [ ] Rust: Ensure `query` arguments are bound parameters, not string concatenation (e.g. `format!("SELECT * FROM {}", table)` is dangerous).
+- [ ] Rust: For dynamic table names, ensure validation/escaping via `sql_safety.rs`.
 
 ## Workflow
 
@@ -39,6 +47,7 @@ This skill performs a security and quality audit of the codebase, focusing on th
 ## Common Fixes
 
 **Redacting Logs (Rust):**
+
 ```rust
 // BAD
 println!("Connecting to {}", password);
@@ -48,6 +57,7 @@ info!("Connecting to database with user {}", user); // standard log without secr
 ```
 
 **Checking Safety (Rust):**
+
 ```rust
 // BAD
 pub async fn drop_table(...) {

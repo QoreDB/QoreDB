@@ -39,7 +39,6 @@ export function DataGridHeader({
       {selectedCount > 0 ? (
         <>
           <span>{t('grid.rowsSelected', { count: selectedCount })}</span>
-
         </>
       ) : (
         <div className="flex items-center gap-3">
@@ -68,8 +67,6 @@ export function DataGridHeader({
           )}
         </div>
       )}
-
-
 
       {canDelete && (
         <Button

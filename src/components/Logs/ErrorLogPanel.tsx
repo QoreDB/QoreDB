@@ -1,28 +1,19 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { 
-  getErrorLogs, 
-  clearErrorLogs, 
-  ErrorLogEntry 
-} from '../../lib/errorLog';
+import { getErrorLogs, clearErrorLogs, ErrorLogEntry } from '../../lib/errorLog';
 import { exportLogs } from '../../lib/tauri';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { 
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { 
-  Bug, 
-  Trash2, 
-  AlertCircle, 
-  AlertTriangle, 
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  Bug,
+  Trash2,
+  AlertCircle,
+  AlertTriangle,
   Info,
   Search,
   RefreshCw,
-  Download
+  Download,
 } from 'lucide-react';
 import { save } from '@tauri-apps/plugin-dialog';
 import { writeTextFile } from '@tauri-apps/plugin-fs';
@@ -144,10 +135,10 @@ export function ErrorLogPanel({ isOpen, onClose }: ErrorLogPanelProps) {
               <button
                 key={level}
                 className={cn(
-                  "px-2 py-1 text-xs font-medium rounded-md transition-colors",
+                  'px-2 py-1 text-xs font-medium rounded-md transition-colors',
                   filter === level
-                    ? "bg-accent text-accent-foreground"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                    ? 'bg-accent text-accent-foreground'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted'
                 )}
                 onClick={() => setFilter(level)}
               >
@@ -159,7 +150,10 @@ export function ErrorLogPanel({ isOpen, onClose }: ErrorLogPanelProps) {
           <div className="flex-1" />
 
           <div className="relative">
-            <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Search
+              size={14}
+              className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground"
+            />
             <input
               type="text"
               placeholder={t('logs.searchPlaceholder')}
@@ -213,9 +207,9 @@ export function ErrorLogPanel({ isOpen, onClose }: ErrorLogPanelProps) {
                 <div
                   key={log.id}
                   className={cn(
-                    "px-4 py-2 hover:bg-muted/30 transition-colors",
-                    log.level === 'error' && "bg-error/5",
-                    log.level === 'warn' && "bg-warning/5"
+                    'px-4 py-2 hover:bg-muted/30 transition-colors',
+                    log.level === 'error' && 'bg-error/5',
+                    log.level === 'warn' && 'bg-warning/5'
                   )}
                 >
                   <div className="flex items-start gap-2">
@@ -225,9 +219,7 @@ export function ErrorLogPanel({ isOpen, onClose }: ErrorLogPanelProps) {
                         <span>{formatTime(log.timestamp)}</span>
                         <span className="text-accent">[{log.source}]</span>
                       </div>
-                      <div className="text-foreground mt-0.5 break-all">
-                        {log.message}
-                      </div>
+                      <div className="text-foreground mt-0.5 break-all">{log.message}</div>
                       {log.details && (
                         <pre className="mt-1 p-2 bg-muted/50 rounded text-muted-foreground whitespace-pre-wrap break-all">
                           {log.details}

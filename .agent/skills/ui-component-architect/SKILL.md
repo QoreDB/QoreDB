@@ -20,21 +20,21 @@ This skill guides the creation of premium, consistent UI components for QoreDB.
 
 Create a new file in `src/components/ui/` (or specific feature folder) using the `assets/component.tsx` template.
 
-*   **Imports**: `framer-motion`, `cn` (clsx/tailwind-merge), `cva`.
-*   **Variants**: Define visual styles using `cva`. Avoid hardcoded colors (e.g., `bg-blue-500`); use CSS variables (e.g., `bg-primary`).
-*   **Animation**: Wrap the root element in `motion.<element>` and add subtle `initial`/`animate` props.
+- **Imports**: `framer-motion`, `cn` (clsx/tailwind-merge), `cva`.
+- **Variants**: Define visual styles using `cva`. Avoid hardcoded colors (e.g., `bg-blue-500`); use CSS variables (e.g., `bg-primary`).
+- **Animation**: Wrap the root element in `motion.<element>` and add subtle `initial`/`animate` props.
 
 ### 2. Styling Rules (Tailwind)
 
-*   **Colors**: Use semantic tokens: `primary`, `secondary`, `accent`, `muted`, `destructive`.
-*   **Spacing**: Use `gap-2`, `p-4`, etc.
-*   **Borders**: `border-input`, `border` (1px default).
-*   **Radius**: `rounded-md` or `rounded-lg`.
+- **Colors**: Use semantic tokens: `primary`, `secondary`, `accent`, `muted`, `destructive`.
+- **Spacing**: Use `gap-2`, `p-4`, etc.
+- **Borders**: `border-input`, `border` (1px default).
+- **Radius**: `rounded-md` or `rounded-lg`.
 
 ### 3. Usage Example
 
 ```tsx
-import { Component } from "./Component";
+import { Component } from './Component';
 
 export function Demo() {
   return (
@@ -51,16 +51,13 @@ See `assets/component.tsx` for the full boilerplate.
 
 ```tsx
 // Quick Reference
-const componentVariants = cva(
-  "base-classes...",
-  {
-    variants: {
-      variant: { default: "...", outline: "..." },
-      size: { default: "h-9 px-4", sm: "h-8 px-3" }
-    },
-    defaultVariants: { variant: "default", size: "default" }
-  }
-);
+const componentVariants = cva('base-classes...', {
+  variants: {
+    variant: { default: '...', outline: '...' },
+    size: { default: 'h-9 px-4', sm: 'h-8 px-3' },
+  },
+  defaultVariants: { variant: 'default', size: 'default' },
+});
 ```
 
 ## Checklist

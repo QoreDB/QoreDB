@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { 
+import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogFooter
+  DialogFooter,
 } from '@/components/ui/dialog';
 import { createDatabase, Environment } from '../../lib/tauri';
 import { toast } from 'sonner';
@@ -28,16 +28,16 @@ interface CreateDatabaseModalProps {
   onCreated: () => void;
 }
 
-export function CreateDatabaseModal({ 
-  isOpen, 
-  onClose, 
-  sessionId, 
+export function CreateDatabaseModal({
+  isOpen,
+  onClose,
+  sessionId,
   driver,
   environment = 'development',
   readOnly = false,
   connectionName,
   connectionDatabase,
-  onCreated 
+  onCreated,
 }: CreateDatabaseModalProps) {
   const { t } = useTranslation();
   const [name, setName] = useState('');
@@ -45,7 +45,7 @@ export function CreateDatabaseModal({
   const [loading, setLoading] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<null | (() => Promise<void>)>(null);
-  
+
   const driverMeta = getDriverMetadata(driver);
   const isDocument = isDocumentDatabase(driver);
   const confirmationLabel = (connectionDatabase || connectionName || 'PROD').trim() || 'PROD';
@@ -78,19 +78,24 @@ export function CreateDatabaseModal({
         setName('');
         setCollectionName('');
       } else {
-        if (result.error && (result.error.includes("1044") || result.error.includes("Access denied") || result.error.includes("Permission denied"))) {
-            toast.error(t('database.permissionDenied'), {
-                description: t('database.permissionDeniedHint')
-            });
+        if (
+          result.error &&
+          (result.error.includes('1044') ||
+            result.error.includes('Access denied') ||
+            result.error.includes('Permission denied'))
+        ) {
+          toast.error(t('database.permissionDenied'), {
+            description: t('database.permissionDeniedHint'),
+          });
         } else {
-            const errorKey = isDocument
-              ? 'database.mongoCreateError'
-              : driverMeta.createAction === 'schema'
-                ? 'database.schemaCreateError'
-                : 'database.databaseCreateError';
-            toast.error(t(errorKey), {
-              description: result.error,
-            });
+          const errorKey = isDocument
+            ? 'database.mongoCreateError'
+            : driverMeta.createAction === 'schema'
+              ? 'database.schemaCreateError'
+              : 'database.databaseCreateError';
+          toast.error(t(errorKey), {
+            description: result.error,
+          });
         }
       }
     } catch (err) {
@@ -132,22 +137,20 @@ export function CreateDatabaseModal({
     return null;
   }
 
-  const titleKey = driverMeta.createAction === 'schema' 
-    ? 'database.newSchema' 
-    : 'database.newDatabase';
-  
-  const nameLabelKey = driverMeta.createAction === 'schema'
-    ? 'database.schemaNameLabel'
-    : 'database.databaseNameLabel';
+  const titleKey =
+    driverMeta.createAction === 'schema' ? 'database.newSchema' : 'database.newDatabase';
+
+  const nameLabelKey =
+    driverMeta.createAction === 'schema'
+      ? 'database.schemaNameLabel'
+      : 'database.databaseNameLabel';
 
   return (
     <>
       <Dialog open={isOpen} onOpenChange={handleOpenChange}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>
-              {t(titleKey)}
-            </DialogTitle>
+            <DialogTitle>{t(titleKey)}</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-3 py-4">
@@ -155,10 +158,14 @@ export function CreateDatabaseModal({
               <label className="text-sm font-medium">{t(nameLabelKey)}</label>
               <Input
                 value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder={driverMeta.createAction === 'schema' ? t('database.schemaNamePlaceholder') : t('database.databaseNamePlaceholder')}
+                onChange={e => setName(e.target.value)}
+                placeholder={
+                  driverMeta.createAction === 'schema'
+                    ? t('database.schemaNamePlaceholder')
+                    : t('database.databaseNamePlaceholder')
+                }
                 autoFocus
-                onKeyDown={(e) => {
+                onKeyDown={e => {
                   if (e.key === 'Enter') handleCreate();
                 }}
                 disabled={loading}
@@ -171,17 +178,15 @@ export function CreateDatabaseModal({
                   <label className="text-sm font-medium">{t('database.collectionNameLabel')}</label>
                   <Input
                     value={collectionName}
-                    onChange={(e) => setCollectionName(e.target.value)}
+                    onChange={e => setCollectionName(e.target.value)}
                     placeholder={t('database.collectionNamePlaceholder')}
-                    onKeyDown={(e) => {
+                    onKeyDown={e => {
                       if (e.key === 'Enter') handleCreate();
                     }}
                     disabled={loading}
                   />
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  {t('common.mongoCreateDbHint')}
-                </p>
+                <p className="text-xs text-muted-foreground">{t('common.mongoCreateDbHint')}</p>
               </>
             )}
           </div>
@@ -190,7 +195,10 @@ export function CreateDatabaseModal({
             <Button variant="outline" onClick={onClose} disabled={loading}>
               {t('common.cancel')}
             </Button>
-            <Button onClick={handleCreate} disabled={loading || !name.trim() || (isDocument && !collectionName.trim())}>
+            <Button
+              onClick={handleCreate}
+              disabled={loading || !name.trim() || (isDocument && !collectionName.trim())}
+            >
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {t('common.create')}
             </Button>
@@ -200,7 +208,7 @@ export function CreateDatabaseModal({
 
       <ProductionConfirmDialog
         open={confirmOpen}
-        onOpenChange={(open) => {
+        onOpenChange={open => {
           setConfirmOpen(open);
           if (!open) {
             setPendingAction(null);

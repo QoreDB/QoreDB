@@ -1,8 +1,8 @@
-import { Column } from "@tanstack/react-table";
-import { Input } from "@/components/ui/input";
-import { useState, useEffect } from "react";
-import { useTranslation } from "react-i18next";
-import { RowData } from "./utils/dataGridUtils";
+import { Column } from '@tanstack/react-table';
+import { Input } from '@/components/ui/input';
+import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
+import { RowData } from './utils/dataGridUtils';
 
 interface GridColumnFilterProps {
   column: Column<RowData, unknown>;
@@ -15,7 +15,7 @@ export function GridColumnFilter({ column }: GridColumnFilterProps) {
 
   // Sync internal state with column filter value
   useEffect(() => {
-    setValue(columnFilterValue ?? "");
+    setValue(columnFilterValue ?? '');
   }, [columnFilterValue]);
 
   // Debounce update

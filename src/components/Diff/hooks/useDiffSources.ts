@@ -38,16 +38,11 @@ function isTrivialColumn(name: string): boolean {
   return TRIVIAL_COLUMN_SET.has(normalizeColumnName(name));
 }
 
-function findMatchingNamespace(
-  namespaces: Namespace[],
-  target?: Namespace
-): Namespace | null {
+function findMatchingNamespace(namespaces: Namespace[], target?: Namespace): Namespace | null {
   if (!target) return null;
   return (
     namespaces.find(
-      ns =>
-        ns.database === target.database &&
-        (ns.schema || '') === (target.schema || '')
+      ns => ns.database === target.database && (ns.schema || '') === (target.schema || '')
     ) || null
   );
 }
@@ -159,9 +154,7 @@ export function useDiffSources({
     initSourceState(initialRightSource, activeConnection, initialNamespace)
   );
 
-  const sharedSessionsRef = useRef<Map<string, { sessionId: string; refs: number }>>(
-    new Map()
-  );
+  const sharedSessionsRef = useRef<Map<string, { sessionId: string; refs: number }>>(new Map());
   const leftConnectAttemptRef = useRef(0);
   const rightConnectAttemptRef = useRef(0);
   const leftExecAttemptRef = useRef(0);
@@ -279,10 +272,7 @@ export function useDiffSources({
   );
 
   const connectSource = useCallback(
-    async (
-      side: 'left' | 'right',
-      connection: SavedConnection | null
-    ) => {
+    async (side: 'left' | 'right', connection: SavedConnection | null) => {
       const isLeft = side === 'left';
       const attemptRef = isLeft ? leftConnectAttemptRef : rightConnectAttemptRef;
       const updateFn = isLeft ? updateLeftSource : updateRightSource;
@@ -660,10 +650,7 @@ export function useDiffSources({
     setDiffResult(null);
   }, [leftSource.connectionId, rightSource.connectionId, releaseConnection]);
 
-  const canCompare = useMemo(
-    () => compareBlockedReason === null,
-    [compareBlockedReason]
-  );
+  const canCompare = useMemo(() => compareBlockedReason === null, [compareBlockedReason]);
 
   const hasResults = useMemo(
     () => Boolean(leftSource.result || rightSource.result),

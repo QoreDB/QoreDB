@@ -100,33 +100,19 @@ export function DiffToolbar({
 
       {/* Actions */}
       <div className="flex items-center gap-2">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onSwap}
-          disabled={!canSwap}
-        >
+        <Button variant="ghost" size="sm" onClick={onSwap} disabled={!canSwap}>
           <ArrowLeftRight size={16} className="mr-1.5" />
           {t('diff.swap')}
         </Button>
 
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onRefresh}
-          disabled={!canRefresh}
-        >
+        <Button variant="ghost" size="sm" onClick={onRefresh} disabled={!canRefresh}>
           <RefreshCw size={16} className="mr-1.5" />
           {t('diff.refresh')}
         </Button>
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={!diffResult || exporting}
-            >
+            <Button variant="outline" size="sm" disabled={!diffResult || exporting}>
               <Download size={16} className="mr-1.5" />
               {t('diff.export')}
               <ChevronDown size={14} className="ml-1" />

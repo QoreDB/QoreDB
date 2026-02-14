@@ -57,9 +57,7 @@ export function createTableTab(
 
 /** Create a database overview tab */
 export function createDatabaseTab(namespace: Namespace): OpenTab {
-  const title = namespace.schema 
-    ? `${namespace.database}.${namespace.schema}`
-    : namespace.database;
+  const title = namespace.schema ? `${namespace.database}.${namespace.schema}` : namespace.database;
   return {
     id: generateTabId(),
     type: 'database',

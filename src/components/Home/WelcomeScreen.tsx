@@ -81,9 +81,7 @@ export function WelcomeScreen({
                 </p>
 
                 {recovery.isMissing && (
-                  <p className="text-xs text-error mt-2">
-                    {t('home.recovery.missingConnection')}
-                  </p>
+                  <p className="text-xs text-error mt-2">{t('home.recovery.missingConnection')}</p>
                 )}
 
                 {recovery.error && !recovery.isMissing && (
@@ -122,9 +120,7 @@ export function WelcomeScreen({
               </div>
 
               <div>
-                <h2 className="text-lg font-medium text-foreground">
-                  {t('home.noSession.title')}
-                </h2>
+                <h2 className="text-lg font-medium text-foreground">{t('home.noSession.title')}</h2>
                 <p className="text-sm text-muted-foreground mt-1">
                   {t('home.noSession.description')}
                 </p>

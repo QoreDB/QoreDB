@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Eye, Trash2, Eraser, GitCompare } from 'lucide-react';
+import { Eye, Trash2, Eraser, GitCompare, Link2 } from 'lucide-react';
 import { notify } from '../../lib/notify';
 
 import {
@@ -11,6 +11,7 @@ import {
   ContextMenuTrigger,
 } from '@/components/ui/context-menu';
 import { DangerConfirmDialog } from '@/components/Guard/DangerConfirmDialog';
+import { VirtualRelationDialog } from '@/components/VirtualRelations/VirtualRelationDialog';
 import { Collection, Environment, executeQuery } from '../../lib/tauri';
 import { Driver } from '../../lib/drivers';
 import { isDocumentDatabase } from '../../lib/driverCapabilities';
@@ -21,6 +22,7 @@ import { invalidateCollectionsCache, invalidateTableSchemaCache } from '../../ho
 interface TableContextMenuProps {
   collection: Collection;
   sessionId: string;
+  connectionId?: string;
   driver: Driver;
   environment: Environment;
   readOnly: boolean;
@@ -28,6 +30,7 @@ interface TableContextMenuProps {
   onRefresh: () => void;
   onOpen: () => void;
   onCompareWith?: (collection: Collection) => void;
+  onVirtualRelationChanged?: () => void;
   children: React.ReactNode;
 }
 
@@ -40,6 +43,7 @@ type DangerAction = 'drop' | 'truncate' | null;
 export function TableContextMenu({
   collection,
   sessionId,
+  connectionId,
   driver,
   environment,
   readOnly,
@@ -47,12 +51,14 @@ export function TableContextMenu({
   onRefresh,
   onOpen,
   onCompareWith,
+  onVirtualRelationChanged,
   children,
 }: TableContextMenuProps) {
   const { t } = useTranslation();
   const [dangerAction, setDangerAction] = useState<DangerAction>(null);
   const [loading, setLoading] = useState(false);
-  
+  const [vrDialogOpen, setVrDialogOpen] = useState(false);
+
   const isProduction = environment === 'production';
   const isDocument = isDocumentDatabase(driver);
   const tableName = collection.name;
@@ -152,9 +158,7 @@ export function TableContextMenu({
   return (
     <>
       <ContextMenu>
-        <ContextMenuTrigger asChild>
-          {children}
-        </ContextMenuTrigger>
+        <ContextMenuTrigger asChild>{children}</ContextMenuTrigger>
         <ContextMenuContent className="w-44">
           <ContextMenuItem onClick={onOpen}>
             <Eye size={14} className="mr-2" />
@@ -168,8 +172,15 @@ export function TableContextMenu({
             </ContextMenuItem>
           )}
 
+          {connectionId && (
+            <ContextMenuItem onClick={() => setVrDialogOpen(true)}>
+              <Link2 size={14} className="mr-2" />
+              {t('virtualRelations.addFromTable')}
+            </ContextMenuItem>
+          )}
+
           <ContextMenuSeparator />
-          
+
           <ContextMenuItem
             onClick={() => setDangerAction('truncate')}
             disabled={readOnly}
@@ -178,7 +189,7 @@ export function TableContextMenu({
             <Eraser size={14} className="mr-2" />
             {t('tableMenu.truncate')}
           </ContextMenuItem>
-          
+
           <ContextMenuItem
             onClick={() => setDangerAction('drop')}
             disabled={readOnly}
@@ -193,7 +204,7 @@ export function TableContextMenu({
       {/* Drop Table Confirmation */}
       <DangerConfirmDialog
         open={dangerAction === 'drop'}
-        onOpenChange={(open) => !open && setDangerAction(null)}
+        onOpenChange={open => !open && setDangerAction(null)}
         title={t('dropTable.title')}
         description={t('dropTable.confirm', { name: tableName })}
         confirmationLabel={confirmationLabel}
@@ -205,7 +216,7 @@ export function TableContextMenu({
       {/* Truncate Table Confirmation */}
       <DangerConfirmDialog
         open={dangerAction === 'truncate'}
-        onOpenChange={(open) => !open && setDangerAction(null)}
+        onOpenChange={open => !open && setDangerAction(null)}
         title={t('tableMenu.truncateTitle')}
         description={t('tableMenu.truncateDescription', { name: tableName })}
         confirmationLabel={confirmationLabel}
@@ -214,6 +225,22 @@ export function TableContextMenu({
         loading={loading}
         onConfirm={handleTruncateTable}
       />
+
+      {/* Virtual Relation Dialog */}
+      {connectionId && (
+        <VirtualRelationDialog
+          open={vrDialogOpen}
+          onOpenChange={setVrDialogOpen}
+          sessionId={sessionId}
+          connectionId={connectionId}
+          namespace={collection.namespace}
+          sourceTable={collection.name}
+          onSaved={() => {
+            invalidateTableSchemaCache(sessionId, collection.namespace, tableName);
+            onVirtualRelationChanged?.();
+          }}
+        />
+      )}
     </>
   );
 }

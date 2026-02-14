@@ -86,13 +86,10 @@ export function useStreamingExport(sessionId?: string) {
 
       try {
         let sawProgress = false;
-        const unlisten = await listen<ExportProgress>(
-          exportProgressEvent(exportId),
-          event => {
-            sawProgress = true;
-            showToast(event.payload);
-          }
-        );
+        const unlisten = await listen<ExportProgress>(exportProgressEvent(exportId), event => {
+          sawProgress = true;
+          showToast(event.payload);
+        });
 
         activeExportsRef.current.set(exportId, { unlisten });
         const response = await startExport(sessionId, config, exportId);
@@ -119,12 +116,15 @@ export function useStreamingExport(sessionId?: string) {
     [sessionId, showToast, t]
   );
 
-  useEffect(() => () => {
-    for (const exportEntry of activeExportsRef.current.values()) {
-      exportEntry.unlisten();
-    }
-    activeExportsRef.current.clear();
-  }, []);
+  useEffect(
+    () => () => {
+      for (const exportEntry of activeExportsRef.current.values()) {
+        exportEntry.unlisten();
+      }
+      activeExportsRef.current.clear();
+    },
+    []
+  );
 
   return {
     startStreamingExport,

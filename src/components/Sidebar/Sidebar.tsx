@@ -25,7 +25,11 @@ interface SidebarProps {
   onConnected: (sessionId: string, connection: SavedConnection) => void;
   connectedSessionId: string | null;
   connectedConnectionId?: string | null;
-  onTableSelect?: (namespace: Namespace, tableName: string, relationFilter?: RelationFilter) => void;
+  onTableSelect?: (
+    namespace: Namespace,
+    tableName: string,
+    relationFilter?: RelationFilter
+  ) => void;
   onDatabaseSelect?: (namespace: Namespace) => void;
   onCompareTable?: (collection: Collection) => void;
   onEditConnection: (connection: SavedConnection, password: string) => void;

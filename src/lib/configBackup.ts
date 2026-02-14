@@ -98,4 +98,3 @@ export function applyConfigBackupV1(payload: ConfigBackupV1): {
     safetyPolicy: payload.safetyPolicy,
   };
 }
-

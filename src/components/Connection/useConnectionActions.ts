@@ -55,13 +55,17 @@ export function useConnectionActions({
   const handleEdit = useCallback(async () => {
     try {
       const credsResult = await getConnectionCredentials('default', connection.id);
-      
+
       // Allow empty password (e.g. for MongoDB)
-      if (!credsResult.success || credsResult.password === undefined || credsResult.password === null) {
+      if (
+        !credsResult.success ||
+        credsResult.password === undefined ||
+        credsResult.password === null
+      ) {
         toast.error(t('connection.failedRetrieveCredentialsEdit'));
         return;
       }
-      
+
       onEdit(connection, credsResult.password);
       onAfterAction?.();
     } catch {

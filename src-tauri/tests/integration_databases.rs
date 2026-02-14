@@ -22,6 +22,37 @@ fn env_u16_or_default(key: &str, default: u16) -> u16 {
         .unwrap_or(default)
 }
 
+fn env_bool_or_default(key: &str, default: bool) -> bool {
+    std::env::var(key)
+        .ok()
+        .map(|value| {
+            matches!(
+                value.trim().to_ascii_lowercase().as_str(),
+                "1" | "true" | "yes" | "on"
+            )
+        })
+        .unwrap_or(default)
+}
+
+fn redis_test_required() -> bool {
+    env_bool_or_default("QOREDB_TEST_REDIS_REQUIRED", false)
+}
+
+fn is_redis_unavailable(err: &EngineError) -> bool {
+    match err {
+        EngineError::ConnectionFailed { message }
+        | EngineError::ExecutionError { message } => {
+            let lower = message.to_ascii_lowercase();
+            lower.contains("connection refused")
+                || lower.contains("no route to host")
+                || lower.contains("timed out")
+                || lower.contains("network is unreachable")
+                || lower.contains("cannot assign requested address")
+        }
+        _ => false,
+    }
+}
+
 fn postgres_config() -> ConnectionConfig {
     ConnectionConfig {
         driver: "postgres".to_string(),
@@ -448,7 +479,17 @@ async fn mongodb_e2e() -> EngineResult<()> {
 
 #[tokio::test]
 async fn redis_e2e() -> EngineResult<()> {
-    let (driver, session, _config) = connect_redis().await?;
+    let (driver, session, _config) = match connect_redis().await {
+        Ok(conn) => conn,
+        Err(err) if !redis_test_required() && is_redis_unavailable(&err) => {
+            eprintln!(
+                "redis_e2e skipped: Redis is unavailable (set QOREDB_TEST_REDIS_REQUIRED=true to fail instead): {}",
+                err
+            );
+            return Ok(());
+        }
+        Err(err) => return Err(err),
+    };
     let ns0 = Namespace::new("db0");
     let ns1 = Namespace::new("db1");
     let key = unique_name("qoredb_redis_key");

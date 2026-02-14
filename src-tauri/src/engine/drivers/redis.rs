@@ -4,7 +4,7 @@
 //! Redis is a key-value store; this driver maps keys as "collections" and
 //! displays their contents in type-specific tabular formats.
 
-use std::collections::HashMap;
+use std::collections::{BinaryHeap, HashMap};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU16, Ordering};
 use std::time::Instant;
@@ -519,7 +519,7 @@ impl RedisDriver {
     ) -> EngineResult<QueryResult> {
         let start = Instant::now();
         let stop = if limit > 0 { offset + limit - 1 } else { -1 };
-        let members: Vec<(String, f64)> = redis::cmd("ZRANGE")
+        let members: redis::Value = redis::cmd("ZRANGE")
             .arg(key)
             .arg(offset)
             .arg(stop)
@@ -541,12 +541,29 @@ impl RedisDriver {
             },
         ];
 
-        let rows: Vec<QRow> = members
-            .into_iter()
-            .map(|(member, score)| QRow {
-                values: vec![Value::Text(member), Value::Float(score)],
-            })
-            .collect();
+        let rows: Vec<QRow> = match members {
+            redis::Value::Array(items) => {
+                let mut out = Vec::new();
+                let mut iter = items.iter();
+                while let (Some(member), Some(score_raw)) = (iter.next(), iter.next()) {
+                    if let Some(score) = Self::redis_value_to_f64(score_raw) {
+                        out.push(QRow {
+                            values: vec![Self::redis_value_to_value(member), Value::Float(score)],
+                        });
+                    }
+                }
+                out
+            }
+            redis::Value::Map(pairs) => pairs
+                .iter()
+                .filter_map(|(member, score_raw)| {
+                    Self::redis_value_to_f64(score_raw).map(|score| QRow {
+                        values: vec![Self::redis_value_to_value(member), Value::Float(score)],
+                    })
+                })
+                .collect(),
+            _ => Vec::new(),
+        };
 
         Ok(QueryResult {
             columns,
@@ -658,6 +675,18 @@ impl RedisDriver {
             redis::Value::Nil => "(nil)".to_string(),
             redis::Value::Okay => "OK".to_string(),
             _ => format!("{:?}", value),
+        }
+    }
+
+    fn redis_value_to_f64(value: &redis::Value) -> Option<f64> {
+        match value {
+            redis::Value::Double(f) => Some(*f),
+            redis::Value::Int(i) => Some(*i as f64),
+            redis::Value::BulkString(bytes) => std::str::from_utf8(bytes).ok()?.parse::<f64>().ok(),
+            redis::Value::SimpleString(s) | redis::Value::VerbatimString { text: s, .. } => {
+                s.parse::<f64>().ok()
+            }
+            _ => None,
         }
     }
 
@@ -1010,51 +1039,102 @@ impl DataEngine for RedisDriver {
             "*".to_string()
         };
 
-        let mut all_keys: Vec<String> = Vec::new();
         let mut cursor: u64 = 0;
 
-        loop {
-            let (next_cursor, keys): (u64, Vec<String>) = redis::cmd("SCAN")
-                .arg(cursor)
-                .arg("MATCH")
-                .arg(&pattern)
-                .arg("COUNT")
-                .arg(500)
-                .query_async(&mut *conn)
-                .await
-                .map_err(|e| EngineError::execution_error(e.to_string()))?;
-
-            all_keys.extend(keys);
-            cursor = next_cursor;
-
-            if cursor == 0 {
-                break;
-            }
-
-            // Safety limit
-            if all_keys.len() > 100_000 {
-                break;
-            }
-        }
-
-        all_keys.sort();
-        all_keys.dedup();
-
-        let total_count = all_keys.len();
-
-        // Apply pagination
-        let paginated = if let Some(limit) = options.page_size {
+        let (paginated, total_count) = if let Some(limit_u32) = options.page_size {
+            // Optimized path for paginated browsing: keep only the smallest `offset + limit`
+            // keys in memory via a max-heap, instead of materializing all keys.
             let page = options.page.unwrap_or(1).max(1);
-            let offset = ((page - 1) * limit) as usize;
-            let limit = limit as usize;
+            let offset = ((page - 1) * limit_u32) as usize;
+            let limit = limit_u32 as usize;
+            let keep = offset.saturating_add(limit);
 
-            if offset >= all_keys.len() {
+            let mut total_count: usize = 0;
+            let mut smallest = BinaryHeap::<String>::with_capacity(keep.max(1));
+
+            loop {
+                let (next_cursor, keys): (u64, Vec<String>) = redis::cmd("SCAN")
+                    .arg(cursor)
+                    .arg("MATCH")
+                    .arg(&pattern)
+                    .arg("COUNT")
+                    .arg(500)
+                    .query_async(&mut *conn)
+                    .await
+                    .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+                for key in keys {
+                    total_count = total_count.saturating_add(1);
+
+                    if keep == 0 {
+                        continue;
+                    }
+
+                    if smallest.len() < keep {
+                        smallest.push(key);
+                        continue;
+                    }
+
+                    if let Some(largest_kept) = smallest.peek() {
+                        if key < *largest_kept {
+                            let _ = smallest.pop();
+                            smallest.push(key);
+                        }
+                    }
+                }
+
+                cursor = next_cursor;
+                if cursor == 0 {
+                    break;
+                }
+            }
+
+            let mut ordered_smallest = smallest.into_vec();
+            ordered_smallest.sort();
+            ordered_smallest.dedup();
+
+            let paginated = if offset >= ordered_smallest.len() {
                 Vec::new()
             } else {
-                all_keys.into_iter().skip(offset).take(limit).collect()
-            }
+                ordered_smallest
+                    .into_iter()
+                    .skip(offset)
+                    .take(limit)
+                    .collect()
+            };
+
+            (paginated, total_count)
         } else {
-            all_keys
+            // Full listing keeps previous behavior: sorted and deduplicated.
+            let mut all_keys: Vec<String> = Vec::new();
+            loop {
+                let (next_cursor, keys): (u64, Vec<String>) = redis::cmd("SCAN")
+                    .arg(cursor)
+                    .arg("MATCH")
+                    .arg(&pattern)
+                    .arg("COUNT")
+                    .arg(500)
+                    .query_async(&mut *conn)
+                    .await
+                    .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+                all_keys.extend(keys);
+                cursor = next_cursor;
+
+                if cursor == 0 {
+                    break;
+                }
+
+                // Safety limit
+                if all_keys.len() > 100_000 {
+                    break;
+                }
+            }
+
+            all_keys.sort();
+            all_keys.dedup();
+            let total_count = all_keys.len();
+            (all_keys, total_count)
         };
 
         let collections = paginated
@@ -1068,7 +1148,7 @@ impl DataEngine for RedisDriver {
 
         Ok(CollectionList {
             collections,
-            total_count: total_count as u32,
+            total_count: total_count.min(u32::MAX as usize) as u32,
         })
     }
 

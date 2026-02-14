@@ -11,6 +11,7 @@ use tracing::{field, instrument};
 
 use crate::engine::{
     mongo_safety,
+    redis_safety,
     sql_safety,
     TableSchema,
     traits::StreamEvent,
@@ -31,6 +32,22 @@ fn is_mongo_mutation(query: &str) -> bool {
     matches!(
         mongo_safety::classify(query),
         mongo_safety::MongoQueryClass::Mutation | mongo_safety::MongoQueryClass::Unknown
+    )
+}
+
+fn is_redis_mutation(query: &str) -> bool {
+    matches!(
+        redis_safety::classify(query),
+        redis_safety::RedisQueryClass::Mutation
+            | redis_safety::RedisQueryClass::Dangerous
+            | redis_safety::RedisQueryClass::Unknown
+    )
+}
+
+fn is_redis_dangerous(query: &str) -> bool {
+    matches!(
+        redis_safety::classify(query),
+        redis_safety::RedisQueryClass::Dangerous
     )
 }
 
@@ -139,7 +156,9 @@ pub async fn execute_query(
     let is_production = matches!(interceptor_env, Environment::Production);
 
     let acknowledged = acknowledged_dangerous.unwrap_or(false);
-    let is_sql_driver = !driver.driver_id().eq_ignore_ascii_case("mongodb");
+    let is_mongo_driver = driver.driver_id().eq_ignore_ascii_case("mongodb");
+    let is_redis_driver = driver.driver_id().eq_ignore_ascii_case("redis");
+    let is_sql_driver = !is_mongo_driver && !is_redis_driver;
     let sql_analysis = if is_sql_driver {
         match sql_safety::analyze_sql(driver.driver_id(), &query) {
             Ok(analysis) => Some(analysis),
@@ -190,8 +209,10 @@ pub async fn execute_query(
                 .as_ref()
                 .map(|analysis| analysis.is_mutation)
                 .unwrap_or(false)
-        } else {
+        } else if is_mongo_driver {
             is_mongo_mutation(&query)
+        } else {
+            is_redis_mutation(&query)
         };
 
         if is_mutation {
@@ -210,6 +231,8 @@ pub async fn execute_query(
                 .as_ref()
                 .map(|analysis| analysis.is_dangerous)
                 .unwrap_or(false)
+        } else if is_redis_driver {
+            is_redis_dangerous(&query)
         } else {
             false
         };
@@ -241,8 +264,10 @@ pub async fn execute_query(
             .as_ref()
             .map(|a| a.is_mutation)
             .unwrap_or(false)
-    } else {
+    } else if is_mongo_driver {
         is_mongo_mutation(&query)
+    } else {
+        is_redis_mutation(&query)
     };
 
     let interceptor_context = interceptor.build_context(

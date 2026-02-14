@@ -11,7 +11,7 @@ use std::time::Instant;
 
 use async_trait::async_trait;
 use futures::future::{AbortHandle, Abortable};
-use redis::AsyncCommands;
+use percent_encoding::{NON_ALPHANUMERIC, utf8_percent_encode};
 use tokio::sync::{Mutex, RwLock};
 
 use crate::engine::error::{EngineError, EngineResult};
@@ -53,13 +53,14 @@ impl RedisDriver {
 
         if !config.username.is_empty() || !config.password.is_empty() {
             let user = if config.username.is_empty() {
-                ""
+                String::new()
             } else {
-                &config.username
+                Self::encode_userinfo_component(&config.username)
             };
+            let password = Self::encode_userinfo_component(&config.password);
             format!(
                 "{}://{}:{}@{}:{}/{}",
-                scheme, user, config.password, config.host, config.port, db
+                scheme, user, password, config.host, config.port, db
             )
         } else {
             format!("{}://{}:{}/{}", scheme, config.host, config.port, db)
@@ -109,6 +110,101 @@ impl RedisDriver {
             .ok_or_else(|| EngineError::session_not_found(session.0.to_string()))
     }
 
+    fn parse_db_index(database: &str) -> u16 {
+        database.trim_start_matches("db").parse().unwrap_or(0)
+    }
+
+    fn encode_userinfo_component(value: &str) -> String {
+        utf8_percent_encode(value, NON_ALPHANUMERIC).to_string()
+    }
+
+    async fn select_db(
+        conn: &mut redis::aio::MultiplexedConnection,
+        db_index: u16,
+    ) -> EngineResult<()> {
+        redis::cmd("SELECT")
+            .arg(db_index)
+            .query_async::<String>(conn)
+            .await
+            .map_err(|e| EngineError::execution_error(format!("SELECT db{}: {}", db_index, e)))?;
+        Ok(())
+    }
+
+    async fn execute_with_target_db(
+        &self,
+        session: SessionId,
+        query: &str,
+        query_id: QueryId,
+        target_db: Option<u16>,
+    ) -> EngineResult<QueryResult> {
+        let redis_session = self.get_session(session).await?;
+        let redis_session = Arc::clone(&redis_session);
+
+        let (abort_handle, abort_reg) = AbortHandle::new_pair();
+        {
+            let mut active = self.active_queries.lock().await;
+            active.insert(query_id, (session, abort_handle));
+        }
+
+        let query = query.to_string();
+        let result = Abortable::new(
+            async move { Self::execute_with_lock(redis_session, query, target_db).await },
+            abort_reg,
+        )
+        .await;
+
+        {
+            let mut active = self.active_queries.lock().await;
+            active.remove(&query_id);
+        }
+
+        match result {
+            Ok(inner) => inner,
+            Err(_) => Err(EngineError::Cancelled),
+        }
+    }
+
+    async fn execute_with_lock(
+        redis_session: Arc<RedisSession>,
+        query: String,
+        target_db: Option<u16>,
+    ) -> EngineResult<QueryResult> {
+        let start = Instant::now();
+        let parts = Self::parse_command(&query)?;
+
+        let cmd_name = parts[0].to_ascii_uppercase();
+        let args = &parts[1..];
+
+        let mut conn = redis_session.connection.lock().await;
+
+        if let Some(db_index) = target_db {
+            Self::select_db(&mut *conn, db_index).await?;
+            redis_session.current_db.store(db_index, Ordering::Relaxed);
+        }
+
+        let mut cmd = redis::cmd(&cmd_name);
+        for arg in args {
+            cmd.arg(arg);
+        }
+
+        let value: redis::Value = cmd
+            .query_async(&mut *conn)
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        // Track explicit SELECT commands to keep current_db in sync.
+        if cmd_name == "SELECT" {
+            if let Some(db_str) = args.first() {
+                if let Ok(db_index) = db_str.parse::<u16>() {
+                    redis_session.current_db.store(db_index, Ordering::Relaxed);
+                }
+            }
+        }
+
+        let execution_time_ms = start.elapsed().as_micros() as f64 / 1000.0;
+        Ok(Self::format_execute_result(value, execution_time_ms))
+    }
+
     /// Gets the Redis type of a key
     async fn key_type(
         conn: &mut redis::aio::MultiplexedConnection,
@@ -141,7 +237,10 @@ impl RedisDriver {
         key: &str,
     ) -> EngineResult<QueryResult> {
         let start = Instant::now();
-        let value: String = conn.get(key).await
+        let value: redis::Value = redis::cmd("GET")
+            .arg(key)
+            .query_async(conn)
+            .await
             .map_err(|e| EngineError::execution_error(e.to_string()))?;
 
         let columns = vec![ColumnInfo {
@@ -150,12 +249,7 @@ impl RedisDriver {
             nullable: false,
         }];
 
-        // Try to parse as JSON for better display
-        let val = if let Ok(json) = serde_json::from_str::<serde_json::Value>(&value) {
-            Value::Json(json)
-        } else {
-            Value::Text(value)
-        };
+        let val = Self::redis_value_to_value(&value);
 
         let rows = vec![QRow {
             values: vec![val],
@@ -175,7 +269,10 @@ impl RedisDriver {
         key: &str,
     ) -> EngineResult<QueryResult> {
         let start = Instant::now();
-        let fields: Vec<(String, String)> = conn.hgetall(key).await
+        let fields: redis::Value = redis::cmd("HGETALL")
+            .arg(key)
+            .query_async(conn)
+            .await
             .map_err(|e| EngineError::execution_error(e.to_string()))?;
 
         let columns = vec![
@@ -191,19 +288,31 @@ impl RedisDriver {
             },
         ];
 
-        let rows: Vec<QRow> = fields
-            .into_iter()
-            .map(|(field, value)| {
-                let val = if let Ok(json) = serde_json::from_str::<serde_json::Value>(&value) {
-                    Value::Json(json)
-                } else {
-                    Value::Text(value)
-                };
-                QRow {
-                    values: vec![Value::Text(field), val],
+        let rows: Vec<QRow> = match fields {
+            redis::Value::Array(pairs) => {
+                let mut out = Vec::new();
+                let mut iter = pairs.iter();
+                while let (Some(field), Some(value)) = (iter.next(), iter.next()) {
+                    out.push(QRow {
+                        values: vec![
+                            Value::Text(Self::redis_value_to_string(field)),
+                            Self::redis_value_to_value(value),
+                        ],
+                    });
                 }
-            })
-            .collect();
+                out
+            }
+            redis::Value::Map(pairs) => pairs
+                .iter()
+                .map(|(field, value)| QRow {
+                    values: vec![
+                        Value::Text(Self::redis_value_to_string(field)),
+                        Self::redis_value_to_value(value),
+                    ],
+                })
+                .collect(),
+            _ => Vec::new(),
+        };
 
         Ok(QueryResult {
             columns,
@@ -211,6 +320,53 @@ impl RedisDriver {
             affected_rows: None,
             execution_time_ms: start.elapsed().as_micros() as f64 / 1000.0,
         })
+    }
+
+    async fn read_hash_page(
+        conn: &mut redis::aio::MultiplexedConnection,
+        key: &str,
+        offset: usize,
+        limit: usize,
+    ) -> EngineResult<Vec<QRow>> {
+        if limit == 0 {
+            return Ok(Vec::new());
+        }
+
+        let mut rows = Vec::new();
+        let mut cursor: u64 = 0;
+        let mut seen: usize = 0;
+
+        loop {
+            let (next_cursor, chunk): (u64, Vec<(Vec<u8>, Vec<u8>)>) = redis::cmd("HSCAN")
+                .arg(key)
+                .arg(cursor)
+                .arg("COUNT")
+                .arg(500)
+                .query_async(conn)
+                .await
+                .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+            for (field_bytes, value_bytes) in chunk {
+                if seen >= offset && rows.len() < limit {
+                    let field = Self::redis_value_to_string(&redis::Value::BulkString(field_bytes));
+                    let value = Self::redis_value_to_value(&redis::Value::BulkString(value_bytes));
+                    rows.push(QRow {
+                        values: vec![Value::Text(field), value],
+                    });
+                }
+                seen += 1;
+                if rows.len() >= limit {
+                    break;
+                }
+            }
+
+            if next_cursor == 0 || rows.len() >= limit {
+                break;
+            }
+            cursor = next_cursor;
+        }
+
+        Ok(rows)
     }
 
     /// Reads list key value
@@ -222,7 +378,12 @@ impl RedisDriver {
     ) -> EngineResult<QueryResult> {
         let start = Instant::now();
         let stop = if limit > 0 { offset + limit - 1 } else { -1 };
-        let values: Vec<String> = conn.lrange(key, offset as isize, stop as isize).await
+        let values: redis::Value = redis::cmd("LRANGE")
+            .arg(key)
+            .arg(offset)
+            .arg(stop)
+            .query_async(conn)
+            .await
             .map_err(|e| EngineError::execution_error(e.to_string()))?;
 
         let columns = vec![
@@ -238,20 +399,19 @@ impl RedisDriver {
             },
         ];
 
-        let rows: Vec<QRow> = values
-            .into_iter()
-            .enumerate()
-            .map(|(i, value)| {
-                let val = if let Ok(json) = serde_json::from_str::<serde_json::Value>(&value) {
-                    Value::Json(json)
-                } else {
-                    Value::Text(value)
-                };
-                QRow {
-                    values: vec![Value::Int((offset as usize + i) as i64), val],
-                }
-            })
-            .collect();
+        let rows: Vec<QRow> = match values {
+            redis::Value::Array(items) => items
+                .iter()
+                .enumerate()
+                .map(|(i, value)| QRow {
+                    values: vec![
+                        Value::Int((offset as usize + i) as i64),
+                        Self::redis_value_to_value(value),
+                    ],
+                })
+                .collect(),
+            _ => Vec::new(),
+        };
 
         Ok(QueryResult {
             columns,
@@ -267,7 +427,10 @@ impl RedisDriver {
         key: &str,
     ) -> EngineResult<QueryResult> {
         let start = Instant::now();
-        let members: Vec<String> = conn.smembers(key).await
+        let members: redis::Value = redis::cmd("SMEMBERS")
+            .arg(key)
+            .query_async(conn)
+            .await
             .map_err(|e| EngineError::execution_error(e.to_string()))?;
 
         let columns = vec![ColumnInfo {
@@ -276,12 +439,21 @@ impl RedisDriver {
             nullable: false,
         }];
 
-        let rows: Vec<QRow> = members
-            .into_iter()
-            .map(|member| QRow {
-                values: vec![Value::Text(member)],
-            })
-            .collect();
+        let rows: Vec<QRow> = match members {
+            redis::Value::Array(items) => items
+                .iter()
+                .map(|member| QRow {
+                    values: vec![Self::redis_value_to_value(member)],
+                })
+                .collect(),
+            redis::Value::Set(items) => items
+                .iter()
+                .map(|member| QRow {
+                    values: vec![Self::redis_value_to_value(member)],
+                })
+                .collect(),
+            _ => Vec::new(),
+        };
 
         Ok(QueryResult {
             columns,
@@ -289,6 +461,53 @@ impl RedisDriver {
             affected_rows: None,
             execution_time_ms: start.elapsed().as_micros() as f64 / 1000.0,
         })
+    }
+
+    async fn read_set_page(
+        conn: &mut redis::aio::MultiplexedConnection,
+        key: &str,
+        offset: usize,
+        limit: usize,
+    ) -> EngineResult<Vec<QRow>> {
+        if limit == 0 {
+            return Ok(Vec::new());
+        }
+
+        let mut rows = Vec::new();
+        let mut cursor: u64 = 0;
+        let mut seen: usize = 0;
+
+        loop {
+            let (next_cursor, chunk): (u64, Vec<Vec<u8>>) = redis::cmd("SSCAN")
+                .arg(key)
+                .arg(cursor)
+                .arg("COUNT")
+                .arg(500)
+                .query_async(conn)
+                .await
+                .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+            for member_bytes in chunk {
+                if seen >= offset && rows.len() < limit {
+                    rows.push(QRow {
+                        values: vec![Self::redis_value_to_value(&redis::Value::BulkString(
+                            member_bytes,
+                        ))],
+                    });
+                }
+                seen += 1;
+                if rows.len() >= limit {
+                    break;
+                }
+            }
+
+            if next_cursor == 0 || rows.len() >= limit {
+                break;
+            }
+            cursor = next_cursor;
+        }
+
+        Ok(rows)
     }
 
     /// Reads sorted set key value
@@ -341,16 +560,41 @@ impl RedisDriver {
     async fn read_stream(
         conn: &mut redis::aio::MultiplexedConnection,
         key: &str,
+        offset: usize,
         limit: usize,
     ) -> EngineResult<QueryResult> {
         let start = Instant::now();
+
+        if limit == 0 {
+            return Ok(QueryResult {
+                columns: vec![
+                    ColumnInfo {
+                        name: "id".to_string(),
+                        data_type: "string".to_string(),
+                        nullable: false,
+                    },
+                    ColumnInfo {
+                        name: "data".to_string(),
+                        data_type: "json".to_string(),
+                        nullable: false,
+                    },
+                ],
+                rows: Vec::new(),
+                affected_rows: None,
+                execution_time_ms: 0.0,
+            });
+        }
+
+        // Redis streams paginate by ID, not numeric offset.
+        // We fetch up to offset+limit entries and slice in-memory to keep page semantics stable.
+        let fetch_count = offset.saturating_add(limit);
 
         let result: redis::Value = redis::cmd("XRANGE")
             .arg(key)
             .arg("-")
             .arg("+")
             .arg("COUNT")
-            .arg(limit)
+            .arg(fetch_count)
             .query_async(conn)
             .await
             .map_err(|e| EngineError::execution_error(e.to_string()))?;
@@ -368,7 +612,7 @@ impl RedisDriver {
             },
         ];
 
-        let rows = Self::parse_stream_entries(&result);
+        let rows = Self::paginate_stream_rows(Self::parse_stream_entries(&result), offset, limit);
 
         Ok(QueryResult {
             columns,
@@ -397,6 +641,10 @@ impl RedisDriver {
         }
 
         rows
+    }
+
+    fn paginate_stream_rows(rows: Vec<QRow>, offset: usize, limit: usize) -> Vec<QRow> {
+        rows.into_iter().skip(offset).take(limit).collect()
     }
 
     /// Converts a redis::Value to a String
@@ -743,11 +991,7 @@ impl DataEngine for RedisDriver {
         let mut conn = redis_session.connection.lock().await;
 
         // SELECT the right database
-        let db_index: u16 = namespace
-            .database
-            .trim_start_matches("db")
-            .parse()
-            .unwrap_or(0);
+        let db_index = Self::parse_db_index(&namespace.database);
 
         redis::cmd("SELECT")
             .arg(db_index)
@@ -851,61 +1095,7 @@ impl DataEngine for RedisDriver {
         query: &str,
         query_id: QueryId,
     ) -> EngineResult<QueryResult> {
-        let redis_session = self.get_session(session).await?;
-        let redis_session = Arc::clone(&redis_session);
-
-        let (abort_handle, abort_reg) = AbortHandle::new_pair();
-        {
-            let mut active = self.active_queries.lock().await;
-            active.insert(query_id, (session, abort_handle));
-        }
-
-        let query = query.to_string();
-        let result = Abortable::new(
-            async move {
-                let start = Instant::now();
-                let parts = Self::parse_command(&query)?;
-
-                let cmd_name = parts[0].to_ascii_uppercase();
-                let args = &parts[1..];
-
-                let mut conn = redis_session.connection.lock().await;
-
-                let mut cmd = redis::cmd(&cmd_name);
-                for arg in args {
-                    cmd.arg(arg);
-                }
-
-                let value: redis::Value = cmd
-                    .query_async(&mut *conn)
-                    .await
-                    .map_err(|e| EngineError::execution_error(e.to_string()))?;
-
-                // Track SELECT commands to keep current_db in sync
-                if cmd_name == "SELECT" {
-                    if let Some(db_str) = args.first() {
-                        if let Ok(db_index) = db_str.parse::<u16>() {
-                            redis_session.current_db.store(db_index, Ordering::Relaxed);
-                        }
-                    }
-                }
-
-                let execution_time_ms = start.elapsed().as_micros() as f64 / 1000.0;
-                Ok(Self::format_execute_result(value, execution_time_ms))
-            },
-            abort_reg,
-        )
-        .await;
-
-        {
-            let mut active = self.active_queries.lock().await;
-            active.remove(&query_id);
-        }
-
-        match result {
-            Ok(inner) => inner,
-            Err(_) => Err(EngineError::Cancelled),
-        }
+        self.execute_with_target_db(session, query, query_id, None).await
     }
 
     async fn execute_in_namespace(
@@ -915,24 +1105,11 @@ impl DataEngine for RedisDriver {
         query: &str,
         query_id: QueryId,
     ) -> EngineResult<QueryResult> {
-        // SELECT the database before executing
-        if let Some(ref ns) = namespace {
-            let redis_session = self.get_session(session).await?;
-            let mut conn = redis_session.connection.lock().await;
-            let db_index: u16 = ns
-                .database
-                .trim_start_matches("db")
-                .parse()
-                .unwrap_or(0);
-
-            redis::cmd("SELECT")
-                .arg(db_index)
-                .query_async::<String>(&mut *conn)
-                .await
-                .map_err(|e| EngineError::execution_error(format!("SELECT db{}: {}", db_index, e)))?;
-        }
-
-        self.execute(session, query, query_id).await
+        let target_db = namespace
+            .as_ref()
+            .map(|ns| Self::parse_db_index(&ns.database));
+        self.execute_with_target_db(session, query, query_id, target_db)
+            .await
     }
 
     async fn describe_table(
@@ -945,11 +1122,7 @@ impl DataEngine for RedisDriver {
         let mut conn = redis_session.connection.lock().await;
 
         // SELECT database
-        let db_index: u16 = namespace
-            .database
-            .trim_start_matches("db")
-            .parse()
-            .unwrap_or(0);
+        let db_index = Self::parse_db_index(&namespace.database);
 
         redis::cmd("SELECT")
             .arg(db_index)
@@ -1122,11 +1295,7 @@ impl DataEngine for RedisDriver {
         let mut conn = redis_session.connection.lock().await;
 
         // SELECT database
-        let db_index: u16 = namespace
-            .database
-            .trim_start_matches("db")
-            .parse()
-            .unwrap_or(0);
+        let db_index = Self::parse_db_index(&namespace.database);
 
         redis::cmd("SELECT")
             .arg(db_index)
@@ -1143,7 +1312,7 @@ impl DataEngine for RedisDriver {
             "list" => Self::read_list(&mut conn, key, 0, limit as i64).await,
             "set" => Self::read_set(&mut conn, key).await,
             "zset" => Self::read_zset(&mut conn, key, 0, limit as i64).await,
-            "stream" => Self::read_stream(&mut conn, key, limit as usize).await,
+            "stream" => Self::read_stream(&mut conn, key, 0, limit as usize).await,
             "none" => Err(EngineError::execution_error(format!(
                 "Key '{}' does not exist",
                 key
@@ -1166,11 +1335,7 @@ impl DataEngine for RedisDriver {
         let mut conn = redis_session.connection.lock().await;
 
         // SELECT database
-        let db_index: u16 = namespace
-            .database
-            .trim_start_matches("db")
-            .parse()
-            .unwrap_or(0);
+        let db_index = Self::parse_db_index(&namespace.database);
 
         redis::cmd("SELECT")
             .arg(db_index)
@@ -1190,22 +1355,33 @@ impl DataEngine for RedisDriver {
                 Ok(PaginatedQueryResult::new(result, 1, page, page_size))
             }
             "hash" => {
-                let result = Self::read_hash(&mut conn, key).await?;
-                let total = result.rows.len() as u64;
-                // Apply in-memory pagination for hashes
-                let paginated_rows: Vec<QRow> = result
-                    .rows
-                    .into_iter()
-                    .skip(offset as usize)
-                    .take(page_size as usize)
-                    .collect();
-                let paginated_result = QueryResult {
-                    columns: result.columns,
-                    rows: paginated_rows,
-                    affected_rows: result.affected_rows,
-                    execution_time_ms: result.execution_time_ms,
+                let start = Instant::now();
+                let total: u64 = redis::cmd("HLEN")
+                    .arg(key)
+                    .query_async(&mut *conn)
+                    .await
+                    .map_err(|e| EngineError::execution_error(e.to_string()))?;
+                let rows =
+                    Self::read_hash_page(&mut conn, key, offset as usize, page_size as usize)
+                        .await?;
+                let result = QueryResult {
+                    columns: vec![
+                        ColumnInfo {
+                            name: "field".to_string(),
+                            data_type: "string".to_string(),
+                            nullable: false,
+                        },
+                        ColumnInfo {
+                            name: "value".to_string(),
+                            data_type: "string".to_string(),
+                            nullable: false,
+                        },
+                    ],
+                    rows,
+                    affected_rows: None,
+                    execution_time_ms: start.elapsed().as_micros() as f64 / 1000.0,
                 };
-                Ok(PaginatedQueryResult::new(paginated_result, total, page, page_size))
+                Ok(PaginatedQueryResult::new(result, total, page, page_size))
             }
             "list" => {
                 let total: u64 = redis::cmd("LLEN")
@@ -1218,21 +1394,26 @@ impl DataEngine for RedisDriver {
                 Ok(PaginatedQueryResult::new(result, total, page, page_size))
             }
             "set" => {
-                let result = Self::read_set(&mut conn, key).await?;
-                let total = result.rows.len() as u64;
-                let paginated_rows: Vec<QRow> = result
-                    .rows
-                    .into_iter()
-                    .skip(offset as usize)
-                    .take(page_size as usize)
-                    .collect();
-                let paginated_result = QueryResult {
-                    columns: result.columns,
-                    rows: paginated_rows,
-                    affected_rows: result.affected_rows,
-                    execution_time_ms: result.execution_time_ms,
+                let start = Instant::now();
+                let total: u64 = redis::cmd("SCARD")
+                    .arg(key)
+                    .query_async(&mut *conn)
+                    .await
+                    .map_err(|e| EngineError::execution_error(e.to_string()))?;
+                let rows =
+                    Self::read_set_page(&mut conn, key, offset as usize, page_size as usize)
+                        .await?;
+                let result = QueryResult {
+                    columns: vec![ColumnInfo {
+                        name: "member".to_string(),
+                        data_type: "string".to_string(),
+                        nullable: false,
+                    }],
+                    rows,
+                    affected_rows: None,
+                    execution_time_ms: start.elapsed().as_micros() as f64 / 1000.0,
                 };
-                Ok(PaginatedQueryResult::new(paginated_result, total, page, page_size))
+                Ok(PaginatedQueryResult::new(result, total, page, page_size))
             }
             "zset" => {
                 let total: u64 = redis::cmd("ZCARD")
@@ -1250,7 +1431,8 @@ impl DataEngine for RedisDriver {
                     .query_async(&mut *conn)
                     .await
                     .map_err(|e| EngineError::execution_error(e.to_string()))?;
-                let result = Self::read_stream(&mut conn, key, page_size as usize).await?;
+                let result =
+                    Self::read_stream(&mut conn, key, offset as usize, page_size as usize).await?;
                 Ok(PaginatedQueryResult::new(result, total, page, page_size))
             }
             "none" => Err(EngineError::execution_error(format!(
@@ -1352,6 +1534,31 @@ mod tests {
     }
 
     #[test]
+    fn test_build_connection_string_encodes_credentials() {
+        let config = ConnectionConfig {
+            driver: "redis".to_string(),
+            host: "localhost".to_string(),
+            port: 6379,
+            username: "user:name".to_string(),
+            password: "p@ss/wo:rd".to_string(),
+            database: Some("1".to_string()),
+            ssl: false,
+            environment: "development".to_string(),
+            read_only: false,
+            ssh_tunnel: None,
+            pool_acquire_timeout_secs: None,
+            pool_max_connections: None,
+            pool_min_connections: None,
+        };
+
+        let conn_str = RedisDriver::build_connection_string(&config);
+        assert_eq!(
+            conn_str,
+            "redis://user%3Aname:p%40ss%2Fwo%3Ard@localhost:6379/1"
+        );
+    }
+
+    #[test]
     fn test_parse_command_simple() {
         let parts = RedisDriver::parse_command("GET mykey").unwrap();
         assert_eq!(parts, vec!["GET", "mykey"]);
@@ -1387,5 +1594,49 @@ mod tests {
             parts,
             vec!["HSET", "myhash", "field1", "value1", "field2", "value2"]
         );
+    }
+
+    #[test]
+    fn test_parse_db_index_variants() {
+        assert_eq!(RedisDriver::parse_db_index("db0"), 0);
+        assert_eq!(RedisDriver::parse_db_index("db15"), 15);
+        assert_eq!(RedisDriver::parse_db_index("7"), 7);
+        assert_eq!(RedisDriver::parse_db_index("invalid"), 0);
+    }
+
+    #[test]
+    fn test_paginate_stream_rows_applies_offset() {
+        let stream = redis::Value::Array(vec![
+            redis::Value::Array(vec![
+                redis::Value::BulkString(b"1-0".to_vec()),
+                redis::Value::Array(vec![
+                    redis::Value::BulkString(b"field".to_vec()),
+                    redis::Value::BulkString(b"value-1".to_vec()),
+                ]),
+            ]),
+            redis::Value::Array(vec![
+                redis::Value::BulkString(b"2-0".to_vec()),
+                redis::Value::Array(vec![
+                    redis::Value::BulkString(b"field".to_vec()),
+                    redis::Value::BulkString(b"value-2".to_vec()),
+                ]),
+            ]),
+            redis::Value::Array(vec![
+                redis::Value::BulkString(b"3-0".to_vec()),
+                redis::Value::Array(vec![
+                    redis::Value::BulkString(b"field".to_vec()),
+                    redis::Value::BulkString(b"value-3".to_vec()),
+                ]),
+            ]),
+        ]);
+
+        let rows = RedisDriver::parse_stream_entries(&stream);
+        let page = RedisDriver::paginate_stream_rows(rows, 1, 1);
+
+        assert_eq!(page.len(), 1);
+        match page[0].values.first() {
+            Some(Value::Text(id)) => assert_eq!(id, "2-0"),
+            other => panic!("expected stream id text, got {:?}", other),
+        }
     }
 }

@@ -1,8 +1,8 @@
 use qoredb_lib::engine::{
-    drivers::{mongodb::MongoDriver, mysql::MySqlDriver, postgres::PostgresDriver},
+    drivers::{mongodb::MongoDriver, mysql::MySqlDriver, postgres::PostgresDriver, redis::RedisDriver},
     error::{EngineError, EngineResult},
     traits::DataEngine,
-    types::{CollectionListOptions, ConnectionConfig, Namespace, QueryId, RowData, SessionId, Value},
+    types::{CollectionListOptions, ConnectionConfig, Namespace, QueryId, RowData, SessionId, TableQueryOptions, Value},
 };
 use serde_json::json;
 use std::sync::Arc;
@@ -73,6 +73,24 @@ fn mongo_config() -> ConnectionConfig {
         pool_acquire_timeout_secs: None,
         pool_max_connections: None,
         pool_min_connections: None
+    }
+}
+
+fn redis_config() -> ConnectionConfig {
+    ConnectionConfig {
+        driver: "redis".to_string(),
+        host: env_or_default("QOREDB_TEST_REDIS_HOST", "127.0.0.1"),
+        port: env_u16_or_default("QOREDB_TEST_REDIS_PORT", 6379),
+        username: env_or_default("QOREDB_TEST_REDIS_USER", "default"),
+        password: env_or_default("QOREDB_TEST_REDIS_PASSWORD", "qoredb_test"),
+        database: Some(env_or_default("QOREDB_TEST_REDIS_DB", "0")),
+        ssl: false,
+        environment: "development".to_string(),
+        read_only: false,
+        ssh_tunnel: None,
+        pool_acquire_timeout_secs: None,
+        pool_max_connections: None,
+        pool_min_connections: None,
     }
 }
 
@@ -157,6 +175,14 @@ async fn connect_mysql() -> EngineResult<(Arc<MySqlDriver>, SessionId, Connectio
 async fn connect_mongo() -> EngineResult<(Arc<MongoDriver>, SessionId, ConnectionConfig)> {
     let config = mongo_config();
     let driver = Arc::new(MongoDriver::new());
+    wait_for_connection(driver.as_ref(), &config).await?;
+    let session = driver.connect(&config).await?;
+    Ok((driver, session, config))
+}
+
+async fn connect_redis() -> EngineResult<(Arc<RedisDriver>, SessionId, ConnectionConfig)> {
+    let config = redis_config();
+    let driver = Arc::new(RedisDriver::new());
     wait_for_connection(driver.as_ref(), &config).await?;
     let session = driver.connect(&config).await?;
     Ok((driver, session, config))
@@ -416,6 +442,141 @@ async fn mongodb_e2e() -> EngineResult<()> {
     let result = driver.execute(session, &query, QueryId::new()).await?;
     assert!(!result.rows.is_empty());
 
+    driver.disconnect(session).await?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn redis_e2e() -> EngineResult<()> {
+    let (driver, session, _config) = connect_redis().await?;
+    let ns0 = Namespace::new("db0");
+    let ns1 = Namespace::new("db1");
+    let key = unique_name("qoredb_redis_key");
+    let stream = unique_name("qoredb_redis_stream");
+
+    driver
+        .execute_in_namespace(
+            session,
+            Some(ns0.clone()),
+            &format!("SET {} zero", key),
+            QueryId::new(),
+        )
+        .await?;
+    driver
+        .execute_in_namespace(
+            session,
+            Some(ns1.clone()),
+            &format!("SET {} one", key),
+            QueryId::new(),
+        )
+        .await?;
+
+    for i in 1..=3 {
+        driver
+            .execute_in_namespace(
+                session,
+                Some(ns0.clone()),
+                &format!("XADD {} * field value{}", stream, i),
+                QueryId::new(),
+            )
+            .await?;
+    }
+
+    let mut handles = Vec::new();
+    for _ in 0..20 {
+        let d0 = Arc::clone(&driver);
+        let k0 = key.clone();
+        let n0 = ns0.clone();
+        handles.push(tokio::spawn(async move {
+            d0.execute_in_namespace(
+                session,
+                Some(n0),
+                &format!("GET {}", k0),
+                QueryId::new(),
+            )
+            .await
+        }));
+
+        let d1 = Arc::clone(&driver);
+        let k1 = key.clone();
+        let n1 = ns1.clone();
+        handles.push(tokio::spawn(async move {
+            d1.execute_in_namespace(
+                session,
+                Some(n1),
+                &format!("GET {}", k1),
+                QueryId::new(),
+            )
+            .await
+        }));
+    }
+
+    for (idx, handle) in handles.into_iter().enumerate() {
+        let result = handle
+            .await
+            .map_err(|e| EngineError::execution_error(format!("Join error: {}", e)))??;
+        let expected = if idx % 2 == 0 { "zero" } else { "one" };
+        match result.rows.first().and_then(|row| row.values.first()) {
+            Some(Value::Text(value)) => assert_eq!(value, expected),
+            other => panic!("Unexpected GET result: {:?}", other),
+        }
+    }
+
+    let page1 = driver
+        .query_table(
+            session,
+            &ns0,
+            &stream,
+            TableQueryOptions {
+                page: Some(1),
+                page_size: Some(1),
+                ..Default::default()
+            },
+        )
+        .await?;
+    let page2 = driver
+        .query_table(
+            session,
+            &ns0,
+            &stream,
+            TableQueryOptions {
+                page: Some(2),
+                page_size: Some(1),
+                ..Default::default()
+            },
+        )
+        .await?;
+
+    let id1 = match page1.result.rows.first().and_then(|row| row.values.first()) {
+        Some(Value::Text(id)) => id.clone(),
+        other => panic!("Unexpected stream page1 row id: {:?}", other),
+    };
+    let id2 = match page2.result.rows.first().and_then(|row| row.values.first()) {
+        Some(Value::Text(id)) => id.clone(),
+        other => panic!("Unexpected stream page2 row id: {:?}", other),
+    };
+    assert_ne!(id1, id2, "Stream pagination should return different entry IDs");
+
+    let namespaces = driver.list_namespaces(session).await?;
+    assert!(namespaces.iter().any(|ns| ns.database == "db0"));
+    assert!(namespaces.iter().any(|ns| ns.database == "db1"));
+
+    let collections =
+        driver.list_collections(session, &ns0, CollectionListOptions::default()).await?;
+    assert!(collections.collections.iter().any(|c| c.name == key));
+    assert!(collections.collections.iter().any(|c| c.name == stream));
+
+    let _ = driver
+        .execute_in_namespace(
+            session,
+            Some(ns0),
+            &format!("DEL {} {}", key, stream),
+            QueryId::new(),
+        )
+        .await;
+    let _ = driver
+        .execute_in_namespace(session, Some(ns1), &format!("DEL {}", key), QueryId::new())
+        .await;
     driver.disconnect(session).await?;
     Ok(())
 }

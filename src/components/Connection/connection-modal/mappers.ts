@@ -119,8 +119,8 @@ export function getSshSummary(formData: ConnectionFormData): string {
 }
 
 export function isConnectionFormValid(formData: ConnectionFormData): boolean {
-  // MongoDB often runs without authentication in dev mode
-  const authRequired = formData.driver !== Driver.Mongodb;
+  // MongoDB and Redis often run without authentication in dev mode
+  const authRequired = formData.driver !== Driver.Mongodb && formData.driver !== Driver.Redis;
   // SQLite is file-based and doesn't need host/username/password in the traditional sense
   const isFileBased = formData.driver === Driver.Sqlite;
 
@@ -143,6 +143,7 @@ export function normalizePortForDriver(driver: Driver): number {
   if (driver === Driver.Postgres) return 5432;
   if (driver === Driver.Mysql) return 3306;
   if (driver === Driver.Mongodb) return 27017;
+  if (driver === Driver.Redis) return 6379;
   if (driver === Driver.Sqlite) return 0;
   return 5432;
 }

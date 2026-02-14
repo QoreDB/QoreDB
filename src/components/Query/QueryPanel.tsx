@@ -337,7 +337,7 @@ export function QueryPanel({
               });
             }
 
-            if (shouldRefreshSchema(queryToRun, isDocument)) {
+            if (shouldRefreshSchema(queryToRun, isDocument, dialect)) {
               forceRefreshCache(sessionId);
               onSchemaChange?.();
             }

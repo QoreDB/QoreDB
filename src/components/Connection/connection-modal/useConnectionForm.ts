@@ -20,6 +20,8 @@ function mapDriverString(driver: string | undefined): Driver | undefined {
       return Driver.Mysql;
     case 'mongodb':
       return Driver.Mongodb;
+    case 'redis':
+      return Driver.Redis;
     case 'sqlite':
     case 'sqlite3':
       return Driver.Sqlite;

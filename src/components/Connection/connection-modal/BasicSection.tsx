@@ -26,6 +26,8 @@ export function BasicSection({
   const { t } = useTranslation();
 
   const isFileBased = formData.driver === Driver.Sqlite;
+  const usernameRequired =
+    formData.driver !== Driver.Mongodb && formData.driver !== Driver.Redis;
 
   return (
     <div className="rounded-md border border-border bg-background p-4 space-y-4">
@@ -130,7 +132,8 @@ export function BasicSection({
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>
-                {t('connection.username')} <span className="text-error">*</span>
+                {t('connection.username')}{' '}
+                {usernameRequired && <span className="text-error">*</span>}
               </Label>
               <Input
                 placeholder="user"

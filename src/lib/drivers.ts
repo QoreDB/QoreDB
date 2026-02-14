@@ -9,6 +9,7 @@ export enum Driver {
   Postgres = 'postgres',
   Mysql = 'mysql',
   Mongodb = 'mongodb',
+  Redis = 'redis',
   Sqlite = 'sqlite',
 }
 
@@ -146,6 +147,29 @@ export const DRIVERS: Record<Driver, DriverMetadata> = {
     identifier: {
       quoteStart: '"',
       quoteEnd: '"',
+      namespaceStrategy: 'database',
+    },
+    queries: {},
+  },
+  [Driver.Redis]: {
+    id: Driver.Redis,
+    label: 'Redis',
+    icon: 'redis.png',
+    defaultPort: 6379,
+    namespaceLabel: 'dbtree.database',
+    namespacePluralLabel: 'dbtree.databases',
+    collectionLabel: 'dbtree.key',
+    collectionPluralLabel: 'dbtree.keys',
+    treeRootLabel: 'dbtree.databasesHeader',
+    createAction: 'none',
+    databaseFieldLabel: 'connection.databaseIndex',
+    supportsSchemas: false,
+    supportsSQL: false,
+    dataModel: 'key-value',
+    isDocumentBased: false,
+    identifier: {
+      quoteStart: '',
+      quoteEnd: '',
       namespaceStrategy: 'database',
     },
     queries: {},

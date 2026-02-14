@@ -50,7 +50,17 @@ services:
     volumes:
       - mongo_data:/data/db
 
+  redis:
+    image: redis:7-alpine
+    container_name: qoredb-redis
+    command: redis-server --requirepass qoredb_test
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+
 volumes:
   postgres_data:
   mysql_data:
   mongo_data:
+  redis_data:

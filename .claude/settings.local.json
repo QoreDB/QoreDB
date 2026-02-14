@@ -17,7 +17,13 @@
       "Bash(pnpm typecheck:*)",
       "Bash(git log:*)",
       "Bash(pnpm lint:*)",
-      "Bash(pnpm lint:fix:*)"
+      "Bash(pnpm lint:fix:*)",
+      "Read(//c/tmp/**)",
+      "Bash(python:*)",
+      "Bash(python3:*)",
+      "Bash(pip install:*)",
+      "Bash(pip show:*)",
+      "Bash(curl:*)"
     ]
   }
 }

@@ -85,10 +85,11 @@ fn normalize_config(mut config: ConnectionConfig) -> Result<ConnectionConfig, St
 
     let is_mongodb = config.driver == "mongodb";
     let is_sqlite = config.driver == "sqlite";
+    let is_redis = config.driver == "redis";
 
-    // Username is required for SQL databases but optional for MongoDB and SQLite.
+    // Username is required for SQL databases but optional for MongoDB, SQLite, and Redis.
     let username = config.username.trim();
-    if username.is_empty() && !is_mongodb && !is_sqlite {
+    if username.is_empty() && !is_mongodb && !is_sqlite && !is_redis {
         return Err("Username is required".to_string());
     }
     config.username = username.to_string();

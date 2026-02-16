@@ -1239,5 +1239,30 @@
     "description": "Virtual relations are local metadata that enable FK features (peek, ER diagram) for tables without real foreign key constraints.",
     "selectTable": "Select table...",
     "selectColumn": "Select column..."
+  },
+  "license": {
+    "currentTier": "Current tier",
+    "activate": "Activate",
+    "deactivate": "Deactivate license",
+    "keyPlaceholder": "Paste your license key",
+    "expired": "Expired",
+    "licensedTo": "Licensed to {{email}}",
+    "upgrade": {
+      "description": "This feature requires a Pro license.",
+      "hint": "Go to Settings to activate your license key."
+    },
+    "features": {
+      "sandbox": "Sandbox mode requires a Pro license.",
+      "visual_diff": "Visual Data Diff requires a Pro license.",
+      "er_diagram": "ER Diagram requires a Pro license.",
+      "audit_advanced": "Advanced audit log requires a Pro license.",
+      "profiling": "Query profiling requires a Pro license.",
+      "ai": "AI assistant requires a Pro license.",
+      "export_xlsx": "XLSX export requires a Pro license.",
+      "export_parquet": "Parquet export requires a Pro license.",
+      "custom_safety_rules": "Custom safety rules require a Pro license.",
+      "query_library_advanced": "Advanced query library requires a Pro license.",
+      "virtual_relations_auto_suggest": "Auto-suggest virtual relations requires a Pro license."
+    }
   }
 }

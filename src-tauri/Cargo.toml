@@ -60,5 +60,16 @@ ed25519-dalek = { version = "2", features = ["serde"] }
 [target."cfg(not(any(target_os = \"android\", target_os = \"ios\")))".dependencies]
 tauri-plugin-updater = "2"
 
+# Feature flags for Open Core tiers
+# Core (default): no flags needed
+# Pro: cargo build --features pro
+# Team: cargo build --features team (includes pro)
+# Enterprise: cargo build --features enterprise (includes team + pro)
+[features]
+default = []
+pro = []
+team = ["pro"]
+enterprise = ["team"]
+
 [dev-dependencies]
 tempfile = "3.24.0"

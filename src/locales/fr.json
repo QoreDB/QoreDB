@@ -1237,5 +1237,30 @@
     "description": "Les relations virtuelles sont des métadonnées locales qui activent les fonctionnalités FK (aperçu, diagramme ER) pour les tables sans contraintes de clé étrangère réelles.",
     "selectTable": "Sélectionner une table...",
     "selectColumn": "Sélectionner une colonne..."
+  },
+  "license": {
+    "currentTier": "Tier actuel",
+    "activate": "Activer",
+    "deactivate": "Désactiver la licence",
+    "keyPlaceholder": "Collez votre clé de licence",
+    "expired": "Expirée",
+    "licensedTo": "Licence enregistrée pour {{email}}",
+    "upgrade": {
+      "description": "Cette fonctionnalité nécessite une licence Pro.",
+      "hint": "Allez dans les Paramètres pour activer votre clé de licence."
+    },
+    "features": {
+      "sandbox": "Le mode Sandbox nécessite une licence Pro.",
+      "visual_diff": "Le Visual Data Diff nécessite une licence Pro.",
+      "er_diagram": "Le diagramme ER nécessite une licence Pro.",
+      "audit_advanced": "Le journal d'audit avancé nécessite une licence Pro.",
+      "profiling": "Le profilage de requêtes nécessite une licence Pro.",
+      "ai": "L'assistant IA nécessite une licence Pro.",
+      "export_xlsx": "L'export XLSX nécessite une licence Pro.",
+      "export_parquet": "L'export Parquet nécessite une licence Pro.",
+      "custom_safety_rules": "Les règles de sécurité personnalisées nécessitent une licence Pro.",
+      "query_library_advanced": "La bibliothèque de requêtes avancée nécessite une licence Pro.",
+      "virtual_relations_auto_suggest": "La suggestion automatique de relations virtuelles nécessite une licence Pro."
+    }
   }
 }

@@ -153,15 +153,17 @@ export function DataGrid({
   });
   const [internalGlobalFilter, setInternalGlobalFilter] = useState(initialFilter ?? '');
   const initialFilterRef = useRef<string | undefined>(undefined);
-
-  const globalFilter = serverSearchTerm !== undefined ? serverSearchTerm : internalGlobalFilter;
-  const setGlobalFilter = onServerSearchChange || setInternalGlobalFilter;
+  const isServerSideMode = serverSideTotalRows !== undefined;
+  const noopServerSearchChange = useCallback((_term: string) => {}, []);
+  const globalFilter = isServerSideMode ? (serverSearchTerm ?? '') : internalGlobalFilter;
+  const setGlobalFilter = isServerSideMode
+    ? (onServerSearchChange ?? noopServerSearchChange)
+    : setInternalGlobalFilter;
 
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [showFilters, setShowFilters] = useState(false);
-  const isServerSideSorting =
-    serverSideTotalRows !== undefined && typeof onServerSortChange === 'function';
+  const isServerSideSorting = isServerSideMode;
 
   useEffect(() => {
     if (!isServerSideSorting) return;
@@ -528,9 +530,9 @@ export function DataGrid({
     globalFilterFn: 'includesString',
     enableColumnResizing: true,
     columnResizeMode: 'onChange',
-    manualPagination: serverSideTotalRows !== undefined,
+    manualPagination: isServerSideMode,
     manualSorting: isServerSideSorting,
-    manualFiltering: serverSearchTerm !== undefined,
+    manualFiltering: isServerSideMode,
   });
 
   const { rows } = table.getRowModel();

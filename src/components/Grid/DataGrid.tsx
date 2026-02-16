@@ -21,6 +21,7 @@ import {
   Environment,
   TableSchema,
   RelationFilter,
+  SortDirection,
 } from '@/lib/tauri';
 import { CheckCircle2, Pencil } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -100,6 +101,9 @@ interface DataGridProps {
   serverSidePageSize?: number;
   onServerPageChange?: (page: number) => void;
   onServerPageSizeChange?: (pageSize: number) => void;
+  serverSortColumn?: string;
+  serverSortDirection?: SortDirection;
+  onServerSortChange?: (column?: string, direction?: SortDirection) => void;
   serverSearchTerm?: string;
   onServerSearchChange?: (term: string) => void;
   exportQuery?: string;
@@ -132,6 +136,9 @@ export function DataGrid({
   serverSidePageSize,
   onServerPageChange,
   onServerPageSizeChange,
+  serverSortColumn,
+  serverSortDirection,
+  onServerSortChange,
   serverSearchTerm,
   onServerSearchChange,
   exportQuery,
@@ -153,6 +160,42 @@ export function DataGrid({
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [showFilters, setShowFilters] = useState(false);
+  const isServerSideSorting =
+    serverSideTotalRows !== undefined && typeof onServerSortChange === 'function';
+
+  useEffect(() => {
+    if (!isServerSideSorting) return;
+
+    if (!serverSortColumn || !serverSortDirection) {
+      setSorting([]);
+      return;
+    }
+
+    setSorting([
+      {
+        id: serverSortColumn,
+        desc: serverSortDirection === 'desc',
+      },
+    ]);
+  }, [isServerSideSorting, serverSortColumn, serverSortDirection]);
+
+  const handleSortingChange = useCallback(
+    (updater: SortingState | ((old: SortingState) => SortingState)) => {
+      const nextSorting = typeof updater === 'function' ? updater(sorting) : updater;
+
+      setSorting(nextSorting);
+      if (!isServerSideSorting) return;
+
+      const primarySort = nextSorting[0];
+      if (!primarySort) {
+        onServerSortChange?.(undefined, undefined);
+        return;
+      }
+
+      onServerSortChange?.(primarySort.id, primarySort.desc ? 'desc' : 'asc');
+    },
+    [sorting, isServerSideSorting, onServerSortChange]
+  );
 
   useEffect(() => {
     if (initialFilter === undefined) return;
@@ -471,7 +514,7 @@ export function DataGrid({
       columnVisibility,
       columnFilters,
     },
-    onSortingChange: setSorting,
+    onSortingChange: handleSortingChange,
     onRowSelectionChange: setRowSelection,
     onPaginationChange: setPagination,
     onGlobalFilterChange: setGlobalFilter,
@@ -486,6 +529,7 @@ export function DataGrid({
     enableColumnResizing: true,
     columnResizeMode: 'onChange',
     manualPagination: serverSideTotalRows !== undefined,
+    manualSorting: isServerSideSorting,
     manualFiltering: serverSearchTerm !== undefined,
   });
 

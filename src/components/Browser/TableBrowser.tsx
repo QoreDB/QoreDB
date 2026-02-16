@@ -16,6 +16,7 @@ import {
   generateMigrationSql,
   applySandboxChanges,
   SandboxChangeDto,
+  SortDirection,
 } from '../../lib/tauri';
 import { useSchemaCache } from '../../hooks/useSchemaCache';
 import { ResultsViewer } from '../Results/ResultsViewer';
@@ -170,6 +171,8 @@ export function TableBrowser({
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
   const [totalRows, setTotalRows] = useState(0);
+  const [sortColumn, setSortColumn] = useState<string | undefined>(undefined);
+  const [sortDirection, setSortDirection] = useState<SortDirection | undefined>(undefined);
 
   // Search state
   const [searchTerm, setSearchTerm] = useState(searchFilter?.value ?? '');
@@ -189,6 +192,12 @@ export function TableBrowser({
 
   const handleServerSearchChange = useCallback((term: string) => {
     setSearchTerm(prev => (prev !== term ? term : prev));
+  }, []);
+
+  const handleServerSortChange = useCallback((column?: string, direction?: SortDirection) => {
+    setSortColumn(prev => (prev !== column ? column : prev));
+    setSortDirection(prev => (prev !== direction ? direction : prev));
+    setPage(prev => (prev !== 1 ? 1 : prev));
   }, []);
 
   useEffect(() => {
@@ -375,6 +384,8 @@ export function TableBrowser({
           page: !relationFilter ? page : 1,
           page_size: pageSize,
           search: debouncedSearchTerm,
+          sort_column: sortColumn,
+          sort_direction: sortDirection,
         };
 
         const [cachedSchema, dataResult] = await Promise.all([
@@ -436,6 +447,8 @@ export function TableBrowser({
     page,
     pageSize,
     debouncedSearchTerm,
+    sortColumn,
+    sortDirection,
   ]);
 
   useEffect(() => {
@@ -809,6 +822,9 @@ export function TableBrowser({
             serverSidePageSize={!relationFilter ? pageSize : undefined}
             onServerPageChange={!relationFilter ? setPage : undefined}
             onServerPageSizeChange={!relationFilter ? setPageSize : undefined}
+            serverSortColumn={!relationFilter ? sortColumn : undefined}
+            serverSortDirection={!relationFilter ? sortDirection : undefined}
+            onServerSortChange={!relationFilter ? handleServerSortChange : undefined}
             serverSearchTerm={!relationFilter ? searchTerm : undefined}
             onServerSearchChange={!relationFilter ? handleServerSearchChange : undefined}
             onRowClick={row => {

@@ -9,7 +9,7 @@ import { isDocumentDatabase } from '@/lib/driverCapabilities';
 import { DataGrid } from '../Grid/DataGrid';
 import { DocumentResults } from './DocumentResults';
 import { Driver } from '@/lib/drivers';
-import { QueryResult, Value, Environment, Namespace, TableSchema } from '@/lib/tauri';
+import { QueryResult, Value, Environment, Namespace, TableSchema, SortDirection } from '@/lib/tauri';
 import { SandboxChange, SandboxDeleteDisplay } from '@/lib/sandboxTypes';
 
 interface ResultsViewerProps {
@@ -37,6 +37,9 @@ interface ResultsViewerProps {
   serverSidePageSize?: number;
   onServerPageChange?: (page: number) => void;
   onServerPageSizeChange?: (pageSize: number) => void;
+  serverSortColumn?: string;
+  serverSortDirection?: SortDirection;
+  onServerSortChange?: (column?: string, direction?: SortDirection) => void;
   serverSearchTerm?: string;
   onServerSearchChange?: (search: string) => void;
 
@@ -80,6 +83,9 @@ export function ResultsViewer({
   serverSidePageSize,
   onServerPageChange,
   onServerPageSizeChange,
+  serverSortColumn,
+  serverSortDirection,
+  onServerSortChange,
   serverSearchTerm,
   onServerSearchChange,
   sandboxMode,
@@ -142,6 +148,9 @@ export function ResultsViewer({
       serverSidePageSize={serverSidePageSize}
       onServerPageChange={onServerPageChange}
       onServerPageSizeChange={onServerPageSizeChange}
+      serverSortColumn={serverSortColumn}
+      serverSortDirection={serverSortDirection}
+      onServerSortChange={onServerSortChange}
       serverSearchTerm={serverSearchTerm}
       onServerSearchChange={onServerSearchChange}
       sandboxMode={sandboxMode}

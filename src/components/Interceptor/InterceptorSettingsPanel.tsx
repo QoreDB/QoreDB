@@ -33,6 +33,7 @@ import {
   BUILTIN_SAFETY_RULE_I18N,
 } from '../../lib/tauri/interceptor';
 import { SafetyRuleEditor } from './SafetyRuleEditor';
+import { LicenseGate } from '@/components/License/LicenseGate';
 
 interface SectionProps {
   title: string;
@@ -251,7 +252,8 @@ export function InterceptorSettingsPanel() {
         </SettingRow>
       </Section>
 
-      {/* Profiling */}
+      {/* Profiling (Pro) */}
+      <LicenseGate feature="profiling">
       <Section
         title={t('interceptor.profiling.title')}
         description={t('interceptor.profiling.description')}
@@ -303,6 +305,7 @@ export function InterceptorSettingsPanel() {
           />
         </SettingRow>
       </Section>
+      </LicenseGate>
 
       {/* Safety */}
       <Section
@@ -356,7 +359,8 @@ export function InterceptorSettingsPanel() {
           </div>
         </div>
 
-        {/* Custom Rules */}
+        {/* Custom Rules (Pro) */}
+        <LicenseGate feature="custom_safety_rules">
         <div className="pt-4 border-t border-border">
           <div className="flex items-center justify-between mb-3">
             <Label className="text-sm font-medium">{t('interceptor.safety.customRules')}</Label>
@@ -418,6 +422,7 @@ export function InterceptorSettingsPanel() {
             </div>
           )}
         </div>
+        </LicenseGate>
       </Section>
 
       {/* Rule Editor Modal */}

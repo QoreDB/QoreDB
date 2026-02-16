@@ -44,6 +44,7 @@ import { getDriverMetadata, Driver, DRIVER_LABELS, DRIVER_ICONS } from '../../li
 import { CreateTableModal } from '../Table/CreateTableModal';
 import { emitTableChange, onTableChange } from '@/lib/tableEvents';
 import { ERDiagram } from '@/components/Schema/ERDiagram';
+import { LicenseGate } from '@/components/License/LicenseGate';
 import { StatCard } from './StatCard';
 
 export type DatabaseBrowserTab = 'overview' | 'tables' | 'routines' | 'triggers' | 'schema';
@@ -837,13 +838,15 @@ export function DatabaseBrowser({
           </div>
         ) : (
           <div className="h-full">
-            <ERDiagram
-              sessionId={sessionId}
-              namespace={namespace}
-              connectionId={connectionId}
-              schemaRefreshTrigger={schemaRefreshTrigger}
-              onTableSelect={onTableSelect}
-            />
+            <LicenseGate feature="er_diagram">
+              <ERDiagram
+                sessionId={sessionId}
+                namespace={namespace}
+                connectionId={connectionId}
+                schemaRefreshTrigger={schemaRefreshTrigger}
+                onTableSelect={onTableSelect}
+              />
+            </LicenseGate>
           </div>
         )}
       </div>

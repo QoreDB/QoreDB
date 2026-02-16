@@ -270,6 +270,10 @@
       "panelPageSize": "Changes per page",
       "panelPageSizeDescription": "Controls pagination in the changes panel."
     },
+    "license": {
+      "title": "License",
+      "description": "Manage your QoreDB license and unlock Pro features."
+    },
     "safetyPolicy": "Production Safety",
     "safetyPolicyDescription": "Control server-side guardrails for production queries.",
     "safetyPolicyRequireConfirmation": "Require confirmation for dangerous SQL",
@@ -310,7 +314,8 @@
       "editor": "Editor",
       "security": "Security",
       "data": "Data & Privacy",
-      "shortcuts": "Keyboard Shortcuts"
+      "shortcuts": "Keyboard Shortcuts",
+      "license": "License"
     },
     "search": {
       "placeholder": "Search settings...",

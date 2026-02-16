@@ -1,0 +1,67 @@
+name: Build & Test (Pro)
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  test-pro:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            dbus-x11 \
+            gnome-keyring \
+            pkg-config \
+            libglib2.0-dev \
+            libgtk-3-dev \
+            libwebkit2gtk-4.1-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev
+
+      - name: Start database containers
+        run: docker compose up -d postgres mysql mongodb
+
+      - name: Wait for databases
+        run: |
+          set -e
+          wait_for() {
+            local name="$1"
+            shift
+            for _ in $(seq 1 30); do
+              if "$@"; then
+                echo "$name ready"
+                return 0
+              fi
+              sleep 1
+            done
+            echo "$name failed to start"
+            return 1
+          }
+
+          wait_for postgres docker compose exec -T postgres pg_isready -U qoredb -d testdb
+          wait_for mysql docker compose exec -T mysql mysqladmin ping -uroot -proot_test --silent
+          wait_for mongodb docker compose exec -T mongodb mongosh -u qoredb -p qoredb_test --authenticationDatabase admin --quiet --eval "db.runCommand({ ping: 1 })"
+
+      - name: Run Pro tests (--features pro)
+        env:
+          RUST_TEST_THREADS: 1
+        run: |
+          dbus-run-session -- bash -c "cd src-tauri && cargo test --features pro"
+
+      - name: Verify Pro build compiles
+        run: cd src-tauri && cargo build --features pro
+
+      - name: Shutdown containers
+        if: always()
+        run: docker compose down -v

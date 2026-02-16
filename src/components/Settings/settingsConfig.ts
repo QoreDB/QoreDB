@@ -1,6 +1,6 @@
-import { Globe, Code2, Shield, Database, Keyboard, type LucideIcon } from 'lucide-react';
+import { Globe, Code2, Shield, Database, Keyboard, KeyRound, type LucideIcon } from 'lucide-react';
 
-export type SettingsSectionId = 'general' | 'editor' | 'security' | 'data' | 'shortcuts';
+export type SettingsSectionId = 'general' | 'editor' | 'security' | 'data' | 'shortcuts' | 'license';
 
 export interface SettingsSection {
   id: SettingsSectionId;
@@ -48,6 +48,12 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     labelKey: 'settings.sections.shortcuts',
     icon: Keyboard,
     keywords: ['keyboard', 'shortcut', 'hotkey', 'raccourci', 'clavier'],
+  },
+  {
+    id: 'license',
+    labelKey: 'settings.sections.license',
+    icon: KeyRound,
+    keywords: ['license', 'licence', 'pro', 'tier', 'key', 'clé', 'activation'],
   },
 ];
 

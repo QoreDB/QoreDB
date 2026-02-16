@@ -19,6 +19,7 @@ import { FulltextSearchPanel } from './components/Search/FulltextSearchPanel';
 import { QueryLibraryModal } from './components/Query/QueryLibraryModal';
 import { OnboardingModal } from './components/Onboarding/OnboardingModal';
 import { DataDiffViewer } from './components/Diff/DataDiffViewer';
+import { LicenseGate } from './components/License/LicenseGate';
 
 import { useTheme } from './hooks/useTheme';
 import { useWebviewGuards } from './hooks/useWebviewGuards';
@@ -64,6 +65,7 @@ import {
 import { useTabContext } from './providers/TabProvider';
 import { useSessionContext } from './providers/SessionProvider';
 import { useModalContext } from './providers/ModalProvider';
+import { useLicense } from './providers/LicenseProvider';
 
 const DEFAULT_PROJECT = 'default';
 
@@ -124,6 +126,8 @@ export function AppLayout() {
     handleCloseConnectionModal,
     toggleSidebar,
   } = useModalContext();
+
+  const { isFeatureEnabled } = useLicense();
 
   // --- Action handlers ---
 
@@ -201,6 +205,10 @@ export function AppLayout() {
       notify.error(t('query.noConnectionError'));
       return;
     }
+    if (!isFeatureEnabled('sandbox')) {
+      notify.warning(t('license.features.sandbox'));
+      return;
+    }
     const isActive = isSandboxActive(sessionId);
     if (isActive) {
       const prefs = getSandboxPreferences();
@@ -220,7 +228,7 @@ export function AppLayout() {
     if (activeConnection?.environment === 'staging') notify.warning(t('sandbox.envWarningStaging'));
     if (activeConnection?.environment === 'production')
       notify.warning(t('sandbox.envWarningProduction'));
-  }, [activeConnection?.environment, sessionId, t]);
+  }, [activeConnection?.environment, isFeatureEnabled, sessionId, t]);
 
   // --- Palette ---
 
@@ -649,13 +657,15 @@ function AppContent({
   if (activeTab?.type === 'diff') {
     return (
       <div className="flex-1 min-h-0 flex flex-col">
-        <DataDiffViewer
-          key={activeTab.id}
-          activeConnection={activeConnection}
-          namespace={activeTab.namespace}
-          leftSource={activeTab.diffLeftSource}
-          rightSource={activeTab.diffRightSource}
-        />
+        <LicenseGate feature="visual_diff">
+          <DataDiffViewer
+            key={activeTab.id}
+            activeConnection={activeConnection}
+            namespace={activeTab.namespace}
+            leftSource={activeTab.diffLeftSource}
+            rightSource={activeTab.diffRightSource}
+          />
+        </LicenseGate>
       </div>
     );
   }

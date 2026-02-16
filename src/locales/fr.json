@@ -270,6 +270,10 @@
       "panelPageSize": "Changements par page",
       "panelPageSizeDescription": "Contrôle la pagination dans le panneau des changements."
     },
+    "license": {
+      "title": "Licence",
+      "description": "Gérez votre licence QoreDB et débloquez les fonctionnalités Pro."
+    },
     "safetyPolicy": "Sécurité production",
     "safetyPolicyDescription": "Contrôlez les garde-fous côté backend pour la production.",
     "safetyPolicyRequireConfirmation": "Confirmer les requêtes SQL dangereuses",
@@ -310,7 +314,8 @@
       "editor": "Éditeur",
       "security": "Sécurité",
       "data": "Données & Confidentialité",
-      "shortcuts": "Raccourcis clavier"
+      "shortcuts": "Raccourcis clavier",
+      "license": "Licence"
     },
     "search": {
       "placeholder": "Rechercher dans les paramètres...",

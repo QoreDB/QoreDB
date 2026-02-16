@@ -6,6 +6,7 @@ pub mod driver;
 pub mod export;
 pub mod fulltext_search;
 pub mod interceptor;
+pub mod license;
 pub mod logs;
 pub mod metrics;
 pub mod mutation;

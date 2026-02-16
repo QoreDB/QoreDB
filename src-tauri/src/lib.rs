@@ -5,6 +5,7 @@ pub mod commands;
 pub mod engine;
 pub mod export;
 pub mod interceptor;
+pub mod license;
 pub mod metrics;
 pub mod observability;
 pub mod policy;
@@ -24,6 +25,7 @@ use interceptor::InterceptorPipeline;
 use policy::SafetyPolicy;
 use vault::{VaultLock, backend::KeyringProvider};
 use export::ExportPipeline;
+use license::LicenseManager;
 use virtual_relations::VirtualRelationStore;
 
 pub type SharedState = Arc<Mutex<AppState>>;
@@ -36,6 +38,7 @@ pub struct AppState {
     pub interceptor: Arc<InterceptorPipeline>,
     pub export_pipeline: Arc<ExportPipeline>,
     pub virtual_relations: Arc<VirtualRelationStore>,
+    pub license_manager: LicenseManager,
 }
 
 impl AppState {
@@ -69,6 +72,9 @@ impl AppState {
 
         let _ = vault_lock.auto_unlock_if_no_password();
 
+        // Initialize license manager (loads stored key from keyring)
+        let license_manager = LicenseManager::new(Box::new(KeyringProvider::new()));
+
         Self {
             registry,
             session_manager,
@@ -78,6 +84,7 @@ impl AppState {
             interceptor,
             export_pipeline,
             virtual_relations,
+            license_manager,
         }
     }
 }
@@ -189,6 +196,10 @@ pub fn run() {
             commands::virtual_relations::add_virtual_relation,
             commands::virtual_relations::update_virtual_relation,
             commands::virtual_relations::delete_virtual_relation,
+            // License commands
+            commands::license::activate_license,
+            commands::license::get_license_status,
+            commands::license::deactivate_license,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

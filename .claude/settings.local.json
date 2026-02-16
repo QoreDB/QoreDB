@@ -30,7 +30,8 @@
       "Bash(rtk gain:*)",
       "Bash(rtk init:*)",
       "Bash(rtk git status:*)",
-      "Bash(rtk ls:*)"
+      "Bash(rtk ls:*)",
+      "Bash(rtk cargo test -p qoredb)"
     ]
   }
 }

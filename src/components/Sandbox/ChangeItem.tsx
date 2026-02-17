@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { useTranslation } from 'react-i18next';
 import { Plus, Pencil, Trash2, Undo2, Clock, Eye, ChevronDown } from 'lucide-react';
 import { SandboxChange, SandboxChangeType } from '@/lib/sandboxTypes';

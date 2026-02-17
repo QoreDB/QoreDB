@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 //! Sandbox Tauri Commands
 //!
 //! Commands for generating migration SQL and applying sandbox changes.
@@ -32,10 +34,13 @@ pub struct FailedChange {
     pub error: String,
 }
 
-// ==================== Pro implementation ====================
+// ==================== Implementation ====================
+// Always compiled. Core mode enforces a 3-change limit.
 
-#[cfg(feature = "pro")]
-mod pro_impl {
+#[cfg(not(feature = "pro"))]
+const CORE_SANDBOX_LIMIT: usize = 3;
+
+mod sandbox_impl {
     use super::*;
     use crate::engine::sql_generator::{generate_migration_script, SandboxChangeType};
     use crate::engine::types::{RowData, SessionId};
@@ -55,6 +60,18 @@ mod pro_impl {
         session_id: String,
         changes: Vec<SandboxChangeDto>,
     ) -> Result<MigrationScriptResponse, String> {
+        #[cfg(not(feature = "pro"))]
+        if changes.len() > CORE_SANDBOX_LIMIT {
+            return Ok(MigrationScriptResponse {
+                success: false,
+                script: None,
+                error: Some(format!(
+                    "Core edition is limited to {} sandbox changes. Upgrade to QoreDB Pro for unlimited.",
+                    CORE_SANDBOX_LIMIT
+                )),
+            });
+        }
+
         let driver_id = {
             let state = state.lock().await;
             let session = parse_session_id(&session_id)?;
@@ -86,6 +103,19 @@ mod pro_impl {
         changes: Vec<SandboxChangeDto>,
         use_transaction: bool,
     ) -> Result<ApplySandboxResponse, String> {
+        #[cfg(not(feature = "pro"))]
+        if changes.len() > CORE_SANDBOX_LIMIT {
+            return Ok(ApplySandboxResponse {
+                success: false,
+                applied_count: 0,
+                error: Some(format!(
+                    "Core edition is limited to {} sandbox changes. Upgrade to QoreDB Pro for unlimited.",
+                    CORE_SANDBOX_LIMIT
+                )),
+                failed_changes: vec![],
+            });
+        }
+
         let session_manager = {
             let state = state.lock().await;
             Arc::clone(&state.session_manager)
@@ -258,37 +288,4 @@ mod pro_impl {
     }
 }
 
-#[cfg(feature = "pro")]
-pub use pro_impl::*;
-
-// ==================== Core stubs ====================
-
-#[cfg(not(feature = "pro"))]
-#[tauri::command]
-pub async fn generate_migration_sql(
-    _state: State<'_, crate::SharedState>,
-    _session_id: String,
-    _changes: Vec<SandboxChangeDto>,
-) -> Result<MigrationScriptResponse, String> {
-    Ok(MigrationScriptResponse {
-        success: false,
-        script: None,
-        error: Some("Sandbox requires QoreDB Pro".to_string()),
-    })
-}
-
-#[cfg(not(feature = "pro"))]
-#[tauri::command]
-pub async fn apply_sandbox_changes(
-    _state: State<'_, crate::SharedState>,
-    _session_id: String,
-    _changes: Vec<SandboxChangeDto>,
-    _use_transaction: bool,
-) -> Result<ApplySandboxResponse, String> {
-    Ok(ApplySandboxResponse {
-        success: false,
-        applied_count: 0,
-        error: Some("Sandbox requires QoreDB Pro".to_string()),
-        failed_changes: vec![],
-    })
-}
+pub use sandbox_impl::*;

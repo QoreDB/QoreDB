@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: BUSL-1.1
+
 /**
  * DiffConfigPanel - Configuration panel for key columns and compare action
  */

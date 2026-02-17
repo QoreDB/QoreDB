@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: BUSL-1.1
+
 /**
  * DiffStatsBar - Statistics bar with counters and filters
  */

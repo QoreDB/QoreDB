@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * Tab system types for QoreDB
  * Defines the structure of open tabs for multi-table navigation

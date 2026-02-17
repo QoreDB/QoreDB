@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 //! PostgreSQL Driver
 //!
 //! Implements the DataEngine trait for PostgreSQL databases using SQLx.

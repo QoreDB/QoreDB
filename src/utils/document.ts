@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { Environment, QueryResult, Value, Namespace } from '@/lib/tauri';
 import { VirtualItem } from '@tanstack/react-virtual';
 import { UseTranslationOptions } from 'react-i18next';

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { useState, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Copy, Download, Play, AlertTriangle, CheckCircle2, Loader2, FileCode } from 'lucide-react';

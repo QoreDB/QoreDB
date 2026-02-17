@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
 import type { SavedConnection } from '@/lib/tauri';
 import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';

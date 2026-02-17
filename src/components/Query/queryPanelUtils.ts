@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { Driver } from '@/lib/drivers';
 import { MONGO_TEMPLATES } from '../Editor/mongo-constants';
 

@@ -50,26 +50,26 @@
 
 **2.1 — Extraction du Sandbox**
 
-- [ ] Créer `src-tauri/src/sandbox/` (nouveau module Rust)
-- [ ] Déplacer la logique de `commands/sandbox.rs` vers le nouveau module
+- [x] ~~Créer `src-tauri/src/sandbox/` (nouveau module Rust)~~ — Non nécessaire : la logique reste dans `commands/sandbox.rs` avec cfg gates inline, cohérent avec la convention "gates dans commands/ uniquement"
+- [x] ~~Déplacer la logique~~ — voir ci-dessus
 - [x] Wrapper avec `#[cfg(feature = "pro")]`
 - [x] Côté frontend : wrapper les composants `Sandbox/` avec `LicenseGate`
-- [ ] Implémenter la limite Core (3 changements gratuits + prompt upgrade)
+- [x] Implémenter la limite Core (3 changements gratuits + prompt upgrade)
 - [ ] Tester le mode Core (limite respectée, prompt affiché)
 - [ ] Tester le mode Pro (sandbox illimité)
 
 **2.2 — Séparation Interceptor basique / avancé**
 
-- [ ] Garder `interceptor/pipeline.rs` et `interceptor/safety.rs` en Core
-- [ ] Séparer audit basique (50 entrées) vs avancé (illimité, filtres, export) dans `audit.rs`
-- [ ] Passer `interceptor/profiling.rs` sous `#[cfg(feature = "pro")]`
+- [x] Garder `interceptor/pipeline.rs` et `interceptor/safety.rs` en Core
+- [x] Séparer audit basique (50 entrées) vs avancé (illimité, filtres, export) dans `audit.rs`
+- [x] Passer `interceptor/profiling.rs` sous `#[cfg(feature = "pro")]`
 - [x] Côté frontend : `LicenseGate` sur les panels avancés d'Interceptor
 - [ ] Tester les deux modes
 
 **2.3 — Feature-flagging Visual Diff**
 
 - [x] Wrapper le point d'entrée Diff avec `LicenseGate`
-- [ ] Commande Tauri associée retourne erreur explicite en mode Core
+- [x] Commande Tauri associée retourne erreur explicite en mode Core — N/A : pas de commande Tauri dédiée, le diff est entièrement frontend. Le gating `LicenseGate` suffit.
 - [ ] Tester
 
 **2.4 — Feature-flagging ER Diagram**
@@ -83,7 +83,7 @@
 - [x] Ajouter onglet "Licence" dans `settingsConfig.ts`
 - [x] Affichage du tier actuel
 - [x] Champ d'activation de clé (copier-coller)
-- [ ] Liste features déverrouillées / verrouillées
+- [x] Liste features déverrouillées / verrouillées
 - [ ] Lien vers le site (achat / upgrade)
 - [x] Bouton de désactivation
 
@@ -97,10 +97,10 @@
 
 **2.7 — Fichiers de licence**
 
-- [ ] Modifier si besoin `LICENSE` (Apache 2.0) à la racine
-- [ ] Créer `LICENSE-BSL` (BSL 1.1) à la racine
-- [ ] Ajouter les headers SPDX dans les fichiers Core (`Apache-2.0`)
-- [ ] Ajouter les headers SPDX dans les fichiers Premium (`BUSL-1.1`)
+- [x] Modifier si besoin `LICENSE` (Apache 2.0) à la racine
+- [x] Créer `LICENSE-BSL` (BSL 1.1) à la racine
+- [x] Ajouter les headers SPDX dans les fichiers Core (`Apache-2.0`)
+- [x] Ajouter les headers SPDX dans les fichiers Premium (`BUSL-1.1`)
 
 **✅ MILESTONE** : à ce stade, QoreDB Core se build et se distribue publiquement. QoreDB Pro se build avec clé. Les features premium sont gatées.
 

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * Table header component for DataGrid with resizable columns and filters
  */

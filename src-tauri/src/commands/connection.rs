@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 //! Connection Tauri Commands
 //!
 //! Commands for managing database connections.

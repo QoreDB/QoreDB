@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { TabProvider } from './providers/TabProvider';
 import { ModalProvider } from './providers/ModalProvider';
 import { SessionProvider } from './providers/SessionProvider';

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: BUSL-1.1
+
 /**
  * DiffSourcePanel - Panel for selecting a data source (table or query)
  */

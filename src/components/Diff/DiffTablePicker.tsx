@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: BUSL-1.1
+
 /**
  * DiffTablePicker - Searchable dropdown for selecting tables
  */

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 //! Session Manager
 //!
 //! Centralized management of all active database sessions.

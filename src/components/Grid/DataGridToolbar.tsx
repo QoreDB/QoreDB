@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { RefObject } from 'react';
 import { Table, Column } from '@tanstack/react-table';
 import { useTranslation } from 'react-i18next';

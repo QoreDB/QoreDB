@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { useState, useEffect, useCallback } from 'react';
 import { getShortcut } from '@/utils/platform';
 import { useTranslation } from 'react-i18next';

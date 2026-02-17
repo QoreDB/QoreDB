@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * Hook for inline cell editing functionality in DataGrid
  * Manages editing state, validation, and update operations

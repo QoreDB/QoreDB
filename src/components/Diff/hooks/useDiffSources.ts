@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: BUSL-1.1
+
 /**
  * useDiffSources - Hook for managing diff sources state and execution
  */

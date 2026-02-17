@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { format, SqlLanguage } from 'sql-formatter';
 import { Driver } from './drivers';
 

@@ -272,7 +272,22 @@
     },
     "license": {
       "title": "Licence",
-      "description": "Gérez votre licence QoreDB et débloquez les fonctionnalités Pro."
+      "description": "Gérez votre licence QoreDB et débloquez les fonctionnalités Pro.",
+      "featuresTitle": "Disponibilité des fonctionnalités",
+      "featuresDescription": "Fonctionnalités incluses dans votre tier de licence actuel.",
+      "featureNames": {
+        "sandbox": "Bac à sable SQL",
+        "visual_diff": "Comparaison visuelle de données",
+        "er_diagram": "Diagramme ER",
+        "profiling": "Profilage de requêtes",
+        "custom_safety_rules": "Règles de sécurité personnalisées",
+        "audit_advanced": "Journal d'audit avancé",
+        "ai": "Assistant IA",
+        "export_xlsx": "Export XLSX",
+        "export_parquet": "Export Parquet",
+        "query_library_advanced": "Bibliothèque de requêtes avancée",
+        "virtual_relations_auto_suggest": "Suggestion auto de relations virtuelles"
+      }
     },
     "safetyPolicy": "Sécurité production",
     "safetyPolicyDescription": "Contrôlez les garde-fous côté backend pour la production.",
@@ -905,6 +920,7 @@
       "clearLog": "Effacer le journal",
       "clearConfirm": "Effacer toutes les entrées du journal d'audit ? Cette action est irréversible.",
       "noEntries": "Aucune entrée dans le journal d'audit",
+      "upgradeForFilters": "Passez à Pro pour les filtres, l'export et les statistiques avancées",
       "blockedBy": "Bloqué par : {{rule}}",
       "filters": {
         "environment": "Environnement",

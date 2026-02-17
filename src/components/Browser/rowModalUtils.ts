@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { Driver } from '../../lib/drivers';
 import { TableColumn, TableSchema, Value } from '../../lib/tauri';
 

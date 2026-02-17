@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * Hook for foreign key peek functionality in DataGrid
  * Manages loading and caching of foreign key relationship previews

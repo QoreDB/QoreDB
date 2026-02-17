@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { Column } from '@tanstack/react-table';
 import { Input } from '@/components/ui/input';
 import { useState, useEffect } from 'react';

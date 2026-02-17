@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 //! MySQL Driver
 //!
 //! Implements the DataEngine trait for MySQL/MariaDB databases using SQLx.

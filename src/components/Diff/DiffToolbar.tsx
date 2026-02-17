@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: BUSL-1.1
+
 /**
  * DiffToolbar - Toolbar with swap, export, and refresh actions
  */

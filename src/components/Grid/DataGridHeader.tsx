@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * Header bar component for DataGrid
  * Displays row counts, timing info, load more controls, and delete button

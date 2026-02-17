@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * Editable data cell component for DataGrid
  * Handles cell display, inline editing, and foreign key peek tooltips

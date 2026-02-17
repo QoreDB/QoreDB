@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { useTranslation } from 'react-i18next';
 import { AlertCircle, X, CheckCircle2, Info } from 'lucide-react';
 import { DataGrid } from '../Grid/DataGrid';

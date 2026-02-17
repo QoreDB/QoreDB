@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Data Engine Module
 // Universal abstraction layer for all database engines
 

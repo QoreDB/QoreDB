@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 use tauri::State;
 
 use crate::license::status::LicenseStatus;

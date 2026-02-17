@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 //! MongoDB Driver
 //!
 //! Implements the DataEngine trait for MongoDB using the official MongoDB driver.

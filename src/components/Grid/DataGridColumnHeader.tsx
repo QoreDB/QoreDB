@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * Column header component for DataGrid
  * Displays column name with primary key/foreign key/index/unique indicators and sort controls

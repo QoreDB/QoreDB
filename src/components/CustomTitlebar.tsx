@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';

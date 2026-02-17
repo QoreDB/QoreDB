@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * License types and Tauri bindings for the Open Core licensing system.
  */

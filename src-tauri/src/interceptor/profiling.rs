@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: BUSL-1.1
+
 //! Profiling Store
 //!
 //! Extended profiling metrics for query performance analysis.

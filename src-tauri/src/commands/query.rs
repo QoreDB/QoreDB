@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 //! Query Tauri Commands
 //!
 //! Commands for executing queries and exploring database schema.

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { useTranslation } from 'react-i18next';
 import { X, AlertTriangle, AlertCircle, CheckCircle2, Info, ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 //! Connection URL parsing module
 //!
 //! Provides a unified interface for parsing database connection URLs/DSNs

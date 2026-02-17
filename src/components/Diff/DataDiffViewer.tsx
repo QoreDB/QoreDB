@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: BUSL-1.1
+
 /**
  * DataDiffViewer - Visual comparison of two data sources
  *

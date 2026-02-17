@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 //! SQL Generator
 //!
 //! Generates driver-specific SQL statements for INSERT, UPDATE, and DELETE operations.

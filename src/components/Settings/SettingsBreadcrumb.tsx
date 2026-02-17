@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { useTranslation } from 'react-i18next';
 import { ChevronRight } from 'lucide-react';
 import { getSectionById, type SettingsSectionId } from './settingsConfig';

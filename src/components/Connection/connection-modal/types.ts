@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import type { Environment } from '@/lib/tauri';
 import { Driver } from '@/lib/drivers';
 

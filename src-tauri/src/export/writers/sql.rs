@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 use tokio::io::{AsyncWriteExt, BufWriter};
 use tokio::fs::File;
 

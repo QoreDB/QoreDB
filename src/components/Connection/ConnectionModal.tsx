@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { DRIVER_ICONS, DRIVER_LABELS } from '@/lib/drivers';

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 //! Full-text Search Strategies
 //!
 //! Provides driver-specific optimized full-text search implementations

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { Trash } from 'lucide-react';
 import { TableColumn } from '../../lib/tauri';
 import { Button } from '@/components/ui/button';

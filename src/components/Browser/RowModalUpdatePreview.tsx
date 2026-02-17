@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { Value } from '../../lib/tauri';
 
 interface RowModalUpdatePreviewProps {

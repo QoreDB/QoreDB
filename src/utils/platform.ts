@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 export const isMacOS = (): boolean => {
   if (typeof window !== 'undefined' && window.navigator) {
     return window.navigator.userAgent.toLowerCase().includes('mac');

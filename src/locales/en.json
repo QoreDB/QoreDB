@@ -272,7 +272,22 @@
     },
     "license": {
       "title": "License",
-      "description": "Manage your QoreDB license and unlock Pro features."
+      "description": "Manage your QoreDB license and unlock Pro features.",
+      "featuresTitle": "Feature availability",
+      "featuresDescription": "Features included in your current license tier.",
+      "featureNames": {
+        "sandbox": "SQL Sandbox",
+        "visual_diff": "Visual Data Diff",
+        "er_diagram": "ER Diagram",
+        "profiling": "Query Profiling",
+        "custom_safety_rules": "Custom Safety Rules",
+        "audit_advanced": "Advanced Audit Log",
+        "ai": "AI Assistant",
+        "export_xlsx": "XLSX Export",
+        "export_parquet": "Parquet Export",
+        "query_library_advanced": "Advanced Query Library",
+        "virtual_relations_auto_suggest": "Auto-suggest Virtual Relations"
+      }
     },
     "safetyPolicy": "Production Safety",
     "safetyPolicyDescription": "Control server-side guardrails for production queries.",
@@ -907,6 +922,7 @@
       "clearLog": "Clear Log",
       "clearConfirm": "Clear all audit log entries? This cannot be undone.",
       "noEntries": "No audit log entries",
+      "upgradeForFilters": "Upgrade to Pro for filters, export, and advanced statistics",
       "blockedBy": "Blocked by: {{rule}}",
       "filters": {
         "environment": "Environment",

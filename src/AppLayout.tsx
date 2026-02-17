@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Toaster } from 'sonner';
@@ -65,7 +67,6 @@ import {
 import { useTabContext } from './providers/TabProvider';
 import { useSessionContext } from './providers/SessionProvider';
 import { useModalContext } from './providers/ModalProvider';
-import { useLicense } from './providers/LicenseProvider';
 
 const DEFAULT_PROJECT = 'default';
 
@@ -126,8 +127,6 @@ export function AppLayout() {
     handleCloseConnectionModal,
     toggleSidebar,
   } = useModalContext();
-
-  const { isFeatureEnabled } = useLicense();
 
   // --- Action handlers ---
 
@@ -205,10 +204,7 @@ export function AppLayout() {
       notify.error(t('query.noConnectionError'));
       return;
     }
-    if (!isFeatureEnabled('sandbox')) {
-      notify.warning(t('license.features.sandbox'));
-      return;
-    }
+    // Sandbox is available in Core with a 3-change limit — no full block here
     const isActive = isSandboxActive(sessionId);
     if (isActive) {
       const prefs = getSandboxPreferences();
@@ -228,7 +224,7 @@ export function AppLayout() {
     if (activeConnection?.environment === 'staging') notify.warning(t('sandbox.envWarningStaging'));
     if (activeConnection?.environment === 'production')
       notify.warning(t('sandbox.envWarningProduction'));
-  }, [activeConnection?.environment, isFeatureEnabled, sessionId, t]);
+  }, [activeConnection?.environment, sessionId, t]);
 
   // --- Palette ---
 

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 //! Universal data types for the QoreDB Data Engine
 //!
 //! These types provide a normalized representation of database concepts

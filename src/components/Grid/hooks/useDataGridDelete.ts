@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * Hook for row deletion functionality in DataGrid
  * Manages delete operations with confirmation dialogs

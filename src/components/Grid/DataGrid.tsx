@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { useMemo, useState, useCallback, useRef, useEffect } from 'react';
 import {
   useReactTable,

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Eye, Trash2, Eraser, GitCompare, Link2 } from 'lucide-react';

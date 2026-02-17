@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import type { Environment, SavedConnection } from './tauri';
 import type { QueryLibraryExportV1 } from './queryLibrary';
 

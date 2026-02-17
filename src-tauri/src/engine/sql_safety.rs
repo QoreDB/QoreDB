@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 //! SQL safety classification for read-only and production enforcement.
 
 use sqlparser::{

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: BUSL-1.1
+
 /**
  * DiffResultsGrid - Virtualized grid for displaying diff results
  */

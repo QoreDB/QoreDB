@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 //! SQLite Driver
 //!
 //! Implements the DataEngine trait for SQLite databases using SQLx.

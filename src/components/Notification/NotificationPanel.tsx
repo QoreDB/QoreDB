@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { useTranslation } from 'react-i18next';
 import { Trash2, Bell } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';

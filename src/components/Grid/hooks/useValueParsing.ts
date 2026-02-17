@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * Hook for value parsing and conversion utilities in DataGrid
  * Provides functions to convert between display and storage formats

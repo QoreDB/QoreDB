@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 //! DataEngine trait definition
 //!
 //! This is the core abstraction that all database drivers must implement.

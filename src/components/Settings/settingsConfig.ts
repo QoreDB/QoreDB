@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { Globe, Code2, Shield, Database, Keyboard, KeyRound, type LucideIcon } from 'lucide-react';
 
 export type SettingsSectionId = 'general' | 'editor' | 'security' | 'data' | 'shortcuts' | 'license';

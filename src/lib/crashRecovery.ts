@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 export interface RecoveryTab {
   id: string;
   type: 'query' | 'table' | 'database' | 'diff';

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { useTranslation } from 'react-i18next';
 import type { ProFeature } from '@/lib/license';
 import { featureRequiredTier } from '@/lib/license';

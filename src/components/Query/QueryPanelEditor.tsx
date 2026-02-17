@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { Ref } from 'react';
 import { SQLEditor, SQLEditorHandle } from '../Editor/SQLEditor';
 import { MongoEditor } from '../Editor/MongoEditor';

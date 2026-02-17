@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { Shield, Lock, Link2Off, Database, Server } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 

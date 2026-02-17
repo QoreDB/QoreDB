@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { createContext, useContext, type ReactNode } from 'react';
 import { useTabs, type UseTabsOptions } from '@/hooks/useTabs';
 import type { OpenTab } from '@/lib/tabs';

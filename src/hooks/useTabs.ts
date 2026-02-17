@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { useState, useCallback, useMemo } from 'react';
 import { OpenTab } from '@/lib/tabs';
 import { TableBrowserTab } from '@/components/Browser/TableBrowser';

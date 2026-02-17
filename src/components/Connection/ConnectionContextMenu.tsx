@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { ReactNode, useState } from 'react';
 import { Copy, Loader2, Pencil, Trash2, Zap } from 'lucide-react';
 import {

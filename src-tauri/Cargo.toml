@@ -1,6 +1,6 @@
 [package]
 name = "qoredb"
-version = "0.1.16"
+version = "0.1.18"
 description = "Next gen DB Client"
 authors = ["Raphaël Plassart <raphael.plassart@gmail.com>"]
 edition = "2021"

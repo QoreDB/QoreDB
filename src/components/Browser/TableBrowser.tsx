@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -64,6 +66,7 @@ import {
   deactivateSandbox,
 } from '@/lib/sandboxStore';
 import { SandboxChange, MigrationScript } from '@/lib/sandboxTypes';
+import { useLicense } from '@/providers/LicenseProvider';
 import { UI_EVENT_REFRESH_TABLE } from '@/lib/uiEvents';
 import {
   Dialog,
@@ -158,6 +161,7 @@ export function TableBrowser({
   onActiveTabChange,
 }: TableBrowserProps) {
   const { t } = useTranslation();
+  const { isFeatureEnabled } = useLicense();
   const viewTrackedRef = useRef(false);
   const [activeTab, setActiveTab] = useState<TableBrowserTab>(initialTab ?? 'data');
   const [schema, setSchema] = useState<TableSchema | null>(null);
@@ -484,12 +488,25 @@ export function TableBrowser({
     setRestoreBackupOpen(true);
   }, [connectionId, sessionId]);
 
-  // Sandbox handlers
+  // Sandbox handlers (Core: max 3 changes, Pro: unlimited)
+  const CORE_SANDBOX_LIMIT = 3;
+
+  const canAddSandboxChange = useCallback(() => {
+    if (isFeatureEnabled('sandbox')) return true;
+    const session = getSandboxSession(sessionId);
+    if (session.changes.length >= CORE_SANDBOX_LIMIT) {
+      toast.warning(t('license.features.sandbox'));
+      return false;
+    }
+    return true;
+  }, [isFeatureEnabled, sessionId, t]);
+
   const handleSandboxInsert = useCallback(
     (newValues: Record<string, Value>) => {
+      if (!canAddSandboxChange()) return;
       createInsertChange(sessionId, namespace, tableName, newValues, schema ?? undefined);
     },
-    [sessionId, namespace, tableName, schema]
+    [sessionId, namespace, tableName, schema, canAddSandboxChange]
   );
 
   const handleSandboxUpdate = useCallback(
@@ -498,6 +515,7 @@ export function TableBrowser({
       oldValues: Record<string, Value>,
       newValues: Record<string, Value>
     ) => {
+      if (!canAddSandboxChange()) return;
       createUpdateChange(
         sessionId,
         namespace,
@@ -508,11 +526,12 @@ export function TableBrowser({
         schema ?? undefined
       );
     },
-    [sessionId, namespace, tableName, schema]
+    [sessionId, namespace, tableName, schema, canAddSandboxChange]
   );
 
   const handleSandboxDelete = useCallback(
     (primaryKey: Record<string, Value>, oldValues: Record<string, Value>) => {
+      if (!canAddSandboxChange()) return;
       createDeleteChange(
         sessionId,
         namespace,
@@ -522,7 +541,7 @@ export function TableBrowser({
         schema ?? undefined
       );
     },
-    [sessionId, namespace, tableName, schema]
+    [sessionId, namespace, tableName, schema, canAddSandboxChange]
   );
 
   const handleGenerateSQL = useCallback(async () => {

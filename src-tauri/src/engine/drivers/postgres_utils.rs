@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 //! PostgreSQL driver helpers
 
 use std::collections::HashMap;

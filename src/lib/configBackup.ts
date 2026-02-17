@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import type { DiagnosticsSettings } from './diagnosticsSettings';
 import type { SafetyPolicy } from './tauri';
 import { getDiagnosticsSettings } from './diagnosticsSettings';

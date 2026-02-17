@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react';
 import type { LicenseStatus, LicenseTier, ProFeature } from '@/lib/license';
 import {

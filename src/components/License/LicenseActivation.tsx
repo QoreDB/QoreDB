@@ -6,6 +6,7 @@ import { openUrl } from '@tauri-apps/plugin-opener';
 import { useLicense } from '@/providers/LicenseProvider';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { DangerConfirmDialog } from '@/components/Guard/DangerConfirmDialog';
 import { LicenseBadge } from './LicenseBadge';
 import { ExternalLink } from 'lucide-react';
 
@@ -31,6 +32,7 @@ export function LicenseActivation() {
   const [key, setKey] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showDeactivateConfirm, setShowDeactivateConfirm] = useState(false);
 
   const handleActivate = async () => {
     setError(null);
@@ -50,6 +52,7 @@ export function LicenseActivation() {
     setLoading(true);
     try {
       await deactivate();
+      setShowDeactivateConfirm(false);
     } catch (e) {
       setError(String(e));
     } finally {
@@ -138,15 +141,26 @@ export function LicenseActivation() {
 
       {/* Deactivation */}
       {isActive && (
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={handleDeactivate}
-          disabled={loading}
-          className="w-fit text-xs"
-        >
-          {t('license.deactivate')}
-        </Button>
+        <>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowDeactivateConfirm(true)}
+            disabled={loading}
+            className="w-fit text-xs"
+          >
+            {t('license.deactivate')}
+          </Button>
+          <DangerConfirmDialog
+            open={showDeactivateConfirm}
+            onOpenChange={setShowDeactivateConfirm}
+            title={t('license.deactivateConfirm.title')}
+            description={t('license.deactivateConfirm.description')}
+            confirmLabel={t('license.deactivateConfirm.confirm')}
+            loading={loading}
+            onConfirm={handleDeactivate}
+          />
+        </>
       )}
 
       {error && <p className="text-xs text-red-500">{error}</p>}

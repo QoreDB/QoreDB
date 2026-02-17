@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { SavedConnection } from '../../lib/tauri';
 import { Button } from '@/components/ui/button';
-import { MoreVertical, Pencil, Trash2, Zap, Copy, Loader2 } from 'lucide-react';
+import { MoreVertical, Pencil, Trash2, Zap, Copy, Loader2, Star } from 'lucide-react';
 import { useConnectionActions } from './useConnectionActions';
 import { useTranslation } from 'react-i18next';
 import {
@@ -18,9 +18,17 @@ interface ConnectionMenuProps {
   connection: SavedConnection;
   onEdit: (connection: SavedConnection, password: string) => void;
   onDeleted: () => void;
+  isFavorite?: boolean;
+  onToggleFavorite?: () => void;
 }
 
-export function ConnectionMenu({ connection, onEdit, onDeleted }: ConnectionMenuProps) {
+export function ConnectionMenu({
+  connection,
+  onEdit,
+  onDeleted,
+  isFavorite,
+  onToggleFavorite,
+}: ConnectionMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -100,6 +108,19 @@ export function ConnectionMenu({ connection, onEdit, onDeleted }: ConnectionMenu
               {duplicating ? <Loader2 size={14} className="animate-spin" /> : <Copy size={14} />}
               {t('connection.menu.duplicate')}
             </button>
+
+            {onToggleFavorite && (
+              <button
+                className="w-full flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-muted transition-colors text-left"
+                onClick={() => {
+                  onToggleFavorite();
+                  setIsOpen(false);
+                }}
+              >
+                <Star size={14} className={isFavorite ? 'fill-current text-yellow-500' : ''} />
+                {isFavorite ? t('sidebar.removeFromFavorites') : t('sidebar.addToFavorites')}
+              </button>
+            )}
 
             <div className="h-px bg-border my-1" />
 

@@ -14,7 +14,9 @@ interface ConnectionItemProps {
   isExpanded: boolean;
   isConnected?: boolean;
   isConnecting?: boolean;
+  isFavorite?: boolean;
   onSelect: () => void;
+  onToggleFavorite: () => void;
   onEdit: (connection: SavedConnection, password: string) => void;
   onDeleted: () => void;
 }
@@ -25,7 +27,9 @@ export function ConnectionItem({
   isExpanded,
   isConnected,
   isConnecting,
+  isFavorite,
   onSelect,
+  onToggleFavorite,
   onEdit,
   onDeleted,
 }: ConnectionItemProps) {
@@ -36,7 +40,13 @@ export function ConnectionItem({
   const isProduction = env === 'production';
 
   return (
-    <ConnectionContextMenu connection={connection} onEdit={onEdit} onDeleted={onDeleted}>
+    <ConnectionContextMenu
+      connection={connection}
+      onEdit={onEdit}
+      onDeleted={onDeleted}
+      isFavorite={isFavorite}
+      onToggleFavorite={onToggleFavorite}
+    >
       <div
         className={cn(
           'group flex items-center transition-all',
@@ -98,7 +108,13 @@ export function ConnectionItem({
           </div>
         </button>
 
-        <ConnectionMenu connection={connection} onEdit={onEdit} onDeleted={onDeleted} />
+        <ConnectionMenu
+          connection={connection}
+          onEdit={onEdit}
+          onDeleted={onDeleted}
+          isFavorite={isFavorite}
+          onToggleFavorite={onToggleFavorite}
+        />
       </div>
     </ConnectionContextMenu>
   );

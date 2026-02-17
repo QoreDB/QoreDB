@@ -149,7 +149,11 @@
     "failedToGetCredentials": "Échec de la récupération des identifiants",
     "couldNotRetrievePassword": "Impossible de récupérer le mot de passe du coffre-fort",
     "connectedTo": "Connecté à {{name}}",
-    "connectionToFailed": "La connexion à {{name}} a échoué"
+    "connectionToFailed": "La connexion à {{name}} a échoué",
+    "favorites": "Favoris",
+    "otherConnections": "Autres connexions",
+    "addToFavorites": "Favoris",
+    "removeFromFavorites": "Retirer des favoris"
   },
   "search": {
     "placeholder": "Tapez une commande ou recherchez...",
@@ -1269,6 +1273,11 @@
     "currentTier": "Tier actuel",
     "activate": "Activer",
     "deactivate": "Désactiver la licence",
+    "deactivateConfirm": {
+      "title": "Désactiver la licence",
+      "description": "Votre clé de licence sera supprimée de cet appareil. Vous devrez la saisir à nouveau pour restaurer les fonctionnalités Pro.",
+      "confirm": "Désactiver"
+    },
     "keyPlaceholder": "Collez votre clé de licence",
     "expired": "Expirée",
     "licensedTo": "Licence enregistrée pour {{email}}",

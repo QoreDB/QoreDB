@@ -25,6 +25,8 @@ interface ConnectionContextMenuProps {
   connection: SavedConnection;
   onEdit: (connection: SavedConnection, password: string) => void;
   onDeleted: () => void;
+  isFavorite?: boolean;
+  onToggleFavorite?: () => void;
   children: ReactNode;
 }
 
@@ -32,6 +34,8 @@ export function ConnectionContextMenu({
   connection,
   onEdit,
   onDeleted,
+  isFavorite,
+  onToggleFavorite,
   children,
 }: ConnectionContextMenuProps) {
   const { t } = useTranslation();
@@ -61,6 +65,11 @@ export function ConnectionContextMenu({
             {duplicating ? <Loader2 size={14} className="animate-spin" /> : <Copy size={14} />}
             {t('connection.menu.duplicate')}
           </ContextMenuItem>
+          {onToggleFavorite && (
+            <ContextMenuItem onSelect={() => onToggleFavorite()}>
+              {isFavorite ? t('sidebar.removeFromFavorites') : t('sidebar.addToFavorites')}
+            </ContextMenuItem>
+          )}
           <ContextMenuSeparator />
           <ContextMenuItem
             variant="destructive"

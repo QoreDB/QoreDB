@@ -149,7 +149,11 @@
     "failedToGetCredentials": "Failed to get credentials",
     "couldNotRetrievePassword": "Could not retrieve password from vault",
     "connectedTo": "Connected to {{name}}",
-    "connectionToFailed": "Connection to {{name}} failed"
+    "connectionToFailed": "Connection to {{name}} failed",
+    "favorites": "Favorites",
+    "otherConnections": "Other connections",
+    "addToFavorites": "Add to favorites",
+    "removeFromFavorites": "Remove from favorites"
   },
   "search": {
     "placeholder": "Type a command or search...",
@@ -1271,6 +1275,11 @@
     "currentTier": "Current tier",
     "activate": "Activate",
     "deactivate": "Deactivate license",
+    "deactivateConfirm": {
+      "title": "Deactivate license",
+      "description": "Your license key will be removed from this device. You will need to re-enter it to restore Pro features.",
+      "confirm": "Deactivate"
+    },
     "keyPlaceholder": "Paste your license key",
     "expired": "Expired",
     "licensedTo": "Licensed to {{email}}",

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { ConnectionItem } from './ConnectionItem';
 import { DBTree } from '../Tree/DBTree';
 import { ErrorLogPanel } from '../Logs/ErrorLogPanel';
@@ -18,7 +18,13 @@ import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
 import { useTheme } from '@/hooks/useTheme';
+import { useLicense } from '@/providers/LicenseProvider';
+import { LicenseBadge } from '@/components/License/LicenseBadge';
 import { UI_EVENT_OPEN_LOGS } from '@/lib/uiEvents';
+import {
+  reconcileFavoriteConnectionIds,
+  saveFavoriteConnectionIds,
+} from '@/lib/connectionFavorites';
 
 const DEFAULT_PROJECT = 'default';
 
@@ -60,9 +66,11 @@ export function Sidebar({
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [connecting, setConnecting] = useState<string | null>(null);
   const [logsOpen, setLogsOpen] = useState(false);
+  const [favoriteConnectionIds, setFavoriteConnectionIds] = useState<string[]>([]);
 
   const { t } = useTranslation();
   const { resolvedTheme } = useTheme();
+  const { tier } = useLicense();
 
   useEffect(() => {
     loadConnections();
@@ -85,13 +93,50 @@ export function Sidebar({
     return () => window.removeEventListener(UI_EVENT_OPEN_LOGS, handler);
   }, []);
 
+  const favoriteConnectionSet = useMemo(
+    () => new Set(favoriteConnectionIds),
+    [favoriteConnectionIds]
+  );
+
+  const connectionsById = useMemo(
+    () => new Map(connections.map(connection => [connection.id, connection])),
+    [connections]
+  );
+
+  const favoriteConnections = useMemo(
+    () =>
+      favoriteConnectionIds
+        .map(connectionId => connectionsById.get(connectionId))
+        .filter((connection): connection is SavedConnection => Boolean(connection)),
+    [favoriteConnectionIds, connectionsById]
+  );
+
+  const regularConnections = useMemo(
+    () => connections.filter(connection => !favoriteConnectionSet.has(connection.id)),
+    [connections, favoriteConnectionSet]
+  );
+
   async function loadConnections() {
     try {
       const saved = await listSavedConnections(DEFAULT_PROJECT);
       setConnections(saved);
+      setFavoriteConnectionIds(
+        reconcileFavoriteConnectionIds(saved.map(connection => connection.id))
+      );
     } catch (err) {
       console.error('Failed to load connections:', err);
     }
+  }
+
+  function handleToggleFavorite(connectionId: string) {
+    setFavoriteConnectionIds(previous => {
+      const next = previous.includes(connectionId)
+        ? previous.filter(id => id !== connectionId)
+        : [connectionId, ...previous];
+
+      saveFavoriteConnectionIds(next);
+      return next;
+    });
   }
 
   async function handleConnect(conn: SavedConnection) {
@@ -145,6 +190,40 @@ export function Sidebar({
     }
   }
 
+  function renderConnection(connection: SavedConnection) {
+    return (
+      <div key={connection.id}>
+        <ConnectionItem
+          connection={connection}
+          isSelected={selectedId === connection.id}
+          isExpanded={expandedId === connection.id}
+          isConnected={connectedConnectionId === connection.id}
+          isConnecting={connecting === connection.id}
+          isFavorite={favoriteConnectionSet.has(connection.id)}
+          onSelect={() => handleSelect(connection)}
+          onToggleFavorite={() => handleToggleFavorite(connection.id)}
+          onEdit={onEditConnection}
+          onDeleted={loadConnections}
+        />
+        {expandedId === connection.id && connectedSessionId && (
+          <div className="pl-4 border-l border-border ml-4 mt-1">
+            <DBTree
+              connectionId={connectedSessionId}
+              driver={connection.driver}
+              connection={connection}
+              onTableSelect={onTableSelect}
+              onDatabaseSelect={onDatabaseSelect}
+              onCompareTable={onCompareTable}
+              onAiGenerateForTable={onAiGenerateForTable}
+              refreshTrigger={schemaRefreshTrigger}
+              activeNamespace={activeNamespace}
+            />
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <aside
       className="w-64 h-full flex flex-col border-r border-border bg-muted/30"
@@ -163,6 +242,7 @@ export function Sidebar({
             className="opacity-90"
           />
           <span className="text-sm tracking-tight">QoreDB</span>
+          <LicenseBadge tier={tier} />
         </button>
       </header>
 
@@ -176,35 +256,27 @@ export function Sidebar({
               {t('sidebar.noConnections')}
             </p>
           ) : (
-            connections.map(conn => (
-              <div key={conn.id}>
-                <ConnectionItem
-                  connection={conn}
-                  isSelected={selectedId === conn.id}
-                  isExpanded={expandedId === conn.id}
-                  isConnected={connectedConnectionId === conn.id}
-                  isConnecting={connecting === conn.id}
-                  onSelect={() => handleSelect(conn)}
-                  onEdit={onEditConnection}
-                  onDeleted={loadConnections}
-                />
-                {expandedId === conn.id && connectedSessionId && (
-                  <div className="pl-4 border-l border-border ml-4 mt-1">
-                    <DBTree
-                      connectionId={connectedSessionId}
-                      driver={conn.driver}
-                      connection={conn}
-                      onTableSelect={onTableSelect}
-                      onDatabaseSelect={onDatabaseSelect}
-                      onCompareTable={onCompareTable}
-                      onAiGenerateForTable={onAiGenerateForTable}
-                      refreshTrigger={schemaRefreshTrigger}
-                      activeNamespace={activeNamespace}
-                    />
+            <>
+              {favoriteConnections.length > 0 && (
+                <>
+                  <div className="px-2 pb-1 pt-0.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/80">
+                    {t('sidebar.favorites')}
                   </div>
-                )}
-              </div>
-            ))
+                  {favoriteConnections.map(renderConnection)}
+                </>
+              )}
+
+              {regularConnections.length > 0 && favoriteConnections.length > 0 && (
+                <>
+                  <div className="mx-2 my-1.5 h-px bg-border/70" />
+                  <div className="px-2 pb-1 pt-0.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/80">
+                    {t('sidebar.otherConnections')}
+                  </div>
+                </>
+              )}
+
+              {regularConnections.map(renderConnection)}
+            </>
           )}
         </div>
       </section>

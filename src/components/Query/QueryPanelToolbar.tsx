@@ -15,6 +15,7 @@ import {
   Folder,
   Layers,
   Database,
+  Sparkles,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Tooltip } from '@/components/ui/tooltip';
@@ -47,6 +48,8 @@ interface QueryPanelToolbarProps {
   onLibraryOpen: () => void;
   onSaveToLibrary: () => void;
   onTemplateSelect: (templateKey: keyof typeof MONGO_TEMPLATES) => void;
+  onAiToggle?: () => void;
+  aiPanelOpen?: boolean;
 }
 
 export function QueryPanelToolbar({
@@ -72,6 +75,8 @@ export function QueryPanelToolbar({
   onLibraryOpen,
   onSaveToLibrary,
   onTemplateSelect,
+  onAiToggle,
+  aiPanelOpen,
 }: QueryPanelToolbarProps) {
   const { t } = useTranslation();
 
@@ -214,6 +219,24 @@ export function QueryPanelToolbar({
             )}
           >
             <Layers size={16} />
+          </Button>
+        </Tooltip>
+      )}
+
+      {onAiToggle && (
+        <Tooltip content={t('ai.title')}>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onAiToggle}
+            className={cn(
+              'h-9 w-9',
+              aiPanelOpen
+                ? 'text-accent bg-accent/10 hover:bg-accent/20'
+                : 'text-muted-foreground hover:text-foreground'
+            )}
+          >
+            <Sparkles size={16} />
           </Button>
         </Tooltip>
       )}

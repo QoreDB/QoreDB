@@ -330,7 +330,8 @@
       "security": "Sécurité",
       "data": "Données & Confidentialité",
       "shortcuts": "Raccourcis clavier",
-      "license": "Licence"
+      "license": "Licence",
+      "ai": "Assistant IA"
     },
     "search": {
       "placeholder": "Rechercher dans les paramètres...",
@@ -1289,6 +1290,29 @@
       "custom_safety_rules": "Les règles de sécurité personnalisées nécessitent une licence Pro.",
       "query_library_advanced": "La bibliothèque de requêtes avancée nécessite une licence Pro.",
       "virtual_relations_auto_suggest": "La suggestion automatique de relations virtuelles nécessite une licence Pro."
+    }
+  },
+  "ai": {
+    "title": "Assistant IA",
+    "promptPlaceholder": "Décrivez la requête que vous souhaitez générer...",
+    "insertQuery": "Insérer dans l'éditeur",
+    "copyQuery": "Requête copiée",
+    "dangerousWarning": "Requête dangereuse",
+    "safetyWarning": "Requête de mutation",
+    "noProvider": "Aucune clé API configurée.",
+    "configureProvider": "Configurer un fournisseur IA",
+    "noSession": "Connectez-vous à une base de données pour utiliser l'assistant IA.",
+    "ollamaLocal": "Local",
+    "settings": {
+      "title": "Fournisseurs IA",
+      "description": "Configurez les clés API pour la génération de requêtes assistée par IA.",
+      "defaultModel": "Modèle par défaut",
+      "local": "Local",
+      "configured": "Configuré",
+      "notConfigured": "Non configuré",
+      "enterKey": "Entrez la clé API...",
+      "deleteKey": "Supprimer la clé API",
+      "ollamaHint": "Ollama s'exécute localement — aucune clé API requise. Assurez-vous qu'Ollama est lancé sur votre machine."
     }
   }
 }

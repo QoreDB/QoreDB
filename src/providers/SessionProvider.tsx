@@ -105,14 +105,8 @@ const SessionContext = createContext<SessionContextValue | null>(null);
 
 export function SessionProvider({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
-  const {
-    tabs,
-    activeTabId,
-    queryDrafts,
-    tableBrowserTabs,
-    databaseBrowserTabs,
-    resetTabs,
-  } = useTabContext();
+  const { tabs, activeTabId, queryDrafts, tableBrowserTabs, databaseBrowserTabs, resetTabs } =
+    useTabContext();
   const { setSettingsOpen, handleCloseConnectionModal } = useModalContext();
 
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -228,7 +222,15 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     recoverySaveHandleRef.current = window.setTimeout(() => {
       saveCrashRecoverySnapshot(snapshot);
     }, RECOVERY_SAVE_DEBOUNCE_MS);
-  }, [activeConnection, sessionId, tabs, activeTabId, queryDrafts, tableBrowserTabs, databaseBrowserTabs]);
+  }, [
+    activeConnection,
+    sessionId,
+    tabs,
+    activeTabId,
+    queryDrafts,
+    tableBrowserTabs,
+    databaseBrowserTabs,
+  ]);
 
   useEffect(() => {
     scheduleRecoverySave();

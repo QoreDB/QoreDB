@@ -371,7 +371,10 @@ export function AuditLogPanel() {
             </SelectContent>
           </Select>
 
-          <Select value={statusFilter} onValueChange={v => setStatusFilter(v as typeof statusFilter)}>
+          <Select
+            value={statusFilter}
+            onValueChange={v => setStatusFilter(v as typeof statusFilter)}
+          >
             <SelectTrigger className="w-32">
               <SelectValue placeholder={t('interceptor.audit.filters.status')} />
             </SelectTrigger>

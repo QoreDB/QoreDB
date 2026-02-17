@@ -386,33 +386,33 @@ Le site doit refléter le positionnement LinkedIn : technique, honnête, centré
 
 ### Repo QoreDB
 
-| Phase | Livrable | Estimation |
-|-------|----------|------------|
-| 1.1 | Refactoring App.tsx | 2-3 jours |
-| 1.2 | Module license/ Rust | 3 jours |
-| 1.3 | Hook + composants React | 1-2 jours |
-| 1.4 | Feature flags Cargo | 1 jour |
-| 2.1 | Extraction Sandbox | 2 jours |
-| 2.2 | Séparation Interceptor | 1 jour |
-| 2.3 | Feature-flagging Diff + ER | 1 jour |
-| 2.4 | Page License Settings | 1 jour |
-| 2.5 | CI dual-build | 1 jour |
-| 3 | IA BYOK complète | 3-4 semaines |
+| Phase | Livrable                   | Estimation   |
+| ----- | -------------------------- | ------------ |
+| 1.1   | Refactoring App.tsx        | 2-3 jours    |
+| 1.2   | Module license/ Rust       | 3 jours      |
+| 1.3   | Hook + composants React    | 1-2 jours    |
+| 1.4   | Feature flags Cargo        | 1 jour       |
+| 2.1   | Extraction Sandbox         | 2 jours      |
+| 2.2   | Séparation Interceptor     | 1 jour       |
+| 2.3   | Feature-flagging Diff + ER | 1 jour       |
+| 2.4   | Page License Settings      | 1 jour       |
+| 2.5   | CI dual-build              | 1 jour       |
+| 3     | IA BYOK complète           | 3-4 semaines |
 
 **Total Phases 1-2** : ~13-15 jours de travail effectif.
 **Total Phase 3** : ~3-4 semaines additionnelles.
 
 ### Site vitrine
 
-| Livrable | Estimation |
-|----------|------------|
-| Page Pricing | 2-3 jours |
-| Intégration Stripe + webhooks | 2-3 jours |
-| Génération de clés Ed25519 | 1 jour |
-| Email de livraison | 1 jour |
-| Page gestion de licence | 1 jour |
-| Changelog | 1 jour |
-| Docs minimales | 2-3 jours |
+| Livrable                      | Estimation |
+| ----------------------------- | ---------- |
+| Page Pricing                  | 2-3 jours  |
+| Intégration Stripe + webhooks | 2-3 jours  |
+| Génération de clés Ed25519    | 1 jour     |
+| Email de livraison            | 1 jour     |
+| Page gestion de licence       | 1 jour     |
+| Changelog                     | 1 jour     |
+| Docs minimales                | 2-3 jours  |
 
 **Total site** : ~10-14 jours de travail effectif.
 
@@ -491,4 +491,4 @@ Le temps passé sur le licensing, le site, Stripe, est du temps non investi sur 
 
 ---
 
-*Ce document est la fiche de route d'implémentation technique. Il sera mis à jour au fur et à mesure de l'avancement.*
+_Ce document est la fiche de route d'implémentation technique. Il sera mis à jour au fur et à mesure de l'avancement._

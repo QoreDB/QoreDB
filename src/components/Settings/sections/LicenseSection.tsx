@@ -54,13 +54,7 @@ export function LicenseSection({ searchQuery }: LicenseSectionProps) {
                 ) : (
                   <Lock size={14} className="text-muted-foreground shrink-0" />
                 )}
-                <span
-                  className={
-                    enabled
-                      ? 'text-(--color-text-primary)'
-                      : 'text-muted-foreground'
-                  }
-                >
+                <span className={enabled ? 'text-(--color-text-primary)' : 'text-muted-foreground'}>
                   {t(`settings.license.featureNames.${feature}`)}
                 </span>
                 {!enabled && (

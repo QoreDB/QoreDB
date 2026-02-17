@@ -1,8 +1,24 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Globe, Code2, Shield, Database, Keyboard, KeyRound, type LucideIcon } from 'lucide-react';
+import {
+  Globe,
+  Code2,
+  Shield,
+  Database,
+  Keyboard,
+  KeyRound,
+  Sparkles,
+  type LucideIcon,
+} from 'lucide-react';
 
-export type SettingsSectionId = 'general' | 'editor' | 'security' | 'data' | 'shortcuts' | 'license';
+export type SettingsSectionId =
+  | 'general'
+  | 'editor'
+  | 'security'
+  | 'data'
+  | 'shortcuts'
+  | 'license'
+  | 'ai';
 
 export interface SettingsSection {
   id: SettingsSectionId;
@@ -56,6 +72,21 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     labelKey: 'settings.sections.license',
     icon: KeyRound,
     keywords: ['license', 'licence', 'pro', 'tier', 'key', 'clé', 'activation'],
+  },
+  {
+    id: 'ai',
+    labelKey: 'settings.sections.ai',
+    icon: Sparkles,
+    keywords: [
+      'ai',
+      'openai',
+      'anthropic',
+      'ollama',
+      'llm',
+      'intelligence',
+      'artificielle',
+      'assistant',
+    ],
   },
 ];
 

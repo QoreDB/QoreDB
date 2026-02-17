@@ -11,7 +11,14 @@ import { isDocumentDatabase } from '@/lib/driverCapabilities';
 import { DataGrid } from '../Grid/DataGrid';
 import { DocumentResults } from './DocumentResults';
 import { Driver } from '@/lib/drivers';
-import { QueryResult, Value, Environment, Namespace, TableSchema, SortDirection } from '@/lib/tauri';
+import {
+  QueryResult,
+  Value,
+  Environment,
+  Namespace,
+  TableSchema,
+  SortDirection,
+} from '@/lib/tauri';
 import { SandboxChange, SandboxDeleteDisplay } from '@/lib/sandboxTypes';
 
 interface ResultsViewerProps {

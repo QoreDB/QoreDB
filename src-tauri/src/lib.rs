@@ -3,6 +3,8 @@
 // QoreDB - Modern local-first database client
 // Core library
 
+#[cfg(feature = "pro")]
+pub mod ai;
 pub mod commands;
 pub mod engine;
 pub mod export;
@@ -41,6 +43,8 @@ pub struct AppState {
     pub export_pipeline: Arc<ExportPipeline>,
     pub virtual_relations: Arc<VirtualRelationStore>,
     pub license_manager: LicenseManager,
+    #[cfg(feature = "pro")]
+    pub ai_manager: Arc<ai::manager::AiManager>,
 }
 
 impl AppState {
@@ -77,6 +81,10 @@ impl AppState {
         // Initialize license manager (loads stored key from keyring)
         let license_manager = LicenseManager::new(Box::new(KeyringProvider::new()));
 
+        // Initialize AI manager (Pro only)
+        #[cfg(feature = "pro")]
+        let ai_manager = Arc::new(ai::manager::AiManager::new(Box::new(KeyringProvider::new())));
+
         Self {
             registry,
             session_manager,
@@ -87,6 +95,8 @@ impl AppState {
             export_pipeline,
             virtual_relations,
             license_manager,
+            #[cfg(feature = "pro")]
+            ai_manager,
         }
     }
 }
@@ -202,6 +212,14 @@ pub fn run() {
             commands::license::activate_license,
             commands::license::get_license_status,
             commands::license::deactivate_license,
+            // AI commands
+            commands::ai::ai_generate_query,
+            commands::ai::ai_explain_result,
+            commands::ai::ai_summarize_schema,
+            commands::ai::ai_fix_error,
+            commands::ai::ai_save_api_key,
+            commands::ai::ai_delete_api_key,
+            commands::ai::ai_get_provider_status,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

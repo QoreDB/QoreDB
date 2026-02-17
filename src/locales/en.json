@@ -330,7 +330,8 @@
       "security": "Security",
       "data": "Data & Privacy",
       "shortcuts": "Keyboard Shortcuts",
-      "license": "License"
+      "license": "License",
+      "ai": "AI Assistant"
     },
     "search": {
       "placeholder": "Search settings...",
@@ -1291,6 +1292,29 @@
       "custom_safety_rules": "Custom safety rules require a Pro license.",
       "query_library_advanced": "Advanced query library requires a Pro license.",
       "virtual_relations_auto_suggest": "Auto-suggest virtual relations requires a Pro license."
+    }
+  },
+  "ai": {
+    "title": "AI Assistant",
+    "promptPlaceholder": "Describe the query you want to generate...",
+    "insertQuery": "Insert into Editor",
+    "copyQuery": "Query copied",
+    "dangerousWarning": "Dangerous query",
+    "safetyWarning": "Mutation query",
+    "noProvider": "No API key configured.",
+    "configureProvider": "Configure AI provider",
+    "noSession": "Connect to a database to use the AI assistant.",
+    "ollamaLocal": "Local",
+    "settings": {
+      "title": "AI Providers",
+      "description": "Configure API keys for AI-powered query generation.",
+      "defaultModel": "Default model",
+      "local": "Local",
+      "configured": "Configured",
+      "notConfigured": "Not configured",
+      "enterKey": "Enter API key...",
+      "deleteKey": "Delete API key",
+      "ollamaHint": "Ollama runs locally — no API key required. Make sure Ollama is running on your machine."
     }
   }
 }

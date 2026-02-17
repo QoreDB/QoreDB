@@ -1,5 +1,7 @@
 # Implémentation côté app QoreDB: licence Pro (spec précise)
 
+STATUT : DONE
+
 ## 1. Objectif
 
 Ce document décrit exactement ce qu'il reste à implémenter dans l'application desktop QoreDB (Tauri/React/Rust) pour exploiter le système de licence Pro déjà en place côté site showcase.

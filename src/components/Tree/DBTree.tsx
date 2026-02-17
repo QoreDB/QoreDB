@@ -297,7 +297,11 @@ export function DBTree({
       setExpandedNs(key);
       setExpandedNamespace(ns);
       setCollapsedActiveNsKey(null);
-      await Promise.all([refreshCollections(ns, 1, false), refreshRoutines(ns), refreshTriggers(ns)]);
+      await Promise.all([
+        refreshCollections(ns, 1, false),
+        refreshRoutines(ns),
+        refreshTriggers(ns),
+      ]);
     }
     onDatabaseSelect?.(ns);
   }
@@ -667,9 +671,7 @@ export function DBTree({
                         )}
                         <Zap size={12} />
                         <span>{t('dbtree.triggers')}</span>
-                        <span className="text-muted-foreground/60 ml-auto">
-                          {triggers.length}
-                        </span>
+                        <span className="text-muted-foreground/60 ml-auto">{triggers.length}</span>
                       </button>
                       {expandedSections.has('triggers') &&
                         triggers.map(trigger => (
@@ -679,14 +681,9 @@ export function DBTree({
                             title={`${trigger.timing} ${trigger.events.join(' | ')} ON ${trigger.table_name}`}
                           >
                             <span className="shrink-0">
-                              <Zap
-                                size={13}
-                                className={cn(!trigger.enabled && 'opacity-40')}
-                              />
+                              <Zap size={13} className={cn(!trigger.enabled && 'opacity-40')} />
                             </span>
-                            <span className="truncate font-mono text-xs">
-                              {trigger.name}
-                            </span>
+                            <span className="truncate font-mono text-xs">{trigger.name}</span>
                             <span className="text-[10px] text-muted-foreground/60 ml-auto">
                               {trigger.table_name}
                             </span>
@@ -712,9 +709,7 @@ export function DBTree({
                         )}
                         <Calendar size={12} />
                         <span>{t('dbtree.events')}</span>
-                        <span className="text-muted-foreground/60 ml-auto">
-                          {dbEvents.length}
-                        </span>
+                        <span className="text-muted-foreground/60 ml-auto">{dbEvents.length}</span>
                       </button>
                       {expandedSections.has('events') &&
                         dbEvents.map(evt => (
@@ -726,9 +721,7 @@ export function DBTree({
                             <span className="shrink-0">
                               <Calendar size={13} />
                             </span>
-                            <span className="truncate font-mono text-xs">
-                              {evt.name}
-                            </span>
+                            <span className="truncate font-mono text-xs">{evt.name}</span>
                             <span
                               className={cn(
                                 'text-[10px] ml-auto',

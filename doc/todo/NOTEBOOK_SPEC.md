@@ -19,6 +19,7 @@ Un **document exécutable** qui mélange cellules SQL/NoSQL, Markdown et visuali
 ## 2. Cas d'usage concrets
 
 ### Investigation d'incident (le cas le plus fréquent)
+
 > "Vendredi soir, le paiement du client #4521 a échoué. Je retrace tout dans un notebook."
 
 ```
@@ -36,16 +37,19 @@ Un **document exécutable** qui mélange cellules SQL/NoSQL, Markdown et visuali
 Le notebook est ensuite **partageable** avec l'équipe et **ré-exécutable** pour vérifier que le fix fonctionne.
 
 ### Onboarding développeur
+
 > "Le nouveau dev doit comprendre notre schéma de facturation."
 
 Le notebook guide à travers les tables clés, montre des exemples de données réelles, et documente les cas limites — le tout exécutable et toujours à jour.
 
 ### Reporting / audit récurrent
+
 > "Chaque lundi, je vérifie les métriques de la semaine."
 
 Un notebook avec des queries paramétrées (`$week_start`) qu'on ré-exécute en un clic.
 
 ### Documentation vivante de queries complexes
+
 > "Cette query de 40 lignes calcule le MRR. Personne ne comprend comment."
 
 Le notebook découpe la query en étapes avec des explications entre chaque cellule.
@@ -61,46 +65,47 @@ interface QoreNotebook {
   version: 1;
   metadata: NotebookMetadata;
   cells: NotebookCell[];
-  variables: Record<string, NotebookVariable>;  // paramètres globaux
+  variables: Record<string, NotebookVariable>; // paramètres globaux
 }
 
 interface NotebookMetadata {
-  id: string;                    // uuid
+  id: string; // uuid
   title: string;
   description?: string;
-  createdAt: string;             // ISO 8601
+  createdAt: string; // ISO 8601
   updatedAt: string;
   author?: string;
   tags?: string[];
-  connectionHint?: {             // suggestion de connexion (non obligatoire)
+  connectionHint?: {
+    // suggestion de connexion (non obligatoire)
     driver: DriverType;
     database?: string;
-    label?: string;              // nom de la connexion sauvegardée
+    label?: string; // nom de la connexion sauvegardée
   };
 }
 
 interface NotebookCell {
-  id: string;                    // uuid, stable (pour références inter-cellules)
+  id: string; // uuid, stable (pour références inter-cellules)
   type: 'sql' | 'mongo' | 'markdown' | 'chart';
-  source: string;                // contenu brut de la cellule
+  source: string; // contenu brut de la cellule
   // Résultat (optionnel, sérialisé au save pour "snapshot" des résultats)
   lastResult?: CellResult | null;
   // Métadonnées d'exécution
   executionState?: 'idle' | 'running' | 'success' | 'error';
-  executionCount?: number;       // combien de fois exécutée
-  executedAt?: string;           // dernière exécution
+  executionCount?: number; // combien de fois exécutée
+  executedAt?: string; // dernière exécution
   executionTimeMs?: number;
   // Config optionnelle par cellule
   config?: CellConfig;
 }
 
 interface CellConfig {
-  namespace?: Namespace;          // override le namespace du notebook
-  maxRows?: number;               // limite d'affichage (défaut: 500)
-  collapsed?: boolean;            // résultat replié
-  pinned?: boolean;               // cellule épinglée (toujours visible)
-  label?: string;                 // nom optionnel (pour référence: $cell.label)
-  hideSource?: boolean;           // masquer le code en mode "présentation"
+  namespace?: Namespace; // override le namespace du notebook
+  maxRows?: number; // limite d'affichage (défaut: 500)
+  collapsed?: boolean; // résultat replié
+  pinned?: boolean; // cellule épinglée (toujours visible)
+  label?: string; // nom optionnel (pour référence: $cell.label)
+  hideSource?: boolean; // masquer le code en mode "présentation"
 }
 
 interface CellResult {
@@ -119,7 +124,7 @@ interface CellResult {
 }
 
 interface NotebookVariable {
-  name: string;                   // ex: "customer_id"
+  name: string; // ex: "customer_id"
   type: 'text' | 'number' | 'date' | 'select';
   defaultValue?: string;
   description?: string;
@@ -131,9 +136,9 @@ interface NotebookVariable {
 
 interface ChartConfig {
   type: 'bar' | 'line' | 'pie' | 'scatter';
-  sourceCell: string;             // id de la cellule source
-  xAxis: string;                  // nom de colonne
-  yAxis: string | string[];       // nom(s) de colonne(s)
+  sourceCell: string; // id de la cellule source
+  xAxis: string; // nom de colonne
+  yAxis: string | string[]; // nom(s) de colonne(s)
   title?: string;
 }
 ```
@@ -141,6 +146,7 @@ interface ChartConfig {
 ### 3.2 Format fichier sur disque
 
 Le `.qnb` est un fichier JSON (pas binaire) pour être :
+
 - lisible dans un éditeur de texte
 - diffable avec Git
 - mergeable (chaque cellule a un id stable)
@@ -157,8 +163,8 @@ type TabType = 'query' | 'table' | 'database' | 'diff' | 'notebook';
 interface OpenTab {
   // ... champs existants ...
   // Nouveaux champs pour les notebooks
-  notebookPath?: string;          // chemin du fichier .qnb
-  notebookUnsaved?: boolean;      // modifications non sauvegardées
+  notebookPath?: string; // chemin du fichier .qnb
+  notebookUnsaved?: boolean; // modifications non sauvegardées
 }
 ```
 
@@ -238,15 +244,15 @@ src/components/Notebook/
 
 ### 4.3 Composants réutilisés (ZERO réécriture)
 
-| Composant existant | Usage dans Notebook |
-|---|---|
-| `SQLEditor` | Éditeur CodeMirror dans `SqlCell` (même autocompletion, même shortcuts) |
-| `MongoEditor` | Éditeur CodeMirror dans `MongoCell` |
-| `DataGrid` | Affichage résultats tabulaires dans `CellResultViewer` |
-| `DocumentResults` | Affichage résultats MongoDB dans `CellResultViewer` |
-| `executeQuery()` | Exécution des cellules SQL (même flow, même interceptor) |
-| `StreamingExport` | Export des résultats de cellules individuelles |
-| Interceptor pipeline | Toutes les queries notebook passent par le safety net |
+| Composant existant   | Usage dans Notebook                                                     |
+| -------------------- | ----------------------------------------------------------------------- |
+| `SQLEditor`          | Éditeur CodeMirror dans `SqlCell` (même autocompletion, même shortcuts) |
+| `MongoEditor`        | Éditeur CodeMirror dans `MongoCell`                                     |
+| `DataGrid`           | Affichage résultats tabulaires dans `CellResultViewer`                  |
+| `DocumentResults`    | Affichage résultats MongoDB dans `CellResultViewer`                     |
+| `executeQuery()`     | Exécution des cellules SQL (même flow, même interceptor)                |
+| `StreamingExport`    | Export des résultats de cellules individuelles                          |
+| Interceptor pipeline | Toutes les queries notebook passent par le safety net                   |
 
 ### 4.4 Backend (minimal, car on réutilise l'existant)
 
@@ -306,6 +312,7 @@ L'exécution des queries ne change pas — on appelle `executeQuery()` existant,
 **Run From Here** : clic droit sur une cellule → "Run from here" → exécute cette cellule et toutes les suivantes.
 
 **Indicateurs visuels** :
+
 - Cellule idle : bordure gauche `--q-border`
 - Cellule running : bordure gauche `--q-accent` + spinner
 - Cellule success : bordure gauche `--q-success` (2s puis fade)
@@ -323,6 +330,7 @@ WHERE created_at >= '{{date_from}}'
 ```
 
 La barre de variables génère automatiquement des inputs typés :
+
 - `text` → input texte
 - `number` → input numérique
 - `date` → date picker
@@ -384,6 +392,7 @@ Charts rendus avec `recharts` (déjà dans les dépendances React typiques) ou u
 Le fichier JSON est le format principal. Commitable dans Git.
 
 Stratégie Git-friendly :
+
 - Les `lastResult` sont optionnels au save (toggle "Include results snapshot")
 - Sans résultats : fichier léger, diff propre
 - Avec résultats : utile pour la documentation, le partage, les audits
@@ -391,6 +400,7 @@ Stratégie Git-friendly :
 ### 6.2 Export Markdown
 
 Génère un `.md` avec :
+
 - Les cellules Markdown telles quelles
 - Les cellules SQL dans des code blocks ` ```sql `
 - Les résultats en tables Markdown (tronqués à N lignes)
@@ -399,6 +409,7 @@ Génère un `.md` avec :
 ### 6.3 Export HTML standalone
 
 Un fichier `.html` autosuffisant avec :
+
 - Les queries avec syntax highlighting (inline CSS)
 - Les résultats en tables HTML stylées
 - Le Markdown rendu
@@ -417,20 +428,20 @@ Parfait pour un post-mortem partagé par email ou sur Confluence.
 
 ## 7. Keyboard shortcuts
 
-| Action | Shortcut | Contexte |
-|---|---|---|
-| Exécuter cellule courante | `Ctrl+Enter` | Dans une cellule SQL/Mongo |
-| Exécuter tout le notebook | `Ctrl+Shift+A` | Toolbar |
-| Nouvelle cellule SQL après | `Ctrl+Shift+Enter` | Partout dans le notebook |
-| Nouvelle cellule Markdown après | `Ctrl+Shift+M` | Partout dans le notebook |
-| Supprimer cellule | `Ctrl+Shift+Backspace` | Cellule focusée |
-| Déplacer cellule vers le haut | `Alt+↑` | Cellule focusée |
-| Déplacer cellule vers le bas | `Alt+↓` | Cellule focusée |
-| Sauvegarder | `Ctrl+S` | Partout dans le notebook |
-| Toggle résultat (plier/déplier) | `Ctrl+Shift+R` | Cellule avec résultat |
-| Focus cellule précédente | `Ctrl+↑` | Navigation entre cellules |
-| Focus cellule suivante | `Ctrl+↓` | Navigation entre cellules |
-| Convertir cellule (cycle type) | `Ctrl+Shift+T` | Cellule focusée |
+| Action                          | Shortcut               | Contexte                   |
+| ------------------------------- | ---------------------- | -------------------------- |
+| Exécuter cellule courante       | `Ctrl+Enter`           | Dans une cellule SQL/Mongo |
+| Exécuter tout le notebook       | `Ctrl+Shift+A`         | Toolbar                    |
+| Nouvelle cellule SQL après      | `Ctrl+Shift+Enter`     | Partout dans le notebook   |
+| Nouvelle cellule Markdown après | `Ctrl+Shift+M`         | Partout dans le notebook   |
+| Supprimer cellule               | `Ctrl+Shift+Backspace` | Cellule focusée            |
+| Déplacer cellule vers le haut   | `Alt+↑`                | Cellule focusée            |
+| Déplacer cellule vers le bas    | `Alt+↓`                | Cellule focusée            |
+| Sauvegarder                     | `Ctrl+S`               | Partout dans le notebook   |
+| Toggle résultat (plier/déplier) | `Ctrl+Shift+R`         | Cellule avec résultat      |
+| Focus cellule précédente        | `Ctrl+↑`               | Navigation entre cellules  |
+| Focus cellule suivante          | `Ctrl+↓`               | Navigation entre cellules  |
+| Convertir cellule (cycle type)  | `Ctrl+Shift+T`         | Cellule focusée            |
 
 ---
 
@@ -441,9 +452,11 @@ Parfait pour un post-mortem partagé par email ou sur Confluence.
 **Objectif** : un notebook fonctionnel, sans fioritures.
 
 Backend :
+
 - [ ] `commands/notebook.rs` : save, load, list (simple I/O fichier)
 
 Frontend :
+
 - [ ] `NotebookTab.tsx` : state management du notebook (cells, execution)
 - [ ] `NotebookCell.tsx` : wrapper avec bordure d'état, boutons d'action
 - [ ] `SqlCell.tsx` : intègre `SQLEditor` existant, exécution via `executeQuery`
@@ -486,22 +499,26 @@ Pas dans le MVP : variables, charts, Run All, export, MongoCell.
 ## 9. Points d'attention
 
 ### Performance
+
 - Les résultats inline doivent utiliser `maxRows` (défaut 500) pour ne pas exploser le DOM
 - Si >50 cellules : virtualiser la liste des cellules (react-virtual, déjà dans le projet)
 - Les résultats en snapshot sont stockés tronqués (pas 100K lignes en JSON)
 
 ### Sécurité
+
 - Les queries notebook passent par l'interceptor exactement comme les queries classiques
 - Le mode sandbox est compatible : on peut activer sandbox dans un notebook
 - Les notebooks n'exécutent RIEN au chargement (l'utilisateur doit cliquer Run)
 - Les variables sont sanitisées côté frontend avant substitution
 
 ### UX
+
 - Le notebook NE REMPLACE PAS le query editor — c'est un outil complémentaire
 - Un notebook vide avec une seule cellule SQL est visuellement quasi-identique au query editor (pas de surcharge cognitive)
 - La transition query → notebook doit être fluide (Ctrl+Shift+N et c'est fait)
 
 ### Cohérence avec le design system
+
 - Les cellules utilisent `--q-bg-1` comme fond, `--q-border` comme séparation
 - Les indicateurs d'état utilisent les couleurs sémantiques existantes
 - La densité des résultats inline est identique au DataGrid classique

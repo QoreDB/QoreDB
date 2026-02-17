@@ -42,6 +42,7 @@ import { SQLEditorHandle } from '../Editor/SQLEditor';
 import { SaveQueryDialog } from './SaveQueryDialog';
 import { QueryLibraryModal } from './QueryLibraryModal';
 import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
+import { AiAssistantPanel } from '@/components/AI/AiAssistantPanel';
 
 function isTextInputTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
@@ -103,6 +104,7 @@ export function QueryPanel({
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [queryToSave, setQueryToSave] = useState<string>('');
+  const [showAiPanel, setShowAiPanel] = useState(false);
 
   const isExplainSupported = useMemo(
     () => driverCapabilities?.explain ?? dialect === Driver.Postgres,
@@ -588,6 +590,14 @@ export function QueryPanel({
 
   const runCurrentQuery = useCallback(() => handleExecute(), [handleExecute]);
 
+  const handleAiToggle = useCallback(() => {
+    setShowAiPanel(prev => !prev);
+  }, []);
+
+  const handleInsertQuery = useCallback((generatedQuery: string) => {
+    setQuery(generatedQuery);
+  }, []);
+
   const handleSaveToLibrary = useCallback(() => {
     const selection = !isDocument ? sqlEditorRef.current?.getSelection() : '';
     const candidate = selection && selection.trim().length > 0 ? selection : query;
@@ -660,22 +670,42 @@ export function QueryPanel({
         onLibraryOpen={() => (onOpenLibrary ? onOpenLibrary() : setLibraryOpen(true))}
         onSaveToLibrary={handleSaveToLibrary}
         onTemplateSelect={handleTemplateSelect}
+        onAiToggle={handleAiToggle}
+        aiPanelOpen={showAiPanel}
       />
 
-      <QueryPanelEditor
-        isDocumentBased={isDocument}
-        query={query}
-        loading={loading}
-        dialect={dialect}
-        sessionId={sessionId}
-        connectionDatabase={connectionDatabase}
-        activeNamespace={activeNamespace}
-        onQueryChange={setQuery}
-        onExecute={handleExecuteCurrent}
-        onExecuteSelection={handleExecuteSelection}
-        onFormat={handleFormat}
-        sqlEditorRef={sqlEditorRef}
-      />
+      <div className="flex flex-1 min-h-0">
+        <div className="flex-1 min-w-0">
+          <QueryPanelEditor
+            isDocumentBased={isDocument}
+            query={query}
+            loading={loading}
+            dialect={dialect}
+            sessionId={sessionId}
+            connectionDatabase={connectionDatabase}
+            activeNamespace={activeNamespace}
+            onQueryChange={setQuery}
+            onExecute={handleExecuteCurrent}
+            onExecuteSelection={handleExecuteSelection}
+            onFormat={handleFormat}
+            sqlEditorRef={sqlEditorRef}
+          />
+        </div>
+
+        {showAiPanel && (
+          <div className="w-80 border-l border-border shrink-0">
+            <AiAssistantPanel
+              sessionId={sessionId}
+              namespace={
+                activeNamespace ??
+                (connectionDatabase ? { database: connectionDatabase } : undefined)
+              }
+              onInsertQuery={handleInsertQuery}
+              onClose={handleAiToggle}
+            />
+          </div>
+        )}
+      </div>
 
       <QueryPanelResults
         panelError={panelError}

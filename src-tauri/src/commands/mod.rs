@@ -2,6 +2,7 @@
 
 // Tauri Commands Module
 
+pub mod ai;
 pub mod connection;
 pub mod connection_url;
 pub mod driver;

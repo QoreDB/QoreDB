@@ -70,9 +70,7 @@ export function LicenseActivation() {
         ) : (
           <span className="text-sm text-[var(--color-text-secondary)]">Core</span>
         )}
-        {status.is_expired && (
-          <span className="text-xs text-red-500">{t('license.expired')}</span>
-        )}
+        {status.is_expired && <span className="text-xs text-red-500">{t('license.expired')}</span>}
       </div>
 
       {/* License details */}
@@ -87,13 +85,17 @@ export function LicenseActivation() {
           {status.payment_id && (
             <div className="flex gap-2">
               <span className="text-[var(--color-text-tertiary)]">{t('license.paymentId')}:</span>
-              <span className="font-mono text-[var(--color-text-secondary)]">{status.payment_id}</span>
+              <span className="font-mono text-[var(--color-text-secondary)]">
+                {status.payment_id}
+              </span>
             </div>
           )}
           {status.issued_at && (
             <div className="flex gap-2">
               <span className="text-[var(--color-text-tertiary)]">{t('license.issuedAt')}:</span>
-              <span className="text-[var(--color-text-secondary)]">{formatDate(status.issued_at)}</span>
+              <span className="text-[var(--color-text-secondary)]">
+                {formatDate(status.issued_at)}
+              </span>
             </div>
           )}
           <div className="flex gap-2">
@@ -114,11 +116,7 @@ export function LicenseActivation() {
             placeholder={t('license.keyPlaceholder')}
             className="flex-1 font-mono text-xs"
           />
-          <Button
-            onClick={handleActivate}
-            disabled={loading || !key.trim()}
-            size="sm"
-          >
+          <Button onClick={handleActivate} disabled={loading || !key.trim()} size="sm">
             {t('license.activate')}
           </Button>
         </div>
@@ -137,9 +135,7 @@ export function LicenseActivation() {
         </Button>
       )}
 
-      {error && (
-        <p className="text-xs text-red-500">{error}</p>
-      )}
+      {error && <p className="text-xs text-red-500">{error}</p>}
     </div>
   );
 }

@@ -66,6 +66,9 @@ rust_xlsxwriter = { version = "0.93", optional = true }
 arrow = { version = "54", optional = true }
 parquet = { version = "54", optional = true, default-features = false, features = ["arrow"] }
 
+# Pro-only AI BYOK
+reqwest = { version = "0.12", features = ["json", "stream"], optional = true }
+
 # Feature flags for Open Core tiers
 # Core (default): no flags needed
 # Pro: cargo build --features pro
@@ -73,7 +76,7 @@ parquet = { version = "54", optional = true, default-features = false, features 
 # Enterprise: cargo build --features enterprise (includes team + pro)
 [features]
 default = []
-pro = ["rust_xlsxwriter", "parquet", "arrow"]
+pro = ["rust_xlsxwriter", "parquet", "arrow", "reqwest"]
 team = ["pro"]
 enterprise = ["team"]
 

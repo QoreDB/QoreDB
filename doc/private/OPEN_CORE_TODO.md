@@ -112,7 +112,7 @@
 
 - [ ] Créer `src-tauri/src/ai/mod.rs` sous `#[cfg(feature = "pro")]`
 - [ ] Créer `src-tauri/src/ai/provider.rs` — trait `AIProvider`
-- [ ] Implémenter provider OpenAI (GPT-4)
+- [ ] Implémenter provider OpenAI (GPT-4/5)
 - [ ] Implémenter provider Anthropic (Claude)
 - [ ] Implémenter provider Ollama (modèles locaux)
 - [ ] Créer `src-tauri/src/ai/context.rs` — context builder
@@ -152,44 +152,44 @@
 
 ### 2.1 — Page Pricing
 
-- [ ] Maquette de la page (3 colonnes : Core / Pro / Team)
-- [ ] Rédaction du contenu de chaque tier
-- [ ] Core mis en valeur (pas présenté comme "version pauvre")
-- [ ] FAQ : "Pourquoi open core ?", "Mes données sont-elles envoyées ?", "Si j'arrête de payer ?"
-- [ ] Prix affiché clairement (après brainstorm pricing)
-- [ ] CTA : télécharger Core / acheter Pro
-- [ ] Intégration dans le site existant
-- [ ] Responsive mobile
+- [x] Maquette de la page (3 colonnes : Core / Pro / Team)
+- [x] Rédaction du contenu de chaque tier
+- [x] Core mis en valeur (pas présenté comme "version pauvre")
+- [x] FAQ : "Pourquoi open core ?", "Mes données sont-elles envoyées ?", "Si j'arrête de payer ?"
+- [x] Prix affiché clairement (après brainstorm pricing)
+- [x] CTA : télécharger Core / acheter Pro
+- [x] Intégration dans le site existant
+- [x] Responsive mobile
 
 ### 2.2 — Intégration Stripe
 
-- [ ] Créer un compte Stripe (ou configurer l'existant)
-- [ ] Créer le produit "QoreDB Pro" dans Stripe Dashboard
-- [ ] Configurer Stripe Checkout (hosted page)
-- [ ] Implémenter l'endpoint webhook `/api/webhooks/stripe`
-- [ ] Gérer l'événement `checkout.session.completed`
+- [x] Créer un compte Stripe (ou configurer l'existant)
+- [x] Créer le produit "QoreDB Pro" dans Stripe Dashboard
+- [x] Configurer Stripe Checkout (hosted page)
+- [x] Implémenter l'endpoint webhook `/api/webhooks/stripe`
+- [x] Gérer l'événement `checkout.session.completed`
 - [ ] Gérer les edge cases : paiement échoué, remboursement, double achat
 - [ ] Tester en mode Stripe Test avant passage en production
 
 ### 2.3 — Génération de clés Ed25519
 
-- [ ] Module serveur de génération de clés (clé privée côté serveur)
-- [ ] Génération automatique à la réception du webhook Stripe
-- [ ] Format de la clé : base64 string contenant JSON payload + signature
+- [x] Module serveur de génération de clés (clé privée côté serveur)
+- [x] Génération automatique à la réception du webhook Stripe
+- [x] Format de la clé : base64 string contenant JSON payload + signature
 - [ ] Tests : générer une clé → la vérifier avec la clé publique embarquée dans QoreDB
 
 ### 2.4 — Email de livraison
 
-- [ ] Choisir un service d'email transactionnel (Resend, Postmark, ou Stripe receipts)
-- [ ] Template d'email : clé de licence + instructions d'activation
-- [ ] Envoi automatique après génération de la clé
-- [ ] Page de confirmation post-achat avec la clé affichée + instructions
+- [x] Choisir un service d'email transactionnel (Resend, Postmark, ou Stripe receipts) -> Resend choisi
+- [x] Template d'email : clé de licence + instructions d'activation
+- [x] Envoi automatique après génération de la clé
+- [x] Page de confirmation post-achat avec la clé affichée + instructions
 
 ### 2.5 — Page gestion de licence (minimale)
 
-- [ ] Vérifier le statut de sa licence (active / expirée)
-- [ ] Récupérer sa clé par email (authentification email + payment ID)
-- [ ] Pas de compte obligatoire pour le tier Pro
+- [x] Vérifier le statut de sa licence (active / expirée)
+- [x] Récupérer sa clé par email (authentification email + payment ID)
+- [x] Pas de compte obligatoire pour le tier Pro
 
 ### 2.6 — Contenu additionnel
 

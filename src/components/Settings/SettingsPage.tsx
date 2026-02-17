@@ -13,6 +13,7 @@ import {
   DataSection,
   KeyboardShortcutsSection,
   LicenseSection,
+  AiSection,
 } from './sections';
 import {
   SETTINGS_SECTIONS,
@@ -112,6 +113,8 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
         return <KeyboardShortcutsSection searchQuery={searchQuery} />;
       case 'license':
         return <LicenseSection searchQuery={searchQuery} />;
+      case 'ai':
+        return <AiSection searchQuery={searchQuery} />;
       default:
         return null;
     }

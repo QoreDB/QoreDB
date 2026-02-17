@@ -28,8 +28,7 @@ export function BasicSection({
   const { t } = useTranslation();
 
   const isFileBased = formData.driver === Driver.Sqlite;
-  const usernameRequired =
-    formData.driver !== Driver.Mongodb && formData.driver !== Driver.Redis;
+  const usernameRequired = formData.driver !== Driver.Mongodb && formData.driver !== Driver.Redis;
 
   return (
     <div className="rounded-md border border-border bg-background p-4 space-y-4">

@@ -37,7 +37,6 @@ export function ConnectionItem({
   const iconSrc = `/databases/${DRIVER_ICONS[driver]}`;
   const env = connection.environment || 'development';
   const envConfig = ENVIRONMENT_CONFIG[env];
-  const isProduction = env === 'production';
 
   return (
     <ConnectionContextMenu
@@ -49,8 +48,7 @@ export function ConnectionItem({
     >
       <div
         className={cn(
-          'group flex items-center transition-all',
-          isProduction ? 'rounded-r-md rounded-l-none' : 'rounded-md',
+          'group flex items-center transition-all rounded-md',
           // État: Sélectionné mais pas connecté
           isSelected && !isConnected && 'bg-muted text-foreground',
           // État: Connecté (actif)
@@ -62,28 +60,28 @@ export function ConnectionItem({
             !isExpanded &&
             'text-muted-foreground hover:bg-accent/10 hover:text-accent-foreground'
         )}
-        style={{
-          borderLeft: isProduction ? `3px solid ${envConfig.color}` : undefined,
-          paddingLeft: isProduction ? undefined : '3px',
-        }}
       >
         <button
           className={cn(
-            'flex-1 flex items-center gap-2 px-2 py-1.5 text-sm select-none text-inherit',
-            isProduction ? 'rounded-l-none' : 'rounded-l-md'
+            'flex-1 flex items-center gap-2 px-2 py-1.5 text-sm select-none text-inherit rounded-l-md'
           )}
           onClick={onSelect}
           disabled={isConnecting}
         >
-          <div className="shrink-0 w-4 h-4 rounded-sm overflow-hidden bg-background/50 p-0.5">
-            <img
-              src={iconSrc}
-              alt={DRIVER_LABELS[driver]}
-              className="w-full h-full object-contain"
-            />
+          <div className="relative shrink-0">
+            <div className="w-4 h-4 rounded-sm overflow-hidden bg-background/50 p-0.5">
+              <img
+                src={iconSrc}
+                alt={DRIVER_LABELS[driver]}
+                className="w-full h-full object-contain"
+              />
+            </div>
+            {isConnected && !isConnecting && (
+              <span className="absolute -bottom-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-success ring-1 ring-background" />
+            )}
           </div>
 
-          <span className="flex-1 truncate text-left max-w-[150px]">{connection.name}</span>
+          <span className="flex-1 truncate text-left min-w-0">{connection.name}</span>
 
           {env !== 'development' && (
             <span
@@ -97,24 +95,28 @@ export function ConnectionItem({
             </span>
           )}
 
-          {isConnecting ? (
+          {isConnecting && (
             <Loader2 size={14} className="animate-spin text-muted-foreground" />
-          ) : isConnected && !isConnecting ? (
-            <span className="w-2 h-2 rounded-full bg-success shadow-sm shadow-success/50" />
-          ) : null}
+          )}
 
-          <div className={cn('text-muted-foreground/50', isExpanded && 'transform rotate-90')}>
-            {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+          <div className="relative shrink-0 w-6 h-6 flex items-center justify-center">
+            <div className={cn(
+              'group-hover:opacity-0 transition-opacity text-muted-foreground/50',
+              isExpanded && 'transform rotate-90'
+            )}>
+              {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+            </div>
+            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+              <ConnectionMenu
+                connection={connection}
+                onEdit={onEdit}
+                onDeleted={onDeleted}
+                isFavorite={isFavorite}
+                onToggleFavorite={onToggleFavorite}
+              />
+            </div>
           </div>
         </button>
-
-        <ConnectionMenu
-          connection={connection}
-          onEdit={onEdit}
-          onDeleted={onDeleted}
-          isFavorite={isFavorite}
-          onToggleFavorite={onToggleFavorite}
-        />
       </div>
     </ConnectionContextMenu>
   );

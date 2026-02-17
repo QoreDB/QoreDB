@@ -206,7 +206,7 @@ export function Sidebar({
           onDeleted={loadConnections}
         />
         {expandedId === connection.id && connectedSessionId && (
-          <div className="pl-4 border-l border-border ml-4 mt-1">
+          <div className="pl-4 border-l-2 border-accent/30 ml-4 mt-1 bg-muted/20 rounded-r-md py-1">
             <DBTree
               connectionId={connectedSessionId}
               driver={connection.driver}
@@ -247,10 +247,7 @@ export function Sidebar({
       </header>
 
       <section className="flex-1 overflow-auto py-2">
-        <div className="px-3 mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-          {t('sidebar.connections')}
-        </div>
-        <div className="px-2 space-y-0.5">
+        <div className="px-2 space-y-0.5 mt-1">
           {connections.length === 0 ? (
             <p className="px-2 py-4 text-sm text-center text-muted-foreground">
               {t('sidebar.noConnections')}

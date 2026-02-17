@@ -17,6 +17,7 @@ import { useTranslation } from 'react-i18next';
 import { getDriverMetadata } from '../../lib/drivers';
 import { isDocumentDatabase } from '../../lib/driverCapabilities';
 import { ProductionConfirmDialog } from '../Guard/ProductionConfirmDialog';
+import { Label } from '../ui/label';
 
 interface CreateDatabaseModalProps {
   isOpen: boolean;
@@ -157,7 +158,7 @@ export function CreateDatabaseModal({
 
           <div className="space-y-3 py-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">{t(nameLabelKey)}</label>
+              <Label className="text-sm font-medium">{t(nameLabelKey)}</Label>
               <Input
                 value={name}
                 onChange={e => setName(e.target.value)}
@@ -177,7 +178,7 @@ export function CreateDatabaseModal({
             {isDocument && (
               <>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">{t('database.collectionNameLabel')}</label>
+                  <Label className="text-sm font-medium">{t('database.collectionNameLabel')}</Label>
                   <Input
                     value={collectionName}
                     onChange={e => setCollectionName(e.target.value)}

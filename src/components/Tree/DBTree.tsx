@@ -16,8 +16,7 @@ import {
 } from '../../lib/tauri';
 import { useSchemaCache } from '../../hooks/useSchemaCache';
 import {
-  Folder,
-  FolderOpen,
+  Database,
   Table,
   Eye,
   Loader2,
@@ -326,15 +325,15 @@ export function DBTree({
 
   return (
     <div className="flex flex-col text-sm">
-      <div className="flex items-center justify-between px-2 py-1 mb-1">
-        <span className="text-xs font-semibold text-muted-foreground">
+      <div className="flex items-center justify-between px-2 py-1.5 mb-1.5">
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/80">
           {t(driverMeta.treeRootLabel)}
         </span>
         {driverMeta.createAction !== 'none' && (
           <Button
             variant="ghost"
             size="icon"
-            className="h-5 w-5"
+            className="h-5 w-5 ml-2"
             onClick={() => setCreateModalOpen(true)}
             disabled={connection?.read_only}
             title={
@@ -400,8 +399,8 @@ export function DBTree({
                 <span className="shrink-0">
                   {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                 </span>
-                <span className="shrink-0">
-                  {isExpanded ? <FolderOpen size={14} /> : <Folder size={14} />}
+                <span className={cn('shrink-0', isExpanded ? 'text-accent' : 'text-muted-foreground/70')}>
+                  <Database size={14} />
                 </span>
                 <span className="truncate">
                   {ns.schema ? `${ns.database}.${ns.schema}` : ns.database}
@@ -411,7 +410,7 @@ export function DBTree({
 
             {isExpanded && (
               <div className="flex flex-col ml-2 pl-2 border-l border-border mt-0.5 space-y-0.5">
-                <div className="px-2 mb-1 relative">
+                <div className="px-2 mb-2 pb-1.5 relative border-b border-border/50">
                   <Search
                     size={12}
                     className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground z-10"
@@ -462,7 +461,7 @@ export function DBTree({
                             onAiGenerate={onAiGenerateForTable}
                           >
                             <button
-                              className="flex items-center gap-2 w-full px-2 py-1 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground text-left group ml-4"
+                              className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground text-left group ml-5"
                               onClick={() => handleTableClick(col)}
                             >
                               <span className="shrink-0 group-hover:text-foreground/80 transition-colors">
@@ -481,7 +480,7 @@ export function DBTree({
                   const views = collections.filter(c => c.collection_type === 'View');
                   if (views.length === 0) return null;
                   return (
-                    <div className="space-y-0.5">
+                    <div className="space-y-0.5 mt-2">
                       <button
                         className="flex items-center gap-1 px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground w-full text-left"
                         onClick={() => toggleSection('views')}
@@ -511,7 +510,7 @@ export function DBTree({
                             onAiGenerate={onAiGenerateForTable}
                           >
                             <button
-                              className="flex items-center gap-2 w-full px-2 py-1 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground text-left group ml-4"
+                              className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground text-left group ml-5"
                               onClick={() => handleTableClick(col)}
                             >
                               <span className="shrink-0 group-hover:text-foreground/80 transition-colors">
@@ -532,7 +531,7 @@ export function DBTree({
                   );
                   if (matViews.length === 0) return null;
                   return (
-                    <div className="space-y-0.5">
+                    <div className="space-y-0.5 mt-2">
                       <button
                         className="flex items-center gap-1 px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground w-full text-left"
                         onClick={() => toggleSection('materializedViews')}
@@ -562,7 +561,7 @@ export function DBTree({
                             onAiGenerate={onAiGenerateForTable}
                           >
                             <button
-                              className="flex items-center gap-2 w-full px-2 py-1 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground text-left group ml-4"
+                              className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground text-left group ml-5"
                               onClick={() => handleTableClick(col)}
                             >
                               <span className="shrink-0 group-hover:text-foreground/80 transition-colors">
@@ -581,7 +580,7 @@ export function DBTree({
                   const functions = routines.filter(r => r.routine_type === 'Function');
                   if (functions.length === 0 && !routinesLoading) return null;
                   return (
-                    <div className="space-y-0.5">
+                    <div className="space-y-0.5 mt-2">
                       <button
                         className="flex items-center gap-1 px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground w-full text-left"
                         onClick={() => toggleSection('functions')}
@@ -599,7 +598,7 @@ export function DBTree({
                         functions.map(routine => (
                           <div
                             key={routine.name}
-                            className="flex items-center gap-2 w-full px-2 py-1 rounded-md text-muted-foreground text-left group ml-4"
+                            className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-muted-foreground text-left group ml-5"
                             title={`${routine.name}(${routine.arguments})${routine.return_type ? ` → ${routine.return_type}` : ''}`}
                           >
                             <span className="shrink-0">
@@ -622,7 +621,7 @@ export function DBTree({
                   const procedures = routines.filter(r => r.routine_type === 'Procedure');
                   if (procedures.length === 0 && !routinesLoading) return null;
                   return (
-                    <div className="space-y-0.5">
+                    <div className="space-y-0.5 mt-2">
                       <button
                         className="flex items-center gap-1 px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground w-full text-left"
                         onClick={() => toggleSection('procedures')}
@@ -642,7 +641,7 @@ export function DBTree({
                         procedures.map(routine => (
                           <div
                             key={routine.name}
-                            className="flex items-center gap-2 w-full px-2 py-1 rounded-md text-muted-foreground text-left group ml-4"
+                            className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-muted-foreground text-left group ml-5"
                             title={`${routine.name}(${routine.arguments})`}
                           >
                             <span className="shrink-0">
@@ -664,7 +663,7 @@ export function DBTree({
                 {(() => {
                   if (triggers.length === 0 && !triggersLoading) return null;
                   return (
-                    <div className="space-y-0.5">
+                    <div className="space-y-0.5 mt-2">
                       <button
                         className="flex items-center gap-1 px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground w-full text-left"
                         onClick={() => toggleSection('triggers')}
@@ -682,7 +681,7 @@ export function DBTree({
                         triggers.map(trigger => (
                           <div
                             key={trigger.name}
-                            className="flex items-center gap-2 w-full px-2 py-1 rounded-md text-muted-foreground text-left group ml-4"
+                            className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-muted-foreground text-left group ml-5"
                             title={`${trigger.timing} ${trigger.events.join(' | ')} ON ${trigger.table_name}`}
                           >
                             <span className="shrink-0">
@@ -702,7 +701,7 @@ export function DBTree({
                 {(() => {
                   if (dbEvents.length === 0) return null;
                   return (
-                    <div className="space-y-0.5">
+                    <div className="space-y-0.5 mt-2">
                       <button
                         className="flex items-center gap-1 px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground w-full text-left"
                         onClick={() => toggleSection('events')}
@@ -720,7 +719,7 @@ export function DBTree({
                         dbEvents.map(evt => (
                           <div
                             key={evt.name}
-                            className="flex items-center gap-2 w-full px-2 py-1 rounded-md text-muted-foreground text-left group ml-4"
+                            className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-muted-foreground text-left group ml-5"
                             title={`${evt.event_type}${evt.interval_value ? ` every ${evt.interval_value} ${evt.interval_field}` : ''}`}
                           >
                             <span className="shrink-0">

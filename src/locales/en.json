@@ -558,7 +558,9 @@
       "csv": "CSV",
       "json": "JSON",
       "sql": "SQL INSERT",
-      "html": "Self-contained HTML"
+      "html": "Self-contained HTML",
+      "xlsx": "Excel (XLSX)",
+      "parquet": "Apache Parquet"
     },
     "outputLabel": "Output file",
     "outputPlaceholder": "Select a file path",
@@ -1268,6 +1270,11 @@
     "keyPlaceholder": "Paste your license key",
     "expired": "Expired",
     "licensedTo": "Licensed to {{email}}",
+    "email": "Email",
+    "paymentId": "Payment ID",
+    "issuedAt": "Issued on",
+    "expiresAt": "Expires on",
+    "perpetual": "Perpetual (no expiration)",
     "upgrade": {
       "description": "This feature requires a Pro license.",
       "hint": "Go to Settings to activate your license key."

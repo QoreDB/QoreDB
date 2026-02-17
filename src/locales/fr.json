@@ -556,7 +556,9 @@
       "csv": "CSV",
       "json": "JSON",
       "sql": "INSERT SQL",
-      "html": "HTML autonome"
+      "html": "HTML autonome",
+      "xlsx": "Excel (XLSX)",
+      "parquet": "Apache Parquet"
     },
     "outputLabel": "Fichier de sortie",
     "outputPlaceholder": "Sélectionner un chemin",
@@ -1266,6 +1268,11 @@
     "keyPlaceholder": "Collez votre clé de licence",
     "expired": "Expirée",
     "licensedTo": "Licence enregistrée pour {{email}}",
+    "email": "Email",
+    "paymentId": "ID de paiement",
+    "issuedAt": "Émise le",
+    "expiresAt": "Expire le",
+    "perpetual": "Perpétuelle (sans expiration)",
     "upgrade": {
       "description": "Cette fonctionnalité nécessite une licence Pro.",
       "hint": "Allez dans les Paramètres pour activer votre clé de licence."

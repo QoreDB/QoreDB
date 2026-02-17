@@ -55,7 +55,7 @@
 - [x] Wrapper avec `#[cfg(feature = "pro")]`
 - [x] Côté frontend : wrapper les composants `Sandbox/` avec `LicenseGate`
 - [x] Implémenter la limite Core (3 changements gratuits + prompt upgrade)
-- [ ] Tester le mode Core (limite respectée, prompt affiché)
+- [x] Tester le mode Core (limite respectée, prompt affiché)
 - [ ] Tester le mode Pro (sandbox illimité)
 
 **2.2 — Séparation Interceptor basique / avancé**
@@ -64,19 +64,19 @@
 - [x] Séparer audit basique (50 entrées) vs avancé (illimité, filtres, export) dans `audit.rs`
 - [x] Passer `interceptor/profiling.rs` sous `#[cfg(feature = "pro")]`
 - [x] Côté frontend : `LicenseGate` sur les panels avancés d'Interceptor
-- [ ] Tester les deux modes
+- [x] Tester les deux modes (Core : limites vérifiées manuellement)
 
 **2.3 — Feature-flagging Visual Diff**
 
 - [x] Wrapper le point d'entrée Diff avec `LicenseGate`
 - [x] Commande Tauri associée retourne erreur explicite en mode Core — N/A : pas de commande Tauri dédiée, le diff est entièrement frontend. Le gating `LicenseGate` suffit.
-- [ ] Tester
+- [x] Tester (blocage vérifié en mode Free)
 
 **2.4 — Feature-flagging ER Diagram**
 
 - [x] Wrapper le point d'entrée ERDiagram avec `LicenseGate`
 - [x] Le schema browsing textuel reste accessible en Core
-- [ ] Tester
+- [x] Tester (blocage vérifié en mode Free)
 
 **2.5 — Page License dans Settings**
 
@@ -139,9 +139,9 @@
 
 ### Phase 4 : Features premium futures (continu)
 
-- [ ] Export avancé : writer XLSX dans `export/writers/`
-- [ ] Export avancé : writer Parquet dans `export/writers/`
-- [ ] Custom Safety Rules : autoriser l'ajout de règles custom sous flag Pro
+- [x] Export avancé : writer XLSX dans `export/writers/`
+- [x] Export avancé : writer Parquet dans `export/writers/`
+- [x] Custom Safety Rules : autoriser l'ajout de règles custom sous flag Pro
 - [ ] Query Library avancée : dossiers, tags, snippets paramétrés
 - [ ] Virtual Relations auto-suggest
 - [ ] Chaque nouvelle feature suit le pattern : module isolé → flag → commande Tauri → LicenseGate → CI

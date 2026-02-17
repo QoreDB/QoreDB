@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
+import { useLicense } from '@/providers/LicenseProvider';
 import type { ExportConfig, ExportFormat } from '@/lib/export';
 import type { Namespace } from '@/lib/tauri';
 
@@ -44,6 +45,7 @@ export function StreamingExportDialog({
   onConfirm,
 }: StreamingExportDialogProps) {
   const { t } = useTranslation();
+  const { isFeatureEnabled } = useLicense();
   const [format, setFormat] = useState<ExportFormat>('csv');
   const [outputPath, setOutputPath] = useState('');
   const [includeHeaders, setIncludeHeaders] = useState(true);
@@ -61,6 +63,10 @@ export function StreamingExportDialog({
         return 'sql';
       case 'html':
         return 'html';
+      case 'xlsx':
+        return 'xlsx';
+      case 'parquet':
+        return 'parquet';
       default:
         return 'csv';
     }
@@ -150,6 +156,12 @@ export function StreamingExportDialog({
                 <SelectItem value="json">{t('export.format.json')}</SelectItem>
                 <SelectItem value="sql_insert">{t('export.format.sql')}</SelectItem>
                 <SelectItem value="html">{t('export.format.html')}</SelectItem>
+                {isFeatureEnabled('export_xlsx') && (
+                  <SelectItem value="xlsx">{t('export.format.xlsx')}</SelectItem>
+                )}
+                {isFeatureEnabled('export_parquet') && (
+                  <SelectItem value="parquet">{t('export.format.parquet')}</SelectItem>
+                )}
               </SelectContent>
             </Select>
           </div>

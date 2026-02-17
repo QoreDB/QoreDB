@@ -14,8 +14,9 @@ export type LicenseTier = 'core' | 'pro' | 'team' | 'enterprise';
 export interface LicenseStatus {
   tier: LicenseTier;
   email: string | null;
-  issued_at: number | null;
-  expires_at: number | null;
+  payment_id: string | null;
+  issued_at: string | null;
+  expires_at: string | null;
   is_expired: boolean;
 }
 

@@ -39,8 +39,9 @@ impl Default for LicenseTier {
 pub struct LicenseStatus {
     pub tier: LicenseTier,
     pub email: Option<String>,
-    pub issued_at: Option<i64>,
-    pub expires_at: Option<i64>,
+    pub payment_id: Option<String>,
+    pub issued_at: Option<String>,
+    pub expires_at: Option<String>,
     pub is_expired: bool,
 }
 
@@ -49,6 +50,7 @@ impl Default for LicenseStatus {
         Self {
             tier: LicenseTier::Core,
             email: None,
+            payment_id: None,
             issued_at: None,
             expires_at: None,
             is_expired: false,

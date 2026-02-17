@@ -11,6 +11,8 @@ pub enum ExportFormat {
     Json,
     SqlInsert,
     Html,
+    Xlsx,
+    Parquet,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -7,6 +7,19 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { LicenseBadge } from './LicenseBadge';
 
+function formatDate(iso: string | null): string {
+  if (!iso) return '—';
+  try {
+    return new Date(iso).toLocaleDateString(undefined, {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+  } catch {
+    return iso;
+  }
+}
+
 /**
  * License activation/deactivation UI for Settings page.
  */
@@ -43,6 +56,7 @@ export function LicenseActivation() {
   };
 
   const isActive = status.tier !== 'core' && !status.is_expired;
+  const hasLicenseInfo = status.email || status.payment_id;
 
   return (
     <div className="flex flex-col gap-4">
@@ -61,10 +75,34 @@ export function LicenseActivation() {
         )}
       </div>
 
-      {status.email && (
-        <p className="text-xs text-[var(--color-text-tertiary)]">
-          {t('license.licensedTo', { email: status.email })}
-        </p>
+      {/* License details */}
+      {hasLicenseInfo && (
+        <div className="flex flex-col gap-1 rounded-md border border-[var(--color-border)] p-3 text-xs">
+          {status.email && (
+            <div className="flex gap-2">
+              <span className="text-[var(--color-text-tertiary)]">{t('license.email')}:</span>
+              <span className="text-[var(--color-text-secondary)]">{status.email}</span>
+            </div>
+          )}
+          {status.payment_id && (
+            <div className="flex gap-2">
+              <span className="text-[var(--color-text-tertiary)]">{t('license.paymentId')}:</span>
+              <span className="font-mono text-[var(--color-text-secondary)]">{status.payment_id}</span>
+            </div>
+          )}
+          {status.issued_at && (
+            <div className="flex gap-2">
+              <span className="text-[var(--color-text-tertiary)]">{t('license.issuedAt')}:</span>
+              <span className="text-[var(--color-text-secondary)]">{formatDate(status.issued_at)}</span>
+            </div>
+          )}
+          <div className="flex gap-2">
+            <span className="text-[var(--color-text-tertiary)]">{t('license.expiresAt')}:</span>
+            <span className="text-[var(--color-text-secondary)]">
+              {status.expires_at ? formatDate(status.expires_at) : t('license.perpetual')}
+            </span>
+          </div>
+        </div>
       )}
 
       {/* Activation form */}

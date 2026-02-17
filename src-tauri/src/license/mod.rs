@@ -40,8 +40,9 @@ impl LicenseManager {
         let status = LicenseStatus {
             tier: payload.tier,
             email: Some(payload.email),
+            payment_id: Some(payload.payment_id),
             issued_at: Some(payload.issued_at),
-            expires_at: Some(payload.expires_at),
+            expires_at: payload.expires_at,
             is_expired: false,
         };
         self.cached_status = status.clone();
@@ -69,8 +70,9 @@ impl LicenseManager {
                 self.cached_status = LicenseStatus {
                     tier: payload.tier,
                     email: Some(payload.email),
+                    payment_id: Some(payload.payment_id),
                     issued_at: Some(payload.issued_at),
-                    expires_at: Some(payload.expires_at),
+                    expires_at: payload.expires_at,
                     is_expired: false,
                 };
             }
@@ -80,8 +82,9 @@ impl LicenseManager {
                     self.cached_status = LicenseStatus {
                         tier: LicenseTier::Core,
                         email: Some(payload.email),
+                        payment_id: Some(payload.payment_id),
                         issued_at: Some(payload.issued_at),
-                        expires_at: Some(payload.expires_at),
+                        expires_at: payload.expires_at,
                         is_expired: true,
                     };
                 }

@@ -50,6 +50,9 @@ import { applyOverlay, OverlayResult, emptyOverlayResult } from '@/lib/sandboxOv
 import { ExportDataDetail, UI_EVENT_EXPORT_DATA } from '@/lib/uiEvents';
 import { StreamingExportDialog } from '@/components/Export/StreamingExportDialog';
 import type { ExportConfig } from '@/lib/export';
+import { useAiPreferences } from '@/providers/AiPreferencesProvider';
+import { aiExplainResult } from '@/lib/ai';
+import { useLicense } from '@/providers/LicenseProvider';
 
 const EMPTY_OVERLAY_RESULT: OverlayResult = {
   result: {
@@ -605,6 +608,28 @@ export function DataGrid({
     [startStreamingExport]
   );
 
+  // AI Explain Results
+  const { isFeatureEnabled } = useLicense();
+  const { getConfig, isReady: aiReady } = useAiPreferences();
+  const [aiExplanation, setAiExplanation] = useState<string | null>(null);
+  const [aiExplainLoading, setAiExplainLoading] = useState(false);
+  const canExplainWithAi = isFeatureEnabled('ai') && Boolean(sessionId) && aiReady;
+
+  const handleExplainWithAi = useCallback(async () => {
+    if (!sessionId || !result || aiExplainLoading) return;
+    setAiExplainLoading(true);
+    try {
+      const summary = `${result.rows.length} rows, ${result.columns.length} columns (${result.columns.map(c => c.name).join(', ')})`;
+      const queryUsed = exportQuery || '';
+      const response = await aiExplainResult(sessionId, queryUsed, summary, getConfig(), namespace);
+      setAiExplanation(response.content);
+    } catch {
+      setAiExplanation(null);
+    } finally {
+      setAiExplainLoading(false);
+    }
+  }, [sessionId, result, aiExplainLoading, exportQuery, getConfig, namespace]);
+
   // Keyboard shortcuts
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -698,6 +723,10 @@ export function DataGrid({
           copied={!!copied}
           showFilters={showFilters}
           setShowFilters={setShowFilters}
+          onExplainWithAi={canExplainWithAi ? handleExplainWithAi : undefined}
+          aiExplanation={aiExplanation}
+          aiExplainLoading={aiExplainLoading}
+          onDismissAiExplanation={() => setAiExplanation(null)}
         />
       </div>
 

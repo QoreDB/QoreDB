@@ -64,6 +64,8 @@ interface QueryPanelProps {
   onOpenLibrary?: () => void;
   isActive?: boolean;
   onQueryDraftChange?: (query: string) => void;
+  initialShowAiPanel?: boolean;
+  aiTableContext?: string;
 }
 
 export function QueryPanel({
@@ -80,6 +82,8 @@ export function QueryPanel({
   onOpenLibrary,
   isActive = true,
   onQueryDraftChange,
+  initialShowAiPanel,
+  aiTableContext,
 }: QueryPanelProps) {
   const { t } = useTranslation();
   const isDocument = isDocumentDatabase(dialect);
@@ -104,7 +108,8 @@ export function QueryPanel({
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [queryToSave, setQueryToSave] = useState<string>('');
-  const [showAiPanel, setShowAiPanel] = useState(false);
+  const [showAiPanel, setShowAiPanel] = useState(initialShowAiPanel ?? false);
+  const [pendingAiFix, setPendingAiFix] = useState<{ query: string; error: string } | null>(null);
 
   const isExplainSupported = useMemo(
     () => driverCapabilities?.explain ?? dialect === Driver.Postgres,
@@ -598,6 +603,11 @@ export function QueryPanel({
     setQuery(generatedQuery);
   }, []);
 
+  const handleFixWithAi = useCallback((errorQuery: string, error: string) => {
+    setShowAiPanel(true);
+    setPendingAiFix({ query: errorQuery, error });
+  }, []);
+
   const handleSaveToLibrary = useCallback(() => {
     const selection = !isDocument ? sqlEditorRef.current?.getSelection() : '';
     const candidate = selection && selection.trim().length > 0 ? selection : query;
@@ -702,6 +712,9 @@ export function QueryPanel({
               }
               onInsertQuery={handleInsertQuery}
               onClose={handleAiToggle}
+              pendingFix={pendingAiFix}
+              onPendingFixConsumed={() => setPendingAiFix(null)}
+              tableContext={aiTableContext}
             />
           </div>
         )}
@@ -732,6 +745,7 @@ export function QueryPanel({
         }}
         onRowsDeleted={runCurrentQuery}
         onEditDocument={handleEditDocument}
+        onFixWithAi={handleFixWithAi}
       />
 
       <QueryHistory

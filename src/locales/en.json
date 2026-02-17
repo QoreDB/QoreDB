@@ -1305,6 +1305,13 @@
     "configureProvider": "Configure AI provider",
     "noSession": "Connect to a database to use the AI assistant.",
     "ollamaLocal": "Local",
+    "fixWithAi": "Fix with AI",
+    "generateForTable": "Generate query with AI",
+    "generateForTableHint": "Generate a query for the \"{{table}}\" table...",
+    "explainResults": "Explain results",
+    "explaining": "Analyzing results...",
+    "defaultProvider": "Default provider",
+    "defaultProviderDescription": "Select your preferred AI provider.",
     "settings": {
       "title": "AI Providers",
       "description": "Configure API keys for AI-powered query generation.",

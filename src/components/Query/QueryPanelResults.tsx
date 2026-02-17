@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useTranslation } from 'react-i18next';
-import { AlertCircle, X, CheckCircle2, Info } from 'lucide-react';
+import { AlertCircle, X, CheckCircle2, Info, Sparkles } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { DataGrid } from '../Grid/DataGrid';
 import { DocumentResults } from '../Results/DocumentResults';
 import { ExplainPlanView } from '../Results/ExplainPlanView';
@@ -38,6 +39,7 @@ interface QueryPanelResultsProps {
   onCloseResult: (resultId: string) => void;
   onRowsDeleted: () => void;
   onEditDocument: (doc: Record<string, unknown>, idValue?: Value) => void;
+  onFixWithAi?: (query: string, error: string) => void;
 }
 
 export function QueryPanelResults({
@@ -56,6 +58,7 @@ export function QueryPanelResults({
   onCloseResult,
   onRowsDeleted,
   onEditDocument,
+  onFixWithAi,
 }: QueryPanelResultsProps) {
   const { t } = useTranslation();
   const activeResult =
@@ -123,9 +126,22 @@ export function QueryPanelResults({
           {activeResult.error ? (
             <div className="p-4 m-4 rounded-md bg-error/10 border border-error/20 text-error flex items-start gap-3">
               <AlertCircle className="mt-0.5 shrink-0" size={18} />
-              <pre className="text-sm font-mono whitespace-pre-wrap break-all">
-                {activeResult.error}
-              </pre>
+              <div className="flex-1 min-w-0">
+                <pre className="text-sm font-mono whitespace-pre-wrap break-all">
+                  {activeResult.error}
+                </pre>
+                {onFixWithAi && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="mt-2 h-7 gap-1.5 text-xs text-accent hover:text-accent"
+                    onClick={() => onFixWithAi(activeResult.query, activeResult.error!)}
+                  >
+                    <Sparkles size={12} />
+                    {t('ai.fixWithAi')}
+                  </Button>
+                )}
+              </div>
             </div>
           ) : activeResult.kind === 'explain' && activeResult.result ? (
             <ExplainPlanView result={activeResult.result} />

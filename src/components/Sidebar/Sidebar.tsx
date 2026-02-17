@@ -34,6 +34,7 @@ interface SidebarProps {
   ) => void;
   onDatabaseSelect?: (namespace: Namespace) => void;
   onCompareTable?: (collection: Collection) => void;
+  onAiGenerateForTable?: (collection: Collection) => void;
   onEditConnection: (connection: SavedConnection, password: string) => void;
   refreshTrigger?: number;
   schemaRefreshTrigger?: number;
@@ -48,6 +49,7 @@ export function Sidebar({
   onTableSelect,
   onDatabaseSelect,
   onCompareTable,
+  onAiGenerateForTable,
   onEditConnection,
   refreshTrigger,
   schemaRefreshTrigger,
@@ -195,6 +197,7 @@ export function Sidebar({
                       onTableSelect={onTableSelect}
                       onDatabaseSelect={onDatabaseSelect}
                       onCompareTable={onCompareTable}
+                      onAiGenerateForTable={onAiGenerateForTable}
                       refreshTrigger={schemaRefreshTrigger}
                       activeNamespace={activeNamespace}
                     />

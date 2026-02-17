@@ -185,6 +185,17 @@ export function AppLayout() {
     [sessionId, openTab, t, activeConnection?.id]
   );
 
+  const handleAiGenerateForTable = useCallback(
+    (collection: Collection) => {
+      if (!sessionId) return;
+      const tab = createQueryTab(undefined, collection.namespace);
+      tab.showAiPanel = true;
+      tab.aiTableContext = collection.name;
+      openTab(tab);
+    },
+    [sessionId, openTab]
+  );
+
   const handleOpenHistory = useCallback(() => {
     if (!sessionId) {
       notify.error(t('query.noConnectionError'));
@@ -395,6 +406,7 @@ export function AppLayout() {
               onTableSelect={handleTableSelect}
               onDatabaseSelect={handleDatabaseSelect}
               onCompareTable={handleCompareTable}
+              onAiGenerateForTable={handleAiGenerateForTable}
               onEditConnection={handleEditConnection}
               refreshTrigger={sidebarRefreshTrigger}
               schemaRefreshTrigger={schemaRefreshTrigger}
@@ -645,6 +657,8 @@ function AppContent({
           onOpenLibrary={onOpenLibrary}
           isActive
           onQueryDraftChange={value => onUpdateQueryDraft(activeTab.id, value)}
+          initialShowAiPanel={activeTab.showAiPanel}
+          aiTableContext={activeTab.aiTableContext}
         />
       </div>
     );

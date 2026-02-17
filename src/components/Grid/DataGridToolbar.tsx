@@ -16,6 +16,8 @@ import {
   FileSpreadsheet,
   FileJson,
   Code2,
+  Sparkles,
+  Loader2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,6 +29,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import { RowData } from './utils/dataGridUtils';
 import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
@@ -41,6 +44,10 @@ interface DataGridToolbarProps {
   copied: boolean;
   showFilters: boolean;
   setShowFilters: (show: boolean) => void;
+  onExplainWithAi?: () => void;
+  aiExplanation?: string | null;
+  aiExplainLoading?: boolean;
+  onDismissAiExplanation?: () => void;
 }
 
 export function DataGridToolbar({
@@ -53,6 +60,10 @@ export function DataGridToolbar({
   copied,
   showFilters,
   setShowFilters,
+  onExplainWithAi,
+  aiExplanation,
+  aiExplainLoading,
+  onDismissAiExplanation,
 }: DataGridToolbarProps) {
   const { t } = useTranslation();
 
@@ -190,6 +201,45 @@ export function DataGridToolbar({
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+      {/* AI Explain */}
+      {onExplainWithAi && (
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              className={cn('h-7 px-2 text-xs gap-1', aiExplanation && 'text-accent')}
+              onClick={!aiExplanation && !aiExplainLoading ? onExplainWithAi : undefined}
+              disabled={aiExplainLoading}
+            >
+              {aiExplainLoading ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <Sparkles size={14} />
+              )}
+              <span>{t('ai.explainResults')}</span>
+            </Button>
+          </PopoverTrigger>
+          {aiExplanation && (
+            <PopoverContent align="end" className="w-80 max-h-64 overflow-auto">
+              <div className="space-y-2">
+                <p className="text-xs whitespace-pre-wrap">{aiExplanation}</p>
+                {onDismissAiExplanation && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 text-xs w-full"
+                    onClick={onDismissAiExplanation}
+                  >
+                    <X size={12} className="mr-1" />
+                    {t('common.close')}
+                  </Button>
+                )}
+              </div>
+            </PopoverContent>
+          )}
+        </Popover>
+      )}
     </div>
   );
 }

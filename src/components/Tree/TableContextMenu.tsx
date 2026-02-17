@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Eye, Trash2, Eraser, GitCompare, Link2 } from 'lucide-react';
+import { Eye, Trash2, Eraser, GitCompare, Link2, Sparkles } from 'lucide-react';
 import { notify } from '../../lib/notify';
 
 import {
@@ -32,6 +32,7 @@ interface TableContextMenuProps {
   onRefresh: () => void;
   onOpen: () => void;
   onCompareWith?: (collection: Collection) => void;
+  onAiGenerate?: (collection: Collection) => void;
   onVirtualRelationChanged?: () => void;
   children: React.ReactNode;
 }
@@ -53,6 +54,7 @@ export function TableContextMenu({
   onRefresh,
   onOpen,
   onCompareWith,
+  onAiGenerate,
   onVirtualRelationChanged,
   children,
 }: TableContextMenuProps) {
@@ -178,6 +180,13 @@ export function TableContextMenu({
             <ContextMenuItem onClick={() => setVrDialogOpen(true)}>
               <Link2 size={14} className="mr-2" />
               {t('virtualRelations.addFromTable')}
+            </ContextMenuItem>
+          )}
+
+          {onAiGenerate && (
+            <ContextMenuItem onClick={() => onAiGenerate(collection)}>
+              <Sparkles size={14} className="mr-2" />
+              {t('ai.generateForTable')}
             </ContextMenuItem>
           )}
 

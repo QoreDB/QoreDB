@@ -1,19 +1,14 @@
 // SPDX-License-Identifier: BUSL-1.1
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Eye, EyeOff, Trash2, Check, AlertCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SettingsCard } from '../SettingsCard';
 import { LicenseGate } from '@/components/License/LicenseGate';
-import {
-  aiGetProviderStatus,
-  aiSaveApiKey,
-  aiDeleteApiKey,
-  AI_PROVIDERS,
-  type AiProvider,
-  type AiProviderStatus,
-} from '@/lib/ai';
+import { AiProviderSelector } from '@/components/AI/AiProviderSelector';
+import { useAiPreferences } from '@/providers/AiPreferencesProvider';
+import { aiSaveApiKey, aiDeleteApiKey, AI_PROVIDERS, type AiProvider } from '@/lib/ai';
 
 interface AiSectionProps {
   searchQuery?: string;
@@ -21,12 +16,12 @@ interface AiSectionProps {
 
 function ProviderCard({
   provider,
-  status,
+  hasKey,
   onSave,
   onDelete,
 }: {
   provider: (typeof AI_PROVIDERS)[number];
-  status: AiProviderStatus | undefined;
+  hasKey: boolean;
   onSave: (provider: AiProvider, key: string) => Promise<void>;
   onDelete: (provider: AiProvider) => Promise<void>;
 }) {
@@ -37,7 +32,6 @@ function ProviderCard({
   const [deleting, setDeleting] = useState(false);
   const [saved, setSaved] = useState(false);
 
-  const hasKey = status?.has_key ?? false;
   const isLocal = !provider.requiresKey;
 
   const handleSave = async () => {
@@ -147,34 +141,40 @@ function ProviderCard({
 
 export function AiSection({ searchQuery }: AiSectionProps) {
   const { t } = useTranslation();
-  const [statuses, setStatuses] = useState<AiProviderStatus[]>([]);
+  const { preferredProvider, setPreferredProvider, providerStatuses, refreshStatuses } =
+    useAiPreferences();
 
-  const loadStatuses = useCallback(async () => {
-    try {
-      const result = await aiGetProviderStatus();
-      setStatuses(result);
-    } catch {
-      // Pro feature not available
-    }
-  }, []);
-
-  useEffect(() => {
-    loadStatuses();
-  }, [loadStatuses]);
+  const providerHasKey: Record<AiProvider, boolean> = {
+    open_ai: providerStatuses.find(s => s.provider === 'open_ai')?.has_key ?? false,
+    anthropic: providerStatuses.find(s => s.provider === 'anthropic')?.has_key ?? false,
+    ollama: true,
+  };
 
   const handleSave = async (provider: AiProvider, key: string) => {
     await aiSaveApiKey(provider, key);
-    await loadStatuses();
+    await refreshStatuses();
   };
 
   const handleDelete = async (provider: AiProvider) => {
     await aiDeleteApiKey(provider);
-    await loadStatuses();
+    await refreshStatuses();
   };
 
   return (
     <LicenseGate feature="ai">
       <div className="space-y-6">
+        <SettingsCard
+          title={t('ai.defaultProvider')}
+          description={t('ai.defaultProviderDescription')}
+          searchQuery={searchQuery}
+        >
+          <AiProviderSelector
+            provider={preferredProvider}
+            onProviderChange={setPreferredProvider}
+            providerHasKey={providerHasKey}
+          />
+        </SettingsCard>
+
         <SettingsCard
           title={t('ai.settings.title')}
           description={t('ai.settings.description')}
@@ -185,7 +185,7 @@ export function AiSection({ searchQuery }: AiSectionProps) {
               <ProviderCard
                 key={provider.id}
                 provider={provider}
-                status={statuses.find(s => s.provider === provider.id)}
+                hasKey={providerHasKey[provider.id]}
                 onSave={handleSave}
                 onDelete={handleDelete}
               />

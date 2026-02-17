@@ -32,6 +32,9 @@ export interface OpenTab {
   // Diff-specific
   diffLeftSource?: DiffSource;
   diffRightSource?: DiffSource;
+  // AI-specific
+  showAiPanel?: boolean;
+  aiTableContext?: string;
 }
 
 /** Generate unique tab ID */

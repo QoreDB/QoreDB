@@ -1,21 +1,15 @@
 // SPDX-License-Identifier: BUSL-1.1
 
-import { useState, useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Sparkles, X, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip } from '@/components/ui/tooltip';
 import { LicenseGate } from '@/components/License/LicenseGate';
 import { useAiAssistant } from '@/hooks/useAiAssistant';
+import { useAiPreferences } from '@/providers/AiPreferencesProvider';
 import { AiPromptInput } from './AiPromptInput';
 import { AiResponseDisplay } from './AiResponseDisplay';
-import { AiProviderSelector } from './AiProviderSelector';
-import {
-  aiGetProviderStatus,
-  type AiConfig,
-  type AiProvider,
-  type AiProviderStatus,
-} from '@/lib/ai';
 import type { Namespace } from '@/lib/tauri';
 
 interface AiAssistantPanelProps {
@@ -25,20 +19,9 @@ interface AiAssistantPanelProps {
   onInsertQuery?: (query: string) => void;
   onClose: () => void;
   onOpenSettings?: () => void;
-}
-
-const STORAGE_KEY = 'qoredb_ai_provider';
-
-function loadSavedProvider(): AiProvider {
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved === 'open_ai' || saved === 'anthropic' || saved === 'ollama') {
-      return saved;
-    }
-  } catch {
-    // ignore
-  }
-  return 'open_ai';
+  pendingFix?: { query: string; error: string } | null;
+  onPendingFixConsumed?: () => void;
+  tableContext?: string;
 }
 
 export function AiAssistantPanel({
@@ -48,10 +31,12 @@ export function AiAssistantPanel({
   onInsertQuery,
   onClose,
   onOpenSettings,
+  pendingFix,
+  onPendingFixConsumed,
+  tableContext,
 }: AiAssistantPanelProps) {
   const { t } = useTranslation();
-  const [provider, setProvider] = useState<AiProvider>(loadSavedProvider);
-  const [providerStatuses, setProviderStatuses] = useState<AiProviderStatus[]>([]);
+  const { getConfig, isReady } = useAiPreferences();
 
   const assistant = useAiAssistant({
     sessionId,
@@ -59,33 +44,27 @@ export function AiAssistantPanel({
     connectionId,
   });
 
-  // Load provider statuses on mount
+  // Auto-trigger fix_error when pendingFix arrives
+  const lastFixRef = useRef<string | null>(null);
   useEffect(() => {
-    aiGetProviderStatus()
-      .then(setProviderStatuses)
-      .catch(() => {});
-  }, []);
-
-  const providerHasKey: Record<AiProvider, boolean> = {
-    open_ai: providerStatuses.find(s => s.provider === 'open_ai')?.has_key ?? false,
-    anthropic: providerStatuses.find(s => s.provider === 'anthropic')?.has_key ?? false,
-    ollama: true,
-  };
-
-  const handleProviderChange = useCallback((p: AiProvider) => {
-    setProvider(p);
-    localStorage.setItem(STORAGE_KEY, p);
-  }, []);
+    if (!pendingFix || !isReady || !sessionId) return;
+    const fixKey = `${pendingFix.query}::${pendingFix.error}`;
+    if (lastFixRef.current === fixKey) return;
+    lastFixRef.current = fixKey;
+    assistant.fixError('Fix this query error', getConfig(), pendingFix.query, pendingFix.error);
+    onPendingFixConsumed?.();
+  }, [pendingFix, isReady, sessionId, assistant, getConfig, onPendingFixConsumed]);
 
   const handleSubmit = useCallback(
     (prompt: string) => {
-      const config: AiConfig = { provider };
-      assistant.generateQuery(prompt, config);
+      assistant.generateQuery(prompt, getConfig());
     },
-    [provider, assistant]
+    [assistant, getConfig]
   );
 
-  const currentProviderReady = providerHasKey[provider];
+  const placeholder = tableContext
+    ? t('ai.generateForTableHint', { table: tableContext })
+    : undefined;
 
   return (
     <LicenseGate feature="ai">
@@ -112,15 +91,8 @@ export function AiAssistantPanel({
 
         {/* Content */}
         <div className="flex-1 overflow-auto p-3 space-y-3">
-          {/* Provider selector */}
-          <AiProviderSelector
-            provider={provider}
-            onProviderChange={handleProviderChange}
-            providerHasKey={providerHasKey}
-          />
-
           {/* No key warning */}
-          {!currentProviderReady && (
+          {!isReady && (
             <div className="text-xs text-warning bg-warning/10 px-3 py-2 rounded-md border border-warning/20">
               {t('ai.noProvider')}{' '}
               {onOpenSettings && (
@@ -154,7 +126,8 @@ export function AiAssistantPanel({
           <AiPromptInput
             onSubmit={handleSubmit}
             loading={assistant.loading}
-            disabled={!sessionId || !currentProviderReady}
+            disabled={!sessionId || !isReady}
+            placeholder={placeholder}
           />
         </div>
       </div>

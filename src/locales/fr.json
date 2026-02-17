@@ -1303,6 +1303,13 @@
     "configureProvider": "Configurer un fournisseur IA",
     "noSession": "Connectez-vous à une base de données pour utiliser l'assistant IA.",
     "ollamaLocal": "Local",
+    "fixWithAi": "Corriger avec l'IA",
+    "generateForTable": "Générer une requête avec l'IA",
+    "generateForTableHint": "Générer une requête pour la table \"{{table}}\"...",
+    "explainResults": "Expliquer les résultats",
+    "explaining": "Analyse des résultats...",
+    "defaultProvider": "Fournisseur par défaut",
+    "defaultProviderDescription": "Sélectionnez votre fournisseur IA préféré.",
     "settings": {
       "title": "Fournisseurs IA",
       "description": "Configurez les clés API pour la génération de requêtes assistée par IA.",

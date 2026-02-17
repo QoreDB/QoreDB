@@ -84,7 +84,7 @@
 - [x] Affichage du tier actuel
 - [x] Champ d'activation de clé (copier-coller)
 - [x] Liste features déverrouillées / verrouillées
-- [ ] Lien vers le site (achat / upgrade)
+- [x] Lien vers le site (achat / upgrade)
 - [x] Bouton de désactivation
 
 **2.6 — CI dual-build**
@@ -110,29 +110,29 @@
 
 **3.1 — Module `ai/` côté Rust**
 
-- [ ] Créer `src-tauri/src/ai/mod.rs` sous `#[cfg(feature = "pro")]`
-- [ ] Créer `src-tauri/src/ai/provider.rs` — trait `AIProvider`
-- [ ] Implémenter provider OpenAI (GPT-4/5)
-- [ ] Implémenter provider Anthropic (Claude)
-- [ ] Implémenter provider Ollama (modèles locaux)
-- [ ] Créer `src-tauri/src/ai/context.rs` — context builder
-- [ ] Context builder : extraction du schéma de la connexion active
-- [ ] Context builder : prompts adaptés par driver (SQL vs MQL)
-- [ ] Créer `src-tauri/src/ai/safety.rs` — filtrage des requêtes générées
-- [ ] Les requêtes IA passent par le safety engine existant avant exécution
-- [ ] Commandes Tauri : `ai_generate_query`, `ai_explain_result`, `ai_summarize_schema`
+- [x] Créer `src-tauri/src/ai/mod.rs` sous `#[cfg(feature = "pro")]`
+- [x] Créer `src-tauri/src/ai/provider.rs` — trait `AIProvider`
+- [x] Implémenter provider OpenAI (GPT-4/5)
+- [x] Implémenter provider Anthropic (Claude)
+- [x] Implémenter provider Ollama (modèles locaux)
+- [x] Créer `src-tauri/src/ai/context.rs` — context builder
+- [x] Context builder : extraction du schéma de la connexion active
+- [x] Context builder : prompts adaptés par driver (SQL vs MQL)
+- [x] Créer `src-tauri/src/ai/safety.rs` — filtrage des requêtes générées
+- [x] Les requêtes IA passent par le safety engine existant avant exécution
+- [x] Commandes Tauri : `ai_generate_query`, `ai_explain_result`, `ai_summarize_schema`
 
 **3.2 — Interface frontend IA**
 
-- [ ] Panel assistant intégré dans le query editor
-- [ ] Configuration des clés API dans Settings (stockage Vault)
-- [ ] Sélection du provider (OpenAI / Anthropic / Ollama)
-- [ ] Action : générer une requête à partir d'un prompt naturel
-- [ ] Action : expliquer un résultat de requête
-- [ ] Action : résumer un schéma
-- [ ] Action : corriger une erreur SQL/MQL
-- [ ] L'utilisateur voit et confirme la requête avant exécution
-- [ ] Tout est sous `LicenseGate` feature "ai"
+- [x] Panel assistant intégré dans le query editor
+- [x] Configuration des clés API dans Settings (stockage Vault)
+- [x] Sélection du provider (OpenAI / Anthropic / Ollama)
+- [x] Action : générer une requête à partir d'un prompt naturel
+- [x] Action : expliquer un résultat de requête
+- [x] Action : résumer un schéma
+- [x] Action : corriger une erreur SQL/MQL
+- [x] L'utilisateur voit et confirme la requête avant exécution
+- [x] Tout est sous `LicenseGate` feature "ai"
 - [ ] Tests avec les trois providers
 
 ---
@@ -176,7 +176,7 @@
 - [x] Module serveur de génération de clés (clé privée côté serveur)
 - [x] Génération automatique à la réception du webhook Stripe
 - [x] Format de la clé : base64 string contenant JSON payload + signature
-- [ ] Tests : générer une clé → la vérifier avec la clé publique embarquée dans QoreDB
+- [x] Tests : générer une clé → la vérifier avec la clé publique embarquée dans QoreDB
 
 ### 2.4 — Email de livraison
 
@@ -193,9 +193,9 @@
 
 ### 2.6 — Contenu additionnel
 
-- [ ] Page Changelog (liste des releases)
-- [ ] Documentation minimale : installation, premiers pas, features Core/Pro
-- [ ] Mise à jour de la homepage : CTA téléchargement Core + CTA upgrade Pro
+- [x] Page Changelog (liste des releases)
+- [x] Documentation minimale : installation, premiers pas, features Core/Pro
+- [x] Mise à jour de la homepage : CTA téléchargement Core + CTA upgrade Pro
 - [ ] Vérifier la cohérence avec le positionnement LinkedIn (technique, honnête, pas de hype)
 
 **✅ MILESTONE** : un utilisateur peut télécharger Core, acheter Pro sur le site, recevoir sa clé par email, et débloquer les features premium. MVP Open Core complet.

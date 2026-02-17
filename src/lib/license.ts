@@ -88,3 +88,8 @@ export async function getLicenseStatus(): Promise<LicenseStatus> {
 export async function deactivateLicense(): Promise<void> {
   return invoke('deactivate_license');
 }
+
+/** Dev-only: override the license tier. Pass null to clear. */
+export async function devSetLicenseTier(tier: LicenseTier | null): Promise<LicenseStatus> {
+  return invoke('dev_set_license_tier', { tier });
+}

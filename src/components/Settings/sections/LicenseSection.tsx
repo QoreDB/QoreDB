@@ -4,8 +4,9 @@ import { useTranslation } from 'react-i18next';
 import { SettingsCard } from '../SettingsCard';
 import { LicenseActivation } from '@/components/License/LicenseActivation';
 import { useLicense } from '@/providers/LicenseProvider';
-import { Lock, Unlock } from 'lucide-react';
-import type { ProFeature } from '@/lib/license';
+import { Lock, Unlock, FlaskConical } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import type { ProFeature, LicenseTier } from '@/lib/license';
 
 interface LicenseSectionProps {
   searchQuery?: string;
@@ -25,9 +26,11 @@ const PRO_FEATURES: ProFeature[] = [
   'virtual_relations_auto_suggest',
 ];
 
+const DEV_TIERS: LicenseTier[] = ['core', 'pro', 'team', 'enterprise'];
+
 export function LicenseSection({ searchQuery }: LicenseSectionProps) {
   const { t } = useTranslation();
-  const { isFeatureEnabled } = useLicense();
+  const { tier, isFeatureEnabled, devSetTier } = useLicense();
 
   return (
     <div className="space-y-6">
@@ -67,6 +70,35 @@ export function LicenseSection({ searchQuery }: LicenseSectionProps) {
           })}
         </ul>
       </SettingsCard>
+
+      {/* Dev-only tier override — stripped from production builds by Vite */}
+      {import.meta.env.DEV && (
+        <SettingsCard
+          title={t('settings.license.devOverrideTitle')}
+          description={t('settings.license.devOverrideDescription')}
+          searchQuery={searchQuery}
+        >
+          <div className="flex items-center gap-2">
+            <FlaskConical size={14} className="text-warning shrink-0" />
+            <span className="text-xs text-warning font-medium">
+              {t('settings.license.devOnly')}
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5 mt-3">
+            {DEV_TIERS.map(devTier => (
+              <Button
+                key={devTier}
+                variant={tier === devTier ? 'default' : 'outline'}
+                size="sm"
+                className="h-7 text-xs capitalize"
+                onClick={() => devSetTier(devTier === 'core' ? null : devTier)}
+              >
+                {devTier}
+              </Button>
+            ))}
+          </div>
+        </SettingsCard>
+      )}
     </div>
   );
 }

@@ -212,6 +212,7 @@ pub fn run() {
             commands::license::activate_license,
             commands::license::get_license_status,
             commands::license::deactivate_license,
+            commands::license::dev_set_license_tier,
             // AI commands
             commands::ai::ai_generate_query,
             commands::ai::ai_explain_result,

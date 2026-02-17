@@ -13,6 +13,10 @@ const LICENSE_USERNAME: &str = "license_key";
 pub struct LicenseManager {
     provider: Box<dyn CredentialProvider>,
     cached_status: LicenseStatus,
+    /// Dev-only: override the effective tier without a real license key.
+    /// Only compiled in debug builds — cannot exist in release binaries.
+    #[cfg(debug_assertions)]
+    dev_override_tier: Option<LicenseTier>,
 }
 
 impl LicenseManager {
@@ -20,13 +24,45 @@ impl LicenseManager {
         let mut manager = Self {
             provider,
             cached_status: LicenseStatus::default(),
+            #[cfg(debug_assertions)]
+            dev_override_tier: None,
         };
         manager.refresh_status();
         manager
     }
 
+    /// Returns the effective license status.
+    /// In debug builds, the dev override tier takes precedence if set.
     pub fn status(&self) -> &LicenseStatus {
         &self.cached_status
+    }
+
+    /// Returns the effective status, applying dev override if set (debug builds only).
+    pub fn effective_status(&self) -> LicenseStatus {
+        #[cfg(debug_assertions)]
+        if let Some(tier) = self.dev_override_tier {
+            return LicenseStatus {
+                tier,
+                email: Some("dev@qoredb.local".to_string()),
+                payment_id: None,
+                issued_at: None,
+                expires_at: None,
+                is_expired: false,
+            };
+        }
+        self.cached_status.clone()
+    }
+
+    /// Dev-only: set a tier override. Pass None to clear.
+    #[cfg(debug_assertions)]
+    pub fn set_dev_override(&mut self, tier: Option<LicenseTier>) {
+        self.dev_override_tier = tier;
+    }
+
+    /// Dev-only: get current override tier.
+    #[cfg(debug_assertions)]
+    pub fn dev_override(&self) -> Option<LicenseTier> {
+        self.dev_override_tier
     }
 
     /// Validates the key, persists it in the keyring, and updates the cached status.

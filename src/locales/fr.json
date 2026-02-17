@@ -287,7 +287,10 @@
         "export_parquet": "Export Parquet",
         "query_library_advanced": "Bibliothèque de requêtes avancée",
         "virtual_relations_auto_suggest": "Suggestion auto de relations virtuelles"
-      }
+      },
+      "devOverrideTitle": "Override licence (dev)",
+      "devOverrideDescription": "Changer le tier de licence pour le développement. Réinitialisé au redémarrage.",
+      "devOnly": "Développement uniquement — indisponible en builds de production"
     },
     "safetyPolicy": "Sécurité production",
     "safetyPolicyDescription": "Contrôlez les garde-fous côté backend pour la production.",
@@ -1274,6 +1277,7 @@
     "issuedAt": "Émise le",
     "expiresAt": "Expire le",
     "perpetual": "Perpétuelle (sans expiration)",
+    "getPro": "Obtenir QoreDB Pro",
     "upgrade": {
       "description": "Cette fonctionnalité nécessite une licence Pro.",
       "hint": "Allez dans les Paramètres pour activer votre clé de licence."

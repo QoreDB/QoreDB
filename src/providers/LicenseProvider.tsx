@@ -6,6 +6,7 @@ import {
   getLicenseStatus,
   activateLicense,
   deactivateLicense,
+  devSetLicenseTier,
   isFeatureEnabled as checkFeature,
 } from '@/lib/license';
 
@@ -16,11 +17,14 @@ export interface LicenseContextValue {
   isFeatureEnabled: (feature: ProFeature) => boolean;
   activate: (key: string) => Promise<LicenseStatus>;
   deactivate: () => Promise<void>;
+  /** Dev-only: override the tier. null to clear. */
+  devSetTier: (tier: LicenseTier | null) => Promise<void>;
 }
 
 const DEFAULT_STATUS: LicenseStatus = {
   tier: 'core',
   email: null,
+  payment_id: null,
   issued_at: null,
   expires_at: null,
   is_expired: false,
@@ -52,6 +56,15 @@ export function LicenseProvider({ children }: { children: ReactNode }) {
     setStatus(DEFAULT_STATUS);
   }, []);
 
+  const devSetTier = useCallback(async (tier: LicenseTier | null) => {
+    try {
+      const result = await devSetLicenseTier(tier);
+      setStatus(result);
+    } catch {
+      // Silently fail in release builds
+    }
+  }, []);
+
   const isEnabled = useCallback(
     (feature: ProFeature) => checkFeature(status.tier, feature),
     [status.tier]
@@ -66,6 +79,7 @@ export function LicenseProvider({ children }: { children: ReactNode }) {
         isFeatureEnabled: isEnabled,
         activate,
         deactivate,
+        devSetTier,
       }}
     >
       {children}

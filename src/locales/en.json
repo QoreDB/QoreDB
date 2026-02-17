@@ -287,7 +287,10 @@
         "export_parquet": "Parquet Export",
         "query_library_advanced": "Advanced Query Library",
         "virtual_relations_auto_suggest": "Auto-suggest Virtual Relations"
-      }
+      },
+      "devOverrideTitle": "Dev License Override",
+      "devOverrideDescription": "Override license tier for development testing. Resets on app restart.",
+      "devOnly": "Development only — not available in production builds"
     },
     "safetyPolicy": "Production Safety",
     "safetyPolicyDescription": "Control server-side guardrails for production queries.",
@@ -1276,6 +1279,7 @@
     "issuedAt": "Issued on",
     "expiresAt": "Expires on",
     "perpetual": "Perpetual (no expiration)",
+    "getPro": "Get QoreDB Pro",
     "upgrade": {
       "description": "This feature requires a Pro license.",
       "hint": "Go to Settings to activate your license key."

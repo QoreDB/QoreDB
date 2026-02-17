@@ -2,10 +2,12 @@
 
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { openUrl } from '@tauri-apps/plugin-opener';
 import { useLicense } from '@/providers/LicenseProvider';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { LicenseBadge } from './LicenseBadge';
+import { ExternalLink } from 'lucide-react';
 
 function formatDate(iso: string | null): string {
   if (!iso) return '—';
@@ -109,17 +111,29 @@ export function LicenseActivation() {
 
       {/* Activation form */}
       {!isActive && (
-        <div className="flex gap-2">
-          <Input
-            value={key}
-            onChange={e => setKey(e.target.value)}
-            placeholder={t('license.keyPlaceholder')}
-            className="flex-1 font-mono text-xs"
-          />
-          <Button onClick={handleActivate} disabled={loading || !key.trim()} size="sm">
-            {t('license.activate')}
+        <>
+          <div className="flex gap-2">
+            <Input
+              value={key}
+              onChange={e => setKey(e.target.value)}
+              placeholder={t('license.keyPlaceholder')}
+              className="flex-1 font-mono text-xs"
+            />
+            <Button onClick={handleActivate} disabled={loading || !key.trim()} size="sm">
+              {t('license.activate')}
+            </Button>
+          </div>
+          <Button
+            variant="link"
+            size="sm"
+            className="w-fit gap-1.5 px-0 text-xs"
+            style={{ color: '#6B5CFF' }}
+            onClick={() => openUrl('https://qoredb.com/pricing')}
+          >
+            <ExternalLink size={12} />
+            {t('license.getPro')}
           </Button>
-        </div>
+        </>
       )}
 
       {/* Deactivation */}

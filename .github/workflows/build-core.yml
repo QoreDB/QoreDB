@@ -56,10 +56,13 @@ jobs:
       - name: Run Core tests (no feature flags)
         env:
           RUST_TEST_THREADS: 1
+          PUBLIC_KEY_BASE64: ${{ vars.PUBLIC_KEY_BASE64 }}
         run: |
           dbus-run-session -- bash -c "cd src-tauri && cargo test"
 
       - name: Verify Core build compiles
+        env:
+          PUBLIC_KEY_BASE64: ${{ vars.PUBLIC_KEY_BASE64 }}
         run: cd src-tauri && cargo build
 
       - name: Shutdown containers

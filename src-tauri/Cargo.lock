@@ -4185,6 +4185,7 @@ dependencies = [
  "bigdecimal",
  "chrono",
  "dirs 5.0.1",
+ "dotenvy",
  "ed25519-dalek",
  "futures",
  "keyring",

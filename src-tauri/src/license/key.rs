@@ -7,13 +7,15 @@ use serde::{Deserialize, Serialize};
 
 use super::status::LicenseTier;
 
-/// Ed25519 public key for license verification (embedded in binary).
-/// Replace with production public key before release.
-/// Generate a new keypair with: `cargo test -p qoredb generate_dev_keypair -- --nocapture`
-const PUBLIC_KEY_BYTES: [u8; 32] = [
-    1, 113, 141, 7, 16, 243, 72, 191, 94, 203, 142, 178, 11, 110, 99, 138, 1, 104, 110, 132,
-    222, 221, 231, 246, 206, 72, 216, 110, 19, 248, 61, 112,
-];
+/// Ed25519 public key for license verification, loaded from PUBLIC_KEY_BASE64 env var at compile time.
+/// Set in .env at project root (loaded by build.rs via dotenvy).
+fn public_key_bytes() -> [u8; 32] {
+    let b64 = env!("PUBLIC_KEY_BASE64");
+    let bytes = BASE64.decode(b64).expect("PUBLIC_KEY_BASE64 is not valid base64");
+    bytes
+        .try_into()
+        .expect("PUBLIC_KEY_BASE64 must decode to exactly 32 bytes")
+}
 
 /// Wire format envelope matching the showcase backend.
 /// `payload` is captured as raw JSON to preserve exact bytes for signature verification.
@@ -59,7 +61,7 @@ pub enum LicenseError {
 /// Decodes and verifies signature only (no expiration check).
 /// Uses the embedded production public key.
 pub fn decode_license(license_key: &str) -> Result<LicensePayload, LicenseError> {
-    decode_license_with_key(license_key, &PUBLIC_KEY_BYTES)
+    decode_license_with_key(license_key, &public_key_bytes())
 }
 
 /// Full verification: signature + expiration + tier check.

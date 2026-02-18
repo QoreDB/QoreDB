@@ -24,7 +24,7 @@ impl AiProvider {
 
     pub fn default_model(&self) -> &'static str {
         match self {
-            AiProvider::OpenAi => "gpt-4o",
+            AiProvider::OpenAi => "gpt-4.1",
             AiProvider::Anthropic => "claude-sonnet-4-20250514",
             AiProvider::Ollama => "llama3",
         }

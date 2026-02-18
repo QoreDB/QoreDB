@@ -17,7 +17,7 @@ use crate::engine::{
     sql_safety,
     TableSchema,
     traits::StreamEvent,
-    types::{CollectionList, CollectionListOptions, ForeignKey, Namespace, QueryId, QueryResult, SessionId, Value, TableQueryOptions, PaginatedQueryResult, RoutineList, RoutineListOptions, RoutineType, TriggerList, TriggerListOptions, EventList, EventListOptions},
+    types::{CollectionList, CollectionListOptions, ForeignKey, Namespace, QueryId, QueryResult, SessionId, Value, TableQueryOptions, PaginatedQueryResult, RoutineList, RoutineListOptions, RoutineType, TriggerList, TriggerListOptions, EventList, EventListOptions, CreationOptions},
 };
 use crate::interceptor::{Environment, QueryExecutionResult, SafetyAction};
 use crate::metrics;
@@ -1453,6 +1453,53 @@ pub async fn drop_database(
                 query_id: None,
             })
         }
+    }
+}
+
+// ==================== Creation Options Commands ====================
+
+/// Response wrapper for database creation options
+#[derive(Debug, Serialize)]
+pub struct CreationOptionsResponse {
+    pub success: bool,
+    pub options: Option<CreationOptions>,
+    pub error: Option<String>,
+}
+
+/// Returns the creation options (charsets, collations) available for the driver
+#[tauri::command]
+pub async fn get_creation_options(
+    state: State<'_, crate::SharedState>,
+    session_id: String,
+) -> Result<CreationOptionsResponse, String> {
+    let session_manager = {
+        let state = state.lock().await;
+        Arc::clone(&state.session_manager)
+    };
+    let session = parse_session_id(&session_id)?;
+
+    let driver = match session_manager.get_driver(session).await {
+        Ok(d) => d,
+        Err(e) => {
+            return Ok(CreationOptionsResponse {
+                success: false,
+                options: None,
+                error: Some(e.to_string()),
+            });
+        }
+    };
+
+    match driver.get_creation_options(session).await {
+        Ok(options) => Ok(CreationOptionsResponse {
+            success: true,
+            options: Some(options),
+            error: None,
+        }),
+        Err(e) => Ok(CreationOptionsResponse {
+            success: false,
+            options: None,
+            error: Some(e.to_string()),
+        }),
     }
 }
 

@@ -13,7 +13,7 @@ use crate::engine::types::{
     CancelSupport, CollectionList, CollectionListOptions, ConnectionConfig, DriverCapabilities, Namespace,
     QueryId, QueryResult, Row, RowData, SessionId, TableSchema, ColumnInfo, Value, ForeignKey,
     TableQueryOptions, PaginatedQueryResult, RoutineList, RoutineListOptions,
-    TriggerList, TriggerListOptions, EventList, EventListOptions,
+    TriggerList, TriggerListOptions, EventList, EventListOptions, CreationOptions,
 };
 
 /// Events emitted during query streaming
@@ -120,8 +120,15 @@ pub trait DataEngine: Send + Sync {
         false
     }
 
+    /// Returns the options available when creating a database (charsets, collations, etc.).
+    /// Default implementation returns empty options (no driver-specific choices).
+    async fn get_creation_options(&self, session: SessionId) -> EngineResult<CreationOptions> {
+        let _ = session;
+        Ok(CreationOptions { charsets: Vec::new() })
+    }
+
     /// Creates a new database (or schema in PostgreSQL)
-    /// 
+    ///
     /// For MongoDB, 'options' can contain {"collection": "name"} to create the initial collection.
     async fn create_database(&self, session: SessionId, name: &str, options: Option<Value>) -> EngineResult<()>;
 

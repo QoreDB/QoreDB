@@ -510,6 +510,30 @@ pub struct EventList {
     pub total_count: u32,
 }
 
+// ==================== Database Creation Options ====================
+
+/// Information about a character set available for database creation
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CharsetInfo {
+    pub name: String,
+    pub description: String,
+    pub default_collation: String,
+    pub collations: Vec<CollationInfo>,
+}
+
+/// Information about a collation
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CollationInfo {
+    pub name: String,
+    pub is_default: bool,
+}
+
+/// Options available when creating a database (charsets, collations, etc.)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreationOptions {
+    pub charsets: Vec<CharsetInfo>,
+}
+
 // ==================== Table Query Types (Pagination) ====================
 
 /// Sort direction for query results

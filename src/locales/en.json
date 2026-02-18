@@ -638,7 +638,12 @@
     "creationNotSupported": "Driver not supported for database creation",
     "confirmCreate": "This action will create a new database and collection.",
     "schemaNamePlaceholder": "My schema",
-    "databaseNamePlaceholder": "My database"
+    "databaseNamePlaceholder": "My database",
+    "charsetLabel": "Character Set",
+    "charsetPlaceholder": "Server default",
+    "collationLabel": "Collation",
+    "collationPlaceholder": "Default for charset",
+    "loadingOptions": "Loading options..."
   },
   "common": {
     "loading": "Loading...",

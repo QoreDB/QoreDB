@@ -149,6 +149,7 @@ pub fn run() {
             commands::query::preview_table,
             commands::query::query_table,
             commands::query::peek_foreign_key,
+            commands::query::get_creation_options,
             commands::query::create_database,
             commands::query::drop_database,
             // Transaction commands

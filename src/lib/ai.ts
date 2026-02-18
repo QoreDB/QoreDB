@@ -77,7 +77,7 @@ export const AI_PROVIDERS: {
   defaultModel: string;
   requiresKey: boolean;
 }[] = [
-  { id: 'open_ai', label: 'OpenAI', defaultModel: 'gpt-4o', requiresKey: true },
+  { id: 'open_ai', label: 'OpenAI', defaultModel: 'gpt-4.1', requiresKey: true },
   {
     id: 'anthropic',
     label: 'Anthropic',

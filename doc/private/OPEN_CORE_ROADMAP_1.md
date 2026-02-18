@@ -202,7 +202,7 @@ src-tauri/src/ai/
 
 **Architecture BYOK** : l'utilisateur fournit sa propre clé API. Aucun backend QoreDB n'est nécessaire. Les appels LLM partent directement de la machine de l'utilisateur. Cohérent avec la philosophie local-first et privacy-first.
 
-**Providers supportés initialement** : OpenAI (GPT-4), Anthropic (Claude), Ollama (modèles locaux). Chaque provider implémente le trait `AIProvider`.
+**Providers supportés initialement** : OpenAI (GPT-5), Anthropic (Claude), Ollama (modèles locaux). Chaque provider implémente le trait `AIProvider`.
 
 **Context management** : le context builder analyse le schéma de la connexion active (tables, colonnes, types, relations, virtual relations) et construit un prompt adapté au driver (SQL pour Postgres/MySQL, MQL pour MongoDB). Le contexte est reconstruit à chaque requête, pas caché entre sessions.
 

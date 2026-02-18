@@ -27,6 +27,7 @@ use crate::engine::types::{
     Routine, RoutineList, RoutineListOptions, RoutineType,
     Trigger, TriggerList, TriggerListOptions, TriggerTiming, TriggerEvent,
     DatabaseEvent, EventList, EventListOptions, EventStatus,
+    CharsetInfo, CollationInfo, CreationOptions,
 };
 use crate::engine::traits::{StreamEvent, StreamSender};
 use futures::StreamExt;
@@ -718,7 +719,70 @@ impl DataEngine for MySqlDriver {
         true
     }
 
-    async fn create_database(&self, session: SessionId, name: &str, _options: Option<Value>) -> EngineResult<()> {
+    async fn get_creation_options(&self, session: SessionId) -> EngineResult<CreationOptions> {
+        let mysql_session = self.get_session(session).await?;
+        let pool = &mysql_session.pool;
+
+        // Fetch all charsets and their default collation
+        let charset_rows: Vec<(String, String, String)> = sqlx::query_as(
+            r#"
+            SELECT
+                CAST(CHARACTER_SET_NAME AS CHAR),
+                CAST(DESCRIPTION AS CHAR),
+                CAST(DEFAULT_COLLATE_NAME AS CHAR)
+            FROM information_schema.CHARACTER_SETS
+            ORDER BY CHARACTER_SET_NAME
+            "#,
+        )
+        .fetch_all(pool)
+        .await
+        .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        // Fetch all collations grouped by charset
+        let collation_rows: Vec<(String, String, String)> = sqlx::query_as(
+            r#"
+            SELECT
+                CAST(COLLATION_NAME AS CHAR),
+                CAST(CHARACTER_SET_NAME AS CHAR),
+                CAST(IS_DEFAULT AS CHAR)
+            FROM information_schema.COLLATIONS
+            ORDER BY CHARACTER_SET_NAME, IS_DEFAULT DESC, COLLATION_NAME
+            "#,
+        )
+        .fetch_all(pool)
+        .await
+        .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        // Group collations by charset
+        let mut collations_by_charset: std::collections::HashMap<String, Vec<CollationInfo>> =
+            std::collections::HashMap::new();
+        for (collation_name, charset_name, is_default) in collation_rows {
+            collations_by_charset
+                .entry(charset_name)
+                .or_default()
+                .push(CollationInfo {
+                    name: collation_name,
+                    is_default: is_default.eq_ignore_ascii_case("yes"),
+                });
+        }
+
+        let charsets = charset_rows
+            .into_iter()
+            .map(|(name, description, default_collation)| {
+                let collations = collations_by_charset.remove(&name).unwrap_or_default();
+                CharsetInfo {
+                    name,
+                    description,
+                    default_collation,
+                    collations,
+                }
+            })
+            .collect();
+
+        Ok(CreationOptions { charsets })
+    }
+
+    async fn create_database(&self, session: SessionId, name: &str, options: Option<Value>) -> EngineResult<()> {
         let mysql_session = self.get_session(session).await?;
         let pool = &mysql_session.pool;
 
@@ -727,10 +791,44 @@ impl DataEngine for MySqlDriver {
             return Err(EngineError::validation("Database name must be between 1 and 64 characters"));
         }
 
-        // Identifier quoting with backticks for MySQL
-        // Simple escape of backticks to avoid injection
+        // Parse optional charset and collation from JSON options
+        let (charset, collation) = if let Some(Value::Json(opts)) = &options {
+            let charset = opts.get("charset").and_then(|v| v.as_str()).map(str::to_owned);
+            let collation = opts.get("collation").and_then(|v| v.as_str()).map(str::to_owned);
+            (charset, collation)
+        } else {
+            (None, None)
+        };
+
+        // Security: validate charset and collation names (alphanumeric + underscore only)
+        fn is_valid_identifier(s: &str) -> bool {
+            !s.is_empty() && s.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+        }
+
+        if let Some(ref cs) = charset {
+            if !is_valid_identifier(cs) {
+                return Err(EngineError::validation(
+                    "Invalid character set name: only alphanumeric characters and underscores are allowed",
+                ));
+            }
+        }
+        if let Some(ref col) = collation {
+            if !is_valid_identifier(col) {
+                return Err(EngineError::validation(
+                    "Invalid collation name: only alphanumeric characters and underscores are allowed",
+                ));
+            }
+        }
+
+        // Build CREATE DATABASE statement
         let escaped_name = name.replace('`', "``");
-        let query = format!("CREATE DATABASE `{}`", escaped_name);
+        let mut query = format!("CREATE DATABASE `{}`", escaped_name);
+        if let Some(ref cs) = charset {
+            query.push_str(&format!(" CHARACTER SET {}", cs));
+        }
+        if let Some(ref col) = collation {
+            query.push_str(&format!(" COLLATE {}", col));
+        }
 
         sqlx::query(&query)
             .execute(pool)

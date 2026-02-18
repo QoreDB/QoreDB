@@ -636,7 +636,12 @@
     "creationNotSupported": "Pilote non pris en charge pour la création de base de données",
     "confirmCreate": "Cette action va créer une nouvelle base et une collection.",
     "schemaNamePlaceholder": "Mon schéma",
-    "databaseNamePlaceholder": "Mon base de données"
+    "databaseNamePlaceholder": "Mon base de données",
+    "charsetLabel": "Jeu de caractères",
+    "charsetPlaceholder": "Valeur par défaut du serveur",
+    "collationLabel": "Interclassement",
+    "collationPlaceholder": "Valeur par défaut",
+    "loadingOptions": "Chargement des options..."
   },
   "common": {
     "loading": "Chargement...",

@@ -69,6 +69,9 @@ parquet = { version = "54", optional = true, default-features = false, features 
 # Pro-only AI BYOK
 reqwest = { version = "0.12", features = ["json", "stream"], optional = true }
 
+# Pro-only Cross-Database Federation
+duckdb = { version = "1.4", optional = true, features = ["bundled"] }
+
 # Feature flags for Open Core tiers
 # Core (default): no flags needed
 # Pro: cargo build --features pro
@@ -76,7 +79,7 @@ reqwest = { version = "0.12", features = ["json", "stream"], optional = true }
 # Enterprise: cargo build --features enterprise (includes team + pro)
 [features]
 default = []
-pro = ["rust_xlsxwriter", "parquet", "arrow", "reqwest"]
+pro = ["rust_xlsxwriter", "parquet", "arrow", "reqwest", "duckdb"]
 team = ["pro"]
 enterprise = ["team"]
 

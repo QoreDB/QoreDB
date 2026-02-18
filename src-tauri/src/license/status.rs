@@ -73,6 +73,7 @@ pub enum ProFeature {
     CustomSafetyRules,
     QueryLibraryAdvanced,
     VirtualRelationsAutoSuggest,
+    Federation,
 }
 
 impl ProFeature {
@@ -90,7 +91,8 @@ impl ProFeature {
             | ProFeature::ExportParquet
             | ProFeature::CustomSafetyRules
             | ProFeature::QueryLibraryAdvanced
-            | ProFeature::VirtualRelationsAutoSuggest => LicenseTier::Pro,
+            | ProFeature::VirtualRelationsAutoSuggest
+            | ProFeature::Federation => LicenseTier::Pro,
         }
     }
 }

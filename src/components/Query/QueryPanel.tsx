@@ -43,6 +43,15 @@ import { SaveQueryDialog } from './SaveQueryDialog';
 import { QueryLibraryModal } from './QueryLibraryModal';
 import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
 import { AiAssistantPanel } from '@/components/AI/AiAssistantPanel';
+import {
+  executeFederationQuery,
+  listFederationSources,
+  isFederationQuery,
+  buildAliasSet,
+  buildAliasMap,
+  type FederationSource,
+} from '../../lib/federation';
+import { FederationSourcesPanel } from '../Federation/FederationSourcesPanel';
 
 function isTextInputTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
@@ -110,6 +119,21 @@ export function QueryPanel({
   const [queryToSave, setQueryToSave] = useState<string>('');
   const [showAiPanel, setShowAiPanel] = useState(initialShowAiPanel ?? false);
   const [pendingAiFix, setPendingAiFix] = useState<{ query: string; error: string } | null>(null);
+
+  // Federation state
+  const [federationSources, setFederationSources] = useState<FederationSource[]>([]);
+  const federationAliasSet = useMemo(() => buildAliasSet(federationSources), [federationSources]);
+  const showFederationPanel = useMemo(
+    () => federationSources.length >= 2 && isFederationQuery(query, federationAliasSet),
+    [query, federationSources, federationAliasSet]
+  );
+
+  // Load federation sources when sessionId changes
+  useEffect(() => {
+    listFederationSources()
+      .then(setFederationSources)
+      .catch(() => setFederationSources([]));
+  }, [sessionId]);
 
   const isExplainSupported = useMemo(
     () => driverCapabilities?.explain ?? dialect === Driver.Postgres,
@@ -243,13 +267,27 @@ export function QueryPanel({
           setActiveResultId(queryId);
         }
 
-        const response = await executeQuery(sessionId, queryToRun, {
-          acknowledgedDangerous,
-          queryId,
-          stream: driverCapabilities?.streaming && kind === 'query' && !isDocument,
-          namespace:
-            activeNamespace ?? (connectionDatabase ? { database: connectionDatabase } : undefined),
-        });
+        // Detect federation queries and route accordingly
+        const isFederated =
+          federationSources.length >= 2 &&
+          kind === 'query' &&
+          !isDocument &&
+          isFederationQuery(queryToRun, federationAliasSet);
+
+        const response = isFederated
+          ? await executeFederationQuery(queryToRun, buildAliasMap(federationSources), {
+              queryId,
+              stream: driverCapabilities?.streaming,
+              timeoutMs: 60000,
+            })
+          : await executeQuery(sessionId, queryToRun, {
+              acknowledgedDangerous,
+              queryId,
+              stream: driverCapabilities?.streaming && kind === 'query' && !isDocument,
+              namespace:
+                activeNamespace ??
+                (connectionDatabase ? { database: connectionDatabase } : undefined),
+            });
         const endTime = performance.now();
         const totalTime = endTime - startTime;
 
@@ -426,6 +464,8 @@ export function QueryPanel({
       activeNamespace,
       connectionDatabase,
       queryDialect,
+      federationSources,
+      federationAliasSet,
     ]
   );
 
@@ -683,6 +723,15 @@ export function QueryPanel({
         onAiToggle={handleAiToggle}
         aiPanelOpen={showAiPanel}
       />
+
+      {showFederationPanel && (
+        <FederationSourcesPanel
+          sources={federationSources}
+          onInsertAlias={(alias) => {
+            setQuery(prev => prev + alias + '.');
+          }}
+        />
+      )}
 
       <div className="flex flex-1 min-h-0">
         <div className="flex-1 min-w-0">

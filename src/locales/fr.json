@@ -1307,7 +1307,8 @@
       "export_parquet": "L'export Parquet nécessite une licence Pro.",
       "custom_safety_rules": "Les règles de sécurité personnalisées nécessitent une licence Pro.",
       "query_library_advanced": "La bibliothèque de requêtes avancée nécessite une licence Pro.",
-      "virtual_relations_auto_suggest": "La suggestion automatique de relations virtuelles nécessite une licence Pro."
+      "virtual_relations_auto_suggest": "La suggestion automatique de relations virtuelles nécessite une licence Pro.",
+      "federation": "La fédération inter-bases nécessite une licence Pro."
     }
   },
   "ai": {
@@ -1339,5 +1340,24 @@
       "deleteKey": "Supprimer la clé API",
       "ollamaHint": "Ollama s'exécute localement — aucune clé API requise. Assurez-vous qu'Ollama est lancé sur votre machine."
     }
+  },
+  "federation": {
+    "title": "Fédération inter-bases",
+    "sources": "Sources de fédération",
+    "noSources": "Connectez-vous à plusieurs bases de données pour utiliser les requêtes fédérées",
+    "executing": "Exécution de la requête fédérée...",
+    "fetchingSources": "Récupération des données sources...",
+    "loadingDuckDb": "Chargement dans le moteur de fédération...",
+    "executingJoin": "Exécution de la jointure...",
+    "rowLimitWarning": "La source '{{source}}' a retourné le maximum de {{limit}} lignes. Les résultats peuvent être incomplets.",
+    "proRequired": "La fédération inter-bases nécessite une licence Pro",
+    "alias": "Alias",
+    "connection": "Connexion",
+    "driver": "Driver",
+    "status": "Statut",
+    "badge": "Fédération",
+    "sourceFetchTime": "Récup. sources : {{time}}ms",
+    "totalTime": "Total : {{time}}ms",
+    "clickToInsert": "Cliquer pour insérer :"
   }
 }

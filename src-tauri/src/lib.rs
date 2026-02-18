@@ -6,6 +6,8 @@
 #[cfg(feature = "pro")]
 pub mod ai;
 pub mod commands;
+#[cfg(feature = "pro")]
+pub mod federation;
 pub mod engine;
 pub mod export;
 pub mod interceptor;
@@ -214,6 +216,9 @@ pub fn run() {
             commands::license::get_license_status,
             commands::license::deactivate_license,
             commands::license::dev_set_license_tier,
+            // Federation commands
+            commands::federation::execute_federation_query,
+            commands::federation::list_federation_sources,
             // AI commands
             commands::ai::ai_generate_query,
             commands::ai::ai_explain_result,

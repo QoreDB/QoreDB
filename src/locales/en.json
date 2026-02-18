@@ -1309,7 +1309,8 @@
       "export_parquet": "Parquet export requires a Pro license.",
       "custom_safety_rules": "Custom safety rules require a Pro license.",
       "query_library_advanced": "Advanced query library requires a Pro license.",
-      "virtual_relations_auto_suggest": "Auto-suggest virtual relations requires a Pro license."
+      "virtual_relations_auto_suggest": "Auto-suggest virtual relations requires a Pro license.",
+      "federation": "Cross-database federation requires a Pro license."
     }
   },
   "ai": {
@@ -1341,5 +1342,24 @@
       "deleteKey": "Delete API key",
       "ollamaHint": "Ollama runs locally — no API key required. Make sure Ollama is running on your machine."
     }
+  },
+  "federation": {
+    "title": "Cross-Database Federation",
+    "sources": "Federation sources",
+    "noSources": "Connect to multiple databases to use federation queries",
+    "executing": "Executing federation query...",
+    "fetchingSources": "Fetching data from sources...",
+    "loadingDuckDb": "Loading data into federation engine...",
+    "executingJoin": "Executing join query...",
+    "rowLimitWarning": "Source '{{source}}' returned the maximum {{limit}} rows. Results may be incomplete.",
+    "proRequired": "Cross-database federation requires a Pro license",
+    "alias": "Alias",
+    "connection": "Connection",
+    "driver": "Driver",
+    "status": "Status",
+    "badge": "Federation",
+    "sourceFetchTime": "Source fetch: {{time}}ms",
+    "totalTime": "Total: {{time}}ms",
+    "clickToInsert": "Click to insert:"
   }
 }

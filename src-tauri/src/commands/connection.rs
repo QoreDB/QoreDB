@@ -51,6 +51,30 @@ fn load_saved_connection_config(
     saved.to_connection_config(&creds).map_err(|e| e.to_string())
 }
 
+/// Like `load_saved_connection_config` but also returns the saved connection name.
+fn load_saved_connection_config_with_name(
+    project_id: &str,
+    connection_id: &str,
+    storage_dir: PathBuf,
+) -> Result<(ConnectionConfig, String), String> {
+    let storage = VaultStorage::new(project_id, storage_dir, Box::new(KeyringProvider::new()));
+    let saved = storage
+        .get_connection(connection_id)
+        .map_err(|e| e.to_string())?;
+
+    if saved.project_id != project_id {
+        return Err("Connection project mismatch".to_string());
+    }
+
+    let name = saved.name.clone();
+    let creds = storage
+        .get_credentials(connection_id)
+        .map_err(|e| e.to_string())?;
+
+    let config = saved.to_connection_config(&creds).map_err(|e| e.to_string())?;
+    Ok((config, name))
+}
+
 
 fn normalize_environment(env: &str) -> Result<String, String> {
     let normalized = env.trim().to_ascii_lowercase();
@@ -336,25 +360,32 @@ pub async fn connect_saved_connection(
 
     let storage_dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
 
-    let config = match load_saved_connection_config(&project_id, &connection_id, storage_dir)
-        .and_then(normalize_config)
-    {
-        Ok(cfg) => cfg,
-        Err(e) => {
-            return Ok(ConnectionResponse {
-                success: false,
-                session_id: None,
-                error: Some(e),
-            });
-        }
-    };
+    let (config, connection_name) =
+        match load_saved_connection_config_with_name(&project_id, &connection_id, storage_dir)
+            .and_then(|(cfg, name)| normalize_config(cfg).map(|c| (c, name)))
+        {
+            Ok(pair) => pair,
+            Err(e) => {
+                return Ok(ConnectionResponse {
+                    success: false,
+                    session_id: None,
+                    error: Some(e),
+                });
+            }
+        };
 
     match session_manager.connect(config).await {
-        Ok(session_id) => Ok(ConnectionResponse {
-            success: true,
-            session_id: Some(session_id.0.to_string()),
-            error: None,
-        }),
+        Ok(session_id) => {
+            // Update the session display name to the saved connection name
+            session_manager
+                .set_display_name(session_id, connection_name)
+                .await;
+            Ok(ConnectionResponse {
+                success: true,
+                session_id: Some(session_id.0.to_string()),
+                error: None,
+            })
+        }
         Err(e) => Ok(ConnectionResponse {
             success: false,
             session_id: None,

@@ -7,6 +7,7 @@ pub mod connection;
 pub mod connection_url;
 pub mod driver;
 pub mod export;
+pub mod federation;
 pub mod fulltext_search;
 pub mod interceptor;
 pub mod license;

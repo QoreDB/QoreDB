@@ -199,6 +199,14 @@ impl SessionManager {
         sessions.get(&session_id).map(|s| s.display_name.clone())
     }
 
+    /// Updates the display name for an active session.
+    pub async fn set_display_name(&self, session_id: SessionId, name: String) {
+        let mut sessions = self.sessions.write().await;
+        if let Some(session) = sessions.get_mut(&session_id) {
+            session.display_name = name;
+        }
+    }
+
     /// Checks if the session is read-only
     pub async fn is_read_only(&self, session_id: SessionId) -> EngineResult<bool> {
         let sessions = self.sessions.read().await;

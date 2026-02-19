@@ -7,8 +7,6 @@ use serde::{Deserialize, Serialize};
 
 use super::status::LicenseTier;
 
-/// Ed25519 public key for license verification, loaded from PUBLIC_KEY_BASE64 env var at compile time.
-/// Set in .env at project root (loaded by build.rs via dotenvy).
 fn public_key_bytes() -> [u8; 32] {
     let b64 = env!("PUBLIC_KEY_BASE64");
     let bytes = BASE64.decode(b64).expect("PUBLIC_KEY_BASE64 is not valid base64");

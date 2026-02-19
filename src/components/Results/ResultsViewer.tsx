@@ -112,11 +112,16 @@ export function ResultsViewer({
   exportNamespace,
 }: ResultsViewerProps) {
   const isDocument = isDocumentDatabase(driver);
+  const safeResult: QueryResult = result ?? {
+    columns: [],
+    rows: [],
+    execution_time_ms: 0,
+  };
 
   if (isDocument) {
     return (
       <DocumentResults
-        result={result!}
+        result={safeResult}
         sessionId={sessionId}
         database={database}
         collection={collection}
@@ -139,7 +144,7 @@ export function ResultsViewer({
 
   return (
     <DataGrid
-      result={result}
+      result={safeResult}
       sessionId={sessionId}
       namespace={namespace}
       tableName={tableName}

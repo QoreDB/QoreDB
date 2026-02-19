@@ -110,6 +110,12 @@ export function useInfiniteTableData({
         if (paginated.result.rows.length === 0) {
           setIsComplete(true);
         }
+      } else if (result.success && !result.result) {
+        // Defensive fallback: keep UI stable even if backend returned success without payload.
+        setColumns([]);
+        setAllRows([]);
+        setTotalRows(0);
+        setIsComplete(true);
       } else if (result.error) {
         setError(result.error);
       }

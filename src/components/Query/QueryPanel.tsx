@@ -49,7 +49,12 @@ import { QueryLibraryModal } from './QueryLibraryModal';
 import { QueryPanelEditor } from './QueryPanelEditor';
 import { QueryPanelResults, type QueryResultEntry } from './QueryPanelResults';
 import { QueryPanelToolbar } from './QueryPanelToolbar';
-import { getCollectionFromQuery, getDefaultQuery, shouldRefreshSchema } from './queryPanelUtils';
+import {
+  extractUseDatabase,
+  getCollectionFromQuery,
+  getDefaultQuery,
+  shouldRefreshSchema,
+} from './queryPanelUtils';
 import { SaveQueryDialog } from './SaveQueryDialog';
 
 function isTextInputTarget(target: EventTarget | null): boolean {
@@ -70,6 +75,7 @@ interface QueryPanelProps {
   initialQuery?: string;
   onSchemaChange?: () => void;
   onOpenLibrary?: () => void;
+  onNamespaceChange?: (namespace: Namespace) => void;
   isActive?: boolean;
   onQueryDraftChange?: (query: string) => void;
   initialShowAiPanel?: boolean;
@@ -88,6 +94,7 @@ export function QueryPanel({
   initialQuery,
   onSchemaChange,
   onOpenLibrary,
+  onNamespaceChange,
   isActive = true,
   onQueryDraftChange,
   initialShowAiPanel,
@@ -382,6 +389,14 @@ export function QueryPanel({
             if (shouldRefreshSchema(queryToRun, isDocument, dialect)) {
               forceRefreshCache(sessionId);
               onSchemaChange?.();
+            }
+
+            // Detect USE <database> and update namespace
+            if (!isDocument && kind === 'query') {
+              const useDb = extractUseDatabase(queryToRun);
+              if (useDb) {
+                onNamespaceChange?.({ database: useDb });
+              }
             }
           }
         } else {

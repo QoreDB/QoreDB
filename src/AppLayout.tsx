@@ -412,6 +412,7 @@ export function AppLayout() {
               onCompareTable={handleCompareTable}
               onAiGenerateForTable={handleAiGenerateForTable}
               onEditConnection={handleEditConnection}
+              onNewQuery={handleNewQuery}
               refreshTrigger={sidebarRefreshTrigger}
               schemaRefreshTrigger={schemaRefreshTrigger}
               activeNamespace={activeTab?.namespace}

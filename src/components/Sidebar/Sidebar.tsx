@@ -42,6 +42,7 @@ interface SidebarProps {
   onCompareTable?: (collection: Collection) => void;
   onAiGenerateForTable?: (collection: Collection) => void;
   onEditConnection: (connection: SavedConnection, password: string) => void;
+  onNewQuery?: () => void;
   schemaRefreshTrigger?: number;
   activeNamespace?: Namespace | null;
 }
@@ -56,6 +57,7 @@ export function Sidebar({
   onCompareTable,
   onAiGenerateForTable,
   onEditConnection,
+  onNewQuery,
   schemaRefreshTrigger,
   activeNamespace,
 }: SidebarProps) {
@@ -198,6 +200,7 @@ export function Sidebar({
           onToggleFavorite={() => handleToggleFavorite(connection.id)}
           onEdit={onEditConnection}
           onDeleted={loadConnections}
+          onNewQuery={connectedConnectionId === connection.id ? onNewQuery : undefined}
         />
         {expandedId === connection.id && connectedSessionId && (
           <div className="pl-4 border-l-2 border-accent/30 ml-4 mt-1 bg-muted/20 rounded-r-md py-1">

@@ -11,6 +11,7 @@ import {
   Network,
   Play,
   Square,
+  X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip } from '@/components/ui/tooltip';
@@ -32,6 +33,89 @@ import { FederationEmptyState } from './FederationEmptyState';
 import { SQLEditor, type SQLEditorHandle } from '../Editor/SQLEditor';
 import { QueryPanelResults, type QueryResultEntry } from '../Query/QueryPanelResults';
 import { ConnectionModal } from '../Connection/ConnectionModal';
+
+// ============================================
+// SMART INSERT — Query context analysis
+// ============================================
+
+type InsertAction = 'select-from' | 'join' | 'left-join' | 'comma' | 'where' | 'raw';
+
+interface InsertOption {
+  action: InsertAction;
+  labelKey: string;
+  kbd?: string;
+}
+
+function analyzeQueryContext(query: string): InsertAction | 'choose' {
+  const trimmed = query.trim();
+  if (!trimmed) return 'select-from';
+
+  const upper = trimmed.toUpperCase();
+  const hasSelect = /\bSELECT\b/.test(upper);
+  const hasFrom = /\bFROM\s+\S+/.test(upper);
+
+  // Has a SELECT...FROM with table(s) → offer JOIN options
+  if (hasSelect && hasFrom) return 'choose';
+
+  // Has SELECT but no FROM yet → complete with FROM
+  if (hasSelect && !hasFrom) return 'select-from';
+
+  // Has content but we can't parse it well → offer choices
+  if (trimmed.length > 5) return 'choose';
+
+  return 'select-from';
+}
+
+function getInsertOptions(query: string): InsertOption[] {
+  const upper = query.trim().toUpperCase();
+  const hasWhere = /\bWHERE\b/.test(upper);
+  const hasFrom = /\bFROM\s+\S+/.test(upper);
+
+  const options: InsertOption[] = [];
+
+  if (hasFrom) {
+    options.push({ action: 'join', labelKey: 'federation.insertJoin', kbd: 'J' });
+    options.push({ action: 'left-join', labelKey: 'federation.insertLeftJoin', kbd: 'L' });
+    options.push({ action: 'comma', labelKey: 'federation.insertComma' });
+  }
+
+  if (hasFrom && !hasWhere) {
+    options.push({ action: 'where', labelKey: 'federation.insertWhere', kbd: 'W' });
+  }
+
+  options.push({ action: 'raw', labelKey: 'federation.insertRaw' });
+
+  return options;
+}
+
+function buildInsertText(action: InsertAction, tablePath: string, query: string): string {
+  const alias = tablePath.split('.').pop()?.[0]?.toLowerCase() || 't';
+  switch (action) {
+    case 'select-from': {
+      const trimmed = query.trim();
+      if (!trimmed) return `SELECT * FROM ${tablePath}`;
+      // Has SELECT but no FROM → append FROM
+      if (/\bSELECT\b/i.test(trimmed) && !/\bFROM\b/i.test(trimmed)) {
+        return `\nFROM ${tablePath}`;
+      }
+      return `SELECT * FROM ${tablePath}`;
+    }
+    case 'join':
+      return `\nJOIN ${tablePath} ${alias} ON `;
+    case 'left-join':
+      return `\nLEFT JOIN ${tablePath} ${alias} ON `;
+    case 'comma':
+      return `, ${tablePath}`;
+    case 'where':
+      return `\nWHERE ${tablePath}.`;
+    case 'raw':
+      return tablePath;
+  }
+}
+
+// ============================================
+// COMPONENT
+// ============================================
 
 interface FederationViewerProps {
   activeConnection?: SavedConnection | null;
@@ -57,6 +141,9 @@ export function FederationViewer({ initialQuery = '' }: FederationViewerProps) {
   const [cancelling, setCancelling] = useState(false);
   const [activeQueryId, setActiveQueryId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // --- Smart insert state ---
+  const [pendingInsert, setPendingInsert] = useState<string | null>(null);
 
   // --- Refs ---
   const sqlEditorRef = useRef<SQLEditorHandle>(null);
@@ -101,6 +188,7 @@ export function FederationViewer({ initialQuery = '' }: FederationViewerProps) {
 
       setLoading(true);
       setError(null);
+      setPendingInsert(null);
       const queryId = `fed-${Date.now()}`;
       setActiveQueryId(queryId);
 
@@ -165,24 +253,85 @@ export function FederationViewer({ initialQuery = '' }: FederationViewerProps) {
     }
   }, [activeQueryId, cancelling]);
 
-  // --- Insert table from source bar ---
-  const handleInsertTable = useCallback((alias: string, ns: Namespace, table: string) => {
-    if (!sqlEditorRef.current) return;
-    const schemaPart = ns.schema ? `.${ns.schema}` : '';
-    const tablePath = `${alias}${schemaPart}.${table}`;
-    sqlEditorRef.current.insertSnippet(tablePath);
-    sqlEditorRef.current.focus();
-  }, []);
+  // --- Smart insert: table clicked from source bar ---
+  const handleInsertTable = useCallback(
+    (alias: string, ns: Namespace, table: string) => {
+      if (!sqlEditorRef.current) return;
+      // Federation references use:
+      // - alias.database.table
+      // - alias.database.schema.table
+      const tablePath = ns.schema
+        ? `${alias}.${ns.database}.${ns.schema}.${table}`
+        : `${alias}.${ns.database}.${table}`;
+
+      const context = analyzeQueryContext(query);
+
+      if (context === 'choose') {
+        // Show the action bar for the user to choose
+        setPendingInsert(tablePath);
+      } else {
+        // Direct insert (empty editor or simple case)
+        const text = buildInsertText(context, tablePath, query);
+        if (!query.trim()) {
+          // Replace entire editor content
+          setQuery(text);
+        } else {
+          sqlEditorRef.current.insertSnippet(text);
+        }
+        sqlEditorRef.current.focus();
+      }
+    },
+    [query]
+  );
+
+  // --- Smart insert: action chosen from action bar ---
+  const handleInsertAction = useCallback(
+    (action: InsertAction) => {
+      if (!pendingInsert || !sqlEditorRef.current) return;
+      const text = buildInsertText(action, pendingInsert, query);
+
+      if (action === 'select-from' && !query.trim()) {
+        setQuery(text);
+      } else {
+        sqlEditorRef.current.insertSnippet(text);
+      }
+
+      setPendingInsert(null);
+      sqlEditorRef.current.focus();
+    },
+    [pendingInsert, query]
+  );
+
+  // --- Keyboard shortcuts for action bar ---
+  useEffect(() => {
+    if (!pendingInsert) return;
+    const handler = (e: KeyboardEvent) => {
+      const key = e.key.toUpperCase();
+      if (key === 'ESCAPE') {
+        setPendingInsert(null);
+        sqlEditorRef.current?.focus();
+        return;
+      }
+      if (key === 'J') {
+        e.preventDefault();
+        handleInsertAction('join');
+      } else if (key === 'L') {
+        e.preventDefault();
+        handleInsertAction('left-join');
+      } else if (key === 'W') {
+        e.preventDefault();
+        handleInsertAction('where');
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [pendingInsert, handleInsertAction]);
 
   // --- Insert example query ---
-  const handleTryExample = useCallback(
-    (exampleQuery: string) => {
-      setQuery(exampleQuery);
-      // Focus the editor after a short delay to allow state to settle
-      setTimeout(() => sqlEditorRef.current?.focus(), 50);
-    },
-    []
-  );
+  const handleTryExample = useCallback((exampleQuery: string) => {
+    setQuery(exampleQuery);
+    setTimeout(() => sqlEditorRef.current?.focus(), 50);
+  }, []);
 
   // --- Connection change listener ---
   useEffect(() => {
@@ -190,6 +339,12 @@ export function FederationViewer({ initialQuery = '' }: FederationViewerProps) {
     window.addEventListener('qoredb:connections-changed', handler);
     return () => window.removeEventListener('qoredb:connections-changed', handler);
   }, [loadSources]);
+
+  // --- Insert options for pending insert ---
+  const insertOptions = useMemo(
+    () => (pendingInsert ? getInsertOptions(query) : []),
+    [pendingInsert, query]
+  );
 
   return (
     <div className="flex flex-col w-full h-full bg-background overflow-hidden">
@@ -201,6 +356,47 @@ export function FederationViewer({ initialQuery = '' }: FederationViewerProps) {
         onAddSource={() => setConnectionModalOpen(true)}
         onInsertTable={handleInsertTable}
       />
+
+      {/* Smart insert action bar */}
+      {pendingInsert && (
+        <div className="flex items-center gap-2 px-3 py-1.5 border-b border-accent/20 bg-accent/5 shrink-0 animate-in fade-in slide-in-from-top-1 duration-150">
+          <span className="text-xs text-foreground">
+            {t('federation.insertAs')}
+            <code className="ml-1.5 font-mono text-accent bg-accent/10 px-1.5 py-0.5 rounded text-[11px]">
+              {pendingInsert}
+            </code>
+          </span>
+
+          <div className="flex items-center gap-1 ml-2">
+            {insertOptions.map(opt => (
+              <Button
+                key={opt.action}
+                variant="outline"
+                size="sm"
+                className="h-6 text-[11px] px-2 gap-1.5 border-accent/20 hover:bg-accent/10 hover:border-accent/30"
+                onClick={() => handleInsertAction(opt.action)}
+              >
+                {t(opt.labelKey)}
+                {opt.kbd && (
+                  <kbd className="ml-0.5 text-[9px] font-mono text-muted-foreground bg-muted/60 px-1 py-px rounded">
+                    {opt.kbd}
+                  </kbd>
+                )}
+              </Button>
+            ))}
+          </div>
+
+          <button
+            onClick={() => {
+              setPendingInsert(null);
+              sqlEditorRef.current?.focus();
+            }}
+            className="ml-auto p-1 text-muted-foreground hover:text-foreground rounded transition-colors"
+          >
+            <X size={12} />
+          </button>
+        </div>
+      )}
 
       {/* Toolbar */}
       <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border bg-muted/20 shrink-0">

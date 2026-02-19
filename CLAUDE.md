@@ -33,7 +33,6 @@ doc/                    # Documentation détaillée
 ├── rules/              # Standards UI/design & features
 ├── security/           # Modèle de menaces, politiques
 ├── tests/              # Contraintes de tests
-├── internals/          # Architecture interne
 └── todo/               # Roadmap & specs à venir
 ```
 

@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState } from 'react';
 import type { DatabaseBrowserTab } from '@/components/Browser/DatabaseBrowser';
 import type { TableBrowserTab } from '@/components/Browser/TableBrowser';
 import type { OpenTab } from '@/lib/tabs';
+import type { Namespace } from '@/lib/tauri';
 
 export interface UseTabsOptions {
   initialTabs?: OpenTab[];
@@ -126,6 +127,17 @@ export function useTabs(options: UseTabsOptions = {}) {
     });
   }, []);
 
+  const updateTabNamespace = useCallback((tabId: string, namespace: Namespace) => {
+    setTabs(prev =>
+      prev.map(t =>
+        t.id === tabId &&
+        (t.namespace?.database !== namespace.database || t.namespace?.schema !== namespace.schema)
+          ? { ...t, namespace }
+          : t
+      )
+    );
+  }, []);
+
   const reset = useCallback((options: UseTabsOptions = {}) => {
     setTabs(options.initialTabs ?? []);
     setActiveTabId(options.initialActiveTabId ?? options.initialTabs?.[0]?.id ?? null);
@@ -145,6 +157,7 @@ export function useTabs(options: UseTabsOptions = {}) {
     closeTab,
     setActiveTabId,
     updateQueryDraft,
+    updateTabNamespace,
     updateTableBrowserTab,
     updateDatabaseBrowserTab,
     reset,

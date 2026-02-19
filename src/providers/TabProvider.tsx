@@ -5,6 +5,7 @@ import type { DatabaseBrowserTab } from '@/components/Browser/DatabaseBrowser';
 import type { TableBrowserTab } from '@/components/Browser/TableBrowser';
 import { type UseTabsOptions, useTabs } from '@/hooks/useTabs';
 import type { OpenTab } from '@/lib/tabs';
+import type { Namespace } from '@/lib/tauri';
 
 export interface TabContextValue {
   tabs: OpenTab[];
@@ -17,6 +18,7 @@ export interface TabContextValue {
   closeTab: (tabId: string) => void;
   setActiveTabId: (id: string | null) => void;
   updateQueryDraft: (tabId: string, value: string) => void;
+  updateTabNamespace: (tabId: string, namespace: Namespace) => void;
   updateTableBrowserTab: (tabId: string, tab: TableBrowserTab) => void;
   updateDatabaseBrowserTab: (tabId: string, tab: DatabaseBrowserTab) => void;
   resetTabs: (options?: UseTabsOptions) => void;
@@ -36,6 +38,7 @@ export function TabProvider({ children }: { children: ReactNode }) {
     closeTab,
     setActiveTabId,
     updateQueryDraft,
+    updateTabNamespace,
     updateTableBrowserTab,
     updateDatabaseBrowserTab,
     reset,
@@ -54,6 +57,7 @@ export function TabProvider({ children }: { children: ReactNode }) {
         closeTab,
         setActiveTabId,
         updateQueryDraft,
+        updateTabNamespace,
         updateTableBrowserTab,
         updateDatabaseBrowserTab,
         resetTabs: reset,

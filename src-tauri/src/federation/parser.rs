@@ -332,16 +332,29 @@ fn rewrite_table_factor(factor: &mut TableFactor, mappings: &HashMap<String, Str
 fn rewrite_expr(expr: &mut Expr, mappings: &HashMap<String, String>) {
     match expr {
         Expr::CompoundIdentifier(idents) => {
-            // Check if this is a compound identifier referencing a federated table
-            // e.g., prod_pg.public.users.email -> __fed_users_0.email
+            // Check if this is a qualified reference to a federated table:
+            // - 3-part table + column: alias.db.table.col
+            // - 4-part table + column: alias.db.schema.table.col
             if idents.len() >= 4 {
-                let first_three: Vec<String> =
-                    idents[..3].iter().map(|i| i.value.to_lowercase()).collect();
-                let dotted = first_three.join(".");
-                if let Some(local_alias) = mappings.get(&dotted) {
-                    let mut new_idents = vec![sqlparser::ast::Ident::new(local_alias.clone())];
-                    new_idents.extend(idents[3..].iter().cloned());
-                    *idents = new_idents;
+                // Try the longest possible table prefix first (len - 1 parts).
+                // This handles PostgreSQL 4-part table references correctly.
+                let max_prefix = idents.len() - 1;
+                let min_prefix = 3usize;
+
+                for prefix_len in (min_prefix..=max_prefix).rev() {
+                    let candidate: Vec<String> = idents[..prefix_len]
+                        .iter()
+                        .map(|i| i.value.to_lowercase())
+                        .collect();
+                    let dotted = candidate.join(".");
+
+                    if let Some(local_alias) = mappings.get(&dotted) {
+                        let mut new_idents =
+                            vec![sqlparser::ast::Ident::new(local_alias.clone())];
+                        new_idents.extend(idents[prefix_len..].iter().cloned());
+                        *idents = new_idents;
+                        break;
+                    }
                 }
             }
         }
@@ -511,5 +524,34 @@ mod tests {
         let sql = "SELECT * FROM prod_pg.public.users; SELECT 1";
         let result = parse_federation_refs(sql, &aliases());
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn rewrite_supports_four_part_compound_identifier() {
+        let sql = "SELECT prod_pg.testdb.public.users.email FROM prod_pg.testdb.public.users";
+        let refs = parse_federation_refs(sql, &aliases()).unwrap();
+
+        let mut mappings = HashMap::new();
+        for r in &refs {
+            let dotted = if let Some(schema) = &r.namespace.schema {
+                build_dotted_name(&[
+                    r.connection_alias.clone(),
+                    r.namespace.database.clone(),
+                    schema.clone(),
+                    r.table.clone(),
+                ])
+            } else {
+                build_dotted_name(&[
+                    r.connection_alias.clone(),
+                    r.namespace.database.clone(),
+                    r.table.clone(),
+                ])
+            };
+            mappings.insert(dotted, r.local_alias.clone());
+        }
+
+        let rewritten = rewrite_query(sql, &mappings).unwrap();
+        assert!(rewritten.contains("__fed_users_0.email"));
+        assert!(!rewritten.contains("prod_pg.testdb.public.users.email"));
     }
 }

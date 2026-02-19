@@ -100,6 +100,7 @@
       "deleteConfirm": "Supprimer la connexion \"{{name}}\" ? Cette action est irréversible.",
       "deletedSuccess": "Connexion \"{{name}}\" supprimée",
       "deleteFail": "Échec de la suppression de la connexion",
+      "newQuery": "Nouvelle requête",
       "credentialLoadFail": "Échec du chargement des détails de la connexion",
       "testTitleSuccess": "Connexion à {{name}} réussie !"
     },
@@ -1388,6 +1389,12 @@
     "useTemplate": "Utiliser",
     "hintClickSource": "Cliquez sur une source pour parcourir",
     "hintToExecute": "pour exécuter",
-    "openFederation": "Ouvrir la fédération"
+    "openFederation": "Ouvrir la fédération",
+    "insertAs": "Insérer",
+    "insertJoin": "JOIN",
+    "insertLeftJoin": "LEFT JOIN",
+    "insertComma": "Cross join",
+    "insertWhere": "WHERE",
+    "insertRaw": "Référence"
   }
 }

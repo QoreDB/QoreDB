@@ -86,18 +86,23 @@ fn resolve_sources(
 fn build_rewrite_mappings(refs: &[FederatedTableRef]) -> HashMap<String, String> {
     let mut mappings = HashMap::new();
     for r in refs {
-        // Build dotted name matching how it appears in the SQL
-        let dotted = build_dotted_name(&[
-            r.connection_alias.clone(),
-            if let Some(ref schema) = r.namespace.schema {
-                // 4-part: alias.database.schema.table — map alias.database.schema
-                // Actually for the rewrite, we match the full prefix before the table
-                format!("{}.{}", r.namespace.database, schema)
-            } else {
-                r.namespace.database.clone()
-            },
-            r.table.clone(),
-        ]);
+        // Build dotted name exactly as it appears in SQL:
+        // - 3-part: alias.database.table
+        // - 4-part: alias.database.schema.table
+        let dotted = if let Some(ref schema) = r.namespace.schema {
+            build_dotted_name(&[
+                r.connection_alias.clone(),
+                r.namespace.database.clone(),
+                schema.clone(),
+                r.table.clone(),
+            ])
+        } else {
+            build_dotted_name(&[
+                r.connection_alias.clone(),
+                r.namespace.database.clone(),
+                r.table.clone(),
+            ])
+        };
         mappings.insert(dotted, r.local_alias.clone());
     }
     mappings

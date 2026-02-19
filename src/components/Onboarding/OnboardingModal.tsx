@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { AnimatePresence, motion } from 'framer-motion';
+import { ArrowLeft, Database, Laptop, ShieldCheck } from 'lucide-react';
 import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { AnalyticsService } from './AnalyticsService';
-import { ArrowLeft, Database, Laptop, ShieldCheck } from 'lucide-react';
 
 interface OnboardingModalProps {
   onComplete: () => void;

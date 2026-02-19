@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { X, Plus, FileCode, Table, Settings, Database, GitCompare } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Database, FileCode, GitCompare, Plus, Settings, Table, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { cn } from '@/lib/utils';
 import { getModifierKey } from '@/utils/platform';
 
 export interface TabItem {

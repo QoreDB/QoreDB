@@ -1,19 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { useCallback, useEffect, useRef } from 'react';
-import { listen, UnlistenFn } from '@tauri-apps/api/event';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-
+import { ExportProgressToast } from '@/components/Export/ExportProgressToast';
 import {
   cancelExport,
+  type ExportConfig,
+  type ExportProgress,
+  type ExportState,
   exportProgressEvent,
-  ExportConfig,
-  ExportProgress,
-  ExportState,
   startExport,
 } from '@/lib/export';
-import { ExportProgressToast } from '@/components/Export/ExportProgressToast';
 
 type ActiveExport = {
   unlisten: UnlistenFn;

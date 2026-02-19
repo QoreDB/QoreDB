@@ -94,10 +94,7 @@ export async function listFederationSources(): Promise<FederationSource[]> {
  *
  * This is a fast pre-check; the backend does full AST-based validation.
  */
-export function isFederationQuery(
-  query: string,
-  knownAliases: Set<string>
-): boolean {
+export function isFederationQuery(query: string, knownAliases: Set<string>): boolean {
   if (knownAliases.size === 0) return false;
 
   // Match 3-part identifiers: word.word.word
@@ -117,14 +114,12 @@ export function isFederationQuery(
  * Builds a Set of known aliases from federation sources.
  */
 export function buildAliasSet(sources: FederationSource[]): Set<string> {
-  return new Set(sources.map((s) => s.alias));
+  return new Set(sources.map(s => s.alias));
 }
 
 /**
  * Builds the alias -> sessionId map from federation sources.
  */
-export function buildAliasMap(
-  sources: FederationSource[]
-): Record<string, string> {
-  return Object.fromEntries(sources.map((s) => [s.alias, s.sessionId]));
+export function buildAliasMap(sources: FederationSource[]): Record<string, string> {
+  return Object.fromEntries(sources.map(s => [s.alias, s.sessionId]));
 }

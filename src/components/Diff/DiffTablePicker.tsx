@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: BUSL-1.1
 
+import { ChevronDown, Loader2, Search, Table2, X } from 'lucide-react';
 /**
  * DiffTablePicker - Searchable dropdown for selecting tables
  */
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Search, Table2, ChevronDown, Loader2, X } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { Collection, Namespace, listCollections } from '@/lib/tauri';
 import { Button } from '@/components/ui/button';
+import { type Collection, listCollections, type Namespace } from '@/lib/tauri';
+import { cn } from '@/lib/utils';
 
 interface DiffTablePickerProps {
   sessionId: string;

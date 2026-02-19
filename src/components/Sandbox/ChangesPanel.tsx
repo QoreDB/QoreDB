@@ -1,38 +1,38 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { useState, useEffect, useCallback } from 'react';
-import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
 import {
-  X,
-  Trash2,
-  FileCode,
+  AlertTriangle,
   ChevronDown,
   ChevronRight,
-  Table,
-  Plus,
-  Pencil,
-  AlertTriangle,
   Eye,
   EyeOff,
+  FileCode,
+  Pencil,
+  Plus,
+  Table,
+  Trash2,
+  X,
 } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import {
-  getSandboxSession,
-  getGroupedChanges,
-  removeSandboxChange,
   clearSandboxChanges,
   clearTableChanges,
-  subscribeSandbox,
+  getGroupedChanges,
   getSandboxPreferences,
+  getSandboxSession,
+  removeSandboxChange,
+  subscribeSandbox,
   subscribeSandboxPreferences,
 } from '@/lib/sandboxStore';
-import { SandboxChangeGroup } from '@/lib/sandboxTypes';
-import { ChangeItem } from './ChangeItem';
+import type { SandboxChangeGroup } from '@/lib/sandboxTypes';
+import type { Environment } from '@/lib/tauri';
 import { cn } from '@/lib/utils';
-import { Environment } from '@/lib/tauri';
+import { ChangeItem } from './ChangeItem';
 
 interface ChangesPanelProps {
   sessionId: string;

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { TabBar } from '../Tabs/TabBar';
 import './MainLayout.css';
 

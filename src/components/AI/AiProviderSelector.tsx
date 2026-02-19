@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 
+import { AlertCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
   Select,
@@ -9,7 +10,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { AI_PROVIDERS, type AiProvider } from '@/lib/ai';
-import { AlertCircle } from 'lucide-react';
 
 interface AiProviderSelectorProps {
   provider: AiProvider;

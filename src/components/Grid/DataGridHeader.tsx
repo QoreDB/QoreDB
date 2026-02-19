@@ -5,10 +5,10 @@
  * Displays row counts, timing info, load more controls, and delete button
  */
 
-import { useTranslation } from 'react-i18next';
 import { Trash2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
-import { QueryResult } from '@/lib/tauri';
+import type { QueryResult } from '@/lib/tauri';
 
 export interface DataGridHeaderProps {
   selectedCount: number;

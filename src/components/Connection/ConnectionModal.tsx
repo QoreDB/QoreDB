@@ -1,16 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { useState, useCallback } from 'react';
+import { Check, Link2, Loader2, X } from 'lucide-react';
+import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { DRIVER_ICONS, DRIVER_LABELS } from '@/lib/drivers';
-import { cn } from '@/lib/utils';
-
-import {
-  connectSavedConnection,
-  saveConnection,
-  testConnection,
-  type SavedConnection,
-} from '@/lib/tauri';
+import { toast } from 'sonner';
+import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -22,19 +16,23 @@ import {
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Switch } from '@/components/ui/switch';
-import { Check, Link2, Loader2, X } from 'lucide-react';
-import { toast } from 'sonner';
-import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
-
-import { DriverPicker } from './connection-modal/DriverPicker';
-import { UrlInput } from './connection-modal/UrlSection';
-import { BasicSection } from './connection-modal/BasicSection';
+import { DRIVER_ICONS, DRIVER_LABELS } from '@/lib/drivers';
+import {
+  connectSavedConnection,
+  type SavedConnection,
+  saveConnection,
+  testConnection,
+} from '@/lib/tauri';
+import { cn } from '@/lib/utils';
 import { AdvancedSection } from './connection-modal/AdvancedSection';
+import { BasicSection } from './connection-modal/BasicSection';
+import { DriverPicker } from './connection-modal/DriverPicker';
 import {
   buildConnectionConfig,
   buildSaveConnectionInput,
   buildSavedConnection,
 } from './connection-modal/mappers';
+import { UrlInput } from './connection-modal/UrlSection';
 import { useConnectionForm } from './connection-modal/useConnectionForm';
 
 interface ConnectionModalProps {

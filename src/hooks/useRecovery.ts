@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import type { DatabaseBrowserTab } from '@/components/Browser/DatabaseBrowser';
+import type { TableBrowserTab } from '@/components/Browser/TableBrowser';
 import {
-  CrashRecoverySnapshot,
+  type CrashRecoverySnapshot,
   clearCrashRecoverySnapshot,
   getCrashRecoverySnapshot,
   saveCrashRecoverySnapshot,
 } from '@/lib/crashRecovery';
-import { listSavedConnections, connectSavedConnection, SavedConnection } from '@/lib/tauri';
-import { OpenTab } from '@/lib/tabs';
-import { TableBrowserTab } from '@/components/Browser/TableBrowser';
-import { DatabaseBrowserTab } from '@/components/Browser/DatabaseBrowser';
+import type { OpenTab } from '@/lib/tabs';
+import { connectSavedConnection, listSavedConnections, type SavedConnection } from '@/lib/tauri';
 
 const DEFAULT_PROJECT = 'default';
 

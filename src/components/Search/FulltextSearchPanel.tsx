@@ -1,21 +1,21 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { AlertCircle, ChevronRight, Database, Loader2, Search, Table2, X } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Search, Database, Table2, Loader2, X, ChevronRight, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
+  type FulltextMatch,
+  type FulltextSearchResponse,
   fulltextSearch,
-  FulltextMatch,
-  FulltextSearchResponse,
-  Namespace,
-  Value,
-  SearchFilter,
+  type Namespace,
+  type SearchFilter,
+  type Value,
 } from '../../lib/tauri';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
-import { Switch } from '../ui/switch';
 import { Label } from '../ui/label';
+import { Switch } from '../ui/switch';
 
 interface FulltextSearchPanelProps {
   isOpen: boolean;

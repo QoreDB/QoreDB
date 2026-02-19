@@ -13,10 +13,12 @@
     "test": "pnpm test:rust",
     "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml",
     "test:coverage": "cargo llvm-cov --manifest-path src-tauri/Cargo.toml --workspace --all-features --lcov --output-path coverage/lcov.info",
-    "lint": "eslint .",
-    "lint:fix": "eslint . --fix",
-    "format": "prettier . --check",
-    "format:write": "prettier . --write"
+    "lint": "biome lint .",
+    "lint:fix": "biome lint --write .",
+    "format": "biome format .",
+    "format:write": "biome format --write .",
+    "check": "biome check .",
+    "check:fix": "biome check --write ."
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.0",
@@ -60,7 +62,7 @@
     "tailwind-merge": "^3.4.0"
   },
   "devDependencies": {
-    "@eslint/js": "^9.39.2",
+    "@biomejs/biome": "2.4.2",
     "@tailwindcss/vite": "^4.1.18",
     "@tauri-apps/cli": "^2",
     "@types/node": "^25.0.8",
@@ -68,17 +70,9 @@
     "@types/react-dom": "^19.1.6",
     "@types/react-window": "^2.0.0",
     "@vitejs/plugin-react": "^4.6.0",
-    "eslint": "^9.0.0",
-    "eslint-config-prettier": "^9.1.0",
-    "eslint-plugin-react": "^7.35.0",
-    "eslint-plugin-react-hooks": "^7.0.1",
-    "eslint-plugin-react-refresh": "^0.4.7",
-    "globals": "^15.9.0",
-    "prettier": "^3.3.0",
     "tailwindcss": "^4.1.18",
     "tw-animate-css": "^1.4.0",
     "typescript": "~5.8.3",
-    "typescript-eslint": "^8.0.0",
     "vite": "^7.0.4"
   }
 }

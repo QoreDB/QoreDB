@@ -7,8 +7,8 @@
  * This provides a view of what the data would look like after applying changes.
  */
 
-import { QueryResult, Value, Row, RowData, TableSchema, Namespace } from './tauri';
-import { SandboxChange, SandboxRowMetadata, SandboxDeleteDisplay } from './sandboxTypes';
+import type { SandboxChange, SandboxDeleteDisplay, SandboxRowMetadata } from './sandboxTypes';
+import type { Namespace, QueryResult, Row, RowData, TableSchema, Value } from './tauri';
 
 /**
  * Result of applying sandbox overlay

@@ -1,13 +1,25 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { open as openDialog, save } from '@tauri-apps/plugin-dialog';
+import { readTextFile, writeTextFile } from '@tauri-apps/plugin-fs';
+import {
+  Download,
+  Folder,
+  FolderPlus,
+  Play,
+  RefreshCw,
+  Star,
+  Trash2,
+  Upload,
+  X,
+} from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { save, open as openDialog } from '@tauri-apps/plugin-dialog';
-import { writeTextFile, readTextFile } from '@tauri-apps/plugin-fs';
-
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
@@ -16,34 +28,20 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tooltip } from '@/components/ui/tooltip';
-import { cn } from '@/lib/utils';
-
 import {
   createFolder,
-  deleteItem,
   deleteFolder,
+  deleteItem,
   exportLibrary,
   importLibrary,
   listFolders,
   listItems,
-  updateItem,
   type QueryFolder,
-  type QueryLibraryItem,
   type QueryLibraryExportV1,
+  type QueryLibraryItem,
+  updateItem,
 } from '@/lib/queryLibrary';
-import {
-  Download,
-  FolderPlus,
-  Star,
-  Trash2,
-  Upload,
-  X,
-  Play,
-  Folder,
-  RefreshCw,
-} from 'lucide-react';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Label } from '@/components/ui/label';
+import { cn } from '@/lib/utils';
 
 interface QueryLibraryModalProps {
   isOpen: boolean;

@@ -1,14 +1,19 @@
 // SPDX-License-Identifier: BUSL-1.1
 
+import { useVirtualizer } from '@tanstack/react-virtual';
+import { ArrowLeftRight, CheckCircle2, GitCompare, MinusCircle, PlusCircle } from 'lucide-react';
 /**
  * DiffResultsGrid - Virtualized grid for displaying diff results
  */
-import { useRef, useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useVirtualizer } from '@tanstack/react-virtual';
-import { PlusCircle, MinusCircle, ArrowLeftRight, CheckCircle2, GitCompare } from 'lucide-react';
+import {
+  type DiffResult,
+  type DiffRow,
+  type DiffRowStatus,
+  formatDiffValue,
+} from '@/lib/diffUtils';
 import { cn } from '@/lib/utils';
-import { DiffResult, DiffRow, DiffRowStatus, formatDiffValue } from '@/lib/diffUtils';
 
 interface DiffResultsGridProps {
   diffResult: DiffResult | null;

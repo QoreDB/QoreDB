@@ -5,15 +5,15 @@
  * Displays a preview of related data when hovering over a foreign key cell
  */
 
-import { ReactNode } from 'react';
+import { Link2, Loader2 } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Loader2, Link2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { TooltipRoot, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
+import { TooltipContent, TooltipRoot, TooltipTrigger } from '@/components/ui/tooltip';
+import type { ForeignKey, Namespace, RelationFilter, Value } from '@/lib/tauri';
 import { cn } from '@/lib/utils';
-import { Value, Namespace, ForeignKey, RelationFilter } from '@/lib/tauri';
+import { MAX_PEEK_COLUMNS, MAX_PEEK_ROWS, type PeekState } from './hooks/useForeignKeyPeek';
 import { formatValue } from './utils/dataGridUtils';
-import { PeekState, MAX_PEEK_ROWS, MAX_PEEK_COLUMNS } from './hooks/useForeignKeyPeek';
 
 export interface ForeignKeyPeekTooltipProps {
   children: ReactNode;

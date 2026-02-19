@@ -1,24 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
+import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { MONGO_TEMPLATES } from '../Editor/mongo-constants';
-import { DocumentEditorModal } from '../Editor/DocumentEditorModal';
-import { QueryHistory } from '../History/QueryHistory';
-import {
-  executeQuery,
-  cancelQuery,
-  QueryResult,
-  Environment,
-  Value,
-  Namespace,
-  DriverCapabilities,
-  ColumnInfo,
-  Row,
-} from '../../lib/tauri';
-import { listen, UnlistenFn } from '@tauri-apps/api/event';
-import { addToHistory } from '../../lib/history';
-import { logError } from '../../lib/errorLog';
+import { toast } from 'sonner';
+import { AiAssistantPanel } from '@/components/AI/AiAssistantPanel';
+import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
+import { UI_EVENT_OPEN_HISTORY } from '@/lib/uiEvents';
+import { forceRefreshCache } from '../../hooks/useSchemaCache';
+import { getQueryDialect, isDocumentDatabase } from '../../lib/driverCapabilities';
+import { Driver } from '../../lib/drivers';
 import {
   ENVIRONMENT_CONFIG,
   getDangerousQueryTarget,
@@ -26,32 +17,41 @@ import {
   isDropDatabaseQuery,
   isMutationQuery,
 } from '../../lib/environment';
-import { Driver } from '../../lib/drivers';
-import { isDocumentDatabase, getQueryDialect } from '../../lib/driverCapabilities';
-import { ProductionConfirmDialog } from '../Guard/ProductionConfirmDialog';
-import { DangerConfirmDialog } from '../Guard/DangerConfirmDialog';
-import { toast } from 'sonner';
-import { forceRefreshCache } from '../../hooks/useSchemaCache';
-import { UI_EVENT_OPEN_HISTORY } from '@/lib/uiEvents';
-import { QueryPanelToolbar } from './QueryPanelToolbar';
-import { QueryPanelEditor } from './QueryPanelEditor';
-import { QueryPanelResults, QueryResultEntry } from './QueryPanelResults';
-import { getCollectionFromQuery, getDefaultQuery, shouldRefreshSchema } from './queryPanelUtils';
-import { formatSql } from '../../lib/sqlFormatter';
-import { SQLEditorHandle } from '../Editor/SQLEditor';
-import { SaveQueryDialog } from './SaveQueryDialog';
-import { QueryLibraryModal } from './QueryLibraryModal';
-import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
-import { AiAssistantPanel } from '@/components/AI/AiAssistantPanel';
+import { logError } from '../../lib/errorLog';
 import {
-  executeFederationQuery,
-  listFederationSources,
-  isFederationQuery,
-  buildAliasSet,
   buildAliasMap,
+  buildAliasSet,
+  executeFederationQuery,
   type FederationSource,
+  isFederationQuery,
+  listFederationSources,
 } from '../../lib/federation';
+import { addToHistory } from '../../lib/history';
+import { formatSql } from '../../lib/sqlFormatter';
+import {
+  type ColumnInfo,
+  cancelQuery,
+  type DriverCapabilities,
+  type Environment,
+  executeQuery,
+  type Namespace,
+  type QueryResult,
+  type Row,
+  type Value,
+} from '../../lib/tauri';
+import { DocumentEditorModal } from '../Editor/DocumentEditorModal';
+import { MONGO_TEMPLATES } from '../Editor/mongo-constants';
+import type { SQLEditorHandle } from '../Editor/SQLEditor';
 import { FederationSourcesPanel } from '../Federation/FederationSourcesPanel';
+import { DangerConfirmDialog } from '../Guard/DangerConfirmDialog';
+import { ProductionConfirmDialog } from '../Guard/ProductionConfirmDialog';
+import { QueryHistory } from '../History/QueryHistory';
+import { QueryLibraryModal } from './QueryLibraryModal';
+import { QueryPanelEditor } from './QueryPanelEditor';
+import { QueryPanelResults, type QueryResultEntry } from './QueryPanelResults';
+import { QueryPanelToolbar } from './QueryPanelToolbar';
+import { getCollectionFromQuery, getDefaultQuery, shouldRefreshSchema } from './queryPanelUtils';
+import { SaveQueryDialog } from './SaveQueryDialog';
 
 function isTextInputTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
@@ -727,7 +727,7 @@ export function QueryPanel({
       {showFederationPanel && (
         <FederationSourcesPanel
           sources={federationSources}
-          onInsertAlias={(alias) => {
+          onInsertAlias={alias => {
             setQuery(prev => prev + alias + '.');
           }}
         />

@@ -5,12 +5,18 @@
  * Manages delete operations with confirmation dialogs
  */
 
-import { useState, useCallback } from 'react';
+import type { Table } from '@tanstack/react-table';
+import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { Table } from '@tanstack/react-table';
-import { Value, Namespace, Environment, deleteRow, RowData as TauriRowData } from '@/lib/tauri';
-import { RowData } from '../utils/dataGridUtils';
+import {
+  deleteRow,
+  type Environment,
+  type Namespace,
+  type RowData as TauriRowData,
+  type Value,
+} from '@/lib/tauri';
+import type { RowData } from '../utils/dataGridUtils';
 
 export interface UseDataGridDeleteProps {
   table: Table<RowData>;

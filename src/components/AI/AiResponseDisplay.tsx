@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: BUSL-1.1
 
+import { AlertTriangle, ArrowDownToLine, ClipboardCopy, Loader2, ShieldAlert } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { ClipboardCopy, ArrowDownToLine, AlertTriangle, ShieldAlert, Loader2 } from 'lucide-react';
-import { toast } from 'sonner';
 import type { SafetyInfo } from '@/lib/ai';
 
 interface AiResponseDisplayProps {

@@ -1,80 +1,80 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { useTranslation } from 'react-i18next';
 import {
-  Namespace,
-  TableSchema,
-  QueryResult,
-  queryTable,
-  TableQueryOptions,
-  executeQuery,
-  Environment,
-  DriverCapabilities,
-  RelationFilter,
-  SearchFilter,
-  Value,
-  generateMigrationSql,
-  applySandboxChanges,
-  SandboxChangeDto,
-  SortDirection,
-} from '../../lib/tauri';
-import { useSchemaCache } from '../../hooks/useSchemaCache';
-import { ResultsViewer } from '../Results/ResultsViewer';
-import { DocumentEditorModal } from '../Editor/DocumentEditorModal';
-import { cn } from '@/lib/utils';
-import {
-  Table,
+  AlertCircle,
+  Clock,
   Columns3,
   Database,
-  Key,
-  Hash,
-  Loader2,
-  AlertCircle,
-  X,
-  Plus,
-  Info,
   HardDrive,
+  Hash,
+  Info,
+  Key,
   List,
-  Clock,
+  Loader2,
+  Plus,
+  Table,
+  X,
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { RowModal } from './RowModal';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { Driver, getDriverMetadata } from '../../lib/drivers';
-import { buildQualifiedTableName } from '@/lib/column-types';
-import { isDocumentDatabase } from '../../lib/driverCapabilities';
-import { onTableChange } from '@/lib/tableEvents';
 import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
-import { SandboxToggle, ChangesPanel, MigrationPreview } from '@/components/Sandbox';
-import {
-  isSandboxActive,
-  getChangesForTable,
-  createInsertChange,
-  createUpdateChange,
-  createDeleteChange,
-  clearSandboxChanges,
-  getSandboxSession,
-  getSandboxPreferences,
-  subscribeSandbox,
-  subscribeSandboxPreferences,
-  saveSandboxBackup,
-  getSandboxBackup,
-  clearSandboxBackup,
-  importChanges,
-  activateSandbox,
-  deactivateSandbox,
-} from '@/lib/sandboxStore';
-import { SandboxChange, MigrationScript } from '@/lib/sandboxTypes';
-import { useLicense } from '@/providers/LicenseProvider';
-import { UI_EVENT_REFRESH_TABLE } from '@/lib/uiEvents';
+import { ChangesPanel, MigrationPreview, SandboxToggle } from '@/components/Sandbox';
+import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from '@/components/ui/dialog';
+import { buildQualifiedTableName } from '@/lib/column-types';
+import {
+  activateSandbox,
+  clearSandboxBackup,
+  clearSandboxChanges,
+  createDeleteChange,
+  createInsertChange,
+  createUpdateChange,
+  deactivateSandbox,
+  getChangesForTable,
+  getSandboxBackup,
+  getSandboxPreferences,
+  getSandboxSession,
+  importChanges,
+  isSandboxActive,
+  saveSandboxBackup,
+  subscribeSandbox,
+  subscribeSandboxPreferences,
+} from '@/lib/sandboxStore';
+import type { MigrationScript, SandboxChange } from '@/lib/sandboxTypes';
+import { onTableChange } from '@/lib/tableEvents';
+import { UI_EVENT_REFRESH_TABLE } from '@/lib/uiEvents';
+import { cn } from '@/lib/utils';
+import { useLicense } from '@/providers/LicenseProvider';
+import { useSchemaCache } from '../../hooks/useSchemaCache';
+import { isDocumentDatabase } from '../../lib/driverCapabilities';
+import { Driver, getDriverMetadata } from '../../lib/drivers';
+import {
+  applySandboxChanges,
+  type DriverCapabilities,
+  type Environment,
+  executeQuery,
+  generateMigrationSql,
+  type Namespace,
+  type QueryResult,
+  queryTable,
+  type RelationFilter,
+  type SandboxChangeDto,
+  type SearchFilter,
+  type SortDirection,
+  type TableQueryOptions,
+  type TableSchema,
+  type Value,
+} from '../../lib/tauri';
+import { DocumentEditorModal } from '../Editor/DocumentEditorModal';
+import { ResultsViewer } from '../Results/ResultsViewer';
+import { RowModal } from './RowModal';
 
 function formatTableName(namespace: Namespace, tableName: string): string {
   return namespace.schema ? `${namespace.schema}.${tableName}` : tableName;

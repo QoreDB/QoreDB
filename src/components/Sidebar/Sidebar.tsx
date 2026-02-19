@@ -1,30 +1,30 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { useState, useEffect, useMemo } from 'react';
-import { ConnectionItem } from './ConnectionItem';
-import { DBTree } from '../Tree/DBTree';
-import { ErrorLogPanel } from '../Logs/ErrorLogPanel';
-import {
-  listSavedConnections,
-  connectSavedConnection,
-  SavedConnection,
-  Namespace,
-  RelationFilter,
-  Collection,
-} from '../../lib/tauri';
-import { Plus, Bug } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { toast } from 'sonner';
+import { Bug, Plus } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
-import { useTheme } from '@/hooks/useTheme';
-import { useLicense } from '@/providers/LicenseProvider';
+import { toast } from 'sonner';
 import { LicenseBadge } from '@/components/License/LicenseBadge';
-import { UI_EVENT_OPEN_LOGS } from '@/lib/uiEvents';
+import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
+import { Button } from '@/components/ui/button';
+import { useTheme } from '@/hooks/useTheme';
 import {
   reconcileFavoriteConnectionIds,
   saveFavoriteConnectionIds,
 } from '@/lib/connectionFavorites';
+import { UI_EVENT_OPEN_LOGS } from '@/lib/uiEvents';
+import { useLicense } from '@/providers/LicenseProvider';
+import {
+  type Collection,
+  connectSavedConnection,
+  listSavedConnections,
+  type Namespace,
+  type RelationFilter,
+  type SavedConnection,
+} from '../../lib/tauri';
+import { ErrorLogPanel } from '../Logs/ErrorLogPanel';
+import { DBTree } from '../Tree/DBTree';
+import { ConnectionItem } from './ConnectionItem';
 
 const DEFAULT_PROJECT = 'default';
 

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { format, SqlLanguage } from 'sql-formatter';
+import { format, type SqlLanguage } from 'sql-formatter';
 import { Driver } from './drivers';
 
 const DIALECT_MAP: Record<Driver, SqlLanguage> = {

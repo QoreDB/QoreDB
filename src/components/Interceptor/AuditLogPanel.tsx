@@ -7,41 +7,41 @@
  * All data is fetched from the backend (Rust) for security.
  */
 
-import { useState, useCallback, useEffect } from 'react';
 import type { TFunction } from 'i18next';
-import { useTranslation } from 'react-i18next';
 import {
-  Search,
-  Download,
-  Trash2,
+  CheckCircle2,
   ChevronLeft,
   ChevronRight,
-  Shield,
-  CheckCircle2,
-  XCircle,
   Clock,
+  Download,
   RefreshCw,
+  Search,
+  Shield,
+  Trash2,
   X,
+  XCircle,
 } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { LicenseBadge } from '@/components/License/LicenseBadge';
+import { useLicense } from '@/providers/LicenseProvider';
+import {
+  type AuditFilter,
+  type AuditLogEntry,
+  type AuditStats,
+  BUILTIN_SAFETY_RULE_I18N,
+  clearAuditLog,
+  type Environment,
+  exportAuditLog,
+  formatExecutionTime,
+  getAuditEntries,
+  getAuditStats,
+} from '../../lib/tauri/interceptor';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { ScrollArea } from '../ui/scroll-area';
-import { useLicense } from '@/providers/LicenseProvider';
-import { LicenseBadge } from '@/components/License/LicenseBadge';
-import {
-  getAuditEntries,
-  getAuditStats,
-  clearAuditLog,
-  exportAuditLog,
-  formatExecutionTime,
-  type AuditLogEntry,
-  type AuditStats,
-  type AuditFilter,
-  type Environment,
-  BUILTIN_SAFETY_RULE_I18N,
-} from '../../lib/tauri/interceptor';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 
 const PAGE_SIZE = 50;
 

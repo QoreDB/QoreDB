@@ -12,9 +12,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { SettingsCard } from '../SettingsCard';
 import { getSandboxPreferences, setSandboxPreferences } from '@/lib/sandboxStore';
-import { SandboxDeleteDisplay } from '@/lib/sandboxTypes';
+import type { SandboxDeleteDisplay } from '@/lib/sandboxTypes';
+import { SettingsCard } from '../SettingsCard';
 
 interface EditorSectionProps {
   searchQuery?: string;

@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: BUSL-1.1
 
-import { useState, useCallback, useRef, useEffect } from 'react';
-import { listen, UnlistenFn } from '@tauri-apps/api/event';
+import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import {
-  aiGenerateQuery,
-  aiFixError,
-  aiStreamEvent,
+  type AiAction,
   type AiConfig,
   type AiRequest,
   type AiStreamChunk,
+  aiFixError,
+  aiGenerateQuery,
+  aiStreamEvent,
   type SafetyInfo,
-  type AiAction,
 } from '@/lib/ai';
 import type { Namespace } from '@/lib/tauri';
 

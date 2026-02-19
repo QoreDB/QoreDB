@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { FlaskConical, Lock, Unlock } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { SettingsCard } from '../SettingsCard';
 import { LicenseActivation } from '@/components/License/LicenseActivation';
-import { useLicense } from '@/providers/LicenseProvider';
-import { Lock, Unlock, FlaskConical } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import type { ProFeature, LicenseTier } from '@/lib/license';
+import type { LicenseTier, ProFeature } from '@/lib/license';
+import { useLicense } from '@/providers/LicenseProvider';
+import { SettingsCard } from '../SettingsCard';
 
 interface LicenseSectionProps {
   searchQuery?: string;

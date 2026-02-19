@@ -7,35 +7,35 @@
  * All data is stored and processed in the backend (Rust) for security.
  */
 
-import { useState, useEffect, useCallback } from 'react';
-import { useTranslation } from 'react-i18next';
 import {
-  Shield,
   Activity,
-  FileText,
   ChevronDown,
   ChevronRight,
+  FileText,
   Plus,
-  Trash2,
   RefreshCw,
+  Shield,
+  Trash2,
 } from 'lucide-react';
-import { Switch } from '../ui/switch';
-import { Label } from '../ui/label';
-import { Input } from '../ui/input';
-import { Button } from '../ui/button';
-import {
-  getInterceptorConfig,
-  updateInterceptorConfig,
-  getSafetyRules,
-  addSafetyRule,
-  removeSafetyRule,
-  updateSafetyRule,
-  type InterceptorConfig,
-  type SafetyRule,
-  BUILTIN_SAFETY_RULE_I18N,
-} from '../../lib/tauri/interceptor';
-import { SafetyRuleEditor } from './SafetyRuleEditor';
+import { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { LicenseGate } from '@/components/License/LicenseGate';
+import {
+  addSafetyRule,
+  BUILTIN_SAFETY_RULE_I18N,
+  getInterceptorConfig,
+  getSafetyRules,
+  type InterceptorConfig,
+  removeSafetyRule,
+  type SafetyRule,
+  updateInterceptorConfig,
+  updateSafetyRule,
+} from '../../lib/tauri/interceptor';
+import { Button } from '../ui/button';
+import { Input } from '../ui/input';
+import { Label } from '../ui/label';
+import { Switch } from '../ui/switch';
+import { SafetyRuleEditor } from './SafetyRuleEditor';
 
 interface SectionProps {
   title: string;

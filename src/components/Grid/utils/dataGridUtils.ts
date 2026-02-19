@@ -4,7 +4,7 @@
  * DataGrid utility functions
  */
 
-import { QueryResult, Value } from '@/lib/tauri';
+import type { QueryResult, Value } from '@/lib/tauri';
 
 export type RowData = Record<string, Value>;
 

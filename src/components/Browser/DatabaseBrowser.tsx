@@ -1,52 +1,52 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { useState, useEffect, useCallback } from 'react';
-import { useTranslation } from 'react-i18next';
 import {
-  Namespace,
-  Collection,
-  listCollections,
-  executeQuery,
-  Environment,
-  RelationFilter,
-  Routine,
-  listRoutines,
-  Trigger,
-  listTriggers,
-  DatabaseEvent,
-  listEvents,
-} from '../../lib/tauri';
-import { getTerminology } from '@/lib/driverCapabilities';
-import { cn } from '@/lib/utils';
-import {
-  Database,
-  Table,
-  Eye,
-  Loader2,
   AlertCircle,
-  X,
-  HardDrive,
-  List,
-  Hash,
-  ChevronRight,
+  Calendar,
   ChevronLeft,
-  Shield,
-  ShieldAlert,
+  ChevronRight,
+  Database,
+  Eye,
+  FunctionSquare,
+  HardDrive,
+  Hash,
+  List,
+  Loader2,
+  PlayCircle,
   Plus,
   Search,
+  Shield,
+  ShieldAlert,
+  Table,
   TerminalSquare,
-  FunctionSquare,
-  PlayCircle,
+  X,
   Zap,
-  Calendar,
 } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { LicenseGate } from '@/components/License/LicenseGate';
+import { ERDiagram } from '@/components/Schema/ERDiagram';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { getDriverMetadata, Driver, DRIVER_LABELS, DRIVER_ICONS } from '../../lib/drivers';
-import { CreateTableModal } from '../Table/CreateTableModal';
+import { getTerminology } from '@/lib/driverCapabilities';
 import { emitTableChange, onTableChange } from '@/lib/tableEvents';
-import { ERDiagram } from '@/components/Schema/ERDiagram';
-import { LicenseGate } from '@/components/License/LicenseGate';
+import { cn } from '@/lib/utils';
+import { DRIVER_ICONS, DRIVER_LABELS, type Driver, getDriverMetadata } from '../../lib/drivers';
+import {
+  type Collection,
+  type DatabaseEvent,
+  type Environment,
+  executeQuery,
+  listCollections,
+  listEvents,
+  listRoutines,
+  listTriggers,
+  type Namespace,
+  type RelationFilter,
+  type Routine,
+  type Trigger,
+} from '../../lib/tauri';
+import { CreateTableModal } from '../Table/CreateTableModal';
 import { StatCard } from './StatCard';
 
 export type DatabaseBrowserTab = 'overview' | 'tables' | 'routines' | 'triggers' | 'schema';

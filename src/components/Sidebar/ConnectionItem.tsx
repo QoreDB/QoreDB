@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { SavedConnection } from '../../lib/tauri';
-import { Loader2, ChevronRight, ChevronDown } from 'lucide-react';
+import { ChevronDown, ChevronRight, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Driver, DRIVER_ICONS, DRIVER_LABELS } from '../../lib/drivers';
-import { ConnectionMenu } from '../Connection/ConnectionMenu';
-import { ConnectionContextMenu } from '../Connection/ConnectionContextMenu';
+import { DRIVER_ICONS, DRIVER_LABELS, type Driver } from '../../lib/drivers';
 import { ENVIRONMENT_CONFIG } from '../../lib/environment';
+import type { SavedConnection } from '../../lib/tauri';
+import { ConnectionContextMenu } from '../Connection/ConnectionContextMenu';
+import { ConnectionMenu } from '../Connection/ConnectionMenu';
 
 interface ConnectionItemProps {
   connection: SavedConnection;
@@ -95,15 +95,15 @@ export function ConnectionItem({
             </span>
           )}
 
-          {isConnecting && (
-            <Loader2 size={14} className="animate-spin text-muted-foreground" />
-          )}
+          {isConnecting && <Loader2 size={14} className="animate-spin text-muted-foreground" />}
 
           <div className="relative shrink-0 w-6 h-6 flex items-center justify-center">
-            <div className={cn(
-              'group-hover:opacity-0 transition-opacity text-muted-foreground/50',
-              isExpanded && 'transform rotate-90'
-            )}>
+            <div
+              className={cn(
+                'group-hover:opacity-0 transition-opacity text-muted-foreground/50',
+                isExpanded && 'transform rotate-90'
+              )}
+            >
               {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
             </div>
             <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">

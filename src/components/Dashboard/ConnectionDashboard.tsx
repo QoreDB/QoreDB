@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { Database, Loader2, Plus, Terminal } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Database, Loader2, Plus, Terminal } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { CreateDatabaseModal } from '@/components/Tree/CreateDatabaseModal';
+import { Button } from '@/components/ui/button';
 import { useSchemaCache } from '@/hooks/useSchemaCache';
-import { getDriverMetadata, Driver } from '@/lib/drivers';
-import type { Namespace, SavedConnection } from '@/lib/tauri';
+import { type Driver, getDriverMetadata } from '@/lib/drivers';
 import { ENVIRONMENT_CONFIG } from '@/lib/environment';
+import type { Namespace, SavedConnection } from '@/lib/tauri';
 
 interface ConnectionDashboardProps {
   sessionId: string;

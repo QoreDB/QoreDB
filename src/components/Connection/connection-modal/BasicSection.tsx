@@ -1,17 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { useTranslation } from 'react-i18next';
 import { Lock, Shield } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { cn } from '@/lib/utils';
-import { ENVIRONMENT_CONFIG } from '@/lib/environment';
 import { Driver } from '@/lib/drivers';
-
-import type { ConnectionFormData } from './types';
+import { ENVIRONMENT_CONFIG } from '@/lib/environment';
+import { cn } from '@/lib/utils';
 import { FileSection } from './FileSection';
+import type { ConnectionFormData } from './types';
 
 interface BasicSectionProps {
   formData: ConnectionFormData;

@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useCallback, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
+import { emitUiEvent, UI_EVENT_CONNECTIONS_CHANGED } from '@/lib/uiEvents';
 import {
-  SavedConnection,
   deleteSavedConnection,
   duplicateSavedConnection,
-  testSavedConnection,
   getConnectionCredentials,
+  type SavedConnection,
+  testSavedConnection,
 } from '../../lib/tauri';
-import { toast } from 'sonner';
-import { useTranslation } from 'react-i18next';
-import { emitUiEvent, UI_EVENT_CONNECTIONS_CHANGED } from '@/lib/uiEvents';
 
 interface UseConnectionActionsOptions {
   connection: SavedConnection;

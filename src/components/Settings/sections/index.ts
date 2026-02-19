@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
-export { GeneralSection } from './GeneralSection';
-export { EditorSection } from './EditorSection';
-export { SecuritySection } from './SecuritySection';
+export { AiSection } from './AiSection';
 export { DataSection } from './DataSection';
+export { EditorSection } from './EditorSection';
+export { GeneralSection } from './GeneralSection';
 export { KeyboardShortcutsSection } from './KeyboardShortcutsSection';
 export { LicenseSection } from './LicenseSection';
-export { AiSection } from './AiSection';
+export { SecuritySection } from './SecuritySection';

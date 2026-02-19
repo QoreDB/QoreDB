@@ -1,25 +1,25 @@
 // SPDX-License-Identifier: Apache-2.0
 
-/* eslint-disable no-useless-escape */
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef } from 'react';
-import { EditorState } from '@codemirror/state';
-import { EditorView, keymap, lineNumbers, highlightActiveLine } from '@codemirror/view';
 import {
   autocompletion,
-  Completion,
-  CompletionContext,
-  CompletionResult,
+  type Completion,
+  type CompletionContext,
+  type CompletionResult,
   snippet,
   snippetCompletion,
 } from '@codemirror/autocomplete';
-import { sql, PostgreSQL, MySQL, keywordCompletionSource } from '@codemirror/lang-sql';
-import { oneDark } from '@codemirror/theme-one-dark';
 import { defaultKeymap } from '@codemirror/commands';
-import { useTheme } from '../../hooks/useTheme';
+import { keywordCompletionSource, MySQL, PostgreSQL, sql } from '@codemirror/lang-sql';
+import { EditorState } from '@codemirror/state';
+import { oneDark } from '@codemirror/theme-one-dark';
+import { EditorView, highlightActiveLine, keymap, lineNumbers } from '@codemirror/view';
+/* eslint-disable no-useless-escape */
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef } from 'react';
 import { useSchemaCache } from '../../hooks/useSchemaCache';
-import { SQL_SNIPPETS } from '../../lib/sqlSnippets';
+import { useTheme } from '../../hooks/useTheme';
 import { Driver } from '../../lib/drivers';
-import { Collection, Namespace } from '../../lib/tauri';
+import { SQL_SNIPPETS } from '../../lib/sqlSnippets';
+import type { Collection, Namespace } from '../../lib/tauri';
 
 interface SQLEditorProps {
   value: string;
@@ -190,7 +190,7 @@ export const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQ
   const completionSource = useCallback(
     async (context: CompletionContext): Promise<CompletionResult | null> => {
       if (!sessionId) return null;
-      const word = context.matchBefore(/[\w.\"]+/);
+      const word = context.matchBefore(/[\w."]+/);
       if (!word || (word.from === word.to && !context.explicit)) return null;
 
       const text = word.text.replace(/"/g, '');

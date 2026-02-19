@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Shield, Lock, Link2Off, Database, Server } from 'lucide-react';
+import { Database, Link2Off, Lock, Server, Shield } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-
-import { SavedConnection } from '@/lib/tauri';
-import { ENVIRONMENT_CONFIG } from '@/lib/environment';
-import { getDriverMetadata } from '@/lib/drivers';
 import { SandboxIndicator } from '@/components/Sandbox';
+import { getDriverMetadata } from '@/lib/drivers';
+import { ENVIRONMENT_CONFIG } from '@/lib/environment';
+import type { SavedConnection } from '@/lib/tauri';
 
 interface StatusBarProps {
   sessionId: string | null;

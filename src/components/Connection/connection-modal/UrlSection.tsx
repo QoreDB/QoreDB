@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { useState, useEffect, useRef } from 'react';
+import { Check, Loader2, X } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Loader2, Check, X } from 'lucide-react';
 
 import { Input } from '@/components/ui/input';
+import { type PartialConnectionConfig, parseConnectionUrl } from '@/lib/tauri';
 import { cn } from '@/lib/utils';
-import { parseConnectionUrl, type PartialConnectionConfig } from '@/lib/tauri';
 
 import type { ConnectionFormData } from './types';
 

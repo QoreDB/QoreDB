@@ -5,12 +5,12 @@
  * Displays column name with primary key/foreign key/index/unique indicators and sort controls
  */
 
-import { Column } from '@tanstack/react-table';
+import type { Column } from '@tanstack/react-table';
+import { ArrowDown, ArrowUp, ArrowUpDown, Fingerprint, KeyRound, Link2, Zap } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { ArrowUpDown, ArrowUp, ArrowDown, Link2, KeyRound, Zap, Fingerprint } from 'lucide-react';
-import { TooltipRoot, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
-import { Value } from '@/lib/tauri';
-import { RowData } from './utils/dataGridUtils';
+import { TooltipContent, TooltipRoot, TooltipTrigger } from '@/components/ui/tooltip';
+import type { Value } from '@/lib/tauri';
+import type { RowData } from './utils/dataGridUtils';
 
 export interface DataGridColumnHeaderProps {
   column: Column<RowData, Value>;

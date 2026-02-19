@@ -23,13 +23,13 @@ import {
 } from '@/components/ui/select';
 
 import {
-  Namespace,
-  VirtualRelation,
   addVirtualRelation,
-  updateVirtualRelation,
-  listCollections,
   describeTable,
-  TableColumn,
+  listCollections,
+  type Namespace,
+  type TableColumn,
+  updateVirtualRelation,
+  type VirtualRelation,
 } from '@/lib/tauri';
 
 interface VirtualRelationDialogProps {

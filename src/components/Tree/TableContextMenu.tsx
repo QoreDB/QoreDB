@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { Eraser, Eye, GitCompare, Link2, Sparkles, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Eye, Trash2, Eraser, GitCompare, Link2, Sparkles } from 'lucide-react';
-import { notify } from '../../lib/notify';
+import { DangerConfirmDialog } from '@/components/Guard/DangerConfirmDialog';
 
 import {
   ContextMenu,
@@ -12,14 +12,14 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from '@/components/ui/context-menu';
-import { DangerConfirmDialog } from '@/components/Guard/DangerConfirmDialog';
 import { VirtualRelationDialog } from '@/components/VirtualRelations/VirtualRelationDialog';
-import { Collection, Environment, executeQuery } from '../../lib/tauri';
-import { Driver } from '../../lib/drivers';
-import { isDocumentDatabase } from '../../lib/driverCapabilities';
 import { buildDropTableSQL, buildTruncateTableSQL } from '@/lib/column-types';
 import { emitTableChange } from '@/lib/tableEvents';
 import { invalidateCollectionsCache, invalidateTableSchemaCache } from '../../hooks/useSchemaCache';
+import { isDocumentDatabase } from '../../lib/driverCapabilities';
+import type { Driver } from '../../lib/drivers';
+import { notify } from '../../lib/notify';
+import { type Collection, type Environment, executeQuery } from '../../lib/tauri';
 
 interface TableContextMenuProps {
   collection: Collection;

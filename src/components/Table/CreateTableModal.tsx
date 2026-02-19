@@ -1,17 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { useState, useMemo } from 'react';
+import { Code, MoveDown, MoveUp, Plus, Trash2 } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Plus, Trash2, MoveUp, MoveDown, Code } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
@@ -19,11 +20,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
+import {
+  buildCreateTableSQL,
+  type ColumnDef,
+  type ColumnType,
+  getColumnTypes,
+} from '@/lib/column-types';
 import { Driver } from '@/lib/drivers';
-import { ColumnDef, getColumnTypes, buildCreateTableSQL, ColumnType } from '@/lib/column-types';
-import { Namespace, executeQuery } from '@/lib/tauri';
 import { notify } from '@/lib/notify';
+import { executeQuery, type Namespace } from '@/lib/tauri';
 
 interface CreateTableModalProps {
   isOpen: boolean;

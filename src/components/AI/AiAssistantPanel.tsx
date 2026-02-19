@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: BUSL-1.1
 
-import { useEffect, useCallback, useRef } from 'react';
+import { Settings, Sparkles, X } from 'lucide-react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Sparkles, X, Settings } from 'lucide-react';
+import { LicenseGate } from '@/components/License/LicenseGate';
 import { Button } from '@/components/ui/button';
 import { Tooltip } from '@/components/ui/tooltip';
-import { LicenseGate } from '@/components/License/LicenseGate';
 import { useAiAssistant } from '@/hooks/useAiAssistant';
+import type { Namespace } from '@/lib/tauri';
 import { useAiPreferences } from '@/providers/AiPreferencesProvider';
 import { AiPromptInput } from './AiPromptInput';
 import { AiResponseDisplay } from './AiResponseDisplay';
-import type { Namespace } from '@/lib/tauri';
 
 interface AiAssistantPanelProps {
   sessionId: string | null;

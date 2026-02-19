@@ -6,7 +6,7 @@
  * UI components for the Universal Query Interceptor system
  */
 
-export { InterceptorSettingsPanel } from './InterceptorSettingsPanel';
-export { SafetyRuleEditor } from './SafetyRuleEditor';
 export { AuditLogPanel } from './AuditLogPanel';
+export { InterceptorSettingsPanel } from './InterceptorSettingsPanel';
 export { ProfilingPanel } from './ProfilingPanel';
+export { SafetyRuleEditor } from './SafetyRuleEditor';

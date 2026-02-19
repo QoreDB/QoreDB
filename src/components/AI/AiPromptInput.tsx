@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: BUSL-1.1
 
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { Loader2, Send } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Send, Loader2 } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
 
 interface AiPromptInputProps {
   onSubmit: (prompt: string) => void;

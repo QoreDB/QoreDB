@@ -1,48 +1,48 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { useState, useEffect, useCallback } from 'react';
 import {
-  Namespace,
-  Collection,
-  SavedConnection,
-  listCollections,
-  RelationFilter,
-  Routine,
-  listRoutines,
-  Trigger,
-  listTriggers,
-  DatabaseEvent,
-  listEvents,
-} from '../../lib/tauri';
-import { useSchemaCache } from '../../hooks/useSchemaCache';
-import {
-  Database,
-  Table,
-  Eye,
-  Loader2,
-  Plus,
-  ChevronRight,
-  ChevronDown,
-  Search,
-  FunctionSquare,
-  PlayCircle,
-  Layers,
-  Zap,
   Calendar,
+  ChevronDown,
+  ChevronRight,
+  Database,
+  Eye,
+  FunctionSquare,
+  Layers,
+  Loader2,
+  PlayCircle,
+  Plus,
+  Search,
+  Table,
+  Zap,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { CreateDatabaseModal } from './CreateDatabaseModal';
-import { DeleteDatabaseModal } from './DeleteDatabaseModal';
-import { TableContextMenu } from './TableContextMenu';
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { Driver, getDriverMetadata } from '../../lib/drivers';
-import { getTerminology } from '../../lib/driverCapabilities';
-import { CreateTableModal } from '../Table/CreateTableModal';
-import { DatabaseContextMenu } from './DatabaseContextMenu';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { emitTableChange } from '@/lib/tableEvents';
+import { cn } from '@/lib/utils';
+import { useSchemaCache } from '../../hooks/useSchemaCache';
+import { getTerminology } from '../../lib/driverCapabilities';
+import { type Driver, getDriverMetadata } from '../../lib/drivers';
+import {
+  type Collection,
+  type DatabaseEvent,
+  listCollections,
+  listEvents,
+  listRoutines,
+  listTriggers,
+  type Namespace,
+  type RelationFilter,
+  type Routine,
+  type SavedConnection,
+  type Trigger,
+} from '../../lib/tauri';
+import { CreateTableModal } from '../Table/CreateTableModal';
+import { CreateDatabaseModal } from './CreateDatabaseModal';
+import { DatabaseContextMenu } from './DatabaseContextMenu';
+import { DeleteDatabaseModal } from './DeleteDatabaseModal';
+import { TableContextMenu } from './TableContextMenu';
 
 interface DBTreeProps {
   connectionId: string;
@@ -399,7 +399,12 @@ export function DBTree({
                 <span className="shrink-0">
                   {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                 </span>
-                <span className={cn('shrink-0', isExpanded ? 'text-accent' : 'text-muted-foreground/70')}>
+                <span
+                  className={cn(
+                    'shrink-0',
+                    isExpanded ? 'text-accent' : 'text-muted-foreground/70'
+                  )}
+                >
                   <Database size={14} />
                 </span>
                 <span className="truncate">

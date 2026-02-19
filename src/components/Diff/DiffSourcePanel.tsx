@@ -1,24 +1,21 @@
 // SPDX-License-Identifier: BUSL-1.1
 
+import {
+  AlertCircle,
+  CheckCircle2,
+  Code,
+  Database,
+  Loader2,
+  Play,
+  Server,
+  Table2,
+} from 'lucide-react';
 /**
  * DiffSourcePanel - Panel for selecting a data source (table or query)
  */
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  Table2,
-  Code,
-  Play,
-  Loader2,
-  AlertCircle,
-  CheckCircle2,
-  Database,
-  Server,
-} from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { Namespace, SavedConnection, QueryResult } from '@/lib/tauri';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
   SelectContent,
@@ -26,6 +23,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import type { Namespace, QueryResult, SavedConnection } from '@/lib/tauri';
+import { cn } from '@/lib/utils';
 import { DiffTablePicker } from './DiffTablePicker';
 
 export type SourceMode = 'table' | 'query';

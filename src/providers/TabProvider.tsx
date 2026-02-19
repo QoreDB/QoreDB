@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { createContext, useContext, type ReactNode } from 'react';
-import { useTabs, type UseTabsOptions } from '@/hooks/useTabs';
-import type { OpenTab } from '@/lib/tabs';
-import type { TableBrowserTab } from '@/components/Browser/TableBrowser';
+import { createContext, type ReactNode, useContext } from 'react';
 import type { DatabaseBrowserTab } from '@/components/Browser/DatabaseBrowser';
+import type { TableBrowserTab } from '@/components/Browser/TableBrowser';
+import { type UseTabsOptions, useTabs } from '@/hooks/useTabs';
+import type { OpenTab } from '@/lib/tabs';
 
 export interface TabContextValue {
   tabs: OpenTab[];

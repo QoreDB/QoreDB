@@ -1,15 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { useState, useEffect, useMemo } from 'react';
+import { Loader2 } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
@@ -17,12 +20,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { createDatabase, getCreationOptions, CharsetInfo, Environment } from '../../lib/tauri';
-import { toast } from 'sonner';
-import { Loader2 } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
-import { getDriverMetadata } from '../../lib/drivers';
 import { isDocumentDatabase } from '../../lib/driverCapabilities';
+import { getDriverMetadata } from '../../lib/drivers';
+import {
+  type CharsetInfo,
+  createDatabase,
+  type Environment,
+  getCreationOptions,
+} from '../../lib/tauri';
 import { ProductionConfirmDialog } from '../Guard/ProductionConfirmDialog';
 import { Label } from '../ui/label';
 
@@ -104,7 +109,7 @@ export function CreateDatabaseModal({
   async function performCreate(acknowledgedDangerous: boolean) {
     setLoading(true);
     try {
-      let options: Record<string, unknown> | undefined = undefined;
+      let options: Record<string, unknown> | undefined;
       if (isDocument) {
         options = { collection: collectionName.trim() };
       } else if (isMysql) {
@@ -245,11 +250,7 @@ export function CreateDatabaseModal({
               <>
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">{t('database.charsetLabel')}</Label>
-                  <Select
-                    value={charset}
-                    onValueChange={setCharset}
-                    disabled={loading}
-                  >
+                  <Select value={charset} onValueChange={setCharset} disabled={loading}>
                     <SelectTrigger>
                       <SelectValue placeholder={t('database.charsetPlaceholder')} />
                     </SelectTrigger>

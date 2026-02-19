@@ -1,38 +1,37 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { useCallback, useMemo, useRef, useState } from 'react';
-import { useTranslation } from 'react-i18next';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import {
-  Copy,
-  Pencil,
-  Trash2,
-  Search,
+  Check,
   ChevronDown,
   ChevronUp,
-  Check,
+  Copy,
   Database,
+  Pencil,
+  Search,
+  Trash2,
 } from 'lucide-react';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-
+import { StreamingExportDialog } from '@/components/Export/StreamingExportDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { JSONViewer } from './JSONViewer';
-import { DeleteConfirmDialog } from '../Grid/DeleteConfirmDialog';
-import { DataGridPagination } from '../Grid/DataGridPagination';
-import { RowData as TauriRowData, deleteRow } from '@/lib/tauri';
+import { useStreamingExport } from '@/hooks/useStreamingExport';
+import type { ExportConfig } from '@/lib/export';
+import { deleteRow, type RowData as TauriRowData } from '@/lib/tauri';
 import { cn } from '@/lib/utils';
 import {
   coerceIdValue,
-  DocumentResultsProps,
-  DocumentRow,
-  DocumentRowItemProps,
+  type DocumentResultsProps,
+  type DocumentRow,
+  type DocumentRowItemProps,
   formatIdLabel,
   normalizeDocument,
 } from '@/utils/document';
-import { useStreamingExport } from '@/hooks/useStreamingExport';
-import { StreamingExportDialog } from '@/components/Export/StreamingExportDialog';
-import type { ExportConfig } from '@/lib/export';
+import { DataGridPagination } from '../Grid/DataGridPagination';
+import { DeleteConfirmDialog } from '../Grid/DeleteConfirmDialog';
+import { JSONViewer } from './JSONViewer';
 
 function DocumentRowItem({
   virtualRow,

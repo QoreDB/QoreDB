@@ -6,15 +6,15 @@
  * Modal component for creating and editing custom safety rules
  */
 
-import { useState, useCallback, useMemo } from 'react';
-import { useTranslation } from 'react-i18next';
 import { X } from 'lucide-react';
+import { useCallback, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import type { Environment, QueryOperationType, SafetyRule } from '../../lib/tauri/interceptor';
 import { Button } from '../ui/button';
+import { Checkbox } from '../ui/checkbox';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
-import { Checkbox } from '../ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
-import type { SafetyRule, QueryOperationType, Environment } from '../../lib/tauri/interceptor';
 
 interface SafetyRuleEditorProps {
   rule: SafetyRule | null;

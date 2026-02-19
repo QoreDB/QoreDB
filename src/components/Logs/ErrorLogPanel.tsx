@@ -1,25 +1,25 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { useState, useEffect } from 'react';
-import { useTranslation } from 'react-i18next';
-import { getErrorLogs, clearErrorLogs, ErrorLogEntry } from '../../lib/errorLog';
-import { exportLogs } from '../../lib/tauri';
-import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import {
-  Bug,
-  Trash2,
-  AlertCircle,
-  AlertTriangle,
-  Info,
-  Search,
-  RefreshCw,
-  Download,
-} from 'lucide-react';
 import { save } from '@tauri-apps/plugin-dialog';
 import { writeTextFile } from '@tauri-apps/plugin-fs';
+import {
+  AlertCircle,
+  AlertTriangle,
+  Bug,
+  Download,
+  Info,
+  RefreshCw,
+  Search,
+  Trash2,
+} from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { cn } from '@/lib/utils';
+import { clearErrorLogs, type ErrorLogEntry, getErrorLogs } from '../../lib/errorLog';
+import { exportLogs } from '../../lib/tauri';
 
 interface ErrorLogPanelProps {
   isOpen: boolean;

@@ -8,18 +8,18 @@
  * - DataGrid for relational databases (PostgreSQL, MySQL, etc.)
  */
 import { isDocumentDatabase } from '@/lib/driverCapabilities';
-import { DataGrid } from '../Grid/DataGrid';
-import { DocumentResults } from './DocumentResults';
-import { Driver } from '@/lib/drivers';
-import {
-  QueryResult,
-  Value,
+import type { Driver } from '@/lib/drivers';
+import type { SandboxChange, SandboxDeleteDisplay } from '@/lib/sandboxTypes';
+import type {
   Environment,
   Namespace,
-  TableSchema,
+  QueryResult,
   SortDirection,
+  TableSchema,
+  Value,
 } from '@/lib/tauri';
-import { SandboxChange, SandboxDeleteDisplay } from '@/lib/sandboxTypes';
+import { DataGrid } from '../Grid/DataGrid';
+import { DocumentResults } from './DocumentResults';
 
 interface ResultsViewerProps {
   result: QueryResult | null;

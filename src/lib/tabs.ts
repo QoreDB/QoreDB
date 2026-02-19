@@ -5,7 +5,7 @@
  * Defines the structure of open tabs for multi-table navigation
  */
 
-import { Namespace, RelationFilter, SearchFilter, QueryResult } from './tauri';
+import type { Namespace, QueryResult, RelationFilter, SearchFilter } from './tauri';
 
 export type TabType = 'query' | 'table' | 'database' | 'diff';
 

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
-import type { SavedConnection } from '@/lib/tauri';
+import { createContext, type ReactNode, useCallback, useContext, useEffect, useState } from 'react';
 import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
+import type { SavedConnection } from '@/lib/tauri';
 
 export interface ModalContextValue {
   searchOpen: boolean;

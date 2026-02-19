@@ -1,20 +1,20 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { AlertTriangle } from 'lucide-react';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
-  DialogTitle,
   DialogDescription,
   DialogFooter,
+  DialogHeader,
+  DialogTitle,
 } from '@/components/ui/dialog';
-import { AlertTriangle } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
-import { toast } from 'sonner';
-import { dropDatabase, Namespace } from '@/lib/tauri';
+import { Input } from '@/components/ui/input';
+import { dropDatabase, type Namespace } from '@/lib/tauri';
 
 interface DeleteDatabaseModalProps {
   isOpen: boolean;

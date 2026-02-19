@@ -1,35 +1,34 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { check } from '@tauri-apps/plugin-updater';
 import {
   createContext,
-  useContext,
-  useState,
-  useEffect,
-  useCallback,
-  useRef,
   type ReactNode,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
 } from 'react';
 import { useTranslation } from 'react-i18next';
-import { check } from '@tauri-apps/plugin-updater';
-
-import { notify } from '@/lib/notify';
-import {
-  type SavedConnection,
-  type DriverCapabilities,
-  connectSavedConnection,
-  disconnect,
-  listSavedConnections,
-  getDriverInfo,
-} from '@/lib/tauri';
-import { type CrashRecoverySnapshot, saveCrashRecoverySnapshot } from '@/lib/crashRecovery';
-import { type OpenTab } from '@/lib/tabs';
-import type { TableBrowserTab } from '@/components/Browser/TableBrowser';
 import type { DatabaseBrowserTab } from '@/components/Browser/DatabaseBrowser';
-import { Driver } from '@/lib/drivers';
-import { UI_EVENT_CONNECTIONS_CHANGED } from '@/lib/uiEvents';
+import type { TableBrowserTab } from '@/components/Browser/TableBrowser';
 import { useRecovery } from '@/hooks/useRecovery';
-import { useTabContext } from './TabProvider';
+import { type CrashRecoverySnapshot, saveCrashRecoverySnapshot } from '@/lib/crashRecovery';
+import { Driver } from '@/lib/drivers';
+import { notify } from '@/lib/notify';
+import type { OpenTab } from '@/lib/tabs';
+import {
+  connectSavedConnection,
+  type DriverCapabilities,
+  disconnect,
+  getDriverInfo,
+  listSavedConnections,
+  type SavedConnection,
+} from '@/lib/tauri';
+import { UI_EVENT_CONNECTIONS_CHANGED } from '@/lib/uiEvents';
 import { useModalContext } from './ModalProvider';
+import { useTabContext } from './TabProvider';
 
 const DEFAULT_PROJECT = 'default';
 const RECOVERY_SAVE_DEBOUNCE_MS = 600;

@@ -1,21 +1,21 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { useState, useCallback, useEffect } from 'react';
+import { AlertTriangle, CheckCircle2, Copy, Download, FileCode, Loader2, Play } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Copy, Download, Play, AlertTriangle, CheckCircle2, Loader2, FileCode } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from '@/components/ui/dialog';
-import { MigrationScript, ApplySandboxResult } from '@/lib/sandboxTypes';
 import { Driver } from '@/lib/drivers';
-import { Environment } from '@/lib/tauri';
+import type { ApplySandboxResult, MigrationScript } from '@/lib/sandboxTypes';
+import type { Environment } from '@/lib/tauri';
 import { cn } from '@/lib/utils';
-import { toast } from 'sonner';
 import { SqlPreview } from './SqlPreview';
 
 interface MigrationPreviewProps {

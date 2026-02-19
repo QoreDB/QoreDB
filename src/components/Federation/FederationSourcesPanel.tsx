@@ -16,21 +16,16 @@ const DRIVER_LABELS: Record<string, string> = {
   redis: 'Redis',
 };
 
-export function FederationSourcesPanel({
-  sources,
-  onInsertAlias,
-}: FederationSourcesPanelProps) {
+export function FederationSourcesPanel({ sources, onInsertAlias }: FederationSourcesPanelProps) {
   const { t } = useTranslation();
 
   if (sources.length < 2) return null;
 
   return (
     <div className="flex items-center gap-1.5 px-3 py-1 border-b border-[var(--q-border)] bg-[var(--q-bg-1)] text-xs text-[var(--q-text-2)]">
-      <span className="font-medium text-[var(--q-text-1)] shrink-0">
-        {t('federation.sources')}
-      </span>
+      <span className="font-medium text-[var(--q-text-1)] shrink-0">{t('federation.sources')}</span>
       <div className="flex items-center gap-1 overflow-x-auto">
-        {sources.map((source) => (
+        {sources.map(source => (
           <button
             key={source.sessionId}
             type="button"
@@ -40,9 +35,7 @@ export function FederationSourcesPanel({
           >
             <DriverDot driver={source.driver} />
             <span className="font-mono">{source.alias}</span>
-            <span className="text-(--q-text-3)">
-              {source.displayName}
-            </span>
+            <span className="text-(--q-text-3)">{source.displayName}</span>
           </button>
         ))}
       </div>

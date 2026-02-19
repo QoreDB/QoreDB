@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { QueryResult } from '../../lib/tauri';
+import type { QueryResult } from '../../lib/tauri';
 
 interface ExplainPlanViewProps {
   result: QueryResult;

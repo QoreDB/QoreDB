@@ -4,11 +4,11 @@
  * Virtualized table body component for DataGrid
  */
 
-import { Row, flexRender } from '@tanstack/react-table';
-import { Virtualizer } from '@tanstack/react-virtual';
+import { flexRender, type Row } from '@tanstack/react-table';
+import type { Virtualizer } from '@tanstack/react-virtual';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
-import { RowData } from './utils/dataGridUtils';
+import type { RowData } from './utils/dataGridUtils';
 
 interface RowMetadata {
   isInserted?: boolean;

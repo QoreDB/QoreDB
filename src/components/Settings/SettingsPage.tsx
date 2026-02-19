@@ -1,29 +1,27 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { useState, useEffect } from 'react';
+import { X } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-
-import { SettingsSidebar } from './SettingsSidebar';
-import { SettingsSearch } from './SettingsSearch';
+import { Button } from '@/components/ui/button';
+import { getSafetyPolicy, type SafetyPolicy, setSafetyPolicy } from '@/lib/tauri';
 import { SettingsBreadcrumb } from './SettingsBreadcrumb';
+import { SettingsSearch } from './SettingsSearch';
+import { SettingsSidebar } from './SettingsSidebar';
 import {
-  GeneralSection,
-  EditorSection,
-  SecuritySection,
+  AiSection,
   DataSection,
+  EditorSection,
+  GeneralSection,
   KeyboardShortcutsSection,
   LicenseSection,
-  AiSection,
+  SecuritySection,
 } from './sections';
 import {
-  SETTINGS_SECTIONS,
   filterSectionsBySearch,
+  SETTINGS_SECTIONS,
   type SettingsSectionId,
 } from './settingsConfig';
-
-import { getSafetyPolicy, setSafetyPolicy, SafetyPolicy } from '@/lib/tauri';
-import { X } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 
 interface SettingsPageProps {
   onClose?: () => void;

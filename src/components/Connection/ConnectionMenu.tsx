@@ -1,18 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { useState, useRef, useEffect } from 'react';
-import { SavedConnection } from '../../lib/tauri';
-import { Button } from '@/components/ui/button';
-import { MoreVertical, Pencil, Trash2, Zap, Copy, Loader2, Star } from 'lucide-react';
-import { useConnectionActions } from './useConnectionActions';
+import { Copy, Loader2, MoreVertical, Pencil, Star, Trash2, Zap } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from '@/components/ui/dialog';
+import type { SavedConnection } from '../../lib/tauri';
+import { useConnectionActions } from './useConnectionActions';
 
 interface ConnectionMenuProps {
   connection: SavedConnection;

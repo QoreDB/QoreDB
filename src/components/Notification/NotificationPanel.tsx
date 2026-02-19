@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { Bell, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Trash2, Bell } from 'lucide-react';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import {
-  useNotifications,
-  getNotificationsByCategory,
   clearAllNotifications,
-  NotificationCategory,
+  getNotificationsByCategory,
+  type NotificationCategory,
+  useNotifications,
 } from '@/lib/notificationStore';
 import { NotificationItem } from './NotificationItem';
 

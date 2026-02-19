@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { useState, useEffect } from 'react';
-import { useTranslation } from 'react-i18next';
 import { FlaskConical } from 'lucide-react';
-import { isSandboxActive, getChangesCount, subscribeSandbox } from '@/lib/sandboxStore';
-import { Environment } from '@/lib/tauri';
+import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { getChangesCount, isSandboxActive, subscribeSandbox } from '@/lib/sandboxStore';
+import type { Environment } from '@/lib/tauri';
 import { cn } from '@/lib/utils';
 
 interface SandboxIndicatorProps {

@@ -1,12 +1,10 @@
 // SPDX-License-Identifier: BUSL-1.1
 
+import { ArrowLeftRight, CheckCircle2, Eye, EyeOff, MinusCircle, PlusCircle } from 'lucide-react';
 /**
  * DiffStatsBar - Statistics bar with counters and filters
  */
 import { useTranslation } from 'react-i18next';
-import { PlusCircle, MinusCircle, ArrowLeftRight, CheckCircle2, Eye, EyeOff } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { DiffStats, DiffRowStatus } from '@/lib/diffUtils';
 import { Button } from '@/components/ui/button';
 import {
   Select,
@@ -15,6 +13,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import type { DiffRowStatus, DiffStats } from '@/lib/diffUtils';
+import { cn } from '@/lib/utils';
 
 export type DiffFilter = 'all' | DiffRowStatus;
 

@@ -3,20 +3,20 @@
 /**
  * useDiffSources - Hook for managing diff sources state and execution
  */
-import { useState, useCallback, useMemo, useEffect, useRef, MutableRefObject } from 'react';
-import { DiffSource } from '@/lib/tabs';
+import { type MutableRefObject, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { compareResults, type DiffResult, findCommonColumns } from '@/lib/diffUtils';
+import type { DiffSource } from '@/lib/tabs';
 import {
-  QueryResult,
-  Namespace,
-  executeQuery,
-  previewTable,
   connectSavedConnection,
   disconnect,
+  executeQuery,
   listNamespaces,
-  SavedConnection,
+  type Namespace,
+  previewTable,
+  type QueryResult,
+  type SavedConnection,
 } from '@/lib/tauri';
-import { compareResults, DiffResult, findCommonColumns } from '@/lib/diffUtils';
-import { DiffSourceState } from '../DiffSourcePanel';
+import type { DiffSourceState } from '../DiffSourcePanel';
 
 const DEFAULT_PROJECT = 'default';
 

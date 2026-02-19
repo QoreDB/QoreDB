@@ -1,26 +1,26 @@
 // SPDX-License-Identifier: BUSL-1.1
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { PointerEvent, WheelEvent } from 'react';
-import { useTranslation } from 'react-i18next';
 import {
-  Search,
-  RefreshCw,
-  ZoomIn,
-  ZoomOut,
   Crosshair,
-  Loader2,
-  Table as TableIcon,
   Filter,
   Link2,
+  Loader2,
+  RefreshCw,
+  Search,
+  Table as TableIcon,
+  ZoomIn,
+  ZoomOut,
 } from 'lucide-react';
-import { Namespace, TableSchema, TableColumn, ForeignKey } from '@/lib/tauri';
-import { useSchemaCache } from '@/hooks/useSchemaCache';
+import type { PointerEvent, WheelEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { cn } from '@/lib/utils';
-import { onTableChange } from '@/lib/tableEvents';
 import { VirtualRelationsPanel } from '@/components/VirtualRelations/VirtualRelationsPanel';
+import { useSchemaCache } from '@/hooks/useSchemaCache';
+import { onTableChange } from '@/lib/tableEvents';
+import type { ForeignKey, Namespace, TableColumn, TableSchema } from '@/lib/tauri';
+import { cn } from '@/lib/utils';
 
 interface ERDiagramProps {
   sessionId: string;

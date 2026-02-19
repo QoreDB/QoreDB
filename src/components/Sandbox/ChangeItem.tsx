@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { ChevronDown, Clock, Eye, Pencil, Plus, Trash2, Undo2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Plus, Pencil, Trash2, Undo2, Clock, Eye, ChevronDown } from 'lucide-react';
-import { SandboxChange, SandboxChangeType } from '@/lib/sandboxTypes';
-import { Value } from '@/lib/tauri';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
 import { getChangeDiff } from '@/lib/sandboxOverlay';
+import type { SandboxChange, SandboxChangeType } from '@/lib/sandboxTypes';
+import type { Value } from '@/lib/tauri';
+import { cn } from '@/lib/utils';
 
 interface ChangeItemProps {
   change: SandboxChange;

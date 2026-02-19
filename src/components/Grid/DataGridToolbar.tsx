@@ -1,26 +1,26 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { RefObject } from 'react';
-import { Table, Column } from '@tanstack/react-table';
-import { useTranslation } from 'react-i18next';
+import type { Column, Table } from '@tanstack/react-table';
 import {
-  Search,
-  X,
+  Check,
+  ChevronDown,
+  Code2,
+  Copy,
+  Database,
   Eye,
   EyeOff,
-  ChevronDown,
-  ListFilter,
-  Database,
-  Check,
-  Copy,
-  FileSpreadsheet,
   FileJson,
-  Code2,
-  Sparkles,
+  FileSpreadsheet,
+  ListFilter,
   Loader2,
+  Search,
+  Sparkles,
+  X,
 } from 'lucide-react';
+import type { RefObject } from 'react';
+import { useTranslation } from 'react-i18next';
+import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -29,10 +29,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
-import { RowData } from './utils/dataGridUtils';
-import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
+import type { RowData } from './utils/dataGridUtils';
 
 interface DataGridToolbarProps {
   table: Table<RowData>;

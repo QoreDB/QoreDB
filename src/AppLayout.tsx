@@ -1,54 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { useMemo, useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Toaster } from 'sonner';
-
-import { CustomTitlebar } from './components/CustomTitlebar';
-import { Sidebar } from './components/Sidebar/Sidebar';
-import { TabBar } from './components/Tabs/TabBar';
-import { StatusBar } from './components/Status/StatusBar';
-import { SandboxBorder } from './components/Sandbox';
-import { WelcomeScreen } from './components/Home/WelcomeScreen';
-import { SettingsPage } from './components/Settings/SettingsPage';
-import { QueryPanel } from './components/Query/QueryPanel';
-import { TableBrowser, type TableBrowserTab } from './components/Browser/TableBrowser';
-import { DatabaseBrowser, type DatabaseBrowserTab } from './components/Browser/DatabaseBrowser';
-import { ConnectionDashboard } from './components/Dashboard/ConnectionDashboard';
-import { ConnectionModal } from './components/Connection/ConnectionModal';
-import { GlobalSearch, type SearchResult } from './components/Search/GlobalSearch';
-import { FulltextSearchPanel } from './components/Search/FulltextSearchPanel';
-import { QueryLibraryModal } from './components/Query/QueryLibraryModal';
-import { OnboardingModal } from './components/Onboarding/OnboardingModal';
-import { DataDiffViewer } from './components/Diff/DataDiffViewer';
-import { LicenseGate } from './components/License/LicenseGate';
-
-import { useTheme } from './hooks/useTheme';
-import { useWebviewGuards } from './hooks/useWebviewGuards';
-import type { useRecovery } from './hooks/useRecovery';
-
-import { notify } from './lib/notify';
-import {
-  type Namespace,
-  type SavedConnection,
-  type DriverCapabilities,
-  type RelationFilter,
-  type SearchFilter,
-  type Collection,
-  connectSavedConnection,
-} from './lib/tauri';
-import { type HistoryEntry } from './lib/history';
-import { type QueryLibraryItem } from './lib/queryLibrary';
-import { Driver } from './lib/drivers';
-import {
-  type OpenTab,
-  createTableTab,
-  createDatabaseTab,
-  createQueryTab,
-  createDiffTab,
-} from './lib/tabs';
-import { AnalyticsService } from './components/Onboarding/AnalyticsService';
-import { getShortcut } from '@/utils/platform';
 import {
   activateSandbox,
   deactivateSandbox,
@@ -63,10 +17,52 @@ import {
   UI_EVENT_OPEN_LOGS,
   UI_EVENT_REFRESH_TABLE,
 } from '@/lib/uiEvents';
-
-import { useTabContext } from './providers/TabProvider';
-import { useSessionContext } from './providers/SessionProvider';
+import { getShortcut } from '@/utils/platform';
+import { DatabaseBrowser, type DatabaseBrowserTab } from './components/Browser/DatabaseBrowser';
+import { TableBrowser, type TableBrowserTab } from './components/Browser/TableBrowser';
+import { ConnectionModal } from './components/Connection/ConnectionModal';
+import { CustomTitlebar } from './components/CustomTitlebar';
+import { ConnectionDashboard } from './components/Dashboard/ConnectionDashboard';
+import { DataDiffViewer } from './components/Diff/DataDiffViewer';
+import { WelcomeScreen } from './components/Home/WelcomeScreen';
+import { LicenseGate } from './components/License/LicenseGate';
+import { AnalyticsService } from './components/Onboarding/AnalyticsService';
+import { OnboardingModal } from './components/Onboarding/OnboardingModal';
+import { QueryLibraryModal } from './components/Query/QueryLibraryModal';
+import { QueryPanel } from './components/Query/QueryPanel';
+import { SandboxBorder } from './components/Sandbox';
+import { FulltextSearchPanel } from './components/Search/FulltextSearchPanel';
+import { GlobalSearch, type SearchResult } from './components/Search/GlobalSearch';
+import { SettingsPage } from './components/Settings/SettingsPage';
+import { Sidebar } from './components/Sidebar/Sidebar';
+import { StatusBar } from './components/Status/StatusBar';
+import { TabBar } from './components/Tabs/TabBar';
+import type { useRecovery } from './hooks/useRecovery';
+import { useTheme } from './hooks/useTheme';
+import { useWebviewGuards } from './hooks/useWebviewGuards';
+import { Driver } from './lib/drivers';
+import type { HistoryEntry } from './lib/history';
+import { notify } from './lib/notify';
+import type { QueryLibraryItem } from './lib/queryLibrary';
+import {
+  createDatabaseTab,
+  createDiffTab,
+  createQueryTab,
+  createTableTab,
+  type OpenTab,
+} from './lib/tabs';
+import {
+  type Collection,
+  connectSavedConnection,
+  type DriverCapabilities,
+  type Namespace,
+  type RelationFilter,
+  type SavedConnection,
+  type SearchFilter,
+} from './lib/tauri';
 import { useModalContext } from './providers/ModalProvider';
+import { useSessionContext } from './providers/SessionProvider';
+import { useTabContext } from './providers/TabProvider';
 
 const DEFAULT_PROJECT = 'default';
 

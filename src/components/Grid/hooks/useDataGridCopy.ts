@@ -4,10 +4,10 @@
  * Hook for clipboard copy functionality in DataGrid
  */
 
-import { useState, useCallback } from 'react';
-import { Row } from '@tanstack/react-table';
-import { QueryResult } from '@/lib/tauri';
-import { formatValue, RowData } from '../utils/dataGridUtils';
+import type { Row } from '@tanstack/react-table';
+import { useCallback, useState } from 'react';
+import type { QueryResult } from '@/lib/tauri';
+import { formatValue, type RowData } from '../utils/dataGridUtils';
 
 interface UseDataGridCopyProps {
   rows: Row<RowData>[];

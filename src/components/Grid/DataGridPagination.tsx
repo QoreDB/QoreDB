@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Table, PaginationState } from '@tanstack/react-table';
-import { useTranslation } from 'react-i18next';
+import type { PaginationState, Table } from '@tanstack/react-table';
 import { ChevronFirst, ChevronLast, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
-import { RowData } from './utils/dataGridUtils';
+import type { RowData } from './utils/dataGridUtils';
 
 interface DataGridPaginationProps {
   table?: Table<RowData> | null;

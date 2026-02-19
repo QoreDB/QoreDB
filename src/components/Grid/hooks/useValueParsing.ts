@@ -6,7 +6,7 @@
  */
 
 import { useCallback } from 'react';
-import { Value } from '@/lib/tauri';
+import type { Value } from '@/lib/tauri';
 
 export interface UseValueParsingReturn {
   getEditableValue: (value: Value) => string;

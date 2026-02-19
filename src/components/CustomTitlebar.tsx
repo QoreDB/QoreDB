@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { useState, useEffect } from 'react';
+import type { TFunction } from 'i18next';
+import { Bell, Copy, Minus, Search, Settings, Square, X } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Minus, Square, X, Copy, Search, Bell, Settings } from 'lucide-react';
+import { NotificationPanel } from '@/components/Notification/NotificationPanel';
+import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,12 +16,9 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
-import { TFunction } from 'i18next';
-import { isMacOS, isWindowsOS, getShortcut } from '@/utils/platform';
-import { NotificationPanel } from '@/components/Notification/NotificationPanel';
 import { useNotificationBadge } from '@/lib/notificationStore';
+import { cn } from '@/lib/utils';
+import { getShortcut, isMacOS, isWindowsOS } from '@/utils/platform';
 
 const appWindow = getCurrentWindow();
 

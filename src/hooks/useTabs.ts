@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { useState, useCallback, useMemo } from 'react';
-import { OpenTab } from '@/lib/tabs';
-import { TableBrowserTab } from '@/components/Browser/TableBrowser';
-import { DatabaseBrowserTab } from '@/components/Browser/DatabaseBrowser';
+import { useCallback, useMemo, useState } from 'react';
+import type { DatabaseBrowserTab } from '@/components/Browser/DatabaseBrowser';
+import type { TableBrowserTab } from '@/components/Browser/TableBrowser';
+import type { OpenTab } from '@/lib/tabs';
 
 export interface UseTabsOptions {
   initialTabs?: OpenTab[];

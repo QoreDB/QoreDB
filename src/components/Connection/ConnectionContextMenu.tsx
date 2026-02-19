@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { ReactNode, useState } from 'react';
 import { Copy, Loader2, Pencil, Trash2, Zap } from 'lucide-react';
+import { type ReactNode, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { Button } from '@/components/ui/button';
 import {
   ContextMenu,
   ContextMenuContent,
@@ -12,14 +14,12 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { SavedConnection } from '../../lib/tauri';
+import type { SavedConnection } from '../../lib/tauri';
 import { useConnectionActions } from './useConnectionActions';
-import { useTranslation } from 'react-i18next';
 
 interface ConnectionContextMenuProps {
   connection: SavedConnection;

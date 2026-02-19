@@ -1,27 +1,27 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import {
+  AlertCircle,
+  BookmarkPlus,
+  Database,
+  Folder,
+  History,
+  Layers,
+  Lock,
+  Play,
+  Plus,
+  Shield,
+  Sparkles,
+  Square,
+} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
-import { getModifierKey } from '@/utils/platform';
-import {
-  Play,
-  Square,
-  AlertCircle,
-  History,
-  Shield,
-  Lock,
-  Plus,
-  BookmarkPlus,
-  Folder,
-  Layers,
-  Database,
-  Sparkles,
-} from 'lucide-react';
-import { cn } from '@/lib/utils';
 import { Tooltip } from '@/components/ui/tooltip';
-import { Environment, Namespace } from '../../lib/tauri';
-import { ENVIRONMENT_CONFIG } from '../../lib/environment';
-import { MONGO_TEMPLATES } from '../Editor/mongo-constants';
+import { cn } from '@/lib/utils';
+import { getModifierKey } from '@/utils/platform';
+import type { ENVIRONMENT_CONFIG } from '../../lib/environment';
+import type { Environment, Namespace } from '../../lib/tauri';
+import type { MONGO_TEMPLATES } from '../Editor/mongo-constants';
 
 type EnvConfig = (typeof ENVIRONMENT_CONFIG)[keyof typeof ENVIRONMENT_CONFIG];
 

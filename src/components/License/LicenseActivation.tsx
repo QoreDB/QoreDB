@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { openUrl } from '@tauri-apps/plugin-opener';
+import { ExternalLink } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { openUrl } from '@tauri-apps/plugin-opener';
-import { useLicense } from '@/providers/LicenseProvider';
+import { DangerConfirmDialog } from '@/components/Guard/DangerConfirmDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { DangerConfirmDialog } from '@/components/Guard/DangerConfirmDialog';
+import { useLicense } from '@/providers/LicenseProvider';
 import { LicenseBadge } from './LicenseBadge';
-import { ExternalLink } from 'lucide-react';
 
 function formatDate(iso: string | null): string {
   if (!iso) return '—';

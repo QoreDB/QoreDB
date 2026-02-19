@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: BUSL-1.1
 
+import { AlertCircle, Check, Eye, EyeOff, Loader2, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Eye, EyeOff, Trash2, Check, AlertCircle, Loader2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { SettingsCard } from '../SettingsCard';
-import { LicenseGate } from '@/components/License/LicenseGate';
 import { AiProviderSelector } from '@/components/AI/AiProviderSelector';
+import { LicenseGate } from '@/components/License/LicenseGate';
+import { Button } from '@/components/ui/button';
+import { AI_PROVIDERS, type AiProvider, aiDeleteApiKey, aiSaveApiKey } from '@/lib/ai';
 import { useAiPreferences } from '@/providers/AiPreferencesProvider';
-import { aiSaveApiKey, aiDeleteApiKey, AI_PROVIDERS, type AiProvider } from '@/lib/ai';
+import { SettingsCard } from '../SettingsCard';
 
 interface AiSectionProps {
   searchQuery?: string;

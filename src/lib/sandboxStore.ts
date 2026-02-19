@@ -7,14 +7,14 @@
  * Pattern follows sessionStore.ts conventions.
  */
 
-import {
-  SandboxState,
-  SandboxSession,
+import type {
   SandboxChange,
-  SandboxPreferences,
   SandboxChangeGroup,
+  SandboxPreferences,
+  SandboxSession,
+  SandboxState,
 } from './sandboxTypes';
-import { Namespace, Value, RowData, TableSchema } from './tauri';
+import type { Namespace, RowData, TableSchema, Value } from './tauri';
 
 // Storage keys
 const STATE_KEY = 'qoredb_sandbox_state';

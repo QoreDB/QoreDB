@@ -3,7 +3,7 @@
 /**
  * Data diff utilities for comparing query results
  */
-import { QueryResult, Row, Value, ColumnInfo } from './tauri';
+import type { ColumnInfo, QueryResult, Row, Value } from './tauri';
 
 export type DiffRowStatus = 'unchanged' | 'added' | 'removed' | 'modified';
 

@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-
-import { Checkbox } from '@/components/ui/checkbox';
-import { SettingsCard } from '../SettingsCard';
 import { InterceptorSettingsPanel } from '@/components/Interceptor';
-import { getSafetyPolicy, setSafetyPolicy, SafetyPolicy } from '@/lib/tauri';
+import { Checkbox } from '@/components/ui/checkbox';
+import { getSafetyPolicy, type SafetyPolicy, setSafetyPolicy } from '@/lib/tauri';
+import { SettingsCard } from '../SettingsCard';
 
 interface SecuritySectionProps {
   searchQuery?: string;

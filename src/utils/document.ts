@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Environment, QueryResult, Value, Namespace } from '@/lib/tauri';
-import { VirtualItem } from '@tanstack/react-virtual';
-import { UseTranslationOptions } from 'react-i18next';
+import type { VirtualItem } from '@tanstack/react-virtual';
+import type { UseTranslationOptions } from 'react-i18next';
+import type { Environment, Namespace, QueryResult, Value } from '@/lib/tauri';
 
 export interface DocumentResultsProps {
   result: QueryResult;

@@ -1,31 +1,31 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { useState, useEffect, useCallback } from 'react';
-import { useTranslation } from 'react-i18next';
 import {
-  getHistory,
-  searchHistory,
-  removeFromHistory,
-  clearHistory,
-  toggleFavorite,
-  isFavorite,
-  getFavorites,
-  getSessionHistory,
-  HistoryEntry,
-} from '../../lib/history';
-import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
-import {
-  History,
-  Star,
-  Search,
-  Trash2,
-  Play,
-  Clock,
   AlertCircle,
   CheckCircle2,
+  Clock,
+  History,
+  Play,
+  Search,
+  Star,
+  Trash2,
 } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { cn } from '@/lib/utils';
+import {
+  clearHistory,
+  getFavorites,
+  getHistory,
+  getSessionHistory,
+  type HistoryEntry,
+  isFavorite,
+  removeFromHistory,
+  searchHistory,
+  toggleFavorite,
+} from '../../lib/history';
 
 interface QueryHistoryProps {
   isOpen: boolean;

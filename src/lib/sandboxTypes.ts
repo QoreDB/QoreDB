@@ -7,7 +7,7 @@
  * Allows users to make local modifications without immediate database impact.
  */
 
-import { Namespace, Value, TableSchema, RowData } from './tauri';
+import type { Namespace, RowData, TableSchema, Value } from './tauri';
 
 /** Type of sandbox change operation */
 export type SandboxChangeType = 'insert' | 'update' | 'delete';

@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Ref } from 'react';
-import { SQLEditor, SQLEditorHandle } from '../Editor/SQLEditor';
+import type { Ref } from 'react';
+import type { Driver } from '../../lib/drivers';
+import type { Namespace } from '../../lib/tauri';
 import { MongoEditor } from '../Editor/MongoEditor';
-import { Driver } from '../../lib/drivers';
-import { Namespace } from '../../lib/tauri';
+import { SQLEditor, type SQLEditorHandle } from '../Editor/SQLEditor';
 
 interface QueryPanelEditorProps {
   isDocumentBased: boolean;

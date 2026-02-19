@@ -1,58 +1,57 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { useMemo, useState, useCallback, useRef, useEffect } from 'react';
 import {
-  useReactTable,
-  getCoreRowModel,
-  getSortedRowModel,
-  getPaginationRowModel,
-  getFilteredRowModel,
+  type ColumnDef,
+  type ColumnFiltersState,
   createColumnHelper,
-  SortingState,
-  RowSelectionState,
-  PaginationState,
-  ColumnDef,
-  VisibilityState,
-  ColumnFiltersState,
+  getCoreRowModel,
+  getFilteredRowModel,
+  getPaginationRowModel,
+  getSortedRowModel,
+  type PaginationState,
+  type RowSelectionState,
+  type SortingState,
+  useReactTable,
+  type VisibilityState,
 } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import {
-  QueryResult,
-  Value,
-  Namespace,
+import { CheckCircle2, Pencil } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { StreamingExportDialog } from '@/components/Export/StreamingExportDialog';
+import { DangerConfirmDialog } from '@/components/Guard/DangerConfirmDialog';
+import { Checkbox } from '@/components/ui/checkbox';
+import { useStreamingExport } from '@/hooks/useStreamingExport';
+import { aiExplainResult } from '@/lib/ai';
+import type { ExportConfig } from '@/lib/export';
+import { applyOverlay, emptyOverlayResult, type OverlayResult } from '@/lib/sandboxOverlay';
+import type { SandboxChange, SandboxDeleteDisplay } from '@/lib/sandboxTypes';
+import type {
   Environment,
-  TableSchema,
+  Namespace,
+  QueryResult,
   RelationFilter,
   SortDirection,
+  TableSchema,
+  Value,
 } from '@/lib/tauri';
-import { CheckCircle2, Pencil } from 'lucide-react';
-import { Checkbox } from '@/components/ui/checkbox';
-import { useTranslation } from 'react-i18next';
-
-import { RowData, formatValue, convertToRowData } from './utils/dataGridUtils';
+import { type ExportDataDetail, UI_EVENT_EXPORT_DATA } from '@/lib/uiEvents';
+import { useAiPreferences } from '@/providers/AiPreferencesProvider';
+import { useLicense } from '@/providers/LicenseProvider';
+import { DataGridColumnHeader } from './DataGridColumnHeader';
+import { DataGridHeader } from './DataGridHeader';
+import { DataGridPagination } from './DataGridPagination';
+import { DataGridTableBody } from './DataGridTableBody';
+import { DataGridTableHeader } from './DataGridTableHeader';
+import { DataGridToolbar } from './DataGridToolbar';
+import { DeleteConfirmDialog } from './DeleteConfirmDialog';
+import { EditableDataCell } from './EditableDataCell';
 import { useDataGridCopy } from './hooks/useDataGridCopy';
+import { useDataGridDelete } from './hooks/useDataGridDelete';
 import { useDataGridExport } from './hooks/useDataGridExport';
 import { useForeignKeyPeek } from './hooks/useForeignKeyPeek';
 import { useInlineEdit } from './hooks/useInlineEdit';
-import { useDataGridDelete } from './hooks/useDataGridDelete';
-import { useStreamingExport } from '@/hooks/useStreamingExport';
-import { DataGridToolbar } from './DataGridToolbar';
-import { DataGridPagination } from './DataGridPagination';
-import { DeleteConfirmDialog } from './DeleteConfirmDialog';
-import { DangerConfirmDialog } from '@/components/Guard/DangerConfirmDialog';
-import { DataGridColumnHeader } from './DataGridColumnHeader';
-import { DataGridHeader } from './DataGridHeader';
-import { DataGridTableHeader } from './DataGridTableHeader';
-import { DataGridTableBody } from './DataGridTableBody';
-import { EditableDataCell } from './EditableDataCell';
-import { SandboxChange, SandboxDeleteDisplay } from '@/lib/sandboxTypes';
-import { applyOverlay, OverlayResult, emptyOverlayResult } from '@/lib/sandboxOverlay';
-import { ExportDataDetail, UI_EVENT_EXPORT_DATA } from '@/lib/uiEvents';
-import { StreamingExportDialog } from '@/components/Export/StreamingExportDialog';
-import type { ExportConfig } from '@/lib/export';
-import { useAiPreferences } from '@/providers/AiPreferencesProvider';
-import { aiExplainResult } from '@/lib/ai';
-import { useLicense } from '@/providers/LicenseProvider';
+import { convertToRowData, formatValue, type RowData } from './utils/dataGridUtils';
 
 const EMPTY_OVERLAY_RESULT: OverlayResult = {
   result: {

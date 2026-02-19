@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { TabProvider } from './providers/TabProvider';
+import { AppLayout } from './AppLayout';
+import { AiPreferencesProvider } from './providers/AiPreferencesProvider';
+import { LicenseProvider } from './providers/LicenseProvider';
 import { ModalProvider } from './providers/ModalProvider';
 import { SessionProvider } from './providers/SessionProvider';
 import { ShortcutProvider } from './providers/ShortcutProvider';
-import { LicenseProvider } from './providers/LicenseProvider';
-import { AiPreferencesProvider } from './providers/AiPreferencesProvider';
-import { AppLayout } from './AppLayout';
+import { TabProvider } from './providers/TabProvider';
 
 import './index.css';
 

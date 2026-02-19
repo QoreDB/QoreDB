@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import type { ConnectionConfig, Environment, SavedConnection } from '@/lib/tauri';
 import { Driver } from '@/lib/drivers';
+import type { ConnectionConfig, Environment, SavedConnection } from '@/lib/tauri';
 
 import type { ConnectionFormData } from './types';
 
@@ -130,14 +130,15 @@ export function isConnectionFormValid(formData: ConnectionFormData): boolean {
     // SQLite only requires a file path (stored in host field)
     return Boolean(
       formData.host &&
-      (!formData.useSshTunnel || (formData.sshHost && formData.sshUsername && formData.sshKeyPath))
+        (!formData.useSshTunnel ||
+          (formData.sshHost && formData.sshUsername && formData.sshKeyPath))
     );
   }
 
   return Boolean(
     formData.host &&
-    (formData.username || !authRequired) &&
-    (!formData.useSshTunnel || (formData.sshHost && formData.sshUsername && formData.sshKeyPath))
+      (formData.username || !authRequired) &&
+      (!formData.useSshTunnel || (formData.sshHost && formData.sshUsername && formData.sshKeyPath))
   );
 }
 

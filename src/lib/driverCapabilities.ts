@@ -7,7 +7,7 @@
  * enabling agnostic SQL/NoSQL UI decisions without hardcoding driver checks.
  */
 
-import { Driver, getDriverMetadata, DataModel } from './drivers';
+import { type DataModel, type Driver, getDriverMetadata } from './drivers';
 
 /**
  * Check if the driver is document-based (flexible schema, documents as data units)

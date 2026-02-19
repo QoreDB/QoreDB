@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { save } from '@tauri-apps/plugin-dialog';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { save } from '@tauri-apps/plugin-dialog';
 import { toast } from 'sonner';
-
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
@@ -12,7 +13,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -22,10 +22,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
-import { useLicense } from '@/providers/LicenseProvider';
 import type { ExportConfig, ExportFormat } from '@/lib/export';
 import type { Namespace } from '@/lib/tauri';
+import { useLicense } from '@/providers/LicenseProvider';
 
 interface StreamingExportDialogProps {
   open: boolean;

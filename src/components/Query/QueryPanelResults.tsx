@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { AlertCircle, CheckCircle2, Info, Sparkles, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { AlertCircle, X, CheckCircle2, Info, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+import { countSqlStatements } from '../../lib/environment';
+import type { Environment, Namespace, QueryResult, Value } from '../../lib/tauri';
 import { DataGrid } from '../Grid/DataGrid';
 import { DocumentResults } from '../Results/DocumentResults';
 import { ExplainPlanView } from '../Results/ExplainPlanView';
-import { Environment, QueryResult, Value, Namespace } from '../../lib/tauri';
 import { getCollectionFromQuery } from './queryPanelUtils';
-import { cn } from '@/lib/utils';
-import { countSqlStatements } from '../../lib/environment';
 
 export interface QueryResultEntry {
   id: string;

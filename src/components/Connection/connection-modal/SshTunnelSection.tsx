@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { ChevronDown, ChevronRight, Info } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ChevronDown, ChevronRight, Info } from 'lucide-react';
 
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';

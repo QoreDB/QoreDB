@@ -82,7 +82,7 @@ export const DRIVERS: Record<Driver, DriverMetadata> = {
     },
     queries: {
       databaseSizeQuery: () =>
-        `SELECT pg_size_pretty(pg_database_size(current_database())) as size`,
+        'SELECT pg_size_pretty(pg_database_size(current_database())) as size',
       tableSizeQuery: (schema, table) =>
         `SELECT pg_total_relation_size('"${schema}"."${table}"') as total_bytes,
                 pg_size_pretty(pg_total_relation_size('"${schema}"."${table}"')) as size_pretty`,

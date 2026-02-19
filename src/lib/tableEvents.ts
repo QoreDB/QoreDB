@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Namespace } from './tauri';
+import type { Namespace } from './tauri';
 
 export type TableChangeType = 'create' | 'truncate' | 'drop' | 'update';
 

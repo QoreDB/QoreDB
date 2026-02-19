@@ -22,6 +22,14 @@
     "lineWidth": 100,
     "lineEnding": "lf"
   },
+  "css": {
+    "parser": {
+      "cssModules": true
+    },
+    "linter": {
+      "enabled": true
+    }
+  },
   "javascript": {
     "formatter": {
       "semicolons": "always",
@@ -37,14 +45,18 @@
       "recommended": true,
       "style": {
         "noUnusedTemplateLiteral": "warn",
-        "useImportType": "warn"
+        "useImportType": "warn",
+        "noNonNullAssertion": "warn"
       },
       "suspicious": {
-        "noExplicitAny": "warn"
+        "noExplicitAny": "warn",
+        "noArrayIndexKey": "warn",
+        "noTemplateCurlyInString": "off"
       },
       "correctness": {
         "noUnusedVariables": "warn",
-        "noUnusedImports": "warn"
+        "noUnusedImports": "warn",
+        "useExhaustiveDependencies": "warn"
       }
     }
   }

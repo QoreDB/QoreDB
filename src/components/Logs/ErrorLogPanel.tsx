@@ -39,7 +39,7 @@ export function ErrorLogPanel({ isOpen, onClose }: ErrorLogPanelProps) {
     if (isOpen) {
       loadLogs();
     }
-  }, [isOpen]);
+  }, [isOpen, loadLogs]);
 
   function loadLogs() {
     setLogs(getErrorLogs());

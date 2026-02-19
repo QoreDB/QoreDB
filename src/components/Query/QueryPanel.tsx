@@ -133,7 +133,7 @@ export function QueryPanel({
     listFederationSources()
       .then(setFederationSources)
       .catch(() => setFederationSources([]));
-  }, [sessionId]);
+  }, []);
 
   const isExplainSupported = useMemo(
     () => driverCapabilities?.explain ?? dialect === Driver.Postgres,
@@ -728,7 +728,7 @@ export function QueryPanel({
         <FederationSourcesPanel
           sources={federationSources}
           onInsertAlias={alias => {
-            setQuery(prev => prev + alias + '.');
+            setQuery(prev => `${prev + alias}.`);
           }}
         />
       )}

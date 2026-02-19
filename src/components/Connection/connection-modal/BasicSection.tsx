@@ -124,7 +124,7 @@ export function BasicSection({
               <Input
                 type="number"
                 value={formData.port}
-                onChange={e => onChange('port', parseInt(e.target.value) || 0)}
+                onChange={e => onChange('port', parseInt(e.target.value, 10) || 0)}
               />
             </div>
           </div>

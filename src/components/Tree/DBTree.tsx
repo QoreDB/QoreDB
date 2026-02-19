@@ -44,6 +44,10 @@ import { DatabaseContextMenu } from './DatabaseContextMenu';
 import { DeleteDatabaseModal } from './DeleteDatabaseModal';
 import { TableContextMenu } from './TableContextMenu';
 
+function getNsKey(ns: Namespace): string {
+  return `${ns.database}:${ns.schema || ''}`;
+}
+
 interface DBTreeProps {
   connectionId: string;
   driver: string;
@@ -149,7 +153,7 @@ export function DBTree({
         setCollectionsLoading(false);
       }
     },
-    [connectionId, collectionsPageSize, search]
+    [connectionId, search]
   );
 
   const refreshRoutines = useCallback(
@@ -231,7 +235,7 @@ export function DBTree({
       refreshRoutines(expandedNamespace);
       refreshTriggers(expandedNamespace);
     }
-  }, [search, expandedNamespace, refreshCollections, refreshRoutines, refreshTriggers]);
+  }, [expandedNamespace, refreshCollections, refreshRoutines, refreshTriggers]);
 
   const handleLoadMore = useCallback(async () => {
     if (!expandedNamespace || collectionsLoading) return;
@@ -246,7 +250,7 @@ export function DBTree({
 
   useEffect(() => {
     loadNamespaces();
-  }, [connectionId, loadNamespaces]);
+  }, [loadNamespaces]);
 
   useEffect(() => {
     if (refreshTrigger === undefined) return;
@@ -263,7 +267,13 @@ export function DBTree({
       await refreshExpandedNamespace();
     };
     refresh();
-  }, [refreshTrigger, invalidateNamespaces, loadNamespaces, refreshExpandedNamespace, expandedNs]);
+  }, [
+    refreshTrigger,
+    invalidateNamespaces,
+    loadNamespaces,
+    refreshExpandedNamespace,
+    expandedNs,
+  ]);
 
   async function handleExpandNamespace(ns: Namespace) {
     const key = `${ns.database}:${ns.schema || ''}`;
@@ -309,10 +319,6 @@ export function DBTree({
 
   function handleTableClick(col: Collection) {
     onTableSelect?.(col.namespace, col.name);
-  }
-
-  function getNsKey(ns: Namespace): string {
-    return `${ns.database}:${ns.schema || ''}`;
   }
 
   if (schemaCache.loading && namespaces.length === 0) {

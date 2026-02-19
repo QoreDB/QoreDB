@@ -120,6 +120,8 @@ export function DiffConfigPanel({
     rightNamespace,
     leftTableName,
     rightTableName,
+    keyColumns.length,
+    onKeyColumnsChange,
   ]);
 
   const toggleKeyColumn = (columnName: string) => {

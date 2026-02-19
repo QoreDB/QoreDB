@@ -170,7 +170,16 @@ export function DataDiffViewer({
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [leftSource.result]);
+  }, [
+    leftSource.result,
+    leftSource.connectionId,
+    leftSource.mode,
+    leftSource.namespace,
+    leftSource.query,
+    leftSource.tableName,
+    onSourceChange,
+    t,
+  ]);
 
   useEffect(() => {
     if (onSourceChange && rightSource.result) {
@@ -185,7 +194,16 @@ export function DataDiffViewer({
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rightSource.result]);
+  }, [
+    rightSource.result,
+    onSourceChange,
+    rightSource.connectionId,
+    rightSource.mode,
+    rightSource.namespace,
+    rightSource.query,
+    rightSource.tableName,
+    t,
+  ]);
 
   // Filter rows based on current filter and showUnchanged setting
   const filteredRows = useMemo(() => {

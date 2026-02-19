@@ -54,7 +54,7 @@ export function DiffTablePicker({
   // Reset selected index when search changes
   useEffect(() => {
     setSelectedIndex(0);
-  }, [search]);
+  }, []);
 
   // Focus input when opened
   useEffect(() => {

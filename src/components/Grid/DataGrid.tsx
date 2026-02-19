@@ -336,7 +336,7 @@ export function DataGrid({
   // Reset editing state when result changes
   useEffect(() => {
     cancelInlineEdit();
-  }, [cancelInlineEdit, result]);
+  }, [cancelInlineEdit]);
 
   // Build columns
   const columns = useMemo<ColumnDef<RowData, Value>[]>(() => {

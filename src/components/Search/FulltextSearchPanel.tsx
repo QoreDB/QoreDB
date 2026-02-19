@@ -57,7 +57,7 @@ function groupMatchesByTable(matches: FulltextMatch[]): GroupedMatches[] {
       });
     }
 
-    groups.get(key)!.matches.push(match);
+    groups.get(key)?.matches.push(match);
   }
 
   return Array.from(groups.values());
@@ -275,11 +275,11 @@ export function FulltextSearchPanel({
               {/* Stats bar */}
               <div className="px-4 py-2 text-xs text-muted-foreground border-b border-border bg-muted/20">
                 {t('fulltextSearch.stats', {
-                  matches: result!.total_matches,
-                  tables: result!.tables_searched,
-                  time: result!.search_time_ms.toFixed(0),
+                  matches: result?.total_matches,
+                  tables: result?.tables_searched,
+                  time: result?.search_time_ms.toFixed(0),
                 })}
-                {result!.truncated && (
+                {result?.truncated && (
                   <span className="ml-2 text-amber-500">({t('fulltextSearch.truncated')})</span>
                 )}
               </div>

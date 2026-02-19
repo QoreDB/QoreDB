@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Bug, Plus } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { LicenseBadge } from '@/components/License/LicenseBadge';
@@ -72,13 +72,21 @@ export function Sidebar({
   const { resolvedTheme } = useTheme();
   const { tier } = useLicense();
 
-  useEffect(() => {
-    loadConnections();
+  const loadConnections = useCallback(async () => {
+    try {
+      const saved = await listSavedConnections(DEFAULT_PROJECT);
+      setConnections(saved);
+      setFavoriteConnectionIds(
+        reconcileFavoriteConnectionIds(saved.map(connection => connection.id))
+      );
+    } catch (err) {
+      console.error('Failed to load connections:', err);
+    }
   }, []);
 
   useEffect(() => {
     loadConnections();
-  }, [connectedSessionId, refreshTrigger]);
+  }, [loadConnections]);
 
   useEffect(() => {
     if (connectedConnectionId) {
@@ -115,18 +123,6 @@ export function Sidebar({
     () => connections.filter(connection => !favoriteConnectionSet.has(connection.id)),
     [connections, favoriteConnectionSet]
   );
-
-  async function loadConnections() {
-    try {
-      const saved = await listSavedConnections(DEFAULT_PROJECT);
-      setConnections(saved);
-      setFavoriteConnectionIds(
-        reconcileFavoriteConnectionIds(saved.map(connection => connection.id))
-      );
-    } catch (err) {
-      console.error('Failed to load connections:', err);
-    }
-  }
 
   function handleToggleFavorite(connectionId: string) {
     setFavoriteConnectionIds(previous => {

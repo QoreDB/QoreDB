@@ -104,7 +104,7 @@ export function CreateDatabaseModal({
   // Reset collation when charset changes
   useEffect(() => {
     setCollation('');
-  }, [charset]);
+  }, []);
 
   async function performCreate(acknowledgedDangerous: boolean) {
     setLoading(true);

@@ -156,7 +156,7 @@ export function applyOverlay(
     if (!insert.newValues) continue;
 
     // Build a row from the inserted values
-    const values: Value[] = columnNames.map(col => insert.newValues![col] ?? null);
+    const values: Value[] = columnNames.map(col => insert.newValues?.[col] ?? null);
 
     // Insert at the beginning for visibility
     newRows.unshift({ values });

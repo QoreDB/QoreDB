@@ -127,7 +127,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     listSavedConnections(DEFAULT_PROJECT)
       .then(saved => setHasConnections(saved.length > 0))
       .catch(() => setHasConnections(false));
-  }, [sidebarRefreshTrigger]);
+  }, []);
 
   // Listen for connections-changed events
   useEffect(() => {

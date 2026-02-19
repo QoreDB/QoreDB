@@ -99,7 +99,7 @@ export function useRecovery() {
 
     try {
       const saved = await listSavedConnections(DEFAULT_PROJECT);
-      const match = saved.find(conn => conn.id === state.snapshot!.connectionId);
+      const match = saved.find(conn => conn.id === state.snapshot?.connectionId);
 
       if (!match) {
         setState(prev => ({
@@ -121,7 +121,7 @@ export function useRecovery() {
         return null;
       }
 
-      const restoredTabs: OpenTab[] = state.snapshot!.tabs.map(tab => {
+      const restoredTabs: OpenTab[] = state.snapshot?.tabs.map(tab => {
         const restored: OpenTab = {
           id: tab.id,
           type: tab.type,
@@ -131,7 +131,7 @@ export function useRecovery() {
         };
 
         if (tab.type === 'query') {
-          const query = state.snapshot!.queryDrafts[tab.id];
+          const query = state.snapshot?.queryDrafts[tab.id];
           if (query) {
             restored.initialQuery = query;
           }
@@ -158,10 +158,10 @@ export function useRecovery() {
           read_only: match.read_only,
         },
         tabs: restoredTabs,
-        activeTabId: state.snapshot!.activeTabId,
-        queryDrafts: state.snapshot!.queryDrafts,
-        tableBrowserTabs: sanitizeTableBrowserTabs(state.snapshot!.tableBrowserTabs),
-        databaseBrowserTabs: sanitizeDatabaseBrowserTabs(state.snapshot!.databaseBrowserTabs),
+        activeTabId: state.snapshot?.activeTabId,
+        queryDrafts: state.snapshot?.queryDrafts,
+        tableBrowserTabs: sanitizeTableBrowserTabs(state.snapshot?.tableBrowserTabs),
+        databaseBrowserTabs: sanitizeDatabaseBrowserTabs(state.snapshot?.databaseBrowserTabs),
       };
     } catch (err) {
       setState(prev => ({

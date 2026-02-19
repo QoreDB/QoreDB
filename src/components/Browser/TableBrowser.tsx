@@ -213,7 +213,7 @@ export function TableBrowser({
   // Reset page when search changes
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearchTerm]);
+  }, []);
 
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -1146,7 +1146,7 @@ function TableInfoPanel({ sessionId, namespace, tableName, driver, schema }: Tab
               const name = row.values[2] as string;
               const col = row.values[4] as string;
               if (!indexMap.has(name)) indexMap.set(name, []);
-              indexMap.get(name)!.push(col);
+              indexMap.get(name)?.push(col);
             }
             newStats.indexes = Array.from(indexMap.entries()).map(([name, cols]) => ({
               name,
@@ -1163,7 +1163,7 @@ function TableInfoPanel({ sessionId, namespace, tableName, driver, schema }: Tab
     } finally {
       setLoading(false);
     }
-  }, [sessionId, namespace, tableName, driver, driverMeta]);
+  }, [sessionId, namespace, tableName, driver, driverMeta, formatBytes]);
 
   useEffect(() => {
     loadStats();

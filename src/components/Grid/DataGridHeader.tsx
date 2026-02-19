@@ -39,9 +39,7 @@ export function DataGridHeader({
   return (
     <div className="text-xs text-muted-foreground flex items-center gap-3">
       {selectedCount > 0 ? (
-        <>
-          <span>{t('grid.rowsSelected', { count: selectedCount })}</span>
-        </>
+        <span>{t('grid.rowsSelected', { count: selectedCount })}</span>
       ) : (
         <div className="flex items-center gap-3">
           <span>{t('grid.rowsTotal', { count: totalRows })}</span>

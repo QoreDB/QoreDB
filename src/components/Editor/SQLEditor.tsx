@@ -95,7 +95,6 @@ export const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQ
     switch (dialect) {
       case Driver.Mysql:
         return MySQL;
-      case Driver.Postgres:
       default:
         return PostgreSQL;
     }
@@ -327,7 +326,7 @@ export const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQ
     if (sessionId) {
       void loadNamespaces();
     }
-  }, [sessionId, connectionDatabase, activeNamespace, loadNamespaces]);
+  }, [sessionId, loadNamespaces]);
 
   useImperativeHandle(
     ref,

@@ -831,7 +831,6 @@ export function ERDiagram({
                   <div
                     key={node.id}
                     data-node
-                    tabIndex={0}
                     onMouseEnter={() => setHoveredTable(node.id)}
                     onMouseLeave={() => setHoveredTable(null)}
                     onFocus={() => {

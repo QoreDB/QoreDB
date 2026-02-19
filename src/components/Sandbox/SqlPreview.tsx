@@ -55,7 +55,7 @@ export function SqlPreview({ value, dialect = Driver.Postgres, className }: SqlP
       view.destroy();
       viewRef.current = null;
     };
-  }, [dialect, isDark]);
+  }, [dialect, isDark, value]);
 
   useEffect(() => {
     const view = viewRef.current;

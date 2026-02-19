@@ -245,7 +245,9 @@ export function InterceptorSettingsPanel() {
           <Input
             type="number"
             value={config.max_audit_entries}
-            onChange={e => updateConfig({ max_audit_entries: parseInt(e.target.value) || 10000 })}
+            onChange={e =>
+              updateConfig({ max_audit_entries: parseInt(e.target.value, 10) || 10000 })
+            }
             className="w-24 h-8 text-sm"
             min={1000}
             max={100000}
@@ -280,7 +282,7 @@ export function InterceptorSettingsPanel() {
                 type="number"
                 value={config.slow_query_threshold_ms}
                 onChange={e =>
-                  updateConfig({ slow_query_threshold_ms: parseInt(e.target.value) || 1000 })
+                  updateConfig({ slow_query_threshold_ms: parseInt(e.target.value, 10) || 1000 })
                 }
                 className="w-24 h-8 text-sm"
                 min={100}
@@ -299,7 +301,9 @@ export function InterceptorSettingsPanel() {
             <Input
               type="number"
               value={config.max_slow_queries}
-              onChange={e => updateConfig({ max_slow_queries: parseInt(e.target.value) || 100 })}
+              onChange={e =>
+                updateConfig({ max_slow_queries: parseInt(e.target.value, 10) || 100 })
+              }
               className="w-24 h-8 text-sm"
               min={10}
               max={1000}

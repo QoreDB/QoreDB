@@ -114,7 +114,7 @@ export function useStreamingExport(sessionId?: string) {
         return null;
       }
     },
-    [sessionId, showToast, t]
+    [sessionId, showToast, t, cleanupExport]
   );
 
   useEffect(

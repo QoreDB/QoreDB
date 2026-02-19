@@ -102,7 +102,7 @@ export function UrlInput({
         clearTimeout(debounceRef.current);
       }
     };
-  }, [formData.connectionUrl, onParsedConfig, t]);
+  }, [formData.connectionUrl, onParsedConfig, t, parseResult]);
 
   function handleUrlChange(value: string) {
     onChange('connectionUrl', value);

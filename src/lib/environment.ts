@@ -193,7 +193,7 @@ export function getDangerousQueryTarget(sql: string): string | null {
   for (const statement of splitRawSqlStatements(sql)) {
     for (const pattern of SQL_TARGET_PATTERNS) {
       const match = statement.match(pattern);
-      if (match && match[1]) {
+      if (match?.[1]) {
         const target = normalizeSqlTarget(match[1]);
         if (target) {
           return target;

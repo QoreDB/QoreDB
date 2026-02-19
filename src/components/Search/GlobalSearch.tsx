@@ -72,7 +72,7 @@ export function GlobalSearch({ isOpen, onClose, onSelect, commands = [] }: Globa
         console.error(err);
       }
     }
-  }, [isOpen]);
+  }, [isOpen, commands.map]);
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {

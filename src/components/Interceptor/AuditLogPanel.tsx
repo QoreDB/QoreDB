@@ -243,7 +243,7 @@ export function AuditLogPanel() {
   // Reset page when filters change
   useEffect(() => {
     setPage(0);
-  }, [search, environmentFilter, statusFilter]);
+  }, []);
 
   const handleClear = useCallback(async () => {
     if (window.confirm(t('interceptor.audit.clearConfirm'))) {

@@ -48,7 +48,7 @@ export function ConnectionItem({
     >
       <div
         className={cn(
-          'group flex items-center transition-all rounded-md',
+          'group relative flex items-center transition-all rounded-md',
           // État: Sélectionné mais pas connecté
           isSelected && !isConnected && 'bg-muted text-foreground',
           // État: Connecté (actif)
@@ -62,6 +62,7 @@ export function ConnectionItem({
         )}
       >
         <button
+          type="button"
           className={cn(
             'flex-1 flex items-center gap-2 px-2 py-1.5 text-sm select-none text-inherit rounded-l-md'
           )}
@@ -97,26 +98,27 @@ export function ConnectionItem({
 
           {isConnecting && <Loader2 size={14} className="animate-spin text-muted-foreground" />}
 
-          <div className="relative shrink-0 w-6 h-6 flex items-center justify-center">
+          <div className="relative shrink-0 w-6 h-6">
             <div
               className={cn(
-                'group-hover:opacity-0 transition-opacity text-muted-foreground/50',
+                'absolute inset-0 flex items-center justify-center text-muted-foreground/50 transition-opacity group-hover:opacity-0',
                 isExpanded && 'transform rotate-90'
               )}
             >
               {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
             </div>
-            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-              <ConnectionMenu
-                connection={connection}
-                onEdit={onEdit}
-                onDeleted={onDeleted}
-                isFavorite={isFavorite}
-                onToggleFavorite={onToggleFavorite}
-              />
-            </div>
           </div>
         </button>
+
+        <div className="absolute right-0 shrink-0 w-6 h-6 flex items-center justify-center opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
+          <ConnectionMenu
+            connection={connection}
+            onEdit={onEdit}
+            onDeleted={onDeleted}
+            isFavorite={isFavorite}
+            onToggleFavorite={onToggleFavorite}
+          />
+        </div>
       </div>
     </ConnectionContextMenu>
   );

@@ -107,7 +107,7 @@ export function DeleteDatabaseModal({
                 )}
               </>
             ) : (
-              <>{t('dropDatabase.typeToConfirm', { name: targetName })}</>
+              t('dropDatabase.typeToConfirm', { name: targetName })
             )}
           </DialogDescription>
         </DialogHeader>

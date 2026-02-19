@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
@@ -58,6 +58,13 @@ export function VirtualRelationDialog({
   const { t } = useTranslation();
   const isEdit = !!existingRelation;
 
+  const nsDatabase = namespace.database;
+  const nsSchema = namespace.schema;
+  const stableNamespace = useMemo<Namespace>(
+    () => ({ database: nsDatabase, schema: nsSchema }),
+    [nsDatabase, nsSchema]
+  );
+
   const [sourceTable, setSourceTable] = useState('');
   const [sourceColumn, setSourceColumn] = useState('');
   const [referencedTable, setReferencedTable] = useState('');
@@ -72,12 +79,12 @@ export function VirtualRelationDialog({
   // Load tables list
   useEffect(() => {
     if (!open) return;
-    listCollections(sessionId, namespace).then(result => {
+    listCollections(sessionId, stableNamespace).then(result => {
       if (result.success && result.data) {
         setTables(result.data.collections.map(c => c.name));
       }
     });
-  }, [open, sessionId, namespace]);
+  }, [open, sessionId, stableNamespace]);
 
   // Reset form when opening
   useEffect(() => {
@@ -101,10 +108,10 @@ export function VirtualRelationDialog({
   const loadColumns = useCallback(
     async (tableName: string): Promise<TableColumn[]> => {
       if (!tableName) return [];
-      const result = await describeTable(sessionId, namespace, tableName);
+      const result = await describeTable(sessionId, stableNamespace, tableName);
       return result.success && result.schema ? result.schema.columns : [];
     },
-    [sessionId, namespace]
+    [sessionId, stableNamespace]
   );
 
   useEffect(() => {

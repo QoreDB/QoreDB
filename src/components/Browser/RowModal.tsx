@@ -182,7 +182,7 @@ export function RowModal({
       if (sandboxMode) {
         if (mode === 'insert' && onSandboxInsert) {
           onSandboxInsert(columnsData);
-          notify.success(t('rowModal.insertSuccess') + ' (sandbox)');
+          notify.success(`${t('rowModal.insertSuccess')} (sandbox)`);
           onSuccess();
           onClose();
           return;
@@ -215,7 +215,7 @@ export function RowModal({
 
           if (Object.keys(newValues).length > 0) {
             onSandboxUpdate(pkData, oldValues, newValues);
-            notify.success(t('rowModal.updateSuccess') + ' (sandbox)');
+            notify.success(`${t('rowModal.updateSuccess')} (sandbox)`);
           }
           onSuccess();
           onClose();

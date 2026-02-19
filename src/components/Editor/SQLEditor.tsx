@@ -12,7 +12,13 @@ import { defaultKeymap } from '@codemirror/commands';
 import { keywordCompletionSource, MySQL, PostgreSQL, sql } from '@codemirror/lang-sql';
 import { EditorState } from '@codemirror/state';
 import { oneDark } from '@codemirror/theme-one-dark';
-import { EditorView, highlightActiveLine, keymap, lineNumbers } from '@codemirror/view';
+import {
+  EditorView,
+  highlightActiveLine,
+  keymap,
+  lineNumbers,
+  placeholder,
+} from '@codemirror/view';
 /* eslint-disable no-useless-escape */
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef } from 'react';
 import { useSchemaCache } from '../../hooks/useSchemaCache';
@@ -32,6 +38,7 @@ interface SQLEditorProps {
   sessionId?: string | null;
   connectionDatabase?: string;
   activeNamespace?: Namespace | null;
+  placeholder?: string;
 }
 
 export interface SQLEditorHandle {
@@ -76,6 +83,7 @@ export const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQ
     sessionId,
     connectionDatabase,
     activeNamespace,
+    placeholder: placeholderProp,
   },
   ref
 ) {
@@ -398,6 +406,7 @@ export const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQ
       lineNumbers(),
       highlightActiveLine(),
       sql({ dialect: sqlDialect }),
+      ...(placeholderProp ? [placeholder(placeholderProp)] : []),
       autocompletion({
         activateOnTyping: true,
         override: [completionSource],

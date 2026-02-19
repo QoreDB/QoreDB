@@ -10,6 +10,7 @@ import {
   Lock,
   Play,
   Plus,
+  Network,
   Shield,
   Sparkles,
   Square,
@@ -19,6 +20,8 @@ import { Button } from '@/components/ui/button';
 import { Tooltip } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { getModifierKey } from '@/utils/platform';
+import { useTabContext } from '@/providers/TabProvider';
+import { createFederationTab } from '@/lib/tabs';
 import type { ENVIRONMENT_CONFIG } from '../../lib/environment';
 import type { Environment, Namespace } from '../../lib/tauri';
 import type { MONGO_TEMPLATES } from '../Editor/mongo-constants';
@@ -79,6 +82,7 @@ export function QueryPanelToolbar({
   aiPanelOpen,
 }: QueryPanelToolbarProps) {
   const { t } = useTranslation();
+  const { openTab } = useTabContext();
 
   // Priority: activeNamespace.database > connectionDatabase
   const displayDatabase = activeNamespace?.database || connectionDatabase;
@@ -219,6 +223,19 @@ export function QueryPanelToolbar({
             )}
           >
             <Layers size={16} />
+          </Button>
+        </Tooltip>
+      )}
+
+      {!isDocumentBased && (
+        <Tooltip content={t('federation.badge') || 'Federation'}>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => openTab(createFederationTab())}
+            className="h-9 w-9 text-accent hover:bg-accent/10"
+          >
+            <Network size={16} />
           </Button>
         </Tooltip>
       )}

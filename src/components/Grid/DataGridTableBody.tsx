@@ -60,11 +60,14 @@ export function DataGridTableBody({
         const isDeleted = rowMeta?.isDeleted ?? false;
         const isModified = rowMeta?.isModified ?? false;
 
+        const isEven = virtualRow.index % 2 === 0;
+
         return (
           <tr
             key={row.id}
             className={cn(
               'border-b border-border hover:bg-muted/50 transition-colors',
+              isEven && 'bg-muted/20',
               row.getIsSelected() && 'bg-accent/10 border-l-2 border-l-accent',
               isInserted && 'bg-success/10 hover:bg-success/15 border-l-2 border-l-success',
               isDeleted &&

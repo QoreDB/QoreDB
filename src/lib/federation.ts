@@ -16,9 +16,9 @@ import type { QueryResult } from './tauri';
 
 export interface FederationSource {
   alias: string;
-  sessionId: string;
+  session_id: string;
   driver: string;
-  displayName: string;
+  display_name: string;
 }
 
 export interface SourceFetchInfo {
@@ -121,5 +121,5 @@ export function buildAliasSet(sources: FederationSource[]): Set<string> {
  * Builds the alias -> sessionId map from federation sources.
  */
 export function buildAliasMap(sources: FederationSource[]): Record<string, string> {
-  return Object.fromEntries(sources.map(s => [s.alias, s.sessionId]));
+  return Object.fromEntries(sources.map(s => [s.alias, s.session_id]));
 }

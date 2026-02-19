@@ -507,6 +507,12 @@
     "previousPage": "Page précédente",
     "nextPage": "Page suivante",
     "lastPage": "Dernière page",
+    "infiniteScroll": {
+      "loaded": "{{loaded}} sur {{total}} lignes chargées",
+      "allLoaded": "{{total}} lignes chargées",
+      "loading": "Chargement...",
+      "complete": "Fin des résultats"
+    },
     "noData": "Aucune donnée à afficher",
     "noResults": "Aucun résultat",
     "loadMore": "Charger plus",
@@ -1343,8 +1349,21 @@
   },
   "federation": {
     "title": "Fédération inter-bases",
+    "description": "Écrivez des requêtes SQL qui joignent des tables à travers plusieurs connexions actives. Utilisez les alias ci-dessous pour référencer des tables de différentes bases de données.",
+    "availableSources": "Sources disponibles",
+    "insertAlias": "Insérer l'alias",
+    "addSource": "Nouvelle connexion",
     "sources": "Sources de fédération",
+    "sourcesLabel": "Sources",
     "noSources": "Connectez-vous à plusieurs bases de données pour utiliser les requêtes fédérées",
+    "noSourcesShort": "Aucune connexion disponible",
+    "connectFirst": "Connecter une base",
+    "loadingSources": "Chargement des sources...",
+    "refreshSources": "Rafraîchir les sources",
+    "clickTableToInsert": "Cliquez sur une table pour insérer son chemin dans l'éditeur",
+    "needTwoSources": "La fédération nécessite au moins deux connexions",
+    "detected": "Multi-source",
+    "singleSource": "Source unique",
     "executing": "Exécution de la requête fédérée...",
     "fetchingSources": "Récupération des données sources...",
     "loadingDuckDb": "Chargement dans le moteur de fédération...",
@@ -1358,6 +1377,17 @@
     "badge": "Fédération",
     "sourceFetchTime": "Récup. sources : {{time}}ms",
     "totalTime": "Total : {{time}}ms",
-    "clickToInsert": "Cliquer pour insérer :"
+    "clickToInsert": "Cliquer pour insérer :",
+    "editorPlaceholder": "SELECT a.*, b.* FROM alias.schema.table a JOIN alias.schema.table b ON ...",
+    "emptyTitle": "Fédération inter-bases",
+    "emptyNeedSources": "La fédération vous permet de joindre et interroger des tables provenant de différents moteurs de bases de données en une seule requête SQL. Connectez au moins deux bases pour commencer.",
+    "oneMoreNeeded": "une connexion supplémentaire nécessaire",
+    "readyTitle": "Prêt à interroger vos bases",
+    "readyDescription": "Cliquez sur une source ci-dessus pour parcourir ses tables, ou commencez à écrire votre requête dans l'éditeur.",
+    "exampleQuery": "Modèle d'exemple",
+    "useTemplate": "Utiliser",
+    "hintClickSource": "Cliquez sur une source pour parcourir",
+    "hintToExecute": "pour exécuter",
+    "openFederation": "Ouvrir la fédération"
   }
 }

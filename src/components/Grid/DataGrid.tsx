@@ -41,6 +41,7 @@ import { useLicense } from '@/providers/LicenseProvider';
 import { DataGridColumnHeader } from './DataGridColumnHeader';
 import { DataGridHeader } from './DataGridHeader';
 import { DataGridPagination } from './DataGridPagination';
+import { DataGridStatusBar } from './DataGridStatusBar';
 import { DataGridTableBody } from './DataGridTableBody';
 import { DataGridTableHeader } from './DataGridTableHeader';
 import { DataGridToolbar } from './DataGridToolbar';
@@ -100,11 +101,13 @@ interface DataGridProps {
     newValues: Record<string, Value>
   ) => void;
   onSandboxDelete?: (primaryKey: Record<string, Value>, oldValues: Record<string, Value>) => void;
-  serverSideTotalRows?: number;
-  serverSidePage?: number;
-  serverSidePageSize?: number;
-  onServerPageChange?: (page: number) => void;
-  onServerPageSizeChange?: (pageSize: number) => void;
+  // Infinite scroll props
+  infiniteScrollTotalRows?: number;
+  infiniteScrollLoadedRows?: number;
+  infiniteScrollIsFetchingMore?: boolean;
+  infiniteScrollIsComplete?: boolean;
+  onFetchMore?: () => void;
+  // Server-side sort/search
   serverSortColumn?: string;
   serverSortDirection?: SortDirection;
   onServerSortChange?: (column?: string, direction?: SortDirection) => void;
@@ -135,11 +138,11 @@ export function DataGrid({
   sandboxDeleteDisplay = 'strikethrough',
   onSandboxUpdate,
   onSandboxDelete,
-  serverSideTotalRows,
-  serverSidePage,
-  serverSidePageSize,
-  onServerPageChange,
-  onServerPageSizeChange,
+  infiniteScrollTotalRows,
+  infiniteScrollLoadedRows,
+  infiniteScrollIsFetchingMore,
+  infiniteScrollIsComplete,
+  onFetchMore,
   serverSortColumn,
   serverSortDirection,
   onServerSortChange,
@@ -157,7 +160,8 @@ export function DataGrid({
   });
   const [internalGlobalFilter, setInternalGlobalFilter] = useState(initialFilter ?? '');
   const initialFilterRef = useRef<string | undefined>(undefined);
-  const isServerSideMode = serverSideTotalRows !== undefined;
+  const isInfiniteScrollMode = infiniteScrollTotalRows !== undefined;
+  const isServerSideMode = isInfiniteScrollMode;
   const noopServerSearchChange = useCallback((_term: string) => {}, []);
   const globalFilter = isServerSideMode ? (serverSearchTerm ?? '') : internalGlobalFilter;
   const setGlobalFilter = isServerSideMode
@@ -515,26 +519,26 @@ export function DataGrid({
     state: {
       sorting,
       rowSelection,
-      pagination,
+      ...(isInfiniteScrollMode ? {} : { pagination }),
       globalFilter,
       columnVisibility,
       columnFilters,
     },
     onSortingChange: handleSortingChange,
     onRowSelectionChange: setRowSelection,
-    onPaginationChange: setPagination,
+    ...(isInfiniteScrollMode ? {} : { onPaginationChange: setPagination }),
     onGlobalFilterChange: setGlobalFilter,
     onColumnVisibilityChange: setColumnVisibility,
     onColumnFiltersChange: setColumnFilters,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
+    ...(isInfiniteScrollMode ? {} : { getPaginationRowModel: getPaginationRowModel() }),
     getFilteredRowModel: getFilteredRowModel(),
     enableRowSelection: true,
     globalFilterFn: 'includesString',
     enableColumnResizing: true,
     columnResizeMode: 'onChange',
-    manualPagination: isServerSideMode,
+    manualPagination: isInfiniteScrollMode,
     manualSorting: isServerSideSorting,
     manualFiltering: isServerSideMode,
   });
@@ -575,6 +579,40 @@ export function DataGrid({
     estimateSize: () => 32,
     overscan: 10,
   });
+
+  // Infinite scroll: fetch more data when near bottom
+  useEffect(() => {
+    if (!isInfiniteScrollMode || !onFetchMore) return;
+
+    const scrollEl = parentRef.current;
+    if (!scrollEl) return;
+
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = scrollEl;
+      const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+
+      if (distanceFromBottom < 500 && !infiniteScrollIsFetchingMore && !infiniteScrollIsComplete) {
+        onFetchMore();
+      }
+    };
+
+    scrollEl.addEventListener('scroll', handleScroll, { passive: true });
+    return () => scrollEl.removeEventListener('scroll', handleScroll);
+  }, [isInfiniteScrollMode, onFetchMore, infiniteScrollIsFetchingMore, infiniteScrollIsComplete]);
+
+  // Scroll to top when data resets (sort/search change)
+  const prevLoadedRows = useRef(infiniteScrollLoadedRows);
+  useEffect(() => {
+    if (
+      isInfiniteScrollMode &&
+      prevLoadedRows.current !== undefined &&
+      prevLoadedRows.current > 0 &&
+      (infiniteScrollLoadedRows === 0 || infiniteScrollLoadedRows === undefined)
+    ) {
+      parentRef.current?.scrollTo(0, 0);
+    }
+    prevLoadedRows.current = infiniteScrollLoadedRows;
+  }, [isInfiniteScrollMode, infiniteScrollLoadedRows]);
 
   // Copy/export hooks
   const getSelectedRows = useCallback(() => table.getSelectedRowModel().rows, [table]);
@@ -742,15 +780,16 @@ export function DataGrid({
         </table>
       </div>
 
-      <DataGridPagination
-        table={table}
-        pagination={pagination}
-        serverSideTotalRows={serverSideTotalRows}
-        serverSidePage={serverSidePage}
-        serverSidePageSize={serverSidePageSize}
-        onServerPageChange={onServerPageChange}
-        onServerPageSizeChange={onServerPageSizeChange}
-      />
+      {isInfiniteScrollMode ? (
+        <DataGridStatusBar
+          loadedRows={infiniteScrollLoadedRows ?? 0}
+          totalRows={infiniteScrollTotalRows ?? 0}
+          isFetchingMore={infiniteScrollIsFetchingMore ?? false}
+          isComplete={infiniteScrollIsComplete ?? false}
+        />
+      ) : (
+        <DataGridPagination table={table} pagination={pagination} />
+      )}
 
       {canStreamExport && exportQuery && (
         <StreamingExportDialog

@@ -18,11 +18,12 @@ export interface DocumentResultsProps {
   exportQuery?: string;
   exportNamespace?: Namespace;
 
-  serverSideTotalRows?: number;
-  serverSidePage?: number;
-  serverSidePageSize?: number;
-  onServerPageChange?: (page: number) => void;
-  onServerPageSizeChange?: (pageSize: number) => void;
+  // Infinite scroll props
+  infiniteScrollTotalRows?: number;
+  infiniteScrollLoadedRows?: number;
+  infiniteScrollIsFetchingMore?: boolean;
+  infiniteScrollIsComplete?: boolean;
+  onFetchMore?: () => void;
 }
 
 export interface DocumentRowItemProps {

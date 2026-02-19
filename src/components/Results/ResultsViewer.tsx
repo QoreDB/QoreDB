@@ -41,11 +41,14 @@ interface ResultsViewerProps {
   onOpenRelatedTable?: (namespace: Namespace, tableName: string) => void;
   onRowClick?: (row: Record<string, Value>) => void;
 
-  serverSideTotalRows?: number;
-  serverSidePage?: number;
-  serverSidePageSize?: number;
-  onServerPageChange?: (page: number) => void;
-  onServerPageSizeChange?: (pageSize: number) => void;
+  // Infinite scroll props
+  infiniteScrollTotalRows?: number;
+  infiniteScrollLoadedRows?: number;
+  infiniteScrollIsFetchingMore?: boolean;
+  infiniteScrollIsComplete?: boolean;
+  onFetchMore?: () => void;
+
+  // Server-side sort/search
   serverSortColumn?: string;
   serverSortDirection?: SortDirection;
   onServerSortChange?: (column?: string, direction?: SortDirection) => void;
@@ -87,11 +90,11 @@ export function ResultsViewer({
   onRowsUpdated,
   onOpenRelatedTable,
   onRowClick,
-  serverSideTotalRows,
-  serverSidePage,
-  serverSidePageSize,
-  onServerPageChange,
-  onServerPageSizeChange,
+  infiniteScrollTotalRows,
+  infiniteScrollLoadedRows,
+  infiniteScrollIsFetchingMore,
+  infiniteScrollIsComplete,
+  onFetchMore,
   serverSortColumn,
   serverSortDirection,
   onServerSortChange,
@@ -125,11 +128,11 @@ export function ResultsViewer({
         onRowsDeleted={onRowsDeleted}
         exportQuery={exportQuery}
         exportNamespace={exportNamespace}
-        serverSideTotalRows={serverSideTotalRows}
-        serverSidePage={serverSidePage}
-        serverSidePageSize={serverSidePageSize}
-        onServerPageChange={onServerPageChange}
-        onServerPageSizeChange={onServerPageSizeChange}
+        infiniteScrollTotalRows={infiniteScrollTotalRows}
+        infiniteScrollLoadedRows={infiniteScrollLoadedRows}
+        infiniteScrollIsFetchingMore={infiniteScrollIsFetchingMore}
+        infiniteScrollIsComplete={infiniteScrollIsComplete}
+        onFetchMore={onFetchMore}
       />
     );
   }
@@ -152,11 +155,11 @@ export function ResultsViewer({
       onRowsUpdated={onRowsUpdated}
       onOpenRelatedTable={onOpenRelatedTable}
       onRowClick={onRowClick}
-      serverSideTotalRows={serverSideTotalRows}
-      serverSidePage={serverSidePage}
-      serverSidePageSize={serverSidePageSize}
-      onServerPageChange={onServerPageChange}
-      onServerPageSizeChange={onServerPageSizeChange}
+      infiniteScrollTotalRows={infiniteScrollTotalRows}
+      infiniteScrollLoadedRows={infiniteScrollLoadedRows}
+      infiniteScrollIsFetchingMore={infiniteScrollIsFetchingMore}
+      infiniteScrollIsComplete={infiniteScrollIsComplete}
+      onFetchMore={onFetchMore}
       serverSortColumn={serverSortColumn}
       serverSortDirection={serverSortDirection}
       onServerSortChange={onServerSortChange}

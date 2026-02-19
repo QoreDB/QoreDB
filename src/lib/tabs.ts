@@ -7,7 +7,7 @@
 
 import type { Namespace, QueryResult, RelationFilter, SearchFilter } from './tauri';
 
-export type TabType = 'query' | 'table' | 'database' | 'diff';
+export type TabType = 'query' | 'table' | 'database' | 'diff' | 'federation';
 
 export interface DiffSource {
   type: 'query' | 'table';
@@ -96,5 +96,15 @@ export function createDiffTab(
     namespace: namespace ?? leftSource?.namespace ?? rightSource?.namespace,
     diffLeftSource: leftSource,
     diffRightSource: rightSource,
+  };
+}
+
+/** Create a federation workspace tab */
+export function createFederationTab(initialQuery?: string): OpenTab {
+  return {
+    id: generateTabId(),
+    type: 'federation',
+    title: 'Federation',
+    initialQuery,
   };
 }

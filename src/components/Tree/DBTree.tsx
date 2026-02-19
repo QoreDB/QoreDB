@@ -267,13 +267,7 @@ export function DBTree({
       await refreshExpandedNamespace();
     };
     refresh();
-  }, [
-    refreshTrigger,
-    invalidateNamespaces,
-    loadNamespaces,
-    refreshExpandedNamespace,
-    expandedNs,
-  ]);
+  }, [refreshTrigger, invalidateNamespaces, loadNamespaces, refreshExpandedNamespace, expandedNs]);
 
   async function handleExpandNamespace(ns: Namespace) {
     const key = `${ns.database}:${ns.schema || ''}`;

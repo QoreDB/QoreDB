@@ -4,7 +4,7 @@ import { Driver } from '@/lib/drivers';
 import { MONGO_TEMPLATES } from '../Editor/mongo-constants';
 
 export function getDefaultQuery(isDocumentBased: boolean): string {
-  return isDocumentBased ? MONGO_TEMPLATES.find : 'SELECT 1;';
+  return isDocumentBased ? MONGO_TEMPLATES.find : '';
 }
 
 export function getCollectionFromQuery(query: string): string {

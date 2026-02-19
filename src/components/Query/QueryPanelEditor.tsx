@@ -19,6 +19,7 @@ interface QueryPanelEditorProps {
   onExecuteSelection: (selection: string) => void;
   onFormat: () => void;
   sqlEditorRef?: Ref<SQLEditorHandle>;
+  placeholder?: string;
 }
 
 export function QueryPanelEditor({
@@ -34,6 +35,7 @@ export function QueryPanelEditor({
   onExecuteSelection,
   onFormat,
   sqlEditorRef,
+  placeholder,
 }: QueryPanelEditorProps) {
   return (
     <div className="flex-1 min-h-50 border-b border-border relative">
@@ -57,6 +59,7 @@ export function QueryPanelEditor({
           sessionId={sessionId}
           connectionDatabase={connectionDatabase}
           activeNamespace={activeNamespace}
+          placeholder={placeholder}
         />
       )}
     </div>

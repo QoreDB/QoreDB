@@ -26,10 +26,15 @@ src-tauri/              # Backend Rust
 └── src/vault/          # Gestion credentials chiffrés
 
 doc/                    # Documentation détaillée
-├── rules/              # Standards UI/design
-├── security/           # Modèle de menaces, politiques
+├── audits/             # Audits sécurité & conformité
 ├── internals/          # Architecture interne
-└── todo/               # Roadmap features
+├── private/            # Notes open-core (interne)
+├── release/            # Process release & événements
+├── rules/              # Standards UI/design & features
+├── security/           # Modèle de menaces, politiques
+├── tests/              # Contraintes de tests
+├── internals/          # Architecture interne
+└── todo/               # Roadmap & specs à venir
 ```
 
 ## Commandes essentielles
@@ -102,16 +107,26 @@ Consulte ces fichiers selon le contexte de ta tâche :
 
 | Sujet                    | Fichier                                        |
 | ------------------------ | ---------------------------------------------- |
+| Index docs               | `doc/README.md`                                |
 | Vision produit           | `doc/PROJECT.md`                               |
+| Features (liste)         | `doc/FEATURES.csv`                             |
 | Design system UI         | `doc/rules/DESIGN_SYSTEM.md`                   |
 | Fondations visuelles     | `doc/rules/VISUAL_FOUNDATION.md`               |
+| Features (spécs)         | `doc/rules/FEATURES.md`                        |
 | Spécificités drivers BDD | `doc/rules/DATABASES.md`                       |
 | Sécurité / menaces       | `doc/security/THREAT_MODEL.md`                 |
+| Sécurité / prod          | `doc/security/PRODUCTION_SAFETY.md`            |
+| Audits sécurité          | `doc/audits/SECURITY_AUDIT.md`                 |
+| Audits GDPR              | `doc/audits/GDPR_AUDIT.md`                     |
 | Tests SSH                | `doc/tests/TESTING_SSH.md`                     |
 | Limitations drivers      | `doc/tests/DRIVER_LIMITATIONS.md`              |
 | Intercepteur de requêtes | `doc/internals/UNIVERSAL_QUERY_INTERCEPTOR.md` |
 | URLs de connexion        | `doc/internals/connection-url-instructions.md` |
+| Release process          | `doc/release/RELEASE.md`                       |
+| Release events           | `doc/release/EVENTS.md`                        |
 | Roadmap v2               | `doc/todo/v2.md`                               |
+| Open-core roadmap (priv) | `doc/private/OPEN_CORE_ROADMAP_1.md`           |
+| Open-core TODO (priv)    | `doc/private/OPEN_CORE_TODO.md`                |
 
 ## Règles générales
 

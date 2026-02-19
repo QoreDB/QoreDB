@@ -42,7 +42,6 @@ interface SidebarProps {
   onCompareTable?: (collection: Collection) => void;
   onAiGenerateForTable?: (collection: Collection) => void;
   onEditConnection: (connection: SavedConnection, password: string) => void;
-  refreshTrigger?: number;
   schemaRefreshTrigger?: number;
   activeNamespace?: Namespace | null;
 }
@@ -57,7 +56,6 @@ export function Sidebar({
   onCompareTable,
   onAiGenerateForTable,
   onEditConnection,
-  refreshTrigger,
   schemaRefreshTrigger,
   activeNamespace,
 }: SidebarProps) {

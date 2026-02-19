@@ -42,7 +42,6 @@ import {
 import { DocumentEditorModal } from '../Editor/DocumentEditorModal';
 import { MONGO_TEMPLATES } from '../Editor/mongo-constants';
 import type { SQLEditorHandle } from '../Editor/SQLEditor';
-import { FederationSourcesPanel } from '../Federation/FederationSourcesPanel';
 import { DangerConfirmDialog } from '../Guard/DangerConfirmDialog';
 import { ProductionConfirmDialog } from '../Guard/ProductionConfirmDialog';
 import { QueryHistory } from '../History/QueryHistory';
@@ -123,10 +122,6 @@ export function QueryPanel({
   // Federation state
   const [federationSources, setFederationSources] = useState<FederationSource[]>([]);
   const federationAliasSet = useMemo(() => buildAliasSet(federationSources), [federationSources]);
-  const showFederationPanel = useMemo(
-    () => federationSources.length >= 2 && isFederationQuery(query, federationAliasSet),
-    [query, federationSources, federationAliasSet]
-  );
 
   // Load federation sources when sessionId changes
   useEffect(() => {
@@ -724,15 +719,6 @@ export function QueryPanel({
         aiPanelOpen={showAiPanel}
       />
 
-      {showFederationPanel && (
-        <FederationSourcesPanel
-          sources={federationSources}
-          onInsertAlias={alias => {
-            setQuery(prev => `${prev + alias}.`);
-          }}
-        />
-      )}
-
       <div className="flex flex-1 min-h-0">
         <div className="flex-1 min-w-0">
           <QueryPanelEditor
@@ -748,6 +734,7 @@ export function QueryPanel({
             onExecuteSelection={handleExecuteSelection}
             onFormat={handleFormat}
             sqlEditorRef={sqlEditorRef}
+            placeholder={isDocument ? undefined : 'SELECT 1;'}
           />
         </div>
 

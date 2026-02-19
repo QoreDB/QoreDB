@@ -507,6 +507,12 @@
     "previousPage": "Previous page",
     "nextPage": "Next page",
     "lastPage": "Last page",
+    "infiniteScroll": {
+      "loaded": "{{loaded}} of {{total}} rows loaded",
+      "allLoaded": "All {{total}} rows loaded",
+      "loading": "Loading more...",
+      "complete": "End of results"
+    },
     "noData": "No data to display",
     "noResults": "No results",
     "loadMore": "Load more",
@@ -1345,8 +1351,21 @@
   },
   "federation": {
     "title": "Cross-Database Federation",
+    "description": "Write SQL queries that join tables across multiple active connections. Use the aliases below to reference tables from different databases.",
+    "availableSources": "Available Sources",
+    "insertAlias": "Insert Alias",
+    "addSource": "New connection",
     "sources": "Federation sources",
+    "sourcesLabel": "Sources",
     "noSources": "Connect to multiple databases to use federation queries",
+    "noSourcesShort": "No connections available",
+    "connectFirst": "Connect a database",
+    "loadingSources": "Loading sources...",
+    "refreshSources": "Refresh sources",
+    "clickTableToInsert": "Click a table to insert its path into the editor",
+    "needTwoSources": "Federation requires at least two connections",
+    "detected": "Multi-source",
+    "singleSource": "Single source",
     "executing": "Executing federation query...",
     "fetchingSources": "Fetching data from sources...",
     "loadingDuckDb": "Loading data into federation engine...",
@@ -1360,6 +1379,17 @@
     "badge": "Federation",
     "sourceFetchTime": "Source fetch: {{time}}ms",
     "totalTime": "Total: {{time}}ms",
-    "clickToInsert": "Click to insert:"
+    "clickToInsert": "Click to insert:",
+    "editorPlaceholder": "SELECT a.*, b.* FROM alias.schema.table a JOIN alias.schema.table b ON ...",
+    "emptyTitle": "Cross-Database Federation",
+    "emptyNeedSources": "Federation lets you join and query tables across different database engines in a single SQL statement. Connect at least two databases to get started.",
+    "oneMoreNeeded": "one more connection needed",
+    "readyTitle": "Ready to query across databases",
+    "readyDescription": "Click a source above to browse its tables, or start writing your query in the editor.",
+    "exampleQuery": "Example template",
+    "useTemplate": "Use template",
+    "hintClickSource": "Click a source to browse tables",
+    "hintToExecute": "to execute",
+    "openFederation": "Open Federation"
   }
 }

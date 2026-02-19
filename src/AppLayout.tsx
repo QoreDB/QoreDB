@@ -24,6 +24,7 @@ import { ConnectionModal } from './components/Connection/ConnectionModal';
 import { CustomTitlebar } from './components/CustomTitlebar';
 import { ConnectionDashboard } from './components/Dashboard/ConnectionDashboard';
 import { DataDiffViewer } from './components/Diff/DataDiffViewer';
+import { FederationViewer } from './components/Federation/FederationViewer';
 import { WelcomeScreen } from './components/Home/WelcomeScreen';
 import { LicenseGate } from './components/License/LicenseGate';
 import { AnalyticsService } from './components/Onboarding/AnalyticsService';
@@ -47,6 +48,7 @@ import type { QueryLibraryItem } from './lib/queryLibrary';
 import {
   createDatabaseTab,
   createDiffTab,
+  createFederationTab,
   createQueryTab,
   createTableTab,
   type OpenTab,
@@ -258,6 +260,9 @@ export function AppLayout() {
           ]
         : []),
       ...(sessionId ? [{ id: 'cmd_open_diff', label: t('diff.openDiff') }] : []),
+      ...(sessionId
+        ? [{ id: 'cmd_open_federation', label: t('federation.openFederation') }]
+        : []),
       {
         id: 'cmd_open_settings',
         label: t('palette.openSettings'),
@@ -300,6 +305,9 @@ export function AppLayout() {
             return;
           case 'cmd_open_diff':
             if (sessionId) handleOpenDiff();
+            return;
+          case 'cmd_open_federation':
+            if (sessionId) openTab(createFederationTab());
             return;
           case 'cmd_open_settings':
             setSettingsOpen(true);
@@ -632,6 +640,17 @@ function AppContent({
         onOpenFulltextSearch={onOpenFulltextSearch}
         onClose={() => onCloseTab(activeTab.id)}
       />
+    );
+  }
+
+  if (activeTab?.type === 'federation') {
+    return (
+      <div className="flex-1 min-h-0 flex flex-col">
+        <FederationViewer
+          key={activeTab.id}
+          initialQuery={queryDrafts[activeTab.id] ?? activeTab.initialQuery}
+        />
+      </div>
     );
   }
 

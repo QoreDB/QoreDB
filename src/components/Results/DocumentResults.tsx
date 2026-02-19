@@ -11,7 +11,7 @@ import {
   Search,
   Trash2,
 } from 'lucide-react';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { StreamingExportDialog } from '@/components/Export/StreamingExportDialog';
@@ -29,7 +29,7 @@ import {
   formatIdLabel,
   normalizeDocument,
 } from '@/utils/document';
-import { DataGridPagination } from '../Grid/DataGridPagination';
+import { DataGridStatusBar } from '../Grid/DataGridStatusBar';
 import { DeleteConfirmDialog } from '../Grid/DeleteConfirmDialog';
 import { JSONViewer } from './JSONViewer';
 
@@ -172,11 +172,11 @@ export function DocumentResults({
   onRowsDeleted,
   exportQuery,
   exportNamespace,
-  serverSideTotalRows,
-  serverSidePage,
-  serverSidePageSize,
-  onServerPageChange,
-  onServerPageSizeChange,
+  infiniteScrollTotalRows,
+  infiniteScrollLoadedRows,
+  infiniteScrollIsFetchingMore,
+  infiniteScrollIsComplete,
+  onFetchMore,
 }: DocumentResultsProps) {
   const { t } = useTranslation();
   const [filter, setFilter] = useState('');
@@ -193,8 +193,8 @@ export function DocumentResults({
   const resolvedNamespace =
     exportNamespace ?? (database ? { database, schema: undefined } : undefined);
 
-  const isServerSidePaginated = serverSideTotalRows !== undefined;
-  const totalRows = isServerSidePaginated ? serverSideTotalRows : result.rows.length;
+  const isInfiniteScrollMode = infiniteScrollTotalRows !== undefined;
+  const totalRows = isInfiniteScrollMode ? infiniteScrollTotalRows : result.rows.length;
 
   const documents = useMemo<DocumentRow[]>(() => {
     const renderRows = result.rows;
@@ -232,6 +232,26 @@ export function DocumentResults({
     estimateSize: () => 250,
     overscan: 8,
   });
+
+  // Infinite scroll: fetch more data when near bottom
+  useEffect(() => {
+    if (!isInfiniteScrollMode || !onFetchMore) return;
+
+    const scrollEl = parentRef.current;
+    if (!scrollEl) return;
+
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = scrollEl;
+      const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+
+      if (distanceFromBottom < 800 && !infiniteScrollIsFetchingMore && !infiniteScrollIsComplete) {
+        onFetchMore();
+      }
+    };
+
+    scrollEl.addEventListener('scroll', handleScroll, { passive: true });
+    return () => scrollEl.removeEventListener('scroll', handleScroll);
+  }, [isInfiniteScrollMode, onFetchMore, infiniteScrollIsFetchingMore, infiniteScrollIsComplete]);
 
   const handleCopy = async (row: DocumentRow) => {
     await navigator.clipboard.writeText(row.json);
@@ -376,15 +396,12 @@ export function DocumentResults({
         </div>
       </div>
 
-      {isServerSidePaginated && (
-        <DataGridPagination
-          table={null}
-          pagination={{ pageIndex: (serverSidePage || 1) - 1, pageSize: serverSidePageSize || 100 }}
-          serverSideTotalRows={serverSideTotalRows}
-          serverSidePage={serverSidePage}
-          serverSidePageSize={serverSidePageSize}
-          onServerPageChange={onServerPageChange}
-          onServerPageSizeChange={onServerPageSizeChange}
+      {isInfiniteScrollMode && (
+        <DataGridStatusBar
+          loadedRows={infiniteScrollLoadedRows ?? 0}
+          totalRows={infiniteScrollTotalRows ?? 0}
+          isFetchingMore={infiniteScrollIsFetchingMore ?? false}
+          isComplete={infiniteScrollIsComplete ?? false}
         />
       )}
 

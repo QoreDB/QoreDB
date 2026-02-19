@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Database, FileCode, GitCompare, Plus, Settings, Table, X } from 'lucide-react';
+import { Database, FileCode, GitCompare, Network, Plus, Settings, Table, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { getModifierKey } from '@/utils/platform';
@@ -8,7 +8,7 @@ import { getModifierKey } from '@/utils/platform';
 export interface TabItem {
   id: string;
   title: string;
-  type: 'query' | 'table' | 'database' | 'settings' | 'diff';
+  type: 'query' | 'table' | 'database' | 'settings' | 'diff' | 'federation';
 }
 
 interface TabBarProps {
@@ -34,6 +34,8 @@ export function TabBar({ tabs = [], activeId, onSelect, onClose, onNew }: TabBar
         return <Settings size={14} />;
       case 'diff':
         return <GitCompare size={14} />;
+      case 'federation':
+        return <Network size={14} className="text-accent" />;
     }
   };
 

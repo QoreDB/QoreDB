@@ -224,16 +224,21 @@ pub async fn list_federation_sources(
     let sessions = app_state.session_manager.list_sessions().await;
 
     let mut sources = Vec::new();
+    let mut seen_display_names = std::collections::HashSet::new();
+
     for (session_id, display_name) in sessions {
-        // Get the driver ID for this session
-        if let Ok(driver) = app_state.session_manager.get_driver(session_id).await {
-            let alias = normalize_alias(&display_name);
-            sources.push(FederationSource {
-                alias,
-                session_id: session_id.0.to_string(),
-                driver: driver.driver_id().to_string(),
-                display_name,
-            });
+        // Only keep the first session encountered for each unique connection name
+        if !seen_display_names.contains(&display_name) {
+            if let Ok(driver) = app_state.session_manager.get_driver(session_id).await {
+                let alias = normalize_alias(&display_name);
+                sources.push(FederationSource {
+                    alias,
+                    session_id: session_id.0.to_string(),
+                    driver: driver.driver_id().to_string(),
+                    display_name: display_name.clone(),
+                });
+                seen_display_names.insert(display_name);
+            }
         }
     }
 

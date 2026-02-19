@@ -468,6 +468,7 @@ export function QueryPanel({
       dialect,
       t,
       onSchemaChange,
+      onNamespaceChange,
       isDocument,
       keepResults,
       driverCapabilities,

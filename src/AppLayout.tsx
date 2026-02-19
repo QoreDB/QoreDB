@@ -84,6 +84,7 @@ export function AppLayout() {
     closeTab,
     setActiveTabId,
     updateQueryDraft,
+    updateTabNamespace,
     updateTableBrowserTab,
     updateDatabaseBrowserTab,
   } = useTabContext();
@@ -465,6 +466,7 @@ export function AppLayout() {
                 onCloseTab={closeTab}
                 onOpenTab={openTab}
                 onUpdateQueryDraft={updateQueryDraft}
+                onUpdateTabNamespace={updateTabNamespace}
                 onScheduleRecoverySave={scheduleRecoverySave}
               />
             </SandboxBorder>
@@ -539,6 +541,7 @@ interface AppContentProps {
   onCloseTab: (id: string) => void;
   onOpenTab: (tab: OpenTab) => void;
   onUpdateQueryDraft: (tabId: string, value: string) => void;
+  onUpdateTabNamespace: (tabId: string, namespace: Namespace) => void;
   onUpdateTableBrowserTab: (tabId: string, tab: TableBrowserTab) => void;
   onUpdateDatabaseBrowserTab: (tabId: string, tab: DatabaseBrowserTab) => void;
   onScheduleRecoverySave: () => void;
@@ -568,6 +571,7 @@ function AppContent({
   onCloseTab,
   onOpenTab,
   onUpdateQueryDraft,
+  onUpdateTabNamespace,
   onUpdateTableBrowserTab,
   onUpdateDatabaseBrowserTab,
   onScheduleRecoverySave,
@@ -671,6 +675,7 @@ function AppContent({
           initialQuery={queryDrafts[activeTab.id] ?? activeTab.initialQuery}
           onSchemaChange={onSchemaChange}
           onOpenLibrary={onOpenLibrary}
+          onNamespaceChange={ns => onUpdateTabNamespace(activeTab.id, ns)}
           isActive
           onQueryDraftChange={value => onUpdateQueryDraft(activeTab.id, value)}
           initialShowAiPanel={activeTab.showAiPanel}

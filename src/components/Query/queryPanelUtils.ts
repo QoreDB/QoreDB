@@ -27,6 +27,20 @@ export function getCollectionFromQuery(query: string): string {
   return getCollectionMatch ? getCollectionMatch[1] : '';
 }
 
+/**
+ * Extract the target database from a USE statement.
+ * Handles: USE db, USE `db`, USE "db", multi-statement queries (returns last USE).
+ */
+export function extractUseDatabase(query: string): string | null {
+  const statements = query.split(';').map(s => s.trim()).filter(Boolean);
+  let lastDb: string | null = null;
+  for (const stmt of statements) {
+    const match = stmt.match(/^use\s+[`"']?([^`"'\s;]+)[`"']?\s*$/i);
+    if (match) lastDb = match[1];
+  }
+  return lastDb;
+}
+
 export function shouldRefreshSchema(
   queryToCheck: string,
   isDocumentBased: boolean,

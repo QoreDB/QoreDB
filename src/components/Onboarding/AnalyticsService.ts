@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import posthog, { type Properties } from 'posthog-js';
 
 const ONBOARDING_KEY = 'qoredb_onboarding_completed';

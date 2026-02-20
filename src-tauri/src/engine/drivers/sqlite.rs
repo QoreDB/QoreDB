@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 //! SQLite Driver
 //!
 //! Implements the DataEngine trait for SQLite databases using SQLx.
@@ -905,7 +907,7 @@ impl DataEngine for SqliteDriver {
             }
         }
 
-        // Handle search across text columns
+        // Handle search across all columns
         if let Some(ref search_term) = options.search {
             if !search_term.trim().is_empty() {
                 // Get column info
@@ -918,16 +920,24 @@ impl DataEngine for SqliteDriver {
 
                 let mut search_clauses: Vec<String> = Vec::new();
                 for (_, col_name, data_type, _, _, _) in &columns_rows {
-                    // Only search text-like columns
-                    let is_text = data_type.to_uppercase().contains("TEXT")
-                        || data_type.to_uppercase().contains("CHAR")
-                        || data_type.to_uppercase().contains("VARCHAR")
-                        || data_type.to_uppercase().contains("CLOB");
+                    // Skip blob columns
+                    let upper = data_type.to_uppercase();
+                    if upper.contains("BLOB") {
+                        continue;
+                    }
 
+                    let col_ident = Self::quote_ident(col_name);
+                    bind_values.push(Value::Text(format!("%{}%", search_term)));
+
+                    // In SQLite, CAST(col AS TEXT) works for all non-blob types
+                    let is_text = upper.contains("TEXT")
+                        || upper.contains("CHAR")
+                        || upper.contains("VARCHAR")
+                        || upper.contains("CLOB");
                     if is_text {
-                        let col_ident = Self::quote_ident(col_name);
-                        bind_values.push(Value::Text(format!("%{}%", search_term)));
                         search_clauses.push(format!("{} LIKE ?", col_ident));
+                    } else {
+                        search_clauses.push(format!("CAST({} AS TEXT) LIKE ?", col_ident));
                     }
                 }
 
@@ -1001,8 +1011,25 @@ impl DataEngine for SqliteDriver {
         let execution_time_ms = start.elapsed().as_micros() as f64 / 1000.0;
 
         let result = if sqlite_rows.is_empty() {
+            // Get column metadata from PRAGMA even when no rows match
+            let pragma_col_sql = format!("PRAGMA table_info({})", table_ident);
+            let pragma_rows: Vec<(i64, String, String, i64, Option<String>, i64)> =
+                sqlx::query_as(&pragma_col_sql)
+                    .fetch_all(&sqlite_session.pool)
+                    .await
+                    .unwrap_or_default();
+
+            let columns: Vec<ColumnInfo> = pragma_rows
+                .iter()
+                .map(|(_, name, data_type, notnull, _, _)| ColumnInfo {
+                    name: name.clone(),
+                    data_type: data_type.clone(),
+                    nullable: *notnull == 0,
+                })
+                .collect();
+
             QueryResult {
-                columns: Vec::new(),
+                columns,
                 rows: Vec::new(),
                 affected_rows: None,
                 execution_time_ms,

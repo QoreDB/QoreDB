@@ -1,15 +1,18 @@
-import { useState, useMemo } from 'react';
+// SPDX-License-Identifier: Apache-2.0
+
+import { Code, MoveDown, MoveUp, Plus, Trash2 } from 'lucide-react';
+import { useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Plus, Trash2, MoveUp, MoveDown, Code } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
@@ -17,11 +20,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
+import {
+  buildCreateTableSQL,
+  type ColumnDef,
+  type ColumnType,
+  getColumnTypes,
+} from '@/lib/column-types';
 import { Driver } from '@/lib/drivers';
-import { ColumnDef, getColumnTypes, buildCreateTableSQL, ColumnType } from '@/lib/column-types';
-import { Namespace, executeQuery } from '@/lib/tauri';
 import { notify } from '@/lib/notify';
+import { executeQuery, type Namespace } from '@/lib/tauri';
 
 interface CreateTableModalProps {
   isOpen: boolean;
@@ -32,8 +39,11 @@ interface CreateTableModalProps {
   onTableCreated?: (tableName: string) => void;
 }
 
-function createEmptyColumn(): ColumnDef {
+type EditableColumn = ColumnDef & { _id: string };
+
+function createEmptyColumn(id: string): EditableColumn {
   return {
+    _id: id,
     name: '',
     type: 'VARCHAR',
     length: 255,
@@ -55,7 +65,13 @@ export function CreateTableModal({
 }: CreateTableModalProps) {
   const { t } = useTranslation();
   const [tableName, setTableName] = useState('');
-  const [columns, setColumns] = useState<ColumnDef[]>([createEmptyColumn()]);
+  const nextColumnIdRef = useRef(1);
+  const createColumnId = () => {
+    const id = `column-${nextColumnIdRef.current}`;
+    nextColumnIdRef.current += 1;
+    return id;
+  };
+  const [columns, setColumns] = useState<EditableColumn[]>([createEmptyColumn('column-0')]);
   const [showSQL, setShowSQL] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -70,7 +86,7 @@ export function CreateTableModal({
   function addColumn() {
     // Set default type based on driver
     const defaultType = driver === Driver.Mysql ? 'VARCHAR' : 'VARCHAR';
-    setColumns(prev => [...prev, { ...createEmptyColumn(), type: defaultType }]);
+    setColumns(prev => [...prev, { ...createEmptyColumn(createColumnId()), type: defaultType }]);
   }
 
   function removeColumn(index: number) {
@@ -141,7 +157,7 @@ export function CreateTableModal({
 
   function handleClose() {
     setTableName('');
-    setColumns([createEmptyColumn()]);
+    setColumns([createEmptyColumn(createColumnId())]);
     setShowSQL(false);
     onClose();
   }
@@ -167,8 +183,11 @@ export function CreateTableModal({
         <div className="flex-1 overflow-auto space-y-4 py-4">
           {/* Table name */}
           <div className="flex items-center gap-4">
-            <label className="text-sm font-medium w-24">{t('createTable.tableName')}</label>
+            <label htmlFor="create-table-name" className="text-sm font-medium w-24">
+              {t('createTable.tableName')}
+            </label>
             <Input
+              id="create-table-name"
               value={tableName}
               onChange={e => setTableName(e.target.value)}
               placeholder={t('createTable.tableNamePlaceholder')}
@@ -179,7 +198,7 @@ export function CreateTableModal({
           {/* Columns */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <label className="text-sm font-medium">{t('createTable.columns')}</label>
+              <p className="text-sm font-medium">{t('createTable.columns')}</p>
               <Button variant="outline" size="sm" onClick={addColumn}>
                 <Plus size={14} className="mr-1" />
                 {t('createTable.addColumn')}
@@ -203,7 +222,7 @@ export function CreateTableModal({
                 const typeConfig = getTypeConfig(col.type);
                 return (
                   <div
-                    key={index}
+                    key={col._id}
                     className="grid grid-cols-[1fr_120px_160px_60px_60px_60px_80px] gap-2 items-center bg-muted/30 rounded-md px-2 py-1"
                   >
                     <Input
@@ -326,7 +345,7 @@ export function CreateTableModal({
 
           {showSQL && generatedSQL && (
             <div className="space-y-2">
-              <label className="text-sm font-medium">{t('createTable.generatedSQL')}</label>
+              <p className="text-sm font-medium">{t('createTable.generatedSQL')}</p>
               <pre className="bg-muted/50 p-4 rounded-md text-sm font-mono overflow-auto max-h-37.5">
                 {generatedSQL}
               </pre>

@@ -1,6 +1,6 @@
-import { motion, HTMLMotionProps } from 'framer-motion';
 // import { cn } from "@/lib/utils"; //
 import { cva, type VariantProps } from 'class-variance-authority';
+import { type HTMLMotionProps, motion } from 'framer-motion';
 import React from 'react';
 
 const cn = (cls: string) => cls; // Mock implementation
@@ -34,8 +34,7 @@ const componentVariants = cva(
 // 2. Define Props Interface
 // Combine HTML props, Motion props, and Variant props
 export interface ComponentProps
-  extends
-    Omit<HTMLMotionProps<'div'>, 'className'>, // Use "button" or "span" as needed
+  extends Omit<HTMLMotionProps<'div'>, 'className'>, // Use "button" or "span" as needed
     VariantProps<typeof componentVariants> {
   className?: string; // Explicitly add className back
   children?: React.ReactNode;

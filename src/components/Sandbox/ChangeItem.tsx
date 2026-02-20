@@ -1,10 +1,12 @@
+// SPDX-License-Identifier: Apache-2.0
+
+import { ChevronDown, Clock, Eye, Pencil, Plus, Trash2, Undo2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Plus, Pencil, Trash2, Undo2, Clock, Eye, ChevronDown } from 'lucide-react';
-import { SandboxChange, SandboxChangeType } from '@/lib/sandboxTypes';
-import { Value } from '@/lib/tauri';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
 import { getChangeDiff } from '@/lib/sandboxOverlay';
+import type { SandboxChange, SandboxChangeType } from '@/lib/sandboxTypes';
+import type { Value } from '@/lib/tauri';
+import { cn } from '@/lib/utils';
 
 interface ChangeItemProps {
   change: SandboxChange;
@@ -90,7 +92,10 @@ export function ChangeItem({
   const changedValues = change.newValues
     ? Object.entries(change.newValues)
         .slice(0, 3)
-        .map(([k, v]) => `${k}=${formatValue(v)}`)
+        .map(([column, value]) => ({
+          column,
+          display: `${column}=${formatValue(value)}`,
+        }))
     : [];
 
   const moreValues =
@@ -198,9 +203,9 @@ export function ChangeItem({
       {/* Values */}
       {changedValues.length > 0 && (
         <div className="px-3 py-2 space-y-1">
-          {changedValues.map((val, idx) => (
-            <div key={idx} className="text-xs font-mono text-foreground/80 truncate">
-              {val}
+          {changedValues.map(({ column, display }) => (
+            <div key={column} className="text-xs font-mono text-foreground/80 truncate">
+              {display}
             </div>
           ))}
           {moreValues > 0 && (

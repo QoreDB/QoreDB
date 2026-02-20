@@ -1,8 +1,10 @@
-import { Column } from '@tanstack/react-table';
-import { Input } from '@/components/ui/input';
-import { useState, useEffect } from 'react';
+// SPDX-License-Identifier: Apache-2.0
+
+import type { Column } from '@tanstack/react-table';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { RowData } from './utils/dataGridUtils';
+import { Input } from '@/components/ui/input';
+import type { RowData } from './utils/dataGridUtils';
 
 interface GridColumnFilterProps {
   column: Column<RowData, unknown>;

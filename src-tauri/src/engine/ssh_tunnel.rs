@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 //! SSH Tunnel
 //!
 //! Provides SSH tunneling for connecting to databases behind firewalls.

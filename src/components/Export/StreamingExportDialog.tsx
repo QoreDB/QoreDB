@@ -1,8 +1,11 @@
+// SPDX-License-Identifier: Apache-2.0
+
+import { save } from '@tauri-apps/plugin-dialog';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { save } from '@tauri-apps/plugin-dialog';
 import { toast } from 'sonner';
-
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
@@ -10,7 +13,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -20,9 +22,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
 import type { ExportConfig, ExportFormat } from '@/lib/export';
 import type { Namespace } from '@/lib/tauri';
+import { useLicense } from '@/providers/LicenseProvider';
 
 interface StreamingExportDialogProps {
   open: boolean;
@@ -42,6 +44,7 @@ export function StreamingExportDialog({
   onConfirm,
 }: StreamingExportDialogProps) {
   const { t } = useTranslation();
+  const { isFeatureEnabled } = useLicense();
   const [format, setFormat] = useState<ExportFormat>('csv');
   const [outputPath, setOutputPath] = useState('');
   const [includeHeaders, setIncludeHeaders] = useState(true);
@@ -59,6 +62,10 @@ export function StreamingExportDialog({
         return 'sql';
       case 'html':
         return 'html';
+      case 'xlsx':
+        return 'xlsx';
+      case 'parquet':
+        return 'parquet';
       default:
         return 'csv';
     }
@@ -148,6 +155,12 @@ export function StreamingExportDialog({
                 <SelectItem value="json">{t('export.format.json')}</SelectItem>
                 <SelectItem value="sql_insert">{t('export.format.sql')}</SelectItem>
                 <SelectItem value="html">{t('export.format.html')}</SelectItem>
+                {isFeatureEnabled('export_xlsx') && (
+                  <SelectItem value="xlsx">{t('export.format.xlsx')}</SelectItem>
+                )}
+                {isFeatureEnabled('export_parquet') && (
+                  <SelectItem value="parquet">{t('export.format.parquet')}</SelectItem>
+                )}
               </SelectContent>
             </Select>
           </div>

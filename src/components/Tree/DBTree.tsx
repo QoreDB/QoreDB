@@ -1,47 +1,52 @@
-import { useState, useEffect, useCallback } from 'react';
+// SPDX-License-Identifier: Apache-2.0
+
 import {
-  Namespace,
-  Collection,
-  SavedConnection,
-  listCollections,
-  RelationFilter,
-  Routine,
-  listRoutines,
-  Trigger,
-  listTriggers,
-  DatabaseEvent,
-  listEvents,
-} from '../../lib/tauri';
-import { useSchemaCache } from '../../hooks/useSchemaCache';
-import {
-  Folder,
-  FolderOpen,
-  Table,
-  Eye,
-  Loader2,
-  Plus,
-  ChevronRight,
-  ChevronDown,
-  Search,
-  FunctionSquare,
-  PlayCircle,
-  Layers,
-  Zap,
   Calendar,
+  ChevronDown,
+  ChevronRight,
+  Database,
+  Eye,
+  FunctionSquare,
+  Layers,
+  Loader2,
+  PlayCircle,
+  Plus,
+  Search,
+  Table,
+  Zap,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { CreateDatabaseModal } from './CreateDatabaseModal';
-import { DeleteDatabaseModal } from './DeleteDatabaseModal';
-import { TableContextMenu } from './TableContextMenu';
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { Driver, getDriverMetadata } from '../../lib/drivers';
-import { getTerminology } from '../../lib/driverCapabilities';
-import { CreateTableModal } from '../Table/CreateTableModal';
-import { DatabaseContextMenu } from './DatabaseContextMenu';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { emitTableChange } from '@/lib/tableEvents';
+import { cn } from '@/lib/utils';
+import { useSchemaCache } from '../../hooks/useSchemaCache';
+import { getTerminology } from '../../lib/driverCapabilities';
+import { type Driver, getDriverMetadata } from '../../lib/drivers';
+import {
+  type Collection,
+  type DatabaseEvent,
+  listCollections,
+  listEvents,
+  listRoutines,
+  listTriggers,
+  type Namespace,
+  type RelationFilter,
+  type Routine,
+  type SavedConnection,
+  type Trigger,
+} from '../../lib/tauri';
+import { CreateTableModal } from '../Table/CreateTableModal';
+import { CreateDatabaseModal } from './CreateDatabaseModal';
+import { DatabaseContextMenu } from './DatabaseContextMenu';
+import { DeleteDatabaseModal } from './DeleteDatabaseModal';
+import { TableContextMenu } from './TableContextMenu';
+
+function getNsKey(ns: Namespace): string {
+  return `${ns.database}:${ns.schema || ''}`;
+}
 
 interface DBTreeProps {
   connectionId: string;
@@ -54,6 +59,7 @@ interface DBTreeProps {
   ) => void;
   onDatabaseSelect?: (namespace: Namespace) => void;
   onCompareTable?: (collection: Collection) => void;
+  onAiGenerateForTable?: (collection: Collection) => void;
   refreshTrigger?: number;
   activeNamespace?: Namespace | null;
 }
@@ -65,6 +71,7 @@ export function DBTree({
   onTableSelect,
   onDatabaseSelect,
   onCompareTable,
+  onAiGenerateForTable,
   refreshTrigger,
   activeNamespace,
 }: DBTreeProps) {
@@ -146,7 +153,7 @@ export function DBTree({
         setCollectionsLoading(false);
       }
     },
-    [connectionId, collectionsPageSize, search]
+    [connectionId, search]
   );
 
   const refreshRoutines = useCallback(
@@ -228,7 +235,7 @@ export function DBTree({
       refreshRoutines(expandedNamespace);
       refreshTriggers(expandedNamespace);
     }
-  }, [search, expandedNamespace, refreshCollections, refreshRoutines, refreshTriggers]);
+  }, [expandedNamespace, refreshCollections, refreshRoutines, refreshTriggers]);
 
   const handleLoadMore = useCallback(async () => {
     if (!expandedNamespace || collectionsLoading) return;
@@ -243,7 +250,7 @@ export function DBTree({
 
   useEffect(() => {
     loadNamespaces();
-  }, [connectionId, loadNamespaces]);
+  }, [loadNamespaces]);
 
   useEffect(() => {
     if (refreshTrigger === undefined) return;
@@ -295,17 +302,17 @@ export function DBTree({
       setExpandedNs(key);
       setExpandedNamespace(ns);
       setCollapsedActiveNsKey(null);
-      await Promise.all([refreshCollections(ns, 1, false), refreshRoutines(ns), refreshTriggers(ns)]);
+      await Promise.all([
+        refreshCollections(ns, 1, false),
+        refreshRoutines(ns),
+        refreshTriggers(ns),
+      ]);
     }
     onDatabaseSelect?.(ns);
   }
 
   function handleTableClick(col: Collection) {
     onTableSelect?.(col.namespace, col.name);
-  }
-
-  function getNsKey(ns: Namespace): string {
-    return `${ns.database}:${ns.schema || ''}`;
   }
 
   if (schemaCache.loading && namespaces.length === 0) {
@@ -318,15 +325,15 @@ export function DBTree({
 
   return (
     <div className="flex flex-col text-sm">
-      <div className="flex items-center justify-between px-2 py-1 mb-1">
-        <span className="text-xs font-semibold text-muted-foreground">
+      <div className="flex items-center justify-between px-2 py-1.5 mb-1.5">
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/80">
           {t(driverMeta.treeRootLabel)}
         </span>
         {driverMeta.createAction !== 'none' && (
           <Button
             variant="ghost"
             size="icon"
-            className="h-5 w-5"
+            className="h-5 w-5 ml-2"
             onClick={() => setCreateModalOpen(true)}
             disabled={connection?.read_only}
             title={
@@ -380,6 +387,7 @@ export function DBTree({
               canDelete={!connection?.read_only}
             >
               <button
+                type="button"
                 className={cn(
                   'flex items-center gap-2 w-full px-2 py-1.5 rounded-md hover:bg-accent/10 transition-colors text-left',
                   isExpanded ? 'text-foreground' : 'text-muted-foreground'
@@ -392,8 +400,13 @@ export function DBTree({
                 <span className="shrink-0">
                   {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                 </span>
-                <span className="shrink-0">
-                  {isExpanded ? <FolderOpen size={14} /> : <Folder size={14} />}
+                <span
+                  className={cn(
+                    'shrink-0',
+                    isExpanded ? 'text-accent' : 'text-muted-foreground/70'
+                  )}
+                >
+                  <Database size={14} />
                 </span>
                 <span className="truncate">
                   {ns.schema ? `${ns.database}.${ns.schema}` : ns.database}
@@ -403,7 +416,7 @@ export function DBTree({
 
             {isExpanded && (
               <div className="flex flex-col ml-2 pl-2 border-l border-border mt-0.5 space-y-0.5">
-                <div className="px-2 mb-1 relative">
+                <div className="px-2 mb-2 pb-1.5 relative border-b border-border/50">
                   <Search
                     size={12}
                     className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground z-10"
@@ -419,13 +432,15 @@ export function DBTree({
                   />
                 </div>
 
-                {/* Tables Section */}
                 {(() => {
-                  const tables = collections.filter(c => c.collection_type === 'Table');
+                  const tables = collections.filter(
+                    c => c.collection_type === 'Table' || c.collection_type === 'Collection'
+                  );
                   if (tables.length === 0 && !collectionsLoading) return null;
                   return (
                     <div className="space-y-0.5">
                       <button
+                        type="button"
                         className="flex items-center gap-1 px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground w-full text-left"
                         onClick={() => toggleSection('tables')}
                       >
@@ -451,9 +466,11 @@ export function DBTree({
                             onRefresh={() => refreshCollections(col.namespace)}
                             onOpen={() => handleTableClick(col)}
                             onCompareWith={onCompareTable}
+                            onAiGenerate={onAiGenerateForTable}
                           >
                             <button
-                              className="flex items-center gap-2 w-full px-2 py-1 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground text-left group ml-4"
+                              type="button"
+                              className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground text-left group ml-5"
                               onClick={() => handleTableClick(col)}
                             >
                               <span className="shrink-0 group-hover:text-foreground/80 transition-colors">
@@ -472,8 +489,9 @@ export function DBTree({
                   const views = collections.filter(c => c.collection_type === 'View');
                   if (views.length === 0) return null;
                   return (
-                    <div className="space-y-0.5">
+                    <div className="space-y-0.5 mt-2">
                       <button
+                        type="button"
                         className="flex items-center gap-1 px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground w-full text-left"
                         onClick={() => toggleSection('views')}
                       >
@@ -499,9 +517,11 @@ export function DBTree({
                             onRefresh={() => refreshCollections(col.namespace)}
                             onOpen={() => handleTableClick(col)}
                             onCompareWith={onCompareTable}
+                            onAiGenerate={onAiGenerateForTable}
                           >
                             <button
-                              className="flex items-center gap-2 w-full px-2 py-1 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground text-left group ml-4"
+                              type="button"
+                              className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground text-left group ml-5"
                               onClick={() => handleTableClick(col)}
                             >
                               <span className="shrink-0 group-hover:text-foreground/80 transition-colors">
@@ -522,8 +542,9 @@ export function DBTree({
                   );
                   if (matViews.length === 0) return null;
                   return (
-                    <div className="space-y-0.5">
+                    <div className="space-y-0.5 mt-2">
                       <button
+                        type="button"
                         className="flex items-center gap-1 px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground w-full text-left"
                         onClick={() => toggleSection('materializedViews')}
                       >
@@ -549,9 +570,11 @@ export function DBTree({
                             onRefresh={() => refreshCollections(col.namespace)}
                             onOpen={() => handleTableClick(col)}
                             onCompareWith={onCompareTable}
+                            onAiGenerate={onAiGenerateForTable}
                           >
                             <button
-                              className="flex items-center gap-2 w-full px-2 py-1 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground text-left group ml-4"
+                              type="button"
+                              className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground text-left group ml-5"
                               onClick={() => handleTableClick(col)}
                             >
                               <span className="shrink-0 group-hover:text-foreground/80 transition-colors">
@@ -570,8 +593,9 @@ export function DBTree({
                   const functions = routines.filter(r => r.routine_type === 'Function');
                   if (functions.length === 0 && !routinesLoading) return null;
                   return (
-                    <div className="space-y-0.5">
+                    <div className="space-y-0.5 mt-2">
                       <button
+                        type="button"
                         className="flex items-center gap-1 px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground w-full text-left"
                         onClick={() => toggleSection('functions')}
                       >
@@ -588,7 +612,7 @@ export function DBTree({
                         functions.map(routine => (
                           <div
                             key={routine.name}
-                            className="flex items-center gap-2 w-full px-2 py-1 rounded-md text-muted-foreground text-left group ml-4"
+                            className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-muted-foreground text-left group ml-5"
                             title={`${routine.name}(${routine.arguments})${routine.return_type ? ` → ${routine.return_type}` : ''}`}
                           >
                             <span className="shrink-0">
@@ -611,8 +635,9 @@ export function DBTree({
                   const procedures = routines.filter(r => r.routine_type === 'Procedure');
                   if (procedures.length === 0 && !routinesLoading) return null;
                   return (
-                    <div className="space-y-0.5">
+                    <div className="space-y-0.5 mt-2">
                       <button
+                        type="button"
                         className="flex items-center gap-1 px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground w-full text-left"
                         onClick={() => toggleSection('procedures')}
                       >
@@ -631,7 +656,7 @@ export function DBTree({
                         procedures.map(routine => (
                           <div
                             key={routine.name}
-                            className="flex items-center gap-2 w-full px-2 py-1 rounded-md text-muted-foreground text-left group ml-4"
+                            className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-muted-foreground text-left group ml-5"
                             title={`${routine.name}(${routine.arguments})`}
                           >
                             <span className="shrink-0">
@@ -653,8 +678,9 @@ export function DBTree({
                 {(() => {
                   if (triggers.length === 0 && !triggersLoading) return null;
                   return (
-                    <div className="space-y-0.5">
+                    <div className="space-y-0.5 mt-2">
                       <button
+                        type="button"
                         className="flex items-center gap-1 px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground w-full text-left"
                         onClick={() => toggleSection('triggers')}
                       >
@@ -665,26 +691,19 @@ export function DBTree({
                         )}
                         <Zap size={12} />
                         <span>{t('dbtree.triggers')}</span>
-                        <span className="text-muted-foreground/60 ml-auto">
-                          {triggers.length}
-                        </span>
+                        <span className="text-muted-foreground/60 ml-auto">{triggers.length}</span>
                       </button>
                       {expandedSections.has('triggers') &&
                         triggers.map(trigger => (
                           <div
                             key={trigger.name}
-                            className="flex items-center gap-2 w-full px-2 py-1 rounded-md text-muted-foreground text-left group ml-4"
+                            className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-muted-foreground text-left group ml-5"
                             title={`${trigger.timing} ${trigger.events.join(' | ')} ON ${trigger.table_name}`}
                           >
                             <span className="shrink-0">
-                              <Zap
-                                size={13}
-                                className={cn(!trigger.enabled && 'opacity-40')}
-                              />
+                              <Zap size={13} className={cn(!trigger.enabled && 'opacity-40')} />
                             </span>
-                            <span className="truncate font-mono text-xs">
-                              {trigger.name}
-                            </span>
+                            <span className="truncate font-mono text-xs">{trigger.name}</span>
                             <span className="text-[10px] text-muted-foreground/60 ml-auto">
                               {trigger.table_name}
                             </span>
@@ -698,8 +717,9 @@ export function DBTree({
                 {(() => {
                   if (dbEvents.length === 0) return null;
                   return (
-                    <div className="space-y-0.5">
+                    <div className="space-y-0.5 mt-2">
                       <button
+                        type="button"
                         className="flex items-center gap-1 px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground w-full text-left"
                         onClick={() => toggleSection('events')}
                       >
@@ -710,23 +730,19 @@ export function DBTree({
                         )}
                         <Calendar size={12} />
                         <span>{t('dbtree.events')}</span>
-                        <span className="text-muted-foreground/60 ml-auto">
-                          {dbEvents.length}
-                        </span>
+                        <span className="text-muted-foreground/60 ml-auto">{dbEvents.length}</span>
                       </button>
                       {expandedSections.has('events') &&
                         dbEvents.map(evt => (
                           <div
                             key={evt.name}
-                            className="flex items-center gap-2 w-full px-2 py-1 rounded-md text-muted-foreground text-left group ml-4"
+                            className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-muted-foreground text-left group ml-5"
                             title={`${evt.event_type}${evt.interval_value ? ` every ${evt.interval_value} ${evt.interval_field}` : ''}`}
                           >
                             <span className="shrink-0">
                               <Calendar size={13} />
                             </span>
-                            <span className="truncate font-mono text-xs">
-                              {evt.name}
-                            </span>
+                            <span className="truncate font-mono text-xs">{evt.name}</span>
                             <span
                               className={cn(
                                 'text-[10px] ml-auto',
@@ -788,7 +804,11 @@ export function DBTree({
             schemaCache.invalidateCollections(createTableNamespace);
             refreshCollections(createTableNamespace);
             if (tableName) {
-              emitTableChange({ type: 'create', namespace: createTableNamespace, tableName });
+              emitTableChange({
+                type: 'create',
+                namespace: createTableNamespace,
+                tableName,
+              });
             }
           }}
         />

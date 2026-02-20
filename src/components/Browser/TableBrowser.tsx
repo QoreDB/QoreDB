@@ -1,77 +1,79 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { useTranslation } from 'react-i18next';
+// SPDX-License-Identifier: Apache-2.0
+
 import {
-  Namespace,
-  TableSchema,
-  QueryResult,
-  queryTable,
-  TableQueryOptions,
-  executeQuery,
-  Environment,
-  DriverCapabilities,
-  RelationFilter,
-  SearchFilter,
-  peekForeignKey,
-  Value,
-  generateMigrationSql,
-  applySandboxChanges,
-  SandboxChangeDto,
-} from '../../lib/tauri';
-import { useSchemaCache } from '../../hooks/useSchemaCache';
-import { ResultsViewer } from '../Results/ResultsViewer';
-import { DocumentEditorModal } from '../Editor/DocumentEditorModal';
-import { cn } from '@/lib/utils';
-import {
-  Table,
+  AlertCircle,
+  Clock,
   Columns3,
   Database,
-  Key,
-  Hash,
-  Loader2,
-  AlertCircle,
-  X,
-  Plus,
-  Info,
   HardDrive,
+  Hash,
+  Info,
+  Key,
   List,
-  Clock,
+  Loader2,
+  Plus,
+  Table,
+  X,
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { RowModal } from './RowModal';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { Driver, getDriverMetadata } from '../../lib/drivers';
-import { buildQualifiedTableName } from '@/lib/column-types';
-import { isDocumentDatabase } from '../../lib/driverCapabilities';
-import { onTableChange } from '@/lib/tableEvents';
 import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
-import { SandboxToggle, ChangesPanel, MigrationPreview } from '@/components/Sandbox';
-import {
-  isSandboxActive,
-  getChangesForTable,
-  createInsertChange,
-  createUpdateChange,
-  createDeleteChange,
-  clearSandboxChanges,
-  getSandboxSession,
-  getSandboxPreferences,
-  subscribeSandbox,
-  subscribeSandboxPreferences,
-  saveSandboxBackup,
-  getSandboxBackup,
-  clearSandboxBackup,
-  importChanges,
-  activateSandbox,
-  deactivateSandbox,
-} from '@/lib/sandboxStore';
-import { SandboxChange, MigrationScript } from '@/lib/sandboxTypes';
-import { UI_EVENT_REFRESH_TABLE } from '@/lib/uiEvents';
+import { ChangesPanel, MigrationPreview, SandboxToggle } from '@/components/Sandbox';
+import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from '@/components/ui/dialog';
+import { buildQualifiedTableName } from '@/lib/column-types';
+import {
+  activateSandbox,
+  clearSandboxBackup,
+  clearSandboxChanges,
+  createDeleteChange,
+  createInsertChange,
+  createUpdateChange,
+  deactivateSandbox,
+  getChangesForTable,
+  getSandboxBackup,
+  getSandboxPreferences,
+  getSandboxSession,
+  importChanges,
+  isSandboxActive,
+  saveSandboxBackup,
+  subscribeSandbox,
+  subscribeSandboxPreferences,
+} from '@/lib/sandboxStore';
+import type { MigrationScript, SandboxChange } from '@/lib/sandboxTypes';
+import { onTableChange } from '@/lib/tableEvents';
+import { UI_EVENT_REFRESH_TABLE } from '@/lib/uiEvents';
+import { cn } from '@/lib/utils';
+import { useLicense } from '@/providers/LicenseProvider';
+import { useInfiniteTableData } from '../../hooks/useInfiniteTableData';
+import { useSchemaCache } from '../../hooks/useSchemaCache';
+import { isDocumentDatabase } from '../../lib/driverCapabilities';
+import { Driver, getDriverMetadata } from '../../lib/drivers';
+import {
+  applySandboxChanges,
+  type ColumnFilter,
+  type DriverCapabilities,
+  type Environment,
+  executeQuery,
+  generateMigrationSql,
+  type Namespace,
+  type RelationFilter,
+  type SandboxChangeDto,
+  type SearchFilter,
+  type SortDirection,
+  type TableSchema,
+  type Value,
+} from '../../lib/tauri';
+import { DocumentEditorModal } from '../Editor/DocumentEditorModal';
+import { ResultsViewer } from '../Results/ResultsViewer';
+import { RowModal } from './RowModal';
 
 function formatTableName(namespace: Namespace, tableName: string): string {
   return namespace.schema ? `${namespace.schema}.${tableName}` : tableName;
@@ -158,18 +160,14 @@ export function TableBrowser({
   onActiveTabChange,
 }: TableBrowserProps) {
   const { t } = useTranslation();
+  const { isFeatureEnabled } = useLicense();
   const viewTrackedRef = useRef(false);
   const [activeTab, setActiveTab] = useState<TableBrowserTab>(initialTab ?? 'data');
   const [schema, setSchema] = useState<TableSchema | null>(null);
-  const [data, setData] = useState<QueryResult | null>(null);
-  const hasDataRef = useRef(false);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
-  // Pagination state
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(50);
-  const [totalRows, setTotalRows] = useState(0);
+  // Sort state
+  const [sortColumn, setSortColumn] = useState<string | undefined>(undefined);
+  const [sortDirection, setSortDirection] = useState<SortDirection | undefined>(undefined);
 
   // Search state
   const [searchTerm, setSearchTerm] = useState(searchFilter?.value ?? '');
@@ -183,12 +181,25 @@ export function TableBrowser({
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
-  useEffect(() => {
-    hasDataRef.current = Boolean(data);
-  }, [data]);
+  // Build filters from relation filter
+  const infiniteScrollFilters = useMemo<ColumnFilter[] | undefined>(() => {
+    if (!relationFilter) return undefined;
+    return [
+      {
+        column: relationFilter.foreignKey.referenced_column,
+        operator: 'eq' as const,
+        value: relationFilter.value,
+      },
+    ];
+  }, [relationFilter]);
 
   const handleServerSearchChange = useCallback((term: string) => {
     setSearchTerm(prev => (prev !== term ? term : prev));
+  }, []);
+
+  const handleServerSortChange = useCallback((column?: string, direction?: SortDirection) => {
+    setSortColumn(prev => (prev !== column ? column : prev));
+    setSortDirection(prev => (prev !== direction ? direction : prev));
   }, []);
 
   useEffect(() => {
@@ -197,11 +208,6 @@ export function TableBrowser({
       setDebouncedSearchTerm(prev => (prev !== searchFilter.value ? searchFilter.value : prev));
     }
   }, [searchFilter]);
-
-  // Reset page when search changes
-  useEffect(() => {
-    setPage(1);
-  }, [debouncedSearchTerm]);
 
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -247,6 +253,46 @@ export function TableBrowser({
 
   // Schema cache
   const schemaCache = useSchemaCache(sessionId, connectionId);
+
+  // Infinite scroll data
+  const {
+    data,
+    totalRows,
+    loadedRows: infiniteLoadedRows,
+    isLoading: loading,
+    isFetchingMore,
+    isComplete,
+    error,
+    fetchNextChunk,
+    reload,
+  } = useInfiniteTableData({
+    sessionId,
+    namespace,
+    tableName,
+    chunkSize: 100,
+    sortColumn,
+    sortDirection,
+    searchTerm: debouncedSearchTerm,
+    filters: infiniteScrollFilters,
+  });
+
+  // Load schema on mount and when data arrives
+  useEffect(() => {
+    schemaCache.getTableSchema(namespace, tableName).then(cachedSchema => {
+      if (cachedSchema) setSchema(cachedSchema);
+    });
+  }, [schemaCache, namespace, tableName]);
+
+  // Analytics tracking
+  useEffect(() => {
+    if (data && !viewTrackedRef.current) {
+      viewTrackedRef.current = true;
+      AnalyticsService.capture('table_view_loaded', {
+        driver,
+        resource_type: driver === Driver.Mongodb ? 'collection' : 'table',
+      });
+    }
+  }, [data, driver]);
 
   useEffect(() => {
     const unsubscribe = subscribeSandboxPreferences(prefs => {
@@ -320,136 +366,14 @@ export function TableBrowser({
     [schemaCache, t]
   );
 
-  const loadData = useCallback(async () => {
-    if (!hasDataRef.current) setLoading(true);
-    setError(null);
-
-    try {
-      const startTime = performance.now();
-
-      // For relation filters, use previewTable (limited view)
-      // For normal table view, use queryTable with pagination
-      if (relationFilter) {
-        const [cachedSchema, dataResult] = await Promise.all([
-          schemaCache.getTableSchema(namespace, tableName),
-          peekForeignKey(
-            sessionId,
-            namespace,
-            relationFilter.foreignKey,
-            relationFilter.value,
-            100
-          ),
-        ]);
-        const endTime = performance.now();
-        const totalTime = endTime - startTime;
-
-        if (cachedSchema) {
-          setSchema(cachedSchema);
-        } else {
-          setError('Failed to load table schema');
-        }
-
-        if (dataResult.success && dataResult.result) {
-          const hydratedResult: QueryResult = {
-            ...dataResult.result,
-            columns:
-              dataResult.result.columns.length === 0 && cachedSchema?.columns?.length
-                ? cachedSchema.columns.map(c => ({
-                    name: c.name,
-                    data_type: c.data_type,
-                    nullable: c.nullable,
-                  }))
-                : dataResult.result.columns,
-          };
-
-          setData({
-            ...hydratedResult,
-            total_time_ms: totalTime,
-          } as QueryResult & { total_time_ms: number });
-          setTotalRows(dataResult.result.rows.length);
-        } else if (dataResult.error) {
-          setError(dataResult.error);
-        }
-      } else {
-        const options: TableQueryOptions = {
-          page: !relationFilter ? page : 1,
-          page_size: pageSize,
-          search: debouncedSearchTerm,
-        };
-
-        const [cachedSchema, dataResult] = await Promise.all([
-          schemaCache.getTableSchema(namespace, tableName),
-          queryTable(sessionId, namespace, tableName, options),
-        ]);
-        const endTime = performance.now();
-        const totalTime = endTime - startTime;
-
-        if (cachedSchema) {
-          setSchema(cachedSchema);
-        } else {
-          setError('Failed to load table schema');
-        }
-
-        if (dataResult.success && dataResult.result) {
-          const paginatedResult = dataResult.result;
-          const hydratedResult: QueryResult = {
-            ...paginatedResult.result,
-            columns:
-              paginatedResult.result.columns.length === 0 && cachedSchema?.columns?.length
-                ? cachedSchema.columns.map(c => ({
-                    name: c.name,
-                    data_type: c.data_type,
-                    nullable: c.nullable,
-                  }))
-                : paginatedResult.result.columns,
-          };
-
-          setData({
-            ...hydratedResult,
-            total_time_ms: totalTime,
-          } as QueryResult & { total_time_ms: number });
-          setTotalRows(paginatedResult.total_rows);
-
-          if (!viewTrackedRef.current) {
-            viewTrackedRef.current = true;
-            AnalyticsService.capture('table_view_loaded', {
-              driver,
-              resource_type: driver === Driver.Mongodb ? 'collection' : 'table',
-            });
-          }
-        } else if (dataResult.error) {
-          setError(dataResult.error);
-        }
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load table data');
-    } finally {
-      setLoading(false);
-    }
-  }, [
-    relationFilter,
-    sessionId,
-    namespace,
-    tableName,
-    schemaCache,
-    driver,
-    page,
-    pageSize,
-    debouncedSearchTerm,
-  ]);
-
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
-
   useEffect(() => {
     const handler = () => {
       schemaCache.forceRefresh();
-      loadData();
+      reload();
     };
     window.addEventListener(UI_EVENT_REFRESH_TABLE, handler);
     return () => window.removeEventListener(UI_EVENT_REFRESH_TABLE, handler);
-  }, [loadData, schemaCache]);
+  }, [reload, schemaCache]);
 
   useEffect(() => {
     return onTableChange(event => {
@@ -458,10 +382,10 @@ export function TableBrowser({
         event.namespace.database === namespace.database &&
         (event.namespace.schema || '') === (namespace.schema || '')
       ) {
-        loadData();
+        reload();
       }
     });
-  }, [loadData, namespace.database, namespace.schema, tableName]);
+  }, [reload, namespace.database, namespace.schema, tableName]);
 
   // Sandbox subscription
   useEffect(() => {
@@ -509,12 +433,25 @@ export function TableBrowser({
     setRestoreBackupOpen(true);
   }, [connectionId, sessionId]);
 
-  // Sandbox handlers
+  // Sandbox handlers (Core: max 3 changes, Pro: unlimited)
+  const CORE_SANDBOX_LIMIT = 3;
+
+  const canAddSandboxChange = useCallback(() => {
+    if (isFeatureEnabled('sandbox')) return true;
+    const session = getSandboxSession(sessionId);
+    if (session.changes.length >= CORE_SANDBOX_LIMIT) {
+      toast.warning(t('license.features.sandbox'));
+      return false;
+    }
+    return true;
+  }, [isFeatureEnabled, sessionId, t]);
+
   const handleSandboxInsert = useCallback(
     (newValues: Record<string, Value>) => {
+      if (!canAddSandboxChange()) return;
       createInsertChange(sessionId, namespace, tableName, newValues, schema ?? undefined);
     },
-    [sessionId, namespace, tableName, schema]
+    [sessionId, namespace, tableName, schema, canAddSandboxChange]
   );
 
   const handleSandboxUpdate = useCallback(
@@ -523,6 +460,7 @@ export function TableBrowser({
       oldValues: Record<string, Value>,
       newValues: Record<string, Value>
     ) => {
+      if (!canAddSandboxChange()) return;
       createUpdateChange(
         sessionId,
         namespace,
@@ -533,11 +471,12 @@ export function TableBrowser({
         schema ?? undefined
       );
     },
-    [sessionId, namespace, tableName, schema]
+    [sessionId, namespace, tableName, schema, canAddSandboxChange]
   );
 
   const handleSandboxDelete = useCallback(
     (primaryKey: Record<string, Value>, oldValues: Record<string, Value>) => {
+      if (!canAddSandboxChange()) return;
       createDeleteChange(
         sessionId,
         namespace,
@@ -547,7 +486,7 @@ export function TableBrowser({
         schema ?? undefined
       );
     },
-    [sessionId, namespace, tableName, schema]
+    [sessionId, namespace, tableName, schema, canAddSandboxChange]
   );
 
   const handleGenerateSQL = useCallback(async () => {
@@ -618,14 +557,14 @@ export function TableBrowser({
     if (result.success) {
       clearSandboxChanges(sessionId);
       deactivateSandbox(sessionId, true);
-      loadData();
+      reload();
       if (sandboxPrefs.autoCollapsePanel) {
         setChangesPanelOpen(false);
       }
     }
 
     return result;
-  }, [sessionId, loadData, sandboxPrefs.autoCollapsePanel, validateSandboxChanges]);
+  }, [sessionId, reload, sandboxPrefs.autoCollapsePanel, validateSandboxChanges]);
 
   const displayName = namespace.schema ? `${namespace.schema}.${tableName}` : tableName;
 
@@ -722,6 +661,7 @@ export function TableBrowser({
       {/* Tabs */}
       <div className="flex items-center gap-1 px-4 py-2 border-b border-border bg-muted/10">
         <button
+          type="button"
           className={cn(
             'px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
             activeTab === 'data'
@@ -737,6 +677,7 @@ export function TableBrowser({
         </button>
         {!isDocument && (
           <button
+            type="button"
             className={cn(
               'px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
               activeTab === 'structure'
@@ -752,6 +693,7 @@ export function TableBrowser({
           </button>
         )}
         <button
+          type="button"
           className={cn(
             'px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
             activeTab === 'info'
@@ -788,14 +730,14 @@ export function TableBrowser({
             readOnly={readOnly}
             connectionName={connectionName}
             connectionDatabase={connectionDatabase}
-            onRowsDeleted={loadData}
+            onRowsDeleted={reload}
             namespace={namespace}
             tableName={tableName}
             tableSchema={schema}
             primaryKey={schema?.primary_key ?? undefined}
             mutationsSupported={mutationsSupported}
             initialFilter={searchFilter?.value}
-            onRowsUpdated={loadData}
+            onRowsUpdated={reload}
             onOpenRelatedTable={onOpenRelatedTable}
             sandboxMode={sandboxActive}
             pendingChanges={sandboxChanges}
@@ -804,13 +746,16 @@ export function TableBrowser({
             onSandboxDelete={handleSandboxDelete}
             exportQuery={streamingExportQuery}
             exportNamespace={namespace}
-            serverSideTotalRows={!relationFilter ? totalRows : undefined}
-            serverSidePage={!relationFilter ? page : undefined}
-            serverSidePageSize={!relationFilter ? pageSize : undefined}
-            onServerPageChange={!relationFilter ? setPage : undefined}
-            onServerPageSizeChange={!relationFilter ? setPageSize : undefined}
-            serverSearchTerm={!relationFilter ? searchTerm : undefined}
-            onServerSearchChange={!relationFilter ? handleServerSearchChange : undefined}
+            infiniteScrollTotalRows={totalRows}
+            infiniteScrollLoadedRows={infiniteLoadedRows}
+            infiniteScrollIsFetchingMore={isFetchingMore}
+            infiniteScrollIsComplete={isComplete}
+            onFetchMore={fetchNextChunk}
+            serverSortColumn={sortColumn}
+            serverSortDirection={sortDirection}
+            onServerSortChange={handleServerSortChange}
+            serverSearchTerm={searchTerm}
+            onServerSearchChange={handleServerSearchChange}
             onRowClick={row => {
               if (readOnly) {
                 toast.error(t('environment.blocked'));
@@ -865,7 +810,7 @@ export function TableBrowser({
           connectionDatabase={connectionDatabase}
           readOnly={readOnly}
           initialData={selectedRow}
-          onSuccess={loadData}
+          onSuccess={reload}
           sandboxMode={sandboxActive}
           onSandboxInsert={handleSandboxInsert}
           onSandboxUpdate={handleSandboxUpdate}
@@ -882,7 +827,7 @@ export function TableBrowser({
           collection={tableName}
           initialData={docEditorData}
           originalId={docOriginalId}
-          onSuccess={loadData}
+          onSuccess={reload}
           readOnly={readOnly}
           environment={environment}
           connectionName={connectionName}
@@ -1149,7 +1094,7 @@ function TableInfoPanel({ sessionId, namespace, tableName, driver, schema }: Tab
               const name = row.values[2] as string;
               const col = row.values[4] as string;
               if (!indexMap.has(name)) indexMap.set(name, []);
-              indexMap.get(name)!.push(col);
+              indexMap.get(name)?.push(col);
             }
             newStats.indexes = Array.from(indexMap.entries()).map(([name, cols]) => ({
               name,
@@ -1166,7 +1111,7 @@ function TableInfoPanel({ sessionId, namespace, tableName, driver, schema }: Tab
     } finally {
       setLoading(false);
     }
-  }, [sessionId, namespace, tableName, driver, driverMeta]);
+  }, [sessionId, namespace, tableName, driver, driverMeta, formatBytes]);
 
   useEffect(() => {
     loadStats();

@@ -1,50 +1,59 @@
-import { useState, useEffect, useCallback } from 'react';
-import { useTranslation } from 'react-i18next';
+// SPDX-License-Identifier: Apache-2.0
+
 import {
-  Namespace,
-  Collection,
-  listCollections,
-  executeQuery,
-  Environment,
-  RelationFilter,
-  Routine,
-  listRoutines,
-  Trigger,
-  listTriggers,
-  DatabaseEvent,
-  listEvents,
-} from '../../lib/tauri';
-import { getTerminology } from '@/lib/driverCapabilities';
-import { cn } from '@/lib/utils';
-import {
-  Database,
-  Table,
-  Eye,
-  Loader2,
   AlertCircle,
-  X,
-  HardDrive,
-  List,
-  Hash,
-  ChevronRight,
+  Calendar,
   ChevronLeft,
-  Shield,
-  ShieldAlert,
+  ChevronRight,
+  Database,
+  Eye,
+  FunctionSquare,
+  HardDrive,
+  Hash,
+  List,
+  Loader2,
+  PlayCircle,
   Plus,
   Search,
+  Shield,
+  ShieldAlert,
+  Table,
   TerminalSquare,
-  FunctionSquare,
-  PlayCircle,
+  X,
   Zap,
-  Calendar,
 } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { ERDiagram } from '@/components/Schema/ERDiagram';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { getDriverMetadata, Driver, DRIVER_LABELS, DRIVER_ICONS } from '../../lib/drivers';
-import { CreateTableModal } from '../Table/CreateTableModal';
+import { getTerminology } from '@/lib/driverCapabilities';
 import { emitTableChange, onTableChange } from '@/lib/tableEvents';
-import { ERDiagram } from '@/components/Schema/ERDiagram';
+import { cn } from '@/lib/utils';
+import { DRIVER_ICONS, DRIVER_LABELS, type Driver, getDriverMetadata } from '../../lib/drivers';
+import {
+  type Collection,
+  type DatabaseEvent,
+  type Environment,
+  executeQuery,
+  listCollections,
+  listEvents,
+  listRoutines,
+  listTriggers,
+  type Namespace,
+  type RelationFilter,
+  type Routine,
+  type Trigger,
+} from '../../lib/tauri';
+import { CreateTableModal } from '../Table/CreateTableModal';
 import { StatCard } from './StatCard';
+
+function formatBytes(bytes: number): string {
+  if (!bytes || bytes < 1024) return `${bytes || 0} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+  return `${(bytes / 1024 / 1024 / 1024).toFixed(2)} GB`;
+}
 
 export type DatabaseBrowserTab = 'overview' | 'tables' | 'routines' | 'triggers' | 'schema';
 
@@ -93,6 +102,14 @@ export function DatabaseBrowser({
 }: DatabaseBrowserProps) {
   const { t } = useTranslation();
   const terminology = getTerminology(driver);
+  // Stabilize namespace reference to prevent infinite re-render loops
+  // when parent creates a new object with same values each render
+  const nsDatabase = namespace.database;
+  const nsSchema = namespace.schema;
+  const stableNamespace = useMemo<Namespace>(
+    () => ({ database: nsDatabase, schema: nsSchema }),
+    [nsDatabase, nsSchema]
+  );
   const [activeTab, setActiveTab] = useState<DatabaseBrowserTab>(initialTab ?? 'overview');
   const [stats, setStats] = useState<DatabaseStats>({});
   const [collections, setCollections] = useState<Collection[]>([]);
@@ -124,7 +141,7 @@ export function DatabaseBrowser({
   const loadRoutines = useCallback(async () => {
     setRoutinesLoading(true);
     try {
-      const result = await listRoutines(sessionId, namespace);
+      const result = await listRoutines(sessionId, stableNamespace);
       if (result.success && result.data) {
         setRoutines(result.data.routines);
       }
@@ -133,17 +150,17 @@ export function DatabaseBrowser({
     } finally {
       setRoutinesLoading(false);
     }
-  }, [sessionId, namespace]);
+  }, [sessionId, stableNamespace]);
 
   const loadTriggers = useCallback(async () => {
     setTriggersLoading(true);
     try {
-      const result = await listTriggers(sessionId, namespace);
+      const result = await listTriggers(sessionId, stableNamespace);
       if (result.success && result.data) {
         setTriggers(result.data.triggers);
       }
       if (driver === 'mysql') {
-        const eventsResult = await listEvents(sessionId, namespace);
+        const eventsResult = await listEvents(sessionId, stableNamespace);
         if (eventsResult.success && eventsResult.data) {
           setDbEvents(eventsResult.data.events);
         }
@@ -153,7 +170,7 @@ export function DatabaseBrowser({
     } finally {
       setTriggersLoading(false);
     }
-  }, [sessionId, namespace, driver]);
+  }, [sessionId, stableNamespace, driver]);
 
   const loadData = useCallback(async () => {
     if (activeTab === 'schema') {
@@ -183,7 +200,7 @@ export function DatabaseBrowser({
       // Load collections
       const collectionsResult = await listCollections(
         sessionId,
-        namespace,
+        stableNamespace,
         fetchSearch,
         fetchPage,
         fetchLimit
@@ -199,7 +216,7 @@ export function DatabaseBrowser({
       };
 
       if (driverMeta.supportsSQL && isOverview) {
-        const schemaOrDb = namespace.schema || namespace.database;
+        const schemaOrDb = stableNamespace.schema || stableNamespace.database;
         const queries = driverMeta.queries;
 
         // Database/schema size
@@ -256,7 +273,7 @@ export function DatabaseBrowser({
     page,
     search,
     sessionId,
-    namespace,
+    stableNamespace,
     driverMeta.supportsSQL,
     driverMeta.queries,
   ]);
@@ -289,13 +306,6 @@ export function DatabaseBrowser({
     if (schemaRefreshTrigger === undefined) return;
     loadData();
   }, [schemaRefreshTrigger, loadData]);
-
-  function formatBytes(bytes: number): string {
-    if (!bytes || bytes < 1024) return `${bytes || 0} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    if (bytes < 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
-    return `${(bytes / 1024 / 1024 / 1024).toFixed(2)} GB`;
-  }
 
   const displayName = namespace.schema
     ? `${namespace.database}.${namespace.schema}`
@@ -384,6 +394,7 @@ export function DatabaseBrowser({
       {/* Tabs */}
       <div className="flex items-center gap-1 px-4 py-2 border-b border-border bg-muted/10">
         <button
+          type="button"
           className={cn(
             'px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
             activeTab === 'overview'
@@ -398,6 +409,7 @@ export function DatabaseBrowser({
           </span>
         </button>
         <button
+          type="button"
           className={cn(
             'px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
             activeTab === 'tables'
@@ -413,6 +425,7 @@ export function DatabaseBrowser({
         </button>
         {driverMeta.supportsSQL && (
           <button
+            type="button"
             className={cn(
               'px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
               activeTab === 'routines'
@@ -429,6 +442,7 @@ export function DatabaseBrowser({
         )}
         {driverMeta.supportsSQL && (
           <button
+            type="button"
             className={cn(
               'px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
               activeTab === 'triggers'
@@ -445,6 +459,7 @@ export function DatabaseBrowser({
         )}
         {driverMeta.supportsSQL && (
           <button
+            type="button"
             className={cn(
               'px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
               activeTab === 'schema'
@@ -512,6 +527,7 @@ export function DatabaseBrowser({
                   <div className="border border-border rounded-md divide-y divide-border">
                     {collections.slice(0, 10).map(col => (
                       <button
+                        type="button"
                         key={col.name}
                         className="flex items-center justify-between w-full px-3 py-2 hover:bg-muted/50 transition-colors text-left"
                         onClick={() => onTableSelect(namespace, col.name)}
@@ -532,6 +548,7 @@ export function DatabaseBrowser({
                     ))}
                     {collections.length > 10 && (
                       <button
+                        type="button"
                         className="w-full px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
                         onClick={() => setActiveTab('tables')}
                       >
@@ -580,6 +597,7 @@ export function DatabaseBrowser({
               ) : (
                 collections.map(col => (
                   <button
+                    type="button"
                     key={col.name}
                     className="flex items-center justify-between w-full px-4 py-3 hover:bg-muted/50 transition-colors text-left"
                     onClick={() => onTableSelect(namespace, col.name)}

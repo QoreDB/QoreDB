@@ -1,10 +1,17 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // QoreDB - Modern local-first database client
 // Core library
 
+#[cfg(feature = "pro")]
+pub mod ai;
 pub mod commands;
+#[cfg(feature = "pro")]
+pub mod federation;
 pub mod engine;
 pub mod export;
 pub mod interceptor;
+pub mod license;
 pub mod metrics;
 pub mod observability;
 pub mod policy;
@@ -14,16 +21,19 @@ pub mod virtual_relations;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
+use engine::drivers::duckdb::DuckDbDriver;
 use engine::drivers::mongodb::MongoDriver;
 use engine::drivers::mysql::MySqlDriver;
 use engine::drivers::postgres::PostgresDriver;
 use engine::drivers::redis::RedisDriver;
 use engine::drivers::sqlite::SqliteDriver;
+use engine::drivers::sqlserver::SqlServerDriver;
 use engine::{DriverRegistry, QueryManager, SessionManager};
 use interceptor::InterceptorPipeline;
 use policy::SafetyPolicy;
 use vault::{VaultLock, backend::KeyringProvider};
 use export::ExportPipeline;
+use license::LicenseManager;
 use virtual_relations::VirtualRelationStore;
 
 pub type SharedState = Arc<Mutex<AppState>>;
@@ -36,6 +46,9 @@ pub struct AppState {
     pub interceptor: Arc<InterceptorPipeline>,
     pub export_pipeline: Arc<ExportPipeline>,
     pub virtual_relations: Arc<VirtualRelationStore>,
+    pub license_manager: LicenseManager,
+    #[cfg(feature = "pro")]
+    pub ai_manager: Arc<ai::manager::AiManager>,
 }
 
 impl AppState {
@@ -47,6 +60,8 @@ impl AppState {
         registry.register(Arc::new(MongoDriver::new()));
         registry.register(Arc::new(RedisDriver::new()));
         registry.register(Arc::new(SqliteDriver::new()));
+        registry.register(Arc::new(DuckDbDriver::new()));
+        registry.register(Arc::new(SqlServerDriver::new()));
 
         let registry = Arc::new(registry);
         let session_manager = Arc::new(SessionManager::new(Arc::clone(&registry)));
@@ -69,6 +84,13 @@ impl AppState {
 
         let _ = vault_lock.auto_unlock_if_no_password();
 
+        // Initialize license manager (loads stored key from keyring)
+        let license_manager = LicenseManager::new(Box::new(KeyringProvider::new()));
+
+        // Initialize AI manager (Pro only)
+        #[cfg(feature = "pro")]
+        let ai_manager = Arc::new(ai::manager::AiManager::new(Box::new(KeyringProvider::new())));
+
         Self {
             registry,
             session_manager,
@@ -78,6 +100,9 @@ impl AppState {
             interceptor,
             export_pipeline,
             virtual_relations,
+            license_manager,
+            #[cfg(feature = "pro")]
+            ai_manager,
         }
     }
 }
@@ -130,6 +155,7 @@ pub fn run() {
             commands::query::preview_table,
             commands::query::query_table,
             commands::query::peek_foreign_key,
+            commands::query::get_creation_options,
             commands::query::create_database,
             commands::query::drop_database,
             // Transaction commands
@@ -189,6 +215,22 @@ pub fn run() {
             commands::virtual_relations::add_virtual_relation,
             commands::virtual_relations::update_virtual_relation,
             commands::virtual_relations::delete_virtual_relation,
+            // License commands
+            commands::license::activate_license,
+            commands::license::get_license_status,
+            commands::license::deactivate_license,
+            commands::license::dev_set_license_tier,
+            // Federation commands
+            commands::federation::execute_federation_query,
+            commands::federation::list_federation_sources,
+            // AI commands
+            commands::ai::ai_generate_query,
+            commands::ai::ai_explain_result,
+            commands::ai::ai_summarize_schema,
+            commands::ai::ai_fix_error,
+            commands::ai::ai_save_api_key,
+            commands::ai::ai_delete_api_key,
+            commands::ai::ai_get_provider_status,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

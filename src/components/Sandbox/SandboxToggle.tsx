@@ -1,27 +1,29 @@
-import { useState, useEffect, useCallback } from 'react';
-import { getShortcut } from '@/utils/platform';
-import { useTranslation } from 'react-i18next';
+// SPDX-License-Identifier: Apache-2.0
+
 import { FlaskConical } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from '@/components/ui/dialog';
-import { TooltipRoot, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
+import { TooltipContent, TooltipRoot, TooltipTrigger } from '@/components/ui/tooltip';
 import {
-  isSandboxActive,
   activateSandbox,
   deactivateSandbox,
+  getSandboxPreferences,
   hasPendingChanges,
+  isSandboxActive,
   subscribeSandbox,
 } from '@/lib/sandboxStore';
-import { getSandboxPreferences } from '@/lib/sandboxStore';
-import { Environment } from '@/lib/tauri';
+import type { Environment } from '@/lib/tauri';
 import { cn } from '@/lib/utils';
-import { toast } from 'sonner';
+import { getShortcut } from '@/utils/platform';
 
 interface SandboxToggleProps {
   sessionId: string;

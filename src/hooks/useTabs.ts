@@ -1,7 +1,10 @@
-import { useState, useCallback, useMemo, useRef } from 'react';
-import { OpenTab } from '@/lib/tabs';
-import { TableBrowserTab } from '@/components/Browser/TableBrowser';
-import { DatabaseBrowserTab } from '@/components/Browser/DatabaseBrowser';
+// SPDX-License-Identifier: Apache-2.0
+
+import { useCallback, useMemo, useState } from 'react';
+import type { DatabaseBrowserTab } from '@/components/Browser/DatabaseBrowser';
+import type { TableBrowserTab } from '@/components/Browser/TableBrowser';
+import type { OpenTab } from '@/lib/tabs';
+import type { Namespace } from '@/lib/tauri';
 
 export interface UseTabsOptions {
   initialTabs?: OpenTab[];
@@ -17,13 +20,12 @@ export function useTabs(options: UseTabsOptions = {}) {
   const [queryDrafts, setQueryDrafts] = useState<Record<string, string>>(
     options.initialQueryDrafts ?? {}
   );
-
-  const tableBrowserTabsRef = useRef<Record<string, TableBrowserTab>>(
+  const [tableBrowserTabs, setTableBrowserTabs] = useState<Record<string, TableBrowserTab>>(
     options.initialTableBrowserTabs ?? {}
   );
-  const databaseBrowserTabsRef = useRef<Record<string, DatabaseBrowserTab>>(
-    options.initialDatabaseBrowserTabs ?? {}
-  );
+  const [databaseBrowserTabs, setDatabaseBrowserTabs] = useState<
+    Record<string, DatabaseBrowserTab>
+  >(options.initialDatabaseBrowserTabs ?? {});
 
   const activeTab = useMemo(() => tabs.find(t => t.id === activeTabId), [tabs, activeTabId]);
 
@@ -89,8 +91,19 @@ export function useTabs(options: UseTabsOptions = {}) {
       return next;
     });
 
-    delete tableBrowserTabsRef.current[tabId];
-    delete databaseBrowserTabsRef.current[tabId];
+    setTableBrowserTabs(prev => {
+      if (!(tabId in prev)) return prev;
+      const next = { ...prev };
+      delete next[tabId];
+      return next;
+    });
+
+    setDatabaseBrowserTabs(prev => {
+      if (!(tabId in prev)) return prev;
+      const next = { ...prev };
+      delete next[tabId];
+      return next;
+    });
   }, []);
 
   const updateQueryDraft = useCallback((tabId: string, value: string) => {
@@ -100,12 +113,37 @@ export function useTabs(options: UseTabsOptions = {}) {
     });
   }, []);
 
+  const updateTableBrowserTab = useCallback((tabId: string, tab: TableBrowserTab) => {
+    setTableBrowserTabs(prev => {
+      if (prev[tabId] === tab) return prev;
+      return { ...prev, [tabId]: tab };
+    });
+  }, []);
+
+  const updateDatabaseBrowserTab = useCallback((tabId: string, tab: DatabaseBrowserTab) => {
+    setDatabaseBrowserTabs(prev => {
+      if (prev[tabId] === tab) return prev;
+      return { ...prev, [tabId]: tab };
+    });
+  }, []);
+
+  const updateTabNamespace = useCallback((tabId: string, namespace: Namespace) => {
+    setTabs(prev =>
+      prev.map(t =>
+        t.id === tabId &&
+        (t.namespace?.database !== namespace.database || t.namespace?.schema !== namespace.schema)
+          ? { ...t, namespace }
+          : t
+      )
+    );
+  }, []);
+
   const reset = useCallback((options: UseTabsOptions = {}) => {
     setTabs(options.initialTabs ?? []);
     setActiveTabId(options.initialActiveTabId ?? options.initialTabs?.[0]?.id ?? null);
     setQueryDrafts(options.initialQueryDrafts ?? {});
-    tableBrowserTabsRef.current = options.initialTableBrowserTabs ?? {};
-    databaseBrowserTabsRef.current = options.initialDatabaseBrowserTabs ?? {};
+    setTableBrowserTabs(options.initialTableBrowserTabs ?? {});
+    setDatabaseBrowserTabs(options.initialDatabaseBrowserTabs ?? {});
   }, []);
 
   return {
@@ -113,12 +151,15 @@ export function useTabs(options: UseTabsOptions = {}) {
     activeTabId,
     activeTab,
     queryDrafts,
-    tableBrowserTabsRef,
-    databaseBrowserTabsRef,
+    tableBrowserTabs,
+    databaseBrowserTabs,
     openTab,
     closeTab,
     setActiveTabId,
     updateQueryDraft,
+    updateTabNamespace,
+    updateTableBrowserTab,
+    updateDatabaseBrowserTab,
     reset,
   };
 }

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * Tauri API wrappers for type-safe invocations
  */
@@ -415,6 +417,34 @@ export async function cancelQuery(
   query_id?: string;
 }> {
   return invoke('cancel_query', { sessionId, queryId });
+}
+
+// ============================================
+// DATABASE CREATION OPTIONS
+// ============================================
+
+export interface CollationInfo {
+  name: string;
+  is_default: boolean;
+}
+
+export interface CharsetInfo {
+  name: string;
+  description: string;
+  default_collation: string;
+  collations: CollationInfo[];
+}
+
+export interface CreationOptions {
+  charsets: CharsetInfo[];
+}
+
+export async function getCreationOptions(sessionId: string): Promise<{
+  success: boolean;
+  options?: CreationOptions;
+  error?: string;
+}> {
+  return invoke('get_creation_options', { sessionId });
 }
 
 export async function createDatabase(

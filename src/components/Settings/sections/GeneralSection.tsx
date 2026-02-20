@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
-import { useTranslation } from 'react-i18next';
-import { Moon, Sun, Monitor, ChevronDown } from 'lucide-react';
+// SPDX-License-Identifier: Apache-2.0
 
-import { useTheme } from '@/hooks/useTheme';
+import { ChevronDown, Monitor, Moon, Sun } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -11,6 +11,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { useTheme } from '@/hooks/useTheme';
 import { SettingsCard } from '../SettingsCard';
 
 interface GeneralSectionProps {

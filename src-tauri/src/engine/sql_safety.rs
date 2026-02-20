@@ -1,8 +1,10 @@
+// SPDX-License-Identifier: Apache-2.0
+
 //! SQL safety classification for read-only and production enforcement.
 
 use sqlparser::{
     ast::{Query, Select, SetExpr, Statement},
-    dialect::{Dialect, GenericDialect, MySqlDialect, PostgreSqlDialect},
+    dialect::{Dialect, DuckDbDialect, GenericDialect, MsSqlDialect, MySqlDialect, PostgreSqlDialect},
     parser::Parser,
 };
 
@@ -88,6 +90,10 @@ fn dialect_for_driver(driver_id: &str) -> Box<dyn Dialect> {
         Box::new(PostgreSqlDialect {})
     } else if driver_id.eq_ignore_ascii_case("mysql") {
         Box::new(MySqlDialect {})
+    } else if driver_id.eq_ignore_ascii_case("duckdb") {
+        Box::new(DuckDbDialect {})
+    } else if driver_id.eq_ignore_ascii_case("sqlserver") || driver_id.eq_ignore_ascii_case("mssql") {
+        Box::new(MsSqlDialect {})
     } else {
         Box::new(GenericDialect {})
     }

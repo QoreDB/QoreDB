@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 //! MySQL Driver
 //!
 //! Implements the DataEngine trait for MySQL/MariaDB databases using SQLx.
@@ -25,6 +27,7 @@ use crate::engine::types::{
     Routine, RoutineList, RoutineListOptions, RoutineType,
     Trigger, TriggerList, TriggerListOptions, TriggerTiming, TriggerEvent,
     DatabaseEvent, EventList, EventListOptions, EventStatus,
+    CharsetInfo, CollationInfo, CreationOptions,
 };
 use crate::engine::traits::{StreamEvent, StreamSender};
 use futures::StreamExt;
@@ -716,7 +719,70 @@ impl DataEngine for MySqlDriver {
         true
     }
 
-    async fn create_database(&self, session: SessionId, name: &str, _options: Option<Value>) -> EngineResult<()> {
+    async fn get_creation_options(&self, session: SessionId) -> EngineResult<CreationOptions> {
+        let mysql_session = self.get_session(session).await?;
+        let pool = &mysql_session.pool;
+
+        // Fetch all charsets and their default collation
+        let charset_rows: Vec<(String, String, String)> = sqlx::query_as(
+            r#"
+            SELECT
+                CAST(CHARACTER_SET_NAME AS CHAR),
+                CAST(DESCRIPTION AS CHAR),
+                CAST(DEFAULT_COLLATE_NAME AS CHAR)
+            FROM information_schema.CHARACTER_SETS
+            ORDER BY CHARACTER_SET_NAME
+            "#,
+        )
+        .fetch_all(pool)
+        .await
+        .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        // Fetch all collations grouped by charset
+        let collation_rows: Vec<(String, String, String)> = sqlx::query_as(
+            r#"
+            SELECT
+                CAST(COLLATION_NAME AS CHAR),
+                CAST(CHARACTER_SET_NAME AS CHAR),
+                CAST(IS_DEFAULT AS CHAR)
+            FROM information_schema.COLLATIONS
+            ORDER BY CHARACTER_SET_NAME, IS_DEFAULT DESC, COLLATION_NAME
+            "#,
+        )
+        .fetch_all(pool)
+        .await
+        .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        // Group collations by charset
+        let mut collations_by_charset: std::collections::HashMap<String, Vec<CollationInfo>> =
+            std::collections::HashMap::new();
+        for (collation_name, charset_name, is_default) in collation_rows {
+            collations_by_charset
+                .entry(charset_name)
+                .or_default()
+                .push(CollationInfo {
+                    name: collation_name,
+                    is_default: is_default.eq_ignore_ascii_case("yes"),
+                });
+        }
+
+        let charsets = charset_rows
+            .into_iter()
+            .map(|(name, description, default_collation)| {
+                let collations = collations_by_charset.remove(&name).unwrap_or_default();
+                CharsetInfo {
+                    name,
+                    description,
+                    default_collation,
+                    collations,
+                }
+            })
+            .collect();
+
+        Ok(CreationOptions { charsets })
+    }
+
+    async fn create_database(&self, session: SessionId, name: &str, options: Option<Value>) -> EngineResult<()> {
         let mysql_session = self.get_session(session).await?;
         let pool = &mysql_session.pool;
 
@@ -725,10 +791,44 @@ impl DataEngine for MySqlDriver {
             return Err(EngineError::validation("Database name must be between 1 and 64 characters"));
         }
 
-        // Identifier quoting with backticks for MySQL
-        // Simple escape of backticks to avoid injection
+        // Parse optional charset and collation from JSON options
+        let (charset, collation) = if let Some(Value::Json(opts)) = &options {
+            let charset = opts.get("charset").and_then(|v| v.as_str()).map(str::to_owned);
+            let collation = opts.get("collation").and_then(|v| v.as_str()).map(str::to_owned);
+            (charset, collation)
+        } else {
+            (None, None)
+        };
+
+        // Security: validate charset and collation names (alphanumeric + underscore only)
+        fn is_valid_identifier(s: &str) -> bool {
+            !s.is_empty() && s.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+        }
+
+        if let Some(ref cs) = charset {
+            if !is_valid_identifier(cs) {
+                return Err(EngineError::validation(
+                    "Invalid character set name: only alphanumeric characters and underscores are allowed",
+                ));
+            }
+        }
+        if let Some(ref col) = collation {
+            if !is_valid_identifier(col) {
+                return Err(EngineError::validation(
+                    "Invalid collation name: only alphanumeric characters and underscores are allowed",
+                ));
+            }
+        }
+
+        // Build CREATE DATABASE statement
         let escaped_name = name.replace('`', "``");
-        let query = format!("CREATE DATABASE `{}`", escaped_name);
+        let mut query = format!("CREATE DATABASE `{}`", escaped_name);
+        if let Some(ref cs) = charset {
+            query.push_str(&format!(" CHARACTER SET {}", cs));
+        }
+        if let Some(ref col) = collation {
+            query.push_str(&format!(" COLLATE {}", col));
+        }
 
         sqlx::query(&query)
             .execute(pool)
@@ -1273,10 +1373,10 @@ impl DataEngine for MySqlDriver {
             }
         }
 
-        // Handle search across text columns
+        // Handle search across all columns
         if let Some(ref search_term) = options.search {
             if !search_term.trim().is_empty() {
-                // Get column info to find text columns
+                // Get column info to determine cast strategy
                 let columns_sql = "SELECT COLUMN_NAME, CAST(DATA_TYPE AS CHAR) AS DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?";
                 let columns_rows: Vec<MySqlRow> = {
                     let mut tx_guard = mysql_session.transaction_conn.lock().await;
@@ -1303,15 +1403,26 @@ impl DataEngine for MySqlDriver {
                     let data_type: String = col_row.try_get("DATA_TYPE")
                         .map_err(|e| EngineError::execution_error(e.to_string()))?;
 
-                    // Only search text-like columns
-                    let is_text = matches!(data_type.to_lowercase().as_str(),
+                    // Skip binary/unsearchable column types
+                    let lower = data_type.to_lowercase();
+                    let is_unsearchable = matches!(lower.as_str(),
+                        "blob" | "tinyblob" | "mediumblob" | "longblob" | "binary" | "varbinary" | "geometry" | "point" | "linestring" | "polygon"
+                    );
+                    if is_unsearchable {
+                        continue;
+                    }
+
+                    let col_ident = Self::quote_ident(&col_name);
+                    bind_values.push(Value::Text(format!("%{}%", search_term)));
+
+                    // Text columns can use LIKE directly, others need CAST
+                    let is_text = matches!(lower.as_str(),
                         "varchar" | "char" | "text" | "tinytext" | "mediumtext" | "longtext" | "enum" | "set"
                     );
-
                     if is_text {
-                        let col_ident = Self::quote_ident(&col_name);
-                        bind_values.push(Value::Text(format!("%{}%", search_term)));
                         search_clauses.push(format!("{} LIKE ?", col_ident));
+                    } else {
+                        search_clauses.push(format!("CAST({} AS CHAR) LIKE ?", col_ident));
                     }
                 }
 
@@ -1384,8 +1495,42 @@ impl DataEngine for MySqlDriver {
         let execution_time_ms = start.elapsed().as_micros() as f64 / 1000.0;
 
         let result = if mysql_rows.is_empty() {
+            // Get column metadata from information_schema even when no rows match
+            let col_meta_sql = "SELECT COLUMN_NAME, CAST(DATA_TYPE AS CHAR) AS DATA_TYPE, IS_NULLABLE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? ORDER BY ORDINAL_POSITION";
+            let col_meta_rows: Vec<MySqlRow> = {
+                let mut tx_guard = mysql_session.transaction_conn.lock().await;
+                if let Some(ref mut conn) = *tx_guard {
+                    sqlx::query(col_meta_sql)
+                        .bind(&namespace.database)
+                        .bind(table)
+                        .fetch_all(&mut **conn)
+                        .await
+                } else {
+                    sqlx::query(col_meta_sql)
+                        .bind(&namespace.database)
+                        .bind(table)
+                        .fetch_all(&mysql_session.pool)
+                        .await
+                }
+            }
+            .unwrap_or_default();
+
+            let columns: Vec<ColumnInfo> = col_meta_rows
+                .iter()
+                .filter_map(|r| {
+                    let name: String = r.try_get("COLUMN_NAME").ok()?;
+                    let data_type: String = r.try_get("DATA_TYPE").ok()?;
+                    let is_nullable: String = r.try_get("IS_NULLABLE").ok()?;
+                    Some(ColumnInfo {
+                        name,
+                        data_type,
+                        nullable: is_nullable == "YES",
+                    })
+                })
+                .collect();
+
             QueryResult {
-                columns: Vec::new(),
+                columns,
                 rows: Vec::new(),
                 affected_rows: None,
                 execution_time_ms,

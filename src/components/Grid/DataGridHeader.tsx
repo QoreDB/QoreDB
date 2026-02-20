@@ -1,12 +1,14 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * Header bar component for DataGrid
  * Displays row counts, timing info, load more controls, and delete button
  */
 
-import { useTranslation } from 'react-i18next';
 import { Trash2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
-import { QueryResult } from '@/lib/tauri';
+import type { QueryResult } from '@/lib/tauri';
 
 export interface DataGridHeaderProps {
   selectedCount: number;
@@ -37,9 +39,7 @@ export function DataGridHeader({
   return (
     <div className="text-xs text-muted-foreground flex items-center gap-3">
       {selectedCount > 0 ? (
-        <>
-          <span>{t('grid.rowsSelected', { count: selectedCount })}</span>
-        </>
+        <span>{t('grid.rowsSelected', { count: selectedCount })}</span>
       ) : (
         <div className="flex items-center gap-3">
           <span>{t('grid.rowsTotal', { count: totalRows })}</span>

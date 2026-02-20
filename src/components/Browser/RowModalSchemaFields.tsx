@@ -1,7 +1,9 @@
-import { TableColumn } from '../../lib/tauri';
+// SPDX-License-Identifier: Apache-2.0
+
 import { Input } from '@/components/ui/input';
-import { Label } from '../ui/label';
+import type { TableColumn } from '../../lib/tauri';
 import { Checkbox } from '../ui/checkbox';
+import { Label } from '../ui/label';
 
 interface RowModalSchemaFieldsProps {
   columns: TableColumn[];

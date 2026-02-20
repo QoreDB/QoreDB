@@ -1,7 +1,9 @@
+// SPDX-License-Identifier: Apache-2.0
+
+import { Keyboard, PanelLeft, Plus, RotateCcw, Search } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { getShortcutSymbol } from '@/utils/platform';
 import { Button } from '@/components/ui/button';
-import { Plus, Search, RotateCcw, PanelLeft, Keyboard } from 'lucide-react';
+import { getShortcutSymbol } from '@/utils/platform';
 
 interface RecoveryState {
   snapshot: { connectionId: string } | null;

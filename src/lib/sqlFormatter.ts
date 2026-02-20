@@ -1,4 +1,6 @@
-import { format, SqlLanguage } from 'sql-formatter';
+// SPDX-License-Identifier: Apache-2.0
+
+import { format, type SqlLanguage } from 'sql-formatter';
 import { Driver } from './drivers';
 
 const DIALECT_MAP: Record<Driver, SqlLanguage> = {
@@ -7,6 +9,8 @@ const DIALECT_MAP: Record<Driver, SqlLanguage> = {
   [Driver.Mongodb]: 'sql',
   [Driver.Redis]: 'sql',
   [Driver.Sqlite]: 'sqlite',
+  [Driver.SqlServer]: 'tsql',
+  [Driver.Duckdb]: 'sql',
 };
 
 export function formatSql(query: string, driver: Driver): string {

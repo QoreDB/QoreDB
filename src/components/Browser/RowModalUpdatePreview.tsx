@@ -1,4 +1,6 @@
-import { Value } from '../../lib/tauri';
+// SPDX-License-Identifier: Apache-2.0
+
+import type { Value } from '../../lib/tauri';
 
 interface RowModalUpdatePreviewProps {
   changes: { key: string; previous: Value; next: Value }[];

@@ -1,15 +1,17 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * Editable data cell component for DataGrid
  * Handles cell display, inline editing, and foreign key peek tooltips
  */
 
-import { RefObject } from 'react';
+import type { RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
+import type { ForeignKey, Namespace, RelationFilter, Value } from '@/lib/tauri';
 import { cn } from '@/lib/utils';
-import { Value, Namespace, ForeignKey, RelationFilter } from '@/lib/tauri';
-import { formatValue, RowData } from './utils/dataGridUtils';
-import { PeekState } from './hooks/useForeignKeyPeek';
 import { ForeignKeyPeekTooltip } from './ForeignKeyPeekTooltip';
+import type { PeekState } from './hooks/useForeignKeyPeek';
+import { formatValue, type RowData } from './utils/dataGridUtils';
 
 export interface EditableDataCellProps {
   value: Value;

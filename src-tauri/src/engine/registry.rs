@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 //! Driver Registry
 //!
 //! Central registry for all available database drivers.

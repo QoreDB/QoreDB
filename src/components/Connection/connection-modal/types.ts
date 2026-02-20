@@ -1,5 +1,7 @@
-import type { Environment } from '@/lib/tauri';
+// SPDX-License-Identifier: Apache-2.0
+
 import { Driver } from '@/lib/drivers';
+import type { Environment } from '@/lib/tauri';
 
 export interface ConnectionFormData {
   name: string;

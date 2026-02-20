@@ -1,15 +1,17 @@
-import { useTranslation } from 'react-i18next';
-import { Lock, Shield } from 'lucide-react';
+// SPDX-License-Identifier: Apache-2.0
 
+import { Lock, Shield } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { cn } from '@/lib/utils';
-import { ENVIRONMENT_CONFIG } from '@/lib/environment';
 import { Driver } from '@/lib/drivers';
-
-import type { ConnectionFormData } from './types';
+import { ENVIRONMENT_CONFIG } from '@/lib/environment';
+import { cn } from '@/lib/utils';
 import { FileSection } from './FileSection';
+import type { ConnectionFormData } from './types';
 
 interface BasicSectionProps {
   formData: ConnectionFormData;
@@ -25,9 +27,8 @@ export function BasicSection({
 }: BasicSectionProps) {
   const { t } = useTranslation();
 
-  const isFileBased = formData.driver === Driver.Sqlite;
-  const usernameRequired =
-    formData.driver !== Driver.Mongodb && formData.driver !== Driver.Redis;
+  const isFileBased = formData.driver === Driver.Sqlite || formData.driver === Driver.Duckdb;
+  const usernameRequired = formData.driver !== Driver.Mongodb && formData.driver !== Driver.Redis;
 
   return (
     <div className="rounded-md border border-border bg-background p-4 space-y-4">
@@ -51,11 +52,13 @@ export function BasicSection({
               const config = ENVIRONMENT_CONFIG[env];
               const isSelected = formData.environment === env;
               return (
-                <button
+                <Button
                   key={env}
                   type="button"
+                  variant="ghost"
+                  size="sm"
                   className={cn(
-                    'flex-1 px-3 py-2 rounded-md text-xs font-semibold border-2 transition-all',
+                    'h-auto flex-1 px-3 py-2 rounded-md text-xs font-semibold border-2 transition-all',
                     isSelected
                       ? 'border-transparent shadow-sm'
                       : 'border-border bg-background hover:bg-muted text-muted-foreground'
@@ -72,7 +75,7 @@ export function BasicSection({
                   onClick={() => onChange('environment', env)}
                 >
                   {config.labelShort}
-                </button>
+                </Button>
               );
             })}
           </div>
@@ -124,7 +127,7 @@ export function BasicSection({
               <Input
                 type="number"
                 value={formData.port}
-                onChange={e => onChange('port', parseInt(e.target.value) || 0)}
+                onChange={e => onChange('port', parseInt(e.target.value, 10) || 0)}
               />
             </div>
           </div>

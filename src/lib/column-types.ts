@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * Column types and DDL utilities for QoreDB
  *
@@ -130,6 +132,71 @@ const SQLITE_TYPES: ColumnType[] = [
   { name: 'BLOB', category: 'binary' },
 ];
 
+// DuckDB column types
+const DUCKDB_TYPES: ColumnType[] = [
+  // Integers
+  { name: 'TINYINT', category: 'integer' },
+  { name: 'SMALLINT', category: 'integer' },
+  { name: 'INTEGER', category: 'integer' },
+  { name: 'BIGINT', category: 'integer' },
+  { name: 'HUGEINT', category: 'integer' },
+  // Floats
+  { name: 'FLOAT', category: 'float' },
+  { name: 'DOUBLE', category: 'float' },
+  { name: 'DECIMAL', category: 'float', hasPrecision: true },
+  // Strings
+  { name: 'VARCHAR', category: 'string', hasLength: true },
+  { name: 'TEXT', category: 'text' },
+  // Dates
+  { name: 'DATE', category: 'date' },
+  { name: 'TIME', category: 'date' },
+  { name: 'TIMESTAMP', category: 'date' },
+  { name: 'TIMESTAMPTZ', category: 'date' },
+  { name: 'INTERVAL', category: 'date' },
+  // Others
+  { name: 'BOOLEAN', category: 'boolean' },
+  { name: 'UUID', category: 'other' },
+  { name: 'BLOB', category: 'binary' },
+  { name: 'JSON', category: 'json' },
+];
+
+// SQL Server column types
+const SQLSERVER_TYPES: ColumnType[] = [
+  // Integers
+  { name: 'TINYINT', category: 'integer' },
+  { name: 'SMALLINT', category: 'integer' },
+  { name: 'INT', category: 'integer' },
+  { name: 'BIGINT', category: 'integer' },
+  // Floats
+  { name: 'FLOAT', category: 'float' },
+  { name: 'REAL', category: 'float' },
+  { name: 'DECIMAL', category: 'float', hasPrecision: true },
+  { name: 'NUMERIC', category: 'float', hasPrecision: true },
+  { name: 'MONEY', category: 'float' },
+  { name: 'SMALLMONEY', category: 'float' },
+  // Strings
+  { name: 'VARCHAR', category: 'string', hasLength: true },
+  { name: 'NVARCHAR', category: 'string', hasLength: true },
+  { name: 'CHAR', category: 'string', hasLength: true },
+  { name: 'NCHAR', category: 'string', hasLength: true },
+  { name: 'TEXT', category: 'text' },
+  { name: 'NTEXT', category: 'text' },
+  // Dates
+  { name: 'DATE', category: 'date' },
+  { name: 'TIME', category: 'date' },
+  { name: 'DATETIME', category: 'date' },
+  { name: 'DATETIME2', category: 'date' },
+  { name: 'SMALLDATETIME', category: 'date' },
+  { name: 'DATETIMEOFFSET', category: 'date' },
+  // Others
+  { name: 'BIT', category: 'boolean' },
+  { name: 'UNIQUEIDENTIFIER', category: 'other' },
+  { name: 'VARBINARY', category: 'binary', hasLength: true },
+  { name: 'BINARY', category: 'binary', hasLength: true },
+  { name: 'IMAGE', category: 'binary' },
+  { name: 'XML', category: 'other' },
+];
+
 // Driver to column types mapping
 export const COLUMN_TYPES: Record<Driver, ColumnType[]> = {
   [Driver.Postgres]: POSTGRES_TYPES,
@@ -137,6 +204,8 @@ export const COLUMN_TYPES: Record<Driver, ColumnType[]> = {
   [Driver.Mongodb]: [],
   [Driver.Redis]: [],
   [Driver.Sqlite]: SQLITE_TYPES,
+  [Driver.Duckdb]: DUCKDB_TYPES,
+  [Driver.SqlServer]: SQLSERVER_TYPES,
 };
 
 /** Get column types for a driver */

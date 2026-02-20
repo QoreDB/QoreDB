@@ -1,52 +1,58 @@
-import { useMemo, useState, useCallback, useRef, useEffect } from 'react';
+// SPDX-License-Identifier: Apache-2.0
+
 import {
-  useReactTable,
-  getCoreRowModel,
-  getSortedRowModel,
-  getPaginationRowModel,
-  getFilteredRowModel,
+  type ColumnDef,
+  type ColumnFiltersState,
   createColumnHelper,
-  SortingState,
-  RowSelectionState,
-  PaginationState,
-  ColumnDef,
-  VisibilityState,
-  ColumnFiltersState,
+  getCoreRowModel,
+  getFilteredRowModel,
+  getPaginationRowModel,
+  getSortedRowModel,
+  type PaginationState,
+  type RowSelectionState,
+  type SortingState,
+  useReactTable,
+  type VisibilityState,
 } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import {
-  QueryResult,
-  Value,
-  Namespace,
-  Environment,
-  TableSchema,
-  RelationFilter,
-} from '@/lib/tauri';
 import { CheckCircle2, Pencil } from 'lucide-react';
-import { Checkbox } from '@/components/ui/checkbox';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-
-import { RowData, formatValue, convertToRowData } from './utils/dataGridUtils';
+import { StreamingExportDialog } from '@/components/Export/StreamingExportDialog';
+import { DangerConfirmDialog } from '@/components/Guard/DangerConfirmDialog';
+import { Checkbox } from '@/components/ui/checkbox';
+import { useStreamingExport } from '@/hooks/useStreamingExport';
+import { aiExplainResult } from '@/lib/ai';
+import type { ExportConfig } from '@/lib/export';
+import { applyOverlay, emptyOverlayResult, type OverlayResult } from '@/lib/sandboxOverlay';
+import type { SandboxChange, SandboxDeleteDisplay } from '@/lib/sandboxTypes';
+import type {
+  Environment,
+  Namespace,
+  QueryResult,
+  RelationFilter,
+  SortDirection,
+  TableSchema,
+  Value,
+} from '@/lib/tauri';
+import { type ExportDataDetail, UI_EVENT_EXPORT_DATA } from '@/lib/uiEvents';
+import { useAiPreferences } from '@/providers/AiPreferencesProvider';
+import { useLicense } from '@/providers/LicenseProvider';
+import { DataGridColumnHeader } from './DataGridColumnHeader';
+import { DataGridHeader } from './DataGridHeader';
+import { DataGridPagination } from './DataGridPagination';
+import { DataGridStatusBar } from './DataGridStatusBar';
+import { DataGridTableBody } from './DataGridTableBody';
+import { DataGridTableHeader } from './DataGridTableHeader';
+import { DataGridToolbar } from './DataGridToolbar';
+import { DeleteConfirmDialog } from './DeleteConfirmDialog';
+import { EditableDataCell } from './EditableDataCell';
 import { useDataGridCopy } from './hooks/useDataGridCopy';
+import { useDataGridDelete } from './hooks/useDataGridDelete';
 import { useDataGridExport } from './hooks/useDataGridExport';
 import { useForeignKeyPeek } from './hooks/useForeignKeyPeek';
 import { useInlineEdit } from './hooks/useInlineEdit';
-import { useDataGridDelete } from './hooks/useDataGridDelete';
-import { useStreamingExport } from '@/hooks/useStreamingExport';
-import { DataGridToolbar } from './DataGridToolbar';
-import { DataGridPagination } from './DataGridPagination';
-import { DeleteConfirmDialog } from './DeleteConfirmDialog';
-import { DangerConfirmDialog } from '@/components/Guard/DangerConfirmDialog';
-import { DataGridColumnHeader } from './DataGridColumnHeader';
-import { DataGridHeader } from './DataGridHeader';
-import { DataGridTableHeader } from './DataGridTableHeader';
-import { DataGridTableBody } from './DataGridTableBody';
-import { EditableDataCell } from './EditableDataCell';
-import { SandboxChange, SandboxDeleteDisplay } from '@/lib/sandboxTypes';
-import { applyOverlay, OverlayResult, emptyOverlayResult } from '@/lib/sandboxOverlay';
-import { ExportDataDetail, UI_EVENT_EXPORT_DATA } from '@/lib/uiEvents';
-import { StreamingExportDialog } from '@/components/Export/StreamingExportDialog';
-import type { ExportConfig } from '@/lib/export';
+import { convertToRowData, formatValue, type RowData } from './utils/dataGridUtils';
 
 const EMPTY_OVERLAY_RESULT: OverlayResult = {
   result: {
@@ -95,11 +101,16 @@ interface DataGridProps {
     newValues: Record<string, Value>
   ) => void;
   onSandboxDelete?: (primaryKey: Record<string, Value>, oldValues: Record<string, Value>) => void;
-  serverSideTotalRows?: number;
-  serverSidePage?: number;
-  serverSidePageSize?: number;
-  onServerPageChange?: (page: number) => void;
-  onServerPageSizeChange?: (pageSize: number) => void;
+  // Infinite scroll props
+  infiniteScrollTotalRows?: number;
+  infiniteScrollLoadedRows?: number;
+  infiniteScrollIsFetchingMore?: boolean;
+  infiniteScrollIsComplete?: boolean;
+  onFetchMore?: () => void;
+  // Server-side sort/search
+  serverSortColumn?: string;
+  serverSortDirection?: SortDirection;
+  onServerSortChange?: (column?: string, direction?: SortDirection) => void;
   serverSearchTerm?: string;
   onServerSearchChange?: (term: string) => void;
   exportQuery?: string;
@@ -127,11 +138,14 @@ export function DataGrid({
   sandboxDeleteDisplay = 'strikethrough',
   onSandboxUpdate,
   onSandboxDelete,
-  serverSideTotalRows,
-  serverSidePage,
-  serverSidePageSize,
-  onServerPageChange,
-  onServerPageSizeChange,
+  infiniteScrollTotalRows,
+  infiniteScrollLoadedRows,
+  infiniteScrollIsFetchingMore,
+  infiniteScrollIsComplete,
+  onFetchMore,
+  serverSortColumn,
+  serverSortDirection,
+  onServerSortChange,
   serverSearchTerm,
   onServerSearchChange,
   exportQuery,
@@ -146,13 +160,52 @@ export function DataGrid({
   });
   const [internalGlobalFilter, setInternalGlobalFilter] = useState(initialFilter ?? '');
   const initialFilterRef = useRef<string | undefined>(undefined);
-
-  const globalFilter = serverSearchTerm !== undefined ? serverSearchTerm : internalGlobalFilter;
-  const setGlobalFilter = onServerSearchChange || setInternalGlobalFilter;
+  const isInfiniteScrollMode = infiniteScrollTotalRows !== undefined;
+  const isServerSideMode = isInfiniteScrollMode;
+  const noopServerSearchChange = useCallback((_term: string) => {}, []);
+  const globalFilter = isServerSideMode ? (serverSearchTerm ?? '') : internalGlobalFilter;
+  const setGlobalFilter = isServerSideMode
+    ? (onServerSearchChange ?? noopServerSearchChange)
+    : setInternalGlobalFilter;
 
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [showFilters, setShowFilters] = useState(false);
+  const isServerSideSorting = isServerSideMode;
+
+  useEffect(() => {
+    if (!isServerSideSorting) return;
+
+    if (!serverSortColumn || !serverSortDirection) {
+      setSorting([]);
+      return;
+    }
+
+    setSorting([
+      {
+        id: serverSortColumn,
+        desc: serverSortDirection === 'desc',
+      },
+    ]);
+  }, [isServerSideSorting, serverSortColumn, serverSortDirection]);
+
+  const handleSortingChange = useCallback(
+    (updater: SortingState | ((old: SortingState) => SortingState)) => {
+      const nextSorting = typeof updater === 'function' ? updater(sorting) : updater;
+
+      setSorting(nextSorting);
+      if (!isServerSideSorting) return;
+
+      const primarySort = nextSorting[0];
+      if (!primarySort) {
+        onServerSortChange?.(undefined, undefined);
+        return;
+      }
+
+      onServerSortChange?.(primarySort.id, primarySort.desc ? 'desc' : 'asc');
+    },
+    [sorting, isServerSideSorting, onServerSortChange]
+  );
 
   useEffect(() => {
     if (initialFilter === undefined) return;
@@ -207,7 +260,9 @@ export function DataGrid({
 
   const columnTypeMap = useMemo(() => {
     const map = new Map<string, string>();
-    result?.columns.forEach(col => map.set(col.name, col.data_type));
+    result?.columns.forEach(col => {
+      map.set(col.name, col.data_type);
+    });
     return map;
   }, [result]);
 
@@ -287,7 +342,7 @@ export function DataGrid({
   // Reset editing state when result changes
   useEffect(() => {
     cancelInlineEdit();
-  }, [cancelInlineEdit, result]);
+  }, [cancelInlineEdit]);
 
   // Build columns
   const columns = useMemo<ColumnDef<RowData, Value>[]>(() => {
@@ -466,27 +521,28 @@ export function DataGrid({
     state: {
       sorting,
       rowSelection,
-      pagination,
+      ...(isInfiniteScrollMode ? {} : { pagination }),
       globalFilter,
       columnVisibility,
       columnFilters,
     },
-    onSortingChange: setSorting,
+    onSortingChange: handleSortingChange,
     onRowSelectionChange: setRowSelection,
-    onPaginationChange: setPagination,
+    ...(isInfiniteScrollMode ? {} : { onPaginationChange: setPagination }),
     onGlobalFilterChange: setGlobalFilter,
     onColumnVisibilityChange: setColumnVisibility,
     onColumnFiltersChange: setColumnFilters,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
+    ...(isInfiniteScrollMode ? {} : { getPaginationRowModel: getPaginationRowModel() }),
     getFilteredRowModel: getFilteredRowModel(),
     enableRowSelection: true,
     globalFilterFn: 'includesString',
     enableColumnResizing: true,
     columnResizeMode: 'onChange',
-    manualPagination: serverSideTotalRows !== undefined,
-    manualFiltering: serverSearchTerm !== undefined,
+    manualPagination: isInfiniteScrollMode,
+    manualSorting: isServerSideSorting,
+    manualFiltering: isServerSideMode,
   });
 
   const { rows } = table.getRowModel();
@@ -526,6 +582,40 @@ export function DataGrid({
     overscan: 10,
   });
 
+  // Infinite scroll: fetch more data when near bottom
+  useEffect(() => {
+    if (!isInfiniteScrollMode || !onFetchMore) return;
+
+    const scrollEl = parentRef.current;
+    if (!scrollEl) return;
+
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = scrollEl;
+      const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+
+      if (distanceFromBottom < 500 && !infiniteScrollIsFetchingMore && !infiniteScrollIsComplete) {
+        onFetchMore();
+      }
+    };
+
+    scrollEl.addEventListener('scroll', handleScroll, { passive: true });
+    return () => scrollEl.removeEventListener('scroll', handleScroll);
+  }, [isInfiniteScrollMode, onFetchMore, infiniteScrollIsFetchingMore, infiniteScrollIsComplete]);
+
+  // Scroll to top when data resets (sort/search change)
+  const prevLoadedRows = useRef(infiniteScrollLoadedRows);
+  useEffect(() => {
+    if (
+      isInfiniteScrollMode &&
+      prevLoadedRows.current !== undefined &&
+      prevLoadedRows.current > 0 &&
+      (infiniteScrollLoadedRows === 0 || infiniteScrollLoadedRows === undefined)
+    ) {
+      parentRef.current?.scrollTo(0, 0);
+    }
+    prevLoadedRows.current = infiniteScrollLoadedRows;
+  }, [isInfiniteScrollMode, infiniteScrollLoadedRows]);
+
   // Copy/export hooks
   const getSelectedRows = useCallback(() => table.getSelectedRowModel().rows, [table]);
 
@@ -556,6 +646,28 @@ export function DataGrid({
     },
     [startStreamingExport]
   );
+
+  // AI Explain Results
+  const { isFeatureEnabled } = useLicense();
+  const { getConfig, isReady: aiReady } = useAiPreferences();
+  const [aiExplanation, setAiExplanation] = useState<string | null>(null);
+  const [aiExplainLoading, setAiExplainLoading] = useState(false);
+  const canExplainWithAi = isFeatureEnabled('ai') && Boolean(sessionId) && aiReady;
+
+  const handleExplainWithAi = useCallback(async () => {
+    if (!sessionId || !result || aiExplainLoading) return;
+    setAiExplainLoading(true);
+    try {
+      const summary = `${result.rows.length} rows, ${result.columns.length} columns (${result.columns.map(c => c.name).join(', ')})`;
+      const queryUsed = exportQuery || '';
+      const response = await aiExplainResult(sessionId, queryUsed, summary, getConfig(), namespace);
+      setAiExplanation(response.content);
+    } catch {
+      setAiExplanation(null);
+    } finally {
+      setAiExplainLoading(false);
+    }
+  }, [sessionId, result, aiExplainLoading, exportQuery, getConfig, namespace]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -599,8 +711,8 @@ export function DataGrid({
     return () => window.removeEventListener(UI_EVENT_EXPORT_DATA, handler);
   }, [exportToFile]);
 
-  // Early return for empty state
-  if (!result || result.columns.length === 0) {
+  // Early return for empty state (but never when a search filter is active)
+  if ((!result || result.columns.length === 0) && !globalFilter) {
     if (result && typeof result.affected_rows === 'number') {
       const time = Math.round(result.execution_time_ms ?? 0);
       const message =
@@ -650,6 +762,10 @@ export function DataGrid({
           copied={!!copied}
           showFilters={showFilters}
           setShowFilters={setShowFilters}
+          onExplainWithAi={canExplainWithAi ? handleExplainWithAi : undefined}
+          aiExplanation={aiExplanation}
+          aiExplainLoading={aiExplainLoading}
+          onDismissAiExplanation={() => setAiExplanation(null)}
         />
       </div>
 
@@ -666,15 +782,16 @@ export function DataGrid({
         </table>
       </div>
 
-      <DataGridPagination
-        table={table}
-        pagination={pagination}
-        serverSideTotalRows={serverSideTotalRows}
-        serverSidePage={serverSidePage}
-        serverSidePageSize={serverSidePageSize}
-        onServerPageChange={onServerPageChange}
-        onServerPageSizeChange={onServerPageSizeChange}
-      />
+      {isInfiniteScrollMode ? (
+        <DataGridStatusBar
+          loadedRows={infiniteScrollLoadedRows ?? 0}
+          totalRows={infiniteScrollTotalRows ?? 0}
+          isFetchingMore={infiniteScrollIsFetchingMore ?? false}
+          isComplete={infiniteScrollIsComplete ?? false}
+        />
+      ) : (
+        <DataGridPagination table={table} pagination={pagination} />
+      )}
 
       {canStreamExport && exportQuery && (
         <StreamingExportDialog

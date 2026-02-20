@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 //! Safety Rules Engine
 //!
 //! Enforces safety rules to prevent dangerous or unauthorized queries.

@@ -59,8 +59,20 @@ services:
     volumes:
       - redis_data:/data
 
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: qoredb-sqlserver
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "QoreDB_Test123!"
+    ports:
+      - '1433:1433'
+    volumes:
+      - sqlserver_data:/var/opt/mssql
+
 volumes:
   postgres_data:
   mysql_data:
   mongo_data:
   redis_data:
+  sqlserver_data:

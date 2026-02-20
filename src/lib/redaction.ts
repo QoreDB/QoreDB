@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 const URI_PASSWORD_PATTERN =
   /(\b(?:postgres|postgresql|mysql|mariadb|mongodb|redis|mssql|oracle):\/\/[^:\s/]+:)([^@\s/]+)(@)/gi;
 const SECRET_ASSIGNMENT_PATTERN =

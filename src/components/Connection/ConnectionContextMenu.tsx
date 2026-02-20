@@ -1,5 +1,9 @@
-import { ReactNode, useState } from 'react';
-import { Copy, Loader2, Pencil, Trash2, Zap } from 'lucide-react';
+// SPDX-License-Identifier: Apache-2.0
+
+import { Copy, Loader2, Pencil, Terminal, Trash2, Zap } from 'lucide-react';
+import { type ReactNode, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { Button } from '@/components/ui/button';
 import {
   ContextMenu,
   ContextMenuContent,
@@ -10,19 +14,21 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { SavedConnection } from '../../lib/tauri';
+import type { SavedConnection } from '../../lib/tauri';
 import { useConnectionActions } from './useConnectionActions';
-import { useTranslation } from 'react-i18next';
 
 interface ConnectionContextMenuProps {
   connection: SavedConnection;
   onEdit: (connection: SavedConnection, password: string) => void;
   onDeleted: () => void;
+  isFavorite?: boolean;
+  onToggleFavorite?: () => void;
+  onNewQuery?: () => void;
+  isConnected?: boolean;
   children: ReactNode;
 }
 
@@ -30,6 +36,10 @@ export function ConnectionContextMenu({
   connection,
   onEdit,
   onDeleted,
+  isFavorite,
+  onToggleFavorite,
+  onNewQuery,
+  isConnected,
   children,
 }: ConnectionContextMenuProps) {
   const { t } = useTranslation();
@@ -47,6 +57,15 @@ export function ConnectionContextMenu({
       <ContextMenu>
         <ContextMenuTrigger asChild>{children}</ContextMenuTrigger>
         <ContextMenuContent className="w-48">
+          {isConnected && onNewQuery && (
+            <>
+              <ContextMenuItem onSelect={() => onNewQuery()}>
+                <Terminal size={14} />
+                {t('connection.menu.newQuery')}
+              </ContextMenuItem>
+              <ContextMenuSeparator />
+            </>
+          )}
           <ContextMenuItem onSelect={() => handleTest()} disabled={testing}>
             {testing ? <Loader2 size={14} className="animate-spin" /> : <Zap size={14} />}
             {t('connection.menu.testConnection')}
@@ -59,6 +78,11 @@ export function ConnectionContextMenu({
             {duplicating ? <Loader2 size={14} className="animate-spin" /> : <Copy size={14} />}
             {t('connection.menu.duplicate')}
           </ContextMenuItem>
+          {onToggleFavorite && (
+            <ContextMenuItem onSelect={() => onToggleFavorite()}>
+              {isFavorite ? t('sidebar.removeFromFavorites') : t('sidebar.addToFavorites')}
+            </ContextMenuItem>
+          )}
           <ContextMenuSeparator />
           <ContextMenuItem
             variant="destructive"

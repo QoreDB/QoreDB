@@ -1,15 +1,17 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * Hook for file export functionality in DataGrid
  */
 
-import { useCallback } from 'react';
-import { Row } from '@tanstack/react-table';
-import { useTranslation } from 'react-i18next';
-import { toast } from 'sonner';
+import type { Row } from '@tanstack/react-table';
 import { save } from '@tauri-apps/plugin-dialog';
 import { writeTextFile } from '@tauri-apps/plugin-fs';
-import { QueryResult } from '@/lib/tauri';
-import { formatValue, RowData, escapeCSV } from '../utils/dataGridUtils';
+import { useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
+import type { QueryResult } from '@/lib/tauri';
+import { escapeCSV, formatValue, type RowData } from '../utils/dataGridUtils';
 
 interface UseDataGridExportProps {
   rows: Row<RowData>[];

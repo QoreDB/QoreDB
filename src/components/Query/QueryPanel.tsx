@@ -1,22 +1,15 @@
-import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
+// SPDX-License-Identifier: Apache-2.0
+
+import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { MONGO_TEMPLATES } from '../Editor/mongo-constants';
-import { DocumentEditorModal } from '../Editor/DocumentEditorModal';
-import { QueryHistory } from '../History/QueryHistory';
-import {
-  executeQuery,
-  cancelQuery,
-  QueryResult,
-  Environment,
-  Value,
-  Namespace,
-  DriverCapabilities,
-  ColumnInfo,
-  Row,
-} from '../../lib/tauri';
-import { listen, UnlistenFn } from '@tauri-apps/api/event';
-import { addToHistory } from '../../lib/history';
-import { logError } from '../../lib/errorLog';
+import { toast } from 'sonner';
+import { AiAssistantPanel } from '@/components/AI/AiAssistantPanel';
+import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
+import { UI_EVENT_OPEN_HISTORY } from '@/lib/uiEvents';
+import { forceRefreshCache } from '../../hooks/useSchemaCache';
+import { getQueryDialect, isDocumentDatabase } from '../../lib/driverCapabilities';
+import { Driver } from '../../lib/drivers';
 import {
   ENVIRONMENT_CONFIG,
   getDangerousQueryTarget,
@@ -24,22 +17,45 @@ import {
   isDropDatabaseQuery,
   isMutationQuery,
 } from '../../lib/environment';
-import { Driver } from '../../lib/drivers';
-import { isDocumentDatabase, getQueryDialect } from '../../lib/driverCapabilities';
-import { ProductionConfirmDialog } from '../Guard/ProductionConfirmDialog';
-import { DangerConfirmDialog } from '../Guard/DangerConfirmDialog';
-import { toast } from 'sonner';
-import { forceRefreshCache } from '../../hooks/useSchemaCache';
-import { UI_EVENT_OPEN_HISTORY } from '@/lib/uiEvents';
-import { QueryPanelToolbar } from './QueryPanelToolbar';
-import { QueryPanelEditor } from './QueryPanelEditor';
-import { QueryPanelResults, QueryResultEntry } from './QueryPanelResults';
-import { getCollectionFromQuery, getDefaultQuery, shouldRefreshSchema } from './queryPanelUtils';
+import { logError } from '../../lib/errorLog';
+import {
+  buildAliasMap,
+  buildAliasSet,
+  executeFederationQuery,
+  type FederationSource,
+  isFederationQuery,
+  listFederationSources,
+} from '../../lib/federation';
+import { addToHistory } from '../../lib/history';
 import { formatSql } from '../../lib/sqlFormatter';
-import { SQLEditorHandle } from '../Editor/SQLEditor';
-import { SaveQueryDialog } from './SaveQueryDialog';
+import {
+  type ColumnInfo,
+  cancelQuery,
+  type DriverCapabilities,
+  type Environment,
+  executeQuery,
+  type Namespace,
+  type QueryResult,
+  type Row,
+  type Value,
+} from '../../lib/tauri';
+import { DocumentEditorModal } from '../Editor/DocumentEditorModal';
+import { MONGO_TEMPLATES } from '../Editor/mongo-constants';
+import type { SQLEditorHandle } from '../Editor/SQLEditor';
+import { DangerConfirmDialog } from '../Guard/DangerConfirmDialog';
+import { ProductionConfirmDialog } from '../Guard/ProductionConfirmDialog';
+import { QueryHistory } from '../History/QueryHistory';
 import { QueryLibraryModal } from './QueryLibraryModal';
-import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
+import { QueryPanelEditor } from './QueryPanelEditor';
+import { QueryPanelResults, type QueryResultEntry } from './QueryPanelResults';
+import { QueryPanelToolbar } from './QueryPanelToolbar';
+import {
+  extractUseDatabase,
+  getCollectionFromQuery,
+  getDefaultQuery,
+  shouldRefreshSchema,
+} from './queryPanelUtils';
+import { SaveQueryDialog } from './SaveQueryDialog';
 
 function isTextInputTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
@@ -59,8 +75,11 @@ interface QueryPanelProps {
   initialQuery?: string;
   onSchemaChange?: () => void;
   onOpenLibrary?: () => void;
+  onNamespaceChange?: (namespace: Namespace) => void;
   isActive?: boolean;
   onQueryDraftChange?: (query: string) => void;
+  initialShowAiPanel?: boolean;
+  aiTableContext?: string;
 }
 
 export function QueryPanel({
@@ -75,8 +94,11 @@ export function QueryPanel({
   initialQuery,
   onSchemaChange,
   onOpenLibrary,
+  onNamespaceChange,
   isActive = true,
   onQueryDraftChange,
+  initialShowAiPanel,
+  aiTableContext,
 }: QueryPanelProps) {
   const { t } = useTranslation();
   const isDocument = isDocumentDatabase(dialect);
@@ -101,6 +123,19 @@ export function QueryPanel({
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [queryToSave, setQueryToSave] = useState<string>('');
+  const [showAiPanel, setShowAiPanel] = useState(initialShowAiPanel ?? false);
+  const [pendingAiFix, setPendingAiFix] = useState<{ query: string; error: string } | null>(null);
+
+  // Federation state
+  const [federationSources, setFederationSources] = useState<FederationSource[]>([]);
+  const federationAliasSet = useMemo(() => buildAliasSet(federationSources), [federationSources]);
+
+  // Load federation sources when sessionId changes
+  useEffect(() => {
+    listFederationSources()
+      .then(setFederationSources)
+      .catch(() => setFederationSources([]));
+  }, []);
 
   const isExplainSupported = useMemo(
     () => driverCapabilities?.explain ?? dialect === Driver.Postgres,
@@ -234,18 +269,32 @@ export function QueryPanel({
           setActiveResultId(queryId);
         }
 
-        const response = await executeQuery(sessionId, queryToRun, {
-          acknowledgedDangerous,
-          queryId,
-          stream: driverCapabilities?.streaming && kind === 'query' && !isDocument,
-          namespace:
-            activeNamespace ?? (connectionDatabase ? { database: connectionDatabase } : undefined),
-        });
+        // Detect federation queries and route accordingly
+        const isFederated =
+          federationSources.length >= 2 &&
+          kind === 'query' &&
+          !isDocument &&
+          isFederationQuery(queryToRun, federationAliasSet);
+
+        const response = isFederated
+          ? await executeFederationQuery(queryToRun, buildAliasMap(federationSources), {
+              queryId,
+              stream: driverCapabilities?.streaming,
+              timeoutMs: 60000,
+            })
+          : await executeQuery(sessionId, queryToRun, {
+              acknowledgedDangerous,
+              queryId,
+              stream: driverCapabilities?.streaming && kind === 'query' && !isDocument,
+              namespace:
+                activeNamespace ??
+                (connectionDatabase ? { database: connectionDatabase } : undefined),
+            });
         const endTime = performance.now();
         const totalTime = endTime - startTime;
 
         // Clean up listeners
-        streamDisposal.forEach(unlisten => unlisten());
+        for (const unlisten of streamDisposal) unlisten();
 
         if (response.success) {
           let finalResult = response.result;
@@ -269,7 +318,7 @@ export function QueryPanel({
               queryToRun,
               queryDialect === 'document' ? 'mongodb' : 'sql'
             );
-            if (!isDocument && kind === 'query' && didMutate) {
+            if (kind === 'query' && didMutate) {
               const time = Math.round(enrichedResult.execution_time_ms ?? totalTime);
               if (typeof enrichedResult.affected_rows === 'number') {
                 toast.success(
@@ -341,6 +390,14 @@ export function QueryPanel({
               forceRefreshCache(sessionId);
               onSchemaChange?.();
             }
+
+            // Detect USE <database> and update namespace
+            if (!isDocument && kind === 'query') {
+              const useDb = extractUseDatabase(queryToRun);
+              if (useDb) {
+                onNamespaceChange?.({ database: useDb });
+              }
+            }
           }
         } else {
           const entry: QueryResultEntry = {
@@ -376,7 +433,7 @@ export function QueryPanel({
           logError('QueryPanel', response.error || t('query.queryFailed'), queryToRun, sessionId);
         }
       } catch (err) {
-        streamDisposal.forEach(unlisten => unlisten());
+        for (const unlisten of streamDisposal) unlisten();
 
         const errorMessage = err instanceof Error ? err.message : t('common.error');
         const entry: QueryResultEntry = {
@@ -411,12 +468,15 @@ export function QueryPanel({
       dialect,
       t,
       onSchemaChange,
+      onNamespaceChange,
       isDocument,
       keepResults,
       driverCapabilities,
       activeNamespace,
       connectionDatabase,
       queryDialect,
+      federationSources,
+      federationAliasSet,
     ]
   );
 
@@ -586,6 +646,19 @@ export function QueryPanel({
 
   const runCurrentQuery = useCallback(() => handleExecute(), [handleExecute]);
 
+  const handleAiToggle = useCallback(() => {
+    setShowAiPanel(prev => !prev);
+  }, []);
+
+  const handleInsertQuery = useCallback((generatedQuery: string) => {
+    setQuery(generatedQuery);
+  }, []);
+
+  const handleFixWithAi = useCallback((errorQuery: string, error: string) => {
+    setShowAiPanel(true);
+    setPendingAiFix({ query: errorQuery, error });
+  }, []);
+
   const handleSaveToLibrary = useCallback(() => {
     const selection = !isDocument ? sqlEditorRef.current?.getSelection() : '';
     const candidate = selection && selection.trim().length > 0 ? selection : query;
@@ -658,22 +731,46 @@ export function QueryPanel({
         onLibraryOpen={() => (onOpenLibrary ? onOpenLibrary() : setLibraryOpen(true))}
         onSaveToLibrary={handleSaveToLibrary}
         onTemplateSelect={handleTemplateSelect}
+        onAiToggle={handleAiToggle}
+        aiPanelOpen={showAiPanel}
       />
 
-      <QueryPanelEditor
-        isDocumentBased={isDocument}
-        query={query}
-        loading={loading}
-        dialect={dialect}
-        sessionId={sessionId}
-        connectionDatabase={connectionDatabase}
-        activeNamespace={activeNamespace}
-        onQueryChange={setQuery}
-        onExecute={handleExecuteCurrent}
-        onExecuteSelection={handleExecuteSelection}
-        onFormat={handleFormat}
-        sqlEditorRef={sqlEditorRef}
-      />
+      <div className="flex flex-1 min-h-0">
+        <div className="flex-1 min-w-0">
+          <QueryPanelEditor
+            isDocumentBased={isDocument}
+            query={query}
+            loading={loading}
+            dialect={dialect}
+            sessionId={sessionId}
+            connectionDatabase={connectionDatabase}
+            activeNamespace={activeNamespace}
+            onQueryChange={setQuery}
+            onExecute={handleExecuteCurrent}
+            onExecuteSelection={handleExecuteSelection}
+            onFormat={handleFormat}
+            sqlEditorRef={sqlEditorRef}
+            placeholder={isDocument ? undefined : 'SELECT 1;'}
+          />
+        </div>
+
+        {showAiPanel && (
+          <div className="w-80 border-l border-border shrink-0">
+            <AiAssistantPanel
+              sessionId={sessionId}
+              namespace={
+                activeNamespace ??
+                (connectionDatabase ? { database: connectionDatabase } : undefined)
+              }
+              onInsertQuery={handleInsertQuery}
+              onClose={handleAiToggle}
+              pendingFix={pendingAiFix}
+              onPendingFixConsumed={() => setPendingAiFix(null)}
+              tableContext={aiTableContext}
+            />
+          </div>
+        )}
+      </div>
 
       <QueryPanelResults
         panelError={panelError}
@@ -700,6 +797,7 @@ export function QueryPanel({
         }}
         onRowsDeleted={runCurrentQuery}
         onEditDocument={handleEditDocument}
+        onFixWithAi={handleFixWithAi}
       />
 
       <QueryHistory

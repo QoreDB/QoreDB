@@ -1,15 +1,17 @@
-import { useState, useEffect, useCallback } from 'react';
+// SPDX-License-Identifier: Apache-2.0
+
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import type { DatabaseBrowserTab } from '@/components/Browser/DatabaseBrowser';
+import type { TableBrowserTab } from '@/components/Browser/TableBrowser';
 import {
-  CrashRecoverySnapshot,
+  type CrashRecoverySnapshot,
   clearCrashRecoverySnapshot,
   getCrashRecoverySnapshot,
   saveCrashRecoverySnapshot,
 } from '@/lib/crashRecovery';
-import { listSavedConnections, connectSavedConnection, SavedConnection } from '@/lib/tauri';
-import { OpenTab } from '@/lib/tabs';
-import { TableBrowserTab } from '@/components/Browser/TableBrowser';
-import { DatabaseBrowserTab } from '@/components/Browser/DatabaseBrowser';
+import type { OpenTab } from '@/lib/tabs';
+import { connectSavedConnection, listSavedConnections, type SavedConnection } from '@/lib/tauri';
 
 const DEFAULT_PROJECT = 'default';
 
@@ -97,7 +99,7 @@ export function useRecovery() {
 
     try {
       const saved = await listSavedConnections(DEFAULT_PROJECT);
-      const match = saved.find(conn => conn.id === state.snapshot!.connectionId);
+      const match = saved.find(conn => conn.id === state.snapshot?.connectionId);
 
       if (!match) {
         setState(prev => ({
@@ -119,7 +121,7 @@ export function useRecovery() {
         return null;
       }
 
-      const restoredTabs: OpenTab[] = state.snapshot!.tabs.map(tab => {
+      const restoredTabs: OpenTab[] = state.snapshot?.tabs.map(tab => {
         const restored: OpenTab = {
           id: tab.id,
           type: tab.type,
@@ -129,7 +131,7 @@ export function useRecovery() {
         };
 
         if (tab.type === 'query') {
-          const query = state.snapshot!.queryDrafts[tab.id];
+          const query = state.snapshot?.queryDrafts[tab.id];
           if (query) {
             restored.initialQuery = query;
           }
@@ -156,10 +158,10 @@ export function useRecovery() {
           read_only: match.read_only,
         },
         tabs: restoredTabs,
-        activeTabId: state.snapshot!.activeTabId,
-        queryDrafts: state.snapshot!.queryDrafts,
-        tableBrowserTabs: sanitizeTableBrowserTabs(state.snapshot!.tableBrowserTabs),
-        databaseBrowserTabs: sanitizeDatabaseBrowserTabs(state.snapshot!.databaseBrowserTabs),
+        activeTabId: state.snapshot?.activeTabId,
+        queryDrafts: state.snapshot?.queryDrafts,
+        tableBrowserTabs: sanitizeTableBrowserTabs(state.snapshot?.tableBrowserTabs),
+        databaseBrowserTabs: sanitizeDatabaseBrowserTabs(state.snapshot?.databaseBrowserTabs),
       };
     } catch (err) {
       setState(prev => ({

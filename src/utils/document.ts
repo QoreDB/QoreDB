@@ -1,6 +1,8 @@
-import { Environment, QueryResult, Value, Namespace } from '@/lib/tauri';
-import { VirtualItem } from '@tanstack/react-virtual';
-import { UseTranslationOptions } from 'react-i18next';
+// SPDX-License-Identifier: Apache-2.0
+
+import type { VirtualItem } from '@tanstack/react-virtual';
+import type { UseTranslationOptions } from 'react-i18next';
+import type { Environment, Namespace, QueryResult, Value } from '@/lib/tauri';
 
 export interface DocumentResultsProps {
   result: QueryResult;
@@ -16,11 +18,12 @@ export interface DocumentResultsProps {
   exportQuery?: string;
   exportNamespace?: Namespace;
 
-  serverSideTotalRows?: number;
-  serverSidePage?: number;
-  serverSidePageSize?: number;
-  onServerPageChange?: (page: number) => void;
-  onServerPageSizeChange?: (pageSize: number) => void;
+  // Infinite scroll props
+  infiniteScrollTotalRows?: number;
+  infiniteScrollLoadedRows?: number;
+  infiniteScrollIsFetchingMore?: boolean;
+  infiniteScrollIsComplete?: boolean;
+  onFetchMore?: () => void;
 }
 
 export interface DocumentRowItemProps {

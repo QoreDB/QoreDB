@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 //! Normalized error types for the QoreDB Data Engine
 //!
 //! All driver-specific errors are mapped to these unified error types

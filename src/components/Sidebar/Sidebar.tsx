@@ -1,22 +1,30 @@
-import { useState, useEffect } from 'react';
-import { ConnectionItem } from './ConnectionItem';
-import { DBTree } from '../Tree/DBTree';
-import { ErrorLogPanel } from '../Logs/ErrorLogPanel';
-import {
-  listSavedConnections,
-  connectSavedConnection,
-  SavedConnection,
-  Namespace,
-  RelationFilter,
-  Collection,
-} from '../../lib/tauri';
-import { Plus, Bug } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { toast } from 'sonner';
+// SPDX-License-Identifier: Apache-2.0
+
+import { Bug, Plus } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
+import { LicenseBadge } from '@/components/License/LicenseBadge';
 import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
+import { Button } from '@/components/ui/button';
 import { useTheme } from '@/hooks/useTheme';
-import { UI_EVENT_OPEN_LOGS } from '@/lib/uiEvents';
+import {
+  reconcileFavoriteConnectionIds,
+  saveFavoriteConnectionIds,
+} from '@/lib/connectionFavorites';
+import { UI_EVENT_CONNECTIONS_CHANGED, UI_EVENT_OPEN_LOGS } from '@/lib/uiEvents';
+import { useLicense } from '@/providers/LicenseProvider';
+import {
+  type Collection,
+  connectSavedConnection,
+  listSavedConnections,
+  type Namespace,
+  type RelationFilter,
+  type SavedConnection,
+} from '../../lib/tauri';
+import { ErrorLogPanel } from '../Logs/ErrorLogPanel';
+import { DBTree } from '../Tree/DBTree';
+import { ConnectionItem } from './ConnectionItem';
 
 const DEFAULT_PROJECT = 'default';
 
@@ -32,8 +40,9 @@ interface SidebarProps {
   ) => void;
   onDatabaseSelect?: (namespace: Namespace) => void;
   onCompareTable?: (collection: Collection) => void;
+  onAiGenerateForTable?: (collection: Collection) => void;
   onEditConnection: (connection: SavedConnection, password: string) => void;
-  refreshTrigger?: number;
+  onNewQuery?: () => void;
   schemaRefreshTrigger?: number;
   activeNamespace?: Namespace | null;
 }
@@ -46,8 +55,9 @@ export function Sidebar({
   onTableSelect,
   onDatabaseSelect,
   onCompareTable,
+  onAiGenerateForTable,
   onEditConnection,
-  refreshTrigger,
+  onNewQuery,
   schemaRefreshTrigger,
   activeNamespace,
 }: SidebarProps) {
@@ -56,17 +66,27 @@ export function Sidebar({
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [connecting, setConnecting] = useState<string | null>(null);
   const [logsOpen, setLogsOpen] = useState(false);
+  const [favoriteConnectionIds, setFavoriteConnectionIds] = useState<string[]>([]);
 
   const { t } = useTranslation();
   const { resolvedTheme } = useTheme();
+  const { tier } = useLicense();
 
-  useEffect(() => {
-    loadConnections();
+  const loadConnections = useCallback(async () => {
+    try {
+      const saved = await listSavedConnections(DEFAULT_PROJECT);
+      setConnections(saved);
+      setFavoriteConnectionIds(
+        reconcileFavoriteConnectionIds(saved.map(connection => connection.id))
+      );
+    } catch (err) {
+      console.error('Failed to load connections:', err);
+    }
   }, []);
 
   useEffect(() => {
     loadConnections();
-  }, [connectedSessionId, refreshTrigger]);
+  }, [loadConnections]);
 
   useEffect(() => {
     if (connectedConnectionId) {
@@ -81,13 +101,44 @@ export function Sidebar({
     return () => window.removeEventListener(UI_EVENT_OPEN_LOGS, handler);
   }, []);
 
-  async function loadConnections() {
-    try {
-      const saved = await listSavedConnections(DEFAULT_PROJECT);
-      setConnections(saved);
-    } catch (err) {
-      console.error('Failed to load connections:', err);
-    }
+  useEffect(() => {
+    const handler = () => loadConnections();
+    window.addEventListener(UI_EVENT_CONNECTIONS_CHANGED, handler);
+    return () => window.removeEventListener(UI_EVENT_CONNECTIONS_CHANGED, handler);
+  }, [loadConnections]);
+
+  const favoriteConnectionSet = useMemo(
+    () => new Set(favoriteConnectionIds),
+    [favoriteConnectionIds]
+  );
+
+  const connectionsById = useMemo(
+    () => new Map(connections.map(connection => [connection.id, connection])),
+    [connections]
+  );
+
+  const favoriteConnections = useMemo(
+    () =>
+      favoriteConnectionIds
+        .map(connectionId => connectionsById.get(connectionId))
+        .filter((connection): connection is SavedConnection => Boolean(connection)),
+    [favoriteConnectionIds, connectionsById]
+  );
+
+  const regularConnections = useMemo(
+    () => connections.filter(connection => !favoriteConnectionSet.has(connection.id)),
+    [connections, favoriteConnectionSet]
+  );
+
+  function handleToggleFavorite(connectionId: string) {
+    setFavoriteConnectionIds(previous => {
+      const next = previous.includes(connectionId)
+        ? previous.filter(id => id !== connectionId)
+        : [connectionId, ...previous];
+
+      saveFavoriteConnectionIds(next);
+      return next;
+    });
   }
 
   async function handleConnect(conn: SavedConnection) {
@@ -141,6 +192,41 @@ export function Sidebar({
     }
   }
 
+  function renderConnection(connection: SavedConnection) {
+    return (
+      <div key={connection.id}>
+        <ConnectionItem
+          connection={connection}
+          isSelected={selectedId === connection.id}
+          isExpanded={expandedId === connection.id}
+          isConnected={connectedConnectionId === connection.id}
+          isConnecting={connecting === connection.id}
+          isFavorite={favoriteConnectionSet.has(connection.id)}
+          onSelect={() => handleSelect(connection)}
+          onToggleFavorite={() => handleToggleFavorite(connection.id)}
+          onEdit={onEditConnection}
+          onDeleted={loadConnections}
+          onNewQuery={connectedConnectionId === connection.id ? onNewQuery : undefined}
+        />
+        {expandedId === connection.id && connectedSessionId && (
+          <div className="pl-4 border-l-2 border-accent/30 ml-4 mt-1 bg-muted/20 rounded-r-md py-1">
+            <DBTree
+              connectionId={connectedSessionId}
+              driver={connection.driver}
+              connection={connection}
+              onTableSelect={onTableSelect}
+              onDatabaseSelect={onDatabaseSelect}
+              onCompareTable={onCompareTable}
+              onAiGenerateForTable={onAiGenerateForTable}
+              refreshTrigger={schemaRefreshTrigger}
+              activeNamespace={activeNamespace}
+            />
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <aside
       className="w-64 h-full flex flex-col border-r border-border bg-muted/30"
@@ -148,6 +234,7 @@ export function Sidebar({
     >
       <header className="h-12 flex items-center px-4 border-b border-border bg-muted/10">
         <button
+          type="button"
           onClick={() => (window.location.href = '/')}
           className="flex items-center gap-2.5 font-medium text-foreground/90 hover:text-foreground transition-colors"
         >
@@ -159,47 +246,38 @@ export function Sidebar({
             className="opacity-90"
           />
           <span className="text-sm tracking-tight">QoreDB</span>
+          <LicenseBadge tier={tier} />
         </button>
       </header>
 
       <section className="flex-1 overflow-auto py-2">
-        <div className="px-3 mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-          {t('sidebar.connections')}
-        </div>
-        <div className="px-2 space-y-0.5">
+        <div className="px-2 space-y-0.5 mt-1">
           {connections.length === 0 ? (
             <p className="px-2 py-4 text-sm text-center text-muted-foreground">
               {t('sidebar.noConnections')}
             </p>
           ) : (
-            connections.map(conn => (
-              <div key={conn.id}>
-                <ConnectionItem
-                  connection={conn}
-                  isSelected={selectedId === conn.id}
-                  isExpanded={expandedId === conn.id}
-                  isConnected={connectedConnectionId === conn.id}
-                  isConnecting={connecting === conn.id}
-                  onSelect={() => handleSelect(conn)}
-                  onEdit={onEditConnection}
-                  onDeleted={loadConnections}
-                />
-                {expandedId === conn.id && connectedSessionId && (
-                  <div className="pl-4 border-l border-border ml-4 mt-1">
-                    <DBTree
-                      connectionId={connectedSessionId}
-                      driver={conn.driver}
-                      connection={conn}
-                      onTableSelect={onTableSelect}
-                      onDatabaseSelect={onDatabaseSelect}
-                      onCompareTable={onCompareTable}
-                      refreshTrigger={schemaRefreshTrigger}
-                      activeNamespace={activeNamespace}
-                    />
+            <>
+              {favoriteConnections.length > 0 && (
+                <>
+                  <div className="px-2 pb-1 pt-0.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/80">
+                    {t('sidebar.favorites')}
                   </div>
-                )}
-              </div>
-            ))
+                  {favoriteConnections.map(renderConnection)}
+                </>
+              )}
+
+              {regularConnections.length > 0 && favoriteConnections.length > 0 && (
+                <>
+                  <div className="mx-2 my-1.5 h-px bg-border/70" />
+                  <div className="px-2 pb-1 pt-0.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/80">
+                    {t('sidebar.otherConnections')}
+                  </div>
+                </>
+              )}
+
+              {regularConnections.map(renderConnection)}
+            </>
           )}
         </div>
       </section>

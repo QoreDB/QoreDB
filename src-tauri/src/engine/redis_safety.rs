@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 //! Redis query safety classification.
 //!
 //! Used to determine mutation/destructive intent for read-only and

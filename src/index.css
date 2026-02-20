@@ -1,9 +1,11 @@
-@import 'tailwindcss';
-@import 'tw-animate-css';
+@import "tailwindcss";
+@import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
 
-@variant dark (&:where(.dark, .dark *));
+@variant dark 
+(
+&:where(.dark, .dark *));
 
 @theme {
   /* Fonts */

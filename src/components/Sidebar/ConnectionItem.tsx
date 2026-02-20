@@ -1,10 +1,12 @@
-import { SavedConnection } from '../../lib/tauri';
-import { Loader2, ChevronRight, ChevronDown } from 'lucide-react';
+// SPDX-License-Identifier: Apache-2.0
+
+import { ChevronDown, ChevronRight, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Driver, DRIVER_ICONS, DRIVER_LABELS } from '../../lib/drivers';
-import { ConnectionMenu } from '../Connection/ConnectionMenu';
-import { ConnectionContextMenu } from '../Connection/ConnectionContextMenu';
+import { DRIVER_ICONS, DRIVER_LABELS, type Driver } from '../../lib/drivers';
 import { ENVIRONMENT_CONFIG } from '../../lib/environment';
+import type { SavedConnection } from '../../lib/tauri';
+import { ConnectionContextMenu } from '../Connection/ConnectionContextMenu';
+import { ConnectionMenu } from '../Connection/ConnectionMenu';
 
 interface ConnectionItemProps {
   connection: SavedConnection;
@@ -12,9 +14,12 @@ interface ConnectionItemProps {
   isExpanded: boolean;
   isConnected?: boolean;
   isConnecting?: boolean;
+  isFavorite?: boolean;
   onSelect: () => void;
+  onToggleFavorite: () => void;
   onEdit: (connection: SavedConnection, password: string) => void;
   onDeleted: () => void;
+  onNewQuery?: () => void;
 }
 
 export function ConnectionItem({
@@ -23,22 +28,31 @@ export function ConnectionItem({
   isExpanded,
   isConnected,
   isConnecting,
+  isFavorite,
   onSelect,
+  onToggleFavorite,
   onEdit,
   onDeleted,
+  onNewQuery,
 }: ConnectionItemProps) {
   const driver = connection.driver as Driver;
   const iconSrc = `/databases/${DRIVER_ICONS[driver]}`;
   const env = connection.environment || 'development';
   const envConfig = ENVIRONMENT_CONFIG[env];
-  const isProduction = env === 'production';
 
   return (
-    <ConnectionContextMenu connection={connection} onEdit={onEdit} onDeleted={onDeleted}>
+    <ConnectionContextMenu
+      connection={connection}
+      onEdit={onEdit}
+      onDeleted={onDeleted}
+      isFavorite={isFavorite}
+      onToggleFavorite={onToggleFavorite}
+      onNewQuery={onNewQuery}
+      isConnected={isConnected}
+    >
       <div
         className={cn(
-          'group flex items-center transition-all',
-          isProduction ? 'rounded-r-md rounded-l-none' : 'rounded-md',
+          'group relative flex items-center transition-all rounded-md',
           // État: Sélectionné mais pas connecté
           isSelected && !isConnected && 'bg-muted text-foreground',
           // État: Connecté (actif)
@@ -50,28 +64,29 @@ export function ConnectionItem({
             !isExpanded &&
             'text-muted-foreground hover:bg-accent/10 hover:text-accent-foreground'
         )}
-        style={{
-          borderLeft: isProduction ? `3px solid ${envConfig.color}` : undefined,
-          paddingLeft: isProduction ? undefined : '3px',
-        }}
       >
         <button
+          type="button"
           className={cn(
-            'flex-1 flex items-center gap-2 px-2 py-1.5 text-sm select-none text-inherit',
-            isProduction ? 'rounded-l-none' : 'rounded-l-md'
+            'flex-1 flex items-center gap-2 px-2 py-1.5 text-sm select-none text-inherit rounded-l-md'
           )}
           onClick={onSelect}
           disabled={isConnecting}
         >
-          <div className="shrink-0 w-4 h-4 rounded-sm overflow-hidden bg-background/50 p-0.5">
-            <img
-              src={iconSrc}
-              alt={DRIVER_LABELS[driver]}
-              className="w-full h-full object-contain"
-            />
+          <div className="relative shrink-0">
+            <div className="w-4 h-4 rounded-sm overflow-hidden bg-background/50 p-0.5">
+              <img
+                src={iconSrc}
+                alt={DRIVER_LABELS[driver]}
+                className="w-full h-full object-contain"
+              />
+            </div>
+            {isConnected && !isConnecting && (
+              <span className="absolute -bottom-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-success ring-1 ring-background" />
+            )}
           </div>
 
-          <span className="flex-1 truncate text-left max-w-[150px]">{connection.name}</span>
+          <span className="flex-1 truncate text-left min-w-0">{connection.name}</span>
 
           {env !== 'development' && (
             <span
@@ -85,18 +100,31 @@ export function ConnectionItem({
             </span>
           )}
 
-          {isConnecting ? (
-            <Loader2 size={14} className="animate-spin text-muted-foreground" />
-          ) : isConnected && !isConnecting ? (
-            <span className="w-2 h-2 rounded-full bg-success shadow-sm shadow-success/50" />
-          ) : null}
+          {isConnecting && <Loader2 size={14} className="animate-spin text-muted-foreground" />}
 
-          <div className={cn('text-muted-foreground/50', isExpanded && 'transform rotate-90')}>
-            {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+          <div className="relative shrink-0 w-6 h-6">
+            <div
+              className={cn(
+                'absolute inset-0 flex items-center justify-center text-muted-foreground/50 transition-opacity group-hover:opacity-0',
+                isExpanded && 'transform rotate-90'
+              )}
+            >
+              {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+            </div>
           </div>
         </button>
 
-        <ConnectionMenu connection={connection} onEdit={onEdit} onDeleted={onDeleted} />
+        <div className="absolute right-0 shrink-0 w-6 h-6 flex items-center justify-center opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
+          <ConnectionMenu
+            connection={connection}
+            onEdit={onEdit}
+            onDeleted={onDeleted}
+            isFavorite={isFavorite}
+            onToggleFavorite={onToggleFavorite}
+            onNewQuery={onNewQuery}
+            isConnected={isConnected}
+          />
+        </div>
       </div>
     </ConnectionContextMenu>
   );

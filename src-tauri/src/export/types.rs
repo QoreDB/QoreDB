@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 use serde::{Deserialize, Serialize};
 
 use crate::engine::types::Namespace;
@@ -9,6 +11,8 @@ pub enum ExportFormat {
     Json,
     SqlInsert,
     Html,
+    Xlsx,
+    Parquet,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

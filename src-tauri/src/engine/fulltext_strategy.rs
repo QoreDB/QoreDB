@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 //! Full-text Search Strategies
 //!
 //! Provides driver-specific optimized full-text search implementations
@@ -1301,6 +1303,208 @@ impl FulltextSearchStrategy for MongoSearchStrategy {
 }
 
 // ============================================
+// SQL SERVER STRATEGY
+// ============================================
+
+pub struct SqlServerSearchStrategy;
+
+impl SqlServerSearchStrategy {
+    pub fn new() -> Self {
+        Self
+    }
+
+    fn quote_identifier(name: &str) -> String {
+        format!("[{}]", name.replace(']', "]]"))
+    }
+
+    fn escape_like_pattern(term: &str) -> String {
+        term.replace('[', "[[]")
+            .replace('%', "[%]")
+            .replace('_', "[_]")
+            .replace('\'', "''")
+    }
+}
+
+impl Default for SqlServerSearchStrategy {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[async_trait]
+impl FulltextSearchStrategy for SqlServerSearchStrategy {
+    fn driver_id(&self) -> &str {
+        "sqlserver"
+    }
+
+    fn build_index_detection_query(
+        &self,
+        namespace: &Namespace,
+        table_name: &str,
+    ) -> Option<String> {
+        let schema = namespace.schema.as_deref().unwrap_or("dbo");
+        Some(format!(
+            r#"
+            SELECT
+                fi.name AS index_name,
+                c.name AS column_name,
+                'FULLTEXT' AS index_type
+            FROM sys.fulltext_indexes fti
+            JOIN sys.fulltext_index_columns fic ON fti.object_id = fic.object_id
+            JOIN sys.columns c ON c.object_id = fic.object_id AND c.column_id = fic.column_id
+            JOIN sys.fulltext_catalogs fi ON fti.fulltext_catalog_id = fi.fulltext_catalog_id
+            JOIN sys.tables t ON t.object_id = fti.object_id
+            JOIN sys.schemas s ON s.schema_id = t.schema_id
+            WHERE s.name = '{}'
+              AND t.name = '{}'
+            ORDER BY fi.name, c.column_id
+            "#,
+            schema.replace('\'', "''"),
+            table_name.replace('\'', "''")
+        ))
+    }
+
+    fn parse_index_detection_result(
+        &self,
+        rows: &[Vec<Value>],
+        _columns: &[String],
+    ) -> Vec<FulltextIndexInfo> {
+        let mut indexes: HashMap<String, FulltextIndexInfo> = HashMap::new();
+
+        for row in rows {
+            if row.len() >= 3 {
+                let index_name = match &row[0] {
+                    Value::Text(s) => s.clone(),
+                    _ => continue,
+                };
+                let column_name = match &row[1] {
+                    Value::Text(s) => s.clone(),
+                    _ => continue,
+                };
+                let index_type = match &row[2] {
+                    Value::Text(s) => s.clone(),
+                    _ => "FULLTEXT".to_string(),
+                };
+
+                indexes
+                    .entry(index_name.clone())
+                    .or_insert_with(|| FulltextIndexInfo {
+                        index_name,
+                        columns: Vec::new(),
+                        index_type,
+                    })
+                    .columns
+                    .push(column_name);
+            }
+        }
+
+        indexes.into_values().collect()
+    }
+
+    fn build_capability(
+        &self,
+        text_columns: &[String],
+        detected_indexes: &[FulltextIndexInfo],
+        estimated_rows: Option<u64>,
+    ) -> TableSearchCapability {
+        let indexed_columns: HashMap<String, String> = detected_indexes
+            .iter()
+            .flat_map(|idx| {
+                idx.columns
+                    .iter()
+                    .map(|col| (col.clone(), idx.index_name.clone()))
+            })
+            .collect();
+
+        let searchable_columns: Vec<ColumnSearchInfo> = text_columns
+            .iter()
+            .map(|name| {
+                let index_info = indexed_columns.get(name);
+                ColumnSearchInfo {
+                    name: name.clone(),
+                    data_type: "text".to_string(),
+                    has_fulltext_index: index_info.is_some(),
+                    fulltext_index_name: index_info.cloned(),
+                }
+            })
+            .collect();
+
+        let has_any_fulltext = searchable_columns.iter().any(|c| c.has_fulltext_index);
+
+        let recommended_method = if has_any_fulltext {
+            SearchMethod::NativeFulltext
+        } else {
+            SearchMethod::PatternMatch
+        };
+
+        TableSearchCapability {
+            searchable_columns,
+            recommended_method,
+            estimated_rows,
+            has_any_fulltext_index: has_any_fulltext,
+        }
+    }
+
+    fn build_search_query(
+        &self,
+        namespace: &Namespace,
+        table_name: &str,
+        capability: &TableSearchCapability,
+        options: &TableSearchOptions,
+    ) -> (String, SearchMethod) {
+        // SQL Server: always use LIKE-based pattern matching (CONTAINS requires full-text catalog setup)
+        let columns: Vec<String> = capability
+            .searchable_columns
+            .iter()
+            .map(|c| c.name.clone())
+            .collect();
+        (
+            self.build_fallback_query(namespace, table_name, &columns, options),
+            SearchMethod::PatternMatch,
+        )
+    }
+
+    fn build_fallback_query(
+        &self,
+        namespace: &Namespace,
+        table_name: &str,
+        columns: &[String],
+        options: &TableSearchOptions,
+    ) -> String {
+        let pattern = format!("%{}%", Self::escape_like_pattern(&options.search_term));
+
+        let conditions: Vec<String> = columns
+            .iter()
+            .map(|col| {
+                let quoted = Self::quote_identifier(col);
+                if options.case_sensitive {
+                    format!(
+                        "CAST({} AS NVARCHAR(MAX)) LIKE N'{}' COLLATE Latin1_General_BIN2",
+                        quoted, pattern
+                    )
+                } else {
+                    format!("CAST({} AS NVARCHAR(MAX)) LIKE N'{}'", quoted, pattern)
+                }
+            })
+            .collect();
+
+        let schema = namespace.schema.as_deref().unwrap_or("dbo");
+        let full_table = format!(
+            "{}.{}",
+            Self::quote_identifier(schema),
+            Self::quote_identifier(table_name)
+        );
+
+        format!(
+            "SELECT TOP {} * FROM {} WHERE {}",
+            options.max_results,
+            full_table,
+            conditions.join(" OR ")
+        )
+    }
+}
+
+// ============================================
 // STRATEGY FACTORY
 // ============================================
 
@@ -1311,6 +1515,7 @@ pub fn get_search_strategy(driver_id: &str) -> Box<dyn FulltextSearchStrategy> {
         "mysql" | "mariadb" => Box::new(MySqlSearchStrategy::new()),
         "sqlite" | "sqlite3" => Box::new(SqliteSearchStrategy::new()),
         "mongodb" | "mongo" => Box::new(MongoSearchStrategy::new()),
+        "sqlserver" | "mssql" => Box::new(SqlServerSearchStrategy::new()),
         _ => Box::new(PostgresSearchStrategy::new()),
     }
 }

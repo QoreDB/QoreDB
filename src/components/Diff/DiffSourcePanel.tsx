@@ -1,22 +1,21 @@
+// SPDX-License-Identifier: BUSL-1.1
+
+import {
+  AlertCircle,
+  CheckCircle2,
+  Code,
+  Database,
+  Loader2,
+  Play,
+  Server,
+  Table2,
+} from 'lucide-react';
 /**
  * DiffSourcePanel - Panel for selecting a data source (table or query)
  */
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  Table2,
-  Code,
-  Play,
-  Loader2,
-  AlertCircle,
-  CheckCircle2,
-  Database,
-  Server,
-} from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { Namespace, SavedConnection, QueryResult } from '@/lib/tauri';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
   SelectContent,
@@ -24,6 +23,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import type { Namespace, QueryResult, SavedConnection } from '@/lib/tauri';
+import { cn } from '@/lib/utils';
 import { DiffTablePicker } from './DiffTablePicker';
 
 export type SourceMode = 'table' | 'query';
@@ -181,10 +183,12 @@ export function DiffSourcePanel({
 
       {/* Mode tabs */}
       <div className="flex border border-border rounded-md overflow-hidden">
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="sm"
           className={cn(
-            'flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm transition-colors',
+            'h-9 flex-1 rounded-none flex items-center justify-center gap-2 px-3 py-2 text-sm transition-colors',
             source.mode === 'table'
               ? 'bg-accent text-accent-foreground'
               : 'hover:bg-muted/50 text-muted-foreground'
@@ -194,11 +198,13 @@ export function DiffSourcePanel({
         >
           <Table2 size={14} />
           {t('diff.modeTable')}
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
+          variant="ghost"
+          size="sm"
           className={cn(
-            'flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm transition-colors border-l border-border',
+            'h-9 flex-1 rounded-none flex items-center justify-center gap-2 px-3 py-2 text-sm transition-colors border-l border-border',
             source.mode === 'query'
               ? 'bg-accent text-accent-foreground'
               : 'hover:bg-muted/50 text-muted-foreground'
@@ -208,7 +214,7 @@ export function DiffSourcePanel({
         >
           <Code size={14} />
           {t('diff.modeQuery')}
-        </button>
+        </Button>
       </div>
 
       {/* Source selector based on mode */}

@@ -1,6 +1,8 @@
-import * as React from 'react';
+// SPDX-License-Identifier: Apache-2.0
+
 import * as CheckboxPrimitive from '@radix-ui/react-checkbox';
 import { Check } from 'lucide-react';
+import * as React from 'react';
 
 import { cn } from '@/lib/utils';
 

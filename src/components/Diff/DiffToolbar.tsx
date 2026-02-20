@@ -1,17 +1,19 @@
+// SPDX-License-Identifier: BUSL-1.1
+
+import {
+  ArrowLeftRight,
+  ChevronDown,
+  Download,
+  FileJson,
+  FileSpreadsheet,
+  GitCompare,
+  RefreshCw,
+} from 'lucide-react';
 /**
  * DiffToolbar - Toolbar with swap, export, and refresh actions
  */
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  GitCompare,
-  ArrowLeftRight,
-  Download,
-  RefreshCw,
-  FileJson,
-  FileSpreadsheet,
-  ChevronDown,
-} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -19,7 +21,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { DiffResult, exportDiffAsCSV, exportDiffAsJSON } from '@/lib/diffUtils';
+import { type DiffResult, exportDiffAsCSV, exportDiffAsJSON } from '@/lib/diffUtils';
 import { notify } from '@/lib/notify';
 
 interface DiffToolbarProps {

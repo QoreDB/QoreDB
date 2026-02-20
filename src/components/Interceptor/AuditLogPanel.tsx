@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * Audit Log Panel
  *
@@ -5,39 +7,41 @@
  * All data is fetched from the backend (Rust) for security.
  */
 
-import { useState, useCallback, useEffect } from 'react';
 import type { TFunction } from 'i18next';
-import { useTranslation } from 'react-i18next';
 import {
-  Search,
-  Download,
-  Trash2,
+  CheckCircle2,
   ChevronLeft,
   ChevronRight,
-  Shield,
-  CheckCircle2,
-  XCircle,
   Clock,
+  Download,
   RefreshCw,
+  Search,
+  Shield,
+  Trash2,
   X,
+  XCircle,
 } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { LicenseBadge } from '@/components/License/LicenseBadge';
+import { useLicense } from '@/providers/LicenseProvider';
+import {
+  type AuditFilter,
+  type AuditLogEntry,
+  type AuditStats,
+  BUILTIN_SAFETY_RULE_I18N,
+  clearAuditLog,
+  type Environment,
+  exportAuditLog,
+  formatExecutionTime,
+  getAuditEntries,
+  getAuditStats,
+} from '../../lib/tauri/interceptor';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { ScrollArea } from '../ui/scroll-area';
-import {
-  getAuditEntries,
-  getAuditStats,
-  clearAuditLog,
-  exportAuditLog,
-  formatExecutionTime,
-  type AuditLogEntry,
-  type AuditStats,
-  type AuditFilter,
-  type Environment,
-  BUILTIN_SAFETY_RULE_I18N,
-} from '../../lib/tauri/interceptor';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 
 const PAGE_SIZE = 50;
 
@@ -164,6 +168,8 @@ function StatsCard({ label, value, color = 'text-foreground' }: StatsCardProps) 
 
 export function AuditLogPanel() {
   const { t } = useTranslation();
+  const { isFeatureEnabled } = useLicense();
+  const isAdvanced = isFeatureEnabled('audit_advanced');
 
   const getSafetyRuleLabel = useCallback(
     (ruleId?: string | null) => {
@@ -237,7 +243,7 @@ export function AuditLogPanel() {
   // Reset page when filters change
   useEffect(() => {
     setPage(0);
-  }, [search, environmentFilter, statusFilter]);
+  }, []);
 
   const handleClear = useCallback(async () => {
     if (window.confirm(t('interceptor.audit.clearConfirm'))) {
@@ -295,19 +301,23 @@ export function AuditLogPanel() {
           <Button variant="ghost" size="icon" onClick={loadData} disabled={loading}>
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </Button>
-          <Button variant="outline" size="sm" onClick={handleExport}>
-            <Download className="w-4 h-4 mr-1" />
-            JSON
-          </Button>
-          <Button variant="outline" size="sm" onClick={handleClear}>
-            <Trash2 className="w-4 h-4 mr-1" />
-            {t('interceptor.audit.clearLog')}
-          </Button>
+          {isAdvanced && (
+            <>
+              <Button variant="outline" size="sm" onClick={handleExport}>
+                <Download className="w-4 h-4 mr-1" />
+                JSON
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleClear}>
+                <Trash2 className="w-4 h-4 mr-1" />
+                {t('interceptor.audit.clearLog')}
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
-      {/* Stats */}
-      {stats && (
+      {/* Stats — Pro only */}
+      {isAdvanced && stats && (
         <div className="grid grid-cols-5 gap-2 p-4 border-b border-border">
           <StatsCard label={t('interceptor.audit.stats.total')} value={stats.total} />
           <StatsCard
@@ -333,45 +343,55 @@ export function AuditLogPanel() {
         </div>
       )}
 
-      {/* Filters */}
-      <div className="flex items-center gap-2 p-4 border-b border-border">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder={t('search.placeholder')}
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="pl-9"
-          />
+      {/* Filters — Pro only */}
+      {isAdvanced ? (
+        <div className="flex items-center gap-2 p-4 border-b border-border">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder={t('search.placeholder')}
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+
+          <Select
+            value={environmentFilter}
+            onValueChange={v => setEnvironmentFilter(v as Environment | 'all')}
+          >
+            <SelectTrigger className="w-40">
+              <SelectValue placeholder={t('interceptor.audit.filters.environment')} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t('interceptor.audit.filters.allEnvironments')}</SelectItem>
+              <SelectItem value="development">{t('environment.development')}</SelectItem>
+              <SelectItem value="staging">{t('environment.staging')}</SelectItem>
+              <SelectItem value="production">{t('environment.production')}</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select
+            value={statusFilter}
+            onValueChange={v => setStatusFilter(v as typeof statusFilter)}
+          >
+            <SelectTrigger className="w-32">
+              <SelectValue placeholder={t('interceptor.audit.filters.status')} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t('interceptor.audit.filters.all')}</SelectItem>
+              <SelectItem value="success">{t('interceptor.audit.status.success')}</SelectItem>
+              <SelectItem value="failed">{t('interceptor.audit.status.failed')}</SelectItem>
+              <SelectItem value="blocked">{t('interceptor.audit.status.blocked')}</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
-
-        <Select
-          value={environmentFilter}
-          onValueChange={v => setEnvironmentFilter(v as Environment | 'all')}
-        >
-          <SelectTrigger className="w-40">
-            <SelectValue placeholder={t('interceptor.audit.filters.environment')} />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">{t('interceptor.audit.filters.allEnvironments')}</SelectItem>
-            <SelectItem value="development">{t('environment.development')}</SelectItem>
-            <SelectItem value="staging">{t('environment.staging')}</SelectItem>
-            <SelectItem value="production">{t('environment.production')}</SelectItem>
-          </SelectContent>
-        </Select>
-
-        <Select value={statusFilter} onValueChange={v => setStatusFilter(v as typeof statusFilter)}>
-          <SelectTrigger className="w-32">
-            <SelectValue placeholder={t('interceptor.audit.filters.status')} />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">{t('interceptor.audit.filters.all')}</SelectItem>
-            <SelectItem value="success">{t('interceptor.audit.status.success')}</SelectItem>
-            <SelectItem value="failed">{t('interceptor.audit.status.failed')}</SelectItem>
-            <SelectItem value="blocked">{t('interceptor.audit.status.blocked')}</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      ) : (
+        <div className="flex items-center gap-2 px-4 py-2 border-b border-border text-xs text-muted-foreground">
+          <LicenseBadge tier="pro" />
+          <span>{t('interceptor.audit.upgradeForFilters')}</span>
+        </div>
+      )}
 
       {/* Entries */}
       <ScrollArea className="flex-1">

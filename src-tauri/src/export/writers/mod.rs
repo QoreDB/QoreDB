@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 use async_trait::async_trait;
 use tokio::fs::File;
 use tokio::io::BufWriter;
@@ -10,6 +12,11 @@ pub mod csv;
 pub mod html;
 pub mod json;
 pub mod sql;
+
+#[cfg(feature = "pro")]
+pub mod parquet_writer;
+#[cfg(feature = "pro")]
+pub mod xlsx;
 
 #[async_trait]
 pub trait ExportWriter: Send {
@@ -51,6 +58,24 @@ pub async fn create_writer(
                 namespace,
                 table,
             )) as Box<dyn ExportWriter>)
+        }
+        #[cfg(feature = "pro")]
+        ExportFormat::Xlsx => {
+            // XLSX writer manages its own file I/O
+            drop(writer);
+            Ok(Box::new(xlsx::XlsxWriter::new(output_path.to_string())) as Box<dyn ExportWriter>)
+        }
+        #[cfg(feature = "pro")]
+        ExportFormat::Parquet => {
+            // Parquet writer manages its own file I/O
+            drop(writer);
+            Ok(Box::new(parquet_writer::ParquetExportWriter::new(
+                output_path.to_string(),
+            )) as Box<dyn ExportWriter>)
+        }
+        #[cfg(not(feature = "pro"))]
+        ExportFormat::Xlsx | ExportFormat::Parquet => {
+            Err("XLSX and Parquet export require QoreDB Pro".to_string())
         }
     }
 }

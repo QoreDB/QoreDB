@@ -1,13 +1,15 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * Hook for inline cell editing functionality in DataGrid
  * Manages editing state, validation, and update operations
  */
 
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { Value, Namespace, Environment, updateRow } from '@/lib/tauri';
-import { RowData } from '../utils/dataGridUtils';
+import { type Environment, type Namespace, updateRow, type Value } from '@/lib/tauri';
+import type { RowData } from '../utils/dataGridUtils';
 import { useValueParsing } from './useValueParsing';
 
 export interface UseInlineEditProps {

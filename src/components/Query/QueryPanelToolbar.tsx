@@ -1,24 +1,38 @@
+// SPDX-License-Identifier: Apache-2.0
+
+import {
+  AlertCircle,
+  BookmarkPlus,
+  Database,
+  Folder,
+  History,
+  Layers,
+  Lock,
+  Play,
+  Plus,
+  Network,
+  Shield,
+  Sparkles,
+  Square,
+} from 'lucide-react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
-import { getModifierKey } from '@/utils/platform';
 import {
-  Play,
-  Square,
-  AlertCircle,
-  History,
-  Shield,
-  Lock,
-  Plus,
-  BookmarkPlus,
-  Folder,
-  Layers,
-  Database,
-} from 'lucide-react';
-import { cn } from '@/lib/utils';
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Tooltip } from '@/components/ui/tooltip';
-import { Environment, Namespace } from '../../lib/tauri';
-import { ENVIRONMENT_CONFIG } from '../../lib/environment';
-import { MONGO_TEMPLATES } from '../Editor/mongo-constants';
+import { cn } from '@/lib/utils';
+import { getModifierKey } from '@/utils/platform';
+import { useTabContext } from '@/providers/TabProvider';
+import { createFederationTab } from '@/lib/tabs';
+import type { ENVIRONMENT_CONFIG } from '../../lib/environment';
+import type { Environment, Namespace } from '../../lib/tauri';
+import type { MONGO_TEMPLATES } from '../Editor/mongo-constants';
 
 type EnvConfig = (typeof ENVIRONMENT_CONFIG)[keyof typeof ENVIRONMENT_CONFIG];
 
@@ -45,6 +59,8 @@ interface QueryPanelToolbarProps {
   onLibraryOpen: () => void;
   onSaveToLibrary: () => void;
   onTemplateSelect: (templateKey: keyof typeof MONGO_TEMPLATES) => void;
+  onAiToggle?: () => void;
+  aiPanelOpen?: boolean;
 }
 
 export function QueryPanelToolbar({
@@ -70,8 +86,12 @@ export function QueryPanelToolbar({
   onLibraryOpen,
   onSaveToLibrary,
   onTemplateSelect,
+  onAiToggle,
+  aiPanelOpen,
 }: QueryPanelToolbarProps) {
   const { t } = useTranslation();
+  const { openTab } = useTabContext();
+  const [templateSelectValue, setTemplateSelectValue] = useState<string | undefined>(undefined);
 
   // Priority: activeNamespace.database > connectionDatabase
   const displayDatabase = activeNamespace?.database || connectionDatabase;
@@ -164,24 +184,25 @@ export function QueryPanelToolbar({
       )}
 
       {isDocumentBased && (
-        <select
-          className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-          onChange={e => {
-            onTemplateSelect(e.target.value as keyof typeof MONGO_TEMPLATES);
-            e.currentTarget.value = '';
+        <Select
+          value={templateSelectValue}
+          onValueChange={value => {
+            onTemplateSelect(value as keyof typeof MONGO_TEMPLATES);
+            setTemplateSelectValue(undefined);
           }}
-          defaultValue=""
         >
-          <option value="" disabled>
-            Templates...
-          </option>
-          <option value="find">find()</option>
-          <option value="findOne">findOne()</option>
-          <option value="aggregate">aggregate()</option>
-          <option value="insertOne">insertOne()</option>
-          <option value="updateOne">updateOne()</option>
-          <option value="deleteOne">deleteOne()</option>
-        </select>
+          <SelectTrigger className="h-9 w-[150px]">
+            <SelectValue placeholder="Templates..." />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="find">find()</SelectItem>
+            <SelectItem value="findOne">findOne()</SelectItem>
+            <SelectItem value="aggregate">aggregate()</SelectItem>
+            <SelectItem value="insertOne">insertOne()</SelectItem>
+            <SelectItem value="updateOne">updateOne()</SelectItem>
+            <SelectItem value="deleteOne">deleteOne()</SelectItem>
+          </SelectContent>
+        </Select>
       )}
 
       {!isDocumentBased && isExplainSupported && (
@@ -212,6 +233,37 @@ export function QueryPanelToolbar({
             )}
           >
             <Layers size={16} />
+          </Button>
+        </Tooltip>
+      )}
+
+      {!isDocumentBased && (
+        <Tooltip content={t('federation.badge') || 'Federation'}>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => openTab(createFederationTab())}
+            className="h-9 w-9 text-accent hover:bg-accent/10"
+          >
+            <Network size={16} />
+          </Button>
+        </Tooltip>
+      )}
+
+      {onAiToggle && (
+        <Tooltip content={t('ai.title')}>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onAiToggle}
+            className={cn(
+              'h-9 w-9',
+              aiPanelOpen
+                ? 'text-accent bg-accent/10 hover:bg-accent/20'
+                : 'text-muted-foreground hover:text-foreground'
+            )}
+          >
+            <Sparkles size={16} />
           </Button>
         </Tooltip>
       )}

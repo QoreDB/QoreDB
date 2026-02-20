@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -10,9 +12,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { SettingsCard } from '../SettingsCard';
 import { getSandboxPreferences, setSandboxPreferences } from '@/lib/sandboxStore';
-import { SandboxDeleteDisplay } from '@/lib/sandboxTypes';
+import type { SandboxDeleteDisplay } from '@/lib/sandboxTypes';
+import { SettingsCard } from '../SettingsCard';
 
 interface EditorSectionProps {
   searchQuery?: string;

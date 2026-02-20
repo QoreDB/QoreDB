@@ -1,11 +1,25 @@
+// SPDX-License-Identifier: Apache-2.0
+
+import { open as openDialog, save } from '@tauri-apps/plugin-dialog';
+import { readTextFile, writeTextFile } from '@tauri-apps/plugin-fs';
+import {
+  Download,
+  Folder,
+  FolderPlus,
+  Play,
+  RefreshCw,
+  Star,
+  Trash2,
+  Upload,
+  X,
+} from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { save, open as openDialog } from '@tauri-apps/plugin-dialog';
-import { writeTextFile, readTextFile } from '@tauri-apps/plugin-fs';
-
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
@@ -14,34 +28,20 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tooltip } from '@/components/ui/tooltip';
-import { cn } from '@/lib/utils';
-
 import {
   createFolder,
-  deleteItem,
   deleteFolder,
+  deleteItem,
   exportLibrary,
   importLibrary,
   listFolders,
   listItems,
-  updateItem,
   type QueryFolder,
-  type QueryLibraryItem,
   type QueryLibraryExportV1,
+  type QueryLibraryItem,
+  updateItem,
 } from '@/lib/queryLibrary';
-import {
-  Download,
-  FolderPlus,
-  Star,
-  Trash2,
-  Upload,
-  X,
-  Play,
-  Folder,
-  RefreshCw,
-} from 'lucide-react';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Label } from '@/components/ui/label';
+import { cn } from '@/lib/utils';
 
 interface QueryLibraryModalProps {
   isOpen: boolean;
@@ -193,13 +193,14 @@ export function QueryLibraryModal({ isOpen, onClose, onSelectQuery }: QueryLibra
   if (!isOpen) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
-      onMouseDown={e => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div className="w-full max-w-3xl max-h-[85vh] bg-background border border-border rounded-lg shadow-xl flex flex-col overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+      <button
+        type="button"
+        aria-label={t('common.close')}
+        className="absolute inset-0"
+        onMouseDown={onClose}
+      />
+      <div className="relative z-10 w-full max-w-3xl max-h-[85vh] bg-background border border-border rounded-lg shadow-xl flex flex-col overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
           <div className="flex items-center gap-2">
             <Folder size={18} className="text-accent" />
@@ -353,6 +354,7 @@ export function QueryLibraryModal({ isOpen, onClose, onSelectQuery }: QueryLibra
                   className="group flex items-start gap-3 px-4 py-3 hover:bg-muted/30 transition-colors"
                 >
                   <button
+                    type="button"
                     className={cn(
                       'mt-1 h-7 w-7 rounded-md flex items-center justify-center transition-colors',
                       item.isFavorite
@@ -385,6 +387,7 @@ export function QueryLibraryModal({ isOpen, onClose, onSelectQuery }: QueryLibra
                         {item.tags.map(tagValue => (
                           <button
                             key={tagValue}
+                            type="button"
                             className="text-[11px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border hover:text-foreground"
                             onClick={() => setTag(tagValue)}
                             title={t('library.filterByTag')}

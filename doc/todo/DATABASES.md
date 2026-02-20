@@ -11,6 +11,11 @@
 - [x] **PostgreSQL** — Driver complet (connexion, requêtes, schémas, SSL, SSH)
 - [x] **MySQL** — Driver complet
 - [x] **MariaDB** — Via driver MySQL (compatible)
+- [x] **SQL Server** — Driver complet (connexion, requêtes, schémas, transactions, SSL, SSH)
+
+### SQL Analytique
+
+- [x] **DuckDB** — Analytics embarqué (OLAP), fichier local
 
 ### NoSQL Document
 
@@ -22,8 +27,7 @@
 
 ### SQL Relationnel
 
-- [ ] **SQLite** — Base locale, fichier unique
-- [ ] **SQL Server** — Microsoft (MSSQL/Azure SQL)
+- [x] **SQLite** — Base locale, fichier unique
 - [ ] **Oracle Database** — Enterprise
 - [ ] **CockroachDB** — PostgreSQL-compatible, distribué
 
@@ -34,7 +38,7 @@
 
 ### NoSQL Key-Value
 
-- [ ] **Redis** — Cache / store in-memory
+- [x] **Redis** — Cache / store in-memory
 - [ ] **Valkey** — Fork open-source de Redis
 - [ ] **Memcached** — Cache distribué
 - [ ] **Amazon DynamoDB** — Key-value AWS
@@ -75,7 +79,6 @@
 
 ### Embedded / Local
 
-- [ ] **DuckDB** — Analytics embarqué (OLAP)
 - [ ] **LevelDB** — Key-value embarqué
 - [ ] **RocksDB** — Key-value haute perf
 
@@ -117,7 +120,6 @@ pub trait DataEngine: Send + Sync {
 | -------- | ------------- | ------------------------- |
 | V1       | SQLite        | Local-first, dev workflow |
 | V1       | Redis         | Très populaire, simple    |
-| V2       | SQL Server    | Enterprise demand         |
 | V2       | ClickHouse    | Analytics use case        |
 | V2       | Elasticsearch | Search use case           |
 | V3       | Neo4j         | Niche mais différenciant  |

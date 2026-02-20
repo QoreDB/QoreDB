@@ -1,5 +1,8 @@
-import { ReactNode } from 'react';
+// SPDX-License-Identifier: Apache-2.0
+
 import { Database, Plus, RefreshCw, Trash2 } from 'lucide-react';
+import type { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   ContextMenu,
   ContextMenuContent,
@@ -7,7 +10,6 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from '@/components/ui/context-menu';
-import { useTranslation } from 'react-i18next';
 
 interface DatabaseContextMenuProps {
   onOpen: () => void;

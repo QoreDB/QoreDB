@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 //! Query Manager
 //!
 //! Tracks active queries per session and provides query IDs for cancellation.

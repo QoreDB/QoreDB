@@ -112,11 +112,12 @@ export function DiffTablePicker({
   };
 
   return (
-    <div ref={containerRef} className="relative w-full" onKeyDown={handleKeyDown}>
+    <div ref={containerRef} className="relative w-full">
       <Button
         variant="outline"
         className={cn('w-full justify-between font-normal', !value && 'text-muted-foreground')}
         onClick={() => !disabled && setIsOpen(!isOpen)}
+        onKeyDown={handleKeyDown}
         disabled={disabled}
       >
         <span className="flex items-center gap-2 truncate">
@@ -131,11 +132,15 @@ export function DiffTablePicker({
         </span>
         <span className="flex items-center gap-1">
           {value && (
-            <X
-              size={14}
-              className="text-muted-foreground hover:text-foreground cursor-pointer"
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-5 w-5 text-muted-foreground hover:text-foreground"
               onClick={handleClear}
-            />
+            >
+              <X size={14} />
+            </Button>
           )}
           <ChevronDown size={14} className="text-muted-foreground" />
         </span>
@@ -153,6 +158,7 @@ export function DiffTablePicker({
               placeholder={t('dbtree.searchPlaceholder')}
               value={search}
               onChange={e => setSearch(e.target.value)}
+              onKeyDown={handleKeyDown}
             />
             {loading && <Loader2 size={14} className="animate-spin text-muted-foreground" />}
           </div>

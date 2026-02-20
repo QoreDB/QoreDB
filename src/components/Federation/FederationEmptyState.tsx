@@ -55,9 +55,7 @@ export function FederationEmptyState({
           </div>
 
           <div className="space-y-2">
-            <h3 className="text-lg font-semibold text-foreground">
-              {t('federation.emptyTitle')}
-            </h3>
+            <h3 className="text-lg font-semibold text-foreground">{t('federation.emptyTitle')}</h3>
             <p className="text-sm text-muted-foreground leading-relaxed">
               {t('federation.emptyNeedSources')}
             </p>
@@ -74,9 +72,7 @@ export function FederationEmptyState({
               </div>
               <span className="font-medium">{sources[0].display_name}</span>
               <span className="text-muted-foreground">+</span>
-              <span className="text-muted-foreground italic">
-                {t('federation.oneMoreNeeded')}
-              </span>
+              <span className="text-muted-foreground italic">{t('federation.oneMoreNeeded')}</span>
             </div>
           )}
 
@@ -100,9 +96,7 @@ export function FederationEmptyState({
         </div>
 
         <div className="space-y-2">
-          <h3 className="text-lg font-semibold text-foreground">
-            {t('federation.readyTitle')}
-          </h3>
+          <h3 className="text-lg font-semibold text-foreground">{t('federation.readyTitle')}</h3>
           <p className="text-sm text-muted-foreground leading-relaxed max-w-sm">
             {t('federation.readyDescription')}
           </p>
@@ -158,7 +152,9 @@ export function FederationEmptyState({
         <div className="flex items-center gap-4 text-[11px] text-muted-foreground/60">
           <span>{t('federation.hintClickSource')}</span>
           <span className="w-px h-3 bg-border" />
-          <span>{getModifierKey()}+Enter {t('federation.hintToExecute')}</span>
+          <span>
+            {getModifierKey()}+Enter {t('federation.hintToExecute')}
+          </span>
         </div>
       </div>
     </div>

@@ -9,7 +9,7 @@ import {
   snippetCompletion,
 } from '@codemirror/autocomplete';
 import { defaultKeymap } from '@codemirror/commands';
-import { keywordCompletionSource, MySQL, PostgreSQL, sql } from '@codemirror/lang-sql';
+import { keywordCompletionSource, MSSQL, MySQL, PostgreSQL, sql } from '@codemirror/lang-sql';
 import { EditorState } from '@codemirror/state';
 import { oneDark } from '@codemirror/theme-one-dark';
 import {
@@ -103,6 +103,8 @@ export const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQ
     switch (dialect) {
       case Driver.Mysql:
         return MySQL;
+      case Driver.SqlServer:
+        return MSSQL;
       default:
         return PostgreSQL;
     }
@@ -136,10 +138,11 @@ export const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQ
       if (!connectionDatabase) return namespaces[0];
       const matches = namespaces.filter(ns => ns.database === connectionDatabase);
       if (!matches.length) return namespaces[0];
-      const publicMatch = matches.find(ns => ns.schema === 'public');
-      return publicMatch || matches[0];
+      const defaultSchema = dialect === Driver.SqlServer ? 'dbo' : 'public';
+      const schemaMatch = matches.find(ns => ns.schema === defaultSchema);
+      return schemaMatch || matches[0];
     },
-    [activeNamespace, connectionDatabase]
+    [activeNamespace, connectionDatabase, dialect]
   );
 
   const loadTablesForNamespace = useCallback(

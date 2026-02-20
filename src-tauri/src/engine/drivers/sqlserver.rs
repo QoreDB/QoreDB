@@ -57,6 +57,8 @@ pub struct SqlServerSession {
     active_queries: Mutex<HashMap<QueryId, u16>>,
     /// Current database name (from connection config).
     database: String,
+    /// Connection config kept for creating raw connections (e.g. transactions).
+    config: ConnectionConfig,
 }
 
 pub struct SqlServerDriver {
@@ -291,6 +293,7 @@ impl DataEngine for SqlServerDriver {
             transaction_conn: Mutex::new(None),
             active_queries: Mutex::new(HashMap::new()),
             database,
+            config: config.clone(),
         });
 
         let mut sessions = self.sessions.write().await;
@@ -931,7 +934,7 @@ impl DataEngine for SqlServerDriver {
     async fn execute_in_namespace(
         &self,
         session: SessionId,
-        namespace: Option<Namespace>,
+        _namespace: Option<Namespace>,
         query: &str,
         _query_id: QueryId,
     ) -> EngineResult<QueryResult> {
@@ -945,14 +948,6 @@ impl DataEngine for SqlServerDriver {
         let start = Instant::now();
 
         if let Some(ref mut tx_conn) = *tx_guard {
-            // Use transaction connection
-            if let Some(ns) = &namespace {
-                let schema = ns.schema.as_deref().unwrap_or("dbo");
-                let _ = tx_conn
-                    .simple_query(&format!("SET SCHEMA '{}'", schema.replace('\'', "''")))
-                    .await;
-            }
-
             if returns_rows {
                 execute_select(tx_conn, query, start).await
             } else {
@@ -963,13 +958,6 @@ impl DataEngine for SqlServerDriver {
             let mut conn = mssql_session.pool.get().await.map_err(|e| {
                 EngineError::connection_failed(format!("Failed to acquire connection: {e}"))
             })?;
-
-            if let Some(ns) = &namespace {
-                let schema = ns.schema.as_deref().unwrap_or("dbo");
-                let _ = conn
-                    .simple_query(&format!("SET SCHEMA '{}'", schema.replace('\'', "''")))
-                    .await;
-            }
 
             if returns_rows {
                 execute_select(&mut conn, query, start).await
@@ -1013,46 +1001,18 @@ impl DataEngine for SqlServerDriver {
             return Ok(());
         }
 
-        let mut conn = mssql_session.pool.get().await.map_err(|e| {
-            EngineError::connection_failed(format!("Failed to acquire connection: {e}"))
-        })?;
+        // Check if we should use the transaction connection
+        let mut tx_guard = mssql_session.transaction_conn.lock().await;
 
-        if let Some(ns) = &namespace {
-            let schema = ns.schema.as_deref().unwrap_or("dbo");
-            let _ = conn
-                .simple_query(&format!("SET SCHEMA '{}'", schema.replace('\'', "''")))
-                .await;
+        if let Some(ref mut tx_conn) = *tx_guard {
+            stream_select_results(tx_conn, query, &sender).await
+        } else {
+            drop(tx_guard);
+            let mut conn = mssql_session.pool.get().await.map_err(|e| {
+                EngineError::connection_failed(format!("Failed to acquire connection: {e}"))
+            })?;
+            stream_select_results(&mut conn, query, &sender).await
         }
-
-        // Execute query and stream results
-        let stream = conn
-            .simple_query(query)
-            .await
-            .map_err(|e| classify_error(e.to_string()))?;
-
-        let result_set = stream
-            .into_first_result()
-            .await
-            .map_err(|e| classify_error(e.to_string()))?;
-
-        // Send column info from first row's metadata (if available)
-        if let Some(first_row) = result_set.first() {
-            let columns = get_column_info(first_row.columns());
-            if sender.send(StreamEvent::Columns(columns)).await.is_err() {
-                return Ok(());
-            }
-        }
-
-        let row_count = result_set.len() as u64;
-        for row in &result_set {
-            let qrow = convert_row(row);
-            if sender.send(StreamEvent::Row(qrow)).await.is_err() {
-                return Ok(());
-            }
-        }
-
-        let _ = sender.send(StreamEvent::Done(row_count)).await;
-        Ok(())
     }
 
     // ==================== Table Querying ====================
@@ -1307,40 +1267,26 @@ impl DataEngine for SqlServerDriver {
             ));
         }
 
-        {
-            // We need to create a raw connection for the transaction
-            // because bb8 pooled connections can't be moved out
-            let mut conn = mssql_session.pool.get().await.map_err(|e| {
-                EngineError::connection_failed(format!("Failed to acquire connection: {e}"))
+        // Create a dedicated raw connection (bypassing bb8 pool) to ensure
+        // all transaction queries run on the same connection.
+        let mut conn = Self::connect_raw(&mssql_session.config).await.map_err(|e| {
+            EngineError::connection_failed(format!(
+                "Failed to acquire dedicated connection for transaction: {e}"
+            ))
+        })?;
+
+        conn.simple_query("BEGIN TRANSACTION")
+            .await
+            .map_err(|e| {
+                EngineError::execution_error(format!("Failed to begin transaction: {e}"))
+            })?
+            .into_results()
+            .await
+            .map_err(|e| {
+                EngineError::execution_error(format!("Failed to begin transaction: {e}"))
             })?;
 
-            conn.simple_query("BEGIN TRANSACTION")
-                .await
-                .map_err(|e| {
-                    EngineError::execution_error(format!("Failed to begin transaction: {e}"))
-                })?
-                .into_results()
-                .await
-                .map_err(|e| {
-                    EngineError::execution_error(format!("Failed to begin transaction: {e}"))
-                })?;
-
-            // Unfortunately bb8 doesn't let us take ownership of the underlying client.
-            // For simplicity, we use the pool connection pattern but store None
-            // and use pool.get() in execute_in_namespace when tx is active.
-            // This is a simplification - the pool connection is returned when dropped.
-        };
-
-        // For now, we use a flag-based approach since bb8 doesn't allow extracting the client.
-        // We'll hold a "marker" to indicate transaction mode, and use the pool for queries.
-        // The transaction state is maintained at the SQL Server level for the connection.
-
-        // Actually, we need a dedicated connection. Create one directly via tiberius.
-        // This bypasses the pool, but ensures the transaction lives on one connection.
-        // We'll need the config to create a fresh connection...
-        // For now, store None and use a simpler transaction model.
-        // TODO: Implement proper dedicated transaction connection
-        *tx = None; // Placeholder - transaction started on last pool conn
+        *tx = Some(conn);
 
         Ok(())
     }
@@ -1349,8 +1295,8 @@ impl DataEngine for SqlServerDriver {
         let mssql_session = self.get_session(session).await?;
         let mut tx = mssql_session.transaction_conn.lock().await;
 
-        let mut conn = mssql_session.pool.get().await.map_err(|e| {
-            EngineError::connection_failed(format!("Failed to acquire connection: {e}"))
+        let mut conn = tx.take().ok_or_else(|| {
+            EngineError::transaction_error("No active transaction to commit")
         })?;
 
         conn.simple_query("COMMIT")
@@ -1360,7 +1306,6 @@ impl DataEngine for SqlServerDriver {
             .await
             .map_err(|e| EngineError::execution_error(format!("Failed to commit: {e}")))?;
 
-        *tx = None;
         Ok(())
     }
 
@@ -1368,8 +1313,8 @@ impl DataEngine for SqlServerDriver {
         let mssql_session = self.get_session(session).await?;
         let mut tx = mssql_session.transaction_conn.lock().await;
 
-        let mut conn = mssql_session.pool.get().await.map_err(|e| {
-            EngineError::connection_failed(format!("Failed to acquire connection: {e}"))
+        let mut conn = tx.take().ok_or_else(|| {
+            EngineError::transaction_error("No active transaction to rollback")
         })?;
 
         conn.simple_query("ROLLBACK")
@@ -1379,7 +1324,6 @@ impl DataEngine for SqlServerDriver {
             .await
             .map_err(|e| EngineError::execution_error(format!("Failed to rollback: {e}")))?;
 
-        *tx = None;
         Ok(())
     }
 
@@ -1553,6 +1497,41 @@ impl DataEngine for SqlServerDriver {
 }
 
 // ==================== Helpers ====================
+
+/// Execute a SELECT query on a connection and stream results via sender.
+async fn stream_select_results(
+    conn: &mut MssqlClient,
+    query: &str,
+    sender: &StreamSender,
+) -> EngineResult<()> {
+    let stream = conn
+        .simple_query(query)
+        .await
+        .map_err(|e| classify_error(e.to_string()))?;
+
+    let result_set = stream
+        .into_first_result()
+        .await
+        .map_err(|e| classify_error(e.to_string()))?;
+
+    if let Some(first_row) = result_set.first() {
+        let columns = get_column_info(first_row.columns());
+        if sender.send(StreamEvent::Columns(columns)).await.is_err() {
+            return Ok(());
+        }
+    }
+
+    let row_count = result_set.len() as u64;
+    for row in &result_set {
+        let qrow = convert_row(row);
+        if sender.send(StreamEvent::Row(qrow)).await.is_err() {
+            return Ok(());
+        }
+    }
+
+    let _ = sender.send(StreamEvent::Done(row_count)).await;
+    Ok(())
+}
 
 /// Execute a SELECT query and return a QueryResult.
 async fn execute_select(

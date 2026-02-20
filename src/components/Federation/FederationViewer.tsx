@@ -3,16 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import {
-  BookmarkPlus,
-  History,
-  Layers,
-  Loader2,
-  Network,
-  Play,
-  Square,
-  X,
-} from 'lucide-react';
+import { BookmarkPlus, History, Layers, Loader2, Network, Play, Square, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip } from '@/components/ui/tooltip';
 import { Driver } from '@/lib/drivers';

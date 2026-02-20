@@ -15,7 +15,6 @@ interface LicenseSectionProps {
 const PRO_FEATURES: ProFeature[] = [
   'sandbox',
   'visual_diff',
-  'er_diagram',
   'profiling',
   'custom_safety_rules',
   'audit_advanced',

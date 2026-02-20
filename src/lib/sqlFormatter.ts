@@ -9,6 +9,8 @@ const DIALECT_MAP: Record<Driver, SqlLanguage> = {
   [Driver.Mongodb]: 'sql',
   [Driver.Redis]: 'sql',
   [Driver.Sqlite]: 'sqlite',
+  [Driver.SqlServer]: 'tsql',
+  [Driver.Duckdb]: 'sql',
 };
 
 export function formatSql(query: string, driver: Driver): string {

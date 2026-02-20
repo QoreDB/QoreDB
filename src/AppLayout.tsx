@@ -260,9 +260,7 @@ export function AppLayout() {
           ]
         : []),
       ...(sessionId ? [{ id: 'cmd_open_diff', label: t('diff.openDiff') }] : []),
-      ...(sessionId
-        ? [{ id: 'cmd_open_federation', label: t('federation.openFederation') }]
-        : []),
+      ...(sessionId ? [{ id: 'cmd_open_federation', label: t('federation.openFederation') }] : []),
       {
         id: 'cmd_open_settings',
         label: t('palette.openSettings'),

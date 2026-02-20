@@ -227,7 +227,7 @@ export const DRIVERS: Record<Driver, DriverMetadata> = {
     },
     queries: {
       databaseSizeQuery: () =>
-        "SELECT pg_size_pretty(database_size) as size FROM duckdb_databases() WHERE database_name = current_database()",
+        'SELECT pg_size_pretty(database_size) as size FROM duckdb_databases() WHERE database_name = current_database()',
       tableSizeQuery: (schema, table) =>
         `SELECT estimated_size as total_bytes FROM duckdb_tables() WHERE schema_name = '${schema}' AND table_name = '${table}'`,
       indexCountQuery: schema =>

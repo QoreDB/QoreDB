@@ -32,7 +32,10 @@ export function getCollectionFromQuery(query: string): string {
  * Handles: USE db, USE `db`, USE "db", multi-statement queries (returns last USE).
  */
 export function extractUseDatabase(query: string): string | null {
-  const statements = query.split(';').map(s => s.trim()).filter(Boolean);
+  const statements = query
+    .split(';')
+    .map(s => s.trim())
+    .filter(Boolean);
   let lastDb: string | null = null;
   for (const stmt of statements) {
     const match = stmt.match(/^use\s+[`"']?([^`"'\s;]+)[`"']?\s*$/i);

@@ -47,7 +47,7 @@ const TIER_LEVELS: Record<LicenseTier, number> = {
 const FEATURE_REQUIRED_TIER: Record<ProFeature, LicenseTier> = {
   sandbox: 'pro',
   visual_diff: 'pro',
-  er_diagram: 'pro',
+  er_diagram: 'core',
   audit_advanced: 'pro',
   profiling: 'pro',
   ai: 'pro',

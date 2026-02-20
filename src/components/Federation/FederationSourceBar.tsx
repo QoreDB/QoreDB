@@ -3,10 +3,10 @@
 import { ChevronDown, Loader2, Plus, RefreshCw } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { DBTree } from '@/components/Tree/DBTree';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { DBTree } from '@/components/Tree/DBTree';
 import { DRIVER_ICONS, DRIVER_LABELS, type Driver } from '@/lib/drivers';
 import type { FederationSource } from '@/lib/federation';
 import type { Namespace } from '@/lib/tauri';
@@ -51,6 +51,7 @@ export function FederationSourceBar({
         </div>
       ) : sources.length === 0 ? (
         <button
+        type='button'
           onClick={onAddSource}
           className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-dashed border-border text-xs text-muted-foreground hover:text-foreground hover:border-accent/40 hover:bg-accent/5 transition-all"
         >
@@ -58,8 +59,7 @@ export function FederationSourceBar({
           {t('federation.connectFirst')}
         </button>
       ) : (
-        <>
-          {sources.map(source => {
+        sources.map(source => {
             const driver = source.driver as Driver;
             const isOpen = openPopover === source.alias;
 
@@ -71,6 +71,8 @@ export function FederationSourceBar({
               >
                 <PopoverTrigger asChild>
                   <button
+        type='button'
+
                     className={cn(
                       'flex items-center gap-1.5 pl-2 pr-2 py-1 rounded-md border text-xs transition-all shrink-0',
                       'hover:border-accent/30 hover:bg-accent/5',
@@ -118,22 +120,19 @@ export function FederationSourceBar({
                   <p className="text-[10px] text-muted-foreground px-3 py-1.5 bg-accent/5 border-b border-border">
                     {t('federation.clickTableToInsert')}
                   </p>
-                  <ScrollArea className="max-h-[360px]">
+                  <ScrollArea className="max-h-90">
                     <div className="p-2">
                       <DBTree
                         connectionId={source.session_id}
                         driver={source.driver}
-                        onTableSelect={(ns, table) =>
-                          handleTableSelect(source.alias, ns, table)
-                        }
+                        onTableSelect={(ns, table) => handleTableSelect(source.alias, ns, table)}
                       />
                     </div>
                   </ScrollArea>
                 </PopoverContent>
               </Popover>
             );
-          })}
-        </>
+          })
       )}
 
       <div className="flex-1" />

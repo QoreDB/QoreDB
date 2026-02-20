@@ -16,7 +16,16 @@ interface FileSectionProps {
   onChange: (field: keyof ConnectionFormData, value: string | number | boolean) => void;
 }
 
-const FILE_CONFIGS: Record<string, { filterName: string; extensions: string[]; createExtensions: string[]; defaultFile: string; helpKey: string }> = {
+const FILE_CONFIGS: Record<
+  string,
+  {
+    filterName: string;
+    extensions: string[];
+    createExtensions: string[];
+    defaultFile: string;
+    helpKey: string;
+  }
+> = {
   [Driver.Sqlite]: {
     filterName: 'SQLite Database',
     extensions: ['db', 'sqlite', 'sqlite3', 's3db'],

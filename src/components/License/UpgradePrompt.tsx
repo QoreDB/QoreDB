@@ -19,19 +19,17 @@ export function UpgradePrompt({ feature, className }: UpgradePromptProps) {
   const requiredTier = featureRequiredTier(feature);
 
   return (
-			<div
-				className={`flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed p-6 text-center ${className ?? ""}`}
-				style={{ borderColor: "rgba(107, 92, 255, 0.3)" }}
-			>
-				<LicenseBadge tier={requiredTier} />
-				<p className="text-sm text-(--color-text-secondary)">
-					{t(`license.features.${feature}`, {
-						defaultValue: t("license.upgrade.description"),
-					})}
-				</p>
-				<p className="text-xs text-(--color-text-tertiary)">
-					{t("license.upgrade.hint")}
-				</p>
-			</div>
-		);
+    <div
+      className={`flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed p-6 text-center ${className ?? ''}`}
+      style={{ borderColor: 'rgba(107, 92, 255, 0.3)' }}
+    >
+      <LicenseBadge tier={requiredTier} />
+      <p className="text-sm text-(--color-text-secondary)">
+        {t(`license.features.${feature}`, {
+          defaultValue: t('license.upgrade.description'),
+        })}
+      </p>
+      <p className="text-xs text-(--color-text-tertiary)">{t('license.upgrade.hint')}</p>
+    </div>
+  );
 }

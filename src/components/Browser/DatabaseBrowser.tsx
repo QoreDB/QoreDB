@@ -24,7 +24,6 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { LicenseGate } from '@/components/License/LicenseGate';
 import { ERDiagram } from '@/components/Schema/ERDiagram';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -856,15 +855,13 @@ export function DatabaseBrowser({
           </div>
         ) : (
           <div className="h-full">
-            <LicenseGate feature="er_diagram">
-              <ERDiagram
-                sessionId={sessionId}
-                namespace={namespace}
-                connectionId={connectionId}
-                schemaRefreshTrigger={schemaRefreshTrigger}
-                onTableSelect={onTableSelect}
-              />
-            </LicenseGate>
+            <ERDiagram
+              sessionId={sessionId}
+              namespace={namespace}
+              connectionId={connectionId}
+              schemaRefreshTrigger={schemaRefreshTrigger}
+              onTableSelect={onTableSelect}
+            />
           </div>
         )}
       </div>

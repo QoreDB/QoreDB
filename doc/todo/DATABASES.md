@@ -22,7 +22,7 @@
 
 ### SQL Relationnel
 
-- [ ] **SQLite** — Base locale, fichier unique
+- [x] **SQLite** — Base locale, fichier unique
 - [ ] **SQL Server** — Microsoft (MSSQL/Azure SQL)
 - [ ] **Oracle Database** — Enterprise
 - [ ] **CockroachDB** — PostgreSQL-compatible, distribué
@@ -34,7 +34,7 @@
 
 ### NoSQL Key-Value
 
-- [ ] **Redis** — Cache / store in-memory
+- [x] **Redis** — Cache / store in-memory
 - [ ] **Valkey** — Fork open-source de Redis
 - [ ] **Memcached** — Cache distribué
 - [ ] **Amazon DynamoDB** — Key-value AWS

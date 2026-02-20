@@ -3,6 +3,7 @@ Data Engine Kernel,Interface DataEngine,Backend / Core,Définition de l'API abst
 Data Engine Kernel,Driver PostgreSQL,Backend / Core,Implémentation complète du driver PostgreSQL avec support transactions.,Terminé,P0,POC,4,Basé sur sqlx.
 Data Engine Kernel,Driver MySQL,Backend / Core,Implémentation complète du driver MySQL/MariaDB.,Terminé,P0,POC,4,Basé sur sqlx.
 Data Engine Kernel,Driver MongoDB,Backend / Core,Implémentation complète du driver MongoDB (NoSQL).,Terminé,P0,POC,4,Supporte les collections et BSON.
+Data Engine Kernel,Driver Redis,Backend / Core,Implémentation du driver Redis key-value avec navigation et inspection des types.,Terminé,P1,V2,4,Supporte SCAN et aperçu par type de clé.
 Data Engine Kernel,Mapping Universel,Backend / Core,Abstraction des concepts (Namespace / Collection / Record).,Terminé,P0,POC,4,Permet une UI unifiée.
 Sécurité,Vault / Chiffrement,Backend / Security,Stockage sécurisé des credentials via keyring système + Argon2.,Terminé,P0,POC,5,Indispensable pour la sécurité locale.
 Sécurité,SSH Tunneling,Backend / Network,Support natif des tunnels SSH pour accès bases distantes.,Terminé,P1,POC,3,Utilise le binaire OpenSSH système.
@@ -12,6 +13,7 @@ Sécurité,Redaction / Privacy,App / Privacy,Nettoyage automatique des données 
 UX / Interface,Global Search,Frontend / Shell,Recherche universelle "Spotlight" (Cmd+K) : connexions - historique - commandes - librairie.,Terminé,P1,V1,4,Composant central de navigation.
 UX / Interface,Status Bar Contextuelle,Frontend / Shell,Barre d'état affichant environnement (couleur) - session - et lock status.,Terminé,P2,V1,2,Visual feedback permanent.
 UX / Interface,Sidebar Connexions,Frontend / Sidebar,Arbre de navigation multi-serveurs et bases.,Terminé,P0,POC,2,Support drag & drop à venir.
+UX / Interface,Favoris Connexions,Frontend / Sidebar,Marquage des connexions favorites avec section dédiée dans la sidebar.,Terminé,P1,V1,2,Persistance locale des favoris.
 UX / Interface,Gestion Onglets,Frontend / Tabs,Système d'onglets pour requêtes et tables multiples.,Terminé,P1,POC,2,État persistant par onglet.
 UX / Interface,Dark Mode,Frontend / UI,Thème sombre natif et soigné.,Terminé,P1,POC,1,Intégré avec Tailwind.
 UX / Interface,Onboarding,Frontend / Onboarding,Flow de bienvenue pour les nouveaux utilisateurs.,Terminé,P2,V1,2,Configuration initiale.
@@ -25,6 +27,7 @@ Data Grid,Tableau de données,Frontend / Grid,Grille haute performance pour affi
 Data Grid,Filtres & Tri,Frontend / Grid,Filtrage par colonne et tri server-side.,Terminé,P0,POC,3,UX fluide.
 Data Grid,Inline Edit,Frontend / Grid,Modification directe des cellules dans la grille.,Terminé,P1,V1,4,Support SQL UPDATE + NoSQL.
 Data Grid,Pagination,Frontend / Grid,Gestion offset/limit standardisée.,Terminé,P0,POC,2,Navigation pages.
+Data Grid,Infinite Scroll,Frontend / Grid,Chargement progressif des résultats à l'approche du bas de grille.,Terminé,P1,V2,3,Améliore l'exploration de gros jeux de données.
 Environnements,Classification Env,Frontend / Logic,Distinction Dev / Staging / Prod avec codes couleurs.,Terminé,P1,V1,2,Sécurité visuelle.
 Environnements,Read-only Mode,Fullstack,Blocage des écritures sur environnements critiques.,Terminé,P0,V1,3,Protection accidentelle.
 Environnements,Détection Dangers,Fullstack,Analyse regex pour prévenir les DROP/DELETE sans WHERE.,Terminé,P1,V1,3,Safety net.
@@ -34,13 +37,14 @@ Infra,Crash Recovery,App / Logic,Restauration de l'état de session après plant
 Infra,Backup Settings,App / Logic,Sauvegarde automatique de la configuration json.,Terminé,P2,V1,2,Backup local.
 Infra,Import / Export Projet,App / Logic,Transfert complet de configuration via fichier JSON.,Terminé,P2,V1,2,Portabilité.
 Infra,Telemetry / Analytics,App / Logic,Tracking anonyme des actions clés (connexion - crash) pour debugging.,Terminé,P3,V1,2,Module `AnalyticsService`.
+Infra,Open Core Licensing,Fullstack,Système de licence Core/Pro avec activation et feature gating backend/frontend.,Terminé,P1,V2,4,Inclut activation locale et vérification de droits.
 Infra,Dev Metrics,Backlog / Dev,Métriques de performance internes (query time - pool usage).,En cours,P3,V2,3,Exposé uniquement en dev build.
-IA (Future),Génération SQL,Backend / AI,Génération de requêtes par LLM.,A faire,P2,V2,5,Prévu pour versions futures.
+IA,Assistant IA,Fullstack,Génération et explication de requêtes avec correction d'erreurs en mode contextuel.,Terminé,P1,V1,4,Nécessite une licence Pro.
 Performance,Streaming Résultats,Backend / Core,Lecture curseur streamée pour gros datasets.,Terminé,P2,V1,4,Optimisation mémoire.
 DDL / Management,Suppression Base de Données,Fullstack,Suppression de base de données avec double confirmation.,Terminé,P1,V1,3,Support sélectif par driver.
 DDL / Management,Création Base de Données,Fullstack,Création de base de données / schéma depuis l'interface.,Terminé,P1,V1,3,Support multi-driver.
 DDL / Management,Gestion Tables,Fullstack,Création et suppression de tables avec support types par driver.,Terminé,P1,V1,4,Interface graphique dédiée.
-Data Grid,Export Données,Frontend / Grid,Export CSV/JSON des résultats filtrés.,Terminé,P2,V1,2,Côté client.
+Data Grid,Export Données,Fullstack,Export des résultats en CSV JSON SQL HTML XLSX et Parquet.,Terminé,P2,V2,3,Formats XLSX et Parquet réservés Pro.
 Infra,Journal d'erreurs,Frontend / Shell,Panneau dédié pour visualiser les erreurs backend/frontend.,Terminé,P2,V1,2,Persistant.
 SQL Editor,Multi-statement Execution,Backend / Core,Séparation et comptage des statements SQL multiples avec notices de résultats.,Terminé,P1,V1,3,Exécution batch améliorée.
 Schema,ER Diagram,Frontend / Schema,Visualisation schéma relationnel avec isolation et visibilité colonnes.,Terminé,P1,V1,5,Diagramme entité-relation interactif.
@@ -54,3 +58,4 @@ Infra,Background Job Manager,Backend / Core,Exécution asynchrone des tâches lo
 Data Engine Kernel,Universal Query Interceptor,Backend / Core,Hooks pour profiling/logging/audit et prévention requêtes destructrices.,Terminé,P1,V2,4,Safety net backend.
 Data Engine Kernel,Driver SQLite,Backend / Core,Driver SQLite avec support WAL et extensions.,Terminé,P1,V2,3,Support 1st class.
 Data Tools,Visual Data Diff,Frontend / Diff,Comparaison côte à côte de deux résultats de requêtes ou tables (type Git diff).,Terminé,P1,V2,3,Compare Prod vs Staging.
+Data Tools,Fédération Inter-bases,Fullstack,Exécution de requêtes SQL cross-database avec jointures entre connexions actives.,Terminé,P1,V2,5,Pipeline de fédération basé sur DuckDB avec source mapping.

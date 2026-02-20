@@ -347,8 +347,9 @@ impl DataEngine for DuckDbDriver {
         Self::with_conn(&duck_session, |conn| {
             let mut stmt = conn
                 .prepare(
-                    "SELECT schema_name FROM information_schema.schemata \
-                     WHERE schema_name NOT IN ('information_schema', 'pg_catalog') \
+                    "SELECT DISTINCT schema_name FROM information_schema.schemata \
+                     WHERE catalog_name = current_database() \
+                     AND schema_name NOT IN ('information_schema', 'pg_catalog') \
                      ORDER BY schema_name",
                 )
                 .map_err(|e| EngineError::execution_error(e.to_string()))?;
@@ -870,16 +871,25 @@ impl DataEngine for DuckDbDriver {
                             for row in col_rows {
                                 if let Ok((col_name, dtype)) = row {
                                     let upper = dtype.to_uppercase();
+                                    // Skip binary/unsearchable types
+                                    if upper.contains("BLOB") {
+                                        continue;
+                                    }
+
+                                    let col_ident = Self::quote_ident(&col_name);
+                                    bind_values.push(DuckValue::Text(format!(
+                                        "%{}%",
+                                        search_term
+                                    )));
+
+                                    // Text columns can use ILIKE directly, others need CAST
                                     if upper.contains("VARCHAR")
                                         || upper.contains("TEXT")
                                         || upper.contains("CHAR")
                                     {
-                                        let col_ident = Self::quote_ident(&col_name);
-                                        bind_values.push(DuckValue::Text(format!(
-                                            "%{}%",
-                                            search_term
-                                        )));
                                         search_clauses.push(format!("{} ILIKE ?", col_ident));
+                                    } else {
+                                        search_clauses.push(format!("CAST({} AS VARCHAR) ILIKE ?", col_ident));
                                     }
                                 }
                             }

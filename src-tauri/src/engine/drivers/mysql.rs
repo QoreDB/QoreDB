@@ -1373,10 +1373,10 @@ impl DataEngine for MySqlDriver {
             }
         }
 
-        // Handle search across text columns
+        // Handle search across all columns
         if let Some(ref search_term) = options.search {
             if !search_term.trim().is_empty() {
-                // Get column info to find text columns
+                // Get column info to determine cast strategy
                 let columns_sql = "SELECT COLUMN_NAME, CAST(DATA_TYPE AS CHAR) AS DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?";
                 let columns_rows: Vec<MySqlRow> = {
                     let mut tx_guard = mysql_session.transaction_conn.lock().await;
@@ -1403,15 +1403,26 @@ impl DataEngine for MySqlDriver {
                     let data_type: String = col_row.try_get("DATA_TYPE")
                         .map_err(|e| EngineError::execution_error(e.to_string()))?;
 
-                    // Only search text-like columns
-                    let is_text = matches!(data_type.to_lowercase().as_str(),
+                    // Skip binary/unsearchable column types
+                    let lower = data_type.to_lowercase();
+                    let is_unsearchable = matches!(lower.as_str(),
+                        "blob" | "tinyblob" | "mediumblob" | "longblob" | "binary" | "varbinary" | "geometry" | "point" | "linestring" | "polygon"
+                    );
+                    if is_unsearchable {
+                        continue;
+                    }
+
+                    let col_ident = Self::quote_ident(&col_name);
+                    bind_values.push(Value::Text(format!("%{}%", search_term)));
+
+                    // Text columns can use LIKE directly, others need CAST
+                    let is_text = matches!(lower.as_str(),
                         "varchar" | "char" | "text" | "tinytext" | "mediumtext" | "longtext" | "enum" | "set"
                     );
-
                     if is_text {
-                        let col_ident = Self::quote_ident(&col_name);
-                        bind_values.push(Value::Text(format!("%{}%", search_term)));
                         search_clauses.push(format!("{} LIKE ?", col_ident));
+                    } else {
+                        search_clauses.push(format!("CAST({} AS CHAR) LIKE ?", col_ident));
                     }
                 }
 
@@ -1484,8 +1495,42 @@ impl DataEngine for MySqlDriver {
         let execution_time_ms = start.elapsed().as_micros() as f64 / 1000.0;
 
         let result = if mysql_rows.is_empty() {
+            // Get column metadata from information_schema even when no rows match
+            let col_meta_sql = "SELECT COLUMN_NAME, CAST(DATA_TYPE AS CHAR) AS DATA_TYPE, IS_NULLABLE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? ORDER BY ORDINAL_POSITION";
+            let col_meta_rows: Vec<MySqlRow> = {
+                let mut tx_guard = mysql_session.transaction_conn.lock().await;
+                if let Some(ref mut conn) = *tx_guard {
+                    sqlx::query(col_meta_sql)
+                        .bind(&namespace.database)
+                        .bind(table)
+                        .fetch_all(&mut **conn)
+                        .await
+                } else {
+                    sqlx::query(col_meta_sql)
+                        .bind(&namespace.database)
+                        .bind(table)
+                        .fetch_all(&mysql_session.pool)
+                        .await
+                }
+            }
+            .unwrap_or_default();
+
+            let columns: Vec<ColumnInfo> = col_meta_rows
+                .iter()
+                .filter_map(|r| {
+                    let name: String = r.try_get("COLUMN_NAME").ok()?;
+                    let data_type: String = r.try_get("DATA_TYPE").ok()?;
+                    let is_nullable: String = r.try_get("IS_NULLABLE").ok()?;
+                    Some(ColumnInfo {
+                        name,
+                        data_type,
+                        nullable: is_nullable == "YES",
+                    })
+                })
+                .collect();
+
             QueryResult {
-                columns: Vec::new(),
+                columns,
                 rows: Vec::new(),
                 affected_rows: None,
                 execution_time_ms,

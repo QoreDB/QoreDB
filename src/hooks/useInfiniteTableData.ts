@@ -96,7 +96,12 @@ export function useInfiniteTableData({
           setTotalTimeMs(endTime - startTime);
         }
 
-        setColumns(prev => (prev.length === 0 ? paginated.result.columns : prev));
+        setColumns(prev => {
+          const newCols = paginated.result.columns;
+          if (newCols.length > 0) return prev.length === 0 ? newCols : prev;
+          // Preserve previous columns when server returns empty columns (e.g. 0 matching rows)
+          return prev;
+        });
         setAllRows(prev => {
           const next = [...prev, ...paginated.result.rows];
           if (next.length >= paginated.total_rows) {
@@ -147,7 +152,7 @@ export function useInfiniteTableData({
     currentPageRef.current = 1;
     fetchingRef.current = false;
     setAllRows([]);
-    setColumns([]);
+    // Keep columns: table structure doesn't change between searches/sorts
     setTotalRows(0);
     setIsLoading(true);
     setIsFetchingMore(false);

@@ -260,7 +260,9 @@ export function DataGrid({
 
   const columnTypeMap = useMemo(() => {
     const map = new Map<string, string>();
-    result?.columns.forEach(col => map.set(col.name, col.data_type));
+    result?.columns.forEach(col => {
+      map.set(col.name, col.data_type);
+    });
     return map;
   }, [result]);
 
@@ -709,8 +711,8 @@ export function DataGrid({
     return () => window.removeEventListener(UI_EVENT_EXPORT_DATA, handler);
   }, [exportToFile]);
 
-  // Early return for empty state
-  if (!result || result.columns.length === 0) {
+  // Early return for empty state (but never when a search filter is active)
+  if ((!result || result.columns.length === 0) && !globalFilter) {
     if (result && typeof result.affected_rows === 'number') {
       const time = Math.round(result.execution_time_ms ?? 0);
       const message =

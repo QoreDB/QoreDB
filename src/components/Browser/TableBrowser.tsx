@@ -661,6 +661,7 @@ export function TableBrowser({
       {/* Tabs */}
       <div className="flex items-center gap-1 px-4 py-2 border-b border-border bg-muted/10">
         <button
+          type="button"
           className={cn(
             'px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
             activeTab === 'data'
@@ -676,6 +677,7 @@ export function TableBrowser({
         </button>
         {!isDocument && (
           <button
+            type="button"
             className={cn(
               'px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
               activeTab === 'structure'
@@ -691,6 +693,7 @@ export function TableBrowser({
           </button>
         )}
         <button
+          type="button"
           className={cn(
             'px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
             activeTab === 'info'

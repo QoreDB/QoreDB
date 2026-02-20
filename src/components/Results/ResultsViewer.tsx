@@ -30,7 +30,6 @@ interface ResultsViewerProps {
   connectionName?: string;
   connectionDatabase?: string;
   onRowsDeleted?: () => void;
-
   namespace?: Namespace;
   tableName?: string;
   tableSchema?: TableSchema | null;
@@ -40,21 +39,16 @@ interface ResultsViewerProps {
   onRowsUpdated?: () => void;
   onOpenRelatedTable?: (namespace: Namespace, tableName: string) => void;
   onRowClick?: (row: Record<string, Value>) => void;
-
-  // Infinite scroll props
   infiniteScrollTotalRows?: number;
   infiniteScrollLoadedRows?: number;
   infiniteScrollIsFetchingMore?: boolean;
   infiniteScrollIsComplete?: boolean;
   onFetchMore?: () => void;
-
-  // Server-side sort/search
   serverSortColumn?: string;
   serverSortDirection?: SortDirection;
   onServerSortChange?: (column?: string, direction?: SortDirection) => void;
   serverSearchTerm?: string;
   onServerSearchChange?: (search: string) => void;
-
   sandboxMode?: boolean;
   pendingChanges?: SandboxChange[];
   sandboxDeleteDisplay?: SandboxDeleteDisplay;

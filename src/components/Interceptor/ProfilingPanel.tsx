@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * Profiling Panel
  *
@@ -5,33 +7,33 @@
  * All data is fetched from the backend (Rust) for security.
  */
 
-import { useState, useCallback, useEffect } from 'react';
-import { useTranslation } from 'react-i18next';
 import {
   Activity,
-  Clock,
   AlertTriangle,
-  RefreshCw,
-  Download,
-  Trash2,
-  Database,
   ChevronRight,
+  Clock,
+  Database,
+  Download,
+  RefreshCw,
+  Trash2,
 } from 'lucide-react';
-import { Button } from '../ui/button';
-import { ScrollArea } from '../ui/scroll-area';
+import { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
-  getProfilingMetrics,
-  getSlowQueries,
-  resetProfilingMetrics,
   clearSlowQueries,
+  type Environment,
   exportProfilingData,
   formatExecutionTime,
   getPerformanceClass,
   getPerformanceColor,
+  getProfilingMetrics,
+  getSlowQueries,
   type ProfilingMetrics,
+  resetProfilingMetrics,
   type SlowQueryEntry,
-  type Environment,
 } from '../../lib/tauri/interceptor';
+import { Button } from '../ui/button';
+import { ScrollArea } from '../ui/scroll-area';
 
 interface MetricCardProps {
   label: string;

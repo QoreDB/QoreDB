@@ -1,14 +1,17 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * Column header component for DataGrid
  * Displays column name with primary key/foreign key/index/unique indicators and sort controls
  */
 
-import { Column } from '@tanstack/react-table';
+import type { Column } from '@tanstack/react-table';
+import { ArrowDown, ArrowUp, ArrowUpDown, Fingerprint, KeyRound, Link2, Zap } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { ArrowUpDown, ArrowUp, ArrowDown, Link2, KeyRound, Zap, Fingerprint } from 'lucide-react';
-import { TooltipRoot, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
-import { Value } from '@/lib/tauri';
-import { RowData } from './utils/dataGridUtils';
+import { Button } from '@/components/ui/button';
+import { TooltipContent, TooltipRoot, TooltipTrigger } from '@/components/ui/tooltip';
+import type { Value } from '@/lib/tauri';
+import type { RowData } from './utils/dataGridUtils';
 
 export interface DataGridColumnHeaderProps {
   column: Column<RowData, Value>;
@@ -38,8 +41,10 @@ export function DataGridColumnHeader({
   const { t } = useTranslation();
 
   return (
-    <button
-      className="flex items-center gap-1 hover:text-foreground transition-colors w-full text-left"
+    <Button
+      type="button"
+      variant="ghost"
+      className="h-auto w-full justify-start p-0 font-normal text-left hover:text-foreground transition-colors"
       onClick={() => column.toggleSorting()}
     >
       {isPrimaryKey && (
@@ -97,6 +102,6 @@ export function DataGridColumnHeader({
       ) : (
         <ArrowUpDown size={14} className="shrink-0 opacity-30" />
       )}
-    </button>
+    </Button>
   );
 }

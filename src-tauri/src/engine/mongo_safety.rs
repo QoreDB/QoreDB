@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 //! MongoDB query safety classification.
 //!
 //! Used to decide whether a query is read-only or potentially mutating.

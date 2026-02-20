@@ -78,6 +78,7 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          PUBLIC_KEY_BASE64: ${{ secrets.PUBLIC_KEY_BASE64 }}
         with:
           tagName: ${{ github.ref_name }}
           releaseName: 'QoreDB ${{ github.ref_name }}'
@@ -85,7 +86,7 @@ jobs:
           releaseDraft: true
           prerelease: false
           includeUpdaterJson: true
-          args: ${{ matrix.args }} --verbose
+          args: ${{ matrix.args }} --features pro --verbose
 
       - name: Build MSIX (Windows only)
         if: matrix.platform == 'windows-latest'
@@ -280,3 +281,21 @@ jobs:
           files: |
             src-tauri/target/release/bundle/msix/*.msix
             src-tauri/target/release/bundle/msix/*.appinstaller
+
+  cleanup-sig:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Remove .sig files from release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag="${{ github.ref_name }}"
+          gh release view "$tag" --repo "${{ github.repository }}" --json assets -q '.assets[].name' \
+            | grep '\.sig$' \
+            | while read -r asset; do
+                echo "Removing $asset"
+                gh release delete-asset "$tag" "$asset" --repo "${{ github.repository }}" --yes
+              done

@@ -1,7 +1,9 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { invoke } from '@tauri-apps/api/core';
 import type { Namespace } from './tauri';
 
-export type ExportFormat = 'csv' | 'json' | 'sql_insert' | 'html';
+export type ExportFormat = 'csv' | 'json' | 'sql_insert' | 'html' | 'xlsx' | 'parquet';
 export type ExportState = 'pending' | 'running' | 'completed' | 'cancelled' | 'failed';
 
 export interface ExportConfig {

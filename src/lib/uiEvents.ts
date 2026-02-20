@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 export const UI_EVENT_OPEN_LOGS = 'qoredb:open-logs';
 export const UI_EVENT_OPEN_HISTORY = 'qoredb:open-history';
 export const UI_EVENT_REFRESH_TABLE = 'qoredb:refresh-table';

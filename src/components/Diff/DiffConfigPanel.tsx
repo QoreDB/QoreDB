@@ -1,11 +1,11 @@
+// SPDX-License-Identifier: BUSL-1.1
+
+import { AlertTriangle, GitCompare, Key, Loader2, Sparkles, X } from 'lucide-react';
 /**
  * DiffConfigPanel - Configuration panel for key columns and compare action
  */
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Key, GitCompare, Loader2, Sparkles, X, AlertTriangle } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { ColumnInfo, Namespace, describeTable } from '@/lib/tauri';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
@@ -15,6 +15,8 @@ import {
   TooltipRoot,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { type ColumnInfo, describeTable, type Namespace } from '@/lib/tauri';
+import { cn } from '@/lib/utils';
 
 interface DiffConfigPanelProps {
   leftColumns?: ColumnInfo[];
@@ -118,6 +120,8 @@ export function DiffConfigPanel({
     rightNamespace,
     leftTableName,
     rightTableName,
+    keyColumns.length,
+    onKeyColumnsChange,
   ]);
 
   const toggleKeyColumn = (columnName: string) => {

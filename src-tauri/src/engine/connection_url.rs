@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 //! Connection URL parsing module
 //!
 //! Provides a unified interface for parsing database connection URLs/DSNs
@@ -488,6 +490,96 @@ impl ConnectionUrlParser for RedisUrlParser {
 }
 
 // =============================================================================
+// SQL Server Parser
+// =============================================================================
+
+pub struct SqlServerUrlParser;
+
+impl ConnectionUrlParser for SqlServerUrlParser {
+    fn driver_id(&self) -> &str {
+        "sqlserver"
+    }
+
+    fn schemes(&self) -> &[&str] {
+        &["mssql", "sqlserver"]
+    }
+
+    fn default_port(&self) -> u16 {
+        1433
+    }
+
+    fn parse(&self, url: &Url) -> ParseResult<PartialConnectionConfig> {
+        let host = url
+            .host_str()
+            .filter(|h| !h.is_empty())
+            .map(String::from);
+
+        if host.is_none() {
+            return Err(ParseError::new(
+                ParseErrorCode::MissingHost,
+                "SQL Server URL must specify a host",
+            ));
+        }
+
+        let port = url.port().or(Some(self.default_port()));
+
+        let username = if url.username().is_empty() {
+            None
+        } else {
+            Some(
+                percent_decode(url.username())
+                    .map_err(|_| ParseError::new(ParseErrorCode::InvalidUtf8, "Invalid username encoding"))?,
+            )
+        };
+
+        let password = url
+            .password()
+            .map(|p| percent_decode(p))
+            .transpose()
+            .map_err(|_| ParseError::new(ParseErrorCode::InvalidUtf8, "Invalid password encoding"))?;
+
+        let database = url
+            .path()
+            .strip_prefix('/')
+            .filter(|db| !db.is_empty())
+            .map(|db| {
+                percent_decode(db)
+                    .map_err(|_| ParseError::new(ParseErrorCode::InvalidUtf8, "Invalid database name encoding"))
+            })
+            .transpose()?;
+
+        let mut options = HashMap::new();
+        let mut ssl_explicit = None;
+
+        for (key, value) in url.query_pairs() {
+            let key_lower = key.as_ref().to_ascii_lowercase();
+            let value_str = value.as_ref();
+
+            if key_lower == "encrypt" {
+                ssl_explicit = Some(parse_bool_param(value_str).unwrap_or(false));
+            } else if key_lower == "ssl" {
+                if ssl_explicit.is_none() {
+                    ssl_explicit = parse_bool_param(value_str);
+                }
+            }
+
+            options.insert(key.into_owned(), value.into_owned());
+        }
+
+        Ok(PartialConnectionConfig {
+            driver: Some(self.driver_id().to_string()),
+            host,
+            port,
+            username,
+            password,
+            database,
+            ssl: ssl_explicit,
+            options,
+        })
+    }
+}
+
+// =============================================================================
 // URL Parser Registry
 // =============================================================================
 
@@ -513,6 +605,7 @@ impl ConnectionUrlParserRegistry {
         registry.register(Box::new(MySqlUrlParser));
         registry.register(Box::new(MongoDbUrlParser));
         registry.register(Box::new(RedisUrlParser));
+        registry.register(Box::new(SqlServerUrlParser));
 
         registry
     }
@@ -541,7 +634,7 @@ impl ConnectionUrlParserRegistry {
             ParseError::new(
                 ParseErrorCode::UnsupportedScheme,
                 format!(
-                    "Unsupported URL scheme '{}'. Supported schemes: postgres, postgresql, mysql, mongodb, mongodb+srv, redis, rediss",
+                    "Unsupported URL scheme '{}'. Supported schemes: postgres, postgresql, mysql, mongodb, mongodb+srv, redis, rediss, mssql, sqlserver",
                     scheme
                 ),
             )

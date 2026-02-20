@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 //! Interceptor Types
 //!
 //! Type definitions for the Universal Query Interceptor system.

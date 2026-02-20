@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 use crate::engine::error::{EngineError, EngineResult};
 use keyring::Entry;
 use std::collections::HashMap;

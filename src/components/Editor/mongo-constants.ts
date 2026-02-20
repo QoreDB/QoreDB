@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 export const MONGO_TEMPLATES = {
   find: `db.collection.find({
   // query filter

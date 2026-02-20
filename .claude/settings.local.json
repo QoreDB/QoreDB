@@ -23,7 +23,16 @@
       "Bash(python3:*)",
       "Bash(pip install:*)",
       "Bash(pip show:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(rtk --version:*)",
+      "Bash(cargo --version:*)",
+      "Bash(cargo install:*)",
+      "Bash(rtk gain:*)",
+      "Bash(rtk init:*)",
+      "Bash(rtk git status:*)",
+      "Bash(rtk ls:*)",
+      "Bash(rtk cargo test -p qoredb)",
+      "WebFetch(domain:phppot.com)"
     ]
   }
 }

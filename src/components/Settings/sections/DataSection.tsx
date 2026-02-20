@@ -1,19 +1,20 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-
-import { Checkbox } from '@/components/ui/checkbox';
-import { SettingsCard } from '../SettingsCard';
-import { ConfigBackupCard } from '../ConfigBackupCard';
-import { ProjectTransferCard } from '../ProjectTransferCard';
 import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
-import { clearErrorLogs } from '@/lib/errorLog';
-import { clearHistory } from '@/lib/history';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
+  type DiagnosticsSettings,
   getDiagnosticsSettings,
   setDiagnosticsSettings,
-  DiagnosticsSettings,
 } from '@/lib/diagnosticsSettings';
-import { SafetyPolicy } from '@/lib/tauri';
+import { clearErrorLogs } from '@/lib/errorLog';
+import { clearHistory } from '@/lib/history';
+import type { SafetyPolicy } from '@/lib/tauri';
+import { ConfigBackupCard } from '../ConfigBackupCard';
+import { ProjectTransferCard } from '../ProjectTransferCard';
+import { SettingsCard } from '../SettingsCard';
 
 interface DataSectionProps {
   policy: SafetyPolicy | null;

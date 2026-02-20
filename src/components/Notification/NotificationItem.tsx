@@ -1,13 +1,15 @@
+// SPDX-License-Identifier: Apache-2.0
+
+import { AlertCircle, AlertTriangle, CheckCircle2, ExternalLink, Info, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { X, AlertTriangle, AlertCircle, CheckCircle2, Info, ExternalLink } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import {
-  Notification,
-  NotificationLevel,
   dismissNotification,
   markAsRead,
+  type Notification,
+  type NotificationLevel,
 } from '@/lib/notificationStore';
 import { emitUiEvent } from '@/lib/uiEvents';
+import { cn } from '@/lib/utils';
 
 interface NotificationItemProps {
   notification: Notification;

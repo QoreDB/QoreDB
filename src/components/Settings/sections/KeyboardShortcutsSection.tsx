@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { useTranslation } from 'react-i18next';
 import { SettingsCard } from '../SettingsCard';
 import { KEYBOARD_SHORTCUTS, type KeyboardShortcut } from '../settingsConfig';

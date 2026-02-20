@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import type { Driver } from '@/lib/drivers';
 import { DRIVER_ICONS, DRIVER_LABELS } from '@/lib/drivers';
 import { cn } from '@/lib/utils';

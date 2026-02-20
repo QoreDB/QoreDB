@@ -1,20 +1,21 @@
+// SPDX-License-Identifier: Apache-2.0
+
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ChevronDown, ChevronRight } from 'lucide-react';
 
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { cn } from '@/lib/utils';
 import { Driver, getDriverMetadata } from '@/lib/drivers';
-
-import type { ConnectionFormData } from './types';
+import { cn } from '@/lib/utils';
 import { SshTunnelSection } from './SshTunnelSection';
+import type { ConnectionFormData } from './types';
 
 interface AdvancedSectionProps {
   formData: ConnectionFormData;
   onChange: (field: keyof ConnectionFormData, value: string | number | boolean) => void;
-  /** Hide database and SSL fields (used when URL mode provides them) */
   hideUrlDerivedFields?: boolean;
 }
 
@@ -36,14 +37,15 @@ export function AdvancedSection({
   const hasPoolSettings = driverMeta.supportsSQL;
   const hasDatabaseField = !hideUrlDerivedFields;
   const hasSslField = !hideUrlDerivedFields;
-  const hasContent = hasDatabaseField || hasSslField || hasPoolSettings || true; // SSH always shown
+  const hasContent = hasDatabaseField || hasSslField || hasPoolSettings || true;
 
   return (
     <div className="rounded-md border border-border bg-background">
-      <button
+      <Button
         type="button"
+        variant="ghost"
         className={cn(
-          'flex w-full items-center justify-between px-4 py-3 text-sm font-medium',
+          'h-auto flex w-full items-center justify-between px-4 py-3 text-sm font-medium',
           'hover:bg-muted/30 transition-colors'
         )}
         onClick={() => setOpen(v => !v)}
@@ -57,11 +59,10 @@ export function AdvancedSection({
             ? t('connection.advancedHintUrlMode')
             : t('connection.advancedHint')}
         </span>
-      </button>
+      </Button>
 
       {open && hasContent && (
         <div className="border-t border-border px-4 py-4 space-y-4">
-          {/* Database field - hidden in URL mode */}
           {!hideUrlDerivedFields && (
             <div className="space-y-2">
               <Label>{t(driverMeta.databaseFieldLabel)}</Label>
@@ -73,7 +74,6 @@ export function AdvancedSection({
             </div>
           )}
 
-          {/* SSL toggle - hidden in URL mode */}
           {!hideUrlDerivedFields && (
             <div className="flex items-center justify-between rounded-md border border-border bg-background px-3 py-2">
               <Label className="text-sm">{t('connection.useSSL')}</Label>
@@ -84,7 +84,6 @@ export function AdvancedSection({
             </div>
           )}
 
-          {/* Pool settings - always shown for SQL drivers */}
           {driverMeta.supportsSQL && (
             <div className="space-y-2">
               <Label>{t('connection.poolSettings')}</Label>
@@ -140,7 +139,6 @@ export function AdvancedSection({
             </div>
           )}
 
-          {/* SSH tunnel - always shown */}
           <SshTunnelSection formData={formData} onChange={onChange} />
         </div>
       )}

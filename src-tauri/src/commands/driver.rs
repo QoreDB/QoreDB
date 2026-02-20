@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 //! Driver metadata Tauri commands
 //!
 //! Exposes driver capabilities to the frontend so it can adapt features safely.

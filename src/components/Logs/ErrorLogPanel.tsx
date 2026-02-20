@@ -1,23 +1,26 @@
-import { useState, useEffect } from 'react';
-import { useTranslation } from 'react-i18next';
-import { getErrorLogs, clearErrorLogs, ErrorLogEntry } from '../../lib/errorLog';
-import { exportLogs } from '../../lib/tauri';
-import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import {
-  Bug,
-  Trash2,
-  AlertCircle,
-  AlertTriangle,
-  Info,
-  Search,
-  RefreshCw,
-  Download,
-} from 'lucide-react';
+// SPDX-License-Identifier: Apache-2.0
+
 import { save } from '@tauri-apps/plugin-dialog';
 import { writeTextFile } from '@tauri-apps/plugin-fs';
+import {
+  AlertCircle,
+  AlertTriangle,
+  Bug,
+  Download,
+  Info,
+  RefreshCw,
+  Search,
+  Trash2,
+} from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
+import { clearErrorLogs, type ErrorLogEntry, getErrorLogs } from '../../lib/errorLog';
+import { exportLogs } from '../../lib/tauri';
 
 interface ErrorLogPanelProps {
   isOpen: boolean;
@@ -37,7 +40,7 @@ export function ErrorLogPanel({ isOpen, onClose }: ErrorLogPanelProps) {
     if (isOpen) {
       loadLogs();
     }
-  }, [isOpen]);
+  }, [isOpen, loadLogs]);
 
   function loadLogs() {
     setLogs(getErrorLogs());
@@ -132,10 +135,13 @@ export function ErrorLogPanel({ isOpen, onClose }: ErrorLogPanelProps) {
         <div className="flex items-center gap-2 px-4 py-2 border-b border-border bg-muted/20">
           <div className="flex items-center gap-1">
             {(['all', 'error', 'warn', 'info'] as FilterLevel[]).map(level => (
-              <button
+              <Button
                 key={level}
+                type="button"
+                variant="ghost"
+                size="sm"
                 className={cn(
-                  'px-2 py-1 text-xs font-medium rounded-md transition-colors',
+                  'h-7 px-2 py-1 text-xs font-medium rounded-md transition-colors',
                   filter === level
                     ? 'bg-accent text-accent-foreground'
                     : 'text-muted-foreground hover:text-foreground hover:bg-muted'
@@ -143,7 +149,7 @@ export function ErrorLogPanel({ isOpen, onClose }: ErrorLogPanelProps) {
                 onClick={() => setFilter(level)}
               >
                 {t(`logs.filter.${level}`)}
-              </button>
+              </Button>
             ))}
           </div>
 
@@ -154,12 +160,12 @@ export function ErrorLogPanel({ isOpen, onClose }: ErrorLogPanelProps) {
               size={14}
               className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground"
             />
-            <input
+            <Input
               type="text"
               placeholder={t('logs.searchPlaceholder')}
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="h-8 pl-8 pr-3 text-sm rounded-md border border-input bg-background focus:outline-none focus:ring-1 focus:ring-ring w-48"
+              className="h-8 w-48 pl-8"
             />
           </div>
 

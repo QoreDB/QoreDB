@@ -1,8 +1,9 @@
-import type { Environment, SavedConnection } from './tauri';
-import type { QueryLibraryExportV1 } from './queryLibrary';
+// SPDX-License-Identifier: Apache-2.0
 
-import { listSavedConnections, saveConnection } from './tauri';
+import type { QueryLibraryExportV1 } from './queryLibrary';
 import { exportLibrary, importLibrary } from './queryLibrary';
+import type { Environment, SavedConnection } from './tauri';
+import { listSavedConnections, saveConnection } from './tauri';
 
 export interface ProjectExportV1 {
   type: 'qoredb_project';

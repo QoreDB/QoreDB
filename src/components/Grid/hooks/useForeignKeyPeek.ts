@@ -1,17 +1,19 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * Hook for foreign key peek functionality in DataGrid
  * Manages loading and caching of foreign key relationship previews
  */
 
-import { useState, useCallback, useRef, useMemo } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  Value,
-  Namespace,
-  TableSchema,
-  ForeignKey,
-  QueryResult,
+  type ForeignKey,
+  type Namespace,
   peekForeignKey,
+  type QueryResult,
+  type TableSchema,
+  type Value,
 } from '@/lib/tauri';
 
 export interface PeekState {

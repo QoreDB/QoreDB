@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 //! Redis Driver
 //!
 //! Implements the DataEngine trait for Redis using the redis-rs crate.

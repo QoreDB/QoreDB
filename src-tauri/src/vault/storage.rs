@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 //! Vault Storage
 //!
 //! Secure storage for database credentials using OS keychain.

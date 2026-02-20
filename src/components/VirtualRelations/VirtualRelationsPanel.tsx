@@ -1,16 +1,18 @@
+// SPDX-License-Identifier: Apache-2.0
+
+import { Link2, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { Link2, Pencil, Trash2, Plus } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 import {
-  Namespace,
-  VirtualRelation,
-  listVirtualRelations,
   deleteVirtualRelation,
+  listVirtualRelations,
+  type Namespace,
+  type VirtualRelation,
 } from '@/lib/tauri';
 import { VirtualRelationDialog } from './VirtualRelationDialog';
 

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * Environment utilities for connection classification
  */
@@ -85,7 +87,7 @@ const MONGO_MUTATION_PATTERNS = [
   /\.drop(?:Database)?\s*\(/i,
   /\.bulkWrite\s*\(/i,
   /\.findOneAnd(?:Update|Delete|Replace)\s*\(/i,
-  /"operation"\s*:\s*"(create_collection|drop_collection|drop_database)"/i,
+  /"operation"\s*:\s*"(create_collection|drop_collection|drop_database|insert_?(?:one|many)?|update_?(?:one|many)|delete_?(?:one|many))"/i,
 ];
 
 function normalizeSql(sql: string): string {
@@ -191,7 +193,7 @@ export function getDangerousQueryTarget(sql: string): string | null {
   for (const statement of splitRawSqlStatements(sql)) {
     for (const pattern of SQL_TARGET_PATTERNS) {
       const match = statement.match(pattern);
-      if (match && match[1]) {
+      if (match?.[1]) {
         const target = normalizeSqlTarget(match[1]);
         if (target) {
           return target;

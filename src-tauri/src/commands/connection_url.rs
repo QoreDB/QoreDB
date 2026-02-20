@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 //! Connection URL Parsing Commands
 //!
 //! Tauri commands for parsing database connection URLs into normalized configuration.

@@ -1,5 +1,7 @@
-import type { ConnectionConfig, Environment, SavedConnection } from '@/lib/tauri';
+// SPDX-License-Identifier: Apache-2.0
+
 import { Driver } from '@/lib/drivers';
+import type { ConnectionConfig, Environment, SavedConnection } from '@/lib/tauri';
 
 import type { ConnectionFormData } from './types';
 
@@ -121,21 +123,22 @@ export function getSshSummary(formData: ConnectionFormData): string {
 export function isConnectionFormValid(formData: ConnectionFormData): boolean {
   // MongoDB and Redis often run without authentication in dev mode
   const authRequired = formData.driver !== Driver.Mongodb && formData.driver !== Driver.Redis;
-  // SQLite is file-based and doesn't need host/username/password in the traditional sense
-  const isFileBased = formData.driver === Driver.Sqlite;
+  // SQLite and DuckDB are file-based and don't need host/username/password in the traditional sense
+  const isFileBased = formData.driver === Driver.Sqlite || formData.driver === Driver.Duckdb;
 
   if (isFileBased) {
-    // SQLite only requires a file path (stored in host field)
+    // File-based drivers only require a file path (stored in host field)
     return Boolean(
       formData.host &&
-      (!formData.useSshTunnel || (formData.sshHost && formData.sshUsername && formData.sshKeyPath))
+        (!formData.useSshTunnel ||
+          (formData.sshHost && formData.sshUsername && formData.sshKeyPath))
     );
   }
 
   return Boolean(
     formData.host &&
-    (formData.username || !authRequired) &&
-    (!formData.useSshTunnel || (formData.sshHost && formData.sshUsername && formData.sshKeyPath))
+      (formData.username || !authRequired) &&
+      (!formData.useSshTunnel || (formData.sshHost && formData.sshUsername && formData.sshKeyPath))
   );
 }
 
@@ -145,5 +148,7 @@ export function normalizePortForDriver(driver: Driver): number {
   if (driver === Driver.Mongodb) return 27017;
   if (driver === Driver.Redis) return 6379;
   if (driver === Driver.Sqlite) return 0;
+  if (driver === Driver.Duckdb) return 0;
+  if (driver === Driver.SqlServer) return 1433;
   return 5432;
 }

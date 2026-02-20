@@ -1,31 +1,32 @@
-import { useState, useEffect } from 'react';
-import { useTranslation } from 'react-i18next';
-import { Loader2 } from 'lucide-react';
-import { notify } from '../../lib/notify';
+// SPDX-License-Identifier: Apache-2.0
 
-import {
-  TableSchema,
-  Value,
-  insertRow,
-  updateRow,
-  Namespace,
-  TableColumn,
-  RowData as TauriRowData,
-} from '../../lib/tauri';
-import { Driver } from '../../lib/drivers';
+import { Loader2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { DangerConfirmDialog } from '@/components/Guard/DangerConfirmDialog';
+import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
+import { Driver } from '../../lib/drivers';
+import { notify } from '../../lib/notify';
+import {
+  insertRow,
+  type Namespace,
+  type TableColumn,
+  type TableSchema,
+  type RowData as TauriRowData,
+  updateRow,
+  type Value,
+} from '../../lib/tauri';
 import { RowModalCustomFields } from './RowModalCustomFields';
-import { RowModalSchemaFields } from './RowModalSchemaFields';
 import { RowModalExtraFields } from './RowModalExtraFields';
+import { RowModalSchemaFields } from './RowModalSchemaFields';
 import { RowModalUpdatePreview } from './RowModalUpdatePreview';
-import { DangerConfirmDialog } from '@/components/Guard/DangerConfirmDialog';
 import {
   buildColumnsData,
   buildInitialRowModalState,
@@ -181,7 +182,7 @@ export function RowModal({
       if (sandboxMode) {
         if (mode === 'insert' && onSandboxInsert) {
           onSandboxInsert(columnsData);
-          notify.success(t('rowModal.insertSuccess') + ' (sandbox)');
+          notify.success(`${t('rowModal.insertSuccess')} (sandbox)`);
           onSuccess();
           onClose();
           return;
@@ -214,7 +215,7 @@ export function RowModal({
 
           if (Object.keys(newValues).length > 0) {
             onSandboxUpdate(pkData, oldValues, newValues);
-            notify.success(t('rowModal.updateSuccess') + ' (sandbox)');
+            notify.success(`${t('rowModal.updateSuccess')} (sandbox)`);
           }
           onSuccess();
           onClose();

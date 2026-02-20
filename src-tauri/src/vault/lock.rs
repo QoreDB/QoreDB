@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 //! Vault Lock
 //!
 //! Master password protection for the vault at startup.

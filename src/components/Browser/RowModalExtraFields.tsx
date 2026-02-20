@@ -1,9 +1,11 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { Trash } from 'lucide-react';
-import { TableColumn } from '../../lib/tauri';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '../ui/label';
+import type { TableColumn } from '../../lib/tauri';
 import { Checkbox } from '../ui/checkbox';
+import { Label } from '../ui/label';
 
 interface RowModalExtraFieldsProps {
   columns: TableColumn[];

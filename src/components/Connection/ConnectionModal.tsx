@@ -1,14 +1,10 @@
-import { useState, useCallback } from 'react';
-import { useTranslation } from 'react-i18next';
-import { DRIVER_ICONS, DRIVER_LABELS } from '@/lib/drivers';
-import { cn } from '@/lib/utils';
+// SPDX-License-Identifier: Apache-2.0
 
-import {
-  connectSavedConnection,
-  saveConnection,
-  testConnection,
-  type SavedConnection,
-} from '@/lib/tauri';
+import { Check, Link2, Loader2, X } from 'lucide-react';
+import { useCallback, useId, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
+import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -20,19 +16,24 @@ import {
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Switch } from '@/components/ui/switch';
-import { Check, Link2, Loader2, X } from 'lucide-react';
-import { toast } from 'sonner';
-import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
-
-import { DriverPicker } from './connection-modal/DriverPicker';
-import { UrlInput } from './connection-modal/UrlSection';
-import { BasicSection } from './connection-modal/BasicSection';
+import { DRIVER_ICONS, DRIVER_LABELS } from '@/lib/drivers';
+import {
+  connectSavedConnection,
+  type SavedConnection,
+  saveConnection,
+  testConnection,
+} from '@/lib/tauri';
+import { emitUiEvent, UI_EVENT_CONNECTIONS_CHANGED } from '@/lib/uiEvents';
+import { cn } from '@/lib/utils';
 import { AdvancedSection } from './connection-modal/AdvancedSection';
+import { BasicSection } from './connection-modal/BasicSection';
+import { DriverPicker } from './connection-modal/DriverPicker';
 import {
   buildConnectionConfig,
   buildSaveConnectionInput,
   buildSavedConnection,
 } from './connection-modal/mappers';
+import { UrlInput } from './connection-modal/UrlSection';
 import { useConnectionForm } from './connection-modal/useConnectionForm';
 
 interface ConnectionModalProps {
@@ -65,6 +66,7 @@ export function ConnectionModal({
   const [testResult, setTestResult] = useState<'success' | 'error' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [urlParsed, setUrlParsed] = useState(false);
+  const useUrlLabelId = useId();
 
   // Step 1: "driver" | Step 2: "form"
   const [step, setStep] = useState<'driver' | 'form'>('driver');
@@ -163,6 +165,8 @@ export function ConnectionModal({
         });
       }
 
+      emitUiEvent(UI_EVENT_CONNECTIONS_CHANGED);
+
       if (isEditMode) {
         toast.success(t('connection.updateSuccess'));
         onSaved?.(savedConnection);
@@ -217,6 +221,7 @@ export function ConnectionModal({
         });
       }
 
+      emitUiEvent(UI_EVENT_CONNECTIONS_CHANGED);
       toast.success(isEditMode ? t('connection.updateSuccess') : t('connection.saveSuccess'));
       onSaved?.(savedConnection);
       onClose();
@@ -292,7 +297,7 @@ export function ConnectionModal({
                   <div className="flex items-center gap-3">
                     {/* URL Mode Toggle - only for new connections */}
                     {!isEditMode && (
-                      <label className="flex items-center gap-2 cursor-pointer">
+                      <div className="flex items-center gap-2">
                         <Link2
                           size={14}
                           className={cn(
@@ -301,6 +306,7 @@ export function ConnectionModal({
                           )}
                         />
                         <span
+                          id={useUrlLabelId}
                           className={cn(
                             'text-xs transition-colors',
                             formData.useUrl ? 'text-primary font-medium' : 'text-muted-foreground'
@@ -311,9 +317,10 @@ export function ConnectionModal({
                         <Switch
                           checked={formData.useUrl}
                           onCheckedChange={checked => handleChange('useUrl', checked)}
+                          aria-labelledby={useUrlLabelId}
                           className="scale-90"
                         />
-                      </label>
+                      </div>
                     )}
 
                     {!isEditMode && <div className="w-px h-6 bg-border" />}

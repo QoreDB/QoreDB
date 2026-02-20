@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 //! PostgreSQL Driver
 //!
 //! Implements the DataEngine trait for PostgreSQL databases using SQLx.
@@ -21,7 +23,7 @@ use crate::engine::drivers::postgres_utils::{
 use crate::engine::sql_safety;
 use crate::engine::traits::{DataEngine, StreamEvent, StreamSender};
 use crate::engine::types::{
-    CancelSupport, Collection, CollectionList, CollectionListOptions, CollectionType,
+    CancelSupport, Collection, CollectionList, CollectionListOptions, CollectionType, ColumnInfo,
     ConnectionConfig, Namespace, QueryId, QueryResult, Row as QRow, RowData, SessionId,
     TableColumn, TableIndex, TableSchema, Value, ForeignKey,
     TableQueryOptions, PaginatedQueryResult, SortDirection, FilterOperator,
@@ -1206,10 +1208,10 @@ impl DataEngine for PostgresDriver {
             }
         }
 
-        // Handle search across text columns
+        // Handle search across all columns
         if let Some(ref search_term) = options.search {
             if !search_term.trim().is_empty() {
-                // Get column info to find text columns
+                // Get column info to determine cast strategy
                 let columns_sql = format!(
                     "SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = $1 AND table_name = $2"
                 );
@@ -1238,16 +1240,26 @@ impl DataEngine for PostgresDriver {
                     let data_type: String = col_row.try_get("data_type")
                         .map_err(|e| EngineError::execution_error(e.to_string()))?;
 
-                    // Only search text-like columns
+                    // Skip binary/unsearchable column types
+                    let is_unsearchable = matches!(data_type.as_str(),
+                        "bytea" | "tsvector" | "tsquery"
+                    );
+                    if is_unsearchable {
+                        continue;
+                    }
+
+                    let col_ident = Self::quote_ident(&col_name);
+                    let param_idx = bind_values.len() + 1;
+                    bind_values.push(Value::Text(format!("%{}%", search_term)));
+
+                    // Text columns can use ILIKE directly, others need ::text cast
                     let is_text = matches!(data_type.as_str(),
                         "text" | "character varying" | "character" | "varchar" | "char" | "name" | "citext"
                     );
-
                     if is_text {
-                        let col_ident = Self::quote_ident(&col_name);
-                        let param_idx = bind_values.len() + 1;
-                        bind_values.push(Value::Text(format!("%{}%", search_term)));
                         search_clauses.push(format!("{} ILIKE ${}", col_ident, param_idx));
+                    } else {
+                        search_clauses.push(format!("{}::text ILIKE ${}", col_ident, param_idx));
                     }
                 }
 
@@ -1321,8 +1333,42 @@ impl DataEngine for PostgresDriver {
         let execution_time_ms = start.elapsed().as_micros() as f64 / 1000.0;
 
         let result = if pg_rows.is_empty() {
+            // Get column metadata from information_schema even when no rows match
+            let col_meta_sql = "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_schema = $1 AND table_name = $2 ORDER BY ordinal_position";
+            let col_meta_rows: Vec<PgRow> = {
+                let mut tx_guard = pg_session.transaction_conn.lock().await;
+                if let Some(ref mut conn) = *tx_guard {
+                    sqlx::query(col_meta_sql)
+                        .bind(schema_name)
+                        .bind(table)
+                        .fetch_all(&mut **conn)
+                        .await
+                } else {
+                    sqlx::query(col_meta_sql)
+                        .bind(schema_name)
+                        .bind(table)
+                        .fetch_all(&pg_session.pool)
+                        .await
+                }
+            }
+            .unwrap_or_default();
+
+            let columns: Vec<ColumnInfo> = col_meta_rows
+                .iter()
+                .filter_map(|r| {
+                    let name: String = r.try_get("column_name").ok()?;
+                    let data_type: String = r.try_get("data_type").ok()?;
+                    let is_nullable: String = r.try_get("is_nullable").ok()?;
+                    Some(ColumnInfo {
+                        name,
+                        data_type,
+                        nullable: is_nullable == "YES",
+                    })
+                })
+                .collect();
+
             QueryResult {
-                columns: Vec::new(),
+                columns,
                 rows: Vec::new(),
                 affected_rows: None,
                 execution_time_ms,

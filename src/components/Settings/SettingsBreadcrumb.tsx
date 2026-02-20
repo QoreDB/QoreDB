@@ -1,5 +1,7 @@
-import { useTranslation } from 'react-i18next';
+// SPDX-License-Identifier: Apache-2.0
+
 import { ChevronRight } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { getSectionById, type SettingsSectionId } from './settingsConfig';
 
 interface SettingsBreadcrumbProps {

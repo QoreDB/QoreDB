@@ -69,6 +69,7 @@
     "browseFile": "Parcourir...",
     "inMemory": "Base de données en mémoire",
     "sqliteHelp": "Sélectionnez un fichier .db, .sqlite ou .sqlite3",
+    "duckdbHelp": "Sélectionnez un fichier .duckdb ou .db — ou utilisez le mode en mémoire",
     "useSSL": "Utiliser SSL/TLS",
     "poolSettings": "Pool de connexions",
     "poolMax": "Max",
@@ -100,6 +101,7 @@
       "deleteConfirm": "Supprimer la connexion \"{{name}}\" ? Cette action est irréversible.",
       "deletedSuccess": "Connexion \"{{name}}\" supprimée",
       "deleteFail": "Échec de la suppression de la connexion",
+      "newQuery": "Nouvelle requête",
       "credentialLoadFail": "Échec du chargement des détails de la connexion",
       "testTitleSuccess": "Connexion à {{name}} réussie !"
     },
@@ -149,7 +151,11 @@
     "failedToGetCredentials": "Échec de la récupération des identifiants",
     "couldNotRetrievePassword": "Impossible de récupérer le mot de passe du coffre-fort",
     "connectedTo": "Connecté à {{name}}",
-    "connectionToFailed": "La connexion à {{name}} a échoué"
+    "connectionToFailed": "La connexion à {{name}} a échoué",
+    "favorites": "Favoris",
+    "otherConnections": "Autres connexions",
+    "addToFavorites": "Favoris",
+    "removeFromFavorites": "Retirer des favoris"
   },
   "search": {
     "placeholder": "Tapez une commande ou recherchez...",
@@ -270,6 +276,28 @@
       "panelPageSize": "Changements par page",
       "panelPageSizeDescription": "Contrôle la pagination dans le panneau des changements."
     },
+    "license": {
+      "title": "Licence",
+      "description": "Gérez votre licence QoreDB et débloquez les fonctionnalités Pro.",
+      "featuresTitle": "Disponibilité des fonctionnalités",
+      "featuresDescription": "Fonctionnalités incluses dans votre tier de licence actuel.",
+      "featureNames": {
+        "sandbox": "Bac à sable SQL",
+        "visual_diff": "Comparaison visuelle de données",
+        "er_diagram": "Diagramme ER",
+        "profiling": "Profilage de requêtes",
+        "custom_safety_rules": "Règles de sécurité personnalisées",
+        "audit_advanced": "Journal d'audit avancé",
+        "ai": "Assistant IA",
+        "export_xlsx": "Export XLSX",
+        "export_parquet": "Export Parquet",
+        "query_library_advanced": "Bibliothèque de requêtes avancée",
+        "virtual_relations_auto_suggest": "Suggestion auto de relations virtuelles"
+      },
+      "devOverrideTitle": "Override licence (dev)",
+      "devOverrideDescription": "Changer le tier de licence pour le développement. Réinitialisé au redémarrage.",
+      "devOnly": "Développement uniquement — indisponible en builds de production"
+    },
     "safetyPolicy": "Sécurité production",
     "safetyPolicyDescription": "Contrôlez les garde-fous côté backend pour la production.",
     "safetyPolicyRequireConfirmation": "Confirmer les requêtes SQL dangereuses",
@@ -310,7 +338,9 @@
       "editor": "Éditeur",
       "security": "Sécurité",
       "data": "Données & Confidentialité",
-      "shortcuts": "Raccourcis clavier"
+      "shortcuts": "Raccourcis clavier",
+      "license": "Licence",
+      "ai": "Assistant IA"
     },
     "search": {
       "placeholder": "Rechercher dans les paramètres...",
@@ -479,6 +509,12 @@
     "previousPage": "Page précédente",
     "nextPage": "Page suivante",
     "lastPage": "Dernière page",
+    "infiniteScroll": {
+      "loaded": "{{loaded}} sur {{total}} lignes chargées",
+      "allLoaded": "{{total}} lignes chargées",
+      "loading": "Chargement...",
+      "complete": "Fin des résultats"
+    },
     "noData": "Aucune donnée à afficher",
     "noResults": "Aucun résultat",
     "loadMore": "Charger plus",
@@ -536,7 +572,9 @@
       "csv": "CSV",
       "json": "JSON",
       "sql": "INSERT SQL",
-      "html": "HTML autonome"
+      "html": "HTML autonome",
+      "xlsx": "Excel (XLSX)",
+      "parquet": "Apache Parquet"
     },
     "outputLabel": "Fichier de sortie",
     "outputPlaceholder": "Sélectionner un chemin",
@@ -606,7 +644,12 @@
     "creationNotSupported": "Pilote non pris en charge pour la création de base de données",
     "confirmCreate": "Cette action va créer une nouvelle base et une collection.",
     "schemaNamePlaceholder": "Mon schéma",
-    "databaseNamePlaceholder": "Mon base de données"
+    "databaseNamePlaceholder": "Mon base de données",
+    "charsetLabel": "Jeu de caractères",
+    "charsetPlaceholder": "Valeur par défaut du serveur",
+    "collationLabel": "Interclassement",
+    "collationPlaceholder": "Valeur par défaut",
+    "loadingOptions": "Chargement des options..."
   },
   "common": {
     "loading": "Chargement...",
@@ -900,6 +943,7 @@
       "clearLog": "Effacer le journal",
       "clearConfirm": "Effacer toutes les entrées du journal d'audit ? Cette action est irréversible.",
       "noEntries": "Aucune entrée dans le journal d'audit",
+      "upgradeForFilters": "Passez à Pro pour les filtres, l'export et les statistiques avancées",
       "blockedBy": "Bloqué par : {{rule}}",
       "filters": {
         "environment": "Environnement",
@@ -1237,5 +1281,121 @@
     "description": "Les relations virtuelles sont des métadonnées locales qui activent les fonctionnalités FK (aperçu, diagramme ER) pour les tables sans contraintes de clé étrangère réelles.",
     "selectTable": "Sélectionner une table...",
     "selectColumn": "Sélectionner une colonne..."
+  },
+  "license": {
+    "currentTier": "Tier actuel",
+    "activate": "Activer",
+    "deactivate": "Désactiver la licence",
+    "deactivateConfirm": {
+      "title": "Désactiver la licence",
+      "description": "Votre clé de licence sera supprimée de cet appareil. Vous devrez la saisir à nouveau pour restaurer les fonctionnalités Pro.",
+      "confirm": "Désactiver"
+    },
+    "keyPlaceholder": "Collez votre clé de licence",
+    "expired": "Expirée",
+    "licensedTo": "Licence enregistrée pour {{email}}",
+    "email": "Email",
+    "paymentId": "ID de paiement",
+    "issuedAt": "Émise le",
+    "expiresAt": "Expire le",
+    "perpetual": "Perpétuelle (sans expiration)",
+    "getPro": "Obtenir QoreDB Pro",
+    "upgrade": {
+      "description": "Cette fonctionnalité nécessite une licence Pro.",
+      "hint": "Allez dans les Paramètres pour activer votre clé de licence."
+    },
+    "features": {
+      "sandbox": "Le mode Sandbox nécessite une licence Pro.",
+      "visual_diff": "Le Visual Data Diff nécessite une licence Pro.",
+      "er_diagram": "Le diagramme ER nécessite une licence Pro.",
+      "audit_advanced": "Le journal d'audit avancé nécessite une licence Pro.",
+      "profiling": "Le profilage de requêtes nécessite une licence Pro.",
+      "ai": "L'assistant IA nécessite une licence Pro.",
+      "export_xlsx": "L'export XLSX nécessite une licence Pro.",
+      "export_parquet": "L'export Parquet nécessite une licence Pro.",
+      "custom_safety_rules": "Les règles de sécurité personnalisées nécessitent une licence Pro.",
+      "query_library_advanced": "La bibliothèque de requêtes avancée nécessite une licence Pro.",
+      "virtual_relations_auto_suggest": "La suggestion automatique de relations virtuelles nécessite une licence Pro.",
+      "federation": "La fédération inter-bases nécessite une licence Pro."
+    }
+  },
+  "ai": {
+    "title": "Assistant IA",
+    "promptPlaceholder": "Décrivez la requête que vous souhaitez générer...",
+    "insertQuery": "Insérer dans l'éditeur",
+    "copyQuery": "Requête copiée",
+    "dangerousWarning": "Requête dangereuse",
+    "safetyWarning": "Requête de mutation",
+    "noProvider": "Aucune clé API configurée.",
+    "configureProvider": "Configurer un fournisseur IA",
+    "noSession": "Connectez-vous à une base de données pour utiliser l'assistant IA.",
+    "ollamaLocal": "Local",
+    "fixWithAi": "Corriger avec l'IA",
+    "generateForTable": "Générer une requête avec l'IA",
+    "generateForTableHint": "Générer une requête pour la table \"{{table}}\"...",
+    "explainResults": "Expliquer les résultats",
+    "explaining": "Analyse des résultats...",
+    "defaultProvider": "Fournisseur par défaut",
+    "defaultProviderDescription": "Sélectionnez votre fournisseur IA préféré.",
+    "settings": {
+      "title": "Fournisseurs IA",
+      "description": "Configurez les clés API pour la génération de requêtes assistée par IA.",
+      "defaultModel": "Modèle par défaut",
+      "local": "Local",
+      "configured": "Configuré",
+      "notConfigured": "Non configuré",
+      "enterKey": "Entrez la clé API...",
+      "deleteKey": "Supprimer la clé API",
+      "ollamaHint": "Ollama s'exécute localement — aucune clé API requise. Assurez-vous qu'Ollama est lancé sur votre machine."
+    }
+  },
+  "federation": {
+    "title": "Fédération inter-bases",
+    "description": "Écrivez des requêtes SQL qui joignent des tables à travers plusieurs connexions actives. Utilisez les alias ci-dessous pour référencer des tables de différentes bases de données.",
+    "availableSources": "Sources disponibles",
+    "insertAlias": "Insérer l'alias",
+    "addSource": "Nouvelle connexion",
+    "sources": "Sources de fédération",
+    "sourcesLabel": "Sources",
+    "noSources": "Connectez-vous à plusieurs bases de données pour utiliser les requêtes fédérées",
+    "noSourcesShort": "Aucune connexion disponible",
+    "connectFirst": "Connecter une base",
+    "loadingSources": "Chargement des sources...",
+    "refreshSources": "Rafraîchir les sources",
+    "clickTableToInsert": "Cliquez sur une table pour insérer son chemin dans l'éditeur",
+    "needTwoSources": "La fédération nécessite au moins deux connexions",
+    "detected": "Multi-source",
+    "singleSource": "Source unique",
+    "executing": "Exécution de la requête fédérée...",
+    "fetchingSources": "Récupération des données sources...",
+    "loadingDuckDb": "Chargement dans le moteur de fédération...",
+    "executingJoin": "Exécution de la jointure...",
+    "rowLimitWarning": "La source '{{source}}' a retourné le maximum de {{limit}} lignes. Les résultats peuvent être incomplets.",
+    "proRequired": "La fédération inter-bases nécessite une licence Pro",
+    "alias": "Alias",
+    "connection": "Connexion",
+    "driver": "Driver",
+    "status": "Statut",
+    "badge": "Fédération",
+    "sourceFetchTime": "Récup. sources : {{time}}ms",
+    "totalTime": "Total : {{time}}ms",
+    "clickToInsert": "Cliquer pour insérer :",
+    "editorPlaceholder": "SELECT a.*, b.* FROM alias.schema.table a JOIN alias.schema.table b ON ...",
+    "emptyTitle": "Fédération inter-bases",
+    "emptyNeedSources": "La fédération vous permet de joindre et interroger des tables provenant de différents moteurs de bases de données en une seule requête SQL. Connectez au moins deux bases pour commencer.",
+    "oneMoreNeeded": "une connexion supplémentaire nécessaire",
+    "readyTitle": "Prêt à interroger vos bases",
+    "readyDescription": "Cliquez sur une source ci-dessus pour parcourir ses tables, ou commencez à écrire votre requête dans l'éditeur.",
+    "exampleQuery": "Modèle d'exemple",
+    "useTemplate": "Utiliser",
+    "hintClickSource": "Cliquez sur une source pour parcourir",
+    "hintToExecute": "pour exécuter",
+    "openFederation": "Ouvrir la fédération",
+    "insertAs": "Insérer",
+    "insertJoin": "JOIN",
+    "insertLeftJoin": "LEFT JOIN",
+    "insertComma": "Cross join",
+    "insertWhere": "WHERE",
+    "insertRaw": "Référence"
   }
 }

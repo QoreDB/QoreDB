@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 //! Vault Tauri Commands
 //!
 //! Commands for managing saved connections and vault lock.

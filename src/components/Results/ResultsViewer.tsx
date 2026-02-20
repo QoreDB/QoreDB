@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * ResultsViewer - Universal data display wrapper
  *
@@ -6,11 +8,18 @@
  * - DataGrid for relational databases (PostgreSQL, MySQL, etc.)
  */
 import { isDocumentDatabase } from '@/lib/driverCapabilities';
+import type { Driver } from '@/lib/drivers';
+import type { SandboxChange, SandboxDeleteDisplay } from '@/lib/sandboxTypes';
+import type {
+  Environment,
+  Namespace,
+  QueryResult,
+  SortDirection,
+  TableSchema,
+  Value,
+} from '@/lib/tauri';
 import { DataGrid } from '../Grid/DataGrid';
 import { DocumentResults } from './DocumentResults';
-import { Driver } from '@/lib/drivers';
-import { QueryResult, Value, Environment, Namespace, TableSchema } from '@/lib/tauri';
-import { SandboxChange, SandboxDeleteDisplay } from '@/lib/sandboxTypes';
 
 interface ResultsViewerProps {
   result: QueryResult | null;
@@ -21,7 +30,6 @@ interface ResultsViewerProps {
   connectionName?: string;
   connectionDatabase?: string;
   onRowsDeleted?: () => void;
-
   namespace?: Namespace;
   tableName?: string;
   tableSchema?: TableSchema | null;
@@ -31,15 +39,16 @@ interface ResultsViewerProps {
   onRowsUpdated?: () => void;
   onOpenRelatedTable?: (namespace: Namespace, tableName: string) => void;
   onRowClick?: (row: Record<string, Value>) => void;
-
-  serverSideTotalRows?: number;
-  serverSidePage?: number;
-  serverSidePageSize?: number;
-  onServerPageChange?: (page: number) => void;
-  onServerPageSizeChange?: (pageSize: number) => void;
+  infiniteScrollTotalRows?: number;
+  infiniteScrollLoadedRows?: number;
+  infiniteScrollIsFetchingMore?: boolean;
+  infiniteScrollIsComplete?: boolean;
+  onFetchMore?: () => void;
+  serverSortColumn?: string;
+  serverSortDirection?: SortDirection;
+  onServerSortChange?: (column?: string, direction?: SortDirection) => void;
   serverSearchTerm?: string;
   onServerSearchChange?: (search: string) => void;
-
   sandboxMode?: boolean;
   pendingChanges?: SandboxChange[];
   sandboxDeleteDisplay?: SandboxDeleteDisplay;
@@ -75,11 +84,14 @@ export function ResultsViewer({
   onRowsUpdated,
   onOpenRelatedTable,
   onRowClick,
-  serverSideTotalRows,
-  serverSidePage,
-  serverSidePageSize,
-  onServerPageChange,
-  onServerPageSizeChange,
+  infiniteScrollTotalRows,
+  infiniteScrollLoadedRows,
+  infiniteScrollIsFetchingMore,
+  infiniteScrollIsComplete,
+  onFetchMore,
+  serverSortColumn,
+  serverSortDirection,
+  onServerSortChange,
   serverSearchTerm,
   onServerSearchChange,
   sandboxMode,
@@ -94,11 +106,16 @@ export function ResultsViewer({
   exportNamespace,
 }: ResultsViewerProps) {
   const isDocument = isDocumentDatabase(driver);
+  const safeResult: QueryResult = result ?? {
+    columns: [],
+    rows: [],
+    execution_time_ms: 0,
+  };
 
   if (isDocument) {
     return (
       <DocumentResults
-        result={result!}
+        result={safeResult}
         sessionId={sessionId}
         database={database}
         collection={collection}
@@ -110,18 +127,18 @@ export function ResultsViewer({
         onRowsDeleted={onRowsDeleted}
         exportQuery={exportQuery}
         exportNamespace={exportNamespace}
-        serverSideTotalRows={serverSideTotalRows}
-        serverSidePage={serverSidePage}
-        serverSidePageSize={serverSidePageSize}
-        onServerPageChange={onServerPageChange}
-        onServerPageSizeChange={onServerPageSizeChange}
+        infiniteScrollTotalRows={infiniteScrollTotalRows}
+        infiniteScrollLoadedRows={infiniteScrollLoadedRows}
+        infiniteScrollIsFetchingMore={infiniteScrollIsFetchingMore}
+        infiniteScrollIsComplete={infiniteScrollIsComplete}
+        onFetchMore={onFetchMore}
       />
     );
   }
 
   return (
     <DataGrid
-      result={result}
+      result={safeResult}
       sessionId={sessionId}
       namespace={namespace}
       tableName={tableName}
@@ -137,11 +154,14 @@ export function ResultsViewer({
       onRowsUpdated={onRowsUpdated}
       onOpenRelatedTable={onOpenRelatedTable}
       onRowClick={onRowClick}
-      serverSideTotalRows={serverSideTotalRows}
-      serverSidePage={serverSidePage}
-      serverSidePageSize={serverSidePageSize}
-      onServerPageChange={onServerPageChange}
-      onServerPageSizeChange={onServerPageSizeChange}
+      infiniteScrollTotalRows={infiniteScrollTotalRows}
+      infiniteScrollLoadedRows={infiniteScrollLoadedRows}
+      infiniteScrollIsFetchingMore={infiniteScrollIsFetchingMore}
+      infiniteScrollIsComplete={infiniteScrollIsComplete}
+      onFetchMore={onFetchMore}
+      serverSortColumn={serverSortColumn}
+      serverSortDirection={serverSortDirection}
+      onServerSortChange={onServerSortChange}
       serverSearchTerm={serverSearchTerm}
       onServerSearchChange={onServerSearchChange}
       sandboxMode={sandboxMode}

@@ -1,18 +1,20 @@
-import { useState, useEffect } from 'react';
+// SPDX-License-Identifier: Apache-2.0
+
+import { Loader2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
+import { DangerConfirmDialog } from '@/components/Guard/DangerConfirmDialog';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from '@/components/ui/dialog';
-import { Loader2 } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
-import { toast } from 'sonner';
+import { insertRow, type RowData, updateRow } from '../../lib/tauri';
 import { MongoEditor } from './MongoEditor';
-import { insertRow, updateRow, RowData } from '../../lib/tauri';
-import { DangerConfirmDialog } from '@/components/Guard/DangerConfirmDialog';
 
 interface DocumentEditorModalProps {
   isOpen: boolean;

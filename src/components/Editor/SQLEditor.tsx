@@ -1,23 +1,31 @@
-/* eslint-disable no-useless-escape */
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef } from 'react';
-import { EditorState } from '@codemirror/state';
-import { EditorView, keymap, lineNumbers, highlightActiveLine } from '@codemirror/view';
+// SPDX-License-Identifier: Apache-2.0
+
 import {
   autocompletion,
-  Completion,
-  CompletionContext,
-  CompletionResult,
+  type Completion,
+  type CompletionContext,
+  type CompletionResult,
   snippet,
   snippetCompletion,
 } from '@codemirror/autocomplete';
-import { sql, PostgreSQL, MySQL, keywordCompletionSource } from '@codemirror/lang-sql';
-import { oneDark } from '@codemirror/theme-one-dark';
 import { defaultKeymap } from '@codemirror/commands';
-import { useTheme } from '../../hooks/useTheme';
+import { keywordCompletionSource, MSSQL, MySQL, PostgreSQL, sql } from '@codemirror/lang-sql';
+import { EditorState } from '@codemirror/state';
+import { oneDark } from '@codemirror/theme-one-dark';
+import {
+  EditorView,
+  highlightActiveLine,
+  keymap,
+  lineNumbers,
+  placeholder,
+} from '@codemirror/view';
+/* eslint-disable no-useless-escape */
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef } from 'react';
 import { useSchemaCache } from '../../hooks/useSchemaCache';
-import { SQL_SNIPPETS } from '../../lib/sqlSnippets';
+import { useTheme } from '../../hooks/useTheme';
 import { Driver } from '../../lib/drivers';
-import { Collection, Namespace } from '../../lib/tauri';
+import { SQL_SNIPPETS } from '../../lib/sqlSnippets';
+import type { Collection, Namespace } from '../../lib/tauri';
 
 interface SQLEditorProps {
   value: string;
@@ -30,6 +38,7 @@ interface SQLEditorProps {
   sessionId?: string | null;
   connectionDatabase?: string;
   activeNamespace?: Namespace | null;
+  placeholder?: string;
 }
 
 export interface SQLEditorHandle {
@@ -74,6 +83,7 @@ export const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQ
     sessionId,
     connectionDatabase,
     activeNamespace,
+    placeholder: placeholderProp,
   },
   ref
 ) {
@@ -93,7 +103,8 @@ export const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQ
     switch (dialect) {
       case Driver.Mysql:
         return MySQL;
-      case Driver.Postgres:
+      case Driver.SqlServer:
+        return MSSQL;
       default:
         return PostgreSQL;
     }
@@ -127,10 +138,11 @@ export const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQ
       if (!connectionDatabase) return namespaces[0];
       const matches = namespaces.filter(ns => ns.database === connectionDatabase);
       if (!matches.length) return namespaces[0];
-      const publicMatch = matches.find(ns => ns.schema === 'public');
-      return publicMatch || matches[0];
+      const defaultSchema = dialect === Driver.SqlServer ? 'dbo' : 'public';
+      const schemaMatch = matches.find(ns => ns.schema === defaultSchema);
+      return schemaMatch || matches[0];
     },
-    [activeNamespace, connectionDatabase]
+    [activeNamespace, connectionDatabase, dialect]
   );
 
   const loadTablesForNamespace = useCallback(
@@ -188,7 +200,7 @@ export const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQ
   const completionSource = useCallback(
     async (context: CompletionContext): Promise<CompletionResult | null> => {
       if (!sessionId) return null;
-      const word = context.matchBefore(/[\w.\"]+/);
+      const word = context.matchBefore(/[\w."]+/);
       if (!word || (word.from === word.to && !context.explicit)) return null;
 
       const text = word.text.replace(/"/g, '');
@@ -325,7 +337,7 @@ export const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQ
     if (sessionId) {
       void loadNamespaces();
     }
-  }, [sessionId, connectionDatabase, activeNamespace, loadNamespaces]);
+  }, [sessionId, loadNamespaces]);
 
   useImperativeHandle(
     ref,
@@ -353,7 +365,6 @@ export const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQ
   useEffect(() => {
     if (!editorRef.current) return;
 
-    // Custom keymap for execute
     const executeKeymap = keymap.of([
       {
         key: 'Mod-Enter',
@@ -397,6 +408,7 @@ export const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQ
       lineNumbers(),
       highlightActiveLine(),
       sql({ dialect: sqlDialect }),
+      ...(placeholderProp ? [placeholder(placeholderProp)] : []),
       autocompletion({
         activateOnTyping: true,
         override: [completionSource],

@@ -1,20 +1,21 @@
-import { useState } from 'react';
-import { useTranslation } from 'react-i18next';
-import { save, open as openDialog } from '@tauri-apps/plugin-dialog';
+// SPDX-License-Identifier: Apache-2.0
+
+import { open as openDialog, save } from '@tauri-apps/plugin-dialog';
 import { readTextFile, writeTextFile } from '@tauri-apps/plugin-fs';
 import { revealItemInDir } from '@tauri-apps/plugin-opener';
-import { toast } from 'sonner';
 import { Briefcase, Upload } from 'lucide-react';
-
-import { Checkbox } from '@/components/ui/checkbox';
+import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { SettingsCard } from './SettingsCard';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   buildProjectExportV1,
   importProjectExportV1,
   isProjectExportV1,
 } from '@/lib/projectTransfer';
 import { emitUiEvent, UI_EVENT_CONNECTIONS_CHANGED } from '@/lib/uiEvents';
+import { SettingsCard } from './SettingsCard';
 
 interface ProjectTransferCardProps {
   projectId: string;

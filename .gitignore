@@ -29,3 +29,5 @@ dist-ssr
 
 # Local dev SSH assets
 dev/ssh/
+
+# doc/private/

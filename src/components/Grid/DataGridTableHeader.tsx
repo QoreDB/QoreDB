@@ -1,11 +1,13 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * Table header component for DataGrid with resizable columns and filters
  */
 
-import { Table, flexRender, Header } from '@tanstack/react-table';
+import { flexRender, type Header, type Table } from '@tanstack/react-table';
 import { cn } from '@/lib/utils';
 import { GridColumnFilter } from './GridColumnFilter';
-import { RowData } from './utils/dataGridUtils';
+import type { RowData } from './utils/dataGridUtils';
 
 export interface DataGridTableHeaderProps {
   table: Table<RowData>;

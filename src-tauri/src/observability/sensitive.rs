@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 use std::fmt::{self, Debug, Display, Formatter};
 use serde::{Serialize, Serializer, Deserialize, Deserializer};
 

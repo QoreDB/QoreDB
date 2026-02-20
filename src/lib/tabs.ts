@@ -1,11 +1,13 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * Tab system types for QoreDB
  * Defines the structure of open tabs for multi-table navigation
  */
 
-import { Namespace, RelationFilter, SearchFilter, QueryResult } from './tauri';
+import type { Namespace, QueryResult, RelationFilter, SearchFilter } from './tauri';
 
-export type TabType = 'query' | 'table' | 'database' | 'diff';
+export type TabType = 'query' | 'table' | 'database' | 'diff' | 'federation';
 
 export interface DiffSource {
   type: 'query' | 'table';
@@ -30,6 +32,9 @@ export interface OpenTab {
   // Diff-specific
   diffLeftSource?: DiffSource;
   diffRightSource?: DiffSource;
+  // AI-specific
+  showAiPanel?: boolean;
+  aiTableContext?: string;
 }
 
 /** Generate unique tab ID */
@@ -91,5 +96,15 @@ export function createDiffTab(
     namespace: namespace ?? leftSource?.namespace ?? rightSource?.namespace,
     diffLeftSource: leftSource,
     diffRightSource: rightSource,
+  };
+}
+
+/** Create a federation workspace tab */
+export function createFederationTab(initialQuery?: string): OpenTab {
+  return {
+    id: generateTabId(),
+    type: 'federation',
+    title: 'Federation',
+    initialQuery,
   };
 }

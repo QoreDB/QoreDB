@@ -1,10 +1,10 @@
+// SPDX-License-Identifier: BUSL-1.1
+
+import { ArrowLeftRight, CheckCircle2, Eye, EyeOff, MinusCircle, PlusCircle } from 'lucide-react';
 /**
  * DiffStatsBar - Statistics bar with counters and filters
  */
 import { useTranslation } from 'react-i18next';
-import { PlusCircle, MinusCircle, ArrowLeftRight, CheckCircle2, Eye, EyeOff } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { DiffStats, DiffRowStatus } from '@/lib/diffUtils';
 import { Button } from '@/components/ui/button';
 import {
   Select,
@@ -13,6 +13,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import type { DiffRowStatus, DiffStats } from '@/lib/diffUtils';
+import { cn } from '@/lib/utils';
 
 export type DiffFilter = 'all' | DiffRowStatus;
 
@@ -115,11 +117,13 @@ interface StatCounterProps {
 
 function StatCounter({ icon, count, label, colorClass, active, onClick }: StatCounterProps) {
   return (
-    <button
+    <Button
       type="button"
+      variant="ghost"
+      size="sm"
       onClick={onClick}
       className={cn(
-        'flex items-center gap-1.5 px-2 py-1 rounded-md transition-colors',
+        'h-auto flex items-center gap-1.5 px-2 py-1 rounded-md transition-colors',
         active ? 'bg-accent ring-1 ring-accent-foreground/20' : 'hover:bg-muted/50',
         colorClass
       )}
@@ -127,6 +131,6 @@ function StatCounter({ icon, count, label, colorClass, active, onClick }: StatCo
       {icon}
       <span className="font-medium tabular-nums">{count}</span>
       <span className="text-xs opacity-80">{label}</span>
-    </button>
+    </Button>
   );
 }

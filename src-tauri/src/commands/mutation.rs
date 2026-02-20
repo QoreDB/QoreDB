@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 //! Mutation Tauri Commands
 //!
 //! Commands for executing insert, update, and delete operations.

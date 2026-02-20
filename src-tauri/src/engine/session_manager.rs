@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 //! Session Manager
 //!
 //! Centralized management of all active database sessions.
@@ -195,6 +197,14 @@ impl SessionManager {
     pub async fn get_session_info(&self, session_id: SessionId) -> Option<String> {
         let sessions = self.sessions.read().await;
         sessions.get(&session_id).map(|s| s.display_name.clone())
+    }
+
+    /// Updates the display name for an active session.
+    pub async fn set_display_name(&self, session_id: SessionId, name: String) {
+        let mut sessions = self.sessions.write().await;
+        if let Some(session) = sessions.get_mut(&session_id) {
+            session.display_name = name;
+        }
     }
 
     /// Checks if the session is read-only

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 //! Lightweight in-memory metrics for dev builds.
 
 use std::sync::atomic::{AtomicU64, Ordering};

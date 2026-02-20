@@ -54,6 +54,7 @@ jobs:
       - name: Run backend tests
         env:
           RUST_TEST_THREADS: 1
+          PUBLIC_KEY_BASE64: ${{ vars.PUBLIC_KEY_BASE64 }}
         run: |
           dbus-run-session -- bash -c "cd src-tauri && cargo test"
 

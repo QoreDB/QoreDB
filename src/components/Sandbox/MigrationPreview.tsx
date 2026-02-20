@@ -1,19 +1,23 @@
-import { useState, useCallback, useEffect } from 'react';
+// SPDX-License-Identifier: Apache-2.0
+
+import { AlertTriangle, CheckCircle2, Copy, Download, FileCode, Loader2, Play } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Copy, Download, Play, AlertTriangle, CheckCircle2, Loader2, FileCode } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from '@/components/ui/dialog';
-import { MigrationScript, ApplySandboxResult } from '@/lib/sandboxTypes';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Driver } from '@/lib/drivers';
-import { Environment } from '@/lib/tauri';
+import type { ApplySandboxResult, MigrationScript } from '@/lib/sandboxTypes';
+import type { Environment } from '@/lib/tauri';
 import { cn } from '@/lib/utils';
-import { toast } from 'sonner';
 import { SqlPreview } from './SqlPreview';
 
 interface MigrationPreviewProps {
@@ -198,15 +202,16 @@ export function MigrationPreview({
                     </span>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm text-muted-foreground">
+                    <Label htmlFor="confirm-apply-input" className="text-sm text-muted-foreground">
                       {t('sandbox.migration.confirmLabel')}
-                    </label>
-                    <input
+                    </Label>
+                    <Input
+                      id="confirm-apply-input"
                       type="text"
                       value={confirmInput}
                       onChange={e => setConfirmInput(e.target.value)}
                       placeholder="APPLY"
-                      className="w-full px-3 py-2 text-sm border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-accent"
+                      className="h-9"
                     />
                   </div>
                 </div>

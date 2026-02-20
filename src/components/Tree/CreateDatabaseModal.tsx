@@ -1,20 +1,35 @@
-import { useState, useEffect } from 'react';
+// SPDX-License-Identifier: Apache-2.0
+
+import { Loader2 } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from '@/components/ui/dialog';
-import { createDatabase, Environment } from '../../lib/tauri';
-import { toast } from 'sonner';
-import { Loader2 } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
-import { getDriverMetadata } from '../../lib/drivers';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { isDocumentDatabase } from '../../lib/driverCapabilities';
+import { getDriverMetadata } from '../../lib/drivers';
+import {
+  type CharsetInfo,
+  createDatabase,
+  type Environment,
+  getCreationOptions,
+} from '../../lib/tauri';
 import { ProductionConfirmDialog } from '../Guard/ProductionConfirmDialog';
+import { Label } from '../ui/label';
 
 interface CreateDatabaseModalProps {
   isOpen: boolean;
@@ -46,22 +61,63 @@ export function CreateDatabaseModal({
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<null | (() => Promise<void>)>(null);
 
+  // MySQL-specific state
+  const [creationOptions, setCreationOptions] = useState<CharsetInfo[]>([]);
+  const [loadingOptions, setLoadingOptions] = useState(false);
+  const [charset, setCharset] = useState('');
+  const [collation, setCollation] = useState('');
+
   const driverMeta = getDriverMetadata(driver);
   const isDocument = isDocumentDatabase(driver);
+  const isMysql = driver === 'mysql';
   const confirmationLabel = (connectionDatabase || connectionName || 'PROD').trim() || 'PROD';
+
+  // Collations filtered by selected charset
+  const availableCollations = useMemo(() => {
+    if (!charset) return [];
+    const found = creationOptions.find(cs => cs.name === charset);
+    return found?.collations ?? [];
+  }, [creationOptions, charset]);
 
   useEffect(() => {
     if (!isOpen) return;
     setName('');
     setCollectionName('');
-  }, [isOpen]);
+    setCharset('');
+    setCollation('');
+
+    if (isMysql) {
+      setLoadingOptions(true);
+      getCreationOptions(sessionId)
+        .then(res => {
+          if (res.success && res.options) {
+            setCreationOptions(res.options.charsets);
+          }
+        })
+        .catch(() => {
+          // silently ignore — charset/collation fields just won't appear
+        })
+        .finally(() => setLoadingOptions(false));
+    }
+  }, [isOpen, isMysql, sessionId]);
+
+  // Reset collation when charset changes
+  useEffect(() => {
+    setCollation('');
+  }, []);
 
   async function performCreate(acknowledgedDangerous: boolean) {
     setLoading(true);
     try {
-      let options = undefined;
+      let options: Record<string, unknown> | undefined;
       if (isDocument) {
         options = { collection: collectionName.trim() };
+      } else if (isMysql) {
+        if (charset || collation) {
+          options = {};
+          if (charset) options.charset = charset;
+          if (collation) options.collation = collation;
+        }
       }
 
       const result = await createDatabase(sessionId, name.trim(), options, acknowledgedDangerous);
@@ -148,14 +204,14 @@ export function CreateDatabaseModal({
   return (
     <>
       <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className={isMysql ? 'max-w-md' : 'max-w-sm'}>
           <DialogHeader>
             <DialogTitle>{t(titleKey)}</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-3 py-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">{t(nameLabelKey)}</label>
+              <Label className="text-sm font-medium">{t(nameLabelKey)}</Label>
               <Input
                 value={name}
                 onChange={e => setName(e.target.value)}
@@ -175,7 +231,7 @@ export function CreateDatabaseModal({
             {isDocument && (
               <>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">{t('database.collectionNameLabel')}</label>
+                  <Label className="text-sm font-medium">{t('database.collectionNameLabel')}</Label>
                   <Input
                     value={collectionName}
                     onChange={e => setCollectionName(e.target.value)}
@@ -188,6 +244,55 @@ export function CreateDatabaseModal({
                 </div>
                 <p className="text-xs text-muted-foreground">{t('common.mongoCreateDbHint')}</p>
               </>
+            )}
+
+            {isMysql && !loadingOptions && creationOptions.length > 0 && (
+              <>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">{t('database.charsetLabel')}</Label>
+                  <Select value={charset} onValueChange={setCharset} disabled={loading}>
+                    <SelectTrigger>
+                      <SelectValue placeholder={t('database.charsetPlaceholder')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {creationOptions.map(cs => (
+                        <SelectItem key={cs.name} value={cs.name}>
+                          {cs.name}
+                          {cs.description ? ` — ${cs.description}` : ''}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">{t('database.collationLabel')}</Label>
+                  <Select
+                    value={collation}
+                    onValueChange={setCollation}
+                    disabled={loading || !charset}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={t('database.collationPlaceholder')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableCollations.map(col => (
+                        <SelectItem key={col.name} value={col.name}>
+                          {col.name}
+                          {col.is_default ? ' ★' : ''}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </>
+            )}
+
+            {isMysql && loadingOptions && (
+              <p className="text-xs text-muted-foreground flex items-center gap-1">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                {t('database.loadingOptions')}
+              </p>
             )}
           </div>
 

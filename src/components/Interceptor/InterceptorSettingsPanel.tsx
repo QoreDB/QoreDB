@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * Interceptor Settings Panel
  *
@@ -5,33 +7,34 @@
  * All data is stored and processed in the backend (Rust) for security.
  */
 
-import { useState, useEffect, useCallback } from 'react';
-import { useTranslation } from 'react-i18next';
 import {
-  Shield,
   Activity,
-  FileText,
   ChevronDown,
   ChevronRight,
+  FileText,
   Plus,
-  Trash2,
   RefreshCw,
+  Shield,
+  Trash2,
 } from 'lucide-react';
-import { Switch } from '../ui/switch';
-import { Label } from '../ui/label';
-import { Input } from '../ui/input';
-import { Button } from '../ui/button';
+import { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { LicenseGate } from '@/components/License/LicenseGate';
 import {
-  getInterceptorConfig,
-  updateInterceptorConfig,
-  getSafetyRules,
   addSafetyRule,
-  removeSafetyRule,
-  updateSafetyRule,
-  type InterceptorConfig,
-  type SafetyRule,
   BUILTIN_SAFETY_RULE_I18N,
+  getInterceptorConfig,
+  getSafetyRules,
+  type InterceptorConfig,
+  removeSafetyRule,
+  type SafetyRule,
+  updateInterceptorConfig,
+  updateSafetyRule,
 } from '../../lib/tauri/interceptor';
+import { Button } from '../ui/button';
+import { Input } from '../ui/input';
+import { Label } from '../ui/label';
+import { Switch } from '../ui/switch';
 import { SafetyRuleEditor } from './SafetyRuleEditor';
 
 interface SectionProps {
@@ -242,7 +245,9 @@ export function InterceptorSettingsPanel() {
           <Input
             type="number"
             value={config.max_audit_entries}
-            onChange={e => updateConfig({ max_audit_entries: parseInt(e.target.value) || 10000 })}
+            onChange={e =>
+              updateConfig({ max_audit_entries: parseInt(e.target.value, 10) || 10000 })
+            }
             className="w-24 h-8 text-sm"
             min={1000}
             max={100000}
@@ -251,58 +256,62 @@ export function InterceptorSettingsPanel() {
         </SettingRow>
       </Section>
 
-      {/* Profiling */}
-      <Section
-        title={t('interceptor.profiling.title')}
-        description={t('interceptor.profiling.description')}
-        icon={<Activity className="w-4 h-4" />}
-      >
-        <SettingRow
-          label={t('interceptor.profiling.enabled')}
-          description={t('interceptor.profiling.enabledDescription')}
+      {/* Profiling (Pro) */}
+      <LicenseGate feature="profiling">
+        <Section
+          title={t('interceptor.profiling.title')}
+          description={t('interceptor.profiling.description')}
+          icon={<Activity className="w-4 h-4" />}
         >
-          <Switch
-            checked={config.profiling_enabled}
-            onCheckedChange={profiling_enabled => updateConfig({ profiling_enabled })}
-          />
-        </SettingRow>
+          <SettingRow
+            label={t('interceptor.profiling.enabled')}
+            description={t('interceptor.profiling.enabledDescription')}
+          >
+            <Switch
+              checked={config.profiling_enabled}
+              onCheckedChange={profiling_enabled => updateConfig({ profiling_enabled })}
+            />
+          </SettingRow>
 
-        <SettingRow
-          label={t('interceptor.profiling.slowQueryThreshold')}
-          description={t('interceptor.profiling.slowQueryThresholdDescription')}
-        >
-          <div className="flex items-center gap-2">
+          <SettingRow
+            label={t('interceptor.profiling.slowQueryThreshold')}
+            description={t('interceptor.profiling.slowQueryThresholdDescription')}
+          >
+            <div className="flex items-center gap-2">
+              <Input
+                type="number"
+                value={config.slow_query_threshold_ms}
+                onChange={e =>
+                  updateConfig({ slow_query_threshold_ms: parseInt(e.target.value, 10) || 1000 })
+                }
+                className="w-24 h-8 text-sm"
+                min={100}
+                max={60000}
+                step={100}
+                disabled={!config.profiling_enabled}
+              />
+              <span className="text-sm text-muted-foreground">ms</span>
+            </div>
+          </SettingRow>
+
+          <SettingRow
+            label={t('interceptor.profiling.maxSlowQueries')}
+            description={t('interceptor.profiling.maxSlowQueriesDescription')}
+          >
             <Input
               type="number"
-              value={config.slow_query_threshold_ms}
+              value={config.max_slow_queries}
               onChange={e =>
-                updateConfig({ slow_query_threshold_ms: parseInt(e.target.value) || 1000 })
+                updateConfig({ max_slow_queries: parseInt(e.target.value, 10) || 100 })
               }
               className="w-24 h-8 text-sm"
-              min={100}
-              max={60000}
-              step={100}
+              min={10}
+              max={1000}
               disabled={!config.profiling_enabled}
             />
-            <span className="text-sm text-muted-foreground">ms</span>
-          </div>
-        </SettingRow>
-
-        <SettingRow
-          label={t('interceptor.profiling.maxSlowQueries')}
-          description={t('interceptor.profiling.maxSlowQueriesDescription')}
-        >
-          <Input
-            type="number"
-            value={config.max_slow_queries}
-            onChange={e => updateConfig({ max_slow_queries: parseInt(e.target.value) || 100 })}
-            className="w-24 h-8 text-sm"
-            min={10}
-            max={1000}
-            disabled={!config.profiling_enabled}
-          />
-        </SettingRow>
-      </Section>
+          </SettingRow>
+        </Section>
+      </LicenseGate>
 
       {/* Safety */}
       <Section
@@ -356,68 +365,70 @@ export function InterceptorSettingsPanel() {
           </div>
         </div>
 
-        {/* Custom Rules */}
-        <div className="pt-4 border-t border-border">
-          <div className="flex items-center justify-between mb-3">
-            <Label className="text-sm font-medium">{t('interceptor.safety.customRules')}</Label>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleAddRule}
-              disabled={!config.safety_enabled}
-            >
-              <Plus className="w-3 h-3 mr-1" />
-              {t('interceptor.safety.addRule')}
-            </Button>
-          </div>
+        {/* Custom Rules (Pro) */}
+        <LicenseGate feature="custom_safety_rules">
+          <div className="pt-4 border-t border-border">
+            <div className="flex items-center justify-between mb-3">
+              <Label className="text-sm font-medium">{t('interceptor.safety.customRules')}</Label>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleAddRule}
+                disabled={!config.safety_enabled}
+              >
+                <Plus className="w-3 h-3 mr-1" />
+                {t('interceptor.safety.addRule')}
+              </Button>
+            </div>
 
-          {customRules.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-4">
-              {t('interceptor.safety.noRules')}
-            </p>
-          ) : (
-            <div className="space-y-2">
-              {customRules.map(rule => (
-                <div
-                  key={rule.id}
-                  className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/30"
-                >
-                  <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <Switch
-                      checked={rule.enabled}
-                      onCheckedChange={enabled => handleRuleToggle(rule, enabled)}
-                      disabled={!config.safety_enabled}
-                    />
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium truncate">{getRuleLabels(rule).name}</p>
-                      <p className="text-xs text-muted-foreground truncate">
-                        {getRuleLabels(rule).description}
-                      </p>
+            {customRules.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                {t('interceptor.safety.noRules')}
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {customRules.map(rule => (
+                  <div
+                    key={rule.id}
+                    className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/30"
+                  >
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <Switch
+                        checked={rule.enabled}
+                        onCheckedChange={enabled => handleRuleToggle(rule, enabled)}
+                        disabled={!config.safety_enabled}
+                      />
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium truncate">{getRuleLabels(rule).name}</p>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {getRuleLabels(rule).description}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleEditRule(rule)}
+                        disabled={!config.safety_enabled}
+                      >
+                        {t('common.edit')}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleRuleDelete(rule.id)}
+                        disabled={!config.safety_enabled}
+                      >
+                        <Trash2 className="w-4 h-4 text-destructive" />
+                      </Button>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleEditRule(rule)}
-                      disabled={!config.safety_enabled}
-                    >
-                      {t('common.edit')}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleRuleDelete(rule.id)}
-                      disabled={!config.safety_enabled}
-                    >
-                      <Trash2 className="w-4 h-4 text-destructive" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </LicenseGate>
       </Section>
 
       {/* Rule Editor Modal */}

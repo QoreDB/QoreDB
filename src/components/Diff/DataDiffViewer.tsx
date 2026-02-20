@@ -1,19 +1,21 @@
+// SPDX-License-Identifier: BUSL-1.1
+
 /**
  * DataDiffViewer - Visual comparison of two data sources
  *
  * Allows comparing two query results or table contents side by side,
  * highlighting differences like a Git diff viewer.
  */
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { DiffSource } from '@/lib/tabs';
-import { Namespace, SavedConnection, listSavedConnections } from '@/lib/tauri';
+import type { DiffSource } from '@/lib/tabs';
+import { listSavedConnections, type Namespace, type SavedConnection } from '@/lib/tauri';
 import { UI_EVENT_CONNECTIONS_CHANGED } from '@/lib/uiEvents';
-import { DiffToolbar } from './DiffToolbar';
-import { DiffSourcePanel } from './DiffSourcePanel';
 import { DiffConfigPanel } from './DiffConfigPanel';
-import { DiffStatsBar, DiffFilter } from './DiffStatsBar';
 import { DiffResultsGrid } from './DiffResultsGrid';
+import { DiffSourcePanel } from './DiffSourcePanel';
+import { type DiffFilter, DiffStatsBar } from './DiffStatsBar';
+import { DiffToolbar } from './DiffToolbar';
 import { useDiffSources } from './hooks/useDiffSources';
 
 const DEFAULT_PROJECT = 'default';
@@ -168,7 +170,16 @@ export function DataDiffViewer({
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [leftSource.result]);
+  }, [
+    leftSource.result,
+    leftSource.connectionId,
+    leftSource.mode,
+    leftSource.namespace,
+    leftSource.query,
+    leftSource.tableName,
+    onSourceChange,
+    t,
+  ]);
 
   useEffect(() => {
     if (onSourceChange && rightSource.result) {
@@ -183,7 +194,16 @@ export function DataDiffViewer({
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rightSource.result]);
+  }, [
+    rightSource.result,
+    onSourceChange,
+    rightSource.connectionId,
+    rightSource.mode,
+    rightSource.namespace,
+    rightSource.query,
+    rightSource.tableName,
+    t,
+  ]);
 
   // Filter rows based on current filter and showUnchanged setting
   const filteredRows = useMemo(() => {

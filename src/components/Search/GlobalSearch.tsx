@@ -1,15 +1,17 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+// SPDX-License-Identifier: Apache-2.0
+
+import { Command, Database, FileCode, Folder, Search, Star } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Search, Database, FileCode, Star, Folder, Command } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { listSavedConnections, SavedConnection } from '../../lib/tauri';
-import { searchHistory, getFavorites, HistoryEntry } from '../../lib/history';
+import { getFavorites, type HistoryEntry, searchHistory } from '../../lib/history';
 import {
   listFolders,
   listItems,
   type QueryFolder,
   type QueryLibraryItem,
 } from '../../lib/queryLibrary';
+import { listSavedConnections, type SavedConnection } from '../../lib/tauri';
 
 interface GlobalSearchProps {
   isOpen: boolean;
@@ -70,7 +72,7 @@ export function GlobalSearch({ isOpen, onClose, onSelect, commands = [] }: Globa
         console.error(err);
       }
     }
-  }, [isOpen]);
+  }, [isOpen, commands.map]);
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {

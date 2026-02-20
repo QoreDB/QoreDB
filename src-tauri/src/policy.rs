@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 //! Backend safety policy configuration.
 //!
 //! Defaults are persisted to a per-user config file. Environment variables

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 //! Full-text Search Tauri Commands
 //!
 //! Provides global search functionality across all tables and columns in a database.

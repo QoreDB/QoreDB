@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 //! Universal Query Interceptor
 //!
 //! A comprehensive query interception system for:

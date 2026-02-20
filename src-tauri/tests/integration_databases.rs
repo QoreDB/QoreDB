@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 use qoredb_lib::engine::{
     drivers::{mongodb::MongoDriver, mysql::MySqlDriver, postgres::PostgresDriver, redis::RedisDriver},
     error::{EngineError, EngineResult},

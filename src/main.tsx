@@ -1,12 +1,13 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './i18n'; // Import i18n configuration
 import App from './App';
 import './index.css';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
-import { AnalyticsService } from './components/Onboarding/AnalyticsService';
-
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { AnalyticsService } from './components/Onboarding/AnalyticsService';
 
 AnalyticsService.init();
 

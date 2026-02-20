@@ -1,19 +1,21 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+// SPDX-License-Identifier: Apache-2.0
+
+import { AlertCircle, ChevronRight, Database, Loader2, Search, Table2, X } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Search, Database, Table2, Loader2, X, ChevronRight, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
+  type FulltextMatch,
+  type FulltextSearchResponse,
   fulltextSearch,
-  FulltextMatch,
-  FulltextSearchResponse,
-  Namespace,
-  Value,
-  SearchFilter,
+  type Namespace,
+  type SearchFilter,
+  type Value,
 } from '../../lib/tauri';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
-import { Switch } from '../ui/switch';
 import { Label } from '../ui/label';
+import { Switch } from '../ui/switch';
 
 interface FulltextSearchPanelProps {
   isOpen: boolean;
@@ -55,7 +57,7 @@ function groupMatchesByTable(matches: FulltextMatch[]): GroupedMatches[] {
       });
     }
 
-    groups.get(key)!.matches.push(match);
+    groups.get(key)?.matches.push(match);
   }
 
   return Array.from(groups.values());
@@ -273,11 +275,11 @@ export function FulltextSearchPanel({
               {/* Stats bar */}
               <div className="px-4 py-2 text-xs text-muted-foreground border-b border-border bg-muted/20">
                 {t('fulltextSearch.stats', {
-                  matches: result!.total_matches,
-                  tables: result!.tables_searched,
-                  time: result!.search_time_ms.toFixed(0),
+                  matches: result?.total_matches,
+                  tables: result?.tables_searched,
+                  time: result?.search_time_ms.toFixed(0),
                 })}
-                {result!.truncated && (
+                {result?.truncated && (
                   <span className="ml-2 text-amber-500">({t('fulltextSearch.truncated')})</span>
                 )}
               </div>

@@ -1,18 +1,19 @@
-import { useState } from 'react';
-import { useTranslation } from 'react-i18next';
-import { save, open as openDialog } from '@tauri-apps/plugin-dialog';
+// SPDX-License-Identifier: Apache-2.0
+
+import { open as openDialog, save } from '@tauri-apps/plugin-dialog';
 import { readTextFile, writeTextFile } from '@tauri-apps/plugin-fs';
 import { revealItemInDir } from '@tauri-apps/plugin-opener';
-import { toast } from 'sonner';
 import { Download, Upload } from 'lucide-react';
-
+import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
+import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
 import { Button } from '@/components/ui/button';
-import { SettingsCard } from './SettingsCard';
+import { useTheme } from '@/hooks/useTheme';
 import { applyConfigBackupV1, buildConfigBackupV1, isConfigBackupV1 } from '@/lib/configBackup';
 import type { DiagnosticsSettings } from '@/lib/diagnosticsSettings';
 import type { SafetyPolicy } from '@/lib/tauri';
-import { useTheme } from '@/hooks/useTheme';
-import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
+import { SettingsCard } from './SettingsCard';
 
 interface ConfigBackupCardProps {
   policy: SafetyPolicy | null;

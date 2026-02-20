@@ -1,5 +1,7 @@
+// SPDX-License-Identifier: Apache-2.0
+
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import { useState } from 'react';
-import { ChevronRight, ChevronDown } from 'lucide-react';
 
 interface JSONViewerProps {
   data: unknown;

@@ -69,6 +69,7 @@
     "browseFile": "Browse...",
     "inMemory": "In-memory database",
     "sqliteHelp": "Select a .db, .sqlite, or .sqlite3 file",
+    "duckdbHelp": "Select a .duckdb or .db file — or use in-memory mode",
     "useSSL": "Use SSL/TLS",
     "poolSettings": "Connection Pool",
     "poolMax": "Max",
@@ -100,6 +101,7 @@
       "deleteConfirm": "Delete connection \"{{name}}\"? This cannot be undone.",
       "deletedSuccess": "Connection \"{{name}}\" deleted",
       "deleteFail": "Failed to delete connection",
+      "newQuery": "New Query",
       "credentialLoadFail": "Failed to load connection details",
       "testTitleSuccess": "Connection to {{name}} successful!"
     },
@@ -149,7 +151,11 @@
     "failedToGetCredentials": "Failed to get credentials",
     "couldNotRetrievePassword": "Could not retrieve password from vault",
     "connectedTo": "Connected to {{name}}",
-    "connectionToFailed": "Connection to {{name}} failed"
+    "connectionToFailed": "Connection to {{name}} failed",
+    "favorites": "Favorites",
+    "otherConnections": "Other connections",
+    "addToFavorites": "Add to favorites",
+    "removeFromFavorites": "Remove from favorites"
   },
   "search": {
     "placeholder": "Type a command or search...",
@@ -270,6 +276,28 @@
       "panelPageSize": "Changes per page",
       "panelPageSizeDescription": "Controls pagination in the changes panel."
     },
+    "license": {
+      "title": "License",
+      "description": "Manage your QoreDB license and unlock Pro features.",
+      "featuresTitle": "Feature availability",
+      "featuresDescription": "Features included in your current license tier.",
+      "featureNames": {
+        "sandbox": "SQL Sandbox",
+        "visual_diff": "Visual Data Diff",
+        "er_diagram": "ER Diagram",
+        "profiling": "Query Profiling",
+        "custom_safety_rules": "Custom Safety Rules",
+        "audit_advanced": "Advanced Audit Log",
+        "ai": "AI Assistant",
+        "export_xlsx": "XLSX Export",
+        "export_parquet": "Parquet Export",
+        "query_library_advanced": "Advanced Query Library",
+        "virtual_relations_auto_suggest": "Auto-suggest Virtual Relations"
+      },
+      "devOverrideTitle": "Dev License Override",
+      "devOverrideDescription": "Override license tier for development testing. Resets on app restart.",
+      "devOnly": "Development only — not available in production builds"
+    },
     "safetyPolicy": "Production Safety",
     "safetyPolicyDescription": "Control server-side guardrails for production queries.",
     "safetyPolicyRequireConfirmation": "Require confirmation for dangerous SQL",
@@ -310,7 +338,9 @@
       "editor": "Editor",
       "security": "Security",
       "data": "Data & Privacy",
-      "shortcuts": "Keyboard Shortcuts"
+      "shortcuts": "Keyboard Shortcuts",
+      "license": "License",
+      "ai": "AI Assistant"
     },
     "search": {
       "placeholder": "Search settings...",
@@ -479,6 +509,12 @@
     "previousPage": "Previous page",
     "nextPage": "Next page",
     "lastPage": "Last page",
+    "infiniteScroll": {
+      "loaded": "{{loaded}} of {{total}} rows loaded",
+      "allLoaded": "All {{total}} rows loaded",
+      "loading": "Loading more...",
+      "complete": "End of results"
+    },
     "noData": "No data to display",
     "noResults": "No results",
     "loadMore": "Load more",
@@ -538,7 +574,9 @@
       "csv": "CSV",
       "json": "JSON",
       "sql": "SQL INSERT",
-      "html": "Self-contained HTML"
+      "html": "Self-contained HTML",
+      "xlsx": "Excel (XLSX)",
+      "parquet": "Apache Parquet"
     },
     "outputLabel": "Output file",
     "outputPlaceholder": "Select a file path",
@@ -608,7 +646,12 @@
     "creationNotSupported": "Driver not supported for database creation",
     "confirmCreate": "This action will create a new database and collection.",
     "schemaNamePlaceholder": "My schema",
-    "databaseNamePlaceholder": "My database"
+    "databaseNamePlaceholder": "My database",
+    "charsetLabel": "Character Set",
+    "charsetPlaceholder": "Server default",
+    "collationLabel": "Collation",
+    "collationPlaceholder": "Default for charset",
+    "loadingOptions": "Loading options..."
   },
   "common": {
     "loading": "Loading...",
@@ -902,6 +945,7 @@
       "clearLog": "Clear Log",
       "clearConfirm": "Clear all audit log entries? This cannot be undone.",
       "noEntries": "No audit log entries",
+      "upgradeForFilters": "Upgrade to Pro for filters, export, and advanced statistics",
       "blockedBy": "Blocked by: {{rule}}",
       "filters": {
         "environment": "Environment",
@@ -1239,5 +1283,121 @@
     "description": "Virtual relations are local metadata that enable FK features (peek, ER diagram) for tables without real foreign key constraints.",
     "selectTable": "Select table...",
     "selectColumn": "Select column..."
+  },
+  "license": {
+    "currentTier": "Current tier",
+    "activate": "Activate",
+    "deactivate": "Deactivate license",
+    "deactivateConfirm": {
+      "title": "Deactivate license",
+      "description": "Your license key will be removed from this device. You will need to re-enter it to restore Pro features.",
+      "confirm": "Deactivate"
+    },
+    "keyPlaceholder": "Paste your license key",
+    "expired": "Expired",
+    "licensedTo": "Licensed to {{email}}",
+    "email": "Email",
+    "paymentId": "Payment ID",
+    "issuedAt": "Issued on",
+    "expiresAt": "Expires on",
+    "perpetual": "Perpetual (no expiration)",
+    "getPro": "Get QoreDB Pro",
+    "upgrade": {
+      "description": "This feature requires a Pro license.",
+      "hint": "Go to Settings to activate your license key."
+    },
+    "features": {
+      "sandbox": "Sandbox mode requires a Pro license.",
+      "visual_diff": "Visual Data Diff requires a Pro license.",
+      "er_diagram": "ER Diagram requires a Pro license.",
+      "audit_advanced": "Advanced audit log requires a Pro license.",
+      "profiling": "Query profiling requires a Pro license.",
+      "ai": "AI assistant requires a Pro license.",
+      "export_xlsx": "XLSX export requires a Pro license.",
+      "export_parquet": "Parquet export requires a Pro license.",
+      "custom_safety_rules": "Custom safety rules require a Pro license.",
+      "query_library_advanced": "Advanced query library requires a Pro license.",
+      "virtual_relations_auto_suggest": "Auto-suggest virtual relations requires a Pro license.",
+      "federation": "Cross-database federation requires a Pro license."
+    }
+  },
+  "ai": {
+    "title": "AI Assistant",
+    "promptPlaceholder": "Describe the query you want to generate...",
+    "insertQuery": "Insert into Editor",
+    "copyQuery": "Query copied",
+    "dangerousWarning": "Dangerous query",
+    "safetyWarning": "Mutation query",
+    "noProvider": "No API key configured.",
+    "configureProvider": "Configure AI provider",
+    "noSession": "Connect to a database to use the AI assistant.",
+    "ollamaLocal": "Local",
+    "fixWithAi": "Fix with AI",
+    "generateForTable": "Generate query with AI",
+    "generateForTableHint": "Generate a query for the \"{{table}}\" table...",
+    "explainResults": "Explain results",
+    "explaining": "Analyzing results...",
+    "defaultProvider": "Default provider",
+    "defaultProviderDescription": "Select your preferred AI provider.",
+    "settings": {
+      "title": "AI Providers",
+      "description": "Configure API keys for AI-powered query generation.",
+      "defaultModel": "Default model",
+      "local": "Local",
+      "configured": "Configured",
+      "notConfigured": "Not configured",
+      "enterKey": "Enter API key...",
+      "deleteKey": "Delete API key",
+      "ollamaHint": "Ollama runs locally — no API key required. Make sure Ollama is running on your machine."
+    }
+  },
+  "federation": {
+    "title": "Cross-Database Federation",
+    "description": "Write SQL queries that join tables across multiple active connections. Use the aliases below to reference tables from different databases.",
+    "availableSources": "Available Sources",
+    "insertAlias": "Insert Alias",
+    "addSource": "New connection",
+    "sources": "Federation sources",
+    "sourcesLabel": "Sources",
+    "noSources": "Connect to multiple databases to use federation queries",
+    "noSourcesShort": "No connections available",
+    "connectFirst": "Connect a database",
+    "loadingSources": "Loading sources...",
+    "refreshSources": "Refresh sources",
+    "clickTableToInsert": "Click a table to insert its path into the editor",
+    "needTwoSources": "Federation requires at least two connections",
+    "detected": "Multi-source",
+    "singleSource": "Single source",
+    "executing": "Executing federation query...",
+    "fetchingSources": "Fetching data from sources...",
+    "loadingDuckDb": "Loading data into federation engine...",
+    "executingJoin": "Executing join query...",
+    "rowLimitWarning": "Source '{{source}}' returned the maximum {{limit}} rows. Results may be incomplete.",
+    "proRequired": "Cross-database federation requires a Pro license",
+    "alias": "Alias",
+    "connection": "Connection",
+    "driver": "Driver",
+    "status": "Status",
+    "badge": "Federation",
+    "sourceFetchTime": "Source fetch: {{time}}ms",
+    "totalTime": "Total: {{time}}ms",
+    "clickToInsert": "Click to insert:",
+    "editorPlaceholder": "SELECT a.*, b.* FROM alias.schema.table a JOIN alias.schema.table b ON ...",
+    "emptyTitle": "Cross-Database Federation",
+    "emptyNeedSources": "Federation lets you join and query tables across different database engines in a single SQL statement. Connect at least two databases to get started.",
+    "oneMoreNeeded": "one more connection needed",
+    "readyTitle": "Ready to query across databases",
+    "readyDescription": "Click a source above to browse its tables, or start writing your query in the editor.",
+    "exampleQuery": "Example template",
+    "useTemplate": "Use template",
+    "hintClickSource": "Click a source to browse tables",
+    "hintToExecute": "to execute",
+    "openFederation": "Open Federation",
+    "insertAs": "Insert",
+    "insertJoin": "JOIN",
+    "insertLeftJoin": "LEFT JOIN",
+    "insertComma": "Cross join",
+    "insertWhere": "WHERE",
+    "insertRaw": "Reference"
   }
 }

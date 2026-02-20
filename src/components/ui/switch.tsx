@@ -1,11 +1,11 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import * as React from 'react';
 
 import { cn } from '@/lib/utils';
 
-export interface SwitchProps extends Omit<
-  React.ButtonHTMLAttributes<HTMLButtonElement>,
-  'onChange'
-> {
+export interface SwitchProps
+  extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'onChange'> {
   checked: boolean;
   onCheckedChange: (checked: boolean) => void;
 }

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 export interface DiagnosticsSettings {
   storeHistory: boolean;
   storeErrorLogs: boolean;

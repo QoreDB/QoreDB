@@ -1,6 +1,6 @@
 [package]
 name = "qoredb"
-version = "0.1.16"
+version = "0.1.18"
 description = "Next gen DB Client"
 authors = ["Raphaël Plassart <raphael.plassart@gmail.com>"]
 edition = "2021"
@@ -11,6 +11,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
+dotenvy = "0.15"
 
 [dependencies]
 tauri = { version = "2", features = [] }
@@ -18,11 +19,11 @@ tauri-plugin-opener = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-fs = "2"
 serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+serde_json = { version = "1", features = ["raw_value"] }
 
 # Async runtime
 tokio = { version = "1", features = ["full"] }
-tokio-util = "0.7"
+tokio-util = { version = "0.7", features = ["compat"] }
 
 # Database drivers
 sqlx = { version = "0.8", features = ["runtime-tokio", "tls-rustls", "postgres", "mysql", "sqlite", "chrono", "rust_decimal", "bigdecimal", "uuid"] }
@@ -54,8 +55,38 @@ keyring = { version = "3", features = ["apple-native", "windows-native", "sync-s
 argon2 = "0.5"
 rand = "0.8"
 
+# License verification
+ed25519-dalek = { version = "2", features = ["serde"] }
+
 [target."cfg(not(any(target_os = \"android\", target_os = \"ios\")))".dependencies]
 tauri-plugin-updater = "2"
+
+# Pro-only export formats
+rust_xlsxwriter = { version = "0.93", optional = true }
+arrow = { version = "54", optional = true }
+parquet = { version = "54", optional = true, default-features = false, features = ["arrow"] }
+
+# Pro-only AI BYOK
+reqwest = { version = "0.12", features = ["json", "stream"], optional = true }
+
+# SQL Server driver (TDS protocol)
+tiberius = { version = "0.12", features = ["tds73", "chrono", "rust_decimal", "bigdecimal"] }
+bb8 = "0.9"
+bb8-tiberius = "0.16"
+
+# DuckDB (embedded analytics database driver + federation engine)
+duckdb = { version = "1.4", features = ["bundled"] }
+
+# Feature flags for Open Core tiers
+# Core (default): no flags needed
+# Pro: cargo build --features pro
+# Team: cargo build --features team (includes pro)
+# Enterprise: cargo build --features enterprise (includes team + pro)
+[features]
+default = []
+pro = ["rust_xlsxwriter", "parquet", "arrow", "reqwest"]
+team = ["pro"]
+enterprise = ["team"]
 
 [dev-dependencies]
 tempfile = "3.24.0"

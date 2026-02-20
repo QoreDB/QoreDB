@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 //! MongoDB Driver
 //!
 //! Implements the DataEngine trait for MongoDB using the official MongoDB driver.
@@ -641,38 +643,338 @@ impl DataEngine for MongoDriver {
                         .map_err(|e| EngineError::syntax_error(format!("Invalid JSON: {}", e)))?;
 
                     if let Some(operation) = parsed.get("operation").and_then(|v| v.as_str()) {
-                        if operation == "create_collection" {
-                            let database = parsed["database"]
-                                .as_str()
-                                .ok_or_else(|| EngineError::syntax_error("Missing 'database' field"))?;
-                            let collection = parsed["collection"]
-                                .as_str()
-                                .ok_or_else(|| EngineError::syntax_error("Missing 'collection' field"))?;
+                        let op = operation.to_ascii_lowercase().replace('_', "");
+                        match op.as_str() {
+                            "createcollection" => {
+                                let database = parsed["database"]
+                                    .as_str()
+                                    .ok_or_else(|| EngineError::syntax_error("Missing 'database' field"))?;
+                                let coll_name = parsed["collection"]
+                                    .as_str()
+                                    .ok_or_else(|| EngineError::syntax_error("Missing 'collection' field"))?;
 
-                            let mut tx_guard = mongo_session.transaction_session.lock().await;
-                            if let Some(txn) = tx_guard.as_mut() {
-                                client
-                                    .database(database)
-                                    .run_command(doc! { "create": collection })
-                                    .session(&mut *txn)
-                                    .await
-                                    .map_err(|e| EngineError::execution_error(e.to_string()))?;
-                            } else {
-                                drop(tx_guard);
-                                client
-                                    .database(database)
-                                    .run_command(doc! { "create": collection })
-                                    .await
-                                    .map_err(|e| EngineError::execution_error(e.to_string()))?;
+                                let mut tx_guard = mongo_session.transaction_session.lock().await;
+                                if let Some(txn) = tx_guard.as_mut() {
+                                    client
+                                        .database(database)
+                                        .run_command(doc! { "create": coll_name })
+                                        .session(&mut *txn)
+                                        .await
+                                        .map_err(|e| EngineError::execution_error(e.to_string()))?;
+                                } else {
+                                    drop(tx_guard);
+                                    client
+                                        .database(database)
+                                        .run_command(doc! { "create": coll_name })
+                                        .await
+                                        .map_err(|e| EngineError::execution_error(e.to_string()))?;
+                                }
+
+                                let execution_time_ms = start.elapsed().as_micros() as f64 / 1000.0;
+                                return Ok(QueryResult {
+                                    columns: Vec::new(),
+                                    rows: Vec::new(),
+                                    affected_rows: None,
+                                    execution_time_ms,
+                                });
                             }
+                            "insertone" | "insert" => {
+                                let database = parsed["database"]
+                                    .as_str()
+                                    .ok_or_else(|| EngineError::syntax_error("Missing 'database' field"))?;
+                                let coll_name = parsed["collection"]
+                                    .as_str()
+                                    .ok_or_else(|| EngineError::syntax_error("Missing 'collection' field"))?;
+                                let document = parsed.get("document")
+                                    .ok_or_else(|| EngineError::syntax_error("Missing 'document' field"))?;
+                                let bson_doc = mongodb::bson::to_document(document)
+                                    .map_err(|e| EngineError::syntax_error(format!("Invalid document: {}", e)))?;
 
-                            let execution_time_ms = start.elapsed().as_micros() as f64 / 1000.0;
-                            return Ok(QueryResult {
-                                columns: Vec::new(),
-                                rows: Vec::new(),
-                                affected_rows: None,
-                                execution_time_ms,
-                            });
+                                let col = client.database(database).collection::<Document>(coll_name);
+                                let mut tx_guard = mongo_session.transaction_session.lock().await;
+                                if let Some(txn) = tx_guard.as_mut() {
+                                    col.insert_one(bson_doc)
+                                        .session(&mut *txn)
+                                        .await
+                                        .map_err(|e| EngineError::execution_error(e.to_string()))?;
+                                } else {
+                                    drop(tx_guard);
+                                    col.insert_one(bson_doc)
+                                        .await
+                                        .map_err(|e| EngineError::execution_error(e.to_string()))?;
+                                }
+
+                                let execution_time_ms = start.elapsed().as_micros() as f64 / 1000.0;
+                                return Ok(QueryResult {
+                                    columns: Vec::new(),
+                                    rows: Vec::new(),
+                                    affected_rows: Some(1),
+                                    execution_time_ms,
+                                });
+                            }
+                            "insertmany" => {
+                                let database = parsed["database"]
+                                    .as_str()
+                                    .ok_or_else(|| EngineError::syntax_error("Missing 'database' field"))?;
+                                let coll_name = parsed["collection"]
+                                    .as_str()
+                                    .ok_or_else(|| EngineError::syntax_error("Missing 'collection' field"))?;
+                                let documents = parsed.get("documents")
+                                    .and_then(|v| v.as_array())
+                                    .ok_or_else(|| EngineError::syntax_error("Missing or invalid 'documents' array"))?;
+
+                                let bson_docs: Vec<Document> = documents
+                                    .iter()
+                                    .map(|d| mongodb::bson::to_document(d)
+                                        .map_err(|e| EngineError::syntax_error(format!("Invalid document: {}", e))))
+                                    .collect::<EngineResult<Vec<_>>>()?;
+                                let count = bson_docs.len() as u64;
+
+                                let col = client.database(database).collection::<Document>(coll_name);
+                                let mut tx_guard = mongo_session.transaction_session.lock().await;
+                                if let Some(txn) = tx_guard.as_mut() {
+                                    col.insert_many(bson_docs)
+                                        .session(&mut *txn)
+                                        .await
+                                        .map_err(|e| EngineError::execution_error(e.to_string()))?;
+                                } else {
+                                    drop(tx_guard);
+                                    col.insert_many(bson_docs)
+                                        .await
+                                        .map_err(|e| EngineError::execution_error(e.to_string()))?;
+                                }
+
+                                let execution_time_ms = start.elapsed().as_micros() as f64 / 1000.0;
+                                return Ok(QueryResult {
+                                    columns: Vec::new(),
+                                    rows: Vec::new(),
+                                    affected_rows: Some(count),
+                                    execution_time_ms,
+                                });
+                            }
+                            "updateone" => {
+                                let database = parsed["database"]
+                                    .as_str()
+                                    .ok_or_else(|| EngineError::syntax_error("Missing 'database' field"))?;
+                                let coll_name = parsed["collection"]
+                                    .as_str()
+                                    .ok_or_else(|| EngineError::syntax_error("Missing 'collection' field"))?;
+                                let filter = parsed.get("filter")
+                                    .or_else(|| parsed.get("query"))
+                                    .ok_or_else(|| EngineError::syntax_error("Missing 'filter' field"))?;
+                                let update = parsed.get("update")
+                                    .ok_or_else(|| EngineError::syntax_error("Missing 'update' field"))?;
+                                let filter_doc = mongodb::bson::to_document(filter)
+                                    .map_err(|e| EngineError::syntax_error(format!("Invalid filter: {}", e)))?;
+                                let update_doc = mongodb::bson::to_document(update)
+                                    .map_err(|e| EngineError::syntax_error(format!("Invalid update: {}", e)))?;
+
+                                let col = client.database(database).collection::<Document>(coll_name);
+                                let mut tx_guard = mongo_session.transaction_session.lock().await;
+                                let result = if let Some(txn) = tx_guard.as_mut() {
+                                    col.update_one(filter_doc, update_doc)
+                                        .session(&mut *txn)
+                                        .await
+                                        .map_err(|e| EngineError::execution_error(e.to_string()))?
+                                } else {
+                                    drop(tx_guard);
+                                    col.update_one(filter_doc, update_doc)
+                                        .await
+                                        .map_err(|e| EngineError::execution_error(e.to_string()))?
+                                };
+
+                                let execution_time_ms = start.elapsed().as_micros() as f64 / 1000.0;
+                                return Ok(QueryResult {
+                                    columns: Vec::new(),
+                                    rows: Vec::new(),
+                                    affected_rows: Some(result.modified_count),
+                                    execution_time_ms,
+                                });
+                            }
+                            "updatemany" => {
+                                let database = parsed["database"]
+                                    .as_str()
+                                    .ok_or_else(|| EngineError::syntax_error("Missing 'database' field"))?;
+                                let coll_name = parsed["collection"]
+                                    .as_str()
+                                    .ok_or_else(|| EngineError::syntax_error("Missing 'collection' field"))?;
+                                let filter = parsed.get("filter")
+                                    .or_else(|| parsed.get("query"))
+                                    .ok_or_else(|| EngineError::syntax_error("Missing 'filter' field"))?;
+                                let update = parsed.get("update")
+                                    .ok_or_else(|| EngineError::syntax_error("Missing 'update' field"))?;
+                                let filter_doc = mongodb::bson::to_document(filter)
+                                    .map_err(|e| EngineError::syntax_error(format!("Invalid filter: {}", e)))?;
+                                let update_doc = mongodb::bson::to_document(update)
+                                    .map_err(|e| EngineError::syntax_error(format!("Invalid update: {}", e)))?;
+
+                                let col = client.database(database).collection::<Document>(coll_name);
+                                let mut tx_guard = mongo_session.transaction_session.lock().await;
+                                let result = if let Some(txn) = tx_guard.as_mut() {
+                                    col.update_many(filter_doc, update_doc)
+                                        .session(&mut *txn)
+                                        .await
+                                        .map_err(|e| EngineError::execution_error(e.to_string()))?
+                                } else {
+                                    drop(tx_guard);
+                                    col.update_many(filter_doc, update_doc)
+                                        .await
+                                        .map_err(|e| EngineError::execution_error(e.to_string()))?
+                                };
+
+                                let execution_time_ms = start.elapsed().as_micros() as f64 / 1000.0;
+                                return Ok(QueryResult {
+                                    columns: Vec::new(),
+                                    rows: Vec::new(),
+                                    affected_rows: Some(result.modified_count),
+                                    execution_time_ms,
+                                });
+                            }
+                            "deleteone" => {
+                                let database = parsed["database"]
+                                    .as_str()
+                                    .ok_or_else(|| EngineError::syntax_error("Missing 'database' field"))?;
+                                let coll_name = parsed["collection"]
+                                    .as_str()
+                                    .ok_or_else(|| EngineError::syntax_error("Missing 'collection' field"))?;
+                                let filter = parsed.get("filter")
+                                    .or_else(|| parsed.get("query"))
+                                    .ok_or_else(|| EngineError::syntax_error("Missing 'filter' field"))?;
+                                let filter_doc = mongodb::bson::to_document(filter)
+                                    .map_err(|e| EngineError::syntax_error(format!("Invalid filter: {}", e)))?;
+
+                                let col = client.database(database).collection::<Document>(coll_name);
+                                let mut tx_guard = mongo_session.transaction_session.lock().await;
+                                let result = if let Some(txn) = tx_guard.as_mut() {
+                                    col.delete_one(filter_doc)
+                                        .session(&mut *txn)
+                                        .await
+                                        .map_err(|e| EngineError::execution_error(e.to_string()))?
+                                } else {
+                                    drop(tx_guard);
+                                    col.delete_one(filter_doc)
+                                        .await
+                                        .map_err(|e| EngineError::execution_error(e.to_string()))?
+                                };
+
+                                let execution_time_ms = start.elapsed().as_micros() as f64 / 1000.0;
+                                return Ok(QueryResult {
+                                    columns: Vec::new(),
+                                    rows: Vec::new(),
+                                    affected_rows: Some(result.deleted_count),
+                                    execution_time_ms,
+                                });
+                            }
+                            "deletemany" => {
+                                let database = parsed["database"]
+                                    .as_str()
+                                    .ok_or_else(|| EngineError::syntax_error("Missing 'database' field"))?;
+                                let coll_name = parsed["collection"]
+                                    .as_str()
+                                    .ok_or_else(|| EngineError::syntax_error("Missing 'collection' field"))?;
+                                let empty_obj = serde_json::Value::Object(serde_json::Map::new());
+                                let filter = parsed.get("filter")
+                                    .or_else(|| parsed.get("query"))
+                                    .unwrap_or(&empty_obj);
+                                let filter_doc = mongodb::bson::to_document(filter)
+                                    .map_err(|e| EngineError::syntax_error(format!("Invalid filter: {}", e)))?;
+
+                                let col = client.database(database).collection::<Document>(coll_name);
+                                let mut tx_guard = mongo_session.transaction_session.lock().await;
+                                let result = if let Some(txn) = tx_guard.as_mut() {
+                                    col.delete_many(filter_doc)
+                                        .session(&mut *txn)
+                                        .await
+                                        .map_err(|e| EngineError::execution_error(e.to_string()))?
+                                } else {
+                                    drop(tx_guard);
+                                    col.delete_many(filter_doc)
+                                        .await
+                                        .map_err(|e| EngineError::execution_error(e.to_string()))?
+                                };
+
+                                let execution_time_ms = start.elapsed().as_micros() as f64 / 1000.0;
+                                return Ok(QueryResult {
+                                    columns: Vec::new(),
+                                    rows: Vec::new(),
+                                    affected_rows: Some(result.deleted_count),
+                                    execution_time_ms,
+                                });
+                            }
+                            "dropcollection" | "drop" => {
+                                let database = parsed["database"]
+                                    .as_str()
+                                    .ok_or_else(|| EngineError::syntax_error("Missing 'database' field"))?;
+                                let coll_name = parsed["collection"]
+                                    .as_str()
+                                    .ok_or_else(|| EngineError::syntax_error("Missing 'collection' field"))?;
+
+                                let mut tx_guard = mongo_session.transaction_session.lock().await;
+                                if let Some(txn) = tx_guard.as_mut() {
+                                    client
+                                        .database(database)
+                                        .collection::<Document>(coll_name)
+                                        .drop()
+                                        .session(&mut *txn)
+                                        .await
+                                        .map_err(|e| EngineError::execution_error(e.to_string()))?;
+                                } else {
+                                    drop(tx_guard);
+                                    client
+                                        .database(database)
+                                        .collection::<Document>(coll_name)
+                                        .drop()
+                                        .await
+                                        .map_err(|e| EngineError::execution_error(e.to_string()))?;
+                                }
+
+                                let execution_time_ms = start.elapsed().as_micros() as f64 / 1000.0;
+                                return Ok(QueryResult {
+                                    columns: Vec::new(),
+                                    rows: Vec::new(),
+                                    affected_rows: None,
+                                    execution_time_ms,
+                                });
+                            }
+                            "dropdatabase" => {
+                                let database = parsed["database"]
+                                    .as_str()
+                                    .ok_or_else(|| EngineError::syntax_error("Missing 'database' field"))?;
+
+                                let mut tx_guard = mongo_session.transaction_session.lock().await;
+                                if let Some(txn) = tx_guard.as_mut() {
+                                    client
+                                        .database(database)
+                                        .drop()
+                                        .session(&mut *txn)
+                                        .await
+                                        .map_err(|e| EngineError::execution_error(e.to_string()))?;
+                                } else {
+                                    drop(tx_guard);
+                                    client
+                                        .database(database)
+                                        .drop()
+                                        .await
+                                        .map_err(|e| EngineError::execution_error(e.to_string()))?;
+                                }
+
+                                let execution_time_ms = start.elapsed().as_micros() as f64 / 1000.0;
+                                return Ok(QueryResult {
+                                    columns: Vec::new(),
+                                    rows: Vec::new(),
+                                    affected_rows: None,
+                                    execution_time_ms,
+                                });
+                            }
+                            // Read operations and unknown ops: fall through to find path
+                            "find" | "findone" | "aggregate" | "count" | "countdocuments"
+                            | "distinct" => {}
+                            _ => {
+                                return Err(EngineError::syntax_error(format!(
+                                    "Unsupported operation: '{}'. Supported: find, insert_one, insert_many, update_one, update_many, delete_one, delete_many, create_collection, drop_collection, drop_database",
+                                    operation
+                                )));
+                            }
                         }
                     }
                 }

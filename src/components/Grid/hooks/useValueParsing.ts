@@ -1,10 +1,12 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * Hook for value parsing and conversion utilities in DataGrid
  * Provides functions to convert between display and storage formats
  */
 
 import { useCallback } from 'react';
-import { Value } from '@/lib/tauri';
+import type { Value } from '@/lib/tauri';
 
 export interface UseValueParsingReturn {
   getEditableValue: (value: Value) => string;

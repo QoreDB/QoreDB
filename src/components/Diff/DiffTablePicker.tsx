@@ -1,12 +1,15 @@
+// SPDX-License-Identifier: BUSL-1.1
+
+import { ChevronDown, Loader2, Search, Table2, X } from 'lucide-react';
 /**
  * DiffTablePicker - Searchable dropdown for selecting tables
  */
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Search, Table2, ChevronDown, Loader2, X } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { Collection, Namespace, listCollections } from '@/lib/tauri';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { type Collection, listCollections, type Namespace } from '@/lib/tauri';
+import { cn } from '@/lib/utils';
 
 interface DiffTablePickerProps {
   sessionId: string;
@@ -52,7 +55,7 @@ export function DiffTablePicker({
   // Reset selected index when search changes
   useEffect(() => {
     setSelectedIndex(0);
-  }, [search]);
+  }, []);
 
   // Focus input when opened
   useEffect(() => {
@@ -109,11 +112,12 @@ export function DiffTablePicker({
   };
 
   return (
-    <div ref={containerRef} className="relative w-full" onKeyDown={handleKeyDown}>
+    <div ref={containerRef} className="relative w-full">
       <Button
         variant="outline"
         className={cn('w-full justify-between font-normal', !value && 'text-muted-foreground')}
         onClick={() => !disabled && setIsOpen(!isOpen)}
+        onKeyDown={handleKeyDown}
         disabled={disabled}
       >
         <span className="flex items-center gap-2 truncate">
@@ -128,11 +132,15 @@ export function DiffTablePicker({
         </span>
         <span className="flex items-center gap-1">
           {value && (
-            <X
-              size={14}
-              className="text-muted-foreground hover:text-foreground cursor-pointer"
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-5 w-5 text-muted-foreground hover:text-foreground"
               onClick={handleClear}
-            />
+            >
+              <X size={14} />
+            </Button>
           )}
           <ChevronDown size={14} className="text-muted-foreground" />
         </span>
@@ -143,13 +151,14 @@ export function DiffTablePicker({
           {/* Search input */}
           <div className="flex items-center px-3 py-2 border-b border-border">
             <Search size={14} className="text-muted-foreground mr-2" />
-            <input
+            <Input
               ref={inputRef}
               type="text"
-              className="flex-1 bg-transparent outline-none text-sm placeholder:text-muted-foreground"
+              className="h-8 flex-1 border-0 bg-transparent px-0 text-sm shadow-none focus-visible:ring-0"
               placeholder={t('dbtree.searchPlaceholder')}
               value={search}
               onChange={e => setSearch(e.target.value)}
+              onKeyDown={handleKeyDown}
             />
             {loading && <Loader2 size={14} className="animate-spin text-muted-foreground" />}
           </div>
@@ -162,11 +171,13 @@ export function DiffTablePicker({
               </div>
             ) : (
               tables.map((table, i) => (
-                <button
+                <Button
                   key={table.name}
                   type="button"
+                  variant="ghost"
+                  size="sm"
                   className={cn(
-                    'w-full flex items-center gap-2 px-3 py-2 text-sm text-left transition-colors',
+                    'h-auto w-full justify-start rounded-none px-3 py-2 text-sm text-left transition-colors',
                     i === selectedIndex ? 'bg-accent text-accent-foreground' : 'hover:bg-muted/50'
                   )}
                   onClick={() => handleSelect(table.name)}
@@ -177,7 +188,7 @@ export function DiffTablePicker({
                   <span className="ml-auto text-xs text-muted-foreground">
                     {table.collection_type}
                   </span>
-                </button>
+                </Button>
               ))
             )}
           </div>

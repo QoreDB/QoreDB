@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * Schema Cache Hook
  *
@@ -7,16 +9,16 @@
  * Cache is per-session and invalidated on DDL operations.
  */
 
-import { useState, useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
-  Namespace,
-  Collection,
-  TableSchema,
-  Routine,
-  listNamespaces,
-  listCollections,
+  type Collection,
   describeTable,
+  listCollections,
+  listNamespaces,
   listRoutines,
+  type Namespace,
+  type Routine,
+  type TableSchema,
 } from '../lib/tauri';
 
 // ============================================

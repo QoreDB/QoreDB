@@ -4,6 +4,7 @@ import { ChevronDown, ChevronRight } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
@@ -40,10 +41,11 @@ export function AdvancedSection({
 
   return (
     <div className="rounded-md border border-border bg-background">
-      <button
+      <Button
         type="button"
+        variant="ghost"
         className={cn(
-          'flex w-full items-center justify-between px-4 py-3 text-sm font-medium',
+          'h-auto flex w-full items-center justify-between px-4 py-3 text-sm font-medium',
           'hover:bg-muted/30 transition-colors'
         )}
         onClick={() => setOpen(v => !v)}
@@ -57,7 +59,7 @@ export function AdvancedSection({
             ? t('connection.advancedHintUrlMode')
             : t('connection.advancedHint')}
         </span>
-      </button>
+      </Button>
 
       {open && hasContent && (
         <div className="border-t border-border px-4 py-4 space-y-4">

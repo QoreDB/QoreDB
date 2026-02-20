@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { AiProviderSelector } from '@/components/AI/AiProviderSelector';
 import { LicenseGate } from '@/components/License/LicenseGate';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { AI_PROVIDERS, type AiProvider, aiDeleteApiKey, aiSaveApiKey } from '@/lib/ai';
 import { useAiPreferences } from '@/providers/AiPreferencesProvider';
 import { SettingsCard } from '../SettingsCard';
@@ -86,23 +87,25 @@ function ProviderCard({
         <div className="space-y-2">
           <div className="flex gap-2">
             <div className="relative flex-1">
-              <input
+              <Input
                 type={showKey ? 'text' : 'password'}
                 value={key}
                 onChange={e => setKey(e.target.value)}
                 placeholder={hasKey ? '••••••••••••' : t('ai.settings.enterKey')}
-                className="w-full h-8 rounded-md border border-input bg-background px-3 pr-8 text-sm"
+                className="w-full h-8 pr-8"
                 onKeyDown={e => {
                   if (e.key === 'Enter') handleSave();
                 }}
               />
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon"
                 onClick={() => setShowKey(!showKey)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                className="absolute right-1 top-1/2 h-6 w-6 -translate-y-1/2 text-muted-foreground hover:text-foreground"
               >
                 {showKey ? <EyeOff size={14} /> : <Eye size={14} />}
-              </button>
+              </Button>
             </div>
             <Button size="sm" onClick={handleSave} disabled={!key.trim() || saving} className="h-8">
               {saving ? (

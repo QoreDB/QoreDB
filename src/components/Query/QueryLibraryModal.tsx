@@ -193,13 +193,14 @@ export function QueryLibraryModal({ isOpen, onClose, onSelectQuery }: QueryLibra
   if (!isOpen) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
-      onMouseDown={e => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div className="w-full max-w-3xl max-h-[85vh] bg-background border border-border rounded-lg shadow-xl flex flex-col overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+      <button
+        type="button"
+        aria-label={t('common.close')}
+        className="absolute inset-0"
+        onMouseDown={onClose}
+      />
+      <div className="relative z-10 w-full max-w-3xl max-h-[85vh] bg-background border border-border rounded-lg shadow-xl flex flex-col overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
           <div className="flex items-center gap-2">
             <Folder size={18} className="text-accent" />
@@ -353,6 +354,7 @@ export function QueryLibraryModal({ isOpen, onClose, onSelectQuery }: QueryLibra
                   className="group flex items-start gap-3 px-4 py-3 hover:bg-muted/30 transition-colors"
                 >
                   <button
+                    type="button"
                     className={cn(
                       'mt-1 h-7 w-7 rounded-md flex items-center justify-center transition-colors',
                       item.isFavorite
@@ -385,6 +387,7 @@ export function QueryLibraryModal({ isOpen, onClose, onSelectQuery }: QueryLibra
                         {item.tags.map(tagValue => (
                           <button
                             key={tagValue}
+                            type="button"
                             className="text-[11px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border hover:text-foreground"
                             onClick={() => setTag(tagValue)}
                             title={t('library.filterByTag')}

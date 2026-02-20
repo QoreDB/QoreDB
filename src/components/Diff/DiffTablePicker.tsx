@@ -7,6 +7,7 @@ import { ChevronDown, Loader2, Search, Table2, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { type Collection, listCollections, type Namespace } from '@/lib/tauri';
 import { cn } from '@/lib/utils';
 
@@ -145,10 +146,10 @@ export function DiffTablePicker({
           {/* Search input */}
           <div className="flex items-center px-3 py-2 border-b border-border">
             <Search size={14} className="text-muted-foreground mr-2" />
-            <input
+            <Input
               ref={inputRef}
               type="text"
-              className="flex-1 bg-transparent outline-none text-sm placeholder:text-muted-foreground"
+              className="h-8 flex-1 border-0 bg-transparent px-0 text-sm shadow-none focus-visible:ring-0"
               placeholder={t('dbtree.searchPlaceholder')}
               value={search}
               onChange={e => setSearch(e.target.value)}
@@ -164,11 +165,13 @@ export function DiffTablePicker({
               </div>
             ) : (
               tables.map((table, i) => (
-                <button
+                <Button
                   key={table.name}
                   type="button"
+                  variant="ghost"
+                  size="sm"
                   className={cn(
-                    'w-full flex items-center gap-2 px-3 py-2 text-sm text-left transition-colors',
+                    'h-auto w-full justify-start rounded-none px-3 py-2 text-sm text-left transition-colors',
                     i === selectedIndex ? 'bg-accent text-accent-foreground' : 'hover:bg-muted/50'
                   )}
                   onClick={() => handleSelect(table.name)}
@@ -179,7 +182,7 @@ export function DiffTablePicker({
                   <span className="ml-auto text-xs text-muted-foreground">
                     {table.collection_type}
                   </span>
-                </button>
+                </Button>
               ))
             )}
           </div>

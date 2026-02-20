@@ -161,7 +161,11 @@ export function ChangesPanel({
 
   const handleToggleAll = useCallback(() => {
     const allChangeIds = new Set<string>();
-    groups.forEach(group => group.changes.forEach(change => allChangeIds.add(change.id)));
+    for (const group of groups) {
+      for (const change of group.changes) {
+        allChangeIds.add(change.id);
+      }
+    }
     setExpandedChanges(prev => (prev.size === allChangeIds.size ? new Set() : allChangeIds));
   }, [groups]);
 
@@ -270,9 +274,10 @@ export function ChangesPanel({
                       className="border border-border rounded-lg overflow-hidden"
                     >
                       {/* Group Header */}
-                      <button
+                      <Button
                         type="button"
-                        className="w-full flex items-center gap-2 px-3 py-2 bg-muted/30 hover:bg-muted/50 transition-colors"
+                        variant="ghost"
+                        className="h-auto w-full justify-start gap-2 rounded-none px-3 py-2 bg-muted/30 hover:bg-muted/50 transition-colors"
                         onClick={() => toggleGroup(group.displayName)}
                       >
                         {isExpanded ? (
@@ -304,7 +309,7 @@ export function ChangesPanel({
                             </span>
                           )}
                         </div>
-                      </button>
+                      </Button>
 
                       {/* Group Content */}
                       {isExpanded && (

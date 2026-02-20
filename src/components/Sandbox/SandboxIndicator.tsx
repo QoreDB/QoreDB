@@ -3,6 +3,7 @@
 import { FlaskConical } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Button } from '@/components/ui/button';
 import { getChangesCount, isSandboxActive, subscribeSandbox } from '@/lib/sandboxStore';
 import type { Environment } from '@/lib/tauri';
 import { cn } from '@/lib/utils';
@@ -67,11 +68,13 @@ export function SandboxIndicator({
   const colors = ENVIRONMENT_COLORS[environment];
 
   return (
-    <button
+    <Button
       type="button"
+      variant="ghost"
+      size="sm"
       onClick={onClick}
       className={cn(
-        'flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-bold rounded-full border transition-colors',
+        'h-auto flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-bold rounded-full border transition-colors',
         colors.bg,
         colors.border,
         colors.text,
@@ -86,7 +89,7 @@ export function SandboxIndicator({
           {changesCount > 99 ? '99+' : changesCount}
         </span>
       )}
-    </button>
+    </Button>
   );
 }
 

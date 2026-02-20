@@ -4,8 +4,16 @@ import { ChevronDown, ChevronRight, Info } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 
@@ -70,14 +78,16 @@ export function SshTunnelSection(props: {
       {formData.useSshTunnel && (
         <div className="border-t border-border">
           <div className="flex items-center justify-between px-4 py-2">
-            <button
+            <Button
               type="button"
-              className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground"
+              variant="ghost"
+              size="sm"
+              className="h-auto px-0 text-sm font-medium text-muted-foreground hover:text-foreground"
               onClick={() => setIsOpen(v => !v)}
             >
               {isOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
               {t('connection.ssh.configure')}
-            </button>
+            </Button>
           </div>
 
           {isOpen && (
@@ -146,10 +156,11 @@ export function SshTunnelSection(props: {
               </div>
 
               <div className="rounded-md border border-border">
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
                   className={cn(
-                    'flex w-full items-center justify-between px-3 py-2 text-sm font-medium',
+                    'h-auto flex w-full items-center justify-between px-3 py-2 text-sm font-medium',
                     'hover:bg-muted/40 transition-colors'
                   )}
                   onClick={() => setShowAdvanced(v => !v)}
@@ -158,7 +169,7 @@ export function SshTunnelSection(props: {
                     {showAdvanced ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                     {t('connection.ssh.advancedOptions')}
                   </span>
-                </button>
+                </Button>
 
                 {showAdvanced && (
                   <div className="px-3 pb-3 space-y-3 border-t border-border">
@@ -167,24 +178,30 @@ export function SshTunnelSection(props: {
                         <Label className="text-xs text-muted-foreground">
                           {t('connection.ssh.hostKeyPolicy')}
                         </Label>
-                        <select
-                          className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm"
+                        <Select
                           value={formData.sshHostKeyPolicy}
-                          onChange={e =>
+                          onValueChange={value =>
                             onChange(
                               'sshHostKeyPolicy',
-                              e.target.value as ConnectionFormData['sshHostKeyPolicy']
+                              value as ConnectionFormData['sshHostKeyPolicy']
                             )
                           }
                         >
-                          <option value="accept_new">
-                            {t('connection.ssh.hostKeyPolicyAcceptNew')}
-                          </option>
-                          <option value="strict">{t('connection.ssh.hostKeyPolicyStrict')}</option>
-                          <option value="insecure_no_check">
-                            {t('connection.ssh.hostKeyPolicyInsecure')}
-                          </option>
-                        </select>
+                          <SelectTrigger className="h-9 w-full">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="accept_new">
+                              {t('connection.ssh.hostKeyPolicyAcceptNew')}
+                            </SelectItem>
+                            <SelectItem value="strict">
+                              {t('connection.ssh.hostKeyPolicyStrict')}
+                            </SelectItem>
+                            <SelectItem value="insecure_no_check">
+                              {t('connection.ssh.hostKeyPolicyInsecure')}
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
                       <div className="space-y-2">
                         <Label className="text-xs text-muted-foreground">

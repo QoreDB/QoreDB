@@ -92,7 +92,10 @@ export function ChangeItem({
   const changedValues = change.newValues
     ? Object.entries(change.newValues)
         .slice(0, 3)
-        .map(([k, v]) => `${k}=${formatValue(v)}`)
+        .map(([column, value]) => ({
+          column,
+          display: `${column}=${formatValue(value)}`,
+        }))
     : [];
 
   const moreValues =
@@ -200,9 +203,9 @@ export function ChangeItem({
       {/* Values */}
       {changedValues.length > 0 && (
         <div className="px-3 py-2 space-y-1">
-          {changedValues.map((val, idx) => (
-            <div key={idx} className="text-xs font-mono text-foreground/80 truncate">
-              {val}
+          {changedValues.map(({ column, display }) => (
+            <div key={column} className="text-xs font-mono text-foreground/80 truncate">
+              {display}
             </div>
           ))}
           {moreValues > 0 && (

@@ -15,8 +15,16 @@ import {
   Sparkles,
   Square,
 } from 'lucide-react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Tooltip } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { getModifierKey } from '@/utils/platform';
@@ -83,6 +91,7 @@ export function QueryPanelToolbar({
 }: QueryPanelToolbarProps) {
   const { t } = useTranslation();
   const { openTab } = useTabContext();
+  const [templateSelectValue, setTemplateSelectValue] = useState<string | undefined>(undefined);
 
   // Priority: activeNamespace.database > connectionDatabase
   const displayDatabase = activeNamespace?.database || connectionDatabase;
@@ -175,24 +184,25 @@ export function QueryPanelToolbar({
       )}
 
       {isDocumentBased && (
-        <select
-          className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-          onChange={e => {
-            onTemplateSelect(e.target.value as keyof typeof MONGO_TEMPLATES);
-            e.currentTarget.value = '';
+        <Select
+          value={templateSelectValue}
+          onValueChange={value => {
+            onTemplateSelect(value as keyof typeof MONGO_TEMPLATES);
+            setTemplateSelectValue(undefined);
           }}
-          defaultValue=""
         >
-          <option value="" disabled>
-            Templates...
-          </option>
-          <option value="find">find()</option>
-          <option value="findOne">findOne()</option>
-          <option value="aggregate">aggregate()</option>
-          <option value="insertOne">insertOne()</option>
-          <option value="updateOne">updateOne()</option>
-          <option value="deleteOne">deleteOne()</option>
-        </select>
+          <SelectTrigger className="h-9 w-[150px]">
+            <SelectValue placeholder="Templates..." />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="find">find()</SelectItem>
+            <SelectItem value="findOne">findOne()</SelectItem>
+            <SelectItem value="aggregate">aggregate()</SelectItem>
+            <SelectItem value="insertOne">insertOne()</SelectItem>
+            <SelectItem value="updateOne">updateOne()</SelectItem>
+            <SelectItem value="deleteOne">deleteOne()</SelectItem>
+          </SelectContent>
+        </Select>
       )}
 
       {!isDocumentBased && isExplainSupported && (

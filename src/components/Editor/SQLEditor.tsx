@@ -362,7 +362,6 @@ export const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQ
   useEffect(() => {
     if (!editorRef.current) return;
 
-    // Custom keymap for execute
     const executeKeymap = keymap.of([
       {
         key: 'Mod-Enter',

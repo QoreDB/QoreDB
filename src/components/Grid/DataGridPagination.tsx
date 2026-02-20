@@ -4,6 +4,13 @@ import type { PaginationState, Table } from '@tanstack/react-table';
 import { ChevronFirst, ChevronLast, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import type { RowData } from './utils/dataGridUtils';
 
 interface DataGridPaginationProps {
@@ -27,17 +34,21 @@ export function DataGridPagination({ table, pagination }: DataGridPaginationProp
       <div className="flex items-center gap-4 text-xs text-muted-foreground">
         <div className="flex items-center gap-2">
           <span>{t('grid.rowsPerPage')}:</span>
-          <select
-            value={pagination.pageSize}
-            onChange={e => table.setPageSize(Number(e.target.value))}
-            className="h-7 px-2 rounded border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-1 focus:ring-accent"
+          <Select
+            value={String(pagination.pageSize)}
+            onValueChange={value => table.setPageSize(Number(value))}
           >
-            {PAGE_SIZES.map(size => (
-              <option key={size} value={size}>
-                {size}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger className="h-7 w-[74px] text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PAGE_SIZES.map(size => (
+                <SelectItem key={size} value={String(size)}>
+                  {size}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         <span className="text-muted-foreground/70">
           {totalRows.toLocaleString()} {t('grid.totalRows')}

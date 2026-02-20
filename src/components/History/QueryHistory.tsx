@@ -14,6 +14,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import {
   clearHistory,
@@ -110,9 +111,11 @@ export function QueryHistory({ isOpen, onClose, onSelectQuery, sessionId }: Quer
 
         <div className="flex items-center gap-2 px-4 py-2 border-b border-border bg-muted/20">
           <div className="flex items-center gap-1">
-            <button
+            <Button
+              type="button"
+              variant="ghost"
               className={cn(
-                'px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
+                'h-8 px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
                 tab === 'history'
                   ? 'bg-accent text-accent-foreground'
                   : 'text-muted-foreground hover:text-foreground hover:bg-muted'
@@ -123,10 +126,12 @@ export function QueryHistory({ isOpen, onClose, onSelectQuery, sessionId }: Quer
                 <Clock size={14} />
                 {t('history.recent')}
               </span>
-            </button>
-            <button
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
               className={cn(
-                'px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
+                'h-8 px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
                 tab === 'favorites'
                   ? 'bg-accent text-accent-foreground'
                   : 'text-muted-foreground hover:text-foreground hover:bg-muted'
@@ -137,7 +142,7 @@ export function QueryHistory({ isOpen, onClose, onSelectQuery, sessionId }: Quer
                 <Star size={14} />
                 {t('history.favorites')}
               </span>
-            </button>
+            </Button>
           </div>
 
           <div className="flex-1" />
@@ -147,12 +152,12 @@ export function QueryHistory({ isOpen, onClose, onSelectQuery, sessionId }: Quer
               size={14}
               className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground"
             />
-            <input
+            <Input
               type="text"
               placeholder={t('history.searchPlaceholder')}
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="h-8 pl-8 pr-3 text-sm rounded-md border border-input bg-background focus:outline-none focus:ring-1 focus:ring-ring w-48"
+              className="h-8 w-48 pl-8"
             />
           </div>
 

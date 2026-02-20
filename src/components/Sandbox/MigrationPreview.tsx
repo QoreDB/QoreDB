@@ -12,6 +12,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Driver } from '@/lib/drivers';
 import type { ApplySandboxResult, MigrationScript } from '@/lib/sandboxTypes';
 import type { Environment } from '@/lib/tauri';
@@ -200,15 +202,16 @@ export function MigrationPreview({
                     </span>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm text-muted-foreground">
+                    <Label htmlFor="confirm-apply-input" className="text-sm text-muted-foreground">
                       {t('sandbox.migration.confirmLabel')}
-                    </label>
-                    <input
+                    </Label>
+                    <Input
+                      id="confirm-apply-input"
                       type="text"
                       value={confirmInput}
                       onChange={e => setConfirmInput(e.target.value)}
                       placeholder="APPLY"
-                      className="w-full px-3 py-2 text-sm border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-accent"
+                      className="h-9"
                     />
                   </div>
                 </div>

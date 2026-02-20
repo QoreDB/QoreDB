@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: BUSL-1.1
 
+import { BookmarkPlus, History, Layers, Loader2, Network, Play, Square, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { BookmarkPlus, History, Layers, Loader2, Network, Play, Square, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip } from '@/components/ui/tooltip';
 import { Driver } from '@/lib/drivers';
@@ -19,11 +19,11 @@ import type { SavedConnection, Namespace } from '@/lib/tauri';
 import { cancelQuery } from '@/lib/tauri';
 import { cn } from '@/lib/utils';
 import { getModifierKey } from '@/utils/platform';
-import { FederationSourceBar } from './FederationSourceBar';
-import { FederationEmptyState } from './FederationEmptyState';
+import { ConnectionModal } from '../Connection/ConnectionModal';
 import { SQLEditor, type SQLEditorHandle } from '../Editor/SQLEditor';
 import { QueryPanelResults, type QueryResultEntry } from '../Query/QueryPanelResults';
-import { ConnectionModal } from '../Connection/ConnectionModal';
+import { FederationEmptyState } from './FederationEmptyState';
+import { FederationSourceBar } from './FederationSourceBar';
 
 // ============================================
 // SMART INSERT — Query context analysis
@@ -378,6 +378,7 @@ export function FederationViewer({ initialQuery = '' }: FederationViewerProps) {
           </div>
 
           <button
+          type='button'
             onClick={() => {
               setPendingInsert(null);
               sqlEditorRef.current?.focus();

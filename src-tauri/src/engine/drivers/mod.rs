@@ -9,3 +9,4 @@ pub mod postgres;
 pub mod postgres_utils;
 pub mod redis;
 pub mod sqlite;
+pub mod sqlserver;

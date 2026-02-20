@@ -14,6 +14,7 @@ export enum Driver {
   Redis = 'redis',
   Sqlite = 'sqlite',
   Duckdb = 'duckdb',
+  SqlServer = 'sqlserver',
 }
 
 /** Query builder functions for driver-specific SQL/commands */
@@ -231,6 +232,49 @@ export const DRIVERS: Record<Driver, DriverMetadata> = {
         `SELECT estimated_size as total_bytes FROM duckdb_tables() WHERE schema_name = '${schema}' AND table_name = '${table}'`,
       indexCountQuery: schema =>
         `SELECT COUNT(*) as cnt FROM duckdb_indexes() WHERE schema_name = '${schema}'`,
+    },
+  },
+  [Driver.SqlServer]: {
+    id: Driver.SqlServer,
+    label: 'SQL Server',
+    icon: 'sqlserver.png',
+    defaultPort: 1433,
+    namespaceLabel: 'dbtree.schema',
+    namespacePluralLabel: 'dbtree.schemas',
+    collectionLabel: 'dbtree.table',
+    collectionPluralLabel: 'dbtree.tables',
+    treeRootLabel: 'dbtree.schemasHeader',
+    createAction: 'schema',
+    databaseFieldLabel: 'connection.databaseInitial',
+    supportsSchemas: true,
+    supportsSQL: true,
+    dataModel: 'relational',
+    isDocumentBased: false,
+    identifier: {
+      quoteStart: '[',
+      quoteEnd: ']',
+      namespaceStrategy: 'schema',
+    },
+    queries: {
+      databaseSizeQuery: () =>
+        `SELECT CAST(SUM(size) * 8.0 / 1024 AS DECIMAL(18,2)) AS size_mb
+         FROM sys.database_files`,
+      tableSizeQuery: (schema, table) =>
+        `SELECT SUM(ps.reserved_page_count) * 8192 AS total_bytes
+         FROM sys.dm_db_partition_stats ps
+         JOIN sys.tables t ON ps.object_id = t.object_id
+         JOIN sys.schemas s ON t.schema_id = s.schema_id
+         WHERE s.name = '${schema}' AND t.name = '${table}'`,
+      indexCountQuery: schema =>
+        `SELECT COUNT(*) AS cnt FROM sys.indexes i
+         JOIN sys.tables t ON i.object_id = t.object_id
+         JOIN sys.schemas s ON t.schema_id = s.schema_id
+         WHERE s.name = '${schema}' AND i.type > 0`,
+      tableIndexesQuery: table =>
+        `SELECT i.name AS index_name, i.type_desc
+         FROM sys.indexes i
+         JOIN sys.tables t ON i.object_id = t.object_id
+         WHERE t.name = '${table}' AND i.type > 0`,
     },
   },
 };

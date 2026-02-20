@@ -149,5 +149,6 @@ export function normalizePortForDriver(driver: Driver): number {
   if (driver === Driver.Redis) return 6379;
   if (driver === Driver.Sqlite) return 0;
   if (driver === Driver.Duckdb) return 0;
+  if (driver === Driver.SqlServer) return 1433;
   return 5432;
 }

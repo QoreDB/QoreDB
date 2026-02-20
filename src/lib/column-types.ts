@@ -160,6 +160,43 @@ const DUCKDB_TYPES: ColumnType[] = [
   { name: 'JSON', category: 'json' },
 ];
 
+// SQL Server column types
+const SQLSERVER_TYPES: ColumnType[] = [
+  // Integers
+  { name: 'TINYINT', category: 'integer' },
+  { name: 'SMALLINT', category: 'integer' },
+  { name: 'INT', category: 'integer' },
+  { name: 'BIGINT', category: 'integer' },
+  // Floats
+  { name: 'FLOAT', category: 'float' },
+  { name: 'REAL', category: 'float' },
+  { name: 'DECIMAL', category: 'float', hasPrecision: true },
+  { name: 'NUMERIC', category: 'float', hasPrecision: true },
+  { name: 'MONEY', category: 'float' },
+  { name: 'SMALLMONEY', category: 'float' },
+  // Strings
+  { name: 'VARCHAR', category: 'string', hasLength: true },
+  { name: 'NVARCHAR', category: 'string', hasLength: true },
+  { name: 'CHAR', category: 'string', hasLength: true },
+  { name: 'NCHAR', category: 'string', hasLength: true },
+  { name: 'TEXT', category: 'text' },
+  { name: 'NTEXT', category: 'text' },
+  // Dates
+  { name: 'DATE', category: 'date' },
+  { name: 'TIME', category: 'date' },
+  { name: 'DATETIME', category: 'date' },
+  { name: 'DATETIME2', category: 'date' },
+  { name: 'SMALLDATETIME', category: 'date' },
+  { name: 'DATETIMEOFFSET', category: 'date' },
+  // Others
+  { name: 'BIT', category: 'boolean' },
+  { name: 'UNIQUEIDENTIFIER', category: 'other' },
+  { name: 'VARBINARY', category: 'binary', hasLength: true },
+  { name: 'BINARY', category: 'binary', hasLength: true },
+  { name: 'IMAGE', category: 'binary' },
+  { name: 'XML', category: 'other' },
+];
+
 // Driver to column types mapping
 export const COLUMN_TYPES: Record<Driver, ColumnType[]> = {
   [Driver.Postgres]: POSTGRES_TYPES,
@@ -168,6 +205,7 @@ export const COLUMN_TYPES: Record<Driver, ColumnType[]> = {
   [Driver.Redis]: [],
   [Driver.Sqlite]: SQLITE_TYPES,
   [Driver.Duckdb]: DUCKDB_TYPES,
+  [Driver.SqlServer]: SQLSERVER_TYPES,
 };
 
 /** Get column types for a driver */

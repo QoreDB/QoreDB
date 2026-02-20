@@ -39,6 +39,7 @@ import { Sidebar } from './components/Sidebar/Sidebar';
 import { StatusBar } from './components/Status/StatusBar';
 import { TabBar } from './components/Tabs/TabBar';
 import type { useRecovery } from './hooks/useRecovery';
+import { useResizableSidebar } from './hooks/useResizableSidebar';
 import { useTheme } from './hooks/useTheme';
 import { useWebviewGuards } from './hooks/useWebviewGuards';
 import { Driver } from './lib/drivers';
@@ -72,6 +73,7 @@ export function AppLayout() {
   const { t } = useTranslation();
   const { resolvedTheme, toggleTheme } = useTheme();
   useWebviewGuards();
+  const { width: sidebarWidth, handleMouseDown: handleSidebarResizeStart } = useResizableSidebar();
 
   const {
     tabs,
@@ -399,22 +401,31 @@ export function AppLayout() {
             </div>
           )}
 
-          <div className={sidebarVisible ? '' : 'hidden'}>
-            <Sidebar
-              onNewConnection={() => setConnectionModalOpen(true)}
-              onConnected={handleConnected}
-              connectedSessionId={sessionId}
-              connectedConnectionId={activeConnection?.id || null}
-              onTableSelect={handleTableSelect}
-              onDatabaseSelect={handleDatabaseSelect}
-              onCompareTable={handleCompareTable}
-              onAiGenerateForTable={handleAiGenerateForTable}
-              onEditConnection={handleEditConnection}
-              onNewQuery={handleNewQuery}
-              schemaRefreshTrigger={schemaRefreshTrigger}
-              activeNamespace={activeTab?.namespace}
-            />
-          </div>
+          {sidebarVisible && (
+            <>
+              <Sidebar
+                onNewConnection={() => setConnectionModalOpen(true)}
+                onConnected={handleConnected}
+                connectedSessionId={sessionId}
+                connectedConnectionId={activeConnection?.id || null}
+                onTableSelect={handleTableSelect}
+                onDatabaseSelect={handleDatabaseSelect}
+                onCompareTable={handleCompareTable}
+                onAiGenerateForTable={handleAiGenerateForTable}
+                onEditConnection={handleEditConnection}
+                onNewQuery={handleNewQuery}
+                schemaRefreshTrigger={schemaRefreshTrigger}
+                activeNamespace={activeTab?.namespace}
+                style={{ width: sidebarWidth, minWidth: sidebarWidth }}
+              />
+              <button
+                type="button"
+                aria-label="Resize sidebar"
+                onMouseDown={handleSidebarResizeStart}
+                className="w-1 shrink-0 cursor-col-resize bg-transparent hover:bg-accent/50 active:bg-accent transition-colors border-0 p-0 outline-none"
+              />
+            </>
+          )}
 
           <main className="flex-1 flex flex-col min-w-0 min-h-0 bg-background relative">
             <header className="flex items-center h-10 z-30 px-2 gap-2">

@@ -45,6 +45,7 @@ interface SidebarProps {
   onNewQuery?: () => void;
   schemaRefreshTrigger?: number;
   activeNamespace?: Namespace | null;
+  style?: React.CSSProperties;
 }
 
 export function Sidebar({
@@ -60,6 +61,7 @@ export function Sidebar({
   onNewQuery,
   schemaRefreshTrigger,
   activeNamespace,
+  style,
 }: SidebarProps) {
   const [connections, setConnections] = useState<SavedConnection[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -229,7 +231,8 @@ export function Sidebar({
 
   return (
     <aside
-      className="w-64 h-full flex flex-col border-r border-border bg-muted/30"
+      className="h-full flex flex-col border-r border-border bg-muted/30"
+      style={style}
       data-allow-webview-shortcuts
     >
       <header className="h-12 flex items-center px-4 border-b border-border bg-muted/10">

@@ -22,34 +22,45 @@ A modern, powerful, and intuitive database management tool built with Tauri, Rea
 
 ### 🎯 Multi-Database Support
 
-- **PostgreSQL** - Full support with advanced features
-- **MySQL** - Complete integration
-- **MongoDB** - NoSQL database support
+- **PostgreSQL**
+- **MySQL / MariaDB**
+- **SQL Server**
+- **SQLite**
+- **DuckDB**
+- **MongoDB**
+- **Redis**
 
-### 🚀 Core Capabilities
+### 🚀 Query & Schema Toolkit
 
-- **SQL Query Editor** - Syntax highlighting with CodeMirror
-- **Table Browser** - Intuitive data exploration and visualization
-- **Database Browser** - Schema navigation and management
-- **Connection Manager** - Save and organize multiple database connections
-- **Query History** - Track and reuse previous queries
-- **Favorites** - Bookmark your most-used queries
-- **Global Search** - Quick access to connections, queries, and favorites
+- **SQL + Mongo Editors** - Syntax highlighting, formatting, snippets, multi-statement execution
+- **Query Library** - Folders, tags, JSON import/export, reusable queries
+- **ER Diagram** - Interactive schema graph with isolate/focus workflows
+- **Visual Data Diff** - Side-by-side comparison of table/query results
+- **Global Full-Text Search** - Search values across tables and columns
+- **Foreign Key Peek + Virtual Relations** - Better navigation even without native FK constraints
 
-### 🔐 Security & Features
+### 📊 Data Operations
 
-- **Secure Credential Storage** - Using native OS keychains
-- **SSH Tunneling Support** - Secure connections via SSH
-- **Environment Labels** - Distinguish between dev, staging, and production
-- **Read-Only Mode** - Protect production databases from accidental modifications
+- **High-Performance Data Grid** - Virtualization, server-side filtering/sorting, pagination, infinite scroll
+- **Inline Editing** - Edit rows directly in SQL and NoSQL datasets
+- **Export Pipeline** - CSV, JSON, SQL, HTML (+ XLSX/Parquet in Pro)
+- **Cross-Database Federation** - Query and join across active connections (DuckDB engine)
+
+### 🔐 Security & Reliability
+
+- **Secure Vault** - Native OS keychain storage + optional app lock
+- **SSH Tunneling** - Native OpenSSH-based secure remote access
+- **Environment Safety** - Dev/Staging/Prod guards, dangerous query detection, read-only mode
+- **Universal Query Interceptor** - Central hooks for safety, audit, and profiling
+- **Resilience Tooling** - Crash recovery, auto-update, project import/export, settings backup
 
 ### 🎨 User Experience
 
-- **Multi-Tab Interface** - Work with multiple queries and tables simultaneously
-- **Dark/Light Theme** - Adaptive theming for your preference
-- **Internationalization** - Multi-language support (EN, FR)
-- **Virtual Scrolling** - Handle large datasets efficiently
-- **Responsive UI** - Modern interface built with Radix UI and Tailwind CSS
+- **Multi-Tab Workspace** - Query tabs + table tabs with persistent context
+- **Global Search (Cmd/Ctrl + K)** - Fast access to connections, history, commands, and library items
+- **Dark/Light Theme** - Adaptive theming
+- **Internationalization** - English + French
+- **Responsive Desktop UI** - Built with Radix UI and Tailwind CSS
 
 ---
 
@@ -150,8 +161,10 @@ pnpm tauri build
 
 - Rust (Edition 2021)
 - Tauri 2.0
-- SQLx (PostgreSQL, MySQL)
-- MongoDB Driver
+- SQLx (PostgreSQL, MySQL, SQLite)
+- Tiberius + bb8 (SQL Server)
+- MongoDB + Redis native drivers
+- DuckDB (embedded analytics + federation engine)
 - Tokio (Async Runtime)
 
 ### Project Structure

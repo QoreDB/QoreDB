@@ -12,7 +12,7 @@ import {
   reconcileFavoriteConnectionIds,
   saveFavoriteConnectionIds,
 } from '@/lib/connectionFavorites';
-import { UI_EVENT_OPEN_LOGS } from '@/lib/uiEvents';
+import { UI_EVENT_CONNECTIONS_CHANGED, UI_EVENT_OPEN_LOGS } from '@/lib/uiEvents';
 import { useLicense } from '@/providers/LicenseProvider';
 import {
   type Collection,
@@ -100,6 +100,12 @@ export function Sidebar({
     window.addEventListener(UI_EVENT_OPEN_LOGS, handler);
     return () => window.removeEventListener(UI_EVENT_OPEN_LOGS, handler);
   }, []);
+
+  useEffect(() => {
+    const handler = () => loadConnections();
+    window.addEventListener(UI_EVENT_CONNECTIONS_CHANGED, handler);
+    return () => window.removeEventListener(UI_EVENT_CONNECTIONS_CHANGED, handler);
+  }, [loadConnections]);
 
   const favoriteConnectionSet = useMemo(
     () => new Set(favoriteConnectionIds),

@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Driver } from '@/lib/drivers';
 import { cn } from '@/lib/utils';
 
 import type { ConnectionFormData } from './types';
@@ -15,10 +16,28 @@ interface FileSectionProps {
   onChange: (field: keyof ConnectionFormData, value: string | number | boolean) => void;
 }
 
+const FILE_CONFIGS: Record<string, { filterName: string; extensions: string[]; createExtensions: string[]; defaultFile: string; helpKey: string }> = {
+  [Driver.Sqlite]: {
+    filterName: 'SQLite Database',
+    extensions: ['db', 'sqlite', 'sqlite3', 's3db'],
+    createExtensions: ['db', 'sqlite', 'sqlite3'],
+    defaultFile: 'new_database.db',
+    helpKey: 'connection.sqliteHelp',
+  },
+  [Driver.Duckdb]: {
+    filterName: 'DuckDB Database',
+    extensions: ['duckdb', 'db'],
+    createExtensions: ['duckdb', 'db'],
+    defaultFile: 'new_database.duckdb',
+    helpKey: 'connection.duckdbHelp',
+  },
+};
+
 export function FileSection({ formData, onChange }: FileSectionProps) {
   const { t } = useTranslation();
 
   const isMemoryDb = formData.host === ':memory:';
+  const fileConfig = FILE_CONFIGS[formData.driver] ?? FILE_CONFIGS[Driver.Sqlite];
 
   async function handleBrowse() {
     try {
@@ -26,8 +45,8 @@ export function FileSection({ formData, onChange }: FileSectionProps) {
         multiple: false,
         filters: [
           {
-            name: 'SQLite Database',
-            extensions: ['db', 'sqlite', 'sqlite3', 's3db'],
+            name: fileConfig.filterName,
+            extensions: fileConfig.extensions,
           },
           {
             name: 'All Files',
@@ -49,11 +68,11 @@ export function FileSection({ formData, onChange }: FileSectionProps) {
       const selected = await save({
         filters: [
           {
-            name: 'SQLite Database',
-            extensions: ['db', 'sqlite', 'sqlite3'],
+            name: fileConfig.filterName,
+            extensions: fileConfig.createExtensions,
           },
         ],
-        defaultPath: 'new_database.db',
+        defaultPath: fileConfig.defaultFile,
       });
 
       if (selected && typeof selected === 'string') {
@@ -112,7 +131,7 @@ export function FileSection({ formData, onChange }: FileSectionProps) {
             </Button>
           </div>
         </div>
-        <p className="text-xs text-muted-foreground">{t('connection.sqliteHelp')}</p>
+        <p className="text-xs text-muted-foreground">{t(fileConfig.helpKey)}</p>
       </div>
 
       <div className="flex items-center justify-between rounded-md border border-border bg-muted/30 px-3 py-2">

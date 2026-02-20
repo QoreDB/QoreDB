@@ -132,6 +132,34 @@ const SQLITE_TYPES: ColumnType[] = [
   { name: 'BLOB', category: 'binary' },
 ];
 
+// DuckDB column types
+const DUCKDB_TYPES: ColumnType[] = [
+  // Integers
+  { name: 'TINYINT', category: 'integer' },
+  { name: 'SMALLINT', category: 'integer' },
+  { name: 'INTEGER', category: 'integer' },
+  { name: 'BIGINT', category: 'integer' },
+  { name: 'HUGEINT', category: 'integer' },
+  // Floats
+  { name: 'FLOAT', category: 'float' },
+  { name: 'DOUBLE', category: 'float' },
+  { name: 'DECIMAL', category: 'float', hasPrecision: true },
+  // Strings
+  { name: 'VARCHAR', category: 'string', hasLength: true },
+  { name: 'TEXT', category: 'text' },
+  // Dates
+  { name: 'DATE', category: 'date' },
+  { name: 'TIME', category: 'date' },
+  { name: 'TIMESTAMP', category: 'date' },
+  { name: 'TIMESTAMPTZ', category: 'date' },
+  { name: 'INTERVAL', category: 'date' },
+  // Others
+  { name: 'BOOLEAN', category: 'boolean' },
+  { name: 'UUID', category: 'other' },
+  { name: 'BLOB', category: 'binary' },
+  { name: 'JSON', category: 'json' },
+];
+
 // Driver to column types mapping
 export const COLUMN_TYPES: Record<Driver, ColumnType[]> = {
   [Driver.Postgres]: POSTGRES_TYPES,
@@ -139,6 +167,7 @@ export const COLUMN_TYPES: Record<Driver, ColumnType[]> = {
   [Driver.Mongodb]: [],
   [Driver.Redis]: [],
   [Driver.Sqlite]: SQLITE_TYPES,
+  [Driver.Duckdb]: DUCKDB_TYPES,
 };
 
 /** Get column types for a driver */

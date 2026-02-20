@@ -21,6 +21,7 @@ pub mod virtual_relations;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
+use engine::drivers::duckdb::DuckDbDriver;
 use engine::drivers::mongodb::MongoDriver;
 use engine::drivers::mysql::MySqlDriver;
 use engine::drivers::postgres::PostgresDriver;
@@ -58,6 +59,7 @@ impl AppState {
         registry.register(Arc::new(MongoDriver::new()));
         registry.register(Arc::new(RedisDriver::new()));
         registry.register(Arc::new(SqliteDriver::new()));
+        registry.register(Arc::new(DuckDbDriver::new()));
 
         let registry = Arc::new(registry);
         let session_manager = Arc::new(SessionManager::new(Arc::clone(&registry)));

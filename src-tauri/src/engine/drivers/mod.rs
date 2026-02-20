@@ -2,6 +2,7 @@
 
 // Database drivers module
 
+pub mod duckdb;
 pub mod mongodb;
 pub mod mysql;
 pub mod postgres;

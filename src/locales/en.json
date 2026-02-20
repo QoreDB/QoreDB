@@ -69,6 +69,7 @@
     "browseFile": "Browse...",
     "inMemory": "In-memory database",
     "sqliteHelp": "Select a .db, .sqlite, or .sqlite3 file",
+    "duckdbHelp": "Select a .duckdb or .db file — or use in-memory mode",
     "useSSL": "Use SSL/TLS",
     "poolSettings": "Connection Pool",
     "poolMax": "Max",

@@ -27,7 +27,7 @@ export function BasicSection({
 }: BasicSectionProps) {
   const { t } = useTranslation();
 
-  const isFileBased = formData.driver === Driver.Sqlite;
+  const isFileBased = formData.driver === Driver.Sqlite || formData.driver === Driver.Duckdb;
   const usernameRequired = formData.driver !== Driver.Mongodb && formData.driver !== Driver.Redis;
 
   return (

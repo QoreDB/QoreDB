@@ -111,16 +111,18 @@ fn normalize_config(mut config: ConnectionConfig) -> Result<ConnectionConfig, St
 
     let is_mongodb = config.driver == "mongodb";
     let is_sqlite = config.driver == "sqlite";
+    let is_duckdb = config.driver == "duckdb";
     let is_redis = config.driver == "redis";
+    let is_file_based = is_sqlite || is_duckdb;
 
-    // Username is required for SQL databases but optional for MongoDB, SQLite, and Redis.
+    // Username is required for SQL databases but optional for MongoDB, file-based DBs, and Redis.
     let username = config.username.trim();
-    if username.is_empty() && !is_mongodb && !is_sqlite && !is_redis {
+    if username.is_empty() && !is_mongodb && !is_file_based && !is_redis {
         return Err("Username is required".to_string());
     }
     config.username = username.to_string();
 
-    if config.port == 0 && !is_sqlite {
+    if config.port == 0 && !is_file_based {
         return Err("Port must be greater than 0".to_string());
     }
 

@@ -4,7 +4,7 @@
 
 use sqlparser::{
     ast::{Query, Select, SetExpr, Statement},
-    dialect::{Dialect, GenericDialect, MySqlDialect, PostgreSqlDialect},
+    dialect::{Dialect, DuckDbDialect, GenericDialect, MySqlDialect, PostgreSqlDialect},
     parser::Parser,
 };
 
@@ -90,6 +90,8 @@ fn dialect_for_driver(driver_id: &str) -> Box<dyn Dialect> {
         Box::new(PostgreSqlDialect {})
     } else if driver_id.eq_ignore_ascii_case("mysql") {
         Box::new(MySqlDialect {})
+    } else if driver_id.eq_ignore_ascii_case("duckdb") {
+        Box::new(DuckDbDialect {})
     } else {
         Box::new(GenericDialect {})
     }

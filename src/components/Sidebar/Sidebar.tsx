@@ -222,82 +222,83 @@ export function Sidebar({
   }
 
   return (
-    <aside
-      className="w-64 h-full flex flex-col border-r border-border bg-muted/30"
-      data-allow-webview-shortcuts
-    >
-      <header className="h-12 flex items-center px-4 border-b border-border bg-muted/10">
-        <button
-          onClick={() => (window.location.href = '/')}
-          className="flex items-center gap-2.5 font-medium text-foreground/90 hover:text-foreground transition-colors"
-        >
-          <img
-            src={resolvedTheme === 'dark' ? '/logo-white.png' : '/logo.png'}
-            alt="QoreDB"
-            width={22}
-            height={22}
-            className="opacity-90"
-          />
-          <span className="text-sm tracking-tight">QoreDB</span>
-          <LicenseBadge tier={tier} />
-        </button>
-      </header>
+			<aside
+				className="w-64 h-full flex flex-col border-r border-border bg-muted/30"
+				data-allow-webview-shortcuts
+			>
+				<header className="h-12 flex items-center px-4 border-b border-border bg-muted/10">
+					<button
+						type="button"
+						onClick={() => (window.location.href = "/")}
+						className="flex items-center gap-2.5 font-medium text-foreground/90 hover:text-foreground transition-colors"
+					>
+						<img
+							src={resolvedTheme === "dark" ? "/logo-white.png" : "/logo.png"}
+							alt="QoreDB"
+							width={22}
+							height={22}
+							className="opacity-90"
+						/>
+						<span className="text-sm tracking-tight">QoreDB</span>
+						<LicenseBadge tier={tier} />
+					</button>
+				</header>
 
-      <section className="flex-1 overflow-auto py-2">
-        <div className="px-2 space-y-0.5 mt-1">
-          {connections.length === 0 ? (
-            <p className="px-2 py-4 text-sm text-center text-muted-foreground">
-              {t('sidebar.noConnections')}
-            </p>
-          ) : (
-            <>
-              {favoriteConnections.length > 0 && (
-                <>
-                  <div className="px-2 pb-1 pt-0.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/80">
-                    {t('sidebar.favorites')}
-                  </div>
-                  {favoriteConnections.map(renderConnection)}
-                </>
-              )}
+				<section className="flex-1 overflow-auto py-2">
+					<div className="px-2 space-y-0.5 mt-1">
+						{connections.length === 0 ? (
+							<p className="px-2 py-4 text-sm text-center text-muted-foreground">
+								{t("sidebar.noConnections")}
+							</p>
+						) : (
+							<>
+								{favoriteConnections.length > 0 && (
+									<>
+										<div className="px-2 pb-1 pt-0.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/80">
+											{t("sidebar.favorites")}
+										</div>
+										{favoriteConnections.map(renderConnection)}
+									</>
+								)}
 
-              {regularConnections.length > 0 && favoriteConnections.length > 0 && (
-                <>
-                  <div className="mx-2 my-1.5 h-px bg-border/70" />
-                  <div className="px-2 pb-1 pt-0.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/80">
-                    {t('sidebar.otherConnections')}
-                  </div>
-                </>
-              )}
+								{regularConnections.length > 0 && favoriteConnections.length > 0 && (
+									<>
+										<div className="mx-2 my-1.5 h-px bg-border/70" />
+										<div className="px-2 pb-1 pt-0.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/80">
+											{t("sidebar.otherConnections")}
+										</div>
+									</>
+								)}
 
-              {regularConnections.map(renderConnection)}
-            </>
-          )}
-        </div>
-      </section>
+								{regularConnections.map(renderConnection)}
+							</>
+						)}
+					</div>
+				</section>
 
-      <footer className="p-3 border-t border-border space-y-1">
-        <Button
-          className="w-full justify-start text-muted-foreground hover:text-foreground hover:bg-muted"
-          variant="ghost"
-          onClick={onNewConnection}
-        >
-          <Plus size={16} className="mr-2" />
-          {t('sidebar.newConnection')}
-        </Button>
-        <Button
-          className="w-full justify-start text-muted-foreground hover:text-foreground hover:bg-muted"
-          variant="ghost"
-          onClick={() => {
-            AnalyticsService.capture('error_view_opened', { source: 'sidebar' });
-            setLogsOpen(true);
-          }}
-        >
-          <Bug size={16} className="mr-2" />
-          {t('sidebar.errorLogs')}
-        </Button>
-      </footer>
+				<footer className="p-3 border-t border-border space-y-1">
+					<Button
+						className="w-full justify-start text-muted-foreground hover:text-foreground hover:bg-muted"
+						variant="ghost"
+						onClick={onNewConnection}
+					>
+						<Plus size={16} className="mr-2" />
+						{t("sidebar.newConnection")}
+					</Button>
+					<Button
+						className="w-full justify-start text-muted-foreground hover:text-foreground hover:bg-muted"
+						variant="ghost"
+						onClick={() => {
+							AnalyticsService.capture("error_view_opened", { source: "sidebar" });
+							setLogsOpen(true);
+						}}
+					>
+						<Bug size={16} className="mr-2" />
+						{t("sidebar.errorLogs")}
+					</Button>
+				</footer>
 
-      <ErrorLogPanel isOpen={logsOpen} onClose={() => setLogsOpen(false)} />
-    </aside>
-  );
+				<ErrorLogPanel isOpen={logsOpen} onClose={() => setLogsOpen(false)} />
+			</aside>
+		);
 }

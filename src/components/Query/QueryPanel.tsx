@@ -294,7 +294,7 @@ export function QueryPanel({
         const totalTime = endTime - startTime;
 
         // Clean up listeners
-        streamDisposal.forEach(unlisten => unlisten());
+        for (const unlisten of streamDisposal) unlisten();
 
         if (response.success) {
           let finalResult = response.result;
@@ -318,7 +318,7 @@ export function QueryPanel({
               queryToRun,
               queryDialect === 'document' ? 'mongodb' : 'sql'
             );
-            if (!isDocument && kind === 'query' && didMutate) {
+            if (kind === 'query' && didMutate) {
               const time = Math.round(enrichedResult.execution_time_ms ?? totalTime);
               if (typeof enrichedResult.affected_rows === 'number') {
                 toast.success(
@@ -433,7 +433,7 @@ export function QueryPanel({
           logError('QueryPanel', response.error || t('query.queryFailed'), queryToRun, sessionId);
         }
       } catch (err) {
-        streamDisposal.forEach(unlisten => unlisten());
+        for (const unlisten of streamDisposal) unlisten();
 
         const errorMessage = err instanceof Error ? err.message : t('common.error');
         const entry: QueryResultEntry = {

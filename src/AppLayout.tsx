@@ -95,7 +95,6 @@ export function AppLayout() {
     driverCapabilities,
     activeConnection,
     hasConnections,
-    sidebarRefreshTrigger,
     schemaRefreshTrigger,
     recovery,
     handleConnected,
@@ -414,7 +413,6 @@ export function AppLayout() {
               onAiGenerateForTable={handleAiGenerateForTable}
               onEditConnection={handleEditConnection}
               onNewQuery={handleNewQuery}
-              refreshTrigger={sidebarRefreshTrigger}
               schemaRefreshTrigger={schemaRefreshTrigger}
               activeNamespace={activeTab?.namespace}
             />

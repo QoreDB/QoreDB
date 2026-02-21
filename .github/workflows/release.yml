@@ -62,9 +62,14 @@ jobs:
       - name: Install frontend dependencies
         run: pnpm install
 
+      - name: Disable Windows Defender real-time monitoring
+        if: matrix.platform == 'windows-latest'
+        shell: pwsh
+        run: Set-MpPreference -DisableRealtimeMonitoring $true
+
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
-        timeout-minutes: 30
+        timeout-minutes: 60
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VITE_POSTHOG_KEY: ${{ secrets.VITE_POSTHOG_KEY }}

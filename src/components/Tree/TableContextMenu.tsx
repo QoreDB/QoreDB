@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Eraser, Eye, GitCompare, Link2, Sparkles, Trash2 } from 'lucide-react';
+import { Eraser, Eye, GitCompare, Link2, Sparkles, Trash2, Wrench } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { DangerConfirmDialog } from '@/components/Guard/DangerConfirmDialog';
@@ -12,6 +12,7 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from '@/components/ui/context-menu';
+import { MaintenanceDialog } from '@/components/Maintenance/MaintenanceDialog';
 import { VirtualRelationDialog } from '@/components/VirtualRelations/VirtualRelationDialog';
 import { buildDropTableSQL, buildTruncateTableSQL } from '@/lib/column-types';
 import { emitTableChange } from '@/lib/tableEvents';
@@ -62,6 +63,7 @@ export function TableContextMenu({
   const [dangerAction, setDangerAction] = useState<DangerAction>(null);
   const [loading, setLoading] = useState(false);
   const [vrDialogOpen, setVrDialogOpen] = useState(false);
+  const [maintenanceOpen, setMaintenanceOpen] = useState(false);
 
   const isProduction = environment === 'production';
   const isDocument = isDocumentDatabase(driver);
@@ -192,6 +194,13 @@ export function TableContextMenu({
 
           <ContextMenuSeparator />
 
+          <ContextMenuItem onClick={() => setMaintenanceOpen(true)}>
+            <Wrench size={14} className="mr-2" />
+            {t('maintenance.title')}
+          </ContextMenuItem>
+
+          <ContextMenuSeparator />
+
           <ContextMenuItem
             onClick={() => setDangerAction('truncate')}
             disabled={readOnly}
@@ -235,6 +244,17 @@ export function TableContextMenu({
         confirmLabel={t('tableMenu.truncateConfirm')}
         loading={loading}
         onConfirm={handleTruncateTable}
+      />
+
+      {/* Maintenance Dialog */}
+      <MaintenanceDialog
+        open={maintenanceOpen}
+        onOpenChange={setMaintenanceOpen}
+        sessionId={sessionId}
+        namespace={collection.namespace}
+        tableName={tableName}
+        environment={environment}
+        readOnly={readOnly}
       />
 
       {/* Virtual Relation Dialog */}

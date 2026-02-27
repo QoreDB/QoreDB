@@ -12,6 +12,7 @@ pub mod fulltext_search;
 pub mod interceptor;
 pub mod license;
 pub mod logs;
+pub mod maintenance;
 pub mod metrics;
 pub mod mutation;
 pub mod policy;

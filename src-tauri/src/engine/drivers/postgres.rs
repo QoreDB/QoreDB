@@ -29,6 +29,8 @@ use crate::engine::types::{
     TableQueryOptions, PaginatedQueryResult, SortDirection, FilterOperator,
     Routine, RoutineList, RoutineListOptions, RoutineType,
     Trigger, TriggerList, TriggerListOptions, TriggerTiming, TriggerEvent,
+    MaintenanceOperationInfo, MaintenanceOperationType, MaintenanceRequest, MaintenanceResult,
+    MaintenanceMessage, MaintenanceMessageLevel,
 };
 
 pub struct PostgresSession {
@@ -1773,7 +1775,99 @@ impl DataEngine for PostgresDriver {
         true
     }
 
+    // ==================== Maintenance ====================
 
+    fn supports_maintenance(&self) -> bool {
+        true
+    }
+
+    async fn list_maintenance_operations(
+        &self,
+        _session: SessionId,
+        _namespace: &Namespace,
+        _table: &str,
+    ) -> EngineResult<Vec<MaintenanceOperationInfo>> {
+        Ok(vec![
+            MaintenanceOperationInfo {
+                operation: MaintenanceOperationType::Vacuum,
+                is_heavy: false,
+                has_options: true,
+            },
+            MaintenanceOperationInfo {
+                operation: MaintenanceOperationType::Analyze,
+                is_heavy: false,
+                has_options: false,
+            },
+            MaintenanceOperationInfo {
+                operation: MaintenanceOperationType::Reindex,
+                is_heavy: true,
+                has_options: false,
+            },
+            MaintenanceOperationInfo {
+                operation: MaintenanceOperationType::Cluster,
+                is_heavy: true,
+                has_options: true,
+            },
+        ])
+    }
+
+    async fn run_maintenance(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        table: &str,
+        request: &MaintenanceRequest,
+    ) -> EngineResult<MaintenanceResult> {
+        let pg_session = self.get_session(session).await?;
+        let schema = namespace.schema.as_deref().unwrap_or("public");
+        let qualified_table = format!("{}.{}", Self::quote_ident(schema), Self::quote_ident(table));
+
+        let sql = match request.operation {
+            MaintenanceOperationType::Vacuum => {
+                let full = if request.options.full.unwrap_or(false) { "FULL " } else { "" };
+                let analyze = if request.options.with_analyze.unwrap_or(false) { "ANALYZE " } else { "" };
+                let verbose = if request.options.verbose.unwrap_or(false) { "VERBOSE " } else { "" };
+                format!("VACUUM {full}{analyze}{verbose}{qualified_table}")
+            }
+            MaintenanceOperationType::Analyze => {
+                format!("ANALYZE {qualified_table}")
+            }
+            MaintenanceOperationType::Reindex => {
+                format!("REINDEX TABLE {qualified_table}")
+            }
+            MaintenanceOperationType::Cluster => {
+                if let Some(ref idx) = request.options.index_name {
+                    format!("CLUSTER {qualified_table} USING {}", Self::quote_ident(idx))
+                } else {
+                    format!("CLUSTER {qualified_table}")
+                }
+            }
+            _ => {
+                return Err(EngineError::not_supported(
+                    "Operation not supported for PostgreSQL",
+                ));
+            }
+        };
+
+        let start = Instant::now();
+        // VACUUM cannot run inside a transaction, so always use pool directly
+        sqlx::query(&sql)
+            .execute(&pg_session.pool)
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        let execution_time_ms = start.elapsed().as_micros() as f64 / 1000.0;
+
+        Ok(MaintenanceResult {
+            executed_command: sql,
+            messages: vec![MaintenanceMessage {
+                level: MaintenanceMessageLevel::Info,
+                text: "Operation completed successfully".into(),
+            }],
+            execution_time_ms,
+            success: true,
+        })
+    }
 
     fn supports_streaming(&self) -> bool {
         true

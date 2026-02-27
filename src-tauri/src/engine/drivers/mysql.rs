@@ -28,6 +28,8 @@ use crate::engine::types::{
     Trigger, TriggerList, TriggerListOptions, TriggerTiming, TriggerEvent,
     DatabaseEvent, EventList, EventListOptions, EventStatus,
     CharsetInfo, CollationInfo, CreationOptions,
+    MaintenanceOperationInfo, MaintenanceOperationType, MaintenanceRequest, MaintenanceResult,
+    MaintenanceMessage, MaintenanceMessageLevel,
 };
 use crate::engine::traits::{StreamEvent, StreamSender};
 use futures::StreamExt;
@@ -1898,5 +1900,117 @@ impl DataEngine for MySqlDriver {
 
     fn supports_mutations(&self) -> bool {
         true
+    }
+
+    // ==================== Maintenance ====================
+
+    fn supports_maintenance(&self) -> bool {
+        true
+    }
+
+    async fn list_maintenance_operations(
+        &self,
+        _session: SessionId,
+        _namespace: &Namespace,
+        _table: &str,
+    ) -> EngineResult<Vec<MaintenanceOperationInfo>> {
+        Ok(vec![
+            MaintenanceOperationInfo {
+                operation: MaintenanceOperationType::Optimize,
+                is_heavy: true,
+                has_options: false,
+            },
+            MaintenanceOperationInfo {
+                operation: MaintenanceOperationType::Analyze,
+                is_heavy: false,
+                has_options: false,
+            },
+            MaintenanceOperationInfo {
+                operation: MaintenanceOperationType::Check,
+                is_heavy: false,
+                has_options: false,
+            },
+            MaintenanceOperationInfo {
+                operation: MaintenanceOperationType::Repair,
+                is_heavy: true,
+                has_options: false,
+            },
+            MaintenanceOperationInfo {
+                operation: MaintenanceOperationType::ChangeEngine,
+                is_heavy: true,
+                has_options: true,
+            },
+        ])
+    }
+
+    async fn run_maintenance(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        table: &str,
+        request: &MaintenanceRequest,
+    ) -> EngineResult<MaintenanceResult> {
+        let mysql_session = self.get_session(session).await?;
+        let qualified_table = format!(
+            "{}.{}",
+            Self::quote_ident(&namespace.database),
+            Self::quote_ident(table)
+        );
+
+        let sql = match request.operation {
+            MaintenanceOperationType::Optimize => format!("OPTIMIZE TABLE {qualified_table}"),
+            MaintenanceOperationType::Analyze => format!("ANALYZE TABLE {qualified_table}"),
+            MaintenanceOperationType::Check => format!("CHECK TABLE {qualified_table}"),
+            MaintenanceOperationType::Repair => format!("REPAIR TABLE {qualified_table}"),
+            MaintenanceOperationType::ChangeEngine => {
+                let engine = request.options.target_engine.as_deref().ok_or_else(|| {
+                    EngineError::execution_error("target_engine option is required for ChangeEngine")
+                })?;
+                // Validate engine name: only allow alphanumeric
+                if !engine.chars().all(|c| c.is_alphanumeric() || c == '_') {
+                    return Err(EngineError::execution_error("Invalid engine name"));
+                }
+                format!("ALTER TABLE {qualified_table} ENGINE={engine}")
+            }
+            _ => {
+                return Err(EngineError::not_supported(
+                    "Operation not supported for MySQL",
+                ));
+            }
+        };
+
+        let start = Instant::now();
+
+        // MySQL maintenance commands return result sets with Table, Op, Msg_type, Msg_text
+        let rows: Vec<MySqlRow> = sqlx::query(&sql)
+            .fetch_all(&mysql_session.pool)
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        let execution_time_ms = start.elapsed().as_micros() as f64 / 1000.0;
+
+        let messages: Vec<MaintenanceMessage> = rows
+            .iter()
+            .map(|row| {
+                let msg_type: String = row.try_get("Msg_type").unwrap_or_default();
+                let msg_text: String = row.try_get("Msg_text").unwrap_or_default();
+                let level = match msg_type.to_lowercase().as_str() {
+                    "error" => MaintenanceMessageLevel::Error,
+                    "warning" => MaintenanceMessageLevel::Warning,
+                    "status" => MaintenanceMessageLevel::Status,
+                    _ => MaintenanceMessageLevel::Info,
+                };
+                MaintenanceMessage { level, text: msg_text }
+            })
+            .collect();
+
+        let success = !messages.iter().any(|m| m.level == MaintenanceMessageLevel::Error);
+
+        Ok(MaintenanceResult {
+            executed_command: sql,
+            messages,
+            execution_time_ms,
+            success,
+        })
     }
 }

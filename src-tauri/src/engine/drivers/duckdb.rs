@@ -40,6 +40,8 @@ use crate::engine::types::{
     ConnectionConfig, FilterOperator, ForeignKey, Namespace, PaginatedQueryResult, QueryId,
     QueryResult, Row as QRow, RowData, SessionId, SortDirection, TableColumn, TableIndex,
     TableQueryOptions, TableSchema, Value,
+    MaintenanceOperationInfo, MaintenanceOperationType, MaintenanceRequest, MaintenanceResult,
+    MaintenanceMessage, MaintenanceMessageLevel,
 };
 
 // ==================== Session & Driver ====================
@@ -1381,6 +1383,71 @@ impl DataEngine for DuckDbDriver {
 
     fn cancel_support(&self) -> CancelSupport {
         CancelSupport::None
+    }
+
+    // ==================== Maintenance ====================
+
+    fn supports_maintenance(&self) -> bool {
+        true
+    }
+
+    async fn list_maintenance_operations(
+        &self,
+        _session: SessionId,
+        _namespace: &Namespace,
+        _table: &str,
+    ) -> EngineResult<Vec<MaintenanceOperationInfo>> {
+        Ok(vec![
+            MaintenanceOperationInfo {
+                operation: MaintenanceOperationType::Analyze,
+                is_heavy: false,
+                has_options: false,
+            },
+        ])
+    }
+
+    async fn run_maintenance(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        table: &str,
+        request: &MaintenanceRequest,
+    ) -> EngineResult<MaintenanceResult> {
+        let duckdb_session = self.get_session(session).await?;
+        let _ = namespace;
+
+        let sql = match request.operation {
+            MaintenanceOperationType::Analyze => {
+                format!("ANALYZE {}", Self::quote_ident(table))
+            }
+            _ => {
+                return Err(EngineError::not_supported(
+                    "Operation not supported for DuckDB",
+                ));
+            }
+        };
+
+        let conn = duckdb_session.conn.lock().map_err(|e| {
+            EngineError::internal(format!("Failed to acquire DuckDB connection: {e}"))
+        })?;
+
+        let sql_clone = sql.clone();
+        let start = Instant::now();
+
+        conn.execute_batch(&sql_clone)
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        let execution_time_ms = start.elapsed().as_micros() as f64 / 1000.0;
+
+        Ok(MaintenanceResult {
+            executed_command: sql,
+            messages: vec![MaintenanceMessage {
+                level: MaintenanceMessageLevel::Info,
+                text: "Operation completed successfully".into(),
+            }],
+            execution_time_ms,
+            success: true,
+        })
     }
 }
 

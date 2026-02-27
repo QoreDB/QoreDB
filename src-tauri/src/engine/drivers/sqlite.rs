@@ -36,6 +36,8 @@ use crate::engine::types::{
     QueryResult, Row as QRow, RowData, SessionId, SortDirection, TableColumn, TableIndex,
     TableQueryOptions, TableSchema, Value,
     Trigger, TriggerList, TriggerListOptions, TriggerTiming, TriggerEvent,
+    MaintenanceOperationInfo, MaintenanceOperationType, MaintenanceRequest, MaintenanceResult,
+    MaintenanceMessage, MaintenanceMessageLevel,
 };
 
 /// Holds the connection state for a SQLite session.
@@ -1371,6 +1373,123 @@ impl DataEngine for SqliteDriver {
 
     fn supports_mutations(&self) -> bool {
         true
+    }
+
+    // ==================== Maintenance ====================
+
+    fn supports_maintenance(&self) -> bool {
+        true
+    }
+
+    async fn list_maintenance_operations(
+        &self,
+        _session: SessionId,
+        _namespace: &Namespace,
+        _table: &str,
+    ) -> EngineResult<Vec<MaintenanceOperationInfo>> {
+        Ok(vec![
+            MaintenanceOperationInfo {
+                operation: MaintenanceOperationType::Vacuum,
+                is_heavy: true,
+                has_options: false,
+            },
+            MaintenanceOperationInfo {
+                operation: MaintenanceOperationType::Analyze,
+                is_heavy: false,
+                has_options: false,
+            },
+            MaintenanceOperationInfo {
+                operation: MaintenanceOperationType::Reindex,
+                is_heavy: false,
+                has_options: false,
+            },
+            MaintenanceOperationInfo {
+                operation: MaintenanceOperationType::IntegrityCheck,
+                is_heavy: false,
+                has_options: false,
+            },
+        ])
+    }
+
+    async fn run_maintenance(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        table: &str,
+        request: &MaintenanceRequest,
+    ) -> EngineResult<MaintenanceResult> {
+        let sqlite_session = self.get_session(session).await?;
+        let _ = namespace; // SQLite has a single namespace
+
+        let sql = match request.operation {
+            // SQLite VACUUM is database-wide, not per-table
+            MaintenanceOperationType::Vacuum => "VACUUM".to_string(),
+            MaintenanceOperationType::Analyze => {
+                format!("ANALYZE {}", Self::quote_ident(table))
+            }
+            MaintenanceOperationType::Reindex => {
+                format!("REINDEX {}", Self::quote_ident(table))
+            }
+            MaintenanceOperationType::IntegrityCheck => {
+                format!("PRAGMA integrity_check('{}')", table.replace('\'', "''"))
+            }
+            _ => {
+                return Err(EngineError::not_supported(
+                    "Operation not supported for SQLite",
+                ));
+            }
+        };
+
+        let start = Instant::now();
+
+        if request.operation == MaintenanceOperationType::IntegrityCheck {
+            // PRAGMA integrity_check returns rows with a single text column
+            let rows: Vec<SqliteRow> = sqlx::query(&sql)
+                .fetch_all(&sqlite_session.pool)
+                .await
+                .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+            let execution_time_ms = start.elapsed().as_micros() as f64 / 1000.0;
+
+            let messages: Vec<MaintenanceMessage> = rows
+                .iter()
+                .map(|row| {
+                    let text: String = row.try_get(0).unwrap_or_default();
+                    let level = if text == "ok" {
+                        MaintenanceMessageLevel::Status
+                    } else {
+                        MaintenanceMessageLevel::Warning
+                    };
+                    MaintenanceMessage { level, text }
+                })
+                .collect();
+
+            let success = messages.iter().all(|m| m.level == MaintenanceMessageLevel::Status);
+
+            Ok(MaintenanceResult {
+                executed_command: sql,
+                messages,
+                execution_time_ms,
+                success,
+            })
+        } else {
+            sqlx::query(&sql)
+                .execute(&sqlite_session.pool)
+                .await
+                .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+            let execution_time_ms = start.elapsed().as_micros() as f64 / 1000.0;
+
+            Ok(MaintenanceResult {
+                executed_command: sql,
+                messages: vec![MaintenanceMessage {
+                    level: MaintenanceMessageLevel::Info,
+                    text: "Operation completed successfully".into(),
+                }],
+                execution_time_ms,
+                success: true,
+            })
+        }
     }
 }
 

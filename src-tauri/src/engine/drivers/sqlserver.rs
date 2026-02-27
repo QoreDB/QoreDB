@@ -40,6 +40,8 @@ use crate::engine::types::{
     QueryResult, Routine, RoutineList, RoutineListOptions, RoutineType, Row as QRow, RowData,
     SessionId, SortDirection, TableColumn, TableIndex, TableQueryOptions, TableSchema, Trigger,
     TriggerEvent, TriggerList, TriggerListOptions, TriggerTiming, Value,
+    MaintenanceOperationInfo, MaintenanceOperationType, MaintenanceRequest, MaintenanceResult,
+    MaintenanceMessage, MaintenanceMessageLevel,
 };
 
 // ==================== Types ====================
@@ -1493,6 +1495,94 @@ impl DataEngine for SqlServerDriver {
 
     fn cancel_support(&self) -> CancelSupport {
         CancelSupport::Driver
+    }
+
+    // ==================== Maintenance ====================
+
+    fn supports_maintenance(&self) -> bool {
+        true
+    }
+
+    async fn list_maintenance_operations(
+        &self,
+        _session: SessionId,
+        _namespace: &Namespace,
+        _table: &str,
+    ) -> EngineResult<Vec<MaintenanceOperationInfo>> {
+        Ok(vec![
+            MaintenanceOperationInfo {
+                operation: MaintenanceOperationType::RebuildIndexes,
+                is_heavy: true,
+                has_options: false,
+            },
+            MaintenanceOperationInfo {
+                operation: MaintenanceOperationType::UpdateStatistics,
+                is_heavy: false,
+                has_options: false,
+            },
+            MaintenanceOperationInfo {
+                operation: MaintenanceOperationType::Check,
+                is_heavy: false,
+                has_options: false,
+            },
+        ])
+    }
+
+    async fn run_maintenance(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        table: &str,
+        request: &MaintenanceRequest,
+    ) -> EngineResult<MaintenanceResult> {
+        let mssql_session = self.get_session(session).await?;
+        let schema = namespace.schema.as_deref().unwrap_or("dbo");
+        let qualified_table = format!("{}.{}", Self::quote_ident(schema), Self::quote_ident(table));
+
+        let sql = match request.operation {
+            MaintenanceOperationType::RebuildIndexes => {
+                format!("ALTER INDEX ALL ON {qualified_table} REBUILD")
+            }
+            MaintenanceOperationType::UpdateStatistics => {
+                format!("UPDATE STATISTICS {qualified_table}")
+            }
+            MaintenanceOperationType::Check => {
+                format!("DBCC CHECKTABLE('{}.{}')", schema.replace('\'', "''"), table.replace('\'', "''"))
+            }
+            _ => {
+                return Err(EngineError::not_supported(
+                    "Operation not supported for SQL Server",
+                ));
+            }
+        };
+
+        let start = Instant::now();
+
+        let mut conn = mssql_session.pool.get().await.map_err(|e| {
+            EngineError::connection_failed(format!("Failed to acquire connection: {e}"))
+        })?;
+
+        let stream = conn
+            .simple_query(&sql)
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        let _results = stream
+            .into_results()
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        let execution_time_ms = start.elapsed().as_micros() as f64 / 1000.0;
+
+        Ok(MaintenanceResult {
+            executed_command: sql,
+            messages: vec![MaintenanceMessage {
+                level: MaintenanceMessageLevel::Info,
+                text: "Operation completed successfully".into(),
+            }],
+            execution_time_ms,
+            success: true,
+        })
     }
 }
 

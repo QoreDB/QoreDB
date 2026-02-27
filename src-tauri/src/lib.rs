@@ -168,6 +168,9 @@ pub fn run() {
             commands::mutation::update_row,
             commands::mutation::delete_row,
             commands::mutation::supports_mutations,
+            // Maintenance commands
+            commands::maintenance::list_maintenance_operations,
+            commands::maintenance::run_maintenance,
             // Logs
             commands::logs::export_logs,
             commands::logs::log_frontend_message,

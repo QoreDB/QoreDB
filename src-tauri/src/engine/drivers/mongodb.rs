@@ -23,6 +23,8 @@ use crate::engine::types::{
     ConnectionConfig, Namespace, QueryId, QueryResult, Row as QRow, SessionId, TableColumn,
     TableSchema, Value,
     TableQueryOptions, PaginatedQueryResult, SortDirection, FilterOperator,
+    MaintenanceOperationInfo, MaintenanceOperationType, MaintenanceRequest, MaintenanceResult,
+    MaintenanceMessage, MaintenanceMessageLevel,
 };
 
 pub struct MongoSession {
@@ -1804,5 +1806,105 @@ impl DataEngine for MongoDriver {
 
     fn supports_streaming(&self) -> bool {
         true
+    }
+
+    // ==================== Maintenance ====================
+
+    fn supports_maintenance(&self) -> bool {
+        true
+    }
+
+    async fn list_maintenance_operations(
+        &self,
+        _session: SessionId,
+        _namespace: &Namespace,
+        _table: &str,
+    ) -> EngineResult<Vec<MaintenanceOperationInfo>> {
+        Ok(vec![
+            MaintenanceOperationInfo {
+                operation: MaintenanceOperationType::Compact,
+                is_heavy: true,
+                has_options: false,
+            },
+            MaintenanceOperationInfo {
+                operation: MaintenanceOperationType::Validate,
+                is_heavy: false,
+                has_options: false,
+            },
+        ])
+    }
+
+    async fn run_maintenance(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        table: &str,
+        request: &MaintenanceRequest,
+    ) -> EngineResult<MaintenanceResult> {
+        let mongo_session = self.get_session(session).await?;
+        let db = mongo_session.client.database(&namespace.database);
+
+        let (command, label) = match request.operation {
+            MaintenanceOperationType::Compact => {
+                (doc! { "compact": table }, format!("compact('{table}')"))
+            }
+            MaintenanceOperationType::Validate => {
+                (doc! { "validate": table }, format!("validate('{table}')"))
+            }
+            _ => {
+                return Err(EngineError::not_supported(
+                    "Operation not supported for MongoDB",
+                ));
+            }
+        };
+
+        let start = Instant::now();
+
+        let result = db
+            .run_command(command)
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        let execution_time_ms = start.elapsed().as_micros() as f64 / 1000.0;
+
+        // Extract ok field to determine success
+        let ok = result.get_f64("ok").unwrap_or(0.0);
+        let success = ok == 1.0;
+
+        let mut messages = Vec::new();
+
+        // For validate, extract useful fields
+        if request.operation == MaintenanceOperationType::Validate {
+            if let Some(valid) = result.get_bool("valid").ok() {
+                messages.push(MaintenanceMessage {
+                    level: if valid { MaintenanceMessageLevel::Status } else { MaintenanceMessageLevel::Error },
+                    text: format!("Valid: {valid}"),
+                });
+            }
+            if let Some(ns) = result.get_str("ns").ok() {
+                messages.push(MaintenanceMessage {
+                    level: MaintenanceMessageLevel::Info,
+                    text: format!("Namespace: {ns}"),
+                });
+            }
+        }
+
+        if messages.is_empty() {
+            messages.push(MaintenanceMessage {
+                level: if success { MaintenanceMessageLevel::Info } else { MaintenanceMessageLevel::Error },
+                text: if success {
+                    "Operation completed successfully".into()
+                } else {
+                    format!("Operation failed: {}", result)
+                },
+            });
+        }
+
+        Ok(MaintenanceResult {
+            executed_command: label,
+            messages,
+            execution_time_ms,
+            success,
+        })
     }
 }

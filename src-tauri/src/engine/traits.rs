@@ -14,6 +14,7 @@ use crate::engine::types::{
     QueryId, QueryResult, Row, RowData, SessionId, TableSchema, ColumnInfo, Value, ForeignKey,
     TableQueryOptions, PaginatedQueryResult, RoutineList, RoutineListOptions,
     TriggerList, TriggerListOptions, EventList, EventListOptions, CreationOptions,
+    MaintenanceOperationInfo, MaintenanceRequest, MaintenanceResult,
 };
 
 /// Events emitted during query streaming
@@ -274,6 +275,7 @@ pub trait DataEngine: Send + Sync {
             schema: self.supports_schema(),
             streaming: self.supports_streaming(),
             explain: self.supports_explain(),
+            maintenance: self.supports_maintenance(),
         }
     }
 
@@ -417,6 +419,42 @@ pub trait DataEngine: Send + Sync {
 
     /// Check if the driver supports CRUD mutations.
     fn supports_mutations(&self) -> bool {
+        false
+    }
+
+    // ==================== Maintenance Methods ====================
+    // These have default implementations that return NotSupported or empty.
+    // Drivers should override these to provide table maintenance operations.
+
+    /// Returns the list of maintenance operations available for this driver.
+    /// Default returns empty (no maintenance support).
+    async fn list_maintenance_operations(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        table: &str,
+    ) -> EngineResult<Vec<MaintenanceOperationInfo>> {
+        let _ = (session, namespace, table);
+        Ok(Vec::new())
+    }
+
+    /// Runs a maintenance operation on a table.
+    /// Default returns NotSupported.
+    async fn run_maintenance(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        table: &str,
+        request: &MaintenanceRequest,
+    ) -> EngineResult<MaintenanceResult> {
+        let _ = (session, namespace, table, request);
+        Err(EngineError::not_supported(
+            "Maintenance operations are not supported by this driver",
+        ))
+    }
+
+    /// Check if the driver supports maintenance operations.
+    fn supports_maintenance(&self) -> bool {
         false
     }
 }

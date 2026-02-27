@@ -125,6 +125,7 @@ pub struct DriverCapabilities {
     pub schema: bool,
     pub streaming: bool,
     pub explain: bool,
+    pub maintenance: bool,
 }
 
 /// Driver metadata exposed to the frontend.
@@ -635,4 +636,88 @@ impl PaginatedQueryResult {
             total_pages,
         }
     }
+}
+
+// ==================== Maintenance Types ====================
+
+/// Type of maintenance operation available for a table
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum MaintenanceOperationType {
+    Vacuum,
+    Analyze,
+    Reindex,
+    Optimize,
+    Repair,
+    Check,
+    Cluster,
+    RebuildIndexes,
+    UpdateStatistics,
+    Compact,
+    Validate,
+    IntegrityCheck,
+    ChangeEngine,
+}
+
+/// Options for a specific maintenance operation
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct MaintenanceOptions {
+    /// PostgreSQL: VACUUM FULL (rewrites entire table, exclusive lock)
+    pub full: Option<bool>,
+    /// PostgreSQL: VACUUM ANALYZE (combine vacuum with analyze)
+    pub with_analyze: Option<bool>,
+    /// PostgreSQL: VACUUM VERBOSE / MySQL: extended check
+    pub verbose: Option<bool>,
+    /// PostgreSQL CLUSTER: index name to cluster by
+    pub index_name: Option<String>,
+    /// MySQL: target engine for ALTER TABLE ... ENGINE=
+    pub target_engine: Option<String>,
+}
+
+/// Request to run a maintenance operation on a table
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MaintenanceRequest {
+    pub operation: MaintenanceOperationType,
+    #[serde(default)]
+    pub options: MaintenanceOptions,
+}
+
+/// Description of an available maintenance operation
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MaintenanceOperationInfo {
+    pub operation: MaintenanceOperationType,
+    /// Whether this operation can be heavy/slow on large tables
+    pub is_heavy: bool,
+    /// Whether this operation requires extra options
+    pub has_options: bool,
+}
+
+/// Severity level of a maintenance message
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum MaintenanceMessageLevel {
+    Info,
+    Warning,
+    Error,
+    Status,
+}
+
+/// A single status message from a maintenance operation
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MaintenanceMessage {
+    pub level: MaintenanceMessageLevel,
+    pub text: String,
+}
+
+/// Result of a maintenance operation
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MaintenanceResult {
+    /// The SQL/command that was executed
+    pub executed_command: String,
+    /// Status messages returned by the database
+    pub messages: Vec<MaintenanceMessage>,
+    /// Execution time in milliseconds
+    pub execution_time_ms: f64,
+    /// Whether the operation succeeded
+    pub success: bool,
 }

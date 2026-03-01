@@ -42,6 +42,7 @@ import { CreateTableModal } from '../Table/CreateTableModal';
 import { CreateDatabaseModal } from './CreateDatabaseModal';
 import { DatabaseContextMenu } from './DatabaseContextMenu';
 import { DeleteDatabaseModal } from './DeleteDatabaseModal';
+import { RoutineContextMenu } from './RoutineContextMenu';
 import { TableContextMenu } from './TableContextMenu';
 
 function getNsKey(ns: Namespace): string {
@@ -60,6 +61,8 @@ interface DBTreeProps {
   onDatabaseSelect?: (namespace: Namespace) => void;
   onCompareTable?: (collection: Collection) => void;
   onAiGenerateForTable?: (collection: Collection) => void;
+  onOpenRoutineSource?: (routine: Routine, namespace: Namespace) => void;
+  onCreateRoutine?: (routineType: 'Function' | 'Procedure', namespace: Namespace) => void;
   refreshTrigger?: number;
   activeNamespace?: Namespace | null;
 }
@@ -72,6 +75,8 @@ export function DBTree({
   onDatabaseSelect,
   onCompareTable,
   onAiGenerateForTable,
+  onOpenRoutineSource,
+  onCreateRoutine,
   refreshTrigger,
   activeNamespace,
 }: DBTreeProps) {
@@ -591,40 +596,70 @@ export function DBTree({
                 {/* Functions Section */}
                 {(() => {
                   const functions = routines.filter(r => r.routine_type === 'Function');
-                  if (functions.length === 0 && !routinesLoading) return null;
+                  if (functions.length === 0 && !routinesLoading && !onCreateRoutine) return null;
                   return (
                     <div className="space-y-0.5 mt-2">
-                      <button
-                        type="button"
-                        className="flex items-center gap-1 px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground w-full text-left"
-                        onClick={() => toggleSection('functions')}
-                      >
-                        {expandedSections.has('functions') ? (
-                          <ChevronDown size={12} />
-                        ) : (
-                          <ChevronRight size={12} />
+                      <div className="flex items-center">
+                        <button
+                          type="button"
+                          className="flex items-center gap-1 px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground flex-1 text-left"
+                          onClick={() => toggleSection('functions')}
+                        >
+                          {expandedSections.has('functions') ? (
+                            <ChevronDown size={12} />
+                          ) : (
+                            <ChevronRight size={12} />
+                          )}
+                          <FunctionSquare size={12} />
+                          <span>{t('dbtree.functions')}</span>
+                          <span className="text-muted-foreground/60 ml-auto">
+                            {functions.length}
+                          </span>
+                        </button>
+                        {onCreateRoutine && expandedNamespace && (
+                          <button
+                            type="button"
+                            className="p-0.5 text-muted-foreground/60 hover:text-foreground mr-1"
+                            title={t('routineManager.createFunction')}
+                            onClick={() => onCreateRoutine('Function', expandedNamespace)}
+                          >
+                            <Plus size={12} />
+                          </button>
                         )}
-                        <FunctionSquare size={12} />
-                        <span>{t('dbtree.functions')}</span>
-                        <span className="text-muted-foreground/60 ml-auto">{functions.length}</span>
-                      </button>
+                      </div>
                       {expandedSections.has('functions') &&
                         functions.map(routine => (
-                          <div
-                            key={routine.name}
-                            className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-muted-foreground text-left group ml-5"
-                            title={`${routine.name}(${routine.arguments})${routine.return_type ? ` → ${routine.return_type}` : ''}`}
+                          <RoutineContextMenu
+                            key={`${routine.name}-${routine.arguments}`}
+                            routine={routine}
+                            sessionId={sessionId}
+                            environment={connection?.environment || 'development'}
+                            readOnly={connection?.read_only || false}
+                            onViewSource={r =>
+                              expandedNamespace && onOpenRoutineSource?.(r, expandedNamespace)
+                            }
+                            onDrop={() => expandedNamespace && refreshRoutines(expandedNamespace)}
                           >
-                            <span className="shrink-0">
-                              <FunctionSquare size={13} />
-                            </span>
-                            <span className="truncate font-mono text-xs">{routine.name}</span>
-                            {routine.language && (
-                              <span className="text-[10px] text-muted-foreground/60 ml-auto">
-                                {routine.language}
+                            <button
+                              type="button"
+                              className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground text-left group ml-5 cursor-pointer"
+                              title={`${routine.name}(${routine.arguments})${routine.return_type ? ` → ${routine.return_type}` : ''}`}
+                              onClick={() =>
+                                expandedNamespace &&
+                                onOpenRoutineSource?.(routine, expandedNamespace)
+                              }
+                            >
+                              <span className="shrink-0 group-hover:text-foreground/80 transition-colors">
+                                <FunctionSquare size={13} />
                               </span>
-                            )}
-                          </div>
+                              <span className="truncate font-mono text-xs">{routine.name}</span>
+                              {routine.language && (
+                                <span className="text-[10px] text-muted-foreground/60 ml-auto">
+                                  {routine.language}
+                                </span>
+                              )}
+                            </button>
+                          </RoutineContextMenu>
                         ))}
                     </div>
                   );
@@ -633,42 +668,70 @@ export function DBTree({
                 {/* Procedures Section */}
                 {(() => {
                   const procedures = routines.filter(r => r.routine_type === 'Procedure');
-                  if (procedures.length === 0 && !routinesLoading) return null;
+                  if (procedures.length === 0 && !routinesLoading && !onCreateRoutine) return null;
                   return (
                     <div className="space-y-0.5 mt-2">
-                      <button
-                        type="button"
-                        className="flex items-center gap-1 px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground w-full text-left"
-                        onClick={() => toggleSection('procedures')}
-                      >
-                        {expandedSections.has('procedures') ? (
-                          <ChevronDown size={12} />
-                        ) : (
-                          <ChevronRight size={12} />
+                      <div className="flex items-center">
+                        <button
+                          type="button"
+                          className="flex items-center gap-1 px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground flex-1 text-left"
+                          onClick={() => toggleSection('procedures')}
+                        >
+                          {expandedSections.has('procedures') ? (
+                            <ChevronDown size={12} />
+                          ) : (
+                            <ChevronRight size={12} />
+                          )}
+                          <PlayCircle size={12} />
+                          <span>{t('dbtree.procedures')}</span>
+                          <span className="text-muted-foreground/60 ml-auto">
+                            {procedures.length}
+                          </span>
+                        </button>
+                        {onCreateRoutine && expandedNamespace && (
+                          <button
+                            type="button"
+                            className="p-0.5 text-muted-foreground/60 hover:text-foreground mr-1"
+                            title={t('routineManager.createProcedure')}
+                            onClick={() => onCreateRoutine('Procedure', expandedNamespace)}
+                          >
+                            <Plus size={12} />
+                          </button>
                         )}
-                        <PlayCircle size={12} />
-                        <span>{t('dbtree.procedures')}</span>
-                        <span className="text-muted-foreground/60 ml-auto">
-                          {procedures.length}
-                        </span>
-                      </button>
+                      </div>
                       {expandedSections.has('procedures') &&
                         procedures.map(routine => (
-                          <div
-                            key={routine.name}
-                            className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-muted-foreground text-left group ml-5"
-                            title={`${routine.name}(${routine.arguments})`}
+                          <RoutineContextMenu
+                            key={`${routine.name}-${routine.arguments}`}
+                            routine={routine}
+                            sessionId={sessionId}
+                            environment={connection?.environment || 'development'}
+                            readOnly={connection?.read_only || false}
+                            onViewSource={r =>
+                              expandedNamespace && onOpenRoutineSource?.(r, expandedNamespace)
+                            }
+                            onDrop={() => expandedNamespace && refreshRoutines(expandedNamespace)}
                           >
-                            <span className="shrink-0">
-                              <PlayCircle size={13} />
-                            </span>
-                            <span className="truncate font-mono text-xs">{routine.name}</span>
-                            {routine.language && (
-                              <span className="text-[10px] text-muted-foreground/60 ml-auto">
-                                {routine.language}
+                            <button
+                              type="button"
+                              className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground text-left group ml-5 cursor-pointer"
+                              title={`${routine.name}(${routine.arguments})`}
+                              onClick={() =>
+                                expandedNamespace &&
+                                onOpenRoutineSource?.(routine, expandedNamespace)
+                              }
+                            >
+                              <span className="shrink-0 group-hover:text-foreground/80 transition-colors">
+                                <PlayCircle size={13} />
                               </span>
-                            )}
-                          </div>
+                              <span className="truncate font-mono text-xs">{routine.name}</span>
+                              {routine.language && (
+                                <span className="text-[10px] text-muted-foreground/60 ml-auto">
+                                  {routine.language}
+                                </span>
+                              )}
+                            </button>
+                          </RoutineContextMenu>
                         ))}
                     </div>
                   );

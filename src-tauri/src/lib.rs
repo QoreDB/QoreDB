@@ -171,6 +171,9 @@ pub fn run() {
             // Maintenance commands
             commands::maintenance::list_maintenance_operations,
             commands::maintenance::run_maintenance,
+            // Routine management commands
+            commands::routines::get_routine_definition,
+            commands::routines::drop_routine,
             // Logs
             commands::logs::export_logs,
             commands::logs::log_frontend_message,

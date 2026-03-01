@@ -37,7 +37,8 @@ use crate::engine::traits::{DataEngine, StreamEvent, StreamSender};
 use crate::engine::types::{
     CancelSupport, Collection, CollectionList, CollectionListOptions, CollectionType, ColumnInfo,
     ConnectionConfig, FilterOperator, ForeignKey, Namespace, PaginatedQueryResult, QueryId,
-    QueryResult, Routine, RoutineList, RoutineListOptions, RoutineType, Row as QRow, RowData,
+    QueryResult, Routine, RoutineList, RoutineListOptions, RoutineType, RoutineDefinition,
+    RoutineOperationResult, Row as QRow, RowData,
     SessionId, SortDirection, TableColumn, TableIndex, TableQueryOptions, TableSchema, Trigger,
     TriggerEvent, TriggerList, TriggerListOptions, TriggerTiming, Value,
     MaintenanceOperationInfo, MaintenanceOperationType, MaintenanceRequest, MaintenanceResult,
@@ -818,6 +819,112 @@ impl DataEngine for SqlServerDriver {
 
     fn supports_routines(&self) -> bool {
         true
+    }
+
+    async fn get_routine_definition(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        routine_name: &str,
+        routine_type: RoutineType,
+        _arguments: Option<&str>,
+    ) -> EngineResult<RoutineDefinition> {
+        let mssql_session = self.get_session(session).await?;
+        let mut conn = mssql_session.pool.get().await.map_err(|e| {
+            EngineError::connection_failed(format!("Failed to acquire connection: {e}"))
+        })?;
+        let schema = namespace.schema.as_deref().unwrap_or("dbo");
+
+        // Use OBJECT_DEFINITION to get the full source
+        let sql = format!(
+            "SELECT OBJECT_DEFINITION(OBJECT_ID('[{}].[{}]')) AS definition, \
+             r.DATA_TYPE, r.ROUTINE_BODY \
+             FROM INFORMATION_SCHEMA.ROUTINES r \
+             WHERE r.ROUTINE_SCHEMA = '{}' AND r.ROUTINE_NAME = '{}'",
+            schema.replace('\'', "''"),
+            routine_name.replace('\'', "''"),
+            schema.replace('\'', "''"),
+            routine_name.replace('\'', "''"),
+        );
+
+        let stream = conn
+            .simple_query(&sql)
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+        let rows = stream
+            .into_first_result()
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        let row = rows.first().ok_or_else(|| {
+            EngineError::execution_error(format!(
+                "Routine '{}' not found in schema '{}'",
+                routine_name, schema
+            ))
+        })?;
+
+        let definition: Option<&str> = row.get(0);
+        let return_type: Option<&str> = row.get(1);
+        let language: Option<&str> = row.get(2);
+
+        let definition = definition
+            .map(|d| d.to_string())
+            .unwrap_or_else(|| {
+                format!("-- Could not retrieve definition for [{}].[{}] (check VIEW DEFINITION permission)", schema, routine_name)
+            });
+
+        Ok(RoutineDefinition {
+            name: routine_name.to_string(),
+            namespace: namespace.clone(),
+            routine_type,
+            definition,
+            language: language.map(|s| s.to_string()),
+            arguments: String::new(),
+            return_type: return_type.map(|s| s.to_string()),
+        })
+    }
+
+    async fn drop_routine(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        routine_name: &str,
+        routine_type: RoutineType,
+        _arguments: Option<&str>,
+    ) -> EngineResult<RoutineOperationResult> {
+        let mssql_session = self.get_session(session).await?;
+        let mut conn = mssql_session.pool.get().await.map_err(|e| {
+            EngineError::connection_failed(format!("Failed to acquire connection: {e}"))
+        })?;
+        let schema = namespace.schema.as_deref().unwrap_or("dbo");
+
+        let keyword = match routine_type {
+            RoutineType::Function => "FUNCTION",
+            RoutineType::Procedure => "PROCEDURE",
+        };
+
+        let sql = format!(
+            "DROP {} [{}].[{}]",
+            keyword,
+            schema.replace(']', "]]"),
+            routine_name.replace(']', "]]"),
+        );
+
+        let start = Instant::now();
+        conn.simple_query(&sql)
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?
+            .into_results()
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+        let elapsed = start.elapsed().as_millis() as f64;
+
+        Ok(RoutineOperationResult {
+            success: true,
+            executed_command: sql,
+            message: None,
+            execution_time_ms: elapsed,
+        })
     }
 
     // ==================== Triggers ====================

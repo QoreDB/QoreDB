@@ -46,6 +46,7 @@ import { Driver } from './lib/drivers';
 import type { HistoryEntry } from './lib/history';
 import { notify } from './lib/notify';
 import type { QueryLibraryItem } from './lib/queryLibrary';
+import { getRoutineTemplate } from './lib/routineTemplates';
 import {
   createDatabaseTab,
   createDiffTab,
@@ -58,8 +59,11 @@ import {
   type Collection,
   connectSavedConnection,
   type DriverCapabilities,
+  getRoutineDefinition,
   type Namespace,
   type RelationFilter,
+  type Routine,
+  type RoutineType,
   type SavedConnection,
   type SearchFilter,
 } from './lib/tauri';
@@ -194,6 +198,42 @@ export function AppLayout() {
       openTab(tab);
     },
     [sessionId, openTab]
+  );
+
+  const handleOpenRoutineSource = useCallback(
+    async (routine: Routine, namespace: Namespace) => {
+      if (!sessionId) return;
+      const result = await getRoutineDefinition(
+        sessionId,
+        namespace.database,
+        namespace.schema,
+        routine.name,
+        routine.routine_type,
+        routine.arguments || undefined
+      );
+      if (result.success && result.definition) {
+        const tab = createQueryTab(result.definition.definition, namespace);
+        tab.title = `${routine.routine_type === 'Function' ? 'fn' : 'proc'}: ${routine.name}`;
+        openTab(tab);
+      } else {
+        notify.error(t('routineManager.sourceLoadError'), result.error);
+      }
+    },
+    [sessionId, openTab, t]
+  );
+
+  const handleCreateRoutine = useCallback(
+    (routineType: RoutineType, namespace: Namespace) => {
+      if (!sessionId) return;
+      const template = getRoutineTemplate(driver as Driver, routineType, namespace);
+      const tab = createQueryTab(template, namespace);
+      tab.title =
+        routineType === 'Function'
+          ? t('routineManager.createFunction')
+          : t('routineManager.createProcedure');
+      openTab(tab);
+    },
+    [sessionId, driver, openTab, t]
   );
 
   const handleOpenHistory = useCallback(() => {
@@ -412,6 +452,8 @@ export function AppLayout() {
                 onDatabaseSelect={handleDatabaseSelect}
                 onCompareTable={handleCompareTable}
                 onAiGenerateForTable={handleAiGenerateForTable}
+                onOpenRoutineSource={handleOpenRoutineSource}
+                onCreateRoutine={handleCreateRoutine}
                 onEditConnection={handleEditConnection}
                 onNewQuery={handleNewQuery}
                 schemaRefreshTrigger={schemaRefreshTrigger}
@@ -475,6 +517,8 @@ export function AppLayout() {
                 onUpdateQueryDraft={updateQueryDraft}
                 onUpdateTabNamespace={updateTabNamespace}
                 onScheduleRecoverySave={scheduleRecoverySave}
+                onOpenRoutineSource={handleOpenRoutineSource}
+                onCreateRoutine={handleCreateRoutine}
               />
             </SandboxBorder>
 
@@ -552,6 +596,8 @@ interface AppContentProps {
   onUpdateTableBrowserTab: (tabId: string, tab: TableBrowserTab) => void;
   onUpdateDatabaseBrowserTab: (tabId: string, tab: DatabaseBrowserTab) => void;
   onScheduleRecoverySave: () => void;
+  onOpenRoutineSource: (routine: Routine, namespace: Namespace) => void;
+  onCreateRoutine: (routineType: RoutineType, namespace: Namespace) => void;
 }
 
 function AppContent({
@@ -582,6 +628,8 @@ function AppContent({
   onUpdateTableBrowserTab,
   onUpdateDatabaseBrowserTab,
   onScheduleRecoverySave,
+  onOpenRoutineSource,
+  onCreateRoutine,
 }: AppContentProps) {
   if (!sessionId) {
     return (
@@ -650,6 +698,8 @@ function AppContent({
         }}
         onOpenQueryTab={ns => onOpenTab(createQueryTab(undefined, ns))}
         onOpenFulltextSearch={onOpenFulltextSearch}
+        onOpenRoutineSource={onOpenRoutineSource}
+        onCreateRoutine={onCreateRoutine}
         onClose={() => onCloseTab(activeTab.id)}
       />
     );

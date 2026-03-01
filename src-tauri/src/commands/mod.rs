@@ -14,6 +14,7 @@ pub mod license;
 pub mod logs;
 pub mod maintenance;
 pub mod metrics;
+pub mod routines;
 pub mod mutation;
 pub mod policy;
 pub mod query;

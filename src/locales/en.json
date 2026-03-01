@@ -1459,5 +1459,19 @@
       "error": "Error",
       "status": "Status"
     }
+  },
+  "routineManager": {
+    "viewSource": "View source",
+    "drop": "Drop",
+    "dropTitle": "Drop Routine",
+    "dropConfirm": "Are you sure you want to drop {{type}} \"{{name}}\"? This action cannot be undone.",
+    "dropSuccess": "{{type}} \"{{name}}\" dropped successfully",
+    "dropFailed": "Failed to drop {{type}} \"{{name}}\"",
+    "createFunction": "New function",
+    "createProcedure": "New procedure",
+    "loadingSource": "Loading source...",
+    "sourceLoadError": "Failed to load routine source",
+    "function": "Function",
+    "procedure": "Procedure"
   }
 }

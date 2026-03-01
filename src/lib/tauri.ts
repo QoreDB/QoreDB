@@ -327,6 +327,73 @@ export async function listRoutines(
 }
 
 // ============================================
+// ROUTINE DEFINITION & OPERATIONS
+// ============================================
+
+export interface RoutineDefinition {
+  name: string;
+  namespace: Namespace;
+  routine_type: RoutineType;
+  definition: string;
+  language?: string;
+  arguments: string;
+  return_type?: string;
+}
+
+export interface RoutineOperationResult {
+  success: boolean;
+  executed_command: string;
+  message?: string;
+  execution_time_ms: number;
+}
+
+export async function getRoutineDefinition(
+  sessionId: string,
+  database: string,
+  schema: string | null | undefined,
+  routineName: string,
+  routineType: RoutineType,
+  routineArguments?: string
+): Promise<{
+  success: boolean;
+  definition?: RoutineDefinition;
+  error?: string;
+}> {
+  return invoke('get_routine_definition', {
+    sessionId,
+    database,
+    schema,
+    routineName,
+    routineType,
+    arguments: routineArguments,
+  });
+}
+
+export async function dropRoutine(
+  sessionId: string,
+  database: string,
+  schema: string | null | undefined,
+  routineName: string,
+  routineType: RoutineType,
+  routineArguments?: string,
+  acknowledgedDangerous?: boolean
+): Promise<{
+  success: boolean;
+  result?: RoutineOperationResult;
+  error?: string;
+}> {
+  return invoke('drop_routine', {
+    sessionId,
+    database,
+    schema,
+    routineName,
+    routineType,
+    arguments: routineArguments,
+    acknowledgedDangerous,
+  });
+}
+
+// ============================================
 // TRIGGERS
 // ============================================
 

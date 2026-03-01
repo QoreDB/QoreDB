@@ -20,6 +20,7 @@ import {
   listSavedConnections,
   type Namespace,
   type RelationFilter,
+  type Routine,
   type SavedConnection,
 } from '../../lib/tauri';
 import { ErrorLogPanel } from '../Logs/ErrorLogPanel';
@@ -41,6 +42,8 @@ interface SidebarProps {
   onDatabaseSelect?: (namespace: Namespace) => void;
   onCompareTable?: (collection: Collection) => void;
   onAiGenerateForTable?: (collection: Collection) => void;
+  onOpenRoutineSource?: (routine: Routine, namespace: Namespace) => void;
+  onCreateRoutine?: (routineType: 'Function' | 'Procedure', namespace: Namespace) => void;
   onEditConnection: (connection: SavedConnection, password: string) => void;
   onNewQuery?: () => void;
   schemaRefreshTrigger?: number;
@@ -57,6 +60,8 @@ export function Sidebar({
   onDatabaseSelect,
   onCompareTable,
   onAiGenerateForTable,
+  onOpenRoutineSource,
+  onCreateRoutine,
   onEditConnection,
   onNewQuery,
   schemaRefreshTrigger,
@@ -220,6 +225,8 @@ export function Sidebar({
               onDatabaseSelect={onDatabaseSelect}
               onCompareTable={onCompareTable}
               onAiGenerateForTable={onAiGenerateForTable}
+              onOpenRoutineSource={onOpenRoutineSource}
+              onCreateRoutine={onCreateRoutine}
               refreshTrigger={schemaRefreshTrigger}
               activeNamespace={activeNamespace}
             />

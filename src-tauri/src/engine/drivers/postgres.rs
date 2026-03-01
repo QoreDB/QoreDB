@@ -27,7 +27,7 @@ use crate::engine::types::{
     ConnectionConfig, Namespace, QueryId, QueryResult, Row as QRow, RowData, SessionId,
     TableColumn, TableIndex, TableSchema, Value, ForeignKey,
     TableQueryOptions, PaginatedQueryResult, SortDirection, FilterOperator,
-    Routine, RoutineList, RoutineListOptions, RoutineType,
+    Routine, RoutineList, RoutineListOptions, RoutineType, RoutineDefinition, RoutineOperationResult,
     Trigger, TriggerList, TriggerListOptions, TriggerTiming, TriggerEvent,
     MaintenanceOperationInfo, MaintenanceOperationType, MaintenanceRequest, MaintenanceResult,
     MaintenanceMessage, MaintenanceMessageLevel,
@@ -449,6 +449,135 @@ impl DataEngine for PostgresDriver {
 
     fn supports_routines(&self) -> bool {
         true
+    }
+
+    async fn get_routine_definition(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        routine_name: &str,
+        routine_type: RoutineType,
+        arguments: Option<&str>,
+    ) -> EngineResult<RoutineDefinition> {
+        let pg_session = self.get_session(session).await?;
+        let pool = &pg_session.pool;
+        let schema = namespace.schema.as_deref().unwrap_or("public");
+
+        let kind_filter = match routine_type {
+            RoutineType::Function => "f",
+            RoutineType::Procedure => "p",
+        };
+
+        // Look up the routine OID and definition using pg_get_functiondef()
+        // If arguments are provided, use them to disambiguate overloaded functions
+        let query = if arguments.is_some() {
+            r#"
+                SELECT
+                    p.proname::text AS name,
+                    pg_get_functiondef(p.oid)::text AS def,
+                    l.lanname::text AS lang,
+                    pg_get_function_identity_arguments(p.oid)::text AS args,
+                    pg_get_function_result(p.oid)::text AS ret
+                FROM pg_proc p
+                JOIN pg_namespace n ON p.pronamespace = n.oid
+                LEFT JOIN pg_language l ON p.prolang = l.oid
+                WHERE n.nspname = $1
+                AND p.proname = $2
+                AND p.prokind = $3
+                AND pg_get_function_identity_arguments(p.oid) = $4
+                LIMIT 1
+            "#
+        } else {
+            r#"
+                SELECT
+                    p.proname::text AS name,
+                    pg_get_functiondef(p.oid)::text AS def,
+                    l.lanname::text AS lang,
+                    pg_get_function_identity_arguments(p.oid)::text AS args,
+                    pg_get_function_result(p.oid)::text AS ret
+                FROM pg_proc p
+                JOIN pg_namespace n ON p.pronamespace = n.oid
+                LEFT JOIN pg_language l ON p.prolang = l.oid
+                WHERE n.nspname = $1
+                AND p.proname = $2
+                AND p.prokind = $3
+                AND ($4::text IS NULL)
+                LIMIT 1
+            "#
+        };
+
+        let args_bind = arguments.unwrap_or("");
+
+        let row: (String, Option<String>, Option<String>, String, Option<String>) =
+            sqlx::query_as(query)
+                .bind(schema)
+                .bind(routine_name)
+                .bind(kind_filter)
+                .bind(if arguments.is_some() { args_bind } else { args_bind })
+                .fetch_optional(pool)
+                .await
+                .map_err(|e| EngineError::execution_error(e.to_string()))?
+                .ok_or_else(|| {
+                    EngineError::execution_error(format!(
+                        "Routine '{}' not found in schema '{}'",
+                        routine_name, schema
+                    ))
+                })?;
+
+        let (name, def, lang, args, ret) = row;
+
+        let definition = def.unwrap_or_else(|| {
+            // Fallback: construct a placeholder if pg_get_functiondef returns NULL
+            format!("-- Could not retrieve definition for {}", name)
+        });
+
+        Ok(RoutineDefinition {
+            name,
+            namespace: namespace.clone(),
+            routine_type,
+            definition,
+            language: lang,
+            arguments: args,
+            return_type: ret,
+        })
+    }
+
+    async fn drop_routine(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        routine_name: &str,
+        routine_type: RoutineType,
+        arguments: Option<&str>,
+    ) -> EngineResult<RoutineOperationResult> {
+        let pg_session = self.get_session(session).await?;
+        let pool = &pg_session.pool;
+        let schema = namespace.schema.as_deref().unwrap_or("public");
+
+        let type_keyword = match routine_type {
+            RoutineType::Function => "FUNCTION",
+            RoutineType::Procedure => "PROCEDURE",
+        };
+
+        let args_clause = arguments.unwrap_or("");
+        let sql = format!(
+            "DROP {} \"{}\".\"{}\"({})",
+            type_keyword, schema, routine_name, args_clause
+        );
+
+        let start = Instant::now();
+        sqlx::query(&sql)
+            .execute(pool)
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+        let elapsed = start.elapsed().as_millis() as f64;
+
+        Ok(RoutineOperationResult {
+            success: true,
+            executed_command: sql,
+            message: None,
+            execution_time_ms: elapsed,
+        })
     }
 
     async fn list_triggers(

@@ -12,7 +12,8 @@ use crate::engine::error::{EngineError, EngineResult};
 use crate::engine::types::{
     CancelSupport, CollectionList, CollectionListOptions, ConnectionConfig, DriverCapabilities, Namespace,
     QueryId, QueryResult, Row, RowData, SessionId, TableSchema, ColumnInfo, Value, ForeignKey,
-    TableQueryOptions, PaginatedQueryResult, RoutineList, RoutineListOptions,
+    TableQueryOptions, PaginatedQueryResult, RoutineList, RoutineListOptions, RoutineType,
+    RoutineDefinition, RoutineOperationResult,
     TriggerList, TriggerListOptions, EventList, EventListOptions, CreationOptions,
     MaintenanceOperationInfo, MaintenanceRequest, MaintenanceResult,
 };
@@ -85,6 +86,38 @@ pub trait DataEngine: Send + Sync {
     /// Check if the driver supports routines (functions/procedures).
     fn supports_routines(&self) -> bool {
         false
+    }
+
+    /// Gets the full definition (CREATE statement) of a routine.
+    /// Default returns NotSupported.
+    async fn get_routine_definition(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        routine_name: &str,
+        routine_type: RoutineType,
+        arguments: Option<&str>,
+    ) -> EngineResult<RoutineDefinition> {
+        let _ = (session, namespace, routine_name, routine_type, arguments);
+        Err(EngineError::not_supported(
+            "Getting routine definitions is not supported by this driver",
+        ))
+    }
+
+    /// Drops a routine (function or procedure).
+    /// Default returns NotSupported.
+    async fn drop_routine(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        routine_name: &str,
+        routine_type: RoutineType,
+        arguments: Option<&str>,
+    ) -> EngineResult<RoutineOperationResult> {
+        let _ = (session, namespace, routine_name, routine_type, arguments);
+        Err(EngineError::not_supported(
+            "Dropping routines is not supported by this driver",
+        ))
     }
 
     /// Lists triggers in a namespace.

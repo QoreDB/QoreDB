@@ -428,6 +428,29 @@ pub struct RoutineList {
     pub total_count: u32,
 }
 
+/// Full routine definition (CREATE statement) for viewing/editing
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RoutineDefinition {
+    pub name: String,
+    pub namespace: Namespace,
+    pub routine_type: RoutineType,
+    /// Full CREATE OR REPLACE statement
+    pub definition: String,
+    pub language: Option<String>,
+    pub arguments: String,
+    pub return_type: Option<String>,
+}
+
+/// Result of a routine drop operation
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RoutineOperationResult {
+    pub success: bool,
+    /// The SQL command that was executed
+    pub executed_command: String,
+    pub message: Option<String>,
+    pub execution_time_ms: f64,
+}
+
 // ==================== Trigger Types ====================
 
 /// Timing of a database trigger

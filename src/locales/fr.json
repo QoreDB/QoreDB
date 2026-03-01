@@ -1457,5 +1457,19 @@
       "error": "Erreur",
       "status": "Statut"
     }
+  },
+  "routineManager": {
+    "viewSource": "Voir le source",
+    "drop": "Supprimer",
+    "dropTitle": "Supprimer la routine",
+    "dropConfirm": "Voulez-vous vraiment supprimer la {{type}} \"{{name}}\" ? Cette action est irréversible.",
+    "dropSuccess": "{{type}} \"{{name}}\" supprimée avec succès",
+    "dropFailed": "Échec de la suppression de la {{type}} \"{{name}}\"",
+    "createFunction": "Nouvelle fonction",
+    "createProcedure": "Nouvelle procédure",
+    "loadingSource": "Chargement du source...",
+    "sourceLoadError": "Impossible de charger le source de la routine",
+    "function": "Fonction",
+    "procedure": "Procédure"
   }
 }

@@ -24,7 +24,7 @@ use crate::engine::types::{
     ConnectionConfig, Namespace, QueryId, QueryResult, Row as QRow, RowData, SessionId,
     TableColumn, TableIndex, TableSchema, Value, ForeignKey,
     TableQueryOptions, PaginatedQueryResult, SortDirection, FilterOperator,
-    Routine, RoutineList, RoutineListOptions, RoutineType,
+    Routine, RoutineList, RoutineListOptions, RoutineType, RoutineDefinition, RoutineOperationResult,
     Trigger, TriggerList, TriggerListOptions, TriggerTiming, TriggerEvent,
     DatabaseEvent, EventList, EventListOptions, EventStatus,
     CharsetInfo, CollationInfo, CreationOptions,
@@ -535,6 +535,113 @@ impl DataEngine for MySqlDriver {
 
     fn supports_routines(&self) -> bool {
         true
+    }
+
+    async fn get_routine_definition(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        routine_name: &str,
+        routine_type: RoutineType,
+        _arguments: Option<&str>,
+    ) -> EngineResult<RoutineDefinition> {
+        let mysql_session = self.get_session(session).await?;
+        let pool = &mysql_session.pool;
+
+        let keyword = match routine_type {
+            RoutineType::Function => "FUNCTION",
+            RoutineType::Procedure => "PROCEDURE",
+        };
+
+        // SHOW CREATE FUNCTION/PROCEDURE returns the full CREATE statement
+        let sql = format!(
+            "SHOW CREATE {} `{}`.`{}`",
+            keyword, namespace.database, routine_name
+        );
+
+        let row = sqlx::query(&sql)
+            .fetch_optional(pool)
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?
+            .ok_or_else(|| {
+                EngineError::execution_error(format!(
+                    "{} '{}' not found in database '{}'",
+                    keyword, routine_name, namespace.database
+                ))
+            })?;
+
+        // Column name is "Create Function" or "Create Procedure"
+        let create_col = format!("Create {}", if keyword == "FUNCTION" { "Function" } else { "Procedure" });
+        let definition: String = row.try_get(create_col.as_str())
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        // Also get metadata from information_schema
+        let meta_query = r#"
+            SELECT
+                CAST(IFNULL(DTD_IDENTIFIER, '') AS CHAR) AS return_type,
+                CAST(IFNULL(EXTERNAL_LANGUAGE, ROUTINE_BODY) AS CHAR) AS language
+            FROM information_schema.ROUTINES
+            WHERE ROUTINE_SCHEMA = ?
+            AND ROUTINE_NAME = ?
+            AND ROUTINE_TYPE = ?
+            LIMIT 1
+        "#;
+
+        let meta: Option<(String, String)> = sqlx::query_as(meta_query)
+            .bind(&namespace.database)
+            .bind(routine_name)
+            .bind(keyword)
+            .fetch_optional(pool)
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        let (return_type, language) = meta.unwrap_or_default();
+
+        Ok(RoutineDefinition {
+            name: routine_name.to_string(),
+            namespace: namespace.clone(),
+            routine_type,
+            definition,
+            language: if language.is_empty() { None } else { Some(language) },
+            arguments: String::new(),
+            return_type: if return_type.is_empty() { None } else { Some(return_type) },
+        })
+    }
+
+    async fn drop_routine(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        routine_name: &str,
+        routine_type: RoutineType,
+        _arguments: Option<&str>,
+    ) -> EngineResult<RoutineOperationResult> {
+        let mysql_session = self.get_session(session).await?;
+        let pool = &mysql_session.pool;
+
+        let keyword = match routine_type {
+            RoutineType::Function => "FUNCTION",
+            RoutineType::Procedure => "PROCEDURE",
+        };
+
+        let sql = format!(
+            "DROP {} `{}`.`{}`",
+            keyword, namespace.database, routine_name
+        );
+
+        let start = Instant::now();
+        sqlx::query(&sql)
+            .execute(pool)
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+        let elapsed = start.elapsed().as_millis() as f64;
+
+        Ok(RoutineOperationResult {
+            success: true,
+            executed_command: sql,
+            message: None,
+            execution_time_ms: elapsed,
+        })
     }
 
     async fn list_triggers(

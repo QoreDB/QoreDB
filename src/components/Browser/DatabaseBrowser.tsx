@@ -5,6 +5,7 @@ import {
   Calendar,
   ChevronLeft,
   ChevronRight,
+  Code2,
   Database,
   Eye,
   FunctionSquare,
@@ -70,6 +71,8 @@ interface DatabaseBrowserProps {
   onSchemaChange?: () => void;
   onOpenQueryTab?: (namespace: Namespace) => void;
   onOpenFulltextSearch?: () => void;
+  onOpenRoutineSource?: (routine: Routine, namespace: Namespace) => void;
+  onCreateRoutine?: (routineType: 'Function' | 'Procedure', namespace: Namespace) => void;
   onClose: () => void;
   initialTab?: DatabaseBrowserTab;
   onActiveTabChange?: (tab: DatabaseBrowserTab) => void;
@@ -96,6 +99,8 @@ export function DatabaseBrowser({
   onSchemaChange,
   onOpenQueryTab,
   onOpenFulltextSearch,
+  onOpenRoutineSource,
+  onCreateRoutine,
   onClose,
   initialTab,
   onActiveTabChange,
@@ -654,6 +659,26 @@ export function DatabaseBrowser({
         ) : activeTab === 'routines' ? (
           /* Routines Tab */
           <div className="flex flex-col h-full gap-4">
+            {onCreateRoutine && (
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onCreateRoutine('Function', stableNamespace)}
+                >
+                  <Plus size={14} className="mr-1" />
+                  {t('routineManager.createFunction')}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onCreateRoutine('Procedure', stableNamespace)}
+                >
+                  <Plus size={14} className="mr-1" />
+                  {t('routineManager.createProcedure')}
+                </Button>
+              </div>
+            )}
             <div className="border border-border rounded-md divide-y divide-border flex-1 overflow-auto relative min-h-50">
               {routinesLoading && (
                 <div className="absolute inset-0 z-10 bg-background/50 flex items-center justify-center backdrop-blur-[1px]">
@@ -680,9 +705,11 @@ export function DatabaseBrowser({
                   {routines
                     .filter(r => r.routine_type === 'Function')
                     .map(routine => (
-                      <div
+                      <button
+                        type="button"
                         key={`fn-${routine.name}-${routine.arguments}`}
-                        className="flex items-center justify-between w-full px-4 py-3 hover:bg-muted/50 transition-colors text-left"
+                        className="flex items-center justify-between w-full px-4 py-3 hover:bg-muted/50 transition-colors text-left cursor-pointer"
+                        onClick={() => onOpenRoutineSource?.(routine, stableNamespace)}
                       >
                         <div className="flex items-center gap-3">
                           <FunctionSquare size={16} className="text-muted-foreground" />
@@ -698,12 +725,15 @@ export function DatabaseBrowser({
                             )}
                           </div>
                         </div>
-                        {routine.language && (
-                          <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
-                            {routine.language}
-                          </span>
-                        )}
-                      </div>
+                        <div className="flex items-center gap-2">
+                          {routine.language && (
+                            <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
+                              {routine.language}
+                            </span>
+                          )}
+                          <Code2 size={14} className="text-muted-foreground/50" />
+                        </div>
+                      </button>
                     ))}
 
                   {/* Procedures */}
@@ -719,9 +749,11 @@ export function DatabaseBrowser({
                   {routines
                     .filter(r => r.routine_type === 'Procedure')
                     .map(routine => (
-                      <div
+                      <button
+                        type="button"
                         key={`proc-${routine.name}-${routine.arguments}`}
-                        className="flex items-center justify-between w-full px-4 py-3 hover:bg-muted/50 transition-colors text-left"
+                        className="flex items-center justify-between w-full px-4 py-3 hover:bg-muted/50 transition-colors text-left cursor-pointer"
+                        onClick={() => onOpenRoutineSource?.(routine, stableNamespace)}
                       >
                         <div className="flex items-center gap-3">
                           <PlayCircle size={16} className="text-muted-foreground" />
@@ -732,12 +764,15 @@ export function DatabaseBrowser({
                             </span>
                           </div>
                         </div>
-                        {routine.language && (
-                          <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
-                            {routine.language}
-                          </span>
-                        )}
-                      </div>
+                        <div className="flex items-center gap-2">
+                          {routine.language && (
+                            <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
+                              {routine.language}
+                            </span>
+                          )}
+                          <Code2 size={14} className="text-muted-foreground/50" />
+                        </div>
+                      </button>
                     ))}
                 </>
               )}

@@ -28,7 +28,7 @@ use crate::engine::types::{
     TableColumn, TableIndex, TableSchema, Value, ForeignKey,
     TableQueryOptions, PaginatedQueryResult, SortDirection, FilterOperator,
     Routine, RoutineList, RoutineListOptions, RoutineType, RoutineDefinition, RoutineOperationResult,
-    Trigger, TriggerList, TriggerListOptions, TriggerTiming, TriggerEvent,
+    Trigger, TriggerList, TriggerListOptions, TriggerTiming, TriggerEvent, TriggerDefinition, TriggerOperationResult,
     MaintenanceOperationInfo, MaintenanceOperationType, MaintenanceRequest, MaintenanceResult,
     MaintenanceMessage, MaintenanceMessageLevel,
 };
@@ -688,6 +688,141 @@ impl DataEngine for PostgresDriver {
 
     fn supports_triggers(&self) -> bool {
         true
+    }
+
+    async fn get_trigger_definition(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        trigger_name: &str,
+    ) -> EngineResult<TriggerDefinition> {
+        let pg_session = self.get_session(session).await?;
+        let pool = &pg_session.pool;
+        let schema = namespace.schema.as_deref().unwrap_or("public");
+
+        let query = r#"
+            SELECT
+                t.tgname::text AS trigger_name,
+                c.relname::text AS table_name,
+                t.tgtype::int AS tg_type,
+                t.tgenabled::text AS enabled,
+                p.proname::text AS function_name,
+                pg_get_triggerdef(t.oid)::text AS definition
+            FROM pg_trigger t
+            JOIN pg_class c ON t.tgrelid = c.oid
+            JOIN pg_namespace n ON c.relnamespace = n.oid
+            JOIN pg_proc p ON t.tgfoid = p.oid
+            WHERE n.nspname = $1
+              AND t.tgname = $2
+              AND NOT t.tgisinternal
+            LIMIT 1
+        "#;
+
+        let row: (String, String, i32, String, String, String) = sqlx::query_as(query)
+            .bind(schema)
+            .bind(trigger_name)
+            .fetch_optional(pool)
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?
+            .ok_or_else(|| EngineError::execution_error("Trigger not found"))?;
+
+        let (name, table_name, tg_type, enabled_char, function_name, definition) = row;
+
+        let timing = if tg_type & (1 << 6) != 0 {
+            TriggerTiming::InsteadOf
+        } else if tg_type & (1 << 1) != 0 {
+            TriggerTiming::Before
+        } else {
+            TriggerTiming::After
+        };
+
+        let mut events = Vec::new();
+        if tg_type & (1 << 2) != 0 { events.push(TriggerEvent::Insert); }
+        if tg_type & (1 << 3) != 0 { events.push(TriggerEvent::Delete); }
+        if tg_type & (1 << 4) != 0 { events.push(TriggerEvent::Update); }
+        if tg_type & (1 << 5) != 0 { events.push(TriggerEvent::Truncate); }
+
+        let is_enabled = enabled_char != "D";
+
+        Ok(TriggerDefinition {
+            name,
+            namespace: namespace.clone(),
+            table_name,
+            timing,
+            events,
+            definition,
+            enabled: is_enabled,
+            function_name: Some(function_name),
+        })
+    }
+
+    async fn drop_trigger(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        trigger_name: &str,
+        table_name: &str,
+    ) -> EngineResult<TriggerOperationResult> {
+        let pg_session = self.get_session(session).await?;
+        let pool = &pg_session.pool;
+        let schema = namespace.schema.as_deref().unwrap_or("public");
+
+        let sql = format!(
+            "DROP TRIGGER \"{}\" ON \"{}\".\"{}\"",
+            trigger_name.replace('"', "\"\""),
+            schema.replace('"', "\"\""),
+            table_name.replace('"', "\"\"")
+        );
+
+        let start = Instant::now();
+        sqlx::query(&sql)
+            .execute(pool)
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+        let elapsed = start.elapsed().as_millis() as f64;
+
+        Ok(TriggerOperationResult {
+            success: true,
+            executed_command: sql,
+            message: None,
+            execution_time_ms: elapsed,
+        })
+    }
+
+    async fn toggle_trigger(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        trigger_name: &str,
+        table_name: &str,
+        enable: bool,
+    ) -> EngineResult<TriggerOperationResult> {
+        let pg_session = self.get_session(session).await?;
+        let pool = &pg_session.pool;
+        let schema = namespace.schema.as_deref().unwrap_or("public");
+
+        let action = if enable { "ENABLE" } else { "DISABLE" };
+        let sql = format!(
+            "ALTER TABLE \"{}\".\"{}\" {} TRIGGER \"{}\"",
+            schema.replace('"', "\"\""),
+            table_name.replace('"', "\"\""),
+            action,
+            trigger_name.replace('"', "\"\"")
+        );
+
+        let start = Instant::now();
+        sqlx::query(&sql)
+            .execute(pool)
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+        let elapsed = start.elapsed().as_millis() as f64;
+
+        Ok(TriggerOperationResult {
+            success: true,
+            executed_command: sql,
+            message: None,
+            execution_time_ms: elapsed,
+        })
     }
 
     async fn create_database(&self, session: SessionId, name: &str, _options: Option<Value>) -> EngineResult<()> {

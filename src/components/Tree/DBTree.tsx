@@ -43,6 +43,8 @@ import { CreateDatabaseModal } from './CreateDatabaseModal';
 import { DatabaseContextMenu } from './DatabaseContextMenu';
 import { DeleteDatabaseModal } from './DeleteDatabaseModal';
 import { RoutineContextMenu } from './RoutineContextMenu';
+import { TriggerContextMenu } from './TriggerContextMenu';
+import { EventContextMenu } from './EventContextMenu';
 import { TableContextMenu } from './TableContextMenu';
 
 function getNsKey(ns: Namespace): string {
@@ -63,6 +65,10 @@ interface DBTreeProps {
   onAiGenerateForTable?: (collection: Collection) => void;
   onOpenRoutineSource?: (routine: Routine, namespace: Namespace) => void;
   onCreateRoutine?: (routineType: 'Function' | 'Procedure', namespace: Namespace) => void;
+  onOpenTriggerSource?: (trigger: Trigger, namespace: Namespace) => void;
+  onCreateTrigger?: (namespace: Namespace) => void;
+  onOpenEventSource?: (event: DatabaseEvent, namespace: Namespace) => void;
+  onCreateEvent?: (namespace: Namespace) => void;
   refreshTrigger?: number;
   activeNamespace?: Namespace | null;
 }
@@ -77,6 +83,10 @@ export function DBTree({
   onAiGenerateForTable,
   onOpenRoutineSource,
   onCreateRoutine,
+  onOpenTriggerSource,
+  onCreateTrigger,
+  onOpenEventSource,
+  onCreateEvent,
   refreshTrigger,
   activeNamespace,
 }: DBTreeProps) {
@@ -739,12 +749,13 @@ export function DBTree({
 
                 {/* Triggers Section */}
                 {(() => {
-                  if (triggers.length === 0 && !triggersLoading) return null;
+                  if (triggers.length === 0 && !triggersLoading && !onCreateTrigger) return null;
                   return (
                     <div className="space-y-0.5 mt-2">
+                      <div className="flex items-center">
                       <button
                         type="button"
-                        className="flex items-center gap-1 px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground w-full text-left"
+                        className="flex items-center gap-1 px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground flex-1 text-left"
                         onClick={() => toggleSection('triggers')}
                       >
                         {expandedSections.has('triggers') ? (
@@ -756,21 +767,50 @@ export function DBTree({
                         <span>{t('dbtree.triggers')}</span>
                         <span className="text-muted-foreground/60 ml-auto">{triggers.length}</span>
                       </button>
+                      {onCreateTrigger && expandedNamespace && (
+                        <button
+                          type="button"
+                          className="p-0.5 text-muted-foreground/60 hover:text-foreground mr-1"
+                          title={t('triggerManager.createTrigger')}
+                          onClick={() => onCreateTrigger(expandedNamespace)}
+                        >
+                          <Plus size={12} />
+                        </button>
+                      )}
+                      </div>
                       {expandedSections.has('triggers') &&
                         triggers.map(trigger => (
-                          <div
+                          <TriggerContextMenu
                             key={trigger.name}
-                            className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-muted-foreground text-left group ml-5"
-                            title={`${trigger.timing} ${trigger.events.join(' | ')} ON ${trigger.table_name}`}
+                            trigger={trigger}
+                            sessionId={connectionId}
+                            environment={connection?.environment || 'development'}
+                            readOnly={connection?.read_only || false}
+                            supportsToggle={driver !== 'mysql'}
+                            onViewSource={trig =>
+                              expandedNamespace && onOpenTriggerSource?.(trig, expandedNamespace)
+                            }
+                            onDrop={() => expandedNamespace && refreshTriggers(expandedNamespace)}
+                            onToggle={() => expandedNamespace && refreshTriggers(expandedNamespace)}
                           >
-                            <span className="shrink-0">
-                              <Zap size={13} className={cn(!trigger.enabled && 'opacity-40')} />
-                            </span>
-                            <span className="truncate font-mono text-xs">{trigger.name}</span>
-                            <span className="text-[10px] text-muted-foreground/60 ml-auto">
-                              {trigger.table_name}
-                            </span>
-                          </div>
+                            <button
+                              type="button"
+                              className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md hover:bg-accent/50 text-muted-foreground text-left group ml-5"
+                              title={`${trigger.timing} ${trigger.events.join(' | ')} ON ${trigger.table_name}`}
+                              onClick={() =>
+                                expandedNamespace &&
+                                onOpenTriggerSource?.(trigger, expandedNamespace)
+                              }
+                            >
+                              <span className="shrink-0">
+                                <Zap size={13} className={cn(!trigger.enabled && 'opacity-40')} />
+                              </span>
+                              <span className="truncate font-mono text-xs">{trigger.name}</span>
+                              <span className="text-[10px] text-muted-foreground/60 ml-auto">
+                                {trigger.table_name}
+                              </span>
+                            </button>
+                          </TriggerContextMenu>
                         ))}
                     </div>
                   );
@@ -778,12 +818,13 @@ export function DBTree({
 
                 {/* Events Section (MySQL only) */}
                 {(() => {
-                  if (dbEvents.length === 0) return null;
+                  if (dbEvents.length === 0 && !onCreateEvent) return null;
                   return (
                     <div className="space-y-0.5 mt-2">
+                      <div className="flex items-center">
                       <button
                         type="button"
-                        className="flex items-center gap-1 px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground w-full text-left"
+                        className="flex items-center gap-1 px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground flex-1 text-left"
                         onClick={() => toggleSection('events')}
                       >
                         {expandedSections.has('events') ? (
@@ -795,28 +836,55 @@ export function DBTree({
                         <span>{t('dbtree.events')}</span>
                         <span className="text-muted-foreground/60 ml-auto">{dbEvents.length}</span>
                       </button>
+                      {onCreateEvent && expandedNamespace && driver === 'mysql' && (
+                        <button
+                          type="button"
+                          className="p-0.5 text-muted-foreground/60 hover:text-foreground mr-1"
+                          title={t('eventManager.createEvent')}
+                          onClick={() => onCreateEvent(expandedNamespace)}
+                        >
+                          <Plus size={12} />
+                        </button>
+                      )}
+                      </div>
                       {expandedSections.has('events') &&
                         dbEvents.map(evt => (
-                          <div
+                          <EventContextMenu
                             key={evt.name}
-                            className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-muted-foreground text-left group ml-5"
-                            title={`${evt.event_type}${evt.interval_value ? ` every ${evt.interval_value} ${evt.interval_field}` : ''}`}
+                            event={evt}
+                            sessionId={connectionId}
+                            environment={connection?.environment || 'development'}
+                            readOnly={connection?.read_only || false}
+                            onViewSource={e =>
+                              expandedNamespace && onOpenEventSource?.(e, expandedNamespace)
+                            }
+                            onDrop={() => expandedNamespace && refreshTriggers(expandedNamespace)}
                           >
-                            <span className="shrink-0">
-                              <Calendar size={13} />
-                            </span>
-                            <span className="truncate font-mono text-xs">{evt.name}</span>
-                            <span
-                              className={cn(
-                                'text-[10px] ml-auto',
-                                evt.status === 'Enabled'
-                                  ? 'text-emerald-600'
-                                  : 'text-muted-foreground/60'
-                              )}
+                            <button
+                              type="button"
+                              className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md hover:bg-accent/50 text-muted-foreground text-left group ml-5"
+                              title={`${evt.event_type}${evt.interval_value ? ` every ${evt.interval_value} ${evt.interval_field}` : ''}`}
+                              onClick={() =>
+                                expandedNamespace &&
+                                onOpenEventSource?.(evt, expandedNamespace)
+                              }
                             >
-                              {evt.status === 'Enabled' ? '' : evt.status}
-                            </span>
-                          </div>
+                              <span className="shrink-0">
+                                <Calendar size={13} />
+                              </span>
+                              <span className="truncate font-mono text-xs">{evt.name}</span>
+                              <span
+                                className={cn(
+                                  'text-[10px] ml-auto',
+                                  evt.status === 'Enabled'
+                                    ? 'text-emerald-600'
+                                    : 'text-muted-foreground/60'
+                                )}
+                              >
+                                {evt.status === 'Enabled' ? '' : evt.status}
+                              </span>
+                            </button>
+                          </EventContextMenu>
                         ))}
                     </div>
                   );

@@ -17,11 +17,13 @@ import { useLicense } from '@/providers/LicenseProvider';
 import {
   type Collection,
   connectSavedConnection,
+  type DatabaseEvent,
   listSavedConnections,
   type Namespace,
   type RelationFilter,
   type Routine,
   type SavedConnection,
+  type Trigger,
 } from '../../lib/tauri';
 import { ErrorLogPanel } from '../Logs/ErrorLogPanel';
 import { DBTree } from '../Tree/DBTree';
@@ -44,6 +46,10 @@ interface SidebarProps {
   onAiGenerateForTable?: (collection: Collection) => void;
   onOpenRoutineSource?: (routine: Routine, namespace: Namespace) => void;
   onCreateRoutine?: (routineType: 'Function' | 'Procedure', namespace: Namespace) => void;
+  onOpenTriggerSource?: (trigger: Trigger, namespace: Namespace) => void;
+  onCreateTrigger?: (namespace: Namespace) => void;
+  onOpenEventSource?: (event: DatabaseEvent, namespace: Namespace) => void;
+  onCreateEvent?: (namespace: Namespace) => void;
   onEditConnection: (connection: SavedConnection, password: string) => void;
   onNewQuery?: () => void;
   schemaRefreshTrigger?: number;
@@ -62,6 +68,10 @@ export function Sidebar({
   onAiGenerateForTable,
   onOpenRoutineSource,
   onCreateRoutine,
+  onOpenTriggerSource,
+  onCreateTrigger,
+  onOpenEventSource,
+  onCreateEvent,
   onEditConnection,
   onNewQuery,
   schemaRefreshTrigger,
@@ -227,6 +237,10 @@ export function Sidebar({
               onAiGenerateForTable={onAiGenerateForTable}
               onOpenRoutineSource={onOpenRoutineSource}
               onCreateRoutine={onCreateRoutine}
+              onOpenTriggerSource={onOpenTriggerSource}
+              onCreateTrigger={onCreateTrigger}
+              onOpenEventSource={onOpenEventSource}
+              onCreateEvent={onCreateEvent}
               refreshTrigger={schemaRefreshTrigger}
               activeNamespace={activeNamespace}
             />

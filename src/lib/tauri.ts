@@ -415,6 +415,24 @@ export interface TriggerList {
   total_count: number;
 }
 
+export interface TriggerDefinition {
+  name: string;
+  namespace: Namespace;
+  table_name: string;
+  timing: TriggerTiming;
+  events: TriggerEvent[];
+  definition: string;
+  enabled: boolean;
+  function_name?: string;
+}
+
+export interface TriggerOperationResult {
+  success: boolean;
+  executed_command: string;
+  message?: string;
+  execution_time_ms: number;
+}
+
 export async function listTriggers(
   sessionId: string,
   namespace: Namespace,
@@ -432,6 +450,68 @@ export async function listTriggers(
     search,
     page,
     page_size: pageSize,
+  });
+}
+
+export async function getTriggerDefinition(
+  sessionId: string,
+  database: string,
+  schema: string | null | undefined,
+  triggerName: string
+): Promise<{
+  success: boolean;
+  definition?: TriggerDefinition;
+  error?: string;
+}> {
+  return invoke('get_trigger_definition', {
+    sessionId,
+    database,
+    schema,
+    triggerName,
+  });
+}
+
+export async function dropTrigger(
+  sessionId: string,
+  database: string,
+  schema: string | null | undefined,
+  triggerName: string,
+  tableName: string,
+  acknowledgedDangerous?: boolean
+): Promise<{
+  success: boolean;
+  result?: TriggerOperationResult;
+  error?: string;
+}> {
+  return invoke('drop_trigger', {
+    sessionId,
+    database,
+    schema,
+    triggerName,
+    tableName,
+    acknowledgedDangerous,
+  });
+}
+
+export async function toggleTrigger(
+  sessionId: string,
+  database: string,
+  schema: string | null | undefined,
+  triggerName: string,
+  tableName: string,
+  enable: boolean
+): Promise<{
+  success: boolean;
+  result?: TriggerOperationResult;
+  error?: string;
+}> {
+  return invoke('toggle_trigger', {
+    sessionId,
+    database,
+    schema,
+    triggerName,
+    tableName,
+    enable,
   });
 }
 
@@ -455,6 +535,20 @@ export interface EventList {
   total_count: number;
 }
 
+export interface EventDefinition {
+  name: string;
+  namespace: Namespace;
+  definition: string;
+  status: EventStatus;
+}
+
+export interface EventOperationResult {
+  success: boolean;
+  executed_command: string;
+  message?: string;
+  execution_time_ms: number;
+}
+
 export async function listEvents(
   sessionId: string,
   namespace: Namespace,
@@ -472,6 +566,44 @@ export async function listEvents(
     search,
     page,
     page_size: pageSize,
+  });
+}
+
+export async function getEventDefinition(
+  sessionId: string,
+  database: string,
+  schema: string | null | undefined,
+  eventName: string
+): Promise<{
+  success: boolean;
+  definition?: EventDefinition;
+  error?: string;
+}> {
+  return invoke('get_event_definition', {
+    sessionId,
+    database,
+    schema,
+    eventName,
+  });
+}
+
+export async function dropEvent(
+  sessionId: string,
+  database: string,
+  schema: string | null | undefined,
+  eventName: string,
+  acknowledgedDangerous?: boolean
+): Promise<{
+  success: boolean;
+  result?: EventOperationResult;
+  error?: string;
+}> {
+  return invoke('drop_event', {
+    sessionId,
+    database,
+    schema,
+    eventName,
+    acknowledgedDangerous,
   });
 }
 

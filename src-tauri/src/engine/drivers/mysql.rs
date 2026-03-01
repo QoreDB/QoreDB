@@ -25,8 +25,8 @@ use crate::engine::types::{
     TableColumn, TableIndex, TableSchema, Value, ForeignKey,
     TableQueryOptions, PaginatedQueryResult, SortDirection, FilterOperator,
     Routine, RoutineList, RoutineListOptions, RoutineType, RoutineDefinition, RoutineOperationResult,
-    Trigger, TriggerList, TriggerListOptions, TriggerTiming, TriggerEvent,
-    DatabaseEvent, EventList, EventListOptions, EventStatus,
+    Trigger, TriggerList, TriggerListOptions, TriggerTiming, TriggerEvent, TriggerDefinition, TriggerOperationResult,
+    DatabaseEvent, EventList, EventListOptions, EventStatus, EventDefinition, EventOperationResult,
     CharsetInfo, CollationInfo, CreationOptions,
     MaintenanceOperationInfo, MaintenanceOperationType, MaintenanceRequest, MaintenanceResult,
     MaintenanceMessage, MaintenanceMessageLevel,
@@ -739,6 +739,109 @@ impl DataEngine for MySqlDriver {
         true
     }
 
+    async fn get_trigger_definition(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        trigger_name: &str,
+    ) -> EngineResult<TriggerDefinition> {
+        let mysql_session = self.get_session(session).await?;
+        let pool = &mysql_session.pool;
+
+        // Get trigger metadata
+        let meta_query = r#"
+            SELECT
+                CAST(TRIGGER_NAME AS CHAR) AS trigger_name,
+                CAST(EVENT_OBJECT_TABLE AS CHAR) AS table_name,
+                CAST(ACTION_TIMING AS CHAR) AS timing,
+                CAST(EVENT_MANIPULATION AS CHAR) AS event_type
+            FROM information_schema.TRIGGERS
+            WHERE TRIGGER_SCHEMA = ?
+              AND TRIGGER_NAME = ?
+            LIMIT 1
+        "#;
+
+        let meta: (String, String, String, String) = sqlx::query_as(meta_query)
+            .bind(&namespace.database)
+            .bind(trigger_name)
+            .fetch_optional(pool)
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?
+            .ok_or_else(|| EngineError::execution_error("Trigger not found"))?;
+
+        let (name, table_name, timing_str, event_str) = meta;
+
+        let timing = match timing_str.as_str() {
+            "BEFORE" => TriggerTiming::Before,
+            "AFTER" => TriggerTiming::After,
+            _ => TriggerTiming::After,
+        };
+
+        let event = match event_str.as_str() {
+            "INSERT" => TriggerEvent::Insert,
+            "UPDATE" => TriggerEvent::Update,
+            "DELETE" => TriggerEvent::Delete,
+            _ => TriggerEvent::Insert,
+        };
+
+        // Get CREATE TRIGGER statement via SHOW CREATE TRIGGER
+        // Returns columns: Trigger, sql_mode, SQL Original Statement, ...
+        let show_sql = format!(
+            "SHOW CREATE TRIGGER `{}`.`{}`",
+            namespace.database.replace('`', "``"),
+            trigger_name.replace('`', "``")
+        );
+
+        let row: Option<(String, String, String)> = sqlx::query_as(&show_sql)
+            .fetch_optional(pool)
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        let definition = row.map(|(_, _, stmt)| stmt).unwrap_or_default();
+
+        Ok(TriggerDefinition {
+            name,
+            namespace: namespace.clone(),
+            table_name,
+            timing,
+            events: vec![event],
+            definition,
+            enabled: true,
+            function_name: None,
+        })
+    }
+
+    async fn drop_trigger(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        trigger_name: &str,
+        _table_name: &str,
+    ) -> EngineResult<TriggerOperationResult> {
+        let mysql_session = self.get_session(session).await?;
+        let pool = &mysql_session.pool;
+
+        let sql = format!(
+            "DROP TRIGGER `{}`.`{}`",
+            namespace.database.replace('`', "``"),
+            trigger_name.replace('`', "``")
+        );
+
+        let start = Instant::now();
+        sqlx::query(&sql)
+            .execute(pool)
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+        let elapsed = start.elapsed().as_millis() as f64;
+
+        Ok(TriggerOperationResult {
+            success: true,
+            executed_command: sql,
+            message: None,
+            execution_time_ms: elapsed,
+        })
+    }
+
     async fn list_events(
         &self,
         session: SessionId,
@@ -826,6 +929,93 @@ impl DataEngine for MySqlDriver {
 
     fn supports_events(&self) -> bool {
         true
+    }
+
+    async fn get_event_definition(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        event_name: &str,
+    ) -> EngineResult<EventDefinition> {
+        let mysql_session = self.get_session(session).await?;
+        let pool = &mysql_session.pool;
+
+        // Get event status
+        let status_query = r#"
+            SELECT CAST(STATUS AS CHAR)
+            FROM information_schema.EVENTS
+            WHERE EVENT_SCHEMA = ?
+              AND EVENT_NAME = ?
+            LIMIT 1
+        "#;
+
+        let status_str: Option<String> = sqlx::query_scalar(status_query)
+            .bind(&namespace.database)
+            .bind(event_name)
+            .fetch_optional(pool)
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        let status_str = status_str
+            .ok_or_else(|| EngineError::execution_error("Event not found"))?;
+
+        let status = match status_str.as_str() {
+            "ENABLED" => EventStatus::Enabled,
+            "SLAVESIDE_DISABLED" => EventStatus::SlavesideDisabled,
+            _ => EventStatus::Disabled,
+        };
+
+        // Get CREATE EVENT statement via SHOW CREATE EVENT
+        // Returns columns: Event, sql_mode, time_zone, Create Event, ...
+        let show_sql = format!(
+            "SHOW CREATE EVENT `{}`.`{}`",
+            namespace.database.replace('`', "``"),
+            event_name.replace('`', "``")
+        );
+
+        let row: Option<(String, String, String, String)> = sqlx::query_as(&show_sql)
+            .fetch_optional(pool)
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        let definition = row.map(|(_, _, _, stmt)| stmt).unwrap_or_default();
+
+        Ok(EventDefinition {
+            name: event_name.to_string(),
+            namespace: namespace.clone(),
+            definition,
+            status,
+        })
+    }
+
+    async fn drop_event(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        event_name: &str,
+    ) -> EngineResult<EventOperationResult> {
+        let mysql_session = self.get_session(session).await?;
+        let pool = &mysql_session.pool;
+
+        let sql = format!(
+            "DROP EVENT `{}`.`{}`",
+            namespace.database.replace('`', "``"),
+            event_name.replace('`', "``")
+        );
+
+        let start = Instant::now();
+        sqlx::query(&sql)
+            .execute(pool)
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+        let elapsed = start.elapsed().as_millis() as f64;
+
+        Ok(EventOperationResult {
+            success: true,
+            executed_command: sql,
+            message: None,
+            execution_time_ms: elapsed,
+        })
     }
 
     async fn get_creation_options(&self, session: SessionId) -> EngineResult<CreationOptions> {

@@ -1471,5 +1471,32 @@
     "sourceLoadError": "Impossible de charger le source de la routine",
     "function": "Fonction",
     "procedure": "Procédure"
+  },
+  "triggerManager": {
+    "viewSource": "Voir le source",
+    "drop": "Supprimer",
+    "enable": "Activer",
+    "disable": "Désactiver",
+    "dropTitle": "Supprimer le déclencheur",
+    "dropConfirm": "Voulez-vous vraiment supprimer le déclencheur \"{{name}}\" sur la table \"{{table}}\" ? Cette action est irréversible.",
+    "dropSuccess": "Déclencheur \"{{name}}\" supprimé avec succès",
+    "dropFailed": "Échec de la suppression du déclencheur \"{{name}}\"",
+    "enableSuccess": "Déclencheur \"{{name}}\" activé avec succès",
+    "disableSuccess": "Déclencheur \"{{name}}\" désactivé avec succès",
+    "toggleFailed": "Échec du basculement du déclencheur \"{{name}}\"",
+    "createTrigger": "Nouveau déclencheur",
+    "loadingSource": "Chargement du source...",
+    "sourceLoadError": "Impossible de charger le source du déclencheur"
+  },
+  "eventManager": {
+    "viewSource": "Voir le source",
+    "drop": "Supprimer",
+    "dropTitle": "Supprimer l'événement",
+    "dropConfirm": "Voulez-vous vraiment supprimer l'événement \"{{name}}\" ? Cette action est irréversible.",
+    "dropSuccess": "Événement \"{{name}}\" supprimé avec succès",
+    "dropFailed": "Échec de la suppression de l'événement \"{{name}}\"",
+    "createEvent": "Nouvel événement",
+    "loadingSource": "Chargement du source...",
+    "sourceLoadError": "Impossible de charger le source de l'événement"
   }
 }

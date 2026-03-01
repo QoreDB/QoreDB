@@ -1473,5 +1473,32 @@
     "sourceLoadError": "Failed to load routine source",
     "function": "Function",
     "procedure": "Procedure"
+  },
+  "triggerManager": {
+    "viewSource": "View source",
+    "drop": "Drop",
+    "enable": "Enable",
+    "disable": "Disable",
+    "dropTitle": "Drop Trigger",
+    "dropConfirm": "Are you sure you want to drop trigger \"{{name}}\" on table \"{{table}}\"? This action cannot be undone.",
+    "dropSuccess": "Trigger \"{{name}}\" dropped successfully",
+    "dropFailed": "Failed to drop trigger \"{{name}}\"",
+    "enableSuccess": "Trigger \"{{name}}\" enabled successfully",
+    "disableSuccess": "Trigger \"{{name}}\" disabled successfully",
+    "toggleFailed": "Failed to toggle trigger \"{{name}}\"",
+    "createTrigger": "New trigger",
+    "loadingSource": "Loading source...",
+    "sourceLoadError": "Failed to load trigger source"
+  },
+  "eventManager": {
+    "viewSource": "View source",
+    "drop": "Drop",
+    "dropTitle": "Drop Event",
+    "dropConfirm": "Are you sure you want to drop event \"{{name}}\"? This action cannot be undone.",
+    "dropSuccess": "Event \"{{name}}\" dropped successfully",
+    "dropFailed": "Failed to drop event \"{{name}}\"",
+    "createEvent": "New event",
+    "loadingSource": "Loading source...",
+    "sourceLoadError": "Failed to load event source"
   }
 }

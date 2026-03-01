@@ -47,6 +47,9 @@ import {
   type Trigger,
 } from '../../lib/tauri';
 import { CreateTableModal } from '../Table/CreateTableModal';
+import { EventContextMenu } from '../Tree/EventContextMenu';
+import { RoutineContextMenu } from '../Tree/RoutineContextMenu';
+import { TriggerContextMenu } from '../Tree/TriggerContextMenu';
 import { StatCard } from './StatCard';
 
 function formatBytes(bytes: number): string {
@@ -73,6 +76,10 @@ interface DatabaseBrowserProps {
   onOpenFulltextSearch?: () => void;
   onOpenRoutineSource?: (routine: Routine, namespace: Namespace) => void;
   onCreateRoutine?: (routineType: 'Function' | 'Procedure', namespace: Namespace) => void;
+  onOpenTriggerSource?: (trigger: Trigger, namespace: Namespace) => void;
+  onCreateTrigger?: (namespace: Namespace) => void;
+  onOpenEventSource?: (event: DatabaseEvent, namespace: Namespace) => void;
+  onCreateEvent?: (namespace: Namespace) => void;
   onClose: () => void;
   initialTab?: DatabaseBrowserTab;
   onActiveTabChange?: (tab: DatabaseBrowserTab) => void;
@@ -101,6 +108,10 @@ export function DatabaseBrowser({
   onOpenFulltextSearch,
   onOpenRoutineSource,
   onCreateRoutine,
+  onOpenTriggerSource,
+  onCreateTrigger,
+  onOpenEventSource,
+  onCreateEvent,
   onClose,
   initialTab,
   onActiveTabChange,
@@ -705,35 +716,44 @@ export function DatabaseBrowser({
                   {routines
                     .filter(r => r.routine_type === 'Function')
                     .map(routine => (
-                      <button
-                        type="button"
+                      <RoutineContextMenu
                         key={`fn-${routine.name}-${routine.arguments}`}
-                        className="flex items-center justify-between w-full px-4 py-3 hover:bg-muted/50 transition-colors text-left cursor-pointer"
-                        onClick={() => onOpenRoutineSource?.(routine, stableNamespace)}
+                        routine={routine}
+                        sessionId={sessionId}
+                        environment={environment || 'development'}
+                        readOnly={readOnly || false}
+                        onViewSource={r => onOpenRoutineSource?.(r, stableNamespace)}
+                        onDrop={loadRoutines}
                       >
-                        <div className="flex items-center gap-3">
-                          <FunctionSquare size={16} className="text-muted-foreground" />
-                          <div>
-                            <span className="font-mono text-sm">{routine.name}</span>
-                            <span className="text-xs text-muted-foreground ml-1">
-                              ({routine.arguments})
-                            </span>
-                            {routine.return_type && (
+                        <button
+                          type="button"
+                          className="flex items-center justify-between w-full px-4 py-3 hover:bg-muted/50 transition-colors text-left cursor-pointer"
+                          onClick={() => onOpenRoutineSource?.(routine, stableNamespace)}
+                        >
+                          <div className="flex items-center gap-3">
+                            <FunctionSquare size={16} className="text-muted-foreground" />
+                            <div>
+                              <span className="font-mono text-sm">{routine.name}</span>
                               <span className="text-xs text-muted-foreground ml-1">
-                                &rarr; {routine.return_type}
+                                ({routine.arguments})
+                              </span>
+                              {routine.return_type && (
+                                <span className="text-xs text-muted-foreground ml-1">
+                                  &rarr; {routine.return_type}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {routine.language && (
+                              <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
+                                {routine.language}
                               </span>
                             )}
+                            <Code2 size={14} className="text-muted-foreground/50" />
                           </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {routine.language && (
-                            <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
-                              {routine.language}
-                            </span>
-                          )}
-                          <Code2 size={14} className="text-muted-foreground/50" />
-                        </div>
-                      </button>
+                        </button>
+                      </RoutineContextMenu>
                     ))}
 
                   {/* Procedures */}
@@ -749,30 +769,39 @@ export function DatabaseBrowser({
                   {routines
                     .filter(r => r.routine_type === 'Procedure')
                     .map(routine => (
-                      <button
-                        type="button"
+                      <RoutineContextMenu
                         key={`proc-${routine.name}-${routine.arguments}`}
-                        className="flex items-center justify-between w-full px-4 py-3 hover:bg-muted/50 transition-colors text-left cursor-pointer"
-                        onClick={() => onOpenRoutineSource?.(routine, stableNamespace)}
+                        routine={routine}
+                        sessionId={sessionId}
+                        environment={environment || 'development'}
+                        readOnly={readOnly || false}
+                        onViewSource={r => onOpenRoutineSource?.(r, stableNamespace)}
+                        onDrop={loadRoutines}
                       >
-                        <div className="flex items-center gap-3">
-                          <PlayCircle size={16} className="text-muted-foreground" />
-                          <div>
-                            <span className="font-mono text-sm">{routine.name}</span>
-                            <span className="text-xs text-muted-foreground ml-1">
-                              ({routine.arguments})
-                            </span>
+                        <button
+                          type="button"
+                          className="flex items-center justify-between w-full px-4 py-3 hover:bg-muted/50 transition-colors text-left cursor-pointer"
+                          onClick={() => onOpenRoutineSource?.(routine, stableNamespace)}
+                        >
+                          <div className="flex items-center gap-3">
+                            <PlayCircle size={16} className="text-muted-foreground" />
+                            <div>
+                              <span className="font-mono text-sm">{routine.name}</span>
+                              <span className="text-xs text-muted-foreground ml-1">
+                                ({routine.arguments})
+                              </span>
+                            </div>
                           </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {routine.language && (
-                            <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
-                              {routine.language}
-                            </span>
-                          )}
-                          <Code2 size={14} className="text-muted-foreground/50" />
-                        </div>
-                      </button>
+                          <div className="flex items-center gap-2">
+                            {routine.language && (
+                              <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
+                                {routine.language}
+                              </span>
+                            )}
+                            <Code2 size={14} className="text-muted-foreground/50" />
+                          </div>
+                        </button>
+                      </RoutineContextMenu>
                     ))}
                 </>
               )}
@@ -781,6 +810,30 @@ export function DatabaseBrowser({
         ) : activeTab === 'triggers' ? (
           /* Triggers Tab */
           <div className="flex flex-col h-full gap-4">
+            {/* Action bar */}
+            {!readOnly && (
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onCreateTrigger?.(stableNamespace)}
+                >
+                  <Plus size={14} className="mr-1" />
+                  {t('triggerManager.createTrigger')}
+                </Button>
+                {driver === 'mysql' && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onCreateEvent?.(stableNamespace)}
+                  >
+                    <Plus size={14} className="mr-1" />
+                    {t('eventManager.createEvent')}
+                  </Button>
+                )}
+              </div>
+            )}
+
             <div className="border border-border rounded-md divide-y divide-border flex-1 overflow-auto relative min-h-50">
               {triggersLoading && (
                 <div className="absolute inset-0 z-10 bg-background/50 flex items-center justify-center backdrop-blur-[1px]">
@@ -804,39 +857,52 @@ export function DatabaseBrowser({
                         </h4>
                       </div>
                       {triggers.map(trigger => (
-                        <div
+                        <TriggerContextMenu
                           key={trigger.name}
-                          className="flex items-center justify-between w-full px-4 py-3 hover:bg-muted/50 transition-colors text-left"
+                          trigger={trigger}
+                          sessionId={sessionId}
+                          environment={environment}
+                          readOnly={readOnly}
+                          supportsToggle={driver !== 'mysql'}
+                          onViewSource={trig => onOpenTriggerSource?.(trig, stableNamespace)}
+                          onDrop={loadTriggers}
+                          onToggle={loadTriggers}
                         >
-                          <div className="flex items-center gap-3">
-                            <Zap
-                              size={16}
-                              className={cn(
-                                'text-muted-foreground',
-                                !trigger.enabled && 'opacity-40'
-                              )}
-                            />
-                            <div>
-                              <span className="font-mono text-sm">{trigger.name}</span>
-                              <span className="text-xs text-muted-foreground ml-2">
-                                {trigger.timing} {trigger.events.join(' | ')} ON{' '}
-                                {trigger.table_name}
-                              </span>
+                          <button
+                            type="button"
+                            className="flex items-center justify-between w-full px-4 py-3 hover:bg-muted/50 transition-colors text-left"
+                            onClick={() => onOpenTriggerSource?.(trigger, stableNamespace)}
+                          >
+                            <div className="flex items-center gap-3">
+                              <Zap
+                                size={16}
+                                className={cn(
+                                  'text-muted-foreground',
+                                  !trigger.enabled && 'opacity-40'
+                                )}
+                              />
+                              <div>
+                                <span className="font-mono text-sm">{trigger.name}</span>
+                                <span className="text-xs text-muted-foreground ml-2">
+                                  {trigger.timing} {trigger.events.join(' | ')} ON{' '}
+                                  {trigger.table_name}
+                                </span>
+                              </div>
                             </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {trigger.function_name && (
-                              <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
-                                {trigger.function_name}
-                              </span>
-                            )}
-                            {!trigger.enabled && (
-                              <span className="text-xs text-orange-500 bg-orange-500/10 px-2 py-0.5 rounded">
-                                disabled
-                              </span>
-                            )}
-                          </div>
-                        </div>
+                            <div className="flex items-center gap-2">
+                              {trigger.function_name && (
+                                <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
+                                  {trigger.function_name}
+                                </span>
+                              )}
+                              {!trigger.enabled && (
+                                <span className="text-xs text-orange-500 bg-orange-500/10 px-2 py-0.5 rounded">
+                                  disabled
+                                </span>
+                              )}
+                            </div>
+                          </button>
+                        </TriggerContextMenu>
                       ))}
                     </>
                   )}
@@ -851,36 +917,47 @@ export function DatabaseBrowser({
                         </h4>
                       </div>
                       {dbEvents.map(evt => (
-                        <div
+                        <EventContextMenu
                           key={evt.name}
-                          className="flex items-center justify-between w-full px-4 py-3 hover:bg-muted/50 transition-colors text-left"
+                          event={evt}
+                          sessionId={sessionId}
+                          environment={environment}
+                          readOnly={readOnly}
+                          onViewSource={e => onOpenEventSource?.(e, stableNamespace)}
+                          onDrop={loadTriggers}
                         >
-                          <div className="flex items-center gap-3">
-                            <Calendar size={16} className="text-muted-foreground" />
-                            <div>
-                              <span className="font-mono text-sm">{evt.name}</span>
-                              <span className="text-xs text-muted-foreground ml-2">
-                                {evt.event_type}
-                                {evt.interval_value && evt.interval_field && (
-                                  <>
-                                    {' '}
-                                    every {evt.interval_value} {evt.interval_field}
-                                  </>
-                                )}
-                              </span>
-                            </div>
-                          </div>
-                          <span
-                            className={cn(
-                              'text-xs px-2 py-0.5 rounded',
-                              evt.status === 'Enabled'
-                                ? 'text-emerald-600 bg-emerald-500/10'
-                                : 'text-orange-500 bg-orange-500/10'
-                            )}
+                          <button
+                            type="button"
+                            className="flex items-center justify-between w-full px-4 py-3 hover:bg-muted/50 transition-colors text-left"
+                            onClick={() => onOpenEventSource?.(evt, stableNamespace)}
                           >
-                            {evt.status}
-                          </span>
-                        </div>
+                            <div className="flex items-center gap-3">
+                              <Calendar size={16} className="text-muted-foreground" />
+                              <div>
+                                <span className="font-mono text-sm">{evt.name}</span>
+                                <span className="text-xs text-muted-foreground ml-2">
+                                  {evt.event_type}
+                                  {evt.interval_value && evt.interval_field && (
+                                    <>
+                                      {' '}
+                                      every {evt.interval_value} {evt.interval_field}
+                                    </>
+                                  )}
+                                </span>
+                              </div>
+                            </div>
+                            <span
+                              className={cn(
+                                'text-xs px-2 py-0.5 rounded',
+                                evt.status === 'Enabled'
+                                  ? 'text-emerald-600 bg-emerald-500/10'
+                                  : 'text-orange-500 bg-orange-500/10'
+                              )}
+                            >
+                              {evt.status}
+                            </span>
+                          </button>
+                        </EventContextMenu>
                       ))}
                     </>
                   )}

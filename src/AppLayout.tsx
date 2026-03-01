@@ -47,6 +47,7 @@ import type { HistoryEntry } from './lib/history';
 import { notify } from './lib/notify';
 import type { QueryLibraryItem } from './lib/queryLibrary';
 import { getRoutineTemplate } from './lib/routineTemplates';
+import { getTriggerTemplate, getEventTemplate } from './lib/triggerTemplates';
 import {
   createDatabaseTab,
   createDiffTab,
@@ -59,13 +60,17 @@ import {
   type Collection,
   connectSavedConnection,
   type DriverCapabilities,
+  type DatabaseEvent,
+  getEventDefinition,
   getRoutineDefinition,
+  getTriggerDefinition,
   type Namespace,
   type RelationFilter,
   type Routine,
   type RoutineType,
   type SavedConnection,
   type SearchFilter,
+  type Trigger,
 } from './lib/tauri';
 import { useModalContext } from './providers/ModalProvider';
 import { useSessionContext } from './providers/SessionProvider';
@@ -234,6 +239,68 @@ export function AppLayout() {
       openTab(tab);
     },
     [sessionId, driver, openTab, t]
+  );
+
+  const handleOpenTriggerSource = useCallback(
+    async (trigger: Trigger, namespace: Namespace) => {
+      if (!sessionId) return;
+      const result = await getTriggerDefinition(
+        sessionId,
+        namespace.database,
+        namespace.schema,
+        trigger.name
+      );
+      if (result.success && result.definition) {
+        const tab = createQueryTab(result.definition.definition, namespace);
+        tab.title = `trigger: ${trigger.name}`;
+        openTab(tab);
+      } else {
+        notify.error(t('triggerManager.sourceLoadError'), result.error);
+      }
+    },
+    [sessionId, openTab, t]
+  );
+
+  const handleCreateTrigger = useCallback(
+    (namespace: Namespace) => {
+      if (!sessionId) return;
+      const template = getTriggerTemplate(driver as Driver, namespace);
+      const tab = createQueryTab(template, namespace);
+      tab.title = t('triggerManager.createTrigger');
+      openTab(tab);
+    },
+    [sessionId, driver, openTab, t]
+  );
+
+  const handleOpenEventSource = useCallback(
+    async (event: DatabaseEvent, namespace: Namespace) => {
+      if (!sessionId) return;
+      const result = await getEventDefinition(
+        sessionId,
+        namespace.database,
+        namespace.schema,
+        event.name
+      );
+      if (result.success && result.definition) {
+        const tab = createQueryTab(result.definition.definition, namespace);
+        tab.title = `event: ${event.name}`;
+        openTab(tab);
+      } else {
+        notify.error(t('eventManager.sourceLoadError'), result.error);
+      }
+    },
+    [sessionId, openTab, t]
+  );
+
+  const handleCreateEvent = useCallback(
+    (namespace: Namespace) => {
+      if (!sessionId) return;
+      const template = getEventTemplate(namespace);
+      const tab = createQueryTab(template, namespace);
+      tab.title = t('eventManager.createEvent');
+      openTab(tab);
+    },
+    [sessionId, openTab, t]
   );
 
   const handleOpenHistory = useCallback(() => {
@@ -454,6 +521,10 @@ export function AppLayout() {
                 onAiGenerateForTable={handleAiGenerateForTable}
                 onOpenRoutineSource={handleOpenRoutineSource}
                 onCreateRoutine={handleCreateRoutine}
+                onOpenTriggerSource={handleOpenTriggerSource}
+                onCreateTrigger={handleCreateTrigger}
+                onOpenEventSource={handleOpenEventSource}
+                onCreateEvent={handleCreateEvent}
                 onEditConnection={handleEditConnection}
                 onNewQuery={handleNewQuery}
                 schemaRefreshTrigger={schemaRefreshTrigger}
@@ -519,6 +590,10 @@ export function AppLayout() {
                 onScheduleRecoverySave={scheduleRecoverySave}
                 onOpenRoutineSource={handleOpenRoutineSource}
                 onCreateRoutine={handleCreateRoutine}
+                onOpenTriggerSource={handleOpenTriggerSource}
+                onCreateTrigger={handleCreateTrigger}
+                onOpenEventSource={handleOpenEventSource}
+                onCreateEvent={handleCreateEvent}
               />
             </SandboxBorder>
 
@@ -598,6 +673,10 @@ interface AppContentProps {
   onScheduleRecoverySave: () => void;
   onOpenRoutineSource: (routine: Routine, namespace: Namespace) => void;
   onCreateRoutine: (routineType: RoutineType, namespace: Namespace) => void;
+  onOpenTriggerSource: (trigger: Trigger, namespace: Namespace) => void;
+  onCreateTrigger: (namespace: Namespace) => void;
+  onOpenEventSource: (event: DatabaseEvent, namespace: Namespace) => void;
+  onCreateEvent: (namespace: Namespace) => void;
 }
 
 function AppContent({
@@ -630,6 +709,10 @@ function AppContent({
   onScheduleRecoverySave,
   onOpenRoutineSource,
   onCreateRoutine,
+  onOpenTriggerSource,
+  onCreateTrigger,
+  onOpenEventSource,
+  onCreateEvent,
 }: AppContentProps) {
   if (!sessionId) {
     return (
@@ -700,6 +783,10 @@ function AppContent({
         onOpenFulltextSearch={onOpenFulltextSearch}
         onOpenRoutineSource={onOpenRoutineSource}
         onCreateRoutine={onCreateRoutine}
+        onOpenTriggerSource={onOpenTriggerSource}
+        onCreateTrigger={onCreateTrigger}
+        onOpenEventSource={onOpenEventSource}
+        onCreateEvent={onCreateEvent}
         onClose={() => onCloseTab(activeTab.id)}
       />
     );

@@ -174,6 +174,12 @@ pub fn run() {
             // Routine management commands
             commands::routines::get_routine_definition,
             commands::routines::drop_routine,
+            // Trigger & Event management commands
+            commands::triggers::get_trigger_definition,
+            commands::triggers::drop_trigger,
+            commands::triggers::toggle_trigger,
+            commands::triggers::get_event_definition,
+            commands::triggers::drop_event,
             // Logs
             commands::logs::export_logs,
             commands::logs::log_frontend_message,

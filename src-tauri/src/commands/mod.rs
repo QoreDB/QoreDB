@@ -15,6 +15,7 @@ pub mod logs;
 pub mod maintenance;
 pub mod metrics;
 pub mod routines;
+pub mod triggers;
 pub mod mutation;
 pub mod policy;
 pub mod query;

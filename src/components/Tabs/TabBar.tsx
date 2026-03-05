@@ -39,7 +39,6 @@ export function TabBar({ tabs = [], activeId, onSelect, onClose, onNew }: TabBar
     }
   };
 
-  // Les onglets "query" sont des documents temporaires, les autres sont des vues persistantes
   const isTemporaryTab = (type: TabItem['type']) => type === 'query';
 
   return (

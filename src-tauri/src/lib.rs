@@ -27,6 +27,7 @@ use engine::drivers::mysql::MySqlDriver;
 use engine::drivers::postgres::PostgresDriver;
 use engine::drivers::redis::RedisDriver;
 use engine::drivers::sqlite::SqliteDriver;
+use engine::drivers::cockroachdb::CockroachDbDriver;
 use engine::drivers::sqlserver::SqlServerDriver;
 use engine::{DriverRegistry, QueryManager, SessionManager};
 use interceptor::InterceptorPipeline;
@@ -61,6 +62,7 @@ impl AppState {
         registry.register(Arc::new(RedisDriver::new()));
         registry.register(Arc::new(SqliteDriver::new()));
         registry.register(Arc::new(DuckDbDriver::new()));
+        registry.register(Arc::new(CockroachDbDriver::new()));
         registry.register(Arc::new(SqlServerDriver::new()));
 
         let registry = Arc::new(registry);

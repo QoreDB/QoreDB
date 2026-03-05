@@ -86,7 +86,7 @@ pub fn is_select_prefix(sql: &str) -> bool {
 }
 
 fn dialect_for_driver(driver_id: &str) -> Box<dyn Dialect> {
-    if driver_id.eq_ignore_ascii_case("postgres") {
+    if driver_id.eq_ignore_ascii_case("postgres") || driver_id.eq_ignore_ascii_case("cockroachdb") {
         Box::new(PostgreSqlDialect {})
     } else if driver_id.eq_ignore_ascii_case("mysql") {
         Box::new(MySqlDialect {})

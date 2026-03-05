@@ -28,7 +28,7 @@ import { useTranslation } from 'react-i18next';
 import { ERDiagram } from '@/components/Schema/ERDiagram';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { getTerminology } from '@/lib/driverCapabilities';
+import { getSchemaObjectCapabilities, getTerminology } from '@/lib/driverCapabilities';
 import { emitTableChange, onTableChange } from '@/lib/tableEvents';
 import { cn } from '@/lib/utils';
 import { DRIVER_ICONS, DRIVER_LABELS, type Driver, getDriverMetadata } from '../../lib/drivers';
@@ -145,6 +145,7 @@ export function DatabaseBrowser({
   const pageSize = 20;
 
   const driverMeta = getDriverMetadata(driver);
+  const schemaObjectCapabilities = getSchemaObjectCapabilities(driver);
 
   const handleTabChange = useCallback(
     (tab: DatabaseBrowserTab) => {
@@ -155,6 +156,12 @@ export function DatabaseBrowser({
   );
 
   const loadRoutines = useCallback(async () => {
+    if (!schemaObjectCapabilities.routines) {
+      setRoutines([]);
+      setRoutinesLoading(false);
+      return;
+    }
+
     setRoutinesLoading(true);
     try {
       const result = await listRoutines(sessionId, stableNamespace);
@@ -166,27 +173,68 @@ export function DatabaseBrowser({
     } finally {
       setRoutinesLoading(false);
     }
-  }, [sessionId, stableNamespace]);
+  }, [sessionId, stableNamespace, schemaObjectCapabilities.routines]);
 
   const loadTriggers = useCallback(async () => {
+    if (!schemaObjectCapabilities.triggers && !schemaObjectCapabilities.events) {
+      setTriggers([]);
+      setDbEvents([]);
+      setTriggersLoading(false);
+      return;
+    }
+
     setTriggersLoading(true);
     try {
-      const result = await listTriggers(sessionId, stableNamespace);
-      if (result.success && result.data) {
-        setTriggers(result.data.triggers);
+      if (schemaObjectCapabilities.triggers) {
+        const result = await listTriggers(sessionId, stableNamespace);
+        if (result.success && result.data) {
+          setTriggers(result.data.triggers);
+        }
+      } else {
+        setTriggers([]);
       }
-      if (driver === 'mysql') {
+
+      if (schemaObjectCapabilities.events) {
         const eventsResult = await listEvents(sessionId, stableNamespace);
         if (eventsResult.success && eventsResult.data) {
           setDbEvents(eventsResult.data.events);
         }
+      } else {
+        setDbEvents([]);
       }
     } catch (err) {
       console.error('Failed to load triggers:', err);
     } finally {
       setTriggersLoading(false);
     }
-  }, [sessionId, stableNamespace, driver]);
+  }, [
+    sessionId,
+    stableNamespace,
+    schemaObjectCapabilities.events,
+    schemaObjectCapabilities.triggers,
+  ]);
+
+  const hasRoutinesTab = driverMeta.supportsSQL && schemaObjectCapabilities.routines;
+  const hasTriggersTab =
+    driverMeta.supportsSQL &&
+    (schemaObjectCapabilities.triggers || schemaObjectCapabilities.events);
+  const hasSchemaTab = driverMeta.supportsSQL;
+
+  useEffect(() => {
+    if (activeTab === 'routines' && !hasRoutinesTab) {
+      handleTabChange('overview');
+      return;
+    }
+
+    if (activeTab === 'triggers' && !hasTriggersTab) {
+      handleTabChange('overview');
+      return;
+    }
+
+    if (activeTab === 'schema' && !hasSchemaTab) {
+      handleTabChange('overview');
+    }
+  }, [activeTab, handleTabChange, hasRoutinesTab, hasSchemaTab, hasTriggersTab]);
 
   const loadData = useCallback(async () => {
     if (activeTab === 'schema') {
@@ -439,7 +487,7 @@ export function DatabaseBrowser({
             {t(terminology.tablePluralLabel)} ({totalCount})
           </span>
         </button>
-        {driverMeta.supportsSQL && (
+        {hasRoutinesTab && (
           <button
             type="button"
             className={cn(
@@ -456,7 +504,7 @@ export function DatabaseBrowser({
             </span>
           </button>
         )}
-        {driverMeta.supportsSQL && (
+        {hasTriggersTab && (
           <button
             type="button"
             className={cn(
@@ -469,11 +517,11 @@ export function DatabaseBrowser({
           >
             <span className="flex items-center gap-2">
               <Zap size={14} />
-              {t('databaseBrowser.triggers')} ({triggers.length})
+              {t('databaseBrowser.triggers')} ({triggers.length + dbEvents.length})
             </span>
           </button>
         )}
-        {driverMeta.supportsSQL && (
+        {hasSchemaTab && (
           <button
             type="button"
             className={cn(
@@ -813,15 +861,17 @@ export function DatabaseBrowser({
             {/* Action bar */}
             {!readOnly && (
               <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => onCreateTrigger?.(stableNamespace)}
-                >
-                  <Plus size={14} className="mr-1" />
-                  {t('triggerManager.createTrigger')}
-                </Button>
-                {driver === 'mysql' && (
+                {schemaObjectCapabilities.triggers && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onCreateTrigger?.(stableNamespace)}
+                  >
+                    <Plus size={14} className="mr-1" />
+                    {t('triggerManager.createTrigger')}
+                  </Button>
+                )}
+                {schemaObjectCapabilities.events && (
                   <Button
                     variant="outline"
                     size="sm"
@@ -848,7 +898,7 @@ export function DatabaseBrowser({
               ) : (
                 <>
                   {/* Triggers */}
-                  {triggers.length > 0 && (
+                  {schemaObjectCapabilities.triggers && triggers.length > 0 && (
                     <>
                       <div className="p-3 bg-muted/30">
                         <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
@@ -907,8 +957,8 @@ export function DatabaseBrowser({
                     </>
                   )}
 
-                  {/* MySQL Events */}
-                  {dbEvents.length > 0 && (
+                  {/* Events */}
+                  {schemaObjectCapabilities.events && dbEvents.length > 0 && (
                     <>
                       <div className="p-3 bg-muted/30">
                         <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">

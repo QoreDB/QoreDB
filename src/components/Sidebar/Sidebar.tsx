@@ -274,7 +274,7 @@ export function Sidebar({
         </button>
       </header>
 
-      <section className="flex-1 overflow-auto py-2">
+      <section className="flex-1 overflow-y-auto overflow-x-hidden py-2">
         <div className="px-2 space-y-0.5 mt-1">
           {connections.length === 0 ? (
             <p className="px-2 py-4 text-sm text-center text-muted-foreground">

@@ -27,6 +27,7 @@ import {
   type SavedConnection,
 } from '@/lib/tauri';
 import { UI_EVENT_CONNECTIONS_CHANGED } from '@/lib/uiEvents';
+import { setUpdateAvailable } from '@/lib/updateStore';
 import { useModalContext } from './ModalProvider';
 import { useTabContext } from './TabProvider';
 
@@ -146,21 +147,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       try {
         const update = await check();
         if (!update || cancelled) return;
-        notify.info(t('updates.available', { version: update.version }), {
-          action: {
-            label: t('updates.install'),
-            onClick: async () => {
-              try {
-                notify.info(t('updates.installing'));
-                await update.downloadAndInstall();
-                notify.success(t('updates.installed'));
-                notify.info(t('updates.restartRequired'));
-              } catch (err) {
-                notify.error(t('updates.installFailed'), err);
-              }
-            },
-          },
-        });
+        setUpdateAvailable(update);
       } catch (err) {
         console.warn('Update check failed', err);
       }
@@ -170,7 +157,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       cancelled = true;
       window.clearTimeout(handle);
     };
-  }, [t]);
+  }, []);
 
   // Fetch driver capabilities when session changes
   useEffect(() => {

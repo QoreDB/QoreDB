@@ -23,7 +23,7 @@ import { Input } from '@/components/ui/input';
 import { emitTableChange } from '@/lib/tableEvents';
 import { cn } from '@/lib/utils';
 import { useSchemaCache } from '../../hooks/useSchemaCache';
-import { getTerminology } from '../../lib/driverCapabilities';
+import { getSchemaObjectCapabilities, getTerminology } from '../../lib/driverCapabilities';
 import { type Driver, getDriverMetadata } from '../../lib/drivers';
 import {
   type Collection,
@@ -117,6 +117,7 @@ export function DBTree({
 
   const driverMeta = getDriverMetadata(driver);
   const terminology = getTerminology(driver);
+  const schemaObjectCapabilities = getSchemaObjectCapabilities(driver);
 
   const sessionId = connectionId;
   const { getNamespaces, invalidateNamespaces } = schemaCache;
@@ -173,6 +174,11 @@ export function DBTree({
 
   const refreshRoutines = useCallback(
     async (ns: Namespace) => {
+      if (!schemaObjectCapabilities.routines) {
+        setRoutines([]);
+        setRoutinesLoading(false);
+        return;
+      }
       setRoutinesLoading(true);
       try {
         const result = await listRoutines(connectionId, ns, search);
@@ -185,22 +191,36 @@ export function DBTree({
         setRoutinesLoading(false);
       }
     },
-    [connectionId, search]
+    [connectionId, search, schemaObjectCapabilities.routines]
   );
 
   const refreshTriggers = useCallback(
     async (ns: Namespace) => {
+      if (!schemaObjectCapabilities.triggers && !schemaObjectCapabilities.events) {
+        setTriggers([]);
+        setDbEvents([]);
+        setTriggersLoading(false);
+        return;
+      }
+
       setTriggersLoading(true);
       try {
-        const result = await listTriggers(connectionId, ns, search);
-        if (result.success && result.data) {
-          setTriggers(result.data.triggers);
+        if (schemaObjectCapabilities.triggers) {
+          const result = await listTriggers(connectionId, ns, search);
+          if (result.success && result.data) {
+            setTriggers(result.data.triggers);
+          }
+        } else {
+          setTriggers([]);
         }
-        if (driver === 'mysql') {
+
+        if (schemaObjectCapabilities.events) {
           const eventsResult = await listEvents(connectionId, ns, search);
           if (eventsResult.success && eventsResult.data) {
             setDbEvents(eventsResult.data.events);
           }
+        } else {
+          setDbEvents([]);
         }
       } catch (err) {
         console.error('Failed to refresh triggers:', err);
@@ -208,7 +228,7 @@ export function DBTree({
         setTriggersLoading(false);
       }
     },
-    [connectionId, search, driver]
+    [connectionId, search, schemaObjectCapabilities.events, schemaObjectCapabilities.triggers]
   );
 
   const toggleSection = useCallback((section: string) => {
@@ -604,7 +624,8 @@ export function DBTree({
                 })()}
 
                 {/* Functions Section */}
-                {(() => {
+                {schemaObjectCapabilities.functions &&
+                  (() => {
                   const functions = routines.filter(r => r.routine_type === 'Function');
                   if (functions.length === 0 && !routinesLoading && !onCreateRoutine) return null;
                   return (
@@ -673,10 +694,11 @@ export function DBTree({
                         ))}
                     </div>
                   );
-                })()}
+                  })()}
 
                 {/* Procedures Section */}
-                {(() => {
+                {schemaObjectCapabilities.procedures &&
+                  (() => {
                   const procedures = routines.filter(r => r.routine_type === 'Procedure');
                   if (procedures.length === 0 && !routinesLoading && !onCreateRoutine) return null;
                   return (
@@ -745,10 +767,11 @@ export function DBTree({
                         ))}
                     </div>
                   );
-                })()}
+                  })()}
 
                 {/* Triggers Section */}
-                {(() => {
+                {schemaObjectCapabilities.triggers &&
+                  (() => {
                   if (triggers.length === 0 && !triggersLoading && !onCreateTrigger) return null;
                   return (
                     <div className="space-y-0.5 mt-2">
@@ -814,10 +837,11 @@ export function DBTree({
                         ))}
                     </div>
                   );
-                })()}
+                  })()}
 
                 {/* Events Section (MySQL only) */}
-                {(() => {
+                {schemaObjectCapabilities.events &&
+                  (() => {
                   if (dbEvents.length === 0 && !onCreateEvent) return null;
                   return (
                     <div className="space-y-0.5 mt-2">
@@ -836,7 +860,7 @@ export function DBTree({
                         <span>{t('dbtree.events')}</span>
                         <span className="text-muted-foreground/60 ml-auto">{dbEvents.length}</span>
                       </button>
-                      {onCreateEvent && expandedNamespace && driver === 'mysql' && (
+                      {onCreateEvent && expandedNamespace && (
                         <button
                           type="button"
                           className="p-0.5 text-muted-foreground/60 hover:text-foreground mr-1"
@@ -888,7 +912,7 @@ export function DBTree({
                         ))}
                     </div>
                   );
-                })()}
+                  })()}
 
                 {/* Load More for collections */}
                 {canLoadMore && !collectionsLoading && (
@@ -906,6 +930,7 @@ export function DBTree({
                 {collections.length === 0 &&
                   routines.length === 0 &&
                   triggers.length === 0 &&
+                  dbEvents.length === 0 &&
                   !collectionsLoading &&
                   !routinesLoading &&
                   !triggersLoading && (

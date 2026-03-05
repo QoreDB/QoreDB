@@ -10,4 +10,5 @@ pub mod postgres_utils;
 pub mod redis;
 pub mod sqlite;
 pub mod cockroachdb;
+pub mod pg_compat;
 pub mod sqlserver;

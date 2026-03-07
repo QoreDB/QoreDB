@@ -482,7 +482,7 @@ impl SessionManager {
         let manager = Arc::clone(self);
         let interval_secs = Self::HEALTH_CHECK_INTERVAL_SECS;
 
-        tokio::spawn(async move {
+        tauri::async_runtime::spawn(async move {
             let mut interval = tokio::time::interval(Duration::from_secs(interval_secs));
             // Skip the first immediate tick
             interval.tick().await;

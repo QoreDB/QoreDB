@@ -15,10 +15,12 @@ pub mod license;
 pub mod metrics;
 pub mod observability;
 pub mod policy;
+pub mod snapshots;
 pub mod vault;
 pub mod virtual_relations;
 
 use std::sync::Arc;
+use tauri::Manager;
 use tokio::sync::Mutex;
 
 use engine::drivers::duckdb::DuckDbDriver;
@@ -27,6 +29,7 @@ use engine::drivers::mysql::MySqlDriver;
 use engine::drivers::postgres::PostgresDriver;
 use engine::drivers::redis::RedisDriver;
 use engine::drivers::sqlite::SqliteDriver;
+use engine::drivers::cockroachdb::CockroachDbDriver;
 use engine::drivers::sqlserver::SqlServerDriver;
 use engine::{DriverRegistry, QueryManager, SessionManager};
 use interceptor::InterceptorPipeline;
@@ -34,6 +37,7 @@ use policy::SafetyPolicy;
 use vault::{VaultLock, backend::KeyringProvider};
 use export::ExportPipeline;
 use license::LicenseManager;
+use snapshots::SnapshotStore;
 use virtual_relations::VirtualRelationStore;
 
 pub type SharedState = Arc<Mutex<AppState>>;
@@ -61,6 +65,7 @@ impl AppState {
         registry.register(Arc::new(RedisDriver::new()));
         registry.register(Arc::new(SqliteDriver::new()));
         registry.register(Arc::new(DuckDbDriver::new()));
+        registry.register(Arc::new(CockroachDbDriver::new()));
         registry.register(Arc::new(SqlServerDriver::new()));
 
         let registry = Arc::new(registry);
@@ -118,17 +123,34 @@ pub fn run() {
     observability::init_tracing();
     let state: SharedState = Arc::new(Mutex::new(AppState::new()));
 
+    // Initialize snapshot store (managed separately — no mutex needed)
+    let data_dir = dirs::data_local_dir()
+        .unwrap_or_else(|| std::path::PathBuf::from("."))
+        .join("com.qoredb.app");
+    let snapshot_store: commands::snapshots::SharedSnapshotStore =
+        Arc::new(SnapshotStore::new(data_dir.join("snapshots")));
+
     tauri::Builder::default()
         .setup(|app| {
             #[cfg(desktop)]
             app.handle()
                 .plugin(tauri_plugin_updater::Builder::new().build())?;
+
+            // Start the connection health monitor
+            let state: tauri::State<SharedState> = app.state();
+            let session_manager = {
+                let app_state = state.blocking_lock();
+                Arc::clone(&app_state.session_manager)
+            };
+            session_manager.start_health_monitor(app.handle().clone());
+
             Ok(())
         })
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .manage(state)
+        .manage(snapshot_store)
         .invoke_handler(tauri::generate_handler![
             // Connection commands
             commands::connection::test_connection,
@@ -137,6 +159,7 @@ pub fn run() {
             commands::connection::connect_saved_connection,
             commands::connection::disconnect,
             commands::connection::list_sessions,
+            commands::connection::check_connection_health,
             // Connection URL parsing
             commands::connection_url::parse_url,
             commands::connection_url::get_supported_url_schemes,
@@ -171,6 +194,15 @@ pub fn run() {
             // Maintenance commands
             commands::maintenance::list_maintenance_operations,
             commands::maintenance::run_maintenance,
+            // Routine management commands
+            commands::routines::get_routine_definition,
+            commands::routines::drop_routine,
+            // Trigger & Event management commands
+            commands::triggers::get_trigger_definition,
+            commands::triggers::drop_trigger,
+            commands::triggers::toggle_trigger,
+            commands::triggers::get_event_definition,
+            commands::triggers::drop_event,
             // Logs
             commands::logs::export_logs,
             commands::logs::log_frontend_message,
@@ -213,6 +245,12 @@ pub fn run() {
             commands::interceptor::add_safety_rule,
             commands::interceptor::update_safety_rule,
             commands::interceptor::remove_safety_rule,
+            // Snapshot commands
+            commands::snapshots::save_snapshot,
+            commands::snapshots::list_snapshots,
+            commands::snapshots::get_snapshot,
+            commands::snapshots::delete_snapshot,
+            commands::snapshots::rename_snapshot,
             // Virtual relations commands
             commands::virtual_relations::list_virtual_relations,
             commands::virtual_relations::add_virtual_relation,

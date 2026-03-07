@@ -15,6 +15,7 @@ export enum Driver {
   Sqlite = 'sqlite',
   Duckdb = 'duckdb',
   SqlServer = 'sqlserver',
+  Cockroachdb = 'cockroachdb',
 }
 
 /** Query builder functions for driver-specific SQL/commands */
@@ -275,6 +276,39 @@ export const DRIVERS: Record<Driver, DriverMetadata> = {
          FROM sys.indexes i
          JOIN sys.tables t ON i.object_id = t.object_id
          WHERE t.name = '${table}' AND i.type > 0`,
+    },
+  },
+  [Driver.Cockroachdb]: {
+    id: Driver.Cockroachdb,
+    label: 'CockroachDB',
+    icon: 'cockroachdb.png',
+    defaultPort: 26257,
+    namespaceLabel: 'dbtree.schema',
+    namespacePluralLabel: 'dbtree.schemas',
+    collectionLabel: 'dbtree.table',
+    collectionPluralLabel: 'dbtree.tables',
+    treeRootLabel: 'dbtree.schemasHeader',
+    createAction: 'schema',
+    databaseFieldLabel: 'connection.databaseInitial',
+    supportsSchemas: true,
+    supportsSQL: true,
+    dataModel: 'relational',
+    isDocumentBased: false,
+    identifier: {
+      quoteStart: '"',
+      quoteEnd: '"',
+      namespaceStrategy: 'schema',
+    },
+    queries: {
+      databaseSizeQuery: () =>
+        'SELECT pg_size_pretty(pg_database_size(current_database())) as size',
+      tableSizeQuery: (schema, table) =>
+        `SELECT pg_total_relation_size('"${schema}"."${table}"') as total_bytes,
+                pg_size_pretty(pg_total_relation_size('"${schema}"."${table}"')) as size_pretty`,
+      indexCountQuery: schema =>
+        `SELECT COUNT(*) as cnt FROM pg_indexes WHERE schemaname = '${schema}'`,
+      tableIndexesQuery: table =>
+        `SELECT indexname, indexdef FROM pg_indexes WHERE tablename = '${table}'`,
     },
   },
 };

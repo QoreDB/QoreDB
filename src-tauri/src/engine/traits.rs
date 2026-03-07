@@ -12,8 +12,10 @@ use crate::engine::error::{EngineError, EngineResult};
 use crate::engine::types::{
     CancelSupport, CollectionList, CollectionListOptions, ConnectionConfig, DriverCapabilities, Namespace,
     QueryId, QueryResult, Row, RowData, SessionId, TableSchema, ColumnInfo, Value, ForeignKey,
-    TableQueryOptions, PaginatedQueryResult, RoutineList, RoutineListOptions,
-    TriggerList, TriggerListOptions, EventList, EventListOptions, CreationOptions,
+    TableQueryOptions, PaginatedQueryResult, RoutineList, RoutineListOptions, RoutineType,
+    RoutineDefinition, RoutineOperationResult,
+    TriggerList, TriggerListOptions, TriggerDefinition, TriggerOperationResult,
+    EventList, EventListOptions, EventDefinition, EventOperationResult, CreationOptions,
     MaintenanceOperationInfo, MaintenanceRequest, MaintenanceResult,
 };
 
@@ -59,6 +61,12 @@ pub trait DataEngine: Send + Sync {
     /// Closes a session and releases associated resources
     async fn disconnect(&self, session: SessionId) -> EngineResult<()>;
 
+    /// Lightweight health check for an active session.
+    ///
+    /// Returns `Ok(())` if the connection is alive, or an error if unreachable.
+    /// Used by the keep-alive monitor to detect stale connections.
+    async fn ping(&self, session: SessionId) -> EngineResult<()>;
+
     /// Lists all namespaces (databases/schemas) accessible in this session
     async fn list_namespaces(&self, session: SessionId) -> EngineResult<Vec<Namespace>>;
 
@@ -85,6 +93,38 @@ pub trait DataEngine: Send + Sync {
     /// Check if the driver supports routines (functions/procedures).
     fn supports_routines(&self) -> bool {
         false
+    }
+
+    /// Gets the full definition (CREATE statement) of a routine.
+    /// Default returns NotSupported.
+    async fn get_routine_definition(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        routine_name: &str,
+        routine_type: RoutineType,
+        arguments: Option<&str>,
+    ) -> EngineResult<RoutineDefinition> {
+        let _ = (session, namespace, routine_name, routine_type, arguments);
+        Err(EngineError::not_supported(
+            "Getting routine definitions is not supported by this driver",
+        ))
+    }
+
+    /// Drops a routine (function or procedure).
+    /// Default returns NotSupported.
+    async fn drop_routine(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        routine_name: &str,
+        routine_type: RoutineType,
+        arguments: Option<&str>,
+    ) -> EngineResult<RoutineOperationResult> {
+        let _ = (session, namespace, routine_name, routine_type, arguments);
+        Err(EngineError::not_supported(
+            "Dropping routines is not supported by this driver",
+        ))
     }
 
     /// Lists triggers in a namespace.
@@ -119,6 +159,79 @@ pub trait DataEngine: Send + Sync {
     /// Check if the driver supports scheduled events.
     fn supports_events(&self) -> bool {
         false
+    }
+
+    /// Gets the full definition (CREATE statement) of a trigger.
+    /// Default returns NotSupported.
+    async fn get_trigger_definition(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        trigger_name: &str,
+    ) -> EngineResult<TriggerDefinition> {
+        let _ = (session, namespace, trigger_name);
+        Err(EngineError::not_supported(
+            "Getting trigger definitions is not supported by this driver",
+        ))
+    }
+
+    /// Drops a trigger.
+    /// Default returns NotSupported.
+    async fn drop_trigger(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        trigger_name: &str,
+        table_name: &str,
+    ) -> EngineResult<TriggerOperationResult> {
+        let _ = (session, namespace, trigger_name, table_name);
+        Err(EngineError::not_supported(
+            "Dropping triggers is not supported by this driver",
+        ))
+    }
+
+    /// Enables or disables a trigger.
+    /// Default returns NotSupported.
+    async fn toggle_trigger(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        trigger_name: &str,
+        table_name: &str,
+        enable: bool,
+    ) -> EngineResult<TriggerOperationResult> {
+        let _ = (session, namespace, trigger_name, table_name, enable);
+        Err(EngineError::not_supported(
+            "Toggling triggers is not supported by this driver",
+        ))
+    }
+
+    /// Gets the full definition (CREATE statement) of a scheduled event.
+    /// Default returns NotSupported.
+    async fn get_event_definition(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        event_name: &str,
+    ) -> EngineResult<EventDefinition> {
+        let _ = (session, namespace, event_name);
+        Err(EngineError::not_supported(
+            "Getting event definitions is not supported by this driver",
+        ))
+    }
+
+    /// Drops a scheduled event.
+    /// Default returns NotSupported.
+    async fn drop_event(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        event_name: &str,
+    ) -> EngineResult<EventOperationResult> {
+        let _ = (session, namespace, event_name);
+        Err(EngineError::not_supported(
+            "Dropping events is not supported by this driver",
+        ))
     }
 
     /// Returns the options available when creating a database (charsets, collations, etc.).

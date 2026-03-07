@@ -10,6 +10,77 @@
 import { type DataModel, type Driver, getDriverMetadata } from './drivers';
 
 /**
+ * Fine-grained schema object capabilities by driver.
+ * Keep this centralized so all UI surfaces remain consistent.
+ */
+export interface DriverSchemaObjectCapabilities {
+  routines: boolean;
+  functions: boolean;
+  procedures: boolean;
+  triggers: boolean;
+  events: boolean;
+}
+
+const DRIVER_SCHEMA_OBJECT_CAPABILITIES: Record<Driver, DriverSchemaObjectCapabilities> = {
+  postgres: {
+    routines: true,
+    functions: true,
+    procedures: true,
+    triggers: true,
+    events: false,
+  },
+  mysql: {
+    routines: true,
+    functions: true,
+    procedures: true,
+    triggers: true,
+    events: true,
+  },
+  mongodb: {
+    routines: false,
+    functions: false,
+    procedures: false,
+    triggers: false,
+    events: false,
+  },
+  redis: {
+    routines: false,
+    functions: false,
+    procedures: false,
+    triggers: false,
+    events: false,
+  },
+  sqlite: {
+    routines: false,
+    functions: false,
+    procedures: false,
+    triggers: true,
+    events: false,
+  },
+  duckdb: {
+    routines: false,
+    functions: false,
+    procedures: false,
+    triggers: false,
+    events: false,
+  },
+  sqlserver: {
+    routines: true,
+    functions: true,
+    procedures: true,
+    triggers: true,
+    events: false,
+  },
+  cockroachdb: {
+    routines: true,
+    functions: true,
+    procedures: true,
+    triggers: true,
+    events: false,
+  },
+};
+
+/**
  * Check if the driver is document-based (flexible schema, documents as data units)
  * Use this for UI decisions around data display format and terminology
  */
@@ -76,4 +147,14 @@ export function getTerminology(driver: Driver | string): DriverTerminology {
     insertAction: isDocument ? 'document.new' : 'rowModal.insertTitle',
     updateAction: isDocument ? 'document.edit' : 'rowModal.updateTitle',
   };
+}
+
+/**
+ * Get supported schema objects for a driver.
+ */
+export function getSchemaObjectCapabilities(
+  driver: Driver | string
+): DriverSchemaObjectCapabilities {
+  const resolvedDriver = getDriverMetadata(driver).id;
+  return DRIVER_SCHEMA_OBJECT_CAPABILITIES[resolvedDriver];
 }

@@ -341,6 +341,16 @@ impl DataEngine for DuckDbDriver {
         Ok(())
     }
 
+    async fn ping(&self, session: SessionId) -> EngineResult<()> {
+        let duck_session = self.get_session(session).await?;
+        Self::with_conn(&duck_session, |conn| {
+            conn.execute("SELECT 1", [])
+                .map_err(|e| EngineError::connection_failed(format!("Ping failed: {e}")))?;
+            Ok(())
+        })
+        .await
+    }
+
     // ==================== Schema Browsing ====================
 
     async fn list_namespaces(&self, session: SessionId) -> EngineResult<Vec<Namespace>> {

@@ -11,6 +11,7 @@ const DIALECT_MAP: Record<Driver, SqlLanguage> = {
   [Driver.Sqlite]: 'sqlite',
   [Driver.SqlServer]: 'tsql',
   [Driver.Duckdb]: 'sql',
+  [Driver.Cockroachdb]: 'postgresql',
 };
 
 export function formatSql(query: string, driver: Driver): string {

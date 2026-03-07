@@ -206,6 +206,7 @@ export const COLUMN_TYPES: Record<Driver, ColumnType[]> = {
   [Driver.Sqlite]: SQLITE_TYPES,
   [Driver.Duckdb]: DUCKDB_TYPES,
   [Driver.SqlServer]: SQLSERVER_TYPES,
+  [Driver.Cockroachdb]: POSTGRES_TYPES,
 };
 
 /** Get column types for a driver */

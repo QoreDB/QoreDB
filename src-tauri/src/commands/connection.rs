@@ -447,3 +447,24 @@ pub async fn list_sessions(
         })
         .collect())
 }
+
+/// Checks the health of an active connection (on-demand ping).
+#[tauri::command]
+pub async fn check_connection_health(
+    state: State<'_, crate::SharedState>,
+    session_id: String,
+) -> Result<String, String> {
+    let session_manager = {
+        let state = state.lock().await;
+        Arc::clone(&state.session_manager)
+    };
+
+    let uuid = Uuid::parse_str(&session_id)
+        .map_err(|e| format!("Invalid session ID: {}", e))?;
+    let sid = crate::engine::types::SessionId(uuid);
+
+    match session_manager.ping(sid).await {
+        Ok(()) => Ok("healthy".to_string()),
+        Err(e) => Ok(format!("unhealthy: {}", e)),
+    }
+}

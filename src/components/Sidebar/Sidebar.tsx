@@ -17,10 +17,13 @@ import { useLicense } from '@/providers/LicenseProvider';
 import {
   type Collection,
   connectSavedConnection,
+  type DatabaseEvent,
   listSavedConnections,
   type Namespace,
   type RelationFilter,
+  type Routine,
   type SavedConnection,
+  type Trigger,
 } from '../../lib/tauri';
 import { ErrorLogPanel } from '../Logs/ErrorLogPanel';
 import { DBTree } from '../Tree/DBTree';
@@ -41,6 +44,12 @@ interface SidebarProps {
   onDatabaseSelect?: (namespace: Namespace) => void;
   onCompareTable?: (collection: Collection) => void;
   onAiGenerateForTable?: (collection: Collection) => void;
+  onOpenRoutineSource?: (routine: Routine, namespace: Namespace) => void;
+  onCreateRoutine?: (routineType: 'Function' | 'Procedure', namespace: Namespace) => void;
+  onOpenTriggerSource?: (trigger: Trigger, namespace: Namespace) => void;
+  onCreateTrigger?: (namespace: Namespace) => void;
+  onOpenEventSource?: (event: DatabaseEvent, namespace: Namespace) => void;
+  onCreateEvent?: (namespace: Namespace) => void;
   onEditConnection: (connection: SavedConnection, password: string) => void;
   onNewQuery?: () => void;
   schemaRefreshTrigger?: number;
@@ -57,6 +66,12 @@ export function Sidebar({
   onDatabaseSelect,
   onCompareTable,
   onAiGenerateForTable,
+  onOpenRoutineSource,
+  onCreateRoutine,
+  onOpenTriggerSource,
+  onCreateTrigger,
+  onOpenEventSource,
+  onCreateEvent,
   onEditConnection,
   onNewQuery,
   schemaRefreshTrigger,
@@ -220,6 +235,12 @@ export function Sidebar({
               onDatabaseSelect={onDatabaseSelect}
               onCompareTable={onCompareTable}
               onAiGenerateForTable={onAiGenerateForTable}
+              onOpenRoutineSource={onOpenRoutineSource}
+              onCreateRoutine={onCreateRoutine}
+              onOpenTriggerSource={onOpenTriggerSource}
+              onCreateTrigger={onCreateTrigger}
+              onOpenEventSource={onOpenEventSource}
+              onCreateEvent={onCreateEvent}
               refreshTrigger={schemaRefreshTrigger}
               activeNamespace={activeNamespace}
             />
@@ -253,7 +274,7 @@ export function Sidebar({
         </button>
       </header>
 
-      <section className="flex-1 overflow-auto py-2">
+      <section className="flex-1 overflow-y-auto overflow-x-hidden py-2">
         <div className="px-2 space-y-0.5 mt-1">
           {connections.length === 0 ? (
             <p className="px-2 py-4 text-sm text-center text-muted-foreground">

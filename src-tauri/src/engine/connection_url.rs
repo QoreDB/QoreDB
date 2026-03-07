@@ -580,6 +580,106 @@ impl ConnectionUrlParser for SqlServerUrlParser {
 }
 
 // =============================================================================
+// CockroachDB Parser
+// =============================================================================
+
+pub struct CockroachDbUrlParser;
+
+impl ConnectionUrlParser for CockroachDbUrlParser {
+    fn driver_id(&self) -> &str {
+        "cockroachdb"
+    }
+
+    fn schemes(&self) -> &[&str] {
+        &["cockroachdb", "cockroach"]
+    }
+
+    fn default_port(&self) -> u16 {
+        26257
+    }
+
+    fn parse(&self, url: &Url) -> ParseResult<PartialConnectionConfig> {
+        let host = url
+            .host_str()
+            .filter(|h| !h.is_empty())
+            .map(String::from);
+
+        if host.is_none() {
+            return Err(ParseError::new(
+                ParseErrorCode::MissingHost,
+                "CockroachDB URL must specify a host",
+            ));
+        }
+
+        let port = url.port().or(Some(self.default_port()));
+
+        let username = if url.username().is_empty() {
+            None
+        } else {
+            Some(
+                percent_decode(url.username())
+                    .map_err(|_| ParseError::new(ParseErrorCode::InvalidUtf8, "Invalid username encoding"))?,
+            )
+        };
+
+        let password = url
+            .password()
+            .map(|p| percent_decode(p))
+            .transpose()
+            .map_err(|_| ParseError::new(ParseErrorCode::InvalidUtf8, "Invalid password encoding"))?;
+
+        let database = url
+            .path()
+            .strip_prefix('/')
+            .filter(|db| !db.is_empty())
+            .map(|db| {
+                percent_decode(db)
+                    .map_err(|_| ParseError::new(ParseErrorCode::InvalidUtf8, "Invalid database name encoding"))
+            })
+            .transpose()?;
+
+        let mut options = HashMap::new();
+        let mut ssl_explicit = None;
+        let mut ssl_mode_seen = false;
+        let mut ssl_implied = false;
+
+        for (key, value) in url.query_pairs() {
+            let key_str = key.as_ref();
+            let key_lower = key_str.to_ascii_lowercase();
+            let value_str = value.as_ref();
+
+            if key_lower == "sslmode" {
+                ssl_explicit = Some(!value_str.eq_ignore_ascii_case("disable"));
+                ssl_mode_seen = true;
+            } else if key_lower == "ssl" && !ssl_mode_seen {
+                if let Some(parsed) = parse_bool_param(value_str) {
+                    ssl_explicit = Some(parsed);
+                }
+            }
+
+            if is_ssl_query_key(&key_lower) {
+                ssl_implied = true;
+            }
+
+            options.insert(key.into_owned(), value.into_owned());
+        }
+
+        let ssl = ssl_explicit.or_else(|| if ssl_implied { Some(true) } else { None });
+
+        Ok(PartialConnectionConfig {
+            driver: Some(self.driver_id().to_string()),
+            host,
+            port,
+            username,
+            password,
+            database,
+            ssl,
+            options,
+        })
+    }
+}
+
+// =============================================================================
 // URL Parser Registry
 // =============================================================================
 
@@ -606,6 +706,7 @@ impl ConnectionUrlParserRegistry {
         registry.register(Box::new(MongoDbUrlParser));
         registry.register(Box::new(RedisUrlParser));
         registry.register(Box::new(SqlServerUrlParser));
+        registry.register(Box::new(CockroachDbUrlParser));
 
         registry
     }
@@ -634,7 +735,7 @@ impl ConnectionUrlParserRegistry {
             ParseError::new(
                 ParseErrorCode::UnsupportedScheme,
                 format!(
-                    "Unsupported URL scheme '{}'. Supported schemes: postgres, postgresql, mysql, mongodb, mongodb+srv, redis, rediss, mssql, sqlserver",
+                    "Unsupported URL scheme '{}'. Supported schemes: postgres, postgresql, mysql, mongodb, mongodb+srv, redis, rediss, mssql, sqlserver, cockroachdb, cockroach",
                     scheme
                 ),
             )

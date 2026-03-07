@@ -2,6 +2,7 @@
 
 import {
   AlertCircle,
+  Camera,
   CheckCircle2,
   Code,
   Database,
@@ -13,7 +14,7 @@ import {
 /**
  * DiffSourcePanel - Panel for selecting a data source (table or query)
  */
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import {
@@ -24,11 +25,12 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import type { Namespace, QueryResult, SavedConnection } from '@/lib/tauri';
+import type { Namespace, QueryResult, SavedConnection, SnapshotMeta } from '@/lib/tauri';
+import { listSnapshots } from '@/lib/tauri';
 import { cn } from '@/lib/utils';
 import { DiffTablePicker } from './DiffTablePicker';
 
-export type SourceMode = 'table' | 'query';
+export type SourceMode = 'table' | 'query' | 'snapshot';
 
 export interface DiffSourceState {
   mode: SourceMode;
@@ -39,6 +41,8 @@ export interface DiffSourceState {
   namespace?: Namespace;
   tableName?: string;
   query?: string;
+  snapshotId?: string;
+  snapshotName?: string;
   result?: QueryResult;
   loading: boolean;
   connecting: boolean;
@@ -98,6 +102,26 @@ export function DiffSourcePanel({
     [source.result]
   );
 
+  // Snapshot picker state
+  const [snapshots, setSnapshots] = useState<SnapshotMeta[]>([]);
+  const [snapshotsLoading, setSnapshotsLoading] = useState(false);
+
+  useEffect(() => {
+    if (source.mode !== 'snapshot') return;
+    let cancelled = false;
+    setSnapshotsLoading(true);
+    listSnapshots()
+      .then(res => {
+        if (!cancelled && res.success) setSnapshots(res.snapshots);
+      })
+      .finally(() => {
+        if (!cancelled) setSnapshotsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [source.mode]);
+
   return (
     <div className="flex flex-col gap-3 p-4 border border-border rounded-lg bg-card">
       {/* Header with label */}
@@ -119,7 +143,8 @@ export function DiffSourcePanel({
         </div>
       </div>
 
-      {/* Connection / namespace selection */}
+      {/* Connection / namespace selection (hidden for snapshot mode) */}
+      {source.mode !== 'snapshot' && (
       <div className="grid grid-cols-2 gap-2">
         <div className="flex flex-col gap-1">
           <span className="text-xs text-muted-foreground">{t('diff.connection')}</span>
@@ -180,6 +205,7 @@ export function DiffSourcePanel({
           </Select>
         </div>
       </div>
+      )}
 
       {/* Mode tabs */}
       <div className="flex border border-border rounded-md overflow-hidden">
@@ -215,10 +241,65 @@ export function DiffSourcePanel({
           <Code size={14} />
           {t('diff.modeQuery')}
         </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className={cn(
+            'h-9 flex-1 rounded-none flex items-center justify-center gap-2 px-3 py-2 text-sm transition-colors border-l border-border',
+            source.mode === 'snapshot'
+              ? 'bg-accent text-accent-foreground'
+              : 'hover:bg-muted/50 text-muted-foreground'
+          )}
+          onClick={() => onSourceChange({ mode: 'snapshot', error: undefined })}
+          disabled={disabled}
+        >
+          <Camera size={14} />
+          {t('snapshots.modeSnapshot')}
+        </Button>
       </div>
 
       {/* Source selector based on mode */}
-      {source.mode === 'table' ? (
+      {source.mode === 'snapshot' ? (
+        <Select
+          value={source.snapshotId ?? ''}
+          onValueChange={value => {
+            const snap = snapshots.find(s => s.id === value);
+            if (snap) {
+              onSourceChange({
+                snapshotId: snap.id,
+                snapshotName: snap.name,
+                error: undefined,
+              });
+            }
+          }}
+          disabled={disabled || snapshotsLoading}
+        >
+          <SelectTrigger className="h-9">
+            <SelectValue
+              placeholder={
+                snapshotsLoading ? t('common.loading') : t('snapshots.selectSnapshot')
+              }
+            />
+          </SelectTrigger>
+          <SelectContent>
+            {snapshots.map(snap => (
+              <SelectItem key={snap.id} value={snap.id}>
+                <div className="flex items-center gap-2">
+                  <Camera size={12} className="text-muted-foreground shrink-0" />
+                  <span className="truncate max-w-36">{snap.name}</span>
+                  <span className="text-[10px] text-muted-foreground">
+                    {t('snapshots.snapshotInfo', {
+                      rows: snap.row_count,
+                      columns: snap.columns.length,
+                    })}
+                  </span>
+                </div>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      ) : source.mode === 'table' ? (
         <DiffTablePicker
           sessionId={source.sessionId ?? ''}
           namespace={source.namespace ?? { database: '' }}

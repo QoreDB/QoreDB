@@ -37,9 +37,10 @@ use crate::engine::traits::{DataEngine, StreamEvent, StreamSender};
 use crate::engine::types::{
     CancelSupport, Collection, CollectionList, CollectionListOptions, CollectionType, ColumnInfo,
     ConnectionConfig, FilterOperator, ForeignKey, Namespace, PaginatedQueryResult, QueryId,
-    QueryResult, Routine, RoutineList, RoutineListOptions, RoutineType, Row as QRow, RowData,
+    QueryResult, Routine, RoutineList, RoutineListOptions, RoutineType, RoutineDefinition,
+    RoutineOperationResult, Row as QRow, RowData,
     SessionId, SortDirection, TableColumn, TableIndex, TableQueryOptions, TableSchema, Trigger,
-    TriggerEvent, TriggerList, TriggerListOptions, TriggerTiming, Value,
+    TriggerEvent, TriggerList, TriggerListOptions, TriggerTiming, TriggerDefinition, TriggerOperationResult, Value,
     MaintenanceOperationInfo, MaintenanceOperationType, MaintenanceRequest, MaintenanceResult,
     MaintenanceMessage, MaintenanceMessageLevel,
 };
@@ -309,6 +310,22 @@ impl DataEngine for SqlServerDriver {
         sessions
             .remove(&session)
             .ok_or_else(|| EngineError::session_not_found(session.0.to_string()))?;
+        Ok(())
+    }
+
+    async fn ping(&self, session: SessionId) -> EngineResult<()> {
+        let mssql_session = self.get_session(session).await?;
+        let mut conn = mssql_session.pool.get().await.map_err(|e| {
+            EngineError::connection_failed(format!("Ping failed: {e}"))
+        })?;
+        let stream = conn
+            .simple_query("SELECT 1")
+            .await
+            .map_err(|e| EngineError::connection_failed(format!("Ping failed: {e}")))?;
+        stream
+            .into_results()
+            .await
+            .map_err(|e| EngineError::connection_failed(format!("Ping failed: {e}")))?;
         Ok(())
     }
 
@@ -820,6 +837,112 @@ impl DataEngine for SqlServerDriver {
         true
     }
 
+    async fn get_routine_definition(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        routine_name: &str,
+        routine_type: RoutineType,
+        _arguments: Option<&str>,
+    ) -> EngineResult<RoutineDefinition> {
+        let mssql_session = self.get_session(session).await?;
+        let mut conn = mssql_session.pool.get().await.map_err(|e| {
+            EngineError::connection_failed(format!("Failed to acquire connection: {e}"))
+        })?;
+        let schema = namespace.schema.as_deref().unwrap_or("dbo");
+
+        // Use OBJECT_DEFINITION to get the full source
+        let sql = format!(
+            "SELECT OBJECT_DEFINITION(OBJECT_ID('[{}].[{}]')) AS definition, \
+             r.DATA_TYPE, r.ROUTINE_BODY \
+             FROM INFORMATION_SCHEMA.ROUTINES r \
+             WHERE r.ROUTINE_SCHEMA = '{}' AND r.ROUTINE_NAME = '{}'",
+            schema.replace('\'', "''"),
+            routine_name.replace('\'', "''"),
+            schema.replace('\'', "''"),
+            routine_name.replace('\'', "''"),
+        );
+
+        let stream = conn
+            .simple_query(&sql)
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+        let rows = stream
+            .into_first_result()
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        let row = rows.first().ok_or_else(|| {
+            EngineError::execution_error(format!(
+                "Routine '{}' not found in schema '{}'",
+                routine_name, schema
+            ))
+        })?;
+
+        let definition: Option<&str> = row.get(0);
+        let return_type: Option<&str> = row.get(1);
+        let language: Option<&str> = row.get(2);
+
+        let definition = definition
+            .map(|d| d.to_string())
+            .unwrap_or_else(|| {
+                format!("-- Could not retrieve definition for [{}].[{}] (check VIEW DEFINITION permission)", schema, routine_name)
+            });
+
+        Ok(RoutineDefinition {
+            name: routine_name.to_string(),
+            namespace: namespace.clone(),
+            routine_type,
+            definition,
+            language: language.map(|s| s.to_string()),
+            arguments: String::new(),
+            return_type: return_type.map(|s| s.to_string()),
+        })
+    }
+
+    async fn drop_routine(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        routine_name: &str,
+        routine_type: RoutineType,
+        _arguments: Option<&str>,
+    ) -> EngineResult<RoutineOperationResult> {
+        let mssql_session = self.get_session(session).await?;
+        let mut conn = mssql_session.pool.get().await.map_err(|e| {
+            EngineError::connection_failed(format!("Failed to acquire connection: {e}"))
+        })?;
+        let schema = namespace.schema.as_deref().unwrap_or("dbo");
+
+        let keyword = match routine_type {
+            RoutineType::Function => "FUNCTION",
+            RoutineType::Procedure => "PROCEDURE",
+        };
+
+        let sql = format!(
+            "DROP {} [{}].[{}]",
+            keyword,
+            schema.replace(']', "]]"),
+            routine_name.replace(']', "]]"),
+        );
+
+        let start = Instant::now();
+        conn.simple_query(&sql)
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?
+            .into_results()
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+        let elapsed = start.elapsed().as_millis() as f64;
+
+        Ok(RoutineOperationResult {
+            success: true,
+            executed_command: sql,
+            message: None,
+            execution_time_ms: elapsed,
+        })
+    }
+
     // ==================== Triggers ====================
 
     async fn list_triggers(
@@ -919,6 +1042,178 @@ impl DataEngine for SqlServerDriver {
 
     fn supports_triggers(&self) -> bool {
         true
+    }
+
+    async fn get_trigger_definition(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        trigger_name: &str,
+    ) -> EngineResult<TriggerDefinition> {
+        let mssql_session = self.get_session(session).await?;
+        let mut conn = mssql_session.pool.get().await.map_err(|e| {
+            EngineError::connection_failed(format!("Failed to acquire connection: {e}"))
+        })?;
+        let schema = namespace.schema.as_deref().unwrap_or("dbo");
+
+        // Get trigger metadata
+        let meta_sql = format!(
+            "SELECT t.name AS trigger_name, \
+                    OBJECT_NAME(t.parent_id) AS table_name, \
+                    te.type_desc AS event_type, \
+                    CASE WHEN t.is_instead_of_trigger = 1 THEN 'INSTEAD_OF' ELSE 'AFTER' END AS timing, \
+                    t.is_disabled \
+             FROM sys.triggers t \
+             JOIN sys.trigger_events te ON t.object_id = te.object_id \
+             JOIN sys.objects o ON t.parent_id = o.object_id \
+             JOIN sys.schemas s ON o.schema_id = s.schema_id \
+             WHERE s.name = '{}' AND t.name = '{}' \
+             ORDER BY te.type_desc",
+            schema.replace('\'', "''"),
+            trigger_name.replace('\'', "''")
+        );
+
+        let stream = conn
+            .simple_query(&meta_sql)
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+        let rows = stream
+            .into_first_result()
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        if rows.is_empty() {
+            return Err(EngineError::execution_error("Trigger not found"));
+        }
+
+        let first_row = &rows[0];
+        let table_name: &str = first_row.get::<&str, _>(1).unwrap_or("");
+        let timing_str: &str = first_row.get::<&str, _>(3).unwrap_or("AFTER");
+        let is_disabled: bool = first_row.get::<bool, _>(4).unwrap_or(false);
+
+        let timing = if timing_str == "INSTEAD_OF" {
+            TriggerTiming::InsteadOf
+        } else {
+            TriggerTiming::After
+        };
+
+        let mut events = Vec::new();
+        for row in &rows {
+            let event_type: &str = row.get::<&str, _>(2).unwrap_or("");
+            if event_type.contains("INSERT") { events.push(TriggerEvent::Insert); }
+            if event_type.contains("UPDATE") { events.push(TriggerEvent::Update); }
+            if event_type.contains("DELETE") { events.push(TriggerEvent::Delete); }
+        }
+        if events.is_empty() { events.push(TriggerEvent::Insert); }
+
+        // Get definition via OBJECT_DEFINITION
+        let def_sql = format!(
+            "SELECT OBJECT_DEFINITION(OBJECT_ID('{}.{}'))",
+            schema.replace('\'', "''"),
+            trigger_name.replace('\'', "''")
+        );
+        let def_stream = conn
+            .simple_query(&def_sql)
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+        let def_rows = def_stream
+            .into_first_result()
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        let definition: String = def_rows
+            .first()
+            .and_then(|r| r.get::<&str, _>(0))
+            .unwrap_or("")
+            .to_string();
+
+        Ok(TriggerDefinition {
+            name: trigger_name.to_string(),
+            namespace: namespace.clone(),
+            table_name: table_name.to_string(),
+            timing,
+            events,
+            definition,
+            enabled: !is_disabled,
+            function_name: None,
+        })
+    }
+
+    async fn drop_trigger(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        trigger_name: &str,
+        _table_name: &str,
+    ) -> EngineResult<TriggerOperationResult> {
+        let mssql_session = self.get_session(session).await?;
+        let mut conn = mssql_session.pool.get().await.map_err(|e| {
+            EngineError::connection_failed(format!("Failed to acquire connection: {e}"))
+        })?;
+        let schema = namespace.schema.as_deref().unwrap_or("dbo");
+
+        let sql = format!(
+            "DROP TRIGGER [{}].[{}]",
+            schema.replace(']', "]]"),
+            trigger_name.replace(']', "]]")
+        );
+
+        let start = Instant::now();
+        conn.simple_query(&sql)
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?
+            .into_results()
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+        let elapsed = start.elapsed().as_millis() as f64;
+
+        Ok(TriggerOperationResult {
+            success: true,
+            executed_command: sql,
+            message: None,
+            execution_time_ms: elapsed,
+        })
+    }
+
+    async fn toggle_trigger(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        trigger_name: &str,
+        table_name: &str,
+        enable: bool,
+    ) -> EngineResult<TriggerOperationResult> {
+        let mssql_session = self.get_session(session).await?;
+        let mut conn = mssql_session.pool.get().await.map_err(|e| {
+            EngineError::connection_failed(format!("Failed to acquire connection: {e}"))
+        })?;
+        let schema = namespace.schema.as_deref().unwrap_or("dbo");
+
+        let action = if enable { "ENABLE" } else { "DISABLE" };
+        let sql = format!(
+            "{} TRIGGER [{}].[{}] ON [{}].[{}]",
+            action,
+            schema.replace(']', "]]"),
+            trigger_name.replace(']', "]]"),
+            schema.replace(']', "]]"),
+            table_name.replace(']', "]]")
+        );
+
+        let start = Instant::now();
+        conn.simple_query(&sql)
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?
+            .into_results()
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+        let elapsed = start.elapsed().as_millis() as f64;
+
+        Ok(TriggerOperationResult {
+            success: true,
+            executed_command: sql,
+            message: None,
+            execution_time_ms: elapsed,
+        })
     }
 
     // ==================== Query Execution ====================

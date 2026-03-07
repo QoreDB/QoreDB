@@ -2,7 +2,17 @@
 
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import type { TFunction } from 'i18next';
-import { Bell, Copy, Minus, Search, Settings, Square, X } from 'lucide-react';
+import {
+  ArrowDownToLine,
+  Bell,
+  Copy,
+  Loader2,
+  Minus,
+  Search,
+  Settings,
+  Square,
+  X,
+} from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { NotificationPanel } from '@/components/Notification/NotificationPanel';
@@ -17,6 +27,12 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useNotificationBadge } from '@/lib/notificationStore';
+import {
+  setUpdateError,
+  setUpdateInstalled,
+  setUpdateInstalling,
+  useUpdateStore,
+} from '@/lib/updateStore';
 import { cn } from '@/lib/utils';
 import { getShortcut, isMacOS, isWindowsOS } from '@/utils/platform';
 
@@ -167,21 +183,14 @@ export const CustomTitlebar = ({
       </div>
 
       <div className="flex-1 flex justify-center px-4" data-tauri-drag-region>
-        <div
+        <button
+          type="button"
           className={cn(
             'w-full max-w-xl h-7 bg-background/80 hover:bg-background transition-colors rounded-md border border-border/60 hover:border-border flex items-center px-3 gap-2 text-muted-foreground group shadow-sm cursor-pointer'
           )}
-          role={onOpenSearch ? 'button' : undefined}
-          tabIndex={onOpenSearch ? 0 : -1}
+          disabled={!onOpenSearch}
           aria-label={t('titlebar.search.placeholder')}
           onClick={() => onOpenSearch?.()}
-          onKeyDown={event => {
-            if (!onOpenSearch) return;
-            if (event.key === 'Enter' || event.key === ' ') {
-              event.preventDefault();
-              onOpenSearch();
-            }
-          }}
         >
           <Search className="w-3.5 h-3.5 group-hover:text-foreground transition-colors" />
           <span className="text-xs group-hover:text-foreground transition-colors truncate">
@@ -190,7 +199,7 @@ export const CustomTitlebar = ({
           <span className="ml-auto text-[9px] font-mono border border-border px-1.5 py-0.5 rounded bg-muted/50">
             {getShortcut('K', { symbol: true })}
           </span>
-        </div>
+        </button>
       </div>
 
       <div className="flex items-center pr-2 z-20">
@@ -211,6 +220,8 @@ export const CustomTitlebar = ({
         <div className="h-4 w-px bg-border/50 mx-1" />
 
         <div className="flex items-center gap-1">
+          <UpdateButton />
+
           <Button
             variant="ghost"
             size="icon"
@@ -455,6 +466,7 @@ const WindowButton = ({
   isClose?: boolean;
 }) => (
   <button
+    type="button"
     onClick={onClick}
     className={cn(
       'w-12 h-10 flex items-center justify-center transition-colors hover:bg-muted/80',
@@ -464,6 +476,49 @@ const WindowButton = ({
     {children}
   </button>
 );
+
+/**
+ * UpdateButton - Persistent button shown when an app update is available
+ */
+const UpdateButton = () => {
+  const { t } = useTranslation();
+  const { status, version, update } = useUpdateStore();
+
+  if (status === 'idle' || status === 'installed') return null;
+
+  const isInstalling = status === 'installing';
+
+  const handleClick = async () => {
+    if (!update || isInstalling) return;
+    try {
+      setUpdateInstalling();
+      await update.downloadAndInstall();
+      setUpdateInstalled();
+    } catch (err) {
+      setUpdateError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  return (
+    <Button
+      variant="ghost"
+      size="sm"
+      className="h-7 gap-1.5 px-2 text-xs font-medium text-emerald-500 hover:text-emerald-400 hover:bg-emerald-500/10 animate-in fade-in duration-300"
+      onClick={handleClick}
+      disabled={isInstalling}
+      title={t('updates.available', { version })}
+    >
+      {isInstalling ? (
+        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+      ) : (
+        <ArrowDownToLine className="w-3.5 h-3.5" />
+      )}
+      <span className="hidden sm:inline">
+        {isInstalling ? t('updates.installing') : `v${version}`}
+      </span>
+    </Button>
+  );
+};
 
 /**
  * NotificationBell - Bell icon with popover panel and badge

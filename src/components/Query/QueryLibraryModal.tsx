@@ -42,6 +42,8 @@ import {
   updateItem,
 } from '@/lib/queryLibrary';
 import { cn } from '@/lib/utils';
+import { useLicense } from '@/providers/LicenseProvider';
+import { UpgradePrompt } from '@/components/License/UpgradePrompt';
 
 interface QueryLibraryModalProps {
   isOpen: boolean;
@@ -66,6 +68,7 @@ function formatTime(timestamp: number): string {
 
 export function QueryLibraryModal({ isOpen, onClose, onSelectQuery }: QueryLibraryModalProps) {
   const { t } = useTranslation();
+  const { isFeatureEnabled } = useLicense();
   const [folders, setFolders] = useState<QueryFolder[]>([]);
   const [items, setItems] = useState<QueryLibraryItem[]>([]);
   const [folderFilter, setFolderFilter] = useState<string>('__all__');
@@ -191,6 +194,22 @@ export function QueryLibraryModal({ isOpen, onClose, onSelectQuery }: QueryLibra
   }
 
   if (!isOpen) return null;
+
+  if (!isFeatureEnabled('query_library_advanced')) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+        <button
+          type="button"
+          aria-label={t('common.close')}
+          className="absolute inset-0"
+          onMouseDown={onClose}
+        />
+        <div className="relative z-10 w-full max-w-md bg-background border border-border rounded-lg shadow-xl p-6">
+          <UpgradePrompt feature="query_library_advanced" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">

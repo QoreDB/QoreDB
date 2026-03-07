@@ -23,6 +23,7 @@ import {
 } from '@/lib/sandboxStore';
 import type { Environment } from '@/lib/tauri';
 import { cn } from '@/lib/utils';
+import { useLicense } from '@/providers/LicenseProvider';
 import { getShortcut } from '@/utils/platform';
 
 interface SandboxToggleProps {
@@ -41,6 +42,8 @@ export function SandboxToggle({
   environment = 'development',
 }: SandboxToggleProps) {
   const { t } = useTranslation();
+  const { isFeatureEnabled } = useLicense();
+  const sandboxUnlocked = isFeatureEnabled('sandbox');
   const [isActive, setIsActive] = useState(() => isSandboxActive(sessionId));
   const [showConfirm, setShowConfirm] = useState(false);
 
@@ -65,6 +68,10 @@ export function SandboxToggle({
       deactivateSandbox(sessionId);
       onToggle?.(false);
     } else {
+      if (!sandboxUnlocked) {
+        toast.info(t('license.features.sandbox'));
+        return;
+      }
       activateSandbox(sessionId);
       onToggle?.(true);
       if (environment === 'staging') {
@@ -74,14 +81,14 @@ export function SandboxToggle({
         toast.warning(t('sandbox.envWarningProduction'));
       }
     }
-  }, [isActive, sessionId, onToggle, environment, t]);
+  }, [isActive, sessionId, onToggle, environment, t, sandboxUnlocked]);
 
   // Keyboard shortcut: Ctrl+Shift+S
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 's') {
         e.preventDefault();
-        if (!disabled) {
+        if (!disabled && sandboxUnlocked) {
           handleToggle();
         }
       }
@@ -89,7 +96,7 @@ export function SandboxToggle({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [disabled, handleToggle]);
+  }, [disabled, handleToggle, sandboxUnlocked]);
 
   const handleConfirmDeactivate = useCallback(
     (clearChanges: boolean) => {

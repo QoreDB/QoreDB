@@ -68,6 +68,10 @@ impl DataEngine for CockroachDbDriver {
         pg_compat::disconnect(&self.sessions, session).await
     }
 
+    async fn ping(&self, session: SessionId) -> EngineResult<()> {
+        pg_compat::ping(&self.sessions, session).await
+    }
+
     // ==================== Namespaces ====================
     // CockroachDB-specific: filter out crdb_internal, pg_extension
 

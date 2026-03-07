@@ -20,6 +20,7 @@ pub mod vault;
 pub mod virtual_relations;
 
 use std::sync::Arc;
+use tauri::Manager;
 use tokio::sync::Mutex;
 
 use engine::drivers::duckdb::DuckDbDriver;
@@ -134,6 +135,15 @@ pub fn run() {
             #[cfg(desktop)]
             app.handle()
                 .plugin(tauri_plugin_updater::Builder::new().build())?;
+
+            // Start the connection health monitor
+            let state: tauri::State<SharedState> = app.state();
+            let session_manager = {
+                let app_state = state.blocking_lock();
+                Arc::clone(&app_state.session_manager)
+            };
+            session_manager.start_health_monitor(app.handle().clone());
+
             Ok(())
         })
         .plugin(tauri_plugin_opener::init())
@@ -149,6 +159,7 @@ pub fn run() {
             commands::connection::connect_saved_connection,
             commands::connection::disconnect,
             commands::connection::list_sessions,
+            commands::connection::check_connection_health,
             // Connection URL parsing
             commands::connection_url::parse_url,
             commands::connection_url::get_supported_url_schemes,

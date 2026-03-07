@@ -698,6 +698,10 @@
   "status": {
     "connected": "Connected",
     "disconnected": "Disconnected",
+    "reconnecting": "Reconnecting…",
+    "connectionLost": "Connection lost",
+    "connectionUnhealthy": "Connection to database lost. Attempting to reconnect…",
+    "connectionRestored": "Connection restored.",
     "session": "Session",
     "noSession": "No active session"
   },

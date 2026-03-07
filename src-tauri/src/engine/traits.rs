@@ -61,6 +61,12 @@ pub trait DataEngine: Send + Sync {
     /// Closes a session and releases associated resources
     async fn disconnect(&self, session: SessionId) -> EngineResult<()>;
 
+    /// Lightweight health check for an active session.
+    ///
+    /// Returns `Ok(())` if the connection is alive, or an error if unreachable.
+    /// Used by the keep-alive monitor to detect stale connections.
+    async fn ping(&self, session: SessionId) -> EngineResult<()>;
+
     /// Lists all namespaces (databases/schemas) accessible in this session
     async fn list_namespaces(&self, session: SessionId) -> EngineResult<Vec<Namespace>>;
 

@@ -107,6 +107,7 @@ export function AppLayout() {
     driver,
     driverCapabilities,
     activeConnection,
+    connectionHealth,
     hasConnections,
     schemaRefreshTrigger,
     recovery,
@@ -603,7 +604,7 @@ export function AppLayout() {
               />
             </SandboxBorder>
 
-            <StatusBar sessionId={sessionId} connection={activeConnection} />
+            <StatusBar sessionId={sessionId} connection={activeConnection} connectionHealth={connectionHealth} />
           </main>
         </div>
       </div>

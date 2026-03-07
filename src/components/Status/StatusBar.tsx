@@ -1,18 +1,19 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Database, Link2Off, Lock, Server, Shield } from 'lucide-react';
+import { Database, Link2Off, Lock, RefreshCw, Server, Shield, WifiOff } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { SandboxIndicator } from '@/components/Sandbox';
 import { getDriverMetadata } from '@/lib/drivers';
 import { ENVIRONMENT_CONFIG } from '@/lib/environment';
-import type { SavedConnection } from '@/lib/tauri';
+import type { ConnectionHealth, SavedConnection } from '@/lib/tauri';
 
 interface StatusBarProps {
   sessionId: string | null;
   connection: SavedConnection | null;
+  connectionHealth?: ConnectionHealth;
 }
 
-export function StatusBar({ sessionId, connection }: StatusBarProps) {
+export function StatusBar({ sessionId, connection, connectionHealth = 'healthy' }: StatusBarProps) {
   const { t } = useTranslation();
   const isConnected = Boolean(sessionId && connection);
 
@@ -20,17 +21,33 @@ export function StatusBar({ sessionId, connection }: StatusBarProps) {
   const envConfig = ENVIRONMENT_CONFIG[environment];
   const driverMeta = connection ? getDriverMetadata(connection.driver) : null;
 
+  const healthIndicator = () => {
+    if (!isConnected) {
+      return <Link2Off size={12} className="text-muted-foreground" />;
+    }
+    if (connectionHealth === 'reconnecting') {
+      return <RefreshCw size={12} className="text-warning animate-spin" />;
+    }
+    if (connectionHealth === 'unhealthy') {
+      return <WifiOff size={12} className="text-destructive" />;
+    }
+    return <span className="w-2 h-2 rounded-full bg-success shadow-sm shadow-success/40" />;
+  };
+
+  const healthLabel = () => {
+    if (!isConnected) return t('status.disconnected');
+    if (connectionHealth === 'reconnecting') return t('status.reconnecting');
+    if (connectionHealth === 'unhealthy') return t('status.connectionLost');
+    return t('status.connected');
+  };
+
   return (
     <div className="flex items-center justify-between h-8 px-3 border-t border-border bg-muted/30 text-xs text-muted-foreground">
       <div className="flex items-center gap-3 min-w-0">
         <span className="flex items-center gap-1.5">
-          {isConnected ? (
-            <span className="w-2 h-2 rounded-full bg-success shadow-sm shadow-success/40" />
-          ) : (
-            <Link2Off size={12} className="text-muted-foreground" />
-          )}
-          <span className={isConnected ? 'text-foreground' : ''}>
-            {isConnected ? t('status.connected') : t('status.disconnected')}
+          {healthIndicator()}
+          <span className={isConnected && connectionHealth === 'healthy' ? 'text-foreground' : connectionHealth !== 'healthy' ? 'text-warning' : ''}>
+            {healthLabel()}
           </span>
         </span>
 

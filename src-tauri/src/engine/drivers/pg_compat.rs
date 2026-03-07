@@ -206,6 +206,15 @@ pub async fn disconnect(sessions: &SessionMap, session: SessionId) -> EngineResu
     Ok(())
 }
 
+pub async fn ping(sessions: &SessionMap, session: SessionId) -> EngineResult<()> {
+    let pg = get_session(sessions, session).await?;
+    sqlx::query("SELECT 1")
+        .execute(&pg.pool)
+        .await
+        .map_err(|e| EngineError::connection_failed(format!("Ping failed: {e}")))?;
+    Ok(())
+}
+
 // =============================================================================
 // Execute
 // =============================================================================

@@ -953,6 +953,16 @@ impl DataEngine for RedisDriver {
         Ok(())
     }
 
+    async fn ping(&self, session: SessionId) -> EngineResult<()> {
+        let redis_session = self.get_session(session).await?;
+        let mut conn = redis_session.connection.lock().await;
+        redis::cmd("PING")
+            .query_async::<String>(&mut *conn)
+            .await
+            .map_err(|e| EngineError::connection_failed(format!("Ping failed: {e}")))?;
+        Ok(())
+    }
+
     async fn list_namespaces(&self, session: SessionId) -> EngineResult<Vec<Namespace>> {
         let redis_session = self.get_session(session).await?;
         let mut conn = redis_session.connection.lock().await;

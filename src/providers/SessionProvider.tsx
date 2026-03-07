@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { check } from '@tauri-apps/plugin-updater';
 import {
   createContext,
@@ -20,6 +21,8 @@ import { notify } from '@/lib/notify';
 import type { OpenTab } from '@/lib/tabs';
 import {
   connectSavedConnection,
+  type ConnectionHealth,
+  type ConnectionHealthEvent,
   type DriverCapabilities,
   disconnect,
   getDriverInfo,
@@ -79,6 +82,7 @@ export interface SessionContextValue {
   driver: Driver;
   driverCapabilities: DriverCapabilities | null;
   activeConnection: SavedConnection | null;
+  connectionHealth: ConnectionHealth;
   hasConnections: boolean;
   sidebarRefreshTrigger: number;
   schemaRefreshTrigger: number;
@@ -114,6 +118,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [driverCapabilities, setDriverCapabilities] = useState<DriverCapabilities | null>(null);
   const [activeConnection, setActiveConnection] = useState<SavedConnection | null>(null);
   const [hasConnections, setHasConnections] = useState(false);
+  const [connectionHealth, setConnectionHealth] = useState<ConnectionHealth>('healthy');
   const [sidebarRefreshTrigger, setSidebarRefreshTrigger] = useState(0);
   const [schemaRefreshTrigger, setSchemaRefreshTrigger] = useState(0);
 
@@ -158,6 +163,43 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       window.clearTimeout(handle);
     };
   }, []);
+
+  // Listen for connection health events from Tauri backend
+  useEffect(() => {
+    if (!sessionId) {
+      setConnectionHealth('healthy');
+      return;
+    }
+
+    let unlisten: UnlistenFn | null = null;
+    let cancelled = false;
+
+    listen<ConnectionHealthEvent>('connection_health', event => {
+      if (cancelled) return;
+      if (event.payload.session_id === sessionId) {
+        const newHealth = event.payload.health;
+        setConnectionHealth(prev => {
+          if (newHealth === 'unhealthy' && prev !== 'unhealthy') {
+            notify.warning(t('status.connectionUnhealthy'));
+          } else if (newHealth === 'healthy' && prev !== 'healthy') {
+            notify.success(t('status.connectionRestored'));
+          }
+          return newHealth;
+        });
+      }
+    }).then(fn => {
+      if (cancelled) {
+        fn();
+      } else {
+        unlisten = fn;
+      }
+    });
+
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
+  }, [sessionId, t]);
 
   // Fetch driver capabilities when session changes
   useEffect(() => {
@@ -359,6 +401,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         driver,
         driverCapabilities,
         activeConnection,
+        connectionHealth,
         hasConnections,
         sidebarRefreshTrigger,
         schemaRefreshTrigger,

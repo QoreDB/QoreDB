@@ -219,6 +219,19 @@ export async function listSessions(): Promise<SessionListItem[]> {
   return invoke('list_sessions');
 }
 
+export async function checkConnectionHealth(
+  sessionId: string,
+): Promise<string> {
+  return invoke('check_connection_health', { sessionId });
+}
+
+export type ConnectionHealth = 'healthy' | 'unhealthy' | 'reconnecting';
+
+export interface ConnectionHealthEvent {
+  session_id: string;
+  health: ConnectionHealth;
+}
+
 // ============================================
 // POLICY COMMANDS
 // ============================================

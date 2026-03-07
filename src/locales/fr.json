@@ -696,6 +696,10 @@
   "status": {
     "connected": "Connecté",
     "disconnected": "Déconnecté",
+    "reconnecting": "Reconnexion…",
+    "connectionLost": "Connexion perdue",
+    "connectionUnhealthy": "Connexion à la base de données perdue. Tentative de reconnexion…",
+    "connectionRestored": "Connexion rétablie.",
     "session": "Session",
     "noSession": "Aucune session active"
   },

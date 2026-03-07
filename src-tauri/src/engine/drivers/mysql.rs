@@ -336,6 +336,15 @@ impl DataEngine for MySqlDriver {
         Ok(())
     }
 
+    async fn ping(&self, session: SessionId) -> EngineResult<()> {
+        let session = self.get_session(session).await?;
+        sqlx::query("SELECT 1")
+            .execute(&session.pool)
+            .await
+            .map_err(|e| EngineError::connection_failed(format!("Ping failed: {e}")))?;
+        Ok(())
+    }
+
     async fn list_namespaces(&self, session: SessionId) -> EngineResult<Vec<Namespace>> {
         let mysql_session = self.get_session(session).await?;
         let pool = &mysql_session.pool;

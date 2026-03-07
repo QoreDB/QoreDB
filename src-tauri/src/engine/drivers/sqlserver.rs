@@ -313,6 +313,22 @@ impl DataEngine for SqlServerDriver {
         Ok(())
     }
 
+    async fn ping(&self, session: SessionId) -> EngineResult<()> {
+        let mssql_session = self.get_session(session).await?;
+        let mut conn = mssql_session.pool.get().await.map_err(|e| {
+            EngineError::connection_failed(format!("Ping failed: {e}"))
+        })?;
+        let stream = conn
+            .simple_query("SELECT 1")
+            .await
+            .map_err(|e| EngineError::connection_failed(format!("Ping failed: {e}")))?;
+        stream
+            .into_results()
+            .await
+            .map_err(|e| EngineError::connection_failed(format!("Ping failed: {e}")))?;
+        Ok(())
+    }
+
     // ==================== Schema Browsing ====================
 
     async fn list_namespaces(&self, session: SessionId) -> EngineResult<Vec<Namespace>> {

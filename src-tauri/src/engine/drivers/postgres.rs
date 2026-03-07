@@ -71,6 +71,10 @@ impl DataEngine for PostgresDriver {
         pg_compat::disconnect(&self.sessions, session).await
     }
 
+    async fn ping(&self, session: SessionId) -> EngineResult<()> {
+        pg_compat::ping(&self.sessions, session).await
+    }
+
     // ==================== Namespaces ====================
 
     async fn list_namespaces(&self, session: SessionId) -> EngineResult<Vec<Namespace>> {

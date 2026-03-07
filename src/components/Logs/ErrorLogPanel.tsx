@@ -12,7 +12,7 @@ import {
   Search,
   Trash2,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -36,15 +36,15 @@ export function ErrorLogPanel({ isOpen, onClose }: ErrorLogPanelProps) {
   const [search, setSearch] = useState('');
   const [exporting, setExporting] = useState(false);
 
+  const loadLogs = useCallback(() => {
+    setLogs(getErrorLogs());
+  }, []);
+
   useEffect(() => {
     if (isOpen) {
       loadLogs();
     }
   }, [isOpen, loadLogs]);
-
-  function loadLogs() {
-    setLogs(getErrorLogs());
-  }
 
   function handleClear() {
     if (confirm(t('logs.clearConfirm'))) {

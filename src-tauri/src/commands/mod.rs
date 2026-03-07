@@ -20,5 +20,6 @@ pub mod mutation;
 pub mod policy;
 pub mod query;
 pub mod sandbox;
+pub mod snapshots;
 pub mod vault;
 pub mod virtual_relations;

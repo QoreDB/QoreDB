@@ -15,6 +15,7 @@ pub mod license;
 pub mod metrics;
 pub mod observability;
 pub mod policy;
+pub mod snapshots;
 pub mod vault;
 pub mod virtual_relations;
 
@@ -35,6 +36,7 @@ use policy::SafetyPolicy;
 use vault::{VaultLock, backend::KeyringProvider};
 use export::ExportPipeline;
 use license::LicenseManager;
+use snapshots::SnapshotStore;
 use virtual_relations::VirtualRelationStore;
 
 pub type SharedState = Arc<Mutex<AppState>>;
@@ -120,6 +122,13 @@ pub fn run() {
     observability::init_tracing();
     let state: SharedState = Arc::new(Mutex::new(AppState::new()));
 
+    // Initialize snapshot store (managed separately — no mutex needed)
+    let data_dir = dirs::data_local_dir()
+        .unwrap_or_else(|| std::path::PathBuf::from("."))
+        .join("com.qoredb.app");
+    let snapshot_store: commands::snapshots::SharedSnapshotStore =
+        Arc::new(SnapshotStore::new(data_dir.join("snapshots")));
+
     tauri::Builder::default()
         .setup(|app| {
             #[cfg(desktop)]
@@ -131,6 +140,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .manage(state)
+        .manage(snapshot_store)
         .invoke_handler(tauri::generate_handler![
             // Connection commands
             commands::connection::test_connection,
@@ -224,6 +234,12 @@ pub fn run() {
             commands::interceptor::add_safety_rule,
             commands::interceptor::update_safety_rule,
             commands::interceptor::remove_safety_rule,
+            // Snapshot commands
+            commands::snapshots::save_snapshot,
+            commands::snapshots::list_snapshots,
+            commands::snapshots::get_snapshot,
+            commands::snapshots::delete_snapshot,
+            commands::snapshots::rename_snapshot,
             // Virtual relations commands
             commands::virtual_relations::list_virtual_relations,
             commands::virtual_relations::add_virtual_relation,

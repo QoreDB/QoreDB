@@ -20,6 +20,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StreamingExportDialog } from '@/components/Export/StreamingExportDialog';
 import { DangerConfirmDialog } from '@/components/Guard/DangerConfirmDialog';
+import { SaveSnapshotDialog } from '@/components/Snapshot/SaveSnapshotDialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useStreamingExport } from '@/hooks/useStreamingExport';
 import { aiExplainResult } from '@/lib/ai';
@@ -635,6 +636,7 @@ export function DataGrid({
 
   const { startStreamingExport } = useStreamingExport(sessionId);
   const [streamingDialogOpen, setStreamingDialogOpen] = useState(false);
+  const [snapshotDialogOpen, setSnapshotDialogOpen] = useState(false);
   const canStreamExport = Boolean(sessionId && exportQuery);
 
   const handleStreamingExportConfirm = useCallback(
@@ -762,6 +764,7 @@ export function DataGrid({
           copied={!!copied}
           showFilters={showFilters}
           setShowFilters={setShowFilters}
+          onSaveSnapshot={result ? () => setSnapshotDialogOpen(true) : undefined}
           onExplainWithAi={canExplainWithAi ? handleExplainWithAi : undefined}
           aiExplanation={aiExplanation}
           aiExplainLoading={aiExplainLoading}
@@ -820,6 +823,24 @@ export function DataGrid({
         }}
         isDeleting={isDeleting}
       />
+
+      {result && (
+        <SaveSnapshotDialog
+          open={snapshotDialogOpen}
+          onOpenChange={setSnapshotDialogOpen}
+          result={result}
+          source={exportQuery || tableName || 'query'}
+          sourceType={tableName ? 'table' : 'query'}
+          connectionName={connectionName}
+          driver={undefined}
+          namespace={namespace}
+          defaultName={
+            tableName
+              ? `${tableName} - ${new Date().toLocaleDateString()}`
+              : `Query - ${new Date().toLocaleDateString()}`
+          }
+        />
+      )}
 
       <DangerConfirmDialog
         open={updateConfirmOpen}

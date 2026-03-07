@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Database, FileCode, GitCompare, Network, Plus, Settings, Table, X } from 'lucide-react';
+import { Camera, Database, FileCode, GitCompare, Network, Plus, Settings, Table, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { getModifierKey } from '@/utils/platform';
@@ -8,7 +8,7 @@ import { getModifierKey } from '@/utils/platform';
 export interface TabItem {
   id: string;
   title: string;
-  type: 'query' | 'table' | 'database' | 'settings' | 'diff' | 'federation';
+  type: 'query' | 'table' | 'database' | 'settings' | 'diff' | 'federation' | 'snapshots';
 }
 
 interface TabBarProps {
@@ -36,10 +36,11 @@ export function TabBar({ tabs = [], activeId, onSelect, onClose, onNew }: TabBar
         return <GitCompare size={14} />;
       case 'federation':
         return <Network size={14} className="text-accent" />;
+      case 'snapshots':
+        return <Camera size={14} />;
     }
   };
 
-  // Les onglets "query" sont des documents temporaires, les autres sont des vues persistantes
   const isTemporaryTab = (type: TabItem['type']) => type === 'query';
 
   return (

@@ -7,15 +7,16 @@
 
 import type { Namespace, QueryResult, RelationFilter, SearchFilter } from './tauri';
 
-export type TabType = 'query' | 'table' | 'database' | 'diff' | 'federation';
+export type TabType = 'query' | 'table' | 'database' | 'diff' | 'federation' | 'snapshots';
 
 export interface DiffSource {
-  type: 'query' | 'table';
+  type: 'query' | 'table' | 'snapshot';
   label: string;
   namespace?: Namespace;
   connectionId?: string;
   tableName?: string;
   query?: string;
+  snapshotId?: string;
   result?: QueryResult;
 }
 
@@ -106,5 +107,14 @@ export function createFederationTab(initialQuery?: string): OpenTab {
     type: 'federation',
     title: 'Federation',
     initialQuery,
+  };
+}
+
+/** Create a snapshots manager tab */
+export function createSnapshotsTab(): OpenTab {
+  return {
+    id: generateTabId(),
+    type: 'snapshots',
+    title: 'Snapshots',
   };
 }

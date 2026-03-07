@@ -1,7 +1,11 @@
 {
   "permissions": {
     "allow": [
-      "Bash(xargs -I {} basename {} .tsx)"
+      "Bash(xargs -I {} basename {} .tsx)",
+      "Read(//c/Users/rapha/Documents/TravailProjetsQoreDB/**)",
+      "Bash(npx biome check --write src/AppLayout.tsx src/lib/routineTemplates.ts src/components/Tree/RoutineContextMenu.tsx src/components/Tree/DBTree.tsx src/components/Browser/DatabaseBrowser.tsx src/components/Sidebar/Sidebar.tsx src/lib/tauri.ts)",
+      "Bash(npx biome check src/AppLayout.tsx src/lib/routineTemplates.ts src/components/Tree/RoutineContextMenu.tsx src/components/Tree/DBTree.tsx src/components/Browser/DatabaseBrowser.tsx src/components/Sidebar/Sidebar.tsx src/lib/tauri.ts)",
+      "Bash(npx biome check src/components/Browser/DatabaseBrowser.tsx)"
     ]
   }
 }

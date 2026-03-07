@@ -2,6 +2,7 @@
 
 import type { Column, Table } from '@tanstack/react-table';
 import {
+  Camera,
   Check,
   ChevronDown,
   Code2,
@@ -44,6 +45,7 @@ interface DataGridToolbarProps {
   copied: boolean;
   showFilters: boolean;
   setShowFilters: (show: boolean) => void;
+  onSaveSnapshot?: () => void;
   onExplainWithAi?: () => void;
   aiExplanation?: string | null;
   aiExplainLoading?: boolean;
@@ -60,6 +62,7 @@ export function DataGridToolbar({
   copied,
   showFilters,
   setShowFilters,
+  onSaveSnapshot,
   onExplainWithAi,
   aiExplanation,
   aiExplainLoading,
@@ -199,6 +202,15 @@ export function DataGridToolbar({
             <Database size={14} className="mr-2" />
             {t('grid.exportAllRows')}
           </DropdownMenuItem>
+          {onSaveSnapshot && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={onSaveSnapshot} className="text-xs">
+                <Camera size={14} className="mr-2" />
+                {t('snapshots.save')}
+              </DropdownMenuItem>
+            </>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
       {/* AI Explain */}

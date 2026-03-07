@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { check } from '@tauri-apps/plugin-updater';
 import {
   createContext,
@@ -20,6 +21,8 @@ import { notify } from '@/lib/notify';
 import type { OpenTab } from '@/lib/tabs';
 import {
   connectSavedConnection,
+  type ConnectionHealth,
+  type ConnectionHealthEvent,
   type DriverCapabilities,
   disconnect,
   getDriverInfo,
@@ -27,6 +30,7 @@ import {
   type SavedConnection,
 } from '@/lib/tauri';
 import { UI_EVENT_CONNECTIONS_CHANGED } from '@/lib/uiEvents';
+import { setUpdateAvailable } from '@/lib/updateStore';
 import { useModalContext } from './ModalProvider';
 import { useTabContext } from './TabProvider';
 
@@ -78,6 +82,7 @@ export interface SessionContextValue {
   driver: Driver;
   driverCapabilities: DriverCapabilities | null;
   activeConnection: SavedConnection | null;
+  connectionHealth: ConnectionHealth;
   hasConnections: boolean;
   sidebarRefreshTrigger: number;
   schemaRefreshTrigger: number;
@@ -113,6 +118,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [driverCapabilities, setDriverCapabilities] = useState<DriverCapabilities | null>(null);
   const [activeConnection, setActiveConnection] = useState<SavedConnection | null>(null);
   const [hasConnections, setHasConnections] = useState(false);
+  const [connectionHealth, setConnectionHealth] = useState<ConnectionHealth>('healthy');
   const [sidebarRefreshTrigger, setSidebarRefreshTrigger] = useState(0);
   const [schemaRefreshTrigger, setSchemaRefreshTrigger] = useState(0);
 
@@ -146,21 +152,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       try {
         const update = await check();
         if (!update || cancelled) return;
-        notify.info(t('updates.available', { version: update.version }), {
-          action: {
-            label: t('updates.install'),
-            onClick: async () => {
-              try {
-                notify.info(t('updates.installing'));
-                await update.downloadAndInstall();
-                notify.success(t('updates.installed'));
-                notify.info(t('updates.restartRequired'));
-              } catch (err) {
-                notify.error(t('updates.installFailed'), err);
-              }
-            },
-          },
-        });
+        setUpdateAvailable(update);
       } catch (err) {
         console.warn('Update check failed', err);
       }
@@ -170,7 +162,44 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       cancelled = true;
       window.clearTimeout(handle);
     };
-  }, [t]);
+  }, []);
+
+  // Listen for connection health events from Tauri backend
+  useEffect(() => {
+    if (!sessionId) {
+      setConnectionHealth('healthy');
+      return;
+    }
+
+    let unlisten: UnlistenFn | null = null;
+    let cancelled = false;
+
+    listen<ConnectionHealthEvent>('connection_health', event => {
+      if (cancelled) return;
+      if (event.payload.session_id === sessionId) {
+        const newHealth = event.payload.health;
+        setConnectionHealth(prev => {
+          if (newHealth === 'unhealthy' && prev !== 'unhealthy') {
+            notify.warning(t('status.connectionUnhealthy'));
+          } else if (newHealth === 'healthy' && prev !== 'healthy') {
+            notify.success(t('status.connectionRestored'));
+          }
+          return newHealth;
+        });
+      }
+    }).then(fn => {
+      if (cancelled) {
+        fn();
+      } else {
+        unlisten = fn;
+      }
+    });
+
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
+  }, [sessionId, t]);
 
   // Fetch driver capabilities when session changes
   useEffect(() => {
@@ -372,6 +401,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         driver,
         driverCapabilities,
         activeConnection,
+        connectionHealth,
         hasConnections,
         sidebarRefreshTrigger,
         schemaRefreshTrigger,

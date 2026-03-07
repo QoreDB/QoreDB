@@ -219,6 +219,19 @@ export async function listSessions(): Promise<SessionListItem[]> {
   return invoke('list_sessions');
 }
 
+export async function checkConnectionHealth(
+  sessionId: string,
+): Promise<string> {
+  return invoke('check_connection_health', { sessionId });
+}
+
+export type ConnectionHealth = 'healthy' | 'unhealthy' | 'reconnecting';
+
+export interface ConnectionHealthEvent {
+  session_id: string;
+  health: ConnectionHealth;
+}
+
 // ============================================
 // POLICY COMMANDS
 // ============================================
@@ -327,6 +340,73 @@ export async function listRoutines(
 }
 
 // ============================================
+// ROUTINE DEFINITION & OPERATIONS
+// ============================================
+
+export interface RoutineDefinition {
+  name: string;
+  namespace: Namespace;
+  routine_type: RoutineType;
+  definition: string;
+  language?: string;
+  arguments: string;
+  return_type?: string;
+}
+
+export interface RoutineOperationResult {
+  success: boolean;
+  executed_command: string;
+  message?: string;
+  execution_time_ms: number;
+}
+
+export async function getRoutineDefinition(
+  sessionId: string,
+  database: string,
+  schema: string | null | undefined,
+  routineName: string,
+  routineType: RoutineType,
+  routineArguments?: string
+): Promise<{
+  success: boolean;
+  definition?: RoutineDefinition;
+  error?: string;
+}> {
+  return invoke('get_routine_definition', {
+    sessionId,
+    database,
+    schema,
+    routineName,
+    routineType,
+    arguments: routineArguments,
+  });
+}
+
+export async function dropRoutine(
+  sessionId: string,
+  database: string,
+  schema: string | null | undefined,
+  routineName: string,
+  routineType: RoutineType,
+  routineArguments?: string,
+  acknowledgedDangerous?: boolean
+): Promise<{
+  success: boolean;
+  result?: RoutineOperationResult;
+  error?: string;
+}> {
+  return invoke('drop_routine', {
+    sessionId,
+    database,
+    schema,
+    routineName,
+    routineType,
+    arguments: routineArguments,
+    acknowledgedDangerous,
+  });
+}
+
+// ============================================
 // TRIGGERS
 // ============================================
 
@@ -348,6 +428,24 @@ export interface TriggerList {
   total_count: number;
 }
 
+export interface TriggerDefinition {
+  name: string;
+  namespace: Namespace;
+  table_name: string;
+  timing: TriggerTiming;
+  events: TriggerEvent[];
+  definition: string;
+  enabled: boolean;
+  function_name?: string;
+}
+
+export interface TriggerOperationResult {
+  success: boolean;
+  executed_command: string;
+  message?: string;
+  execution_time_ms: number;
+}
+
 export async function listTriggers(
   sessionId: string,
   namespace: Namespace,
@@ -365,6 +463,68 @@ export async function listTriggers(
     search,
     page,
     page_size: pageSize,
+  });
+}
+
+export async function getTriggerDefinition(
+  sessionId: string,
+  database: string,
+  schema: string | null | undefined,
+  triggerName: string
+): Promise<{
+  success: boolean;
+  definition?: TriggerDefinition;
+  error?: string;
+}> {
+  return invoke('get_trigger_definition', {
+    sessionId,
+    database,
+    schema,
+    triggerName,
+  });
+}
+
+export async function dropTrigger(
+  sessionId: string,
+  database: string,
+  schema: string | null | undefined,
+  triggerName: string,
+  tableName: string,
+  acknowledgedDangerous?: boolean
+): Promise<{
+  success: boolean;
+  result?: TriggerOperationResult;
+  error?: string;
+}> {
+  return invoke('drop_trigger', {
+    sessionId,
+    database,
+    schema,
+    triggerName,
+    tableName,
+    acknowledgedDangerous,
+  });
+}
+
+export async function toggleTrigger(
+  sessionId: string,
+  database: string,
+  schema: string | null | undefined,
+  triggerName: string,
+  tableName: string,
+  enable: boolean
+): Promise<{
+  success: boolean;
+  result?: TriggerOperationResult;
+  error?: string;
+}> {
+  return invoke('toggle_trigger', {
+    sessionId,
+    database,
+    schema,
+    triggerName,
+    tableName,
+    enable,
   });
 }
 
@@ -388,6 +548,20 @@ export interface EventList {
   total_count: number;
 }
 
+export interface EventDefinition {
+  name: string;
+  namespace: Namespace;
+  definition: string;
+  status: EventStatus;
+}
+
+export interface EventOperationResult {
+  success: boolean;
+  executed_command: string;
+  message?: string;
+  execution_time_ms: number;
+}
+
 export async function listEvents(
   sessionId: string,
   namespace: Namespace,
@@ -405,6 +579,44 @@ export async function listEvents(
     search,
     page,
     page_size: pageSize,
+  });
+}
+
+export async function getEventDefinition(
+  sessionId: string,
+  database: string,
+  schema: string | null | undefined,
+  eventName: string
+): Promise<{
+  success: boolean;
+  definition?: EventDefinition;
+  error?: string;
+}> {
+  return invoke('get_event_definition', {
+    sessionId,
+    database,
+    schema,
+    eventName,
+  });
+}
+
+export async function dropEvent(
+  sessionId: string,
+  database: string,
+  schema: string | null | undefined,
+  eventName: string,
+  acknowledgedDangerous?: boolean
+): Promise<{
+  success: boolean;
+  result?: EventOperationResult;
+  error?: string;
+}> {
+  return invoke('drop_event', {
+    sessionId,
+    database,
+    schema,
+    eventName,
+    acknowledgedDangerous,
   });
 }
 
@@ -1088,4 +1300,67 @@ export async function runMaintenance(
     request,
     acknowledgedDangerous,
   });
+}
+
+// ============================================
+// SNAPSHOT COMMANDS
+// ============================================
+
+export interface SnapshotMeta {
+  id: string;
+  name: string;
+  description?: string;
+  source: string;
+  source_type: string;
+  connection_name?: string;
+  driver?: string;
+  namespace?: Namespace;
+  columns: ColumnInfo[];
+  row_count: number;
+  created_at: string;
+  file_size: number;
+}
+
+export interface SaveSnapshotRequest {
+  name: string;
+  description?: string;
+  source: string;
+  source_type: string;
+  connection_name?: string;
+  driver?: string;
+  namespace?: Namespace;
+  result: QueryResult;
+}
+
+export async function saveSnapshot(
+  request: SaveSnapshotRequest
+): Promise<{ success: boolean; meta?: SnapshotMeta; error?: string }> {
+  return invoke('save_snapshot', { request });
+}
+
+export async function listSnapshots(): Promise<{
+  success: boolean;
+  snapshots: SnapshotMeta[];
+  error?: string;
+}> {
+  return invoke('list_snapshots');
+}
+
+export async function getSnapshot(
+  snapshotId: string
+): Promise<{ success: boolean; result?: QueryResult; meta?: SnapshotMeta; error?: string }> {
+  return invoke('get_snapshot', { snapshotId });
+}
+
+export async function deleteSnapshot(
+  snapshotId: string
+): Promise<{ success: boolean; error?: string }> {
+  return invoke('delete_snapshot', { snapshotId });
+}
+
+export async function renameSnapshot(
+  snapshotId: string,
+  newName: string
+): Promise<{ success: boolean; meta?: SnapshotMeta; error?: string }> {
+  return invoke('rename_snapshot', { snapshotId, newName });
 }

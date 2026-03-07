@@ -10,6 +10,7 @@ import {
   connectSavedConnection,
   disconnect,
   executeQuery,
+  getSnapshot,
   listNamespaces,
   type Namespace,
   previewTable,
@@ -121,6 +122,19 @@ function initSourceState(
   activeConnection: SavedConnection | null | undefined,
   initialNamespace?: Namespace
 ): DiffSourceState {
+  if (source?.type === 'snapshot') {
+    return {
+      mode: 'snapshot',
+      snapshotId: source.snapshotId,
+      snapshotName: source.label,
+      result: source.result,
+      namespace: source.namespace ?? initialNamespace,
+      loading: false,
+      connecting: false,
+      namespacesLoading: false,
+    };
+  }
+
   const connectionId = source?.connectionId ?? activeConnection?.id;
   const connection =
     activeConnection && connectionId === activeConnection.id ? activeConnection : undefined;
@@ -204,6 +218,7 @@ export function useDiffSources({
       if (
         'tableName' in updates ||
         'query' in updates ||
+        'snapshotId' in updates ||
         'mode' in updates ||
         'connectionId' in updates ||
         'namespace' in updates
@@ -217,6 +232,7 @@ export function useDiffSources({
     if (
       'tableName' in updates ||
       'query' in updates ||
+      'snapshotId' in updates ||
       'mode' in updates ||
       'connectionId' in updates ||
       'namespace' in updates
@@ -231,6 +247,7 @@ export function useDiffSources({
       if (
         'tableName' in updates ||
         'query' in updates ||
+        'snapshotId' in updates ||
         'mode' in updates ||
         'connectionId' in updates ||
         'namespace' in updates
@@ -244,6 +261,7 @@ export function useDiffSources({
     if (
       'tableName' in updates ||
       'query' in updates ||
+      'snapshotId' in updates ||
       'mode' in updates ||
       'connectionId' in updates ||
       'namespace' in updates
@@ -571,6 +589,39 @@ export function useDiffSources({
     rightSource.error,
     executeRight,
   ]);
+
+  // Auto-load snapshot data when snapshot source is set
+  useEffect(() => {
+    if (leftSource.mode !== 'snapshot' || !leftSource.snapshotId || leftSource.result || leftSource.loading) return;
+    updateLeftSource({ loading: true });
+    getSnapshot(leftSource.snapshotId)
+      .then(res => {
+        if (res.success && res.result) {
+          updateLeftSource({ result: res.result, loading: false });
+        } else {
+          updateLeftSource({ error: res.error ?? 'Failed to load snapshot', loading: false });
+        }
+      })
+      .catch(err => {
+        updateLeftSource({ error: String(err), loading: false });
+      });
+  }, [leftSource.mode, leftSource.snapshotId, leftSource.result, leftSource.loading, updateLeftSource]);
+
+  useEffect(() => {
+    if (rightSource.mode !== 'snapshot' || !rightSource.snapshotId || rightSource.result || rightSource.loading) return;
+    updateRightSource({ loading: true });
+    getSnapshot(rightSource.snapshotId)
+      .then(res => {
+        if (res.success && res.result) {
+          updateRightSource({ result: res.result, loading: false });
+        } else {
+          updateRightSource({ error: res.error ?? 'Failed to load snapshot', loading: false });
+        }
+      })
+      .catch(err => {
+        updateRightSource({ error: String(err), loading: false });
+      });
+  }, [rightSource.mode, rightSource.snapshotId, rightSource.result, rightSource.loading, updateRightSource]);
 
   const commonColumns = useMemo(() => {
     if (!leftSource.result || !rightSource.result) return [];

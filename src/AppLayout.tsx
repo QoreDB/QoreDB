@@ -25,6 +25,7 @@ import { CustomTitlebar } from './components/CustomTitlebar';
 import { ConnectionDashboard } from './components/Dashboard/ConnectionDashboard';
 import { DataDiffViewer } from './components/Diff/DataDiffViewer';
 import { FederationViewer } from './components/Federation/FederationViewer';
+import { SnapshotManager } from './components/Snapshot/SnapshotManager';
 import { WelcomeScreen } from './components/Home/WelcomeScreen';
 import { LicenseGate } from './components/License/LicenseGate';
 import { AnalyticsService } from './components/Onboarding/AnalyticsService';
@@ -46,11 +47,14 @@ import { Driver } from './lib/drivers';
 import type { HistoryEntry } from './lib/history';
 import { notify } from './lib/notify';
 import type { QueryLibraryItem } from './lib/queryLibrary';
+import { getRoutineTemplate } from './lib/routineTemplates';
+import { getTriggerTemplate, getEventTemplate } from './lib/triggerTemplates';
 import {
   createDatabaseTab,
   createDiffTab,
   createFederationTab,
   createQueryTab,
+  createSnapshotsTab,
   createTableTab,
   type OpenTab,
 } from './lib/tabs';
@@ -58,10 +62,17 @@ import {
   type Collection,
   connectSavedConnection,
   type DriverCapabilities,
+  type DatabaseEvent,
+  getEventDefinition,
+  getRoutineDefinition,
+  getTriggerDefinition,
   type Namespace,
   type RelationFilter,
+  type Routine,
+  type RoutineType,
   type SavedConnection,
   type SearchFilter,
+  type Trigger,
 } from './lib/tauri';
 import { useModalContext } from './providers/ModalProvider';
 import { useSessionContext } from './providers/SessionProvider';
@@ -96,6 +107,7 @@ export function AppLayout() {
     driver,
     driverCapabilities,
     activeConnection,
+    connectionHealth,
     hasConnections,
     schemaRefreshTrigger,
     recovery,
@@ -196,6 +208,104 @@ export function AppLayout() {
     [sessionId, openTab]
   );
 
+  const handleOpenRoutineSource = useCallback(
+    async (routine: Routine, namespace: Namespace) => {
+      if (!sessionId) return;
+      const result = await getRoutineDefinition(
+        sessionId,
+        namespace.database,
+        namespace.schema,
+        routine.name,
+        routine.routine_type,
+        routine.arguments || undefined
+      );
+      if (result.success && result.definition) {
+        const tab = createQueryTab(result.definition.definition, namespace);
+        tab.title = `${routine.routine_type === 'Function' ? 'fn' : 'proc'}: ${routine.name}`;
+        openTab(tab);
+      } else {
+        notify.error(t('routineManager.sourceLoadError'), result.error);
+      }
+    },
+    [sessionId, openTab, t]
+  );
+
+  const handleCreateRoutine = useCallback(
+    (routineType: RoutineType, namespace: Namespace) => {
+      if (!sessionId) return;
+      const template = getRoutineTemplate(driver as Driver, routineType, namespace);
+      const tab = createQueryTab(template, namespace);
+      tab.title =
+        routineType === 'Function'
+          ? t('routineManager.createFunction')
+          : t('routineManager.createProcedure');
+      openTab(tab);
+    },
+    [sessionId, driver, openTab, t]
+  );
+
+  const handleOpenTriggerSource = useCallback(
+    async (trigger: Trigger, namespace: Namespace) => {
+      if (!sessionId) return;
+      const result = await getTriggerDefinition(
+        sessionId,
+        namespace.database,
+        namespace.schema,
+        trigger.name
+      );
+      if (result.success && result.definition) {
+        const tab = createQueryTab(result.definition.definition, namespace);
+        tab.title = `trigger: ${trigger.name}`;
+        openTab(tab);
+      } else {
+        notify.error(t('triggerManager.sourceLoadError'), result.error);
+      }
+    },
+    [sessionId, openTab, t]
+  );
+
+  const handleCreateTrigger = useCallback(
+    (namespace: Namespace) => {
+      if (!sessionId) return;
+      const template = getTriggerTemplate(driver as Driver, namespace);
+      const tab = createQueryTab(template, namespace);
+      tab.title = t('triggerManager.createTrigger');
+      openTab(tab);
+    },
+    [sessionId, driver, openTab, t]
+  );
+
+  const handleOpenEventSource = useCallback(
+    async (event: DatabaseEvent, namespace: Namespace) => {
+      if (!sessionId) return;
+      const result = await getEventDefinition(
+        sessionId,
+        namespace.database,
+        namespace.schema,
+        event.name
+      );
+      if (result.success && result.definition) {
+        const tab = createQueryTab(result.definition.definition, namespace);
+        tab.title = `event: ${event.name}`;
+        openTab(tab);
+      } else {
+        notify.error(t('eventManager.sourceLoadError'), result.error);
+      }
+    },
+    [sessionId, openTab, t]
+  );
+
+  const handleCreateEvent = useCallback(
+    (namespace: Namespace) => {
+      if (!sessionId) return;
+      const template = getEventTemplate(namespace);
+      const tab = createQueryTab(template, namespace);
+      tab.title = t('eventManager.createEvent');
+      openTab(tab);
+    },
+    [sessionId, openTab, t]
+  );
+
   const handleOpenHistory = useCallback(() => {
     if (!sessionId) {
       notify.error(t('query.noConnectionError'));
@@ -263,6 +373,7 @@ export function AppLayout() {
         : []),
       ...(sessionId ? [{ id: 'cmd_open_diff', label: t('diff.openDiff') }] : []),
       ...(sessionId ? [{ id: 'cmd_open_federation', label: t('federation.openFederation') }] : []),
+      { id: 'cmd_open_snapshots', label: t('snapshots.openManager') },
       {
         id: 'cmd_open_settings',
         label: t('palette.openSettings'),
@@ -305,6 +416,9 @@ export function AppLayout() {
             return;
           case 'cmd_open_diff':
             if (sessionId) handleOpenDiff();
+            return;
+          case 'cmd_open_snapshots':
+            openTab(createSnapshotsTab());
             return;
           case 'cmd_open_federation':
             if (sessionId) openTab(createFederationTab());
@@ -412,6 +526,12 @@ export function AppLayout() {
                 onDatabaseSelect={handleDatabaseSelect}
                 onCompareTable={handleCompareTable}
                 onAiGenerateForTable={handleAiGenerateForTable}
+                onOpenRoutineSource={handleOpenRoutineSource}
+                onCreateRoutine={handleCreateRoutine}
+                onOpenTriggerSource={handleOpenTriggerSource}
+                onCreateTrigger={handleCreateTrigger}
+                onOpenEventSource={handleOpenEventSource}
+                onCreateEvent={handleCreateEvent}
                 onEditConnection={handleEditConnection}
                 onNewQuery={handleNewQuery}
                 schemaRefreshTrigger={schemaRefreshTrigger}
@@ -475,10 +595,16 @@ export function AppLayout() {
                 onUpdateQueryDraft={updateQueryDraft}
                 onUpdateTabNamespace={updateTabNamespace}
                 onScheduleRecoverySave={scheduleRecoverySave}
+                onOpenRoutineSource={handleOpenRoutineSource}
+                onCreateRoutine={handleCreateRoutine}
+                onOpenTriggerSource={handleOpenTriggerSource}
+                onCreateTrigger={handleCreateTrigger}
+                onOpenEventSource={handleOpenEventSource}
+                onCreateEvent={handleCreateEvent}
               />
             </SandboxBorder>
 
-            <StatusBar sessionId={sessionId} connection={activeConnection} />
+            <StatusBar sessionId={sessionId} connection={activeConnection} connectionHealth={connectionHealth} />
           </main>
         </div>
       </div>
@@ -552,6 +678,12 @@ interface AppContentProps {
   onUpdateTableBrowserTab: (tabId: string, tab: TableBrowserTab) => void;
   onUpdateDatabaseBrowserTab: (tabId: string, tab: DatabaseBrowserTab) => void;
   onScheduleRecoverySave: () => void;
+  onOpenRoutineSource: (routine: Routine, namespace: Namespace) => void;
+  onCreateRoutine: (routineType: RoutineType, namespace: Namespace) => void;
+  onOpenTriggerSource: (trigger: Trigger, namespace: Namespace) => void;
+  onCreateTrigger: (namespace: Namespace) => void;
+  onOpenEventSource: (event: DatabaseEvent, namespace: Namespace) => void;
+  onCreateEvent: (namespace: Namespace) => void;
 }
 
 function AppContent({
@@ -582,6 +714,12 @@ function AppContent({
   onUpdateTableBrowserTab,
   onUpdateDatabaseBrowserTab,
   onScheduleRecoverySave,
+  onOpenRoutineSource,
+  onCreateRoutine,
+  onOpenTriggerSource,
+  onCreateTrigger,
+  onOpenEventSource,
+  onCreateEvent,
 }: AppContentProps) {
   if (!sessionId) {
     return (
@@ -650,8 +788,35 @@ function AppContent({
         }}
         onOpenQueryTab={ns => onOpenTab(createQueryTab(undefined, ns))}
         onOpenFulltextSearch={onOpenFulltextSearch}
+        onOpenRoutineSource={onOpenRoutineSource}
+        onCreateRoutine={onCreateRoutine}
+        onOpenTriggerSource={onOpenTriggerSource}
+        onCreateTrigger={onCreateTrigger}
+        onOpenEventSource={onOpenEventSource}
+        onCreateEvent={onCreateEvent}
         onClose={() => onCloseTab(activeTab.id)}
       />
+    );
+  }
+
+  if (activeTab?.type === 'snapshots') {
+    return (
+      <div className="flex-1 min-h-0 flex flex-col">
+        <SnapshotManager
+          key={activeTab.id}
+          onCompareInDiff={(snapshotId, meta) => {
+            const source = {
+              type: 'snapshot' as const,
+              label: meta.name,
+              snapshotId,
+              namespace: meta.namespace,
+            };
+            onOpenTab(
+              createDiffTab(source, undefined, `Data Diff: ${meta.name}`)
+            );
+          }}
+        />
+      </div>
     );
   }
 

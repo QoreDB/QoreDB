@@ -428,6 +428,29 @@ pub struct RoutineList {
     pub total_count: u32,
 }
 
+/// Full routine definition (CREATE statement) for viewing/editing
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RoutineDefinition {
+    pub name: String,
+    pub namespace: Namespace,
+    pub routine_type: RoutineType,
+    /// Full CREATE OR REPLACE statement
+    pub definition: String,
+    pub language: Option<String>,
+    pub arguments: String,
+    pub return_type: Option<String>,
+}
+
+/// Result of a routine drop operation
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RoutineOperationResult {
+    pub success: bool,
+    /// The SQL command that was executed
+    pub executed_command: String,
+    pub message: Option<String>,
+    pub execution_time_ms: f64,
+}
+
 // ==================== Trigger Types ====================
 
 /// Timing of a database trigger
@@ -509,6 +532,52 @@ pub struct EventListOptions {
 pub struct EventList {
     pub events: Vec<DatabaseEvent>,
     pub total_count: u32,
+}
+
+// ==================== Trigger Definition & Operation ====================
+
+/// Full trigger definition (CREATE statement) for viewing/editing
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TriggerDefinition {
+    pub name: String,
+    pub namespace: Namespace,
+    pub table_name: String,
+    pub timing: TriggerTiming,
+    pub events: Vec<TriggerEvent>,
+    /// Full CREATE TRIGGER statement
+    pub definition: String,
+    pub enabled: bool,
+    pub function_name: Option<String>,
+}
+
+/// Result of a trigger operation (drop, enable, disable)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TriggerOperationResult {
+    pub success: bool,
+    /// The SQL command that was executed
+    pub executed_command: String,
+    pub message: Option<String>,
+    pub execution_time_ms: f64,
+}
+
+/// Full event definition (CREATE statement) for viewing/editing
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EventDefinition {
+    pub name: String,
+    pub namespace: Namespace,
+    /// Full CREATE EVENT statement
+    pub definition: String,
+    pub status: EventStatus,
+}
+
+/// Result of an event operation (drop, enable, disable)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EventOperationResult {
+    pub success: bool,
+    /// The SQL command that was executed
+    pub executed_command: String,
+    pub message: Option<String>,
+    pub execution_time_ms: f64,
 }
 
 // ==================== Database Creation Options ====================

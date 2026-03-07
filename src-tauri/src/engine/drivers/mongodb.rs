@@ -323,6 +323,17 @@ impl DataEngine for MongoDriver {
         Ok(())
     }
 
+    async fn ping(&self, session: SessionId) -> EngineResult<()> {
+        let mongo_session = self.get_session(session).await?;
+        mongo_session
+            .client
+            .database("admin")
+            .run_command(doc! { "ping": 1 })
+            .await
+            .map_err(|e| EngineError::connection_failed(format!("Ping failed: {e}")))?;
+        Ok(())
+    }
+
     async fn list_namespaces(&self, session: SessionId) -> EngineResult<Vec<Namespace>> {
         let mongo_session = self.get_session(session).await?;
 

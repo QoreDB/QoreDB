@@ -120,6 +120,13 @@ function schemasCompatible(a: TableSchema, b: TableSchema): boolean {
   return true;
 }
 
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+  return `${(bytes / 1024 / 1024 / 1024).toFixed(2)} GB`;
+}
+
 export type TableBrowserTab = 'structure' | 'data' | 'info';
 
 interface TableBrowserProps {
@@ -1111,18 +1118,11 @@ function TableInfoPanel({ sessionId, namespace, tableName, driver, schema }: Tab
     } finally {
       setLoading(false);
     }
-  }, [sessionId, namespace, tableName, driver, driverMeta, formatBytes]);
+  }, [sessionId, namespace, tableName, driver, driverMeta]);
 
   useEffect(() => {
     loadStats();
   }, [loadStats]);
-
-  function formatBytes(bytes: number): string {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    if (bytes < 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
-    return `${(bytes / 1024 / 1024 / 1024).toFixed(2)} GB`;
-  }
 
   if (loading) {
     return (

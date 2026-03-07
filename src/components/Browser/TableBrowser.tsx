@@ -51,7 +51,7 @@ import type { MigrationScript, SandboxChange } from '@/lib/sandboxTypes';
 import { onTableChange } from '@/lib/tableEvents';
 import { UI_EVENT_REFRESH_TABLE } from '@/lib/uiEvents';
 import { cn } from '@/lib/utils';
-import { useLicense } from '@/providers/LicenseProvider';
+
 import { useInfiniteTableData } from '../../hooks/useInfiniteTableData';
 import { useSchemaCache } from '../../hooks/useSchemaCache';
 import { isDocumentDatabase } from '../../lib/driverCapabilities';
@@ -167,7 +167,6 @@ export function TableBrowser({
   onActiveTabChange,
 }: TableBrowserProps) {
   const { t } = useTranslation();
-  const { isFeatureEnabled } = useLicense();
   const viewTrackedRef = useRef(false);
   const [activeTab, setActiveTab] = useState<TableBrowserTab>(initialTab ?? 'data');
   const [schema, setSchema] = useState<TableSchema | null>(null);
@@ -440,18 +439,9 @@ export function TableBrowser({
     setRestoreBackupOpen(true);
   }, [connectionId, sessionId]);
 
-  // Sandbox handlers (Core: max 3 changes, Pro: unlimited)
-  const CORE_SANDBOX_LIMIT = 3;
-
   const canAddSandboxChange = useCallback(() => {
-    if (isFeatureEnabled('sandbox')) return true;
-    const session = getSandboxSession(sessionId);
-    if (session.changes.length >= CORE_SANDBOX_LIMIT) {
-      toast.warning(t('license.features.sandbox'));
-      return false;
-    }
     return true;
-  }, [isFeatureEnabled, sessionId, t]);
+  }, []);
 
   const handleSandboxInsert = useCallback(
     (newValues: Record<string, Value>) => {

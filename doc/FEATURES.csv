@@ -59,3 +59,14 @@ Data Engine Kernel,Universal Query Interceptor,Backend / Core,Hooks pour profili
 Data Engine Kernel,Driver SQLite,Backend / Core,Driver SQLite avec support WAL et extensions.,Terminé,P1,V2,3,Support 1st class.
 Data Tools,Visual Data Diff,Frontend / Diff,Comparaison côte à côte de deux résultats de requêtes ou tables (type Git diff).,Terminé,P1,V2,3,Compare Prod vs Staging.
 Data Tools,Fédération Inter-bases,Fullstack,Exécution de requêtes SQL cross-database avec jointures entre connexions actives.,Terminé,P1,V2,5,Pipeline de fédération basé sur DuckDB avec source mapping.
+Data Engine Kernel,Driver DuckDB,Backend / Core,Driver DuckDB pour analyse de fichiers locaux CSV/Parquet et fédération.,Terminé,P1,V2,3,Support OLAP et fichiers locaux.
+Data Engine Kernel,Driver SQL Server,Backend / Core,Driver SQL Server complet via Tiberius avec connection pooling bb8.,Terminé,P1,V2,4,Support OFFSET/FETCH pagination.
+Data Engine Kernel,Driver CockroachDB,Backend / Core,Driver CockroachDB basé sur la couche de compatibilité PostgreSQL.,Terminé,P1,V2,3,Wire-compatible PostgreSQL.
+DDL / Management,Routines & Procédures,Fullstack,Interface dédiée pour lister créer et éditer les fonctions et procédures stockées.,Terminé,P1,V2,4,Support multi-driver avec context menu.
+DDL / Management,Triggers & Événements,Fullstack,Vue liste et édition des déclencheurs et des tâches planifiées (Events) en base.,Terminé,P1,V2,4,Support multi-driver avec context menu.
+DDL / Management,Opérations de Maintenance,Fullstack,Optimisation des tables (VACUUM ANALYZE OPTIMIZE REPAIR) par driver.,Terminé,P1,V2,4,Dialog dédié avec feedback.
+Data Tools,Snapshots de Résultats,Fullstack,Sauvegarde persistante d'un état précis d'un résultat de requête pour comparaison ultérieure.,Terminé,P1,V2,3,Métadonnées et restauration.
+Data Tools,Virtual Relations Engine,Fullstack,Définition de relations FK virtuelles dans QoreDB pour tables/collections mal conçues.,Terminé,P1,V2,4,Panel dédié et dialog de création.
+Data Tools,Export Self-contained HTML,Fullstack,Génération d'un fichier HTML unique avec données embarquées et interface de tri/filtrage.,Terminé,P2,V2,3,CSS/JS embarqués pour partage rapide.
+Data Engine Kernel,Connection Resilience,Backend / Core,Reconnexion automatique et monitoring proactif de la santé des connexions.,Terminé,P1,V2,4,Recovery tunnels SSH inclus.
+Data Engine Kernel,Smart Keep-Alive,Backend / Core,Détection proactive des timeouts et maintien des connexions actives.,Terminé,P1,V2,3,Health checks périodiques.

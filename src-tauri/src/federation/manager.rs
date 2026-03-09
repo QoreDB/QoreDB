@@ -14,7 +14,7 @@ use tracing::instrument;
 use crate::engine::error::{EngineError, EngineResult};
 use crate::engine::session_manager::SessionManager;
 use crate::engine::traits::{StreamEvent, StreamSender};
-use crate::engine::types::{QueryId, QueryResult};
+use crate::engine::types::{ColumnInfo, QueryId, QueryResult, Row, Value};
 
 use super::duckdb_engine::DuckDbEngine;
 use super::planner::{build_plan, build_source_query};
@@ -106,7 +106,20 @@ async fn execute_federation_inner(
     let (source_results, fetch_results) =
         fetch_all_sources(&plan, session_manager).await?;
 
-    // Step 3: Load into DuckDB and execute
+    // Step 3: Flatten MongoDB document results into individual columns
+    let source_results: Vec<QueryResult> = source_results
+        .into_iter()
+        .zip(plan.sources.iter())
+        .map(|(result, source)| {
+            if source.driver_id == "mongodb" {
+                flatten_mongo_documents(result)
+            } else {
+                result
+            }
+        })
+        .collect();
+
+    // Step 4: Load into DuckDB and execute
     let duckdb_start = Instant::now();
     let engine = DuckDbEngine::new()?;
 
@@ -157,7 +170,20 @@ async fn execute_federation_stream_inner(
     let (source_results, fetch_results) =
         fetch_all_sources(&plan, session_manager).await?;
 
-    // Step 3: Load into DuckDB and stream
+    // Step 3: Flatten MongoDB document results into individual columns
+    let source_results: Vec<QueryResult> = source_results
+        .into_iter()
+        .zip(plan.sources.iter())
+        .map(|(result, source)| {
+            if source.driver_id == "mongodb" {
+                flatten_mongo_documents(result)
+            } else {
+                result
+            }
+        })
+        .collect();
+
+    // Step 4: Load into DuckDB and stream
     let duckdb_start = Instant::now();
     let engine = DuckDbEngine::new()?;
 
@@ -274,4 +300,98 @@ async fn fetch_single_source(
     };
 
     Ok((result, fetch_result))
+}
+
+/// Flattens a MongoDB QueryResult from a single `document` JSON column
+/// into individual columns, one per top-level key found across all documents.
+///
+/// This allows DuckDB to reference MongoDB fields directly (e.g. `l.profileId`)
+/// instead of requiring JSON extraction on a single `document` column.
+fn flatten_mongo_documents(result: QueryResult) -> QueryResult {
+    // Only flatten if we have the single "document" column pattern
+    if result.columns.len() != 1 || result.columns[0].name != "document" {
+        return result;
+    }
+
+    if result.rows.is_empty() {
+        return result;
+    }
+
+    // Collect all unique keys from all documents (preserving discovery order)
+    let mut column_names: Vec<String> = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+
+    for row in &result.rows {
+        if let Some(Value::Json(serde_json::Value::Object(map))) = row.values.first() {
+            for key in map.keys() {
+                if seen.insert(key.clone()) {
+                    column_names.push(key.clone());
+                }
+            }
+        }
+    }
+
+    if column_names.is_empty() {
+        return result;
+    }
+
+    // Build columns — all as VARCHAR since MongoDB types are dynamic
+    let columns: Vec<ColumnInfo> = column_names
+        .iter()
+        .map(|name| ColumnInfo {
+            name: name.clone(),
+            data_type: "VARCHAR".to_string(),
+            nullable: true,
+        })
+        .collect();
+
+    // Build rows by extracting each field
+    let rows: Vec<Row> = result
+        .rows
+        .iter()
+        .map(|row| {
+            let map = match row.values.first() {
+                Some(Value::Json(serde_json::Value::Object(m))) => Some(m),
+                _ => None,
+            };
+
+            let values: Vec<Value> = column_names
+                .iter()
+                .map(|key| {
+                    map.and_then(|m| m.get(key))
+                        .map(|v| json_value_to_engine_value(v))
+                        .unwrap_or(Value::Null)
+                })
+                .collect();
+
+            Row { values }
+        })
+        .collect();
+
+    QueryResult {
+        columns,
+        rows,
+        affected_rows: result.affected_rows,
+        execution_time_ms: result.execution_time_ms,
+    }
+}
+
+/// Converts a serde_json::Value to an engine Value for DuckDB insertion.
+fn json_value_to_engine_value(v: &serde_json::Value) -> Value {
+    match v {
+        serde_json::Value::Null => Value::Null,
+        serde_json::Value::Bool(b) => Value::Bool(*b),
+        serde_json::Value::Number(n) => {
+            if let Some(i) = n.as_i64() {
+                Value::Int(i)
+            } else if let Some(f) = n.as_f64() {
+                Value::Float(f)
+            } else {
+                Value::Text(n.to_string())
+            }
+        }
+        serde_json::Value::String(s) => Value::Text(s.clone()),
+        // Objects and arrays: serialize back to JSON string for DuckDB VARCHAR
+        _ => Value::Text(v.to_string()),
+    }
 }

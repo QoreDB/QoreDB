@@ -1,10 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
 
 /**
- * Table header component for DataGrid with resizable columns and filters
+ * Table header component for DataGrid with resizable columns, filters, and column pinning
  */
 
 import { flexRender, type Header, type Table } from '@tanstack/react-table';
+import { Pin, PinOff } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from '@/components/ui/context-menu';
 import { cn } from '@/lib/utils';
 import { GridColumnFilter } from './GridColumnFilter';
 import type { RowData } from './utils/dataGridUtils';
@@ -14,13 +22,30 @@ export interface DataGridTableHeaderProps {
   showFilters: boolean;
 }
 
+/** Compute the left offset for a pinned column by summing widths of all pinned columns before it. */
+function getPinnedLeftOffset(header: Header<RowData, unknown>, headers: Header<RowData, unknown>[]): number {
+  const pinnedIds = header.getContext().table.getState().columnPinning.left ?? [];
+  let offset = 0;
+  for (const id of pinnedIds) {
+    if (id === header.column.id) break;
+    const pinnedHeader = headers.find(h => h.column.id === id);
+    if (pinnedHeader) offset += pinnedHeader.getSize();
+  }
+  return offset;
+}
+
 export function DataGridTableHeader({ table, showFilters }: DataGridTableHeaderProps) {
   return (
     <thead className="sticky top-0 z-10 bg-muted/80 backdrop-blur-sm shadow-sm">
       {table.getHeaderGroups().map(headerGroup => (
         <tr key={headerGroup.id}>
           {headerGroup.headers.map(header => (
-            <DataGridTableHeaderCell key={header.id} header={header} showFilters={showFilters} />
+            <DataGridTableHeaderCell
+              key={header.id}
+              header={header}
+              headers={headerGroup.headers}
+              showFilters={showFilters}
+            />
           ))}
         </tr>
       ))}
@@ -30,14 +55,29 @@ export function DataGridTableHeader({ table, showFilters }: DataGridTableHeaderP
 
 interface DataGridTableHeaderCellProps {
   header: Header<RowData, unknown>;
+  headers: Header<RowData, unknown>[];
   showFilters: boolean;
 }
 
-function DataGridTableHeaderCell({ header, showFilters }: DataGridTableHeaderCellProps) {
-  return (
+function DataGridTableHeaderCell({ header, headers, showFilters }: DataGridTableHeaderCellProps) {
+  const { t } = useTranslation();
+  const isPinned = header.column.getIsPinned();
+  const isDataColumn = header.column.id !== 'select' && header.column.id !== 'actions';
+
+  const thStyle: React.CSSProperties = { width: header.getSize() };
+  if (isPinned === 'left') {
+    thStyle.position = 'sticky';
+    thStyle.left = getPinnedLeftOffset(header, headers);
+    thStyle.zIndex = 20;
+  }
+
+  const thContent = (
     <th
-      className="px-3 py-2 text-left font-medium text-muted-foreground border-b border-border relative group"
-      style={{ width: header.getSize() }}
+      className={cn(
+        'px-3 py-2 text-left font-medium text-muted-foreground border-b border-border relative group',
+        isPinned === 'left' && 'bg-muted/95 backdrop-blur-sm shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]'
+      )}
+      style={thStyle}
     >
       {header.isPlaceholder
         ? null
@@ -60,5 +100,26 @@ function DataGridTableHeaderCell({ header, showFilters }: DataGridTableHeaderCel
         </div>
       )}
     </th>
+  );
+
+  if (!isDataColumn) return thContent;
+
+  return (
+    <ContextMenu>
+      <ContextMenuTrigger asChild>{thContent}</ContextMenuTrigger>
+      <ContextMenuContent>
+        {isPinned ? (
+          <ContextMenuItem onClick={() => header.column.pin(false)}>
+            <PinOff size={14} />
+            {t('grid.unpinColumn')}
+          </ContextMenuItem>
+        ) : (
+          <ContextMenuItem onClick={() => header.column.pin('left')}>
+            <Pin size={14} />
+            {t('grid.pinColumnLeft')}
+          </ContextMenuItem>
+        )}
+      </ContextMenuContent>
+    </ContextMenu>
   );
 }

@@ -562,7 +562,9 @@
     "updateConfirmLabel": "Modifier la valeur",
     "updateSuccess": "Ligne modifiée avec succès",
     "updateError": "Échec de la modification de la ligne",
-    "updateNoPrimaryKey": "L’édition inline nécessite une clé primaire"
+    "updateNoPrimaryKey": "L’édition inline nécessite une clé primaire",
+    "pinColumnLeft": "Épingler à gauche",
+    "unpinColumn": "Détacher la colonne"
   },
   "export": {
     "dialogTitle": "Export en continu",

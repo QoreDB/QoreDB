@@ -4,11 +4,22 @@
  * Virtualized table body component for DataGrid
  */
 
-import { flexRender, type Row } from '@tanstack/react-table';
+import { type Cell, flexRender, type Row } from '@tanstack/react-table';
 import type { Virtualizer } from '@tanstack/react-virtual';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import type { RowData } from './utils/dataGridUtils';
+
+/** Compute the left offset for a pinned cell by summing widths of all pinned columns before it. */
+function getPinnedCellLeftOffset(cell: Cell<RowData, unknown>): number {
+  const pinnedIds = cell.getContext().table.getState().columnPinning.left ?? [];
+  let offset = 0;
+  for (const id of pinnedIds) {
+    if (id === cell.column.id) break;
+    offset += cell.getContext().table.getColumn(id)?.getSize() ?? 0;
+  }
+  return offset;
+}
 
 interface RowMetadata {
   isInserted?: boolean;
@@ -81,15 +92,24 @@ export function DataGridTableBody({
             {row.getVisibleCells().map(cell => {
               const columnId = cell.column.id;
               const isCellModified = rowMeta?.modifiedColumns.has(columnId) ?? false;
+              const isPinned = cell.column.getIsPinned();
+
+              const tdStyle: React.CSSProperties = { width: cell.column.getSize() };
+              if (isPinned === 'left') {
+                tdStyle.position = 'sticky';
+                tdStyle.left = getPinnedCellLeftOffset(cell);
+                tdStyle.zIndex = 1;
+              }
 
               return (
                 <td
                   key={cell.id}
                   className={cn(
                     'px-3 py-1.5 max-w-xs',
-                    isCellModified && !isInserted && !isDeleted && 'bg-warning/20'
+                    isCellModified && !isInserted && !isDeleted && 'bg-warning/20',
+                    isPinned === 'left' && 'bg-background shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]'
                   )}
-                  style={{ width: cell.column.getSize() }}
+                  style={tdStyle}
                 >
                   {isInserted && cell.column.id === '__select' && (
                     <span className="inline-flex items-center px-1.5 py-0.5 text-[9px] font-bold rounded bg-success text-success-foreground mr-1.5">

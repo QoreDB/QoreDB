@@ -3,6 +3,7 @@
 import {
   type ColumnDef,
   type ColumnFiltersState,
+  type ColumnPinningState,
   createColumnHelper,
   getCoreRowModel,
   getFilteredRowModel,
@@ -170,6 +171,10 @@ export function DataGrid({
     : setInternalGlobalFilter;
 
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
+  const [columnPinning, setColumnPinning] = useState<ColumnPinningState>({
+    left: [],
+    right: [],
+  });
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [showFilters, setShowFilters] = useState(false);
   const isServerSideSorting = isServerSideMode;
@@ -523,6 +528,7 @@ export function DataGrid({
       ...(isInfiniteScrollMode ? {} : { pagination }),
       globalFilter,
       columnVisibility,
+      columnPinning,
       columnFilters,
     },
     onSortingChange: handleSortingChange,
@@ -530,6 +536,7 @@ export function DataGrid({
     ...(isInfiniteScrollMode ? {} : { onPaginationChange: setPagination }),
     onGlobalFilterChange: setGlobalFilter,
     onColumnVisibilityChange: setColumnVisibility,
+    onColumnPinningChange: setColumnPinning,
     onColumnFiltersChange: setColumnFilters,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),

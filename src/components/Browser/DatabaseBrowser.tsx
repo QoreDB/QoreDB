@@ -50,6 +50,7 @@ import { CreateTableModal } from '../Table/CreateTableModal';
 import { EventContextMenu } from '../Tree/EventContextMenu';
 import { RoutineContextMenu } from '../Tree/RoutineContextMenu';
 import { TriggerContextMenu } from '../Tree/TriggerContextMenu';
+import { ContentBreadcrumb } from './ContentBreadcrumb';
 import { StatCard } from './StatCard';
 
 function formatBytes(bytes: number): string {
@@ -386,15 +387,13 @@ export function DatabaseBrowser({
             <img src={iconSrc} alt={DRIVER_LABELS[driver]} className="w-4 h-4 object-contain" />
           </div>
           <div>
-            <h2 className="font-semibold text-foreground flex items-center gap-2">
-              {displayName}
-              {connectionName && (
-                <span className="text-xs text-muted-foreground font-normal">
-                  ({connectionName})
-                </span>
-              )}
-            </h2>
+            <h2 className="font-semibold text-foreground">{displayName}</h2>
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <ContentBreadcrumb
+                connectionName={connectionName}
+                namespace={namespace}
+              />
+              <span>•</span>
               <span>{DRIVER_LABELS[driver]}</span>
               <span>•</span>
               <span

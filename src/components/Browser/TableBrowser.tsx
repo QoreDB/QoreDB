@@ -4,7 +4,6 @@ import {
   AlertCircle,
   Clock,
   Columns3,
-  Database,
   HardDrive,
   Hash,
   Info,
@@ -18,6 +17,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
+import { ContentBreadcrumb } from './ContentBreadcrumb';
 import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
 import { ChangesPanel, MigrationPreview, SandboxToggle } from '@/components/Sandbox';
 import { Button } from '@/components/ui/button';
@@ -575,8 +575,11 @@ export function TableBrowser({
           <div>
             <h2 className="font-semibold text-foreground">{displayName}</h2>
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Database size={12} />
-              <span>{namespace.database}</span>
+              <ContentBreadcrumb
+                connectionName={connectionName}
+                namespace={namespace}
+                tableName={tableName}
+              />
               {typeof schema?.row_count_estimate === 'number' && (
                 <>
                   <span>•</span>

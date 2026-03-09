@@ -29,7 +29,7 @@
 
 - [x] **SQLite** — Base locale, fichier unique
 - [ ] **Oracle Database** — Enterprise
-- [ ] **CockroachDB** — PostgreSQL-compatible, distribué
+- [x] **CockroachDB** — PostgreSQL-compatible, distribué
 
 ### NoSQL Document
 

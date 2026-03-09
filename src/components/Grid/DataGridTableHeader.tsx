@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
+/** biome-ignore-all lint/a11y/useKeyWithClickEvents: <explanation> */
+/** biome-ignore-all lint/a11y/noStaticElementInteractions: <explanation> */
 
 /**
  * Table header component for DataGrid with resizable columns, filters, and column pinning

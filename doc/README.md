@@ -4,4 +4,5 @@
 - internals/: core engine internals
 - rules/: system design & invariants
 - tests/: testing constraints & limits
-- todos/: roadmap & forward-looking docs
+- todo/: roadmap & forward-looking docs
+- rules/: system design & invariants

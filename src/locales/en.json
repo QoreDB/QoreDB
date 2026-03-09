@@ -564,7 +564,9 @@
     "updateConfirmLabel": "Update value",
     "updateSuccess": "Row updated successfully",
     "updateError": "Failed to update row",
-    "updateNoPrimaryKey": "Inline edit requires a primary key"
+    "updateNoPrimaryKey": "Inline edit requires a primary key",
+    "pinColumnLeft": "Pin to left",
+    "unpinColumn": "Unpin column"
   },
   "export": {
     "dialogTitle": "Streaming export",

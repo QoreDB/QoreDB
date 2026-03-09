@@ -20,7 +20,7 @@
 | Domaine   | Action                              | Statut | Notes          |
 | --------- | ----------------------------------- | ------ | -------------- |
 | Vault     | Secrets stockés chiffrés localement | ✅     | Pas en clair   |
-| Redaction | Secrets jamais loggés               | ⬜     | `SecretString` |
+| Redaction | Secrets jamais loggés               | ✅     | `SecretString` |
 | Access    | Accès secrets backend uniquement    | ✅     | UI jamais      |
 | Export    | Pas d’export secrets par défaut     | ✅     | Confirmations  |
 
@@ -96,9 +96,9 @@
 
 | Document               | Objectif                        | Statut |
 | ---------------------- | ------------------------------- | ------ |
-| `SECURITY.md`          | Vue d’ensemble sécurité         | ⬜     |
-| `THREAT_MODEL.md`      | Menaces & mitigations           | ⬜     |
-| `PRODUCTION_SAFETY.md` | Garde-fous prod                 | ⬜     |
+| `SECURITY.md`          | Vue d’ensemble sécurité         | ✅     |
+| `THREAT_MODEL.md`      | Menaces & mitigations           | ✅     |
+| `PRODUCTION_SAFETY.md` | Garde-fous prod                 | ✅     |
 | Self-assessment        | Alignement SOC 2 (non certifié) | ⬜     |
 | OWASP                  | Alignement Top 10               | ⬜     |
 

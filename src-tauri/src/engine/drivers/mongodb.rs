@@ -1040,16 +1040,16 @@ impl DataEngine for MongoDriver {
 
                 let execution_time_ms = start.elapsed().as_micros() as f64 / 1000.0;
 
+                let columns = Self::document_column_info();
+
                 if documents.is_empty() {
                     return Ok(QueryResult {
-                        columns: Vec::new(),
+                        columns,
                         rows: Vec::new(),
                         affected_rows: None,
                         execution_time_ms,
                     });
                 }
-
-                let columns = Self::document_column_info();
                 let rows: Vec<QRow> = documents.iter().map(Self::document_to_row).collect();
 
                 Ok(QueryResult {

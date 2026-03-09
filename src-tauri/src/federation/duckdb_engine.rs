@@ -109,37 +109,7 @@ impl DuckDbEngine {
     /// Executes a query and returns a `QueryResult`.
     pub fn execute_query(&self, sql: &str) -> EngineResult<QueryResult> {
         let start = Instant::now();
-
-        let mut stmt = self
-            .conn
-            .prepare(sql)
-            .map_err(|e| EngineError::execution_error(format!("Federation query failed: {e}")))?;
-
-        let column_count = stmt.column_count();
-        let columns: Vec<ColumnInfo> = (0..column_count)
-            .map(|i| ColumnInfo {
-                name: stmt.column_name(i).map(|s| s.to_string()).unwrap_or_else(|_| "?".to_string()),
-                data_type: "VARCHAR".to_string(), // DuckDB types are normalized at output
-                nullable: true,
-            })
-            .collect();
-
-        let rows_iter = stmt
-            .query_map([], |row| {
-                let values: Vec<Value> = (0..column_count)
-                    .map(|i| duckdb_value_to_qoredb(row, i))
-                    .collect();
-                Ok(Row { values })
-            })
-            .map_err(|e| EngineError::execution_error(format!("Federation query failed: {e}")))?;
-
-        let mut rows = Vec::new();
-        for row_result in rows_iter {
-            let row = row_result
-                .map_err(|e| EngineError::execution_error(format!("Row fetch failed: {e}")))?;
-            rows.push(row);
-        }
-
+        let (columns, rows) = self.execute_and_collect(sql)?;
         let elapsed = start.elapsed().as_secs_f64() * 1000.0;
 
         Ok(QueryResult {
@@ -155,20 +125,38 @@ impl DuckDbEngine {
     /// This is synchronous because DuckDB types are not `Send`/`Sync`.
     /// The caller is responsible for sending results through the stream channel.
     pub fn execute_query_for_stream(&self, sql: &str) -> EngineResult<(Vec<ColumnInfo>, Vec<Row>)> {
+        self.execute_and_collect(sql)
+    }
+
+    /// Shared implementation: uses `conn.prepare` + `stmt.query` to execute,
+    /// then reads column metadata and rows from the executed statement.
+    ///
+    /// In DuckDB 1.4+, `column_count()` and `column_name()` both require
+    /// the statement to have been executed first (they access `result_unwrap()`).
+    fn execute_and_collect(&self, sql: &str) -> EngineResult<(Vec<ColumnInfo>, Vec<Row>)> {
         let mut stmt = self
             .conn
             .prepare(sql)
             .map_err(|e| EngineError::execution_error(format!("Federation query failed: {e}")))?;
 
+        // Execute first — column_count/column_name panic on unexecuted statements in DuckDB 1.4+
+        stmt.execute([])
+            .map_err(|e| EngineError::execution_error(format!("Federation query failed: {e}")))?;
+
+        // Now safe to read column metadata
         let column_count = stmt.column_count();
         let columns: Vec<ColumnInfo> = (0..column_count)
             .map(|i| ColumnInfo {
-                name: stmt.column_name(i).map(|s| s.to_string()).unwrap_or_else(|_| "?".to_string()),
+                name: stmt
+                    .column_name(i)
+                    .map(|s| s.to_string())
+                    .unwrap_or_else(|_| format!("col_{i}")),
                 data_type: "VARCHAR".to_string(),
                 nullable: true,
             })
             .collect();
 
+        // Re-execute and collect rows via query_map
         let rows_iter = stmt
             .query_map([], |row| {
                 let values: Vec<Value> = (0..column_count)

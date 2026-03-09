@@ -8,6 +8,7 @@
 use std::collections::HashMap;
 
 use crate::engine::error::{EngineError, EngineResult};
+use crate::engine::sql_generator::SqlDialect;
 
 use super::parser::{build_dotted_name, parse_federation_refs, rewrite_query};
 use super::types::{
@@ -112,10 +113,19 @@ fn build_rewrite_mappings(refs: &[FederatedTableRef]) -> HashMap<String, String>
 ///
 /// Generates: `SELECT {columns} FROM {table} WHERE {predicates} LIMIT {limit}`
 pub fn build_source_query(source: &SourceFetchPlan) -> String {
+    // For MongoDB, we use a different query format
+    if source.driver_id == "mongodb" {
+        return build_mongo_source_query(source);
+    }
+
+    // Use dialect-aware quoting: backticks for MySQL, double quotes for Postgres/SQLite, etc.
+    let dialect =
+        SqlDialect::from_driver_id(&source.driver_id).unwrap_or(SqlDialect::Postgres);
+
     let columns_clause = match &source.columns {
         Some(cols) if !cols.is_empty() => cols
             .iter()
-            .map(|c| format!("\"{c}\""))
+            .map(|c| dialect.quote_ident(c))
             .collect::<Vec<_>>()
             .join(", "),
         _ => "*".to_string(),
@@ -123,12 +133,7 @@ pub fn build_source_query(source: &SourceFetchPlan) -> String {
 
     let table_name = &source.table_ref.table;
 
-    // For MongoDB, we use a different query format
-    if source.driver_id == "mongodb" {
-        return build_mongo_source_query(source);
-    }
-
-    let mut sql = format!("SELECT {columns_clause} FROM \"{table_name}\"");
+    let mut sql = format!("SELECT {columns_clause} FROM {}", dialect.quote_ident(table_name));
 
     if !source.pushdown_predicates.is_empty() {
         let where_clause = source.pushdown_predicates.join(" AND ");
@@ -140,19 +145,18 @@ pub fn build_source_query(source: &SourceFetchPlan) -> String {
 }
 
 /// Builds a MongoDB-style query for source fetching.
-/// MongoDB uses JSON-style find queries rather than SQL.
+/// Uses the JSON format expected by the MongoDB driver's `parse_query`.
 fn build_mongo_source_query(source: &SourceFetchPlan) -> String {
-    // MongoDB driver accepts simple find JSON queries
-    // For v1 we do a simple find with limit
+    let database = &source.table_ref.namespace.database;
     let collection = &source.table_ref.table;
 
-    if source.pushdown_predicates.is_empty() {
-        format!("db.{collection}.find({{}}).limit({})", source.row_limit)
-    } else {
-        // Pushdown predicates would need MongoDB JSON translation
-        // v1: no pushdown for MongoDB
-        format!("db.{collection}.find({{}}).limit({})", source.row_limit)
-    }
+    // Use the JSON format that the MongoDB driver's parse_query() expects:
+    // {"database": "...", "collection": "...", "query": {...}}
+    format!(
+        r#"{{"database":"{}","collection":"{}","query":{{}}}}"#,
+        database.replace('"', "\\\""),
+        collection.replace('"', "\\\""),
+    )
 }
 
 #[cfg(test)]
@@ -177,6 +181,14 @@ mod tests {
                 session_id: SessionId::new(),
                 driver_id: "mongodb".to_string(),
                 display_name: "Analytics MongoDB".to_string(),
+            },
+        );
+        map.insert(
+            "app_mysql".to_string(),
+            AliasEntry {
+                session_id: SessionId::new(),
+                driver_id: "mysql".to_string(),
+                display_name: "App MySQL".to_string(),
             },
         );
         map
@@ -216,13 +228,51 @@ mod tests {
     }
 
     #[test]
+    fn mysql_source_query_uses_backticks() {
+        let sql = "SELECT * FROM app_mysql.mydb.profile";
+        let alias_map = test_alias_map();
+        let plan = build_plan(sql, &alias_map, None, false).unwrap();
+
+        let source_sql = build_source_query(&plan.sources[0]);
+        assert_eq!(plan.sources[0].driver_id, "mysql");
+        assert!(
+            source_sql.contains("`profile`"),
+            "MySQL source query should use backticks, got: {source_sql}"
+        );
+        assert!(
+            !source_sql.contains("\"profile\""),
+            "MySQL source query should NOT use double quotes, got: {source_sql}"
+        );
+    }
+
+    #[test]
+    fn postgres_source_query_uses_double_quotes() {
+        let sql = "SELECT * FROM prod_pg.public.users";
+        let alias_map = test_alias_map();
+        let plan = build_plan(sql, &alias_map, None, false).unwrap();
+
+        let source_sql = build_source_query(&plan.sources[0]);
+        assert_eq!(plan.sources[0].driver_id, "postgres");
+        assert!(
+            source_sql.contains("\"users\""),
+            "Postgres source query should use double quotes, got: {source_sql}"
+        );
+    }
+
+    #[test]
     fn mongo_source_query_format() {
         let sql = "SELECT * FROM analytics_mongo.analytics.events";
         let alias_map = test_alias_map();
         let plan = build_plan(sql, &alias_map, None, false).unwrap();
 
         let source_sql = build_source_query(&plan.sources[0]);
-        assert!(source_sql.contains("db.events.find"));
-        assert!(source_sql.contains(".limit(100000)"));
+        assert!(
+            source_sql.contains(r#""database":"analytics""#),
+            "MongoDB source query should use JSON format with correct database, got: {source_sql}"
+        );
+        assert!(
+            source_sql.contains(r#""collection":"events""#),
+            "MongoDB source query should use JSON format with correct collection, got: {source_sql}"
+        );
     }
 }

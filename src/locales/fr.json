@@ -346,6 +346,17 @@
       "placeholder": "Rechercher dans les paramètres...",
       "noResults": "Aucun paramètre trouvé"
     },
+    "about": {
+      "title": "À propos",
+      "description": "Version de l'application et mises à jour.",
+      "version": "Version",
+      "checkForUpdate": "Vérifier les mises à jour",
+      "checking": "Vérification...",
+      "installUpdate": "Installer v{{version}}",
+      "installing": "Installation...",
+      "installed": "Mise à jour installée — redémarrez pour appliquer.",
+      "upToDate": "Vous êtes à jour !"
+    },
     "startup": {
       "title": "Démarrage",
       "description": "Configurez le comportement au démarrage de l'application.",

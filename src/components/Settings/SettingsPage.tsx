@@ -129,14 +129,13 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
           activeSection={activeSection}
           onSectionChange={section => {
             setActiveSection(section);
-            setSearchQuery(''); // Clear search when switching sections
+            setSearchQuery('');
           }}
         />
       </aside>
 
       {/* Main content */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Header with breadcrumb, search, and close */}
         <header className="flex items-center gap-4 px-6 py-3 border-b border-border">
           <div className="flex-1">
             <SettingsBreadcrumb

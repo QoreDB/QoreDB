@@ -346,6 +346,17 @@
       "placeholder": "Search settings...",
       "noResults": "No settings found"
     },
+    "about": {
+      "title": "About",
+      "description": "Application version and updates.",
+      "version": "Version",
+      "checkForUpdate": "Check for updates",
+      "checking": "Checking...",
+      "installUpdate": "Install v{{version}}",
+      "installing": "Installing...",
+      "installed": "Update installed — restart to apply.",
+      "upToDate": "You're up to date!"
+    },
     "startup": {
       "title": "Startup",
       "description": "Configure application startup behavior.",

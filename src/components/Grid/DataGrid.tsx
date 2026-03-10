@@ -29,6 +29,7 @@ import type { ExportConfig } from '@/lib/export';
 import { applyOverlay, emptyOverlayResult, type OverlayResult } from '@/lib/sandboxOverlay';
 import type { SandboxChange, SandboxDeleteDisplay } from '@/lib/sandboxTypes';
 import type {
+  ColumnFilter,
   Environment,
   Namespace,
   QueryResult,
@@ -115,6 +116,7 @@ interface DataGridProps {
   onServerSortChange?: (column?: string, direction?: SortDirection) => void;
   serverSearchTerm?: string;
   onServerSearchChange?: (term: string) => void;
+  onServerColumnFiltersChange?: (filters: ColumnFilter[]) => void;
   exportQuery?: string;
 }
 
@@ -150,6 +152,7 @@ export function DataGrid({
   onServerSortChange,
   serverSearchTerm,
   onServerSearchChange,
+  onServerColumnFiltersChange,
   exportQuery,
 }: DataGridProps) {
   const { t } = useTranslation();
@@ -211,6 +214,26 @@ export function DataGrid({
       onServerSortChange?.(primarySort.id, primarySort.desc ? 'desc' : 'asc');
     },
     [sorting, isServerSideSorting, onServerSortChange]
+  );
+
+  const handleColumnFiltersChange = useCallback(
+    (updater: ColumnFiltersState | ((old: ColumnFiltersState) => ColumnFiltersState)) => {
+      const nextFilters = typeof updater === 'function' ? updater(columnFilters) : updater;
+      setColumnFilters(nextFilters);
+
+      if (!isServerSideMode || !onServerColumnFiltersChange) return;
+
+      const backendFilters: ColumnFilter[] = nextFilters
+        .filter(f => f.value !== '' && f.value != null)
+        .map(f => ({
+          column: f.id,
+          operator: 'like' as const,
+          value: `%${String(f.value)}%`,
+        }));
+
+      onServerColumnFiltersChange(backendFilters);
+    },
+    [columnFilters, isServerSideMode, onServerColumnFiltersChange]
   );
 
   useEffect(() => {
@@ -537,7 +560,7 @@ export function DataGrid({
     onGlobalFilterChange: setGlobalFilter,
     onColumnVisibilityChange: setColumnVisibility,
     onColumnPinningChange: setColumnPinning,
-    onColumnFiltersChange: setColumnFilters,
+    onColumnFiltersChange: handleColumnFiltersChange,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     ...(isInfiniteScrollMode ? {} : { getPaginationRowModel: getPaginationRowModel() }),
@@ -778,7 +801,10 @@ export function DataGrid({
       </div>
 
       <div ref={parentRef} className="border border-border rounded-md overflow-auto flex-1 min-h-0">
-        <table className="w-full text-sm border-collapse relative">
+        <table
+          className="text-sm border-collapse relative"
+          style={{ tableLayout: 'fixed', width: table.getTotalSize() }}
+        >
           <DataGridTableHeader table={table} showFilters={showFilters} />
           <DataGridTableBody
             rows={rows}

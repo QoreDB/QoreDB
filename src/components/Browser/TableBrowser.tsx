@@ -187,17 +187,31 @@ export function TableBrowser({
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
-  // Build filters from relation filter
+  // Column filters
+  const [serverColumnFilters, setServerColumnFilters] = useState<ColumnFilter[]>([]);
+
+  const handleServerColumnFiltersChange = useCallback((filters: ColumnFilter[]) => {
+    setServerColumnFilters(filters);
+  }, []);
+
+  // Build filters: merge relation filter + column filters
   const infiniteScrollFilters = useMemo<ColumnFilter[] | undefined>(() => {
-    if (!relationFilter) return undefined;
-    return [
-      {
+    const filters: ColumnFilter[] = [];
+
+    if (relationFilter) {
+      filters.push({
         column: relationFilter.foreignKey.referenced_column,
         operator: 'eq' as const,
         value: relationFilter.value,
-      },
-    ];
-  }, [relationFilter]);
+      });
+    }
+
+    if (serverColumnFilters.length > 0) {
+      filters.push(...serverColumnFilters);
+    }
+
+    return filters.length > 0 ? filters : undefined;
+  }, [relationFilter, serverColumnFilters]);
 
   const handleServerSearchChange = useCallback((term: string) => {
     setSearchTerm(prev => (prev !== term ? term : prev));
@@ -711,7 +725,7 @@ export function TableBrowser({
 
       {/* Content */}
       <div className="flex-1 overflow-auto p-4">
-        {loading ? (
+        {loading && !data ? (
           <div className="flex items-center justify-center h-full gap-2 text-muted-foreground">
             <Loader2 size={20} className="animate-spin" />
             <span>{t('table.loading')}</span>
@@ -756,6 +770,7 @@ export function TableBrowser({
             onServerSortChange={handleServerSortChange}
             serverSearchTerm={searchTerm}
             onServerSearchChange={handleServerSearchChange}
+            onServerColumnFiltersChange={handleServerColumnFiltersChange}
             onRowClick={row => {
               if (readOnly) {
                 toast.error(t('environment.blocked'));

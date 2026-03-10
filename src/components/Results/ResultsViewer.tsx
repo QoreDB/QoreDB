@@ -11,6 +11,7 @@ import { isDocumentDatabase } from '@/lib/driverCapabilities';
 import type { Driver } from '@/lib/drivers';
 import type { SandboxChange, SandboxDeleteDisplay } from '@/lib/sandboxTypes';
 import type {
+  ColumnFilter,
   Environment,
   Namespace,
   QueryResult,
@@ -49,6 +50,7 @@ interface ResultsViewerProps {
   onServerSortChange?: (column?: string, direction?: SortDirection) => void;
   serverSearchTerm?: string;
   onServerSearchChange?: (search: string) => void;
+  onServerColumnFiltersChange?: (filters: ColumnFilter[]) => void;
   sandboxMode?: boolean;
   pendingChanges?: SandboxChange[];
   sandboxDeleteDisplay?: SandboxDeleteDisplay;
@@ -94,6 +96,7 @@ export function ResultsViewer({
   onServerSortChange,
   serverSearchTerm,
   onServerSearchChange,
+  onServerColumnFiltersChange,
   sandboxMode,
   pendingChanges,
   sandboxDeleteDisplay,
@@ -164,6 +167,7 @@ export function ResultsViewer({
       onServerSortChange={onServerSortChange}
       serverSearchTerm={serverSearchTerm}
       onServerSearchChange={onServerSearchChange}
+      onServerColumnFiltersChange={onServerColumnFiltersChange}
       sandboxMode={sandboxMode}
       pendingChanges={pendingChanges}
       sandboxDeleteDisplay={sandboxDeleteDisplay}

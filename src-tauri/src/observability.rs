@@ -12,11 +12,10 @@ use std::time::{Duration, SystemTime};
 
 use chrono::Local;
 use tracing_appender::rolling::RollingFileAppender;
-use tracing_subscriber::fmt::format::FmtSpan;
 use tracing_subscriber::EnvFilter;
 
 const LOG_FILE_PREFIX: &str = "qoredb.log";
-const LOG_RETENTION_DAYS: u64 = 14;
+const LOG_RETENTION_DAYS: u64 = 7;
 
 pub fn init_tracing() {
     let log_dir = log_directory();
@@ -30,21 +29,16 @@ pub fn init_tracing() {
     // Setup file appender
     let file_appender: RollingFileAppender = tracing_appender::rolling::daily(&log_dir, LOG_FILE_PREFIX);
     let env_filter = EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| EnvFilter::new("qoredb=info,tauri=info"));
+        .unwrap_or_else(|_| EnvFilter::new("qoredb=info,tauri=warn"));
 
     // Setup subscriber
     let _ = tracing_subscriber::fmt()
         .with_env_filter(env_filter)
         .with_writer(file_appender)
-        .json()
-        .with_thread_ids(true)
-        .with_thread_names(true)
+        .compact()
         .with_file(true)
         .with_line_number(true)
-        .with_current_span(true)
-        .with_span_list(true)
         .with_ansi(false)
-        .with_span_events(FmtSpan::CLOSE)
         .try_init();
         
     // Register panic hook

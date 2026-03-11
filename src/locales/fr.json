@@ -730,6 +730,8 @@
     "noLogs": "Aucun journal d'erreur",
     "refresh": "Actualiser",
     "export": "Exporter les logs",
+    "exportVisible": "Exporter les logs visibles",
+    "exportDiagnostic": "Exporter les logs de diagnostic (complet)",
     "exportSuccess": "Logs exportés : {{name}}",
     "exportError": "Échec de l'export des logs"
   },

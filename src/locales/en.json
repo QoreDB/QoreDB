@@ -732,6 +732,8 @@
     "noLogs": "No error logs",
     "refresh": "Refresh",
     "export": "Export logs",
+    "exportVisible": "Export visible logs",
+    "exportDiagnostic": "Export diagnostic logs (full)",
     "exportSuccess": "Logs exported: {{name}}",
     "exportError": "Failed to export logs"
   },

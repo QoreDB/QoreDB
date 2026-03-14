@@ -9,9 +9,9 @@ import {
   History,
   Layers,
   Lock,
+  Network,
   Play,
   Plus,
-  Network,
   RotateCcw,
   Shield,
   Sparkles,
@@ -28,10 +28,10 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tooltip } from '@/components/ui/tooltip';
-import { cn } from '@/lib/utils';
-import { getModifierKey } from '@/utils/platform';
-import { useTabContext } from '@/providers/TabProvider';
 import { createFederationTab } from '@/lib/tabs';
+import { cn } from '@/lib/utils';
+import { useTabContext } from '@/providers/TabProvider';
+import { getModifierKey } from '@/utils/platform';
 import type { ENVIRONMENT_CONFIG } from '../../lib/environment';
 import type { Environment, Namespace } from '../../lib/tauri';
 import type { MONGO_TEMPLATES } from '../Editor/mongo-constants';

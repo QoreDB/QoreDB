@@ -34,7 +34,8 @@
       "Bash(rtk cargo test -p qoredb)",
       "WebFetch(domain:phppot.com)",
       "Bash(git -C /home/raphael/dev/perso/QoreDB log --all --oneline)",
-      "Bash(npx eslint:*)"
+      "Bash(npx eslint:*)",
+      "Bash(npx biome:*)"
     ]
   }
 }

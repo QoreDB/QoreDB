@@ -29,8 +29,8 @@ import {
 import { addToHistory } from '../../lib/history';
 import { formatSql } from '../../lib/sqlFormatter';
 import {
-  type ColumnInfo,
   beginTransaction,
+  type ColumnInfo,
   cancelQuery,
   commitTransaction,
   type DriverCapabilities,
@@ -38,8 +38,8 @@ import {
   executeQuery,
   type Namespace,
   type QueryResult,
-  rollbackTransaction,
   type Row,
+  rollbackTransaction,
   type Value,
 } from '../../lib/tauri';
 import {

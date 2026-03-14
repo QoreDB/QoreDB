@@ -1,6 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Database, GitBranch, Link2Off, Lock, RefreshCw, Server, Shield, WifiOff } from 'lucide-react';
+import {
+  Database,
+  GitBranch,
+  Link2Off,
+  Lock,
+  RefreshCw,
+  Server,
+  Shield,
+  WifiOff,
+} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { SandboxIndicator } from '@/components/Sandbox';
 import { getDriverMetadata } from '@/lib/drivers';
@@ -48,7 +57,15 @@ export function StatusBar({ sessionId, connection, connectionHealth = 'healthy' 
       <div className="flex items-center gap-3 min-w-0">
         <span className="flex items-center gap-1.5">
           {healthIndicator()}
-          <span className={isConnected && connectionHealth === 'healthy' ? 'text-foreground' : connectionHealth !== 'healthy' ? 'text-warning' : ''}>
+          <span
+            className={
+              isConnected && connectionHealth === 'healthy'
+                ? 'text-foreground'
+                : connectionHealth !== 'healthy'
+                  ? 'text-warning'
+                  : ''
+            }
+          >
             {healthLabel()}
           </span>
         </span>
@@ -85,7 +102,8 @@ export function StatusBar({ sessionId, connection, connectionHealth = 'healthy' 
                 {t('status.transactionActive')}
                 {transactionState.statementCount > 0 && (
                   <span className="font-normal">
-                    ({t('status.transactionStatements', { count: transactionState.statementCount })})
+                    ({t('status.transactionStatements', { count: transactionState.statementCount })}
+                    )
                   </span>
                 )}
               </span>

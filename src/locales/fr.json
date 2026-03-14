@@ -714,7 +714,25 @@
     "connectionUnhealthy": "Connexion à la base de données perdue. Tentative de reconnexion…",
     "connectionRestored": "Connexion rétablie.",
     "session": "Session",
-    "noSession": "Aucune session active"
+    "noSession": "Aucune session active",
+    "transactionActive": "Transaction active",
+    "transactionStatements": "{{count}} instruction(s) en attente"
+  },
+  "transaction": {
+    "begin": "Démarrer",
+    "commit": "Valider",
+    "rollback": "Annuler",
+    "active": "TXN",
+    "beginSuccess": "Transaction démarrée",
+    "commitSuccess": "Transaction validée",
+    "rollbackSuccess": "Transaction annulée",
+    "beginError": "Échec du démarrage de la transaction : {{error}}",
+    "commitError": "Échec de la validation : {{error}}",
+    "rollbackError": "Échec de l'annulation : {{error}}",
+    "confirmRollback": "Êtes-vous sûr de vouloir annuler ? Toutes les modifications en attente seront abandonnées.",
+    "tooltipBegin": "Démarrer une nouvelle transaction",
+    "tooltipCommit": "Valider la transaction en cours",
+    "tooltipRollback": "Annuler la transaction en cours"
   },
   "logs": {
     "title": "Journaux d'erreurs",

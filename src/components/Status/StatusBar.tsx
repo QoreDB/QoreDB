@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Database, Link2Off, Lock, RefreshCw, Server, Shield, WifiOff } from 'lucide-react';
+import { Database, GitBranch, Link2Off, Lock, RefreshCw, Server, Shield, WifiOff } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { SandboxIndicator } from '@/components/Sandbox';
 import { getDriverMetadata } from '@/lib/drivers';
 import { ENVIRONMENT_CONFIG } from '@/lib/environment';
 import type { ConnectionHealth, SavedConnection } from '@/lib/tauri';
+import { useTransactionStore } from '@/lib/transactionStore';
 
 interface StatusBarProps {
   sessionId: string | null;
@@ -16,6 +17,7 @@ interface StatusBarProps {
 export function StatusBar({ sessionId, connection, connectionHealth = 'healthy' }: StatusBarProps) {
   const { t } = useTranslation();
   const isConnected = Boolean(sessionId && connection);
+  const transactionState = useTransactionStore();
 
   const environment = connection?.environment || 'development';
   const envConfig = ENVIRONMENT_CONFIG[environment];
@@ -77,6 +79,18 @@ export function StatusBar({ sessionId, connection, connectionHealth = 'healthy' 
       <div className="flex items-center gap-2">
         {isConnected ? (
           <>
+            {transactionState.active && (
+              <span className="flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide rounded-full border border-accent/30 bg-accent/10 text-accent animate-pulse">
+                <GitBranch size={11} />
+                {t('status.transactionActive')}
+                {transactionState.statementCount > 0 && (
+                  <span className="font-normal">
+                    ({t('status.transactionStatements', { count: transactionState.statementCount })})
+                  </span>
+                )}
+              </span>
+            )}
+
             <SandboxIndicator sessionId={sessionId} environment={environment} />
 
             <span

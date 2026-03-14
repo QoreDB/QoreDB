@@ -30,15 +30,24 @@ import { addToHistory } from '../../lib/history';
 import { formatSql } from '../../lib/sqlFormatter';
 import {
   type ColumnInfo,
+  beginTransaction,
   cancelQuery,
+  commitTransaction,
   type DriverCapabilities,
   type Environment,
   executeQuery,
   type Namespace,
   type QueryResult,
+  rollbackTransaction,
   type Row,
   type Value,
 } from '../../lib/tauri';
+import {
+  incrementTransactionStatements,
+  resetTransactionState,
+  setTransactionActive,
+  useTransactionStore,
+} from '../../lib/transactionStore';
 import { DocumentEditorModal } from '../Editor/DocumentEditorModal';
 import { MONGO_TEMPLATES } from '../Editor/mongo-constants';
 import type { SQLEditorHandle } from '../Editor/SQLEditor';
@@ -125,6 +134,17 @@ export function QueryPanel({
   const [queryToSave, setQueryToSave] = useState<string>('');
   const [showAiPanel, setShowAiPanel] = useState(initialShowAiPanel ?? false);
   const [pendingAiFix, setPendingAiFix] = useState<{ query: string; error: string } | null>(null);
+
+  // Transaction state
+  const transactionState = useTransactionStore();
+  const supportsTransactions = driverCapabilities?.transactions ?? false;
+
+  // Reset transaction state when session changes
+  const currentSessionId = sessionId;
+  useEffect(() => {
+    void currentSessionId;
+    resetTransactionState();
+  }, [currentSessionId]);
 
   // Federation state
   const [federationSources, setFederationSources] = useState<FederationSource[]>([]);
@@ -384,6 +404,7 @@ export function QueryPanel({
                 driver: dialect,
                 row_count: enrichedResult.rows.length,
               });
+              incrementTransactionStatements();
             }
 
             if (shouldRefreshSchema(queryToRun, isDocument, dialect)) {
@@ -650,6 +671,39 @@ export function QueryPanel({
     setShowAiPanel(prev => !prev);
   }, []);
 
+  const handleBeginTransaction = useCallback(async () => {
+    if (!sessionId) return;
+    const result = await beginTransaction(sessionId);
+    if (result.success) {
+      setTransactionActive(true);
+      toast.success(t('transaction.beginSuccess'));
+    } else {
+      toast.error(t('transaction.beginError', { error: result.error }));
+    }
+  }, [sessionId, t]);
+
+  const handleCommitTransaction = useCallback(async () => {
+    if (!sessionId) return;
+    const result = await commitTransaction(sessionId);
+    if (result.success) {
+      resetTransactionState();
+      toast.success(t('transaction.commitSuccess'));
+    } else {
+      toast.error(t('transaction.commitError', { error: result.error }));
+    }
+  }, [sessionId, t]);
+
+  const handleRollbackTransaction = useCallback(async () => {
+    if (!sessionId) return;
+    const result = await rollbackTransaction(sessionId);
+    if (result.success) {
+      resetTransactionState();
+      toast.success(t('transaction.rollbackSuccess'));
+    } else {
+      toast.error(t('transaction.rollbackError', { error: result.error }));
+    }
+  }, [sessionId, t]);
+
   const handleInsertQuery = useCallback((generatedQuery: string) => {
     setQuery(generatedQuery);
   }, []);
@@ -733,6 +787,12 @@ export function QueryPanel({
         onTemplateSelect={handleTemplateSelect}
         onAiToggle={handleAiToggle}
         aiPanelOpen={showAiPanel}
+        supportsTransactions={supportsTransactions}
+        transactionActive={transactionState.active}
+        transactionStatements={transactionState.statementCount}
+        onBeginTransaction={handleBeginTransaction}
+        onCommitTransaction={handleCommitTransaction}
+        onRollbackTransaction={handleRollbackTransaction}
       />
 
       <div className="flex flex-1 min-h-0">

@@ -3,6 +3,7 @@
 import {
   AlertCircle,
   BookmarkPlus,
+  Check,
   Database,
   Folder,
   History,
@@ -11,6 +12,7 @@ import {
   Play,
   Plus,
   Network,
+  RotateCcw,
   Shield,
   Sparkles,
   Square,
@@ -61,6 +63,12 @@ interface QueryPanelToolbarProps {
   onTemplateSelect: (templateKey: keyof typeof MONGO_TEMPLATES) => void;
   onAiToggle?: () => void;
   aiPanelOpen?: boolean;
+  supportsTransactions?: boolean;
+  transactionActive?: boolean;
+  transactionStatements?: number;
+  onBeginTransaction?: () => void;
+  onCommitTransaction?: () => void;
+  onRollbackTransaction?: () => void;
 }
 
 export function QueryPanelToolbar({
@@ -88,6 +96,12 @@ export function QueryPanelToolbar({
   onTemplateSelect,
   onAiToggle,
   aiPanelOpen,
+  supportsTransactions,
+  transactionActive,
+  transactionStatements = 0,
+  onBeginTransaction,
+  onCommitTransaction,
+  onRollbackTransaction,
 }: QueryPanelToolbarProps) {
   const { t } = useTranslation();
   const { openTab } = useTabContext();
@@ -215,6 +229,59 @@ export function QueryPanelToolbar({
         >
           {t('query.explain')}
         </Button>
+      )}
+
+      {supportsTransactions && sessionId && !isDocumentBased && (
+        <>
+          <div className="h-5 w-px bg-border/50" />
+          {!transactionActive ? (
+            <Tooltip content={t('transaction.tooltipBegin')}>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onBeginTransaction}
+                disabled={loading}
+                className="h-9 px-2 text-muted-foreground hover:text-foreground"
+              >
+                {t('transaction.begin')}
+              </Button>
+            </Tooltip>
+          ) : (
+            <div className="flex items-center gap-1">
+              <span className="flex items-center gap-1.5 px-2 py-1 text-xs font-bold rounded-full border border-accent/30 bg-accent/10 text-accent">
+                <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
+                {t('transaction.active')}
+                {transactionStatements > 0 && (
+                  <span className="text-accent/70 font-normal">({transactionStatements})</span>
+                )}
+              </span>
+              <Tooltip content={t('transaction.tooltipCommit')}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={onCommitTransaction}
+                  disabled={loading}
+                  className="h-9 px-2 text-success hover:text-success hover:bg-success/10"
+                >
+                  <Check size={16} className="mr-1" />
+                  {t('transaction.commit')}
+                </Button>
+              </Tooltip>
+              <Tooltip content={t('transaction.tooltipRollback')}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={onRollbackTransaction}
+                  disabled={loading}
+                  className="h-9 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+                >
+                  <RotateCcw size={14} className="mr-1" />
+                  {t('transaction.rollback')}
+                </Button>
+              </Tooltip>
+            </div>
+          )}
+        </>
       )}
 
       <div className="flex-1" />

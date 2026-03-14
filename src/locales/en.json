@@ -716,7 +716,25 @@
     "connectionUnhealthy": "Connection to database lost. Attempting to reconnect…",
     "connectionRestored": "Connection restored.",
     "session": "Session",
-    "noSession": "No active session"
+    "noSession": "No active session",
+    "transactionActive": "Transaction active",
+    "transactionStatements": "{{count}} statement(s) pending"
+  },
+  "transaction": {
+    "begin": "Begin",
+    "commit": "Commit",
+    "rollback": "Rollback",
+    "active": "TXN",
+    "beginSuccess": "Transaction started",
+    "commitSuccess": "Transaction committed",
+    "rollbackSuccess": "Transaction rolled back",
+    "beginError": "Failed to begin transaction: {{error}}",
+    "commitError": "Failed to commit: {{error}}",
+    "rollbackError": "Failed to rollback: {{error}}",
+    "confirmRollback": "Are you sure you want to rollback? All pending changes will be discarded.",
+    "tooltipBegin": "Start a new transaction",
+    "tooltipCommit": "Commit the current transaction",
+    "tooltipRollback": "Rollback the current transaction"
   },
   "logs": {
     "title": "Error Logs",

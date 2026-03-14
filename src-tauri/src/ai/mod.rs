@@ -3,7 +3,7 @@
 //! AI BYOK (Bring Your Own Key) module — Pro feature
 //!
 //! Provides LLM-powered query generation, explanation, and schema summarization
-//! using the user's own API keys (OpenAI, Anthropic, Ollama).
+//! using the user's own API keys (OpenAI, Anthropic, Mistral, Gemini, DeepSeek, Ollama).
 
 pub mod context;
 pub mod manager;

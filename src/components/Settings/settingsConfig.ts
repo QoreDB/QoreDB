@@ -32,7 +32,17 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     id: 'general',
     labelKey: 'settings.sections.general',
     icon: Globe,
-    keywords: ['language', 'theme', 'appearance', 'version', 'update', 'langue', 'thème', 'apparence', 'mise à jour'],
+    keywords: [
+      'language',
+      'theme',
+      'appearance',
+      'version',
+      'update',
+      'langue',
+      'thème',
+      'apparence',
+      'mise à jour',
+    ],
   },
   {
     id: 'editor',

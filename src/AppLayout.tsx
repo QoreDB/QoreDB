@@ -25,6 +25,7 @@ import { CustomTitlebar } from './components/CustomTitlebar';
 import { ConnectionDashboard } from './components/Dashboard/ConnectionDashboard';
 import { DataDiffViewer } from './components/Diff/DataDiffViewer';
 import { FederationViewer } from './components/Federation/FederationViewer';
+import { NotebookTab } from './components/Notebook';
 import { SnapshotManager } from './components/Snapshot/SnapshotManager';
 import { WelcomeScreen } from './components/Home/WelcomeScreen';
 import { LicenseGate } from './components/License/LicenseGate';
@@ -53,6 +54,7 @@ import {
   createDatabaseTab,
   createDiffTab,
   createFederationTab,
+  createNotebookTab,
   createQueryTab,
   createSnapshotsTab,
   createTableTab,
@@ -373,6 +375,7 @@ export function AppLayout() {
         : []),
       ...(sessionId ? [{ id: 'cmd_open_diff', label: t('diff.openDiff') }] : []),
       ...(sessionId ? [{ id: 'cmd_open_federation', label: t('federation.openFederation') }] : []),
+      ...(sessionId ? [{ id: 'cmd_new_notebook', label: t('palette.newNotebook') }] : []),
       { id: 'cmd_open_snapshots', label: t('snapshots.openManager') },
       {
         id: 'cmd_open_settings',
@@ -422,6 +425,9 @@ export function AppLayout() {
             return;
           case 'cmd_open_federation':
             if (sessionId) openTab(createFederationTab());
+            return;
+          case 'cmd_new_notebook':
+            if (sessionId) openTab(createNotebookTab());
             return;
           case 'cmd_open_settings':
             setSettingsOpen(true);
@@ -604,7 +610,11 @@ export function AppLayout() {
               />
             </SandboxBorder>
 
-            <StatusBar sessionId={sessionId} connection={activeConnection} connectionHealth={connectionHealth} />
+            <StatusBar
+              sessionId={sessionId}
+              connection={activeConnection}
+              connectionHealth={connectionHealth}
+            />
           </main>
         </div>
       </div>
@@ -811,10 +821,30 @@ function AppContent({
               snapshotId,
               namespace: meta.namespace,
             };
-            onOpenTab(
-              createDiffTab(source, undefined, `Data Diff: ${meta.name}`)
-            );
+            onOpenTab(createDiffTab(source, undefined, `Data Diff: ${meta.name}`));
           }}
+        />
+      </div>
+    );
+  }
+
+  if (activeTab?.type === 'notebook') {
+    return (
+      <div className="flex-1 min-h-0 flex flex-col">
+        <NotebookTab
+          key={activeTab.id}
+          tabId={activeTab.id}
+          sessionId={sessionId}
+          dialect={driver}
+          driverCapabilities={driverCapabilities}
+          environment={activeConnection?.environment || 'development'}
+          readOnly={activeConnection?.read_only || false}
+          connectionName={activeConnection?.name}
+          connectionDatabase={activeConnection?.database}
+          activeNamespace={activeTab.namespace}
+          initialPath={activeTab.notebookPath}
+          initialQuery={queryDrafts[activeTab.id] ?? activeTab.initialQuery}
+          onSchemaChange={onSchemaChange}
         />
       </div>
     );

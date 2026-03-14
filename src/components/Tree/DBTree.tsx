@@ -626,292 +626,298 @@ export function DBTree({
                 {/* Functions Section */}
                 {schemaObjectCapabilities.functions &&
                   (() => {
-                  const functions = routines.filter(r => r.routine_type === 'Function');
-                  if (functions.length === 0 && !routinesLoading && !onCreateRoutine) return null;
-                  return (
-                    <div className="space-y-0.5 mt-2">
-                      <div className="flex items-center">
-                        <button
-                          type="button"
-                          className="flex items-center gap-1 px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground flex-1 text-left"
-                          onClick={() => toggleSection('functions')}
-                        >
-                          {expandedSections.has('functions') ? (
-                            <ChevronDown size={12} />
-                          ) : (
-                            <ChevronRight size={12} />
-                          )}
-                          <FunctionSquare size={12} />
-                          <span>{t('dbtree.functions')}</span>
-                          <span className="text-muted-foreground/60 ml-auto">
-                            {functions.length}
-                          </span>
-                        </button>
-                        {onCreateRoutine && expandedNamespace && (
+                    const functions = routines.filter(r => r.routine_type === 'Function');
+                    if (functions.length === 0 && !routinesLoading && !onCreateRoutine) return null;
+                    return (
+                      <div className="space-y-0.5 mt-2">
+                        <div className="flex items-center">
                           <button
                             type="button"
-                            className="p-0.5 text-muted-foreground/60 hover:text-foreground mr-1"
-                            title={t('routineManager.createFunction')}
-                            onClick={() => onCreateRoutine('Function', expandedNamespace)}
+                            className="flex items-center gap-1 px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground flex-1 text-left"
+                            onClick={() => toggleSection('functions')}
                           >
-                            <Plus size={12} />
+                            {expandedSections.has('functions') ? (
+                              <ChevronDown size={12} />
+                            ) : (
+                              <ChevronRight size={12} />
+                            )}
+                            <FunctionSquare size={12} />
+                            <span>{t('dbtree.functions')}</span>
+                            <span className="text-muted-foreground/60 ml-auto">
+                              {functions.length}
+                            </span>
                           </button>
-                        )}
-                      </div>
-                      {expandedSections.has('functions') &&
-                        functions.map(routine => (
-                          <RoutineContextMenu
-                            key={`${routine.name}-${routine.arguments}`}
-                            routine={routine}
-                            sessionId={sessionId}
-                            environment={connection?.environment || 'development'}
-                            readOnly={connection?.read_only || false}
-                            onViewSource={r =>
-                              expandedNamespace && onOpenRoutineSource?.(r, expandedNamespace)
-                            }
-                            onDrop={() => expandedNamespace && refreshRoutines(expandedNamespace)}
-                          >
+                          {onCreateRoutine && expandedNamespace && (
                             <button
                               type="button"
-                              className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground text-left group ml-5 cursor-pointer"
-                              title={`${routine.name}(${routine.arguments})${routine.return_type ? ` → ${routine.return_type}` : ''}`}
-                              onClick={() =>
-                                expandedNamespace &&
-                                onOpenRoutineSource?.(routine, expandedNamespace)
-                              }
+                              className="p-0.5 text-muted-foreground/60 hover:text-foreground mr-1"
+                              title={t('routineManager.createFunction')}
+                              onClick={() => onCreateRoutine('Function', expandedNamespace)}
                             >
-                              <span className="shrink-0 group-hover:text-foreground/80 transition-colors">
-                                <FunctionSquare size={13} />
-                              </span>
-                              <span className="truncate font-mono text-xs">{routine.name}</span>
-                              {routine.language && (
-                                <span className="text-[10px] text-muted-foreground/60 ml-auto">
-                                  {routine.language}
-                                </span>
-                              )}
+                              <Plus size={12} />
                             </button>
-                          </RoutineContextMenu>
-                        ))}
-                    </div>
-                  );
+                          )}
+                        </div>
+                        {expandedSections.has('functions') &&
+                          functions.map(routine => (
+                            <RoutineContextMenu
+                              key={`${routine.name}-${routine.arguments}`}
+                              routine={routine}
+                              sessionId={sessionId}
+                              environment={connection?.environment || 'development'}
+                              readOnly={connection?.read_only || false}
+                              onViewSource={r =>
+                                expandedNamespace && onOpenRoutineSource?.(r, expandedNamespace)
+                              }
+                              onDrop={() => expandedNamespace && refreshRoutines(expandedNamespace)}
+                            >
+                              <button
+                                type="button"
+                                className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground text-left group ml-5 cursor-pointer"
+                                title={`${routine.name}(${routine.arguments})${routine.return_type ? ` → ${routine.return_type}` : ''}`}
+                                onClick={() =>
+                                  expandedNamespace &&
+                                  onOpenRoutineSource?.(routine, expandedNamespace)
+                                }
+                              >
+                                <span className="shrink-0 group-hover:text-foreground/80 transition-colors">
+                                  <FunctionSquare size={13} />
+                                </span>
+                                <span className="truncate font-mono text-xs">{routine.name}</span>
+                                {routine.language && (
+                                  <span className="text-[10px] text-muted-foreground/60 ml-auto">
+                                    {routine.language}
+                                  </span>
+                                )}
+                              </button>
+                            </RoutineContextMenu>
+                          ))}
+                      </div>
+                    );
                   })()}
 
                 {/* Procedures Section */}
                 {schemaObjectCapabilities.procedures &&
                   (() => {
-                  const procedures = routines.filter(r => r.routine_type === 'Procedure');
-                  if (procedures.length === 0 && !routinesLoading && !onCreateRoutine) return null;
-                  return (
-                    <div className="space-y-0.5 mt-2">
-                      <div className="flex items-center">
-                        <button
-                          type="button"
-                          className="flex items-center gap-1 px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground flex-1 text-left"
-                          onClick={() => toggleSection('procedures')}
-                        >
-                          {expandedSections.has('procedures') ? (
-                            <ChevronDown size={12} />
-                          ) : (
-                            <ChevronRight size={12} />
-                          )}
-                          <PlayCircle size={12} />
-                          <span>{t('dbtree.procedures')}</span>
-                          <span className="text-muted-foreground/60 ml-auto">
-                            {procedures.length}
-                          </span>
-                        </button>
-                        {onCreateRoutine && expandedNamespace && (
+                    const procedures = routines.filter(r => r.routine_type === 'Procedure');
+                    if (procedures.length === 0 && !routinesLoading && !onCreateRoutine)
+                      return null;
+                    return (
+                      <div className="space-y-0.5 mt-2">
+                        <div className="flex items-center">
                           <button
                             type="button"
-                            className="p-0.5 text-muted-foreground/60 hover:text-foreground mr-1"
-                            title={t('routineManager.createProcedure')}
-                            onClick={() => onCreateRoutine('Procedure', expandedNamespace)}
+                            className="flex items-center gap-1 px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground flex-1 text-left"
+                            onClick={() => toggleSection('procedures')}
                           >
-                            <Plus size={12} />
+                            {expandedSections.has('procedures') ? (
+                              <ChevronDown size={12} />
+                            ) : (
+                              <ChevronRight size={12} />
+                            )}
+                            <PlayCircle size={12} />
+                            <span>{t('dbtree.procedures')}</span>
+                            <span className="text-muted-foreground/60 ml-auto">
+                              {procedures.length}
+                            </span>
                           </button>
-                        )}
-                      </div>
-                      {expandedSections.has('procedures') &&
-                        procedures.map(routine => (
-                          <RoutineContextMenu
-                            key={`${routine.name}-${routine.arguments}`}
-                            routine={routine}
-                            sessionId={sessionId}
-                            environment={connection?.environment || 'development'}
-                            readOnly={connection?.read_only || false}
-                            onViewSource={r =>
-                              expandedNamespace && onOpenRoutineSource?.(r, expandedNamespace)
-                            }
-                            onDrop={() => expandedNamespace && refreshRoutines(expandedNamespace)}
-                          >
+                          {onCreateRoutine && expandedNamespace && (
                             <button
                               type="button"
-                              className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground text-left group ml-5 cursor-pointer"
-                              title={`${routine.name}(${routine.arguments})`}
-                              onClick={() =>
-                                expandedNamespace &&
-                                onOpenRoutineSource?.(routine, expandedNamespace)
-                              }
+                              className="p-0.5 text-muted-foreground/60 hover:text-foreground mr-1"
+                              title={t('routineManager.createProcedure')}
+                              onClick={() => onCreateRoutine('Procedure', expandedNamespace)}
                             >
-                              <span className="shrink-0 group-hover:text-foreground/80 transition-colors">
-                                <PlayCircle size={13} />
-                              </span>
-                              <span className="truncate font-mono text-xs">{routine.name}</span>
-                              {routine.language && (
-                                <span className="text-[10px] text-muted-foreground/60 ml-auto">
-                                  {routine.language}
-                                </span>
-                              )}
+                              <Plus size={12} />
                             </button>
-                          </RoutineContextMenu>
-                        ))}
-                    </div>
-                  );
+                          )}
+                        </div>
+                        {expandedSections.has('procedures') &&
+                          procedures.map(routine => (
+                            <RoutineContextMenu
+                              key={`${routine.name}-${routine.arguments}`}
+                              routine={routine}
+                              sessionId={sessionId}
+                              environment={connection?.environment || 'development'}
+                              readOnly={connection?.read_only || false}
+                              onViewSource={r =>
+                                expandedNamespace && onOpenRoutineSource?.(r, expandedNamespace)
+                              }
+                              onDrop={() => expandedNamespace && refreshRoutines(expandedNamespace)}
+                            >
+                              <button
+                                type="button"
+                                className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground text-left group ml-5 cursor-pointer"
+                                title={`${routine.name}(${routine.arguments})`}
+                                onClick={() =>
+                                  expandedNamespace &&
+                                  onOpenRoutineSource?.(routine, expandedNamespace)
+                                }
+                              >
+                                <span className="shrink-0 group-hover:text-foreground/80 transition-colors">
+                                  <PlayCircle size={13} />
+                                </span>
+                                <span className="truncate font-mono text-xs">{routine.name}</span>
+                                {routine.language && (
+                                  <span className="text-[10px] text-muted-foreground/60 ml-auto">
+                                    {routine.language}
+                                  </span>
+                                )}
+                              </button>
+                            </RoutineContextMenu>
+                          ))}
+                      </div>
+                    );
                   })()}
 
                 {/* Triggers Section */}
                 {schemaObjectCapabilities.triggers &&
                   (() => {
-                  if (triggers.length === 0 && !triggersLoading && !onCreateTrigger) return null;
-                  return (
-                    <div className="space-y-0.5 mt-2">
-                      <div className="flex items-center">
-                      <button
-                        type="button"
-                        className="flex items-center gap-1 px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground flex-1 text-left"
-                        onClick={() => toggleSection('triggers')}
-                      >
-                        {expandedSections.has('triggers') ? (
-                          <ChevronDown size={12} />
-                        ) : (
-                          <ChevronRight size={12} />
-                        )}
-                        <Zap size={12} />
-                        <span>{t('dbtree.triggers')}</span>
-                        <span className="text-muted-foreground/60 ml-auto">{triggers.length}</span>
-                      </button>
-                      {onCreateTrigger && expandedNamespace && (
-                        <button
-                          type="button"
-                          className="p-0.5 text-muted-foreground/60 hover:text-foreground mr-1"
-                          title={t('triggerManager.createTrigger')}
-                          onClick={() => onCreateTrigger(expandedNamespace)}
-                        >
-                          <Plus size={12} />
-                        </button>
-                      )}
-                      </div>
-                      {expandedSections.has('triggers') &&
-                        triggers.map(trigger => (
-                          <TriggerContextMenu
-                            key={trigger.name}
-                            trigger={trigger}
-                            sessionId={connectionId}
-                            environment={connection?.environment || 'development'}
-                            readOnly={connection?.read_only || false}
-                            supportsToggle={driver !== 'mysql'}
-                            onViewSource={trig =>
-                              expandedNamespace && onOpenTriggerSource?.(trig, expandedNamespace)
-                            }
-                            onDrop={() => expandedNamespace && refreshTriggers(expandedNamespace)}
-                            onToggle={() => expandedNamespace && refreshTriggers(expandedNamespace)}
+                    if (triggers.length === 0 && !triggersLoading && !onCreateTrigger) return null;
+                    return (
+                      <div className="space-y-0.5 mt-2">
+                        <div className="flex items-center">
+                          <button
+                            type="button"
+                            className="flex items-center gap-1 px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground flex-1 text-left"
+                            onClick={() => toggleSection('triggers')}
                           >
+                            {expandedSections.has('triggers') ? (
+                              <ChevronDown size={12} />
+                            ) : (
+                              <ChevronRight size={12} />
+                            )}
+                            <Zap size={12} />
+                            <span>{t('dbtree.triggers')}</span>
+                            <span className="text-muted-foreground/60 ml-auto">
+                              {triggers.length}
+                            </span>
+                          </button>
+                          {onCreateTrigger && expandedNamespace && (
                             <button
                               type="button"
-                              className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md hover:bg-accent/50 text-muted-foreground text-left group ml-5"
-                              title={`${trigger.timing} ${trigger.events.join(' | ')} ON ${trigger.table_name}`}
-                              onClick={() =>
-                                expandedNamespace &&
-                                onOpenTriggerSource?.(trigger, expandedNamespace)
+                              className="p-0.5 text-muted-foreground/60 hover:text-foreground mr-1"
+                              title={t('triggerManager.createTrigger')}
+                              onClick={() => onCreateTrigger(expandedNamespace)}
+                            >
+                              <Plus size={12} />
+                            </button>
+                          )}
+                        </div>
+                        {expandedSections.has('triggers') &&
+                          triggers.map(trigger => (
+                            <TriggerContextMenu
+                              key={trigger.name}
+                              trigger={trigger}
+                              sessionId={connectionId}
+                              environment={connection?.environment || 'development'}
+                              readOnly={connection?.read_only || false}
+                              supportsToggle={driver !== 'mysql'}
+                              onViewSource={trig =>
+                                expandedNamespace && onOpenTriggerSource?.(trig, expandedNamespace)
+                              }
+                              onDrop={() => expandedNamespace && refreshTriggers(expandedNamespace)}
+                              onToggle={() =>
+                                expandedNamespace && refreshTriggers(expandedNamespace)
                               }
                             >
-                              <span className="shrink-0">
-                                <Zap size={13} className={cn(!trigger.enabled && 'opacity-40')} />
-                              </span>
-                              <span className="truncate font-mono text-xs">{trigger.name}</span>
-                              <span className="text-[10px] text-muted-foreground/60 ml-auto">
-                                {trigger.table_name}
-                              </span>
-                            </button>
-                          </TriggerContextMenu>
-                        ))}
-                    </div>
-                  );
+                              <button
+                                type="button"
+                                className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md hover:bg-accent/50 text-muted-foreground text-left group ml-5"
+                                title={`${trigger.timing} ${trigger.events.join(' | ')} ON ${trigger.table_name}`}
+                                onClick={() =>
+                                  expandedNamespace &&
+                                  onOpenTriggerSource?.(trigger, expandedNamespace)
+                                }
+                              >
+                                <span className="shrink-0">
+                                  <Zap size={13} className={cn(!trigger.enabled && 'opacity-40')} />
+                                </span>
+                                <span className="truncate font-mono text-xs">{trigger.name}</span>
+                                <span className="text-[10px] text-muted-foreground/60 ml-auto">
+                                  {trigger.table_name}
+                                </span>
+                              </button>
+                            </TriggerContextMenu>
+                          ))}
+                      </div>
+                    );
                   })()}
 
                 {/* Events Section (MySQL only) */}
                 {schemaObjectCapabilities.events &&
                   (() => {
-                  if (dbEvents.length === 0 && !onCreateEvent) return null;
-                  return (
-                    <div className="space-y-0.5 mt-2">
-                      <div className="flex items-center">
-                      <button
-                        type="button"
-                        className="flex items-center gap-1 px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground flex-1 text-left"
-                        onClick={() => toggleSection('events')}
-                      >
-                        {expandedSections.has('events') ? (
-                          <ChevronDown size={12} />
-                        ) : (
-                          <ChevronRight size={12} />
-                        )}
-                        <Calendar size={12} />
-                        <span>{t('dbtree.events')}</span>
-                        <span className="text-muted-foreground/60 ml-auto">{dbEvents.length}</span>
-                      </button>
-                      {onCreateEvent && expandedNamespace && (
-                        <button
-                          type="button"
-                          className="p-0.5 text-muted-foreground/60 hover:text-foreground mr-1"
-                          title={t('eventManager.createEvent')}
-                          onClick={() => onCreateEvent(expandedNamespace)}
-                        >
-                          <Plus size={12} />
-                        </button>
-                      )}
-                      </div>
-                      {expandedSections.has('events') &&
-                        dbEvents.map(evt => (
-                          <EventContextMenu
-                            key={evt.name}
-                            event={evt}
-                            sessionId={connectionId}
-                            environment={connection?.environment || 'development'}
-                            readOnly={connection?.read_only || false}
-                            onViewSource={e =>
-                              expandedNamespace && onOpenEventSource?.(e, expandedNamespace)
-                            }
-                            onDrop={() => expandedNamespace && refreshTriggers(expandedNamespace)}
+                    if (dbEvents.length === 0 && !onCreateEvent) return null;
+                    return (
+                      <div className="space-y-0.5 mt-2">
+                        <div className="flex items-center">
+                          <button
+                            type="button"
+                            className="flex items-center gap-1 px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground flex-1 text-left"
+                            onClick={() => toggleSection('events')}
                           >
+                            {expandedSections.has('events') ? (
+                              <ChevronDown size={12} />
+                            ) : (
+                              <ChevronRight size={12} />
+                            )}
+                            <Calendar size={12} />
+                            <span>{t('dbtree.events')}</span>
+                            <span className="text-muted-foreground/60 ml-auto">
+                              {dbEvents.length}
+                            </span>
+                          </button>
+                          {onCreateEvent && expandedNamespace && (
                             <button
                               type="button"
-                              className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md hover:bg-accent/50 text-muted-foreground text-left group ml-5"
-                              title={`${evt.event_type}${evt.interval_value ? ` every ${evt.interval_value} ${evt.interval_field}` : ''}`}
-                              onClick={() =>
-                                expandedNamespace &&
-                                onOpenEventSource?.(evt, expandedNamespace)
-                              }
+                              className="p-0.5 text-muted-foreground/60 hover:text-foreground mr-1"
+                              title={t('eventManager.createEvent')}
+                              onClick={() => onCreateEvent(expandedNamespace)}
                             >
-                              <span className="shrink-0">
-                                <Calendar size={13} />
-                              </span>
-                              <span className="truncate font-mono text-xs">{evt.name}</span>
-                              <span
-                                className={cn(
-                                  'text-[10px] ml-auto',
-                                  evt.status === 'Enabled'
-                                    ? 'text-emerald-600'
-                                    : 'text-muted-foreground/60'
-                                )}
-                              >
-                                {evt.status === 'Enabled' ? '' : evt.status}
-                              </span>
+                              <Plus size={12} />
                             </button>
-                          </EventContextMenu>
-                        ))}
-                    </div>
-                  );
+                          )}
+                        </div>
+                        {expandedSections.has('events') &&
+                          dbEvents.map(evt => (
+                            <EventContextMenu
+                              key={evt.name}
+                              event={evt}
+                              sessionId={connectionId}
+                              environment={connection?.environment || 'development'}
+                              readOnly={connection?.read_only || false}
+                              onViewSource={e =>
+                                expandedNamespace && onOpenEventSource?.(e, expandedNamespace)
+                              }
+                              onDrop={() => expandedNamespace && refreshTriggers(expandedNamespace)}
+                            >
+                              <button
+                                type="button"
+                                className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md hover:bg-accent/50 text-muted-foreground text-left group ml-5"
+                                title={`${evt.event_type}${evt.interval_value ? ` every ${evt.interval_value} ${evt.interval_field}` : ''}`}
+                                onClick={() =>
+                                  expandedNamespace && onOpenEventSource?.(evt, expandedNamespace)
+                                }
+                              >
+                                <span className="shrink-0">
+                                  <Calendar size={13} />
+                                </span>
+                                <span className="truncate font-mono text-xs">{evt.name}</span>
+                                <span
+                                  className={cn(
+                                    'text-[10px] ml-auto',
+                                    evt.status === 'Enabled'
+                                      ? 'text-emerald-600'
+                                      : 'text-muted-foreground/60'
+                                  )}
+                                >
+                                  {evt.status === 'Enabled' ? '' : evt.status}
+                                </span>
+                              </button>
+                            </EventContextMenu>
+                          ))}
+                      </div>
+                    );
                   })()}
 
                 {/* Load More for collections */}

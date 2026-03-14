@@ -25,7 +25,10 @@ export interface DataGridTableHeaderProps {
 }
 
 /** Compute the left offset for a pinned column by summing widths of all pinned columns before it. */
-function getPinnedLeftOffset(header: Header<RowData, unknown>, headers: Header<RowData, unknown>[]): number {
+function getPinnedLeftOffset(
+  header: Header<RowData, unknown>,
+  headers: Header<RowData, unknown>[]
+): number {
   const pinnedIds = header.getContext().table.getState().columnPinning.left ?? [];
   let offset = 0;
   for (const id of pinnedIds) {
@@ -77,7 +80,8 @@ function DataGridTableHeaderCell({ header, headers, showFilters }: DataGridTable
     <th
       className={cn(
         'px-3 py-2 text-left font-medium text-muted-foreground border-b border-border relative group',
-        isPinned === 'left' && 'bg-muted/95 backdrop-blur-sm shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]'
+        isPinned === 'left' &&
+          'bg-muted/95 backdrop-blur-sm shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]'
       )}
       style={thStyle}
     >

@@ -150,9 +150,7 @@ export function AiSection({ searchQuery }: AiSectionProps) {
   const providerHasKey = Object.fromEntries(
     AI_PROVIDERS.map(p => [
       p.id,
-      p.requiresKey
-        ? (providerStatuses.find(s => s.provider === p.id)?.has_key ?? false)
-        : true,
+      p.requiresKey ? (providerStatuses.find(s => s.provider === p.id)?.has_key ?? false) : true,
     ])
   ) as Record<AiProvider, boolean>;
 

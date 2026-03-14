@@ -35,7 +35,9 @@
       "WebFetch(domain:phppot.com)",
       "Bash(git -C /home/raphael/dev/perso/QoreDB log --all --oneline)",
       "Bash(npx eslint:*)",
-      "Bash(npx biome:*)"
+      "Bash(npx biome:*)",
+      "Bash(pnpm add:*)",
+      "Bash(npx pnpm:*)"
     ]
   }
 }

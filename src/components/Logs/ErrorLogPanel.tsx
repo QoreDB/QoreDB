@@ -236,10 +236,7 @@ export function ErrorLogPanel({ isOpen, onClose }: ErrorLogPanelProps) {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem
-                onClick={handleExportVisible}
-                disabled={filteredLogs.length === 0}
-              >
+              <DropdownMenuItem onClick={handleExportVisible} disabled={filteredLogs.length === 0}>
                 <Download size={14} />
                 {t('logs.exportVisible')}
               </DropdownMenuItem>

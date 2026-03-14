@@ -1,6 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Camera, Database, FileCode, GitCompare, Network, Plus, Settings, Table, X } from 'lucide-react';
+import {
+  BookOpen,
+  Camera,
+  Database,
+  FileCode,
+  GitCompare,
+  Network,
+  Plus,
+  Settings,
+  Table,
+  X,
+} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { getModifierKey } from '@/utils/platform';
@@ -8,7 +19,15 @@ import { getModifierKey } from '@/utils/platform';
 export interface TabItem {
   id: string;
   title: string;
-  type: 'query' | 'table' | 'database' | 'settings' | 'diff' | 'federation' | 'snapshots';
+  type:
+    | 'query'
+    | 'table'
+    | 'database'
+    | 'settings'
+    | 'diff'
+    | 'federation'
+    | 'snapshots'
+    | 'notebook';
 }
 
 interface TabBarProps {
@@ -38,6 +57,8 @@ export function TabBar({ tabs = [], activeId, onSelect, onClose, onNew }: TabBar
         return <Network size={14} className="text-accent" />;
       case 'snapshots':
         return <Camera size={14} />;
+      case 'notebook':
+        return <BookOpen size={14} />;
     }
   };
 

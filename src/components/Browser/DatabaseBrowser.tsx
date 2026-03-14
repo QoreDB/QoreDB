@@ -389,10 +389,7 @@ export function DatabaseBrowser({
           <div>
             <h2 className="font-semibold text-foreground">{displayName}</h2>
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <ContentBreadcrumb
-                connectionName={connectionName}
-                namespace={namespace}
-              />
+              <ContentBreadcrumb connectionName={connectionName} namespace={namespace} />
               <span>•</span>
               <span>{DRIVER_LABELS[driver]}</span>
               <span>•</span>

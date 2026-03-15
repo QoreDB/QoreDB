@@ -40,7 +40,7 @@ export interface NotebookCell {
   config?: CellConfig;
 }
 
-export type CellExecutionState = 'idle' | 'running' | 'success' | 'error';
+export type CellExecutionState = 'idle' | 'running' | 'success' | 'error' | 'stale';
 
 export interface CellConfig {
   namespace?: Namespace;
@@ -49,6 +49,15 @@ export interface CellConfig {
   pinned?: boolean;
   label?: string;
   hideSource?: boolean;
+  chartConfig?: ChartConfig;
+}
+
+export interface ChartConfig {
+  sourceLabel: string;
+  type: 'bar' | 'line' | 'pie' | 'scatter';
+  xColumn: string;
+  yColumns: string[];
+  title?: string;
 }
 
 export interface CellResult {

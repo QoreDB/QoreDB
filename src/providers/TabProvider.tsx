@@ -3,7 +3,7 @@
 import { createContext, type ReactNode, useContext } from 'react';
 import type { DatabaseBrowserTab } from '@/components/Browser/DatabaseBrowser';
 import type { TableBrowserTab } from '@/components/Browser/TableBrowser';
-import { type UseTabsOptions, useTabs } from '@/hooks/useTabs';
+import { type BeforeCloseTabHandler, type UseTabsOptions, useTabs } from '@/hooks/useTabs';
 import type { OpenTab } from '@/lib/tabs';
 import type { Namespace } from '@/lib/tauri';
 
@@ -15,12 +15,14 @@ export interface TabContextValue {
   tableBrowserTabs: Record<string, TableBrowserTab>;
   databaseBrowserTabs: Record<string, DatabaseBrowserTab>;
   openTab: (tab: OpenTab) => void;
-  closeTab: (tabId: string) => void;
+  closeTab: (tabId: string) => Promise<void> | void;
   setActiveTabId: (id: string | null) => void;
   updateQueryDraft: (tabId: string, value: string) => void;
   updateTabNamespace: (tabId: string, namespace: Namespace) => void;
   updateTableBrowserTab: (tabId: string, tab: TableBrowserTab) => void;
   updateDatabaseBrowserTab: (tabId: string, tab: DatabaseBrowserTab) => void;
+  updateTab: (tabId: string, updates: Partial<OpenTab>) => void;
+  setBeforeCloseTab: (handler: BeforeCloseTabHandler | null) => void;
   resetTabs: (options?: UseTabsOptions) => void;
 }
 
@@ -41,6 +43,8 @@ export function TabProvider({ children }: { children: ReactNode }) {
     updateTabNamespace,
     updateTableBrowserTab,
     updateDatabaseBrowserTab,
+    updateTab,
+    setBeforeCloseTab,
     reset,
   } = useTabs();
 
@@ -60,6 +64,8 @@ export function TabProvider({ children }: { children: ReactNode }) {
         updateTabNamespace,
         updateTableBrowserTab,
         updateDatabaseBrowserTab,
+        updateTab,
+        setBeforeCloseTab,
         resetTabs: reset,
       }}
     >

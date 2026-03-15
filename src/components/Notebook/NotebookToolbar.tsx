@@ -1,6 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Code, FileText, Plus, Save } from 'lucide-react';
+import {
+  Code,
+  Download,
+  Eraser,
+  FileText,
+  PlayCircle,
+  Plus,
+  Save,
+  Square,
+  Upload,
+} from 'lucide-react';
 import { useCallback, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
@@ -16,17 +26,29 @@ import type { CellType } from '@/lib/notebookTypes';
 interface NotebookToolbarProps {
   title: string;
   isDirty: boolean;
+  isExecuting: boolean;
   onTitleChange: (title: string) => void;
   onSave: () => void;
   onAddCell: (type: CellType) => void;
+  onExecuteAll: () => void;
+  onClearAll: () => void;
+  onCancel: () => void;
+  onImport: () => void;
+  onExport: (format: 'markdown' | 'html') => void;
 }
 
 export function NotebookToolbar({
   title,
   isDirty,
+  isExecuting,
   onTitleChange,
   onSave,
   onAddCell,
+  onExecuteAll,
+  onClearAll,
+  onCancel,
+  onImport,
+  onExport,
 }: NotebookToolbarProps) {
   const { t } = useTranslation();
   const [editingTitle, setEditingTitle] = useState(false);
@@ -63,11 +85,11 @@ export function NotebookToolbar({
             onChange={e => onTitleChange(e.target.value)}
             onBlur={handleTitleBlur}
             onKeyDown={handleTitleKeyDown}
-            className="text-sm font-medium bg-transparent border-b border-border focus:border-accent focus:outline-none px-1 py-0.5 min-w-[120px]"
-            autoFocus
+            className="text-sm font-medium bg-transparent border-b border-border focus:border-accent focus:outline-none px-1 py-0.5 min-w-30"
           />
         ) : (
           <button
+            type="button"
             onClick={handleTitleClick}
             className="text-sm font-medium truncate hover:text-accent transition-colors text-left"
           >
@@ -76,7 +98,43 @@ export function NotebookToolbar({
         )}
       </div>
 
-      {/* Actions */}
+      {/* Execution actions */}
+      <div className="flex items-center gap-1">
+        {isExecuting ? (
+          <Tooltip content={t('notebook.cancelExecution')}>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 gap-1 text-destructive"
+              onClick={onCancel}
+            >
+              <Square size={14} />
+              <span className="text-xs">{t('notebook.cancelExecution')}</span>
+            </Button>
+          </Tooltip>
+        ) : (
+          <Tooltip content={`${t('notebook.executeAll')} (Ctrl+Shift+A)`}>
+            <Button variant="ghost" size="sm" className="h-7 gap-1" onClick={onExecuteAll}>
+              <PlayCircle size={14} />
+              <span className="text-xs">{t('notebook.executeAll')}</span>
+            </Button>
+          </Tooltip>
+        )}
+
+        <Tooltip content={t('notebook.clearAll')}>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            onClick={onClearAll}
+            disabled={isExecuting}
+          >
+            <Eraser size={14} />
+          </Button>
+        </Tooltip>
+      </div>
+
+      {/* Add cell */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" size="sm" className="h-7 gap-1">
@@ -96,6 +154,31 @@ export function NotebookToolbar({
         </DropdownMenuContent>
       </DropdownMenu>
 
+      {/* Import */}
+      <Tooltip content={t('notebook.import')}>
+        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onImport}>
+          <Upload size={14} />
+        </Button>
+      </Tooltip>
+
+      {/* Export */}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon" className="h-7 w-7">
+            <Download size={14} />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={() => onExport('markdown')}>
+            {t('notebook.exportMarkdown')}
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => onExport('html')}>
+            {t('notebook.exportHtml')}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      {/* Save */}
       <Tooltip content={t('notebook.save')}>
         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onSave}>
           <Save size={14} />

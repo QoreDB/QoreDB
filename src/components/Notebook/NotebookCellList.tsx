@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { Reorder } from 'framer-motion';
 import { Code, FileText, Plus } from 'lucide-react';
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import {
@@ -15,6 +16,8 @@ import type { Driver } from '@/lib/drivers';
 import type { CellType, NotebookCell as NotebookCellType } from '@/lib/notebookTypes';
 import type { Namespace } from '@/lib/tauri';
 import { NotebookCell } from './cells/NotebookCell';
+
+const VIRTUALIZATION_THRESHOLD = 30;
 
 interface NotebookCellListProps {
   cells: NotebookCellType[];
@@ -31,6 +34,11 @@ interface NotebookCellListProps {
   onMoveCellUp: (cellId: string) => void;
   onMoveCellDown: (cellId: string) => void;
   onAddCell: (type: CellType, afterCellId?: string) => void;
+  onCancelExecution?: () => void;
+  onDuplicateCell?: (cellId: string) => void;
+  onConvertCellType?: (cellId: string) => void;
+  onToggleCellCollapsed?: (cellId: string) => void;
+  onExecuteFromHere?: (cellId: string) => void;
 }
 
 function AddCellDivider({
@@ -68,22 +76,59 @@ function AddCellDivider({
   );
 }
 
-export function NotebookCellList({
-  cells,
-  focusedCellId,
-  dialect,
-  sessionId,
-  connectionDatabase,
-  namespace,
-  onReorderCells,
-  onFocusCell,
-  onSourceChange,
-  onExecuteCell,
-  onDeleteCell,
-  onMoveCellUp,
-  onMoveCellDown,
-  onAddCell,
-}: NotebookCellListProps) {
+interface CellRendererProps {
+  cell: NotebookCellType;
+  allCells: NotebookCellType[];
+  index: number;
+  total: number;
+  props: Omit<NotebookCellListProps, 'cells' | 'onReorderCells'>;
+}
+
+function CellRenderer({ cell, allCells, index, total, props }: CellRendererProps) {
+  return (
+    <>
+      <NotebookCell
+        cell={cell}
+        allCells={allCells}
+        dialect={props.dialect}
+        sessionId={props.sessionId}
+        connectionDatabase={props.connectionDatabase}
+        namespace={props.namespace}
+        isFocused={props.focusedCellId === cell.id}
+        isFirst={index === 0}
+        isLast={index === total - 1}
+        onFocus={() => props.onFocusCell(cell.id)}
+        onSourceChange={source => props.onSourceChange(cell.id, source)}
+        onExecute={() => props.onExecuteCell(cell.id)}
+        onDelete={() => props.onDeleteCell(cell.id)}
+        onMoveUp={() => props.onMoveCellUp(cell.id)}
+        onMoveDown={() => props.onMoveCellDown(cell.id)}
+        onCancel={props.onCancelExecution}
+        onDuplicate={props.onDuplicateCell && (() => props.onDuplicateCell?.(cell.id))}
+        onConvertType={props.onConvertCellType && (() => props.onConvertCellType?.(cell.id))}
+        onToggleCollapsed={
+          props.onToggleCellCollapsed && (() => props.onToggleCellCollapsed?.(cell.id))
+        }
+        onRunFromHere={props.onExecuteFromHere && (() => props.onExecuteFromHere?.(cell.id))}
+      />
+      <AddCellDivider afterCellId={cell.id} onAddCell={props.onAddCell} />
+    </>
+  );
+}
+
+export function NotebookCellList({ cells, onReorderCells, ...rest }: NotebookCellListProps) {
+  const useVirtual = cells.length >= VIRTUALIZATION_THRESHOLD;
+
+  if (useVirtual) {
+    return <VirtualizedCellList cells={cells} {...rest} />;
+  }
+
+  return <ReorderCellList cells={cells} onReorderCells={onReorderCells} {...rest} />;
+}
+
+// --- Normal mode: framer-motion drag-and-drop ---
+
+function ReorderCellList({ cells, onReorderCells, ...rest }: NotebookCellListProps) {
   const handleReorder = useCallback(
     (newOrder: NotebookCellType[]) => {
       onReorderCells(newOrder);
@@ -106,26 +151,67 @@ export function NotebookCellList({
             layout="position"
             transition={{ duration: 0.15 }}
           >
-            <NotebookCell
+            <CellRenderer
               cell={cell}
-              dialect={dialect}
-              sessionId={sessionId}
-              connectionDatabase={connectionDatabase}
-              namespace={namespace}
-              isFocused={focusedCellId === cell.id}
-              isFirst={index === 0}
-              isLast={index === cells.length - 1}
-              onFocus={() => onFocusCell(cell.id)}
-              onSourceChange={source => onSourceChange(cell.id, source)}
-              onExecute={() => onExecuteCell(cell.id)}
-              onDelete={() => onDeleteCell(cell.id)}
-              onMoveUp={() => onMoveCellUp(cell.id)}
-              onMoveDown={() => onMoveCellDown(cell.id)}
+              allCells={cells}
+              index={index}
+              total={cells.length}
+              props={rest}
             />
-            <AddCellDivider afterCellId={cell.id} onAddCell={onAddCell} />
           </Reorder.Item>
         ))}
       </Reorder.Group>
+    </div>
+  );
+}
+
+// --- Performance mode: virtualized list ---
+
+function VirtualizedCellList({ cells, ...rest }: Omit<NotebookCellListProps, 'onReorderCells'>) {
+  const parentRef = useRef<HTMLDivElement>(null);
+
+  const virtualizer = useVirtualizer({
+    count: cells.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 120,
+    overscan: 5,
+  });
+
+  return (
+    <div ref={parentRef} className="flex-1 overflow-y-auto px-4 py-3">
+      <div
+        style={{
+          height: `${virtualizer.getTotalSize()}px`,
+          width: '100%',
+          position: 'relative',
+        }}
+      >
+        {virtualizer.getVirtualItems().map(virtualItem => {
+          const cell = cells[virtualItem.index];
+          return (
+            <div
+              key={cell.id}
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                transform: `translateY(${virtualItem.start}px)`,
+              }}
+              ref={virtualizer.measureElement}
+              data-index={virtualItem.index}
+            >
+              <CellRenderer
+                cell={cell}
+                allCells={cells}
+                index={virtualItem.index}
+                total={cells.length}
+                props={rest}
+              />
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

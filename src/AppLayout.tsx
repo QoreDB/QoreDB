@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Toaster } from 'sonner';
 import {
@@ -102,6 +102,8 @@ export function AppLayout() {
     updateTabNamespace,
     updateTableBrowserTab,
     updateDatabaseBrowserTab,
+    updateTab,
+    setBeforeCloseTab,
   } = useTabContext();
 
   const {
@@ -141,6 +143,17 @@ export function AppLayout() {
     handleCloseConnectionModal,
     toggleSidebar,
   } = useModalContext();
+
+  // --- Notebook unsaved changes guard ---
+  useEffect(() => {
+    setBeforeCloseTab((tabId: string) => {
+      const tab = tabs.find(t => t.id === tabId);
+      if (tab?.type === 'notebook' && tab.notebookDirty) {
+        return window.confirm(t('notebook.unsavedChanges'));
+      }
+      return true;
+    });
+  }, [tabs, setBeforeCloseTab, t]);
 
   // --- Action handlers ---
 
@@ -257,7 +270,7 @@ export function AppLayout() {
       );
       if (result.success && result.definition) {
         const tab = createQueryTab(result.definition.definition, namespace);
-        tab.title = `trigger: ${trigger.name}`;
+        tab.title = `trigger: ${trigger.name}`; 
         openTab(tab);
       } else {
         notify.error(t('triggerManager.sourceLoadError'), result.error);
@@ -376,6 +389,9 @@ export function AppLayout() {
       ...(sessionId ? [{ id: 'cmd_open_diff', label: t('diff.openDiff') }] : []),
       ...(sessionId ? [{ id: 'cmd_open_federation', label: t('federation.openFederation') }] : []),
       ...(sessionId ? [{ id: 'cmd_new_notebook', label: t('palette.newNotebook') }] : []),
+      ...(sessionId && activeTab?.type === 'query'
+        ? [{ id: 'cmd_convert_to_notebook', label: t('palette.convertToNotebook') }]
+        : []),
       { id: 'cmd_open_snapshots', label: t('snapshots.openManager') },
       {
         id: 'cmd_open_settings',
@@ -393,7 +409,7 @@ export function AppLayout() {
           ]
         : []),
     ],
-    [activeTabId, sessionId, t]
+    [activeTabId, activeTab?.type, sessionId, t]
   );
 
   const handleSearchSelect = useCallback(
@@ -428,6 +444,12 @@ export function AppLayout() {
             return;
           case 'cmd_new_notebook':
             if (sessionId) openTab(createNotebookTab());
+            return;
+          case 'cmd_convert_to_notebook':
+            if (sessionId && activeTab?.type === 'query') {
+              const draft = queryDrafts[activeTab.id] ?? '';
+              openTab(createNotebookTab(undefined, undefined, draft));
+            }
             return;
           case 'cmd_open_settings':
             setSettingsOpen(true);
@@ -480,6 +502,9 @@ export function AppLayout() {
       activeTabId,
       closeTab,
       activeTab?.namespace,
+      activeTab?.type,
+      activeTab?.id,
+      queryDrafts,
       handleConnected,
       handleOpenDiff,
       setSearchOpen,
@@ -584,6 +609,7 @@ export function AppLayout() {
                 databaseBrowserTabs={databaseBrowserTabs}
                 onUpdateTableBrowserTab={updateTableBrowserTab}
                 onUpdateDatabaseBrowserTab={updateDatabaseBrowserTab}
+                onUpdateTab={updateTab}
                 hasConnections={hasConnections}
                 recovery={recovery}
                 schemaRefreshTrigger={schemaRefreshTrigger}
@@ -687,6 +713,7 @@ interface AppContentProps {
   onUpdateTabNamespace: (tabId: string, namespace: Namespace) => void;
   onUpdateTableBrowserTab: (tabId: string, tab: TableBrowserTab) => void;
   onUpdateDatabaseBrowserTab: (tabId: string, tab: DatabaseBrowserTab) => void;
+  onUpdateTab: (tabId: string, updates: Partial<OpenTab>) => void;
   onScheduleRecoverySave: () => void;
   onOpenRoutineSource: (routine: Routine, namespace: Namespace) => void;
   onCreateRoutine: (routineType: RoutineType, namespace: Namespace) => void;
@@ -723,6 +750,7 @@ function AppContent({
   onUpdateTabNamespace,
   onUpdateTableBrowserTab,
   onUpdateDatabaseBrowserTab,
+  onUpdateTab,
   onScheduleRecoverySave,
   onOpenRoutineSource,
   onCreateRoutine,
@@ -845,6 +873,7 @@ function AppContent({
           initialPath={activeTab.notebookPath}
           initialQuery={queryDrafts[activeTab.id] ?? activeTab.initialQuery}
           onSchemaChange={onSchemaChange}
+          onDirtyChange={dirty => onUpdateTab(activeTab.id, { notebookDirty: dirty })}
         />
       </div>
     );

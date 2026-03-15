@@ -13,7 +13,7 @@ function stripForSave(notebook: QoreNotebook, includeResults: boolean): QoreNote
     metadata: { ...notebook.metadata, updatedAt: new Date().toISOString() },
     cells: notebook.cells.map(cell => ({
       ...cell,
-      executionState: 'idle' as const,
+      executionState: 'idle' as const, // stale/running/success/error all reset to idle on save
       lastResult: includeResults ? cell.lastResult : undefined,
     })),
     variables: Object.fromEntries(

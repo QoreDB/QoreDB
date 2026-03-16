@@ -37,7 +37,9 @@
       "Bash(npx eslint:*)",
       "Bash(npx biome:*)",
       "Bash(pnpm add:*)",
-      "Bash(npx pnpm:*)"
+      "Bash(npx pnpm:*)",
+      "WebFetch(domain:v2.tauri.app)",
+      "WebFetch(domain:docs.rs)"
     ]
   }
 }

@@ -14,7 +14,7 @@ tauri-build = { version = "2", features = [] }
 dotenvy = "0.15"
 
 [dependencies]
-tauri = { version = "2", features = [] }
+tauri = { version = "2", features = ["image-png"] }
 tauri-plugin-opener = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-fs = "2"

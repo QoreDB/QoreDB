@@ -136,6 +136,16 @@ pub fn run() {
             app.handle()
                 .plugin(tauri_plugin_updater::Builder::new().build())?;
 
+            #[cfg(target_os = "linux")]
+            {
+                use tauri::image::Image;
+                if let Some(window) = app.get_webview_window("main") {
+                    let icon = Image::from_bytes(include_bytes!("../icons/icon.png"))
+                        .expect("failed to load app icon");
+                    let _ = window.set_icon(icon);
+                }
+            }
+
             // Start the connection health monitor
             let state: tauri::State<SharedState> = app.state();
             let session_manager = {

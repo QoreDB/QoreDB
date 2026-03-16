@@ -54,7 +54,11 @@ export function StatusBar({ sessionId, connection, connectionHealth = 'healthy' 
   };
 
   return (
-    <div className="flex items-center justify-between h-8 px-3 border-t border-border bg-muted/30 text-xs text-muted-foreground">
+    <output
+      aria-live="polite"
+      aria-label={t('a11y.statusBar')}
+      className="flex items-center justify-between h-8 px-3 border-t border-border bg-muted/30 text-xs text-muted-foreground"
+    >
       <div className="flex items-center gap-3 min-w-0">
         <span className="flex items-center gap-1.5">
           {healthIndicator()}
@@ -139,6 +143,6 @@ export function StatusBar({ sessionId, connection, connectionHealth = 'healthy' 
         <div className="h-4 w-px bg-border/50" />
         <span className="text-muted-foreground/60">v{APP_VERSION}</span>
       </div>
-    </div>
+    </output>
   );
 }

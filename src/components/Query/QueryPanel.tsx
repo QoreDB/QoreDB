@@ -8,6 +8,7 @@ import { AiAssistantPanel } from '@/components/AI/AiAssistantPanel';
 import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
 import { UI_EVENT_OPEN_HISTORY } from '@/lib/uiEvents';
 import { forceRefreshCache } from '../../hooks/useSchemaCache';
+import { useTourManager } from '../../hooks/useTourManager';
 import { getQueryDialect, isDocumentDatabase } from '../../lib/driverCapabilities';
 import { Driver } from '../../lib/drivers';
 import {
@@ -158,6 +159,15 @@ export function QueryPanel({
   const containerRef = useRef<HTMLDivElement>(null);
   const resizeDragRef = useRef({ active: false, startY: 0, startHeight: 0 });
   const prevEditorHeightRef = useRef(DEFAULT_EDITOR_HEIGHT);
+
+  // Feature tour trigger
+  const tourManager = useTourManager();
+  useEffect(() => {
+    if (sessionId && isActive && tourManager.shouldShowTour('first-query')) {
+      const timer = setTimeout(() => tourManager.startTour('first-query'), 800);
+      return () => clearTimeout(timer);
+    }
+  }, [sessionId, isActive]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Transaction state
   const transactionState = useTransactionStore();
@@ -844,7 +854,10 @@ export function QueryPanel({
   }, [isActive]);
 
   return (
-    <div ref={containerRef} className="flex flex-col flex-1 bg-background rounded-lg border border-border shadow-sm overflow-hidden">
+    <div
+      ref={containerRef}
+      className="flex flex-col flex-1 bg-background rounded-lg border border-border shadow-sm overflow-hidden"
+    >
       <QueryPanelToolbar
         loading={loading}
         cancelling={cancelling}
@@ -879,7 +892,12 @@ export function QueryPanel({
       />
 
       <div
-        className={editorExpanded ? 'flex flex-4 min-h-0 overflow-hidden' : 'flex shrink-0 min-h-0 overflow-hidden'}
+        data-tour="query-editor"
+        className={
+          editorExpanded
+            ? 'flex flex-4 min-h-0 overflow-hidden'
+            : 'flex shrink-0 min-h-0 overflow-hidden'
+        }
         style={editorExpanded ? undefined : { height: editorHeight }}
       >
         <div className="flex-1 min-w-0 flex flex-col">
@@ -930,33 +948,35 @@ export function QueryPanel({
         <span className="w-8 h-0.5 rounded-full bg-muted-foreground/20 group-hover:bg-accent/60 transition-colors" />
       </button>
 
-      <QueryPanelResults
-        panelError={panelError}
-        results={results}
-        activeResultId={activeResultId}
-        isDocumentBased={isDocument}
-        sessionId={sessionId}
-        connectionName={connectionName}
-        connectionDatabase={connectionDatabase}
-        environment={environment}
-        readOnly={readOnly}
-        query={query}
-        activeNamespace={activeNamespace}
-        onSelectResult={setActiveResultId}
-        onCloseResult={(resultId: string) => {
-          setResults(prev => {
-            const next = prev.filter(entry => entry.id !== resultId);
-            if (activeResultId === resultId) {
-              const fallback = next[next.length - 1];
-              setActiveResultId(fallback?.id || null);
-            }
-            return next;
-          });
-        }}
-        onRowsDeleted={runCurrentQuery}
-        onEditDocument={handleEditDocument}
-        onFixWithAi={handleFixWithAi}
-      />
+      <div data-tour="query-results" className="flex-1 min-h-0">
+        <QueryPanelResults
+          panelError={panelError}
+          results={results}
+          activeResultId={activeResultId}
+          isDocumentBased={isDocument}
+          sessionId={sessionId}
+          connectionName={connectionName}
+          connectionDatabase={connectionDatabase}
+          environment={environment}
+          readOnly={readOnly}
+          query={query}
+          activeNamespace={activeNamespace}
+          onSelectResult={setActiveResultId}
+          onCloseResult={(resultId: string) => {
+            setResults(prev => {
+              const next = prev.filter(entry => entry.id !== resultId);
+              if (activeResultId === resultId) {
+                const fallback = next[next.length - 1];
+                setActiveResultId(fallback?.id || null);
+              }
+              return next;
+            });
+          }}
+          onRowsDeleted={runCurrentQuery}
+          onEditDocument={handleEditDocument}
+          onFixWithAi={handleFixWithAi}
+        />
+      </div>
 
       <QueryHistory
         isOpen={historyOpen}

@@ -65,11 +65,17 @@ export function TabBar({ tabs = [], activeId, onSelect, onClose, onNew }: TabBar
   const isTemporaryTab = (type: TabItem['type']) => type === 'query';
 
   return (
-    <div className="flex items-center w-full bg-background border-b border-border h-10 select-none pl-1 gap-1 overflow-x-auto overflow-y-hidden no-scrollbar">
+    <div
+      className="flex items-center w-full bg-background border-b border-border h-10 select-none pl-1 gap-1 overflow-x-auto overflow-y-hidden no-scrollbar"
+      role="tablist"
+      aria-label={t('a11y.tabBar')}
+    >
       {tabs.map(tab => (
         <div key={tab.id} className="group relative mt-1.25">
           <button
             type="button"
+            role="tab"
+            aria-selected={activeId === tab.id}
             className={cn(
               'flex items-center gap-2 pl-3 pr-8 py-1.5 min-w-35 max-w-50 h-8.5 text-xs rounded-t-md border-t border-x border-transparent transition-all',
               activeId === tab.id

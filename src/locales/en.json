@@ -250,7 +250,54 @@
     "toggleTheme": "Toggle theme",
     "closeTab": "Close tab",
     "newNotebook": "New Notebook",
-    "convertToNotebook": "Convert to Notebook"
+    "convertToNotebook": "Convert to Notebook",
+    "featuresSection": "Features",
+    "tips": {
+      "newQuery": "Ctrl+T opens a new query tab",
+      "sandbox": "Use Sandbox mode to safely preview changes before applying",
+      "commandPalette": "This palette searches commands, connections, and saved queries",
+      "notebook": "Notebooks let you combine SQL and Markdown in a single document",
+      "federation": "Federation lets you query across multiple databases at once",
+      "shortcuts": "Press Ctrl+, to open Settings and see all keyboard shortcuts"
+    }
+  },
+  "features": {
+    "notebooks": {
+      "name": "Notebooks",
+      "description": "Combine SQL queries and Markdown documentation in a single document"
+    },
+    "virtualRelations": {
+      "name": "Virtual Relations",
+      "description": "Define custom foreign key relationships for tables without constraints"
+    },
+    "sandbox": {
+      "name": "Sandbox Mode",
+      "description": "Preview data changes safely before applying them to your database"
+    },
+    "federation": {
+      "name": "Cross-Database Federation",
+      "description": "Query and join data across multiple database connections"
+    },
+    "erDiagram": {
+      "name": "ER Diagram",
+      "description": "Visualize table relationships as an entity-relationship diagram"
+    },
+    "snapshots": {
+      "name": "Data Snapshots",
+      "description": "Capture and compare table states at different points in time"
+    },
+    "diff": {
+      "name": "Data Diff",
+      "description": "Compare data between two sources side by side"
+    },
+    "fulltextSearch": {
+      "name": "Full-Text Search",
+      "description": "Search across all tables and columns in your database"
+    },
+    "aiAssistant": {
+      "name": "AI Assistant",
+      "description": "Generate and fix SQL queries using natural language"
+    }
   },
   "notebook": {
     "title": "Notebook",
@@ -788,6 +835,64 @@
     "noSession": "No active session",
     "transactionActive": "Transaction active",
     "transactionStatements": "{{count}} statement(s) pending"
+  },
+  "help": {
+    "keepResults": "When enabled, previous query results are preserved in separate tabs below the editor. Useful for comparing results across multiple queries.",
+    "federation": "Federation lets you write SQL queries that span multiple database connections. Tables from different sources can be JOINed using aliases.",
+    "aiAssistant": "The AI assistant generates SQL queries from your natural language descriptions. It uses the current database schema for context-aware suggestions.",
+    "transactions": "Begin an explicit transaction to group multiple statements. Changes are not applied until you Commit. Use Rollback to discard all changes.",
+    "notebookVariables": "Variables let you parameterize SQL cells. Define a variable once and reference it across multiple cells using {{variableName}} syntax."
+  },
+  "tour": {
+    "gotIt": "Got it",
+    "next": "Next",
+    "dismiss": "Skip tour",
+    "stepOf": "{{current}} of {{total}}",
+    "firstQuery": {
+      "step1Title": "Write your query",
+      "step1Desc": "Type SQL in the editor. It supports auto-completion and syntax highlighting.",
+      "step2Title": "Execute",
+      "step2Desc": "Click Run or press Ctrl+Enter to execute your query.",
+      "step3Title": "View results",
+      "step3Desc": "Query results appear here in a sortable, scrollable grid."
+    },
+    "firstNotebook": {
+      "step1Title": "Notebook cells",
+      "step1Desc": "Each cell can contain SQL or Markdown. Execute them independently or all at once.",
+      "step2Title": "Add cells",
+      "step2Desc": "Add SQL or Markdown cells to build your analysis step by step.",
+      "step3Title": "Save your work",
+      "step3Desc": "Save notebooks to disk and reopen them later."
+    },
+    "firstTable": {
+      "step1Title": "Browse data",
+      "step1Desc": "Scroll through rows with infinite loading. Click a cell to see its full value.",
+      "step2Title": "Table structure",
+      "step2Desc": "Switch tabs to explore columns, indexes, and relationships."
+    }
+  },
+  "whatsNew": {
+    "title": "What's New",
+    "titleWithVersion": "What's New in v{{version}}",
+    "tryIt": "Try it",
+    "markSeen": "Dismiss",
+    "feature": "New",
+    "improvement": "Improved",
+    "fix": "Fixed"
+  },
+  "a11y": {
+    "skipToContent": "Skip to content",
+    "sidebar": "Database explorer",
+    "tabBar": "Open tabs",
+    "databaseTree": "Database tree",
+    "statusBar": "Status bar",
+    "help": "Help"
+  },
+  "toolbar": {
+    "moreActions": "More actions",
+    "queryTools": "Query tools",
+    "library": "Library",
+    "integrations": "Integrations"
   },
   "transaction": {
     "begin": "Begin",

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useNotebook } from '@/hooks/useNotebook';
+import { useTourManager } from '@/hooks/useTourManager';
 import { Driver } from '@/lib/drivers';
 import type { DriverCapabilities, Environment, Namespace } from '@/lib/tauri';
 import { NotebookCellList } from './NotebookCellList';
@@ -36,6 +37,14 @@ export function NotebookTab({
   initialQuery,
   onDirtyChange,
 }: NotebookTabProps) {
+  const tourManager = useTourManager();
+  useEffect(() => {
+    if (sessionId && tourManager.shouldShowTour('first-notebook')) {
+      const timer = setTimeout(() => tourManager.startTour('first-notebook'), 800);
+      return () => clearTimeout(timer);
+    }
+  }, [sessionId]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const nb = useNotebook({
     tabId,
     sessionId,
@@ -203,6 +212,7 @@ export function NotebookTab({
         />
       )}
       <NotebookCellList
+        data-tour="notebook-cells"
         cells={nb.notebook.cells}
         focusedCellId={nb.focusedCellId}
         dialect={dialect}

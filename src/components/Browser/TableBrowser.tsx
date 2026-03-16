@@ -17,6 +17,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
+import { useTourManager } from '@/hooks/useTourManager';
 import { ContentBreadcrumb } from './ContentBreadcrumb';
 import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
 import { ChangesPanel, MigrationPreview, SandboxToggle } from '@/components/Sandbox';
@@ -168,6 +169,13 @@ export function TableBrowser({
 }: TableBrowserProps) {
   const { t } = useTranslation();
   const viewTrackedRef = useRef(false);
+  const tourManager = useTourManager();
+  useEffect(() => {
+    if (sessionId && tourManager.shouldShowTour('first-table')) {
+      const timer = setTimeout(() => tourManager.startTour('first-table'), 800);
+      return () => clearTimeout(timer);
+    }
+  }, [sessionId]); // eslint-disable-line react-hooks/exhaustive-deps
   const [activeTab, setActiveTab] = useState<TableBrowserTab>(initialTab ?? 'data');
   const [schema, setSchema] = useState<TableSchema | null>(null);
 
@@ -673,7 +681,10 @@ export function TableBrowser({
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-1 px-4 py-2 border-b border-border bg-muted/10">
+      <div
+        data-tour="table-tabs"
+        className="flex items-center gap-1 px-4 py-2 border-b border-border bg-muted/10"
+      >
         <button
           type="button"
           className={cn(
@@ -724,7 +735,7 @@ export function TableBrowser({
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-auto p-4">
+      <div data-tour="table-data" className="flex-1 overflow-auto p-4">
         {loading && !data ? (
           <div className="flex items-center justify-center h-full gap-2 text-muted-foreground">
             <Loader2 size={20} className="animate-spin" />

@@ -5,6 +5,7 @@ import {
   Download,
   Eraser,
   FileText,
+  MoreHorizontal,
   PlayCircle,
   Plus,
   Redo2,
@@ -19,9 +20,13 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import type { CellType } from '@/lib/notebookTypes';
@@ -88,6 +93,8 @@ export function NotebookToolbar({
 
   return (
     <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-background shrink-0">
+      {/* --- PRIMARY ZONE --- */}
+
       {/* Title */}
       <div className="flex items-center gap-1 flex-1 min-w-0">
         {isDirty && (
@@ -115,33 +122,6 @@ export function NotebookToolbar({
         )}
       </div>
 
-      {/* Undo / Redo */}
-      <div className="flex items-center gap-0.5">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7"
-          onClick={onUndo}
-          disabled={!canUndo}
-          title={`${t('notebook.undo')} (Ctrl+Z)`}
-        >
-          <Undo2 size={14} />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7"
-          onClick={onRedo}
-          disabled={!canRedo}
-          title={`${t('notebook.redo')} (Ctrl+Shift+Z)`}
-        >
-          <Redo2 size={14} />
-        </Button>
-      </div>
-
-      {/* Separator */}
-      <div className="w-px h-4 bg-border" />
-
       {/* Execution actions */}
       <div className="flex items-center gap-1">
         {isExecuting ? (
@@ -167,17 +147,6 @@ export function NotebookToolbar({
             <span className="text-xs">{t('notebook.executeAll')}</span>
           </Button>
         )}
-
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7"
-          onClick={onClearAll}
-          disabled={isExecuting}
-          title={t('notebook.clearAll')}
-        >
-          <Eraser size={14} />
-        </Button>
       </div>
 
       {/* Separator */}
@@ -186,7 +155,7 @@ export function NotebookToolbar({
       {/* Add cell */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="sm" className="h-7 gap-1">
+          <Button data-tour="notebook-add-cell" variant="ghost" size="sm" className="h-7 gap-1">
             <Plus size={14} />
             <span className="text-xs">{t('notebook.addCellBelow')}</span>
           </Button>
@@ -203,52 +172,11 @@ export function NotebookToolbar({
         </DropdownMenuContent>
       </DropdownMenu>
 
-      {/* Variables */}
-      <Button
-        variant={hasVariables ? 'secondary' : 'ghost'}
-        size="icon"
-        className="h-7 w-7"
-        onClick={onToggleVariables}
-        title={t('notebook.toggleVariables')}
-      >
-        <Variable size={14} />
-      </Button>
-
-      {/* Separator */}
-      <div className="w-px h-4 bg-border" />
-
-      {/* Import */}
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-7 w-7"
-        onClick={onImport}
-        title={t('notebook.import')}
-      >
-        <Upload size={14} />
-      </Button>
-
-      {/* Export */}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" className="h-7 w-7" title={t('notebook.export')}>
-            <Download size={14} />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={() => onExport('markdown')}>
-            {t('notebook.exportMarkdown')}
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => onExport('html')}>
-            {t('notebook.exportHtml')}
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-
       {/* Save / Save As */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
+            data-tour="notebook-save"
             variant="ghost"
             size="icon"
             className="h-7 w-7"
@@ -264,6 +192,66 @@ export function NotebookToolbar({
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={onSaveAs}>{t('notebook.saveAs')}</DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      {/* --- SECONDARY ZONE (overflow menu) --- */}
+
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 text-muted-foreground hover:text-foreground"
+            aria-label={t('toolbar.moreActions')}
+          >
+            <MoreHorizontal size={14} />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-48">
+          <DropdownMenuItem onClick={onUndo} disabled={!canUndo}>
+            <Undo2 size={14} className="mr-2" />
+            {t('notebook.undo')}
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={onRedo} disabled={!canRedo}>
+            <Redo2 size={14} className="mr-2" />
+            {t('notebook.redo')}
+          </DropdownMenuItem>
+
+          <DropdownMenuSeparator />
+
+          <DropdownMenuItem onClick={onClearAll} disabled={isExecuting}>
+            <Eraser size={14} className="mr-2" />
+            {t('notebook.clearAll')}
+          </DropdownMenuItem>
+          <DropdownMenuCheckboxItem
+            checked={hasVariables}
+            onCheckedChange={() => onToggleVariables()}
+          >
+            <Variable size={14} className="mr-2" />
+            {t('notebook.toggleVariables')}
+          </DropdownMenuCheckboxItem>
+
+          <DropdownMenuSeparator />
+
+          <DropdownMenuItem onClick={onImport}>
+            <Upload size={14} className="mr-2" />
+            {t('notebook.import')}
+          </DropdownMenuItem>
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>
+              <Download size={14} className="mr-2" />
+              {t('notebook.export')}
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent>
+              <DropdownMenuItem onClick={() => onExport('markdown')}>
+                {t('notebook.exportMarkdown')}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onExport('html')}>
+                {t('notebook.exportHtml')}
+              </DropdownMenuItem>
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
         </DropdownMenuContent>
       </DropdownMenu>
     </div>

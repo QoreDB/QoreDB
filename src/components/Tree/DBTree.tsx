@@ -359,7 +359,7 @@ export function DBTree({
   }
 
   return (
-    <div className="flex flex-col text-sm">
+    <div className="flex flex-col text-sm" role="tree" aria-label={t('a11y.databaseTree')}>
       <div className="flex items-center justify-between px-2 py-1.5 mb-1.5">
         <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/80">
           {t(driverMeta.treeRootLabel)}
@@ -423,6 +423,8 @@ export function DBTree({
             >
               <button
                 type="button"
+                role="treeitem"
+                aria-expanded={isExpanded}
                 className={cn(
                   'flex items-center gap-2 w-full px-2 py-1.5 rounded-md hover:bg-accent/10 transition-colors text-left',
                   isExpanded ? 'text-foreground' : 'text-muted-foreground'

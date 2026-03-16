@@ -9,6 +9,7 @@ import {
   History,
   Layers,
   Lock,
+  MoreHorizontal,
   Network,
   Play,
   Plus,
@@ -21,6 +22,17 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { HelpIcon } from '@/components/ui/help-icon';
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -29,7 +41,6 @@ import {
 } from '@/components/ui/select';
 import { Tooltip } from '@/components/ui/tooltip';
 import { createFederationTab } from '@/lib/tabs';
-import { cn } from '@/lib/utils';
 import { useTabContext } from '@/providers/TabProvider';
 import { getModifierKey } from '@/utils/platform';
 import type { ENVIRONMENT_CONFIG } from '../../lib/environment';
@@ -113,7 +124,14 @@ export function QueryPanelToolbar({
 
   return (
     <div className="flex items-center gap-2 p-2 border-b border-border bg-muted/20">
-      <Button onClick={onExecute} disabled={loading || !sessionId} className="gap-2">
+      {/* --- PRIMARY ZONE --- */}
+
+      <Button
+        data-tour="query-execute"
+        onClick={onExecute}
+        disabled={loading || !sessionId}
+        className="gap-2"
+      >
         {loading ? (
           <span className="flex items-center gap-2">{t('query.running')}</span>
         ) : (
@@ -205,7 +223,7 @@ export function QueryPanelToolbar({
             setTemplateSelectValue(undefined);
           }}
         >
-          <SelectTrigger className="h-9 w-[150px]">
+          <SelectTrigger className="h-9 w-37.5">
             <SelectValue placeholder="Templates..." />
           </SelectTrigger>
           <SelectContent>
@@ -219,33 +237,25 @@ export function QueryPanelToolbar({
         </Select>
       )}
 
-      {!isDocumentBased && isExplainSupported && (
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onExplain}
-          disabled={!sessionId || loading}
-          className="h-9 px-2 text-muted-foreground hover:text-foreground"
-        >
-          {t('query.explain')}
-        </Button>
-      )}
-
+      {/* Transaction controls — contextual, only when active/supported */}
       {supportsTransactions && sessionId && !isDocumentBased && (
         <>
           <div className="h-5 w-px bg-border/50" />
           {!transactionActive ? (
-            <Tooltip content={t('transaction.tooltipBegin')}>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onBeginTransaction}
-                disabled={loading}
-                className="h-9 px-2 text-muted-foreground hover:text-foreground"
-              >
-                {t('transaction.begin')}
-              </Button>
-            </Tooltip>
+            <div className="flex items-center gap-1">
+              <Tooltip content={t('transaction.tooltipBegin')}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={onBeginTransaction}
+                  disabled={loading}
+                  className="h-9 px-2 text-muted-foreground hover:text-foreground"
+                >
+                  {t('transaction.begin')}
+                </Button>
+              </Tooltip>
+              <HelpIcon content={t('help.transactions')} />
+            </div>
           ) : (
             <div className="flex items-center gap-1">
               <span className="flex items-center gap-1.5 px-2 py-1 text-xs font-bold rounded-full border border-accent/30 bg-accent/10 text-accent">
@@ -286,93 +296,82 @@ export function QueryPanelToolbar({
 
       <div className="flex-1" />
 
-      {!isDocumentBased && (
-        <Tooltip content={t('query.keepResults')}>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onToggleKeepResults}
-            className={cn(
-              'h-9 w-9',
-              keepResults
-                ? 'text-accent bg-accent/10 hover:bg-accent/20'
-                : 'text-muted-foreground hover:text-foreground'
-            )}
-          >
-            <Layers size={16} />
-          </Button>
-        </Tooltip>
-      )}
-
-      {!isDocumentBased && (
-        <Tooltip content={t('federation.badge') || 'Federation'}>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => openTab(createFederationTab())}
-            className="h-9 w-9 text-accent hover:bg-accent/10"
-          >
-            <Network size={16} />
-          </Button>
-        </Tooltip>
-      )}
-
-      {onAiToggle && (
-        <Tooltip content={t('ai.title')}>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onAiToggle}
-            className={cn(
-              'h-9 w-9',
-              aiPanelOpen
-                ? 'text-accent bg-accent/10 hover:bg-accent/20'
-                : 'text-muted-foreground hover:text-foreground'
-            )}
-          >
-            <Sparkles size={16} />
-          </Button>
-        </Tooltip>
-      )}
-
-      <Tooltip content={t('query.history')}>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={onHistoryOpen}
-          className="h-9 w-9 text-muted-foreground hover:text-foreground"
-        >
-          <History size={16} />
-        </Button>
-      </Tooltip>
-
-      <Tooltip content={t('library.save')}>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={onSaveToLibrary}
-          className="h-9 w-9 text-muted-foreground hover:text-foreground"
-          aria-label={t('library.save')}
-        >
-          <BookmarkPlus size={16} />
-        </Button>
-      </Tooltip>
-
-      <Tooltip content={t('library.open')}>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={onLibraryOpen}
-          className="h-9 w-9 text-muted-foreground hover:text-foreground"
-          aria-label={t('library.open')}
-        >
-          <Folder size={16} />
-        </Button>
-      </Tooltip>
+      {/* --- SECONDARY ZONE (overflow menu) --- */}
 
       <span className="text-xs text-muted-foreground hidden sm:inline-block">
         {t('query.runHint', { modifier: getModifierKey() })}
       </span>
+
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9 text-muted-foreground hover:text-foreground"
+            aria-label={t('toolbar.moreActions')}
+          >
+            <MoreHorizontal size={16} />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-52">
+          {/* Query Tools */}
+          <DropdownMenuLabel>{t('toolbar.queryTools')}</DropdownMenuLabel>
+          <DropdownMenuGroup>
+            {!isDocumentBased && isExplainSupported && (
+              <DropdownMenuItem onClick={onExplain} disabled={!sessionId || loading}>
+                {t('query.explain')}
+              </DropdownMenuItem>
+            )}
+            {!isDocumentBased && (
+              <DropdownMenuCheckboxItem
+                checked={keepResults}
+                onCheckedChange={() => onToggleKeepResults()}
+              >
+                <Layers size={14} className="mr-2" />
+                {t('query.keepResults')}
+              </DropdownMenuCheckboxItem>
+            )}
+          </DropdownMenuGroup>
+
+          <DropdownMenuSeparator />
+
+          {/* Library */}
+          <DropdownMenuLabel>{t('toolbar.library')}</DropdownMenuLabel>
+          <DropdownMenuGroup>
+            <DropdownMenuItem onClick={onSaveToLibrary}>
+              <BookmarkPlus size={14} className="mr-2" />
+              {t('library.save')}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={onLibraryOpen}>
+              <Folder size={14} className="mr-2" />
+              {t('library.open')}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={onHistoryOpen}>
+              <History size={14} className="mr-2" />
+              {t('query.history')}
+            </DropdownMenuItem>
+          </DropdownMenuGroup>
+
+          <DropdownMenuSeparator />
+
+          {/* Integrations */}
+          <DropdownMenuLabel>{t('toolbar.integrations')}</DropdownMenuLabel>
+          <DropdownMenuGroup>
+            {onAiToggle && (
+              <DropdownMenuCheckboxItem checked={aiPanelOpen} onCheckedChange={() => onAiToggle()}>
+                <Sparkles size={14} className="mr-2" />
+                {t('ai.title')}
+              </DropdownMenuCheckboxItem>
+            )}
+            {!isDocumentBased && (
+              <DropdownMenuItem onClick={() => openTab(createFederationTab())}>
+                <Network size={14} className="mr-2" />
+                {t('federation.badge')}
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>
 
       {!sessionId && (
         <span className="flex items-center gap-1.5 text-xs text-warning bg-warning/10 px-2 py-1 rounded-full border border-warning/20">

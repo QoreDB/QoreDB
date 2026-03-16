@@ -15,7 +15,10 @@ import {
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { NotificationPanel } from '@/components/Notification/NotificationPanel';
+import {
+  NotificationPanel,
+  useHasUnseenChangelog,
+} from '@/components/Notification/NotificationPanel';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -526,6 +529,7 @@ const UpdateButton = () => {
 const NotificationBell = () => {
   const { t } = useTranslation();
   const badgeCount = useNotificationBadge();
+  const hasChangelog = useHasUnseenChangelog();
 
   return (
     <Popover>
@@ -541,6 +545,9 @@ const NotificationBell = () => {
             <span className="absolute -top-0.5 -right-0.5 min-w-3.5 h-3.5 px-1 text-[9px] font-medium bg-red-500 text-white rounded-full flex items-center justify-center">
               {badgeCount > 9 ? '9+' : badgeCount}
             </span>
+          )}
+          {badgeCount === 0 && hasChangelog && (
+            <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-accent rounded-full" />
           )}
         </Button>
       </PopoverTrigger>

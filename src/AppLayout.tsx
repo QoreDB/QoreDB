@@ -38,10 +38,13 @@ import { FulltextSearchPanel } from './components/Search/FulltextSearchPanel';
 import { GlobalSearch, type SearchResult } from './components/Search/GlobalSearch';
 import { SettingsPage } from './components/Settings/SettingsPage';
 import { Sidebar } from './components/Sidebar/Sidebar';
+import { FeatureTour } from './components/Tour/FeatureTour';
 import { StatusBar } from './components/Status/StatusBar';
+import { SkipLink } from './components/ui/skip-link';
 import { TabBar } from './components/Tabs/TabBar';
 import type { useRecovery } from './hooks/useRecovery';
 import { useResizableSidebar } from './hooks/useResizableSidebar';
+import { useTourManager } from './hooks/useTourManager';
 import { useTheme } from './hooks/useTheme';
 import { useWebviewGuards } from './hooks/useWebviewGuards';
 import { Driver } from './lib/drivers';
@@ -87,6 +90,7 @@ export function AppLayout() {
   const { resolvedTheme, toggleTheme } = useTheme();
   useWebviewGuards();
   const { width: sidebarWidth, handleMouseDown: handleSidebarResizeStart } = useResizableSidebar();
+  const tourManager = useTourManager();
 
   const {
     tabs,
@@ -274,7 +278,7 @@ export function AppLayout() {
       );
       if (result.success && result.definition) {
         const tab = createQueryTab(result.definition.definition, namespace);
-        tab.title = `trigger: ${trigger.name}`; 
+        tab.title = `trigger: ${trigger.name}`;
         openTab(tab);
       } else {
         notify.error(t('triggerManager.sourceLoadError'), result.error);
@@ -367,6 +371,60 @@ export function AppLayout() {
   }, [activeConnection?.environment, sessionId, t]);
 
   // --- Palette ---
+
+  const paletteFeatures = useMemo(
+    () =>
+      sessionId
+        ? [
+            {
+              id: 'feat_notebook',
+              label: t('features.notebooks.name'),
+              sublabel: t('features.notebooks.description'),
+            },
+            {
+              id: 'feat_sandbox',
+              label: t('features.sandbox.name'),
+              sublabel: t('features.sandbox.description'),
+            },
+            {
+              id: 'feat_federation',
+              label: t('features.federation.name'),
+              sublabel: t('features.federation.description'),
+            },
+            {
+              id: 'feat_diff',
+              label: t('features.diff.name'),
+              sublabel: t('features.diff.description'),
+            },
+            {
+              id: 'feat_snapshots',
+              label: t('features.snapshots.name'),
+              sublabel: t('features.snapshots.description'),
+            },
+            {
+              id: 'feat_fulltext',
+              label: t('features.fulltextSearch.name'),
+              sublabel: t('features.fulltextSearch.description'),
+            },
+            {
+              id: 'feat_ai',
+              label: t('features.aiAssistant.name'),
+              sublabel: t('features.aiAssistant.description'),
+            },
+            {
+              id: 'feat_er',
+              label: t('features.erDiagram.name'),
+              sublabel: t('features.erDiagram.description'),
+            },
+            {
+              id: 'feat_virtual_relations',
+              label: t('features.virtualRelations.name'),
+              sublabel: t('features.virtualRelations.description'),
+            },
+          ]
+        : [],
+    [sessionId, t]
+  );
 
   const paletteCommands = useMemo(
     () => [
@@ -496,6 +554,34 @@ export function AppLayout() {
           openTab(createQueryTab(item.query));
           setSettingsOpen(false);
         }
+      } else if (result.type === 'feature') {
+        switch (result.id) {
+          case 'feat_notebook':
+            if (sessionId) openTab(createNotebookTab());
+            return;
+          case 'feat_sandbox':
+            if (sessionId) handleToggleSandbox();
+            return;
+          case 'feat_federation':
+            if (sessionId) openTab(createFederationTab());
+            return;
+          case 'feat_diff':
+            if (sessionId) handleOpenDiff();
+            return;
+          case 'feat_snapshots':
+            openTab(createSnapshotsTab());
+            return;
+          case 'feat_fulltext':
+            if (sessionId) setFulltextSearchOpen(true);
+            return;
+          case 'feat_ai':
+            setSettingsOpen(true);
+            return;
+          case 'feat_er':
+          case 'feat_virtual_relations':
+            // These features are accessed via table context menu / schema browser
+            return;
+        }
       }
     },
     [
@@ -511,6 +597,7 @@ export function AppLayout() {
       queryDrafts,
       handleConnected,
       handleOpenDiff,
+      handleToggleSandbox,
       setSearchOpen,
       setConnectionModalOpen,
       setLibraryModalOpen,
@@ -527,6 +614,7 @@ export function AppLayout() {
   return (
     <>
       <div className="flex flex-col h-screen w-screen overflow-hidden bg-background text-foreground font-sans">
+        <SkipLink />
         <CustomTitlebar
           onOpenSearch={() => setSearchOpen(true)}
           onNewConnection={() => setConnectionModalOpen(true)}
@@ -551,7 +639,7 @@ export function AppLayout() {
           )}
 
           {sidebarVisible && (
-            <>
+            <aside aria-label={t('a11y.sidebar')}>
               <Sidebar
                 onNewConnection={() => setConnectionModalOpen(true)}
                 onConnected={handleConnected}
@@ -580,10 +668,13 @@ export function AppLayout() {
                 onMouseDown={handleSidebarResizeStart}
                 className="w-1 shrink-0 cursor-col-resize bg-transparent hover:bg-accent/50 active:bg-accent transition-colors border-0 p-0 outline-none"
               />
-            </>
+            </aside>
           )}
 
-          <main className="flex-1 flex flex-col min-w-0 min-h-0 bg-background relative">
+          <main
+            id="main-content"
+            className="flex-1 flex flex-col min-w-0 min-h-0 bg-background relative"
+          >
             <header className="flex items-center h-10 z-30 px-2 gap-2">
               <div className="flex items-center gap-2 flex-1 min-w-0">
                 {!settingsOpen && sessionId && (
@@ -663,6 +754,7 @@ export function AppLayout() {
         onClose={() => setSearchOpen(false)}
         onSelect={handleSearchSelect}
         commands={paletteCommands}
+        features={paletteFeatures}
       />
       <QueryLibraryModal
         isOpen={libraryModalOpen}
@@ -685,6 +777,15 @@ export function AppLayout() {
         toastOptions={{ duration: 4000 }}
       />
       {showOnboarding && <OnboardingModal onComplete={() => setShowOnboarding(false)} />}
+      {tourManager.activeTour && tourManager.activeTourSteps && (
+        <FeatureTour
+          steps={tourManager.activeTourSteps}
+          onComplete={() => {
+            if (tourManager.activeTour) tourManager.completeTour(tourManager.activeTour);
+          }}
+          onDismiss={() => tourManager.dismissTour()}
+        />
+      )}
     </>
   );
 }

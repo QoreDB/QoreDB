@@ -53,15 +53,33 @@ export function MongoEditor({ value, onChange, onExecute, readOnly = false }: Mo
         }
       }),
       EditorView.editable.of(!readOnly),
-      EditorView.theme({
-        '&': { height: '100%' },
-        '.cm-scroller': { overflow: 'auto' },
-      }),
     ];
 
     if (isDark) {
       extensions.push(oneDark);
     }
+
+    // Custom theme applied last so it overrides oneDark background
+    extensions.push(
+      EditorView.theme({
+        '&': {
+          height: '100%',
+          ...(isDark ? { backgroundColor: 'var(--q-bg-1)' } : {}),
+        },
+        '.cm-scroller': { overflow: 'auto' },
+        ...(isDark
+          ? {
+              '.cm-gutters': {
+                backgroundColor: 'var(--q-bg-1)',
+                borderRight: '1px solid var(--q-border)',
+              },
+              '.cm-activeLineGutter': {
+                backgroundColor: 'var(--q-bg-2)',
+              },
+            }
+          : {}),
+      })
+    );
 
     const state = EditorState.create({
       doc: initialValueRef.current,

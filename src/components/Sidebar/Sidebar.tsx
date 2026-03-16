@@ -52,6 +52,7 @@ interface SidebarProps {
   onCreateEvent?: (namespace: Namespace) => void;
   onEditConnection: (connection: SavedConnection, password: string) => void;
   onNewQuery?: () => void;
+  onNewNotebook?: () => void;
   schemaRefreshTrigger?: number;
   activeNamespace?: Namespace | null;
   style?: React.CSSProperties;
@@ -74,6 +75,7 @@ export function Sidebar({
   onCreateEvent,
   onEditConnection,
   onNewQuery,
+  onNewNotebook,
   schemaRefreshTrigger,
   activeNamespace,
   style,
@@ -224,6 +226,7 @@ export function Sidebar({
           onEdit={onEditConnection}
           onDeleted={loadConnections}
           onNewQuery={connectedConnectionId === connection.id ? onNewQuery : undefined}
+          onNewNotebook={connectedConnectionId === connection.id ? onNewNotebook : undefined}
         />
         {expandedId === connection.id && connectedSessionId && (
           <div className="pl-4 border-l-2 border-accent/30 ml-4 mt-1 bg-muted/20 rounded-r-md py-1">

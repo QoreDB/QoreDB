@@ -16,6 +16,7 @@ import { getDriverMetadata } from '@/lib/drivers';
 import { ENVIRONMENT_CONFIG } from '@/lib/environment';
 import type { ConnectionHealth, SavedConnection } from '@/lib/tauri';
 import { useTransactionStore } from '@/lib/transactionStore';
+import { APP_VERSION } from '@/lib/version';
 
 interface StatusBarProps {
   sessionId: string | null;
@@ -135,6 +136,8 @@ export function StatusBar({ sessionId, connection, connectionHealth = 'healthy' 
         ) : (
           <span className="text-muted-foreground">{t('status.noSession')}</span>
         )}
+        <div className="h-4 w-px bg-border/50" />
+        <span className="text-muted-foreground/60">v{APP_VERSION}</span>
       </div>
     </div>
   );

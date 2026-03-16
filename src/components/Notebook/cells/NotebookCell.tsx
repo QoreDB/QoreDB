@@ -1,6 +1,20 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { ChevronDown, ChevronUp, GripVertical, Loader2, Play, Square, Trash2 } from 'lucide-react';
+import {
+  ChevronDown,
+  ChevronsRight,
+  ChevronUp,
+  Copy,
+  FoldVertical,
+  GripVertical,
+  Loader2,
+  MoreHorizontal,
+  Play,
+  RefreshCw,
+  Square,
+  Trash2,
+  UnfoldVertical,
+} from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
@@ -11,7 +25,13 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from '@/components/ui/context-menu';
-import { Tooltip } from '@/components/ui/tooltip';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import type { Driver } from '@/lib/drivers';
 import type { CellExecutionState, NotebookCell as NotebookCellType } from '@/lib/notebookTypes';
 import type { Namespace } from '@/lib/tauri';
@@ -102,6 +122,58 @@ export function NotebookCell({
     onDelete();
   }, [cell.source, onDelete, t]);
 
+  // Shared menu items for both context menu and dropdown
+  const menuItems = (
+    <>
+      {isExecutable && (
+        <ContextMenuItem onClick={onExecute}>{t('notebook.executeCell')}</ContextMenuItem>
+      )}
+      {isExecutable && onRunFromHere && (
+        <ContextMenuItem onClick={onRunFromHere}>
+          <ChevronsRight size={14} className="mr-2" />
+          {t('notebook.executeFromHere')}
+        </ContextMenuItem>
+      )}
+      {isExecutable && <ContextMenuSeparator />}
+      {onDuplicate && (
+        <ContextMenuItem onClick={onDuplicate}>
+          <Copy size={14} className="mr-2" />
+          {t('notebook.duplicateCell')}
+        </ContextMenuItem>
+      )}
+      {onConvertType && (
+        <ContextMenuItem onClick={onConvertType}>
+          <RefreshCw size={14} className="mr-2" />
+          {t('notebook.convertType')}
+        </ContextMenuItem>
+      )}
+      {onToggleCollapsed && (
+        <ContextMenuItem onClick={onToggleCollapsed}>
+          {isCollapsed ? (
+            <UnfoldVertical size={14} className="mr-2" />
+          ) : (
+            <FoldVertical size={14} className="mr-2" />
+          )}
+          {isCollapsed ? t('notebook.expandCell') : t('notebook.collapseCell')}
+        </ContextMenuItem>
+      )}
+      <ContextMenuSeparator />
+      <ContextMenuItem onClick={onMoveUp} disabled={isFirst}>
+        <ChevronUp size={14} className="mr-2" />
+        {t('notebook.moveCellUp')}
+      </ContextMenuItem>
+      <ContextMenuItem onClick={onMoveDown} disabled={isLast}>
+        <ChevronDown size={14} className="mr-2" />
+        {t('notebook.moveCellDown')}
+      </ContextMenuItem>
+      <ContextMenuSeparator />
+      <ContextMenuItem onClick={handleDelete} className="text-destructive">
+        <Trash2 size={14} className="mr-2" />
+        {t('notebook.deleteCell')}
+      </ContextMenuItem>
+    </>
+  );
+
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
@@ -161,77 +233,129 @@ export function NotebookCell({
             {/* Action buttons */}
             <div className="shrink-0 flex flex-col items-center gap-0.5 pt-1 opacity-0 group-hover:opacity-100 transition-opacity">
               {isExecutable && !isRunning && (
-                <Tooltip content={t('notebook.executeCell')} side="left">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6"
+                  title={t('notebook.executeCell')}
+                  onClick={e => {
+                    e.stopPropagation();
+                    onExecute();
+                  }}
+                >
+                  <Play size={12} />
+                </Button>
+              )}
+              {isRunning && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 text-destructive"
+                  title={t('notebook.cancelExecution')}
+                  onClick={e => {
+                    e.stopPropagation();
+                    onCancel?.();
+                  }}
+                >
+                  <Square size={12} />
+                </Button>
+              )}
+              {isRunning && <Loader2 size={12} className="animate-spin text-accent" />}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6"
+                title={t('notebook.moveCellUp')}
+                onClick={e => {
+                  e.stopPropagation();
+                  onMoveUp();
+                }}
+                disabled={isFirst}
+              >
+                <ChevronUp size={12} />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6"
+                title={t('notebook.moveCellDown')}
+                onClick={e => {
+                  e.stopPropagation();
+                  onMoveDown();
+                }}
+                disabled={isLast}
+              >
+                <ChevronDown size={12} />
+              </Button>
+
+              {/* More actions dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
                   <Button
                     variant="ghost"
                     size="icon"
                     className="h-6 w-6"
-                    onClick={e => {
-                      e.stopPropagation();
-                      onExecute();
-                    }}
+                    onClick={e => e.stopPropagation()}
                   >
-                    <Play size={12} />
+                    <MoreHorizontal size={12} />
                   </Button>
-                </Tooltip>
-              )}
-              {isRunning && (
-                <Tooltip content={t('notebook.cancelExecution')} side="left">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6 text-destructive"
-                    onClick={e => {
-                      e.stopPropagation();
-                      onCancel?.();
-                    }}
-                  >
-                    <Square size={12} />
-                  </Button>
-                </Tooltip>
-              )}
-              {isRunning && <Loader2 size={12} className="animate-spin text-accent" />}
-              <Tooltip content={t('notebook.moveCellUp')} side="left">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6"
-                  onClick={e => {
-                    e.stopPropagation();
-                    onMoveUp();
-                  }}
-                  disabled={isFirst}
-                >
-                  <ChevronUp size={12} />
-                </Button>
-              </Tooltip>
-              <Tooltip content={t('notebook.moveCellDown')} side="left">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6"
-                  onClick={e => {
-                    e.stopPropagation();
-                    onMoveDown();
-                  }}
-                  disabled={isLast}
-                >
-                  <ChevronDown size={12} />
-                </Button>
-              </Tooltip>
-              <Tooltip content={t('notebook.deleteCell')} side="left">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6 text-muted-foreground hover:text-destructive"
-                  onClick={e => {
-                    e.stopPropagation();
-                    handleDelete();
-                  }}
-                >
-                  <Trash2 size={12} />
-                </Button>
-              </Tooltip>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" side="left">
+                  {isExecutable && (
+                    <DropdownMenuItem onClick={onExecute}>
+                      <Play size={14} className="mr-2" />
+                      {t('notebook.executeCell')}
+                    </DropdownMenuItem>
+                  )}
+                  {isExecutable && onRunFromHere && (
+                    <DropdownMenuItem onClick={onRunFromHere}>
+                      <ChevronsRight size={14} className="mr-2" />
+                      {t('notebook.executeFromHere')}
+                    </DropdownMenuItem>
+                  )}
+                  {isExecutable && <DropdownMenuSeparator />}
+                  {onDuplicate && (
+                    <DropdownMenuItem onClick={onDuplicate}>
+                      <Copy size={14} className="mr-2" />
+                      {t('notebook.duplicateCell')}
+                    </DropdownMenuItem>
+                  )}
+                  {onConvertType && (
+                    <DropdownMenuItem onClick={onConvertType}>
+                      <RefreshCw size={14} className="mr-2" />
+                      {t('notebook.convertType')}
+                    </DropdownMenuItem>
+                  )}
+                  {onToggleCollapsed && (
+                    <DropdownMenuItem onClick={onToggleCollapsed}>
+                      {isCollapsed ? (
+                        <UnfoldVertical size={14} className="mr-2" />
+                      ) : (
+                        <FoldVertical size={14} className="mr-2" />
+                      )}
+                      {isCollapsed ? t('notebook.expandCell') : t('notebook.collapseCell')}
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleDelete} className="text-destructive">
+                    <Trash2 size={14} className="mr-2" />
+                    {t('notebook.deleteCell')}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                title={t('notebook.deleteCell')}
+                onClick={e => {
+                  e.stopPropagation();
+                  handleDelete();
+                }}
+              >
+                <Trash2 size={12} />
+              </Button>
             </div>
           </div>
 
@@ -253,37 +377,7 @@ export function NotebookCell({
         </div>
       </ContextMenuTrigger>
 
-      <ContextMenuContent>
-        {isExecutable && (
-          <ContextMenuItem onClick={onExecute}>{t('notebook.executeCell')}</ContextMenuItem>
-        )}
-        {isExecutable && onRunFromHere && (
-          <ContextMenuItem onClick={onRunFromHere}>{t('notebook.executeFromHere')}</ContextMenuItem>
-        )}
-        {isExecutable && <ContextMenuSeparator />}
-        {onDuplicate && (
-          <ContextMenuItem onClick={onDuplicate}>{t('notebook.duplicateCell')}</ContextMenuItem>
-        )}
-        {onConvertType && (
-          <ContextMenuItem onClick={onConvertType}>{t('notebook.convertType')}</ContextMenuItem>
-        )}
-        {onToggleCollapsed && (
-          <ContextMenuItem onClick={onToggleCollapsed}>
-            {isCollapsed ? t('notebook.expandCell') : t('notebook.collapseCell')}
-          </ContextMenuItem>
-        )}
-        <ContextMenuSeparator />
-        <ContextMenuItem onClick={onMoveUp} disabled={isFirst}>
-          {t('notebook.moveCellUp')}
-        </ContextMenuItem>
-        <ContextMenuItem onClick={onMoveDown} disabled={isLast}>
-          {t('notebook.moveCellDown')}
-        </ContextMenuItem>
-        <ContextMenuSeparator />
-        <ContextMenuItem onClick={handleDelete} className="text-destructive">
-          {t('notebook.deleteCell')}
-        </ContextMenuItem>
-      </ContextMenuContent>
+      <ContextMenuContent>{menuItems}</ContextMenuContent>
     </ContextMenu>
   );
 }

@@ -190,11 +190,7 @@ export function QueryPanelResults({
             </div>
           )}
         </div>
-      ) : (
-        <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
-          {t('query.noResults')}
-        </div>
-      )}
+      ) : null}
     </div>
   );
 }

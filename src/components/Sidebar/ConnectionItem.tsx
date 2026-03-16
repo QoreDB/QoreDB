@@ -20,6 +20,7 @@ interface ConnectionItemProps {
   onEdit: (connection: SavedConnection, password: string) => void;
   onDeleted: () => void;
   onNewQuery?: () => void;
+  onNewNotebook?: () => void;
 }
 
 export function ConnectionItem({
@@ -34,6 +35,7 @@ export function ConnectionItem({
   onEdit,
   onDeleted,
   onNewQuery,
+  onNewNotebook,
 }: ConnectionItemProps) {
   const driver = connection.driver as Driver;
   const iconSrc = `/databases/${DRIVER_ICONS[driver]}`;
@@ -48,6 +50,7 @@ export function ConnectionItem({
       isFavorite={isFavorite}
       onToggleFavorite={onToggleFavorite}
       onNewQuery={onNewQuery}
+      onNewNotebook={onNewNotebook}
       isConnected={isConnected}
     >
       <div
@@ -122,6 +125,7 @@ export function ConnectionItem({
             isFavorite={isFavorite}
             onToggleFavorite={onToggleFavorite}
             onNewQuery={onNewQuery}
+            onNewNotebook={onNewNotebook}
             isConnected={isConnected}
           />
         </div>

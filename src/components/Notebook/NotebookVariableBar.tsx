@@ -19,7 +19,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Tooltip } from '@/components/ui/tooltip';
 import type { NotebookVariable } from '@/lib/notebookTypes';
 
 interface NotebookVariableBarProps {
@@ -86,29 +85,27 @@ export function NotebookVariableBar({
               className="h-6 text-xs w-24"
             />
           )}
-          <Tooltip content={t('notebook.removeVariable')}>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-5 w-5 text-muted-foreground hover:text-destructive"
-              onClick={() => onRemoveVariable(v.name)}
-            >
-              <X size={10} />
-            </Button>
-          </Tooltip>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-5 w-5 text-muted-foreground hover:text-destructive"
+            title={t('notebook.removeVariable')}
+            onClick={() => onRemoveVariable(v.name)}
+          >
+            <X size={10} />
+          </Button>
         </div>
       ))}
 
-      <Tooltip content={t('notebook.addVariable')}>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-6 w-6 shrink-0"
-          onClick={() => setDialogOpen(true)}
-        >
-          <Plus size={12} />
-        </Button>
-      </Tooltip>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-6 w-6 shrink-0"
+        title={t('notebook.addVariable')}
+        onClick={() => setDialogOpen(true)}
+      >
+        <Plus size={12} />
+      </Button>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-sm">

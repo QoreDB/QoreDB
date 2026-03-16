@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { Maximize2, Minimize2 } from 'lucide-react';
 import type { Ref } from 'react';
+import { useTranslation } from 'react-i18next';
+import { Button } from '@/components/ui/button';
+import { Tooltip } from '@/components/ui/tooltip';
 import type { Driver } from '../../lib/drivers';
 import type { Namespace } from '../../lib/tauri';
 import { MongoEditor } from '../Editor/MongoEditor';
@@ -20,6 +24,8 @@ interface QueryPanelEditorProps {
   onFormat: () => void;
   sqlEditorRef?: Ref<SQLEditorHandle>;
   placeholder?: string;
+  isExpanded?: boolean;
+  onToggleExpand?: () => void;
 }
 
 export function QueryPanelEditor({
@@ -36,9 +42,13 @@ export function QueryPanelEditor({
   onFormat,
   sqlEditorRef,
   placeholder,
+  isExpanded,
+  onToggleExpand,
 }: QueryPanelEditorProps) {
+  const { t } = useTranslation();
+
   return (
-    <div className="flex-1 min-h-50 border-b border-border relative">
+    <div className="flex-1 min-h-0 border-b border-border relative group/editor">
       {isDocumentBased ? (
         <MongoEditor
           value={query}
@@ -61,6 +71,19 @@ export function QueryPanelEditor({
           activeNamespace={activeNamespace}
           placeholder={placeholder}
         />
+      )}
+
+      {onToggleExpand && (
+        <Tooltip content={isExpanded ? t('query.collapseEditor') : t('query.expandEditor')}>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onToggleExpand}
+            className="absolute top-1.5 right-1.5 h-6 w-6 text-muted-foreground/50 hover:text-foreground opacity-0 group-hover/editor:opacity-70 hover:!opacity-100 transition-opacity z-10"
+          >
+            {isExpanded ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+          </Button>
+        </Tooltip>
       )}
     </div>
   );

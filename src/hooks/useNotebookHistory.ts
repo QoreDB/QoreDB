@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import type { QoreNotebook } from '../lib/notebookTypes';
 
 const MAX_HISTORY = 50;
@@ -29,7 +29,6 @@ export function useNotebookHistory(): UseNotebookHistoryReturn {
 
   const pushState = useCallback((notebook: QoreNotebook) => {
     const now = Date.now();
-    // Debounce: skip if pushed within DEBOUNCE_MS (for rapid text typing)
     if (now - lastPushTime.current < DEBOUNCE_MS) return;
     lastPushTime.current = now;
 
@@ -45,7 +44,8 @@ export function useNotebookHistory(): UseNotebookHistoryReturn {
     setState(prev => {
       if (prev.undoStack.length === 0) return prev;
       const undoStack = [...prev.undoStack];
-      const restored = undoStack.pop()!;
+      const restored = undoStack.pop();
+      if (!restored) return prev;
       result = restored;
       return {
         undoStack,
@@ -60,7 +60,8 @@ export function useNotebookHistory(): UseNotebookHistoryReturn {
     setState(prev => {
       if (prev.redoStack.length === 0) return prev;
       const redoStack = [...prev.redoStack];
-      const restored = redoStack.pop()!;
+      const restored = redoStack.pop();
+      if (!restored) return prev;
       result = restored;
       return {
         undoStack: [...prev.undoStack, current],
@@ -70,11 +71,14 @@ export function useNotebookHistory(): UseNotebookHistoryReturn {
     return result;
   }, []);
 
-  return {
-    pushState,
-    undo,
-    redo,
-    canUndo: state.undoStack.length > 0,
-    canRedo: state.redoStack.length > 0,
-  };
+  return useMemo(
+    () => ({
+      pushState,
+      undo,
+      redo,
+      canUndo: state.undoStack.length > 0,
+      canRedo: state.redoStack.length > 0,
+    }),
+    [pushState, undo, redo, state.undoStack.length, state.redoStack.length]
+  );
 }

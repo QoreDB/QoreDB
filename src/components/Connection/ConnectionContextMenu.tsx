@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Copy, Loader2, Pencil, Terminal, Trash2, Zap } from 'lucide-react';
+import { BookOpen, Copy, Loader2, Pencil, Terminal, Trash2, Zap } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
@@ -28,6 +28,7 @@ interface ConnectionContextMenuProps {
   isFavorite?: boolean;
   onToggleFavorite?: () => void;
   onNewQuery?: () => void;
+  onNewNotebook?: () => void;
   isConnected?: boolean;
   children: ReactNode;
 }
@@ -39,6 +40,7 @@ export function ConnectionContextMenu({
   isFavorite,
   onToggleFavorite,
   onNewQuery,
+  onNewNotebook,
   isConnected,
   children,
 }: ConnectionContextMenuProps) {
@@ -57,12 +59,20 @@ export function ConnectionContextMenu({
       <ContextMenu>
         <ContextMenuTrigger asChild>{children}</ContextMenuTrigger>
         <ContextMenuContent className="w-48">
-          {isConnected && onNewQuery && (
+          {isConnected && (onNewQuery || onNewNotebook) && (
             <>
-              <ContextMenuItem onSelect={() => onNewQuery()}>
-                <Terminal size={14} />
-                {t('connection.menu.newQuery')}
-              </ContextMenuItem>
+              {onNewQuery && (
+                <ContextMenuItem onSelect={() => onNewQuery()}>
+                  <Terminal size={14} />
+                  {t('connection.menu.newQuery')}
+                </ContextMenuItem>
+              )}
+              {onNewNotebook && (
+                <ContextMenuItem onSelect={() => onNewNotebook()}>
+                  <BookOpen size={14} />
+                  {t('connection.menu.newNotebook')}
+                </ContextMenuItem>
+              )}
               <ContextMenuSeparator />
             </>
           )}

@@ -134,12 +134,13 @@ export function useNotebook(options: UseNotebookOptions): UseNotebookReturn {
 
   const updateNotebook = useCallback(
     (updater: (prev: QoreNotebook) => QoreNotebook) => {
+      // Push current state for undo BEFORE updating (outside setNotebook to avoid nested setState)
+      history.pushState(notebookRef.current);
       setNotebook(prev => {
-        history.pushState(prev);
         const next = updater(prev);
-        setIsDirty(true);
         return next;
       });
+      setIsDirty(true);
     },
     [history]
   );

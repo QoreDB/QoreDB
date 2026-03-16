@@ -102,6 +102,7 @@
       "deletedSuccess": "Connection \"{{name}}\" deleted",
       "deleteFail": "Failed to delete connection",
       "newQuery": "New Query",
+      "newNotebook": "New Notebook",
       "credentialLoadFail": "Failed to load connection details",
       "testTitleSuccess": "Connection to {{name}} successful!"
     },
@@ -174,7 +175,10 @@
     "footerHint": "Click a result to open the table"
   },
   "tabs": {
-    "newQuery": "New Query ({{modifier}}+T)"
+    "new": "New tab",
+    "newQuery": "New Query ({{modifier}}+T)",
+    "newNotebook": "New Notebook",
+    "close": "Close tab"
   },
   "browser": {
     "searchPlaceholder": "Search {{label}}...",
@@ -304,7 +308,10 @@
     "expandCell": "Expand cell",
     "copyError": "Copy error",
     "chartNoConfig": "Configure this chart cell via the context menu.",
-    "chartNoData": "No data — execute the source cell first."
+    "chartNoData": "No data — execute the source cell first.",
+    "undo": "Undo",
+    "redo": "Redo",
+    "toggleVariables": "Variables"
   },
   "settings": {
     "title": "Settings",
@@ -543,6 +550,8 @@
     "queryFailed": "Query failed",
     "noConnectionError": "No connection selected",
     "multiStatementNotice": "Multiple statements detected ({{count}}). Only the last result is shown.",
+    "expandEditor": "Expand editor",
+    "collapseEditor": "Collapse editor",
     "time": {
       "exec": "EXEC",
       "transfer": "TRANSFER",

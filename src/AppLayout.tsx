@@ -185,6 +185,10 @@ export function AppLayout() {
     if (sessionId) openTab(createQueryTab(undefined, activeTab?.namespace));
   }, [sessionId, openTab, activeTab?.namespace]);
 
+  const handleNewNotebook = useCallback(() => {
+    if (sessionId) openTab(createNotebookTab());
+  }, [sessionId, openTab]);
+
   const handleOpenDiff = useCallback(() => {
     if (sessionId)
       openTab(createDiffTab(undefined, undefined, t('diff.title'), activeTab?.namespace));
@@ -565,6 +569,7 @@ export function AppLayout() {
                 onCreateEvent={handleCreateEvent}
                 onEditConnection={handleEditConnection}
                 onNewQuery={handleNewQuery}
+                onNewNotebook={handleNewNotebook}
                 schemaRefreshTrigger={schemaRefreshTrigger}
                 activeNamespace={activeTab?.namespace}
                 style={{ width: sidebarWidth, minWidth: sidebarWidth }}

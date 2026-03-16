@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNotebook } from '@/hooks/useNotebook';
 import { Driver } from '@/lib/drivers';
 import type { DriverCapabilities, Environment, Namespace } from '@/lib/tauri';
@@ -48,6 +48,25 @@ export function NotebookTab({
     initialQuery,
     onDirtyChange,
   });
+
+  const hasVariables = Object.keys(nb.notebook.variables).length > 0;
+  const [showVariableBar, setShowVariableBar] = useState(hasVariables);
+
+  // Auto-show variable bar when variables exist
+  useEffect(() => {
+    if (hasVariables) setShowVariableBar(true);
+  }, [hasVariables]);
+
+  const handleToggleVariables = useCallback(() => {
+    if (showVariableBar && !hasVariables) {
+      // Already visible with no variables, just hide
+      setShowVariableBar(false);
+    } else if (showVariableBar) {
+      setShowVariableBar(false);
+    } else {
+      setShowVariableBar(true);
+    }
+  }, [showVariableBar, hasVariables]);
 
   // Keyboard shortcuts
   const handleKeyDown = useCallback(
@@ -159,16 +178,23 @@ export function NotebookTab({
         title={nb.notebook.metadata.title}
         isDirty={nb.isDirty}
         isExecuting={nb.isExecuting}
+        canUndo={nb.canUndo}
+        canRedo={nb.canRedo}
+        hasVariables={hasVariables}
         onTitleChange={nb.setTitle}
         onSave={nb.save}
+        onSaveAs={nb.saveAs}
         onAddCell={type => nb.addCell(type, nb.focusedCellId ?? undefined)}
         onExecuteAll={() => nb.executeAll()}
         onClearAll={nb.clearAllResults}
         onCancel={nb.cancelExecution}
+        onUndo={nb.undo}
+        onRedo={nb.redo}
         onImport={nb.importFromFile}
         onExport={format => nb.exportToFile(format)}
+        onToggleVariables={handleToggleVariables}
       />
-      {Object.keys(nb.notebook.variables).length > 0 && (
+      {showVariableBar && (
         <NotebookVariableBar
           variables={nb.notebook.variables}
           onUpdateVariable={nb.updateVariable}

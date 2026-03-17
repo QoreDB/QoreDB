@@ -81,7 +81,6 @@ export function setFulltextSearchOpen(open: boolean) {
 
 export function setConnectionModalOpen(open: boolean) {
   if (state.connectionModalOpen === open) return;
-  if (import.meta.env.DEV) console.trace(`[modalStore] setConnectionModalOpen(${open})`);
   updateState({ connectionModalOpen: open });
 }
 
@@ -91,7 +90,6 @@ export function setLibraryModalOpen(open: boolean) {
 
 export function setLogsOpen(open: boolean) {
   if (state.logsOpen === open) return;
-  if (import.meta.env.DEV) console.trace(`[modalStore] setLogsOpen(${open})`);
   updateState({ logsOpen: open });
 }
 
@@ -116,7 +114,6 @@ export function handleEditConnection(connection: SavedConnection, password: stri
 }
 
 export function handleCloseConnectionModal() {
-  if (import.meta.env.DEV) console.trace('[modalStore] handleCloseConnectionModal()');
   updateState({ connectionModalOpen: false, editConnection: null, editPassword: '' });
 }
 

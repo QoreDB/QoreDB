@@ -86,7 +86,6 @@ import {
   type Trigger,
 } from './lib/tauri';
 import { getEventTemplate, getTriggerTemplate } from './lib/triggerTemplates';
-import { useUiDebugSnapshot } from './lib/uiDebug';
 import { useSessionContext } from './providers/SessionProvider';
 import { useTabContext } from './providers/TabProvider';
 
@@ -832,12 +831,6 @@ function AppContent({
   onOpenEventSource,
   onCreateEvent,
 }: AppContentProps) {
-  useUiDebugSnapshot('AppContent', {
-    sessionId,
-    activeTabId: activeTab?.id ?? null,
-    activeTabType: activeTab?.type ?? null,
-  });
-
   if (!sessionId) {
     return (
       <WelcomeScreen

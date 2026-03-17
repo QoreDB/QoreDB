@@ -49,7 +49,6 @@ import {
 } from '@/lib/sandboxStore';
 import type { MigrationScript, SandboxChange } from '@/lib/sandboxTypes';
 import { onTableChange } from '@/lib/tableEvents';
-import { useUiDebugSnapshot } from '@/lib/uiDebug';
 import { UI_EVENT_REFRESH_TABLE } from '@/lib/uiEvents';
 import { cn } from '@/lib/utils';
 import { useInfiniteTableData } from '../../hooks/useInfiniteTableData';
@@ -300,20 +299,6 @@ export function TableBrowser({
     sortDirection,
     searchTerm: debouncedSearchTerm,
     filters: infiniteScrollFilters,
-  });
-
-  useUiDebugSnapshot('TableBrowser', {
-    sessionId,
-    database: namespace.database,
-    schema: namespace.schema ?? null,
-    tableName,
-    activeTab,
-    loading,
-    isModalOpen,
-    docEditorOpen,
-    changesPanelOpen,
-    migrationPreviewOpen,
-    restoreBackupOpen,
   });
 
   // Load schema on mount and when data arrives

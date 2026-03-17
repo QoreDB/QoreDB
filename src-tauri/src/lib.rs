@@ -218,7 +218,6 @@ pub fn run() {
             // Logs
             commands::logs::export_logs,
             commands::logs::log_frontend_message,
-            commands::logs::append_ui_debug_log,
             // Export
             commands::export::start_export,
             commands::export::cancel_export,

@@ -72,7 +72,6 @@ export function ConnectionModal({
 
   const isEditMode = !!editConnection;
 
-  // Reset transient UI state when opening without touching the closing animation.
   useEffect(() => {
     if (isOpen) {
       setStep(isEditMode ? 'form' : 'driver');
@@ -381,7 +380,7 @@ export function ConnectionModal({
             </ScrollArea>
 
             <DialogFooter>
-              <Button variant="outline" onClick={() => requestClose('form-cancel-button')}>
+              <Button variant="outline" onClick={requestClose}>
                 {t('connection.cancel')}
               </Button>
               <Button

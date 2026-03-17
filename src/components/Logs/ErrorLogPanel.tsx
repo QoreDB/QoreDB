@@ -163,9 +163,8 @@ export function ErrorLogPanel({ isOpen, onClose }: ErrorLogPanelProps) {
   }
 
   return (
-    <Dialog debugName="ErrorLogPanel/root" open={isOpen} onOpenChange={handleOpenChange}>
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogContent
-        debugName="ErrorLogPanel/content"
         disableExitAnimation
         className="max-w-3xl max-h-[85vh] flex flex-col p-0 gap-0"
       >

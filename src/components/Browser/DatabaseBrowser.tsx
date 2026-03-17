@@ -30,7 +30,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { getSchemaObjectCapabilities, getTerminology } from '@/lib/driverCapabilities';
 import { emitTableChange, onTableChange } from '@/lib/tableEvents';
-import { useUiDebugSnapshot } from '@/lib/uiDebug';
 import { cn } from '@/lib/utils';
 import { DRIVER_ICONS, DRIVER_LABELS, type Driver, getDriverMetadata } from '../../lib/drivers';
 import {
@@ -142,20 +141,6 @@ export function DatabaseBrowser({
   const [page, setPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const pageSize = 20;
-
-  useUiDebugSnapshot('DatabaseBrowser', {
-    sessionId,
-    database: namespace.database,
-    schema: namespace.schema ?? null,
-    activeTab,
-    loading,
-    routinesLoading,
-    triggersLoading,
-    createTableOpen,
-    search,
-    page,
-    totalCount,
-  });
 
   const driverMeta = getDriverMetadata(driver);
   const schemaObjectCapabilities = getSchemaObjectCapabilities(driver);

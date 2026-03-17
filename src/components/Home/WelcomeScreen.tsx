@@ -9,7 +9,7 @@ interface RecoveryState {
   snapshot: { connectionId: string } | null;
   connectionName: string | null;
   isMissing: boolean;
-  isLoading: boolean;
+  isLoading: boolean; 
   error: string | null;
 }
 
@@ -22,11 +22,6 @@ interface WelcomeScreenProps {
   onOpenSearch: () => void;
 }
 
-/**
- * Écran d'accueil avec deux états distincts :
- * - État A : Aucune connexion (first run)
- * - État B : Connexions existantes
- */
 export function WelcomeScreen({
   hasConnections,
   recovery,
@@ -37,7 +32,6 @@ export function WelcomeScreen({
 }: WelcomeScreenProps) {
   const { t } = useTranslation();
 
-  // État A : Aucune connexion configurée (first run)
   if (!hasConnections) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-center px-4">
@@ -61,11 +55,9 @@ export function WelcomeScreen({
     );
   }
 
-  // État B : Connexions existantes
   return (
     <div className="flex flex-col items-center justify-center h-full px-4">
       <div className="w-full max-w-lg space-y-6">
-        {/* Bloc principal : Reprise de session (si applicable) */}
         {recovery.snapshot && (
           <div className="rounded-xl border-2 border-accent/50 bg-accent/5 p-6 shadow-md">
             <div className="flex items-start gap-4">
@@ -111,7 +103,6 @@ export function WelcomeScreen({
           </div>
         )}
 
-        {/* Contenu secondaire : Aucune session active */}
         <div className="text-center space-y-4">
           {!recovery.snapshot && (
             <>
@@ -130,13 +121,11 @@ export function WelcomeScreen({
             </>
           )}
 
-          {/* Indication vers la sidebar */}
           <div className="flex items-center justify-center gap-2 py-3 px-4 rounded-lg bg-muted/30 border border-border/50 text-sm text-muted-foreground animate-pulse">
             <PanelLeft size={16} className="shrink-0" />
             <span>{t('home.noSession.sidebarHint')}</span>
           </div>
 
-          {/* Séparateur */}
           <div className="flex items-center gap-3 py-2">
             <div className="flex-1 h-px bg-border/50" />
             <span className="text-xs text-muted-foreground/60 uppercase tracking-wide">
@@ -145,9 +134,7 @@ export function WelcomeScreen({
             <div className="flex-1 h-px bg-border/50" />
           </div>
 
-          {/* Actions secondaires */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-2">
-            {/* Recherche / Actions rapides */}
             <Button
               variant="outline"
               onClick={onOpenSearch}
@@ -160,7 +147,6 @@ export function WelcomeScreen({
               </kbd>
             </Button>
 
-            {/* Nouvelle connexion */}
             <Button
               variant="ghost"
               size="sm"
@@ -172,7 +158,6 @@ export function WelcomeScreen({
             </Button>
           </div>
 
-          {/* Raccourcis clavier */}
           {!recovery.snapshot && (
             <div className="pt-4 mt-2">
               <div className="inline-flex items-center gap-1.5 text-xs text-muted-foreground/50">

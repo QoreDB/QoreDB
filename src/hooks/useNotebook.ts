@@ -108,6 +108,9 @@ export function useNotebook(options: UseNotebookOptions): UseNotebookReturn {
   const notebookRef = useRef(notebook);
   notebookRef.current = notebook;
 
+  const onDirtyChangeRef = useRef(onDirtyChange);
+  onDirtyChangeRef.current = onDirtyChange;
+
   const history = useNotebookHistory();
 
   // Abort controller for batch execution (Run All / Run From Here)
@@ -117,8 +120,8 @@ export function useNotebook(options: UseNotebookOptions): UseNotebookReturn {
 
   // --- Sync dirty state ---
   useEffect(() => {
-    onDirtyChange?.(isDirty);
-  }, [isDirty, onDirtyChange]);
+    onDirtyChangeRef.current?.(isDirty);
+  }, [isDirty]);
 
   // --- Auto-save draft every 30s ---
   useEffect(() => {

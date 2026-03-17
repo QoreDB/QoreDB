@@ -30,6 +30,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { getSchemaObjectCapabilities, getTerminology } from '@/lib/driverCapabilities';
 import { emitTableChange, onTableChange } from '@/lib/tableEvents';
+import { useUiDebugSnapshot } from '@/lib/uiDebug';
 import { cn } from '@/lib/utils';
 import { DRIVER_ICONS, DRIVER_LABELS, type Driver, getDriverMetadata } from '../../lib/drivers';
 import {
@@ -119,8 +120,7 @@ export function DatabaseBrowser({
 }: DatabaseBrowserProps) {
   const { t } = useTranslation();
   const terminology = getTerminology(driver);
-  // Stabilize namespace reference to prevent infinite re-render loops
-  // when parent creates a new object with same values each render
+
   const nsDatabase = namespace.database;
   const nsSchema = namespace.schema;
   const stableNamespace = useMemo<Namespace>(
@@ -138,12 +138,24 @@ export function DatabaseBrowser({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [createTableOpen, setCreateTableOpen] = useState(false);
-
-  // Search & Pagination
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const pageSize = 20;
+
+  useUiDebugSnapshot('DatabaseBrowser', {
+    sessionId,
+    database: namespace.database,
+    schema: namespace.schema ?? null,
+    activeTab,
+    loading,
+    routinesLoading,
+    triggersLoading,
+    createTableOpen,
+    search,
+    page,
+    totalCount,
+  });
 
   const driverMeta = getDriverMetadata(driver);
   const schemaObjectCapabilities = getSchemaObjectCapabilities(driver);
@@ -379,7 +391,7 @@ export function DatabaseBrowser({
   const iconSrc = `/databases/${DRIVER_ICONS[driver]}`;
 
   return (
-    <div className="flex flex-col h-full bg-background rounded-lg border border-border shadow-sm overflow-hidden">
+    <div className="flex flex-col h-full bg-background rounded-lg border border-border shadow-sm overflow-hidden isolate [contain:paint]">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/20">
         <div className="flex items-center gap-3">

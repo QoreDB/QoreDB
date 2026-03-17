@@ -7,6 +7,7 @@
  * - DocumentResults for document-based databases (MongoDB, etc.)
  * - DataGrid for relational databases (PostgreSQL, MySQL, etc.)
  */
+import { memo } from 'react';
 import { isDocumentDatabase } from '@/lib/driverCapabilities';
 import type { Driver } from '@/lib/drivers';
 import type { SandboxChange, SandboxDeleteDisplay } from '@/lib/sandboxTypes';
@@ -68,7 +69,7 @@ interface ResultsViewerProps {
   exportNamespace?: Namespace;
 }
 
-export function ResultsViewer({
+export const ResultsViewer = memo(function ResultsViewer({
   result,
   sessionId,
   driver,
@@ -176,4 +177,4 @@ export function ResultsViewer({
       exportQuery={exportQuery}
     />
   );
-}
+});

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use tokio::io::{AsyncWriteExt, BufWriter};
 use tokio::fs::File;
+use tokio::io::{AsyncWriteExt, BufWriter};
 
 use crate::engine::sql_generator::SqlDialect;
 use crate::engine::types::{ColumnInfo, Namespace, Row, Value};

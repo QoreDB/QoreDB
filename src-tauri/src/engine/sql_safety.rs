@@ -4,7 +4,9 @@
 
 use sqlparser::{
     ast::{Query, Select, SetExpr, Statement},
-    dialect::{Dialect, DuckDbDialect, GenericDialect, MsSqlDialect, MySqlDialect, PostgreSqlDialect},
+    dialect::{
+        Dialect, DuckDbDialect, GenericDialect, MsSqlDialect, MySqlDialect, PostgreSqlDialect,
+    },
     parser::Parser,
 };
 
@@ -21,8 +23,7 @@ pub fn analyze_sql(driver_id: &str, sql: &str) -> Result<SqlSafetyAnalysis, Stri
     }
 
     let dialect = dialect_for_driver(driver_id);
-    let statements =
-        Parser::parse_sql(&*dialect, trimmed).map_err(|err| err.to_string())?;
+    let statements = Parser::parse_sql(&*dialect, trimmed).map_err(|err| err.to_string())?;
 
     let mut analysis = SqlSafetyAnalysis {
         is_mutation: false,
@@ -48,8 +49,7 @@ pub fn returns_rows(driver_id: &str, sql: &str) -> Result<bool, String> {
     }
 
     let dialect = dialect_for_driver(driver_id);
-    let statements =
-        Parser::parse_sql(&*dialect, trimmed).map_err(|err| err.to_string())?;
+    let statements = Parser::parse_sql(&*dialect, trimmed).map_err(|err| err.to_string())?;
 
     let first = statements.first().ok_or_else(|| "Empty SQL".to_string())?;
     Ok(statement_returns_rows(first))
@@ -62,8 +62,7 @@ pub fn split_sql_statements(driver_id: &str, sql: &str) -> Result<Vec<String>, S
     }
 
     let dialect = dialect_for_driver(driver_id);
-    let statements =
-        Parser::parse_sql(&*dialect, trimmed).map_err(|err| err.to_string())?;
+    let statements = Parser::parse_sql(&*dialect, trimmed).map_err(|err| err.to_string())?;
 
     let mut rendered = Vec::with_capacity(statements.len());
     for statement in statements {
@@ -92,7 +91,8 @@ fn dialect_for_driver(driver_id: &str) -> Box<dyn Dialect> {
         Box::new(MySqlDialect {})
     } else if driver_id.eq_ignore_ascii_case("duckdb") {
         Box::new(DuckDbDialect {})
-    } else if driver_id.eq_ignore_ascii_case("sqlserver") || driver_id.eq_ignore_ascii_case("mssql") {
+    } else if driver_id.eq_ignore_ascii_case("sqlserver") || driver_id.eq_ignore_ascii_case("mssql")
+    {
         Box::new(MsSqlDialect {})
     } else {
         Box::new(GenericDialect {})
@@ -103,9 +103,7 @@ fn is_mutation_statement(statement: &Statement) -> bool {
     match statement {
         Statement::Query(query) => query_is_mutation(query),
         Statement::Explain {
-            analyze,
-            statement,
-            ..
+            analyze, statement, ..
         } => {
             if *analyze {
                 is_mutation_statement(statement)
@@ -180,9 +178,7 @@ fn is_dangerous_statement(statement: &Statement) -> bool {
         Statement::Update(update) => update.selection.is_none(),
         Statement::Delete(delete) => delete.selection.is_none(),
         Statement::Explain {
-            analyze,
-            statement,
-            ..
+            analyze, statement, ..
         } if *analyze => is_dangerous_statement(statement),
         _ => false,
     }
@@ -199,10 +195,7 @@ fn set_expr_is_mutation(expr: &SetExpr) -> bool {
         SetExpr::SetOperation { left, right, .. } => {
             set_expr_is_mutation(left) || set_expr_is_mutation(right)
         }
-        SetExpr::Insert(_)
-        | SetExpr::Update(_)
-        | SetExpr::Delete(_)
-        | SetExpr::Merge(_) => true,
+        SetExpr::Insert(_) | SetExpr::Update(_) | SetExpr::Delete(_) | SetExpr::Merge(_) => true,
         SetExpr::Values(_) | SetExpr::Table(_) => false,
     }
 }
@@ -241,8 +234,8 @@ mod tests {
 
     #[test]
     fn postgres_update_without_where_is_dangerous() {
-        let analysis = analyze_sql("postgres", "UPDATE users SET name = 'x'")
-            .expect("should parse");
+        let analysis =
+            analyze_sql("postgres", "UPDATE users SET name = 'x'").expect("should parse");
 
         assert!(analysis.is_mutation);
         assert!(analysis.is_dangerous);
@@ -250,8 +243,7 @@ mod tests {
 
     #[test]
     fn mysql_delete_without_where_is_dangerous() {
-        let analysis = analyze_sql("mysql", "DELETE FROM users")
-            .expect("should parse");
+        let analysis = analyze_sql("mysql", "DELETE FROM users").expect("should parse");
 
         assert!(analysis.is_mutation);
         assert!(analysis.is_dangerous);
@@ -259,11 +251,8 @@ mod tests {
 
     #[test]
     fn select_into_is_mutation() {
-        let analysis = analyze_sql(
-            "postgres",
-            "SELECT * INTO new_table FROM old_table",
-        )
-        .expect("should parse");
+        let analysis = analyze_sql("postgres", "SELECT * INTO new_table FROM old_table")
+            .expect("should parse");
 
         assert!(analysis.is_mutation);
         assert!(!analysis.is_dangerous);
@@ -272,8 +261,7 @@ mod tests {
     #[test]
     fn alter_table_is_dangerous() {
         let analysis =
-            analyze_sql("postgres", "ALTER TABLE users ADD COLUMN age INT")
-                .expect("should parse");
+            analyze_sql("postgres", "ALTER TABLE users ADD COLUMN age INT").expect("should parse");
 
         assert!(analysis.is_mutation);
         assert!(analysis.is_dangerous);
@@ -281,8 +269,7 @@ mod tests {
 
     #[test]
     fn mysql_show_tables_is_read_only() {
-        let analysis = analyze_sql("mysql", "SHOW TABLES")
-            .expect("should parse");
+        let analysis = analyze_sql("mysql", "SHOW TABLES").expect("should parse");
 
         assert!(!analysis.is_mutation);
         assert!(!analysis.is_dangerous);
@@ -297,7 +284,11 @@ mod tests {
         .expect("should parse");
 
         assert_eq!(statements.len(), 2);
-        assert!(statements[0].to_ascii_uppercase().starts_with("CREATE TABLE"));
-        assert!(statements[1].to_ascii_uppercase().starts_with("CREATE TABLE"));
+        assert!(statements[0]
+            .to_ascii_uppercase()
+            .starts_with("CREATE TABLE"));
+        assert!(statements[1]
+            .to_ascii_uppercase()
+            .starts_with("CREATE TABLE"));
     }
 }

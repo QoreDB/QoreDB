@@ -12,8 +12,9 @@ import {
   reconcileFavoriteConnectionIds,
   saveFavoriteConnectionIds,
 } from '@/lib/connectionFavorites';
-import { UI_EVENT_CONNECTIONS_CHANGED, UI_EVENT_OPEN_LOGS } from '@/lib/uiEvents';
+import { UI_EVENT_CONNECTIONS_CHANGED } from '@/lib/uiEvents';
 import { useLicense } from '@/providers/LicenseProvider';
+import { setLogsOpen, useModalStore } from '@/lib/modalStore';
 import {
   type Collection,
   connectSavedConnection,
@@ -84,12 +85,12 @@ export function Sidebar({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [connecting, setConnecting] = useState<string | null>(null);
-  const [logsOpen, setLogsOpen] = useState(false);
   const [favoriteConnectionIds, setFavoriteConnectionIds] = useState<string[]>([]);
 
   const { t } = useTranslation();
   const { resolvedTheme } = useTheme();
   const { tier } = useLicense();
+  const logsOpen = useModalStore(s => s.logsOpen);
 
   const loadConnections = useCallback(async () => {
     try {
@@ -113,12 +114,6 @@ export function Sidebar({
       setExpandedId(connectedConnectionId);
     }
   }, [connectedConnectionId]);
-
-  useEffect(() => {
-    const handler = () => setLogsOpen(true);
-    window.addEventListener(UI_EVENT_OPEN_LOGS, handler);
-    return () => window.removeEventListener(UI_EVENT_OPEN_LOGS, handler);
-  }, []);
 
   useEffect(() => {
     const handler = () => loadConnections();

@@ -5,8 +5,10 @@ import {
   Download,
   Eraser,
   FileText,
+  FolderOpen,
+  Loader2,
   MoreHorizontal,
-  PlayCircle,
+  Play,
   Plus,
   Redo2,
   Save,
@@ -29,7 +31,9 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Tooltip } from '@/components/ui/tooltip';
 import type { CellType } from '@/lib/notebookTypes';
+import { getShortcut } from '@/utils/platform';
 
 interface NotebookToolbarProps {
   title: string;
@@ -38,9 +42,11 @@ interface NotebookToolbarProps {
   canUndo: boolean;
   canRedo: boolean;
   hasVariables: boolean;
+  cellCount: number;
   onTitleChange: (title: string) => void;
   onSave: () => void;
   onSaveAs: () => void;
+  onOpen: () => void;
   onAddCell: (type: CellType) => void;
   onExecuteAll: () => void;
   onClearAll: () => void;
@@ -59,9 +65,11 @@ export function NotebookToolbar({
   canUndo,
   canRedo,
   hasVariables,
+  cellCount,
   onTitleChange,
   onSave,
   onSaveAs,
+  onOpen,
   onAddCell,
   onExecuteAll,
   onClearAll,
@@ -92,16 +100,43 @@ export function NotebookToolbar({
   }, []);
 
   return (
-    <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-background shrink-0">
-      {/* --- PRIMARY ZONE --- */}
+    <div className="flex items-center gap-2 p-2 border-b border-border bg-muted/20 shrink-0">
+      {/* --- Primary: Run All / Cancel --- */}
+      {isExecuting ? (
+        <Tooltip content={t('notebook.cancelExecution')}>
+          <Button
+            variant="destructive"
+            size="sm"
+            className="h-7 gap-1.5 text-xs"
+            onClick={onCancel}
+          >
+            <Square size={13} />
+            <span>{t('notebook.cancelExecution')}</span>
+          </Button>
+        </Tooltip>
+      ) : (
+        <Tooltip content={`${t('notebook.executeAll')} (${getShortcut('A', { symbol: true, shift: true })})`}>
+          <Button
+            data-tour="notebook-run-all"
+            variant="default"
+            size="sm"
+            className="h-7 gap-1.5 text-xs"
+            onClick={onExecuteAll}
+          >
+            {isExecuting ? (
+              <Loader2 size={13} className="animate-spin" />
+            ) : (
+              <Play size={13} />
+            )}
+            <span>{t('notebook.executeAll')}</span>
+          </Button>
+        </Tooltip>
+      )}
 
-      {/* Title */}
-      <div className="flex items-center gap-1 flex-1 min-w-0">
-        {isDirty && (
-          <span className="text-muted-foreground text-sm" title={t('notebook.unsavedChanges')}>
-            ●
-          </span>
-        )}
+      <div className="h-5 w-px bg-border/50" />
+
+      {/* --- Title + dirty indicator --- */}
+      <div className="flex items-center gap-1.5 flex-1 min-w-0">
         {editingTitle ? (
           <input
             ref={inputRef}
@@ -109,55 +144,69 @@ export function NotebookToolbar({
             onChange={e => onTitleChange(e.target.value)}
             onBlur={handleTitleBlur}
             onKeyDown={handleTitleKeyDown}
-            className="text-sm font-medium bg-transparent border-b border-border focus:border-accent focus:outline-none px-1 py-0.5 min-w-30"
+            className="text-sm font-medium bg-transparent border-b border-accent focus:outline-none px-1 py-0.5 min-w-[120px] max-w-[300px]"
+            autoFocus
           />
         ) : (
           <button
             type="button"
             onClick={handleTitleClick}
-            className="text-sm font-medium truncate hover:text-accent transition-colors text-left"
+            className="text-sm font-medium truncate hover:text-accent transition-colors text-left max-w-[300px]"
+            title={t('notebook.editTitle')}
           >
             {title}
           </button>
         )}
+        {isDirty && (
+          <span
+            className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0"
+            title={t('notebook.unsavedChanges')}
+          />
+        )}
+        <span className="text-[11px] text-muted-foreground shrink-0 hidden sm:inline-block">
+          {t('notebook.cellCountLabel', { count: cellCount })}
+        </span>
       </div>
 
-      {/* Execution actions */}
-      <div className="flex items-center gap-1">
-        {isExecuting ? (
+      {/* --- Right zone --- */}
+
+      {/* Undo / Redo */}
+      <Tooltip content={`${t('notebook.undo')} (${getShortcut('Z', { symbol: true })})`}>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7"
+          onClick={onUndo}
+          disabled={!canUndo}
+        >
+          <Undo2 size={14} />
+        </Button>
+      </Tooltip>
+      <Tooltip content={`${t('notebook.redo')} (${getShortcut('Z', { symbol: true, shift: true })})`}>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7"
+          onClick={onRedo}
+          disabled={!canRedo}
+        >
+          <Redo2 size={14} />
+        </Button>
+      </Tooltip>
+
+      <div className="h-5 w-px bg-border/50" />
+
+      {/* Add Cell */}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
           <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 gap-1 text-destructive"
-            onClick={onCancel}
-            title={t('notebook.cancelExecution')}
-          >
-            <Square size={14} />
-            <span className="text-xs">{t('notebook.cancelExecution')}</span>
-          </Button>
-        ) : (
-          <Button
+            data-tour="notebook-add-cell"
             variant="ghost"
             size="sm"
             className="h-7 gap-1"
-            onClick={onExecuteAll}
-            title={`${t('notebook.executeAll')} (Ctrl+Shift+A)`}
+            title={t('notebook.addCellBelow')}
           >
-            <PlayCircle size={14} />
-            <span className="text-xs">{t('notebook.executeAll')}</span>
-          </Button>
-        )}
-      </div>
-
-      {/* Separator */}
-      <div className="w-px h-4 bg-border" />
-
-      {/* Add cell */}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button data-tour="notebook-add-cell" variant="ghost" size="sm" className="h-7 gap-1">
             <Plus size={14} />
-            <span className="text-xs">{t('notebook.addCellBelow')}</span>
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
@@ -172,7 +221,9 @@ export function NotebookToolbar({
         </DropdownMenuContent>
       </DropdownMenu>
 
-      {/* Save / Save As */}
+      <div className="h-5 w-px bg-border/50" />
+
+      {/* Save */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
@@ -180,7 +231,7 @@ export function NotebookToolbar({
             variant="ghost"
             size="icon"
             className="h-7 w-7"
-            title={`${t('notebook.save')} (Ctrl+S)`}
+            title={`${t('notebook.save')} (${getShortcut('S', { symbol: true })})`}
           >
             <Save size={14} />
           </Button>
@@ -195,8 +246,19 @@ export function NotebookToolbar({
         </DropdownMenuContent>
       </DropdownMenu>
 
-      {/* --- SECONDARY ZONE (overflow menu) --- */}
+      {/* Open */}
+      <Tooltip content={t('notebook.open')}>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7"
+          onClick={onOpen}
+        >
+          <FolderOpen size={14} />
+        </Button>
+      </Tooltip>
 
+      {/* More actions */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
@@ -209,17 +271,6 @@ export function NotebookToolbar({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-48">
-          <DropdownMenuItem onClick={onUndo} disabled={!canUndo}>
-            <Undo2 size={14} className="mr-2" />
-            {t('notebook.undo')}
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={onRedo} disabled={!canRedo}>
-            <Redo2 size={14} className="mr-2" />
-            {t('notebook.redo')}
-          </DropdownMenuItem>
-
-          <DropdownMenuSeparator />
-
           <DropdownMenuItem onClick={onClearAll} disabled={isExecuting}>
             <Eraser size={14} className="mr-2" />
             {t('notebook.clearAll')}

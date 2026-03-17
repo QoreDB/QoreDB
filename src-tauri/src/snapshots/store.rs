@@ -60,8 +60,7 @@ impl SnapshotStore {
             .map_err(|e| format!("Failed to serialize snapshot: {}", e))?;
 
         let path = self.file_path(&id);
-        std::fs::write(&path, &content)
-            .map_err(|e| format!("Failed to write snapshot: {}", e))?;
+        std::fs::write(&path, &content).map_err(|e| format!("Failed to write snapshot: {}", e))?;
 
         let mut meta = meta;
         meta.file_size = content.len() as u64;
@@ -123,8 +122,7 @@ impl SnapshotStore {
         if !path.exists() {
             return Err("Snapshot not found".to_string());
         }
-        std::fs::remove_file(&path)
-            .map_err(|e| format!("Failed to delete snapshot: {}", e))
+        std::fs::remove_file(&path).map_err(|e| format!("Failed to delete snapshot: {}", e))
     }
 
     /// Rename a snapshot
@@ -145,8 +143,7 @@ impl SnapshotStore {
         let updated = serde_json::to_string(&snapshot)
             .map_err(|e| format!("Failed to serialize snapshot: {}", e))?;
 
-        std::fs::write(&path, &updated)
-            .map_err(|e| format!("Failed to write snapshot: {}", e))?;
+        std::fs::write(&path, &updated).map_err(|e| format!("Failed to write snapshot: {}", e))?;
 
         snapshot.meta.file_size = updated.len() as u64;
         Ok(snapshot.meta)
@@ -174,8 +171,7 @@ impl SnapshotStore {
         let updated = serde_json::to_string(&snapshot)
             .map_err(|e| format!("Failed to serialize snapshot: {}", e))?;
 
-        std::fs::write(&path, &updated)
-            .map_err(|e| format!("Failed to write snapshot: {}", e))?;
+        std::fs::write(&path, &updated).map_err(|e| format!("Failed to write snapshot: {}", e))?;
 
         snapshot.meta.file_size = updated.len() as u64;
         Ok(snapshot.meta)

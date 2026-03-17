@@ -4,8 +4,8 @@ use async_trait::async_trait;
 use tokio::fs::File;
 use tokio::io::BufWriter;
 
-use crate::engine::types::{ColumnInfo, Namespace, Row};
 use crate::engine::sql_generator::SqlDialect;
+use crate::engine::types::{ColumnInfo, Namespace, Row};
 use crate::export::types::ExportFormat;
 
 pub mod csv;
@@ -41,9 +41,9 @@ pub async fn create_writer(
     let writer = BufWriter::new(file);
 
     match format {
-        ExportFormat::Csv => Ok(
-            Box::new(csv::CsvWriter::new(writer, include_headers)) as Box<dyn ExportWriter>
-        ),
+        ExportFormat::Csv => {
+            Ok(Box::new(csv::CsvWriter::new(writer, include_headers)) as Box<dyn ExportWriter>)
+        }
         ExportFormat::Json => Ok(Box::new(json::JsonWriter::new(writer)) as Box<dyn ExportWriter>),
         ExportFormat::Html => Ok(Box::new(html::HtmlWriter::new(writer)) as Box<dyn ExportWriter>),
         ExportFormat::SqlInsert => {
@@ -52,12 +52,10 @@ pub async fn create_writer(
                 .ok_or_else(|| "Table name is required for SQL INSERT export".to_string())?;
             let dialect = SqlDialect::from_driver_id(driver_id)
                 .ok_or_else(|| "SQL INSERT export is not supported for this driver".to_string())?;
-            Ok(Box::new(sql::SqlInsertWriter::new(
-                writer,
-                dialect,
-                namespace,
-                table,
-            )) as Box<dyn ExportWriter>)
+            Ok(
+                Box::new(sql::SqlInsertWriter::new(writer, dialect, namespace, table))
+                    as Box<dyn ExportWriter>,
+            )
         }
         #[cfg(feature = "pro")]
         ExportFormat::Xlsx => {

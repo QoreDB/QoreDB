@@ -4,10 +4,10 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Instant;
 
+use tauri::Emitter;
 use tokio::sync::RwLock;
 use tokio::time::{timeout, Duration};
 use tokio_util::sync::CancellationToken;
-use tauri::Emitter;
 
 use crate::engine::traits::{DataEngine, StreamEvent};
 use crate::engine::types::{ColumnInfo, QueryId, SessionId};
@@ -71,7 +71,12 @@ impl ExportPipeline {
             if jobs.contains_key(&export_id) {
                 return Err("Export already in progress".to_string());
             }
-            jobs.insert(export_id.clone(), ExportJob { cancel: cancel.clone() });
+            jobs.insert(
+                export_id.clone(),
+                ExportJob {
+                    cancel: cancel.clone(),
+                },
+            );
         }
 
         let pipeline = Arc::clone(&self);
@@ -179,12 +184,23 @@ async fn run_export_task(
 
     let mut driver_task = tokio::spawn({
         let driver = Arc::clone(&driver);
-        async move { driver.execute_stream_in_namespace(session_id, namespace, &query, query_id, sender).await }
+        async move {
+            driver
+                .execute_stream_in_namespace(session_id, namespace, &query, query_id, sender)
+                .await
+        }
     });
 
     emit_progress(
         &window,
-        build_progress(&export_id, ExportState::Running, 0, writer.bytes_written(), start_time, None),
+        build_progress(
+            &export_id,
+            ExportState::Running,
+            0,
+            writer.bytes_written(),
+            start_time,
+            None,
+        ),
     );
 
     let batch_size = config.batch_size.unwrap_or(1000).max(1) as u64;
@@ -265,7 +281,10 @@ async fn run_export_task(
     }
 
     if matches!(state, ExportState::Cancelled | ExportState::Failed) || cancel_requested {
-        if timeout(Duration::from_secs(2), &mut driver_task).await.is_err() {
+        if timeout(Duration::from_secs(2), &mut driver_task)
+            .await
+            .is_err()
+        {
             driver_task.abort();
         }
     } else if matches!(state, ExportState::Running) {

@@ -259,7 +259,9 @@ async fn resolve_alias_map(
 
         // Verify session exists
         if !session_manager.session_exists(session_id).await {
-            return Err(format!("Session '{session_id_str}' not found for alias '{alias}'"));
+            return Err(format!(
+                "Session '{session_id_str}' not found for alias '{alias}'"
+            ));
         }
 
         let driver = session_manager
@@ -335,7 +337,10 @@ mod tests {
     #[cfg(feature = "pro")]
     #[test]
     fn normalizes_display_names() {
-        assert_eq!(normalize_alias("Production PostgreSQL"), "production_postgresql");
+        assert_eq!(
+            normalize_alias("Production PostgreSQL"),
+            "production_postgresql"
+        );
         assert_eq!(normalize_alias("my-db (SSH)"), "my_db_ssh");
         assert_eq!(normalize_alias("user@host:5432/db"), "user_host_5432_db");
         assert_eq!(normalize_alias("Simple"), "simple");

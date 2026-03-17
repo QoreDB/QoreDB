@@ -5,14 +5,13 @@
 //! Commands for running table maintenance operations (vacuum, analyze, optimize, etc.)
 
 use serde::Serialize;
-use tauri::State;
-use uuid::Uuid;
 use std::sync::Arc;
+use tauri::State;
 use tracing::instrument;
+use uuid::Uuid;
 
 use crate::engine::types::{
-    MaintenanceOperationInfo, MaintenanceRequest, MaintenanceResult,
-    Namespace, SessionId,
+    MaintenanceOperationInfo, MaintenanceRequest, MaintenanceResult, Namespace, SessionId,
 };
 use crate::interceptor::{Environment, QueryExecutionResult, SafetyAction};
 
@@ -84,7 +83,10 @@ pub async fn list_maintenance_operations(
 
     let namespace = Namespace { database, schema };
 
-    match driver.list_maintenance_operations(session, &namespace, &table).await {
+    match driver
+        .list_maintenance_operations(session, &namespace, &table)
+        .await
+    {
         Ok(operations) => Ok(MaintenanceListResponse {
             success: true,
             operations,
@@ -218,7 +220,10 @@ pub async fn run_maintenance(
 
     let namespace = Namespace { database, schema };
 
-    match driver.run_maintenance(session, &namespace, &table, &request).await {
+    match driver
+        .run_maintenance(session, &namespace, &table, &request)
+        .await
+    {
         Ok(result) => {
             interceptor.post_execute(
                 &interceptor_context,

@@ -54,7 +54,8 @@ fn get_builtin_rules() -> Vec<SafetyRule> {
         SafetyRule {
             id: "builtin-confirm-update-no-where".to_string(),
             name: "Confirm UPDATE without WHERE".to_string(),
-            description: "Requires confirmation for UPDATE statements without WHERE clause".to_string(),
+            description: "Requires confirmation for UPDATE statements without WHERE clause"
+                .to_string(),
             enabled: true,
             environments: vec![Environment::Production, Environment::Staging],
             operations: vec![QueryOperationType::Update],
@@ -65,7 +66,8 @@ fn get_builtin_rules() -> Vec<SafetyRule> {
         SafetyRule {
             id: "builtin-confirm-delete-no-where".to_string(),
             name: "Confirm DELETE without WHERE".to_string(),
-            description: "Requires confirmation for DELETE statements without WHERE clause".to_string(),
+            description: "Requires confirmation for DELETE statements without WHERE clause"
+                .to_string(),
             enabled: true,
             environments: vec![Environment::Production, Environment::Staging],
             operations: vec![QueryOperationType::Delete],
@@ -198,7 +200,13 @@ impl SafetyEngine {
 
         if custom.len() == initial_len {
             // Check if it's a built-in rule
-            if self.builtin_rules.read().unwrap().iter().any(|r| r.id == rule_id) {
+            if self
+                .builtin_rules
+                .read()
+                .unwrap()
+                .iter()
+                .any(|r| r.id == rule_id)
+            {
                 return Err("Cannot remove built-in rules".to_string());
             }
             return Err(format!("Rule with ID '{}' not found", rule_id));
@@ -221,7 +229,10 @@ impl SafetyEngine {
     /// Enable or disable safety checking
     pub fn set_enabled(&self, enabled: bool) {
         *self.enabled.write().unwrap() = enabled;
-        info!("Safety checking {}", if enabled { "enabled" } else { "disabled" });
+        info!(
+            "Safety checking {}",
+            if enabled { "enabled" } else { "disabled" }
+        );
     }
 
     /// Check if safety checking is enabled
@@ -247,10 +258,7 @@ impl SafetyEngine {
         // Check each rule in order (first match wins)
         for rule in all_rules {
             if let Some(result) = self.check_rule(rule, context) {
-                debug!(
-                    "Safety rule '{}' triggered for query",
-                    rule.name
-                );
+                debug!("Safety rule '{}' triggered for query", rule.name);
                 return result;
             }
         }
@@ -307,7 +315,10 @@ impl SafetyEngine {
         match Regex::new(&format!("(?i){}", pattern)) {
             Ok(regex) => {
                 let matches = regex.is_match(query);
-                self.pattern_cache.write().unwrap().insert(pattern.to_string(), regex);
+                self.pattern_cache
+                    .write()
+                    .unwrap()
+                    .insert(pattern.to_string(), regex);
                 matches
             }
             Err(e) => {

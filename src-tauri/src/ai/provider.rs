@@ -85,7 +85,8 @@ impl AIProvider for OpenAiProvider {
         if !response.status().is_success() {
             let status = response.status();
             let body = response.text().await.unwrap_or_default();
-            let msg = extract_api_error(&body).unwrap_or_else(|| format!("HTTP {}: {}", status, body));
+            let msg =
+                extract_api_error(&body).unwrap_or_else(|| format!("HTTP {}: {}", status, body));
             return Err(msg);
         }
 
@@ -179,7 +180,10 @@ impl AIProvider for AnthropicProvider {
             "stream": true
         });
 
-        debug!("Anthropic request: model={}, max_tokens={}", model, max_tokens);
+        debug!(
+            "Anthropic request: model={}, max_tokens={}",
+            model, max_tokens
+        );
 
         let response = self
             .client
@@ -195,7 +199,8 @@ impl AIProvider for AnthropicProvider {
         if !response.status().is_success() {
             let status = response.status();
             let body = response.text().await.unwrap_or_default();
-            let msg = extract_api_error(&body).unwrap_or_else(|| format!("HTTP {}: {}", status, body));
+            let msg =
+                extract_api_error(&body).unwrap_or_else(|| format!("HTTP {}: {}", status, body));
             return Err(msg);
         }
 
@@ -222,9 +227,7 @@ impl AIProvider for AnthropicProvider {
 
                         match event_type {
                             "content_block_delta" => {
-                                if let Some(text) =
-                                    parsed["delta"]["text"].as_str()
-                                {
+                                if let Some(text) = parsed["delta"]["text"].as_str() {
                                     let chunk = AiStreamChunk {
                                         request_id: request_id.clone(),
                                         delta: text.to_string(),
@@ -475,8 +478,8 @@ impl AIProvider for GoogleGeminiProvider {
         if !response.status().is_success() {
             let status = response.status();
             let body = response.text().await.unwrap_or_default();
-            let msg = extract_api_error(&body)
-                .unwrap_or_else(|| format!("HTTP {}: {}", status, body));
+            let msg =
+                extract_api_error(&body).unwrap_or_else(|| format!("HTTP {}: {}", status, body));
             return Err(msg);
         }
 
@@ -499,8 +502,8 @@ impl AIProvider for GoogleGeminiProvider {
 
                 if let Some(data) = line.strip_prefix("data: ") {
                     if let Ok(parsed) = serde_json::from_str::<Value>(data) {
-                        if let Some(text) = parsed["candidates"][0]["content"]["parts"][0]["text"]
-                            .as_str()
+                        if let Some(text) =
+                            parsed["candidates"][0]["content"]["parts"][0]["text"].as_str()
                         {
                             let chunk = AiStreamChunk {
                                 request_id: request_id.clone(),
@@ -596,7 +599,10 @@ async fn stream_openai_compatible(
         "stream": true
     });
 
-    debug!("{} request: model={}, max_tokens={}", provider_name, model, max_tokens);
+    debug!(
+        "{} request: model={}, max_tokens={}",
+        provider_name, model, max_tokens
+    );
 
     let response = client
         .post(url)
@@ -610,8 +616,7 @@ async fn stream_openai_compatible(
     if !response.status().is_success() {
         let status = response.status();
         let body = response.text().await.unwrap_or_default();
-        let msg = extract_api_error(&body)
-            .unwrap_or_else(|| format!("HTTP {}: {}", status, body));
+        let msg = extract_api_error(&body).unwrap_or_else(|| format!("HTTP {}: {}", status, body));
         return Err(msg);
     }
 
@@ -664,15 +669,23 @@ fn extract_api_error(body: &str) -> Option<String> {
     let parsed: Value = serde_json::from_str(body).ok()?;
     // OpenAI format: { "error": { "message": "..." } }
     // Anthropic format: { "error": { "message": "..." } }
-    parsed["error"]["message"]
-        .as_str()
-        .map(|s| s.to_string())
+    parsed["error"]["message"].as_str().map(|s| s.to_string())
 }
 
 /// Extract a SQL/MQL code block from LLM response text
 pub fn extract_query_from_response(response: &str) -> Option<String> {
     // Try to find a fenced code block (```sql ... ``` or ```json ... ``` or ``` ... ```)
-    let code_block_patterns = ["```sql", "```mysql", "```postgresql", "```mongo", "```json", "```js", "```javascript", "```redis", "```"];
+    let code_block_patterns = [
+        "```sql",
+        "```mysql",
+        "```postgresql",
+        "```mongo",
+        "```json",
+        "```js",
+        "```javascript",
+        "```redis",
+        "```",
+    ];
 
     for pattern in &code_block_patterns {
         if let Some(start_idx) = response.find(pattern) {
@@ -726,9 +739,6 @@ mod tests {
     #[test]
     fn test_extract_api_error() {
         let body = r#"{"error":{"message":"Invalid API key","type":"invalid_request_error"}}"#;
-        assert_eq!(
-            extract_api_error(body),
-            Some("Invalid API key".to_string())
-        );
+        assert_eq!(extract_api_error(body), Some("Invalid API key".to_string()));
     }
 }

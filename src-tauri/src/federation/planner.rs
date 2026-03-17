@@ -74,7 +74,7 @@ fn resolve_sources(
             table_ref: table_ref.clone(),
             session_id: entry.session_id,
             driver_id: entry.driver_id.clone(),
-            columns: None, // v1: fetch all columns (SELECT *)
+            columns: None,                   // v1: fetch all columns (SELECT *)
             pushdown_predicates: Vec::new(), // v1: no pushdown (conservative)
             row_limit: effective_limit,
         });
@@ -119,8 +119,7 @@ pub fn build_source_query(source: &SourceFetchPlan) -> String {
     }
 
     // Use dialect-aware quoting: backticks for MySQL, double quotes for Postgres/SQLite, etc.
-    let dialect =
-        SqlDialect::from_driver_id(&source.driver_id).unwrap_or(SqlDialect::Postgres);
+    let dialect = SqlDialect::from_driver_id(&source.driver_id).unwrap_or(SqlDialect::Postgres);
 
     let columns_clause = match &source.columns {
         Some(cols) if !cols.is_empty() => cols
@@ -133,7 +132,10 @@ pub fn build_source_query(source: &SourceFetchPlan) -> String {
 
     let table_name = &source.table_ref.table;
 
-    let mut sql = format!("SELECT {columns_clause} FROM {}", dialect.quote_ident(table_name));
+    let mut sql = format!(
+        "SELECT {columns_clause} FROM {}",
+        dialect.quote_ident(table_name)
+    );
 
     if !source.pushdown_predicates.is_empty() {
         let where_clause = source.pushdown_predicates.join(" AND ");

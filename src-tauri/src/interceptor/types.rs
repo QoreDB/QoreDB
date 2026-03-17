@@ -55,7 +55,10 @@ impl QueryOperationType {
 
     /// Returns true if this operation is potentially destructive
     pub fn is_destructive(&self) -> bool {
-        matches!(self, Self::Drop | Self::Truncate | Self::Delete | Self::Alter)
+        matches!(
+            self,
+            Self::Drop | Self::Truncate | Self::Delete | Self::Alter
+        )
     }
 }
 

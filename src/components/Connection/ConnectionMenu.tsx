@@ -93,6 +93,7 @@ export function ConnectionMenu({
               <>
                 {onNewQuery && (
                   <button
+                  type="button"
                     className="w-full flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-muted transition-colors text-left"
                     onClick={() => {
                       onNewQuery();
@@ -105,6 +106,8 @@ export function ConnectionMenu({
                 )}
                 {onNewNotebook && (
                   <button
+                  type="button"
+
                     className="w-full flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-muted transition-colors text-left"
                     onClick={() => {
                       onNewNotebook();
@@ -119,6 +122,8 @@ export function ConnectionMenu({
               </>
             )}
             <button
+                  type="button"
+
               className="w-full flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-muted transition-colors text-left"
               onClick={handleTest}
               disabled={testing}
@@ -128,6 +133,7 @@ export function ConnectionMenu({
             </button>
 
             <button
+              type="button"
               className="w-full flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-muted transition-colors text-left"
               onClick={handleEdit}
             >
@@ -136,6 +142,8 @@ export function ConnectionMenu({
             </button>
 
             <button
+                  type="button"
+
               className="w-full flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-muted transition-colors text-left"
               onClick={handleDuplicate}
               disabled={duplicating}
@@ -146,6 +154,7 @@ export function ConnectionMenu({
 
             {onToggleFavorite && (
               <button
+                type="button"
                 className="w-full flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-muted transition-colors text-left"
                 onClick={() => {
                   onToggleFavorite();
@@ -160,6 +169,8 @@ export function ConnectionMenu({
             <div className="h-px bg-border my-1" />
 
             <button
+                  type="button"
+
               className="w-full flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-error/10 text-error transition-colors text-left"
               onClick={onSelectDelete}
               disabled={deleting}

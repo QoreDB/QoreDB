@@ -158,10 +158,10 @@ pub async fn get_audit_entries(
     let entries = interceptor.get_audit_entries(
         filter.limit.unwrap_or(50).min(50),
         filter.offset.unwrap_or(0),
-        None,  // No environment filter in Core
-        None,  // No operation filter in Core
-        None,  // No success filter in Core
-        None,  // No search in Core
+        None, // No environment filter in Core
+        None, // No operation filter in Core
+        None, // No success filter in Core
+        None, // No search in Core
     );
 
     Ok(AuditEntriesResponse {

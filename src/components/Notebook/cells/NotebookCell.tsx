@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import {
-  ChevronDown,
   ChevronsRight,
-  ChevronUp,
+  Code,
   Copy,
+  FileText,
   FoldVertical,
   GripVertical,
   Loader2,
@@ -32,6 +32,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Tooltip } from '@/components/ui/tooltip';
 import type { Driver } from '@/lib/drivers';
 import type { CellExecutionState, NotebookCell as NotebookCellType } from '@/lib/notebookTypes';
 import type { Namespace } from '@/lib/tauri';
@@ -63,12 +64,24 @@ interface NotebookCellProps {
   onRunFromHere?: () => void;
 }
 
-const borderColorMap: Record<CellExecutionState, string> = {
-  idle: 'border-l-border',
+const borderStateMap: Record<CellExecutionState, string> = {
+  idle: 'border-l-transparent',
   running: 'border-l-accent',
   success: 'border-l-green-500',
   error: 'border-l-destructive',
-  stale: 'border-l-amber-500 border-dashed',
+  stale: 'border-l-amber-500',
+};
+
+const CellTypeIcon = ({ type }: { type: string }) => {
+  switch (type) {
+    case 'sql':
+    case 'mongo':
+      return <Code size={13} className="text-muted-foreground" />;
+    case 'markdown':
+      return <FileText size={13} className="text-muted-foreground" />;
+    default:
+      return <Code size={13} className="text-muted-foreground" />;
+  }
 };
 
 export function NotebookCell({
@@ -96,7 +109,6 @@ export function NotebookCell({
   const { t } = useTranslation();
   const [showSuccessBorder, setShowSuccessBorder] = useState(false);
 
-  // Flash success border for 2s, then revert to idle
   useEffect(() => {
     if (cell.executionState === 'success') {
       setShowSuccessBorder(true);
@@ -122,11 +134,13 @@ export function NotebookCell({
     onDelete();
   }, [cell.source, onDelete, t]);
 
-  // Shared menu items for both context menu and dropdown
-  const menuItems = (
+  const contextMenuItems = (
     <>
       {isExecutable && (
-        <ContextMenuItem onClick={onExecute}>{t('notebook.executeCell')}</ContextMenuItem>
+        <ContextMenuItem onClick={onExecute}>
+          <Play size={14} className="mr-2" />
+          {t('notebook.executeCell')}
+        </ContextMenuItem>
       )}
       {isExecutable && onRunFromHere && (
         <ContextMenuItem onClick={onRunFromHere}>
@@ -158,15 +172,6 @@ export function NotebookCell({
         </ContextMenuItem>
       )}
       <ContextMenuSeparator />
-      <ContextMenuItem onClick={onMoveUp} disabled={isFirst}>
-        <ChevronUp size={14} className="mr-2" />
-        {t('notebook.moveCellUp')}
-      </ContextMenuItem>
-      <ContextMenuItem onClick={onMoveDown} disabled={isLast}>
-        <ChevronDown size={14} className="mr-2" />
-        {t('notebook.moveCellDown')}
-      </ContextMenuItem>
-      <ContextMenuSeparator />
       <ContextMenuItem onClick={handleDelete} className="text-destructive">
         <Trash2 size={14} className="mr-2" />
         {t('notebook.deleteCell')}
@@ -180,64 +185,30 @@ export function NotebookCell({
         {/* biome-ignore lint/a11y/useKeyWithClickEvents: focus capture on container */}
         <div
           className={cn(
-            'group relative border-l-2 rounded-md bg-background transition-colors',
-            borderColorMap[borderState],
-            isFocused && 'ring-1 ring-ring/50'
+            'group relative rounded-lg border border-border/50 bg-card transition-all',
+            'border-l-[3px]',
+            borderStateMap[borderState],
+            isFocused
+              ? 'ring-1 ring-ring/40 border-border shadow-sm'
+              : 'hover:border-border/80'
           )}
           onClick={onFocus}
         >
-          {/* Drag handle */}
-          <div className="absolute -left-1 top-0 bottom-0 flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
-            <div className="cursor-grab active:cursor-grabbing p-0.5 text-muted-foreground hover:text-foreground">
-              <GripVertical size={14} />
+          {/* Drag handle - left edge, on hover */}
+          <div className="absolute -left-0.5 top-0 bottom-0 flex items-center opacity-0 group-hover:opacity-60 transition-opacity z-10">
+            <div className="cursor-grab active:cursor-grabbing p-0.5 text-muted-foreground">
+              <GripVertical size={12} />
             </div>
           </div>
 
-          <div className="flex items-start gap-1 pl-5 pr-2 py-1">
-            {/* Cell type badge */}
-            <div className="shrink-0 mt-1.5">
-              <span className="text-[10px] font-mono uppercase text-muted-foreground px-1 py-0.5 bg-muted rounded">
-                {cell.type}
-              </span>
-            </div>
-
-            {/* Cell content */}
-            <div className="flex-1 min-w-0 py-1">
-              {isCollapsed ? (
-                <div className="text-xs text-muted-foreground italic truncate px-1">
-                  {cell.source.split('\n')[0] || t('notebook.cellEmpty')}
-                </div>
-              ) : (
-                <>
-                  {cell.type === 'sql' && (
-                    <SqlCell
-                      cell={cell}
-                      dialect={dialect}
-                      sessionId={sessionId}
-                      connectionDatabase={connectionDatabase}
-                      namespace={namespace}
-                      onSourceChange={onSourceChange}
-                      onExecute={onExecute}
-                    />
-                  )}
-                  {cell.type === 'markdown' && (
-                    <MarkdownCell cell={cell} onSourceChange={onSourceChange} />
-                  )}
-                  {cell.type === 'chart' && allCells && (
-                    <ChartCell cell={cell} allCells={allCells} />
-                  )}
-                </>
-              )}
-            </div>
-
-            {/* Action buttons */}
-            <div className="shrink-0 flex flex-col items-center gap-0.5 pt-1 opacity-0 group-hover:opacity-100 transition-opacity">
-              {isExecutable && !isRunning && (
+          {/* Floating action bar - top right, on hover */}
+          <div className="absolute top-1.5 right-1.5 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity z-10 bg-card/95 rounded-md border border-border/60 shadow-sm px-0.5 py-0.5">
+            {isExecutable && !isRunning && (
+              <Tooltip content={t('notebook.executeCell')} side="bottom">
                 <Button
                   variant="ghost"
                   size="icon"
                   className="h-6 w-6"
-                  title={t('notebook.executeCell')}
                   onClick={e => {
                     e.stopPropagation();
                     onExecute();
@@ -245,13 +216,14 @@ export function NotebookCell({
                 >
                   <Play size={12} />
                 </Button>
-              )}
-              {isRunning && (
+              </Tooltip>
+            )}
+            {isRunning && (
+              <Tooltip content={t('notebook.cancelExecution')} side="bottom">
                 <Button
                   variant="ghost"
                   size="icon"
                   className="h-6 w-6 text-destructive"
-                  title={t('notebook.cancelExecution')}
                   onClick={e => {
                     e.stopPropagation();
                     onCancel?.();
@@ -259,125 +231,137 @@ export function NotebookCell({
                 >
                   <Square size={12} />
                 </Button>
-              )}
-              {isRunning && <Loader2 size={12} className="animate-spin text-accent" />}
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-6 w-6"
-                title={t('notebook.moveCellUp')}
-                onClick={e => {
-                  e.stopPropagation();
-                  onMoveUp();
-                }}
-                disabled={isFirst}
-              >
-                <ChevronUp size={12} />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-6 w-6"
-                title={t('notebook.moveCellDown')}
-                onClick={e => {
-                  e.stopPropagation();
-                  onMoveDown();
-                }}
-                disabled={isLast}
-              >
-                <ChevronDown size={12} />
-              </Button>
+              </Tooltip>
+            )}
 
-              {/* More actions dropdown */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6"
-                    onClick={e => e.stopPropagation()}
-                  >
-                    <MoreHorizontal size={12} />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" side="left">
-                  {isExecutable && (
-                    <DropdownMenuItem onClick={onExecute}>
-                      <Play size={14} className="mr-2" />
-                      {t('notebook.executeCell')}
-                    </DropdownMenuItem>
-                  )}
-                  {isExecutable && onRunFromHere && (
-                    <DropdownMenuItem onClick={onRunFromHere}>
-                      <ChevronsRight size={14} className="mr-2" />
-                      {t('notebook.executeFromHere')}
-                    </DropdownMenuItem>
-                  )}
-                  {isExecutable && <DropdownMenuSeparator />}
-                  {onDuplicate && (
-                    <DropdownMenuItem onClick={onDuplicate}>
-                      <Copy size={14} className="mr-2" />
-                      {t('notebook.duplicateCell')}
-                    </DropdownMenuItem>
-                  )}
-                  {onConvertType && (
-                    <DropdownMenuItem onClick={onConvertType}>
-                      <RefreshCw size={14} className="mr-2" />
-                      {t('notebook.convertType')}
-                    </DropdownMenuItem>
-                  )}
-                  {onToggleCollapsed && (
-                    <DropdownMenuItem onClick={onToggleCollapsed}>
-                      {isCollapsed ? (
-                        <UnfoldVertical size={14} className="mr-2" />
-                      ) : (
-                        <FoldVertical size={14} className="mr-2" />
-                      )}
-                      {isCollapsed ? t('notebook.expandCell') : t('notebook.collapseCell')}
-                    </DropdownMenuItem>
-                  )}
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleDelete} className="text-destructive">
-                    <Trash2 size={14} className="mr-2" />
-                    {t('notebook.deleteCell')}
+            {/* More actions dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6"
+                  onClick={e => e.stopPropagation()}
+                  title={t('toolbar.moreActions')}
+                >
+                  <MoreHorizontal size={12} />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" side="bottom" className="w-44">
+                {isExecutable && (
+                  <DropdownMenuItem onClick={onExecute}>
+                    <Play size={14} className="mr-2" />
+                    {t('notebook.executeCell')}
                   </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-6 w-6 text-muted-foreground hover:text-destructive"
-                title={t('notebook.deleteCell')}
-                onClick={e => {
-                  e.stopPropagation();
-                  handleDelete();
-                }}
-              >
-                <Trash2 size={12} />
-              </Button>
-            </div>
+                )}
+                {isExecutable && onRunFromHere && (
+                  <DropdownMenuItem onClick={onRunFromHere}>
+                    <ChevronsRight size={14} className="mr-2" />
+                    {t('notebook.executeFromHere')}
+                  </DropdownMenuItem>
+                )}
+                {isExecutable && <DropdownMenuSeparator />}
+                {onDuplicate && (
+                  <DropdownMenuItem onClick={onDuplicate}>
+                    <Copy size={14} className="mr-2" />
+                    {t('notebook.duplicateCell')}
+                  </DropdownMenuItem>
+                )}
+                {onConvertType && (
+                  <DropdownMenuItem onClick={onConvertType}>
+                    <RefreshCw size={14} className="mr-2" />
+                    {t('notebook.convertType')}
+                  </DropdownMenuItem>
+                )}
+                {onToggleCollapsed && (
+                  <DropdownMenuItem onClick={onToggleCollapsed}>
+                    {isCollapsed ? (
+                      <UnfoldVertical size={14} className="mr-2" />
+                    ) : (
+                      <FoldVertical size={14} className="mr-2" />
+                    )}
+                    {isCollapsed ? t('notebook.expandCell') : t('notebook.collapseCell')}
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleDelete} className="text-destructive">
+                  <Trash2 size={14} className="mr-2" />
+                  {t('notebook.deleteCell')}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
 
-          {/* Execution info */}
+          {/* Running indicator - inline spinner */}
+          {isRunning && (
+            <div className="absolute top-2 right-2 z-20">
+              <Loader2 size={14} className="animate-spin text-accent" />
+            </div>
+          )}
+
+          {/* Cell type indicator + content */}
+          <div className="px-4 pt-2 pb-1">
+            {/* Cell type header */}
+            <div className="flex items-center gap-1.5 mb-1.5">
+              <CellTypeIcon type={cell.type} />
+              <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
+                {cell.type}
+              </span>
+              {cell.executionState === 'stale' && (
+                <span className="text-[10px] text-amber-500 font-medium ml-1">
+                  {t('notebook.stale')}
+                </span>
+              )}
+            </div>
+
+            {/* Cell content */}
+            {isCollapsed ? (
+              <div className="text-xs text-muted-foreground italic truncate py-1">
+                {cell.source.split('\n')[0] || t('notebook.cellEmpty')}
+              </div>
+            ) : (
+              <>
+                {(cell.type === 'sql' || cell.type === 'mongo') && (
+                  <SqlCell
+                    cell={cell}
+                    dialect={dialect}
+                    sessionId={sessionId}
+                    connectionDatabase={connectionDatabase}
+                    namespace={namespace}
+                    onSourceChange={onSourceChange}
+                    onExecute={onExecute}
+                  />
+                )}
+                {cell.type === 'markdown' && (
+                  <MarkdownCell cell={cell} onSourceChange={onSourceChange} />
+                )}
+                {cell.type === 'chart' && allCells && (
+                  <ChartCell cell={cell} allCells={allCells} />
+                )}
+              </>
+            )}
+          </div>
+
+          {/* Execution metadata footer */}
           {cell.executionTimeMs !== undefined &&
             cell.executionCount !== undefined &&
             cell.executionCount > 0 && (
-              <div className="flex items-center gap-2 px-6 pb-1 text-[10px] text-muted-foreground">
-                <span>{t('notebook.executionCount', { count: cell.executionCount })}</span>
-                <span>{t('notebook.executionTime', { time: cell.executionTimeMs })}</span>
+              <div className="flex items-center gap-1.5 px-4 pb-2 text-[11px] text-muted-foreground">
+                <span className="font-mono">#{cell.executionCount}</span>
+                <span className="text-border">·</span>
+                <span>{cell.executionTimeMs}ms</span>
                 {cell.lastResult?.totalRows !== undefined && (
-                  <span>{t('notebook.rowCount', { count: cell.lastResult.totalRows })}</span>
-                )}
-                {cell.executionState === 'stale' && (
-                  <span className="text-amber-500 font-medium">{t('notebook.stale')}</span>
+                  <>
+                    <span className="text-border">·</span>
+                    <span>{t('notebook.rowCount', { count: cell.lastResult.totalRows })}</span>
+                  </>
                 )}
               </div>
             )}
         </div>
       </ContextMenuTrigger>
 
-      <ContextMenuContent>{menuItems}</ContextMenuContent>
+      <ContextMenuContent>{contextMenuItems}</ContextMenuContent>
     </ContextMenu>
   );
 }

@@ -31,7 +31,7 @@ import {
 } from '@/lib/tauri';
 import { UI_EVENT_CONNECTIONS_CHANGED } from '@/lib/uiEvents';
 import { setUpdateAvailable } from '@/lib/updateStore';
-import { useModalContext } from './ModalProvider';
+import { handleCloseConnectionModal as closeConnectionModal, setSettingsOpen } from '@/lib/modalStore';
 import { useTabContext } from './TabProvider';
 
 const DEFAULT_PROJECT = 'default';
@@ -111,8 +111,6 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
   const { tabs, activeTabId, queryDrafts, tableBrowserTabs, databaseBrowserTabs, resetTabs } =
     useTabContext();
-  const { setSettingsOpen, handleCloseConnectionModal } = useModalContext();
-
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [driver, setDriver] = useState<Driver>(Driver.Postgres);
   const [driverCapabilities, setDriverCapabilities] = useState<DriverCapabilities | null>(null);
@@ -303,7 +301,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         initialDatabaseBrowserTabs: options?.databaseBrowserTabs,
       });
     },
-    [resetTabs, setSettingsOpen]
+    [resetTabs]
   );
 
   const handleRestoreSession = useCallback(async () => {
@@ -335,7 +333,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         setDriver(updatedConnection.driver as Driver);
       }
 
-      handleCloseConnectionModal();
+      closeConnectionModal();
       setSidebarRefreshTrigger(prev => prev + 1);
 
       if (shouldReconnect) {
@@ -391,7 +389,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         })();
       }
     },
-    [activeConnection, handleCloseConnectionModal, handleConnected, resetTabs, sessionId, t]
+    [activeConnection, handleConnected, resetTabs, sessionId, t]
   );
 
   return (

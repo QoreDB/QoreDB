@@ -21,8 +21,7 @@ use tokio::time::timeout;
 use tracing::{debug, instrument, warn};
 
 use crate::engine::fulltext_strategy::{
-    get_capability_cache, get_search_strategy, FulltextIndexInfo, SearchMethod,
-    TableSearchOptions,
+    get_capability_cache, get_search_strategy, FulltextIndexInfo, SearchMethod, TableSearchOptions,
 };
 use crate::engine::types::{CollectionListOptions, CollectionType, Namespace, QueryId, Value};
 
@@ -204,7 +203,9 @@ pub async fn fulltext_search(
     let max_per_table = opts.max_results_per_table.unwrap_or(10).min(50);
     let max_total = opts.max_total_results.unwrap_or(100).min(500);
     let case_sensitive = opts.case_sensitive.unwrap_or(false);
-    let table_timeout_ms = opts.timeout_per_table_ms.unwrap_or(DEFAULT_TABLE_TIMEOUT_MS);
+    let table_timeout_ms = opts
+        .timeout_per_table_ms
+        .unwrap_or(DEFAULT_TABLE_TIMEOUT_MS);
     let max_parallel = opts.max_parallel.unwrap_or(MAX_PARALLEL_TABLES).min(10);
     let stream_results = opts.stream_results.unwrap_or(false);
 
@@ -356,32 +357,34 @@ pub async fn fulltext_search(
             let text_column_set: HashSet<String> =
                 text_columns.iter().map(|c| c.to_lowercase()).collect();
             // Check cache first
-            let capability = if let Some(cached) =
-                capability_cache_ref.get(&namespace, &table_name).await
-            {
-                debug!("Using cached capability for {}.{}", namespace.database, table_name);
-                cached
-            } else {
-                // Detect full-text indexes
-                let detected_indexes = detect_fulltext_indexes(
-                    driver_ref,
-                    session,
-                    strategy_ref,
-                    &namespace,
-                    &table_name,
-                )
-                .await;
-
-                let capability =
-                    strategy_ref.build_capability(&text_columns, &detected_indexes, None);
-
-                // Cache the result
-                capability_cache_ref
-                    .set(&namespace, &table_name, capability.clone())
+            let capability =
+                if let Some(cached) = capability_cache_ref.get(&namespace, &table_name).await {
+                    debug!(
+                        "Using cached capability for {}.{}",
+                        namespace.database, table_name
+                    );
+                    cached
+                } else {
+                    // Detect full-text indexes
+                    let detected_indexes = detect_fulltext_indexes(
+                        driver_ref,
+                        session,
+                        strategy_ref,
+                        &namespace,
+                        &table_name,
+                    )
                     .await;
 
-                capability
-            };
+                    let capability =
+                        strategy_ref.build_capability(&text_columns, &detected_indexes, None);
+
+                    // Cache the result
+                    capability_cache_ref
+                        .set(&namespace, &table_name, capability.clone())
+                        .await;
+
+                    capability
+                };
 
             // Build and execute query
             let (query, method) = strategy_ref.build_search_query(
@@ -427,9 +430,8 @@ pub async fn fulltext_search(
                         for (idx, col_info) in query_result.columns.iter().enumerate() {
                             if let Some(value) = row.values.get(idx) {
                                 let col_name = col_info.name.to_lowercase();
-                                let is_searchable =
-                                    text_column_set.contains(&col_name)
-                                        || is_text_type(&col_info.data_type);
+                                let is_searchable = text_column_set.contains(&col_name)
+                                    || is_text_type(&col_info.data_type);
                                 if is_searchable
                                     && value_contains(
                                         value,

@@ -167,7 +167,12 @@ impl SessionManager {
             Ok(session_id)
         };
 
-        match timeout(Duration::from_millis(Self::CONNECT_TIMEOUT_MS), connect_future).await {
+        match timeout(
+            Duration::from_millis(Self::CONNECT_TIMEOUT_MS),
+            connect_future,
+        )
+        .await
+        {
             Ok(result) => result,
             Err(_) => Err(EngineError::Timeout {
                 timeout_ms: Self::CONNECT_TIMEOUT_MS,
@@ -473,10 +478,7 @@ impl SessionManager {
     /// Starts the background health monitor.
     /// Spawns a tokio task that periodically checks all sessions
     /// and emits Tauri events when health changes.
-    pub fn start_health_monitor(
-        self: &Arc<Self>,
-        app_handle: tauri::AppHandle,
-    ) {
+    pub fn start_health_monitor(self: &Arc<Self>, app_handle: tauri::AppHandle) {
         use tauri::Emitter;
 
         let manager = Arc::clone(self);

@@ -38,7 +38,7 @@ export function SqlCell({
   return (
     <div>
       <div
-        className="border border-border rounded-md overflow-hidden"
+        className="rounded-md overflow-hidden bg-muted/20"
         style={{ height: editorHeight, minHeight: 76, maxHeight: 416 }}
       >
         <SQLEditor

@@ -163,8 +163,12 @@ export function ErrorLogPanel({ isOpen, onClose }: ErrorLogPanelProps) {
   }
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col p-0 gap-0">
+    <Dialog debugName="ErrorLogPanel/root" open={isOpen} onOpenChange={handleOpenChange}>
+      <DialogContent
+        debugName="ErrorLogPanel/content"
+        disableExitAnimation
+        className="max-w-3xl max-h-[85vh] flex flex-col p-0 gap-0"
+      >
         <DialogHeader className="px-4 py-3 border-b border-border">
           <DialogTitle className="flex items-center gap-2 text-base">
             <Bug size={18} className="text-error" />

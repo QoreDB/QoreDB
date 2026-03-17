@@ -53,6 +53,9 @@ export function useWebviewGuards({
         (key === 'j' && event.shiftKey) ||
         (key === 'c' && event.shiftKey);
 
+      // Allow devtools in dev mode
+      if (isDevtools && import.meta.env.DEV) return;
+
       if (isPrint || isReload || isViewSource || isDevtools) {
         event.preventDefault();
       }

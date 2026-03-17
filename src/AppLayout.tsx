@@ -18,41 +18,47 @@ import {
   UI_EVENT_REFRESH_TABLE,
 } from '@/lib/uiEvents';
 import { getShortcut } from '@/utils/platform';
+import { AppOverlays } from './components/AppOverlays';
 import { DatabaseBrowser, type DatabaseBrowserTab } from './components/Browser/DatabaseBrowser';
 import { TableBrowser, type TableBrowserTab } from './components/Browser/TableBrowser';
-import { ConnectionModal } from './components/Connection/ConnectionModal';
 import { CustomTitlebar } from './components/CustomTitlebar';
 import { ConnectionDashboard } from './components/Dashboard/ConnectionDashboard';
 import { DataDiffViewer } from './components/Diff/DataDiffViewer';
 import { FederationViewer } from './components/Federation/FederationViewer';
-import { NotebookTab } from './components/Notebook';
-import { SnapshotManager } from './components/Snapshot/SnapshotManager';
 import { WelcomeScreen } from './components/Home/WelcomeScreen';
 import { LicenseGate } from './components/License/LicenseGate';
+import { NotebookTab } from './components/Notebook';
 import { AnalyticsService } from './components/Onboarding/AnalyticsService';
-import { OnboardingModal } from './components/Onboarding/OnboardingModal';
-import { QueryLibraryModal } from './components/Query/QueryLibraryModal';
 import { QueryPanel } from './components/Query/QueryPanel';
 import { SandboxBorder } from './components/Sandbox';
-import { FulltextSearchPanel } from './components/Search/FulltextSearchPanel';
-import { GlobalSearch, type SearchResult } from './components/Search/GlobalSearch';
+import type { SearchResult } from './components/Search/GlobalSearch';
 import { SettingsPage } from './components/Settings/SettingsPage';
 import { Sidebar } from './components/Sidebar/Sidebar';
-import { FeatureTour } from './components/Tour/FeatureTour';
+import { SnapshotManager } from './components/Snapshot/SnapshotManager';
 import { StatusBar } from './components/Status/StatusBar';
-import { SkipLink } from './components/ui/skip-link';
 import { TabBar } from './components/Tabs/TabBar';
+import { FeatureTour } from './components/Tour/FeatureTour';
+import { SkipLink } from './components/ui/skip-link';
 import type { useRecovery } from './hooks/useRecovery';
 import { useResizableSidebar } from './hooks/useResizableSidebar';
-import { useTourManager } from './hooks/useTourManager';
 import { useTheme } from './hooks/useTheme';
+import { useTourManager } from './hooks/useTourManager';
 import { useWebviewGuards } from './hooks/useWebviewGuards';
 import { Driver } from './lib/drivers';
 import type { HistoryEntry } from './lib/history';
+import {
+  handleEditConnection,
+  setConnectionModalOpen,
+  setFulltextSearchOpen,
+  setLibraryModalOpen,
+  setSearchOpen,
+  setSettingsOpen,
+  toggleSidebar,
+  useModalStore,
+} from './lib/modalStore';
 import { notify } from './lib/notify';
 import type { QueryLibraryItem } from './lib/queryLibrary';
 import { getRoutineTemplate } from './lib/routineTemplates';
-import { getTriggerTemplate, getEventTemplate } from './lib/triggerTemplates';
 import {
   createDatabaseTab,
   createDiffTab,
@@ -66,8 +72,8 @@ import {
 import {
   type Collection,
   connectSavedConnection,
-  type DriverCapabilities,
   type DatabaseEvent,
+  type DriverCapabilities,
   getEventDefinition,
   getRoutineDefinition,
   getTriggerDefinition,
@@ -79,7 +85,8 @@ import {
   type SearchFilter,
   type Trigger,
 } from './lib/tauri';
-import { useModalContext } from './providers/ModalProvider';
+import { getEventTemplate, getTriggerTemplate } from './lib/triggerTemplates';
+import { useUiDebugSnapshot } from './lib/uiDebug';
 import { useSessionContext } from './providers/SessionProvider';
 import { useTabContext } from './providers/TabProvider';
 
@@ -127,26 +134,8 @@ export function AppLayout() {
     scheduleRecoverySave,
   } = useSessionContext();
 
-  const {
-    searchOpen,
-    fulltextSearchOpen,
-    connectionModalOpen,
-    libraryModalOpen,
-    settingsOpen,
-    sidebarVisible,
-    showOnboarding,
-    editConnection,
-    editPassword,
-    setSearchOpen,
-    setFulltextSearchOpen,
-    setConnectionModalOpen,
-    setLibraryModalOpen,
-    setSettingsOpen,
-    setShowOnboarding,
-    handleEditConnection,
-    handleCloseConnectionModal,
-    toggleSidebar,
-  } = useModalContext();
+  const settingsOpen = useModalStore(s => s.settingsOpen);
+  const sidebarVisible = useModalStore(s => s.sidebarVisible);
 
   // --- Notebook unsaved changes guard ---
   useEffect(() => {
@@ -341,7 +330,7 @@ export function AppLayout() {
       return;
     }
     emitUiEvent(UI_EVENT_OPEN_HISTORY);
-  }, [activeTab?.namespace, activeTab?.type, openTab, sessionId, t, setSettingsOpen]);
+  }, [activeTab?.namespace, activeTab?.type, openTab, sessionId, t]);
 
   const handleToggleSandbox = useCallback(() => {
     if (!sessionId) {
@@ -598,11 +587,6 @@ export function AppLayout() {
       handleConnected,
       handleOpenDiff,
       handleToggleSandbox,
-      setSearchOpen,
-      setConnectionModalOpen,
-      setLibraryModalOpen,
-      setFulltextSearchOpen,
-      setSettingsOpen,
       refreshSidebar,
     ]
   );
@@ -741,33 +725,17 @@ export function AppLayout() {
         </div>
       </div>
 
-      <ConnectionModal
-        isOpen={connectionModalOpen}
-        onClose={handleCloseConnectionModal}
+      <AppOverlays
         onConnected={handleConnected}
-        editConnection={editConnection || undefined}
-        editPassword={editPassword || undefined}
-        onSaved={handleConnectionSaved}
-      />
-      <GlobalSearch
-        isOpen={searchOpen}
-        onClose={() => setSearchOpen(false)}
-        onSelect={handleSearchSelect}
-        commands={paletteCommands}
-        features={paletteFeatures}
-      />
-      <QueryLibraryModal
-        isOpen={libraryModalOpen}
-        onClose={() => setLibraryModalOpen(false)}
-        onSelectQuery={q => {
-          if (sessionId) openTab(createQueryTab(q));
+        onConnectionSaved={handleConnectionSaved}
+        onSearchSelect={handleSearchSelect}
+        onSelectLibraryQuery={query => {
+          if (sessionId) openTab(createQueryTab(query));
         }}
-      />
-      <FulltextSearchPanel
-        isOpen={fulltextSearchOpen}
-        onClose={() => setFulltextSearchOpen(false)}
-        sessionId={sessionId}
         onNavigateToTable={(ns, table, filter) => handleTableSelect(ns, table, undefined, filter)}
+        paletteCommands={paletteCommands}
+        paletteFeatures={paletteFeatures}
+        sessionId={sessionId}
       />
       <Toaster
         theme={resolvedTheme}
@@ -776,7 +744,6 @@ export function AppLayout() {
         richColors
         toastOptions={{ duration: 4000 }}
       />
-      {showOnboarding && <OnboardingModal onComplete={() => setShowOnboarding(false)} />}
       {tourManager.activeTour && tourManager.activeTourSteps && (
         <FeatureTour
           steps={tourManager.activeTourSteps}
@@ -865,6 +832,12 @@ function AppContent({
   onOpenEventSource,
   onCreateEvent,
 }: AppContentProps) {
+  useUiDebugSnapshot('AppContent', {
+    sessionId,
+    activeTabId: activeTab?.id ?? null,
+    activeTabType: activeTab?.type ?? null,
+  });
+
   if (!sessionId) {
     return (
       <WelcomeScreen

@@ -10,13 +10,13 @@ use async_trait::async_trait;
 
 use crate::engine::error::{EngineError, EngineResult};
 use crate::engine::types::{
-    CancelSupport, CollectionList, CollectionListOptions, ConnectionConfig, DriverCapabilities, Namespace,
-    QueryId, QueryResult, Row, RowData, SessionId, TableSchema, ColumnInfo, Value, ForeignKey,
-    TableQueryOptions, PaginatedQueryResult, RoutineList, RoutineListOptions, RoutineType,
-    RoutineDefinition, RoutineOperationResult,
-    TriggerList, TriggerListOptions, TriggerDefinition, TriggerOperationResult,
-    EventList, EventListOptions, EventDefinition, EventOperationResult, CreationOptions,
-    MaintenanceOperationInfo, MaintenanceRequest, MaintenanceResult,
+    CancelSupport, CollectionList, CollectionListOptions, ColumnInfo, ConnectionConfig,
+    CreationOptions, DriverCapabilities, EventDefinition, EventList, EventListOptions,
+    EventOperationResult, ForeignKey, MaintenanceOperationInfo, MaintenanceRequest,
+    MaintenanceResult, Namespace, PaginatedQueryResult, QueryId, QueryResult, RoutineDefinition,
+    RoutineList, RoutineListOptions, RoutineOperationResult, RoutineType, Row, RowData, SessionId,
+    TableQueryOptions, TableSchema, TriggerDefinition, TriggerList, TriggerListOptions,
+    TriggerOperationResult, Value,
 };
 
 /// Events emitted during query streaming
@@ -87,7 +87,10 @@ pub trait DataEngine: Send + Sync {
         options: RoutineListOptions,
     ) -> EngineResult<RoutineList> {
         let _ = (session, namespace, options);
-        Ok(RoutineList { routines: Vec::new(), total_count: 0 })
+        Ok(RoutineList {
+            routines: Vec::new(),
+            total_count: 0,
+        })
     }
 
     /// Check if the driver supports routines (functions/procedures).
@@ -136,7 +139,10 @@ pub trait DataEngine: Send + Sync {
         options: TriggerListOptions,
     ) -> EngineResult<TriggerList> {
         let _ = (session, namespace, options);
-        Ok(TriggerList { triggers: Vec::new(), total_count: 0 })
+        Ok(TriggerList {
+            triggers: Vec::new(),
+            total_count: 0,
+        })
     }
 
     /// Check if the driver supports triggers.
@@ -153,7 +159,10 @@ pub trait DataEngine: Send + Sync {
         options: EventListOptions,
     ) -> EngineResult<EventList> {
         let _ = (session, namespace, options);
-        Ok(EventList { events: Vec::new(), total_count: 0 })
+        Ok(EventList {
+            events: Vec::new(),
+            total_count: 0,
+        })
     }
 
     /// Check if the driver supports scheduled events.
@@ -238,13 +247,20 @@ pub trait DataEngine: Send + Sync {
     /// Default implementation returns empty options (no driver-specific choices).
     async fn get_creation_options(&self, session: SessionId) -> EngineResult<CreationOptions> {
         let _ = session;
-        Ok(CreationOptions { charsets: Vec::new() })
+        Ok(CreationOptions {
+            charsets: Vec::new(),
+        })
     }
 
     /// Creates a new database (or schema in PostgreSQL)
     ///
     /// For MongoDB, 'options' can contain {"collection": "name"} to create the initial collection.
-    async fn create_database(&self, session: SessionId, name: &str, options: Option<Value>) -> EngineResult<()>;
+    async fn create_database(
+        &self,
+        session: SessionId,
+        name: &str,
+        options: Option<Value>,
+    ) -> EngineResult<()>;
 
     /// Drops an existing database (or schema in PostgreSQL)
     async fn drop_database(&self, session: SessionId, name: &str) -> EngineResult<()>;
@@ -338,7 +354,9 @@ pub trait DataEngine: Send + Sync {
         // Default: fall back to preview_table (no real pagination)
         let page = options.effective_page();
         let page_size = options.effective_page_size();
-        let result = self.preview_table(session, namespace, table, page_size).await?;
+        let result = self
+            .preview_table(session, namespace, table, page_size)
+            .await?;
         let total = result.rows.len() as u64;
         Ok(PaginatedQueryResult::new(result, total, page, page_size))
     }
@@ -364,7 +382,7 @@ pub trait DataEngine: Send + Sync {
     async fn cancel(&self, session: SessionId, query_id: Option<QueryId>) -> EngineResult<()> {
         let _ = (session, query_id);
         Err(crate::engine::error::EngineError::not_supported(
-            "Query cancellation is not supported by this driver"
+            "Query cancellation is not supported by this driver",
         ))
     }
 
@@ -397,35 +415,35 @@ pub trait DataEngine: Send + Sync {
     // Drivers that support transactions should override these.
 
     /// Begin a transaction for the session.
-    /// 
+    ///
     /// After calling this, all subsequent queries will be part of the transaction
     /// until commit() or rollback() is called.
-    /// 
+    ///
     /// Note: For connection-pooled drivers (SQLx), this acquires a dedicated connection.
     async fn begin_transaction(&self, session: SessionId) -> EngineResult<()> {
         let _ = session;
         Err(crate::engine::error::EngineError::not_supported(
-            "Transactions are not supported by this driver"
+            "Transactions are not supported by this driver",
         ))
     }
 
     /// Commit the current transaction.
-    /// 
+    ///
     /// All changes made since begin_transaction() will be persisted.
     async fn commit(&self, session: SessionId) -> EngineResult<()> {
         let _ = session;
         Err(crate::engine::error::EngineError::not_supported(
-            "Transactions are not supported by this driver"
+            "Transactions are not supported by this driver",
         ))
     }
 
     /// Rollback the current transaction.
-    /// 
+    ///
     /// All changes made since begin_transaction() will be discarded.
     async fn rollback(&self, session: SessionId) -> EngineResult<()> {
         let _ = session;
         Err(crate::engine::error::EngineError::not_supported(
-            "Transactions are not supported by this driver"
+            "Transactions are not supported by this driver",
         ))
     }
 
@@ -478,7 +496,7 @@ pub trait DataEngine: Send + Sync {
     ) -> EngineResult<QueryResult> {
         let _ = (session, namespace, table, data);
         Err(crate::engine::error::EngineError::not_supported(
-            "Insert operations are not supported by this driver"
+            "Insert operations are not supported by this driver",
         ))
     }
 
@@ -503,7 +521,7 @@ pub trait DataEngine: Send + Sync {
     ) -> EngineResult<QueryResult> {
         let _ = (session, namespace, table, primary_key, data);
         Err(crate::engine::error::EngineError::not_supported(
-            "Update operations are not supported by this driver"
+            "Update operations are not supported by this driver",
         ))
     }
 
@@ -526,7 +544,7 @@ pub trait DataEngine: Send + Sync {
     ) -> EngineResult<QueryResult> {
         let _ = (session, namespace, table, primary_key);
         Err(crate::engine::error::EngineError::not_supported(
-            "Delete operations are not supported by this driver"
+            "Delete operations are not supported by this driver",
         ))
     }
 

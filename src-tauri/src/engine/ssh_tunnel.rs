@@ -167,12 +167,9 @@ impl SshTunnelBackend for OpenSshBackend {
 
         loop {
             // If the process exited early, surface stderr.
-            if let Some(status) = process
-                .try_wait()
-                .map_err(|e| EngineError::SshError {
-                    message: format!("Failed to check SSH process status: {}", e),
-                })?
-            {
+            if let Some(status) = process.try_wait().map_err(|e| EngineError::SshError {
+                message: format!("Failed to check SSH process status: {}", e),
+            })? {
                 let stderr = match process.stderr.take() {
                     Some(mut s) => {
                         let mut buf = Vec::new();
@@ -282,7 +279,10 @@ fn build_ssh_command(
         .arg("-o")
         .arg(format!("ServerAliveCountMax={}", keepalive_count_max))
         .arg("-o")
-        .arg(format!("StrictHostKeyChecking={}", strict_host_key_checking))
+        .arg(format!(
+            "StrictHostKeyChecking={}",
+            strict_host_key_checking
+        ))
         .arg("-o")
         .arg(format!("UserKnownHostsFile={}", known_hosts_path))
         .arg("-o")
@@ -333,7 +333,8 @@ fn default_known_hosts_path() -> String {
     // Windows: %APPDATA%\QoreDB\ssh\known_hosts
     // Others:  $HOME/.qoredb/ssh/known_hosts
     if cfg!(windows) {
-        let appdata = std::env::var_os("APPDATA").unwrap_or_else(|| std::env::var_os("USERPROFILE").unwrap_or_default());
+        let appdata = std::env::var_os("APPDATA")
+            .unwrap_or_else(|| std::env::var_os("USERPROFILE").unwrap_or_default());
         let mut path = PathBuf::from(appdata);
         path.push("QoreDB");
         path.push("ssh");
@@ -350,14 +351,22 @@ fn default_known_hosts_path() -> String {
 }
 
 fn null_device_path() -> &'static str {
-    if cfg!(windows) { "NUL" } else { "/dev/null" }
+    if cfg!(windows) {
+        "NUL"
+    } else {
+        "/dev/null"
+    }
 }
 
 fn ensure_parent_dir_exists(path: &str) -> EngineResult<()> {
     let path = PathBuf::from(path);
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).map_err(|e| EngineError::SshError {
-            message: format!("Failed to create SSH config directory {}: {}", parent.display(), e),
+            message: format!(
+                "Failed to create SSH config directory {}: {}",
+                parent.display(),
+                e
+            ),
         })?;
     }
     Ok(())
@@ -399,7 +408,9 @@ mod tests {
 
         assert!(args.contains(&"-N".to_string()));
         assert!(args.iter().any(|a| a == "StrictHostKeyChecking=yes"));
-        assert!(args.iter().any(|a| a == "UserKnownHostsFile=/tmp/qoredb_known_hosts"));
+        assert!(args
+            .iter()
+            .any(|a| a == "UserKnownHostsFile=/tmp/qoredb_known_hosts"));
         assert!(args.iter().any(|a| a == "-J"));
         assert!(args.iter().any(|a| a == "jumpuser@jump.example.com:22"));
         assert!(args.iter().any(|a| a == "-L"));

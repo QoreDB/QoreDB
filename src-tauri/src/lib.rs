@@ -6,10 +6,10 @@
 #[cfg(feature = "pro")]
 pub mod ai;
 pub mod commands;
-#[cfg(feature = "pro")]
-pub mod federation;
 pub mod engine;
 pub mod export;
+#[cfg(feature = "pro")]
+pub mod federation;
 pub mod interceptor;
 pub mod license;
 pub mod metrics;
@@ -23,21 +23,21 @@ use std::sync::Arc;
 use tauri::Manager;
 use tokio::sync::Mutex;
 
+use engine::drivers::cockroachdb::CockroachDbDriver;
 use engine::drivers::duckdb::DuckDbDriver;
 use engine::drivers::mongodb::MongoDriver;
 use engine::drivers::mysql::MySqlDriver;
 use engine::drivers::postgres::PostgresDriver;
 use engine::drivers::redis::RedisDriver;
 use engine::drivers::sqlite::SqliteDriver;
-use engine::drivers::cockroachdb::CockroachDbDriver;
 use engine::drivers::sqlserver::SqlServerDriver;
 use engine::{DriverRegistry, QueryManager, SessionManager};
-use interceptor::InterceptorPipeline;
-use policy::SafetyPolicy;
-use vault::{VaultLock, backend::KeyringProvider};
 use export::ExportPipeline;
+use interceptor::InterceptorPipeline;
 use license::LicenseManager;
+use policy::SafetyPolicy;
 use snapshots::SnapshotStore;
+use vault::{backend::KeyringProvider, VaultLock};
 use virtual_relations::VirtualRelationStore;
 
 pub type SharedState = Arc<Mutex<AppState>>;
@@ -94,7 +94,9 @@ impl AppState {
 
         // Initialize AI manager (Pro only)
         #[cfg(feature = "pro")]
-        let ai_manager = Arc::new(ai::manager::AiManager::new(Box::new(KeyringProvider::new())));
+        let ai_manager = Arc::new(ai::manager::AiManager::new(
+            Box::new(KeyringProvider::new()),
+        ));
 
         Self {
             registry,
@@ -216,6 +218,7 @@ pub fn run() {
             // Logs
             commands::logs::export_logs,
             commands::logs::log_frontend_message,
+            commands::logs::append_ui_debug_log,
             // Export
             commands::export::start_export,
             commands::export::cancel_export,

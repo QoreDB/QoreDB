@@ -86,7 +86,10 @@ impl AuditStore {
     /// Enable or disable audit logging
     pub fn set_enabled(&self, enabled: bool) {
         *self.enabled.write().unwrap() = enabled;
-        info!("Audit logging {}", if enabled { "enabled" } else { "disabled" });
+        info!(
+            "Audit logging {}",
+            if enabled { "enabled" } else { "disabled" }
+        );
     }
 
     /// Update max audit entries
@@ -235,7 +238,11 @@ impl AuditStore {
                     let search_lower = search.to_lowercase();
                     if !e.query.to_lowercase().contains(&search_lower)
                         && !e.session_id.to_lowercase().contains(&search_lower)
-                        && !e.database.as_ref().map(|d| d.to_lowercase().contains(&search_lower)).unwrap_or(false)
+                        && !e
+                            .database
+                            .as_ref()
+                            .map(|d| d.to_lowercase().contains(&search_lower))
+                            .unwrap_or(false)
                     {
                         return false;
                     }

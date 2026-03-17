@@ -192,10 +192,7 @@ fn collect_select_refs(select: &Select, refs: &mut Vec<(Vec<String>, Option<Stri
     }
 }
 
-fn collect_table_factor_refs(
-    factor: &TableFactor,
-    refs: &mut Vec<(Vec<String>, Option<String>)>,
-) {
+fn collect_table_factor_refs(factor: &TableFactor, refs: &mut Vec<(Vec<String>, Option<String>)>) {
     match factor {
         TableFactor::Table { name, .. } => {
             let parts = name_parts(name);
@@ -206,7 +203,9 @@ fn collect_table_factor_refs(
         TableFactor::Derived { subquery, .. } => {
             collect_query_refs(subquery, refs);
         }
-        TableFactor::NestedJoin { table_with_joins, .. } => {
+        TableFactor::NestedJoin {
+            table_with_joins, ..
+        } => {
             collect_table_factor_refs(&table_with_joins.relation, refs);
             for join in &table_with_joins.joins {
                 collect_table_factor_refs(&join.relation, refs);
@@ -313,16 +312,18 @@ fn rewrite_table_factor(factor: &mut TableFactor, mappings: &HashMap<String, Str
                 let dotted = build_dotted_name(&parts);
                 if let Some(local_alias) = mappings.get(&dotted) {
                     // Replace the multi-part name with the local DuckDB alias
-                    name.0 = vec![ObjectNamePart::Identifier(
-                        sqlparser::ast::Ident::new(local_alias.clone()),
-                    )];
+                    name.0 = vec![ObjectNamePart::Identifier(sqlparser::ast::Ident::new(
+                        local_alias.clone(),
+                    ))];
                 }
             }
         }
         TableFactor::Derived { subquery, .. } => {
             rewrite_query_ast(subquery, mappings);
         }
-        TableFactor::NestedJoin { table_with_joins, .. } => {
+        TableFactor::NestedJoin {
+            table_with_joins, ..
+        } => {
             rewrite_table_with_joins(table_with_joins, mappings);
         }
         _ => {}
@@ -349,8 +350,7 @@ fn rewrite_expr(expr: &mut Expr, mappings: &HashMap<String, String>) {
                     let dotted = candidate.join(".");
 
                     if let Some(local_alias) = mappings.get(&dotted) {
-                        let mut new_idents =
-                            vec![sqlparser::ast::Ident::new(local_alias.clone())];
+                        let mut new_idents = vec![sqlparser::ast::Ident::new(local_alias.clone())];
                         new_idents.extend(idents[prefix_len..].iter().cloned());
                         *idents = new_idents;
                         break;
@@ -399,7 +399,9 @@ fn rewrite_expr(expr: &mut Expr, mappings: &HashMap<String, String>) {
             rewrite_expr(low, mappings);
             rewrite_expr(high, mappings);
         }
-        Expr::InList { expr: inner, list, .. } => {
+        Expr::InList {
+            expr: inner, list, ..
+        } => {
             rewrite_expr(inner, mappings);
             for item in list {
                 rewrite_expr(item, mappings);
@@ -433,7 +435,16 @@ fn rewrite_expr(expr: &mut Expr, mappings: &HashMap<String, String>) {
                 rewrite_expr(else_r, mappings);
             }
         }
-        Expr::Like { expr: inner, pattern, .. } | Expr::ILike { expr: inner, pattern, .. } => {
+        Expr::Like {
+            expr: inner,
+            pattern,
+            ..
+        }
+        | Expr::ILike {
+            expr: inner,
+            pattern,
+            ..
+        } => {
             rewrite_expr(inner, mappings);
             rewrite_expr(pattern, mappings);
         }
@@ -444,7 +455,13 @@ fn rewrite_expr(expr: &mut Expr, mappings: &HashMap<String, String>) {
 /// Sanitizes a string for use as a DuckDB identifier part.
 fn sanitize_identifier(s: &str) -> String {
     s.chars()
-        .map(|c| if c.is_alphanumeric() || c == '_' { c } else { '_' })
+        .map(|c| {
+            if c.is_alphanumeric() || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
         .collect::<String>()
         .to_lowercase()
 }

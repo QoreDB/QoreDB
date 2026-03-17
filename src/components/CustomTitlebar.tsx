@@ -306,7 +306,12 @@ const MenuFile = ({
         {t('titlebar.menu.file.label')}
       </Button>
     </DropdownMenuTrigger>
-    <DropdownMenuContent align="start" className="w-56">
+    <DropdownMenuContent
+      align="start"
+      disableExitAnimation
+      className="w-56"
+      onCloseAutoFocus={event => event.preventDefault()}
+    >
       <DropdownMenuItem onClick={onNewConnection} disabled={!onNewConnection}>
         <span>{t('titlebar.menu.file.newConnection')}</span>
         <DropdownMenuShortcut>{getShortcut('N')}</DropdownMenuShortcut>
@@ -357,7 +362,12 @@ const MenuView = ({
         {t('titlebar.menu.view.label')}
       </Button>
     </DropdownMenuTrigger>
-    <DropdownMenuContent align="start" className="w-56">
+    <DropdownMenuContent
+      align="start"
+      disableExitAnimation
+      className="w-56"
+      onCloseAutoFocus={event => event.preventDefault()}
+    >
       <DropdownMenuItem onClick={onToggleSidebar} disabled={!onToggleSidebar}>
         <span>{t('titlebar.menu.view.explorer')}</span>
         <DropdownMenuShortcut>{getShortcut('B')}</DropdownMenuShortcut>
@@ -400,7 +410,12 @@ const MenuData = ({
         {t('titlebar.menu.data.label')}
       </Button>
     </DropdownMenuTrigger>
-    <DropdownMenuContent align="start" className="w-56">
+    <DropdownMenuContent
+      align="start"
+      disableExitAnimation
+      className="w-56"
+      onCloseAutoFocus={event => event.preventDefault()}
+    >
       <DropdownMenuItem onClick={onRefreshData} disabled={!onRefreshData}>
         <span>{t('titlebar.menu.data.refresh')}</span>
         <DropdownMenuShortcut>{getShortcut('R')}</DropdownMenuShortcut>
@@ -444,7 +459,12 @@ const MenuTools = ({
         {t('titlebar.menu.tools.label')}
       </Button>
     </DropdownMenuTrigger>
-    <DropdownMenuContent align="start" className="w-56">
+    <DropdownMenuContent
+      align="start"
+      disableExitAnimation
+      className="w-56"
+      onCloseAutoFocus={event => event.preventDefault()}
+    >
       <DropdownMenuItem onClick={onOpenHistory} disabled={!onOpenHistory}>
         <span>{t('titlebar.menu.tools.history')}</span>
       </DropdownMenuItem>

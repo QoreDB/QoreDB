@@ -33,8 +33,8 @@ export function CellResultViewer({ result, maxRows = 100 }: CellResultViewerProp
 
     return (
       <div
-        className="mt-2 border border-border rounded-md overflow-hidden"
-        style={{ maxHeight: 300 }}
+        className="mt-2 border border-border/50 rounded-md overflow-hidden"
+        style={{ maxHeight: 320 }}
       >
         <DataGrid result={queryResult} readOnly environment="development" />
       </div>

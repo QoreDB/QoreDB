@@ -250,6 +250,7 @@
     "toggleTheme": "Basculer le thème",
     "closeTab": "Fermer l'onglet",
     "newNotebook": "Nouveau Notebook",
+    "openNotebook": "Ouvrir un Notebook...",
     "convertToNotebook": "Convertir en Notebook",
     "featuresSection": "Fonctionnalités",
     "tips": {
@@ -358,7 +359,16 @@
     "chartNoData": "Aucune donnée — exécutez d'abord la cellule source.",
     "undo": "Annuler",
     "redo": "Rétablir",
-    "toggleVariables": "Variables"
+    "toggleVariables": "Variables",
+    "editTitle": "Cliquer pour modifier le titre",
+    "cellCountLabel": "{{count}} cellule(s)",
+    "variableDescriptionHint": "Description optionnelle",
+    "doubleClickToEdit": "Double-cliquer pour modifier",
+    "selectNamespace": "Choisir la base",
+    "hideResults": "Masquer les résultats",
+    "showResults": "Afficher les résultats",
+    "editMarkdown": "Modifier",
+    "previewMarkdown": "Aperçu"
   },
   "settings": {
     "title": "Paramètres",
@@ -1360,6 +1370,7 @@
         "label": "Fichier",
         "newConnection": "Nouvelle connexion",
         "newWindow": "Nouvelle fenêtre",
+        "openNotebook": "Ouvrir un Notebook...",
         "settings": "Paramètres",
         "quit": "Quitter"
       },

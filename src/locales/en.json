@@ -250,6 +250,7 @@
     "toggleTheme": "Toggle theme",
     "closeTab": "Close tab",
     "newNotebook": "New Notebook",
+    "openNotebook": "Open Notebook...",
     "convertToNotebook": "Convert to Notebook",
     "featuresSection": "Features",
     "tips": {
@@ -358,7 +359,16 @@
     "chartNoData": "No data — execute the source cell first.",
     "undo": "Undo",
     "redo": "Redo",
-    "toggleVariables": "Variables"
+    "toggleVariables": "Variables",
+    "editTitle": "Click to edit title",
+    "cellCountLabel": "{{count}} cell(s)",
+    "variableDescriptionHint": "Optional description",
+    "doubleClickToEdit": "Double-click to edit",
+    "selectNamespace": "Select database",
+    "hideResults": "Hide results",
+    "showResults": "Show results",
+    "editMarkdown": "Edit",
+    "previewMarkdown": "Preview"
   },
   "settings": {
     "title": "Settings",
@@ -1362,6 +1372,7 @@
         "label": "File",
         "newConnection": "New Connection",
         "newWindow": "New Window",
+        "openNotebook": "Open Notebook...",
         "settings": "Settings",
         "quit": "Quit"
       },

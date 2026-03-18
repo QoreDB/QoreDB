@@ -39,7 +39,10 @@
       "Bash(pnpm add:*)",
       "Bash(npx pnpm:*)",
       "WebFetch(domain:v2.tauri.app)",
-      "WebFetch(domain:docs.rs)"
+      "WebFetch(domain:docs.rs)",
+      "mcp___hypothesi_tauri-mcp-server__webview_screenshot",
+      "mcp___hypothesi_tauri-mcp-server__webview_find_element",
+      "mcp___hypothesi_tauri-mcp-server__driver_session"
     ]
   }
 }

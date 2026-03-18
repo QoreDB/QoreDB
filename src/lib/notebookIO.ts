@@ -53,6 +53,19 @@ export async function openNotebookFromFile(): Promise<{
   return { notebook, path: filePath };
 }
 
+// --- Pending notebook cache (for opening from file menu / palette) ---
+const pendingNotebooks = new Map<string, QoreNotebook>();
+
+export function setPendingNotebook(path: string, notebook: QoreNotebook): void {
+  pendingNotebooks.set(path, notebook);
+}
+
+export function consumePendingNotebook(path: string): QoreNotebook | null {
+  const nb = pendingNotebooks.get(path);
+  if (nb) pendingNotebooks.delete(path);
+  return nb ?? null;
+}
+
 /** Auto-save draft to localStorage */
 export function saveDraft(tabId: string, notebook: QoreNotebook): void {
   try {

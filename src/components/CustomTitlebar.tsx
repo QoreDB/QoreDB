@@ -45,6 +45,7 @@ interface CustomTitlebarProps {
   onOpenSearch?: () => void;
   onNewConnection?: () => void;
   onNewWindow?: () => void;
+  onOpenNotebook?: () => void;
   onOpenSettings?: () => void;
   onOpenLogs?: () => void;
   onOpenHistory?: () => void;
@@ -64,6 +65,7 @@ export const CustomTitlebar = ({
   onOpenSearch,
   onNewConnection,
   onNewWindow,
+  onOpenNotebook,
   onOpenSettings,
   onOpenLogs,
   onOpenHistory,
@@ -153,6 +155,7 @@ export const CustomTitlebar = ({
             onMouseEnter={() => handleMenuHover('file')}
             onNewConnection={onNewConnection}
             onNewWindow={onNewWindow}
+            onOpenNotebook={onOpenNotebook}
             onOpenSettings={onOpenSettings}
             onQuit={close}
           />
@@ -282,6 +285,7 @@ interface TitlebarMenuProps {
 interface MenuFileProps extends TitlebarMenuProps {
   onNewConnection?: () => void;
   onNewWindow?: () => void;
+  onOpenNotebook?: () => void;
   onOpenSettings?: () => void;
   onQuit?: () => void;
 }
@@ -293,6 +297,7 @@ const MenuFile = ({
   onMouseEnter,
   onNewConnection,
   onNewWindow,
+  onOpenNotebook,
   onOpenSettings,
   onQuit,
 }: MenuFileProps) => (
@@ -309,7 +314,7 @@ const MenuFile = ({
     <DropdownMenuContent
       align="start"
       disableExitAnimation
-      className="w-56"
+      className="w-60"
       onCloseAutoFocus={event => event.preventDefault()}
     >
       <DropdownMenuItem onClick={onNewConnection} disabled={!onNewConnection}>
@@ -319,6 +324,10 @@ const MenuFile = ({
       <DropdownMenuItem onClick={onNewWindow} disabled={!onNewWindow}>
         <span>{t('titlebar.menu.file.newWindow')}</span>
         <DropdownMenuShortcut>{getShortcut('N', { shift: true })}</DropdownMenuShortcut>
+      </DropdownMenuItem>
+      <DropdownMenuSeparator />
+      <DropdownMenuItem onClick={onOpenNotebook} disabled={!onOpenNotebook}>
+        <span>{t('titlebar.menu.file.openNotebook')}</span>
       </DropdownMenuItem>
       <DropdownMenuSeparator />
       <DropdownMenuItem onClick={onOpenSettings} disabled={!onOpenSettings}>

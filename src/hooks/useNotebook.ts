@@ -9,7 +9,14 @@ import type { Driver } from '../lib/drivers';
 import { exportToHtml, exportToMarkdown } from '../lib/notebookExport';
 import { importFromMarkdown, importFromSql } from '../lib/notebookImport';
 import { resolveInterCellReferences } from '../lib/notebookInterCellRef';
-import { clearDraft, loadDraft, saveDraft, saveNotebookToFile } from '../lib/notebookIO';
+import {
+  clearDraft,
+  consumePendingNotebook,
+  loadDraft,
+  openNotebookFromFile,
+  saveDraft,
+  saveNotebookToFile,
+} from '../lib/notebookIO';
 import {
   type CellExecutionState,
   type CellResult,
@@ -77,6 +84,7 @@ export interface UseNotebookReturn {
   // File operations
   save: () => Promise<void>;
   saveAs: () => Promise<void>;
+  openFromFile: () => Promise<void>;
   importFromFile: () => Promise<void>;
   exportToFile: (format: 'markdown' | 'html', includeResults?: boolean) => Promise<void>;
   // Metadata
@@ -88,8 +96,12 @@ export function useNotebook(options: UseNotebookOptions): UseNotebookReturn {
   const { t } = useTranslation();
 
   const [notebook, setNotebook] = useState<QoreNotebook>(() => {
-    // Priority: provided notebook > draft > new with initialQuery > empty
+    // Priority: provided notebook > pending (opened from file menu) > draft > new with initialQuery > empty
     if (options.initialNotebook) return options.initialNotebook;
+    if (initialPath) {
+      const pending = consumePendingNotebook(initialPath);
+      if (pending) return pending;
+    }
     const draft = loadDraft(tabId);
     if (draft) return draft;
     if (initialQuery) {
@@ -611,6 +623,24 @@ export function useNotebook(options: UseNotebookOptions): UseNotebookReturn {
     }
   }, [tabId, t]);
 
+  const openFromFile = useCallback(async () => {
+    try {
+      if (isDirty) {
+        const confirmed = window.confirm(t('notebook.unsavedChanges'));
+        if (!confirmed) return;
+      }
+      const result = await openNotebookFromFile();
+      if (!result) return;
+      setNotebook(result.notebook);
+      setPath(result.path);
+      setIsDirty(false);
+      clearDraft(tabId);
+      toast.success(t('notebook.open'));
+    } catch {
+      toast.error(t('notebook.openError'));
+    }
+  }, [isDirty, tabId, t]);
+
   const importFromFile = useCallback(async () => {
     try {
       const filePath = await openDialog({
@@ -713,6 +743,7 @@ export function useNotebook(options: UseNotebookOptions): UseNotebookReturn {
     canRedo: history.canRedo,
     save,
     saveAs,
+    openFromFile,
     importFromFile,
     exportToFile,
     setTitle,

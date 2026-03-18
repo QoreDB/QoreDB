@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { BookOpen, Copy, Loader2, Pencil, Terminal, Trash2, Zap } from 'lucide-react';
+import { BookOpen, Copy, Loader2, Pencil, Star, Terminal, Trash2, Zap } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
@@ -90,6 +90,7 @@ export function ConnectionContextMenu({
           </ContextMenuItem>
           {onToggleFavorite && (
             <ContextMenuItem onSelect={() => onToggleFavorite()}>
+              <Star size={14} className={isFavorite ? 'fill-current text-yellow-500' : ''} />
               {isFavorite ? t('sidebar.removeFromFavorites') : t('sidebar.addToFavorites')}
             </ContextMenuItem>
           )}

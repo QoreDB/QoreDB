@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useNotebook } from '@/hooks/useNotebook';
+import { useSchemaCache } from '@/hooks/useSchemaCache';
 import { useTourManager } from '@/hooks/useTourManager';
 import { Driver } from '@/lib/drivers';
 import type { DriverCapabilities, Environment, Namespace } from '@/lib/tauri';
@@ -45,11 +46,34 @@ export function NotebookTab({
     }
   }, [sessionId]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // --- Namespace selection ---
+  const schemaCache = useSchemaCache(sessionId || '');
+  const [namespaces, setNamespaces] = useState<Namespace[]>([]);
+  const [selectedNamespace, setSelectedNamespace] = useState<Namespace | null>(activeNamespace ?? null);
+
+  useEffect(() => {
+    if (!sessionId) return;
+    schemaCache.getNamespaces().then(ns => {
+      setNamespaces(ns);
+      // Auto-select if nothing selected yet
+      if (!selectedNamespace && ns.length > 0) {
+        const defaultSchema = dialect === Driver.SqlServer ? 'dbo' : 'public';
+        const match = connectionDatabase
+          ? ns.find(n => n.database === connectionDatabase && n.schema === defaultSchema) ??
+            ns.find(n => n.database === connectionDatabase)
+          : ns[0];
+        setSelectedNamespace(match ?? ns[0]);
+      }
+    });
+  }, [sessionId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const effectiveNamespace = selectedNamespace ?? activeNamespace ?? null;
+
   const nb = useNotebook({
     tabId,
     sessionId,
     dialect,
-    namespace: activeNamespace,
+    namespace: effectiveNamespace,
     connectionDatabase,
     environment,
     readOnly,
@@ -182,7 +206,7 @@ export function NotebookTab({
   }, [handleKeyDown]);
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full min-h-0">
       <NotebookToolbar
         title={nb.notebook.metadata.title}
         isDirty={nb.isDirty}
@@ -190,9 +214,14 @@ export function NotebookTab({
         canUndo={nb.canUndo}
         canRedo={nb.canRedo}
         hasVariables={hasVariables}
+        cellCount={nb.notebook.cells.length}
+        namespaces={namespaces}
+        selectedNamespace={effectiveNamespace}
+        onNamespaceChange={setSelectedNamespace}
         onTitleChange={nb.setTitle}
         onSave={nb.save}
         onSaveAs={nb.saveAs}
+        onOpen={nb.openFromFile}
         onAddCell={type => nb.addCell(type, nb.focusedCellId ?? undefined)}
         onExecuteAll={() => nb.executeAll()}
         onClearAll={nb.clearAllResults}
@@ -218,7 +247,7 @@ export function NotebookTab({
         dialect={dialect}
         sessionId={sessionId}
         connectionDatabase={connectionDatabase}
-        namespace={activeNamespace}
+        namespace={effectiveNamespace}
         onReorderCells={nb.reorderCells}
         onFocusCell={nb.setFocusedCell}
         onSourceChange={nb.updateCellSource}

@@ -57,6 +57,7 @@ import {
   useModalStore,
 } from './lib/modalStore';
 import { notify } from './lib/notify';
+import { openNotebookFromFile, setPendingNotebook } from './lib/notebookIO';
 import type { QueryLibraryItem } from './lib/queryLibrary';
 import { getRoutineTemplate } from './lib/routineTemplates';
 import {
@@ -179,6 +180,19 @@ export function AppLayout() {
 
   const handleNewNotebook = useCallback(() => {
     if (sessionId) openTab(createNotebookTab());
+  }, [sessionId, openTab]);
+
+  const handleOpenNotebook = useCallback(async () => {
+    if (!sessionId) return;
+    try {
+      const nbResult = await openNotebookFromFile();
+      if (nbResult) {
+        setPendingNotebook(nbResult.path, nbResult.notebook);
+        openTab(createNotebookTab(nbResult.notebook.metadata.title, nbResult.path));
+      }
+    } catch {
+      /* dialog cancelled or invalid file */
+    }
   }, [sessionId, openTab]);
 
   const handleOpenDiff = useCallback(() => {
@@ -439,6 +453,7 @@ export function AppLayout() {
       ...(sessionId ? [{ id: 'cmd_open_diff', label: t('diff.openDiff') }] : []),
       ...(sessionId ? [{ id: 'cmd_open_federation', label: t('federation.openFederation') }] : []),
       ...(sessionId ? [{ id: 'cmd_new_notebook', label: t('palette.newNotebook') }] : []),
+      ...(sessionId ? [{ id: 'cmd_open_notebook', label: t('palette.openNotebook') }] : []),
       ...(sessionId && activeTab?.type === 'query'
         ? [{ id: 'cmd_convert_to_notebook', label: t('palette.convertToNotebook') }]
         : []),
@@ -494,6 +509,19 @@ export function AppLayout() {
             return;
           case 'cmd_new_notebook':
             if (sessionId) openTab(createNotebookTab());
+            return;
+          case 'cmd_open_notebook':
+            if (sessionId) {
+              try {
+                const nbResult = await openNotebookFromFile();
+                if (nbResult) {
+                  setPendingNotebook(nbResult.path, nbResult.notebook);
+                  openTab(createNotebookTab(nbResult.notebook.metadata.title, nbResult.path));
+                }
+              } catch {
+                /* dialog cancelled or invalid file */
+              }
+            }
             return;
           case 'cmd_convert_to_notebook':
             if (sessionId && activeTab?.type === 'query') {
@@ -601,6 +629,7 @@ export function AppLayout() {
         <CustomTitlebar
           onOpenSearch={() => setSearchOpen(true)}
           onNewConnection={() => setConnectionModalOpen(true)}
+          onOpenNotebook={sessionId ? handleOpenNotebook : undefined}
           onOpenSettings={() => setSettingsOpen(!settingsOpen)}
           settingsOpen={settingsOpen}
           onOpenLogs={() => emitUiEvent(UI_EVENT_OPEN_LOGS)}
@@ -930,7 +959,7 @@ function AppContent({
 
   if (activeTab?.type === 'notebook') {
     return (
-      <div className="flex-1 min-h-0 flex flex-col">
+      <div className="h-full">
         <NotebookTab
           key={activeTab.id}
           tabId={activeTab.id}

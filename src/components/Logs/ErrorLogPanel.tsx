@@ -201,7 +201,7 @@ export function ErrorLogPanel({ isOpen, onClose }: ErrorLogPanelProps) {
 
           <div className="flex-1" />
 
-          <div className="relative">
+          <div className="relative shrink-0">
             <Search
               size={14}
               className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground"
@@ -211,7 +211,7 @@ export function ErrorLogPanel({ isOpen, onClose }: ErrorLogPanelProps) {
               placeholder={t('logs.searchPlaceholder')}
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="h-8 w-48 pl-8"
+              className="h-8 w-40 pl-8"
             />
           </div>
 
@@ -219,7 +219,7 @@ export function ErrorLogPanel({ isOpen, onClose }: ErrorLogPanelProps) {
             variant="ghost"
             size="icon"
             onClick={loadLogs}
-            className="h-8 w-8"
+            className="h-8 w-8 shrink-0"
             title={t('logs.refresh')}
           >
             <RefreshCw size={14} />
@@ -230,7 +230,7 @@ export function ErrorLogPanel({ isOpen, onClose }: ErrorLogPanelProps) {
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-8 text-xs text-muted-foreground hover:text-foreground"
+                className="h-8 text-xs text-muted-foreground hover:text-foreground shrink-0"
                 disabled={exporting}
               >
                 <Download size={14} className="mr-1" />
@@ -252,12 +252,12 @@ export function ErrorLogPanel({ isOpen, onClose }: ErrorLogPanelProps) {
 
           <Button
             variant="ghost"
-            size="sm"
+            size="icon"
             onClick={handleClear}
-            className="h-8 text-xs text-muted-foreground hover:text-error"
+            className="h-8 w-8 shrink-0 text-muted-foreground hover:text-error"
+            title={t('logs.clear')}
           >
-            <Trash2 size={14} className="mr-1" />
-            {t('logs.clear')}
+            <Trash2 size={14} />
           </Button>
         </div>
 

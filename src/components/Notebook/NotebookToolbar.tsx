@@ -2,6 +2,7 @@
 
 import {
   Code,
+  Database,
   Download,
   Eraser,
   FileText,
@@ -31,9 +32,19 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tooltip } from '@/components/ui/tooltip';
 import type { CellType } from '@/lib/notebookTypes';
+import type { Namespace } from '@/lib/tauri';
 import { getShortcut } from '@/utils/platform';
+
+function formatNamespace(ns: Namespace): string {
+  return ns.schema ? `${ns.database}.${ns.schema}` : ns.database;
+}
+
+function getNamespaceKey(ns: Namespace): string {
+  return `${ns.database}:${ns.schema ?? ''}`;
+}
 
 interface NotebookToolbarProps {
   title: string;
@@ -43,6 +54,9 @@ interface NotebookToolbarProps {
   canRedo: boolean;
   hasVariables: boolean;
   cellCount: number;
+  namespaces: Namespace[];
+  selectedNamespace: Namespace | null;
+  onNamespaceChange: (ns: Namespace | null) => void;
   onTitleChange: (title: string) => void;
   onSave: () => void;
   onSaveAs: () => void;
@@ -66,6 +80,9 @@ export function NotebookToolbar({
   canRedo,
   hasVariables,
   cellCount,
+  namespaces,
+  selectedNamespace,
+  onNamespaceChange,
   onTitleChange,
   onSave,
   onSaveAs,
@@ -133,9 +150,31 @@ export function NotebookToolbar({
         </Tooltip>
       )}
 
+      {/* --- Namespace selector --- */}
+      {namespaces.length > 0 && (
+        <Select
+          value={selectedNamespace ? getNamespaceKey(selectedNamespace) : undefined}
+          onValueChange={value => {
+            const selected = namespaces.find(ns => getNamespaceKey(ns) === value);
+            onNamespaceChange(selected ?? null);
+          }}
+        >
+          <SelectTrigger size="sm" className="h-7 max-w-50 text-xs gap-1 border-border/50">
+            <Database size={12} className="shrink-0 text-muted-foreground" />
+            <SelectValue placeholder={t('notebook.selectNamespace')} />
+          </SelectTrigger>
+          <SelectContent>
+            {namespaces.map(ns => (
+              <SelectItem key={getNamespaceKey(ns)} value={getNamespaceKey(ns)}>
+                {formatNamespace(ns)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
+
       <div className="h-5 w-px bg-border/50" />
 
-      {/* --- Title + dirty indicator --- */}
       <div className="flex items-center gap-1.5 flex-1 min-w-0">
         {editingTitle ? (
           <input
@@ -144,14 +183,13 @@ export function NotebookToolbar({
             onChange={e => onTitleChange(e.target.value)}
             onBlur={handleTitleBlur}
             onKeyDown={handleTitleKeyDown}
-            className="text-sm font-medium bg-transparent border-b border-accent focus:outline-none px-1 py-0.5 min-w-[120px] max-w-[300px]"
-            autoFocus
+            className="text-sm font-medium bg-transparent border-b border-accent focus:outline-none px-1 py-0.5 min-w-30 max-w-75"
           />
         ) : (
           <button
             type="button"
             onClick={handleTitleClick}
-            className="text-sm font-medium truncate hover:text-accent transition-colors text-left max-w-[300px]"
+            className="text-sm font-medium truncate hover:text-accent transition-colors text-left max-w-75"
             title={t('notebook.editTitle')}
           >
             {title}
@@ -167,8 +205,6 @@ export function NotebookToolbar({
           {t('notebook.cellCountLabel', { count: cellCount })}
         </span>
       </div>
-
-      {/* --- Right zone --- */}
 
       {/* Undo / Redo */}
       <Tooltip content={`${t('notebook.undo')} (${getShortcut('Z', { symbol: true })})`}>

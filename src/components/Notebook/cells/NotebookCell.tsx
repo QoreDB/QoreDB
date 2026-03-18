@@ -188,9 +188,7 @@ export function NotebookCell({
             'group relative rounded-lg border border-border/50 bg-card transition-all',
             'border-l-[3px]',
             borderStateMap[borderState],
-            isFocused
-              ? 'ring-1 ring-ring/40 border-border shadow-sm'
-              : 'hover:border-border/80'
+            isFocused ? 'ring-1 ring-ring/40 border-border shadow-sm' : 'hover:border-border/80'
           )}
           onClick={onFocus}
         >
@@ -335,9 +333,7 @@ export function NotebookCell({
                 {cell.type === 'markdown' && (
                   <MarkdownCell cell={cell} onSourceChange={onSourceChange} />
                 )}
-                {cell.type === 'chart' && allCells && (
-                  <ChartCell cell={cell} allCells={allCells} />
-                )}
+                {cell.type === 'chart' && allCells && <ChartCell cell={cell} allCells={allCells} />}
               </>
             )}
           </div>

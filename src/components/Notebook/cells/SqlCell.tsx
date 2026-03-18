@@ -67,9 +67,7 @@ export function SqlCell({
             className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors py-0.5"
           >
             {showResults ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-            <span>
-              {showResults ? t('notebook.hideResults') : t('notebook.showResults')}
-            </span>
+            <span>{showResults ? t('notebook.hideResults') : t('notebook.showResults')}</span>
             {rowCount !== undefined && (
               <span className="text-muted-foreground/70">
                 ({t('notebook.rowCount', { count: rowCount })})

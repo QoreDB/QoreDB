@@ -22,6 +22,8 @@ export interface TabContextValue {
   updateTableBrowserTab: (tabId: string, tab: TableBrowserTab) => void;
   updateDatabaseBrowserTab: (tabId: string, tab: DatabaseBrowserTab) => void;
   updateTab: (tabId: string, updates: Partial<OpenTab>) => void;
+  reorderTabs: (newTabs: OpenTab[]) => void;
+  togglePinTab: (tabId: string) => void;
   setBeforeCloseTab: (handler: BeforeCloseTabHandler | null) => void;
   resetTabs: (options?: UseTabsOptions) => void;
 }
@@ -44,6 +46,8 @@ export function TabProvider({ children }: { children: ReactNode }) {
     updateTableBrowserTab,
     updateDatabaseBrowserTab,
     updateTab,
+    reorderTabs,
+    togglePinTab,
     setBeforeCloseTab,
     reset,
   } = useTabs();
@@ -65,6 +69,8 @@ export function TabProvider({ children }: { children: ReactNode }) {
         updateTableBrowserTab,
         updateDatabaseBrowserTab,
         updateTab,
+        reorderTabs,
+        togglePinTab,
         setBeforeCloseTab,
         resetTabs: reset,
       }}

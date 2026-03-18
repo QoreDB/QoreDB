@@ -31,6 +31,7 @@ export interface OpenTab {
   id: string;
   type: TabType;
   title: string;
+  pinned?: boolean;
   initialQuery?: string;
   // Table-specific
   namespace?: Namespace;

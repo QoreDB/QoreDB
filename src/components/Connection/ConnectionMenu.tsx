@@ -1,6 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { BookOpen, Copy, Loader2, MoreVertical, Pencil, Star, Terminal, Trash2, Zap } from 'lucide-react';
+import {
+  BookOpen,
+  Copy,
+  Loader2,
+  MoreVertical,
+  Pencil,
+  Star,
+  Terminal,
+  Trash2,
+  Zap,
+} from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
@@ -93,7 +103,7 @@ export function ConnectionMenu({
               <>
                 {onNewQuery && (
                   <button
-                  type="button"
+                    type="button"
                     className="w-full flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-muted transition-colors text-left"
                     onClick={() => {
                       onNewQuery();
@@ -106,8 +116,7 @@ export function ConnectionMenu({
                 )}
                 {onNewNotebook && (
                   <button
-                  type="button"
-
+                    type="button"
                     className="w-full flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-muted transition-colors text-left"
                     onClick={() => {
                       onNewNotebook();
@@ -122,8 +131,7 @@ export function ConnectionMenu({
               </>
             )}
             <button
-                  type="button"
-
+              type="button"
               className="w-full flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-muted transition-colors text-left"
               onClick={handleTest}
               disabled={testing}
@@ -142,8 +150,7 @@ export function ConnectionMenu({
             </button>
 
             <button
-                  type="button"
-
+              type="button"
               className="w-full flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-muted transition-colors text-left"
               onClick={handleDuplicate}
               disabled={duplicating}
@@ -169,8 +176,7 @@ export function ConnectionMenu({
             <div className="h-px bg-border my-1" />
 
             <button
-                  type="button"
-
+              type="button"
               className="w-full flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-error/10 text-error transition-colors text-left"
               onClick={onSelectDelete}
               disabled={deleting}

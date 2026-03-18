@@ -31,7 +31,10 @@ import {
 } from '@/lib/tauri';
 import { UI_EVENT_CONNECTIONS_CHANGED } from '@/lib/uiEvents';
 import { setUpdateAvailable } from '@/lib/updateStore';
-import { handleCloseConnectionModal as closeConnectionModal, setSettingsOpen } from '@/lib/modalStore';
+import {
+  handleCloseConnectionModal as closeConnectionModal,
+  setSettingsOpen,
+} from '@/lib/modalStore';
 import { useTabContext } from './TabProvider';
 
 const DEFAULT_PROJECT = 'default';

@@ -32,7 +32,13 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Tooltip } from '@/components/ui/tooltip';
 import type { CellType } from '@/lib/notebookTypes';
 import type { Namespace } from '@/lib/tauri';
@@ -132,7 +138,9 @@ export function NotebookToolbar({
           </Button>
         </Tooltip>
       ) : (
-        <Tooltip content={`${t('notebook.executeAll')} (${getShortcut('A', { symbol: true, shift: true })})`}>
+        <Tooltip
+          content={`${t('notebook.executeAll')} (${getShortcut('A', { symbol: true, shift: true })})`}
+        >
           <Button
             data-tour="notebook-run-all"
             variant="default"
@@ -140,11 +148,7 @@ export function NotebookToolbar({
             className="h-7 gap-1.5 text-xs"
             onClick={onExecuteAll}
           >
-            {isExecuting ? (
-              <Loader2 size={13} className="animate-spin" />
-            ) : (
-              <Play size={13} />
-            )}
+            {isExecuting ? <Loader2 size={13} className="animate-spin" /> : <Play size={13} />}
             <span>{t('notebook.executeAll')}</span>
           </Button>
         </Tooltip>
@@ -218,7 +222,9 @@ export function NotebookToolbar({
           <Undo2 size={14} />
         </Button>
       </Tooltip>
-      <Tooltip content={`${t('notebook.redo')} (${getShortcut('Z', { symbol: true, shift: true })})`}>
+      <Tooltip
+        content={`${t('notebook.redo')} (${getShortcut('Z', { symbol: true, shift: true })})`}
+      >
         <Button
           variant="ghost"
           size="icon"
@@ -284,12 +290,7 @@ export function NotebookToolbar({
 
       {/* Open */}
       <Tooltip content={t('notebook.open')}>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7"
-          onClick={onOpen}
-        >
+        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onOpen}>
           <FolderOpen size={14} />
         </Button>
       </Tooltip>

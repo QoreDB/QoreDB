@@ -19,11 +19,14 @@ export function MarkdownCell({ cell, onSourceChange }: MarkdownCellProps) {
   const [editing, setEditing] = useState(!cell.source.trim());
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === 'Escape' && cell.source.trim()) {
-      setEditing(false);
-    }
-  }, [cell.source]);
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'Escape' && cell.source.trim()) {
+        setEditing(false);
+      }
+    },
+    [cell.source]
+  );
 
   const switchToEdit = useCallback(() => {
     setEditing(true);
@@ -87,12 +90,7 @@ export function MarkdownCell({ cell, onSourceChange }: MarkdownCellProps) {
       </div>
       <div className="absolute top-1.5 right-1.5 opacity-0 group-hover/md:opacity-100 transition-opacity">
         <Tooltip content={t('notebook.editMarkdown')} side="left">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-6 w-6 bg-card/80"
-            onClick={switchToEdit}
-          >
+          <Button variant="ghost" size="icon" className="h-6 w-6 bg-card/80" onClick={switchToEdit}>
             <Pencil size={12} />
           </Button>
         </Tooltip>

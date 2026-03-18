@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { useRef } from 'react';
 import { Check } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { cn } from '@/lib/utils';
 import type { QueryResult } from '../../lib/tauri';
 
@@ -42,6 +44,14 @@ export function ResultsTable({ result, height = 400 }: ResultsTableProps) {
 
   const { columns, rows } = result;
 
+  const parentRef = useRef<HTMLDivElement>(null);
+  const rowVirtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 32,
+    overscan: 10,
+  });
+
   return (
     <div
       className="flex flex-col h-full border border-border rounded-md overflow-hidden bg-background"
@@ -60,29 +70,46 @@ export function ResultsTable({ result, height = 400 }: ResultsTableProps) {
         ))}
       </div>
 
-      {/* Rows (Simple overflow, no virtualization for stability) */}
-      <div className="flex-1 overflow-auto bg-background">
-        {rows.map((row, rowIndex) => (
-          <div
-            key={rowIndex}
-            className="flex items-center border-b border-border hover:bg-muted/30 transition-colors text-sm font-mono h-[32px]"
-          >
-            {row.values.map((value: unknown, colIndex: number) => (
+      {/* Rows (Virtualized) */}
+      <div ref={parentRef} className="flex-1 overflow-auto bg-background">
+        <div
+          style={{
+            height: `${rowVirtualizer.getTotalSize()}px`,
+            position: 'relative',
+          }}
+        >
+          {rowVirtualizer.getVirtualItems().map(virtualRow => {
+            const row = rows[virtualRow.index];
+            return (
               <div
-                key={colIndex}
-                className={cn(
-                  'flex-1 px-3 py-1 truncate border-r border-border last:border-r-0 h-full flex items-center',
-                  value === null && 'text-muted-foreground italic',
-                  typeof value === 'number' && 'text-right justify-end',
-                  typeof value === 'boolean' && 'text-center justify-center text-accent'
-                )}
-                title={String(value)}
+                key={virtualRow.index}
+                className="flex items-center border-b border-border hover:bg-muted/30 transition-colors text-sm font-mono h-[32px]"
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  transform: `translateY(${virtualRow.start}px)`,
+                }}
               >
-                {formatValue(value)}
+                {row.values.map((value: unknown, colIndex: number) => (
+                  <div
+                    key={colIndex}
+                    className={cn(
+                      'flex-1 px-3 py-1 truncate border-r border-border last:border-r-0 h-full flex items-center',
+                      value === null && 'text-muted-foreground italic',
+                      typeof value === 'number' && 'text-right justify-end',
+                      typeof value === 'boolean' && 'text-center justify-center text-accent'
+                    )}
+                    title={String(value)}
+                  >
+                    {formatValue(value)}
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        ))}
+            );
+          })}
+        </div>
       </div>
 
       {/* Footer */}

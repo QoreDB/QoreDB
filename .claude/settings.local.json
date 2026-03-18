@@ -42,7 +42,9 @@
       "WebFetch(domain:docs.rs)",
       "mcp___hypothesi_tauri-mcp-server__webview_screenshot",
       "mcp___hypothesi_tauri-mcp-server__webview_find_element",
-      "mcp___hypothesi_tauri-mcp-server__driver_session"
+      "mcp___hypothesi_tauri-mcp-server__driver_session",
+      "Bash(pnpm exec:*)",
+      "Bash(pnpm format:write)"
     ]
   }
 }

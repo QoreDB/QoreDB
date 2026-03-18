@@ -44,6 +44,7 @@ impl ExportPipeline {
         if config.output_path.trim().is_empty() {
             return Err("Output path is required for export".to_string());
         }
+        validate_output_path(&config.output_path)?;
 
         if matches!(config.format, ExportFormat::SqlInsert)
             && config
@@ -358,4 +359,50 @@ fn build_progress(
 
 fn emit_progress(window: &tauri::Window, progress: ExportProgress) {
     let _ = window.emit(&format!("export_progress:{}", progress.export_id), progress);
+}
+
+/// Validate that an export output path is safe (absolute, no traversal, parent exists).
+fn validate_output_path(path: &str) -> Result<(), String> {
+    let path = std::path::Path::new(path);
+
+    if !path.is_absolute() {
+        return Err("Export output path must be absolute".to_string());
+    }
+
+    for component in path.components() {
+        if matches!(component, std::path::Component::ParentDir) {
+            return Err("Export output path must not contain '..' components".to_string());
+        }
+    }
+
+    if let Some(parent) = path.parent() {
+        if !parent.exists() {
+            return Err(format!(
+                "Parent directory does not exist: {}",
+                parent.display()
+            ));
+        }
+    }
+
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn rejects_relative_export_path() {
+        assert!(validate_output_path("data/output.csv").is_err());
+    }
+
+    #[test]
+    fn rejects_path_with_parent_traversal() {
+        assert!(validate_output_path("/home/user/../../../etc/passwd").is_err());
+    }
+
+    #[test]
+    fn accepts_valid_absolute_path() {
+        assert!(validate_output_path("/tmp/export.csv").is_ok());
+    }
 }

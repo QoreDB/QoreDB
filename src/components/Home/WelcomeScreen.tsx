@@ -9,7 +9,7 @@ interface RecoveryState {
   snapshot: { connectionId: string } | null;
   connectionName: string | null;
   isMissing: boolean;
-  isLoading: boolean; 
+  isLoading: boolean;
   error: string | null;
 }
 

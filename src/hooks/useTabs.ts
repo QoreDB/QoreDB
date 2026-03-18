@@ -161,6 +161,20 @@ export function useTabs(options: UseTabsOptions = {}) {
     );
   }, []);
 
+  const reorderTabs = useCallback((newTabs: OpenTab[]) => {
+    setTabs(newTabs);
+  }, []);
+
+  const togglePinTab = useCallback((tabId: string) => {
+    setTabs(prev => {
+      const updated = prev.map(t => (t.id === tabId ? { ...t, pinned: !t.pinned } : t));
+      // Sort: pinned tabs first, preserving relative order within each group
+      const pinned = updated.filter(t => t.pinned);
+      const unpinned = updated.filter(t => !t.pinned);
+      return [...pinned, ...unpinned];
+    });
+  }, []);
+
   const reset = useCallback((options: UseTabsOptions = {}) => {
     setTabs(options.initialTabs ?? []);
     setActiveTabId(options.initialActiveTabId ?? options.initialTabs?.[0]?.id ?? null);
@@ -184,6 +198,8 @@ export function useTabs(options: UseTabsOptions = {}) {
     updateTableBrowserTab,
     updateDatabaseBrowserTab,
     updateTab,
+    reorderTabs,
+    togglePinTab,
     setBeforeCloseTab,
     reset,
   };

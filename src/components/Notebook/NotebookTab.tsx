@@ -49,7 +49,9 @@ export function NotebookTab({
   // --- Namespace selection ---
   const schemaCache = useSchemaCache(sessionId || '');
   const [namespaces, setNamespaces] = useState<Namespace[]>([]);
-  const [selectedNamespace, setSelectedNamespace] = useState<Namespace | null>(activeNamespace ?? null);
+  const [selectedNamespace, setSelectedNamespace] = useState<Namespace | null>(
+    activeNamespace ?? null
+  );
 
   useEffect(() => {
     if (!sessionId) return;
@@ -59,8 +61,8 @@ export function NotebookTab({
       if (!selectedNamespace && ns.length > 0) {
         const defaultSchema = dialect === Driver.SqlServer ? 'dbo' : 'public';
         const match = connectionDatabase
-          ? ns.find(n => n.database === connectionDatabase && n.schema === defaultSchema) ??
-            ns.find(n => n.database === connectionDatabase)
+          ? (ns.find(n => n.database === connectionDatabase && n.schema === defaultSchema) ??
+            ns.find(n => n.database === connectionDatabase))
           : ns[0];
         setSelectedNamespace(match ?? ns[0]);
       }

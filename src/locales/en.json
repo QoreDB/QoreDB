@@ -178,7 +178,9 @@
     "new": "New tab",
     "newQuery": "New Query ({{modifier}}+T)",
     "newNotebook": "New Notebook",
-    "close": "Close tab"
+    "close": "Close tab",
+    "pin": "Pin tab",
+    "unpin": "Unpin tab"
   },
   "browser": {
     "searchPlaceholder": "Search {{label}}...",

@@ -17,8 +17,26 @@ impl SnapshotStore {
         Self { data_dir }
     }
 
-    fn file_path(&self, snapshot_id: &str) -> PathBuf {
-        self.data_dir.join(format!("{}.json", snapshot_id))
+    /// Validate that a snapshot ID is a legitimate UUID (prevents path traversal).
+    fn validate_snapshot_id(snapshot_id: &str) -> Result<(), String> {
+        uuid::Uuid::parse_str(snapshot_id)
+            .map_err(|_| "Invalid snapshot ID".to_string())?;
+        Ok(())
+    }
+
+    fn file_path(&self, snapshot_id: &str) -> Result<PathBuf, String> {
+        Self::validate_snapshot_id(snapshot_id)?;
+        let path = self.data_dir.join(format!("{}.json", snapshot_id));
+        // Belt-and-suspenders: verify resolved path stays within data_dir
+        let canonical = path.canonicalize().unwrap_or_else(|_| path.clone());
+        let canonical_dir = self
+            .data_dir
+            .canonicalize()
+            .unwrap_or_else(|_| self.data_dir.clone());
+        if !canonical.starts_with(&canonical_dir) {
+            return Err("Invalid snapshot path".to_string());
+        }
+        Ok(path)
     }
 
     /// Save a new snapshot from a query result
@@ -59,7 +77,7 @@ impl SnapshotStore {
         let content = serde_json::to_string(&snapshot)
             .map_err(|e| format!("Failed to serialize snapshot: {}", e))?;
 
-        let path = self.file_path(&id);
+        let path = self.file_path(&id)?;
         std::fs::write(&path, &content).map_err(|e| format!("Failed to write snapshot: {}", e))?;
 
         let mut meta = meta;
@@ -101,7 +119,7 @@ impl SnapshotStore {
 
     /// Get a full snapshot by ID (including row data)
     pub fn get(&self, snapshot_id: &str) -> Result<Snapshot, String> {
-        let path = self.file_path(snapshot_id);
+        let path = self.file_path(snapshot_id)?;
         if !path.exists() {
             return Err("Snapshot not found".to_string());
         }
@@ -118,7 +136,7 @@ impl SnapshotStore {
 
     /// Delete a snapshot by ID
     pub fn delete(&self, snapshot_id: &str) -> Result<(), String> {
-        let path = self.file_path(snapshot_id);
+        let path = self.file_path(snapshot_id)?;
         if !path.exists() {
             return Err("Snapshot not found".to_string());
         }
@@ -127,7 +145,7 @@ impl SnapshotStore {
 
     /// Rename a snapshot
     pub fn rename(&self, snapshot_id: &str, new_name: String) -> Result<SnapshotMeta, String> {
-        let path = self.file_path(snapshot_id);
+        let path = self.file_path(snapshot_id)?;
         if !path.exists() {
             return Err("Snapshot not found".to_string());
         }
@@ -155,7 +173,7 @@ impl SnapshotStore {
         snapshot_id: &str,
         description: Option<String>,
     ) -> Result<SnapshotMeta, String> {
-        let path = self.file_path(snapshot_id);
+        let path = self.file_path(snapshot_id)?;
         if !path.exists() {
             return Err("Snapshot not found".to_string());
         }
@@ -175,5 +193,38 @@ impl SnapshotStore {
 
         snapshot.meta.file_size = updated.len() as u64;
         Ok(snapshot.meta)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn rejects_path_traversal_snapshot_id() {
+        let store = SnapshotStore::new(PathBuf::from("/tmp/qoredb_test_snapshots"));
+        assert!(store.get("../../../etc/passwd").is_err());
+        assert!(store.delete("../../../etc/passwd").is_err());
+        assert!(
+            store
+                .rename("../../../etc/passwd", "evil".into())
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn rejects_non_uuid_snapshot_id() {
+        let store = SnapshotStore::new(PathBuf::from("/tmp/qoredb_test_snapshots"));
+        assert!(store.get("not-a-uuid").is_err());
+        assert!(store.get("").is_err());
+        assert!(store.get("foo/bar").is_err());
+    }
+
+    #[test]
+    fn accepts_valid_uuid_snapshot_id() {
+        assert!(
+            SnapshotStore::validate_snapshot_id("550e8400-e29b-41d4-a716-446655440000").is_ok()
+        );
+        assert!(SnapshotStore::validate_snapshot_id("not-a-uuid").is_err());
     }
 }

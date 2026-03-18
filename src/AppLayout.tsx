@@ -114,6 +114,8 @@ export function AppLayout() {
     updateTableBrowserTab,
     updateDatabaseBrowserTab,
     updateTab,
+    reorderTabs,
+    togglePinTab,
     setBeforeCloseTab,
   } = useTabContext();
 
@@ -691,11 +693,25 @@ export function AppLayout() {
               <div className="flex items-center gap-2 flex-1 min-w-0">
                 {!settingsOpen && sessionId && (
                   <TabBar
-                    tabs={tabs.map(t => ({ id: t.id, title: t.title, type: t.type }))}
+                    tabs={tabs.map(t => ({
+                      id: t.id,
+                      title: t.title,
+                      type: t.type,
+                      pinned: t.pinned,
+                    }))}
                     activeId={activeTabId || undefined}
                     onSelect={setActiveTabId}
                     onClose={closeTab}
                     onNew={handleNewQuery}
+                    onReorder={reordered =>
+                      reorderTabs(
+                        reordered.flatMap(t => {
+                          const full = tabs.find(f => f.id === t.id);
+                          return full ? [full] : [];
+                        })
+                      )
+                    }
+                    onTogglePin={togglePinTab}
                   />
                 )}
               </div>

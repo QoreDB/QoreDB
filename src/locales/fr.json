@@ -178,7 +178,9 @@
     "new": "Nouvel onglet",
     "newQuery": "Nouvelle requête ({{modifier}}+T)",
     "newNotebook": "Nouveau Notebook",
-    "close": "Fermer l'onglet"
+    "close": "Fermer l'onglet",
+    "pin": "Épingler l'onglet",
+    "unpin": "Désépingler l'onglet"
   },
   "browser": {
     "searchPlaceholder": "Rechercher connexions, tables...",

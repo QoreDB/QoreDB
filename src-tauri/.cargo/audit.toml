@@ -1,0 +1,14 @@
+# cargo-audit configuration
+# See: https://github.com/rustsec/rustsec/tree/main/cargo-audit
+
+[advisories]
+ignore = [
+    # rsa 0.9.10 - Marvin Attack timing sidechannel (no fix available)
+    # Transitive dep via sqlx-mysql. Awaiting upstream fix.
+    "RUSTSEC-2023-0071",
+
+    # atk / atk-sys - GTK3 bindings unmaintained
+    # Transitive deps via tauri (Linux only). No alternative until tauri migrates to GTK4.
+    "RUSTSEC-2024-0413",
+    "RUSTSEC-2024-0416",
+]

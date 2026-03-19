@@ -902,6 +902,9 @@
     "statusBar": "Barre de statut",
     "help": "Aide"
   },
+  "zenMode": {
+    "enabled": "Mode Zen — Appuyez sur Échap pour quitter"
+  },
   "cheatsheet": {
     "title": "Raccourcis clavier",
     "general": "Général",
@@ -916,7 +919,8 @@
     "executeQuery": "Exécuter la requête",
     "openLibrary": "Ouvrir la bibliothèque",
     "fulltextSearch": "Recherche plein texte",
-    "pressToClose": "Appuyez sur ? ou Échap pour fermer"
+    "pressToClose": "Appuyez sur ? ou Échap pour fermer",
+    "exitZenMode": "Quitter le mode Zen"
   },
   "toolbar": {
     "moreActions": "Plus d'actions",

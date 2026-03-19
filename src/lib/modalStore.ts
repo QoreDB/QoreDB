@@ -18,6 +18,7 @@ interface ModalState {
   sidebarVisible: boolean;
   showOnboarding: boolean;
   cheatsheetOpen: boolean;
+  zenMode: boolean;
   editConnection: SavedConnection | null;
   editPassword: string;
 }
@@ -32,6 +33,7 @@ let state: ModalState = {
   sidebarVisible: true,
   showOnboarding: false,
   cheatsheetOpen: false,
+  zenMode: false,
   editConnection: null,
   editPassword: '',
 };
@@ -113,6 +115,14 @@ export function setCheatsheetOpen(open: boolean) {
 
 export function toggleCheatsheet() {
   updateState(currentState => ({ cheatsheetOpen: !currentState.cheatsheetOpen }));
+}
+
+export function setZenMode(mode: boolean) {
+  updateState({ zenMode: mode });
+}
+
+export function toggleZenMode() {
+  updateState(currentState => ({ zenMode: !currentState.zenMode }));
 }
 
 // ============================================

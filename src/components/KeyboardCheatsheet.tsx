@@ -35,6 +35,7 @@ export function KeyboardCheatsheet({ open, onClose }: KeyboardCheatsheetProps) {
         { keys: `${mod}+K`, label: t('cheatsheet.search') },
         { keys: `${mod}+,`, label: t('cheatsheet.settings') },
         { keys: '?', label: t('cheatsheet.thisDialog') },
+        { keys: 'Esc', label: t('cheatsheet.exitZenMode') },
       ],
     },
     {

@@ -904,6 +904,9 @@
     "statusBar": "Status bar",
     "help": "Help"
   },
+  "zenMode": {
+    "enabled": "Zen Mode — Press Esc to exit"
+  },
   "cheatsheet": {
     "title": "Keyboard Shortcuts",
     "general": "General",
@@ -918,7 +921,8 @@
     "executeQuery": "Execute query",
     "openLibrary": "Open library",
     "fulltextSearch": "Full-text search",
-    "pressToClose": "Press ? or Esc to close"
+    "pressToClose": "Press ? or Esc to close",
+    "exitZenMode": "Exit Zen Mode"
   },
   "toolbar": {
     "moreActions": "More actions",

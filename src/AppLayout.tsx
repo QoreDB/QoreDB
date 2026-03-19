@@ -55,6 +55,7 @@ import {
   setSearchOpen,
   setSettingsOpen,
   toggleSidebar,
+  toggleZenMode,
   useModalStore,
 } from './lib/modalStore';
 import { notify } from './lib/notify';
@@ -139,6 +140,14 @@ export function AppLayout() {
 
   const settingsOpen = useModalStore(s => s.settingsOpen);
   const sidebarVisible = useModalStore(s => s.sidebarVisible);
+  const zenMode = useModalStore(s => s.zenMode);
+
+  // --- Zen mode toast ---
+  useEffect(() => {
+    if (zenMode) {
+      notify.info(t('zenMode.enabled'), { duration: 2500 });
+    }
+  }, [zenMode, t]);
 
   // --- Notebook unsaved changes guard ---
   useEffect(() => {
@@ -629,22 +638,25 @@ export function AppLayout() {
     <>
       <div className="flex flex-col h-screen w-screen overflow-hidden bg-background text-foreground font-sans">
         <SkipLink />
-        <CustomTitlebar
-          onOpenSearch={() => setSearchOpen(true)}
-          onNewConnection={() => setConnectionModalOpen(true)}
-          onOpenNotebook={sessionId ? handleOpenNotebook : undefined}
-          onOpenSettings={() => setSettingsOpen(!settingsOpen)}
-          settingsOpen={settingsOpen}
-          onOpenLogs={() => emitUiEvent(UI_EVENT_OPEN_LOGS)}
-          onOpenHistory={sessionId ? handleOpenHistory : undefined}
-          onToggleSidebar={toggleSidebar}
-          onRefreshData={canRefreshData ? () => emitUiEvent(UI_EVENT_REFRESH_TABLE) : undefined}
-          onExportData={
-            canExportData ? () => emitUiEvent(UI_EVENT_EXPORT_DATA, { format: 'csv' }) : undefined
-          }
-          onToggleSandbox={sessionId ? handleToggleSandbox : undefined}
-          readOnly={activeConnection?.read_only || false}
-        />
+        {!zenMode && (
+          <CustomTitlebar
+            onOpenSearch={() => setSearchOpen(true)}
+            onNewConnection={() => setConnectionModalOpen(true)}
+            onOpenNotebook={sessionId ? handleOpenNotebook : undefined}
+            onOpenSettings={() => setSettingsOpen(!settingsOpen)}
+            settingsOpen={settingsOpen}
+            onOpenLogs={() => emitUiEvent(UI_EVENT_OPEN_LOGS)}
+            onOpenHistory={sessionId ? handleOpenHistory : undefined}
+            onToggleSidebar={toggleSidebar}
+            onRefreshData={canRefreshData ? () => emitUiEvent(UI_EVENT_REFRESH_TABLE) : undefined}
+            onExportData={
+              canExportData ? () => emitUiEvent(UI_EVENT_EXPORT_DATA, { format: 'csv' }) : undefined
+            }
+            onToggleSandbox={sessionId ? handleToggleSandbox : undefined}
+            onToggleZenMode={toggleZenMode}
+            readOnly={activeConnection?.read_only || false}
+          />
+        )}
 
         <div className="flex flex-1 overflow-hidden relative">
           {settingsOpen && (
@@ -653,7 +665,7 @@ export function AppLayout() {
             </div>
           )}
 
-          {sidebarVisible && (
+          {!zenMode && sidebarVisible && (
             <aside aria-label={t('a11y.sidebar')}>
               <Sidebar
                 onNewConnection={() => setConnectionModalOpen(true)}
@@ -690,38 +702,40 @@ export function AppLayout() {
             id="main-content"
             className="flex-1 flex flex-col min-w-0 min-h-0 bg-background relative"
           >
-            <header className="flex items-center h-10 z-30 px-2 gap-2">
-              <div className="flex items-center gap-2 flex-1 min-w-0">
-                {!settingsOpen && sessionId && (
-                  <TabBar
-                    tabs={tabs.map(t => ({
-                      id: t.id,
-                      title: t.title,
-                      type: t.type,
-                      pinned: t.pinned,
-                    }))}
-                    activeId={activeTabId || undefined}
-                    onSelect={setActiveTabId}
-                    onClose={closeTab}
-                    onNew={handleNewQuery}
-                    onReorder={reordered =>
-                      reorderTabs(
-                        reordered.flatMap(t => {
-                          const full = tabs.find(f => f.id === t.id);
-                          return full ? [full] : [];
-                        })
-                      )
-                    }
-                    onTogglePin={togglePinTab}
-                  />
-                )}
-              </div>
-            </header>
+            {!zenMode && (
+              <header className="flex items-center h-10 z-30 px-2 gap-2">
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  {!settingsOpen && sessionId && (
+                    <TabBar
+                      tabs={tabs.map(t => ({
+                        id: t.id,
+                        title: t.title,
+                        type: t.type,
+                        pinned: t.pinned,
+                      }))}
+                      activeId={activeTabId || undefined}
+                      onSelect={setActiveTabId}
+                      onClose={closeTab}
+                      onNew={handleNewQuery}
+                      onReorder={reordered =>
+                        reorderTabs(
+                          reordered.flatMap(t => {
+                            const full = tabs.find(f => f.id === t.id);
+                            return full ? [full] : [];
+                          })
+                        )
+                      }
+                      onTogglePin={togglePinTab}
+                    />
+                  )}
+                </div>
+              </header>
+            )}
 
             <SandboxBorder
               sessionId={sessionId}
               environment={activeConnection?.environment || 'development'}
-              className="flex-1 min-h-0 overflow-hidden p-4"
+              className={`flex-1 min-h-0 overflow-hidden ${zenMode ? '' : 'p-4'}`}
             >
               <ErrorBoundary fallbackLabel={t('errorBoundary.panelCrashed')}>
                 <AppContent
@@ -763,11 +777,13 @@ export function AppLayout() {
               </ErrorBoundary>
             </SandboxBorder>
 
-            <StatusBar
-              sessionId={sessionId}
-              connection={activeConnection}
-              connectionHealth={connectionHealth}
-            />
+            {!zenMode && (
+              <StatusBar
+                sessionId={sessionId}
+                connection={activeConnection}
+                connectionHealth={connectionHealth}
+              />
+            )}
           </main>
         </div>
       </div>

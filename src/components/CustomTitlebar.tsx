@@ -56,6 +56,7 @@ interface CustomTitlebarProps {
   onExportData?: () => void;
   onToggleSandbox?: () => void;
   onOpenSchemaGenerator?: () => void;
+  onToggleZenMode?: () => void;
 
   onToggleReadOnly?: (next: boolean) => void;
   readOnly?: boolean;
@@ -76,6 +77,7 @@ export const CustomTitlebar = ({
   onExportData,
   onToggleSandbox,
   onOpenSchemaGenerator,
+  onToggleZenMode,
 
   // onToggleReadOnly,
   // readOnly = false,
@@ -167,6 +169,7 @@ export const CustomTitlebar = ({
             onMouseEnter={() => handleMenuHover('view')}
             onToggleSidebar={onToggleSidebar}
             onOpenLogs={onOpenLogs}
+            onToggleZenMode={onToggleZenMode}
             onShowKeyboardShortcuts={toggleCheatsheet}
           />
           <MenuData

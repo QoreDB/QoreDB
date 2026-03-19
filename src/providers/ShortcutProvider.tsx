@@ -10,6 +10,7 @@ import {
   setLibraryModalOpen,
   setSearchOpen,
   setSettingsOpen,
+  setZenMode,
   toggleCheatsheet,
   useModalStore,
 } from '@/lib/modalStore';
@@ -92,8 +93,12 @@ export function ShortcutProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    // Escape: Close active tab or trigger escape handler
+    // Escape: Exit zen mode first, then close active tab or settings
     if (e.key === 'Escape') {
+      if (modal.zenMode) {
+        setZenMode(false);
+        return;
+      }
       if (activeTabId) closeTab(activeTabId);
       else if (modal.settingsOpen) setSettingsOpen(false);
       return;

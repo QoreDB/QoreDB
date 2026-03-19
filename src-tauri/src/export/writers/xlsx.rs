@@ -36,7 +36,9 @@ impl XlsxWriter {
     ) -> Result<(), String> {
         match value {
             Value::Null => {
-                worksheet.write_string(row, col, "").map_err(|e| e.to_string())?;
+                worksheet
+                    .write_string(row, col, "")
+                    .map_err(|e| e.to_string())?;
             }
             Value::Bool(b) => {
                 worksheet

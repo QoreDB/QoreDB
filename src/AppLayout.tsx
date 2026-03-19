@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Toaster } from 'sonner';
 import {
@@ -18,41 +18,55 @@ import {
   UI_EVENT_REFRESH_TABLE,
 } from '@/lib/uiEvents';
 import { getShortcut } from '@/utils/platform';
+import { AppOverlays } from './components/AppOverlays';
 import { DatabaseBrowser, type DatabaseBrowserTab } from './components/Browser/DatabaseBrowser';
 import { TableBrowser, type TableBrowserTab } from './components/Browser/TableBrowser';
-import { ConnectionModal } from './components/Connection/ConnectionModal';
 import { CustomTitlebar } from './components/CustomTitlebar';
 import { ConnectionDashboard } from './components/Dashboard/ConnectionDashboard';
 import { DataDiffViewer } from './components/Diff/DataDiffViewer';
 import { FederationViewer } from './components/Federation/FederationViewer';
-import { SnapshotManager } from './components/Snapshot/SnapshotManager';
 import { WelcomeScreen } from './components/Home/WelcomeScreen';
 import { LicenseGate } from './components/License/LicenseGate';
+import { NotebookTab } from './components/Notebook';
 import { AnalyticsService } from './components/Onboarding/AnalyticsService';
-import { OnboardingModal } from './components/Onboarding/OnboardingModal';
-import { QueryLibraryModal } from './components/Query/QueryLibraryModal';
 import { QueryPanel } from './components/Query/QueryPanel';
 import { SandboxBorder } from './components/Sandbox';
-import { FulltextSearchPanel } from './components/Search/FulltextSearchPanel';
-import { GlobalSearch, type SearchResult } from './components/Search/GlobalSearch';
+import type { SearchResult } from './components/Search/GlobalSearch';
 import { SettingsPage } from './components/Settings/SettingsPage';
 import { Sidebar } from './components/Sidebar/Sidebar';
+import { SnapshotManager } from './components/Snapshot/SnapshotManager';
 import { StatusBar } from './components/Status/StatusBar';
 import { TabBar } from './components/Tabs/TabBar';
+import { FeatureTour } from './components/Tour/FeatureTour';
+import { ErrorBoundary } from './components/ui/error-boundary';
+import { SkipLink } from './components/ui/skip-link';
 import type { useRecovery } from './hooks/useRecovery';
 import { useResizableSidebar } from './hooks/useResizableSidebar';
 import { useTheme } from './hooks/useTheme';
+import { useTourManager } from './hooks/useTourManager';
 import { useWebviewGuards } from './hooks/useWebviewGuards';
 import { Driver } from './lib/drivers';
 import type { HistoryEntry } from './lib/history';
+import {
+  handleEditConnection,
+  setConnectionModalOpen,
+  setFulltextSearchOpen,
+  setLibraryModalOpen,
+  setSearchOpen,
+  setSettingsOpen,
+  toggleSidebar,
+  toggleZenMode,
+  useModalStore,
+} from './lib/modalStore';
 import { notify } from './lib/notify';
+import { openNotebookFromFile, setPendingNotebook } from './lib/notebookIO';
 import type { QueryLibraryItem } from './lib/queryLibrary';
 import { getRoutineTemplate } from './lib/routineTemplates';
-import { getTriggerTemplate, getEventTemplate } from './lib/triggerTemplates';
 import {
   createDatabaseTab,
   createDiffTab,
   createFederationTab,
+  createNotebookTab,
   createQueryTab,
   createSnapshotsTab,
   createTableTab,
@@ -61,8 +75,8 @@ import {
 import {
   type Collection,
   connectSavedConnection,
-  type DriverCapabilities,
   type DatabaseEvent,
+  type DriverCapabilities,
   getEventDefinition,
   getRoutineDefinition,
   getTriggerDefinition,
@@ -74,7 +88,7 @@ import {
   type SearchFilter,
   type Trigger,
 } from './lib/tauri';
-import { useModalContext } from './providers/ModalProvider';
+import { getEventTemplate, getTriggerTemplate } from './lib/triggerTemplates';
 import { useSessionContext } from './providers/SessionProvider';
 import { useTabContext } from './providers/TabProvider';
 
@@ -85,6 +99,7 @@ export function AppLayout() {
   const { resolvedTheme, toggleTheme } = useTheme();
   useWebviewGuards();
   const { width: sidebarWidth, handleMouseDown: handleSidebarResizeStart } = useResizableSidebar();
+  const tourManager = useTourManager();
 
   const {
     tabs,
@@ -100,6 +115,10 @@ export function AppLayout() {
     updateTabNamespace,
     updateTableBrowserTab,
     updateDatabaseBrowserTab,
+    updateTab,
+    reorderTabs,
+    togglePinTab,
+    setBeforeCloseTab,
   } = useTabContext();
 
   const {
@@ -119,26 +138,27 @@ export function AppLayout() {
     scheduleRecoverySave,
   } = useSessionContext();
 
-  const {
-    searchOpen,
-    fulltextSearchOpen,
-    connectionModalOpen,
-    libraryModalOpen,
-    settingsOpen,
-    sidebarVisible,
-    showOnboarding,
-    editConnection,
-    editPassword,
-    setSearchOpen,
-    setFulltextSearchOpen,
-    setConnectionModalOpen,
-    setLibraryModalOpen,
-    setSettingsOpen,
-    setShowOnboarding,
-    handleEditConnection,
-    handleCloseConnectionModal,
-    toggleSidebar,
-  } = useModalContext();
+  const settingsOpen = useModalStore(s => s.settingsOpen);
+  const sidebarVisible = useModalStore(s => s.sidebarVisible);
+  const zenMode = useModalStore(s => s.zenMode);
+
+  // --- Zen mode toast ---
+  useEffect(() => {
+    if (zenMode) {
+      notify.info(t('zenMode.enabled'), { duration: 2500 });
+    }
+  }, [zenMode, t]);
+
+  // --- Notebook unsaved changes guard ---
+  useEffect(() => {
+    setBeforeCloseTab((tabId: string) => {
+      const tab = tabs.find(t => t.id === tabId);
+      if (tab?.type === 'notebook' && tab.notebookDirty) {
+        return window.confirm(t('notebook.unsavedChanges'));
+      }
+      return true;
+    });
+  }, [tabs, setBeforeCloseTab, t]);
 
   // --- Action handlers ---
 
@@ -169,6 +189,23 @@ export function AppLayout() {
   const handleNewQuery = useCallback(() => {
     if (sessionId) openTab(createQueryTab(undefined, activeTab?.namespace));
   }, [sessionId, openTab, activeTab?.namespace]);
+
+  const handleNewNotebook = useCallback(() => {
+    if (sessionId) openTab(createNotebookTab());
+  }, [sessionId, openTab]);
+
+  const handleOpenNotebook = useCallback(async () => {
+    if (!sessionId) return;
+    try {
+      const nbResult = await openNotebookFromFile();
+      if (nbResult) {
+        setPendingNotebook(nbResult.path, nbResult.notebook);
+        openTab(createNotebookTab(nbResult.notebook.metadata.title, nbResult.path));
+      }
+    } catch {
+      /* dialog cancelled or invalid file */
+    }
+  }, [sessionId, openTab]);
 
   const handleOpenDiff = useCallback(() => {
     if (sessionId)
@@ -318,7 +355,7 @@ export function AppLayout() {
       return;
     }
     emitUiEvent(UI_EVENT_OPEN_HISTORY);
-  }, [activeTab?.namespace, activeTab?.type, openTab, sessionId, t, setSettingsOpen]);
+  }, [activeTab?.namespace, activeTab?.type, openTab, sessionId, t]);
 
   const handleToggleSandbox = useCallback(() => {
     if (!sessionId) {
@@ -349,6 +386,60 @@ export function AppLayout() {
 
   // --- Palette ---
 
+  const paletteFeatures = useMemo(
+    () =>
+      sessionId
+        ? [
+            {
+              id: 'feat_notebook',
+              label: t('features.notebooks.name'),
+              sublabel: t('features.notebooks.description'),
+            },
+            {
+              id: 'feat_sandbox',
+              label: t('features.sandbox.name'),
+              sublabel: t('features.sandbox.description'),
+            },
+            {
+              id: 'feat_federation',
+              label: t('features.federation.name'),
+              sublabel: t('features.federation.description'),
+            },
+            {
+              id: 'feat_diff',
+              label: t('features.diff.name'),
+              sublabel: t('features.diff.description'),
+            },
+            {
+              id: 'feat_snapshots',
+              label: t('features.snapshots.name'),
+              sublabel: t('features.snapshots.description'),
+            },
+            {
+              id: 'feat_fulltext',
+              label: t('features.fulltextSearch.name'),
+              sublabel: t('features.fulltextSearch.description'),
+            },
+            {
+              id: 'feat_ai',
+              label: t('features.aiAssistant.name'),
+              sublabel: t('features.aiAssistant.description'),
+            },
+            {
+              id: 'feat_er',
+              label: t('features.erDiagram.name'),
+              sublabel: t('features.erDiagram.description'),
+            },
+            {
+              id: 'feat_virtual_relations',
+              label: t('features.virtualRelations.name'),
+              sublabel: t('features.virtualRelations.description'),
+            },
+          ]
+        : [],
+    [sessionId, t]
+  );
+
   const paletteCommands = useMemo(
     () => [
       {
@@ -373,6 +464,11 @@ export function AppLayout() {
         : []),
       ...(sessionId ? [{ id: 'cmd_open_diff', label: t('diff.openDiff') }] : []),
       ...(sessionId ? [{ id: 'cmd_open_federation', label: t('federation.openFederation') }] : []),
+      ...(sessionId ? [{ id: 'cmd_new_notebook', label: t('palette.newNotebook') }] : []),
+      ...(sessionId ? [{ id: 'cmd_open_notebook', label: t('palette.openNotebook') }] : []),
+      ...(sessionId && activeTab?.type === 'query'
+        ? [{ id: 'cmd_convert_to_notebook', label: t('palette.convertToNotebook') }]
+        : []),
       { id: 'cmd_open_snapshots', label: t('snapshots.openManager') },
       {
         id: 'cmd_open_settings',
@@ -390,7 +486,7 @@ export function AppLayout() {
           ]
         : []),
     ],
-    [activeTabId, sessionId, t]
+    [activeTabId, activeTab?.type, sessionId, t]
   );
 
   const handleSearchSelect = useCallback(
@@ -422,6 +518,28 @@ export function AppLayout() {
             return;
           case 'cmd_open_federation':
             if (sessionId) openTab(createFederationTab());
+            return;
+          case 'cmd_new_notebook':
+            if (sessionId) openTab(createNotebookTab());
+            return;
+          case 'cmd_open_notebook':
+            if (sessionId) {
+              try {
+                const nbResult = await openNotebookFromFile();
+                if (nbResult) {
+                  setPendingNotebook(nbResult.path, nbResult.notebook);
+                  openTab(createNotebookTab(nbResult.notebook.metadata.title, nbResult.path));
+                }
+              } catch {
+                /* dialog cancelled or invalid file */
+              }
+            }
+            return;
+          case 'cmd_convert_to_notebook':
+            if (sessionId && activeTab?.type === 'query') {
+              const draft = queryDrafts[activeTab.id] ?? '';
+              openTab(createNotebookTab(undefined, undefined, draft));
+            }
             return;
           case 'cmd_open_settings':
             setSettingsOpen(true);
@@ -464,6 +582,34 @@ export function AppLayout() {
           openTab(createQueryTab(item.query));
           setSettingsOpen(false);
         }
+      } else if (result.type === 'feature') {
+        switch (result.id) {
+          case 'feat_notebook':
+            if (sessionId) openTab(createNotebookTab());
+            return;
+          case 'feat_sandbox':
+            if (sessionId) handleToggleSandbox();
+            return;
+          case 'feat_federation':
+            if (sessionId) openTab(createFederationTab());
+            return;
+          case 'feat_diff':
+            if (sessionId) handleOpenDiff();
+            return;
+          case 'feat_snapshots':
+            openTab(createSnapshotsTab());
+            return;
+          case 'feat_fulltext':
+            if (sessionId) setFulltextSearchOpen(true);
+            return;
+          case 'feat_ai':
+            setSettingsOpen(true);
+            return;
+          case 'feat_er':
+          case 'feat_virtual_relations':
+            // These features are accessed via table context menu / schema browser
+            return;
+        }
       }
     },
     [
@@ -474,13 +620,12 @@ export function AppLayout() {
       activeTabId,
       closeTab,
       activeTab?.namespace,
+      activeTab?.type,
+      activeTab?.id,
+      queryDrafts,
       handleConnected,
       handleOpenDiff,
-      setSearchOpen,
-      setConnectionModalOpen,
-      setLibraryModalOpen,
-      setFulltextSearchOpen,
-      setSettingsOpen,
+      handleToggleSandbox,
       refreshSidebar,
     ]
   );
@@ -492,21 +637,26 @@ export function AppLayout() {
   return (
     <>
       <div className="flex flex-col h-screen w-screen overflow-hidden bg-background text-foreground font-sans">
-        <CustomTitlebar
-          onOpenSearch={() => setSearchOpen(true)}
-          onNewConnection={() => setConnectionModalOpen(true)}
-          onOpenSettings={() => setSettingsOpen(!settingsOpen)}
-          settingsOpen={settingsOpen}
-          onOpenLogs={() => emitUiEvent(UI_EVENT_OPEN_LOGS)}
-          onOpenHistory={sessionId ? handleOpenHistory : undefined}
-          onToggleSidebar={toggleSidebar}
-          onRefreshData={canRefreshData ? () => emitUiEvent(UI_EVENT_REFRESH_TABLE) : undefined}
-          onExportData={
-            canExportData ? () => emitUiEvent(UI_EVENT_EXPORT_DATA, { format: 'csv' }) : undefined
-          }
-          onToggleSandbox={sessionId ? handleToggleSandbox : undefined}
-          readOnly={activeConnection?.read_only || false}
-        />
+        <SkipLink />
+        {!zenMode && (
+          <CustomTitlebar
+            onOpenSearch={() => setSearchOpen(true)}
+            onNewConnection={() => setConnectionModalOpen(true)}
+            onOpenNotebook={sessionId ? handleOpenNotebook : undefined}
+            onOpenSettings={() => setSettingsOpen(!settingsOpen)}
+            settingsOpen={settingsOpen}
+            onOpenLogs={() => emitUiEvent(UI_EVENT_OPEN_LOGS)}
+            onOpenHistory={sessionId ? handleOpenHistory : undefined}
+            onToggleSidebar={toggleSidebar}
+            onRefreshData={canRefreshData ? () => emitUiEvent(UI_EVENT_REFRESH_TABLE) : undefined}
+            onExportData={
+              canExportData ? () => emitUiEvent(UI_EVENT_EXPORT_DATA, { format: 'csv' }) : undefined
+            }
+            onToggleSandbox={sessionId ? handleToggleSandbox : undefined}
+            onToggleZenMode={toggleZenMode}
+            readOnly={activeConnection?.read_only || false}
+          />
+        )}
 
         <div className="flex flex-1 overflow-hidden relative">
           {settingsOpen && (
@@ -515,8 +665,8 @@ export function AppLayout() {
             </div>
           )}
 
-          {sidebarVisible && (
-            <>
+          {!zenMode && sidebarVisible && (
+            <aside aria-label={t('a11y.sidebar')}>
               <Sidebar
                 onNewConnection={() => setConnectionModalOpen(true)}
                 onConnected={handleConnected}
@@ -534,6 +684,7 @@ export function AppLayout() {
                 onCreateEvent={handleCreateEvent}
                 onEditConnection={handleEditConnection}
                 onNewQuery={handleNewQuery}
+                onNewNotebook={handleNewNotebook}
                 schemaRefreshTrigger={schemaRefreshTrigger}
                 activeNamespace={activeTab?.namespace}
                 style={{ width: sidebarWidth, minWidth: sidebarWidth }}
@@ -544,97 +695,110 @@ export function AppLayout() {
                 onMouseDown={handleSidebarResizeStart}
                 className="w-1 shrink-0 cursor-col-resize bg-transparent hover:bg-accent/50 active:bg-accent transition-colors border-0 p-0 outline-none"
               />
-            </>
+            </aside>
           )}
 
-          <main className="flex-1 flex flex-col min-w-0 min-h-0 bg-background relative">
-            <header className="flex items-center h-10 z-30 px-2 gap-2">
-              <div className="flex items-center gap-2 flex-1 min-w-0">
-                {!settingsOpen && sessionId && (
-                  <TabBar
-                    tabs={tabs.map(t => ({ id: t.id, title: t.title, type: t.type }))}
-                    activeId={activeTabId || undefined}
-                    onSelect={setActiveTabId}
-                    onClose={closeTab}
-                    onNew={handleNewQuery}
-                  />
-                )}
-              </div>
-            </header>
+          <main
+            id="main-content"
+            className="flex-1 flex flex-col min-w-0 min-h-0 bg-background relative"
+          >
+            {!zenMode && (
+              <header className="flex items-center h-10 z-30 px-2 gap-2">
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  {!settingsOpen && sessionId && (
+                    <TabBar
+                      tabs={tabs.map(t => ({
+                        id: t.id,
+                        title: t.title,
+                        type: t.type,
+                        pinned: t.pinned,
+                      }))}
+                      activeId={activeTabId || undefined}
+                      onSelect={setActiveTabId}
+                      onClose={closeTab}
+                      onNew={handleNewQuery}
+                      onReorder={reordered =>
+                        reorderTabs(
+                          reordered.flatMap(t => {
+                            const full = tabs.find(f => f.id === t.id);
+                            return full ? [full] : [];
+                          })
+                        )
+                      }
+                      onTogglePin={togglePinTab}
+                    />
+                  )}
+                </div>
+              </header>
+            )}
 
             <SandboxBorder
               sessionId={sessionId}
               environment={activeConnection?.environment || 'development'}
-              className="flex-1 min-h-0 overflow-hidden p-4"
+              className={`flex-1 min-h-0 overflow-hidden ${zenMode ? '' : 'p-4'}`}
             >
-              <AppContent
-                sessionId={sessionId}
-                driver={driver}
-                driverCapabilities={driverCapabilities}
-                activeConnection={activeConnection}
-                activeTab={activeTab}
-                queryDrafts={queryDrafts}
-                tableBrowserTabs={tableBrowserTabs}
-                databaseBrowserTabs={databaseBrowserTabs}
-                onUpdateTableBrowserTab={updateTableBrowserTab}
-                onUpdateDatabaseBrowserTab={updateDatabaseBrowserTab}
-                hasConnections={hasConnections}
-                recovery={recovery}
-                schemaRefreshTrigger={schemaRefreshTrigger}
-                onTableSelect={handleTableSelect}
-                onDatabaseSelect={handleDatabaseSelect}
-                onNewQuery={handleNewQuery}
-                onOpenLibrary={() => setLibraryModalOpen(true)}
-                onOpenFulltextSearch={() => setFulltextSearchOpen(true)}
-                onRestoreSession={handleRestoreSession}
-                onOpenSearch={() => setSearchOpen(true)}
-                onOpenConnectionModal={() => setConnectionModalOpen(true)}
-                onSchemaChange={triggerSchemaRefresh}
-                onCloseTab={closeTab}
-                onOpenTab={openTab}
-                onUpdateQueryDraft={updateQueryDraft}
-                onUpdateTabNamespace={updateTabNamespace}
-                onScheduleRecoverySave={scheduleRecoverySave}
-                onOpenRoutineSource={handleOpenRoutineSource}
-                onCreateRoutine={handleCreateRoutine}
-                onOpenTriggerSource={handleOpenTriggerSource}
-                onCreateTrigger={handleCreateTrigger}
-                onOpenEventSource={handleOpenEventSource}
-                onCreateEvent={handleCreateEvent}
-              />
+              <ErrorBoundary fallbackLabel={t('errorBoundary.panelCrashed')}>
+                <AppContent
+                  sessionId={sessionId}
+                  driver={driver}
+                  driverCapabilities={driverCapabilities}
+                  activeConnection={activeConnection}
+                  activeTab={activeTab}
+                  queryDrafts={queryDrafts}
+                  tableBrowserTabs={tableBrowserTabs}
+                  databaseBrowserTabs={databaseBrowserTabs}
+                  onUpdateTableBrowserTab={updateTableBrowserTab}
+                  onUpdateDatabaseBrowserTab={updateDatabaseBrowserTab}
+                  onUpdateTab={updateTab}
+                  hasConnections={hasConnections}
+                  recovery={recovery}
+                  schemaRefreshTrigger={schemaRefreshTrigger}
+                  onTableSelect={handleTableSelect}
+                  onDatabaseSelect={handleDatabaseSelect}
+                  onNewQuery={handleNewQuery}
+                  onOpenLibrary={() => setLibraryModalOpen(true)}
+                  onOpenFulltextSearch={() => setFulltextSearchOpen(true)}
+                  onRestoreSession={handleRestoreSession}
+                  onOpenSearch={() => setSearchOpen(true)}
+                  onOpenConnectionModal={() => setConnectionModalOpen(true)}
+                  onSchemaChange={triggerSchemaRefresh}
+                  onCloseTab={closeTab}
+                  onOpenTab={openTab}
+                  onUpdateQueryDraft={updateQueryDraft}
+                  onUpdateTabNamespace={updateTabNamespace}
+                  onScheduleRecoverySave={scheduleRecoverySave}
+                  onOpenRoutineSource={handleOpenRoutineSource}
+                  onCreateRoutine={handleCreateRoutine}
+                  onOpenTriggerSource={handleOpenTriggerSource}
+                  onCreateTrigger={handleCreateTrigger}
+                  onOpenEventSource={handleOpenEventSource}
+                  onCreateEvent={handleCreateEvent}
+                />
+              </ErrorBoundary>
             </SandboxBorder>
 
-            <StatusBar sessionId={sessionId} connection={activeConnection} connectionHealth={connectionHealth} />
+            {!zenMode && (
+              <StatusBar
+                sessionId={sessionId}
+                connection={activeConnection}
+                connectionHealth={connectionHealth}
+              />
+            )}
           </main>
         </div>
       </div>
 
-      <ConnectionModal
-        isOpen={connectionModalOpen}
-        onClose={handleCloseConnectionModal}
+      <AppOverlays
         onConnected={handleConnected}
-        editConnection={editConnection || undefined}
-        editPassword={editPassword || undefined}
-        onSaved={handleConnectionSaved}
-      />
-      <GlobalSearch
-        isOpen={searchOpen}
-        onClose={() => setSearchOpen(false)}
-        onSelect={handleSearchSelect}
-        commands={paletteCommands}
-      />
-      <QueryLibraryModal
-        isOpen={libraryModalOpen}
-        onClose={() => setLibraryModalOpen(false)}
-        onSelectQuery={q => {
-          if (sessionId) openTab(createQueryTab(q));
+        onConnectionSaved={handleConnectionSaved}
+        onSearchSelect={handleSearchSelect}
+        onSelectLibraryQuery={query => {
+          if (sessionId) openTab(createQueryTab(query));
         }}
-      />
-      <FulltextSearchPanel
-        isOpen={fulltextSearchOpen}
-        onClose={() => setFulltextSearchOpen(false)}
-        sessionId={sessionId}
         onNavigateToTable={(ns, table, filter) => handleTableSelect(ns, table, undefined, filter)}
+        paletteCommands={paletteCommands}
+        paletteFeatures={paletteFeatures}
+        sessionId={sessionId}
       />
       <Toaster
         theme={resolvedTheme}
@@ -643,7 +807,15 @@ export function AppLayout() {
         richColors
         toastOptions={{ duration: 4000 }}
       />
-      {showOnboarding && <OnboardingModal onComplete={() => setShowOnboarding(false)} />}
+      {tourManager.activeTour && tourManager.activeTourSteps && (
+        <FeatureTour
+          steps={tourManager.activeTourSteps}
+          onComplete={() => {
+            if (tourManager.activeTour) tourManager.completeTour(tourManager.activeTour);
+          }}
+          onDismiss={() => tourManager.dismissTour()}
+        />
+      )}
     </>
   );
 }
@@ -677,6 +849,7 @@ interface AppContentProps {
   onUpdateTabNamespace: (tabId: string, namespace: Namespace) => void;
   onUpdateTableBrowserTab: (tabId: string, tab: TableBrowserTab) => void;
   onUpdateDatabaseBrowserTab: (tabId: string, tab: DatabaseBrowserTab) => void;
+  onUpdateTab: (tabId: string, updates: Partial<OpenTab>) => void;
   onScheduleRecoverySave: () => void;
   onOpenRoutineSource: (routine: Routine, namespace: Namespace) => void;
   onCreateRoutine: (routineType: RoutineType, namespace: Namespace) => void;
@@ -713,6 +886,7 @@ function AppContent({
   onUpdateTabNamespace,
   onUpdateTableBrowserTab,
   onUpdateDatabaseBrowserTab,
+  onUpdateTab,
   onScheduleRecoverySave,
   onOpenRoutineSource,
   onCreateRoutine,
@@ -811,10 +985,31 @@ function AppContent({
               snapshotId,
               namespace: meta.namespace,
             };
-            onOpenTab(
-              createDiffTab(source, undefined, `Data Diff: ${meta.name}`)
-            );
+            onOpenTab(createDiffTab(source, undefined, `Data Diff: ${meta.name}`));
           }}
+        />
+      </div>
+    );
+  }
+
+  if (activeTab?.type === 'notebook') {
+    return (
+      <div className="h-full">
+        <NotebookTab
+          key={activeTab.id}
+          tabId={activeTab.id}
+          sessionId={sessionId}
+          dialect={driver}
+          driverCapabilities={driverCapabilities}
+          environment={activeConnection?.environment || 'development'}
+          readOnly={activeConnection?.read_only || false}
+          connectionName={activeConnection?.name}
+          connectionDatabase={activeConnection?.database}
+          activeNamespace={activeTab.namespace}
+          initialPath={activeTab.notebookPath}
+          initialQuery={queryDrafts[activeTab.id] ?? activeTab.initialQuery}
+          onSchemaChange={onSchemaChange}
+          onDirtyChange={dirty => onUpdateTab(activeTab.id, { notebookDirty: dirty })}
         />
       </div>
     );

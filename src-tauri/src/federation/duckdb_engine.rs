@@ -45,15 +45,11 @@ impl DuckDbEngine {
             })
             .collect();
 
-        let sql = format!(
-            "CREATE TEMP TABLE \"{}\" ({})",
-            name,
-            col_defs.join(", ")
-        );
+        let sql = format!("CREATE TEMP TABLE \"{}\" ({})", name, col_defs.join(", "));
 
-        self.conn
-            .execute_batch(&sql)
-            .map_err(|e| EngineError::internal(format!("Failed to create temp table '{name}': {e}")))?;
+        self.conn.execute_batch(&sql).map_err(|e| {
+            EngineError::internal(format!("Failed to create temp table '{name}': {e}"))
+        })?;
 
         Ok(())
     }
@@ -77,7 +73,9 @@ impl DuckDbEngine {
         );
 
         for chunk in rows.chunks(INSERT_BATCH_SIZE) {
-            let tx = self.conn.unchecked_transaction()
+            let tx = self
+                .conn
+                .unchecked_transaction()
                 .map_err(|e| EngineError::internal(format!("DuckDB transaction failed: {e}")))?;
 
             {
@@ -86,16 +84,11 @@ impl DuckDbEngine {
                     .map_err(|e| EngineError::internal(format!("DuckDB prepare failed: {e}")))?;
 
                 for row in chunk {
-                    let duck_values: Vec<DuckValue> = row
-                        .values
-                        .iter()
-                        .map(value_to_duckdb)
-                        .collect();
+                    let duck_values: Vec<DuckValue> =
+                        row.values.iter().map(value_to_duckdb).collect();
 
                     stmt.execute(params_from_iter(duck_values.iter()))
-                        .map_err(|e| {
-                            EngineError::internal(format!("DuckDB insert failed: {e}"))
-                        })?;
+                        .map_err(|e| EngineError::internal(format!("DuckDB insert failed: {e}")))?;
                 }
             }
 
@@ -202,8 +195,8 @@ fn map_type_to_duckdb(data_type: &str) -> &'static str {
         "numeric" | "decimal" | "money" => "DOUBLE",
 
         // String types
-        "text" | "character varying" | "varchar" | "char" | "character" | "bpchar"
-        | "citext" | "name" | "longtext" | "mediumtext" | "tinytext" | "enum" | "set" => "VARCHAR",
+        "text" | "character varying" | "varchar" | "char" | "character" | "bpchar" | "citext"
+        | "name" | "longtext" | "mediumtext" | "tinytext" | "enum" | "set" => "VARCHAR",
 
         // Date/Time
         "timestamp" | "timestamp without time zone" | "datetime" => "TIMESTAMP",
@@ -214,7 +207,9 @@ fn map_type_to_duckdb(data_type: &str) -> &'static str {
         "interval" => "INTERVAL",
 
         // Binary
-        "bytea" | "blob" | "binary" | "varbinary" | "longblob" | "mediumblob" | "tinyblob" => "BLOB",
+        "bytea" | "blob" | "binary" | "varbinary" | "longblob" | "mediumblob" | "tinyblob" => {
+            "BLOB"
+        }
 
         // JSON
         "json" | "jsonb" => "VARCHAR",

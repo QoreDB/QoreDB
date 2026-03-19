@@ -5,19 +5,22 @@
 //! Commands for executing queries and exploring database schema.
 
 use serde::Serialize;
-use tauri::State;
-use uuid::Uuid;
 use std::sync::Arc;
+use tauri::State;
 use tokio::time::{timeout, Duration};
 use tracing::{field, instrument};
+use uuid::Uuid;
 
 use crate::engine::{
-    mongo_safety,
-    redis_safety,
-    sql_safety,
-    TableSchema,
+    mongo_safety, redis_safety, sql_safety,
     traits::StreamEvent,
-    types::{CollectionList, CollectionListOptions, ForeignKey, Namespace, QueryId, QueryResult, SessionId, Value, TableQueryOptions, PaginatedQueryResult, RoutineList, RoutineListOptions, RoutineType, TriggerList, TriggerListOptions, EventList, EventListOptions, CreationOptions},
+    types::{
+        CollectionList, CollectionListOptions, CreationOptions, EventList, EventListOptions,
+        ForeignKey, Namespace, PaginatedQueryResult, QueryId, QueryResult, RoutineList,
+        RoutineListOptions, RoutineType, SessionId, TableQueryOptions, TriggerList,
+        TriggerListOptions, Value,
+    },
+    TableSchema,
 };
 use crate::interceptor::{Environment, QueryExecutionResult, SafetyAction};
 use crate::metrics;
@@ -190,9 +193,7 @@ pub async fn execute_query(
                         return Ok(QueryResponse {
                             success: false,
                             result: None,
-                            error: Some(format!(
-                                "{DANGEROUS_BLOCKED}: SQL parse error: {err}"
-                            )),
+                            error: Some(format!("{DANGEROUS_BLOCKED}: SQL parse error: {err}")),
                             query_id: None,
                         });
                     }
@@ -357,9 +358,8 @@ pub async fn execute_query(
         None
     };
 
-    let should_stream = sql_statements.is_none()
-        && stream.unwrap_or(false)
-        && driver.capabilities().streaming;
+    let should_stream =
+        sql_statements.is_none() && stream.unwrap_or(false) && driver.capabilities().streaming;
 
     if should_stream {
         // Create channel for stream events
@@ -372,16 +372,20 @@ pub async fn execute_query(
             while let Some(event) = receiver.recv().await {
                 match event {
                     StreamEvent::Columns(cols) => {
-                        let _ = window_cloned.emit(&format!("query_stream_columns:{}", qid_cloned), cols);
+                        let _ = window_cloned
+                            .emit(&format!("query_stream_columns:{}", qid_cloned), cols);
                     }
                     StreamEvent::Row(row) => {
-                        let _ = window_cloned.emit(&format!("query_stream_row:{}", qid_cloned), row);
+                        let _ =
+                            window_cloned.emit(&format!("query_stream_row:{}", qid_cloned), row);
                     }
                     StreamEvent::Error(e) => {
-                        let _ = window_cloned.emit(&format!("query_stream_error:{}", qid_cloned), e);
+                        let _ =
+                            window_cloned.emit(&format!("query_stream_error:{}", qid_cloned), e);
                     }
                     StreamEvent::Done(affected) => {
-                        let _ = window_cloned.emit(&format!("query_stream_done:{}", qid_cloned), affected);
+                        let _ = window_cloned
+                            .emit(&format!("query_stream_done:{}", qid_cloned), affected);
                     }
                 }
             }
@@ -389,7 +393,13 @@ pub async fn execute_query(
 
         // Execute streaming
         let start_time = std::time::Instant::now();
-        let execution = driver.execute_stream_in_namespace(session, namespace.clone(), &query, query_id, sender);
+        let execution = driver.execute_stream_in_namespace(
+            session,
+            namespace.clone(),
+            &query,
+            query_id,
+            sender,
+        );
 
         // Handle timeout for the *start* or completion?
         // With streaming, the execution future completes when the stream is DONE.
@@ -417,8 +427,11 @@ pub async fn execute_query(
                         safety_warning.as_deref(),
                     );
 
-                     // Emit timeout error as stream event
-                    let _ = window.emit(&format!("query_stream_error:{}", query_id_str), "Operation timed out");
+                    // Emit timeout error as stream event
+                    let _ = window.emit(
+                        &format!("query_stream_error:{}", query_id_str),
+                        "Operation timed out",
+                    );
                     return Ok(QueryResponse {
                         success: false,
                         result: None,
@@ -478,7 +491,6 @@ pub async fn execute_query(
                 })
             }
         }
-
     } else {
         // Normal execution
         let start_time = std::time::Instant::now();
@@ -621,7 +633,10 @@ pub async fn cancel_query(
 ) -> Result<QueryResponse, String> {
     let (session_manager, query_manager) = {
         let state = state.lock().await;
-        (Arc::clone(&state.session_manager), Arc::clone(&state.query_manager))
+        (
+            Arc::clone(&state.session_manager),
+            Arc::clone(&state.query_manager),
+        )
     };
     let session = parse_session_id(&session_id)?;
 
@@ -1034,7 +1049,10 @@ pub async fn preview_table(
         }
     };
 
-    match driver.preview_table(session, &namespace, &table, limit).await {
+    match driver
+        .preview_table(session, &namespace, &table, limit)
+        .await
+    {
         Ok(result) => Ok(QueryResponse {
             success: true,
             result: Some(result),
@@ -1084,7 +1102,10 @@ pub async fn query_table(
         }
     };
 
-    match driver.query_table(session, &namespace, &table, options).await {
+    match driver
+        .query_table(session, &namespace, &table, options)
+        .await
+    {
         Ok(result) => Ok(PaginatedQueryResponse {
             success: true,
             result: Some(result),
@@ -1181,15 +1202,12 @@ pub async fn create_database(
     };
     let session = parse_session_id(&session_id)?;
 
-    let read_only = session_manager
-        .is_read_only(session)
-        .await
-        .unwrap_or(false);
+    let read_only = session_manager.is_read_only(session).await.unwrap_or(false);
 
     let driver = match session_manager.get_driver(session).await {
         Ok(d) => d,
         Err(e) => {
-             return Ok(QueryResponse {
+            return Ok(QueryResponse {
                 success: false,
                 result: None,
                 error: Some(e.to_string()),
@@ -1328,10 +1346,7 @@ pub async fn drop_database(
     };
     let session = parse_session_id(&session_id)?;
 
-    let read_only = session_manager
-        .is_read_only(session)
-        .await
-        .unwrap_or(false);
+    let read_only = session_manager.is_read_only(session).await.unwrap_or(false);
 
     let driver = match session_manager.get_driver(session).await {
         Ok(d) => d,
@@ -1664,9 +1679,7 @@ pub async fn supports_transactions(
     let driver = match session_manager.get_driver(session).await {
         Ok(d) => d,
         Err(_) => {
-            return Ok(TransactionSupportResponse {
-                supported: false,
-            });
+            return Ok(TransactionSupportResponse { supported: false });
         }
     };
 

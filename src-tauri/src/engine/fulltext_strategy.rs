@@ -265,7 +265,10 @@ impl PostgresSearchStrategy {
             .replace('>', "");
 
         // Split into words and join with & for AND search
-        let words: Vec<&str> = escaped.split_whitespace().filter(|w| !w.is_empty()).collect();
+        let words: Vec<&str> = escaped
+            .split_whitespace()
+            .filter(|w| !w.is_empty())
+            .collect();
         if words.is_empty() {
             "''".to_string()
         } else if words.len() == 1 {
@@ -1050,12 +1053,10 @@ impl FulltextSearchStrategy for SqliteSearchStrategy {
                 if !pattern_cols.is_empty() {
                     let term = Self::escape_sql_literal(&options.search_term);
                     for col in &pattern_cols {
-                        let col_ref = format!("{}.{}", base_alias, Self::quote_identifier(&col.name));
+                        let col_ref =
+                            format!("{}.{}", base_alias, Self::quote_identifier(&col.name));
                         let clause = if options.case_sensitive {
-                            format!(
-                                "instr(CAST({} AS TEXT), '{}') > 0",
-                                col_ref, term
-                            )
+                            format!("instr(CAST({} AS TEXT), '{}') > 0", col_ref, term)
                         } else {
                             format!(
                                 "instr(LOWER(CAST({} AS TEXT)), LOWER('{}')) > 0",
@@ -1210,9 +1211,7 @@ impl FulltextSearchStrategy for MongoSearchStrategy {
         estimated_rows: Option<u64>,
     ) -> TableSearchCapability {
         // Check if there's a text index
-        let has_text_index = detected_indexes
-            .iter()
-            .any(|idx| idx.index_type == "text");
+        let has_text_index = detected_indexes.iter().any(|idx| idx.index_type == "text");
 
         let searchable_columns: Vec<ColumnSearchInfo> = text_columns
             .iter()
@@ -1543,7 +1542,10 @@ mod tests {
 
     #[test]
     fn test_mongo_escape_regex() {
-        assert_eq!(MongoSearchStrategy::escape_regex("test.user"), "test\\.user");
+        assert_eq!(
+            MongoSearchStrategy::escape_regex("test.user"),
+            "test\\.user"
+        );
         assert_eq!(MongoSearchStrategy::escape_regex("(test)"), "\\(test\\)");
     }
 

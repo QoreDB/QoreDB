@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Check, Link2, Loader2, X } from 'lucide-react';
-import { useCallback, useId, useState } from 'react';
+import { useCallback, useEffect, useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
@@ -68,15 +68,20 @@ export function ConnectionModal({
   const [urlParsed, setUrlParsed] = useState(false);
   const useUrlLabelId = useId();
 
-  // Step 1: "driver" | Step 2: "form"
   const [step, setStep] = useState<'driver' | 'form'>('driver');
 
   const isEditMode = !!editConnection;
 
-  // Initialize step based on mode
-  if (step === 'driver' && isEditMode) {
-    setStep('form');
-  }
+  useEffect(() => {
+    if (isOpen) {
+      setStep(isEditMode ? 'form' : 'driver');
+      setTesting(false);
+      setConnecting(false);
+      setTestResult(null);
+      setError(null);
+      setUrlParsed(false);
+    }
+  }, [isOpen, isEditMode]);
 
   const hideConnectionFields = formData.useUrl && urlParsed;
 
@@ -170,7 +175,7 @@ export function ConnectionModal({
       if (isEditMode) {
         toast.success(t('connection.updateSuccess'));
         onSaved?.(savedConnection);
-        onClose();
+        requestClose();
       } else {
         const connectResult = await connectSavedConnection('default', connectionId);
 
@@ -181,7 +186,7 @@ export function ConnectionModal({
             driver: formData.driver,
           });
           onConnected(connectResult.session_id, savedConnection);
-          onClose();
+          requestClose();
         } else {
           AnalyticsService.capture('connected_failed', {
             source: 'modal',
@@ -224,7 +229,7 @@ export function ConnectionModal({
       emitUiEvent(UI_EVENT_CONNECTIONS_CHANGED);
       toast.success(isEditMode ? t('connection.updateSuccess') : t('connection.saveSuccess'));
       onSaved?.(savedConnection);
-      onClose();
+      requestClose();
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : t('common.error');
       setError(errorMsg);
@@ -234,17 +239,20 @@ export function ConnectionModal({
     }
   }
 
+  function requestClose() {
+    onClose();
+  }
+
   function handleOpenChange(open: boolean) {
     if (!open) {
-      onClose();
-      // TODO: handle this better
-      if (!isEditMode) setTimeout(() => setStep('driver'), 200);
+      requestClose();
     }
   }
 
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogContent
+        disableExitAnimation
         className={cn('max-w-xl duration-200', step === 'driver' ? 'max-w-3xl' : 'max-w-xl')}
       >
         <DialogHeader>
@@ -265,7 +273,7 @@ export function ConnectionModal({
               onChange={handleDriverSelect}
             />
             <div className="mt-6 flex justify-end">
-              <Button variant="outline" onClick={onClose}>
+              <Button variant="outline" onClick={requestClose}>
                 {t('connection.cancel')}
               </Button>
             </div>
@@ -295,7 +303,7 @@ export function ConnectionModal({
                   </div>
 
                   <div className="flex items-center gap-3">
-                    {/* URL Mode Toggle - only for new connections */}
+                    {/* URL Mode Toggle */}
                     {!isEditMode && (
                       <div className="flex items-center gap-2">
                         <Link2
@@ -333,7 +341,7 @@ export function ConnectionModal({
                   </div>
                 </div>
 
-                {/* URL Input - shown when URL mode is active */}
+                {/* URL Input */}
                 {formData.useUrl && !isEditMode && (
                   <div className="rounded-md border border-border bg-background p-4">
                     <UrlInput
@@ -372,7 +380,7 @@ export function ConnectionModal({
             </ScrollArea>
 
             <DialogFooter>
-              <Button variant="outline" onClick={onClose}>
+              <Button variant="outline" onClick={requestClose}>
                 {t('connection.cancel')}
               </Button>
               <Button

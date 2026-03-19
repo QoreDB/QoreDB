@@ -145,7 +145,10 @@ fn classify_shell(query: &str) -> MongoQueryClass {
         ".mapreduce(",
     ];
 
-    if mutation_patterns.iter().any(|pattern| compact.contains(pattern)) {
+    if mutation_patterns
+        .iter()
+        .any(|pattern| compact.contains(pattern))
+    {
         return MongoQueryClass::Mutation;
     }
 
@@ -162,7 +165,10 @@ fn classify_shell(query: &str) -> MongoQueryClass {
         ".dbstats(",
     ];
 
-    if read_patterns.iter().any(|pattern| compact.contains(pattern)) {
+    if read_patterns
+        .iter()
+        .any(|pattern| compact.contains(pattern))
+    {
         if compact.contains(".aggregate(")
             && (compact.contains("$out") || compact.contains("$merge"))
         {

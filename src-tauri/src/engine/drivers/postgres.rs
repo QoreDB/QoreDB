@@ -11,17 +11,16 @@ use std::time::Instant;
 
 use async_trait::async_trait;
 
-use crate::engine::error::{EngineError, EngineResult};
 use crate::engine::drivers::pg_compat::{self, SessionMap};
+use crate::engine::error::{EngineError, EngineResult};
 use crate::engine::traits::{DataEngine, StreamSender};
 use crate::engine::types::{
     CancelSupport, Collection, CollectionList, CollectionListOptions, CollectionType,
-    ConnectionConfig, ForeignKey, Namespace, QueryId, QueryResult, RowData, SessionId,
-    TableQueryOptions, PaginatedQueryResult, TableSchema, Value,
-    RoutineList, RoutineListOptions, RoutineType, RoutineDefinition, RoutineOperationResult,
-    TriggerList, TriggerListOptions, TriggerDefinition, TriggerOperationResult,
+    ConnectionConfig, ForeignKey, MaintenanceMessage, MaintenanceMessageLevel,
     MaintenanceOperationInfo, MaintenanceOperationType, MaintenanceRequest, MaintenanceResult,
-    MaintenanceMessage, MaintenanceMessageLevel,
+    Namespace, PaginatedQueryResult, QueryId, QueryResult, RoutineDefinition, RoutineList,
+    RoutineListOptions, RoutineOperationResult, RoutineType, RowData, SessionId, TableQueryOptions,
+    TableSchema, TriggerDefinition, TriggerList, TriggerListOptions, TriggerOperationResult, Value,
 };
 
 /// PostgreSQL driver implementation
@@ -155,14 +154,15 @@ impl DataEngine for PostgresDriver {
                 WHERE schemaname = $1
                 AND ($2 IS NULL OR matviewname LIKE $3)
             ) combined ORDER BY name
-        "#.to_string();
+        "#
+        .to_string();
 
         if let Some(limit) = options.page_size {
-             query_str.push_str(&format!(" LIMIT {}", limit));
-             if let Some(page) = options.page {
-                 let offset = (page.max(1) - 1) * limit;
-                 query_str.push_str(&format!(" OFFSET {}", offset));
-             }
+            query_str.push_str(&format!(" LIMIT {}", limit));
+            if let Some(page) = options.page {
+                let offset = (page.max(1) - 1) * limit;
+                query_str.push_str(&format!(" OFFSET {}", offset));
+            }
         }
 
         let rows: Vec<(String, String)> = sqlx::query_as(&query_str)
@@ -319,8 +319,15 @@ impl DataEngine for PostgresDriver {
         value: &Value,
         limit: u32,
     ) -> EngineResult<QueryResult> {
-        pg_compat::peek_foreign_key(&self.sessions, session, namespace, foreign_key, value, limit)
-            .await
+        pg_compat::peek_foreign_key(
+            &self.sessions,
+            session,
+            namespace,
+            foreign_key,
+            value,
+            limit,
+        )
+        .await
     }
 
     // ==================== Cancel ====================
@@ -563,9 +570,21 @@ impl DataEngine for PostgresDriver {
 
         let sql = match request.operation {
             MaintenanceOperationType::Vacuum => {
-                let full = if request.options.full.unwrap_or(false) { "FULL " } else { "" };
-                let analyze = if request.options.with_analyze.unwrap_or(false) { "ANALYZE " } else { "" };
-                let verbose = if request.options.verbose.unwrap_or(false) { "VERBOSE " } else { "" };
+                let full = if request.options.full.unwrap_or(false) {
+                    "FULL "
+                } else {
+                    ""
+                };
+                let analyze = if request.options.with_analyze.unwrap_or(false) {
+                    "ANALYZE "
+                } else {
+                    ""
+                };
+                let verbose = if request.options.verbose.unwrap_or(false) {
+                    "VERBOSE "
+                } else {
+                    ""
+                };
                 format!("VACUUM {full}{analyze}{verbose}{qualified_table}")
             }
             MaintenanceOperationType::Analyze => {

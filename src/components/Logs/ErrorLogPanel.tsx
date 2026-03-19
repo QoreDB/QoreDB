@@ -6,10 +6,12 @@ import {
   AlertCircle,
   AlertTriangle,
   Bug,
+  ChevronDown,
   Download,
   Info,
   RefreshCw,
   Search,
+  Stethoscope,
   Trash2,
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
@@ -17,6 +19,12 @@ import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { clearErrorLogs, type ErrorLogEntry, getErrorLogs } from '../../lib/errorLog';
@@ -89,7 +97,42 @@ export function ErrorLogPanel({ isOpen, onClose }: ErrorLogPanelProps) {
     }
   }
 
-  async function handleExport() {
+  function formatLogsForExport(logs: ErrorLogEntry[]): string {
+    return logs
+      .map(log => {
+        const time = new Date(log.timestamp).toISOString();
+        const line = `[${time}] [${log.level.toUpperCase()}] [${log.source}] ${log.message}`;
+        return log.details ? `${line}\n  ${log.details}` : line;
+      })
+      .join('\n');
+  }
+
+  async function handleExportVisible() {
+    setExporting(true);
+    try {
+      const content = formatLogsForExport(filteredLogs);
+      const defaultFilename = `qoredb-error-logs-${new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)}.log`;
+
+      const filePath = await save({
+        defaultPath: defaultFilename,
+        filters: [{ name: 'Logs', extensions: ['log', 'txt'] }],
+      });
+
+      if (!filePath) return;
+
+      await writeTextFile(filePath, content);
+      const name = filePath.split(/[\\/]/).pop() || filePath;
+      toast.success(t('logs.exportSuccess', { name }));
+    } catch (err) {
+      toast.error(t('logs.exportError'), {
+        description: err instanceof Error ? err.message : String(err),
+      });
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  async function handleExportDiagnostic() {
     setExporting(true);
     try {
       const response = await exportLogs();
@@ -101,7 +144,7 @@ export function ErrorLogPanel({ isOpen, onClose }: ErrorLogPanelProps) {
       }
 
       const filePath = await save({
-        defaultPath: response.filename || 'qoredb-logs.log',
+        defaultPath: response.filename || 'qoredb-diagnostic-logs.log',
         filters: [{ name: 'Logs', extensions: ['log', 'txt'] }],
       });
 
@@ -121,7 +164,10 @@ export function ErrorLogPanel({ isOpen, onClose }: ErrorLogPanelProps) {
 
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col p-0 gap-0">
+      <DialogContent
+        disableExitAnimation
+        className="max-w-3xl max-h-[85vh] flex flex-col p-0 gap-0"
+      >
         <DialogHeader className="px-4 py-3 border-b border-border">
           <DialogTitle className="flex items-center gap-2 text-base">
             <Bug size={18} className="text-error" />
@@ -155,7 +201,7 @@ export function ErrorLogPanel({ isOpen, onClose }: ErrorLogPanelProps) {
 
           <div className="flex-1" />
 
-          <div className="relative">
+          <div className="relative shrink-0">
             <Search
               size={14}
               className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground"
@@ -165,7 +211,7 @@ export function ErrorLogPanel({ isOpen, onClose }: ErrorLogPanelProps) {
               placeholder={t('logs.searchPlaceholder')}
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="h-8 w-48 pl-8"
+              className="h-8 w-40 pl-8"
             />
           </div>
 
@@ -173,31 +219,45 @@ export function ErrorLogPanel({ isOpen, onClose }: ErrorLogPanelProps) {
             variant="ghost"
             size="icon"
             onClick={loadLogs}
-            className="h-8 w-8"
+            className="h-8 w-8 shrink-0"
             title={t('logs.refresh')}
           >
             <RefreshCw size={14} />
           </Button>
 
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleExport}
-            className="h-8 text-xs text-muted-foreground hover:text-foreground"
-            disabled={exporting}
-          >
-            <Download size={14} className="mr-1" />
-            {t('logs.export')}
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 text-xs text-muted-foreground hover:text-foreground shrink-0"
+                disabled={exporting}
+              >
+                <Download size={14} className="mr-1" />
+                {t('logs.export')}
+                <ChevronDown size={12} className="ml-1" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={handleExportVisible} disabled={filteredLogs.length === 0}>
+                <Download size={14} />
+                {t('logs.exportVisible')}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleExportDiagnostic}>
+                <Stethoscope size={14} />
+                {t('logs.exportDiagnostic')}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           <Button
             variant="ghost"
-            size="sm"
+            size="icon"
             onClick={handleClear}
-            className="h-8 text-xs text-muted-foreground hover:text-error"
+            className="h-8 w-8 shrink-0 text-muted-foreground hover:text-error"
+            title={t('logs.clear')}
           >
-            <Trash2 size={14} className="mr-1" />
-            {t('logs.clear')}
+            <Trash2 size={14} />
           </Button>
         </div>
 

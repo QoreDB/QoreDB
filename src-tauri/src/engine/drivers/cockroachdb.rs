@@ -8,17 +8,16 @@
 
 use async_trait::async_trait;
 
-use crate::engine::error::{EngineError, EngineResult};
 use crate::engine::drivers::pg_compat::{self, SessionMap};
+use crate::engine::error::{EngineError, EngineResult};
 use crate::engine::traits::{DataEngine, StreamSender};
 use crate::engine::types::{
     CancelSupport, Collection, CollectionList, CollectionListOptions, CollectionType,
-    ConnectionConfig, ForeignKey, Namespace, QueryId, QueryResult, RowData, SessionId,
-    TableQueryOptions, PaginatedQueryResult, TableSchema, Value,
-    RoutineList, RoutineListOptions, RoutineType, RoutineDefinition, RoutineOperationResult,
-    TriggerList, TriggerListOptions, TriggerDefinition, TriggerOperationResult,
+    ConnectionConfig, ForeignKey, MaintenanceMessage, MaintenanceMessageLevel,
     MaintenanceOperationInfo, MaintenanceOperationType, MaintenanceRequest, MaintenanceResult,
-    MaintenanceMessage, MaintenanceMessageLevel,
+    Namespace, PaginatedQueryResult, QueryId, QueryResult, RoutineDefinition, RoutineList,
+    RoutineListOptions, RoutineOperationResult, RoutineType, RowData, SessionId, TableQueryOptions,
+    TableSchema, TriggerDefinition, TriggerList, TriggerListOptions, TriggerOperationResult, Value,
 };
 
 /// CockroachDB driver implementation
@@ -303,8 +302,15 @@ impl DataEngine for CockroachDbDriver {
         value: &Value,
         limit: u32,
     ) -> EngineResult<QueryResult> {
-        pg_compat::peek_foreign_key(&self.sessions, session, namespace, foreign_key, value, limit)
-            .await
+        pg_compat::peek_foreign_key(
+            &self.sessions,
+            session,
+            namespace,
+            foreign_key,
+            value,
+            limit,
+        )
+        .await
     }
 
     // ==================== Cancel ====================
@@ -561,7 +567,6 @@ impl DataEngine for CockroachDbDriver {
         true
     }
 }
-
 
 #[cfg(test)]
 mod tests {

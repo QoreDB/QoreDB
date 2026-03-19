@@ -7,7 +7,14 @@
 
 import type { Namespace, QueryResult, RelationFilter, SearchFilter } from './tauri';
 
-export type TabType = 'query' | 'table' | 'database' | 'diff' | 'federation' | 'snapshots';
+export type TabType =
+  | 'query'
+  | 'table'
+  | 'database'
+  | 'diff'
+  | 'federation'
+  | 'snapshots'
+  | 'notebook';
 
 export interface DiffSource {
   type: 'query' | 'table' | 'snapshot';
@@ -24,6 +31,7 @@ export interface OpenTab {
   id: string;
   type: TabType;
   title: string;
+  pinned?: boolean;
   initialQuery?: string;
   // Table-specific
   namespace?: Namespace;
@@ -36,6 +44,9 @@ export interface OpenTab {
   // AI-specific
   showAiPanel?: boolean;
   aiTableContext?: string;
+  // Notebook-specific
+  notebookPath?: string;
+  notebookDirty?: boolean;
 }
 
 /** Generate unique tab ID */
@@ -116,5 +127,16 @@ export function createSnapshotsTab(): OpenTab {
     id: generateTabId(),
     type: 'snapshots',
     title: 'Snapshots',
+  };
+}
+
+/** Create a notebook tab */
+export function createNotebookTab(title?: string, path?: string, initialQuery?: string): OpenTab {
+  return {
+    id: generateTabId(),
+    type: 'notebook',
+    title: title || 'Untitled Notebook',
+    notebookPath: path,
+    initialQuery,
   };
 }

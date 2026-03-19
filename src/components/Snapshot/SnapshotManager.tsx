@@ -168,7 +168,12 @@ export function SnapshotManager({ onCompareInDiff }: SnapshotManagerProps) {
         {/* Preview header */}
         <div className="shrink-0 flex items-center justify-between px-4 py-3 border-b border-border bg-muted/10">
           <div className="flex items-center gap-3 min-w-0">
-            <Button variant="ghost" size="sm" className="h-7" onClick={() => setPreviewSnapshot(null)}>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7"
+              onClick={() => setPreviewSnapshot(null)}
+            >
               <X size={14} className="mr-1" />
               {t('common.back')}
             </Button>
@@ -197,9 +202,7 @@ export function SnapshotManager({ onCompareInDiff }: SnapshotManagerProps) {
                 variant="outline"
                 size="sm"
                 className="h-7 gap-1.5"
-                onClick={() =>
-                  onCompareInDiff(previewSnapshot.meta.id, previewSnapshot.meta)
-                }
+                onClick={() => onCompareInDiff(previewSnapshot.meta.id, previewSnapshot.meta)}
               >
                 <GitCompare size={14} />
                 {t('snapshots.compareWithDiff')}

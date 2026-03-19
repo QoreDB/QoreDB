@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { ChevronDown, Monitor, Moon, Sun } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { check } from '@tauri-apps/plugin-updater';
+import { ChevronDown, Download, Loader2, Monitor, Moon, RefreshCw, Sun } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -12,7 +13,16 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useTheme } from '@/hooks/useTheme';
+import {
+  setUpdateAvailable,
+  setUpdateError,
+  setUpdateInstalled,
+  setUpdateInstalling,
+  useUpdateStore,
+} from '@/lib/updateStore';
+import { APP_VERSION } from '@/lib/version';
 import { SettingsCard } from '../SettingsCard';
+import { Label } from '@/components/ui/label';
 
 interface GeneralSectionProps {
   searchQuery?: string;
@@ -50,10 +60,41 @@ export function GeneralSection({ searchQuery }: GeneralSectionProps) {
   const { t, i18n } = useTranslation();
   const { theme, resolvedTheme, setTheme } = useTheme();
   const [startupPrefs, setStartupPrefs] = useState<StartupPreferences>(getStartupPreferences);
+  const updateState = useUpdateStore();
+  const [checking, setChecking] = useState(false);
+  const [upToDate, setUpToDate] = useState(false);
 
   useEffect(() => {
     setStartupPreferences(startupPrefs);
   }, [startupPrefs]);
+
+  const handleCheckForUpdate = useCallback(async () => {
+    setChecking(true);
+    setUpToDate(false);
+    try {
+      const update = await check();
+      if (update) {
+        setUpdateAvailable(update);
+      } else {
+        setUpToDate(true);
+      }
+    } catch {
+      // silently fail
+    } finally {
+      setChecking(false);
+    }
+  }, []);
+
+  const handleInstallUpdate = useCallback(async () => {
+    if (!updateState.update) return;
+    try {
+      setUpdateInstalling();
+      await updateState.update.downloadAndInstall();
+      setUpdateInstalled();
+    } catch (err) {
+      setUpdateError(err instanceof Error ? err.message : String(err));
+    }
+  }, [updateState.update]);
 
   const isLanguageModified = !i18n.language.startsWith('en');
   const isThemeModified = theme !== 'auto';
@@ -63,6 +104,63 @@ export function GeneralSection({ searchQuery }: GeneralSectionProps) {
 
   return (
     <>
+      <SettingsCard
+        id="about"
+        title={t('settings.about.title')}
+        description={t('settings.about.description')}
+        searchQuery={searchQuery}
+      >
+        <div className="space-y-3">
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-muted-foreground">{t('settings.about.version')}</span>
+            <span className="text-sm font-mono font-semibold">{APP_VERSION}</span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {updateState.status === 'available' ? (
+              <Button
+                variant="default"
+                size="sm"
+                className="gap-1.5"
+                onClick={handleInstallUpdate}
+                disabled={updateState.status !== 'available'}
+              >
+                <Download size={14} />
+                {t('settings.about.installUpdate', { version: updateState.version })}
+              </Button>
+            ) : updateState.status === 'installing' ? (
+              <Button variant="outline" size="sm" className="gap-1.5" disabled>
+                <Loader2 size={14} className="animate-spin" />
+                {t('settings.about.installing')}
+              </Button>
+            ) : updateState.status === 'installed' ? (
+              <span className="text-xs text-success">{t('settings.about.installed')}</span>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                onClick={handleCheckForUpdate}
+                disabled={checking}
+              >
+                {checking ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <RefreshCw size={14} />
+                )}
+                {checking ? t('settings.about.checking') : t('settings.about.checkForUpdate')}
+              </Button>
+            )}
+            {upToDate && updateState.status === 'idle' && (
+              <span className="text-xs text-success">{t('settings.about.upToDate')}</span>
+            )}
+            {updateState.status === 'error' && updateState.error && (
+              <span className="text-xs text-error">{updateState.error}</span>
+            )}
+          </div>
+        </div>
+      </SettingsCard>
+
       <SettingsCard
         id="language"
         title={t('settings.language')}
@@ -138,7 +236,7 @@ export function GeneralSection({ searchQuery }: GeneralSectionProps) {
         searchQuery={searchQuery}
       >
         <div className="space-y-3">
-          <label className="flex items-start gap-2.5 text-sm cursor-pointer">
+          <Label className="flex items-start gap-2.5 text-sm cursor-pointer">
             <Checkbox
               checked={startupPrefs.restoreSession}
               onCheckedChange={checked =>
@@ -154,9 +252,9 @@ export function GeneralSection({ searchQuery }: GeneralSectionProps) {
                 {t('settings.startup.restoreSessionDescription')}
               </span>
             </span>
-          </label>
+          </Label>
 
-          <label className="flex items-start gap-2.5 text-sm cursor-pointer">
+          <Label className="flex items-start gap-2.5 text-sm cursor-pointer">
             <Checkbox
               checked={startupPrefs.checkUpdates}
               onCheckedChange={checked =>
@@ -172,7 +270,7 @@ export function GeneralSection({ searchQuery }: GeneralSectionProps) {
                 {t('settings.startup.checkUpdatesDescription')}
               </span>
             </span>
-          </label>
+          </Label>
         </div>
       </SettingsCard>
     </>

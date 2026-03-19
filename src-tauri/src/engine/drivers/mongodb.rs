@@ -8,23 +8,22 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Instant;
 
+use crate::engine::types::RowData as QRowData;
 use async_trait::async_trait;
 use futures::future::{AbortHandle, Abortable};
 use mongodb::bson::{doc, Bson, Document};
 use mongodb::{options::ClientOptions, Client, ClientSession};
 use tokio::sync::{Mutex, RwLock};
-use crate::engine::types::RowData as QRowData;
 
 use crate::engine::error::{EngineError, EngineResult};
 use crate::engine::traits::DataEngine;
 use crate::engine::traits::{StreamEvent, StreamSender};
 use crate::engine::types::{
     CancelSupport, Collection, CollectionList, CollectionListOptions, CollectionType, ColumnInfo,
-    ConnectionConfig, Namespace, QueryId, QueryResult, Row as QRow, SessionId, TableColumn,
-    TableSchema, Value,
-    TableQueryOptions, PaginatedQueryResult, SortDirection, FilterOperator,
+    ConnectionConfig, FilterOperator, MaintenanceMessage, MaintenanceMessageLevel,
     MaintenanceOperationInfo, MaintenanceOperationType, MaintenanceRequest, MaintenanceResult,
-    MaintenanceMessage, MaintenanceMessageLevel,
+    Namespace, PaginatedQueryResult, QueryId, QueryResult, Row as QRow, SessionId, SortDirection,
+    TableColumn, TableQueryOptions, TableSchema, Value,
 };
 
 pub struct MongoSession {
@@ -138,7 +137,6 @@ impl MongoDriver {
 
     /// Parses a MongoDB query string (JSON format)
     fn parse_query(query: &str) -> EngineResult<(String, String, Document)> {
-
         let trimmed = query.trim();
 
         // Try JSON format
@@ -169,11 +167,7 @@ impl MongoDriver {
         // Fallback
         let parts: Vec<&str> = trimmed.split('.').collect();
         if parts.len() >= 2 {
-            return Ok((
-                parts[0].to_string(),
-                parts[1].to_string(),
-                doc! {},
-            ));
+            return Ok((parts[0].to_string(), parts[1].to_string(), doc! {}));
         }
 
         Err(EngineError::syntax_error(
@@ -195,15 +189,13 @@ impl MongoDriver {
                 } else {
                     Bson::String(s.clone())
                 }
-            },
+            }
             Value::Bytes(b) => Bson::Binary(mongodb::bson::Binary {
                 subtype: mongodb::bson::spec::BinarySubtype::Generic,
                 bytes: b.clone(),
             }),
             Value::Json(j) => mongodb::bson::to_bson(j).unwrap_or(Bson::Null),
-            Value::Array(arr) => {
-                Bson::Array(arr.iter().map(Self::value_to_bson).collect())
-            }
+            Value::Array(arr) => Bson::Array(arr.iter().map(Self::value_to_bson).collect()),
         }
     }
 
@@ -258,10 +250,7 @@ impl MongoDriver {
             Err(_) => match admin.run_command(doc! { "isMaster": 1 }).await {
                 Ok(doc) => doc,
                 Err(err) => {
-                    tracing::warn!(
-                        "MongoDB: Failed to detect transaction support: {}",
-                        err
-                    );
+                    tracing::warn!("MongoDB: Failed to detect transaction support: {}", err);
                     return false;
                 }
             },
@@ -316,7 +305,10 @@ impl DataEngine for MongoDriver {
         let mut tx_guard = mongo_session.transaction_session.lock().await;
         if let Some(mut txn) = tx_guard.take() {
             if let Err(err) = txn.abort_transaction().await {
-                tracing::warn!("MongoDB: Failed to abort transaction on disconnect: {}", err);
+                tracing::warn!(
+                    "MongoDB: Failed to abort transaction on disconnect: {}",
+                    err
+                );
             }
         }
 
@@ -352,28 +344,32 @@ impl DataEngine for MongoDriver {
         Ok(namespaces)
     }
 
-    async fn create_database(&self, session: SessionId, name: &str, options: Option<Value>) -> EngineResult<()> {
+    async fn create_database(
+        &self,
+        session: SessionId,
+        name: &str,
+        options: Option<Value>,
+    ) -> EngineResult<()> {
         let mongo_session = self.get_session(session).await?;
         let client = &mongo_session.client;
 
         // In MongoDB, a database is created when the first collection is created.
         // We require a collection name in the options for explicit creation.
         let collection_name = if let Some(opts) = options {
-             match opts {
-                 Value::Json(json) => {
-                     json.get("collection")
-                        .and_then(|v| v.as_str())
-                        .map(|s| s.to_string())
-                 },
-                 _ => None,
-             }
+            match opts {
+                Value::Json(json) => json
+                    .get("collection")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string()),
+                _ => None,
+            }
         } else {
             None
         };
 
-        let collection_name = collection_name.ok_or_else(|| 
+        let collection_name = collection_name.ok_or_else(|| {
             EngineError::validation("Collection name is required to create a MongoDB database")
-        )?;
+        })?;
 
         let mut tx_guard = mongo_session.transaction_session.lock().await;
         if let Some(txn) = tx_guard.as_mut() {
@@ -446,22 +442,18 @@ impl DataEngine for MongoDriver {
         };
 
         filtered.sort();
-        
+
         let total_count = filtered.len();
 
         let paginated = if let Some(limit) = options.page_size {
             let page = options.page.unwrap_or(1).max(1);
             let offset = ((page - 1) * limit) as usize;
             let limit = limit as usize;
-            
+
             if offset >= filtered.len() {
                 Vec::new()
             } else {
-                filtered
-                    .into_iter()
-                    .skip(offset)
-                    .take(limit)
-                    .collect()
+                filtered.into_iter().skip(offset).take(limit).collect()
             }
         } else {
             filtered
@@ -508,22 +500,23 @@ impl DataEngine for MongoDriver {
 
                 // Handle special commands that don't stream (Create Collection, etc)
                 if trimmed.starts_with('{') {
-                     // Parse partially to check operation
-                     if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(trimmed) {
+                    // Parse partially to check operation
+                    if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(trimmed) {
                         if let Some(op) = parsed.get("operation").and_then(|v| v.as_str()) {
                             if op == "create_collection" {
-                                 // Execute standard execute for non-streaming ops
-                                 // We can't reuse self.execute easily here due to ownership/async
-                                 // So we just return early and let the caller handle it or 
-                                 // better yet, we implement the logic here.
-                                 
-                                 // Re-use logic from execute
-                                 let database = parsed["database"]
-                                    .as_str()
-                                    .ok_or_else(|| EngineError::syntax_error("Missing 'database' field"))?;
-                                let collection = parsed["collection"]
-                                    .as_str()
-                                    .ok_or_else(|| EngineError::syntax_error("Missing 'collection' field"))?;
+                                // Execute standard execute for non-streaming ops
+                                // We can't reuse self.execute easily here due to ownership/async
+                                // So we just return early and let the caller handle it or
+                                // better yet, we implement the logic here.
+
+                                // Re-use logic from execute
+                                let database = parsed["database"].as_str().ok_or_else(|| {
+                                    EngineError::syntax_error("Missing 'database' field")
+                                })?;
+                                let collection =
+                                    parsed["collection"].as_str().ok_or_else(|| {
+                                        EngineError::syntax_error("Missing 'collection' field")
+                                    })?;
 
                                 let mut tx_guard = mongo_session.transaction_session.lock().await;
                                 if let Some(txn) = tx_guard.as_mut() {
@@ -541,17 +534,19 @@ impl DataEngine for MongoDriver {
                                         .await
                                         .map_err(|e| EngineError::execution_error(e.to_string()))?;
                                 }
-                                
+
                                 let _ = sender.send(StreamEvent::Done(0)).await;
                                 return Ok(());
                             }
                         }
-                     }
+                    }
                 }
 
                 let (database, collection_name, filter) = Self::parse_query(&query)?;
 
-                let collection = client.database(&database).collection::<Document>(&collection_name);
+                let collection = client
+                    .database(&database)
+                    .collection::<Document>(&collection_name);
                 let mut tx_guard = mongo_session.transaction_session.lock().await;
                 if let Some(txn) = tx_guard.as_mut() {
                     let mut cursor = collection
@@ -568,8 +563,8 @@ impl DataEngine for MongoDriver {
 
                     let mut row_count = 0;
                     while let Some(doc_result) = cursor.next(&mut *txn).await {
-                        let doc = doc_result
-                            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+                        let doc =
+                            doc_result.map_err(|e| EngineError::execution_error(e.to_string()))?;
                         let row = Self::document_to_row(&doc);
                         if sender.send(StreamEvent::Row(row)).await.is_err() {
                             break;
@@ -623,9 +618,11 @@ impl DataEngine for MongoDriver {
         match result {
             Ok(inner) => inner,
             Err(_) => {
-                let _ = sender.send(StreamEvent::Error("Query cancelled".to_string())).await;
+                let _ = sender
+                    .send(StreamEvent::Error("Query cancelled".to_string()))
+                    .await;
                 Err(EngineError::Cancelled)
-            },
+            }
         }
     }
 
@@ -1099,8 +1096,7 @@ impl DataEngine for MongoDriver {
 
             let mut documents: Vec<Document> = Vec::new();
             while let Some(doc_result) = cursor.next(&mut *txn).await {
-                let doc = doc_result
-                    .map_err(|e| EngineError::execution_error(e.to_string()))?;
+                let doc = doc_result.map_err(|e| EngineError::execution_error(e.to_string()))?;
                 documents.push(doc);
             }
 
@@ -1183,7 +1179,8 @@ impl DataEngine for MongoDriver {
             .map_err(|e| EngineError::execution_error(e.to_string()))?;
 
         // Collect all unique field names and their types
-        let mut fields: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+        let mut fields: std::collections::HashMap<String, String> =
+            std::collections::HashMap::new();
         for doc in &documents {
             for (key, value) in doc.iter() {
                 if !fields.contains_key(key) {
@@ -1230,10 +1227,7 @@ impl DataEngine for MongoDriver {
         });
 
         // Get estimated document count
-        let count = collection
-            .estimated_document_count()
-            .await
-            .ok();
+        let count = collection.estimated_document_count().await.ok();
 
         Ok(TableSchema {
             columns,
@@ -1271,8 +1265,7 @@ impl DataEngine for MongoDriver {
 
             let mut documents: Vec<Document> = Vec::new();
             while let Some(doc_result) = cursor.next(&mut *txn).await {
-                let doc = doc_result
-                    .map_err(|e| EngineError::execution_error(e.to_string()))?;
+                let doc = doc_result.map_err(|e| EngineError::execution_error(e.to_string()))?;
                 documents.push(doc);
             }
             documents
@@ -1340,7 +1333,10 @@ impl DataEngine for MongoDriver {
 
         tracing::info!(
             "MongoDB query_table: page={}, page_size={}, offset={}, table={}",
-            page, page_size, offset, table
+            page,
+            page_size,
+            offset,
+            table
         );
 
         // Build $match filter document
@@ -1352,22 +1348,34 @@ impl DataEngine for MongoDriver {
 
                 let condition = match filter.operator {
                     FilterOperator::Eq => bson_value,
-                    FilterOperator::Neq => mongodb::bson::Bson::Document(doc! { "$ne": bson_value }),
+                    FilterOperator::Neq => {
+                        mongodb::bson::Bson::Document(doc! { "$ne": bson_value })
+                    }
                     FilterOperator::Gt => mongodb::bson::Bson::Document(doc! { "$gt": bson_value }),
-                    FilterOperator::Gte => mongodb::bson::Bson::Document(doc! { "$gte": bson_value }),
+                    FilterOperator::Gte => {
+                        mongodb::bson::Bson::Document(doc! { "$gte": bson_value })
+                    }
                     FilterOperator::Lt => mongodb::bson::Bson::Document(doc! { "$lt": bson_value }),
-                    FilterOperator::Lte => mongodb::bson::Bson::Document(doc! { "$lte": bson_value }),
+                    FilterOperator::Lte => {
+                        mongodb::bson::Bson::Document(doc! { "$lte": bson_value })
+                    }
                     FilterOperator::Like => {
                         // Convert LIKE pattern to regex
                         if let mongodb::bson::Bson::String(s) = &bson_value {
                             let pattern = s.replace('%', ".*").replace('_', ".");
-                            mongodb::bson::Bson::Document(doc! { "$regex": pattern, "$options": "i" })
+                            mongodb::bson::Bson::Document(
+                                doc! { "$regex": pattern, "$options": "i" },
+                            )
                         } else {
                             bson_value
                         }
                     }
-                    FilterOperator::IsNull => mongodb::bson::Bson::Document(doc! { "$eq": mongodb::bson::Bson::Null }),
-                    FilterOperator::IsNotNull => mongodb::bson::Bson::Document(doc! { "$ne": mongodb::bson::Bson::Null }),
+                    FilterOperator::IsNull => {
+                        mongodb::bson::Bson::Document(doc! { "$eq": mongodb::bson::Bson::Null })
+                    }
+                    FilterOperator::IsNotNull => {
+                        mongodb::bson::Bson::Document(doc! { "$ne": mongodb::bson::Bson::Null })
+                    }
                 };
 
                 filter_doc.insert(&filter.column, condition);
@@ -1388,7 +1396,7 @@ impl DataEngine for MongoDriver {
                         .map_err(|e| EngineError::execution_error(e.to_string()))?;
 
                     let mut search_conditions: Vec<Document> = Vec::new();
-                    
+
                     if let Some(doc) = sample_doc {
                         for (key, value) in doc.iter() {
                             // Only search string fields
@@ -1437,8 +1445,7 @@ impl DataEngine for MongoDriver {
 
             let mut documents: Vec<Document> = Vec::new();
             while let Some(doc_result) = cursor.next(&mut *txn).await {
-                let doc = doc_result
-                    .map_err(|e| EngineError::execution_error(e.to_string()))?;
+                let doc = doc_result.map_err(|e| EngineError::execution_error(e.to_string()))?;
                 documents.push(doc);
             }
 
@@ -1456,7 +1463,7 @@ impl DataEngine for MongoDriver {
                         .map_err(|e| EngineError::execution_error(e.to_string()))?;
 
                     let mut search_conditions: Vec<Document> = Vec::new();
-                    
+
                     if let Some(doc) = sample_doc {
                         for (key, value) in doc.iter() {
                             // Only search string fields
@@ -1512,7 +1519,8 @@ impl DataEngine for MongoDriver {
 
         tracing::info!(
             "MongoDB query_table: found {} documents, total_rows={}",
-            documents.len(), total_rows
+            documents.len(),
+            total_rows
         );
 
         let execution_time_ms = start.elapsed().as_micros() as f64 / 1000.0;
@@ -1535,7 +1543,9 @@ impl DataEngine for MongoDriver {
             }
         };
 
-        Ok(PaginatedQueryResult::new(result, total_rows, page, page_size))
+        Ok(PaginatedQueryResult::new(
+            result, total_rows, page, page_size,
+        ))
     }
 
     async fn cancel(&self, session: SessionId, query_id: Option<QueryId>) -> EngineResult<()> {
@@ -1589,26 +1599,17 @@ impl DataEngine for MongoDriver {
 
         if tx_guard.is_some() {
             return Err(EngineError::transaction_error(
-                "A transaction is already active on this session"
+                "A transaction is already active on this session",
             ));
         }
 
-        let mut client_session = mongo_session
-            .client
-            .start_session()
-            .await
-            .map_err(|e| EngineError::execution_error(format!(
-                "Failed to start MongoDB session: {}",
-                e
-            )))?;
+        let mut client_session = mongo_session.client.start_session().await.map_err(|e| {
+            EngineError::execution_error(format!("Failed to start MongoDB session: {}", e))
+        })?;
 
-        client_session
-            .start_transaction()
-            .await
-            .map_err(|e| EngineError::execution_error(format!(
-                "Failed to begin MongoDB transaction: {}",
-                e
-            )))?;
+        client_session.start_transaction().await.map_err(|e| {
+            EngineError::execution_error(format!("Failed to begin MongoDB transaction: {}", e))
+        })?;
 
         *tx_guard = Some(client_session);
         Ok(())
@@ -1618,17 +1619,13 @@ impl DataEngine for MongoDriver {
         let mongo_session = self.get_session(session).await?;
         let mut tx_guard = mongo_session.transaction_session.lock().await;
 
-        let mut client_session = tx_guard.take().ok_or_else(|| {
-            EngineError::transaction_error("No active transaction to commit")
-        })?;
+        let mut client_session = tx_guard
+            .take()
+            .ok_or_else(|| EngineError::transaction_error("No active transaction to commit"))?;
 
-        client_session
-            .commit_transaction()
-            .await
-            .map_err(|e| EngineError::execution_error(format!(
-                "Failed to commit MongoDB transaction: {}",
-                e
-            )))?;
+        client_session.commit_transaction().await.map_err(|e| {
+            EngineError::execution_error(format!("Failed to commit MongoDB transaction: {}", e))
+        })?;
 
         Ok(())
     }
@@ -1637,17 +1634,13 @@ impl DataEngine for MongoDriver {
         let mongo_session = self.get_session(session).await?;
         let mut tx_guard = mongo_session.transaction_session.lock().await;
 
-        let mut client_session = tx_guard.take().ok_or_else(|| {
-            EngineError::transaction_error("No active transaction to rollback")
-        })?;
+        let mut client_session = tx_guard
+            .take()
+            .ok_or_else(|| EngineError::transaction_error("No active transaction to rollback"))?;
 
-        client_session
-            .abort_transaction()
-            .await
-            .map_err(|e| EngineError::execution_error(format!(
-                "Failed to rollback MongoDB transaction: {}",
-                e
-            )))?;
+        client_session.abort_transaction().await.map_err(|e| {
+            EngineError::execution_error(format!("Failed to rollback MongoDB transaction: {}", e))
+        })?;
 
         Ok(())
     }
@@ -1663,7 +1656,7 @@ impl DataEngine for MongoDriver {
     fn supports_transactions(&self) -> bool {
         true
     }
-    
+
     // ==================== Mutation Methods ====================
 
     async fn insert_row(
@@ -1687,15 +1680,10 @@ impl DataEngine for MongoDriver {
 
         let mut tx_guard = mongo_session.transaction_session.lock().await;
         let insert_result = if let Some(txn) = tx_guard.as_mut() {
-            collection
-                .insert_one(doc)
-                .session(&mut *txn)
-                .await
+            collection.insert_one(doc).session(&mut *txn).await
         } else {
             drop(tx_guard);
-            collection
-                .insert_one(doc)
-                .await
+            collection.insert_one(doc).await
         };
 
         insert_result.map_err(|e| {
@@ -1753,15 +1741,16 @@ impl DataEngine for MongoDriver {
                 .await
         } else {
             drop(tx_guard);
-            collection
-                .update_one(filter, update)
-                .await
+            collection.update_one(filter, update).await
         }
         .map_err(|e| EngineError::execution_error(e.to_string()))?;
 
         let execution_time_ms = start.elapsed().as_micros() as f64 / 1000.0;
 
-        Ok(QueryResult::with_affected_rows(result.modified_count, execution_time_ms))
+        Ok(QueryResult::with_affected_rows(
+            result.modified_count,
+            execution_time_ms,
+        ))
     }
 
     async fn delete_row(
@@ -1794,21 +1783,19 @@ impl DataEngine for MongoDriver {
 
         let mut tx_guard = mongo_session.transaction_session.lock().await;
         let result = if let Some(txn) = tx_guard.as_mut() {
-            collection
-                .delete_one(filter)
-                .session(&mut *txn)
-                .await
+            collection.delete_one(filter).session(&mut *txn).await
         } else {
             drop(tx_guard);
-            collection
-                .delete_one(filter)
-                .await
+            collection.delete_one(filter).await
         }
         .map_err(|e| EngineError::execution_error(e.to_string()))?;
 
         let execution_time_ms = start.elapsed().as_micros() as f64 / 1000.0;
 
-        Ok(QueryResult::with_affected_rows(result.deleted_count, execution_time_ms))
+        Ok(QueryResult::with_affected_rows(
+            result.deleted_count,
+            execution_time_ms,
+        ))
     }
 
     fn supports_mutations(&self) -> bool {
@@ -1888,7 +1875,11 @@ impl DataEngine for MongoDriver {
         if request.operation == MaintenanceOperationType::Validate {
             if let Some(valid) = result.get_bool("valid").ok() {
                 messages.push(MaintenanceMessage {
-                    level: if valid { MaintenanceMessageLevel::Status } else { MaintenanceMessageLevel::Error },
+                    level: if valid {
+                        MaintenanceMessageLevel::Status
+                    } else {
+                        MaintenanceMessageLevel::Error
+                    },
                     text: format!("Valid: {valid}"),
                 });
             }
@@ -1902,7 +1893,11 @@ impl DataEngine for MongoDriver {
 
         if messages.is_empty() {
             messages.push(MaintenanceMessage {
-                level: if success { MaintenanceMessageLevel::Info } else { MaintenanceMessageLevel::Error },
+                level: if success {
+                    MaintenanceMessageLevel::Info
+                } else {
+                    MaintenanceMessageLevel::Error
+                },
                 text: if success {
                     "Operation completed successfully".into()
                 } else {

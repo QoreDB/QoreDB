@@ -9,7 +9,9 @@ use super::status::LicenseTier;
 
 fn public_key_bytes() -> [u8; 32] {
     let b64 = env!("PUBLIC_KEY_BASE64");
-    let bytes = BASE64.decode(b64).expect("PUBLIC_KEY_BASE64 is not valid base64");
+    let bytes = BASE64
+        .decode(b64)
+        .expect("PUBLIC_KEY_BASE64 is not valid base64");
     bytes
         .try_into()
         .expect("PUBLIC_KEY_BASE64 must decode to exactly 32 bytes")
@@ -82,8 +84,8 @@ pub fn decode_license_with_key(
         .map_err(|_| LicenseError::InvalidBase64)?;
 
     // 2. Parse envelope, capturing payload as raw JSON bytes
-    let envelope: LicenseEnvelope = serde_json::from_slice(&outer_json)
-        .map_err(|_| LicenseError::InvalidJson)?;
+    let envelope: LicenseEnvelope =
+        serde_json::from_slice(&outer_json).map_err(|_| LicenseError::InvalidJson)?;
 
     // 3. The signature is over the exact JSON bytes of the payload field
     let payload_json_bytes = envelope.payload.get().as_bytes();
@@ -114,7 +116,9 @@ pub fn decode_license_with_key(
         return Err(LicenseError::InvalidFormat("payment_id is empty".into()));
     }
     // Validate issued_at is a parseable ISO date
-    payload.issued_at.parse::<DateTime<Utc>>()
+    payload
+        .issued_at
+        .parse::<DateTime<Utc>>()
         .map_err(|_| LicenseError::InvalidFormat("invalid issued_at date".into()))?;
     // Validate expires_at if present
     if let Some(ref exp) = payload.expires_at {
@@ -340,7 +344,10 @@ mod tests {
         let bad_envelope = BASE64.encode(br#"{"payload":{"email":"a"},"signature":"AAAA"}"#);
         let err = decode_license_with_key(&bad_envelope, &pub_bytes).unwrap_err();
         assert!(
-            matches!(err, LicenseError::InvalidFormat(_) | LicenseError::InvalidSignature),
+            matches!(
+                err,
+                LicenseError::InvalidFormat(_) | LicenseError::InvalidSignature
+            ),
             "Expected format or signature error, got: {:?}",
             err
         );

@@ -97,6 +97,8 @@ export const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQ
   const readOnlyRef = useRef(readOnly);
   const { isDark } = useTheme();
   const schemaCache = useSchemaCache(sessionId || '');
+  const schemaCacheRef = useRef(schemaCache);
+  schemaCacheRef.current = schemaCache;
   const schemaStateRef = useRef<SchemaState>(createSchemaState());
 
   const sqlDialect = useMemo(() => {
@@ -150,35 +152,37 @@ export const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQ
       const key = getNamespaceKey(ns);
       const cached = schemaStateRef.current.tablesByNamespace.get(key);
       if (cached) return cached;
-      const collections = await schemaCache.getCollections(ns);
+      const collections = await schemaCacheRef.current.getCollections(ns);
       schemaStateRef.current.tablesByNamespace.set(key, collections);
       return collections;
     },
-    [schemaCache]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
   );
 
   const loadNamespaces = useCallback(async () => {
     if (!sessionId) return;
-    const namespaces = await schemaCache.getNamespaces();
+    const namespaces = await schemaCacheRef.current.getNamespaces();
     schemaStateRef.current.namespaces = namespaces;
     schemaStateRef.current.defaultNamespace = resolveDefaultNamespace(namespaces);
     const defaultNs = schemaStateRef.current.defaultNamespace;
     if (defaultNs) {
       await loadTablesForNamespace(defaultNs);
     }
-  }, [schemaCache, sessionId, resolveDefaultNamespace, loadTablesForNamespace]);
+  }, [sessionId, resolveDefaultNamespace, loadTablesForNamespace]);
 
   const loadColumnsForTable = useCallback(
     async (ns: Namespace, tableName: string): Promise<string[]> => {
       const key = getTableKey(ns, tableName);
       const cached = schemaStateRef.current.columnsByTable.get(key);
       if (cached) return cached;
-      const schema = await schemaCache.getTableSchema(ns, tableName);
+      const schema = await schemaCacheRef.current.getTableSchema(ns, tableName);
       const columns = schema?.columns?.map(column => column.name) || [];
       schemaStateRef.current.columnsByTable.set(key, columns);
       return columns;
     },
-    [schemaCache]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
   );
 
   const resolveNamespace = useCallback(
@@ -421,15 +425,33 @@ export const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQ
         }
       }),
       EditorView.editable.of(!readOnly),
-      EditorView.theme({
-        '&': { height: '100%' },
-        '.cm-scroller': { overflow: 'auto' },
-      }),
     ];
 
     if (isDark) {
       extensions.push(oneDark);
     }
+
+    // Custom theme applied last so it overrides oneDark background
+    extensions.push(
+      EditorView.theme({
+        '&': {
+          height: '100%',
+          ...(isDark ? { backgroundColor: 'var(--q-bg-1)' } : {}),
+        },
+        '.cm-scroller': { overflow: 'auto' },
+        ...(isDark
+          ? {
+              '.cm-gutters': {
+                backgroundColor: 'var(--q-bg-1)',
+                borderRight: '1px solid var(--q-border)',
+              },
+              '.cm-activeLineGutter': {
+                backgroundColor: 'var(--q-bg-2)',
+              },
+            }
+          : {}),
+      })
+    );
 
     const state = EditorState.create({
       doc: initialValueRef.current,
@@ -462,5 +484,5 @@ export const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQ
     }
   }, [value]);
 
-  return <div className="flex-1 overflow-hidden h-50 text-base" ref={editorRef} />;
+  return <div className="flex-1 overflow-hidden h-full text-base" ref={editorRef} />;
 });

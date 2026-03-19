@@ -103,8 +103,7 @@ async fn execute_federation_inner(
     let plan = build_plan(sql, alias_map, row_limit, false)?;
 
     // Step 2: Fetch from all sources in parallel
-    let (source_results, fetch_results) =
-        fetch_all_sources(&plan, session_manager).await?;
+    let (source_results, fetch_results) = fetch_all_sources(&plan, session_manager).await?;
 
     // Step 3: Flatten MongoDB document results into individual columns
     let source_results: Vec<QueryResult> = source_results
@@ -167,8 +166,7 @@ async fn execute_federation_stream_inner(
     let plan = build_plan(sql, alias_map, row_limit, true)?;
 
     // Step 2: Fetch from all sources in parallel
-    let (source_results, fetch_results) =
-        fetch_all_sources(&plan, session_manager).await?;
+    let (source_results, fetch_results) = fetch_all_sources(&plan, session_manager).await?;
 
     // Step 3: Flatten MongoDB document results into individual columns
     let source_results: Vec<QueryResult> = source_results

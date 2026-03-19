@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Check } from 'lucide-react';
+import { useCallback, useRef } from 'react';
+import { Check, SearchX } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { cn } from '@/lib/utils';
 import type { QueryResult } from '../../lib/tauri';
 
@@ -34,21 +36,42 @@ export function ResultsTable({ result, height = 400 }: ResultsTableProps) {
       );
     }
     return (
-      <div className="flex items-center justify-center p-8 text-muted-foreground text-sm border rounded-md border-dashed">
-        {t('results.noResults')}
+      <div className="flex flex-col items-center justify-center gap-2 p-8 text-sm border rounded-md border-dashed">
+        <SearchX size={24} className="text-muted-foreground/50" />
+        <p className="text-muted-foreground">{t('results.noResults')}</p>
+        <p className="text-xs text-muted-foreground/70">{t('results.noResultsHint')}</p>
       </div>
     );
   }
 
   const { columns, rows } = result;
 
+  const parentRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLDivElement>(null);
+
+  // Sync horizontal scroll between header and body
+  const handleBodyScroll = useCallback(() => {
+    if (parentRef.current && headerRef.current) {
+      headerRef.current.scrollLeft = parentRef.current.scrollLeft;
+    }
+  }, []);
+
+  const rowVirtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 32,
+    overscan: 10,
+  });
+
   return (
     <div
       className="flex flex-col h-full border border-border rounded-md overflow-hidden bg-background"
       style={{ height }}
     >
-      {/* Header */}
-      <div className="flex items-center bg-muted/50 border-b border-border h-[36px] shrink-0">
+      <div
+        ref={headerRef}
+        className="flex items-center bg-muted/50 border-b border-border h-[36px] shrink-0 overflow-x-hidden"
+      >
         {columns.map((col, i) => (
           <div
             key={i}
@@ -60,32 +83,51 @@ export function ResultsTable({ result, height = 400 }: ResultsTableProps) {
         ))}
       </div>
 
-      {/* Rows (Simple overflow, no virtualization for stability) */}
-      <div className="flex-1 overflow-auto bg-background">
-        {rows.map((row, rowIndex) => (
-          <div
-            key={rowIndex}
-            className="flex items-center border-b border-border hover:bg-muted/30 transition-colors text-sm font-mono h-[32px]"
-          >
-            {row.values.map((value: unknown, colIndex: number) => (
+      <div
+        ref={parentRef}
+        className="flex-1 overflow-auto bg-background"
+        onScroll={handleBodyScroll}
+      >
+        <div
+          style={{
+            height: `${rowVirtualizer.getTotalSize()}px`,
+            position: 'relative',
+          }}
+        >
+          {rowVirtualizer.getVirtualItems().map(virtualRow => {
+            const row = rows[virtualRow.index];
+            return (
               <div
-                key={colIndex}
-                className={cn(
-                  'flex-1 px-3 py-1 truncate border-r border-border last:border-r-0 h-full flex items-center',
-                  value === null && 'text-muted-foreground italic',
-                  typeof value === 'number' && 'text-right justify-end',
-                  typeof value === 'boolean' && 'text-center justify-center text-accent'
-                )}
-                title={String(value)}
+                key={virtualRow.index}
+                className="flex items-center border-b border-border hover:bg-muted/30 transition-colors text-sm font-mono h-[32px]"
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  transform: `translateY(${virtualRow.start}px)`,
+                }}
               >
-                {formatValue(value)}
+                {row.values.map((value: unknown, colIndex: number) => (
+                  <div
+                    key={colIndex}
+                    className={cn(
+                      'flex-1 px-3 py-1 truncate border-r border-border last:border-r-0 h-full flex items-center',
+                      value === null && 'text-muted-foreground italic',
+                      typeof value === 'number' && 'text-right justify-end',
+                      typeof value === 'boolean' && 'text-center justify-center text-accent'
+                    )}
+                    title={String(value)}
+                  >
+                    {formatValue(value)}
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        ))}
+            );
+          })}
+        </div>
       </div>
 
-      {/* Footer */}
       <div className="px-3 py-1 text-xs text-muted-foreground border-t border-border bg-muted/20 shrink-0">
         {t('results.rowCount', { count: rows.length })} •{' '}
         {t('results.timeMs', { time: result.execution_time_ms })}

@@ -96,7 +96,10 @@ impl LicenseManager {
 
     /// Loads the stored key from keyring and refreshes the cached status.
     fn refresh_status(&mut self) {
-        let stored_key = match self.provider.get_password(LICENSE_SERVICE, LICENSE_USERNAME) {
+        let stored_key = match self
+            .provider
+            .get_password(LICENSE_SERVICE, LICENSE_USERNAME)
+        {
             Ok(key) => key,
             Err(_) => return, // No stored key → keep default Core status
         };
@@ -127,7 +130,9 @@ impl LicenseManager {
             }
             Err(_) => {
                 // Corrupt key — remove it silently
-                let _ = self.provider.delete_password(LICENSE_SERVICE, LICENSE_USERNAME);
+                let _ = self
+                    .provider
+                    .delete_password(LICENSE_SERVICE, LICENSE_USERNAME);
             }
         }
     }

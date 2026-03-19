@@ -60,16 +60,11 @@ export function EventContextMenu({
       );
 
       if (result.success) {
-        notify.success(
-          t('eventManager.dropSuccess', { name: event.name })
-        );
+        notify.success(t('eventManager.dropSuccess', { name: event.name }));
         setShowDropConfirm(false);
         onDrop();
       } else {
-        notify.error(
-          t('eventManager.dropFailed', { name: event.name }),
-          result.error
-        );
+        notify.error(t('eventManager.dropFailed', { name: event.name }), result.error);
       }
     } catch (err) {
       notify.error(t('common.error'), err);

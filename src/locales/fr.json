@@ -102,6 +102,7 @@
       "deletedSuccess": "Connexion \"{{name}}\" supprimée",
       "deleteFail": "Échec de la suppression de la connexion",
       "newQuery": "Nouvelle requête",
+      "newNotebook": "Nouveau Notebook",
       "credentialLoadFail": "Échec du chargement des détails de la connexion",
       "testTitleSuccess": "Connexion à {{name}} réussie !"
     },
@@ -143,6 +144,7 @@
   "sidebar": {
     "connections": "Connexions",
     "noConnections": "Aucune connexion enregistrée",
+    "filterConnections": "Filtrer les connexions...",
     "newConnection": "Nouvelle connexion",
     "errorLogs": "Journaux d'erreurs",
     "themeLight": "Passer en mode clair",
@@ -174,7 +176,14 @@
     "footerHint": "Cliquez sur un résultat pour ouvrir la table"
   },
   "tabs": {
-    "newQuery": "Nouvelle requête ({{modifier}}+T)"
+    "new": "Nouvel onglet",
+    "newQuery": "Nouvelle requête ({{modifier}}+T)",
+    "newNotebook": "Nouveau Notebook",
+    "close": "Fermer l'onglet",
+    "pin": "Épingler l'onglet",
+    "unpin": "Désépingler l'onglet",
+    "contextMenu": "Options de l'onglet",
+    "showAll": "Afficher tous les onglets"
   },
   "browser": {
     "searchPlaceholder": "Rechercher connexions, tables...",
@@ -244,7 +253,127 @@
     "fulltextSearch": "Rechercher dans la base",
     "openSettings": "Paramètres",
     "toggleTheme": "Basculer le thème",
-    "closeTab": "Fermer l'onglet"
+    "closeTab": "Fermer l'onglet",
+    "newNotebook": "Nouveau Notebook",
+    "openNotebook": "Ouvrir un Notebook...",
+    "convertToNotebook": "Convertir en Notebook",
+    "featuresSection": "Fonctionnalités",
+    "tips": {
+      "newQuery": "Ctrl+T ouvre un nouvel onglet de requête",
+      "sandbox": "Le mode Sandbox permet de prévisualiser les modifications en toute sécurité",
+      "commandPalette": "Cette palette recherche commandes, connexions et requêtes sauvegardées",
+      "notebook": "Les Notebooks combinent SQL et Markdown dans un même document",
+      "federation": "La fédération permet d'interroger plusieurs bases de données à la fois",
+      "shortcuts": "Appuyez sur Ctrl+, pour ouvrir les Paramètres et voir tous les raccourcis"
+    }
+  },
+  "features": {
+    "notebooks": {
+      "name": "Notebooks",
+      "description": "Combinez requêtes SQL et documentation Markdown dans un même document"
+    },
+    "virtualRelations": {
+      "name": "Relations virtuelles",
+      "description": "Définissez des clés étrangères personnalisées pour les tables sans contraintes"
+    },
+    "sandbox": {
+      "name": "Mode Sandbox",
+      "description": "Prévisualisez les modifications avant de les appliquer à votre base"
+    },
+    "federation": {
+      "name": "Fédération multi-bases",
+      "description": "Interrogez et joignez des données entre plusieurs connexions"
+    },
+    "erDiagram": {
+      "name": "Diagramme ER",
+      "description": "Visualisez les relations entre tables sous forme de diagramme entité-relation"
+    },
+    "snapshots": {
+      "name": "Snapshots de données",
+      "description": "Capturez et comparez l'état de vos tables à différents moments"
+    },
+    "diff": {
+      "name": "Comparaison de données",
+      "description": "Comparez les données entre deux sources côte à côte"
+    },
+    "fulltextSearch": {
+      "name": "Recherche plein texte",
+      "description": "Recherchez dans toutes les tables et colonnes de votre base"
+    },
+    "aiAssistant": {
+      "name": "Assistant IA",
+      "description": "Générez et corrigez des requêtes SQL en langage naturel"
+    }
+  },
+  "notebook": {
+    "title": "Notebook",
+    "untitled": "Notebook sans titre",
+    "addCellSql": "Cellule SQL",
+    "addCellMarkdown": "Cellule Markdown",
+    "addCellBelow": "Ajouter une cellule",
+    "deleteCell": "Supprimer la cellule",
+    "deleteCellConfirm": "Supprimer cette cellule ? Cette action est irréversible.",
+    "moveCellUp": "Déplacer vers le haut",
+    "moveCellDown": "Déplacer vers le bas",
+    "executeCell": "Exécuter la cellule (Ctrl+Entrée)",
+    "executeAll": "Tout exécuter",
+    "executeFromHere": "Exécuter à partir d'ici",
+    "clearAll": "Effacer tous les résultats",
+    "cancelExecution": "Annuler",
+    "executionStopped": "Exécution annulée",
+    "allCellsExecuted": "Toutes les cellules exécutées",
+    "save": "Enregistrer le notebook",
+    "saveAs": "Enregistrer sous...",
+    "saved": "Notebook enregistré",
+    "saveError": "Échec de l'enregistrement du notebook",
+    "open": "Ouvrir un notebook",
+    "openError": "Échec de l'ouverture du notebook",
+    "invalidFormat": "Format de notebook invalide",
+    "unsavedChanges": "Ce notebook contient des modifications non enregistrées.",
+    "unsavedChangesTitle": "Modifications non enregistrées",
+    "unsavedSaveAndClose": "Enregistrer et fermer",
+    "unsavedDiscard": "Abandonner",
+    "unsavedCancel": "Annuler",
+    "executionTime": "{{time}} ms",
+    "rowCount": "{{count}} ligne(s)",
+    "cellEmpty": "Cellule vide",
+    "markdownPlaceholder": "Écrire du Markdown ici...",
+    "sqlPlaceholder": "Écrire du SQL ici...",
+    "executionCount": "Exécution #{{count}}",
+    "stale": "Modifié depuis la dernière exécution",
+    "variables": "Variables",
+    "addVariable": "Ajouter une variable",
+    "removeVariable": "Supprimer la variable",
+    "variableName": "Nom de la variable",
+    "variableType": "Type",
+    "variableDefault": "Valeur par défaut",
+    "variableDescription": "Description",
+    "import": "Importer",
+    "importSuccess": "Notebook importé",
+    "export": "Exporter",
+    "exportMarkdown": "Markdown (.md)",
+    "exportHtml": "HTML (.html)",
+    "exportSuccess": "Notebook exporté",
+    "includeResults": "Inclure les résultats",
+    "duplicateCell": "Dupliquer la cellule",
+    "convertType": "Convertir le type",
+    "collapseCell": "Réduire la cellule",
+    "expandCell": "Déplier la cellule",
+    "copyError": "Copier l'erreur",
+    "chartNoConfig": "Configurez cette cellule chart via le menu contextuel.",
+    "chartNoData": "Aucune donnée — exécutez d'abord la cellule source.",
+    "undo": "Annuler",
+    "redo": "Rétablir",
+    "toggleVariables": "Variables",
+    "editTitle": "Cliquer pour modifier le titre",
+    "cellCountLabel": "{{count}} cellule(s)",
+    "variableDescriptionHint": "Description optionnelle",
+    "doubleClickToEdit": "Double-cliquer pour modifier",
+    "selectNamespace": "Choisir la base",
+    "hideResults": "Masquer les résultats",
+    "showResults": "Afficher les résultats",
+    "editMarkdown": "Modifier",
+    "previewMarkdown": "Aperçu"
   },
   "settings": {
     "title": "Paramètres",
@@ -345,6 +474,17 @@
     "search": {
       "placeholder": "Rechercher dans les paramètres...",
       "noResults": "Aucun paramètre trouvé"
+    },
+    "about": {
+      "title": "À propos",
+      "description": "Version de l'application et mises à jour.",
+      "version": "Version",
+      "checkForUpdate": "Vérifier les mises à jour",
+      "checking": "Vérification...",
+      "installUpdate": "Installer v{{version}}",
+      "installing": "Installation...",
+      "installed": "Mise à jour installée — redémarrez pour appliquer.",
+      "upToDate": "Vous êtes à jour !"
     },
     "startup": {
       "title": "Démarrage",
@@ -472,6 +612,8 @@
     "queryFailed": "Échec de la requête",
     "noConnectionError": "Aucune connexion sélectionnée",
     "multiStatementNotice": "Plusieurs instructions détectées ({{count}}). Seul le dernier résultat est affiché.",
+    "expandEditor": "Agrandir l'éditeur",
+    "collapseEditor": "Réduire l'éditeur",
     "time": {
       "exec": "EXEC",
       "transfer": "TRANSFERT",
@@ -485,6 +627,7 @@
     "affectedRows": "{{count}} ligne(s) affectée(s) en {{time}}ms",
     "commandOk": "Commande exécutée en {{time}}ms",
     "noResults": "Aucun résultat à afficher",
+    "noResultsHint": "Essayez de modifier votre requête ou vérifiez la base sélectionnée",
     "rowCount": "{{count}} ligne(s)",
     "timeMs": "{{time}}ms"
   },
@@ -703,7 +846,103 @@
     "connectionUnhealthy": "Connexion à la base de données perdue. Tentative de reconnexion…",
     "connectionRestored": "Connexion rétablie.",
     "session": "Session",
-    "noSession": "Aucune session active"
+    "noSession": "Aucune session active",
+    "transactionActive": "Transaction active",
+    "transactionStatements": "{{count}} instruction(s) en attente"
+  },
+  "help": {
+    "keepResults": "Quand activé, les résultats précédents sont conservés dans des onglets séparés sous l'éditeur. Utile pour comparer les résultats de plusieurs requêtes.",
+    "federation": "La fédération permet d'écrire des requêtes SQL qui couvrent plusieurs connexions. Les tables de différentes sources peuvent être jointes via des alias.",
+    "aiAssistant": "L'assistant IA génère des requêtes SQL à partir de descriptions en langage naturel. Il utilise le schéma actuel pour des suggestions contextuelles.",
+    "transactions": "Démarrez une transaction explicite pour grouper plusieurs instructions. Les modifications ne sont appliquées qu'après un Commit. Utilisez Rollback pour tout annuler.",
+    "notebookVariables": "Les variables permettent de paramétrer les cellules SQL. Définissez une variable une fois et référencez-la dans plusieurs cellules avec la syntaxe {{variableName}}."
+  },
+  "tour": {
+    "gotIt": "Compris",
+    "next": "Suivant",
+    "dismiss": "Passer le tour",
+    "stepOf": "{{current}} sur {{total}}",
+    "firstQuery": {
+      "step1Title": "Écrivez votre requête",
+      "step1Desc": "Tapez du SQL dans l'éditeur. Il supporte l'auto-complétion et la coloration syntaxique.",
+      "step2Title": "Exécutez",
+      "step2Desc": "Cliquez sur Exécuter ou appuyez sur Ctrl+Entrée pour lancer votre requête.",
+      "step3Title": "Voir les résultats",
+      "step3Desc": "Les résultats apparaissent ici dans une grille triable et défilable."
+    },
+    "firstNotebook": {
+      "step1Title": "Cellules du notebook",
+      "step1Desc": "Chaque cellule peut contenir du SQL ou du Markdown. Exécutez-les indépendamment ou toutes à la fois.",
+      "step2Title": "Ajouter des cellules",
+      "step2Desc": "Ajoutez des cellules SQL ou Markdown pour construire votre analyse pas à pas.",
+      "step3Title": "Sauvegardez votre travail",
+      "step3Desc": "Sauvegardez les notebooks sur disque et rouvrez-les plus tard."
+    },
+    "firstTable": {
+      "step1Title": "Parcourir les données",
+      "step1Desc": "Faites défiler les lignes avec le chargement infini. Cliquez sur une cellule pour voir sa valeur complète.",
+      "step2Title": "Structure de la table",
+      "step2Desc": "Changez d'onglet pour explorer les colonnes, index et relations."
+    }
+  },
+  "whatsNew": {
+    "title": "Nouveautés",
+    "titleWithVersion": "Nouveautés de la v{{version}}",
+    "tryIt": "Essayer",
+    "markSeen": "Masquer",
+    "feature": "Nouveau",
+    "improvement": "Amélioré",
+    "fix": "Corrigé"
+  },
+  "a11y": {
+    "skipToContent": "Aller au contenu",
+    "sidebar": "Explorateur de bases de données",
+    "tabBar": "Onglets ouverts",
+    "databaseTree": "Arborescence des bases de données",
+    "statusBar": "Barre de statut",
+    "help": "Aide"
+  },
+  "zenMode": {
+    "enabled": "Mode Zen — Appuyez sur Échap pour quitter"
+  },
+  "cheatsheet": {
+    "title": "Raccourcis clavier",
+    "general": "Général",
+    "tabs": "Onglets",
+    "queryEditor": "Éditeur de requêtes",
+    "search": "Ouvrir la recherche",
+    "settings": "Paramètres",
+    "thisDialog": "Cette fenêtre",
+    "newQuery": "Nouvel onglet requête",
+    "closeTab": "Fermer l'onglet",
+    "newConnection": "Nouvelle connexion",
+    "executeQuery": "Exécuter la requête",
+    "openLibrary": "Ouvrir la bibliothèque",
+    "fulltextSearch": "Recherche plein texte",
+    "pressToClose": "Appuyez sur ? ou Échap pour fermer",
+    "exitZenMode": "Quitter le mode Zen"
+  },
+  "toolbar": {
+    "moreActions": "Plus d'actions",
+    "queryTools": "Outils de requête",
+    "library": "Bibliothèque",
+    "integrations": "Intégrations"
+  },
+  "transaction": {
+    "begin": "Démarrer",
+    "commit": "Valider",
+    "rollback": "Annuler",
+    "active": "TXN",
+    "beginSuccess": "Transaction démarrée",
+    "commitSuccess": "Transaction validée",
+    "rollbackSuccess": "Transaction annulée",
+    "beginError": "Échec du démarrage de la transaction : {{error}}",
+    "commitError": "Échec de la validation : {{error}}",
+    "rollbackError": "Échec de l'annulation : {{error}}",
+    "confirmRollback": "Êtes-vous sûr de vouloir annuler ? Toutes les modifications en attente seront abandonnées.",
+    "tooltipBegin": "Démarrer une nouvelle transaction",
+    "tooltipCommit": "Valider la transaction en cours",
+    "tooltipRollback": "Annuler la transaction en cours"
   },
   "logs": {
     "title": "Journaux d'erreurs",
@@ -719,6 +958,8 @@
     "noLogs": "Aucun journal d'erreur",
     "refresh": "Actualiser",
     "export": "Exporter les logs",
+    "exportVisible": "Exporter les logs visibles",
+    "exportDiagnostic": "Exporter les logs de diagnostic (complet)",
     "exportSuccess": "Logs exportés : {{name}}",
     "exportError": "Échec de l'export des logs"
   },
@@ -848,7 +1089,8 @@
   "errorBoundary": {
     "title": "Une erreur est survenue",
     "description": "Une erreur inattendue s'est produite. L'erreur a été journalisée.",
-    "reload": "Recharger l'application"
+    "reload": "Recharger l'application",
+    "panelCrashed": "Ce panneau a rencontré une erreur"
   },
   "sandbox": {
     "activate": "Bac à sable",
@@ -1155,6 +1397,7 @@
         "label": "Fichier",
         "newConnection": "Nouvelle connexion",
         "newWindow": "Nouvelle fenêtre",
+        "openNotebook": "Ouvrir un Notebook...",
         "settings": "Paramètres",
         "quit": "Quitter"
       },
@@ -1162,7 +1405,8 @@
         "label": "Affichage",
         "explorer": "Explorateur",
         "logs": "Journaux d'erreurs",
-        "zenMode": "Mode Zen"
+        "zenMode": "Mode Zen",
+        "keyboardShortcuts": "Raccourcis clavier"
       },
       "data": {
         "label": "Données",

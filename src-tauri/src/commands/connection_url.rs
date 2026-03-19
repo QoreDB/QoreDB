@@ -66,11 +66,7 @@ impl From<crate::engine::connection_url::PartialConnectionConfig> for PartialCon
 #[instrument(skip(url), fields(url_scheme))]
 pub fn parse_url(url: String) -> ParseConnectionUrlResponse {
     // Don't log the full URL as it may contain credentials
-    let scheme = url
-        .split("://")
-        .next()
-        .unwrap_or("unknown")
-        .to_string();
+    let scheme = url.split("://").next().unwrap_or("unknown").to_string();
     tracing::Span::current().record("url_scheme", &scheme);
 
     match parse_connection_url(&url) {

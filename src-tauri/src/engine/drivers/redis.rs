@@ -7,21 +7,21 @@
 //! displays their contents in type-specific tabular formats.
 
 use std::collections::{BinaryHeap, HashMap};
-use std::sync::Arc;
 use std::sync::atomic::{AtomicU16, Ordering};
+use std::sync::Arc;
 use std::time::Instant;
 
 use async_trait::async_trait;
 use futures::future::{AbortHandle, Abortable};
-use percent_encoding::{NON_ALPHANUMERIC, utf8_percent_encode};
+use percent_encoding::{utf8_percent_encode, NON_ALPHANUMERIC};
 use tokio::sync::{Mutex, RwLock};
 
 use crate::engine::error::{EngineError, EngineResult};
 use crate::engine::traits::DataEngine;
 use crate::engine::types::{
     CancelSupport, Collection, CollectionList, CollectionListOptions, CollectionType, ColumnInfo,
-    ConnectionConfig, Namespace, QueryId, QueryResult, Row as QRow, SessionId, TableColumn,
-    TableSchema, Value, TableQueryOptions, PaginatedQueryResult,
+    ConnectionConfig, Namespace, PaginatedQueryResult, QueryId, QueryResult, Row as QRow,
+    SessionId, TableColumn, TableQueryOptions, TableSchema, Value,
 };
 
 /// Holds a Redis connection and session metadata
@@ -82,7 +82,10 @@ impl RedisDriver {
             .await
             .map_err(|e| {
                 let msg = e.to_string();
-                if msg.contains("AUTH") || msg.contains("NOAUTH") || msg.contains("invalid password") {
+                if msg.contains("AUTH")
+                    || msg.contains("NOAUTH")
+                    || msg.contains("invalid password")
+                {
                     EngineError::auth_failed(msg)
                 } else {
                     EngineError::connection_failed(msg)
@@ -221,10 +224,7 @@ impl RedisDriver {
     }
 
     /// Gets the TTL of a key (-1 = no expiry, -2 = key doesn't exist)
-    async fn key_ttl(
-        conn: &mut redis::aio::MultiplexedConnection,
-        key: &str,
-    ) -> EngineResult<i64> {
+    async fn key_ttl(conn: &mut redis::aio::MultiplexedConnection, key: &str) -> EngineResult<i64> {
         let ttl: i64 = redis::cmd("TTL")
             .arg(key)
             .query_async(conn)
@@ -253,9 +253,7 @@ impl RedisDriver {
 
         let val = Self::redis_value_to_value(&value);
 
-        let rows = vec![QRow {
-            values: vec![val],
-        }];
+        let rows = vec![QRow { values: vec![val] }];
 
         Ok(QueryResult {
             columns,
@@ -771,7 +769,9 @@ impl RedisDriver {
             }
             redis::Value::Attribute { data, .. } => Self::redis_value_to_value(data),
             redis::Value::BigNumber(big) => Value::Text(big.to_string()),
-            redis::Value::ServerError(err) => Value::Text(format!("ERROR: {}", err.details().unwrap_or("unknown"))),
+            redis::Value::ServerError(err) => {
+                Value::Text(format!("ERROR: {}", err.details().unwrap_or("unknown")))
+            }
             redis::Value::Push { data, .. } => {
                 let values: Vec<Value> = data.iter().map(Self::redis_value_to_value).collect();
                 Value::Array(values)
@@ -982,10 +982,8 @@ impl DataEngine for RedisDriver {
 
         for db in 0..db_count {
             // SELECT the database
-            let select_ok: Result<String, _> = redis::cmd("SELECT")
-                .arg(db)
-                .query_async(&mut *conn)
-                .await;
+            let select_ok: Result<String, _> =
+                redis::cmd("SELECT").arg(db).query_async(&mut *conn).await;
 
             if select_ok.is_err() {
                 continue;
@@ -1187,7 +1185,8 @@ impl DataEngine for RedisDriver {
         query: &str,
         query_id: QueryId,
     ) -> EngineResult<QueryResult> {
-        self.execute_with_target_db(session, query, query_id, None).await
+        self.execute_with_target_db(session, query, query_id, None)
+            .await
     }
 
     async fn execute_in_namespace(
@@ -1368,7 +1367,10 @@ impl DataEngine for RedisDriver {
             foreign_keys: Vec::new(),
             row_count_estimate: element_count,
             indexes: vec![crate::engine::types::TableIndex {
-                name: format!("type:{} | encoding:{} | ttl:{}", type_str, encoding, ttl_display),
+                name: format!(
+                    "type:{} | encoding:{} | ttl:{}",
+                    type_str, encoding, ttl_display
+                ),
                 columns: vec![key.to_string()],
                 is_unique: false,
                 is_primary: false,
@@ -1481,8 +1483,7 @@ impl DataEngine for RedisDriver {
                     .query_async(&mut *conn)
                     .await
                     .map_err(|e| EngineError::execution_error(e.to_string()))?;
-                let result =
-                    Self::read_list(&mut conn, key, offset, page_size as i64).await?;
+                let result = Self::read_list(&mut conn, key, offset, page_size as i64).await?;
                 Ok(PaginatedQueryResult::new(result, total, page, page_size))
             }
             "set" => {
@@ -1492,9 +1493,8 @@ impl DataEngine for RedisDriver {
                     .query_async(&mut *conn)
                     .await
                     .map_err(|e| EngineError::execution_error(e.to_string()))?;
-                let rows =
-                    Self::read_set_page(&mut conn, key, offset as usize, page_size as usize)
-                        .await?;
+                let rows = Self::read_set_page(&mut conn, key, offset as usize, page_size as usize)
+                    .await?;
                 let result = QueryResult {
                     columns: vec![ColumnInfo {
                         name: "member".to_string(),
@@ -1513,8 +1513,7 @@ impl DataEngine for RedisDriver {
                     .query_async(&mut *conn)
                     .await
                     .map_err(|e| EngineError::execution_error(e.to_string()))?;
-                let result =
-                    Self::read_zset(&mut conn, key, offset, page_size as i64).await?;
+                let result = Self::read_zset(&mut conn, key, offset, page_size as i64).await?;
                 Ok(PaginatedQueryResult::new(result, total, page, page_size))
             }
             "stream" => {

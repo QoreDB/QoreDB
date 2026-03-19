@@ -51,7 +51,7 @@ export function FederationSourceBar({
         </div>
       ) : sources.length === 0 ? (
         <button
-        type='button'
+          type="button"
           onClick={onAddSource}
           className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-dashed border-border text-xs text-muted-foreground hover:text-foreground hover:border-accent/40 hover:bg-accent/5 transition-all"
         >
@@ -60,79 +60,78 @@ export function FederationSourceBar({
         </button>
       ) : (
         sources.map(source => {
-            const driver = source.driver as Driver;
-            const isOpen = openPopover === source.alias;
+          const driver = source.driver as Driver;
+          const isOpen = openPopover === source.alias;
 
-            return (
-              <Popover
-                key={source.alias}
-                open={isOpen}
-                onOpenChange={open => setOpenPopover(open ? source.alias : null)}
-              >
-                <PopoverTrigger asChild>
-                  <button
-        type='button'
-
+          return (
+            <Popover
+              key={source.alias}
+              open={isOpen}
+              onOpenChange={open => setOpenPopover(open ? source.alias : null)}
+            >
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className={cn(
+                    'flex items-center gap-1.5 pl-2 pr-2 py-1 rounded-md border text-xs transition-all shrink-0',
+                    'hover:border-accent/30 hover:bg-accent/5',
+                    isOpen
+                      ? 'bg-accent/10 border-accent/30 text-foreground ring-1 ring-accent/20'
+                      : 'bg-background border-border text-foreground'
+                  )}
+                >
+                  <div className="w-3.5 h-3.5 rounded-sm overflow-hidden shrink-0">
+                    <img
+                      src={`/databases/${DRIVER_ICONS[driver]}`}
+                      alt={DRIVER_LABELS[driver] || driver}
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
+                  <span className="font-medium truncate max-w-24">{source.display_name}</span>
+                  <span className="font-mono text-[10px] text-muted-foreground/70">
+                    {source.alias}
+                  </span>
+                  <ChevronDown
+                    size={10}
                     className={cn(
-                      'flex items-center gap-1.5 pl-2 pr-2 py-1 rounded-md border text-xs transition-all shrink-0',
-                      'hover:border-accent/30 hover:bg-accent/5',
-                      isOpen
-                        ? 'bg-accent/10 border-accent/30 text-foreground ring-1 ring-accent/20'
-                        : 'bg-background border-border text-foreground'
+                      'text-muted-foreground transition-transform ml-0.5',
+                      isOpen && 'rotate-180'
                     )}
-                  >
-                    <div className="w-3.5 h-3.5 rounded-sm overflow-hidden shrink-0">
-                      <img
-                        src={`/databases/${DRIVER_ICONS[driver]}`}
-                        alt={DRIVER_LABELS[driver] || driver}
-                        className="w-full h-full object-contain"
-                      />
-                    </div>
-                    <span className="font-medium truncate max-w-24">{source.display_name}</span>
-                    <span className="font-mono text-[10px] text-muted-foreground/70">
+                  />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80 p-0" align="start" sideOffset={6}>
+                <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-muted/30">
+                  <div className="w-4 h-4 rounded-sm overflow-hidden shrink-0">
+                    <img
+                      src={`/databases/${DRIVER_ICONS[driver]}`}
+                      alt={DRIVER_LABELS[driver]}
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <span className="text-xs font-medium">{source.display_name}</span>
+                    <span className="text-[10px] text-muted-foreground font-mono ml-1.5">
                       {source.alias}
                     </span>
-                    <ChevronDown
-                      size={10}
-                      className={cn(
-                        'text-muted-foreground transition-transform ml-0.5',
-                        isOpen && 'rotate-180'
-                      )}
-                    />
-                  </button>
-                </PopoverTrigger>
-                <PopoverContent className="w-80 p-0" align="start" sideOffset={6}>
-                  <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-muted/30">
-                    <div className="w-4 h-4 rounded-sm overflow-hidden shrink-0">
-                      <img
-                        src={`/databases/${DRIVER_ICONS[driver]}`}
-                        alt={DRIVER_LABELS[driver]}
-                        className="w-full h-full object-contain"
-                      />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <span className="text-xs font-medium">{source.display_name}</span>
-                      <span className="text-[10px] text-muted-foreground font-mono ml-1.5">
-                        {source.alias}
-                      </span>
-                    </div>
                   </div>
-                  <p className="text-[10px] text-muted-foreground px-3 py-1.5 bg-accent/5 border-b border-border">
-                    {t('federation.clickTableToInsert')}
-                  </p>
-                  <ScrollArea className="max-h-90">
-                    <div className="p-2">
-                      <DBTree
-                        connectionId={source.session_id}
-                        driver={source.driver}
-                        onTableSelect={(ns, table) => handleTableSelect(source.alias, ns, table)}
-                      />
-                    </div>
-                  </ScrollArea>
-                </PopoverContent>
-              </Popover>
-            );
-          })
+                </div>
+                <p className="text-[10px] text-muted-foreground px-3 py-1.5 bg-accent/5 border-b border-border">
+                  {t('federation.clickTableToInsert')}
+                </p>
+                <ScrollArea className="max-h-90">
+                  <div className="p-2">
+                    <DBTree
+                      connectionId={source.session_id}
+                      driver={source.driver}
+                      onTableSelect={(ns, table) => handleTableSelect(source.alias, ns, table)}
+                    />
+                  </div>
+                </ScrollArea>
+              </PopoverContent>
+            </Popover>
+          );
+        })
       )}
 
       <div className="flex-1" />

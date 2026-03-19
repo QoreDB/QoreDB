@@ -7,11 +7,11 @@
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager, State};
 
+use crate::observability::Sensitive;
+use crate::vault::backend::KeyringProvider;
 use crate::vault::credentials::{Environment, SavedConnection, SshTunnelInfo, StoredCredentials};
 use crate::vault::storage::VaultStorage;
-use crate::vault::backend::KeyringProvider;
 use crate::SharedState;
-use crate::observability::Sensitive;
 
 /// Response for vault operations
 #[derive(Debug, Serialize)]
@@ -82,7 +82,9 @@ pub async fn get_vault_status(
 ) -> Result<VaultStatusResponse, String> {
     let state = state.lock().await;
 
-    let has_master_password = state.vault_lock.has_master_password()
+    let has_master_password = state
+        .vault_lock
+        .has_master_password()
         .map_err(|e| e.to_string())?;
 
     Ok(VaultStatusResponse {
@@ -164,7 +166,11 @@ pub async fn save_connection(
     }
 
     let storage_dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
-    let storage = VaultStorage::new(&input.project_id, storage_dir, Box::new(KeyringProvider::new()));
+    let storage = VaultStorage::new(
+        &input.project_id,
+        storage_dir,
+        Box::new(KeyringProvider::new()),
+    );
 
     let ssh_tunnel = input.ssh_tunnel.as_ref().map(|ssh| SshTunnelInfo {
         host: ssh.host.clone(),
@@ -199,8 +205,14 @@ pub async fn save_connection(
 
     let credentials = StoredCredentials {
         db_password: Sensitive::new(input.password),
-        ssh_password: input.ssh_tunnel.as_ref().and_then(|s| s.password.clone().map(Sensitive::new)),
-        ssh_key_passphrase: input.ssh_tunnel.as_ref().and_then(|s| s.key_passphrase.clone().map(Sensitive::new)),
+        ssh_password: input
+            .ssh_tunnel
+            .as_ref()
+            .and_then(|s| s.password.clone().map(Sensitive::new)),
+        ssh_key_passphrase: input
+            .ssh_tunnel
+            .as_ref()
+            .and_then(|s| s.key_passphrase.clone().map(Sensitive::new)),
     };
 
     match storage.save_connection(&connection, &credentials) {
@@ -231,9 +243,7 @@ pub async fn list_saved_connections(
     let storage_dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
     let storage = VaultStorage::new(&project_id, storage_dir, Box::new(KeyringProvider::new()));
 
-    storage
-        .list_connections_full()
-        .map_err(|e| e.to_string())
+    storage.list_connections_full().map_err(|e| e.to_string())
 }
 
 /// Deletes a saved connection

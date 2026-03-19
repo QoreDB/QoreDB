@@ -18,17 +18,13 @@ pub async fn activate_license(
 }
 
 #[tauri::command]
-pub async fn get_license_status(
-    state: State<'_, SharedState>,
-) -> Result<LicenseStatus, String> {
+pub async fn get_license_status(state: State<'_, SharedState>) -> Result<LicenseStatus, String> {
     let state = state.lock().await;
     Ok(state.license_manager.effective_status())
 }
 
 #[tauri::command]
-pub async fn deactivate_license(
-    state: State<'_, SharedState>,
-) -> Result<(), String> {
+pub async fn deactivate_license(state: State<'_, SharedState>) -> Result<(), String> {
     let mut state = state.lock().await;
     state
         .license_manager

@@ -40,10 +40,7 @@ impl InterceptorPipeline {
     pub fn new(data_dir: PathBuf) -> Self {
         let config = InterceptorConfig::default();
 
-        let audit = Arc::new(AuditStore::new(
-            data_dir.clone(),
-            config.max_audit_entries,
-        ));
+        let audit = Arc::new(AuditStore::new(data_dir.clone(), config.max_audit_entries));
 
         let profiling = Arc::new(ProfilingStore::new(
             config.slow_query_threshold_ms,
@@ -75,8 +72,8 @@ impl InterceptorPipeline {
         let content = std::fs::read_to_string(&config_path)
             .map_err(|e| format!("Failed to read config: {}", e))?;
 
-        let config: InterceptorConfig = serde_json::from_str(&content)
-            .map_err(|e| format!("Failed to parse config: {}", e))?;
+        let config: InterceptorConfig =
+            serde_json::from_str(&content).map_err(|e| format!("Failed to parse config: {}", e))?;
 
         self.apply_config(config);
 
@@ -104,11 +101,13 @@ impl InterceptorPipeline {
         self.audit.set_enabled(config.audit_enabled);
         self.audit.set_max_entries(config.max_audit_entries);
         self.profiling.set_enabled(config.profiling_enabled);
-        self.profiling.set_slow_threshold(config.slow_query_threshold_ms);
+        self.profiling
+            .set_slow_threshold(config.slow_query_threshold_ms);
         self.profiling.set_max_slow_queries(config.max_slow_queries);
         self.safety.set_enabled(config.safety_enabled);
         self.safety.load_rules(config.safety_rules.clone());
-        self.safety.apply_builtin_overrides(&config.builtin_rule_overrides);
+        self.safety
+            .apply_builtin_overrides(&config.builtin_rule_overrides);
 
         *self.config.write().unwrap() = config;
     }
@@ -269,7 +268,16 @@ impl InterceptorPipeline {
         success: Option<bool>,
         search: Option<&str>,
     ) -> Vec<AuditLogEntry> {
-        self.audit.get_entries(limit, offset, environment, operation, success, search, None, None)
+        self.audit.get_entries(
+            limit,
+            offset,
+            environment,
+            operation,
+            success,
+            search,
+            None,
+            None,
+        )
     }
 
     /// Get audit statistics
@@ -362,11 +370,7 @@ impl InterceptorPipeline {
     }
 }
 
-fn upsert_builtin_override(
-    overrides: &mut Vec<BuiltinRuleOverride>,
-    rule_id: &str,
-    enabled: bool,
-) {
+fn upsert_builtin_override(overrides: &mut Vec<BuiltinRuleOverride>, rule_id: &str, enabled: bool) {
     if let Some(existing) = overrides.iter_mut().find(|r| r.id == rule_id) {
         existing.enabled = enabled;
     } else {

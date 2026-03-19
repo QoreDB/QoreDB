@@ -68,15 +68,7 @@ fn is_read_command(cmd: &str, sub: Option<&str>) -> bool {
         "XINFO" => true,
         "CLIENT" => matches!(
             sub,
-            Some(
-                "ID"
-                    | "INFO"
-                    | "LIST"
-                    | "GETNAME"
-                    | "TRACKINGINFO"
-                    | "NO-EVICT"
-                    | "NO-TOUCH"
-            )
+            Some("ID" | "INFO" | "LIST" | "GETNAME" | "TRACKINGINFO" | "NO-EVICT" | "NO-TOUCH")
         ),
         "COMMAND" => true,
         "FCALL_RO" => true,
@@ -91,8 +83,8 @@ fn is_mutation_command(cmd: &str, sub: Option<&str>) -> bool {
         "DEL" | "UNLINK" | "EXPIRE" | "PEXPIRE" | "EXPIREAT" | "PEXPIREAT" | "PERSIST"
         | "RENAME" | "RENAMENX" | "MOVE" | "COPY" => true,
         "HSET" | "HMSET" | "HSETNX" | "HDEL" | "HINCRBY" | "HINCRBYFLOAT" => true,
-        "LPUSH" | "RPUSH" | "LPOP" | "RPOP" | "LSET" | "LTRIM" | "LINSERT" | "LMOVE"
-        | "BLMOVE" | "BLPOP" | "BRPOP" | "RPOPLPUSH" | "BRPOPLPUSH" => true,
+        "LPUSH" | "RPUSH" | "LPOP" | "RPOP" | "LSET" | "LTRIM" | "LINSERT" | "LMOVE" | "BLMOVE"
+        | "BLPOP" | "BRPOP" | "RPOPLPUSH" | "BRPOPLPUSH" => true,
         "SADD" | "SREM" | "SPOP" | "SMOVE" => true,
         "ZADD" | "ZREM" | "ZINCRBY" | "ZPOPMIN" | "ZPOPMAX" | "ZREMRANGEBYRANK"
         | "ZREMRANGEBYSCORE" | "ZREMRANGEBYLEX" => true,
@@ -114,21 +106,30 @@ mod tests {
     #[test]
     fn classifies_read_commands() {
         assert_eq!(classify("GET mykey"), RedisQueryClass::Read);
-        assert_eq!(classify("XRANGE mystream - + COUNT 10"), RedisQueryClass::Read);
+        assert_eq!(
+            classify("XRANGE mystream - + COUNT 10"),
+            RedisQueryClass::Read
+        );
         assert_eq!(classify("SELECT 2"), RedisQueryClass::Read);
     }
 
     #[test]
     fn classifies_mutation_commands() {
         assert_eq!(classify("SET mykey value"), RedisQueryClass::Mutation);
-        assert_eq!(classify("HSET myhash field value"), RedisQueryClass::Mutation);
+        assert_eq!(
+            classify("HSET myhash field value"),
+            RedisQueryClass::Mutation
+        );
         assert_eq!(classify("XADD mystream * f v"), RedisQueryClass::Mutation);
     }
 
     #[test]
     fn classifies_dangerous_commands() {
         assert_eq!(classify("FLUSHALL"), RedisQueryClass::Dangerous);
-        assert_eq!(classify("CONFIG SET appendonly no"), RedisQueryClass::Dangerous);
+        assert_eq!(
+            classify("CONFIG SET appendonly no"),
+            RedisQueryClass::Dangerous
+        );
         assert_eq!(classify("SCRIPT FLUSH"), RedisQueryClass::Dangerous);
     }
 

@@ -10,7 +10,9 @@ use std::time::Instant;
 
 use async_trait::async_trait;
 use rust_decimal::Decimal;
-use sqlx::mysql::{MySql, MySqlConnectOptions, MySqlPool, MySqlPoolOptions, MySqlRow, MySqlSslMode};
+use sqlx::mysql::{
+    MySql, MySqlConnectOptions, MySqlPool, MySqlPoolOptions, MySqlRow, MySqlSslMode,
+};
 use sqlx::pool::PoolConnection;
 use sqlx::{Column, Executor, Row, TypeInfo};
 use tokio::sync::{Mutex, RwLock};
@@ -19,23 +21,23 @@ use uuid::Uuid;
 use crate::engine::error::{EngineError, EngineResult};
 use crate::engine::sql_safety;
 use crate::engine::traits::DataEngine;
-use crate::engine::types::{
-    CancelSupport, Collection, CollectionList, CollectionListOptions, CollectionType, ColumnInfo,
-    ConnectionConfig, Namespace, QueryId, QueryResult, Row as QRow, RowData, SessionId,
-    TableColumn, TableIndex, TableSchema, Value, ForeignKey,
-    TableQueryOptions, PaginatedQueryResult, SortDirection, FilterOperator,
-    Routine, RoutineList, RoutineListOptions, RoutineType, RoutineDefinition, RoutineOperationResult,
-    Trigger, TriggerList, TriggerListOptions, TriggerTiming, TriggerEvent, TriggerDefinition, TriggerOperationResult,
-    DatabaseEvent, EventList, EventListOptions, EventStatus, EventDefinition, EventOperationResult,
-    CharsetInfo, CollationInfo, CreationOptions,
-    MaintenanceOperationInfo, MaintenanceOperationType, MaintenanceRequest, MaintenanceResult,
-    MaintenanceMessage, MaintenanceMessageLevel,
-};
 use crate::engine::traits::{StreamEvent, StreamSender};
+use crate::engine::types::{
+    CancelSupport, CharsetInfo, CollationInfo, Collection, CollectionList, CollectionListOptions,
+    CollectionType, ColumnInfo, ConnectionConfig, CreationOptions, DatabaseEvent, EventDefinition,
+    EventList, EventListOptions, EventOperationResult, EventStatus, FilterOperator, ForeignKey,
+    MaintenanceMessage, MaintenanceMessageLevel, MaintenanceOperationInfo,
+    MaintenanceOperationType, MaintenanceRequest, MaintenanceResult, Namespace,
+    PaginatedQueryResult, QueryId, QueryResult, Routine, RoutineDefinition, RoutineList,
+    RoutineListOptions, RoutineOperationResult, RoutineType, Row as QRow, RowData, SessionId,
+    SortDirection, TableColumn, TableIndex, TableQueryOptions, TableSchema, Trigger,
+    TriggerDefinition, TriggerEvent, TriggerList, TriggerListOptions, TriggerOperationResult,
+    TriggerTiming, Value,
+};
 use futures::StreamExt;
 
 pub struct MySqlSession {
-    pub pool: MySqlPool, 
+    pub pool: MySqlPool,
     pub transaction_conn: Mutex<Option<PoolConnection<MySql>>>,
     pub active_queries: Mutex<HashMap<QueryId, u64>>,
 }
@@ -122,9 +124,7 @@ impl MySqlDriver {
         }
     }
 
-    async fn fetch_connection_id(
-        conn: &mut PoolConnection<MySql>,
-    ) -> EngineResult<u64> {
+    async fn fetch_connection_id(conn: &mut PoolConnection<MySql>) -> EngineResult<u64> {
         sqlx::query_scalar("SELECT CONNECTION_ID()")
             .fetch_one(&mut **conn)
             .await
@@ -230,25 +230,35 @@ impl MySqlDriver {
             return v.map(|u| Value::Text(u.to_string())).unwrap_or(Value::Null);
         }
         if let Ok(v) = row.try_get::<Option<Decimal>, _>(idx) {
-            return v.map(|d| {
-                use rust_decimal::prelude::ToPrimitive;
-                Value::Float(d.to_f64().unwrap_or(0.0))
-            }).unwrap_or(Value::Null);
+            return v
+                .map(|d| {
+                    use rust_decimal::prelude::ToPrimitive;
+                    Value::Float(d.to_f64().unwrap_or(0.0))
+                })
+                .unwrap_or(Value::Null);
         }
         if let Ok(v) = row.try_get::<Option<String>, _>(idx) {
             return v.map(Value::Text).unwrap_or(Value::Null);
         }
         if let Ok(v) = row.try_get::<Option<chrono::DateTime<chrono::Utc>>, _>(idx) {
-            return v.map(|dt| Value::Text(dt.to_rfc3339())).unwrap_or(Value::Null);
+            return v
+                .map(|dt| Value::Text(dt.to_rfc3339()))
+                .unwrap_or(Value::Null);
         }
         if let Ok(v) = row.try_get::<Option<chrono::NaiveDateTime>, _>(idx) {
-            return v.map(|dt| Value::Text(dt.format("%Y-%m-%d %H:%M:%S").to_string())).unwrap_or(Value::Null);
+            return v
+                .map(|dt| Value::Text(dt.format("%Y-%m-%d %H:%M:%S").to_string()))
+                .unwrap_or(Value::Null);
         }
         if let Ok(v) = row.try_get::<Option<chrono::NaiveDate>, _>(idx) {
-            return v.map(|d| Value::Text(d.format("%Y-%m-%d").to_string())).unwrap_or(Value::Null);
+            return v
+                .map(|d| Value::Text(d.format("%Y-%m-%d").to_string()))
+                .unwrap_or(Value::Null);
         }
         if let Ok(v) = row.try_get::<Option<chrono::NaiveTime>, _>(idx) {
-            return v.map(|t| Value::Text(t.format("%H:%M:%S").to_string())).unwrap_or(Value::Null);
+            return v
+                .map(|t| Value::Text(t.format("%H:%M:%S").to_string()))
+                .unwrap_or(Value::Null);
         }
         if let Ok(v) = row.try_get::<Option<Vec<u8>>, _>(idx) {
             return v.map(Value::Bytes).unwrap_or(Value::Null);
@@ -351,18 +361,24 @@ impl DataEngine for MySqlDriver {
 
         tracing::info!("MySQL: Listing namespaces for session {}", session.0);
 
-        let rows: Vec<(String,)> = sqlx::query_as("SELECT CAST(schema_name AS CHAR) FROM information_schema.schemata")
-            .fetch_all(pool)
-            .await
-            .map_err(|e| {
-                tracing::error!("MySQL: Failed to list namespaces: {}", e);
-                EngineError::execution_error(e.to_string())
-            })?;
+        let rows: Vec<(String,)> =
+            sqlx::query_as("SELECT CAST(schema_name AS CHAR) FROM information_schema.schemata")
+                .fetch_all(pool)
+                .await
+                .map_err(|e| {
+                    tracing::error!("MySQL: Failed to list namespaces: {}", e);
+                    EngineError::execution_error(e.to_string())
+                })?;
 
-        tracing::info!("MySQL: Found {} raw databases: {:?}", rows.len(), rows.iter().map(|(n,)| n).collect::<Vec<_>>());
+        tracing::info!(
+            "MySQL: Found {} raw databases: {:?}",
+            rows.len(),
+            rows.iter().map(|(n,)| n).collect::<Vec<_>>()
+        );
 
         let system_dbs = ["information_schema", "mysql", "performance_schema", "sys"];
-        let namespaces = rows.into_iter()
+        let namespaces = rows
+            .into_iter()
             .map(|(db,)| db)
             .filter(|db| !system_dbs.contains(&db.as_str()))
             .map(Namespace::new)
@@ -397,7 +413,7 @@ impl DataEngine for MySqlDriver {
             .fetch_one(pool)
             .await
             .map_err(|e| EngineError::execution_error(e.to_string()))?;
-        
+
         let total_count = count_row.0;
 
         // 2. Get paginated results
@@ -408,14 +424,15 @@ impl DataEngine for MySqlDriver {
             WHERE TABLE_SCHEMA = ?
             AND (? IS NULL OR TABLE_NAME LIKE ?)
             ORDER BY TABLE_NAME
-        "#.to_string();
+        "#
+        .to_string();
 
         if let Some(limit) = options.page_size {
-             query_str.push_str(&format!(" LIMIT {}", limit));
-             if let Some(page) = options.page {
-                 let offset = (page.max(1) - 1) * limit;
-                 query_str.push_str(&format!(" OFFSET {}", offset));
-             }
+            query_str.push_str(&format!(" LIMIT {}", limit));
+            if let Some(page) = options.page {
+                let offset = (page.max(1) - 1) * limit;
+                query_str.push_str(&format!(" OFFSET {}", offset));
+            }
         }
 
         let rows: Vec<(String, String)> = sqlx::query_as(&query_str)
@@ -498,7 +515,8 @@ impl DataEngine for MySqlDriver {
             AND (? IS NULL OR ROUTINE_NAME LIKE ?)
             AND (? IS NULL OR ROUTINE_TYPE = ?)
             ORDER BY ROUTINE_NAME
-        "#.to_string();
+        "#
+        .to_string();
 
         if let Some(limit) = options.page_size {
             query_str.push_str(&format!(" LIMIT {}", limit));
@@ -530,7 +548,11 @@ impl DataEngine for MySqlDriver {
                     name,
                     routine_type,
                     arguments: String::new(), // MySQL doesn't easily expose this in information_schema
-                    return_type: if return_type.is_empty() { None } else { Some(return_type) },
+                    return_type: if return_type.is_empty() {
+                        None
+                    } else {
+                        Some(return_type)
+                    },
                     language: Some(language),
                 }
             })
@@ -580,8 +602,16 @@ impl DataEngine for MySqlDriver {
             })?;
 
         // Column name is "Create Function" or "Create Procedure"
-        let create_col = format!("Create {}", if keyword == "FUNCTION" { "Function" } else { "Procedure" });
-        let definition: String = row.try_get(create_col.as_str())
+        let create_col = format!(
+            "Create {}",
+            if keyword == "FUNCTION" {
+                "Function"
+            } else {
+                "Procedure"
+            }
+        );
+        let definition: String = row
+            .try_get(create_col.as_str())
             .map_err(|e| EngineError::execution_error(e.to_string()))?;
 
         // Also get metadata from information_schema
@@ -611,9 +641,17 @@ impl DataEngine for MySqlDriver {
             namespace: namespace.clone(),
             routine_type,
             definition,
-            language: if language.is_empty() { None } else { Some(language) },
+            language: if language.is_empty() {
+                None
+            } else {
+                Some(language)
+            },
             arguments: String::new(),
-            return_type: if return_type.is_empty() { None } else { Some(return_type) },
+            return_type: if return_type.is_empty() {
+                None
+            } else {
+                Some(return_type)
+            },
         })
     }
 
@@ -911,23 +949,33 @@ impl DataEngine for MySqlDriver {
 
         let events = rows
             .into_iter()
-            .map(|(name, event_type, interval_value, interval_field, status)| {
-                let event_status = match status.as_str() {
-                    "ENABLED" => EventStatus::Enabled,
-                    "DISABLED" => EventStatus::Disabled,
-                    "SLAVESIDE_DISABLED" => EventStatus::SlavesideDisabled,
-                    _ => EventStatus::Disabled,
-                };
+            .map(
+                |(name, event_type, interval_value, interval_field, status)| {
+                    let event_status = match status.as_str() {
+                        "ENABLED" => EventStatus::Enabled,
+                        "DISABLED" => EventStatus::Disabled,
+                        "SLAVESIDE_DISABLED" => EventStatus::SlavesideDisabled,
+                        _ => EventStatus::Disabled,
+                    };
 
-                DatabaseEvent {
-                    namespace: namespace.clone(),
-                    name,
-                    event_type,
-                    interval_value: if interval_value.is_empty() { None } else { Some(interval_value) },
-                    interval_field: if interval_field.is_empty() { None } else { Some(interval_field) },
-                    status: event_status,
-                }
-            })
+                    DatabaseEvent {
+                        namespace: namespace.clone(),
+                        name,
+                        event_type,
+                        interval_value: if interval_value.is_empty() {
+                            None
+                        } else {
+                            Some(interval_value)
+                        },
+                        interval_field: if interval_field.is_empty() {
+                            None
+                        } else {
+                            Some(interval_field)
+                        },
+                        status: event_status,
+                    }
+                },
+            )
             .collect();
 
         Ok(EventList {
@@ -965,8 +1013,8 @@ impl DataEngine for MySqlDriver {
             .await
             .map_err(|e| EngineError::execution_error(e.to_string()))?;
 
-        let status_str = status_str
-            .ok_or_else(|| EngineError::execution_error("Event not found"))?;
+        let status_str =
+            status_str.ok_or_else(|| EngineError::execution_error("Event not found"))?;
 
         let status = match status_str.as_str() {
             "ENABLED" => EventStatus::Enabled,
@@ -1090,19 +1138,32 @@ impl DataEngine for MySqlDriver {
         Ok(CreationOptions { charsets })
     }
 
-    async fn create_database(&self, session: SessionId, name: &str, options: Option<Value>) -> EngineResult<()> {
+    async fn create_database(
+        &self,
+        session: SessionId,
+        name: &str,
+        options: Option<Value>,
+    ) -> EngineResult<()> {
         let mysql_session = self.get_session(session).await?;
         let pool = &mysql_session.pool;
 
         // Basic validation
         if name.is_empty() || name.len() > 64 {
-            return Err(EngineError::validation("Database name must be between 1 and 64 characters"));
+            return Err(EngineError::validation(
+                "Database name must be between 1 and 64 characters",
+            ));
         }
 
         // Parse optional charset and collation from JSON options
         let (charset, collation) = if let Some(Value::Json(opts)) = &options {
-            let charset = opts.get("charset").and_then(|v| v.as_str()).map(str::to_owned);
-            let collation = opts.get("collation").and_then(|v| v.as_str()).map(str::to_owned);
+            let charset = opts
+                .get("charset")
+                .and_then(|v| v.as_str())
+                .map(str::to_owned);
+            let collation = opts
+                .get("collation")
+                .and_then(|v| v.as_str())
+                .map(str::to_owned);
             (charset, collation)
         } else {
             (None, None)
@@ -1138,20 +1199,17 @@ impl DataEngine for MySqlDriver {
             query.push_str(&format!(" COLLATE {}", col));
         }
 
-        sqlx::query(&query)
-            .execute(pool)
-            .await
-            .map_err(|e| {
-                tracing::error!("MySQL: Failed to create database: {}", e);
-                let msg = e.to_string();
-                if msg.contains("Access denied") {
-                    EngineError::auth_failed(format!("Permission denied: {}", msg))
-                } else if msg.contains("exists") {
-                    EngineError::validation(format!("Database '{}' already exists", name))
-                } else {
-                    EngineError::execution_error(msg)
-                }
-            })?;
+        sqlx::query(&query).execute(pool).await.map_err(|e| {
+            tracing::error!("MySQL: Failed to create database: {}", e);
+            let msg = e.to_string();
+            if msg.contains("Access denied") {
+                EngineError::auth_failed(format!("Permission denied: {}", msg))
+            } else if msg.contains("exists") {
+                EngineError::validation(format!("Database '{}' already exists", name))
+            } else {
+                EngineError::execution_error(msg)
+            }
+        })?;
 
         tracing::info!("MySQL: Successfully created database '{}'", name);
         Ok(())
@@ -1163,34 +1221,33 @@ impl DataEngine for MySqlDriver {
 
         // Basic validation
         if name.is_empty() || name.len() > 64 {
-            return Err(EngineError::validation("Database name must be between 1 and 64 characters"));
+            return Err(EngineError::validation(
+                "Database name must be between 1 and 64 characters",
+            ));
         }
 
         // Identifier quoting with backticks for MySQL
         let escaped_name = name.replace('`', "``");
         let query = format!("DROP DATABASE `{}`", escaped_name);
 
-        sqlx::query(&query)
-            .execute(pool)
-            .await
-            .map_err(|e| {
-                tracing::error!("MySQL: Failed to drop database: {}", e);
-                let msg = e.to_string();
-                if msg.contains("Access denied") {
-                    EngineError::auth_failed(format!("Permission denied: {}", msg))
-                } else if msg.contains("doesn't exist") || msg.contains("Unknown database") {
-                    EngineError::validation(format!("Database '{}' does not exist", name))
-                } else {
-                    EngineError::execution_error(msg)
-                }
-            })?;
+        sqlx::query(&query).execute(pool).await.map_err(|e| {
+            tracing::error!("MySQL: Failed to drop database: {}", e);
+            let msg = e.to_string();
+            if msg.contains("Access denied") {
+                EngineError::auth_failed(format!("Permission denied: {}", msg))
+            } else if msg.contains("doesn't exist") || msg.contains("Unknown database") {
+                EngineError::validation(format!("Database '{}' does not exist", name))
+            } else {
+                EngineError::execution_error(msg)
+            }
+        })?;
 
         tracing::info!("MySQL: Successfully dropped database '{}'", name);
         Ok(())
     }
 
     /// Executes a query and returns the result
-    /// 
+    ///
     /// Routes to transaction connection if active, otherwise uses pool.
     async fn execute_stream(
         &self,
@@ -1215,10 +1272,10 @@ impl DataEngine for MySqlDriver {
 
         // Use pool for streaming
         let mut conn = mysql_session
-                .pool
-                .acquire()
-                .await
-                .map_err(|e| EngineError::connection_failed(e.to_string()))?;
+            .pool
+            .acquire()
+            .await
+            .map_err(|e| EngineError::connection_failed(e.to_string()))?;
 
         Self::apply_namespace_on_conn(&mut conn, &namespace, query).await?;
 
@@ -1226,11 +1283,15 @@ impl DataEngine for MySqlDriver {
         let returns_rows = sql_safety::returns_rows(self.driver_id(), query)
             .unwrap_or_else(|_| sql_safety::is_select_prefix(query));
 
-           if !returns_rows {
-             // Fallback
-               let result = self.execute_in_namespace(session, namespace, query, query_id).await?;
-             let _ = sender.send(StreamEvent::Done(result.affected_rows.unwrap_or(0))).await;
-             return Ok(());
+        if !returns_rows {
+            // Fallback
+            let result = self
+                .execute_in_namespace(session, namespace, query, query_id)
+                .await?;
+            let _ = sender
+                .send(StreamEvent::Done(result.affected_rows.unwrap_or(0)))
+                .await;
+            return Ok(());
         }
 
         let connection_id = Self::fetch_connection_id(&mut conn).await?;
@@ -1294,7 +1355,8 @@ impl DataEngine for MySqlDriver {
         query: &str,
         query_id: QueryId,
     ) -> EngineResult<QueryResult> {
-        self.execute_in_namespace(session, None, query, query_id).await
+        self.execute_in_namespace(session, None, query, query_id)
+            .await
     }
 
     async fn execute_in_namespace(
@@ -1356,17 +1418,14 @@ impl DataEngine for MySqlDriver {
             } else {
                 // Use simple query protocol for DDL and other statements that may not be
                 // supported via the prepared statement protocol on some MySQL/MariaDB versions.
-                let result = conn
-                    .execute(sqlx::raw_sql(query))
-                    .await
-                    .map_err(|e| {
-                        let msg = e.to_string();
-                        if msg.contains("syntax") {
-                            EngineError::syntax_error(msg)
-                        } else {
-                            EngineError::execution_error(msg)
-                        }
-                    })?;
+                let result = conn.execute(sqlx::raw_sql(query)).await.map_err(|e| {
+                    let msg = e.to_string();
+                    if msg.contains("syntax") {
+                        EngineError::syntax_error(msg)
+                    } else {
+                        EngineError::execution_error(msg)
+                    }
+                })?;
 
                 let execution_time_ms = start.elapsed().as_micros() as f64 / 1000.0;
 
@@ -1429,17 +1488,14 @@ impl DataEngine for MySqlDriver {
             } else {
                 // Use simple query protocol for DDL and other statements that may not be
                 // supported via the prepared statement protocol on some MySQL/MariaDB versions.
-                let result = conn
-                    .execute(sqlx::raw_sql(query))
-                    .await
-                    .map_err(|e| {
-                        let msg = e.to_string();
-                        if msg.contains("syntax") {
-                            EngineError::syntax_error(msg)
-                        } else {
-                            EngineError::execution_error(msg)
-                        }
-                    })?;
+                let result = conn.execute(sqlx::raw_sql(query)).await.map_err(|e| {
+                    let msg = e.to_string();
+                    if msg.contains("syntax") {
+                        EngineError::syntax_error(msg)
+                    } else {
+                        EngineError::execution_error(msg)
+                    }
+                })?;
 
                 let execution_time_ms = start.elapsed().as_micros() as f64 / 1000.0;
 
@@ -1491,19 +1547,21 @@ impl DataEngine for MySqlDriver {
         let mut pk_columns: Vec<String> = Vec::new();
         let columns: Vec<TableColumn> = column_rows
             .into_iter()
-            .map(|(name, data_type, is_nullable, default_value, column_key)| {
-                let is_primary_key = column_key == "PRI";
-                if is_primary_key {
-                    pk_columns.push(name.clone());
-                }
-                TableColumn {
-                    name,
-                    data_type,
-                    nullable: is_nullable == "YES",
-                    default_value,
-                    is_primary_key,
-                }
-            })
+            .map(
+                |(name, data_type, is_nullable, default_value, column_key)| {
+                    let is_primary_key = column_key == "PRI";
+                    if is_primary_key {
+                        pk_columns.push(name.clone());
+                    }
+                    TableColumn {
+                        name,
+                        data_type,
+                        nullable: is_nullable == "YES",
+                        default_value,
+                        is_primary_key,
+                    }
+                },
+            )
             .collect();
 
         // Get foreign keys
@@ -1530,15 +1588,23 @@ impl DataEngine for MySqlDriver {
 
         let foreign_keys: Vec<ForeignKey> = fk_rows
             .into_iter()
-            .map(|(column, referenced_table, referenced_column, referenced_database, constraint_name)| ForeignKey {
-                column,
-                referenced_table,
-                referenced_column,
-                referenced_schema: None,
-                referenced_database: Some(referenced_database),
-                constraint_name: Some(constraint_name),
-                is_virtual: false,
-            })
+            .map(
+                |(
+                    column,
+                    referenced_table,
+                    referenced_column,
+                    referenced_database,
+                    constraint_name,
+                )| ForeignKey {
+                    column,
+                    referenced_table,
+                    referenced_column,
+                    referenced_schema: None,
+                    referenced_database: Some(referenced_database),
+                    constraint_name: Some(constraint_name),
+                    is_virtual: false,
+                },
+            )
             .collect();
 
         // Get row count estimate from table_rows (u64 for BIGINT UNSIGNED)
@@ -1577,11 +1643,14 @@ impl DataEngine for MySqlDriver {
         .map_err(|e| EngineError::execution_error(e.to_string()))?;
 
         // Group by index name
-        let mut index_map: std::collections::HashMap<String, (Vec<String>, bool, bool)> = std::collections::HashMap::new();
+        let mut index_map: std::collections::HashMap<String, (Vec<String>, bool, bool)> =
+            std::collections::HashMap::new();
         for (name, column_name, non_unique, _seq) in index_rows {
             let is_unique = non_unique == 0;
             let is_primary = name == "PRIMARY";
-            let entry = index_map.entry(name).or_insert_with(|| (Vec::new(), is_unique, is_primary));
+            let entry = index_map
+                .entry(name)
+                .or_insert_with(|| (Vec::new(), is_unique, is_primary));
             entry.0.push(column_name);
         }
 
@@ -1597,7 +1666,11 @@ impl DataEngine for MySqlDriver {
 
         Ok(TableSchema {
             columns,
-            primary_key: if pk_columns.is_empty() { None } else { Some(pk_columns) },
+            primary_key: if pk_columns.is_empty() {
+                None
+            } else {
+                Some(pk_columns)
+            },
             foreign_keys,
             row_count_estimate,
             indexes,
@@ -1706,15 +1779,27 @@ impl DataEngine for MySqlDriver {
 
                 let mut search_clauses: Vec<String> = Vec::new();
                 for col_row in &columns_rows {
-                    let col_name: String = col_row.try_get("COLUMN_NAME")
+                    let col_name: String = col_row
+                        .try_get("COLUMN_NAME")
                         .map_err(|e| EngineError::execution_error(e.to_string()))?;
-                    let data_type: String = col_row.try_get("DATA_TYPE")
+                    let data_type: String = col_row
+                        .try_get("DATA_TYPE")
                         .map_err(|e| EngineError::execution_error(e.to_string()))?;
 
                     // Skip binary/unsearchable column types
                     let lower = data_type.to_lowercase();
-                    let is_unsearchable = matches!(lower.as_str(),
-                        "blob" | "tinyblob" | "mediumblob" | "longblob" | "binary" | "varbinary" | "geometry" | "point" | "linestring" | "polygon"
+                    let is_unsearchable = matches!(
+                        lower.as_str(),
+                        "blob"
+                            | "tinyblob"
+                            | "mediumblob"
+                            | "longblob"
+                            | "binary"
+                            | "varbinary"
+                            | "geometry"
+                            | "point"
+                            | "linestring"
+                            | "polygon"
                     );
                     if is_unsearchable {
                         continue;
@@ -1724,8 +1809,16 @@ impl DataEngine for MySqlDriver {
                     bind_values.push(Value::Text(format!("%{}%", search_term)));
 
                     // Text columns can use LIKE directly, others need CAST
-                    let is_text = matches!(lower.as_str(),
-                        "varchar" | "char" | "text" | "tinytext" | "mediumtext" | "longtext" | "enum" | "set"
+                    let is_text = matches!(
+                        lower.as_str(),
+                        "varchar"
+                            | "char"
+                            | "text"
+                            | "tinytext"
+                            | "mediumtext"
+                            | "longtext"
+                            | "enum"
+                            | "set"
                     );
                     if is_text {
                         search_clauses.push(format!("{} LIKE ?", col_ident));
@@ -1774,8 +1867,9 @@ impl DataEngine for MySqlDriver {
             }
         }
         .map_err(|e| EngineError::execution_error(e.to_string()))?;
-        
-        let total_rows: i64 = count_row.try_get("cnt")
+
+        let total_rows: i64 = count_row
+            .try_get("cnt")
             .map_err(|e| EngineError::execution_error(e.to_string()))?;
         let total_rows = total_rows.max(0) as u64;
 
@@ -1854,7 +1948,9 @@ impl DataEngine for MySqlDriver {
             }
         };
 
-        Ok(PaginatedQueryResult::new(result, total_rows, page, page_size))
+        Ok(PaginatedQueryResult::new(
+            result, total_rows, page, page_size,
+        ))
     }
 
     async fn peek_foreign_key(
@@ -1878,7 +1974,10 @@ impl DataEngine for MySqlDriver {
             Self::quote_ident(&foreign_key.referenced_table)
         );
         let column_ref = Self::quote_ident(&foreign_key.referenced_column);
-        let sql = format!("SELECT * FROM {} WHERE {} = ? LIMIT {}", table_ref, column_ref, limit);
+        let sql = format!(
+            "SELECT * FROM {} WHERE {} = ? LIMIT {}",
+            table_ref, column_ref, limit
+        );
 
         let mut query = sqlx::query(&sql);
         query = Self::bind_param(query, value);
@@ -1962,20 +2061,22 @@ impl DataEngine for MySqlDriver {
 
         if tx.is_some() {
             return Err(EngineError::transaction_error(
-                "A transaction is already active on this session"
+                "A transaction is already active on this session",
             ));
         }
 
-        let mut conn = mysql_session.pool.acquire().await
-            .map_err(|e| EngineError::connection_failed(format!(
-                "Failed to acquire connection for transaction: {}", e
-            )))?;
+        let mut conn = mysql_session.pool.acquire().await.map_err(|e| {
+            EngineError::connection_failed(format!(
+                "Failed to acquire connection for transaction: {}",
+                e
+            ))
+        })?;
 
         conn.execute(sqlx::raw_sql("START TRANSACTION"))
             .await
-            .map_err(|e| EngineError::execution_error(format!(
-                "Failed to begin transaction: {}", e
-            )))?;
+            .map_err(|e| {
+                EngineError::execution_error(format!("Failed to begin transaction: {}", e))
+            })?;
 
         *tx = Some(conn);
         Ok(())
@@ -1985,16 +2086,13 @@ impl DataEngine for MySqlDriver {
         let mysql_session = self.get_session(session).await?;
         let mut tx = mysql_session.transaction_conn.lock().await;
 
-        let mut conn = tx.take()
-            .ok_or_else(|| EngineError::transaction_error(
-                "No active transaction to commit"
-            ))?;
+        let mut conn = tx
+            .take()
+            .ok_or_else(|| EngineError::transaction_error("No active transaction to commit"))?;
 
-        conn.execute(sqlx::raw_sql("COMMIT"))
-            .await
-            .map_err(|e| EngineError::execution_error(format!(
-                "Failed to commit transaction: {}", e
-            )))?;
+        conn.execute(sqlx::raw_sql("COMMIT")).await.map_err(|e| {
+            EngineError::execution_error(format!("Failed to commit transaction: {}", e))
+        })?;
 
         Ok(())
     }
@@ -2003,16 +2101,13 @@ impl DataEngine for MySqlDriver {
         let mysql_session = self.get_session(session).await?;
         let mut tx = mysql_session.transaction_conn.lock().await;
 
-        let mut conn = tx.take()
-            .ok_or_else(|| EngineError::transaction_error(
-                "No active transaction to rollback"
-            ))?;
+        let mut conn = tx
+            .take()
+            .ok_or_else(|| EngineError::transaction_error("No active transaction to rollback"))?;
 
-        conn.execute(sqlx::raw_sql("ROLLBACK"))
-            .await
-            .map_err(|e| EngineError::execution_error(format!(
-                "Failed to rollback transaction: {}", e
-            )))?;
+        conn.execute(sqlx::raw_sql("ROLLBACK")).await.map_err(|e| {
+            EngineError::execution_error(format!("Failed to rollback transaction: {}", e))
+        })?;
 
         Ok(())
     }
@@ -2038,8 +2133,9 @@ impl DataEngine for MySqlDriver {
 
         // 1. Build Query String
         // MySQL uses backticks for identifiers
-        let table_name = format!("`{}`.`{}`", 
-            namespace.database.replace("`", "``"), 
+        let table_name = format!(
+            "`{}`.`{}`",
+            namespace.database.replace("`", "``"),
             table.replace("`", "``")
         );
 
@@ -2047,12 +2143,19 @@ impl DataEngine for MySqlDriver {
         keys.sort();
 
         let sql = if keys.is_empty() {
-             // MySQL: INSERT INTO table () VALUES ()
-             format!("INSERT INTO {} () VALUES ()", table_name)
+            // MySQL: INSERT INTO table () VALUES ()
+            format!("INSERT INTO {} () VALUES ()", table_name)
         } else {
-            let cols_str = keys.iter().map(|k| format!("`{}`", k.replace("`", "``"))).collect::<Vec<_>>().join(", ");
+            let cols_str = keys
+                .iter()
+                .map(|k| format!("`{}`", k.replace("`", "``")))
+                .collect::<Vec<_>>()
+                .join(", ");
             let params_str = vec!["?"; keys.len()].join(", ");
-            format!("INSERT INTO {} ({}) VALUES ({})", table_name, cols_str, params_str)
+            format!(
+                "INSERT INTO {} ({}) VALUES ({})",
+                table_name, cols_str, params_str
+            )
         };
 
         // 2. Prepare Query
@@ -2066,13 +2169,13 @@ impl DataEngine for MySqlDriver {
         let start = Instant::now();
         let mut tx_guard = mysql_session.transaction_conn.lock().await;
         let result = if let Some(ref mut conn) = *tx_guard {
-             query.execute(&mut **conn).await
+            query.execute(&mut **conn).await
         } else {
-             query.execute(&mysql_session.pool).await
+            query.execute(&mysql_session.pool).await
         };
 
         let result = result.map_err(|e| EngineError::execution_error(e.to_string()))?;
-        
+
         Ok(QueryResult::with_affected_rows(
             result.rows_affected(),
             start.elapsed().as_micros() as f64 / 1000.0,
@@ -2090,15 +2193,18 @@ impl DataEngine for MySqlDriver {
         let mysql_session = self.get_session(session).await?;
 
         if primary_key.columns.is_empty() {
-            return Err(EngineError::execution_error("Primary key required for update operations".to_string()));
+            return Err(EngineError::execution_error(
+                "Primary key required for update operations".to_string(),
+            ));
         }
 
         if data.columns.is_empty() {
-             return Ok(QueryResult::with_affected_rows(0, 0.0));
+            return Ok(QueryResult::with_affected_rows(0, 0.0));
         }
 
-        let table_name = format!("`{}`.`{}`", 
-            namespace.database.replace("`", "``"), 
+        let table_name = format!(
+            "`{}`.`{}`",
+            namespace.database.replace("`", "``"),
             table.replace("`", "``")
         );
 
@@ -2109,29 +2215,31 @@ impl DataEngine for MySqlDriver {
         pk_keys.sort();
 
         // UPDATE table SET col1=?, col2=? WHERE pk1=? AND pk2=?
-        let set_clauses: Vec<String> = data_keys.iter()
+        let set_clauses: Vec<String> = data_keys
+            .iter()
             .map(|k| format!("`{}`=?", k.replace("`", "``")))
             .collect();
 
-        let where_clauses: Vec<String> = pk_keys.iter()
+        let where_clauses: Vec<String> = pk_keys
+            .iter()
             .map(|k| format!("`{}`=?", k.replace("`", "``")))
             .collect();
 
         let sql = format!(
-            "UPDATE {} SET {} WHERE {}", 
-            table_name, 
-            set_clauses.join(", "), 
+            "UPDATE {} SET {} WHERE {}",
+            table_name,
+            set_clauses.join(", "),
             where_clauses.join(" AND ")
         );
 
         let mut query = sqlx::query(&sql);
-        
+
         // Bind data values
         for k in &data_keys {
             let val = data.columns.get(*k).unwrap();
             query = Self::bind_param(query, val);
         }
-        
+
         // Bind PK values
         for k in &pk_keys {
             let val = primary_key.columns.get(*k).unwrap();
@@ -2141,13 +2249,13 @@ impl DataEngine for MySqlDriver {
         let start = Instant::now();
         let mut tx_guard = mysql_session.transaction_conn.lock().await;
         let result = if let Some(ref mut conn) = *tx_guard {
-             query.execute(&mut **conn).await
+            query.execute(&mut **conn).await
         } else {
-             query.execute(&mysql_session.pool).await
+            query.execute(&mysql_session.pool).await
         };
 
         let result = result.map_err(|e| EngineError::execution_error(e.to_string()))?;
-        
+
         Ok(QueryResult::with_affected_rows(
             result.rows_affected(),
             start.elapsed().as_micros() as f64 / 1000.0,
@@ -2164,11 +2272,14 @@ impl DataEngine for MySqlDriver {
         let mysql_session = self.get_session(session).await?;
 
         if primary_key.columns.is_empty() {
-            return Err(EngineError::execution_error("Primary key required for delete operations".to_string()));
+            return Err(EngineError::execution_error(
+                "Primary key required for delete operations".to_string(),
+            ));
         }
 
-        let table_name = format!("`{}`.`{}`", 
-            namespace.database.replace("`", "``"), 
+        let table_name = format!(
+            "`{}`.`{}`",
+            namespace.database.replace("`", "``"),
             table.replace("`", "``")
         );
 
@@ -2176,11 +2287,16 @@ impl DataEngine for MySqlDriver {
         pk_keys.sort();
 
         // DELETE FROM table WHERE pk1=?
-        let where_clauses: Vec<String> = pk_keys.iter()
+        let where_clauses: Vec<String> = pk_keys
+            .iter()
             .map(|k| format!("`{}`=?", k.replace("`", "``")))
             .collect();
 
-        let sql = format!("DELETE FROM {} WHERE {}", table_name, where_clauses.join(" AND "));
+        let sql = format!(
+            "DELETE FROM {} WHERE {}",
+            table_name,
+            where_clauses.join(" AND ")
+        );
 
         let mut query = sqlx::query(&sql);
         for k in &pk_keys {
@@ -2191,13 +2307,13 @@ impl DataEngine for MySqlDriver {
         let start = Instant::now();
         let mut tx_guard = mysql_session.transaction_conn.lock().await;
         let result = if let Some(ref mut conn) = *tx_guard {
-             query.execute(&mut **conn).await
+            query.execute(&mut **conn).await
         } else {
-             query.execute(&mysql_session.pool).await
+            query.execute(&mysql_session.pool).await
         };
 
         let result = result.map_err(|e| EngineError::execution_error(e.to_string()))?;
-        
+
         Ok(QueryResult::with_affected_rows(
             result.rows_affected(),
             start.elapsed().as_micros() as f64 / 1000.0,
@@ -2270,7 +2386,9 @@ impl DataEngine for MySqlDriver {
             MaintenanceOperationType::Repair => format!("REPAIR TABLE {qualified_table}"),
             MaintenanceOperationType::ChangeEngine => {
                 let engine = request.options.target_engine.as_deref().ok_or_else(|| {
-                    EngineError::execution_error("target_engine option is required for ChangeEngine")
+                    EngineError::execution_error(
+                        "target_engine option is required for ChangeEngine",
+                    )
                 })?;
                 // Validate engine name: only allow alphanumeric
                 if !engine.chars().all(|c| c.is_alphanumeric() || c == '_') {
@@ -2306,11 +2424,16 @@ impl DataEngine for MySqlDriver {
                     "status" => MaintenanceMessageLevel::Status,
                     _ => MaintenanceMessageLevel::Info,
                 };
-                MaintenanceMessage { level, text: msg_text }
+                MaintenanceMessage {
+                    level,
+                    text: msg_text,
+                }
             })
             .collect();
 
-        let success = !messages.iter().any(|m| m.level == MaintenanceMessageLevel::Error);
+        let success = !messages
+            .iter()
+            .any(|m| m.level == MaintenanceMessageLevel::Error);
 
         Ok(MaintenanceResult {
             executed_command: sql,

@@ -83,7 +83,12 @@ export function QueryPanelResults({
           {showTabs && (
             <div className="flex items-center gap-1 px-2 py-1 border-b border-border bg-muted/20 overflow-x-auto no-scrollbar">
               {results.map(entry => {
-                const label = entry.kind === 'explain' ? t('query.explain') : t('query.results');
+                const baseLabel =
+                  entry.kind === 'explain'
+                    ? t('query.explain')
+                    : entry.query?.slice(0, 30)?.trim() || t('query.results');
+                const timeLabel = entry.totalTimeMs ? ` (${entry.totalTimeMs.toFixed(0)}ms)` : '';
+                const label = `${baseLabel}${timeLabel}`;
                 const isActive = entry.id === activeResultId;
                 return (
                   <button

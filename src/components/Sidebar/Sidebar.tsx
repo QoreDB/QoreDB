@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Bug, Plus } from 'lucide-react';
+import { Bug, Database, Plus, Search } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -86,6 +86,7 @@ export function Sidebar({
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [connecting, setConnecting] = useState<string | null>(null);
   const [favoriteConnectionIds, setFavoriteConnectionIds] = useState<string[]>([]);
+  const [searchFilter, setSearchFilter] = useState('');
 
   const { t } = useTranslation();
   const { resolvedTheme } = useTheme();
@@ -131,17 +132,23 @@ export function Sidebar({
     [connections]
   );
 
+  const filterLower = searchFilter.toLowerCase();
+
   const favoriteConnections = useMemo(
     () =>
       favoriteConnectionIds
         .map(connectionId => connectionsById.get(connectionId))
-        .filter((connection): connection is SavedConnection => Boolean(connection)),
-    [favoriteConnectionIds, connectionsById]
+        .filter((connection): connection is SavedConnection => Boolean(connection))
+        .filter(c => !filterLower || c.name.toLowerCase().includes(filterLower)),
+    [favoriteConnectionIds, connectionsById, filterLower]
   );
 
   const regularConnections = useMemo(
-    () => connections.filter(connection => !favoriteConnectionSet.has(connection.id)),
-    [connections, favoriteConnectionSet]
+    () =>
+      connections
+        .filter(connection => !favoriteConnectionSet.has(connection.id))
+        .filter(c => !filterLower || c.name.toLowerCase().includes(filterLower)),
+    [connections, favoriteConnectionSet, filterLower]
   );
 
   function handleToggleFavorite(connectionId: string) {
@@ -223,6 +230,13 @@ export function Sidebar({
           onNewQuery={connectedConnectionId === connection.id ? onNewQuery : undefined}
           onNewNotebook={connectedConnectionId === connection.id ? onNewNotebook : undefined}
         />
+        {connecting === connection.id && (
+          <div className="pl-4 border-l-2 border-accent/30 ml-4 mt-1 bg-muted/20 rounded-r-md py-2 px-3 space-y-2">
+            <div className="h-3 w-3/4 rounded bg-muted animate-pulse" />
+            <div className="h-3 w-1/2 rounded bg-muted animate-pulse" />
+            <div className="h-3 w-2/3 rounded bg-muted animate-pulse" />
+          </div>
+        )}
         {expandedId === connection.id && connectedSessionId && (
           <div className="pl-4 border-l-2 border-accent/30 ml-4 mt-1 bg-muted/20 rounded-r-md py-1">
             <DBTree
@@ -273,11 +287,33 @@ export function Sidebar({
       </header>
 
       <section className="flex-1 overflow-y-auto overflow-x-hidden py-2">
+        {connections.length > 3 && (
+          <div className="px-3 pb-2">
+            <div className="relative">
+              <Search
+                size={14}
+                className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground/50"
+              />
+              <input
+                type="text"
+                value={searchFilter}
+                onChange={e => setSearchFilter(e.target.value)}
+                placeholder={t('sidebar.filterConnections')}
+                className="w-full h-7 pl-8 pr-2 text-xs rounded-md border border-border bg-background text-foreground placeholder:text-muted-foreground/50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--q-accent)]"
+              />
+            </div>
+          </div>
+        )}
         <div className="px-2 space-y-0.5 mt-1">
           {connections.length === 0 ? (
-            <p className="px-2 py-4 text-sm text-center text-muted-foreground">
-              {t('sidebar.noConnections')}
-            </p>
+            <div className="flex flex-col items-center gap-2 px-4 py-8 text-center">
+              <Database size={24} className="text-muted-foreground/40" />
+              <p className="text-sm text-muted-foreground">{t('sidebar.noConnections')}</p>
+              <Button variant="outline" size="sm" onClick={onNewConnection} className="mt-1">
+                <Plus size={14} className="mr-1.5" />
+                {t('sidebar.newConnection')}
+              </Button>
+            </div>
           ) : (
             <>
               {favoriteConnections.length > 0 && (

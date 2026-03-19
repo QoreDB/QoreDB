@@ -36,6 +36,7 @@ import {
   setUpdateInstalling,
   useUpdateStore,
 } from '@/lib/updateStore';
+import { toggleCheatsheet } from '@/lib/modalStore';
 import { cn } from '@/lib/utils';
 import { getShortcut, isMacOS, isWindowsOS } from '@/utils/platform';
 
@@ -166,6 +167,7 @@ export const CustomTitlebar = ({
             onMouseEnter={() => handleMenuHover('view')}
             onToggleSidebar={onToggleSidebar}
             onOpenLogs={onOpenLogs}
+            onShowKeyboardShortcuts={toggleCheatsheet}
           />
           <MenuData
             t={t}
@@ -350,6 +352,7 @@ interface MenuViewProps extends TitlebarMenuProps {
   onToggleSidebar?: () => void;
   onOpenLogs?: () => void;
   onToggleZenMode?: () => void;
+  onShowKeyboardShortcuts?: () => void;
 }
 
 const MenuView = ({
@@ -360,6 +363,7 @@ const MenuView = ({
   onToggleSidebar,
   onOpenLogs,
   onToggleZenMode,
+  onShowKeyboardShortcuts,
 }: MenuViewProps) => (
   <DropdownMenu open={isOpen} onOpenChange={onOpenChange} modal={false}>
     <DropdownMenuTrigger asChild onMouseEnter={onMouseEnter}>
@@ -389,6 +393,11 @@ const MenuView = ({
       <DropdownMenuItem onClick={onToggleZenMode} disabled={!onToggleZenMode}>
         <span>{t('titlebar.menu.view.zenMode')}</span>
         <DropdownMenuShortcut>{getShortcut('K')} Z</DropdownMenuShortcut>
+      </DropdownMenuItem>
+      <DropdownMenuSeparator />
+      <DropdownMenuItem onClick={onShowKeyboardShortcuts}>
+        <span>{t('titlebar.menu.view.keyboardShortcuts')}</span>
+        <DropdownMenuShortcut>?</DropdownMenuShortcut>
       </DropdownMenuItem>
     </DropdownMenuContent>
   </DropdownMenu>

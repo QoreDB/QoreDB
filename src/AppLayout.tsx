@@ -38,6 +38,7 @@ import { SnapshotManager } from './components/Snapshot/SnapshotManager';
 import { StatusBar } from './components/Status/StatusBar';
 import { TabBar } from './components/Tabs/TabBar';
 import { FeatureTour } from './components/Tour/FeatureTour';
+import { ErrorBoundary } from './components/ui/error-boundary';
 import { SkipLink } from './components/ui/skip-link';
 import type { useRecovery } from './hooks/useRecovery';
 import { useResizableSidebar } from './hooks/useResizableSidebar';
@@ -722,42 +723,44 @@ export function AppLayout() {
               environment={activeConnection?.environment || 'development'}
               className="flex-1 min-h-0 overflow-hidden p-4"
             >
-              <AppContent
-                sessionId={sessionId}
-                driver={driver}
-                driverCapabilities={driverCapabilities}
-                activeConnection={activeConnection}
-                activeTab={activeTab}
-                queryDrafts={queryDrafts}
-                tableBrowserTabs={tableBrowserTabs}
-                databaseBrowserTabs={databaseBrowserTabs}
-                onUpdateTableBrowserTab={updateTableBrowserTab}
-                onUpdateDatabaseBrowserTab={updateDatabaseBrowserTab}
-                onUpdateTab={updateTab}
-                hasConnections={hasConnections}
-                recovery={recovery}
-                schemaRefreshTrigger={schemaRefreshTrigger}
-                onTableSelect={handleTableSelect}
-                onDatabaseSelect={handleDatabaseSelect}
-                onNewQuery={handleNewQuery}
-                onOpenLibrary={() => setLibraryModalOpen(true)}
-                onOpenFulltextSearch={() => setFulltextSearchOpen(true)}
-                onRestoreSession={handleRestoreSession}
-                onOpenSearch={() => setSearchOpen(true)}
-                onOpenConnectionModal={() => setConnectionModalOpen(true)}
-                onSchemaChange={triggerSchemaRefresh}
-                onCloseTab={closeTab}
-                onOpenTab={openTab}
-                onUpdateQueryDraft={updateQueryDraft}
-                onUpdateTabNamespace={updateTabNamespace}
-                onScheduleRecoverySave={scheduleRecoverySave}
-                onOpenRoutineSource={handleOpenRoutineSource}
-                onCreateRoutine={handleCreateRoutine}
-                onOpenTriggerSource={handleOpenTriggerSource}
-                onCreateTrigger={handleCreateTrigger}
-                onOpenEventSource={handleOpenEventSource}
-                onCreateEvent={handleCreateEvent}
-              />
+              <ErrorBoundary fallbackLabel={t('errorBoundary.panelCrashed')}>
+                <AppContent
+                  sessionId={sessionId}
+                  driver={driver}
+                  driverCapabilities={driverCapabilities}
+                  activeConnection={activeConnection}
+                  activeTab={activeTab}
+                  queryDrafts={queryDrafts}
+                  tableBrowserTabs={tableBrowserTabs}
+                  databaseBrowserTabs={databaseBrowserTabs}
+                  onUpdateTableBrowserTab={updateTableBrowserTab}
+                  onUpdateDatabaseBrowserTab={updateDatabaseBrowserTab}
+                  onUpdateTab={updateTab}
+                  hasConnections={hasConnections}
+                  recovery={recovery}
+                  schemaRefreshTrigger={schemaRefreshTrigger}
+                  onTableSelect={handleTableSelect}
+                  onDatabaseSelect={handleDatabaseSelect}
+                  onNewQuery={handleNewQuery}
+                  onOpenLibrary={() => setLibraryModalOpen(true)}
+                  onOpenFulltextSearch={() => setFulltextSearchOpen(true)}
+                  onRestoreSession={handleRestoreSession}
+                  onOpenSearch={() => setSearchOpen(true)}
+                  onOpenConnectionModal={() => setConnectionModalOpen(true)}
+                  onSchemaChange={triggerSchemaRefresh}
+                  onCloseTab={closeTab}
+                  onOpenTab={openTab}
+                  onUpdateQueryDraft={updateQueryDraft}
+                  onUpdateTabNamespace={updateTabNamespace}
+                  onScheduleRecoverySave={scheduleRecoverySave}
+                  onOpenRoutineSource={handleOpenRoutineSource}
+                  onCreateRoutine={handleCreateRoutine}
+                  onOpenTriggerSource={handleOpenTriggerSource}
+                  onCreateTrigger={handleCreateTrigger}
+                  onOpenEventSource={handleOpenEventSource}
+                  onCreateEvent={handleCreateEvent}
+                />
+              </ErrorBoundary>
             </SandboxBorder>
 
             <StatusBar

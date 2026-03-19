@@ -1,13 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { type ReactNode, useEffect, useEffectEvent } from 'react';
+import { KeyboardCheatsheet } from '@/components/KeyboardCheatsheet';
 import {
   getModalState,
+  setCheatsheetOpen,
   setConnectionModalOpen,
   setFulltextSearchOpen,
   setLibraryModalOpen,
   setSearchOpen,
   setSettingsOpen,
+  toggleCheatsheet,
+  useModalStore,
 } from '@/lib/modalStore';
 import { createQueryTab } from '@/lib/tabs';
 import { useSessionContext } from './SessionProvider';
@@ -22,6 +26,7 @@ function isTextInputTarget(target: EventTarget | null): boolean {
 export function ShortcutProvider({ children }: { children: ReactNode }) {
   const { activeTabId, activeTab, closeTab, openTab } = useTabContext();
   const { sessionId } = useSessionContext();
+  const cheatsheetOpen = useModalStore(s => s.cheatsheetOpen);
 
   const handleKeyDown = useEffectEvent((e: KeyboardEvent) => {
     const modal = getModalState();
@@ -47,6 +52,13 @@ export function ShortcutProvider({ children }: { children: ReactNode }) {
 
     // Skip other shortcuts when in text input
     if (isTextInputTarget(e.target)) {
+      return;
+    }
+
+    // ?: Toggle keyboard cheatsheet
+    if (e.key === '?') {
+      e.preventDefault();
+      toggleCheatsheet();
       return;
     }
 
@@ -114,5 +126,10 @@ export function ShortcutProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('keydown', onWindowKeyDown);
   }, []);
 
-  return <>{children}</>;
+  return (
+    <>
+      {children}
+      <KeyboardCheatsheet open={cheatsheetOpen} onClose={() => setCheatsheetOpen(false)} />
+    </>
+  );
 }

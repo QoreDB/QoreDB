@@ -70,8 +70,9 @@ export function ConnectionItem({
       >
         <button
           type="button"
+          aria-expanded={isExpanded}
           className={cn(
-            'flex-1 flex items-center gap-2 px-2 py-1.5 text-sm select-none text-inherit rounded-l-md'
+            'flex-1 flex items-center gap-2 px-2 py-1.5 text-sm select-none text-inherit rounded-l-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--q-accent)] focus-visible:ring-inset'
           )}
           onClick={onSelect}
           disabled={isConnecting}

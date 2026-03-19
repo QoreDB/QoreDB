@@ -6,6 +6,7 @@ import { Reorder } from 'framer-motion';
 import {
   BookOpen,
   Camera,
+  ChevronsUpDown,
   Database,
   FileCode,
   GitCompare,
@@ -17,8 +18,9 @@ import {
   Table,
   X,
 } from 'lucide-react';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Tooltip } from '@/components/ui/tooltip';
 
 export interface TabItem {
   id: string;
@@ -167,14 +169,18 @@ export function TabBar({
           ))}
         </Reorder.Group>
 
-        <button
-          type="button"
-          className="flex items-center justify-center w-8 h-8 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0"
-          onClick={onNew}
-          title={t('tabs.newQuery', { modifier: getModifierKey() })}
-        >
-          <Plus size={16} />
-        </button>
+        {/* Tab list dropdown — shows all tabs for quick navigation */}
+        {tabs.length > 5 && <TabListDropdown tabs={tabs} activeId={activeId} onSelect={onSelect} />}
+
+        <Tooltip content={t('tabs.newQuery', { modifier: getModifierKey() })}>
+          <button
+            type="button"
+            className="flex items-center justify-center w-8 h-8 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--q-accent)]"
+            onClick={onNew}
+          >
+            <Plus size={16} />
+          </button>
+        </Tooltip>
       </div>
 
       {/* Context menu */}
@@ -210,6 +216,7 @@ interface TabButtonProps {
 }
 
 function TabButton({ tab, isActive, onSelect, onClose, onContextMenu }: TabButtonProps) {
+  const { t } = useTranslation();
   return (
     <Reorder.Item
       value={tab}
@@ -223,8 +230,10 @@ function TabButton({ tab, isActive, onSelect, onClose, onContextMenu }: TabButto
         type="button"
         role="tab"
         aria-selected={isActive}
+        aria-controls={`tabpanel-${tab.id}`}
+        id={`tab-${tab.id}`}
         className={cn(
-          'flex items-center gap-2 py-1.5 h-8.5 text-xs rounded-t-md border-t border-x border-transparent transition-all',
+          'flex items-center gap-2 py-1.5 h-8.5 text-xs rounded-t-md border-t border-x border-transparent transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--q-accent)] focus-visible:ring-inset',
           tab.pinned ? 'pl-2 pr-2 min-w-9 max-w-9' : 'pl-3 pr-8 min-w-35 max-w-50',
           isActive
             ? 'bg-background text-foreground font-medium border-border -mb-px shadow-sm z-10'
@@ -253,19 +262,84 @@ function TabButton({ tab, isActive, onSelect, onClose, onContextMenu }: TabButto
       </button>
       {/* Close button — hidden for pinned tabs */}
       {!tab.pinned && (
-        <button
-          type="button"
-          className={cn(
-            'absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 p-0.5 rounded-sm hover:bg-muted-foreground/20 text-muted-foreground transition-all shrink-0',
-            'cursor-pointer'
-          )}
-          onClick={() => onClose?.(tab.id)}
-          aria-label="Close tab"
-        >
-          <X size={12} />
-        </button>
+        <Tooltip content={t('tabs.close')}>
+          <button
+            type="button"
+            className={cn(
+              'absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 p-0.5 rounded-sm hover:bg-muted-foreground/20 text-muted-foreground transition-all shrink-0',
+              'cursor-pointer'
+            )}
+            onClick={() => onClose?.(tab.id)}
+            aria-label={t('tabs.close')}
+          >
+            <X size={12} />
+          </button>
+        </Tooltip>
       )}
     </Reorder.Item>
+  );
+}
+
+// --- Tab list dropdown (overflow navigation) ---
+
+function TabListDropdown({
+  tabs,
+  activeId,
+  onSelect,
+}: {
+  tabs: TabItem[];
+  activeId?: string;
+  onSelect?: (id: string) => void;
+}) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="relative shrink-0">
+      <Tooltip content={t('tabs.showAll')}>
+        <button
+          type="button"
+          className="flex items-center justify-center w-7 h-7 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--q-accent)]"
+          onClick={() => setOpen(!open)}
+        >
+          <ChevronsUpDown size={14} />
+        </button>
+      </Tooltip>
+      {open && (
+        <>
+          {/* biome-ignore lint/a11y/useKeyWithClickEvents: backdrop dismiss */}
+          {/* biome-ignore lint/a11y/noStaticElementInteractions: backdrop overlay */}
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div
+            role="listbox"
+            aria-label={t('tabs.showAll')}
+            className="absolute right-0 top-full mt-1 z-50 bg-popover border border-border rounded-md shadow-lg py-1 min-w-52 max-h-64 overflow-y-auto text-xs"
+          >
+            {tabs.map(tab => (
+              <button
+                key={tab.id}
+                type="button"
+                role="option"
+                aria-selected={activeId === tab.id}
+                className={cn(
+                  'flex items-center gap-2 w-full px-3 py-1.5 text-left hover:bg-muted transition-colors',
+                  activeId === tab.id && 'bg-muted font-medium text-foreground',
+                  activeId !== tab.id && 'text-muted-foreground'
+                )}
+                onClick={() => {
+                  onSelect?.(tab.id);
+                  setOpen(false);
+                }}
+              >
+                <span className="shrink-0 opacity-70">{getTabIcon(tab.type)}</span>
+                <span className="truncate">{tab.title}</span>
+                {tab.pinned && <Pin size={10} className="ml-auto text-muted-foreground/50" />}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
   );
 }
 
@@ -291,6 +365,47 @@ function TabContextMenu({
   onDismiss,
 }: TabContextMenuProps) {
   const { t } = useTranslation();
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Auto-focus first item and handle keyboard navigation
+  useEffect(() => {
+    const menu = menuRef.current;
+    if (!menu) return;
+    const firstItem = menu.querySelector<HTMLButtonElement>('[role="menuitem"]');
+    firstItem?.focus();
+  }, []);
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      const menu = menuRef.current;
+      if (!menu) return;
+      const items = Array.from(menu.querySelectorAll<HTMLButtonElement>('[role="menuitem"]'));
+      const currentIndex = items.indexOf(document.activeElement as HTMLButtonElement);
+
+      switch (e.key) {
+        case 'ArrowDown': {
+          e.preventDefault();
+          const next = currentIndex < items.length - 1 ? currentIndex + 1 : 0;
+          items[next]?.focus();
+          break;
+        }
+        case 'ArrowUp': {
+          e.preventDefault();
+          const prev = currentIndex > 0 ? currentIndex - 1 : items.length - 1;
+          items[prev]?.focus();
+          break;
+        }
+        case 'Escape':
+          onDismiss();
+          break;
+        case 'Tab':
+          e.preventDefault();
+          onDismiss();
+          break;
+      }
+    },
+    [onDismiss]
+  );
 
   return (
     <>
@@ -306,21 +421,29 @@ function TabContextMenu({
         }}
       />
       <div
+        ref={menuRef}
+        role="menu"
+        aria-label={t('tabs.contextMenu')}
         className="fixed z-50 bg-popover border border-border rounded-md shadow-md py-1 min-w-36 text-xs"
         style={{ left: x, top: y }}
+        onKeyDown={handleKeyDown}
       >
         <button
           type="button"
-          className="flex items-center gap-2 w-full px-3 py-1.5 text-left hover:bg-muted transition-colors"
+          role="menuitem"
+          tabIndex={0}
+          className="flex items-center gap-2 w-full px-3 py-1.5 text-left hover:bg-muted focus-visible:bg-muted focus-visible:outline-none transition-colors"
           onClick={() => onTogglePin(tabId)}
         >
           {isPinned ? <PinOff size={13} /> : <Pin size={13} />}
           {isPinned ? t('tabs.unpin') : t('tabs.pin')}
         </button>
-        <div className="h-px bg-border my-1" />
+        <hr className="h-px bg-border my-1 border-0" />
         <button
           type="button"
-          className="flex items-center gap-2 w-full px-3 py-1.5 text-left hover:bg-muted transition-colors text-destructive"
+          role="menuitem"
+          tabIndex={-1}
+          className="flex items-center gap-2 w-full px-3 py-1.5 text-left hover:bg-muted focus-visible:bg-muted focus-visible:outline-none transition-colors text-destructive"
           onClick={() => onClose(tabId)}
         >
           <X size={13} />

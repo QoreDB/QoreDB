@@ -144,6 +144,7 @@
   "sidebar": {
     "connections": "Connections",
     "noConnections": "No saved connections",
+    "filterConnections": "Filter connections...",
     "newConnection": "New Connection",
     "errorLogs": "Error Logs",
     "themeLight": "Switch to light mode",
@@ -180,7 +181,9 @@
     "newNotebook": "New Notebook",
     "close": "Close tab",
     "pin": "Pin tab",
-    "unpin": "Unpin tab"
+    "unpin": "Unpin tab",
+    "contextMenu": "Tab options",
+    "showAll": "Show all tabs"
   },
   "browser": {
     "searchPlaceholder": "Search {{label}}...",
@@ -624,6 +627,7 @@
     "affectedRows": "{{count}} row(s) affected in {{time}}ms",
     "commandOk": "Command executed in {{time}}ms",
     "noResults": "No results to display",
+    "noResultsHint": "Try modifying your query or check the selected database",
     "rowCount": "{{count}} row(s)",
     "timeMs": "{{time}}ms"
   },
@@ -900,6 +904,22 @@
     "statusBar": "Status bar",
     "help": "Help"
   },
+  "cheatsheet": {
+    "title": "Keyboard Shortcuts",
+    "general": "General",
+    "tabs": "Tabs",
+    "queryEditor": "Query Editor",
+    "search": "Open search",
+    "settings": "Settings",
+    "thisDialog": "This dialog",
+    "newQuery": "New query tab",
+    "closeTab": "Close tab",
+    "newConnection": "New connection",
+    "executeQuery": "Execute query",
+    "openLibrary": "Open library",
+    "fulltextSearch": "Full-text search",
+    "pressToClose": "Press ? or Esc to close"
+  },
   "toolbar": {
     "moreActions": "More actions",
     "queryTools": "Query tools",
@@ -1067,7 +1087,8 @@
   "errorBoundary": {
     "title": "Something went wrong",
     "description": "An unexpected error occurred. The error has been logged.",
-    "reload": "Reload Application"
+    "reload": "Reload Application",
+    "panelCrashed": "This panel encountered an error"
   },
   "sandbox": {
     "activate": "Sandbox",
@@ -1382,7 +1403,8 @@
         "label": "View",
         "explorer": "Explorer",
         "logs": "Error Logs",
-        "zenMode": "Zen Mode"
+        "zenMode": "Zen Mode",
+        "keyboardShortcuts": "Keyboard Shortcuts"
       },
       "data": {
         "label": "Data",

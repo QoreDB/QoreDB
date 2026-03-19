@@ -8,6 +8,7 @@ import {
   Folder,
   History,
   Layers,
+  Loader2,
   Lock,
   MoreHorizontal,
   Network,
@@ -18,7 +19,7 @@ import {
   Sparkles,
   Square,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import {
@@ -118,6 +119,27 @@ export function QueryPanelToolbar({
   const { openTab } = useTabContext();
   const [templateSelectValue, setTemplateSelectValue] = useState<string | undefined>(undefined);
 
+  // Live timer during query execution
+  const [elapsedMs, setElapsedMs] = useState(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const startRef = useRef<number>(0);
+
+  useEffect(() => {
+    if (loading) {
+      startRef.current = performance.now();
+      setElapsedMs(0);
+      timerRef.current = setInterval(() => {
+        setElapsedMs(performance.now() - startRef.current);
+      }, 100);
+    } else {
+      if (timerRef.current) clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [loading]);
+
   // Priority: activeNamespace.database > connectionDatabase
   const displayDatabase = activeNamespace?.database || connectionDatabase;
   const displaySchema = activeNamespace?.schema;
@@ -126,20 +148,25 @@ export function QueryPanelToolbar({
     <div className="flex items-center gap-2 p-2 border-b border-border bg-muted/20">
       {/* --- PRIMARY ZONE --- */}
 
-      <Button
-        data-tour="query-execute"
-        onClick={onExecute}
-        disabled={loading || !sessionId}
-        className="gap-2"
-      >
-        {loading ? (
-          <span className="flex items-center gap-2">{t('query.running')}</span>
-        ) : (
-          <>
-            <Play size={16} className="fill-current" /> {t('query.run')}
-          </>
-        )}
-      </Button>
+      <Tooltip content={`${t('query.run')} (${getModifierKey()}+Enter)`}>
+        <Button
+          data-tour="query-execute"
+          onClick={onExecute}
+          disabled={loading || !sessionId}
+          className="gap-2"
+        >
+          {loading ? (
+            <span className="flex items-center gap-2">
+              <Loader2 size={16} className="animate-spin" />
+              {(elapsedMs / 1000).toFixed(1)}s
+            </span>
+          ) : (
+            <>
+              <Play size={16} className="fill-current" /> {t('query.run')}
+            </>
+          )}
+        </Button>
+      </Tooltip>
 
       {/* Database context badge */}
       {sessionId && (connectionName || displayDatabase) && (

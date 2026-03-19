@@ -144,6 +144,7 @@
   "sidebar": {
     "connections": "Connexions",
     "noConnections": "Aucune connexion enregistrée",
+    "filterConnections": "Filtrer les connexions...",
     "newConnection": "Nouvelle connexion",
     "errorLogs": "Journaux d'erreurs",
     "themeLight": "Passer en mode clair",
@@ -180,7 +181,9 @@
     "newNotebook": "Nouveau Notebook",
     "close": "Fermer l'onglet",
     "pin": "Épingler l'onglet",
-    "unpin": "Désépingler l'onglet"
+    "unpin": "Désépingler l'onglet",
+    "contextMenu": "Options de l'onglet",
+    "showAll": "Afficher tous les onglets"
   },
   "browser": {
     "searchPlaceholder": "Rechercher connexions, tables...",
@@ -624,6 +627,7 @@
     "affectedRows": "{{count}} ligne(s) affectée(s) en {{time}}ms",
     "commandOk": "Commande exécutée en {{time}}ms",
     "noResults": "Aucun résultat à afficher",
+    "noResultsHint": "Essayez de modifier votre requête ou vérifiez la base sélectionnée",
     "rowCount": "{{count}} ligne(s)",
     "timeMs": "{{time}}ms"
   },
@@ -898,6 +902,22 @@
     "statusBar": "Barre de statut",
     "help": "Aide"
   },
+  "cheatsheet": {
+    "title": "Raccourcis clavier",
+    "general": "Général",
+    "tabs": "Onglets",
+    "queryEditor": "Éditeur de requêtes",
+    "search": "Ouvrir la recherche",
+    "settings": "Paramètres",
+    "thisDialog": "Cette fenêtre",
+    "newQuery": "Nouvel onglet requête",
+    "closeTab": "Fermer l'onglet",
+    "newConnection": "Nouvelle connexion",
+    "executeQuery": "Exécuter la requête",
+    "openLibrary": "Ouvrir la bibliothèque",
+    "fulltextSearch": "Recherche plein texte",
+    "pressToClose": "Appuyez sur ? ou Échap pour fermer"
+  },
   "toolbar": {
     "moreActions": "Plus d'actions",
     "queryTools": "Outils de requête",
@@ -1065,7 +1085,8 @@
   "errorBoundary": {
     "title": "Une erreur est survenue",
     "description": "Une erreur inattendue s'est produite. L'erreur a été journalisée.",
-    "reload": "Recharger l'application"
+    "reload": "Recharger l'application",
+    "panelCrashed": "Ce panneau a rencontré une erreur"
   },
   "sandbox": {
     "activate": "Bac à sable",
@@ -1380,7 +1401,8 @@
         "label": "Affichage",
         "explorer": "Explorateur",
         "logs": "Journaux d'erreurs",
-        "zenMode": "Mode Zen"
+        "zenMode": "Mode Zen",
+        "keyboardShortcuts": "Raccourcis clavier"
       },
       "data": {
         "label": "Données",

@@ -17,6 +17,7 @@ interface ModalState {
   settingsOpen: boolean;
   sidebarVisible: boolean;
   showOnboarding: boolean;
+  cheatsheetOpen: boolean;
   editConnection: SavedConnection | null;
   editPassword: string;
 }
@@ -30,6 +31,7 @@ let state: ModalState = {
   settingsOpen: false,
   sidebarVisible: true,
   showOnboarding: false,
+  cheatsheetOpen: false,
   editConnection: null,
   editPassword: '',
 };
@@ -105,6 +107,14 @@ export function setShowOnboarding(show: boolean) {
   updateState({ showOnboarding: show });
 }
 
+export function setCheatsheetOpen(open: boolean) {
+  updateState({ cheatsheetOpen: open });
+}
+
+export function toggleCheatsheet() {
+  updateState(currentState => ({ cheatsheetOpen: !currentState.cheatsheetOpen }));
+}
+
 // ============================================
 // COMPOSITE ACTIONS
 // ============================================
@@ -122,7 +132,7 @@ export function toggleSidebar() {
 }
 
 // ============================================
-// REACT HOOKS (selector-based, granular re-renders)
+// REACT HOOKS
 // ============================================
 
 /**

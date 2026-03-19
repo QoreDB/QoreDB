@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { useRef } from 'react';
-import { Check } from 'lucide-react';
+import { useCallback, useRef } from 'react';
+import { Check, SearchX } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { cn } from '@/lib/utils';
@@ -36,8 +36,10 @@ export function ResultsTable({ result, height = 400 }: ResultsTableProps) {
       );
     }
     return (
-      <div className="flex items-center justify-center p-8 text-muted-foreground text-sm border rounded-md border-dashed">
-        {t('results.noResults')}
+      <div className="flex flex-col items-center justify-center gap-2 p-8 text-sm border rounded-md border-dashed">
+        <SearchX size={24} className="text-muted-foreground/50" />
+        <p className="text-muted-foreground">{t('results.noResults')}</p>
+        <p className="text-xs text-muted-foreground/70">{t('results.noResultsHint')}</p>
       </div>
     );
   }
@@ -45,6 +47,15 @@ export function ResultsTable({ result, height = 400 }: ResultsTableProps) {
   const { columns, rows } = result;
 
   const parentRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLDivElement>(null);
+
+  // Sync horizontal scroll between header and body
+  const handleBodyScroll = useCallback(() => {
+    if (parentRef.current && headerRef.current) {
+      headerRef.current.scrollLeft = parentRef.current.scrollLeft;
+    }
+  }, []);
+
   const rowVirtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => parentRef.current,
@@ -57,8 +68,10 @@ export function ResultsTable({ result, height = 400 }: ResultsTableProps) {
       className="flex flex-col h-full border border-border rounded-md overflow-hidden bg-background"
       style={{ height }}
     >
-      {/* Header */}
-      <div className="flex items-center bg-muted/50 border-b border-border h-[36px] shrink-0">
+      <div
+        ref={headerRef}
+        className="flex items-center bg-muted/50 border-b border-border h-[36px] shrink-0 overflow-x-hidden"
+      >
         {columns.map((col, i) => (
           <div
             key={i}
@@ -70,8 +83,11 @@ export function ResultsTable({ result, height = 400 }: ResultsTableProps) {
         ))}
       </div>
 
-      {/* Rows (Virtualized) */}
-      <div ref={parentRef} className="flex-1 overflow-auto bg-background">
+      <div
+        ref={parentRef}
+        className="flex-1 overflow-auto bg-background"
+        onScroll={handleBodyScroll}
+      >
         <div
           style={{
             height: `${rowVirtualizer.getTotalSize()}px`,
@@ -112,7 +128,6 @@ export function ResultsTable({ result, height = 400 }: ResultsTableProps) {
         </div>
       </div>
 
-      {/* Footer */}
       <div className="px-3 py-1 text-xs text-muted-foreground border-t border-border bg-muted/20 shrink-0">
         {t('results.rowCount', { count: rows.length })} •{' '}
         {t('results.timeMs', { time: result.execution_time_ms })}

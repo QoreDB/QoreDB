@@ -137,6 +137,14 @@ impl SshTunnelBackend for OpenSshBackend {
         // Drop the listener so ssh can bind to this port
         drop(listener);
 
+        // Validate private key file exists before building the SSH command
+        if let SshAuth::Key {
+            private_key_path, ..
+        } = &config.auth
+        {
+            validate_private_key_path(private_key_path)?;
+        }
+
         let known_hosts_path = config
             .known_hosts_path
             .clone()
@@ -167,12 +175,9 @@ impl SshTunnelBackend for OpenSshBackend {
 
         loop {
             // If the process exited early, surface stderr.
-            if let Some(status) = process
-                .try_wait()
-                .map_err(|e| EngineError::SshError {
-                    message: format!("Failed to check SSH process status: {}", e),
-                })?
-            {
+            if let Some(status) = process.try_wait().map_err(|e| EngineError::SshError {
+                message: format!("Failed to check SSH process status: {}", e),
+            })? {
                 let stderr = match process.stderr.take() {
                     Some(mut s) => {
                         let mut buf = Vec::new();
@@ -189,7 +194,7 @@ impl SshTunnelBackend for OpenSshBackend {
                         if stderr.is_empty() {
                             "No stderr output was captured.".to_string()
                         } else {
-                            format!("stderr: {}", stderr)
+                            format!("stderr: {}", sanitize_ssh_stderr(&stderr))
                         }
                     ),
                 });
@@ -282,7 +287,10 @@ fn build_ssh_command(
         .arg("-o")
         .arg(format!("ServerAliveCountMax={}", keepalive_count_max))
         .arg("-o")
-        .arg(format!("StrictHostKeyChecking={}", strict_host_key_checking))
+        .arg(format!(
+            "StrictHostKeyChecking={}",
+            strict_host_key_checking
+        ))
         .arg("-o")
         .arg(format!("UserKnownHostsFile={}", known_hosts_path))
         .arg("-o")
@@ -301,6 +309,7 @@ fn build_ssh_command(
 
     if let Some(proxy_jump) = config.proxy_jump.as_deref() {
         if !proxy_jump.trim().is_empty() {
+            validate_proxy_jump(proxy_jump)?;
             cmd.arg("-J").arg(proxy_jump);
         }
     }
@@ -333,7 +342,8 @@ fn default_known_hosts_path() -> String {
     // Windows: %APPDATA%\QoreDB\ssh\known_hosts
     // Others:  $HOME/.qoredb/ssh/known_hosts
     if cfg!(windows) {
-        let appdata = std::env::var_os("APPDATA").unwrap_or_else(|| std::env::var_os("USERPROFILE").unwrap_or_default());
+        let appdata = std::env::var_os("APPDATA")
+            .unwrap_or_else(|| std::env::var_os("USERPROFILE").unwrap_or_default());
         let mut path = PathBuf::from(appdata);
         path.push("QoreDB");
         path.push("ssh");
@@ -350,14 +360,71 @@ fn default_known_hosts_path() -> String {
 }
 
 fn null_device_path() -> &'static str {
-    if cfg!(windows) { "NUL" } else { "/dev/null" }
+    if cfg!(windows) {
+        "NUL"
+    } else {
+        "/dev/null"
+    }
+}
+
+/// Validate proxy_jump format: [user@]host[:port], no spaces or shell-dangerous chars.
+fn validate_proxy_jump(proxy_jump: &str) -> EngineResult<()> {
+    let re = regex::Regex::new(r"^([a-zA-Z0-9._-]+@)?[a-zA-Z0-9._-]+(:\d{1,5})?$").unwrap();
+    if !re.is_match(proxy_jump) {
+        return Err(EngineError::SshError {
+            message: format!(
+                "Invalid proxy jump format: '{}'. Expected [user@]host[:port].",
+                proxy_jump
+            ),
+        });
+    }
+    Ok(())
+}
+
+/// Validate that the private key file exists.
+fn validate_private_key_path(path: &str) -> EngineResult<()> {
+    let p = std::path::Path::new(path);
+    if !p.is_file() {
+        return Err(EngineError::SshError {
+            message: format!(
+                "SSH private key file not found: '{}'. Check the path and permissions.",
+                path
+            ),
+        });
+    }
+    Ok(())
+}
+
+/// Sanitize SSH stderr output to avoid leaking sensitive internal details.
+fn sanitize_ssh_stderr(stderr: &str) -> String {
+    let lines: Vec<&str> = stderr
+        .lines()
+        .filter(|line| !line.contains('@') || line.contains("Permission denied"))
+        .collect();
+
+    let mut sanitized = lines.join("\n");
+
+    // Redact IPv4 addresses
+    let ip_re = regex::Regex::new(r"\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b").unwrap();
+    sanitized = ip_re.replace_all(&sanitized, "[redacted-ip]").to_string();
+
+    if sanitized.len() > 200 {
+        sanitized.truncate(200);
+        sanitized.push_str("...");
+    }
+
+    sanitized
 }
 
 fn ensure_parent_dir_exists(path: &str) -> EngineResult<()> {
     let path = PathBuf::from(path);
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).map_err(|e| EngineError::SshError {
-            message: format!("Failed to create SSH config directory {}: {}", parent.display(), e),
+            message: format!(
+                "Failed to create SSH config directory {}: {}",
+                parent.display(),
+                e
+            ),
         })?;
     }
     Ok(())
@@ -399,11 +466,75 @@ mod tests {
 
         assert!(args.contains(&"-N".to_string()));
         assert!(args.iter().any(|a| a == "StrictHostKeyChecking=yes"));
-        assert!(args.iter().any(|a| a == "UserKnownHostsFile=/tmp/qoredb_known_hosts"));
+        assert!(args
+            .iter()
+            .any(|a| a == "UserKnownHostsFile=/tmp/qoredb_known_hosts"));
         assert!(args.iter().any(|a| a == "-J"));
         assert!(args.iter().any(|a| a == "jumpuser@jump.example.com:22"));
         assert!(args.iter().any(|a| a == "-L"));
         assert!(args.iter().any(|a| a == "127.0.0.1:50000:postgres:5432"));
+    }
+
+    #[test]
+    fn rejects_malicious_proxy_jump() {
+        let cfg = SshTunnelConfig {
+            host: "ssh.example.com".to_string(),
+            port: 22,
+            username: "user".to_string(),
+            auth: SshAuth::Key {
+                private_key_path: "id_ed25519".to_string(),
+                passphrase: None,
+            },
+            host_key_policy: SshHostKeyPolicy::AcceptNew,
+            known_hosts_path: Some("/tmp/qoredb_known_hosts".to_string()),
+            proxy_jump: Some("evil;rm -rf /".to_string()),
+            connect_timeout_secs: 10,
+            keepalive_interval_secs: 30,
+            keepalive_count_max: 3,
+        };
+        let err = build_ssh_command(&cfg, "/tmp/qoredb_known_hosts", 50000, "postgres", 5432)
+            .expect_err("malicious proxy_jump should be rejected");
+        match err {
+            EngineError::SshError { message } => assert!(message.contains("Invalid proxy jump")),
+            other => panic!("unexpected error: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn accepts_valid_proxy_jump_formats() {
+        assert!(validate_proxy_jump("jump.example.com").is_ok());
+        assert!(validate_proxy_jump("user@jump.example.com").is_ok());
+        assert!(validate_proxy_jump("user@jump.example.com:22").is_ok());
+    }
+
+    #[test]
+    fn rejects_proxy_jump_with_spaces_or_options() {
+        assert!(validate_proxy_jump("user@host -o Evil=true").is_err());
+        assert!(validate_proxy_jump("host && rm -rf /").is_err());
+        assert!(validate_proxy_jump("").is_err());
+    }
+
+    #[test]
+    fn sanitizes_ssh_stderr_ips() {
+        let stderr = "Connection refused by 192.168.1.100 port 22";
+        let sanitized = sanitize_ssh_stderr(stderr);
+        assert!(!sanitized.contains("192.168.1.100"));
+        assert!(sanitized.contains("[redacted-ip]"));
+    }
+
+    #[test]
+    fn sanitizes_ssh_stderr_truncates_long_output() {
+        let stderr = "x".repeat(300);
+        let sanitized = sanitize_ssh_stderr(&stderr);
+        assert!(sanitized.len() <= 204); // 200 + "..."
+    }
+
+    #[test]
+    fn sanitizes_ssh_stderr_filters_at_sign() {
+        let stderr = "user@internal-host: Permission denied\nsome other info";
+        let sanitized = sanitize_ssh_stderr(stderr);
+        // "Permission denied" lines with @ are kept
+        assert!(sanitized.contains("Permission denied"));
     }
 
     #[test]

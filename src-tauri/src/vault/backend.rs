@@ -36,7 +36,10 @@ impl CredentialProvider for KeyringProvider {
         match entry.get_password() {
             Ok(pwd) => Ok(pwd),
             Err(keyring::Error::NoEntry) => Err(EngineError::internal("Credentials not found")),
-            Err(e) => Err(EngineError::internal(format!("Failed to get password: {}", e))),
+            Err(e) => Err(EngineError::internal(format!(
+                "Failed to get password: {}",
+                e
+            ))),
         }
     }
 

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Command, Database, FileCode, Folder, Search, Star } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { Command, Compass, Database, FileCode, Folder, Search, Star } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { getFavorites, type HistoryEntry, searchHistory } from '../../lib/history';
@@ -18,6 +18,7 @@ interface GlobalSearchProps {
   onClose: () => void;
   onSelect?: (result: SearchResult) => void;
   commands?: CommandItem[];
+  features?: CommandItem[];
 }
 
 export interface CommandItem {
@@ -28,7 +29,7 @@ export interface CommandItem {
 }
 
 export interface SearchResult {
-  type: 'command' | 'connection' | 'query' | 'favorite' | 'library';
+  type: 'command' | 'connection' | 'query' | 'favorite' | 'library' | 'feature';
   id: string;
   label: string;
   sublabel?: string;
@@ -38,7 +39,22 @@ export interface SearchResult {
 
 const DEFAULT_PROJECT = 'default';
 
-export function GlobalSearch({ isOpen, onClose, onSelect, commands = [] }: GlobalSearchProps) {
+const TIP_KEYS = [
+  'palette.tips.newQuery',
+  'palette.tips.sandbox',
+  'palette.tips.commandPalette',
+  'palette.tips.notebook',
+  'palette.tips.federation',
+  'palette.tips.shortcuts',
+] as const;
+
+export function GlobalSearch({
+  isOpen,
+  onClose,
+  onSelect,
+  commands = [],
+  features = [],
+}: GlobalSearchProps) {
   const { t } = useTranslation();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -46,22 +62,35 @@ export function GlobalSearch({ isOpen, onClose, onSelect, commands = [] }: Globa
   const [connections, setConnections] = useState<SavedConnection[]>([]);
   const [libraryItems, setLibraryItems] = useState<QueryLibraryItem[]>([]);
   const [libraryFolders, setLibraryFolders] = useState<QueryFolder[]>([]);
+  const [tipIndex, setTipIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const buildDefaultResults = useCallback((): SearchResult[] => {
+    const items: SearchResult[] = commands.map(cmd => ({
+      type: 'command',
+      id: cmd.id,
+      label: cmd.label,
+      sublabel: cmd.sublabel,
+      shortcut: cmd.shortcut,
+    }));
+    features.forEach(feat => {
+      items.push({
+        type: 'feature',
+        id: feat.id,
+        label: feat.label,
+        sublabel: feat.sublabel,
+      });
+    });
+    return items;
+  }, [commands, features]);
 
   useEffect(() => {
     if (isOpen) {
       inputRef.current?.focus();
       setQuery('');
-      setResults(
-        commands.map(cmd => ({
-          type: 'command',
-          id: cmd.id,
-          label: cmd.label,
-          sublabel: cmd.sublabel,
-          shortcut: cmd.shortcut,
-        }))
-      );
+      setResults(buildDefaultResults());
       setSelectedIndex(0);
+      setTipIndex(Math.floor(Math.random() * TIP_KEYS.length));
 
       listSavedConnections(DEFAULT_PROJECT).then(setConnections).catch(console.error);
 
@@ -72,7 +101,7 @@ export function GlobalSearch({ isOpen, onClose, onSelect, commands = [] }: Globa
         console.error(err);
       }
     }
-  }, [isOpen, commands.map]);
+  }, [isOpen, buildDefaultResults]);
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -119,7 +148,33 @@ export function GlobalSearch({ isOpen, onClose, onSelect, commands = [] }: Globa
         });
       });
 
+      // Features (searchable by name and description)
+      if (trimmed) {
+        features.forEach(feat => {
+          const matches =
+            feat.label.toLowerCase().includes(lowerQuery) ||
+            (feat.sublabel?.toLowerCase().includes(lowerQuery) ?? false);
+          if (matches) {
+            searchResults.push({
+              type: 'feature',
+              id: feat.id,
+              label: feat.label,
+              sublabel: feat.sublabel,
+            });
+          }
+        });
+      }
+
       if (!trimmed) {
+        // Show commands + features when empty
+        features.forEach(feat => {
+          searchResults.push({
+            type: 'feature',
+            id: feat.id,
+            label: feat.label,
+            sublabel: feat.sublabel,
+          });
+        });
         setResults(searchResults);
         return;
       }
@@ -203,10 +258,31 @@ export function GlobalSearch({ isOpen, onClose, onSelect, commands = [] }: Globa
         });
       });
 
-      setResults(searchResults.slice(0, 10));
+      setResults(searchResults.slice(0, 15));
     },
-    [commands, connections, libraryFolders, libraryItems, t]
+    [commands, features, connections, libraryFolders, libraryItems, t]
   );
+
+  // Determine section headers for grouped display
+  const resultSections = useMemo(() => {
+    const sections: { index: number; label: string }[] = [];
+    let lastType: string | null = null;
+    results.forEach((result, i) => {
+      if (result.type !== lastType) {
+        if (result.type === 'feature') {
+          sections.push({ index: i, label: t('palette.featuresSection') });
+        }
+        lastType = result.type;
+      }
+    });
+    return sections;
+  }, [results, t]);
+
+  const sectionHeaderAt = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const s of resultSections) map.set(s.index, s.label);
+    return map;
+  }, [resultSections]);
 
   if (!isOpen) return null;
 
@@ -232,71 +308,80 @@ export function GlobalSearch({ isOpen, onClose, onSelect, commands = [] }: Globa
         </div>
 
         {results.length > 0 ? (
-          <div className="max-h-75 overflow-y-auto py-1">
+          <div className="max-h-80 overflow-y-auto py-1">
             {results.map((result, i) => (
-              <button
-                key={result.id}
-                className={cn(
-                  'w-full flex items-center gap-3 px-4 py-2.5 text-sm cursor-pointer transition-colors text-left',
-                  i === selectedIndex
-                    ? 'bg-accent text-accent-foreground'
-                    : 'text-foreground hover:bg-muted/50'
+              <div key={result.id}>
+                {sectionHeaderAt.has(i) && (
+                  <div className="px-4 pt-3 pb-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                    {sectionHeaderAt.get(i)}
+                  </div>
                 )}
-                onClick={() => {
-                  onSelect?.(result);
-                  onClose();
-                }}
-                onMouseEnter={() => setSelectedIndex(i)}
-              >
-                <span
+                <button
+                  type="button"
                   className={cn(
-                    'flex items-center justify-center text-muted-foreground',
-                    i === selectedIndex && 'text-accent-foreground/70'
+                    'w-full flex items-center gap-3 px-4 py-2.5 text-sm cursor-pointer transition-colors text-left',
+                    i === selectedIndex
+                      ? 'bg-accent text-accent-foreground'
+                      : 'text-foreground hover:bg-muted/50'
                   )}
+                  onClick={() => {
+                    onSelect?.(result);
+                    onClose();
+                  }}
+                  onMouseEnter={() => setSelectedIndex(i)}
                 >
-                  {result.type === 'command' ? (
-                    <Command size={16} />
-                  ) : result.type === 'connection' ? (
-                    <Database size={16} />
-                  ) : result.type === 'favorite' ? (
-                    <Star size={16} />
-                  ) : result.type === 'library' ? (
-                    (result.data as QueryLibraryItem | undefined)?.isFavorite ? (
-                      <Star size={16} />
-                    ) : (
-                      <Folder size={16} />
-                    )
-                  ) : (
-                    <FileCode size={16} />
-                  )}
-                </span>
-
-                <div className="flex flex-col flex-1 overflow-hidden">
-                  <span className="font-medium truncate">{result.label}</span>
-                  {result.sublabel && (
-                    <span
-                      className={cn(
-                        'text-xs truncate opacity-70',
-                        i !== selectedIndex && 'text-muted-foreground'
-                      )}
-                    >
-                      {result.sublabel}
-                    </span>
-                  )}
-                </div>
-
-                {result.shortcut && (
-                  <kbd
+                  <span
                     className={cn(
-                      'ml-auto pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground opacity-100',
-                      i === selectedIndex &&
-                        'border-accent-foreground/30 bg-accent-foreground/10 text-accent-foreground'
+                      'flex items-center justify-center text-muted-foreground',
+                      i === selectedIndex && 'text-accent-foreground/70'
                     )}
                   >
-                    {result.shortcut}
-                  </kbd>
-                )}
-              </button>
+                    {result.type === 'command' ? (
+                      <Command size={16} />
+                    ) : result.type === 'feature' ? (
+                      <Compass size={16} />
+                    ) : result.type === 'connection' ? (
+                      <Database size={16} />
+                    ) : result.type === 'favorite' ? (
+                      <Star size={16} />
+                    ) : result.type === 'library' ? (
+                      (result.data as QueryLibraryItem | undefined)?.isFavorite ? (
+                        <Star size={16} />
+                      ) : (
+                        <Folder size={16} />
+                      )
+                    ) : (
+                      <FileCode size={16} />
+                    )}
+                  </span>
+
+                  <div className="flex flex-col flex-1 overflow-hidden">
+                    <span className="font-medium truncate">{result.label}</span>
+                    {result.sublabel && (
+                      <span
+                        className={cn(
+                          'text-xs truncate opacity-70',
+                          i !== selectedIndex && 'text-muted-foreground'
+                        )}
+                      >
+                        {result.sublabel}
+                      </span>
+                    )}
+                  </div>
+
+                  {result.shortcut && (
+                    <kbd
+                      className={cn(
+                        'ml-auto pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground opacity-100',
+                        i === selectedIndex &&
+                          'border-accent-foreground/30 bg-accent-foreground/10 text-accent-foreground'
+                      )}
+                    >
+                      {result.shortcut}
+                    </kbd>
+                  )}
+                </button>
+              </div>
             ))}
           </div>
         ) : (
@@ -305,24 +390,27 @@ export function GlobalSearch({ isOpen, onClose, onSelect, commands = [] }: Globa
           </div>
         )}
 
-        <div className="flex items-center justify-end gap-3 px-4 py-2 border-t border-border bg-muted/20 text-xs text-muted-foreground select-none">
-          <div className="flex items-center gap-1">
-            <kbd className="px-1.5 py-0.5 rounded bg-muted border border-border font-mono text-[10px]">
-              ↑↓
-            </kbd>{' '}
-            {t('browser.navigate')}
-          </div>
-          <div className="flex items-center gap-1">
-            <kbd className="px-1.5 py-0.5 rounded bg-muted border border-border font-mono text-[10px]">
-              ↵
-            </kbd>{' '}
-            {t('browser.select')}
-          </div>
-          <div className="flex items-center gap-1">
-            <kbd className="px-1.5 py-0.5 rounded bg-muted border border-border font-mono text-[10px]">
-              esc
-            </kbd>{' '}
-            {t('browser.close')}
+        <div className="flex items-center gap-3 px-4 py-2 border-t border-border bg-muted/20 text-xs text-muted-foreground select-none">
+          {!query.trim() && <span className="italic truncate flex-1">{t(TIP_KEYS[tipIndex])}</span>}
+          <div className={cn('flex items-center gap-3', !query.trim() && 'ml-auto')}>
+            <div className="flex items-center gap-1">
+              <kbd className="px-1.5 py-0.5 rounded bg-muted border border-border font-mono text-[10px]">
+                ↑↓
+              </kbd>{' '}
+              {t('browser.navigate')}
+            </div>
+            <div className="flex items-center gap-1">
+              <kbd className="px-1.5 py-0.5 rounded bg-muted border border-border font-mono text-[10px]">
+                ↵
+              </kbd>{' '}
+              {t('browser.select')}
+            </div>
+            <div className="flex items-center gap-1">
+              <kbd className="px-1.5 py-0.5 rounded bg-muted border border-border font-mono text-[10px]">
+                esc
+              </kbd>{' '}
+              {t('browser.close')}
+            </div>
           </div>
         </div>
       </div>

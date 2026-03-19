@@ -63,7 +63,7 @@ function ProviderCard({
         <div>
           <h4 className="text-sm font-medium">{provider.label}</h4>
           <p className="text-xs text-muted-foreground">
-            {t('ai.settings.defaultModel')}: {provider.defaultModel}
+            {provider.models.map(m => m.label).join(', ')}
           </p>
         </div>
         {isLocal ? (
@@ -147,11 +147,12 @@ export function AiSection({ searchQuery }: AiSectionProps) {
   const { preferredProvider, setPreferredProvider, providerStatuses, refreshStatuses } =
     useAiPreferences();
 
-  const providerHasKey: Record<AiProvider, boolean> = {
-    open_ai: providerStatuses.find(s => s.provider === 'open_ai')?.has_key ?? false,
-    anthropic: providerStatuses.find(s => s.provider === 'anthropic')?.has_key ?? false,
-    ollama: true,
-  };
+  const providerHasKey = Object.fromEntries(
+    AI_PROVIDERS.map(p => [
+      p.id,
+      p.requiresKey ? (providerStatuses.find(s => s.provider === p.id)?.has_key ?? false) : true,
+    ])
+  ) as Record<AiProvider, boolean>;
 
   const handleSave = async (provider: AiProvider, key: string) => {
     await aiSaveApiKey(provider, key);

@@ -32,7 +32,19 @@
       "Bash(rtk git status:*)",
       "Bash(rtk ls:*)",
       "Bash(rtk cargo test -p qoredb)",
-      "WebFetch(domain:phppot.com)"
+      "WebFetch(domain:phppot.com)",
+      "Bash(git -C /home/raphael/dev/perso/QoreDB log --all --oneline)",
+      "Bash(npx eslint:*)",
+      "Bash(npx biome:*)",
+      "Bash(pnpm add:*)",
+      "Bash(npx pnpm:*)",
+      "WebFetch(domain:v2.tauri.app)",
+      "WebFetch(domain:docs.rs)",
+      "mcp___hypothesi_tauri-mcp-server__webview_screenshot",
+      "mcp___hypothesi_tauri-mcp-server__webview_find_element",
+      "mcp___hypothesi_tauri-mcp-server__driver_session",
+      "Bash(pnpm exec:*)",
+      "Bash(pnpm format:write)"
     ]
   }
 }

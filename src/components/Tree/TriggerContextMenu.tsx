@@ -13,12 +13,7 @@ import {
   ContextMenuTrigger,
 } from '@/components/ui/context-menu';
 import { notify } from '../../lib/notify';
-import {
-  dropTrigger,
-  toggleTrigger,
-  type Environment,
-  type Trigger,
-} from '../../lib/tauri';
+import { dropTrigger, toggleTrigger, type Environment, type Trigger } from '../../lib/tauri';
 
 interface TriggerContextMenuProps {
   trigger: Trigger;
@@ -70,16 +65,11 @@ export function TriggerContextMenu({
       );
 
       if (result.success) {
-        notify.success(
-          t('triggerManager.dropSuccess', { name: trigger.name })
-        );
+        notify.success(t('triggerManager.dropSuccess', { name: trigger.name }));
         setShowDropConfirm(false);
         onDrop();
       } else {
-        notify.error(
-          t('triggerManager.dropFailed', { name: trigger.name }),
-          result.error
-        );
+        notify.error(t('triggerManager.dropFailed', { name: trigger.name }), result.error);
       }
     } catch (err) {
       notify.error(t('common.error'), err);
@@ -110,10 +100,7 @@ export function TriggerContextMenu({
         notify.success(t(key, { name: trigger.name }));
         onToggle();
       } else {
-        notify.error(
-          t('triggerManager.toggleFailed', { name: trigger.name }),
-          result.error
-        );
+        notify.error(t('triggerManager.toggleFailed', { name: trigger.name }), result.error);
       }
     } catch (err) {
       notify.error(t('common.error'), err);
@@ -137,9 +124,7 @@ export function TriggerContextMenu({
               ) : (
                 <Power size={14} className="mr-2" />
               )}
-              {trigger.enabled
-                ? t('triggerManager.disable')
-                : t('triggerManager.enable')}
+              {trigger.enabled ? t('triggerManager.disable') : t('triggerManager.enable')}
             </ContextMenuItem>
           )}
 

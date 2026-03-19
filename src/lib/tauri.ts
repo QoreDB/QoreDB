@@ -219,9 +219,7 @@ export async function listSessions(): Promise<SessionListItem[]> {
   return invoke('list_sessions');
 }
 
-export async function checkConnectionHealth(
-  sessionId: string,
-): Promise<string> {
+export async function checkConnectionHealth(sessionId: string): Promise<string> {
   return invoke('check_connection_health', { sessionId });
 }
 

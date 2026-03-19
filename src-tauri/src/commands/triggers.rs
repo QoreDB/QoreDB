@@ -521,10 +521,7 @@ pub async fn drop_event(
 
     let namespace = Namespace { database, schema };
 
-    match driver
-        .drop_event(session, &namespace, &event_name)
-        .await
-    {
+    match driver.drop_event(session, &namespace, &event_name).await {
         Ok(result) => {
             interceptor.post_execute(
                 &interceptor_context,

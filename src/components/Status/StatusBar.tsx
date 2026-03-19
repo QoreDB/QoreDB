@@ -1,11 +1,22 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Database, Link2Off, Lock, RefreshCw, Server, Shield, WifiOff } from 'lucide-react';
+import {
+  Database,
+  GitBranch,
+  Link2Off,
+  Lock,
+  RefreshCw,
+  Server,
+  Shield,
+  WifiOff,
+} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { SandboxIndicator } from '@/components/Sandbox';
 import { getDriverMetadata } from '@/lib/drivers';
 import { ENVIRONMENT_CONFIG } from '@/lib/environment';
 import type { ConnectionHealth, SavedConnection } from '@/lib/tauri';
+import { useTransactionStore } from '@/lib/transactionStore';
+import { APP_VERSION } from '@/lib/version';
 
 interface StatusBarProps {
   sessionId: string | null;
@@ -16,6 +27,7 @@ interface StatusBarProps {
 export function StatusBar({ sessionId, connection, connectionHealth = 'healthy' }: StatusBarProps) {
   const { t } = useTranslation();
   const isConnected = Boolean(sessionId && connection);
+  const transactionState = useTransactionStore();
 
   const environment = connection?.environment || 'development';
   const envConfig = ENVIRONMENT_CONFIG[environment];
@@ -42,11 +54,23 @@ export function StatusBar({ sessionId, connection, connectionHealth = 'healthy' 
   };
 
   return (
-    <div className="flex items-center justify-between h-8 px-3 border-t border-border bg-muted/30 text-xs text-muted-foreground">
+    <output
+      aria-live="polite"
+      aria-label={t('a11y.statusBar')}
+      className="flex items-center justify-between h-8 px-3 border-t border-border bg-muted/30 text-xs text-muted-foreground"
+    >
       <div className="flex items-center gap-3 min-w-0">
         <span className="flex items-center gap-1.5">
           {healthIndicator()}
-          <span className={isConnected && connectionHealth === 'healthy' ? 'text-foreground' : connectionHealth !== 'healthy' ? 'text-warning' : ''}>
+          <span
+            className={
+              isConnected && connectionHealth === 'healthy'
+                ? 'text-foreground'
+                : connectionHealth !== 'healthy'
+                  ? 'text-warning'
+                  : ''
+            }
+          >
             {healthLabel()}
           </span>
         </span>
@@ -77,6 +101,19 @@ export function StatusBar({ sessionId, connection, connectionHealth = 'healthy' 
       <div className="flex items-center gap-2">
         {isConnected ? (
           <>
+            {transactionState.active && (
+              <span className="flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide rounded-full border border-accent/30 bg-accent/10 text-accent animate-pulse">
+                <GitBranch size={11} />
+                {t('status.transactionActive')}
+                {transactionState.statementCount > 0 && (
+                  <span className="font-normal">
+                    ({t('status.transactionStatements', { count: transactionState.statementCount })}
+                    )
+                  </span>
+                )}
+              </span>
+            )}
+
             <SandboxIndicator sessionId={sessionId} environment={environment} />
 
             <span
@@ -103,7 +140,9 @@ export function StatusBar({ sessionId, connection, connectionHealth = 'healthy' 
         ) : (
           <span className="text-muted-foreground">{t('status.noSession')}</span>
         )}
+        <div className="h-4 w-px bg-border/50" />
+        <span className="text-muted-foreground/60">v{APP_VERSION}</span>
       </div>
-    </div>
+    </output>
   );
 }

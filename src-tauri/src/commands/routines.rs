@@ -174,10 +174,7 @@ pub async fn drop_routine(
         RoutineType::Function => "FUNCTION",
         RoutineType::Procedure => "PROCEDURE",
     };
-    let query_preview = format!(
-        "DROP {} {}.{}",
-        type_keyword, database, routine_name
-    );
+    let query_preview = format!("DROP {} {}.{}", type_keyword, database, routine_name);
 
     let acknowledged = acknowledged_dangerous.unwrap_or(false);
     let interceptor_context = interceptor.build_context(

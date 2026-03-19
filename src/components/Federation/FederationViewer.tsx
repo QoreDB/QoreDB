@@ -378,7 +378,7 @@ export function FederationViewer({ initialQuery = '' }: FederationViewerProps) {
           </div>
 
           <button
-          type='button'
+            type="button"
             onClick={() => {
               setPendingInsert(null);
               sqlEditorRef.current?.focus();

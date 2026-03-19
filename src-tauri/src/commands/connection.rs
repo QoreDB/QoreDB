@@ -6,14 +6,14 @@
 
 use serde::Serialize;
 use std::path::PathBuf;
-use tauri::{AppHandle, Manager, State};
 use std::sync::Arc;
-use uuid::Uuid;
+use tauri::{AppHandle, Manager, State};
 use tracing::instrument;
+use uuid::Uuid;
 
 use crate::engine::types::{ConnectionConfig, SshAuth};
-use crate::vault::VaultStorage;
 use crate::vault::backend::KeyringProvider;
+use crate::vault::VaultStorage;
 
 /// Response for connection operations
 #[derive(Debug, Serialize)]
@@ -48,7 +48,9 @@ fn load_saved_connection_config(
         .get_credentials(connection_id)
         .map_err(|e| e.to_string())?;
 
-    saved.to_connection_config(&creds).map_err(|e| e.to_string())
+    saved
+        .to_connection_config(&creds)
+        .map_err(|e| e.to_string())
 }
 
 /// Like `load_saved_connection_config` but also returns the saved connection name.
@@ -71,10 +73,11 @@ fn load_saved_connection_config_with_name(
         .get_credentials(connection_id)
         .map_err(|e| e.to_string())?;
 
-    let config = saved.to_connection_config(&creds).map_err(|e| e.to_string())?;
+    let config = saved
+        .to_connection_config(&creds)
+        .map_err(|e| e.to_string())?;
     Ok((config, name))
 }
-
 
 fn normalize_environment(env: &str) -> Result<String, String> {
     let normalized = env.trim().to_ascii_lowercase();
@@ -187,7 +190,6 @@ fn normalize_config(mut config: ConnectionConfig) -> Result<ConnectionConfig, St
 
     Ok(config)
 }
-
 
 /// Tests a database connection without persisting it
 #[tauri::command]
@@ -408,12 +410,12 @@ pub async fn disconnect(
         Arc::clone(&state.session_manager)
     };
 
-    let uuid = Uuid::parse_str(&session_id)
-        .map_err(|e| format!("Invalid session ID: {}", e))?;
+    let uuid = Uuid::parse_str(&session_id).map_err(|e| format!("Invalid session ID: {}", e))?;
 
     match session_manager
         .disconnect(crate::engine::types::SessionId(uuid))
-        .await {
+        .await
+    {
         Ok(()) => Ok(ConnectionResponse {
             success: true,
             session_id: None,
@@ -459,8 +461,7 @@ pub async fn check_connection_health(
         Arc::clone(&state.session_manager)
     };
 
-    let uuid = Uuid::parse_str(&session_id)
-        .map_err(|e| format!("Invalid session ID: {}", e))?;
+    let uuid = Uuid::parse_str(&session_id).map_err(|e| format!("Invalid session ID: {}", e))?;
     let sid = crate::engine::types::SessionId(uuid);
 
     match session_manager.ping(sid).await {

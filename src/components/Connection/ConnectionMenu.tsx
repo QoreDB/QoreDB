@@ -1,6 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Copy, Loader2, MoreVertical, Pencil, Star, Terminal, Trash2, Zap } from 'lucide-react';
+import {
+  BookOpen,
+  Copy,
+  Loader2,
+  MoreVertical,
+  Pencil,
+  Star,
+  Terminal,
+  Trash2,
+  Zap,
+} from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
@@ -21,6 +31,7 @@ interface ConnectionMenuProps {
   isFavorite?: boolean;
   onToggleFavorite?: () => void;
   onNewQuery?: () => void;
+  onNewNotebook?: () => void;
   isConnected?: boolean;
 }
 
@@ -31,6 +42,7 @@ export function ConnectionMenu({
   isFavorite,
   onToggleFavorite,
   onNewQuery,
+  onNewNotebook,
   isConnected,
 }: ConnectionMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -87,22 +99,39 @@ export function ConnectionMenu({
             className="absolute right-0 top-full mt-1 z-50 min-w-40 bg-background border border-border rounded-md shadow-lg py-1 animate-in fade-in-0 zoom-in-95"
             onClick={e => e.stopPropagation()}
           >
-            {isConnected && onNewQuery && (
+            {isConnected && (onNewQuery || onNewNotebook) && (
               <>
-                <button
-                  className="w-full flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-muted transition-colors text-left"
-                  onClick={() => {
-                    onNewQuery();
-                    setIsOpen(false);
-                  }}
-                >
-                  <Terminal size={14} />
-                  {t('connection.menu.newQuery')}
-                </button>
+                {onNewQuery && (
+                  <button
+                    type="button"
+                    className="w-full flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-muted transition-colors text-left"
+                    onClick={() => {
+                      onNewQuery();
+                      setIsOpen(false);
+                    }}
+                  >
+                    <Terminal size={14} />
+                    {t('connection.menu.newQuery')}
+                  </button>
+                )}
+                {onNewNotebook && (
+                  <button
+                    type="button"
+                    className="w-full flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-muted transition-colors text-left"
+                    onClick={() => {
+                      onNewNotebook();
+                      setIsOpen(false);
+                    }}
+                  >
+                    <BookOpen size={14} />
+                    {t('connection.menu.newNotebook')}
+                  </button>
+                )}
                 <div className="h-px bg-border my-1" />
               </>
             )}
             <button
+              type="button"
               className="w-full flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-muted transition-colors text-left"
               onClick={handleTest}
               disabled={testing}
@@ -112,6 +141,7 @@ export function ConnectionMenu({
             </button>
 
             <button
+              type="button"
               className="w-full flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-muted transition-colors text-left"
               onClick={handleEdit}
             >
@@ -120,6 +150,7 @@ export function ConnectionMenu({
             </button>
 
             <button
+              type="button"
               className="w-full flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-muted transition-colors text-left"
               onClick={handleDuplicate}
               disabled={duplicating}
@@ -130,6 +161,7 @@ export function ConnectionMenu({
 
             {onToggleFavorite && (
               <button
+                type="button"
                 className="w-full flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-muted transition-colors text-left"
                 onClick={() => {
                   onToggleFavorite();
@@ -144,6 +176,7 @@ export function ConnectionMenu({
             <div className="h-px bg-border my-1" />
 
             <button
+              type="button"
               className="w-full flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-error/10 text-error transition-colors text-left"
               onClick={onSelectDelete}
               disabled={deleting}

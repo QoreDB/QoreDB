@@ -5,12 +5,12 @@
 //! Commands for executing insert, update, and delete operations.
 
 use serde::Serialize;
-use tauri::State;
-use uuid::Uuid;
 use std::sync::Arc;
+use tauri::State;
 use tracing::instrument;
+use uuid::Uuid;
 
-use crate::engine::{types::{Namespace, QueryResult, RowData, SessionId}};
+use crate::engine::types::{Namespace, QueryResult, RowData, SessionId};
 use crate::interceptor::{Environment, QueryExecutionResult, SafetyAction};
 
 const READ_ONLY_BLOCKED: &str = "Operation blocked: read-only mode";
@@ -84,7 +84,9 @@ pub async fn insert_row(
         });
     }
 
-    let driver = session_manager.get_driver(session).await
+    let driver = session_manager
+        .get_driver(session)
+        .await
         .map_err(|e| e.to_string())?;
 
     if !driver.capabilities().mutations {
@@ -163,10 +165,7 @@ pub async fn insert_row(
         None
     };
 
-    let namespace = Namespace {
-        database,
-        schema,
-    };
+    let namespace = Namespace { database, schema };
 
     let start_time = std::time::Instant::now();
     match driver.insert_row(session, &namespace, &table, &data).await {
@@ -188,7 +187,7 @@ pub async fn insert_row(
                 result: Some(result),
                 error: None,
             })
-        },
+        }
         Err(e) => {
             let duration_ms = start_time.elapsed().as_micros() as f64 / 1000.0;
             interceptor.post_execute(
@@ -207,7 +206,7 @@ pub async fn insert_row(
                 result: None,
                 error: Some(e.to_string()),
             })
-        },
+        }
     }
 }
 
@@ -248,7 +247,9 @@ pub async fn update_row(
         });
     }
 
-    let driver = session_manager.get_driver(session).await
+    let driver = session_manager
+        .get_driver(session)
+        .await
         .map_err(|e| e.to_string())?;
 
     if !driver.capabilities().mutations {
@@ -327,13 +328,13 @@ pub async fn update_row(
         None
     };
 
-    let namespace = Namespace {
-        database,
-        schema,
-    };
+    let namespace = Namespace { database, schema };
 
     let start_time = std::time::Instant::now();
-    match driver.update_row(session, &namespace, &table, &primary_key, &data).await {
+    match driver
+        .update_row(session, &namespace, &table, &primary_key, &data)
+        .await
+    {
         Ok(mut result) => {
             result.execution_time_ms = start_time.elapsed().as_micros() as f64 / 1000.0;
             interceptor.post_execute(
@@ -352,7 +353,7 @@ pub async fn update_row(
                 result: Some(result),
                 error: None,
             })
-        },
+        }
         Err(e) => {
             let duration_ms = start_time.elapsed().as_micros() as f64 / 1000.0;
             interceptor.post_execute(
@@ -371,7 +372,7 @@ pub async fn update_row(
                 result: None,
                 error: Some(e.to_string()),
             })
-        },
+        }
     }
 }
 
@@ -411,7 +412,9 @@ pub async fn delete_row(
         });
     }
 
-    let driver = session_manager.get_driver(session).await
+    let driver = session_manager
+        .get_driver(session)
+        .await
         .map_err(|e| e.to_string())?;
 
     if !driver.capabilities().mutations {
@@ -490,13 +493,13 @@ pub async fn delete_row(
         None
     };
 
-    let namespace = Namespace {
-        database,
-        schema,
-    };
+    let namespace = Namespace { database, schema };
 
     let start_time = std::time::Instant::now();
-    match driver.delete_row(session, &namespace, &table, &primary_key).await {
+    match driver
+        .delete_row(session, &namespace, &table, &primary_key)
+        .await
+    {
         Ok(mut result) => {
             result.execution_time_ms = start_time.elapsed().as_micros() as f64 / 1000.0;
             interceptor.post_execute(
@@ -515,7 +518,7 @@ pub async fn delete_row(
                 result: Some(result),
                 error: None,
             })
-        },
+        }
         Err(e) => {
             let duration_ms = start_time.elapsed().as_micros() as f64 / 1000.0;
             interceptor.post_execute(
@@ -534,7 +537,7 @@ pub async fn delete_row(
                 result: None,
                 error: Some(e.to_string()),
             })
-        },
+        }
     }
 }
 
@@ -550,7 +553,9 @@ pub async fn supports_mutations(
     };
     let session = parse_session_id(&session_id)?;
 
-    let driver = session_manager.get_driver(session).await
+    let driver = session_manager
+        .get_driver(session)
+        .await
         .map_err(|e| e.to_string())?;
 
     Ok(driver.capabilities().mutations)

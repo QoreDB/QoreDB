@@ -21,23 +21,22 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use async_trait::async_trait;
+use futures::StreamExt;
 use sqlx::pool::PoolConnection;
 use sqlx::sqlite::{Sqlite, SqliteConnectOptions, SqlitePool, SqlitePoolOptions, SqliteRow};
 use sqlx::{Column, Row, TypeInfo};
 use tokio::sync::{Mutex, RwLock};
-use futures::StreamExt;
 
 use crate::engine::error::{EngineError, EngineResult};
 use crate::engine::sql_safety;
 use crate::engine::traits::{DataEngine, StreamEvent, StreamSender};
 use crate::engine::types::{
     CancelSupport, Collection, CollectionList, CollectionListOptions, CollectionType, ColumnInfo,
-    ConnectionConfig, FilterOperator, ForeignKey, Namespace, PaginatedQueryResult, QueryId,
-    QueryResult, Row as QRow, RowData, SessionId, SortDirection, TableColumn, TableIndex,
-    TableQueryOptions, TableSchema, Value,
-    Trigger, TriggerList, TriggerListOptions, TriggerTiming, TriggerEvent,
+    ConnectionConfig, FilterOperator, ForeignKey, MaintenanceMessage, MaintenanceMessageLevel,
     MaintenanceOperationInfo, MaintenanceOperationType, MaintenanceRequest, MaintenanceResult,
-    MaintenanceMessage, MaintenanceMessageLevel,
+    Namespace, PaginatedQueryResult, QueryId, QueryResult, Row as QRow, RowData, SessionId,
+    SortDirection, TableColumn, TableIndex, TableQueryOptions, TableSchema, Trigger, TriggerEvent,
+    TriggerList, TriggerListOptions, TriggerTiming, Value,
 };
 
 /// Holds the connection state for a SQLite session.
@@ -200,7 +199,7 @@ impl SqliteDriver {
     /// Validates the SQLite connection path
     fn validate_path(path: &str) -> EngineResult<()> {
         let path = path.trim();
-        
+
         if path == ":memory:" || path == "sqlite::memory:" {
             return Ok(());
         }
@@ -212,19 +211,20 @@ impl SqliteDriver {
         }
 
         if path.is_empty() {
-             return Err(EngineError::connection_failed(
+            return Err(EngineError::connection_failed(
                 "SQLite path cannot be empty.".to_string(),
             ));
         }
-        
+
         let path_lower = path.to_lowercase();
         let valid_extensions = [".db", ".sqlite", ".sqlite3", ".db3", ".s3db", ".sl3"];
         let has_extension = valid_extensions.iter().any(|ext| path_lower.ends_with(ext));
-        
+
         if !has_extension && path.contains("://") {
-             return Err(EngineError::connection_failed(
-                format!("Invalid SQLite path format: {}", path)
-            ));
+            return Err(EngineError::connection_failed(format!(
+                "Invalid SQLite path format: {}",
+                path
+            )));
         }
 
         Ok(())
@@ -464,10 +464,18 @@ impl DataEngine for SqliteDriver {
                 };
 
                 let mut events = Vec::new();
-                if sql_upper.contains("INSERT") { events.push(TriggerEvent::Insert); }
-                if sql_upper.contains("UPDATE") { events.push(TriggerEvent::Update); }
-                if sql_upper.contains("DELETE") { events.push(TriggerEvent::Delete); }
-                if events.is_empty() { events.push(TriggerEvent::Insert); }
+                if sql_upper.contains("INSERT") {
+                    events.push(TriggerEvent::Insert);
+                }
+                if sql_upper.contains("UPDATE") {
+                    events.push(TriggerEvent::Update);
+                }
+                if sql_upper.contains("DELETE") {
+                    events.push(TriggerEvent::Delete);
+                }
+                if events.is_empty() {
+                    events.push(TriggerEvent::Insert);
+                }
 
                 Trigger {
                     namespace: namespace.clone(),
@@ -628,13 +636,13 @@ impl DataEngine for SqliteDriver {
                     .fetch_all(&mut **conn)
                     .await
                     .map_err(|e| {
-                        let msg = e.to_string();
-                        if msg.contains("syntax") {
-                            EngineError::syntax_error(msg)
-                        } else {
-                            EngineError::execution_error(msg)
-                        }
-                    })?;
+                    let msg = e.to_string();
+                    if msg.contains("syntax") {
+                        EngineError::syntax_error(msg)
+                    } else {
+                        EngineError::execution_error(msg)
+                    }
+                })?;
 
                 let execution_time_ms = start.elapsed().as_micros() as f64 / 1000.0;
 
@@ -1056,7 +1064,9 @@ impl DataEngine for SqliteDriver {
             }
         };
 
-        Ok(PaginatedQueryResult::new(result, total_rows, page, page_size))
+        Ok(PaginatedQueryResult::new(
+            result, total_rows, page, page_size,
+        ))
     }
 
     async fn peek_foreign_key(
@@ -1473,7 +1483,9 @@ impl DataEngine for SqliteDriver {
                 })
                 .collect();
 
-            let success = messages.iter().all(|m| m.level == MaintenanceMessageLevel::Status);
+            let success = messages
+                .iter()
+                .all(|m| m.level == MaintenanceMessageLevel::Status);
 
             Ok(MaintenanceResult {
                 executed_command: sql,

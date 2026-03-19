@@ -94,10 +94,7 @@ impl ConnectionUrlParser for PostgresUrlParser {
     }
 
     fn parse(&self, url: &Url) -> ParseResult<PartialConnectionConfig> {
-        let host = url
-            .host_str()
-            .filter(|h| !h.is_empty())
-            .map(String::from);
+        let host = url.host_str().filter(|h| !h.is_empty()).map(String::from);
 
         if host.is_none() {
             return Err(ParseError::new(
@@ -111,17 +108,18 @@ impl ConnectionUrlParser for PostgresUrlParser {
         let username = if url.username().is_empty() {
             None
         } else {
-            Some(
-                percent_decode(url.username())
-                    .map_err(|_| ParseError::new(ParseErrorCode::InvalidUtf8, "Invalid username encoding"))?,
-            )
+            Some(percent_decode(url.username()).map_err(|_| {
+                ParseError::new(ParseErrorCode::InvalidUtf8, "Invalid username encoding")
+            })?)
         };
 
         let password = url
             .password()
             .map(|p| percent_decode(p))
             .transpose()
-            .map_err(|_| ParseError::new(ParseErrorCode::InvalidUtf8, "Invalid password encoding"))?;
+            .map_err(|_| {
+                ParseError::new(ParseErrorCode::InvalidUtf8, "Invalid password encoding")
+            })?;
 
         // Database is the path without leading slash
         let database = url
@@ -129,8 +127,12 @@ impl ConnectionUrlParser for PostgresUrlParser {
             .strip_prefix('/')
             .filter(|db| !db.is_empty())
             .map(|db| {
-                percent_decode(db)
-                    .map_err(|_| ParseError::new(ParseErrorCode::InvalidUtf8, "Invalid database name encoding"))
+                percent_decode(db).map_err(|_| {
+                    ParseError::new(
+                        ParseErrorCode::InvalidUtf8,
+                        "Invalid database name encoding",
+                    )
+                })
             })
             .transpose()?;
 
@@ -198,10 +200,7 @@ impl ConnectionUrlParser for MySqlUrlParser {
     }
 
     fn parse(&self, url: &Url) -> ParseResult<PartialConnectionConfig> {
-        let host = url
-            .host_str()
-            .filter(|h| !h.is_empty())
-            .map(String::from);
+        let host = url.host_str().filter(|h| !h.is_empty()).map(String::from);
 
         if host.is_none() {
             return Err(ParseError::new(
@@ -215,17 +214,18 @@ impl ConnectionUrlParser for MySqlUrlParser {
         let username = if url.username().is_empty() {
             None
         } else {
-            Some(
-                percent_decode(url.username())
-                    .map_err(|_| ParseError::new(ParseErrorCode::InvalidUtf8, "Invalid username encoding"))?,
-            )
+            Some(percent_decode(url.username()).map_err(|_| {
+                ParseError::new(ParseErrorCode::InvalidUtf8, "Invalid username encoding")
+            })?)
         };
 
         let password = url
             .password()
             .map(|p| percent_decode(p))
             .transpose()
-            .map_err(|_| ParseError::new(ParseErrorCode::InvalidUtf8, "Invalid password encoding"))?;
+            .map_err(|_| {
+                ParseError::new(ParseErrorCode::InvalidUtf8, "Invalid password encoding")
+            })?;
 
         // Database is the path without leading slash
         let database = url
@@ -233,8 +233,12 @@ impl ConnectionUrlParser for MySqlUrlParser {
             .strip_prefix('/')
             .filter(|db| !db.is_empty())
             .map(|db| {
-                percent_decode(db)
-                    .map_err(|_| ParseError::new(ParseErrorCode::InvalidUtf8, "Invalid database name encoding"))
+                percent_decode(db).map_err(|_| {
+                    ParseError::new(
+                        ParseErrorCode::InvalidUtf8,
+                        "Invalid database name encoding",
+                    )
+                })
             })
             .transpose()?;
 
@@ -303,10 +307,7 @@ impl ConnectionUrlParser for MongoDbUrlParser {
     fn parse(&self, url: &Url) -> ParseResult<PartialConnectionConfig> {
         let is_srv = url.scheme() == "mongodb+srv";
 
-        let host = url
-            .host_str()
-            .filter(|h| !h.is_empty())
-            .map(String::from);
+        let host = url.host_str().filter(|h| !h.is_empty()).map(String::from);
 
         if host.is_none() {
             return Err(ParseError::new(
@@ -325,17 +326,18 @@ impl ConnectionUrlParser for MongoDbUrlParser {
         let username = if url.username().is_empty() {
             None
         } else {
-            Some(
-                percent_decode(url.username())
-                    .map_err(|_| ParseError::new(ParseErrorCode::InvalidUtf8, "Invalid username encoding"))?,
-            )
+            Some(percent_decode(url.username()).map_err(|_| {
+                ParseError::new(ParseErrorCode::InvalidUtf8, "Invalid username encoding")
+            })?)
         };
 
         let password = url
             .password()
             .map(|p| percent_decode(p))
             .transpose()
-            .map_err(|_| ParseError::new(ParseErrorCode::InvalidUtf8, "Invalid password encoding"))?;
+            .map_err(|_| {
+                ParseError::new(ParseErrorCode::InvalidUtf8, "Invalid password encoding")
+            })?;
 
         // MongoDB: database is the path, but authSource can override for auth
         let database = url
@@ -343,8 +345,12 @@ impl ConnectionUrlParser for MongoDbUrlParser {
             .strip_prefix('/')
             .filter(|db| !db.is_empty())
             .map(|db| {
-                percent_decode(db)
-                    .map_err(|_| ParseError::new(ParseErrorCode::InvalidUtf8, "Invalid database name encoding"))
+                percent_decode(db).map_err(|_| {
+                    ParseError::new(
+                        ParseErrorCode::InvalidUtf8,
+                        "Invalid database name encoding",
+                    )
+                })
             })
             .transpose()?;
 
@@ -432,10 +438,7 @@ impl ConnectionUrlParser for RedisUrlParser {
     fn parse(&self, url: &Url) -> ParseResult<PartialConnectionConfig> {
         let is_tls = url.scheme() == "rediss";
 
-        let host = url
-            .host_str()
-            .filter(|h| !h.is_empty())
-            .map(String::from);
+        let host = url.host_str().filter(|h| !h.is_empty()).map(String::from);
 
         if host.is_none() {
             return Err(ParseError::new(
@@ -449,17 +452,18 @@ impl ConnectionUrlParser for RedisUrlParser {
         let username = if url.username().is_empty() {
             None
         } else {
-            Some(
-                percent_decode(url.username())
-                    .map_err(|_| ParseError::new(ParseErrorCode::InvalidUtf8, "Invalid username encoding"))?,
-            )
+            Some(percent_decode(url.username()).map_err(|_| {
+                ParseError::new(ParseErrorCode::InvalidUtf8, "Invalid username encoding")
+            })?)
         };
 
         let password = url
             .password()
             .map(|p| percent_decode(p))
             .transpose()
-            .map_err(|_| ParseError::new(ParseErrorCode::InvalidUtf8, "Invalid password encoding"))?;
+            .map_err(|_| {
+                ParseError::new(ParseErrorCode::InvalidUtf8, "Invalid password encoding")
+            })?;
 
         // Database index is the path (e.g., /0, /2)
         let database = url
@@ -509,10 +513,7 @@ impl ConnectionUrlParser for SqlServerUrlParser {
     }
 
     fn parse(&self, url: &Url) -> ParseResult<PartialConnectionConfig> {
-        let host = url
-            .host_str()
-            .filter(|h| !h.is_empty())
-            .map(String::from);
+        let host = url.host_str().filter(|h| !h.is_empty()).map(String::from);
 
         if host.is_none() {
             return Err(ParseError::new(
@@ -526,25 +527,30 @@ impl ConnectionUrlParser for SqlServerUrlParser {
         let username = if url.username().is_empty() {
             None
         } else {
-            Some(
-                percent_decode(url.username())
-                    .map_err(|_| ParseError::new(ParseErrorCode::InvalidUtf8, "Invalid username encoding"))?,
-            )
+            Some(percent_decode(url.username()).map_err(|_| {
+                ParseError::new(ParseErrorCode::InvalidUtf8, "Invalid username encoding")
+            })?)
         };
 
         let password = url
             .password()
             .map(|p| percent_decode(p))
             .transpose()
-            .map_err(|_| ParseError::new(ParseErrorCode::InvalidUtf8, "Invalid password encoding"))?;
+            .map_err(|_| {
+                ParseError::new(ParseErrorCode::InvalidUtf8, "Invalid password encoding")
+            })?;
 
         let database = url
             .path()
             .strip_prefix('/')
             .filter(|db| !db.is_empty())
             .map(|db| {
-                percent_decode(db)
-                    .map_err(|_| ParseError::new(ParseErrorCode::InvalidUtf8, "Invalid database name encoding"))
+                percent_decode(db).map_err(|_| {
+                    ParseError::new(
+                        ParseErrorCode::InvalidUtf8,
+                        "Invalid database name encoding",
+                    )
+                })
             })
             .transpose()?;
 
@@ -599,10 +605,7 @@ impl ConnectionUrlParser for CockroachDbUrlParser {
     }
 
     fn parse(&self, url: &Url) -> ParseResult<PartialConnectionConfig> {
-        let host = url
-            .host_str()
-            .filter(|h| !h.is_empty())
-            .map(String::from);
+        let host = url.host_str().filter(|h| !h.is_empty()).map(String::from);
 
         if host.is_none() {
             return Err(ParseError::new(
@@ -616,25 +619,30 @@ impl ConnectionUrlParser for CockroachDbUrlParser {
         let username = if url.username().is_empty() {
             None
         } else {
-            Some(
-                percent_decode(url.username())
-                    .map_err(|_| ParseError::new(ParseErrorCode::InvalidUtf8, "Invalid username encoding"))?,
-            )
+            Some(percent_decode(url.username()).map_err(|_| {
+                ParseError::new(ParseErrorCode::InvalidUtf8, "Invalid username encoding")
+            })?)
         };
 
         let password = url
             .password()
             .map(|p| percent_decode(p))
             .transpose()
-            .map_err(|_| ParseError::new(ParseErrorCode::InvalidUtf8, "Invalid password encoding"))?;
+            .map_err(|_| {
+                ParseError::new(ParseErrorCode::InvalidUtf8, "Invalid password encoding")
+            })?;
 
         let database = url
             .path()
             .strip_prefix('/')
             .filter(|db| !db.is_empty())
             .map(|db| {
-                percent_decode(db)
-                    .map_err(|_| ParseError::new(ParseErrorCode::InvalidUtf8, "Invalid database name encoding"))
+                percent_decode(db).map_err(|_| {
+                    ParseError::new(
+                        ParseErrorCode::InvalidUtf8,
+                        "Invalid database name encoding",
+                    )
+                })
             })
             .transpose()?;
 
@@ -814,22 +822,23 @@ mod tests {
 
     #[test]
     fn test_postgres_sslmode_require() {
-        let result = parse_connection_url("postgres://user@localhost/mydb?sslmode=require").unwrap();
+        let result =
+            parse_connection_url("postgres://user@localhost/mydb?sslmode=require").unwrap();
         assert_eq!(result.ssl, Some(true));
     }
 
     #[test]
     fn test_postgres_sslmode_disable() {
-        let result = parse_connection_url("postgres://user@localhost/mydb?sslmode=disable").unwrap();
+        let result =
+            parse_connection_url("postgres://user@localhost/mydb?sslmode=disable").unwrap();
         assert_eq!(result.ssl, Some(false));
     }
 
     #[test]
     fn test_postgres_ssl_implied_by_sslrootcert() {
-        let result = parse_connection_url(
-            "postgres://user@localhost/mydb?sslrootcert=%2Fpath%2Fca.pem",
-        )
-        .unwrap();
+        let result =
+            parse_connection_url("postgres://user@localhost/mydb?sslrootcert=%2Fpath%2Fca.pem")
+                .unwrap();
         assert_eq!(result.ssl, Some(true));
         assert_eq!(
             result.options.get("sslrootcert"),
@@ -906,7 +915,8 @@ mod tests {
 
     #[test]
     fn test_mysql_ssl_implied_by_ssl_ca() {
-        let result = parse_connection_url("mysql://user@localhost/mydb?ssl-ca=%2Fpath%2Fca.pem").unwrap();
+        let result =
+            parse_connection_url("mysql://user@localhost/mydb?ssl-ca=%2Fpath%2Fca.pem").unwrap();
         assert_eq!(result.ssl, Some(true));
         assert_eq!(
             result.options.get("ssl-ca"),
@@ -929,7 +939,8 @@ mod tests {
 
     #[test]
     fn test_mongodb_full_url() {
-        let result = parse_connection_url("mongodb://admin:pwd@mongo.example.com:27018/admin").unwrap();
+        let result =
+            parse_connection_url("mongodb://admin:pwd@mongo.example.com:27018/admin").unwrap();
         assert_eq!(result.driver.as_deref(), Some("mongodb"));
         assert_eq!(result.host.as_deref(), Some("mongo.example.com"));
         assert_eq!(result.port, Some(27018));
@@ -960,10 +971,9 @@ mod tests {
 
     #[test]
     fn test_mongodb_tls_ca_implies_ssl() {
-        let result = parse_connection_url(
-            "mongodb://user@localhost/mydb?tlsCAFile=%2Fpath%2Fca.pem",
-        )
-        .unwrap();
+        let result =
+            parse_connection_url("mongodb://user@localhost/mydb?tlsCAFile=%2Fpath%2Fca.pem")
+                .unwrap();
         assert_eq!(result.ssl, Some(true));
         assert_eq!(
             result.options.get("tlsCAFile"),
@@ -982,7 +992,8 @@ mod tests {
 
     #[test]
     fn test_mongodb_auth_source() {
-        let result = parse_connection_url("mongodb://user@localhost/mydb?authSource=admin").unwrap();
+        let result =
+            parse_connection_url("mongodb://user@localhost/mydb?authSource=admin").unwrap();
         assert_eq!(result.options.get("authSource"), Some(&"admin".to_string()));
     }
 
@@ -1087,8 +1098,17 @@ mod tests {
 
     #[test]
     fn test_query_params_preserved() {
-        let result = parse_connection_url("postgres://user@localhost/mydb?application_name=qoredb&connect_timeout=10").unwrap();
-        assert_eq!(result.options.get("application_name"), Some(&"qoredb".to_string()));
-        assert_eq!(result.options.get("connect_timeout"), Some(&"10".to_string()));
+        let result = parse_connection_url(
+            "postgres://user@localhost/mydb?application_name=qoredb&connect_timeout=10",
+        )
+        .unwrap();
+        assert_eq!(
+            result.options.get("application_name"),
+            Some(&"qoredb".to_string())
+        );
+        assert_eq!(
+            result.options.get("connect_timeout"),
+            Some(&"10".to_string())
+        );
     }
 }

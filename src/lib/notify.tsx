@@ -41,13 +41,18 @@ export const notify = {
         // Handle { success: false, error: "..." } pattern
         description = String((error as { error: unknown }).error);
       } else {
-        description = JSON.stringify(error).slice(0, 100);
+        description = JSON.stringify(error).slice(0, 200);
       }
     }
 
+    // Longer descriptions need more time to read
+    const baseDuration = options?.duration ?? 5000;
+    const duration =
+      description && description.length > 80 ? Math.max(baseDuration, 8000) : baseDuration;
+
     toast.error(message, {
       description,
-      duration: options?.duration ?? 5000, // Errors stay longer
+      duration,
       action: options?.action,
     });
   },

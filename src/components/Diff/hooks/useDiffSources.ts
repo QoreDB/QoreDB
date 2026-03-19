@@ -592,7 +592,13 @@ export function useDiffSources({
 
   // Auto-load snapshot data when snapshot source is set
   useEffect(() => {
-    if (leftSource.mode !== 'snapshot' || !leftSource.snapshotId || leftSource.result || leftSource.loading) return;
+    if (
+      leftSource.mode !== 'snapshot' ||
+      !leftSource.snapshotId ||
+      leftSource.result ||
+      leftSource.loading
+    )
+      return;
     updateLeftSource({ loading: true });
     getSnapshot(leftSource.snapshotId)
       .then(res => {
@@ -605,10 +611,22 @@ export function useDiffSources({
       .catch(err => {
         updateLeftSource({ error: String(err), loading: false });
       });
-  }, [leftSource.mode, leftSource.snapshotId, leftSource.result, leftSource.loading, updateLeftSource]);
+  }, [
+    leftSource.mode,
+    leftSource.snapshotId,
+    leftSource.result,
+    leftSource.loading,
+    updateLeftSource,
+  ]);
 
   useEffect(() => {
-    if (rightSource.mode !== 'snapshot' || !rightSource.snapshotId || rightSource.result || rightSource.loading) return;
+    if (
+      rightSource.mode !== 'snapshot' ||
+      !rightSource.snapshotId ||
+      rightSource.result ||
+      rightSource.loading
+    )
+      return;
     updateRightSource({ loading: true });
     getSnapshot(rightSource.snapshotId)
       .then(res => {
@@ -621,7 +639,13 @@ export function useDiffSources({
       .catch(err => {
         updateRightSource({ error: String(err), loading: false });
       });
-  }, [rightSource.mode, rightSource.snapshotId, rightSource.result, rightSource.loading, updateRightSource]);
+  }, [
+    rightSource.mode,
+    rightSource.snapshotId,
+    rightSource.result,
+    rightSource.loading,
+    updateRightSource,
+  ]);
 
   const commonColumns = useMemo(() => {
     if (!leftSource.result || !rightSource.result) return [];

@@ -2,13 +2,13 @@
 
 // Database drivers module
 
+pub mod cockroachdb;
 pub mod duckdb;
 pub mod mongodb;
 pub mod mysql;
+pub mod pg_compat;
 pub mod postgres;
 pub mod postgres_utils;
 pub mod redis;
 pub mod sqlite;
-pub mod cockroachdb;
-pub mod pg_compat;
 pub mod sqlserver;

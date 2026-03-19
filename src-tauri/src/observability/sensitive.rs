@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt::{self, Debug, Display, Formatter};
-use serde::{Serialize, Serializer, Deserialize, Deserializer};
 
 /// A wrapper for sensitive data that redacts it when formatted for logging.
 /// To access the inner value, use the `.expose()` method.
@@ -17,7 +17,7 @@ impl<T> Sensitive<T> {
     pub fn expose(&self) -> &T {
         &self.0
     }
-    
+
     pub fn into_inner(self) -> T {
         self.0
     }

@@ -17,6 +17,7 @@ export interface KeyboardShortcutsConfig {
   onCloseTab: () => void;
   onNewQuery: () => void;
   onEscape: () => void;
+  onShowCheatsheet?: () => void;
   isOverlayOpen: boolean;
   hasSession: boolean;
   hasActiveTab: boolean;
@@ -57,6 +58,13 @@ export function useKeyboardShortcuts(config: KeyboardShortcutsConfig) {
 
       // Skip other shortcuts when in text input
       if (isTextInputTarget(e.target)) {
+        return;
+      }
+
+      // ?: Show keyboard cheatsheet
+      if (e.key === '?' && config.onShowCheatsheet) {
+        e.preventDefault();
+        config.onShowCheatsheet();
         return;
       }
 

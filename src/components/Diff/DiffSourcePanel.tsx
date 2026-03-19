@@ -145,66 +145,68 @@ export function DiffSourcePanel({
 
       {/* Connection / namespace selection (hidden for snapshot mode) */}
       {source.mode !== 'snapshot' && (
-      <div className="grid grid-cols-2 gap-2">
-        <div className="flex flex-col gap-1">
-          <span className="text-xs text-muted-foreground">{t('diff.connection')}</span>
-          <Select
-            value={source.connectionId ?? ''}
-            onValueChange={value => onConnectionChange(value || null)}
-            disabled={disabled || connectionsLoading || source.connecting}
-          >
-            <SelectTrigger className="h-9">
-              <SelectValue placeholder={t('diff.selectConnection')} />
-            </SelectTrigger>
-            <SelectContent>
-              {connections.map(conn => (
-                <SelectItem key={conn.id} value={conn.id}>
-                  <div className="flex items-center gap-2">
-                    <Server size={12} className="text-muted-foreground" />
-                    <span className="truncate max-w-40">{conn.name}</span>
-                    {conn.environment !== 'development' && (
-                      <span className="text-[10px] uppercase text-warning">{conn.environment}</span>
-                    )}
-                    {conn.read_only && (
-                      <span className="text-[10px] uppercase text-muted-foreground">RO</span>
-                    )}
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <div className="flex flex-col gap-1">
+            <span className="text-xs text-muted-foreground">{t('diff.connection')}</span>
+            <Select
+              value={source.connectionId ?? ''}
+              onValueChange={value => onConnectionChange(value || null)}
+              disabled={disabled || connectionsLoading || source.connecting}
+            >
+              <SelectTrigger className="h-9">
+                <SelectValue placeholder={t('diff.selectConnection')} />
+              </SelectTrigger>
+              <SelectContent>
+                {connections.map(conn => (
+                  <SelectItem key={conn.id} value={conn.id}>
+                    <div className="flex items-center gap-2">
+                      <Server size={12} className="text-muted-foreground" />
+                      <span className="truncate max-w-40">{conn.name}</span>
+                      {conn.environment !== 'development' && (
+                        <span className="text-[10px] uppercase text-warning">
+                          {conn.environment}
+                        </span>
+                      )}
+                      {conn.read_only && (
+                        <span className="text-[10px] uppercase text-muted-foreground">RO</span>
+                      )}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-        <div className="flex flex-col gap-1">
-          <span className="text-xs text-muted-foreground">{t('diff.namespace')}</span>
-          <Select
-            value={namespaceValue}
-            onValueChange={value => {
-              const selected = namespaceOptions.find(ns => getNamespaceKey(ns) === value);
-              onNamespaceChange(selected ?? null);
-            }}
-            disabled={tableDisabled || namespaceOptions.length === 0}
-          >
-            <SelectTrigger className="h-9">
-              <SelectValue
-                placeholder={
-                  source.namespacesLoading ? t('common.loading') : t('diff.selectNamespace')
-                }
-              />
-            </SelectTrigger>
-            <SelectContent>
-              {namespaceOptions.map(ns => (
-                <SelectItem key={getNamespaceKey(ns)} value={getNamespaceKey(ns)}>
-                  <div className="flex items-center gap-2">
-                    <Database size={12} className="text-muted-foreground" />
-                    <span className="truncate max-w-44">{formatNamespace(ns)}</span>
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex flex-col gap-1">
+            <span className="text-xs text-muted-foreground">{t('diff.namespace')}</span>
+            <Select
+              value={namespaceValue}
+              onValueChange={value => {
+                const selected = namespaceOptions.find(ns => getNamespaceKey(ns) === value);
+                onNamespaceChange(selected ?? null);
+              }}
+              disabled={tableDisabled || namespaceOptions.length === 0}
+            >
+              <SelectTrigger className="h-9">
+                <SelectValue
+                  placeholder={
+                    source.namespacesLoading ? t('common.loading') : t('diff.selectNamespace')
+                  }
+                />
+              </SelectTrigger>
+              <SelectContent>
+                {namespaceOptions.map(ns => (
+                  <SelectItem key={getNamespaceKey(ns)} value={getNamespaceKey(ns)}>
+                    <div className="flex items-center gap-2">
+                      <Database size={12} className="text-muted-foreground" />
+                      <span className="truncate max-w-44">{formatNamespace(ns)}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
-      </div>
       )}
 
       {/* Mode tabs */}
@@ -277,9 +279,7 @@ export function DiffSourcePanel({
         >
           <SelectTrigger className="h-9">
             <SelectValue
-              placeholder={
-                snapshotsLoading ? t('common.loading') : t('snapshots.selectSnapshot')
-              }
+              placeholder={snapshotsLoading ? t('common.loading') : t('snapshots.selectSnapshot')}
             />
           </SelectTrigger>
           <SelectContent>

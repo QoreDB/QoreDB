@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { Column } from '@tanstack/react-table';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Input } from '@/components/ui/input';
 import type { RowData } from './utils/dataGridUtils';
@@ -14,20 +14,22 @@ export function GridColumnFilter({ column }: GridColumnFilterProps) {
   const { t } = useTranslation();
   const columnFilterValue = column.getFilterValue();
   const [value, setValue] = useState(columnFilterValue);
+  const columnRef = useRef(column);
+  columnRef.current = column;
 
   // Sync internal state with column filter value
   useEffect(() => {
     setValue(columnFilterValue ?? '');
   }, [columnFilterValue]);
 
-  // Debounce update
+  // Debounce update - only re-trigger on value change, not on column reference change
   useEffect(() => {
     const timeout = setTimeout(() => {
-      column.setFilterValue(value);
+      columnRef.current.setFilterValue(value);
     }, 500);
 
     return () => clearTimeout(timeout);
-  }, [value, column]);
+  }, [value]);
 
   return (
     <Input

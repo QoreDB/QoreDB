@@ -2,13 +2,14 @@
 
 export interface RecoveryTab {
   id: string;
-  type: 'query' | 'table' | 'database' | 'diff' | 'federation' | 'snapshots';
+  type: 'query' | 'table' | 'database' | 'diff' | 'federation' | 'snapshots' | 'notebook';
   title: string;
   namespace?: {
     database: string;
     schema?: string;
   };
   tableName?: string;
+  notebookPath?: string;
 }
 
 export interface CrashRecoverySnapshot {

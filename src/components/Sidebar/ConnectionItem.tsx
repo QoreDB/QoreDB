@@ -20,6 +20,7 @@ interface ConnectionItemProps {
   onEdit: (connection: SavedConnection, password: string) => void;
   onDeleted: () => void;
   onNewQuery?: () => void;
+  onNewNotebook?: () => void;
 }
 
 export function ConnectionItem({
@@ -34,6 +35,7 @@ export function ConnectionItem({
   onEdit,
   onDeleted,
   onNewQuery,
+  onNewNotebook,
 }: ConnectionItemProps) {
   const driver = connection.driver as Driver;
   const iconSrc = `/databases/${DRIVER_ICONS[driver]}`;
@@ -48,6 +50,7 @@ export function ConnectionItem({
       isFavorite={isFavorite}
       onToggleFavorite={onToggleFavorite}
       onNewQuery={onNewQuery}
+      onNewNotebook={onNewNotebook}
       isConnected={isConnected}
     >
       <div
@@ -67,8 +70,9 @@ export function ConnectionItem({
       >
         <button
           type="button"
+          aria-expanded={isExpanded}
           className={cn(
-            'flex-1 flex items-center gap-2 px-2 py-1.5 text-sm select-none text-inherit rounded-l-md'
+            'flex-1 flex items-center gap-2 px-2 py-1.5 text-sm select-none text-inherit rounded-l-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--q-accent)] focus-visible:ring-inset'
           )}
           onClick={onSelect}
           disabled={isConnecting}
@@ -122,6 +126,7 @@ export function ConnectionItem({
             isFavorite={isFavorite}
             onToggleFavorite={onToggleFavorite}
             onNewQuery={onNewQuery}
+            onNewNotebook={onNewNotebook}
             isConnected={isConnected}
           />
         </div>

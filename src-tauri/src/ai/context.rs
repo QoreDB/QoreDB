@@ -8,9 +8,7 @@ use std::sync::Arc;
 
 use tracing::debug;
 
-use crate::engine::types::{
-    CollectionListOptions, Namespace, SessionId, TableSchema,
-};
+use crate::engine::types::{CollectionListOptions, Namespace, SessionId, TableSchema};
 use crate::engine::SessionManager;
 use crate::virtual_relations::VirtualRelationStore;
 

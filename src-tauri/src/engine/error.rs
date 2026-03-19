@@ -56,43 +56,63 @@ pub enum EngineError {
 
 impl EngineError {
     pub fn connection_failed(msg: impl Into<String>) -> Self {
-        Self::ConnectionFailed { message: msg.into() }
+        Self::ConnectionFailed {
+            message: msg.into(),
+        }
     }
 
     pub fn auth_failed(msg: impl Into<String>) -> Self {
-        Self::AuthenticationFailed { message: msg.into() }
+        Self::AuthenticationFailed {
+            message: msg.into(),
+        }
     }
 
     pub fn syntax_error(msg: impl Into<String>) -> Self {
-        Self::SyntaxError { message: msg.into() }
+        Self::SyntaxError {
+            message: msg.into(),
+        }
     }
 
     pub fn execution_error(msg: impl Into<String>) -> Self {
-        Self::ExecutionError { message: msg.into() }
+        Self::ExecutionError {
+            message: msg.into(),
+        }
     }
 
     pub fn driver_not_found(id: impl Into<String>) -> Self {
-        Self::DriverNotFound { driver_id: id.into() }
+        Self::DriverNotFound {
+            driver_id: id.into(),
+        }
     }
 
     pub fn session_not_found(id: impl Into<String>) -> Self {
-        Self::SessionNotFound { session_id: id.into() }
+        Self::SessionNotFound {
+            session_id: id.into(),
+        }
     }
 
     pub fn internal(msg: impl Into<String>) -> Self {
-        Self::Internal { message: msg.into() }
+        Self::Internal {
+            message: msg.into(),
+        }
     }
 
     pub fn not_supported(msg: impl Into<String>) -> Self {
-        Self::NotSupported { message: msg.into() }
+        Self::NotSupported {
+            message: msg.into(),
+        }
     }
 
     pub fn transaction_error(msg: impl Into<String>) -> Self {
-        Self::TransactionError { message: msg.into() }
+        Self::TransactionError {
+            message: msg.into(),
+        }
     }
 
     pub fn validation(msg: impl Into<String>) -> Self {
-        Self::ValidationError { message: msg.into() }
+        Self::ValidationError {
+            message: msg.into(),
+        }
     }
 }
 

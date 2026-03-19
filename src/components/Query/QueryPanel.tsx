@@ -8,6 +8,7 @@ import { AiAssistantPanel } from '@/components/AI/AiAssistantPanel';
 import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
 import { UI_EVENT_OPEN_HISTORY } from '@/lib/uiEvents';
 import { forceRefreshCache } from '../../hooks/useSchemaCache';
+import { useTourManager } from '../../hooks/useTourManager';
 import { getQueryDialect, isDocumentDatabase } from '../../lib/driverCapabilities';
 import { Driver } from '../../lib/drivers';
 import {
@@ -29,16 +30,25 @@ import {
 import { addToHistory } from '../../lib/history';
 import { formatSql } from '../../lib/sqlFormatter';
 import {
+  beginTransaction,
   type ColumnInfo,
   cancelQuery,
+  commitTransaction,
   type DriverCapabilities,
   type Environment,
   executeQuery,
   type Namespace,
   type QueryResult,
   type Row,
+  rollbackTransaction,
   type Value,
 } from '../../lib/tauri';
+import {
+  incrementTransactionStatements,
+  resetTransactionState,
+  setTransactionActive,
+  useTransactionStore,
+} from '../../lib/transactionStore';
 import { DocumentEditorModal } from '../Editor/DocumentEditorModal';
 import { MONGO_TEMPLATES } from '../Editor/mongo-constants';
 import type { SQLEditorHandle } from '../Editor/SQLEditor';
@@ -56,6 +66,23 @@ import {
   shouldRefreshSchema,
 } from './queryPanelUtils';
 import { SaveQueryDialog } from './SaveQueryDialog';
+
+const EDITOR_HEIGHT_KEY = 'query-editor-height';
+const MIN_EDITOR_HEIGHT = 100;
+const DEFAULT_EDITOR_HEIGHT = 200;
+
+function loadEditorHeight(): number {
+  try {
+    const stored = localStorage.getItem(EDITOR_HEIGHT_KEY);
+    if (stored) {
+      const parsed = Number(stored);
+      if (Number.isFinite(parsed) && parsed >= MIN_EDITOR_HEIGHT) return parsed;
+    }
+  } catch {
+    // ignore
+  }
+  return DEFAULT_EDITOR_HEIGHT;
+}
 
 function isTextInputTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
@@ -125,6 +152,33 @@ export function QueryPanel({
   const [queryToSave, setQueryToSave] = useState<string>('');
   const [showAiPanel, setShowAiPanel] = useState(initialShowAiPanel ?? false);
   const [pendingAiFix, setPendingAiFix] = useState<{ query: string; error: string } | null>(null);
+
+  // Editor resize state
+  const [editorHeight, setEditorHeight] = useState(loadEditorHeight);
+  const [editorExpanded, setEditorExpanded] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const resizeDragRef = useRef({ active: false, startY: 0, startHeight: 0 });
+  const prevEditorHeightRef = useRef(DEFAULT_EDITOR_HEIGHT);
+
+  // Feature tour trigger
+  const tourManager = useTourManager();
+  useEffect(() => {
+    if (sessionId && isActive && tourManager.shouldShowTour('first-query')) {
+      const timer = setTimeout(() => tourManager.startTour('first-query'), 800);
+      return () => clearTimeout(timer);
+    }
+  }, [sessionId, isActive]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Transaction state
+  const transactionState = useTransactionStore();
+  const supportsTransactions = driverCapabilities?.transactions ?? false;
+
+  // Reset transaction state when session changes
+  const currentSessionId = sessionId;
+  useEffect(() => {
+    void currentSessionId;
+    resetTransactionState();
+  }, [currentSessionId]);
 
   // Federation state
   const [federationSources, setFederationSources] = useState<FederationSource[]>([]);
@@ -384,6 +438,7 @@ export function QueryPanel({
                 driver: dialect,
                 row_count: enrichedResult.rows.length,
               });
+              incrementTransactionStatements();
             }
 
             if (shouldRefreshSchema(queryToRun, isDocument, dialect)) {
@@ -650,6 +705,98 @@ export function QueryPanel({
     setShowAiPanel(prev => !prev);
   }, []);
 
+  // Editor resize handlers
+  const handleResizeMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      resizeDragRef.current = { active: true, startY: e.clientY, startHeight: editorHeight };
+      document.body.style.userSelect = 'none';
+      document.body.style.cursor = 'row-resize';
+    },
+    [editorHeight]
+  );
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!resizeDragRef.current.active) return;
+      const container = containerRef.current;
+      if (!container) return;
+      const maxHeight = Math.floor(container.clientHeight * 0.8);
+      const delta = e.clientY - resizeDragRef.current.startY;
+      const newHeight = Math.min(
+        Math.max(resizeDragRef.current.startHeight + delta, MIN_EDITOR_HEIGHT),
+        maxHeight
+      );
+      setEditorHeight(newHeight);
+    };
+
+    const handleMouseUp = () => {
+      if (!resizeDragRef.current.active) return;
+      resizeDragRef.current.active = false;
+      document.body.style.userSelect = '';
+      document.body.style.cursor = '';
+      setEditorHeight(h => {
+        try {
+          localStorage.setItem(EDITOR_HEIGHT_KEY, String(h));
+        } catch {
+          // ignore
+        }
+        return h;
+      });
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, []);
+
+  const handleToggleExpand = useCallback(() => {
+    setEditorExpanded(prev => {
+      if (!prev) {
+        prevEditorHeightRef.current = editorHeight;
+      } else {
+        setEditorHeight(prevEditorHeightRef.current);
+      }
+      return !prev;
+    });
+  }, [editorHeight]);
+
+  const handleBeginTransaction = useCallback(async () => {
+    if (!sessionId) return;
+    const result = await beginTransaction(sessionId);
+    if (result.success) {
+      setTransactionActive(true);
+      toast.success(t('transaction.beginSuccess'));
+    } else {
+      toast.error(t('transaction.beginError', { error: result.error }));
+    }
+  }, [sessionId, t]);
+
+  const handleCommitTransaction = useCallback(async () => {
+    if (!sessionId) return;
+    const result = await commitTransaction(sessionId);
+    if (result.success) {
+      resetTransactionState();
+      toast.success(t('transaction.commitSuccess'));
+    } else {
+      toast.error(t('transaction.commitError', { error: result.error }));
+    }
+  }, [sessionId, t]);
+
+  const handleRollbackTransaction = useCallback(async () => {
+    if (!sessionId) return;
+    const result = await rollbackTransaction(sessionId);
+    if (result.success) {
+      resetTransactionState();
+      toast.success(t('transaction.rollbackSuccess'));
+    } else {
+      toast.error(t('transaction.rollbackError', { error: result.error }));
+    }
+  }, [sessionId, t]);
+
   const handleInsertQuery = useCallback((generatedQuery: string) => {
     setQuery(generatedQuery);
   }, []);
@@ -707,7 +854,10 @@ export function QueryPanel({
   }, [isActive]);
 
   return (
-    <div className="flex flex-col flex-1 bg-background rounded-lg border border-border shadow-sm overflow-hidden">
+    <div
+      ref={containerRef}
+      className="flex flex-col flex-1 bg-background rounded-lg border border-border shadow-sm overflow-hidden"
+    >
       <QueryPanelToolbar
         loading={loading}
         cancelling={cancelling}
@@ -733,10 +883,24 @@ export function QueryPanel({
         onTemplateSelect={handleTemplateSelect}
         onAiToggle={handleAiToggle}
         aiPanelOpen={showAiPanel}
+        supportsTransactions={supportsTransactions}
+        transactionActive={transactionState.active}
+        transactionStatements={transactionState.statementCount}
+        onBeginTransaction={handleBeginTransaction}
+        onCommitTransaction={handleCommitTransaction}
+        onRollbackTransaction={handleRollbackTransaction}
       />
 
-      <div className="flex flex-1 min-h-0">
-        <div className="flex-1 min-w-0">
+      <div
+        data-tour="query-editor"
+        className={
+          editorExpanded
+            ? 'flex flex-4 min-h-0 overflow-hidden'
+            : 'flex shrink-0 min-h-0 overflow-hidden'
+        }
+        style={editorExpanded ? undefined : { height: editorHeight }}
+      >
+        <div className="flex-1 min-w-0 flex flex-col">
           <QueryPanelEditor
             isDocumentBased={isDocument}
             query={query}
@@ -751,6 +915,8 @@ export function QueryPanel({
             onFormat={handleFormat}
             sqlEditorRef={sqlEditorRef}
             placeholder={isDocument ? undefined : 'SELECT 1;'}
+            isExpanded={editorExpanded}
+            onToggleExpand={handleToggleExpand}
           />
         </div>
 
@@ -772,33 +938,45 @@ export function QueryPanel({
         )}
       </div>
 
-      <QueryPanelResults
-        panelError={panelError}
-        results={results}
-        activeResultId={activeResultId}
-        isDocumentBased={isDocument}
-        sessionId={sessionId}
-        connectionName={connectionName}
-        connectionDatabase={connectionDatabase}
-        environment={environment}
-        readOnly={readOnly}
-        query={query}
-        activeNamespace={activeNamespace}
-        onSelectResult={setActiveResultId}
-        onCloseResult={(resultId: string) => {
-          setResults(prev => {
-            const next = prev.filter(entry => entry.id !== resultId);
-            if (activeResultId === resultId) {
-              const fallback = next[next.length - 1];
-              setActiveResultId(fallback?.id || null);
-            }
-            return next;
-          });
-        }}
-        onRowsDeleted={runCurrentQuery}
-        onEditDocument={handleEditDocument}
-        onFixWithAi={handleFixWithAi}
-      />
+      {/* Resize handle */}
+      <button
+        type="button"
+        aria-label="Resize editor"
+        onMouseDown={handleResizeMouseDown}
+        className="h-1.5 shrink-0 cursor-row-resize group flex items-center justify-center hover:bg-accent/10 transition-colors border-0 p-0 outline-none w-full"
+      >
+        <span className="w-8 h-0.5 rounded-full bg-muted-foreground/20 group-hover:bg-accent/60 transition-colors" />
+      </button>
+
+      <div data-tour="query-results" className="flex-1 min-h-0">
+        <QueryPanelResults
+          panelError={panelError}
+          results={results}
+          activeResultId={activeResultId}
+          isDocumentBased={isDocument}
+          sessionId={sessionId}
+          connectionName={connectionName}
+          connectionDatabase={connectionDatabase}
+          environment={environment}
+          readOnly={readOnly}
+          query={query}
+          activeNamespace={activeNamespace}
+          onSelectResult={setActiveResultId}
+          onCloseResult={(resultId: string) => {
+            setResults(prev => {
+              const next = prev.filter(entry => entry.id !== resultId);
+              if (activeResultId === resultId) {
+                const fallback = next[next.length - 1];
+                setActiveResultId(fallback?.id || null);
+              }
+              return next;
+            });
+          }}
+          onRowsDeleted={runCurrentQuery}
+          onEditDocument={handleEditDocument}
+          onFixWithAi={handleFixWithAi}
+        />
+      </div>
 
       <QueryHistory
         isOpen={historyOpen}

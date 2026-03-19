@@ -36,13 +36,13 @@ use crate::engine::sql_safety;
 use crate::engine::traits::{DataEngine, StreamEvent, StreamSender};
 use crate::engine::types::{
     CancelSupport, Collection, CollectionList, CollectionListOptions, CollectionType, ColumnInfo,
-    ConnectionConfig, FilterOperator, ForeignKey, Namespace, PaginatedQueryResult, QueryId,
-    QueryResult, Routine, RoutineList, RoutineListOptions, RoutineType, RoutineDefinition,
-    RoutineOperationResult, Row as QRow, RowData,
-    SessionId, SortDirection, TableColumn, TableIndex, TableQueryOptions, TableSchema, Trigger,
-    TriggerEvent, TriggerList, TriggerListOptions, TriggerTiming, TriggerDefinition, TriggerOperationResult, Value,
+    ConnectionConfig, FilterOperator, ForeignKey, MaintenanceMessage, MaintenanceMessageLevel,
     MaintenanceOperationInfo, MaintenanceOperationType, MaintenanceRequest, MaintenanceResult,
-    MaintenanceMessage, MaintenanceMessageLevel,
+    Namespace, PaginatedQueryResult, QueryId, QueryResult, Routine, RoutineDefinition, RoutineList,
+    RoutineListOptions, RoutineOperationResult, RoutineType, Row as QRow, RowData, SessionId,
+    SortDirection, TableColumn, TableIndex, TableQueryOptions, TableSchema, Trigger,
+    TriggerDefinition, TriggerEvent, TriggerList, TriggerListOptions, TriggerOperationResult,
+    TriggerTiming, Value,
 };
 
 // ==================== Types ====================
@@ -93,10 +93,7 @@ impl SqlServerDriver {
         let mut tib_config = Config::new();
         tib_config.host(&config.host);
         tib_config.port(config.port);
-        tib_config.authentication(AuthMethod::sql_server(
-            &config.username,
-            &config.password,
-        ));
+        tib_config.authentication(AuthMethod::sql_server(&config.username, &config.password));
         if let Some(ref db) = config.database {
             if !db.is_empty() {
                 tib_config.database(db);
@@ -246,10 +243,7 @@ fn get_column_info(columns: &[tiberius::Column]) -> Vec<ColumnInfo> {
 /// Classify a SQL Server error into syntax or execution error.
 fn classify_error(msg: String) -> EngineError {
     let lower = msg.to_lowercase();
-    if lower.contains("syntax")
-        || lower.contains("incorrect syntax")
-        || lower.contains("parse")
-    {
+    if lower.contains("syntax") || lower.contains("incorrect syntax") || lower.contains("parse") {
         EngineError::syntax_error(msg)
     } else {
         EngineError::execution_error(msg)
@@ -315,9 +309,11 @@ impl DataEngine for SqlServerDriver {
 
     async fn ping(&self, session: SessionId) -> EngineResult<()> {
         let mssql_session = self.get_session(session).await?;
-        let mut conn = mssql_session.pool.get().await.map_err(|e| {
-            EngineError::connection_failed(format!("Ping failed: {e}"))
-        })?;
+        let mut conn = mssql_session
+            .pool
+            .get()
+            .await
+            .map_err(|e| EngineError::connection_failed(format!("Ping failed: {e}")))?;
         let stream = conn
             .simple_query("SELECT 1")
             .await
@@ -416,10 +412,7 @@ impl DataEngine for SqlServerDriver {
                 .map_err(|e| EngineError::execution_error(e.to_string()))?
         };
 
-        let total_count: i32 = count_result
-            .first()
-            .and_then(|row| row.get(0))
-            .unwrap_or(0);
+        let total_count: i32 = count_result.first().and_then(|row| row.get(0)).unwrap_or(0);
 
         // Data query with pagination
         let mut data_sql = format!(
@@ -433,10 +426,7 @@ impl DataEngine for SqlServerDriver {
         data_sql.push_str(" ORDER BY TABLE_NAME");
 
         if let Some(limit) = options.page_size {
-            let offset = options
-                .page
-                .map(|p| (p.max(1) - 1) * limit)
-                .unwrap_or(0);
+            let offset = options.page.map(|p| (p.max(1) - 1) * limit).unwrap_or(0);
             data_sql.push_str(&format!(
                 " OFFSET {} ROWS FETCH NEXT {} ROWS ONLY",
                 offset, limit
@@ -758,13 +748,19 @@ impl DataEngine for SqlServerDriver {
                 .query(&count_sql, &[pattern])
                 .await
                 .map_err(|e| EngineError::execution_error(e.to_string()))?;
-            stream.into_first_result().await.map_err(|e| EngineError::execution_error(e.to_string()))?
+            stream
+                .into_first_result()
+                .await
+                .map_err(|e| EngineError::execution_error(e.to_string()))?
         } else {
             let stream = conn
                 .simple_query(&count_sql)
                 .await
                 .map_err(|e| EngineError::execution_error(e.to_string()))?;
-            stream.into_first_result().await.map_err(|e| EngineError::execution_error(e.to_string()))?
+            stream
+                .into_first_result()
+                .await
+                .map_err(|e| EngineError::execution_error(e.to_string()))?
         };
 
         let total_count: i32 = count_result.first().and_then(|r| r.get(0)).unwrap_or(0);
@@ -796,13 +792,19 @@ impl DataEngine for SqlServerDriver {
                 .query(&data_sql, &[pattern])
                 .await
                 .map_err(|e| EngineError::execution_error(e.to_string()))?;
-            stream.into_first_result().await.map_err(|e| EngineError::execution_error(e.to_string()))?
+            stream
+                .into_first_result()
+                .await
+                .map_err(|e| EngineError::execution_error(e.to_string()))?
         } else {
             let stream = conn
                 .simple_query(&data_sql)
                 .await
                 .map_err(|e| EngineError::execution_error(e.to_string()))?;
-            stream.into_first_result().await.map_err(|e| EngineError::execution_error(e.to_string()))?
+            stream
+                .into_first_result()
+                .await
+                .map_err(|e| EngineError::execution_error(e.to_string()))?
         };
 
         let routines = data_rows
@@ -883,11 +885,12 @@ impl DataEngine for SqlServerDriver {
         let return_type: Option<&str> = row.get(1);
         let language: Option<&str> = row.get(2);
 
-        let definition = definition
-            .map(|d| d.to_string())
-            .unwrap_or_else(|| {
-                format!("-- Could not retrieve definition for [{}].[{}] (check VIEW DEFINITION permission)", schema, routine_name)
-            });
+        let definition = definition.map(|d| d.to_string()).unwrap_or_else(|| {
+            format!(
+                "-- Could not retrieve definition for [{}].[{}] (check VIEW DEFINITION permission)",
+                schema, routine_name
+            )
+        });
 
         Ok(RoutineDefinition {
             name: routine_name.to_string(),
@@ -1100,11 +1103,19 @@ impl DataEngine for SqlServerDriver {
         let mut events = Vec::new();
         for row in &rows {
             let event_type: &str = row.get::<&str, _>(2).unwrap_or("");
-            if event_type.contains("INSERT") { events.push(TriggerEvent::Insert); }
-            if event_type.contains("UPDATE") { events.push(TriggerEvent::Update); }
-            if event_type.contains("DELETE") { events.push(TriggerEvent::Delete); }
+            if event_type.contains("INSERT") {
+                events.push(TriggerEvent::Insert);
+            }
+            if event_type.contains("UPDATE") {
+                events.push(TriggerEvent::Update);
+            }
+            if event_type.contains("DELETE") {
+                events.push(TriggerEvent::Delete);
+            }
         }
-        if events.is_empty() { events.push(TriggerEvent::Insert); }
+        if events.is_empty() {
+            events.push(TriggerEvent::Insert);
+        }
 
         // Get definition via OBJECT_DEFINITION
         let def_sql = format!(
@@ -1361,11 +1372,7 @@ impl DataEngine for SqlServerDriver {
                         format!("{} <= {}", col, format_filter_value(&filter.value))
                     }
                     FilterOperator::Like => {
-                        format!(
-                            "{} LIKE {}",
-                            col,
-                            format_filter_value(&filter.value)
-                        )
+                        format!("{} LIKE {}", col, format_filter_value(&filter.value))
                     }
                     FilterOperator::IsNull => format!("{} IS NULL", col),
                     FilterOperator::IsNotNull => format!("{} IS NOT NULL", col),
@@ -1403,10 +1410,7 @@ impl DataEngine for SqlServerDriver {
                                 || upper.contains("NCHAR")
                                 || upper.contains("NTEXT")
                             {
-                                search_clauses.push(format!(
-                                    "{} LIKE '%{}%'",
-                                    col_ident, escaped
-                                ));
+                                search_clauses.push(format!("{} LIKE '%{}%'", col_ident, escaped));
                             } else {
                                 search_clauses.push(format!(
                                     "CAST({} AS NVARCHAR(MAX)) LIKE '%{}%'",
@@ -1486,7 +1490,9 @@ impl DataEngine for SqlServerDriver {
             execution_time_ms,
         };
 
-        Ok(PaginatedQueryResult::new(result, total_rows, page, page_size))
+        Ok(PaginatedQueryResult::new(
+            result, total_rows, page, page_size,
+        ))
     }
 
     async fn peek_foreign_key(
@@ -1566,17 +1572,17 @@ impl DataEngine for SqlServerDriver {
 
         // Create a dedicated raw connection (bypassing bb8 pool) to ensure
         // all transaction queries run on the same connection.
-        let mut conn = Self::connect_raw(&mssql_session.config).await.map_err(|e| {
-            EngineError::connection_failed(format!(
-                "Failed to acquire dedicated connection for transaction: {e}"
-            ))
-        })?;
+        let mut conn = Self::connect_raw(&mssql_session.config)
+            .await
+            .map_err(|e| {
+                EngineError::connection_failed(format!(
+                    "Failed to acquire dedicated connection for transaction: {e}"
+                ))
+            })?;
 
         conn.simple_query("BEGIN TRANSACTION")
             .await
-            .map_err(|e| {
-                EngineError::execution_error(format!("Failed to begin transaction: {e}"))
-            })?
+            .map_err(|e| EngineError::execution_error(format!("Failed to begin transaction: {e}")))?
             .into_results()
             .await
             .map_err(|e| {
@@ -1592,9 +1598,9 @@ impl DataEngine for SqlServerDriver {
         let mssql_session = self.get_session(session).await?;
         let mut tx = mssql_session.transaction_conn.lock().await;
 
-        let mut conn = tx.take().ok_or_else(|| {
-            EngineError::transaction_error("No active transaction to commit")
-        })?;
+        let mut conn = tx
+            .take()
+            .ok_or_else(|| EngineError::transaction_error("No active transaction to commit"))?;
 
         conn.simple_query("COMMIT")
             .await
@@ -1610,9 +1616,9 @@ impl DataEngine for SqlServerDriver {
         let mssql_session = self.get_session(session).await?;
         let mut tx = mssql_session.transaction_conn.lock().await;
 
-        let mut conn = tx.take().ok_or_else(|| {
-            EngineError::transaction_error("No active transaction to rollback")
-        })?;
+        let mut conn = tx
+            .take()
+            .ok_or_else(|| EngineError::transaction_error("No active transaction to rollback"))?;
 
         conn.simple_query("ROLLBACK")
             .await
@@ -1656,7 +1662,10 @@ impl DataEngine for SqlServerDriver {
                 .map(|k| format_filter_value(data.columns.get(*k).unwrap()))
                 .collect::<Vec<_>>()
                 .join(", ");
-            format!("INSERT INTO {} ({}) VALUES ({})", table_ref, cols_str, vals_str)
+            format!(
+                "INSERT INTO {} ({}) VALUES ({})",
+                table_ref, cols_str, vals_str
+            )
         };
 
         self.execute(session, &sql, QueryId::new()).await
@@ -1842,7 +1851,11 @@ impl DataEngine for SqlServerDriver {
                 format!("UPDATE STATISTICS {qualified_table}")
             }
             MaintenanceOperationType::Check => {
-                format!("DBCC CHECKTABLE('{}.{}')", schema.replace('\'', "''"), table.replace('\'', "''"))
+                format!(
+                    "DBCC CHECKTABLE('{}.{}')",
+                    schema.replace('\'', "''"),
+                    table.replace('\'', "''")
+                )
             }
             _ => {
                 return Err(EngineError::not_supported(

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
-/** biome-ignore-all lint/a11y/useKeyWithClickEvents: <explanation> */
-/** biome-ignore-all lint/a11y/noStaticElementInteractions: <explanation> */
+/** biome-ignore-all lint/a11y/useKeyWithClickEvents: header cells handle resize and context-menu pointer interactions */
+/** biome-ignore-all lint/a11y/noStaticElementInteractions: header cells intentionally support mouse-only grid interactions */
 
 /**
  * Table header component for DataGrid with resizable columns, filters, and column pinning
@@ -25,7 +25,10 @@ export interface DataGridTableHeaderProps {
 }
 
 /** Compute the left offset for a pinned column by summing widths of all pinned columns before it. */
-function getPinnedLeftOffset(header: Header<RowData, unknown>, headers: Header<RowData, unknown>[]): number {
+function getPinnedLeftOffset(
+  header: Header<RowData, unknown>,
+  headers: Header<RowData, unknown>[]
+): number {
   const pinnedIds = header.getContext().table.getState().columnPinning.left ?? [];
   let offset = 0;
   for (const id of pinnedIds) {
@@ -38,7 +41,7 @@ function getPinnedLeftOffset(header: Header<RowData, unknown>, headers: Header<R
 
 export function DataGridTableHeader({ table, showFilters }: DataGridTableHeaderProps) {
   return (
-    <thead className="sticky top-0 z-10 bg-muted/80 backdrop-blur-sm shadow-sm">
+    <thead className="sticky top-0 z-10 bg-muted shadow-sm">
       {table.getHeaderGroups().map(headerGroup => (
         <tr key={headerGroup.id}>
           {headerGroup.headers.map(header => (
@@ -77,7 +80,7 @@ function DataGridTableHeaderCell({ header, headers, showFilters }: DataGridTable
     <th
       className={cn(
         'px-3 py-2 text-left font-medium text-muted-foreground border-b border-border relative group',
-        isPinned === 'left' && 'bg-muted/95 backdrop-blur-sm shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]'
+        isPinned === 'left' && 'bg-muted shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]'
       )}
       style={thStyle}
     >

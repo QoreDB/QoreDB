@@ -1,69 +1,140 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { type ReactNode, useCallback } from 'react';
-import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
+import { type ReactNode, useEffect, useEffectEvent } from 'react';
+import { KeyboardCheatsheet } from '@/components/KeyboardCheatsheet';
+import {
+  getModalState,
+  setCheatsheetOpen,
+  setConnectionModalOpen,
+  setFulltextSearchOpen,
+  setLibraryModalOpen,
+  setSearchOpen,
+  setSettingsOpen,
+  setZenMode,
+  toggleCheatsheet,
+  useModalStore,
+} from '@/lib/modalStore';
 import { createQueryTab } from '@/lib/tabs';
-import { useModalContext } from './ModalProvider';
 import { useSessionContext } from './SessionProvider';
 import { useTabContext } from './TabProvider';
+
+function isTextInputTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  const tag = target.tagName.toLowerCase();
+  return tag === 'input' || tag === 'textarea' || tag === 'select' || target.isContentEditable;
+}
 
 export function ShortcutProvider({ children }: { children: ReactNode }) {
   const { activeTabId, activeTab, closeTab, openTab } = useTabContext();
   const { sessionId } = useSessionContext();
-  const {
-    searchOpen,
-    fulltextSearchOpen,
-    connectionModalOpen,
-    libraryModalOpen,
-    settingsOpen,
-    setSearchOpen,
-    setConnectionModalOpen,
-    setLibraryModalOpen,
-    setFulltextSearchOpen,
-    setSettingsOpen,
-  } = useModalContext();
+  const cheatsheetOpen = useModalStore(s => s.cheatsheetOpen);
 
-  const handleNewQuery = useCallback(() => {
-    if (sessionId) {
-      openTab(createQueryTab(undefined, activeTab?.namespace));
+  const handleKeyDown = useEffectEvent((e: KeyboardEvent) => {
+    const modal = getModalState();
+    const isOverlayOpen =
+      modal.searchOpen ||
+      modal.fulltextSearchOpen ||
+      modal.connectionModalOpen ||
+      modal.libraryModalOpen ||
+      modal.logsOpen;
+
+    // Block all shortcuts while a dialog overlay is open.
+    // Escape is handled by Radix Dialog itself (stopPropagation prevents it from reaching here).
+    if (isOverlayOpen) {
+      return;
     }
-  }, [sessionId, openTab, activeTab?.namespace]);
 
-  const handleEscape = useCallback(() => {
-    if (searchOpen) setSearchOpen(false);
-    else if (fulltextSearchOpen) setFulltextSearchOpen(false);
-    else if (connectionModalOpen) setConnectionModalOpen(false);
-    else if (libraryModalOpen) setLibraryModalOpen(false);
-    else if (activeTabId) closeTab(activeTabId);
-    else if (settingsOpen) setSettingsOpen(false);
-  }, [
-    searchOpen,
-    fulltextSearchOpen,
-    connectionModalOpen,
-    libraryModalOpen,
-    settingsOpen,
-    activeTabId,
-    setSearchOpen,
-    setFulltextSearchOpen,
-    setConnectionModalOpen,
-    setLibraryModalOpen,
-    setSettingsOpen,
-    closeTab,
-  ]);
+    // Mod+K always opens search, even in text inputs
+    if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+      e.preventDefault();
+      setSearchOpen(true);
+      return;
+    }
 
-  useKeyboardShortcuts({
-    onSearch: () => setSearchOpen(true),
-    onNewConnection: () => setConnectionModalOpen(true),
-    onOpenLibrary: () => setLibraryModalOpen(true),
-    onFulltextSearch: () => sessionId && setFulltextSearchOpen(true),
-    onSettings: () => setSettingsOpen(true),
-    onCloseTab: () => activeTabId && closeTab(activeTabId),
-    onNewQuery: handleNewQuery,
-    onEscape: handleEscape,
-    isOverlayOpen: searchOpen || fulltextSearchOpen || connectionModalOpen || libraryModalOpen,
-    hasSession: Boolean(sessionId),
-    hasActiveTab: Boolean(activeTabId),
+    // Skip other shortcuts when in text input
+    if (isTextInputTarget(e.target)) {
+      return;
+    }
+
+    // ?: Toggle keyboard cheatsheet
+    if (e.key === '?') {
+      e.preventDefault();
+      toggleCheatsheet();
+      return;
+    }
+
+    // Mod+N: New connection
+    if ((e.metaKey || e.ctrlKey) && e.key === 'n') {
+      e.preventDefault();
+      setConnectionModalOpen(true);
+      return;
+    }
+
+    // Mod+Shift+L: Open library
+    if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'l') {
+      e.preventDefault();
+      setLibraryModalOpen(true);
+      return;
+    }
+
+    // Mod+Shift+F: Open full-text search
+    if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'f') {
+      e.preventDefault();
+      if (sessionId) {
+        setFulltextSearchOpen(true);
+      }
+      return;
+    }
+
+    // Mod+,: Settings
+    if ((e.metaKey || e.ctrlKey) && e.key === ',') {
+      e.preventDefault();
+      setSettingsOpen(true);
+      return;
+    }
+
+    // Escape: Exit zen mode first, then close active tab or settings
+    if (e.key === 'Escape') {
+      if (modal.zenMode) {
+        setZenMode(false);
+        return;
+      }
+      if (activeTabId) closeTab(activeTabId);
+      else if (modal.settingsOpen) setSettingsOpen(false);
+      return;
+    }
+
+    // Mod+W: Close active tab
+    if ((e.metaKey || e.ctrlKey) && e.key === 'w') {
+      e.preventDefault();
+      if (activeTabId) {
+        closeTab(activeTabId);
+      }
+      return;
+    }
+
+    // Mod+T: New query tab
+    if ((e.metaKey || e.ctrlKey) && e.key === 't') {
+      e.preventDefault();
+      if (sessionId) {
+        openTab(createQueryTab(undefined, activeTab?.namespace));
+      }
+    }
   });
 
-  return <>{children}</>;
+  useEffect(() => {
+    function onWindowKeyDown(e: KeyboardEvent) {
+      handleKeyDown(e);
+    }
+
+    window.addEventListener('keydown', onWindowKeyDown);
+    return () => window.removeEventListener('keydown', onWindowKeyDown);
+  }, []);
+
+  return (
+    <>
+      {children}
+      <KeyboardCheatsheet open={cheatsheetOpen} onClose={() => setCheatsheetOpen(false)} />
+    </>
+  );
 }

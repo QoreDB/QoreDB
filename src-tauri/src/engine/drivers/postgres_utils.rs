@@ -4,12 +4,12 @@
 
 use std::collections::HashMap;
 
+use bigdecimal::BigDecimal;
+use bigdecimal::ToPrimitive as BigDecimalToPrimitive;
+use rust_decimal::Decimal;
 use sqlx::postgres::{PgColumn, PgRow, PgTypeKind, PgValueFormat, Postgres};
 use sqlx::{Column, Executor, Row, TypeInfo, ValueRef};
 use uuid::Uuid;
-use rust_decimal::Decimal;
-use bigdecimal::BigDecimal;
-use bigdecimal::ToPrimitive as BigDecimalToPrimitive;
 
 use crate::engine::error::{EngineError, EngineResult};
 use crate::engine::types::{ColumnInfo, Row as QRow, Value};
@@ -200,10 +200,7 @@ pub(crate) fn decode_enum_array_binary(
                 }
             }
 
-            fn build_array(
-                iter: &mut std::vec::IntoIter<Value>,
-                dims: &[usize],
-            ) -> Option<Value> {
+            fn build_array(iter: &mut std::vec::IntoIter<Value>, dims: &[usize]) -> Option<Value> {
                 if dims.is_empty() {
                     return None;
                 }
@@ -325,10 +322,14 @@ pub(crate) fn extract_value(row: &PgRow, idx: usize, enum_labels: &EnumLabelMap)
         return v.map(Value::Json).unwrap_or(Value::Null);
     }
     if let Ok(v) = row.try_get::<Option<chrono::DateTime<chrono::Utc>>, _>(idx) {
-        return v.map(|dt| Value::Text(dt.to_rfc3339())).unwrap_or(Value::Null);
+        return v
+            .map(|dt| Value::Text(dt.to_rfc3339()))
+            .unwrap_or(Value::Null);
     }
     if let Ok(v) = row.try_get::<Option<chrono::DateTime<chrono::FixedOffset>>, _>(idx) {
-        return v.map(|dt| Value::Text(dt.to_rfc3339())).unwrap_or(Value::Null);
+        return v
+            .map(|dt| Value::Text(dt.to_rfc3339()))
+            .unwrap_or(Value::Null);
     }
     if let Ok(v) = row.try_get::<Option<chrono::NaiveDateTime>, _>(idx) {
         return v
@@ -378,7 +379,11 @@ pub(crate) fn extract_value(row: &PgRow, idx: usize, enum_labels: &EnumLabelMap)
     if let Ok(v) = row.try_get::<Option<Vec<Uuid>>, _>(idx) {
         return v
             .map(|vals| {
-                Value::Array(vals.into_iter().map(|u| Value::Text(u.to_string())).collect())
+                Value::Array(
+                    vals.into_iter()
+                        .map(|u| Value::Text(u.to_string()))
+                        .collect(),
+                )
             })
             .unwrap_or(Value::Null);
     }

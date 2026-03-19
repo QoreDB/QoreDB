@@ -50,7 +50,7 @@ export function useResizableSidebar() {
       document.body.style.userSelect = 'none';
       document.body.style.cursor = 'col-resize';
     },
-    [width],
+    [width]
   );
 
   useEffect(() => {
@@ -66,7 +66,7 @@ export function useResizableSidebar() {
       isDragging.current = false;
       document.body.style.userSelect = '';
       document.body.style.cursor = '';
-      setWidth((w) => {
+      setWidth(w => {
         saveWidth(w);
         return w;
       });
@@ -83,7 +83,7 @@ export function useResizableSidebar() {
   // Re-clamp on window resize
   useEffect(() => {
     const handleResize = () => {
-      setWidth((w) => clampWidth(w));
+      setWidth(w => clampWidth(w));
     };
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);

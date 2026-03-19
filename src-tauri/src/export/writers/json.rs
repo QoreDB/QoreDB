@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use base64::{engine::general_purpose::STANDARD, Engine as _};
-use tokio::io::{AsyncWriteExt, BufWriter};
 use tokio::fs::File;
+use tokio::io::{AsyncWriteExt, BufWriter};
 
 use crate::engine::types::{ColumnInfo, Row, Value};
 use crate::export::writers::ExportWriter;
@@ -46,11 +46,9 @@ impl JsonWriter {
             Value::Null => serde_json::Value::Null,
             Value::Bool(b) => serde_json::Value::Bool(*b),
             Value::Int(i) => serde_json::Value::Number((*i).into()),
-            Value::Float(f) => {
-                serde_json::Number::from_f64(*f)
-                    .map(serde_json::Value::Number)
-                    .unwrap_or_else(|| serde_json::Value::String(f.to_string()))
-            }
+            Value::Float(f) => serde_json::Number::from_f64(*f)
+                .map(serde_json::Value::Number)
+                .unwrap_or_else(|| serde_json::Value::String(f.to_string())),
             Value::Text(s) => serde_json::Value::String(s.clone()),
             Value::Bytes(b) => serde_json::Value::String(STANDARD.encode(b)),
             Value::Json(j) => j.clone(),

@@ -24,9 +24,7 @@ export function ContentBreadcrumb({
 
   if (namespace.database) {
     const dbClickHandler =
-      tableName && onNavigateToDatabase
-        ? () => onNavigateToDatabase(namespace)
-        : undefined;
+      tableName && onNavigateToDatabase ? () => onNavigateToDatabase(namespace) : undefined;
     segments.push({ label: namespace.database, onClick: dbClickHandler });
   }
 
@@ -54,9 +52,7 @@ export function ContentBreadcrumb({
                 {seg.label}
               </button>
             ) : (
-              <span className={isLast ? 'text-foreground font-medium' : ''}>
-                {seg.label}
-              </span>
+              <span className={isLast ? 'text-foreground font-medium' : ''}>{seg.label}</span>
             )}
           </span>
         );

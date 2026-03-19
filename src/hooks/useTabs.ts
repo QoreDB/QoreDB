@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import type { DatabaseBrowserTab } from '@/components/Browser/DatabaseBrowser';
 import type { TableBrowserTab } from '@/components/Browser/TableBrowser';
 import type { OpenTab } from '@/lib/tabs';
 import type { Namespace } from '@/lib/tauri';
+
+export type BeforeCloseTabHandler = (tabId: string) => Promise<boolean> | boolean;
 
 export interface UseTabsOptions {
   initialTabs?: OpenTab[];
@@ -68,7 +70,13 @@ export function useTabs(options: UseTabsOptions = {}) {
     }
   }, []);
 
-  const closeTab = useCallback((tabId: string) => {
+  const beforeCloseTabRef = useRef<BeforeCloseTabHandler | null>(null);
+
+  const setBeforeCloseTab = useCallback((handler: BeforeCloseTabHandler | null) => {
+    beforeCloseTabRef.current = handler;
+  }, []);
+
+  const doCloseTab = useCallback((tabId: string) => {
     setTabs(prev => {
       const newTabs = prev.filter(t => t.id !== tabId);
 
@@ -106,6 +114,21 @@ export function useTabs(options: UseTabsOptions = {}) {
     });
   }, []);
 
+  const closeTab = useCallback(
+    async (tabId: string) => {
+      if (beforeCloseTabRef.current) {
+        const allowed = await beforeCloseTabRef.current(tabId);
+        if (!allowed) return;
+      }
+      doCloseTab(tabId);
+    },
+    [doCloseTab]
+  );
+
+  const updateTab = useCallback((tabId: string, updates: Partial<OpenTab>) => {
+    setTabs(prev => prev.map(t => (t.id === tabId ? { ...t, ...updates } : t)));
+  }, []);
+
   const updateQueryDraft = useCallback((tabId: string, value: string) => {
     setQueryDrafts(prev => {
       if (prev[tabId] === value) return prev;
@@ -138,6 +161,20 @@ export function useTabs(options: UseTabsOptions = {}) {
     );
   }, []);
 
+  const reorderTabs = useCallback((newTabs: OpenTab[]) => {
+    setTabs(newTabs);
+  }, []);
+
+  const togglePinTab = useCallback((tabId: string) => {
+    setTabs(prev => {
+      const updated = prev.map(t => (t.id === tabId ? { ...t, pinned: !t.pinned } : t));
+      // Sort: pinned tabs first, preserving relative order within each group
+      const pinned = updated.filter(t => t.pinned);
+      const unpinned = updated.filter(t => !t.pinned);
+      return [...pinned, ...unpinned];
+    });
+  }, []);
+
   const reset = useCallback((options: UseTabsOptions = {}) => {
     setTabs(options.initialTabs ?? []);
     setActiveTabId(options.initialActiveTabId ?? options.initialTabs?.[0]?.id ?? null);
@@ -160,6 +197,10 @@ export function useTabs(options: UseTabsOptions = {}) {
     updateTabNamespace,
     updateTableBrowserTab,
     updateDatabaseBrowserTab,
+    updateTab,
+    reorderTabs,
+    togglePinTab,
+    setBeforeCloseTab,
     reset,
   };
 }

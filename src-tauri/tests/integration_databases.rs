@@ -1,10 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use qoredb_lib::engine::{
-    drivers::{mongodb::MongoDriver, mysql::MySqlDriver, postgres::PostgresDriver, redis::RedisDriver},
+    drivers::{
+        mongodb::MongoDriver, mysql::MySqlDriver, postgres::PostgresDriver, redis::RedisDriver,
+    },
     error::{EngineError, EngineResult},
     traits::DataEngine,
-    types::{CollectionListOptions, ConnectionConfig, Namespace, QueryId, RowData, SessionId, TableQueryOptions, Value},
+    types::{
+        CollectionListOptions, ConnectionConfig, Namespace, QueryId, RowData, SessionId,
+        TableQueryOptions, Value,
+    },
 };
 use serde_json::json;
 use std::sync::Arc;
@@ -42,8 +47,7 @@ fn redis_test_required() -> bool {
 
 fn is_redis_unavailable(err: &EngineError) -> bool {
     match err {
-        EngineError::ConnectionFailed { message }
-        | EngineError::ExecutionError { message } => {
+        EngineError::ConnectionFailed { message } | EngineError::ExecutionError { message } => {
             let lower = message.to_ascii_lowercase();
             lower.contains("connection refused")
                 || lower.contains("no route to host")
@@ -69,7 +73,7 @@ fn postgres_config() -> ConnectionConfig {
         ssh_tunnel: None,
         pool_acquire_timeout_secs: None,
         pool_max_connections: None,
-        pool_min_connections: None
+        pool_min_connections: None,
     }
 }
 
@@ -87,7 +91,7 @@ fn mysql_config() -> ConnectionConfig {
         ssh_tunnel: None,
         pool_acquire_timeout_secs: None,
         pool_max_connections: None,
-        pool_min_connections: None
+        pool_min_connections: None,
     }
 }
 
@@ -105,7 +109,7 @@ fn mongo_config() -> ConnectionConfig {
         ssh_tunnel: None,
         pool_acquire_timeout_secs: None,
         pool_max_connections: None,
-        pool_min_connections: None
+        pool_min_connections: None,
     }
 }
 
@@ -155,9 +159,7 @@ async fn cancel_with_retry<D: DataEngine + ?Sized>(
     for _ in 0..10 {
         match driver.cancel(session, Some(query_id)).await {
             Ok(()) => return Ok(()),
-            Err(EngineError::ExecutionError { message })
-                if message.contains("Query not found") =>
-            {
+            Err(EngineError::ExecutionError { message }) if message.contains("Query not found") => {
                 sleep(Duration::from_millis(100)).await;
                 continue;
             }
@@ -229,7 +231,10 @@ async fn postgres_e2e() -> EngineResult<()> {
     driver
         .execute(
             session,
-            &format!("CREATE TABLE IF NOT EXISTS {} (id INT PRIMARY KEY, name TEXT)", table),
+            &format!(
+                "CREATE TABLE IF NOT EXISTS {} (id INT PRIMARY KEY, name TEXT)",
+                table
+            ),
             QueryId::new(),
         )
         .await?;
@@ -245,17 +250,22 @@ async fn postgres_e2e() -> EngineResult<()> {
         .await?;
 
     let namespaces = driver.list_namespaces(session).await?;
-    let db_name = config.database.clone().unwrap_or_else(|| "postgres".to_string());
-    assert!(namespaces.iter().any(|ns| {
-        ns.database == db_name && ns.schema.as_deref() == Some("public")
-    }));
+    let db_name = config
+        .database
+        .clone()
+        .unwrap_or_else(|| "postgres".to_string());
+    assert!(namespaces
+        .iter()
+        .any(|ns| { ns.database == db_name && ns.schema.as_deref() == Some("public") }));
 
     let namespace = namespaces
         .into_iter()
         .find(|ns| ns.schema.as_deref() == Some("public"))
         .unwrap_or_else(|| Namespace::with_schema(db_name.clone(), "public"));
 
-    let collections = driver.list_collections(session, &namespace, CollectionListOptions::default()).await?;
+    let collections = driver
+        .list_collections(session, &namespace, CollectionListOptions::default())
+        .await?;
     assert!(collections.collections.iter().any(|c| c.name == table));
 
     let result = driver
@@ -357,11 +367,16 @@ async fn mysql_e2e() -> EngineResult<()> {
         .await?;
 
     let namespaces = driver.list_namespaces(session).await?;
-    let db_name = config.database.clone().unwrap_or_else(|| DEFAULT_DB.to_string());
+    let db_name = config
+        .database
+        .clone()
+        .unwrap_or_else(|| DEFAULT_DB.to_string());
     assert!(namespaces.iter().any(|ns| ns.database == db_name));
 
     let namespace = Namespace::new(db_name.clone());
-    let collections = driver.list_collections(session, &namespace, CollectionListOptions::default()).await?;
+    let collections = driver
+        .list_collections(session, &namespace, CollectionListOptions::default())
+        .await?;
     assert!(collections.collections.iter().any(|c| c.name == table));
 
     let result = driver
@@ -392,8 +407,8 @@ async fn mysql_e2e() -> EngineResult<()> {
         Ok(res) => {
             // MySQL SLEEP() can return 1 (interrupted) instead of error
             assert!(
-                res.execution_time_ms < 4000.0, 
-                "Query passed but took too long ({}ms), likely not canceled", 
+                res.execution_time_ms < 4000.0,
+                "Query passed but took too long ({}ms), likely not canceled",
                 res.execution_time_ms
             );
         }
@@ -449,7 +464,10 @@ async fn mysql_e2e() -> EngineResult<()> {
 #[tokio::test]
 async fn mongodb_e2e() -> EngineResult<()> {
     let (driver, session, config) = connect_mongo().await?;
-    let db_name = config.database.clone().unwrap_or_else(|| DEFAULT_DB.to_string());
+    let db_name = config
+        .database
+        .clone()
+        .unwrap_or_else(|| DEFAULT_DB.to_string());
     let collection = unique_name("qoredb_mongo");
 
     let data = RowData::new()
@@ -463,7 +481,9 @@ async fn mongodb_e2e() -> EngineResult<()> {
     let namespaces = driver.list_namespaces(session).await?;
     assert!(namespaces.iter().any(|ns| ns.database == db_name));
 
-    let collections = driver.list_collections(session, &namespace, CollectionListOptions::default()).await?;
+    let collections = driver
+        .list_collections(session, &namespace, CollectionListOptions::default())
+        .await?;
     assert!(collections.collections.iter().any(|c| c.name == collection));
 
     let query = json!({
@@ -531,26 +551,16 @@ async fn redis_e2e() -> EngineResult<()> {
         let k0 = key.clone();
         let n0 = ns0.clone();
         handles.push(tokio::spawn(async move {
-            d0.execute_in_namespace(
-                session,
-                Some(n0),
-                &format!("GET {}", k0),
-                QueryId::new(),
-            )
-            .await
+            d0.execute_in_namespace(session, Some(n0), &format!("GET {}", k0), QueryId::new())
+                .await
         }));
 
         let d1 = Arc::clone(&driver);
         let k1 = key.clone();
         let n1 = ns1.clone();
         handles.push(tokio::spawn(async move {
-            d1.execute_in_namespace(
-                session,
-                Some(n1),
-                &format!("GET {}", k1),
-                QueryId::new(),
-            )
-            .await
+            d1.execute_in_namespace(session, Some(n1), &format!("GET {}", k1), QueryId::new())
+                .await
         }));
     }
 
@@ -598,14 +608,18 @@ async fn redis_e2e() -> EngineResult<()> {
         Some(Value::Text(id)) => id.clone(),
         other => panic!("Unexpected stream page2 row id: {:?}", other),
     };
-    assert_ne!(id1, id2, "Stream pagination should return different entry IDs");
+    assert_ne!(
+        id1, id2,
+        "Stream pagination should return different entry IDs"
+    );
 
     let namespaces = driver.list_namespaces(session).await?;
     assert!(namespaces.iter().any(|ns| ns.database == "db0"));
     assert!(namespaces.iter().any(|ns| ns.database == "db1"));
 
-    let collections =
-        driver.list_collections(session, &ns0, CollectionListOptions::default()).await?;
+    let collections = driver
+        .list_collections(session, &ns0, CollectionListOptions::default())
+        .await?;
     assert!(collections.collections.iter().any(|c| c.name == key));
     assert!(collections.collections.iter().any(|c| c.name == stream));
 
@@ -631,15 +645,15 @@ async fn test_streaming<D: DataEngine + ?Sized>(
     expected_count: u64,
 ) -> EngineResult<()> {
     let (tx, mut rx) = tokio::sync::mpsc::channel(100);
-    
+
     // Launch streaming in background
     let stream_future = driver.execute_stream(session, query, QueryId::new(), tx);
-    
+
     let receive_future = async {
         let mut columns_received = false;
         let mut rows_received = 0;
         let mut done_received = false;
-        
+
         while let Some(event) = rx.recv().await {
             match event {
                 qoredb_lib::engine::traits::StreamEvent::Columns(cols) => {
@@ -660,7 +674,7 @@ async fn test_streaming<D: DataEngine + ?Sized>(
                 }
             }
         }
-        
+
         assert!(columns_received, "Never received columns");
         assert!(done_received, "Never received done signal");
         assert_eq!(rows_received, expected_count, "Row count mismatch");
@@ -669,10 +683,10 @@ async fn test_streaming<D: DataEngine + ?Sized>(
 
     // run both
     let (res_stream, res_receive) = tokio::join!(stream_future, receive_future);
-    
+
     res_stream?;
     res_receive?;
-    
+
     Ok(())
 }
 
@@ -681,12 +695,32 @@ async fn postgres_streaming() -> EngineResult<()> {
     let (driver, session, _config) = connect_postgres().await?;
     let table = unique_name("qoredb_pg_stream");
 
-    driver.execute(session, &format!("CREATE TABLE IF NOT EXISTS {} (id INT)", table), QueryId::new()).await?;
-    driver.execute(session, &format!("INSERT INTO {} VALUES (1), (2), (3)", table), QueryId::new()).await?;
+    driver
+        .execute(
+            session,
+            &format!("CREATE TABLE IF NOT EXISTS {} (id INT)", table),
+            QueryId::new(),
+        )
+        .await?;
+    driver
+        .execute(
+            session,
+            &format!("INSERT INTO {} VALUES (1), (2), (3)", table),
+            QueryId::new(),
+        )
+        .await?;
 
-    test_streaming(driver.as_ref(), session, &format!("SELECT * FROM {}", table), 3).await?;
+    test_streaming(
+        driver.as_ref(),
+        session,
+        &format!("SELECT * FROM {}", table),
+        3,
+    )
+    .await?;
 
-    driver.execute(session, &format!("DROP TABLE {}", table), QueryId::new()).await?;
+    driver
+        .execute(session, &format!("DROP TABLE {}", table), QueryId::new())
+        .await?;
     driver.disconnect(session).await?;
     Ok(())
 }
@@ -696,12 +730,32 @@ async fn mysql_streaming() -> EngineResult<()> {
     let (driver, session, _config) = connect_mysql().await?;
     let table = unique_name("qoredb_mysql_stream");
 
-    driver.execute(session, &format!("CREATE TABLE IF NOT EXISTS {} (id INT)", table), QueryId::new()).await?;
-    driver.execute(session, &format!("INSERT INTO {} VALUES (1), (2), (3)", table), QueryId::new()).await?;
+    driver
+        .execute(
+            session,
+            &format!("CREATE TABLE IF NOT EXISTS {} (id INT)", table),
+            QueryId::new(),
+        )
+        .await?;
+    driver
+        .execute(
+            session,
+            &format!("INSERT INTO {} VALUES (1), (2), (3)", table),
+            QueryId::new(),
+        )
+        .await?;
 
-    test_streaming(driver.as_ref(), session, &format!("SELECT * FROM {}", table), 3).await?;
+    test_streaming(
+        driver.as_ref(),
+        session,
+        &format!("SELECT * FROM {}", table),
+        3,
+    )
+    .await?;
 
-    driver.execute(session, &format!("DROP TABLE {}", table), QueryId::new()).await?;
+    driver
+        .execute(session, &format!("DROP TABLE {}", table), QueryId::new())
+        .await?;
     driver.disconnect(session).await?;
     Ok(())
 }
@@ -716,14 +770,17 @@ async fn mongodb_streaming() -> EngineResult<()> {
     for i in 1..=3 {
         let data = RowData::new().with_column("val", Value::Int(i));
         let namespace = Namespace::new(db_name.clone());
-        driver.insert_row(session, &namespace, &collection, &data).await?;
+        driver
+            .insert_row(session, &namespace, &collection, &data)
+            .await?;
     }
 
     let query = json!({
         "database": db_name,
         "collection": collection,
         "query": {}
-    }).to_string();
+    })
+    .to_string();
 
     test_streaming(driver.as_ref(), session, &query, 3).await?;
 

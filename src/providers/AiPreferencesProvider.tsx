@@ -2,6 +2,7 @@
 
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useState } from 'react';
 import {
+  AI_PROVIDERS,
   type AiConfig,
   type AiProvider,
   type AiProviderStatus,
@@ -24,8 +25,8 @@ const AiPreferencesContext = createContext<AiPreferencesContextValue | null>(nul
 function loadSavedProvider(): AiProvider {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved === 'open_ai' || saved === 'anthropic' || saved === 'ollama') {
-      return saved;
+    if (AI_PROVIDERS.some(p => p.id === saved)) {
+      return saved as AiProvider;
     }
   } catch {
     // ignore
@@ -55,8 +56,9 @@ export function AiPreferencesProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(STORAGE_KEY, p);
   }, []);
 
+  const providerInfo = AI_PROVIDERS.find(p => p.id === preferredProvider);
   const isReady =
-    preferredProvider === 'ollama' ||
+    (providerInfo && !providerInfo.requiresKey) ||
     (providerStatuses.find(s => s.provider === preferredProvider)?.has_key ?? false);
 
   const getConfig = useCallback(

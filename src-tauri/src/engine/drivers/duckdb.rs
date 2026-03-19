@@ -28,8 +28,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
 
-use async_trait::async_trait;
 use ::duckdb::{params_from_iter, types::Value as DuckValue, Connection};
+use async_trait::async_trait;
 use tokio::sync::RwLock;
 
 use crate::engine::error::{EngineError, EngineResult};
@@ -37,11 +37,10 @@ use crate::engine::sql_safety;
 use crate::engine::traits::{DataEngine, StreamEvent, StreamSender};
 use crate::engine::types::{
     CancelSupport, Collection, CollectionList, CollectionListOptions, CollectionType, ColumnInfo,
-    ConnectionConfig, FilterOperator, ForeignKey, Namespace, PaginatedQueryResult, QueryId,
-    QueryResult, Row as QRow, RowData, SessionId, SortDirection, TableColumn, TableIndex,
-    TableQueryOptions, TableSchema, Value,
+    ConnectionConfig, FilterOperator, ForeignKey, MaintenanceMessage, MaintenanceMessageLevel,
     MaintenanceOperationInfo, MaintenanceOperationType, MaintenanceRequest, MaintenanceResult,
-    MaintenanceMessage, MaintenanceMessageLevel,
+    Namespace, PaginatedQueryResult, QueryId, QueryResult, Row as QRow, RowData, SessionId,
+    SortDirection, TableColumn, TableIndex, TableQueryOptions, TableSchema, Value,
 };
 
 // ==================== Session & Driver ====================
@@ -85,11 +84,16 @@ impl DuckDbDriver {
         let path = config.host.trim();
 
         if path == ":memory:" || path == "duckdb::memory:" {
-            Connection::open_in_memory()
-                .map_err(|e| EngineError::connection_failed(format!("Failed to open DuckDB in-memory: {e}")))
+            Connection::open_in_memory().map_err(|e| {
+                EngineError::connection_failed(format!("Failed to open DuckDB in-memory: {e}"))
+            })
         } else {
-            Connection::open(path)
-                .map_err(|e| EngineError::connection_failed(format!("Failed to open DuckDB file '{}': {e}", path)))
+            Connection::open(path).map_err(|e| {
+                EngineError::connection_failed(format!(
+                    "Failed to open DuckDB file '{}': {e}",
+                    path
+                ))
+            })
         }
     }
 
@@ -375,8 +379,7 @@ impl DataEngine for DuckDbDriver {
 
             let mut namespaces = Vec::new();
             for row in rows {
-                let schema_name =
-                    row.map_err(|e| EngineError::execution_error(e.to_string()))?;
+                let schema_name = row.map_err(|e| EngineError::execution_error(e.to_string()))?;
                 namespaces.push(Namespace::new(schema_name));
             }
 
@@ -393,7 +396,10 @@ impl DataEngine for DuckDbDriver {
     ) -> EngineResult<CollectionList> {
         let duck_session = self.get_session(session).await?;
         let namespace = namespace.clone();
-        let schema_name = namespace.schema.clone().unwrap_or_else(|| namespace.database.clone());
+        let schema_name = namespace
+            .schema
+            .clone()
+            .unwrap_or_else(|| namespace.database.clone());
 
         Self::with_conn(&duck_session, move |conn| {
             let search_pattern = options.search.as_ref().map(|s| format!("%{}%", s));
@@ -683,8 +689,11 @@ impl DataEngine for DuckDbDriver {
             // Set schema if namespace provided
             if let Some(ns) = &namespace {
                 let schema = ns.schema.as_deref().unwrap_or(&ns.database);
-                conn.execute(&format!("SET schema = '{}'", schema.replace('\'', "''")), [])
-                    .map_err(|e| EngineError::execution_error(e.to_string()))?;
+                conn.execute(
+                    &format!("SET schema = '{}'", schema.replace('\'', "''")),
+                    [],
+                )
+                .map_err(|e| EngineError::execution_error(e.to_string()))?;
             }
 
             let start = Instant::now();
@@ -737,8 +746,11 @@ impl DataEngine for DuckDbDriver {
             // Set schema if namespace provided
             if let Some(ns) = &namespace {
                 let schema = ns.schema.as_deref().unwrap_or(&ns.database);
-                conn.execute(&format!("SET schema = '{}'", schema.replace('\'', "''")), [])
-                    .map_err(|e| EngineError::execution_error(e.to_string()))?;
+                conn.execute(
+                    &format!("SET schema = '{}'", schema.replace('\'', "''")),
+                    [],
+                )
+                .map_err(|e| EngineError::execution_error(e.to_string()))?;
             }
 
             let mut stmt = conn
@@ -889,10 +901,7 @@ impl DataEngine for DuckDbDriver {
                                     }
 
                                     let col_ident = Self::quote_ident(&col_name);
-                                    bind_values.push(DuckValue::Text(format!(
-                                        "%{}%",
-                                        search_term
-                                    )));
+                                    bind_values.push(DuckValue::Text(format!("%{}%", search_term)));
 
                                     // Text columns can use ILIKE directly, others need CAST
                                     if upper.contains("VARCHAR")
@@ -901,13 +910,15 @@ impl DataEngine for DuckDbDriver {
                                     {
                                         search_clauses.push(format!("{} ILIKE ?", col_ident));
                                     } else {
-                                        search_clauses.push(format!("CAST({} AS VARCHAR) ILIKE ?", col_ident));
+                                        search_clauses.push(format!(
+                                            "CAST({} AS VARCHAR) ILIKE ?",
+                                            col_ident
+                                        ));
                                     }
                                 }
                             }
                             if !search_clauses.is_empty() {
-                                where_clauses
-                                    .push(format!("({})", search_clauses.join(" OR ")));
+                                where_clauses.push(format!("({})", search_clauses.join(" OR ")));
                             }
                         }
                     }
@@ -934,11 +945,9 @@ impl DataEngine for DuckDbDriver {
             // COUNT query
             let count_sql = format!("SELECT COUNT(*) AS cnt FROM {}{}", table_ref, where_sql);
             let total_rows: i64 = conn
-                .query_row(
-                    &count_sql,
-                    params_from_iter(bind_values.iter()),
-                    |row| row.get(0),
-                )
+                .query_row(&count_sql, params_from_iter(bind_values.iter()), |row| {
+                    row.get(0)
+                })
                 .map_err(|e| EngineError::execution_error(e.to_string()))?;
             let total_rows = total_rows.max(0) as u64;
 
@@ -991,7 +1000,9 @@ impl DataEngine for DuckDbDriver {
                 execution_time_ms,
             };
 
-            Ok(PaginatedQueryResult::new(result, total_rows, page, page_size))
+            Ok(PaginatedQueryResult::new(
+                result, total_rows, page, page_size,
+            ))
         })
         .await
     }
@@ -1115,13 +1126,16 @@ impl DataEngine for DuckDbDriver {
         }
 
         Self::with_conn(&duck_session, |conn| {
-            conn.execute("BEGIN TRANSACTION", [])
-                .map_err(|e| EngineError::execution_error(format!("Failed to begin transaction: {e}")))?;
+            conn.execute("BEGIN TRANSACTION", []).map_err(|e| {
+                EngineError::execution_error(format!("Failed to begin transaction: {e}"))
+            })?;
             Ok(())
         })
         .await?;
 
-        duck_session.transaction_active.store(true, Ordering::Release);
+        duck_session
+            .transaction_active
+            .store(true, Ordering::Release);
         Ok(())
     }
 
@@ -1135,13 +1149,16 @@ impl DataEngine for DuckDbDriver {
         }
 
         Self::with_conn(&duck_session, |conn| {
-            conn.execute("COMMIT", [])
-                .map_err(|e| EngineError::execution_error(format!("Failed to commit transaction: {e}")))?;
+            conn.execute("COMMIT", []).map_err(|e| {
+                EngineError::execution_error(format!("Failed to commit transaction: {e}"))
+            })?;
             Ok(())
         })
         .await?;
 
-        duck_session.transaction_active.store(false, Ordering::Release);
+        duck_session
+            .transaction_active
+            .store(false, Ordering::Release);
         Ok(())
     }
 
@@ -1155,13 +1172,16 @@ impl DataEngine for DuckDbDriver {
         }
 
         Self::with_conn(&duck_session, |conn| {
-            conn.execute("ROLLBACK", [])
-                .map_err(|e| EngineError::execution_error(format!("Failed to rollback transaction: {e}")))?;
+            conn.execute("ROLLBACK", []).map_err(|e| {
+                EngineError::execution_error(format!("Failed to rollback transaction: {e}"))
+            })?;
             Ok(())
         })
         .await?;
 
-        duck_session.transaction_active.store(false, Ordering::Release);
+        duck_session
+            .transaction_active
+            .store(false, Ordering::Release);
         Ok(())
     }
 
@@ -1407,13 +1427,11 @@ impl DataEngine for DuckDbDriver {
         _namespace: &Namespace,
         _table: &str,
     ) -> EngineResult<Vec<MaintenanceOperationInfo>> {
-        Ok(vec![
-            MaintenanceOperationInfo {
-                operation: MaintenanceOperationType::Analyze,
-                is_heavy: false,
-                has_options: false,
-            },
-        ])
+        Ok(vec![MaintenanceOperationInfo {
+            operation: MaintenanceOperationType::Analyze,
+            is_heavy: false,
+            has_options: false,
+        }])
     }
 
     async fn run_maintenance(

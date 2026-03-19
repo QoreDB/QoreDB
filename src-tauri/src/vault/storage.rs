@@ -13,8 +13,8 @@ use std::path::PathBuf;
 use uuid::Uuid;
 
 use crate::engine::error::{EngineError, EngineResult};
-use crate::vault::credentials::{SavedConnection, StoredCredentials};
 use crate::observability::Sensitive;
+use crate::vault::credentials::{SavedConnection, StoredCredentials};
 
 const SERVICE_PREFIX: &str = "qoredb";
 const CONNECTIONS_FILE: &str = "connections.json";
@@ -28,7 +28,11 @@ pub struct VaultStorage {
 
 impl VaultStorage {
     /// Creates a new vault storage with project isolation
-    pub fn new(project_id: &str, storage_dir: PathBuf, provider: Box<dyn CredentialProvider>) -> Self {
+    pub fn new(
+        project_id: &str,
+        storage_dir: PathBuf,
+        provider: Box<dyn CredentialProvider>,
+    ) -> Self {
         Self {
             project_id: project_id.to_string(),
             storage_dir,
@@ -56,29 +60,34 @@ impl VaultStorage {
             return Ok(Vec::new());
         }
 
-        let content = fs::read_to_string(&path)
-            .map_err(|e| EngineError::internal(format!("Failed to read connections file: {}", e)))?;
+        let content = fs::read_to_string(&path).map_err(|e| {
+            EngineError::internal(format!("Failed to read connections file: {}", e))
+        })?;
 
-        let connections: Vec<SavedConnection> = serde_json::from_str(&content)
-            .map_err(|e| EngineError::internal(format!("Failed to parse connections file: {}", e)))?;
+        let connections: Vec<SavedConnection> = serde_json::from_str(&content).map_err(|e| {
+            EngineError::internal(format!("Failed to parse connections file: {}", e))
+        })?;
 
         Ok(connections)
     }
 
     fn save_connections_file(&self, connections: &[SavedConnection]) -> EngineResult<()> {
         let path = self.connections_file_path();
-        
+
         // Ensure directory exists
         if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent)
-                .map_err(|e| EngineError::internal(format!("Failed to create storage directory: {}", e)))?;
+            fs::create_dir_all(parent).map_err(|e| {
+                EngineError::internal(format!("Failed to create storage directory: {}", e))
+            })?;
         }
 
-        let content = serde_json::to_string_pretty(connections)
-            .map_err(|e| EngineError::internal(format!("Failed to serialize connections: {}", e)))?;
+        let content = serde_json::to_string_pretty(connections).map_err(|e| {
+            EngineError::internal(format!("Failed to serialize connections: {}", e))
+        })?;
 
-        fs::write(&path, content)
-            .map_err(|e| EngineError::internal(format!("Failed to write connections file: {}", e)))?;
+        fs::write(&path, content).map_err(|e| {
+            EngineError::internal(format!("Failed to write connections file: {}", e))
+        })?;
 
         Ok(())
     }
@@ -91,7 +100,7 @@ impl VaultStorage {
     ) -> EngineResult<()> {
         // 1. Update metadata in JSON file
         let mut connections = self.load_connections_file()?;
-        
+
         // Remove existing if present (update)
         connections.retain(|c| c.id != connection.id);
         connections.push(connection.clone());
@@ -100,16 +109,23 @@ impl VaultStorage {
 
         // 2. Save credentials to Keychain (secrets only)
         let service = self.service_name();
-        
+
         let creds_json = serde_json::to_string(&CredsJson {
             db_password: credentials.db_password.expose().clone(),
-            ssh_password: credentials.ssh_password.as_ref().map(|s| s.expose().clone()),
-            ssh_key_passphrase: credentials.ssh_key_passphrase.as_ref().map(|s| s.expose().clone()),
+            ssh_password: credentials
+                .ssh_password
+                .as_ref()
+                .map(|s| s.expose().clone()),
+            ssh_key_passphrase: credentials
+                .ssh_key_passphrase
+                .as_ref()
+                .map(|s| s.expose().clone()),
         })
         .map_err(|e| EngineError::internal(format!("Serialization error: {}", e)))?;
 
-        self.provider.set_password(&service, &self.credentials_key(&connection.id), &creds_json)
-             .map_err(|e| EngineError::internal(format!("Failed to save credentials: {}", e)))?;
+        self.provider
+            .set_password(&service, &self.credentials_key(&connection.id), &creds_json)
+            .map_err(|e| EngineError::internal(format!("Failed to save credentials: {}", e)))?;
 
         Ok(())
     }
@@ -117,7 +133,7 @@ impl VaultStorage {
     /// Retrieves a saved connection (metadata only, no credentials)
     pub fn get_connection(&self, connection_id: &str) -> EngineResult<SavedConnection> {
         let connections = self.load_connections_file()?;
-        
+
         connections
             .into_iter()
             .find(|c| c.id == connection_id)
@@ -127,7 +143,9 @@ impl VaultStorage {
     /// Retrieves credentials for a connection
     pub fn get_credentials(&self, connection_id: &str) -> EngineResult<StoredCredentials> {
         let service = self.service_name();
-        let creds_json = self.provider.get_password(&service, &self.credentials_key(connection_id))?;
+        let creds_json = self
+            .provider
+            .get_password(&service, &self.credentials_key(connection_id))?;
 
         let creds: CredsJson = serde_json::from_str(&creds_json)
             .map_err(|e| EngineError::internal(format!("Deserialization error: {}", e)))?;
@@ -145,25 +163,32 @@ impl VaultStorage {
         let mut connections = self.load_connections_file()?;
         let original_len = connections.len();
         connections.retain(|c| c.id != connection_id);
-        
+
         if connections.len() != original_len {
-             self.save_connections_file(&connections)?;
+            self.save_connections_file(&connections)?;
         }
 
         // 2. Remove credentials from Keychain
         // 2. Remove credentials from Keychain
         let service = self.service_name();
-        let _ = self.provider.delete_password(&service, &self.credentials_key(connection_id));
+        let _ = self
+            .provider
+            .delete_password(&service, &self.credentials_key(connection_id));
 
         // Try to clean up old metadata from keychain if it exists (migration cleanup)
         // We don't error if this fails, just best effort
-        let _ = self.provider.delete_password(&service, &format!("meta_{}", connection_id));
+        let _ = self
+            .provider
+            .delete_password(&service, &format!("meta_{}", connection_id));
 
         Ok(())
     }
 
     /// Duplicates a saved connection (metadata + credentials) under a new ID.
-    pub fn duplicate_connection(&self, source_connection_id: &str) -> EngineResult<SavedConnection> {
+    pub fn duplicate_connection(
+        &self,
+        source_connection_id: &str,
+    ) -> EngineResult<SavedConnection> {
         let mut source = self.get_connection(source_connection_id)?;
         let creds = self.get_credentials(source_connection_id)?;
 
@@ -218,10 +243,12 @@ struct CredsJson {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::vault::credentials::{Environment, SavedConnection, SshTunnelInfo, StoredCredentials};
     use crate::vault::backend::MockProvider;
-    use uuid::Uuid;
+    use crate::vault::credentials::{
+        Environment, SavedConnection, SshTunnelInfo, StoredCredentials,
+    };
     use tempfile::TempDir;
+    use uuid::Uuid;
 
     #[test]
     fn save_list_delete_roundtrip() -> EngineResult<()> {
@@ -229,9 +256,9 @@ mod tests {
         let project_id = format!("qoredb_test_{}", Uuid::new_v4().simple());
         let connection_id = Uuid::new_v4().simple().to_string();
         let storage = VaultStorage::new(
-            &project_id, 
+            &project_id,
             temp_dir.path().to_path_buf(),
-            Box::new(MockProvider::new())
+            Box::new(MockProvider::new()),
         );
 
         let connection = SavedConnection {
@@ -260,7 +287,7 @@ mod tests {
             project_id: project_id.clone(),
             pool_acquire_timeout_secs: None,
             pool_max_connections: None,
-            pool_min_connections: None
+            pool_min_connections: None,
         };
 
         let credentials = StoredCredentials {

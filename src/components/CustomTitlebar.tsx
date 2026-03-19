@@ -15,7 +15,10 @@ import {
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { NotificationPanel } from '@/components/Notification/NotificationPanel';
+import {
+  NotificationPanel,
+  useHasUnseenChangelog,
+} from '@/components/Notification/NotificationPanel';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -33,6 +36,7 @@ import {
   setUpdateInstalling,
   useUpdateStore,
 } from '@/lib/updateStore';
+import { toggleCheatsheet } from '@/lib/modalStore';
 import { cn } from '@/lib/utils';
 import { getShortcut, isMacOS, isWindowsOS } from '@/utils/platform';
 
@@ -42,6 +46,7 @@ interface CustomTitlebarProps {
   onOpenSearch?: () => void;
   onNewConnection?: () => void;
   onNewWindow?: () => void;
+  onOpenNotebook?: () => void;
   onOpenSettings?: () => void;
   onOpenLogs?: () => void;
   onOpenHistory?: () => void;
@@ -51,6 +56,7 @@ interface CustomTitlebarProps {
   onExportData?: () => void;
   onToggleSandbox?: () => void;
   onOpenSchemaGenerator?: () => void;
+  onToggleZenMode?: () => void;
 
   onToggleReadOnly?: (next: boolean) => void;
   readOnly?: boolean;
@@ -61,6 +67,7 @@ export const CustomTitlebar = ({
   onOpenSearch,
   onNewConnection,
   onNewWindow,
+  onOpenNotebook,
   onOpenSettings,
   onOpenLogs,
   onOpenHistory,
@@ -70,6 +77,7 @@ export const CustomTitlebar = ({
   onExportData,
   onToggleSandbox,
   onOpenSchemaGenerator,
+  onToggleZenMode,
 
   // onToggleReadOnly,
   // readOnly = false,
@@ -150,6 +158,7 @@ export const CustomTitlebar = ({
             onMouseEnter={() => handleMenuHover('file')}
             onNewConnection={onNewConnection}
             onNewWindow={onNewWindow}
+            onOpenNotebook={onOpenNotebook}
             onOpenSettings={onOpenSettings}
             onQuit={close}
           />
@@ -160,6 +169,8 @@ export const CustomTitlebar = ({
             onMouseEnter={() => handleMenuHover('view')}
             onToggleSidebar={onToggleSidebar}
             onOpenLogs={onOpenLogs}
+            onToggleZenMode={onToggleZenMode}
+            onShowKeyboardShortcuts={toggleCheatsheet}
           />
           <MenuData
             t={t}
@@ -279,6 +290,7 @@ interface TitlebarMenuProps {
 interface MenuFileProps extends TitlebarMenuProps {
   onNewConnection?: () => void;
   onNewWindow?: () => void;
+  onOpenNotebook?: () => void;
   onOpenSettings?: () => void;
   onQuit?: () => void;
 }
@@ -290,6 +302,7 @@ const MenuFile = ({
   onMouseEnter,
   onNewConnection,
   onNewWindow,
+  onOpenNotebook,
   onOpenSettings,
   onQuit,
 }: MenuFileProps) => (
@@ -303,7 +316,12 @@ const MenuFile = ({
         {t('titlebar.menu.file.label')}
       </Button>
     </DropdownMenuTrigger>
-    <DropdownMenuContent align="start" className="w-56">
+    <DropdownMenuContent
+      align="start"
+      disableExitAnimation
+      className="w-60"
+      onCloseAutoFocus={event => event.preventDefault()}
+    >
       <DropdownMenuItem onClick={onNewConnection} disabled={!onNewConnection}>
         <span>{t('titlebar.menu.file.newConnection')}</span>
         <DropdownMenuShortcut>{getShortcut('N')}</DropdownMenuShortcut>
@@ -311,6 +329,10 @@ const MenuFile = ({
       <DropdownMenuItem onClick={onNewWindow} disabled={!onNewWindow}>
         <span>{t('titlebar.menu.file.newWindow')}</span>
         <DropdownMenuShortcut>{getShortcut('N', { shift: true })}</DropdownMenuShortcut>
+      </DropdownMenuItem>
+      <DropdownMenuSeparator />
+      <DropdownMenuItem onClick={onOpenNotebook} disabled={!onOpenNotebook}>
+        <span>{t('titlebar.menu.file.openNotebook')}</span>
       </DropdownMenuItem>
       <DropdownMenuSeparator />
       <DropdownMenuItem onClick={onOpenSettings} disabled={!onOpenSettings}>
@@ -333,6 +355,7 @@ interface MenuViewProps extends TitlebarMenuProps {
   onToggleSidebar?: () => void;
   onOpenLogs?: () => void;
   onToggleZenMode?: () => void;
+  onShowKeyboardShortcuts?: () => void;
 }
 
 const MenuView = ({
@@ -343,6 +366,7 @@ const MenuView = ({
   onToggleSidebar,
   onOpenLogs,
   onToggleZenMode,
+  onShowKeyboardShortcuts,
 }: MenuViewProps) => (
   <DropdownMenu open={isOpen} onOpenChange={onOpenChange} modal={false}>
     <DropdownMenuTrigger asChild onMouseEnter={onMouseEnter}>
@@ -354,7 +378,12 @@ const MenuView = ({
         {t('titlebar.menu.view.label')}
       </Button>
     </DropdownMenuTrigger>
-    <DropdownMenuContent align="start" className="w-56">
+    <DropdownMenuContent
+      align="start"
+      disableExitAnimation
+      className="w-56"
+      onCloseAutoFocus={event => event.preventDefault()}
+    >
       <DropdownMenuItem onClick={onToggleSidebar} disabled={!onToggleSidebar}>
         <span>{t('titlebar.menu.view.explorer')}</span>
         <DropdownMenuShortcut>{getShortcut('B')}</DropdownMenuShortcut>
@@ -367,6 +396,11 @@ const MenuView = ({
       <DropdownMenuItem onClick={onToggleZenMode} disabled={!onToggleZenMode}>
         <span>{t('titlebar.menu.view.zenMode')}</span>
         <DropdownMenuShortcut>{getShortcut('K')} Z</DropdownMenuShortcut>
+      </DropdownMenuItem>
+      <DropdownMenuSeparator />
+      <DropdownMenuItem onClick={onShowKeyboardShortcuts}>
+        <span>{t('titlebar.menu.view.keyboardShortcuts')}</span>
+        <DropdownMenuShortcut>?</DropdownMenuShortcut>
       </DropdownMenuItem>
     </DropdownMenuContent>
   </DropdownMenu>
@@ -397,7 +431,12 @@ const MenuData = ({
         {t('titlebar.menu.data.label')}
       </Button>
     </DropdownMenuTrigger>
-    <DropdownMenuContent align="start" className="w-56">
+    <DropdownMenuContent
+      align="start"
+      disableExitAnimation
+      className="w-56"
+      onCloseAutoFocus={event => event.preventDefault()}
+    >
       <DropdownMenuItem onClick={onRefreshData} disabled={!onRefreshData}>
         <span>{t('titlebar.menu.data.refresh')}</span>
         <DropdownMenuShortcut>{getShortcut('R')}</DropdownMenuShortcut>
@@ -441,7 +480,12 @@ const MenuTools = ({
         {t('titlebar.menu.tools.label')}
       </Button>
     </DropdownMenuTrigger>
-    <DropdownMenuContent align="start" className="w-56">
+    <DropdownMenuContent
+      align="start"
+      disableExitAnimation
+      className="w-56"
+      onCloseAutoFocus={event => event.preventDefault()}
+    >
       <DropdownMenuItem onClick={onOpenHistory} disabled={!onOpenHistory}>
         <span>{t('titlebar.menu.tools.history')}</span>
       </DropdownMenuItem>
@@ -526,6 +570,7 @@ const UpdateButton = () => {
 const NotificationBell = () => {
   const { t } = useTranslation();
   const badgeCount = useNotificationBadge();
+  const hasChangelog = useHasUnseenChangelog();
 
   return (
     <Popover>
@@ -541,6 +586,9 @@ const NotificationBell = () => {
             <span className="absolute -top-0.5 -right-0.5 min-w-3.5 h-3.5 px-1 text-[9px] font-medium bg-red-500 text-white rounded-full flex items-center justify-center">
               {badgeCount > 9 ? '9+' : badgeCount}
             </span>
+          )}
+          {badgeCount === 0 && hasChangelog && (
+            <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-accent rounded-full" />
           )}
         </Button>
       </PopoverTrigger>

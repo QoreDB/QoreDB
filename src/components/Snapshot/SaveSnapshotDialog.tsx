@@ -115,11 +115,13 @@ export function SaveSnapshotDialog({
           <div className="rounded-md border border-border bg-muted/30 p-3 text-xs text-muted-foreground space-y-1">
             <div>
               <span className="font-medium text-foreground">{t('snapshots.source')}:</span>{' '}
-              <span className="font-mono">{source.length > 80 ? `${source.slice(0, 80)}...` : source}</span>
+              <span className="font-mono">
+                {source.length > 80 ? `${source.slice(0, 80)}...` : source}
+              </span>
             </div>
             <div>
-              {t('snapshots.rows', { count: result.rows.length })} &middot;{' '}
-              {result.columns.length} {t('snapshots.columns').toLowerCase()}
+              {t('snapshots.rows', { count: result.rows.length })} &middot; {result.columns.length}{' '}
+              {t('snapshots.columns').toLowerCase()}
             </div>
             {connectionName && (
               <div>

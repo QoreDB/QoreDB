@@ -60,9 +60,17 @@ fn validate_mongo_query(query: &str) -> SafetyInfo {
 
     // Mutation patterns
     let mutation_patterns = [
-        "insertone", "insertmany", "updateone", "updatemany",
-        "deleteone", "deletemany", "replaceone", "bulkwrite",
-        "findoneandupdate", "findoneandreplace", "findoneanddelete",
+        "insertone",
+        "insertmany",
+        "updateone",
+        "updatemany",
+        "deleteone",
+        "deletemany",
+        "replaceone",
+        "bulkwrite",
+        "findoneandupdate",
+        "findoneandreplace",
+        "findoneanddelete",
     ];
     for pattern in &mutation_patterns {
         if lower.contains(pattern) {
@@ -73,8 +81,12 @@ fn validate_mongo_query(query: &str) -> SafetyInfo {
 
     // Dangerous patterns
     let dangerous_patterns = [
-        "deletemany({})", "deletemany( {} )", "deletemany()",
-        ".drop(", "dropdatabase", "dropcollection",
+        "deletemany({})",
+        "deletemany( {} )",
+        "deletemany()",
+        ".drop(",
+        "dropdatabase",
+        "dropcollection",
     ];
     for pattern in &dangerous_patterns {
         if lower.replace(' ', "").contains(&pattern.replace(' ', "")) {
@@ -105,8 +117,8 @@ fn validate_redis_query(query: &str) -> SafetyInfo {
 
     // Mutation commands
     let mutation_cmds = [
-        "set ", "del ", "hset ", "lpush ", "rpush ", "sadd ",
-        "zadd ", "expire ", "rename ", "persist ", "incr ", "decr ",
+        "set ", "del ", "hset ", "lpush ", "rpush ", "sadd ", "zadd ", "expire ", "rename ",
+        "persist ", "incr ", "decr ",
     ];
     for cmd in &mutation_cmds {
         if lower.starts_with(cmd) || lower.contains(&format!("\n{}", cmd)) {

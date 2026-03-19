@@ -23,32 +23,34 @@ pub struct VaultLock {
 
 impl VaultLock {
     pub fn new(provider: Box<dyn CredentialProvider>) -> Self {
-        Self { 
+        Self {
             is_unlocked: false,
             provider,
         }
     }
 
     fn master_key_params(&self) -> (String, String) {
-        let service = std::env::var("QOREDB_VAULT_SERVICE").unwrap_or_else(|_| SERVICE_NAME.to_string());
-        let key = std::env::var("QOREDB_VAULT_MASTER_KEY").unwrap_or_else(|_| MASTER_PASSWORD_KEY.to_string());
+        let service =
+            std::env::var("QOREDB_VAULT_SERVICE").unwrap_or_else(|_| SERVICE_NAME.to_string());
+        let key = std::env::var("QOREDB_VAULT_MASTER_KEY")
+            .unwrap_or_else(|_| MASTER_PASSWORD_KEY.to_string());
         (service, key)
     }
 
     /// Checks if a master password has been set
     pub fn has_master_password(&self) -> EngineResult<bool> {
         let (service, key) = self.master_key_params();
-        
+
         match self.provider.get_password(&service, &key) {
             Ok(_) => Ok(true),
             Err(e) if e.to_string().contains("not found") => Ok(false),
             Err(e) if e.to_string().contains("NoEntry") => Ok(false),
             Err(e) if e.to_string().contains("internal") => {
-                 if e.to_string().contains("Credentials not found") {
-                     return Ok(false);
-                 }
-                 Err(e)
-            },
+                if e.to_string().contains("Credentials not found") {
+                    return Ok(false);
+                }
+                Err(e)
+            }
             Err(e) => Err(e),
         }
     }
@@ -57,7 +59,7 @@ impl VaultLock {
     pub fn setup_master_password(&mut self, password: &str) -> EngineResult<()> {
         let salt = SaltString::generate(&mut OsRng);
         let argon2 = Argon2::default();
-        
+
         let hash = argon2
             .hash_password(password.as_bytes(), &salt)
             .map_err(|e| EngineError::internal(format!("Hashing error: {}", e)))?
@@ -66,8 +68,11 @@ impl VaultLock {
         // Store the hash
         let (service, key) = self.master_key_params();
 
-        self.provider.set_password(&service, &key, &hash)
-             .map_err(|e| EngineError::internal(format!("Failed to store master password: {}", e)))?;
+        self.provider
+            .set_password(&service, &key, &hash)
+            .map_err(|e| {
+                EngineError::internal(format!("Failed to store master password: {}", e))
+            })?;
 
         self.is_unlocked = true;
         Ok(())
@@ -77,15 +82,20 @@ impl VaultLock {
     pub fn unlock(&mut self, password: &str) -> EngineResult<bool> {
         let (service, key) = self.master_key_params();
 
-        let stored_hash = self.provider.get_password(&service, &key)
-             .map_err(|e| EngineError::internal(format!("No master password set: {}", e)))?;
+        let stored_hash = self
+            .provider
+            .get_password(&service, &key)
+            .map_err(|e| EngineError::internal(format!("No master password set: {}", e)))?;
 
         let parsed_hash = PasswordHash::new(&stored_hash)
             .map_err(|e| EngineError::internal(format!("Invalid stored hash: {}", e)))?;
 
         let argon2 = Argon2::default();
-        
-        if argon2.verify_password(password.as_bytes(), &parsed_hash).is_ok() {
+
+        if argon2
+            .verify_password(password.as_bytes(), &parsed_hash)
+            .is_ok()
+        {
             self.is_unlocked = true;
             Ok(true)
         } else {
@@ -117,7 +127,8 @@ impl VaultLock {
 
         let (service, key) = self.master_key_params();
 
-        self.provider.delete_password(&service, &key)
+        self.provider
+            .delete_password(&service, &key)
             .map_err(|e| EngineError::internal(format!("Failed to delete: {}", e)))?;
 
         self.is_unlocked = true; // No password = always unlocked
@@ -136,8 +147,8 @@ impl VaultLock {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::{Mutex, OnceLock};
     use crate::vault::backend::MockProvider;
+    use std::sync::{Mutex, OnceLock};
 
     fn env_lock() -> &'static Mutex<()> {
         static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
@@ -149,7 +160,7 @@ mod tests {
         let _guard = env_lock().lock().expect("env lock poisoned");
         // Use MockProvider for testing
         let mut lock = VaultLock::new(Box::new(MockProvider::new()));
-        
+
         assert!(!lock.has_master_password()?);
 
         lock.setup_master_password("secret")?;

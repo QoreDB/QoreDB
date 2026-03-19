@@ -119,8 +119,7 @@ export function DatabaseBrowser({
 }: DatabaseBrowserProps) {
   const { t } = useTranslation();
   const terminology = getTerminology(driver);
-  // Stabilize namespace reference to prevent infinite re-render loops
-  // when parent creates a new object with same values each render
+
   const nsDatabase = namespace.database;
   const nsSchema = namespace.schema;
   const stableNamespace = useMemo<Namespace>(
@@ -138,8 +137,6 @@ export function DatabaseBrowser({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [createTableOpen, setCreateTableOpen] = useState(false);
-
-  // Search & Pagination
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
@@ -379,7 +376,7 @@ export function DatabaseBrowser({
   const iconSrc = `/databases/${DRIVER_ICONS[driver]}`;
 
   return (
-    <div className="flex flex-col h-full bg-background rounded-lg border border-border shadow-sm overflow-hidden">
+    <div className="flex flex-col h-full bg-background rounded-lg border border-border shadow-sm overflow-hidden isolate [contain:paint]">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/20">
         <div className="flex items-center gap-3">
@@ -389,10 +386,7 @@ export function DatabaseBrowser({
           <div>
             <h2 className="font-semibold text-foreground">{displayName}</h2>
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <ContentBreadcrumb
-                connectionName={connectionName}
-                namespace={namespace}
-              />
+              <ContentBreadcrumb connectionName={connectionName} namespace={namespace} />
               <span>•</span>
               <span>{DRIVER_LABELS[driver]}</span>
               <span>•</span>

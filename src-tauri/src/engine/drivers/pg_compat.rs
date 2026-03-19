@@ -12,26 +12,26 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Instant;
 
+use futures::StreamExt;
 use sqlx::pool::PoolConnection;
 use sqlx::postgres::{PgPool, PgPoolOptions, PgRow, Postgres};
 use sqlx::Row;
 use tokio::sync::{Mutex, RwLock};
-use futures::StreamExt;
 
-use crate::engine::error::{EngineError, EngineResult};
 use crate::engine::drivers::postgres_utils::{
     bind_param, collect_enum_type_oids, convert_row, get_column_info, load_enum_labels,
     EnumLabelMap,
 };
+use crate::engine::error::{EngineError, EngineResult};
 use crate::engine::sql_safety;
 use crate::engine::traits::{StreamEvent, StreamSender};
 use crate::engine::types::{
-    CancelSupport, ColumnInfo, ConnectionConfig, ForeignKey, Namespace,
-    PaginatedQueryResult, QueryId, QueryResult, Row as QRow, RowData,
-    SessionId, SortDirection, FilterOperator, TableColumn, TableIndex,
-    TableSchema, TableQueryOptions, Value,
-    Routine, RoutineList, RoutineListOptions, RoutineType, RoutineDefinition, RoutineOperationResult,
-    Trigger, TriggerList, TriggerListOptions, TriggerTiming, TriggerEvent, TriggerDefinition, TriggerOperationResult,
+    CancelSupport, ColumnInfo, ConnectionConfig, FilterOperator, ForeignKey, Namespace,
+    PaginatedQueryResult, QueryId, QueryResult, Routine, RoutineDefinition, RoutineList,
+    RoutineListOptions, RoutineOperationResult, RoutineType, Row as QRow, RowData, SessionId,
+    SortDirection, TableColumn, TableIndex, TableQueryOptions, TableSchema, Trigger,
+    TriggerDefinition, TriggerEvent, TriggerList, TriggerListOptions, TriggerOperationResult,
+    TriggerTiming, Value,
 };
 
 // =============================================================================
@@ -367,7 +367,10 @@ async fn rows_to_result(
     } else {
         HashMap::new()
     };
-    let rows: Vec<QRow> = pg_rows.iter().map(|r| convert_row(r, &enum_labels)).collect();
+    let rows: Vec<QRow> = pg_rows
+        .iter()
+        .map(|r| convert_row(r, &enum_labels))
+        .collect();
     Ok(QueryResult {
         columns,
         rows,
@@ -403,8 +406,11 @@ pub async fn execute_stream_in_namespace(
         .unwrap_or_else(|_| sql_safety::is_select_prefix(query));
 
     if !returns_rows {
-        let result = execute_in_namespace(sessions, driver_id, session, namespace, query, query_id).await?;
-        let _ = sender.send(StreamEvent::Done(result.affected_rows.unwrap_or(0))).await;
+        let result =
+            execute_in_namespace(sessions, driver_id, session, namespace, query, query_id).await?;
+        let _ = sender
+            .send(StreamEvent::Done(result.affected_rows.unwrap_or(0)))
+            .await;
         return Ok(());
     }
 
@@ -425,7 +431,11 @@ pub async fn execute_stream_in_namespace(
             Ok(pg_row) => {
                 if !columns_sent {
                     let columns = get_column_info(&pg_row);
-                    if sender.send(StreamEvent::Columns(columns.clone())).await.is_err() {
+                    if sender
+                        .send(StreamEvent::Columns(columns.clone()))
+                        .await
+                        .is_err()
+                    {
                         break;
                     }
                     columns_sent = true;
@@ -544,9 +554,7 @@ pub async fn begin_transaction(sessions: &SessionMap, session: SessionId) -> Eng
     sqlx::query("BEGIN")
         .execute(&mut *conn)
         .await
-        .map_err(|e| {
-            EngineError::execution_error(format!("Failed to begin transaction: {}", e))
-        })?;
+        .map_err(|e| EngineError::execution_error(format!("Failed to begin transaction: {}", e)))?;
 
     *tx = Some(conn);
     Ok(())
@@ -1167,13 +1175,15 @@ pub async fn describe_table_core(
 
     let columns: Vec<TableColumn> = column_rows
         .into_iter()
-        .map(|(name, data_type, is_nullable, default_value)| TableColumn {
-            is_primary_key: pk_columns.contains(&name),
-            name,
-            data_type,
-            nullable: is_nullable == "YES",
-            default_value,
-        })
+        .map(
+            |(name, data_type, is_nullable, default_value)| TableColumn {
+                is_primary_key: pk_columns.contains(&name),
+                name,
+                data_type,
+                nullable: is_nullable == "YES",
+                default_value,
+            },
+        )
         .collect();
 
     // Row count estimation
@@ -1200,7 +1210,13 @@ pub async fn describe_table_core(
 
         let (n_live_tup, reltuples, total_bytes) = stats.unwrap_or((None, None, 0));
         let est = n_live_tup.or_else(|| {
-            reltuples.and_then(|r| if r >= 0.0 { Some(r.floor() as i64) } else { None })
+            reltuples.and_then(|r| {
+                if r >= 0.0 {
+                    Some(r.floor() as i64)
+                } else {
+                    None
+                }
+            })
         });
         (est, total_bytes)
     } else {
@@ -1221,8 +1237,13 @@ pub async fn describe_table_core(
         .map_err(|e| EngineError::execution_error(e.to_string()))?;
 
         let (reltuples, total_bytes) = stats.unwrap_or((None, 0));
-        let est =
-            reltuples.and_then(|r| if r >= 0.0 { Some(r.floor() as i64) } else { None });
+        let est = reltuples.and_then(|r| {
+            if r >= 0.0 {
+                Some(r.floor() as i64)
+            } else {
+                None
+            }
+        });
         (est, total_bytes)
     };
 
@@ -1429,21 +1450,26 @@ pub async fn get_routine_definition(
 
     let args_bind = arguments.unwrap_or("");
 
-    let row: (String, Option<String>, Option<String>, String, Option<String>) =
-        sqlx::query_as(query)
-            .bind(schema)
-            .bind(routine_name)
-            .bind(kind_filter)
-            .bind(args_bind)
-            .fetch_optional(pool)
-            .await
-            .map_err(|e| EngineError::execution_error(e.to_string()))?
-            .ok_or_else(|| {
-                EngineError::execution_error(format!(
-                    "Routine '{}' not found in schema '{}'",
-                    routine_name, schema
-                ))
-            })?;
+    let row: (
+        String,
+        Option<String>,
+        Option<String>,
+        String,
+        Option<String>,
+    ) = sqlx::query_as(query)
+        .bind(schema)
+        .bind(routine_name)
+        .bind(kind_filter)
+        .bind(args_bind)
+        .fetch_optional(pool)
+        .await
+        .map_err(|e| EngineError::execution_error(e.to_string()))?
+        .ok_or_else(|| {
+            EngineError::execution_error(format!(
+                "Routine '{}' not found in schema '{}'",
+                routine_name, schema
+            ))
+        })?;
 
     let (name, def, lang, args, ret) = row;
     Ok(RoutineDefinition {
@@ -1553,8 +1579,8 @@ pub async fn list_triggers(
 
     let triggers = rows
         .into_iter()
-        .map(|(name, table_name, tg_type, enabled_char, function_name)| {
-            Trigger {
+        .map(
+            |(name, table_name, tg_type, enabled_char, function_name)| Trigger {
                 namespace: namespace.clone(),
                 name,
                 table_name,
@@ -1562,8 +1588,8 @@ pub async fn list_triggers(
                 events: decode_trigger_events(tg_type),
                 enabled: enabled_char != "D",
                 function_name: Some(function_name),
-            }
-        })
+            },
+        )
         .collect();
 
     Ok(TriggerList {

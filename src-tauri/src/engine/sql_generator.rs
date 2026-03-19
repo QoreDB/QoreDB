@@ -78,17 +78,27 @@ impl SqlDialect {
         match self {
             SqlDialect::Postgres => {
                 let schema = namespace.schema.as_deref().unwrap_or("public");
-                format!("{}.{}", self.quote_ident(schema), self.quote_ident(table_name))
+                format!(
+                    "{}.{}",
+                    self.quote_ident(schema),
+                    self.quote_ident(table_name)
+                )
             }
             SqlDialect::MySql => {
-                format!("{}.{}", self.quote_ident(&namespace.database), self.quote_ident(table_name))
+                format!(
+                    "{}.{}",
+                    self.quote_ident(&namespace.database),
+                    self.quote_ident(table_name)
+                )
             }
-            SqlDialect::Sqlite => {
-                self.quote_ident(table_name)
-            }
+            SqlDialect::Sqlite => self.quote_ident(table_name),
             SqlDialect::SqlServer => {
                 let schema = namespace.schema.as_deref().unwrap_or("dbo");
-                format!("{}.{}", self.quote_ident(schema), self.quote_ident(table_name))
+                format!(
+                    "{}.{}",
+                    self.quote_ident(schema),
+                    self.quote_ident(table_name)
+                )
             }
         }
     }
@@ -97,20 +107,23 @@ impl SqlDialect {
     pub fn format_value(&self, value: &Value) -> String {
         match value {
             Value::Null => "NULL".to_string(),
-            Value::Bool(b) => {
-                match self {
-                    SqlDialect::Postgres => if *b { "TRUE" } else { "FALSE" }.to_string(),
-                    SqlDialect::MySql => if *b { "1" } else { "0" }.to_string(),
-                    SqlDialect::Sqlite => if *b { "1" } else { "0" }.to_string(),
-                    SqlDialect::SqlServer => if *b { "1" } else { "0" }.to_string(),
-                }
-            }
+            Value::Bool(b) => match self {
+                SqlDialect::Postgres => if *b { "TRUE" } else { "FALSE" }.to_string(),
+                SqlDialect::MySql => if *b { "1" } else { "0" }.to_string(),
+                SqlDialect::Sqlite => if *b { "1" } else { "0" }.to_string(),
+                SqlDialect::SqlServer => if *b { "1" } else { "0" }.to_string(),
+            },
             Value::Int(i) => i.to_string(),
             Value::Float(f) => {
                 if f.is_nan() {
                     "'NaN'".to_string()
                 } else if f.is_infinite() {
-                    if *f > 0.0 { "'Infinity'" } else { "'-Infinity'" }.to_string()
+                    if *f > 0.0 {
+                        "'Infinity'"
+                    } else {
+                        "'-Infinity'"
+                    }
+                    .to_string()
                 } else {
                     format!("{}", f)
                 }
@@ -125,7 +138,8 @@ impl SqlDialect {
                 match self {
                     SqlDialect::Postgres => {
                         // PostgreSQL array literal
-                        let elements: Vec<String> = arr.iter().map(|v| self.format_value(v)).collect();
+                        let elements: Vec<String> =
+                            arr.iter().map(|v| self.format_value(v)).collect();
                         format!("ARRAY[{}]", elements.join(", "))
                     }
                     SqlDialect::MySql | SqlDialect::Sqlite | SqlDialect::SqlServer => {
@@ -264,7 +278,11 @@ pub fn generate_update(
     let set_parts: Vec<String> = data
         .iter()
         .map(|(col, val)| {
-            format!("{} = {}", dialect.quote_ident(col), dialect.format_value(val))
+            format!(
+                "{} = {}",
+                dialect.quote_ident(col),
+                dialect.format_value(val)
+            )
         })
         .collect();
 
@@ -273,7 +291,11 @@ pub fn generate_update(
         .columns
         .iter()
         .map(|(col, val)| {
-            format!("{} = {}", dialect.quote_ident(col), dialect.format_value(val))
+            format!(
+                "{} = {}",
+                dialect.quote_ident(col),
+                dialect.format_value(val)
+            )
         })
         .collect();
 
@@ -303,7 +325,11 @@ pub fn generate_delete(
         .columns
         .iter()
         .map(|(col, val)| {
-            format!("{} = {}", dialect.quote_ident(col), dialect.format_value(val))
+            format!(
+                "{} = {}",
+                dialect.quote_ident(col),
+                dialect.format_value(val)
+            )
         })
         .collect();
 
@@ -315,42 +341,59 @@ pub fn generate_delete(
 }
 
 /// Generate a MongoDB operation string (for display purposes)
-pub fn generate_mongo_operation(
-    change: &SandboxChangeDto,
-) -> String {
+pub fn generate_mongo_operation(change: &SandboxChangeDto) -> String {
     let collection = &change.table_name;
     let db = &change.namespace.database;
 
     match change.change_type {
         SandboxChangeType::Insert => {
-            let doc = change.new_values.as_ref()
+            let doc = change
+                .new_values
+                .as_ref()
                 .map(|v| serde_json::to_string_pretty(v).unwrap_or_else(|_| "{}".to_string()))
                 .unwrap_or_else(|| "{}".to_string());
-            format!("db.getSiblingDB(\"{}\").{}.insertOne({})", db, collection, doc)
+            format!(
+                "db.getSiblingDB(\"{}\").{}.insertOne({})",
+                db, collection, doc
+            )
         }
         SandboxChangeType::Update => {
-            let filter = change.primary_key.as_ref()
+            let filter = change
+                .primary_key
+                .as_ref()
                 .map(|pk| serde_json::to_string(&pk.columns).unwrap_or_else(|_| "{}".to_string()))
                 .unwrap_or_else(|| "{}".to_string());
-            let update = change.new_values.as_ref()
-                .map(|v| format!("{{ $set: {} }}", serde_json::to_string(v).unwrap_or_else(|_| "{}".to_string())))
+            let update = change
+                .new_values
+                .as_ref()
+                .map(|v| {
+                    format!(
+                        "{{ $set: {} }}",
+                        serde_json::to_string(v).unwrap_or_else(|_| "{}".to_string())
+                    )
+                })
                 .unwrap_or_else(|| "{ $set: {} }".to_string());
-            format!("db.getSiblingDB(\"{}\").{}.updateOne({}, {})", db, collection, filter, update)
+            format!(
+                "db.getSiblingDB(\"{}\").{}.updateOne({}, {})",
+                db, collection, filter, update
+            )
         }
         SandboxChangeType::Delete => {
-            let filter = change.primary_key.as_ref()
+            let filter = change
+                .primary_key
+                .as_ref()
                 .map(|pk| serde_json::to_string(&pk.columns).unwrap_or_else(|_| "{}".to_string()))
                 .unwrap_or_else(|| "{}".to_string());
-            format!("db.getSiblingDB(\"{}\").{}.deleteOne({})", db, collection, filter)
+            format!(
+                "db.getSiblingDB(\"{}\").{}.deleteOne({})",
+                db, collection, filter
+            )
         }
     }
 }
 
 /// Generate a complete migration script from a list of changes
-pub fn generate_migration_script(
-    driver_id: &str,
-    changes: &[SandboxChangeDto],
-) -> MigrationScript {
+pub fn generate_migration_script(driver_id: &str, changes: &[SandboxChangeDto]) -> MigrationScript {
     let mut statements: Vec<String> = Vec::new();
     let mut warnings: Vec<String> = Vec::new();
 
@@ -371,7 +414,10 @@ pub fn generate_migration_script(
     let dialect = match SqlDialect::from_driver_id(driver_id) {
         Some(d) => d,
         None => {
-            warnings.push(format!("Unknown driver '{}', defaulting to PostgreSQL syntax", driver_id));
+            warnings.push(format!(
+                "Unknown driver '{}', defaulting to PostgreSQL syntax",
+                driver_id
+            ));
             SqlDialect::Postgres
         }
     };
@@ -380,14 +426,27 @@ pub fn generate_migration_script(
         let stmt_result = match change.change_type {
             SandboxChangeType::Insert => {
                 if let Some(ref new_values) = change.new_values {
-                    Ok(generate_insert(dialect, &change.namespace, &change.table_name, new_values))
+                    Ok(generate_insert(
+                        dialect,
+                        &change.namespace,
+                        &change.table_name,
+                        new_values,
+                    ))
                 } else {
                     Err("INSERT missing new_values".to_string())
                 }
             }
             SandboxChangeType::Update => {
-                if let (Some(ref pk), Some(ref new_values)) = (&change.primary_key, &change.new_values) {
-                    generate_update(dialect, &change.namespace, &change.table_name, pk, new_values)
+                if let (Some(ref pk), Some(ref new_values)) =
+                    (&change.primary_key, &change.new_values)
+                {
+                    generate_update(
+                        dialect,
+                        &change.namespace,
+                        &change.table_name,
+                        pk,
+                        new_values,
+                    )
                 } else {
                     Err("UPDATE missing primary_key or new_values".to_string())
                 }
@@ -413,20 +472,20 @@ pub fn generate_migration_script(
 
     // Add transaction wrapper comment
     let header = match dialect {
-        SqlDialect::Postgres => "-- PostgreSQL Migration Script\n-- Generated by QoreDB Sandbox\n\n",
+        SqlDialect::Postgres => {
+            "-- PostgreSQL Migration Script\n-- Generated by QoreDB Sandbox\n\n"
+        }
         SqlDialect::MySql => "-- MySQL Migration Script\n-- Generated by QoreDB Sandbox\n\n",
         SqlDialect::Sqlite => "-- SQLite Migration Script\n-- Generated by QoreDB Sandbox\n\n",
-        SqlDialect::SqlServer => "-- SQL Server Migration Script\n-- Generated by QoreDB Sandbox\n\n",
+        SqlDialect::SqlServer => {
+            "-- SQL Server Migration Script\n-- Generated by QoreDB Sandbox\n\n"
+        }
     };
 
     let sql = if statements.is_empty() {
         format!("{}-- No changes to apply", header)
     } else {
-        format!(
-            "{}BEGIN;\n\n{}\n\nCOMMIT;",
-            header,
-            statements.join("\n")
-        )
+        format!("{}BEGIN;\n\n{}\n\nCOMMIT;", header, statements.join("\n"))
     };
 
     MigrationScript {
@@ -457,8 +516,14 @@ mod tests {
     #[test]
     fn test_format_value_string() {
         let dialect = SqlDialect::Postgres;
-        assert_eq!(dialect.format_value(&Value::Text("hello".to_string())), "'hello'");
-        assert_eq!(dialect.format_value(&Value::Text("it's".to_string())), "'it''s'");
+        assert_eq!(
+            dialect.format_value(&Value::Text("hello".to_string())),
+            "'hello'"
+        );
+        assert_eq!(
+            dialect.format_value(&Value::Text("it's".to_string())),
+            "'it''s'"
+        );
     }
 
     #[test]

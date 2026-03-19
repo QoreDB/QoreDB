@@ -4,10 +4,10 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Instant;
 
+use tauri::Emitter;
 use tokio::sync::RwLock;
 use tokio::time::{timeout, Duration};
 use tokio_util::sync::CancellationToken;
-use tauri::Emitter;
 
 use crate::engine::traits::{DataEngine, StreamEvent};
 use crate::engine::types::{ColumnInfo, QueryId, SessionId};
@@ -44,6 +44,7 @@ impl ExportPipeline {
         if config.output_path.trim().is_empty() {
             return Err("Output path is required for export".to_string());
         }
+        validate_output_path(&config.output_path)?;
 
         if matches!(config.format, ExportFormat::SqlInsert)
             && config
@@ -71,7 +72,12 @@ impl ExportPipeline {
             if jobs.contains_key(&export_id) {
                 return Err("Export already in progress".to_string());
             }
-            jobs.insert(export_id.clone(), ExportJob { cancel: cancel.clone() });
+            jobs.insert(
+                export_id.clone(),
+                ExportJob {
+                    cancel: cancel.clone(),
+                },
+            );
         }
 
         let pipeline = Arc::clone(&self);
@@ -179,12 +185,23 @@ async fn run_export_task(
 
     let mut driver_task = tokio::spawn({
         let driver = Arc::clone(&driver);
-        async move { driver.execute_stream_in_namespace(session_id, namespace, &query, query_id, sender).await }
+        async move {
+            driver
+                .execute_stream_in_namespace(session_id, namespace, &query, query_id, sender)
+                .await
+        }
     });
 
     emit_progress(
         &window,
-        build_progress(&export_id, ExportState::Running, 0, writer.bytes_written(), start_time, None),
+        build_progress(
+            &export_id,
+            ExportState::Running,
+            0,
+            writer.bytes_written(),
+            start_time,
+            None,
+        ),
     );
 
     let batch_size = config.batch_size.unwrap_or(1000).max(1) as u64;
@@ -265,7 +282,10 @@ async fn run_export_task(
     }
 
     if matches!(state, ExportState::Cancelled | ExportState::Failed) || cancel_requested {
-        if timeout(Duration::from_secs(2), &mut driver_task).await.is_err() {
+        if timeout(Duration::from_secs(2), &mut driver_task)
+            .await
+            .is_err()
+        {
             driver_task.abort();
         }
     } else if matches!(state, ExportState::Running) {
@@ -339,4 +359,50 @@ fn build_progress(
 
 fn emit_progress(window: &tauri::Window, progress: ExportProgress) {
     let _ = window.emit(&format!("export_progress:{}", progress.export_id), progress);
+}
+
+/// Validate that an export output path is safe (absolute, no traversal, parent exists).
+fn validate_output_path(path: &str) -> Result<(), String> {
+    let path = std::path::Path::new(path);
+
+    if !path.is_absolute() {
+        return Err("Export output path must be absolute".to_string());
+    }
+
+    for component in path.components() {
+        if matches!(component, std::path::Component::ParentDir) {
+            return Err("Export output path must not contain '..' components".to_string());
+        }
+    }
+
+    if let Some(parent) = path.parent() {
+        if !parent.exists() {
+            return Err(format!(
+                "Parent directory does not exist: {}",
+                parent.display()
+            ));
+        }
+    }
+
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn rejects_relative_export_path() {
+        assert!(validate_output_path("data/output.csv").is_err());
+    }
+
+    #[test]
+    fn rejects_path_with_parent_traversal() {
+        assert!(validate_output_path("/home/user/../../../etc/passwd").is_err());
+    }
+
+    #[test]
+    fn accepts_valid_absolute_path() {
+        assert!(validate_output_path("/tmp/export.csv").is_ok());
+    }
 }

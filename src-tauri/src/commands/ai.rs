@@ -103,9 +103,7 @@ use crate::ai::provider::extract_query_from_response;
 #[cfg(feature = "pro")]
 use crate::ai::safety::validate_generated_query;
 #[cfg(feature = "pro")]
-use crate::ai::types::{
-    AiAction, AiConfig, AiProvider, AiRequest, AiResponse, AiStreamChunk,
-};
+use crate::ai::types::{AiAction, AiConfig, AiProvider, AiRequest, AiResponse, AiStreamChunk};
 #[cfg(feature = "pro")]
 use crate::engine::types::{Namespace, SessionId};
 
@@ -240,13 +238,9 @@ pub async fn ai_summarize_schema(
 
     let user_prompt = "Summarize this database schema in a clear and concise way. Describe the main tables, their purposes, and the relationships between them.";
 
-    let content = collect_streamed_response(
-        &ai_manager,
-        &config,
-        &schema_ctx.system_prompt,
-        user_prompt,
-    )
-    .await?;
+    let content =
+        collect_streamed_response(&ai_manager, &config, &schema_ctx.system_prompt, user_prompt)
+            .await?;
 
     Ok(AiResponse {
         request_id: Uuid::new_v4().to_string(),

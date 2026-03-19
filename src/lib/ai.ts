@@ -11,7 +11,13 @@ import type { Namespace } from './tauri';
 // TYPES
 // ============================================
 
-export type AiProvider = 'open_ai' | 'anthropic' | 'ollama';
+export type AiProvider =
+  | 'open_ai'
+  | 'anthropic'
+  | 'mistral_ai'
+  | 'google_gemini'
+  | 'deep_seek'
+  | 'ollama';
 
 export type AiAction = 'generate_query' | 'explain_result' | 'summarize_schema' | 'fix_error';
 
@@ -60,10 +66,16 @@ export interface AiResponse {
   tokens_used?: number;
 }
 
+export interface AiModelInfo {
+  id: string;
+  label: string;
+}
+
 export interface AiProviderStatus {
   provider: AiProvider;
   has_key: boolean;
-  model?: string;
+  default_model: string;
+  models: AiModelInfo[];
   base_url?: string;
 }
 
@@ -71,20 +83,80 @@ export interface AiProviderStatus {
 // PROVIDER DISPLAY INFO
 // ============================================
 
-export const AI_PROVIDERS: {
+export interface AiProviderInfo {
   id: AiProvider;
   label: string;
-  defaultModel: string;
+  models: AiModelInfo[];
   requiresKey: boolean;
-}[] = [
-  { id: 'open_ai', label: 'OpenAI', defaultModel: 'gpt-4.1', requiresKey: true },
+}
+
+export const AI_PROVIDERS: AiProviderInfo[] = [
+  {
+    id: 'open_ai',
+    label: 'OpenAI',
+    requiresKey: true,
+    models: [
+      { id: 'gpt-4.1', label: 'GPT-4.1' },
+      { id: 'gpt-4.1-mini', label: 'GPT-4.1 Mini' },
+      { id: 'gpt-4.1-nano', label: 'GPT-4.1 Nano' },
+      { id: 'o4-mini', label: 'o4-mini' },
+      { id: 'o3-mini', label: 'o3-mini' },
+    ],
+  },
   {
     id: 'anthropic',
     label: 'Anthropic',
-    defaultModel: 'claude-sonnet-4-20250514',
     requiresKey: true,
+    models: [
+      { id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6' },
+      { id: 'claude-sonnet-4-20250514', label: 'Claude Sonnet 4' },
+      { id: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5' },
+    ],
   },
-  { id: 'ollama', label: 'Ollama', defaultModel: 'llama3', requiresKey: false },
+  {
+    id: 'mistral_ai',
+    label: 'Mistral AI',
+    requiresKey: true,
+    models: [
+      { id: 'mistral-large-latest', label: 'Mistral Large' },
+      { id: 'mistral-medium-latest', label: 'Mistral Medium' },
+      { id: 'mistral-small-latest', label: 'Mistral Small' },
+      { id: 'codestral-latest', label: 'Codestral' },
+      { id: 'pixtral-large-latest', label: 'Pixtral Large' },
+    ],
+  },
+  {
+    id: 'google_gemini',
+    label: 'Google Gemini',
+    requiresKey: true,
+    models: [
+      { id: 'gemini-2.5-pro-preview-05-06', label: 'Gemini 2.5 Pro' },
+      { id: 'gemini-2.5-flash-preview-05-20', label: 'Gemini 2.5 Flash' },
+      { id: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash' },
+    ],
+  },
+  {
+    id: 'deep_seek',
+    label: 'DeepSeek',
+    requiresKey: true,
+    models: [
+      { id: 'deepseek-chat', label: 'DeepSeek V3' },
+      { id: 'deepseek-reasoner', label: 'DeepSeek R1' },
+    ],
+  },
+  {
+    id: 'ollama',
+    label: 'Ollama',
+    requiresKey: false,
+    models: [
+      { id: 'llama3.3', label: 'Llama 3.3' },
+      { id: 'llama3.1', label: 'Llama 3.1' },
+      { id: 'qwen2.5-coder', label: 'Qwen 2.5 Coder' },
+      { id: 'deepseek-r1', label: 'DeepSeek R1' },
+      { id: 'codellama', label: 'Code Llama' },
+      { id: 'mistral', label: 'Mistral' },
+    ],
+  },
 ];
 
 // ============================================

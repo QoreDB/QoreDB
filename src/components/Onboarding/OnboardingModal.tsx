@@ -56,6 +56,9 @@ export function OnboardingModal({ onComplete }: OnboardingModalProps) {
   return (
     <motion.div
       className="fixed inset-0 z-50 flex items-center justify-center bg-background/95 backdrop-blur-sm p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="onboarding-title"
       initial={{ opacity: 0 }}
       animate={isExiting ? { opacity: 0 } : { opacity: 1 }}
       onAnimationComplete={() => {
@@ -97,7 +100,10 @@ export function OnboardingModal({ onComplete }: OnboardingModalProps) {
               >
                 <img src="/logo.png" alt="QoreDB" width={80} height={80} />
               </motion.div>
-              <h1 className="text-4xl font-bold bg-linear-to-r from-primary to-accent bg-clip-text text-transparent">
+              <h1
+                id="onboarding-title"
+                className="text-4xl font-bold bg-linear-to-r from-primary to-accent bg-clip-text text-transparent"
+              >
                 {t('onboarding.welcome.title')}
               </h1>
               <p className="text-xl text-muted-foreground max-w-md">

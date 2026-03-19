@@ -102,8 +102,13 @@ pub enum SshHostKeyPolicy {
 /// SSH authentication method
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum SshAuth {
-    Password { password: String },
-    Key { private_key_path: String, passphrase: Option<String> },
+    Password {
+        password: String,
+    },
+    Key {
+        private_key_path: String,
+        passphrase: Option<String>,
+    },
 }
 
 /// Query cancellation support level for a driver.
@@ -217,8 +222,8 @@ pub enum Value {
 }
 
 mod base64_bytes {
+    use base64::{engine::general_purpose::STANDARD, Engine};
     use serde::{Deserialize, Deserializer, Serializer};
-    use base64::{Engine, engine::general_purpose::STANDARD};
 
     pub fn serialize<S>(bytes: &Vec<u8>, serializer: S) -> Result<S::Ok, S::Error>
     where

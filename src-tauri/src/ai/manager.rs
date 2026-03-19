@@ -5,8 +5,11 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use super::provider::{AIProvider, AnthropicProvider, OllamaProvider, OpenAiProvider};
-use super::types::{AiProvider, AiProviderStatus};
+use super::provider::{
+    AIProvider, AnthropicProvider, DeepSeekProvider, GoogleGeminiProvider, MistralAiProvider,
+    OllamaProvider, OpenAiProvider,
+};
+use super::types::{AiModelInfoOwned, AiProvider, AiProviderStatus};
 use crate::vault::backend::CredentialProvider;
 
 const KEYRING_SERVICE: &str = "qoredb_ai";
@@ -21,6 +24,12 @@ impl AiManager {
         let mut providers: HashMap<String, Arc<dyn AIProvider>> = HashMap::new();
         providers.insert("openai".to_string(), Arc::new(OpenAiProvider::new()));
         providers.insert("anthropic".to_string(), Arc::new(AnthropicProvider::new()));
+        providers.insert("mistral_ai".to_string(), Arc::new(MistralAiProvider::new()));
+        providers.insert(
+            "google_gemini".to_string(),
+            Arc::new(GoogleGeminiProvider::new()),
+        );
+        providers.insert("deepseek".to_string(), Arc::new(DeepSeekProvider::new()));
         providers.insert("ollama".to_string(), Arc::new(OllamaProvider::new()));
 
         Self {
@@ -68,26 +77,34 @@ impl AiManager {
 
     /// List all providers with their configuration status
     pub fn list_configured_providers(&self) -> Vec<AiProviderStatus> {
-        vec![
-            AiProviderStatus {
-                provider: AiProvider::OpenAi,
-                has_key: self.has_api_key(&AiProvider::OpenAi),
-                model: Some(AiProvider::OpenAi.default_model().to_string()),
-                base_url: None,
-            },
-            AiProviderStatus {
-                provider: AiProvider::Anthropic,
-                has_key: self.has_api_key(&AiProvider::Anthropic),
-                model: Some(AiProvider::Anthropic.default_model().to_string()),
-                base_url: None,
-            },
-            AiProviderStatus {
-                provider: AiProvider::Ollama,
-                has_key: true, // Ollama never needs a key
-                model: Some(AiProvider::Ollama.default_model().to_string()),
-                base_url: AiProvider::Ollama.default_base_url().map(String::from),
-            },
-        ]
+        let all = [
+            AiProvider::OpenAi,
+            AiProvider::Anthropic,
+            AiProvider::MistralAi,
+            AiProvider::GoogleGemini,
+            AiProvider::DeepSeek,
+            AiProvider::Ollama,
+        ];
+
+        all.into_iter()
+            .map(|p| {
+                let models = p
+                    .available_models()
+                    .iter()
+                    .map(|m| AiModelInfoOwned {
+                        id: m.id.to_string(),
+                        label: m.label.to_string(),
+                    })
+                    .collect();
+                AiProviderStatus {
+                    has_key: self.has_api_key(&p),
+                    default_model: p.default_model().to_string(),
+                    models,
+                    base_url: p.default_base_url().map(String::from),
+                    provider: p,
+                }
+            })
+            .collect()
     }
 }
 
@@ -136,10 +153,13 @@ mod tests {
         let manager = AiManager::new(Box::new(MockProvider::new()));
         let list = manager.list_configured_providers();
 
-        assert_eq!(list.len(), 3);
+        assert_eq!(list.len(), 6);
         assert!(!list[0].has_key); // OpenAI — no key set
         assert!(!list[1].has_key); // Anthropic — no key set
-        assert!(list[2].has_key); // Ollama — always true
+        assert!(!list[2].has_key); // Mistral — no key set
+        assert!(!list[3].has_key); // Gemini — no key set
+        assert!(!list[4].has_key); // DeepSeek — no key set
+        assert!(list[5].has_key); // Ollama — always true
     }
 
     #[test]
@@ -148,6 +168,9 @@ mod tests {
 
         assert!(manager.get_provider(&AiProvider::OpenAi).is_some());
         assert!(manager.get_provider(&AiProvider::Anthropic).is_some());
+        assert!(manager.get_provider(&AiProvider::MistralAi).is_some());
+        assert!(manager.get_provider(&AiProvider::GoogleGemini).is_some());
+        assert!(manager.get_provider(&AiProvider::DeepSeek).is_some());
         assert!(manager.get_provider(&AiProvider::Ollama).is_some());
     }
 }

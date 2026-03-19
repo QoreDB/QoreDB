@@ -85,7 +85,8 @@ impl AIProvider for OpenAiProvider {
         if !response.status().is_success() {
             let status = response.status();
             let body = response.text().await.unwrap_or_default();
-            let msg = extract_api_error(&body).unwrap_or_else(|| format!("HTTP {}: {}", status, body));
+            let msg =
+                extract_api_error(&body).unwrap_or_else(|| format!("HTTP {}: {}", status, body));
             return Err(msg);
         }
 
@@ -179,7 +180,10 @@ impl AIProvider for AnthropicProvider {
             "stream": true
         });
 
-        debug!("Anthropic request: model={}, max_tokens={}", model, max_tokens);
+        debug!(
+            "Anthropic request: model={}, max_tokens={}",
+            model, max_tokens
+        );
 
         let response = self
             .client
@@ -195,7 +199,8 @@ impl AIProvider for AnthropicProvider {
         if !response.status().is_success() {
             let status = response.status();
             let body = response.text().await.unwrap_or_default();
-            let msg = extract_api_error(&body).unwrap_or_else(|| format!("HTTP {}: {}", status, body));
+            let msg =
+                extract_api_error(&body).unwrap_or_else(|| format!("HTTP {}: {}", status, body));
             return Err(msg);
         }
 
@@ -222,9 +227,7 @@ impl AIProvider for AnthropicProvider {
 
                         match event_type {
                             "content_block_delta" => {
-                                if let Some(text) =
-                                    parsed["delta"]["text"].as_str()
-                                {
+                                if let Some(text) = parsed["delta"]["text"].as_str() {
                                     let chunk = AiStreamChunk {
                                         request_id: request_id.clone(),
                                         delta: text.to_string(),
@@ -365,22 +368,324 @@ impl AIProvider for OllamaProvider {
     }
 }
 
+// ─── Mistral AI (OpenAI-compatible) ─────────────────────────
+
+pub struct MistralAiProvider {
+    client: Client,
+}
+
+impl MistralAiProvider {
+    pub fn new() -> Self {
+        Self {
+            client: Client::new(),
+        }
+    }
+}
+
+#[async_trait]
+impl AIProvider for MistralAiProvider {
+    fn provider_id(&self) -> &'static str {
+        "mistral_ai"
+    }
+
+    async fn stream(
+        &self,
+        api_key: &str,
+        system_prompt: &str,
+        user_prompt: &str,
+        config: &AiConfig,
+        sender: mpsc::Sender<AiStreamChunk>,
+        request_id: String,
+    ) -> Result<(), String> {
+        stream_openai_compatible(
+            &self.client,
+            "https://api.mistral.ai/v1/chat/completions",
+            api_key,
+            system_prompt,
+            user_prompt,
+            config,
+            sender,
+            request_id,
+            "Mistral",
+        )
+        .await
+    }
+}
+
+// ─── Google Gemini ──────────────────────────────────────────
+
+pub struct GoogleGeminiProvider {
+    client: Client,
+}
+
+impl GoogleGeminiProvider {
+    pub fn new() -> Self {
+        Self {
+            client: Client::new(),
+        }
+    }
+}
+
+#[async_trait]
+impl AIProvider for GoogleGeminiProvider {
+    fn provider_id(&self) -> &'static str {
+        "google_gemini"
+    }
+
+    async fn stream(
+        &self,
+        api_key: &str,
+        system_prompt: &str,
+        user_prompt: &str,
+        config: &AiConfig,
+        sender: mpsc::Sender<AiStreamChunk>,
+        request_id: String,
+    ) -> Result<(), String> {
+        let model = config.effective_model();
+        let max_tokens = config.effective_max_tokens();
+        let temperature = config.effective_temperature();
+
+        let url = format!(
+            "https://generativelanguage.googleapis.com/v1beta/models/{}:streamGenerateContent?alt=sse&key={}",
+            model, api_key
+        );
+
+        let body = json!({
+            "systemInstruction": {
+                "parts": [{ "text": system_prompt }]
+            },
+            "contents": [{
+                "role": "user",
+                "parts": [{ "text": user_prompt }]
+            }],
+            "generationConfig": {
+                "maxOutputTokens": max_tokens,
+                "temperature": temperature
+            }
+        });
+
+        debug!("Gemini request: model={}, max_tokens={}", model, max_tokens);
+
+        let response = self
+            .client
+            .post(&url)
+            .header("Content-Type", "application/json")
+            .json(&body)
+            .send()
+            .await
+            .map_err(|e| format!("Gemini request failed: {}", e))?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let body = response.text().await.unwrap_or_default();
+            let msg =
+                extract_api_error(&body).unwrap_or_else(|| format!("HTTP {}: {}", status, body));
+            return Err(msg);
+        }
+
+        // Parse SSE stream (Gemini format)
+        let mut stream = response.bytes_stream();
+        let mut buffer = String::new();
+
+        use futures::StreamExt;
+        while let Some(chunk_result) = stream.next().await {
+            let bytes = chunk_result.map_err(|e| format!("Stream error: {}", e))?;
+            buffer.push_str(&String::from_utf8_lossy(&bytes));
+
+            while let Some(pos) = buffer.find('\n') {
+                let line = buffer[..pos].trim().to_string();
+                buffer = buffer[pos + 1..].to_string();
+
+                if line.is_empty() || line.starts_with(':') {
+                    continue;
+                }
+
+                if let Some(data) = line.strip_prefix("data: ") {
+                    if let Ok(parsed) = serde_json::from_str::<Value>(data) {
+                        if let Some(text) =
+                            parsed["candidates"][0]["content"]["parts"][0]["text"].as_str()
+                        {
+                            let chunk = AiStreamChunk {
+                                request_id: request_id.clone(),
+                                delta: text.to_string(),
+                                done: false,
+                                error: None,
+                                generated_query: None,
+                                safety_analysis: None,
+                            };
+                            if sender.send(chunk).await.is_err() {
+                                return Ok(());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(())
+    }
+}
+
+// ─── DeepSeek (OpenAI-compatible) ───────────────────────────
+
+pub struct DeepSeekProvider {
+    client: Client,
+}
+
+impl DeepSeekProvider {
+    pub fn new() -> Self {
+        Self {
+            client: Client::new(),
+        }
+    }
+}
+
+#[async_trait]
+impl AIProvider for DeepSeekProvider {
+    fn provider_id(&self) -> &'static str {
+        "deepseek"
+    }
+
+    async fn stream(
+        &self,
+        api_key: &str,
+        system_prompt: &str,
+        user_prompt: &str,
+        config: &AiConfig,
+        sender: mpsc::Sender<AiStreamChunk>,
+        request_id: String,
+    ) -> Result<(), String> {
+        stream_openai_compatible(
+            &self.client,
+            "https://api.deepseek.com/chat/completions",
+            api_key,
+            system_prompt,
+            user_prompt,
+            config,
+            sender,
+            request_id,
+            "DeepSeek",
+        )
+        .await
+    }
+}
+
 // ─── Helpers ─────────────────────────────────────────────────
+
+/// Shared streaming implementation for OpenAI-compatible APIs (Mistral, DeepSeek, etc.)
+async fn stream_openai_compatible(
+    client: &Client,
+    url: &str,
+    api_key: &str,
+    system_prompt: &str,
+    user_prompt: &str,
+    config: &AiConfig,
+    sender: mpsc::Sender<AiStreamChunk>,
+    request_id: String,
+    provider_name: &str,
+) -> Result<(), String> {
+    let model = config.effective_model();
+    let max_tokens = config.effective_max_tokens();
+    let temperature = config.effective_temperature();
+
+    let body = json!({
+        "model": model,
+        "messages": [
+            { "role": "system", "content": system_prompt },
+            { "role": "user", "content": user_prompt }
+        ],
+        "max_tokens": max_tokens,
+        "temperature": temperature,
+        "stream": true
+    });
+
+    debug!(
+        "{} request: model={}, max_tokens={}",
+        provider_name, model, max_tokens
+    );
+
+    let response = client
+        .post(url)
+        .header("Authorization", format!("Bearer {}", api_key))
+        .header("Content-Type", "application/json")
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| format!("{} request failed: {}", provider_name, e))?;
+
+    if !response.status().is_success() {
+        let status = response.status();
+        let body = response.text().await.unwrap_or_default();
+        let msg = extract_api_error(&body).unwrap_or_else(|| format!("HTTP {}: {}", status, body));
+        return Err(msg);
+    }
+
+    // Parse SSE stream (OpenAI-compatible format)
+    let mut stream = response.bytes_stream();
+    let mut buffer = String::new();
+
+    use futures::StreamExt;
+    while let Some(chunk_result) = stream.next().await {
+        let bytes = chunk_result.map_err(|e| format!("Stream error: {}", e))?;
+        buffer.push_str(&String::from_utf8_lossy(&bytes));
+
+        while let Some(pos) = buffer.find('\n') {
+            let line = buffer[..pos].trim().to_string();
+            buffer = buffer[pos + 1..].to_string();
+
+            if line.is_empty() || line.starts_with(':') {
+                continue;
+            }
+
+            if let Some(data) = line.strip_prefix("data: ") {
+                if data.trim() == "[DONE]" {
+                    return Ok(());
+                }
+
+                if let Ok(parsed) = serde_json::from_str::<Value>(data) {
+                    if let Some(delta) = parsed["choices"][0]["delta"]["content"].as_str() {
+                        let chunk = AiStreamChunk {
+                            request_id: request_id.clone(),
+                            delta: delta.to_string(),
+                            done: false,
+                            error: None,
+                            generated_query: None,
+                            safety_analysis: None,
+                        };
+                        if sender.send(chunk).await.is_err() {
+                            return Ok(());
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(())
+}
 
 /// Extract a user-friendly error message from an API error response body
 fn extract_api_error(body: &str) -> Option<String> {
     let parsed: Value = serde_json::from_str(body).ok()?;
     // OpenAI format: { "error": { "message": "..." } }
     // Anthropic format: { "error": { "message": "..." } }
-    parsed["error"]["message"]
-        .as_str()
-        .map(|s| s.to_string())
+    parsed["error"]["message"].as_str().map(|s| s.to_string())
 }
 
 /// Extract a SQL/MQL code block from LLM response text
 pub fn extract_query_from_response(response: &str) -> Option<String> {
     // Try to find a fenced code block (```sql ... ``` or ```json ... ``` or ``` ... ```)
-    let code_block_patterns = ["```sql", "```mysql", "```postgresql", "```mongo", "```json", "```js", "```javascript", "```redis", "```"];
+    let code_block_patterns = [
+        "```sql",
+        "```mysql",
+        "```postgresql",
+        "```mongo",
+        "```json",
+        "```js",
+        "```javascript",
+        "```redis",
+        "```",
+    ];
 
     for pattern in &code_block_patterns {
         if let Some(start_idx) = response.find(pattern) {
@@ -434,9 +739,6 @@ mod tests {
     #[test]
     fn test_extract_api_error() {
         let body = r#"{"error":{"message":"Invalid API key","type":"invalid_request_error"}}"#;
-        assert_eq!(
-            extract_api_error(body),
-            Some("Invalid API key".to_string())
-        );
+        assert_eq!(extract_api_error(body), Some("Invalid API key".to_string()));
     }
 }

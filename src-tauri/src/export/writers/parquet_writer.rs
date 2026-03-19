@@ -102,7 +102,11 @@ impl ParquetExportWriter {
         Ok(())
     }
 
-    fn build_column_array(&self, col_idx: usize, arrow_type: &DataType) -> Result<ArrayRef, String> {
+    fn build_column_array(
+        &self,
+        col_idx: usize,
+        arrow_type: &DataType,
+    ) -> Result<ArrayRef, String> {
         match arrow_type {
             DataType::Boolean => {
                 let values: Vec<Option<bool>> = self

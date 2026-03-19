@@ -6,10 +6,7 @@ import type { Namespace } from './tauri';
 /**
  * Returns a driver-specific SQL template for creating a new trigger.
  */
-export function getTriggerTemplate(
-  driver: Driver,
-  namespace: Namespace
-): string {
+export function getTriggerTemplate(driver: Driver, namespace: Namespace): string {
   switch (driver) {
     case Driver.Postgres:
       return postgresCreateTrigger(namespace);

@@ -6,8 +6,8 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::engine::types::{ConnectionConfig, SshTunnelConfig};
 use crate::engine::error::{EngineError, EngineResult};
+use crate::engine::types::{ConnectionConfig, SshTunnelConfig};
 
 /// Environment classification for connections
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
@@ -106,63 +106,69 @@ pub struct StoredCredentials {
 
 impl SavedConnection {
     /// Converts to a ConnectionConfig for connecting
-    pub fn to_connection_config(&self, creds: &StoredCredentials) -> EngineResult<ConnectionConfig> {
+    pub fn to_connection_config(
+        &self,
+        creds: &StoredCredentials,
+    ) -> EngineResult<ConnectionConfig> {
         let ssh_tunnel = match self.ssh_tunnel.as_ref() {
             Some(ssh) => {
-            use crate::engine::types::SshAuth;
-            use crate::engine::types::SshHostKeyPolicy;
-            
-            let auth = match ssh.auth_type.as_str() {
-                "key" => {
-                    let key_path = ssh.key_path.clone().ok_or_else(|| {
-                        EngineError::internal("key_path must be set when auth_type is 'key'")
-                    })?;
-                    SshAuth::Key {
-                        private_key_path: key_path,
-                        passphrase: creds.ssh_key_passphrase.as_ref().map(|s| s.expose().clone()),
+                use crate::engine::types::SshAuth;
+                use crate::engine::types::SshHostKeyPolicy;
+
+                let auth = match ssh.auth_type.as_str() {
+                    "key" => {
+                        let key_path = ssh.key_path.clone().ok_or_else(|| {
+                            EngineError::internal("key_path must be set when auth_type is 'key'")
+                        })?;
+                        SshAuth::Key {
+                            private_key_path: key_path,
+                            passphrase: creds
+                                .ssh_key_passphrase
+                                .as_ref()
+                                .map(|s| s.expose().clone()),
+                        }
                     }
-                }
-                "password" => SshAuth::Password {
-                    password: creds
-                        .ssh_password
-                        .as_ref()
-                        .ok_or_else(|| EngineError::internal("ssh_password is missing"))?
-                        .expose()
-                        .clone(),
-                },
-                other => {
-                    return Err(EngineError::internal(format!(
-                        "Invalid ssh auth_type: {}",
-                        other
-                    )))
-                }
-            };
+                    "password" => SshAuth::Password {
+                        password: creds
+                            .ssh_password
+                            .as_ref()
+                            .ok_or_else(|| EngineError::internal("ssh_password is missing"))?
+                            .expose()
+                            .clone(),
+                    },
+                    other => {
+                        return Err(EngineError::internal(format!(
+                            "Invalid ssh auth_type: {}",
+                            other
+                        )))
+                    }
+                };
 
-            let host_key_policy = match ssh.host_key_policy.as_str() {
-                "accept_new" => SshHostKeyPolicy::AcceptNew,
-                "strict" => SshHostKeyPolicy::Strict,
-                "insecure_no_check" => SshHostKeyPolicy::InsecureNoCheck,
-                other => {
-                    return Err(EngineError::internal(format!(
-                        "Invalid ssh host_key_policy: {}",
-                        other
-                    )))
-                }
-            };
+                let host_key_policy = match ssh.host_key_policy.as_str() {
+                    "accept_new" => SshHostKeyPolicy::AcceptNew,
+                    "strict" => SshHostKeyPolicy::Strict,
+                    "insecure_no_check" => SshHostKeyPolicy::InsecureNoCheck,
+                    other => {
+                        return Err(EngineError::internal(format!(
+                            "Invalid ssh host_key_policy: {}",
+                            other
+                        )))
+                    }
+                };
 
-            Some(SshTunnelConfig {
-                host: ssh.host.clone(),
-                port: ssh.port,
-                username: ssh.username.clone(),
-                auth,
+                Some(SshTunnelConfig {
+                    host: ssh.host.clone(),
+                    port: ssh.port,
+                    username: ssh.username.clone(),
+                    auth,
 
-                host_key_policy,
-                known_hosts_path: None,
-                proxy_jump: ssh.proxy_jump.clone(),
-                connect_timeout_secs: ssh.connect_timeout_secs,
-                keepalive_interval_secs: ssh.keepalive_interval_secs,
-                keepalive_count_max: ssh.keepalive_count_max,
-            })
+                    host_key_policy,
+                    known_hosts_path: None,
+                    proxy_jump: ssh.proxy_jump.clone(),
+                    connect_timeout_secs: ssh.connect_timeout_secs,
+                    keepalive_interval_secs: ssh.keepalive_interval_secs,
+                    keepalive_count_max: ssh.keepalive_count_max,
+                })
             }
             None => None,
         };

@@ -110,7 +110,7 @@ export function MaintenanceDialog({
   const [loadingOps, setLoadingOps] = useState(false);
   const [result, setResult] = useState<MaintenanceResult | null>(null);
 
-  const selectedInfo = operations.find((op) => op.operation === selectedOp);
+  const selectedInfo = operations.find(op => op.operation === selectedOp);
   const isProduction = environment === 'production';
 
   const loadOperations = useCallback(async () => {
@@ -217,7 +217,7 @@ export function MaintenanceDialog({
                 {t('maintenance.selectOperation')}
               </Label>
               <div className="space-y-1">
-                {operations.map((op) => (
+                {operations.map(op => (
                   <button
                     key={op.operation}
                     type="button"
@@ -236,9 +236,7 @@ export function MaintenanceDialog({
                           selectedOp === op.operation ? 'rotate-90' : ''
                         }`}
                       />
-                      <span className="font-medium">
-                        {t(OPERATION_LABEL_MAP[op.operation])}
-                      </span>
+                      <span className="font-medium">{t(OPERATION_LABEL_MAP[op.operation])}</span>
                       {op.is_heavy && (
                         <span className="rounded-full bg-warning/15 px-2 py-0.5 text-[10px] font-medium text-warning">
                           {t('maintenance.heavyWarning').split('.')[0]}
@@ -258,9 +256,7 @@ export function MaintenanceDialog({
             {/* Options panel */}
             {selectedInfo?.has_options && selectedOp && (
               <div className="space-y-3 rounded-md border p-3">
-                <Label className="text-xs text-muted-foreground">
-                  {t('maintenance.options')}
-                </Label>
+                <Label className="text-xs text-muted-foreground">{t('maintenance.options')}</Label>
 
                 {/* PostgreSQL VACUUM options */}
                 {selectedOp === 'vacuum' && (
@@ -269,8 +265,8 @@ export function MaintenanceDialog({
                       <Checkbox
                         id="vacuum-full"
                         checked={options.full ?? false}
-                        onCheckedChange={(checked) =>
-                          setOptions((prev) => ({ ...prev, full: !!checked }))
+                        onCheckedChange={checked =>
+                          setOptions(prev => ({ ...prev, full: !!checked }))
                         }
                       />
                       <Label htmlFor="vacuum-full" className="text-sm">
@@ -281,8 +277,8 @@ export function MaintenanceDialog({
                       <Checkbox
                         id="vacuum-analyze"
                         checked={options.with_analyze ?? false}
-                        onCheckedChange={(checked) =>
-                          setOptions((prev) => ({ ...prev, with_analyze: !!checked }))
+                        onCheckedChange={checked =>
+                          setOptions(prev => ({ ...prev, with_analyze: !!checked }))
                         }
                       />
                       <Label htmlFor="vacuum-analyze" className="text-sm">
@@ -293,8 +289,8 @@ export function MaintenanceDialog({
                       <Checkbox
                         id="vacuum-verbose"
                         checked={options.verbose ?? false}
-                        onCheckedChange={(checked) =>
-                          setOptions((prev) => ({ ...prev, verbose: !!checked }))
+                        onCheckedChange={checked =>
+                          setOptions(prev => ({ ...prev, verbose: !!checked }))
                         }
                       />
                       <Label htmlFor="vacuum-verbose" className="text-sm">
@@ -314,15 +310,15 @@ export function MaintenanceDialog({
                       id="cluster-index"
                       className="w-full rounded-md border bg-background px-3 py-2 text-sm"
                       value={options.index_name ?? ''}
-                      onChange={(e) =>
-                        setOptions((prev) => ({
+                      onChange={e =>
+                        setOptions(prev => ({
                           ...prev,
                           index_name: e.target.value || undefined,
                         }))
                       }
                     >
                       <option value="">{t('maintenance.optionLabels.selectIndex')}</option>
-                      {indexes.map((idx) => (
+                      {indexes.map(idx => (
                         <option key={idx.name} value={idx.name}>
                           {idx.name} ({idx.columns.join(', ')})
                         </option>
@@ -341,8 +337,8 @@ export function MaintenanceDialog({
                       id="target-engine"
                       placeholder={t('maintenance.optionLabels.selectEngine')}
                       value={options.target_engine ?? ''}
-                      onChange={(e) =>
-                        setOptions((prev) => ({
+                      onChange={e =>
+                        setOptions(prev => ({
                           ...prev,
                           target_engine: e.target.value || undefined,
                         }))
@@ -364,9 +360,7 @@ export function MaintenanceDialog({
             {/* Results */}
             {result && (
               <div className="space-y-2 rounded-md border p-3">
-                <Label className="text-xs text-muted-foreground">
-                  {t('maintenance.results')}
-                </Label>
+                <Label className="text-xs text-muted-foreground">{t('maintenance.results')}</Label>
 
                 <div className="space-y-1">
                   <p className="text-xs text-muted-foreground">

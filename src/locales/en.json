@@ -102,6 +102,7 @@
       "deletedSuccess": "Connection \"{{name}}\" deleted",
       "deleteFail": "Failed to delete connection",
       "newQuery": "New Query",
+      "newNotebook": "New Notebook",
       "credentialLoadFail": "Failed to load connection details",
       "testTitleSuccess": "Connection to {{name}} successful!"
     },
@@ -143,6 +144,7 @@
   "sidebar": {
     "connections": "Connections",
     "noConnections": "No saved connections",
+    "filterConnections": "Filter connections...",
     "newConnection": "New Connection",
     "errorLogs": "Error Logs",
     "themeLight": "Switch to light mode",
@@ -174,7 +176,14 @@
     "footerHint": "Click a result to open the table"
   },
   "tabs": {
-    "newQuery": "New Query ({{modifier}}+T)"
+    "new": "New tab",
+    "newQuery": "New Query ({{modifier}}+T)",
+    "newNotebook": "New Notebook",
+    "close": "Close tab",
+    "pin": "Pin tab",
+    "unpin": "Unpin tab",
+    "contextMenu": "Tab options",
+    "showAll": "Show all tabs"
   },
   "browser": {
     "searchPlaceholder": "Search {{label}}...",
@@ -244,7 +253,127 @@
     "fulltextSearch": "Search in database",
     "openSettings": "Settings",
     "toggleTheme": "Toggle theme",
-    "closeTab": "Close tab"
+    "closeTab": "Close tab",
+    "newNotebook": "New Notebook",
+    "openNotebook": "Open Notebook...",
+    "convertToNotebook": "Convert to Notebook",
+    "featuresSection": "Features",
+    "tips": {
+      "newQuery": "Ctrl+T opens a new query tab",
+      "sandbox": "Use Sandbox mode to safely preview changes before applying",
+      "commandPalette": "This palette searches commands, connections, and saved queries",
+      "notebook": "Notebooks let you combine SQL and Markdown in a single document",
+      "federation": "Federation lets you query across multiple databases at once",
+      "shortcuts": "Press Ctrl+, to open Settings and see all keyboard shortcuts"
+    }
+  },
+  "features": {
+    "notebooks": {
+      "name": "Notebooks",
+      "description": "Combine SQL queries and Markdown documentation in a single document"
+    },
+    "virtualRelations": {
+      "name": "Virtual Relations",
+      "description": "Define custom foreign key relationships for tables without constraints"
+    },
+    "sandbox": {
+      "name": "Sandbox Mode",
+      "description": "Preview data changes safely before applying them to your database"
+    },
+    "federation": {
+      "name": "Cross-Database Federation",
+      "description": "Query and join data across multiple database connections"
+    },
+    "erDiagram": {
+      "name": "ER Diagram",
+      "description": "Visualize table relationships as an entity-relationship diagram"
+    },
+    "snapshots": {
+      "name": "Data Snapshots",
+      "description": "Capture and compare table states at different points in time"
+    },
+    "diff": {
+      "name": "Data Diff",
+      "description": "Compare data between two sources side by side"
+    },
+    "fulltextSearch": {
+      "name": "Full-Text Search",
+      "description": "Search across all tables and columns in your database"
+    },
+    "aiAssistant": {
+      "name": "AI Assistant",
+      "description": "Generate and fix SQL queries using natural language"
+    }
+  },
+  "notebook": {
+    "title": "Notebook",
+    "untitled": "Untitled Notebook",
+    "addCellSql": "SQL Cell",
+    "addCellMarkdown": "Markdown Cell",
+    "addCellBelow": "Add cell",
+    "deleteCell": "Delete cell",
+    "deleteCellConfirm": "Delete this cell? This cannot be undone.",
+    "moveCellUp": "Move cell up",
+    "moveCellDown": "Move cell down",
+    "executeCell": "Execute cell (Ctrl+Enter)",
+    "executeAll": "Run All",
+    "executeFromHere": "Run from here",
+    "clearAll": "Clear all results",
+    "cancelExecution": "Cancel",
+    "executionStopped": "Execution cancelled",
+    "allCellsExecuted": "All cells executed",
+    "save": "Save notebook",
+    "saveAs": "Save as...",
+    "saved": "Notebook saved",
+    "saveError": "Failed to save notebook",
+    "open": "Open notebook",
+    "openError": "Failed to open notebook",
+    "invalidFormat": "Invalid notebook format",
+    "unsavedChanges": "This notebook has unsaved changes.",
+    "unsavedChangesTitle": "Unsaved changes",
+    "unsavedSaveAndClose": "Save & Close",
+    "unsavedDiscard": "Discard",
+    "unsavedCancel": "Cancel",
+    "executionTime": "{{time}}ms",
+    "rowCount": "{{count}} row(s)",
+    "cellEmpty": "Empty cell",
+    "markdownPlaceholder": "Write Markdown here...",
+    "sqlPlaceholder": "Write SQL here...",
+    "executionCount": "Run #{{count}}",
+    "stale": "Modified since last execution",
+    "variables": "Variables",
+    "addVariable": "Add variable",
+    "removeVariable": "Remove variable",
+    "variableName": "Variable name",
+    "variableType": "Type",
+    "variableDefault": "Default value",
+    "variableDescription": "Description",
+    "import": "Import",
+    "importSuccess": "Notebook imported",
+    "export": "Export",
+    "exportMarkdown": "Markdown (.md)",
+    "exportHtml": "HTML (.html)",
+    "exportSuccess": "Notebook exported",
+    "includeResults": "Include results",
+    "duplicateCell": "Duplicate cell",
+    "convertType": "Convert type",
+    "collapseCell": "Collapse cell",
+    "expandCell": "Expand cell",
+    "copyError": "Copy error",
+    "chartNoConfig": "Configure this chart cell via the context menu.",
+    "chartNoData": "No data — execute the source cell first.",
+    "undo": "Undo",
+    "redo": "Redo",
+    "toggleVariables": "Variables",
+    "editTitle": "Click to edit title",
+    "cellCountLabel": "{{count}} cell(s)",
+    "variableDescriptionHint": "Optional description",
+    "doubleClickToEdit": "Double-click to edit",
+    "selectNamespace": "Select database",
+    "hideResults": "Hide results",
+    "showResults": "Show results",
+    "editMarkdown": "Edit",
+    "previewMarkdown": "Preview"
   },
   "settings": {
     "title": "Settings",
@@ -345,6 +474,17 @@
     "search": {
       "placeholder": "Search settings...",
       "noResults": "No settings found"
+    },
+    "about": {
+      "title": "About",
+      "description": "Application version and updates.",
+      "version": "Version",
+      "checkForUpdate": "Check for updates",
+      "checking": "Checking...",
+      "installUpdate": "Install v{{version}}",
+      "installing": "Installing...",
+      "installed": "Update installed — restart to apply.",
+      "upToDate": "You're up to date!"
     },
     "startup": {
       "title": "Startup",
@@ -472,6 +612,8 @@
     "queryFailed": "Query failed",
     "noConnectionError": "No connection selected",
     "multiStatementNotice": "Multiple statements detected ({{count}}). Only the last result is shown.",
+    "expandEditor": "Expand editor",
+    "collapseEditor": "Collapse editor",
     "time": {
       "exec": "EXEC",
       "transfer": "TRANSFER",
@@ -485,6 +627,7 @@
     "affectedRows": "{{count}} row(s) affected in {{time}}ms",
     "commandOk": "Command executed in {{time}}ms",
     "noResults": "No results to display",
+    "noResultsHint": "Try modifying your query or check the selected database",
     "rowCount": "{{count}} row(s)",
     "timeMs": "{{time}}ms"
   },
@@ -705,7 +848,103 @@
     "connectionUnhealthy": "Connection to database lost. Attempting to reconnect…",
     "connectionRestored": "Connection restored.",
     "session": "Session",
-    "noSession": "No active session"
+    "noSession": "No active session",
+    "transactionActive": "Transaction active",
+    "transactionStatements": "{{count}} statement(s) pending"
+  },
+  "help": {
+    "keepResults": "When enabled, previous query results are preserved in separate tabs below the editor. Useful for comparing results across multiple queries.",
+    "federation": "Federation lets you write SQL queries that span multiple database connections. Tables from different sources can be JOINed using aliases.",
+    "aiAssistant": "The AI assistant generates SQL queries from your natural language descriptions. It uses the current database schema for context-aware suggestions.",
+    "transactions": "Begin an explicit transaction to group multiple statements. Changes are not applied until you Commit. Use Rollback to discard all changes.",
+    "notebookVariables": "Variables let you parameterize SQL cells. Define a variable once and reference it across multiple cells using {{variableName}} syntax."
+  },
+  "tour": {
+    "gotIt": "Got it",
+    "next": "Next",
+    "dismiss": "Skip tour",
+    "stepOf": "{{current}} of {{total}}",
+    "firstQuery": {
+      "step1Title": "Write your query",
+      "step1Desc": "Type SQL in the editor. It supports auto-completion and syntax highlighting.",
+      "step2Title": "Execute",
+      "step2Desc": "Click Run or press Ctrl+Enter to execute your query.",
+      "step3Title": "View results",
+      "step3Desc": "Query results appear here in a sortable, scrollable grid."
+    },
+    "firstNotebook": {
+      "step1Title": "Notebook cells",
+      "step1Desc": "Each cell can contain SQL or Markdown. Execute them independently or all at once.",
+      "step2Title": "Add cells",
+      "step2Desc": "Add SQL or Markdown cells to build your analysis step by step.",
+      "step3Title": "Save your work",
+      "step3Desc": "Save notebooks to disk and reopen them later."
+    },
+    "firstTable": {
+      "step1Title": "Browse data",
+      "step1Desc": "Scroll through rows with infinite loading. Click a cell to see its full value.",
+      "step2Title": "Table structure",
+      "step2Desc": "Switch tabs to explore columns, indexes, and relationships."
+    }
+  },
+  "whatsNew": {
+    "title": "What's New",
+    "titleWithVersion": "What's New in v{{version}}",
+    "tryIt": "Try it",
+    "markSeen": "Dismiss",
+    "feature": "New",
+    "improvement": "Improved",
+    "fix": "Fixed"
+  },
+  "a11y": {
+    "skipToContent": "Skip to content",
+    "sidebar": "Database explorer",
+    "tabBar": "Open tabs",
+    "databaseTree": "Database tree",
+    "statusBar": "Status bar",
+    "help": "Help"
+  },
+  "zenMode": {
+    "enabled": "Zen Mode — Press Esc to exit"
+  },
+  "cheatsheet": {
+    "title": "Keyboard Shortcuts",
+    "general": "General",
+    "tabs": "Tabs",
+    "queryEditor": "Query Editor",
+    "search": "Open search",
+    "settings": "Settings",
+    "thisDialog": "This dialog",
+    "newQuery": "New query tab",
+    "closeTab": "Close tab",
+    "newConnection": "New connection",
+    "executeQuery": "Execute query",
+    "openLibrary": "Open library",
+    "fulltextSearch": "Full-text search",
+    "pressToClose": "Press ? or Esc to close",
+    "exitZenMode": "Exit Zen Mode"
+  },
+  "toolbar": {
+    "moreActions": "More actions",
+    "queryTools": "Query tools",
+    "library": "Library",
+    "integrations": "Integrations"
+  },
+  "transaction": {
+    "begin": "Begin",
+    "commit": "Commit",
+    "rollback": "Rollback",
+    "active": "TXN",
+    "beginSuccess": "Transaction started",
+    "commitSuccess": "Transaction committed",
+    "rollbackSuccess": "Transaction rolled back",
+    "beginError": "Failed to begin transaction: {{error}}",
+    "commitError": "Failed to commit: {{error}}",
+    "rollbackError": "Failed to rollback: {{error}}",
+    "confirmRollback": "Are you sure you want to rollback? All pending changes will be discarded.",
+    "tooltipBegin": "Start a new transaction",
+    "tooltipCommit": "Commit the current transaction",
+    "tooltipRollback": "Rollback the current transaction"
   },
   "logs": {
     "title": "Error Logs",
@@ -721,6 +960,8 @@
     "noLogs": "No error logs",
     "refresh": "Refresh",
     "export": "Export logs",
+    "exportVisible": "Export visible logs",
+    "exportDiagnostic": "Export diagnostic logs (full)",
     "exportSuccess": "Logs exported: {{name}}",
     "exportError": "Failed to export logs"
   },
@@ -850,7 +1091,8 @@
   "errorBoundary": {
     "title": "Something went wrong",
     "description": "An unexpected error occurred. The error has been logged.",
-    "reload": "Reload Application"
+    "reload": "Reload Application",
+    "panelCrashed": "This panel encountered an error"
   },
   "sandbox": {
     "activate": "Sandbox",
@@ -1157,6 +1399,7 @@
         "label": "File",
         "newConnection": "New Connection",
         "newWindow": "New Window",
+        "openNotebook": "Open Notebook...",
         "settings": "Settings",
         "quit": "Quit"
       },
@@ -1164,7 +1407,8 @@
         "label": "View",
         "explorer": "Explorer",
         "logs": "Error Logs",
-        "zenMode": "Zen Mode"
+        "zenMode": "Zen Mode",
+        "keyboardShortcuts": "Keyboard Shortcuts"
       },
       "data": {
         "label": "Data",

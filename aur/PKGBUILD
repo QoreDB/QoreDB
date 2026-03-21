@@ -1,0 +1,51 @@
+# Maintainer: Raphaël Plassart <raphael.plassart@gmail.com>
+# https://aur.archlinux.org/packages/qoredb-bin
+
+pkgname=qoredb-bin
+_pkgname=QoreDB
+pkgver=0.1.21
+pkgrel=1
+pkgdesc="Modern, lightweight database client for developers (PostgreSQL, MySQL, MongoDB, SQLite)"
+arch=('x86_64')
+url="https://github.com/QoreDB/QoreDB"
+license=('Apache-2.0')
+depends=('webkit2gtk-4.1' 'gtk3' 'libappindicator-gtk3' 'librsvg' 'openssl')
+optdepends=('docker: for running test databases locally')
+provides=('qoredb')
+conflicts=('qoredb')
+options=('!strip' '!debug')
+source=("${_pkgname}-${pkgver}.deb::https://github.com/QoreDB/QoreDB/releases/download/v${pkgver}/qore-db_${pkgver}_amd64.deb")
+sha256sums=('SKIP')
+noextract=("${_pkgname}-${pkgver}.deb")
+
+prepare() {
+    mkdir -p "${srcdir}/deb"
+    ar x "${srcdir}/${_pkgname}-${pkgver}.deb" --output="${srcdir}/deb"
+    tar xf "${srcdir}/deb/data.tar."* -C "${srcdir}/deb"
+}
+
+package() {
+    # Install binary
+    install -Dm755 "${srcdir}/deb/usr/bin/qoredb" "${pkgdir}/usr/bin/qoredb"
+
+    # Desktop entry
+    install -Dm644 /dev/stdin "${pkgdir}/usr/share/applications/qoredb.desktop" <<EOF
+[Desktop Entry]
+Name=QoreDB
+Comment=Modern database client for developers
+Exec=qoredb %U
+Icon=qoredb
+Type=Application
+Categories=Development;Database;
+Keywords=database;sql;postgresql;mysql;mongodb;sqlite;
+StartupWMClass=QoreDB
+EOF
+
+    # Icons
+    for size in 32 128 256 512; do
+        if [ -f "${srcdir}/deb/usr/share/icons/hicolor/${size}x${size}/apps/"*.png ]; then
+            install -Dm644 "${srcdir}/deb/usr/share/icons/hicolor/${size}x${size}/apps/"*.png \
+                "${pkgdir}/usr/share/icons/hicolor/${size}x${size}/apps/qoredb.png"
+        fi
+    done
+}

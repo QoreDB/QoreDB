@@ -23,7 +23,7 @@ use crate::engine::types::{
     ConnectionConfig, FilterOperator, MaintenanceMessage, MaintenanceMessageLevel,
     MaintenanceOperationInfo, MaintenanceOperationType, MaintenanceRequest, MaintenanceResult,
     Namespace, PaginatedQueryResult, QueryId, QueryResult, Row as QRow, SessionId, SortDirection,
-    TableColumn, TableQueryOptions, TableSchema, Value,
+    TableColumn, TableIndex, TableQueryOptions, TableSchema, Value,
 };
 
 pub struct MongoSession {
@@ -1006,10 +1006,6 @@ impl DataEngine for MongoDriver {
                         let doc = doc_result
                             .map_err(|e| EngineError::execution_error(e.to_string()))?;
                         documents.push(doc);
-                        // Limit for POC
-                        if documents.len() >= 1000 {
-                            break;
-                        }
                     }
                     documents
                 } else {
@@ -1027,10 +1023,6 @@ impl DataEngine for MongoDriver {
                         .map_err(|e| EngineError::execution_error(e.to_string()))?
                     {
                         documents.push(doc);
-                        // Limit for POC
-                        if documents.len() >= 1000 {
-                            break;
-                        }
                     }
                     documents
                 };
@@ -1154,12 +1146,44 @@ impl DataEngine for MongoDriver {
                 .await
                 .ok();
 
+            // Fetch indexes
+            let mut index_cursor = collection
+                .list_indexes()
+                .session(&mut *txn)
+                .await
+                .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+            let mut indexes: Vec<TableIndex> = Vec::new();
+            while let Some(index_result) = index_cursor.next(&mut *txn).await {
+                let index_model =
+                    index_result.map_err(|e| EngineError::execution_error(e.to_string()))?;
+                let name = index_model
+                    .options
+                    .as_ref()
+                    .and_then(|o| o.name.clone())
+                    .unwrap_or_else(|| "unknown".to_string());
+                let columns: Vec<String> =
+                    index_model.keys.iter().map(|(k, _)| k.to_string()).collect();
+                let is_unique = index_model
+                    .options
+                    .as_ref()
+                    .and_then(|o| o.unique)
+                    .unwrap_or(false);
+                let is_primary = name == "_id_";
+                indexes.push(TableIndex {
+                    name,
+                    columns,
+                    is_unique,
+                    is_primary,
+                });
+            }
+
             return Ok(TableSchema {
                 columns,
                 primary_key: Some(vec!["_id".to_string()]),
                 foreign_keys: Vec::new(),
                 row_count_estimate: count,
-                indexes: Vec::new(),
+                indexes,
             });
         }
 
@@ -1229,12 +1253,45 @@ impl DataEngine for MongoDriver {
         // Get estimated document count
         let count = collection.estimated_document_count().await.ok();
 
+        // Fetch indexes
+        let mut index_cursor = collection
+            .list_indexes()
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        let mut indexes: Vec<TableIndex> = Vec::new();
+        while let Some(index_model) = index_cursor
+            .try_next()
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?
+        {
+            let name = index_model
+                .options
+                .as_ref()
+                .and_then(|o| o.name.clone())
+                .unwrap_or_else(|| "unknown".to_string());
+            let columns: Vec<String> =
+                index_model.keys.iter().map(|(k, _)| k.to_string()).collect();
+            let is_unique = index_model
+                .options
+                .as_ref()
+                .and_then(|o| o.unique)
+                .unwrap_or(false);
+            let is_primary = name == "_id_";
+            indexes.push(TableIndex {
+                name,
+                columns,
+                is_unique,
+                is_primary,
+            });
+        }
+
         Ok(TableSchema {
             columns,
             primary_key: Some(vec!["_id".to_string()]),
             foreign_keys: Vec::new(),
             row_count_estimate: count,
-            indexes: Vec::new(),
+            indexes,
         })
     }
 

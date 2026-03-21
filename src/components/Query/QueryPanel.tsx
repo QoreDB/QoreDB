@@ -677,9 +677,22 @@ export function QueryPanel({
     const queryToExplain = selection && selection.trim().length > 0 ? selection : query;
     if (!queryToExplain.trim()) return;
     const trimmed = queryToExplain.replace(/;+\s*$/, '');
-    const explainQuery = `EXPLAIN (FORMAT JSON) ${trimmed}`;
+
+    let explainQuery: string;
+    switch (dialect) {
+      case Driver.Mysql:
+        explainQuery = `EXPLAIN FORMAT=JSON ${trimmed}`;
+        break;
+      case Driver.Sqlite:
+        explainQuery = `EXPLAIN QUERY PLAN ${trimmed}`;
+        break;
+      default:
+        explainQuery = `EXPLAIN (FORMAT JSON) ${trimmed}`;
+        break;
+    }
+
     await runQuery(explainQuery, false, 'explain');
-  }, [sessionId, isDocument, isExplainSupported, query, runQuery]);
+  }, [sessionId, isDocument, isExplainSupported, query, runQuery, dialect]);
 
   const handleToggleKeepResults = useCallback(() => {
     setKeepResults(prev => {

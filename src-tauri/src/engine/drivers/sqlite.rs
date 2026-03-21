@@ -36,7 +36,7 @@ use crate::engine::types::{
     MaintenanceOperationInfo, MaintenanceOperationType, MaintenanceRequest, MaintenanceResult,
     Namespace, PaginatedQueryResult, QueryId, QueryResult, Row as QRow, RowData, SessionId,
     SortDirection, TableColumn, TableIndex, TableQueryOptions, TableSchema, Trigger, TriggerEvent,
-    TriggerList, TriggerListOptions, TriggerTiming, Value,
+    TriggerList, TriggerListOptions, TriggerOperationResult, TriggerTiming, Value,
 };
 
 /// Holds the connection state for a SQLite session.
@@ -497,6 +497,40 @@ impl DataEngine for SqliteDriver {
 
     fn supports_triggers(&self) -> bool {
         true
+    }
+
+    async fn drop_trigger(
+        &self,
+        session: SessionId,
+        _namespace: &Namespace,
+        trigger_name: &str,
+        _table_name: &str,
+    ) -> EngineResult<TriggerOperationResult> {
+        let sqlite_session = self.get_session(session).await?;
+
+        let sql = format!("DROP TRIGGER IF EXISTS {}", Self::quote_ident(trigger_name));
+
+        let start = Instant::now();
+
+        let mut tx_guard = sqlite_session.transaction_conn.lock().await;
+        let result = if let Some(ref mut conn) = *tx_guard {
+            sqlx::query(&sql).execute(&mut **conn).await
+        } else {
+            sqlx::query(&sql).execute(&sqlite_session.pool).await
+        };
+
+        result.map_err(|e| {
+            EngineError::execution_error(format!("Failed to drop trigger: {}", e))
+        })?;
+
+        let execution_time_ms = start.elapsed().as_micros() as f64 / 1000.0;
+
+        Ok(TriggerOperationResult {
+            success: true,
+            executed_command: sql,
+            message: None,
+            execution_time_ms,
+        })
     }
 
     async fn create_database(
@@ -1204,6 +1238,10 @@ impl DataEngine for SqliteDriver {
     }
 
     fn supports_streaming(&self) -> bool {
+        true
+    }
+
+    fn supports_explain(&self) -> bool {
         true
     }
 

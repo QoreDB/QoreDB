@@ -2120,6 +2120,10 @@ impl DataEngine for MySqlDriver {
         true
     }
 
+    fn supports_explain(&self) -> bool {
+        true
+    }
+
     // ==================== Mutation Methods ====================
 
     async fn insert_row(

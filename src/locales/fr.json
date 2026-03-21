@@ -1786,5 +1786,23 @@
     "selectSnapshot": "Sélectionner un snapshot...",
     "snapshotInfo": "{{rows}} lignes, {{columns}} colonnes",
     "ago": "il y a {{time}}"
+  },
+  "blobViewer": {
+    "title": "Données binaires",
+    "hex": "Hex Dump",
+    "base64": "Base64",
+    "preview": "Aperçu",
+    "size": "Taille",
+    "type": "Type",
+    "noPreview": "Aucun aperçu disponible pour ce type binaire",
+    "truncated": "Affichage des premiers {{size}} sur {{total}}",
+    "copyBase64": "Base64 copié dans le presse-papiers",
+    "copyHex": "Hex dump copié dans le presse-papiers",
+    "download": "Télécharger",
+    "downloadSuccess": "Fichier enregistré avec succès",
+    "downloadError": "Échec de l'enregistrement du fichier",
+    "clipboardError": "Échec de la copie dans le presse-papiers",
+    "tooLarge": "Données trop volumineuses pour le navigateur",
+    "imagePreview": "Aperçu de l'image"
   }
 }

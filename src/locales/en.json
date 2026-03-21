@@ -1788,5 +1788,23 @@
     "selectSnapshot": "Select a snapshot...",
     "snapshotInfo": "{{rows}} rows, {{columns}} columns",
     "ago": "{{time}} ago"
+  },
+  "blobViewer": {
+    "title": "Binary Data",
+    "hex": "Hex Dump",
+    "base64": "Base64",
+    "preview": "Preview",
+    "size": "Size",
+    "type": "Type",
+    "noPreview": "No preview available for this binary type",
+    "truncated": "Showing first {{size}} of {{total}}",
+    "copyBase64": "Base64 copied to clipboard",
+    "copyHex": "Hex dump copied to clipboard",
+    "download": "Download",
+    "downloadSuccess": "File saved successfully",
+    "downloadError": "Failed to save file",
+    "clipboardError": "Failed to copy to clipboard",
+    "tooLarge": "Data too large to process in browser",
+    "imagePreview": "Image preview"
   }
 }

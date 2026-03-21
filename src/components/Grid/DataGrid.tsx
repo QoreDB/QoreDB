@@ -477,6 +477,7 @@ export function DataGrid({
               columnId={info.column.id}
               rowId={info.row.id}
               row={info.row.original}
+              dataType={col.data_type}
               isEditing={isEditing}
               editingValue={editingValueRef.current}
               editInputRef={editInputRef}

@@ -5,10 +5,13 @@
  * Handles cell display, inline editing, and foreign key peek tooltips
  */
 
-import type { RefObject } from 'react';
+import { Binary } from 'lucide-react';
+import { type RefObject, useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { isBinaryType } from '@/lib/binaryUtils';
 import type { ForeignKey, Namespace, RelationFilter, Value } from '@/lib/tauri';
 import { cn } from '@/lib/utils';
+import { BlobViewer } from './BlobViewer';
 import { ForeignKeyPeekTooltip } from './ForeignKeyPeekTooltip';
 import type { PeekState } from './hooks/useForeignKeyPeek';
 import { formatValue, type RowData } from './utils/dataGridUtils';
@@ -18,6 +21,8 @@ export interface EditableDataCellProps {
   columnId: string;
   rowId: string;
   row: RowData;
+  /** Database column type (e.g., "bytea", "blob", "varchar") */
+  dataType?: string;
   // Editing props
   isEditing: boolean;
   editingValue: string;
@@ -41,6 +46,8 @@ export interface EditableDataCellProps {
 
 export function EditableDataCell({
   value,
+  columnId,
+  dataType,
   isEditing,
   editingValue,
   editInputRef,
@@ -60,8 +67,39 @@ export function EditableDataCell({
   onOpenRelatedTable,
 }: EditableDataCellProps) {
   const { t } = useTranslation();
-  const formatted = formatValue(value);
+  const isBinary = Boolean(dataType && isBinaryType(dataType));
+  const formatted = formatValue(value, dataType);
   const isNull = value === null;
+  const [blobViewerOpen, setBlobViewerOpen] = useState(false);
+
+  const handleBlobClick = useCallback(() => {
+    if (isBinary && typeof value === 'string' && value.length > 0) {
+      setBlobViewerOpen(true);
+    }
+  }, [isBinary, value]);
+
+  // Binary cell: special rendering with icon + click to open viewer
+  if (isBinary && !isNull && typeof value === 'string' && value.length > 0) {
+    return (
+      <>
+        <div
+          className="flex items-center gap-1.5 truncate cursor-pointer hover:text-accent transition-colors"
+          onClick={handleBlobClick}
+          title={t('blobViewer.title')}
+        >
+          <Binary className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          <span className="truncate text-muted-foreground italic text-xs">{formatted}</span>
+        </div>
+        <BlobViewer
+          open={blobViewerOpen}
+          onOpenChange={setBlobViewerOpen}
+          value={value}
+          columnName={columnId}
+          dataType={dataType ?? ''}
+        />
+      </>
+    );
+  }
 
   const cellContent = (
     <div

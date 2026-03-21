@@ -9,6 +9,7 @@ pub mod driver;
 pub mod export;
 pub mod federation;
 pub mod fulltext_search;
+pub mod import;
 pub mod interceptor;
 pub mod license;
 pub mod logs;

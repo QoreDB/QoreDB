@@ -44,6 +44,7 @@ sqlparser = "0.60"
 tracing = "0.1"
 tracing-appender = "0.2"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+csv = "1"
 regex = "1"
 dirs = "5"
 url = "2"

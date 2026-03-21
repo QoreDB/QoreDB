@@ -223,6 +223,9 @@ pub fn run() {
             // Export
             commands::export::start_export,
             commands::export::cancel_export,
+            // Import
+            commands::import::preview_csv,
+            commands::import::import_csv,
             // Metrics (dev-only)
             commands::metrics::get_metrics,
             // Vault commands

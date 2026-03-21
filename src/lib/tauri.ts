@@ -996,6 +996,67 @@ export async function supportsMutations(sessionId: string): Promise<boolean> {
 }
 
 // ============================================
+// CSV IMPORT
+// ============================================
+
+export interface CsvPreviewResponse {
+  detected_delimiter: string;
+  headers: string[];
+  preview_rows: string[][];
+  total_lines: number;
+}
+
+export interface CsvImportConfig {
+  delimiter?: string;
+  has_header: boolean;
+  null_string?: string;
+  on_conflict?: 'skip' | 'abort';
+  column_mapping?: Record<number, string>;
+}
+
+export interface ImportResponse {
+  success: boolean;
+  imported_rows: number;
+  failed_rows: number;
+  errors: string[];
+  execution_time_ms: number;
+}
+
+export async function previewCsv(
+  filePath: string,
+  delimiter?: string,
+  hasHeader?: boolean,
+  previewLimit?: number
+): Promise<CsvPreviewResponse> {
+  return invoke('preview_csv', {
+    filePath,
+    delimiter,
+    hasHeader,
+    previewLimit,
+  });
+}
+
+export async function importCsv(
+  sessionId: string,
+  database: string,
+  schema: string | null | undefined,
+  table: string,
+  filePath: string,
+  config: CsvImportConfig,
+  acknowledgedDangerous?: boolean
+): Promise<ImportResponse> {
+  return invoke('import_csv', {
+    sessionId,
+    database,
+    schema,
+    table,
+    filePath,
+    config,
+    acknowledgedDangerous,
+  });
+}
+
+// ============================================
 // LOGS
 // ============================================
 

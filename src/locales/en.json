@@ -1806,5 +1806,32 @@
     "clipboardError": "Failed to copy to clipboard",
     "tooLarge": "Data too large to process in browser",
     "imagePreview": "Image preview"
+  },
+  "import": {
+    "title": "Import CSV",
+    "selectFile": "Select CSV file",
+    "browse": "Browse",
+    "preview": "Preview",
+    "delimiter": "Delimiter",
+    "autoDetected": "Auto-detected",
+    "hasHeader": "First row is header",
+    "columnMapping": "Column mapping",
+    "csvColumn": "CSV Column",
+    "tableColumn": "Table Column",
+    "ignore": "Ignore",
+    "nullString": "NULL string",
+    "onConflict": "On error",
+    "skip": "Skip row",
+    "abort": "Abort import",
+    "start": "Import",
+    "importing": "Importing...",
+    "success": "{{count}} rows imported successfully",
+    "partial": "{{imported}} imported, {{failed}} failed",
+    "failed": "Import failed",
+    "noFile": "Please select a file",
+    "noMapping": "No columns mapped",
+    "previewError": "Failed to preview file",
+    "productionWarning": "You are importing into a production environment. Proceed with caution.",
+    "importCsv": "Import CSV"
   }
 }

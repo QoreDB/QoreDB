@@ -1804,5 +1804,32 @@
     "clipboardError": "Échec de la copie dans le presse-papiers",
     "tooLarge": "Données trop volumineuses pour le navigateur",
     "imagePreview": "Aperçu de l'image"
+  },
+  "import": {
+    "title": "Importer un CSV",
+    "selectFile": "Sélectionner un fichier CSV",
+    "browse": "Parcourir",
+    "preview": "Aperçu",
+    "delimiter": "Séparateur",
+    "autoDetected": "Détecté automatiquement",
+    "hasHeader": "La première ligne est l'en-tête",
+    "columnMapping": "Mapping des colonnes",
+    "csvColumn": "Colonne CSV",
+    "tableColumn": "Colonne table",
+    "ignore": "Ignorer",
+    "nullString": "Chaîne NULL",
+    "onConflict": "En cas d'erreur",
+    "skip": "Ignorer la ligne",
+    "abort": "Arrêter l'import",
+    "start": "Importer",
+    "importing": "Import en cours...",
+    "success": "{{count}} lignes importées avec succès",
+    "partial": "{{imported}} importées, {{failed}} échouées",
+    "failed": "Échec de l'import",
+    "noFile": "Veuillez sélectionner un fichier",
+    "noMapping": "Aucune colonne mappée",
+    "previewError": "Impossible de prévisualiser le fichier",
+    "productionWarning": "Vous importez dans un environnement de production. Procédez avec prudence.",
+    "importCsv": "Importer un CSV"
   }
 }

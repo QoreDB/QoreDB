@@ -25,6 +25,7 @@ use tokio::sync::Mutex;
 
 use engine::drivers::cockroachdb::CockroachDbDriver;
 use engine::drivers::duckdb::DuckDbDriver;
+use engine::drivers::mariadb::MariaDbDriver;
 use engine::drivers::mongodb::MongoDriver;
 use engine::drivers::mysql::MySqlDriver;
 use engine::drivers::postgres::PostgresDriver;
@@ -67,6 +68,7 @@ impl AppState {
         registry.register(Arc::new(DuckDbDriver::new()));
         registry.register(Arc::new(CockroachDbDriver::new()));
         registry.register(Arc::new(SqlServerDriver::new()));
+        registry.register(Arc::new(MariaDbDriver::new()));
 
         let registry = Arc::new(registry);
         let session_manager = Arc::new(SessionManager::new(Arc::clone(&registry)));

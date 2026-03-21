@@ -98,7 +98,7 @@ impl MySqlDriver {
         Ok(pool)
     }
 
-    async fn get_session(&self, session: SessionId) -> EngineResult<Arc<MySqlSession>> {
+    pub(crate) async fn get_session(&self, session: SessionId) -> EngineResult<Arc<MySqlSession>> {
         let sessions = self.sessions.read().await;
         sessions
             .get(&session)
@@ -296,7 +296,7 @@ impl DataEngine for MySqlDriver {
     }
 
     fn driver_name(&self) -> &'static str {
-        "MySQL / MariaDB"
+        "MySQL"
     }
 
     async fn test_connection(&self, config: &ConnectionConfig) -> EngineResult<()> {

@@ -681,6 +681,7 @@ export function QueryPanel({
     let explainQuery: string;
     switch (dialect) {
       case Driver.Mysql:
+      case Driver.Mariadb:
         explainQuery = `EXPLAIN FORMAT=JSON ${trimmed}`;
         break;
       case Driver.Sqlite:

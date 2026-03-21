@@ -207,6 +207,7 @@ export const COLUMN_TYPES: Record<Driver, ColumnType[]> = {
   [Driver.Duckdb]: DUCKDB_TYPES,
   [Driver.SqlServer]: SQLSERVER_TYPES,
   [Driver.Cockroachdb]: POSTGRES_TYPES,
+  [Driver.Mariadb]: MYSQL_TYPES,
 };
 
 /** Get column types for a driver */

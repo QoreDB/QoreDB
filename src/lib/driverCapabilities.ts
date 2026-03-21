@@ -78,6 +78,13 @@ const DRIVER_SCHEMA_OBJECT_CAPABILITIES: Record<Driver, DriverSchemaObjectCapabi
     triggers: true,
     events: false,
   },
+  mariadb: {
+    routines: true,
+    functions: true,
+    procedures: true,
+    triggers: true,
+    events: true,
+  },
 };
 
 /**

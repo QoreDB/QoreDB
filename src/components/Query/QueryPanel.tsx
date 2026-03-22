@@ -962,7 +962,7 @@ export function QueryPanel({
         <span className="w-8 h-0.5 rounded-full bg-muted-foreground/20 group-hover:bg-accent/60 transition-colors" />
       </button>
 
-      <div data-tour="query-results" className="flex-1 min-h-0">
+      <div data-tour="query-results" className="flex-1 min-h-40">
         <QueryPanelResults
           panelError={panelError}
           results={results}

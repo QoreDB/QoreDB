@@ -20,6 +20,7 @@ pub mod policy;
 pub mod query;
 pub mod routines;
 pub mod sandbox;
+pub mod schema_export;
 pub mod snapshots;
 pub mod triggers;
 pub mod vault;

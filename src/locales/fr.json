@@ -1831,5 +1831,21 @@
     "previewError": "Impossible de prévisualiser le fichier",
     "productionWarning": "Vous importez dans un environnement de production. Procédez avec prudence.",
     "importCsv": "Importer un CSV"
+  },
+  "schemaExport": {
+    "title": "Exporter le schéma",
+    "description": "Exporter le schéma de la base en instructions DDL SQL",
+    "include": "Inclure",
+    "includeTables": "Tables et index",
+    "includeRoutines": "Fonctions et procédures",
+    "includeTriggers": "Triggers",
+    "includeEvents": "Événements",
+    "outputFile": "Fichier de sortie",
+    "export": "Exporter",
+    "exporting": "Export en cours...",
+    "success": "Schéma exporté ({{tables}} tables, {{routines}} routines)",
+    "failed": "Échec de l'export du schéma",
+    "noPath": "Veuillez sélectionner un fichier de sortie",
+    "menuItem": "Exporter le schéma"
   }
 }

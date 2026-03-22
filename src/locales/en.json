@@ -1833,5 +1833,21 @@
     "previewError": "Failed to preview file",
     "productionWarning": "You are importing into a production environment. Proceed with caution.",
     "importCsv": "Import CSV"
+  },
+  "schemaExport": {
+    "title": "Export Schema",
+    "description": "Export database schema as SQL DDL statements",
+    "include": "Include",
+    "includeTables": "Tables & Indexes",
+    "includeRoutines": "Functions & Procedures",
+    "includeTriggers": "Triggers",
+    "includeEvents": "Events",
+    "outputFile": "Output file",
+    "export": "Export",
+    "exporting": "Exporting...",
+    "success": "Schema exported ({{tables}} tables, {{routines}} routines)",
+    "failed": "Schema export failed",
+    "noPath": "Please select an output file",
+    "menuItem": "Export Schema"
   }
 }

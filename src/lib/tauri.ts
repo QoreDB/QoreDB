@@ -1057,6 +1057,43 @@ export async function importCsv(
 }
 
 // ============================================
+// SCHEMA EXPORT
+// ============================================
+
+export interface SchemaExportOptions {
+  include_tables?: boolean;
+  include_routines?: boolean;
+  include_triggers?: boolean;
+  include_events?: boolean;
+}
+
+export interface ExportSchemaResponse {
+  success: boolean;
+  table_count: number;
+  routine_count: number;
+  trigger_count: number;
+  event_count: number;
+  file_size_bytes: number;
+  error?: string;
+}
+
+export async function exportSchema(
+  sessionId: string,
+  database: string,
+  schema: string | null | undefined,
+  filePath: string,
+  options: SchemaExportOptions
+): Promise<ExportSchemaResponse> {
+  return invoke('export_schema', {
+    sessionId,
+    database,
+    schema,
+    filePath,
+    options,
+  });
+}
+
+// ============================================
 // LOGS
 // ============================================
 

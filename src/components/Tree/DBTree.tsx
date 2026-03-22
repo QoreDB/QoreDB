@@ -38,6 +38,7 @@ import {
   type SavedConnection,
   type Trigger,
 } from '../../lib/tauri';
+import { SchemaExportDialog } from '../Export/SchemaExportDialog';
 import { CreateTableModal } from '../Table/CreateTableModal';
 import { CreateDatabaseModal } from './CreateDatabaseModal';
 import { DatabaseContextMenu } from './DatabaseContextMenu';
@@ -113,6 +114,8 @@ export function DBTree({
   const [search, setSearch] = useState('');
   const [searchValue, setSearchValue] = useState('');
   const [collapsedActiveNsKey, setCollapsedActiveNsKey] = useState<string | null>(null);
+  const [schemaExportOpen, setSchemaExportOpen] = useState(false);
+  const [schemaExportNamespace, setSchemaExportNamespace] = useState<Namespace | null>(null);
   const collectionsPageSize = 50;
 
   const driverMeta = getDriverMetadata(driver);
@@ -418,8 +421,13 @@ export function DBTree({
                 setDeleteTargetNamespace(ns);
                 setDeleteModalOpen(true);
               }}
+              onExportSchema={() => {
+                setSchemaExportNamespace(ns);
+                setSchemaExportOpen(true);
+              }}
               canCreateTable={driverMeta.supportsSQL && !connection?.read_only}
               canDelete={!connection?.read_only}
+              canExportSchema={driverMeta.supportsSQL}
             >
               <button
                 type="button"
@@ -1000,6 +1008,21 @@ export function DBTree({
               setCollectionsTotal(0);
             }
           }}
+        />
+      )}
+
+      {schemaExportNamespace && (
+        <SchemaExportDialog
+          open={schemaExportOpen}
+          onOpenChange={open => {
+            setSchemaExportOpen(open);
+            if (!open) setSchemaExportNamespace(null);
+          }}
+          sessionId={sessionId}
+          namespace={schemaExportNamespace}
+          supportsRoutines={schemaObjectCapabilities.routines}
+          supportsTriggers={schemaObjectCapabilities.triggers}
+          supportsEvents={schemaObjectCapabilities.events}
         />
       )}
     </div>

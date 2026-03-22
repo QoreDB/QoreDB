@@ -226,6 +226,8 @@ pub fn run() {
             // Import
             commands::import::preview_csv,
             commands::import::import_csv,
+            // Schema export
+            commands::schema_export::export_schema,
             // Metrics (dev-only)
             commands::metrics::get_metrics,
             // Vault commands

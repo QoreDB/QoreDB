@@ -7,6 +7,7 @@ import {
   ChevronRight,
   Code2,
   Database,
+  Download,
   Eye,
   FunctionSquare,
   HardDrive,
@@ -46,6 +47,7 @@ import {
   type Routine,
   type Trigger,
 } from '../../lib/tauri';
+import { SchemaExportDialog } from '../Export/SchemaExportDialog';
 import { CreateTableModal } from '../Table/CreateTableModal';
 import { EventContextMenu } from '../Tree/EventContextMenu';
 import { RoutineContextMenu } from '../Tree/RoutineContextMenu';
@@ -137,6 +139,7 @@ export function DatabaseBrowser({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [createTableOpen, setCreateTableOpen] = useState(false);
+  const [schemaExportOpen, setSchemaExportOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
@@ -440,6 +443,17 @@ export function DatabaseBrowser({
               title={t('createTable.title')}
             >
               <Plus size={16} />
+            </Button>
+          )}
+          {driverMeta.supportsSQL && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => setSchemaExportOpen(true)}
+              title={t('schemaExport.menuItem')}
+            >
+              <Download size={16} />
             </Button>
           )}
           <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8">
@@ -1036,6 +1050,15 @@ export function DatabaseBrowser({
             emitTableChange({ type: 'create', namespace, tableName });
           }
         }}
+      />
+      <SchemaExportDialog
+        open={schemaExportOpen}
+        onOpenChange={setSchemaExportOpen}
+        sessionId={sessionId}
+        namespace={namespace}
+        supportsRoutines={schemaObjectCapabilities.routines}
+        supportsTriggers={schemaObjectCapabilities.triggers}
+        supportsEvents={schemaObjectCapabilities.events}
       />
     </div>
   );

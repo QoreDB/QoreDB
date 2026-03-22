@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { useEffect, useState } from 'react';
-import { useTranslation } from 'react-i18next';
-
 import { save } from '@tauri-apps/plugin-dialog';
 import { Loader2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -18,7 +17,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { notify } from '@/lib/notify';
-import { type Namespace, type SchemaExportOptions, exportSchema } from '@/lib/tauri';
+import { exportSchema, type Namespace, type SchemaExportOptions } from '@/lib/tauri';
 
 interface SchemaExportDialogProps {
   open: boolean;
@@ -159,6 +158,7 @@ export function SchemaExportDialog({
                 <div className="flex items-center gap-2">
                   <Checkbox
                     id="schema-routines"
+                    className="mb-0"
                     checked={includeRoutines}
                     onCheckedChange={c => setIncludeRoutines(Boolean(c))}
                   />
@@ -173,7 +173,9 @@ export function SchemaExportDialog({
                     checked={includeTriggers}
                     onCheckedChange={c => setIncludeTriggers(Boolean(c))}
                   />
-                  <Label htmlFor="schema-triggers">{t('schemaExport.includeTriggers')}</Label>
+                  <Label className="mb-0" htmlFor="schema-triggers">
+                    {t('schemaExport.includeTriggers')}
+                  </Label>
                 </div>
               )}
 
@@ -184,7 +186,9 @@ export function SchemaExportDialog({
                     checked={includeEvents}
                     onCheckedChange={c => setIncludeEvents(Boolean(c))}
                   />
-                  <Label htmlFor="schema-events">{t('schemaExport.includeEvents')}</Label>
+                  <Label className="mb-0" htmlFor="schema-events">
+                    {t('schemaExport.includeEvents')}
+                  </Label>
                 </div>
               )}
             </div>

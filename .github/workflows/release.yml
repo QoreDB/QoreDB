@@ -6,7 +6,52 @@ on:
       - 'v*'
 
 jobs:
+  release-notes:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      notes: ${{ steps.read.outputs.content }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate release notes
+        uses: orhun/git-cliff-action@v4
+        with:
+          config: cliff.toml
+          args: --latest --strip header
+        env:
+          OUTPUT: CHANGES.md
+          GITHUB_REPO: ${{ github.repository }}
+
+      - name: Read release notes
+        id: read
+        run: |
+          {
+            echo 'content<<EOF'
+            cat CHANGES.md
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Update CHANGELOG.md
+        uses: orhun/git-cliff-action@v4
+        with:
+          config: cliff.toml
+          args: --output CHANGELOG.md
+
+      - name: Commit CHANGELOG.md
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add CHANGELOG.md
+          git diff --cached --quiet || git commit -m "chore(release): update CHANGELOG.md for ${{ github.ref_name }}"
+          git push origin HEAD:main
+
   build:
+    needs: release-notes
     permissions:
       contents: write
     strategy:
@@ -87,7 +132,7 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: 'QoreDB ${{ github.ref_name }}'
-          releaseBody: 'See the assets to download and install this version.'
+          releaseBody: ${{ needs.release-notes.outputs.notes }}
           releaseDraft: true
           prerelease: false
           includeUpdaterJson: true

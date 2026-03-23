@@ -134,6 +134,28 @@ Les artefacts sont générés dans `src-tauri/target/release/bundle/`.
 
 ---
 
+## Rollback
+
+En cas de problème après une release :
+
+### Via l'auto-updater
+
+1. Publier un hotfix (nouveau tag `vX.Y.Z+1`)
+2. L'auto-updater Tauri distribue la correction automatiquement
+
+### Rollback manuel
+
+1. Supprimer la release problématique : `gh release delete vX.Y.Z --yes`
+2. Supprimer le tag : `git push --delete origin vX.Y.Z && git tag -d vX.Y.Z`
+3. Les utilisateurs qui n'ont pas encore mis à jour conservent l'ancienne version
+4. Pour les utilisateurs déjà mis à jour : publier un patch pointant vers le code stable
+
+### Rollback partiel (draft non publié)
+
+Si la release est encore en draft, il suffit de supprimer le draft depuis GitHub.
+
+---
+
 ## Auto-updater
 
 L'app vérifie les mises à jour via :

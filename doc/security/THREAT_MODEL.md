@@ -34,7 +34,9 @@ QoreDB is a desktop application (Tauri/Rust) that connects to user databases. Th
 - **Mitigation**:
   - Minimal dependency tree.
   - Open Source (users can audit requirements).
-  - (Future) SBOM and signed binaries.
+  - SBOM CycloneDX publié avec chaque release.
+  - `cargo-deny` : advisories, licences et registries vérifiés dans le CI.
+  - Builds signés avec checksums SHA-256.
 
 ### 4. Data Leaks via Logs
 

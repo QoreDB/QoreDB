@@ -20,7 +20,9 @@
     "check": "biome check .",
     "check:fix": "biome check --write .",
     "sbom": "bash scripts/generate-sbom.sh",
-    "supply-chain:check": "cd src-tauri && cargo deny check"
+    "supply-chain:check": "cd src-tauri && cargo deny check",
+    "changelog": "git cliff --output CHANGELOG.md",
+    "changelog:latest": "git cliff --latest --strip header"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.1",

@@ -99,8 +99,8 @@
 | `SECURITY.md`          | Vue d’ensemble sécurité         | ✅     |
 | `THREAT_MODEL.md`      | Menaces & mitigations           | ✅     |
 | `PRODUCTION_SAFETY.md` | Garde-fous prod                 | ✅     |
-| Self-assessment        | Alignement SOC 2 (non certifié) | ⬜     |
-| OWASP                  | Alignement Top 10               | ⬜     |
+| Self-assessment        | Alignement SOC 2 (non certifié) | ✅     |
+| OWASP                  | Alignement Top 10               | ✅     |
 
 ---
 
@@ -109,8 +109,8 @@
 | Domaine   | Action                   | Statut | Notes             |
 | --------- | ------------------------ | ------ | ----------------- |
 | Integrity | Checksums des builds     | ✅     | SHA-256           |
-| Releases  | Changelog clair          | ⬜     | Sécurité incluse  |
-| Updates   | Process update documenté | ⬜     | Rollback possible |
+| Releases  | Changelog clair          | ✅     | git-cliff (auto)  |
+| Updates   | Process update documenté | ✅     | Rollback documenté |
 
 ---
 
@@ -118,7 +118,7 @@
 
 | Élément                        | Statut |
 | ------------------------------ | ------ |
-| SOC 2 aligned (not certified)  | ⬜     |
+| SOC 2 aligned (not certified)  | ✅     |
 | Local-first security posture   | ⬜     |
 | Open-source auditable          | ✅     |
 | Enterprise-ready (sans certif) | ⬜     |

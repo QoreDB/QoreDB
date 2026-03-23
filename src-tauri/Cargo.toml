@@ -4,6 +4,7 @@ version = "0.1.21"
 description = "Next gen DB Client"
 authors = ["Raphaël Plassart <raphael.plassart@gmail.com>"]
 edition = "2021"
+license = "Apache-2.0"
 
 [lib]
 name = "qoredb_lib"

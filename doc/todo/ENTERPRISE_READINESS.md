@@ -65,8 +65,8 @@
 | ------------ | ------------------------------ | ------ | ------------------ |
 | Tests        | Unit + intégration DB (docker) | ✅     | PG / MySQL / Mongo |
 | CI           | Tests automatiques Linux       | ✅     | GitHub Actions     |
-| Dependencies | SBOM générée (deps + versions) | ⬜     | Gratuit            |
-| Licences     | Licences OSS documentées       | ⬜     | Clair              |
+| Dependencies | SBOM générée (deps + versions) | ✅     | CycloneDX JSON     |
+| Licences     | Licences OSS documentées       | ✅     | cargo-deny enforce |
 
 ---
 
@@ -108,7 +108,7 @@
 
 | Domaine   | Action                   | Statut | Notes             |
 | --------- | ------------------------ | ------ | ----------------- |
-| Integrity | Checksums des builds     | ⬜     | SHA               |
+| Integrity | Checksums des builds     | ✅     | SHA-256           |
 | Releases  | Changelog clair          | ⬜     | Sécurité incluse  |
 | Updates   | Process update documenté | ⬜     | Rollback possible |
 

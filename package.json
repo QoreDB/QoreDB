@@ -18,7 +18,9 @@
     "format": "biome format .",
     "format:write": "biome format --write .",
     "check": "biome check .",
-    "check:fix": "biome check --write ."
+    "check:fix": "biome check --write .",
+    "sbom": "bash scripts/generate-sbom.sh",
+    "supply-chain:check": "cd src-tauri && cargo deny check"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.1",

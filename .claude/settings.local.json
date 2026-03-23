@@ -44,7 +44,12 @@
       "mcp___hypothesi_tauri-mcp-server__webview_find_element",
       "mcp___hypothesi_tauri-mcp-server__driver_session",
       "Bash(pnpm exec:*)",
-      "Bash(pnpm format:write)"
+      "Bash(pnpm format:write)",
+      "Bash(cargo deny:*)",
+      "Bash(cargo-sbom --version)",
+      "Bash(syft --version)",
+      "Bash(cargo cyclonedx:*)",
+      "Bash(chmod:*)"
     ]
   }
 }

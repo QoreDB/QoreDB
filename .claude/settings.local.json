@@ -49,7 +49,12 @@
       "Bash(cargo-sbom --version)",
       "Bash(syft --version)",
       "Bash(cargo cyclonedx:*)",
-      "Bash(chmod:*)"
+      "Bash(chmod:*)",
+      "Bash(sccache --version)",
+      "Bash(echo:*)",
+      "Bash(xargs -I {} du -sh {})",
+      "Bash(rustc --version)",
+      "Bash(mold --version)"
     ]
   }
 }

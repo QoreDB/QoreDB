@@ -44,7 +44,7 @@
 | Query tracking | `QueryId` par exécution           | ✅     | Multi-parallèle   |
 | Cancellation   | Annulation réelle PG / MySQL      | ✅     | Mongo best-effort |
 | Timeouts       | Timeout → cancel + cleanup        | ✅     | Driver-aware      |
-| Limits         | Max rows / duration configurables | ⬜     | Politique prod    |
+| Limits         | Max rows / duration configurables | ✅     | Politique governance |
 
 ---
 

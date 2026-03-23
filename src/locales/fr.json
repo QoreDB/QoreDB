@@ -1389,6 +1389,20 @@
       "truncateProd": "TRUNCATE est bloqué en production",
       "dangerousProd": "Requête dangereuse bloquée en production",
       "confirmRequired": "Confirmation requise"
+    },
+    "governance": {
+      "title": "Gouvernance des requêtes",
+      "description": "Configurer les limites de ressources pour l'exécution des requêtes",
+      "maxDuration": "Durée max. des requêtes (ms)",
+      "maxDurationDescription": "Durée maximale d'exécution avant annulation automatique",
+      "maxDurationPlaceholder": "Pas de limite",
+      "maxRows": "Nombre max. de lignes",
+      "maxRowsDescription": "Nombre maximum de lignes retournées par requête",
+      "maxRowsPlaceholder": "Pas de limite",
+      "maxConcurrent": "Requêtes simultanées max.",
+      "maxConcurrentDescription": "Nombre maximum de requêtes en cours d'exécution simultanément",
+      "maxConcurrentPlaceholder": "Pas de limite",
+      "resultsTruncated": "Résultats tronqués : {{max}} sur {{total}} lignes affichées"
     }
   },
   "titlebar": {

@@ -52,6 +52,12 @@ pub enum EngineError {
 
     #[error("Validation error: {message}")]
     ValidationError { message: String },
+
+    #[error("Too many concurrent queries ({current}/{limit})")]
+    TooManyConcurrentQueries { current: u32, limit: u32 },
+
+    #[error("Result exceeds row limit ({rows}/{limit} rows)")]
+    ResultTooLarge { rows: u64, limit: u64 },
 }
 
 impl EngineError {
@@ -113,6 +119,14 @@ impl EngineError {
         Self::ValidationError {
             message: msg.into(),
         }
+    }
+
+    pub fn too_many_queries(current: u32, limit: u32) -> Self {
+        Self::TooManyConcurrentQueries { current, limit }
+    }
+
+    pub fn result_too_large(rows: u64, limit: u64) -> Self {
+        Self::ResultTooLarge { rows, limit }
     }
 }
 

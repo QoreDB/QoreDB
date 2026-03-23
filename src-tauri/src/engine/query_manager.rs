@@ -96,6 +96,11 @@ impl QueryManager {
         let last = self.last_by_session.read().await;
         last.get(&session_id).copied()
     }
+
+    pub async fn count_active(&self) -> usize {
+        let active = self.active.read().await;
+        active.len()
+    }
 }
 
 impl Default for QueryManager {
@@ -120,6 +125,25 @@ mod tests {
 
         manager.finish(query_id).await;
         assert!(!manager.contains(query_id).await);
+    }
+
+    #[tokio::test]
+    async fn count_active_tracks_queries() {
+        let manager = QueryManager::new();
+        assert_eq!(manager.count_active().await, 0);
+
+        let session = SessionId::new();
+        let q1 = manager.register(session).await;
+        assert_eq!(manager.count_active().await, 1);
+
+        let q2 = manager.register(session).await;
+        assert_eq!(manager.count_active().await, 2);
+
+        manager.finish(q1).await;
+        assert_eq!(manager.count_active().await, 1);
+
+        manager.finish(q2).await;
+        assert_eq!(manager.count_active().await, 0);
     }
 
     #[tokio::test]

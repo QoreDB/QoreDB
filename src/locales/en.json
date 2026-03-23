@@ -1391,6 +1391,20 @@
       "truncateProd": "TRUNCATE is blocked in production",
       "dangerousProd": "Dangerous query blocked in production",
       "confirmRequired": "Confirmation required"
+    },
+    "governance": {
+      "title": "Query Governance",
+      "description": "Configure resource limits for query execution",
+      "maxDuration": "Max query duration (ms)",
+      "maxDurationDescription": "Maximum time a query can run before automatic cancellation",
+      "maxDurationPlaceholder": "No limit",
+      "maxRows": "Max result rows",
+      "maxRowsDescription": "Maximum number of rows returned per query",
+      "maxRowsPlaceholder": "No limit",
+      "maxConcurrent": "Max concurrent queries",
+      "maxConcurrentDescription": "Maximum number of queries running simultaneously",
+      "maxConcurrentPlaceholder": "No limit",
+      "resultsTruncated": "Results truncated: showing {{max}} of {{total}} rows"
     }
   },
   "titlebar": {

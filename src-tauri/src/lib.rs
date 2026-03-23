@@ -243,6 +243,9 @@ pub fn run() {
             // Policy commands
             commands::policy::get_safety_policy,
             commands::policy::set_safety_policy,
+            // Governance commands
+            commands::query::get_governance_limits,
+            commands::query::update_governance_limits,
             // Sandbox commands
             commands::sandbox::generate_migration_sql,
             commands::sandbox::apply_sandbox_changes,

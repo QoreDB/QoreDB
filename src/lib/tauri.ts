@@ -261,6 +261,8 @@ export async function executeQuery(
   result?: QueryResult;
   error?: string;
   query_id?: string;
+  truncated?: boolean;
+  truncated_total?: number;
 }> {
   return invoke('execute_query', {
     sessionId,

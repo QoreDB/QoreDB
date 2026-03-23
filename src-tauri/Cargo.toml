@@ -91,5 +91,22 @@ pro = ["rust_xlsxwriter", "parquet", "arrow", "reqwest"]
 team = ["pro"]
 enterprise = ["team"]
 
+# Optimize dependencies in dev mode (faster app startup, same compile time)
+[profile.dev.package."*"]
+opt-level = 1
+
+# Keep debug builds fast for our own code
+[profile.dev]
+opt-level = 0
+debug = 2
+incremental = true
+
+# Optimize release builds
+[profile.release]
+opt-level = 3
+lto = "thin"
+strip = "symbols"
+codegen-units = 1
+
 [dev-dependencies]
 tempfile = "3.24.0"

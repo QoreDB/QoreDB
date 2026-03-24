@@ -54,7 +54,8 @@
       "Bash(echo:*)",
       "Bash(xargs -I {} du -sh {})",
       "Bash(rustc --version)",
-      "Bash(mold --version)"
+      "Bash(mold --version)",
+      "Bash(pnpm biome:*)"
     ]
   }
 }

@@ -2,8 +2,8 @@
 # Cargo build configuration for QoreDB
 
 [build]
-# Use all available CPU cores for parallel compilation
-jobs = 0
+# Limit parallel compilation to 10 cores
+jobs = 10
 
 # Use sccache if available (avoids recompiling DuckDB after cargo clean)
 # Install with: cargo install sccache

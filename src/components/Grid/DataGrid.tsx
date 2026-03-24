@@ -104,13 +104,11 @@ interface DataGridProps {
     newValues: Record<string, Value>
   ) => void;
   onSandboxDelete?: (primaryKey: Record<string, Value>, oldValues: Record<string, Value>) => void;
-  // Infinite scroll props
   infiniteScrollTotalRows?: number;
   infiniteScrollLoadedRows?: number;
   infiniteScrollIsFetchingMore?: boolean;
   infiniteScrollIsComplete?: boolean;
   onFetchMore?: () => void;
-  // Server-side sort/search
   serverSortColumn?: string;
   serverSortDirection?: SortDirection;
   onServerSortChange?: (column?: string, direction?: SortDirection) => void;
@@ -118,6 +116,7 @@ interface DataGridProps {
   onServerSearchChange?: (term: string) => void;
   onServerColumnFiltersChange?: (filters: ColumnFilter[]) => void;
   exportQuery?: string;
+  footerMode?: 'auto' | 'pagination' | 'infinite' | 'none';
 }
 
 export function DataGrid({
@@ -154,6 +153,7 @@ export function DataGrid({
   onServerSearchChange,
   onServerColumnFiltersChange,
   exportQuery,
+  footerMode = 'auto',
 }: DataGridProps) {
   const { t } = useTranslation();
 
@@ -167,6 +167,8 @@ export function DataGrid({
   const initialFilterRef = useRef<string | undefined>(undefined);
   const isInfiniteScrollMode = infiniteScrollTotalRows !== undefined;
   const isServerSideMode = isInfiniteScrollMode;
+  const resolvedFooterMode =
+    footerMode === 'auto' ? (isInfiniteScrollMode ? 'infinite' : 'pagination') : footerMode;
   const noopServerSearchChange = useCallback((_term: string) => {}, []);
   const globalFilter = isServerSideMode ? (serverSearchTerm ?? '') : internalGlobalFilter;
   const setGlobalFilter = isServerSideMode
@@ -769,8 +771,11 @@ export function DataGrid({
   const selectedRows = table.getSelectedRowModel().rows;
 
   return (
-    <div className="flex flex-col gap-2 h-full min-h-0 isolate [contain:paint]" data-datagrid>
-      <div className="flex items-center justify-between px-1 shrink-0">
+    <div
+      className="isolate flex h-full min-h-0 min-w-0 flex-col gap-2 [contain:paint]"
+      data-datagrid
+    >
+      <div className="flex min-w-0 shrink-0 items-center justify-between gap-3 px-1">
         <DataGridHeader
           selectedCount={selectedCount}
           totalRows={totalRows}
@@ -801,10 +806,16 @@ export function DataGrid({
         />
       </div>
 
-      <div ref={parentRef} className="border border-border rounded-md overflow-auto flex-1 min-h-0">
+      <div
+        ref={parentRef}
+        className="relative flex min-h-0 min-w-0 flex-1 overflow-x-auto overflow-y-auto rounded-md border border-border"
+      >
         <table
-          className="text-sm border-collapse relative"
-          style={{ tableLayout: 'fixed', width: table.getTotalSize() }}
+          className="relative min-w-full border-collapse text-sm"
+          style={{
+            tableLayout: 'fixed',
+            width: `max(100%, ${table.getTotalSize()}px)`,
+          }}
         >
           <DataGridTableHeader table={table} showFilters={showFilters} />
           <DataGridTableBody
@@ -817,16 +828,16 @@ export function DataGrid({
         </table>
       </div>
 
-      {isInfiniteScrollMode ? (
+      {resolvedFooterMode === 'infinite' ? (
         <DataGridStatusBar
           loadedRows={infiniteScrollLoadedRows ?? 0}
           totalRows={infiniteScrollTotalRows ?? 0}
           isFetchingMore={infiniteScrollIsFetchingMore ?? false}
           isComplete={infiniteScrollIsComplete ?? false}
         />
-      ) : (
+      ) : resolvedFooterMode === 'pagination' ? (
         <DataGridPagination table={table} pagination={pagination} />
-      )}
+      ) : null}
 
       {canStreamExport && exportQuery && (
         <StreamingExportDialog

@@ -72,14 +72,14 @@ export function QueryPanelResults({
   const showMultiStatementNotice = !isDocumentBased && statementCount > 1;
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-background overflow-hidden relative">
+    <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background">
       {panelError ? (
         <div className="p-4 m-4 rounded-md bg-error/10 border border-error/20 text-error flex items-start gap-3">
           <AlertCircle className="mt-0.5 shrink-0" size={18} />
           <pre className="text-sm font-mono whitespace-pre-wrap break-all">{panelError}</pre>
         </div>
       ) : activeResult ? (
-        <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           {showTabs && (
             <div className="flex items-center gap-1 px-2 py-1 border-b border-border bg-muted/20 overflow-x-auto no-scrollbar">
               {results.map(entry => {
@@ -153,7 +153,7 @@ export function QueryPanelResults({
             <ExplainPlanView result={activeResult.result} />
           ) : activeResult.result ? (
             isDocumentBased ? (
-              <div className="flex-1 min-h-0 flex flex-col relative">
+              <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
                 <DocumentResults
                   result={activeResult.result}
                   sessionId={sessionId || undefined}
@@ -170,7 +170,7 @@ export function QueryPanelResults({
                 />
               </div>
             ) : (
-              <div className="flex-1 min-h-0 p-2 flex flex-col overflow-hidden">
+              <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden p-2">
                 <DataGrid
                   result={activeResult.result}
                   sessionId={sessionId || undefined}
@@ -180,6 +180,7 @@ export function QueryPanelResults({
                   environment={environment}
                   readOnly={readOnly}
                   exportQuery={activeResult.query}
+                  footerMode="none"
                 />
               </div>
             )

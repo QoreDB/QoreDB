@@ -808,7 +808,7 @@ export function DataGrid({
 
       <div
         ref={parentRef}
-        className="relative flex min-h-0 min-w-0 flex-1 overflow-x-auto overflow-y-auto rounded-md border border-border"
+        className="relative min-h-0 min-w-0 flex-1 overflow-x-auto overflow-y-auto rounded-md border border-border"
       >
         <table
           className="relative min-w-full border-collapse text-sm"

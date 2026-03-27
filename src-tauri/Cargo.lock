@@ -4678,6 +4678,7 @@ dependencies = [
  "futures",
  "keyring",
  "mongodb",
+ "parking_lot",
  "parquet",
  "percent-encoding",
  "rand 0.8.5",

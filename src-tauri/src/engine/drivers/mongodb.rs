@@ -95,17 +95,20 @@ impl MongoDriver {
 
     /// Builds a connection string from config
     fn build_connection_string(config: &ConnectionConfig) -> String {
+        use percent_encoding::{utf8_percent_encode, NON_ALPHANUMERIC};
+
         let db = config.database.as_deref().unwrap_or("admin");
         let tls = if config.ssl { "true" } else { "false" };
 
-        // Only include credentials if username is provided
+        // Only include credentials if username is provided (percent-encoded for safety)
         let credentials = if !config.username.is_empty() {
-            format!("{}:{}@", config.username, config.password)
+            let encoded_user = utf8_percent_encode(&config.username, NON_ALPHANUMERIC);
+            let encoded_pass = utf8_percent_encode(&config.password, NON_ALPHANUMERIC);
+            format!("{}:{}@", encoded_user, encoded_pass)
         } else {
             String::new()
         };
 
-        //TODO : see if we need to add more options / safer handling
         let auth_source = if !config.username.is_empty() {
             "?authSource=admin&tls="
         } else {

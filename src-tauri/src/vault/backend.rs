@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::engine::error::{EngineError, EngineResult};
-use keyring::Entry;
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+
+use keyring::Entry;
+use parking_lot::Mutex;
+
+use crate::engine::error::{EngineError, EngineResult};
 
 /// Trait for credential storage backend
 pub trait CredentialProvider: Send + Sync {
@@ -72,20 +75,20 @@ impl MockProvider {
 
 impl CredentialProvider for MockProvider {
     fn set_password(&self, service: &str, username: &str, password: &str) -> EngineResult<()> {
-        let mut map = self.storage.lock().unwrap();
+        let mut map = self.storage.lock();
         map.insert(Self::key(service, username), password.to_string());
         Ok(())
     }
 
     fn get_password(&self, service: &str, username: &str) -> EngineResult<String> {
-        let map = self.storage.lock().unwrap();
+        let map = self.storage.lock();
         map.get(&Self::key(service, username))
             .cloned()
             .ok_or_else(|| EngineError::internal("Credentials not found"))
     }
 
     fn delete_password(&self, service: &str, username: &str) -> EngineResult<()> {
-        let mut map = self.storage.lock().unwrap();
+        let mut map = self.storage.lock();
         map.remove(&Self::key(service, username));
         Ok(())
     }

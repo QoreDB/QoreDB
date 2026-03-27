@@ -142,7 +142,16 @@ impl SessionManager {
                 (config.clone(), None)
             };
 
-            let session_id = driver.connect(&effective_config).await?;
+            let session_id = match driver.connect(&effective_config).await {
+                Ok(id) => id,
+                Err(e) => {
+                    // Explicitly close the SSH tunnel on connection failure
+                    if let Some(mut tun) = tunnel {
+                        let _ = tun.close().await;
+                    }
+                    return Err(e);
+                }
+            };
 
             let display_name = format!(
                 "{}@{}:{}{}",

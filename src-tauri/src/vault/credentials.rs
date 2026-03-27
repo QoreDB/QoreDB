@@ -52,6 +52,9 @@ pub struct SavedConnection {
     pub database: Option<String>,
     /// Use SSL/TLS
     pub ssl: bool,
+    /// Optional SSL mode override (e.g. "verify-full", "verify-ca")
+    #[serde(default)]
+    pub ssl_mode: Option<String>,
     /// Pool max connections
     #[serde(default)]
     pub pool_max_connections: Option<u32>,
@@ -181,6 +184,7 @@ impl SavedConnection {
             password: creds.db_password.expose().clone(),
             database: self.database.clone(),
             ssl: self.ssl,
+            ssl_mode: self.ssl_mode.clone(),
             environment: self.environment.as_str().to_string(),
             read_only: self.read_only,
             pool_max_connections: self.pool_max_connections,
@@ -208,6 +212,7 @@ mod tests {
             username: "qoredb".to_string(),
             database: Some("testdb".to_string()),
             ssl: false,
+            ssl_mode: None,
             pool_max_connections: None,
             pool_min_connections: None,
             pool_acquire_timeout_secs: None,

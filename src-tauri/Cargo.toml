@@ -47,6 +47,7 @@ tracing-appender = "0.2"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 csv = "1"
 regex = "1"
+parking_lot = "0.12"
 dirs = "5"
 url = "2"
 percent-encoding = "2"

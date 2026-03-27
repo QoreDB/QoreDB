@@ -51,6 +51,10 @@ pub struct ConnectionConfig {
     pub password: String,
     pub database: Option<String>,
     pub ssl: bool,
+    /// Optional SSL mode override (e.g. "verify-full", "verify-ca", "require", "prefer", "disable").
+    /// When set, takes precedence over the `ssl` boolean for drivers that support it.
+    #[serde(default)]
+    pub ssl_mode: Option<String>,
     pub environment: String,
     pub read_only: bool,
     pub pool_max_connections: Option<u32>,

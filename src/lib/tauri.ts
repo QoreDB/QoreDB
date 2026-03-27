@@ -19,6 +19,7 @@ export interface ConnectionConfig {
   password: string;
   database?: string;
   ssl: boolean;
+  ssl_mode?: string;
   environment: Environment;
   read_only: boolean;
   pool_max_connections?: number;

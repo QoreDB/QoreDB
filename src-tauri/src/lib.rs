@@ -188,6 +188,7 @@ pub fn run() {
             commands::query::list_routines,
             commands::query::list_triggers,
             commands::query::list_events,
+            commands::query::list_sequences,
             commands::query::describe_table,
             commands::query::preview_table,
             commands::query::query_table,
@@ -217,6 +218,9 @@ pub fn run() {
             commands::triggers::toggle_trigger,
             commands::triggers::get_event_definition,
             commands::triggers::drop_event,
+            // Sequence management commands
+            commands::sequences::get_sequence_definition,
+            commands::sequences::drop_sequence,
             // Logs
             commands::logs::export_logs,
             commands::logs::log_frontend_message,

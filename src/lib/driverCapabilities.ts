@@ -19,6 +19,7 @@ export interface DriverSchemaObjectCapabilities {
   procedures: boolean;
   triggers: boolean;
   events: boolean;
+  sequences: boolean;
 }
 
 const DRIVER_SCHEMA_OBJECT_CAPABILITIES: Record<Driver, DriverSchemaObjectCapabilities> = {
@@ -28,6 +29,7 @@ const DRIVER_SCHEMA_OBJECT_CAPABILITIES: Record<Driver, DriverSchemaObjectCapabi
     procedures: true,
     triggers: true,
     events: false,
+    sequences: false,
   },
   mysql: {
     routines: true,
@@ -35,6 +37,7 @@ const DRIVER_SCHEMA_OBJECT_CAPABILITIES: Record<Driver, DriverSchemaObjectCapabi
     procedures: true,
     triggers: true,
     events: true,
+    sequences: false,
   },
   mongodb: {
     routines: false,
@@ -42,6 +45,7 @@ const DRIVER_SCHEMA_OBJECT_CAPABILITIES: Record<Driver, DriverSchemaObjectCapabi
     procedures: false,
     triggers: false,
     events: false,
+    sequences: false,
   },
   redis: {
     routines: false,
@@ -49,6 +53,7 @@ const DRIVER_SCHEMA_OBJECT_CAPABILITIES: Record<Driver, DriverSchemaObjectCapabi
     procedures: false,
     triggers: false,
     events: false,
+    sequences: false,
   },
   sqlite: {
     routines: false,
@@ -56,6 +61,7 @@ const DRIVER_SCHEMA_OBJECT_CAPABILITIES: Record<Driver, DriverSchemaObjectCapabi
     procedures: false,
     triggers: true,
     events: false,
+    sequences: false,
   },
   duckdb: {
     routines: false,
@@ -63,6 +69,7 @@ const DRIVER_SCHEMA_OBJECT_CAPABILITIES: Record<Driver, DriverSchemaObjectCapabi
     procedures: false,
     triggers: false,
     events: false,
+    sequences: false,
   },
   sqlserver: {
     routines: true,
@@ -70,6 +77,7 @@ const DRIVER_SCHEMA_OBJECT_CAPABILITIES: Record<Driver, DriverSchemaObjectCapabi
     procedures: true,
     triggers: true,
     events: false,
+    sequences: false,
   },
   cockroachdb: {
     routines: true,
@@ -77,6 +85,7 @@ const DRIVER_SCHEMA_OBJECT_CAPABILITIES: Record<Driver, DriverSchemaObjectCapabi
     procedures: true,
     triggers: true,
     events: false,
+    sequences: false,
   },
   mariadb: {
     routines: true,
@@ -84,6 +93,7 @@ const DRIVER_SCHEMA_OBJECT_CAPABILITIES: Record<Driver, DriverSchemaObjectCapabi
     procedures: true,
     triggers: true,
     events: true,
+    sequences: true,
   },
 };
 

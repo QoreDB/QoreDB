@@ -17,8 +17,8 @@ use crate::engine::{
     types::{
         CollectionList, CollectionListOptions, CreationOptions, EventList, EventListOptions,
         ForeignKey, Namespace, PaginatedQueryResult, QueryId, QueryResult, RoutineList,
-        RoutineListOptions, RoutineType, SessionId, TableQueryOptions, TriggerList,
-        TriggerListOptions, Value,
+        RoutineListOptions, RoutineType, SequenceList, SequenceListOptions, SessionId,
+        TableQueryOptions, TriggerList, TriggerListOptions, Value,
     },
     TableSchema,
 };
@@ -1013,6 +1013,61 @@ pub async fn list_events(
             error: None,
         }),
         Err(e) => Ok(EventsResponse {
+            success: false,
+            data: None,
+            error: Some(e.sanitized_message()),
+        }),
+    }
+}
+
+/// Response wrapper for sequence listing
+#[derive(Debug, Serialize)]
+pub struct SequencesResponse {
+    pub success: bool,
+    pub data: Option<SequenceList>,
+    pub error: Option<String>,
+}
+
+/// Lists all sequences in a namespace (MariaDB 10.3+)
+#[tauri::command]
+pub async fn list_sequences(
+    state: State<'_, crate::SharedState>,
+    session_id: String,
+    namespace: Namespace,
+    search: Option<String>,
+    page: Option<u32>,
+    page_size: Option<u32>,
+) -> Result<SequencesResponse, String> {
+    let session_manager = {
+        let state = state.lock().await;
+        Arc::clone(&state.session_manager)
+    };
+    let session = parse_session_id(&session_id)?;
+
+    let driver = match session_manager.get_driver(session).await {
+        Ok(d) => d,
+        Err(e) => {
+            return Ok(SequencesResponse {
+                success: false,
+                data: None,
+                error: Some(e.sanitized_message()),
+            });
+        }
+    };
+
+    let options = SequenceListOptions {
+        search,
+        page,
+        page_size,
+    };
+
+    match driver.list_sequences(session, &namespace, options).await {
+        Ok(list) => Ok(SequencesResponse {
+            success: true,
+            data: Some(list),
+            error: None,
+        }),
+        Err(e) => Ok(SequencesResponse {
             success: false,
             data: None,
             error: Some(e.sanitized_message()),

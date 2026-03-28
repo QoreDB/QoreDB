@@ -6,21 +6,25 @@
 //! MariaDB uses the same wire protocol and information_schema as MySQL, but
 //! differs in system schema presence, storage engines (Aria), and some features.
 
+use std::time::Instant;
+
 use async_trait::async_trait;
+use sqlx::Row as SqlxRow;
 
 use crate::engine::error::{EngineError, EngineResult};
 use crate::engine::traits::{DataEngine, StreamSender};
 use crate::engine::types::{
     CancelSupport, CollectionList, CollectionListOptions, ConnectionConfig, CreationOptions,
     DriverCapabilities, EventDefinition, EventList, EventListOptions, EventOperationResult,
-    MaintenanceOperationInfo, MaintenanceRequest, MaintenanceResult,
-    Namespace, PaginatedQueryResult, QueryId, QueryResult, RoutineDefinition, RoutineList,
-    RoutineListOptions, RoutineOperationResult, RoutineType, RowData, SessionId, TableQueryOptions,
-    TableSchema, TriggerDefinition, TriggerList, TriggerListOptions, TriggerOperationResult, Value,
+    ForeignKey, MaintenanceOperationInfo, MaintenanceRequest, MaintenanceResult, Namespace,
+    PaginatedQueryResult, QueryId, QueryResult, RoutineDefinition, RoutineList,
+    RoutineListOptions, RoutineOperationResult, RoutineType, RowData, Sequence,
+    SequenceDefinition, SequenceList, SequenceListOptions, SequenceOperationResult, SessionId,
+    TableQueryOptions, TableSchema, TriggerDefinition, TriggerList, TriggerListOptions,
+    TriggerOperationResult, Value,
 };
 
 use super::mysql::MySqlDriver;
-use crate::engine::types::ForeignKey;
 
 /// MariaDB driver — delegates to MySqlDriver with MariaDB-specific overrides.
 pub struct MariaDbDriver {
@@ -221,6 +225,182 @@ impl DataEngine for MariaDbDriver {
         self.inner
             .drop_event(session, namespace, event_name)
             .await
+    }
+
+    // ==================== Sequences (MariaDB 10.3+) ====================
+
+    fn supports_sequences(&self) -> bool {
+        true
+    }
+
+    async fn list_sequences(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        options: SequenceListOptions,
+    ) -> EngineResult<SequenceList> {
+        let mysql_session = self.inner.get_session(session).await?;
+        let pool = &mysql_session.pool;
+
+        let search = options.search.unwrap_or_default();
+        let page = options.page.unwrap_or(1).max(1);
+        let page_size = options.page_size.unwrap_or(100).min(1000);
+        let offset = (page - 1) * page_size;
+
+        // Count total
+        let count_query = if search.is_empty() {
+            format!(
+                "SELECT COUNT(*) as cnt FROM information_schema.SEQUENCES \
+                 WHERE SEQUENCE_SCHEMA = '{}'",
+                namespace.database.replace('\'', "''")
+            )
+        } else {
+            format!(
+                "SELECT COUNT(*) as cnt FROM information_schema.SEQUENCES \
+                 WHERE SEQUENCE_SCHEMA = '{}' AND SEQUENCE_NAME LIKE '%{}%'",
+                namespace.database.replace('\'', "''"),
+                search.replace('\'', "''")
+            )
+        };
+
+        let count_row: (i64,) = sqlx::query_as(&count_query)
+            .fetch_one(pool)
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+        let total_count = count_row.0 as u32;
+
+        // Fetch sequences
+        let data_query = if search.is_empty() {
+            format!(
+                "SELECT SEQUENCE_NAME, DATA_TYPE, START_VALUE, MINIMUM_VALUE, \
+                 MAXIMUM_VALUE, `INCREMENT`, CYCLE_OPTION, CACHE_SIZE \
+                 FROM information_schema.SEQUENCES \
+                 WHERE SEQUENCE_SCHEMA = '{}' \
+                 ORDER BY SEQUENCE_NAME \
+                 LIMIT {} OFFSET {}",
+                namespace.database.replace('\'', "''"),
+                page_size,
+                offset
+            )
+        } else {
+            format!(
+                "SELECT SEQUENCE_NAME, DATA_TYPE, START_VALUE, MINIMUM_VALUE, \
+                 MAXIMUM_VALUE, `INCREMENT`, CYCLE_OPTION, CACHE_SIZE \
+                 FROM information_schema.SEQUENCES \
+                 WHERE SEQUENCE_SCHEMA = '{}' AND SEQUENCE_NAME LIKE '%{}%' \
+                 ORDER BY SEQUENCE_NAME \
+                 LIMIT {} OFFSET {}",
+                namespace.database.replace('\'', "''"),
+                search.replace('\'', "''"),
+                page_size,
+                offset
+            )
+        };
+
+        let rows = sqlx::query(&data_query)
+            .fetch_all(pool)
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        let sequences = rows
+            .into_iter()
+            .map(|row| {
+                let name: String = row.get("SEQUENCE_NAME");
+                let data_type: String = row.get("DATA_TYPE");
+                let start_value: i64 = row.get("START_VALUE");
+                let min_value: i64 = row.get("MINIMUM_VALUE");
+                let max_value: i64 = row.get("MAXIMUM_VALUE");
+                let increment: i64 = row.get("INCREMENT");
+                let cycle_option: String = row.get("CYCLE_OPTION");
+                let cache_size: i64 = row.get("CACHE_SIZE");
+
+                Sequence {
+                    namespace: namespace.clone(),
+                    name,
+                    data_type,
+                    start_value,
+                    min_value,
+                    max_value,
+                    increment,
+                    cycle: cycle_option == "1",
+                    cache_size,
+                }
+            })
+            .collect();
+
+        Ok(SequenceList {
+            sequences,
+            total_count,
+        })
+    }
+
+    async fn get_sequence_definition(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        sequence_name: &str,
+    ) -> EngineResult<SequenceDefinition> {
+        let mysql_session = self.inner.get_session(session).await?;
+        let pool = &mysql_session.pool;
+
+        // USE the correct database before SHOW CREATE
+        let use_sql = format!(
+            "USE `{}`",
+            namespace.database.replace('`', "``")
+        );
+        sqlx::query(&use_sql)
+            .execute(pool)
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        let query = format!(
+            "SHOW CREATE SEQUENCE `{}`",
+            sequence_name.replace('`', "``")
+        );
+
+        let row = sqlx::query(&query)
+            .fetch_one(pool)
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        // SHOW CREATE SEQUENCE returns columns: Table, Create Table
+        let definition: String = row.try_get(1).unwrap_or_default();
+
+        Ok(SequenceDefinition {
+            name: sequence_name.to_string(),
+            namespace: namespace.clone(),
+            definition,
+        })
+    }
+
+    async fn drop_sequence(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        sequence_name: &str,
+    ) -> EngineResult<SequenceOperationResult> {
+        let mysql_session = self.inner.get_session(session).await?;
+        let pool = &mysql_session.pool;
+
+        let sql = format!(
+            "DROP SEQUENCE `{}`.`{}`",
+            namespace.database.replace('`', "``"),
+            sequence_name.replace('`', "``")
+        );
+
+        let start = Instant::now();
+        sqlx::query(&sql)
+            .execute(pool)
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+        let elapsed = start.elapsed().as_secs_f64() * 1000.0;
+
+        Ok(SequenceOperationResult {
+            success: true,
+            executed_command: sql,
+            message: Some(format!("Sequence `{}` dropped successfully", sequence_name)),
+            execution_time_ms: elapsed,
+        })
     }
 
     // ==================== Database Management ====================

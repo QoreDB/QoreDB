@@ -573,6 +573,8 @@
     "noTriggers": "Aucun déclencheur dans cette base",
     "events": "Événements planifiés",
     "noEvents": "Aucun événement planifié dans cette base",
+    "sequences": "Séquences",
+    "noSequences": "Aucune séquence dans cette base",
     "viewAll": "Voir les {{count}} tables",
     "searchTables": "Rechercher des tables...",
     "noResults": "Aucune table trouvée.",
@@ -1774,6 +1776,16 @@
     "createEvent": "Nouvel événement",
     "loadingSource": "Chargement du source...",
     "sourceLoadError": "Impossible de charger le source de l'événement"
+  },
+  "sequenceManager": {
+    "viewSource": "Voir le source",
+    "drop": "Supprimer",
+    "dropTitle": "Supprimer la séquence",
+    "dropConfirm": "Voulez-vous vraiment supprimer la séquence \"{{name}}\" ? Cette action est irréversible.",
+    "dropSuccess": "Séquence \"{{name}}\" supprimée avec succès",
+    "dropFailed": "Échec de la suppression de la séquence \"{{name}}\"",
+    "loadingSource": "Chargement du source...",
+    "sourceLoadError": "Impossible de charger le source de la séquence"
   },
   "snapshots": {
     "title": "Snapshots",

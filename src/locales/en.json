@@ -573,6 +573,8 @@
     "noTriggers": "No triggers in this database",
     "events": "Events",
     "noEvents": "No scheduled events in this database",
+    "sequences": "Sequences",
+    "noSequences": "No sequences in this database",
     "viewAll": "View all {{count}} tables",
     "searchTables": "Search tables...",
     "noResults": "No tables found matching your search.",
@@ -1774,6 +1776,16 @@
     "createEvent": "New event",
     "loadingSource": "Loading source...",
     "sourceLoadError": "Failed to load event source"
+  },
+  "sequenceManager": {
+    "viewSource": "View source",
+    "drop": "Drop",
+    "dropTitle": "Drop Sequence",
+    "dropConfirm": "Are you sure you want to drop sequence \"{{name}}\"? This action cannot be undone.",
+    "dropSuccess": "Sequence \"{{name}}\" dropped successfully",
+    "dropFailed": "Failed to drop sequence \"{{name}}\"",
+    "loadingSource": "Loading source...",
+    "sourceLoadError": "Failed to load sequence source"
   },
   "snapshots": {
     "title": "Snapshots",

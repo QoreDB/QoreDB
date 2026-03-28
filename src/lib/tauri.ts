@@ -622,6 +622,98 @@ export async function dropEvent(
   });
 }
 
+// ============================================
+// SEQUENCES (MariaDB 10.3+)
+// ============================================
+
+export interface Sequence {
+  namespace: Namespace;
+  name: string;
+  data_type: string;
+  start_value: number;
+  min_value: number;
+  max_value: number;
+  increment: number;
+  cycle: boolean;
+  cache_size: number;
+}
+
+export interface SequenceList {
+  sequences: Sequence[];
+  total_count: number;
+}
+
+export interface SequenceDefinition {
+  name: string;
+  namespace: Namespace;
+  definition: string;
+}
+
+export interface SequenceOperationResult {
+  success: boolean;
+  executed_command: string;
+  message?: string;
+  execution_time_ms: number;
+}
+
+export async function listSequences(
+  sessionId: string,
+  namespace: Namespace,
+  search?: string,
+  page?: number,
+  pageSize?: number
+): Promise<{
+  success: boolean;
+  data?: SequenceList;
+  error?: string;
+}> {
+  return invoke('list_sequences', {
+    sessionId,
+    namespace,
+    search,
+    page,
+    page_size: pageSize,
+  });
+}
+
+export async function getSequenceDefinition(
+  sessionId: string,
+  database: string,
+  schema: string | null | undefined,
+  sequenceName: string
+): Promise<{
+  success: boolean;
+  definition?: SequenceDefinition;
+  error?: string;
+}> {
+  return invoke('get_sequence_definition', {
+    sessionId,
+    database,
+    schema,
+    sequenceName,
+  });
+}
+
+export async function dropSequence(
+  sessionId: string,
+  database: string,
+  schema: string | null | undefined,
+  sequenceName: string,
+  acknowledgedDangerous?: boolean
+): Promise<{
+  success: boolean;
+  result?: SequenceOperationResult;
+  error?: string;
+}> {
+  return invoke('drop_sequence', {
+    sessionId,
+    database,
+    schema,
+    sequenceName,
+    acknowledgedDangerous,
+  });
+}
+
 export async function cancelQuery(
   sessionId: string,
   queryId?: string

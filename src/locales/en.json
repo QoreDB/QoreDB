@@ -601,6 +601,7 @@
     "explain": "Explain",
     "snippets": "Snippets",
     "keepResults": "Keep results",
+    "formatSql": "Format SQL",
     "results": "Results",
     "explainNoPlan": "No explain plan available.",
     "history": "History",

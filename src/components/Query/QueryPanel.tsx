@@ -895,6 +895,7 @@ export function QueryPanel({
         onLibraryOpen={() => (onOpenLibrary ? onOpenLibrary() : setLibraryOpen(true))}
         onSaveToLibrary={handleSaveToLibrary}
         onTemplateSelect={handleTemplateSelect}
+        onFormat={handleFormat}
         onAiToggle={handleAiToggle}
         aiPanelOpen={showAiPanel}
         supportsTransactions={supportsTransactions}

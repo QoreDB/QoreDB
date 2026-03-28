@@ -18,6 +18,7 @@ import {
   Shield,
   Sparkles,
   Square,
+  WrapText,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -77,6 +78,7 @@ interface QueryPanelToolbarProps {
   supportsTransactions?: boolean;
   transactionActive?: boolean;
   transactionStatements?: number;
+  onFormat?: () => void;
   onBeginTransaction?: () => void;
   onCommitTransaction?: () => void;
   onRollbackTransaction?: () => void;
@@ -105,6 +107,7 @@ export function QueryPanelToolbar({
   onLibraryOpen,
   onSaveToLibrary,
   onTemplateSelect,
+  onFormat,
   onAiToggle,
   aiPanelOpen,
   supportsTransactions,
@@ -389,6 +392,12 @@ export function QueryPanelToolbar({
             >
               {t('query.keepResults')}
             </DropdownMenuCheckboxItem>
+          )}
+          {!isDocumentBased && onFormat && (
+            <DropdownMenuItem onClick={onFormat} disabled={loading}>
+              <WrapText size={14} />
+              {t('query.formatSql')}
+            </DropdownMenuItem>
           )}
 
           <DropdownMenuSeparator />

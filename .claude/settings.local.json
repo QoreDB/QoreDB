@@ -53,7 +53,8 @@
       "Bash(/tmp/engine_summary.txt:*)",
       "Read(//tmp/**)",
       "Bash(npx vite:*)",
-      "Bash(pnpm tauri:*)"
+      "Bash(pnpm tauri:*)",
+      "WebFetch(domain:github.com)"
     ]
   }
 }

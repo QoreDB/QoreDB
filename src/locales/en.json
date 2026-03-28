@@ -903,7 +903,8 @@
     "markSeen": "Dismiss",
     "feature": "New",
     "improvement": "Improved",
-    "fix": "Fixed"
+    "fix": "Fixed",
+    "fullChangelog": "Full changelog"
   },
   "a11y": {
     "skipToContent": "Skip to content",

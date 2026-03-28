@@ -903,7 +903,8 @@
     "markSeen": "Masquer",
     "feature": "Nouveau",
     "improvement": "Amélioré",
-    "fix": "Corrigé"
+    "fix": "Corrigé",
+    "fullChangelog": "Historique complet"
   },
   "a11y": {
     "skipToContent": "Aller au contenu",

@@ -78,9 +78,6 @@ export const CustomTitlebar = ({
   onToggleSandbox,
   onOpenSchemaGenerator,
   onToggleZenMode,
-
-  // onToggleReadOnly,
-  // readOnly = false,
   settingsOpen = false,
 }: CustomTitlebarProps) => {
   const { t } = useTranslation();

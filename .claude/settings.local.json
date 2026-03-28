@@ -51,7 +51,8 @@
       "Bash(mold --version)",
       "Bash(pnpm biome:*)",
       "Bash(/tmp/engine_summary.txt:*)",
-      "Read(//tmp/**)"
+      "Read(//tmp/**)",
+      "Bash(npx vite:*)"
     ]
   }
 }

@@ -51,7 +51,7 @@ function getChangelogSnapshot() {
   return changelogSnapshot;
 }
 
-function markChangelogSeen() {
+export function markChangelogSeen() {
   localStorage.setItem(LAST_SEEN_VERSION_KEY, APP_VERSION);
   notifyChangelogListeners();
 }
@@ -216,7 +216,7 @@ function FullChangelogDialog() {
         <DialogHeader>
           <DialogTitle>{t('whatsNew.fullChangelog')}</DialogTitle>
         </DialogHeader>
-        <ScrollArea className="flex-1 -mx-2 px-2">
+        <div className="flex-1 min-h-0 overflow-y-auto -mx-2 px-2">
           <div className="space-y-6 py-2">
             {CHANGELOG.map(entry => (
               <div key={entry.version}>
@@ -247,7 +247,7 @@ function FullChangelogDialog() {
               </div>
             ))}
           </div>
-        </ScrollArea>
+        </div>
       </DialogContent>
     </Dialog>
   );

@@ -21,6 +21,7 @@ function ErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
         </div>
 
         <button
+          type="button"
           onClick={() => {
             resetErrorBoundary();
             window.location.reload();
@@ -36,52 +37,6 @@ function ErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
 
 interface Props {
   children: ReactNode;
-}
-
-/**
- * Inline fallback for section-level error boundaries (panels, grids).
- * Shows an error message with a retry button without reloading the whole app.
- */
-function SectionErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
-  const { t } = useTranslation();
-  const errorMessage = error instanceof Error ? error.message : String(error);
-
-  return (
-    <div className="flex flex-col items-center justify-center h-full min-h-32 bg-background text-foreground p-4">
-      <div className="max-w-sm w-full text-center">
-        <p className="text-sm font-medium text-destructive mb-1">{t('errorBoundary.title')}</p>
-        <p className="text-xs text-muted-foreground mb-3 font-mono truncate max-w-full" title={errorMessage}>
-          {errorMessage}
-        </p>
-        <button
-          onClick={resetErrorBoundary}
-          className="px-3 py-1.5 text-xs bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors"
-        >
-          {t('errorBoundary.retry', t('errorBoundary.reload'))}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-/**
- * Section-level error boundary for isolating failures within panels/grids.
- * Unlike the root ErrorBoundary, this allows retry without full page reload.
- */
-export function SectionErrorBoundary({ children }: Props) {
-  const handleError = (error: unknown, info: { componentStack?: string | null }) => {
-    const err = error instanceof Error ? error : new Error(String(error));
-    logger.error(
-      `Section error: ${err.message}\nComponent Stack: ${info.componentStack ?? 'unknown'}`,
-      err
-    );
-  };
-
-  return (
-    <ReactErrorBoundary FallbackComponent={SectionErrorFallback} onError={handleError}>
-      {children}
-    </ReactErrorBoundary>
-  );
 }
 
 export function ErrorBoundary({ children }: Props) {

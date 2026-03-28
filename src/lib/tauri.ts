@@ -70,6 +70,7 @@ export interface SavedConnection {
   username: string;
   database?: string;
   ssl: boolean;
+  ssl_mode?: string;
   pool_max_connections?: number;
   pool_min_connections?: number;
   pool_acquire_timeout_secs?: number;
@@ -1154,6 +1155,7 @@ export async function saveConnection(input: {
   password: string;
   database?: string;
   ssl: boolean;
+  ssl_mode?: string;
   pool_max_connections?: number;
   pool_min_connections?: number;
   pool_acquire_timeout_secs?: number;

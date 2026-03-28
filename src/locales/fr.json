@@ -71,6 +71,14 @@
     "sqliteHelp": "Sélectionnez un fichier .db, .sqlite ou .sqlite3",
     "duckdbHelp": "Sélectionnez un fichier .duckdb ou .db — ou utilisez le mode en mémoire",
     "useSSL": "Utiliser SSL/TLS",
+    "sslMode": "Mode SSL",
+    "sslModes": {
+      "disable": "Désactivé",
+      "prefer": "Préféré",
+      "require": "Requis (par défaut)",
+      "verifyCa": "Vérifier le CA",
+      "verifyFull": "Vérification complète"
+    },
     "poolSettings": "Pool de connexions",
     "poolMax": "Max",
     "poolMin": "Min",

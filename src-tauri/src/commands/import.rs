@@ -357,6 +357,31 @@ pub async fn import_csv(
         database: database.clone(),
         schema: schema.clone(),
     };
+    // Validate column names in mapping (defense in depth: drivers quote identifiers,
+    // but reject obviously invalid names early)
+    if let Some(ref mapping) = config.column_mapping {
+        for (idx, col_name) in mapping {
+            if col_name.is_empty() {
+                return Err(format!(
+                    "Column mapping error: empty column name for CSV index {}",
+                    idx
+                ));
+            }
+            if col_name.len() > 128 {
+                return Err(format!(
+                    "Column mapping error: column name too long for CSV index {} (max 128 chars)",
+                    idx
+                ));
+            }
+            if col_name.contains('\0') || col_name.chars().any(|c| c.is_control()) {
+                return Err(format!(
+                    "Column mapping error: invalid characters in column name for CSV index {}",
+                    idx
+                ));
+            }
+        }
+    }
+
     let null_string = config.null_string.unwrap_or_default();
     let abort_on_error = config
         .on_conflict

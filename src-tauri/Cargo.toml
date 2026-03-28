@@ -23,7 +23,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["raw_value"] }
 
 # Async runtime
-tokio = { version = "1", features = ["full"] }
+tokio = { version = "1", features = ["rt-multi-thread", "sync", "time", "net", "fs", "io-util", "macros"] }
 tokio-util = { version = "0.7", features = ["compat"] }
 bytes = "1.11.1"
 

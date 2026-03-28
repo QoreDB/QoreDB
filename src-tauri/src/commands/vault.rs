@@ -110,7 +110,7 @@ pub async fn setup_master_password(
         }),
         Err(e) => Ok(VaultResponse {
             success: false,
-            error: Some(e.to_string()),
+            error: Some(e.sanitized_message()),
         }),
     }
 }
@@ -134,7 +134,7 @@ pub async fn unlock_vault(
         }),
         Err(e) => Ok(VaultResponse {
             success: false,
-            error: Some(e.to_string()),
+            error: Some(e.sanitized_message()),
         }),
     }
 }
@@ -225,7 +225,7 @@ pub async fn save_connection(
         }),
         Err(e) => Ok(VaultResponse {
             success: false,
-            error: Some(e.to_string()),
+            error: Some(e.sanitized_message()),
         }),
     }
 }
@@ -276,7 +276,7 @@ pub async fn delete_saved_connection(
         }),
         Err(e) => Ok(VaultResponse {
             success: false,
-            error: Some(e.to_string()),
+            error: Some(e.sanitized_message()),
         }),
     }
 }
@@ -311,7 +311,7 @@ pub async fn duplicate_saved_connection(
         Err(e) => Ok(DuplicateConnectionResponse {
             success: false,
             connection: None,
-            error: Some(e.to_string()),
+            error: Some(e.sanitized_message()),
         }),
     }
 }
@@ -354,7 +354,7 @@ pub async fn get_connection_credentials(
         Err(e) => Ok(CredentialsResponse {
             success: false,
             password: None,
-            error: Some(e.to_string()),
+            error: Some(e.sanitized_message()),
         }),
     }
 }

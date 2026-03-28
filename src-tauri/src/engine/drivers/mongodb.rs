@@ -56,15 +56,22 @@ impl MongoDriver {
         }
     }
 
+    /// Default timeout for server selection and connection (10 seconds)
+    const DEFAULT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
+
     async fn create_client_and_ping(
         config: &ConnectionConfig,
         classify_auth_error: bool,
     ) -> EngineResult<Client> {
         let conn_str = Self::build_connection_string(config);
 
-        let options = ClientOptions::parse(&conn_str)
+        let mut options = ClientOptions::parse(&conn_str)
             .await
             .map_err(|e| EngineError::connection_failed(e.to_string()))?;
+
+        // Set timeouts to prevent indefinite hangs on unreachable hosts
+        options.connect_timeout = Some(Self::DEFAULT_TIMEOUT);
+        options.server_selection_timeout = Some(Self::DEFAULT_TIMEOUT);
 
         let client = Client::with_options(options)
             .map_err(|e| EngineError::connection_failed(e.to_string()))?;

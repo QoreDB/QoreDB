@@ -1028,27 +1028,29 @@ function AppContent({
 
   if (activeTab?.type === 'query') {
     return (
-      <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
-        <QueryPanel
-          key={activeTab.id}
-          sessionId={sessionId}
-          dialect={driver}
-          driverCapabilities={driverCapabilities}
-          environment={activeConnection?.environment || 'development'}
-          readOnly={activeConnection?.read_only || false}
-          connectionName={activeConnection?.name}
-          connectionDatabase={activeConnection?.database}
-          activeNamespace={activeTab.namespace}
-          initialQuery={queryDrafts[activeTab.id] ?? activeTab.initialQuery}
-          onSchemaChange={onSchemaChange}
-          onOpenLibrary={onOpenLibrary}
-          onNamespaceChange={ns => onUpdateTabNamespace(activeTab.id, ns)}
-          isActive
-          onQueryDraftChange={value => onUpdateQueryDraft(activeTab.id, value)}
-          initialShowAiPanel={activeTab.showAiPanel}
-          aiTableContext={activeTab.aiTableContext}
-        />
-      </div>
+      <ErrorBoundary>
+        <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
+          <QueryPanel
+            key={activeTab.id}
+            sessionId={sessionId}
+            dialect={driver}
+            driverCapabilities={driverCapabilities}
+            environment={activeConnection?.environment || 'development'}
+            readOnly={activeConnection?.read_only || false}
+            connectionName={activeConnection?.name}
+            connectionDatabase={activeConnection?.database}
+            activeNamespace={activeTab.namespace}
+            initialQuery={queryDrafts[activeTab.id] ?? activeTab.initialQuery}
+            onSchemaChange={onSchemaChange}
+            onOpenLibrary={onOpenLibrary}
+            onNamespaceChange={ns => onUpdateTabNamespace(activeTab.id, ns)}
+            isActive
+            onQueryDraftChange={value => onUpdateQueryDraft(activeTab.id, value)}
+            initialShowAiPanel={activeTab.showAiPanel}
+            aiTableContext={activeTab.aiTableContext}
+          />
+        </div>
+      </ErrorBoundary>
     );
   }
 

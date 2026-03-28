@@ -638,9 +638,9 @@
       "virtualForeignKey": "Relation virtuelle vers {{table}}",
       "indexed": "Indexé",
       "indexComposite": "Indexé (composite: {{name}})",
-      "unique": "Contrainte unique"
+      "unique": "Contrainte unique",
+      "copySuccess": "Ligne copiée dans le presse-papiers"
     },
-    "copySuccess": "Ligne copiée dans le presse-papiers",
     "rowsSelected": "{{count}} ligne(s) sélectionnée(s)",
     "rowsTotal": "{{count}} ligne(s)",
     "rowsShowing": "Affichage de {{shown}} sur {{total}} lignes",
@@ -699,6 +699,8 @@
     "searchPlaceholder": "Rechercher...",
     "columns": "Colonnes",
     "toggleColumns": "Afficher/masquer colonnes",
+    "toggleFilters": "Afficher/masquer filtres",
+    "filterPlaceholder": "Filtrer...",
     "mutationsNotSupported": "Les mutations ne sont pas supportées par ce driver",
     "updateConfirmTitle": "Confirmer la modification",
     "updateConfirmDescription": "Vous êtes sur le point de modifier {{column}} dans {{table}}.",
@@ -1006,7 +1008,7 @@
     "tableNameRequired": "Le nom de la table est requis",
     "success": "Table \"{{name}}\" créée avec succès",
     "failed": "Échec de la création de la table",
-    "tableNamePlaceholder": "Ma table"
+    "my_table": "Ma table"
   },
   "dropTable": {
     "title": "Supprimer la table",

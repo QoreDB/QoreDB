@@ -138,7 +138,7 @@ pub async fn execute_query(
             return Ok(QueryResponse {
                 success: false,
                 result: None,
-                error: Some(e.to_string()),
+                error: Some(e.sanitized_message()),
                 query_id: None,
                 truncated: None,
                 truncated_total: None,
@@ -152,7 +152,7 @@ pub async fn execute_query(
             return Ok(QueryResponse {
                 success: false,
                 result: None,
-                error: Some(e.to_string()),
+                error: Some(e.sanitized_message()),
                 query_id: None,
                 truncated: None,
                 truncated_total: None,
@@ -402,7 +402,7 @@ pub async fn execute_query(
 
     if should_stream {
         // Create channel for stream events
-        let (sender, mut receiver) = tokio::sync::mpsc::channel(100);
+        let (sender, mut receiver) = tokio::sync::mpsc::channel(1024);
         let qid_cloned = query_id_str.clone();
         let window_cloned = window.clone();
 
@@ -518,7 +518,7 @@ pub async fn execute_query(
                     &interceptor_context,
                     &QueryExecutionResult {
                         success: false,
-                        error: Some(e.to_string()),
+                        error: Some(e.sanitized_message()),
                         execution_time_ms: duration_ms,
                         row_count: None,
                     },
@@ -529,7 +529,7 @@ pub async fn execute_query(
                 Ok(QueryResponse {
                     success: false,
                     result: None,
-                    error: Some(e.to_string()),
+                    error: Some(e.sanitized_message()),
                     query_id: Some(query_id_str),
                     truncated: None,
                     truncated_total: None,
@@ -660,7 +660,7 @@ pub async fn execute_query(
                     &interceptor_context,
                     &QueryExecutionResult {
                         success: false,
-                        error: Some(e.to_string()),
+                        error: Some(e.sanitized_message()),
                         execution_time_ms: duration_ms,
                         row_count: None,
                     },
@@ -671,7 +671,7 @@ pub async fn execute_query(
                 Ok(QueryResponse {
                     success: false,
                     result: None,
-                    error: Some(e.to_string()),
+                    error: Some(e.sanitized_message()),
                     query_id: Some(query_id_str),
                     truncated: None,
                     truncated_total: None,
@@ -710,7 +710,7 @@ pub async fn cancel_query(
             return Ok(QueryResponse {
                 success: false,
                 result: None,
-                error: Some(e.to_string()),
+                error: Some(e.sanitized_message()),
                 query_id: None,
                 truncated: None,
                 truncated_total: None,
@@ -754,7 +754,7 @@ pub async fn cancel_query(
         Err(e) => Ok(QueryResponse {
             success: false,
             result: None,
-            error: Some(e.to_string()),
+            error: Some(e.sanitized_message()),
             query_id: Some(query_id_str),
             truncated: None,
             truncated_total: None,
@@ -780,7 +780,7 @@ pub async fn list_namespaces(
             return Ok(NamespacesResponse {
                 success: false,
                 namespaces: None,
-                error: Some(e.to_string()),
+                error: Some(e.sanitized_message()),
             });
         }
     };
@@ -794,7 +794,7 @@ pub async fn list_namespaces(
         Err(e) => Ok(NamespacesResponse {
             success: false,
             namespaces: None,
-            error: Some(e.to_string()),
+            error: Some(e.sanitized_message()),
         }),
     }
 }
@@ -821,7 +821,7 @@ pub async fn list_collections(
             return Ok(CollectionsResponse {
                 success: false,
                 data: None,
-                error: Some(e.to_string()),
+                error: Some(e.sanitized_message()),
             });
         }
     };
@@ -841,7 +841,7 @@ pub async fn list_collections(
         Err(e) => Ok(CollectionsResponse {
             success: false,
             data: None,
-            error: Some(e.to_string()),
+            error: Some(e.sanitized_message()),
         }),
     }
 }
@@ -877,7 +877,7 @@ pub async fn list_routines(
             return Ok(RoutinesResponse {
                 success: false,
                 data: None,
-                error: Some(e.to_string()),
+                error: Some(e.sanitized_message()),
             });
         }
     };
@@ -905,7 +905,7 @@ pub async fn list_routines(
         Err(e) => Ok(RoutinesResponse {
             success: false,
             data: None,
-            error: Some(e.to_string()),
+            error: Some(e.sanitized_message()),
         }),
     }
 }
@@ -940,7 +940,7 @@ pub async fn list_triggers(
             return Ok(TriggersResponse {
                 success: false,
                 data: None,
-                error: Some(e.to_string()),
+                error: Some(e.sanitized_message()),
             });
         }
     };
@@ -960,7 +960,7 @@ pub async fn list_triggers(
         Err(e) => Ok(TriggersResponse {
             success: false,
             data: None,
-            error: Some(e.to_string()),
+            error: Some(e.sanitized_message()),
         }),
     }
 }
@@ -995,7 +995,7 @@ pub async fn list_events(
             return Ok(EventsResponse {
                 success: false,
                 data: None,
-                error: Some(e.to_string()),
+                error: Some(e.sanitized_message()),
             });
         }
     };
@@ -1015,7 +1015,7 @@ pub async fn list_events(
         Err(e) => Ok(EventsResponse {
             success: false,
             data: None,
-            error: Some(e.to_string()),
+            error: Some(e.sanitized_message()),
         }),
     }
 }
@@ -1052,7 +1052,7 @@ pub async fn describe_table(
             return Ok(TableSchemaResponse {
                 success: false,
                 schema: None,
-                error: Some(e.to_string()),
+                error: Some(e.sanitized_message()),
             });
         }
     };
@@ -1089,7 +1089,7 @@ pub async fn describe_table(
         Err(e) => Ok(TableSchemaResponse {
             success: false,
             schema: None,
-            error: Some(e.to_string()),
+            error: Some(e.sanitized_message()),
         }),
     }
 }
@@ -1115,7 +1115,7 @@ pub async fn preview_table(
             return Ok(QueryResponse {
                 success: false,
                 result: None,
-                error: Some(e.to_string()),
+                error: Some(e.sanitized_message()),
                 query_id: None,
                 truncated: None,
                 truncated_total: None,
@@ -1138,7 +1138,7 @@ pub async fn preview_table(
         Err(e) => Ok(QueryResponse {
             success: false,
             result: None,
-            error: Some(e.to_string()),
+            error: Some(e.sanitized_message()),
             query_id: None,
             truncated: None,
             truncated_total: None,
@@ -1179,7 +1179,7 @@ pub async fn query_table(
             return Ok(PaginatedQueryResponse {
                 success: false,
                 result: None,
-                error: Some(e.to_string()),
+                error: Some(e.sanitized_message()),
                 truncated: None,
                 truncated_total: None,
             });
@@ -1200,7 +1200,7 @@ pub async fn query_table(
         Err(e) => Ok(PaginatedQueryResponse {
             success: false,
             result: None,
-            error: Some(e.to_string()),
+            error: Some(e.sanitized_message()),
             truncated: None,
             truncated_total: None,
         }),
@@ -1249,7 +1249,7 @@ pub async fn peek_foreign_key(
             return Ok(QueryResponse {
                 success: false,
                 result: None,
-                error: Some(e.to_string()),
+                error: Some(e.sanitized_message()),
                 query_id: None,
                 truncated: None,
                 truncated_total: None,
@@ -1272,7 +1272,7 @@ pub async fn peek_foreign_key(
         Err(e) => Ok(QueryResponse {
             success: false,
             result: None,
-            error: Some(e.to_string()),
+            error: Some(e.sanitized_message()),
             query_id: None,
             truncated: None,
             truncated_total: None,
@@ -1306,7 +1306,7 @@ pub async fn create_database(
             return Ok(QueryResponse {
                 success: false,
                 result: None,
-                error: Some(e.to_string()),
+                error: Some(e.sanitized_message()),
                 query_id: None,
                 truncated: None,
                 truncated_total: None,
@@ -1414,7 +1414,7 @@ pub async fn create_database(
                 &interceptor_context,
                 &QueryExecutionResult {
                     success: false,
-                    error: Some(e.to_string()),
+                    error: Some(e.sanitized_message()),
                     execution_time_ms: duration_ms,
                     row_count: None,
                 },
@@ -1424,7 +1424,7 @@ pub async fn create_database(
             Ok(QueryResponse {
                 success: false,
                 result: None,
-                error: Some(e.to_string()),
+                error: Some(e.sanitized_message()),
                 query_id: None,
                 truncated: None,
                 truncated_total: None,
@@ -1458,7 +1458,7 @@ pub async fn drop_database(
             return Ok(QueryResponse {
                 success: false,
                 result: None,
-                error: Some(e.to_string()),
+                error: Some(e.sanitized_message()),
                 query_id: None,
                 truncated: None,
                 truncated_total: None,
@@ -1564,7 +1564,7 @@ pub async fn drop_database(
                 &interceptor_context,
                 &QueryExecutionResult {
                     success: false,
-                    error: Some(e.to_string()),
+                    error: Some(e.sanitized_message()),
                     execution_time_ms: duration_ms,
                     row_count: None,
                 },
@@ -1574,7 +1574,7 @@ pub async fn drop_database(
             Ok(QueryResponse {
                 success: false,
                 result: None,
-                error: Some(e.to_string()),
+                error: Some(e.sanitized_message()),
                 query_id: None,
                 truncated: None,
                 truncated_total: None,
@@ -1611,7 +1611,7 @@ pub async fn get_creation_options(
             return Ok(CreationOptionsResponse {
                 success: false,
                 options: None,
-                error: Some(e.to_string()),
+                error: Some(e.sanitized_message()),
             });
         }
     };
@@ -1625,7 +1625,7 @@ pub async fn get_creation_options(
         Err(e) => Ok(CreationOptionsResponse {
             success: false,
             options: None,
-            error: Some(e.to_string()),
+            error: Some(e.sanitized_message()),
         }),
     }
 }
@@ -1666,7 +1666,7 @@ pub async fn begin_transaction(
         Err(e) => {
             return Ok(TransactionResponse {
                 success: false,
-                error: Some(e.to_string()),
+                error: Some(e.sanitized_message()),
             });
         }
     };
@@ -1685,7 +1685,7 @@ pub async fn begin_transaction(
         }),
         Err(e) => Ok(TransactionResponse {
             success: false,
-            error: Some(e.to_string()),
+            error: Some(e.sanitized_message()),
         }),
     }
 }
@@ -1709,7 +1709,7 @@ pub async fn commit_transaction(
         Err(e) => {
             return Ok(TransactionResponse {
                 success: false,
-                error: Some(e.to_string()),
+                error: Some(e.sanitized_message()),
             });
         }
     };
@@ -1728,7 +1728,7 @@ pub async fn commit_transaction(
         }),
         Err(e) => Ok(TransactionResponse {
             success: false,
-            error: Some(e.to_string()),
+            error: Some(e.sanitized_message()),
         }),
     }
 }
@@ -1752,7 +1752,7 @@ pub async fn rollback_transaction(
         Err(e) => {
             return Ok(TransactionResponse {
                 success: false,
-                error: Some(e.to_string()),
+                error: Some(e.sanitized_message()),
             });
         }
     };
@@ -1771,7 +1771,7 @@ pub async fn rollback_transaction(
         }),
         Err(e) => Ok(TransactionResponse {
             success: false,
-            error: Some(e.to_string()),
+            error: Some(e.sanitized_message()),
         }),
     }
 }

@@ -69,6 +69,9 @@ impl RedisDriver {
         }
     }
 
+    /// Default timeout for Redis connection and operations (10 seconds)
+    const DEFAULT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
+
     /// Creates a multiplexed connection and pings it
     async fn create_connection_and_ping(
         config: &ConnectionConfig,
@@ -77,26 +80,41 @@ impl RedisDriver {
         let client = redis::Client::open(conn_str)
             .map_err(|e| EngineError::connection_failed(e.to_string()))?;
 
-        let mut conn = client
-            .get_multiplexed_async_connection()
-            .await
-            .map_err(|e| {
-                let msg = e.to_string();
-                if msg.contains("AUTH")
-                    || msg.contains("NOAUTH")
-                    || msg.contains("invalid password")
-                {
-                    EngineError::auth_failed(msg)
-                } else {
-                    EngineError::connection_failed(msg)
-                }
-            })?;
+        let mut conn = tokio::time::timeout(
+            Self::DEFAULT_TIMEOUT,
+            client.get_multiplexed_async_connection(),
+        )
+        .await
+        .map_err(|_| {
+            EngineError::Timeout {
+                timeout_ms: Self::DEFAULT_TIMEOUT.as_millis() as u64,
+            }
+        })?
+        .map_err(|e| {
+            let msg = e.to_string();
+            if msg.contains("AUTH")
+                || msg.contains("NOAUTH")
+                || msg.contains("invalid password")
+            {
+                EngineError::auth_failed(msg)
+            } else {
+                EngineError::connection_failed(msg)
+            }
+        })?;
 
-        // PING to verify
-        redis::cmd("PING")
-            .query_async::<String>(&mut conn)
-            .await
-            .map_err(|e| EngineError::connection_failed(format!("PING failed: {}", e)))?;
+        // PING to verify (with timeout)
+        tokio::time::timeout(Self::DEFAULT_TIMEOUT, async {
+            redis::cmd("PING")
+                .query_async::<String>(&mut conn)
+                .await
+        })
+        .await
+        .map_err(|_| {
+            EngineError::Timeout {
+                timeout_ms: Self::DEFAULT_TIMEOUT.as_millis() as u64,
+            }
+        })?
+        .map_err(|e| EngineError::connection_failed(format!("PING failed: {}", e)))?;
 
         let db = config
             .database
@@ -1970,6 +1988,7 @@ mod tests {
             password: String::new(),
             database: None,
             ssl: false,
+            ssl_mode: None,
             environment: "development".to_string(),
             read_only: false,
             ssh_tunnel: None,
@@ -1992,6 +2011,7 @@ mod tests {
             password: "secret".to_string(),
             database: Some("2".to_string()),
             ssl: true,
+            ssl_mode: None,
             environment: "production".to_string(),
             read_only: false,
             ssh_tunnel: None,
@@ -2014,6 +2034,7 @@ mod tests {
             password: "p@ss/wo:rd".to_string(),
             database: Some("1".to_string()),
             ssl: false,
+            ssl_mode: None,
             environment: "development".to_string(),
             read_only: false,
             ssh_tunnel: None,

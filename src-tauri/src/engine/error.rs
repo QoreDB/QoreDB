@@ -130,5 +130,49 @@ impl EngineError {
     }
 }
 
+impl EngineError {
+    /// Sanitize error messages before sending to the frontend.
+    /// Removes credentials, file paths, and connection strings from error text.
+    pub fn sanitized_message(&self) -> String {
+        sanitize_error_message(&self.to_string())
+    }
+}
+
+/// Strips sensitive patterns from an error message.
+pub fn sanitize_error_message(msg: &str) -> String {
+    use regex::Regex;
+
+    // Lazy-init compiled patterns (compiled once, reused)
+    use std::sync::OnceLock;
+    static PATTERNS: OnceLock<Vec<(Regex, &'static str)>> = OnceLock::new();
+
+    let patterns = PATTERNS.get_or_init(|| {
+        vec![
+            // Connection strings with credentials: postgres://user:pass@host → postgres://***@host
+            (
+                Regex::new(r"(?i)((?:postgres|mysql|mongodb|redis|rediss)://)([^@]+)@")
+                    .unwrap(),
+                "${1}***@",
+            ),
+            // password=... in query strings
+            (
+                Regex::new(r"(?i)(password|passwd|pwd)\s*=\s*\S+").unwrap(),
+                "${1}=***",
+            ),
+            // Absolute file paths (Unix and Windows)
+            (
+                Regex::new(r"(/(?:Users|home|tmp|var|etc)/\S+|[A-Z]:\\[^\s:]+)").unwrap(),
+                "[path]",
+            ),
+        ]
+    });
+
+    let mut result = msg.to_string();
+    for (re, replacement) in patterns {
+        result = re.replace_all(&result, *replacement).into_owned();
+    }
+    result
+}
+
 /// Result type alias for engine operations
 pub type EngineResult<T> = Result<T, EngineError>;

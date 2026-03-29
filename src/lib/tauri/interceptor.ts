@@ -428,3 +428,29 @@ export function getPerformanceColor(perfClass: 'fast' | 'normal' | 'slow' | 'cri
       return '#ef4444'; // red-500
   }
 }
+
+// ============================================
+// QUERY GOVERNANCE API
+// ============================================
+
+export interface GovernanceLimits {
+  max_query_duration_ms: number | null;
+  max_result_rows: number | null;
+  max_concurrent_queries: number | null;
+}
+
+/**
+ * Get the current query governance limits
+ */
+export async function getGovernanceLimits(): Promise<GovernanceLimits> {
+  return await invoke<GovernanceLimits>('get_governance_limits');
+}
+
+/**
+ * Update query governance limits
+ */
+export async function updateGovernanceLimits(
+  limits: GovernanceLimits
+): Promise<GovernanceLimits> {
+  return await invoke<GovernanceLimits>('update_governance_limits', { limits });
+}

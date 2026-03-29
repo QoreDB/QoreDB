@@ -21,7 +21,7 @@ use crate::engine::traits::DataEngine;
 use crate::engine::types::{
     CancelSupport, Collection, CollectionList, CollectionListOptions, CollectionType, ColumnInfo,
     ConnectionConfig, Namespace, PaginatedQueryResult, QueryId, QueryResult, Row as QRow,
-    SessionId, TableColumn, TableQueryOptions, TableSchema, Value,
+    RowData, SessionId, TableColumn, TableQueryOptions, TableSchema, Value,
 };
 
 /// Holds a Redis connection and session metadata
@@ -69,6 +69,9 @@ impl RedisDriver {
         }
     }
 
+    /// Default timeout for Redis connection and operations (10 seconds)
+    const DEFAULT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
+
     /// Creates a multiplexed connection and pings it
     async fn create_connection_and_ping(
         config: &ConnectionConfig,
@@ -77,26 +80,41 @@ impl RedisDriver {
         let client = redis::Client::open(conn_str)
             .map_err(|e| EngineError::connection_failed(e.to_string()))?;
 
-        let mut conn = client
-            .get_multiplexed_async_connection()
-            .await
-            .map_err(|e| {
-                let msg = e.to_string();
-                if msg.contains("AUTH")
-                    || msg.contains("NOAUTH")
-                    || msg.contains("invalid password")
-                {
-                    EngineError::auth_failed(msg)
-                } else {
-                    EngineError::connection_failed(msg)
-                }
-            })?;
+        let mut conn = tokio::time::timeout(
+            Self::DEFAULT_TIMEOUT,
+            client.get_multiplexed_async_connection(),
+        )
+        .await
+        .map_err(|_| {
+            EngineError::Timeout {
+                timeout_ms: Self::DEFAULT_TIMEOUT.as_millis() as u64,
+            }
+        })?
+        .map_err(|e| {
+            let msg = e.to_string();
+            if msg.contains("AUTH")
+                || msg.contains("NOAUTH")
+                || msg.contains("invalid password")
+            {
+                EngineError::auth_failed(msg)
+            } else {
+                EngineError::connection_failed(msg)
+            }
+        })?;
 
-        // PING to verify
-        redis::cmd("PING")
-            .query_async::<String>(&mut conn)
-            .await
-            .map_err(|e| EngineError::connection_failed(format!("PING failed: {}", e)))?;
+        // PING to verify (with timeout)
+        tokio::time::timeout(Self::DEFAULT_TIMEOUT, async {
+            redis::cmd("PING")
+                .query_async::<String>(&mut conn)
+                .await
+        })
+        .await
+        .map_err(|_| {
+            EngineError::Timeout {
+                timeout_ms: Self::DEFAULT_TIMEOUT.as_millis() as u64,
+            }
+        })?
+        .map_err(|e| EngineError::connection_failed(format!("PING failed: {}", e)))?;
 
         let db = config
             .database
@@ -907,6 +925,40 @@ impl RedisDriver {
 
         Ok(parts)
     }
+
+    /// Extracts a string representation from a QoreDB Value for use in Redis commands.
+    fn value_to_redis_arg(value: &Value) -> String {
+        match value {
+            Value::Null => String::new(),
+            Value::Bool(b) => b.to_string(),
+            Value::Int(i) => i.to_string(),
+            Value::Float(f) => f.to_string(),
+            Value::Text(s) => s.clone(),
+            Value::Bytes(b) => String::from_utf8_lossy(b).to_string(),
+            Value::Json(j) => serde_json::to_string(j).unwrap_or_default(),
+            Value::Array(arr) => {
+                let items: Vec<String> = arr.iter().map(Self::value_to_redis_arg).collect();
+                items.join(",")
+            }
+        }
+    }
+
+    /// Extracts a required column value from RowData, returning a descriptive error if missing.
+    fn require_column(data: &RowData, column: &str) -> EngineResult<String> {
+        let value = data.columns.get(column).ok_or_else(|| {
+            EngineError::execution_error(format!("Missing required column: '{}'", column))
+        })?;
+        Ok(Self::value_to_redis_arg(value))
+    }
+
+    /// Helper to SELECT the right database for a namespace before a mutation.
+    async fn select_db_for_namespace(
+        conn: &mut redis::aio::MultiplexedConnection,
+        namespace: &Namespace,
+    ) -> EngineResult<()> {
+        let db_index = Self::parse_db_index(&namespace.database);
+        Self::select_db(conn, db_index).await
+    }
 }
 
 impl Default for RedisDriver {
@@ -1574,6 +1626,352 @@ impl DataEngine for RedisDriver {
     fn supports_schema(&self) -> bool {
         false
     }
+
+    // ==================== Mutation Methods ====================
+
+    fn supports_mutations(&self) -> bool {
+        true
+    }
+
+    /// Insert a new element into a Redis key.
+    ///
+    /// The semantics depend on the key type:
+    /// - **string**: SET key value (creates/overwrites the key)
+    /// - **hash**: HSET key field value (adds a field to the hash)
+    /// - **list**: RPUSH key value (appends to the list)
+    /// - **set**: SADD key member (adds a member to the set)
+    /// - **zset**: ZADD key score member (adds a member with score)
+    /// - **stream**: XADD key * field value ... (appends a stream entry)
+    async fn insert_row(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        table: &str,
+        data: &RowData,
+    ) -> EngineResult<QueryResult> {
+        let redis_session = self.get_session(session).await?;
+        let mut conn = redis_session.connection.lock().await;
+        Self::select_db_for_namespace(&mut conn, namespace).await?;
+
+        let key = table;
+        let start = Instant::now();
+        let type_str = Self::key_type(&mut conn, key).await?;
+
+        match type_str.as_str() {
+            "string" | "none" => {
+                // For string keys or new keys: SET key value
+                let value = Self::require_column(data, "value")?;
+                redis::cmd("SET")
+                    .arg(key)
+                    .arg(&value)
+                    .query_async::<String>(&mut *conn)
+                    .await
+                    .map_err(|e| EngineError::execution_error(e.to_string()))?;
+            }
+            "hash" => {
+                let field = Self::require_column(data, "field")?;
+                let value = Self::require_column(data, "value")?;
+                redis::cmd("HSET")
+                    .arg(key)
+                    .arg(&field)
+                    .arg(&value)
+                    .query_async::<i64>(&mut *conn)
+                    .await
+                    .map_err(|e| EngineError::execution_error(e.to_string()))?;
+            }
+            "list" => {
+                let value = Self::require_column(data, "value")?;
+                redis::cmd("RPUSH")
+                    .arg(key)
+                    .arg(&value)
+                    .query_async::<i64>(&mut *conn)
+                    .await
+                    .map_err(|e| EngineError::execution_error(e.to_string()))?;
+            }
+            "set" => {
+                let member = Self::require_column(data, "member")?;
+                redis::cmd("SADD")
+                    .arg(key)
+                    .arg(&member)
+                    .query_async::<i64>(&mut *conn)
+                    .await
+                    .map_err(|e| EngineError::execution_error(e.to_string()))?;
+            }
+            "zset" => {
+                let member = Self::require_column(data, "member")?;
+                let score_str = Self::require_column(data, "score")?;
+                let score: f64 = score_str.parse().map_err(|_| {
+                    EngineError::execution_error(format!(
+                        "Invalid score value '{}': must be a number",
+                        score_str
+                    ))
+                })?;
+                redis::cmd("ZADD")
+                    .arg(key)
+                    .arg(score)
+                    .arg(&member)
+                    .query_async::<i64>(&mut *conn)
+                    .await
+                    .map_err(|e| EngineError::execution_error(e.to_string()))?;
+            }
+            "stream" => {
+                // XADD key * field1 value1 field2 value2 ...
+                let mut cmd = redis::cmd("XADD");
+                cmd.arg(key).arg("*");
+                // Use the "data" column if it's JSON, otherwise use all columns as field-value pairs
+                if let Some(Value::Json(json)) = data.columns.get("data") {
+                    if let Some(obj) = json.as_object() {
+                        for (k, v) in obj {
+                            cmd.arg(k);
+                            cmd.arg(v.to_string());
+                        }
+                    } else {
+                        cmd.arg("data").arg(json.to_string());
+                    }
+                } else {
+                    // Use all provided columns as stream fields
+                    let mut has_fields = false;
+                    for (col_name, val) in &data.columns {
+                        if col_name != "id" {
+                            cmd.arg(col_name);
+                            cmd.arg(Self::value_to_redis_arg(val));
+                            has_fields = true;
+                        }
+                    }
+                    if !has_fields {
+                        return Err(EngineError::execution_error(
+                            "Stream insert requires at least one field (or a 'data' JSON column)",
+                        ));
+                    }
+                }
+                cmd.query_async::<String>(&mut *conn)
+                    .await
+                    .map_err(|e| EngineError::execution_error(e.to_string()))?;
+            }
+            other => {
+                return Err(EngineError::not_supported(format!(
+                    "Insert not supported for Redis type: {}",
+                    other
+                )));
+            }
+        }
+
+        Ok(QueryResult::with_affected_rows(
+            1,
+            start.elapsed().as_micros() as f64 / 1000.0,
+        ))
+    }
+
+    /// Update an existing element in a Redis key.
+    ///
+    /// - **string**: SET key data["value"]
+    /// - **hash**: HSET key pk["field"] data["value"]
+    /// - **list**: LSET key pk["index"] data["value"]
+    /// - **zset**: ZADD key data["score"] pk["member"] (updates the score)
+    /// - **set**: not supported (members have no updatable fields)
+    /// - **stream**: not supported (stream entries are immutable)
+    async fn update_row(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        table: &str,
+        primary_key: &RowData,
+        data: &RowData,
+    ) -> EngineResult<QueryResult> {
+        let redis_session = self.get_session(session).await?;
+        let mut conn = redis_session.connection.lock().await;
+        Self::select_db_for_namespace(&mut conn, namespace).await?;
+
+        let key = table;
+        let start = Instant::now();
+        let type_str = Self::key_type(&mut conn, key).await?;
+
+        match type_str.as_str() {
+            "string" => {
+                let value = Self::require_column(data, "value")?;
+                redis::cmd("SET")
+                    .arg(key)
+                    .arg(&value)
+                    .query_async::<String>(&mut *conn)
+                    .await
+                    .map_err(|e| EngineError::execution_error(e.to_string()))?;
+            }
+            "hash" => {
+                let field = Self::require_column(primary_key, "field")?;
+                let value = Self::require_column(data, "value")?;
+                redis::cmd("HSET")
+                    .arg(key)
+                    .arg(&field)
+                    .arg(&value)
+                    .query_async::<i64>(&mut *conn)
+                    .await
+                    .map_err(|e| EngineError::execution_error(e.to_string()))?;
+            }
+            "list" => {
+                let index_str = Self::require_column(primary_key, "index")?;
+                let index: i64 = index_str.parse().map_err(|_| {
+                    EngineError::execution_error(format!(
+                        "Invalid list index '{}': must be an integer",
+                        index_str
+                    ))
+                })?;
+                let value = Self::require_column(data, "value")?;
+                redis::cmd("LSET")
+                    .arg(key)
+                    .arg(index)
+                    .arg(&value)
+                    .query_async::<String>(&mut *conn)
+                    .await
+                    .map_err(|e| EngineError::execution_error(e.to_string()))?;
+            }
+            "zset" => {
+                // Update score of an existing member
+                let member = Self::require_column(primary_key, "member")?;
+                let score_str = Self::require_column(data, "score")?;
+                let score: f64 = score_str.parse().map_err(|_| {
+                    EngineError::execution_error(format!(
+                        "Invalid score value '{}': must be a number",
+                        score_str
+                    ))
+                })?;
+                redis::cmd("ZADD")
+                    .arg(key)
+                    .arg(score)
+                    .arg(&member)
+                    .query_async::<i64>(&mut *conn)
+                    .await
+                    .map_err(|e| EngineError::execution_error(e.to_string()))?;
+            }
+            "set" => {
+                return Err(EngineError::not_supported(
+                    "Set members cannot be updated in-place. Delete the old member and insert a new one.",
+                ));
+            }
+            "stream" => {
+                return Err(EngineError::not_supported(
+                    "Stream entries are immutable and cannot be updated.",
+                ));
+            }
+            other => {
+                return Err(EngineError::not_supported(format!(
+                    "Update not supported for Redis type: {}",
+                    other
+                )));
+            }
+        }
+
+        Ok(QueryResult::with_affected_rows(
+            1,
+            start.elapsed().as_micros() as f64 / 1000.0,
+        ))
+    }
+
+    /// Delete an element from a Redis key.
+    ///
+    /// - **string**: DEL key (deletes the entire key)
+    /// - **hash**: HDEL key pk["field"]
+    /// - **list**: Replaces element at pk["index"] with a sentinel, then LREM
+    /// - **set**: SREM key pk["member"]
+    /// - **zset**: ZREM key pk["member"]
+    /// - **stream**: XDEL key pk["id"]
+    async fn delete_row(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        table: &str,
+        primary_key: &RowData,
+    ) -> EngineResult<QueryResult> {
+        let redis_session = self.get_session(session).await?;
+        let mut conn = redis_session.connection.lock().await;
+        Self::select_db_for_namespace(&mut conn, namespace).await?;
+
+        let key = table;
+        let start = Instant::now();
+        let type_str = Self::key_type(&mut conn, key).await?;
+
+        match type_str.as_str() {
+            "string" => {
+                redis::cmd("DEL")
+                    .arg(key)
+                    .query_async::<i64>(&mut *conn)
+                    .await
+                    .map_err(|e| EngineError::execution_error(e.to_string()))?;
+            }
+            "hash" => {
+                let field = Self::require_column(primary_key, "field")?;
+                redis::cmd("HDEL")
+                    .arg(key)
+                    .arg(&field)
+                    .query_async::<i64>(&mut *conn)
+                    .await
+                    .map_err(|e| EngineError::execution_error(e.to_string()))?;
+            }
+            "list" => {
+                // Redis has no direct "delete by index" command.
+                // Strategy: LSET index to a unique sentinel, then LREM the sentinel.
+                let index_str = Self::require_column(primary_key, "index")?;
+                let index: i64 = index_str.parse().map_err(|_| {
+                    EngineError::execution_error(format!(
+                        "Invalid list index '{}': must be an integer",
+                        index_str
+                    ))
+                })?;
+                let sentinel = format!("__QOREDB_DEL_{}_{}", key, uuid::Uuid::new_v4());
+                redis::cmd("LSET")
+                    .arg(key)
+                    .arg(index)
+                    .arg(&sentinel)
+                    .query_async::<String>(&mut *conn)
+                    .await
+                    .map_err(|e| EngineError::execution_error(e.to_string()))?;
+                redis::cmd("LREM")
+                    .arg(key)
+                    .arg(1i64)
+                    .arg(&sentinel)
+                    .query_async::<i64>(&mut *conn)
+                    .await
+                    .map_err(|e| EngineError::execution_error(e.to_string()))?;
+            }
+            "set" => {
+                let member = Self::require_column(primary_key, "member")?;
+                redis::cmd("SREM")
+                    .arg(key)
+                    .arg(&member)
+                    .query_async::<i64>(&mut *conn)
+                    .await
+                    .map_err(|e| EngineError::execution_error(e.to_string()))?;
+            }
+            "zset" => {
+                let member = Self::require_column(primary_key, "member")?;
+                redis::cmd("ZREM")
+                    .arg(key)
+                    .arg(&member)
+                    .query_async::<i64>(&mut *conn)
+                    .await
+                    .map_err(|e| EngineError::execution_error(e.to_string()))?;
+            }
+            "stream" => {
+                let id = Self::require_column(primary_key, "id")?;
+                redis::cmd("XDEL")
+                    .arg(key)
+                    .arg(&id)
+                    .query_async::<i64>(&mut *conn)
+                    .await
+                    .map_err(|e| EngineError::execution_error(e.to_string()))?;
+            }
+            other => {
+                return Err(EngineError::not_supported(format!(
+                    "Delete not supported for Redis type: {}",
+                    other
+                )));
+            }
+        }
+
+        Ok(QueryResult::with_affected_rows(
+            1,
+            start.elapsed().as_micros() as f64 / 1000.0,
+        ))
+    }
 }
 
 #[cfg(test)]
@@ -1590,6 +1988,7 @@ mod tests {
             password: String::new(),
             database: None,
             ssl: false,
+            ssl_mode: None,
             environment: "development".to_string(),
             read_only: false,
             ssh_tunnel: None,
@@ -1612,6 +2011,7 @@ mod tests {
             password: "secret".to_string(),
             database: Some("2".to_string()),
             ssl: true,
+            ssl_mode: None,
             environment: "production".to_string(),
             read_only: false,
             ssh_tunnel: None,
@@ -1634,6 +2034,7 @@ mod tests {
             password: "p@ss/wo:rd".to_string(),
             database: Some("1".to_string()),
             ssl: false,
+            ssl_mode: None,
             environment: "development".to_string(),
             read_only: false,
             ssh_tunnel: None,

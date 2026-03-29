@@ -7,6 +7,13 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Driver, getDriverMetadata } from '@/lib/drivers';
 import { cn } from '@/lib/utils';
@@ -81,6 +88,27 @@ export function AdvancedSection({
                 checked={formData.ssl}
                 onCheckedChange={checked => onChange('ssl', checked)}
               />
+            </div>
+          )}
+
+          {!hideUrlDerivedFields && formData.ssl && driverMeta.supportsSQL && (
+            <div className="space-y-2">
+              <Label className="text-sm">{t('connection.sslMode')}</Label>
+              <Select
+                value={formData.sslMode || 'require'}
+                onValueChange={value => onChange('sslMode', value)}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="require">{t('connection.sslModes.require')}</SelectItem>
+                  <SelectItem value="verify-ca">{t('connection.sslModes.verifyCa')}</SelectItem>
+                  <SelectItem value="verify-full">{t('connection.sslModes.verifyFull')}</SelectItem>
+                  <SelectItem value="prefer">{t('connection.sslModes.prefer')}</SelectItem>
+                  <SelectItem value="disable">{t('connection.sslModes.disable')}</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           )}
 

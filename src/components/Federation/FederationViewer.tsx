@@ -209,20 +209,21 @@ export function FederationViewer({ initialQuery = '' }: FederationViewerProps) {
           setError(result.error);
           toast.error(result.error);
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         const duration = performance.now() - startTime;
+        const message = err instanceof Error ? err.message : String(err);
         const newEntry: QueryResultEntry = {
           id: queryId,
           kind: 'query',
           query: queryToRun,
-          error: err.message || String(err),
+          error: message,
           executedAt: Date.now(),
           totalTimeMs: duration,
         };
         setResults(prev => (keepResults ? [newEntry, ...prev] : [newEntry]));
         setActiveResultId(queryId);
-        setError(err.message || String(err));
-        toast.error(err.message || String(err));
+        setError(message);
+        toast.error(message);
       } finally {
         setLoading(false);
         setActiveQueryId(null);
@@ -238,8 +239,8 @@ export function FederationViewer({ initialQuery = '' }: FederationViewerProps) {
     setCancelling(true);
     try {
       await cancelQuery(activeQueryId);
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to cancel query');
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to cancel query');
       setCancelling(false);
     }
   }, [activeQueryId, cancelling]);

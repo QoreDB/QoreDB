@@ -81,6 +81,37 @@ Note : le **Package Family Name** est dérivé automatiquement de `Identity.Name
 | macOS Intel          | `.dmg`, `.app.tar.gz`, `.app.tar.gz.sig`                        |
 | Windows              | `.msi`, `.exe`, `.nsis.zip`, `.nsis.zip.sig`                    |
 | Linux                | `.deb`, `.AppImage`, `.AppImage.tar.gz`, `.AppImage.tar.gz.sig` |
+| Arch Linux (AUR)     | `qoredb-bin` (publié automatiquement à la release)              |
+
+### Distribution AUR (Arch Linux)
+
+Un package AUR `qoredb-bin` est publié automatiquement via `.github/workflows/aur-publish.yml` quand une release est publiée sur GitHub.
+
+#### Prérequis (une seule fois)
+
+1. **Créer le package sur AUR** :
+   - Se connecter sur [aur.archlinux.org](https://aur.archlinux.org)
+   - Créer le package `qoredb-bin`
+
+2. **Générer une clé SSH pour le bot** :
+
+   ```bash
+   ssh-keygen -t ed25519 -C "qoredb-aur-bot" -f ~/.ssh/aur_qoredb
+   ```
+
+3. **Ajouter la clé publique** au compte AUR (SSH Keys dans les settings)
+
+4. **Ajouter les secrets GitHub** :
+   - `AUR_SSH_PRIVATE_KEY` : contenu de `~/.ssh/aur_qoredb`
+   - `AUR_EMAIL` : email du compte AUR
+
+#### Fonctionnement
+
+Le workflow se déclenche quand une release est publiée (`release: published`). Il met à jour le `PKGBUILD` et `.SRCINFO` avec la nouvelle version, puis push sur le repo AUR.
+
+Le package utilise le `.deb` de la release (et non l'AppImage) car le binaire du `.deb` est linkée dynamiquement contre les libs système (notamment webkit2gtk-4.1). Cela évite les crashes EGL/Wayland causés par les libs embarquées dans l'AppImage.
+
+Les fichiers source sont dans `aur/` (PKGBUILD, .SRCINFO) et le script de mise à jour dans `scripts/update-aur.sh`.
 
 ---
 
@@ -100,6 +131,28 @@ Les artefacts sont générés dans `src-tauri/target/release/bundle/`.
 
 1. Créer une release sur GitHub
 2. Uploader les artefacts + fichier `latest.json`
+
+---
+
+## Rollback
+
+En cas de problème après une release :
+
+### Via l'auto-updater
+
+1. Publier un hotfix (nouveau tag `vX.Y.Z+1`)
+2. L'auto-updater Tauri distribue la correction automatiquement
+
+### Rollback manuel
+
+1. Supprimer la release problématique : `gh release delete vX.Y.Z --yes`
+2. Supprimer le tag : `git push --delete origin vX.Y.Z && git tag -d vX.Y.Z`
+3. Les utilisateurs qui n'ont pas encore mis à jour conservent l'ancienne version
+4. Pour les utilisateurs déjà mis à jour : publier un patch pointant vers le code stable
+
+### Rollback partiel (draft non publié)
+
+Si la release est encore en draft, il suffit de supprimer le draft depuis GitHub.
 
 ---
 

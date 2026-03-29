@@ -13,6 +13,15 @@ use std::path::PathBuf;
 pub struct SafetyPolicy {
     pub prod_require_confirmation: bool,
     pub prod_block_dangerous_sql: bool,
+    /// Maximum query execution time in milliseconds (None = no limit)
+    #[serde(default)]
+    pub max_query_duration_ms: Option<u64>,
+    /// Maximum number of rows returned per query (None = no limit)
+    #[serde(default)]
+    pub max_result_rows: Option<u64>,
+    /// Maximum number of concurrent queries (None = no limit)
+    #[serde(default)]
+    pub max_concurrent_queries: Option<u32>,
 }
 
 fn env_bool_opt(key: &str) -> Option<bool> {
@@ -22,6 +31,18 @@ fn env_bool_opt(key: &str) -> Option<bool> {
             "1" | "true" | "yes" | "on"
         )
     })
+}
+
+fn env_u64_opt(key: &str) -> Option<u64> {
+    std::env::var(key)
+        .ok()
+        .and_then(|v| v.trim().parse().ok())
+}
+
+fn env_u32_opt(key: &str) -> Option<u32> {
+    std::env::var(key)
+        .ok()
+        .and_then(|v| v.trim().parse().ok())
 }
 
 fn config_path() -> PathBuf {
@@ -51,6 +72,9 @@ impl SafetyPolicy {
         Self {
             prod_require_confirmation: true,
             prod_block_dangerous_sql: false,
+            max_query_duration_ms: None,
+            max_result_rows: None,
+            max_concurrent_queries: None,
         }
     }
 
@@ -60,6 +84,15 @@ impl SafetyPolicy {
         }
         if let Some(value) = env_bool_opt("QOREDB_PROD_BLOCK_DANGEROUS") {
             self.prod_block_dangerous_sql = value;
+        }
+        if let Some(value) = env_u64_opt("QOREDB_MAX_QUERY_DURATION_MS") {
+            self.max_query_duration_ms = Some(value);
+        }
+        if let Some(value) = env_u64_opt("QOREDB_MAX_RESULT_ROWS") {
+            self.max_result_rows = Some(value);
+        }
+        if let Some(value) = env_u32_opt("QOREDB_MAX_CONCURRENT_QUERIES") {
+            self.max_concurrent_queries = Some(value);
         }
     }
 
@@ -102,6 +135,9 @@ mod tests {
         let policy = SafetyPolicy::defaults();
         assert!(policy.prod_require_confirmation);
         assert!(!policy.prod_block_dangerous_sql);
+        assert!(policy.max_query_duration_ms.is_none());
+        assert!(policy.max_result_rows.is_none());
+        assert!(policy.max_concurrent_queries.is_none());
     }
 
     #[test]

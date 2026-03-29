@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 function isTextInputTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
@@ -24,6 +24,11 @@ export interface KeyboardShortcutsConfig {
 }
 
 export function useKeyboardShortcuts(config: KeyboardShortcutsConfig) {
+  // Store callbacks in a ref so the keydown listener always sees fresh values
+  // without needing to re-register on every render.
+  const configRef = useRef(config);
+  configRef.current = config;
+
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       const {
@@ -35,10 +40,11 @@ export function useKeyboardShortcuts(config: KeyboardShortcutsConfig) {
         onCloseTab,
         onNewQuery,
         onEscape,
+        onShowCheatsheet,
         isOverlayOpen,
         hasSession,
         hasActiveTab,
-      } = config;
+      } = configRef.current;
 
       // Handle overlay escape
       if (isOverlayOpen) {
@@ -62,9 +68,9 @@ export function useKeyboardShortcuts(config: KeyboardShortcutsConfig) {
       }
 
       // ?: Show keyboard cheatsheet
-      if (e.key === '?' && config.onShowCheatsheet) {
+      if (e.key === '?' && onShowCheatsheet) {
         e.preventDefault();
-        config.onShowCheatsheet();
+        onShowCheatsheet();
         return;
       }
 
@@ -125,5 +131,5 @@ export function useKeyboardShortcuts(config: KeyboardShortcutsConfig) {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [config]);
+  }, []);
 }

@@ -37,7 +37,7 @@ export function DataGridHeader({
   const { t } = useTranslation();
 
   return (
-    <div className="text-xs text-muted-foreground flex items-center gap-3">
+    <div className="flex min-w-0 flex-1 items-center gap-3 overflow-hidden text-xs text-muted-foreground">
       {selectedCount > 0 ? (
         <span>{t('grid.rowsSelected', { count: selectedCount })}</span>
       ) : (

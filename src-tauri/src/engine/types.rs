@@ -51,6 +51,10 @@ pub struct ConnectionConfig {
     pub password: String,
     pub database: Option<String>,
     pub ssl: bool,
+    /// Optional SSL mode override (e.g. "verify-full", "verify-ca", "require", "prefer", "disable").
+    /// When set, takes precedence over the `ssl` boolean for drivers that support it.
+    #[serde(default)]
+    pub ssl_mode: Option<String>,
     pub environment: String,
     pub read_only: bool,
     pub pool_max_connections: Option<u32>,
@@ -578,6 +582,56 @@ pub struct EventDefinition {
 /// Result of an event operation (drop, enable, disable)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EventOperationResult {
+    pub success: bool,
+    /// The SQL command that was executed
+    pub executed_command: String,
+    pub message: Option<String>,
+    pub execution_time_ms: f64,
+}
+
+// ==================== Sequence Types (MariaDB) ====================
+
+/// Database sequence metadata (MariaDB 10.3+)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Sequence {
+    pub namespace: Namespace,
+    pub name: String,
+    pub data_type: String,
+    pub start_value: i64,
+    pub min_value: i64,
+    pub max_value: i64,
+    pub increment: i64,
+    pub cycle: bool,
+    pub cache_size: i64,
+}
+
+/// Options for listing sequences
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct SequenceListOptions {
+    pub search: Option<String>,
+    pub page: Option<u32>,
+    pub page_size: Option<u32>,
+}
+
+/// Paginated sequence list
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SequenceList {
+    pub sequences: Vec<Sequence>,
+    pub total_count: u32,
+}
+
+/// Full sequence definition (CREATE statement)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SequenceDefinition {
+    pub name: String,
+    pub namespace: Namespace,
+    /// Full CREATE SEQUENCE statement
+    pub definition: String,
+}
+
+/// Result of a sequence operation (drop)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SequenceOperationResult {
     pub success: bool,
     /// The SQL command that was executed
     pub executed_command: String,

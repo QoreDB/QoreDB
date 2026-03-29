@@ -16,6 +16,7 @@ import {
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
+  markChangelogSeen,
   NotificationPanel,
   useHasUnseenChangelog,
 } from '@/components/Notification/NotificationPanel';
@@ -78,9 +79,6 @@ export const CustomTitlebar = ({
   onToggleSandbox,
   onOpenSchemaGenerator,
   onToggleZenMode,
-
-  // onToggleReadOnly,
-  // readOnly = false,
   settingsOpen = false,
 }: CustomTitlebarProps) => {
   const { t } = useTranslation();
@@ -573,7 +571,7 @@ const NotificationBell = () => {
   const hasChangelog = useHasUnseenChangelog();
 
   return (
-    <Popover>
+    <Popover onOpenChange={open => { if (open && hasChangelog) markChangelogSeen(); }}>
       <PopoverTrigger asChild>
         <Button
           variant="ghost"

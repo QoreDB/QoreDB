@@ -1,10 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Bell, Sparkles, Trash2, Wrench, Zap } from 'lucide-react';
-import { useCallback, useMemo } from 'react';
+import { Bell, History, Sparkles, Trash2, Wrench, Zap } from 'lucide-react';
+import { useCallback, useState, useSyncExternalStore } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import { CHANGELOG, type ChangelogItem } from '@/data/changelog';
 import {
   clearAllNotifications,
@@ -18,7 +25,11 @@ import { NotificationItem } from './NotificationItem';
 const categoryOrder: NotificationCategory[] = ['system', 'query', 'security'];
 const LAST_SEEN_VERSION_KEY = 'qoredb_last_seen_version';
 
-function getUnseenChangelog(): { version: string; items: ChangelogItem[] } | null {
+// Changelog seen state — reactive via useSyncExternalStore
+const changelogListeners = new Set<() => void>();
+let changelogSnapshot = computeChangelogSnapshot();
+
+function computeChangelogSnapshot(): { version: string; items: ChangelogItem[] } | null {
   const lastSeen = localStorage.getItem(LAST_SEEN_VERSION_KEY);
   if (lastSeen === APP_VERSION) return null;
   const entry = CHANGELOG[0];
@@ -26,12 +37,32 @@ function getUnseenChangelog(): { version: string; items: ChangelogItem[] } | nul
   return entry;
 }
 
-function markChangelogSeen() {
+function notifyChangelogListeners() {
+  changelogSnapshot = computeChangelogSnapshot();
+  changelogListeners.forEach(l => l());
+}
+
+function subscribeChangelog(listener: () => void): () => void {
+  changelogListeners.add(listener);
+  return () => changelogListeners.delete(listener);
+}
+
+function getChangelogSnapshot() {
+  return changelogSnapshot;
+}
+
+export function markChangelogSeen() {
   localStorage.setItem(LAST_SEEN_VERSION_KEY, APP_VERSION);
+  notifyChangelogListeners();
 }
 
 export function useHasUnseenChangelog(): boolean {
-  return getUnseenChangelog() !== null;
+  const snapshot = useSyncExternalStore(subscribeChangelog, getChangelogSnapshot, getChangelogSnapshot);
+  return snapshot !== null;
+}
+
+function useUnseenChangelog() {
+  return useSyncExternalStore(subscribeChangelog, getChangelogSnapshot, getChangelogSnapshot);
 }
 
 const typeIcons: Record<ChangelogItem['type'], typeof Sparkles> = {
@@ -53,12 +84,10 @@ export function NotificationPanel() {
   const grouped = getNotificationsByCategory();
   const hasNotifications = notifications.length > 0;
 
-  const unseenChangelog = useMemo(() => getUnseenChangelog(), []);
+  const unseenChangelog = useUnseenChangelog();
 
   const handleDismissChangelog = useCallback(() => {
     markChangelogSeen();
-    // Force re-render by triggering a state change through the DOM
-    window.dispatchEvent(new Event('storage'));
   }, []);
 
   return (
@@ -96,7 +125,7 @@ export function NotificationPanel() {
                   const Icon = typeIcons[item.type];
                   return (
                     <div
-                      key={item.titleKey}
+                      key={item.title}
                       className="flex items-start gap-2.5 px-2 py-1.5 rounded-md bg-muted/30"
                     >
                       <span
@@ -105,9 +134,9 @@ export function NotificationPanel() {
                         <Icon size={10} />
                       </span>
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium">{t(item.titleKey)}</p>
+                        <p className="text-xs font-medium">{item.title}</p>
                         <p className="text-[11px] text-muted-foreground leading-snug">
-                          {t(item.descriptionKey)}
+                          {item.description}
                         </p>
                       </div>
                     </div>
@@ -158,6 +187,68 @@ export function NotificationPanel() {
           )}
         </div>
       </ScrollArea>
+
+      {/* Full changelog button */}
+      <FullChangelogDialog />
     </div>
+  );
+}
+
+function FullChangelogDialog() {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <div className="border-t border-border pt-2 mt-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground w-full"
+          >
+            <History className="w-3 h-3 mr-1.5" />
+            {t('whatsNew.fullChangelog')}
+          </Button>
+        </div>
+      </DialogTrigger>
+      <DialogContent className="max-w-lg max-h-[80vh] overflow-hidden flex flex-col">
+        <DialogHeader>
+          <DialogTitle>{t('whatsNew.fullChangelog')}</DialogTitle>
+        </DialogHeader>
+        <div className="flex-1 min-h-0 overflow-y-auto -mx-2 px-2">
+          <div className="space-y-6 py-2">
+            {CHANGELOG.map(entry => (
+              <div key={entry.version}>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-sm font-semibold">v{entry.version}</span>
+                  <span className="text-xs text-muted-foreground">{entry.date}</span>
+                </div>
+                <div className="space-y-1.5 pl-1">
+                  {entry.items.map(item => {
+                    const Icon = typeIcons[item.type];
+                    return (
+                      <div key={item.title} className="flex items-start gap-2.5 py-1">
+                        <span
+                          className={`mt-0.5 inline-flex items-center justify-center w-5 h-5 rounded-full border text-[10px] shrink-0 ${typeColors[item.type]}`}
+                        >
+                          <Icon size={10} />
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium">{item.title}</p>
+                          <p className="text-[11px] text-muted-foreground leading-snug">
+                            {item.description}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

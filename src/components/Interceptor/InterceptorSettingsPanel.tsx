@@ -12,6 +12,7 @@ import {
   ChevronDown,
   ChevronRight,
   FileText,
+  Gauge,
   Plus,
   RefreshCw,
   Shield,
@@ -19,15 +20,20 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+
 import { LicenseGate } from '@/components/License/LicenseGate';
+
 import {
   addSafetyRule,
   BUILTIN_SAFETY_RULE_I18N,
+  type GovernanceLimits,
+  getGovernanceLimits,
   getInterceptorConfig,
   getSafetyRules,
   type InterceptorConfig,
   removeSafetyRule,
   type SafetyRule,
+  updateGovernanceLimits,
   updateInterceptorConfig,
   updateSafetyRule,
 } from '../../lib/tauri/interceptor';
@@ -93,6 +99,7 @@ export function InterceptorSettingsPanel() {
   const { t } = useTranslation();
   const [config, setConfig] = useState<InterceptorConfig | null>(null);
   const [rules, setRules] = useState<SafetyRule[]>([]);
+  const [governance, setGovernance] = useState<GovernanceLimits | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editingRule, setEditingRule] = useState<SafetyRule | null>(null);
@@ -120,9 +127,14 @@ export function InterceptorSettingsPanel() {
     try {
       setLoading(true);
       setError(null);
-      const [configData, rulesData] = await Promise.all([getInterceptorConfig(), getSafetyRules()]);
+      const [configData, rulesData, governanceData] = await Promise.all([
+        getInterceptorConfig(),
+        getSafetyRules(),
+        getGovernanceLimits(),
+      ]);
       setConfig(configData);
       setRules(rulesData);
+      setGovernance(governanceData);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load configuration');
     } finally {
@@ -147,6 +159,21 @@ export function InterceptorSettingsPanel() {
       }
     },
     [config]
+  );
+
+  // Governance update helper
+  const updateGovernance = useCallback(
+    async (updates: Partial<GovernanceLimits>) => {
+      if (!governance) return;
+      try {
+        const newLimits = { ...governance, ...updates };
+        const updated = await updateGovernanceLimits(newLimits);
+        setGovernance(updated);
+      } catch (err) {
+        console.error('Failed to update governance limits:', err);
+      }
+    },
+    [governance]
   );
 
   // Safety rule handlers
@@ -312,6 +339,73 @@ export function InterceptorSettingsPanel() {
           </SettingRow>
         </Section>
       </LicenseGate>
+
+      {/* Query Governance */}
+      {governance && (
+        <Section
+          title={t('interceptor.governance.title')}
+          description={t('interceptor.governance.description')}
+          icon={<Gauge className="w-4 h-4" />}
+          defaultOpen={false}
+        >
+          <SettingRow
+            label={t('interceptor.governance.maxDuration')}
+            description={t('interceptor.governance.maxDurationDescription')}
+          >
+            <div className="flex items-center gap-2">
+              <Input
+                type="number"
+                value={governance.max_query_duration_ms ?? ''}
+                onChange={e => {
+                  const val = e.target.value ? parseInt(e.target.value, 10) : null;
+                  updateGovernance({ max_query_duration_ms: val });
+                }}
+                placeholder={t('interceptor.governance.maxDurationPlaceholder')}
+                className="w-28 h-8 text-sm"
+                min={1000}
+                step={1000}
+              />
+              <span className="text-sm text-muted-foreground">ms</span>
+            </div>
+          </SettingRow>
+
+          <SettingRow
+            label={t('interceptor.governance.maxRows')}
+            description={t('interceptor.governance.maxRowsDescription')}
+          >
+            <Input
+              type="number"
+              value={governance.max_result_rows ?? ''}
+              onChange={e => {
+                const val = e.target.value ? parseInt(e.target.value, 10) : null;
+                updateGovernance({ max_result_rows: val });
+              }}
+              placeholder={t('interceptor.governance.maxRowsPlaceholder')}
+              className="w-28 h-8 text-sm"
+              min={1}
+              step={100}
+            />
+          </SettingRow>
+
+          <SettingRow
+            label={t('interceptor.governance.maxConcurrent')}
+            description={t('interceptor.governance.maxConcurrentDescription')}
+          >
+            <Input
+              type="number"
+              value={governance.max_concurrent_queries ?? ''}
+              onChange={e => {
+                const val = e.target.value ? parseInt(e.target.value, 10) : null;
+                updateGovernance({ max_concurrent_queries: val });
+              }}
+              placeholder={t('interceptor.governance.maxConcurrentPlaceholder')}
+              className="w-28 h-8 text-sm"
+              min={1}
+              max={100}
+            />
+          </SettingRow>
+        </Section>
+      )}
 
       {/* Safety */}
       <Section

@@ -245,6 +245,7 @@ export function QueryPanel({
       const streamDisposal: UnlistenFn[] = [];
       const streamingRows: Row[] = [];
       let streamingCols: ColumnInfo[] = [];
+      let streamRafId = 0;
 
       try {
         // Setup streaming listeners if supported
@@ -273,17 +274,38 @@ export function QueryPanel({
             }
           );
 
-          const unlistenRow = await listen<Row>(`query_stream_row:${queryId}`, event => {
-            streamingRows.push(event.payload);
+          // Batch streaming rows: accumulate in a buffer and flush once per
+          // animation frame to avoid O(N²) array copies from per-row state updates.
+          const rowBuffer: Row[] = [];
+          let flushScheduled = false;
+
+          const flushRowBuffer = () => {
+            flushScheduled = false;
+            if (rowBuffer.length === 0) return;
+            const batch = rowBuffer.splice(0);
             setResults(prev => {
               const updated = [...prev];
               const index = updated.findIndex(e => e.id === queryId);
               if (index !== -1 && updated[index].result) {
-                const existingRows = updated[index].result.rows;
-                updated[index].result.rows = [...existingRows, event.payload];
+                updated[index] = {
+                  ...updated[index],
+                  result: {
+                    ...updated[index].result,
+                    rows: updated[index].result.rows.concat(batch),
+                  },
+                };
               }
               return updated;
             });
+          };
+
+          const unlistenRow = await listen<Row>(`query_stream_row:${queryId}`, event => {
+            streamingRows.push(event.payload);
+            rowBuffer.push(event.payload);
+            if (!flushScheduled) {
+              flushScheduled = true;
+              streamRafId = requestAnimationFrame(flushRowBuffer);
+            }
           });
 
           const unlistenError = await listen<string>(`query_stream_error:${queryId}`, event => {
@@ -347,7 +369,8 @@ export function QueryPanel({
         const endTime = performance.now();
         const totalTime = endTime - startTime;
 
-        // Clean up listeners
+        // Clean up listeners and cancel any pending batched flush
+        cancelAnimationFrame(streamRafId);
         for (const unlisten of streamDisposal) unlisten();
 
         if (response.success) {
@@ -677,9 +700,23 @@ export function QueryPanel({
     const queryToExplain = selection && selection.trim().length > 0 ? selection : query;
     if (!queryToExplain.trim()) return;
     const trimmed = queryToExplain.replace(/;+\s*$/, '');
-    const explainQuery = `EXPLAIN (FORMAT JSON) ${trimmed}`;
+
+    let explainQuery: string;
+    switch (dialect) {
+      case Driver.Mysql:
+      case Driver.Mariadb:
+        explainQuery = `EXPLAIN FORMAT=JSON ${trimmed}`;
+        break;
+      case Driver.Sqlite:
+        explainQuery = `EXPLAIN QUERY PLAN ${trimmed}`;
+        break;
+      default:
+        explainQuery = `EXPLAIN (FORMAT JSON) ${trimmed}`;
+        break;
+    }
+
     await runQuery(explainQuery, false, 'explain');
-  }, [sessionId, isDocument, isExplainSupported, query, runQuery]);
+  }, [sessionId, isDocument, isExplainSupported, query, runQuery, dialect]);
 
   const handleToggleKeepResults = useCallback(() => {
     setKeepResults(prev => {
@@ -856,7 +893,7 @@ export function QueryPanel({
   return (
     <div
       ref={containerRef}
-      className="flex flex-col flex-1 bg-background rounded-lg border border-border shadow-sm overflow-hidden"
+      className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm"
     >
       <QueryPanelToolbar
         loading={loading}
@@ -881,6 +918,7 @@ export function QueryPanel({
         onLibraryOpen={() => (onOpenLibrary ? onOpenLibrary() : setLibraryOpen(true))}
         onSaveToLibrary={handleSaveToLibrary}
         onTemplateSelect={handleTemplateSelect}
+        onFormat={handleFormat}
         onAiToggle={handleAiToggle}
         aiPanelOpen={showAiPanel}
         supportsTransactions={supportsTransactions}
@@ -895,8 +933,8 @@ export function QueryPanel({
         data-tour="query-editor"
         className={
           editorExpanded
-            ? 'flex flex-4 min-h-0 overflow-hidden'
-            : 'flex shrink-0 min-h-0 overflow-hidden'
+            ? 'flex min-h-0 min-w-0 flex-4 overflow-hidden'
+            : 'flex min-h-0 min-w-0 shrink-0 overflow-hidden'
         }
         style={editorExpanded ? undefined : { height: editorHeight }}
       >
@@ -948,7 +986,7 @@ export function QueryPanel({
         <span className="w-8 h-0.5 rounded-full bg-muted-foreground/20 group-hover:bg-accent/60 transition-colors" />
       </button>
 
-      <div data-tour="query-results" className="flex-1 min-h-0">
+      <div data-tour="query-results" className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
         <QueryPanelResults
           panelError={panelError}
           results={results}

@@ -1,9 +1,10 @@
 [package]
 name = "qoredb"
-version = "0.1.21"
+version = "0.1.22"
 description = "Next gen DB Client"
 authors = ["Raphaël Plassart <raphael.plassart@gmail.com>"]
 edition = "2021"
+license = "Apache-2.0"
 
 [lib]
 name = "qoredb_lib"
@@ -22,7 +23,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["raw_value"] }
 
 # Async runtime
-tokio = { version = "1", features = ["full"] }
+tokio = { version = "1", features = ["rt-multi-thread", "sync", "time", "net", "fs", "io-util", "macros"] }
 tokio-util = { version = "0.7", features = ["compat"] }
 bytes = "1.11.1"
 
@@ -44,7 +45,9 @@ sqlparser = "0.60"
 tracing = "0.1"
 tracing-appender = "0.2"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+csv = "1"
 regex = "1"
+parking_lot = "0.12"
 dirs = "5"
 url = "2"
 percent-encoding = "2"
@@ -88,6 +91,23 @@ default = []
 pro = ["rust_xlsxwriter", "parquet", "arrow", "reqwest"]
 team = ["pro"]
 enterprise = ["team"]
+
+# Optimize dependencies in dev mode (faster app startup, same compile time)
+[profile.dev.package."*"]
+opt-level = 1
+
+# Keep debug builds fast for our own code
+[profile.dev]
+opt-level = 0
+debug = 2
+incremental = true
+
+# Optimize release builds
+[profile.release]
+opt-level = 3
+lto = "thin"
+strip = "symbols"
+codegen-units = 1
 
 [dev-dependencies]
 tempfile = "3.24.0"

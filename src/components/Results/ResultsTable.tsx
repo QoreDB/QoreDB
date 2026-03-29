@@ -1,10 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { useCallback, useRef } from 'react';
+import { Binary } from 'lucide-react';
+import { useCallback, useRef, useState } from 'react';
 import { Check, SearchX } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { cn } from '@/lib/utils';
+import { estimateByteSizeFromBase64, formatFileSize, isBinaryType } from '@/lib/binaryUtils';
+import { BlobViewer } from '@/components/Grid/BlobViewer';
 import type { QueryResult } from '../../lib/tauri';
 
 interface ResultsTableProps {
@@ -12,9 +15,13 @@ interface ResultsTableProps {
   height?: number;
 }
 
-function formatValue(value: unknown): string {
+function formatValue(value: unknown, dataType?: string): string {
   if (value === null) return 'NULL';
   if (value === undefined) return '';
+  if (dataType && isBinaryType(dataType) && typeof value === 'string' && value.length > 0) {
+    const size = estimateByteSizeFromBase64(value);
+    return `<binary ${formatFileSize(size)}>`;
+  }
   if (typeof value === 'boolean') return value ? 'true' : 'false';
   if (typeof value === 'object') return JSON.stringify(value);
   return String(value);
@@ -108,20 +115,23 @@ export function ResultsTable({ result, height = 400 }: ResultsTableProps) {
                   transform: `translateY(${virtualRow.start}px)`,
                 }}
               >
-                {row.values.map((value: unknown, colIndex: number) => (
-                  <div
-                    key={colIndex}
-                    className={cn(
-                      'flex-1 px-3 py-1 truncate border-r border-border last:border-r-0 h-full flex items-center',
-                      value === null && 'text-muted-foreground italic',
-                      typeof value === 'number' && 'text-right justify-end',
-                      typeof value === 'boolean' && 'text-center justify-center text-accent'
-                    )}
-                    title={String(value)}
-                  >
-                    {formatValue(value)}
-                  </div>
-                ))}
+                {row.values.map((value: unknown, colIndex: number) => {
+                  const col = columns[colIndex];
+                  const isBinary =
+                    col &&
+                    isBinaryType(col.data_type) &&
+                    typeof value === 'string' &&
+                    value.length > 0;
+                  return (
+                    <ResultsTableCell
+                      key={colIndex}
+                      value={value}
+                      dataType={col?.data_type}
+                      columnName={col?.name ?? ''}
+                      isBinary={isBinary}
+                    />
+                  );
+                })}
               </div>
             );
           })}
@@ -132,6 +142,58 @@ export function ResultsTable({ result, height = 400 }: ResultsTableProps) {
         {t('results.rowCount', { count: rows.length })} •{' '}
         {t('results.timeMs', { time: result.execution_time_ms })}
       </div>
+    </div>
+  );
+}
+
+/** Cell component for ResultsTable that handles binary values with BlobViewer. */
+function ResultsTableCell({
+  value,
+  dataType,
+  columnName,
+  isBinary,
+}: {
+  value: unknown;
+  dataType?: string;
+  columnName: string;
+  isBinary: boolean;
+}) {
+  const [blobOpen, setBlobOpen] = useState(false);
+
+  if (isBinary && typeof value === 'string') {
+    return (
+      <>
+        <div
+          className="flex-1 px-3 py-1 truncate border-r border-border last:border-r-0 h-full flex items-center gap-1.5 cursor-pointer hover:text-accent transition-colors"
+          onClick={() => setBlobOpen(true)}
+        >
+          <Binary className="h-3 w-3 shrink-0 text-muted-foreground" />
+          <span className="truncate text-muted-foreground italic text-xs">
+            {formatValue(value, dataType)}
+          </span>
+        </div>
+        <BlobViewer
+          open={blobOpen}
+          onOpenChange={setBlobOpen}
+          value={value}
+          columnName={columnName}
+          dataType={dataType ?? ''}
+        />
+      </>
+    );
+  }
+
+  return (
+    <div
+      className={cn(
+        'flex-1 px-3 py-1 truncate border-r border-border last:border-r-0 h-full flex items-center',
+        value === null && 'text-muted-foreground italic',
+        typeof value === 'number' && 'text-right justify-end',
+        typeof value === 'boolean' && 'text-center justify-center text-accent'
+      )}
+      title={String(value)}
+    >
+      {formatValue(value, dataType)}
     </div>
   );
 }

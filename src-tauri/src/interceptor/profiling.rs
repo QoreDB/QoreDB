@@ -6,7 +6,8 @@
 //! Tracks execution times, percentiles, and slow queries.
 
 use std::collections::VecDeque;
-use std::sync::RwLock;
+
+use parking_lot::RwLock;
 
 use chrono::Utc;
 use tracing::{debug, info};
@@ -47,25 +48,25 @@ impl ProfilingStore {
 
     /// Enable or disable profiling
     pub fn set_enabled(&self, enabled: bool) {
-        *self.enabled.write().unwrap() = enabled;
+        *self.enabled.write() = enabled;
         info!("Profiling {}", if enabled { "enabled" } else { "disabled" });
     }
 
     /// Check if profiling is enabled
     pub fn is_enabled(&self) -> bool {
-        *self.enabled.read().unwrap()
+        *self.enabled.read()
     }
 
     /// Set the slow query threshold
     pub fn set_slow_threshold(&self, threshold_ms: u64) {
-        *self.slow_threshold_ms.write().unwrap() = threshold_ms;
+        *self.slow_threshold_ms.write() = threshold_ms;
         info!("Slow query threshold set to {}ms", threshold_ms);
     }
 
     /// Set max slow queries to retain
     pub fn set_max_slow_queries(&self, max_slow_queries: usize) {
-        *self.max_slow_queries.write().unwrap() = max_slow_queries;
-        let mut slow_queries = self.slow_queries.write().unwrap();
+        *self.max_slow_queries.write() = max_slow_queries;
+        let mut slow_queries = self.slow_queries.write();
         while slow_queries.len() > max_slow_queries {
             slow_queries.pop_front();
         }
@@ -73,7 +74,7 @@ impl ProfilingStore {
 
     /// Get the slow query threshold
     pub fn get_slow_threshold(&self) -> u64 {
-        *self.slow_threshold_ms.read().unwrap()
+        *self.slow_threshold_ms.read()
     }
 
     /// Record a query execution
@@ -93,11 +94,11 @@ impl ProfilingStore {
             return;
         }
 
-        let threshold = *self.slow_threshold_ms.read().unwrap();
+        let threshold = *self.slow_threshold_ms.read();
 
         // Update metrics
         {
-            let mut metrics = self.metrics.write().unwrap();
+            let mut metrics = self.metrics.write();
 
             metrics.total_queries += 1;
 
@@ -137,7 +138,7 @@ impl ProfilingStore {
 
         // Track execution time for percentiles
         {
-            let mut times = self.execution_times.write().unwrap();
+            let mut times = self.execution_times.write();
             if times.len() >= MAX_EXECUTION_TIMES {
                 // Remove oldest (first) to make room
                 times.remove(0);
@@ -162,7 +163,7 @@ impl ProfilingStore {
         }
 
         // Update percentiles periodically (every 100 queries)
-        let total = self.metrics.read().unwrap().total_queries;
+        let total = self.metrics.read().total_queries;
         if total % 100 == 0 {
             self.update_percentiles();
         }
@@ -189,8 +190,8 @@ impl ProfilingStore {
             driver_id: driver_id.to_string(),
         };
 
-        let max_slow_queries = *self.max_slow_queries.read().unwrap();
-        let mut slow_queries = self.slow_queries.write().unwrap();
+        let max_slow_queries = *self.max_slow_queries.read();
+        let mut slow_queries = self.slow_queries.write();
         if slow_queries.len() >= max_slow_queries {
             slow_queries.pop_front();
         }
@@ -201,7 +202,7 @@ impl ProfilingStore {
 
     /// Update percentile calculations
     fn update_percentiles(&self) {
-        let times = self.execution_times.read().unwrap();
+        let times = self.execution_times.read();
         if times.is_empty() {
             return;
         }
@@ -211,7 +212,7 @@ impl ProfilingStore {
         let p95_idx = len * 95 / 100;
         let p99_idx = len * 99 / 100;
 
-        let mut metrics = self.metrics.write().unwrap();
+        let mut metrics = self.metrics.write();
         metrics.p50_execution_time_ms = times.get(p50_idx).copied().unwrap_or(0.0);
         metrics.p95_execution_time_ms = times.get(p95_idx).copied().unwrap_or(0.0);
         metrics.p99_execution_time_ms = times.get(p99_idx).copied().unwrap_or(0.0);
@@ -222,13 +223,13 @@ impl ProfilingStore {
         // Update percentiles before returning
         self.update_percentiles();
 
-        let metrics = self.metrics.read().unwrap();
+        let metrics = self.metrics.read();
         metrics.clone()
     }
 
     /// Get slow query entries
     pub fn get_slow_queries(&self, limit: usize, offset: usize) -> Vec<SlowQueryEntry> {
-        let slow_queries = self.slow_queries.read().unwrap();
+        let slow_queries = self.slow_queries.read();
         slow_queries
             .iter()
             .rev() // Most recent first
@@ -240,15 +241,15 @@ impl ProfilingStore {
 
     /// Clear slow query entries
     pub fn clear_slow_queries(&self) {
-        self.slow_queries.write().unwrap().clear();
+        self.slow_queries.write().clear();
         info!("Slow queries cleared");
     }
 
     /// Reset all profiling metrics
     pub fn reset(&self) {
-        *self.metrics.write().unwrap() = ProfilingMetrics::new();
-        self.execution_times.write().unwrap().clear();
-        self.slow_queries.write().unwrap().clear();
+        *self.metrics.write() = ProfilingMetrics::new();
+        self.execution_times.write().clear();
+        self.slow_queries.write().clear();
         info!("Profiling metrics reset");
     }
 
@@ -262,7 +263,7 @@ impl ProfilingStore {
 
         let export = ProfilingExport {
             metrics: self.get_metrics(),
-            slow_queries: self.slow_queries.read().unwrap().iter().cloned().collect(),
+            slow_queries: self.slow_queries.read().iter().cloned().collect(),
         };
 
         serde_json::to_string_pretty(&export).unwrap_or_else(|_| "{}".to_string())

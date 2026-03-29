@@ -31,3 +31,7 @@ dist-ssr
 dev/ssh/
 
 # doc/private/
+
+# Generated SBOMs (build artifacts)
+sbom-*.cdx.json
+checksums-sbom.sha256

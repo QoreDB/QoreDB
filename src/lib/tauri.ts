@@ -19,6 +19,7 @@ export interface ConnectionConfig {
   password: string;
   database?: string;
   ssl: boolean;
+  ssl_mode?: string;
   environment: Environment;
   read_only: boolean;
   pool_max_connections?: number;
@@ -69,6 +70,7 @@ export interface SavedConnection {
   username: string;
   database?: string;
   ssl: boolean;
+  ssl_mode?: string;
   pool_max_connections?: number;
   pool_min_connections?: number;
   pool_acquire_timeout_secs?: number;
@@ -261,6 +263,8 @@ export async function executeQuery(
   result?: QueryResult;
   error?: string;
   query_id?: string;
+  truncated?: boolean;
+  truncated_total?: number;
 }> {
   return invoke('execute_query', {
     sessionId,
@@ -614,6 +618,98 @@ export async function dropEvent(
     database,
     schema,
     eventName,
+    acknowledgedDangerous,
+  });
+}
+
+// ============================================
+// SEQUENCES (MariaDB 10.3+)
+// ============================================
+
+export interface Sequence {
+  namespace: Namespace;
+  name: string;
+  data_type: string;
+  start_value: number;
+  min_value: number;
+  max_value: number;
+  increment: number;
+  cycle: boolean;
+  cache_size: number;
+}
+
+export interface SequenceList {
+  sequences: Sequence[];
+  total_count: number;
+}
+
+export interface SequenceDefinition {
+  name: string;
+  namespace: Namespace;
+  definition: string;
+}
+
+export interface SequenceOperationResult {
+  success: boolean;
+  executed_command: string;
+  message?: string;
+  execution_time_ms: number;
+}
+
+export async function listSequences(
+  sessionId: string,
+  namespace: Namespace,
+  search?: string,
+  page?: number,
+  pageSize?: number
+): Promise<{
+  success: boolean;
+  data?: SequenceList;
+  error?: string;
+}> {
+  return invoke('list_sequences', {
+    sessionId,
+    namespace,
+    search,
+    page,
+    page_size: pageSize,
+  });
+}
+
+export async function getSequenceDefinition(
+  sessionId: string,
+  database: string,
+  schema: string | null | undefined,
+  sequenceName: string
+): Promise<{
+  success: boolean;
+  definition?: SequenceDefinition;
+  error?: string;
+}> {
+  return invoke('get_sequence_definition', {
+    sessionId,
+    database,
+    schema,
+    sequenceName,
+  });
+}
+
+export async function dropSequence(
+  sessionId: string,
+  database: string,
+  schema: string | null | undefined,
+  sequenceName: string,
+  acknowledgedDangerous?: boolean
+): Promise<{
+  success: boolean;
+  result?: SequenceOperationResult;
+  error?: string;
+}> {
+  return invoke('drop_sequence', {
+    sessionId,
+    database,
+    schema,
+    sequenceName,
     acknowledgedDangerous,
   });
 }
@@ -996,6 +1092,106 @@ export async function supportsMutations(sessionId: string): Promise<boolean> {
 }
 
 // ============================================
+// CSV IMPORT
+// ============================================
+
+export interface CsvPreviewResponse {
+  detected_delimiter: string;
+  headers: string[];
+  preview_rows: string[][];
+  total_lines: number;
+}
+
+export interface CsvImportConfig {
+  delimiter?: string;
+  has_header: boolean;
+  null_string?: string;
+  on_conflict?: 'skip' | 'abort';
+  column_mapping?: Record<number, string>;
+}
+
+export interface ImportResponse {
+  success: boolean;
+  imported_rows: number;
+  failed_rows: number;
+  errors: string[];
+  execution_time_ms: number;
+}
+
+export async function previewCsv(
+  filePath: string,
+  delimiter?: string,
+  hasHeader?: boolean,
+  previewLimit?: number
+): Promise<CsvPreviewResponse> {
+  return invoke('preview_csv', {
+    filePath,
+    delimiter,
+    hasHeader,
+    previewLimit,
+  });
+}
+
+export async function importCsv(
+  sessionId: string,
+  database: string,
+  schema: string | null | undefined,
+  table: string,
+  filePath: string,
+  config: CsvImportConfig,
+  acknowledgedDangerous?: boolean
+): Promise<ImportResponse> {
+  return invoke('import_csv', {
+    sessionId,
+    database,
+    schema,
+    table,
+    filePath,
+    config,
+    acknowledgedDangerous,
+  });
+}
+
+// ============================================
+// SCHEMA EXPORT
+// ============================================
+
+export interface SchemaExportOptions {
+  include_tables?: boolean;
+  include_routines?: boolean;
+  include_triggers?: boolean;
+  include_events?: boolean;
+  include_sequences?: boolean;
+}
+
+export interface ExportSchemaResponse {
+  success: boolean;
+  table_count: number;
+  routine_count: number;
+  trigger_count: number;
+  event_count: number;
+  sequence_count: number;
+  file_size_bytes: number;
+  error?: string;
+}
+
+export async function exportSchema(
+  sessionId: string,
+  database: string,
+  schema: string | null | undefined,
+  filePath: string,
+  options: SchemaExportOptions
+): Promise<ExportSchemaResponse> {
+  return invoke('export_schema', {
+    sessionId,
+    database,
+    schema,
+    filePath,
+    options,
+  });
+}
+
+// ============================================
 // LOGS
 // ============================================
 
@@ -1053,6 +1249,7 @@ export async function saveConnection(input: {
   password: string;
   database?: string;
   ssl: boolean;
+  ssl_mode?: string;
   pool_max_connections?: number;
   pool_min_connections?: number;
   pool_acquire_timeout_secs?: number;

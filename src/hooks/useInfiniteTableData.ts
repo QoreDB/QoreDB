@@ -89,7 +89,6 @@ export function useInfiniteTableData({
       if (result.success && result.result) {
         const paginated = result.result;
 
-        // Capture timing from first chunk
         if (isFirstChunk) {
           const endTime = performance.now();
           setExecutionTimeMs(paginated.result.execution_time_ms);
@@ -99,11 +98,10 @@ export function useInfiniteTableData({
         setColumns(prev => {
           const newCols = paginated.result.columns;
           if (newCols.length > 0) return prev.length === 0 ? newCols : prev;
-          // Preserve previous columns when server returns empty columns (e.g. 0 matching rows)
           return prev;
         });
         setAllRows(prev => {
-          const next = [...prev, ...paginated.result.rows];
+          const next = prev.concat(paginated.result.rows);
           if (next.length >= paginated.total_rows) {
             setIsComplete(true);
           }
@@ -116,7 +114,6 @@ export function useInfiniteTableData({
           setIsComplete(true);
         }
       } else if (result.success && !result.result) {
-        // Defensive fallback: keep UI stable even if backend returned success without payload.
         setColumns([]);
         setAllRows([]);
         setTotalRows(0);

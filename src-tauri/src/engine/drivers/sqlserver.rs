@@ -2047,6 +2047,7 @@ mod tests {
             password: "MyPassword123!".to_string(),
             database: Some("testdb".to_string()),
             ssl: false,
+            ssl_mode: None,
             environment: "development".to_string(),
             read_only: false,
             ssh_tunnel: None,

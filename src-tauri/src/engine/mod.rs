@@ -11,6 +11,7 @@ pub mod mongo_safety;
 pub mod query_manager;
 pub mod redis_safety;
 pub mod registry;
+pub mod schema_export;
 pub mod session_manager;
 pub mod sql_generator;
 pub mod sql_safety;

@@ -272,6 +272,7 @@ mod tests {
             username: "qoredb".to_string(),
             database: Some("testdb".to_string()),
             ssl: false,
+            ssl_mode: None,
             ssh_tunnel: Some(SshTunnelInfo {
                 host: "ssh.local".to_string(),
                 port: 22,

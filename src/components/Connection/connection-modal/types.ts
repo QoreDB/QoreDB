@@ -14,6 +14,7 @@ export interface ConnectionFormData {
   password: string;
   database: string;
   ssl: boolean;
+  sslMode: string;
   poolMaxConnections: number;
   poolMinConnections: number;
   poolAcquireTimeoutSecs: number;
@@ -44,6 +45,7 @@ export const initialConnectionFormData: ConnectionFormData = {
   password: '',
   database: '',
   ssl: false,
+  sslMode: '',
   poolMaxConnections: 5,
   poolMinConnections: 0,
   poolAcquireTimeoutSecs: 30,

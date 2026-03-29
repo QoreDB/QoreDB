@@ -14,7 +14,8 @@ use crate::engine::types::{
     CreationOptions, DriverCapabilities, EventDefinition, EventList, EventListOptions,
     EventOperationResult, ForeignKey, MaintenanceOperationInfo, MaintenanceRequest,
     MaintenanceResult, Namespace, PaginatedQueryResult, QueryId, QueryResult, RoutineDefinition,
-    RoutineList, RoutineListOptions, RoutineOperationResult, RoutineType, Row, RowData, SessionId,
+    RoutineList, RoutineListOptions, RoutineOperationResult, RoutineType, Row, RowData,
+    SequenceDefinition, SequenceList, SequenceListOptions, SequenceOperationResult, SessionId,
     TableQueryOptions, TableSchema, TriggerDefinition, TriggerList, TriggerListOptions,
     TriggerOperationResult, Value,
 };
@@ -127,6 +128,54 @@ pub trait DataEngine: Send + Sync {
         let _ = (session, namespace, routine_name, routine_type, arguments);
         Err(EngineError::not_supported(
             "Dropping routines is not supported by this driver",
+        ))
+    }
+
+    /// Lists sequences in a namespace (MariaDB 10.3+).
+    /// Default returns empty list for drivers without sequence support.
+    async fn list_sequences(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        options: SequenceListOptions,
+    ) -> EngineResult<SequenceList> {
+        let _ = (session, namespace, options);
+        Ok(SequenceList {
+            sequences: Vec::new(),
+            total_count: 0,
+        })
+    }
+
+    /// Check if the driver supports sequences.
+    fn supports_sequences(&self) -> bool {
+        false
+    }
+
+    /// Gets the full definition (CREATE statement) of a sequence.
+    /// Default returns NotSupported.
+    async fn get_sequence_definition(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        sequence_name: &str,
+    ) -> EngineResult<SequenceDefinition> {
+        let _ = (session, namespace, sequence_name);
+        Err(EngineError::not_supported(
+            "Getting sequence definitions is not supported by this driver",
+        ))
+    }
+
+    /// Drops a sequence.
+    /// Default returns NotSupported.
+    async fn drop_sequence(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        sequence_name: &str,
+    ) -> EngineResult<SequenceOperationResult> {
+        let _ = (session, namespace, sequence_name);
+        Err(EngineError::not_supported(
+            "Dropping sequences is not supported by this driver",
         ))
     }
 

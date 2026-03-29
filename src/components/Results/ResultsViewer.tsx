@@ -20,6 +20,7 @@ import type {
   TableSchema,
   Value,
 } from '@/lib/tauri';
+import { ErrorBoundary } from '../ui/error-boundary';
 import { DataGrid } from '../Grid/DataGrid';
 import { DocumentResults } from './DocumentResults';
 
@@ -141,6 +142,7 @@ export const ResultsViewer = memo(function ResultsViewer({
   }
 
   return (
+    <ErrorBoundary>
     <DataGrid
       result={safeResult}
       sessionId={sessionId}
@@ -176,5 +178,6 @@ export const ResultsViewer = memo(function ResultsViewer({
       onSandboxDelete={onSandboxDelete}
       exportQuery={exportQuery}
     />
+    </ErrorBoundary>
   );
 });

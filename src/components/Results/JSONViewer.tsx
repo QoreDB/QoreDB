@@ -1,7 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ChevronDown, ChevronRight } from 'lucide-react';
-import { useState } from 'react';
+import { type KeyboardEvent, useState } from 'react';
+
+/** Handles Enter/Space as click for keyboard accessibility */
+function handleToggleKeyDown(e: KeyboardEvent, toggle: () => void) {
+  if (e.key === 'Enter' || e.key === ' ') {
+    e.preventDefault();
+    toggle();
+  }
+}
 
 interface JSONViewerProps {
   data: unknown;
@@ -79,9 +87,14 @@ function JSONNode({ value, keyName, depth, initialExpanded, maxDepth }: JSONNode
     return (
       <div className="flex flex-col">
         <div
+          role="button"
+          tabIndex={0}
+          aria-expanded={expanded}
+          aria-label={keyName ? `${keyName}: array (${value.length} items)` : `array (${value.length} items)`}
           className="flex items-center cursor-pointer hover:bg-muted/20 rounded px-1 -ml-1 select-none"
           style={indent}
           onClick={() => setExpanded(!expanded)}
+          onKeyDown={e => handleToggleKeyDown(e, () => setExpanded(!expanded))}
         >
           <span className="text-muted-foreground mr-1 w-4 flex justify-center">
             {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
@@ -126,9 +139,14 @@ function JSONNode({ value, keyName, depth, initialExpanded, maxDepth }: JSONNode
     return (
       <div className="flex flex-col">
         <div
+          role="button"
+          tabIndex={0}
+          aria-expanded={expanded}
+          aria-label={keyName ? `${keyName}: object (${entries.length} keys)` : `object (${entries.length} keys)`}
           className="flex items-center cursor-pointer hover:bg-muted/20 rounded px-1 -ml-1 select-none"
           style={indent}
           onClick={() => setExpanded(!expanded)}
+          onKeyDown={e => handleToggleKeyDown(e, () => setExpanded(!expanded))}
         >
           <span className="text-muted-foreground mr-1 w-4 flex justify-center">
             {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}

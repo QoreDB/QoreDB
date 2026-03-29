@@ -5,8 +5,7 @@
 //! Enforces safety rules to prevent dangerous or unauthorized queries.
 //! Supports both built-in and custom rules.
 
-use std::sync::RwLock;
-
+use parking_lot::RwLock;
 use regex::Regex;
 use tracing::{debug, info, warn};
 
@@ -114,18 +113,18 @@ impl SafetyEngine {
 
     /// Load custom rules
     pub fn load_rules(&self, rules: Vec<SafetyRule>) {
-        let mut custom = self.custom_rules.write().unwrap();
+        let mut custom = self.custom_rules.write();
         *custom = rules.into_iter().filter(|r| !r.builtin).collect();
 
         // Clear pattern cache
-        self.pattern_cache.write().unwrap().clear();
+        self.pattern_cache.write().clear();
 
         info!("Loaded {} custom safety rules", custom.len());
     }
 
     /// Apply persisted enabled state for built-in rules
     pub fn apply_builtin_overrides(&self, overrides: &[BuiltinRuleOverride]) {
-        let mut builtin = self.builtin_rules.write().unwrap();
+        let mut builtin = self.builtin_rules.write();
         for override_entry in overrides {
             if let Some(rule) = builtin.iter_mut().find(|r| r.id == override_entry.id) {
                 rule.enabled = override_entry.enabled;
@@ -146,7 +145,7 @@ impl SafetyEngine {
             }
         }
 
-        let mut custom = self.custom_rules.write().unwrap();
+        let mut custom = self.custom_rules.write();
 
         // Check for duplicate ID
         if custom.iter().any(|r| r.id == rule.id) {
@@ -156,7 +155,7 @@ impl SafetyEngine {
         custom.push(rule);
 
         // Clear pattern cache
-        self.pattern_cache.write().unwrap().clear();
+        self.pattern_cache.write().clear();
 
         Ok(())
     }
@@ -172,7 +171,7 @@ impl SafetyEngine {
 
         if rule.builtin {
             // Update built-in rule enabled state only
-            let mut builtin = self.builtin_rules.write().unwrap();
+            let mut builtin = self.builtin_rules.write();
             if let Some(existing) = builtin.iter_mut().find(|r| r.id == rule.id) {
                 existing.enabled = rule.enabled;
                 return Ok(());
@@ -180,12 +179,12 @@ impl SafetyEngine {
             return Err(format!("Built-in rule with ID '{}' not found", rule.id));
         }
 
-        let mut custom = self.custom_rules.write().unwrap();
+        let mut custom = self.custom_rules.write();
 
         if let Some(existing) = custom.iter_mut().find(|r| r.id == rule.id) {
             *existing = rule;
             // Clear pattern cache
-            self.pattern_cache.write().unwrap().clear();
+            self.pattern_cache.write().clear();
             Ok(())
         } else {
             Err(format!("Rule with ID '{}' not found", rule.id))
@@ -194,7 +193,7 @@ impl SafetyEngine {
 
     /// Remove a custom rule
     pub fn remove_rule(&self, rule_id: &str) -> Result<(), String> {
-        let mut custom = self.custom_rules.write().unwrap();
+        let mut custom = self.custom_rules.write();
         let initial_len = custom.len();
         custom.retain(|r| r.id != rule_id);
 
@@ -203,7 +202,6 @@ impl SafetyEngine {
             if self
                 .builtin_rules
                 .read()
-                .unwrap()
                 .iter()
                 .any(|r| r.id == rule_id)
             {
@@ -213,22 +211,22 @@ impl SafetyEngine {
         }
 
         // Clear pattern cache
-        self.pattern_cache.write().unwrap().clear();
+        self.pattern_cache.write().clear();
 
         Ok(())
     }
 
     /// Get all rules (built-in + custom)
     pub fn get_rules(&self) -> Vec<SafetyRule> {
-        let custom = self.custom_rules.read().unwrap();
-        let mut all_rules = self.builtin_rules.read().unwrap().clone();
+        let custom = self.custom_rules.read();
+        let mut all_rules = self.builtin_rules.read().clone();
         all_rules.extend(custom.iter().cloned());
         all_rules
     }
 
     /// Enable or disable safety checking
     pub fn set_enabled(&self, enabled: bool) {
-        *self.enabled.write().unwrap() = enabled;
+        *self.enabled.write() = enabled;
         info!(
             "Safety checking {}",
             if enabled { "enabled" } else { "disabled" }
@@ -237,7 +235,7 @@ impl SafetyEngine {
 
     /// Check if safety checking is enabled
     pub fn is_enabled(&self) -> bool {
-        *self.enabled.read().unwrap()
+        *self.enabled.read()
     }
 
     /// Check a query against safety rules
@@ -247,8 +245,8 @@ impl SafetyEngine {
         }
 
         // Get all applicable rules
-        let builtin = self.builtin_rules.read().unwrap();
-        let custom = self.custom_rules.read().unwrap();
+        let builtin = self.builtin_rules.read();
+        let custom = self.custom_rules.read();
         let all_rules: Vec<&SafetyRule> = builtin
             .iter()
             .chain(custom.iter())
@@ -305,7 +303,7 @@ impl SafetyEngine {
     fn matches_pattern(&self, pattern: &str, query: &str) -> bool {
         // Check cache first
         {
-            let cache = self.pattern_cache.read().unwrap();
+            let cache = self.pattern_cache.read();
             if let Some(regex) = cache.get(pattern) {
                 return regex.is_match(query);
             }
@@ -317,7 +315,6 @@ impl SafetyEngine {
                 let matches = regex.is_match(query);
                 self.pattern_cache
                     .write()
-                    .unwrap()
                     .insert(pattern.to_string(), regex);
                 matches
             }

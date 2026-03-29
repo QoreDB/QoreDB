@@ -95,7 +95,7 @@ pub async fn list_maintenance_operations(
         Err(e) => Ok(MaintenanceListResponse {
             success: false,
             operations: Vec::new(),
-            error: Some(e.to_string()),
+            error: Some(e.sanitized_message()),
         }),
     }
 }
@@ -247,7 +247,7 @@ pub async fn run_maintenance(
                 &interceptor_context,
                 &QueryExecutionResult {
                     success: false,
-                    error: Some(e.to_string()),
+                    error: Some(e.sanitized_message()),
                     execution_time_ms: 0.0,
                     row_count: None,
                 },
@@ -257,7 +257,7 @@ pub async fn run_maintenance(
             Ok(MaintenanceRunResponse {
                 success: false,
                 result: None,
-                error: Some(e.to_string()),
+                error: Some(e.sanitized_message()),
             })
         }
     }

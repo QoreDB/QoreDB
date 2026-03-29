@@ -9,7 +9,8 @@ use std::collections::VecDeque;
 use std::fs::{self, File, OpenOptions};
 use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::path::PathBuf;
-use std::sync::RwLock;
+
+use parking_lot::RwLock;
 
 use chrono::{DateTime, Duration, Utc};
 use tracing::{debug, error, info, warn};
@@ -62,7 +63,7 @@ impl AuditStore {
         match File::open(&self.log_path) {
             Ok(file) => {
                 let reader = BufReader::new(file);
-                let mut entries = self.entries.write().unwrap();
+                let mut entries = self.entries.write();
 
                 for line in reader.lines() {
                     if let Ok(line) = line {
@@ -85,7 +86,7 @@ impl AuditStore {
 
     /// Enable or disable audit logging
     pub fn set_enabled(&self, enabled: bool) {
-        *self.enabled.write().unwrap() = enabled;
+        *self.enabled.write() = enabled;
         info!(
             "Audit logging {}",
             if enabled { "enabled" } else { "disabled" }
@@ -94,12 +95,12 @@ impl AuditStore {
 
     /// Update max audit entries
     pub fn set_max_entries(&self, max_entries: usize) {
-        *self.max_entries.write().unwrap() = max_entries;
+        *self.max_entries.write() = max_entries;
         self.maybe_rotate();
     }
 
     pub fn is_enabled(&self) -> bool {
-        *self.enabled.read().unwrap()
+        *self.enabled.read()
     }
 
     pub fn log(&self, entry: AuditLogEntry) {
@@ -108,7 +109,7 @@ impl AuditStore {
         }
 
         {
-            let mut entries = self.entries.write().unwrap();
+            let mut entries = self.entries.write();
             if entries.len() >= MEMORY_CACHE_SIZE {
                 entries.pop_front();
             }
@@ -146,7 +147,7 @@ impl AuditStore {
             Err(_) => return,
         };
 
-        let max_entries = *self.max_entries.read().unwrap();
+        let max_entries = *self.max_entries.read();
         if line_count <= max_entries {
             return;
         }
@@ -206,7 +207,7 @@ impl AuditStore {
         from_date: Option<DateTime<Utc>>,
         to_date: Option<DateTime<Utc>>,
     ) -> Vec<AuditLogEntry> {
-        let entries = self.entries.read().unwrap();
+        let entries = self.entries.read();
 
         entries
             .iter()
@@ -271,7 +272,7 @@ impl AuditStore {
 
     /// Get audit log statistics
     pub fn get_stats(&self) -> AuditStats {
-        let entries = self.entries.read().unwrap();
+        let entries = self.entries.read();
         let now = Utc::now();
         let last_hour = now - Duration::hours(1);
         let last_day = now - Duration::days(1);
@@ -314,7 +315,7 @@ impl AuditStore {
     /// Clear all audit log entries
     pub fn clear(&self) {
         // Clear memory cache
-        self.entries.write().unwrap().clear();
+        self.entries.write().clear();
 
         // Clear file
         if let Err(e) = File::create(&self.log_path) {
@@ -326,7 +327,7 @@ impl AuditStore {
 
     /// Export audit log entries as JSON
     pub fn export(&self) -> String {
-        let entries = self.entries.read().unwrap();
+        let entries = self.entries.read();
         let entries_vec: Vec<&AuditLogEntry> = entries.iter().collect();
         serde_json::to_string_pretty(&entries_vec).unwrap_or_else(|_| "[]".to_string())
     }

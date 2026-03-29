@@ -6,7 +6,7 @@
  */
 
 import { Binary } from 'lucide-react';
-import { type RefObject, useCallback, useState } from 'react';
+import { memo, type RefObject, useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { isBinaryType } from '@/lib/binaryUtils';
 import type { ForeignKey, Namespace, RelationFilter, Value } from '@/lib/tauri';
@@ -44,7 +44,7 @@ export interface EditableDataCellProps {
   onOpenRelatedTable?: (ns: Namespace, table: string, filter?: RelationFilter) => void;
 }
 
-export function EditableDataCell({
+export const EditableDataCell = memo(function EditableDataCell({
   value,
   columnId,
   dataType,
@@ -174,4 +174,4 @@ export function EditableDataCell({
       {cellContent}
     </ForeignKeyPeekTooltip>
   );
-}
+});

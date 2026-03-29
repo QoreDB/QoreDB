@@ -245,6 +245,7 @@ export function QueryPanel({
       const streamDisposal: UnlistenFn[] = [];
       const streamingRows: Row[] = [];
       let streamingCols: ColumnInfo[] = [];
+      let streamRafId = 0;
 
       try {
         // Setup streaming listeners if supported
@@ -273,17 +274,38 @@ export function QueryPanel({
             }
           );
 
-          const unlistenRow = await listen<Row>(`query_stream_row:${queryId}`, event => {
-            streamingRows.push(event.payload);
+          // Batch streaming rows: accumulate in a buffer and flush once per
+          // animation frame to avoid O(N²) array copies from per-row state updates.
+          const rowBuffer: Row[] = [];
+          let flushScheduled = false;
+
+          const flushRowBuffer = () => {
+            flushScheduled = false;
+            if (rowBuffer.length === 0) return;
+            const batch = rowBuffer.splice(0);
             setResults(prev => {
               const updated = [...prev];
               const index = updated.findIndex(e => e.id === queryId);
               if (index !== -1 && updated[index].result) {
-                const existingRows = updated[index].result.rows;
-                updated[index].result.rows = [...existingRows, event.payload];
+                updated[index] = {
+                  ...updated[index],
+                  result: {
+                    ...updated[index].result,
+                    rows: updated[index].result.rows.concat(batch),
+                  },
+                };
               }
               return updated;
             });
+          };
+
+          const unlistenRow = await listen<Row>(`query_stream_row:${queryId}`, event => {
+            streamingRows.push(event.payload);
+            rowBuffer.push(event.payload);
+            if (!flushScheduled) {
+              flushScheduled = true;
+              streamRafId = requestAnimationFrame(flushRowBuffer);
+            }
           });
 
           const unlistenError = await listen<string>(`query_stream_error:${queryId}`, event => {
@@ -347,7 +369,8 @@ export function QueryPanel({
         const endTime = performance.now();
         const totalTime = endTime - startTime;
 
-        // Clean up listeners
+        // Clean up listeners and cancel any pending batched flush
+        cancelAnimationFrame(streamRafId);
         for (const unlisten of streamDisposal) unlisten();
 
         if (response.success) {

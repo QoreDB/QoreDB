@@ -286,7 +286,7 @@ export function DataGrid({
   const data = useMemo(() => {
     const effectiveResult = sandboxMode ? overlayResult.result : result;
     if (!effectiveResult) return [];
-    return convertToRowData({ ...effectiveResult });
+    return convertToRowData(effectiveResult);
   }, [result, overlayResult.result, sandboxMode]);
 
   const columnTypeMap = useMemo(() => {
@@ -373,6 +373,38 @@ export function DataGrid({
   useEffect(() => {
     cancelInlineEdit();
   }, [cancelInlineEdit]);
+
+  // ── Stable refs for volatile values ──────────────────────────────────
+  // These let the cell render function read current values at render time
+  // without forcing a rebuild of all column definitions on every change.
+  const peekCacheRef = useRef(peekCache);
+  peekCacheRef.current = peekCache;
+  const buildPeekKeyRef = useRef(buildPeekKey);
+  buildPeekKeyRef.current = buildPeekKey;
+  const ensurePeekLoadedRef = useRef(ensurePeekLoaded);
+  ensurePeekLoadedRef.current = ensurePeekLoaded;
+  const getRelationLabelRef = useRef(getRelationLabel);
+  getRelationLabelRef.current = getRelationLabel;
+  const resolveReferencedNamespaceRef = useRef(resolveReferencedNamespace);
+  resolveReferencedNamespaceRef.current = resolveReferencedNamespace;
+  const startInlineEditRef = useRef(startInlineEdit);
+  startInlineEditRef.current = startInlineEdit;
+  const commitInlineEditRef = useRef(commitInlineEdit);
+  commitInlineEditRef.current = commitInlineEdit;
+  const cancelInlineEditRef = useRef(cancelInlineEdit);
+  cancelInlineEditRef.current = cancelInlineEdit;
+  const setEditingValueRef = useRef(setEditingValue);
+  setEditingValueRef.current = setEditingValue;
+  const inlineEditAvailableRef = useRef(inlineEditAvailable);
+  inlineEditAvailableRef.current = inlineEditAvailable;
+  const onOpenRelatedTableRef = useRef(onOpenRelatedTable);
+  onOpenRelatedTableRef.current = onOpenRelatedTable;
+  const sessionIdRef = useRef(sessionId);
+  sessionIdRef.current = sessionId;
+  const namespaceRef = useRef(namespace);
+  namespaceRef.current = namespace;
+  const tableNameRef = useRef(tableName);
+  tableNameRef.current = tableName;
 
   const columns = useMemo<ColumnDef<RowData, Value>[]>(() => {
     if (!result || result.columns.length === 0) return [];
@@ -466,11 +498,16 @@ export function DataGrid({
             Boolean(foreignKey) &&
             !isEditing &&
             value !== null &&
-            Boolean(sessionId && namespace && tableName);
-          const peekKey = canPeek && foreignKey ? buildPeekKey(foreignKey, value) : undefined;
-          const peekState = peekKey ? peekCache.get(peekKey) : undefined;
-          const relationLabel = foreignKey ? getRelationLabel(foreignKey) : '';
-          const referencedNamespace = foreignKey ? resolveReferencedNamespace(foreignKey) : null;
+            Boolean(sessionIdRef.current && namespaceRef.current && tableNameRef.current);
+          const peekKey =
+            canPeek && foreignKey
+              ? buildPeekKeyRef.current(foreignKey, value)
+              : undefined;
+          const peekState = peekKey ? peekCacheRef.current.get(peekKey) : undefined;
+          const relationLabel = foreignKey ? getRelationLabelRef.current(foreignKey) : '';
+          const referencedNamespace = foreignKey
+            ? resolveReferencedNamespaceRef.current(foreignKey)
+            : null;
           const hasMultipleRelations = Boolean(foreignKeys && foreignKeys.length > 1);
 
           return (
@@ -484,21 +521,28 @@ export function DataGrid({
               editingValue={editingValueRef.current}
               editInputRef={editInputRef}
               onStartEdit={() =>
-                startInlineEdit(info.row.original, info.row.id, info.column.id, value)
+                startInlineEditRef.current(
+                  info.row.original,
+                  info.row.id,
+                  info.column.id,
+                  value
+                )
               }
-              onCommitEdit={commitInlineEdit}
-              onCancelEdit={cancelInlineEdit}
-              onEditValueChange={setEditingValue}
-              inlineEditAvailable={inlineEditAvailable}
+              onCommitEdit={() => void commitInlineEditRef.current()}
+              onCancelEdit={() => cancelInlineEditRef.current()}
+              onEditValueChange={v => setEditingValueRef.current(v)}
+              inlineEditAvailable={inlineEditAvailableRef.current}
               foreignKey={foreignKey}
               peekKey={peekKey}
               peekState={peekState}
               canPeek={canPeek}
-              onEnsurePeekLoaded={() => foreignKey && ensurePeekLoaded(foreignKey, value)}
+              onEnsurePeekLoaded={() =>
+                foreignKey && ensurePeekLoadedRef.current(foreignKey, value)
+              }
               relationLabel={relationLabel}
               referencedNamespace={referencedNamespace}
               hasMultipleRelations={hasMultipleRelations}
-              onOpenRelatedTable={onOpenRelatedTable}
+              onOpenRelatedTable={onOpenRelatedTableRef.current}
             />
           );
         },
@@ -517,31 +561,19 @@ export function DataGrid({
     const leadingColumns = actionColumn ? [selectColumn, actionColumn] : [selectColumn];
     return [...leadingColumns, ...dataColumns];
   }, [
+    // Only structural dependencies that change the column layout itself
     onRowClick,
     result,
     t,
-    startInlineEdit,
-    commitInlineEdit,
-    cancelInlineEdit,
-    setEditingValue,
-    inlineEditAvailable,
     foreignKeyMap,
     primaryKeySet,
-    buildPeekKey,
-    peekCache,
-    ensurePeekLoaded,
-    getRelationLabel,
-    resolveReferencedNamespace,
-    onOpenRelatedTable,
-    sessionId,
-    namespace,
-    tableName,
-    editingCellRef,
-    editingValueRef,
-    editInputRef,
     indexedColumns,
     uniqueColumns,
     indexInfoMap,
+    // Refs are stable — listed for lint correctness, they never trigger rebuilds
+    editingCellRef,
+    editingValueRef,
+    editInputRef,
   ]);
 
   // Configure table
@@ -808,7 +840,7 @@ export function DataGrid({
 
       <div
         ref={parentRef}
-        className="relative min-h-0 min-w-0 flex-1 overflow-x-auto overflow-y-auto rounded-md border border-border"
+        className="relative min-h-0 min-w-0 flex-1 overflow-x-auto overflow-y-auto rounded-md border border-border [contain:layout_paint]"
       >
         <table
           className="relative min-w-full border-collapse text-sm"

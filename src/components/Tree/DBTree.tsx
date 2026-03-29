@@ -314,8 +314,13 @@ export function DBTree({
 
   const refreshExpandedNamespace = useCallback(async () => {
     if (!expandedNamespace) return;
-    await refreshCollections(expandedNamespace, 1, false);
-  }, [expandedNamespace, refreshCollections]);
+    await Promise.all([
+      refreshCollections(expandedNamespace, 1, false),
+      refreshRoutines(expandedNamespace),
+      refreshTriggers(expandedNamespace),
+      refreshSequences(expandedNamespace),
+    ]);
+  }, [expandedNamespace, refreshCollections, refreshRoutines, refreshTriggers, refreshSequences]);
 
   useEffect(() => {
     loadNamespaces();

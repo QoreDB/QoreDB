@@ -45,6 +45,7 @@ import {
   type Namespace,
   type RelationFilter,
   type Routine,
+  type Sequence,
   type Trigger,
 } from '../../lib/tauri';
 import { SchemaExportDialog } from '../Export/SchemaExportDialog';
@@ -83,6 +84,7 @@ interface DatabaseBrowserProps {
   onCreateTrigger?: (namespace: Namespace) => void;
   onOpenEventSource?: (event: DatabaseEvent, namespace: Namespace) => void;
   onCreateEvent?: (namespace: Namespace) => void;
+  onOpenSequenceSource?: (sequence: Sequence, namespace: Namespace) => void;
   onClose: () => void;
   initialTab?: DatabaseBrowserTab;
   onActiveTabChange?: (tab: DatabaseBrowserTab) => void;
@@ -115,6 +117,7 @@ export function DatabaseBrowser({
   onCreateTrigger,
   onOpenEventSource,
   onCreateEvent,
+  // onOpenSequenceSource — available but not yet used in DatabaseBrowser
   onClose,
   initialTab,
   onActiveTabChange,

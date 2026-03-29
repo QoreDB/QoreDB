@@ -58,8 +58,8 @@ import {
   toggleZenMode,
   useModalStore,
 } from './lib/modalStore';
-import { notify } from './lib/notify';
 import { openNotebookFromFile, setPendingNotebook } from './lib/notebookIO';
+import { notify } from './lib/notify';
 import type { QueryLibraryItem } from './lib/queryLibrary';
 import { getRoutineTemplate } from './lib/routineTemplates';
 import {
@@ -79,6 +79,7 @@ import {
   type DriverCapabilities,
   getEventDefinition,
   getRoutineDefinition,
+  getSequenceDefinition,
   getTriggerDefinition,
   type Namespace,
   type RelationFilter,
@@ -86,6 +87,7 @@ import {
   type RoutineType,
   type SavedConnection,
   type SearchFilter,
+  type Sequence,
   type Trigger,
 } from './lib/tauri';
 import { getEventTemplate, getTriggerTemplate } from './lib/triggerTemplates';
@@ -327,6 +329,26 @@ export function AppLayout() {
         openTab(tab);
       } else {
         notify.error(t('eventManager.sourceLoadError'), result.error);
+      }
+    },
+    [sessionId, openTab, t]
+  );
+
+  const handleOpenSequenceSource = useCallback(
+    async (sequence: Sequence, namespace: Namespace) => {
+      if (!sessionId) return;
+      const result = await getSequenceDefinition(
+        sessionId,
+        namespace.database,
+        namespace.schema,
+        sequence.name
+      );
+      if (result.success && result.definition) {
+        const tab = createQueryTab(result.definition.definition, namespace);
+        tab.title = `seq: ${sequence.name}`;
+        openTab(tab);
+      } else {
+        notify.error(t('sequenceManager.sourceLoadError'), result.error);
       }
     },
     [sessionId, openTab, t]
@@ -682,6 +704,7 @@ export function AppLayout() {
                 onCreateTrigger={handleCreateTrigger}
                 onOpenEventSource={handleOpenEventSource}
                 onCreateEvent={handleCreateEvent}
+                onOpenSequenceSource={handleOpenSequenceSource}
                 onEditConnection={handleEditConnection}
                 onNewQuery={handleNewQuery}
                 onNewNotebook={handleNewNotebook}
@@ -773,6 +796,7 @@ export function AppLayout() {
                   onCreateTrigger={handleCreateTrigger}
                   onOpenEventSource={handleOpenEventSource}
                   onCreateEvent={handleCreateEvent}
+                  onOpenSequenceSource={handleOpenSequenceSource}
                 />
               </ErrorBoundary>
             </SandboxBorder>
@@ -857,6 +881,7 @@ interface AppContentProps {
   onCreateTrigger: (namespace: Namespace) => void;
   onOpenEventSource: (event: DatabaseEvent, namespace: Namespace) => void;
   onCreateEvent: (namespace: Namespace) => void;
+  onOpenSequenceSource: (sequence: Sequence, namespace: Namespace) => void;
 }
 
 function AppContent({
@@ -894,6 +919,7 @@ function AppContent({
   onCreateTrigger,
   onOpenEventSource,
   onCreateEvent,
+  onOpenSequenceSource,
 }: AppContentProps) {
   if (!sessionId) {
     return (
@@ -968,6 +994,7 @@ function AppContent({
         onCreateTrigger={onCreateTrigger}
         onOpenEventSource={onOpenEventSource}
         onCreateEvent={onCreateEvent}
+        onOpenSequenceSource={onOpenSequenceSource}
         onClose={() => onCloseTab(activeTab.id)}
       />
     );

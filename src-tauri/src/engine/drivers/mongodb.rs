@@ -23,7 +23,7 @@ use crate::engine::types::{
     ConnectionConfig, FilterOperator, MaintenanceMessage, MaintenanceMessageLevel,
     MaintenanceOperationInfo, MaintenanceOperationType, MaintenanceRequest, MaintenanceResult,
     Namespace, PaginatedQueryResult, QueryId, QueryResult, Row as QRow, SessionId, SortDirection,
-    TableColumn, TableQueryOptions, TableSchema, Value,
+    TableColumn, TableIndex, TableQueryOptions, TableSchema, Value,
 };
 
 pub struct MongoSession {
@@ -56,15 +56,22 @@ impl MongoDriver {
         }
     }
 
+    /// Default timeout for server selection and connection (10 seconds)
+    const DEFAULT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
+
     async fn create_client_and_ping(
         config: &ConnectionConfig,
         classify_auth_error: bool,
     ) -> EngineResult<Client> {
         let conn_str = Self::build_connection_string(config);
 
-        let options = ClientOptions::parse(&conn_str)
+        let mut options = ClientOptions::parse(&conn_str)
             .await
             .map_err(|e| EngineError::connection_failed(e.to_string()))?;
+
+        // Set timeouts to prevent indefinite hangs on unreachable hosts
+        options.connect_timeout = Some(Self::DEFAULT_TIMEOUT);
+        options.server_selection_timeout = Some(Self::DEFAULT_TIMEOUT);
 
         let client = Client::with_options(options)
             .map_err(|e| EngineError::connection_failed(e.to_string()))?;
@@ -95,17 +102,20 @@ impl MongoDriver {
 
     /// Builds a connection string from config
     fn build_connection_string(config: &ConnectionConfig) -> String {
+        use percent_encoding::{utf8_percent_encode, NON_ALPHANUMERIC};
+
         let db = config.database.as_deref().unwrap_or("admin");
         let tls = if config.ssl { "true" } else { "false" };
 
-        // Only include credentials if username is provided
+        // Only include credentials if username is provided (percent-encoded for safety)
         let credentials = if !config.username.is_empty() {
-            format!("{}:{}@", config.username, config.password)
+            let encoded_user = utf8_percent_encode(&config.username, NON_ALPHANUMERIC);
+            let encoded_pass = utf8_percent_encode(&config.password, NON_ALPHANUMERIC);
+            format!("{}:{}@", encoded_user, encoded_pass)
         } else {
             String::new()
         };
 
-        //TODO : see if we need to add more options / safer handling
         let auth_source = if !config.username.is_empty() {
             "?authSource=admin&tls="
         } else {
@@ -1006,10 +1016,6 @@ impl DataEngine for MongoDriver {
                         let doc = doc_result
                             .map_err(|e| EngineError::execution_error(e.to_string()))?;
                         documents.push(doc);
-                        // Limit for POC
-                        if documents.len() >= 1000 {
-                            break;
-                        }
                     }
                     documents
                 } else {
@@ -1027,10 +1033,6 @@ impl DataEngine for MongoDriver {
                         .map_err(|e| EngineError::execution_error(e.to_string()))?
                     {
                         documents.push(doc);
-                        // Limit for POC
-                        if documents.len() >= 1000 {
-                            break;
-                        }
                     }
                     documents
                 };
@@ -1154,12 +1156,44 @@ impl DataEngine for MongoDriver {
                 .await
                 .ok();
 
+            // Fetch indexes
+            let mut index_cursor = collection
+                .list_indexes()
+                .session(&mut *txn)
+                .await
+                .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+            let mut indexes: Vec<TableIndex> = Vec::new();
+            while let Some(index_result) = index_cursor.next(&mut *txn).await {
+                let index_model =
+                    index_result.map_err(|e| EngineError::execution_error(e.to_string()))?;
+                let name = index_model
+                    .options
+                    .as_ref()
+                    .and_then(|o| o.name.clone())
+                    .unwrap_or_else(|| "unknown".to_string());
+                let columns: Vec<String> =
+                    index_model.keys.iter().map(|(k, _)| k.to_string()).collect();
+                let is_unique = index_model
+                    .options
+                    .as_ref()
+                    .and_then(|o| o.unique)
+                    .unwrap_or(false);
+                let is_primary = name == "_id_";
+                indexes.push(TableIndex {
+                    name,
+                    columns,
+                    is_unique,
+                    is_primary,
+                });
+            }
+
             return Ok(TableSchema {
                 columns,
                 primary_key: Some(vec!["_id".to_string()]),
                 foreign_keys: Vec::new(),
                 row_count_estimate: count,
-                indexes: Vec::new(),
+                indexes,
             });
         }
 
@@ -1229,12 +1263,45 @@ impl DataEngine for MongoDriver {
         // Get estimated document count
         let count = collection.estimated_document_count().await.ok();
 
+        // Fetch indexes
+        let mut index_cursor = collection
+            .list_indexes()
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        let mut indexes: Vec<TableIndex> = Vec::new();
+        while let Some(index_model) = index_cursor
+            .try_next()
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?
+        {
+            let name = index_model
+                .options
+                .as_ref()
+                .and_then(|o| o.name.clone())
+                .unwrap_or_else(|| "unknown".to_string());
+            let columns: Vec<String> =
+                index_model.keys.iter().map(|(k, _)| k.to_string()).collect();
+            let is_unique = index_model
+                .options
+                .as_ref()
+                .and_then(|o| o.unique)
+                .unwrap_or(false);
+            let is_primary = name == "_id_";
+            indexes.push(TableIndex {
+                name,
+                columns,
+                is_unique,
+                is_primary,
+            });
+        }
+
         Ok(TableSchema {
             columns,
             primary_key: Some(vec!["_id".to_string()]),
             foreign_keys: Vec::new(),
             row_count_estimate: count,
-            indexes: Vec::new(),
+            indexes,
         })
     }
 

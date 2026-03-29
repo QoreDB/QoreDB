@@ -57,6 +57,7 @@ export function buildConnectionConfigFromSavedConnection(
     password,
     database: connection.database,
     ssl: connection.ssl,
+    ssl_mode: connection.ssl_mode,
     environment: connection.environment,
     read_only: connection.read_only,
     ssh_tunnel: connection.ssh_tunnel ? mapSavedSshTunnel(connection.ssh_tunnel) : undefined,

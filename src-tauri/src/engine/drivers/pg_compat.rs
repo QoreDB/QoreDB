@@ -1817,7 +1817,12 @@ pub fn build_pg_connection_string(config: &ConnectionConfig, default_db: &str) -
     use percent_encoding::{utf8_percent_encode, NON_ALPHANUMERIC};
 
     let db = config.database.as_deref().unwrap_or(default_db);
-    let ssl_mode = if config.ssl { "require" } else { "disable" };
+
+    // Use explicit ssl_mode if provided, otherwise fall back to boolean
+    let ssl_mode = config
+        .ssl_mode
+        .as_deref()
+        .unwrap_or(if config.ssl { "require" } else { "disable" });
 
     let encoded_user = utf8_percent_encode(&config.username, NON_ALPHANUMERIC);
     let encoded_pass = utf8_percent_encode(&config.password, NON_ALPHANUMERIC);

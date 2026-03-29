@@ -71,7 +71,7 @@ export function DataGridToolbar({
   const { t } = useTranslation();
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex min-w-0 shrink-0 items-center gap-2">
       {/* Global Search */}
       <div className="relative">
         <Search

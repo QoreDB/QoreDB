@@ -21,6 +21,7 @@ function ErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
         </div>
 
         <button
+          type="button"
           onClick={() => {
             resetErrorBoundary();
             window.location.reload();

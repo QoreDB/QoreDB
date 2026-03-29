@@ -7,6 +7,7 @@ import {
   Database,
   Eye,
   FunctionSquare,
+  Hash,
   Layers,
   Loader2,
   PlayCircle,
@@ -31,21 +32,25 @@ import {
   listCollections,
   listEvents,
   listRoutines,
+  listSequences,
   listTriggers,
   type Namespace,
   type RelationFilter,
   type Routine,
   type SavedConnection,
+  type Sequence,
   type Trigger,
 } from '../../lib/tauri';
+import { SchemaExportDialog } from '../Export/SchemaExportDialog';
 import { CreateTableModal } from '../Table/CreateTableModal';
 import { CreateDatabaseModal } from './CreateDatabaseModal';
 import { DatabaseContextMenu } from './DatabaseContextMenu';
 import { DeleteDatabaseModal } from './DeleteDatabaseModal';
-import { RoutineContextMenu } from './RoutineContextMenu';
-import { TriggerContextMenu } from './TriggerContextMenu';
 import { EventContextMenu } from './EventContextMenu';
+import { RoutineContextMenu } from './RoutineContextMenu';
+import { SequenceContextMenu } from './SequenceContextMenu';
 import { TableContextMenu } from './TableContextMenu';
+import { TriggerContextMenu } from './TriggerContextMenu';
 
 function getNsKey(ns: Namespace): string {
   return `${ns.database}:${ns.schema || ''}`;
@@ -69,6 +74,7 @@ interface DBTreeProps {
   onCreateTrigger?: (namespace: Namespace) => void;
   onOpenEventSource?: (event: DatabaseEvent, namespace: Namespace) => void;
   onCreateEvent?: (namespace: Namespace) => void;
+  onOpenSequenceSource?: (sequence: Sequence, namespace: Namespace) => void;
   refreshTrigger?: number;
   activeNamespace?: Namespace | null;
 }
@@ -87,6 +93,7 @@ export function DBTree({
   onCreateTrigger,
   onOpenEventSource,
   onCreateEvent,
+  onOpenSequenceSource,
   refreshTrigger,
   activeNamespace,
 }: DBTreeProps) {
@@ -103,6 +110,8 @@ export function DBTree({
   const [triggers, setTriggers] = useState<Trigger[]>([]);
   const [triggersLoading, setTriggersLoading] = useState(false);
   const [dbEvents, setDbEvents] = useState<DatabaseEvent[]>([]);
+  const [sequences, setSequences] = useState<Sequence[]>([]);
+  const [sequencesLoading, setSequencesLoading] = useState(false);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['tables']));
   const schemaCache = useSchemaCache(connectionId, connection?.id);
   const [createModalOpen, setCreateModalOpen] = useState(false);
@@ -113,6 +122,8 @@ export function DBTree({
   const [search, setSearch] = useState('');
   const [searchValue, setSearchValue] = useState('');
   const [collapsedActiveNsKey, setCollapsedActiveNsKey] = useState<string | null>(null);
+  const [schemaExportOpen, setSchemaExportOpen] = useState(false);
+  const [schemaExportNamespace, setSchemaExportNamespace] = useState<Namespace | null>(null);
   const collectionsPageSize = 50;
 
   const driverMeta = getDriverMetadata(driver);
@@ -231,6 +242,28 @@ export function DBTree({
     [connectionId, search, schemaObjectCapabilities.events, schemaObjectCapabilities.triggers]
   );
 
+  const refreshSequences = useCallback(
+    async (ns: Namespace) => {
+      if (!schemaObjectCapabilities.sequences) {
+        setSequences([]);
+        setSequencesLoading(false);
+        return;
+      }
+      setSequencesLoading(true);
+      try {
+        const result = await listSequences(connectionId, ns, search);
+        if (result.success && result.data) {
+          setSequences(result.data.sequences);
+        }
+      } catch (err) {
+        console.error('Failed to refresh sequences:', err);
+      } finally {
+        setSequencesLoading(false);
+      }
+    },
+    [connectionId, search, schemaObjectCapabilities.sequences]
+  );
+
   const toggleSection = useCallback((section: string) => {
     setExpandedSections(prev => {
       const next = new Set(prev);
@@ -269,8 +302,9 @@ export function DBTree({
       refreshCollections(expandedNamespace, 1, false);
       refreshRoutines(expandedNamespace);
       refreshTriggers(expandedNamespace);
+      refreshSequences(expandedNamespace);
     }
-  }, [expandedNamespace, refreshCollections, refreshRoutines, refreshTriggers]);
+  }, [expandedNamespace, refreshCollections, refreshRoutines, refreshTriggers, refreshSequences]);
 
   const handleLoadMore = useCallback(async () => {
     if (!expandedNamespace || collectionsLoading) return;
@@ -280,8 +314,13 @@ export function DBTree({
 
   const refreshExpandedNamespace = useCallback(async () => {
     if (!expandedNamespace) return;
-    await refreshCollections(expandedNamespace, 1, false);
-  }, [expandedNamespace, refreshCollections]);
+    await Promise.all([
+      refreshCollections(expandedNamespace, 1, false),
+      refreshRoutines(expandedNamespace),
+      refreshTriggers(expandedNamespace),
+      refreshSequences(expandedNamespace),
+    ]);
+  }, [expandedNamespace, refreshCollections, refreshRoutines, refreshTriggers, refreshSequences]);
 
   useEffect(() => {
     loadNamespaces();
@@ -328,7 +367,12 @@ export function DBTree({
     setCollapsedActiveNsKey(null);
     setSearch('');
     setSearchValue('');
-    await Promise.all([refreshCollections(ns, 1, false), refreshRoutines(ns), refreshTriggers(ns)]);
+    await Promise.all([
+      refreshCollections(ns, 1, false),
+      refreshRoutines(ns),
+      refreshTriggers(ns),
+      refreshSequences(ns),
+    ]);
   }
 
   async function openNamespace(ns: Namespace) {
@@ -341,6 +385,7 @@ export function DBTree({
         refreshCollections(ns, 1, false),
         refreshRoutines(ns),
         refreshTriggers(ns),
+        refreshSequences(ns),
       ]);
     }
     onDatabaseSelect?.(ns);
@@ -418,8 +463,13 @@ export function DBTree({
                 setDeleteTargetNamespace(ns);
                 setDeleteModalOpen(true);
               }}
+              onExportSchema={() => {
+                setSchemaExportNamespace(ns);
+                setSchemaExportOpen(true);
+              }}
               canCreateTable={driverMeta.supportsSQL && !connection?.read_only}
               canDelete={!connection?.read_only}
+              canExportSchema={driverMeta.supportsSQL}
             >
               <button
                 type="button"
@@ -922,6 +972,68 @@ export function DBTree({
                     );
                   })()}
 
+                {/* Sequences Section (MariaDB only) */}
+                {schemaObjectCapabilities.sequences &&
+                  (() => {
+                    if (sequences.length === 0) return null;
+                    return (
+                      <div className="space-y-0.5 mt-2">
+                        <div className="flex items-center">
+                          <button
+                            type="button"
+                            className="flex items-center gap-1 px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground flex-1 text-left"
+                            onClick={() => toggleSection('sequences')}
+                          >
+                            {expandedSections.has('sequences') ? (
+                              <ChevronDown size={12} />
+                            ) : (
+                              <ChevronRight size={12} />
+                            )}
+                            <Hash size={12} />
+                            <span>{t('dbtree.sequences')}</span>
+                            <span className="text-muted-foreground/60 ml-auto">
+                              {sequences.length}
+                            </span>
+                          </button>
+                        </div>
+                        {expandedSections.has('sequences') &&
+                          sequences.map(seq => (
+                            <SequenceContextMenu
+                              key={seq.name}
+                              sequence={seq}
+                              sessionId={connectionId}
+                              environment={connection?.environment || 'development'}
+                              readOnly={connection?.read_only || false}
+                              onViewSource={s =>
+                                expandedNamespace && onOpenSequenceSource?.(s, expandedNamespace)
+                              }
+                              onDrop={() =>
+                                expandedNamespace && refreshSequences(expandedNamespace)
+                              }
+                            >
+                              <button
+                                type="button"
+                                className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md hover:bg-accent/50 text-muted-foreground text-left group ml-5"
+                                title={`${seq.data_type} — start: ${seq.start_value}, increment: ${seq.increment}`}
+                                onClick={() =>
+                                  expandedNamespace &&
+                                  onOpenSequenceSource?.(seq, expandedNamespace)
+                                }
+                              >
+                                <span className="shrink-0">
+                                  <Hash size={13} />
+                                </span>
+                                <span className="truncate font-mono text-xs">{seq.name}</span>
+                                <span className="text-[10px] text-muted-foreground/60 ml-auto">
+                                  {seq.data_type}
+                                </span>
+                              </button>
+                            </SequenceContextMenu>
+                          ))}
+                      </div>
+                    );
+                  })()}
+
                 {/* Load More for collections */}
                 {canLoadMore && !collectionsLoading && (
                   <Button
@@ -939,9 +1051,11 @@ export function DBTree({
                   routines.length === 0 &&
                   triggers.length === 0 &&
                   dbEvents.length === 0 &&
+                  sequences.length === 0 &&
                   !collectionsLoading &&
                   !routinesLoading &&
-                  !triggersLoading && (
+                  !triggersLoading &&
+                  !sequencesLoading && (
                     <div className="px-2 py-1 text-xs text-muted-foreground italic">
                       {search ? t('common.noResults') : t('common.noResults')}
                     </div>
@@ -1000,6 +1114,22 @@ export function DBTree({
               setCollectionsTotal(0);
             }
           }}
+        />
+      )}
+
+      {schemaExportNamespace && (
+        <SchemaExportDialog
+          open={schemaExportOpen}
+          onOpenChange={open => {
+            setSchemaExportOpen(open);
+            if (!open) setSchemaExportNamespace(null);
+          }}
+          sessionId={sessionId}
+          namespace={schemaExportNamespace}
+          supportsRoutines={schemaObjectCapabilities.routines}
+          supportsTriggers={schemaObjectCapabilities.triggers}
+          supportsEvents={schemaObjectCapabilities.events}
+          supportsSequences={schemaObjectCapabilities.sequences}
         />
       )}
     </div>

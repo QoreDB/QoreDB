@@ -7,7 +7,6 @@ import {
   Database,
   Folder,
   History,
-  Layers,
   Loader2,
   Lock,
   MoreHorizontal,
@@ -15,9 +14,11 @@ import {
   Play,
   Plus,
   RotateCcw,
+  Search,
   Shield,
   Sparkles,
   Square,
+  WrapText,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -26,9 +27,7 @@ import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
-  DropdownMenuGroup,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
@@ -41,6 +40,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tooltip } from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
 import { createFederationTab } from '@/lib/tabs';
 import { useTabContext } from '@/providers/TabProvider';
 import { getModifierKey } from '@/utils/platform';
@@ -78,6 +78,7 @@ interface QueryPanelToolbarProps {
   supportsTransactions?: boolean;
   transactionActive?: boolean;
   transactionStatements?: number;
+  onFormat?: () => void;
   onBeginTransaction?: () => void;
   onCommitTransaction?: () => void;
   onRollbackTransaction?: () => void;
@@ -106,6 +107,7 @@ export function QueryPanelToolbar({
   onLibraryOpen,
   onSaveToLibrary,
   onTemplateSelect,
+  onFormat,
   onAiToggle,
   aiPanelOpen,
   supportsTransactions,
@@ -323,11 +325,47 @@ export function QueryPanelToolbar({
 
       <div className="flex-1" />
 
-      {/* --- SECONDARY ZONE (overflow menu) --- */}
+      {/* --- SECONDARY ZONE (quick actions + overflow menu) --- */}
 
-      <span className="text-xs text-muted-foreground hidden sm:inline-block">
-        {t('query.runHint', { modifier: getModifierKey() })}
-      </span>
+      {onAiToggle && (
+        <Tooltip content={t('ai.title')}>
+          <Button
+            variant="ghost"
+            size="icon"
+            className={cn(
+              'h-9 w-9',
+              aiPanelOpen
+                ? 'text-accent hover:text-accent'
+                : 'text-muted-foreground hover:text-foreground'
+            )}
+            onClick={onAiToggle}
+          >
+            <Sparkles size={16} />
+          </Button>
+        </Tooltip>
+      )}
+
+      <Tooltip content={t('library.save')}>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-9 w-9 text-muted-foreground hover:text-foreground"
+          onClick={onSaveToLibrary}
+        >
+          <BookmarkPlus size={16} />
+        </Button>
+      </Tooltip>
+
+      <Tooltip content={t('query.history')}>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-9 w-9 text-muted-foreground hover:text-foreground"
+          onClick={onHistoryOpen}
+        >
+          <History size={16} />
+        </Button>
+      </Tooltip>
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
@@ -340,63 +378,40 @@ export function QueryPanelToolbar({
             <MoreHorizontal size={16} />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-52">
-          {/* Query Tools */}
-          <DropdownMenuLabel>{t('toolbar.queryTools')}</DropdownMenuLabel>
-          <DropdownMenuGroup>
-            {!isDocumentBased && isExplainSupported && (
-              <DropdownMenuItem onClick={onExplain} disabled={!sessionId || loading}>
-                {t('query.explain')}
-              </DropdownMenuItem>
-            )}
-            {!isDocumentBased && (
-              <DropdownMenuCheckboxItem
-                checked={keepResults}
-                onCheckedChange={() => onToggleKeepResults()}
-              >
-                <Layers size={14} className="mr-2" />
-                {t('query.keepResults')}
-              </DropdownMenuCheckboxItem>
-            )}
-          </DropdownMenuGroup>
+        <DropdownMenuContent align="end" className="w-48">
+          {!isDocumentBased && isExplainSupported && (
+            <DropdownMenuItem onClick={onExplain} disabled={!sessionId || loading}>
+              <Search size={14} />
+              {t('query.explain')}
+            </DropdownMenuItem>
+          )}
+          {!isDocumentBased && (
+            <DropdownMenuCheckboxItem
+              checked={keepResults}
+              onCheckedChange={() => onToggleKeepResults()}
+            >
+              {t('query.keepResults')}
+            </DropdownMenuCheckboxItem>
+          )}
+          {!isDocumentBased && onFormat && (
+            <DropdownMenuItem onClick={onFormat} disabled={loading}>
+              <WrapText size={14} />
+              {t('query.formatSql')}
+            </DropdownMenuItem>
+          )}
 
           <DropdownMenuSeparator />
 
-          {/* Library */}
-          <DropdownMenuLabel>{t('toolbar.library')}</DropdownMenuLabel>
-          <DropdownMenuGroup>
-            <DropdownMenuItem onClick={onSaveToLibrary}>
-              <BookmarkPlus size={14} className="mr-2" />
-              {t('library.save')}
+          <DropdownMenuItem onClick={onLibraryOpen}>
+            <Folder size={14} />
+            {t('library.open')}
+          </DropdownMenuItem>
+          {!isDocumentBased && (
+            <DropdownMenuItem onClick={() => openTab(createFederationTab())}>
+              <Network size={14} />
+              {t('federation.badge')}
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={onLibraryOpen}>
-              <Folder size={14} className="mr-2" />
-              {t('library.open')}
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={onHistoryOpen}>
-              <History size={14} className="mr-2" />
-              {t('query.history')}
-            </DropdownMenuItem>
-          </DropdownMenuGroup>
-
-          <DropdownMenuSeparator />
-
-          {/* Integrations */}
-          <DropdownMenuLabel>{t('toolbar.integrations')}</DropdownMenuLabel>
-          <DropdownMenuGroup>
-            {onAiToggle && (
-              <DropdownMenuCheckboxItem checked={aiPanelOpen} onCheckedChange={() => onAiToggle()}>
-                <Sparkles size={14} className="mr-2" />
-                {t('ai.title')}
-              </DropdownMenuCheckboxItem>
-            )}
-            {!isDocumentBased && (
-              <DropdownMenuItem onClick={() => openTab(createFederationTab())}>
-                <Network size={14} className="mr-2" />
-                {t('federation.badge')}
-              </DropdownMenuItem>
-            )}
-          </DropdownMenuGroup>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
 

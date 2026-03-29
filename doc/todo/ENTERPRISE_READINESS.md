@@ -44,7 +44,7 @@
 | Query tracking | `QueryId` par exécution           | ✅     | Multi-parallèle   |
 | Cancellation   | Annulation réelle PG / MySQL      | ✅     | Mongo best-effort |
 | Timeouts       | Timeout → cancel + cleanup        | ✅     | Driver-aware      |
-| Limits         | Max rows / duration configurables | ⬜     | Politique prod    |
+| Limits         | Max rows / duration configurables | ✅     | Politique governance |
 
 ---
 
@@ -65,8 +65,8 @@
 | ------------ | ------------------------------ | ------ | ------------------ |
 | Tests        | Unit + intégration DB (docker) | ✅     | PG / MySQL / Mongo |
 | CI           | Tests automatiques Linux       | ✅     | GitHub Actions     |
-| Dependencies | SBOM générée (deps + versions) | ⬜     | Gratuit            |
-| Licences     | Licences OSS documentées       | ⬜     | Clair              |
+| Dependencies | SBOM générée (deps + versions) | ✅     | CycloneDX JSON     |
+| Licences     | Licences OSS documentées       | ✅     | cargo-deny enforce |
 
 ---
 
@@ -99,8 +99,8 @@
 | `SECURITY.md`          | Vue d’ensemble sécurité         | ✅     |
 | `THREAT_MODEL.md`      | Menaces & mitigations           | ✅     |
 | `PRODUCTION_SAFETY.md` | Garde-fous prod                 | ✅     |
-| Self-assessment        | Alignement SOC 2 (non certifié) | ⬜     |
-| OWASP                  | Alignement Top 10               | ⬜     |
+| Self-assessment        | Alignement SOC 2 (non certifié) | ✅     |
+| OWASP                  | Alignement Top 10               | ✅     |
 
 ---
 
@@ -108,9 +108,9 @@
 
 | Domaine   | Action                   | Statut | Notes             |
 | --------- | ------------------------ | ------ | ----------------- |
-| Integrity | Checksums des builds     | ⬜     | SHA               |
-| Releases  | Changelog clair          | ⬜     | Sécurité incluse  |
-| Updates   | Process update documenté | ⬜     | Rollback possible |
+| Integrity | Checksums des builds     | ✅     | SHA-256           |
+| Releases  | Changelog clair          | ✅     | git-cliff (auto)  |
+| Updates   | Process update documenté | ✅     | Rollback documenté |
 
 ---
 
@@ -118,7 +118,7 @@
 
 | Élément                        | Statut |
 | ------------------------------ | ------ |
-| SOC 2 aligned (not certified)  | ⬜     |
+| SOC 2 aligned (not certified)  | ✅     |
 | Local-first security posture   | ⬜     |
 | Open-source auditable          | ✅     |
 | Enterprise-ready (sans certif) | ⬜     |

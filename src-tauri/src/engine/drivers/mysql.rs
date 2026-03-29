@@ -98,7 +98,7 @@ impl MySqlDriver {
         Ok(pool)
     }
 
-    async fn get_session(&self, session: SessionId) -> EngineResult<Arc<MySqlSession>> {
+    pub(crate) async fn get_session(&self, session: SessionId) -> EngineResult<Arc<MySqlSession>> {
         let sessions = self.sessions.read().await;
         sessions
             .get(&session)
@@ -131,17 +131,33 @@ impl MySqlDriver {
             .map_err(|e| EngineError::execution_error(e.to_string()))
     }
 
+    /// Resolve SSL mode from config: explicit ssl_mode string takes precedence over boolean.
+    fn resolve_ssl_mode(config: &ConnectionConfig) -> MySqlSslMode {
+        match config.ssl_mode.as_deref() {
+            Some("disabled" | "disable") => MySqlSslMode::Disabled,
+            Some("preferred" | "prefer") => MySqlSslMode::Preferred,
+            Some("required" | "require") => MySqlSslMode::Required,
+            Some("verify-ca" | "verify_ca") => MySqlSslMode::VerifyCa,
+            Some("verify-full" | "verify-identity" | "verify_identity") => {
+                MySqlSslMode::VerifyIdentity
+            }
+            _ => {
+                if config.ssl {
+                    MySqlSslMode::Required
+                } else {
+                    MySqlSslMode::Disabled
+                }
+            }
+        }
+    }
+
     fn build_connect_options(config: &ConnectionConfig) -> MySqlConnectOptions {
         let mut opts = MySqlConnectOptions::new()
             .host(&config.host)
             .port(config.port)
             .username(&config.username)
             .password(&config.password)
-            .ssl_mode(if config.ssl {
-                MySqlSslMode::Required
-            } else {
-                MySqlSslMode::Disabled
-            });
+            .ssl_mode(Self::resolve_ssl_mode(config));
 
         if let Some(db) = config.database.as_deref() {
             let db = db.trim();
@@ -296,7 +312,7 @@ impl DataEngine for MySqlDriver {
     }
 
     fn driver_name(&self) -> &'static str {
-        "MySQL / MariaDB"
+        "MySQL"
     }
 
     async fn test_connection(&self, config: &ConnectionConfig) -> EngineResult<()> {
@@ -2117,6 +2133,10 @@ impl DataEngine for MySqlDriver {
     }
 
     fn supports_streaming(&self) -> bool {
+        true
+    }
+
+    fn supports_explain(&self) -> bool {
         true
     }
 

@@ -232,7 +232,7 @@ pub async fn test_connection(
         Err(e) => Ok(ConnectionResponse {
             success: false,
             session_id: None,
-            error: Some(e.to_string()),
+            error: Some(e.sanitized_message()),
         }),
     }
 }
@@ -282,7 +282,7 @@ pub async fn test_saved_connection(
         Err(e) => Ok(ConnectionResponse {
             success: false,
             session_id: None,
-            error: Some(e.to_string()),
+            error: Some(e.sanitized_message()),
         }),
     }
 }
@@ -336,7 +336,7 @@ pub async fn connect(
         Err(e) => Ok(ConnectionResponse {
             success: false,
             session_id: None,
-            error: Some(e.to_string()),
+            error: Some(e.sanitized_message()),
         }),
     }
 }
@@ -393,7 +393,7 @@ pub async fn connect_saved_connection(
         Err(e) => Ok(ConnectionResponse {
             success: false,
             session_id: None,
-            error: Some(e.to_string()),
+            error: Some(e.sanitized_message()),
         }),
     }
 }
@@ -424,7 +424,7 @@ pub async fn disconnect(
         Err(e) => Ok(ConnectionResponse {
             success: false,
             session_id: None,
-            error: Some(e.to_string()),
+            error: Some(e.sanitized_message()),
         }),
     }
 }

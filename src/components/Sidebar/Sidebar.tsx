@@ -12,9 +12,9 @@ import {
   reconcileFavoriteConnectionIds,
   saveFavoriteConnectionIds,
 } from '@/lib/connectionFavorites';
+import { setLogsOpen, useModalStore } from '@/lib/modalStore';
 import { UI_EVENT_CONNECTIONS_CHANGED } from '@/lib/uiEvents';
 import { useLicense } from '@/providers/LicenseProvider';
-import { setLogsOpen, useModalStore } from '@/lib/modalStore';
 import {
   type Collection,
   connectSavedConnection,
@@ -24,6 +24,7 @@ import {
   type RelationFilter,
   type Routine,
   type SavedConnection,
+  type Sequence,
   type Trigger,
 } from '../../lib/tauri';
 import { ErrorLogPanel } from '../Logs/ErrorLogPanel';
@@ -51,6 +52,7 @@ interface SidebarProps {
   onCreateTrigger?: (namespace: Namespace) => void;
   onOpenEventSource?: (event: DatabaseEvent, namespace: Namespace) => void;
   onCreateEvent?: (namespace: Namespace) => void;
+  onOpenSequenceSource?: (sequence: Sequence, namespace: Namespace) => void;
   onEditConnection: (connection: SavedConnection, password: string) => void;
   onNewQuery?: () => void;
   onNewNotebook?: () => void;
@@ -74,6 +76,7 @@ export function Sidebar({
   onCreateTrigger,
   onOpenEventSource,
   onCreateEvent,
+  onOpenSequenceSource,
   onEditConnection,
   onNewQuery,
   onNewNotebook,
@@ -253,6 +256,7 @@ export function Sidebar({
               onCreateTrigger={onCreateTrigger}
               onOpenEventSource={onOpenEventSource}
               onCreateEvent={onCreateEvent}
+              onOpenSequenceSource={onOpenSequenceSource}
               refreshTrigger={schemaRefreshTrigger}
               activeNamespace={activeNamespace}
             />

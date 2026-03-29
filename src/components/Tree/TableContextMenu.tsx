@@ -1,10 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Eraser, Eye, GitCompare, Link2, Sparkles, Trash2, Wrench } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { DangerConfirmDialog } from '@/components/Guard/DangerConfirmDialog';
 
+import { Eraser, Eye, FileUp, GitCompare, Link2, Sparkles, Trash2, Wrench } from 'lucide-react';
+
+import { DangerConfirmDialog } from '@/components/Guard/DangerConfirmDialog';
+import { CSVImportDialog } from '@/components/Import/CSVImportDialog';
+import { MaintenanceDialog } from '@/components/Maintenance/MaintenanceDialog';
 import {
   ContextMenu,
   ContextMenuContent,
@@ -12,7 +15,6 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from '@/components/ui/context-menu';
-import { MaintenanceDialog } from '@/components/Maintenance/MaintenanceDialog';
 import { VirtualRelationDialog } from '@/components/VirtualRelations/VirtualRelationDialog';
 import { buildDropTableSQL, buildTruncateTableSQL } from '@/lib/column-types';
 import { emitTableChange } from '@/lib/tableEvents';
@@ -20,7 +22,13 @@ import { invalidateCollectionsCache, invalidateTableSchemaCache } from '../../ho
 import { isDocumentDatabase } from '../../lib/driverCapabilities';
 import type { Driver } from '../../lib/drivers';
 import { notify } from '../../lib/notify';
-import { type Collection, type Environment, executeQuery } from '../../lib/tauri';
+import {
+  type Collection,
+  type Environment,
+  type TableColumn,
+  describeTable,
+  executeQuery,
+} from '../../lib/tauri';
 
 interface TableContextMenuProps {
   collection: Collection;
@@ -64,11 +72,27 @@ export function TableContextMenu({
   const [loading, setLoading] = useState(false);
   const [vrDialogOpen, setVrDialogOpen] = useState(false);
   const [maintenanceOpen, setMaintenanceOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const [tableColumns, setTableColumns] = useState<TableColumn[]>([]);
 
   const isProduction = environment === 'production';
   const isDocument = isDocumentDatabase(driver);
   const tableName = collection.name;
   const confirmationLabel = isProduction ? tableName : undefined;
+
+  async function handleOpenImport() {
+    try {
+      const result = await describeTable(sessionId, collection.namespace, tableName);
+      if (result.success && result.schema) {
+        setTableColumns(result.schema.columns);
+        setImportOpen(true);
+      } else {
+        notify.error(t('import.failed'), result.error);
+      }
+    } catch (err) {
+      notify.error(t('common.error'), err);
+    }
+  }
 
   async function handleDropTable() {
     if (readOnly) {
@@ -192,6 +216,13 @@ export function TableContextMenu({
             </ContextMenuItem>
           )}
 
+          {!isDocument && (
+            <ContextMenuItem onClick={handleOpenImport} disabled={readOnly}>
+              <FileUp size={14} className="mr-2" />
+              {t('import.importCsv')}
+            </ContextMenuItem>
+          )}
+
           <ContextMenuSeparator />
 
           <ContextMenuItem onClick={() => setMaintenanceOpen(true)}>
@@ -256,6 +287,21 @@ export function TableContextMenu({
         environment={environment}
         readOnly={readOnly}
       />
+
+      {/* CSV Import Dialog */}
+      {!isDocument && (
+        <CSVImportDialog
+          open={importOpen}
+          onOpenChange={setImportOpen}
+          sessionId={sessionId}
+          namespace={collection.namespace}
+          tableName={tableName}
+          tableColumns={tableColumns}
+          environment={environment}
+          readOnly={readOnly}
+          onSuccess={onRefresh}
+        />
+      )}
 
       {/* Virtual Relation Dialog */}
       {connectionId && (

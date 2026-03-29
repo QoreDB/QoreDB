@@ -51,6 +51,12 @@ jobs:
       - name: Audit Rust dependencies
         run: cd src-tauri && cargo audit
 
+      - name: Install cargo-deny
+        run: cargo install cargo-deny --locked
+
+      - name: Check licenses and advisories
+        run: cd src-tauri && cargo deny check
+
       - name: Start database containers
         run: docker compose up -d postgres mysql mongodb
 

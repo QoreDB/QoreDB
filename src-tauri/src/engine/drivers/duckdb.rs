@@ -741,8 +741,13 @@ impl DataEngine for DuckDbDriver {
             return Ok(());
         }
 
-        // Collect results in spawn_blocking, then stream them out
-        let (columns, rows) = Self::with_conn(&duck_session, move |conn| {
+        // Stream results directly from spawn_blocking using blocking_send
+        let session_clone = Arc::clone(&duck_session);
+        tokio::task::spawn_blocking(move || {
+            let conn = session_clone.conn.lock().map_err(|e| {
+                EngineError::internal(format!("Failed to lock DuckDB connection: {e}"))
+            })?;
+
             // Set schema if namespace provided
             if let Some(ns) = &namespace {
                 let schema = ns.schema.as_deref().unwrap_or(&ns.database);
@@ -757,8 +762,10 @@ impl DataEngine for DuckDbDriver {
                 .prepare(&query)
                 .map_err(|e| classify_error(e.to_string()))?;
 
-            // DuckDB crate: column_count/column_name panic before execution.
-            let rows_iter = stmt
+            // DuckDB crate: column_count/column_name panic before execution,
+            // and query_map holds a mutable borrow on stmt preventing column access.
+            // Collect rows first (releases borrow), then extract column metadata.
+            let rows: Vec<QRow> = stmt
                 .query_map([], |row| {
                     let col_count = row.as_ref().column_count();
                     let values: Vec<Value> = (0..col_count)
@@ -766,15 +773,11 @@ impl DataEngine for DuckDbDriver {
                         .collect();
                     Ok(QRow { values })
                 })
-                .map_err(|e| classify_error(e.to_string()))?;
+                .map_err(|e| classify_error(e.to_string()))?
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|e| EngineError::execution_error(e.to_string()))?;
 
-            let mut rows = Vec::new();
-            for row_result in rows_iter {
-                let row = row_result.map_err(|e| EngineError::execution_error(e.to_string()))?;
-                rows.push(row);
-            }
-
-            // After iteration, statement has been executed
+            // Now stmt borrow is released, extract column metadata
             let column_count = stmt.column_count();
             let columns: Vec<ColumnInfo> = (0..column_count)
                 .map(|i| ColumnInfo {
@@ -787,24 +790,23 @@ impl DataEngine for DuckDbDriver {
                 })
                 .collect();
 
-            Ok((columns, rows))
-        })
-        .await?;
-
-        // Stream results to the channel
-        if sender.send(StreamEvent::Columns(columns)).await.is_err() {
-            return Ok(());
-        }
-
-        let row_count = rows.len() as u64;
-        for row in rows {
-            if sender.send(StreamEvent::Row(row)).await.is_err() {
+            // Stream: send columns first, then rows one-by-one with backpressure
+            if sender.blocking_send(StreamEvent::Columns(columns)).is_err() {
                 return Ok(());
             }
-        }
 
-        let _ = sender.send(StreamEvent::Done(row_count)).await;
-        Ok(())
+            let row_count = rows.len() as u64;
+            for row in rows {
+                if sender.blocking_send(StreamEvent::Row(row)).is_err() {
+                    return Ok(()); // Receiver dropped, stop streaming
+                }
+            }
+
+            let _ = sender.blocking_send(StreamEvent::Done(row_count));
+            Ok::<(), EngineError>(())
+        })
+        .await
+        .map_err(|e| EngineError::internal(format!("DuckDB streaming task panicked: {e}")))?
     }
 
     // ==================== Table Querying ====================
@@ -1520,6 +1522,7 @@ mod tests {
             password: String::new(),
             database: None,
             ssl: false,
+            ssl_mode: None,
             environment: "development".to_string(),
             read_only: false,
             ssh_tunnel: None,
@@ -1544,6 +1547,7 @@ mod tests {
             password: String::new(),
             database: None,
             ssl: false,
+            ssl_mode: None,
             environment: "development".to_string(),
             read_only: false,
             ssh_tunnel: None,
@@ -1599,6 +1603,7 @@ mod tests {
             password: String::new(),
             database: None,
             ssl: false,
+            ssl_mode: None,
             environment: "development".to_string(),
             read_only: false,
             ssh_tunnel: None,
@@ -1628,6 +1633,7 @@ mod tests {
             password: String::new(),
             database: None,
             ssl: false,
+            ssl_mode: None,
             environment: "development".to_string(),
             read_only: false,
             ssh_tunnel: None,

@@ -71,6 +71,14 @@
     "sqliteHelp": "Sélectionnez un fichier .db, .sqlite ou .sqlite3",
     "duckdbHelp": "Sélectionnez un fichier .duckdb ou .db — ou utilisez le mode en mémoire",
     "useSSL": "Utiliser SSL/TLS",
+    "sslMode": "Mode SSL",
+    "sslModes": {
+      "disable": "Désactivé",
+      "prefer": "Préféré",
+      "require": "Requis (par défaut)",
+      "verifyCa": "Vérifier le CA",
+      "verifyFull": "Vérification complète"
+    },
     "poolSettings": "Pool de connexions",
     "poolMax": "Max",
     "poolMin": "Min",
@@ -565,6 +573,8 @@
     "noTriggers": "Aucun déclencheur dans cette base",
     "events": "Événements planifiés",
     "noEvents": "Aucun événement planifié dans cette base",
+    "sequences": "Séquences",
+    "noSequences": "Aucune séquence dans cette base",
     "viewAll": "Voir les {{count}} tables",
     "searchTables": "Rechercher des tables...",
     "noResults": "Aucune table trouvée.",
@@ -601,6 +611,7 @@
     "explain": "Explain",
     "snippets": "Snippets",
     "keepResults": "Conserver les résultats",
+    "formatSql": "Formater SQL",
     "results": "Résultats",
     "explainNoPlan": "Aucun plan d'exécution disponible.",
     "history": "Historique",
@@ -638,9 +649,9 @@
       "virtualForeignKey": "Relation virtuelle vers {{table}}",
       "indexed": "Indexé",
       "indexComposite": "Indexé (composite: {{name}})",
-      "unique": "Contrainte unique"
+      "unique": "Contrainte unique",
+      "copySuccess": "Ligne copiée dans le presse-papiers"
     },
-    "copySuccess": "Ligne copiée dans le presse-papiers",
     "rowsSelected": "{{count}} ligne(s) sélectionnée(s)",
     "rowsTotal": "{{count}} ligne(s)",
     "rowsShowing": "Affichage de {{shown}} sur {{total}} lignes",
@@ -699,6 +710,8 @@
     "searchPlaceholder": "Rechercher...",
     "columns": "Colonnes",
     "toggleColumns": "Afficher/masquer colonnes",
+    "toggleFilters": "Afficher/masquer filtres",
+    "filterPlaceholder": "Filtrer...",
     "mutationsNotSupported": "Les mutations ne sont pas supportées par ce driver",
     "updateConfirmTitle": "Confirmer la modification",
     "updateConfirmDescription": "Vous êtes sur le point de modifier {{column}} dans {{table}}.",
@@ -892,7 +905,8 @@
     "markSeen": "Masquer",
     "feature": "Nouveau",
     "improvement": "Amélioré",
-    "fix": "Corrigé"
+    "fix": "Corrigé",
+    "fullChangelog": "Historique complet"
   },
   "a11y": {
     "skipToContent": "Aller au contenu",
@@ -1006,7 +1020,7 @@
     "tableNameRequired": "Le nom de la table est requis",
     "success": "Table \"{{name}}\" créée avec succès",
     "failed": "Échec de la création de la table",
-    "tableNamePlaceholder": "Ma table"
+    "my_table": "Ma table"
   },
   "dropTable": {
     "title": "Supprimer la table",
@@ -1389,6 +1403,20 @@
       "truncateProd": "TRUNCATE est bloqué en production",
       "dangerousProd": "Requête dangereuse bloquée en production",
       "confirmRequired": "Confirmation requise"
+    },
+    "governance": {
+      "title": "Gouvernance des requêtes",
+      "description": "Configurer les limites de ressources pour l'exécution des requêtes",
+      "maxDuration": "Durée max. des requêtes (ms)",
+      "maxDurationDescription": "Durée maximale d'exécution avant annulation automatique",
+      "maxDurationPlaceholder": "Pas de limite",
+      "maxRows": "Nombre max. de lignes",
+      "maxRowsDescription": "Nombre maximum de lignes retournées par requête",
+      "maxRowsPlaceholder": "Pas de limite",
+      "maxConcurrent": "Requêtes simultanées max.",
+      "maxConcurrentDescription": "Nombre maximum de requêtes en cours d'exécution simultanément",
+      "maxConcurrentPlaceholder": "Pas de limite",
+      "resultsTruncated": "Résultats tronqués : {{max}} sur {{total}} lignes affichées"
     }
   },
   "titlebar": {
@@ -1749,6 +1777,16 @@
     "loadingSource": "Chargement du source...",
     "sourceLoadError": "Impossible de charger le source de l'événement"
   },
+  "sequenceManager": {
+    "viewSource": "Voir le source",
+    "drop": "Supprimer",
+    "dropTitle": "Supprimer la séquence",
+    "dropConfirm": "Voulez-vous vraiment supprimer la séquence \"{{name}}\" ? Cette action est irréversible.",
+    "dropSuccess": "Séquence \"{{name}}\" supprimée avec succès",
+    "dropFailed": "Échec de la suppression de la séquence \"{{name}}\"",
+    "loadingSource": "Chargement du source...",
+    "sourceLoadError": "Impossible de charger le source de la séquence"
+  },
   "snapshots": {
     "title": "Snapshots",
     "save": "Enregistrer comme snapshot",
@@ -1786,5 +1824,67 @@
     "selectSnapshot": "Sélectionner un snapshot...",
     "snapshotInfo": "{{rows}} lignes, {{columns}} colonnes",
     "ago": "il y a {{time}}"
+  },
+  "blobViewer": {
+    "title": "Données binaires",
+    "hex": "Hex Dump",
+    "base64": "Base64",
+    "preview": "Aperçu",
+    "size": "Taille",
+    "type": "Type",
+    "noPreview": "Aucun aperçu disponible pour ce type binaire",
+    "truncated": "Affichage des premiers {{size}} sur {{total}}",
+    "copyBase64": "Base64 copié dans le presse-papiers",
+    "copyHex": "Hex dump copié dans le presse-papiers",
+    "download": "Télécharger",
+    "downloadSuccess": "Fichier enregistré avec succès",
+    "downloadError": "Échec de l'enregistrement du fichier",
+    "clipboardError": "Échec de la copie dans le presse-papiers",
+    "tooLarge": "Données trop volumineuses pour le navigateur",
+    "imagePreview": "Aperçu de l'image"
+  },
+  "import": {
+    "title": "Importer un CSV",
+    "selectFile": "Sélectionner un fichier CSV",
+    "browse": "Parcourir",
+    "preview": "Aperçu",
+    "delimiter": "Séparateur",
+    "autoDetected": "Détecté automatiquement",
+    "hasHeader": "La première ligne est l'en-tête",
+    "columnMapping": "Mapping des colonnes",
+    "csvColumn": "Colonne CSV",
+    "tableColumn": "Colonne table",
+    "ignore": "Ignorer",
+    "nullString": "Chaîne NULL",
+    "onConflict": "En cas d'erreur",
+    "skip": "Ignorer la ligne",
+    "abort": "Arrêter l'import",
+    "start": "Importer",
+    "importing": "Import en cours...",
+    "success": "{{count}} lignes importées avec succès",
+    "partial": "{{imported}} importées, {{failed}} échouées",
+    "failed": "Échec de l'import",
+    "noFile": "Veuillez sélectionner un fichier",
+    "noMapping": "Aucune colonne mappée",
+    "previewError": "Impossible de prévisualiser le fichier",
+    "productionWarning": "Vous importez dans un environnement de production. Procédez avec prudence.",
+    "importCsv": "Importer un CSV"
+  },
+  "schemaExport": {
+    "title": "Exporter le schéma",
+    "description": "Exporter le schéma de la base en instructions DDL SQL",
+    "include": "Inclure",
+    "includeTables": "Tables et index",
+    "includeRoutines": "Fonctions et procédures",
+    "includeTriggers": "Triggers",
+    "includeEvents": "Événements",
+    "includeSequences": "Séquences",
+    "outputFile": "Fichier de sortie",
+    "export": "Exporter",
+    "exporting": "Export en cours...",
+    "success": "Schéma exporté ({{tables}} tables, {{routines}} routines)",
+    "failed": "Échec de l'export du schéma",
+    "noPath": "Veuillez sélectionner un fichier de sortie",
+    "menuItem": "Exporter le schéma"
   }
 }

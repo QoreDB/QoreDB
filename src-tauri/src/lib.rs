@@ -25,6 +25,7 @@ use tokio::sync::Mutex;
 
 use engine::drivers::cockroachdb::CockroachDbDriver;
 use engine::drivers::duckdb::DuckDbDriver;
+use engine::drivers::mariadb::MariaDbDriver;
 use engine::drivers::mongodb::MongoDriver;
 use engine::drivers::mysql::MySqlDriver;
 use engine::drivers::postgres::PostgresDriver;
@@ -67,6 +68,7 @@ impl AppState {
         registry.register(Arc::new(DuckDbDriver::new()));
         registry.register(Arc::new(CockroachDbDriver::new()));
         registry.register(Arc::new(SqlServerDriver::new()));
+        registry.register(Arc::new(MariaDbDriver::new()));
 
         let registry = Arc::new(registry);
         let session_manager = Arc::new(SessionManager::new(Arc::clone(&registry)));
@@ -186,6 +188,7 @@ pub fn run() {
             commands::query::list_routines,
             commands::query::list_triggers,
             commands::query::list_events,
+            commands::query::list_sequences,
             commands::query::describe_table,
             commands::query::preview_table,
             commands::query::query_table,
@@ -215,12 +218,20 @@ pub fn run() {
             commands::triggers::toggle_trigger,
             commands::triggers::get_event_definition,
             commands::triggers::drop_event,
+            // Sequence management commands
+            commands::sequences::get_sequence_definition,
+            commands::sequences::drop_sequence,
             // Logs
             commands::logs::export_logs,
             commands::logs::log_frontend_message,
             // Export
             commands::export::start_export,
             commands::export::cancel_export,
+            // Import
+            commands::import::preview_csv,
+            commands::import::import_csv,
+            // Schema export
+            commands::schema_export::export_schema,
             // Metrics (dev-only)
             commands::metrics::get_metrics,
             // Vault commands
@@ -236,6 +247,9 @@ pub fn run() {
             // Policy commands
             commands::policy::get_safety_policy,
             commands::policy::set_safety_policy,
+            // Governance commands
+            commands::query::get_governance_limits,
+            commands::query::update_governance_limits,
             // Sandbox commands
             commands::sandbox::generate_migration_sql,
             commands::sandbox::apply_sandbox_changes,

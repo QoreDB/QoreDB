@@ -105,7 +105,7 @@ export function DataGridTableBody({
                 <td
                   key={cell.id}
                   className={cn(
-                    'px-3 py-1.5 max-w-xs',
+                    'px-3 py-1.5 max-w-xs [contain:content]',
                     isCellModified && !isInserted && !isDeleted && 'bg-warning/20',
                     isPinned === 'left' && 'bg-background shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]'
                   )}

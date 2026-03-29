@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: Apache-2.0
+# Cargo build configuration for QoreDB
+
+[build]
+# Limit parallel compilation to 10 cores
+jobs = 10
+
+# Use sccache if available (avoids recompiling DuckDB after cargo clean)
+# Install with: cargo install sccache
+# rustc-wrapper = "sccache"
+
+[target.x86_64-unknown-linux-gnu]
+# Use mold linker if available (2-5x faster linking)
+# Install with: sudo pacman -S mold (Arch) or sudo apt install mold (Ubuntu)
+# linker = "clang"
+# rustflags = ["-C", "link-arg=-fuse-ld=mold"]

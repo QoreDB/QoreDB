@@ -9,6 +9,7 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use parking_lot::RwLock;
 use tracing::{debug, info};
 
 use super::audit::{AuditStats, AuditStore};
@@ -30,7 +31,7 @@ pub struct InterceptorPipeline {
     /// Safety rules engine
     safety: Arc<SafetyEngine>,
     /// Configuration
-    config: std::sync::RwLock<InterceptorConfig>,
+    config: RwLock<InterceptorConfig>,
     /// Data directory for persistence
     data_dir: PathBuf,
 }
@@ -55,7 +56,7 @@ impl InterceptorPipeline {
             audit,
             profiling,
             safety,
-            config: std::sync::RwLock::new(config),
+            config: RwLock::new(config),
             data_dir,
         }
     }
@@ -85,7 +86,7 @@ impl InterceptorPipeline {
     pub fn save_config(&self) -> Result<(), String> {
         let config_path = self.data_dir.join("interceptor.json");
 
-        let config = self.config.read().unwrap().clone();
+        let config = self.config.read().clone();
         let content = serde_json::to_string_pretty(&config)
             .map_err(|e| format!("Failed to serialize config: {}", e))?;
 
@@ -109,12 +110,12 @@ impl InterceptorPipeline {
         self.safety
             .apply_builtin_overrides(&config.builtin_rule_overrides);
 
-        *self.config.write().unwrap() = config;
+        *self.config.write() = config;
     }
 
     /// Get current configuration
     pub fn get_config(&self) -> InterceptorConfig {
-        self.config.read().unwrap().clone()
+        self.config.read().clone()
     }
 
     /// Update configuration
@@ -334,7 +335,7 @@ impl InterceptorPipeline {
         self.safety.add_rule(rule.clone())?;
 
         // Update config and save
-        let mut config = self.config.write().unwrap();
+        let mut config = self.config.write();
         config.safety_rules.push(rule);
         drop(config);
 
@@ -346,7 +347,7 @@ impl InterceptorPipeline {
         self.safety.update_rule(rule.clone())?;
 
         // Update config and save
-        let mut config = self.config.write().unwrap();
+        let mut config = self.config.write();
         if rule.builtin {
             upsert_builtin_override(&mut config.builtin_rule_overrides, &rule.id, rule.enabled);
         } else if let Some(existing) = config.safety_rules.iter_mut().find(|r| r.id == rule.id) {
@@ -362,7 +363,7 @@ impl InterceptorPipeline {
         self.safety.remove_rule(rule_id)?;
 
         // Update config and save
-        let mut config = self.config.write().unwrap();
+        let mut config = self.config.write();
         config.safety_rules.retain(|r| r.id != rule_id);
         drop(config);
 

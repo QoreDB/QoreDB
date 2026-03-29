@@ -4,7 +4,7 @@
 //!
 //! Commands for executing queries and exploring database schema.
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tauri::State;
 use tokio::time::{timeout, Duration};
@@ -17,8 +17,8 @@ use crate::engine::{
     types::{
         CollectionList, CollectionListOptions, CreationOptions, EventList, EventListOptions,
         ForeignKey, Namespace, PaginatedQueryResult, QueryId, QueryResult, RoutineList,
-        RoutineListOptions, RoutineType, SessionId, TableQueryOptions, TriggerList,
-        TriggerListOptions, Value,
+        RoutineListOptions, RoutineType, SequenceList, SequenceListOptions, SessionId,
+        TableQueryOptions, TriggerList, TriggerListOptions, Value,
     },
     TableSchema,
 };
@@ -71,6 +71,10 @@ pub struct QueryResponse {
     pub result: Option<QueryResult>,
     pub error: Option<String>,
     pub query_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub truncated: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub truncated_total: Option<u64>,
 }
 
 /// Response wrapper for namespace listing
@@ -134,8 +138,10 @@ pub async fn execute_query(
             return Ok(QueryResponse {
                 success: false,
                 result: None,
-                error: Some(e.to_string()),
+                error: Some(e.sanitized_message()),
                 query_id: None,
+                truncated: None,
+                truncated_total: None,
             });
         }
     };
@@ -146,8 +152,10 @@ pub async fn execute_query(
             return Ok(QueryResponse {
                 success: false,
                 result: None,
-                error: Some(e.to_string()),
+                error: Some(e.sanitized_message()),
                 query_id: None,
+                truncated: None,
+                truncated_total: None,
             });
         }
     };
@@ -174,6 +182,8 @@ pub async fn execute_query(
                         result: None,
                         error: Some(format!("{SQL_PARSE_BLOCKED}: {err}")),
                         query_id: None,
+                        truncated: None,
+                        truncated_total: None,
                     });
                 }
 
@@ -186,6 +196,8 @@ pub async fn execute_query(
                                 "{DANGEROUS_BLOCKED_POLICY}: SQL parse error: {err}"
                             )),
                             query_id: None,
+                            truncated: None,
+                            truncated_total: None,
                         });
                     }
 
@@ -195,6 +207,8 @@ pub async fn execute_query(
                             result: None,
                             error: Some(format!("{DANGEROUS_BLOCKED}: SQL parse error: {err}")),
                             query_id: None,
+                            truncated: None,
+                            truncated_total: None,
                         });
                     }
                 }
@@ -224,6 +238,8 @@ pub async fn execute_query(
                 result: None,
                 error: Some(READ_ONLY_BLOCKED.to_string()),
                 query_id: None,
+                truncated: None,
+                truncated_total: None,
             });
         }
     }
@@ -247,6 +263,8 @@ pub async fn execute_query(
                     result: None,
                     error: Some(DANGEROUS_BLOCKED_POLICY.to_string()),
                     query_id: None,
+                    truncated: None,
+                    truncated_total: None,
                 });
             }
 
@@ -256,6 +274,8 @@ pub async fn execute_query(
                     result: None,
                     error: Some(DANGEROUS_BLOCKED.to_string()),
                     query_id: None,
+                    truncated: None,
+                    truncated_total: None,
                 });
             }
         }
@@ -327,6 +347,8 @@ pub async fn execute_query(
             result: None,
             error: Some(error_msg),
             query_id: None,
+            truncated: None,
+            truncated_total: None,
         });
     }
 
@@ -335,6 +357,21 @@ pub async fn execute_query(
     } else {
         None
     };
+
+    // Governance: check concurrent query limit
+    if let Some(limit) = policy.max_concurrent_queries {
+        let active = query_manager.count_active().await;
+        if active >= limit as usize {
+            return Ok(QueryResponse {
+                success: false,
+                result: None,
+                error: Some(format!("Too many concurrent queries ({}/{})", active, limit)),
+                query_id: None,
+                truncated: None,
+                truncated_total: None,
+            });
+        }
+    }
 
     let query_id = if let Some(raw) = query_id {
         let parsed = Uuid::parse_str(&raw).map_err(|e| format!("Invalid query ID: {}", e))?;
@@ -361,9 +398,11 @@ pub async fn execute_query(
     let should_stream =
         sql_statements.is_none() && stream.unwrap_or(false) && driver.capabilities().streaming;
 
+    let effective_timeout = timeout_ms.or(policy.max_query_duration_ms);
+
     if should_stream {
         // Create channel for stream events
-        let (sender, mut receiver) = tokio::sync::mpsc::channel(100);
+        let (sender, mut receiver) = tokio::sync::mpsc::channel(1024);
         let qid_cloned = query_id_str.clone();
         let window_cloned = window.clone();
 
@@ -405,7 +444,7 @@ pub async fn execute_query(
         // With streaming, the execution future completes when the stream is DONE.
         // So we can still await it with timeout.
 
-        let result = if let Some(timeout_value) = timeout_ms {
+        let result = if let Some(timeout_value) = effective_timeout {
             match timeout(Duration::from_millis(timeout_value), execution).await {
                 Ok(res) => res,
                 Err(_) => {
@@ -437,6 +476,8 @@ pub async fn execute_query(
                         result: None,
                         error: Some(format!("Operation timed out after {}ms", timeout_value)),
                         query_id: Some(query_id_str),
+                        truncated: None,
+                        truncated_total: None,
                     });
                 }
             }
@@ -467,6 +508,8 @@ pub async fn execute_query(
                     result: None, // Results are streamed
                     error: None,
                     query_id: Some(query_id_str),
+                    truncated: None,
+                    truncated_total: None,
                 })
             }
             Err(e) => {
@@ -475,7 +518,7 @@ pub async fn execute_query(
                     &interceptor_context,
                     &QueryExecutionResult {
                         success: false,
-                        error: Some(e.to_string()),
+                        error: Some(e.sanitized_message()),
                         execution_time_ms: duration_ms,
                         row_count: None,
                     },
@@ -486,8 +529,10 @@ pub async fn execute_query(
                 Ok(QueryResponse {
                     success: false,
                     result: None,
-                    error: Some(e.to_string()),
+                    error: Some(e.sanitized_message()),
                     query_id: Some(query_id_str),
+                    truncated: None,
+                    truncated_total: None,
                 })
             }
         }
@@ -530,7 +575,7 @@ pub async fn execute_query(
             }
         };
 
-        let result = if let Some(timeout_value) = timeout_ms {
+        let result = if let Some(timeout_value) = effective_timeout {
             match timeout(Duration::from_millis(timeout_value), execution).await {
                 Ok(res) => res,
                 Err(_) => {
@@ -557,6 +602,8 @@ pub async fn execute_query(
                         result: None,
                         error: Some(format!("Operation timed out after {}ms", timeout_value)),
                         query_id: Some(query_id_str),
+                        truncated: None,
+                        truncated_total: None,
                     });
                 }
             }
@@ -583,11 +630,26 @@ pub async fn execute_query(
                     safety_warning.as_deref(),
                 );
 
+                // Governance: truncate results if max_result_rows is set
+                let (truncated, truncated_total) = if let Some(max_rows) = policy.max_result_rows {
+                    if result.rows.len() as u64 > max_rows {
+                        let total = result.rows.len() as u64;
+                        result.rows.truncate(max_rows as usize);
+                        (Some(true), Some(total))
+                    } else {
+                        (None, None)
+                    }
+                } else {
+                    (None, None)
+                };
+
                 Ok(QueryResponse {
                     success: true,
                     result: Some(result),
                     error: None,
                     query_id: Some(query_id_str),
+                    truncated,
+                    truncated_total,
                 })
             }
             Err(e) => {
@@ -598,7 +660,7 @@ pub async fn execute_query(
                     &interceptor_context,
                     &QueryExecutionResult {
                         success: false,
-                        error: Some(e.to_string()),
+                        error: Some(e.sanitized_message()),
                         execution_time_ms: duration_ms,
                         row_count: None,
                     },
@@ -609,8 +671,10 @@ pub async fn execute_query(
                 Ok(QueryResponse {
                     success: false,
                     result: None,
-                    error: Some(e.to_string()),
+                    error: Some(e.sanitized_message()),
                     query_id: Some(query_id_str),
+                    truncated: None,
+                    truncated_total: None,
                 })
             }
         };
@@ -646,8 +710,10 @@ pub async fn cancel_query(
             return Ok(QueryResponse {
                 success: false,
                 result: None,
-                error: Some(e.to_string()),
+                error: Some(e.sanitized_message()),
                 query_id: None,
+                truncated: None,
+                truncated_total: None,
             });
         }
     };
@@ -665,6 +731,8 @@ pub async fn cancel_query(
                     result: None,
                     error: Some("No active query found".to_string()),
                     query_id: None,
+                    truncated: None,
+                    truncated_total: None,
                 });
             }
         }
@@ -679,13 +747,17 @@ pub async fn cancel_query(
                 result: None,
                 error: None,
                 query_id: Some(query_id_str),
+                truncated: None,
+                truncated_total: None,
             })
         }
         Err(e) => Ok(QueryResponse {
             success: false,
             result: None,
-            error: Some(e.to_string()),
+            error: Some(e.sanitized_message()),
             query_id: Some(query_id_str),
+            truncated: None,
+            truncated_total: None,
         }),
     }
 }
@@ -708,7 +780,7 @@ pub async fn list_namespaces(
             return Ok(NamespacesResponse {
                 success: false,
                 namespaces: None,
-                error: Some(e.to_string()),
+                error: Some(e.sanitized_message()),
             });
         }
     };
@@ -722,7 +794,7 @@ pub async fn list_namespaces(
         Err(e) => Ok(NamespacesResponse {
             success: false,
             namespaces: None,
-            error: Some(e.to_string()),
+            error: Some(e.sanitized_message()),
         }),
     }
 }
@@ -749,7 +821,7 @@ pub async fn list_collections(
             return Ok(CollectionsResponse {
                 success: false,
                 data: None,
-                error: Some(e.to_string()),
+                error: Some(e.sanitized_message()),
             });
         }
     };
@@ -769,7 +841,7 @@ pub async fn list_collections(
         Err(e) => Ok(CollectionsResponse {
             success: false,
             data: None,
-            error: Some(e.to_string()),
+            error: Some(e.sanitized_message()),
         }),
     }
 }
@@ -805,7 +877,7 @@ pub async fn list_routines(
             return Ok(RoutinesResponse {
                 success: false,
                 data: None,
-                error: Some(e.to_string()),
+                error: Some(e.sanitized_message()),
             });
         }
     };
@@ -833,7 +905,7 @@ pub async fn list_routines(
         Err(e) => Ok(RoutinesResponse {
             success: false,
             data: None,
-            error: Some(e.to_string()),
+            error: Some(e.sanitized_message()),
         }),
     }
 }
@@ -868,7 +940,7 @@ pub async fn list_triggers(
             return Ok(TriggersResponse {
                 success: false,
                 data: None,
-                error: Some(e.to_string()),
+                error: Some(e.sanitized_message()),
             });
         }
     };
@@ -888,7 +960,7 @@ pub async fn list_triggers(
         Err(e) => Ok(TriggersResponse {
             success: false,
             data: None,
-            error: Some(e.to_string()),
+            error: Some(e.sanitized_message()),
         }),
     }
 }
@@ -923,7 +995,7 @@ pub async fn list_events(
             return Ok(EventsResponse {
                 success: false,
                 data: None,
-                error: Some(e.to_string()),
+                error: Some(e.sanitized_message()),
             });
         }
     };
@@ -943,7 +1015,62 @@ pub async fn list_events(
         Err(e) => Ok(EventsResponse {
             success: false,
             data: None,
-            error: Some(e.to_string()),
+            error: Some(e.sanitized_message()),
+        }),
+    }
+}
+
+/// Response wrapper for sequence listing
+#[derive(Debug, Serialize)]
+pub struct SequencesResponse {
+    pub success: bool,
+    pub data: Option<SequenceList>,
+    pub error: Option<String>,
+}
+
+/// Lists all sequences in a namespace (MariaDB 10.3+)
+#[tauri::command]
+pub async fn list_sequences(
+    state: State<'_, crate::SharedState>,
+    session_id: String,
+    namespace: Namespace,
+    search: Option<String>,
+    page: Option<u32>,
+    page_size: Option<u32>,
+) -> Result<SequencesResponse, String> {
+    let session_manager = {
+        let state = state.lock().await;
+        Arc::clone(&state.session_manager)
+    };
+    let session = parse_session_id(&session_id)?;
+
+    let driver = match session_manager.get_driver(session).await {
+        Ok(d) => d,
+        Err(e) => {
+            return Ok(SequencesResponse {
+                success: false,
+                data: None,
+                error: Some(e.sanitized_message()),
+            });
+        }
+    };
+
+    let options = SequenceListOptions {
+        search,
+        page,
+        page_size,
+    };
+
+    match driver.list_sequences(session, &namespace, options).await {
+        Ok(list) => Ok(SequencesResponse {
+            success: true,
+            data: Some(list),
+            error: None,
+        }),
+        Err(e) => Ok(SequencesResponse {
+            success: false,
+            data: None,
+            error: Some(e.sanitized_message()),
         }),
     }
 }
@@ -980,7 +1107,7 @@ pub async fn describe_table(
             return Ok(TableSchemaResponse {
                 success: false,
                 schema: None,
-                error: Some(e.to_string()),
+                error: Some(e.sanitized_message()),
             });
         }
     };
@@ -1017,7 +1144,7 @@ pub async fn describe_table(
         Err(e) => Ok(TableSchemaResponse {
             success: false,
             schema: None,
-            error: Some(e.to_string()),
+            error: Some(e.sanitized_message()),
         }),
     }
 }
@@ -1043,8 +1170,10 @@ pub async fn preview_table(
             return Ok(QueryResponse {
                 success: false,
                 result: None,
-                error: Some(e.to_string()),
+                error: Some(e.sanitized_message()),
                 query_id: None,
+                truncated: None,
+                truncated_total: None,
             });
         }
     };
@@ -1058,12 +1187,16 @@ pub async fn preview_table(
             result: Some(result),
             error: None,
             query_id: None,
+            truncated: None,
+            truncated_total: None,
         }),
         Err(e) => Ok(QueryResponse {
             success: false,
             result: None,
-            error: Some(e.to_string()),
+            error: Some(e.sanitized_message()),
             query_id: None,
+            truncated: None,
+            truncated_total: None,
         }),
     }
 }
@@ -1074,6 +1207,10 @@ pub struct PaginatedQueryResponse {
     pub success: bool,
     pub result: Option<PaginatedQueryResult>,
     pub error: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub truncated: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub truncated_total: Option<u64>,
 }
 
 /// Queries table data with pagination, sorting, and filtering support
@@ -1097,7 +1234,9 @@ pub async fn query_table(
             return Ok(PaginatedQueryResponse {
                 success: false,
                 result: None,
-                error: Some(e.to_string()),
+                error: Some(e.sanitized_message()),
+                truncated: None,
+                truncated_total: None,
             });
         }
     };
@@ -1110,11 +1249,15 @@ pub async fn query_table(
             success: true,
             result: Some(result),
             error: None,
+            truncated: None,
+            truncated_total: None,
         }),
         Err(e) => Ok(PaginatedQueryResponse {
             success: false,
             result: None,
-            error: Some(e.to_string()),
+            error: Some(e.sanitized_message()),
+            truncated: None,
+            truncated_total: None,
         }),
     }
 }
@@ -1150,6 +1293,8 @@ pub async fn peek_foreign_key(
             }),
             error: None,
             query_id: None,
+            truncated: None,
+            truncated_total: None,
         });
     }
 
@@ -1159,8 +1304,10 @@ pub async fn peek_foreign_key(
             return Ok(QueryResponse {
                 success: false,
                 result: None,
-                error: Some(e.to_string()),
+                error: Some(e.sanitized_message()),
                 query_id: None,
+                truncated: None,
+                truncated_total: None,
             });
         }
     };
@@ -1174,12 +1321,16 @@ pub async fn peek_foreign_key(
             result: Some(result),
             error: None,
             query_id: None,
+            truncated: None,
+            truncated_total: None,
         }),
         Err(e) => Ok(QueryResponse {
             success: false,
             result: None,
-            error: Some(e.to_string()),
+            error: Some(e.sanitized_message()),
             query_id: None,
+            truncated: None,
+            truncated_total: None,
         }),
     }
 }
@@ -1210,8 +1361,10 @@ pub async fn create_database(
             return Ok(QueryResponse {
                 success: false,
                 result: None,
-                error: Some(e.to_string()),
+                error: Some(e.sanitized_message()),
                 query_id: None,
+                truncated: None,
+                truncated_total: None,
             });
         }
     };
@@ -1273,6 +1426,8 @@ pub async fn create_database(
             result: None,
             error: Some(error_msg),
             query_id: None,
+            truncated: None,
+            truncated_total: None,
         });
     }
 
@@ -1304,6 +1459,8 @@ pub async fn create_database(
                 result: None,
                 error: None,
                 query_id: None,
+                truncated: None,
+                truncated_total: None,
             })
         }
         Err(e) => {
@@ -1312,7 +1469,7 @@ pub async fn create_database(
                 &interceptor_context,
                 &QueryExecutionResult {
                     success: false,
-                    error: Some(e.to_string()),
+                    error: Some(e.sanitized_message()),
                     execution_time_ms: duration_ms,
                     row_count: None,
                 },
@@ -1322,8 +1479,10 @@ pub async fn create_database(
             Ok(QueryResponse {
                 success: false,
                 result: None,
-                error: Some(e.to_string()),
+                error: Some(e.sanitized_message()),
                 query_id: None,
+                truncated: None,
+                truncated_total: None,
             })
         }
     }
@@ -1354,8 +1513,10 @@ pub async fn drop_database(
             return Ok(QueryResponse {
                 success: false,
                 result: None,
-                error: Some(e.to_string()),
+                error: Some(e.sanitized_message()),
                 query_id: None,
+                truncated: None,
+                truncated_total: None,
             });
         }
     };
@@ -1417,6 +1578,8 @@ pub async fn drop_database(
             result: None,
             error: Some(error_msg),
             query_id: None,
+            truncated: None,
+            truncated_total: None,
         });
     }
 
@@ -1446,6 +1609,8 @@ pub async fn drop_database(
                 result: None,
                 error: None,
                 query_id: None,
+                truncated: None,
+                truncated_total: None,
             })
         }
         Err(e) => {
@@ -1454,7 +1619,7 @@ pub async fn drop_database(
                 &interceptor_context,
                 &QueryExecutionResult {
                     success: false,
-                    error: Some(e.to_string()),
+                    error: Some(e.sanitized_message()),
                     execution_time_ms: duration_ms,
                     row_count: None,
                 },
@@ -1464,8 +1629,10 @@ pub async fn drop_database(
             Ok(QueryResponse {
                 success: false,
                 result: None,
-                error: Some(e.to_string()),
+                error: Some(e.sanitized_message()),
                 query_id: None,
+                truncated: None,
+                truncated_total: None,
             })
         }
     }
@@ -1499,7 +1666,7 @@ pub async fn get_creation_options(
             return Ok(CreationOptionsResponse {
                 success: false,
                 options: None,
-                error: Some(e.to_string()),
+                error: Some(e.sanitized_message()),
             });
         }
     };
@@ -1513,7 +1680,7 @@ pub async fn get_creation_options(
         Err(e) => Ok(CreationOptionsResponse {
             success: false,
             options: None,
-            error: Some(e.to_string()),
+            error: Some(e.sanitized_message()),
         }),
     }
 }
@@ -1554,7 +1721,7 @@ pub async fn begin_transaction(
         Err(e) => {
             return Ok(TransactionResponse {
                 success: false,
-                error: Some(e.to_string()),
+                error: Some(e.sanitized_message()),
             });
         }
     };
@@ -1573,7 +1740,7 @@ pub async fn begin_transaction(
         }),
         Err(e) => Ok(TransactionResponse {
             success: false,
-            error: Some(e.to_string()),
+            error: Some(e.sanitized_message()),
         }),
     }
 }
@@ -1597,7 +1764,7 @@ pub async fn commit_transaction(
         Err(e) => {
             return Ok(TransactionResponse {
                 success: false,
-                error: Some(e.to_string()),
+                error: Some(e.sanitized_message()),
             });
         }
     };
@@ -1616,7 +1783,7 @@ pub async fn commit_transaction(
         }),
         Err(e) => Ok(TransactionResponse {
             success: false,
-            error: Some(e.to_string()),
+            error: Some(e.sanitized_message()),
         }),
     }
 }
@@ -1640,7 +1807,7 @@ pub async fn rollback_transaction(
         Err(e) => {
             return Ok(TransactionResponse {
                 success: false,
-                error: Some(e.to_string()),
+                error: Some(e.sanitized_message()),
             });
         }
     };
@@ -1659,7 +1826,7 @@ pub async fn rollback_transaction(
         }),
         Err(e) => Ok(TransactionResponse {
             success: false,
-            error: Some(e.to_string()),
+            error: Some(e.sanitized_message()),
         }),
     }
 }
@@ -1685,5 +1852,49 @@ pub async fn supports_transactions(
 
     Ok(TransactionSupportResponse {
         supported: driver.supports_transactions_for_session(session).await,
+    })
+}
+
+// --- Query Governance ---
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct GovernanceLimits {
+    pub max_query_duration_ms: Option<u64>,
+    pub max_result_rows: Option<u64>,
+    pub max_concurrent_queries: Option<u32>,
+}
+
+#[tauri::command]
+pub async fn get_governance_limits(
+    state: State<'_, crate::SharedState>,
+) -> Result<GovernanceLimits, String> {
+    let policy = {
+        let state = state.lock().await;
+        state.policy.clone()
+    };
+    Ok(GovernanceLimits {
+        max_query_duration_ms: policy.max_query_duration_ms,
+        max_result_rows: policy.max_result_rows,
+        max_concurrent_queries: policy.max_concurrent_queries,
+    })
+}
+
+#[tauri::command]
+pub async fn update_governance_limits(
+    state: State<'_, crate::SharedState>,
+    limits: GovernanceLimits,
+) -> Result<GovernanceLimits, String> {
+    let mut state = state.lock().await;
+    state.policy.max_query_duration_ms = limits.max_query_duration_ms;
+    state.policy.max_result_rows = limits.max_result_rows;
+    state.policy.max_concurrent_queries = limits.max_concurrent_queries;
+    state
+        .policy
+        .save_to_file()
+        .map_err(|e| format!("Failed to save governance limits: {}", e))?;
+    Ok(GovernanceLimits {
+        max_query_duration_ms: state.policy.max_query_duration_ms,
+        max_result_rows: state.policy.max_result_rows,
+        max_concurrent_queries: state.policy.max_concurrent_queries,
     })
 }

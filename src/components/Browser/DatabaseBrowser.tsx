@@ -7,6 +7,7 @@ import {
   ChevronRight,
   Code2,
   Database,
+  Download,
   Eye,
   FunctionSquare,
   HardDrive,
@@ -40,15 +41,19 @@ import {
   listCollections,
   listEvents,
   listRoutines,
+  listSequences,
   listTriggers,
   type Namespace,
   type RelationFilter,
   type Routine,
+  type Sequence,
   type Trigger,
 } from '../../lib/tauri';
+import { SchemaExportDialog } from '../Export/SchemaExportDialog';
 import { CreateTableModal } from '../Table/CreateTableModal';
 import { EventContextMenu } from '../Tree/EventContextMenu';
 import { RoutineContextMenu } from '../Tree/RoutineContextMenu';
+import { SequenceContextMenu } from '../Tree/SequenceContextMenu';
 import { TriggerContextMenu } from '../Tree/TriggerContextMenu';
 import { ContentBreadcrumb } from './ContentBreadcrumb';
 import { StatCard } from './StatCard';
@@ -60,7 +65,13 @@ function formatBytes(bytes: number): string {
   return `${(bytes / 1024 / 1024 / 1024).toFixed(2)} GB`;
 }
 
-export type DatabaseBrowserTab = 'overview' | 'tables' | 'routines' | 'triggers' | 'schema';
+export type DatabaseBrowserTab =
+  | 'overview'
+  | 'tables'
+  | 'routines'
+  | 'triggers'
+  | 'sequences'
+  | 'schema';
 
 interface DatabaseBrowserProps {
   sessionId: string;
@@ -81,6 +92,7 @@ interface DatabaseBrowserProps {
   onCreateTrigger?: (namespace: Namespace) => void;
   onOpenEventSource?: (event: DatabaseEvent, namespace: Namespace) => void;
   onCreateEvent?: (namespace: Namespace) => void;
+  onOpenSequenceSource?: (sequence: Sequence, namespace: Namespace) => void;
   onClose: () => void;
   initialTab?: DatabaseBrowserTab;
   onActiveTabChange?: (tab: DatabaseBrowserTab) => void;
@@ -113,6 +125,7 @@ export function DatabaseBrowser({
   onCreateTrigger,
   onOpenEventSource,
   onCreateEvent,
+  onOpenSequenceSource,
   onClose,
   initialTab,
   onActiveTabChange,
@@ -134,9 +147,12 @@ export function DatabaseBrowser({
   const [triggers, setTriggers] = useState<Trigger[]>([]);
   const [triggersLoading, setTriggersLoading] = useState(false);
   const [dbEvents, setDbEvents] = useState<DatabaseEvent[]>([]);
+  const [sequences, setSequences] = useState<Sequence[]>([]);
+  const [sequencesLoading, setSequencesLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [createTableOpen, setCreateTableOpen] = useState(false);
+  const [schemaExportOpen, setSchemaExportOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
@@ -212,10 +228,31 @@ export function DatabaseBrowser({
     schemaObjectCapabilities.triggers,
   ]);
 
+  const loadSequences = useCallback(async () => {
+    if (!schemaObjectCapabilities.sequences) {
+      setSequences([]);
+      setSequencesLoading(false);
+      return;
+    }
+
+    setSequencesLoading(true);
+    try {
+      const result = await listSequences(sessionId, stableNamespace);
+      if (result.success && result.data) {
+        setSequences(result.data.sequences);
+      }
+    } catch (err) {
+      console.error('Failed to load sequences:', err);
+    } finally {
+      setSequencesLoading(false);
+    }
+  }, [sessionId, stableNamespace, schemaObjectCapabilities.sequences]);
+
   const hasRoutinesTab = driverMeta.supportsSQL && schemaObjectCapabilities.routines;
   const hasTriggersTab =
     driverMeta.supportsSQL &&
     (schemaObjectCapabilities.triggers || schemaObjectCapabilities.events);
+  const hasSequencesTab = driverMeta.supportsSQL && schemaObjectCapabilities.sequences;
   const hasSchemaTab = driverMeta.supportsSQL;
 
   useEffect(() => {
@@ -229,10 +266,15 @@ export function DatabaseBrowser({
       return;
     }
 
+    if (activeTab === 'sequences' && !hasSequencesTab) {
+      handleTabChange('overview');
+      return;
+    }
+
     if (activeTab === 'schema' && !hasSchemaTab) {
       handleTabChange('overview');
     }
-  }, [activeTab, handleTabChange, hasRoutinesTab, hasSchemaTab, hasTriggersTab]);
+  }, [activeTab, handleTabChange, hasRoutinesTab, hasSchemaTab, hasSequencesTab, hasTriggersTab]);
 
   const loadData = useCallback(async () => {
     if (activeTab === 'schema') {
@@ -247,6 +289,11 @@ export function DatabaseBrowser({
     if (activeTab === 'triggers') {
       setLoading(false);
       loadTriggers();
+      return;
+    }
+    if (activeTab === 'sequences') {
+      setLoading(false);
+      loadSequences();
       return;
     }
     setLoading(true);
@@ -331,6 +378,7 @@ export function DatabaseBrowser({
   }, [
     activeTab,
     loadRoutines,
+    loadSequences,
     loadTriggers,
     page,
     search,
@@ -442,6 +490,17 @@ export function DatabaseBrowser({
               <Plus size={16} />
             </Button>
           )}
+          {driverMeta.supportsSQL && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => setSchemaExportOpen(true)}
+              title={t('schemaExport.menuItem')}
+            >
+              <Download size={16} />
+            </Button>
+          )}
           <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8">
             <X size={16} />
           </Button>
@@ -511,6 +570,23 @@ export function DatabaseBrowser({
             <span className="flex items-center gap-2">
               <Zap size={14} />
               {t('databaseBrowser.triggers')} ({triggers.length + dbEvents.length})
+            </span>
+          </button>
+        )}
+        {hasSequencesTab && (
+          <button
+            type="button"
+            className={cn(
+              'px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
+              activeTab === 'sequences'
+                ? 'bg-accent text-accent-foreground'
+                : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+            )}
+            onClick={() => handleTabChange('sequences')}
+          >
+            <span className="flex items-center gap-2">
+              <Hash size={14} />
+              {t('databaseBrowser.sequences')} ({sequences.length})
             </span>
           </button>
         )}
@@ -1008,6 +1084,61 @@ export function DatabaseBrowser({
               )}
             </div>
           </div>
+        ) : activeTab === 'sequences' ? (
+          /* Sequences Tab */
+          <div className="flex flex-col h-full gap-4">
+            <div className="border border-border rounded-md divide-y divide-border flex-1 overflow-auto relative min-h-50">
+              {sequencesLoading && (
+                <div className="absolute inset-0 z-10 bg-background/50 flex items-center justify-center backdrop-blur-[1px]">
+                  <Loader2 size={24} className="animate-spin text-primary" />
+                </div>
+              )}
+
+              {sequences.length === 0 && !sequencesLoading ? (
+                <div className="text-sm text-muted-foreground italic p-8 text-center">
+                  {t('databaseBrowser.noSequences')}
+                </div>
+              ) : (
+                sequences.map(seq => (
+                  <SequenceContextMenu
+                    key={seq.name}
+                    sequence={seq}
+                    sessionId={sessionId}
+                    environment={environment}
+                    readOnly={readOnly}
+                    onViewSource={s => onOpenSequenceSource?.(s, stableNamespace)}
+                    onDrop={loadSequences}
+                  >
+                    <button
+                      type="button"
+                      className="flex items-center justify-between w-full px-4 py-3 hover:bg-muted/50 transition-colors text-left"
+                      onClick={() => onOpenSequenceSource?.(seq, stableNamespace)}
+                    >
+                      <div className="flex items-center gap-3">
+                        <Hash size={16} className="text-muted-foreground" />
+                        <div>
+                          <span className="font-mono text-sm">{seq.name}</span>
+                          <span className="text-xs text-muted-foreground ml-2">
+                            {seq.data_type} — increment: {seq.increment}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
+                          {seq.min_value} → {seq.max_value}
+                        </span>
+                        {seq.cycle && (
+                          <span className="text-xs text-blue-500 bg-blue-500/10 px-2 py-0.5 rounded">
+                            cycle
+                          </span>
+                        )}
+                      </div>
+                    </button>
+                  </SequenceContextMenu>
+                ))
+              )}
+            </div>
+          </div>
         ) : (
           <div className="h-full">
             <ERDiagram
@@ -1036,6 +1167,16 @@ export function DatabaseBrowser({
             emitTableChange({ type: 'create', namespace, tableName });
           }
         }}
+      />
+      <SchemaExportDialog
+        open={schemaExportOpen}
+        onOpenChange={setSchemaExportOpen}
+        sessionId={sessionId}
+        namespace={namespace}
+        supportsRoutines={schemaObjectCapabilities.routines}
+        supportsTriggers={schemaObjectCapabilities.triggers}
+        supportsEvents={schemaObjectCapabilities.events}
+        supportsSequences={schemaObjectCapabilities.sequences}
       />
     </div>
   );

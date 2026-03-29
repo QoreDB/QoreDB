@@ -71,6 +71,14 @@
     "sqliteHelp": "Select a .db, .sqlite, or .sqlite3 file",
     "duckdbHelp": "Select a .duckdb or .db file — or use in-memory mode",
     "useSSL": "Use SSL/TLS",
+    "sslMode": "SSL Mode",
+    "sslModes": {
+      "disable": "Disable",
+      "prefer": "Prefer",
+      "require": "Require (default)",
+      "verifyCa": "Verify CA",
+      "verifyFull": "Verify Full"
+    },
     "poolSettings": "Connection Pool",
     "poolMax": "Max",
     "poolMin": "Min",
@@ -565,6 +573,8 @@
     "noTriggers": "No triggers in this database",
     "events": "Events",
     "noEvents": "No scheduled events in this database",
+    "sequences": "Sequences",
+    "noSequences": "No sequences in this database",
     "viewAll": "View all {{count}} tables",
     "searchTables": "Search tables...",
     "noResults": "No tables found matching your search.",
@@ -601,6 +611,7 @@
     "explain": "Explain",
     "snippets": "Snippets",
     "keepResults": "Keep results",
+    "formatSql": "Format SQL",
     "results": "Results",
     "explainNoPlan": "No explain plan available.",
     "history": "History",
@@ -894,7 +905,8 @@
     "markSeen": "Dismiss",
     "feature": "New",
     "improvement": "Improved",
-    "fix": "Fixed"
+    "fix": "Fixed",
+    "fullChangelog": "Full changelog"
   },
   "a11y": {
     "skipToContent": "Skip to content",
@@ -1391,6 +1403,20 @@
       "truncateProd": "TRUNCATE is blocked in production",
       "dangerousProd": "Dangerous query blocked in production",
       "confirmRequired": "Confirmation required"
+    },
+    "governance": {
+      "title": "Query Governance",
+      "description": "Configure resource limits for query execution",
+      "maxDuration": "Max query duration (ms)",
+      "maxDurationDescription": "Maximum time a query can run before automatic cancellation",
+      "maxDurationPlaceholder": "No limit",
+      "maxRows": "Max result rows",
+      "maxRowsDescription": "Maximum number of rows returned per query",
+      "maxRowsPlaceholder": "No limit",
+      "maxConcurrent": "Max concurrent queries",
+      "maxConcurrentDescription": "Maximum number of queries running simultaneously",
+      "maxConcurrentPlaceholder": "No limit",
+      "resultsTruncated": "Results truncated: showing {{max}} of {{total}} rows"
     }
   },
   "titlebar": {
@@ -1751,6 +1777,16 @@
     "loadingSource": "Loading source...",
     "sourceLoadError": "Failed to load event source"
   },
+  "sequenceManager": {
+    "viewSource": "View source",
+    "drop": "Drop",
+    "dropTitle": "Drop Sequence",
+    "dropConfirm": "Are you sure you want to drop sequence \"{{name}}\"? This action cannot be undone.",
+    "dropSuccess": "Sequence \"{{name}}\" dropped successfully",
+    "dropFailed": "Failed to drop sequence \"{{name}}\"",
+    "loadingSource": "Loading source...",
+    "sourceLoadError": "Failed to load sequence source"
+  },
   "snapshots": {
     "title": "Snapshots",
     "save": "Save as snapshot",
@@ -1788,5 +1824,67 @@
     "selectSnapshot": "Select a snapshot...",
     "snapshotInfo": "{{rows}} rows, {{columns}} columns",
     "ago": "{{time}} ago"
+  },
+  "blobViewer": {
+    "title": "Binary Data",
+    "hex": "Hex Dump",
+    "base64": "Base64",
+    "preview": "Preview",
+    "size": "Size",
+    "type": "Type",
+    "noPreview": "No preview available for this binary type",
+    "truncated": "Showing first {{size}} of {{total}}",
+    "copyBase64": "Base64 copied to clipboard",
+    "copyHex": "Hex dump copied to clipboard",
+    "download": "Download",
+    "downloadSuccess": "File saved successfully",
+    "downloadError": "Failed to save file",
+    "clipboardError": "Failed to copy to clipboard",
+    "tooLarge": "Data too large to process in browser",
+    "imagePreview": "Image preview"
+  },
+  "import": {
+    "title": "Import CSV",
+    "selectFile": "Select CSV file",
+    "browse": "Browse",
+    "preview": "Preview",
+    "delimiter": "Delimiter",
+    "autoDetected": "Auto-detected",
+    "hasHeader": "First row is header",
+    "columnMapping": "Column mapping",
+    "csvColumn": "CSV Column",
+    "tableColumn": "Table Column",
+    "ignore": "Ignore",
+    "nullString": "NULL string",
+    "onConflict": "On error",
+    "skip": "Skip row",
+    "abort": "Abort import",
+    "start": "Import",
+    "importing": "Importing...",
+    "success": "{{count}} rows imported successfully",
+    "partial": "{{imported}} imported, {{failed}} failed",
+    "failed": "Import failed",
+    "noFile": "Please select a file",
+    "noMapping": "No columns mapped",
+    "previewError": "Failed to preview file",
+    "productionWarning": "You are importing into a production environment. Proceed with caution.",
+    "importCsv": "Import CSV"
+  },
+  "schemaExport": {
+    "title": "Export Schema",
+    "description": "Export database schema as SQL DDL statements",
+    "include": "Include",
+    "includeTables": "Tables & Indexes",
+    "includeRoutines": "Functions & Procedures",
+    "includeTriggers": "Triggers",
+    "includeEvents": "Events",
+    "includeSequences": "Sequences",
+    "outputFile": "Output file",
+    "export": "Export",
+    "exporting": "Exporting...",
+    "success": "Schema exported ({{tables}} tables, {{routines}} routines)",
+    "failed": "Schema export failed",
+    "noPath": "Please select an output file",
+    "menuItem": "Export Schema"
   }
 }

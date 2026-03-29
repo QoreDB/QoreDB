@@ -31,9 +31,26 @@ The following SQL operations are considered dangerous and trigger warnings or bl
 - `DELETE` without a `WHERE` clause
 - `UPDATE` without a `WHERE` clause
 
+## Query Governance
+
+Resource limits prevent runaway queries and protect shared database servers:
+
+| Limit | Environment Variable | Default | Description |
+|-------|---------------------|---------|-------------|
+| Max query duration | `QOREDB_MAX_QUERY_DURATION_MS` | None | Auto-cancel queries after N ms |
+| Max result rows | `QOREDB_MAX_RESULT_ROWS` | None | Truncate results beyond N rows |
+| Max concurrent queries | `QOREDB_MAX_CONCURRENT_QUERIES` | None | Block new queries when limit reached |
+
+These limits are configurable via Settings > Security > Interceptor, or via environment variables for managed deployments.
+
+When results are truncated, the UI displays a warning with the original row count.
+
 ## Configuration
 
 Safety policies can be overridden via `config.json` or Environment Variables:
 
 - `QOREDB_PROD_BLOCK_DANGEROUS`: Force block dangerous queries.
 - `QOREDB_PROD_REQUIRE_CONFIRMATION`: Require explicit user confirmation (default).
+- `QOREDB_MAX_QUERY_DURATION_MS`: Maximum query execution time (milliseconds).
+- `QOREDB_MAX_RESULT_ROWS`: Maximum number of rows returned per query.
+- `QOREDB_MAX_CONCURRENT_QUERIES`: Maximum number of concurrent queries.

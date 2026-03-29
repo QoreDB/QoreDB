@@ -4,6 +4,7 @@
 
 pub mod cockroachdb;
 pub mod duckdb;
+pub mod mariadb;
 pub mod mongodb;
 pub mod mysql;
 pub mod pg_compat;

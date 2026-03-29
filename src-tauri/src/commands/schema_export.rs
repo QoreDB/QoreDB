@@ -14,8 +14,8 @@ use uuid::Uuid;
 use crate::engine::schema_export::generate_create_table_ddl;
 use crate::engine::sql_generator::SqlDialect;
 use crate::engine::types::{
-    CollectionListOptions, CollectionType, Namespace, RoutineListOptions, SessionId,
-    TriggerListOptions,
+    CollectionListOptions, CollectionType, Namespace, RoutineListOptions, SequenceListOptions,
+    SessionId, TriggerListOptions,
 };
 
 fn parse_session_id(id: &str) -> Result<SessionId, String> {
@@ -29,6 +29,7 @@ pub struct SchemaExportOptions {
     pub include_routines: Option<bool>,
     pub include_triggers: Option<bool>,
     pub include_events: Option<bool>,
+    pub include_sequences: Option<bool>,
 }
 
 #[derive(Debug, Serialize)]
@@ -38,6 +39,7 @@ pub struct ExportSchemaResponse {
     pub routine_count: u32,
     pub trigger_count: u32,
     pub event_count: u32,
+    pub sequence_count: u32,
     pub file_size_bytes: u64,
     pub error: Option<String>,
 }
@@ -77,6 +79,7 @@ pub async fn export_schema(
             routine_count: 0,
             trigger_count: 0,
             event_count: 0,
+            sequence_count: 0,
             file_size_bytes: 0,
             error: Some("Schema export is not supported for this driver".to_string()),
         });
@@ -92,12 +95,14 @@ pub async fn export_schema(
     let include_routines = options.include_routines.unwrap_or(true);
     let include_triggers = options.include_triggers.unwrap_or(true);
     let include_events = options.include_events.unwrap_or(true);
+    let include_sequences = options.include_sequences.unwrap_or(true);
 
     let mut output = String::new();
     let mut table_count: u32 = 0;
     let mut routine_count: u32 = 0;
     let mut trigger_count: u32 = 0;
     let mut event_count: u32 = 0;
+    let mut sequence_count: u32 = 0;
 
     // Header
     let now = chrono::Utc::now().format("%Y-%m-%dT%H:%M:%SZ");
@@ -322,6 +327,51 @@ pub async fn export_schema(
         }
     }
 
+    // ========== SEQUENCES ==========
+    if include_sequences && driver.supports_sequences() {
+        let sequences = driver
+            .list_sequences(
+                session,
+                &namespace,
+                SequenceListOptions {
+                    search: None,
+                    page: None,
+                    page_size: Some(10000),
+                },
+            )
+            .await
+            .map_err(|e| e.to_string())?;
+
+        if !sequences.sequences.is_empty() {
+            output.push_str("-- ================================================\n");
+            output.push_str("-- SEQUENCES\n");
+            output.push_str("-- ================================================\n\n");
+
+            for seq in &sequences.sequences {
+                match driver
+                    .get_sequence_definition(session, &namespace, &seq.name)
+                    .await
+                {
+                    Ok(def) => {
+                        output.push_str(&format!("-- Sequence: {}\n", seq.name));
+                        output.push_str(&def.definition);
+                        if !def.definition.ends_with(';') {
+                            output.push(';');
+                        }
+                        output.push_str("\n\n");
+                        sequence_count += 1;
+                    }
+                    Err(e) => {
+                        output.push_str(&format!(
+                            "-- ERROR: Failed to get definition for sequence {}: {}\n\n",
+                            seq.name, e
+                        ));
+                    }
+                }
+            }
+        }
+    }
+
     // Write to file
     let file_size_bytes = output.len() as u64;
     tokio::fs::write(&file_path, &output)
@@ -334,6 +384,7 @@ pub async fn export_schema(
         routine_count,
         trigger_count,
         event_count,
+        sequence_count,
         file_size_bytes,
         error: None,
     })

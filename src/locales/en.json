@@ -1878,6 +1878,7 @@
     "includeRoutines": "Functions & Procedures",
     "includeTriggers": "Triggers",
     "includeEvents": "Events",
+    "includeSequences": "Sequences",
     "outputFile": "Output file",
     "export": "Export",
     "exporting": "Exporting...",

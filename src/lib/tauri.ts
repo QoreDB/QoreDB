@@ -1161,6 +1161,7 @@ export interface SchemaExportOptions {
   include_routines?: boolean;
   include_triggers?: boolean;
   include_events?: boolean;
+  include_sequences?: boolean;
 }
 
 export interface ExportSchemaResponse {
@@ -1169,6 +1170,7 @@ export interface ExportSchemaResponse {
   routine_count: number;
   trigger_count: number;
   event_count: number;
+  sequence_count: number;
   file_size_bytes: number;
   error?: string;
 }

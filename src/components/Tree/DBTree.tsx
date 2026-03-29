@@ -1129,6 +1129,7 @@ export function DBTree({
           supportsRoutines={schemaObjectCapabilities.routines}
           supportsTriggers={schemaObjectCapabilities.triggers}
           supportsEvents={schemaObjectCapabilities.events}
+          supportsSequences={schemaObjectCapabilities.sequences}
         />
       )}
     </div>

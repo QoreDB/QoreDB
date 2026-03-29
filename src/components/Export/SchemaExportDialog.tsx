@@ -27,6 +27,7 @@ interface SchemaExportDialogProps {
   supportsRoutines: boolean;
   supportsTriggers: boolean;
   supportsEvents: boolean;
+  supportsSequences: boolean;
 }
 
 export function SchemaExportDialog({
@@ -37,6 +38,7 @@ export function SchemaExportDialog({
   supportsRoutines,
   supportsTriggers,
   supportsEvents,
+  supportsSequences,
 }: SchemaExportDialogProps) {
   const { t } = useTranslation();
 
@@ -45,6 +47,7 @@ export function SchemaExportDialog({
   const [includeRoutines, setIncludeRoutines] = useState(true);
   const [includeTriggers, setIncludeTriggers] = useState(true);
   const [includeEvents, setIncludeEvents] = useState(true);
+  const [includeSequences, setIncludeSequences] = useState(true);
   const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
@@ -54,6 +57,7 @@ export function SchemaExportDialog({
     setIncludeRoutines(true);
     setIncludeTriggers(true);
     setIncludeEvents(true);
+    setIncludeSequences(true);
     setExporting(false);
   }, [open]);
 
@@ -79,6 +83,7 @@ export function SchemaExportDialog({
       include_routines: includeRoutines,
       include_triggers: includeTriggers,
       include_events: includeEvents,
+      include_sequences: includeSequences,
     };
 
     setExporting(true);
@@ -97,6 +102,7 @@ export function SchemaExportDialog({
         if (result.routine_count > 0) parts.push(`${result.routine_count} routines`);
         if (result.trigger_count > 0) parts.push(`${result.trigger_count} triggers`);
         if (result.event_count > 0) parts.push(`${result.event_count} events`);
+        if (result.sequence_count > 0) parts.push(`${result.sequence_count} sequences`);
 
         notify.success(
           t('schemaExport.success', {
@@ -188,6 +194,19 @@ export function SchemaExportDialog({
                   />
                   <Label className="mb-0" htmlFor="schema-events">
                     {t('schemaExport.includeEvents')}
+                  </Label>
+                </div>
+              )}
+
+              {supportsSequences && (
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="schema-sequences"
+                    checked={includeSequences}
+                    onCheckedChange={c => setIncludeSequences(Boolean(c))}
+                  />
+                  <Label className="mb-0" htmlFor="schema-sequences">
+                    {t('schemaExport.includeSequences')}
                   </Label>
                 </div>
               )}

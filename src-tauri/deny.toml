@@ -3,15 +3,16 @@
 # https://embarkstudios.github.io/cargo-deny/
 
 [advisories]
-db-path = "~/.cargo/advisory-db"
-db-urls = ["https://github.com/rustsec/advisory-db"]
-vulnerability = "deny"
-unmaintained = "warn"
-yanked = "warn"
-notice = "warn"
+# Don't fail on unmaintained crates — they're informational, not security issues.
+# cargo audit already warns about them separately.
+unmaintained = "none"
+ignore = [
+  # rsa Marvin Attack: sqlx-mysql uses rsa for MySQL caching_sha2_password auth.
+  # No fix available in rsa 0.9.x. Timing side-channel not exploitable in DB auth context.
+  { id = "RUSTSEC-2023-0071", reason = "sqlx-mysql transitive dep, no fix available" },
+]
 
 [licenses]
-unlicensed = "deny"
 allow = [
   "MIT",
   "Apache-2.0",
@@ -26,8 +27,8 @@ allow = [
   "CC0-1.0",
   "OpenSSL",
   "MPL-2.0",
+  "CDLA-Permissive-2.0",
 ]
-copyleft = "deny"
 exceptions = []
 confidence-threshold = 0.8
 

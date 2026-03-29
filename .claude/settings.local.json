@@ -54,7 +54,13 @@
       "Read(//tmp/**)",
       "Bash(npx vite:*)",
       "Bash(pnpm tauri:*)",
-      "WebFetch(domain:github.com)"
+      "WebFetch(domain:github.com)",
+      "Bash(pnpm why:*)",
+      "Bash(cargo audit:*)",
+      "WebSearch",
+      "WebFetch(domain:rustsec.org)",
+      "Bash(cargo update:*)",
+      "Bash(cargo tree:*)"
     ]
   }
 }

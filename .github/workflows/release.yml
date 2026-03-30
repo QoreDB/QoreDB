@@ -53,12 +53,17 @@ jobs:
           git add CHANGELOG.md
           git diff --cached --quiet && echo "No changes" && exit 0
           git commit -m "chore(release): update CHANGELOG.md for ${{ github.ref_name }}"
-          git push origin "$branch"
-          gh pr create \
-            --title "chore(release): update CHANGELOG.md for ${{ github.ref_name }}" \
-            --body "Auto-generated changelog update for release ${{ github.ref_name }}." \
-            --base main \
-            --head "$branch"
+          git push origin "$branch" --force
+          existing_pr=$(gh pr list --head "$branch" --json number --jq '.[0].number' 2>/dev/null || true)
+          if [ -n "$existing_pr" ]; then
+            echo "PR #$existing_pr already exists, updating..."
+          else
+            gh pr create \
+              --title "chore(release): update CHANGELOG.md for ${{ github.ref_name }}" \
+              --body "Auto-generated changelog update for release ${{ github.ref_name }}." \
+              --base main \
+              --head "$branch"
+          fi
           gh pr merge "$branch" --auto --squash
 
   build:

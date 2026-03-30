@@ -16,7 +16,7 @@ echo "  -> sbom-rust.cdx.json"
 
 echo "[2/2] Generating Frontend SBOM (CycloneDX)..."
 cd "$PROJECT_ROOT"
-npx --yes @cyclonedx/cyclonedx-npm --output-file sbom-frontend.cdx.json
+pnpm dlx @cyclonedx/cdxgen -o sbom-frontend.cdx.json --project-name qoredb
 echo "  -> sbom-frontend.cdx.json"
 
 echo ""

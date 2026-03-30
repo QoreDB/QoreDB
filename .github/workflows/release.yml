@@ -44,6 +44,7 @@ jobs:
           args: --output CHANGELOG.md
 
       - name: Create PR for CHANGELOG.md
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

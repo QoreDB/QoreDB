@@ -367,7 +367,7 @@ jobs:
         run: cargo install cargo-cyclonedx --locked
 
       - name: Generate Rust SBOM (CycloneDX)
-        run: cd src-tauri && cargo cyclonedx --format json --output-file ../sbom-rust.cdx.json
+        run: cd src-tauri && cargo cyclonedx --format json --override-filename sbom-rust.cdx && mv sbom-rust.cdx.json ../
 
       - name: Generate Frontend SBOM (CycloneDX)
         run: npx --yes @cyclonedx/cyclonedx-npm --output-file sbom-frontend.cdx.json

@@ -344,6 +344,7 @@ jobs:
             src-tauri/target/release/bundle/msix/*.appinstaller
 
   sbom:
+    needs: build
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -388,6 +389,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
+          draft: true
           files: |
             sbom-rust.cdx.json
             sbom-frontend.cdx.json
@@ -421,3 +423,10 @@ jobs:
           sha256sum * > checksums.sha256
           cat checksums.sha256
           gh release upload "$tag" checksums.sha256 --repo "${{ github.repository }}" --clobber
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag="${{ github.ref_name }}"
+          gh release edit "$tag" --repo "${{ github.repository }}" --draft=false

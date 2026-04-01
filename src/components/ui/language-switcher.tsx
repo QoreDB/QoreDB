@@ -28,6 +28,13 @@ export function LanguageSwitcher() {
       <DropdownMenuContent align="end">
         <DropdownMenuItem onClick={() => changeLanguage('en')}>English</DropdownMenuItem>
         <DropdownMenuItem onClick={() => changeLanguage('fr')}>Français</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => changeLanguage('es')}>Español</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => changeLanguage('de')}>Deutsch</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => changeLanguage('pt-BR')}>Português (Brasil)</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => changeLanguage('zh-CN')}>简体中文</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => changeLanguage('ja')}>日本語</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => changeLanguage('ko')}>한국어</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => changeLanguage('ru')}>Русский</DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );

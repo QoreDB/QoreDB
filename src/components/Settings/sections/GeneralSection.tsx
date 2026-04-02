@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { relaunch } from '@tauri-apps/plugin-process';
 import { check } from '@tauri-apps/plugin-updater';
-import { ChevronDown, Download, Loader2, Monitor, Moon, RefreshCw, Sun } from 'lucide-react';
+import { ChevronDown, Download, Loader2, Monitor, Moon, RefreshCw, RotateCcw, Sun } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
@@ -134,7 +135,18 @@ export function GeneralSection({ searchQuery }: GeneralSectionProps) {
                 {t('settings.about.installing')}
               </Button>
             ) : updateState.status === 'installed' ? (
-              <span className="text-xs text-success">{t('settings.about.installed')}</span>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="gap-1.5"
+                  onClick={() => relaunch()}
+                >
+                  <RotateCcw size={14} />
+                  {t('settings.about.restart')}
+                </Button>
+                <span className="text-xs text-success">{t('settings.about.installed')}</span>
+              </div>
             ) : (
               <Button
                 variant="outline"

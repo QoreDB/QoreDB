@@ -3,6 +3,11 @@ name: Publish to AUR
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (e.g. 0.1.23). Leave empty to use latest release.'
+        required: false
 
 jobs:
   aur-publish:
@@ -11,11 +16,16 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Get version from tag
+      - name: Get version
         id: version
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${GITHUB_REF_NAME#v}"
+          fi
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Publishing qoredb-bin ${VERSION} to AUR"
 
       - name: Update PKGBUILD and .SRCINFO
         run: |
@@ -25,7 +35,7 @@ jobs:
         uses: KSXGitHub/github-actions-deploy-aur@v3.0.1
         with:
           pkgname: qoredb-bin
-          pkgbuild: aur/PKGBUILD
+          pkgbuild: aur/qoredb-bin/PKGBUILD
           commit_username: "QoreDB Bot"
           commit_email: ${{ secrets.AUR_EMAIL }}
           ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}

@@ -1,6 +1,6 @@
 [package]
 name = "qoredb"
-version = "0.1.22"
+version = "0.1.23"
 description = "Next gen DB Client"
 authors = ["Raphaël Plassart <raphael.plassart@gmail.com>"]
 edition = "2021"
@@ -23,16 +23,38 @@ serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["raw_value"] }
 
 # Async runtime
-tokio = { version = "1", features = ["rt-multi-thread", "sync", "time", "net", "fs", "io-util", "macros"] }
+tokio = { version = "1", features = [
+    "rt-multi-thread",
+    "sync",
+    "time",
+    "net",
+    "fs",
+    "io-util",
+    "macros",
+] }
 tokio-util = { version = "0.7", features = ["compat"] }
 bytes = "1.11.1"
 
 # Database drivers
-sqlx = { version = "0.8", features = ["runtime-tokio", "tls-rustls", "postgres", "mysql", "sqlite", "chrono", "rust_decimal", "bigdecimal", "uuid"] }
+sqlx = { version = "0.8", features = [
+    "runtime-tokio",
+    "tls-rustls",
+    "postgres",
+    "mysql",
+    "sqlite",
+    "chrono",
+    "rust_decimal",
+    "bigdecimal",
+    "uuid",
+] }
 rust_decimal = { version = "1", features = ["serde"] }
 bigdecimal = "0.4"
 mongodb = "3"
-redis = { version = "0.27", features = ["tokio-comp", "aio", "connection-manager"] }
+redis = { version = "0.27", features = [
+    "tokio-comp",
+    "aio",
+    "connection-manager",
+] }
 chrono = { version = "0.4", features = ["serde"] }
 
 # Utilities
@@ -58,7 +80,11 @@ tokio-socks = "0.5"
 # Note: SSH tunneling uses native OpenSSH command (ssh -L), no external crate needed
 
 # Security - credential storage
-keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service"] }
+keyring = { version = "3", features = [
+    "apple-native",
+    "windows-native",
+    "sync-secret-service",
+] }
 argon2 = "0.5"
 rand = "0.8"
 
@@ -71,13 +97,20 @@ tauri-plugin-updater = "2"
 # Pro-only export formats
 rust_xlsxwriter = { version = "0.93", optional = true }
 arrow = { version = "54", optional = true }
-parquet = { version = "54", optional = true, default-features = false, features = ["arrow"] }
+parquet = { version = "54", optional = true, default-features = false, features = [
+    "arrow",
+] }
 
 # Network clients (AI BYOK + temporary share uploads)
 reqwest = { version = "0.12", features = ["json", "stream", "multipart"] }
 
 # SQL Server driver (TDS protocol)
-tiberius = { version = "0.12", features = ["tds73", "chrono", "rust_decimal", "bigdecimal"] }
+tiberius = { version = "0.12", features = [
+    "tds73",
+    "chrono",
+    "rust_decimal",
+    "bigdecimal",
+] }
 bb8 = "0.9"
 bb8-tiberius = "0.16"
 

@@ -7,6 +7,7 @@ import {
   ChevronUp,
   Copy,
   Database,
+  Link2,
   Pencil,
   Search,
   Trash2,
@@ -15,8 +16,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { StreamingExportDialog } from '@/components/Export/StreamingExportDialog';
+import {
+  ShareExportDialog,
+  type ShareExportDialogRequest,
+} from '@/components/Share/ShareExportDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useShareLinks } from '@/hooks/useShareLinks';
 import { useStreamingExport } from '@/hooks/useStreamingExport';
 import type { ExportConfig } from '@/lib/export';
 import { deleteRow, type RowData as TauriRowData } from '@/lib/tauri';
@@ -186,7 +192,9 @@ export function DocumentResults({
   const [isDeleting, setIsDeleting] = useState(false);
   const { startStreamingExport } = useStreamingExport(sessionId);
   const [streamingDialogOpen, setStreamingDialogOpen] = useState(false);
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const canStreamExport = Boolean(sessionId && exportQuery);
+  const { startShareExport } = useShareLinks(sessionId);
 
   const confirmationLabel = (connectionDatabase || connectionName || 'PROD').trim() || 'PROD';
   const requiresConfirm = environment === 'production';
@@ -313,6 +321,28 @@ export function DocumentResults({
     [startStreamingExport]
   );
 
+  const handleShareExportConfirm = useCallback(
+    async (config: ShareExportDialogRequest) => {
+      if (!exportQuery) return;
+
+      const shareUrl = await startShareExport({
+        query: exportQuery,
+        namespace: resolvedNamespace,
+        file_name: config.file_name,
+        format: config.format,
+        include_headers: config.include_headers,
+        table_name: config.table_name,
+        batch_size: config.batch_size,
+        limit: config.limit,
+      });
+
+      if (shareUrl) {
+        setShareDialogOpen(false);
+      }
+    },
+    [exportQuery, resolvedNamespace, startShareExport]
+  );
+
   const totalTimeMs = (result as { total_time_ms?: number }).total_time_ms;
 
   if (filteredDocs.length === 0) {
@@ -353,15 +383,26 @@ export function DocumentResults({
 
         <div className="flex items-center gap-2">
           {canStreamExport && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 px-2 text-xs"
-              onClick={() => setStreamingDialogOpen(true)}
-            >
-              <Database size={14} className="mr-1" />
-              {t('grid.exportAllRows')}
-            </Button>
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 px-2 text-xs"
+                onClick={() => setStreamingDialogOpen(true)}
+              >
+                <Database size={14} className="mr-1" />
+                {t('grid.exportAllRows')}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 px-2 text-xs"
+                onClick={() => setShareDialogOpen(true)}
+              >
+                <Link2 size={14} className="mr-1" />
+                {t('share.generateLink')}
+              </Button>
+            </>
           )}
           <div className="relative w-64">
             <Search
@@ -413,6 +454,16 @@ export function DocumentResults({
           namespace={resolvedNamespace}
           tableName={collection}
           onConfirm={handleStreamingExportConfirm}
+        />
+      )}
+
+      {canStreamExport && exportQuery && (
+        <ShareExportDialog
+          open={shareDialogOpen}
+          onOpenChange={setShareDialogOpen}
+          defaultFileName={collection || 'document-results'}
+          defaultTableName={collection}
+          onConfirm={handleShareExportConfirm}
         />
       )}
 

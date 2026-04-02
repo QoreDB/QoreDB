@@ -120,6 +120,10 @@ impl VaultStorage {
                 .ssh_key_passphrase
                 .as_ref()
                 .map(|s| s.expose().clone()),
+            proxy_password: credentials
+                .proxy_password
+                .as_ref()
+                .map(|s| s.expose().clone()),
         })
         .map_err(|e| EngineError::internal(format!("Serialization error: {}", e)))?;
 
@@ -154,6 +158,7 @@ impl VaultStorage {
             db_password: Sensitive::new(creds.db_password),
             ssh_password: creds.ssh_password.map(Sensitive::new),
             ssh_key_passphrase: creds.ssh_key_passphrase.map(Sensitive::new),
+            proxy_password: creds.proxy_password.map(Sensitive::new),
         })
     }
 
@@ -238,6 +243,8 @@ struct CredsJson {
     db_password: String,
     ssh_password: Option<String>,
     ssh_key_passphrase: Option<String>,
+    #[serde(default)]
+    proxy_password: Option<String>,
 }
 
 #[cfg(test)]
@@ -289,12 +296,14 @@ mod tests {
             pool_acquire_timeout_secs: None,
             pool_max_connections: None,
             pool_min_connections: None,
+            proxy: None,
         };
 
         let credentials = StoredCredentials {
             db_password: Sensitive::new("db_secret".to_string()),
             ssh_password: Some(Sensitive::new("ssh_secret".to_string())),
             ssh_key_passphrase: None,
+            proxy_password: None,
         };
 
         storage.save_connection(&connection, &credentials)?;

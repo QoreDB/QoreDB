@@ -44,6 +44,16 @@ export function buildConnectionConfig(formData: ConnectionFormData): ConnectionC
           keepalive_count_max: formData.sshKeepaliveCountMax,
         }
       : undefined,
+    proxy: formData.useProxy
+      ? {
+          proxy_type: formData.proxyType,
+          host: formData.proxyHost,
+          port: formData.proxyPort,
+          username: formData.proxyUsername || undefined,
+          password: formData.proxyPassword || undefined,
+          connect_timeout_secs: formData.proxyConnectTimeoutSecs,
+        }
+      : undefined,
   };
 }
 
@@ -82,6 +92,15 @@ export function buildSavedConnection(
           keepalive_count_max: formData.sshKeepaliveCountMax,
         }
       : undefined,
+    proxy: formData.useProxy
+      ? {
+          proxy_type: formData.proxyType,
+          host: formData.proxyHost,
+          port: formData.proxyPort,
+          username: formData.proxyUsername || undefined,
+          connect_timeout_secs: formData.proxyConnectTimeoutSecs,
+        }
+      : undefined,
   };
 }
 
@@ -108,6 +127,16 @@ export function buildSaveConnectionInput(
           connect_timeout_secs: formData.sshConnectTimeoutSecs,
           keepalive_interval_secs: formData.sshKeepaliveIntervalSecs,
           keepalive_count_max: formData.sshKeepaliveCountMax,
+        }
+      : undefined,
+    proxy: formData.useProxy
+      ? {
+          proxy_type: formData.proxyType,
+          host: formData.proxyHost,
+          port: formData.proxyPort,
+          username: formData.proxyUsername || undefined,
+          password: formData.proxyPassword || undefined,
+          connect_timeout_secs: formData.proxyConnectTimeoutSecs,
         }
       : undefined,
   };

@@ -171,6 +171,33 @@ fn normalize_config(mut config: ConnectionConfig) -> Result<ConnectionConfig, St
         }
     }
 
+    if let Some(ref mut proxy) = config.proxy {
+        let host = proxy.host.trim();
+        if host.is_empty() {
+            return Err("Proxy host is required".to_string());
+        }
+        proxy.host = host.to_string();
+
+        if proxy.port == 0 {
+            return Err("Proxy port must be greater than 0".to_string());
+        }
+
+        if proxy.connect_timeout_secs < 1 {
+            return Err("Proxy connect timeout must be at least 1 second".to_string());
+        }
+
+        // Trim optional auth fields
+        if let Some(ref mut user) = proxy.username {
+            let trimmed = user.trim().to_string();
+            if trimmed.is_empty() {
+                proxy.username = None;
+                proxy.password = None;
+            } else {
+                *user = trimmed;
+            }
+        }
+    }
+
     let max_connections = config.pool_max_connections.unwrap_or(5);
     if max_connections == 0 {
         return Err("Pool max connections must be greater than 0".to_string());

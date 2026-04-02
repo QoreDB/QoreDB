@@ -52,6 +52,9 @@ dirs = "5"
 url = "2"
 percent-encoding = "2"
 
+# SOCKS5 proxy support for corporate network environments
+tokio-socks = "0.5"
+
 # Note: SSH tunneling uses native OpenSSH command (ssh -L), no external crate needed
 
 # Security - credential storage
@@ -70,8 +73,8 @@ rust_xlsxwriter = { version = "0.93", optional = true }
 arrow = { version = "54", optional = true }
 parquet = { version = "54", optional = true, default-features = false, features = ["arrow"] }
 
-# Pro-only AI BYOK
-reqwest = { version = "0.12", features = ["json", "stream"], optional = true }
+# Network clients (AI BYOK + temporary share uploads)
+reqwest = { version = "0.12", features = ["json", "stream", "multipart"] }
 
 # SQL Server driver (TDS protocol)
 tiberius = { version = "0.12", features = ["tds73", "chrono", "rust_decimal", "bigdecimal"] }
@@ -88,7 +91,7 @@ duckdb = { version = "1.4", features = ["bundled"] }
 # Enterprise: cargo build --features enterprise (includes team + pro)
 [features]
 default = []
-pro = ["rust_xlsxwriter", "parquet", "arrow", "reqwest"]
+pro = ["rust_xlsxwriter", "parquet", "arrow"]
 team = ["pro"]
 enterprise = ["team"]
 

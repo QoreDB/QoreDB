@@ -17,6 +17,7 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { Driver, getDriverMetadata } from '@/lib/drivers';
 import { cn } from '@/lib/utils';
+import { ProxySection } from './ProxySection';
 import { SshTunnelSection } from './SshTunnelSection';
 import type { ConnectionFormData } from './types';
 
@@ -40,11 +41,7 @@ export function AdvancedSection({
     return Number.isFinite(parsed) ? parsed : fallback;
   };
 
-  // Check if there's any content to show in advanced section
-  const hasPoolSettings = driverMeta.supportsSQL;
-  const hasDatabaseField = !hideUrlDerivedFields;
-  const hasSslField = !hideUrlDerivedFields;
-  const hasContent = hasDatabaseField || hasSslField || hasPoolSettings || true;
+  const hasContent = true;
 
   return (
     <div className="rounded-md border border-border bg-background">
@@ -167,6 +164,7 @@ export function AdvancedSection({
             </div>
           )}
 
+          <ProxySection formData={formData} onChange={onChange} />
           <SshTunnelSection formData={formData} onChange={onChange} />
         </div>
       )}

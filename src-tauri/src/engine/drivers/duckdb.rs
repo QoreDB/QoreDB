@@ -1529,6 +1529,7 @@ mod tests {
             pool_acquire_timeout_secs: None,
             pool_max_connections: None,
             pool_min_connections: None,
+            proxy: None,
         };
 
         let session_id = driver.connect(&config).await.unwrap();
@@ -1554,6 +1555,7 @@ mod tests {
             pool_acquire_timeout_secs: None,
             pool_max_connections: None,
             pool_min_connections: None,
+            proxy: None,
         };
 
         let session_id = driver.connect(&config).await.unwrap();
@@ -1610,6 +1612,7 @@ mod tests {
             pool_acquire_timeout_secs: None,
             pool_max_connections: None,
             pool_min_connections: None,
+            proxy: None,
         };
 
         let session_id = driver.connect(&config).await.unwrap();
@@ -1640,6 +1643,7 @@ mod tests {
             pool_acquire_timeout_secs: None,
             pool_max_connections: None,
             pool_min_connections: None,
+            proxy: None,
         };
 
         let session_id = driver.connect(&config).await.unwrap();

@@ -170,14 +170,37 @@ export function GeneralSection({ searchQuery }: GeneralSectionProps) {
       >
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="w-44 justify-between">
-              {i18n.language.startsWith('fr') ? 'Français' : 'English'}
+            <Button variant="outline" size="sm" className="w-52 justify-between">
+              {i18n.language.startsWith('fr')
+                ? 'Français'
+                : i18n.language.startsWith('es')
+                  ? 'Español'
+                  : i18n.language.startsWith('de')
+                    ? 'Deutsch'
+                    : i18n.language.startsWith('pt')
+                      ? 'Português (Brasil)'
+                      : i18n.language.startsWith('zh')
+                        ? '简体中文'
+                        : i18n.language.startsWith('ja')
+                          ? '日本語'
+                          : i18n.language.startsWith('ko')
+                            ? '한국어'
+                            : i18n.language.startsWith('ru')
+                              ? 'Русский'
+                              : 'English'}
               <ChevronDown className="ml-2 h-3.5 w-3.5 opacity-50" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-44">
+          <DropdownMenuContent className="w-52">
             <DropdownMenuItem onClick={() => i18n.changeLanguage('en')}>English</DropdownMenuItem>
             <DropdownMenuItem onClick={() => i18n.changeLanguage('fr')}>Français</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => i18n.changeLanguage('es')}>Español</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => i18n.changeLanguage('de')}>Deutsch</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => i18n.changeLanguage('pt-BR')}>Português (Brasil)</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => i18n.changeLanguage('zh-CN')}>简体中文</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => i18n.changeLanguage('ja')}>日本語</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => i18n.changeLanguage('ko')}>한국어</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => i18n.changeLanguage('ru')}>Русский</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </SettingsCard>

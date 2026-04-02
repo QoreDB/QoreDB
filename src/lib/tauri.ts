@@ -26,6 +26,18 @@ export interface ConnectionConfig {
   pool_min_connections?: number;
   pool_acquire_timeout_secs?: number;
   ssh_tunnel?: SshTunnelConfig;
+  proxy?: ProxyConfig;
+}
+
+export type ProxyType = 'http_connect' | 'socks5';
+
+export interface ProxyConfig {
+  proxy_type: ProxyType;
+  host: string;
+  port: number;
+  username?: string;
+  password?: string;
+  connect_timeout_secs: number;
 }
 
 export interface SshTunnelConfig {
@@ -87,6 +99,13 @@ export interface SavedConnection {
     connect_timeout_secs: number;
     keepalive_interval_secs: number;
     keepalive_count_max: number;
+  };
+  proxy?: {
+    proxy_type: string;
+    host: string;
+    port: number;
+    username?: string;
+    connect_timeout_secs: number;
   };
 }
 
@@ -1268,6 +1287,14 @@ export async function saveConnection(input: {
     connect_timeout_secs: number;
     keepalive_interval_secs: number;
     keepalive_count_max: number;
+  };
+  proxy?: {
+    proxy_type: string;
+    host: string;
+    port: number;
+    username?: string;
+    password?: string;
+    connect_timeout_secs: number;
   };
 }): Promise<VaultResponse> {
   return invoke('save_connection', { input });

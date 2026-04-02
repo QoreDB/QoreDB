@@ -8,6 +8,7 @@ import {
   Eye,
   GitCompare,
   HardDrive,
+  Link2,
   Loader2,
   Pencil,
   Search,
@@ -17,6 +18,10 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import {
+  ShareExportDialog,
+  type ShareExportDialogRequest,
+} from '@/components/Share/ShareExportDialog';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -26,6 +31,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { useShareLinks } from '@/hooks/useShareLinks';
 import { notify } from '@/lib/notify';
 import type { QueryResult, SnapshotMeta } from '@/lib/tauri';
 import { deleteSnapshot, getSnapshot, listSnapshots, renameSnapshot } from '@/lib/tauri';
@@ -76,6 +82,8 @@ export function SnapshotManager({ onCompareInDiff }: SnapshotManagerProps) {
 
   // Delete state
   const [deleteTarget, setDeleteTarget] = useState<SnapshotMeta | null>(null);
+  const [shareTarget, setShareTarget] = useState<SnapshotMeta | null>(null);
+  const { shareSnapshot } = useShareLinks();
 
   const loadSnapshots = useCallback(async () => {
     setLoading(true);
@@ -153,6 +161,26 @@ export function SnapshotManager({ onCompareInDiff }: SnapshotManagerProps) {
     }
   };
 
+  const handleShareConfirm = useCallback(
+    async (config: ShareExportDialogRequest) => {
+      if (!shareTarget) return;
+
+      const shareUrl = await shareSnapshot({
+        snapshot_id: shareTarget.id,
+        format: config.format,
+        include_headers: config.include_headers,
+        table_name: config.table_name,
+        limit: config.limit,
+        file_name: config.file_name,
+      });
+
+      if (shareUrl) {
+        setShareTarget(null);
+      }
+    },
+    [shareSnapshot, shareTarget]
+  );
+
   const filtered = search.trim()
     ? snapshots.filter(
         s =>
@@ -197,6 +225,15 @@ export function SnapshotManager({ onCompareInDiff }: SnapshotManagerProps) {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 gap-1.5"
+              onClick={() => setShareTarget(previewSnapshot.meta)}
+            >
+              <Link2 size={14} />
+              {t('share.generateLink')}
+            </Button>
             {onCompareInDiff && (
               <Button
                 variant="outline"
@@ -214,6 +251,21 @@ export function SnapshotManager({ onCompareInDiff }: SnapshotManagerProps) {
         <div className="flex-1 min-h-0 p-2 flex flex-col">
           <DataGrid result={previewSnapshot.result} readOnly />
         </div>
+
+        {shareTarget && (
+          <ShareExportDialog
+            open={true}
+            onOpenChange={open => {
+              if (!open) setShareTarget(null);
+            }}
+            defaultFileName={shareTarget.name}
+            defaultTableName={
+              shareTarget.source_type === 'table' ? shareTarget.source : undefined
+            }
+            showBatchSize={false}
+            onConfirm={handleShareConfirm}
+          />
+        )}
       </div>
     );
   }
@@ -347,6 +399,18 @@ export function SnapshotManager({ onCompareInDiff }: SnapshotManagerProps) {
                       variant="ghost"
                       size="icon"
                       className="h-7 w-7"
+                      title={t('share.generateLink')}
+                      onClick={e => {
+                        e.stopPropagation();
+                        setShareTarget(snap);
+                      }}
+                    >
+                      <Link2 size={14} />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
                       title={t('snapshots.rename')}
                       onClick={e => {
                         e.stopPropagation();
@@ -375,6 +439,19 @@ export function SnapshotManager({ onCompareInDiff }: SnapshotManagerProps) {
           </div>
         )}
       </div>
+
+      {shareTarget && (
+        <ShareExportDialog
+          open={true}
+          onOpenChange={open => {
+            if (!open) setShareTarget(null);
+          }}
+          defaultFileName={shareTarget.name}
+          defaultTableName={shareTarget.source_type === 'table' ? shareTarget.source : undefined}
+          showBatchSize={false}
+          onConfirm={handleShareConfirm}
+        />
+      )}
 
       {/* Rename Dialog */}
       <Dialog open={!!renameTarget} onOpenChange={open => !open && setRenameTarget(null)}>

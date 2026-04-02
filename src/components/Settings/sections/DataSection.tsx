@@ -12,6 +12,7 @@ import {
 import { clearErrorLogs } from '@/lib/errorLog';
 import { clearHistory } from '@/lib/history';
 import type { SafetyPolicy } from '@/lib/tauri';
+import { ShareProviderCard } from '../ShareProviderCard';
 import { ConfigBackupCard } from '../ConfigBackupCard';
 import { ProjectTransferCard } from '../ProjectTransferCard';
 import { SettingsCard } from '../SettingsCard';
@@ -131,6 +132,8 @@ export function DataSection({ policy, onApplyPolicy, searchQuery }: DataSectionP
           AnalyticsService.setAnalyticsEnabled(enabled);
         }}
       />
+
+      <ShareProviderCard searchQuery={searchQuery} />
 
       <ProjectTransferCard projectId={DEFAULT_PROJECT_ID} />
     </>

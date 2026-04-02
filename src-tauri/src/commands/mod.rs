@@ -22,6 +22,7 @@ pub mod routines;
 pub mod sandbox;
 pub mod sequences;
 pub mod schema_export;
+pub mod share;
 pub mod snapshots;
 pub mod triggers;
 pub mod vault;

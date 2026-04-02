@@ -1995,6 +1995,7 @@ mod tests {
             pool_acquire_timeout_secs: None,
             pool_max_connections: None,
             pool_min_connections: None,
+            proxy: None,
         };
 
         let conn_str = RedisDriver::build_connection_string(&config);
@@ -2018,6 +2019,7 @@ mod tests {
             pool_acquire_timeout_secs: None,
             pool_max_connections: None,
             pool_min_connections: None,
+            proxy: None,
         };
 
         let conn_str = RedisDriver::build_connection_string(&config);
@@ -2041,6 +2043,7 @@ mod tests {
             pool_acquire_timeout_secs: None,
             pool_max_connections: None,
             pool_min_connections: None,
+            proxy: None,
         };
 
         let conn_str = RedisDriver::build_connection_string(&config);

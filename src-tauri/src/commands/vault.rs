@@ -9,7 +9,9 @@ use tauri::{AppHandle, Manager, State};
 
 use crate::observability::Sensitive;
 use crate::vault::backend::KeyringProvider;
-use crate::vault::credentials::{Environment, SavedConnection, SshTunnelInfo, StoredCredentials};
+use crate::vault::credentials::{
+    Environment, ProxyInfo, SavedConnection, SshTunnelInfo, StoredCredentials,
+};
 use crate::vault::storage::VaultStorage;
 use crate::SharedState;
 
@@ -56,6 +58,7 @@ pub struct SaveConnectionInput {
     pub pool_acquire_timeout_secs: Option<u32>,
     pub project_id: String,
     pub ssh_tunnel: Option<SshTunnelInput>,
+    pub proxy: Option<ProxyInput>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -75,6 +78,16 @@ pub struct SshTunnelInput {
     pub connect_timeout_secs: u32,
     pub keepalive_interval_secs: u32,
     pub keepalive_count_max: u32,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ProxyInput {
+    pub proxy_type: String,
+    pub host: String,
+    pub port: u16,
+    pub username: Option<String>,
+    pub password: Option<String>,
+    pub connect_timeout_secs: u32,
 }
 
 /// Checks the vault lock status
@@ -187,6 +200,14 @@ pub async fn save_connection(
         keepalive_count_max: ssh.keepalive_count_max,
     });
 
+    let proxy = input.proxy.as_ref().map(|p| ProxyInfo {
+        proxy_type: p.proxy_type.clone(),
+        host: p.host.clone(),
+        port: p.port,
+        username: p.username.clone(),
+        connect_timeout_secs: p.connect_timeout_secs,
+    });
+
     let connection = SavedConnection {
         id: input.id.clone(),
         name: input.name,
@@ -203,6 +224,7 @@ pub async fn save_connection(
         pool_min_connections: input.pool_min_connections,
         pool_acquire_timeout_secs: input.pool_acquire_timeout_secs,
         ssh_tunnel,
+        proxy,
         project_id: input.project_id,
     };
 
@@ -216,6 +238,10 @@ pub async fn save_connection(
             .ssh_tunnel
             .as_ref()
             .and_then(|s| s.key_passphrase.clone().map(Sensitive::new)),
+        proxy_password: input
+            .proxy
+            .as_ref()
+            .and_then(|p| p.password.clone().map(Sensitive::new)),
     };
 
     match storage.save_connection(&connection, &credentials) {

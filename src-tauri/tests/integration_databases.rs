@@ -75,6 +75,7 @@ fn postgres_config() -> ConnectionConfig {
         pool_acquire_timeout_secs: None,
         pool_max_connections: None,
         pool_min_connections: None,
+        proxy: None,
     }
 }
 
@@ -94,6 +95,7 @@ fn mysql_config() -> ConnectionConfig {
         pool_acquire_timeout_secs: None,
         pool_max_connections: None,
         pool_min_connections: None,
+        proxy: None,
     }
 }
 
@@ -113,6 +115,7 @@ fn mongo_config() -> ConnectionConfig {
         pool_acquire_timeout_secs: None,
         pool_max_connections: None,
         pool_min_connections: None,
+        proxy: None,
     }
 }
 
@@ -132,6 +135,7 @@ fn redis_config() -> ConnectionConfig {
         pool_acquire_timeout_secs: None,
         pool_max_connections: None,
         pool_min_connections: None,
+        proxy: None,
     }
 }
 

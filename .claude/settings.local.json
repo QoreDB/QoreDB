@@ -60,7 +60,8 @@
       "WebSearch",
       "WebFetch(domain:rustsec.org)",
       "Bash(cargo update:*)",
-      "Bash(cargo tree:*)"
+      "Bash(cargo tree:*)",
+      "Bash(node:*)"
     ]
   }
 }

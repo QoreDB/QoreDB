@@ -21,8 +21,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StreamingExportDialog } from '@/components/Export/StreamingExportDialog';
 import { DangerConfirmDialog } from '@/components/Guard/DangerConfirmDialog';
+import {
+  ShareExportDialog,
+  type ShareExportDialogRequest,
+} from '@/components/Share/ShareExportDialog';
 import { SaveSnapshotDialog } from '@/components/Snapshot/SaveSnapshotDialog';
 import { Checkbox } from '@/components/ui/checkbox';
+import { useShareLinks } from '@/hooks/useShareLinks';
 import { useStreamingExport } from '@/hooks/useStreamingExport';
 import { aiExplainResult } from '@/lib/ai';
 import type { ExportConfig } from '@/lib/export';
@@ -699,8 +704,10 @@ export function DataGrid({
 
   const { startStreamingExport } = useStreamingExport(sessionId);
   const [streamingDialogOpen, setStreamingDialogOpen] = useState(false);
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [snapshotDialogOpen, setSnapshotDialogOpen] = useState(false);
   const canStreamExport = Boolean(sessionId && exportQuery);
+  const { startShareExport } = useShareLinks(sessionId);
 
   const handleStreamingExportConfirm = useCallback(
     async (config: ExportConfig) => {
@@ -710,6 +717,28 @@ export function DataGrid({
       }
     },
     [startStreamingExport]
+  );
+
+  const handleShareExportConfirm = useCallback(
+    async (config: ShareExportDialogRequest) => {
+      if (!exportQuery) return;
+
+      const shareUrl = await startShareExport({
+        query: exportQuery,
+        namespace,
+        file_name: config.file_name,
+        format: config.format,
+        include_headers: config.include_headers,
+        table_name: config.table_name,
+        batch_size: config.batch_size,
+        limit: config.limit,
+      });
+
+      if (shareUrl) {
+        setShareDialogOpen(false);
+      }
+    },
+    [exportQuery, namespace, startShareExport]
   );
 
   // AI Explain Results
@@ -827,6 +856,7 @@ export function DataGrid({
           searchInputRef={searchInputRef}
           copyToClipboard={copyToClipboard}
           onStreamingExport={canStreamExport ? () => setStreamingDialogOpen(true) : undefined}
+          onShareExport={canStreamExport ? () => setShareDialogOpen(true) : undefined}
           copied={!!copied}
           showFilters={showFilters}
           setShowFilters={setShowFilters}
@@ -879,6 +909,16 @@ export function DataGrid({
           namespace={namespace}
           tableName={tableName}
           onConfirm={handleStreamingExportConfirm}
+        />
+      )}
+
+      {canStreamExport && exportQuery && (
+        <ShareExportDialog
+          open={shareDialogOpen}
+          onOpenChange={setShareDialogOpen}
+          defaultFileName={tableName || 'query-results'}
+          defaultTableName={tableName}
+          onConfirm={handleShareExportConfirm}
         />
       )}
 

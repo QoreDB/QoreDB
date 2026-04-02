@@ -659,6 +659,7 @@ mod tests {
             pool_acquire_timeout_secs: None,
             pool_max_connections: None,
             pool_min_connections: None,
+            proxy: None,
         }
     }
 

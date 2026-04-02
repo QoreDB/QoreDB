@@ -66,6 +66,9 @@ pub struct SavedConnection {
     pub pool_acquire_timeout_secs: Option<u32>,
     /// SSH tunnel configuration (without credentials)
     pub ssh_tunnel: Option<SshTunnelInfo>,
+    /// Network proxy configuration (without credentials)
+    #[serde(default)]
+    pub proxy: Option<ProxyInfo>,
     /// Project ID for isolation
     pub project_id: String,
 }
@@ -97,6 +100,17 @@ pub struct SshTunnelInfo {
     pub keepalive_count_max: u32,
 }
 
+/// Proxy info (credentials stored separately)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProxyInfo {
+    /// "http_connect" or "socks5"
+    pub proxy_type: String,
+    pub host: String,
+    pub port: u16,
+    pub username: Option<String>,
+    pub connect_timeout_secs: u32,
+}
+
 use crate::observability::Sensitive;
 
 /// Credentials stored in the vault (never serialized to frontend)
@@ -105,6 +119,7 @@ pub struct StoredCredentials {
     pub db_password: Sensitive<String>,
     pub ssh_password: Option<Sensitive<String>>,
     pub ssh_key_passphrase: Option<Sensitive<String>>,
+    pub proxy_password: Option<Sensitive<String>>,
 }
 
 impl SavedConnection {
@@ -176,6 +191,36 @@ impl SavedConnection {
             None => None,
         };
 
+        let proxy = match self.proxy.as_ref() {
+            Some(proxy_info) => {
+                use crate::engine::types::{ProxyConfig, ProxyType};
+
+                let proxy_type = match proxy_info.proxy_type.as_str() {
+                    "http_connect" => ProxyType::HttpConnect,
+                    "socks5" => ProxyType::Socks5,
+                    other => {
+                        return Err(EngineError::internal(format!(
+                            "Invalid proxy_type: {}",
+                            other
+                        )))
+                    }
+                };
+
+                Some(ProxyConfig {
+                    proxy_type,
+                    host: proxy_info.host.clone(),
+                    port: proxy_info.port,
+                    username: proxy_info.username.clone(),
+                    password: creds
+                        .proxy_password
+                        .as_ref()
+                        .map(|s| s.expose().clone()),
+                    connect_timeout_secs: proxy_info.connect_timeout_secs,
+                })
+            }
+            None => None,
+        };
+
         Ok(ConnectionConfig {
             driver: self.driver.clone(),
             host: self.host.clone(),
@@ -191,6 +236,7 @@ impl SavedConnection {
             pool_min_connections: self.pool_min_connections,
             pool_acquire_timeout_secs: self.pool_acquire_timeout_secs,
             ssh_tunnel,
+            proxy,
         })
     }
 }
@@ -228,6 +274,7 @@ mod tests {
                 keepalive_interval_secs: 30,
                 keepalive_count_max: 3,
             }),
+            proxy: None,
             project_id: "proj".to_string(),
         }
     }
@@ -243,6 +290,7 @@ mod tests {
             db_password: Sensitive::new("db".to_string()),
             ssh_password: Some(Sensitive::new("sshpw".to_string())),
             ssh_key_passphrase: None,
+            proxy_password: None,
         };
 
         let config = connection.to_connection_config(&creds)?;
@@ -264,6 +312,7 @@ mod tests {
             db_password: Sensitive::new("db".to_string()),
             ssh_password: None,
             ssh_key_passphrase: Some(Sensitive::new("passphrase".to_string())),
+            proxy_password: None,
         };
 
         let config = connection.to_connection_config(&creds)?;
@@ -291,6 +340,7 @@ mod tests {
             db_password: Sensitive::new("db".to_string()),
             ssh_password: Some(Sensitive::new("sshpw".to_string())),
             ssh_key_passphrase: None,
+            proxy_password: None,
         };
 
         let err = connection
@@ -306,6 +356,7 @@ mod tests {
             db_password: Sensitive::new("db".to_string()),
             ssh_password: Some(Sensitive::new("sshpw".to_string())),
             ssh_key_passphrase: None,
+            proxy_password: None,
         };
 
         let err = connection

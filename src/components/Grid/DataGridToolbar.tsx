@@ -12,6 +12,7 @@ import {
   EyeOff,
   FileJson,
   FileSpreadsheet,
+  Link2,
   ListFilter,
   Loader2,
   Search,
@@ -42,6 +43,7 @@ interface DataGridToolbarProps {
   searchInputRef: RefObject<HTMLInputElement | null>;
   copyToClipboard: (format: 'csv' | 'json' | 'sql') => void;
   onStreamingExport?: () => void;
+  onShareExport?: () => void;
   copied: boolean;
   showFilters: boolean;
   setShowFilters: (show: boolean) => void;
@@ -59,6 +61,7 @@ export function DataGridToolbar({
   searchInputRef,
   copyToClipboard,
   onStreamingExport,
+  onShareExport,
   copied,
   showFilters,
   setShowFilters,
@@ -202,6 +205,12 @@ export function DataGridToolbar({
             <Database size={14} className="mr-2" />
             {t('grid.exportAllRows')}
           </DropdownMenuItem>
+          {onShareExport && (
+            <DropdownMenuItem onClick={onShareExport} className="text-xs">
+              <Link2 size={14} className="mr-2" />
+              {t('share.generateLink')}
+            </DropdownMenuItem>
+          )}
           {onSaveSnapshot && (
             <>
               <DropdownMenuSeparator />

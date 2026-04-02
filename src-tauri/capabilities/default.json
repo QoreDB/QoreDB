@@ -11,6 +11,7 @@
     "core:window:allow-toggle-maximize",
     "core:window:allow-start-dragging",
     "updater:default",
+    "process:allow-restart",
     "opener:default",
     "dialog:default",
     "fs:allow-read-text-file",

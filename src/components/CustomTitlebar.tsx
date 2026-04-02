@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import { relaunch } from '@tauri-apps/plugin-process';
 import type { TFunction } from 'i18next';
 import {
   ArrowDownToLine,
@@ -8,6 +9,7 @@ import {
   Copy,
   Loader2,
   Minus,
+  RotateCcw,
   Search,
   Settings,
   Square,
@@ -526,11 +528,16 @@ const UpdateButton = () => {
   const { t } = useTranslation();
   const { status, version, update } = useUpdateStore();
 
-  if (status === 'idle' || status === 'installed') return null;
+  if (status === 'idle') return null;
 
   const isInstalling = status === 'installing';
+  const isInstalled = status === 'installed';
 
   const handleClick = async () => {
+    if (isInstalled) {
+      await relaunch();
+      return;
+    }
     if (!update || isInstalling) return;
     try {
       setUpdateInstalling();
@@ -545,18 +552,29 @@ const UpdateButton = () => {
     <Button
       variant="ghost"
       size="sm"
-      className="h-7 gap-1.5 px-2 text-xs font-medium text-emerald-500 hover:text-emerald-400 hover:bg-emerald-500/10 animate-in fade-in duration-300"
+      className={cn(
+        'h-7 gap-1.5 px-2 text-xs font-medium animate-in fade-in duration-300',
+        isInstalled
+          ? 'text-blue-500 hover:text-blue-400 hover:bg-blue-500/10'
+          : 'text-emerald-500 hover:text-emerald-400 hover:bg-emerald-500/10'
+      )}
       onClick={handleClick}
       disabled={isInstalling}
-      title={t('updates.available', { version })}
+      title={isInstalled ? t('updates.restartRequired') : t('updates.available', { version })}
     >
       {isInstalling ? (
         <Loader2 className="w-3.5 h-3.5 animate-spin" />
+      ) : isInstalled ? (
+        <RotateCcw className="w-3.5 h-3.5" />
       ) : (
         <ArrowDownToLine className="w-3.5 h-3.5" />
       )}
       <span className="hidden sm:inline">
-        {isInstalling ? t('updates.installing') : `v${version}`}
+        {isInstalling
+          ? t('updates.installing')
+          : isInstalled
+            ? t('updates.restart')
+            : `v${version}`}
       </span>
     </Button>
   );

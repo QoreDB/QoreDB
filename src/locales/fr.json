@@ -45,6 +45,7 @@
     "install": "Installer et redémarrer",
     "installing": "Installation de la mise à jour…",
     "installed": "Mise à jour installée.",
+    "restart": "Redémarrer",
     "restartRequired": "Redémarrez QoreDB pour terminer l'installation.",
     "installFailed": "Échec de l'installation de la mise à jour."
   },
@@ -506,6 +507,7 @@
       "installUpdate": "Installer v{{version}}",
       "installing": "Installation...",
       "installed": "Mise à jour installée — redémarrez pour appliquer.",
+      "restart": "Redémarrer maintenant",
       "upToDate": "Vous êtes à jour !"
     },
     "startup": {

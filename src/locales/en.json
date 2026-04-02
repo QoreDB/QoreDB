@@ -45,6 +45,7 @@
     "install": "Install & restart",
     "installing": "Installing update…",
     "installed": "Update installed.",
+    "restart": "Restart",
     "restartRequired": "Restart QoreDB to finish applying the update.",
     "installFailed": "Failed to install update."
   },
@@ -506,6 +507,7 @@
       "installUpdate": "Install v{{version}}",
       "installing": "Installing...",
       "installed": "Update installed — restart to apply.",
+      "restart": "Restart now",
       "upToDate": "You're up to date!"
     },
     "startup": {

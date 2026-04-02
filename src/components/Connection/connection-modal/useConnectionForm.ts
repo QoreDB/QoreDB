@@ -43,6 +43,7 @@ export function useConnectionForm(options: {
 
     if (editConnection) {
       const sshTunnel = editConnection.ssh_tunnel;
+      const proxy = editConnection.proxy;
       setFormData({
         name: editConnection.name,
         driver: editConnection.driver as Driver,
@@ -71,6 +72,13 @@ export function useConnectionForm(options: {
         sshConnectTimeoutSecs: sshTunnel ? sshTunnel.connect_timeout_secs : 10,
         sshKeepaliveIntervalSecs: sshTunnel ? sshTunnel.keepalive_interval_secs : 30,
         sshKeepaliveCountMax: sshTunnel ? sshTunnel.keepalive_count_max : 3,
+        useProxy: !!proxy,
+        proxyType: proxy ? (proxy.proxy_type as ConnectionFormData['proxyType']) : 'socks5',
+        proxyHost: proxy ? proxy.host : '',
+        proxyPort: proxy ? proxy.port : 1080,
+        proxyUsername: proxy ? proxy.username || '' : '',
+        proxyPassword: '',
+        proxyConnectTimeoutSecs: proxy ? proxy.connect_timeout_secs : 10,
         useUrl: false,
         connectionUrl: '',
       });

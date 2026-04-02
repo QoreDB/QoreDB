@@ -2,6 +2,8 @@
 
 import type { DiagnosticsSettings } from './diagnosticsSettings';
 import { getDiagnosticsSettings } from './diagnosticsSettings';
+import type { ShareProviderSettings } from './share';
+import { getShareProviderSettings, setShareProviderSettings } from './shareSettings';
 import type { SafetyPolicy } from './tauri';
 
 export interface ConfigBackupV1 {
@@ -14,6 +16,7 @@ export interface ConfigBackupV1 {
     diagnostics?: DiagnosticsSettings;
     onboardingCompleted?: boolean;
     analyticsEnabled?: boolean;
+    shareProvider?: ShareProviderSettings;
   };
   safetyPolicy?: SafetyPolicy;
 }
@@ -53,6 +56,7 @@ export function buildConfigBackupV1(input: { safetyPolicy?: SafetyPolicy }): Con
       diagnostics: getDiagnosticsSettings(),
       onboardingCompleted: readBool(ONBOARDING_KEY),
       analyticsEnabled: readBool(ANALYTICS_KEY),
+      shareProvider: getShareProviderSettings(),
     },
     safetyPolicy: input.safetyPolicy,
   };
@@ -72,6 +76,7 @@ export function applyConfigBackupV1(payload: ConfigBackupV1): {
   diagnostics?: DiagnosticsSettings;
   onboardingCompleted?: boolean;
   analyticsEnabled?: boolean;
+  shareProvider?: ShareProviderSettings;
   safetyPolicy?: SafetyPolicy;
 } {
   const ui = payload.ui;
@@ -91,12 +96,17 @@ export function applyConfigBackupV1(payload: ConfigBackupV1): {
     localStorage.setItem(ANALYTICS_KEY, String(ui.analyticsEnabled));
   }
 
+  if (ui.shareProvider) {
+    setShareProviderSettings(ui.shareProvider);
+  }
+
   return {
     theme: ui.theme,
     language: ui.language,
     diagnostics: ui.diagnostics,
     onboardingCompleted: ui.onboardingCompleted,
     analyticsEnabled: ui.analyticsEnabled,
+    shareProvider: ui.shareProvider,
     safetyPolicy: payload.safetyPolicy,
   };
 }

@@ -61,6 +61,37 @@ pub struct ConnectionConfig {
     pub pool_min_connections: Option<u32>,
     pub pool_acquire_timeout_secs: Option<u32>,
     pub ssh_tunnel: Option<SshTunnelConfig>,
+    /// Network proxy configuration (HTTP CONNECT or SOCKS5)
+    #[serde(default)]
+    pub proxy: Option<ProxyConfig>,
+}
+
+/// Network proxy configuration for corporate environments
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProxyConfig {
+    /// Proxy type (HTTP CONNECT or SOCKS5)
+    pub proxy_type: ProxyType,
+    /// Proxy server hostname
+    pub host: String,
+    /// Proxy server port
+    pub port: u16,
+    /// Optional username for proxy authentication
+    pub username: Option<String>,
+    /// Optional password for proxy authentication
+    #[serde(skip_serializing)]
+    pub password: Option<String>,
+    /// Connection timeout in seconds
+    pub connect_timeout_secs: u32,
+}
+
+/// Supported proxy protocol types
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ProxyType {
+    /// HTTP CONNECT tunnel (RFC 7231)
+    HttpConnect,
+    /// SOCKS5 proxy (RFC 1928)
+    Socks5,
 }
 
 /// SSH tunnel configuration

@@ -16,6 +16,7 @@ use tokio::time::{timeout, Duration};
 use tracing::instrument;
 
 use crate::engine::error::{EngineError, EngineResult};
+use crate::engine::proxy::ProxyTunnel;
 use crate::engine::ssh_tunnel::SshTunnel;
 use crate::engine::traits::DataEngine;
 use crate::engine::types::{ConnectionConfig, SessionId};
@@ -43,6 +44,7 @@ pub struct ActiveSession {
     pub config: ConnectionConfig,
     pub display_name: String,
     pub tunnel: Option<SshTunnel>,
+    pub proxy_tunnel: Option<ProxyTunnel>,
     pub health: ConnectionHealth,
     /// Consecutive ping failures (reset on success).
     pub consecutive_failures: u32,
@@ -92,6 +94,34 @@ impl SessionManager {
             .ok_or_else(|| EngineError::driver_not_found(&config.driver))?;
 
         let test_future = async {
+            // If proxy is configured, tunnel through it
+            if let Some(ref proxy_config) = config.proxy {
+                let mut proxy_tunnel =
+                    ProxyTunnel::open(proxy_config, &config.host, config.port).await?;
+                let mut tunneled_config = config.clone();
+                tunneled_config.host = "127.0.0.1".to_string();
+                tunneled_config.port = proxy_tunnel.local_port();
+
+                // If SSH tunnel is also configured, chain: proxy → SSH → DB
+                if let Some(ref ssh_config) = config.ssh_tunnel {
+                    let tunnel = SshTunnel::open(
+                        ssh_config,
+                        &tunneled_config.host,
+                        tunneled_config.port,
+                    )
+                    .await?;
+                    tunneled_config.host = "127.0.0.1".to_string();
+                    tunneled_config.port = tunnel.local_port();
+                    let result = driver.test_connection(&tunneled_config).await;
+                    let _ = proxy_tunnel.close().await;
+                    return result;
+                }
+
+                let result = driver.test_connection(&tunneled_config).await;
+                let _ = proxy_tunnel.close().await;
+                return result;
+            }
+
             // If SSH tunnel is configured, we need to test through it
             if let Some(ref ssh_config) = config.ssh_tunnel {
                 let tunnel = SshTunnel::open(ssh_config, &config.host, config.port).await?;
@@ -131,26 +161,53 @@ impl SessionManager {
             .ok_or_else(|| EngineError::driver_not_found(&config.driver))?;
 
         let connect_future = async {
-            // Setup SSH tunnel if configured
-            let (effective_config, tunnel) = if let Some(ref ssh_config) = config.ssh_tunnel {
-                let tunnel = SshTunnel::open(ssh_config, &config.host, config.port).await?;
-                let mut tunneled_config = config.clone();
-                tunneled_config.host = "127.0.0.1".to_string();
-                tunneled_config.port = tunnel.local_port();
-                (tunneled_config, Some(tunnel))
+            // Setup proxy tunnel if configured
+            let (mut effective_config, proxy_tunnel) =
+                if let Some(ref proxy_config) = config.proxy {
+                    let proxy_tunnel =
+                        ProxyTunnel::open(proxy_config, &config.host, config.port).await?;
+                    let mut tunneled = config.clone();
+                    tunneled.host = "127.0.0.1".to_string();
+                    tunneled.port = proxy_tunnel.local_port();
+                    (tunneled, Some(proxy_tunnel))
+                } else {
+                    (config.clone(), None)
+                };
+
+            // Setup SSH tunnel if configured (possibly over the proxy)
+            let tunnel = if let Some(ref ssh_config) = config.ssh_tunnel {
+                let tunnel = SshTunnel::open(
+                    ssh_config,
+                    &effective_config.host,
+                    effective_config.port,
+                )
+                .await?;
+                effective_config.host = "127.0.0.1".to_string();
+                effective_config.port = tunnel.local_port();
+                Some(tunnel)
             } else {
-                (config.clone(), None)
+                None
             };
 
             let session_id = match driver.connect(&effective_config).await {
                 Ok(id) => id,
                 Err(e) => {
-                    // Explicitly close the SSH tunnel on connection failure
+                    // Explicitly close tunnels on connection failure
                     if let Some(mut tun) = tunnel {
                         let _ = tun.close().await;
                     }
+                    if let Some(mut pt) = proxy_tunnel {
+                        let _ = pt.close().await;
+                    }
                     return Err(e);
                 }
+            };
+
+            let suffix = match (proxy_tunnel.is_some(), tunnel.is_some()) {
+                (true, true) => " (Proxy+SSH)",
+                (true, false) => " (Proxy)",
+                (false, true) => " (SSH)",
+                (false, false) => "",
             };
 
             let display_name = format!(
@@ -158,7 +215,7 @@ impl SessionManager {
                 config.username,
                 config.host,
                 config.database.as_deref().unwrap_or("default"),
-                if tunnel.is_some() { " (SSH)" } else { "" }
+                suffix
             );
 
             let session = ActiveSession {
@@ -166,6 +223,7 @@ impl SessionManager {
                 config,
                 display_name,
                 tunnel,
+                proxy_tunnel,
                 health: ConnectionHealth::Healthy,
                 consecutive_failures: 0,
             };
@@ -214,6 +272,11 @@ impl SessionManager {
         // Close SSH tunnel if present
         if let Some(ref mut tunnel) = session.tunnel {
             tunnel.close().await?;
+        }
+
+        // Close proxy tunnel if present
+        if let Some(ref mut proxy_tunnel) = session.proxy_tunnel {
+            proxy_tunnel.close().await?;
         }
 
         Ok(())

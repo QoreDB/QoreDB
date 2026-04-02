@@ -41,6 +41,9 @@ pub enum EngineError {
     #[error("SSH tunnel error: {message}")]
     SshError { message: String },
 
+    #[error("Proxy error: {message}")]
+    ProxyError { message: String },
+
     #[error("Internal error: {message}")]
     Internal { message: String },
 

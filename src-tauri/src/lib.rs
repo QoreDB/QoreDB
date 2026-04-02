@@ -15,6 +15,7 @@ pub mod license;
 pub mod metrics;
 pub mod observability;
 pub mod policy;
+pub mod share;
 pub mod snapshots;
 pub mod vault;
 pub mod virtual_relations;
@@ -37,6 +38,7 @@ use export::ExportPipeline;
 use interceptor::InterceptorPipeline;
 use license::LicenseManager;
 use policy::SafetyPolicy;
+use share::ShareManager;
 use snapshots::SnapshotStore;
 use vault::{backend::KeyringProvider, VaultLock};
 use virtual_relations::VirtualRelationStore;
@@ -50,6 +52,7 @@ pub struct AppState {
     pub query_manager: Arc<QueryManager>,
     pub interceptor: Arc<InterceptorPipeline>,
     pub export_pipeline: Arc<ExportPipeline>,
+    pub share_manager: Arc<ShareManager>,
     pub virtual_relations: Arc<VirtualRelationStore>,
     pub license_manager: LicenseManager,
     #[cfg(feature = "pro")]
@@ -88,6 +91,10 @@ impl AppState {
         let virtual_relations = Arc::new(VirtualRelationStore::new(
             data_dir.join("virtual_relations"),
         ));
+        let share_manager = Arc::new(ShareManager::new(
+            data_dir.join("share"),
+            Box::new(KeyringProvider::new()),
+        ));
 
         let _ = vault_lock.auto_unlock_if_no_password();
 
@@ -108,6 +115,7 @@ impl AppState {
             query_manager,
             interceptor,
             export_pipeline,
+            share_manager,
             virtual_relations,
             license_manager,
             #[cfg(feature = "pro")]
@@ -227,6 +235,14 @@ pub fn run() {
             // Export
             commands::export::start_export,
             commands::export::cancel_export,
+            // Share
+            commands::share::share_prepare_export,
+            commands::share::share_cleanup_export,
+            commands::share::share_upload_prepared_export,
+            commands::share::share_save_provider_token,
+            commands::share::share_delete_provider_token,
+            commands::share::share_get_provider_status,
+            commands::share::share_snapshot,
             // Import
             commands::import::preview_csv,
             commands::import::import_csv,

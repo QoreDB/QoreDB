@@ -2054,6 +2054,7 @@ mod tests {
             pool_acquire_timeout_secs: None,
             pool_max_connections: None,
             pool_min_connections: None,
+            proxy: None,
         };
         let tib_config = SqlServerDriver::build_config(&config);
         assert!(tib_config.is_ok());

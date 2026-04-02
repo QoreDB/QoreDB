@@ -137,20 +137,14 @@ export function SshTunnelSection(props: {
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground">
-                  {t('connection.ssh.passphrase')}
-                </Label>
-                <Input
-                  type="password"
-                  placeholder="••••••••"
-                  value={formData.sshPassphrase}
-                  onChange={e => onChange('sshPassphrase', e.target.value)}
-                />
-                <div className="flex items-start gap-2 rounded-md border border-border bg-muted/30 p-2">
-                  <Info size={14} className="mt-0.5 text-muted-foreground" />
+              <div className="flex items-start gap-2 rounded-md border border-border bg-muted/30 p-2">
+                <Info size={14} className="mt-0.5 shrink-0 text-muted-foreground" />
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-foreground">
+                    {t('connection.ssh.sshAgentInfo')}
+                  </p>
                   <p className="text-xs text-muted-foreground">
-                    {t('connection.ssh.passphraseHelp')}
+                    {t('connection.ssh.sshAgentHint')}
                   </p>
                 </div>
               </div>

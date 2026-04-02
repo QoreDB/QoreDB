@@ -34,7 +34,7 @@ export function buildConnectionConfig(formData: ConnectionFormData): ConnectionC
           auth: {
             Key: {
               private_key_path: formData.sshKeyPath,
-              passphrase: formData.sshPassphrase || undefined,
+              passphrase: undefined,
             },
           },
           host_key_policy: formData.sshHostKeyPolicy,
@@ -102,7 +102,7 @@ export function buildSaveConnectionInput(
           username: formData.sshUsername,
           auth_type: 'key',
           key_path: formData.sshKeyPath,
-          key_passphrase: formData.sshPassphrase || undefined,
+          key_passphrase: undefined,
           host_key_policy: formData.sshHostKeyPolicy,
           proxy_jump: formData.sshProxyJump || undefined,
           connect_timeout_secs: formData.sshConnectTimeoutSecs,

@@ -63,12 +63,12 @@ export function isShareProviderConfigured(
 
 export function toShareProviderConfig(settings: ShareProviderSettings): ShareProviderConfig {
   return {
-    provider_name: settings.provider_name.trim() || undefined,
+    provider_name: settings.provider_name?.trim() || undefined,
     upload_url: settings.upload_url.trim(),
     method: settings.method,
     body_mode: settings.body_mode,
     file_field_name:
-      settings.body_mode === 'multipart' ? settings.file_field_name.trim() || undefined : undefined,
-    response_url_path: settings.response_url_path.trim() || undefined,
+      settings.body_mode === 'multipart' ? settings.file_field_name?.trim() || undefined : undefined,
+    response_url_path: settings.response_url_path?.trim() || undefined,
   };
 }

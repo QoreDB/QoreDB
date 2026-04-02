@@ -1,78 +1,118 @@
 <div align="center">
 
-# 🗄️ QoreDB
+# QoreDB
 
-**Next Generation Database Client**
+**Next-Generation Database Client**
 
 A modern, powerful, and intuitive database management tool built with Tauri, React, and Rust.
+Lightweight alternative to DBeaver and pgAdmin, designed for developers.
 
 [![License](https://img.shields.io/badge/license-Apache--2.0%20%2F%20BUSL--1.1-blue.svg)](LICENSE)
-[![Tauri](https://img.shields.io/badge/Tauri-2.0-blue.svg)](https://tauri.app/)
-[![React](https://img.shields.io/badge/React-19.1-blue.svg)](https://reactjs.org/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.8-blue.svg)](https://www.typescriptlang.org/)
+[![Tauri](https://img.shields.io/badge/Tauri-2.10-blue.svg)](https://tauri.app/)
+[![React](https://img.shields.io/badge/React-19-blue.svg)](https://reactjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue.svg)](https://www.typescriptlang.org/)
 [![Rust](https://img.shields.io/badge/Rust-2021-orange.svg)](https://www.rust-lang.org/)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)]()
 
-[Features](#-features) • [Installation](#-installation) • [Usage](#-usage) • [Development](#-development) • [Contributing](#-contributing)
+[Features](#-features) · [Installation](#-installation) · [Usage](#-usage) · [Development](#-development) · [Contributing](#-contributing)
 
 </div>
 
 ---
 
-## ✨ Features
+## Features
 
-### 🎯 Multi-Database Support
+### Multi-Database Support
 
-- **PostgreSQL**
-- **MySQL / MariaDB**
-- **SQL Server**
-- **SQLite**
-- **DuckDB**
-- **MongoDB**
-- **Redis**
+| SQL | NoSQL / Analytical |
+| --- | --- |
+| PostgreSQL | MongoDB |
+| MySQL / MariaDB | Redis |
+| SQL Server | DuckDB |
+| SQLite | |
+| CockroachDB | |
 
-### 🚀 Query & Schema Toolkit
+### Database Notebooks
 
-- **SQL + Mongo Editors** - Syntax highlighting, formatting, snippets, multi-statement execution
-- **Query Library** - Folders, tags, JSON import/export, reusable queries
-- **ER Diagram** - Interactive schema graph with isolate/focus workflows
-- **Visual Data Diff** - Side-by-side comparison of table/query results
-- **Global Full-Text Search** - Search values across tables and columns
-- **Foreign Key Peek + Virtual Relations** - Better navigation even without native FK constraints
+Executable documents mixing SQL/Mongo and Markdown cells, connected to a live database.
 
-### 📊 Data Operations
+- Parameterized variables (`$customer_id`, `{{date_from}}`) with typed inputs
+- Run All / Run From Here with stop-on-error
+- Inter-cell references and Chart cells (bar, line, pie, scatter) [Pro]
+- Import from `.sql` / `.md`, export to Markdown or standalone HTML
+- `.qnb` file format, Git-diffable
 
-- **High-Performance Data Grid** - Virtualization, server-side filtering/sorting, pagination, infinite scroll
-- **Inline Editing** - Edit rows directly in SQL and NoSQL datasets
-- **Export Pipeline** - CSV, JSON, SQL, HTML (+ XLSX/Parquet in Pro)
-- **Cross-Database Federation** - Query and join across active connections (DuckDB engine)
+### Query & Schema Toolkit
 
-### 🔐 Security & Reliability
+- **SQL + Mongo Editors** — Syntax highlighting, formatting, snippets, multi-statement execution
+- **Query Library** — Folders, tags, JSON import/export, reusable queries
+- **ER Diagram** — Interactive schema graph with isolate/focus workflows [Pro]
+- **Explain Plan Visualization** — Interactive execution plan tree with cost highlighting (PostgreSQL, MySQL, SQL Server)
+- **Visual Data Diff** — Side-by-side comparison of table/query results [Pro]
+- **Global Full-Text Search** — Search values across all tables and columns
+- **Foreign Key Peek + Virtual Relations** — Navigation even without native FK constraints
+- **Routines, Procedures, Triggers & Events** — List, create, and edit stored objects
 
-- **Secure Vault** - Native OS keychain storage + optional app lock
-- **SSH Tunneling** - Native OpenSSH-based secure remote access
-- **Environment Safety** - Dev/Staging/Prod guards, dangerous query detection, read-only mode
-- **Universal Query Interceptor** - Central hooks for safety, audit, and profiling
-- **Resilience Tooling** - Crash recovery, auto-update, project import/export, settings backup
+### Data Operations
 
-### 🎨 User Experience
+- **High-Performance Data Grid** — Virtualization, server-side filtering/sorting, pagination, infinite scroll, column pinning
+- **Inline Editing** — Edit rows directly in SQL and NoSQL datasets
+- **CSV Import** — Automatic separator/encoding detection, column mapping, preview before import
+- **Transaction Management** — Toggle autocommit, explicit Commit/Rollback, active transaction indicator
+- **Export Pipeline** — CSV, JSON, SQL, HTML, self-contained HTML (+ XLSX/Parquet in Pro)
+- **Cross-Database Federation** — Query and join across active connections via DuckDB
+- **Result Snapshots** — Save and compare query results over time
+- **Sandbox Mode** — Isolated local changes with migration generation
 
-- **Multi-Tab Workspace** - Query tabs + table tabs with persistent context
-- **Global Search (Cmd/Ctrl + K)** - Fast access to connections, history, commands, and library items
-- **Dark/Light Theme** - Adaptive theming
-- **Internationalization** - English + French
-- **Responsive Desktop UI** - Built with Radix UI and Tailwind CSS
+### Security & Reliability
+
+- **Secure Vault** — Native OS keychain storage (Argon2) + optional app lock
+- **SSH Tunneling** — Native OpenSSH-based secure remote access
+- **Environment Safety** — Dev/Staging/Prod guards, dangerous query detection, read-only mode
+- **Universal Query Interceptor** — Central hooks for safety, audit, and profiling
+- **Connection Resilience** — Automatic reconnection, health monitoring, smart keep-alive
+- **Content Security Policy** — Strict CSP configuration
+- **Background Job Manager** — Async execution for long-running tasks with error recovery
+
+### AI Assistant [Pro]
+
+- Contextual query generation and error correction
+- Schema-aware suggestions
+
+### User Experience
+
+- **Multi-Tab Workspace** — Drag-and-drop reorder, pinned tabs, persistent context
+- **Global Search (Cmd/Ctrl + K)** — Connections, history, commands, library items
+- **Breadcrumb Navigation** — `Connection > Database > Schema > Table` clickable path
+- **Dark / Light Theme**
+- **9 Languages** — English, French, Spanish, German, Portuguese (BR), Russian, Japanese, Korean, Chinese (Simplified)
 
 ---
 
-## 📦 Installation
+## Installation
 
-### Prerequisites
+### Download
 
-- **Node.js** 18+ and **pnpm**
-- **Rust** 1.70+ (for Tauri backend)
-- **System Dependencies** for Tauri ([see Tauri prerequisites](https://tauri.app/start/prerequisites/))
+Download the latest release for your platform from the [Releases page](https://github.com/raphplt/QoreDB/releases).
 
-On Ubuntu/Debian, the following packages are commonly required to build the Rust/Tauri backend (they provide `pkg-config` files like `glib-2.0.pc`):
+| Platform | Format |
+| --- | --- |
+| **Windows** | `.msi` / `.exe` |
+| **macOS** | `.dmg` (ARM64 & Intel) |
+| **Linux** | `.deb` / `.AppImage` |
+
+### Arch Linux (AUR)
+
+```bash
+yay -S qoredb-bin
+```
+
+### Build from Source
+
+**Prerequisites:** Node.js 18+, pnpm, Rust 1.70+, [Tauri system dependencies](https://tauri.app/start/prerequisites/)
+
+<details>
+<summary>Ubuntu/Debian system packages</summary>
 
 ```bash
 sudo apt-get update
@@ -85,138 +125,94 @@ sudo apt-get install -y \
   librsvg2-dev
 ```
 
-### Download
-
-Download the latest release for your platform from the [Releases page](https://github.com/raphplt/QoreDB/releases).
-
-### Build from Source
+</details>
 
 ```bash
-# Clone the repository
 git clone https://github.com/raphplt/QoreDB.git
 cd QoreDB
-
-# Install dependencies
 pnpm install
-
-# Run in development mode
-pnpm tauri dev
-
-# Build for production
-pnpm tauri build
+pnpm tauri dev      # development
+pnpm tauri build    # production
 ```
 
 ---
 
-## 🚀 Usage
+## Usage
 
 ### Quick Start
 
-1. **Launch QoreDB** - Open the application
-2. **Add Connection** - Click the "+" button to create a new database connection
-3. **Connect** - Select your connection from the sidebar
-4. **Explore** - Browse databases, tables, and run queries
+1. **Launch QoreDB**
+2. **Add a connection** — Click "+" in the sidebar
+3. **Connect** — Select your connection
+4. **Explore** — Browse databases, tables, run queries or open a notebook
 
 ### Keyboard Shortcuts
 
-| Shortcut       | Action            |
-| -------------- | ----------------- |
-| `Cmd/Ctrl + K` | Global search     |
-| `Cmd/Ctrl + N` | New query tab     |
+| Shortcut | Action |
+| --- | --- |
+| `Cmd/Ctrl + K` | Global search |
+| `Cmd/Ctrl + N` | New query tab |
 | `Cmd/Ctrl + W` | Close current tab |
-| `Cmd/Ctrl + ,` | Settings          |
-
-### Connection Configuration
-
-```json
-{
-  "name": "My Database",
-  "driver": "postgres",
-  "host": "localhost",
-  "port": 5432,
-  "database": "mydb",
-  "username": "user",
-  "environment": "development",
-  "read_only": false
-}
-```
+| `Cmd/Ctrl + Enter` | Execute query |
+| `Cmd/Ctrl + S` | Save |
+| `Cmd/Ctrl + ,` | Settings |
 
 ---
 
-## 🛠️ Development
+## Development
 
 ### Tech Stack
 
 **Frontend:**
 
-- React 19.1
-- TypeScript 5.8
-- Vite 7
-- Tailwind CSS 4
-- Radix UI
-- CodeMirror 6
-- TanStack Table
+- React 19 · TypeScript 5.9 · Vite 8 · Tailwind CSS 4
+- Radix UI · CodeMirror 6 · TanStack Table · i18next
 
 **Backend:**
 
-- Rust (Edition 2021)
-- Tauri 2.0
-- SQLx (PostgreSQL, MySQL, SQLite)
-- Tiberius + bb8 (SQL Server)
-- MongoDB + Redis native drivers
-- DuckDB (embedded analytics + federation engine)
-- Tokio (Async Runtime)
+- Rust 2021 · Tauri 2.10 · Tokio
+- SQLx (PostgreSQL, MySQL, SQLite) · Tiberius + bb8 (SQL Server)
+- MongoDB & Redis native drivers · DuckDB (embedded analytics + federation)
 
 ### Project Structure
 
 ```
 QoreDB/
-├── src/                    # React frontend source
+├── src/                    # React frontend
 │   ├── components/         # UI components
-│   │   ├── Browser/        # Database/Table browsers
+│   │   ├── Browser/        # Database/table browsers
 │   │   ├── Connection/     # Connection management
+│   │   ├── Notebook/       # Database notebooks
 │   │   ├── Query/          # Query editor
+│   │   ├── Schema/         # ER diagram, explain plan
 │   │   ├── Sidebar/        # Navigation sidebar
 │   │   ├── Tabs/           # Tab system
-│   │   └── ui/             # Reusable UI components
-│   ├── lib/                # Utilities and Tauri bindings
-│   ├── locales/            # i18n translations
-│   └── App.tsx             # Main application
+│   │   └── ui/             # Reusable primitives (Radix-based)
+│   ├── hooks/              # Custom React hooks
+│   ├── lib/                # Tauri bindings, utilities, types
+│   └── locales/            # i18n translations (9 languages)
 ├── src-tauri/              # Rust backend
-│   ├── src/                # Rust source code
-│   └── Cargo.toml          # Rust dependencies
-├── public/                 # Static assets
-└── doc/                    # Documentation
+│   ├── src/commands/       # Tauri command handlers
+│   ├── src/engine/         # Database abstraction (traits, drivers)
+│   └── src/vault/          # Encrypted credential storage
+├── doc/                    # Documentation
+└── aur/                    # AUR package definition
 ```
 
 ### Scripts
 
 ```bash
-# Development
-pnpm dev                    # Start Vite dev server
-pnpm tauri dev              # Run Tauri app in dev mode
-
-# Building
-pnpm build                  # Build frontend
-pnpm tauri build            # Build full application
-
-# Code Quality
-pnpm lint                   # Lint code
-pnpm lint:fix               # Fix linting issues
-pnpm format                 # Check formatting
+pnpm tauri dev              # Run app in dev mode (hot reload)
+pnpm tauri build            # Build production app
+pnpm lint:fix               # Lint + auto-fix
 pnpm format:write           # Format code
-```
-
-### Docker Support
-
-```bash
-# Start development databases
-docker-compose up -d
+pnpm test                   # Run Rust tests
+docker-compose up -d        # Start dev databases
 ```
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
@@ -226,40 +222,41 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
-### Development Guidelines
+### Guidelines
 
-- Follow the existing code style
+- Follow existing code style
 - Write meaningful commit messages
-- Add tests for new features
+- Add SPDX license headers to new files (`Apache-2.0` for core, `BUSL-1.1` for premium)
 - Update documentation as needed
 
 ---
 
-## 📄 License
+## License
 
-Core files are licensed under Apache 2.0 (see [LICENSE](LICENSE)).
+Core files are licensed under **Apache 2.0** — see [LICENSE](LICENSE).
 
-Premium files are licensed under Business Source License 1.1 (see [LICENSE-BSL](LICENSE-BSL)).
+Premium files are licensed under **Business Source License 1.1** — see [LICENSE-BSL](LICENSE-BSL).
 
 ---
 
-## 👤 Author
+## Author
 
 **Raphaël Plassart**
 
 - Email: <qoredb@gmail.com>
-- LinkedIn: [raphaël-plassart](www.linkedin.com/in/raphaël-plassart)
+- LinkedIn: [raphaël-plassart](https://www.linkedin.com/in/raphaël-plassart)
 - GitHub: [@raphplt](https://github.com/raphplt)
 
 ---
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
-- [Tauri](https://tauri.app/) - For the amazing framework
-- [CodeMirror](https://codemirror.net/) - SQL editor component
-- [Radix UI](https://www.radix-ui.com/) - Accessible component primitives
-- [Tailwind CSS](https://tailwindcss.com/) - Styling framework
-- [SQLx](https://github.com/launchbadge/sqlx) - Async SQL toolkit
+- [Tauri](https://tauri.app/) — Desktop framework
+- [CodeMirror](https://codemirror.net/) — SQL editor
+- [Radix UI](https://www.radix-ui.com/) — Accessible component primitives
+- [Tailwind CSS](https://tailwindcss.com/) — Styling
+- [SQLx](https://github.com/launchbadge/sqlx) — Async SQL toolkit
+- [DuckDB](https://duckdb.org/) — Embedded analytics engine
 
 ---
 

@@ -15,6 +15,7 @@ import {
 import { setLogsOpen, useModalStore } from '@/lib/modalStore';
 import { UI_EVENT_CONNECTIONS_CHANGED } from '@/lib/uiEvents';
 import { useLicense } from '@/providers/LicenseProvider';
+import { useWorkspace } from '@/providers/WorkspaceProvider';
 import {
   type Collection,
   connectSavedConnection,
@@ -30,8 +31,7 @@ import {
 import { ErrorLogPanel } from '../Logs/ErrorLogPanel';
 import { DBTree } from '../Tree/DBTree';
 import { ConnectionItem } from './ConnectionItem';
-
-const DEFAULT_PROJECT = 'default';
+import { WorkspaceSwitcher } from './WorkspaceSwitcher';
 
 interface SidebarProps {
   onNewConnection: () => void;
@@ -94,11 +94,12 @@ export function Sidebar({
   const { t } = useTranslation();
   const { resolvedTheme } = useTheme();
   const { tier } = useLicense();
+  const { projectId } = useWorkspace();
   const logsOpen = useModalStore(s => s.logsOpen);
 
   const loadConnections = useCallback(async () => {
     try {
-      const saved = await listSavedConnections(DEFAULT_PROJECT);
+      const saved = await listSavedConnections(projectId);
       setConnections(saved);
       setFavoriteConnectionIds(
         reconcileFavoriteConnectionIds(saved.map(connection => connection.id))
@@ -170,7 +171,7 @@ export function Sidebar({
     setSelectedId(conn.id);
 
     try {
-      const result = await connectSavedConnection(DEFAULT_PROJECT, conn.id);
+      const result = await connectSavedConnection(projectId, conn.id);
 
       if (result.success && result.session_id) {
         toast.success(t('sidebar.connectedTo', { name: conn.name }));
@@ -289,6 +290,8 @@ export function Sidebar({
           <LicenseBadge tier={tier} />
         </button>
       </header>
+
+      <WorkspaceSwitcher />
 
       <section className="flex-1 overflow-y-auto overflow-x-hidden py-2">
         {connections.length > 3 && (

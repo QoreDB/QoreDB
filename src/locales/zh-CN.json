@@ -1948,5 +1948,24 @@
     "failed": "架构导出失败",
     "noPath": "请选择输出文件",
     "menuItem": "导出架构"
+  },
+  "workspace": {
+    "title": "工作区",
+    "default": "默认工作区",
+    "detected": "检测到工作区",
+    "detectedMessage": "在当前目录中发现了.qoredb工作区，是否使用？",
+    "accept": "使用工作区",
+    "dismiss": "保持默认",
+    "create": "创建工作区",
+    "created": "工作区创建成功",
+    "createDescription": "在项目中初始化.qoredb目录，以便与团队共享连接、笔记本和查询。",
+    "open": "打开工作区",
+    "switch": "切换工作区",
+    "recent": "最近的工作区",
+    "name": "工作区名称",
+    "path": "项目目录",
+    "initialize": "初始化",
+    "importExisting": "导入现有连接",
+    "noWorkspaces": "没有最近的工作区"
   }
 }

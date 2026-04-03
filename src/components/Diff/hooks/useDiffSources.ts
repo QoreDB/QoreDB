@@ -17,10 +17,10 @@ import {
   type QueryResult,
   type SavedConnection,
 } from '@/lib/tauri';
+import { useWorkspace } from '@/providers/WorkspaceProvider';
 import type { DiffSourceState } from '../DiffSourcePanel';
 
-const DEFAULT_PROJECT = 'default';
-
+//TODO : à améliorer : la détection des colonnes triviales est très basique, il faudrait se baser sur les métadonnées de la base plutôt que sur une liste hardcodée et normalisée. Par exemple, une colonne "created_at" serait considérée comme triviale, mais pas "created_by" qui pourrait être une colonne clé pour le diff. Idem pour les colonnes d'id qui pourraient être des clés de diff importantes dans certains cas (ex: id d'utilisateur) mais pas dans d'autres (ex: id de log). On pourrait aussi envisager de laisser l'utilisateur marquer certaines colonnes comme triviales ou non.
 const TRIVIAL_COLUMN_SET = new Set([
   'id',
   'created',
@@ -163,6 +163,7 @@ export function useDiffSources({
   initialLeftSource,
   initialRightSource,
 }: UseDiffSourcesOptions): UseDiffSourcesReturn {
+  const { projectId } = useWorkspace();
   const [leftSource, setLeftSource] = useState<DiffSourceState>(() =>
     initSourceState(initialLeftSource, activeConnection, initialNamespace)
   );
@@ -196,21 +197,24 @@ export function useDiffSources({
     }
   }, []);
 
-  const acquireSession = useCallback(async (connection: SavedConnection): Promise<string> => {
-    const existing = sharedSessionsRef.current.get(connection.id);
-    if (existing) {
-      existing.refs += 1;
-      return existing.sessionId;
-    }
+  const acquireSession = useCallback(
+    async (connection: SavedConnection): Promise<string> => {
+      const existing = sharedSessionsRef.current.get(connection.id);
+      if (existing) {
+        existing.refs += 1;
+        return existing.sessionId;
+      }
 
-    const result = await connectSavedConnection(DEFAULT_PROJECT, connection.id);
-    if (!result.success || !result.session_id) {
-      throw new Error(result.error || 'Failed to connect');
-    }
+      const result = await connectSavedConnection(projectId, connection.id);
+      if (!result.success || !result.session_id) {
+        throw new Error(result.error || 'Failed to connect');
+      }
 
-    sharedSessionsRef.current.set(connection.id, { sessionId: result.session_id, refs: 1 });
-    return result.session_id;
-  }, []);
+      sharedSessionsRef.current.set(connection.id, { sessionId: result.session_id, refs: 1 });
+      return result.session_id;
+    },
+    [projectId]
+  );
 
   const updateLeftSource = useCallback((updates: Partial<DiffSourceState>) => {
     setLeftSource(prev => {

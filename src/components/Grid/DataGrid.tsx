@@ -505,9 +505,7 @@ export function DataGrid({
             value !== null &&
             Boolean(sessionIdRef.current && namespaceRef.current && tableNameRef.current);
           const peekKey =
-            canPeek && foreignKey
-              ? buildPeekKeyRef.current(foreignKey, value)
-              : undefined;
+            canPeek && foreignKey ? buildPeekKeyRef.current(foreignKey, value) : undefined;
           const peekState = peekKey ? peekCacheRef.current.get(peekKey) : undefined;
           const relationLabel = foreignKey ? getRelationLabelRef.current(foreignKey) : '';
           const referencedNamespace = foreignKey
@@ -526,12 +524,7 @@ export function DataGrid({
               editingValue={editingValueRef.current}
               editInputRef={editInputRef}
               onStartEdit={() =>
-                startInlineEditRef.current(
-                  info.row.original,
-                  info.row.id,
-                  info.column.id,
-                  value
-                )
+                startInlineEditRef.current(info.row.original, info.row.id, info.column.id, value)
               }
               onCommitEdit={() => void commitInlineEditRef.current()}
               onCancelEdit={() => cancelInlineEditRef.current()}

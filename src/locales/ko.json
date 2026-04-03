@@ -1948,5 +1948,24 @@
     "failed": "스키마 내보내기 실패",
     "noPath": "출력 파일을 선택하세요",
     "menuItem": "스키마 내보내기"
+  },
+  "workspace": {
+    "title": "워크스페이스",
+    "default": "기본 워크스페이스",
+    "detected": "워크스페이스 감지됨",
+    "detectedMessage": "현재 디렉토리에서 .qoredb 워크스페이스를 발견했습니다. 사용하시겠습니까?",
+    "accept": "워크스페이스 사용",
+    "dismiss": "기본값 유지",
+    "create": "워크스페이스 생성",
+    "created": "워크스페이스가 성공적으로 생성되었습니다",
+    "createDescription": "프로젝트에 .qoredb 디렉토리를 초기화하여 팀과 연결, 노트북, 쿼리를 공유할 수 있습니다.",
+    "open": "워크스페이스 열기",
+    "switch": "워크스페이스 전환",
+    "recent": "최근 워크스페이스",
+    "name": "워크스페이스 이름",
+    "path": "프로젝트 디렉토리",
+    "initialize": "초기화",
+    "importExisting": "기존 연결 가져오기",
+    "noWorkspaces": "최근 워크스페이스 없음"
   }
 }

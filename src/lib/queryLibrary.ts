@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { redactQuery } from './redaction';
+import { getWorkspaceState } from './workspaceStore';
+import { wsSaveQueryLibrary } from './tauri';
 
 export interface QueryFolder {
   id: string;
@@ -29,7 +31,7 @@ export interface QueryLibraryExportV1 {
   items: QueryLibraryItem[];
 }
 
-const STORAGE_KEY = 'qoredb_query_library_v1';
+const STORAGE_KEY_PREFIX = 'qoredb_query_library_v1';
 const MAX_ITEMS = 300;
 const MAX_FOLDERS = 100;
 
@@ -61,9 +63,14 @@ export function parseTags(raw: string): string[] {
   return unique.slice(0, 12);
 }
 
+function getStorageKey(): string {
+  const { projectId } = getWorkspaceState();
+  return projectId === 'default' ? STORAGE_KEY_PREFIX : `${STORAGE_KEY_PREFIX}_${projectId}`;
+}
+
 function readState(): QueryLibraryState {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(getStorageKey());
     if (!raw) return { folders: [], items: [] };
     const parsed = JSON.parse(raw) as Partial<QueryLibraryState>;
     return {
@@ -76,7 +83,31 @@ function readState(): QueryLibraryState {
 }
 
 function writeState(next: QueryLibraryState): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+  localStorage.setItem(getStorageKey(), JSON.stringify(next));
+
+  // Async sync to workspace file (fire-and-forget)
+  const { activeWorkspace } = getWorkspaceState();
+  if (activeWorkspace && activeWorkspace.source !== 'default') {
+    wsSaveQueryLibrary({
+      version: 1,
+      folders: next.folders,
+      items: next.items,
+    }).catch(() => {
+      // Silent fail — localStorage is the source of truth during the session
+    });
+  }
+}
+
+/**
+ * Loads the workspace query library into localStorage for the current session.
+ * Called by WorkspaceProvider when a file-based workspace is activated.
+ */
+export function loadWorkspaceLibrary(data: { folders: unknown[]; items: unknown[] }): void {
+  const state: QueryLibraryState = {
+    folders: Array.isArray(data.folders) ? (data.folders as QueryFolder[]) : [],
+    items: Array.isArray(data.items) ? (data.items as QueryLibraryItem[]) : [],
+  };
+  localStorage.setItem(getStorageKey(), JSON.stringify(state));
 }
 
 export function listFolders(): QueryFolder[] {

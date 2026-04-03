@@ -16,14 +16,13 @@ import { ShareProviderCard } from '../ShareProviderCard';
 import { ConfigBackupCard } from '../ConfigBackupCard';
 import { ProjectTransferCard } from '../ProjectTransferCard';
 import { SettingsCard } from '../SettingsCard';
+import { useWorkspace } from '@/providers/WorkspaceProvider';
 
 interface DataSectionProps {
   policy: SafetyPolicy | null;
   onApplyPolicy: (policy: SafetyPolicy) => Promise<void>;
   searchQuery?: string;
 }
-
-const DEFAULT_PROJECT_ID = 'default';
 
 // Default values for detecting modifications
 const DEFAULTS = {
@@ -34,6 +33,7 @@ const DEFAULTS = {
 
 export function DataSection({ policy, onApplyPolicy, searchQuery }: DataSectionProps) {
   const { t } = useTranslation();
+  const { projectId } = useWorkspace();
   const [diagnostics, setDiagnostics] = useState<DiagnosticsSettings>(getDiagnosticsSettings());
   const [analyticsEnabled, setAnalyticsEnabled] = useState<boolean>(
     AnalyticsService.isAnalyticsEnabled()
@@ -135,7 +135,7 @@ export function DataSection({ policy, onApplyPolicy, searchQuery }: DataSectionP
 
       <ShareProviderCard searchQuery={searchQuery} />
 
-      <ProjectTransferCard projectId={DEFAULT_PROJECT_ID} />
+      <ProjectTransferCard projectId={projectId} />
     </>
   );
 }

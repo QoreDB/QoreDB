@@ -12,8 +12,7 @@ import {
 } from '@/lib/crashRecovery';
 import type { OpenTab } from '@/lib/tabs';
 import { connectSavedConnection, listSavedConnections, type SavedConnection } from '@/lib/tauri';
-
-const DEFAULT_PROJECT = 'default';
+import { getWorkspaceState } from '@/lib/workspaceStore';
 
 function sanitizeTableBrowserTabs(input?: Record<string, string>): Record<string, TableBrowserTab> {
   const result: Record<string, TableBrowserTab> = {};
@@ -74,7 +73,7 @@ export function useRecovery() {
 
     setState(prev => ({ ...prev, snapshot }));
 
-    listSavedConnections(DEFAULT_PROJECT)
+    listSavedConnections(getWorkspaceState().projectId)
       .then(saved => {
         const match = saved.find(conn => conn.id === snapshot.connectionId);
         setState(prev => ({
@@ -98,7 +97,7 @@ export function useRecovery() {
     setState(prev => ({ ...prev, isLoading: true, error: null }));
 
     try {
-      const saved = await listSavedConnections(DEFAULT_PROJECT);
+      const saved = await listSavedConnections(getWorkspaceState().projectId);
       const match = saved.find(conn => conn.id === state.snapshot?.connectionId);
 
       if (!match) {
@@ -111,7 +110,7 @@ export function useRecovery() {
         return null;
       }
 
-      const result = await connectSavedConnection(DEFAULT_PROJECT, match.id);
+      const result = await connectSavedConnection(getWorkspaceState().projectId, match.id);
       if (!result.success || !result.session_id) {
         setState(prev => ({
           ...prev,

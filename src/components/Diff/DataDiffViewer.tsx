@@ -11,14 +11,13 @@ import { useTranslation } from 'react-i18next';
 import type { DiffSource } from '@/lib/tabs';
 import { listSavedConnections, type Namespace, type SavedConnection } from '@/lib/tauri';
 import { UI_EVENT_CONNECTIONS_CHANGED } from '@/lib/uiEvents';
+import { useWorkspace } from '@/providers/WorkspaceProvider';
 import { DiffConfigPanel } from './DiffConfigPanel';
 import { DiffResultsGrid } from './DiffResultsGrid';
 import { DiffSourcePanel } from './DiffSourcePanel';
 import { type DiffFilter, DiffStatsBar } from './DiffStatsBar';
 import { DiffToolbar } from './DiffToolbar';
 import { useDiffSources } from './hooks/useDiffSources';
-
-const DEFAULT_PROJECT = 'default';
 
 interface DataDiffViewerProps {
   activeConnection?: SavedConnection | null;
@@ -36,6 +35,7 @@ export function DataDiffViewer({
   onSourceChange,
 }: DataDiffViewerProps) {
   const { t } = useTranslation();
+  const { projectId } = useWorkspace();
 
   const [connections, setConnections] = useState<SavedConnection[]>([]);
   const [connectionsLoading, setConnectionsLoading] = useState(false);
@@ -43,7 +43,7 @@ export function DataDiffViewer({
   const loadConnections = useCallback(async () => {
     setConnectionsLoading(true);
     try {
-      const saved = await listSavedConnections(DEFAULT_PROJECT);
+      const saved = await listSavedConnections(projectId);
       setConnections(saved);
     } catch (err) {
       console.warn('Failed to load saved connections', err);

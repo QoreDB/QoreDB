@@ -57,7 +57,11 @@ export function markChangelogSeen() {
 }
 
 export function useHasUnseenChangelog(): boolean {
-  const snapshot = useSyncExternalStore(subscribeChangelog, getChangelogSnapshot, getChangelogSnapshot);
+  const snapshot = useSyncExternalStore(
+    subscribeChangelog,
+    getChangelogSnapshot,
+    getChangelogSnapshot
+  );
   return snapshot !== null;
 }
 

@@ -1948,5 +1948,24 @@
     "failed": "Schema-Export fehlgeschlagen",
     "noPath": "Bitte wählen Sie eine Ausgabedatei",
     "menuItem": "Schema exportieren"
+  },
+  "workspace": {
+    "title": "Arbeitsbereich",
+    "default": "Standard-Arbeitsbereich",
+    "detected": "Arbeitsbereich erkannt",
+    "detectedMessage": "Ein .qoredb-Arbeitsbereich wurde im aktuellen Verzeichnis gefunden. Verwenden?",
+    "accept": "Arbeitsbereich verwenden",
+    "dismiss": "Standard beibehalten",
+    "create": "Arbeitsbereich erstellen",
+    "created": "Arbeitsbereich erfolgreich erstellt",
+    "createDescription": "Initialisieren Sie ein .qoredb-Verzeichnis in Ihrem Projekt, um Verbindungen, Notebooks und Abfragen im Team zu teilen.",
+    "open": "Arbeitsbereich öffnen",
+    "switch": "Arbeitsbereich wechseln",
+    "recent": "Letzte Arbeitsbereiche",
+    "name": "Arbeitsbereichsname",
+    "path": "Projektverzeichnis",
+    "initialize": "Initialisieren",
+    "importExisting": "Bestehende Verbindungen importieren",
+    "noWorkspaces": "Keine letzten Arbeitsbereiche"
   }
 }

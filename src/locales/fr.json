@@ -1950,5 +1950,24 @@
     "failed": "Échec de l'export du schéma",
     "noPath": "Veuillez sélectionner un fichier de sortie",
     "menuItem": "Exporter le schéma"
+  },
+  "workspace": {
+    "title": "Espace de travail",
+    "default": "Espace par défaut",
+    "detected": "Espace de travail détecté",
+    "detectedMessage": "Un espace de travail .qoredb a été trouvé dans le répertoire courant. L'utiliser ?",
+    "accept": "Utiliser l'espace",
+    "dismiss": "Rester sur le défaut",
+    "create": "Créer un espace de travail",
+    "created": "Espace de travail créé avec succès",
+    "createDescription": "Initialiser un répertoire .qoredb dans votre projet pour partager connexions, notebooks et requêtes avec l'équipe.",
+    "open": "Ouvrir un espace de travail",
+    "switch": "Changer d'espace de travail",
+    "recent": "Espaces récents",
+    "name": "Nom de l'espace",
+    "path": "Répertoire du projet",
+    "initialize": "Initialiser",
+    "importExisting": "Importer les connexions existantes",
+    "noWorkspaces": "Aucun espace récent"
   }
 }

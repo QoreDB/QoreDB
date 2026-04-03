@@ -19,11 +19,13 @@ pub mod share;
 pub mod snapshots;
 pub mod vault;
 pub mod virtual_relations;
+pub mod workspace;
 
 use std::sync::Arc;
 use tauri::Manager;
 use tokio::sync::Mutex;
 
+use commands::workspace::SharedWorkspaceManager;
 use engine::drivers::cockroachdb::CockroachDbDriver;
 use engine::drivers::duckdb::DuckDbDriver;
 use engine::drivers::mariadb::MariaDbDriver;
@@ -142,6 +144,13 @@ pub fn run() {
     let snapshot_store: commands::snapshots::SharedSnapshotStore =
         Arc::new(SnapshotStore::new(data_dir.join("snapshots")));
 
+    // Initialize workspace manager
+    let app_config_dir = dirs::config_dir()
+        .unwrap_or_else(|| std::path::PathBuf::from("."))
+        .join("com.qoredb.app");
+    let workspace_manager: SharedWorkspaceManager =
+        Arc::new(tokio::sync::Mutex::new(workspace::WorkspaceManager::new(app_config_dir)));
+
     tauri::Builder::default()
         .setup(|app| {
             #[cfg(desktop)]
@@ -174,6 +183,7 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .manage(state)
         .manage(snapshot_store)
+        .manage(workspace_manager)
         .invoke_handler(tauri::generate_handler![
             // Connection commands
             commands::connection::test_connection,
@@ -315,6 +325,18 @@ pub fn run() {
             commands::ai::ai_save_api_key,
             commands::ai::ai_delete_api_key,
             commands::ai::ai_get_provider_status,
+            // Workspace commands
+            commands::workspace::detect_workspace,
+            commands::workspace::get_active_workspace,
+            commands::workspace::get_workspace_project_id,
+            commands::workspace::create_workspace,
+            commands::workspace::open_workspace,
+            commands::workspace::switch_workspace,
+            commands::workspace::switch_to_default_workspace,
+            commands::workspace::list_recent_workspaces,
+            // Workspace query library commands
+            commands::workspace_queries::ws_get_query_library,
+            commands::workspace_queries::ws_save_query_library,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

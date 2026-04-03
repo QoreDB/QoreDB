@@ -449,8 +449,6 @@ export async function getGovernanceLimits(): Promise<GovernanceLimits> {
 /**
  * Update query governance limits
  */
-export async function updateGovernanceLimits(
-  limits: GovernanceLimits
-): Promise<GovernanceLimits> {
+export async function updateGovernanceLimits(limits: GovernanceLimits): Promise<GovernanceLimits> {
   return await invoke<GovernanceLimits>('update_governance_limits', { limits });
 }

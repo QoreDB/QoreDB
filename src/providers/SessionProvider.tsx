@@ -36,8 +36,7 @@ import {
   setSettingsOpen,
 } from '@/lib/modalStore';
 import { useTabContext } from './TabProvider';
-
-const DEFAULT_PROJECT = 'default';
+import { useWorkspace } from './WorkspaceProvider';
 const RECOVERY_SAVE_DEBOUNCE_MS = 600;
 const STARTUP_PREFS_KEY = 'qoredb_startup_preferences';
 
@@ -114,6 +113,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
   const { tabs, activeTabId, queryDrafts, tableBrowserTabs, databaseBrowserTabs, resetTabs } =
     useTabContext();
+  const { projectId } = useWorkspace();
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [driver, setDriver] = useState<Driver>(Driver.Postgres);
   const [driverCapabilities, setDriverCapabilities] = useState<DriverCapabilities | null>(null);
@@ -131,10 +131,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   // Load saved connections on mount & refresh
   useEffect(() => {
-    listSavedConnections(DEFAULT_PROJECT)
+    listSavedConnections(projectId)
       .then(saved => setHasConnections(saved.length > 0))
       .catch(() => setHasConnections(false));
-  }, []);
+  }, [projectId]);
 
   // Listen for connections-changed events
   useEffect(() => {
@@ -230,7 +230,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
     const snapshot: CrashRecoverySnapshot = {
       updatedAt: Date.now(),
-      projectId: DEFAULT_PROJECT,
+      projectId: projectId,
       connectionId: activeConnection.id,
       activeTabId,
       tabs: tabs.map(tab => ({
@@ -254,6 +254,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [
     activeConnection,
     sessionId,
+    projectId,
     tabs,
     activeTabId,
     queryDrafts,
@@ -345,10 +346,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         const attemptId = reconnectAttemptRef.current;
         void (async () => {
           try {
-            const reconnectResult = await connectSavedConnection(
-              DEFAULT_PROJECT,
-              updatedConnection.id
-            );
+            const reconnectResult = await connectSavedConnection(projectId, updatedConnection.id);
             if (attemptId !== reconnectAttemptRef.current) return;
             if (reconnectResult.success && reconnectResult.session_id) {
               pendingReconnectRef.current = null;
@@ -392,7 +390,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         })();
       }
     },
-    [activeConnection, handleConnected, resetTabs, sessionId, t]
+    [activeConnection, handleConnected, projectId, resetTabs, sessionId, t]
   );
 
   return (

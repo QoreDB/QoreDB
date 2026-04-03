@@ -12,6 +12,7 @@ import {
   type QueryLibraryItem,
 } from '../../lib/queryLibrary';
 import { listSavedConnections, type SavedConnection } from '../../lib/tauri';
+import { useWorkspace } from '@/providers/WorkspaceProvider';
 
 interface GlobalSearchProps {
   isOpen: boolean;
@@ -37,8 +38,6 @@ export interface SearchResult {
   data?: SavedConnection | HistoryEntry | QueryLibraryItem;
 }
 
-const DEFAULT_PROJECT = 'default';
-
 const TIP_KEYS = [
   'palette.tips.newQuery',
   'palette.tips.sandbox',
@@ -56,6 +55,7 @@ export function GlobalSearch({
   features = [],
 }: GlobalSearchProps) {
   const { t } = useTranslation();
+  const { projectId } = useWorkspace();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -92,7 +92,7 @@ export function GlobalSearch({
       setSelectedIndex(0);
       setTipIndex(Math.floor(Math.random() * TIP_KEYS.length));
 
-      listSavedConnections(DEFAULT_PROJECT).then(setConnections).catch(console.error);
+      listSavedConnections(projectId).then(setConnections).catch(console.error);
 
       try {
         setLibraryItems(listItems());

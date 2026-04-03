@@ -589,7 +589,11 @@ const NotificationBell = () => {
   const hasChangelog = useHasUnseenChangelog();
 
   return (
-    <Popover onOpenChange={open => { if (open && hasChangelog) markChangelogSeen(); }}>
+    <Popover
+      onOpenChange={open => {
+        if (open && hasChangelog) markChangelogSeen();
+      }}
+    >
       <PopoverTrigger asChild>
         <Button
           variant="ghost"

@@ -1950,5 +1950,24 @@
     "failed": "Schema export failed",
     "noPath": "Please select an output file",
     "menuItem": "Export Schema"
+  },
+  "workspace": {
+    "title": "Workspace",
+    "default": "Default Workspace",
+    "detected": "Workspace detected",
+    "detectedMessage": "A .qoredb workspace was found in the current directory. Use it?",
+    "accept": "Use workspace",
+    "dismiss": "Stay in default",
+    "create": "Create Workspace",
+    "created": "Workspace created successfully",
+    "createDescription": "Initialize a .qoredb workspace directory in your project for team-shareable connections, notebooks, and queries.",
+    "open": "Open Workspace",
+    "switch": "Switch Workspace",
+    "recent": "Recent Workspaces",
+    "name": "Workspace name",
+    "path": "Project directory",
+    "initialize": "Initialize",
+    "importExisting": "Import existing connections",
+    "noWorkspaces": "No recent workspaces"
   }
 }

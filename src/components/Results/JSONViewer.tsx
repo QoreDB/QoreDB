@@ -90,7 +90,9 @@ function JSONNode({ value, keyName, depth, initialExpanded, maxDepth }: JSONNode
           role="button"
           tabIndex={0}
           aria-expanded={expanded}
-          aria-label={keyName ? `${keyName}: array (${value.length} items)` : `array (${value.length} items)`}
+          aria-label={
+            keyName ? `${keyName}: array (${value.length} items)` : `array (${value.length} items)`
+          }
           className="flex items-center cursor-pointer hover:bg-muted/20 rounded px-1 -ml-1 select-none"
           style={indent}
           onClick={() => setExpanded(!expanded)}
@@ -142,7 +144,11 @@ function JSONNode({ value, keyName, depth, initialExpanded, maxDepth }: JSONNode
           role="button"
           tabIndex={0}
           aria-expanded={expanded}
-          aria-label={keyName ? `${keyName}: object (${entries.length} keys)` : `object (${entries.length} keys)`}
+          aria-label={
+            keyName
+              ? `${keyName}: object (${entries.length} keys)`
+              : `object (${entries.length} keys)`
+          }
           className="flex items-center cursor-pointer hover:bg-muted/20 rounded px-1 -ml-1 select-none"
           style={indent}
           onClick={() => setExpanded(!expanded)}

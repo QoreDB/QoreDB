@@ -38,7 +38,8 @@
     "restoring": "Wird wiederhergestellt…",
     "discard": "Verwerfen",
     "missingConnection": "Gespeicherte Verbindung nicht gefunden.",
-    "restoreFailed": "Sitzung konnte nicht wiederhergestellt werden."
+    "restoreFailed": "Sitzung konnte nicht wiederhergestellt werden.",
+    "differentWorkspace": "Die vorherige Sitzung gehört zu einem anderen Arbeitsbereich. Wechseln Sie zu diesem Arbeitsbereich, um sie wiederherzustellen."
   },
   "updates": {
     "available": "Update {{version}} verfügbar",

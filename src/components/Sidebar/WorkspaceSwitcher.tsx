@@ -23,6 +23,13 @@ export function WorkspaceSwitcher() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
   const isDefault = !activeWorkspace || activeWorkspace.source === 'default';
+  const hasRecentWorkspaces = recentWorkspaces.length > 0;
+
+  // Only show the switcher when relevant: non-default workspace active or recents exist
+  if (isDefault && !hasRecentWorkspaces && !createDialogOpen) {
+    return null;
+  }
+
   const displayName = isDefault ? t('workspace.default') : activeWorkspace?.manifest.name;
   const badge = activeWorkspace?.source === 'detected' ? 'CWD' : null;
 
@@ -47,7 +54,15 @@ export function WorkspaceSwitcher() {
               type="button"
               className="flex items-center gap-2 w-full px-2 py-1 text-xs rounded-md hover:bg-muted transition-colors text-left"
             >
-              <FolderOpen size={13} className="text-muted-foreground shrink-0" />
+              <span className="relative shrink-0">
+                <FolderOpen
+                  size={13}
+                  className={isDefault ? 'text-muted-foreground' : 'text-emerald-500'}
+                />
+                {!isDefault && (
+                  <span className="absolute -top-0.5 -right-0.5 h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                )}
+              </span>
               <span className="truncate flex-1 font-medium">{displayName}</span>
               {badge && (
                 <span className="text-[10px] px-1 py-0.5 rounded bg-accent/20 text-accent-foreground font-mono shrink-0">

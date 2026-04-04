@@ -74,6 +74,8 @@ export function useRecovery() {
 
     setState(prev => ({ ...prev, snapshot }));
 
+    const isOtherWorkspace = snapshot.projectId !== projectId;
+
     listSavedConnections(projectId)
       .then(saved => {
         const match = saved.find(conn => conn.id === snapshot.connectionId);
@@ -81,6 +83,7 @@ export function useRecovery() {
           ...prev,
           connectionName: match?.name ?? null,
           isMissing: !match,
+          error: !match && isOtherWorkspace ? t('recovery.differentWorkspace') : null,
         }));
       })
       .catch(() => {
@@ -102,10 +105,13 @@ export function useRecovery() {
       const match = saved.find(conn => conn.id === state.snapshot?.connectionId);
 
       if (!match) {
+        const isOtherWorkspace = state.snapshot?.projectId !== projectId;
         setState(prev => ({
           ...prev,
           isMissing: true,
-          error: t('recovery.missingConnection'),
+          error: isOtherWorkspace
+            ? t('recovery.differentWorkspace')
+            : t('recovery.missingConnection'),
           isLoading: false,
         }));
         return null;

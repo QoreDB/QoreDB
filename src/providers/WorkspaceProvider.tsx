@@ -25,7 +25,30 @@ import {
 } from '@/lib/tauri';
 import { loadWorkspaceLibrary } from '@/lib/queryLibrary';
 
-const DISMISSED_WORKSPACE_KEY = 'qoredb_dismissed_workspace';
+const DISMISSED_WORKSPACE_KEY = 'qoredb_dismissed_workspaces';
+
+function getDismissedWorkspaces(): Set<string> {
+  try {
+    const raw = localStorage.getItem(DISMISSED_WORKSPACE_KEY);
+    if (!raw) return new Set();
+    const arr = JSON.parse(raw);
+    return new Set(Array.isArray(arr) ? arr : []);
+  } catch {
+    return new Set();
+  }
+}
+
+export function addDismissedWorkspace(path: string) {
+  const set = getDismissedWorkspaces();
+  set.add(path);
+  localStorage.setItem(DISMISSED_WORKSPACE_KEY, JSON.stringify([...set]));
+}
+
+function removeDismissedWorkspace(path: string) {
+  const set = getDismissedWorkspaces();
+  set.delete(path);
+  localStorage.setItem(DISMISSED_WORKSPACE_KEY, JSON.stringify([...set]));
+}
 
 /** Load the workspace query library from disk into localStorage */
 async function syncWorkspaceLibrary() {
@@ -72,8 +95,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         if (cancelled) return;
 
         if (detected && detected.source === 'detected') {
-          const dismissed = localStorage.getItem(DISMISSED_WORKSPACE_KEY);
-          if (dismissed === detected.path) {
+          if (getDismissedWorkspaces().has(detected.path)) {
             const active = await switchToDefaultWorkspace();
             if (!cancelled) setActiveWorkspace(active, 'default');
           } else {
@@ -119,7 +141,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
           setActiveWorkspace(result.workspace, pid);
           emitUiEvent(UI_EVENT_WORKSPACE_CHANGED);
           await syncWorkspaceLibrary();
-          localStorage.removeItem(DISMISSED_WORKSPACE_KEY);
+          removeDismissedWorkspace(qoredbPath);
           const recents = await listRecentWorkspaces();
           setRecentWorkspaces(recents);
           return true;

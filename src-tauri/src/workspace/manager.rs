@@ -207,11 +207,18 @@ impl WorkspaceManager {
             EngineError::internal(format!("Invalid workspace.json: {}", e))
         })?;
 
-        if manifest.version != WORKSPACE_SCHEMA_VERSION {
-            return Err(EngineError::internal(format!(
-                "Unsupported workspace version: {} (expected {})",
-                manifest.version, WORKSPACE_SCHEMA_VERSION
-            )));
+        if manifest.version == 0 {
+            return Err(EngineError::internal(
+                "Invalid workspace version: 0".to_string(),
+            ));
+        }
+        if manifest.version > WORKSPACE_SCHEMA_VERSION {
+            tracing::warn!(
+                "Workspace {} uses version {} (current: {}). Some features may not work.",
+                qoredb_path.display(),
+                manifest.version,
+                WORKSPACE_SCHEMA_VERSION
+            );
         }
 
         Ok(WorkspaceInfo {

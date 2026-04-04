@@ -38,7 +38,8 @@
     "restoring": "Restoring…",
     "discard": "Discard",
     "missingConnection": "Saved connection not found.",
-    "restoreFailed": "Failed to restore session."
+    "restoreFailed": "Failed to restore session.",
+    "differentWorkspace": "The previous session belongs to a different workspace. Switch to that workspace to restore it."
   },
   "updates": {
     "available": "Update {{version}} available",

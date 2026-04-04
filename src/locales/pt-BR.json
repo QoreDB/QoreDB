@@ -38,7 +38,8 @@
     "restoring": "Restaurando…",
     "discard": "Descartar",
     "missingConnection": "Conexão salva não encontrada.",
-    "restoreFailed": "Falha ao restaurar a sessão."
+    "restoreFailed": "Falha ao restaurar a sessão.",
+    "differentWorkspace": "A sessão anterior pertence a outra área de trabalho. Mude para essa área para restaurá-la."
   },
   "updates": {
     "available": "Atualização {{version}} disponível",

@@ -38,7 +38,8 @@
     "restoring": "正在恢复…",
     "discard": "放弃",
     "missingConnection": "未找到已保存的连接。",
-    "restoreFailed": "恢复会话失败。"
+    "restoreFailed": "恢复会话失败。",
+    "differentWorkspace": "上一个会话属于不同的工作区。请切换到该工作区以恢复它。"
   },
   "updates": {
     "available": "更新 {{version}} 可用",

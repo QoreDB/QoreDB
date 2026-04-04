@@ -38,7 +38,8 @@
     "restoring": "Restauration…",
     "discard": "Ignorer",
     "missingConnection": "Connexion sauvegardée introuvable.",
-    "restoreFailed": "Échec de la restauration de la session."
+    "restoreFailed": "Échec de la restauration de la session.",
+    "differentWorkspace": "La session précédente appartient à un autre espace de travail. Changez d'espace pour la restaurer."
   },
   "updates": {
     "available": "Mise à jour {{version}} disponible",

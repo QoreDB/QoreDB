@@ -38,7 +38,8 @@
     "restoring": "復元中…",
     "discard": "破棄",
     "missingConnection": "保存された接続が見つかりません。",
-    "restoreFailed": "セッションの復元に失敗しました。"
+    "restoreFailed": "セッションの復元に失敗しました。",
+    "differentWorkspace": "前回のセッションは別のワークスペースに属しています。復元するにはそのワークスペースに切り替えてください。"
   },
   "updates": {
     "available": "アップデート {{version}} が利用可能です",

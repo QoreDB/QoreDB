@@ -3,6 +3,7 @@
 import { createContext, type ReactNode, useCallback, useContext, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
+import { emitUiEvent, UI_EVENT_WORKSPACE_CHANGED } from '@/lib/uiEvents';
 import {
   setActiveWorkspace,
   setRecentWorkspaces,
@@ -117,6 +118,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       try {
         const result = await tauriSwitchWorkspace(qoredbPath);
         if (result.success && result.workspace) {
+          emitUiEvent(UI_EVENT_WORKSPACE_CHANGED);
           const pid = await getWorkspaceProjectId();
           setActiveWorkspace(result.workspace, pid);
           await syncWorkspaceLibrary();
@@ -138,6 +140,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
   const switchToDefault = useCallback(async () => {
     try {
+      emitUiEvent(UI_EVENT_WORKSPACE_CHANGED);
       const info = await switchToDefaultWorkspace();
       setActiveWorkspace(info, 'default');
     } catch (err) {
@@ -150,6 +153,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       try {
         const result = await tauriCreateWorkspace(projectDir, name);
         if (result.success && result.workspace) {
+          emitUiEvent(UI_EVENT_WORKSPACE_CHANGED);
           const pid = await getWorkspaceProjectId();
           setActiveWorkspace(result.workspace, pid);
           await syncWorkspaceLibrary();
@@ -174,6 +178,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       try {
         const result = await tauriOpenWorkspace(qoredbPath);
         if (result.success && result.workspace) {
+          emitUiEvent(UI_EVENT_WORKSPACE_CHANGED);
           const pid = await getWorkspaceProjectId();
           setActiveWorkspace(result.workspace, pid);
           await syncWorkspaceLibrary();

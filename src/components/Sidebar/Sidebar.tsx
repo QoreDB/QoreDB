@@ -107,7 +107,7 @@ export function Sidebar({
     } catch (err) {
       console.error('Failed to load connections:', err);
     }
-  }, []);
+  }, [projectId]);
 
   useEffect(() => {
     loadConnections();

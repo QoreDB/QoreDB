@@ -51,7 +51,7 @@ export function DataDiffViewer({
     } finally {
       setConnectionsLoading(false);
     }
-  }, []);
+  }, [projectId]);
 
   useEffect(() => {
     loadConnections();

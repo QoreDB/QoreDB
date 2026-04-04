@@ -51,8 +51,36 @@ impl WorkspaceConnectionStore {
         }
     }
 
-    fn connection_file(&self, connection_id: &str) -> PathBuf {
-        self.connections_dir.join(format!("{}.json", connection_id))
+    /// Validates that a connection_id is safe to use as a filename.
+    /// Rejects path traversal attempts, empty IDs, and dangerous characters.
+    fn validate_connection_id(connection_id: &str) -> EngineResult<()> {
+        if connection_id.is_empty() {
+            return Err(EngineError::internal("Connection ID cannot be empty"));
+        }
+        if connection_id.contains("..")
+            || connection_id.contains('/')
+            || connection_id.contains('\\')
+            || connection_id.contains('\0')
+        {
+            return Err(EngineError::internal(
+                "Connection ID contains invalid characters",
+            ));
+        }
+        // Only allow alphanumeric, underscore, hyphen
+        if !connection_id
+            .chars()
+            .all(|c| c.is_alphanumeric() || c == '_' || c == '-')
+        {
+            return Err(EngineError::internal(
+                "Connection ID must only contain alphanumeric characters, underscores, or hyphens",
+            ));
+        }
+        Ok(())
+    }
+
+    fn connection_file(&self, connection_id: &str) -> EngineResult<PathBuf> {
+        Self::validate_connection_id(connection_id)?;
+        Ok(self.connections_dir.join(format!("{}.json", connection_id)))
     }
 
     fn credentials_key(connection_id: &str) -> String {
@@ -97,7 +125,7 @@ impl WorkspaceConnectionStore {
 
     /// Gets a specific connection by ID.
     pub fn get_connection(&self, connection_id: &str) -> EngineResult<SavedConnection> {
-        let path = self.connection_file(connection_id);
+        let path = self.connection_file(connection_id)?;
         let content = fs::read_to_string(&path).map_err(|e| {
             EngineError::internal(format!("Connection not found: {}", e))
         })?;
@@ -121,7 +149,8 @@ impl WorkspaceConnectionStore {
         let content = serde_json::to_string_pretty(connection)
             .map_err(|e| EngineError::internal(format!("Serialization error: {}", e)))?;
 
-        fs::write(self.connection_file(&connection.id), content)
+        let file_path = self.connection_file(&connection.id)?;
+        fs::write(file_path, content)
             .map_err(|e| EngineError::internal(format!("Failed to write connection file: {}", e)))?;
 
         // Save credentials to keyring
@@ -163,7 +192,7 @@ impl WorkspaceConnectionStore {
 
     /// Deletes a connection (file + keyring entry).
     pub fn delete_connection(&self, connection_id: &str) -> EngineResult<()> {
-        let path = self.connection_file(connection_id);
+        let path = self.connection_file(connection_id)?;
         if path.exists() {
             fs::remove_file(&path).map_err(|e| {
                 EngineError::internal(format!("Failed to delete connection file: {}", e))
@@ -300,5 +329,17 @@ mod tests {
 
         let list = store.list_connections().unwrap();
         assert_eq!(list.len(), 2);
+    }
+
+    #[test]
+    fn rejects_path_traversal_in_connection_id() {
+        assert!(WorkspaceConnectionStore::validate_connection_id("../etc/passwd").is_err());
+        assert!(WorkspaceConnectionStore::validate_connection_id("foo/bar").is_err());
+        assert!(WorkspaceConnectionStore::validate_connection_id("foo\\bar").is_err());
+        assert!(WorkspaceConnectionStore::validate_connection_id("foo\0bar").is_err());
+        assert!(WorkspaceConnectionStore::validate_connection_id("").is_err());
+        assert!(WorkspaceConnectionStore::validate_connection_id("hello world").is_err());
+        assert!(WorkspaceConnectionStore::validate_connection_id("conn_abc123").is_ok());
+        assert!(WorkspaceConnectionStore::validate_connection_id("conn-abc-123").is_ok());
     }
 }

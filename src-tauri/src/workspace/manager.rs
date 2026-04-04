@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use std::collections::hash_map::DefaultHasher;
 use std::fs;
-use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
 
 use chrono::Utc;
@@ -19,6 +17,19 @@ const RECENT_WORKSPACES_FILE: &str = "recent_workspaces.json";
 const MAX_RECENT_WORKSPACES: usize = 10;
 
 const GITIGNORE_CONTENT: &str = "# Secrets are never stored in .qoredb, but just in case:\n*.key\n*.pem\n\n# Local cache\n.cache/\n";
+
+/// FNV-1a 64-bit hash 
+fn fnv1a_hash(data: &[u8]) -> u64 {
+    const FNV_OFFSET_BASIS: u64 = 0xcbf29ce484222325;
+    const FNV_PRIME: u64 = 0x100000001b3;
+
+    let mut hash = FNV_OFFSET_BASIS;
+    for &byte in data {
+        hash ^= byte as u64;
+        hash = hash.wrapping_mul(FNV_PRIME);
+    }
+    hash
+}
 
 /// Manages workspace lifecycle: detection, creation, loading, switching.
 pub struct WorkspaceManager {
@@ -45,14 +56,13 @@ impl WorkspaceManager {
 
     /// Returns the project ID derived from the active workspace.
     /// For the default workspace this is `"default"`.
-    /// For file-based workspaces this is `"ws_<hash>"` (hash of the absolute path).
+    /// For file-based workspaces this is `"ws_<hash>"` using FNV-1a (stable across Rust versions).
     pub fn project_id(&self) -> String {
         match self.active.source {
             WorkspaceSource::Default => "default".to_string(),
             _ => {
-                let mut hasher = DefaultHasher::new();
-                self.active.path.to_string_lossy().hash(&mut hasher);
-                format!("ws_{:016x}", hasher.finish())
+                let hash = fnv1a_hash(self.active.path.to_string_lossy().as_bytes());
+                format!("ws_{:016x}", hash)
             }
         }
     }
@@ -307,5 +317,35 @@ mod tests {
 
         mgr.switch_to_default();
         assert_eq!(mgr.project_id(), "default");
+    }
+
+    /// Ensures FNV-1a produces deterministic, stable values.
+    /// These golden values MUST NOT change — credentials are keyed by them.
+    /// If this test fails, users will lose access to their saved credentials.
+    #[test]
+    fn fnv1a_hash_stability() {
+        assert_eq!(fnv1a_hash(b""), 0xcbf29ce484222325);
+        assert_eq!(fnv1a_hash(b"a"), 0xaf63dc4c8601ec8c);
+        assert_eq!(fnv1a_hash(b"/Users/dev/project/.qoredb"), 0x1c089eff0e6e433e);
+        assert_eq!(fnv1a_hash(b"/home/user/app/.qoredb"), 0x49f7a110a4ef9f9b);
+
+        // Same input always gives same output
+        let input = b"/some/path/.qoredb";
+        assert_eq!(fnv1a_hash(input), fnv1a_hash(input));
+    }
+
+    /// The project_id for the same workspace path must be identical across calls.
+    #[test]
+    fn project_id_is_deterministic() {
+        let tmp = TempDir::new().unwrap();
+        let app_config = TempDir::new().unwrap();
+        let mut mgr = WorkspaceManager::new(app_config.path().to_path_buf());
+
+        mgr.create_workspace(tmp.path(), "Stable").unwrap();
+        let id1 = mgr.project_id();
+        let id2 = mgr.project_id();
+        assert_eq!(id1, id2);
+        assert!(id1.starts_with("ws_"));
+        assert_eq!(id1.len(), 3 + 16); // "ws_" + 16 hex chars
     }
 }

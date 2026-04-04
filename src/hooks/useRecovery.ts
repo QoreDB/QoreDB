@@ -12,7 +12,7 @@ import {
 } from '@/lib/crashRecovery';
 import type { OpenTab } from '@/lib/tabs';
 import { connectSavedConnection, listSavedConnections, type SavedConnection } from '@/lib/tauri';
-import { getWorkspaceState } from '@/lib/workspaceStore';
+import { useWorkspace } from '@/providers/WorkspaceProvider';
 
 function sanitizeTableBrowserTabs(input?: Record<string, string>): Record<string, TableBrowserTab> {
   const result: Record<string, TableBrowserTab> = {};
@@ -58,6 +58,7 @@ export interface RestoredSession {
 
 export function useRecovery() {
   const { t } = useTranslation();
+  const { projectId } = useWorkspace();
   const [state, setState] = useState<RecoveryState>({
     snapshot: null,
     connectionName: null,
@@ -73,7 +74,7 @@ export function useRecovery() {
 
     setState(prev => ({ ...prev, snapshot }));
 
-    listSavedConnections(getWorkspaceState().projectId)
+    listSavedConnections(projectId)
       .then(saved => {
         const match = saved.find(conn => conn.id === snapshot.connectionId);
         setState(prev => ({
@@ -97,7 +98,7 @@ export function useRecovery() {
     setState(prev => ({ ...prev, isLoading: true, error: null }));
 
     try {
-      const saved = await listSavedConnections(getWorkspaceState().projectId);
+      const saved = await listSavedConnections(projectId);
       const match = saved.find(conn => conn.id === state.snapshot?.connectionId);
 
       if (!match) {
@@ -110,7 +111,7 @@ export function useRecovery() {
         return null;
       }
 
-      const result = await connectSavedConnection(getWorkspaceState().projectId, match.id);
+      const result = await connectSavedConnection(projectId, match.id);
       if (!result.success || !result.session_id) {
         setState(prev => ({
           ...prev,

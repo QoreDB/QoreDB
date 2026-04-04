@@ -29,7 +29,7 @@ import {
   listSavedConnections,
   type SavedConnection,
 } from '@/lib/tauri';
-import { UI_EVENT_CONNECTIONS_CHANGED } from '@/lib/uiEvents';
+import { UI_EVENT_CONNECTIONS_CHANGED, UI_EVENT_WORKSPACE_CHANGED } from '@/lib/uiEvents';
 import { setUpdateAvailable } from '@/lib/updateStore';
 import {
   handleCloseConnectionModal as closeConnectionModal,
@@ -142,6 +142,26 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     window.addEventListener(UI_EVENT_CONNECTIONS_CHANGED, handler);
     return () => window.removeEventListener(UI_EVENT_CONNECTIONS_CHANGED, handler);
   }, []);
+
+  // Disconnect and reset when workspace changes
+  useEffect(() => {
+    const handler = () => {
+      const currentSessionId = sessionId;
+      if (currentSessionId) {
+        disconnect(currentSessionId).catch(err =>
+          console.warn('Failed to disconnect on workspace switch:', err)
+        );
+      }
+      setSessionId(null);
+      setActiveConnection(null);
+      setDriverCapabilities(null);
+      setConnectionHealth('healthy');
+      resetTabs();
+      setSidebarRefreshTrigger(prev => prev + 1);
+    };
+    window.addEventListener(UI_EVENT_WORKSPACE_CHANGED, handler);
+    return () => window.removeEventListener(UI_EVENT_WORKSPACE_CHANGED, handler);
+  }, [sessionId, resetTabs]);
 
   // Check for updates on startup
   useEffect(() => {

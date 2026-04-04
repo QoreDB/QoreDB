@@ -492,7 +492,8 @@
       "data": "Dados e Privacidade",
       "shortcuts": "Atalhos de Teclado",
       "license": "Licença",
-      "ai": "Assistente de IA"
+      "ai": "Assistente de IA",
+      "workspaces": "Áreas de trabalho"
     },
     "search": {
       "placeholder": "Pesquisar configurações...",
@@ -531,6 +532,21 @@
       "runQuery": "Executar consulta",
       "closeTab": "Fechar aba",
       "escape": "Fechar overlay / Cancelar"
+    },
+    "workspaces": {
+      "whatTitle": "O que é uma área de trabalho?",
+      "whatDescription": "Uma área de trabalho é um diretório .qoredb/ no seu projeto que armazena conexões, consultas e notebooks — tudo versionável com Git.",
+      "benefitGit": "Versionável com Git",
+      "benefitGitDesc": "Compartilhe sua configuração de banco de dados com sua equipe via Git.",
+      "benefitTeam": "Colaboração em equipe",
+      "benefitTeamDesc": "Todos obtêm as mesmas conexões e consultas automaticamente.",
+      "benefitOrganize": "Organizado por projeto",
+      "benefitOrganizeDesc": "Cada projeto tem suas próprias conexões, separadas dos demais.",
+      "activeTitle": "Área ativa",
+      "activeDescription": "A área de trabalho atualmente em uso para conexões e consultas.",
+      "quickstartTitle": "Início rápido",
+      "quickstartDescription": "Faça um tour guiado para aprender como as áreas de trabalho funcionam.",
+      "startTour": "Iniciar tour guiado"
     }
   },
   "table": {
@@ -959,6 +975,14 @@
       "step1Desc": "Navegue pelas linhas com carregamento infinito. Clique em uma célula para ver seu valor completo.",
       "step2Title": "Estrutura da tabela",
       "step2Desc": "Mude de aba para explorar colunas, índices e relacionamentos."
+    },
+    "workspaces": {
+      "step1Title": "Seletor de área de trabalho",
+      "step1Desc": "Organize suas conexões por projeto. Cada área tem suas próprias conexões, consultas e notebooks.",
+      "step2Title": "Conexões por projeto",
+      "step2Desc": "As conexões mudam conforme a área ativa. Troque de área e a lista se atualiza automaticamente.",
+      "step3Title": "Criar área de trabalho",
+      "step3Desc": "Abra o menu e clique em 'Criar área de trabalho' para inicializar um diretório .qoredb/ no seu projeto. Compatível com Git."
     }
   },
   "whatsNew": {
@@ -1161,6 +1185,10 @@
       "checkbox": "Compartilhar análises de uso anônimas (recomendado)",
       "privacyHint": "Coletamos apenas relatórios de falhas e contagens de uso de recursos. Nenhuma consulta, resultado ou credencial sai da sua máquina.",
       "finish": "Começar"
+    },
+    "workspace": {
+      "title": "Organize com áreas de trabalho",
+      "description": "Você tem várias conexões. Crie uma área de trabalho para agrupá-las por projeto e compartilhá-las com sua equipe via Git."
     }
   },
   "errorBoundary": {

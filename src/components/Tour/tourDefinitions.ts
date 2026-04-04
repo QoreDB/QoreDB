@@ -64,8 +64,30 @@ export const TOUR_FIRST_TABLE: TourStepDef[] = [
   },
 ];
 
+export const TOUR_WORKSPACES: TourStepDef[] = [
+  {
+    targetSelector: '[data-tour="workspace-switcher"]',
+    titleKey: 'tour.workspaces.step1Title',
+    descriptionKey: 'tour.workspaces.step1Desc',
+    position: 'right',
+  },
+  {
+    targetSelector: '[data-tour="sidebar-connections"]',
+    titleKey: 'tour.workspaces.step2Title',
+    descriptionKey: 'tour.workspaces.step2Desc',
+    position: 'right',
+  },
+  {
+    targetSelector: '[data-tour="workspace-switcher"]',
+    titleKey: 'tour.workspaces.step3Title',
+    descriptionKey: 'tour.workspaces.step3Desc',
+    position: 'right',
+  },
+];
+
 export const TOURS: Record<string, TourStepDef[]> = {
   'first-query': TOUR_FIRST_QUERY,
   'first-notebook': TOUR_FIRST_NOTEBOOK,
   'first-table': TOUR_FIRST_TABLE,
+  workspaces: TOUR_WORKSPACES,
 };

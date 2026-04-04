@@ -492,7 +492,8 @@
       "data": "데이터 및 개인정보",
       "shortcuts": "키보드 단축키",
       "license": "라이선스",
-      "ai": "AI 어시스턴트"
+      "ai": "AI 어시스턴트",
+      "workspaces": "워크스페이스"
     },
     "search": {
       "placeholder": "설정 검색...",
@@ -531,6 +532,21 @@
       "runQuery": "쿼리 실행",
       "closeTab": "탭 닫기",
       "escape": "오버레이 닫기 / 취소"
+    },
+    "workspaces": {
+      "whatTitle": "워크스페이스란?",
+      "whatDescription": "워크스페이스는 프로젝트의 .qoredb/ 디렉토리로, 연결, 쿼리, 노트북을 저장합니다. 모두 Git으로 버전 관리할 수 있습니다.",
+      "benefitGit": "Git 버전 관리",
+      "benefitGitDesc": "Git을 통해 팀과 데이터베이스 설정을 공유하세요.",
+      "benefitTeam": "팀 협업",
+      "benefitTeamDesc": "모든 팀원이 동일한 연결과 쿼리를 자동으로 얻습니다.",
+      "benefitOrganize": "프로젝트별 구성",
+      "benefitOrganizeDesc": "각 프로젝트에 별도의 연결이 있어 다른 프로젝트와 분리됩니다.",
+      "activeTitle": "활성 워크스페이스",
+      "activeDescription": "연결 및 쿼리에 현재 사용 중인 워크스페이스입니다.",
+      "quickstartTitle": "빠른 시작",
+      "quickstartDescription": "가이드 투어를 통해 워크스페이스 사용법을 알아보세요.",
+      "startTour": "가이드 투어 시작"
     }
   },
   "table": {
@@ -959,6 +975,14 @@
       "step1Desc": "무한 로딩으로 행을 스크롤합니다. 셀을 클릭하면 전체 값을 볼 수 있습니다.",
       "step2Title": "테이블 구조",
       "step2Desc": "탭을 전환하여 컬럼, 인덱스, 관계를 탐색하세요."
+    },
+    "workspaces": {
+      "step1Title": "워크스페이스 전환기",
+      "step1Desc": "프로젝트별로 데이터베이스 연결을 구성하세요.",
+      "step2Title": "프로젝트 연결",
+      "step2Desc": "활성 워크스페이스에 따라 연결이 변경됩니다.",
+      "step3Title": "워크스페이스 만들기",
+      "step3Desc": "드롭다운을 열고 .qoredb/ 디렉토리를 초기화하세요. Git 호환입니다."
     }
   },
   "whatsNew": {
@@ -1161,6 +1185,10 @@
       "checkbox": "익명 사용 분석 공유 (권장)",
       "privacyHint": "충돌 보고서와 기능 사용 횟수만 수집합니다. 쿼리, 결과, 자격 증명은 절대 기기를 떠나지 않습니다.",
       "finish": "시작하기"
+    },
+    "workspace": {
+      "title": "워크스페이스로 정리",
+      "description": "여러 연결이 있습니다. 워크스페이스를 만들어 프로젝트별로 그룹화하고 Git으로 팀과 공유하세요."
     }
   },
   "errorBoundary": {

@@ -47,7 +47,7 @@ export function WorkspaceSwitcher() {
 
   return (
     <>
-      <div className="px-3 py-1.5 border-b border-border">
+      <div className="px-3 py-1.5 border-b border-border" data-tour="workspace-switcher">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button

@@ -312,7 +312,10 @@ export function Sidebar({
 
       <WorkspaceSwitcher />
 
-      <section className="flex-1 overflow-y-auto overflow-x-hidden py-2">
+      <section
+        className="flex-1 overflow-y-auto overflow-x-hidden py-2"
+        data-tour="sidebar-connections"
+      >
         {connections.length > 3 && (
           <div className="px-3 pb-2">
             <div className="relative">

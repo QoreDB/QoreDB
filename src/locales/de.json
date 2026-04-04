@@ -492,7 +492,8 @@
       "data": "Daten und Datenschutz",
       "shortcuts": "Tastenkürzel",
       "license": "Lizenz",
-      "ai": "KI-Assistent"
+      "ai": "KI-Assistent",
+      "workspaces": "Arbeitsbereiche"
     },
     "search": {
       "placeholder": "Einstellungen suchen…",
@@ -531,6 +532,21 @@
       "runQuery": "Abfrage ausführen",
       "closeTab": "Tab schließen",
       "escape": "Overlay schließen / Abbrechen"
+    },
+    "workspaces": {
+      "whatTitle": "Was ist ein Arbeitsbereich?",
+      "whatDescription": "Ein Arbeitsbereich ist ein .qoredb/-Verzeichnis in Ihrem Projekt, das Verbindungen, Abfragen und Notebooks speichert — alles versionierbar mit Git.",
+      "benefitGit": "Git-versionierbar",
+      "benefitGitDesc": "Teilen Sie Ihre Datenbankkonfiguration über Git mit Ihrem Team.",
+      "benefitTeam": "Teamzusammenarbeit",
+      "benefitTeamDesc": "Alle erhalten automatisch die gleichen Verbindungen und Abfragen.",
+      "benefitOrganize": "Nach Projekt organisiert",
+      "benefitOrganizeDesc": "Jedes Projekt hat eigene Verbindungen, getrennt von anderen.",
+      "activeTitle": "Aktiver Arbeitsbereich",
+      "activeDescription": "Der aktuell verwendete Arbeitsbereich für Verbindungen und Abfragen.",
+      "quickstartTitle": "Schnellstart",
+      "quickstartDescription": "Nehmen Sie an einer Führung teil, um Arbeitsbereiche kennenzulernen.",
+      "startTour": "Geführte Tour starten"
     }
   },
   "table": {
@@ -959,6 +975,14 @@
       "step1Desc": "Scrollen Sie durch Zeilen mit endlosem Laden. Klicken Sie auf eine Zelle, um den vollständigen Wert zu sehen.",
       "step2Title": "Tabellenstruktur",
       "step2Desc": "Wechseln Sie die Tabs, um Spalten, Indizes und Beziehungen zu erkunden."
+    },
+    "workspaces": {
+      "step1Title": "Arbeitsbereich-Umschalter",
+      "step1Desc": "Organisieren Sie Ihre Datenbankverbindungen nach Projekt. Jeder Arbeitsbereich hat eigene Verbindungen, Abfragen und Notebooks.",
+      "step2Title": "Projekt-Verbindungen",
+      "step2Desc": "Verbindungen ändern sich je nach aktivem Arbeitsbereich. Wechseln Sie den Arbeitsbereich und die Liste aktualisiert sich automatisch.",
+      "step3Title": "Arbeitsbereich erstellen",
+      "step3Desc": "Klicken Sie auf 'Arbeitsbereich erstellen', um ein .qoredb/-Verzeichnis in Ihrem Projekt zu initialisieren. Git-kompatibel."
     }
   },
   "whatsNew": {
@@ -1161,6 +1185,10 @@
       "checkbox": "Anonyme Nutzungsanalysen teilen (empfohlen)",
       "privacyHint": "Wir erfassen nur Absturzberichte und Funktionsnutzungszähler. Keine Abfragen, Ergebnisse oder Zugangsdaten verlassen Ihren Rechner.",
       "finish": "Loslegen"
+    },
+    "workspace": {
+      "title": "Mit Arbeitsbereichen organisieren",
+      "description": "Sie haben mehrere Verbindungen. Erstellen Sie einen Arbeitsbereich, um sie nach Projekt zu gruppieren und über Git zu teilen."
     }
   },
   "errorBoundary": {

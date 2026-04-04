@@ -492,7 +492,8 @@
       "data": "データとプライバシー",
       "shortcuts": "キーボードショートカット",
       "license": "ライセンス",
-      "ai": "AI アシスタント"
+      "ai": "AI アシスタント",
+      "workspaces": "ワークスペース"
     },
     "search": {
       "placeholder": "設定を検索...",
@@ -531,6 +532,21 @@
       "runQuery": "クエリを実行",
       "closeTab": "タブを閉じる",
       "escape": "オーバーレイを閉じる / キャンセル"
+    },
+    "workspaces": {
+      "whatTitle": "ワークスペースとは？",
+      "whatDescription": "ワークスペースは、プロジェクト内の.qoredb/ディレクトリで、接続、クエリ、ノートブックを保存します。すべてGitでバージョン管理可能です。",
+      "benefitGit": "Gitバージョン管理",
+      "benefitGitDesc": "Gitを通じてデータベース設定をチームと共有できます。",
+      "benefitTeam": "チームコラボレーション",
+      "benefitTeamDesc": "全員が同じ接続とクエリを自動的に取得します。",
+      "benefitOrganize": "プロジェクト別に整理",
+      "benefitOrganizeDesc": "各プロジェクトに独自の接続があり、他と分離されています。",
+      "activeTitle": "アクティブなワークスペース",
+      "activeDescription": "接続とクエリに現在使用されているワークスペース。",
+      "quickstartTitle": "クイックスタート",
+      "quickstartDescription": "ガイドツアーでワークスペースの使い方を学びましょう。",
+      "startTour": "ガイドツアーを開始"
     }
   },
   "table": {
@@ -959,6 +975,14 @@
       "step1Desc": "無限スクロールで行をブラウズします。セルをクリックすると完全な値が表示されます。",
       "step2Title": "テーブル構造",
       "step2Desc": "タブを切り替えて、カラム、インデックス、リレーションを確認できます。"
+    },
+    "workspaces": {
+      "step1Title": "ワークスペース切替",
+      "step1Desc": "データベース接続をプロジェクトごとに整理できます。",
+      "step2Title": "プロジェクト接続",
+      "step2Desc": "アクティブなワークスペースに応じて接続が変わります。",
+      "step3Title": "ワークスペースを作成",
+      "step3Desc": "ドロップダウンを開いて.qoredb/ディレクトリを初期化します。Git対応です。"
     }
   },
   "whatsNew": {
@@ -1161,6 +1185,10 @@
       "checkbox": "匿名の使用状況分析を共有する（推奨）",
       "privacyHint": "クラッシュレポートと機能使用回数のみを収集します。クエリ、結果、認証情報がお使いのマシンから外部に送信されることはありません。",
       "finish": "はじめる"
+    },
+    "workspace": {
+      "title": "ワークスペースで整理",
+      "description": "複数の接続があります。ワークスペースを作成してプロジェクトごとにグループ化し、Gitでチームと共有しましょう。"
     }
   },
   "errorBoundary": {

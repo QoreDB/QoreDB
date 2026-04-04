@@ -72,13 +72,10 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         if (cancelled) return;
 
         if (detected && detected.source === 'detected') {
-          // Check if user previously dismissed this workspace
           const dismissed = localStorage.getItem(DISMISSED_WORKSPACE_KEY);
           if (dismissed === detected.path) {
-            // User dismissed this workspace before, load default
-            const active = await getActiveWorkspace();
-            const pid = await getWorkspaceProjectId();
-            if (!cancelled) setActiveWorkspace(active, pid);
+            const active = await switchToDefaultWorkspace();
+            if (!cancelled) setActiveWorkspace(active, 'default');
           } else {
             // Workspace detected and accepted (detect_workspace already activates it)
             const pid = await getWorkspaceProjectId();
@@ -118,9 +115,9 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       try {
         const result = await tauriSwitchWorkspace(qoredbPath);
         if (result.success && result.workspace) {
-          emitUiEvent(UI_EVENT_WORKSPACE_CHANGED);
           const pid = await getWorkspaceProjectId();
           setActiveWorkspace(result.workspace, pid);
+          emitUiEvent(UI_EVENT_WORKSPACE_CHANGED);
           await syncWorkspaceLibrary();
           localStorage.removeItem(DISMISSED_WORKSPACE_KEY);
           const recents = await listRecentWorkspaces();
@@ -140,9 +137,9 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
   const switchToDefault = useCallback(async () => {
     try {
-      emitUiEvent(UI_EVENT_WORKSPACE_CHANGED);
       const info = await switchToDefaultWorkspace();
       setActiveWorkspace(info, 'default');
+      emitUiEvent(UI_EVENT_WORKSPACE_CHANGED);
     } catch (err) {
       console.error('Failed to switch to default workspace:', err);
     }
@@ -153,9 +150,9 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       try {
         const result = await tauriCreateWorkspace(projectDir, name);
         if (result.success && result.workspace) {
-          emitUiEvent(UI_EVENT_WORKSPACE_CHANGED);
           const pid = await getWorkspaceProjectId();
           setActiveWorkspace(result.workspace, pid);
+          emitUiEvent(UI_EVENT_WORKSPACE_CHANGED);
           await syncWorkspaceLibrary();
           const recents = await listRecentWorkspaces();
           setRecentWorkspaces(recents);
@@ -178,9 +175,9 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       try {
         const result = await tauriOpenWorkspace(qoredbPath);
         if (result.success && result.workspace) {
-          emitUiEvent(UI_EVENT_WORKSPACE_CHANGED);
           const pid = await getWorkspaceProjectId();
           setActiveWorkspace(result.workspace, pid);
+          emitUiEvent(UI_EVENT_WORKSPACE_CHANGED);
           await syncWorkspaceLibrary();
           const recents = await listRecentWorkspaces();
           setRecentWorkspaces(recents);

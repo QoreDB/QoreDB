@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { Bug, Database, Plus, Search } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -124,6 +125,24 @@ export function Sidebar({
     const handler = () => loadConnections();
     window.addEventListener(UI_EVENT_CONNECTIONS_CHANGED, handler);
     return () => window.removeEventListener(UI_EVENT_CONNECTIONS_CHANGED, handler);
+  }, [loadConnections]);
+
+  // Reload connections when .qoredb/connections/ changes on disk (file watcher)
+  useEffect(() => {
+    let unlisten: UnlistenFn | null = null;
+    let cancelled = false;
+
+    listen('workspace_fs:connections', () => {
+      if (!cancelled) loadConnections();
+    }).then(fn => {
+      if (cancelled) fn();
+      else unlisten = fn;
+    });
+
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
   }, [loadConnections]);
 
   const favoriteConnectionSet = useMemo(

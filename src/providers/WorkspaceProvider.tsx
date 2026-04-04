@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { createContext, type ReactNode, useCallback, useContext, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -131,6 +132,40 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       cancelled = true;
     };
   }, [t]);
+
+  // Listen for workspace file changes from the Rust watcher
+  useEffect(() => {
+    const unlisteners: UnlistenFn[] = [];
+    let cancelled = false;
+
+    // Reload query library when .qoredb/queries/ changes externally
+    listen('workspace_fs:queries', () => {
+      if (!cancelled) syncWorkspaceLibrary();
+    }).then(fn => {
+      if (cancelled) fn();
+      else unlisteners.push(fn);
+    });
+
+    // Reload workspace manifest when workspace.json changes externally
+    listen('workspace_fs:manifest', async () => {
+      if (cancelled) return;
+      try {
+        const active = await getActiveWorkspace();
+        const pid = await getWorkspaceProjectId();
+        setActiveWorkspace(active, pid);
+      } catch {
+        // ignore
+      }
+    }).then(fn => {
+      if (cancelled) fn();
+      else unlisteners.push(fn);
+    });
+
+    return () => {
+      cancelled = true;
+      for (const fn of unlisteners) fn();
+    };
+  }, []);
 
   const switchWorkspace = useCallback(
     async (qoredbPath: string): Promise<boolean> => {

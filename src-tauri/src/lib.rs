@@ -151,6 +151,12 @@ pub fn run() {
     let workspace_manager: SharedWorkspaceManager =
         Arc::new(tokio::sync::Mutex::new(workspace::WorkspaceManager::new(app_config_dir)));
 
+    // Initialize workspace file watcher infrastructure
+    let write_registry = workspace::write_registry::WriteRegistry::new();
+    let (ws_path_tx, ws_path_rx) =
+        tokio::sync::watch::channel::<Option<std::path::PathBuf>>(None);
+    let watcher_path_sender: commands::workspace::WatcherPathSender = Arc::new(ws_path_tx);
+
     tauri::Builder::default()
         .setup(|app| {
             #[cfg(desktop)]
@@ -175,6 +181,14 @@ pub fn run() {
             };
             session_manager.start_health_monitor(app.handle().clone());
 
+            // Start workspace file watcher
+            let wr: tauri::State<workspace::write_registry::WriteRegistry> = app.state();
+            workspace::watcher::start_workspace_watcher(
+                app.handle().clone(),
+                ws_path_rx,
+                wr.inner().clone(),
+            );
+
             Ok(())
         })
         .plugin(tauri_plugin_process::init())
@@ -184,6 +198,8 @@ pub fn run() {
         .manage(state)
         .manage(snapshot_store)
         .manage(workspace_manager)
+        .manage(write_registry)
+        .manage(watcher_path_sender)
         .invoke_handler(tauri::generate_handler![
             // Connection commands
             commands::connection::test_connection,

@@ -17,6 +17,7 @@ use crate::engine::error::{EngineError, EngineResult};
 use crate::observability::Sensitive;
 use crate::vault::backend::CredentialProvider;
 use crate::vault::credentials::{SavedConnection, StoredCredentials};
+use crate::workspace::write_registry::WriteRegistry;
 
 /// Credentials JSON shape (same as vault storage — shared format).
 #[derive(Serialize, Deserialize)]
@@ -36,6 +37,8 @@ pub struct WorkspaceConnectionStore {
     service_name: String,
     /// Keyring provider
     provider: Box<dyn CredentialProvider>,
+    /// Optional write registry for file watcher exclusion
+    write_registry: Option<WriteRegistry>,
 }
 
 impl WorkspaceConnectionStore {
@@ -48,6 +51,20 @@ impl WorkspaceConnectionStore {
             connections_dir,
             service_name,
             provider,
+            write_registry: None,
+        }
+    }
+
+    /// Sets the write registry for file watcher self-write exclusion.
+    pub fn with_write_registry(mut self, registry: WriteRegistry) -> Self {
+        self.write_registry = Some(registry);
+        self
+    }
+
+    /// Register a file write with the write registry (if present).
+    fn register_write(&self, path: &PathBuf) {
+        if let Some(ref reg) = self.write_registry {
+            reg.register_with_auto_unregister(path.clone());
         }
     }
 
@@ -150,7 +167,8 @@ impl WorkspaceConnectionStore {
             .map_err(|e| EngineError::internal(format!("Serialization error: {}", e)))?;
 
         let file_path = self.connection_file(&connection.id)?;
-        fs::write(file_path, content)
+        self.register_write(&file_path);
+        fs::write(&file_path, content)
             .map_err(|e| EngineError::internal(format!("Failed to write connection file: {}", e)))?;
 
         // Save credentials to keyring
@@ -194,6 +212,7 @@ impl WorkspaceConnectionStore {
     pub fn delete_connection(&self, connection_id: &str) -> EngineResult<()> {
         let path = self.connection_file(connection_id)?;
         if path.exists() {
+            self.register_write(&path);
             fs::remove_file(&path).map_err(|e| {
                 EngineError::internal(format!("Failed to delete connection file: {}", e))
             })?;

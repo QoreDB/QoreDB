@@ -12,6 +12,8 @@ use crate::workspace::types::{RecentWorkspace, WorkspaceInfo, WorkspaceSource};
 use crate::workspace::WorkspaceManager;
 
 pub type SharedWorkspaceManager = std::sync::Arc<tokio::sync::Mutex<WorkspaceManager>>;
+pub type WatcherPathSender =
+    std::sync::Arc<tokio::sync::watch::Sender<Option<std::path::PathBuf>>>;
 
 #[derive(Debug, Serialize)]
 pub struct WorkspaceResponse {
@@ -24,9 +26,14 @@ pub struct WorkspaceResponse {
 #[tauri::command]
 pub async fn detect_workspace(
     ws_manager: State<'_, SharedWorkspaceManager>,
+    ws_path_tx: State<'_, WatcherPathSender>,
 ) -> Result<Option<WorkspaceInfo>, String> {
     let mut mgr = ws_manager.lock().await;
-    Ok(mgr.detect_and_activate())
+    let result = mgr.detect_and_activate();
+    if let Some(ref info) = result {
+        let _ = ws_path_tx.send(Some(info.path.clone()));
+    }
+    Ok(result)
 }
 
 /// Returns the currently active workspace.
@@ -51,16 +58,20 @@ pub async fn get_workspace_project_id(
 #[tauri::command]
 pub async fn create_workspace(
     ws_manager: State<'_, SharedWorkspaceManager>,
+    ws_path_tx: State<'_, WatcherPathSender>,
     project_dir: String,
     name: String,
 ) -> Result<WorkspaceResponse, String> {
     let mut mgr = ws_manager.lock().await;
     match mgr.create_workspace(&PathBuf::from(&project_dir), &name) {
-        Ok(info) => Ok(WorkspaceResponse {
-            success: true,
-            workspace: Some(info),
-            error: None,
-        }),
+        Ok(info) => {
+            let _ = ws_path_tx.send(Some(info.path.clone()));
+            Ok(WorkspaceResponse {
+                success: true,
+                workspace: Some(info),
+                error: None,
+            })
+        }
         Err(e) => Ok(WorkspaceResponse {
             success: false,
             workspace: None,
@@ -73,15 +84,19 @@ pub async fn create_workspace(
 #[tauri::command]
 pub async fn open_workspace(
     ws_manager: State<'_, SharedWorkspaceManager>,
+    ws_path_tx: State<'_, WatcherPathSender>,
     qoredb_path: String,
 ) -> Result<WorkspaceResponse, String> {
     let mut mgr = ws_manager.lock().await;
     match mgr.switch_to(&PathBuf::from(&qoredb_path), WorkspaceSource::Manual) {
-        Ok(info) => Ok(WorkspaceResponse {
-            success: true,
-            workspace: Some(info),
-            error: None,
-        }),
+        Ok(info) => {
+            let _ = ws_path_tx.send(Some(info.path.clone()));
+            Ok(WorkspaceResponse {
+                success: true,
+                workspace: Some(info),
+                error: None,
+            })
+        }
         Err(e) => Ok(WorkspaceResponse {
             success: false,
             workspace: None,
@@ -94,15 +109,19 @@ pub async fn open_workspace(
 #[tauri::command]
 pub async fn switch_workspace(
     ws_manager: State<'_, SharedWorkspaceManager>,
+    ws_path_tx: State<'_, WatcherPathSender>,
     qoredb_path: String,
 ) -> Result<WorkspaceResponse, String> {
     let mut mgr = ws_manager.lock().await;
     match mgr.switch_to(&PathBuf::from(&qoredb_path), WorkspaceSource::Manual) {
-        Ok(info) => Ok(WorkspaceResponse {
-            success: true,
-            workspace: Some(info),
-            error: None,
-        }),
+        Ok(info) => {
+            let _ = ws_path_tx.send(Some(info.path.clone()));
+            Ok(WorkspaceResponse {
+                success: true,
+                workspace: Some(info),
+                error: None,
+            })
+        }
         Err(e) => Ok(WorkspaceResponse {
             success: false,
             workspace: None,
@@ -115,8 +134,10 @@ pub async fn switch_workspace(
 #[tauri::command]
 pub async fn switch_to_default_workspace(
     ws_manager: State<'_, SharedWorkspaceManager>,
+    ws_path_tx: State<'_, WatcherPathSender>,
 ) -> Result<WorkspaceInfo, String> {
     let mut mgr = ws_manager.lock().await;
+    let _ = ws_path_tx.send(None);
     Ok(mgr.switch_to_default())
 }
 

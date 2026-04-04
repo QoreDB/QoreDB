@@ -11,6 +11,7 @@ use tauri::State;
 use crate::commands::workspace::SharedWorkspaceManager;
 use crate::engine::error::EngineError;
 use crate::workspace::types::WorkspaceSource;
+use crate::workspace::write_registry::WriteRegistry;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct WorkspaceQueryLibrary {
@@ -55,6 +56,7 @@ pub async fn ws_get_query_library(
 #[tauri::command]
 pub async fn ws_save_query_library(
     ws_manager: State<'_, SharedWorkspaceManager>,
+    write_registry: State<'_, WriteRegistry>,
     library: WorkspaceQueryLibrary,
 ) -> Result<bool, String> {
     let mgr = ws_manager.lock().await;
@@ -71,7 +73,9 @@ pub async fn ws_save_query_library(
     let content = serde_json::to_string_pretty(&library)
         .map_err(|e| EngineError::internal(format!("Serialization error: {}", e)).to_string())?;
 
-    fs::write(queries_dir.join("library.json"), content)
+    let library_path = queries_dir.join("library.json");
+    write_registry.register_with_auto_unregister(library_path.clone());
+    fs::write(&library_path, content)
         .map_err(|e| EngineError::internal(format!("Failed to write library: {}", e)).to_string())?;
 
     Ok(true)

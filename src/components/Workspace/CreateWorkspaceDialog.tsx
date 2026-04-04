@@ -3,8 +3,10 @@
 import { FolderOpen } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
 import { open as openDialog } from '@tauri-apps/plugin-dialog';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
@@ -16,6 +18,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useWorkspace } from '@/providers/WorkspaceProvider';
+import { importDefaultConnections } from '@/lib/tauri';
 
 interface CreateWorkspaceDialogProps {
   open: boolean;
@@ -28,6 +31,7 @@ export function CreateWorkspaceDialog({ open, onOpenChange }: CreateWorkspaceDia
 
   const [name, setName] = useState('');
   const [path, setPath] = useState('');
+  const [importConnections, setImportConnections] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
 
   async function handleSelectPath() {
@@ -50,9 +54,20 @@ export function CreateWorkspaceDialog({ open, onOpenChange }: CreateWorkspaceDia
     try {
       const success = await createWorkspace(path, name.trim());
       if (success) {
+        if (importConnections) {
+          try {
+            const count = await importDefaultConnections();
+            if (count > 0) {
+              toast.success(t('workspace.importedCount', { count }));
+            }
+          } catch (err) {
+            console.warn('Failed to import connections:', err);
+          }
+        }
         onOpenChange(false);
         setName('');
         setPath('');
+        setImportConnections(true);
       }
     } finally {
       setIsCreating(false);
@@ -65,6 +80,7 @@ export function CreateWorkspaceDialog({ open, onOpenChange }: CreateWorkspaceDia
         <DialogHeader>
           <DialogTitle>{t('workspace.create')}</DialogTitle>
           <DialogDescription>{t('workspace.createDescription')}</DialogDescription>
+          <p className="text-xs text-muted-foreground/70 mt-1">{t('workspace.gitWarning')}</p>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
@@ -94,6 +110,17 @@ export function CreateWorkspaceDialog({ open, onOpenChange }: CreateWorkspaceDia
                 <FolderOpen size={16} />
               </Button>
             </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="ws-import"
+              checked={importConnections}
+              onCheckedChange={checked => setImportConnections(checked === true)}
+            />
+            <Label htmlFor="ws-import" className="text-sm font-normal cursor-pointer">
+              {t('workspace.importExisting')}
+            </Label>
           </div>
         </div>
 

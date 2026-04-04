@@ -31,10 +31,11 @@ export function WorkspaceSwitcher() {
       directory: true,
       title: t('workspace.open'),
     });
-    if (selected) {
-      const qoredbPath = `${selected}/.qoredb`;
-      await openWorkspace(qoredbPath);
-    }
+    if (!selected) return;
+
+    // Support both selecting the project root or the .qoredb/ dir directly
+    const qoredbPath = selected.endsWith('.qoredb') ? selected : `${selected}/.qoredb`;
+    await openWorkspace(qoredbPath);
   }
 
   return (

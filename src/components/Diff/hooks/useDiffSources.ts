@@ -98,7 +98,11 @@ function isTrivialColumn(column: ColumnInfo, metadata?: DiffColumnMetadata): boo
   return isLikelyAuditColumn(column.name, metadata?.dataType ?? column.data_type);
 }
 
-function getTableSchemaCacheKey(sessionId: string, namespace: Namespace, tableName: string): string {
+function getTableSchemaCacheKey(
+  sessionId: string,
+  namespace: Namespace,
+  tableName: string
+): string {
   return `${sessionId}:${namespace.database}:${namespace.schema ?? ''}:${tableName}`;
 }
 
@@ -740,7 +744,7 @@ export function useDiffSources({
     let cancelled = false;
     describeTable(leftSource.sessionId, leftSource.namespace, leftSource.tableName)
       .then(response => {
-        const schema = response.success ? response.schema ?? null : null;
+        const schema = response.success ? (response.schema ?? null) : null;
         tableSchemaCacheRef.current.set(cacheKey, schema);
         if (!cancelled) {
           setLeftTableSchema(schema);
@@ -783,7 +787,7 @@ export function useDiffSources({
     let cancelled = false;
     describeTable(rightSource.sessionId, rightSource.namespace, rightSource.tableName)
       .then(response => {
-        const schema = response.success ? response.schema ?? null : null;
+        const schema = response.success ? (response.schema ?? null) : null;
         tableSchemaCacheRef.current.set(cacheKey, schema);
         if (!cancelled) {
           setRightTableSchema(schema);
@@ -832,7 +836,9 @@ export function useDiffSources({
   const trivialCommonColumns = useMemo(() => {
     if (!leftSource.result || !rightSource.result) return [];
 
-    const leftColumnsByName = new Map(leftSource.result.columns.map(column => [column.name, column]));
+    const leftColumnsByName = new Map(
+      leftSource.result.columns.map(column => [column.name, column])
+    );
     const rightColumnsByName = new Map(
       rightSource.result.columns.map(column => [column.name, column])
     );
@@ -849,7 +855,13 @@ export function useDiffSources({
         );
       })
       .map(column => column.name);
-  }, [commonColumns, leftSource.result, rightSource.result, leftColumnMetadata, rightColumnMetadata]);
+  }, [
+    commonColumns,
+    leftSource.result,
+    rightSource.result,
+    leftColumnMetadata,
+    rightColumnMetadata,
+  ]);
 
   const compareWarning = useMemo(() => {
     if (commonColumns.length === 0) return 'noCommonColumns';

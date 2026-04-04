@@ -6,7 +6,7 @@
 
 use serde::Serialize;
 use std::path::PathBuf;
-use tauri::State;
+use tauri::{Manager, State};
 
 use crate::workspace::types::{RecentWorkspace, WorkspaceInfo, WorkspaceSource};
 use crate::workspace::WorkspaceManager;
@@ -127,4 +127,60 @@ pub async fn list_recent_workspaces(
 ) -> Result<Vec<RecentWorkspace>, String> {
     let mgr = ws_manager.lock().await;
     Ok(mgr.list_recent())
+}
+
+/// Imports connections from the default vault into the active file-based workspace.
+/// Copies metadata files into `.qoredb/connections/` and credentials into the workspace keyring.
+/// Returns the number of connections imported.
+#[tauri::command]
+pub async fn import_default_connections(
+    app: tauri::AppHandle,
+    state: State<'_, crate::SharedState>,
+    ws_manager: State<'_, SharedWorkspaceManager>,
+) -> Result<u32, String> {
+    use crate::vault::backend::KeyringProvider;
+    use crate::vault::storage::VaultStorage;
+    use crate::workspace::connection_store::WorkspaceConnectionStore;
+
+    let app_state = state.lock().await;
+    if app_state.vault_lock.is_locked() {
+        return Err("Vault is locked".to_string());
+    }
+    drop(app_state);
+
+    let mgr = ws_manager.lock().await;
+    let ws = mgr.active();
+    if ws.source == WorkspaceSource::Default {
+        return Err("Cannot import into the default workspace".to_string());
+    }
+
+    let storage_dir = app
+        .path()
+        .app_config_dir()
+        .map_err(|e: tauri::Error| e.to_string())?;
+    let default_vault = VaultStorage::new("default", storage_dir, Box::new(KeyringProvider::new()));
+
+    let connections = default_vault
+        .list_connections_full()
+        .map_err(|e| e.to_string())?;
+
+    let ws_store = WorkspaceConnectionStore::new(
+        ws.path.join("connections"),
+        format!("qoredb_{}", mgr.project_id()),
+        Box::new(KeyringProvider::new()),
+    );
+
+    let mut imported = 0u32;
+    for conn in &connections {
+        // Skip if credentials are missing (deleted/corrupted)
+        let creds = match default_vault.get_credentials(&conn.id) {
+            Ok(c) => c,
+            Err(_) => continue,
+        };
+        if ws_store.save_connection(conn, &creds).is_ok() {
+            imported += 1;
+        }
+    }
+
+    Ok(imported)
 }

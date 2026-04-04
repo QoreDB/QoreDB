@@ -334,6 +334,7 @@ pub fn run() {
             commands::workspace::switch_workspace,
             commands::workspace::switch_to_default_workspace,
             commands::workspace::list_recent_workspaces,
+            commands::workspace::import_default_connections,
             // Workspace query library commands
             commands::workspace_queries::ws_get_query_library,
             commands::workspace_queries::ws_save_query_library,

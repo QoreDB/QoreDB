@@ -90,7 +90,7 @@ export function useRecovery() {
           isMissing: true,
         }));
       });
-  }, []);
+  }, [projectId]);
 
   const restore = useCallback(async (): Promise<RestoredSession | null> => {
     if (!state.snapshot) return null;
@@ -171,7 +171,7 @@ export function useRecovery() {
       }));
       return null;
     }
-  }, [state.snapshot, t]);
+  }, [state.snapshot, projectId, t]);
 
   const discard = useCallback(() => {
     clearCrashRecoverySnapshot();

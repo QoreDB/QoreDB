@@ -82,19 +82,26 @@ function readState(): QueryLibraryState {
   }
 }
 
+let syncTimer: ReturnType<typeof setTimeout> | null = null;
+const SYNC_DEBOUNCE_MS = 1000;
+
 function writeState(next: QueryLibraryState): void {
   localStorage.setItem(getStorageKey(), JSON.stringify(next));
 
-  // Async sync to workspace file (fire-and-forget)
+  // Debounced async sync to workspace file
   const { activeWorkspace } = getWorkspaceState();
   if (activeWorkspace && activeWorkspace.source !== 'default') {
-    wsSaveQueryLibrary({
-      version: 1,
-      folders: next.folders,
-      items: next.items,
-    }).catch(() => {
-      // Silent fail — localStorage is the source of truth during the session
-    });
+    if (syncTimer) clearTimeout(syncTimer);
+    syncTimer = setTimeout(() => {
+      syncTimer = null;
+      wsSaveQueryLibrary({
+        version: 1,
+        folders: next.folders,
+        items: next.items,
+      }).catch(() => {
+        // Silent fail — localStorage is the source of truth during the session
+      });
+    }, SYNC_DEBOUNCE_MS);
   }
 }
 

@@ -1670,3 +1670,7 @@ export async function wsGetQueryLibrary(): Promise<WorkspaceQueryLibrary | null>
 export async function wsSaveQueryLibrary(library: WorkspaceQueryLibrary): Promise<boolean> {
   return invoke('ws_save_query_library', { library });
 }
+
+export async function importDefaultConnections(): Promise<number> {
+  return invoke('import_default_connections');
+}

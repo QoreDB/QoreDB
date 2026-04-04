@@ -1966,6 +1966,8 @@
     "path": "Projektverzeichnis",
     "initialize": "Initialisieren",
     "importExisting": "Bestehende Verbindungen importieren",
-    "noWorkspaces": "Keine letzten Arbeitsbereiche"
+    "noWorkspaces": "Keine letzten Arbeitsbereiche",
+    "importedCount": "{{count}} Verbindungen importiert",
+    "gitWarning": "Verbindungsmetadaten (Host, Port, Benutzername) werden in .qoredb/ gespeichert und können mit Git versioniert werden. Passwörter werden niemals auf der Festplatte gespeichert."
   }
 }

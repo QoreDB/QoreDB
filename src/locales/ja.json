@@ -1966,6 +1966,8 @@
     "path": "プロジェクトディレクトリ",
     "initialize": "初期化",
     "importExisting": "既存の接続をインポート",
-    "noWorkspaces": "最近のワークスペースなし"
+    "noWorkspaces": "最近のワークスペースなし",
+    "importedCount": "{{count}}件の接続をインポートしました",
+    "gitWarning": "接続メタデータ（ホスト、ポート、ユーザー名）は.qoredb/に保存され、Gitでバージョン管理できます。パスワードはディスクに保存されません。"
   }
 }

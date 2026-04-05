@@ -1019,6 +1019,7 @@
     "newConnection": "새 연결",
     "executeQuery": "쿼리 실행",
     "openLibrary": "라이브러리 열기",
+    "convertToNotebook": "노트북으로 변환",
     "fulltextSearch": "전체 텍스트 검색",
     "pressToClose": "? 또는 Esc를 눌러 닫기",
     "exitZenMode": "집중 모드 종료"

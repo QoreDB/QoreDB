@@ -50,6 +50,7 @@ export function KeyboardCheatsheet({ open, onClose }: KeyboardCheatsheetProps) {
       title: t('cheatsheet.queryEditor'),
       shortcuts: [
         { keys: `${mod}+Enter`, label: t('cheatsheet.executeQuery') },
+        { keys: `${mod}+Shift+N`, label: t('cheatsheet.convertToNotebook') },
         { keys: `${mod}+Shift+L`, label: t('cheatsheet.openLibrary') },
         { keys: `${mod}+Shift+F`, label: t('cheatsheet.fulltextSearch') },
       ],

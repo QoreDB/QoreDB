@@ -1019,6 +1019,7 @@
     "newConnection": "新しい接続",
     "executeQuery": "クエリを実行",
     "openLibrary": "ライブラリを開く",
+    "convertToNotebook": "ノートブックに変換",
     "fulltextSearch": "全文検索",
     "pressToClose": "? または Esc で閉じる",
     "exitZenMode": "Zen モードを終了"

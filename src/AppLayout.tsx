@@ -486,7 +486,13 @@ export function AppLayout() {
       ...(sessionId ? [{ id: 'cmd_new_notebook', label: t('palette.newNotebook') }] : []),
       ...(sessionId ? [{ id: 'cmd_open_notebook', label: t('palette.openNotebook') }] : []),
       ...(sessionId && activeTab?.type === 'query'
-        ? [{ id: 'cmd_convert_to_notebook', label: t('palette.convertToNotebook') }]
+        ? [
+            {
+              id: 'cmd_convert_to_notebook',
+              label: t('palette.convertToNotebook'),
+              shortcut: getShortcut('N', { symbol: true, shift: true }),
+            },
+          ]
         : []),
       { id: 'cmd_open_snapshots', label: t('snapshots.openManager') },
       {
@@ -557,7 +563,9 @@ export function AppLayout() {
           case 'cmd_convert_to_notebook':
             if (sessionId && activeTab?.type === 'query') {
               const draft = queryDrafts[activeTab.id] ?? '';
-              openTab(createNotebookTab(undefined, undefined, draft));
+              const nbTab = createNotebookTab(undefined, undefined, draft);
+              nbTab.namespace = activeTab.namespace;
+              openTab(nbTab);
             }
             return;
           case 'cmd_open_settings':

@@ -1019,6 +1019,7 @@
     "newConnection": "新建连接",
     "executeQuery": "执行查询",
     "openLibrary": "打开查询库",
+    "convertToNotebook": "转换为笔记本",
     "fulltextSearch": "全文搜索",
     "pressToClose": "按 ? 或 Esc 关闭",
     "exitZenMode": "退出专注模式"

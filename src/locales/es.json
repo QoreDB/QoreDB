@@ -1019,6 +1019,7 @@
     "newConnection": "Nueva conexión",
     "executeQuery": "Ejecutar consulta",
     "openLibrary": "Abrir biblioteca",
+    "convertToNotebook": "Convertir a Notebook",
     "fulltextSearch": "Búsqueda de texto completo",
     "pressToClose": "Presiona ? o Esc para cerrar",
     "exitZenMode": "Salir del modo Zen"

@@ -1021,6 +1021,7 @@
     "newConnection": "New connection",
     "executeQuery": "Execute query",
     "openLibrary": "Open library",
+    "convertToNotebook": "Convert to Notebook",
     "fulltextSearch": "Full-text search",
     "pressToClose": "Press ? or Esc to close",
     "exitZenMode": "Exit Zen Mode"

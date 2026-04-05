@@ -23,12 +23,6 @@ export function WorkspaceSwitcher() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
   const isDefault = !activeWorkspace || activeWorkspace.source === 'default';
-  const hasRecentWorkspaces = recentWorkspaces.length > 0;
-
-  // Only show the switcher when relevant: non-default workspace active or recents exist
-  if (isDefault && !hasRecentWorkspaces && !createDialogOpen) {
-    return null;
-  }
 
   const displayName = isDefault ? t('workspace.default') : activeWorkspace?.manifest.name;
   const badge = activeWorkspace?.source === 'detected' ? 'CWD' : null;
@@ -72,7 +66,7 @@ export function WorkspaceSwitcher() {
               <ChevronDown size={12} className="text-muted-foreground shrink-0" />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-56">
+          <DropdownMenuContent align="start" className="w-64">
             {!isDefault && (
               <DropdownMenuItem onClick={() => switchToDefault()}>
                 <RotateCcw size={14} className="mr-2" />

@@ -88,7 +88,12 @@ export const EditableDataCell = memo(function EditableDataCell({
           aria-label={t('blobViewer.title')}
           className="flex items-center gap-1.5 truncate cursor-pointer hover:text-accent transition-colors"
           onClick={handleBlobClick}
-          onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleBlobClick(); } }}
+          onKeyDown={e => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              handleBlobClick();
+            }
+          }}
           title={t('blobViewer.title')}
         >
           <Binary className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />

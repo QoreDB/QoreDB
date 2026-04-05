@@ -216,8 +216,11 @@ impl AuditLogEntry {
         environment: Environment,
         driver_id: String,
     ) -> Self {
-        let mut preview = query.chars().take(100).collect::<String>();
-        let truncated = query.chars().skip(100).next().is_some();
+        use super::redaction::redact_query_literals;
+
+        let redacted = redact_query_literals(&query);
+        let mut preview = redacted.chars().take(100).collect::<String>();
+        let truncated = redacted.chars().skip(100).next().is_some();
         if truncated {
             preview.push_str("...");
         }
@@ -226,7 +229,7 @@ impl AuditLogEntry {
             id: Uuid::new_v4().to_string(),
             timestamp: Utc::now(),
             session_id,
-            query,
+            query: redacted,
             query_preview: preview,
             environment,
             operation_type: QueryOperationType::Other,

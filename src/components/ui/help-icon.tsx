@@ -21,7 +21,7 @@ export function HelpIcon({ content, side = 'bottom' }: HelpIconProps) {
           <HelpCircle size={14} />
         </button>
       </PopoverTrigger>
-      <PopoverContent side={side} className="max-w-[250px] text-sm p-3 w-auto">
+      <PopoverContent side={side} className="max-w-62 text-sm p-3 w-auto">
         {content}
       </PopoverContent>
     </Popover>

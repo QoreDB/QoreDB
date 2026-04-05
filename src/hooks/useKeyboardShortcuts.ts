@@ -16,6 +16,7 @@ export interface KeyboardShortcutsConfig {
   onSettings: () => void;
   onCloseTab: () => void;
   onNewQuery: () => void;
+  onConvertToNotebook: () => void;
   onEscape: () => void;
   onShowCheatsheet?: () => void;
   isOverlayOpen: boolean;
@@ -39,6 +40,7 @@ export function useKeyboardShortcuts(config: KeyboardShortcutsConfig) {
         onSettings,
         onCloseTab,
         onNewQuery,
+        onConvertToNotebook,
         onEscape,
         onShowCheatsheet,
         isOverlayOpen,
@@ -59,6 +61,13 @@ export function useKeyboardShortcuts(config: KeyboardShortcutsConfig) {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
         onSearch();
+        return;
+      }
+
+      // Mod+Shift+N: Convert query to notebook (works even in text inputs)
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'n') {
+        e.preventDefault();
+        onConvertToNotebook();
         return;
       }
 

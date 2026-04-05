@@ -3,6 +3,7 @@
 import {
   Code2,
   Database,
+  FolderOpen,
   Globe,
   Keyboard,
   KeyRound,
@@ -16,6 +17,7 @@ export type SettingsSectionId =
   | 'editor'
   | 'security'
   | 'data'
+  | 'workspaces'
   | 'shortcuts'
   | 'license'
   | 'ai';
@@ -73,6 +75,27 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
       'link',
       'partage',
       'données',
+      'crash recovery',
+      'drafts',
+      'query drafts',
+      'brouillons',
+      'ttl',
+    ],
+  },
+  {
+    id: 'workspaces',
+    labelKey: 'settings.sections.workspaces',
+    icon: FolderOpen,
+    keywords: [
+      'workspace',
+      'project',
+      'organize',
+      'git',
+      'team',
+      'espace de travail',
+      'projet',
+      'equipe',
+      'organiser',
     ],
   },
   {

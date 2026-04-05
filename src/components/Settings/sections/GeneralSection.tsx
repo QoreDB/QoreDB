@@ -2,7 +2,16 @@
 
 import { relaunch } from '@tauri-apps/plugin-process';
 import { check } from '@tauri-apps/plugin-updater';
-import { ChevronDown, Download, Loader2, Monitor, Moon, RefreshCw, RotateCcw, Sun } from 'lucide-react';
+import {
+  ChevronDown,
+  Download,
+  Loader2,
+  Monitor,
+  Moon,
+  RefreshCw,
+  RotateCcw,
+  Sun,
+} from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
@@ -136,12 +145,7 @@ export function GeneralSection({ searchQuery }: GeneralSectionProps) {
               </Button>
             ) : updateState.status === 'installed' ? (
               <div className="flex items-center gap-2">
-                <Button
-                  variant="default"
-                  size="sm"
-                  className="gap-1.5"
-                  onClick={() => relaunch()}
-                >
+                <Button variant="default" size="sm" className="gap-1.5" onClick={() => relaunch()}>
                   <RotateCcw size={14} />
                   {t('settings.about.restart')}
                 </Button>
@@ -208,8 +212,12 @@ export function GeneralSection({ searchQuery }: GeneralSectionProps) {
             <DropdownMenuItem onClick={() => i18n.changeLanguage('fr')}>Français</DropdownMenuItem>
             <DropdownMenuItem onClick={() => i18n.changeLanguage('es')}>Español</DropdownMenuItem>
             <DropdownMenuItem onClick={() => i18n.changeLanguage('de')}>Deutsch</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => i18n.changeLanguage('pt-BR')}>Português (Brasil)</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => i18n.changeLanguage('zh-CN')}>简体中文</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => i18n.changeLanguage('pt-BR')}>
+              Português (Brasil)
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => i18n.changeLanguage('zh-CN')}>
+              简体中文
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={() => i18n.changeLanguage('ja')}>日本語</DropdownMenuItem>
             <DropdownMenuItem onClick={() => i18n.changeLanguage('ko')}>한국어</DropdownMenuItem>
             <DropdownMenuItem onClick={() => i18n.changeLanguage('ru')}>Русский</DropdownMenuItem>

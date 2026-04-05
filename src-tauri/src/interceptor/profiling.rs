@@ -21,8 +21,8 @@ const MAX_EXECUTION_TIMES: usize = 10000;
 pub struct ProfilingStore {
     /// Current metrics
     metrics: RwLock<ProfilingMetrics>,
-    /// Execution times for percentile calculation (sorted)
-    execution_times: RwLock<Vec<f64>>,
+    /// Execution times for percentile calculation (insertion order)
+    execution_times: RwLock<VecDeque<f64>>,
     /// Slow query entries
     slow_queries: RwLock<VecDeque<SlowQueryEntry>>,
     /// Slow query threshold in milliseconds
@@ -38,7 +38,7 @@ impl ProfilingStore {
     pub fn new(slow_threshold_ms: u64, max_slow_queries: usize) -> Self {
         Self {
             metrics: RwLock::new(ProfilingMetrics::new()),
-            execution_times: RwLock::new(Vec::with_capacity(MAX_EXECUTION_TIMES)),
+            execution_times: RwLock::new(VecDeque::with_capacity(MAX_EXECUTION_TIMES)),
             slow_queries: RwLock::new(VecDeque::with_capacity(max_slow_queries)),
             slow_threshold_ms: RwLock::new(slow_threshold_ms),
             max_slow_queries: RwLock::new(max_slow_queries),
@@ -136,16 +136,13 @@ impl ProfilingStore {
             *metrics.by_environment.entry(env_key).or_insert(0) += 1;
         }
 
-        // Track execution time for percentiles
+        // Track execution time for percentiles (insertion order, sorted on demand)
         {
             let mut times = self.execution_times.write();
             if times.len() >= MAX_EXECUTION_TIMES {
-                // Remove oldest (first) to make room
-                times.remove(0);
+                times.pop_front(); // Remove oldest, not smallest
             }
-            // Insert in sorted order for efficient percentile calculation
-            let pos = times.partition_point(|&t| t < execution_time_ms);
-            times.insert(pos, execution_time_ms);
+            times.push_back(execution_time_ms);
         }
 
         // Record slow query if above threshold
@@ -179,10 +176,12 @@ impl ProfilingStore {
         row_count: Option<i64>,
         driver_id: &str,
     ) {
+        use super::redaction::redact_query_literals;
+
         let entry = SlowQueryEntry {
             id: uuid::Uuid::new_v4().to_string(),
             timestamp: Utc::now(),
-            query: query.to_string(),
+            query: redact_query_literals(query),
             execution_time_ms,
             environment,
             database: database.map(|s| s.to_string()),
@@ -207,15 +206,18 @@ impl ProfilingStore {
             return;
         }
 
-        let len = times.len();
+        let mut sorted: Vec<f64> = times.iter().copied().collect();
+        sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+
+        let len = sorted.len();
         let p50_idx = len * 50 / 100;
         let p95_idx = len * 95 / 100;
         let p99_idx = len * 99 / 100;
 
         let mut metrics = self.metrics.write();
-        metrics.p50_execution_time_ms = times.get(p50_idx).copied().unwrap_or(0.0);
-        metrics.p95_execution_time_ms = times.get(p95_idx).copied().unwrap_or(0.0);
-        metrics.p99_execution_time_ms = times.get(p99_idx).copied().unwrap_or(0.0);
+        metrics.p50_execution_time_ms = sorted.get(p50_idx).copied().unwrap_or(0.0);
+        metrics.p95_execution_time_ms = sorted.get(p95_idx).copied().unwrap_or(0.0);
+        metrics.p99_execution_time_ms = sorted.get(p99_idx).copied().unwrap_or(0.0);
     }
 
     /// Get current profiling metrics

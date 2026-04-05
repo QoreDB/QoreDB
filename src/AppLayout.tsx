@@ -93,8 +93,7 @@ import {
 import { getEventTemplate, getTriggerTemplate } from './lib/triggerTemplates';
 import { useSessionContext } from './providers/SessionProvider';
 import { useTabContext } from './providers/TabProvider';
-
-const DEFAULT_PROJECT = 'default';
+import { useWorkspace } from './providers/WorkspaceProvider';
 
 export function AppLayout() {
   const { t } = useTranslation();
@@ -140,6 +139,7 @@ export function AppLayout() {
     scheduleRecoverySave,
   } = useSessionContext();
 
+  const { projectId } = useWorkspace();
   const settingsOpen = useModalStore(s => s.settingsOpen);
   const sidebarVisible = useModalStore(s => s.sidebarVisible);
   const zenMode = useModalStore(s => s.zenMode);
@@ -163,7 +163,6 @@ export function AppLayout() {
   }, [tabs, setBeforeCloseTab, t]);
 
   // --- Action handlers ---
-
   const handleTableSelect = useCallback(
     (ns: Namespace, tableName: string, rf?: RelationFilter, sf?: SearchFilter) => {
       AnalyticsService.capture('resource_opened', {
@@ -384,7 +383,6 @@ export function AppLayout() {
       notify.error(t('query.noConnectionError'));
       return;
     }
-    // Sandbox is available in Core with a 3-change limit — no full block here
     const isActive = isSandboxActive(sessionId);
     if (isActive) {
       const prefs = getSandboxPreferences();
@@ -407,7 +405,6 @@ export function AppLayout() {
   }, [activeConnection?.environment, sessionId, t]);
 
   // --- Palette ---
-
   const paletteFeatures = useMemo(
     () =>
       sessionId
@@ -489,7 +486,13 @@ export function AppLayout() {
       ...(sessionId ? [{ id: 'cmd_new_notebook', label: t('palette.newNotebook') }] : []),
       ...(sessionId ? [{ id: 'cmd_open_notebook', label: t('palette.openNotebook') }] : []),
       ...(sessionId && activeTab?.type === 'query'
-        ? [{ id: 'cmd_convert_to_notebook', label: t('palette.convertToNotebook') }]
+        ? [
+            {
+              id: 'cmd_convert_to_notebook',
+              label: t('palette.convertToNotebook'),
+              shortcut: getShortcut('N', { symbol: true, shift: true }),
+            },
+          ]
         : []),
       { id: 'cmd_open_snapshots', label: t('snapshots.openManager') },
       {
@@ -560,7 +563,9 @@ export function AppLayout() {
           case 'cmd_convert_to_notebook':
             if (sessionId && activeTab?.type === 'query') {
               const draft = queryDrafts[activeTab.id] ?? '';
-              openTab(createNotebookTab(undefined, undefined, draft));
+              const nbTab = createNotebookTab(undefined, undefined, draft);
+              nbTab.namespace = activeTab.namespace;
+              openTab(nbTab);
             }
             return;
           case 'cmd_open_settings':
@@ -577,7 +582,7 @@ export function AppLayout() {
       if (result.type === 'connection' && result.data) {
         const conn = result.data as SavedConnection;
         try {
-          const r = await connectSavedConnection(DEFAULT_PROJECT, conn.id);
+          const r = await connectSavedConnection(projectId, conn.id);
           if (r.success && r.session_id) {
             notify.success(t('sidebar.connectedTo', { name: conn.name }));
             handleConnected(r.session_id, {

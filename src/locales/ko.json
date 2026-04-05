@@ -38,7 +38,8 @@
     "restoring": "복원 중…",
     "discard": "삭제",
     "missingConnection": "저장된 연결을 찾을 수 없습니다.",
-    "restoreFailed": "세션 복원에 실패했습니다."
+    "restoreFailed": "세션 복원에 실패했습니다.",
+    "differentWorkspace": "이전 세션은 다른 워크스페이스에 속합니다. 복원하려면 해당 워크스페이스로 전환하세요."
   },
   "updates": {
     "available": "업데이트 {{version}} 사용 가능",
@@ -491,7 +492,8 @@
       "data": "데이터 및 개인정보",
       "shortcuts": "키보드 단축키",
       "license": "라이선스",
-      "ai": "AI 어시스턴트"
+      "ai": "AI 어시스턴트",
+      "workspaces": "워크스페이스"
     },
     "search": {
       "placeholder": "설정 검색...",
@@ -530,6 +532,21 @@
       "runQuery": "쿼리 실행",
       "closeTab": "탭 닫기",
       "escape": "오버레이 닫기 / 취소"
+    },
+    "workspaces": {
+      "whatTitle": "워크스페이스란?",
+      "whatDescription": "워크스페이스는 프로젝트의 .qoredb/ 디렉토리로, 연결, 쿼리, 노트북을 저장합니다. 모두 Git으로 버전 관리할 수 있습니다.",
+      "benefitGit": "Git 버전 관리",
+      "benefitGitDesc": "Git을 통해 팀과 데이터베이스 설정을 공유하세요.",
+      "benefitTeam": "팀 협업",
+      "benefitTeamDesc": "모든 팀원이 동일한 연결과 쿼리를 자동으로 얻습니다.",
+      "benefitOrganize": "프로젝트별 구성",
+      "benefitOrganizeDesc": "각 프로젝트에 별도의 연결이 있어 다른 프로젝트와 분리됩니다.",
+      "activeTitle": "활성 워크스페이스",
+      "activeDescription": "연결 및 쿼리에 현재 사용 중인 워크스페이스입니다.",
+      "quickstartTitle": "빠른 시작",
+      "quickstartDescription": "가이드 투어를 통해 워크스페이스 사용법을 알아보세요.",
+      "startTour": "가이드 투어 시작"
     }
   },
   "table": {
@@ -958,6 +975,14 @@
       "step1Desc": "무한 로딩으로 행을 스크롤합니다. 셀을 클릭하면 전체 값을 볼 수 있습니다.",
       "step2Title": "테이블 구조",
       "step2Desc": "탭을 전환하여 컬럼, 인덱스, 관계를 탐색하세요."
+    },
+    "workspaces": {
+      "step1Title": "워크스페이스 전환기",
+      "step1Desc": "프로젝트별로 데이터베이스 연결을 구성하세요.",
+      "step2Title": "프로젝트 연결",
+      "step2Desc": "활성 워크스페이스에 따라 연결이 변경됩니다.",
+      "step3Title": "워크스페이스 만들기",
+      "step3Desc": "드롭다운을 열고 .qoredb/ 디렉토리를 초기화하세요. Git 호환입니다."
     }
   },
   "whatsNew": {
@@ -994,6 +1019,7 @@
     "newConnection": "새 연결",
     "executeQuery": "쿼리 실행",
     "openLibrary": "라이브러리 열기",
+    "convertToNotebook": "노트북으로 변환",
     "fulltextSearch": "전체 텍스트 검색",
     "pressToClose": "? 또는 Esc를 눌러 닫기",
     "exitZenMode": "집중 모드 종료"
@@ -1160,6 +1186,10 @@
       "checkbox": "익명 사용 분석 공유 (권장)",
       "privacyHint": "충돌 보고서와 기능 사용 횟수만 수집합니다. 쿼리, 결과, 자격 증명은 절대 기기를 떠나지 않습니다.",
       "finish": "시작하기"
+    },
+    "workspace": {
+      "title": "워크스페이스로 정리",
+      "description": "여러 연결이 있습니다. 워크스페이스를 만들어 프로젝트별로 그룹화하고 Git으로 팀과 공유하세요."
     }
   },
   "errorBoundary": {
@@ -1948,5 +1978,29 @@
     "failed": "스키마 내보내기 실패",
     "noPath": "출력 파일을 선택하세요",
     "menuItem": "스키마 내보내기"
+  },
+  "workspace": {
+    "title": "워크스페이스",
+    "default": "기본 워크스페이스",
+    "detected": "워크스페이스 감지됨",
+    "detectedMessage": "현재 디렉토리에서 .qoredb 워크스페이스를 발견했습니다. 사용하시겠습니까?",
+    "accept": "워크스페이스 사용",
+    "dismiss": "기본값 유지",
+    "create": "워크스페이스 생성",
+    "created": "워크스페이스가 성공적으로 생성되었습니다",
+    "createDescription": "프로젝트에 .qoredb 디렉토리를 초기화하여 팀과 연결, 노트북, 쿼리를 공유할 수 있습니다.",
+    "open": "워크스페이스 열기",
+    "switch": "워크스페이스 전환",
+    "recent": "최근 워크스페이스",
+    "name": "워크스페이스 이름",
+    "path": "프로젝트 디렉토리",
+    "initialize": "초기화",
+    "importExisting": "기존 연결 가져오기",
+    "noWorkspaces": "최근 워크스페이스 없음",
+    "importedCount": "{{count}}개의 연결을 가져왔습니다",
+    "gitWarning": "연결 메타데이터(호스트, 포트, 사용자 이름)는 .qoredb/에 저장되며 Git으로 버전 관리할 수 있습니다. 비밀번호는 디스크에 저장되지 않습니다.",
+    "rename": "이름 변경",
+    "renamePrompt": "새 이름:",
+    "leave": "나가기"
   }
 }

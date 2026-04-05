@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { Bug, Database, Plus, Search } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -15,6 +16,7 @@ import {
 import { setLogsOpen, useModalStore } from '@/lib/modalStore';
 import { UI_EVENT_CONNECTIONS_CHANGED } from '@/lib/uiEvents';
 import { useLicense } from '@/providers/LicenseProvider';
+import { useWorkspace } from '@/providers/WorkspaceProvider';
 import {
   type Collection,
   connectSavedConnection,
@@ -30,8 +32,7 @@ import {
 import { ErrorLogPanel } from '../Logs/ErrorLogPanel';
 import { DBTree } from '../Tree/DBTree';
 import { ConnectionItem } from './ConnectionItem';
-
-const DEFAULT_PROJECT = 'default';
+import { WorkspaceSwitcher } from './WorkspaceSwitcher';
 
 interface SidebarProps {
   onNewConnection: () => void;
@@ -94,11 +95,12 @@ export function Sidebar({
   const { t } = useTranslation();
   const { resolvedTheme } = useTheme();
   const { tier } = useLicense();
+  const { projectId } = useWorkspace();
   const logsOpen = useModalStore(s => s.logsOpen);
 
   const loadConnections = useCallback(async () => {
     try {
-      const saved = await listSavedConnections(DEFAULT_PROJECT);
+      const saved = await listSavedConnections(projectId);
       setConnections(saved);
       setFavoriteConnectionIds(
         reconcileFavoriteConnectionIds(saved.map(connection => connection.id))
@@ -106,7 +108,7 @@ export function Sidebar({
     } catch (err) {
       console.error('Failed to load connections:', err);
     }
-  }, []);
+  }, [projectId]);
 
   useEffect(() => {
     loadConnections();
@@ -123,6 +125,24 @@ export function Sidebar({
     const handler = () => loadConnections();
     window.addEventListener(UI_EVENT_CONNECTIONS_CHANGED, handler);
     return () => window.removeEventListener(UI_EVENT_CONNECTIONS_CHANGED, handler);
+  }, [loadConnections]);
+
+  // Reload connections when .qoredb/connections/ changes on disk (file watcher)
+  useEffect(() => {
+    let unlisten: UnlistenFn | null = null;
+    let cancelled = false;
+
+    listen('workspace_fs:connections', () => {
+      if (!cancelled) loadConnections();
+    }).then(fn => {
+      if (cancelled) fn();
+      else unlisten = fn;
+    });
+
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
   }, [loadConnections]);
 
   const favoriteConnectionSet = useMemo(
@@ -170,7 +190,7 @@ export function Sidebar({
     setSelectedId(conn.id);
 
     try {
-      const result = await connectSavedConnection(DEFAULT_PROJECT, conn.id);
+      const result = await connectSavedConnection(projectId, conn.id);
 
       if (result.success && result.session_id) {
         toast.success(t('sidebar.connectedTo', { name: conn.name }));
@@ -290,7 +310,12 @@ export function Sidebar({
         </button>
       </header>
 
-      <section className="flex-1 overflow-y-auto overflow-x-hidden py-2">
+      <WorkspaceSwitcher />
+
+      <section
+        className="flex-1 overflow-y-auto overflow-x-hidden py-2"
+        data-tour="sidebar-connections"
+      >
         {connections.length > 3 && (
           <div className="px-3 pb-2">
             <div className="relative">

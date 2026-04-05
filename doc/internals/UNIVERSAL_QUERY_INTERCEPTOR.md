@@ -102,12 +102,17 @@ L'Universal Query Interceptor est un système complet d'interception de requête
 - Nombre de lignes affectées
 - Si bloquée par une règle de sécurité
 
+### Limitation actuelle importante
+
+Le backend persiste aujourd'hui la requête brute dans l'audit et dans les slow queries. Il ne faut donc pas considérer l'interceptor comme un système de journalisation avec rédaction côté backend.
+
 #### Persistance :
 
 - Format : JSONL (JSON Lines) pour append efficace
 - Localisation : `{app_data}/com.qoredb.app/interceptor/audit.jsonl`
 - Rotation automatique quand le fichier dépasse `max_audit_entries`
 - Cache mémoire des 1000 dernières entrées pour accès rapide
+- `get_audit_entries()` et `export_audit_log()` travaillent actuellement sur ce cache mémoire, pas sur l'historique complet du fichier
 
 #### API disponibles :
 
@@ -115,7 +120,7 @@ L'Universal Query Interceptor est un système complet d'interception de requête
 get_audit_entries(filter)   // Récupérer avec filtres
 get_audit_stats()           // Statistiques agrégées
 clear_audit_log()           // Vider le log
-export_audit_log()          // Export JSON complet
+export_audit_log()          // Export JSON du cache courant
 ```
 
 ---
@@ -138,6 +143,7 @@ export_audit_log()          // Export JSON complet
 - Seuil configurable (défaut : 1000ms)
 - Capture automatique des requêtes dépassant le seuil
 - Stockage des N dernières slow queries (défaut : 100)
+- Les percentiles et slow queries doivent être considérés comme de la télémétrie opérationnelle bornée, pas comme un historique exhaustif
 
 #### API disponibles :
 
@@ -195,7 +201,9 @@ remove_safety_rule(id)      // Supprimer (custom uniquement)
 
 ## Intégration dans le flux d'exécution
 
-L'interceptor est appelé automatiquement dans `execute_query()` :
+L'interceptor est appelé automatiquement dans `execute_query()` et dans plusieurs commandes spécialisées (mutations, maintenance, routines, triggers, sequences, create/drop database).
+
+En revanche, certains endpoints de navigation et de lecture assistée comme `preview_table`, `query_table` ou `peek_foreign_key` ne passent pas actuellement dans ce pipeline.
 
 ```rust
 // 1. Construction du contexte
@@ -253,6 +261,13 @@ Localisation : `{app_data}/com.qoredb.app/interceptor/interceptor.json`
 | `max_slow_queries`        | 100    | Nombre max de slow queries conservées   |
 
 ---
+
+## Limitations Connues
+
+- La rédaction backend des requêtes n'est pas encore faite dans l'audit/profiling.
+- `max_audit_entries` pilote la rétention fichier, mais l'UI et l'export restent limités au cache mémoire de 1000 entrées.
+- Les percentiles sont calculés sur un échantillon borné en mémoire.
+- L'interceptor ne couvre pas encore tous les endpoints de lecture du browser.
 
 ## Impact sur l'application
 

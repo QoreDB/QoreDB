@@ -7,13 +7,33 @@
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager, State};
 
+use crate::commands::workspace::SharedWorkspaceManager;
 use crate::observability::Sensitive;
 use crate::vault::backend::KeyringProvider;
 use crate::vault::credentials::{
     Environment, ProxyInfo, SavedConnection, SshTunnelInfo, StoredCredentials,
 };
 use crate::vault::storage::VaultStorage;
+use crate::workspace::connection_store::WorkspaceConnectionStore;
+use crate::workspace::types::WorkspaceSource;
 use crate::SharedState;
+
+/// Determines if the active workspace is file-based and returns its connection store.
+/// Returns None if the default workspace is active (use VaultStorage instead).
+async fn get_workspace_store(
+    ws_manager: &State<'_, SharedWorkspaceManager>,
+) -> Option<WorkspaceConnectionStore> {
+    let mgr = ws_manager.lock().await;
+    let ws = mgr.active();
+    if ws.source == WorkspaceSource::Default {
+        return None;
+    }
+    Some(WorkspaceConnectionStore::new(
+        ws.path.join("connections"),
+        format!("qoredb_{}", mgr.project_id()),
+        Box::new(KeyringProvider::new()),
+    ))
+}
 
 /// Response for vault operations
 #[derive(Debug, Serialize)]
@@ -169,24 +189,20 @@ pub async fn lock_vault(state: State<'_, SharedState>) -> Result<VaultResponse, 
 pub async fn save_connection(
     app: AppHandle,
     state: State<'_, SharedState>,
+    ws_manager: State<'_, SharedWorkspaceManager>,
     input: SaveConnectionInput,
 ) -> Result<VaultResponse, String> {
-    let state = state.lock().await;
+    let app_state = state.lock().await;
 
-    if state.vault_lock.is_locked() {
+    if app_state.vault_lock.is_locked() {
         return Ok(VaultResponse {
             success: false,
             error: Some("Vault is locked".to_string()),
         });
     }
+    drop(app_state);
 
-    let storage_dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
-    let storage = VaultStorage::new(
-        &input.project_id,
-        storage_dir,
-        Box::new(KeyringProvider::new()),
-    );
-
+    let input_project_id = input.project_id.clone();
     let ssh_tunnel = input.ssh_tunnel.as_ref().map(|ssh| SshTunnelInfo {
         host: ssh.host.clone(),
         port: ssh.port,
@@ -244,7 +260,20 @@ pub async fn save_connection(
             .and_then(|p| p.password.clone().map(Sensitive::new)),
     };
 
-    match storage.save_connection(&connection, &credentials) {
+    // Route to workspace connection store if a file-based workspace is active
+    let result = if let Some(ws_store) = get_workspace_store(&ws_manager).await {
+        ws_store.save_connection(&connection, &credentials)
+    } else {
+        let storage_dir = app.path().app_config_dir().map_err(|e: tauri::Error| e.to_string())?;
+        let storage = VaultStorage::new(
+            &input_project_id,
+            storage_dir,
+            Box::new(KeyringProvider::new()),
+        );
+        storage.save_connection(&connection, &credentials)
+    };
+
+    match result {
         Ok(()) => Ok(VaultResponse {
             success: true,
             error: None,
@@ -261,12 +290,19 @@ pub async fn save_connection(
 pub async fn list_saved_connections(
     app: AppHandle,
     state: State<'_, SharedState>,
+    ws_manager: State<'_, SharedWorkspaceManager>,
     project_id: String,
 ) -> Result<Vec<SavedConnection>, String> {
     let state = state.lock().await;
 
     if state.vault_lock.is_locked() {
         return Err("Vault is locked".to_string());
+    }
+    drop(state);
+
+    // Route to workspace connection store if a file-based workspace is active
+    if let Some(ws_store) = get_workspace_store(&ws_manager).await {
+        return ws_store.list_connections().map_err(|e| e.to_string());
     }
 
     let storage_dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
@@ -280,22 +316,29 @@ pub async fn list_saved_connections(
 pub async fn delete_saved_connection(
     app: AppHandle,
     state: State<'_, SharedState>,
+    ws_manager: State<'_, SharedWorkspaceManager>,
     project_id: String,
     connection_id: String,
 ) -> Result<VaultResponse, String> {
-    let state = state.lock().await;
+    let app_state = state.lock().await;
 
-    if state.vault_lock.is_locked() {
+    if app_state.vault_lock.is_locked() {
         return Ok(VaultResponse {
             success: false,
             error: Some("Vault is locked".to_string()),
         });
     }
+    drop(app_state);
 
-    let storage_dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
-    let storage = VaultStorage::new(&project_id, storage_dir, Box::new(KeyringProvider::new()));
+    let result = if let Some(ws_store) = get_workspace_store(&ws_manager).await {
+        ws_store.delete_connection(&connection_id)
+    } else {
+        let storage_dir = app.path().app_config_dir().map_err(|e: tauri::Error| e.to_string())?;
+        let storage = VaultStorage::new(&project_id, storage_dir, Box::new(KeyringProvider::new()));
+        storage.delete_connection(&connection_id)
+    };
 
-    match storage.delete_connection(&connection_id) {
+    match result {
         Ok(()) => Ok(VaultResponse {
             success: true,
             error: None,
@@ -312,23 +355,30 @@ pub async fn delete_saved_connection(
 pub async fn duplicate_saved_connection(
     app: AppHandle,
     state: State<'_, SharedState>,
+    ws_manager: State<'_, SharedWorkspaceManager>,
     project_id: String,
     connection_id: String,
 ) -> Result<DuplicateConnectionResponse, String> {
-    let state = state.lock().await;
+    let app_state = state.lock().await;
 
-    if state.vault_lock.is_locked() {
+    if app_state.vault_lock.is_locked() {
         return Ok(DuplicateConnectionResponse {
             success: false,
             connection: None,
             error: Some("Vault is locked".to_string()),
         });
     }
+    drop(app_state);
 
-    let storage_dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
-    let storage = VaultStorage::new(&project_id, storage_dir, Box::new(KeyringProvider::new()));
+    let result = if let Some(ws_store) = get_workspace_store(&ws_manager).await {
+        ws_store.duplicate_connection(&connection_id)
+    } else {
+        let storage_dir = app.path().app_config_dir().map_err(|e: tauri::Error| e.to_string())?;
+        let storage = VaultStorage::new(&project_id, storage_dir, Box::new(KeyringProvider::new()));
+        storage.duplicate_connection(&connection_id)
+    };
 
-    match storage.duplicate_connection(&connection_id) {
+    match result {
         Ok(connection) => Ok(DuplicateConnectionResponse {
             success: true,
             connection: Some(connection),
@@ -355,23 +405,30 @@ pub struct CredentialsResponse {
 pub async fn get_connection_credentials(
     app: AppHandle,
     state: State<'_, SharedState>,
+    ws_manager: State<'_, SharedWorkspaceManager>,
     project_id: String,
     connection_id: String,
 ) -> Result<CredentialsResponse, String> {
-    let state = state.lock().await;
+    let app_state = state.lock().await;
 
-    if state.vault_lock.is_locked() {
+    if app_state.vault_lock.is_locked() {
         return Ok(CredentialsResponse {
             success: false,
             password: None,
             error: Some("Vault is locked".to_string()),
         });
     }
+    drop(app_state);
 
-    let storage_dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
-    let storage = VaultStorage::new(&project_id, storage_dir, Box::new(KeyringProvider::new()));
+    let result = if let Some(ws_store) = get_workspace_store(&ws_manager).await {
+        ws_store.get_credentials(&connection_id)
+    } else {
+        let storage_dir = app.path().app_config_dir().map_err(|e: tauri::Error| e.to_string())?;
+        let storage = VaultStorage::new(&project_id, storage_dir, Box::new(KeyringProvider::new()));
+        storage.get_credentials(&connection_id)
+    };
 
-    match storage.get_credentials(&connection_id) {
+    match result {
         Ok(creds) => Ok(CredentialsResponse {
             success: true,
             password: Some(creds.db_password.expose().clone()),

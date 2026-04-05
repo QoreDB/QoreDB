@@ -38,7 +38,8 @@
     "restoring": "Wird wiederhergestellt…",
     "discard": "Verwerfen",
     "missingConnection": "Gespeicherte Verbindung nicht gefunden.",
-    "restoreFailed": "Sitzung konnte nicht wiederhergestellt werden."
+    "restoreFailed": "Sitzung konnte nicht wiederhergestellt werden.",
+    "differentWorkspace": "Die vorherige Sitzung gehört zu einem anderen Arbeitsbereich. Wechseln Sie zu diesem Arbeitsbereich, um sie wiederherzustellen."
   },
   "updates": {
     "available": "Update {{version}} verfügbar",
@@ -491,7 +492,8 @@
       "data": "Daten und Datenschutz",
       "shortcuts": "Tastenkürzel",
       "license": "Lizenz",
-      "ai": "KI-Assistent"
+      "ai": "KI-Assistent",
+      "workspaces": "Arbeitsbereiche"
     },
     "search": {
       "placeholder": "Einstellungen suchen…",
@@ -530,6 +532,21 @@
       "runQuery": "Abfrage ausführen",
       "closeTab": "Tab schließen",
       "escape": "Overlay schließen / Abbrechen"
+    },
+    "workspaces": {
+      "whatTitle": "Was ist ein Arbeitsbereich?",
+      "whatDescription": "Ein Arbeitsbereich ist ein .qoredb/-Verzeichnis in Ihrem Projekt, das Verbindungen, Abfragen und Notebooks speichert — alles versionierbar mit Git.",
+      "benefitGit": "Git-versionierbar",
+      "benefitGitDesc": "Teilen Sie Ihre Datenbankkonfiguration über Git mit Ihrem Team.",
+      "benefitTeam": "Teamzusammenarbeit",
+      "benefitTeamDesc": "Alle erhalten automatisch die gleichen Verbindungen und Abfragen.",
+      "benefitOrganize": "Nach Projekt organisiert",
+      "benefitOrganizeDesc": "Jedes Projekt hat eigene Verbindungen, getrennt von anderen.",
+      "activeTitle": "Aktiver Arbeitsbereich",
+      "activeDescription": "Der aktuell verwendete Arbeitsbereich für Verbindungen und Abfragen.",
+      "quickstartTitle": "Schnellstart",
+      "quickstartDescription": "Nehmen Sie an einer Führung teil, um Arbeitsbereiche kennenzulernen.",
+      "startTour": "Geführte Tour starten"
     }
   },
   "table": {
@@ -958,6 +975,14 @@
       "step1Desc": "Scrollen Sie durch Zeilen mit endlosem Laden. Klicken Sie auf eine Zelle, um den vollständigen Wert zu sehen.",
       "step2Title": "Tabellenstruktur",
       "step2Desc": "Wechseln Sie die Tabs, um Spalten, Indizes und Beziehungen zu erkunden."
+    },
+    "workspaces": {
+      "step1Title": "Arbeitsbereich-Umschalter",
+      "step1Desc": "Organisieren Sie Ihre Datenbankverbindungen nach Projekt. Jeder Arbeitsbereich hat eigene Verbindungen, Abfragen und Notebooks.",
+      "step2Title": "Projekt-Verbindungen",
+      "step2Desc": "Verbindungen ändern sich je nach aktivem Arbeitsbereich. Wechseln Sie den Arbeitsbereich und die Liste aktualisiert sich automatisch.",
+      "step3Title": "Arbeitsbereich erstellen",
+      "step3Desc": "Klicken Sie auf 'Arbeitsbereich erstellen', um ein .qoredb/-Verzeichnis in Ihrem Projekt zu initialisieren. Git-kompatibel."
     }
   },
   "whatsNew": {
@@ -994,6 +1019,7 @@
     "newConnection": "Neue Verbindung",
     "executeQuery": "Abfrage ausführen",
     "openLibrary": "Bibliothek öffnen",
+    "convertToNotebook": "In Notebook umwandeln",
     "fulltextSearch": "Volltextsuche",
     "pressToClose": "Drücken Sie ? oder Esc zum Schließen",
     "exitZenMode": "Zen-Modus beenden"
@@ -1160,6 +1186,10 @@
       "checkbox": "Anonyme Nutzungsanalysen teilen (empfohlen)",
       "privacyHint": "Wir erfassen nur Absturzberichte und Funktionsnutzungszähler. Keine Abfragen, Ergebnisse oder Zugangsdaten verlassen Ihren Rechner.",
       "finish": "Loslegen"
+    },
+    "workspace": {
+      "title": "Mit Arbeitsbereichen organisieren",
+      "description": "Sie haben mehrere Verbindungen. Erstellen Sie einen Arbeitsbereich, um sie nach Projekt zu gruppieren und über Git zu teilen."
     }
   },
   "errorBoundary": {
@@ -1948,5 +1978,29 @@
     "failed": "Schema-Export fehlgeschlagen",
     "noPath": "Bitte wählen Sie eine Ausgabedatei",
     "menuItem": "Schema exportieren"
+  },
+  "workspace": {
+    "title": "Arbeitsbereich",
+    "default": "Standard-Arbeitsbereich",
+    "detected": "Arbeitsbereich erkannt",
+    "detectedMessage": "Ein .qoredb-Arbeitsbereich wurde im aktuellen Verzeichnis gefunden. Verwenden?",
+    "accept": "Arbeitsbereich verwenden",
+    "dismiss": "Standard beibehalten",
+    "create": "Arbeitsbereich erstellen",
+    "created": "Arbeitsbereich erfolgreich erstellt",
+    "createDescription": "Initialisieren Sie ein .qoredb-Verzeichnis in Ihrem Projekt, um Verbindungen, Notebooks und Abfragen im Team zu teilen.",
+    "open": "Arbeitsbereich öffnen",
+    "switch": "Arbeitsbereich wechseln",
+    "recent": "Letzte Arbeitsbereiche",
+    "name": "Arbeitsbereichsname",
+    "path": "Projektverzeichnis",
+    "initialize": "Initialisieren",
+    "importExisting": "Bestehende Verbindungen importieren",
+    "noWorkspaces": "Keine letzten Arbeitsbereiche",
+    "importedCount": "{{count}} Verbindungen importiert",
+    "gitWarning": "Verbindungsmetadaten (Host, Port, Benutzername) werden in .qoredb/ gespeichert und können mit Git versioniert werden. Passwörter werden niemals auf der Festplatte gespeichert.",
+    "rename": "Umbenennen",
+    "renamePrompt": "Neuer Arbeitsbereichsname:",
+    "leave": "Arbeitsbereich verlassen"
   }
 }

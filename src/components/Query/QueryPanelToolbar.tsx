@@ -3,6 +3,7 @@
 import {
   AlertCircle,
   BookmarkPlus,
+  BookOpen,
   Check,
   Database,
   Folder,
@@ -40,8 +41,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tooltip } from '@/components/ui/tooltip';
-import { cn } from '@/lib/utils';
 import { createFederationTab } from '@/lib/tabs';
+import { cn } from '@/lib/utils';
 import { useTabContext } from '@/providers/TabProvider';
 import { getModifierKey } from '@/utils/platform';
 import type { ENVIRONMENT_CONFIG } from '../../lib/environment';
@@ -79,6 +80,7 @@ interface QueryPanelToolbarProps {
   transactionActive?: boolean;
   transactionStatements?: number;
   onFormat?: () => void;
+  onConvertToNotebook?: () => void;
   onBeginTransaction?: () => void;
   onCommitTransaction?: () => void;
   onRollbackTransaction?: () => void;
@@ -108,6 +110,7 @@ export function QueryPanelToolbar({
   onSaveToLibrary,
   onTemplateSelect,
   onFormat,
+  onConvertToNotebook,
   onAiToggle,
   aiPanelOpen,
   supportsTransactions,
@@ -410,6 +413,12 @@ export function QueryPanelToolbar({
             <DropdownMenuItem onClick={() => openTab(createFederationTab())}>
               <Network size={14} />
               {t('federation.badge')}
+            </DropdownMenuItem>
+          )}
+          {onConvertToNotebook && (
+            <DropdownMenuItem onClick={onConvertToNotebook}>
+              <BookOpen size={14} />
+              {t('palette.convertToNotebook')}
             </DropdownMenuItem>
           )}
         </DropdownMenuContent>

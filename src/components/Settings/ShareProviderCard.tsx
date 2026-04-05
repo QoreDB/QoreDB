@@ -242,9 +242,7 @@ export function ShareProviderCard({ searchQuery }: ShareProviderCardProps) {
                 value={token}
                 onChange={event => setToken(event.target.value)}
                 placeholder={
-                  status.has_token
-                    ? '••••••••••••'
-                    : t('share.settings.tokenPlaceholder')
+                  status.has_token ? '••••••••••••' : t('share.settings.tokenPlaceholder')
                 }
                 className="pr-8"
                 onKeyDown={event => {

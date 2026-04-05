@@ -9,6 +9,7 @@ use std::collections::VecDeque;
 use std::fs::{self, File, OpenOptions};
 use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use parking_lot::RwLock;
 
@@ -16,9 +17,6 @@ use chrono::{DateTime, Duration, Utc};
 use tracing::{debug, error, info, warn};
 
 use super::types::{AuditLogEntry, Environment, QueryOperationType};
-
-/// Maximum entries to keep in memory for fast access
-const MEMORY_CACHE_SIZE: usize = 1000;
 
 /// Audit log store with file persistence
 pub struct AuditStore {
@@ -30,6 +28,8 @@ pub struct AuditStore {
     max_entries: RwLock<usize>,
     /// Whether audit logging is enabled
     enabled: RwLock<bool>,
+    /// Tracked line count for the audit file (avoids O(n) recount)
+    file_line_count: AtomicUsize,
 }
 
 impl AuditStore {
@@ -43,10 +43,11 @@ impl AuditStore {
         }
 
         let store = Self {
-            entries: RwLock::new(VecDeque::with_capacity(MEMORY_CACHE_SIZE)),
+            entries: RwLock::new(VecDeque::with_capacity(max_entries)),
             log_path,
             max_entries: RwLock::new(max_entries),
             enabled: RwLock::new(true),
+            file_line_count: AtomicUsize::new(0),
         };
 
         store.load_recent_entries();
@@ -64,11 +65,14 @@ impl AuditStore {
             Ok(file) => {
                 let reader = BufReader::new(file);
                 let mut entries = self.entries.write();
+                let max = *self.max_entries.read();
+                let mut line_count: usize = 0;
 
                 for line in reader.lines() {
                     if let Ok(line) = line {
+                        line_count += 1;
                         if let Ok(entry) = serde_json::from_str::<AuditLogEntry>(&line) {
-                            if entries.len() >= MEMORY_CACHE_SIZE {
+                            if entries.len() >= max {
                                 entries.pop_front();
                             }
                             entries.push_back(entry);
@@ -76,6 +80,7 @@ impl AuditStore {
                     }
                 }
 
+                self.file_line_count.store(line_count, Ordering::Relaxed);
                 debug!("Loaded {} audit log entries from file", entries.len());
             }
             Err(e) => {
@@ -96,6 +101,12 @@ impl AuditStore {
     /// Update max audit entries
     pub fn set_max_entries(&self, max_entries: usize) {
         *self.max_entries.write() = max_entries;
+        // Trim in-memory cache if it exceeds the new limit
+        let mut entries = self.entries.write();
+        while entries.len() > max_entries {
+            entries.pop_front();
+        }
+        drop(entries);
         self.maybe_rotate();
     }
 
@@ -109,8 +120,9 @@ impl AuditStore {
         }
 
         {
+            let max = *self.max_entries.read();
             let mut entries = self.entries.write();
-            if entries.len() >= MEMORY_CACHE_SIZE {
+            if entries.len() >= max {
                 entries.pop_front();
             }
             entries.push_back(entry.clone());
@@ -136,27 +148,25 @@ impl AuditStore {
         writeln!(writer, "{}", json)?;
         writer.flush()?;
 
+        self.file_line_count.fetch_add(1, Ordering::Relaxed);
+
         Ok(())
     }
 
     /// Rotate the log file if it exceeds max entries
     fn maybe_rotate(&self) {
-        // Count lines in file
-        let line_count = match File::open(&self.log_path) {
-            Ok(file) => BufReader::new(file).lines().count(),
-            Err(_) => return,
-        };
-
+        let line_count = self.file_line_count.load(Ordering::Relaxed);
         let max_entries = *self.max_entries.read();
         if line_count <= max_entries {
             return;
         }
 
-        // Keep only the last max_entries
+        // Keep only the last 75% of max_entries
         let entries_to_keep = max_entries * 3 / 4;
 
         match self.rotate_file(entries_to_keep) {
             Ok(removed) => {
+                self.file_line_count.fetch_sub(removed, Ordering::Relaxed);
                 info!("Rotated audit log, removed {} old entries", removed);
             }
             Err(e) => {
@@ -322,6 +332,7 @@ impl AuditStore {
             error!("Failed to clear audit log file: {}", e);
         }
 
+        self.file_line_count.store(0, Ordering::Relaxed);
         info!("Audit log cleared");
     }
 

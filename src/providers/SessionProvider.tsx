@@ -16,28 +16,29 @@ import type { DatabaseBrowserTab } from '@/components/Browser/DatabaseBrowser';
 import type { TableBrowserTab } from '@/components/Browser/TableBrowser';
 import { useRecovery } from '@/hooks/useRecovery';
 import { type CrashRecoverySnapshot, saveCrashRecoverySnapshot } from '@/lib/crashRecovery';
+import { shouldSaveQueryDrafts } from '@/lib/crashRecoverySettings';
 import { Driver } from '@/lib/drivers';
+import {
+  handleCloseConnectionModal as closeConnectionModal,
+  setSettingsOpen,
+} from '@/lib/modalStore';
 import { notify } from '@/lib/notify';
 import type { OpenTab } from '@/lib/tabs';
 import {
-  connectSavedConnection,
   type ConnectionHealth,
   type ConnectionHealthEvent,
+  connectSavedConnection,
   type DriverCapabilities,
   disconnect,
   getDriverInfo,
   listSavedConnections,
   type SavedConnection,
 } from '@/lib/tauri';
-import { UI_EVENT_CONNECTIONS_CHANGED } from '@/lib/uiEvents';
+import { UI_EVENT_CONNECTIONS_CHANGED, UI_EVENT_WORKSPACE_CHANGED } from '@/lib/uiEvents';
 import { setUpdateAvailable } from '@/lib/updateStore';
-import {
-  handleCloseConnectionModal as closeConnectionModal,
-  setSettingsOpen,
-} from '@/lib/modalStore';
 import { useTabContext } from './TabProvider';
+import { useWorkspace } from './WorkspaceProvider';
 
-const DEFAULT_PROJECT = 'default';
 const RECOVERY_SAVE_DEBOUNCE_MS = 600;
 const STARTUP_PREFS_KEY = 'qoredb_startup_preferences';
 
@@ -114,6 +115,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
   const { tabs, activeTabId, queryDrafts, tableBrowserTabs, databaseBrowserTabs, resetTabs } =
     useTabContext();
+  const { projectId } = useWorkspace();
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [driver, setDriver] = useState<Driver>(Driver.Postgres);
   const [driverCapabilities, setDriverCapabilities] = useState<DriverCapabilities | null>(null);
@@ -131,10 +133,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   // Load saved connections on mount & refresh
   useEffect(() => {
-    listSavedConnections(DEFAULT_PROJECT)
+    listSavedConnections(projectId)
       .then(saved => setHasConnections(saved.length > 0))
       .catch(() => setHasConnections(false));
-  }, []);
+  }, [projectId]);
 
   // Listen for connections-changed events
   useEffect(() => {
@@ -142,6 +144,26 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     window.addEventListener(UI_EVENT_CONNECTIONS_CHANGED, handler);
     return () => window.removeEventListener(UI_EVENT_CONNECTIONS_CHANGED, handler);
   }, []);
+
+  // Disconnect and reset when workspace changes
+  useEffect(() => {
+    const handler = () => {
+      const currentSessionId = sessionId;
+      if (currentSessionId) {
+        disconnect(currentSessionId).catch(err =>
+          console.warn('Failed to disconnect on workspace switch:', err)
+        );
+      }
+      setSessionId(null);
+      setActiveConnection(null);
+      setDriverCapabilities(null);
+      setConnectionHealth('healthy');
+      resetTabs();
+      setSidebarRefreshTrigger(prev => prev + 1);
+    };
+    window.addEventListener(UI_EVENT_WORKSPACE_CHANGED, handler);
+    return () => window.removeEventListener(UI_EVENT_WORKSPACE_CHANGED, handler);
+  }, [sessionId, resetTabs]);
 
   // Check for updates on startup
   useEffect(() => {
@@ -230,7 +252,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
     const snapshot: CrashRecoverySnapshot = {
       updatedAt: Date.now(),
-      projectId: DEFAULT_PROJECT,
+      projectId: projectId,
       connectionId: activeConnection.id,
       activeTabId,
       tabs: tabs.map(tab => ({
@@ -240,7 +262,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         namespace: tab.namespace,
         tableName: tab.tableName,
       })),
-      queryDrafts,
+      queryDrafts: shouldSaveQueryDrafts() ? queryDrafts : {},
       tableBrowserTabs: { ...tableBrowserTabs },
       databaseBrowserTabs: { ...databaseBrowserTabs },
     };
@@ -254,6 +276,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [
     activeConnection,
     sessionId,
+    projectId,
     tabs,
     activeTabId,
     queryDrafts,
@@ -345,10 +368,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         const attemptId = reconnectAttemptRef.current;
         void (async () => {
           try {
-            const reconnectResult = await connectSavedConnection(
-              DEFAULT_PROJECT,
-              updatedConnection.id
-            );
+            const reconnectResult = await connectSavedConnection(projectId, updatedConnection.id);
             if (attemptId !== reconnectAttemptRef.current) return;
             if (reconnectResult.success && reconnectResult.session_id) {
               pendingReconnectRef.current = null;
@@ -392,7 +412,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         })();
       }
     },
-    [activeConnection, handleConnected, resetTabs, sessionId, t]
+    [activeConnection, handleConnected, projectId, resetTabs, sessionId, t]
   );
 
   return (

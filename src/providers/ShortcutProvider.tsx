@@ -14,7 +14,7 @@ import {
   toggleCheatsheet,
   useModalStore,
 } from '@/lib/modalStore';
-import { createQueryTab } from '@/lib/tabs';
+import { createNotebookTab, createQueryTab } from '@/lib/tabs';
 import { useSessionContext } from './SessionProvider';
 import { useTabContext } from './TabProvider';
 
@@ -25,7 +25,7 @@ function isTextInputTarget(target: EventTarget | null): boolean {
 }
 
 export function ShortcutProvider({ children }: { children: ReactNode }) {
-  const { activeTabId, activeTab, closeTab, openTab } = useTabContext();
+  const { activeTabId, activeTab, closeTab, openTab, queryDrafts } = useTabContext();
   const { sessionId } = useSessionContext();
   const cheatsheetOpen = useModalStore(s => s.cheatsheetOpen);
 
@@ -48,6 +48,18 @@ export function ShortcutProvider({ children }: { children: ReactNode }) {
     if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
       e.preventDefault();
       setSearchOpen(true);
+      return;
+    }
+
+    // Mod+Shift+N: Convert query to notebook (works even in text inputs)
+    if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'n') {
+      e.preventDefault();
+      if (sessionId && activeTab?.type === 'query') {
+        const draft = queryDrafts[activeTab.id] ?? '';
+        const tab = createNotebookTab(undefined, undefined, draft);
+        tab.namespace = activeTab.namespace;
+        openTab(tab);
+      }
       return;
     }
 

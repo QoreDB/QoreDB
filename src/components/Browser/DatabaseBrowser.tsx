@@ -424,7 +424,7 @@ export function DatabaseBrowser({
   const iconSrc = `/databases/${DRIVER_ICONS[driver]}`;
 
   return (
-    <div className="flex flex-col h-full bg-background rounded-lg border border-border shadow-sm overflow-hidden isolate [contain:paint]">
+    <div className="flex flex-col h-full bg-background rounded-lg border border-border shadow-sm overflow-hidden isolate contain-[paint]">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/20">
         <div className="flex items-center gap-3">

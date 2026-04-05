@@ -6,7 +6,9 @@ import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { AiAssistantPanel } from '@/components/AI/AiAssistantPanel';
 import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
+import { createNotebookTab } from '@/lib/tabs';
 import { UI_EVENT_OPEN_HISTORY } from '@/lib/uiEvents';
+import { useTabContext } from '@/providers/TabProvider';
 import { forceRefreshCache } from '../../hooks/useSchemaCache';
 import { useTourManager } from '../../hooks/useTourManager';
 import { getQueryDialect, isDocumentDatabase } from '../../lib/driverCapabilities';
@@ -128,6 +130,7 @@ export function QueryPanel({
   aiTableContext,
 }: QueryPanelProps) {
   const { t } = useTranslation();
+  const { openTab } = useTabContext();
   const isDocument = isDocumentDatabase(dialect);
   const queryDialect = getQueryDialect(dialect);
   const defaultQuery = getDefaultQuery(isDocument);
@@ -692,6 +695,12 @@ export function QueryPanel({
     setQuery(formatted);
   }, [dialect, isDocument, query]);
 
+  const handleConvertToNotebook = useCallback(() => {
+    const tab = createNotebookTab(undefined, undefined, query);
+    tab.namespace = activeNamespace ?? undefined;
+    openTab(tab);
+  }, [query, activeNamespace, openTab]);
+
   const handleExplain = useCallback(async () => {
     if (!sessionId || isDocument || !isExplainSupported) {
       return;
@@ -919,6 +928,7 @@ export function QueryPanel({
         onSaveToLibrary={handleSaveToLibrary}
         onTemplateSelect={handleTemplateSelect}
         onFormat={handleFormat}
+        onConvertToNotebook={handleConvertToNotebook}
         onAiToggle={handleAiToggle}
         aiPanelOpen={showAiPanel}
         supportsTransactions={supportsTransactions}

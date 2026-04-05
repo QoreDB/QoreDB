@@ -74,6 +74,9 @@ dirs = "5"
 url = "2"
 percent-encoding = "2"
 
+# File system watcher for workspace directory monitoring
+notify = { version = "6", default-features = false, features = ["macos_fsevent"] }
+
 # SOCKS5 proxy support for corporate network environments
 tokio-socks = "0.5"
 

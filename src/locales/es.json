@@ -38,7 +38,8 @@
     "restoring": "Restaurando…",
     "discard": "Descartar",
     "missingConnection": "Conexión guardada no encontrada.",
-    "restoreFailed": "Error al restaurar la sesión."
+    "restoreFailed": "Error al restaurar la sesión.",
+    "differentWorkspace": "La sesión anterior pertenece a otro espacio de trabajo. Cambie a ese espacio para restaurarla."
   },
   "updates": {
     "available": "Actualización {{version}} disponible",
@@ -491,7 +492,8 @@
       "data": "Datos y privacidad",
       "shortcuts": "Atajos de teclado",
       "license": "Licencia",
-      "ai": "Asistente de IA"
+      "ai": "Asistente de IA",
+      "workspaces": "Espacios de trabajo"
     },
     "search": {
       "placeholder": "Buscar configuración...",
@@ -530,6 +532,21 @@
       "runQuery": "Ejecutar consulta",
       "closeTab": "Cerrar pestaña",
       "escape": "Cerrar superposición / Cancelar"
+    },
+    "workspaces": {
+      "whatTitle": "¿Qué es un espacio de trabajo?",
+      "whatDescription": "Un espacio de trabajo es un directorio .qoredb/ en su proyecto que almacena conexiones, consultas y notebooks — todo versionable con Git.",
+      "benefitGit": "Versionable con Git",
+      "benefitGitDesc": "Comparta su configuración de bases de datos con su equipo a través de Git.",
+      "benefitTeam": "Colaboración en equipo",
+      "benefitTeamDesc": "Todos obtienen las mismas conexiones y consultas automáticamente.",
+      "benefitOrganize": "Organizado por proyecto",
+      "benefitOrganizeDesc": "Cada proyecto tiene sus propias conexiones, separadas de los demás.",
+      "activeTitle": "Espacio activo",
+      "activeDescription": "El espacio de trabajo actualmente en uso para conexiones y consultas.",
+      "quickstartTitle": "Inicio rápido",
+      "quickstartDescription": "Realice un recorrido guiado para aprender cómo funcionan los espacios de trabajo.",
+      "startTour": "Iniciar recorrido guiado"
     }
   },
   "table": {
@@ -958,6 +975,14 @@
       "step1Desc": "Desplázate por las filas con carga infinita. Haz clic en una celda para ver su valor completo.",
       "step2Title": "Estructura de la tabla",
       "step2Desc": "Cambia de pestaña para explorar columnas, índices y relaciones."
+    },
+    "workspaces": {
+      "step1Title": "Selector de espacio",
+      "step1Desc": "Organice sus conexiones por proyecto. Cada espacio tiene sus propias conexiones, consultas y notebooks.",
+      "step2Title": "Conexiones por proyecto",
+      "step2Desc": "Las conexiones cambian según el espacio activo. Cambie de espacio y la lista se actualiza automáticamente.",
+      "step3Title": "Crear un espacio de trabajo",
+      "step3Desc": "Abra el menú y haga clic en 'Crear espacio de trabajo' para inicializar un directorio .qoredb/ en su proyecto. Compatible con Git."
     }
   },
   "whatsNew": {
@@ -994,6 +1019,7 @@
     "newConnection": "Nueva conexión",
     "executeQuery": "Ejecutar consulta",
     "openLibrary": "Abrir biblioteca",
+    "convertToNotebook": "Convertir a Notebook",
     "fulltextSearch": "Búsqueda de texto completo",
     "pressToClose": "Presiona ? o Esc para cerrar",
     "exitZenMode": "Salir del modo Zen"
@@ -1160,6 +1186,10 @@
       "checkbox": "Compartir analíticas de uso anónimas (recomendado)",
       "privacyHint": "Solo recopilamos informes de errores y conteos de uso de funcionalidades. Ninguna consulta, resultado ni credencial sale de tu máquina.",
       "finish": "Comenzar"
+    },
+    "workspace": {
+      "title": "Organiza con espacios de trabajo",
+      "description": "Tiene varias conexiones. Cree un espacio de trabajo para agruparlas por proyecto y compartirlas con su equipo a través de Git."
     }
   },
   "errorBoundary": {
@@ -1948,5 +1978,29 @@
     "failed": "Error en la exportación del esquema",
     "noPath": "Por favor selecciona un archivo de salida",
     "menuItem": "Exportar esquema"
+  },
+  "workspace": {
+    "title": "Espacio de trabajo",
+    "default": "Espacio predeterminado",
+    "detected": "Espacio de trabajo detectado",
+    "detectedMessage": "Se encontró un espacio de trabajo .qoredb en el directorio actual. ¿Usarlo?",
+    "accept": "Usar espacio",
+    "dismiss": "Mantener predeterminado",
+    "create": "Crear espacio de trabajo",
+    "created": "Espacio de trabajo creado exitosamente",
+    "createDescription": "Inicializar un directorio .qoredb en su proyecto para compartir conexiones, notebooks y consultas con el equipo.",
+    "open": "Abrir espacio de trabajo",
+    "switch": "Cambiar espacio de trabajo",
+    "recent": "Espacios recientes",
+    "name": "Nombre del espacio",
+    "path": "Directorio del proyecto",
+    "initialize": "Inicializar",
+    "importExisting": "Importar conexiones existentes",
+    "noWorkspaces": "Sin espacios recientes",
+    "importedCount": "{{count}} conexiones importadas",
+    "gitWarning": "Los metadatos de conexión (host, puerto, usuario) se almacenarán en .qoredb/ y pueden versionarse con Git. Las contraseñas nunca se guardan en disco.",
+    "rename": "Renombrar",
+    "renamePrompt": "Nuevo nombre del espacio:",
+    "leave": "Dejar espacio"
   }
 }

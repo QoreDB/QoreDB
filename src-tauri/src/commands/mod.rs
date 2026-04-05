@@ -27,3 +27,5 @@ pub mod snapshots;
 pub mod triggers;
 pub mod vault;
 pub mod virtual_relations;
+pub mod workspace;
+pub mod workspace_queries;

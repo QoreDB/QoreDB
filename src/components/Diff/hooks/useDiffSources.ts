@@ -8,37 +8,102 @@ import { compareResults, type DiffResult, findCommonColumns } from '@/lib/diffUt
 import type { DiffSource } from '@/lib/tabs';
 import {
   connectSavedConnection,
+  describeTable,
   disconnect,
   executeQuery,
   getSnapshot,
   listNamespaces,
+  type ColumnInfo,
   type Namespace,
   previewTable,
   type QueryResult,
   type SavedConnection,
+  type TableSchema,
 } from '@/lib/tauri';
+import { useWorkspace } from '@/providers/WorkspaceProvider';
 import type { DiffSourceState } from '../DiffSourcePanel';
 
-const DEFAULT_PROJECT = 'default';
+type DiffColumnMetadata = {
+  dataType: string;
+  isPrimaryKey: boolean;
+  isForeignKey: boolean;
+  isUnique: boolean;
+};
 
-const TRIVIAL_COLUMN_SET = new Set([
-  'id',
-  'created',
-  'updated',
-  'createdat',
-  'updatedat',
-  'createdon',
-  'updatedon',
-  'createddate',
-  'updateddate',
-]);
+const EMPTY_COLUMN_METADATA = new Map<string, DiffColumnMetadata>();
+const AUDIT_COLUMN_ACTIONS = new Set(['created', 'updated', 'modified', 'deleted', 'inserted']);
+const AUDIT_COLUMN_TIME_HINTS = new Set(['at', 'on', 'date', 'time', 'timestamp']);
 
-function normalizeColumnName(name: string): string {
-  return name.toLowerCase().replace(/[^a-z0-9]/g, '');
+function tokenizeColumnName(name: string): string[] {
+  return name
+    .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean);
 }
 
-function isTrivialColumn(name: string): boolean {
-  return TRIVIAL_COLUMN_SET.has(normalizeColumnName(name));
+function isTemporalColumnType(dataType: string): boolean {
+  const normalized = dataType.toLowerCase();
+  return (
+    normalized.includes('timestamp') ||
+    normalized.includes('datetime') ||
+    normalized.includes('date') ||
+    normalized.includes('time')
+  );
+}
+
+function isLikelyAuditColumn(name: string, dataType: string): boolean {
+  if (!isTemporalColumnType(dataType)) return false;
+
+  const tokens = tokenizeColumnName(name);
+  if (tokens.length === 0) return false;
+
+  const actionIndex = tokens.findIndex(token => AUDIT_COLUMN_ACTIONS.has(token));
+  if (actionIndex === -1 || actionIndex > 1) return false;
+
+  if (tokens.length === 1) return true;
+  return AUDIT_COLUMN_TIME_HINTS.has(tokens[tokens.length - 1]);
+}
+
+function buildColumnMetadataMap(schema: TableSchema | null): Map<string, DiffColumnMetadata> {
+  if (!schema) return EMPTY_COLUMN_METADATA;
+
+  const primaryKeys = new Set(schema.primary_key ?? []);
+  const foreignKeys = new Set(schema.foreign_keys.map(fk => fk.column));
+  const uniqueColumns = new Set<string>();
+
+  schema.indexes.forEach(index => {
+    if (!index.is_unique) return;
+    index.columns.forEach(column => uniqueColumns.add(column));
+  });
+
+  return new Map(
+    schema.columns.map(column => [
+      column.name,
+      {
+        dataType: column.data_type,
+        isPrimaryKey: column.is_primary_key || primaryKeys.has(column.name),
+        isForeignKey: foreignKeys.has(column.name),
+        isUnique: uniqueColumns.has(column.name),
+      },
+    ])
+  );
+}
+
+function isTrivialColumn(column: ColumnInfo, metadata?: DiffColumnMetadata): boolean {
+  if (metadata && (metadata.isPrimaryKey || metadata.isForeignKey || metadata.isUnique)) {
+    return false;
+  }
+
+  return isLikelyAuditColumn(column.name, metadata?.dataType ?? column.data_type);
+}
+
+function getTableSchemaCacheKey(
+  sessionId: string,
+  namespace: Namespace,
+  tableName: string
+): string {
+  return `${sessionId}:${namespace.database}:${namespace.schema ?? ''}:${tableName}`;
 }
 
 function findMatchingNamespace(namespaces: Namespace[], target?: Namespace): Namespace | null {
@@ -163,6 +228,7 @@ export function useDiffSources({
   initialLeftSource,
   initialRightSource,
 }: UseDiffSourcesOptions): UseDiffSourcesReturn {
+  const { projectId } = useWorkspace();
   const [leftSource, setLeftSource] = useState<DiffSourceState>(() =>
     initSourceState(initialLeftSource, activeConnection, initialNamespace)
   );
@@ -181,6 +247,9 @@ export function useDiffSources({
   const [keyColumns, setKeyColumns] = useState<string[]>([]);
   const [diffResult, setDiffResult] = useState<DiffResult | null>(null);
   const [comparing, setComparing] = useState(false);
+  const [leftTableSchema, setLeftTableSchema] = useState<TableSchema | null>(null);
+  const [rightTableSchema, setRightTableSchema] = useState<TableSchema | null>(null);
+  const tableSchemaCacheRef = useRef<Map<string, TableSchema | null>>(new Map());
 
   const releaseConnection = useCallback(async (connectionId?: string) => {
     if (!connectionId) return;
@@ -196,21 +265,24 @@ export function useDiffSources({
     }
   }, []);
 
-  const acquireSession = useCallback(async (connection: SavedConnection): Promise<string> => {
-    const existing = sharedSessionsRef.current.get(connection.id);
-    if (existing) {
-      existing.refs += 1;
-      return existing.sessionId;
-    }
+  const acquireSession = useCallback(
+    async (connection: SavedConnection): Promise<string> => {
+      const existing = sharedSessionsRef.current.get(connection.id);
+      if (existing) {
+        existing.refs += 1;
+        return existing.sessionId;
+      }
 
-    const result = await connectSavedConnection(DEFAULT_PROJECT, connection.id);
-    if (!result.success || !result.session_id) {
-      throw new Error(result.error || 'Failed to connect');
-    }
+      const result = await connectSavedConnection(projectId, connection.id);
+      if (!result.success || !result.session_id) {
+        throw new Error(result.error || 'Failed to connect');
+      }
 
-    sharedSessionsRef.current.set(connection.id, { sessionId: result.session_id, refs: 1 });
-    return result.session_id;
-  }, []);
+      sharedSessionsRef.current.set(connection.id, { sessionId: result.session_id, refs: 1 });
+      return result.session_id;
+    },
+    [projectId]
+  );
 
   const updateLeftSource = useCallback((updates: Partial<DiffSourceState>) => {
     setLeftSource(prev => {
@@ -495,7 +567,7 @@ export function useDiffSources({
             source.sessionId,
             source.namespace,
             source.tableName,
-            10000
+            1000
           );
           if (response.success && response.result) {
             result = response.result;
@@ -647,10 +719,105 @@ export function useDiffSources({
     updateRightSource,
   ]);
 
+  useEffect(() => {
+    if (
+      leftSource.mode !== 'table' ||
+      !leftSource.sessionId ||
+      !leftSource.namespace ||
+      !leftSource.tableName
+    ) {
+      setLeftTableSchema(null);
+      return;
+    }
+
+    const cacheKey = getTableSchemaCacheKey(
+      leftSource.sessionId,
+      leftSource.namespace,
+      leftSource.tableName
+    );
+    const cachedSchema = tableSchemaCacheRef.current.get(cacheKey);
+    if (cachedSchema !== undefined) {
+      setLeftTableSchema(cachedSchema);
+      return;
+    }
+
+    let cancelled = false;
+    describeTable(leftSource.sessionId, leftSource.namespace, leftSource.tableName)
+      .then(response => {
+        const schema = response.success ? (response.schema ?? null) : null;
+        tableSchemaCacheRef.current.set(cacheKey, schema);
+        if (!cancelled) {
+          setLeftTableSchema(schema);
+        }
+      })
+      .catch(() => {
+        tableSchemaCacheRef.current.set(cacheKey, null);
+        if (!cancelled) {
+          setLeftTableSchema(null);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [leftSource.mode, leftSource.sessionId, leftSource.namespace, leftSource.tableName]);
+
+  useEffect(() => {
+    if (
+      rightSource.mode !== 'table' ||
+      !rightSource.sessionId ||
+      !rightSource.namespace ||
+      !rightSource.tableName
+    ) {
+      setRightTableSchema(null);
+      return;
+    }
+
+    const cacheKey = getTableSchemaCacheKey(
+      rightSource.sessionId,
+      rightSource.namespace,
+      rightSource.tableName
+    );
+    const cachedSchema = tableSchemaCacheRef.current.get(cacheKey);
+    if (cachedSchema !== undefined) {
+      setRightTableSchema(cachedSchema);
+      return;
+    }
+
+    let cancelled = false;
+    describeTable(rightSource.sessionId, rightSource.namespace, rightSource.tableName)
+      .then(response => {
+        const schema = response.success ? (response.schema ?? null) : null;
+        tableSchemaCacheRef.current.set(cacheKey, schema);
+        if (!cancelled) {
+          setRightTableSchema(schema);
+        }
+      })
+      .catch(() => {
+        tableSchemaCacheRef.current.set(cacheKey, null);
+        if (!cancelled) {
+          setRightTableSchema(null);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [rightSource.mode, rightSource.sessionId, rightSource.namespace, rightSource.tableName]);
+
   const commonColumns = useMemo(() => {
     if (!leftSource.result || !rightSource.result) return [];
     return findCommonColumns(leftSource.result, rightSource.result);
   }, [leftSource.result, rightSource.result]);
+
+  const leftColumnMetadata = useMemo(
+    () => buildColumnMetadataMap(leftTableSchema),
+    [leftTableSchema]
+  );
+  const rightColumnMetadata = useMemo(
+    () => buildColumnMetadataMap(rightTableSchema),
+    [rightTableSchema]
+  );
 
   useEffect(() => {
     if (!leftSource.result || !rightSource.result) return;
@@ -666,10 +833,35 @@ export function useDiffSources({
     return null;
   }, [leftSource.result, rightSource.result]);
 
-  const trivialCommonColumns = useMemo(
-    () => commonColumns.filter(col => isTrivialColumn(col.name)).map(col => col.name),
-    [commonColumns]
-  );
+  const trivialCommonColumns = useMemo(() => {
+    if (!leftSource.result || !rightSource.result) return [];
+
+    const leftColumnsByName = new Map(
+      leftSource.result.columns.map(column => [column.name, column])
+    );
+    const rightColumnsByName = new Map(
+      rightSource.result.columns.map(column => [column.name, column])
+    );
+
+    return commonColumns
+      .filter(column => {
+        const leftColumn = leftColumnsByName.get(column.name);
+        const rightColumn = rightColumnsByName.get(column.name);
+        if (!leftColumn || !rightColumn) return false;
+
+        return (
+          isTrivialColumn(leftColumn, leftColumnMetadata.get(column.name)) &&
+          isTrivialColumn(rightColumn, rightColumnMetadata.get(column.name))
+        );
+      })
+      .map(column => column.name);
+  }, [
+    commonColumns,
+    leftSource.result,
+    rightSource.result,
+    leftColumnMetadata,
+    rightColumnMetadata,
+  ]);
 
   const compareWarning = useMemo(() => {
     if (commonColumns.length === 0) return 'noCommonColumns';

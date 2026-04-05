@@ -23,6 +23,8 @@ export interface CrashRecoverySnapshot {
   databaseBrowserTabs: Record<string, string>;
 }
 
+import { getCrashRecoverySettings } from './crashRecoverySettings';
+
 const STORAGE_KEY = 'qoredb_crash_recovery';
 const LEGACY_KEYS = ['qoredb_crash_recovery_v2', 'qoredb_crash_recovery_v1'];
 
@@ -31,8 +33,18 @@ function normalizeSnapshot(raw: string): CrashRecoverySnapshot | null {
     const parsed = JSON.parse(raw) as Partial<CrashRecoverySnapshot>;
     if (!parsed.connectionId || !parsed.projectId) return null;
 
+    const updatedAt = typeof parsed.updatedAt === 'number' ? parsed.updatedAt : Date.now();
+
+    // Enforce TTL: discard snapshots older than configured ttlHours
+    const { ttlHours } = getCrashRecoverySettings();
+    const ttlMs = ttlHours * 60 * 60 * 1000;
+    if (Date.now() - updatedAt > ttlMs) {
+      localStorage.removeItem(STORAGE_KEY);
+      return null;
+    }
+
     return {
-      updatedAt: typeof parsed.updatedAt === 'number' ? parsed.updatedAt : Date.now(),
+      updatedAt,
       projectId: parsed.projectId,
       connectionId: parsed.connectionId,
       activeTabId: parsed.activeTabId ?? null,

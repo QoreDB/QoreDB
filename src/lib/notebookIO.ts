@@ -3,8 +3,18 @@
 import { open as openDialog, save } from '@tauri-apps/plugin-dialog';
 import { readTextFile, writeTextFile } from '@tauri-apps/plugin-fs';
 import type { QoreNotebook } from './notebookTypes';
+import { getWorkspaceState } from './workspaceStore';
 
 const QNB_FILTER = [{ name: 'QoreDB Notebook', extensions: ['qnb'] }];
+
+/** Returns the default notebook directory when a file-based workspace is active. */
+function getWorkspaceNotebookDir(): string | undefined {
+  const { activeWorkspace } = getWorkspaceState();
+  if (activeWorkspace && activeWorkspace.source !== 'default') {
+    return `${activeWorkspace.path}/notebooks`;
+  }
+  return undefined;
+}
 
 /** Strip runtime-only fields before saving */
 function stripForSave(notebook: QoreNotebook, includeResults: boolean): QoreNotebook {
@@ -27,10 +37,13 @@ export async function saveNotebookToFile(
   path: string | null,
   includeResults = false
 ): Promise<string | null> {
+  const wsDir = getWorkspaceNotebookDir();
+  const defaultName = `${notebook.metadata.title.replace(/[^a-zA-Z0-9_-]/g, '_')}.qnb`;
+  const defaultPath = wsDir ? `${wsDir}/${defaultName}` : defaultName;
   const filePath =
     path ??
     (await save({
-      defaultPath: `${notebook.metadata.title.replace(/[^a-zA-Z0-9_-]/g, '_')}.qnb`,
+      defaultPath,
       filters: QNB_FILTER,
     }));
   if (!filePath) return null;
@@ -43,7 +56,12 @@ export async function openNotebookFromFile(): Promise<{
   notebook: QoreNotebook;
   path: string;
 } | null> {
-  const filePath = await openDialog({ multiple: false, filters: QNB_FILTER });
+  const wsDir = getWorkspaceNotebookDir();
+  const filePath = await openDialog({
+    multiple: false,
+    filters: QNB_FILTER,
+    defaultPath: wsDir,
+  });
   if (!filePath || Array.isArray(filePath)) return null;
   const raw = await readTextFile(filePath);
   const notebook = JSON.parse(raw) as QoreNotebook;

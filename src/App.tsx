@@ -7,6 +7,7 @@ import { ModalProvider } from './providers/ModalProvider';
 import { SessionProvider } from './providers/SessionProvider';
 import { ShortcutProvider } from './providers/ShortcutProvider';
 import { TabProvider } from './providers/TabProvider';
+import { WorkspaceProvider } from './providers/WorkspaceProvider';
 
 import './index.css';
 
@@ -16,11 +17,13 @@ function App() {
       <AiPreferencesProvider>
         <TabProvider>
           <ModalProvider>
-            <SessionProvider>
-              <ShortcutProvider>
-                <AppLayout />
-              </ShortcutProvider>
-            </SessionProvider>
+            <WorkspaceProvider>
+              <SessionProvider>
+                <ShortcutProvider>
+                  <AppLayout />
+                </ShortcutProvider>
+              </SessionProvider>
+            </WorkspaceProvider>
           </ModalProvider>
         </TabProvider>
       </AiPreferencesProvider>

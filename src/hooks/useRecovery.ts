@@ -12,8 +12,7 @@ import {
 } from '@/lib/crashRecovery';
 import type { OpenTab } from '@/lib/tabs';
 import { connectSavedConnection, listSavedConnections, type SavedConnection } from '@/lib/tauri';
-
-const DEFAULT_PROJECT = 'default';
+import { useWorkspace } from '@/providers/WorkspaceProvider';
 
 function sanitizeTableBrowserTabs(input?: Record<string, string>): Record<string, TableBrowserTab> {
   const result: Record<string, TableBrowserTab> = {};
@@ -59,6 +58,7 @@ export interface RestoredSession {
 
 export function useRecovery() {
   const { t } = useTranslation();
+  const { projectId } = useWorkspace();
   const [state, setState] = useState<RecoveryState>({
     snapshot: null,
     connectionName: null,
@@ -74,13 +74,16 @@ export function useRecovery() {
 
     setState(prev => ({ ...prev, snapshot }));
 
-    listSavedConnections(DEFAULT_PROJECT)
+    const isOtherWorkspace = snapshot.projectId !== projectId;
+
+    listSavedConnections(projectId)
       .then(saved => {
         const match = saved.find(conn => conn.id === snapshot.connectionId);
         setState(prev => ({
           ...prev,
           connectionName: match?.name ?? null,
           isMissing: !match,
+          error: !match && isOtherWorkspace ? t('recovery.differentWorkspace') : null,
         }));
       })
       .catch(() => {
@@ -90,7 +93,7 @@ export function useRecovery() {
           isMissing: true,
         }));
       });
-  }, []);
+  }, [projectId]);
 
   const restore = useCallback(async (): Promise<RestoredSession | null> => {
     if (!state.snapshot) return null;
@@ -98,20 +101,23 @@ export function useRecovery() {
     setState(prev => ({ ...prev, isLoading: true, error: null }));
 
     try {
-      const saved = await listSavedConnections(DEFAULT_PROJECT);
+      const saved = await listSavedConnections(projectId);
       const match = saved.find(conn => conn.id === state.snapshot?.connectionId);
 
       if (!match) {
+        const isOtherWorkspace = state.snapshot?.projectId !== projectId;
         setState(prev => ({
           ...prev,
           isMissing: true,
-          error: t('recovery.missingConnection'),
+          error: isOtherWorkspace
+            ? t('recovery.differentWorkspace')
+            : t('recovery.missingConnection'),
           isLoading: false,
         }));
         return null;
       }
 
-      const result = await connectSavedConnection(DEFAULT_PROJECT, match.id);
+      const result = await connectSavedConnection(projectId, match.id);
       if (!result.success || !result.session_id) {
         setState(prev => ({
           ...prev,
@@ -171,7 +177,7 @@ export function useRecovery() {
       }));
       return null;
     }
-  }, [state.snapshot, t]);
+  }, [state.snapshot, projectId, t]);
 
   const discard = useCallback(() => {
     clearCrashRecoverySnapshot();

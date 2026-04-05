@@ -38,7 +38,8 @@
     "restoring": "正在恢复…",
     "discard": "放弃",
     "missingConnection": "未找到已保存的连接。",
-    "restoreFailed": "恢复会话失败。"
+    "restoreFailed": "恢复会话失败。",
+    "differentWorkspace": "上一个会话属于不同的工作区。请切换到该工作区以恢复它。"
   },
   "updates": {
     "available": "更新 {{version}} 可用",
@@ -491,7 +492,8 @@
       "data": "数据与隐私",
       "shortcuts": "键盘快捷键",
       "license": "许可证",
-      "ai": "AI 助手"
+      "ai": "AI 助手",
+      "workspaces": "工作区"
     },
     "search": {
       "placeholder": "搜索设置…",
@@ -530,6 +532,21 @@
       "runQuery": "运行查询",
       "closeTab": "关闭标签页",
       "escape": "关闭叠加层/取消"
+    },
+    "workspaces": {
+      "whatTitle": "什么是工作区？",
+      "whatDescription": "工作区是项目中的 .qoredb/ 目录，用于存储连接、查询和笔记本，所有内容都可通过 Git 进行版本控制。",
+      "benefitGit": "Git 版本控制",
+      "benefitGitDesc": "通过 Git 与团队共享数据库配置。",
+      "benefitTeam": "团队协作",
+      "benefitTeamDesc": "所有团队成员自动获得相同的连接和查询。",
+      "benefitOrganize": "按项目组织",
+      "benefitOrganizeDesc": "每个项目拥有独立的连接，与其他项目分离。",
+      "activeTitle": "当前工作区",
+      "activeDescription": "当前用于连接和查询的工作区。",
+      "quickstartTitle": "快速入门",
+      "quickstartDescription": "通过导览了解工作区的使用方法。",
+      "startTour": "开始导览"
     }
   },
   "table": {
@@ -958,6 +975,14 @@
       "step1Desc": "通过无限加载滚动浏览行数据。点击单元格查看完整值。",
       "step2Title": "表结构",
       "step2Desc": "切换标签页以浏览列、索引和关系。"
+    },
+    "workspaces": {
+      "step1Title": "工作区切换器",
+      "step1Desc": "按项目组织数据库连接。",
+      "step2Title": "项目连接",
+      "step2Desc": "连接随活动工作区变化。切换工作区后列表自动更新。",
+      "step3Title": "创建工作区",
+      "step3Desc": "打开下拉菜单初始化 .qoredb/ 目录。兼容 Git。"
     }
   },
   "whatsNew": {
@@ -994,6 +1019,7 @@
     "newConnection": "新建连接",
     "executeQuery": "执行查询",
     "openLibrary": "打开查询库",
+    "convertToNotebook": "转换为笔记本",
     "fulltextSearch": "全文搜索",
     "pressToClose": "按 ? 或 Esc 关闭",
     "exitZenMode": "退出专注模式"
@@ -1160,6 +1186,10 @@
       "checkbox": "分享匿名使用分析（推荐）",
       "privacyHint": "我们仅收集崩溃报告和功能使用计数。查询、结果或凭据绝不会离开您的设备。",
       "finish": "开始使用"
+    },
+    "workspace": {
+      "title": "用工作区整理",
+      "description": "您有多个连接。创建工作区按项目分组，通过 Git 与团队共享。"
     }
   },
   "errorBoundary": {
@@ -1948,5 +1978,29 @@
     "failed": "架构导出失败",
     "noPath": "请选择输出文件",
     "menuItem": "导出架构"
+  },
+  "workspace": {
+    "title": "工作区",
+    "default": "默认工作区",
+    "detected": "检测到工作区",
+    "detectedMessage": "在当前目录中发现了.qoredb工作区，是否使用？",
+    "accept": "使用工作区",
+    "dismiss": "保持默认",
+    "create": "创建工作区",
+    "created": "工作区创建成功",
+    "createDescription": "在项目中初始化.qoredb目录，以便与团队共享连接、笔记本和查询。",
+    "open": "打开工作区",
+    "switch": "切换工作区",
+    "recent": "最近的工作区",
+    "name": "工作区名称",
+    "path": "项目目录",
+    "initialize": "初始化",
+    "importExisting": "导入现有连接",
+    "noWorkspaces": "没有最近的工作区",
+    "importedCount": "已导入{{count}}个连接",
+    "gitWarning": "连接元数据（主机、端口、用户名）将存储在.qoredb/中，可通过Git进行版本控制。密码永远不会保存到磁盘。",
+    "rename": "重命名",
+    "renamePrompt": "新名称：",
+    "leave": "离开"
   }
 }

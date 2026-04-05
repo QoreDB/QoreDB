@@ -19,7 +19,7 @@ You can also toggle **Read-Only Mode** independently.
 | **Visual Theme**  | Neutral     | **Red Warning Borders**             |
 | **Read-Only**     | Optional    | Optional (Recommended)              |
 | **Dangerous SQL** | Allowed     | **Blocked / Confirmation Required** |
-| **Mutations**     | Allowed     | Blocked if Read-Only                |
+| **Mutations**     | Allowed     | Blocked if Read-Only on main query and mutation paths |
 
 ## Dangerous Operations
 
@@ -30,6 +30,16 @@ The following SQL operations are considered dangerous and trigger warnings or bl
 - `ALTER`
 - `DELETE` without a `WHERE` clause
 - `UPDATE` without a `WHERE` clause
+
+## Current Scope and Known Gaps
+
+The production safety model is strongest on the main `execute_query` path and on dedicated mutation/maintenance/object-management commands.
+
+Known limitations in the current implementation:
+
+- Read-only enforcement is not yet fully uniform across every specialized command path.
+- Governance limits described below primarily apply to `execute_query`.
+- Table-browser endpoints such as preview/paginated table reads are not yet covered by the same timeout/concurrency/result-size controls.
 
 ## Query Governance
 
@@ -43,7 +53,7 @@ Resource limits prevent runaway queries and protect shared database servers:
 
 These limits are configurable via Settings > Security > Interceptor, or via environment variables for managed deployments.
 
-When results are truncated, the UI displays a warning with the original row count.
+When results are truncated on covered paths, the UI displays a warning with the original row count.
 
 ## Configuration
 

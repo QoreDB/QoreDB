@@ -2,6 +2,7 @@
 
 import { Keyboard, PanelLeft, Plus, RotateCcw, Search } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { WorkspaceBanner } from '@/components/Onboarding/WorkspaceBanner';
 import { Button } from '@/components/ui/button';
 import { getShortcutSymbol } from '@/utils/platform';
 
@@ -102,6 +103,8 @@ export function WelcomeScreen({
             </div>
           </div>
         )}
+
+        {!recovery.snapshot && <WorkspaceBanner />}
 
         <div className="text-center space-y-4">
           {!recovery.snapshot && (

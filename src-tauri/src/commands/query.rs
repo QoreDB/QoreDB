@@ -1158,11 +1158,17 @@ pub async fn preview_table(
     table: String,
     limit: u32,
 ) -> Result<QueryResponse, String> {
-    let session_manager = {
+    let (session_manager, policy) = {
         let state = state.lock().await;
-        Arc::clone(&state.session_manager)
+        (Arc::clone(&state.session_manager), state.policy.clone())
     };
     let session = parse_session_id(&session_id)?;
+
+    let effective_limit = if let Some(max_rows) = policy.max_result_rows {
+        limit.min(max_rows as u32)
+    } else {
+        limit
+    };
 
     let driver = match session_manager.get_driver(session).await {
         Ok(d) => d,
@@ -1179,7 +1185,7 @@ pub async fn preview_table(
     };
 
     match driver
-        .preview_table(session, &namespace, &table, limit)
+        .preview_table(session, &namespace, &table, effective_limit)
         .await
     {
         Ok(result) => Ok(QueryResponse {
@@ -1222,11 +1228,17 @@ pub async fn query_table(
     table: String,
     options: TableQueryOptions,
 ) -> Result<PaginatedQueryResponse, String> {
-    let session_manager = {
+    let (session_manager, policy) = {
         let state = state.lock().await;
-        Arc::clone(&state.session_manager)
+        (Arc::clone(&state.session_manager), state.policy.clone())
     };
     let session = parse_session_id(&session_id)?;
+
+    let mut options = options;
+    if let Some(max_rows) = policy.max_result_rows {
+        let max_page = max_rows as u32;
+        options.page_size = Some(options.page_size.unwrap_or(50).min(max_page));
+    }
 
     let driver = match session_manager.get_driver(session).await {
         Ok(d) => d,
@@ -1354,6 +1366,16 @@ pub async fn create_database(
     let session = parse_session_id(&session_id)?;
 
     let read_only = session_manager.is_read_only(session).await.unwrap_or(false);
+    if read_only {
+        return Ok(QueryResponse {
+            success: false,
+            result: None,
+            error: Some(READ_ONLY_BLOCKED.to_string()),
+            query_id: None,
+            truncated: None,
+            truncated_total: None,
+        });
+    }
 
     let driver = match session_manager.get_driver(session).await {
         Ok(d) => d,
@@ -1506,6 +1528,16 @@ pub async fn drop_database(
     let session = parse_session_id(&session_id)?;
 
     let read_only = session_manager.is_read_only(session).await.unwrap_or(false);
+    if read_only {
+        return Ok(QueryResponse {
+            success: false,
+            result: None,
+            error: Some(READ_ONLY_BLOCKED.to_string()),
+            query_id: None,
+            truncated: None,
+            truncated_total: None,
+        });
+    }
 
     let driver = match session_manager.get_driver(session).await {
         Ok(d) => d,

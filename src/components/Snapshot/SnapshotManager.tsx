@@ -259,9 +259,7 @@ export function SnapshotManager({ onCompareInDiff }: SnapshotManagerProps) {
               if (!open) setShareTarget(null);
             }}
             defaultFileName={shareTarget.name}
-            defaultTableName={
-              shareTarget.source_type === 'table' ? shareTarget.source : undefined
-            }
+            defaultTableName={shareTarget.source_type === 'table' ? shareTarget.source : undefined}
             showBatchSize={false}
             onConfirm={handleShareConfirm}
           />

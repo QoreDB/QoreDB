@@ -505,9 +505,7 @@ export function DataGrid({
             value !== null &&
             Boolean(sessionIdRef.current && namespaceRef.current && tableNameRef.current);
           const peekKey =
-            canPeek && foreignKey
-              ? buildPeekKeyRef.current(foreignKey, value)
-              : undefined;
+            canPeek && foreignKey ? buildPeekKeyRef.current(foreignKey, value) : undefined;
           const peekState = peekKey ? peekCacheRef.current.get(peekKey) : undefined;
           const relationLabel = foreignKey ? getRelationLabelRef.current(foreignKey) : '';
           const referencedNamespace = foreignKey
@@ -526,12 +524,7 @@ export function DataGrid({
               editingValue={editingValueRef.current}
               editInputRef={editInputRef}
               onStartEdit={() =>
-                startInlineEditRef.current(
-                  info.row.original,
-                  info.row.id,
-                  info.column.id,
-                  value
-                )
+                startInlineEditRef.current(info.row.original, info.row.id, info.column.id, value)
               }
               onCommitEdit={() => void commitInlineEditRef.current()}
               onCancelEdit={() => cancelInlineEditRef.current()}
@@ -566,7 +559,6 @@ export function DataGrid({
     const leadingColumns = actionColumn ? [selectColumn, actionColumn] : [selectColumn];
     return [...leadingColumns, ...dataColumns];
   }, [
-    // Only structural dependencies that change the column layout itself
     onRowClick,
     result,
     t,
@@ -575,7 +567,6 @@ export function DataGrid({
     indexedColumns,
     uniqueColumns,
     indexInfoMap,
-    // Refs are stable — listed for lint correctness, they never trigger rebuilds
     editingCellRef,
     editingValueRef,
     editInputRef,
@@ -833,7 +824,7 @@ export function DataGrid({
 
   return (
     <div
-      className="isolate flex h-full min-h-0 min-w-0 flex-col gap-2 [contain:paint]"
+      className="isolate flex h-full min-h-0 min-w-0 flex-col gap-2 contain-[paint]"
       data-datagrid
     >
       <div className="flex min-w-0 shrink-0 items-center justify-between gap-3 px-1">

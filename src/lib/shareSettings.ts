@@ -29,7 +29,8 @@ export function getShareProviderSettings(): ShareProviderSettings {
 
     return {
       enabled: parsed.enabled ?? DEFAULT_SHARE_PROVIDER_SETTINGS.enabled,
-      provider_name: asString(parsed.provider_name) ?? DEFAULT_SHARE_PROVIDER_SETTINGS.provider_name,
+      provider_name:
+        asString(parsed.provider_name) ?? DEFAULT_SHARE_PROVIDER_SETTINGS.provider_name,
       upload_url: asString(parsed.upload_url) ?? DEFAULT_SHARE_PROVIDER_SETTINGS.upload_url,
       method,
       body_mode: bodyMode,
@@ -68,7 +69,9 @@ export function toShareProviderConfig(settings: ShareProviderSettings): SharePro
     method: settings.method,
     body_mode: settings.body_mode,
     file_field_name:
-      settings.body_mode === 'multipart' ? settings.file_field_name?.trim() || undefined : undefined,
+      settings.body_mode === 'multipart'
+        ? settings.file_field_name?.trim() || undefined
+        : undefined,
     response_url_path: settings.response_url_path?.trim() || undefined,
   };
 }

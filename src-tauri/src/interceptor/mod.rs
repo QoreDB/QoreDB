@@ -13,6 +13,7 @@
 pub mod audit;
 pub mod pipeline;
 pub mod profiling;
+pub mod redaction;
 pub mod safety;
 pub mod types;
 

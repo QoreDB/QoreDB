@@ -1,6 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
-const STORAGE_KEY = 'qoredb_favorite_connections';
+import { getWorkspaceState } from './workspaceStore';
+
+const STORAGE_KEY_PREFIX = 'qoredb_favorite_connections';
+
+function getStorageKey(): string {
+  const { projectId } = getWorkspaceState();
+  return projectId === 'default' ? STORAGE_KEY_PREFIX : `${STORAGE_KEY_PREFIX}_${projectId}`;
+}
 
 function normalizeFavoriteIds(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
@@ -21,7 +28,7 @@ function normalizeFavoriteIds(value: unknown): string[] {
 
 export function getFavoriteConnectionIds(): string[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(getStorageKey());
     if (!raw) return [];
     return normalizeFavoriteIds(JSON.parse(raw));
   } catch {
@@ -31,7 +38,7 @@ export function getFavoriteConnectionIds(): string[] {
 
 export function saveFavoriteConnectionIds(connectionIds: string[]): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(normalizeFavoriteIds(connectionIds)));
+    localStorage.setItem(getStorageKey(), JSON.stringify(normalizeFavoriteIds(connectionIds)));
   } catch {
     // Ignore localStorage write failures (quota/private mode)
   }

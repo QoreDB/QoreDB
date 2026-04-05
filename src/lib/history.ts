@@ -8,6 +8,7 @@
 
 import { shouldStoreHistory } from './diagnosticsSettings';
 import { redactQuery, redactText } from './redaction';
+import { getWorkspaceState } from './workspaceStore';
 
 export interface HistoryEntry {
   id: string;
@@ -23,8 +24,16 @@ export interface HistoryEntry {
 }
 
 const STORAGE_KEY = 'qoredb_query_history';
+const FAVORITES_KEY_PREFIX = 'qoredb_favorites';
 const MAX_ENTRIES = 100;
 const MAX_IN_MEMORY = 100;
+
+function getFavoritesStorageKey(): string {
+  const { projectId } = getWorkspaceState();
+  return projectId === 'default'
+    ? FAVORITES_KEY_PREFIX
+    : `${FAVORITES_KEY_PREFIX}_${projectId}`;
+}
 
 let inMemoryHistory: HistoryEntry[] = [];
 
@@ -129,7 +138,7 @@ export function toggleFavorite(id: string): boolean {
   if (isFavorite) {
     // Remove from favorites
     const newFavorites = favorites.filter(f => f.id !== id);
-    localStorage.setItem('qoredb_favorites', JSON.stringify(newFavorites));
+    localStorage.setItem(getFavoritesStorageKey(), JSON.stringify(newFavorites));
     return false;
   } else {
     // Add to favorites
@@ -139,7 +148,7 @@ export function toggleFavorite(id: string): boolean {
         ...entry,
         query: redactQuery(entry.query),
       });
-      localStorage.setItem('qoredb_favorites', JSON.stringify(favorites));
+      localStorage.setItem(getFavoritesStorageKey(), JSON.stringify(favorites));
     }
     return true;
   }
@@ -153,7 +162,7 @@ export function getFavorites(): HistoryEntry[] {
     return [];
   }
   try {
-    const data = localStorage.getItem('qoredb_favorites');
+    const data = localStorage.getItem(getFavoritesStorageKey());
     if (!data) return [];
     return JSON.parse(data) as HistoryEntry[];
   } catch {

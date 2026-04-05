@@ -559,7 +559,6 @@ export function DataGrid({
     const leadingColumns = actionColumn ? [selectColumn, actionColumn] : [selectColumn];
     return [...leadingColumns, ...dataColumns];
   }, [
-    // Only structural dependencies that change the column layout itself
     onRowClick,
     result,
     t,
@@ -568,7 +567,6 @@ export function DataGrid({
     indexedColumns,
     uniqueColumns,
     indexInfoMap,
-    // Refs are stable — listed for lint correctness, they never trigger rebuilds
     editingCellRef,
     editingValueRef,
     editInputRef,
@@ -826,7 +824,7 @@ export function DataGrid({
 
   return (
     <div
-      className="isolate flex h-full min-h-0 min-w-0 flex-col gap-2 [contain:paint]"
+      className="isolate flex h-full min-h-0 min-w-0 flex-col gap-2 contain-[paint]"
       data-datagrid
     >
       <div className="flex min-w-0 shrink-0 items-center justify-between gap-3 px-1">

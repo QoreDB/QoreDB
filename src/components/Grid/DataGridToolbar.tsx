@@ -87,10 +87,11 @@ export function DataGridToolbar({
           placeholder={t('grid.searchPlaceholder')}
           value={globalFilter}
           onChange={e => setGlobalFilter(e.target.value)}
-          className="h-7 max-w-50 pl-7 pr-7 text-xs"
+          className="h-7 max-w-50 pl-7 pr-7 text-xs focus-visible:ring-inset"
         />
         {globalFilter && (
           <button
+            type="button"
             onClick={() => setGlobalFilter('')}
             className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
           >

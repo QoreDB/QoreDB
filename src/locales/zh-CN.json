@@ -1997,6 +1997,9 @@
     "importExisting": "导入现有连接",
     "noWorkspaces": "没有最近的工作区",
     "importedCount": "已导入{{count}}个连接",
-    "gitWarning": "连接元数据（主机、端口、用户名）将存储在.qoredb/中，可通过Git进行版本控制。密码永远不会保存到磁盘。"
+    "gitWarning": "连接元数据（主机、端口、用户名）将存储在.qoredb/中，可通过Git进行版本控制。密码永远不会保存到磁盘。",
+    "rename": "重命名",
+    "renamePrompt": "新名称：",
+    "leave": "离开"
   }
 }

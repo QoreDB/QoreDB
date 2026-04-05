@@ -1997,6 +1997,9 @@
     "importExisting": "Importar conexões existentes",
     "noWorkspaces": "Nenhuma área recente",
     "importedCount": "{{count}} conexões importadas",
-    "gitWarning": "Os metadados de conexão (host, porta, usuário) serão armazenados em .qoredb/ e podem ser versionados com Git. Senhas nunca são salvas no disco."
+    "gitWarning": "Os metadados de conexão (host, porta, usuário) serão armazenados em .qoredb/ e podem ser versionados com Git. Senhas nunca são salvas no disco.",
+    "rename": "Renomear",
+    "renamePrompt": "Novo nome:",
+    "leave": "Sair"
   }
 }

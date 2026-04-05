@@ -96,6 +96,28 @@ impl WorkspaceManager {
         info
     }
 
+    /// Renames the active workspace.
+    pub fn rename_workspace(&mut self, new_name: &str) -> EngineResult<WorkspaceInfo> {
+        if self.active.source == WorkspaceSource::Default {
+            return Err(EngineError::internal("Cannot rename the default workspace"));
+        }
+
+        let manifest_path = self.active.path.join(WORKSPACE_MANIFEST_FILE);
+        let now = chrono::Utc::now().to_rfc3339();
+
+        self.active.manifest.name = new_name.to_string();
+        self.active.manifest.updated_at = now;
+
+        let content = serde_json::to_string_pretty(&self.active.manifest)
+            .map_err(|e| EngineError::internal(format!("Serialization error: {}", e)))?;
+
+        fs::write(&manifest_path, content)
+            .map_err(|e| EngineError::internal(format!("Failed to write manifest: {}", e)))?;
+
+        let _ = self.add_to_recent(&self.active.clone());
+        Ok(self.active.clone())
+    }
+
     /// Creates a new workspace at `project_dir/.qoredb/`.
     pub fn create_workspace(&mut self, project_dir: &Path, name: &str) -> EngineResult<WorkspaceInfo> {
         let qoredb_dir = project_dir.join(WORKSPACE_DIR);

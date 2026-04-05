@@ -349,6 +349,7 @@ pub fn run() {
             commands::workspace::open_workspace,
             commands::workspace::switch_workspace,
             commands::workspace::switch_to_default_workspace,
+            commands::workspace::rename_workspace,
             commands::workspace::list_recent_workspaces,
             commands::workspace::import_default_connections,
             // Workspace query library commands

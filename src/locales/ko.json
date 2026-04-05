@@ -1997,6 +1997,9 @@
     "importExisting": "기존 연결 가져오기",
     "noWorkspaces": "최근 워크스페이스 없음",
     "importedCount": "{{count}}개의 연결을 가져왔습니다",
-    "gitWarning": "연결 메타데이터(호스트, 포트, 사용자 이름)는 .qoredb/에 저장되며 Git으로 버전 관리할 수 있습니다. 비밀번호는 디스크에 저장되지 않습니다."
+    "gitWarning": "연결 메타데이터(호스트, 포트, 사용자 이름)는 .qoredb/에 저장되며 Git으로 버전 관리할 수 있습니다. 비밀번호는 디스크에 저장되지 않습니다.",
+    "rename": "이름 변경",
+    "renamePrompt": "새 이름:",
+    "leave": "나가기"
   }
 }

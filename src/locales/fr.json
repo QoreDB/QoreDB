@@ -1999,6 +1999,9 @@
     "importExisting": "Importer les connexions existantes",
     "noWorkspaces": "Aucun espace récent",
     "importedCount": "{{count}} connexions importées",
-    "gitWarning": "Les métadonnées de connexion (hôte, port, utilisateur) seront stockées dans .qoredb/ et versionnables avec Git. Les mots de passe ne sont jamais écrits sur disque."
+    "gitWarning": "Les métadonnées de connexion (hôte, port, utilisateur) seront stockées dans .qoredb/ et versionnables avec Git. Les mots de passe ne sont jamais écrits sur disque.",
+    "rename": "Renommer",
+    "renamePrompt": "Nouveau nom de l'espace :",
+    "leave": "Quitter l'espace"
   }
 }

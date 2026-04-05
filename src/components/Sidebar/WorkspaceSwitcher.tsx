@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { ChevronDown, FolderOpen, Plus, RotateCcw } from 'lucide-react';
+import { ChevronDown, FolderOpen, LogOut, Pencil, Plus } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
 import { open as openDialog } from '@tauri-apps/plugin-dialog';
 import {
   DropdownMenu,
@@ -13,6 +14,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useWorkspace } from '@/providers/WorkspaceProvider';
+import { renameWorkspace } from '@/lib/tauri';
 import { CreateWorkspaceDialog } from '@/components/Workspace/CreateWorkspaceDialog';
 
 export function WorkspaceSwitcher() {
@@ -34,9 +36,24 @@ export function WorkspaceSwitcher() {
     });
     if (!selected) return;
 
-    // Support both selecting the project root or the .qoredb/ dir directly
     const qoredbPath = selected.endsWith('.qoredb') ? selected : `${selected}/.qoredb`;
     await openWorkspace(qoredbPath);
+  }
+
+  async function handleRename() {
+    const newName = window.prompt(
+      t('workspace.renamePrompt'),
+      activeWorkspace?.manifest.name ?? ''
+    );
+    if (!newName?.trim()) return;
+
+    const result = await renameWorkspace(newName.trim());
+    if (result.success && result.workspace) {
+      // Refresh active workspace state
+      await switchWorkspace(result.workspace.path);
+    } else if (result.error) {
+      toast.error(result.error);
+    }
   }
 
   return (
@@ -67,13 +84,22 @@ export function WorkspaceSwitcher() {
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-64">
+            {/* Active workspace actions */}
             {!isDefault && (
-              <DropdownMenuItem onClick={() => switchToDefault()}>
-                <RotateCcw size={14} className="mr-2" />
-                {t('workspace.default')}
-              </DropdownMenuItem>
+              <>
+                <DropdownMenuItem onClick={handleRename}>
+                  <Pencil size={14} className="mr-2" />
+                  {t('workspace.rename')}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => switchToDefault()}>
+                  <LogOut size={14} className="mr-2" />
+                  {t('workspace.leave')}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+              </>
             )}
 
+            {/* Recent workspaces */}
             {recentWorkspaces.length > 0 && (
               <>
                 <DropdownMenuLabel className="text-[11px]">
@@ -95,6 +121,7 @@ export function WorkspaceSwitcher() {
               </>
             )}
 
+            {/* Global actions */}
             <DropdownMenuItem onClick={handleOpen}>
               <FolderOpen size={14} className="mr-2" />
               {t('workspace.open')}

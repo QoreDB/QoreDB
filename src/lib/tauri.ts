@@ -1649,6 +1649,10 @@ export async function switchToDefaultWorkspace(): Promise<WorkspaceInfo> {
   return invoke('switch_to_default_workspace');
 }
 
+export async function renameWorkspace(newName: string): Promise<WorkspaceResponse> {
+  return invoke('rename_workspace', { newName });
+}
+
 export async function listRecentWorkspaces(): Promise<RecentWorkspace[]> {
   return invoke('list_recent_workspaces');
 }

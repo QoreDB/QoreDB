@@ -130,6 +130,27 @@ pub async fn switch_workspace(
     }
 }
 
+/// Renames the active workspace.
+#[tauri::command]
+pub async fn rename_workspace(
+    ws_manager: State<'_, SharedWorkspaceManager>,
+    new_name: String,
+) -> Result<WorkspaceResponse, String> {
+    let mut mgr = ws_manager.lock().await;
+    match mgr.rename_workspace(&new_name) {
+        Ok(info) => Ok(WorkspaceResponse {
+            success: true,
+            workspace: Some(info),
+            error: None,
+        }),
+        Err(e) => Ok(WorkspaceResponse {
+            success: false,
+            workspace: None,
+            error: Some(e.to_string()),
+        }),
+    }
+}
+
 /// Switches back to the default workspace.
 #[tauri::command]
 pub async fn switch_to_default_workspace(

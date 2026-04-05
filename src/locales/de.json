@@ -1997,6 +1997,9 @@
     "importExisting": "Bestehende Verbindungen importieren",
     "noWorkspaces": "Keine letzten Arbeitsbereiche",
     "importedCount": "{{count}} Verbindungen importiert",
-    "gitWarning": "Verbindungsmetadaten (Host, Port, Benutzername) werden in .qoredb/ gespeichert und können mit Git versioniert werden. Passwörter werden niemals auf der Festplatte gespeichert."
+    "gitWarning": "Verbindungsmetadaten (Host, Port, Benutzername) werden in .qoredb/ gespeichert und können mit Git versioniert werden. Passwörter werden niemals auf der Festplatte gespeichert.",
+    "rename": "Umbenennen",
+    "renamePrompt": "Neuer Arbeitsbereichsname:",
+    "leave": "Arbeitsbereich verlassen"
   }
 }

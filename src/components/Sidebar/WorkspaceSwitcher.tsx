@@ -1,10 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { ChevronDown, FolderOpen, LogOut, Pencil, Plus } from 'lucide-react';
+import { ChevronDown, FolderOpen, Home, Pencil, Plus } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { open as openDialog } from '@tauri-apps/plugin-dialog';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,6 +21,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Input } from '@/components/ui/input';
 import { useWorkspace } from '@/providers/WorkspaceProvider';
 import { renameWorkspace } from '@/lib/tauri';
 import { CreateWorkspaceDialog } from '@/components/Workspace/CreateWorkspaceDialog';
@@ -23,34 +32,31 @@ export function WorkspaceSwitcher() {
     useWorkspace();
 
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [renameDialogOpen, setRenameDialogOpen] = useState(false);
+  const [renameName, setRenameName] = useState('');
 
   const isDefault = !activeWorkspace || activeWorkspace.source === 'default';
-
   const displayName = isDefault ? t('workspace.default') : activeWorkspace?.manifest.name;
   const badge = activeWorkspace?.source === 'detected' ? 'CWD' : null;
 
   async function handleOpen() {
-    const selected = await openDialog({
-      directory: true,
-      title: t('workspace.open'),
-    });
+    const selected = await openDialog({ directory: true, title: t('workspace.open') });
     if (!selected) return;
-
     const qoredbPath = selected.endsWith('.qoredb') ? selected : `${selected}/.qoredb`;
     await openWorkspace(qoredbPath);
   }
 
-  async function handleRename() {
-    const newName = window.prompt(
-      t('workspace.renamePrompt'),
-      activeWorkspace?.manifest.name ?? ''
-    );
-    if (!newName?.trim()) return;
+  function openRenameDialog() {
+    setRenameName(activeWorkspace?.manifest.name ?? '');
+    setRenameDialogOpen(true);
+  }
 
-    const result = await renameWorkspace(newName.trim());
+  async function handleRename() {
+    if (!renameName.trim()) return;
+    const result = await renameWorkspace(renameName.trim());
     if (result.success && result.workspace) {
-      // Refresh active workspace state
       await switchWorkspace(result.workspace.path);
+      setRenameDialogOpen(false);
     } else if (result.error) {
       toast.error(result.error);
     }
@@ -84,16 +90,12 @@ export function WorkspaceSwitcher() {
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-64">
-            {/* Active workspace actions */}
+            {/* Default workspace — always visible when not active */}
             {!isDefault && (
               <>
-                <DropdownMenuItem onClick={handleRename}>
-                  <Pencil size={14} className="mr-2" />
-                  {t('workspace.rename')}
-                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => switchToDefault()}>
-                  <LogOut size={14} className="mr-2" />
-                  {t('workspace.leave')}
+                  <Home size={14} className="mr-2" />
+                  {t('workspace.default')}
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
               </>
@@ -121,6 +123,14 @@ export function WorkspaceSwitcher() {
               </>
             )}
 
+            {/* Active workspace actions */}
+            {!isDefault && (
+              <DropdownMenuItem onClick={openRenameDialog}>
+                <Pencil size={14} className="mr-2" />
+                {t('workspace.rename')}
+              </DropdownMenuItem>
+            )}
+
             {/* Global actions */}
             <DropdownMenuItem onClick={handleOpen}>
               <FolderOpen size={14} className="mr-2" />
@@ -135,6 +145,29 @@ export function WorkspaceSwitcher() {
       </div>
 
       <CreateWorkspaceDialog open={createDialogOpen} onOpenChange={setCreateDialogOpen} />
+
+      {/* Rename dialog */}
+      <Dialog open={renameDialogOpen} onOpenChange={setRenameDialogOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{t('workspace.rename')}</DialogTitle>
+          </DialogHeader>
+          <Input
+            value={renameName}
+            onChange={e => setRenameName(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleRename()}
+            autoFocus
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRenameDialogOpen(false)}>
+              {t('common.cancel')}
+            </Button>
+            <Button onClick={handleRename} disabled={!renameName.trim()}>
+              {t('workspace.rename')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

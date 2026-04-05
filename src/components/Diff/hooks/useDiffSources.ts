@@ -567,7 +567,7 @@ export function useDiffSources({
             source.sessionId,
             source.namespace,
             source.tableName,
-            10000
+            1000
           );
           if (response.success && response.result) {
             result = response.result;

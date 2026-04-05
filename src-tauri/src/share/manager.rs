@@ -268,7 +268,14 @@ fn validate_provider_config(provider: &ShareProviderConfig) -> Result<(), String
 
     let parsed = Url::parse(upload_url).map_err(|e| format!("Invalid share upload URL: {}", e))?;
     match parsed.scheme() {
-        "http" | "https" => {}
+        "https" => {}
+        "http" => {
+            let host = parsed.host_str().unwrap_or("");
+            let is_loopback = host == "localhost" || host == "127.0.0.1" || host == "::1" || host == "[::1]";
+            if !is_loopback {
+                return Err("Share upload URL must use HTTPS for non-localhost hosts".to_string());
+            }
+        }
         _ => return Err("Share upload URL must use http or https".to_string()),
     }
 
@@ -375,7 +382,18 @@ fn validate_share_url(url: &str) -> Result<String, String> {
     let trimmed = url.trim();
     let parsed = Url::parse(trimmed).map_err(|e| format!("Invalid share URL: {}", e))?;
     match parsed.scheme() {
-        "http" | "https" => Ok(parsed.to_string()),
+        "https" => Ok(parsed.to_string()),
+        "http" => {
+            let host = parsed.host_str().unwrap_or("");
+            let is_loopback =
+                host == "localhost" || host == "127.0.0.1" || host == "::1" || host == "[::1]";
+            if !is_loopback {
+                return Err(
+                    "Share URL must use HTTPS for non-localhost hosts".to_string(),
+                );
+            }
+            Ok(parsed.to_string())
+        }
         _ => Err("Share URL must use http or https".to_string()),
     }
 }

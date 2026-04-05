@@ -62,7 +62,8 @@
       "Bash(cargo update:*)",
       "Bash(cargo tree:*)",
       "Bash(node:*)",
-      "Bash(cargo clean:*)"
+      "Bash(cargo clean:*)",
+      "Bash(cargo build:*)"
     ]
   }
 }

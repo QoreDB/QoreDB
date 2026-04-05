@@ -16,13 +16,18 @@ import type { DatabaseBrowserTab } from '@/components/Browser/DatabaseBrowser';
 import type { TableBrowserTab } from '@/components/Browser/TableBrowser';
 import { useRecovery } from '@/hooks/useRecovery';
 import { type CrashRecoverySnapshot, saveCrashRecoverySnapshot } from '@/lib/crashRecovery';
+import { shouldSaveQueryDrafts } from '@/lib/crashRecoverySettings';
 import { Driver } from '@/lib/drivers';
+import {
+  handleCloseConnectionModal as closeConnectionModal,
+  setSettingsOpen,
+} from '@/lib/modalStore';
 import { notify } from '@/lib/notify';
 import type { OpenTab } from '@/lib/tabs';
 import {
-  connectSavedConnection,
   type ConnectionHealth,
   type ConnectionHealthEvent,
+  connectSavedConnection,
   type DriverCapabilities,
   disconnect,
   getDriverInfo,
@@ -31,12 +36,9 @@ import {
 } from '@/lib/tauri';
 import { UI_EVENT_CONNECTIONS_CHANGED, UI_EVENT_WORKSPACE_CHANGED } from '@/lib/uiEvents';
 import { setUpdateAvailable } from '@/lib/updateStore';
-import {
-  handleCloseConnectionModal as closeConnectionModal,
-  setSettingsOpen,
-} from '@/lib/modalStore';
 import { useTabContext } from './TabProvider';
 import { useWorkspace } from './WorkspaceProvider';
+
 const RECOVERY_SAVE_DEBOUNCE_MS = 600;
 const STARTUP_PREFS_KEY = 'qoredb_startup_preferences';
 
@@ -260,7 +262,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         namespace: tab.namespace,
         tableName: tab.tableName,
       })),
-      queryDrafts,
+      queryDrafts: shouldSaveQueryDrafts() ? queryDrafts : {},
       tableBrowserTabs: { ...tableBrowserTabs },
       databaseBrowserTabs: { ...databaseBrowserTabs },
     };

@@ -75,6 +75,11 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
       'link',
       'partage',
       'données',
+      'crash recovery',
+      'drafts',
+      'query drafts',
+      'brouillons',
+      'ttl',
     ],
   },
   {

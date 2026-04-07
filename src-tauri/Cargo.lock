@@ -4747,6 +4747,40 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b5a041e753da8b807c9255f28de81879c78c876392ff2469cde94799b2896b9d"
 
 [[package]]
+name = "qore-core"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "base64 0.22.1",
+ "chrono",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.17",
+ "tokio",
+ "uuid",
+]
+
+[[package]]
+name = "qore-drivers"
+version = "0.1.0"
+dependencies = [
+ "qore-core",
+ "qore-sql",
+]
+
+[[package]]
+name = "qore-sql"
+version = "0.1.0"
+dependencies = [
+ "percent-encoding",
+ "qore-core",
+ "serde",
+ "serde_json",
+ "sqlparser",
+ "url",
+]
+
+[[package]]
 name = "qoredb"
 version = "0.1.23"
 dependencies = [
@@ -4771,6 +4805,9 @@ dependencies = [
  "parking_lot",
  "parquet",
  "percent-encoding",
+ "qore-core",
+ "qore-drivers",
+ "qore-sql",
  "rand 0.8.5",
  "redis",
  "regex",

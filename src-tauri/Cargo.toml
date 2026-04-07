@@ -1,3 +1,83 @@
+# ============================================================================
+# Cargo Workspace — QoreDB
+# ============================================================================
+# This file serves as both the workspace root AND the Tauri app package.
+# Sub-crates live in crates/ and share dependencies via [workspace.dependencies].
+# ============================================================================
+
+[workspace]
+members = ["crates/*"]
+resolver = "2"
+
+[workspace.dependencies]
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["raw_value"] }
+
+# Async runtime
+tokio = { version = "1", features = [
+    "rt-multi-thread",
+    "sync",
+    "time",
+    "net",
+    "fs",
+    "io-util",
+    "macros",
+] }
+async-trait = "0.1"
+
+# Error handling & IDs
+thiserror = "2"
+uuid = { version = "1", features = ["v4", "serde"] }
+
+# Date/time & encoding
+chrono = { version = "0.4", features = ["serde"] }
+base64 = "0.22"
+
+# SQL tools
+sqlparser = "0.60"
+url = "2"
+percent-encoding = "2"
+
+# Logging
+tracing = "0.1"
+
+# Numeric precision
+rust_decimal = { version = "1", features = ["serde"] }
+bigdecimal = "0.4"
+
+# Database drivers
+sqlx = { version = "0.8", features = [
+    "runtime-tokio",
+    "tls-rustls",
+    "postgres",
+    "mysql",
+    "sqlite",
+    "chrono",
+    "rust_decimal",
+    "bigdecimal",
+    "uuid",
+] }
+mongodb = "3"
+redis = { version = "0.27", features = [
+    "tokio-comp",
+    "aio",
+    "connection-manager",
+] }
+tiberius = { version = "0.12", features = [
+    "tds73",
+    "chrono",
+    "rust_decimal",
+    "bigdecimal",
+] }
+bb8 = "0.9"
+bb8-tiberius = "0.16"
+duckdb = { version = "1.4", features = ["bundled"] }
+
+# ============================================================================
+# QoreDB App Package
+# ============================================================================
+
 [package]
 name = "qoredb"
 version = "0.1.23"
@@ -15,64 +95,50 @@ tauri-build = { version = "2", features = [] }
 dotenvy = "0.15"
 
 [dependencies]
+# Workspace crates
+qore-core = { path = "crates/qore-core" }
+qore-sql = { path = "crates/qore-sql" }
+qore-drivers = { path = "crates/qore-drivers" }
+
+# Tauri
 tauri = { version = "2", features = ["image-png"] }
 tauri-plugin-opener = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-fs = "2"
-serde = { version = "1", features = ["derive"] }
-serde_json = { version = "1", features = ["raw_value"] }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
 
 # Async runtime
-tokio = { version = "1", features = [
-    "rt-multi-thread",
-    "sync",
-    "time",
-    "net",
-    "fs",
-    "io-util",
-    "macros",
-] }
+tokio = { workspace = true }
 tokio-util = { version = "0.7", features = ["compat"] }
 bytes = "1.11.1"
 
 # Database drivers
-sqlx = { version = "0.8", features = [
-    "runtime-tokio",
-    "tls-rustls",
-    "postgres",
-    "mysql",
-    "sqlite",
-    "chrono",
-    "rust_decimal",
-    "bigdecimal",
-    "uuid",
-] }
-rust_decimal = { version = "1", features = ["serde"] }
-bigdecimal = "0.4"
-mongodb = "3"
-redis = { version = "0.27", features = [
-    "tokio-comp",
-    "aio",
-    "connection-manager",
-] }
-chrono = { version = "0.4", features = ["serde"] }
+sqlx = { workspace = true }
+rust_decimal = { workspace = true }
+bigdecimal = { workspace = true }
+mongodb = { workspace = true }
+redis = { workspace = true }
+chrono = { workspace = true }
 
 # Utilities
-async-trait = "0.1"
-thiserror = "2"
-uuid = { version = "1", features = ["v4", "serde"] }
-base64 = "0.22"
+async-trait = { workspace = true }
+thiserror = { workspace = true }
+uuid = { workspace = true }
+base64 = { workspace = true }
 futures = "0.3"
-sqlparser = "0.60"
-tracing = "0.1"
+sqlparser = { workspace = true }
+tracing = { workspace = true }
 tracing-appender = "0.2"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 csv = "1"
 regex = "1"
 parking_lot = "0.12"
 dirs = "5"
-url = "2"
-percent-encoding = "2"
+url = { workspace = true }
+percent-encoding = { workspace = true }
 
 # File system watcher for workspace directory monitoring
 notify = { version = "6", default-features = false, features = ["macos_fsevent"] }
@@ -109,17 +175,12 @@ parquet = { version = "54", optional = true, default-features = false, features 
 reqwest = { version = "0.12", features = ["json", "stream", "multipart"] }
 
 # SQL Server driver (TDS protocol)
-tiberius = { version = "0.12", features = [
-    "tds73",
-    "chrono",
-    "rust_decimal",
-    "bigdecimal",
-] }
-bb8 = "0.9"
-bb8-tiberius = "0.16"
+tiberius = { workspace = true }
+bb8 = { workspace = true }
+bb8-tiberius = { workspace = true }
 
 # DuckDB (embedded analytics database driver + federation engine)
-duckdb = { version = "1.4", features = ["bundled"] }
+duckdb = { workspace = true }
 
 # Feature flags for Open Core tiers
 # Core (default): no flags needed

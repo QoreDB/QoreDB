@@ -1,0 +1,10 @@
+[package]
+name = "qore-drivers"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "Database driver implementations for QoreCore"
+
+[dependencies]
+qore-core = { path = "../qore-core" }
+qore-sql = { path = "../qore-sql" }

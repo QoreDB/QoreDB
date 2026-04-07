@@ -8,7 +8,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use crate::engine::types::{Namespace, RowData, Value};
+use qore_core::{Namespace, RowData, Value};
 
 /// Type of sandbox change operation
 #[derive(Debug, Clone, Serialize, Deserialize)]

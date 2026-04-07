@@ -8,8 +8,8 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use crate::engine::traits::DataEngine;
-use crate::engine::types::DriverInfo;
+use crate::traits::DataEngine;
+use crate::types::DriverInfo;
 
 /// Registry that holds all available database drivers
 pub struct DriverRegistry {

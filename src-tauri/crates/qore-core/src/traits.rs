@@ -8,8 +8,8 @@
 
 use async_trait::async_trait;
 
-use crate::engine::error::{EngineError, EngineResult};
-use crate::engine::types::{
+use crate::error::{EngineError, EngineResult};
+use crate::types::{
     CancelSupport, CollectionList, CollectionListOptions, ColumnInfo, ConnectionConfig,
     CreationOptions, DriverCapabilities, EventDefinition, EventList, EventListOptions,
     EventOperationResult, ForeignKey, MaintenanceOperationInfo, MaintenanceRequest,
@@ -350,7 +350,7 @@ pub trait DataEngine: Send + Sync {
         sender: StreamSender,
     ) -> EngineResult<()> {
         let _ = (session, query, query_id, sender);
-        Err(crate::engine::error::EngineError::not_supported(
+        Err(EngineError::not_supported(
             "Streaming is not supported by this driver",
         ))
     }
@@ -430,7 +430,7 @@ pub trait DataEngine: Send + Sync {
     /// Cancels a running query for the given session
     async fn cancel(&self, session: SessionId, query_id: Option<QueryId>) -> EngineResult<()> {
         let _ = (session, query_id);
-        Err(crate::engine::error::EngineError::not_supported(
+        Err(EngineError::not_supported(
             "Query cancellation is not supported by this driver",
         ))
     }
@@ -471,7 +471,7 @@ pub trait DataEngine: Send + Sync {
     /// Note: For connection-pooled drivers (SQLx), this acquires a dedicated connection.
     async fn begin_transaction(&self, session: SessionId) -> EngineResult<()> {
         let _ = session;
-        Err(crate::engine::error::EngineError::not_supported(
+        Err(EngineError::not_supported(
             "Transactions are not supported by this driver",
         ))
     }
@@ -481,7 +481,7 @@ pub trait DataEngine: Send + Sync {
     /// All changes made since begin_transaction() will be persisted.
     async fn commit(&self, session: SessionId) -> EngineResult<()> {
         let _ = session;
-        Err(crate::engine::error::EngineError::not_supported(
+        Err(EngineError::not_supported(
             "Transactions are not supported by this driver",
         ))
     }
@@ -491,7 +491,7 @@ pub trait DataEngine: Send + Sync {
     /// All changes made since begin_transaction() will be discarded.
     async fn rollback(&self, session: SessionId) -> EngineResult<()> {
         let _ = session;
-        Err(crate::engine::error::EngineError::not_supported(
+        Err(EngineError::not_supported(
             "Transactions are not supported by this driver",
         ))
     }
@@ -544,7 +544,7 @@ pub trait DataEngine: Send + Sync {
         data: &RowData,
     ) -> EngineResult<QueryResult> {
         let _ = (session, namespace, table, data);
-        Err(crate::engine::error::EngineError::not_supported(
+        Err(EngineError::not_supported(
             "Insert operations are not supported by this driver",
         ))
     }
@@ -569,7 +569,7 @@ pub trait DataEngine: Send + Sync {
         data: &RowData,
     ) -> EngineResult<QueryResult> {
         let _ = (session, namespace, table, primary_key, data);
-        Err(crate::engine::error::EngineError::not_supported(
+        Err(EngineError::not_supported(
             "Update operations are not supported by this driver",
         ))
     }
@@ -592,7 +592,7 @@ pub trait DataEngine: Send + Sync {
         primary_key: &RowData,
     ) -> EngineResult<QueryResult> {
         let _ = (session, namespace, table, primary_key);
-        Err(crate::engine::error::EngineError::not_supported(
+        Err(EngineError::not_supported(
             "Delete operations are not supported by this driver",
         ))
     }

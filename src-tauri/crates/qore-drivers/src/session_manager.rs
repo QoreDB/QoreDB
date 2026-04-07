@@ -15,12 +15,12 @@ use tokio::sync::RwLock;
 use tokio::time::{timeout, Duration};
 use tracing::instrument;
 
-use crate::engine::error::{EngineError, EngineResult};
-use crate::engine::proxy::ProxyTunnel;
-use crate::engine::ssh_tunnel::SshTunnel;
-use crate::engine::traits::DataEngine;
-use crate::engine::types::{ConnectionConfig, SessionId};
-use crate::engine::DriverRegistry;
+use qore_core::error::{EngineError, EngineResult};
+use crate::proxy::ProxyTunnel;
+use crate::ssh_tunnel::SshTunnel;
+use qore_core::traits::DataEngine;
+use qore_core::types::{ConnectionConfig, SessionId};
+use qore_core::DriverRegistry;
 
 /// Connection health status for a single session.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -65,6 +65,7 @@ impl SessionManager {
     const TEST_TIMEOUT_MS: u64 = 10000;
     const PING_TIMEOUT_MS: u64 = 5000;
     /// Interval between health checks (seconds).
+    #[cfg(feature = "tauri")]
     const HEALTH_CHECK_INTERVAL_SECS: u64 = 30;
     /// Consecutive failures before attempting SSH tunnel reconnection.
     const RECONNECT_THRESHOLD: u32 = 2;
@@ -550,6 +551,7 @@ impl SessionManager {
     /// Starts the background health monitor.
     /// Spawns a tokio task that periodically checks all sessions
     /// and emits Tauri events when health changes.
+    #[cfg(feature = "tauri")]
     pub fn start_health_monitor(self: &Arc<Self>, app_handle: tauri::AppHandle) {
         use tauri::Emitter;
 

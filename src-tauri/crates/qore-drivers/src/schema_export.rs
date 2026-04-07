@@ -5,8 +5,8 @@
 //! Generates CREATE TABLE statements from TableSchema metadata,
 //! using SqlDialect for driver-specific formatting.
 
-use crate::engine::sql_generator::SqlDialect;
-use crate::engine::types::{Namespace, TableSchema};
+use qore_sql::generator::SqlDialect;
+use qore_core::types::{Namespace, TableSchema};
 
 /// Generates a complete CREATE TABLE DDL statement from a TableSchema,
 /// followed by CREATE INDEX statements for non-primary indexes.
@@ -108,7 +108,7 @@ pub fn generate_create_table_ddl(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::engine::types::{ForeignKey, TableColumn, TableIndex};
+    use qore_core::types::{ForeignKey, TableColumn, TableIndex};
 
     #[test]
     fn test_basic_create_table() {

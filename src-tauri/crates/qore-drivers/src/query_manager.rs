@@ -8,7 +8,7 @@ use std::collections::{HashMap, HashSet};
 
 use tokio::sync::RwLock;
 
-use crate::engine::types::{QueryId, SessionId};
+use qore_core::types::{QueryId, SessionId};
 
 pub struct QueryManager {
     active: RwLock<HashMap<QueryId, SessionId>>,

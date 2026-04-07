@@ -137,25 +137,25 @@ fn is_mutation_statement(statement: &Statement) -> bool {
 }
 
 fn statement_returns_rows(statement: &Statement) -> bool {
-    match statement {
-        Statement::Query(_) => true,
-        Statement::Explain { .. } => true,
-        Statement::ExplainTable { .. } => true,
-        Statement::ShowFunctions { .. }
-        | Statement::ShowVariable { .. }
-        | Statement::ShowStatus { .. }
-        | Statement::ShowVariables { .. }
-        | Statement::ShowCreate { .. }
-        | Statement::ShowColumns { .. }
-        | Statement::ShowDatabases { .. }
-        | Statement::ShowSchemas { .. }
-        | Statement::ShowCharset(_)
-        | Statement::ShowObjects(_)
-        | Statement::ShowTables { .. }
-        | Statement::ShowViews { .. }
-        | Statement::ShowCollation { .. } => true,
-        _ => false,
-    }
+    matches!(
+        statement,
+        Statement::Query(_)
+            | Statement::Explain { .. }
+            | Statement::ExplainTable { .. }
+            | Statement::ShowFunctions { .. }
+            | Statement::ShowVariable { .. }
+            | Statement::ShowStatus { .. }
+            | Statement::ShowVariables { .. }
+            | Statement::ShowCreate { .. }
+            | Statement::ShowColumns { .. }
+            | Statement::ShowDatabases { .. }
+            | Statement::ShowSchemas { .. }
+            | Statement::ShowCharset(_)
+            | Statement::ShowObjects(_)
+            | Statement::ShowTables { .. }
+            | Statement::ShowViews { .. }
+            | Statement::ShowCollation { .. }
+    )
 }
 
 fn is_dangerous_statement(statement: &Statement) -> bool {

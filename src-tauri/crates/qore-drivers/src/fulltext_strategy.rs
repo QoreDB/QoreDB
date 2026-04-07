@@ -17,7 +17,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
 
-use crate::engine::types::{Namespace, Value};
+use qore_core::types::{Namespace, Value};
 
 /// Cache TTL for table capabilities
 const CAPABILITY_CACHE_TTL: Duration = Duration::from_secs(300);

@@ -32,10 +32,10 @@ use ::duckdb::{params_from_iter, types::Value as DuckValue, Connection};
 use async_trait::async_trait;
 use tokio::sync::RwLock;
 
-use crate::engine::error::{EngineError, EngineResult};
-use crate::engine::sql_safety;
-use crate::engine::traits::{DataEngine, StreamEvent, StreamSender};
-use crate::engine::types::{
+use qore_core::error::{EngineError, EngineResult};
+use qore_sql::safety;
+use qore_core::traits::{DataEngine, StreamEvent, StreamSender};
+use qore_core::types::{
     CancelSupport, Collection, CollectionList, CollectionListOptions, CollectionType, ColumnInfo,
     ConnectionConfig, FilterOperator, ForeignKey, MaintenanceMessage, MaintenanceMessageLevel,
     MaintenanceOperationInfo, MaintenanceOperationType, MaintenanceRequest, MaintenanceResult,
@@ -682,8 +682,8 @@ impl DataEngine for DuckDbDriver {
     ) -> EngineResult<QueryResult> {
         let duck_session = self.get_session(session).await?;
         let query = query.to_string();
-        let returns_rows = sql_safety::returns_rows("duckdb", &query)
-            .unwrap_or_else(|_| sql_safety::is_select_prefix(&query));
+        let returns_rows = safety::returns_rows("duckdb", &query)
+            .unwrap_or_else(|_| safety::is_select_prefix(&query));
 
         Self::with_conn(&duck_session, move |conn| {
             // Set schema if namespace provided
@@ -728,8 +728,8 @@ impl DataEngine for DuckDbDriver {
         let duck_session = self.get_session(session).await?;
         let query = query.to_string();
 
-        let returns_rows = sql_safety::returns_rows("duckdb", &query)
-            .unwrap_or_else(|_| sql_safety::is_select_prefix(&query));
+        let returns_rows = safety::returns_rows("duckdb", &query)
+            .unwrap_or_else(|_| safety::is_select_prefix(&query));
 
         if !returns_rows {
             let result = self

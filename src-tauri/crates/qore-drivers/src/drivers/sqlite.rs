@@ -27,10 +27,10 @@ use sqlx::sqlite::{Sqlite, SqliteConnectOptions, SqlitePool, SqlitePoolOptions, 
 use sqlx::{Column, Row, TypeInfo};
 use tokio::sync::{Mutex, RwLock};
 
-use crate::engine::error::{EngineError, EngineResult};
-use crate::engine::sql_safety;
-use crate::engine::traits::{DataEngine, StreamEvent, StreamSender};
-use crate::engine::types::{
+use qore_core::error::{EngineError, EngineResult};
+use qore_sql::safety;
+use qore_core::traits::{DataEngine, StreamEvent, StreamSender};
+use qore_core::types::{
     CancelSupport, Collection, CollectionList, CollectionListOptions, CollectionType, ColumnInfo,
     ConnectionConfig, FilterOperator, ForeignKey, MaintenanceMessage, MaintenanceMessageLevel,
     MaintenanceOperationInfo, MaintenanceOperationType, MaintenanceRequest, MaintenanceResult,
@@ -582,8 +582,8 @@ impl DataEngine for SqliteDriver {
             .map_err(|e| EngineError::connection_failed(e.to_string()))?;
 
         // Check if query returns rows
-        let returns_rows = sql_safety::returns_rows(self.driver_id(), query)
-            .unwrap_or_else(|_| sql_safety::is_select_prefix(query));
+        let returns_rows = safety::returns_rows(self.driver_id(), query)
+            .unwrap_or_else(|_| safety::is_select_prefix(query));
 
         if !returns_rows {
             // Fallback to normal execute
@@ -658,8 +658,8 @@ impl DataEngine for SqliteDriver {
         let sqlite_session = self.get_session(session).await?;
         let start = Instant::now();
 
-        let returns_rows = sql_safety::returns_rows(self.driver_id(), query)
-            .unwrap_or_else(|_| sql_safety::is_select_prefix(query));
+        let returns_rows = safety::returns_rows(self.driver_id(), query)
+            .unwrap_or_else(|_| safety::is_select_prefix(query));
 
         let mut tx_guard = sqlite_session.transaction_conn.lock().await;
 

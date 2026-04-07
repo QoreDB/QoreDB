@@ -31,10 +31,10 @@ use tokio::net::TcpStream;
 use tokio::sync::{Mutex, RwLock};
 use tokio_util::compat::{Compat, TokioAsyncWriteCompatExt};
 
-use crate::engine::error::{EngineError, EngineResult};
-use crate::engine::sql_safety;
-use crate::engine::traits::{DataEngine, StreamEvent, StreamSender};
-use crate::engine::types::{
+use qore_core::error::{EngineError, EngineResult};
+use qore_sql::safety;
+use qore_core::traits::{DataEngine, StreamEvent, StreamSender};
+use qore_core::types::{
     CancelSupport, Collection, CollectionList, CollectionListOptions, CollectionType, ColumnInfo,
     ConnectionConfig, FilterOperator, ForeignKey, MaintenanceMessage, MaintenanceMessageLevel,
     MaintenanceOperationInfo, MaintenanceOperationType, MaintenanceRequest, MaintenanceResult,
@@ -1247,8 +1247,8 @@ impl DataEngine for SqlServerDriver {
         _query_id: QueryId,
     ) -> EngineResult<QueryResult> {
         let mssql_session = self.get_session(session).await?;
-        let returns_rows = sql_safety::returns_rows(self.driver_id(), query)
-            .unwrap_or_else(|_| sql_safety::is_select_prefix(query));
+        let returns_rows = safety::returns_rows(self.driver_id(), query)
+            .unwrap_or_else(|_| safety::is_select_prefix(query));
 
         // Check if we should use the transaction connection
         let mut tx_guard = mssql_session.transaction_conn.lock().await;
@@ -1296,8 +1296,8 @@ impl DataEngine for SqlServerDriver {
     ) -> EngineResult<()> {
         let mssql_session = self.get_session(session).await?;
 
-        let returns_rows = sql_safety::returns_rows(self.driver_id(), query)
-            .unwrap_or_else(|_| sql_safety::is_select_prefix(query));
+        let returns_rows = safety::returns_rows(self.driver_id(), query)
+            .unwrap_or_else(|_| safety::is_select_prefix(query));
 
         if !returns_rows {
             let result = self

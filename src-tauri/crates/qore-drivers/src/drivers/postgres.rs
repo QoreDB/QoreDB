@@ -1,17 +1,20 @@
 // SPDX-License-Identifier: Apache-2.0
 
-//! CockroachDB Driver
+//! PostgreSQL Driver
 //!
-//! CockroachDB is PostgreSQL wire-compatible. This driver is a thin wrapper
-//! over the shared `pg_compat` helpers, overriding only CockroachDB-specific
-//! behaviour (namespace filtering, maintenance, list_collections, etc.).
+//! Implements the DataEngine trait for PostgreSQL databases.
+//! Most of the heavy lifting is done by the shared `pg_compat` module;
+//! this file only contains PostgreSQL-specific overrides (materialized views
+//! in list_collections, full maintenance ops, connection string defaults).
+
+use std::time::Instant;
 
 use async_trait::async_trait;
 
-use crate::engine::drivers::pg_compat::{self, SessionMap};
-use crate::engine::error::{EngineError, EngineResult};
-use crate::engine::traits::{DataEngine, StreamSender};
-use crate::engine::types::{
+use crate::drivers::pg_compat::{self, SessionMap};
+use qore_core::error::{EngineError, EngineResult};
+use qore_core::traits::{DataEngine, StreamSender};
+use qore_core::types::{
     CancelSupport, Collection, CollectionList, CollectionListOptions, CollectionType,
     ConnectionConfig, ForeignKey, MaintenanceMessage, MaintenanceMessageLevel,
     MaintenanceOperationInfo, MaintenanceOperationType, MaintenanceRequest, MaintenanceResult,
@@ -20,12 +23,12 @@ use crate::engine::types::{
     TableSchema, TriggerDefinition, TriggerList, TriggerListOptions, TriggerOperationResult, Value,
 };
 
-/// CockroachDB driver implementation
-pub struct CockroachDbDriver {
+/// PostgreSQL driver implementation
+pub struct PostgresDriver {
     sessions: SessionMap,
 }
 
-impl CockroachDbDriver {
+impl PostgresDriver {
     pub fn new() -> Self {
         Self {
             sessions: pg_compat::new_session_map(),
@@ -33,24 +36,24 @@ impl CockroachDbDriver {
     }
 
     fn conn_str(config: &ConnectionConfig) -> String {
-        pg_compat::build_pg_connection_string(config, "defaultdb")
+        pg_compat::build_pg_connection_string(config, "postgres")
     }
 }
 
-impl Default for CockroachDbDriver {
+impl Default for PostgresDriver {
     fn default() -> Self {
         Self::new()
     }
 }
 
 #[async_trait]
-impl DataEngine for CockroachDbDriver {
+impl DataEngine for PostgresDriver {
     fn driver_id(&self) -> &'static str {
-        "cockroachdb"
+        "postgres"
     }
 
     fn driver_name(&self) -> &'static str {
-        "CockroachDB"
+        "PostgreSQL"
     }
 
     // ==================== Connection ====================
@@ -72,7 +75,6 @@ impl DataEngine for CockroachDbDriver {
     }
 
     // ==================== Namespaces ====================
-    // CockroachDB-specific: filter out crdb_internal, pg_extension
 
     async fn list_namespaces(&self, session: SessionId) -> EngineResult<Vec<Namespace>> {
         let pg = pg_compat::get_session(&self.sessions, session).await?;
@@ -87,8 +89,7 @@ impl DataEngine for CockroachDbDriver {
             r#"
             SELECT nspname
             FROM pg_catalog.pg_namespace
-            WHERE nspname NOT IN ('information_schema', 'pg_catalog', 'pg_toast',
-                                  'crdb_internal', 'pg_extension')
+            WHERE nspname NOT IN ('information_schema', 'pg_catalog', 'pg_toast')
               AND nspname NOT LIKE 'pg_temp_%'
             ORDER BY nspname
             "#,
@@ -104,7 +105,7 @@ impl DataEngine for CockroachDbDriver {
     }
 
     // ==================== Collections ====================
-    // CockroachDB-specific: no materialized views
+    // PostgreSQL-specific: includes materialized views
 
     async fn list_collections(
         &self,
@@ -120,10 +121,17 @@ impl DataEngine for CockroachDbDriver {
 
         let count_row: (i64,) = sqlx::query_as(
             r#"
-            SELECT COUNT(*)
-            FROM information_schema.tables
-            WHERE table_schema = $1
-            AND ($2 IS NULL OR table_name LIKE $3)
+            SELECT COUNT(*) FROM (
+                SELECT table_name AS name
+                FROM information_schema.tables
+                WHERE table_schema = $1
+                AND ($2 IS NULL OR table_name LIKE $3)
+                UNION ALL
+                SELECT matviewname AS name
+                FROM pg_matviews
+                WHERE schemaname = $1
+                AND ($2 IS NULL OR matviewname LIKE $3)
+            ) combined
             "#,
         )
         .bind(schema)
@@ -134,19 +142,26 @@ impl DataEngine for CockroachDbDriver {
         .map_err(|e| EngineError::execution_error(e.to_string()))?;
 
         let mut query_str = r#"
-            SELECT table_name AS name,
-                CASE WHEN table_type = 'VIEW' THEN 'View' ELSE 'Table' END AS ctype
-            FROM information_schema.tables
-            WHERE table_schema = $1
-            AND ($2 IS NULL OR table_name LIKE $3)
-            ORDER BY name
+            SELECT name, ctype FROM (
+                SELECT table_name AS name,
+                    CASE WHEN table_type = 'VIEW' THEN 'View' ELSE 'Table' END AS ctype
+                FROM information_schema.tables
+                WHERE table_schema = $1
+                AND ($2 IS NULL OR table_name LIKE $3)
+                UNION ALL
+                SELECT matviewname AS name, 'MaterializedView' AS ctype
+                FROM pg_matviews
+                WHERE schemaname = $1
+                AND ($2 IS NULL OR matviewname LIKE $3)
+            ) combined ORDER BY name
         "#
         .to_string();
 
         if let Some(limit) = options.page_size {
             query_str.push_str(&format!(" LIMIT {}", limit));
             if let Some(page) = options.page {
-                query_str.push_str(&format!(" OFFSET {}", (page.max(1) - 1) * limit));
+                let offset = (page.max(1) - 1) * limit;
+                query_str.push_str(&format!(" OFFSET {}", offset));
             }
         }
 
@@ -160,14 +175,17 @@ impl DataEngine for CockroachDbDriver {
 
         let collections = rows
             .into_iter()
-            .map(|(name, ctype)| Collection {
-                namespace: namespace.clone(),
-                name,
-                collection_type: if ctype == "View" {
-                    CollectionType::View
-                } else {
-                    CollectionType::Table
-                },
+            .map(|(name, ctype)| {
+                let collection_type = match ctype.as_str() {
+                    "View" => CollectionType::View,
+                    "MaterializedView" => CollectionType::MaterializedView,
+                    _ => CollectionType::Table,
+                };
+                Collection {
+                    namespace: namespace.clone(),
+                    name,
+                    collection_type,
+                }
             })
             .collect();
 
@@ -178,7 +196,6 @@ impl DataEngine for CockroachDbDriver {
     }
 
     // ==================== Describe Table ====================
-    // CockroachDB-specific: don't rely on pg_stat_user_tables
 
     async fn describe_table(
         &self,
@@ -186,7 +203,7 @@ impl DataEngine for CockroachDbDriver {
         namespace: &Namespace,
         table: &str,
     ) -> EngineResult<TableSchema> {
-        pg_compat::describe_table_core(&self.sessions, session, namespace, table, false).await
+        pg_compat::describe_table_core(&self.sessions, session, namespace, table, true).await
     }
 
     // ==================== Execute ====================
@@ -492,15 +509,15 @@ impl DataEngine for CockroachDbDriver {
         name: &str,
         _options: Option<Value>,
     ) -> EngineResult<()> {
-        pg_compat::create_schema(&self.sessions, session, name, "CockroachDB").await
+        pg_compat::create_schema(&self.sessions, session, name, "Postgres").await
     }
 
     async fn drop_database(&self, session: SessionId, name: &str) -> EngineResult<()> {
-        pg_compat::drop_schema(&self.sessions, session, name, "CockroachDB").await
+        pg_compat::drop_schema(&self.sessions, session, name, "Postgres").await
     }
 
     // ==================== Maintenance ====================
-    // CockroachDB-specific: only ANALYZE is supported
+    // PostgreSQL-specific: VACUUM, ANALYZE, REINDEX, CLUSTER
 
     fn supports_maintenance(&self) -> bool {
         true
@@ -512,11 +529,28 @@ impl DataEngine for CockroachDbDriver {
         _namespace: &Namespace,
         _table: &str,
     ) -> EngineResult<Vec<MaintenanceOperationInfo>> {
-        Ok(vec![MaintenanceOperationInfo {
-            operation: MaintenanceOperationType::Analyze,
-            is_heavy: false,
-            has_options: false,
-        }])
+        Ok(vec![
+            MaintenanceOperationInfo {
+                operation: MaintenanceOperationType::Vacuum,
+                is_heavy: false,
+                has_options: true,
+            },
+            MaintenanceOperationInfo {
+                operation: MaintenanceOperationType::Analyze,
+                is_heavy: false,
+                has_options: false,
+            },
+            MaintenanceOperationInfo {
+                operation: MaintenanceOperationType::Reindex,
+                is_heavy: true,
+                has_options: false,
+            },
+            MaintenanceOperationInfo {
+                operation: MaintenanceOperationType::Cluster,
+                is_heavy: true,
+                has_options: true,
+            },
+        ])
     }
 
     async fn run_maintenance(
@@ -526,27 +560,64 @@ impl DataEngine for CockroachDbDriver {
         table: &str,
         request: &MaintenanceRequest,
     ) -> EngineResult<MaintenanceResult> {
-        if !matches!(request.operation, MaintenanceOperationType::Analyze) {
-            return Err(EngineError::not_supported(
-                "CockroachDB only supports ANALYZE for maintenance operations",
-            ));
-        }
-
         let pg = pg_compat::get_session(&self.sessions, session).await?;
         let schema = namespace.schema.as_deref().unwrap_or("public");
-        let qualified = format!(
+        let qualified_table = format!(
             "{}.{}",
             pg_compat::quote_ident(schema),
             pg_compat::quote_ident(table)
         );
 
-        let sql = format!("ANALYZE {qualified}");
-        let start = std::time::Instant::now();
+        let sql = match request.operation {
+            MaintenanceOperationType::Vacuum => {
+                let full = if request.options.full.unwrap_or(false) {
+                    "FULL "
+                } else {
+                    ""
+                };
+                let analyze = if request.options.with_analyze.unwrap_or(false) {
+                    "ANALYZE "
+                } else {
+                    ""
+                };
+                let verbose = if request.options.verbose.unwrap_or(false) {
+                    "VERBOSE "
+                } else {
+                    ""
+                };
+                format!("VACUUM {full}{analyze}{verbose}{qualified_table}")
+            }
+            MaintenanceOperationType::Analyze => {
+                format!("ANALYZE {qualified_table}")
+            }
+            MaintenanceOperationType::Reindex => {
+                format!("REINDEX TABLE {qualified_table}")
+            }
+            MaintenanceOperationType::Cluster => {
+                if let Some(ref idx) = request.options.index_name {
+                    format!(
+                        "CLUSTER {qualified_table} USING {}",
+                        pg_compat::quote_ident(idx)
+                    )
+                } else {
+                    format!("CLUSTER {qualified_table}")
+                }
+            }
+            _ => {
+                return Err(EngineError::not_supported(
+                    "Operation not supported for PostgreSQL",
+                ));
+            }
+        };
 
+        let start = Instant::now();
+        // VACUUM cannot run inside a transaction, so always use pool directly
         sqlx::query(&sql)
             .execute(&pg.pool)
             .await
             .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        let execution_time_ms = start.elapsed().as_micros() as f64 / 1000.0;
 
         Ok(MaintenanceResult {
             executed_command: sql,
@@ -554,7 +625,7 @@ impl DataEngine for CockroachDbDriver {
                 level: MaintenanceMessageLevel::Info,
                 text: "Operation completed successfully".into(),
             }],
-            execution_time_ms: start.elapsed().as_micros() as f64 / 1000.0,
+            execution_time_ms,
             success: true,
         })
     }
@@ -574,9 +645,9 @@ mod tests {
 
     fn make_config(username: &str, password: &str) -> ConnectionConfig {
         ConnectionConfig {
-            driver: "cockroachdb".to_string(),
+            driver: "postgres".to_string(),
             host: "localhost".to_string(),
-            port: 26257,
+            port: 5432,
             username: username.to_string(),
             password: password.to_string(),
             database: Some("testdb".to_string()),
@@ -595,26 +666,31 @@ mod tests {
     #[test]
     fn test_connection_string_building() {
         let config = make_config("user", "pass");
-        let conn_str = CockroachDbDriver::conn_str(&config);
-        assert!(conn_str.contains("localhost:26257"));
+
+        let conn_str = PostgresDriver::conn_str(&config);
+        assert!(conn_str.contains("localhost:5432"));
         assert!(conn_str.contains("testdb"));
         assert!(conn_str.contains("sslmode=disable"));
     }
 
     #[test]
-    fn test_connection_string_default_db() {
-        let mut config = make_config("root", "");
-        config.database = None;
-        let conn_str = CockroachDbDriver::conn_str(&config);
-        assert!(conn_str.contains("/defaultdb?"));
+    fn test_connection_string_special_chars_in_password() {
+        let config = make_config("admin", "p@ss:word/123?#&=!");
+
+        let conn_str = PostgresDriver::conn_str(&config);
+        // Password must be percent-encoded so it doesn't break the URL structure
+        assert!(!conn_str.contains("p@ss:word/123?#&=!"));
+        assert!(conn_str.contains("p%40ss%3Aword%2F123%3F%23%26%3D%21"));
+        // Host and port must remain intact
+        assert!(conn_str.contains("@localhost:5432"));
     }
 
     #[test]
-    fn test_connection_string_special_chars_in_password() {
-        let config = make_config("admin", "p@ss:word/123?#&=!");
-        let conn_str = CockroachDbDriver::conn_str(&config);
-        assert!(!conn_str.contains("p@ss:word/123?#&=!"));
-        assert!(conn_str.contains("p%40ss%3Aword%2F123%3F%23%26%3D%21"));
-        assert!(conn_str.contains("@localhost:26257"));
+    fn test_connection_string_special_chars_in_username() {
+        let config = make_config("user@domain", "pass");
+
+        let conn_str = PostgresDriver::conn_str(&config);
+        assert!(conn_str.contains("user%40domain"));
+        assert!(conn_str.contains("@localhost:5432"));
     }
 }

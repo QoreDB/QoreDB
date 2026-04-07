@@ -4765,8 +4765,32 @@ dependencies = [
 name = "qore-drivers"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
+ "base64 0.22.1",
+ "bb8",
+ "bb8-tiberius",
+ "bigdecimal 0.4.10",
+ "chrono",
+ "duckdb",
+ "futures",
+ "mongodb",
+ "percent-encoding",
  "qore-core",
  "qore-sql",
+ "redis",
+ "regex",
+ "rust_decimal",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "tauri",
+ "tempfile",
+ "tiberius",
+ "tokio",
+ "tokio-socks",
+ "tokio-util",
+ "tracing",
+ "uuid",
 ]
 
 [[package]]

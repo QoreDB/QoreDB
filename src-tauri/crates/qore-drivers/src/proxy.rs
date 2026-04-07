@@ -15,8 +15,8 @@ use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::Notify;
 use tokio::time::{timeout, Duration};
 
-use crate::engine::error::{EngineError, EngineResult};
-use crate::engine::types::{ProxyConfig, ProxyType};
+use qore_core::error::{EngineError, EngineResult};
+use qore_core::types::{ProxyConfig, ProxyType};
 
 /// Handle for an active proxy tunnel.
 pub struct ProxyTunnel {

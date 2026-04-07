@@ -13,8 +13,8 @@ use tokio::io::AsyncReadExt;
 use tokio::process::{Child, Command};
 use tokio::sync::Mutex;
 
-use crate::engine::error::{EngineError, EngineResult};
-use crate::engine::types::{SshAuth, SshHostKeyPolicy, SshTunnelConfig};
+use qore_core::error::{EngineError, EngineResult};
+use qore_core::types::{SshAuth, SshHostKeyPolicy, SshTunnelConfig};
 
 /// Handle for an active SSH tunnel.
 #[async_trait]
@@ -433,7 +433,7 @@ fn ensure_parent_dir_exists(path: &str) -> EngineResult<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::engine::types::{SshAuth, SshHostKeyPolicy, SshTunnelConfig};
+    use qore_core::types::{SshAuth, SshHostKeyPolicy, SshTunnelConfig};
 
     fn cmd_args(cmd: &Command) -> Vec<String> {
         cmd.as_std()

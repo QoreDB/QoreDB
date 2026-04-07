@@ -1,13 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
-// Data Engine Module
-// Universal abstraction layer for all database engines
+// Data Engine Module — Facade
 //
-// Core types, traits, errors, and registry are provided by the `qore-core` crate.
-// SQL utilities (safety, generator, connection URLs) are provided by `qore-sql`.
-// This module re-exports them for backwards compatibility and hosts the
-// remaining modules (drivers, session management, etc.) that haven't been
-// extracted yet.
+// All engine code now lives in the qore-core, qore-sql, and qore-drivers crates.
+// This module re-exports everything for backwards compatibility so that existing
+// `use crate::engine::*` imports continue to work without changes.
 
 // ── Re-exports from qore-core ──────────────────────────────────────
 pub mod error {
@@ -18,11 +15,6 @@ pub mod traits {
 }
 pub mod types {
     pub use qore_core::types::*;
-
-    // Sub-module re-export
-    pub mod collection_list {
-        // CollectionList and CollectionListOptions are defined in qore_core::types directly
-    }
 }
 pub mod registry {
     pub use qore_core::registry::*;
@@ -39,21 +31,39 @@ pub mod connection_url {
     pub use qore_sql::connection_url::*;
 }
 
-// ── Modules still in this crate ───────────────────────────────────
-pub mod drivers;
-pub mod fulltext_strategy;
-pub mod mongo_safety;
-pub mod proxy;
-pub mod query_manager;
-pub mod redis_safety;
-pub mod schema_export;
-pub mod session_manager;
-pub mod ssh_tunnel;
+// ── Re-exports from qore-drivers ──────────────────────────────────
+pub mod drivers {
+    pub use qore_drivers::drivers::*;
+}
+pub mod fulltext_strategy {
+    pub use qore_drivers::fulltext_strategy::*;
+}
+pub mod mongo_safety {
+    pub use qore_drivers::mongo_safety::*;
+}
+pub mod proxy {
+    pub use qore_drivers::proxy::*;
+}
+pub mod query_manager {
+    pub use qore_drivers::query_manager::*;
+}
+pub mod redis_safety {
+    pub use qore_drivers::redis_safety::*;
+}
+pub mod schema_export {
+    pub use qore_drivers::schema_export::*;
+}
+pub mod session_manager {
+    pub use qore_drivers::session_manager::*;
+}
+pub mod ssh_tunnel {
+    pub use qore_drivers::ssh_tunnel::*;
+}
 
 // ── Convenience re-exports ────────────────────────────────────────
 pub use qore_core::error::EngineError;
 pub use qore_core::registry::DriverRegistry;
 pub use qore_core::traits::DataEngine;
 pub use qore_core::types::*;
-pub use query_manager::QueryManager;
-pub use session_manager::SessionManager;
+pub use qore_drivers::query_manager::QueryManager;
+pub use qore_drivers::session_manager::SessionManager;

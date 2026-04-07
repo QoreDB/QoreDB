@@ -409,21 +409,11 @@ pub struct TableColumn {
 }
 
 // ==================== Collection List Types ====================
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct CollectionListOptions {
     pub search: Option<String>,
     pub page: Option<u32>,
     pub page_size: Option<u32>,
-}
-
-impl Default for CollectionListOptions {
-    fn default() -> Self {
-        Self {
-            search: None,
-            page: None,
-            page_size: None,
-        }
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -785,7 +775,7 @@ impl PaginatedQueryResult {
         let total_pages = if page_size == 0 {
             0
         } else {
-            ((total_rows + page_size as u64 - 1) / page_size as u64) as u32
+            total_rows.div_ceil(page_size as u64) as u32
         };
         Self {
             result,

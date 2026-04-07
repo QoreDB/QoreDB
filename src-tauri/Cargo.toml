@@ -98,7 +98,7 @@ dotenvy = "0.15"
 # Workspace crates
 qore-core = { path = "crates/qore-core" }
 qore-sql = { path = "crates/qore-sql" }
-qore-drivers = { path = "crates/qore-drivers" }
+qore-drivers = { path = "crates/qore-drivers", features = ["tauri"] }
 
 # Tauri
 tauri = { version = "2", features = ["image-png"] }

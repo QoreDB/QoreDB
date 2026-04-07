@@ -115,7 +115,7 @@ impl ConnectionUrlParser for PostgresUrlParser {
 
         let password = url
             .password()
-            .map(|p| percent_decode(p))
+            .map(percent_decode)
             .transpose()
             .map_err(|_| {
                 ParseError::new(ParseErrorCode::InvalidUtf8, "Invalid password encoding")
@@ -165,7 +165,7 @@ impl ConnectionUrlParser for PostgresUrlParser {
             options.insert(key.into_owned(), value.into_owned());
         }
 
-        let ssl = ssl_explicit.or_else(|| if ssl_implied { Some(true) } else { None });
+        let ssl = ssl_explicit.or(ssl_implied.then_some(true));
 
         Ok(PartialConnectionConfig {
             driver: Some(self.driver_id().to_string()),
@@ -221,7 +221,7 @@ impl ConnectionUrlParser for MySqlUrlParser {
 
         let password = url
             .password()
-            .map(|p| percent_decode(p))
+            .map(percent_decode)
             .transpose()
             .map_err(|_| {
                 ParseError::new(ParseErrorCode::InvalidUtf8, "Invalid password encoding")
@@ -270,7 +270,7 @@ impl ConnectionUrlParser for MySqlUrlParser {
             options.insert(key.into_owned(), value.into_owned());
         }
 
-        let ssl = ssl_explicit.or_else(|| if ssl_implied { Some(true) } else { None });
+        let ssl = ssl_explicit.or(ssl_implied.then_some(true));
 
         Ok(PartialConnectionConfig {
             driver: Some(self.driver_id().to_string()),
@@ -333,7 +333,7 @@ impl ConnectionUrlParser for MongoDbUrlParser {
 
         let password = url
             .password()
-            .map(|p| percent_decode(p))
+            .map(percent_decode)
             .transpose()
             .map_err(|_| {
                 ParseError::new(ParseErrorCode::InvalidUtf8, "Invalid password encoding")
@@ -459,7 +459,7 @@ impl ConnectionUrlParser for RedisUrlParser {
 
         let password = url
             .password()
-            .map(|p| percent_decode(p))
+            .map(percent_decode)
             .transpose()
             .map_err(|_| {
                 ParseError::new(ParseErrorCode::InvalidUtf8, "Invalid password encoding")
@@ -534,7 +534,7 @@ impl ConnectionUrlParser for SqlServerUrlParser {
 
         let password = url
             .password()
-            .map(|p| percent_decode(p))
+            .map(percent_decode)
             .transpose()
             .map_err(|_| {
                 ParseError::new(ParseErrorCode::InvalidUtf8, "Invalid password encoding")
@@ -563,10 +563,8 @@ impl ConnectionUrlParser for SqlServerUrlParser {
 
             if key_lower == "encrypt" {
                 ssl_explicit = Some(parse_bool_param(value_str).unwrap_or(false));
-            } else if key_lower == "ssl" {
-                if ssl_explicit.is_none() {
-                    ssl_explicit = parse_bool_param(value_str);
-                }
+            } else if key_lower == "ssl" && ssl_explicit.is_none() {
+                ssl_explicit = parse_bool_param(value_str);
             }
 
             options.insert(key.into_owned(), value.into_owned());
@@ -626,7 +624,7 @@ impl ConnectionUrlParser for CockroachDbUrlParser {
 
         let password = url
             .password()
-            .map(|p| percent_decode(p))
+            .map(percent_decode)
             .transpose()
             .map_err(|_| {
                 ParseError::new(ParseErrorCode::InvalidUtf8, "Invalid password encoding")
@@ -672,7 +670,7 @@ impl ConnectionUrlParser for CockroachDbUrlParser {
             options.insert(key.into_owned(), value.into_owned());
         }
 
-        let ssl = ssl_explicit.or_else(|| if ssl_implied { Some(true) } else { None });
+        let ssl = ssl_explicit.or(ssl_implied.then_some(true));
 
         Ok(PartialConnectionConfig {
             driver: Some(self.driver_id().to_string()),

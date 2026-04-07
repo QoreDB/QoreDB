@@ -18,14 +18,14 @@ use sqlx::postgres::{PgPool, PgPoolOptions, PgRow, Postgres};
 use sqlx::Row;
 use tokio::sync::{Mutex, RwLock};
 
-use crate::engine::drivers::postgres_utils::{
+use crate::drivers::postgres_utils::{
     bind_param, collect_enum_type_oids, convert_row, get_column_info, load_enum_labels,
     EnumLabelMap,
 };
-use crate::engine::error::{EngineError, EngineResult};
-use crate::engine::sql_safety;
-use crate::engine::traits::{StreamEvent, StreamSender};
-use crate::engine::types::{
+use qore_core::error::{EngineError, EngineResult};
+use qore_sql::safety;
+use qore_core::traits::{StreamEvent, StreamSender};
+use qore_core::types::{
     CancelSupport, ColumnInfo, ConnectionConfig, FilterOperator, ForeignKey, Namespace,
     PaginatedQueryResult, QueryId, QueryResult, Routine, RoutineDefinition, RoutineList,
     RoutineListOptions, RoutineOperationResult, RoutineType, Row as QRow, RowData, SessionId,
@@ -230,8 +230,8 @@ pub async fn execute_in_namespace(
     let pg = get_session(sessions, session).await?;
     let start = Instant::now();
 
-    let returns_rows = sql_safety::returns_rows(driver_id, query)
-        .unwrap_or_else(|_| sql_safety::is_select_prefix(query));
+    let returns_rows = safety::returns_rows(driver_id, query)
+        .unwrap_or_else(|_| safety::is_select_prefix(query));
 
     let mut tx_guard = pg.transaction_conn.lock().await;
 
@@ -402,8 +402,8 @@ pub async fn execute_stream_in_namespace(
 
     apply_namespace_on_conn(&mut conn, &namespace, query, false).await?;
 
-    let returns_rows = sql_safety::returns_rows(driver_id, query)
-        .unwrap_or_else(|_| sql_safety::is_select_prefix(query));
+    let returns_rows = safety::returns_rows(driver_id, query)
+        .unwrap_or_else(|_| safety::is_select_prefix(query));
 
     if !returns_rows {
         let result =

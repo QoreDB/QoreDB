@@ -11,8 +11,8 @@ use sqlx::postgres::{PgColumn, PgRow, PgTypeKind, PgValueFormat, Postgres};
 use sqlx::{Column, Executor, Row, TypeInfo, ValueRef};
 use uuid::Uuid;
 
-use crate::engine::error::{EngineError, EngineResult};
-use crate::engine::types::{ColumnInfo, Row as QRow, Value};
+use qore_core::error::{EngineError, EngineResult};
+use qore_core::types::{ColumnInfo, Row as QRow, Value};
 
 /// Map from enum value OID to its label string
 pub(crate) type EnumLabelMap = HashMap<u32, String>;

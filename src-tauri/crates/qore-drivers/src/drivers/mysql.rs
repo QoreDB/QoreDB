@@ -18,11 +18,11 @@ use sqlx::{Column, Executor, Row, TypeInfo};
 use tokio::sync::{Mutex, RwLock};
 use uuid::Uuid;
 
-use crate::engine::error::{EngineError, EngineResult};
-use crate::engine::sql_safety;
-use crate::engine::traits::DataEngine;
-use crate::engine::traits::{StreamEvent, StreamSender};
-use crate::engine::types::{
+use qore_core::error::{EngineError, EngineResult};
+use qore_sql::safety;
+use qore_core::traits::DataEngine;
+use qore_core::traits::{StreamEvent, StreamSender};
+use qore_core::types::{
     CancelSupport, CharsetInfo, CollationInfo, Collection, CollectionList, CollectionListOptions,
     CollectionType, ColumnInfo, ConnectionConfig, CreationOptions, DatabaseEvent, EventDefinition,
     EventList, EventListOptions, EventOperationResult, EventStatus, FilterOperator, ForeignKey,
@@ -1296,8 +1296,8 @@ impl DataEngine for MySqlDriver {
         Self::apply_namespace_on_conn(&mut conn, &namespace, query).await?;
 
         // Check if query returns rows
-        let returns_rows = sql_safety::returns_rows(self.driver_id(), query)
-            .unwrap_or_else(|_| sql_safety::is_select_prefix(query));
+        let returns_rows = safety::returns_rows(self.driver_id(), query)
+            .unwrap_or_else(|_| safety::is_select_prefix(query));
 
         if !returns_rows {
             // Fallback
@@ -1385,8 +1385,8 @@ impl DataEngine for MySqlDriver {
         let mysql_session = self.get_session(session).await?;
         let start = Instant::now();
 
-        let returns_rows = sql_safety::returns_rows(self.driver_id(), query)
-            .unwrap_or_else(|_| sql_safety::is_select_prefix(query));
+        let returns_rows = safety::returns_rows(self.driver_id(), query)
+            .unwrap_or_else(|_| safety::is_select_prefix(query));
 
         let mut tx_guard = mysql_session.transaction_conn.lock().await;
         let result = if let Some(ref mut conn) = *tx_guard {

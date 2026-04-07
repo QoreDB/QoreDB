@@ -16,9 +16,9 @@ use futures::future::{AbortHandle, Abortable};
 use percent_encoding::{utf8_percent_encode, NON_ALPHANUMERIC};
 use tokio::sync::{Mutex, RwLock};
 
-use crate::engine::error::{EngineError, EngineResult};
-use crate::engine::traits::DataEngine;
-use crate::engine::types::{
+use qore_core::error::{EngineError, EngineResult};
+use qore_core::traits::DataEngine;
+use qore_core::types::{
     CancelSupport, Collection, CollectionList, CollectionListOptions, CollectionType, ColumnInfo,
     ConnectionConfig, Namespace, PaginatedQueryResult, QueryId, QueryResult, Row as QRow,
     RowData, SessionId, TableColumn, TableQueryOptions, TableSchema, Value,
@@ -201,7 +201,7 @@ impl RedisDriver {
         let mut conn = redis_session.connection.lock().await;
 
         if let Some(db_index) = target_db {
-            Self::select_db(&mut *conn, db_index).await?;
+            Self::select_db(&mut conn, db_index).await?;
             redis_session.current_db.store(db_index, Ordering::Relaxed);
         }
 
@@ -1418,7 +1418,7 @@ impl DataEngine for RedisDriver {
             primary_key: None,
             foreign_keys: Vec::new(),
             row_count_estimate: element_count,
-            indexes: vec![crate::engine::types::TableIndex {
+            indexes: vec![qore_core::types::TableIndex {
                 name: format!(
                     "type:{} | encoding:{} | ttl:{}",
                     type_str, encoding, ttl_display

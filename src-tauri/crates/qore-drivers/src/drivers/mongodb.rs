@@ -8,17 +8,17 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Instant;
 
-use crate::engine::types::RowData as QRowData;
+use qore_core::types::RowData as QRowData;
 use async_trait::async_trait;
 use futures::future::{AbortHandle, Abortable};
 use mongodb::bson::{doc, Bson, Document};
 use mongodb::{options::ClientOptions, Client, ClientSession};
 use tokio::sync::{Mutex, RwLock};
 
-use crate::engine::error::{EngineError, EngineResult};
-use crate::engine::traits::DataEngine;
-use crate::engine::traits::{StreamEvent, StreamSender};
-use crate::engine::types::{
+use qore_core::error::{EngineError, EngineResult};
+use qore_core::traits::DataEngine;
+use qore_core::traits::{StreamEvent, StreamSender};
+use qore_core::types::{
     CancelSupport, Collection, CollectionList, CollectionListOptions, CollectionType, ColumnInfo,
     ConnectionConfig, FilterOperator, MaintenanceMessage, MaintenanceMessageLevel,
     MaintenanceOperationInfo, MaintenanceOperationType, MaintenanceRequest, MaintenanceResult,
@@ -245,10 +245,8 @@ impl MongoDriver {
     fn hello_supports_transactions(hello: &Document) -> bool {
         let has_set_name = matches!(hello.get("setName"), Some(Bson::String(_)));
         let is_mongos = matches!(hello.get("msg"), Some(Bson::String(msg)) if msg == "isdbgrid");
-        let has_sessions = match hello.get("logicalSessionTimeoutMinutes") {
-            Some(Bson::Null) | None => false,
-            _ => true,
-        };
+        let has_sessions =
+            !matches!(hello.get("logicalSessionTimeoutMinutes"), Some(Bson::Null) | None);
 
         (has_set_name || is_mongos) && has_sessions
     }

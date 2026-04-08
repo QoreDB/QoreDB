@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { Eraser, Eye, FileUp, GitCompare, Link2, Sparkles, Trash2, Wrench } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-
-import { Eraser, Eye, FileUp, GitCompare, Link2, Sparkles, Trash2, Wrench } from 'lucide-react';
 
 import { DangerConfirmDialog } from '@/components/Guard/DangerConfirmDialog';
 import { CSVImportDialog } from '@/components/Import/CSVImportDialog';
@@ -18,16 +17,17 @@ import {
 import { VirtualRelationDialog } from '@/components/VirtualRelations/VirtualRelationDialog';
 import { buildDropTableSQL, buildTruncateTableSQL } from '@/lib/column-types';
 import { emitTableChange } from '@/lib/tableEvents';
+import { removeTableVisit } from '@/lib/tableInsights';
 import { invalidateCollectionsCache, invalidateTableSchemaCache } from '../../hooks/useSchemaCache';
 import { isDocumentDatabase } from '../../lib/driverCapabilities';
 import type { Driver } from '../../lib/drivers';
 import { notify } from '../../lib/notify';
 import {
   type Collection,
-  type Environment,
-  type TableColumn,
   describeTable,
+  type Environment,
   executeQuery,
+  type TableColumn,
 } from '../../lib/tauri';
 
 interface TableContextMenuProps {
@@ -125,6 +125,7 @@ export function TableContextMenu({
         notify.success(t('dropTable.success', { name: tableName }));
         onRefresh();
         setDangerAction(null);
+        removeTableVisit(collection.namespace, tableName, connectionId);
         emitTableChange({ type: 'drop', namespace: collection.namespace, tableName });
       } else {
         notify.error(t('dropTable.failed'), result.error);

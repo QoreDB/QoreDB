@@ -31,6 +31,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { getSchemaObjectCapabilities, getTerminology } from '@/lib/driverCapabilities';
 import { emitTableChange, onTableChange } from '@/lib/tableEvents';
+import { getNamespaceTableVisits } from '@/lib/tableInsights';
 import { cn } from '@/lib/utils';
 import { DRIVER_ICONS, DRIVER_LABELS, type Driver, getDriverMetadata } from '../../lib/drivers';
 import {
@@ -106,6 +107,14 @@ interface DatabaseStats {
   documentCount?: number;
 }
 
+interface OverviewPreviewItem {
+  name: string;
+  collectionType?: Collection['collection_type'];
+  visitCount?: number;
+  lastVisitedAt?: number;
+  personalized: boolean;
+}
+
 export function DatabaseBrowser({
   sessionId,
   namespace,
@@ -157,9 +166,27 @@ export function DatabaseBrowser({
   const [page, setPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const pageSize = 20;
+  const tableVisits = useMemo(
+    () => getNamespaceTableVisits(stableNamespace, connectionId, 10),
+    [connectionId, stableNamespace]
+  );
 
   const driverMeta = getDriverMetadata(driver);
   const schemaObjectCapabilities = getSchemaObjectCapabilities(driver);
+  const formatVisitTime = useCallback(
+    (timestamp: number) => {
+      const diffMs = Math.max(0, Date.now() - timestamp);
+      const diffMins = Math.floor(diffMs / 60_000);
+      const diffHours = Math.floor(diffMs / 3_600_000);
+      const diffDays = Math.floor(diffMs / 86_400_000);
+
+      if (diffMins < 1) return t('history.time.justNow');
+      if (diffMins < 60) return t('history.time.minutesAgo', { count: diffMins });
+      if (diffHours < 24) return t('history.time.hoursAgo', { count: diffHours });
+      return t('history.time.daysAgo', { count: Math.max(1, diffDays) });
+    },
+    [t]
+  );
 
   const handleTabChange = useCallback(
     (tab: DatabaseBrowserTab) => {
@@ -421,6 +448,28 @@ export function DatabaseBrowser({
     ? `${namespace.database}.${namespace.schema}`
     : namespace.database;
 
+  const overviewPreviewItems = useMemo<OverviewPreviewItem[]>(() => {
+    if (tableVisits.length === 0) {
+      return collections.slice(0, 10).map(col => ({
+        name: col.name,
+        collectionType: col.collection_type,
+        personalized: false,
+      }));
+    }
+
+    const collectionTypesByName = new Map(
+      collections.map(col => [col.name, col.collection_type] as const)
+    );
+
+    return tableVisits.map(visit => ({
+      name: visit.tableName,
+      collectionType: collectionTypesByName.get(visit.tableName),
+      visitCount: visit.visitCount,
+      lastVisitedAt: visit.lastVisitedAt,
+      personalized: true,
+    }));
+  }, [collections, tableVisits]);
+
   const iconSrc = `/databases/${DRIVER_ICONS[driver]}`;
 
   return (
@@ -649,43 +698,56 @@ export function DatabaseBrowser({
 
               {/* Quick Tables List */}
               <div className="space-y-2">
-                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-                  {t(terminology.tablePluralLabel)}
-                </h3>
-                {collections.length === 0 ? (
+                <div className="space-y-1">
+                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+                    {t(terminology.tablePluralLabel)}
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    {tableVisits.length > 0
+                      ? t('databaseBrowser.tablePreviewPersonalized')
+                      : t('databaseBrowser.tablePreviewFallback')}
+                  </p>
+                </div>
+                {overviewPreviewItems.length === 0 ? (
                   <div className="text-sm text-muted-foreground italic p-4 text-center border border-dashed border-border rounded-md">
                     {t('databaseBrowser.noTables')}
                   </div>
                 ) : (
                   <div className="border border-border rounded-md divide-y divide-border">
-                    {collections.slice(0, 10).map(col => (
+                    {overviewPreviewItems.map(item => (
                       <button
                         type="button"
-                        key={col.name}
+                        key={item.name}
                         className="flex items-center justify-between w-full px-3 py-2 hover:bg-muted/50 transition-colors text-left"
-                        onClick={() => onTableSelect(namespace, col.name)}
+                        onClick={() => onTableSelect(namespace, item.name)}
                       >
-                        <div className="flex items-center gap-2">
-                          {col.collection_type === 'View' ? (
-                            <Eye size={14} className="text-muted-foreground" />
+                        <div className="min-w-0 flex flex-1 items-center gap-2">
+                          {item.collectionType === 'View' ? (
+                            <Eye size={14} className="text-muted-foreground shrink-0" />
                           ) : (
-                            <Table size={14} className="text-muted-foreground" />
+                            <Table size={14} className="text-muted-foreground shrink-0" />
                           )}
-                          <span className="font-mono text-sm">{col.name}</span>
-                          {col.collection_type === 'View' && (
-                            <span className="text-xs text-muted-foreground">(view)</span>
+                          <span className="font-mono text-sm truncate">{item.name}</span>
+                          {item.collectionType === 'View' && (
+                            <span className="text-xs text-muted-foreground shrink-0">(view)</span>
+                          )}
+                          {item.personalized && item.visitCount && item.lastVisitedAt && (
+                            <span className="min-w-0 truncate text-xs text-muted-foreground">
+                              {t('databaseBrowser.visitCount', { count: item.visitCount })} •{' '}
+                              {formatVisitTime(item.lastVisitedAt)}
+                            </span>
                           )}
                         </div>
-                        <ChevronRight size={14} className="text-muted-foreground" />
+                        <ChevronRight size={14} className="ml-3 shrink-0 text-muted-foreground" />
                       </button>
                     ))}
-                    {collections.length > 10 && (
+                    {totalCount > overviewPreviewItems.length && (
                       <button
                         type="button"
                         className="w-full px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
-                        onClick={() => setActiveTab('tables')}
+                        onClick={() => handleTabChange('tables')}
                       >
-                        {t('databaseBrowser.viewAll', { count: collections.length })}
+                        {t('databaseBrowser.viewAll', { count: totalCount })}
                       </button>
                     )}
                   </div>

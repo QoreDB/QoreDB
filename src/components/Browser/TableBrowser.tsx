@@ -49,6 +49,7 @@ import {
 } from '@/lib/sandboxStore';
 import type { MigrationScript, SandboxChange } from '@/lib/sandboxTypes';
 import { onTableChange } from '@/lib/tableEvents';
+import { recordTableVisit } from '@/lib/tableInsights';
 import { UI_EVENT_REFRESH_TABLE } from '@/lib/uiEvents';
 import { cn } from '@/lib/utils';
 import { useInfiniteTableData } from '../../hooks/useInfiniteTableData';
@@ -167,8 +168,10 @@ export function TableBrowser({
   onActiveTabChange,
 }: TableBrowserProps) {
   const { t } = useTranslation();
-  const viewTrackedRef = useRef(false);
+  const lastTrackedViewKeyRef = useRef<string | null>(null);
   const { shouldShowTour, startTour } = useTourManager();
+  const currentViewKey = `${connectionId ?? ''}::${namespace.database}::${namespace.schema ?? ''}::${tableName}`;
+
   useEffect(() => {
     if (sessionId && shouldShowTour('first-table')) {
       const timer = setTimeout(() => startTour('first-table'), 800);
@@ -310,14 +313,15 @@ export function TableBrowser({
 
   // Analytics tracking
   useEffect(() => {
-    if (data && !viewTrackedRef.current) {
-      viewTrackedRef.current = true;
+    if (data && lastTrackedViewKeyRef.current !== currentViewKey) {
+      lastTrackedViewKeyRef.current = currentViewKey;
+      recordTableVisit({ connectionId, namespace, tableName });
       AnalyticsService.capture('table_view_loaded', {
         driver,
         resource_type: driver === Driver.Mongodb ? 'collection' : 'table',
       });
     }
-  }, [data, driver]);
+  }, [connectionId, currentViewKey, data, driver, namespace, tableName]);
 
   useEffect(() => {
     const unsubscribe = subscribeSandboxPreferences(prefs => {

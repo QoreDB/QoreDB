@@ -492,8 +492,7 @@
       "data": "データとプライバシー",
       "shortcuts": "キーボードショートカット",
       "license": "ライセンス",
-      "ai": "AI アシスタント",
-      "workspaces": "ワークスペース"
+      "ai": "AI アシスタント"
     },
     "search": {
       "placeholder": "設定を検索...",
@@ -532,21 +531,6 @@
       "runQuery": "クエリを実行",
       "closeTab": "タブを閉じる",
       "escape": "オーバーレイを閉じる / キャンセル"
-    },
-    "workspaces": {
-      "whatTitle": "ワークスペースとは？",
-      "whatDescription": "ワークスペースは、プロジェクト内の.qoredb/ディレクトリで、接続、クエリ、ノートブックを保存します。すべてGitでバージョン管理可能です。",
-      "benefitGit": "Gitバージョン管理",
-      "benefitGitDesc": "Gitを通じてデータベース設定をチームと共有できます。",
-      "benefitTeam": "チームコラボレーション",
-      "benefitTeamDesc": "全員が同じ接続とクエリを自動的に取得します。",
-      "benefitOrganize": "プロジェクト別に整理",
-      "benefitOrganizeDesc": "各プロジェクトに独自の接続があり、他と分離されています。",
-      "activeTitle": "アクティブなワークスペース",
-      "activeDescription": "接続とクエリに現在使用されているワークスペース。",
-      "quickstartTitle": "クイックスタート",
-      "quickstartDescription": "ガイドツアーでワークスペースの使い方を学びましょう。",
-      "startTour": "ガイドツアーを開始"
     }
   },
   "table": {
@@ -609,10 +593,6 @@
     "viewAll": "{{count}} テーブルすべてを表示",
     "searchTables": "テーブルを検索...",
     "noResults": "検索条件に一致するテーブルが見つかりません。",
-    "tablePreviewPersonalized": "この表示は、このワークスペースでの使い方に合わせて変わります。よく開くテーブルがここに表示されます。",
-    "tablePreviewFallback": "いくつかテーブルを開くと、この表示があなた向けに調整されます。それまでは、テーブルの簡単なプレビューを表示します。",
-    "visitCount": "{{count}} 回表示",
-    "visitCount_other": "{{count}} 回表示",
     "openEditor": "SQL エディタ",
     "diagramFit": "フィット",
     "diagramReset": "リセット",

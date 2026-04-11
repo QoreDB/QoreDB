@@ -660,7 +660,6 @@ export function DatabaseBrowser({
           onViewAll={() => handleTabChange('tables')}
           overviewPreviewItems={overviewPreviewItems}
           stats={stats}
-          tableVisitsCount={tableVisits.length}
           terminology={terminology}
           totalCount={totalCount}
         />
@@ -971,7 +970,6 @@ interface OverviewTabContentProps {
   onViewAll: () => void;
   overviewPreviewItems: OverviewPreviewItem[];
   stats: DatabaseStats;
-  tableVisitsCount: number;
   terminology: DriverTerminology;
   totalCount: number;
 }
@@ -985,7 +983,6 @@ function OverviewTabContent({
   onViewAll,
   overviewPreviewItems,
   stats,
-  tableVisitsCount,
   terminology,
   totalCount,
 }: OverviewTabContentProps) {
@@ -1026,16 +1023,12 @@ function OverviewTabContent({
       </div>
 
       <div className="space-y-2">
-        <div className="space-y-1">
-          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-            {t(terminology.tablePluralLabel)}
-          </h3>
-          <p className="text-xs text-muted-foreground">
-            {tableVisitsCount > 0
-              ? t('databaseBrowser.tablePreviewPersonalized')
-              : t('databaseBrowser.tablePreviewFallback')}
-          </p>
-        </div>
+        <h3 className="text-sm font-medium text-foreground">
+          {t(terminology.tablePluralLabel)}
+          <span className="ml-1.5 text-muted-foreground font-normal">
+            ({overviewPreviewItems.length})
+          </span>
+        </h3>
 
         {overviewPreviewItems.length === 0 ? (
           <div className="text-sm text-muted-foreground italic p-4 text-center border border-dashed border-border rounded-md">
@@ -1080,32 +1073,55 @@ function OverviewPreviewRow({
   namespace: Namespace;
   onTableSelect: DatabaseBrowserProps['onTableSelect'];
 }) {
-  const { t } = useTranslation();
-
   return (
     <button
       type="button"
-      className="flex items-center justify-between w-full px-3 py-2 hover:bg-muted/50 transition-colors text-left"
+      className="flex items-center justify-between w-full px-3 py-2.5 hover:bg-muted/50 transition-colors text-left"
       onClick={() => onTableSelect(namespace, item.name)}
     >
-      <div className="min-w-0 flex flex-1 items-center gap-2">
+      <div className="min-w-0 flex flex-1 items-center gap-2.5">
         <CollectionTypeIcon collectionType={item.collectionType} size={14} />
-        <span className="font-mono text-sm truncate">{item.name}</span>
-
-        {isViewCollection(item.collectionType) && (
-          <span className="text-xs text-muted-foreground shrink-0">(view)</span>
-        )}
-
-        {item.personalized && item.visitCount && item.lastVisitedAt && (
-          <span className="min-w-0 truncate text-xs text-muted-foreground">
-            {t('databaseBrowser.visitCount', { count: item.visitCount })} •{' '}
-            {formatVisitTime(item.lastVisitedAt)}
-          </span>
-        )}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5">
+            <span className="font-mono text-sm truncate">{item.name}</span>
+            {isViewCollection(item.collectionType) && (
+              <span className="text-xs text-muted-foreground shrink-0">(view)</span>
+            )}
+          </div>
+          {item.personalized && item.lastVisitedAt && (
+            <p className="text-xs text-muted-foreground mt-0.5 truncate">
+              {formatVisitTime(item.lastVisitedAt)}
+            </p>
+          )}
+        </div>
       </div>
 
-      <ChevronRight size={14} className="ml-3 shrink-0 text-muted-foreground" />
+      {item.personalized && item.visitCount && (
+        <VisitFrequencyDots count={item.visitCount} />
+      )}
+
+      <ChevronRight size={14} className="ml-2 shrink-0 text-muted-foreground" />
     </button>
+  );
+}
+
+const VISIT_FREQUENCY_MAX_DOTS = 5;
+
+function VisitFrequencyDots({ count }: { count: number }) {
+  const filled = Math.min(Math.ceil(count / 3), VISIT_FREQUENCY_MAX_DOTS);
+
+  return (
+    <div className="flex items-center gap-0.5 ml-2 shrink-0" title={`${count} visits`}>
+      {Array.from({ length: VISIT_FREQUENCY_MAX_DOTS }, (_, i) => (
+        <span
+          key={`dot-${i.toString()}`}
+          className={cn(
+            'block w-1.5 h-1.5 rounded-full',
+            i < filled ? 'bg-accent' : 'bg-border'
+          )}
+        />
+      ))}
+    </div>
   );
 }
 

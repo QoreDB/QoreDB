@@ -493,8 +493,7 @@
       "data": "Data & Privacy",
       "shortcuts": "Keyboard Shortcuts",
       "license": "License",
-      "ai": "AI Assistant",
-      "workspaces": "Workspaces"
+      "ai": "AI Assistant"
     },
     "search": {
       "placeholder": "Search settings...",
@@ -534,21 +533,6 @@
       "runQuery": "Run query",
       "closeTab": "Close tab",
       "escape": "Close overlay / Cancel"
-    },
-    "workspaces": {
-      "whatTitle": "What is a workspace?",
-      "whatDescription": "A workspace is a .qoredb/ directory in your project that stores connections, queries, and notebooks — all versionable with Git.",
-      "benefitGit": "Git versionable",
-      "benefitGitDesc": "Share your database configuration with your team via Git.",
-      "benefitTeam": "Team collaboration",
-      "benefitTeamDesc": "Everyone gets the same connections and queries automatically.",
-      "benefitOrganize": "Organized by project",
-      "benefitOrganizeDesc": "Each project has its own connections, separate from others.",
-      "activeTitle": "Active workspace",
-      "activeDescription": "The workspace currently in use for connections and queries.",
-      "quickstartTitle": "Getting started",
-      "quickstartDescription": "Take a guided tour to learn how workspaces work.",
-      "startTour": "Start guided tour"
     }
   },
   "table": {
@@ -611,10 +595,6 @@
     "viewAll": "View all {{count}} tables",
     "searchTables": "Search tables...",
     "noResults": "No tables found matching your search.",
-    "tablePreviewPersonalized": "This view adapts to how you work in this workspace. The tables you open most often show up here.",
-    "tablePreviewFallback": "Open a few tables to personalize this view. In the meantime, here's a quick preview of your tables.",
-    "visitCount": "{{count}} visit",
-    "visitCount_other": "{{count}} visits",
     "openEditor": "SQL Editor",
     "diagramFit": "Fit",
     "diagramReset": "Reset",

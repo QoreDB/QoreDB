@@ -492,8 +492,7 @@
       "data": "Dados e Privacidade",
       "shortcuts": "Atalhos de Teclado",
       "license": "Licença",
-      "ai": "Assistente de IA",
-      "workspaces": "Áreas de trabalho"
+      "ai": "Assistente de IA"
     },
     "search": {
       "placeholder": "Pesquisar configurações...",
@@ -532,21 +531,6 @@
       "runQuery": "Executar consulta",
       "closeTab": "Fechar aba",
       "escape": "Fechar overlay / Cancelar"
-    },
-    "workspaces": {
-      "whatTitle": "O que é uma área de trabalho?",
-      "whatDescription": "Uma área de trabalho é um diretório .qoredb/ no seu projeto que armazena conexões, consultas e notebooks — tudo versionável com Git.",
-      "benefitGit": "Versionável com Git",
-      "benefitGitDesc": "Compartilhe sua configuração de banco de dados com sua equipe via Git.",
-      "benefitTeam": "Colaboração em equipe",
-      "benefitTeamDesc": "Todos obtêm as mesmas conexões e consultas automaticamente.",
-      "benefitOrganize": "Organizado por projeto",
-      "benefitOrganizeDesc": "Cada projeto tem suas próprias conexões, separadas dos demais.",
-      "activeTitle": "Área ativa",
-      "activeDescription": "A área de trabalho atualmente em uso para conexões e consultas.",
-      "quickstartTitle": "Início rápido",
-      "quickstartDescription": "Faça um tour guiado para aprender como as áreas de trabalho funcionam.",
-      "startTour": "Iniciar tour guiado"
     }
   },
   "table": {
@@ -609,10 +593,6 @@
     "viewAll": "Ver todas as {{count}} tabelas",
     "searchTables": "Pesquisar tabelas...",
     "noResults": "Nenhuma tabela encontrada para sua pesquisa.",
-    "tablePreviewPersonalized": "Esta visão se adapta à forma como você trabalha neste workspace. As tabelas que você mais abre aparecem aqui primeiro.",
-    "tablePreviewFallback": "Abra algumas tabelas para personalizar esta visão. Enquanto isso, aqui vai uma prévia rápida das suas tabelas.",
-    "visitCount": "{{count}} visita",
-    "visitCount_other": "{{count}} visitas",
     "openEditor": "Editor SQL",
     "diagramFit": "Ajustar",
     "diagramReset": "Redefinir",

@@ -492,8 +492,7 @@
       "data": "Datos y privacidad",
       "shortcuts": "Atajos de teclado",
       "license": "Licencia",
-      "ai": "Asistente de IA",
-      "workspaces": "Espacios de trabajo"
+      "ai": "Asistente de IA"
     },
     "search": {
       "placeholder": "Buscar configuración...",
@@ -532,21 +531,6 @@
       "runQuery": "Ejecutar consulta",
       "closeTab": "Cerrar pestaña",
       "escape": "Cerrar superposición / Cancelar"
-    },
-    "workspaces": {
-      "whatTitle": "¿Qué es un espacio de trabajo?",
-      "whatDescription": "Un espacio de trabajo es un directorio .qoredb/ en su proyecto que almacena conexiones, consultas y notebooks — todo versionable con Git.",
-      "benefitGit": "Versionable con Git",
-      "benefitGitDesc": "Comparta su configuración de bases de datos con su equipo a través de Git.",
-      "benefitTeam": "Colaboración en equipo",
-      "benefitTeamDesc": "Todos obtienen las mismas conexiones y consultas automáticamente.",
-      "benefitOrganize": "Organizado por proyecto",
-      "benefitOrganizeDesc": "Cada proyecto tiene sus propias conexiones, separadas de los demás.",
-      "activeTitle": "Espacio activo",
-      "activeDescription": "El espacio de trabajo actualmente en uso para conexiones y consultas.",
-      "quickstartTitle": "Inicio rápido",
-      "quickstartDescription": "Realice un recorrido guiado para aprender cómo funcionan los espacios de trabajo.",
-      "startTour": "Iniciar recorrido guiado"
     }
   },
   "table": {
@@ -609,10 +593,6 @@
     "viewAll": "Ver las {{count}} tablas",
     "searchTables": "Buscar tablas...",
     "noResults": "No se encontraron tablas con tu búsqueda.",
-    "tablePreviewPersonalized": "Esta vista se adapta a tu forma de trabajar en este espacio. Las tablas que más abres aparecen aquí primero.",
-    "tablePreviewFallback": "Abre algunas tablas para personalizar esta vista. Mientras tanto, aquí tienes una vista previa rápida de tus tablas.",
-    "visitCount": "{{count}} visita",
-    "visitCount_other": "{{count}} visitas",
     "openEditor": "Editor SQL",
     "diagramFit": "Ajustar",
     "diagramReset": "Restablecer",

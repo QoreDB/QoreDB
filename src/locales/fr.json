@@ -493,8 +493,7 @@
       "data": "Données & Confidentialité",
       "shortcuts": "Raccourcis clavier",
       "license": "Licence",
-      "ai": "Assistant IA",
-      "workspaces": "Espaces de travail"
+      "ai": "Assistant IA"
     },
     "search": {
       "placeholder": "Rechercher dans les paramètres...",
@@ -534,21 +533,6 @@
       "runQuery": "Exécuter la requête",
       "closeTab": "Fermer l'onglet",
       "escape": "Fermer la fenêtre / Annuler"
-    },
-    "workspaces": {
-      "whatTitle": "Qu'est-ce qu'un espace de travail ?",
-      "whatDescription": "Un espace de travail est un répertoire .qoredb/ dans votre projet qui stocke connexions, requêtes et notebooks — le tout versionnable avec Git.",
-      "benefitGit": "Versionnable avec Git",
-      "benefitGitDesc": "Partagez votre configuration de bases de données avec votre équipe via Git.",
-      "benefitTeam": "Collaboration d'équipe",
-      "benefitTeamDesc": "Tout le monde obtient les mêmes connexions et requêtes automatiquement.",
-      "benefitOrganize": "Organisé par projet",
-      "benefitOrganizeDesc": "Chaque projet a ses propres connexions, séparées des autres.",
-      "activeTitle": "Espace actif",
-      "activeDescription": "L'espace de travail actuellement utilisé pour les connexions et requêtes.",
-      "quickstartTitle": "Démarrage rapide",
-      "quickstartDescription": "Suivez un tour guidé pour découvrir les espaces de travail.",
-      "startTour": "Lancer le tour guidé"
     }
   },
   "table": {
@@ -611,10 +595,6 @@
     "viewAll": "Voir les {{count}} tables",
     "searchTables": "Rechercher des tables...",
     "noResults": "Aucune table trouvée.",
-    "tablePreviewPersonalized": "Cette vue s’adapte à votre usage dans cet espace de travail. Les tables que vous ouvrez le plus souvent apparaissent ici.",
-    "tablePreviewFallback": "Ouvrez quelques tables pour personnaliser cette vue. En attendant, voici un aperçu des tables.",
-    "visitCount": "{{count}} consultation",
-    "visitCount_other": "{{count}} consultations",
     "openEditor": "Éditeur SQL",
     "diagramFit": "Cadrer",
     "diagramReset": "Réinitialiser",

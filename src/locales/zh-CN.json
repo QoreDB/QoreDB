@@ -492,8 +492,7 @@
       "data": "数据与隐私",
       "shortcuts": "键盘快捷键",
       "license": "许可证",
-      "ai": "AI 助手",
-      "workspaces": "工作区"
+      "ai": "AI 助手"
     },
     "search": {
       "placeholder": "搜索设置…",
@@ -532,21 +531,6 @@
       "runQuery": "运行查询",
       "closeTab": "关闭标签页",
       "escape": "关闭叠加层/取消"
-    },
-    "workspaces": {
-      "whatTitle": "什么是工作区？",
-      "whatDescription": "工作区是项目中的 .qoredb/ 目录，用于存储连接、查询和笔记本，所有内容都可通过 Git 进行版本控制。",
-      "benefitGit": "Git 版本控制",
-      "benefitGitDesc": "通过 Git 与团队共享数据库配置。",
-      "benefitTeam": "团队协作",
-      "benefitTeamDesc": "所有团队成员自动获得相同的连接和查询。",
-      "benefitOrganize": "按项目组织",
-      "benefitOrganizeDesc": "每个项目拥有独立的连接，与其他项目分离。",
-      "activeTitle": "当前工作区",
-      "activeDescription": "当前用于连接和查询的工作区。",
-      "quickstartTitle": "快速入门",
-      "quickstartDescription": "通过导览了解工作区的使用方法。",
-      "startTour": "开始导览"
     }
   },
   "table": {
@@ -609,10 +593,6 @@
     "viewAll": "查看全部 {{count}} 个表",
     "searchTables": "搜索表…",
     "noResults": "未找到匹配的表。",
-    "tablePreviewPersonalized": "这个视图会根据你在当前工作区中的使用习惯进行调整。你最常打开的表会优先显示在这里。",
-    "tablePreviewFallback": "先打开几张表，这个视图就会逐渐变得更贴合你的使用习惯。现在先为你展示一个表预览。",
-    "visitCount": "{{count}} 次访问",
-    "visitCount_other": "{{count}} 次访问",
     "openEditor": "SQL 编辑器",
     "diagramFit": "适应",
     "diagramReset": "重置",

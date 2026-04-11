@@ -492,8 +492,7 @@
       "data": "데이터 및 개인정보",
       "shortcuts": "키보드 단축키",
       "license": "라이선스",
-      "ai": "AI 어시스턴트",
-      "workspaces": "워크스페이스"
+      "ai": "AI 어시스턴트"
     },
     "search": {
       "placeholder": "설정 검색...",
@@ -532,21 +531,6 @@
       "runQuery": "쿼리 실행",
       "closeTab": "탭 닫기",
       "escape": "오버레이 닫기 / 취소"
-    },
-    "workspaces": {
-      "whatTitle": "워크스페이스란?",
-      "whatDescription": "워크스페이스는 프로젝트의 .qoredb/ 디렉토리로, 연결, 쿼리, 노트북을 저장합니다. 모두 Git으로 버전 관리할 수 있습니다.",
-      "benefitGit": "Git 버전 관리",
-      "benefitGitDesc": "Git을 통해 팀과 데이터베이스 설정을 공유하세요.",
-      "benefitTeam": "팀 협업",
-      "benefitTeamDesc": "모든 팀원이 동일한 연결과 쿼리를 자동으로 얻습니다.",
-      "benefitOrganize": "프로젝트별 구성",
-      "benefitOrganizeDesc": "각 프로젝트에 별도의 연결이 있어 다른 프로젝트와 분리됩니다.",
-      "activeTitle": "활성 워크스페이스",
-      "activeDescription": "연결 및 쿼리에 현재 사용 중인 워크스페이스입니다.",
-      "quickstartTitle": "빠른 시작",
-      "quickstartDescription": "가이드 투어를 통해 워크스페이스 사용법을 알아보세요.",
-      "startTour": "가이드 투어 시작"
     }
   },
   "table": {
@@ -609,10 +593,6 @@
     "viewAll": "모든 {{count}}개 테이블 보기",
     "searchTables": "테이블 검색...",
     "noResults": "검색과 일치하는 테이블을 찾을 수 없습니다.",
-    "tablePreviewPersonalized": "이 화면은 이 워크스페이스에서의 사용 방식에 맞춰집니다. 자주 여는 테이블이 여기에 먼저 표시됩니다.",
-    "tablePreviewFallback": "몇 개의 테이블을 열면 이 화면이 더 잘 맞춰집니다. 그전까지는 테이블 미리보기를 보여드립니다.",
-    "visitCount": "{{count}}회 방문",
-    "visitCount_other": "{{count}}회 방문",
     "openEditor": "SQL 편집기",
     "diagramFit": "맞춤",
     "diagramReset": "초기화",

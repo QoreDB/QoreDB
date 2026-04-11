@@ -80,6 +80,10 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
       'query drafts',
       'brouillons',
       'ttl',
+      'time-travel',
+      'time travel',
+      'changelog',
+      'historique',
     ],
   },
   {

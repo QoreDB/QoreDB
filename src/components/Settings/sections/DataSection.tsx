@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
 import {
   type DiagnosticsSettings,
   getDiagnosticsSettings,
@@ -11,12 +12,15 @@ import {
 } from '@/lib/diagnosticsSettings';
 import { clearErrorLogs } from '@/lib/errorLog';
 import { clearHistory } from '@/lib/history';
-import type { SafetyPolicy } from '@/lib/tauri';
+import type { SafetyPolicy, TimeTravelConfig } from '@/lib/tauri';
+import { getTimeTravelConfig, updateTimeTravelConfig } from '@/lib/tauri';
 import { ShareProviderCard } from '../ShareProviderCard';
 import { ConfigBackupCard } from '../ConfigBackupCard';
 import { ProjectTransferCard } from '../ProjectTransferCard';
 import { SettingsCard } from '../SettingsCard';
 import { useWorkspace } from '@/providers/WorkspaceProvider';
+import { useLicense } from '@/providers/LicenseProvider';
+import { Label } from '@/components/ui/label';
 
 interface DataSectionProps {
   policy: SafetyPolicy | null;
@@ -24,8 +28,7 @@ interface DataSectionProps {
   searchQuery?: string;
 }
 
-// Default values for detecting modifications
-const DEFAULTS = {
+ const DEFAULTS = {
   storeHistory: true,
   storeErrorLogs: true,
   analyticsEnabled: true,
@@ -65,7 +68,7 @@ export function DataSection({ policy, onApplyPolicy, searchQuery }: DataSectionP
         searchQuery={searchQuery}
       >
         <div className="space-y-3">
-          <label className="flex items-start gap-2.5 text-sm cursor-pointer">
+          <Label className="flex items-start gap-2.5 text-sm cursor-pointer">
             <Checkbox
               checked={diagnostics.storeHistory}
               onCheckedChange={checked =>
@@ -82,9 +85,9 @@ export function DataSection({ policy, onApplyPolicy, searchQuery }: DataSectionP
                 {t('settings.storeHistoryDescription')}
               </span>
             </span>
-          </label>
+          </Label>
 
-          <label className="flex items-start gap-2.5 text-sm cursor-pointer">
+          <Label className="flex items-start gap-2.5 text-sm cursor-pointer">
             <Checkbox
               checked={diagnostics.storeErrorLogs}
               onCheckedChange={checked =>
@@ -101,9 +104,9 @@ export function DataSection({ policy, onApplyPolicy, searchQuery }: DataSectionP
                 {t('settings.storeErrorLogsDescription')}
               </span>
             </span>
-          </label>
+          </Label>
 
-          <label className="flex items-start gap-2.5 text-sm cursor-pointer">
+          <Label className="flex items-start gap-2.5 text-sm cursor-pointer">
             <Checkbox
               checked={analyticsEnabled}
               onCheckedChange={checked => {
@@ -119,7 +122,7 @@ export function DataSection({ policy, onApplyPolicy, searchQuery }: DataSectionP
                 {t('settings.analyticsEnabledDescription')}
               </span>
             </span>
-          </label>
+          </Label>
         </div>
       </SettingsCard>
 
@@ -136,6 +139,157 @@ export function DataSection({ policy, onApplyPolicy, searchQuery }: DataSectionP
       <ShareProviderCard searchQuery={searchQuery} />
 
       <ProjectTransferCard projectId={projectId} />
+
+      <TimeTravelSettingsCard searchQuery={searchQuery} />
     </>
+  );
+}
+
+const TT_DEFAULTS: TimeTravelConfig = {
+  enabled: true,
+  max_entries: 50_000,
+  retention_days: 30,
+  max_file_size_mb: 500,
+  excluded_tables: [],
+  production_only: false,
+};
+
+function TimeTravelSettingsCard({ searchQuery }: { searchQuery?: string }) {
+  const { t } = useTranslation();
+  const { isFeatureEnabled } = useLicense();
+  const [config, setConfig] = useState<TimeTravelConfig>(TT_DEFAULTS);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    if (!isFeatureEnabled('data_time_travel')) return;
+    getTimeTravelConfig()
+      .then(res => {
+        if (res.success) {
+          setConfig(res.config);
+          setLoaded(true);
+        }
+      })
+      .catch(() => {});
+  }, [isFeatureEnabled]);
+
+  function update(patch: Partial<TimeTravelConfig>) {
+    const next = { ...config, ...patch };
+    setConfig(next);
+    updateTimeTravelConfig(next).catch(() => {});
+  }
+
+  const isModified =
+    loaded &&
+    (config.enabled !== TT_DEFAULTS.enabled ||
+      config.retention_days !== TT_DEFAULTS.retention_days ||
+      config.max_entries !== TT_DEFAULTS.max_entries ||
+      config.production_only !== TT_DEFAULTS.production_only ||
+      config.excluded_tables.length > 0);
+
+  if (!isFeatureEnabled('data_time_travel')) return null;
+
+  return (
+    <SettingsCard
+      id="time-travel"
+      title={t('timeTravel.settings.title')}
+      description={t('timeTravel.settings.enabledDescription')}
+      isModified={isModified}
+      searchQuery={searchQuery}
+    >
+      <div className="space-y-4">
+        <Label className="flex items-start gap-2.5 text-sm cursor-pointer">
+          <Checkbox
+            checked={config.enabled}
+            onCheckedChange={checked => update({ enabled: !!checked })}
+            className="mt-0.5"
+          />
+          <span>
+            <span className="font-medium text-foreground">
+              {t('timeTravel.settings.enabled')}
+            </span>
+            <span className="block text-xs text-muted-foreground mt-0.5">
+              {t('timeTravel.settings.enabledDescription')}
+            </span>
+          </span>
+        </Label>
+
+        <p className="text-xs text-muted-foreground bg-muted/50 rounded-md px-3 py-2">
+          {t('timeTravel.settings.dataWarning')}
+        </p>
+
+        <div className="space-y-1">
+          <Label className="text-sm font-medium text-foreground">
+            {t('timeTravel.settings.retentionDays')}
+          </Label>
+          <p className="text-xs text-muted-foreground">
+            {t('timeTravel.settings.retentionDaysDescription')}
+          </p>
+          <Input
+            type="number"
+            min={0}
+            max={365}
+            value={config.retention_days}
+            onChange={e => update({ retention_days: parseInt(e.target.value) || 0 })}
+            className="w-32 h-8 text-sm"
+          />
+        </div>
+
+        <div className="space-y-1">
+          <Label className="text-sm font-medium text-foreground">
+            {t('timeTravel.settings.maxEntries')}
+          </Label>
+          <p className="text-xs text-muted-foreground">
+            {t('timeTravel.settings.maxEntriesDescription')}
+          </p>
+          <Input
+            type="number"
+            min={1000}
+            max={500000}
+            step={1000}
+            value={config.max_entries}
+            onChange={e => update({ max_entries: parseInt(e.target.value) || 50000 })}
+            className="w-32 h-8 text-sm"
+          />
+        </div>
+
+        <Label className="flex items-start gap-2.5 text-sm cursor-pointer">
+          <Checkbox
+            checked={config.production_only}
+            onCheckedChange={checked => update({ production_only: !!checked })}
+            className="mt-0.5"
+          />
+          <span>
+            <span className="font-medium text-foreground">
+              {t('timeTravel.settings.productionOnly')}
+            </span>
+            <span className="block text-xs text-muted-foreground mt-0.5">
+              {t('timeTravel.settings.productionOnlyDescription')}
+            </span>
+          </span>
+        </Label>
+
+        <div className="space-y-1">
+          <Label className="text-sm font-medium text-foreground">
+            {t('timeTravel.settings.excludedTables')}
+          </Label>
+          <p className="text-xs text-muted-foreground">
+            {t('timeTravel.settings.excludedTablesDescription')}
+          </p>
+          <Input
+            value={config.excluded_tables.join(', ')}
+            onChange={e =>
+              update({
+                excluded_tables: e.target.value
+                  .split(',')
+                  .map(s => s.trim())
+                  .filter(Boolean),
+              })
+            }
+            placeholder="migrations, sessions, schema_history"
+            className="h-8 text-sm"
+          />
+        </div>
+      </div>
+    </SettingsCard>
   );
 }

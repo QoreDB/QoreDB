@@ -12,6 +12,7 @@ pub mod export;
 pub mod federation;
 pub mod interceptor;
 pub mod license;
+pub mod time_travel;
 pub mod metrics;
 pub mod observability;
 pub mod policy;
@@ -59,6 +60,7 @@ pub struct AppState {
     pub license_manager: LicenseManager,
     #[cfg(feature = "pro")]
     pub ai_manager: Arc<ai::manager::AiManager>,
+    pub changelog_store: Arc<time_travel::ChangelogStore>,
 }
 
 impl AppState {
@@ -109,6 +111,11 @@ impl AppState {
             Box::new(KeyringProvider::new()),
         ));
 
+        // Initialize changelog store for Data Time-Travel
+        let changelog_store = Arc::new(time_travel::ChangelogStore::new(
+            data_dir.join("time-travel"),
+        ));
+
         Self {
             registry,
             session_manager,
@@ -122,6 +129,7 @@ impl AppState {
             license_manager,
             #[cfg(feature = "pro")]
             ai_manager,
+            changelog_store,
         }
     }
 }
@@ -355,6 +363,18 @@ pub fn run() {
             // Workspace query library commands
             commands::workspace_queries::ws_get_query_library,
             commands::workspace_queries::ws_save_query_library,
+            // Time-Travel commands
+            commands::time_travel::get_table_timeline,
+            commands::time_travel::get_row_history,
+            commands::time_travel::compute_temporal_diff,
+            commands::time_travel::get_row_state_at,
+            commands::time_travel::generate_rollback_sql,
+            commands::time_travel::generate_entry_rollback_sql,
+            commands::time_travel::get_time_travel_config,
+            commands::time_travel::update_time_travel_config,
+            commands::time_travel::clear_table_changelog,
+            commands::time_travel::clear_all_changelog,
+            commands::time_travel::export_changelog,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

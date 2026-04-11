@@ -47,6 +47,8 @@ mod sandbox_impl {
     use std::sync::Arc;
     use tracing::instrument;
     use uuid::Uuid;
+    use crate::time_travel::capture::{build_changelog_entry, value_to_json_pub};
+    use crate::time_travel::ChangeOperation;
 
     fn parse_session_id(id: &str) -> Result<SessionId, String> {
         let uuid = Uuid::parse_str(id).map_err(|e| format!("Invalid session ID: {}", e))?;
@@ -116,10 +118,10 @@ mod sandbox_impl {
             });
         }
 
-        let session_manager = {
-            let state = state.lock().await;
-            Arc::clone(&state.session_manager)
-        };
+        let state_guard = state.lock().await;
+        let session_manager = Arc::clone(&state_guard.session_manager);
+        let changelog_store = Arc::clone(&state_guard.changelog_store);
+        drop(state_guard);
 
         let session = parse_session_id(&session_id)?;
 
@@ -153,6 +155,11 @@ mod sandbox_impl {
         let mut applied_count = 0;
         let mut failed_changes: Vec<super::FailedChange> = Vec::new();
 
+        let environment = session_manager
+            .get_environment(session)
+            .await
+            .unwrap_or_else(|_| "development".to_string());
+
         let supports_tx = driver.supports_transactions_for_session(session).await;
         if use_transaction && supports_tx {
             if let Err(e) = driver.begin_transaction(session).await {
@@ -168,7 +175,45 @@ mod sandbox_impl {
         for (idx, change) in changes.iter().enumerate() {
             let result = apply_single_change(&driver, session, change).await;
             match result {
-                Ok(_) => applied_count += 1,
+                Ok(_) => {
+                    applied_count += 1;
+
+                    // Time-Travel: record changelog entry for each applied change
+                    if changelog_store.should_capture(&change.table_name, &environment) {
+                        let operation = match change.change_type {
+                            SandboxChangeType::Insert => ChangeOperation::Insert,
+                            SandboxChangeType::Update => ChangeOperation::Update,
+                            SandboxChangeType::Delete => ChangeOperation::Delete,
+                        };
+                        let pk_data = change.primary_key.clone().unwrap_or_else(|| RowData {
+                            columns: change
+                                .new_values
+                                .clone()
+                                .unwrap_or_default(),
+                        });
+                        let before = change
+                            .old_values
+                            .as_ref()
+                            .map(|v| v.iter().map(|(k, v)| (k.clone(), value_to_json_pub(v))).collect());
+                        let after = change
+                            .new_values
+                            .as_ref()
+                            .map(|v| v.iter().map(|(k, v)| (k.clone(), value_to_json_pub(v))).collect());
+                        let entry = build_changelog_entry(
+                            &session_id,
+                            driver.driver_id(),
+                            &change.namespace,
+                            &change.table_name,
+                            operation,
+                            &pk_data,
+                            before,
+                            after,
+                            None,
+                            &environment,
+                        );
+                        changelog_store.record(entry);
+                    }
+                }
                 Err(e) => {
                     failed_changes.push(super::FailedChange {
                         index: idx,

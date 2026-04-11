@@ -6,6 +6,7 @@ import {
   Columns3,
   HardDrive,
   Hash,
+  History,
   Info,
   Key,
   List,
@@ -142,6 +143,7 @@ interface TableBrowserProps {
   connectionDatabase?: string;
   connectionId?: string;
   onClose: () => void;
+  onOpenTimeTravel?: (namespace: Namespace, tableName: string) => void;
   onOpenRelatedTable?: (namespace: Namespace, tableName: string) => void;
   relationFilter?: RelationFilter;
   searchFilter?: SearchFilter;
@@ -161,6 +163,7 @@ export function TableBrowser({
   connectionDatabase,
   connectionId,
   onClose,
+  onOpenTimeTravel,
   onOpenRelatedTable,
   relationFilter,
   searchFilter,
@@ -707,6 +710,17 @@ export function TableBrowser({
             <Plus size={14} />
             {t('common.insert')}
           </Button>
+          {onOpenTimeTravel && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 gap-1.5"
+              onClick={() => onOpenTimeTravel(namespace, tableName)}
+              title={t('timeTravel.viewHistory')}
+            >
+              <History size={14} />
+            </Button>
+          )}
           <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8">
             <X size={16} />
           </Button>

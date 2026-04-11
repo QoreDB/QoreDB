@@ -190,7 +190,7 @@ export function TableContextMenu({
     <>
       <ContextMenu>
         <ContextMenuTrigger asChild>{children}</ContextMenuTrigger>
-        <ContextMenuContent className="w-44">
+        <ContextMenuContent className="w-52">
           <ContextMenuItem onClick={onOpen}>
             <Eye size={14} className="mr-2" />
             {t('tableMenu.open')}

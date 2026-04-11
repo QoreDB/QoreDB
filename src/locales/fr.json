@@ -1637,7 +1637,7 @@
   },
   "virtualRelations": {
     "title": "Relations virtuelles",
-    "addFromTable": "Ajouter une relation virtuelle",
+    "addFromTable": "Relation virtuelle",
     "addTitle": "Créer une relation virtuelle",
     "editTitle": "Modifier la relation virtuelle",
     "sourceTable": "Table source",
@@ -1707,7 +1707,7 @@
     "noSession": "Connectez-vous à une base de données pour utiliser l'assistant IA.",
     "ollamaLocal": "Local",
     "fixWithAi": "Corriger avec l'IA",
-    "generateForTable": "Générer une requête avec l'IA",
+    "generateForTable": "Générer avec l'IA",
     "generateForTableHint": "Générer une requête pour la table \"{{table}}\"...",
     "explainResults": "Expliquer les résultats",
     "explaining": "Analyse des résultats...",
@@ -1775,7 +1775,7 @@
     "insertRaw": "Référence"
   },
   "maintenance": {
-    "title": "Maintenance de la table",
+    "title": "Maintenance",
     "description": "Exécutez des opérations de maintenance pour optimiser les performances et récupérer de l'espace.",
     "noOperations": "Aucune opération de maintenance disponible pour cette base de données.",
     "selectOperation": "Sélectionner une opération",
@@ -2008,5 +2008,90 @@
     "rename": "Renommer",
     "renamePrompt": "Nouveau nom de l'espace :",
     "leave": "Quitter l'espace"
+  },
+  "timeTravel": {
+    "viewHistory": "Historique des données",
+    "title": "Time-Travel",
+    "timeline": {
+      "title": "Chronologie",
+      "noEvents": "Aucune mutation enregistrée pour cette table",
+      "loadMore": "Charger plus",
+      "insert": "Insertion",
+      "update": "Mise à jour",
+      "delete": "Suppression",
+      "rows": "{{count}} ligne",
+      "rows_other": "{{count}} lignes",
+      "rawSql": "Mutation SQL brute"
+    },
+    "filters": {
+      "dateRange": "Plage de dates",
+      "from": "Du",
+      "to": "Au",
+      "operation": "Opération",
+      "connection": "Connexion",
+      "session": "Session",
+      "environment": "Environnement",
+      "allOperations": "Toutes les opérations",
+      "allConnections": "Toutes les connexions",
+      "allSessions": "Toutes les sessions",
+      "searchPk": "Rechercher par clé primaire..."
+    },
+    "diff": {
+      "title": "Diff temporel",
+      "selectPoints": "Sélectionnez deux points dans le temps à comparer",
+      "stateAtT1": "État à {{time}}",
+      "stateAtT2": "État à {{time}}",
+      "compare": "Comparer",
+      "noChanges": "Aucun changement entre ces deux points"
+    },
+    "rowHistory": {
+      "title": "Historique de la ligne",
+      "noHistory": "Aucun historique pour cette ligne",
+      "before": "Avant",
+      "after": "Après",
+      "changedColumns": "Colonnes modifiées"
+    },
+    "rollback": {
+      "title": "Aperçu du SQL de rollback",
+      "target": "Cible : {{table}} @ {{time}}",
+      "statements": "{{count}} instruction",
+      "statements_other": "{{count}} instructions",
+      "warnings": "{{count}} avertissement",
+      "warnings_other": "{{count}} avertissements",
+      "reviewWarning": "Vérifiez attentivement avant d'exécuter !",
+      "copyToClipboard": "Copier dans le presse-papiers",
+      "openInQueryTab": "Ouvrir dans un onglet requête",
+      "noBeforeImage": "Ligne {{pk}} : pas d'image avant disponible (ignorée)",
+      "binaryExcluded": "Colonne \"{{column}}\" binaire : exclue de la restauration",
+      "generateRollback": "Générer le SQL de rollback",
+      "rollbackToPoint": "Revenir à ce point"
+    },
+    "toolbar": {
+      "export": "Exporter l'historique",
+      "clear": "Effacer l'historique",
+      "clearConfirm": "Cela supprimera définitivement tout l'historique des modifications pour cette table. Êtes-vous sûr ?",
+      "settings": "Paramètres Time-Travel"
+    },
+    "settings": {
+      "title": "Time-Travel",
+      "enabled": "Activer le suivi des modifications",
+      "enabledDescription": "Enregistrer l'état avant/après pour chaque ligne modifiée, insérée ou supprimée.",
+      "dataWarning": "Lorsqu'activé, QoreDB enregistre les valeurs avant/après de chaque ligne que vous modifiez. Ces données sont stockées localement. Ajustez la rétention selon votre politique de données.",
+      "disabled": "Time-Travel est désactivé",
+      "disabledDescription": "Activez-le dans Paramètres > Données > Time-Travel pour commencer le suivi.",
+      "retentionDays": "Durée de rétention (jours)",
+      "retentionDaysDescription": "Durée de conservation de l'historique. 0 = illimité.",
+      "maxEntries": "Nombre maximum d'entrées",
+      "maxEntriesDescription": "Nombre maximum d'enregistrements avant rotation.",
+      "productionOnly": "Production uniquement",
+      "productionOnlyDescription": "Ne suivre que les modifications en environnement de production.",
+      "excludedTables": "Tables exclues",
+      "excludedTablesDescription": "Noms de tables séparés par des virgules à exclure du suivi (correspondance exacte)."
+    },
+    "empty": {
+      "title": "Aucun historique",
+      "description": "Lorsque vous modifiez, insérez ou supprimez des lignes dans cette table, QoreDB enregistrera chaque changement ici.",
+      "hint": "Seules les modifications effectuées via QoreDB sont suivies — les modifications externes ne sont pas capturées."
+    }
   }
 }

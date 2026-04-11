@@ -24,6 +24,7 @@ pub mod sequences;
 pub mod schema_export;
 pub mod share;
 pub mod snapshots;
+pub mod time_travel;
 pub mod triggers;
 pub mod vault;
 pub mod virtual_relations;

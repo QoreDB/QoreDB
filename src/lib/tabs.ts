@@ -14,7 +14,8 @@ export type TabType =
   | 'diff'
   | 'federation'
   | 'snapshots'
-  | 'notebook';
+  | 'notebook'
+  | 'time-travel';
 
 export interface DiffSource {
   type: 'query' | 'table' | 'snapshot';
@@ -47,6 +48,9 @@ export interface OpenTab {
   // Notebook-specific
   notebookPath?: string;
   notebookDirty?: boolean;
+  // Time-Travel-specific
+  timeTravelNamespace?: Namespace;
+  timeTravelTableName?: string;
 }
 
 /** Generate unique tab ID */
@@ -138,5 +142,17 @@ export function createNotebookTab(title?: string, path?: string, initialQuery?: 
     title: title || 'Untitled Notebook',
     notebookPath: path,
     initialQuery,
+  };
+}
+
+/** Create a time-travel tab for viewing mutation history of a table */
+export function createTimeTravelTab(namespace: Namespace, tableName: string): OpenTab {
+  return {
+    id: generateTabId(),
+    type: 'time-travel',
+    title: `History: ${tableName}`,
+    namespace,
+    timeTravelNamespace: namespace,
+    timeTravelTableName: tableName,
   };
 }

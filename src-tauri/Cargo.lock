@@ -4794,6 +4794,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "qore-query"
+version = "0.1.0"
+dependencies = [
+ "qore-core",
+ "qore-sql",
+ "serde",
+ "thiserror 2.0.17",
+]
+
+[[package]]
 name = "qore-sql"
 version = "0.1.0"
 dependencies = [

@@ -7,7 +7,7 @@
 //! ```
 
 pub use crate::built::BuiltQuery;
+pub use crate::dialect::Dialect;
 pub use crate::error::{QueryError, QueryResult};
 pub use crate::expr::{BinOp, Expr, UnOp};
-pub use crate::ident::{col, Column};
-pub use qore_sql::generator::SqlDialect as Dialect;
+pub use crate::ident::{col, tcol, Column};

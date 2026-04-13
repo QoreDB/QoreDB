@@ -4,10 +4,9 @@
 
 use std::borrow::Cow;
 
-use qore_sql::generator::SqlDialect;
-
 use crate::built::BuiltQuery;
 use crate::compiler::{sql::SqlCompiler, QueryCompiler};
+use crate::dialect::Dialect;
 use crate::error::QueryResult;
 use crate::expr::Expr;
 use crate::ident::ColumnRef;
@@ -95,7 +94,7 @@ impl SelectQuery {
     }
 
     /// Compile to a ready-to-execute [`BuiltQuery`] for the given dialect.
-    pub fn build(self, dialect: SqlDialect) -> QueryResult<BuiltQuery> {
+    pub fn build(self, dialect: Dialect) -> QueryResult<BuiltQuery> {
         SqlCompiler::new(dialect).compile_select(&self)
     }
 }

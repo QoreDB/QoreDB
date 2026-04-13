@@ -1,23 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 
-//! Generic SQL compiler — shared across Postgres / MySQL / SQLite / MSSQL.
+//! Generic SQL compiler — shared across all SQL dialects.
 //!
-//! Dialect-specific overrides (placeholders, `ILIKE` fallbacks, MSSQL
-//! `OFFSET..FETCH`) are selected inline via [`SqlDialect`] rather than
-//! through trait dispatch: the surface area is small enough that inline
-//! branching stays readable and keeps the compiler monomorphic.
-//!
-//! When the number of divergences grows (RETURNING, array types, JSON ops,
-//! ON CONFLICT variants), this is planned to refactor to a `DialectOps`
-//! trait — see `doc/QoreQuery_Builder_Plan.md` §4.3.
-
-use std::fmt::Write as _;
+//! All per-dialect behaviour (quoting, placeholders, LIMIT style,
+//! `ILIKE` support) is delegated to a [`DialectOps`] implementation,
+//! resolved from the [`crate::Dialect`] passed at compile time.
 
 use qore_core::Value;
-use qore_sql::generator::SqlDialect;
 
 use crate::built::BuiltQuery;
-use crate::compiler::QueryCompiler;
+use crate::compiler::{DialectOps, LimitStyle, QueryCompiler};
+use crate::dialect::Dialect;
 use crate::error::{QueryError, QueryResult};
 use crate::expr::{BinOp, Expr, UnOp};
 use crate::ident::ColumnRef;
@@ -25,11 +18,11 @@ use crate::query::select::{SelectItem, SelectQuery};
 use crate::query::OrderItem;
 
 pub struct SqlCompiler {
-    pub dialect: SqlDialect,
+    dialect: Dialect,
 }
 
 impl SqlCompiler {
-    pub fn new(dialect: SqlDialect) -> Self {
+    pub fn new(dialect: Dialect) -> Self {
         Self { dialect }
     }
 }
@@ -38,14 +31,14 @@ impl QueryCompiler for SqlCompiler {
     fn compile_select(&self, q: &SelectQuery) -> QueryResult<BuiltQuery> {
         let table = q.table.as_ref().ok_or(QueryError::MissingFrom)?;
 
-        let mut ctx = Ctx::new(self.dialect);
+        let mut ctx = Ctx::new(self.dialect.ops());
         let mut sql = String::with_capacity(128);
 
         sql.push_str("SELECT ");
         write_select_list(&mut sql, &ctx, &q.columns)?;
 
-        write!(&mut sql, " FROM {}", ctx.dialect.quote_ident(table))
-            .expect("writing to String never fails");
+        sql.push_str(" FROM ");
+        ctx.ops.quote_ident(&mut sql, table);
 
         if let Some(where_) = &q.where_ {
             sql.push_str(" WHERE ");
@@ -57,13 +50,7 @@ impl QueryCompiler for SqlCompiler {
             write_order_list(&mut sql, &ctx, &q.order_by);
         }
 
-        write_limit_offset(
-            &mut sql,
-            ctx.dialect,
-            q.limit,
-            q.offset,
-            !q.order_by.is_empty(),
-        )?;
+        write_limit_offset(&mut sql, ctx.ops, q.limit, q.offset, !q.order_by.is_empty())?;
 
         Ok(BuiltQuery {
             sql,
@@ -72,16 +59,16 @@ impl QueryCompiler for SqlCompiler {
     }
 }
 
-/// Compilation context — owns the parameter buffer and placeholder numbering.
+/// Compilation context — owns the parameter buffer and a dialect handle.
 struct Ctx {
-    dialect: SqlDialect,
+    ops: &'static dyn DialectOps,
     params: Vec<Value>,
 }
 
 impl Ctx {
-    fn new(dialect: SqlDialect) -> Self {
+    fn new(ops: &'static dyn DialectOps) -> Self {
         Self {
-            dialect,
+            ops,
             params: Vec::new(),
         }
     }
@@ -111,21 +98,16 @@ impl Ctx {
     fn push_placeholder(&mut self, out: &mut String, v: Value) -> QueryResult<()> {
         Self::validate_literal(&v)?;
         self.params.push(v);
-        let n = self.params.len();
-        match self.dialect {
-            SqlDialect::Postgres => write!(out, "${}", n).expect("infallible"),
-            SqlDialect::MySql | SqlDialect::Sqlite => out.push('?'),
-            SqlDialect::SqlServer => write!(out, "@p{}", n).expect("infallible"),
-        }
+        self.ops.write_placeholder(out, self.params.len());
         Ok(())
     }
 
     fn write_col_ref(&self, out: &mut String, c: &ColumnRef) {
         if let Some(t) = &c.table {
-            out.push_str(&self.dialect.quote_ident(t));
+            self.ops.quote_ident(out, t);
             out.push('.');
         }
-        out.push_str(&self.dialect.quote_ident(&c.name));
+        self.ops.quote_ident(out, &c.name);
     }
 
     fn write_expr(&mut self, out: &mut String, expr: &Expr) -> QueryResult<()> {
@@ -153,11 +135,11 @@ impl Ctx {
         op: BinOp,
         rhs: &Expr,
     ) -> QueryResult<()> {
-        // ILIKE is native on Postgres; on MySQL/SQLite/MSSQL we fall back to
-        // `LOWER(lhs) LIKE LOWER(rhs)`. MSSQL is case-insensitive by default
-        // on most collations — the fallback still gives deterministic semantics.
-        let needs_ilike_fallback =
-            op == BinOp::ILike && !matches!(self.dialect, SqlDialect::Postgres);
+        // ILIKE: emit natively when the dialect supports it, otherwise fall
+        // back to `LOWER(lhs) LIKE LOWER(rhs)`. The fallback loses any
+        // functional index on the column but is semantically equivalent for
+        // ASCII-dominant text — that tradeoff is documented in the plan.
+        let needs_ilike_fallback = op == BinOp::ILike && !self.ops.supports_ilike();
 
         out.push('(');
         if needs_ilike_fallback {
@@ -206,8 +188,8 @@ impl Ctx {
         negated: bool,
     ) -> QueryResult<()> {
         if values.is_empty() {
-            // An empty IN list is portable as an always-false predicate.
             // `x IN ()` is a syntax error on every dialect we target.
+            // Emit a portable always-false / always-true instead.
             out.push_str(if negated { "(1 = 1)" } else { "(1 = 0)" });
             return Ok(());
         }
@@ -289,21 +271,22 @@ fn write_order_list(out: &mut String, ctx: &Ctx, items: &[OrderItem]) {
 
 fn write_limit_offset(
     out: &mut String,
-    dialect: SqlDialect,
+    ops: &'static dyn DialectOps,
     limit: Option<u64>,
     offset: Option<u64>,
     has_order_by: bool,
 ) -> QueryResult<()> {
-    match dialect {
-        SqlDialect::Postgres | SqlDialect::MySql | SqlDialect::Sqlite => {
+    use std::fmt::Write as _;
+    match ops.limit_style() {
+        LimitStyle::LimitOffset => {
             if let Some(n) = limit {
-                write!(out, " LIMIT {}", n).expect("infallible");
+                let _ = write!(out, " LIMIT {}", n);
             }
             if let Some(n) = offset {
-                write!(out, " OFFSET {}", n).expect("infallible");
+                let _ = write!(out, " OFFSET {}", n);
             }
         }
-        SqlDialect::SqlServer => {
+        LimitStyle::OffsetFetch => {
             if limit.is_none() && offset.is_none() {
                 return Ok(());
             }
@@ -311,9 +294,9 @@ fn write_limit_offset(
                 return Err(QueryError::MssqlOffsetRequiresOrderBy);
             }
             let off = offset.unwrap_or(0);
-            write!(out, " OFFSET {} ROWS", off).expect("infallible");
+            let _ = write!(out, " OFFSET {} ROWS", off);
             if let Some(n) = limit {
-                write!(out, " FETCH NEXT {} ROWS ONLY", n).expect("infallible");
+                let _ = write!(out, " FETCH NEXT {} ROWS ONLY", n);
             }
         }
     }

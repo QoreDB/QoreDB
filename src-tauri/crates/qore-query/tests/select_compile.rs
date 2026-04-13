@@ -26,6 +26,9 @@ fn sl() -> Dialect {
 fn ms() -> Dialect {
     Dialect::SqlServer
 }
+fn dd() -> Dialect {
+    Dialect::DuckDb
+}
 
 #[test]
 fn simple_select_all_postgres() {
@@ -400,7 +403,7 @@ fn qualified_column_reference() {
 fn identifier_with_embedded_quote_is_escaped_per_dialect() {
     // Malicious-looking names must be quoted safely (embedded quote character
     // is doubled per ANSI / dialect rules). This is the injection defence for
-    // identifiers — it is delegated to qore_sql::SqlDialect::quote_ident.
+    // identifiers — each dialect's DialectOps impl handles escape doubling.
     let q_pg = Query::select()
         .from(r#"we"ird"#)
         .all()
@@ -421,6 +424,47 @@ fn identifier_with_embedded_quote_is_escaped_per_dialect() {
         .build(ms())
         .unwrap();
     assert_eq!(q_ms.sql, "SELECT * FROM [bra]]cket]");
+}
+
+#[test]
+fn duckdb_uses_postgres_style_quoting_and_question_placeholders() {
+    let q = Query::select()
+        .from("users")
+        .columns(["id", "name"])
+        .filter(col("age").gt(18))
+        .build(dd())
+        .unwrap();
+    // DuckDB: ANSI double-quoted idents + positional `?` placeholders.
+    assert_eq!(
+        q.sql,
+        r#"SELECT "id", "name" FROM "users" WHERE ("age" > ?)"#
+    );
+    assert_eq!(q.params.len(), 1);
+}
+
+#[test]
+fn duckdb_supports_native_ilike() {
+    let q = Query::select()
+        .from("users")
+        .all()
+        .filter(col("name").ilike("a%"))
+        .build(dd())
+        .unwrap();
+    // Native ILIKE — no LOWER() fallback, index-friendly.
+    assert_eq!(q.sql, r#"SELECT * FROM "users" WHERE ("name" ILIKE ?)"#);
+}
+
+#[test]
+fn dialect_from_driver_id_aliases_cockroachdb_and_mariadb() {
+    use qore_query::Dialect;
+    assert_eq!(Dialect::from_driver_id("cockroachdb"), Some(Dialect::Postgres));
+    assert_eq!(Dialect::from_driver_id("cockroach"), Some(Dialect::Postgres));
+    assert_eq!(Dialect::from_driver_id("mariadb"), Some(Dialect::MySql));
+    assert_eq!(Dialect::from_driver_id("postgresql"), Some(Dialect::Postgres));
+    assert_eq!(Dialect::from_driver_id("duckdb"), Some(Dialect::DuckDb));
+    assert_eq!(Dialect::from_driver_id("mssql"), Some(Dialect::SqlServer));
+    assert_eq!(Dialect::from_driver_id("MongoDB"), None);
+    assert_eq!(Dialect::from_driver_id("redis"), None);
 }
 
 #[test]

@@ -6,15 +6,28 @@ pub type QueryResult<T> = Result<T, QueryError>;
 
 #[derive(Debug, Error)]
 pub enum QueryError {
-    #[error("invalid expression: {0}")]
-    InvalidExpr(String),
+    /// A SELECT was built without specifying a source table.
+    #[error("SELECT query has no FROM clause")]
+    MissingFrom,
 
+    /// A SELECT was built with no projection (no columns, no `*`).
+    #[error("SELECT query has an empty projection — call .all() or .columns([...])")]
+    EmptyProjection,
+
+    /// A literal value could not be emitted safely into SQL
+    /// (NaN, Infinity, or other dialect-incompatible value).
     #[error("invalid literal: {0}")]
-    InvalidLiteral(String),
+    InvalidLiteral(&'static str),
 
+    /// Expression semantics are invalid (e.g. malformed BETWEEN bounds).
+    #[error("invalid expression: {0}")]
+    InvalidExpr(&'static str),
+
+    /// The requested feature is not supported by the target dialect.
     #[error("feature not supported by dialect: {0}")]
-    Unsupported(String),
+    Unsupported(&'static str),
 
-    #[error("MSSQL OFFSET requires ORDER BY")]
+    /// MSSQL requires `ORDER BY` when `OFFSET`/`FETCH NEXT` is used.
+    #[error("MSSQL OFFSET/FETCH requires ORDER BY")]
     MssqlOffsetRequiresOrderBy,
 }

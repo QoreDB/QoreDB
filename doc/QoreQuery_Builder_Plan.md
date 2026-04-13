@@ -13,7 +13,7 @@
 7. [Ordre d'implémentation MVP](#7-ordre-dimplémentation-mvp)
 8. [Pièges et points d'attention](#8-pièges)
 9. [Stratégie de tests](#9-tests)
-10. [Roadmap vers Phase 3 (ORM)](#10-roadmap-phase-3)
+10. [Roadmap vers Phase 3 (ORM)](#10-roadmap-phase-3-après-le-mvp)
 
 ---
 
@@ -55,7 +55,7 @@ let q = Query::select()
 
 ## 2. Structure du crate `qore-query`
 
-```
+```text
 src-tauri/crates/qore-query/
 ├── Cargo.toml              # dep: qore-core, qore-sql
 ├── src/
@@ -161,7 +161,7 @@ pub enum Expr {
 ### 3.3 Opérateurs
 
 | Catégorie | Opérateurs |
-|---|---|
+| --- | --- |
 | Comparaison | `eq`, `ne`, `gt`, `ge`, `lt`, `le` |
 | Logique | `and`, `or`, `not` |
 | Null | `is_null`, `is_not_null` |
@@ -200,7 +200,7 @@ Toute la logique commune (quoting, ordre des clauses, parenthésage) vit ici. Le
 ### 4.3 Overrides par dialecte
 
 | Dialecte | Différences clés |
-|---|---|
+| --- | --- |
 | **Postgres** | Placeholders `$N`, `ILIKE` natif, `RETURNING`, arrays `= ANY(...)` |
 | **MySQL** | Placeholders `?`, backticks, `ILIKE` → `LOWER() LIKE LOWER()`, pas de `FULL JOIN` |
 | **SQLite** | Placeholders `?`, pas de `RIGHT`/`FULL JOIN`, pas de `ILIKE` (texte insensible par défaut si COLLATE NOCASE) |
@@ -221,7 +221,7 @@ Toute la logique commune (quoting, ordre des clauses, parenthésage) vit ici. Le
 ## 6. Intégration progressive
 
 | Version | Livrable | Intégration dans l'app QoreDB |
-|---|---|---|
+| --- | --- | --- |
 | **v0.1 (MVP)** | SELECT complet, 4 dialectes, paramétré | Aucune — crate isolé, validé par tests |
 | **v0.2** | INSERT / UPDATE / DELETE | Remplace `qore_sql::generator` côté sandbox |
 | **v0.3** | Subqueries, CTE, aggregates, GROUP BY/HAVING | Query runner interne (pagination browser, filtres table) |
@@ -237,7 +237,7 @@ Toute la logique commune (quoting, ordre des clauses, parenthésage) vit ici. Le
 Durée cible : **~7 semaines** (~36 jours de travail). Séquencé pour qu'à chaque fin de semaine on ait un artefact testable.
 
 | Sem | Livrable | Tests attendus |
-|---|---|---|
+| --- | --- | --- |
 | 1 | Squelette crate, `Value` wrap, `Column<T>`, `Expr` de base | unitaires sur constructeurs |
 | 1-2 | `SelectQuery` + WHERE (eq, and, or) + `SqlCompiler` générique | snapshots PG basiques |
 | 2-3 | Placeholders 4 dialectes + quoting | snapshots × 4 dialectes |
@@ -253,7 +253,7 @@ Chaque semaine = 1 commit (ou plus) sur `feat/qore-query`.
 ## 8. Pièges
 
 | Piège | Mitigation |
-|---|---|
+| --- | --- |
 | Précédence AND/OR ambiguë | Parenthèses systématiques autour des groupes, pas de best-effort |
 | MSSQL `OFFSET` sans `ORDER BY` illégal | Erreur compile-time impossible → `QueryError::MssqlOffsetRequiresOrderBy` runtime |
 | `IN (NULL, ...)` ne matche pas NULL | Ne jamais inférer `OR x IS NULL` ; doc explicite |
@@ -356,7 +356,7 @@ SEMAINE 7
 ## Annexe B — Dialectes : matrice des spécificités
 
 | Feature | PG | MySQL | SQLite | MSSQL |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | Placeholder | `$N` | `?` | `?` | `@pN` |
 | Quote ident | `"x"` | `` `x` `` | `"x"` | `[x]` |
 | `ILIKE` | natif | fallback `LOWER LIKE LOWER` | fallback idem | fallback idem |

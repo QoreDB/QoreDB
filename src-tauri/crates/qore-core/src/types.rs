@@ -256,6 +256,107 @@ pub enum Value {
     Array(Vec<Value>),
 }
 
+impl From<bool> for Value {
+    fn from(v: bool) -> Self {
+        Value::Bool(v)
+    }
+}
+
+impl From<i8> for Value {
+    fn from(v: i8) -> Self {
+        Value::Int(v as i64)
+    }
+}
+impl From<i16> for Value {
+    fn from(v: i16) -> Self {
+        Value::Int(v as i64)
+    }
+}
+impl From<i32> for Value {
+    fn from(v: i32) -> Self {
+        Value::Int(v as i64)
+    }
+}
+impl From<i64> for Value {
+    fn from(v: i64) -> Self {
+        Value::Int(v)
+    }
+}
+impl From<u8> for Value {
+    fn from(v: u8) -> Self {
+        Value::Int(v as i64)
+    }
+}
+impl From<u16> for Value {
+    fn from(v: u16) -> Self {
+        Value::Int(v as i64)
+    }
+}
+impl From<u32> for Value {
+    fn from(v: u32) -> Self {
+        Value::Int(v as i64)
+    }
+}
+
+impl From<f32> for Value {
+    fn from(v: f32) -> Self {
+        Value::Float(v as f64)
+    }
+}
+impl From<f64> for Value {
+    fn from(v: f64) -> Self {
+        Value::Float(v)
+    }
+}
+
+impl From<&str> for Value {
+    fn from(v: &str) -> Self {
+        Value::Text(v.to_string())
+    }
+}
+impl From<String> for Value {
+    fn from(v: String) -> Self {
+        Value::Text(v)
+    }
+}
+impl From<&String> for Value {
+    fn from(v: &String) -> Self {
+        Value::Text(v.clone())
+    }
+}
+
+impl From<Vec<u8>> for Value {
+    fn from(v: Vec<u8>) -> Self {
+        Value::Bytes(v)
+    }
+}
+
+impl<T> From<Option<T>> for Value
+where
+    T: Into<Value>,
+{
+    fn from(v: Option<T>) -> Self {
+        match v {
+            Some(x) => x.into(),
+            None => Value::Null,
+        }
+    }
+}
+
+// Borrowed-value conversions — let callers pass slices like `&[1i64, 2, 3]`
+// whose iterator yields `&T`. We derive these from the owned impls above
+// via `Copy` so the behaviour stays in one place.
+macro_rules! impl_from_ref_copy {
+    ($($t:ty),*) => {
+        $(
+            impl From<&$t> for Value {
+                fn from(v: &$t) -> Self { Value::from(*v) }
+            }
+        )*
+    };
+}
+impl_from_ref_copy!(bool, i8, i16, i32, i64, u8, u16, u32, f32, f64);
+
 mod base64_bytes {
     use base64::{engine::general_purpose::STANDARD, Engine};
     use serde::{Deserialize, Deserializer, Serializer};

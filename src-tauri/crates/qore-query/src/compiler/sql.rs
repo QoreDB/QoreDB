@@ -3,19 +3,21 @@
 //! Generic SQL compiler — shared across all SQL dialects.
 //!
 //! All per-dialect behaviour (quoting, placeholders, LIMIT style,
-//! `ILIKE` support) is delegated to a [`DialectOps`] implementation,
-//! resolved from the [`crate::Dialect`] passed at compile time.
+//! `ILIKE` support, JOIN/NULLS capabilities) is delegated to a
+//! [`DialectOps`] implementation resolved from the [`crate::Dialect`]
+//! passed at compile time.
 
 use qore_core::Value;
 
 use crate::built::BuiltQuery;
-use crate::compiler::{DialectOps, LimitStyle, QueryCompiler};
+use crate::compiler::{DialectOps, LimitStyle, QueryCompiler, MAX_AST_DEPTH, MAX_PARAMS};
 use crate::dialect::Dialect;
 use crate::error::{QueryError, QueryResult};
 use crate::expr::{BinOp, Expr, UnOp};
 use crate::ident::ColumnRef;
+use crate::query::join::{Join, JoinKind};
+use crate::query::order::{Nulls, Order, OrderItem};
 use crate::query::select::{SelectItem, SelectQuery};
-use crate::query::OrderItem;
 
 pub struct SqlCompiler {
     dialect: Dialect,
@@ -39,10 +41,18 @@ impl QueryCompiler for SqlCompiler {
 
         sql.push_str(" FROM ");
         ctx.ops.quote_ident(&mut sql, table);
+        if let Some(alias) = &q.table_alias {
+            sql.push_str(" AS ");
+            ctx.ops.quote_ident(&mut sql, alias);
+        }
+
+        for join in &q.joins {
+            ctx.write_join(&mut sql, join)?;
+        }
 
         if let Some(where_) = &q.where_ {
             sql.push_str(" WHERE ");
-            ctx.write_expr(&mut sql, where_)?;
+            ctx.write_expr(&mut sql, where_, 0)?;
         }
 
         if !q.order_by.is_empty() {
@@ -97,6 +107,9 @@ impl Ctx {
 
     fn push_placeholder(&mut self, out: &mut String, v: Value) -> QueryResult<()> {
         Self::validate_literal(&v)?;
+        if self.params.len() >= MAX_PARAMS {
+            return Err(QueryError::TooManyParameters(MAX_PARAMS));
+        }
         self.params.push(v);
         self.ops.write_placeholder(out, self.params.len());
         Ok(())
@@ -110,22 +123,54 @@ impl Ctx {
         self.ops.quote_ident(out, &c.name);
     }
 
-    fn write_expr(&mut self, out: &mut String, expr: &Expr) -> QueryResult<()> {
+    fn write_expr(&mut self, out: &mut String, expr: &Expr, depth: u32) -> QueryResult<()> {
+        if depth >= MAX_AST_DEPTH {
+            return Err(QueryError::AstTooDeep(MAX_AST_DEPTH));
+        }
         match expr {
             Expr::Column(c) => {
                 self.write_col_ref(out, c);
                 Ok(())
             }
             Expr::Literal(v) => self.push_placeholder(out, v.clone()),
-            Expr::Binary { lhs, op, rhs } => self.write_binary(out, lhs, *op, rhs),
-            Expr::Unary { op, expr } => self.write_unary(out, *op, expr),
+            Expr::Binary { lhs, op, rhs } => self.write_binary(out, lhs, *op, rhs, depth + 1),
+            Expr::Unary { op, expr } => self.write_unary(out, *op, expr, depth + 1),
             Expr::InList {
                 expr,
                 values,
                 negated,
-            } => self.write_in_list(out, expr, values, *negated),
-            Expr::Between { expr, low, high } => self.write_between(out, expr, low, high),
+            } => self.write_in_list(out, expr, values, *negated, depth + 1),
+            Expr::Between { expr, low, high } => {
+                self.write_between(out, expr, low, high, depth + 1)
+            }
         }
+    }
+
+    fn write_join(&mut self, out: &mut String, join: &Join) -> QueryResult<()> {
+        match join.kind {
+            JoinKind::Right if !self.ops.supports_right_join() => {
+                return Err(QueryError::Unsupported(
+                    "RIGHT JOIN on this dialect (use LEFT JOIN with swapped tables)",
+                ));
+            }
+            JoinKind::Full if !self.ops.supports_full_join() => {
+                return Err(QueryError::Unsupported(
+                    "FULL JOIN on this dialect (emulate via UNION of LEFT and RIGHT)",
+                ));
+            }
+            _ => {}
+        }
+        out.push(' ');
+        out.push_str(join.kind.sql_keyword());
+        out.push(' ');
+        self.ops.quote_ident(out, &join.table);
+        if let Some(alias) = &join.alias {
+            out.push_str(" AS ");
+            self.ops.quote_ident(out, alias);
+        }
+        out.push_str(" ON ");
+        self.write_expr(out, &join.on, 0)?;
+        Ok(())
     }
 
     fn write_binary(
@@ -134,6 +179,7 @@ impl Ctx {
         lhs: &Expr,
         op: BinOp,
         rhs: &Expr,
+        depth: u32,
     ) -> QueryResult<()> {
         // ILIKE: emit natively when the dialect supports it, otherwise fall
         // back to `LOWER(lhs) LIKE LOWER(rhs)`. The fallback loses any
@@ -144,36 +190,42 @@ impl Ctx {
         out.push('(');
         if needs_ilike_fallback {
             out.push_str("LOWER(");
-            self.write_expr(out, lhs)?;
+            self.write_expr(out, lhs, depth)?;
             out.push_str(") LIKE LOWER(");
-            self.write_expr(out, rhs)?;
+            self.write_expr(out, rhs, depth)?;
             out.push(')');
         } else {
-            self.write_expr(out, lhs)?;
+            self.write_expr(out, lhs, depth)?;
             out.push(' ');
             out.push_str(binop_sql(op));
             out.push(' ');
-            self.write_expr(out, rhs)?;
+            self.write_expr(out, rhs, depth)?;
         }
         out.push(')');
         Ok(())
     }
 
-    fn write_unary(&mut self, out: &mut String, op: UnOp, expr: &Expr) -> QueryResult<()> {
+    fn write_unary(
+        &mut self,
+        out: &mut String,
+        op: UnOp,
+        expr: &Expr,
+        depth: u32,
+    ) -> QueryResult<()> {
         match op {
             UnOp::Not => {
                 out.push_str("NOT (");
-                self.write_expr(out, expr)?;
+                self.write_expr(out, expr, depth)?;
                 out.push(')');
             }
             UnOp::IsNull => {
                 out.push('(');
-                self.write_expr(out, expr)?;
+                self.write_expr(out, expr, depth)?;
                 out.push_str(" IS NULL)");
             }
             UnOp::IsNotNull => {
                 out.push('(');
-                self.write_expr(out, expr)?;
+                self.write_expr(out, expr, depth)?;
                 out.push_str(" IS NOT NULL)");
             }
         }
@@ -186,6 +238,7 @@ impl Ctx {
         expr: &Expr,
         values: &[Expr],
         negated: bool,
+        depth: u32,
     ) -> QueryResult<()> {
         if values.is_empty() {
             // `x IN ()` is a syntax error on every dialect we target.
@@ -194,13 +247,13 @@ impl Ctx {
             return Ok(());
         }
         out.push('(');
-        self.write_expr(out, expr)?;
+        self.write_expr(out, expr, depth)?;
         out.push_str(if negated { " NOT IN (" } else { " IN (" });
         for (i, v) in values.iter().enumerate() {
             if i > 0 {
                 out.push_str(", ");
             }
-            self.write_expr(out, v)?;
+            self.write_expr(out, v, depth)?;
         }
         out.push_str("))");
         Ok(())
@@ -212,13 +265,14 @@ impl Ctx {
         expr: &Expr,
         low: &Expr,
         high: &Expr,
+        depth: u32,
     ) -> QueryResult<()> {
         out.push('(');
-        self.write_expr(out, expr)?;
+        self.write_expr(out, expr, depth)?;
         out.push_str(" BETWEEN ");
-        self.write_expr(out, low)?;
+        self.write_expr(out, low, depth)?;
         out.push_str(" AND ");
-        self.write_expr(out, high)?;
+        self.write_expr(out, high, depth)?;
         out.push(')');
         Ok(())
     }
@@ -256,17 +310,61 @@ fn write_select_list(out: &mut String, ctx: &Ctx, items: &[SelectItem]) -> Query
 }
 
 fn write_order_list(out: &mut String, ctx: &Ctx, items: &[OrderItem]) {
-    use crate::query::order::Order;
     for (i, o) in items.iter().enumerate() {
         if i > 0 {
             out.push_str(", ");
         }
-        ctx.write_col_ref(out, &o.column);
-        out.push_str(match o.order {
-            Order::Asc => " ASC",
-            Order::Desc => " DESC",
-        });
+        write_order_item(out, ctx, o);
     }
+}
+
+fn write_order_item(out: &mut String, ctx: &Ctx, o: &OrderItem) {
+    match (o.nulls, ctx.ops.supports_nulls_ordering()) {
+        (Some(nulls), false) => {
+            // Portable emulation: CASE WHEN col IS NULL THEN N ELSE M END
+            // used as a leading sort key. Non-NULLs group as 0, NULLs as 1
+            // for NULLS LAST; inverted for NULLS FIRST. This is stable on
+            // MySQL and MSSQL, the two dialects that lack the native
+            // syntax in our target set.
+            let (null_key, nonnull_key) = match nulls {
+                Nulls::First => (0, 1),
+                Nulls::Last => (1, 0),
+            };
+            out.push_str("CASE WHEN ");
+            ctx.write_col_ref(out, &o.column);
+            out.push_str(" IS NULL THEN ");
+            // These are integer literals we control — safe to inline.
+            push_u8(out, null_key);
+            out.push_str(" ELSE ");
+            push_u8(out, nonnull_key);
+            out.push_str(" END, ");
+            ctx.write_col_ref(out, &o.column);
+            out.push_str(order_keyword(o.order));
+        }
+        _ => {
+            ctx.write_col_ref(out, &o.column);
+            out.push_str(order_keyword(o.order));
+            if let Some(nulls) = o.nulls {
+                out.push_str(match nulls {
+                    Nulls::First => " NULLS FIRST",
+                    Nulls::Last => " NULLS LAST",
+                });
+            }
+        }
+    }
+}
+
+fn order_keyword(o: Order) -> &'static str {
+    match o {
+        Order::Asc => " ASC",
+        Order::Desc => " DESC",
+    }
+}
+
+fn push_u8(out: &mut String, n: u8) {
+    // Avoid `write!` formatting overhead for single-digit integers we
+    // generate ourselves.
+    out.push(char::from(b'0' + n));
 }
 
 fn write_limit_offset(

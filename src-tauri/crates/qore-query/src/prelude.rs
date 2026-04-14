@@ -10,4 +10,4 @@ pub use crate::built::BuiltQuery;
 pub use crate::dialect::Dialect;
 pub use crate::error::{QueryError, QueryResult};
 pub use crate::expr::{BinOp, Expr, UnOp};
-pub use crate::ident::{col, tcol, Column};
+pub use crate::ident::{col, tcol, Column, IntoOperand};

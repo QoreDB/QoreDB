@@ -10,10 +10,18 @@ pub enum Order {
     Desc,
 }
 
+/// NULL sorting behaviour for an ORDER BY clause.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Nulls {
+    First,
+    Last,
+}
+
 #[derive(Debug, Clone)]
 pub struct OrderItem {
     pub column: ColumnRef,
     pub order: Order,
+    pub nulls: Option<Nulls>,
 }
 
 impl OrderItem {
@@ -24,6 +32,7 @@ impl OrderItem {
                 table: None,
             },
             order,
+            nulls: None,
         }
     }
 
@@ -38,6 +47,12 @@ impl OrderItem {
                 table: Some(table.into()),
             },
             order,
+            nulls: None,
         }
+    }
+
+    pub fn with_nulls(mut self, nulls: Nulls) -> Self {
+        self.nulls = Some(nulls);
+        self
     }
 }

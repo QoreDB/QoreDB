@@ -19,4 +19,8 @@ impl DialectOps for PostgresOps {
     fn supports_ilike(&self) -> bool {
         true
     }
+
+    fn supports_nulls_ordering(&self) -> bool {
+        true
+    }
 }

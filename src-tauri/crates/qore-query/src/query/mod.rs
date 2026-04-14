@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
+pub mod join;
 pub mod order;
 pub mod select;
 
-pub use order::{Order, OrderItem};
+pub use join::{Join, JoinKind};
+pub use order::{Nulls, Order, OrderItem};
 pub use select::{SelectItem, SelectQuery};
 
 /// Entry point for building queries.

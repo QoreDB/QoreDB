@@ -27,6 +27,21 @@ use crate::built::BuiltQuery;
 use crate::error::QueryResult;
 use crate::query::SelectQuery;
 
+/// Maximum nesting depth of the expression tree.
+///
+/// Guards against stack overflow on pathological inputs. Far beyond any
+/// realistic query — a 50-way JOIN with 100 filters nests to ~20 levels.
+pub const MAX_AST_DEPTH: u32 = 1024;
+
+/// Maximum number of bound parameters per query.
+///
+/// Matches the common driver ceiling: Postgres (65535 via protocol),
+/// MySQL (65535 via prepared statement), MSSQL (2100). We surface the
+/// most permissive limit and let the driver enforce its own cap — the
+/// point is to fail fast on `.in_(huge_iter)` misuse rather than on
+/// opaque driver errors far from the call site.
+pub const MAX_PARAMS: usize = 65_535;
+
 pub trait QueryCompiler {
     fn compile_select(&self, q: &SelectQuery) -> QueryResult<BuiltQuery>;
 }
@@ -45,6 +60,26 @@ pub(crate) trait DialectOps: Sync + Send {
     /// Whether the dialect supports `ILIKE` natively. When `false`, the
     /// compiler falls back to `LOWER(lhs) LIKE LOWER(rhs)`.
     fn supports_ilike(&self) -> bool {
+        false
+    }
+
+    /// Whether the dialect supports `RIGHT JOIN`. Defaults to `true`
+    /// (supported by most dialects); override `false` to reject at
+    /// compile time.
+    fn supports_right_join(&self) -> bool {
+        true
+    }
+
+    /// Whether the dialect supports `FULL [OUTER] JOIN`. Defaults to
+    /// `true`; dialects that don't (MySQL, SQLite <3.39) override `false`.
+    fn supports_full_join(&self) -> bool {
+        true
+    }
+
+    /// Whether the dialect supports native `NULLS FIRST` / `NULLS LAST`
+    /// in ORDER BY. When `false`, the compiler emits a portable
+    /// `CASE WHEN col IS NULL THEN … END` prefix.
+    fn supports_nulls_ordering(&self) -> bool {
         false
     }
 

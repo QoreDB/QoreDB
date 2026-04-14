@@ -30,4 +30,16 @@ pub enum QueryError {
     /// MSSQL requires `ORDER BY` when `OFFSET`/`FETCH NEXT` is used.
     #[error("MSSQL OFFSET/FETCH requires ORDER BY")]
     MssqlOffsetRequiresOrderBy,
+
+    /// The expression tree exceeded the hard-coded depth limit
+    /// ([`crate::compiler::MAX_AST_DEPTH`]). Guards against stack
+    /// overflow for pathologically nested queries.
+    #[error("expression tree exceeds maximum depth of {0}")]
+    AstTooDeep(u32),
+
+    /// The bound parameters exceeded the limit supported by target
+    /// drivers ([`crate::compiler::MAX_PARAMS`]). Guards against
+    /// runtime driver errors for large IN lists.
+    #[error("bound parameters exceed maximum of {0}")]
+    TooManyParameters(usize),
 }

@@ -35,6 +35,18 @@ pub enum Expr {
         low: Box<Expr>,
         high: Box<Expr>,
     },
+    /// Pattern matching — `LIKE` / `ILIKE` with optional `ESCAPE`.
+    ///
+    /// Carried as a dedicated variant rather than a [`BinOp`] because
+    /// (a) the optional `escape` character requires storage, and
+    /// (b) `ILIKE` needs a per-dialect fallback to `LOWER(x) LIKE LOWER(y)`
+    /// that is cleaner to isolate from generic binary handling.
+    Like {
+        expr: Box<Expr>,
+        pattern: Box<Expr>,
+        case_insensitive: bool,
+        escape: Option<char>,
+    },
 }
 
 impl Expr {
@@ -72,9 +84,34 @@ impl Expr {
     pub fn not(self) -> Expr {
         Expr::unary(UnOp::Not, self)
     }
+
+    /// AND-fold an iterator of expressions into a single expression.
+    /// Returns `None` if the iterator is empty — callers decide whether
+    /// to treat that as "no filter" or an error.
+    ///
+    /// ```
+    /// use qore_query::prelude::*;
+    /// let parts = vec![col("a").eq(1i64), col("b").eq(2i64), col("c").eq(3i64)];
+    /// let combined = Expr::and_all(parts).unwrap();
+    /// // equivalent to col("a").eq(1).and(col("b").eq(2)).and(col("c").eq(3))
+    /// # let _ = combined;
+    /// ```
+    pub fn and_all<I: IntoIterator<Item = Expr>>(items: I) -> Option<Expr> {
+        items.into_iter().reduce(Expr::and)
+    }
+
+    /// OR-fold an iterator of expressions into a single expression.
+    /// Returns `None` if the iterator is empty.
+    pub fn or_any<I: IntoIterator<Item = Expr>>(items: I) -> Option<Expr> {
+        items.into_iter().reduce(Expr::or)
+    }
 }
 
 /// Binary operators over two expressions.
+///
+/// Pattern matching (`LIKE`/`ILIKE`) is intentionally **not** here — it
+/// lives in [`Expr::Like`] to carry the optional escape character and
+/// the case-insensitive flag.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BinOp {
     Eq,
@@ -85,8 +122,6 @@ pub enum BinOp {
     Ge,
     And,
     Or,
-    Like,
-    ILike,
 }
 
 /// Unary operators over a single expression.

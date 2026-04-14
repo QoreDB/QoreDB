@@ -68,11 +68,64 @@ impl<T> Column<T> {
     pub fn le(self, v: impl IntoOperand) -> Expr {
         self.binop(BinOp::Le, v)
     }
+    /// `col LIKE pattern` — case-sensitive. The pattern is passed
+    /// through unescaped; use [`Self::starts_with`]/[`Self::ends_with`]/
+    /// [`Self::contains`] when the pattern comes from untrusted input.
     pub fn like(self, pat: impl IntoOperand) -> Expr {
-        self.binop(BinOp::Like, pat)
+        Expr::Like {
+            expr: Box::new(self.col_expr()),
+            pattern: Box::new(pat.into_operand()),
+            case_insensitive: false,
+            escape: None,
+        }
     }
+
+    /// `col ILIKE pattern` — case-insensitive. Native on Postgres and
+    /// DuckDB; emulated elsewhere via `LOWER(col) LIKE LOWER(pattern)`.
     pub fn ilike(self, pat: impl IntoOperand) -> Expr {
-        self.binop(BinOp::ILike, pat)
+        Expr::Like {
+            expr: Box::new(self.col_expr()),
+            pattern: Box::new(pat.into_operand()),
+            case_insensitive: true,
+            escape: None,
+        }
+    }
+
+    /// Match values starting with `prefix`. Wildcard characters (`%`,
+    /// `_`, `\`) in `prefix` are escaped so they match literally; the
+    /// emitted SQL is `col LIKE '<escaped-prefix>%' ESCAPE '\'` for
+    /// portable wildcard semantics across all dialects.
+    pub fn starts_with(self, prefix: impl AsRef<str>) -> Expr {
+        let mut pat = String::with_capacity(prefix.as_ref().len() + 1);
+        escape_like_pattern(prefix.as_ref(), &mut pat);
+        pat.push('%');
+        self.like_with_escape(pat, false)
+    }
+
+    /// Match values ending with `suffix`. See [`Self::starts_with`].
+    pub fn ends_with(self, suffix: impl AsRef<str>) -> Expr {
+        let mut pat = String::with_capacity(suffix.as_ref().len() + 1);
+        pat.push('%');
+        escape_like_pattern(suffix.as_ref(), &mut pat);
+        self.like_with_escape(pat, false)
+    }
+
+    /// Match values containing `substr` anywhere. See [`Self::starts_with`].
+    pub fn contains(self, substr: impl AsRef<str>) -> Expr {
+        let mut pat = String::with_capacity(substr.as_ref().len() + 2);
+        pat.push('%');
+        escape_like_pattern(substr.as_ref(), &mut pat);
+        pat.push('%');
+        self.like_with_escape(pat, false)
+    }
+
+    fn like_with_escape(self, pattern: String, case_insensitive: bool) -> Expr {
+        Expr::Like {
+            expr: Box::new(self.col_expr()),
+            pattern: Box::new(Expr::Literal(Value::Text(pattern))),
+            case_insensitive,
+            escape: Some(LIKE_ESCAPE_CHAR),
+        }
     }
 
     pub fn is_null(self) -> Expr {
@@ -135,6 +188,24 @@ pub fn tcol(
 pub struct ColumnRef {
     pub name: Cow<'static, str>,
     pub table: Option<Cow<'static, str>>,
+}
+
+/// Escape character used by [`Column::starts_with`] and friends to
+/// neutralise `%` / `_` in user-supplied search terms. Matches the
+/// default on Postgres/MySQL/DuckDB; on SQLite/MSSQL the compiler
+/// emits an explicit `ESCAPE '\'` clause.
+pub(crate) const LIKE_ESCAPE_CHAR: char = '\\';
+
+/// Append `s` to `out`, doubling any `%`, `_`, or `\\` so they are
+/// matched literally when the pattern is used with
+/// `LIKE ... ESCAPE '\\'`.
+pub(crate) fn escape_like_pattern(s: &str, out: &mut String) {
+    for ch in s.chars() {
+        if ch == '%' || ch == '_' || ch == LIKE_ESCAPE_CHAR {
+            out.push(LIKE_ESCAPE_CHAR);
+        }
+        out.push(ch);
+    }
 }
 
 // ============================================================================

@@ -143,6 +143,12 @@ impl Ctx {
             Expr::Between { expr, low, high } => {
                 self.write_between(out, expr, low, high, depth + 1)
             }
+            Expr::Like {
+                expr,
+                pattern,
+                case_insensitive,
+                escape,
+            } => self.write_like(out, expr, pattern, *case_insensitive, *escape, depth + 1),
         }
     }
 
@@ -181,25 +187,53 @@ impl Ctx {
         rhs: &Expr,
         depth: u32,
     ) -> QueryResult<()> {
+        out.push('(');
+        self.write_expr(out, lhs, depth)?;
+        out.push(' ');
+        out.push_str(binop_sql(op));
+        out.push(' ');
+        self.write_expr(out, rhs, depth)?;
+        out.push(')');
+        Ok(())
+    }
+
+    fn write_like(
+        &mut self,
+        out: &mut String,
+        expr: &Expr,
+        pattern: &Expr,
+        case_insensitive: bool,
+        escape: Option<char>,
+        depth: u32,
+    ) -> QueryResult<()> {
         // ILIKE: emit natively when the dialect supports it, otherwise fall
-        // back to `LOWER(lhs) LIKE LOWER(rhs)`. The fallback loses any
+        // back to `LOWER(expr) LIKE LOWER(pattern)`. The fallback loses any
         // functional index on the column but is semantically equivalent for
         // ASCII-dominant text — that tradeoff is documented in the plan.
-        let needs_ilike_fallback = op == BinOp::ILike && !self.ops.supports_ilike();
+        let fallback = case_insensitive && !self.ops.supports_ilike();
 
         out.push('(');
-        if needs_ilike_fallback {
+        if fallback {
             out.push_str("LOWER(");
-            self.write_expr(out, lhs, depth)?;
+            self.write_expr(out, expr, depth)?;
             out.push_str(") LIKE LOWER(");
-            self.write_expr(out, rhs, depth)?;
+            self.write_expr(out, pattern, depth)?;
             out.push(')');
         } else {
-            self.write_expr(out, lhs, depth)?;
+            self.write_expr(out, expr, depth)?;
             out.push(' ');
-            out.push_str(binop_sql(op));
+            out.push_str(if case_insensitive { "ILIKE" } else { "LIKE" });
             out.push(' ');
-            self.write_expr(out, rhs, depth)?;
+            self.write_expr(out, pattern, depth)?;
+        }
+        if let Some(ch) = escape {
+            // Render as SQL literal: ESCAPE 'X' with ' doubled inside the pair.
+            out.push_str(" ESCAPE '");
+            if ch == '\'' {
+                out.push('\'');
+            }
+            out.push(ch);
+            out.push('\'');
         }
         out.push(')');
         Ok(())
@@ -288,8 +322,6 @@ fn binop_sql(op: BinOp) -> &'static str {
         BinOp::Ge => ">=",
         BinOp::And => "AND",
         BinOp::Or => "OR",
-        BinOp::Like => "LIKE",
-        BinOp::ILike => "ILIKE",
     }
 }
 

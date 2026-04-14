@@ -299,6 +299,10 @@ export function GlobalSearch({
           <Search className="w-5 h-5 text-muted-foreground mr-2" />
           <input
             ref={inputRef}
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck={false}
             className="flex-1 h-14 bg-transparent outline-none placeholder:text-muted-foreground text-base"
             type="text"
             placeholder={t('search.placeholder')}

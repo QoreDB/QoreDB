@@ -311,6 +311,20 @@ export function QueryPanel({
             }
           });
 
+          const unlistenRowBatch = await listen<Row[]>(
+            `query_stream_row_batch:${queryId}`,
+            event => {
+              const batch = event.payload;
+              if (batch.length === 0) return;
+              for (const row of batch) streamingRows.push(row);
+              for (const row of batch) rowBuffer.push(row);
+              if (!flushScheduled) {
+                flushScheduled = true;
+                streamRafId = requestAnimationFrame(flushRowBuffer);
+              }
+            }
+          );
+
           const unlistenError = await listen<string>(`query_stream_error:${queryId}`, event => {
             setResults(prev => {
               const updated = [...prev];
@@ -322,7 +336,7 @@ export function QueryPanel({
             });
           });
 
-          streamDisposal.push(unlistenCols, unlistenRow, unlistenError);
+          streamDisposal.push(unlistenCols, unlistenRow, unlistenRowBatch, unlistenError);
 
           // Pre-create result entry
           const entry: QueryResultEntry = {

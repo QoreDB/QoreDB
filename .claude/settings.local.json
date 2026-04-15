@@ -64,7 +64,8 @@
       "Bash(node:*)",
       "Bash(cargo clean:*)",
       "Bash(cargo build:*)",
-      "Bash(gh run:*)"
+      "Bash(gh run:*)",
+      "Bash(rtk proxy *)"
     ]
   }
 }

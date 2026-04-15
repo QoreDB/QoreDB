@@ -170,6 +170,10 @@ pub async fn execute_federation_query(
                     StreamEvent::Row(row) => {
                         let _ = window_clone.emit(&format!("query_stream_row:{qid}"), &row);
                     }
+                    StreamEvent::RowBatch(batch) => {
+                        let _ = window_clone
+                            .emit(&format!("query_stream_row_batch:{qid}"), &batch);
+                    }
                     StreamEvent::Error(err) => {
                         let _ = window_clone.emit(&format!("query_stream_error:{qid}"), &err);
                     }

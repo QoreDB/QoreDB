@@ -26,6 +26,7 @@ use std::fmt::Write;
 use crate::built::BuiltQuery;
 use crate::error::QueryResult;
 use crate::query::SelectQuery;
+use crate::sql_type::SqlType;
 
 /// Maximum nesting depth of the expression tree.
 ///
@@ -86,6 +87,23 @@ pub(crate) trait DialectOps: Sync + Send {
     /// How to render LIMIT/OFFSET.
     fn limit_style(&self) -> LimitStyle {
         LimitStyle::LimitOffset
+    }
+
+    /// Render a [`SqlType`] target for `CAST(... AS type)`. Default is
+    /// an ANSI-leaning mapping; dialects with quirks (MySQL CAST targets,
+    /// SQLite type affinities, MSSQL `BIT`/`NVARCHAR(MAX)`, …) override.
+    fn write_sql_type(&self, out: &mut String, ty: SqlType) {
+        out.push_str(match ty {
+            SqlType::Int => "INT",
+            SqlType::BigInt => "BIGINT",
+            SqlType::Real => "REAL",
+            SqlType::Double => "DOUBLE PRECISION",
+            SqlType::Text => "TEXT",
+            SqlType::Bool => "BOOLEAN",
+            SqlType::Date => "DATE",
+            SqlType::Timestamp => "TIMESTAMP",
+            SqlType::Blob => "BLOB",
+        });
     }
 }
 

@@ -2,6 +2,8 @@
 
 //! SQLite dialect operations.
 
+use crate::sql_type::SqlType;
+
 use super::{write_quoted_symmetric, DialectOps};
 
 pub(crate) struct SqliteOps;
@@ -28,5 +30,16 @@ impl DialectOps for SqliteOps {
 
     fn supports_nulls_ordering(&self) -> bool {
         true
+    }
+
+    /// SQLite has type *affinities*, not strict types. We map to the
+    /// five storage classes the engine actually recognises.
+    fn write_sql_type(&self, out: &mut String, ty: SqlType) {
+        out.push_str(match ty {
+            SqlType::Int | SqlType::BigInt | SqlType::Bool => "INTEGER",
+            SqlType::Real | SqlType::Double => "REAL",
+            SqlType::Text | SqlType::Date | SqlType::Timestamp => "TEXT",
+            SqlType::Blob => "BLOB",
+        });
     }
 }

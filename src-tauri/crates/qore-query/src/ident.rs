@@ -6,6 +6,8 @@ use std::marker::PhantomData;
 use qore_core::Value;
 
 use crate::expr::{BinOp, Expr, UnOp};
+use crate::query::SelectQuery;
+use crate::sql_type::SqlType;
 
 /// A typed reference to a database column.
 ///
@@ -168,6 +170,32 @@ impl<T> Column<T> {
             high: Box::new(high.into_operand()),
         }
     }
+
+    /// `col IN (SELECT …)` — subquery membership test.
+    pub fn in_sub(self, subquery: SelectQuery) -> Expr {
+        Expr::InSubquery {
+            expr: Box::new(self.col_expr()),
+            subquery: Box::new(subquery),
+            negated: false,
+        }
+    }
+
+    /// `col NOT IN (SELECT …)`.
+    pub fn not_in_sub(self, subquery: SelectQuery) -> Expr {
+        Expr::InSubquery {
+            expr: Box::new(self.col_expr()),
+            subquery: Box::new(subquery),
+            negated: true,
+        }
+    }
+
+    /// `CAST(col AS ty)` — shorthand for [`Expr::cast`] on a column.
+    pub fn cast(self, ty: SqlType) -> Expr {
+        Expr::Cast {
+            expr: Box::new(self.col_expr()),
+            ty,
+        }
+    }
 }
 
 /// Untyped column reference — the MVP entry point.
@@ -236,6 +264,15 @@ impl<T> IntoOperand for Column<T> {
             name: self.name,
             table: self.table,
         })
+    }
+}
+
+impl IntoOperand for SelectQuery {
+    /// A `SelectQuery` used as an operand is a scalar subquery —
+    /// `(SELECT …)`. The SQL context must accept a single row / single
+    /// column result; that is the caller's responsibility.
+    fn into_operand(self) -> Expr {
+        Expr::Subquery(Box::new(self))
     }
 }
 

@@ -3,6 +3,8 @@
 //! Postgres dialect operations. CockroachDB users should also pick
 //! [`crate::Dialect::Postgres`] — it is wire-compatible.
 
+use crate::sql_type::SqlType;
+
 use super::{write_numeric_placeholder, write_quoted_symmetric, DialectOps};
 
 pub(crate) struct PostgresOps;
@@ -22,5 +24,19 @@ impl DialectOps for PostgresOps {
 
     fn supports_nulls_ordering(&self) -> bool {
         true
+    }
+
+    fn write_sql_type(&self, out: &mut String, ty: SqlType) {
+        out.push_str(match ty {
+            SqlType::Int => "INT",
+            SqlType::BigInt => "BIGINT",
+            SqlType::Real => "REAL",
+            SqlType::Double => "DOUBLE PRECISION",
+            SqlType::Text => "TEXT",
+            SqlType::Bool => "BOOLEAN",
+            SqlType::Date => "DATE",
+            SqlType::Timestamp => "TIMESTAMP",
+            SqlType::Blob => "BYTEA",
+        });
     }
 }

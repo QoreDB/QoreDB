@@ -64,8 +64,11 @@ pub mod expr;
 pub mod ident;
 pub mod prelude;
 pub mod query;
+pub mod sql_type;
 
 pub use built::BuiltQuery;
 pub use dialect::Dialect;
 pub use error::{QueryError, QueryResult};
+pub use expr::{cast, coalesce, exists, not_exists};
 pub use ident::{col, tcol, Column, IntoOperand};
+pub use sql_type::SqlType;

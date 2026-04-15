@@ -8,6 +8,8 @@
 use qore_core::Value;
 
 use crate::ident::ColumnRef;
+use crate::query::SelectQuery;
+use crate::sql_type::SqlType;
 
 pub mod ops;
 
@@ -47,6 +49,29 @@ pub enum Expr {
         case_insensitive: bool,
         escape: Option<char>,
     },
+    /// Scalar subquery — can appear anywhere an expression is expected.
+    /// Compiled inside parentheses; parameters flow into the outer query.
+    Subquery(Box<SelectQuery>),
+    /// `expr [NOT] IN (SELECT …)`.
+    InSubquery {
+        expr: Box<Expr>,
+        subquery: Box<SelectQuery>,
+        negated: bool,
+    },
+    /// `[NOT] EXISTS (SELECT …)`.
+    Exists {
+        subquery: Box<SelectQuery>,
+        negated: bool,
+    },
+    /// `CAST(expr AS type)` — dialect-specific type name rendering.
+    Cast {
+        expr: Box<Expr>,
+        ty: SqlType,
+    },
+    /// `COALESCE(a, b, c, …)` — returns the first non-null operand.
+    /// Compiler rejects lengths `< 2` because single-operand COALESCE is
+    /// useless and zero-operand is a SQL error.
+    Coalesce(Vec<Expr>),
 }
 
 impl Expr {
@@ -104,6 +129,76 @@ impl Expr {
     /// Returns `None` if the iterator is empty.
     pub fn or_any<I: IntoIterator<Item = Expr>>(items: I) -> Option<Expr> {
         items.into_iter().reduce(Expr::or)
+    }
+
+    /// `CAST(self AS ty)` — coerce the expression to another SQL type.
+    pub fn cast(self, ty: SqlType) -> Expr {
+        Expr::Cast {
+            expr: Box::new(self),
+            ty,
+        }
+    }
+}
+
+/// `COALESCE(a, b, c, …)` — returns the first non-null operand.
+///
+/// Accepts any iterable of items convertible via
+/// [`crate::ident::IntoOperand`]. For **heterogeneous** argument types
+/// (e.g. mixing [`Column`](crate::Column) and literals), use the
+/// [`coalesce!`](crate::coalesce!) macro instead — Rust's homogeneous
+/// array typing can't unify `Column<T>` with a scalar literal through
+/// the generic bound.
+///
+/// The compiler surfaces a [`crate::error::QueryError::InvalidExpr`] at
+/// `.build()` time if fewer than two operands are supplied.
+pub fn coalesce<I, O>(items: I) -> Expr
+where
+    I: IntoIterator<Item = O>,
+    O: crate::ident::IntoOperand,
+{
+    Expr::Coalesce(items.into_iter().map(|o| o.into_operand()).collect())
+}
+
+/// Variadic form of [`coalesce`] that accepts heterogeneous argument
+/// types. Each argument is converted through
+/// [`crate::ident::IntoOperand`] so columns, literals, subqueries and
+/// pre-built expressions can be mixed.
+///
+/// ```
+/// use qore_query::prelude::*;
+/// let e = qore_query::coalesce![col("a"), col("b"), 0i64];
+/// # let _ = e;
+/// ```
+#[macro_export]
+macro_rules! coalesce {
+    ($($arg:expr),+ $(,)?) => {
+        $crate::expr::Expr::Coalesce(vec![
+            $( $crate::ident::IntoOperand::into_operand($arg) ),+
+        ])
+    };
+}
+
+/// `EXISTS (SELECT …)`.
+pub fn exists(subquery: SelectQuery) -> Expr {
+    Expr::Exists {
+        subquery: Box::new(subquery),
+        negated: false,
+    }
+}
+
+/// `NOT EXISTS (SELECT …)`.
+pub fn not_exists(subquery: SelectQuery) -> Expr {
+    Expr::Exists {
+        subquery: Box::new(subquery),
+        negated: true,
+    }
+}
+
+/// `CAST(expr AS ty)` — free-function form of [`Expr::cast`].
+pub fn cast(expr: impl crate::ident::IntoOperand, ty: SqlType) -> Expr {
+    Expr::Cast {
+        expr: Box::new(expr.into_operand()),
+        ty,
     }
 }
 

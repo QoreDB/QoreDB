@@ -6,7 +6,7 @@ pub mod select;
 
 pub use join::{Join, JoinKind};
 pub use order::{Nulls, Order, OrderItem};
-pub use select::{SelectItem, SelectQuery};
+pub use select::{FromSource, SelectItem, SelectQuery};
 
 /// Entry point for building queries.
 ///

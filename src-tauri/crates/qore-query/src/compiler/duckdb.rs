@@ -12,6 +12,8 @@
 //! - Native `ILIKE`.
 //! - Suffix `LIMIT n OFFSET m`.
 
+use crate::sql_type::SqlType;
+
 use super::{write_quoted_symmetric, DialectOps};
 
 pub(crate) struct DuckDbOps;
@@ -31,5 +33,19 @@ impl DialectOps for DuckDbOps {
 
     fn supports_nulls_ordering(&self) -> bool {
         true
+    }
+
+    fn write_sql_type(&self, out: &mut String, ty: SqlType) {
+        out.push_str(match ty {
+            SqlType::Int => "INTEGER",
+            SqlType::BigInt => "BIGINT",
+            SqlType::Real => "REAL",
+            SqlType::Double => "DOUBLE",
+            SqlType::Text => "VARCHAR",
+            SqlType::Bool => "BOOLEAN",
+            SqlType::Date => "DATE",
+            SqlType::Timestamp => "TIMESTAMP",
+            SqlType::Blob => "BLOB",
+        });
     }
 }

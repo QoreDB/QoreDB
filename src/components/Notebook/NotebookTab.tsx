@@ -38,15 +38,16 @@ export function NotebookTab({
   initialQuery,
   onDirtyChange,
 }: NotebookTabProps) {
+
   const tourManager = useTourManager();
+
   useEffect(() => {
     if (sessionId && tourManager.shouldShowTour('first-notebook')) {
       const timer = setTimeout(() => tourManager.startTour('first-notebook'), 800);
       return () => clearTimeout(timer);
     }
-  }, [sessionId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [sessionId]);
 
-  // --- Namespace selection ---
   const schemaCache = useSchemaCache(sessionId || '');
   const [namespaces, setNamespaces] = useState<Namespace[]>([]);
   const [selectedNamespace, setSelectedNamespace] = useState<Namespace | null>(
@@ -57,7 +58,6 @@ export function NotebookTab({
     if (!sessionId) return;
     schemaCache.getNamespaces().then(ns => {
       setNamespaces(ns);
-      // Auto-select if nothing selected yet
       if (!selectedNamespace && ns.length > 0) {
         const defaultSchema = dialect === Driver.SqlServer ? 'dbo' : 'public';
         const match = connectionDatabase
@@ -67,7 +67,7 @@ export function NotebookTab({
         setSelectedNamespace(match ?? ns[0]);
       }
     });
-  }, [sessionId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [sessionId]);
 
   const effectiveNamespace = selectedNamespace ?? activeNamespace ?? null;
 
@@ -87,14 +87,12 @@ export function NotebookTab({
   const hasVariables = Object.keys(nb.notebook.variables).length > 0;
   const [showVariableBar, setShowVariableBar] = useState(hasVariables);
 
-  // Auto-show variable bar when variables exist
   useEffect(() => {
     if (hasVariables) setShowVariableBar(true);
   }, [hasVariables]);
 
   const handleToggleVariables = useCallback(() => {
     if (showVariableBar && !hasVariables) {
-      // Already visible with no variables, just hide
       setShowVariableBar(false);
     } else if (showVariableBar) {
       setShowVariableBar(false);

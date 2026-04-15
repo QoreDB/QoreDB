@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { Label } from '../ui/label';
 
 interface ProductionConfirmDialogProps {
   open: boolean;
@@ -65,9 +66,9 @@ export function ProductionConfirmDialog({
           {description && <p className="text-sm text-muted-foreground">{description}</p>}
 
           <div className="space-y-2">
-            <label className="text-sm font-medium">
+            <Label className="text-sm font-medium">
               {t('environment.confirmMessage', { name: confirmationLabel })}
-            </label>
+            </Label>
             <Input
               value={value}
               onChange={event => setValue(event.target.value)}

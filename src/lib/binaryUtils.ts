@@ -9,23 +9,14 @@
 
 /** Set of database column types that represent binary data, lowercased. */
 const BINARY_TYPES = new Set([
-  // PostgreSQL
   'bytea',
-  // MySQL / MariaDB
   'blob',
   'tinyblob',
   'mediumblob',
   'longblob',
   'binary',
   'varbinary',
-  // SQLite
-  // 'blob' already listed
-  // SQL Server
-  // 'binary' already listed
-  // 'varbinary' already listed
   'image',
-  // DuckDB
-  // 'blob' already listed
 ]);
 
 /**

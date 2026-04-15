@@ -796,10 +796,17 @@ impl DataEngine for DuckDbDriver {
             }
 
             let row_count = rows.len() as u64;
+            let mut batch = Vec::with_capacity(500);
             for row in rows {
-                if sender.blocking_send(StreamEvent::Row(row)).is_err() {
-                    return Ok(()); // Receiver dropped, stop streaming
+                batch.push(row);
+                if batch.len() >= 500 {
+                    if sender.blocking_send(StreamEvent::RowBatch(std::mem::take(&mut batch))).is_err() {
+                        return Ok(()); // Receiver dropped, stop streaming
+                    }
                 }
+            }
+            if !batch.is_empty() {
+                let _ = sender.blocking_send(StreamEvent::RowBatch(batch));
             }
 
             let _ = sender.blocking_send(StreamEvent::Done(row_count));

@@ -570,14 +570,21 @@ impl DataEngine for MongoDriver {
                     }
 
                     let mut row_count = 0;
+                    let mut batch = Vec::with_capacity(500);
                     while let Some(doc_result) = cursor.next(&mut *txn).await {
                         let doc =
                             doc_result.map_err(|e| EngineError::execution_error(e.to_string()))?;
                         let row = Self::document_to_row(&doc);
-                        if sender.send(StreamEvent::Row(row)).await.is_err() {
-                            break;
-                        }
+                        batch.push(row);
                         row_count += 1;
+                        if batch.len() >= 500 {
+                            if sender.send(StreamEvent::RowBatch(std::mem::take(&mut batch))).await.is_err() {
+                                break;
+                            }
+                        }
+                    }
+                    if !batch.is_empty() {
+                        let _ = sender.send(StreamEvent::RowBatch(batch)).await;
                     }
 
                     let _ = sender.send(StreamEvent::Done(row_count)).await;
@@ -597,6 +604,7 @@ impl DataEngine for MongoDriver {
                 }
 
                 let mut row_count = 0;
+                let mut batch = Vec::with_capacity(500);
                 use futures::TryStreamExt;
 
                 while let Some(doc) = cursor
@@ -605,10 +613,16 @@ impl DataEngine for MongoDriver {
                     .map_err(|e| EngineError::execution_error(e.to_string()))?
                 {
                     let row = Self::document_to_row(&doc);
-                    if sender.send(StreamEvent::Row(row)).await.is_err() {
-                        break;
-                    }
+                    batch.push(row);
                     row_count += 1;
+                    if batch.len() >= 500 {
+                        if sender.send(StreamEvent::RowBatch(std::mem::take(&mut batch))).await.is_err() {
+                            break;
+                        }
+                    }
+                }
+                if !batch.is_empty() {
+                    let _ = sender.send(StreamEvent::RowBatch(batch)).await;
                 }
 
                 let _ = sender.send(StreamEvent::Done(row_count)).await;

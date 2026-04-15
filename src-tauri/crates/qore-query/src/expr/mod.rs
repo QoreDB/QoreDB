@@ -72,6 +72,37 @@ pub enum Expr {
     /// Compiler rejects lengths `< 2` because single-operand COALESCE is
     /// useless and zero-operand is a SQL error.
     Coalesce(Vec<Expr>),
+    /// Aggregate function call over a single expression with optional
+    /// `DISTINCT` — `SUM(col)`, `COUNT(DISTINCT col)`, etc.
+    Aggregate {
+        func: AggFn,
+        arg: Box<Expr>,
+        distinct: bool,
+    },
+    /// `COUNT(*)` — carried separately because `*` is not an `Expr`.
+    CountStar,
+}
+
+/// Aggregate function kinds supported as first-class AST nodes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AggFn {
+    Count,
+    Sum,
+    Avg,
+    Min,
+    Max,
+}
+
+impl AggFn {
+    pub(crate) fn sql_name(self) -> &'static str {
+        match self {
+            AggFn::Count => "COUNT",
+            AggFn::Sum => "SUM",
+            AggFn::Avg => "AVG",
+            AggFn::Min => "MIN",
+            AggFn::Max => "MAX",
+        }
+    }
 }
 
 impl Expr {
@@ -138,6 +169,29 @@ impl Expr {
             ty,
         }
     }
+
+    // Comparison methods on arbitrary expressions (not only `Column`).
+    // Needed for predicates on aggregates (e.g. `count_all().gt(5)` for
+    // a HAVING clause) and function-call results.
+
+    pub fn eq(self, rhs: impl crate::ident::IntoOperand) -> Expr {
+        Expr::binary(self, BinOp::Eq, rhs.into_operand())
+    }
+    pub fn ne(self, rhs: impl crate::ident::IntoOperand) -> Expr {
+        Expr::binary(self, BinOp::Ne, rhs.into_operand())
+    }
+    pub fn gt(self, rhs: impl crate::ident::IntoOperand) -> Expr {
+        Expr::binary(self, BinOp::Gt, rhs.into_operand())
+    }
+    pub fn ge(self, rhs: impl crate::ident::IntoOperand) -> Expr {
+        Expr::binary(self, BinOp::Ge, rhs.into_operand())
+    }
+    pub fn lt(self, rhs: impl crate::ident::IntoOperand) -> Expr {
+        Expr::binary(self, BinOp::Lt, rhs.into_operand())
+    }
+    pub fn le(self, rhs: impl crate::ident::IntoOperand) -> Expr {
+        Expr::binary(self, BinOp::Le, rhs.into_operand())
+    }
 }
 
 /// `COALESCE(a, b, c, …)` — returns the first non-null operand.
@@ -200,6 +254,53 @@ pub fn cast(expr: impl crate::ident::IntoOperand, ty: SqlType) -> Expr {
         expr: Box::new(expr.into_operand()),
         ty,
     }
+}
+
+// ============================================================================
+// Aggregate function constructors
+// ============================================================================
+
+fn agg(func: AggFn, arg: impl crate::ident::IntoOperand, distinct: bool) -> Expr {
+    Expr::Aggregate {
+        func,
+        arg: Box::new(arg.into_operand()),
+        distinct,
+    }
+}
+
+/// `COUNT(expr)` — count non-null values of `expr`.
+pub fn count(expr: impl crate::ident::IntoOperand) -> Expr {
+    agg(AggFn::Count, expr, false)
+}
+
+/// `COUNT(*)` — count rows including those with NULL in every column.
+pub fn count_all() -> Expr {
+    Expr::CountStar
+}
+
+/// `COUNT(DISTINCT expr)`.
+pub fn count_distinct(expr: impl crate::ident::IntoOperand) -> Expr {
+    agg(AggFn::Count, expr, true)
+}
+
+/// `SUM(expr)`.
+pub fn sum(expr: impl crate::ident::IntoOperand) -> Expr {
+    agg(AggFn::Sum, expr, false)
+}
+
+/// `AVG(expr)`.
+pub fn avg(expr: impl crate::ident::IntoOperand) -> Expr {
+    agg(AggFn::Avg, expr, false)
+}
+
+/// `MIN(expr)`.
+pub fn min(expr: impl crate::ident::IntoOperand) -> Expr {
+    agg(AggFn::Min, expr, false)
+}
+
+/// `MAX(expr)`.
+pub fn max(expr: impl crate::ident::IntoOperand) -> Expr {
+    agg(AggFn::Max, expr, false)
 }
 
 /// Binary operators over two expressions.

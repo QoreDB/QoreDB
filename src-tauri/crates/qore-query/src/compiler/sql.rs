@@ -13,7 +13,7 @@ use crate::built::BuiltQuery;
 use crate::compiler::{DialectOps, LimitStyle, QueryCompiler, MAX_AST_DEPTH, MAX_PARAMS};
 use crate::dialect::Dialect;
 use crate::error::{QueryError, QueryResult};
-use crate::expr::{BinOp, Expr, UnOp};
+use crate::expr::{AggFn, BinOp, Expr, UnOp};
 use crate::ident::ColumnRef;
 use crate::query::join::{Join, JoinKind};
 use crate::query::order::{Nulls, Order, OrderItem};
@@ -105,6 +105,26 @@ impl Ctx {
         if let Some(where_) = &q.where_ {
             out.push_str(" WHERE ");
             self.write_expr(out, where_, depth)?;
+        }
+
+        if !q.group_by.is_empty() {
+            out.push_str(" GROUP BY ");
+            for (i, item) in q.group_by.iter().enumerate() {
+                if i > 0 {
+                    out.push_str(", ");
+                }
+                self.write_expr(out, item, depth)?;
+            }
+        }
+
+        if let Some(having) = &q.having {
+            if q.group_by.is_empty() {
+                return Err(QueryError::InvalidExpr(
+                    "HAVING without GROUP BY is only valid when the SELECT list is all aggregates",
+                ));
+            }
+            out.push_str(" HAVING ");
+            self.write_expr(out, having, depth)?;
         }
 
         if !q.order_by.is_empty() {
@@ -221,7 +241,38 @@ impl Ctx {
                 out.push(')');
                 Ok(())
             }
+            Expr::Aggregate {
+                func,
+                arg,
+                distinct,
+            } => self.write_aggregate(out, *func, arg, *distinct, depth + 1),
+            Expr::CountStar => {
+                out.push_str("COUNT(*)");
+                Ok(())
+            }
         }
+    }
+
+    fn write_aggregate(
+        &mut self,
+        out: &mut String,
+        func: AggFn,
+        arg: &Expr,
+        distinct: bool,
+        depth: u32,
+    ) -> QueryResult<()> {
+        // DISTINCT is only meaningful on COUNT/SUM/AVG for our targets.
+        // Most dialects accept it on MIN/MAX too (no-op) but reject it
+        // on some analytical functions we don't yet expose — so we
+        // allow it uniformly here.
+        out.push_str(func.sql_name());
+        out.push('(');
+        if distinct {
+            out.push_str("DISTINCT ");
+        }
+        self.write_expr(out, arg, depth)?;
+        out.push(')');
+        Ok(())
     }
 
     fn write_binary(

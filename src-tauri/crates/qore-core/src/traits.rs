@@ -27,6 +27,8 @@ pub enum StreamEvent {
     Columns(Vec<ColumnInfo>),
     /// A single data row
     Row(Row),
+    /// A batch of data rows
+    RowBatch(Vec<Row>),
     /// Error occurred during streaming
     Error(String),
     /// Streaming complete. Contains affected rows count if applicable.

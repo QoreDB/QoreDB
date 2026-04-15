@@ -600,6 +600,7 @@ impl DataEngine for SqliteDriver {
         let mut columns_sent = false;
         let mut row_count = 0;
         let mut stream_error: Option<String> = None;
+        let mut batch = Vec::with_capacity(500);
 
         while let Some(item) = stream.next().await {
             match item {
@@ -613,10 +614,14 @@ impl DataEngine for SqliteDriver {
                     }
 
                     let row = Self::convert_row(&sqlite_row);
-                    if sender.send(StreamEvent::Row(row)).await.is_err() {
-                        break;
-                    }
+                    batch.push(row);
                     row_count += 1;
+                    
+                    if batch.len() >= 500 {
+                        if sender.send(StreamEvent::RowBatch(std::mem::take(&mut batch))).await.is_err() {
+                            break;
+                        }
+                    }
                 }
                 Err(e) => {
                     let error_msg = e.to_string();
@@ -625,6 +630,10 @@ impl DataEngine for SqliteDriver {
                     break;
                 }
             }
+        }
+
+        if !batch.is_empty() {
+             let _ = sender.send(StreamEvent::RowBatch(batch)).await;
         }
 
         if stream_error.is_none() {

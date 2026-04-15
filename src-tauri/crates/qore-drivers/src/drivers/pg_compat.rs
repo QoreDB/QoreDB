@@ -425,6 +425,7 @@ pub async fn execute_stream_in_namespace(
     let mut row_count = 0;
     let mut stream_error: Option<String> = None;
     let mut enum_labels: EnumLabelMap = HashMap::new();
+    let mut batch = Vec::with_capacity(500);
 
     while let Some(item) = stream.next().await {
         match item {
@@ -452,10 +453,14 @@ pub async fn execute_stream_in_namespace(
                 }
 
                 let row = convert_row(&pg_row, &enum_labels);
-                if sender.send(StreamEvent::Row(row)).await.is_err() {
-                    break;
-                }
+                batch.push(row);
                 row_count += 1;
+                
+                if batch.len() >= 500 {
+                    if sender.send(StreamEvent::RowBatch(std::mem::take(&mut batch))).await.is_err() {
+                        break;
+                    }
+                }
             }
             Err(e) => {
                 let error_msg = e.to_string();
@@ -464,6 +469,10 @@ pub async fn execute_stream_in_namespace(
                 break;
             }
         }
+    }
+    
+    if !batch.is_empty() {
+        let _ = sender.send(StreamEvent::RowBatch(batch)).await;
     }
 
     {

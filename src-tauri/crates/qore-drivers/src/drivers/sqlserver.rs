@@ -1920,11 +1920,19 @@ async fn stream_select_results(
     }
 
     let row_count = result_set.len() as u64;
+    let mut batch = Vec::with_capacity(500);
+    
     for row in &result_set {
         let qrow = convert_row(row);
-        if sender.send(StreamEvent::Row(qrow)).await.is_err() {
-            return Ok(());
+        batch.push(qrow);
+        if batch.len() >= 500 {
+            if sender.send(StreamEvent::RowBatch(std::mem::take(&mut batch))).await.is_err() {
+                return Ok(());
+            }
         }
+    }
+    if !batch.is_empty() {
+        let _ = sender.send(StreamEvent::RowBatch(batch)).await;
     }
 
     let _ = sender.send(StreamEvent::Done(row_count)).await;

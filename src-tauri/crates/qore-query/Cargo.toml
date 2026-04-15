@@ -9,3 +9,7 @@ description = "Type-safe multi-dialect SQL query builder for QoreDB"
 qore-core = { path = "../qore-core" }
 serde = { workspace = true }
 thiserror = { workspace = true }
+
+[dev-dependencies]
+proptest = "1"
+sqlparser = { workspace = true }

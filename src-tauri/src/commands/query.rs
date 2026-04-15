@@ -418,6 +418,10 @@ pub async fn execute_query(
                         let _ =
                             window_cloned.emit(&format!("query_stream_row:{}", qid_cloned), row);
                     }
+                    StreamEvent::RowBatch(batch) => {
+                        let _ =
+                            window_cloned.emit(&format!("query_stream_row_batch:{}", qid_cloned), batch);
+                    }
                     StreamEvent::Error(e) => {
                         let _ =
                             window_cloned.emit(&format!("query_stream_error:{}", qid_cloned), e);

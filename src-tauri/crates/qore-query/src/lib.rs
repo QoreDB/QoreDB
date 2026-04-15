@@ -69,6 +69,8 @@ pub mod sql_type;
 pub use built::BuiltQuery;
 pub use dialect::Dialect;
 pub use error::{QueryError, QueryResult};
-pub use expr::{cast, coalesce, exists, not_exists};
+pub use expr::{
+    avg, cast, coalesce, count, count_all, count_distinct, exists, max, min, not_exists, sum,
+};
 pub use ident::{col, tcol, Column, IntoOperand};
 pub use sql_type::SqlType;

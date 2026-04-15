@@ -67,6 +67,8 @@ pub struct SelectQuery {
     pub(crate) columns: Vec<SelectItem>,
     pub(crate) joins: Vec<Join>,
     pub(crate) where_: Option<Expr>,
+    pub(crate) group_by: Vec<Expr>,
+    pub(crate) having: Option<Expr>,
     pub(crate) order_by: Vec<OrderItem>,
     pub(crate) limit: Option<u64>,
     pub(crate) offset: Option<u64>,
@@ -181,6 +183,44 @@ impl SelectQuery {
     /// Add a WHERE predicate. Subsequent calls combine with AND.
     pub fn filter(mut self, expr: Expr) -> Self {
         self.where_ = Some(match self.where_ {
+            Some(prev) => prev.and(expr),
+            None => expr,
+        });
+        self
+    }
+
+    /// Add a GROUP BY on a simple column name.
+    pub fn group_by(mut self, name: impl Into<Cow<'static, str>>) -> Self {
+        self.group_by.push(Expr::Column(ColumnRef {
+            name: name.into(),
+            table: None,
+        }));
+        self
+    }
+
+    /// Add a GROUP BY on a table-qualified column.
+    pub fn group_by_qualified(
+        mut self,
+        table: impl Into<Cow<'static, str>>,
+        name: impl Into<Cow<'static, str>>,
+    ) -> Self {
+        self.group_by.push(Expr::Column(ColumnRef {
+            name: name.into(),
+            table: Some(table.into()),
+        }));
+        self
+    }
+
+    /// Add a GROUP BY on an arbitrary expression — e.g. a CAST or a
+    /// function call. Multiple calls are additive (GROUP BY a, b, c).
+    pub fn group_by_expr(mut self, expr: impl IntoOperand) -> Self {
+        self.group_by.push(expr.into_operand());
+        self
+    }
+
+    /// Add a HAVING predicate. Subsequent calls combine with AND.
+    pub fn having(mut self, expr: Expr) -> Self {
+        self.having = Some(match self.having {
             Some(prev) => prev.and(expr),
             None => expr,
         });

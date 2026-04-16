@@ -25,6 +25,7 @@ pub async fn execute_federation_query(
     _query: String,
     _alias_map: HashMap<String, String>,
     _options: Option<serde_json::Value>,
+    _on_stream: tauri::ipc::Channel<tauri::ipc::InvokeResponseBody>,
 ) -> Result<FederationQueryResponse, String> {
     Err(PRO_REQUIRED.to_string())
 }
@@ -74,11 +75,13 @@ pub struct SourceFetchInfo {
 use std::sync::Arc;
 
 #[cfg(feature = "pro")]
-use tauri::Emitter;
+use tauri::ipc::{Channel, InvokeResponseBody};
 
 #[cfg(feature = "pro")]
 use uuid::Uuid;
 
+#[cfg(feature = "pro")]
+use crate::commands::stream_msg::dispatch_stream_event;
 #[cfg(feature = "pro")]
 use crate::engine::traits::StreamEvent;
 #[cfg(feature = "pro")]
@@ -110,6 +113,7 @@ pub async fn execute_federation_query(
     query: String,
     alias_map: HashMap<String, String>,
     options: Option<FederationQueryOptions>,
+    on_stream: Channel<InvokeResponseBody>,
 ) -> Result<FederationQueryResponse, String> {
     let options = options.unwrap_or(FederationQueryOptions {
         timeout_ms: None,
@@ -158,29 +162,14 @@ pub async fn execute_federation_query(
             .await
         });
 
-        // Spawn the event forwarder
+        // Spawn the event forwarder — uses the Tauri Channel (MessagePack)
+        // path, identical to the primary execute_query command.
         let window_clone = window.clone();
         let qid = query_id.clone();
+        let channel_clone = on_stream.clone();
         tokio::spawn(async move {
             while let Some(event) = rx.recv().await {
-                match event {
-                    StreamEvent::Columns(cols) => {
-                        let _ = window_clone.emit(&format!("query_stream_columns:{qid}"), &cols);
-                    }
-                    StreamEvent::Row(row) => {
-                        let _ = window_clone.emit(&format!("query_stream_row:{qid}"), &row);
-                    }
-                    StreamEvent::RowBatch(batch) => {
-                        let _ = window_clone
-                            .emit(&format!("query_stream_row_batch:{qid}"), &batch);
-                    }
-                    StreamEvent::Error(err) => {
-                        let _ = window_clone.emit(&format!("query_stream_error:{qid}"), &err);
-                    }
-                    StreamEvent::Done(count) => {
-                        let _ = window_clone.emit(&format!("query_stream_done:{qid}"), &count);
-                    }
-                }
+                dispatch_stream_event(event, Some(&channel_clone), &window_clone, &qid);
             }
         });
 

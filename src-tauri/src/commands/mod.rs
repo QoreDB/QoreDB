@@ -19,6 +19,7 @@ pub mod mutation;
 pub mod policy;
 pub mod query;
 pub mod routines;
+pub mod stream_msg;
 pub mod sandbox;
 pub mod sequences;
 pub mod schema_export;

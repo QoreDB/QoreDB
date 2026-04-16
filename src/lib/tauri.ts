@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { decode as msgpackDecode } from '@msgpack/msgpack';
 /**
  * Tauri API wrappers for type-safe invocations
  */
-import { invoke } from '@tauri-apps/api/core';
+import { Channel, invoke } from '@tauri-apps/api/core';
 
 // ============================================
 // TYPES
@@ -267,6 +268,58 @@ export async function setSafetyPolicy(policy: SafetyPolicy): Promise<SafetyPolic
 // QUERY COMMANDS
 // ============================================
 
+/**
+ * Handlers for streaming query events. When provided to `executeQuery` with
+ * `stream: true`, the wrapper creates a Tauri Channel, receives MessagePack-
+ * encoded events from the backend, and invokes the handlers directly. This
+ * bypasses JSON entirely for large row batches.
+ */
+export interface QueryStreamHandlers {
+  onColumns?: (cols: ColumnInfo[]) => void;
+  onRow?: (row: Row) => void;
+  onRowBatch?: (rows: Row[]) => void;
+  onError?: (message: string) => void;
+  onDone?: (affectedRows: number) => void;
+}
+
+interface StreamMsgEnvelope {
+  t: 'c' | 'r' | 'rb' | 'e' | 'd';
+  v: unknown;
+}
+
+export function createStreamChannel(handlers: QueryStreamHandlers): Channel<ArrayBuffer> {
+  const channel = new Channel<ArrayBuffer>();
+  channel.onmessage = payload => {
+    // Backend sent InvokeResponseBody::Raw(bytes); payload is an ArrayBuffer
+    // (or similar BufferSource depending on the runtime).
+    let msg: StreamMsgEnvelope;
+    try {
+      msg = msgpackDecode(payload as ArrayBuffer) as StreamMsgEnvelope;
+    } catch (err) {
+      console.warn('failed to decode stream message', err);
+      return;
+    }
+    switch (msg.t) {
+      case 'c':
+        handlers.onColumns?.(msg.v as ColumnInfo[]);
+        break;
+      case 'rb':
+        handlers.onRowBatch?.(msg.v as Row[]);
+        break;
+      case 'r':
+        handlers.onRow?.(msg.v as Row);
+        break;
+      case 'e':
+        handlers.onError?.(msg.v as string);
+        break;
+      case 'd':
+        handlers.onDone?.(msg.v as number);
+        break;
+    }
+  };
+  return channel;
+}
+
 export async function executeQuery(
   sessionId: string,
   query: string,
@@ -276,6 +329,7 @@ export async function executeQuery(
     stream?: boolean;
     queryId?: string;
     namespace?: Namespace;
+    streamHandlers?: QueryStreamHandlers;
   }
 ): Promise<{
   success: boolean;
@@ -285,6 +339,10 @@ export async function executeQuery(
   truncated?: boolean;
   truncated_total?: number;
 }> {
+  // The Rust command always expects an `on_stream` Channel — even for
+  // non-streaming calls the arg is required. Create one with the caller's
+  // handlers (empty object if none).
+  const channel = createStreamChannel(options?.streamHandlers ?? {});
   return invoke('execute_query', {
     sessionId,
     query,
@@ -293,6 +351,7 @@ export async function executeQuery(
     queryId: options?.queryId,
     timeoutMs: options?.timeoutMs,
     stream: options?.stream,
+    onStream: channel,
   });
 }
 
@@ -1761,7 +1820,7 @@ export async function getTableTimeline(
     primaryKeySearch?: string;
     limit?: number;
     offset?: number;
-  },
+  }
 ): Promise<{
   success: boolean;
   events: TimelineEvent[];
@@ -1789,7 +1848,7 @@ export async function getRowHistory(
   schema: string | null,
   tableName: string,
   primaryKey: Record<string, unknown>,
-  limit?: number,
+  limit?: number
 ): Promise<{
   success: boolean;
   entries: ChangelogEntry[];
@@ -1804,7 +1863,7 @@ export async function computeTemporalDiff(
   tableName: string,
   timestampFrom: string,
   timestampTo: string,
-  limit?: number,
+  limit?: number
 ): Promise<{
   success: boolean;
   diff: TemporalDiff | null;
@@ -1825,7 +1884,7 @@ export async function getRowStateAt(
   schema: string | null,
   tableName: string,
   primaryKey: Record<string, unknown>,
-  timestamp: string,
+  timestamp: string
 ): Promise<{
   success: boolean;
   state: Record<string, unknown> | null;
@@ -1840,7 +1899,7 @@ export async function generateRollbackSql(
   schema: string | null,
   tableName: string,
   targetTimestamp: string,
-  driverId: string,
+  driverId: string
 ): Promise<RollbackSqlResponse> {
   return invoke('generate_rollback_sql', {
     database,
@@ -1853,7 +1912,7 @@ export async function generateRollbackSql(
 
 export async function generateEntryRollbackSql(
   entryId: string,
-  driverId: string,
+  driverId: string
 ): Promise<RollbackSqlResponse> {
   return invoke('generate_entry_rollback_sql', { entryId, driverId });
 }
@@ -1866,9 +1925,7 @@ export async function getTimeTravelConfig(): Promise<{
   return invoke('get_time_travel_config');
 }
 
-export async function updateTimeTravelConfig(
-  config: TimeTravelConfig,
-): Promise<{
+export async function updateTimeTravelConfig(config: TimeTravelConfig): Promise<{
   success: boolean;
   config: TimeTravelConfig;
   error: string | null;
@@ -1879,7 +1936,7 @@ export async function updateTimeTravelConfig(
 export async function clearTableChangelog(
   database: string,
   schema: string | null,
-  tableName: string,
+  tableName: string
 ): Promise<{ success: boolean; error: string | null }> {
   return invoke('clear_table_changelog', { database, schema, tableName });
 }

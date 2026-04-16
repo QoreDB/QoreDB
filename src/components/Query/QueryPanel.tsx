@@ -7,7 +7,7 @@ import { AiAssistantPanel } from '@/components/AI/AiAssistantPanel';
 import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
 import { createNotebookTab } from '@/lib/tabs';
 import { UI_EVENT_OPEN_HISTORY } from '@/lib/uiEvents';
-import { useTabContext } from '@/providers/TabProvider';
+import { useTabActions } from '@/providers/TabProvider';
 import { forceRefreshCache } from '../../hooks/useSchemaCache';
 import { useTourManager } from '../../hooks/useTourManager';
 import { getQueryDialect, isDocumentDatabase } from '../../lib/driverCapabilities';
@@ -130,7 +130,7 @@ export function QueryPanel({
   aiTableContext,
 }: QueryPanelProps) {
   const { t } = useTranslation();
-  const { openTab } = useTabContext();
+  const { openTab } = useTabActions();
   const isDocument = isDocumentDatabase(dialect);
   const queryDialect = getQueryDialect(dialect);
   const defaultQuery = getDefaultQuery(isDocument);

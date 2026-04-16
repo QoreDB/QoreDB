@@ -4,6 +4,7 @@
 
 ## Table des matières
 
+0. [État d'avancement — MVP v0.1](#0-état-davancement--mvp-v01)
 1. [Vision et objectifs](#1-vision-et-objectifs)
 2. [Structure du crate `qore-query`](#2-structure-du-crate-qore-query)
 3. [Modèle de données — `Column`, `Expr`, `Value`](#3-modèle-de-données)
@@ -14,6 +15,59 @@
 8. [Pièges et points d'attention](#8-pièges)
 9. [Stratégie de tests](#9-tests)
 10. [Roadmap vers Phase 3 (ORM)](#10-roadmap-phase-3-après-le-mvp)
+11. [Plan de reprise — v0.2 et au-delà](#11-plan-de-reprise--v02-et-au-delà)
+
+---
+
+## 0. État d'avancement — MVP v0.1
+
+> **Statut global : MVP v0.1 ✅ TERMINÉ** sur la branche `feat/core-extraction`.
+> Le crate `qore-query` compile, tests verts, clippy strict clean.
+> **Aucune intégration dans l'app QoreDB à ce jour** — c'est v0.2+ (cf. §11).
+
+### Deliverables vs plan initial
+
+| Semaine | Plan initial | Livré | Divergences notables |
+| --- | --- | --- | --- |
+| Sem 1 | Squelette crate + `Column<T>` + `Expr` de base | ✅ | — |
+| Sem 2 | `SelectQuery` + WHERE + `SqlCompiler` | ✅ | — |
+| Sem 3 | 4 dialectes + placeholders | ✅ + DuckDB (5ᵉ) | Trait `DialectOps` introduit, alias CockroachDB + MariaDB via `from_driver_id` |
+| Sem 4 | JOINs + ORDER BY + LIMIT/OFFSET | ✅ | Trait `IntoOperand` introduit pour accepter colonnes/subqueries/littéraux uniformément |
+| Sem 5 | Opérateurs complets | ✅ + text helpers | `starts_with`/`ends_with`/`contains` avec `ESCAPE '\\'` portable ; `and_all`/`or_any` combinators ; refactor `LIKE` vers `Expr::Like` avec flag `case_insensitive` + `escape` |
+| Sem 6 | Subqueries + CAST + COALESCE + alias | ✅ | Macro `coalesce!` pour args hétérogènes ; `FromSource` enum Table\|Subquery ; `SelectItem::Projection` unifié |
+| Sem 7 | Aggregates + GROUP BY/HAVING + proptest + doc | ✅ | 6 fonctions libres (`count`/`count_all`/`count_distinct`/`sum`/`avg`/`min`/`max`) ; validation stricte "HAVING sans GROUP BY" |
+
+### Surface API livrée
+
+- **5 dialectes** : Postgres, MySQL/MariaDB, SQLite, SQL Server, DuckDB (7/9 drivers QoreDB couverts)
+- **12 variants `Expr`** : Column, Literal, Binary, Unary, InList, Between, Like, Subquery, InSubquery, Exists, Cast, Coalesce, Aggregate, CountStar
+- **18 méthodes `Column<T>`** : eq/ne/gt/ge/lt/le, like/ilike, starts_with/ends_with/contains, is_null/is_not_null, in_/not_in/between, in_sub/not_in_sub, cast
+- **27 méthodes `SelectQuery`** : from/from_as/from_subquery, all/columns/column/column_as/select_expr/select_expr_as, filter, group_by/group_by_qualified/group_by_expr, having, order_by/order_by_qualified/order_by_nulls, limit/offset, 4×(inner/left/right/full)_join(_as), build
+- **13 fonctions libres** : col/tcol, cast/coalesce/coalesce!, exists/not_exists, count/count_all/count_distinct/sum/avg/min/max
+- **6 variants `QueryError`** : MissingFrom, EmptyProjection, InvalidLiteral, InvalidExpr, Unsupported, MssqlOffsetRequiresOrderBy, AstTooDeep, TooManyParameters
+- **Bornes de sécurité** : `MAX_AST_DEPTH = 1024`, `MAX_PARAMS = 65_535`
+
+### Tests
+
+- **107 unit/integration** sur 8 fichiers
+- **3 proptest** × 256 cases/property = ~768 vérifs par run (compilation totale, SQL re-parseable via `sqlparser`, `params.len() == nb_placeholders`)
+- **4 doctests** (incl. exemple headline de `lib.rs` et `coalesce!` macro)
+- **`cargo clippy -p qore-query --all-targets -- -D warnings`** clean
+
+### Topologie
+
+```text
+qore-core  ← types universels (Value, RowData, DataEngine trait)
+   ↑
+qore-query ← query builder (CETTE PHASE, standalone, zéro dep app)
+   ↑
+(futur) qore-orm ← macros derive Model, hydratation (Phase 3)
+
+qore-sql   ← outils SQL pour sandbox (indépendant de qore-query)
+qore-drivers ← implémentations Postgres/MySQL/… (indépendant)
+```
+
+**`qore-query` ne dépend que de `qore-core`.** Aucune dépendance circulaire, pas de couplage avec les drivers ni avec qore-sql.
 
 ---
 
@@ -353,15 +407,201 @@ SEMAINE 7
   [ ] Commit final + merge
 ```
 
-## Annexe B — Dialectes : matrice des spécificités
+## Annexe B — Dialectes : matrice des spécificités (livrées MVP + à venir)
 
-| Feature | PG | MySQL | SQLite | MSSQL |
-| --- | --- | --- | --- | --- |
-| Placeholder | `$N` | `?` | `?` | `@pN` |
-| Quote ident | `"x"` | `` `x` `` | `"x"` | `[x]` |
-| `ILIKE` | natif | fallback `LOWER LIKE LOWER` | fallback idem | fallback idem |
-| `RIGHT JOIN` | ✅ | ✅ | ❌ | ✅ |
-| `FULL JOIN` | ✅ | ❌ | ❌ | ✅ |
-| `LIMIT` | ✅ | ✅ | ✅ | ❌ (`OFFSET..FETCH`) |
-| `RETURNING` | ✅ | ❌ | ✅ | `OUTPUT` |
-| Array type | ✅ | ❌ | ❌ | ❌ |
+| Feature | PG | MySQL | SQLite | MSSQL | DuckDB |
+| --- | --- | --- | --- | --- | --- |
+| Placeholder | `$N` | `?` | `?` | `@pN` | `?` |
+| Quote ident | `"x"` | `` `x` `` | `"x"` | `[x]` | `"x"` |
+| `ILIKE` natif | ✅ | ❌ (fallback `LOWER`) | ❌ | ❌ | ✅ |
+| `RIGHT JOIN` | ✅ | ✅ | ❌ | ✅ | ✅ |
+| `FULL JOIN` | ✅ | ❌ | ❌ | ✅ | ✅ |
+| `LIMIT n OFFSET m` | ✅ | ✅ | ✅ | ❌ (`OFFSET..FETCH`) | ✅ |
+| `NULLS FIRST/LAST` natif | ✅ | ❌ (CASE WHEN) | ✅ | ❌ (CASE WHEN) | ✅ |
+| `ESCAPE '\'` LIKE | ✅ | ✅ | ✅ (émis) | ✅ (émis) | ✅ |
+| `RETURNING` | ✅ | ❌ | ✅ | `OUTPUT` | ✅ |
+| Array type | ✅ | ❌ | ❌ | ❌ | ✅ |
+
+### CAST — rendu par dialecte
+
+| `SqlType` | PG | MySQL | SQLite | MSSQL | DuckDB |
+| --- | --- | --- | --- | --- | --- |
+| `Int` | `INT` | `SIGNED` | `INTEGER` | `INT` | `INTEGER` |
+| `BigInt` | `BIGINT` | `SIGNED` | `INTEGER` | `BIGINT` | `BIGINT` |
+| `Real` | `REAL` | `FLOAT` | `REAL` | `REAL` | `REAL` |
+| `Double` | `DOUBLE PRECISION` | `DOUBLE` | `REAL` | `FLOAT` | `DOUBLE` |
+| `Text` | `TEXT` | `CHAR` | `TEXT` | `NVARCHAR(MAX)` | `VARCHAR` |
+| `Bool` | `BOOLEAN` | `SIGNED` | `INTEGER` | `BIT` | `BOOLEAN` |
+| `Date` | `DATE` | `DATE` | `TEXT` | `DATE` | `DATE` |
+| `Timestamp` | `TIMESTAMP` | `DATETIME` | `TEXT` | `DATETIME2` | `TIMESTAMP` |
+| `Blob` | `BYTEA` | `BINARY` | `BLOB` | `VARBINARY(MAX)` | `BLOB` |
+
+---
+
+## 11. Plan de reprise — v0.2 et au-delà
+
+> **Point d'entrée pour reprise de la tâche après merge `feat/core-extraction` → `main`.**
+> Cette section décrit ce qui reste, ordonné par valeur et dépendances.
+
+### 11.1 Intégration `qore-query` dans l'app (priorité 1 dès reprise)
+
+Le MVP v0.1 est une lib pure. **Avant d'ajouter de nouvelles features, valider l'API par une intégration réelle.**
+
+**Étapes recommandées** :
+
+1. **Ajouter la dépendance** :
+   ```toml
+   # src-tauri/Cargo.toml
+   [dependencies]
+   qore-query = { path = "crates/qore-query" }
+   ```
+
+2. **Premier usage candidat — pagination du browser** :
+   - Cibler `src-tauri/src/commands/query.rs` où un SELECT paramétré est construit pour afficher une page du tableau
+   - Remplacer la construction string actuelle par `Query::select().from(table).all().limit(n).offset(page*n).build(dialect)`
+   - `Dialect::from_driver_id(driver_id)` pour choisir le bon dialecte depuis l'`EngineContext`
+   - Valider par tests manuels (Tauri dev + connexion PG/MySQL/SQLite)
+
+3. **Deuxième usage — filtres du browser** :
+   - Les filtres utilisateur (UI `BrowserFilterBar`) génèrent aujourd'hui des clauses WHERE à la main
+   - Mapper sur `col("x").eq/gt/lt/like/contains(...)` avec `Expr::and_all` pour combiner
+   - Bonus sécurité : `contains()` évitera le bug actuel "`%` dans la recherche = wildcard" (cf. Semaine 5)
+
+4. **Critère de succès v0.2-integration** :
+   - Zéro `format!("SELECT ... WHERE {}", user_input)` restant dans `commands/query.rs`
+   - Les filtres ne casse plus sur `%`/`_`/`'` dans le champ de recherche
+   - Aucune régression des E2E Postgres/MySQL/SQLite
+
+### 11.2 Mutations — INSERT / UPDATE / DELETE (v0.2 core)
+
+Pré-requis : §11.1 terminée (API validée par usage).
+
+**Scope** :
+
+- `Query::insert().into("t").values(cols_values)` → `INSERT INTO t (c1, c2) VALUES ($1, $2)`
+- `.values_many(rows)` pour bulk insert
+- `.on_conflict(strategy)` — `DoNothing`, `DoUpdate { set, where_? }` (Postgres `ON CONFLICT`, MySQL `ON DUPLICATE KEY`, SQLite `ON CONFLICT`, MSSQL via `MERGE`)
+- `.returning([cols])` pour Postgres/SQLite/DuckDB ; fallback explicit error sur MySQL/MSSQL ou émission `OUTPUT` pour MSSQL
+- `Query::update("t").set([(col, val), ...]).filter(expr)` → `UPDATE t SET c1 = $1, c2 = $2 WHERE ...`
+- `Query::delete_from("t").filter(expr)` → `DELETE FROM t WHERE ...`
+
+**Nouvelles variantes AST** :
+- `InsertQuery`, `UpdateQuery`, `DeleteQuery` structs
+- Trait `QueryCompiler` étendu : `compile_insert`, `compile_update`, `compile_delete`
+
+**Point d'intégration app** : remplacer une partie de `qore_sql::generator` côté sandbox (migrations INSERT/UPDATE/DELETE) par `qore-query` en parallèle, puis supprimer le code legacy.
+
+**Estimation** : 4-6 semaines.
+
+### 11.3 Exécution — `.fetch()` / `.stream()` (v0.3)
+
+Jusqu'ici `BuiltQuery { sql, params }` est passif. Étape suivante : permettre au builder de consommer directement un `&dyn DataEngine` :
+
+```rust
+let rows: Vec<RowData> = Query::select()....build(dialect)?
+    .fetch(&engine)
+    .await?;
+
+// Streaming pour gros résultats
+let mut stream = built_query.stream(&engine).await?;
+while let Some(row) = stream.next().await { ... }
+```
+
+**Pré-requis** :
+- Pont `Value → driver bind type` (ex: `sqlx::Value`, `tiberius::ColumnData`) — probablement dans `qore-drivers` ou nouveau `qore-bind`
+- Pont inverse `driver row → RowData` — déjà existant côté `qore-drivers::drivers/*`
+
+**Décision architecturale à prendre** : le trait `DataEngine::execute(sql, params)` prend-il `&[Value]` ou un type plus rich ? Aujourd'hui les drivers construisent leurs binds depuis `Vec<Value>`, donc ça devrait couler naturellement.
+
+**Estimation** : 2-3 semaines.
+
+### 11.4 Constructions SQL avancées (v0.3)
+
+Par valeur pour les cas d'usage data-analyst :
+
+- **CTE** : `Query::with("active_users", inner_query).select()...`
+- **UNION / INTERSECT / EXCEPT** : `q1.union(q2)` / `union_all`
+- **Window functions** : `ROW_NUMBER() OVER (PARTITION BY x ORDER BY y)` — lourd, probablement Phase 3
+- **`DISTINCT`** au niveau projection (pas que sur COUNT)
+- **`CASE WHEN … ELSE … END`** comme expression first-class
+
+**Estimation** : 3-4 semaines pour CTE + UNION + DISTINCT + CASE.
+
+### 11.5 Mongo — `MongoCompiler` (v0.5)
+
+NoSQL. Implémente un **second** trait (pas `SqlCompiler`) qui produit des pipelines d'agrégation BSON :
+
+```rust
+pub trait MongoCompiler {
+    fn compile_select_to_pipeline(&self, q: &SelectQuery) -> Result<MongoPipeline, QueryError>;
+}
+```
+
+Même AST côté user — le builder `Query::select()...` reste identique. Le compile diffère.
+
+**Pré-requis** : MongoDB intégré dans `qore-drivers` (déjà le cas).
+
+**Décision à prendre** : Redis n'aura pas de query builder (API commands directe). Documenter dans lib.rs.
+
+**Estimation** : 4-8 semaines selon ambition (agrégation Mongo riche ou sous-ensemble).
+
+### 11.6 Phase 3 — `qore-orm` (séparé)
+
+Phase 3 vient après v0.4 stable. Macros derive, typed column refs, relations, hydratation. Voir §10.
+
+---
+
+### Ordre recommandé pour la reprise
+
+```
+MVP v0.1 ✅ (fait)
+   │
+   ▼
+§11.1 Intégration app (2-3 sem) ← COMMENCER ICI
+   │
+   ▼
+§11.2 INSERT/UPDATE/DELETE (4-6 sem)
+   │
+   ├──▶ §11.3 fetch/stream (2-3 sem, peut être parallèle)
+   │
+   ▼
+§11.4 CTE / UNION / CASE (3-4 sem)
+   │
+   ├──▶ §11.5 MongoCompiler (indépendant)
+   │
+   ▼
+Phase 3 — qore-orm (séparé, 3-6 mois)
+```
+
+**Rétro-coupe-file** : à chaque reprise, commencer par relire §0 (état d'avancement) et §11 (plan). Le reste du document documente le **design** — utile pour onboarding mais pas pour l'exécution quotidienne.
+
+---
+
+### Fichiers clés pour la reprise
+
+| Besoin | Fichier |
+| --- | --- |
+| Ajouter un variant `Expr` | `crates/qore-query/src/expr/mod.rs` + `src/compiler/sql.rs` (match arm) |
+| Ajouter un dialecte | `crates/qore-query/src/dialect.rs` + `src/compiler/<nom>.rs` |
+| Ajouter une méthode Column | `crates/qore-query/src/ident.rs` |
+| Ajouter une méthode SelectQuery | `crates/qore-query/src/query/select.rs` |
+| Ajouter une capability DialectOps | `crates/qore-query/src/compiler/mod.rs` (trait def) + override chaque dialecte |
+| Nouveau type d'erreur | `crates/qore-query/src/error.rs` |
+| Tests | `crates/qore-query/tests/<feature>.rs` (1 fichier par thème) |
+
+### Commandes utiles
+
+```bash
+# Dev cycle
+cd src-tauri
+cargo check -p qore-query
+cargo test -p qore-query
+cargo clippy -p qore-query --all-targets -- -D warnings
+
+# Vérifier que rien ne casse workspace-wide
+cargo check --workspace
+cargo test --workspace  # certains tests exigent Docker (docker-compose up -d)
+
+# Voir la surface publique
+cargo doc -p qore-query --no-deps --open
+```

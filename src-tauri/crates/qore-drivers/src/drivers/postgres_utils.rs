@@ -242,15 +242,50 @@ pub(crate) fn bind_param<'q>(
     }
 }
 
-/// Converts a SQLx row to the universal Row type
-pub(crate) fn convert_row(pg_row: &PgRow, enum_labels: &EnumLabelMap) -> QRow {
-    let values: Vec<Value> = pg_row
-        .columns()
-        .iter()
-        .map(|col| extract_value(pg_row, col.ordinal(), enum_labels))
-        .collect();
-
+/// Hot-path conversion using a precomputed per-column decoder.
+pub(crate) fn convert_row_with_decoders(
+    pg_row: &PgRow,
+    decoders: &[PgDecoder],
+    enum_labels: &EnumLabelMap,
+) -> QRow {
+    let mut values = Vec::with_capacity(decoders.len());
+    for (idx, decoder) in decoders.iter().enumerate() {
+        values.push(decoder.decode(pg_row, idx, enum_labels));
+    }
     QRow { values }
+}
+
+pub(crate) fn columns_and_rows(
+    pg_rows: &[PgRow],
+    enum_labels: &EnumLabelMap,
+) -> (Vec<ColumnInfo>, Vec<QRow>) {
+    if pg_rows.is_empty() {
+        return (Vec::new(), Vec::new());
+    }
+    let columns = get_column_info(&pg_rows[0]);
+    let decoders = build_decoders(pg_rows[0].columns());
+    let rows = pg_rows
+        .iter()
+        .map(|r| convert_row_with_decoders(r, &decoders, enum_labels))
+        .collect();
+    (columns, rows)
+}
+
+/// Inspect column type info once per result to pick a fast decoder per column.
+pub(crate) fn build_decoders(columns: &[PgColumn]) -> Vec<PgDecoder> {
+    columns
+        .iter()
+        .map(|col| {
+            let type_info = col.type_info();
+            match type_info.kind() {
+                PgTypeKind::Enum(_) => PgDecoder::Fallback,
+                PgTypeKind::Array(elem) if matches!(elem.kind(), PgTypeKind::Enum(_)) => {
+                    PgDecoder::Fallback
+                }
+                _ => PgDecoder::for_type(type_info.name()),
+            }
+        })
+        .collect()
 }
 
 /// Extracts a value from a PgRow at the given index
@@ -471,4 +506,238 @@ pub(crate) fn get_column_info(row: &PgRow) -> Vec<ColumnInfo> {
             nullable: true,
         })
         .collect()
+}
+
+/// Per-column typed decoder. Built once per result from `type_info().name()`;
+#[derive(Clone, Copy)]
+pub(crate) enum PgDecoder {
+    Int8,
+    Int4,
+    Int2,
+    Bool,
+    Float8,
+    Float4,
+    Numeric,
+    Uuid,
+    Text,
+    Bytea,
+    Json,
+    TimestampTz,
+    Timestamp,
+    Date,
+    Time,
+    ArrayInt8,
+    ArrayInt4,
+    ArrayFloat8,
+    ArrayFloat4,
+    ArrayBool,
+    ArrayText,
+    ArrayUuid,
+    ArrayJson,
+    Fallback,
+}
+
+impl PgDecoder {
+    fn for_type(name: &str) -> Self {
+        // sqlx's Postgres type_info().name() returns names like "INT4", "BOOL",
+        // "VARCHAR", "_INT4" for arrays. Unknown names → Fallback.
+        match name {
+            "INT8" | "BIGSERIAL" => Self::Int8,
+            "INT4" | "SERIAL" | "OID" => Self::Int4,
+            "INT2" | "SMALLSERIAL" => Self::Int2,
+            "BOOL" => Self::Bool,
+            "FLOAT8" => Self::Float8,
+            "FLOAT4" => Self::Float4,
+            "NUMERIC" | "MONEY" => Self::Numeric,
+            "UUID" => Self::Uuid,
+            "TEXT" | "VARCHAR" | "CHAR" | "BPCHAR" | "NAME" | "CITEXT" => Self::Text,
+            "BYTEA" => Self::Bytea,
+            "JSON" | "JSONB" => Self::Json,
+            "TIMESTAMPTZ" => Self::TimestampTz,
+            "TIMESTAMP" => Self::Timestamp,
+            "DATE" => Self::Date,
+            "TIME" | "TIMETZ" => Self::Time,
+            // Arrays are named with a "_" prefix in Postgres catalog; sqlx
+            // surfaces them either as "_INT4" / "_TEXT" / ... or (depending
+            // on version) "INT4[]" / "TEXT[]".
+            "INT8[]" | "_INT8" => Self::ArrayInt8,
+            "INT4[]" | "_INT4" | "OID[]" | "_OID" => Self::ArrayInt4,
+            "FLOAT8[]" | "_FLOAT8" => Self::ArrayFloat8,
+            "FLOAT4[]" | "_FLOAT4" => Self::ArrayFloat4,
+            "BOOL[]" | "_BOOL" => Self::ArrayBool,
+            "TEXT[]" | "_TEXT" | "VARCHAR[]" | "_VARCHAR" => Self::ArrayText,
+            "UUID[]" | "_UUID" => Self::ArrayUuid,
+            "JSON[]" | "_JSON" | "JSONB[]" | "_JSONB" => Self::ArrayJson,
+            _ => Self::Fallback,
+        }
+    }
+
+    fn decode(self, row: &PgRow, idx: usize, enum_labels: &EnumLabelMap) -> Value {
+        match self {
+            Self::Int8 => match row.try_get::<Option<i64>, _>(idx) {
+                Ok(Some(v)) => Value::Int(v),
+                Ok(None) => Value::Null,
+                Err(_) => extract_value(row, idx, enum_labels),
+            },
+            Self::Int4 => match row.try_get::<Option<i32>, _>(idx) {
+                Ok(Some(v)) => Value::Int(v as i64),
+                Ok(None) => Value::Null,
+                Err(_) => extract_value(row, idx, enum_labels),
+            },
+            Self::Int2 => match row.try_get::<Option<i16>, _>(idx) {
+                Ok(Some(v)) => Value::Int(v as i64),
+                Ok(None) => Value::Null,
+                Err(_) => extract_value(row, idx, enum_labels),
+            },
+            Self::Bool => match row.try_get::<Option<bool>, _>(idx) {
+                Ok(Some(v)) => Value::Bool(v),
+                Ok(None) => Value::Null,
+                Err(_) => extract_value(row, idx, enum_labels),
+            },
+            Self::Float8 => match row.try_get::<Option<f64>, _>(idx) {
+                Ok(Some(f)) => {
+                    if f.is_finite() {
+                        Value::Float(f)
+                    } else {
+                        Value::Text(f.to_string())
+                    }
+                }
+                Ok(None) => Value::Null,
+                Err(_) => extract_value(row, idx, enum_labels),
+            },
+            Self::Float4 => match row.try_get::<Option<f32>, _>(idx) {
+                Ok(Some(f)) => {
+                    let f64_val = f as f64;
+                    if f64_val.is_finite() {
+                        Value::Float(f64_val)
+                    } else {
+                        Value::Text(f.to_string())
+                    }
+                }
+                Ok(None) => Value::Null,
+                Err(_) => extract_value(row, idx, enum_labels),
+            },
+            Self::Numeric => {
+                // NUMERIC decodes to BigDecimal; try it first, then Decimal as
+                // a secondary path (some sqlx versions accept either).
+                match row.try_get::<Option<BigDecimal>, _>(idx) {
+                    Ok(Some(d)) => match d.to_f64() {
+                        Some(f) if f.is_finite() => Value::Float(f),
+                        _ => Value::Text(d.to_string()),
+                    },
+                    Ok(None) => Value::Null,
+                    Err(_) => match row.try_get::<Option<Decimal>, _>(idx) {
+                        Ok(Some(d)) => {
+                            use rust_decimal::prelude::ToPrimitive;
+                            match d.to_f64() {
+                                Some(f) if f.is_finite() => Value::Float(f),
+                                _ => Value::Text(d.to_string()),
+                            }
+                        }
+                        Ok(None) => Value::Null,
+                        Err(_) => extract_value(row, idx, enum_labels),
+                    },
+                }
+            }
+            Self::Uuid => match row.try_get::<Option<Uuid>, _>(idx) {
+                Ok(Some(v)) => Value::Text(v.to_string()),
+                Ok(None) => Value::Null,
+                Err(_) => extract_value(row, idx, enum_labels),
+            },
+            Self::Text => match row.try_get::<Option<String>, _>(idx) {
+                Ok(Some(v)) => Value::Text(v),
+                Ok(None) => Value::Null,
+                Err(_) => extract_value(row, idx, enum_labels),
+            },
+            Self::Bytea => match row.try_get::<Option<Vec<u8>>, _>(idx) {
+                Ok(Some(v)) => Value::Bytes(v),
+                Ok(None) => Value::Null,
+                Err(_) => extract_value(row, idx, enum_labels),
+            },
+            Self::Json => match row.try_get::<Option<serde_json::Value>, _>(idx) {
+                Ok(Some(v)) => Value::Json(v),
+                Ok(None) => Value::Null,
+                Err(_) => extract_value(row, idx, enum_labels),
+            },
+            Self::TimestampTz => {
+                if let Ok(opt) = row.try_get::<Option<chrono::DateTime<chrono::Utc>>, _>(idx) {
+                    return opt
+                        .map(|dt| Value::Text(dt.to_rfc3339()))
+                        .unwrap_or(Value::Null);
+                }
+                if let Ok(opt) =
+                    row.try_get::<Option<chrono::DateTime<chrono::FixedOffset>>, _>(idx)
+                {
+                    return opt
+                        .map(|dt| Value::Text(dt.to_rfc3339()))
+                        .unwrap_or(Value::Null);
+                }
+                extract_value(row, idx, enum_labels)
+            }
+            Self::Timestamp => match row.try_get::<Option<chrono::NaiveDateTime>, _>(idx) {
+                Ok(Some(v)) => Value::Text(v.format("%Y-%m-%d %H:%M:%S").to_string()),
+                Ok(None) => Value::Null,
+                Err(_) => extract_value(row, idx, enum_labels),
+            },
+            Self::Date => match row.try_get::<Option<chrono::NaiveDate>, _>(idx) {
+                Ok(Some(v)) => Value::Text(v.format("%Y-%m-%d").to_string()),
+                Ok(None) => Value::Null,
+                Err(_) => extract_value(row, idx, enum_labels),
+            },
+            Self::Time => match row.try_get::<Option<chrono::NaiveTime>, _>(idx) {
+                Ok(Some(v)) => Value::Text(v.format("%H:%M:%S").to_string()),
+                Ok(None) => Value::Null,
+                Err(_) => extract_value(row, idx, enum_labels),
+            },
+            Self::ArrayInt8 => match row.try_get::<Option<Vec<i64>>, _>(idx) {
+                Ok(Some(vals)) => Value::Array(vals.into_iter().map(Value::Int).collect()),
+                Ok(None) => Value::Null,
+                Err(_) => extract_value(row, idx, enum_labels),
+            },
+            Self::ArrayInt4 => match row.try_get::<Option<Vec<i32>>, _>(idx) {
+                Ok(Some(vals)) => {
+                    Value::Array(vals.into_iter().map(|i| Value::Int(i as i64)).collect())
+                }
+                Ok(None) => Value::Null,
+                Err(_) => extract_value(row, idx, enum_labels),
+            },
+            Self::ArrayFloat8 => match row.try_get::<Option<Vec<f64>>, _>(idx) {
+                Ok(Some(vals)) => Value::Array(vals.into_iter().map(Value::Float).collect()),
+                Ok(None) => Value::Null,
+                Err(_) => extract_value(row, idx, enum_labels),
+            },
+            Self::ArrayFloat4 => match row.try_get::<Option<Vec<f32>>, _>(idx) {
+                Ok(Some(vals)) => {
+                    Value::Array(vals.into_iter().map(|f| Value::Float(f as f64)).collect())
+                }
+                Ok(None) => Value::Null,
+                Err(_) => extract_value(row, idx, enum_labels),
+            },
+            Self::ArrayBool => match row.try_get::<Option<Vec<bool>>, _>(idx) {
+                Ok(Some(vals)) => Value::Array(vals.into_iter().map(Value::Bool).collect()),
+                Ok(None) => Value::Null,
+                Err(_) => extract_value(row, idx, enum_labels),
+            },
+            Self::ArrayText => match row.try_get::<Option<Vec<String>>, _>(idx) {
+                Ok(Some(vals)) => Value::Array(vals.into_iter().map(Value::Text).collect()),
+                Ok(None) => Value::Null,
+                Err(_) => extract_value(row, idx, enum_labels),
+            },
+            Self::ArrayUuid => match row.try_get::<Option<Vec<Uuid>>, _>(idx) {
+                Ok(Some(vals)) => Value::Array(
+                    vals.into_iter()
+                        .map(|u| Value::Text(u.to_string()))
+                        .collect(),
+                ),
+                Ok(None) => Value::Null,
+                Err(_) => extract_value(row, idx, enum_labels),
+            },
+            Self::ArrayJson => match row.try_get::<Option<Vec<serde_json::Value>>, _>(idx) {
+                Ok(Some(vals)) => Value::Array(vals.into_iter().map(Value::Json).collect()),
+                Ok(None) => Value::Null,
+                Err(_) => extract_value(row, idx, enum_labels),
+            },
+            Self::Fallback => extract_value(row, idx, enum_labels),
+        }
+    }
 }

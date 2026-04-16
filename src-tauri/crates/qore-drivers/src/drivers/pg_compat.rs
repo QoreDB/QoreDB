@@ -19,7 +19,8 @@ use sqlx::Row;
 use tokio::sync::{Mutex, RwLock};
 
 use crate::drivers::postgres_utils::{
-    bind_param, collect_enum_type_oids, convert_row, get_column_info, load_enum_labels,
+    bind_param, build_decoders, collect_enum_type_oids, columns_and_rows,
+    convert_row_with_decoders, get_column_info, load_enum_labels, PgDecoder,
     EnumLabelMap,
 };
 use qore_core::error::{EngineError, EngineResult};
@@ -28,7 +29,7 @@ use qore_core::traits::{StreamEvent, StreamSender};
 use qore_core::types::{
     CancelSupport, ColumnInfo, ConnectionConfig, FilterOperator, ForeignKey, Namespace,
     PaginatedQueryResult, QueryId, QueryResult, Routine, RoutineDefinition, RoutineList,
-    RoutineListOptions, RoutineOperationResult, RoutineType, Row as QRow, RowData, SessionId,
+    RoutineListOptions, RoutineOperationResult, RoutineType, RowData, SessionId,
     SortDirection, TableColumn, TableIndex, TableQueryOptions, TableSchema, Trigger,
     TriggerDefinition, TriggerEvent, TriggerList, TriggerListOptions, TriggerOperationResult,
     TriggerTiming, Value,
@@ -360,17 +361,13 @@ async fn rows_to_result(
             execution_time_ms,
         });
     }
-    let columns = get_column_info(&pg_rows[0]);
     let enum_oids = collect_enum_type_oids(pg_rows[0].columns());
     let enum_labels = if !enum_oids.is_empty() {
         load_enum_labels(pool, &enum_oids).await.unwrap_or_default()
     } else {
         HashMap::new()
     };
-    let rows: Vec<QRow> = pg_rows
-        .iter()
-        .map(|r| convert_row(r, &enum_labels))
-        .collect();
+    let (columns, rows) = columns_and_rows(&pg_rows, &enum_labels);
     Ok(QueryResult {
         columns,
         rows,
@@ -425,6 +422,7 @@ pub async fn execute_stream_in_namespace(
     let mut row_count = 0;
     let mut stream_error: Option<String> = None;
     let mut enum_labels: EnumLabelMap = HashMap::new();
+    let mut decoders: Vec<PgDecoder> = Vec::new();
     let mut batch = Vec::with_capacity(500);
 
     while let Some(item) = stream.next().await {
@@ -432,6 +430,7 @@ pub async fn execute_stream_in_namespace(
             Ok(pg_row) => {
                 if !columns_sent {
                     let columns = get_column_info(&pg_row);
+                    decoders = build_decoders(pg_row.columns());
                     if sender
                         .send(StreamEvent::Columns(columns.clone()))
                         .await
@@ -452,7 +451,7 @@ pub async fn execute_stream_in_namespace(
                     }
                 }
 
-                let row = convert_row(&pg_row, &enum_labels);
+                let row = convert_row_with_decoders(&pg_row, &decoders, &enum_labels);
                 batch.push(row);
                 row_count += 1;
                 
@@ -1067,7 +1066,6 @@ pub async fn query_table(
             execution_time_ms,
         }
     } else {
-        let columns = get_column_info(&pg_rows[0]);
         let enum_oids = collect_enum_type_oids(pg_rows[0].columns());
         let enum_labels = if !enum_oids.is_empty() {
             load_enum_labels(&pg.pool, &enum_oids)
@@ -1076,10 +1074,7 @@ pub async fn query_table(
         } else {
             HashMap::new()
         };
-        let rows: Vec<QRow> = pg_rows
-            .iter()
-            .map(|r| convert_row(r, &enum_labels))
-            .collect();
+        let (columns, rows) = columns_and_rows(&pg_rows, &enum_labels);
         QueryResult {
             columns,
             rows,

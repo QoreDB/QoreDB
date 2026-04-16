@@ -195,20 +195,237 @@ impl MySqlDriver {
         Ok(())
     }
 
-    /// Converts a SQLx row to our universal Row type
+    /// Converts a SQLx row to our universal Row type. Builds decoders on the
+    /// fly — prefer `convert_row_with_decoders` in hot paths where decoders
+    /// can be reused across rows.
     fn convert_row(mysql_row: &MySqlRow) -> QRow {
-        let values: Vec<Value> = mysql_row
-            .columns()
-            .iter()
-            .map(|col| Self::extract_value(mysql_row, col.ordinal()))
-            .collect();
+        let decoders = Self::build_decoders(mysql_row);
+        Self::convert_row_with_decoders(mysql_row, &decoders)
+    }
 
+    /// Hot-path row conversion: uses a precomputed per-column decoder to
+    /// avoid the 14-branch trial-and-error cascade per cell.
+    fn convert_row_with_decoders(mysql_row: &MySqlRow, decoders: &[MysqlDecoder]) -> QRow {
+        let mut values = Vec::with_capacity(decoders.len());
+        for (idx, decoder) in decoders.iter().enumerate() {
+            values.push(decoder.decode(mysql_row, idx));
+        }
         QRow { values }
     }
 
-    /// Extracts a value from a MySqlRow at the given index
-    fn extract_value(row: &MySqlRow, idx: usize) -> Value {
-        // Try u64 first for BIGINT UNSIGNED columns
+    /// Inspect column type info once per result to pick a fast decoder per
+    /// column. Unknown type names fall back to the cascade.
+    fn build_decoders(row: &MySqlRow) -> Vec<MysqlDecoder> {
+        row.columns()
+            .iter()
+            .map(|col| MysqlDecoder::for_type(col.type_info().name()))
+            .collect()
+    }
+
+    /// Batch helper: get column info + convert all rows with decoders built
+    /// once. Used by all non-streaming result paths.
+    fn columns_and_rows(mysql_rows: &[MySqlRow]) -> (Vec<ColumnInfo>, Vec<QRow>) {
+        if mysql_rows.is_empty() {
+            return (Vec::new(), Vec::new());
+        }
+        let columns = Self::get_column_info(&mysql_rows[0]);
+        let decoders = Self::build_decoders(&mysql_rows[0]);
+        let rows = mysql_rows
+            .iter()
+            .map(|r| Self::convert_row_with_decoders(r, &decoders))
+            .collect();
+        (columns, rows)
+    }
+
+    /// Gets column info from a MySqlRow
+    fn get_column_info(row: &MySqlRow) -> Vec<ColumnInfo> {
+        row.columns()
+            .iter()
+            .map(|col| ColumnInfo {
+                name: col.name().to_string(),
+                data_type: col.type_info().name().to_string(),
+                nullable: true,
+            })
+            .collect()
+    }
+}
+
+#[derive(Clone, Copy)]
+enum MysqlDecoder {
+    Bool,
+    TinyI,
+    TinyU,
+    SmallI,
+    SmallU,
+    IntI,
+    IntU,
+    BigI,
+    BigU,
+    Float,
+    Double,
+    Decimal,
+    Text,
+    Bytes,
+    Json,
+    Date,
+    Time,
+    DateTime,
+    Timestamp,
+    Year,
+    Fallback,
+}
+
+impl MysqlDecoder {
+    fn for_type(name: &str) -> Self {
+        // sqlx's MySQL type_info().name() returns uppercased names like
+        // "VARCHAR", "BIGINT UNSIGNED", "TIMESTAMP". Match known names; unknown
+        // ones fall through to the Fallback cascade (preserves legacy behavior).
+        match name {
+            "BOOLEAN" => Self::Bool,
+            "TINYINT" => Self::TinyI,
+            "TINYINT UNSIGNED" => Self::TinyU,
+            "SMALLINT" => Self::SmallI,
+            "SMALLINT UNSIGNED" => Self::SmallU,
+            "INT" | "MEDIUMINT" => Self::IntI,
+            "INT UNSIGNED" | "MEDIUMINT UNSIGNED" => Self::IntU,
+            "BIGINT" => Self::BigI,
+            "BIGINT UNSIGNED" => Self::BigU,
+            "FLOAT" => Self::Float,
+            "DOUBLE" => Self::Double,
+            "DECIMAL" | "NUMERIC" => Self::Decimal,
+            "VARCHAR" | "CHAR" | "TEXT" | "TINYTEXT" | "MEDIUMTEXT" | "LONGTEXT" | "ENUM"
+            | "SET" => Self::Text,
+            "BINARY" | "VARBINARY" | "BLOB" | "TINYBLOB" | "MEDIUMBLOB" | "LONGBLOB" => {
+                Self::Bytes
+            }
+            "DATE" => Self::Date,
+            "TIME" => Self::Time,
+            "DATETIME" => Self::DateTime,
+            "TIMESTAMP" => Self::Timestamp,
+            "YEAR" => Self::Year,
+            "JSON" => Self::Json,
+            _ => Self::Fallback,
+        }
+    }
+
+    fn decode(self, row: &MySqlRow, idx: usize) -> Value {
+        match self {
+            Self::Bool => match row.try_get::<Option<bool>, _>(idx) {
+                Ok(Some(v)) => Value::Bool(v),
+                Ok(None) => Value::Null,
+                Err(_) => Self::fallback_extract(row, idx),
+            },
+            Self::TinyI => match row.try_get::<Option<i8>, _>(idx) {
+                Ok(Some(v)) => Value::Int(v as i64),
+                Ok(None) => Value::Null,
+                Err(_) => Self::fallback_extract(row, idx),
+            },
+            Self::TinyU => match row.try_get::<Option<u8>, _>(idx) {
+                Ok(Some(v)) => Value::Int(v as i64),
+                Ok(None) => Value::Null,
+                Err(_) => Self::fallback_extract(row, idx),
+            },
+            Self::SmallI => match row.try_get::<Option<i16>, _>(idx) {
+                Ok(Some(v)) => Value::Int(v as i64),
+                Ok(None) => Value::Null,
+                Err(_) => Self::fallback_extract(row, idx),
+            },
+            Self::SmallU | Self::Year => match row.try_get::<Option<u16>, _>(idx) {
+                Ok(Some(v)) => Value::Int(v as i64),
+                Ok(None) => Value::Null,
+                Err(_) => Self::fallback_extract(row, idx),
+            },
+            Self::IntI => match row.try_get::<Option<i32>, _>(idx) {
+                Ok(Some(v)) => Value::Int(v as i64),
+                Ok(None) => Value::Null,
+                Err(_) => Self::fallback_extract(row, idx),
+            },
+            Self::IntU => match row.try_get::<Option<u32>, _>(idx) {
+                Ok(Some(v)) => Value::Int(v as i64),
+                Ok(None) => Value::Null,
+                Err(_) => Self::fallback_extract(row, idx),
+            },
+            Self::BigI => match row.try_get::<Option<i64>, _>(idx) {
+                Ok(Some(v)) => Value::Int(v),
+                Ok(None) => Value::Null,
+                Err(_) => Self::fallback_extract(row, idx),
+            },
+            Self::BigU => match row.try_get::<Option<u64>, _>(idx) {
+                Ok(Some(v)) => Value::Int(v as i64),
+                Ok(None) => Value::Null,
+                Err(_) => Self::fallback_extract(row, idx),
+            },
+            Self::Float => match row.try_get::<Option<f32>, _>(idx) {
+                Ok(Some(v)) => Value::Float(v as f64),
+                Ok(None) => Value::Null,
+                Err(_) => Self::fallback_extract(row, idx),
+            },
+            Self::Double => match row.try_get::<Option<f64>, _>(idx) {
+                Ok(Some(v)) => Value::Float(v),
+                Ok(None) => Value::Null,
+                Err(_) => Self::fallback_extract(row, idx),
+            },
+            Self::Decimal => match row.try_get::<Option<Decimal>, _>(idx) {
+                Ok(Some(v)) => {
+                    use rust_decimal::prelude::ToPrimitive;
+                    Value::Float(v.to_f64().unwrap_or(0.0))
+                }
+                Ok(None) => Value::Null,
+                Err(_) => Self::fallback_extract(row, idx),
+            },
+            Self::Text => match row.try_get::<Option<String>, _>(idx) {
+                Ok(Some(v)) => Value::Text(v),
+                Ok(None) => Value::Null,
+                Err(_) => Self::fallback_extract(row, idx),
+            },
+            Self::Bytes => match row.try_get::<Option<Vec<u8>>, _>(idx) {
+                Ok(Some(v)) => Value::Bytes(v),
+                Ok(None) => Value::Null,
+                Err(_) => Self::fallback_extract(row, idx),
+            },
+            Self::Json => match row.try_get::<Option<serde_json::Value>, _>(idx) {
+                Ok(Some(v)) => Value::Json(v),
+                Ok(None) => Value::Null,
+                Err(_) => Self::fallback_extract(row, idx),
+            },
+            Self::Date => match row.try_get::<Option<chrono::NaiveDate>, _>(idx) {
+                Ok(Some(v)) => Value::Text(v.format("%Y-%m-%d").to_string()),
+                Ok(None) => Value::Null,
+                Err(_) => Self::fallback_extract(row, idx),
+            },
+            Self::Time => match row.try_get::<Option<chrono::NaiveTime>, _>(idx) {
+                Ok(Some(v)) => Value::Text(v.format("%H:%M:%S").to_string()),
+                Ok(None) => Value::Null,
+                Err(_) => Self::fallback_extract(row, idx),
+            },
+            Self::DateTime => match row.try_get::<Option<chrono::NaiveDateTime>, _>(idx) {
+                Ok(Some(v)) => Value::Text(v.format("%Y-%m-%d %H:%M:%S").to_string()),
+                Ok(None) => Value::Null,
+                Err(_) => Self::fallback_extract(row, idx),
+            },
+            Self::Timestamp => {
+                // TIMESTAMP can decode as DateTime<Utc> or NaiveDateTime depending
+                // on session time_zone config; try UTC first, then Naive.
+                if let Ok(opt) = row.try_get::<Option<chrono::DateTime<chrono::Utc>>, _>(idx) {
+                    return opt
+                        .map(|dt| Value::Text(dt.to_rfc3339()))
+                        .unwrap_or(Value::Null);
+                }
+                if let Ok(opt) = row.try_get::<Option<chrono::NaiveDateTime>, _>(idx) {
+                    return opt
+                        .map(|dt| Value::Text(dt.format("%Y-%m-%d %H:%M:%S").to_string()))
+                        .unwrap_or(Value::Null);
+                }
+                Self::fallback_extract(row, idx)
+            }
+            Self::Fallback => Self::fallback_extract(row, idx),
+        }
+    }
+
+    /// Legacy cascade for unknown types. Tries every supported Rust type in
+    /// order; only reached when the type introspection didn't match a known
+    /// MySQL type name.
+    fn fallback_extract(row: &MySqlRow, idx: usize) -> Value {
         if let Ok(v) = row.try_get::<Option<u64>, _>(idx) {
             return v.map(|u| Value::Int(u as i64)).unwrap_or(Value::Null);
         }
@@ -282,20 +499,7 @@ impl MySqlDriver {
         if let Ok(v) = row.try_get::<Option<serde_json::Value>, _>(idx) {
             return v.map(Value::Json).unwrap_or(Value::Null);
         }
-
         Value::Null
-    }
-
-    /// Gets column info from a MySqlRow
-    fn get_column_info(row: &MySqlRow) -> Vec<ColumnInfo> {
-        row.columns()
-            .iter()
-            .map(|col| ColumnInfo {
-                name: col.name().to_string(),
-                data_type: col.type_info().name().to_string(),
-                nullable: true,
-            })
-            .collect()
     }
 }
 
@@ -1317,6 +1521,7 @@ impl DataEngine for MySqlDriver {
         }
 
         let mut stream = sqlx::query(query).fetch(&mut *conn);
+        let mut decoders: Vec<MysqlDecoder> = Vec::new();
         let mut columns_sent = false;
         let mut row_count = 0;
         let mut stream_error: Option<String> = None;
@@ -1327,13 +1532,14 @@ impl DataEngine for MySqlDriver {
                 Ok(mysql_row) => {
                     if !columns_sent {
                         let columns = Self::get_column_info(&mysql_row);
+                        decoders = Self::build_decoders(&mysql_row);
                         if sender.send(StreamEvent::Columns(columns)).await.is_err() {
                             break;
                         }
                         columns_sent = true;
                     }
 
-                    let row = Self::convert_row(&mysql_row);
+                    let row = Self::convert_row_with_decoders(&mysql_row, &decoders);
                     batch.push(row);
                     row_count += 1;
                     
@@ -1422,24 +1628,13 @@ impl DataEngine for MySqlDriver {
 
                 let execution_time_ms = start.elapsed().as_micros() as f64 / 1000.0;
 
-                if mysql_rows.is_empty() {
-                    Ok(QueryResult {
-                        columns: Vec::new(),
-                        rows: Vec::new(),
-                        affected_rows: None,
-                        execution_time_ms,
-                    })
-                } else {
-                    let columns = Self::get_column_info(&mysql_rows[0]);
-                    let rows: Vec<QRow> = mysql_rows.iter().map(Self::convert_row).collect();
-
-                    Ok(QueryResult {
-                        columns,
-                        rows,
-                        affected_rows: None,
-                        execution_time_ms,
-                    })
-                }
+                let (columns, rows) = Self::columns_and_rows(&mysql_rows);
+                Ok(QueryResult {
+                    columns,
+                    rows,
+                    affected_rows: None,
+                    execution_time_ms,
+                })
             } else {
                 // Use simple query protocol for DDL and other statements that may not be
                 // supported via the prepared statement protocol on some MySQL/MariaDB versions.
@@ -1492,24 +1687,13 @@ impl DataEngine for MySqlDriver {
 
                 let execution_time_ms = start.elapsed().as_micros() as f64 / 1000.0;
 
-                if mysql_rows.is_empty() {
-                    Ok(QueryResult {
-                        columns: Vec::new(),
-                        rows: Vec::new(),
-                        affected_rows: None,
-                        execution_time_ms,
-                    })
-                } else {
-                    let columns = Self::get_column_info(&mysql_rows[0]);
-                    let rows: Vec<QRow> = mysql_rows.iter().map(Self::convert_row).collect();
-
-                    Ok(QueryResult {
-                        columns,
-                        rows,
-                        affected_rows: None,
-                        execution_time_ms,
-                    })
-                }
+                let (columns, rows) = Self::columns_and_rows(&mysql_rows);
+                Ok(QueryResult {
+                    columns,
+                    rows,
+                    affected_rows: None,
+                    execution_time_ms,
+                })
             } else {
                 // Use simple query protocol for DDL and other statements that may not be
                 // supported via the prepared statement protocol on some MySQL/MariaDB versions.
@@ -1963,8 +2147,7 @@ impl DataEngine for MySqlDriver {
                 execution_time_ms,
             }
         } else {
-            let columns = Self::get_column_info(&mysql_rows[0]);
-            let rows: Vec<QRow> = mysql_rows.iter().map(Self::convert_row).collect();
+            let (columns, rows) = Self::columns_and_rows(&mysql_rows);
             QueryResult {
                 columns,
                 rows,

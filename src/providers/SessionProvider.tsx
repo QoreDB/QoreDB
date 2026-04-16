@@ -8,6 +8,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from 'react';
@@ -415,29 +416,44 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     [activeConnection, handleConnected, projectId, resetTabs, sessionId, t]
   );
 
-  return (
-    <SessionContext.Provider
-      value={{
-        sessionId,
-        driver,
-        driverCapabilities,
-        activeConnection,
-        connectionHealth,
-        hasConnections,
-        sidebarRefreshTrigger,
-        schemaRefreshTrigger,
-        recovery,
-        handleConnected,
-        handleRestoreSession,
-        handleConnectionSaved,
-        refreshSidebar,
-        triggerSchemaRefresh,
-        scheduleRecoverySave,
-      }}
-    >
-      {children}
-    </SessionContext.Provider>
+  const value = useMemo<SessionContextValue>(
+    () => ({
+      sessionId,
+      driver,
+      driverCapabilities,
+      activeConnection,
+      connectionHealth,
+      hasConnections,
+      sidebarRefreshTrigger,
+      schemaRefreshTrigger,
+      recovery,
+      handleConnected,
+      handleRestoreSession,
+      handleConnectionSaved,
+      refreshSidebar,
+      triggerSchemaRefresh,
+      scheduleRecoverySave,
+    }),
+    [
+      sessionId,
+      driver,
+      driverCapabilities,
+      activeConnection,
+      connectionHealth,
+      hasConnections,
+      sidebarRefreshTrigger,
+      schemaRefreshTrigger,
+      recovery,
+      handleConnected,
+      handleRestoreSession,
+      handleConnectionSaved,
+      refreshSidebar,
+      triggerSchemaRefresh,
+      scheduleRecoverySave,
+    ]
   );
+
+  return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
 }
 
 export function useSessionContext(): SessionContextValue {

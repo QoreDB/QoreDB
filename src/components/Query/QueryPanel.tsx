@@ -316,8 +316,10 @@ export function QueryPanel({
             event => {
               const batch = event.payload;
               if (batch.length === 0) return;
-              for (const row of batch) streamingRows.push(row);
-              for (const row of batch) rowBuffer.push(row);
+              for (const row of batch) {
+                streamingRows.push(row);
+                rowBuffer.push(row);
+              }
               if (!flushScheduled) {
                 flushScheduled = true;
                 streamRafId = requestAnimationFrame(flushRowBuffer);

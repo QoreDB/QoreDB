@@ -65,7 +65,9 @@
       "Bash(cargo clean:*)",
       "Bash(cargo build:*)",
       "Bash(gh run:*)",
-      "Bash(rtk proxy *)"
+      "Bash(rtk proxy *)",
+      "mcp__plugin_claude-mem_mcp-search__smart_search",
+      "mcp__plugin_claude-mem_mcp-search__smart_unfold"
     ]
   }
 }

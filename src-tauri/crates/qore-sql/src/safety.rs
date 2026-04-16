@@ -2,6 +2,7 @@
 
 //! SQL safety classification for read-only and production enforcement.
 
+use lru::LruCache;
 use sqlparser::{
     ast::{Query, Select, SetExpr, Statement},
     dialect::{
@@ -9,11 +10,28 @@ use sqlparser::{
     },
     parser::Parser,
 };
+use std::num::NonZeroUsize;
+use std::sync::{Mutex, OnceLock};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SqlSafetyAnalysis {
     pub is_mutation: bool,
     pub is_dangerous: bool,
+}
+
+type AnalyzeCache = Mutex<LruCache<(String, String), Result<SqlSafetyAnalysis, String>>>;
+
+/// Bounded cache of previously-analyzed (driver, trimmed SQL) pairs. sqlparser
+/// is the dominant cost in `analyze_sql` (several ms for large queries) and
+/// identical queries are re-run constantly during a session. 256 entries caps
+/// memory at a few MB worst-case while covering typical editor/reuse patterns.
+fn analyze_cache() -> &'static AnalyzeCache {
+    static CACHE: OnceLock<AnalyzeCache> = OnceLock::new();
+    CACHE.get_or_init(|| {
+        Mutex::new(LruCache::new(
+            NonZeroUsize::new(256).expect("non-zero capacity"),
+        ))
+    })
 }
 
 pub fn analyze_sql(driver_id: &str, sql: &str) -> Result<SqlSafetyAnalysis, String> {
@@ -22,6 +40,23 @@ pub fn analyze_sql(driver_id: &str, sql: &str) -> Result<SqlSafetyAnalysis, Stri
         return Err("Empty SQL".to_string());
     }
 
+    let cache_key = (driver_id.to_string(), trimmed.to_string());
+    if let Ok(mut cache) = analyze_cache().lock() {
+        if let Some(cached) = cache.get(&cache_key) {
+            return cached.clone();
+        }
+    }
+
+    let result = analyze_sql_uncached(driver_id, trimmed);
+
+    if let Ok(mut cache) = analyze_cache().lock() {
+        cache.put(cache_key, result.clone());
+    }
+
+    result
+}
+
+fn analyze_sql_uncached(driver_id: &str, trimmed: &str) -> Result<SqlSafetyAnalysis, String> {
     let dialect = dialect_for_driver(driver_id);
     let statements = Parser::parse_sql(&*dialect, trimmed).map_err(|err| err.to_string())?;
 

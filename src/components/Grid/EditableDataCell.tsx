@@ -21,9 +21,7 @@ export interface EditableDataCellProps {
   columnId: string;
   rowId: string;
   row: RowData;
-  /** Database column type (e.g., "bytea", "blob", "varchar") */
   dataType?: string;
-  // Editing props
   isEditing: boolean;
   editingValue: string;
   editInputRef: RefObject<HTMLInputElement | null>;
@@ -32,7 +30,6 @@ export interface EditableDataCellProps {
   onCancelEdit: () => void;
   onEditValueChange: (value: string) => void;
   inlineEditAvailable: boolean;
-  // Foreign key peek props
   foreignKey?: ForeignKey;
   peekKey?: string;
   peekState?: PeekState;
@@ -78,7 +75,6 @@ export const EditableDataCell = memo(function EditableDataCell({
     }
   }, [isBinary, value]);
 
-  // Binary cell: special rendering with icon + click to open viewer
   if (isBinary && !isNull && typeof value === 'string' && value.length > 0) {
     return (
       <>
@@ -124,6 +120,10 @@ export const EditableDataCell = memo(function EditableDataCell({
       {isEditing ? (
         <input
           ref={editInputRef}
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="off"
+          spellCheck={false}
           value={editingValue}
           onChange={event => onEditValueChange(event.target.value)}
           onBlur={() => void onCommitEdit()}
@@ -154,12 +154,10 @@ export const EditableDataCell = memo(function EditableDataCell({
     </div>
   );
 
-  // If no foreign key peek, just return the cell content
   if (!canPeek || !foreignKey || !peekKey) {
     return cellContent;
   }
 
-  // Wrap with foreign key peek tooltip
   return (
     <ForeignKeyPeekTooltip
       peekKey={peekKey}

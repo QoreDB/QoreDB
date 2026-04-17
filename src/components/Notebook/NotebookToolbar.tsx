@@ -183,6 +183,10 @@ export function NotebookToolbar({
         {editingTitle ? (
           <input
             ref={inputRef}
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck={false}
             value={title}
             onChange={e => onTitleChange(e.target.value)}
             onBlur={handleTitleBlur}

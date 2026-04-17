@@ -12,14 +12,13 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { Label } from '../ui/label';
 
 interface DangerConfirmDialogProps {
   open: boolean;
   title: string;
   description: string;
-  /** If provided, user must type this to confirm (for production) */
   confirmationLabel?: string;
-  /** Extra info shown in the warning box */
   warningInfo?: string;
   confirmLabel: string;
   loading?: boolean;
@@ -70,7 +69,6 @@ export function DangerConfirmDialog({
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Danger warning box */}
           <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
             <AlertTriangle size={16} className="mt-0.5 shrink-0" />
             <div className="space-y-1">
@@ -79,12 +77,11 @@ export function DangerConfirmDialog({
             </div>
           </div>
 
-          {/* Typing confirmation for production */}
           {requiresTyping && (
             <div className="space-y-2">
-              <label className="text-sm font-medium">
+              <Label className="text-sm font-medium">
                 {t('tableMenu.typeToConfirm', { name: confirmationLabel })}
-              </label>
+              </Label>
               <Input
                 value={value}
                 onChange={event => setValue(event.target.value)}

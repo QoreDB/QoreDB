@@ -240,14 +240,14 @@ export function ShareExportDialog({
             <p className="mt-1 text-xs opacity-90">{t('share.warningBody')}</p>
           </div>
 
-          <label className="flex items-start gap-2.5 text-sm cursor-pointer">
+          <Label className="flex items-start gap-2.5 text-sm cursor-pointer">
             <Checkbox
               checked={acknowledged}
               onCheckedChange={checked => setAcknowledged(Boolean(checked))}
               className="mt-0.5"
             />
             <span className="text-sm text-foreground">{t('share.confirmUpload')}</span>
-          </label>
+          </Label>
         </div>
 
         <DialogFooter className="gap-2">

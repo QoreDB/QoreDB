@@ -10,6 +10,7 @@ import {
   Database,
   FileCode,
   GitCompare,
+  History,
   Network,
   Pin,
   PinOff,
@@ -34,7 +35,8 @@ export interface TabItem {
     | 'diff'
     | 'federation'
     | 'snapshots'
-    | 'notebook';
+    | 'notebook'
+    | 'time-travel';
 }
 
 interface TabBarProps {
@@ -65,6 +67,8 @@ function getTabIcon(type: TabItem['type']) {
       return <Camera size={14} />;
     case 'notebook':
       return <BookOpen size={14} />;
+    case 'time-travel':
+      return <History size={14} />;
   }
 }
 

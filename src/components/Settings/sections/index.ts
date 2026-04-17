@@ -7,4 +7,3 @@ export { GeneralSection } from './GeneralSection';
 export { KeyboardShortcutsSection } from './KeyboardShortcutsSection';
 export { LicenseSection } from './LicenseSection';
 export { SecuritySection } from './SecuritySection';
-export { WorkspacesSection } from './WorkspacesSection';

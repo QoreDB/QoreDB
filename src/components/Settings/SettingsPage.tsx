@@ -16,7 +16,6 @@ import {
   KeyboardShortcutsSection,
   LicenseSection,
   SecuritySection,
-  WorkspacesSection,
 } from './sections';
 import {
   filterSectionsBySearch,
@@ -108,8 +107,6 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
         return (
           <DataSection policy={policy} onApplyPolicy={updatePolicy} searchQuery={searchQuery} />
         );
-      case 'workspaces':
-        return <WorkspacesSection searchQuery={searchQuery} />;
       case 'shortcuts':
         return <KeyboardShortcutsSection searchQuery={searchQuery} />;
       case 'license':

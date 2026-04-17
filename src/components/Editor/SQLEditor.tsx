@@ -19,7 +19,6 @@ import {
   lineNumbers,
   placeholder,
 } from '@codemirror/view';
-/* eslint-disable no-useless-escape */
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef } from 'react';
 import { useSchemaCache } from '../../hooks/useSchemaCache';
 import { useTheme } from '../../hooks/useTheme';

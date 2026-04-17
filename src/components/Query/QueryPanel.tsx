@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -8,7 +7,7 @@ import { AiAssistantPanel } from '@/components/AI/AiAssistantPanel';
 import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
 import { createNotebookTab } from '@/lib/tabs';
 import { UI_EVENT_OPEN_HISTORY } from '@/lib/uiEvents';
-import { useTabContext } from '@/providers/TabProvider';
+import { useTabActions } from '@/providers/TabProvider';
 import { forceRefreshCache } from '../../hooks/useSchemaCache';
 import { useTourManager } from '../../hooks/useTourManager';
 import { getQueryDialect, isDocumentDatabase } from '../../lib/driverCapabilities';
@@ -41,6 +40,7 @@ import {
   executeQuery,
   type Namespace,
   type QueryResult,
+  type QueryStreamHandlers,
   type Row,
   rollbackTransaction,
   type Value,
@@ -130,7 +130,7 @@ export function QueryPanel({
   aiTableContext,
 }: QueryPanelProps) {
   const { t } = useTranslation();
-  const { openTab } = useTabContext();
+  const { openTab } = useTabActions();
   const isDocument = isDocumentDatabase(dialect);
   const queryDialect = getQueryDialect(dialect);
   const defaultQuery = getDefaultQuery(isDocument);
@@ -245,40 +245,19 @@ export function QueryPanel({
 
       const startTime = performance.now();
 
-      const streamDisposal: UnlistenFn[] = [];
       const streamingRows: Row[] = [];
       let streamingCols: ColumnInfo[] = [];
       let streamRafId = 0;
+      const isStreamingActive = Boolean(
+        driverCapabilities?.streaming && kind === 'query' && !isDocument
+      );
 
       try {
-        // Setup streaming listeners if supported
-        if (driverCapabilities?.streaming && kind === 'query' && !isDocument) {
-          const unlistenCols = await listen<ColumnInfo[]>(
-            `query_stream_columns:${queryId}`,
-            event => {
-              streamingCols = event.payload;
-              // Initialize result entry with columns
-              setResults(prev => {
-                const updated = [...prev];
-                const index = updated.findIndex(e => e.id === queryId);
-                if (index !== -1) {
-                  updated[index] = {
-                    ...updated[index],
-                    result: {
-                      columns: streamingCols,
-                      rows: [],
-                      execution_time_ms: 0,
-                      total_time_ms: 0,
-                    },
-                  };
-                }
-                return updated;
-              });
-            }
-          );
-
-          // Batch streaming rows: accumulate in a buffer and flush once per
-          // animation frame to avoid O(N²) array copies from per-row state updates.
+        // Build streaming handlers upfront — the Tauri Channel created inside
+        // executeQuery dispatches MessagePack-decoded events directly here.
+        let streamHandlers: QueryStreamHandlers | undefined;
+        if (isStreamingActive) {
+          // Accumulate rows per animation frame to avoid O(N²) state copies.
           const rowBuffer: Row[] = [];
           let flushScheduled = false;
 
@@ -302,27 +281,57 @@ export function QueryPanel({
             });
           };
 
-          const unlistenRow = await listen<Row>(`query_stream_row:${queryId}`, event => {
-            streamingRows.push(event.payload);
-            rowBuffer.push(event.payload);
+          const scheduleFlush = () => {
             if (!flushScheduled) {
               flushScheduled = true;
               streamRafId = requestAnimationFrame(flushRowBuffer);
             }
-          });
+          };
 
-          const unlistenError = await listen<string>(`query_stream_error:${queryId}`, event => {
-            setResults(prev => {
-              const updated = [...prev];
-              const index = updated.findIndex(e => e.id === queryId);
-              if (index !== -1) {
-                updated[index].error = event.payload;
+          streamHandlers = {
+            onColumns(cols) {
+              streamingCols = cols;
+              setResults(prev => {
+                const updated = [...prev];
+                const index = updated.findIndex(e => e.id === queryId);
+                if (index !== -1) {
+                  updated[index] = {
+                    ...updated[index],
+                    result: {
+                      columns: streamingCols,
+                      rows: [],
+                      execution_time_ms: 0,
+                      total_time_ms: 0,
+                    },
+                  };
+                }
+                return updated;
+              });
+            },
+            onRow(row) {
+              streamingRows.push(row);
+              rowBuffer.push(row);
+              scheduleFlush();
+            },
+            onRowBatch(batch) {
+              if (batch.length === 0) return;
+              for (const row of batch) {
+                streamingRows.push(row);
+                rowBuffer.push(row);
               }
-              return updated;
-            });
-          });
-
-          streamDisposal.push(unlistenCols, unlistenRow, unlistenError);
+              scheduleFlush();
+            },
+            onError(message) {
+              setResults(prev => {
+                const updated = [...prev];
+                const index = updated.findIndex(e => e.id === queryId);
+                if (index !== -1) {
+                  updated[index].error = message;
+                }
+                return updated;
+              });
+            },
+          };
 
           // Pre-create result entry
           const entry: QueryResultEntry = {
@@ -360,21 +369,23 @@ export function QueryPanel({
               queryId,
               stream: driverCapabilities?.streaming,
               timeoutMs: 60000,
+              streamHandlers,
             })
           : await executeQuery(sessionId, queryToRun, {
               acknowledgedDangerous,
               queryId,
-              stream: driverCapabilities?.streaming && kind === 'query' && !isDocument,
+              stream: isStreamingActive,
               namespace:
                 activeNamespace ??
                 (connectionDatabase ? { database: connectionDatabase } : undefined),
+              streamHandlers,
             });
         const endTime = performance.now();
         const totalTime = endTime - startTime;
 
-        // Clean up listeners and cancel any pending batched flush
+        // Cancel any pending batched flush (the Channel handlers are garbage-
+        // collected automatically with the Channel itself, no explicit unlisten).
         cancelAnimationFrame(streamRafId);
-        for (const unlisten of streamDisposal) unlisten();
 
         if (response.success) {
           let finalResult = response.result;
@@ -514,7 +525,7 @@ export function QueryPanel({
           logError('QueryPanel', response.error || t('query.queryFailed'), queryToRun, sessionId);
         }
       } catch (err) {
-        for (const unlisten of streamDisposal) unlisten();
+        cancelAnimationFrame(streamRafId);
 
         const errorMessage = err instanceof Error ? err.message : t('common.error');
         const entry: QueryResultEntry = {

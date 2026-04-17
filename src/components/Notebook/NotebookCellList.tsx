@@ -116,8 +116,6 @@ export function NotebookCellList({ cells, onReorderCells, ...rest }: NotebookCel
   return <ReorderCellList cells={cells} onReorderCells={onReorderCells} {...rest} />;
 }
 
-// --- Normal mode: framer-motion drag-and-drop ---
-
 function ReorderCellList({ cells, onReorderCells, ...rest }: NotebookCellListProps) {
   const handleReorder = useCallback(
     (newOrder: NotebookCellType[]) => {
@@ -154,8 +152,6 @@ function ReorderCellList({ cells, onReorderCells, ...rest }: NotebookCellListPro
     </div>
   );
 }
-
-// --- Performance mode: virtualized list ---
 
 function VirtualizedCellList({ cells, ...rest }: Omit<NotebookCellListProps, 'onReorderCells'>) {
   const parentRef = useRef<HTMLDivElement>(null);

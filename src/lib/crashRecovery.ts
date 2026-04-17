@@ -2,7 +2,7 @@
 
 export interface RecoveryTab {
   id: string;
-  type: 'query' | 'table' | 'database' | 'diff' | 'federation' | 'snapshots' | 'notebook';
+  type: 'query' | 'table' | 'database' | 'diff' | 'federation' | 'snapshots' | 'notebook' | 'time-travel';
   title: string;
   namespace?: {
     database: string;

@@ -59,7 +59,6 @@ export function MongoEditor({ value, onChange, onExecute, readOnly = false }: Mo
       extensions.push(oneDark);
     }
 
-    // Custom theme applied last so it overrides oneDark background
     extensions.push(
       EditorView.theme({
         '&': {

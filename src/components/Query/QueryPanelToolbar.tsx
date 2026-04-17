@@ -43,7 +43,7 @@ import {
 import { Tooltip } from '@/components/ui/tooltip';
 import { createFederationTab } from '@/lib/tabs';
 import { cn } from '@/lib/utils';
-import { useTabContext } from '@/providers/TabProvider';
+import { useTabActions } from '@/providers/TabProvider';
 import { getModifierKey } from '@/utils/platform';
 import type { ENVIRONMENT_CONFIG } from '../../lib/environment';
 import type { Environment, Namespace } from '../../lib/tauri';
@@ -121,7 +121,7 @@ export function QueryPanelToolbar({
   onRollbackTransaction,
 }: QueryPanelToolbarProps) {
   const { t } = useTranslation();
-  const { openTab } = useTabContext();
+  const { openTab } = useTabActions();
   const [templateSelectValue, setTemplateSelectValue] = useState<string | undefined>(undefined);
 
   // Live timer during query execution

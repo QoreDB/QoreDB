@@ -1,0 +1,59 @@
+[package]
+name = "qore-drivers"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "Database driver implementations for QoreCore"
+
+[dependencies]
+# Workspace crates
+qore-core = { path = "../qore-core" }
+qore-sql = { path = "../qore-sql" }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Async runtime
+tokio = { workspace = true }
+tokio-util = { version = "0.7", features = ["compat"] }
+async-trait = { workspace = true }
+futures = "0.3"
+
+# Logging
+tracing = { workspace = true }
+
+# IDs & encoding
+uuid = { workspace = true }
+chrono = { workspace = true }
+base64 = { workspace = true }
+percent-encoding = { workspace = true }
+
+# Numeric precision
+rust_decimal = { workspace = true }
+bigdecimal = { workspace = true }
+
+# Database drivers
+sqlx = { workspace = true }
+mongodb = { workspace = true }
+redis = { workspace = true }
+tiberius = { workspace = true }
+bb8 = { workspace = true }
+bb8-tiberius = { workspace = true }
+duckdb = { workspace = true }
+
+# SOCKS5 proxy support
+tokio-socks = "0.5"
+
+# Regex (SSH tunnel validation)
+regex = "1"
+
+# Optional Tauri integration (health monitor emits Tauri events)
+tauri = { version = "2", optional = true }
+
+[dev-dependencies]
+tempfile = "3.24.0"
+
+[features]
+default = []
+tauri = ["dep:tauri"]

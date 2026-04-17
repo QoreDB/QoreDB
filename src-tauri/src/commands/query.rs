@@ -11,6 +11,7 @@ use tokio::time::{timeout, Duration};
 use tracing::{field, instrument};
 use uuid::Uuid;
 
+use crate::commands::stream_msg::dispatch_stream_event;
 use crate::engine::{
     mongo_safety, redis_safety, sql_safety,
     traits::StreamEvent,
@@ -24,7 +25,7 @@ use crate::engine::{
 };
 use crate::interceptor::{Environment, QueryExecutionResult, SafetyAction};
 use crate::metrics;
-use tauri::Emitter;
+use tauri::ipc::{Channel, InvokeResponseBody};
 
 const READ_ONLY_BLOCKED: &str = "Operation blocked: read-only mode";
 const DANGEROUS_BLOCKED: &str = "Dangerous query blocked: confirmation required";
@@ -102,7 +103,7 @@ fn parse_session_id(id: &str) -> Result<SessionId, String> {
 /// Executes a query on the given session
 #[tauri::command]
 #[instrument(
-    skip(state, query),
+    skip(state, query, on_stream),
     fields(
         session_id = %session_id,
         query_id = ?query_id,
@@ -120,6 +121,7 @@ pub async fn execute_query(
     query_id: Option<String>,
     timeout_ms: Option<u64>,
     stream: Option<bool>,
+    on_stream: Channel<InvokeResponseBody>,
 ) -> Result<QueryResponse, String> {
     let (session_manager, query_manager, policy, interceptor) = {
         let state = state.lock().await;
@@ -405,28 +407,17 @@ pub async fn execute_query(
         let (sender, mut receiver) = tokio::sync::mpsc::channel(1024);
         let qid_cloned = query_id_str.clone();
         let window_cloned = window.clone();
+        let on_stream_cloned = on_stream.clone();
 
-        // Spawn task to handle events and emit to frontend
+        // Spawn task to hand events to the frontend via the MessagePack Channel.
         tokio::spawn(async move {
             while let Some(event) = receiver.recv().await {
-                match event {
-                    StreamEvent::Columns(cols) => {
-                        let _ = window_cloned
-                            .emit(&format!("query_stream_columns:{}", qid_cloned), cols);
-                    }
-                    StreamEvent::Row(row) => {
-                        let _ =
-                            window_cloned.emit(&format!("query_stream_row:{}", qid_cloned), row);
-                    }
-                    StreamEvent::Error(e) => {
-                        let _ =
-                            window_cloned.emit(&format!("query_stream_error:{}", qid_cloned), e);
-                    }
-                    StreamEvent::Done(affected) => {
-                        let _ = window_cloned
-                            .emit(&format!("query_stream_done:{}", qid_cloned), affected);
-                    }
-                }
+                dispatch_stream_event(
+                    event,
+                    Some(&on_stream_cloned),
+                    &window_cloned,
+                    &qid_cloned,
+                );
             }
         });
 
@@ -466,10 +457,12 @@ pub async fn execute_query(
                         safety_warning.as_deref(),
                     );
 
-                    // Emit timeout error as stream event
-                    let _ = window.emit(
-                        &format!("query_stream_error:{}", query_id_str),
-                        "Operation timed out",
+                    // Emit timeout error through the stream Channel.
+                    dispatch_stream_event(
+                        StreamEvent::Error("Operation timed out".to_string()),
+                        Some(&on_stream),
+                        &window,
+                        &query_id_str,
                     );
                     return Ok(QueryResponse {
                         success: false,

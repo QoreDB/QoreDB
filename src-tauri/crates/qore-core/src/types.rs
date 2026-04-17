@@ -64,6 +64,19 @@ pub struct ConnectionConfig {
     /// Network proxy configuration (HTTP CONNECT or SOCKS5)
     #[serde(default)]
     pub proxy: Option<ProxyConfig>,
+    /// SQL Server authentication mode. `None` means SQL auth (legacy default),
+    /// kept optional for JSON back-compat with pre-NTLM saved connections.
+    #[serde(default)]
+    pub mssql_auth: Option<MssqlAuthMode>,
+}
+
+/// Authentication mode for SQL Server connections.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum MssqlAuthMode {
+    #[default]
+    SqlPassword,
+    WindowsNtlm,
 }
 
 /// Network proxy configuration for corporate environments
@@ -195,6 +208,41 @@ mod tests {
             }
             other => panic!("unexpected auth variant: {other:?}"),
         }
+    }
+
+    #[test]
+    fn mssql_auth_mode_serialises_snake_case() {
+        let json = serde_json::to_string(&MssqlAuthMode::WindowsNtlm).unwrap();
+        assert_eq!(json, "\"windows_ntlm\"");
+        let json = serde_json::to_string(&MssqlAuthMode::SqlPassword).unwrap();
+        assert_eq!(json, "\"sql_password\"");
+    }
+
+    #[test]
+    fn connection_config_accepts_legacy_json_without_mssql_auth() {
+        let legacy = r#"{
+            "driver":"sqlserver","host":"localhost","port":1433,
+            "username":"sa","password":"x","database":null,"ssl":false,
+            "environment":"development","read_only":false,
+            "pool_max_connections":null,"pool_min_connections":null,
+            "pool_acquire_timeout_secs":null,"ssh_tunnel":null
+        }"#;
+        let cfg: ConnectionConfig = serde_json::from_str(legacy).expect("legacy config must parse");
+        assert!(cfg.mssql_auth.is_none());
+    }
+
+    #[test]
+    fn connection_config_roundtrips_windows_ntlm() {
+        let json = r#"{
+            "driver":"sqlserver","host":"localhost","port":1433,
+            "username":"CORP\\jdoe","password":"x","database":null,"ssl":false,
+            "environment":"development","read_only":false,
+            "pool_max_connections":null,"pool_min_connections":null,
+            "pool_acquire_timeout_secs":null,"ssh_tunnel":null,
+            "mssql_auth":"windows_ntlm"
+        }"#;
+        let cfg: ConnectionConfig = serde_json::from_str(json).expect("must parse");
+        assert_eq!(cfg.mssql_auth, Some(MssqlAuthMode::WindowsNtlm));
     }
 }
 

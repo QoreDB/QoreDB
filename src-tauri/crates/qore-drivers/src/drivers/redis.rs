@@ -1996,6 +1996,7 @@ mod tests {
             pool_max_connections: None,
             pool_min_connections: None,
             proxy: None,
+            mssql_auth: None,
         };
 
         let conn_str = RedisDriver::build_connection_string(&config);
@@ -2020,6 +2021,7 @@ mod tests {
             pool_max_connections: None,
             pool_min_connections: None,
             proxy: None,
+            mssql_auth: None,
         };
 
         let conn_str = RedisDriver::build_connection_string(&config);
@@ -2044,6 +2046,7 @@ mod tests {
             pool_max_connections: None,
             pool_min_connections: None,
             proxy: None,
+            mssql_auth: None,
         };
 
         let conn_str = RedisDriver::build_connection_string(&config);

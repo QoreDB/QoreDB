@@ -26,6 +26,18 @@
 
 ---
 
+## 🏢 Directory Integration (Enterprise AD)
+
+| Domaine              | Action                                      | Statut | Notes                                        |
+| -------------------- | ------------------------------------------- | ------ | -------------------------------------------- |
+| SQL Server NTLM      | Auth `DOMAIN\user` via `AuthMethod::windows`| ✅     | v0.1.26 — client Windows uniquement          |
+| SQL Server SSPI      | Zero-password, ticket du poste courant      | ⬜     | Tranche 2 (Windows, feature `winauth`)       |
+| SQL Server Kerberos  | GSSAPI pour clients Unix domain-joined      | ⬜     | Tranche 2 (Unix, `integrated-auth-gssapi`)   |
+| SQL Server AAD token | Azure AD token auth                         | ⬜     | Roadmap cloud                                |
+| Postgres GSSAPI      | Kerberos côté Postgres                      | ⬜     | Roadmap                                      |
+
+---
+
 ## 🧯 SQL / Query Safety
 
 | Domaine       | Action                                    | Statut | Notes             |

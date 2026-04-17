@@ -19,6 +19,18 @@ export interface ChangelogEntry {
  */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.1.26',
+    date: '2026-04-17',
+    items: [
+      {
+        title: 'SQL Server Windows Authentication (NTLM)',
+        description:
+          'Connect to SQL Server with DOMAIN\\user NTLM credentials instead of a SQL login. Available on Windows clients; unlocks AD-only enterprise environments.',
+        type: 'feature',
+      },
+    ],
+  },
+  {
     version: '0.1.21',
     date: '2026-03-19',
     items: [

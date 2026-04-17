@@ -126,6 +126,13 @@
       "overrideInfo": "아래의 모든 필드를 재정의할 수 있습니다. URL에서 파생된 값이 기본값으로 사용됩니다.",
       "pressParseHint": "파싱을 눌러 연결 정보를 추출하세요"
     },
+    "mssql": {
+      "authMode": "인증",
+      "authSql": "SQL 로그인",
+      "authNtlm": "Windows (NTLM)",
+      "ntlmHint": "DOMAIN\\user 또는 user@DOMAIN 형식을 사용하세요. Windows 클라이언트가 필요하며 현재 macOS/Linux에서는 비활성화되어 있습니다.",
+      "ntlmUsernamePlaceholder": "DOMAIN\\user"
+    },
     "ssh": {
       "enableTunnel": "SSH 터널 사용",
       "configure": "구성",

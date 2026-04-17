@@ -12,6 +12,8 @@ import { Channel, invoke } from '@tauri-apps/api/core';
 
 export type Environment = 'development' | 'staging' | 'production';
 
+export type MssqlAuthMode = 'sql_password' | 'windows_ntlm';
+
 export interface ConnectionConfig {
   driver: string;
   host: string;
@@ -28,6 +30,7 @@ export interface ConnectionConfig {
   pool_acquire_timeout_secs?: number;
   ssh_tunnel?: SshTunnelConfig;
   proxy?: ProxyConfig;
+  mssql_auth?: MssqlAuthMode;
 }
 
 export type ProxyType = 'http_connect' | 'socks5';
@@ -88,6 +91,7 @@ export interface SavedConnection {
   pool_min_connections?: number;
   pool_acquire_timeout_secs?: number;
   project_id: string;
+  mssql_auth?: MssqlAuthMode;
   ssh_tunnel?: {
     host: string;
     port: number;
@@ -1332,6 +1336,7 @@ export async function saveConnection(input: {
   pool_min_connections?: number;
   pool_acquire_timeout_secs?: number;
   project_id: string;
+  mssql_auth?: MssqlAuthMode;
   ssh_tunnel?: {
     host: string;
     port: number;

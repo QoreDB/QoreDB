@@ -69,6 +69,7 @@ tiberius = { version = "0.12", features = [
     "chrono",
     "rust_decimal",
     "bigdecimal",
+    "winauth",
 ] }
 bb8 = "0.9"
 bb8-tiberius = "0.16"

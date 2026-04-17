@@ -126,6 +126,13 @@
       "overrideInfo": "Sie können die Felder unten überschreiben. Aus der URL abgeleitete Werte werden als Standard verwendet.",
       "pressParseHint": "Klicken Sie auf Analysieren, um die Verbindungsdetails zu extrahieren"
     },
+    "mssql": {
+      "authMode": "Authentifizierung",
+      "authSql": "SQL-Anmeldung",
+      "authNtlm": "Windows (NTLM)",
+      "ntlmHint": "Verwenden Sie DOMÄNE\\benutzer oder benutzer@DOMÄNE. Erfordert einen Windows-Client — unter macOS/Linux vorübergehend deaktiviert.",
+      "ntlmUsernamePlaceholder": "DOMÄNE\\benutzer"
+    },
     "ssh": {
       "enableTunnel": "SSH-Tunnel verwenden",
       "configure": "Konfigurieren",

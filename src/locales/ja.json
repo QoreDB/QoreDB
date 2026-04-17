@@ -126,6 +126,13 @@
       "overrideInfo": "以下のフィールドを上書きできます。URL から取得した値がデフォルトとして使用されます。",
       "pressParseHint": "パースを押して接続情報を抽出"
     },
+    "mssql": {
+      "authMode": "認証",
+      "authSql": "SQL ログイン",
+      "authNtlm": "Windows (NTLM)",
+      "ntlmHint": "DOMAIN\\user または user@DOMAIN の形式で入力してください。Windows クライアントが必要です — 現在 macOS/Linux では無効です。",
+      "ntlmUsernamePlaceholder": "DOMAIN\\user"
+    },
     "ssh": {
       "enableTunnel": "SSH トンネルを使用",
       "configure": "設定",

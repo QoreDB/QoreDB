@@ -38,11 +38,11 @@ use qore_core::types::{
     CancelSupport, Collection, CollectionList, CollectionListOptions, CollectionType, ColumnInfo,
     ConnectionConfig, FilterOperator, ForeignKey, MaintenanceMessage, MaintenanceMessageLevel,
     MaintenanceOperationInfo, MaintenanceOperationType, MaintenanceRequest, MaintenanceResult,
-    Namespace, PaginatedQueryResult, QueryId, QueryResult, Routine, RoutineDefinition, RoutineList,
-    RoutineListOptions, RoutineOperationResult, RoutineType, Row as QRow, RowData, SessionId,
-    SortDirection, TableColumn, TableIndex, TableQueryOptions, TableSchema, Trigger,
-    TriggerDefinition, TriggerEvent, TriggerList, TriggerListOptions, TriggerOperationResult,
-    TriggerTiming, Value,
+    MssqlAuthMode, Namespace, PaginatedQueryResult, QueryId, QueryResult, Routine,
+    RoutineDefinition, RoutineList, RoutineListOptions, RoutineOperationResult, RoutineType,
+    Row as QRow, RowData, SessionId, SortDirection, TableColumn, TableIndex, TableQueryOptions,
+    TableSchema, Trigger, TriggerDefinition, TriggerEvent, TriggerList, TriggerListOptions,
+    TriggerOperationResult, TriggerTiming, Value,
 };
 
 // ==================== Types ====================
@@ -93,7 +93,33 @@ impl SqlServerDriver {
         let mut tib_config = Config::new();
         tib_config.host(&config.host);
         tib_config.port(config.port);
-        tib_config.authentication(AuthMethod::sql_server(&config.username, &config.password));
+
+        let auth_mode = config.mssql_auth.unwrap_or_default();
+        let auth = match auth_mode {
+            MssqlAuthMode::SqlPassword => {
+                AuthMethod::sql_server(&config.username, &config.password)
+            }
+            MssqlAuthMode::WindowsNtlm => {
+                if config.username.trim().is_empty() {
+                    return Err(EngineError::connection_failed(
+                        "Windows NTLM authentication requires DOMAIN\\user or user@DOMAIN",
+                    ));
+                }
+                #[cfg(windows)]
+                {
+                    AuthMethod::windows(&config.username, &config.password)
+                }
+                #[cfg(not(windows))]
+                {
+                    return Err(EngineError::connection_failed(
+                        "Windows Authentication is only available when QoreDB runs on Windows. \
+                         Use SQL authentication, or run QoreDB on a Windows client.",
+                    ));
+                }
+            }
+        };
+        tib_config.authentication(auth);
+
         if let Some(ref db) = config.database {
             if !db.is_empty() {
                 tib_config.database(db);
@@ -2045,9 +2071,8 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_build_config() {
-        let config = ConnectionConfig {
+    fn base_config() -> ConnectionConfig {
+        ConnectionConfig {
             driver: "sqlserver".to_string(),
             host: "localhost".to_string(),
             port: 1433,
@@ -2063,8 +2088,57 @@ mod tests {
             pool_max_connections: None,
             pool_min_connections: None,
             proxy: None,
-        };
+            mssql_auth: None,
+        }
+    }
+
+    #[test]
+    fn test_build_config() {
+        let config = base_config();
         let tib_config = SqlServerDriver::build_config(&config);
         assert!(tib_config.is_ok());
+    }
+
+    #[test]
+    fn build_config_accepts_legacy_none_auth_mode() {
+        let mut config = base_config();
+        config.mssql_auth = None;
+        assert!(SqlServerDriver::build_config(&config).is_ok());
+    }
+
+    #[test]
+    fn build_config_accepts_explicit_sql_password() {
+        let mut config = base_config();
+        config.mssql_auth = Some(MssqlAuthMode::SqlPassword);
+        assert!(SqlServerDriver::build_config(&config).is_ok());
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn build_config_accepts_windows_ntlm_with_domain_user() {
+        let mut config = base_config();
+        config.username = "CORP\\jdoe".to_string();
+        config.mssql_auth = Some(MssqlAuthMode::WindowsNtlm);
+        assert!(SqlServerDriver::build_config(&config).is_ok());
+    }
+
+    #[test]
+    fn build_config_rejects_windows_ntlm_with_empty_username() {
+        let mut config = base_config();
+        config.username = "   ".to_string();
+        config.mssql_auth = Some(MssqlAuthMode::WindowsNtlm);
+        let err = SqlServerDriver::build_config(&config).expect_err("must reject empty user");
+        assert!(err.to_string().contains("DOMAIN"));
+    }
+
+    #[cfg(not(windows))]
+    #[test]
+    fn build_config_rejects_windows_ntlm_on_non_windows_hosts() {
+        let mut config = base_config();
+        config.username = "CORP\\jdoe".to_string();
+        config.mssql_auth = Some(MssqlAuthMode::WindowsNtlm);
+        let err = SqlServerDriver::build_config(&config)
+            .expect_err("must reject NTLM on non-Windows hosts");
+        assert!(err.to_string().contains("Windows"));
     }
 }

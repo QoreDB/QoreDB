@@ -76,6 +76,7 @@ fn postgres_config() -> ConnectionConfig {
         pool_max_connections: None,
         pool_min_connections: None,
         proxy: None,
+        mssql_auth: None,
     }
 }
 
@@ -96,6 +97,7 @@ fn mysql_config() -> ConnectionConfig {
         pool_max_connections: None,
         pool_min_connections: None,
         proxy: None,
+        mssql_auth: None,
     }
 }
 
@@ -116,6 +118,7 @@ fn mongo_config() -> ConnectionConfig {
         pool_max_connections: None,
         pool_min_connections: None,
         proxy: None,
+        mssql_auth: None,
     }
 }
 
@@ -136,6 +139,7 @@ fn redis_config() -> ConnectionConfig {
         pool_max_connections: None,
         pool_min_connections: None,
         proxy: None,
+        mssql_auth: None,
     }
 }
 

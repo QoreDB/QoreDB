@@ -21,6 +21,7 @@ export function buildConnectionConfig(formData: ConnectionFormData): ConnectionC
     database: formData.database || undefined,
     ssl: formData.ssl,
     ssl_mode: formData.sslMode || undefined,
+    mssql_auth: formData.driver === Driver.SqlServer ? formData.mssqlAuthMode : undefined,
     pool_max_connections: formData.poolMaxConnections,
     pool_min_connections: formData.poolMinConnections,
     pool_acquire_timeout_secs: formData.poolAcquireTimeoutSecs,
@@ -74,6 +75,7 @@ export function buildSavedConnection(
     database: formData.database || undefined,
     ssl: formData.ssl,
     ssl_mode: formData.sslMode || undefined,
+    mssql_auth: formData.driver === Driver.SqlServer ? formData.mssqlAuthMode : undefined,
     pool_max_connections: formData.poolMaxConnections,
     pool_min_connections: formData.poolMinConnections,
     pool_acquire_timeout_secs: formData.poolAcquireTimeoutSecs,
@@ -166,9 +168,16 @@ export function isConnectionFormValid(formData: ConnectionFormData): boolean {
     );
   }
 
+  const ntlmUsernameOk =
+    formData.driver !== Driver.SqlServer ||
+    formData.mssqlAuthMode !== 'windows_ntlm' ||
+    formData.username.includes('\\') ||
+    formData.username.includes('@');
+
   return Boolean(
     formData.host &&
       (formData.username || !authRequired) &&
+      ntlmUsernameOk &&
       (!formData.useSshTunnel || (formData.sshHost && formData.sshUsername && formData.sshKeyPath))
   );
 }

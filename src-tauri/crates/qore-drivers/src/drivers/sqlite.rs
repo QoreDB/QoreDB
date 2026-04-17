@@ -1588,6 +1588,7 @@ mod tests {
             pool_max_connections: None,
             pool_min_connections: None,
             proxy: None,
+            mssql_auth: None,
         };
 
         let session_id = driver.connect(&config).await.unwrap();
@@ -1614,6 +1615,7 @@ mod tests {
             pool_max_connections: None,
             pool_min_connections: None,
             proxy: None,
+            mssql_auth: None,
         };
 
         let session_id = driver.connect(&config).await.unwrap();
@@ -1670,6 +1672,7 @@ mod tests {
             pool_max_connections: None,
             pool_min_connections: None,
             proxy: None,
+            mssql_auth: None,
         };
 
         let session_id = driver.connect(&config).await.unwrap();

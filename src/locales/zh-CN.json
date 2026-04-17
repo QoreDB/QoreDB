@@ -126,6 +126,13 @@
       "overrideInfo": "您可以覆盖下方任意字段。URL 解析的值将用作默认值。",
       "pressParseHint": "点击“解析”以提取连接详情"
     },
+    "mssql": {
+      "authMode": "身份验证",
+      "authSql": "SQL 登录",
+      "authNtlm": "Windows (NTLM)",
+      "ntlmHint": "请使用 DOMAIN\\user 或 user@DOMAIN 格式。需要 Windows 客户端 — 目前在 macOS/Linux 上已禁用。",
+      "ntlmUsernamePlaceholder": "DOMAIN\\user"
+    },
     "ssh": {
       "enableTunnel": "使用 SSH 隧道",
       "configure": "配置",

@@ -84,12 +84,10 @@ export function NotificationItem({ notification }: NotificationItemProps) {
         }
       }}
     >
-      {/* Level indicator */}
       <div className={cn('mt-0.5 shrink-0', colorClass)}>
         <Icon className="w-4 h-4" />
       </div>
 
-      {/* Content */}
       <div className="flex-1 min-w-0">
         <div className="flex items-start justify-between gap-2">
           <p
@@ -115,6 +113,7 @@ export function NotificationItem({ notification }: NotificationItemProps) {
         {notification.actionLabel && (
           <button
             onClick={handleAction}
+            type="button"
             className="text-xs text-primary hover:underline mt-1 inline-flex items-center gap-1"
           >
             {t(notification.actionLabel)}
@@ -123,9 +122,10 @@ export function NotificationItem({ notification }: NotificationItemProps) {
         )}
       </div>
 
-      {/* Dismiss button */}
       <button
         onClick={handleDismiss}
+            type="button"
+
         className={cn(
           'absolute top-1.5 right-1.5 p-0.5 rounded opacity-0 group-hover:opacity-100',
           'hover:bg-muted transition-opacity'
@@ -135,7 +135,6 @@ export function NotificationItem({ notification }: NotificationItemProps) {
         <X className="w-3 h-3 text-muted-foreground" />
       </button>
 
-      {/* Unread indicator */}
       {!notification.read && (
         <div className="absolute left-1 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-primary" />
       )}

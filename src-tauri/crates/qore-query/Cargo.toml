@@ -1,0 +1,15 @@
+[package]
+name = "qore-query"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "Type-safe multi-dialect SQL query builder for QoreDB"
+
+[dependencies]
+qore-core = { path = "../qore-core" }
+serde = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+proptest = "1"
+sqlparser = { workspace = true }

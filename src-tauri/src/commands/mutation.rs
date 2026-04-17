@@ -12,6 +12,10 @@ use uuid::Uuid;
 
 use crate::engine::types::{Namespace, QueryResult, RowData, SessionId};
 use crate::interceptor::{Environment, QueryExecutionResult, SafetyAction};
+use crate::time_travel::capture::{
+    build_changelog_entry, fetch_row_by_pk, merge_before_with_data, rowdata_to_json_map,
+};
+use crate::time_travel::ChangeOperation;
 
 const READ_ONLY_BLOCKED: &str = "Operation blocked: read-only mode";
 const MUTATIONS_NOT_SUPPORTED: &str = "Mutations are not supported by this driver";
@@ -63,13 +67,12 @@ pub async fn insert_row(
     data: RowData,
     acknowledged_dangerous: Option<bool>,
 ) -> Result<MutationResponse, String> {
-    let (session_manager, interceptor) = {
-        let state = state.lock().await;
-        (
-            Arc::clone(&state.session_manager),
-            Arc::clone(&state.interceptor),
-        )
-    };
+    let state_guard = state.lock().await;
+    let session_manager = Arc::clone(&state_guard.session_manager);
+    let interceptor = Arc::clone(&state_guard.interceptor);
+    let changelog_store = Arc::clone(&state_guard.changelog_store);
+    drop(state_guard);
+
     let session = parse_session_id(&session_id)?;
 
     let read_only = session_manager
@@ -182,6 +185,25 @@ pub async fn insert_row(
                 false,
                 safety_warning.as_deref(),
             );
+
+            // Time-Travel: record the INSERT (after-image = data params)
+            if changelog_store.should_capture(&table, &environment) {
+                let after_image = rowdata_to_json_map(&data);
+                let entry = build_changelog_entry(
+                    &session_id,
+                    driver.driver_id(),
+                    &namespace,
+                    &table,
+                    ChangeOperation::Insert,
+                    &data, // PK = the inserted data
+                    None,
+                    Some(after_image),
+                    None,
+                    &environment,
+                );
+                changelog_store.record(entry);
+            }
+
             Ok(MutationResponse {
                 success: true,
                 result: Some(result),
@@ -226,13 +248,11 @@ pub async fn update_row(
     data: RowData,
     acknowledged_dangerous: Option<bool>,
 ) -> Result<MutationResponse, String> {
-    let (session_manager, interceptor) = {
-        let state = state.lock().await;
-        (
-            Arc::clone(&state.session_manager),
-            Arc::clone(&state.interceptor),
-        )
-    };
+    let state_guard = state.lock().await;
+    let session_manager = Arc::clone(&state_guard.session_manager);
+    let interceptor = Arc::clone(&state_guard.interceptor);
+    let changelog_store = Arc::clone(&state_guard.changelog_store);
+    drop(state_guard);
     let session = parse_session_id(&session_id)?;
 
     let read_only = session_manager
@@ -330,6 +350,13 @@ pub async fn update_row(
 
     let namespace = Namespace { database, schema };
 
+    // Time-Travel: fetch before-image BEFORE the mutation
+    let before_image = if changelog_store.should_capture(&table, &environment) {
+        fetch_row_by_pk(&driver, session, &namespace, &table, &primary_key).await
+    } else {
+        None
+    };
+
     let start_time = std::time::Instant::now();
     match driver
         .update_row(session, &namespace, &table, &primary_key, &data)
@@ -348,6 +375,27 @@ pub async fn update_row(
                 false,
                 safety_warning.as_deref(),
             );
+
+            // Time-Travel: record the UPDATE with before + after images
+            if changelog_store.should_capture(&table, &environment) {
+                let after_image = before_image
+                    .as_ref()
+                    .map(|before| merge_before_with_data(before, &data));
+                let entry = build_changelog_entry(
+                    &session_id,
+                    driver.driver_id(),
+                    &namespace,
+                    &table,
+                    ChangeOperation::Update,
+                    &primary_key,
+                    before_image,
+                    after_image,
+                    None,
+                    &environment,
+                );
+                changelog_store.record(entry);
+            }
+
             Ok(MutationResponse {
                 success: true,
                 result: Some(result),
@@ -391,13 +439,11 @@ pub async fn delete_row(
     primary_key: RowData,
     acknowledged_dangerous: Option<bool>,
 ) -> Result<MutationResponse, String> {
-    let (session_manager, interceptor) = {
-        let state = state.lock().await;
-        (
-            Arc::clone(&state.session_manager),
-            Arc::clone(&state.interceptor),
-        )
-    };
+    let state_guard = state.lock().await;
+    let session_manager = Arc::clone(&state_guard.session_manager);
+    let interceptor = Arc::clone(&state_guard.interceptor);
+    let changelog_store = Arc::clone(&state_guard.changelog_store);
+    drop(state_guard);
     let session = parse_session_id(&session_id)?;
 
     let read_only = session_manager
@@ -495,6 +541,13 @@ pub async fn delete_row(
 
     let namespace = Namespace { database, schema };
 
+    // Time-Travel: fetch before-image BEFORE the deletion
+    let before_image = if changelog_store.should_capture(&table, &environment) {
+        fetch_row_by_pk(&driver, session, &namespace, &table, &primary_key).await
+    } else {
+        None
+    };
+
     let start_time = std::time::Instant::now();
     match driver
         .delete_row(session, &namespace, &table, &primary_key)
@@ -513,6 +566,24 @@ pub async fn delete_row(
                 false,
                 safety_warning.as_deref(),
             );
+
+            // Time-Travel: record the DELETE with before-image
+            if changelog_store.should_capture(&table, &environment) {
+                let entry = build_changelog_entry(
+                    &session_id,
+                    driver.driver_id(),
+                    &namespace,
+                    &table,
+                    ChangeOperation::Delete,
+                    &primary_key,
+                    before_image,
+                    None,
+                    None,
+                    &environment,
+                );
+                changelog_store.record(entry);
+            }
+
             Ok(MutationResponse {
                 success: true,
                 result: Some(result),

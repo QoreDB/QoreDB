@@ -492,8 +492,7 @@
       "data": "Dados e Privacidade",
       "shortcuts": "Atalhos de Teclado",
       "license": "Licença",
-      "ai": "Assistente de IA",
-      "workspaces": "Áreas de trabalho"
+      "ai": "Assistente de IA"
     },
     "search": {
       "placeholder": "Pesquisar configurações...",
@@ -532,21 +531,6 @@
       "runQuery": "Executar consulta",
       "closeTab": "Fechar aba",
       "escape": "Fechar overlay / Cancelar"
-    },
-    "workspaces": {
-      "whatTitle": "O que é uma área de trabalho?",
-      "whatDescription": "Uma área de trabalho é um diretório .qoredb/ no seu projeto que armazena conexões, consultas e notebooks — tudo versionável com Git.",
-      "benefitGit": "Versionável com Git",
-      "benefitGitDesc": "Compartilhe sua configuração de banco de dados com sua equipe via Git.",
-      "benefitTeam": "Colaboração em equipe",
-      "benefitTeamDesc": "Todos obtêm as mesmas conexões e consultas automaticamente.",
-      "benefitOrganize": "Organizado por projeto",
-      "benefitOrganizeDesc": "Cada projeto tem suas próprias conexões, separadas dos demais.",
-      "activeTitle": "Área ativa",
-      "activeDescription": "A área de trabalho atualmente em uso para conexões e consultas.",
-      "quickstartTitle": "Início rápido",
-      "quickstartDescription": "Faça um tour guiado para aprender como as áreas de trabalho funcionam.",
-      "startTour": "Iniciar tour guiado"
     }
   },
   "table": {
@@ -2002,5 +1986,90 @@
     "rename": "Renomear",
     "renamePrompt": "Novo nome:",
     "leave": "Sair"
+  },
+  "timeTravel": {
+    "viewHistory": "View data history",
+    "title": "Data Time-Travel",
+    "timeline": {
+      "title": "Timeline",
+      "noEvents": "No mutations recorded for this table",
+      "loadMore": "Load more events",
+      "insert": "Inserted",
+      "update": "Updated",
+      "delete": "Deleted",
+      "rows": "{{count}} row",
+      "rows_other": "{{count}} rows",
+      "rawSql": "Raw SQL mutation"
+    },
+    "filters": {
+      "dateRange": "Date range",
+      "from": "From",
+      "to": "To",
+      "operation": "Operation",
+      "connection": "Connection",
+      "session": "Session",
+      "environment": "Environment",
+      "allOperations": "All operations",
+      "allConnections": "All connections",
+      "allSessions": "All sessions",
+      "searchPk": "Search by primary key..."
+    },
+    "diff": {
+      "title": "Temporal diff",
+      "selectPoints": "Select two points in time to compare",
+      "stateAtT1": "State at {{time}}",
+      "stateAtT2": "State at {{time}}",
+      "compare": "Compare",
+      "noChanges": "No changes between these points"
+    },
+    "rowHistory": {
+      "title": "Row history",
+      "noHistory": "No history for this row",
+      "before": "Before",
+      "after": "After",
+      "changedColumns": "Changed columns"
+    },
+    "rollback": {
+      "title": "Rollback SQL Preview",
+      "target": "Target: {{table}} @ {{time}}",
+      "statements": "{{count}} statement",
+      "statements_other": "{{count}} statements",
+      "warnings": "{{count}} warning",
+      "warnings_other": "{{count}} warnings",
+      "reviewWarning": "Review carefully before executing!",
+      "copyToClipboard": "Copy to clipboard",
+      "openInQueryTab": "Open in Query Tab",
+      "noBeforeImage": "Row {{pk}}: no before-image available (skipped)",
+      "binaryExcluded": "Column \"{{column}}\" is binary: excluded from restore",
+      "generateRollback": "Generate rollback SQL",
+      "rollbackToPoint": "Rollback to this point"
+    },
+    "toolbar": {
+      "export": "Export changelog",
+      "clear": "Clear history",
+      "clearConfirm": "This will permanently delete all recorded changes for this table. Are you sure?",
+      "settings": "Time-Travel settings"
+    },
+    "settings": {
+      "title": "Time-Travel",
+      "enabled": "Enable change tracking",
+      "enabledDescription": "Record before/after state for every row you edit, insert or delete.",
+      "dataWarning": "When enabled, QoreDB records the before/after values of every row you modify. This data is stored locally on your machine. Adjust retention to match your data policy.",
+      "disabled": "Time-Travel is disabled",
+      "disabledDescription": "Enable it in Settings > Data > Time-Travel to start tracking changes.",
+      "retentionDays": "Retention period (days)",
+      "retentionDaysDescription": "How long to keep change history. Set 0 for unlimited.",
+      "maxEntries": "Maximum entries",
+      "maxEntriesDescription": "Maximum number of change records before rotation.",
+      "productionOnly": "Production only",
+      "productionOnlyDescription": "Only track changes in production environments.",
+      "excludedTables": "Excluded tables",
+      "excludedTablesDescription": "Comma-separated table names to exclude from tracking (exact match)."
+    },
+    "empty": {
+      "title": "No change history",
+      "description": "When you edit, insert, or delete rows in this table, QoreDB will record each change here.",
+      "hint": "Only changes made through QoreDB are tracked 2014 external modifications are not captured."
+    }
   }
 }

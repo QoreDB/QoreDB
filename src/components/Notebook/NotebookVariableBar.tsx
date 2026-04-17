@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/select';
 import { Tooltip } from '@/components/ui/tooltip';
 import type { NotebookVariable } from '@/lib/notebookTypes';
+import { Label } from '../ui/label';
 
 interface NotebookVariableBarProps {
   variables: Record<string, NotebookVariable>;
@@ -29,7 +30,7 @@ interface NotebookVariableBarProps {
   onRemoveVariable: (name: string) => void;
 }
 
-const VARIABLE_TYPES = ['text', 'number', 'date', 'select'] as const;
+const VARIABLE_TYPES = ['text', 'number', 'date', 'select'] as const; //TODO : non exhaustif ?
 
 export function NotebookVariableBar({
   variables,
@@ -70,14 +71,14 @@ export function NotebookVariableBar({
           key={v.name}
           className="flex items-center gap-1.5 shrink-0 bg-background/60 rounded-md border border-border/50 px-2 py-1"
         >
-          <label className="text-xs font-mono text-muted-foreground shrink-0">{v.name}</label>
+          <Label className="text-xs font-mono text-muted-foreground shrink-0">{v.name}</Label>
           <span className="text-muted-foreground/40">=</span>
           {v.type === 'select' && v.options ? (
             <Select
               value={v.currentValue ?? v.defaultValue ?? ''}
               onValueChange={val => onUpdateVariable(v.name, val)}
             >
-              <SelectTrigger className="h-6 text-xs w-auto min-w-[80px] border-0 bg-transparent px-1">
+              <SelectTrigger className="h-6 text-xs w-auto min-w-20 border-0 bg-transparent px-1">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -128,9 +129,9 @@ export function NotebookVariableBar({
           </DialogHeader>
           <div className="flex flex-col gap-3">
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">
+              <Label className="text-xs font-medium text-muted-foreground">
                 {t('notebook.variableName')}
-              </label>
+              </Label>
               <Input
                 placeholder="my_variable"
                 value={newVar.name ?? ''}
@@ -139,9 +140,9 @@ export function NotebookVariableBar({
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">
+              <Label className="text-xs font-medium text-muted-foreground">
                 {t('notebook.variableType')}
-              </label>
+              </Label>
               <Select
                 value={newVar.type ?? 'text'}
                 onValueChange={val =>
@@ -161,9 +162,9 @@ export function NotebookVariableBar({
               </Select>
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">
+              <Label className="text-xs font-medium text-muted-foreground">
                 {t('notebook.variableDefault')}
-              </label>
+              </Label>
               <Input
                 placeholder="value"
                 value={newVar.defaultValue ?? ''}
@@ -171,9 +172,9 @@ export function NotebookVariableBar({
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">
+              <Label className="text-xs font-medium text-muted-foreground">
                 {t('notebook.variableDescription')}
-              </label>
+              </Label>
               <Input
                 placeholder={t('notebook.variableDescriptionHint')}
                 value={newVar.description ?? ''}

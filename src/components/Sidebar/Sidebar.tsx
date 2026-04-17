@@ -325,6 +325,10 @@ export function Sidebar({
               />
               <input
                 type="text"
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="off"
+                spellCheck={false}
                 value={searchFilter}
                 onChange={e => setSearchFilter(e.target.value)}
                 placeholder={t('sidebar.filterConnections')}

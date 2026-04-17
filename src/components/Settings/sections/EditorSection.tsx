@@ -15,6 +15,7 @@ import {
 import { getSandboxPreferences, setSandboxPreferences } from '@/lib/sandboxStore';
 import type { SandboxDeleteDisplay } from '@/lib/sandboxTypes';
 import { SettingsCard } from '../SettingsCard';
+import { Label } from '@/components/ui/label';
 
 interface EditorSectionProps {
   searchQuery?: string;
@@ -56,7 +57,7 @@ export function EditorSection({ searchQuery }: EditorSectionProps) {
       searchQuery={searchQuery}
     >
       <div className="space-y-3">
-        <label className="flex items-start gap-2.5 text-sm cursor-pointer">
+        <Label className="flex items-start gap-2.5 text-sm cursor-pointer">
           <Checkbox
             checked={sandboxPrefs.confirmOnDiscard}
             onCheckedChange={checked => updateSandboxPrefs({ confirmOnDiscard: !!checked })}
@@ -70,9 +71,9 @@ export function EditorSection({ searchQuery }: EditorSectionProps) {
               {t('settings.sandbox.confirmDiscardDescription')}
             </span>
           </span>
-        </label>
+        </Label>
 
-        <label className="flex items-start gap-2.5 text-sm cursor-pointer">
+        <Label className="flex items-start gap-2.5 text-sm cursor-pointer">
           <Checkbox
             checked={sandboxPrefs.autoCollapsePanel}
             onCheckedChange={checked => updateSandboxPrefs({ autoCollapsePanel: !!checked })}
@@ -86,7 +87,7 @@ export function EditorSection({ searchQuery }: EditorSectionProps) {
               {t('settings.sandbox.autoCollapseDescription')}
             </span>
           </span>
-        </label>
+        </Label>
 
         <div className="flex items-center gap-3 pt-2">
           <span className="text-sm text-foreground">{t('settings.sandbox.deleteDisplay')}</span>

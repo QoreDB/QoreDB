@@ -264,6 +264,54 @@ async fn run_export_task(
                             last_emit = Instant::now();
                         }
                     }
+                    Some(StreamEvent::RowBatch(batch)) => {
+                        let mut stop = false;
+                        for row in batch {
+                            if let Err(err) = writer.write_row(&columns, &row).await {
+                                state = ExportState::Failed;
+                                error = Some(err);
+                                stop = true;
+                                break;
+                            }
+                            rows_exported += 1;
+
+                            if rows_exported % batch_size == 0 {
+                                if let Err(err) = writer.flush().await {
+                                    state = ExportState::Failed;
+                                    error = Some(err);
+                                    stop = true;
+                                    break;
+                                }
+                            }
+
+                            if let Some(limit) = limit {
+                                if rows_exported >= limit {
+                                    let _ = driver.cancel(session_id, Some(query_id)).await;
+                                    cancel_requested = true;
+                                    state = ExportState::Completed;
+                                    stop = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if stop {
+                            break;
+                        }
+                        if last_emit.elapsed() >= Duration::from_millis(250) {
+                            emit_progress(
+                                &window,
+                                build_progress(
+                                    &export_id,
+                                    ExportState::Running,
+                                    rows_exported,
+                                    writer.bytes_written(),
+                                    start_time,
+                                    None,
+                                ),
+                            );
+                            last_emit = Instant::now();
+                        }
+                    }
                     Some(StreamEvent::Error(err)) => {
                         state = ExportState::Failed;
                         error = Some(err);

@@ -672,6 +672,9 @@ async fn test_streaming<D: DataEngine + ?Sized>(
                 qoredb_lib::engine::traits::StreamEvent::Row(_row) => {
                     rows_received += 1;
                 }
+                qoredb_lib::engine::traits::StreamEvent::RowBatch(batch) => {
+                    rows_received += batch.len() as u64;
+                }
                 qoredb_lib::engine::traits::StreamEvent::Error(e) => {
                     panic!("Stream error: {}", e);
                 }

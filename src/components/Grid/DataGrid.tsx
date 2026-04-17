@@ -306,6 +306,23 @@ export function DataGrid({
     return new Set(primaryKey ?? []);
   }, [primaryKey]);
 
+  // Stable row identity: prefer primary key when fully defined so that sort,
+  // filter, and streaming batches don't unmount/remount existing rows. Falls
+  // back to row index for tables without a PK or rows with NULL PK values
+  // (e.g. sandbox-inserted rows pending an autoincrement).
+  const getRowId = useMemo(() => {
+    if (!primaryKey || primaryKey.length === 0) return undefined;
+    return (row: RowData, index: number) => {
+      let composite = '';
+      for (const key of primaryKey) {
+        const v = row[key];
+        if (v === null || v === undefined) return `__idx_${index}`;
+        composite += `${composite ? '::' : ''}${String(v)}`;
+      }
+      return composite;
+    };
+  }, [primaryKey]);
+
   const { indexedColumns, uniqueColumns, indexInfoMap } = useMemo(() => {
     const indexedColumns = new Set<string>();
     const uniqueColumns = new Set<string>();
@@ -411,6 +428,7 @@ export function DataGrid({
   const tableNameRef = useRef(tableName);
   tableNameRef.current = tableName;
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: deliberately depend on `result?.columns` (not full `result`) so streaming row batches don't rebuild every ColumnDef. *Ref objects are stable; their `.current` is read at render time inside cells.
   const columns = useMemo<ColumnDef<RowData, Value>[]>(() => {
     if (!result || result.columns.length === 0) return [];
 
@@ -558,18 +576,18 @@ export function DataGrid({
 
     const leadingColumns = actionColumn ? [selectColumn, actionColumn] : [selectColumn];
     return [...leadingColumns, ...dataColumns];
+    // Deps deliberately exclude `result` (rows change on every streaming batch)
+    // and the *Ref objects (stable identities). Only column metadata and
+    // schema-derived sets should trigger column rebuild.
   }, [
     onRowClick,
-    result,
+    result?.columns,
     t,
     foreignKeyMap,
     primaryKeySet,
     indexedColumns,
     uniqueColumns,
     indexInfoMap,
-    editingCellRef,
-    editingValueRef,
-    editInputRef,
   ]);
 
   // Configure table
@@ -596,6 +614,7 @@ export function DataGrid({
     getSortedRowModel: getSortedRowModel(),
     ...(isInfiniteScrollMode ? {} : { getPaginationRowModel: getPaginationRowModel() }),
     getFilteredRowModel: getFilteredRowModel(),
+    ...(getRowId ? { getRowId } : {}),
     enableRowSelection: true,
     globalFilterFn: 'includesString',
     enableColumnResizing: true,

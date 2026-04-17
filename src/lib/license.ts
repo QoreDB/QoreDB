@@ -31,7 +31,8 @@ export type ProFeature =
   | 'export_parquet'
   | 'custom_safety_rules'
   | 'query_library_advanced'
-  | 'virtual_relations_auto_suggest';
+  | 'virtual_relations_auto_suggest'
+  | 'data_time_travel';
 
 // ============================================
 // TIER UTILITIES
@@ -56,6 +57,7 @@ const FEATURE_REQUIRED_TIER: Record<ProFeature, LicenseTier> = {
   custom_safety_rules: 'pro',
   query_library_advanced: 'pro',
   virtual_relations_auto_suggest: 'pro',
+  data_time_travel: 'pro',
 };
 
 /** Returns true if `current` tier includes features of `required` tier. */

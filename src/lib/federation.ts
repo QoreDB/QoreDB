@@ -8,7 +8,7 @@
  */
 
 import { invoke } from '@tauri-apps/api/core';
-import type { QueryResult } from './tauri';
+import { createStreamChannel, type QueryResult, type QueryStreamHandlers } from './tauri';
 
 // ============================================
 // TYPES
@@ -49,6 +49,7 @@ export interface FederationQueryOptions {
   stream?: boolean;
   queryId?: string;
   rowLimitPerSource?: number;
+  streamHandlers?: QueryStreamHandlers;
 }
 
 // ============================================
@@ -63,6 +64,7 @@ export async function executeFederationQuery(
   aliasMap: Record<string, string>,
   options?: FederationQueryOptions
 ): Promise<FederationQueryResponse> {
+  const channel = createStreamChannel(options?.streamHandlers ?? {});
   return invoke('execute_federation_query', {
     query,
     aliasMap,
@@ -74,6 +76,7 @@ export async function executeFederationQuery(
           row_limit_per_source: options.rowLimitPerSource,
         }
       : undefined,
+    onStream: channel,
   });
 }
 

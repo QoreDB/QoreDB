@@ -1,0 +1,15 @@
+[package]
+name = "qore-sql"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "SQL safety analysis, generation, and connection URL parsing"
+
+[dependencies]
+qore-core = { path = "../qore-core" }
+sqlparser = { workspace = true }
+url = { workspace = true }
+percent-encoding = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+lru = "0.17"

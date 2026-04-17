@@ -24,6 +24,7 @@ import { TableBrowser, type TableBrowserTab } from './components/Browser/TableBr
 import { CustomTitlebar } from './components/CustomTitlebar';
 import { ConnectionDashboard } from './components/Dashboard/ConnectionDashboard';
 import { DataDiffViewer } from './components/Diff/DataDiffViewer';
+import { TimeTravelViewer } from './components/TimeTravel/TimeTravelViewer';
 import { FederationViewer } from './components/Federation/FederationViewer';
 import { WelcomeScreen } from './components/Home/WelcomeScreen';
 import { LicenseGate } from './components/License/LicenseGate';
@@ -70,6 +71,7 @@ import {
   createQueryTab,
   createSnapshotsTab,
   createTableTab,
+  createTimeTravelTab,
   type OpenTab,
 } from './lib/tabs';
 import {
@@ -960,6 +962,9 @@ function AppContent({
         connectionDatabase={activeConnection?.database}
         connectionId={activeConnection?.id}
         onOpenRelatedTable={onTableSelect}
+        onOpenTimeTravel={(ns, table) =>
+          onOpenTab(createTimeTravelTab(ns, table))
+        }
         relationFilter={activeTab.relationFilter}
         searchFilter={activeTab.searchFilter}
         initialTab={tableBrowserTabs[activeTab.id]}
@@ -1096,6 +1101,23 @@ function AppContent({
             namespace={activeTab.namespace}
             leftSource={activeTab.diffLeftSource}
             rightSource={activeTab.diffRightSource}
+          />
+        </LicenseGate>
+      </div>
+    );
+  }
+
+  if (activeTab?.type === 'time-travel' && activeTab.timeTravelNamespace && activeTab.timeTravelTableName) {
+    return (
+      <div className="flex-1 min-h-0 flex flex-col">
+        <LicenseGate feature="data_time_travel">
+          <TimeTravelViewer
+            key={activeTab.id}
+            sessionId={sessionId}
+            namespace={activeTab.timeTravelNamespace}
+            tableName={activeTab.timeTravelTableName}
+            driverId={driver}
+            onOpenTab={onOpenTab}
           />
         </LicenseGate>
       </div>

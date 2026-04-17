@@ -10,6 +10,9 @@ ignore = [
   # rsa Marvin Attack: sqlx-mysql uses rsa for MySQL caching_sha2_password auth.
   # No fix available in rsa 0.9.x. Timing side-channel not exploitable in DB auth context.
   { id = "RUSTSEC-2023-0071", reason = "sqlx-mysql transitive dep, no fix available" },
+  # rand unsoundness: only reachable if a custom logger calls rand::rng() and triggers reseed.
+  # Transitive via sqlx-mysql (rsa) and tauri (phf); QoreDB defines no such logger.
+  { id = "RUSTSEC-2026-0097", reason = "rand 0.8.x transitive dep, not exploitable in our context" },
 ]
 
 [licenses]

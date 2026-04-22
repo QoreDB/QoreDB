@@ -174,9 +174,12 @@ export function isConnectionFormValid(formData: ConnectionFormData): boolean {
     formData.username.includes('\\') ||
     formData.username.includes('@');
 
+  const isMssqlIntegrated =
+    formData.driver === Driver.SqlServer && formData.mssqlAuthMode === 'windows_integrated';
+
   return Boolean(
     formData.host &&
-      (formData.username || !authRequired) &&
+      (formData.username || !authRequired || isMssqlIntegrated) &&
       ntlmUsernameOk &&
       (!formData.useSshTunnel || (formData.sshHost && formData.sshUsername && formData.sshKeyPath))
   );

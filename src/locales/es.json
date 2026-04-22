@@ -130,7 +130,9 @@
       "authMode": "Autenticación",
       "authSql": "Inicio de sesión SQL",
       "authNtlm": "Windows (NTLM)",
+      "authIntegrated": "Windows (Integrada)",
       "ntlmHint": "Usa DOMINIO\\usuario o usuario@DOMINIO. Requiere un cliente Windows — deshabilitado en macOS/Linux por el momento.",
+      "integratedHint": "Usa tu sesión actual de Windows/AD — no se requieren credenciales. Necesita SSPI (Windows) o un ticket Kerberos vía kinit (macOS/Linux).",
       "ntlmUsernamePlaceholder": "DOMINIO\\usuario"
     },
     "ssh": {

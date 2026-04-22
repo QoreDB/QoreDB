@@ -130,7 +130,9 @@
       "authMode": "身份验证",
       "authSql": "SQL 登录",
       "authNtlm": "Windows (NTLM)",
+      "authIntegrated": "Windows (集成)",
       "ntlmHint": "请使用 DOMAIN\\user 或 user@DOMAIN 格式。需要 Windows 客户端 — 目前在 macOS/Linux 上已禁用。",
+      "integratedHint": "使用当前的 Windows/AD 会话 — 无需凭据。需要 SSPI (Windows) 或通过 kinit 获取 Kerberos 票据 (macOS/Linux)。",
       "ntlmUsernamePlaceholder": "DOMAIN\\user"
     },
     "ssh": {

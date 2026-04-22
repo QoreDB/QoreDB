@@ -32,9 +32,11 @@ export function BasicSection({
   const usernameRequired = formData.driver !== Driver.Mongodb && formData.driver !== Driver.Redis;
   const isSqlServer = formData.driver === Driver.SqlServer;
   const isNtlm = isSqlServer && formData.mssqlAuthMode === 'windows_ntlm';
+  const isIntegrated = isSqlServer && formData.mssqlAuthMode === 'windows_integrated';
   const authModes: { value: MssqlAuthMode; label: string }[] = [
     { value: 'sql_password', label: t('connection.mssql.authSql') },
     { value: 'windows_ntlm', label: t('connection.mssql.authNtlm') },
+    { value: 'windows_integrated', label: t('connection.mssql.authIntegrated') },
   ];
 
   return (
@@ -167,31 +169,38 @@ export function BasicSection({
               {isNtlm && (
                 <p className="text-xs text-muted-foreground">{t('connection.mssql.ntlmHint')}</p>
               )}
+              {isIntegrated && (
+                <p className="text-xs text-muted-foreground">
+                  {t('connection.mssql.integratedHint')}
+                </p>
+              )}
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>
-                {t('connection.username')}{' '}
-                {usernameRequired && <span className="text-error">*</span>}
-              </Label>
-              <Input
-                placeholder={isNtlm ? t('connection.mssql.ntlmUsernamePlaceholder') : 'user'}
-                value={formData.username}
-                onChange={e => onChange('username', e.target.value)}
-              />
+          {!isIntegrated && (
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>
+                  {t('connection.username')}{' '}
+                  {usernameRequired && <span className="text-error">*</span>}
+                </Label>
+                <Input
+                  placeholder={isNtlm ? t('connection.mssql.ntlmUsernamePlaceholder') : 'user'}
+                  value={formData.username}
+                  onChange={e => onChange('username', e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>{t('connection.password')}</Label>
+                <Input
+                  type="password"
+                  placeholder="••••••••"
+                  value={formData.password}
+                  onChange={e => onChange('password', e.target.value)}
+                />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label>{t('connection.password')}</Label>
-              <Input
-                type="password"
-                placeholder="••••••••"
-                value={formData.password}
-                onChange={e => onChange('password', e.target.value)}
-              />
-            </div>
-          </div>
+          )}
         </>
       )}
     </div>

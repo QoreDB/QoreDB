@@ -12,7 +12,7 @@ import { Channel, invoke } from '@tauri-apps/api/core';
 
 export type Environment = 'development' | 'staging' | 'production';
 
-export type MssqlAuthMode = 'sql_password' | 'windows_ntlm';
+export type MssqlAuthMode = 'sql_password' | 'windows_ntlm' | 'windows_integrated';
 
 export interface ConnectionConfig {
   driver: string;

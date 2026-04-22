@@ -130,7 +130,9 @@
       "authMode": "認証",
       "authSql": "SQL ログイン",
       "authNtlm": "Windows (NTLM)",
+      "authIntegrated": "Windows (統合認証)",
       "ntlmHint": "DOMAIN\\user または user@DOMAIN の形式で入力してください。Windows クライアントが必要です — 現在 macOS/Linux では無効です。",
+      "integratedHint": "現在の Windows/AD セッションを使用します — 資格情報は不要です。SSPI (Windows) または kinit による Kerberos チケット (macOS/Linux) が必要です。",
       "ntlmUsernamePlaceholder": "DOMAIN\\user"
     },
     "ssh": {

@@ -70,6 +70,7 @@ tiberius = { version = "0.12", features = [
     "rust_decimal",
     "bigdecimal",
     "winauth",
+    "integrated-auth-gssapi",
 ] }
 bb8 = "0.9"
 bb8-tiberius = "0.16"

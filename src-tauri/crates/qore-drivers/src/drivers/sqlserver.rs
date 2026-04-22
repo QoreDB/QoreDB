@@ -117,6 +117,9 @@ impl SqlServerDriver {
                     ));
                 }
             }
+            MssqlAuthMode::WindowsIntegrated => {
+                AuthMethod::Integrated
+            }
         };
         tib_config.authentication(auth);
 
@@ -2140,5 +2143,17 @@ mod tests {
         let err = SqlServerDriver::build_config(&config)
             .expect_err("must reject NTLM on non-Windows hosts");
         assert!(err.to_string().contains("Windows"));
+    }
+
+    #[test]
+    fn build_config_accepts_windows_integrated_without_credentials() {
+        // Integrated auth uses the current OS session — username/password are ignored.
+        // Windows: SSPI. Unix: Kerberos ticket (kinit). Either way, build_config
+        // should not require credentials and must produce a valid tiberius Config.
+        let mut config = base_config();
+        config.username = String::new();
+        config.password = String::new();
+        config.mssql_auth = Some(MssqlAuthMode::WindowsIntegrated);
+        assert!(SqlServerDriver::build_config(&config).is_ok());
     }
 }

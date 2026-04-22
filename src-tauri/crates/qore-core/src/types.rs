@@ -77,6 +77,7 @@ pub enum MssqlAuthMode {
     #[default]
     SqlPassword,
     WindowsNtlm,
+    WindowsIntegrated,
 }
 
 /// Network proxy configuration for corporate environments
@@ -115,7 +116,7 @@ pub struct SshTunnelConfig {
     pub username: String,
     pub auth: SshAuth,
 
-    /// Host key verification policy (security-critical).
+    /// Host key verification policy.
     pub host_key_policy: SshHostKeyPolicy,
 
     /// Optional path to an app-owned known_hosts file.
@@ -216,6 +217,22 @@ mod tests {
         assert_eq!(json, "\"windows_ntlm\"");
         let json = serde_json::to_string(&MssqlAuthMode::SqlPassword).unwrap();
         assert_eq!(json, "\"sql_password\"");
+        let json = serde_json::to_string(&MssqlAuthMode::WindowsIntegrated).unwrap();
+        assert_eq!(json, "\"windows_integrated\"");
+    }
+
+    #[test]
+    fn connection_config_roundtrips_windows_integrated() {
+        let json = r#"{
+            "driver":"sqlserver","host":"localhost","port":1433,
+            "username":"","password":"","database":null,"ssl":false,
+            "environment":"development","read_only":false,
+            "pool_max_connections":null,"pool_min_connections":null,
+            "pool_acquire_timeout_secs":null,"ssh_tunnel":null,
+            "mssql_auth":"windows_integrated"
+        }"#;
+        let cfg: ConnectionConfig = serde_json::from_str(json).expect("must parse");
+        assert_eq!(cfg.mssql_auth, Some(MssqlAuthMode::WindowsIntegrated));
     }
 
     #[test]

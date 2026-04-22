@@ -651,6 +651,23 @@
     "multiStatementNotice": "Multiple statements detected ({{count}}). Only the last result is shown.",
     "expandEditor": "Expand editor",
     "collapseEditor": "Collapse editor",
+    "truncated": {
+      "title": "Results truncated by governance limit",
+      "description": "Showing {{shown}} of {{total}} rows. Extra rows were hidden to protect memory and UI performance.",
+      "rerun": "Re-run without limit"
+    },
+    "timedOut": {
+      "rerun": "Re-run without timeout"
+    },
+    "overrideLimits": {
+      "titleRows": "Re-run without row limit?",
+      "titleTimeout": "Re-run without timeout?",
+      "descriptionRows": "The row limit enforced by your environment policy will be bypassed for this single execution. Results will not be truncated.",
+      "descriptionTimeout": "The execution timeout enforced by your environment policy will be bypassed for this single execution. The query may run until the database cancels it.",
+      "warning": "Large result sets can consume significant memory and slow the UI. Long-running queries may hold locks or consume database resources.",
+      "confirm": "Run without limit",
+      "toast": "Re-running query without governance limits"
+    },
     "time": {
       "exec": "EXEC",
       "transfer": "TRANSFER",

@@ -334,6 +334,7 @@ export async function executeQuery(
     queryId?: string;
     namespace?: Namespace;
     streamHandlers?: QueryStreamHandlers;
+    bypassLimits?: boolean;
   }
 ): Promise<{
   success: boolean;
@@ -355,6 +356,7 @@ export async function executeQuery(
     queryId: options?.queryId,
     timeoutMs: options?.timeoutMs,
     stream: options?.stream,
+    bypassLimits: options?.bypassLimits,
     onStream: channel,
   });
 }

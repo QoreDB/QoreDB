@@ -121,8 +121,10 @@ pub async fn execute_query(
     query_id: Option<String>,
     timeout_ms: Option<u64>,
     stream: Option<bool>,
+    bypass_limits: Option<bool>,
     on_stream: Channel<InvokeResponseBody>,
 ) -> Result<QueryResponse, String> {
+    let bypass_limits = bypass_limits.unwrap_or(false);
     let (session_manager, query_manager, policy, interceptor) = {
         let state = state.lock().await;
         (
@@ -400,7 +402,21 @@ pub async fn execute_query(
     let should_stream =
         sql_statements.is_none() && stream.unwrap_or(false) && driver.capabilities().streaming;
 
-    let effective_timeout = timeout_ms.or(policy.max_query_duration_ms);
+    let effective_timeout = if bypass_limits {
+        timeout_ms
+    } else {
+        timeout_ms.or(policy.max_query_duration_ms)
+    };
+
+    if bypass_limits {
+        tracing::warn!(
+            session = %session_id,
+            query_id = %query_id_str,
+            driver = %driver.driver_id(),
+            env = %environment,
+            "Governance limits bypassed for single query (user confirmed override)"
+        );
+    }
 
     if should_stream {
         // Create channel for stream events
@@ -624,7 +640,10 @@ pub async fn execute_query(
                 );
 
                 // Governance: truncate results if max_result_rows is set
-                let (truncated, truncated_total) = if let Some(max_rows) = policy.max_result_rows {
+                // (skipped when the caller explicitly opted into bypass_limits)
+                let (truncated, truncated_total) = if bypass_limits {
+                    (None, None)
+                } else if let Some(max_rows) = policy.max_result_rows {
                     if result.rows.len() as u64 > max_rows {
                         let total = result.rows.len() as u64;
                         result.rows.truncate(max_rows as usize);

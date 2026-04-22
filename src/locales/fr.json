@@ -651,6 +651,23 @@
     "multiStatementNotice": "Plusieurs instructions détectées ({{count}}). Seul le dernier résultat est affiché.",
     "expandEditor": "Agrandir l'éditeur",
     "collapseEditor": "Réduire l'éditeur",
+    "truncated": {
+      "title": "Résultats tronqués par la limite de gouvernance",
+      "description": "{{shown}} lignes sur {{total}} affichées. Les lignes supplémentaires ont été masquées pour préserver la mémoire et la performance de l'UI.",
+      "rerun": "Relancer sans limite"
+    },
+    "timedOut": {
+      "rerun": "Relancer sans timeout"
+    },
+    "overrideLimits": {
+      "titleRows": "Relancer sans limite de lignes ?",
+      "titleTimeout": "Relancer sans délai d'expiration ?",
+      "descriptionRows": "La limite de lignes imposée par la politique d'environnement sera ignorée pour cette exécution unique. Les résultats ne seront pas tronqués.",
+      "descriptionTimeout": "Le délai d'expiration imposé par la politique d'environnement sera ignoré pour cette exécution unique. La requête pourra s'exécuter jusqu'à ce que la base de données l'annule.",
+      "warning": "Les gros ensembles de résultats peuvent consommer beaucoup de mémoire et ralentir l'UI. Les requêtes longues peuvent détenir des verrous ou consommer des ressources de la base.",
+      "confirm": "Exécuter sans limite",
+      "toast": "Requête relancée sans limites de gouvernance"
+    },
     "time": {
       "exec": "EXEC",
       "transfer": "TRANSFERT",

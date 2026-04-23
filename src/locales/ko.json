@@ -2082,6 +2082,9 @@
       "hint": "Only changes made through QoreDB are tracked 2014 external modifications are not captured."
     }
   },
+  "mongo": {
+    "jsonError": "잘못된 JSON: {{message}}"
+  },
   "redis": {
     "typeString": "문자열",
     "typeHash": "해시",

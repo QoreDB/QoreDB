@@ -122,21 +122,25 @@ _Effort estimé : 3-5 jours_
 
 _Effort estimé : 1 semaine_
 
-- [ ] **Frontend — CodeMirror extensions**
-  - [ ] Créer `src/components/Editor/extensions/mongoCompletion.ts`
-  - [ ] Source d'autocomplete depuis le schéma sampling existant (`describe_table`)
-  - [ ] Complétion sur : noms de champs, opérateurs (`$gt`, `$in`, `$regex`, etc.), operations (`find`, `insertOne`…)
-- [ ] **Validation JSON temps réel**
-  - [ ] Linter JSON dans `MongoEditor.tsx` (lint extension CodeMirror)
-  - [ ] Highlight erreur de syntaxe avant envoi
-- [ ] **Highlighting opérateurs**
-  - [ ] Theme override pour colorer `$*` différemment
+- [x] **Frontend — CodeMirror extensions**
+  - [x] Créer `src/components/Editor/extensions/mongoCompletion.ts`
+  - [x] Source d'autocomplete depuis le schéma sampling existant (`describeTable` via `useSchemaCache`)
+  - [x] Complétion sur : noms de champs, opérateurs (`$gt`, `$in`, `$regex`, `$match`, `$group`…), methods (`find`, `insertOne`, `aggregate`, `updateMany`…), noms de collections après `db.`
+- [x] **Validation JSON temps réel**
+  - [x] Linter JSON dans `MongoEditor.tsx` via `src/components/Editor/extensions/mongoLint.ts` (+ dépendance `@codemirror/lint`)
+  - [x] Tolère le style mongosh (commentaires `//` et `/* */`, strings single-quotes, trailing commas)
+  - [x] Highlight erreur avec diagnostic inline + marker gutter avant envoi
+- [x] **Highlighting opérateurs**
+  - [x] ViewPlugin `mongoOperatorHighlight` (`mongoHighlight.ts`) qui décore les clés `"$xxx":` avec la classe `cm-mongo-operator`
+  - [x] Theme CSS dans `MongoEditor.tsx` (couleur distincte dark/light)
 - [ ] **Tests**
-  - [ ] Tests unitaires extension autocomplete (jsdom)
-- [ ] **i18n**
-  - [ ] Messages d'erreur JSON localisés
+  - [ ] Tests unitaires extension autocomplete/lint — bloqué : pas d'infra Vitest/Jest dans le projet
+- [x] **i18n**
+  - [x] Clé `mongo.jsonError` ajoutée dans les 9 locales (en/fr/de/es/ja/ko/pt-BR/ru/zh-CN)
 
 **Done when** : un utilisateur tape `{ "field":` et voit les noms de champs existants dans sa collection.
+
+**État (2026-04-23)** : livré — autocomplete multi-niveau (collections, méthodes, opérateurs `$*`, champs de la collection résolue), linter JSON-ish tolérant, highlight des opérateurs, i18n complète. Tests unitaires restent bloqués par l'absence d'infra JS.
 
 ---
 

@@ -2082,6 +2082,9 @@
       "hint": "Only changes made through QoreDB are tracked 2014 external modifications are not captured."
     }
   },
+  "mongo": {
+    "jsonError": "无效的 JSON: {{message}}"
+  },
   "redis": {
     "typeString": "字符串",
     "typeHash": "哈希",

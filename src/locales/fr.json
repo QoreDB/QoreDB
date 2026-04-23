@@ -2101,6 +2101,9 @@
       "hint": "Seules les modifications effectuées via QoreDB sont suivies — les modifications externes ne sont pas capturées."
     }
   },
+  "mongo": {
+    "jsonError": "JSON invalide : {{message}}"
+  },
   "redis": {
     "typeString": "Chaîne",
     "typeHash": "Hash",

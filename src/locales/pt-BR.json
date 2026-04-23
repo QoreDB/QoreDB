@@ -2082,6 +2082,9 @@
       "hint": "Only changes made through QoreDB are tracked 2014 external modifications are not captured."
     }
   },
+  "mongo": {
+    "jsonError": "JSON inválido: {{message}}"
+  },
   "redis": {
     "typeString": "String",
     "typeHash": "Hash",

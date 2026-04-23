@@ -2082,6 +2082,9 @@
       "hint": "Only changes made through QoreDB are tracked 2014 external modifications are not captured."
     }
   },
+  "mongo": {
+    "jsonError": "Недопустимый JSON: {{message}}"
+  },
   "redis": {
     "typeString": "Строка",
     "typeHash": "Хеш",

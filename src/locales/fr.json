@@ -940,7 +940,8 @@
     "blocked": "Opération bloquée : mode lecture seule",
     "mutationConfirmTitle": "Confirmer la modification des données",
     "mutationConfirmInsert": "Vous êtes sur le point d'insérer une nouvelle ligne dans {{table}}.",
-    "mutationConfirmUpdate": "Vous êtes sur le point de modifier des données dans {{table}}."
+    "mutationConfirmUpdate": "Vous êtes sur le point de modifier des données dans {{table}}.",
+    "mutationConfirmGeneric": "Vous êtes sur le point de modifier des données sur cette connexion."
   },
   "status": {
     "connected": "Connecté",
@@ -2099,5 +2100,41 @@
       "description": "Lorsque vous modifiez, insérez ou supprimez des lignes dans cette table, QoreDB enregistrera chaque changement ici.",
       "hint": "Seules les modifications effectuées via QoreDB sont suivies — les modifications externes ne sont pas capturées."
     }
+  },
+  "redis": {
+    "typeString": "Chaîne",
+    "typeHash": "Hash",
+    "typeList": "Liste",
+    "typeSet": "Ensemble",
+    "typeZSet": "Ensemble trié",
+    "createKeyTitle": "Nouvelle clé",
+    "deleteKeyTitle": "Supprimer la clé",
+    "editValueTitle": "Modifier la valeur",
+    "editHashFieldTitle": "Modifier le champ hash",
+    "deleteHashFieldTitle": "Supprimer le champ hash",
+    "pushListItemTitle": "Ajouter un élément à la liste",
+    "addSetMemberTitle": "Ajouter un membre à l'ensemble",
+    "deleteSetMemberTitle": "Supprimer le membre de l'ensemble",
+    "editZSetMemberTitle": "Modifier un membre de l'ensemble trié",
+    "deleteZSetMemberTitle": "Supprimer le membre de l'ensemble trié",
+    "keyType": "Type de clé",
+    "keyName": "Clé",
+    "value": "Valeur",
+    "hashField": "Champ",
+    "member": "Membre",
+    "score": "Score",
+    "listSide": "Côté d'insertion",
+    "listLeft": "Gauche (LPUSH)",
+    "listRight": "Droite (RPUSH)",
+    "ttlSeconds": "TTL (secondes)",
+    "ttlPlaceholder": "Laisser vide pour aucune expiration",
+    "deleteKeyDescription": "Vous êtes sur le point de supprimer {{count}} clé(s) — les données ne pourront pas être récupérées.",
+    "deleteGenericDescription": "Vous êtes sur le point de supprimer des données sur ce serveur Redis — cette action est irréversible.",
+    "deleteKeysSummary": "{{count}} clé(s) seront supprimées :",
+    "mutationSuccess": "Opération exécutée avec succès.",
+    "errorKeyRequired": "Le nom de la clé est requis.",
+    "errorFieldRequired": "Le nom du champ est requis.",
+    "errorMemberRequired": "Le membre est requis.",
+    "errorScoreInvalid": "Le score doit être un nombre valide."
   }
 }

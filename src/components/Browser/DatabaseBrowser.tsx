@@ -27,6 +27,10 @@ import {
 } from 'lucide-react';
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import {
+  RedisEditorModal,
+  type RedisEditorMode,
+} from '@/components/Editor/RedisEditorModal';
 import { ERDiagram } from '@/components/Schema/ERDiagram';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -42,7 +46,7 @@ import { cn } from '@/lib/utils';
 import {
   DRIVER_ICONS,
   DRIVER_LABELS,
-  type Driver,
+  Driver,
   type DriverMetadata,
   getDriverMetadata,
 } from '../../lib/drivers';
@@ -491,6 +495,7 @@ export function DatabaseBrowser({
 
   const [activeTab, setActiveTab] = useState<DatabaseBrowserTab>(initialTab ?? 'overview');
   const [createTableOpen, setCreateTableOpen] = useState(false);
+  const [redisEditorMode, setRedisEditorMode] = useState<RedisEditorMode | null>(null);
   const [schemaExportOpen, setSchemaExportOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -757,6 +762,7 @@ export function DatabaseBrowser({
         environment={environment}
         namespace={stableNamespace}
         onClose={onClose}
+        onOpenCreateRedisKey={() => setRedisEditorMode({ kind: 'create-key' })}
         onOpenCreateTable={() => setCreateTableOpen(true)}
         onOpenFulltextSearch={onOpenFulltextSearch}
         onOpenQueryTab={onOpenQueryTab}
@@ -797,6 +803,22 @@ export function DatabaseBrowser({
         supportsEvents={schemaObjectCapabilities.events}
         supportsSequences={schemaObjectCapabilities.sequences}
       />
+
+      {redisEditorMode && (
+        <RedisEditorModal
+          isOpen={true}
+          onClose={() => setRedisEditorMode(null)}
+          mode={redisEditorMode}
+          sessionId={sessionId}
+          onSuccess={() => {
+            void refreshData();
+          }}
+          readOnly={readOnly}
+          environment={environment}
+          connectionName={connectionName}
+          connectionDatabase={stableNamespace.database}
+        />
+      )}
     </div>
   );
 }
@@ -807,6 +829,7 @@ interface DatabaseBrowserHeaderProps {
   environment: Environment;
   namespace: Namespace;
   onClose: () => void;
+  onOpenCreateRedisKey: () => void;
   onOpenCreateTable: () => void;
   onOpenFulltextSearch?: () => void;
   onOpenQueryTab?: (namespace: Namespace) => void;
@@ -821,6 +844,7 @@ function DatabaseBrowserHeader({
   environment,
   namespace,
   onClose,
+  onOpenCreateRedisKey,
   onOpenCreateTable,
   onOpenFulltextSearch,
   onOpenQueryTab,
@@ -899,6 +923,18 @@ function DatabaseBrowserHeader({
             onClick={onOpenCreateTable}
             className="h-8 w-8"
             title={t('createTable.title')}
+          >
+            <Plus size={16} />
+          </Button>
+        )}
+
+        {driver === Driver.Redis && !readOnly && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onOpenCreateRedisKey}
+            className="h-8 w-8"
+            title={t('redis.createKeyTitle')}
           >
             <Plus size={16} />
           </Button>

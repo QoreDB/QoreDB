@@ -87,27 +87,27 @@ _Effort estimé : 2-3 semaines_
 
 ---
 
-### 1.3 Redaction dans l'audit log
+### 1.3 Redaction dans l'audit log ✅
 
 _Effort estimé : 3-5 jours_
 
-- [ ] **Backend — hook redact**
-  - [ ] Ajouter trait `QueryRedactor` dans `src-tauri/src/interceptor/`
-  - [ ] Implémentation SQL (credentials dans `CREATE USER`, etc.)
-  - [ ] Implémentation MongoDB (champs `password`, `token`, `secret` dans documents)
-  - [ ] Implémentation Redis (args de `AUTH`, contenu `EVAL` ciblé)
-  - [ ] Appel dans `interceptor.post_execute()` avant persistance
-- [ ] **Configuration**
-  - [ ] Liste de patterns configurables dans settings (`audit.redaction_patterns`)
-  - [ ] Toggle global (`audit.redact_enabled`)
-- [ ] **Tests**
-  - [ ] Tests unitaires par redactor
-  - [ ] Test d'intégration : vérifier qu'une query avec password est stockée caviardée
-- [ ] **Doc**
-  - [ ] `doc/audits/GDPR_AUDIT.md` : mise à jour section audit log
-  - [ ] `doc/security/PRODUCTION_SAFETY.md` : ajout du mécanisme
+- [x] **Backend — hook redact**
+  - [x] ~~Ajouter trait `QueryRedactor` dans `src-tauri/src/interceptor/`~~ — remplacé par `redact_query(query, driver_id)` qui dispatche selon le driver (plus simple, même résultat)
+  - [x] Implémentation SQL (URI de connexion, `password=/token=/api_key=`, littéraux `'...'`)
+  - [x] Implémentation MongoDB (champs `password`, `passwd`, `secret`, `token`, `api_key`, `credentials`, `authorization`, `auth` + URI `mongodb(+srv)://`)
+  - [x] Implémentation Redis (args `AUTH`, `CONFIG SET requirepass/masterauth/…`, corps `EVAL`/`EVALSHA`, clauses `ACL SETUSER` `>`/`<`/`#`/`!`)
+  - [x] Appel dans `interceptor.post_execute()` avant persistance (via `AuditLogEntry::new` + `ProfilingStore::record_slow_query`)
+- [x] **Configuration**
+  - [x] Liste de patterns configurables dans settings (`redaction_patterns`)
+  - [x] Toggle global (`redact_enabled`)
+- [x] **Tests**
+  - [x] Tests unitaires par redactor (20 tests dans `redaction.rs`)
+  - [x] Test d'intégration : vérifier qu'une query avec password est stockée caviardée (3 tests dans `types.rs` couvrant SQL/Mongo/Redis)
+- [x] **Doc**
+  - [x] `doc/audits/GDPR_AUDIT.md` : mise à jour section audit log
+  - [x] `doc/security/PRODUCTION_SAFETY.md` : ajout du mécanisme
 
-**Done when** : aucun secret en clair dans l'audit log après exécution d'une query sensible.
+**Done when** : aucun secret en clair dans l'audit log après exécution d'une query sensible. **✅ livré (2026-04-22)**
 
 ---
 
@@ -377,7 +377,7 @@ _Effort estimé : 4 semaines. **Dépend de 3.1**_
 
 | Phase | Items done | Items total | % |
 | --- | --- | --- | --- |
-| Phase 1 | 0 | 4 | 0% |
+| Phase 1 | 1 | 4 | 25% |
 | Phase 2 | 0 | 4 | 0% |
 | Phase 3 | 0 | 3 | 0% |
 | Phase 4 | 0 | n/a | — |

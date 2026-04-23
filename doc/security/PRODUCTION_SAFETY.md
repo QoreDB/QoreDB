@@ -64,3 +64,22 @@ Safety policies can be overridden via `config.json` or Environment Variables:
 - `QOREDB_MAX_QUERY_DURATION_MS`: Maximum query execution time (milliseconds).
 - `QOREDB_MAX_RESULT_ROWS`: Maximum number of rows returned per query.
 - `QOREDB_MAX_CONCURRENT_QUERIES`: Maximum number of concurrent queries.
+
+## Audit Log Redaction
+
+Every query persisted to the audit log and the in-memory slow-query store is
+redacted first by `interceptor::redaction::redact_query`. Dispatch is driven by
+the driver id:
+
+- **SQL drivers** — connection URIs, `password=/token=/secret=/api_key=`
+  assignments, all single-quoted string literals.
+- **MongoDB** — sensitive JSON/shell keys (`password`, `passwd`, `secret`,
+  `token`, `api_key`, `credentials`, `authorization`, `auth`) and
+  `mongodb(+srv)://user:pass@host` URIs.
+- **Redis** — `AUTH` arguments, `CONFIG SET requirepass|masterauth|…` values,
+  `EVAL`/`EVALSHA` script bodies, and the identity clauses of `ACL SETUSER`
+  (`>`, `<`, `#`, `!`).
+
+The runtime toggle `redact_enabled` and the complementary regex list
+`redaction_patterns` live in `InterceptorConfig` (persisted to
+`interceptor.json`).

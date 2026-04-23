@@ -216,9 +216,9 @@ impl AuditLogEntry {
         environment: Environment,
         driver_id: String,
     ) -> Self {
-        use super::redaction::redact_query_literals;
+        use super::redaction::redact_query;
 
-        let redacted = redact_query_literals(&query);
+        let redacted = redact_query(&query, &driver_id);
         let mut preview = redacted.chars().take(100).collect::<String>();
         let truncated = redacted.chars().skip(100).next().is_some();
         if truncated {
@@ -340,6 +340,13 @@ pub struct InterceptorConfig {
     /// Built-in rule enabled overrides
     #[serde(default)]
     pub builtin_rule_overrides: Vec<BuiltinRuleOverride>,
+    /// Whether sensitive-literal redaction is applied before persistence
+    #[serde(default = "default_true")]
+    pub redact_enabled: bool,
+    /// Additional user-provided regex patterns whose matches are replaced by
+    /// `[REDACTED]` on top of the driver-specific rules.
+    #[serde(default)]
+    pub redaction_patterns: Vec<String>,
 }
 
 /// Persisted enabled state for built-in rules
@@ -372,6 +379,8 @@ impl Default for InterceptorConfig {
             max_slow_queries: default_max_slow_queries(),
             safety_rules: Vec::new(),
             builtin_rule_overrides: Vec::new(),
+            redact_enabled: true,
+            redaction_patterns: Vec::new(),
         }
     }
 }
@@ -412,4 +421,60 @@ pub struct QueryExecutionResult {
     pub execution_time_ms: f64,
     /// Number of rows affected/returned
     pub row_count: Option<i64>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use super::super::redaction::{set_redaction_enabled, test_lock};
+
+    #[test]
+    fn audit_entry_redacts_mongodb_password() {
+        let _guard = test_lock();
+        set_redaction_enabled(true);
+        let query =
+            r#"{"operation":"insert","document":{"email":"a@b.c","password":"hunter2"}}"#;
+        let entry = AuditLogEntry::new(
+            "sess-1".into(),
+            query.into(),
+            Environment::Production,
+            "mongodb".into(),
+        );
+        assert!(
+            !entry.query.contains("hunter2"),
+            "password should be redacted in stored query"
+        );
+        assert!(
+            !entry.query_preview.contains("hunter2"),
+            "preview should also be redacted"
+        );
+        assert!(entry.query.contains("[REDACTED]"));
+    }
+
+    #[test]
+    fn audit_entry_redacts_redis_auth() {
+        let _guard = test_lock();
+        set_redaction_enabled(true);
+        let entry = AuditLogEntry::new(
+            "sess-1".into(),
+            "AUTH hunter2".into(),
+            Environment::Production,
+            "redis".into(),
+        );
+        assert!(!entry.query.contains("hunter2"));
+        assert!(entry.query.contains("***"));
+    }
+
+    #[test]
+    fn audit_entry_redacts_sql_literal() {
+        let _guard = test_lock();
+        set_redaction_enabled(true);
+        let entry = AuditLogEntry::new(
+            "sess-1".into(),
+            "INSERT INTO users (pwd) VALUES ('hunter2')".into(),
+            Environment::Production,
+            "postgres".into(),
+        );
+        assert!(!entry.query.contains("hunter2"));
+    }
 }

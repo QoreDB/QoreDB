@@ -940,7 +940,8 @@
     "blocked": "Operation blocked: read-only mode",
     "mutationConfirmTitle": "Confirm data change",
     "mutationConfirmInsert": "You are about to insert a new row into {{table}}.",
-    "mutationConfirmUpdate": "You are about to update data in {{table}}."
+    "mutationConfirmUpdate": "You are about to update data in {{table}}.",
+    "mutationConfirmGeneric": "You are about to change data on this connection."
   },
   "status": {
     "connected": "Connected",
@@ -2099,5 +2100,41 @@
       "description": "When you edit, insert, or delete rows in this table, QoreDB will record each change here.",
       "hint": "Only changes made through QoreDB are tracked — external modifications are not captured."
     }
+  },
+  "redis": {
+    "typeString": "String",
+    "typeHash": "Hash",
+    "typeList": "List",
+    "typeSet": "Set",
+    "typeZSet": "Sorted set",
+    "createKeyTitle": "New key",
+    "deleteKeyTitle": "Delete key",
+    "editValueTitle": "Edit value",
+    "editHashFieldTitle": "Edit hash field",
+    "deleteHashFieldTitle": "Delete hash field",
+    "pushListItemTitle": "Push list item",
+    "addSetMemberTitle": "Add set member",
+    "deleteSetMemberTitle": "Delete set member",
+    "editZSetMemberTitle": "Edit sorted set member",
+    "deleteZSetMemberTitle": "Delete sorted set member",
+    "keyType": "Key type",
+    "keyName": "Key",
+    "value": "Value",
+    "hashField": "Field",
+    "member": "Member",
+    "score": "Score",
+    "listSide": "Push side",
+    "listLeft": "Left (LPUSH)",
+    "listRight": "Right (RPUSH)",
+    "ttlSeconds": "TTL (seconds)",
+    "ttlPlaceholder": "Leave empty for no expiration",
+    "deleteKeyDescription": "You are about to delete {{count}} key(s) — the data cannot be recovered.",
+    "deleteGenericDescription": "You are about to delete data on this Redis server — this action is irreversible.",
+    "deleteKeysSummary": "{{count}} key(s) will be deleted:",
+    "mutationSuccess": "Operation executed successfully.",
+    "errorKeyRequired": "The key name is required.",
+    "errorFieldRequired": "The field name is required.",
+    "errorMemberRequired": "The member is required.",
+    "errorScoreInvalid": "The score must be a valid number."
   }
 }

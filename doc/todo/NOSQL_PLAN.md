@@ -388,7 +388,7 @@ _Effort estimé : 4 semaines. **Dépend de 3.1**_
 
 | Phase | Items done | Items total | % |
 | --- | --- | --- | --- |
-| Phase 1 | 1.75 | 4 | 44% |
+| Phase 1 | 2.75 | 4 | 69% |
 | Phase 2 | 0 | 4 | 0% |
 | Phase 3 | 0 | 3 | 0% |
 | Phase 4 | 0 | n/a | — |

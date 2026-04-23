@@ -25,7 +25,9 @@
 
 _Effort estimé : 1-2 semaines_
 
-- [ ] **Backend — helpers de mutation typés**
+> **Décision d'architecture (2026-04-23)** : plutôt que d'ajouter N helpers Rust + N commandes Tauri, on construit les commandes Redis textuelles dans `src/lib/redisCommands.ts` et on les envoie via le `executeQuery` existant. Bénéfices : pipeline safety/audit/redaction déjà câblé (y compris la redaction Redis de 1.3), surface backend inchangée, code plus simple. Les helpers Rust typés restent listés pour une itération future s'ils deviennent nécessaires (ex. exposition depuis une API non-UI).
+
+- [ ] **Backend — helpers de mutation typés** (reporté — non bloquant pour l'UI)
   - [ ] Ajouter `set_string(key, value, ttl)` dans `redis.rs`
   - [ ] Ajouter `delete_keys(keys: Vec<String>)` avec batch
   - [ ] Ajouter `set_hash_field(key, field, value)` et `delete_hash_field(key, field)`
@@ -33,26 +35,31 @@ _Effort estimé : 1-2 semaines_
   - [ ] Ajouter `set_zset_member(key, member, score)` et `remove_zset_member(key, member)`
   - [ ] Ajouter `add_set_member(key, member)` et `remove_set_member(key, member)`
   - [ ] Exposer via commandes Tauri dans `src-tauri/src/commands/`
+- [x] **Frontend — command builder**
+  - [x] Créer `src/lib/redisCommands.ts` (quote/escape + builders pour SET, DEL, HSET, HDEL, LPUSH/RPUSH, LPOP/RPOP, ZADD, ZREM, SADD, SREM, EXPIRE, PERSIST)
 - [ ] **Frontend — RedisEditorModal**
-  - [ ] Créer `src/components/Editor/RedisEditorModal.tsx`
-  - [ ] Variants par type Redis (string/hash/list/set/zset)
-  - [ ] Validation client-side (score numérique pour ZSET, index entier pour LIST)
-  - [ ] Bouton "Éditer" sur chaque cellule du grid Redis (hash/list/set/zset)
-  - [ ] Bouton "Supprimer clé" avec confirmation
-  - [ ] Bouton "Nouvelle clé" dans le Browser Redis
-- [ ] **Safety**
-  - [ ] Vérifier que chaque nouvel helper est classé `Mutation` dans `redis_safety.rs`
-  - [ ] Ajouter confirmation production pour les nouvelles opérations
+  - [x] Créer `src/components/Editor/RedisEditorModal.tsx`
+  - [x] Variants par type Redis (string/hash/list/set/zset)
+  - [x] Validation client-side (score numérique pour ZSET, clé/champ/membre requis)
+  - [ ] Bouton "Éditer" sur chaque cellule du grid Redis (hash/list/set/zset) — dépend d'un grid Redis dédié, pas encore implémenté
+  - [x] Bouton "Supprimer clé" avec confirmation (via `DangerConfirmDialog`)
+  - [x] Bouton "Nouvelle clé" dans le `DatabaseBrowser` (header, visible si `driver === Redis && !readOnly`)
+- [x] **Safety**
+  - [x] Commandes générées (SET/DEL/HSET/HDEL/LPUSH/RPUSH/LPOP/RPOP/ZADD/ZREM/SADD/SREM/EXPIRE/PERSIST) déjà classées `Mutation` dans `redis_safety.rs`
+  - [x] Confirmation production via `DangerConfirmDialog` + flag `acknowledgedDangerous`
 - [ ] **Tests**
-  - [ ] Tests unitaires Rust sur chaque helper (docker redis)
+  - [ ] Tests unitaires sur `redisCommands.ts` (quoting / escape / builders) — bloqué : pas d'infra de tests JS dans le projet (pas de Vitest/Jest configuré). À prévoir en amont d'une PR dédiée "infra de tests frontend"
   - [ ] Tests E2E sur modal (Playwright ou équivalent)
 - [ ] **Doc**
-  - [ ] Mettre à jour `doc/rules/DATABASES.md` section Redis
-  - [ ] Screenshot dans `doc/rules/FEATURES.md`
-- [ ] **i18n**
-  - [ ] Clés dans `src/locales/en.json` et `fr.json`
+  - [x] Entrée dans `doc/rules/FEATURES.md` section "Edition des données > NoSQL"
+  - [ ] Screenshot dans `doc/rules/FEATURES.md` (à faire manuellement une fois l'UI testée en dev)
+- [x] **i18n**
+  - [x] Clés dans `src/locales/en.json` et `fr.json` (namespace `redis.*` + `environment.mutationConfirmGeneric`)
+  - [x] Propagées vers `de/es/ja/ko/pt-BR/ru/zh-CN` (34 clés `redis.*` + `environment.mutationConfirmGeneric` dans chaque locale)
 
 **Done when** : un utilisateur peut créer, éditer, supprimer des valeurs Redis de tous types sans passer par la command-line.
+
+**État (2026-04-23)** : MVP livré — bouton "Nouvelle clé" dans le `DatabaseBrowser`, modal multi-mode, confirmation production, i18n complète (9 locales). Restent : édition in-cell (dépend d'un grid Redis dédié), tests unitaires (bloqués par l'absence d'infra Vitest/Jest), screenshot, helpers Rust typés si besoin d'une API non-UI.
 
 ---
 
@@ -377,7 +384,7 @@ _Effort estimé : 4 semaines. **Dépend de 3.1**_
 
 | Phase | Items done | Items total | % |
 | --- | --- | --- | --- |
-| Phase 1 | 1 | 4 | 25% |
+| Phase 1 | 1.75 | 4 | 44% |
 | Phase 2 | 0 | 4 | 0% |
 | Phase 3 | 0 | 3 | 0% |
 | Phase 4 | 0 | n/a | — |

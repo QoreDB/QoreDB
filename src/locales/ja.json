@@ -921,7 +921,8 @@
     "blocked": "操作がブロックされました: 読み取り専用モード",
     "mutationConfirmTitle": "データ変更の確認",
     "mutationConfirmInsert": "{{table}} に新しい行を挿入しようとしています。",
-    "mutationConfirmUpdate": "{{table}} のデータを更新しようとしています。"
+    "mutationConfirmUpdate": "{{table}} のデータを更新しようとしています。",
+    "mutationConfirmGeneric": "この接続のデータを変更しようとしています。"
   },
   "status": {
     "connected": "接続済み",
@@ -2080,5 +2081,41 @@
       "description": "When you edit, insert, or delete rows in this table, QoreDB will record each change here.",
       "hint": "Only changes made through QoreDB are tracked 2014 external modifications are not captured."
     }
+  },
+  "redis": {
+    "typeString": "文字列",
+    "typeHash": "ハッシュ",
+    "typeList": "リスト",
+    "typeSet": "セット",
+    "typeZSet": "ソート済みセット",
+    "createKeyTitle": "新しいキー",
+    "deleteKeyTitle": "キーを削除",
+    "editValueTitle": "値を編集",
+    "editHashFieldTitle": "ハッシュフィールドを編集",
+    "deleteHashFieldTitle": "ハッシュフィールドを削除",
+    "pushListItemTitle": "リストに要素を追加",
+    "addSetMemberTitle": "セットにメンバーを追加",
+    "deleteSetMemberTitle": "セットからメンバーを削除",
+    "editZSetMemberTitle": "ソート済みセットのメンバーを編集",
+    "deleteZSetMemberTitle": "ソート済みセットからメンバーを削除",
+    "keyType": "キータイプ",
+    "keyName": "キー",
+    "value": "値",
+    "hashField": "フィールド",
+    "member": "メンバー",
+    "score": "スコア",
+    "listSide": "挿入側",
+    "listLeft": "左 (LPUSH)",
+    "listRight": "右 (RPUSH)",
+    "ttlSeconds": "TTL (秒)",
+    "ttlPlaceholder": "有効期限なしの場合は空のまま",
+    "deleteKeyDescription": "{{count}} 個のキーを削除しようとしています — データは復元できません。",
+    "deleteGenericDescription": "この Redis サーバー上のデータを削除しようとしています — この操作は元に戻せません。",
+    "deleteKeysSummary": "{{count}} 個のキーが削除されます:",
+    "mutationSuccess": "操作が正常に実行されました。",
+    "errorKeyRequired": "キー名は必須です。",
+    "errorFieldRequired": "フィールド名は必須です。",
+    "errorMemberRequired": "メンバーは必須です。",
+    "errorScoreInvalid": "スコアは有効な数値である必要があります。"
   }
 }

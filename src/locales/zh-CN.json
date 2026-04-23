@@ -921,7 +921,8 @@
     "blocked": "操作被阻止：只读模式",
     "mutationConfirmTitle": "确认数据更改",
     "mutationConfirmInsert": "您即将向 {{table}} 插入新行。",
-    "mutationConfirmUpdate": "您即将更新 {{table}} 中的数据。"
+    "mutationConfirmUpdate": "您即将更新 {{table}} 中的数据。",
+    "mutationConfirmGeneric": "您即将修改此连接上的数据。"
   },
   "status": {
     "connected": "已连接",
@@ -2080,5 +2081,41 @@
       "description": "When you edit, insert, or delete rows in this table, QoreDB will record each change here.",
       "hint": "Only changes made through QoreDB are tracked 2014 external modifications are not captured."
     }
+  },
+  "redis": {
+    "typeString": "字符串",
+    "typeHash": "哈希",
+    "typeList": "列表",
+    "typeSet": "集合",
+    "typeZSet": "有序集合",
+    "createKeyTitle": "新建键",
+    "deleteKeyTitle": "删除键",
+    "editValueTitle": "编辑值",
+    "editHashFieldTitle": "编辑哈希字段",
+    "deleteHashFieldTitle": "删除哈希字段",
+    "pushListItemTitle": "添加列表项",
+    "addSetMemberTitle": "添加集合成员",
+    "deleteSetMemberTitle": "删除集合成员",
+    "editZSetMemberTitle": "编辑有序集合成员",
+    "deleteZSetMemberTitle": "删除有序集合成员",
+    "keyType": "键类型",
+    "keyName": "键",
+    "value": "值",
+    "hashField": "字段",
+    "member": "成员",
+    "score": "分数",
+    "listSide": "插入方向",
+    "listLeft": "左侧 (LPUSH)",
+    "listRight": "右侧 (RPUSH)",
+    "ttlSeconds": "TTL (秒)",
+    "ttlPlaceholder": "留空表示不过期",
+    "deleteKeyDescription": "您即将删除 {{count}} 个键 — 数据将无法恢复。",
+    "deleteGenericDescription": "您即将删除此 Redis 服务器上的数据 — 此操作不可撤销。",
+    "deleteKeysSummary": "将删除 {{count}} 个键:",
+    "mutationSuccess": "操作执行成功。",
+    "errorKeyRequired": "键名为必填项。",
+    "errorFieldRequired": "字段名为必填项。",
+    "errorMemberRequired": "成员为必填项。",
+    "errorScoreInvalid": "分数必须是有效数字。"
   }
 }

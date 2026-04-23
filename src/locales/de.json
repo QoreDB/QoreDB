@@ -921,7 +921,8 @@
     "blocked": "Vorgang blockiert: Schreibgeschützter Modus",
     "mutationConfirmTitle": "Datenänderung bestätigen",
     "mutationConfirmInsert": "Sie sind dabei, eine neue Zeile in {{table}} einzufügen.",
-    "mutationConfirmUpdate": "Sie sind dabei, Daten in {{table}} zu aktualisieren."
+    "mutationConfirmUpdate": "Sie sind dabei, Daten in {{table}} zu aktualisieren.",
+    "mutationConfirmGeneric": "Sie sind dabei, Daten auf dieser Verbindung zu ändern."
   },
   "status": {
     "connected": "Verbunden",
@@ -2080,5 +2081,41 @@
       "description": "When you edit, insert, or delete rows in this table, QoreDB will record each change here.",
       "hint": "Only changes made through QoreDB are tracked 2014 external modifications are not captured."
     }
+  },
+  "redis": {
+    "typeString": "String",
+    "typeHash": "Hash",
+    "typeList": "Liste",
+    "typeSet": "Menge",
+    "typeZSet": "Sortierte Menge",
+    "createKeyTitle": "Neuer Schlüssel",
+    "deleteKeyTitle": "Schlüssel löschen",
+    "editValueTitle": "Wert bearbeiten",
+    "editHashFieldTitle": "Hash-Feld bearbeiten",
+    "deleteHashFieldTitle": "Hash-Feld löschen",
+    "pushListItemTitle": "Listenelement hinzufügen",
+    "addSetMemberTitle": "Element zur Menge hinzufügen",
+    "deleteSetMemberTitle": "Element aus Menge entfernen",
+    "editZSetMemberTitle": "Element der sortierten Menge bearbeiten",
+    "deleteZSetMemberTitle": "Element aus sortierter Menge entfernen",
+    "keyType": "Schlüsseltyp",
+    "keyName": "Schlüssel",
+    "value": "Wert",
+    "hashField": "Feld",
+    "member": "Element",
+    "score": "Score",
+    "listSide": "Einfügeseite",
+    "listLeft": "Links (LPUSH)",
+    "listRight": "Rechts (RPUSH)",
+    "ttlSeconds": "TTL (Sekunden)",
+    "ttlPlaceholder": "Leer lassen für keine Ablaufzeit",
+    "deleteKeyDescription": "Sie sind dabei, {{count}} Schlüssel zu löschen — die Daten können nicht wiederhergestellt werden.",
+    "deleteGenericDescription": "Sie sind dabei, Daten auf diesem Redis-Server zu löschen — diese Aktion ist unwiderruflich.",
+    "deleteKeysSummary": "{{count}} Schlüssel werden gelöscht:",
+    "mutationSuccess": "Vorgang erfolgreich ausgeführt.",
+    "errorKeyRequired": "Der Schlüsselname ist erforderlich.",
+    "errorFieldRequired": "Der Feldname ist erforderlich.",
+    "errorMemberRequired": "Das Element ist erforderlich.",
+    "errorScoreInvalid": "Der Score muss eine gültige Zahl sein."
   }
 }

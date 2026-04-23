@@ -921,7 +921,8 @@
     "blocked": "Операция заблокирована: режим «только чтение»",
     "mutationConfirmTitle": "Подтверждение изменения данных",
     "mutationConfirmInsert": "Вы собираетесь вставить новую строку в {{table}}.",
-    "mutationConfirmUpdate": "Вы собираетесь обновить данные в {{table}}."
+    "mutationConfirmUpdate": "Вы собираетесь обновить данные в {{table}}.",
+    "mutationConfirmGeneric": "Вы собираетесь изменить данные на этом подключении."
   },
   "status": {
     "connected": "Подключено",
@@ -2080,5 +2081,41 @@
       "description": "When you edit, insert, or delete rows in this table, QoreDB will record each change here.",
       "hint": "Only changes made through QoreDB are tracked 2014 external modifications are not captured."
     }
+  },
+  "redis": {
+    "typeString": "Строка",
+    "typeHash": "Хеш",
+    "typeList": "Список",
+    "typeSet": "Множество",
+    "typeZSet": "Сортированное множество",
+    "createKeyTitle": "Новый ключ",
+    "deleteKeyTitle": "Удалить ключ",
+    "editValueTitle": "Изменить значение",
+    "editHashFieldTitle": "Изменить поле хеша",
+    "deleteHashFieldTitle": "Удалить поле хеша",
+    "pushListItemTitle": "Добавить элемент в список",
+    "addSetMemberTitle": "Добавить элемент во множество",
+    "deleteSetMemberTitle": "Удалить элемент из множества",
+    "editZSetMemberTitle": "Изменить элемент сортированного множества",
+    "deleteZSetMemberTitle": "Удалить элемент сортированного множества",
+    "keyType": "Тип ключа",
+    "keyName": "Ключ",
+    "value": "Значение",
+    "hashField": "Поле",
+    "member": "Элемент",
+    "score": "Оценка",
+    "listSide": "Сторона вставки",
+    "listLeft": "Слева (LPUSH)",
+    "listRight": "Справа (RPUSH)",
+    "ttlSeconds": "TTL (секунды)",
+    "ttlPlaceholder": "Оставьте пустым для отсутствия истечения",
+    "deleteKeyDescription": "Вы собираетесь удалить {{count}} ключ(ей) — данные невозможно будет восстановить.",
+    "deleteGenericDescription": "Вы собираетесь удалить данные на этом сервере Redis — это действие необратимо.",
+    "deleteKeysSummary": "Будет удалено {{count}} ключ(ей):",
+    "mutationSuccess": "Операция успешно выполнена.",
+    "errorKeyRequired": "Имя ключа обязательно.",
+    "errorFieldRequired": "Имя поля обязательно.",
+    "errorMemberRequired": "Элемент обязателен.",
+    "errorScoreInvalid": "Оценка должна быть корректным числом."
   }
 }

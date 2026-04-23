@@ -921,7 +921,8 @@
     "blocked": "Operación bloqueada: modo solo lectura",
     "mutationConfirmTitle": "Confirmar cambio de datos",
     "mutationConfirmInsert": "Estás a punto de insertar una nueva fila en {{table}}.",
-    "mutationConfirmUpdate": "Estás a punto de actualizar datos en {{table}}."
+    "mutationConfirmUpdate": "Estás a punto de actualizar datos en {{table}}.",
+    "mutationConfirmGeneric": "Estás a punto de modificar datos en esta conexión."
   },
   "status": {
     "connected": "Conectado",
@@ -2080,5 +2081,41 @@
       "description": "When you edit, insert, or delete rows in this table, QoreDB will record each change here.",
       "hint": "Only changes made through QoreDB are tracked 2014 external modifications are not captured."
     }
+  },
+  "redis": {
+    "typeString": "Cadena",
+    "typeHash": "Hash",
+    "typeList": "Lista",
+    "typeSet": "Conjunto",
+    "typeZSet": "Conjunto ordenado",
+    "createKeyTitle": "Nueva clave",
+    "deleteKeyTitle": "Eliminar clave",
+    "editValueTitle": "Editar valor",
+    "editHashFieldTitle": "Editar campo hash",
+    "deleteHashFieldTitle": "Eliminar campo hash",
+    "pushListItemTitle": "Añadir elemento a la lista",
+    "addSetMemberTitle": "Añadir miembro al conjunto",
+    "deleteSetMemberTitle": "Eliminar miembro del conjunto",
+    "editZSetMemberTitle": "Editar miembro del conjunto ordenado",
+    "deleteZSetMemberTitle": "Eliminar miembro del conjunto ordenado",
+    "keyType": "Tipo de clave",
+    "keyName": "Clave",
+    "value": "Valor",
+    "hashField": "Campo",
+    "member": "Miembro",
+    "score": "Puntuación",
+    "listSide": "Lado de inserción",
+    "listLeft": "Izquierda (LPUSH)",
+    "listRight": "Derecha (RPUSH)",
+    "ttlSeconds": "TTL (segundos)",
+    "ttlPlaceholder": "Dejar vacío para no caducar",
+    "deleteKeyDescription": "Estás a punto de eliminar {{count}} clave(s) — los datos no podrán recuperarse.",
+    "deleteGenericDescription": "Estás a punto de eliminar datos en este servidor Redis — esta acción es irreversible.",
+    "deleteKeysSummary": "Se eliminarán {{count}} clave(s):",
+    "mutationSuccess": "Operación ejecutada con éxito.",
+    "errorKeyRequired": "El nombre de la clave es obligatorio.",
+    "errorFieldRequired": "El nombre del campo es obligatorio.",
+    "errorMemberRequired": "El miembro es obligatorio.",
+    "errorScoreInvalid": "La puntuación debe ser un número válido."
   }
 }

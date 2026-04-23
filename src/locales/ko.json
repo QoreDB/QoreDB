@@ -921,7 +921,8 @@
     "blocked": "작업 차단됨: 읽기 전용 모드",
     "mutationConfirmTitle": "데이터 변경 확인",
     "mutationConfirmInsert": "{{table}}에 새 행을 삽입하려고 합니다.",
-    "mutationConfirmUpdate": "{{table}}의 데이터를 업데이트하려고 합니다."
+    "mutationConfirmUpdate": "{{table}}의 데이터를 업데이트하려고 합니다.",
+    "mutationConfirmGeneric": "이 연결에서 데이터를 변경하려고 합니다."
   },
   "status": {
     "connected": "연결됨",
@@ -2080,5 +2081,41 @@
       "description": "When you edit, insert, or delete rows in this table, QoreDB will record each change here.",
       "hint": "Only changes made through QoreDB are tracked 2014 external modifications are not captured."
     }
+  },
+  "redis": {
+    "typeString": "문자열",
+    "typeHash": "해시",
+    "typeList": "리스트",
+    "typeSet": "세트",
+    "typeZSet": "정렬된 세트",
+    "createKeyTitle": "새 키",
+    "deleteKeyTitle": "키 삭제",
+    "editValueTitle": "값 편집",
+    "editHashFieldTitle": "해시 필드 편집",
+    "deleteHashFieldTitle": "해시 필드 삭제",
+    "pushListItemTitle": "리스트 항목 추가",
+    "addSetMemberTitle": "세트 멤버 추가",
+    "deleteSetMemberTitle": "세트 멤버 삭제",
+    "editZSetMemberTitle": "정렬된 세트 멤버 편집",
+    "deleteZSetMemberTitle": "정렬된 세트 멤버 삭제",
+    "keyType": "키 유형",
+    "keyName": "키",
+    "value": "값",
+    "hashField": "필드",
+    "member": "멤버",
+    "score": "점수",
+    "listSide": "삽입 방향",
+    "listLeft": "왼쪽 (LPUSH)",
+    "listRight": "오른쪽 (RPUSH)",
+    "ttlSeconds": "TTL (초)",
+    "ttlPlaceholder": "만료 없음은 비워두세요",
+    "deleteKeyDescription": "{{count}}개의 키를 삭제하려고 합니다 — 데이터를 복구할 수 없습니다.",
+    "deleteGenericDescription": "이 Redis 서버의 데이터를 삭제하려고 합니다 — 이 작업은 되돌릴 수 없습니다.",
+    "deleteKeysSummary": "{{count}}개의 키가 삭제됩니다:",
+    "mutationSuccess": "작업이 성공적으로 실행되었습니다.",
+    "errorKeyRequired": "키 이름이 필요합니다.",
+    "errorFieldRequired": "필드 이름이 필요합니다.",
+    "errorMemberRequired": "멤버가 필요합니다.",
+    "errorScoreInvalid": "점수는 유효한 숫자여야 합니다."
   }
 }

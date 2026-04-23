@@ -7,7 +7,7 @@
 //! operators that can execute arbitrary server-side code (`$function`,
 //! `$accumulator`, `$where`).
 //!
-//! This module is **pure validation**: it never talks to MongoDB. It is used
+//! This module is pure validation: it never talks to MongoDB. It is used
 //! by [`crate::mongo_safety`] before dispatch and will be reused at execution
 //! time to convert the validated stages into `bson::Document` values.
 //!

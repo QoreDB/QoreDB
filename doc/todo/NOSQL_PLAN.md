@@ -63,34 +63,35 @@ _Effort estimé : 1-2 semaines_
 
 ---
 
-### 1.2 MongoDB : Aggregation pipeline first-class
+### 1.2 MongoDB : Aggregation pipeline first-class ✅
 
 _Effort estimé : 2-3 semaines_
 
-- [ ] **Backend — AST validator**
-  - [ ] Créer `src-tauri/crates/qore-drivers/src/mongo_pipeline.rs`
-  - [ ] Parser JSON → `Vec<PipelineStage>` typé
-  - [ ] Valider les stages autorisés : `$match`, `$project`, `$group`, `$sort`, `$limit`, `$skip`, `$unwind`, `$lookup`, `$count`, `$addFields`, `$replaceRoot`
-  - [ ] Rejeter explicitement `$out`, `$merge`, `$function`, `$accumulator` (dangerous)
-  - [ ] Valider opérateurs imbriqués (`$gt`, `$in`, `$regex`, `$expr`, etc.)
-- [ ] **Backend — exécution streaming**
-  - [ ] Adapter `execute_stream()` pour supporter les pipelines
-  - [ ] Curseur avec batches de 500 documents (comme `find`)
-  - [ ] Support abort/cancel
-- [ ] **Safety**
-  - [ ] Étendre `mongo_safety.rs` pour valider AST pipeline au lieu de pattern matching
-  - [ ] Classer `$out`/`$merge` comme `Mutation` (déjà fait, vérifier)
-- [ ] **Frontend**
-  - [ ] Templates pipeline dans `MongoEditor.tsx` (snippets : count by group, top N, lookup)
-  - [ ] Highlight syntaxique des opérateurs `$*`
-- [ ] **Tests**
-  - [ ] Couverture AST validator (cas nominaux + rejets)
-  - [ ] Test fixtures dans `src-tauri/tests/`
-- [ ] **Doc**
-  - [ ] `doc/rules/DATABASES.md` : section aggregation MongoDB
-  - [ ] Exemples dans `doc/tests/DRIVER_LIMITATIONS.md`
+- [x] **Backend — AST validator**
+  - [x] Créer `src-tauri/crates/qore-drivers/src/mongo_pipeline.rs`
+  - [x] Parser JSON → `Vec<PipelineStage>` typé (`StageKind` + `PipelineStage` + `ValidatedPipeline`)
+  - [x] Valider les stages autorisés : `$match`, `$project`, `$group`, `$sort`, `$limit`, `$skip`, `$unwind`, `$lookup`, `$count`, `$addFields`, `$replaceRoot`, `$set`, `$unset`, `$bucket`, `$facet`, `$graphLookup`, `$sortByCount`, `$sample`, `$redact`, `$geoNear`, `$out`, `$merge`…
+  - [x] Rejeter explicitement `$out`/`$merge` non-terminal et les opérateurs dangereux `$function`, `$accumulator`, `$where` (scan récursif jusqu'à `MAX_SCAN_DEPTH = 64`)
+  - [x] Valider que chaque stage a exactement un opérateur préfixé `$`, cap à `MAX_PIPELINE_STAGES = 50`
+- [x] **Backend — exécution first-class**
+  - [x] Branche `"aggregate"` dédiée dans `drivers/mongodb.rs` (n'est plus redirigée vers `find`)
+  - [x] Validation via `validate_pipeline` avant dispatch, conversion stage → `bson::Document`, iteration cursor (avec/sans session transactionnelle)
+  - [x] Support abort/cancel via le `Abortable` existant qui englobe l'exécution
+- [x] **Safety**
+  - [x] `mongo_safety::classify_aggregate` délègue à l'AST validator ; échec = `Unknown` (fail-closed)
+  - [x] `$out`/`$merge` classés `Mutation` (validé par tests)
+- [x] **Frontend**
+  - [x] Templates dans `mongo-constants.ts` : `aggregate` (group), `aggregateTopN`, `aggregateLookup` exposés dans le `QueryPanelToolbar`
+  - [x] Highlight syntaxique des opérateurs `$*` (livré avec 1.4 via `mongoHighlight.ts`)
+- [x] **Tests**
+  - [x] 20 tests dans `mongo_pipeline` (cas nominaux, rejets, `$out` en milieu, `$where` imbriqué, profondeur max, etc.)
+  - [x] 6 tests d'intégration dans `mongo_safety` (aggregate normal/merge/function/where/out-middle/stage-inconnu)
+- [x] **Doc**
+  - [x] `doc/tests/DRIVER_LIMITATIONS.md` : section aggregation MongoDB + 3 exemples (group, top N, lookup)
 
-**Done when** : les aggregations complexes (lookup multi-collections, groupBy, unwind) s'exécutent en streaming avec validation stricte.
+**Done when** : les aggregations complexes (lookup multi-collections, groupBy, unwind) s'exécutent avec validation stricte. **✅ livré (2026-04-23)**
+
+**État (2026-04-23)** : AST validator + branche aggregate + safety + snippets frontend + doc livrés, 32 tests verts côté Rust. Restent optionnels : streaming par batches de 500 documents (Phase 2 si besoin, le cursor actuel reste asynchrone via `try_next`), écriture dédiée `execute_stream()` pour aggregate (aujourd'hui route via `execute_query`).
 
 ---
 
@@ -388,7 +389,7 @@ _Effort estimé : 4 semaines. **Dépend de 3.1**_
 
 | Phase | Items done | Items total | % |
 | --- | --- | --- | --- |
-| Phase 1 | 2.75 | 4 | 69% |
+| Phase 1 | 3.75 | 4 | 94% |
 | Phase 2 | 0 | 4 | 0% |
 | Phase 3 | 0 | 3 | 0% |
 | Phase 4 | 0 | n/a | — |

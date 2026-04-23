@@ -30,13 +30,59 @@ expected by the UI and command layer.
 
 ## MongoDB
 
-- Query execution supports `find` with simple JSON payloads and limited
-  `operation` handling (e.g., `create_collection`).
+- Query execution supports `find` with simple JSON payloads and a dedicated
+  `aggregate` path that validates the pipeline before execution.
+- Aggregation pipelines are parsed into a typed AST
+  (`qore-drivers::mongo_pipeline`): unknown stages, operators missing the `$`
+  prefix, `$out`/`$merge` that are not terminal, and dangerous operators
+  (`$function`, `$accumulator`, `$where`) are rejected fail-closed.
+- The pipeline depth is capped at 50 stages and the safety classifier scans
+  recursively up to 64 levels deep for forbidden operators.
+- Other `operation` values are handled explicitly (`create_collection`,
+  `insert_one`/`insert_many`, `update_one`/`update_many`,
+  `delete_one`/`delete_many`, `drop_collection`, `drop_database`).
 - Transactions are reported as unsupported for standalone servers (replica sets
   are required for transactions).
 - Cancellation is best-effort: the client task is aborted, but server-side work
   may continue.
 - Namespace listing filters `admin`, `config`, and `local` databases.
+
+### Aggregation examples
+
+Count by group:
+
+```json
+{ "operation": "aggregate", "database": "app", "collection": "orders",
+  "pipeline": [
+    { "$match": { "status": "paid" } },
+    { "$group": { "_id": "$country", "count": { "$sum": 1 } } }
+  ] }
+```
+
+Top N most recent:
+
+```json
+{ "operation": "aggregate", "database": "app", "collection": "events",
+  "pipeline": [
+    { "$match": { "level": "error" } },
+    { "$sort": { "createdAt": -1 } },
+    { "$limit": 10 }
+  ] }
+```
+
+Join via `$lookup`:
+
+```json
+{ "operation": "aggregate", "database": "app", "collection": "orders",
+  "pipeline": [
+    { "$lookup": { "from": "users", "localField": "userId",
+                   "foreignField": "_id", "as": "user" } },
+    { "$unwind": { "path": "$user", "preserveNullAndEmptyArrays": true } }
+  ] }
+```
+
+Writes via `$out` or `$merge` are allowed only when they are the last stage;
+they are routed through the mutation confirmation path like any other write.
 
 ## Redis
 

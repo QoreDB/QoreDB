@@ -261,7 +261,9 @@ export function QueryPanelToolbar({
           <SelectContent>
             <SelectItem value="find">find()</SelectItem>
             <SelectItem value="findOne">findOne()</SelectItem>
-            <SelectItem value="aggregate">aggregate()</SelectItem>
+            <SelectItem value="aggregate">aggregate (group)</SelectItem>
+            <SelectItem value="aggregateTopN">aggregate (top N)</SelectItem>
+            <SelectItem value="aggregateLookup">aggregate (lookup)</SelectItem>
             <SelectItem value="insertOne">insertOne()</SelectItem>
             <SelectItem value="updateOne">updateOne()</SelectItem>
             <SelectItem value="deleteOne">deleteOne()</SelectItem>

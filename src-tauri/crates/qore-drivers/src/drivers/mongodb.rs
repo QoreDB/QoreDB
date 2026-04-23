@@ -15,6 +15,7 @@ use mongodb::bson::{doc, Bson, Document};
 use mongodb::{options::ClientOptions, Client, ClientSession};
 use tokio::sync::{Mutex, RwLock};
 
+use crate::mongo_pipeline::validate_pipeline;
 use qore_core::error::{EngineError, EngineResult};
 use qore_core::traits::DataEngine;
 use qore_core::traits::{StreamEvent, StreamSender};
@@ -998,8 +999,90 @@ impl DataEngine for MongoDriver {
                                     execution_time_ms,
                                 });
                             }
+                            "aggregate" => {
+                                let database = parsed["database"]
+                                    .as_str()
+                                    .ok_or_else(|| EngineError::syntax_error("Missing 'database' field"))?;
+                                let coll_name = parsed["collection"]
+                                    .as_str()
+                                    .ok_or_else(|| EngineError::syntax_error("Missing 'collection' field"))?;
+
+                                let validated = validate_pipeline(&parsed).map_err(|e| {
+                                    EngineError::syntax_error(format!(
+                                        "Invalid aggregation pipeline: {}",
+                                        e.user_message()
+                                    ))
+                                })?;
+
+                                let mut stage_docs: Vec<Document> =
+                                    Vec::with_capacity(validated.stages.len());
+                                for (idx, stage) in validated.stages.iter().enumerate() {
+                                    let mut stage_obj = serde_json::Map::new();
+                                    stage_obj.insert(stage.operator.clone(), stage.body.clone());
+                                    let stage_json = serde_json::Value::Object(stage_obj);
+                                    let doc = mongodb::bson::to_document(&stage_json).map_err(|e| {
+                                        EngineError::syntax_error(format!(
+                                            "Stage {} ({}) is not a valid BSON document: {}",
+                                            idx, stage.operator, e
+                                        ))
+                                    })?;
+                                    stage_docs.push(doc);
+                                }
+
+                                let col = client
+                                    .database(database)
+                                    .collection::<Document>(coll_name);
+
+                                let mut tx_guard = mongo_session.transaction_session.lock().await;
+                                let documents: Vec<Document> = if let Some(txn) = tx_guard.as_mut() {
+                                    let mut cursor = col
+                                        .aggregate(stage_docs)
+                                        .session(&mut *txn)
+                                        .await
+                                        .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+                                    let mut out: Vec<Document> = Vec::new();
+                                    while let Some(doc_result) = cursor.next(&mut *txn).await {
+                                        let doc = doc_result
+                                            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+                                        out.push(doc);
+                                    }
+                                    out
+                                } else {
+                                    drop(tx_guard);
+                                    let mut cursor = col
+                                        .aggregate(stage_docs)
+                                        .await
+                                        .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+                                    let mut out: Vec<Document> = Vec::new();
+                                    use futures::TryStreamExt;
+                                    while let Some(doc) = cursor
+                                        .try_next()
+                                        .await
+                                        .map_err(|e| EngineError::execution_error(e.to_string()))?
+                                    {
+                                        out.push(doc);
+                                    }
+                                    out
+                                };
+
+                                let execution_time_ms = start.elapsed().as_micros() as f64 / 1000.0;
+                                let columns = Self::document_column_info();
+                                let rows: Vec<QRow> = documents
+                                    .iter()
+                                    .map(Self::document_to_row)
+                                    .collect();
+
+                                return Ok(QueryResult {
+                                    columns,
+                                    rows,
+                                    affected_rows: None,
+                                    execution_time_ms,
+                                });
+                            }
                             // Read operations and unknown ops: fall through to find path
-                            "find" | "findone" | "aggregate" | "count" | "countdocuments"
+                            "find" | "findone" | "count" | "countdocuments"
                             | "distinct" => {}
                             _ => {
                                 return Err(EngineError::syntax_error(format!(

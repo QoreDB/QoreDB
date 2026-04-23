@@ -11,6 +11,20 @@ export const MONGO_TEMPLATES = {
   { $match: { } },
   { $group: { _id: "$field", count: { $sum: 1 } } }
 ])`,
+  aggregateTopN: `db.collection.aggregate([
+  { $match: { } },
+  { $sort: { createdAt: -1 } },
+  { $limit: 10 }
+])`,
+  aggregateLookup: `db.collection.aggregate([
+  { $lookup: {
+      from: "otherCollection",
+      localField: "foreignId",
+      foreignField: "_id",
+      as: "joined"
+  } },
+  { $unwind: { path: "$joined", preserveNullAndEmptyArrays: true } }
+])`,
   insertOne: `db.collection.insertOne({
   // document
 })`,

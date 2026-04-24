@@ -736,6 +736,16 @@
     "toggleColumns": "컬럼 전환",
     "toggleFilters": "필터 표시/숨기기",
     "filterPlaceholder": "필터...",
+    "filterPlaceholderRegex": "정규식 패턴",
+    "filterPlaceholderText": "전문 검색 쿼리",
+    "filterRegexFlagsHint": "정규식 플래그: i (대소문자 무시), m (멀티라인), x (확장), s (dotall)",
+    "filterOp": {
+      "like": "like",
+      "eq": "=",
+      "neq": "≠",
+      "regex": "정규식",
+      "text": "텍스트"
+    },
     "mutationsNotSupported": "이 드라이버는 변경을 지원하지 않습니다",
     "updateConfirmTitle": "업데이트 확인",
     "updateConfirmDescription": "{{table}}에서 {{column}}을(를) 업데이트하려고 합니다.",
@@ -2158,5 +2168,26 @@
     "errorFieldRequired": "필드 이름이 필요합니다.",
     "errorMemberRequired": "멤버가 필요합니다.",
     "errorScoreInvalid": "점수는 유효한 숫자여야 합니다."
+  },
+  "redisLua": {
+    "title": "Lua 스크립트",
+    "scriptLabel": "스크립트",
+    "scriptHint": "KEYS[1..N]와 ARGV[1..N]로 아래 값을 참조하세요. ⌘/Ctrl+Enter로 실행합니다.",
+    "scriptLoad": "불러오기 (SCRIPT LOAD)",
+    "scriptLoaded": "스크립트가 로드되었습니다 (SHA: {{sha}})",
+    "run": "실행 (EVAL)",
+    "runViaSha": "SHA로 실행",
+    "executed": "스크립트가 실행되었습니다",
+    "keysLabel": "KEYS (한 줄에 하나)",
+    "keysPlaceholder": "user:1\nuser:2",
+    "keysCount": "키 {{count}}개",
+    "argsLabel": "ARGV (한 줄에 하나)",
+    "argsPlaceholder": "expected\n60",
+    "argsCount": "인수 {{count}}개",
+    "lastSha": "마지막으로 로드된 SHA",
+    "resultLabel": "결과",
+    "dangerousWarning": "스크립트에서 잠재적으로 파괴적인 Redis 명령이 감지되었습니다.",
+    "confirmTitle": "Lua 스크립트 실행",
+    "confirmDesc": "이 스크립트는 개발 환경이 아닌 곳에서 실행되며 데이터를 변경할 수 있습니다. 계속하시겠습니까?"
   }
 }

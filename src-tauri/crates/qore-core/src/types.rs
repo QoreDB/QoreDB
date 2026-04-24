@@ -542,6 +542,10 @@ pub struct TableIndex {
     pub columns: Vec<String>,
     pub is_unique: bool,
     pub is_primary: bool,
+    /// Engine-specific index type, when known (e.g. `btree`, `hash`, `gin`,
+    /// `fulltext`, `text`, `2dsphere`). `None` means unspecified/default.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub index_type: Option<String>,
 }
 
 /// Table schema metadata
@@ -875,6 +879,31 @@ pub enum FilterOperator {
     Like,
     IsNull,
     IsNotNull,
+    /// Regular-expression match. Pattern is in `ColumnFilter::value` (string);
+    /// flags (`i`, `m`, `x`, `s`) are in `ColumnFilter::options.regex_flags`.
+    Regex,
+    /// Engine-native full-text search. Query is in `ColumnFilter::value`;
+    /// optional language is in `ColumnFilter::options.text_language`.
+    Text,
+}
+
+/// Per-filter tuning options. Kept separate from `FilterOperator` so that
+/// the operator stays `Copy` and the existing on-wire representation of
+/// unit variants (plain snake_case strings) is preserved.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct FilterOptions {
+    /// Regex flags string for `FilterOperator::Regex` (subset of `imxs`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub regex_flags: Option<String>,
+    /// Language tag for `FilterOperator::Text` (e.g. `"english"`, `"french"`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub text_language: Option<String>,
+}
+
+impl FilterOptions {
+    pub fn is_empty(&self) -> bool {
+        self.regex_flags.is_none() && self.text_language.is_none()
+    }
 }
 
 /// Column filter for WHERE clauses
@@ -883,6 +912,8 @@ pub struct ColumnFilter {
     pub column: String,
     pub operator: FilterOperator,
     pub value: Value,
+    #[serde(default, skip_serializing_if = "FilterOptions::is_empty")]
+    pub options: FilterOptions,
 }
 
 /// Options for querying table data with pagination, sorting, and filtering

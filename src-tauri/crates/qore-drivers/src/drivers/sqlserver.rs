@@ -682,6 +682,7 @@ impl DataEngine for SqlServerDriver {
                 columns: cols,
                 is_unique,
                 is_primary,
+                index_type: None,
             })
             .collect();
 
@@ -1405,6 +1406,36 @@ impl DataEngine for SqlServerDriver {
                     }
                     FilterOperator::IsNull => format!("{} IS NULL", col),
                     FilterOperator::IsNotNull => format!("{} IS NOT NULL", col),
+                    FilterOperator::Regex => {
+                        // SQL Server has no native POSIX regex without CLR.
+                        // Fall back to PATINDEX with the raw pattern so users
+                        // can still run simple wildcard expressions; flags are
+                        // not expressible server-side and are ignored.
+                        let pattern = match &filter.value {
+                            qore_core::types::Value::Text(s) => s.clone(),
+                            other => serde_json::to_string(other).unwrap_or_default(),
+                        };
+                        format!(
+                            "PATINDEX('%{}%', CAST({} AS NVARCHAR(MAX))) > 0",
+                            pattern.replace('\'', "''"),
+                            col
+                        )
+                    }
+                    FilterOperator::Text => {
+                        // SQL Server: CONTAINS(col, 'query') requires a
+                        // full-text catalog + index on the column. Absence is
+                        // surfaced as a server error — the UI is responsible
+                        // for verifying `index_type = fulltext` first.
+                        let term = match &filter.value {
+                            qore_core::types::Value::Text(s) => s.clone(),
+                            other => serde_json::to_string(other).unwrap_or_default(),
+                        };
+                        format!(
+                            "CONTAINS({}, '\"{}\"')",
+                            col,
+                            term.replace('\'', "''").replace('"', "\"\"")
+                        )
+                    }
                 };
                 where_clauses.push(clause);
             }

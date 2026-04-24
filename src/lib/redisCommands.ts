@@ -137,3 +137,73 @@ export interface PersistArgs {
 export function buildPersist({ key }: PersistArgs): string {
   return buildCommand(['PERSIST', quoteRedisArg(key)]);
 }
+
+export interface EvalScriptArgs {
+  script: string;
+  keys: string[];
+  args: string[];
+}
+
+export function buildEvalScript({ script, keys, args }: EvalScriptArgs): string {
+  if (!script.trim()) {
+    throw new Error('Lua script must not be empty');
+  }
+  const argv = [
+    'EVAL',
+    quoteRedisArg(script),
+    String(keys.length),
+    ...keys.map(quoteRedisArg),
+    ...args.map(quoteRedisArg),
+  ];
+  return buildCommand(argv);
+}
+
+export interface EvalShaArgs {
+  sha: string;
+  keys: string[];
+  args: string[];
+}
+
+export function buildEvalSha({ sha, keys, args }: EvalShaArgs): string {
+  if (!/^[a-f0-9]{40}$/i.test(sha)) {
+    throw new Error('EVALSHA expects a 40-character hex SHA1');
+  }
+  const argv = [
+    'EVALSHA',
+    sha.toLowerCase(),
+    String(keys.length),
+    ...keys.map(quoteRedisArg),
+    ...args.map(quoteRedisArg),
+  ];
+  return buildCommand(argv);
+}
+
+export function buildScriptLoad(script: string): string {
+  if (!script.trim()) {
+    throw new Error('Lua script must not be empty');
+  }
+  return buildCommand(['SCRIPT', 'LOAD', quoteRedisArg(script)]);
+}
+
+/**
+ * Best-effort detection of dangerous Redis calls inside a Lua script body.
+ * Returns the matched tokens (uppercase) so the UI can warn the user.
+ * Not a substitute for the backend safety classifier — just a guardrail.
+ */
+export function detectDangerousLuaCalls(script: string): string[] {
+  const patterns: { token: string; regex: RegExp }[] = [
+    { token: 'FLUSHALL', regex: /redis\s*\.\s*p?call\s*\(\s*['"]FLUSHALL['"]/i },
+    { token: 'FLUSHDB', regex: /redis\s*\.\s*p?call\s*\(\s*['"]FLUSHDB['"]/i },
+    { token: 'SHUTDOWN', regex: /redis\s*\.\s*p?call\s*\(\s*['"]SHUTDOWN['"]/i },
+    { token: 'CONFIG', regex: /redis\s*\.\s*p?call\s*\(\s*['"]CONFIG['"]/i },
+    { token: 'SCRIPT FLUSH', regex: /redis\s*\.\s*p?call\s*\(\s*['"]SCRIPT['"]\s*,\s*['"]FLUSH['"]/i },
+    { token: 'DEBUG SLEEP', regex: /redis\s*\.\s*p?call\s*\(\s*['"]DEBUG['"]\s*,\s*['"]SLEEP['"]/i },
+  ];
+  const found = new Set<string>();
+  for (const { token, regex } of patterns) {
+    if (regex.test(script)) {
+      found.add(token);
+    }
+  }
+  return [...found];
+}

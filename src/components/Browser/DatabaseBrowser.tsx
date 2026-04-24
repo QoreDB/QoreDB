@@ -9,6 +9,7 @@ import {
   Database,
   Download,
   Eye,
+  FileCode,
   FunctionSquare,
   HardDrive,
   Hash,
@@ -27,6 +28,7 @@ import {
 } from 'lucide-react';
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { LuaScriptModal } from '@/components/Editor/LuaScriptModal';
 import {
   RedisEditorModal,
   type RedisEditorMode,
@@ -496,6 +498,7 @@ export function DatabaseBrowser({
   const [activeTab, setActiveTab] = useState<DatabaseBrowserTab>(initialTab ?? 'overview');
   const [createTableOpen, setCreateTableOpen] = useState(false);
   const [redisEditorMode, setRedisEditorMode] = useState<RedisEditorMode | null>(null);
+  const [luaModalOpen, setLuaModalOpen] = useState(false);
   const [schemaExportOpen, setSchemaExportOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -763,6 +766,7 @@ export function DatabaseBrowser({
         namespace={stableNamespace}
         onClose={onClose}
         onOpenCreateRedisKey={() => setRedisEditorMode({ kind: 'create-key' })}
+        onOpenLuaScript={() => setLuaModalOpen(true)}
         onOpenCreateTable={() => setCreateTableOpen(true)}
         onOpenFulltextSearch={onOpenFulltextSearch}
         onOpenQueryTab={onOpenQueryTab}
@@ -819,6 +823,19 @@ export function DatabaseBrowser({
           connectionDatabase={stableNamespace.database}
         />
       )}
+
+      {driver === Driver.Redis && (
+        <LuaScriptModal
+          isOpen={luaModalOpen}
+          onClose={() => setLuaModalOpen(false)}
+          sessionId={sessionId}
+          environment={environment}
+          connectionDatabase={stableNamespace.database}
+          onSuccess={() => {
+            void refreshData();
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -830,6 +847,7 @@ interface DatabaseBrowserHeaderProps {
   namespace: Namespace;
   onClose: () => void;
   onOpenCreateRedisKey: () => void;
+  onOpenLuaScript: () => void;
   onOpenCreateTable: () => void;
   onOpenFulltextSearch?: () => void;
   onOpenQueryTab?: (namespace: Namespace) => void;
@@ -845,6 +863,7 @@ function DatabaseBrowserHeader({
   namespace,
   onClose,
   onOpenCreateRedisKey,
+  onOpenLuaScript,
   onOpenCreateTable,
   onOpenFulltextSearch,
   onOpenQueryTab,
@@ -929,15 +948,26 @@ function DatabaseBrowserHeader({
         )}
 
         {driver === Driver.Redis && !readOnly && (
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onOpenCreateRedisKey}
-            className="h-8 w-8"
-            title={t('redis.createKeyTitle')}
-          >
-            <Plus size={16} />
-          </Button>
+          <>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onOpenCreateRedisKey}
+              className="h-8 w-8"
+              title={t('redis.createKeyTitle')}
+            >
+              <Plus size={16} />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onOpenLuaScript}
+              className="h-8 w-8"
+              title={t('redisLua.title')}
+            >
+              <FileCode size={16} />
+            </Button>
+          </>
         )}
 
         {supportsSql && (

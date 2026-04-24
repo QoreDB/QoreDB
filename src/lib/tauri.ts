@@ -884,6 +884,12 @@ export interface TableIndex {
   columns: string[];
   is_unique: boolean;
   is_primary: boolean;
+  /**
+   * Engine-specific index type (e.g. "btree", "hash", "gin", "gist",
+   * "fulltext", "text", "2dsphere"). Absent or `null` when not reported
+   * by the driver.
+   */
+  index_type?: string | null;
 }
 
 export interface TableSchema {
@@ -962,12 +968,22 @@ export type FilterOperator =
   | 'lte'
   | 'like'
   | 'is_null'
-  | 'is_not_null';
+  | 'is_not_null'
+  | 'regex'
+  | 'text';
+
+export interface FilterOptions {
+  /** Regex flags string for `regex` operator (subset of `imxs`). */
+  regex_flags?: string;
+  /** Language tag for `text` operator (e.g. "english", "french"). */
+  text_language?: string;
+}
 
 export interface ColumnFilter {
   column: string;
   operator: FilterOperator;
   value: Value;
+  options?: FilterOptions;
 }
 
 export interface TableQueryOptions {

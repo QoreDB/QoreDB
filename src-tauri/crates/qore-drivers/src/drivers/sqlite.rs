@@ -873,6 +873,7 @@ impl DataEngine for SqliteDriver {
                 columns,
                 is_unique: is_unique != 0,
                 is_primary,
+                index_type: None,
             });
         }
 
@@ -964,6 +965,40 @@ impl DataEngine for SqliteDriver {
                     }
                     FilterOperator::IsNull => format!("{} IS NULL", col_ident),
                     FilterOperator::IsNotNull => format!("{} IS NOT NULL", col_ident),
+                    FilterOperator::Regex => {
+                        // SQLite's REGEXP operator relies on a user-defined
+                        // function. When it is not loaded the call will return
+                        // a clear error at execution time, which is preferable
+                        // to silently falling back to LIKE.
+                        let pattern = if filter
+                            .options
+                            .regex_flags
+                            .as_deref()
+                            .map(|f| f.contains('i'))
+                            .unwrap_or(false)
+                        {
+                            match &filter.value {
+                                Value::Text(s) => Value::Text(format!("(?i){}", s)),
+                                other => other.clone(),
+                            }
+                        } else {
+                            filter.value.clone()
+                        };
+                        bind_values.push(pattern);
+                        format!("{} REGEXP ?", col_ident)
+                    }
+                    FilterOperator::Text => {
+                        // SQLite has no native full-text operator at the column
+                        // level (FTS5 lives in dedicated virtual tables); fall
+                        // back to a case-insensitive substring match so the
+                        // operator is still useful.
+                        let term = match &filter.value {
+                            Value::Text(s) => s.clone(),
+                            other => serde_json::to_string(other).unwrap_or_default(),
+                        };
+                        bind_values.push(Value::Text(format!("%{}%", term)));
+                        format!("{} LIKE ?", col_ident)
+                    }
                 };
                 where_clauses.push(clause);
             }

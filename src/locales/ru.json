@@ -736,6 +736,16 @@
     "toggleColumns": "Переключить столбцы",
     "toggleFilters": "Показать/скрыть фильтры",
     "filterPlaceholder": "Фильтр…",
+    "filterPlaceholderRegex": "Регулярное выражение",
+    "filterPlaceholderText": "Полнотекстовый запрос",
+    "filterRegexFlagsHint": "Флаги regex: i (без учёта регистра), m (многострочный), x (расширенный), s (dotall)",
+    "filterOp": {
+      "like": "like",
+      "eq": "=",
+      "neq": "≠",
+      "regex": "regex",
+      "text": "текст"
+    },
     "mutationsNotSupported": "Мутации не поддерживаются этим драйвером",
     "updateConfirmTitle": "Подтвердите обновление",
     "updateConfirmDescription": "Вы собираетесь обновить {{column}} в {{table}}.",
@@ -2158,5 +2168,26 @@
     "errorFieldRequired": "Имя поля обязательно.",
     "errorMemberRequired": "Элемент обязателен.",
     "errorScoreInvalid": "Оценка должна быть корректным числом."
+  },
+  "redisLua": {
+    "title": "Lua-скрипт",
+    "scriptLabel": "Скрипт",
+    "scriptHint": "Используйте KEYS[1..N] и ARGV[1..N], чтобы ссылаться на значения ниже. ⌘/Ctrl+Enter для запуска.",
+    "scriptLoad": "Загрузить (SCRIPT LOAD)",
+    "scriptLoaded": "Скрипт загружен (SHA: {{sha}})",
+    "run": "Выполнить (EVAL)",
+    "runViaSha": "Выполнить через SHA",
+    "executed": "Скрипт выполнен",
+    "keysLabel": "KEYS (по одному в строке)",
+    "keysPlaceholder": "user:1\nuser:2",
+    "keysCount": "{{count}} ключ(ей)",
+    "argsLabel": "ARGV (по одному в строке)",
+    "argsPlaceholder": "ожидаемо\n60",
+    "argsCount": "{{count}} аргумент(ов)",
+    "lastSha": "Последний загруженный SHA",
+    "resultLabel": "Результат",
+    "dangerousWarning": "В скрипте обнаружены потенциально деструктивные команды Redis.",
+    "confirmTitle": "Запустить Lua-скрипт",
+    "confirmDesc": "Скрипт выполнится не в окружении разработки и может изменить данные. Продолжить?"
   }
 }

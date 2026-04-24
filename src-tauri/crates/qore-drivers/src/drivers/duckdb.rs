@@ -605,13 +605,14 @@ impl DataEngine for DuckDbDriver {
                                 columns: idx_columns,
                                 is_unique,
                                 is_primary: false,
+                                index_type: None,
                             });
                         }
                     }
                 }
             }
 
-            // 5. Get row count estimate (fast via DuckDB statistics)
+            // 5. Get row count estimate
             let row_count_estimate = conn
                 .query_row(
                     &format!(
@@ -882,6 +883,38 @@ impl DataEngine for DuckDbDriver {
                         }
                         FilterOperator::IsNull => format!("{} IS NULL", col_ident),
                         FilterOperator::IsNotNull => format!("{} IS NOT NULL", col_ident),
+                        FilterOperator::Regex => {
+                            bind_values.push(value_to_duckdb(&filter.value));
+                            // DuckDB: regexp_matches(col, pat[, flags])
+                            let flags_lit = filter
+                                .options
+                                .regex_flags
+                                .as_deref()
+                                .unwrap_or("")
+                                .replace('\'', "''");
+                            if flags_lit.is_empty() {
+                                format!("regexp_matches({}::VARCHAR, ?)", col_ident)
+                            } else {
+                                format!(
+                                    "regexp_matches({}::VARCHAR, ?, '{}')",
+                                    col_ident, flags_lit
+                                )
+                            }
+                        }
+                        FilterOperator::Text => {
+                            // DuckDB has no native full-text index; fall back to
+                            // a case-insensitive substring match so the operator
+                            // still works (the filter bar UI warns on absence of
+                            // a text index).
+                            let term = match &filter.value {
+                                qore_core::types::Value::Text(s) => s.clone(),
+                                other => serde_json::to_string(other).unwrap_or_default(),
+                            };
+                            bind_values.push(value_to_duckdb(&qore_core::types::Value::Text(
+                                format!("%{}%", term),
+                            )));
+                            format!("{}::VARCHAR ILIKE ?", col_ident)
+                        }
                     };
                     where_clauses.push(clause);
                 }

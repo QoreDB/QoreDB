@@ -736,6 +736,16 @@
     "toggleColumns": "カラムの切り替え",
     "toggleFilters": "フィルターの表示/非表示",
     "filterPlaceholder": "フィルター...",
+    "filterPlaceholderRegex": "正規表現パターン",
+    "filterPlaceholderText": "全文検索クエリ",
+    "filterRegexFlagsHint": "正規表現フラグ: i（大文字小文字を区別しない）, m（複数行）, x（拡張）, s（dotall）",
+    "filterOp": {
+      "like": "like",
+      "eq": "=",
+      "neq": "≠",
+      "regex": "正規表現",
+      "text": "テキスト"
+    },
     "mutationsNotSupported": "このドライバーはミューテーションをサポートしていません",
     "updateConfirmTitle": "更新の確認",
     "updateConfirmDescription": "{{table}} の {{column}} を更新しようとしています。",
@@ -2158,5 +2168,26 @@
     "errorFieldRequired": "フィールド名は必須です。",
     "errorMemberRequired": "メンバーは必須です。",
     "errorScoreInvalid": "スコアは有効な数値である必要があります。"
+  },
+  "redisLua": {
+    "title": "Lua スクリプト",
+    "scriptLabel": "スクリプト",
+    "scriptHint": "KEYS[1..N] と ARGV[1..N] で下の値を参照します。⌘/Ctrl+Enter で実行します。",
+    "scriptLoad": "読み込み (SCRIPT LOAD)",
+    "scriptLoaded": "スクリプトを読み込みました (SHA: {{sha}})",
+    "run": "実行 (EVAL)",
+    "runViaSha": "SHA で実行",
+    "executed": "スクリプトを実行しました",
+    "keysLabel": "KEYS（1 行につき 1 つ）",
+    "keysPlaceholder": "user:1\nuser:2",
+    "keysCount": "キー {{count}} 個",
+    "argsLabel": "ARGV（1 行につき 1 つ）",
+    "argsPlaceholder": "expected\n60",
+    "argsCount": "引数 {{count}} 個",
+    "lastSha": "最後に読み込んだ SHA",
+    "resultLabel": "結果",
+    "dangerousWarning": "スクリプト内に破壊的な可能性がある Redis コマンドが検出されました。",
+    "confirmTitle": "Lua スクリプトを実行",
+    "confirmDesc": "このスクリプトは開発以外の環境で実行され、データを変更する可能性があります。続行しますか？"
   }
 }

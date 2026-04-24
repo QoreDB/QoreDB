@@ -39,4 +39,36 @@ export const MONGO_TEMPLATES = {
   deleteOne: `db.collection.deleteOne({
   // filter
 })`,
+  bulkWrite: `{
+  "operation": "bulkWrite",
+  "database": "mydb",
+  "collection": "mycollection",
+  "operations": [
+    { "insertOne": { "document": { "name": "alice" } } },
+    { "updateOne": { "filter": { "_id": 1 }, "update": { "$set": { "active": true } }, "upsert": true } },
+    { "deleteOne": { "filter": { "legacy": true } } }
+  ]
+}`,
+  findOneAndUpdate: `{
+  "operation": "findOneAndUpdate",
+  "database": "mydb",
+  "collection": "mycollection",
+  "filter": { "_id": 1 },
+  "update": { "$set": { "lastSeen": "now" } },
+  "options": { "returnDocument": "after" }
+}`,
+  findOneAndReplace: `{
+  "operation": "findOneAndReplace",
+  "database": "mydb",
+  "collection": "mycollection",
+  "filter": { "_id": 1 },
+  "replacement": { "name": "alice", "active": true },
+  "options": { "returnDocument": "after" }
+}`,
+  findOneAndDelete: `{
+  "operation": "findOneAndDelete",
+  "database": "mydb",
+  "collection": "mycollection",
+  "filter": { "_id": 1 }
+}`,
 };

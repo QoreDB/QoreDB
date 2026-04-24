@@ -1425,6 +1425,7 @@ impl DataEngine for RedisDriver {
                 ),
                 columns: vec![key.to_string()],
                 is_unique: false,
+                index_type: None,
                 is_primary: false,
             }],
         })

@@ -736,6 +736,16 @@
     "toggleColumns": "Alternar colunas",
     "toggleFilters": "Mostrar/Ocultar Filtros",
     "filterPlaceholder": "Filtrar...",
+    "filterPlaceholderRegex": "Padrão regex",
+    "filterPlaceholderText": "Consulta de texto completo",
+    "filterRegexFlagsHint": "Flags regex: i (sem distinguir maiúsc.), m (multilinha), x (estendido), s (dotall)",
+    "filterOp": {
+      "like": "like",
+      "eq": "=",
+      "neq": "≠",
+      "regex": "regex",
+      "text": "texto"
+    },
     "mutationsNotSupported": "Mutações não são suportadas por este driver",
     "updateConfirmTitle": "Confirmar atualização",
     "updateConfirmDescription": "Você está prestes a atualizar {{column}} em {{table}}.",
@@ -2158,5 +2168,26 @@
     "errorFieldRequired": "O nome do campo é obrigatório.",
     "errorMemberRequired": "O membro é obrigatório.",
     "errorScoreInvalid": "A pontuação deve ser um número válido."
+  },
+  "redisLua": {
+    "title": "Script Lua",
+    "scriptLabel": "Script",
+    "scriptHint": "Use KEYS[1..N] e ARGV[1..N] para referenciar os valores abaixo. Pressione ⌘/Ctrl+Enter para executar.",
+    "scriptLoad": "Carregar (SCRIPT LOAD)",
+    "scriptLoaded": "Script carregado (SHA: {{sha}})",
+    "run": "Executar (EVAL)",
+    "runViaSha": "Executar via SHA",
+    "executed": "Script executado",
+    "keysLabel": "KEYS (uma por linha)",
+    "keysPlaceholder": "user:1\nuser:2",
+    "keysCount": "{{count}} chave(s)",
+    "argsLabel": "ARGV (um por linha)",
+    "argsPlaceholder": "esperado\n60",
+    "argsCount": "{{count}} arg(s)",
+    "lastSha": "Último SHA carregado",
+    "resultLabel": "Resultado",
+    "dangerousWarning": "Comandos Redis potencialmente destrutivos detectados no script.",
+    "confirmTitle": "Executar script Lua",
+    "confirmDesc": "Este script será executado em um ambiente diferente do de desenvolvimento e pode alterar dados. Continuar?"
   }
 }

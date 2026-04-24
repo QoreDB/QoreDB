@@ -37,6 +37,7 @@ pub async fn fetch_row_by_pk(
             column: col.clone(),
             operator: FilterOperator::Eq,
             value: val.clone(),
+            options: Default::default(),
         })
         .collect();
 

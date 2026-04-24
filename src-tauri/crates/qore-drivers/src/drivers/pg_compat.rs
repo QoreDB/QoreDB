@@ -891,6 +891,40 @@ pub async fn query_table(
                 }
                 FilterOperator::IsNull => format!("{} IS NULL", col_ident),
                 FilterOperator::IsNotNull => format!("{} IS NOT NULL", col_ident),
+                FilterOperator::Regex => {
+                    bind_values.push(filter.value.clone());
+                    // Postgres: `~` is case-sensitive, `~*` is case-insensitive.
+                    // Other regex flags are not natively exposed — they are
+                    // embedded in the pattern itself (e.g. `(?i)` / `(?s)`).
+                    let op = if filter
+                        .options
+                        .regex_flags
+                        .as_deref()
+                        .map(|f| f.contains('i'))
+                        .unwrap_or(false)
+                    {
+                        "~*"
+                    } else {
+                        "~"
+                    };
+                    format!("{} {} ${}", col_ident, op, param_idx)
+                }
+                FilterOperator::Text => {
+                    bind_values.push(filter.value.clone());
+                    let lang = filter
+                        .options
+                        .text_language
+                        .as_deref()
+                        .unwrap_or("english");
+                    // Cast the column to text to cover non-text types gracefully.
+                    format!(
+                        "to_tsvector('{}', {}::text) @@ plainto_tsquery('{}', ${})",
+                        lang.replace('\'', "''"),
+                        col_ident,
+                        lang.replace('\'', "''"),
+                        param_idx
+                    )
+                }
             };
             where_clauses.push(clause);
         }
@@ -1277,20 +1311,22 @@ pub async fn describe_table_core(
     };
 
     // Indexes
-    let index_rows: Vec<(String, Vec<String>, bool, bool)> = sqlx::query_as(
+    let index_rows: Vec<(String, Vec<String>, bool, bool, Option<String>)> = sqlx::query_as(
         r#"
         SELECT i.relname AS index_name,
                array_agg(a.attname ORDER BY x.ordinality)::text[] AS columns,
                ix.indisunique AS is_unique,
-               ix.indisprimary AS is_primary
+               ix.indisprimary AS is_primary,
+               am.amname AS index_type
         FROM pg_index ix
         JOIN pg_class i ON i.oid = ix.indexrelid
         JOIN pg_class t ON t.oid = ix.indrelid
         JOIN pg_namespace n ON n.oid = t.relnamespace
+        JOIN pg_am am ON am.oid = i.relam
         CROSS JOIN LATERAL unnest(ix.indkey) WITH ORDINALITY AS x(attnum, ordinality)
         JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = x.attnum
         WHERE n.nspname = $1 AND t.relname = $2
-        GROUP BY i.relname, ix.indisunique, ix.indisprimary
+        GROUP BY i.relname, ix.indisunique, ix.indisprimary, am.amname
         "#,
     )
     .bind(schema)
@@ -1301,11 +1337,12 @@ pub async fn describe_table_core(
 
     let indexes: Vec<TableIndex> = index_rows
         .into_iter()
-        .map(|(name, columns, is_unique, is_primary)| TableIndex {
+        .map(|(name, columns, is_unique, is_primary, index_type)| TableIndex {
             name,
             columns,
             is_unique,
             is_primary,
+            index_type,
         })
         .collect();
 

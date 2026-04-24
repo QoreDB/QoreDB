@@ -736,6 +736,16 @@
     "toggleColumns": "切换列显示",
     "toggleFilters": "显示/隐藏筛选",
     "filterPlaceholder": "筛选…",
+    "filterPlaceholderRegex": "正则表达式",
+    "filterPlaceholderText": "全文检索查询",
+    "filterRegexFlagsHint": "正则标志: i（忽略大小写）、m（多行）、x（扩展）、s（dotall）",
+    "filterOp": {
+      "like": "like",
+      "eq": "=",
+      "neq": "≠",
+      "regex": "正则",
+      "text": "文本"
+    },
     "mutationsNotSupported": "此驱动不支持数据修改",
     "updateConfirmTitle": "确认更新",
     "updateConfirmDescription": "您即将更新 {{table}} 中的 {{column}}。",
@@ -2158,5 +2168,26 @@
     "errorFieldRequired": "字段名为必填项。",
     "errorMemberRequired": "成员为必填项。",
     "errorScoreInvalid": "分数必须是有效数字。"
+  },
+  "redisLua": {
+    "title": "Lua 脚本",
+    "scriptLabel": "脚本",
+    "scriptHint": "使用 KEYS[1..N] 和 ARGV[1..N] 引用下方的值。按 ⌘/Ctrl+Enter 运行。",
+    "scriptLoad": "加载 (SCRIPT LOAD)",
+    "scriptLoaded": "脚本已加载 (SHA: {{sha}})",
+    "run": "执行 (EVAL)",
+    "runViaSha": "通过 SHA 执行",
+    "executed": "脚本已执行",
+    "keysLabel": "KEYS（每行一个）",
+    "keysPlaceholder": "user:1\nuser:2",
+    "keysCount": "{{count}} 个键",
+    "argsLabel": "ARGV（每行一个）",
+    "argsPlaceholder": "expected\n60",
+    "argsCount": "{{count}} 个参数",
+    "lastSha": "最后加载的 SHA",
+    "resultLabel": "结果",
+    "dangerousWarning": "在脚本中检测到潜在的破坏性 Redis 命令。",
+    "confirmTitle": "运行 Lua 脚本",
+    "confirmDesc": "此脚本将在非开发环境中运行并可能修改数据。是否继续？"
   }
 }

@@ -736,6 +736,16 @@
     "toggleColumns": "Spalten umschalten",
     "toggleFilters": "Filter ein-/ausblenden",
     "filterPlaceholder": "Filtern…",
+    "filterPlaceholderRegex": "Regex-Muster",
+    "filterPlaceholderText": "Volltext-Abfrage",
+    "filterRegexFlagsHint": "Regex-Flags: i (Groß/Klein), m (mehrzeilig), x (erweitert), s (Punkt passt auf Zeilenumbruch)",
+    "filterOp": {
+      "like": "like",
+      "eq": "=",
+      "neq": "≠",
+      "regex": "regex",
+      "text": "Text"
+    },
     "mutationsNotSupported": "Mutationen werden von diesem Treiber nicht unterstützt",
     "updateConfirmTitle": "Aktualisierung bestätigen",
     "updateConfirmDescription": "Sie sind dabei, {{column}} in {{table}} zu aktualisieren.",
@@ -2158,5 +2168,26 @@
     "errorFieldRequired": "Der Feldname ist erforderlich.",
     "errorMemberRequired": "Das Element ist erforderlich.",
     "errorScoreInvalid": "Der Score muss eine gültige Zahl sein."
+  },
+  "redisLua": {
+    "title": "Lua-Skript",
+    "scriptLabel": "Skript",
+    "scriptHint": "Verwenden Sie KEYS[1..N] und ARGV[1..N], um auf die Werte unten zu verweisen. ⌘/Strg+Eingabe zum Ausführen.",
+    "scriptLoad": "Laden (SCRIPT LOAD)",
+    "scriptLoaded": "Skript geladen (SHA: {{sha}})",
+    "run": "Ausführen (EVAL)",
+    "runViaSha": "Via SHA ausführen",
+    "executed": "Skript ausgeführt",
+    "keysLabel": "KEYS (eine pro Zeile)",
+    "keysPlaceholder": "user:1\nuser:2",
+    "keysCount": "{{count}} Schlüssel",
+    "argsLabel": "ARGV (eines pro Zeile)",
+    "argsPlaceholder": "erwartet\n60",
+    "argsCount": "{{count}} Arg(e)",
+    "lastSha": "Zuletzt geladener SHA",
+    "resultLabel": "Ergebnis",
+    "dangerousWarning": "Potenziell zerstörerische Redis-Befehle im Skript erkannt.",
+    "confirmTitle": "Lua-Skript ausführen",
+    "confirmDesc": "Dieses Skript wird in einer Nicht-Entwicklungsumgebung ausgeführt und kann Daten verändern. Fortfahren?"
   }
 }

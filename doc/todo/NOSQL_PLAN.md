@@ -308,9 +308,10 @@ _Effort estimé : 1 semaine_
 _Effort estimé : 6-8 semaines. **Breaking change — à planifier pour release majeure**_
 
 - [ ] **Design**
-  - [ ] Rédiger RFC dans `doc/internals/RFC_DATAENGINE_V2.md`
+  - [x] Rédiger RFC dans `doc/internals/RFC_DATAENGINE_V2.md` _(draft livré 2026-04-24 — basé sur les pain points concrets relevés en Phase 1+2 : FilterOperator SQL-centric, dispatch MongoDB par string, TableSchema mal adapté au NoSQL, pas de stream d'events, Value lossy pour BSON/UUID, capabilities non-extensibles)_
   - [ ] Review par les mainteneurs des drivers SQL + NoSQL
-  - [ ] Plan de migration versionné (v1 + v2 coexistent pendant une release)
+  - [ ] Plan de migration versionné (v1 + v2 coexistent pendant une release) — proposé dans la RFC § 5
+  - [ ] Prototype SQLite pour valider le design avant migration des autres drivers
 - [ ] **Core — nouveaux traits**
   - [ ] `QueryOptions` générique (remplace `FilterOperator` hardcodé)
   - [ ] `DriverCapabilities` versionnées : `cap.aggregation_pipeline`, `cap.pub_sub`, `cap.change_streams`, `cap.consumer_groups`
@@ -451,7 +452,7 @@ _Effort estimé : 4 semaines. **Dépend de 3.1**_
 | --- | --- | --- | --- |
 | Phase 1 | 3.75 | 4 | 94% |
 | Phase 2 | 4 | 4 | 100% |
-| Phase 3 | 0 | 3 | 0% |
+| Phase 3 | 0.15 | 3 | 5% |
 | Phase 4 | 0 | n/a | — |
 
 _Mettre à jour au fur et à mesure._

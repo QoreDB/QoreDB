@@ -89,6 +89,7 @@ fn is_read_op(op: &str) -> bool {
             | "listcollections"
             | "collstats"
             | "dbstats"
+            | "listindexes"
     )
 }
 
@@ -117,6 +118,10 @@ fn is_mutation_op(op: &str) -> bool {
             | "renamecollection"
             | "mapreduce"
             | "findandmodify"
+            | "createindex"
+            | "createindexes"
+            | "dropindex"
+            | "dropindexes"
     )
 }
 
@@ -146,6 +151,10 @@ fn classify_shell(query: &str) -> MongoQueryClass {
         ".renamecollection(",
         ".findandmodify(",
         ".mapreduce(",
+        ".createindex(",
+        ".createindexes(",
+        ".dropindex(",
+        ".dropindexes(",
     ];
 
     if mutation_patterns
@@ -166,6 +175,9 @@ fn classify_shell(query: &str) -> MongoQueryClass {
         ".listcollections(",
         ".collstats(",
         ".dbstats(",
+        ".listindexes(",
+        ".getindexes(",
+        ".indexes(",
     ];
 
     if read_patterns
@@ -272,6 +284,42 @@ mod tests {
     fn json_aggregate_with_unknown_stage_is_unknown() {
         let query = r#"{"operation":"aggregate","pipeline":[{"$notAStage":{}}]}"#;
         assert_eq!(classify(query), MongoQueryClass::Unknown);
+    }
+
+    #[test]
+    fn json_create_index_is_mutation() {
+        let query = r#"{"operation":"createIndex","database":"db","collection":"col","keys":{"a":1}}"#;
+        assert_eq!(classify(query), MongoQueryClass::Mutation);
+    }
+
+    #[test]
+    fn json_drop_index_is_mutation() {
+        let query = r#"{"operation":"dropIndex","database":"db","collection":"col","name":"idx_a"}"#;
+        assert_eq!(classify(query), MongoQueryClass::Mutation);
+    }
+
+    #[test]
+    fn json_list_indexes_is_read() {
+        let query = r#"{"operation":"listIndexes","database":"db","collection":"col"}"#;
+        assert_eq!(classify(query), MongoQueryClass::Read);
+    }
+
+    #[test]
+    fn shell_create_index_is_mutation() {
+        let query = "db.users.createIndex({email: 1}, {unique: true})";
+        assert_eq!(classify(query), MongoQueryClass::Mutation);
+    }
+
+    #[test]
+    fn shell_drop_index_is_mutation() {
+        let query = "db.users.dropIndex('email_1')";
+        assert_eq!(classify(query), MongoQueryClass::Mutation);
+    }
+
+    #[test]
+    fn shell_get_indexes_is_read() {
+        let query = "db.users.getIndexes()";
+        assert_eq!(classify(query), MongoQueryClass::Read);
     }
 
     #[test]

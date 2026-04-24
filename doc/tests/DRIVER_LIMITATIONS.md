@@ -84,6 +84,33 @@ Join via `$lookup`:
 Writes via `$out` or `$merge` are allowed only when they are the last stage;
 they are routed through the mutation confirmation path like any other write.
 
+### Index management
+
+- `list_indexes` is exposed as a read operation (both via the JSON payload
+  `{"operation":"listIndexes"}` and the shell-like `.getIndexes()`/`.indexes()`
+  helpers).
+- `createIndex` / `dropIndex` are classified as mutations and routed through
+  the production-safety confirmation path when the environment is not
+  `development`.
+- Supported index options on create: `name`, `unique`, `sparse`,
+  `expireAfterSeconds` (TTL), `partialFilterExpression` (JSON object).
+- TTL indexes must cover a single ascending or descending key; the UI rejects
+  mixed-direction or multi-field TTL declarations before reaching the driver.
+- The `_id_` default index cannot be dropped; wildcard drops (`*`) are also
+  rejected driver-side to prevent accidental mass removal.
+- Direction values accepted per key: `1`, `-1`, `"text"`, `"2dsphere"`.
+
+```json
+{ "operation": "createIndex", "database": "app", "collection": "orders",
+  "keys": { "userId": 1, "createdAt": -1 },
+  "options": { "unique": true, "name": "user_recent_orders" } }
+```
+
+```json
+{ "operation": "dropIndex", "database": "app", "collection": "orders",
+  "name": "user_recent_orders" }
+```
+
 ## Redis
 
 - Key browsing uses `SCAN` which is not atomic; keys may be missed or

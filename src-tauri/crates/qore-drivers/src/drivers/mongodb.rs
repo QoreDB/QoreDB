@@ -12,7 +12,8 @@ use qore_core::types::RowData as QRowData;
 use async_trait::async_trait;
 use futures::future::{AbortHandle, Abortable};
 use mongodb::bson::{doc, Bson, Document};
-use mongodb::{options::ClientOptions, Client, ClientSession};
+use mongodb::options::IndexOptions;
+use mongodb::{options::ClientOptions, Client, ClientSession, IndexModel};
 use tokio::sync::{Mutex, RwLock};
 
 use crate::mongo_pipeline::validate_pipeline;
@@ -996,6 +997,131 @@ impl DataEngine for MongoDriver {
                                     columns: Vec::new(),
                                     rows: Vec::new(),
                                     affected_rows: None,
+                                    execution_time_ms,
+                                });
+                            }
+                            "createindex" | "createindexes" => {
+                                let database = parsed["database"]
+                                    .as_str()
+                                    .ok_or_else(|| EngineError::syntax_error("Missing 'database' field"))?;
+                                let coll_name = parsed["collection"]
+                                    .as_str()
+                                    .ok_or_else(|| EngineError::syntax_error("Missing 'collection' field"))?;
+                                let keys_json = parsed.get("keys")
+                                    .ok_or_else(|| EngineError::syntax_error("Missing 'keys' field"))?;
+                                let keys_doc = mongodb::bson::to_document(keys_json)
+                                    .map_err(|e| EngineError::syntax_error(format!("Invalid 'keys': {}", e)))?;
+                                if keys_doc.is_empty() {
+                                    return Err(EngineError::syntax_error(
+                                        "'keys' must contain at least one field",
+                                    ));
+                                }
+
+                                let mut options = IndexOptions::default();
+                                if let Some(opts) = parsed.get("options").and_then(|v| v.as_object()) {
+                                    if let Some(name) = opts.get("name").and_then(|v| v.as_str()) {
+                                        options.name = Some(name.to_string());
+                                    }
+                                    if let Some(unique) = opts.get("unique").and_then(|v| v.as_bool()) {
+                                        options.unique = Some(unique);
+                                    }
+                                    if let Some(sparse) = opts.get("sparse").and_then(|v| v.as_bool()) {
+                                        options.sparse = Some(sparse);
+                                    }
+                                    if let Some(ttl) = opts
+                                        .get("expireAfterSeconds")
+                                        .and_then(|v| v.as_u64())
+                                    {
+                                        options.expire_after =
+                                            Some(std::time::Duration::from_secs(ttl));
+                                    }
+                                    if let Some(pfe) = opts.get("partialFilterExpression") {
+                                        let doc = mongodb::bson::to_document(pfe).map_err(|e| {
+                                            EngineError::syntax_error(format!(
+                                                "Invalid 'partialFilterExpression': {}",
+                                                e
+                                            ))
+                                        })?;
+                                        options.partial_filter_expression = Some(doc);
+                                    }
+                                }
+                                let model = IndexModel::builder()
+                                    .keys(keys_doc)
+                                    .options(options)
+                                    .build();
+
+                                let col = client
+                                    .database(database)
+                                    .collection::<Document>(coll_name);
+                                let mut tx_guard = mongo_session.transaction_session.lock().await;
+                                let created = if let Some(txn) = tx_guard.as_mut() {
+                                    col.create_index(model)
+                                        .session(&mut *txn)
+                                        .await
+                                        .map_err(|e| EngineError::execution_error(e.to_string()))?
+                                } else {
+                                    drop(tx_guard);
+                                    col.create_index(model)
+                                        .await
+                                        .map_err(|e| EngineError::execution_error(e.to_string()))?
+                                };
+
+                                let execution_time_ms = start.elapsed().as_micros() as f64 / 1000.0;
+                                let columns = vec![ColumnInfo {
+                                    name: "index_name".to_string(),
+                                    data_type: "string".to_string(),
+                                    nullable: false,
+                                }];
+                                let rows = vec![QRow {
+                                    values: vec![Value::Text(created.index_name)],
+                                }];
+                                return Ok(QueryResult {
+                                    columns,
+                                    rows,
+                                    affected_rows: Some(1),
+                                    execution_time_ms,
+                                });
+                            }
+                            "dropindex" | "dropindexes" => {
+                                let database = parsed["database"]
+                                    .as_str()
+                                    .ok_or_else(|| EngineError::syntax_error("Missing 'database' field"))?;
+                                let coll_name = parsed["collection"]
+                                    .as_str()
+                                    .ok_or_else(|| EngineError::syntax_error("Missing 'collection' field"))?;
+                                let name = parsed.get("name").and_then(|v| v.as_str()).ok_or_else(
+                                    || EngineError::syntax_error("Missing 'name' field (index name)"),
+                                )?;
+                                if name == "_id_" || name == "*" {
+                                    return Err(EngineError::syntax_error(format!(
+                                        "Dropping '{}' is not allowed",
+                                        name
+                                    )));
+                                }
+
+                                let db = client.database(database);
+                                let mut tx_guard = mongo_session.transaction_session.lock().await;
+                                if let Some(txn) = tx_guard.as_mut() {
+                                    db.run_command(
+                                        doc! { "dropIndexes": coll_name, "index": name },
+                                    )
+                                    .session(&mut *txn)
+                                    .await
+                                    .map_err(|e| EngineError::execution_error(e.to_string()))?;
+                                } else {
+                                    drop(tx_guard);
+                                    db.run_command(
+                                        doc! { "dropIndexes": coll_name, "index": name },
+                                    )
+                                    .await
+                                    .map_err(|e| EngineError::execution_error(e.to_string()))?;
+                                }
+
+                                let execution_time_ms = start.elapsed().as_micros() as f64 / 1000.0;
+                                return Ok(QueryResult {
+                                    columns: Vec::new(),
+                                    rows: Vec::new(),
+                                    affected_rows: Some(1),
                                     execution_time_ms,
                                 });
                             }

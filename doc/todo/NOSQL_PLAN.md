@@ -147,29 +147,40 @@ _Effort estimé : 1 semaine_
 
 ## Phase 2 — Moyen terme
 
-### 2.1 MongoDB : Index management UI
+### 2.1 MongoDB : Index management UI ✅
 
 _Effort estimé : 2 semaines_
 
-- [ ] **Backend**
-  - [ ] Ajouter `create_index(collection, keys, options)` dans `mongodb.rs`
-  - [ ] Ajouter `drop_index(collection, name)`
-  - [ ] Exposer `list_indexes` en commande Tauri si pas déjà fait
-  - [ ] Support options : `unique`, `sparse`, `expireAfterSeconds` (TTL), `partialFilterExpression`
-- [ ] **Frontend — dialog création index**
-  - [ ] Créer `src/components/Schema/IndexDialog.tsx`
-  - [ ] Sélection champs + direction (1 / -1 / `text` / `2dsphere`)
-  - [ ] Options avancées (unique, sparse, TTL)
-  - [ ] Preview de la commande générée
-- [ ] **Frontend — liste des indexes**
-  - [ ] Onglet "Indexes" dans le panneau de table MongoDB
-  - [ ] Actions : créer, dropper, voir stats
-- [ ] **Tests**
-  - [ ] Tests de création/drop d'index
-- [ ] **Doc**
-  - [ ] `doc/rules/DATABASES.md` section MongoDB indexes
+- [x] **Backend**
+  - [x] Branche `createIndex` dans `drivers/mongodb.rs` (via `IndexModel` + `IndexOptions`, support txn/non-txn)
+  - [x] Branche `dropIndex` dans `drivers/mongodb.rs` (via `db.run_command(doc! { "dropIndexes": ... })`, rejette `_id_` et `*`)
+  - [x] `listIndexes` déjà exposé en lecture (classé `Read` dans `mongo_safety.rs`)
+  - [x] Options supportées : `name`, `unique`, `sparse`, `expireAfterSeconds` (TTL), `partialFilterExpression`
+- [x] **Frontend — dialog création index**
+  - [x] `src/components/Schema/IndexDialog.tsx` (~320 lignes)
+  - [x] Sélection champs + direction (1 / -1 / `text` / `2dsphere`)
+  - [x] Options avancées (unique, sparse, TTL, partialFilterExpression)
+  - [x] Preview JSON live de la commande générée
+  - [x] Confirmation production via `DangerConfirmDialog` (avec saisie du nom de collection en prod)
+- [x] **Frontend — liste des indexes**
+  - [x] Section "Indexes" étendue dans `TableBrowser.tsx` (TableInfoPanel) pour MongoDB
+  - [x] Bouton "Nouvel index" visible si `driver === Mongodb && !readOnly`
+  - [x] Actions drop par ligne (Trash) en excluant `_id_`
+  - [x] État vide dédié Mongo + refresh via `schemaCache.invalidateTable` + `getTableSchema`
+- [x] **Safety**
+  - [x] `createIndex/createIndexes` + `dropIndex/dropIndexes` classés `Mutation` (JSON et shell)
+  - [x] `listIndexes/.getIndexes()/.indexes()` classés `Read`
+  - [x] 6 nouveaux tests dans `mongo_safety` (18 total verts)
+- [ ] **Tests d'intégration**
+  - [ ] Tests de création/drop d'index côté driver — bloqué : pas d'infra d'intégration MongoDB dans le projet (runtime tokio + serveur mongo requis), à traiter en amont d'une PR "infra d'intégration NoSQL"
+- [x] **Doc**
+  - [x] `doc/tests/DRIVER_LIMITATIONS.md` : section "Index management" MongoDB + 2 exemples (createIndex composite unique, dropIndex)
+- [x] **i18n**
+  - [x] Namespace `mongoIndex` ajouté dans les 9 locales (en/fr/de/es/ja/ko/pt-BR/ru/zh-CN)
 
-**Done when** : création d'un index unique composite depuis l'UI sans toucher à la command-line.
+**Done when** : création d'un index unique composite depuis l'UI sans toucher à la command-line. **✅ livré (2026-04-24)**
+
+**État (2026-04-24)** : livré — backend `createIndex`/`dropIndex` + safety classifier + IndexDialog frontend + intégration TableBrowser + doc + i18n complète (9 locales, 36 clés chacune). Restent optionnels : tests d'intégration Mongo (bloqués par l'absence d'infra) et un onglet "stats" par index (non demandé dans le plan initial).
 
 ---
 
@@ -390,7 +401,7 @@ _Effort estimé : 4 semaines. **Dépend de 3.1**_
 | Phase | Items done | Items total | % |
 | --- | --- | --- | --- |
 | Phase 1 | 3.75 | 4 | 94% |
-| Phase 2 | 0 | 4 | 0% |
+| Phase 2 | 1 | 4 | 25% |
 | Phase 3 | 0 | 3 | 0% |
 | Phase 4 | 0 | n/a | — |
 

@@ -884,14 +884,16 @@ impl DataEngine for DuckDbDriver {
                         FilterOperator::IsNull => format!("{} IS NULL", col_ident),
                         FilterOperator::IsNotNull => format!("{} IS NOT NULL", col_ident),
                         FilterOperator::Regex => {
+                            filter.value.as_text().ok_or_else(|| {
+                                EngineError::syntax_error(
+                                    "regex operator requires a string value in 'value'",
+                                )
+                            })?;
                             bind_values.push(value_to_duckdb(&filter.value));
-                            // DuckDB: regexp_matches(col, pat[, flags])
-                            let flags_lit = filter
-                                .options
-                                .regex_flags
-                                .as_deref()
-                                .unwrap_or("")
-                                .replace('\'', "''");
+                            // DuckDB: regexp_matches(col, pat[, flags]).
+                            // `sanitized_regex_flags` guarantees flags are a
+                            // subset of `imxs`, safe to interpolate.
+                            let flags_lit = filter.options.sanitized_regex_flags();
                             if flags_lit.is_empty() {
                                 format!("regexp_matches({}::VARCHAR, ?)", col_ident)
                             } else {
@@ -906,10 +908,11 @@ impl DataEngine for DuckDbDriver {
                             // a case-insensitive substring match so the operator
                             // still works (the filter bar UI warns on absence of
                             // a text index).
-                            let term = match &filter.value {
-                                qore_core::types::Value::Text(s) => s.clone(),
-                                other => serde_json::to_string(other).unwrap_or_default(),
-                            };
+                            let term = filter.value.as_text().ok_or_else(|| {
+                                EngineError::syntax_error(
+                                    "text operator requires a string value in 'value'",
+                                )
+                            })?;
                             bind_values.push(value_to_duckdb(&qore_core::types::Value::Text(
                                 format!("%{}%", term),
                             )));

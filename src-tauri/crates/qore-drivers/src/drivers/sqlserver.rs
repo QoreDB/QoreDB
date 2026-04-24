@@ -1411,10 +1411,11 @@ impl DataEngine for SqlServerDriver {
                         // Fall back to PATINDEX with the raw pattern so users
                         // can still run simple wildcard expressions; flags are
                         // not expressible server-side and are ignored.
-                        let pattern = match &filter.value {
-                            qore_core::types::Value::Text(s) => s.clone(),
-                            other => serde_json::to_string(other).unwrap_or_default(),
-                        };
+                        let pattern = filter.value.as_text().ok_or_else(|| {
+                            EngineError::syntax_error(
+                                "regex operator requires a string value in 'value'",
+                            )
+                        })?;
                         format!(
                             "PATINDEX('%{}%', CAST({} AS NVARCHAR(MAX))) > 0",
                             pattern.replace('\'', "''"),
@@ -1426,10 +1427,11 @@ impl DataEngine for SqlServerDriver {
                         // full-text catalog + index on the column. Absence is
                         // surfaced as a server error — the UI is responsible
                         // for verifying `index_type = fulltext` first.
-                        let term = match &filter.value {
-                            qore_core::types::Value::Text(s) => s.clone(),
-                            other => serde_json::to_string(other).unwrap_or_default(),
-                        };
+                        let term = filter.value.as_text().ok_or_else(|| {
+                            EngineError::syntax_error(
+                                "text operator requires a string value in 'value'",
+                            )
+                        })?;
                         format!(
                             "CONTAINS({}, '\"{}\"')",
                             col,

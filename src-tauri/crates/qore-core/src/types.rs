@@ -321,6 +321,18 @@ pub enum Value {
     Array(Vec<Value>),
 }
 
+impl Value {
+    /// Returns the inner string if the value is `Value::Text`, otherwise
+    /// `None`. Prefer this over ad-hoc `match` when a callsite needs a
+    /// string-only contract (regex pattern, full-text query, …).
+    pub fn as_text(&self) -> Option<&str> {
+        match self {
+            Value::Text(s) => Some(s.as_str()),
+            _ => None,
+        }
+    }
+}
+
 impl From<bool> for Value {
     fn from(v: bool) -> Self {
         Value::Bool(v)
@@ -903,6 +915,36 @@ pub struct FilterOptions {
 impl FilterOptions {
     pub fn is_empty(&self) -> bool {
         self.regex_flags.is_none() && self.text_language.is_none()
+    }
+
+    /// Returns only the valid regex flags (`i`, `m`, `x`, `s`) — defense in
+    /// depth against backends that interpolate flags into SQL literals or
+    /// protocol documents. The UI is expected to sanitize on entry, but this
+    /// guarantees it regardless of caller (including raw API consumers).
+    pub fn sanitized_regex_flags(&self) -> String {
+        self.regex_flags
+            .as_deref()
+            .unwrap_or("")
+            .chars()
+            .filter(|c| matches!(c, 'i' | 'm' | 'x' | 's'))
+            .collect()
+    }
+
+    /// Returns the requested text-search language if it passes a strict
+    /// identifier check (`[a-z_]+`, 1..=32 chars), otherwise returns
+    /// `fallback`. Used by drivers that must interpolate the language into a
+    /// server-side function call (e.g. PostgreSQL's `to_tsvector(lang, …)`).
+    pub fn sanitized_text_language(&self, fallback: &str) -> String {
+        match self.text_language.as_deref() {
+            Some(lang)
+                if !lang.is_empty()
+                    && lang.len() <= 32
+                    && lang.chars().all(|c| c.is_ascii_lowercase() || c == '_') =>
+            {
+                lang.to_string()
+            }
+            _ => fallback.to_string(),
+        }
     }
 }
 

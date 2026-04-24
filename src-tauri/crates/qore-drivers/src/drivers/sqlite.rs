@@ -970,19 +970,16 @@ impl DataEngine for SqliteDriver {
                         // function. When it is not loaded the call will return
                         // a clear error at execution time, which is preferable
                         // to silently falling back to LIKE.
-                        let pattern = if filter
-                            .options
-                            .regex_flags
-                            .as_deref()
-                            .map(|f| f.contains('i'))
-                            .unwrap_or(false)
-                        {
-                            match &filter.value {
-                                Value::Text(s) => Value::Text(format!("(?i){}", s)),
-                                other => other.clone(),
-                            }
+                        let raw = filter.value.as_text().ok_or_else(|| {
+                            EngineError::syntax_error(
+                                "regex operator requires a string value in 'value'",
+                            )
+                        })?;
+                        let flags = filter.options.sanitized_regex_flags();
+                        let pattern = if flags.contains('i') {
+                            Value::Text(format!("(?i){}", raw))
                         } else {
-                            filter.value.clone()
+                            Value::Text(raw.to_string())
                         };
                         bind_values.push(pattern);
                         format!("{} REGEXP ?", col_ident)
@@ -992,10 +989,11 @@ impl DataEngine for SqliteDriver {
                         // level (FTS5 lives in dedicated virtual tables); fall
                         // back to a case-insensitive substring match so the
                         // operator is still useful.
-                        let term = match &filter.value {
-                            Value::Text(s) => s.clone(),
-                            other => serde_json::to_string(other).unwrap_or_default(),
-                        };
+                        let term = filter.value.as_text().ok_or_else(|| {
+                            EngineError::syntax_error(
+                                "text operator requires a string value in 'value'",
+                            )
+                        })?;
                         bind_values.push(Value::Text(format!("%{}%", term)));
                         format!("{} LIKE ?", col_ident)
                     }

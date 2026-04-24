@@ -892,37 +892,29 @@ pub async fn query_table(
                 FilterOperator::IsNull => format!("{} IS NULL", col_ident),
                 FilterOperator::IsNotNull => format!("{} IS NOT NULL", col_ident),
                 FilterOperator::Regex => {
+                    filter.value.as_text().ok_or_else(|| {
+                        EngineError::syntax_error(
+                            "regex operator requires a string value in 'value'",
+                        )
+                    })?;
                     bind_values.push(filter.value.clone());
-                    // Postgres: `~` is case-sensitive, `~*` is case-insensitive.
-                    // Other regex flags are not natively exposed — they are
-                    // embedded in the pattern itself (e.g. `(?i)` / `(?s)`).
-                    let op = if filter
-                        .options
-                        .regex_flags
-                        .as_deref()
-                        .map(|f| f.contains('i'))
-                        .unwrap_or(false)
-                    {
-                        "~*"
-                    } else {
-                        "~"
-                    };
+                    let flags = filter.options.sanitized_regex_flags();
+                    let op = if flags.contains('i') { "~*" } else { "~" };
                     format!("{} {} ${}", col_ident, op, param_idx)
                 }
                 FilterOperator::Text => {
+                    filter.value.as_text().ok_or_else(|| {
+                        EngineError::syntax_error(
+                            "text operator requires a string value in 'value'",
+                        )
+                    })?;
                     bind_values.push(filter.value.clone());
-                    let lang = filter
-                        .options
-                        .text_language
-                        .as_deref()
-                        .unwrap_or("english");
-                    // Cast the column to text to cover non-text types gracefully.
+                    let lang = filter.options.sanitized_text_language("english");
+                    // `lang` is guaranteed to be `[a-z_]{1,32}`, safe to
+                    // interpolate into the SQL function call.
                     format!(
                         "to_tsvector('{}', {}::text) @@ plainto_tsquery('{}', ${})",
-                        lang.replace('\'', "''"),
-                        col_ident,
-                        lang.replace('\'', "''"),
-                        param_idx
+                        lang, col_ident, lang, param_idx
                     )
                 }
             };

@@ -1437,6 +1437,23 @@ impl DataEngine for MongoDriver {
                                     mongo_session.transaction_session.lock().await;
 
                                 let result: Option<Document> = match op.as_str() {
+                                    "findoneanddelete" => {
+                                        if let Some(txn) = tx_guard.as_mut() {
+                                            col.find_one_and_delete(filter_doc)
+                                                .session(&mut *txn)
+                                                .await
+                                                .map_err(|e| {
+                                                    EngineError::execution_error(e.to_string())
+                                                })?
+                                        } else {
+                                            drop(tx_guard);
+                                            col.find_one_and_delete(filter_doc)
+                                                .await
+                                                .map_err(|e| {
+                                                    EngineError::execution_error(e.to_string())
+                                                })?
+                                        }
+                                    }
                                     "findoneandupdate" => {
                                         let update = parsed.get("update").ok_or_else(|| {
                                             EngineError::syntax_error("Missing 'update' field")
@@ -1509,24 +1526,7 @@ impl DataEngine for MongoDriver {
                                                 })?
                                         }
                                     }
-                                    _ => {
-                                        // findOneAndDelete
-                                        if let Some(txn) = tx_guard.as_mut() {
-                                            col.find_one_and_delete(filter_doc)
-                                                .session(&mut *txn)
-                                                .await
-                                                .map_err(|e| {
-                                                    EngineError::execution_error(e.to_string())
-                                                })?
-                                        } else {
-                                            drop(tx_guard);
-                                            col.find_one_and_delete(filter_doc)
-                                                .await
-                                                .map_err(|e| {
-                                                    EngineError::execution_error(e.to_string())
-                                                })?
-                                        }
-                                    }
+                                    _ => unreachable!("outer match constrains op to the three findOneAnd* variants"),
                                 };
 
                                 let execution_time_ms =
@@ -2068,13 +2068,17 @@ impl DataEngine for MongoDriver {
                     if filter_doc.contains_key("$text") {
                         continue;
                     }
-                    let search = match &bson_value {
-                        mongodb::bson::Bson::String(s) => s.clone(),
-                        other => other.to_string(),
-                    };
-                    let mut text_doc = doc! { "$search": search };
-                    if let Some(lang) = filter.options.text_language.as_ref() {
-                        text_doc.insert("$language", lang.clone());
+                    let search = filter.value.as_text().ok_or_else(|| {
+                        EngineError::syntax_error(
+                            "text operator requires a string value in 'value'",
+                        )
+                    })?;
+                    let mut text_doc = doc! { "$search": search.to_string() };
+                    // `sanitized_text_language` validates the tag against
+                    // `[a-z_]{1,32}`; ignore if empty (fallback to server default).
+                    let lang = filter.options.sanitized_text_language("");
+                    if !lang.is_empty() {
+                        text_doc.insert("$language", lang);
                     }
                     filter_doc.insert("$text", text_doc);
                     continue;
@@ -2111,21 +2115,16 @@ impl DataEngine for MongoDriver {
                         mongodb::bson::Bson::Document(doc! { "$ne": mongodb::bson::Bson::Null })
                     }
                     FilterOperator::Regex => {
-                        // Sanitize flags to the subset MongoDB accepts.
-                        let flags: String = filter
-                            .options
-                            .regex_flags
-                            .as_deref()
-                            .unwrap_or("")
-                            .chars()
-                            .filter(|c| matches!(c, 'i' | 'm' | 'x' | 's'))
-                            .collect();
-                        let pattern = match &bson_value {
-                            mongodb::bson::Bson::String(s) => s.clone(),
-                            other => other.to_string(),
-                        };
+                        // Pattern must be a string; flags are sanitized to the
+                        // subset MongoDB accepts (`imxs`).
+                        let pattern = filter.value.as_text().ok_or_else(|| {
+                            EngineError::syntax_error(
+                                "regex operator requires a string value in 'value'",
+                            )
+                        })?;
+                        let flags = filter.options.sanitized_regex_flags();
                         mongodb::bson::Bson::Document(
-                            doc! { "$regex": pattern, "$options": flags },
+                            doc! { "$regex": pattern.to_string(), "$options": flags },
                         )
                     }
                     FilterOperator::Text => unreachable!("handled above"),

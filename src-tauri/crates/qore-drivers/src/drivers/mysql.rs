@@ -526,9 +526,9 @@ impl DataEngine for MySqlDriver {
     }
 
     async fn connect(&self, config: &ConnectionConfig) -> EngineResult<SessionId> {
-        let max_connections = config.pool_max_connections.unwrap_or(5);
-        let min_connections = config.pool_min_connections.unwrap_or(0);
-        let acquire_timeout = config.pool_acquire_timeout_secs.unwrap_or(30);
+        let max_connections = config.pool_max_connections.unwrap_or(10);
+        let min_connections = config.pool_min_connections.unwrap_or(2).min(max_connections);
+        let acquire_timeout = config.pool_acquire_timeout_secs.unwrap_or(15);
 
         let pool = Self::create_pool(
             config,

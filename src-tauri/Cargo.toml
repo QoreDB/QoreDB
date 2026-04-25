@@ -118,6 +118,10 @@ tokio = { workspace = true }
 tokio-util = { version = "0.7", features = ["compat"] }
 bytes = "1.11.1"
 
+# Global memory allocator — faster small allocations, lower fragmentation
+# vs the system allocator on a workload heavy in Strings / Vec<Row> / serde nodes.
+mimalloc = { version = "0.1", default-features = false }
+
 # Database drivers
 sqlx = { workspace = true }
 rust_decimal = { workspace = true }

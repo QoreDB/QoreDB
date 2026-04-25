@@ -176,9 +176,9 @@ pub async fn connect(
     config: &ConnectionConfig,
     conn_str: &str,
 ) -> EngineResult<SessionId> {
-    let max = config.pool_max_connections.unwrap_or(5);
-    let min = config.pool_min_connections.unwrap_or(0);
-    let timeout = config.pool_acquire_timeout_secs.unwrap_or(30) as u64;
+    let max = config.pool_max_connections.unwrap_or(10);
+    let min = config.pool_min_connections.unwrap_or(2).min(max);
+    let timeout = config.pool_acquire_timeout_secs.unwrap_or(15) as u64;
 
     let pool = create_pg_pool(conn_str, max, min, timeout, false, false).await?;
 

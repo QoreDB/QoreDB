@@ -162,8 +162,8 @@ impl SqlServerDriver {
         let tib_config = Self::build_config(config)?;
         let mgr = ConnectionManager::new(tib_config);
 
-        let max_size = config.pool_max_connections.unwrap_or(5);
-        let timeout_secs = config.pool_acquire_timeout_secs.unwrap_or(30) as u64;
+        let max_size = config.pool_max_connections.unwrap_or(10);
+        let timeout_secs = config.pool_acquire_timeout_secs.unwrap_or(15) as u64;
 
         Pool::builder()
             .max_size(max_size)

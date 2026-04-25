@@ -5078,6 +5078,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "qore-pgo-workload"
+version = "0.1.0"
+dependencies = [
+ "csv",
+ "futures",
+ "qore-core",
+ "qore-drivers",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "qore-query"
 version = "0.1.0"
 dependencies = [

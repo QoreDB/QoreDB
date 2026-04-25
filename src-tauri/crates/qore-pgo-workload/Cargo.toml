@@ -1,0 +1,38 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# Headless workload that exercises QoreDB's hot paths so the PGO build can
+# record profiles for the SQLx pool, qore-drivers row conversion, and
+# serde_json serialization. NOT meant to be published or shipped — only used
+# by the .github/workflows/pgo-release.yml pipeline.
+
+[package]
+name = "qore-pgo-workload"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "Headless workload feeding PGO profiles for QoreDB hot paths"
+publish = false
+
+[[bin]]
+name = "qore-pgo-workload"
+path = "src/main.rs"
+
+[dependencies]
+# Internal crates — same code paths the production app exercises (no `tauri`
+# feature, so this binary builds without WebKit headers).
+qore-core = { path = "../qore-core" }
+qore-drivers = { path = "../qore-drivers" }
+
+# Async runtime + futures consumers
+tokio = { workspace = true }
+futures = "0.3"
+
+# Serialization (exercises the same serde_json paths used by the JSON exporter)
+serde_json = { workspace = true }
+
+# CSV writer — mirrors the production CSV exporter
+csv = "1"
+
+# Logging
+tracing = { workspace = true }
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }

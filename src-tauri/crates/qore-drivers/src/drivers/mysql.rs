@@ -234,8 +234,8 @@ impl MySqlDriver {
         row.columns()
             .iter()
             .map(|col| ColumnInfo {
-                name: col.name().to_string(),
-                data_type: col.type_info().name().to_string(),
+                name: col.name().into(),
+                data_type: col.type_info().name().into(),
                 nullable: true,
             })
             .collect()
@@ -2170,8 +2170,8 @@ impl DataEngine for MySqlDriver {
                     let data_type: String = r.try_get("DATA_TYPE").ok()?;
                     let is_nullable: String = r.try_get("IS_NULLABLE").ok()?;
                     Some(ColumnInfo {
-                        name,
-                        data_type,
+                        name: name.into(),
+                        data_type: data_type.into(),
                         nullable: is_nullable == "YES",
                     })
                 })

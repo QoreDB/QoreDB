@@ -177,8 +177,8 @@ impl SqliteDriver {
         row.columns()
             .iter()
             .map(|col| ColumnInfo {
-                name: col.name().to_string(),
-                data_type: col.type_info().name().to_string(),
+                name: col.name().into(),
+                data_type: col.type_info().name().into(),
                 nullable: true, // SQLite doesn't easily expose nullability from row metadata
             })
             .collect()
@@ -1201,8 +1201,8 @@ impl DataEngine for SqliteDriver {
             let columns: Vec<ColumnInfo> = pragma_rows
                 .iter()
                 .map(|(_, name, data_type, notnull, _, _)| ColumnInfo {
-                    name: name.clone(),
-                    data_type: data_type.clone(),
+                    name: name.as_str().into(),
+                    data_type: data_type.as_str().into(),
                     nullable: *notnull == 0,
                 })
                 .collect();

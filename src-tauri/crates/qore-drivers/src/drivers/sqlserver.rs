@@ -262,8 +262,8 @@ fn get_column_info(columns: &[tiberius::Column]) -> Vec<ColumnInfo> {
     columns
         .iter()
         .map(|col| ColumnInfo {
-            name: col.name().to_string(),
-            data_type: format!("{:?}", col.column_type()),
+            name: col.name().into(),
+            data_type: format!("{:?}", col.column_type()).into(),
             nullable: true,
         })
         .collect()

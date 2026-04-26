@@ -1078,8 +1078,8 @@ pub async fn query_table(
                 let data_type: String = r.try_get("data_type").ok()?;
                 let is_nullable: String = r.try_get("is_nullable").ok()?;
                 Some(ColumnInfo {
-                    name,
-                    data_type,
+                    name: name.into(),
+                    data_type: data_type.into(),
                     nullable: is_nullable == "YES",
                 })
             })

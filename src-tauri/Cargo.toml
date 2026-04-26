@@ -14,6 +14,11 @@ resolver = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["raw_value"] }
 
+# Compact inline-storage strings (≤ 24 bytes inline on 64-bit). Used for
+# short metadata strings (column names, type names) where the per-row alloc
+# pressure adds up. Wire format under serde matches `String`.
+compact_str = { version = "0.8", features = ["serde"] }
+
 # Async runtime
 tokio = { version = "1", features = [
     "rt-multi-thread",

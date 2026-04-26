@@ -209,7 +209,14 @@
 
 ---
 
-### 3.A Decoder array sur SQLite / MySQL / SQLServer — **Sorti du profil 3.0, plus haute priorité**
+### 3.A Decoder array sur SQLite / MySQL / SQLServer — **Livré (2026-04-26)**
+
+- ✅ **SQLite** : nouvel `enum SqliteDecoder` mappé depuis `col.type_info().name()`, `build_decoders` + `convert_row_with_decoders` à la place du cascade `extract_value`. Refactor des 5 sites multi-rows (1 streaming + 4 batch) pour build les decoders une fois.
+- ✅ **MySQL** : `MysqlDecoder` existait déjà ; supprimé un dernier site qui rappelait `Self::convert_row` (rebuild des decoders par ligne) au profit de `columns_and_rows`. Suppression du wrapper `convert_row` désormais inutilisé.
+- ⏭ **SQL Server** : non applicable. `tiberius::Row::cells()` retourne déjà des `ColumnData::Variant` typés (enum), pas de cascade `try_get` à éliminer. La fonction `convert_row` est déjà un dispatch O(1) par cellule.
+- ✅ **Postgres** : déjà en place (`PgDecoder`, `convert_row_with_decoders`).
+
+
 
 **Constat (vérifié sur le profil)** : `src-tauri/crates/qore-drivers/src/drivers/sqlite.rs:160-186` (et symétriquement `mysql.rs:201`, `sqlserver.rs:219`) fait un type-probing en cascade :
 
@@ -239,7 +246,11 @@ Chaque `try_get` qui échoue retourne une `sqlx::Error` qui contient un `format!
 
 ---
 
-### 3.1 Buffer réutilisable + capacity hint pour MessagePack streaming
+### 3.1 Buffer réutilisable + capacity hint pour MessagePack streaming — **Livré (2026-04-26)**
+
+Implémenté via `StreamDispatcher` dans `src-tauri/src/commands/stream_msg.rs`. La struct conserve un `capacity_hint` mis à jour à chaque envoi (max-watermark sur la taille du buffer mpack), de sorte que le `Vec::with_capacity` initial évite les reallocs internes de `rmp_serde`. Refactor des 2 sites de streaming (`commands/query.rs:430` et `commands/federation.rs:170`) pour utiliser un dispatcher long-lived dans la boucle `recv()`. La fonction `dispatch_stream_event` est conservée comme one-shot helper pour les chemins timeout / error.
+
+
 
 **Constat** : `src-tauri/src/commands/stream_msg.rs:50` appelle `rmp_serde::to_vec_named(&msg)` pour chaque `RowBatch`. Sous le capot, ça fait `Vec::new() → encode::write_named(...)` avec une croissance par doublement (5-7 reallocs pour un batch typique). Pattern identique au fix 1.4 sur `JsonWriter`. Tous les drivers émettent en `RowBatch` (vérifié dans `qore-drivers/src/drivers/{sqlite,pg_compat,mysql,mongodb,duckdb,sqlserver}.rs`), donc la sérialisation est sur le hot path principal du streaming.
 
@@ -260,7 +271,11 @@ Chaque `try_get` qui échoue retourne une `sqlx::Error` qui contient un `format!
 
 ---
 
-### 3.2 Cache LRU sur `sql_safety::analyze_sql` — **Déjà en place ; cibler `returns_rows` et `split_sql_statements` à la place**
+### 3.2 Cache LRU sur `sql_safety::analyze_sql` — **Livré (2026-04-26, étendage à `returns_rows` + `split_sql_statements`)**
+
+`analyze_sql` avait déjà un cache LRU 256 entrées dans `qore-sql/src/safety.rs`. Étendu avec deux caches LRU supplémentaires dans le même module : `returns_rows_cache` (256 entrées, keyé `(driver_id, sql)`) et `split_cache` (128 entrées). Les fonctions publiques `returns_rows` et `split_sql_statements` lisent le cache avant de déléguer à un `*_uncached` interne, suivant le même pattern que `analyze_sql`.
+
+
 
 **Constat (vérification post-3.0)** : `src-tauri/crates/qore-sql/src/safety.rs:22-57` implémente **déjà** un cache LRU borné à 256 entrées sur `analyze_sql`, keyé sur `(driver_id, trimmed_sql)`. Le commentaire en place confirme l'intuition : « sqlparser is the dominant cost in `analyze_sql` (several ms for large queries) and identical queries are re-run constantly during a session ».
 
@@ -301,7 +316,22 @@ Sans capturer un profil sur un dataset BI / logs réel avec ce profil d'usage, o
 
 ---
 
-### 3.E Réduction de la pression d'allocation sur `convert_row` — **Conditionnel à la livraison de 3.A**
+### 3.E Réduction de la pression d'allocation — **Partiellement livré (2026-04-26)**
+
+**Livré** : préservation de la capacité du `Vec<Row>` batch streaming dans tous les drivers. `std::mem::take(&mut batch)` (qui laissait derrière un `Vec` à capacité 0, forçant un grow par doublement de 0 à 500 = ~10 reallocs par batch) remplacé par `std::mem::replace(&mut batch, Vec::with_capacity(500))` dans `sqlite.rs`, `pg_compat.rs`, `mysql.rs`, `mongodb.rs` (×2), `sqlserver.rs`, `duckdb.rs`. Les 7 sites concernés sur 6 drivers.
+
+**Préparé mais non livré (à reprendre)** : migration de `ColumnInfo.{name, data_type}` vers `compact_str::CompactString`. La dépendance `compact_str = { version = "0.8", features = ["serde"] }` est en place dans `[workspace.dependencies]` (`src-tauri/Cargo.toml`). La migration a été tentée en cours de cette itération mais reculée pour atteindre un checkpoint propre — plus de ~40 sites de construction `ColumnInfo` à mettre à jour à travers les drivers (sqlite, mysql, sqlserver, postgres_utils, pg_compat, mongodb, redis, duckdb) + `src/federation/`. Les conversions `.into()` ajoutées en cours sont compatibles avec `String` (no-op) et resteront valides après bascule.
+
+**À reprendre la prochaine session**
+
+1. Re-typer `ColumnInfo.{name, data_type}` → `CompactString` dans `qore-core/src/types.rs` (ré-importer `use compact_str::CompactString;`).
+2. Remettre `compact_str = { workspace = true }` dans `qore-core/Cargo.toml`.
+3. Vérifier que les ~40 sites de construction utilisent `.into()` (déjà migrés en cours) ; sinon ajouter `.into()` au cas par cas. Build doit passer immédiatement.
+4. Re-profiler pour vérifier la part mimalloc CPU avant/après (cible du plan : sous 15 % vs 32 % au snapshot 2026-04-26).
+
+**Reste à explorer post-CompactString** : `Value::Text(String)` → `Value::Text(CompactString)` est tentant mais blast radius plus grand (les valeurs utilisateur peuvent être longues, le bénéfice marginal est conditionnel au profil utilisateur). À décider après re-profilage.
+
+
 
 **Constat (du profil 3.0)** : 32 % du CPU actif passe dans mimalloc (`_xzm_free`, `_xzm_xzone_malloc_*`, `_malloc_zone_malloc`, `_free`). Sur le hot path `convert_row`, chaque ligne alloue typiquement : un `Vec<Value>` (capacité col_count), N `String`/`Vec<u8>` pour les colonnes textuelles, plus les allocs internes des `Error` sqlx pendant le probing (à supprimer en 3.A).
 
@@ -367,13 +397,15 @@ Ces items sont listés pour que les futurs audits ne reviennent pas avec les mê
 8. **2.1** ~~PGO en CI release~~ ✅ Workflow opt-in livré pour Linux x86_64. Mesurer gain sur les artefacts ; étendre à Postgres/MySQL et macOS/Windows ensuite.
 9. **2.2** ~~`simd-json` ciblé~~ ⏸ Reporté : gain mesuré (+20 à +27 % sur l'API drop-in) mais rayon d'effet limité aux seules colonnes JSON / documents Mongo, ne touche pas la majorité des requêtes. Bench conservé pour ré-évaluation si le profil utilisateur évolue (BI / logs JSON-heavy).
 10. **Bench cumulé Tier 1 + 2.1** (étape 6 répétée à mi-parcours, à ce stade c'est le bon moment).
-11. **3.0** ~~Capture d'un profil samply / flamegraph~~ ✅ Workload SQLite profilé, snapshot 2026-04-26 dans `doc/internals/PROFILES.md`.
-12. **3.A** Decoder array sur SQLite / MySQL / SQLServer — **plus haute priorité** (cause racine des 28 % CPU dans `format!()` identifiée par 3.0).
-13. **3.1** Buffer + capacity hint pour le streaming MessagePack (livrable indépendamment, gain gratuit, factuel sur `stream_msg.rs:50`).
-14. **3.4** Code-splitting frontend (indépendant du profil backend, peut tourner en parallèle).
-15. **3.2** ⏸ Cache `analyze_sql` déjà en place ; petit étendage à `returns_rows` + `split_sql_statements` à cumuler dans la PR 3.A.
-16. **3.3** ⏸ Reporté faute de signal — Postgres décode déjà via decoder dédié, le coût est volume-dépendant. À ré-évaluer si profil BI/logs réel.
-17. **3.E** Conditionnel au re-profil post-3.A.
+11. **3.0** ✅ Workload SQLite profilé, snapshot 2026-04-26 dans `doc/internals/PROFILES.md`.
+12. **3.A** ✅ SqliteDecoder livré ; MySQL nettoyé ; Postgres déjà fait ; SQLServer non applicable (architecture déjà typée).
+13. **3.1** ✅ `StreamDispatcher` avec capacity hint dans `stream_msg.rs` ; sites de streaming dans `query.rs` et `federation.rs` refactorisés.
+14. **3.2** ✅ Cache LRU étendu à `returns_rows` (256) et `split_sql_statements` (128) dans `qore-sql/src/safety.rs`.
+15. **3.E** 🟡 Partiel : préservation de capacité `Vec<Row>` batch dans 6 drivers ✅ ; migration `CompactString` de `ColumnInfo` préparée (dep ajoutée au workspace) mais reculée pour checkpoint propre — à reprendre.
+16. **3.4** ⏭ Code-splitting frontend — pas démarré.
+17. **3.3** ⏸ Reporté faute de signal — Postgres décode déjà via decoder dédié, le coût est volume-dépendant. À ré-évaluer si profil BI/logs réel.
+18. **Re-profilage post-Tier-3** : refaire le snapshot samply pour vérifier que la part mimalloc CPU descend (cible : sous 15 % vs 32 %) et que `format_inner` quitte le top inclusive.
+19. **Bench cumulé Tier 1 + 2.1 + Tier 3** : pose de chiffres avant/après sur le workload `qore-pgo-workload`.
 
 ## Critères de validation (par item)
 

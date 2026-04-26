@@ -5,9 +5,13 @@
 # Limit parallel compilation to 10 cores
 jobs = 10
 
-# Use sccache if available (avoids recompiling DuckDB after cargo clean)
-# Install with: cargo install sccache
-# rustc-wrapper = "sccache"
+# sccache (opt-in, local) — avoids recompiling heavy crates after `cargo clean`.
+# CI activates it automatically (see .github/workflows/{ci,build-core,build-pro}.yml
+# and PERFORMANCE_PLAN.md §2.3). For local use:
+#   1. `cargo install sccache --locked`
+#   2. Export in your shell rc:  export RUSTC_WRAPPER=sccache CARGO_INCREMENTAL=0
+# We don't enable it via this file because it would crash the build for any
+# contributor who hasn't installed sccache yet.
 
 # ----------------------------------------------------------------------------
 # CPU baseline — target-cpu for release-distributed architectures

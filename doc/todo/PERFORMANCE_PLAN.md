@@ -135,7 +135,7 @@
 
 ---
 
-### 2.2 `simd-json` ciblé sur JSONB Postgres + documents Mongo — **Refusé (bench fait, gain sous le seuil)**
+### 2.2 `simd-json` ciblé sur JSONB Postgres + documents Mongo — **Reporté (scope trop limité)**
 
 **Constat initial** : l'audit proposait de remplacer serde_json partout — mauvaise idée (le frontend et de nombreux call-sites ne sont pas drop-in). On a donc cadré l'évaluation sur les seuls hot paths de parsing JSON entrant : valeurs `JSONB` Postgres (`postgres_utils.rs:657, 735`, via `sqlx::types::Json` → `serde_json::Value`) et documents/filtres Mongo (`drivers/mongodb.rs:159, 517, 679`, via `serde_json::from_str`). Pour Mongo, la conversion BSON→JSON principale (`bson::to_value` à `mongodb.rs:138`) n'est **pas** un parsing JSON et n'est pas concernée.
 
@@ -147,22 +147,31 @@
 | 100 kB | 669,92 µs | 487,38 µs | **+27,2 %** | 338,53 µs |
 | 1 MB | 7 002,83 µs | 5 355,04 µs | **+23,5 %** | 3 267,11 µs |
 
-**Décision : refusé.** L'API `simd_json::serde::from_slice` est la seule drop-in (sqlx attend `serde_json::Value`, `qore_core::Value::Json` aussi) et elle plafonne à **+24 % médian** — sous le seuil de 30 % fixé dans les principes du plan. L'API `to_owned_value` atteint ~+50 % mais oblige à reconstruire un `serde_json::Value` à la main côté caller, ce qui annule l'écart en pratique et impose un refactor de `qore_core::Value::Json`. Le risque (`simd-json` a un historique d'UB résolus, surface unsafe non négligeable) n'est plus justifié à ce niveau de gain.
+**Décision : reporté** (pas un refus technique). L'optimisation est réelle (+20 à +27 % sur l'API drop-in) mais son **rayon d'effet est trop étroit** : elle n'accélère que le décodage de payloads JSON entrants (colonnes `JSONB` Postgres, documents/filtres Mongo). Les 95 % des requêtes — `SELECT` sur colonnes scalaires, joins, exports CSV — n'en bénéficient pas du tout. Côté coût : `simd-json` ajoute une surface `unsafe` non négligeable (~50 k LOC, historique d'UB résolus type RUSTSEC-2020-0064), n'est pas drop-in dans l'API actuelle de `sqlx::types::Json` (il faut bypasser pour passer par `Vec<u8>` + skip du byte de version JSONB `0x01`), et l'API qui rendrait le gain maximal (`to_owned_value`, +50 %) impose de refactoriser `qore_core::Value::Json` pour porter un type opaque côté backend.
 
-**Statut des artefacts** : le bench reste en place (`[[bench]] json_parse` dans `qore-pgo-workload`). À ré-exécuter si :
-- `simd-json` publie une optim qui dépasse +30 % sur l'API serde.
-- On refactorise `qore_core::Value::Json` pour porter un type opaque (alors `to_owned_value` devient drop-in et son +50 % redevient pertinent).
-- On constate sur le profilage runtime que le parsing JSONB sature un cœur (aujourd'hui aucun signal en ce sens).
+**À ré-évaluer si** :
+- Le profilage runtime montre que le parsing JSONB / Mongo sature un cœur sur un workload réel (aujourd'hui aucun signal en ce sens).
+- On gagne un public BI / logs / payloads JSON volumineux (use case dominant JSON), où l'opt-in via feature flag deviendrait justifié.
+- `simd-json` publie une optim qui dépasse +40 % sur l'API serde drop-in, ou on refactorise `qore_core::Value::Json` (alors `to_owned_value` devient drop-in et son +50 % redevient pertinent sans coût caller).
+
+**Statut des artefacts** : le bench reste en place (`[[bench]] json_parse` dans `qore-pgo-workload`) pour pouvoir re-mesurer rapidement.
 
 ---
 
-### 2.3 `sccache` en CI + local
+### 2.3 `sccache` en CI + local — **Livré (CI uniquement)**
 
-**Constat** : `src-tauri/.cargo/config.toml:10` suggère `sccache` en commentaire. Pas un gain runtime, mais divise les builds CI par 2–3.
+**Constat** : `src-tauri/.cargo/config.toml:8-13` suggérait `sccache` en commentaire. Pas un gain runtime, mais divise les builds CI par 2–3 sur les runs récurrents.
 
-**Action** : activer `sccache` avec backend GitHub Actions Cache, puis évaluer.
+**Mise en œuvre**
+- Activé sur `.github/workflows/ci.yml`, `build-core.yml`, `build-pro.yml` via `mozilla-actions/sccache-action@v0.0.6`. Backend = GitHub Actions Cache (zéro infra à provisionner).
+- Env vars au niveau job : `SCCACHE_GHA_ENABLED=true`, `RUSTC_WRAPPER=sccache`, `CARGO_INCREMENTAL=0` (sccache et l'incremental cargo sont incompatibles — incremental est de toute façon désactivé sur les builds release par défaut).
+- Local : opt-in via `cargo install sccache --locked` + `export RUSTC_WRAPPER=sccache CARGO_INCREMENTAL=0`. Volontairement non activé dans `.cargo/config.toml` pour ne pas casser le build des contributeurs sans sccache. Voir le commentaire en tête du fichier.
 
-**Décision** : hors scope perf runtime, mais à faire en parallèle pour accélérer les itérations perf elles-mêmes.
+**Non instrumenté volontairement**
+- `pgo-release.yml` : les `RUSTFLAGS=-Cprofile-generate=…` puis `-Cprofile-use=…` invalideraient le cache à chaque run et peuvent interférer avec l'instrumentation `.profraw`.
+- `release.yml` : trop sensible (codesigning, notarization, MSIX) pour cette première itération. À évaluer après quelques runs CI où on aura validé l'effet de sccache.
+
+**Décision** : hors scope perf runtime mais accélère les itérations perf elles-mêmes (re-builds après `cargo clean` lors d'un changement de RUSTFLAGS, par exemple). Effet réel à mesurer sur les 2-3 prochains runs CI.
 
 ---
 
@@ -195,9 +204,9 @@ Ces items sont listés pour que les futurs audits ne reviennent pas avec les mê
 4. **1.1** `mimalloc` (1 h + bench sur les 3 OS).
 5. **1.2** baseline `x86-64-v3` / `apple-m1` (30 min + validation artefacts release sur CI).
 6. **Pause bench** : mesurer gain cumulé items 1.1 + 1.2 + 1.4, poster les chiffres dans la PR.
-7. **2.3** `sccache` (utilitaire, pas runtime).
+7. **2.3** ~~`sccache`~~ ✅ Activé sur ci.yml + build-core.yml + build-pro.yml via `mozilla-actions/sccache-action` + GHA Cache. Hors scope runtime.
 8. **2.1** ~~PGO en CI release~~ ✅ Workflow opt-in livré pour Linux x86_64. Mesurer gain sur les artefacts ; étendre à Postgres/MySQL et macOS/Windows ensuite.
-9. **2.2** ~~`simd-json` ciblé~~ ❌ Refusé : bench mesure +24 % médian sur l'API drop-in (serde), sous le seuil de 30 %. Bench conservé pour ré-évaluation future.
+9. **2.2** ~~`simd-json` ciblé~~ ⏸ Reporté : gain mesuré (+20 à +27 % sur l'API drop-in) mais rayon d'effet limité aux seules colonnes JSON / documents Mongo, ne touche pas la majorité des requêtes. Bench conservé pour ré-évaluation si le profil utilisateur évolue (BI / logs JSON-heavy).
 
 ## Critères de validation (par item)
 

@@ -111,42 +111,48 @@
 
 ## Tier 2 — Gains structurels à coût modéré
 
-### 2.1 Profile-Guided Optimization (PGO) en CI release
+### 2.1 Profile-Guided Optimization (PGO) en CI release — **Livré (itération 1, Linux x86_64)**
 
 **Constat** : aucun des workflows `.github/workflows/*.yml` n'utilise PGO. Le build release est déjà agressif (`opt-level=3`, `lto="thin"`, `codegen-units=1`) mais on laisse 5–15 % de perf sur la table.
 
-**Action (release uniquement, pas dev)**
-1. Ajouter un workflow secondaire `pgo-release.yml` qui :
-   - Build une première fois avec `RUSTFLAGS="-Cprofile-generate=$PGO_DATA"`.
-   - Exécute un scénario représentatif headless (ouverture de connexion Postgres+MySQL+SQLite, 20 requêtes canoniques, export CSV+JSON+Parquet de 100k lignes chacun).
-   - Merge les profils : `llvm-profdata merge -o merged.profdata $PGO_DATA`.
-   - Build définitif avec `RUSTFLAGS="-Cprofile-use=merged.profdata -Cllvm-args=-pgo-warn-missing-function"`.
-2. Stocker le binaire issu du 2e build comme artefact de release.
-3. Ne **pas** activer PGO sur les builds de développement (le cycle complet est long).
+**Mise en œuvre actuelle**
+- Workload headless : `src-tauri/crates/qore-pgo-workload/` — binaire opt-in qui pilote `SqliteDriver` via le trait `DataEngine`, insère 50 k lignes, lance 4 patterns de SELECT (full-scan, WHERE, GROUP BY, JOIN) sur 3 itérations, plus 4 workers parallèles. Sérialise chaque ligne en JSON et CSV pour exercer les hot paths d'export. Tourne en ~1,5 s en release. Aucune dépendance Tauri/WebKit (la feature `tauri` de `qore-drivers` n'est pas activée).
+- Workflow : `.github/workflows/pgo-release.yml` — déclenchable en `workflow_dispatch` ou via un tag `v*-pgo` (opt-in, pas branché sur le `release.yml` standard pour ne pas allonger les releases tant que le gain n'est pas validé). Pipeline : install `llvm-tools-preview` → build instrumenté du workload → run → `llvm-profdata merge` → `cargo clean` + build final `qoredb` avec `-Cprofile-use=…` + `-Cllvm-args=-pgo-warn-missing-function` → upload artefact + profil mergé.
+- Ciblé Linux x86_64 (`ubuntu-22.04`) pour cette première itération. macOS aarch64 + Windows seront ajoutés une fois le gain mesuré sur Linux.
 
-**Bench** : même scénario SQL que pour mimalloc, comparer avant/après PGO seul, puis avec mimalloc+PGO.
+**Limites assumées de cette itération**
+- Coverage du workload : SQLite + sqlx + `qore-drivers::sqlite` + serde_json/csv. Les chemins Postgres/MySQL/Mongo ne sont pas profilés (les warnings `pgo-warn-missing-function` du build final le confirmeront — c'est volontaire, pas une régression). Étendre le workload à Postgres/MySQL via Docker est un follow-up évident si le gain mesuré sur SQLite est convaincant.
+- Le scénario reste minimaliste (50 k lignes, in-memory) : le PGO capture les hot paths *fréquentés*, pas un benchmark exhaustif. Acceptable — PGO veut de la couverture, pas du volume.
 
-**Risque** : faible côté runtime (c'est du même Rust, juste mieux réordonné). Coût CI : +10–20 min par release. Acceptable puisque les releases ne sont pas quotidiennes.
+**Bench attendu** : même scénario SQL que pour mimalloc, comparer avant/après PGO seul, puis avec mimalloc+PGO. À effectuer sur les artefacts du workflow opt-in.
 
-**Ordre d'implémentation** : faire après mimalloc pour avoir une baseline mimalloc-only, puis ajouter PGO et comparer.
+**Risque** : faible côté runtime (c'est du même Rust, juste mieux réordonné). Coût CI : +10–20 min par run. Acceptable puisque c'est opt-in.
+
+**Suite à instrumenter (ordre)** :
+1. Mesurer le gain sur le binaire produit par le workflow (latence streaming + export 100 k lignes JSON/CSV).
+2. Étendre le workload à Postgres/MySQL via Docker pour couvrir les drivers réseau.
+3. Ajouter macOS aarch64 + Windows à la matrice du workflow si le gain Linux est confirmé.
 
 ---
 
-### 2.2 `simd-json` ciblé sur JSONB Postgres + documents Mongo
+### 2.2 `simd-json` ciblé sur JSONB Postgres + documents Mongo — **Refusé (bench fait, gain sous le seuil)**
 
-**Constat** : l'audit proposait de remplacer serde_json partout — **mauvaise idée** (serde_json est utilisé pour la sérialisation frontend, cas où simd-json n'est pas drop-in). En revanche **ciblé sur la désérialisation de JSONB Postgres volumineux et de documents Mongo volumineux**, le gain 2–3× est réel.
+**Constat initial** : l'audit proposait de remplacer serde_json partout — mauvaise idée (le frontend et de nombreux call-sites ne sont pas drop-in). On a donc cadré l'évaluation sur les seuls hot paths de parsing JSON entrant : valeurs `JSONB` Postgres (`postgres_utils.rs:657, 735`, via `sqlx::types::Json` → `serde_json::Value`) et documents/filtres Mongo (`drivers/mongodb.rs:159, 517, 679`, via `serde_json::from_str`). Pour Mongo, la conversion BSON→JSON principale (`bson::to_value` à `mongodb.rs:138`) n'est **pas** un parsing JSON et n'est pas concernée.
 
-**Action (conditionnelle, à valider par bench)**
-1. Identifier les 2–3 hot paths de parsing JSON entrant :
-   - Valeurs `JSONB` Postgres dans le driver (chemin actuel via `sqlx` / `serde_json::Value`).
-   - Documents Mongo volumineux (`bson::Document` → conversion JSON).
-2. Bench baseline avec `criterion` sur un JSONB de 10 ko, 100 ko, 1 Mo.
-3. Si gain > 30 % mesuré : introduire `simd-json = "0.14"` **uniquement** sur ces chemins, avec feature-flag.
-4. Sinon : ne rien faire, documenter la décision.
+**Bench réalisé** : `src-tauri/crates/qore-pgo-workload/benches/json_parse.rs` (criterion, 30 samples, payload JSONB-shape avec objets imbriqués + arrays). Mesures Apple M-series :
 
-**Risque à surveiller** : `simd-json` a un historique d'UB résolus, mais il faut valider qu'on construit `OwnedValue` (pas `BorrowedValue`) et que les inputs viennent bien de buffers mutables.
+| Taille | `serde_json::from_slice` | `simd_json::serde::from_slice` (drop-in) | Gain | `simd_json::to_owned_value` (non drop-in) |
+|---|---|---|---|---|
+| 10 kB | 64,91 µs | 51,89 µs | **+20,1 %** | 32,66 µs |
+| 100 kB | 669,92 µs | 487,38 µs | **+27,2 %** | 338,53 µs |
+| 1 MB | 7 002,83 µs | 5 355,04 µs | **+23,5 %** | 3 267,11 µs |
 
-**Décision** : **bloqué tant que le bench n'est pas fait**. Ne pas implémenter à l'aveugle.
+**Décision : refusé.** L'API `simd_json::serde::from_slice` est la seule drop-in (sqlx attend `serde_json::Value`, `qore_core::Value::Json` aussi) et elle plafonne à **+24 % médian** — sous le seuil de 30 % fixé dans les principes du plan. L'API `to_owned_value` atteint ~+50 % mais oblige à reconstruire un `serde_json::Value` à la main côté caller, ce qui annule l'écart en pratique et impose un refactor de `qore_core::Value::Json`. Le risque (`simd-json` a un historique d'UB résolus, surface unsafe non négligeable) n'est plus justifié à ce niveau de gain.
+
+**Statut des artefacts** : le bench reste en place (`[[bench]] json_parse` dans `qore-pgo-workload`). À ré-exécuter si :
+- `simd-json` publie une optim qui dépasse +30 % sur l'API serde.
+- On refactorise `qore_core::Value::Json` pour porter un type opaque (alors `to_owned_value` devient drop-in et son +50 % redevient pertinent).
+- On constate sur le profilage runtime que le parsing JSONB sature un cœur (aujourd'hui aucun signal en ce sens).
 
 ---
 
@@ -190,8 +196,8 @@ Ces items sont listés pour que les futurs audits ne reviennent pas avec les mê
 5. **1.2** baseline `x86-64-v3` / `apple-m1` (30 min + validation artefacts release sur CI).
 6. **Pause bench** : mesurer gain cumulé items 1.1 + 1.2 + 1.4, poster les chiffres dans la PR.
 7. **2.3** `sccache` (utilitaire, pas runtime).
-8. **2.1** PGO en CI release (1–2 jours de setup, gain permanent).
-9. **2.2** `simd-json` ciblé **uniquement si** bench JSONB/Mongo justifie.
+8. **2.1** ~~PGO en CI release~~ ✅ Workflow opt-in livré pour Linux x86_64. Mesurer gain sur les artefacts ; étendre à Postgres/MySQL et macOS/Windows ensuite.
+9. **2.2** ~~`simd-json` ciblé~~ ❌ Refusé : bench mesure +24 % médian sur l'API drop-in (serde), sous le seuil de 30 %. Bench conservé pour ré-évaluation future.
 
 ## Critères de validation (par item)
 

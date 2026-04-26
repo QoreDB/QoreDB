@@ -71,7 +71,12 @@
       "Bash(rustup component *)",
       "Bash(rtk git *)",
       "Bash(rtk cargo *)",
-      "Bash(rtk wc *)"
+      "Bash(rtk wc *)",
+      "Bash(/usr/bin/git -C /Users/raph/Documents/Travail/Personnel/Repositories/QoreDB sparse-checkout list)",
+      "Bash(/usr/bin/git -C /Users/raph/Documents/Travail/Personnel/Repositories/QoreDB config --get core.sparseCheckout)",
+      "Bash(/usr/bin/git -C /Users/raph/Documents/Travail/Personnel/Repositories/QoreDB add --dry-run --verbose -- .github/workflows/pgo-release.yml src-tauri/crates/qore-pgo-workload/)",
+      "Bash(/usr/bin/git -C /Users/raph/Documents/Travail/Personnel/Repositories/QoreDB ls-files --others --exclude-standard --directory --exclude-from=.gitignore)",
+      "Bash(/usr/bin/git -C /Users/raph/Documents/Travail/Personnel/Repositories/QoreDB ls-files --others)"
     ]
   }
 }

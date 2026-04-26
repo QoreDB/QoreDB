@@ -17,6 +17,10 @@ publish = false
 name = "qore-pgo-workload"
 path = "src/main.rs"
 
+[[bench]]
+name = "json_parse"
+harness = false
+
 [dependencies]
 # Internal crates — same code paths the production app exercises (no `tauri`
 # feature, so this binary builds without WebKit headers).
@@ -36,3 +40,11 @@ csv = "1"
 # Logging
 tracing = { workspace = true }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+[dev-dependencies]
+# JSON-parsing bench harness — see benches/json_parse.rs and PERFORMANCE_PLAN §2.2.
+# simd-json is dev-only here: we only commit to ship it on real hot paths once
+# the bench shows ≥ 30 % gain on the sizes that match production JSONB / Mongo
+# payloads. Until then it stays out of the runtime dependency graph.
+criterion = { version = "0.5", default-features = false, features = ["cargo_bench_support"] }
+simd-json = "0.14"

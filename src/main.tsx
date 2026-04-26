@@ -2,7 +2,7 @@
 
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import './i18n'; // Import i18n configuration
+import './i18n';
 import App from './App';
 import './index.css';
 import { ErrorBoundary } from '@/components/ErrorBoundary';

@@ -20,6 +20,8 @@ pub struct SqlSafetyAnalysis {
 }
 
 type AnalyzeCache = Mutex<LruCache<(String, String), Result<SqlSafetyAnalysis, String>>>;
+type ReturnsRowsCache = Mutex<LruCache<(String, String), Result<bool, String>>>;
+type SplitCache = Mutex<LruCache<(String, String), Result<Vec<String>, String>>>;
 
 /// Bounded cache of previously-analyzed (driver, trimmed SQL) pairs. sqlparser
 /// is the dominant cost in `analyze_sql` (several ms for large queries) and
@@ -30,6 +32,32 @@ fn analyze_cache() -> &'static AnalyzeCache {
     CACHE.get_or_init(|| {
         Mutex::new(LruCache::new(
             NonZeroUsize::new(256).expect("non-zero capacity"),
+        ))
+    })
+}
+
+/// Cache for [`returns_rows`]. `query.rs` consults this on every streaming
+/// command to decide whether to dispatch via the row-stream or the affected-
+/// rows path; identical queries hit it repeatedly. Keyed identically to
+/// `analyze_cache` so a query in the editor pays the parse cost only once
+/// regardless of which entry-point the caller hits first.
+fn returns_rows_cache() -> &'static ReturnsRowsCache {
+    static CACHE: OnceLock<ReturnsRowsCache> = OnceLock::new();
+    CACHE.get_or_init(|| {
+        Mutex::new(LruCache::new(
+            NonZeroUsize::new(256).expect("non-zero capacity"),
+        ))
+    })
+}
+
+/// Cache for [`split_sql_statements`]. Used when an editor pastes a multi-
+/// statement script — the split result depends only on the dialect + SQL
+/// string. Splits up to a few KB are common and re-runs (F5) frequent.
+fn split_cache() -> &'static SplitCache {
+    static CACHE: OnceLock<SplitCache> = OnceLock::new();
+    CACHE.get_or_init(|| {
+        Mutex::new(LruCache::new(
+            NonZeroUsize::new(128).expect("non-zero capacity"),
         ))
     })
 }
@@ -83,6 +111,23 @@ pub fn returns_rows(driver_id: &str, sql: &str) -> Result<bool, String> {
         return Err("Empty SQL".to_string());
     }
 
+    let cache_key = (driver_id.to_string(), trimmed.to_string());
+    if let Ok(mut cache) = returns_rows_cache().lock() {
+        if let Some(cached) = cache.get(&cache_key) {
+            return cached.clone();
+        }
+    }
+
+    let result = returns_rows_uncached(driver_id, trimmed);
+
+    if let Ok(mut cache) = returns_rows_cache().lock() {
+        cache.put(cache_key, result.clone());
+    }
+
+    result
+}
+
+fn returns_rows_uncached(driver_id: &str, trimmed: &str) -> Result<bool, String> {
     let dialect = dialect_for_driver(driver_id);
     let statements = Parser::parse_sql(&*dialect, trimmed).map_err(|err| err.to_string())?;
 
@@ -96,6 +141,23 @@ pub fn split_sql_statements(driver_id: &str, sql: &str) -> Result<Vec<String>, S
         return Err("Empty SQL".to_string());
     }
 
+    let cache_key = (driver_id.to_string(), trimmed.to_string());
+    if let Ok(mut cache) = split_cache().lock() {
+        if let Some(cached) = cache.get(&cache_key) {
+            return cached.clone();
+        }
+    }
+
+    let result = split_sql_statements_uncached(driver_id, trimmed);
+
+    if let Ok(mut cache) = split_cache().lock() {
+        cache.put(cache_key, result.clone());
+    }
+
+    result
+}
+
+fn split_sql_statements_uncached(driver_id: &str, trimmed: &str) -> Result<Vec<String>, String> {
     let dialect = dialect_for_driver(driver_id);
     let statements = Parser::parse_sql(&*dialect, trimmed).map_err(|err| err.to_string())?;
 

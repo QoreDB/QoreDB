@@ -195,14 +195,6 @@ impl MySqlDriver {
         Ok(())
     }
 
-    /// Converts a SQLx row to our universal Row type. Builds decoders on the
-    /// fly — prefer `convert_row_with_decoders` in hot paths where decoders
-    /// can be reused across rows.
-    fn convert_row(mysql_row: &MySqlRow) -> QRow {
-        let decoders = Self::build_decoders(mysql_row);
-        Self::convert_row_with_decoders(mysql_row, &decoders)
-    }
-
     /// Hot-path row conversion: uses a precomputed per-column decoder to
     /// avoid the 14-branch trial-and-error cascade per cell.
     fn convert_row_with_decoders(mysql_row: &MySqlRow, decoders: &[MysqlDecoder]) -> QRow {
@@ -2255,8 +2247,7 @@ impl DataEngine for MySqlDriver {
             });
         }
 
-        let columns = Self::get_column_info(&mysql_rows[0]);
-        let rows: Vec<QRow> = mysql_rows.iter().map(Self::convert_row).collect();
+        let (columns, rows) = Self::columns_and_rows(&mysql_rows);
 
         Ok(QueryResult {
             columns,

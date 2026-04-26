@@ -35,3 +35,6 @@ dev/ssh/
 # Generated SBOMs (build artifacts)
 sbom-*.cdx.json
 checksums-sbom.sha256
+
+# Local performance profiles (samply / flamegraph) — see doc/internals/PROFILES.md
+.perf/

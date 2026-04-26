@@ -76,7 +76,11 @@
       "Bash(/usr/bin/git -C /Users/raph/Documents/Travail/Personnel/Repositories/QoreDB config --get core.sparseCheckout)",
       "Bash(/usr/bin/git -C /Users/raph/Documents/Travail/Personnel/Repositories/QoreDB add --dry-run --verbose -- .github/workflows/pgo-release.yml src-tauri/crates/qore-pgo-workload/)",
       "Bash(/usr/bin/git -C /Users/raph/Documents/Travail/Personnel/Repositories/QoreDB ls-files --others --exclude-standard --directory --exclude-from=.gitignore)",
-      "Bash(/usr/bin/git -C /Users/raph/Documents/Travail/Personnel/Repositories/QoreDB ls-files --others)"
+      "Bash(/usr/bin/git -C /Users/raph/Documents/Travail/Personnel/Repositories/QoreDB ls-files --others)",
+      "Bash(rtk find *)",
+      "Bash(samply --version)",
+      "Bash(samply record *)",
+      "Bash(dsymutil /Users/raph/Documents/Travail/Personnel/Repositories/QoreDB/src-tauri/target/release/qore-pgo-workload)"
     ]
   }
 }

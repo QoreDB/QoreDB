@@ -175,12 +175,171 @@
 
 ---
 
+## Tier 3 — Optimisations dirigées par profil
+
+**Préambule** : Tier 1 et 2.1 ont été livrés sur des intuitions documentées (allocateur, baseline CPU, scratch buffer JSON, PGO). Avant d'attaquer une nouvelle vague de micro-optimisations, on a besoin d'un profil réel pour cibler — sinon on optimise à l'aveugle. C'est le rôle de 3.0, qui est **bloquant** pour 3.2-3.4. Seul 3.1 est suffisamment cadré (constat factuel sur `stream_msg.rs:50`) pour être livrable sans profil préalable.
+
+### 3.0 Profil de référence (samply / flamegraph) — **Livré (workload SQLite, 2026-04-26)**
+
+**Constat initial** : zéro profil capturé sur le workload PGO ou sur l'app réelle. Toutes les hypothèses Tier 3+ étaient non vérifiées.
+
+**Mise en œuvre**
+- Outil : `samply 0.13.1` (cargo install). Sortie compatible Firefox Profiler, pas de root.
+- Build : override env (`CARGO_PROFILE_RELEASE_DEBUG=line-tables-only`, `CARGO_PROFILE_RELEASE_STRIP=none`) — pas de modification du Cargo.toml release distribué. macOS : `dsymutil` à côté du binaire pour la symbolisation.
+- Capture sur le workload `qore-pgo-workload` (1,3 s, 50 k rows, 4 SELECT × 3 itérations, 4 workers parallèles). 67 513 samples à 4 kHz.
+- Documenté dans `doc/internals/PROFILES.md` (snapshot daté, méthodologie reproductible, top fonctions self-time + inclusive, lectures clés et items dérivés).
+- `.perf/` ajouté au gitignore (profils bruts pas versionnés).
+
+**Findings clés** (détails dans PROFILES.md)
+1. **90 % wall-clock en attente kernel** (workers tokio idle) — normal pour un workload async, l'analyse utile filtre ces patterns.
+2. **32 % CPU actif dans mimalloc** — pression d'allocation très forte. Ne pas changer d'allocateur, **réduire le nombre d'allocs**.
+3. **28 % CPU inclusive dans `format_inner`** — smoking gun. Cause racine : `sqlite.rs:160-186 extract_value` fait un type-probing en cascade. Chaque `try_get` qui échoue construit une `Error` sqlx avec `format!()`. ~10⁶ format!() par run.
+4. **`convert_row` 46 % inclusive** — chemin critique unique, point de leverage idéal.
+5. **`parse_sql` 12 % inclusive** — sqlite re-parse à chaque exécution dans ce workload.
+
+**Couverture / limites**
+- SQLite uniquement. Postgres/MySQL/MongoDB/SQLServer non profilés (workload sans réseau).
+- `JsonWriter` du module export non exercé (le workload utilise `serde_json::to_writer` direct, pas le writer optimisé en 1.4).
+- Streaming IPC frontend non exercé (workload headless).
+- TODO listés dans PROFILES.md : profil app Tauri réelle sur Postgres + Mongo, comparaison Linux x86_64.
+
+**Bench** : pas de bench (c'est la fondation pour bencher la suite).
+
+**Risque** : nul. Local uniquement, pas en CI.
+
+---
+
+### 3.A Decoder array sur SQLite / MySQL / SQLServer — **Sorti du profil 3.0, plus haute priorité**
+
+**Constat (vérifié sur le profil)** : `src-tauri/crates/qore-drivers/src/drivers/sqlite.rs:160-186` (et symétriquement `mysql.rs:201`, `sqlserver.rs:219`) fait un type-probing en cascade :
+
+```rust
+fn extract_value(row: &SqliteRow, idx: usize) -> Value {
+    if let Ok(v) = row.try_get::<Option<i64>, _>(idx) { ... }
+    if let Ok(v) = row.try_get::<Option<i32>, _>(idx) { ... }
+    if let Ok(v) = row.try_get::<Option<f64>, _>(idx) { ... }
+    // … 6 essais au total
+}
+```
+
+Chaque `try_get` qui échoue retourne une `sqlx::Error` qui contient un `format!()`-message (« mismatched type », etc.). Sur 50 k rows × 7 colonnes × ~3 essais ratés en moyenne = **~10⁶ `format!()` par run**, ce qui explique les 28 % de CPU actif inclusive dans `format_inner` mesurés au snapshot 2026-04-26.
+
+**Pattern déjà en place côté Postgres** : `src-tauri/crates/qore-drivers/src/drivers/postgres_utils.rs:246` — `convert_row_with_decoders` reçoit un `&[PostgresDecoder]` pré-calculé une fois à partir de `col.type_info()` et appelle directement le bon `try_get` par colonne. Aucun probing.
+
+**Action**
+1. Définir `enum SqliteDecoder { Int, Float, Bool, Text, Bytes, Json, Null }`.
+2. Construire le tableau `Vec<SqliteDecoder>` une fois à la réception des `Columns` (à partir de `SqliteColumn::type_info().name()` : `"INTEGER"`, `"REAL"`, `"TEXT"`, `"BLOB"`, `"NULL"` + reconnaissance des types affines documentés par SQLite, et fallback sur `i64` pour les types inconnus).
+3. Remplacer `convert_row` par `convert_row_with_decoders(&SqliteRow, &[SqliteDecoder]) -> QRow`.
+4. Wirer dans `execute_stream` côté SQLite — au moment où on émet `StreamEvent::Columns`, on calcule aussi les décodeurs et on les passe à la boucle de batch.
+5. Idem pour MySQL (`mysql.rs:201` → `convert_row_with_decoders` déjà esquissé ligne 208, mais à vérifier qu'il est utilisé partout) et SQLServer.
+
+**Bench** : wall time du workload `qore-pgo-workload` avant/après. Le profil prédit -10 à -25 % wall time si on supprime le `format!()` du chemin chaud. À mesurer aussi : part `format_inner` dans le profil après fix (objectif : sortir du top 10 inclusive).
+
+**Risque** : faible. Logique pure, pas de changement de wire format ni d'API publique. Tests existants côté Postgres servent de modèle pour valider l'équivalence.
+
+---
+
+### 3.1 Buffer réutilisable + capacity hint pour MessagePack streaming
+
+**Constat** : `src-tauri/src/commands/stream_msg.rs:50` appelle `rmp_serde::to_vec_named(&msg)` pour chaque `RowBatch`. Sous le capot, ça fait `Vec::new() → encode::write_named(...)` avec une croissance par doublement (5-7 reallocs pour un batch typique). Pattern identique au fix 1.4 sur `JsonWriter`. Tous les drivers émettent en `RowBatch` (vérifié dans `qore-drivers/src/drivers/{sqlite,pg_compat,mysql,mongodb,duckdb,sqlserver}.rs`), donc la sérialisation est sur le hot path principal du streaming.
+
+**Action**
+- Wrapper `MsgpackBuffer` (côté `dispatch_stream_event`) qui maintient un `usize last_size_hint` mis à jour par batch.
+- Remplacer `rmp_serde::to_vec_named(&msg)` par :
+  ```rust
+  let mut buf = Vec::with_capacity(self.last_size_hint.max(512));
+  rmp_serde::encode::write_named(&mut buf, &msg)?;
+  self.last_size_hint = buf.len();
+  ch.send(InvokeResponseBody::Raw(buf));
+  ```
+- Le `Channel<InvokeResponseBody>` consomme le `Vec<u8>` ; on ne peut pas littéralement « réutiliser » la mémoire allouée (l'IPC en prend la propriété), mais le hint évite la cascade de reallocs internes à `rmp_serde`.
+
+**Bench** : wall time du `query.rs` streaming SELECT 100k lignes. Attendu : -3 à -10 % sur le wall time côté backend (la sérialisation n'est pas le bottleneck principal, mais le gain est gratuit).
+
+**Risque** : nul.
+
+---
+
+### 3.2 Cache LRU sur `sql_safety::analyze_sql` — **Déjà en place ; cibler `returns_rows` et `split_sql_statements` à la place**
+
+**Constat (vérification post-3.0)** : `src-tauri/crates/qore-sql/src/safety.rs:22-57` implémente **déjà** un cache LRU borné à 256 entrées sur `analyze_sql`, keyé sur `(driver_id, trimmed_sql)`. Le commentaire en place confirme l'intuition : « sqlparser is the dominant cost in `analyze_sql` (several ms for large queries) and identical queries are re-run constantly during a session ».
+
+L'item d'origine est donc **obsolète**. En revanche, deux fonctions voisines du même module **ne sont pas cachées** et reparsent à chaque appel :
+
+- `qore-sql/src/safety.rs:80` — `returns_rows(driver_id, sql)` → `Parser::parse_sql(...)`.
+- `qore-sql/src/safety.rs:93` — `split_sql_statements(driver_id, sql)` → `Parser::parse_sql(...)`.
+
+`returns_rows` est consultée plusieurs fois par requête sur le chemin streaming (preview vs run, gating sur stream); `split_sql_statements` est appelée à `commands/query.rs:394` quand l'éditeur soumet plusieurs statements collés (paste d'un script). Le coût est borné mais réel sur des requêtes longues.
+
+**Action (cadrée et low-effort)**
+
+- Étendre le cache LRU existant pour mémoiser le `Vec<Statement>` parsé, ou plus simplement : ajouter un cache parallèle de `bool returns_rows` et `Vec<String> split_results` sur les mêmes clés `(driver_id, sql)`.
+- Risque de surconsommation : nul, on est sur une instance qui s'étend déjà à `analyze_sql`.
+
+**Bench** : pas prioritaire — le gain sera microscopique sur le workload typique (la même requête déjà traversée par `analyze_sql` met le cache au chaud). À cumuler à 3.A dans la même PR si on touche `qore-sql`.
+
+**Risque** : nul (cache pur, immutable).
+
+---
+
+### 3.3 Lazy decode des colonnes JSON / JSONB — **Reporté faute de signal mesuré**
+
+**Constat (post-3.0)** : le profil SQLite ne montre pas de pression sur le décodage JSON (le workload n'a pas de colonne JSON). Côté code, `postgres_utils.rs:657, 735` décode `serde_json::Value` à la lecture via le pattern `Decoder::Json` (déjà optimisé : pas de probing, un seul `try_get`). Le coût n'est donc **pas un problème de chemin**, c'est un problème de **volume de payload**.
+
+D'après le bench 2.2, parser un JSONB 100 KB coûte ~670 µs. À ce niveau, l'optim « lazy decode » ne compte que sur des workloads :
+
+1. Avec colonnes JSON volumineuses (≥ 10 KB/cellule) ;
+2. Où l'utilisateur **ne lit pas la majorité** des cellules JSON (sinon le coût est juste reporté à l'affichage, pas évité).
+
+Sans capturer un profil sur un dataset BI / logs réel avec ce profil d'usage, on ne peut pas chiffrer le gain pour QoreDB. Le coût d'implémentation (changer la wire format `qore_core::Value::Json`, toucher tous les drivers + tous les exporters CSV/Parquet/Excel pour forcer le parse à l'export) est non trivial.
+
+**Décision : reporté.** À ré-évaluer si :
+
+- Un utilisateur signale une lenteur précise sur un schéma JSON-heavy.
+- Un profil app-réelle sur dataset BI/logs montre `serde_json::de::*` dans le top-10 inclusive.
+- On gagne un produit Pro orienté observabilité où le pattern « SELECT * sur une table de logs » est dominant.
+
+---
+
+### 3.E Réduction de la pression d'allocation sur `convert_row` — **Conditionnel à la livraison de 3.A**
+
+**Constat (du profil 3.0)** : 32 % du CPU actif passe dans mimalloc (`_xzm_free`, `_xzm_xzone_malloc_*`, `_malloc_zone_malloc`, `_free`). Sur le hot path `convert_row`, chaque ligne alloue typiquement : un `Vec<Value>` (capacité col_count), N `String`/`Vec<u8>` pour les colonnes textuelles, plus les allocs internes des `Error` sqlx pendant le probing (à supprimer en 3.A).
+
+**Dépendance à 3.A** : la suppression du probing en cascade fera chuter mécaniquement la pression d'allocation (les `Error::Decode` allouent leurs messages d'erreur). Re-profiler après 3.A pour voir si 3.E est encore nécessaire ou si on a déjà bouché le trou.
+
+**Cibles (si toujours pertinent post-3.A)**
+
+- `Vec<Value>::with_capacity(col_count)` dans `convert_row` — vérifier que c'est déjà fait (probablement, mais à confirmer).
+- `compact_str::CompactString` à la place de `String` pour les `ColumnInfo.name` et `Value::Text` courtes (< 23 bytes inline). Profil typique : codes pays, statuts, UUIDs (36 chars → toujours heap), noms de colonnes (souvent < 20 chars → inline). Crate `compact_str = "0.8"`, ABI stable.
+- Étudier l'usage de `bumpalo` pour le scope d'un batch (allocations courtes de durée de vie identique, libérées en bloc à la fin du batch). Plus invasif, à reconsidérer plus tard.
+
+**Bench** : workload `qore-pgo-workload` post-3.A. Cible : ratio `mimalloc CPU / total CPU actif` sous 15 % (vs 32 % actuel).
+
+**Risque** : faible avec `CompactString` (drop-in pour la plupart des usages), moyen avec bumpalo (lifetimes).
+
+---
+
+### 3.4 Frontend — code-splitting des routes lourdes — **Indépendant du profil**
+
+**Constat** : pas vérifié finement, mais le bundle Vite charge probablement Schema/ERDiagram, Diff (`src/components/Diff/*`, `src/components/Schema/ERDiagram.tsx`), et les features Pro même si l'utilisateur ne les ouvre jamais. Cold start = bundle parse + hydratation.
+
+**Action**
+
+- `React.lazy()` + `Suspense` sur les routes/composants pesants : ER diagram (D3 / GoJS), Diff (CodeMirror diff), et le bundle Pro entier (gated derrière un check de licence).
+- Mesurer avant/après : taille du chunk principal + Time to Interactive (Lighthouse).
+
+**Bench** : bundle size (`pnpm build` puis `du -sh dist/assets/*.js`) + TTI sur cold launch.
+
+**Risque** : nul techniquement, attention UX — un Suspense fallback mal placé peut causer un flash visible.
+
+---
+
 ## Ce qui a été écarté (audit externe, points refutés ou déjà en place)
 
 Ces items sont listés pour que les futurs audits ne reviennent pas avec les mêmes suggestions sans contexte.
 
 | # | Suggestion audit | Réalité vérifiée | Décision |
-|---|------------------|------------------|----------|
+| --- | ------------------ | ------------------ | ---------- |
 | Parquet streaming | « Accumule tout en RAM » | `export/writers/parquet_writer.rs:17` — `ROW_GROUP_SIZE=10000` avec flush périodique | **Déjà en place** |
 | IPC binaire MessagePack | « Tauri sérialise tout en JSON, gros bottleneck » | `commands/stream_msg.rs:50` utilise `rmp_serde::to_vec_named` + `Channel<InvokeResponseBody::Raw>` avec fallback JSON | **Déjà en place**, excellente architecture |
 | `bytes` crate | « À introduire pour buffers IPC » | `Cargo.toml:119` — déjà déclaré, utilisé via Tokio/Tauri | **Déjà en place** |
@@ -207,10 +366,19 @@ Ces items sont listés pour que les futurs audits ne reviennent pas avec les mê
 7. **2.3** ~~`sccache`~~ ✅ Activé sur ci.yml + build-core.yml + build-pro.yml via `mozilla-actions/sccache-action` + GHA Cache. Hors scope runtime.
 8. **2.1** ~~PGO en CI release~~ ✅ Workflow opt-in livré pour Linux x86_64. Mesurer gain sur les artefacts ; étendre à Postgres/MySQL et macOS/Windows ensuite.
 9. **2.2** ~~`simd-json` ciblé~~ ⏸ Reporté : gain mesuré (+20 à +27 % sur l'API drop-in) mais rayon d'effet limité aux seules colonnes JSON / documents Mongo, ne touche pas la majorité des requêtes. Bench conservé pour ré-évaluation si le profil utilisateur évolue (BI / logs JSON-heavy).
+10. **Bench cumulé Tier 1 + 2.1** (étape 6 répétée à mi-parcours, à ce stade c'est le bon moment).
+11. **3.0** ~~Capture d'un profil samply / flamegraph~~ ✅ Workload SQLite profilé, snapshot 2026-04-26 dans `doc/internals/PROFILES.md`.
+12. **3.A** Decoder array sur SQLite / MySQL / SQLServer — **plus haute priorité** (cause racine des 28 % CPU dans `format!()` identifiée par 3.0).
+13. **3.1** Buffer + capacity hint pour le streaming MessagePack (livrable indépendamment, gain gratuit, factuel sur `stream_msg.rs:50`).
+14. **3.4** Code-splitting frontend (indépendant du profil backend, peut tourner en parallèle).
+15. **3.2** ⏸ Cache `analyze_sql` déjà en place ; petit étendage à `returns_rows` + `split_sql_statements` à cumuler dans la PR 3.A.
+16. **3.3** ⏸ Reporté faute de signal — Postgres décode déjà via decoder dédié, le coût est volume-dépendant. À ré-évaluer si profil BI/logs réel.
+17. **3.E** Conditionnel au re-profil post-3.A.
 
 ## Critères de validation (par item)
 
 Chaque item est mergé seulement si :
+
 - Bench before/after chiffré dans la PR.
 - Tests Rust + lint verts (`pnpm lint:fix`, `pnpm test`).
 - Build release réussi sur macOS (ARM + Intel) et Linux x64 en CI.

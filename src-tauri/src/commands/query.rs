@@ -11,7 +11,7 @@ use tokio::time::{timeout, Duration};
 use tracing::{field, instrument};
 use uuid::Uuid;
 
-use crate::commands::stream_msg::dispatch_stream_event;
+use crate::commands::stream_msg::{dispatch_stream_event, StreamDispatcher};
 use crate::engine::{
     mongo_safety, redis_safety, sql_safety,
     traits::StreamEvent,
@@ -426,14 +426,16 @@ pub async fn execute_query(
         let on_stream_cloned = on_stream.clone();
 
         // Spawn task to hand events to the frontend via the MessagePack Channel.
+        // Use a long-lived `StreamDispatcher` so the buffer-capacity hint
+        // accumulates across batches (avoids the realloc cascade in rmp_serde).
         tokio::spawn(async move {
+            let mut dispatcher = StreamDispatcher::new(
+                Some(&on_stream_cloned),
+                &window_cloned,
+                &qid_cloned,
+            );
             while let Some(event) = receiver.recv().await {
-                dispatch_stream_event(
-                    event,
-                    Some(&on_stream_cloned),
-                    &window_cloned,
-                    &qid_cloned,
-                );
+                dispatcher.dispatch(event);
             }
         });
 

@@ -801,7 +801,7 @@ impl DataEngine for DuckDbDriver {
             for row in rows {
                 batch.push(row);
                 if batch.len() >= 500 {
-                    if sender.blocking_send(StreamEvent::RowBatch(std::mem::take(&mut batch))).is_err() {
+                    if sender.blocking_send(StreamEvent::RowBatch(std::mem::replace(&mut batch, Vec::with_capacity(500)))).is_err() {
                         return Ok(()); // Receiver dropped, stop streaming
                     }
                 }

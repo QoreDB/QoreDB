@@ -583,7 +583,7 @@ impl DataEngine for MongoDriver {
                         batch.push(row);
                         row_count += 1;
                         if batch.len() >= 500 {
-                            if sender.send(StreamEvent::RowBatch(std::mem::take(&mut batch))).await.is_err() {
+                            if sender.send(StreamEvent::RowBatch(std::mem::replace(&mut batch, Vec::with_capacity(500)))).await.is_err() {
                                 break;
                             }
                         }
@@ -621,7 +621,7 @@ impl DataEngine for MongoDriver {
                     batch.push(row);
                     row_count += 1;
                     if batch.len() >= 500 {
-                        if sender.send(StreamEvent::RowBatch(std::mem::take(&mut batch))).await.is_err() {
+                        if sender.send(StreamEvent::RowBatch(std::mem::replace(&mut batch, Vec::with_capacity(500)))).await.is_err() {
                             break;
                         }
                     }

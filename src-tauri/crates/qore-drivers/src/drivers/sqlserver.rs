@@ -1988,7 +1988,7 @@ async fn stream_select_results(
         let qrow = convert_row(row);
         batch.push(qrow);
         if batch.len() >= 500 {
-            if sender.send(StreamEvent::RowBatch(std::mem::take(&mut batch))).await.is_err() {
+            if sender.send(StreamEvent::RowBatch(std::mem::replace(&mut batch, Vec::with_capacity(500)))).await.is_err() {
                 return Ok(());
             }
         }

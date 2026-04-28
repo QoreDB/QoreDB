@@ -404,8 +404,8 @@ Ces items sont listés pour que les futurs audits ne reviennent pas avec les mê
 15. **3.E** ✅ Préservation de capacité `Vec<Row>` batch dans 6 drivers + migration `CompactString` de `ColumnInfo` (~40 sites de construction, 5 sites consommateurs bridge `.as_str()`/`.to_string()`).
 16. **3.4** ✅ Code-splitting frontend : 6 routes lazy via `React.lazy` + `Suspense` dans `AppLayout.tsx`, `ERDiagram` lazy dans `DatabaseBrowser.tsx`. Chunks : NotebookTab 583 KB / 169 KB gzip, SettingsPage 66 / 15, DataDiff 39 / 10, ERDiagram 20 / 6, Federation 16 / 5, TimeTravel 11 / 3, Snapshot 10 / 3.
 17. **3.3** ⏸ Reporté faute de signal — Postgres décode déjà via decoder dédié, le coût est volume-dépendant. À ré-évaluer si profil BI/logs réel.
-18. **Re-profilage post-Tier-3** : refaire le snapshot samply pour vérifier que la part mimalloc CPU descend (cible : sous 15 % vs 32 %) et que `format_inner` quitte le top inclusive.
-19. **Bench cumulé Tier 1 + 2.1 + Tier 3** : pose de chiffres avant/après sur le workload `qore-pgo-workload`.
+18. **Re-profilage post-Tier-3** 🟡 Profil capturé (`.perf/workload-profile-post-tier3.json.gz`, 17 085 samples actifs) ; analyse symbolique top-N inclusive reportée — le gain wall-clock seul valide la direction.
+19. **Bench cumulé Tier 1 + 2.1 + Tier 3** ✅ Wall-clock médian sur 5 runs : **0,97 s** (vs baseline plan ~1,3 s) → **−25 %**. Détails dans `doc/internals/PROFILES.md` (snapshot 2026-04-28).
 
 ## Critères de validation (par item)
 

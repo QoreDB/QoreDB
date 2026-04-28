@@ -242,6 +242,35 @@ bug, mais c'est un coût constant. Pas d'action.
 
 ---
 
+## Snapshot 2026-04-28 — wall-clock post-Tier-3 (`qore-pgo-workload`)
+
+Même configuration matérielle / build que le snapshot 2026-04-26. Mesure
+post-livraison de Tier 3 (decoders SQLite/MySQL, StreamDispatcher,
+caches `returns_rows` + `split_sql_statements`, batch-capacity preservation,
+migration `ColumnInfo` → `CompactString`).
+
+### Wall-clock — 5 runs après warmup
+
+| Run | Real time |
+|---|---|
+| 1 | 0,97 s |
+| 2 | 0,97 s |
+| 3 | 0,97 s |
+| 4 | 0,98 s |
+| 5 | 1,04 s |
+
+**Médian : 0,97 s** vs **baseline plan ~1,3 s** → **−25 % wall-clock**.
+
+### Profil capturé
+
+`.perf/workload-profile-post-tier3.json.gz` (203 KB, 17 085 samples actifs sur
+19 372 totaux à 4 kHz). Symboles dans le sidecar `.syms.json`. La résolution
+fine des top-N inclusive (validation que `format_inner` quitte le top-10 et que
+mimalloc CPU passe sous 15 %) est laissée pour une itération ultérieure — le
+gain wall-clock est suffisant pour valider la direction des optims.
+
+---
+
 ## TODO — scénarios manquants
 
 - [ ] Profil de l'app Tauri réelle sur SELECT 100k lignes Postgres

@@ -16,7 +16,7 @@ export interface HistoryEntry {
   sessionId: string;
   driver: string;
   database?: string;
-  executedAt: number; // timestamp
+  executedAt: number;
   executionTimeMs?: number;
   totalTimeMs?: number;
   rowCount?: number;
@@ -30,9 +30,7 @@ const MAX_IN_MEMORY = 100;
 
 function getFavoritesStorageKey(): string {
   const { projectId } = getWorkspaceState();
-  return projectId === 'default'
-    ? FAVORITES_KEY_PREFIX
-    : `${FAVORITES_KEY_PREFIX}_${projectId}`;
+  return projectId === 'default' ? FAVORITES_KEY_PREFIX : `${FAVORITES_KEY_PREFIX}_${projectId}`;
 }
 
 let inMemoryHistory: HistoryEntry[] = [];

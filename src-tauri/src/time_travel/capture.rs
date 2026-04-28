@@ -163,7 +163,7 @@ fn row_to_map(
     columns
         .iter()
         .zip(values.iter())
-        .map(|(col, val)| (col.name.clone(), value_to_json(val)))
+        .map(|(col, val)| (col.name.to_string(), value_to_json(val)))
         .collect()
 }
 

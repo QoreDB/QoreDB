@@ -73,7 +73,7 @@ impl ExportWriter for JsonWriter {
         let mut obj = serde_json::Map::with_capacity(columns.len());
         for (idx, col) in columns.iter().enumerate() {
             let value = row.values.get(idx).unwrap_or(&Value::Null);
-            obj.insert(col.name.clone(), Self::value_to_json(value));
+            obj.insert(col.name.to_string(), Self::value_to_json(value));
         }
 
         let json = serde_json::Value::Object(obj);

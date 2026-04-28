@@ -26,14 +26,27 @@ import {
   X,
   Zap,
 } from 'lucide-react';
-import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  lazy,
+  Suspense,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import { LuaScriptModal } from '@/components/Editor/LuaScriptModal';
 import {
   RedisEditorModal,
   type RedisEditorMode,
 } from '@/components/Editor/RedisEditorModal';
-import { ERDiagram } from '@/components/Schema/ERDiagram';
+// ERDiagram pulls in heavy graph-rendering dependencies (D3 / GoJS / etc.).
+// Lazy-loaded so the chunk is only fetched when the user actually opens
+// the schema-overview tab rather than every database browser.
+const ERDiagram = lazy(() =>
+  import('@/components/Schema/ERDiagram').then(m => ({ default: m.ERDiagram }))
+);
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -746,13 +759,21 @@ export function DatabaseBrowser({
     default:
       content = (
         <div className="h-full">
-          <ERDiagram
-            sessionId={sessionId}
-            namespace={stableNamespace}
-            connectionId={connectionId}
-            schemaRefreshTrigger={schemaRefreshTrigger}
-            onTableSelect={onTableSelect}
-          />
+          <Suspense
+            fallback={
+              <div className="flex h-full items-center justify-center p-8">
+                <div className="h-2 w-32 animate-pulse rounded-full bg-muted" aria-hidden="true" />
+              </div>
+            }
+          >
+            <ERDiagram
+              sessionId={sessionId}
+              namespace={stableNamespace}
+              connectionId={connectionId}
+              schemaRefreshTrigger={schemaRefreshTrigger}
+              onTableSelect={onTableSelect}
+            />
+          </Suspense>
         </div>
       );
   }

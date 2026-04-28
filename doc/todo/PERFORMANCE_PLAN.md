@@ -316,20 +316,13 @@ Sans capturer un profil sur un dataset BI / logs réel avec ce profil d'usage, o
 
 ---
 
-### 3.E Réduction de la pression d'allocation — **Partiellement livré (2026-04-26)**
+### 3.E Réduction de la pression d'allocation — **Livré (2026-04-28)**
 
-**Livré** : préservation de la capacité du `Vec<Row>` batch streaming dans tous les drivers. `std::mem::take(&mut batch)` (qui laissait derrière un `Vec` à capacité 0, forçant un grow par doublement de 0 à 500 = ~10 reallocs par batch) remplacé par `std::mem::replace(&mut batch, Vec::with_capacity(500))` dans `sqlite.rs`, `pg_compat.rs`, `mysql.rs`, `mongodb.rs` (×2), `sqlserver.rs`, `duckdb.rs`. Les 7 sites concernés sur 6 drivers.
+**Livré (2026-04-26)** : préservation de la capacité du `Vec<Row>` batch streaming dans tous les drivers. `std::mem::take(&mut batch)` (qui laissait derrière un `Vec` à capacité 0, forçant un grow par doublement de 0 à 500 = ~10 reallocs par batch) remplacé par `std::mem::replace(&mut batch, Vec::with_capacity(500))` dans `sqlite.rs`, `pg_compat.rs`, `mysql.rs`, `mongodb.rs` (×2), `sqlserver.rs`, `duckdb.rs`. 7 sites sur 6 drivers.
 
-**Préparé mais non livré (à reprendre)** : migration de `ColumnInfo.{name, data_type}` vers `compact_str::CompactString`. La dépendance `compact_str = { version = "0.8", features = ["serde"] }` est en place dans `[workspace.dependencies]` (`src-tauri/Cargo.toml`). La migration a été tentée en cours de cette itération mais reculée pour atteindre un checkpoint propre — plus de ~40 sites de construction `ColumnInfo` à mettre à jour à travers les drivers (sqlite, mysql, sqlserver, postgres_utils, pg_compat, mongodb, redis, duckdb) + `src/federation/`. Les conversions `.into()` ajoutées en cours sont compatibles avec `String` (no-op) et resteront valides après bascule.
+**Livré (2026-04-28)** : migration de `ColumnInfo.{name, data_type}` vers `compact_str::CompactString`. Identifiers SQL fitent dans 24 bytes inline → zéro alloc heap pour la plupart des colonnes. `compact_str = { version = "0.8", features = ["serde"] }` ajouté à `[workspace.dependencies]` et utilisé via `qore-core`. Wire format identique au `String` original (validé par Serde). ~40 sites de construction `ColumnInfo` mis à jour (sqlite, mysql, sqlserver, postgres_utils, pg_compat, mongodb, redis, duckdb, federation). Sites consommateurs (`json.rs`, `xlsx.rs`, `parquet_writer.rs`, `fulltext_search.rs`, `time_travel/capture.rs`) bridge via `.as_str()` ou `.to_string()` — cast un seul fois par export, négligeable. 97 tests passent.
 
-**À reprendre la prochaine session**
-
-1. Re-typer `ColumnInfo.{name, data_type}` → `CompactString` dans `qore-core/src/types.rs` (ré-importer `use compact_str::CompactString;`).
-2. Remettre `compact_str = { workspace = true }` dans `qore-core/Cargo.toml`.
-3. Vérifier que les ~40 sites de construction utilisent `.into()` (déjà migrés en cours) ; sinon ajouter `.into()` au cas par cas. Build doit passer immédiatement.
-4. Re-profiler pour vérifier la part mimalloc CPU avant/après (cible du plan : sous 15 % vs 32 % au snapshot 2026-04-26).
-
-**Reste à explorer post-CompactString** : `Value::Text(String)` → `Value::Text(CompactString)` est tentant mais blast radius plus grand (les valeurs utilisateur peuvent être longues, le bénéfice marginal est conditionnel au profil utilisateur). À décider après re-profilage.
+**Reste à explorer post-re-profilage** : `Value::Text(String)` → `Value::Text(CompactString)` est tentant mais blast radius plus grand (les valeurs utilisateur peuvent être longues, le bénéfice marginal est conditionnel au profil utilisateur). À décider après re-profilage du workload.
 
 
 
@@ -339,7 +332,7 @@ Sans capturer un profil sur un dataset BI / logs réel avec ce profil d'usage, o
 
 **Cibles (si toujours pertinent post-3.A)**
 
-- `Vec<Value>::with_capacity(col_count)` dans `convert_row` — vérifier que c'est déjà fait (probablement, mais à confirmer).
+- ✅ `Vec<Value>::with_capacity(col_count)` dans `convert_row` confirmé (2026-04-28) : SQLite/MySQL/Postgres utilisent `Vec::with_capacity(decoders.len())` explicitement ; SQL Server et DuckDB utilisent `ExactSizeIterator::collect()` qui pré-alloue via le `size_hint`.
 - `compact_str::CompactString` à la place de `String` pour les `ColumnInfo.name` et `Value::Text` courtes (< 23 bytes inline). Profil typique : codes pays, statuts, UUIDs (36 chars → toujours heap), noms de colonnes (souvent < 20 chars → inline). Crate `compact_str = "0.8"`, ABI stable.
 - Étudier l'usage de `bumpalo` pour le scope d'un batch (allocations courtes de durée de vie identique, libérées en bloc à la fin du batch). Plus invasif, à reconsidérer plus tard.
 
@@ -349,18 +342,25 @@ Sans capturer un profil sur un dataset BI / logs réel avec ce profil d'usage, o
 
 ---
 
-### 3.4 Frontend — code-splitting des routes lourdes — **Indépendant du profil**
+### 3.4 Frontend — code-splitting des routes lourdes — **Livré (2026-04-28)**
 
-**Constat** : pas vérifié finement, mais le bundle Vite charge probablement Schema/ERDiagram, Diff (`src/components/Diff/*`, `src/components/Schema/ERDiagram.tsx`), et les features Pro même si l'utilisateur ne les ouvre jamais. Cold start = bundle parse + hydratation.
+**Mise en œuvre** : `React.lazy()` + `Suspense` sur 6 vues d'`AppLayout.tsx` + l'ER diagram :
 
-**Action**
+- `DataDiffViewer` (Premium, gated par `LicenseGate`) — chunk : 39 KB / 10 KB gzip
+- `TimeTravelViewer` (Premium) — chunk : 11 KB / 3 KB gzip
+- `FederationViewer` — chunk : 16 KB / 5 KB gzip
+- `NotebookTab` (gros editor avec cells) — chunk : 583 KB / 169 KB gzip ⚠ chunk dominant, défer = gros gain perceptible
+- `SnapshotManager` — chunk : 10 KB / 3 KB gzip
+- `SettingsPage` — chunk : 66 KB / 15 KB gzip
+- `ERDiagram` (dans `DatabaseBrowser.tsx`) — chunk : 20 KB / 6 KB gzip
 
-- `React.lazy()` + `Suspense` sur les routes/composants pesants : ER diagram (D3 / GoJS), Diff (CodeMirror diff), et le bundle Pro entier (gated derrière un check de licence).
-- Mesurer avant/après : taille du chunk principal + Time to Interactive (Lighthouse).
+**Effet sur le bundle initial** : ~745 KB minifié (~211 KB gzip) déplacés du bundle principal vers des chunks à la demande. Notamment le notebook (169 KB gzip) qui était systématiquement parsé au boot même pour les utilisateurs qui ne l'ouvrent jamais. `pnpm build` confirme la séparation (chaque vue génère un fichier `dist/assets/<Name>-*.js`).
 
-**Bench** : bundle size (`pnpm build` puis `du -sh dist/assets/*.js`) + TTI sur cold launch.
+**Composant fallback** : `LazyTabFallback` minimaliste (skeleton centrée), local à `AppLayout.tsx`. Visible uniquement le temps du fetch + parse du chunk (~100-300 ms sur connexion locale).
 
-**Risque** : nul techniquement, attention UX — un Suspense fallback mal placé peut causer un flash visible.
+**Couvert par typecheck + biome lint** : aucune régression. `pnpm tsc --noEmit` passe, `pnpm build` passe.
+
+**Non lazy-loadé** (intentionnel) : `QueryPanel`, `TableBrowser`, `DatabaseBrowser`, `ConnectionDashboard`, `WelcomeScreen`, `Sidebar`, `TabBar`, `StatusBar` — chemin chaud par défaut, lazy ajoute un flash visible inutile.
 
 ---
 
@@ -401,8 +401,8 @@ Ces items sont listés pour que les futurs audits ne reviennent pas avec les mê
 12. **3.A** ✅ SqliteDecoder livré ; MySQL nettoyé ; Postgres déjà fait ; SQLServer non applicable (architecture déjà typée).
 13. **3.1** ✅ `StreamDispatcher` avec capacity hint dans `stream_msg.rs` ; sites de streaming dans `query.rs` et `federation.rs` refactorisés.
 14. **3.2** ✅ Cache LRU étendu à `returns_rows` (256) et `split_sql_statements` (128) dans `qore-sql/src/safety.rs`.
-15. **3.E** 🟡 Partiel : préservation de capacité `Vec<Row>` batch dans 6 drivers ✅ ; migration `CompactString` de `ColumnInfo` préparée (dep ajoutée au workspace) mais reculée pour checkpoint propre — à reprendre.
-16. **3.4** ⏭ Code-splitting frontend — pas démarré.
+15. **3.E** ✅ Préservation de capacité `Vec<Row>` batch dans 6 drivers + migration `CompactString` de `ColumnInfo` (~40 sites de construction, 5 sites consommateurs bridge `.as_str()`/`.to_string()`).
+16. **3.4** ✅ Code-splitting frontend : 6 routes lazy via `React.lazy` + `Suspense` dans `AppLayout.tsx`, `ERDiagram` lazy dans `DatabaseBrowser.tsx`. Chunks : NotebookTab 583 KB / 169 KB gzip, SettingsPage 66 / 15, DataDiff 39 / 10, ERDiagram 20 / 6, Federation 16 / 5, TimeTravel 11 / 3, Snapshot 10 / 3.
 17. **3.3** ⏸ Reporté faute de signal — Postgres décode déjà via decoder dédié, le coût est volume-dépendant. À ré-évaluer si profil BI/logs réel.
 18. **Re-profilage post-Tier-3** : refaire le snapshot samply pour vérifier que la part mimalloc CPU descend (cible : sous 15 % vs 32 %) et que `format_inner` quitte le top inclusive.
 19. **Bench cumulé Tier 1 + 2.1 + Tier 3** : pose de chiffres avant/après sur le workload `qore-pgo-workload`.

@@ -5,6 +5,7 @@
 //! These types provide a normalized representation of database concepts
 //! across SQL and NoSQL engines.
 
+use compact_str::CompactString;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -454,11 +455,16 @@ mod base64_bytes {
     }
 }
 
-/// Column metadata
+/// Column metadata.
+///
+/// `name` and `data_type` are stored as [`CompactString`]: most identifiers
+/// fit inline (≤ 24 bytes on 64-bit) and avoid a heap allocation per column
+/// per result. Serde wire format is identical to `String` — the change is
+/// transparent to MessagePack / JSON consumers.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ColumnInfo {
-    pub name: String,
-    pub data_type: String,
+    pub name: CompactString,
+    pub data_type: CompactString,
     pub nullable: bool,
 }
 

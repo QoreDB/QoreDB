@@ -144,8 +144,8 @@ impl MongoDriver {
     /// Column info for document-centric output.
     fn document_column_info() -> Vec<ColumnInfo> {
         vec![ColumnInfo {
-            name: "document".to_string(),
-            data_type: "json".to_string(),
+            name: "document".into(),
+            data_type: "json".into(),
             nullable: true,
         }]
     }
@@ -1071,8 +1071,8 @@ impl DataEngine for MongoDriver {
 
                                 let execution_time_ms = start.elapsed().as_micros() as f64 / 1000.0;
                                 let columns = vec![ColumnInfo {
-                                    name: "index_name".to_string(),
-                                    data_type: "string".to_string(),
+                                    name: "index_name".into(),
+                                    data_type: "string".into(),
                                     nullable: false,
                                 }];
                                 let rows = vec![QRow {

@@ -62,7 +62,7 @@ impl ParquetExportWriter {
     fn build_schema(columns: &[ColumnInfo]) -> Arc<Schema> {
         let fields: Vec<Field> = columns
             .iter()
-            .map(|col| Field::new(&col.name, Self::map_data_type(&col.data_type), true))
+            .map(|col| Field::new(col.name.as_str(), Self::map_data_type(&col.data_type), true))
             .collect();
         Arc::new(Schema::new(fields))
     }

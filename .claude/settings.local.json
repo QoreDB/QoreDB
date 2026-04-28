@@ -80,7 +80,9 @@
       "Bash(rtk find *)",
       "Bash(samply --version)",
       "Bash(samply record *)",
-      "Bash(dsymutil /Users/raph/Documents/Travail/Personnel/Repositories/QoreDB/src-tauri/target/release/qore-pgo-workload)"
+      "Bash(dsymutil /Users/raph/Documents/Travail/Personnel/Repositories/QoreDB/src-tauri/target/release/qore-pgo-workload)",
+      "Bash(/usr/bin/grep *)",
+      "Bash(dsymutil target/release/qore-pgo-workload)"
     ]
   }
 }

@@ -137,9 +137,11 @@ const IMAGE_SIGNATURES: Array<{ prefix: string; type: ImageType; mime: string }>
   { prefix: 'R0lGODlh', type: 'gif', mime: 'image/gif' },
   { prefix: 'R0lGODdh', type: 'gif', mime: 'image/gif' },
   { prefix: 'UklGR', type: 'webp', mime: 'image/webp' },
+  { prefix: 'Qk', type: 'bmp', mime: 'image/bmp' },
+  { prefix: 'AAABAA', type: 'ico', mime: 'image/x-icon' },
 ];
 
-export type ImageType = 'png' | 'jpeg' | 'gif' | 'webp';
+export type ImageType = 'png' | 'jpeg' | 'gif' | 'webp' | 'bmp' | 'ico';
 
 export interface ImageDetection {
   type: ImageType;
@@ -159,8 +161,62 @@ export function detectImageType(base64: string): ImageDetection | null {
   return null;
 }
 
-/** Allowed MIME types for data URI preview. Prevents injection of arbitrary MIME types. */
-const ALLOWED_PREVIEW_MIMES = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp']);
+const SVG_DETECT_BYTES = 512;
+
+/**
+ * Detects whether a base64-encoded payload is SVG by decoding the first bytes
+ * as UTF-8 and matching the `<svg` opening tag. Skips BOM, XML declaration,
+ * DOCTYPE and surrounding whitespace.
+ */
+export function detectSvg(base64: string): boolean {
+  try {
+    const bytes = base64ToUint8Array(base64, SVG_DETECT_BYTES);
+    const text = new TextDecoder('utf-8', { fatal: false }).decode(bytes);
+    return /<svg[\s>]/i.test(text);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Decodes the base64 payload as UTF-8 text. Used for displaying SVG source.
+ */
+export function decodeBase64AsText(base64: string): string {
+  const bytes = base64ToUint8Array(base64);
+  return new TextDecoder('utf-8', { fatal: false }).decode(bytes);
+}
+
+/**
+ * Unified detection of "renderable" blob kinds: raster images by magic bytes,
+ * or SVG by XML signature. Returns null for opaque/unknown binaries.
+ */
+export type BlobKind =
+  | { kind: 'image'; type: ImageType; mime: string }
+  | { kind: 'svg'; mime: 'image/svg+xml' };
+
+export function detectBlobKind(base64: string): BlobKind | null {
+  const image = detectImageType(base64);
+  if (image) return { kind: 'image', ...image };
+  if (detectSvg(base64)) return { kind: 'svg', mime: 'image/svg+xml' };
+  return null;
+}
+
+/**
+ * MIME types we are willing to embed in a data URI for preview / clipboard.
+ * Restricted to formats that browsers render safely inside `<img>` tags.
+ *
+ * Note on SVG: rendering via `<img src=...>` is safe (scripts disabled by the
+ * browser). The user is responsible for where they paste an SVG data URI.
+ */
+const ALLOWED_PREVIEW_MIMES = new Set([
+  'image/png',
+  'image/jpeg',
+  'image/gif',
+  'image/webp',
+  'image/bmp',
+  'image/x-icon',
+  'image/svg+xml',
+]);
 
 /**
  * Constructs a data URI from base64 data and a MIME type.
@@ -171,6 +227,28 @@ export function getDataUri(base64: string, mimeType: string): string {
     throw new Error(`Unsupported MIME type for preview: ${mimeType}`);
   }
   return `data:${mimeType};base64,${base64}`;
+}
+
+/**
+ * File extension to use when downloading a blob, derived from detection.
+ * Falls back to `bin` for opaque binaries.
+ */
+export function fileExtensionForKind(kind: BlobKind | null): string {
+  if (!kind) return 'bin';
+  if (kind.kind === 'svg') return 'svg';
+  return kind.type;
+}
+
+/**
+ * Returns a coarse size bucket for analytics, avoiding leaking exact sizes.
+ */
+export function sizeBucket(bytes: number): string {
+  if (bytes < 1024) return '<1KB';
+  if (bytes < 10 * 1024) return '1-10KB';
+  if (bytes < 100 * 1024) return '10-100KB';
+  if (bytes < 1024 * 1024) return '100KB-1MB';
+  if (bytes < 10 * 1024 * 1024) return '1-10MB';
+  return '>10MB';
 }
 
 /** Maximum binary size (in bytes) for which we generate image previews. */

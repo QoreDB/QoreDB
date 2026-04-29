@@ -1937,7 +1937,12 @@
     "downloadError": "ファイルの保存に失敗しました",
     "clipboardError": "クリップボードへのコピーに失敗しました",
     "tooLarge": "ブラウザで処理するにはデータが大きすぎます",
-    "imagePreview": "画像プレビュー"
+    "imagePreview": "画像プレビュー",
+    "svgSource": "SVGソース",
+    "copyDataUri": "データURIとしてコピー",
+    "copyDataUriSuccess": "データURIをクリップボードにコピーしました",
+    "openExternal": "デフォルトアプリで開く",
+    "openExternalError": "ファイルを開けませんでした"
   },
   "import": {
     "title": "CSV インポート",

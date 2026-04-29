@@ -1937,7 +1937,12 @@
     "downloadError": "Datei konnte nicht gespeichert werden",
     "clipboardError": "Kopieren in Zwischenablage fehlgeschlagen",
     "tooLarge": "Daten zu groß für die Verarbeitung im Browser",
-    "imagePreview": "Bildvorschau"
+    "imagePreview": "Bildvorschau",
+    "svgSource": "SVG-Quellcode",
+    "copyDataUri": "Als Data-URI kopieren",
+    "copyDataUriSuccess": "Data-URI in die Zwischenablage kopiert",
+    "openExternal": "In Standardanwendung öffnen",
+    "openExternalError": "Datei konnte nicht geöffnet werden"
   },
   "import": {
     "title": "CSV importieren",

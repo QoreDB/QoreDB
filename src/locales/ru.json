@@ -1937,7 +1937,12 @@
     "downloadError": "Не удалось сохранить файл",
     "clipboardError": "Не удалось скопировать в буфер обмена",
     "tooLarge": "Данные слишком велики для обработки в браузере",
-    "imagePreview": "Предпросмотр изображения"
+    "imagePreview": "Предпросмотр изображения",
+    "svgSource": "Исходник SVG",
+    "copyDataUri": "Копировать как Data URI",
+    "copyDataUriSuccess": "Data URI скопирован в буфер обмена",
+    "openExternal": "Открыть в приложении по умолчанию",
+    "openExternalError": "Не удалось открыть файл"
   },
   "import": {
     "title": "Импорт CSV",

@@ -1956,7 +1956,12 @@
     "downloadError": "Failed to save file",
     "clipboardError": "Failed to copy to clipboard",
     "tooLarge": "Data too large to process in browser",
-    "imagePreview": "Image preview"
+    "imagePreview": "Image preview",
+    "svgSource": "SVG Source",
+    "copyDataUri": "Copy as Data URI",
+    "copyDataUriSuccess": "Data URI copied to clipboard",
+    "openExternal": "Open in default app",
+    "openExternalError": "Failed to open file"
   },
   "import": {
     "title": "Import CSV",

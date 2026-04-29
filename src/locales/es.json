@@ -1937,7 +1937,12 @@
     "downloadError": "Error al guardar el archivo",
     "clipboardError": "Error al copiar al portapapeles",
     "tooLarge": "Datos demasiado grandes para procesar en el navegador",
-    "imagePreview": "Vista previa de imagen"
+    "imagePreview": "Vista previa de imagen",
+    "svgSource": "Código SVG",
+    "copyDataUri": "Copiar como Data URI",
+    "copyDataUriSuccess": "Data URI copiado al portapapeles",
+    "openExternal": "Abrir en la aplicación predeterminada",
+    "openExternalError": "No se pudo abrir el archivo"
   },
   "import": {
     "title": "Importar CSV",

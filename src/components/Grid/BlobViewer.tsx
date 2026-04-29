@@ -1,24 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { save } from '@tauri-apps/plugin-dialog';
-import { writeFile } from '@tauri-apps/plugin-fs';
-import { Binary, Copy, Download, Eye, FileCode } from 'lucide-react';
-import { useCallback, useMemo, useState } from 'react';
+import { Binary, Copy, Download, ExternalLink, Eye, FileCode, Link2 } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { toast } from 'sonner';
 
-import {
-  type ImageDetection,
-  MAX_DECODE_SIZE,
-  MAX_HEX_DUMP_BYTES,
-  MAX_PREVIEW_SIZE,
-  base64ToUint8Array,
-  detectImageType,
-  estimateByteSizeFromBase64,
-  formatFileSize,
-  formatHexDump,
-  getDataUri,
-} from '@/lib/binaryUtils';
+import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -29,8 +15,35 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  base64ToUint8Array,
+  detectBlobKind,
+  estimateByteSizeFromBase64,
+  formatFileSize,
+  formatHexDump,
+  MAX_DECODE_SIZE,
+  MAX_HEX_DUMP_BYTES,
+  MAX_PREVIEW_SIZE,
+  sizeBucket,
+} from '@/lib/binaryUtils';
+import { ImagePreview } from './blob/ImagePreview';
+import { SvgSourceView } from './blob/SvgSourceView';
+import { useBlobActions } from './blob/useBlobActions';
 
-type Tab = 'hex' | 'base64' | 'preview';
+type Tab = 'hex' | 'base64' | 'preview' | 'svgSource';
+
+interface TabSpec {
+  id: Tab;
+  labelKey: string;
+  Icon: typeof FileCode;
+}
+
+const ALL_TABS: TabSpec[] = [
+  { id: 'hex', labelKey: 'blobViewer.hex', Icon: FileCode },
+  { id: 'base64', labelKey: 'blobViewer.base64', Icon: Binary },
+  { id: 'preview', labelKey: 'blobViewer.preview', Icon: Eye },
+  { id: 'svgSource', labelKey: 'blobViewer.svgSource', Icon: FileCode },
+];
 
 interface BlobViewerProps {
   open: boolean;
@@ -43,87 +56,64 @@ interface BlobViewerProps {
   dataType: string;
 }
 
-const TABS: Array<{ id: Tab; labelKey: string; Icon: typeof FileCode }> = [
-  { id: 'hex', labelKey: 'blobViewer.hex', Icon: FileCode },
-  { id: 'base64', labelKey: 'blobViewer.base64', Icon: Binary },
-  { id: 'preview', labelKey: 'blobViewer.preview', Icon: Eye },
-];
-
 export function BlobViewer({ open, onOpenChange, value, columnName, dataType }: BlobViewerProps) {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<Tab>('hex');
+  const openTrackedRef = useRef(false);
 
   const byteSize = useMemo(() => estimateByteSizeFromBase64(value), [value]);
-  const imageInfo = useMemo(() => detectImageType(value), [value]);
-  const canPreview = imageInfo !== null && byteSize <= MAX_PREVIEW_SIZE;
+  const blobKind = useMemo(() => detectBlobKind(value), [value]);
+  const canPreview = blobKind !== null && byteSize <= MAX_PREVIEW_SIZE;
   const isTooLarge = byteSize > MAX_DECODE_SIZE;
   const isTruncated = byteSize > MAX_HEX_DUMP_BYTES;
+  const isSvg = blobKind?.kind === 'svg';
 
-  // Lazy decode: only decode the first MAX_HEX_DUMP_BYTES for hex view
+  const tabs = useMemo(() => ALL_TABS.filter(tab => tab.id !== 'svgSource' || isSvg), [isSvg]);
+
+  const actions = useBlobActions({
+    value,
+    byteSize,
+    columnName,
+    dataType,
+    blobKind,
+    isTooLarge,
+  });
+
+  useEffect(() => {
+    if (!open) {
+      openTrackedRef.current = false;
+      return;
+    }
+    if (openTrackedRef.current) return;
+    openTrackedRef.current = true;
+    AnalyticsService.capture('blob_viewer_opened', {
+      column_type: dataType,
+      size_bucket: sizeBucket(byteSize),
+      detected_kind: blobKind ? (blobKind.kind === 'svg' ? 'svg' : blobKind.type) : 'unknown',
+    });
+  }, [open, blobKind, byteSize, dataType]);
+
   const hexDump = useMemo(() => {
     if (activeTab !== 'hex') return '';
     const bytes = base64ToUint8Array(value, MAX_HEX_DUMP_BYTES);
     return formatHexDump(bytes, MAX_HEX_DUMP_BYTES);
   }, [value, activeTab]);
 
-  const handleCopyBase64 = useCallback(async () => {
-    try {
-      await navigator.clipboard.writeText(value);
-      toast.success(t('blobViewer.copyBase64'));
-    } catch {
-      toast.error(t('blobViewer.clipboardError'));
-    }
-  }, [value, t]);
+  const handleTabKeyDown = useCallback(
+    (e: React.KeyboardEvent, tabIdx: number) => {
+      let nextIdx = -1;
+      if (e.key === 'ArrowRight') nextIdx = (tabIdx + 1) % tabs.length;
+      else if (e.key === 'ArrowLeft') nextIdx = (tabIdx - 1 + tabs.length) % tabs.length;
 
-  const handleCopyHex = useCallback(async () => {
-    try {
-      const bytes = base64ToUint8Array(value, MAX_HEX_DUMP_BYTES);
-      const dump = formatHexDump(bytes, MAX_HEX_DUMP_BYTES);
-      await navigator.clipboard.writeText(dump);
-      toast.success(t('blobViewer.copyHex'));
-    } catch {
-      toast.error(t('blobViewer.clipboardError'));
-    }
-  }, [value, t]);
-
-  const handleDownload = useCallback(async () => {
-    if (isTooLarge) {
-      toast.error(t('blobViewer.tooLarge'));
-      return;
-    }
-    try {
-      const ext = imageInfo?.type ?? 'bin';
-      const filePath = await save({
-        defaultPath: `${columnName}.${ext}`,
-        filters: [{ name: ext.toUpperCase(), extensions: [ext] }],
-      });
-
-      if (!filePath) return;
-
-      const bytes = base64ToUint8Array(value);
-      await writeFile(filePath, bytes);
-      toast.success(t('blobViewer.downloadSuccess'));
-    } catch (err) {
-      console.error('Download failed:', err);
-      toast.error(t('blobViewer.downloadError'), {
-        description: err instanceof Error ? err.message : String(err),
-      });
-    }
-  }, [value, columnName, imageInfo, isTooLarge, t]);
-
-  const handleTabKeyDown = useCallback((e: React.KeyboardEvent, tabIdx: number) => {
-    let nextIdx = -1;
-    if (e.key === 'ArrowRight') nextIdx = (tabIdx + 1) % TABS.length;
-    else if (e.key === 'ArrowLeft') nextIdx = (tabIdx - 1 + TABS.length) % TABS.length;
-
-    if (nextIdx >= 0) {
-      e.preventDefault();
-      setActiveTab(TABS[nextIdx].id);
-      // Focus the next tab button
-      const nextButton = document.getElementById(`blob-tab-${TABS[nextIdx].id}`);
-      nextButton?.focus();
-    }
-  }, []);
+      if (nextIdx >= 0) {
+        e.preventDefault();
+        const next = tabs[nextIdx];
+        setActiveTab(next.id);
+        document.getElementById(`blob-tab-${next.id}`)?.focus();
+      }
+    },
+    [tabs]
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -141,9 +131,10 @@ export function BlobViewer({ open, onOpenChange, value, columnName, dataType }: 
               {t('blobViewer.size')}:{' '}
               <code className="text-foreground">{formatFileSize(byteSize)}</code>
             </span>
-            {imageInfo && (
+            {blobKind && (
               <span className="text-accent">
-                {imageInfo.type.toUpperCase()} {t('blobViewer.imagePreview').toLowerCase()}
+                {blobKind.kind === 'svg' ? 'SVG' : blobKind.type.toUpperCase()}{' '}
+                {t('blobViewer.imagePreview').toLowerCase()}
               </span>
             )}
             {isTooLarge && (
@@ -152,13 +143,12 @@ export function BlobViewer({ open, onOpenChange, value, columnName, dataType }: 
           </DialogDescription>
         </DialogHeader>
 
-        {/* Accessible tab bar */}
         <div
           role="tablist"
           aria-label={t('blobViewer.title')}
           className="flex gap-1 border-b border-border pb-0"
         >
-          {TABS.map((tab, idx) => (
+          {tabs.map((tab, idx) => (
             <button
               type="button"
               key={tab.id}
@@ -185,7 +175,6 @@ export function BlobViewer({ open, onOpenChange, value, columnName, dataType }: 
           ))}
         </div>
 
-        {/* Tab panels */}
         <div className="flex-1 min-h-0">
           {activeTab === 'hex' && (
             <div role="tabpanel" id="blob-tabpanel-hex" aria-labelledby="blob-tab-hex">
@@ -228,8 +217,8 @@ export function BlobViewer({ open, onOpenChange, value, columnName, dataType }: 
               aria-labelledby="blob-tab-preview"
               className="h-[400px] rounded-md border border-border bg-muted/20 flex items-center justify-center overflow-auto"
             >
-              {canPreview && imageInfo ? (
-                <ImagePreview base64={value} imageInfo={imageInfo} />
+              {canPreview && blobKind ? (
+                <ImagePreview base64={value} blobKind={blobKind} />
               ) : (
                 <div className="text-sm text-muted-foreground italic p-4 text-center">
                   {byteSize > MAX_PREVIEW_SIZE
@@ -242,21 +231,49 @@ export function BlobViewer({ open, onOpenChange, value, columnName, dataType }: 
               )}
             </div>
           )}
+
+          {activeTab === 'svgSource' && isSvg && (
+            <div role="tabpanel" id="blob-tabpanel-svgSource" aria-labelledby="blob-tab-svgSource">
+              <SvgSourceView base64={value} />
+            </div>
+          )}
         </div>
 
-        <DialogFooter className="flex-row gap-2 sm:justify-between">
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={handleCopyBase64} disabled={isTooLarge}>
+        <DialogFooter className="flex-row gap-2 sm:justify-between flex-wrap">
+          <div className="flex gap-2 flex-wrap">
+            <Button variant="outline" size="sm" onClick={actions.copyBase64} disabled={isTooLarge}>
               <Copy className="h-3.5 w-3.5 mr-1.5" />
               Base64
             </Button>
-            <Button variant="outline" size="sm" onClick={handleCopyHex}>
+            <Button variant="outline" size="sm" onClick={actions.copyHex}>
               <Copy className="h-3.5 w-3.5 mr-1.5" />
               Hex
             </Button>
+            {blobKind && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={actions.copyDataUri}
+                disabled={isTooLarge}
+                title={t('blobViewer.copyDataUri')}
+              >
+                <Link2 className="h-3.5 w-3.5 mr-1.5" />
+                {t('blobViewer.copyDataUri')}
+              </Button>
+            )}
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={handleDownload} disabled={isTooLarge}>
+          <div className="flex gap-2 flex-wrap">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={actions.openExternal}
+              disabled={isTooLarge}
+              title={t('blobViewer.openExternal')}
+            >
+              <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
+              {t('blobViewer.openExternal')}
+            </Button>
+            <Button variant="outline" size="sm" onClick={actions.download} disabled={isTooLarge}>
               <Download className="h-3.5 w-3.5 mr-1.5" />
               {t('blobViewer.download')}
             </Button>
@@ -267,20 +284,5 @@ export function BlobViewer({ open, onOpenChange, value, columnName, dataType }: 
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
-}
-
-function ImagePreview({ base64, imageInfo }: { base64: string; imageInfo: ImageDetection }) {
-  const dataUri = getDataUri(base64, imageInfo.mime);
-
-  return (
-    <div className="p-4 flex flex-col items-center gap-2">
-      <img
-        src={dataUri}
-        alt="Binary data preview"
-        className="max-h-[350px] max-w-full object-contain rounded shadow-sm"
-      />
-      <span className="text-xs text-muted-foreground">{imageInfo.type.toUpperCase()}</span>
-    </div>
   );
 }

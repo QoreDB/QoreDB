@@ -1937,7 +1937,12 @@
     "downloadError": "파일 저장에 실패했습니다",
     "clipboardError": "클립보드에 복사하지 못했습니다",
     "tooLarge": "브라우저에서 처리하기에 데이터가 너무 큽니다",
-    "imagePreview": "이미지 미리보기"
+    "imagePreview": "이미지 미리보기",
+    "svgSource": "SVG 소스",
+    "copyDataUri": "Data URI로 복사",
+    "copyDataUriSuccess": "Data URI가 클립보드에 복사됨",
+    "openExternal": "기본 앱으로 열기",
+    "openExternalError": "파일을 열 수 없습니다"
   },
   "import": {
     "title": "CSV 가져오기",

@@ -1937,7 +1937,12 @@
     "downloadError": "保存文件失败",
     "clipboardError": "复制到剪贴板失败",
     "tooLarge": "数据太大，无法在浏览器中处理",
-    "imagePreview": "图片预览"
+    "imagePreview": "图片预览",
+    "svgSource": "SVG 源代码",
+    "copyDataUri": "复制为 Data URI",
+    "copyDataUriSuccess": "Data URI 已复制到剪贴板",
+    "openExternal": "在默认应用中打开",
+    "openExternalError": "无法打开文件"
   },
   "import": {
     "title": "导入 CSV",

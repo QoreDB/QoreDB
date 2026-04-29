@@ -1956,7 +1956,12 @@
     "downloadError": "Échec de l'enregistrement du fichier",
     "clipboardError": "Échec de la copie dans le presse-papiers",
     "tooLarge": "Données trop volumineuses pour le navigateur",
-    "imagePreview": "Aperçu de l'image"
+    "imagePreview": "Aperçu de l'image",
+    "svgSource": "Source SVG",
+    "copyDataUri": "Copier comme Data URI",
+    "copyDataUriSuccess": "Data URI copié dans le presse-papiers",
+    "openExternal": "Ouvrir avec l'application par défaut",
+    "openExternalError": "Impossible d'ouvrir le fichier"
   },
   "import": {
     "title": "Importer un CSV",

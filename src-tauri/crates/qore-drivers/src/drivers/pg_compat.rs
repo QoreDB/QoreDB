@@ -176,9 +176,9 @@ pub async fn connect(
     config: &ConnectionConfig,
     conn_str: &str,
 ) -> EngineResult<SessionId> {
-    let max = config.pool_max_connections.unwrap_or(5);
-    let min = config.pool_min_connections.unwrap_or(0);
-    let timeout = config.pool_acquire_timeout_secs.unwrap_or(30) as u64;
+    let max = config.pool_max_connections.unwrap_or(10);
+    let min = config.pool_min_connections.unwrap_or(2).min(max);
+    let timeout = config.pool_acquire_timeout_secs.unwrap_or(15) as u64;
 
     let pool = create_pg_pool(conn_str, max, min, timeout, false, false).await?;
 
@@ -456,7 +456,7 @@ pub async fn execute_stream_in_namespace(
                 row_count += 1;
                 
                 if batch.len() >= 500 {
-                    if sender.send(StreamEvent::RowBatch(std::mem::take(&mut batch))).await.is_err() {
+                    if sender.send(StreamEvent::RowBatch(std::mem::replace(&mut batch, Vec::with_capacity(500)))).await.is_err() {
                         break;
                     }
                 }
@@ -891,6 +891,32 @@ pub async fn query_table(
                 }
                 FilterOperator::IsNull => format!("{} IS NULL", col_ident),
                 FilterOperator::IsNotNull => format!("{} IS NOT NULL", col_ident),
+                FilterOperator::Regex => {
+                    filter.value.as_text().ok_or_else(|| {
+                        EngineError::syntax_error(
+                            "regex operator requires a string value in 'value'",
+                        )
+                    })?;
+                    bind_values.push(filter.value.clone());
+                    let flags = filter.options.sanitized_regex_flags();
+                    let op = if flags.contains('i') { "~*" } else { "~" };
+                    format!("{} {} ${}", col_ident, op, param_idx)
+                }
+                FilterOperator::Text => {
+                    filter.value.as_text().ok_or_else(|| {
+                        EngineError::syntax_error(
+                            "text operator requires a string value in 'value'",
+                        )
+                    })?;
+                    bind_values.push(filter.value.clone());
+                    let lang = filter.options.sanitized_text_language("english");
+                    // `lang` is guaranteed to be `[a-z_]{1,32}`, safe to
+                    // interpolate into the SQL function call.
+                    format!(
+                        "to_tsvector('{}', {}::text) @@ plainto_tsquery('{}', ${})",
+                        lang, col_ident, lang, param_idx
+                    )
+                }
             };
             where_clauses.push(clause);
         }
@@ -1052,8 +1078,8 @@ pub async fn query_table(
                 let data_type: String = r.try_get("data_type").ok()?;
                 let is_nullable: String = r.try_get("is_nullable").ok()?;
                 Some(ColumnInfo {
-                    name,
-                    data_type,
+                    name: name.into(),
+                    data_type: data_type.into(),
                     nullable: is_nullable == "YES",
                 })
             })
@@ -1277,20 +1303,22 @@ pub async fn describe_table_core(
     };
 
     // Indexes
-    let index_rows: Vec<(String, Vec<String>, bool, bool)> = sqlx::query_as(
+    let index_rows: Vec<(String, Vec<String>, bool, bool, Option<String>)> = sqlx::query_as(
         r#"
         SELECT i.relname AS index_name,
                array_agg(a.attname ORDER BY x.ordinality)::text[] AS columns,
                ix.indisunique AS is_unique,
-               ix.indisprimary AS is_primary
+               ix.indisprimary AS is_primary,
+               am.amname AS index_type
         FROM pg_index ix
         JOIN pg_class i ON i.oid = ix.indexrelid
         JOIN pg_class t ON t.oid = ix.indrelid
         JOIN pg_namespace n ON n.oid = t.relnamespace
+        JOIN pg_am am ON am.oid = i.relam
         CROSS JOIN LATERAL unnest(ix.indkey) WITH ORDINALITY AS x(attnum, ordinality)
         JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = x.attnum
         WHERE n.nspname = $1 AND t.relname = $2
-        GROUP BY i.relname, ix.indisunique, ix.indisprimary
+        GROUP BY i.relname, ix.indisunique, ix.indisprimary, am.amname
         "#,
     )
     .bind(schema)
@@ -1301,11 +1329,12 @@ pub async fn describe_table_core(
 
     let indexes: Vec<TableIndex> = index_rows
         .into_iter()
-        .map(|(name, columns, is_unique, is_primary)| TableIndex {
+        .map(|(name, columns, is_unique, is_primary, index_type)| TableIndex {
             name,
             columns,
             is_unique,
             is_primary,
+            index_type,
         })
         .collect();
 

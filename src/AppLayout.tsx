@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { useCallback, useEffect, useMemo } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Toaster } from 'sonner';
 import {
@@ -23,19 +23,37 @@ import { DatabaseBrowser, type DatabaseBrowserTab } from './components/Browser/D
 import { TableBrowser, type TableBrowserTab } from './components/Browser/TableBrowser';
 import { CustomTitlebar } from './components/CustomTitlebar';
 import { ConnectionDashboard } from './components/Dashboard/ConnectionDashboard';
-import { DataDiffViewer } from './components/Diff/DataDiffViewer';
-import { TimeTravelViewer } from './components/TimeTravel/TimeTravelViewer';
-import { FederationViewer } from './components/Federation/FederationViewer';
 import { WelcomeScreen } from './components/Home/WelcomeScreen';
 import { LicenseGate } from './components/License/LicenseGate';
-import { NotebookTab } from './components/Notebook';
 import { AnalyticsService } from './components/Onboarding/AnalyticsService';
 import { QueryPanel } from './components/Query/QueryPanel';
 import { SandboxBorder } from './components/Sandbox';
 import type { SearchResult } from './components/Search/GlobalSearch';
-import { SettingsPage } from './components/Settings/SettingsPage';
 import { Sidebar } from './components/Sidebar/Sidebar';
-import { SnapshotManager } from './components/Snapshot/SnapshotManager';
+
+// Lazy-loaded views — these tab kinds are opened on demand (or only by Pro
+// users). Splitting them out keeps the initial bundle lean. Each chunk is
+// fetched the first time the user opens the corresponding tab.
+const DataDiffViewer = lazy(() =>
+  import('./components/Diff/DataDiffViewer').then(m => ({ default: m.DataDiffViewer }))
+);
+const TimeTravelViewer = lazy(() =>
+  import('./components/TimeTravel/TimeTravelViewer').then(m => ({
+    default: m.TimeTravelViewer,
+  }))
+);
+const FederationViewer = lazy(() =>
+  import('./components/Federation/FederationViewer').then(m => ({ default: m.FederationViewer }))
+);
+const NotebookTab = lazy(() =>
+  import('./components/Notebook').then(m => ({ default: m.NotebookTab }))
+);
+const SettingsPage = lazy(() =>
+  import('./components/Settings/SettingsPage').then(m => ({ default: m.SettingsPage }))
+);
+const SnapshotManager = lazy(() =>
+  import('./components/Snapshot/SnapshotManager').then(m => ({ default: m.SnapshotManager }))
+);
 import { StatusBar } from './components/Status/StatusBar';
 import { TabBar } from './components/Tabs/TabBar';
 import { FeatureTour } from './components/Tour/FeatureTour';
@@ -690,7 +708,9 @@ export function AppLayout() {
         <div className="flex flex-1 overflow-hidden relative">
           {settingsOpen && (
             <div className="absolute inset-0 z-40 bg-background animate-in fade-in slide-in-from-right-2 duration-200">
-              <SettingsPage onClose={() => setSettingsOpen(false)} />
+              <Suspense fallback={<LazyTabFallback />}>
+                <SettingsPage onClose={() => setSettingsOpen(false)} />
+              </Suspense>
             </div>
           )}
 
@@ -768,8 +788,9 @@ export function AppLayout() {
               className={`flex-1 min-h-0 overflow-hidden ${zenMode ? '' : 'p-4'}`}
             >
               <ErrorBoundary fallbackLabel={t('errorBoundary.panelCrashed')}>
-                <AppContent
-                  sessionId={sessionId}
+                <Suspense fallback={<LazyTabFallback />}>
+                  <AppContent
+                    sessionId={sessionId}
                   driver={driver}
                   driverCapabilities={driverCapabilities}
                   activeConnection={activeConnection}
@@ -804,7 +825,8 @@ export function AppLayout() {
                   onOpenEventSource={handleOpenEventSource}
                   onCreateEvent={handleCreateEvent}
                   onOpenSequenceSource={handleOpenSequenceSource}
-                />
+                  />
+                </Suspense>
               </ErrorBoundary>
             </SandboxBorder>
 
@@ -889,6 +911,19 @@ interface AppContentProps {
   onOpenEventSource: (event: DatabaseEvent, namespace: Namespace) => void;
   onCreateEvent: (namespace: Namespace) => void;
   onOpenSequenceSource: (sequence: Sequence, namespace: Namespace) => void;
+}
+
+/// Suspense fallback shown while a lazy-loaded tab chunk is fetched. Kept
+/// minimal so the previous tab content stays visually replaced for only the
+/// few hundred ms the chunk takes to download (already-cached chunks resolve
+/// synchronously and skip this).
+function LazyTabFallback() {
+  return (
+    <div className="flex h-full w-full items-center justify-center p-8">
+      <div className="h-2 w-32 animate-pulse rounded-full bg-muted" aria-hidden="true" />
+      <span className="sr-only">Loading…</span>
+    </div>
+  );
 }
 
 function AppContent({

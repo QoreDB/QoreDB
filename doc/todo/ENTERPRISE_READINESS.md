@@ -26,6 +26,22 @@
 
 ---
 
+## 🏢 Directory Integration (Enterprise AD)
+
+| Domaine              | Action                                      | Statut | Notes                                                                            |
+| -------------------- | ------------------------------------------- | ------ | -------------------------------------------------------------------------------- |
+| SQL Server NTLM      | Auth `DOMAIN\user` via `AuthMethod::windows`| ✅     | v0.1.26 — client Windows uniquement                                              |
+| SQL Server SSPI      | Zero-password, ticket du poste courant      | ✅     | v0.1.26 — Windows via feature `winauth` (session courante réutilisée)            |
+| SQL Server Kerberos  | GSSAPI pour clients Unix domain-joined      | ✅     | v0.1.26 — Unix via feature `integrated-auth-gssapi` (ticket `kinit` requis)      |
+| SQL Server AAD token | Azure AD token auth                         | ⬜     | Roadmap cloud                                                                    |
+| Postgres GSSAPI      | Kerberos côté Postgres                      | ⬜     | Roadmap                                                                          |
+
+> **Build Linux** : la feature GSSAPI lie `libgssapi-krb5` (MIT Kerberos). Les devs Linux doivent installer `libkrb5-dev` (Debian/Ubuntu) ou `krb5-devel` (Fedora/RHEL) pour compiler. macOS utilise Heimdal fourni par le système (aucune dépendance à installer). Windows est insensible (feature gate `cfg(unix)`).
+>
+> **Usage Unix (Kerberos)** : l'utilisateur doit avoir un ticket Kerberos valide dans la session (obtenu via `kinit user@DOMAINE.CORP`). La machine n'a pas besoin d'être jointe au domaine, mais le SPN `MSSQLSvc/...` doit être déclaré côté AD.
+
+---
+
 ## 🧯 SQL / Query Safety
 
 | Domaine       | Action                                    | Statut | Notes             |

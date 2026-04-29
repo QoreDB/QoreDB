@@ -1,0 +1,50 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# Headless workload that exercises QoreDB's hot paths so the PGO build can
+# record profiles for the SQLx pool, qore-drivers row conversion, and
+# serde_json serialization. NOT meant to be published or shipped — only used
+# by the .github/workflows/pgo-release.yml pipeline.
+
+[package]
+name = "qore-pgo-workload"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "Headless workload feeding PGO profiles for QoreDB hot paths"
+publish = false
+
+[[bin]]
+name = "qore-pgo-workload"
+path = "src/main.rs"
+
+[[bench]]
+name = "json_parse"
+harness = false
+
+[dependencies]
+# Internal crates — same code paths the production app exercises (no `tauri`
+# feature, so this binary builds without WebKit headers).
+qore-core = { path = "../qore-core" }
+qore-drivers = { path = "../qore-drivers" }
+
+# Async runtime + futures consumers
+tokio = { workspace = true }
+futures = "0.3"
+
+# Serialization (exercises the same serde_json paths used by the JSON exporter)
+serde_json = { workspace = true }
+
+# CSV writer — mirrors the production CSV exporter
+csv = "1"
+
+# Logging
+tracing = { workspace = true }
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+[dev-dependencies]
+# JSON-parsing bench harness — see benches/json_parse.rs and PERFORMANCE_PLAN §2.2.
+# simd-json is dev-only here: we only commit to ship it on real hot paths once
+# the bench shows ≥ 30 % gain on the sizes that match production JSONB / Mongo
+# payloads. Until then it stays out of the runtime dependency graph.
+criterion = { version = "0.5", default-features = false, features = ["cargo_bench_support"] }
+simd-json = "0.14"

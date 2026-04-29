@@ -23,7 +23,9 @@ use std::time::Instant;
 use async_trait::async_trait;
 use futures::StreamExt;
 use sqlx::pool::PoolConnection;
-use sqlx::sqlite::{Sqlite, SqliteConnectOptions, SqlitePool, SqlitePoolOptions, SqliteRow};
+use sqlx::sqlite::{
+    Sqlite, SqliteColumn, SqliteConnectOptions, SqlitePool, SqlitePoolOptions, SqliteRow,
+};
 use sqlx::{Column, Row, TypeInfo};
 use tokio::sync::{Mutex, RwLock};
 
@@ -144,40 +146,25 @@ impl SqliteDriver {
     }
 
     /// Converts a SQLx row to our universal Row type
-    fn convert_row(sqlite_row: &SqliteRow) -> QRow {
-        let values: Vec<Value> = sqlite_row
-            .columns()
-            .iter()
-            .map(|col| Self::extract_value(sqlite_row, col.ordinal()))
-            .collect();
-
-        QRow { values }
-    }
-
-    /// Extracts a value from a SqliteRow at the given index
-    ///
-    /// SQLite has dynamic typing, so we try multiple types in order of likelihood
+    /// Extracts a value from a SqliteRow at the given index, falling back to a
+    /// type-probing cascade. Reserved for unknown column types or when the
+    /// dispatched decoder fails — the happy path goes through [`SqliteDecoder`].
     fn extract_value(row: &SqliteRow, idx: usize) -> Value {
-        // Try integer first (most common)
         if let Ok(v) = row.try_get::<Option<i64>, _>(idx) {
             return v.map(Value::Int).unwrap_or(Value::Null);
         }
         if let Ok(v) = row.try_get::<Option<i32>, _>(idx) {
             return v.map(|i| Value::Int(i as i64)).unwrap_or(Value::Null);
         }
-        // Try float
         if let Ok(v) = row.try_get::<Option<f64>, _>(idx) {
             return v.map(Value::Float).unwrap_or(Value::Null);
         }
-        // Try bool (SQLite stores as 0/1)
         if let Ok(v) = row.try_get::<Option<bool>, _>(idx) {
             return v.map(Value::Bool).unwrap_or(Value::Null);
         }
-        // Try string
         if let Ok(v) = row.try_get::<Option<String>, _>(idx) {
             return v.map(Value::Text).unwrap_or(Value::Null);
         }
-        // Try bytes (BLOB)
         if let Ok(v) = row.try_get::<Option<Vec<u8>>, _>(idx) {
             return v.map(Value::Bytes).unwrap_or(Value::Null);
         }
@@ -190,8 +177,8 @@ impl SqliteDriver {
         row.columns()
             .iter()
             .map(|col| ColumnInfo {
-                name: col.name().to_string(),
-                data_type: col.type_info().name().to_string(),
+                name: col.name().into(),
+                data_type: col.type_info().name().into(),
                 nullable: true, // SQLite doesn't easily expose nullability from row metadata
             })
             .collect()
@@ -235,6 +222,93 @@ impl Default for SqliteDriver {
     fn default() -> Self {
         Self::new()
     }
+}
+
+/// Per-column typed decoder.
+///
+/// SQLite reports five dynamic types via `type_info().name()` (`NULL`, `INTEGER`,
+/// `REAL`, `TEXT`, `BLOB`) plus the declared schema names for typed columns.
+/// Computing one decoder per column up-front avoids the cascade of failed
+/// `try_get`s that the original `extract_value` triggered — each failure built a
+/// `format!()`-ed error message in sqlx, accounting for ~28 % of CPU active time
+/// on the workload (see `doc/internals/PROFILES.md`, snapshot 2026-04-26).
+#[derive(Clone, Copy)]
+enum SqliteDecoder {
+    Int,
+    Float,
+    Bool,
+    Text,
+    Bytes,
+    Null,
+    Fallback,
+}
+
+impl SqliteDecoder {
+    fn for_type(name: &str) -> Self {
+        // sqlx-sqlite reports the dynamic storage class first; we also
+        // accept the common declared-type aliases that surface for typed
+        // column definitions and computed columns.
+        match name {
+            "INTEGER" | "INT" | "BIGINT" | "SMALLINT" | "TINYINT" | "MEDIUMINT" | "INT2"
+            | "INT4" | "INT8" | "UNSIGNED BIG INT" => Self::Int,
+            "REAL" | "DOUBLE" | "DOUBLE PRECISION" | "FLOAT" | "NUMERIC" | "DECIMAL" => {
+                Self::Float
+            }
+            "BOOLEAN" | "BOOL" => Self::Bool,
+            "TEXT" | "CLOB" | "VARCHAR" | "CHARACTER" | "CHAR" | "NCHAR" | "NVARCHAR"
+            | "VARYING CHARACTER" | "NATIVE CHARACTER" => Self::Text,
+            "BLOB" => Self::Bytes,
+            "NULL" => Self::Null,
+            _ => Self::Fallback,
+        }
+    }
+
+    #[inline]
+    fn decode(self, row: &SqliteRow, idx: usize) -> Value {
+        match self {
+            Self::Int => match row.try_get::<Option<i64>, _>(idx) {
+                Ok(Some(v)) => Value::Int(v),
+                Ok(None) => Value::Null,
+                Err(_) => SqliteDriver::extract_value(row, idx),
+            },
+            Self::Float => match row.try_get::<Option<f64>, _>(idx) {
+                Ok(Some(v)) => Value::Float(v),
+                Ok(None) => Value::Null,
+                Err(_) => SqliteDriver::extract_value(row, idx),
+            },
+            Self::Bool => match row.try_get::<Option<bool>, _>(idx) {
+                Ok(Some(v)) => Value::Bool(v),
+                Ok(None) => Value::Null,
+                Err(_) => SqliteDriver::extract_value(row, idx),
+            },
+            Self::Text => match row.try_get::<Option<String>, _>(idx) {
+                Ok(Some(v)) => Value::Text(v),
+                Ok(None) => Value::Null,
+                Err(_) => SqliteDriver::extract_value(row, idx),
+            },
+            Self::Bytes => match row.try_get::<Option<Vec<u8>>, _>(idx) {
+                Ok(Some(v)) => Value::Bytes(v),
+                Ok(None) => Value::Null,
+                Err(_) => SqliteDriver::extract_value(row, idx),
+            },
+            Self::Null => Value::Null,
+            Self::Fallback => SqliteDriver::extract_value(row, idx),
+        }
+    }
+}
+
+fn build_decoders(cols: &[SqliteColumn]) -> Vec<SqliteDecoder> {
+    cols.iter()
+        .map(|col| SqliteDecoder::for_type(col.type_info().name()))
+        .collect()
+}
+
+fn convert_row_with_decoders(row: &SqliteRow, decoders: &[SqliteDecoder]) -> QRow {
+    let mut values = Vec::with_capacity(decoders.len());
+    for (idx, decoder) in decoders.iter().enumerate() {
+        values.push(decoder.decode(row, idx));
+    }
+    QRow { values }
 }
 
 #[async_trait]
@@ -598,6 +672,7 @@ impl DataEngine for SqliteDriver {
 
         let mut stream = sqlx::query(query).fetch(&mut *conn);
         let mut columns_sent = false;
+        let mut decoders: Vec<SqliteDecoder> = Vec::new();
         let mut row_count = 0;
         let mut stream_error: Option<String> = None;
         let mut batch = Vec::with_capacity(500);
@@ -607,18 +682,19 @@ impl DataEngine for SqliteDriver {
                 Ok(sqlite_row) => {
                     if !columns_sent {
                         let columns = Self::get_column_info(&sqlite_row);
+                        decoders = build_decoders(sqlite_row.columns());
                         if sender.send(StreamEvent::Columns(columns)).await.is_err() {
                             break;
                         }
                         columns_sent = true;
                     }
 
-                    let row = Self::convert_row(&sqlite_row);
+                    let row = convert_row_with_decoders(&sqlite_row, &decoders);
                     batch.push(row);
                     row_count += 1;
-                    
+
                     if batch.len() >= 500 {
-                        if sender.send(StreamEvent::RowBatch(std::mem::take(&mut batch))).await.is_err() {
+                        if sender.send(StreamEvent::RowBatch(std::mem::replace(&mut batch, Vec::with_capacity(500)))).await.is_err() {
                             break;
                         }
                     }
@@ -698,7 +774,11 @@ impl DataEngine for SqliteDriver {
                     })
                 } else {
                     let columns = Self::get_column_info(&sqlite_rows[0]);
-                    let rows: Vec<QRow> = sqlite_rows.iter().map(Self::convert_row).collect();
+                    let decoders = build_decoders(sqlite_rows[0].columns());
+                    let rows: Vec<QRow> = sqlite_rows
+                        .iter()
+                        .map(|r| convert_row_with_decoders(r, &decoders))
+                        .collect();
 
                     Ok(QueryResult {
                         columns,
@@ -756,7 +836,11 @@ impl DataEngine for SqliteDriver {
                     })
                 } else {
                     let columns = Self::get_column_info(&sqlite_rows[0]);
-                    let rows: Vec<QRow> = sqlite_rows.iter().map(Self::convert_row).collect();
+                    let decoders = build_decoders(sqlite_rows[0].columns());
+                    let rows: Vec<QRow> = sqlite_rows
+                        .iter()
+                        .map(|r| convert_row_with_decoders(r, &decoders))
+                        .collect();
 
                     Ok(QueryResult {
                         columns,
@@ -873,6 +957,7 @@ impl DataEngine for SqliteDriver {
                 columns,
                 is_unique: is_unique != 0,
                 is_primary,
+                index_type: None,
             });
         }
 
@@ -964,6 +1049,38 @@ impl DataEngine for SqliteDriver {
                     }
                     FilterOperator::IsNull => format!("{} IS NULL", col_ident),
                     FilterOperator::IsNotNull => format!("{} IS NOT NULL", col_ident),
+                    FilterOperator::Regex => {
+                        // SQLite's REGEXP operator relies on a user-defined
+                        // function. When it is not loaded the call will return
+                        // a clear error at execution time, which is preferable
+                        // to silently falling back to LIKE.
+                        let raw = filter.value.as_text().ok_or_else(|| {
+                            EngineError::syntax_error(
+                                "regex operator requires a string value in 'value'",
+                            )
+                        })?;
+                        let flags = filter.options.sanitized_regex_flags();
+                        let pattern = if flags.contains('i') {
+                            Value::Text(format!("(?i){}", raw))
+                        } else {
+                            Value::Text(raw.to_string())
+                        };
+                        bind_values.push(pattern);
+                        format!("{} REGEXP ?", col_ident)
+                    }
+                    FilterOperator::Text => {
+                        // SQLite has no native full-text operator at the column
+                        // level (FTS5 lives in dedicated virtual tables); fall
+                        // back to a case-insensitive substring match so the
+                        // operator is still useful.
+                        let term = filter.value.as_text().ok_or_else(|| {
+                            EngineError::syntax_error(
+                                "text operator requires a string value in 'value'",
+                            )
+                        })?;
+                        bind_values.push(Value::Text(format!("%{}%", term)));
+                        format!("{} LIKE ?", col_ident)
+                    }
                 };
                 where_clauses.push(clause);
             }
@@ -1084,8 +1201,8 @@ impl DataEngine for SqliteDriver {
             let columns: Vec<ColumnInfo> = pragma_rows
                 .iter()
                 .map(|(_, name, data_type, notnull, _, _)| ColumnInfo {
-                    name: name.clone(),
-                    data_type: data_type.clone(),
+                    name: name.as_str().into(),
+                    data_type: data_type.as_str().into(),
                     nullable: *notnull == 0,
                 })
                 .collect();
@@ -1098,7 +1215,11 @@ impl DataEngine for SqliteDriver {
             }
         } else {
             let columns = Self::get_column_info(&sqlite_rows[0]);
-            let rows: Vec<QRow> = sqlite_rows.iter().map(Self::convert_row).collect();
+            let decoders = build_decoders(sqlite_rows[0].columns());
+            let rows: Vec<QRow> = sqlite_rows
+                .iter()
+                .map(|r| convert_row_with_decoders(r, &decoders))
+                .collect();
             QueryResult {
                 columns,
                 rows,
@@ -1154,7 +1275,11 @@ impl DataEngine for SqliteDriver {
         }
 
         let columns = Self::get_column_info(&sqlite_rows[0]);
-        let rows: Vec<QRow> = sqlite_rows.iter().map(Self::convert_row).collect();
+        let decoders = build_decoders(sqlite_rows[0].columns());
+        let rows: Vec<QRow> = sqlite_rows
+            .iter()
+            .map(|r| convert_row_with_decoders(r, &decoders))
+            .collect();
 
         Ok(QueryResult {
             columns,
@@ -1588,6 +1713,7 @@ mod tests {
             pool_max_connections: None,
             pool_min_connections: None,
             proxy: None,
+            mssql_auth: None,
         };
 
         let session_id = driver.connect(&config).await.unwrap();
@@ -1614,6 +1740,7 @@ mod tests {
             pool_max_connections: None,
             pool_min_connections: None,
             proxy: None,
+            mssql_auth: None,
         };
 
         let session_id = driver.connect(&config).await.unwrap();
@@ -1670,6 +1797,7 @@ mod tests {
             pool_max_connections: None,
             pool_min_connections: None,
             proxy: None,
+            mssql_auth: None,
         };
 
         let session_id = driver.connect(&config).await.unwrap();

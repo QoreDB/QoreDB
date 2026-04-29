@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { AlertCircle, CheckCircle2, Info, Sparkles, X } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Clock, Info, Scissors, Sparkles, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -21,6 +21,9 @@ export interface QueryResultEntry {
   totalTimeMs?: number;
   executionTimeMs?: number;
   rowCount?: number;
+  truncated?: boolean;
+  truncatedTotal?: number;
+  timedOut?: boolean;
 }
 
 interface QueryPanelResultsProps {
@@ -40,6 +43,7 @@ interface QueryPanelResultsProps {
   onRowsDeleted: () => void;
   onEditDocument: (doc: Record<string, unknown>, idValue?: Value) => void;
   onFixWithAi?: (query: string, error: string) => void;
+  onOverrideLimits?: (query: string, kind: 'truncated' | 'timeout') => void;
 }
 
 export function QueryPanelResults({
@@ -59,6 +63,7 @@ export function QueryPanelResults({
   onRowsDeleted,
   onEditDocument,
   onFixWithAi,
+  onOverrideLimits,
 }: QueryPanelResultsProps) {
   const { t } = useTranslation();
   const activeResult =
@@ -129,6 +134,28 @@ export function QueryPanelResults({
               <span>{t('query.multiStatementNotice', { count: statementCount })}</span>
             </div>
           )}
+          {activeResult.truncated && activeResult.result && onOverrideLimits ? (
+            <div className="shrink-0 mx-4 mt-4 p-3 rounded-md bg-warning/10 border border-warning/30 text-warning-foreground flex items-start gap-3">
+              <Scissors className="mt-0.5 shrink-0 text-warning" size={16} />
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium text-warning">{t('query.truncated.title')}</div>
+                <div className="text-xs text-muted-foreground mt-0.5">
+                  {t('query.truncated.description', {
+                    shown: activeResult.result.rows.length,
+                    total: activeResult.truncatedTotal ?? activeResult.result.rows.length,
+                  })}
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 shrink-0 gap-1.5 text-xs border-warning/40 text-warning hover:bg-warning/10 hover:text-warning"
+                onClick={() => onOverrideLimits(activeResult.query, 'truncated')}
+              >
+                {t('query.truncated.rerun')}
+              </Button>
+            </div>
+          ) : null}
           {activeResult.error ? (
             <div className="p-4 m-4 rounded-md bg-error/10 border border-error/20 text-error flex items-start gap-3">
               <AlertCircle className="mt-0.5 shrink-0" size={18} />
@@ -136,17 +163,30 @@ export function QueryPanelResults({
                 <pre className="text-sm font-mono whitespace-pre-wrap break-all">
                   {activeResult.error}
                 </pre>
-                {onFixWithAi && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="mt-2 h-7 gap-1.5 text-xs text-accent hover:text-accent"
-                    onClick={() => onFixWithAi(activeResult.query, activeResult.error!)}
-                  >
-                    <Sparkles size={12} />
-                    {t('ai.fixWithAi')}
-                  </Button>
-                )}
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {onFixWithAi && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 gap-1.5 text-xs text-accent hover:text-accent"
+                      onClick={() => onFixWithAi(activeResult.query, activeResult.error!)}
+                    >
+                      <Sparkles size={12} />
+                      {t('ai.fixWithAi')}
+                    </Button>
+                  )}
+                  {activeResult.timedOut && onOverrideLimits && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 gap-1.5 text-xs text-warning hover:text-warning"
+                      onClick={() => onOverrideLimits(activeResult.query, 'timeout')}
+                    >
+                      <Clock size={12} />
+                      {t('query.timedOut.rerun')}
+                    </Button>
+                  )}
+                </div>
               </div>
             </div>
           ) : activeResult.kind === 'explain' && activeResult.result ? (

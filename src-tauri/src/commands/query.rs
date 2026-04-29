@@ -11,7 +11,7 @@ use tokio::time::{timeout, Duration};
 use tracing::{field, instrument};
 use uuid::Uuid;
 
-use crate::commands::stream_msg::dispatch_stream_event;
+use crate::commands::stream_msg::{dispatch_stream_event, StreamDispatcher};
 use crate::engine::{
     mongo_safety, redis_safety, sql_safety,
     traits::StreamEvent,
@@ -121,8 +121,10 @@ pub async fn execute_query(
     query_id: Option<String>,
     timeout_ms: Option<u64>,
     stream: Option<bool>,
+    bypass_limits: Option<bool>,
     on_stream: Channel<InvokeResponseBody>,
 ) -> Result<QueryResponse, String> {
+    let bypass_limits = bypass_limits.unwrap_or(false);
     let (session_manager, query_manager, policy, interceptor) = {
         let state = state.lock().await;
         (
@@ -400,7 +402,21 @@ pub async fn execute_query(
     let should_stream =
         sql_statements.is_none() && stream.unwrap_or(false) && driver.capabilities().streaming;
 
-    let effective_timeout = timeout_ms.or(policy.max_query_duration_ms);
+    let effective_timeout = if bypass_limits {
+        timeout_ms
+    } else {
+        timeout_ms.or(policy.max_query_duration_ms)
+    };
+
+    if bypass_limits {
+        tracing::warn!(
+            session = %session_id,
+            query_id = %query_id_str,
+            driver = %driver.driver_id(),
+            env = %environment,
+            "Governance limits bypassed for single query (user confirmed override)"
+        );
+    }
 
     if should_stream {
         // Create channel for stream events
@@ -410,14 +426,16 @@ pub async fn execute_query(
         let on_stream_cloned = on_stream.clone();
 
         // Spawn task to hand events to the frontend via the MessagePack Channel.
+        // Use a long-lived `StreamDispatcher` so the buffer-capacity hint
+        // accumulates across batches (avoids the realloc cascade in rmp_serde).
         tokio::spawn(async move {
+            let mut dispatcher = StreamDispatcher::new(
+                Some(&on_stream_cloned),
+                &window_cloned,
+                &qid_cloned,
+            );
             while let Some(event) = receiver.recv().await {
-                dispatch_stream_event(
-                    event,
-                    Some(&on_stream_cloned),
-                    &window_cloned,
-                    &qid_cloned,
-                );
+                dispatcher.dispatch(event);
             }
         });
 
@@ -624,7 +642,10 @@ pub async fn execute_query(
                 );
 
                 // Governance: truncate results if max_result_rows is set
-                let (truncated, truncated_total) = if let Some(max_rows) = policy.max_result_rows {
+                // (skipped when the caller explicitly opted into bypass_limits)
+                let (truncated, truncated_total) = if bypass_limits {
+                    (None, None)
+                } else if let Some(max_rows) = policy.max_result_rows {
                     if result.rows.len() as u64 > max_rows {
                         let total = result.rows.len() as u64;
                         result.rows.truncate(max_rows as usize);

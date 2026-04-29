@@ -198,15 +198,20 @@ fn normalize_config(mut config: ConnectionConfig) -> Result<ConnectionConfig, St
         }
     }
 
-    let max_connections = config.pool_max_connections.unwrap_or(5);
+    let max_connections = config.pool_max_connections.unwrap_or(10);
     if max_connections == 0 {
         return Err("Pool max connections must be greater than 0".to_string());
     }
-    let min_connections = config.pool_min_connections.unwrap_or(0);
-    if min_connections > max_connections {
-        return Err("Pool min connections must be <= max connections".to_string());
-    }
-    let acquire_timeout = config.pool_acquire_timeout_secs.unwrap_or(30);
+    let min_connections = match config.pool_min_connections {
+        Some(explicit) => {
+            if explicit > max_connections {
+                return Err("Pool min connections must be <= max connections".to_string());
+            }
+            explicit
+        }
+        None => 2u32.min(max_connections),
+    };
+    let acquire_timeout = config.pool_acquire_timeout_secs.unwrap_or(15);
     if acquire_timeout < 5 {
         return Err("Pool acquire timeout must be at least 5 seconds".to_string());
     }

@@ -6,6 +6,8 @@
 
 use serde_json::Value as JsonValue;
 
+use crate::mongo_pipeline::validate_pipeline;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MongoQueryClass {
     Read,
@@ -41,8 +43,8 @@ fn classify_operation(op_raw: &str, value: &JsonValue) -> MongoQueryClass {
     let op = normalize_op(op_raw);
 
     if is_read_op(&op) {
-        if op == "aggregate" && aggregate_writes(value) {
-            return MongoQueryClass::Mutation;
+        if op == "aggregate" {
+            return classify_aggregate(value);
         }
         return MongoQueryClass::Read;
     }
@@ -54,16 +56,17 @@ fn classify_operation(op_raw: &str, value: &JsonValue) -> MongoQueryClass {
     MongoQueryClass::Unknown
 }
 
-fn aggregate_writes(value: &JsonValue) -> bool {
-    let pipeline = value.get("pipeline").and_then(|v| v.as_array());
-    if let Some(stages) = pipeline {
-        for stage in stages {
-            if stage.get("$out").is_some() || stage.get("$merge").is_some() {
-                return true;
-            }
-        }
+/// Classify an `aggregate` operation by running the pipeline AST validator.
+///
+/// A validation error (unknown stage, forbidden operator, misplaced `$out`…)
+/// yields [`MongoQueryClass::Unknown`] so the caller falls back to the
+/// strictest confirmation path — we never silently let a suspect pipeline
+/// through.
+fn classify_aggregate(value: &JsonValue) -> MongoQueryClass {
+    match validate_pipeline(value) {
+        Ok(result) => result.class,
+        Err(_) => MongoQueryClass::Unknown,
     }
-    false
 }
 
 fn normalize_op(op: &str) -> String {
@@ -86,6 +89,7 @@ fn is_read_op(op: &str) -> bool {
             | "listcollections"
             | "collstats"
             | "dbstats"
+            | "listindexes"
     )
 }
 
@@ -114,6 +118,10 @@ fn is_mutation_op(op: &str) -> bool {
             | "renamecollection"
             | "mapreduce"
             | "findandmodify"
+            | "createindex"
+            | "createindexes"
+            | "dropindex"
+            | "dropindexes"
     )
 }
 
@@ -143,6 +151,10 @@ fn classify_shell(query: &str) -> MongoQueryClass {
         ".renamecollection(",
         ".findandmodify(",
         ".mapreduce(",
+        ".createindex(",
+        ".createindexes(",
+        ".dropindex(",
+        ".dropindexes(",
     ];
 
     if mutation_patterns
@@ -163,6 +175,9 @@ fn classify_shell(query: &str) -> MongoQueryClass {
         ".listcollections(",
         ".collstats(",
         ".dbstats(",
+        ".listindexes(",
+        ".getindexes(",
+        ".indexes(",
     ];
 
     if read_patterns
@@ -237,5 +252,79 @@ mod tests {
     fn shell_getcollection_without_method_is_unknown() {
         let query = "db.getCollection('users')";
         assert_eq!(classify(query), MongoQueryClass::Unknown);
+    }
+
+    #[test]
+    fn json_aggregate_with_merge_is_mutation() {
+        let query =
+            r#"{"operation":"aggregate","pipeline":[{"$match":{}},{"$merge":{"into":"t"}}]}"#;
+        assert_eq!(classify(query), MongoQueryClass::Mutation);
+    }
+
+    #[test]
+    fn json_aggregate_with_function_operator_is_unknown() {
+        let query = r#"{"operation":"aggregate","pipeline":[{"$match":{"$function":{"body":"function(){return true}","args":[],"lang":"js"}}}]}"#;
+        assert_eq!(classify(query), MongoQueryClass::Unknown);
+    }
+
+    #[test]
+    fn json_aggregate_with_where_operator_is_unknown() {
+        let query =
+            r#"{"operation":"aggregate","pipeline":[{"$match":{"$where":"this.x>0"}}]}"#;
+        assert_eq!(classify(query), MongoQueryClass::Unknown);
+    }
+
+    #[test]
+    fn json_aggregate_with_out_in_middle_is_unknown() {
+        let query = r#"{"operation":"aggregate","pipeline":[{"$out":"a"},{"$match":{}}]}"#;
+        assert_eq!(classify(query), MongoQueryClass::Unknown);
+    }
+
+    #[test]
+    fn json_aggregate_with_unknown_stage_is_unknown() {
+        let query = r#"{"operation":"aggregate","pipeline":[{"$notAStage":{}}]}"#;
+        assert_eq!(classify(query), MongoQueryClass::Unknown);
+    }
+
+    #[test]
+    fn json_create_index_is_mutation() {
+        let query = r#"{"operation":"createIndex","database":"db","collection":"col","keys":{"a":1}}"#;
+        assert_eq!(classify(query), MongoQueryClass::Mutation);
+    }
+
+    #[test]
+    fn json_drop_index_is_mutation() {
+        let query = r#"{"operation":"dropIndex","database":"db","collection":"col","name":"idx_a"}"#;
+        assert_eq!(classify(query), MongoQueryClass::Mutation);
+    }
+
+    #[test]
+    fn json_list_indexes_is_read() {
+        let query = r#"{"operation":"listIndexes","database":"db","collection":"col"}"#;
+        assert_eq!(classify(query), MongoQueryClass::Read);
+    }
+
+    #[test]
+    fn shell_create_index_is_mutation() {
+        let query = "db.users.createIndex({email: 1}, {unique: true})";
+        assert_eq!(classify(query), MongoQueryClass::Mutation);
+    }
+
+    #[test]
+    fn shell_drop_index_is_mutation() {
+        let query = "db.users.dropIndex('email_1')";
+        assert_eq!(classify(query), MongoQueryClass::Mutation);
+    }
+
+    #[test]
+    fn shell_get_indexes_is_read() {
+        let query = "db.users.getIndexes()";
+        assert_eq!(classify(query), MongoQueryClass::Read);
+    }
+
+    #[test]
+    fn json_aggregate_normal_pipeline_is_read() {
+        let query = r#"{"operation":"aggregate","pipeline":[{"$match":{"x":1}},{"$group":{"_id":"$y","c":{"$sum":1}}}]}"#;
+        assert_eq!(classify(query), MongoQueryClass::Read);
     }
 }

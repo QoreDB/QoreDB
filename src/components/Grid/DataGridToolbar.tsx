@@ -155,7 +155,7 @@ export function DataGridToolbar({
             <ChevronDown size={12} className="ml-1" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-40">
+        <DropdownMenuContent align="end" className="w-60">
           <DropdownMenuLabel className="text-xs">{t('grid.copyToClipboard')}</DropdownMenuLabel>
           <DropdownMenuItem
             onClick={() => {
@@ -197,14 +197,14 @@ export function DataGridToolbar({
             SQL
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuLabel className="text-xs">{t('grid.streamingExport')}</DropdownMenuLabel>
+          <DropdownMenuLabel className="text-xs">{t('grid.exportAllRows')}</DropdownMenuLabel>
           <DropdownMenuItem
             onClick={onStreamingExport}
             className="text-xs"
             disabled={!onStreamingExport}
           >
             <Database size={14} className="mr-2" />
-            {t('grid.exportAllRows')}
+            {t('grid.downloadToFile')}
           </DropdownMenuItem>
           {onShareExport && (
             <DropdownMenuItem onClick={onShareExport} className="text-xs">

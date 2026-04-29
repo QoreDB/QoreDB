@@ -176,12 +176,12 @@ impl ProfilingStore {
         row_count: Option<i64>,
         driver_id: &str,
     ) {
-        use super::redaction::redact_query_literals;
+        use super::redaction::redact_query;
 
         let entry = SlowQueryEntry {
             id: uuid::Uuid::new_v4().to_string(),
             timestamp: Utc::now(),
-            query: redact_query_literals(query),
+            query: redact_query(query, driver_id),
             execution_time_ms,
             environment,
             database: database.map(|s| s.to_string()),

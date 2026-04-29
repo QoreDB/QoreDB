@@ -81,7 +81,7 @@ use tauri::ipc::{Channel, InvokeResponseBody};
 use uuid::Uuid;
 
 #[cfg(feature = "pro")]
-use crate::commands::stream_msg::dispatch_stream_event;
+use crate::commands::stream_msg::StreamDispatcher;
 #[cfg(feature = "pro")]
 use crate::engine::traits::StreamEvent;
 #[cfg(feature = "pro")]
@@ -163,13 +163,17 @@ pub async fn execute_federation_query(
         });
 
         // Spawn the event forwarder — uses the Tauri Channel (MessagePack)
-        // path, identical to the primary execute_query command.
+        // path, identical to the primary execute_query command. Reuses a
+        // single `StreamDispatcher` so the msgpack buffer-capacity hint
+        // accumulates across batches.
         let window_clone = window.clone();
         let qid = query_id.clone();
         let channel_clone = on_stream.clone();
         tokio::spawn(async move {
+            let mut dispatcher =
+                StreamDispatcher::new(Some(&channel_clone), &window_clone, &qid);
             while let Some(event) = rx.recv().await {
-                dispatch_stream_event(event, Some(&channel_clone), &window_clone, &qid);
+                dispatcher.dispatch(event);
             }
         });
 

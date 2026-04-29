@@ -429,7 +429,7 @@ pub async fn fulltext_search(
                     for row in query_result.rows {
                         for (idx, col_info) in query_result.columns.iter().enumerate() {
                             if let Some(value) = row.values.get(idx) {
-                                let col_name = col_info.name.to_lowercase();
+                                let col_name: String = col_info.name.as_str().to_lowercase();
                                 let is_searchable = text_column_set.contains(&col_name)
                                     || is_text_type(&col_info.data_type);
                                 if is_searchable
@@ -443,13 +443,13 @@ pub async fn fulltext_search(
                                         .columns
                                         .iter()
                                         .zip(row.values.iter())
-                                        .map(|(c, v)| (c.name.clone(), v.clone()))
+                                        .map(|(c, v)| (c.name.to_string(), v.clone()))
                                         .collect();
 
                                     matches.push(FulltextMatch {
                                         namespace: namespace.clone(),
                                         table_name: table_name.clone(),
-                                        column_name: col_info.name.clone(),
+                                        column_name: col_info.name.to_string(),
                                         value_preview: value_to_preview(value, 100),
                                         row_preview,
                                     });
@@ -617,7 +617,11 @@ async fn detect_fulltext_indexes(
 
     // Convert rows to Vec<Vec<Value>> format
     let rows: Vec<Vec<Value>> = result.rows.into_iter().map(|r| r.values).collect();
-    let columns: Vec<String> = result.columns.into_iter().map(|c| c.name).collect();
+    let columns: Vec<String> = result
+        .columns
+        .into_iter()
+        .map(|c| c.name.to_string())
+        .collect();
 
     // Parse results using strategy
     strategy.parse_index_detection_result(&rows, &columns)

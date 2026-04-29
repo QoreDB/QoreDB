@@ -133,3 +133,4 @@ Applique l'internationalisation de manière systématique via `src/lib/i18n.ts`.
 Pour les traductions, pense à toutes les langues, et écris dans un français clair et concis (avec les accents).
 Utilise les composants UI de `src/components/ui/` autant que possible pour garantir la cohérence visuelle.
 Quand tu ajoutes une nouvelle fonctionnalité, pense à la documentation associée (README, doc/rules/FEATURES.md) et à la licence (header SPDX).
+Commente le code avec parcimonie, les commentaires doivent seulement etre utiles à la compréhension du code, pas des réflexions internes.

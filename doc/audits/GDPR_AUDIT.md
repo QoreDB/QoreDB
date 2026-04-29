@@ -24,6 +24,11 @@ L'audit du projet **QoreDB** révèle une architecture **"Local-First"** (Priori
 
 - **Identifiants :** Les mots de passe et clés de connexion aux bases de données sont stockés dans le coffre-fort sécurisé du système d'exploitation (Keychain sur macOS, Credential Manager sur Windows, Secret Service sur Linux) via la bibliothèque `keyring`. Ils ne sont pas stockés en clair dans des fichiers de configuration.
 - **Rédaction des Logs :** Le code utilise un wrapper `Sensitive<T>` (`src-tauri/src/observability/sensitive.rs`) qui remplace automatiquement les données sensibles par `[REDACTED]` ou `***` lors de la sérialisation ou de l'affichage dans les logs.
+- **Rédaction du journal d'audit :** Avant persistance (`audit.jsonl`) ou mémorisation comme slow-query, chaque requête est caviardée par `interceptor::redaction::redact_query`, qui dispatche selon le driver :
+  - **SQL** : URI de connexion (`scheme://user:pass@host` → `scheme://***@host`), assignations `password=/token=/secret=/api_key=`, littéraux chaîne `'...'`.
+  - **MongoDB** : champs JSON/shell sensibles (`password`, `passwd`, `secret`, `token`, `api_key`, `credentials`, `authorization`, `auth`) → `"[REDACTED]"`, ainsi que les URI `mongodb://` et `mongodb+srv://`.
+  - **Redis** : arguments de `AUTH`, valeurs de `CONFIG SET requirepass/masterauth/…`, corps de `EVAL`/`EVALSHA` (remplacés par `"[REDACTED_SCRIPT]"`), clauses d'identification d'`ACL SETUSER` (`>`, `<`, `#`, `!`).
+  - **Toggle** : `audit.redact_enabled` (booléen) et `audit.redaction_patterns` (liste de regex complémentaires) sont configurables via `InterceptorConfig`.
 
 ---
 

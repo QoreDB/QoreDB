@@ -288,6 +288,7 @@ mod tests {
             pool_acquire_timeout_secs: None,
             ssh_tunnel: None,
             proxy: None,
+            mssql_auth: None,
             project_id: "ws_test".to_string(),
         }
     }

@@ -297,6 +297,7 @@ mod tests {
             pool_max_connections: None,
             pool_min_connections: None,
             proxy: None,
+            mssql_auth: None,
         };
 
         let credentials = StoredCredentials {

@@ -55,6 +55,8 @@ export function QueryPanelEditor({
           onChange={onQueryChange}
           onExecute={onExecute}
           readOnly={loading}
+          sessionId={sessionId}
+          activeNamespace={activeNamespace}
         />
       ) : (
         <SQLEditor

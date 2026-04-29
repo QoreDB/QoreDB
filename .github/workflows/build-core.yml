@@ -9,12 +9,20 @@ jobs:
   test-core:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      # sccache via GitHub Actions Cache backend — see PERFORMANCE_PLAN §2.3.
+      SCCACHE_GHA_ENABLED: "true"
+      RUSTC_WRAPPER: "sccache"
+      CARGO_INCREMENTAL: "0"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.6
 
       - name: Install system dependencies
         run: |

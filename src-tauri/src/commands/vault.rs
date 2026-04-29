@@ -10,6 +10,7 @@ use tauri::{AppHandle, Manager, State};
 use crate::commands::workspace::SharedWorkspaceManager;
 use crate::observability::Sensitive;
 use crate::vault::backend::KeyringProvider;
+use crate::engine::types::MssqlAuthMode;
 use crate::vault::credentials::{
     Environment, ProxyInfo, SavedConnection, SshTunnelInfo, StoredCredentials,
 };
@@ -79,6 +80,8 @@ pub struct SaveConnectionInput {
     pub project_id: String,
     pub ssh_tunnel: Option<SshTunnelInput>,
     pub proxy: Option<ProxyInput>,
+    #[serde(default)]
+    pub mssql_auth: Option<MssqlAuthMode>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -241,6 +244,7 @@ pub async fn save_connection(
         pool_acquire_timeout_secs: input.pool_acquire_timeout_secs,
         ssh_tunnel,
         proxy,
+        mssql_auth: input.mssql_auth,
         project_id: input.project_id,
     };
 

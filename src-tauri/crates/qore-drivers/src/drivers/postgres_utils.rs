@@ -501,8 +501,8 @@ pub(crate) fn get_column_info(row: &PgRow) -> Vec<ColumnInfo> {
     row.columns()
         .iter()
         .map(|col| ColumnInfo {
-            name: col.name().to_string(),
-            data_type: col.type_info().name().to_string(),
+            name: col.name().into(),
+            data_type: col.type_info().name().into(),
             nullable: true,
         })
         .collect()

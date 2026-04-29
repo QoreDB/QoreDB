@@ -97,7 +97,7 @@ impl ExportWriter for XlsxWriter {
 
         for (col_idx, col) in columns.iter().enumerate() {
             worksheet
-                .write_string_with_format(0, col_idx as u16, &col.name, &self.header_format)
+                .write_string_with_format(0, col_idx as u16, col.name.as_str(), &self.header_format)
                 .map_err(|e| e.to_string())?;
         }
 

@@ -31,38 +31,86 @@ enum StreamMsg<'a> {
     Done(u64),
 }
 
-/// Dispatch a stream event to the frontend, preferring the binary Channel path
-/// when available. Falls back to `window.emit` (JSON) otherwise.
+/// Initial buffer capacity used the first time we encode a stream event.
+/// Tuned to fit a small `Columns` payload without growing.
+const INITIAL_BUFFER_CAPACITY: usize = 512;
+
+/// Stateful dispatcher that encodes [`StreamEvent`]s as MessagePack and pushes
+/// them to a Tauri `Channel`. Holds a per-stream capacity hint that tracks the
+/// largest payload seen so far, avoiding the grow-realloc cascade that
+/// `rmp_serde::to_vec_named` triggers on every call (it starts from `Vec::new()`
+/// and doubles).
+///
+/// One dispatcher per active stream — keep it alive across the receive loop so
+/// the hint accumulates across batches.
+pub struct StreamDispatcher<'a> {
+    channel: Option<&'a Channel<InvokeResponseBody>>,
+    window: &'a Window,
+    query_id: &'a str,
+    capacity_hint: usize,
+}
+
+impl<'a> StreamDispatcher<'a> {
+    pub fn new(
+        channel: Option<&'a Channel<InvokeResponseBody>>,
+        window: &'a Window,
+        query_id: &'a str,
+    ) -> Self {
+        Self {
+            channel,
+            window,
+            query_id,
+            capacity_hint: INITIAL_BUFFER_CAPACITY,
+        }
+    }
+
+    /// Push an event downstream. Falls back to `window.emit` if no channel was
+    /// provided or if msgpack encoding fails.
+    pub fn dispatch(&mut self, event: StreamEvent) {
+        if let Some(ch) = self.channel {
+            let msg = match &event {
+                StreamEvent::Columns(cols) => StreamMsg::Columns(cols.as_slice()),
+                StreamEvent::Row(row) => StreamMsg::Row(row),
+                StreamEvent::RowBatch(batch) => StreamMsg::RowBatch(batch.as_slice()),
+                StreamEvent::Error(e) => StreamMsg::Error(e.as_str()),
+                StreamEvent::Done(a) => StreamMsg::Done(*a),
+            };
+            let mut buf = Vec::with_capacity(self.capacity_hint);
+            match rmp_serde::encode::write_named(&mut buf, &msg) {
+                Ok(()) => {
+                    // Track the largest payload seen so the next encode lands
+                    // in a buffer big enough on the first try.
+                    if buf.len() > self.capacity_hint {
+                        self.capacity_hint = buf.len();
+                    }
+                    if ch.send(InvokeResponseBody::Raw(buf)).is_ok() {
+                        return;
+                    }
+                    // Channel closed — degrade silently; the frontend has already
+                    // moved on.
+                }
+                Err(err) => {
+                    tracing::warn!(?err, "msgpack encode failed; falling back to window.emit");
+                    dispatch_via_emit(event, self.window, self.query_id);
+                }
+            }
+        } else {
+            dispatch_via_emit(event, self.window, self.query_id);
+        }
+    }
+}
+
+/// One-shot helper for callers that don't keep a long-lived dispatcher (e.g.
+/// timeout / error paths that emit a single event). Allocates a fresh
+/// dispatcher each time, so prefer [`StreamDispatcher`] in the streaming
+/// receive loop.
 pub fn dispatch_stream_event(
     event: StreamEvent,
     channel: Option<&Channel<InvokeResponseBody>>,
     window: &Window,
     query_id: &str,
 ) {
-    if let Some(ch) = channel {
-        let msg = match &event {
-            StreamEvent::Columns(cols) => StreamMsg::Columns(cols.as_slice()),
-            StreamEvent::Row(row) => StreamMsg::Row(row),
-            StreamEvent::RowBatch(batch) => StreamMsg::RowBatch(batch.as_slice()),
-            StreamEvent::Error(e) => StreamMsg::Error(e.as_str()),
-            StreamEvent::Done(a) => StreamMsg::Done(*a),
-        };
-        match rmp_serde::to_vec_named(&msg) {
-            Ok(bytes) => {
-                if ch.send(InvokeResponseBody::Raw(bytes)).is_ok() {
-                    return;
-                }
-                // Channel closed — degrade silently; the frontend has already
-                // moved on.
-            }
-            Err(err) => {
-                tracing::warn!(?err, "msgpack encode failed; falling back to window.emit");
-                dispatch_via_emit(event, window, query_id);
-            }
-        }
-    } else {
-        dispatch_via_emit(event, window, query_id);
-    }
+    StreamDispatcher::new(channel, window, query_id).dispatch(event);
 }
 
 /// Legacy JSON event path. Kept for callers that don't provide a Channel (and

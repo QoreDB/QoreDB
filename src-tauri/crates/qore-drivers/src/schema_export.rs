@@ -183,6 +183,7 @@ mod tests {
                 columns: vec!["user_id".to_string()],
                 is_unique: false,
                 is_primary: false,
+                index_type: None,
             }],
         };
 

@@ -183,13 +183,14 @@ Note: en exécution multi-statements, seul le dernier résultat est affiché (UI
 
 ### NoSQL
 
-| Status | Feature                       | Version |
-| ------ | ----------------------------- | ------- |
-| ✅     | Edition document JSON         | V1      |
-| ✅     | Insert / delete document      | V1      |
-| ⬜     | Bulk update (with preview)    | V2      |
-| ⬜     | Validation schema optionnelle | V2      |
-| ✅     | Pagination/limit              | V1      |
+| Status | Feature                                                     | Version |
+| ------ | ----------------------------------------------------------- | ------- |
+| ✅     | Edition document JSON                                       | V1      |
+| ✅     | Insert / delete document                                    | V1      |
+| ✅     | Redis : création/édition/suppression de clés (tous types)   | V1      |
+| ⬜     | Bulk update (with preview)                                  | V2      |
+| ⬜     | Validation schema optionnelle                               | V2      |
+| ✅     | Pagination/limit                                            | V1      |
 
 ---
 

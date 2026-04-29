@@ -35,10 +35,12 @@ pub struct FailedChange {
 }
 
 // ==================== Implementation ====================
-// Always compiled. Core mode enforces a 3-change limit.
+// Always compiled. Core mode enforces a 5-change batch limit (covers
+// Bulk Edit and other batched mutation flows). The Sandbox UI itself is
+// still Pro-gated, so Core users only reach this limit through Bulk Edit.
 
 #[cfg(not(feature = "pro"))]
-const CORE_SANDBOX_LIMIT: usize = 3;
+const CORE_SANDBOX_LIMIT: usize = 5;
 
 mod sandbox_impl {
     use super::*;
@@ -68,7 +70,7 @@ mod sandbox_impl {
                 success: false,
                 script: None,
                 error: Some(format!(
-                    "Core edition is limited to {} sandbox changes. Upgrade to QoreDB Pro for unlimited.",
+                    "Core edition is limited to {} changes per batch. Upgrade to QoreDB Pro for unlimited.",
                     CORE_SANDBOX_LIMIT
                 )),
             });
@@ -111,7 +113,7 @@ mod sandbox_impl {
                 success: false,
                 applied_count: 0,
                 error: Some(format!(
-                    "Core edition is limited to {} sandbox changes. Upgrade to QoreDB Pro for unlimited.",
+                    "Core edition is limited to {} changes per batch. Upgrade to QoreDB Pro for unlimited.",
                     CORE_SANDBOX_LIMIT
                 )),
                 failed_changes: vec![],

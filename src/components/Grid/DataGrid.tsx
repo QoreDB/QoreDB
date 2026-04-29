@@ -30,6 +30,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { useShareLinks } from '@/hooks/useShareLinks';
 import { useStreamingExport } from '@/hooks/useStreamingExport';
 import { aiExplainResult } from '@/lib/ai';
+import { BULK_EDIT_CORE_LIMIT } from '@/lib/bulkEdit';
+import type { Driver } from '@/lib/drivers';
 import type { ExportConfig } from '@/lib/export';
 import { applyOverlay, emptyOverlayResult, type OverlayResult } from '@/lib/sandboxOverlay';
 import type { SandboxChange, SandboxDeleteDisplay } from '@/lib/sandboxTypes';
@@ -46,6 +48,7 @@ import type {
 import { type ExportDataDetail, UI_EVENT_EXPORT_DATA } from '@/lib/uiEvents';
 import { useAiPreferences } from '@/providers/AiPreferencesProvider';
 import { useLicense } from '@/providers/LicenseProvider';
+import { BulkEditDialog } from './BulkEditDialog';
 import { DataGridColumnHeader } from './DataGridColumnHeader';
 import { DataGridHeader } from './DataGridHeader';
 import { DataGridPagination } from './DataGridPagination';
@@ -122,6 +125,8 @@ interface DataGridProps {
   onServerColumnFiltersChange?: (filters: ColumnFilter[]) => void;
   exportQuery?: string;
   footerMode?: 'auto' | 'pagination' | 'infinite' | 'none';
+  /** SQL dialect for embedded previews (Bulk Edit, etc.). Defaults to Postgres. */
+  driver?: Driver;
 }
 
 export function DataGrid({
@@ -159,6 +164,7 @@ export function DataGrid({
   onServerColumnFiltersChange,
   exportQuery,
   footerMode = 'auto',
+  driver,
 }: DataGridProps) {
   const { t } = useTranslation();
 
@@ -187,6 +193,7 @@ export function DataGrid({
   });
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [showFilters, setShowFilters] = useState(false);
+  const [bulkEditDialogOpen, setBulkEditDialogOpen] = useState(false);
   const isServerSideSorting = isServerSideMode;
 
   useEffect(() => {
@@ -864,6 +871,20 @@ export function DataGrid({
   const selectedCount = Object.keys(rowSelection).length;
   const selectedRows = table.getSelectedRowModel().rows;
 
+  const hasBulkEditUnlimited = isFeatureEnabled('bulk_edit_unlimited');
+  const canBulkEdit = Boolean(
+    sessionId &&
+      namespace &&
+      tableName &&
+      primaryKey &&
+      primaryKey.length > 0 &&
+      tableSchema &&
+      selectedCount >= 2
+  );
+  const bulkEditRequiresPro = !hasBulkEditUnlimited && selectedCount > BULK_EDIT_CORE_LIMIT;
+  const bulkEditDisabled =
+    selectedCount < 2 || readOnly || !mutationsSupported || bulkEditRequiresPro;
+
   return (
     <div
       className="isolate flex h-full min-h-0 min-w-0 flex-col gap-2 contain-[paint]"
@@ -880,6 +901,10 @@ export function DataGrid({
           onDelete={handleDelete}
           readOnly={readOnly}
           mutationsSupported={mutationsSupported}
+          canBulkEdit={canBulkEdit}
+          bulkEditDisabled={bulkEditDisabled}
+          bulkEditRequiresPro={bulkEditRequiresPro}
+          onBulkEdit={() => setBulkEditDialogOpen(true)}
         />
 
         <DataGridToolbar
@@ -970,6 +995,24 @@ export function DataGrid({
           setDeleteDialogOpen(false);
         }}
         isDeleting={isDeleting}
+      />
+
+      <BulkEditDialog
+        open={bulkEditDialogOpen}
+        onOpenChange={setBulkEditDialogOpen}
+        selectedRows={selectedRows.map(r => r.original)}
+        tableSchema={tableSchema ?? null}
+        primaryKey={primaryKey}
+        namespace={namespace}
+        tableName={tableName}
+        sessionId={sessionId}
+        dialect={driver}
+        sandboxMode={sandboxMode}
+        onSandboxUpdate={onSandboxUpdate}
+        onApplied={() => {
+          table.resetRowSelection();
+          onRowsUpdated?.();
+        }}
       />
 
       {result && (

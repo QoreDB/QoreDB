@@ -20,8 +20,8 @@ import type {
   TableSchema,
   Value,
 } from '@/lib/tauri';
-import { ErrorBoundary } from '../ui/error-boundary';
 import { DataGrid } from '../Grid/DataGrid';
+import { ErrorBoundary } from '../ui/error-boundary';
 import { DocumentResults } from './DocumentResults';
 
 interface ResultsViewerProps {
@@ -146,6 +146,7 @@ export const ResultsViewer = memo(function ResultsViewer({
       <DataGrid
         result={safeResult}
         sessionId={sessionId}
+        driver={driver}
         namespace={namespace}
         tableName={tableName}
         tableSchema={tableSchema}

@@ -10,7 +10,6 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -30,20 +29,13 @@ import { ImagePreview } from './blob/ImagePreview';
 import { SvgSourceView } from './blob/SvgSourceView';
 import { useBlobActions } from './blob/useBlobActions';
 
-type Tab = 'hex' | 'base64' | 'preview' | 'svgSource';
+type Tab = 'preview' | 'svgSource' | 'hex' | 'base64';
 
 interface TabSpec {
   id: Tab;
   labelKey: string;
   Icon: typeof FileCode;
 }
-
-const ALL_TABS: TabSpec[] = [
-  { id: 'hex', labelKey: 'blobViewer.hex', Icon: FileCode },
-  { id: 'base64', labelKey: 'blobViewer.base64', Icon: Binary },
-  { id: 'preview', labelKey: 'blobViewer.preview', Icon: Eye },
-  { id: 'svgSource', labelKey: 'blobViewer.svgSource', Icon: FileCode },
-];
 
 interface BlobViewerProps {
   open: boolean;
@@ -58,7 +50,6 @@ interface BlobViewerProps {
 
 export function BlobViewer({ open, onOpenChange, value, columnName, dataType }: BlobViewerProps) {
   const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState<Tab>('hex');
   const openTrackedRef = useRef(false);
 
   const byteSize = useMemo(() => estimateByteSizeFromBase64(value), [value]);
@@ -68,7 +59,20 @@ export function BlobViewer({ open, onOpenChange, value, columnName, dataType }: 
   const isTruncated = byteSize > MAX_HEX_DUMP_BYTES;
   const isSvg = blobKind?.kind === 'svg';
 
-  const tabs = useMemo(() => ALL_TABS.filter(tab => tab.id !== 'svgSource' || isSvg), [isSvg]);
+  const tabs = useMemo(() => {
+    const list: TabSpec[] = [];
+    if (blobKind) list.push({ id: 'preview', labelKey: 'blobViewer.preview', Icon: Eye });
+    if (isSvg) list.push({ id: 'svgSource', labelKey: 'blobViewer.svgSource', Icon: FileCode });
+    list.push({ id: 'hex', labelKey: 'blobViewer.hex', Icon: FileCode });
+    list.push({ id: 'base64', labelKey: 'blobViewer.base64', Icon: Binary });
+    return list;
+  }, [blobKind, isSvg]);
+
+  const [activeTab, setActiveTab] = useState<Tab>(() => tabs[0].id);
+
+  useEffect(() => {
+    if (open) setActiveTab(tabs[0].id);
+  }, [open, tabs]);
 
   const actions = useBlobActions({
     value,
@@ -115,6 +119,12 @@ export function BlobViewer({ open, onOpenChange, value, columnName, dataType }: 
     [tabs]
   );
 
+  const kindLabel = blobKind
+    ? blobKind.kind === 'svg'
+      ? 'SVG'
+      : blobKind.type.toUpperCase()
+    : null;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[80vh] flex flex-col">
@@ -123,93 +133,89 @@ export function BlobViewer({ open, onOpenChange, value, columnName, dataType }: 
             <Binary className="h-4 w-4 text-muted-foreground" />
             {columnName}
           </DialogTitle>
-          <DialogDescription className="flex items-center gap-3 text-xs">
-            <span>
-              {t('blobViewer.type')}: <code className="text-foreground">{dataType}</code>
-            </span>
-            <span>
-              {t('blobViewer.size')}:{' '}
-              <code className="text-foreground">{formatFileSize(byteSize)}</code>
-            </span>
-            {blobKind && (
-              <span className="text-accent">
-                {blobKind.kind === 'svg' ? 'SVG' : blobKind.type.toUpperCase()}{' '}
-                {t('blobViewer.imagePreview').toLowerCase()}
-              </span>
+          <DialogDescription className="text-xs flex items-center gap-2">
+            <code className="text-foreground">{dataType}</code>
+            <span className="text-muted-foreground">·</span>
+            <span>{formatFileSize(byteSize)}</span>
+            {kindLabel && (
+              <>
+                <span className="text-muted-foreground">·</span>
+                <span className="text-accent font-medium">{kindLabel}</span>
+              </>
             )}
             {isTooLarge && (
-              <span className="text-destructive font-medium">{t('blobViewer.tooLarge')}</span>
+              <span className="ml-auto text-destructive font-medium">
+                {t('blobViewer.tooLarge')}
+              </span>
             )}
           </DialogDescription>
         </DialogHeader>
 
-        <div
-          role="tablist"
-          aria-label={t('blobViewer.title')}
-          className="flex gap-1 border-b border-border pb-0"
-        >
-          {tabs.map((tab, idx) => (
-            <button
-              type="button"
-              key={tab.id}
-              id={`blob-tab-${tab.id}`}
-              role="tab"
-              aria-selected={activeTab === tab.id}
-              aria-controls={`blob-tabpanel-${tab.id}`}
-              tabIndex={activeTab === tab.id ? 0 : -1}
-              onClick={() => setActiveTab(tab.id)}
-              onKeyDown={e => handleTabKeyDown(e, idx)}
-              className={`
-                flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-t-md
-                transition-colors border-b-2 -mb-px
-                ${
-                  activeTab === tab.id
-                    ? 'border-accent text-accent bg-accent/5'
-                    : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/30'
-                }
-              `}
+        <div className="flex items-end justify-between gap-2 border-b border-border">
+          <div role="tablist" aria-label={t('blobViewer.title')} className="flex gap-1">
+            {tabs.map((tab, idx) => (
+              <button
+                type="button"
+                key={tab.id}
+                id={`blob-tab-${tab.id}`}
+                role="tab"
+                aria-selected={activeTab === tab.id}
+                aria-controls={`blob-tabpanel-${tab.id}`}
+                tabIndex={activeTab === tab.id ? 0 : -1}
+                onClick={() => setActiveTab(tab.id)}
+                onKeyDown={e => handleTabKeyDown(e, idx)}
+                className={`
+                  flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-t-md
+                  transition-colors border-b-2 -mb-px
+                  ${
+                    activeTab === tab.id
+                      ? 'border-accent text-accent bg-accent/5'
+                      : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/30'
+                  }
+                `}
+              >
+                <tab.Icon className="h-3.5 w-3.5" />
+                {t(tab.labelKey)}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-1 pb-1">
+            {blobKind && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={actions.copyDataUri}
+                disabled={isTooLarge}
+                title={t('blobViewer.copyDataUri')}
+                aria-label={t('blobViewer.copyDataUri')}
+              >
+                <Link2 className="h-3.5 w-3.5" />
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={actions.openExternal}
+              disabled={isTooLarge}
+              title={t('blobViewer.openExternal')}
+              aria-label={t('blobViewer.openExternal')}
             >
-              <tab.Icon className="h-3.5 w-3.5" />
-              {t(tab.labelKey)}
-            </button>
-          ))}
+              <ExternalLink className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={actions.download}
+              disabled={isTooLarge}
+              title={t('blobViewer.download')}
+              aria-label={t('blobViewer.download')}
+            >
+              <Download className="h-3.5 w-3.5" />
+            </Button>
+          </div>
         </div>
 
         <div className="flex-1 min-h-0">
-          {activeTab === 'hex' && (
-            <div role="tabpanel" id="blob-tabpanel-hex" aria-labelledby="blob-tab-hex">
-              <ScrollArea className="h-[400px] rounded-md border border-border bg-muted/20">
-                <pre className="font-mono text-xs leading-5 p-3 select-text whitespace-pre">
-                  {hexDump}
-                </pre>
-                {isTruncated && (
-                  <div className="px-3 pb-3 text-xs text-muted-foreground italic">
-                    {t('blobViewer.truncated', {
-                      size: formatFileSize(MAX_HEX_DUMP_BYTES),
-                      total: formatFileSize(byteSize),
-                    })}
-                  </div>
-                )}
-              </ScrollArea>
-            </div>
-          )}
-
-          {activeTab === 'base64' && (
-            <div role="tabpanel" id="blob-tabpanel-base64" aria-labelledby="blob-tab-base64">
-              <ScrollArea className="h-[400px] rounded-md border border-border bg-muted/20">
-                {isTooLarge ? (
-                  <div className="p-4 text-sm text-muted-foreground italic text-center">
-                    {t('blobViewer.tooLarge')} ({formatFileSize(byteSize)})
-                  </div>
-                ) : (
-                  <pre className="font-mono text-xs leading-5 p-3 select-text whitespace-pre-wrap break-all">
-                    {value}
-                  </pre>
-                )}
-              </ScrollArea>
-            </div>
-          )}
-
           {activeTab === 'preview' && (
             <div
               role="tabpanel"
@@ -237,51 +243,59 @@ export function BlobViewer({ open, onOpenChange, value, columnName, dataType }: 
               <SvgSourceView base64={value} />
             </div>
           )}
-        </div>
 
-        <DialogFooter className="flex-row gap-2 sm:justify-between flex-wrap">
-          <div className="flex gap-2 flex-wrap">
-            <Button variant="outline" size="sm" onClick={actions.copyBase64} disabled={isTooLarge}>
-              <Copy className="h-3.5 w-3.5 mr-1.5" />
-              Base64
-            </Button>
-            <Button variant="outline" size="sm" onClick={actions.copyHex}>
-              <Copy className="h-3.5 w-3.5 mr-1.5" />
-              Hex
-            </Button>
-            {blobKind && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={actions.copyDataUri}
-                disabled={isTooLarge}
-                title={t('blobViewer.copyDataUri')}
-              >
-                <Link2 className="h-3.5 w-3.5 mr-1.5" />
-                {t('blobViewer.copyDataUri')}
-              </Button>
-            )}
-          </div>
-          <div className="flex gap-2 flex-wrap">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={actions.openExternal}
-              disabled={isTooLarge}
-              title={t('blobViewer.openExternal')}
-            >
-              <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
-              {t('blobViewer.openExternal')}
-            </Button>
-            <Button variant="outline" size="sm" onClick={actions.download} disabled={isTooLarge}>
-              <Download className="h-3.5 w-3.5 mr-1.5" />
-              {t('blobViewer.download')}
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)}>
-              {t('common.close')}
-            </Button>
-          </div>
-        </DialogFooter>
+          {activeTab === 'hex' && (
+            <div role="tabpanel" id="blob-tabpanel-hex" aria-labelledby="blob-tab-hex">
+              <div className="flex justify-end pb-1">
+                <Button variant="ghost" size="sm" onClick={actions.copyHex} className="h-6 px-2">
+                  <Copy className="h-3 w-3 mr-1" />
+                  <span className="text-xs">Hex</span>
+                </Button>
+              </div>
+              <ScrollArea className="h-[370px] rounded-md border border-border bg-muted/20">
+                <pre className="font-mono text-xs leading-5 p-3 select-text whitespace-pre">
+                  {hexDump}
+                </pre>
+                {isTruncated && (
+                  <div className="px-3 pb-3 text-xs text-muted-foreground italic">
+                    {t('blobViewer.truncated', {
+                      size: formatFileSize(MAX_HEX_DUMP_BYTES),
+                      total: formatFileSize(byteSize),
+                    })}
+                  </div>
+                )}
+              </ScrollArea>
+            </div>
+          )}
+
+          {activeTab === 'base64' && (
+            <div role="tabpanel" id="blob-tabpanel-base64" aria-labelledby="blob-tab-base64">
+              <div className="flex justify-end pb-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={actions.copyBase64}
+                  disabled={isTooLarge}
+                  className="h-6 px-2"
+                >
+                  <Copy className="h-3 w-3 mr-1" />
+                  <span className="text-xs">Base64</span>
+                </Button>
+              </div>
+              <ScrollArea className="h-[370px] rounded-md border border-border bg-muted/20">
+                {isTooLarge ? (
+                  <div className="p-4 text-sm text-muted-foreground italic text-center">
+                    {t('blobViewer.tooLarge')} ({formatFileSize(byteSize)})
+                  </div>
+                ) : (
+                  <pre className="font-mono text-xs leading-5 p-3 select-text whitespace-pre-wrap break-all">
+                    {value}
+                  </pre>
+                )}
+              </ScrollArea>
+            </div>
+          )}
+        </div>
       </DialogContent>
     </Dialog>
   );

@@ -32,7 +32,8 @@ export type ProFeature =
   | 'custom_safety_rules'
   | 'query_library_advanced'
   | 'virtual_relations_auto_suggest'
-  | 'data_time_travel';
+  | 'data_time_travel'
+  | 'bulk_edit_unlimited';
 
 // ============================================
 // TIER UTILITIES
@@ -58,6 +59,7 @@ const FEATURE_REQUIRED_TIER: Record<ProFeature, LicenseTier> = {
   query_library_advanced: 'pro',
   virtual_relations_auto_suggest: 'pro',
   data_time_travel: 'pro',
+  bulk_edit_unlimited: 'pro',
 };
 
 /** Returns true if `current` tier includes features of `required` tier. */

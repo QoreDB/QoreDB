@@ -9,6 +9,7 @@ import { Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import type { QueryResult } from '@/lib/tauri';
+import { BulkEditButton } from './BulkEditButton';
 
 export interface DataGridHeaderProps {
   selectedCount: number;
@@ -20,6 +21,10 @@ export interface DataGridHeaderProps {
   onDelete: () => void;
   readOnly: boolean;
   mutationsSupported: boolean;
+  canBulkEdit: boolean;
+  bulkEditDisabled: boolean;
+  bulkEditRequiresPro: boolean;
+  onBulkEdit: () => void;
 }
 
 export function DataGridHeader({
@@ -33,6 +38,10 @@ export function DataGridHeader({
   onDelete,
   readOnly,
   mutationsSupported,
+  canBulkEdit,
+  bulkEditDisabled,
+  bulkEditRequiresPro,
+  onBulkEdit,
 }: DataGridHeaderProps) {
   const { t } = useTranslation();
 
@@ -66,6 +75,17 @@ export function DataGridHeader({
             </div>
           )}
         </div>
+      )}
+
+      {canBulkEdit && (
+        <BulkEditButton
+          selectedCount={selectedCount}
+          disabled={bulkEditDisabled}
+          requiresPro={bulkEditRequiresPro}
+          readOnly={readOnly}
+          mutationsSupported={mutationsSupported}
+          onClick={onBulkEdit}
+        />
       )}
 
       {canDelete && (

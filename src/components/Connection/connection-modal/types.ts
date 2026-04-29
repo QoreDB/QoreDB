@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Driver } from '@/lib/drivers';
-import type { Environment } from '@/lib/tauri';
+import type { Environment, MssqlAuthMode } from '@/lib/tauri';
 
 export interface ConnectionFormData {
   name: string;
@@ -15,6 +15,7 @@ export interface ConnectionFormData {
   database: string;
   ssl: boolean;
   sslMode: string;
+  mssqlAuthMode: MssqlAuthMode;
   poolMaxConnections: number;
   poolMinConnections: number;
   poolAcquireTimeoutSecs: number;
@@ -54,6 +55,7 @@ export const initialConnectionFormData: ConnectionFormData = {
   database: '',
   ssl: false,
   sslMode: '',
+  mssqlAuthMode: 'sql_password',
   poolMaxConnections: 5,
   poolMinConnections: 0,
   poolAcquireTimeoutSecs: 30,

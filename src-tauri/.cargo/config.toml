@@ -5,12 +5,36 @@
 # Limit parallel compilation to 10 cores
 jobs = 10
 
-# Use sccache if available (avoids recompiling DuckDB after cargo clean)
-# Install with: cargo install sccache
-# rustc-wrapper = "sccache"
+# sccache (opt-in, local) — avoids recompiling heavy crates after `cargo clean`.
+# CI activates it automatically (see .github/workflows/{ci,build-core,build-pro}.yml
+# and PERFORMANCE_PLAN.md §2.3). For local use:
+#   1. `cargo install sccache --locked`
+#   2. Export in your shell rc:  export RUSTC_WRAPPER=sccache CARGO_INCREMENTAL=0
+# We don't enable it via this file because it would crash the build for any
+# contributor who hasn't installed sccache yet.
+
+# ----------------------------------------------------------------------------
+# CPU baseline — target-cpu for release-distributed architectures
+# ----------------------------------------------------------------------------
+# We do NOT use `target-cpu=native`: that would tie the binary to the build
+# machine's CPU and break portability of distributed artefacts.
+#
+# - x86-64-v3 = Haswell (2013+) — covers ~98% of Intel/AMD desktops, enables
+#   AVX2/BMI2/FMA for the compiler's autovectorizer.
+# - apple-m1  = Apple Silicon baseline (M1/M2/M3/M4), enables NEON/ARMv8.5-A.
+# - Intel Mac (x86_64-apple-darwin) stays on the default macOS x86_64 baseline
+#   to preserve compatibility with older Intel Macs still supported by macOS.
+# ----------------------------------------------------------------------------
 
 [target.x86_64-unknown-linux-gnu]
+rustflags = ["-C", "target-cpu=x86-64-v3"]
 # Use mold linker if available (2-5x faster linking)
 # Install with: sudo pacman -S mold (Arch) or sudo apt install mold (Ubuntu)
 # linker = "clang"
-# rustflags = ["-C", "link-arg=-fuse-ld=mold"]
+# rustflags = ["-C", "link-arg=-fuse-ld=mold", "-C", "target-cpu=x86-64-v3"]
+
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "target-cpu=x86-64-v3"]
+
+[target.aarch64-apple-darwin]
+rustflags = ["-C", "target-cpu=apple-m1"]

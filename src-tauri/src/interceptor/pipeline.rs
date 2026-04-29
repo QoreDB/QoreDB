@@ -110,6 +110,9 @@ impl InterceptorPipeline {
         self.safety
             .apply_builtin_overrides(&config.builtin_rule_overrides);
 
+        super::redaction::set_redaction_enabled(config.redact_enabled);
+        super::redaction::set_custom_patterns(&config.redaction_patterns);
+
         *self.config.write() = config;
     }
 

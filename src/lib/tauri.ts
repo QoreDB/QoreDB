@@ -12,6 +12,8 @@ import { Channel, invoke } from '@tauri-apps/api/core';
 
 export type Environment = 'development' | 'staging' | 'production';
 
+export type MssqlAuthMode = 'sql_password' | 'windows_ntlm' | 'windows_integrated';
+
 export interface ConnectionConfig {
   driver: string;
   host: string;
@@ -28,6 +30,7 @@ export interface ConnectionConfig {
   pool_acquire_timeout_secs?: number;
   ssh_tunnel?: SshTunnelConfig;
   proxy?: ProxyConfig;
+  mssql_auth?: MssqlAuthMode;
 }
 
 export type ProxyType = 'http_connect' | 'socks5';
@@ -88,6 +91,7 @@ export interface SavedConnection {
   pool_min_connections?: number;
   pool_acquire_timeout_secs?: number;
   project_id: string;
+  mssql_auth?: MssqlAuthMode;
   ssh_tunnel?: {
     host: string;
     port: number;
@@ -330,6 +334,7 @@ export async function executeQuery(
     queryId?: string;
     namespace?: Namespace;
     streamHandlers?: QueryStreamHandlers;
+    bypassLimits?: boolean;
   }
 ): Promise<{
   success: boolean;
@@ -351,6 +356,7 @@ export async function executeQuery(
     queryId: options?.queryId,
     timeoutMs: options?.timeoutMs,
     stream: options?.stream,
+    bypassLimits: options?.bypassLimits,
     onStream: channel,
   });
 }
@@ -878,6 +884,12 @@ export interface TableIndex {
   columns: string[];
   is_unique: boolean;
   is_primary: boolean;
+  /**
+   * Engine-specific index type (e.g. "btree", "hash", "gin", "gist",
+   * "fulltext", "text", "2dsphere"). Absent or `null` when not reported
+   * by the driver.
+   */
+  index_type?: string | null;
 }
 
 export interface TableSchema {
@@ -956,12 +968,22 @@ export type FilterOperator =
   | 'lte'
   | 'like'
   | 'is_null'
-  | 'is_not_null';
+  | 'is_not_null'
+  | 'regex'
+  | 'text';
+
+export interface FilterOptions {
+  /** Regex flags string for `regex` operator (subset of `imxs`). */
+  regex_flags?: string;
+  /** Language tag for `text` operator (e.g. "english", "french"). */
+  text_language?: string;
+}
 
 export interface ColumnFilter {
   column: string;
   operator: FilterOperator;
   value: Value;
+  options?: FilterOptions;
 }
 
 export interface TableQueryOptions {
@@ -1332,6 +1354,7 @@ export async function saveConnection(input: {
   pool_min_connections?: number;
   pool_acquire_timeout_secs?: number;
   project_id: string;
+  mssql_auth?: MssqlAuthMode;
   ssh_tunnel?: {
     host: string;
     port: number;

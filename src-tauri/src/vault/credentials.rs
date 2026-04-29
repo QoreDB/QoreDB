@@ -7,7 +7,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::engine::error::{EngineError, EngineResult};
-use crate::engine::types::{ConnectionConfig, SshTunnelConfig};
+use crate::engine::types::{ConnectionConfig, MssqlAuthMode, SshTunnelConfig};
 
 /// Environment classification for connections
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
@@ -69,6 +69,9 @@ pub struct SavedConnection {
     /// Network proxy configuration (without credentials)
     #[serde(default)]
     pub proxy: Option<ProxyInfo>,
+    /// SQL Server authentication mode. `None` on legacy saved connections.
+    #[serde(default)]
+    pub mssql_auth: Option<MssqlAuthMode>,
     /// Project ID for isolation
     pub project_id: String,
 }
@@ -237,6 +240,7 @@ impl SavedConnection {
             pool_acquire_timeout_secs: self.pool_acquire_timeout_secs,
             ssh_tunnel,
             proxy,
+            mssql_auth: self.mssql_auth,
         })
     }
 }
@@ -275,6 +279,7 @@ mod tests {
                 keepalive_count_max: 3,
             }),
             proxy: None,
+            mssql_auth: None,
             project_id: "proj".to_string(),
         }
     }
@@ -363,5 +368,49 @@ mod tests {
             .to_connection_config(&creds)
             .expect_err("invalid host_key_policy should error");
         assert!(err.to_string().contains("Invalid ssh host_key_policy"));
+    }
+
+    #[test]
+    fn mssql_auth_is_propagated_to_connection_config() -> EngineResult<()> {
+        let mut connection = base_connection("password", "accept_new");
+        connection.driver = "sqlserver".to_string();
+        connection.username = "CORP\\jdoe".to_string();
+        connection.mssql_auth = Some(MssqlAuthMode::WindowsNtlm);
+
+        let creds = StoredCredentials {
+            db_password: Sensitive::new("db".to_string()),
+            ssh_password: Some(Sensitive::new("sshpw".to_string())),
+            ssh_key_passphrase: None,
+            proxy_password: None,
+        };
+
+        let config = connection.to_connection_config(&creds)?;
+        assert_eq!(config.mssql_auth, Some(MssqlAuthMode::WindowsNtlm));
+        assert_eq!(config.username, "CORP\\jdoe");
+        Ok(())
+    }
+
+    #[test]
+    fn saved_connection_roundtrips_through_json_with_windows_ntlm() {
+        let mut connection = base_connection("password", "accept_new");
+        connection.driver = "sqlserver".to_string();
+        connection.mssql_auth = Some(MssqlAuthMode::WindowsNtlm);
+
+        let json = serde_json::to_string(&connection).expect("serialize");
+        let parsed: SavedConnection = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(parsed.mssql_auth, Some(MssqlAuthMode::WindowsNtlm));
+    }
+
+    #[test]
+    fn saved_connection_accepts_legacy_json_without_mssql_auth() {
+        let legacy = r#"{
+            "id":"c1","name":"legacy","driver":"sqlserver",
+            "environment":"development","read_only":false,
+            "host":"localhost","port":1433,"username":"sa","database":null,
+            "ssl":false,"ssh_tunnel":null,"project_id":"proj"
+        }"#;
+        let parsed: SavedConnection =
+            serde_json::from_str(legacy).expect("legacy json must parse");
+        assert!(parsed.mssql_auth.is_none());
     }
 }

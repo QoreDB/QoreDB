@@ -9,6 +9,7 @@ import {
   Database,
   Download,
   Eye,
+  FileCode,
   FunctionSquare,
   HardDrive,
   Hash,
@@ -25,9 +26,27 @@ import {
   X,
   Zap,
 } from 'lucide-react';
-import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  lazy,
+  Suspense,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 import { useTranslation } from 'react-i18next';
-import { ERDiagram } from '@/components/Schema/ERDiagram';
+import { LuaScriptModal } from '@/components/Editor/LuaScriptModal';
+import {
+  RedisEditorModal,
+  type RedisEditorMode,
+} from '@/components/Editor/RedisEditorModal';
+// ERDiagram pulls in heavy graph-rendering dependencies (D3 / GoJS / etc.).
+// Lazy-loaded so the chunk is only fetched when the user actually opens
+// the schema-overview tab rather than every database browser.
+const ERDiagram = lazy(() =>
+  import('@/components/Schema/ERDiagram').then(m => ({ default: m.ERDiagram }))
+);
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -42,7 +61,7 @@ import { cn } from '@/lib/utils';
 import {
   DRIVER_ICONS,
   DRIVER_LABELS,
-  type Driver,
+  Driver,
   type DriverMetadata,
   getDriverMetadata,
 } from '../../lib/drivers';
@@ -491,6 +510,8 @@ export function DatabaseBrowser({
 
   const [activeTab, setActiveTab] = useState<DatabaseBrowserTab>(initialTab ?? 'overview');
   const [createTableOpen, setCreateTableOpen] = useState(false);
+  const [redisEditorMode, setRedisEditorMode] = useState<RedisEditorMode | null>(null);
+  const [luaModalOpen, setLuaModalOpen] = useState(false);
   const [schemaExportOpen, setSchemaExportOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -738,13 +759,21 @@ export function DatabaseBrowser({
     default:
       content = (
         <div className="h-full">
-          <ERDiagram
-            sessionId={sessionId}
-            namespace={stableNamespace}
-            connectionId={connectionId}
-            schemaRefreshTrigger={schemaRefreshTrigger}
-            onTableSelect={onTableSelect}
-          />
+          <Suspense
+            fallback={
+              <div className="flex h-full items-center justify-center p-8">
+                <div className="h-2 w-32 animate-pulse rounded-full bg-muted" aria-hidden="true" />
+              </div>
+            }
+          >
+            <ERDiagram
+              sessionId={sessionId}
+              namespace={stableNamespace}
+              connectionId={connectionId}
+              schemaRefreshTrigger={schemaRefreshTrigger}
+              onTableSelect={onTableSelect}
+            />
+          </Suspense>
         </div>
       );
   }
@@ -757,6 +786,8 @@ export function DatabaseBrowser({
         environment={environment}
         namespace={stableNamespace}
         onClose={onClose}
+        onOpenCreateRedisKey={() => setRedisEditorMode({ kind: 'create-key' })}
+        onOpenLuaScript={() => setLuaModalOpen(true)}
         onOpenCreateTable={() => setCreateTableOpen(true)}
         onOpenFulltextSearch={onOpenFulltextSearch}
         onOpenQueryTab={onOpenQueryTab}
@@ -797,6 +828,35 @@ export function DatabaseBrowser({
         supportsEvents={schemaObjectCapabilities.events}
         supportsSequences={schemaObjectCapabilities.sequences}
       />
+
+      {redisEditorMode && (
+        <RedisEditorModal
+          isOpen={true}
+          onClose={() => setRedisEditorMode(null)}
+          mode={redisEditorMode}
+          sessionId={sessionId}
+          onSuccess={() => {
+            void refreshData();
+          }}
+          readOnly={readOnly}
+          environment={environment}
+          connectionName={connectionName}
+          connectionDatabase={stableNamespace.database}
+        />
+      )}
+
+      {driver === Driver.Redis && (
+        <LuaScriptModal
+          isOpen={luaModalOpen}
+          onClose={() => setLuaModalOpen(false)}
+          sessionId={sessionId}
+          environment={environment}
+          connectionDatabase={stableNamespace.database}
+          onSuccess={() => {
+            void refreshData();
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -807,6 +867,8 @@ interface DatabaseBrowserHeaderProps {
   environment: Environment;
   namespace: Namespace;
   onClose: () => void;
+  onOpenCreateRedisKey: () => void;
+  onOpenLuaScript: () => void;
   onOpenCreateTable: () => void;
   onOpenFulltextSearch?: () => void;
   onOpenQueryTab?: (namespace: Namespace) => void;
@@ -821,6 +883,8 @@ function DatabaseBrowserHeader({
   environment,
   namespace,
   onClose,
+  onOpenCreateRedisKey,
+  onOpenLuaScript,
   onOpenCreateTable,
   onOpenFulltextSearch,
   onOpenQueryTab,
@@ -902,6 +966,29 @@ function DatabaseBrowserHeader({
           >
             <Plus size={16} />
           </Button>
+        )}
+
+        {driver === Driver.Redis && !readOnly && (
+          <>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onOpenCreateRedisKey}
+              className="h-8 w-8"
+              title={t('redis.createKeyTitle')}
+            >
+              <Plus size={16} />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onOpenLuaScript}
+              className="h-8 w-8"
+              title={t('redisLua.title')}
+            >
+              <FileCode size={16} />
+            </Button>
+          </>
         )}
 
         {supportsSql && (

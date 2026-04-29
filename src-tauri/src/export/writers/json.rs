@@ -12,6 +12,7 @@ pub struct JsonWriter {
     bytes_written: u64,
     started: bool,
     rows_written: u64,
+    scratch: Vec<u8>,
 }
 
 impl JsonWriter {
@@ -21,6 +22,7 @@ impl JsonWriter {
             bytes_written: 0,
             started: false,
             rows_written: 0,
+            scratch: Vec::with_capacity(1024),
         }
     }
 
@@ -71,16 +73,23 @@ impl ExportWriter for JsonWriter {
         let mut obj = serde_json::Map::with_capacity(columns.len());
         for (idx, col) in columns.iter().enumerate() {
             let value = row.values.get(idx).unwrap_or(&Value::Null);
-            obj.insert(col.name.clone(), Self::value_to_json(value));
+            obj.insert(col.name.to_string(), Self::value_to_json(value));
         }
 
         let json = serde_json::Value::Object(obj);
-        let serialized = serde_json::to_string(&json).map_err(|e| e.to_string())?;
 
         if self.rows_written > 0 {
             self.write_bytes(b",\n").await?;
         }
-        self.write_bytes(serialized.as_bytes()).await?;
+
+        self.scratch.clear();
+        serde_json::to_writer(&mut self.scratch, &json).map_err(|e| e.to_string())?;
+        self.writer
+            .write_all(&self.scratch)
+            .await
+            .map_err(|e| e.to_string())?;
+        self.bytes_written += self.scratch.len() as u64;
+
         self.rows_written += 1;
         Ok(())
     }

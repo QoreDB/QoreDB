@@ -12,9 +12,14 @@ use qore_core::types::RowData as QRowData;
 use async_trait::async_trait;
 use futures::future::{AbortHandle, Abortable};
 use mongodb::bson::{doc, Bson, Document};
-use mongodb::{options::ClientOptions, Client, ClientSession};
+use mongodb::options::{
+    ClientOptions, DeleteManyModel, DeleteOneModel, IndexOptions, InsertOneModel, ReplaceOneModel,
+    ReturnDocument, UpdateManyModel, UpdateOneModel, WriteModel,
+};
+use mongodb::{Client, ClientSession, IndexModel};
 use tokio::sync::{Mutex, RwLock};
 
+use crate::mongo_pipeline::validate_pipeline;
 use qore_core::error::{EngineError, EngineResult};
 use qore_core::traits::DataEngine;
 use qore_core::traits::{StreamEvent, StreamSender};
@@ -139,8 +144,8 @@ impl MongoDriver {
     /// Column info for document-centric output.
     fn document_column_info() -> Vec<ColumnInfo> {
         vec![ColumnInfo {
-            name: "document".to_string(),
-            data_type: "json".to_string(),
+            name: "document".into(),
+            data_type: "json".into(),
             nullable: true,
         }]
     }
@@ -578,7 +583,7 @@ impl DataEngine for MongoDriver {
                         batch.push(row);
                         row_count += 1;
                         if batch.len() >= 500 {
-                            if sender.send(StreamEvent::RowBatch(std::mem::take(&mut batch))).await.is_err() {
+                            if sender.send(StreamEvent::RowBatch(std::mem::replace(&mut batch, Vec::with_capacity(500)))).await.is_err() {
                                 break;
                             }
                         }
@@ -616,7 +621,7 @@ impl DataEngine for MongoDriver {
                     batch.push(row);
                     row_count += 1;
                     if batch.len() >= 500 {
-                        if sender.send(StreamEvent::RowBatch(std::mem::take(&mut batch))).await.is_err() {
+                        if sender.send(StreamEvent::RowBatch(std::mem::replace(&mut batch, Vec::with_capacity(500)))).await.is_err() {
                             break;
                         }
                     }
@@ -998,8 +1003,634 @@ impl DataEngine for MongoDriver {
                                     execution_time_ms,
                                 });
                             }
+                            "createindex" | "createindexes" => {
+                                let database = parsed["database"]
+                                    .as_str()
+                                    .ok_or_else(|| EngineError::syntax_error("Missing 'database' field"))?;
+                                let coll_name = parsed["collection"]
+                                    .as_str()
+                                    .ok_or_else(|| EngineError::syntax_error("Missing 'collection' field"))?;
+                                let keys_json = parsed.get("keys")
+                                    .ok_or_else(|| EngineError::syntax_error("Missing 'keys' field"))?;
+                                let keys_doc = mongodb::bson::to_document(keys_json)
+                                    .map_err(|e| EngineError::syntax_error(format!("Invalid 'keys': {}", e)))?;
+                                if keys_doc.is_empty() {
+                                    return Err(EngineError::syntax_error(
+                                        "'keys' must contain at least one field",
+                                    ));
+                                }
+
+                                let mut options = IndexOptions::default();
+                                if let Some(opts) = parsed.get("options").and_then(|v| v.as_object()) {
+                                    if let Some(name) = opts.get("name").and_then(|v| v.as_str()) {
+                                        options.name = Some(name.to_string());
+                                    }
+                                    if let Some(unique) = opts.get("unique").and_then(|v| v.as_bool()) {
+                                        options.unique = Some(unique);
+                                    }
+                                    if let Some(sparse) = opts.get("sparse").and_then(|v| v.as_bool()) {
+                                        options.sparse = Some(sparse);
+                                    }
+                                    if let Some(ttl) = opts
+                                        .get("expireAfterSeconds")
+                                        .and_then(|v| v.as_u64())
+                                    {
+                                        options.expire_after =
+                                            Some(std::time::Duration::from_secs(ttl));
+                                    }
+                                    if let Some(pfe) = opts.get("partialFilterExpression") {
+                                        let doc = mongodb::bson::to_document(pfe).map_err(|e| {
+                                            EngineError::syntax_error(format!(
+                                                "Invalid 'partialFilterExpression': {}",
+                                                e
+                                            ))
+                                        })?;
+                                        options.partial_filter_expression = Some(doc);
+                                    }
+                                }
+                                let model = IndexModel::builder()
+                                    .keys(keys_doc)
+                                    .options(options)
+                                    .build();
+
+                                let col = client
+                                    .database(database)
+                                    .collection::<Document>(coll_name);
+                                let mut tx_guard = mongo_session.transaction_session.lock().await;
+                                let created = if let Some(txn) = tx_guard.as_mut() {
+                                    col.create_index(model)
+                                        .session(&mut *txn)
+                                        .await
+                                        .map_err(|e| EngineError::execution_error(e.to_string()))?
+                                } else {
+                                    drop(tx_guard);
+                                    col.create_index(model)
+                                        .await
+                                        .map_err(|e| EngineError::execution_error(e.to_string()))?
+                                };
+
+                                let execution_time_ms = start.elapsed().as_micros() as f64 / 1000.0;
+                                let columns = vec![ColumnInfo {
+                                    name: "index_name".into(),
+                                    data_type: "string".into(),
+                                    nullable: false,
+                                }];
+                                let rows = vec![QRow {
+                                    values: vec![Value::Text(created.index_name)],
+                                }];
+                                return Ok(QueryResult {
+                                    columns,
+                                    rows,
+                                    affected_rows: Some(1),
+                                    execution_time_ms,
+                                });
+                            }
+                            "dropindex" | "dropindexes" => {
+                                let database = parsed["database"]
+                                    .as_str()
+                                    .ok_or_else(|| EngineError::syntax_error("Missing 'database' field"))?;
+                                let coll_name = parsed["collection"]
+                                    .as_str()
+                                    .ok_or_else(|| EngineError::syntax_error("Missing 'collection' field"))?;
+                                let name = parsed.get("name").and_then(|v| v.as_str()).ok_or_else(
+                                    || EngineError::syntax_error("Missing 'name' field (index name)"),
+                                )?;
+                                if name == "_id_" || name == "*" {
+                                    return Err(EngineError::syntax_error(format!(
+                                        "Dropping '{}' is not allowed",
+                                        name
+                                    )));
+                                }
+
+                                let db = client.database(database);
+                                let mut tx_guard = mongo_session.transaction_session.lock().await;
+                                if let Some(txn) = tx_guard.as_mut() {
+                                    db.run_command(
+                                        doc! { "dropIndexes": coll_name, "index": name },
+                                    )
+                                    .session(&mut *txn)
+                                    .await
+                                    .map_err(|e| EngineError::execution_error(e.to_string()))?;
+                                } else {
+                                    drop(tx_guard);
+                                    db.run_command(
+                                        doc! { "dropIndexes": coll_name, "index": name },
+                                    )
+                                    .await
+                                    .map_err(|e| EngineError::execution_error(e.to_string()))?;
+                                }
+
+                                let execution_time_ms = start.elapsed().as_micros() as f64 / 1000.0;
+                                return Ok(QueryResult {
+                                    columns: Vec::new(),
+                                    rows: Vec::new(),
+                                    affected_rows: Some(1),
+                                    execution_time_ms,
+                                });
+                            }
+                            "bulkwrite" => {
+                                let database = parsed["database"].as_str().ok_or_else(|| {
+                                    EngineError::syntax_error("Missing 'database' field")
+                                })?;
+                                let coll_name = parsed["collection"].as_str().ok_or_else(|| {
+                                    EngineError::syntax_error("Missing 'collection' field")
+                                })?;
+                                let operations = parsed
+                                    .get("operations")
+                                    .and_then(|v| v.as_array())
+                                    .ok_or_else(|| {
+                                        EngineError::syntax_error(
+                                            "Missing or invalid 'operations' array",
+                                        )
+                                    })?;
+                                if operations.is_empty() {
+                                    return Err(EngineError::syntax_error(
+                                        "'operations' must contain at least one write",
+                                    ));
+                                }
+
+                                let ns = mongodb::Namespace {
+                                    db: database.to_string(),
+                                    coll: coll_name.to_string(),
+                                };
+                                let mut models: Vec<WriteModel> = Vec::with_capacity(operations.len());
+                                for (idx, op) in operations.iter().enumerate() {
+                                    let obj = op.as_object().ok_or_else(|| {
+                                        EngineError::syntax_error(format!(
+                                            "Operation {} is not an object",
+                                            idx
+                                        ))
+                                    })?;
+                                    if obj.len() != 1 {
+                                        return Err(EngineError::syntax_error(format!(
+                                            "Operation {} must have exactly one key (insertOne/updateOne/updateMany/replaceOne/deleteOne/deleteMany)",
+                                            idx
+                                        )));
+                                    }
+                                    let (kind_raw, body) = obj.iter().next().unwrap();
+                                    let kind = kind_raw.to_ascii_lowercase();
+                                    let body_obj = body.as_object().ok_or_else(|| {
+                                        EngineError::syntax_error(format!(
+                                            "Operation {} body must be an object",
+                                            idx
+                                        ))
+                                    })?;
+                                    let model = match kind.as_str() {
+                                        "insertone" => {
+                                            let doc = body_obj.get("document").ok_or_else(|| {
+                                                EngineError::syntax_error(format!(
+                                                    "Op {}: missing 'document'",
+                                                    idx
+                                                ))
+                                            })?;
+                                            let doc_bson = mongodb::bson::to_document(doc)
+                                                .map_err(|e| {
+                                                    EngineError::syntax_error(format!(
+                                                        "Op {}: invalid document: {}",
+                                                        idx, e
+                                                    ))
+                                                })?;
+                                            WriteModel::InsertOne(
+                                                InsertOneModel::builder()
+                                                    .namespace(ns.clone())
+                                                    .document(doc_bson)
+                                                    .build(),
+                                            )
+                                        }
+                                        "updateone" | "updatemany" => {
+                                            let filter = body_obj.get("filter").ok_or_else(|| {
+                                                EngineError::syntax_error(format!(
+                                                    "Op {}: missing 'filter'",
+                                                    idx
+                                                ))
+                                            })?;
+                                            let update = body_obj.get("update").ok_or_else(|| {
+                                                EngineError::syntax_error(format!(
+                                                    "Op {}: missing 'update'",
+                                                    idx
+                                                ))
+                                            })?;
+                                            let filter_doc = mongodb::bson::to_document(filter)
+                                                .map_err(|e| {
+                                                    EngineError::syntax_error(format!(
+                                                        "Op {}: invalid filter: {}",
+                                                        idx, e
+                                                    ))
+                                                })?;
+                                            let update_doc = mongodb::bson::to_document(update)
+                                                .map_err(|e| {
+                                                    EngineError::syntax_error(format!(
+                                                        "Op {}: invalid update: {}",
+                                                        idx, e
+                                                    ))
+                                                })?;
+                                            let upsert = body_obj
+                                                .get("upsert")
+                                                .and_then(|v| v.as_bool());
+                                            if kind == "updateone" {
+                                                let mut m = UpdateOneModel::builder()
+                                                    .namespace(ns.clone())
+                                                    .filter(filter_doc)
+                                                    .update(update_doc)
+                                                    .build();
+                                                m.upsert = upsert;
+                                                WriteModel::UpdateOne(m)
+                                            } else {
+                                                let mut m = UpdateManyModel::builder()
+                                                    .namespace(ns.clone())
+                                                    .filter(filter_doc)
+                                                    .update(update_doc)
+                                                    .build();
+                                                m.upsert = upsert;
+                                                WriteModel::UpdateMany(m)
+                                            }
+                                        }
+                                        "replaceone" => {
+                                            let filter = body_obj.get("filter").ok_or_else(|| {
+                                                EngineError::syntax_error(format!(
+                                                    "Op {}: missing 'filter'",
+                                                    idx
+                                                ))
+                                            })?;
+                                            let replacement =
+                                                body_obj.get("replacement").ok_or_else(|| {
+                                                    EngineError::syntax_error(format!(
+                                                        "Op {}: missing 'replacement'",
+                                                        idx
+                                                    ))
+                                                })?;
+                                            let filter_doc = mongodb::bson::to_document(filter)
+                                                .map_err(|e| {
+                                                    EngineError::syntax_error(format!(
+                                                        "Op {}: invalid filter: {}",
+                                                        idx, e
+                                                    ))
+                                                })?;
+                                            let replace_doc = mongodb::bson::to_document(replacement)
+                                                .map_err(|e| {
+                                                    EngineError::syntax_error(format!(
+                                                        "Op {}: invalid replacement: {}",
+                                                        idx, e
+                                                    ))
+                                                })?;
+                                            let upsert = body_obj
+                                                .get("upsert")
+                                                .and_then(|v| v.as_bool());
+                                            let mut m = ReplaceOneModel::builder()
+                                                .namespace(ns.clone())
+                                                .filter(filter_doc)
+                                                .replacement(replace_doc)
+                                                .build();
+                                            m.upsert = upsert;
+                                            WriteModel::ReplaceOne(m)
+                                        }
+                                        "deleteone" => {
+                                            let filter = body_obj.get("filter").ok_or_else(|| {
+                                                EngineError::syntax_error(format!(
+                                                    "Op {}: missing 'filter'",
+                                                    idx
+                                                ))
+                                            })?;
+                                            let filter_doc = mongodb::bson::to_document(filter)
+                                                .map_err(|e| {
+                                                    EngineError::syntax_error(format!(
+                                                        "Op {}: invalid filter: {}",
+                                                        idx, e
+                                                    ))
+                                                })?;
+                                            WriteModel::DeleteOne(
+                                                DeleteOneModel::builder()
+                                                    .namespace(ns.clone())
+                                                    .filter(filter_doc)
+                                                    .build(),
+                                            )
+                                        }
+                                        "deletemany" => {
+                                            let filter = body_obj.get("filter").ok_or_else(|| {
+                                                EngineError::syntax_error(format!(
+                                                    "Op {}: missing 'filter'",
+                                                    idx
+                                                ))
+                                            })?;
+                                            let filter_doc = mongodb::bson::to_document(filter)
+                                                .map_err(|e| {
+                                                    EngineError::syntax_error(format!(
+                                                        "Op {}: invalid filter: {}",
+                                                        idx, e
+                                                    ))
+                                                })?;
+                                            WriteModel::DeleteMany(
+                                                DeleteManyModel::builder()
+                                                    .namespace(ns.clone())
+                                                    .filter(filter_doc)
+                                                    .build(),
+                                            )
+                                        }
+                                        other => {
+                                            return Err(EngineError::syntax_error(format!(
+                                                "Op {}: unknown kind '{}'",
+                                                idx, other
+                                            )));
+                                        }
+                                    };
+                                    models.push(model);
+                                }
+
+                                let mut tx_guard =
+                                    mongo_session.transaction_session.lock().await;
+                                let result = if let Some(txn) = tx_guard.as_mut() {
+                                    client
+                                        .bulk_write(models)
+                                        .session(&mut *txn)
+                                        .await
+                                        .map_err(|e| {
+                                            EngineError::execution_error(e.to_string())
+                                        })?
+                                } else {
+                                    drop(tx_guard);
+                                    client.bulk_write(models).await.map_err(|e| {
+                                        EngineError::execution_error(e.to_string())
+                                    })?
+                                };
+
+                                let execution_time_ms =
+                                    start.elapsed().as_micros() as f64 / 1000.0;
+                                let columns = vec![
+                                    ColumnInfo {
+                                        name: "inserted_count".into(),
+                                        data_type: "int".into(),
+                                        nullable: false,
+                                    },
+                                    ColumnInfo {
+                                        name: "matched_count".into(),
+                                        data_type: "int".into(),
+                                        nullable: false,
+                                    },
+                                    ColumnInfo {
+                                        name: "modified_count".into(),
+                                        data_type: "int".into(),
+                                        nullable: false,
+                                    },
+                                    ColumnInfo {
+                                        name: "deleted_count".into(),
+                                        data_type: "int".into(),
+                                        nullable: false,
+                                    },
+                                    ColumnInfo {
+                                        name: "upserted_count".into(),
+                                        data_type: "int".into(),
+                                        nullable: false,
+                                    },
+                                ];
+                                let rows = vec![QRow {
+                                    values: vec![
+                                        Value::Int(result.inserted_count),
+                                        Value::Int(result.matched_count),
+                                        Value::Int(result.modified_count),
+                                        Value::Int(result.deleted_count),
+                                        Value::Int(result.upserted_count),
+                                    ],
+                                }];
+                                let affected = result
+                                    .inserted_count
+                                    .saturating_add(result.modified_count)
+                                    .saturating_add(result.deleted_count)
+                                    .saturating_add(result.upserted_count);
+                                return Ok(QueryResult {
+                                    columns,
+                                    rows,
+                                    affected_rows: Some(affected.max(0) as u64),
+                                    execution_time_ms,
+                                });
+                            }
+                            "findoneandupdate"
+                            | "findoneandreplace"
+                            | "findoneanddelete" => {
+                                let database = parsed["database"].as_str().ok_or_else(|| {
+                                    EngineError::syntax_error("Missing 'database' field")
+                                })?;
+                                let coll_name = parsed["collection"].as_str().ok_or_else(|| {
+                                    EngineError::syntax_error("Missing 'collection' field")
+                                })?;
+                                let filter = parsed.get("filter").ok_or_else(|| {
+                                    EngineError::syntax_error("Missing 'filter' field")
+                                })?;
+                                let filter_doc = mongodb::bson::to_document(filter).map_err(
+                                    |e| {
+                                        EngineError::syntax_error(format!(
+                                            "Invalid 'filter': {}",
+                                            e
+                                        ))
+                                    },
+                                )?;
+                                let return_doc_after = parsed
+                                    .get("options")
+                                    .and_then(|o| o.get("returnDocument"))
+                                    .and_then(|v| v.as_str())
+                                    .map(|s| s.eq_ignore_ascii_case("after"))
+                                    .unwrap_or(false);
+
+                                let col = client
+                                    .database(database)
+                                    .collection::<Document>(coll_name);
+                                let mut tx_guard =
+                                    mongo_session.transaction_session.lock().await;
+
+                                let result: Option<Document> = match op.as_str() {
+                                    "findoneanddelete" => {
+                                        if let Some(txn) = tx_guard.as_mut() {
+                                            col.find_one_and_delete(filter_doc)
+                                                .session(&mut *txn)
+                                                .await
+                                                .map_err(|e| {
+                                                    EngineError::execution_error(e.to_string())
+                                                })?
+                                        } else {
+                                            drop(tx_guard);
+                                            col.find_one_and_delete(filter_doc)
+                                                .await
+                                                .map_err(|e| {
+                                                    EngineError::execution_error(e.to_string())
+                                                })?
+                                        }
+                                    }
+                                    "findoneandupdate" => {
+                                        let update = parsed.get("update").ok_or_else(|| {
+                                            EngineError::syntax_error("Missing 'update' field")
+                                        })?;
+                                        let update_doc = mongodb::bson::to_document(update)
+                                            .map_err(|e| {
+                                                EngineError::syntax_error(format!(
+                                                    "Invalid 'update': {}",
+                                                    e
+                                                ))
+                                            })?;
+                                        let rd = if return_doc_after {
+                                            ReturnDocument::After
+                                        } else {
+                                            ReturnDocument::Before
+                                        };
+                                        if let Some(txn) = tx_guard.as_mut() {
+                                            col.find_one_and_update(filter_doc, update_doc)
+                                                .return_document(rd)
+                                                .session(&mut *txn)
+                                                .await
+                                                .map_err(|e| {
+                                                    EngineError::execution_error(e.to_string())
+                                                })?
+                                        } else {
+                                            drop(tx_guard);
+                                            col.find_one_and_update(filter_doc, update_doc)
+                                                .return_document(rd)
+                                                .await
+                                                .map_err(|e| {
+                                                    EngineError::execution_error(e.to_string())
+                                                })?
+                                        }
+                                    }
+                                    "findoneandreplace" => {
+                                        let replacement = parsed.get("replacement").ok_or_else(
+                                            || {
+                                                EngineError::syntax_error(
+                                                    "Missing 'replacement' field",
+                                                )
+                                            },
+                                        )?;
+                                        let replace_doc = mongodb::bson::to_document(replacement)
+                                            .map_err(|e| {
+                                                EngineError::syntax_error(format!(
+                                                    "Invalid 'replacement': {}",
+                                                    e
+                                                ))
+                                            })?;
+                                        let rd = if return_doc_after {
+                                            ReturnDocument::After
+                                        } else {
+                                            ReturnDocument::Before
+                                        };
+                                        if let Some(txn) = tx_guard.as_mut() {
+                                            col.find_one_and_replace(filter_doc, replace_doc)
+                                                .return_document(rd)
+                                                .session(&mut *txn)
+                                                .await
+                                                .map_err(|e| {
+                                                    EngineError::execution_error(e.to_string())
+                                                })?
+                                        } else {
+                                            drop(tx_guard);
+                                            col.find_one_and_replace(filter_doc, replace_doc)
+                                                .return_document(rd)
+                                                .await
+                                                .map_err(|e| {
+                                                    EngineError::execution_error(e.to_string())
+                                                })?
+                                        }
+                                    }
+                                    _ => unreachable!("outer match constrains op to the three findOneAnd* variants"),
+                                };
+
+                                let execution_time_ms =
+                                    start.elapsed().as_micros() as f64 / 1000.0;
+                                let documents: Vec<Document> =
+                                    result.into_iter().collect();
+                                let columns = Self::document_column_info();
+                                let rows: Vec<QRow> =
+                                    documents.iter().map(Self::document_to_row).collect();
+                                return Ok(QueryResult {
+                                    columns,
+                                    rows,
+                                    affected_rows: Some(if documents.is_empty() {
+                                        0
+                                    } else {
+                                        1
+                                    }),
+                                    execution_time_ms,
+                                });
+                            }
+                            "aggregate" => {
+                                let database = parsed["database"]
+                                    .as_str()
+                                    .ok_or_else(|| EngineError::syntax_error("Missing 'database' field"))?;
+                                let coll_name = parsed["collection"]
+                                    .as_str()
+                                    .ok_or_else(|| EngineError::syntax_error("Missing 'collection' field"))?;
+
+                                let validated = validate_pipeline(&parsed).map_err(|e| {
+                                    EngineError::syntax_error(format!(
+                                        "Invalid aggregation pipeline: {}",
+                                        e.user_message()
+                                    ))
+                                })?;
+
+                                let mut stage_docs: Vec<Document> =
+                                    Vec::with_capacity(validated.stages.len());
+                                for (idx, stage) in validated.stages.iter().enumerate() {
+                                    let mut stage_obj = serde_json::Map::new();
+                                    stage_obj.insert(stage.operator.clone(), stage.body.clone());
+                                    let stage_json = serde_json::Value::Object(stage_obj);
+                                    let doc = mongodb::bson::to_document(&stage_json).map_err(|e| {
+                                        EngineError::syntax_error(format!(
+                                            "Stage {} ({}) is not a valid BSON document: {}",
+                                            idx, stage.operator, e
+                                        ))
+                                    })?;
+                                    stage_docs.push(doc);
+                                }
+
+                                let col = client
+                                    .database(database)
+                                    .collection::<Document>(coll_name);
+
+                                let mut tx_guard = mongo_session.transaction_session.lock().await;
+                                let documents: Vec<Document> = if let Some(txn) = tx_guard.as_mut() {
+                                    let mut cursor = col
+                                        .aggregate(stage_docs)
+                                        .session(&mut *txn)
+                                        .await
+                                        .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+                                    let mut out: Vec<Document> = Vec::new();
+                                    while let Some(doc_result) = cursor.next(&mut *txn).await {
+                                        let doc = doc_result
+                                            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+                                        out.push(doc);
+                                    }
+                                    out
+                                } else {
+                                    drop(tx_guard);
+                                    let mut cursor = col
+                                        .aggregate(stage_docs)
+                                        .await
+                                        .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+                                    let mut out: Vec<Document> = Vec::new();
+                                    use futures::TryStreamExt;
+                                    while let Some(doc) = cursor
+                                        .try_next()
+                                        .await
+                                        .map_err(|e| EngineError::execution_error(e.to_string()))?
+                                    {
+                                        out.push(doc);
+                                    }
+                                    out
+                                };
+
+                                let execution_time_ms = start.elapsed().as_micros() as f64 / 1000.0;
+                                let columns = Self::document_column_info();
+                                let rows: Vec<QRow> = documents
+                                    .iter()
+                                    .map(Self::document_to_row)
+                                    .collect();
+
+                                return Ok(QueryResult {
+                                    columns,
+                                    rows,
+                                    affected_rows: None,
+                                    execution_time_ms,
+                                });
+                            }
                             // Read operations and unknown ops: fall through to find path
-                            "find" | "findone" | "aggregate" | "count" | "countdocuments"
+                            "find" | "findone" | "count" | "countdocuments"
                             | "distinct" => {}
                             _ => {
                                 return Err(EngineError::syntax_error(format!(
@@ -1192,11 +1823,13 @@ impl DataEngine for MongoDriver {
                     .and_then(|o| o.unique)
                     .unwrap_or(false);
                 let is_primary = name == "_id_";
+                let index_type = infer_mongo_index_type(&index_model.keys);
                 indexes.push(TableIndex {
                     name,
                     columns,
                     is_unique,
                     is_primary,
+                    index_type,
                 });
             }
 
@@ -1300,11 +1933,13 @@ impl DataEngine for MongoDriver {
                 .and_then(|o| o.unique)
                 .unwrap_or(false);
             let is_primary = name == "_id_";
+            let index_type = infer_mongo_index_type(&index_model.keys);
             indexes.push(TableIndex {
                 name,
                 columns,
                 is_unique,
                 is_primary,
+                index_type,
             });
         }
 
@@ -1425,6 +2060,30 @@ impl DataEngine for MongoDriver {
             for filter in filters {
                 let bson_value = Self::value_to_bson(&filter.value);
 
+                // `$text` is special: it must live at the top level of the
+                // query document, not under a field name. A single `$text`
+                // applies across all fields covered by the collection's text
+                // index — emit it only once and ignore the column name.
+                if matches!(filter.operator, FilterOperator::Text) {
+                    if filter_doc.contains_key("$text") {
+                        continue;
+                    }
+                    let search = filter.value.as_text().ok_or_else(|| {
+                        EngineError::syntax_error(
+                            "text operator requires a string value in 'value'",
+                        )
+                    })?;
+                    let mut text_doc = doc! { "$search": search.to_string() };
+                    // `sanitized_text_language` validates the tag against
+                    // `[a-z_]{1,32}`; ignore if empty (fallback to server default).
+                    let lang = filter.options.sanitized_text_language("");
+                    if !lang.is_empty() {
+                        text_doc.insert("$language", lang);
+                    }
+                    filter_doc.insert("$text", text_doc);
+                    continue;
+                }
+
                 let condition = match filter.operator {
                     FilterOperator::Eq => bson_value,
                     FilterOperator::Neq => {
@@ -1455,6 +2114,20 @@ impl DataEngine for MongoDriver {
                     FilterOperator::IsNotNull => {
                         mongodb::bson::Bson::Document(doc! { "$ne": mongodb::bson::Bson::Null })
                     }
+                    FilterOperator::Regex => {
+                        // Pattern must be a string; flags are sanitized to the
+                        // subset MongoDB accepts (`imxs`).
+                        let pattern = filter.value.as_text().ok_or_else(|| {
+                            EngineError::syntax_error(
+                                "regex operator requires a string value in 'value'",
+                            )
+                        })?;
+                        let flags = filter.options.sanitized_regex_flags();
+                        mongodb::bson::Bson::Document(
+                            doc! { "$regex": pattern.to_string(), "$options": flags },
+                        )
+                    }
+                    FilterOperator::Text => unreachable!("handled above"),
                 };
 
                 filter_doc.insert(&filter.column, condition);
@@ -1992,4 +2665,16 @@ impl DataEngine for MongoDriver {
             success,
         })
     }
+}
+
+/// Infer a MongoDB index type from its key document. Returns the first
+/// string value found (e.g. `"text"`, `"2dsphere"`, `"2d"`, `"hashed"`).
+/// Returns `None` for ordinary ascending/descending compound indexes.
+fn infer_mongo_index_type(keys: &Document) -> Option<String> {
+    for (_, value) in keys {
+        if let Bson::String(s) = value {
+            return Some(s.clone());
+        }
+    }
+    None
 }

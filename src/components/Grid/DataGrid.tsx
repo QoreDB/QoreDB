@@ -232,11 +232,34 @@ export function DataGrid({
 
       const backendFilters: ColumnFilter[] = nextFilters
         .filter(f => f.value !== '' && f.value != null)
-        .map(f => ({
-          column: f.id,
-          operator: 'like' as const,
-          value: `%${String(f.value)}%`,
-        }));
+        .map(f => {
+          const raw = f.value;
+          if (raw && typeof raw === 'object' && 'operator' in raw) {
+            const cell = raw as {
+              operator: ColumnFilter['operator'];
+              value: string;
+              regex_flags?: string;
+              text_language?: string;
+            };
+            const backend: ColumnFilter = {
+              column: f.id,
+              operator: cell.operator,
+              value: cell.operator === 'like' ? `%${cell.value}%` : cell.value,
+            };
+            if (cell.regex_flags || cell.text_language) {
+              backend.options = {
+                ...(cell.regex_flags ? { regex_flags: cell.regex_flags } : {}),
+                ...(cell.text_language ? { text_language: cell.text_language } : {}),
+              };
+            }
+            return backend;
+          }
+          return {
+            column: f.id,
+            operator: 'like' as const,
+            value: `%${String(raw)}%`,
+          };
+        });
 
       onServerColumnFiltersChange(backendFilters);
     },

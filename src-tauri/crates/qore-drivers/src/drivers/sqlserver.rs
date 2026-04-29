@@ -38,11 +38,11 @@ use qore_core::types::{
     CancelSupport, Collection, CollectionList, CollectionListOptions, CollectionType, ColumnInfo,
     ConnectionConfig, FilterOperator, ForeignKey, MaintenanceMessage, MaintenanceMessageLevel,
     MaintenanceOperationInfo, MaintenanceOperationType, MaintenanceRequest, MaintenanceResult,
-    Namespace, PaginatedQueryResult, QueryId, QueryResult, Routine, RoutineDefinition, RoutineList,
-    RoutineListOptions, RoutineOperationResult, RoutineType, Row as QRow, RowData, SessionId,
-    SortDirection, TableColumn, TableIndex, TableQueryOptions, TableSchema, Trigger,
-    TriggerDefinition, TriggerEvent, TriggerList, TriggerListOptions, TriggerOperationResult,
-    TriggerTiming, Value,
+    MssqlAuthMode, Namespace, PaginatedQueryResult, QueryId, QueryResult, Routine,
+    RoutineDefinition, RoutineList, RoutineListOptions, RoutineOperationResult, RoutineType,
+    Row as QRow, RowData, SessionId, SortDirection, TableColumn, TableIndex, TableQueryOptions,
+    TableSchema, Trigger, TriggerDefinition, TriggerEvent, TriggerList, TriggerListOptions,
+    TriggerOperationResult, TriggerTiming, Value,
 };
 
 // ==================== Types ====================
@@ -93,7 +93,36 @@ impl SqlServerDriver {
         let mut tib_config = Config::new();
         tib_config.host(&config.host);
         tib_config.port(config.port);
-        tib_config.authentication(AuthMethod::sql_server(&config.username, &config.password));
+
+        let auth_mode = config.mssql_auth.unwrap_or_default();
+        let auth = match auth_mode {
+            MssqlAuthMode::SqlPassword => {
+                AuthMethod::sql_server(&config.username, &config.password)
+            }
+            MssqlAuthMode::WindowsNtlm => {
+                if config.username.trim().is_empty() {
+                    return Err(EngineError::connection_failed(
+                        "Windows NTLM authentication requires DOMAIN\\user or user@DOMAIN",
+                    ));
+                }
+                #[cfg(windows)]
+                {
+                    AuthMethod::windows(&config.username, &config.password)
+                }
+                #[cfg(not(windows))]
+                {
+                    return Err(EngineError::connection_failed(
+                        "Windows Authentication is only available when QoreDB runs on Windows. \
+                         Use SQL authentication, or run QoreDB on a Windows client.",
+                    ));
+                }
+            }
+            MssqlAuthMode::WindowsIntegrated => {
+                AuthMethod::Integrated
+            }
+        };
+        tib_config.authentication(auth);
+
         if let Some(ref db) = config.database {
             if !db.is_empty() {
                 tib_config.database(db);
@@ -133,8 +162,8 @@ impl SqlServerDriver {
         let tib_config = Self::build_config(config)?;
         let mgr = ConnectionManager::new(tib_config);
 
-        let max_size = config.pool_max_connections.unwrap_or(5);
-        let timeout_secs = config.pool_acquire_timeout_secs.unwrap_or(30) as u64;
+        let max_size = config.pool_max_connections.unwrap_or(10);
+        let timeout_secs = config.pool_acquire_timeout_secs.unwrap_or(15) as u64;
 
         Pool::builder()
             .max_size(max_size)
@@ -233,8 +262,8 @@ fn get_column_info(columns: &[tiberius::Column]) -> Vec<ColumnInfo> {
     columns
         .iter()
         .map(|col| ColumnInfo {
-            name: col.name().to_string(),
-            data_type: format!("{:?}", col.column_type()),
+            name: col.name().into(),
+            data_type: format!("{:?}", col.column_type()).into(),
             nullable: true,
         })
         .collect()
@@ -653,6 +682,7 @@ impl DataEngine for SqlServerDriver {
                 columns: cols,
                 is_unique,
                 is_primary,
+                index_type: None,
             })
             .collect();
 
@@ -1376,6 +1406,38 @@ impl DataEngine for SqlServerDriver {
                     }
                     FilterOperator::IsNull => format!("{} IS NULL", col),
                     FilterOperator::IsNotNull => format!("{} IS NOT NULL", col),
+                    FilterOperator::Regex => {
+                        // SQL Server has no native POSIX regex without CLR.
+                        // Fall back to PATINDEX with the raw pattern so users
+                        // can still run simple wildcard expressions; flags are
+                        // not expressible server-side and are ignored.
+                        let pattern = filter.value.as_text().ok_or_else(|| {
+                            EngineError::syntax_error(
+                                "regex operator requires a string value in 'value'",
+                            )
+                        })?;
+                        format!(
+                            "PATINDEX('%{}%', CAST({} AS NVARCHAR(MAX))) > 0",
+                            pattern.replace('\'', "''"),
+                            col
+                        )
+                    }
+                    FilterOperator::Text => {
+                        // SQL Server: CONTAINS(col, 'query') requires a
+                        // full-text catalog + index on the column. Absence is
+                        // surfaced as a server error — the UI is responsible
+                        // for verifying `index_type = fulltext` first.
+                        let term = filter.value.as_text().ok_or_else(|| {
+                            EngineError::syntax_error(
+                                "text operator requires a string value in 'value'",
+                            )
+                        })?;
+                        format!(
+                            "CONTAINS({}, '\"{}\"')",
+                            col,
+                            term.replace('\'', "''").replace('"', "\"\"")
+                        )
+                    }
                 };
                 where_clauses.push(clause);
             }
@@ -1926,7 +1988,7 @@ async fn stream_select_results(
         let qrow = convert_row(row);
         batch.push(qrow);
         if batch.len() >= 500 {
-            if sender.send(StreamEvent::RowBatch(std::mem::take(&mut batch))).await.is_err() {
+            if sender.send(StreamEvent::RowBatch(std::mem::replace(&mut batch, Vec::with_capacity(500)))).await.is_err() {
                 return Ok(());
             }
         }
@@ -2045,9 +2107,8 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_build_config() {
-        let config = ConnectionConfig {
+    fn base_config() -> ConnectionConfig {
+        ConnectionConfig {
             driver: "sqlserver".to_string(),
             host: "localhost".to_string(),
             port: 1433,
@@ -2063,8 +2124,69 @@ mod tests {
             pool_max_connections: None,
             pool_min_connections: None,
             proxy: None,
-        };
+            mssql_auth: None,
+        }
+    }
+
+    #[test]
+    fn test_build_config() {
+        let config = base_config();
         let tib_config = SqlServerDriver::build_config(&config);
         assert!(tib_config.is_ok());
+    }
+
+    #[test]
+    fn build_config_accepts_legacy_none_auth_mode() {
+        let mut config = base_config();
+        config.mssql_auth = None;
+        assert!(SqlServerDriver::build_config(&config).is_ok());
+    }
+
+    #[test]
+    fn build_config_accepts_explicit_sql_password() {
+        let mut config = base_config();
+        config.mssql_auth = Some(MssqlAuthMode::SqlPassword);
+        assert!(SqlServerDriver::build_config(&config).is_ok());
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn build_config_accepts_windows_ntlm_with_domain_user() {
+        let mut config = base_config();
+        config.username = "CORP\\jdoe".to_string();
+        config.mssql_auth = Some(MssqlAuthMode::WindowsNtlm);
+        assert!(SqlServerDriver::build_config(&config).is_ok());
+    }
+
+    #[test]
+    fn build_config_rejects_windows_ntlm_with_empty_username() {
+        let mut config = base_config();
+        config.username = "   ".to_string();
+        config.mssql_auth = Some(MssqlAuthMode::WindowsNtlm);
+        let err = SqlServerDriver::build_config(&config).expect_err("must reject empty user");
+        assert!(err.to_string().contains("DOMAIN"));
+    }
+
+    #[cfg(not(windows))]
+    #[test]
+    fn build_config_rejects_windows_ntlm_on_non_windows_hosts() {
+        let mut config = base_config();
+        config.username = "CORP\\jdoe".to_string();
+        config.mssql_auth = Some(MssqlAuthMode::WindowsNtlm);
+        let err = SqlServerDriver::build_config(&config)
+            .expect_err("must reject NTLM on non-Windows hosts");
+        assert!(err.to_string().contains("Windows"));
+    }
+
+    #[test]
+    fn build_config_accepts_windows_integrated_without_credentials() {
+        // Integrated auth uses the current OS session — username/password are ignored.
+        // Windows: SSPI. Unix: Kerberos ticket (kinit). Either way, build_config
+        // should not require credentials and must produce a valid tiberius Config.
+        let mut config = base_config();
+        config.username = String::new();
+        config.password = String::new();
+        config.mssql_auth = Some(MssqlAuthMode::WindowsIntegrated);
+        assert!(SqlServerDriver::build_config(&config).is_ok());
     }
 }

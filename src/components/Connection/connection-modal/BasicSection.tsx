@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Driver } from '@/lib/drivers';
 import { ENVIRONMENT_CONFIG } from '@/lib/environment';
+import type { MssqlAuthMode } from '@/lib/tauri';
 import { cn } from '@/lib/utils';
 import { FileSection } from './FileSection';
 import type { ConnectionFormData } from './types';
@@ -29,6 +30,14 @@ export function BasicSection({
 
   const isFileBased = formData.driver === Driver.Sqlite || formData.driver === Driver.Duckdb;
   const usernameRequired = formData.driver !== Driver.Mongodb && formData.driver !== Driver.Redis;
+  const isSqlServer = formData.driver === Driver.SqlServer;
+  const isNtlm = isSqlServer && formData.mssqlAuthMode === 'windows_ntlm';
+  const isIntegrated = isSqlServer && formData.mssqlAuthMode === 'windows_integrated';
+  const authModes: { value: MssqlAuthMode; label: string }[] = [
+    { value: 'sql_password', label: t('connection.mssql.authSql') },
+    { value: 'windows_ntlm', label: t('connection.mssql.authNtlm') },
+    { value: 'windows_integrated', label: t('connection.mssql.authIntegrated') },
+  ];
 
   return (
     <div className="rounded-md border border-border bg-background p-4 space-y-4">
@@ -132,28 +141,66 @@ export function BasicSection({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          {isSqlServer && (
             <div className="space-y-2">
-              <Label>
-                {t('connection.username')}{' '}
-                {usernameRequired && <span className="text-error">*</span>}
-              </Label>
-              <Input
-                placeholder="user"
-                value={formData.username}
-                onChange={e => onChange('username', e.target.value)}
-              />
+              <Label>{t('connection.mssql.authMode')}</Label>
+              <div className="flex gap-2">
+                {authModes.map(({ value, label }) => {
+                  const isSelected = formData.mssqlAuthMode === value;
+                  return (
+                    <Button
+                      key={value}
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className={cn(
+                        'h-auto flex-1 px-3 py-2 rounded-md text-xs font-semibold border-2 transition-all',
+                        isSelected
+                          ? 'border-primary bg-primary/10 text-primary'
+                          : 'border-border bg-background hover:bg-muted text-muted-foreground'
+                      )}
+                      onClick={() => onChange('mssqlAuthMode', value)}
+                    >
+                      {label}
+                    </Button>
+                  );
+                })}
+              </div>
+              {isNtlm && (
+                <p className="text-xs text-muted-foreground">{t('connection.mssql.ntlmHint')}</p>
+              )}
+              {isIntegrated && (
+                <p className="text-xs text-muted-foreground">
+                  {t('connection.mssql.integratedHint')}
+                </p>
+              )}
             </div>
-            <div className="space-y-2">
-              <Label>{t('connection.password')}</Label>
-              <Input
-                type="password"
-                placeholder="••••••••"
-                value={formData.password}
-                onChange={e => onChange('password', e.target.value)}
-              />
+          )}
+
+          {!isIntegrated && (
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>
+                  {t('connection.username')}{' '}
+                  {usernameRequired && <span className="text-error">*</span>}
+                </Label>
+                <Input
+                  placeholder={isNtlm ? t('connection.mssql.ntlmUsernamePlaceholder') : 'user'}
+                  value={formData.username}
+                  onChange={e => onChange('username', e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>{t('connection.password')}</Label>
+                <Input
+                  type="password"
+                  placeholder="••••••••"
+                  value={formData.password}
+                  onChange={e => onChange('password', e.target.value)}
+                />
+              </div>
             </div>
-          </div>
+          )}
         </>
       )}
     </div>

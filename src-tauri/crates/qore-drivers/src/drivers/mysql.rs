@@ -195,14 +195,6 @@ impl MySqlDriver {
         Ok(())
     }
 
-    /// Converts a SQLx row to our universal Row type. Builds decoders on the
-    /// fly — prefer `convert_row_with_decoders` in hot paths where decoders
-    /// can be reused across rows.
-    fn convert_row(mysql_row: &MySqlRow) -> QRow {
-        let decoders = Self::build_decoders(mysql_row);
-        Self::convert_row_with_decoders(mysql_row, &decoders)
-    }
-
     /// Hot-path row conversion: uses a precomputed per-column decoder to
     /// avoid the 14-branch trial-and-error cascade per cell.
     fn convert_row_with_decoders(mysql_row: &MySqlRow, decoders: &[MysqlDecoder]) -> QRow {
@@ -242,8 +234,8 @@ impl MySqlDriver {
         row.columns()
             .iter()
             .map(|col| ColumnInfo {
-                name: col.name().to_string(),
-                data_type: col.type_info().name().to_string(),
+                name: col.name().into(),
+                data_type: col.type_info().name().into(),
                 nullable: true,
             })
             .collect()
@@ -526,9 +518,9 @@ impl DataEngine for MySqlDriver {
     }
 
     async fn connect(&self, config: &ConnectionConfig) -> EngineResult<SessionId> {
-        let max_connections = config.pool_max_connections.unwrap_or(5);
-        let min_connections = config.pool_min_connections.unwrap_or(0);
-        let acquire_timeout = config.pool_acquire_timeout_secs.unwrap_or(30);
+        let max_connections = config.pool_max_connections.unwrap_or(10);
+        let min_connections = config.pool_min_connections.unwrap_or(2).min(max_connections);
+        let acquire_timeout = config.pool_acquire_timeout_secs.unwrap_or(15);
 
         let pool = Self::create_pool(
             config,
@@ -1544,7 +1536,7 @@ impl DataEngine for MySqlDriver {
                     row_count += 1;
                     
                     if batch.len() >= 500 {
-                        if sender.send(StreamEvent::RowBatch(std::mem::take(&mut batch))).await.is_err() {
+                        if sender.send(StreamEvent::RowBatch(std::mem::replace(&mut batch, Vec::with_capacity(500)))).await.is_err() {
                             break;
                         }
                     }
@@ -1833,13 +1825,14 @@ impl DataEngine for MySqlDriver {
         let row_count_estimate = count_row.map(|(c,)| c);
 
         // Get indexes
-        let index_rows: Vec<(String, String, i32, i32)> = sqlx::query_as(
+        let index_rows: Vec<(String, String, i32, i32, Option<String>)> = sqlx::query_as(
             r#"
             SELECT
                 CAST(INDEX_NAME AS CHAR) AS name,
                 CAST(COLUMN_NAME AS CHAR) AS column_name,
                 CAST(NON_UNIQUE AS SIGNED) AS non_unique,
-                CAST(SEQ_IN_INDEX AS SIGNED) AS seq_in_index
+                CAST(SEQ_IN_INDEX AS SIGNED) AS seq_in_index,
+                CAST(INDEX_TYPE AS CHAR) AS index_type
             FROM information_schema.STATISTICS
             WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?
             ORDER BY INDEX_NAME, SEQ_IN_INDEX
@@ -1851,26 +1844,36 @@ impl DataEngine for MySqlDriver {
         .await
         .map_err(|e| EngineError::execution_error(e.to_string()))?;
 
-        // Group by index name
-        let mut index_map: std::collections::HashMap<String, (Vec<String>, bool, bool)> =
-            std::collections::HashMap::new();
-        for (name, column_name, non_unique, _seq) in index_rows {
+        // Group by index name (keep index_type from the first row of each group)
+        let mut index_map: std::collections::HashMap<
+            String,
+            (Vec<String>, bool, bool, Option<String>),
+        > = std::collections::HashMap::new();
+        for (name, column_name, non_unique, _seq, index_type) in index_rows {
             let is_unique = non_unique == 0;
             let is_primary = name == "PRIMARY";
-            let entry = index_map
-                .entry(name)
-                .or_insert_with(|| (Vec::new(), is_unique, is_primary));
+            let entry = index_map.entry(name).or_insert_with(|| {
+                (
+                    Vec::new(),
+                    is_unique,
+                    is_primary,
+                    index_type.map(|s| s.to_lowercase()),
+                )
+            });
             entry.0.push(column_name);
         }
 
         let indexes: Vec<TableIndex> = index_map
             .into_iter()
-            .map(|(name, (columns, is_unique, is_primary))| TableIndex {
-                name,
-                columns,
-                is_unique,
-                is_primary,
-            })
+            .map(
+                |(name, (columns, is_unique, is_primary, index_type))| TableIndex {
+                    name,
+                    columns,
+                    is_unique,
+                    is_primary,
+                    index_type,
+                },
+            )
             .collect();
 
         Ok(TableSchema {
@@ -1958,6 +1961,40 @@ impl DataEngine for MySqlDriver {
                     }
                     FilterOperator::IsNull => format!("{} IS NULL", col_ident),
                     FilterOperator::IsNotNull => format!("{} IS NOT NULL", col_ident),
+                    FilterOperator::Regex => {
+                        // MySQL REGEXP is case-insensitive on CI collations and
+                        // case-sensitive on binary collations. Prepending `(?i)`
+                        // forces case-insensitive matching when the caller asks.
+                        let raw = filter.value.as_text().ok_or_else(|| {
+                            EngineError::syntax_error(
+                                "regex operator requires a string value in 'value'",
+                            )
+                        })?;
+                        let flags = filter.options.sanitized_regex_flags();
+                        let pattern = if flags.contains('i') {
+                            Value::Text(format!("(?i){}", raw))
+                        } else {
+                            Value::Text(raw.to_string())
+                        };
+                        bind_values.push(pattern);
+                        format!("{} REGEXP ?", col_ident)
+                    }
+                    FilterOperator::Text => {
+                        // MySQL: MATCH(col) AGAINST(? IN NATURAL LANGUAGE MODE)
+                        // requires a FULLTEXT index on the column. The caller
+                        // is responsible for verifying that such an index
+                        // exists before calling; otherwise MySQL errors out.
+                        filter.value.as_text().ok_or_else(|| {
+                            EngineError::syntax_error(
+                                "text operator requires a string value in 'value'",
+                            )
+                        })?;
+                        bind_values.push(filter.value.clone());
+                        format!(
+                            "MATCH({}) AGAINST(? IN NATURAL LANGUAGE MODE)",
+                            col_ident
+                        )
+                    }
                 };
                 where_clauses.push(clause);
             }
@@ -2133,8 +2170,8 @@ impl DataEngine for MySqlDriver {
                     let data_type: String = r.try_get("DATA_TYPE").ok()?;
                     let is_nullable: String = r.try_get("IS_NULLABLE").ok()?;
                     Some(ColumnInfo {
-                        name,
-                        data_type,
+                        name: name.into(),
+                        data_type: data_type.into(),
                         nullable: is_nullable == "YES",
                     })
                 })
@@ -2210,8 +2247,7 @@ impl DataEngine for MySqlDriver {
             });
         }
 
-        let columns = Self::get_column_info(&mysql_rows[0]);
-        let rows: Vec<QRow> = mysql_rows.iter().map(Self::convert_row).collect();
+        let (columns, rows) = Self::columns_and_rows(&mysql_rows);
 
         Ok(QueryResult {
             columns,

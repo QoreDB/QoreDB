@@ -247,9 +247,9 @@ fn execute_select(conn: &Connection, sql: &str, start: Instant) -> EngineResult<
         .map(|i| ColumnInfo {
             name: stmt
                 .column_name(i)
-                .map(|s| s.to_string())
-                .unwrap_or_else(|_| format!("col_{}", i)),
-            data_type: "VARCHAR".to_string(),
+                .map(|s| s.into())
+                .unwrap_or_else(|_| format!("col_{}", i).into()),
+            data_type: "VARCHAR".into(),
             nullable: true,
         })
         .collect();
@@ -605,13 +605,14 @@ impl DataEngine for DuckDbDriver {
                                 columns: idx_columns,
                                 is_unique,
                                 is_primary: false,
+                                index_type: None,
                             });
                         }
                     }
                 }
             }
 
-            // 5. Get row count estimate (fast via DuckDB statistics)
+            // 5. Get row count estimate
             let row_count_estimate = conn
                 .query_row(
                     &format!(
@@ -783,9 +784,9 @@ impl DataEngine for DuckDbDriver {
                 .map(|i| ColumnInfo {
                     name: stmt
                         .column_name(i)
-                        .map(|s| s.to_string())
-                        .unwrap_or_else(|_| format!("col_{}", i)),
-                    data_type: "VARCHAR".to_string(),
+                        .map(|s| s.into())
+                        .unwrap_or_else(|_| format!("col_{}", i).into()),
+                    data_type: "VARCHAR".into(),
                     nullable: true,
                 })
                 .collect();
@@ -800,7 +801,7 @@ impl DataEngine for DuckDbDriver {
             for row in rows {
                 batch.push(row);
                 if batch.len() >= 500 {
-                    if sender.blocking_send(StreamEvent::RowBatch(std::mem::take(&mut batch))).is_err() {
+                    if sender.blocking_send(StreamEvent::RowBatch(std::mem::replace(&mut batch, Vec::with_capacity(500)))).is_err() {
                         return Ok(()); // Receiver dropped, stop streaming
                     }
                 }
@@ -882,6 +883,41 @@ impl DataEngine for DuckDbDriver {
                         }
                         FilterOperator::IsNull => format!("{} IS NULL", col_ident),
                         FilterOperator::IsNotNull => format!("{} IS NOT NULL", col_ident),
+                        FilterOperator::Regex => {
+                            filter.value.as_text().ok_or_else(|| {
+                                EngineError::syntax_error(
+                                    "regex operator requires a string value in 'value'",
+                                )
+                            })?;
+                            bind_values.push(value_to_duckdb(&filter.value));
+                            // DuckDB: regexp_matches(col, pat[, flags]).
+                            // `sanitized_regex_flags` guarantees flags are a
+                            // subset of `imxs`, safe to interpolate.
+                            let flags_lit = filter.options.sanitized_regex_flags();
+                            if flags_lit.is_empty() {
+                                format!("regexp_matches({}::VARCHAR, ?)", col_ident)
+                            } else {
+                                format!(
+                                    "regexp_matches({}::VARCHAR, ?, '{}')",
+                                    col_ident, flags_lit
+                                )
+                            }
+                        }
+                        FilterOperator::Text => {
+                            // DuckDB has no native full-text index; fall back to
+                            // a case-insensitive substring match so the operator
+                            // still works (the filter bar UI warns on absence of
+                            // a text index).
+                            let term = filter.value.as_text().ok_or_else(|| {
+                                EngineError::syntax_error(
+                                    "text operator requires a string value in 'value'",
+                                )
+                            })?;
+                            bind_values.push(value_to_duckdb(&qore_core::types::Value::Text(
+                                format!("%{}%", term),
+                            )));
+                            format!("{}::VARCHAR ILIKE ?", col_ident)
+                        }
                     };
                     where_clauses.push(clause);
                 }
@@ -993,9 +1029,9 @@ impl DataEngine for DuckDbDriver {
                 .map(|i| ColumnInfo {
                     name: stmt
                         .column_name(i)
-                        .map(|s| s.to_string())
-                        .unwrap_or_else(|_| format!("col_{}", i)),
-                    data_type: "VARCHAR".to_string(),
+                        .map(|s| s.into())
+                        .unwrap_or_else(|_| format!("col_{}", i).into()),
+                    data_type: "VARCHAR".into(),
                     nullable: true,
                 })
                 .collect();
@@ -1071,9 +1107,9 @@ impl DataEngine for DuckDbDriver {
                 .map(|i| ColumnInfo {
                     name: stmt
                         .column_name(i)
-                        .map(|s| s.to_string())
-                        .unwrap_or_else(|_| format!("col_{}", i)),
-                    data_type: "VARCHAR".to_string(),
+                        .map(|s| s.into())
+                        .unwrap_or_else(|_| format!("col_{}", i).into()),
+                    data_type: "VARCHAR".into(),
                     nullable: true,
                 })
                 .collect();
@@ -1537,6 +1573,7 @@ mod tests {
             pool_max_connections: None,
             pool_min_connections: None,
             proxy: None,
+            mssql_auth: None,
         };
 
         let session_id = driver.connect(&config).await.unwrap();
@@ -1563,6 +1600,7 @@ mod tests {
             pool_max_connections: None,
             pool_min_connections: None,
             proxy: None,
+            mssql_auth: None,
         };
 
         let session_id = driver.connect(&config).await.unwrap();
@@ -1620,6 +1658,7 @@ mod tests {
             pool_max_connections: None,
             pool_min_connections: None,
             proxy: None,
+            mssql_auth: None,
         };
 
         let session_id = driver.connect(&config).await.unwrap();
@@ -1651,6 +1690,7 @@ mod tests {
             pool_max_connections: None,
             pool_min_connections: None,
             proxy: None,
+            mssql_auth: None,
         };
 
         let session_id = driver.connect(&config).await.unwrap();

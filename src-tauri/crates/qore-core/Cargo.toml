@@ -14,4 +14,5 @@ thiserror = { workspace = true }
 uuid = { workspace = true }
 chrono = { workspace = true }
 base64 = { workspace = true }
+compact_str = { workspace = true }
 regex = "1"

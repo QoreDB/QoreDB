@@ -567,7 +567,6 @@ mod tests {
 impl Drop for OpenSshTunnel {
     fn drop(&mut self) {
         if let Some(mut process) = self.process.take() {
-            // Best effort kill on drop
             let _ = process.start_kill();
         }
     }

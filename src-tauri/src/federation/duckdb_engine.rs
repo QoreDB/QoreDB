@@ -142,9 +142,9 @@ impl DuckDbEngine {
             .map(|i| ColumnInfo {
                 name: stmt
                     .column_name(i)
-                    .map(|s| s.to_string())
-                    .unwrap_or_else(|_| format!("col_{i}")),
-                data_type: "VARCHAR".to_string(),
+                    .map(|s| s.into())
+                    .unwrap_or_else(|_| format!("col_{i}").into()),
+                data_type: "VARCHAR".into(),
                 nullable: true,
             })
             .collect();

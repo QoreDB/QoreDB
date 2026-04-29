@@ -13,6 +13,7 @@ import {
   Loader2,
   Plus,
   Table,
+  Trash2,
   X,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -73,7 +74,9 @@ import {
   type Value,
 } from '../../lib/tauri';
 import { DocumentEditorModal } from '../Editor/DocumentEditorModal';
+import { DangerConfirmDialog } from '../Guard/DangerConfirmDialog';
 import { ResultsViewer } from '../Results/ResultsViewer';
+import { IndexDialog } from '../Schema/IndexDialog';
 import { ContentBreadcrumb } from './ContentBreadcrumb';
 import { RowModal } from './RowModal';
 
@@ -843,6 +846,13 @@ export function TableBrowser({
             tableName={tableName}
             driver={driver}
             schema={schema}
+            environment={environment}
+            readOnly={readOnly}
+            onRefreshSchema={async () => {
+              schemaCache.invalidateTable(namespace, tableName);
+              const refreshed = await schemaCache.getTableSchema(namespace, tableName);
+              if (refreshed) setSchema(refreshed);
+            }}
           />
         )}
       </div>
@@ -1053,13 +1063,28 @@ interface TableInfoPanelProps {
   tableName: string;
   driver: string;
   schema: TableSchema | null;
+  environment?: Environment;
+  readOnly?: boolean;
+  onRefreshSchema?: () => void | Promise<void>;
 }
 
-function TableInfoPanel({ sessionId, namespace, tableName, driver, schema }: TableInfoPanelProps) {
+function TableInfoPanel({
+  sessionId,
+  namespace,
+  tableName,
+  driver,
+  schema,
+  environment = 'development',
+  readOnly = false,
+  onRefreshSchema,
+}: TableInfoPanelProps) {
   const { t } = useTranslation();
   const [stats, setStats] = useState<TableStats>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [indexDialogOpen, setIndexDialogOpen] = useState(false);
+  const [dropTarget, setDropTarget] = useState<string | null>(null);
+  const [dropLoading, setDropLoading] = useState(false);
 
   const driverMeta = getDriverMetadata(driver);
   const loadStats = useCallback(async () => {
@@ -1155,6 +1180,13 @@ function TableInfoPanel({ sessionId, namespace, tableName, driver, schema }: Tab
             newStats.indexCount = newStats.indexes.length;
           }
         }
+      } else if (driver === Driver.Mongodb && schema) {
+        newStats.rowCount = schema.row_count_estimate ?? undefined;
+        newStats.indexes = schema.indexes.map(idx => ({
+          name: idx.name,
+          columns: idx.columns.join(', '),
+        }));
+        newStats.indexCount = schema.indexes.length;
       }
 
       setStats(newStats);
@@ -1163,7 +1195,7 @@ function TableInfoPanel({ sessionId, namespace, tableName, driver, schema }: Tab
     } finally {
       setLoading(false);
     }
-  }, [sessionId, namespace, tableName, driver, driverMeta]);
+  }, [sessionId, namespace, tableName, driver, driverMeta, schema]);
 
   useEffect(() => {
     loadStats();
@@ -1214,21 +1246,52 @@ function TableInfoPanel({ sessionId, namespace, tableName, driver, schema }: Tab
       </div>
 
       {/* Indexes */}
-      {stats.indexes && stats.indexes.length > 0 && (
+      {(stats.indexes && stats.indexes.length > 0) || driver === Driver.Mongodb ? (
         <div className="border border-border rounded-md overflow-hidden">
-          <div className="px-3 py-2 bg-muted/50 border-b border-border text-xs font-semibold text-muted-foreground uppercase">
-            {t('tableInfo.indexes')}
+          <div className="px-3 py-2 bg-muted/50 border-b border-border flex items-center justify-between">
+            <span className="text-xs font-semibold text-muted-foreground uppercase">
+              {t('tableInfo.indexes')}
+            </span>
+            {driver === Driver.Mongodb && !readOnly && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-xs"
+                onClick={() => setIndexDialogOpen(true)}
+              >
+                <Plus size={14} className="mr-1" />
+                {t('mongoIndex.new')}
+              </Button>
+            )}
           </div>
           <div className="divide-y divide-border">
-            {stats.indexes.map(idx => (
+            {stats.indexes?.map(idx => (
               <div key={idx.name} className="flex items-center justify-between px-3 py-2 text-sm">
                 <span className="font-mono font-medium">{idx.name}</span>
-                <span className="text-muted-foreground font-mono text-xs">{idx.columns}</span>
+                <div className="flex items-center gap-3">
+                  <span className="text-muted-foreground font-mono text-xs">{idx.columns}</span>
+                  {driver === Driver.Mongodb && !readOnly && idx.name !== '_id_' && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0 text-muted-foreground hover:text-error"
+                      onClick={() => setDropTarget(idx.name)}
+                      aria-label={t('mongoIndex.drop')}
+                    >
+                      <Trash2 size={14} />
+                    </Button>
+                  )}
+                </div>
               </div>
             ))}
+            {driver === Driver.Mongodb && (!stats.indexes || stats.indexes.length === 0) && (
+              <div className="px-3 py-3 text-sm text-muted-foreground italic">
+                {t('mongoIndex.emptyState')}
+              </div>
+            )}
           </div>
         </div>
-      )}
+      ) : null}
 
       {/* Maintenance Info (PostgreSQL) */}
       {(stats.lastVacuum || stats.lastAnalyze) && (
@@ -1253,6 +1316,62 @@ function TableInfoPanel({ sessionId, namespace, tableName, driver, schema }: Tab
             )}
           </div>
         </div>
+      )}
+
+      {driver === Driver.Mongodb && (
+        <>
+          <IndexDialog
+            isOpen={indexDialogOpen}
+            onClose={() => setIndexDialogOpen(false)}
+            onSuccess={() => {
+              void onRefreshSchema?.();
+            }}
+            sessionId={sessionId}
+            database={namespace.database}
+            collection={tableName}
+            fieldSuggestions={schema?.columns.map(c => c.name).filter(n => n !== '_id') ?? []}
+            environment={environment}
+          />
+          <DangerConfirmDialog
+            open={dropTarget !== null}
+            onOpenChange={open => !open && setDropTarget(null)}
+            title={t('mongoIndex.dropTitle')}
+            description={t('mongoIndex.dropDesc', {
+              name: dropTarget ?? '',
+              collection: tableName,
+            })}
+            confirmLabel={t('mongoIndex.drop')}
+            confirmationLabel={environment === 'production' ? dropTarget ?? undefined : undefined}
+            loading={dropLoading}
+            onConfirm={async () => {
+              if (!dropTarget) return;
+              setDropLoading(true);
+              try {
+                const res = await executeQuery(
+                  sessionId,
+                  JSON.stringify({
+                    operation: 'dropIndex',
+                    database: namespace.database,
+                    collection: tableName,
+                    name: dropTarget,
+                  }),
+                  { acknowledgedDangerous: environment !== 'development' }
+                );
+                if (res.success) {
+                  toast.success(t('mongoIndex.dropped'));
+                  setDropTarget(null);
+                  await onRefreshSchema?.();
+                } else {
+                  toast.error(res.error ?? t('common.unknownError'));
+                }
+              } catch (e) {
+                toast.error(e instanceof Error ? e.message : t('common.unknownError'));
+              } finally {
+                setDropLoading(false);
+              }
+            }}
+          />
+        </>
       )}
     </div>
   );

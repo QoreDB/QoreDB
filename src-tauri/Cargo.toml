@@ -14,6 +14,11 @@ resolver = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["raw_value"] }
 
+# Compact inline-storage strings (≤ 24 bytes inline on 64-bit). Used for
+# short metadata strings (column names, type names) where the per-row alloc
+# pressure adds up. Wire format under serde matches `String`.
+compact_str = { version = "0.8", features = ["serde"] }
+
 # Async runtime
 tokio = { version = "1", features = [
     "rt-multi-thread",
@@ -69,6 +74,8 @@ tiberius = { version = "0.12", features = [
     "chrono",
     "rust_decimal",
     "bigdecimal",
+    "winauth",
+    "integrated-auth-gssapi",
 ] }
 bb8 = "0.9"
 bb8-tiberius = "0.16"
@@ -80,7 +87,7 @@ duckdb = { version = "1.4", features = ["bundled"] }
 
 [package]
 name = "qoredb"
-version = "0.1.25"
+version = "0.1.26"
 description = "Next gen DB Client"
 authors = ["Raphaël Plassart <raphael.plassart@gmail.com>"]
 edition = "2021"
@@ -115,6 +122,10 @@ rmp-serde = "1"
 tokio = { workspace = true }
 tokio-util = { version = "0.7", features = ["compat"] }
 bytes = "1.11.1"
+
+# Global memory allocator — faster small allocations, lower fragmentation
+# vs the system allocator on a workload heavy in Strings / Vec<Row> / serde nodes.
+mimalloc = { version = "0.1", default-features = false }
 
 # Database drivers
 sqlx = { workspace = true }

@@ -5,6 +5,7 @@
 //! These types provide a normalized representation of database concepts
 //! across SQL and NoSQL engines.
 
+use compact_str::CompactString;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -64,6 +65,20 @@ pub struct ConnectionConfig {
     /// Network proxy configuration (HTTP CONNECT or SOCKS5)
     #[serde(default)]
     pub proxy: Option<ProxyConfig>,
+    /// SQL Server authentication mode. `None` means SQL auth (legacy default),
+    /// kept optional for JSON back-compat with pre-NTLM saved connections.
+    #[serde(default)]
+    pub mssql_auth: Option<MssqlAuthMode>,
+}
+
+/// Authentication mode for SQL Server connections.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum MssqlAuthMode {
+    #[default]
+    SqlPassword,
+    WindowsNtlm,
+    WindowsIntegrated,
 }
 
 /// Network proxy configuration for corporate environments
@@ -102,7 +117,7 @@ pub struct SshTunnelConfig {
     pub username: String,
     pub auth: SshAuth,
 
-    /// Host key verification policy (security-critical).
+    /// Host key verification policy.
     pub host_key_policy: SshHostKeyPolicy,
 
     /// Optional path to an app-owned known_hosts file.
@@ -196,6 +211,57 @@ mod tests {
             other => panic!("unexpected auth variant: {other:?}"),
         }
     }
+
+    #[test]
+    fn mssql_auth_mode_serialises_snake_case() {
+        let json = serde_json::to_string(&MssqlAuthMode::WindowsNtlm).unwrap();
+        assert_eq!(json, "\"windows_ntlm\"");
+        let json = serde_json::to_string(&MssqlAuthMode::SqlPassword).unwrap();
+        assert_eq!(json, "\"sql_password\"");
+        let json = serde_json::to_string(&MssqlAuthMode::WindowsIntegrated).unwrap();
+        assert_eq!(json, "\"windows_integrated\"");
+    }
+
+    #[test]
+    fn connection_config_roundtrips_windows_integrated() {
+        let json = r#"{
+            "driver":"sqlserver","host":"localhost","port":1433,
+            "username":"","password":"","database":null,"ssl":false,
+            "environment":"development","read_only":false,
+            "pool_max_connections":null,"pool_min_connections":null,
+            "pool_acquire_timeout_secs":null,"ssh_tunnel":null,
+            "mssql_auth":"windows_integrated"
+        }"#;
+        let cfg: ConnectionConfig = serde_json::from_str(json).expect("must parse");
+        assert_eq!(cfg.mssql_auth, Some(MssqlAuthMode::WindowsIntegrated));
+    }
+
+    #[test]
+    fn connection_config_accepts_legacy_json_without_mssql_auth() {
+        let legacy = r#"{
+            "driver":"sqlserver","host":"localhost","port":1433,
+            "username":"sa","password":"x","database":null,"ssl":false,
+            "environment":"development","read_only":false,
+            "pool_max_connections":null,"pool_min_connections":null,
+            "pool_acquire_timeout_secs":null,"ssh_tunnel":null
+        }"#;
+        let cfg: ConnectionConfig = serde_json::from_str(legacy).expect("legacy config must parse");
+        assert!(cfg.mssql_auth.is_none());
+    }
+
+    #[test]
+    fn connection_config_roundtrips_windows_ntlm() {
+        let json = r#"{
+            "driver":"sqlserver","host":"localhost","port":1433,
+            "username":"CORP\\jdoe","password":"x","database":null,"ssl":false,
+            "environment":"development","read_only":false,
+            "pool_max_connections":null,"pool_min_connections":null,
+            "pool_acquire_timeout_secs":null,"ssh_tunnel":null,
+            "mssql_auth":"windows_ntlm"
+        }"#;
+        let cfg: ConnectionConfig = serde_json::from_str(json).expect("must parse");
+        assert_eq!(cfg.mssql_auth, Some(MssqlAuthMode::WindowsNtlm));
+    }
 }
 
 /// Namespace represents the hierarchy level above collections
@@ -254,6 +320,18 @@ pub enum Value {
     Bytes(#[serde(with = "base64_bytes")] Vec<u8>),
     Json(serde_json::Value),
     Array(Vec<Value>),
+}
+
+impl Value {
+    /// Returns the inner string if the value is `Value::Text`, otherwise
+    /// `None`. Prefer this over ad-hoc `match` when a callsite needs a
+    /// string-only contract (regex pattern, full-text query, …).
+    pub fn as_text(&self) -> Option<&str> {
+        match self {
+            Value::Text(s) => Some(s.as_str()),
+            _ => None,
+        }
+    }
 }
 
 impl From<bool> for Value {
@@ -377,11 +455,16 @@ mod base64_bytes {
     }
 }
 
-/// Column metadata
+/// Column metadata.
+///
+/// `name` and `data_type` are stored as [`CompactString`]: most identifiers
+/// fit inline (≤ 24 bytes on 64-bit) and avoid a heap allocation per column
+/// per result. Serde wire format is identical to `String` — the change is
+/// transparent to MessagePack / JSON consumers.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ColumnInfo {
-    pub name: String,
-    pub data_type: String,
+    pub name: CompactString,
+    pub data_type: CompactString,
     pub nullable: bool,
 }
 
@@ -477,6 +560,10 @@ pub struct TableIndex {
     pub columns: Vec<String>,
     pub is_unique: bool,
     pub is_primary: bool,
+    /// Engine-specific index type, when known (e.g. `btree`, `hash`, `gin`,
+    /// `fulltext`, `text`, `2dsphere`). `None` means unspecified/default.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub index_type: Option<String>,
 }
 
 /// Table schema metadata
@@ -810,6 +897,61 @@ pub enum FilterOperator {
     Like,
     IsNull,
     IsNotNull,
+    /// Regular-expression match. Pattern is in `ColumnFilter::value` (string);
+    /// flags (`i`, `m`, `x`, `s`) are in `ColumnFilter::options.regex_flags`.
+    Regex,
+    /// Engine-native full-text search. Query is in `ColumnFilter::value`;
+    /// optional language is in `ColumnFilter::options.text_language`.
+    Text,
+}
+
+/// Per-filter tuning options. Kept separate from `FilterOperator` so that
+/// the operator stays `Copy` and the existing on-wire representation of
+/// unit variants (plain snake_case strings) is preserved.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct FilterOptions {
+    /// Regex flags string for `FilterOperator::Regex` (subset of `imxs`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub regex_flags: Option<String>,
+    /// Language tag for `FilterOperator::Text` (e.g. `"english"`, `"french"`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub text_language: Option<String>,
+}
+
+impl FilterOptions {
+    pub fn is_empty(&self) -> bool {
+        self.regex_flags.is_none() && self.text_language.is_none()
+    }
+
+    /// Returns only the valid regex flags (`i`, `m`, `x`, `s`) — defense in
+    /// depth against backends that interpolate flags into SQL literals or
+    /// protocol documents. The UI is expected to sanitize on entry, but this
+    /// guarantees it regardless of caller (including raw API consumers).
+    pub fn sanitized_regex_flags(&self) -> String {
+        self.regex_flags
+            .as_deref()
+            .unwrap_or("")
+            .chars()
+            .filter(|c| matches!(c, 'i' | 'm' | 'x' | 's'))
+            .collect()
+    }
+
+    /// Returns the requested text-search language if it passes a strict
+    /// identifier check (`[a-z_]+`, 1..=32 chars), otherwise returns
+    /// `fallback`. Used by drivers that must interpolate the language into a
+    /// server-side function call (e.g. PostgreSQL's `to_tsvector(lang, …)`).
+    pub fn sanitized_text_language(&self, fallback: &str) -> String {
+        match self.text_language.as_deref() {
+            Some(lang)
+                if !lang.is_empty()
+                    && lang.len() <= 32
+                    && lang.chars().all(|c| c.is_ascii_lowercase() || c == '_') =>
+            {
+                lang.to_string()
+            }
+            _ => fallback.to_string(),
+        }
+    }
 }
 
 /// Column filter for WHERE clauses
@@ -818,6 +960,8 @@ pub struct ColumnFilter {
     pub column: String,
     pub operator: FilterOperator,
     pub value: Value,
+    #[serde(default, skip_serializing_if = "FilterOptions::is_empty")]
+    pub options: FilterOptions,
 }
 
 /// Options for querying table data with pagination, sorting, and filtering

@@ -264,8 +264,8 @@ impl RedisDriver {
             .map_err(|e| EngineError::execution_error(e.to_string()))?;
 
         let columns = vec![ColumnInfo {
-            name: "value".to_string(),
-            data_type: "string".to_string(),
+            name: "value".into(),
+            data_type: "string".into(),
             nullable: false,
         }];
 
@@ -295,13 +295,13 @@ impl RedisDriver {
 
         let columns = vec![
             ColumnInfo {
-                name: "field".to_string(),
-                data_type: "string".to_string(),
+                name: "field".into(),
+                data_type: "string".into(),
                 nullable: false,
             },
             ColumnInfo {
-                name: "value".to_string(),
-                data_type: "string".to_string(),
+                name: "value".into(),
+                data_type: "string".into(),
                 nullable: false,
             },
         ];
@@ -406,13 +406,13 @@ impl RedisDriver {
 
         let columns = vec![
             ColumnInfo {
-                name: "index".to_string(),
-                data_type: "integer".to_string(),
+                name: "index".into(),
+                data_type: "integer".into(),
                 nullable: false,
             },
             ColumnInfo {
-                name: "value".to_string(),
-                data_type: "string".to_string(),
+                name: "value".into(),
+                data_type: "string".into(),
                 nullable: false,
             },
         ];
@@ -452,8 +452,8 @@ impl RedisDriver {
             .map_err(|e| EngineError::execution_error(e.to_string()))?;
 
         let columns = vec![ColumnInfo {
-            name: "member".to_string(),
-            data_type: "string".to_string(),
+            name: "member".into(),
+            data_type: "string".into(),
             nullable: false,
         }];
 
@@ -548,13 +548,13 @@ impl RedisDriver {
 
         let columns = vec![
             ColumnInfo {
-                name: "member".to_string(),
-                data_type: "string".to_string(),
+                name: "member".into(),
+                data_type: "string".into(),
                 nullable: false,
             },
             ColumnInfo {
-                name: "score".to_string(),
-                data_type: "float".to_string(),
+                name: "score".into(),
+                data_type: "float".into(),
                 nullable: false,
             },
         ];
@@ -604,13 +604,13 @@ impl RedisDriver {
             return Ok(QueryResult {
                 columns: vec![
                     ColumnInfo {
-                        name: "id".to_string(),
-                        data_type: "string".to_string(),
+                        name: "id".into(),
+                        data_type: "string".into(),
                         nullable: false,
                     },
                     ColumnInfo {
-                        name: "data".to_string(),
-                        data_type: "json".to_string(),
+                        name: "data".into(),
+                        data_type: "json".into(),
                         nullable: false,
                     },
                 ],
@@ -636,13 +636,13 @@ impl RedisDriver {
 
         let columns = vec![
             ColumnInfo {
-                name: "id".to_string(),
-                data_type: "string".to_string(),
+                name: "id".into(),
+                data_type: "string".into(),
                 nullable: false,
             },
             ColumnInfo {
-                name: "data".to_string(),
-                data_type: "json".to_string(),
+                name: "data".into(),
+                data_type: "json".into(),
                 nullable: false,
             },
         ];
@@ -802,8 +802,8 @@ impl RedisDriver {
         match &value {
             redis::Value::Nil => QueryResult {
                 columns: vec![ColumnInfo {
-                    name: "result".to_string(),
-                    data_type: "string".to_string(),
+                    name: "result".into(),
+                    data_type: "string".into(),
                     nullable: true,
                 }],
                 rows: vec![QRow {
@@ -820,8 +820,8 @@ impl RedisDriver {
             },
             redis::Value::Int(i) => QueryResult {
                 columns: vec![ColumnInfo {
-                    name: "result".to_string(),
-                    data_type: "integer".to_string(),
+                    name: "result".into(),
+                    data_type: "integer".into(),
                     nullable: false,
                 }],
                 rows: vec![QRow {
@@ -832,8 +832,8 @@ impl RedisDriver {
             },
             redis::Value::Array(arr) => {
                 let columns = vec![ColumnInfo {
-                    name: "value".to_string(),
-                    data_type: "string".to_string(),
+                    name: "value".into(),
+                    data_type: "string".into(),
                     nullable: true,
                 }];
                 let rows: Vec<QRow> = arr
@@ -851,8 +851,8 @@ impl RedisDriver {
             }
             _ => {
                 let columns = vec![ColumnInfo {
-                    name: "result".to_string(),
-                    data_type: "string".to_string(),
+                    name: "result".into(),
+                    data_type: "string".into(),
                     nullable: true,
                 }];
                 let rows = vec![QRow {
@@ -1288,23 +1288,23 @@ impl DataEngine for RedisDriver {
         // Build columns based on type
         let columns = match type_str.as_str() {
             "string" => vec![TableColumn {
-                name: "value".to_string(),
-                data_type: "string".to_string(),
+                name: "value".into(),
+                data_type: "string".into(),
                 nullable: false,
                 default_value: None,
                 is_primary_key: false,
             }],
             "hash" => vec![
                 TableColumn {
-                    name: "field".to_string(),
-                    data_type: "string".to_string(),
+                    name: "field".into(),
+                    data_type: "string".into(),
                     nullable: false,
                     default_value: None,
                     is_primary_key: true,
                 },
                 TableColumn {
-                    name: "value".to_string(),
-                    data_type: "string".to_string(),
+                    name: "value".into(),
+                    data_type: "string".into(),
                     nullable: false,
                     default_value: None,
                     is_primary_key: false,
@@ -1312,38 +1312,38 @@ impl DataEngine for RedisDriver {
             ],
             "list" => vec![
                 TableColumn {
-                    name: "index".to_string(),
-                    data_type: "integer".to_string(),
+                    name: "index".into(),
+                    data_type: "integer".into(),
                     nullable: false,
                     default_value: None,
                     is_primary_key: true,
                 },
                 TableColumn {
-                    name: "value".to_string(),
-                    data_type: "string".to_string(),
+                    name: "value".into(),
+                    data_type: "string".into(),
                     nullable: false,
                     default_value: None,
                     is_primary_key: false,
                 },
             ],
             "set" => vec![TableColumn {
-                name: "member".to_string(),
-                data_type: "string".to_string(),
+                name: "member".into(),
+                data_type: "string".into(),
                 nullable: false,
                 default_value: None,
                 is_primary_key: false,
             }],
             "zset" => vec![
                 TableColumn {
-                    name: "member".to_string(),
-                    data_type: "string".to_string(),
+                    name: "member".into(),
+                    data_type: "string".into(),
                     nullable: false,
                     default_value: None,
                     is_primary_key: false,
                 },
                 TableColumn {
-                    name: "score".to_string(),
-                    data_type: "float".to_string(),
+                    name: "score".into(),
+                    data_type: "float".into(),
                     nullable: false,
                     default_value: None,
                     is_primary_key: false,
@@ -1351,22 +1351,22 @@ impl DataEngine for RedisDriver {
             ],
             "stream" => vec![
                 TableColumn {
-                    name: "id".to_string(),
-                    data_type: "string".to_string(),
+                    name: "id".into(),
+                    data_type: "string".into(),
                     nullable: false,
                     default_value: None,
                     is_primary_key: true,
                 },
                 TableColumn {
-                    name: "data".to_string(),
-                    data_type: "json".to_string(),
+                    name: "data".into(),
+                    data_type: "json".into(),
                     nullable: false,
                     default_value: None,
                     is_primary_key: false,
                 },
             ],
             _ => vec![TableColumn {
-                name: "value".to_string(),
+                name: "value".into(),
                 data_type: type_str.clone(),
                 nullable: true,
                 default_value: None,
@@ -1425,6 +1425,7 @@ impl DataEngine for RedisDriver {
                 ),
                 columns: vec![key.to_string()],
                 is_unique: false,
+                index_type: None,
                 is_primary: false,
             }],
         })
@@ -1513,13 +1514,13 @@ impl DataEngine for RedisDriver {
                 let result = QueryResult {
                     columns: vec![
                         ColumnInfo {
-                            name: "field".to_string(),
-                            data_type: "string".to_string(),
+                            name: "field".into(),
+                            data_type: "string".into(),
                             nullable: false,
                         },
                         ColumnInfo {
-                            name: "value".to_string(),
-                            data_type: "string".to_string(),
+                            name: "value".into(),
+                            data_type: "string".into(),
                             nullable: false,
                         },
                     ],
@@ -1549,8 +1550,8 @@ impl DataEngine for RedisDriver {
                     .await?;
                 let result = QueryResult {
                     columns: vec![ColumnInfo {
-                        name: "member".to_string(),
-                        data_type: "string".to_string(),
+                        name: "member".into(),
+                        data_type: "string".into(),
                         nullable: false,
                     }],
                     rows,
@@ -1996,6 +1997,7 @@ mod tests {
             pool_max_connections: None,
             pool_min_connections: None,
             proxy: None,
+            mssql_auth: None,
         };
 
         let conn_str = RedisDriver::build_connection_string(&config);
@@ -2020,6 +2022,7 @@ mod tests {
             pool_max_connections: None,
             pool_min_connections: None,
             proxy: None,
+            mssql_auth: None,
         };
 
         let conn_str = RedisDriver::build_connection_string(&config);
@@ -2044,6 +2047,7 @@ mod tests {
             pool_max_connections: None,
             pool_min_connections: None,
             proxy: None,
+            mssql_auth: None,
         };
 
         let conn_str = RedisDriver::build_connection_string(&config);

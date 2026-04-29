@@ -1,0 +1,177 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# Profile-Guided Optimization (PGO) release pipeline.
+#
+# Manual / opt-in workflow. Builds an instrumented `qore-pgo-workload` binary,
+# runs a representative SQLite workload to record `.profraw` profiles, merges
+# them, then rebuilds the full Tauri app with `-Cprofile-use=…`.
+#
+# Trigger:
+#   - workflow_dispatch  (manual run from the GitHub UI)
+#   - push of a tag matching `v*-pgo`  (opt-in PGO release tag)
+#
+# The standard release workflow (`release.yml`) is unaffected. We start with
+# Linux x86_64 only; macOS/Windows can be wired in once we have measured gain
+# on Linux. See doc/todo/PERFORMANCE_PLAN.md §2.1.
+
+name: Release (PGO)
+
+on:
+  workflow_dispatch:
+    inputs:
+      upload-artifact:
+        description: 'Upload the PGO-built binary as a workflow artifact'
+        type: boolean
+        default: true
+  push:
+    tags:
+      - 'v*-pgo'
+
+permissions:
+  contents: read
+
+jobs:
+  pgo-build:
+    name: PGO build (Linux x86_64)
+    runs-on: ubuntu-22.04
+    timeout-minutes: 90
+
+    env:
+      PGO_DATA_DIR: ${{ github.workspace }}/pgo-data
+      PGO_MERGED: ${{ github.workspace }}/pgo-data/merged.profdata
+      CARGO_TERM_COLOR: always
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf
+
+      - name: Setup Rust (stable + llvm-tools-preview)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: llvm-tools-preview
+
+      - name: Locate llvm-profdata
+        id: llvm
+        run: |
+          set -e
+          sysroot="$(rustc --print sysroot)"
+          host="$(rustc -vV | awk '/^host:/ {print $2}')"
+          profdata="${sysroot}/lib/rustlib/${host}/bin/llvm-profdata"
+          if [ ! -x "$profdata" ]; then
+            echo "llvm-profdata not found at $profdata" >&2
+            exit 1
+          fi
+          echo "profdata=$profdata" >> "$GITHUB_OUTPUT"
+          echo "Using $profdata"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+          cache: 'pnpm'
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Prepare profile output directory
+        run: |
+          rm -rf "$PGO_DATA_DIR"
+          mkdir -p "$PGO_DATA_DIR"
+
+      # ---------------------------------------------------------------------
+      # PHASE 1 — instrumented build of the headless workload
+      # ---------------------------------------------------------------------
+      - name: Build instrumented workload (-Cprofile-generate)
+        env:
+          RUSTFLAGS: -Cprofile-generate=${{ env.PGO_DATA_DIR }}
+        working-directory: src-tauri
+        run: cargo build --release -p qore-pgo-workload
+
+      # ---------------------------------------------------------------------
+      # PHASE 2 — run the workload to emit .profraw files
+      # ---------------------------------------------------------------------
+      - name: Run workload (record profiles)
+        env:
+          LLVM_PROFILE_FILE: ${{ env.PGO_DATA_DIR }}/qoredb-%m-%p.profraw
+          RUST_LOG: info
+        run: ./src-tauri/target/release/qore-pgo-workload
+
+      - name: List recorded profiles
+        run: ls -la "$PGO_DATA_DIR"
+
+      # ---------------------------------------------------------------------
+      # PHASE 3 — merge profiles via llvm-profdata
+      # ---------------------------------------------------------------------
+      - name: Merge profiles (llvm-profdata)
+        run: |
+          set -e
+          shopt -s nullglob
+          profraws=("$PGO_DATA_DIR"/*.profraw)
+          if [ ${#profraws[@]} -eq 0 ]; then
+            echo "No .profraw files were generated; aborting." >&2
+            exit 1
+          fi
+          "${{ steps.llvm.outputs.profdata }}" merge \
+            -o "$PGO_MERGED" \
+            "${profraws[@]}"
+          ls -la "$PGO_MERGED"
+
+      # ---------------------------------------------------------------------
+      # PHASE 4 — final release build of qoredb with -Cprofile-use
+      # ---------------------------------------------------------------------
+      - name: Clean instrumented artefacts
+        working-directory: src-tauri
+        run: cargo clean
+
+      - name: Build release with PGO (-Cprofile-use)
+        env:
+          # `-pgo-warn-missing-function` downgrades missing-profile errors to
+          # warnings; expected because the workload doesn't cover every
+          # monomorphization in the Tauri app (e.g. Postgres/MySQL paths).
+          RUSTFLAGS: -Cprofile-use=${{ env.PGO_MERGED }} -Cllvm-args=-pgo-warn-missing-function
+          PUBLIC_KEY_BASE64: ${{ vars.PUBLIC_KEY_BASE64 }}
+        working-directory: src-tauri
+        run: cargo build --release --features pro
+
+      - name: Verify PGO binary exists
+        run: |
+          set -e
+          binary="src-tauri/target/release/qoredb"
+          if [ ! -x "$binary" ]; then
+            echo "Expected PGO binary at $binary, not found." >&2
+            exit 1
+          fi
+          ls -la "$binary"
+          file "$binary"
+
+      - name: Upload PGO binary artifact
+        if: ${{ github.event_name == 'push' || inputs.upload-artifact }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: qoredb-pgo-linux-x86_64
+          path: src-tauri/target/release/qoredb
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload merged profile (for inspection)
+        if: ${{ github.event_name == 'push' || inputs.upload-artifact }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: qoredb-pgo-profile
+          path: ${{ env.PGO_MERGED }}
+          if-no-files-found: warn
+          retention-days: 7

@@ -337,8 +337,8 @@ fn flatten_mongo_documents(result: QueryResult) -> QueryResult {
     let columns: Vec<ColumnInfo> = column_names
         .iter()
         .map(|name| ColumnInfo {
-            name: name.clone(),
-            data_type: "VARCHAR".to_string(),
+            name: name.as_str().into(),
+            data_type: "VARCHAR".into(),
             nullable: true,
         })
         .collect();

@@ -55,6 +55,7 @@ import { DocumentEditorModal } from '../Editor/DocumentEditorModal';
 import { MONGO_TEMPLATES } from '../Editor/mongo-constants';
 import type { SQLEditorHandle } from '../Editor/SQLEditor';
 import { DangerConfirmDialog } from '../Guard/DangerConfirmDialog';
+import { OverrideLimitsDialog, type OverrideLimitsKind } from '../Guard/OverrideLimitsDialog';
 import { ProductionConfirmDialog } from '../Guard/ProductionConfirmDialog';
 import { QueryHistory } from '../History/QueryHistory';
 import { QueryLibraryModal } from './QueryLibraryModal';
@@ -149,6 +150,9 @@ export function QueryPanel({
   const [dangerConfirmLabel, setDangerConfirmLabel] = useState<string | undefined>(undefined);
   const [dangerConfirmInfo, setDangerConfirmInfo] = useState<string | undefined>(undefined);
   const [pendingQuery, setPendingQuery] = useState<string | null>(null);
+  const [overrideDialogOpen, setOverrideDialogOpen] = useState(false);
+  const [overrideKind, setOverrideKind] = useState<OverrideLimitsKind>('truncated');
+  const [pendingOverrideQuery, setPendingOverrideQuery] = useState<string | null>(null);
   const sqlEditorRef = useRef<SQLEditorHandle>(null);
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
@@ -229,7 +233,8 @@ export function QueryPanel({
     async (
       queryToRun: string,
       acknowledgedDangerous = false,
-      kind: QueryResultEntry['kind'] = 'query'
+      kind: QueryResultEntry['kind'] = 'query',
+      bypassLimits = false
     ) => {
       if (!sessionId) {
         setPanelError(t('query.noConnectionError'));
@@ -379,6 +384,7 @@ export function QueryPanel({
                 activeNamespace ??
                 (connectionDatabase ? { database: connectionDatabase } : undefined),
               streamHandlers,
+              bypassLimits,
             });
         const endTime = performance.now();
         const totalTime = endTime - startTime;
@@ -426,28 +432,26 @@ export function QueryPanel({
             setResults(prev => {
               const updated = [...prev];
               const index = updated.findIndex(e => e.id === queryId);
+              const baseEntry: QueryResultEntry = {
+                id: queryId,
+                kind,
+                query: queryToRun,
+                result: enrichedResult,
+                executedAt: Date.now(),
+                totalTimeMs: totalTime,
+                executionTimeMs: enrichedResult.execution_time_ms,
+                rowCount: enrichedResult.rows.length,
+                truncated: isFederated
+                  ? undefined
+                  : (response as { truncated?: boolean }).truncated || undefined,
+                truncatedTotal: isFederated
+                  ? undefined
+                  : (response as { truncated_total?: number }).truncated_total,
+              };
               if (index !== -1) {
-                updated[index] = {
-                  id: queryId,
-                  kind,
-                  query: queryToRun,
-                  result: enrichedResult,
-                  executedAt: Date.now(),
-                  totalTimeMs: totalTime,
-                  executionTimeMs: enrichedResult.execution_time_ms,
-                  rowCount: enrichedResult.rows.length,
-                };
+                updated[index] = baseEntry;
               } else {
-                updated.push({
-                  id: queryId,
-                  kind,
-                  query: queryToRun,
-                  result: enrichedResult,
-                  executedAt: Date.now(),
-                  totalTimeMs: totalTime,
-                  executionTimeMs: enrichedResult.execution_time_ms,
-                  rowCount: enrichedResult.rows.length,
-                });
+                updated.push(baseEntry);
               }
 
               if (!keepResults) return [updated[updated.length - 1]];
@@ -492,12 +496,15 @@ export function QueryPanel({
             }
           }
         } else {
+          const errorMsg = response.error || t('query.queryFailed');
+          const isTimeout = /operation timed out/i.test(errorMsg);
           const entry: QueryResultEntry = {
             id: queryId,
             kind,
             query: queryToRun,
-            error: response.error || t('query.queryFailed'),
+            error: errorMsg,
             executedAt: Date.now(),
+            timedOut: isTimeout || undefined,
           };
           setResults(prev => {
             const updated = [...prev];
@@ -645,6 +652,27 @@ export function QueryPanel({
     setConfirmOpen(false);
     await runQuery(queryToRun, false, 'query');
   }, [pendingQuery, runQuery]);
+
+  const handleOverrideLimits = useCallback(
+    (queryToRerun: string, kind: 'truncated' | 'timeout') => {
+      setPendingOverrideQuery(queryToRerun);
+      setOverrideKind(kind);
+      setOverrideDialogOpen(true);
+    },
+    []
+  );
+
+  const handleOverrideConfirm = useCallback(async () => {
+    if (!pendingOverrideQuery) {
+      setOverrideDialogOpen(false);
+      return;
+    }
+    const queryToRun = pendingOverrideQuery;
+    setPendingOverrideQuery(null);
+    setOverrideDialogOpen(false);
+    toast.info(t('query.overrideLimits.toast'));
+    await runQuery(queryToRun, true, 'query', true);
+  }, [pendingOverrideQuery, runQuery, t]);
 
   const handleDangerConfirm = useCallback(async () => {
     if (!pendingQuery) {
@@ -1034,6 +1062,7 @@ export function QueryPanel({
           onRowsDeleted={runCurrentQuery}
           onEditDocument={handleEditDocument}
           onFixWithAi={handleFixWithAi}
+          onOverrideLimits={handleOverrideLimits}
         />
       </div>
 
@@ -1056,6 +1085,18 @@ export function QueryPanel({
         confirmationLabel={(connectionDatabase || connectionName || 'PROD').trim() || 'PROD'}
         confirmLabel={t('common.confirm')}
         onConfirm={handleConfirm}
+      />
+
+      <OverrideLimitsDialog
+        open={overrideDialogOpen}
+        kind={overrideKind}
+        onOpenChange={open => {
+          setOverrideDialogOpen(open);
+          if (!open) {
+            setPendingOverrideQuery(null);
+          }
+        }}
+        onConfirm={handleOverrideConfirm}
       />
 
       <DangerConfirmDialog

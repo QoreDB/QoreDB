@@ -35,7 +35,8 @@ jobs:
             libgtk-3-dev \
             libwebkit2gtk-4.1-dev \
             libayatana-appindicator3-dev \
-            librsvg2-dev
+            librsvg2-dev \
+            libkrb5-dev
 
       - name: Start database containers
         run: docker compose up -d postgres mysql mongodb

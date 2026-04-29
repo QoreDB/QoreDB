@@ -52,7 +52,8 @@ jobs:
             libwebkit2gtk-4.1-dev \
             libappindicator3-dev \
             librsvg2-dev \
-            patchelf
+            patchelf \
+            libkrb5-dev
 
       - name: Setup Rust (stable + llvm-tools-preview)
         uses: dtolnay/rust-toolchain@stable

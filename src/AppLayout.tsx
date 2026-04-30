@@ -150,11 +150,13 @@ export function AppLayout() {
     activeConnection,
     connectionHealth,
     hasConnections,
+    savedConnections,
     schemaRefreshTrigger,
     recovery,
     handleConnected,
     handleRestoreSession,
     handleConnectionSaved,
+    switchToConnection,
     refreshSidebar,
     triggerSchemaRefresh,
     scheduleRecoverySave,
@@ -165,14 +167,18 @@ export function AppLayout() {
   const sidebarVisible = useModalStore(s => s.sidebarVisible);
   const zenMode = useModalStore(s => s.zenMode);
 
-  // --- Zen mode toast ---
   useEffect(() => {
     if (zenMode) {
       notify.info(t('zenMode.enabled'), { duration: 2500 });
     }
   }, [zenMode, t]);
 
-  // --- Notebook unsaved changes guard ---
+  useEffect(() => {
+    if (!sessionId || !activeConnection || !activeTab?.connectionId) return;
+    if (activeTab.connectionId === activeConnection.id) return;
+    void switchToConnection(activeTab.connectionId, activeTab.id);
+  }, [sessionId, activeConnection, activeTab?.connectionId, activeTab?.id, switchToConnection]);
+
   useEffect(() => {
     setBeforeCloseTab((tabId: string) => {
       const tab = tabs.find(t => t.id === tabId);
@@ -211,6 +217,18 @@ export function AppLayout() {
   const handleNewQuery = useCallback(() => {
     if (sessionId) openTab(createQueryTab(undefined, activeTab?.namespace));
   }, [sessionId, openTab, activeTab?.namespace]);
+
+  const handleTabSelect = useCallback(
+    (tabId: string) => {
+      const target = tabs.find(t => t.id === tabId);
+      if (target?.connectionId && target.connectionId !== activeConnection?.id) {
+        void switchToConnection(target.connectionId, tabId);
+        return;
+      }
+      setActiveTabId(tabId);
+    },
+    [tabs, activeConnection?.id, switchToConnection, setActiveTabId]
+  );
 
   const handleNewNotebook = useCallback(() => {
     if (sessionId) openTab(createNotebookTab());
@@ -766,15 +784,16 @@ export function AppLayout() {
                         connectionId: t.connectionId,
                       }))}
                       activeId={activeTabId || undefined}
-                      resolveConnection={id =>
-                        activeConnection && activeConnection.id === id
-                          ? {
-                              name: activeConnection.name,
-                              environment: activeConnection.environment,
-                            }
-                          : undefined
-                      }
-                      onSelect={setActiveTabId}
+                      resolveConnection={id => {
+                        const conn =
+                          activeConnection?.id === id
+                            ? activeConnection
+                            : savedConnections.find(c => c.id === id);
+                        return conn
+                          ? { name: conn.name, environment: conn.environment }
+                          : undefined;
+                      }}
+                      onSelect={handleTabSelect}
                       onClose={closeTab}
                       onNew={handleNewQuery}
                       onReorder={reordered =>

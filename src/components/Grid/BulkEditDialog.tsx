@@ -33,8 +33,8 @@ import {
   eligibleColumnsForBulkEdit,
   validateBulkEdit,
 } from '@/lib/bulkEdit';
-import { Driver } from '@/lib/drivers';
-import type { MigrationScript, SandboxChangeDto } from '@/lib/sandboxTypes';
+import { Driver } from '@/lib/connection/drivers';
+import type { MigrationScript, SandboxChangeDto } from '@/lib/sandbox/sandboxTypes';
 import type { Namespace, TableSchema, Value } from '@/lib/tauri';
 import { applySandboxChanges, generateMigrationSql } from '@/lib/tauri';
 import { useLicense } from '@/providers/LicenseProvider';

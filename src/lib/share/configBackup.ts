@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import type { DiagnosticsSettings } from './diagnosticsSettings';
-import { getDiagnosticsSettings } from './diagnosticsSettings';
+import type { DiagnosticsSettings } from '../diagnostics/diagnosticsSettings';
+import { getDiagnosticsSettings } from '../diagnostics/diagnosticsSettings';
+import type { SafetyPolicy } from '../tauri';
 import type { ShareProviderSettings } from './share';
 import { getShareProviderSettings, setShareProviderSettings } from './shareSettings';
-import type { SafetyPolicy } from './tauri';
 
 export interface ConfigBackupV1 {
   type: 'qoredb_config_backup';

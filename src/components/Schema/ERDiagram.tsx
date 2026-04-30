@@ -18,7 +18,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { VirtualRelationsPanel } from '@/components/VirtualRelations/VirtualRelationsPanel';
 import { useSchemaCache } from '@/hooks/useSchemaCache';
-import { onTableChange } from '@/lib/tableEvents';
+import { onTableChange } from '@/lib/events/tableEvents';
 import type { ForeignKey, Namespace, TableColumn, TableSchema } from '@/lib/tauri';
 import { cn } from '@/lib/utils';
 

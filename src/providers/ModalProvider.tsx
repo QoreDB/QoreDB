@@ -2,7 +2,7 @@
 
 import { type ReactNode, useEffect } from 'react';
 import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
-import { setShowOnboarding } from '@/lib/modalStore';
+import { setShowOnboarding } from '@/lib/stores/modalStore';
 
 /**
  * Thin wrapper that runs one-time initialization side effects.

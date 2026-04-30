@@ -31,10 +31,11 @@ import { useShareLinks } from '@/hooks/useShareLinks';
 import { useStreamingExport } from '@/hooks/useStreamingExport';
 import { aiExplainResult } from '@/lib/ai';
 import { BULK_EDIT_CORE_LIMIT } from '@/lib/bulkEdit';
-import type { Driver } from '@/lib/drivers';
+import type { Driver } from '@/lib/connection/drivers';
+import { type ExportDataDetail, UI_EVENT_EXPORT_DATA } from '@/lib/events/uiEvents';
 import type { ExportConfig } from '@/lib/export';
-import { applyOverlay, emptyOverlayResult, type OverlayResult } from '@/lib/sandboxOverlay';
-import type { SandboxChange, SandboxDeleteDisplay } from '@/lib/sandboxTypes';
+import { applyOverlay, emptyOverlayResult, type OverlayResult } from '@/lib/sandbox/sandboxOverlay';
+import type { SandboxChange, SandboxDeleteDisplay } from '@/lib/sandbox/sandboxTypes';
 import type {
   ColumnFilter,
   Environment,
@@ -45,7 +46,6 @@ import type {
   TableSchema,
   Value,
 } from '@/lib/tauri';
-import { type ExportDataDetail, UI_EVENT_EXPORT_DATA } from '@/lib/uiEvents';
 import { useAiPreferences } from '@/providers/AiPreferencesProvider';
 import { useLicense } from '@/providers/LicenseProvider';
 import { BulkEditDialog } from './BulkEditDialog';

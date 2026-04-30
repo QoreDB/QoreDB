@@ -15,7 +15,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { Driver, getDriverMetadata } from '@/lib/drivers';
+import { Driver, getDriverMetadata } from '@/lib/connection/drivers';
 import { cn } from '@/lib/utils';
 import { ProxySection } from './ProxySection';
 import { SshTunnelSection } from './SshTunnelSection';

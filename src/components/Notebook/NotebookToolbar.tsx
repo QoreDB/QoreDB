@@ -40,7 +40,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tooltip } from '@/components/ui/tooltip';
-import type { CellType } from '@/lib/notebookTypes';
+import type { CellType } from '@/lib/notebook/notebookTypes';
 import type { Namespace } from '@/lib/tauri';
 import { getShortcut } from '@/utils/platform';
 

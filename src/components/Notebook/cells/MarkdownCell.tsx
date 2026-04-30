@@ -7,7 +7,7 @@ import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Button } from '@/components/ui/button';
 import { Tooltip } from '@/components/ui/tooltip';
-import type { NotebookCell } from '@/lib/notebookTypes';
+import type { NotebookCell } from '@/lib/notebook/notebookTypes';
 
 interface MarkdownCellProps {
   cell: NotebookCell;

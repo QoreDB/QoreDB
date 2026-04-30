@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Driver, getDriverMetadata } from '../drivers';
+import { Driver, getDriverMetadata } from '../connection/drivers';
 import type { NamespaceLike } from './types';
 
 export function quoteIdentifier(identifier: string, driver: Driver): string {

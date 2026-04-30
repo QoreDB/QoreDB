@@ -22,8 +22,8 @@ import {
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef } from 'react';
 import { useSchemaCache } from '../../hooks/useSchemaCache';
 import { useTheme } from '../../hooks/useTheme';
-import { Driver } from '../../lib/drivers';
-import { SQL_SNIPPETS } from '../../lib/sqlSnippets';
+import { Driver } from '../../lib/connection/drivers';
+import { SQL_SNIPPETS } from '../../lib/query/sqlSnippets';
 import type { Collection, Namespace } from '../../lib/tauri';
 
 interface SQLEditorProps {

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Driver } from '../drivers';
+import { Driver } from '../connection/drivers';
 import type { ColumnType } from './types';
 
 const POSTGRES_TYPES: ColumnType[] = [

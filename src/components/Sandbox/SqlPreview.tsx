@@ -6,7 +6,7 @@ import { oneDark } from '@codemirror/theme-one-dark';
 import { EditorView, lineNumbers } from '@codemirror/view';
 import { useEffect, useRef } from 'react';
 import { useTheme } from '@/hooks/useTheme';
-import { Driver } from '@/lib/drivers';
+import { Driver } from '@/lib/connection/drivers';
 import { cn } from '@/lib/utils';
 
 interface SqlPreviewProps {

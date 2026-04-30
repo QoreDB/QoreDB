@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Driver } from '../drivers';
+import { Driver } from '../connection/drivers';
 import { buildDuckdbAlter } from './alter/duckdb';
 import type { BuilderContext } from './alter/helpers';
 import { buildMysqlAlter } from './alter/mysql';

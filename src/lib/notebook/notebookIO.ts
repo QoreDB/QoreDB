@@ -2,8 +2,8 @@
 
 import { open as openDialog, save } from '@tauri-apps/plugin-dialog';
 import { readTextFile, writeTextFile } from '@tauri-apps/plugin-fs';
+import { getWorkspaceState } from '../stores/workspaceStore';
 import type { QoreNotebook } from './notebookTypes';
-import { getWorkspaceState } from './workspaceStore';
 
 const QNB_FILTER = [{ name: 'QoreDB Notebook', extensions: ['qnb'] }];
 

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { invoke } from '@tauri-apps/api/core';
-import type { ExportFormat } from './export';
+import type { ExportFormat } from '../export';
 
 export type ShareHttpMethod = 'post' | 'put';
 export type ShareBodyMode = 'multipart' | 'binary';

@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { useEffect, useState } from 'react';
-import { useTranslation } from 'react-i18next';
-
 import { open as openDialog } from '@tauri-apps/plugin-dialog';
 import { FileUp, Loader2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -28,10 +27,10 @@ import { notify } from '@/lib/notify';
 import {
   type CsvImportConfig,
   type ImportResponse,
-  type Namespace,
-  type TableColumn,
   importCsv,
+  type Namespace,
   previewCsv,
+  type TableColumn,
 } from '@/lib/tauri';
 
 interface CSVImportDialogProps {

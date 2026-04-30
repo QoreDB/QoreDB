@@ -4,19 +4,19 @@ import { lazy, Suspense, useCallback, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Toaster } from 'sonner';
 import {
-  activateSandbox,
-  deactivateSandbox,
-  getSandboxPreferences,
-  hasPendingChanges,
-  isSandboxActive,
-} from '@/lib/sandboxStore';
-import {
   emitUiEvent,
   UI_EVENT_EXPORT_DATA,
   UI_EVENT_OPEN_HISTORY,
   UI_EVENT_OPEN_LOGS,
   UI_EVENT_REFRESH_TABLE,
-} from '@/lib/uiEvents';
+} from '@/lib/events/uiEvents';
+import {
+  activateSandbox,
+  deactivateSandbox,
+  getSandboxPreferences,
+  hasPendingChanges,
+  isSandboxActive,
+} from '@/lib/sandbox/sandboxStore';
 import { getShortcut } from '@/utils/platform';
 import { AppOverlays } from './components/AppOverlays';
 import { DatabaseBrowser, type DatabaseBrowserTab } from './components/Browser/DatabaseBrowser';
@@ -54,6 +54,7 @@ const SettingsPage = lazy(() =>
 const SnapshotManager = lazy(() =>
   import('./components/Snapshot/SnapshotManager').then(m => ({ default: m.SnapshotManager }))
 );
+
 import { StatusBar } from './components/Status/StatusBar';
 import { TabBar } from './components/Tabs/TabBar';
 import { FeatureTour } from './components/Tour/FeatureTour';
@@ -64,8 +65,11 @@ import { useResizableSidebar } from './hooks/useResizableSidebar';
 import { useTheme } from './hooks/useTheme';
 import { useTourManager } from './hooks/useTourManager';
 import { useWebviewGuards } from './hooks/useWebviewGuards';
-import { Driver } from './lib/drivers';
-import type { HistoryEntry } from './lib/history';
+import { Driver } from './lib/connection/drivers';
+import { openNotebookFromFile, setPendingNotebook } from './lib/notebook/notebookIO';
+import { notify } from './lib/notify';
+import type { HistoryEntry } from './lib/query/history';
+import type { QueryLibraryItem } from './lib/query/queryLibrary';
 import {
   handleEditConnection,
   setConnectionModalOpen,
@@ -76,11 +80,7 @@ import {
   toggleSidebar,
   toggleZenMode,
   useModalStore,
-} from './lib/modalStore';
-import { openNotebookFromFile, setPendingNotebook } from './lib/notebookIO';
-import { notify } from './lib/notify';
-import type { QueryLibraryItem } from './lib/queryLibrary';
-import { getRoutineTemplate } from './lib/routineTemplates';
+} from './lib/stores/modalStore';
 import {
   createDatabaseTab,
   createDiffTab,
@@ -110,7 +110,8 @@ import {
   type Sequence,
   type Trigger,
 } from './lib/tauri';
-import { getEventTemplate, getTriggerTemplate } from './lib/triggerTemplates';
+import { getRoutineTemplate } from './lib/templates/routineTemplates';
+import { getEventTemplate, getTriggerTemplate } from './lib/templates/triggerTemplates';
 import { useSessionContext } from './providers/SessionProvider';
 import { useTabContext } from './providers/TabProvider';
 import { useWorkspace } from './providers/WorkspaceProvider';
@@ -791,40 +792,40 @@ export function AppLayout() {
                 <Suspense fallback={<LazyTabFallback />}>
                   <AppContent
                     sessionId={sessionId}
-                  driver={driver}
-                  driverCapabilities={driverCapabilities}
-                  activeConnection={activeConnection}
-                  activeTab={activeTab}
-                  queryDrafts={queryDrafts}
-                  tableBrowserTabs={tableBrowserTabs}
-                  databaseBrowserTabs={databaseBrowserTabs}
-                  onUpdateTableBrowserTab={updateTableBrowserTab}
-                  onUpdateDatabaseBrowserTab={updateDatabaseBrowserTab}
-                  onUpdateTab={updateTab}
-                  hasConnections={hasConnections}
-                  recovery={recovery}
-                  schemaRefreshTrigger={schemaRefreshTrigger}
-                  onTableSelect={handleTableSelect}
-                  onDatabaseSelect={handleDatabaseSelect}
-                  onNewQuery={handleNewQuery}
-                  onOpenLibrary={() => setLibraryModalOpen(true)}
-                  onOpenFulltextSearch={() => setFulltextSearchOpen(true)}
-                  onRestoreSession={handleRestoreSession}
-                  onOpenSearch={() => setSearchOpen(true)}
-                  onOpenConnectionModal={() => setConnectionModalOpen(true)}
-                  onSchemaChange={triggerSchemaRefresh}
-                  onCloseTab={closeTab}
-                  onOpenTab={openTab}
-                  onUpdateQueryDraft={updateQueryDraft}
-                  onUpdateTabNamespace={updateTabNamespace}
-                  onScheduleRecoverySave={scheduleRecoverySave}
-                  onOpenRoutineSource={handleOpenRoutineSource}
-                  onCreateRoutine={handleCreateRoutine}
-                  onOpenTriggerSource={handleOpenTriggerSource}
-                  onCreateTrigger={handleCreateTrigger}
-                  onOpenEventSource={handleOpenEventSource}
-                  onCreateEvent={handleCreateEvent}
-                  onOpenSequenceSource={handleOpenSequenceSource}
+                    driver={driver}
+                    driverCapabilities={driverCapabilities}
+                    activeConnection={activeConnection}
+                    activeTab={activeTab}
+                    queryDrafts={queryDrafts}
+                    tableBrowserTabs={tableBrowserTabs}
+                    databaseBrowserTabs={databaseBrowserTabs}
+                    onUpdateTableBrowserTab={updateTableBrowserTab}
+                    onUpdateDatabaseBrowserTab={updateDatabaseBrowserTab}
+                    onUpdateTab={updateTab}
+                    hasConnections={hasConnections}
+                    recovery={recovery}
+                    schemaRefreshTrigger={schemaRefreshTrigger}
+                    onTableSelect={handleTableSelect}
+                    onDatabaseSelect={handleDatabaseSelect}
+                    onNewQuery={handleNewQuery}
+                    onOpenLibrary={() => setLibraryModalOpen(true)}
+                    onOpenFulltextSearch={() => setFulltextSearchOpen(true)}
+                    onRestoreSession={handleRestoreSession}
+                    onOpenSearch={() => setSearchOpen(true)}
+                    onOpenConnectionModal={() => setConnectionModalOpen(true)}
+                    onSchemaChange={triggerSchemaRefresh}
+                    onCloseTab={closeTab}
+                    onOpenTab={openTab}
+                    onUpdateQueryDraft={updateQueryDraft}
+                    onUpdateTabNamespace={updateTabNamespace}
+                    onScheduleRecoverySave={scheduleRecoverySave}
+                    onOpenRoutineSource={handleOpenRoutineSource}
+                    onCreateRoutine={handleCreateRoutine}
+                    onOpenTriggerSource={handleOpenTriggerSource}
+                    onCreateTrigger={handleCreateTrigger}
+                    onOpenEventSource={handleOpenEventSource}
+                    onCreateEvent={handleCreateEvent}
+                    onOpenSequenceSource={handleOpenSequenceSource}
                   />
                 </Suspense>
               </ErrorBoundary>
@@ -997,9 +998,7 @@ function AppContent({
         connectionDatabase={activeConnection?.database}
         connectionId={activeConnection?.id}
         onOpenRelatedTable={onTableSelect}
-        onOpenTimeTravel={(ns, table) =>
-          onOpenTab(createTimeTravelTab(ns, table))
-        }
+        onOpenTimeTravel={(ns, table) => onOpenTab(createTimeTravelTab(ns, table))}
         relationFilter={activeTab.relationFilter}
         searchFilter={activeTab.searchFilter}
         initialTab={tableBrowserTabs[activeTab.id]}
@@ -1142,7 +1141,11 @@ function AppContent({
     );
   }
 
-  if (activeTab?.type === 'time-travel' && activeTab.timeTravelNamespace && activeTab.timeTravelTableName) {
+  if (
+    activeTab?.type === 'time-travel' &&
+    activeTab.timeTravelNamespace &&
+    activeTab.timeTravelTableName
+  ) {
     return (
       <div className="flex-1 min-h-0 flex flex-col">
         <LicenseGate feature="data_time_travel">

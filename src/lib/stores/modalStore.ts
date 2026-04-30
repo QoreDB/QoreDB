@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useSyncExternalStore } from 'react';
-import type { SavedConnection } from './tauri';
-import { UI_EVENT_OPEN_LOGS } from './uiEvents';
+import { UI_EVENT_OPEN_LOGS } from '../events/uiEvents';
+import type { SavedConnection } from '../tauri';
 
 // ============================================
 // STATE

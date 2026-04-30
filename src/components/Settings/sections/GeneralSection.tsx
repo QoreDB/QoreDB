@@ -22,6 +22,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Label } from '@/components/ui/label';
 import { useTheme } from '@/hooks/useTheme';
 import {
   setUpdateAvailable,
@@ -29,10 +30,9 @@ import {
   setUpdateInstalled,
   setUpdateInstalling,
   useUpdateStore,
-} from '@/lib/updateStore';
+} from '@/lib/stores/updateStore';
 import { APP_VERSION } from '@/lib/version';
 import { SettingsCard } from '../SettingsCard';
-import { Label } from '@/components/ui/label';
 
 interface GeneralSectionProps {
   searchQuery?: string;

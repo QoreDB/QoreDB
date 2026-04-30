@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { DEFAULT_PORTS, Driver } from '@/lib/drivers';
+import { DEFAULT_PORTS, Driver } from '@/lib/connection/drivers';
 import type { PartialConnectionConfig, SavedConnection } from '@/lib/tauri';
 import { isConnectionFormValid } from './mappers';
 import { type ConnectionFormData, initialConnectionFormData } from './types';

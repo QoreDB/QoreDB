@@ -4,8 +4,8 @@ import { ChevronDown, ChevronRight } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { SQLEditor } from '@/components/Editor/SQLEditor';
-import type { Driver } from '@/lib/drivers';
-import type { NotebookCell } from '@/lib/notebookTypes';
+import type { Driver } from '@/lib/connection/drivers';
+import type { NotebookCell } from '@/lib/notebook/notebookTypes';
 import type { Namespace } from '@/lib/tauri';
 import { CellResultViewer } from '../results/CellResultViewer';
 

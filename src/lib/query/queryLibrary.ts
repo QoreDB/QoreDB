@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { redactQuery } from './redaction';
-import { getWorkspaceState } from './workspaceStore';
-import { wsSaveQueryLibrary } from './tauri';
+import { redactQuery } from '../redaction';
+import { getWorkspaceState } from '../stores/workspaceStore';
+import { wsSaveQueryLibrary } from '../tauri';
 
 export interface QueryFolder {
   id: string;

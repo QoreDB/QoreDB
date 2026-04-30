@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNotebook } from '@/hooks/useNotebook';
 import { useSchemaCache } from '@/hooks/useSchemaCache';
 import { useTourManager } from '@/hooks/useTourManager';
-import { Driver } from '@/lib/drivers';
+import { Driver } from '@/lib/connection/drivers';
 import type { DriverCapabilities, Environment, Namespace } from '@/lib/tauri';
 import { NotebookCellList } from './NotebookCellList';
 import { NotebookToolbar } from './NotebookToolbar';
@@ -38,7 +38,6 @@ export function NotebookTab({
   initialQuery,
   onDirtyChange,
 }: NotebookTabProps) {
-
   const tourManager = useTourManager();
 
   useEffect(() => {

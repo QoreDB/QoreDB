@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: BUSL-1.1
 
-import { useTranslation } from 'react-i18next';
 import { RotateCcw, X } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { ChangelogEntry } from '@/lib/tauri';
-import { OperationBadge, formatTimestamp } from './OperationBadge';
+import { cn } from '@/lib/utils';
+import { formatTimestamp, OperationBadge } from './OperationBadge';
 
 interface RowHistoryPanelProps {
   entries: ChangelogEntry[];
@@ -35,7 +35,7 @@ export function RowHistoryPanel({ entries, onClose, onRollback }: RowHistoryPane
       </div>
       <ScrollArea className="flex-1">
         <div className="p-2 space-y-2">
-          {entries.map((entry) => (
+          {entries.map(entry => (
             <RowHistoryEntry key={entry.id} entry={entry} onRollback={onRollback} />
           ))}
         </div>
@@ -60,12 +60,7 @@ function RowHistoryEntry({
           <OperationBadge operation={entry.operation} />
           <span className="text-muted-foreground">{formatTimestamp(entry.timestamp)}</span>
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-6 text-xs"
-          onClick={() => onRollback(entry)}
-        >
+        <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => onRollback(entry)}>
           <RotateCcw size={12} className="mr-1" />
           {t('timeTravel.rollback.rollbackToPoint')}
         </Button>
@@ -112,7 +107,8 @@ function ValueSnapshot({
 }) {
   const borderColor = variant === 'added' ? 'border-emerald-500/20' : 'border-red-500/20';
   const bgColor = variant === 'added' ? 'bg-emerald-500/5' : 'bg-red-500/5';
-  const hlColor = variant === 'added' ? 'text-emerald-400 font-semibold' : 'text-red-400 font-semibold';
+  const hlColor =
+    variant === 'added' ? 'text-emerald-400 font-semibold' : 'text-red-400 font-semibold';
 
   return (
     <div>

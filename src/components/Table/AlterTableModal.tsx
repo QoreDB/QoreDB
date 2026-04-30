@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import type { Driver } from '@/lib/connection/drivers';
 import {
   buildAlterTableSQL,
   type CheckConstraintDef,
@@ -24,7 +25,6 @@ import {
   type IndexDef,
   type TableDefinition,
 } from '@/lib/ddl';
-import type { Driver } from '@/lib/drivers';
 import { notify } from '@/lib/notify';
 import { describeTable, executeQuery, type Namespace, type TableSchema } from '@/lib/tauri';
 import { cn } from '@/lib/utils';

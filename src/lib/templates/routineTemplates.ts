@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Driver } from './drivers';
-import type { Namespace, RoutineType } from './tauri';
+import { Driver } from '../connection/drivers';
+import type { Namespace, RoutineType } from '../tauri';
 
 /**
  * Returns a driver-specific SQL template for creating a new routine.

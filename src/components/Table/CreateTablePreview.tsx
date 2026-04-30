@@ -3,8 +3,8 @@
 import { AlertTriangle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { SqlPreview } from '@/components/Sandbox/SqlPreview';
+import type { Driver } from '@/lib/connection/drivers';
 import type { DdlWarning } from '@/lib/ddl';
-import type { Driver } from '@/lib/drivers';
 import { translateDdlWarning } from './translateDdlWarning';
 
 interface CreateTablePreviewProps {

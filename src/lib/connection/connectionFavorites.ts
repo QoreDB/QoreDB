@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { getWorkspaceState } from './workspaceStore';
+import { getWorkspaceState } from '../stores/workspaceStore';
 
 const STORAGE_KEY_PREFIX = 'qoredb_favorite_connections';
 

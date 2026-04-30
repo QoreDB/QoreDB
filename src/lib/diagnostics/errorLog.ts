@@ -6,8 +6,8 @@
  * Captures and persists error logs for debugging purposes.
  */
 
+import { redactText } from '../redaction';
 import { shouldStoreErrorLogs } from './diagnosticsSettings';
-import { redactText } from './redaction';
 
 export interface ErrorLogEntry {
   id: string;

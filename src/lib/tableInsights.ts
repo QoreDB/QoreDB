@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { getWorkspaceState } from './stores/workspaceStore';
 import type { Namespace } from './tauri';
-import { getWorkspaceState } from './workspaceStore';
 
 export interface TableVisitInsight {
   key: string;

@@ -13,7 +13,7 @@ import {
   ContextMenuTrigger,
 } from '@/components/ui/context-menu';
 import { notify } from '../../lib/notify';
-import { dropEvent, type DatabaseEvent, type Environment } from '../../lib/tauri';
+import { type DatabaseEvent, dropEvent, type Environment } from '../../lib/tauri';
 
 interface EventContextMenuProps {
   event: DatabaseEvent;

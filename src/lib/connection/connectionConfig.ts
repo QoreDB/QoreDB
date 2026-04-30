@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import type { ConnectionConfig, SavedConnection, SshTunnelConfig } from './tauri';
+import type { ConnectionConfig, SavedConnection, SshTunnelConfig } from '../tauri';
 
 type HostKeyPolicy = SshTunnelConfig['host_key_policy'];
 

@@ -16,14 +16,19 @@ import { useTranslation } from 'react-i18next';
 import type { DatabaseBrowserTab } from '@/components/Browser/DatabaseBrowser';
 import type { TableBrowserTab } from '@/components/Browser/TableBrowser';
 import { useRecovery } from '@/hooks/useRecovery';
-import { type CrashRecoverySnapshot, saveCrashRecoverySnapshot } from '@/lib/crashRecovery';
-import { shouldSaveQueryDrafts } from '@/lib/crashRecoverySettings';
-import { Driver } from '@/lib/drivers';
+import { Driver } from '@/lib/connection/drivers';
+import {
+  type CrashRecoverySnapshot,
+  saveCrashRecoverySnapshot,
+} from '@/lib/diagnostics/crashRecovery';
+import { shouldSaveQueryDrafts } from '@/lib/diagnostics/crashRecoverySettings';
+import { UI_EVENT_CONNECTIONS_CHANGED, UI_EVENT_WORKSPACE_CHANGED } from '@/lib/events/uiEvents';
+import { notify } from '@/lib/notify';
 import {
   handleCloseConnectionModal as closeConnectionModal,
   setSettingsOpen,
-} from '@/lib/modalStore';
-import { notify } from '@/lib/notify';
+} from '@/lib/stores/modalStore';
+import { setUpdateAvailable } from '@/lib/stores/updateStore';
 import type { OpenTab } from '@/lib/tabs';
 import {
   type ConnectionHealth,
@@ -35,8 +40,6 @@ import {
   listSavedConnections,
   type SavedConnection,
 } from '@/lib/tauri';
-import { UI_EVENT_CONNECTIONS_CHANGED, UI_EVENT_WORKSPACE_CHANGED } from '@/lib/uiEvents';
-import { setUpdateAvailable } from '@/lib/updateStore';
 import { useTabContext } from './TabProvider';
 import { useWorkspace } from './WorkspaceProvider';
 

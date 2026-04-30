@@ -14,8 +14,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { Driver } from '@/lib/connection/drivers';
 import type { ColumnDef, ColumnType, DdlCapabilities } from '@/lib/ddl';
-import { Driver } from '@/lib/drivers';
 import type { EditableColumn } from './createTableTypes';
 
 interface ColumnsEditorProps {

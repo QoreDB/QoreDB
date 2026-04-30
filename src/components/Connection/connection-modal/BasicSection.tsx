@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Driver } from '@/lib/drivers';
+import { Driver } from '@/lib/connection/drivers';
 import { ENVIRONMENT_CONFIG } from '@/lib/environment';
 import type { MssqlAuthMode } from '@/lib/tauri';
 import { cn } from '@/lib/utils';

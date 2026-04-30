@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import type { QueryResult } from './tauri';
+import type { QueryResult } from '../tauri';
 
 /**
  * Normalized tree node from an EXPLAIN plan (PostgreSQL or MySQL).

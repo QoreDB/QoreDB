@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Driver } from '../drivers';
+import { Driver } from '../connection/drivers';
 import { getDdlCapabilities, quoteSqlString } from './driverCapabilities';
 import { buildQualifiedTableName, quoteIdentifier } from './identifiers';
 import type {

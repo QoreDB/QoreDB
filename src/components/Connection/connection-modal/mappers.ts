@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Driver } from '@/lib/drivers';
+import { Driver } from '@/lib/connection/drivers';
 import type { ConnectionConfig, Environment, SavedConnection } from '@/lib/tauri';
 
 import type { ConnectionFormData } from './types';

@@ -31,6 +31,8 @@ import {
 } from '@/components/ui/dialog';
 import { useTourManager } from '@/hooks/useTourManager';
 import { buildQualifiedTableName } from '@/lib/ddl';
+import { onTableChange } from '@/lib/events/tableEvents';
+import { UI_EVENT_REFRESH_TABLE } from '@/lib/events/uiEvents';
 import {
   activateSandbox,
   clearSandboxBackup,
@@ -48,16 +50,14 @@ import {
   saveSandboxBackup,
   subscribeSandbox,
   subscribeSandboxPreferences,
-} from '@/lib/sandboxStore';
-import type { MigrationScript, SandboxChange } from '@/lib/sandboxTypes';
-import { onTableChange } from '@/lib/tableEvents';
+} from '@/lib/sandbox/sandboxStore';
+import type { MigrationScript, SandboxChange } from '@/lib/sandbox/sandboxTypes';
 import { recordTableVisit } from '@/lib/tableInsights';
-import { UI_EVENT_REFRESH_TABLE } from '@/lib/uiEvents';
 import { cn } from '@/lib/utils';
 import { useInfiniteTableData } from '../../hooks/useInfiniteTableData';
 import { useSchemaCache } from '../../hooks/useSchemaCache';
-import { isDocumentDatabase } from '../../lib/driverCapabilities';
-import { Driver, getDriverMetadata } from '../../lib/drivers';
+import { isDocumentDatabase } from '../../lib/connection/driverCapabilities';
+import { Driver, getDriverMetadata } from '../../lib/connection/drivers';
 import {
   applySandboxChanges,
   type ColumnFilter,

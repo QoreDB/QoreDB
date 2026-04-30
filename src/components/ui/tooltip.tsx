@@ -48,4 +48,4 @@ export function Tooltip({ content, side = 'top', className, children }: TooltipP
   );
 }
 
-export { TooltipProvider, TooltipRoot, TooltipTrigger, TooltipContent };
+export { TooltipContent, TooltipProvider, TooltipRoot, TooltipTrigger };

@@ -11,7 +11,7 @@
  */
 
 import type { RowData as GridRowData } from '@/components/Grid/utils/dataGridUtils';
-import type { SandboxChangeDto } from './sandboxTypes';
+import type { SandboxChangeDto } from './sandbox/sandboxTypes';
 import type { Namespace, TableSchema, RowData as TauriRowData, Value } from './tauri';
 
 /** Maximum rows allowed in Core (Pro is unlimited). */

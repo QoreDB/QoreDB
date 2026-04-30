@@ -16,14 +16,14 @@ import {
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Switch } from '@/components/ui/switch';
-import { DRIVER_ICONS, DRIVER_LABELS } from '@/lib/drivers';
+import { DRIVER_ICONS, DRIVER_LABELS } from '@/lib/connection/drivers';
+import { emitUiEvent, UI_EVENT_CONNECTIONS_CHANGED } from '@/lib/events/uiEvents';
 import {
   connectSavedConnection,
   type SavedConnection,
   saveConnection,
   testConnection,
 } from '@/lib/tauri';
-import { emitUiEvent, UI_EVENT_CONNECTIONS_CHANGED } from '@/lib/uiEvents';
 import { cn } from '@/lib/utils';
 import { AdvancedSection } from './connection-modal/AdvancedSection';
 import { BasicSection } from './connection-modal/BasicSection';

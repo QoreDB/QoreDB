@@ -9,7 +9,7 @@ import {
   clearCrashRecoverySnapshot,
   getCrashRecoverySnapshot,
   saveCrashRecoverySnapshot,
-} from '@/lib/crashRecovery';
+} from '@/lib/diagnostics/crashRecovery';
 import type { OpenTab } from '@/lib/tabs';
 import { connectSavedConnection, listSavedConnections, type SavedConnection } from '@/lib/tauri';
 import { useWorkspace } from '@/providers/WorkspaceProvider';

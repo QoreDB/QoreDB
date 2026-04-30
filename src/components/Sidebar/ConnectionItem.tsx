@@ -2,7 +2,7 @@
 
 import { ChevronDown, ChevronRight, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { DRIVER_ICONS, DRIVER_LABELS, type Driver } from '../../lib/drivers';
+import { DRIVER_ICONS, DRIVER_LABELS, type Driver } from '../../lib/connection/drivers';
 import { ENVIRONMENT_CONFIG } from '../../lib/environment';
 import type { SavedConnection } from '../../lib/tauri';
 import { ConnectionContextMenu } from '../Connection/ConnectionContextMenu';

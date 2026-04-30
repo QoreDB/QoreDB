@@ -8,7 +8,7 @@
  */
 
 import { invoke } from '@tauri-apps/api/core';
-import { createStreamChannel, type QueryResult, type QueryStreamHandlers } from './tauri';
+import { createStreamChannel, type QueryResult, type QueryStreamHandlers } from '../tauri';
 
 // ============================================
 // TYPES

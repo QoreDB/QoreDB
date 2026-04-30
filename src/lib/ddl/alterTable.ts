@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import type { Driver } from '../drivers';
+import type { Driver } from '../connection/drivers';
 import { buildAlterTableStatements } from './alterTableBuilders';
 import type { BuildResult } from './createTable';
 import type { AlterOp, ColumnDef, TableDefinition } from './types';

@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import type { TourStepDef } from './tourDefinitions';
 import { TourTooltip } from './TourTooltip';
+import type { TourStepDef } from './tourDefinitions';
 
 interface FeatureTourProps {
   steps: TourStepDef[];

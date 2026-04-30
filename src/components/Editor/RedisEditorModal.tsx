@@ -22,10 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { executeQuery } from '@/lib/tauri';
 import {
-  type ListSide,
-  type RedisKeyType,
   buildAddSetMember,
   buildDeleteHashField,
   buildDeleteKeys,
@@ -35,7 +32,10 @@ import {
   buildSetHashField,
   buildSetString,
   buildSetZSetMember,
+  type ListSide,
+  type RedisKeyType,
 } from '@/lib/redisCommands';
+import { executeQuery } from '@/lib/tauri';
 
 export type RedisEditorMode =
   | { kind: 'create-key' }
@@ -129,8 +129,7 @@ export function RedisEditorModal({
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingCommand, setPendingCommand] = useState<string | null>(null);
 
-  const confirmationLabel =
-    (connectionDatabase || connectionName || 'PROD').trim() || 'PROD';
+  const confirmationLabel = (connectionDatabase || connectionName || 'PROD').trim() || 'PROD';
 
   useEffect(() => {
     if (!isOpen) return;
@@ -331,10 +330,7 @@ export function RedisEditorModal({
             {mode.kind === 'create-key' && (
               <div className="space-y-2">
                 <Label htmlFor="redis-keytype">{t('redis.keyType')}</Label>
-                <Select
-                  value={keyType}
-                  onValueChange={v => setKeyType(v as RedisKeyType)}
-                >
+                <Select value={keyType} onValueChange={v => setKeyType(v as RedisKeyType)}>
                   <SelectTrigger id="redis-keytype" className="w-full">
                     <SelectValue />
                   </SelectTrigger>
@@ -371,9 +367,7 @@ export function RedisEditorModal({
                   {mode.keys.slice(0, 20).map(k => (
                     <li key={k}>{k}</li>
                   ))}
-                  {mode.keys.length > 20 && (
-                    <li className="text-muted-foreground">…</li>
-                  )}
+                  {mode.keys.length > 20 && <li className="text-muted-foreground">…</li>}
                 </ul>
               </div>
             )}
@@ -392,9 +386,7 @@ export function RedisEditorModal({
                     id="redis-hash-field"
                     value={field}
                     onChange={e => setField(e.target.value)}
-                    disabled={
-                      mode.kind === 'edit-hash-field' || mode.kind === 'delete-hash-field'
-                    }
+                    disabled={mode.kind === 'edit-hash-field' || mode.kind === 'delete-hash-field'}
                   />
                 </div>
               </>
@@ -463,11 +455,7 @@ export function RedisEditorModal({
               !(mode.kind === 'create-key' && (keyType === 'set' || keyType === 'zset')) && (
                 <div className="space-y-2">
                   <Label htmlFor="redis-value">{t('redis.value')}</Label>
-                  <Input
-                    id="redis-value"
-                    value={value}
-                    onChange={e => setValue(e.target.value)}
-                  />
+                  <Input id="redis-value" value={value} onChange={e => setValue(e.target.value)} />
                 </div>
               )}
 
@@ -496,8 +484,7 @@ export function RedisEditorModal({
               </div>
             )}
 
-            {(mode.kind === 'create-key' && keyType === 'string') ||
-            mode.kind === 'edit-value' ? (
+            {(mode.kind === 'create-key' && keyType === 'string') || mode.kind === 'edit-value' ? (
               <div className="space-y-2">
                 <Label htmlFor="redis-ttl">{t('redis.ttlSeconds')}</Label>
                 <Input

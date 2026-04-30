@@ -13,7 +13,7 @@ import {
   setZenMode,
   toggleCheatsheet,
   useModalStore,
-} from '@/lib/modalStore';
+} from '@/lib/stores/modalStore';
 import { createNotebookTab, createQueryTab } from '@/lib/tabs';
 import { useSessionContext } from './SessionProvider';
 import { useTabContext } from './TabProvider';

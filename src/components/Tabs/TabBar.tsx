@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { cn } from '@/lib/utils';
-import { getModifierKey } from '@/utils/platform';
 import { Reorder } from 'framer-motion';
 import {
   BookOpen,
@@ -22,6 +20,8 @@ import {
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Tooltip } from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
+import { getModifierKey } from '@/utils/platform';
 
 export interface TabItem {
   id: string;

@@ -20,7 +20,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tooltip } from '@/components/ui/tooltip';
-import type { NotebookVariable } from '@/lib/notebookTypes';
+import type { NotebookVariable } from '@/lib/notebook/notebookTypes';
 import { Label } from '../ui/label';
 
 interface NotebookVariableBarProps {

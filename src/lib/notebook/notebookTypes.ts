@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import type { ColumnInfo, Namespace, Row } from './tauri';
+import type { ColumnInfo, Namespace, Row } from '../tauri';
 
 // --- File format types (serialized to .qnb) ---
 

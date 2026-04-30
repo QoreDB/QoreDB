@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Driver } from '../../drivers';
+import { Driver } from '../../connection/drivers';
 import { quoteSqlString } from '../driverCapabilities';
 import { quoteIdentifier } from '../identifiers';
 import type { AlterOp, ColumnDef } from '../types';

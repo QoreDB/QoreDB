@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { Database, Download, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-
-import { Database, Download, Plus, RefreshCw, Trash2 } from 'lucide-react';
 
 import {
   ContextMenu,

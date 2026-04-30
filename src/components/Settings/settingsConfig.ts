@@ -3,7 +3,6 @@
 import {
   Code2,
   Database,
-
   Globe,
   Keyboard,
   KeyRound,

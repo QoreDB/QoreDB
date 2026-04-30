@@ -6,9 +6,9 @@
  * Persists query history to localStorage with session isolation.
  */
 
-import { shouldStoreHistory } from './diagnosticsSettings';
-import { redactQuery, redactText } from './redaction';
-import { getWorkspaceState } from './workspaceStore';
+import { shouldStoreHistory } from '../diagnostics/diagnosticsSettings';
+import { redactQuery, redactText } from '../redaction';
+import { getWorkspaceState } from '../stores/workspaceStore';
 
 export interface HistoryEntry {
   id: string;

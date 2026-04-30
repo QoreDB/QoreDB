@@ -27,11 +27,11 @@ import {
 } from '@/components/ui/context-menu';
 import { VirtualRelationDialog } from '@/components/VirtualRelations/VirtualRelationDialog';
 import { buildDropTableSQL, buildTruncateTableSQL } from '@/lib/ddl';
-import { emitTableChange } from '@/lib/tableEvents';
+import { emitTableChange } from '@/lib/events/tableEvents';
 import { removeTableVisit } from '@/lib/tableInsights';
 import { invalidateCollectionsCache, invalidateTableSchemaCache } from '../../hooks/useSchemaCache';
-import { isDocumentDatabase } from '../../lib/driverCapabilities';
-import type { Driver } from '../../lib/drivers';
+import { isDocumentDatabase } from '../../lib/connection/driverCapabilities';
+import type { Driver } from '../../lib/connection/drivers';
 import { notify } from '../../lib/notify';
 import {
   type Collection,

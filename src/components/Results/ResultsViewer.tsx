@@ -8,9 +8,9 @@
  * - DataGrid for relational databases (PostgreSQL, MySQL, etc.)
  */
 import { memo } from 'react';
-import { isDocumentDatabase } from '@/lib/driverCapabilities';
-import type { Driver } from '@/lib/drivers';
-import type { SandboxChange, SandboxDeleteDisplay } from '@/lib/sandboxTypes';
+import { isDocumentDatabase } from '@/lib/connection/driverCapabilities';
+import type { Driver } from '@/lib/connection/drivers';
+import type { SandboxChange, SandboxDeleteDisplay } from '@/lib/sandbox/sandboxTypes';
 import type {
   ColumnFilter,
   Environment,

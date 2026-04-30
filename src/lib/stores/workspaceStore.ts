@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useSyncExternalStore } from 'react';
-import type { RecentWorkspace, WorkspaceInfo } from './tauri';
+import type { RecentWorkspace, WorkspaceInfo } from '../tauri';
 
 // ============================================
 // STATE

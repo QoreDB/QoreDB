@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { format, type SqlLanguage } from 'sql-formatter';
-import { Driver } from './drivers';
+import { Driver } from '../connection/drivers';
 
 const DIALECT_MAP: Record<Driver, SqlLanguage> = {
   [Driver.Postgres]: 'postgresql',

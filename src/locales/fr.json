@@ -1174,9 +1174,10 @@
     "checksUnsupported": "Ce pilote ne prend pas en charge les contraintes CHECK.",
     "checkExpression": "Expression",
     "checkExpressionPlaceholder": "ex. montant > 0",
-    "warnings": "Avertissements",
     "previewPlaceholder": "Renseignez un nom de table et au moins une colonne pour afficher l'aperçu SQL.",
-    "noColumns": "Ajoutez au moins une colonne."
+    "noColumns": "Ajoutez au moins une colonne.",
+    "warningsCount": "{{count}} avertissement",
+    "warningsCount_other": "{{count}} avertissements"
   },
   "dropTable": {
     "title": "Supprimer la table",
@@ -2295,5 +2296,56 @@
     "dangerousWarning": "Commandes Redis potentiellement destructives détectées dans le script.",
     "confirmTitle": "Exécuter le script Lua",
     "confirmDesc": "Ce script va s'exécuter sur un environnement non-développement et peut modifier des données. Continuer ?"
+  },
+  "alterTable": {
+    "menuItem": "Modifier la table…",
+    "title": "Modifier la table — {{name}}",
+    "tabDiff": "Diff",
+    "apply": "Appliquer les changements",
+    "applying": "Application…",
+    "noChanges": "Aucun changement à appliquer.",
+    "loading": "Chargement du schéma…",
+    "loadFailed": "Impossible de charger le schéma de la table",
+    "failed": "Échec de l'application des changements",
+    "success": "Table \"{{name}}\" mise à jour.",
+    "renamedFrom": "Renommée depuis « {{name}} »",
+    "renamedTable": "Sera renommée depuis « {{from}} »"
+  },
+  "ddlWarnings": {
+    "indexes": {
+      "unsupported": "Les index ne sont pas pris en charge par ce driver : {{name}}",
+      "uniqueDowngraded": "Index UNIQUE rétrogradé en index simple sur ce driver : {{name}}",
+      "methodIgnored": "Méthode d'index « {{method}} » ignorée sur ce driver : {{name}}",
+      "partialUnsupported": "Clause WHERE d'index partiel non prise en charge sur ce driver : {{name}}"
+    },
+    "comments": {
+      "columnUnsupported": "Commentaires de colonne non pris en charge sur ce driver : {{name}}",
+      "tableUnsupported": "Commentaires de table non pris en charge sur ce driver"
+    },
+    "fk": {
+      "unsupported": "Clés étrangères non prises en charge sur ce driver : {{name}}"
+    },
+    "check": {
+      "unsupported": "Contraintes CHECK non prises en charge sur ce driver : {{name}}"
+    },
+    "sqlite": {
+      "alterColumnUnsupported": "SQLite ne supporte pas ALTER COLUMN type/nullable/default — recréation de la table requise pour la colonne « {{name}} ».",
+      "commentsUnsupported": "SQLite ne supporte pas les commentaires — opération ignorée.",
+      "fkInPlaceUnsupported": "SQLite ne peut pas ADD/DROP FOREIGN KEY sur place — recréation de la table requise.",
+      "checkInPlaceUnsupported": "SQLite ne peut pas ADD/DROP CHECK sur place — recréation de la table requise."
+    },
+    "duckdb": {
+      "fkInPlaceLimited": "DuckDB a un support limité pour les modifications de clés étrangères en place — l'opération peut échouer."
+    },
+    "sqlserver": {
+      "defaultsManual": "Les valeurs par défaut SQL Server sont gérées via des contraintes DEFAULT nommées — traitement manuel requis.",
+      "commentsManual": "Les commentaires SQL Server utilisent sp_addextendedproperty — non émis automatiquement."
+    },
+    "internal": {
+      "columnNotFound": "Colonne « {{name}} » introuvable dans l'instantané de la table — opération ignorée."
+    },
+    "alter": {
+      "driverUnsupported": "ALTER TABLE n'est pas pris en charge par le driver : {{driver}}"
+    }
   }
 }

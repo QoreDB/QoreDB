@@ -1155,9 +1155,10 @@
     "checksUnsupported": "Dieser Treiber unterstützt keine CHECK-Constraints.",
     "checkExpression": "Ausdruck",
     "checkExpressionPlaceholder": "z.B. betrag > 0",
-    "warnings": "Warnungen",
     "previewPlaceholder": "Geben Sie einen Tabellennamen und mindestens eine Spalte ein, um die SQL-Vorschau anzuzeigen.",
-    "noColumns": "Fügen Sie mindestens eine Spalte hinzu."
+    "noColumns": "Fügen Sie mindestens eine Spalte hinzu.",
+    "warningsCount": "{{count}} Warnung",
+    "warningsCount_other": "{{count}} Warnungen"
   },
   "dropTable": {
     "title": "Tabelle löschen",
@@ -2276,5 +2277,56 @@
     "dangerousWarning": "Potenziell zerstörerische Redis-Befehle im Skript erkannt.",
     "confirmTitle": "Lua-Skript ausführen",
     "confirmDesc": "Dieses Skript wird in einer Nicht-Entwicklungsumgebung ausgeführt und kann Daten verändern. Fortfahren?"
+  },
+  "alterTable": {
+    "menuItem": "Tabelle ändern…",
+    "title": "Tabelle ändern — {{name}}",
+    "tabDiff": "Diff",
+    "apply": "Änderungen anwenden",
+    "applying": "Wird angewendet…",
+    "noChanges": "Keine Änderungen anzuwenden.",
+    "loading": "Tabellenschema wird geladen…",
+    "loadFailed": "Tabellenschema konnte nicht geladen werden",
+    "failed": "Änderungen konnten nicht angewendet werden",
+    "success": "Tabelle „{{name}}\" aktualisiert.",
+    "renamedFrom": "Umbenannt von „{{name}}\"",
+    "renamedTable": "Wird umbenannt von „{{from}}\""
+  },
+  "ddlWarnings": {
+    "indexes": {
+      "unsupported": "Indizes werden von diesem Treiber nicht unterstützt: {{name}}",
+      "uniqueDowngraded": "UNIQUE-Index auf einfachen Index zurückgestuft auf diesem Treiber: {{name}}",
+      "methodIgnored": "Indexmethode „{{method}}\" auf diesem Treiber ignoriert: {{name}}",
+      "partialUnsupported": "WHERE-Klausel für partiellen Index auf diesem Treiber nicht unterstützt: {{name}}"
+    },
+    "comments": {
+      "columnUnsupported": "Spaltenkommentare auf diesem Treiber nicht unterstützt: {{name}}",
+      "tableUnsupported": "Tabellenkommentare auf diesem Treiber nicht unterstützt"
+    },
+    "fk": {
+      "unsupported": "Fremdschlüssel auf diesem Treiber nicht unterstützt: {{name}}"
+    },
+    "check": {
+      "unsupported": "CHECK-Einschränkungen auf diesem Treiber nicht unterstützt: {{name}}"
+    },
+    "sqlite": {
+      "alterColumnUnsupported": "SQLite unterstützt ALTER COLUMN type/nullable/default nicht — Tabelle muss für Spalte „{{name}}\" neu erstellt werden.",
+      "commentsUnsupported": "SQLite unterstützt keine Kommentare — Vorgang übersprungen.",
+      "fkInPlaceUnsupported": "SQLite kann FOREIGN KEY nicht direkt ADD/DROP — Tabelle muss neu erstellt werden.",
+      "checkInPlaceUnsupported": "SQLite kann CHECK nicht direkt ADD/DROP — Tabelle muss neu erstellt werden."
+    },
+    "duckdb": {
+      "fkInPlaceLimited": "DuckDB unterstützt In-Place-Änderungen an Fremdschlüsseln nur eingeschränkt — der Vorgang kann fehlschlagen."
+    },
+    "sqlserver": {
+      "defaultsManual": "SQL Server-Standardwerte werden über benannte DEFAULT-Einschränkungen verwaltet — manuelle Behandlung erforderlich.",
+      "commentsManual": "SQL Server-Kommentare verwenden sp_addextendedproperty — nicht automatisch ausgegeben."
+    },
+    "internal": {
+      "columnNotFound": "Spalte „{{name}}\" nicht im Tabellen-Snapshot gefunden — Vorgang übersprungen."
+    },
+    "alter": {
+      "driverUnsupported": "ALTER TABLE wird vom Treiber nicht unterstützt: {{driver}}"
+    }
   }
 }

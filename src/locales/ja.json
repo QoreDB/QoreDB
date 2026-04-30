@@ -1155,9 +1155,9 @@
     "checksUnsupported": "このドライバーは CHECK 制約をサポートしていません。",
     "checkExpression": "式",
     "checkExpressionPlaceholder": "例: amount > 0",
-    "warnings": "警告",
     "previewPlaceholder": "テーブル名と少なくとも1つのカラムを入力すると SQL プレビューが表示されます。",
-    "noColumns": "少なくとも1つのカラムを追加してください。"
+    "noColumns": "少なくとも1つのカラムを追加してください。",
+    "warningsCount": "警告 {{count}} 件"
   },
   "dropTable": {
     "title": "テーブルを削除",
@@ -2276,5 +2276,56 @@
     "dangerousWarning": "スクリプト内に破壊的な可能性がある Redis コマンドが検出されました。",
     "confirmTitle": "Lua スクリプトを実行",
     "confirmDesc": "このスクリプトは開発以外の環境で実行され、データを変更する可能性があります。続行しますか？"
+  },
+  "alterTable": {
+    "menuItem": "テーブルを変更…",
+    "title": "テーブル変更 — {{name}}",
+    "tabDiff": "差分",
+    "apply": "変更を適用",
+    "applying": "適用中…",
+    "noChanges": "適用する変更はありません。",
+    "loading": "テーブルスキーマを読み込み中…",
+    "loadFailed": "テーブルスキーマの読み込みに失敗しました",
+    "failed": "変更の適用に失敗しました",
+    "success": "テーブル「{{name}}」を更新しました。",
+    "renamedFrom": "元の名前: {{name}}",
+    "renamedTable": "「{{from}}」から名前変更されます"
+  },
+  "ddlWarnings": {
+    "indexes": {
+      "unsupported": "このドライバーではインデックスはサポートされていません: {{name}}",
+      "uniqueDowngraded": "このドライバーでは UNIQUE インデックスが通常のインデックスにダウングレードされました: {{name}}",
+      "methodIgnored": "このドライバーではインデックスメソッド「{{method}}」は無視されます: {{name}}",
+      "partialUnsupported": "このドライバーでは部分インデックスの WHERE 句はサポートされていません: {{name}}"
+    },
+    "comments": {
+      "columnUnsupported": "このドライバーではカラムコメントはサポートされていません: {{name}}",
+      "tableUnsupported": "このドライバーではテーブルコメントはサポートされていません"
+    },
+    "fk": {
+      "unsupported": "このドライバーでは外部キーはサポートされていません: {{name}}"
+    },
+    "check": {
+      "unsupported": "このドライバーでは CHECK 制約はサポートされていません: {{name}}"
+    },
+    "sqlite": {
+      "alterColumnUnsupported": "SQLite は ALTER COLUMN type/nullable/default をサポートしていません — カラム「{{name}}」のためにテーブルの再作成が必要です。",
+      "commentsUnsupported": "SQLite はコメントをサポートしていません — 操作はスキップされました。",
+      "fkInPlaceUnsupported": "SQLite はインプレースで FOREIGN KEY を ADD/DROP できません — テーブルの再作成が必要です。",
+      "checkInPlaceUnsupported": "SQLite はインプレースで CHECK を ADD/DROP できません — テーブルの再作成が必要です。"
+    },
+    "duckdb": {
+      "fkInPlaceLimited": "DuckDB はインプレースの外部キー変更を限定的にサポート — 操作が失敗する可能性があります。"
+    },
+    "sqlserver": {
+      "defaultsManual": "SQL Server のデフォルトは名前付き DEFAULT 制約で管理されます — 手動での処理が必要です。",
+      "commentsManual": "SQL Server のコメントは sp_addextendedproperty を使用します — 自動的には出力されません。"
+    },
+    "internal": {
+      "columnNotFound": "カラム「{{name}}」がテーブルスナップショットに見つかりません — 操作はスキップされました。"
+    },
+    "alter": {
+      "driverUnsupported": "ドライバーでは ALTER TABLE はサポートされていません: {{driver}}"
+    }
   }
 }

@@ -1174,9 +1174,10 @@
     "checksUnsupported": "This driver does not support CHECK constraints.",
     "checkExpression": "Expression",
     "checkExpressionPlaceholder": "e.g. amount > 0",
-    "warnings": "Warnings",
     "previewPlaceholder": "Add a table name and at least one column to see the SQL preview.",
-    "noColumns": "Add at least one column."
+    "noColumns": "Add at least one column.",
+    "warningsCount": "{{count}} warning",
+    "warningsCount_other": "{{count}} warnings"
   },
   "dropTable": {
     "title": "Drop Table",
@@ -2295,5 +2296,56 @@
     "dangerousWarning": "Potentially destructive Redis commands detected in the script.",
     "confirmTitle": "Run Lua script",
     "confirmDesc": "This script will run on a non-development environment and may mutate data. Proceed?"
+  },
+  "alterTable": {
+    "menuItem": "Alter Table…",
+    "title": "Alter Table — {{name}}",
+    "tabDiff": "Diff",
+    "apply": "Apply changes",
+    "applying": "Applying…",
+    "noChanges": "No changes to apply.",
+    "loading": "Loading table schema…",
+    "loadFailed": "Failed to load table schema",
+    "failed": "Failed to apply changes",
+    "success": "Table \"{{name}}\" updated.",
+    "renamedFrom": "Renamed from \"{{name}}\"",
+    "renamedTable": "Will be renamed from \"{{from}}\""
+  },
+  "ddlWarnings": {
+    "indexes": {
+      "unsupported": "Indexes are not supported on this driver: {{name}}",
+      "uniqueDowngraded": "UNIQUE index downgraded to plain index on this driver: {{name}}",
+      "methodIgnored": "Index method \"{{method}}\" ignored on this driver: {{name}}",
+      "partialUnsupported": "Partial index WHERE clause not supported on this driver: {{name}}"
+    },
+    "comments": {
+      "columnUnsupported": "Column comments not supported on this driver: {{name}}",
+      "tableUnsupported": "Table comments not supported on this driver"
+    },
+    "fk": {
+      "unsupported": "Foreign keys not supported on this driver: {{name}}"
+    },
+    "check": {
+      "unsupported": "CHECK constraints not supported on this driver: {{name}}"
+    },
+    "sqlite": {
+      "alterColumnUnsupported": "SQLite does not support ALTER COLUMN type/nullable/default — recreate table required for column \"{{name}}\".",
+      "commentsUnsupported": "SQLite does not support comments — operation skipped.",
+      "fkInPlaceUnsupported": "SQLite cannot ADD/DROP FOREIGN KEY in place — recreate table required.",
+      "checkInPlaceUnsupported": "SQLite cannot ADD/DROP CHECK in place — recreate table required."
+    },
+    "duckdb": {
+      "fkInPlaceLimited": "DuckDB has limited support for in-place foreign key changes — operation may fail."
+    },
+    "sqlserver": {
+      "defaultsManual": "SQL Server defaults are managed via named DEFAULT constraints — manual handling required.",
+      "commentsManual": "SQL Server comments use sp_addextendedproperty — not emitted automatically."
+    },
+    "internal": {
+      "columnNotFound": "Column \"{{name}}\" not found in table snapshot — operation skipped."
+    },
+    "alter": {
+      "driverUnsupported": "ALTER TABLE is not supported on driver: {{driver}}"
+    }
   }
 }

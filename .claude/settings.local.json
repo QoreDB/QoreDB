@@ -82,7 +82,9 @@
       "Bash(samply record *)",
       "Bash(dsymutil /Users/raph/Documents/Travail/Personnel/Repositories/QoreDB/src-tauri/target/release/qore-pgo-workload)",
       "Bash(/usr/bin/grep *)",
-      "Bash(dsymutil target/release/qore-pgo-workload)"
+      "Bash(dsymutil target/release/qore-pgo-workload)",
+      "Bash(kill %1)",
+      "Bash(pkill -f \"until.*bbvezu4rm\")"
     ]
   }
 }

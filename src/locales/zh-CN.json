@@ -1155,9 +1155,9 @@
     "checksUnsupported": "此驱动不支持 CHECK 约束。",
     "checkExpression": "表达式",
     "checkExpressionPlaceholder": "例如：amount > 0",
-    "warnings": "警告",
     "previewPlaceholder": "输入表名和至少一列以查看 SQL 预览。",
-    "noColumns": "请至少添加一列。"
+    "noColumns": "请至少添加一列。",
+    "warningsCount": "{{count}} 个警告"
   },
   "dropTable": {
     "title": "删除表",
@@ -2276,5 +2276,56 @@
     "dangerousWarning": "在脚本中检测到潜在的破坏性 Redis 命令。",
     "confirmTitle": "运行 Lua 脚本",
     "confirmDesc": "此脚本将在非开发环境中运行并可能修改数据。是否继续？"
+  },
+  "alterTable": {
+    "menuItem": "修改表…",
+    "title": "修改表 — {{name}}",
+    "tabDiff": "差异",
+    "apply": "应用更改",
+    "applying": "正在应用…",
+    "noChanges": "没有要应用的更改。",
+    "loading": "正在加载表结构…",
+    "loadFailed": "加载表结构失败",
+    "failed": "应用更改失败",
+    "success": "表 \"{{name}}\" 已更新。",
+    "renamedFrom": "原名：\"{{name}}\"",
+    "renamedTable": "将从 \"{{from}}\" 重命名"
+  },
+  "ddlWarnings": {
+    "indexes": {
+      "unsupported": "此驱动程序不支持索引：{{name}}",
+      "uniqueDowngraded": "此驱动程序中 UNIQUE 索引已降级为普通索引：{{name}}",
+      "methodIgnored": "此驱动程序忽略索引方法 \"{{method}}\"：{{name}}",
+      "partialUnsupported": "此驱动程序不支持部分索引 WHERE 子句：{{name}}"
+    },
+    "comments": {
+      "columnUnsupported": "此驱动程序不支持列注释：{{name}}",
+      "tableUnsupported": "此驱动程序不支持表注释"
+    },
+    "fk": {
+      "unsupported": "此驱动程序不支持外键：{{name}}"
+    },
+    "check": {
+      "unsupported": "此驱动程序不支持 CHECK 约束：{{name}}"
+    },
+    "sqlite": {
+      "alterColumnUnsupported": "SQLite 不支持 ALTER COLUMN type/nullable/default — 列 \"{{name}}\" 需要重建表。",
+      "commentsUnsupported": "SQLite 不支持注释 — 操作已跳过。",
+      "fkInPlaceUnsupported": "SQLite 无法就地 ADD/DROP FOREIGN KEY — 需要重建表。",
+      "checkInPlaceUnsupported": "SQLite 无法就地 ADD/DROP CHECK — 需要重建表。"
+    },
+    "duckdb": {
+      "fkInPlaceLimited": "DuckDB 对就地外键更改的支持有限 — 操作可能失败。"
+    },
+    "sqlserver": {
+      "defaultsManual": "SQL Server 默认值通过命名的 DEFAULT 约束管理 — 需要手动处理。",
+      "commentsManual": "SQL Server 注释使用 sp_addextendedproperty — 不会自动发出。"
+    },
+    "internal": {
+      "columnNotFound": "在表快照中找不到列 \"{{name}}\" — 操作已跳过。"
+    },
+    "alter": {
+      "driverUnsupported": "驱动程序不支持 ALTER TABLE：{{driver}}"
+    }
   }
 }

@@ -39,6 +39,7 @@ import type {
 } from './createTableTypes';
 import { ForeignKeysEditor } from './ForeignKeysEditor';
 import { IndexesEditor } from './IndexesEditor';
+import { WarningsBanner } from './WarningsBanner';
 
 interface CreateTableModalProps {
   isOpen: boolean;
@@ -409,6 +410,12 @@ export function CreateTableModal({
             )}
           </div>
         </div>
+
+        {buildResult.warnings.length > 0 && activeSection !== 'sql' && (
+          <div className="px-1">
+            <WarningsBanner warnings={buildResult.warnings} />
+          </div>
+        )}
 
         <DialogFooter>
           <Button variant="outline" onClick={handleClose} disabled={loading}>

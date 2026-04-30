@@ -1155,9 +1155,10 @@
     "checksUnsupported": "Этот драйвер не поддерживает CHECK-ограничения.",
     "checkExpression": "Выражение",
     "checkExpressionPlaceholder": "напр. сумма > 0",
-    "warnings": "Предупреждения",
     "previewPlaceholder": "Введите имя таблицы и хотя бы один столбец для предпросмотра SQL.",
-    "noColumns": "Добавьте хотя бы один столбец."
+    "noColumns": "Добавьте хотя бы один столбец.",
+    "warningsCount": "{{count}} предупреждение",
+    "warningsCount_other": "{{count}} предупреждений"
   },
   "dropTable": {
     "title": "Удалить таблицу",
@@ -2276,5 +2277,56 @@
     "dangerousWarning": "В скрипте обнаружены потенциально деструктивные команды Redis.",
     "confirmTitle": "Запустить Lua-скрипт",
     "confirmDesc": "Скрипт выполнится не в окружении разработки и может изменить данные. Продолжить?"
+  },
+  "alterTable": {
+    "menuItem": "Изменить таблицу…",
+    "title": "Изменить таблицу — {{name}}",
+    "tabDiff": "Diff",
+    "apply": "Применить изменения",
+    "applying": "Применение…",
+    "noChanges": "Нет изменений для применения.",
+    "loading": "Загрузка схемы таблицы…",
+    "loadFailed": "Не удалось загрузить схему таблицы",
+    "failed": "Не удалось применить изменения",
+    "success": "Таблица \"{{name}}\" обновлена.",
+    "renamedFrom": "Переименовано из \"{{name}}\"",
+    "renamedTable": "Будет переименована из \"{{from}}\""
+  },
+  "ddlWarnings": {
+    "indexes": {
+      "unsupported": "Индексы не поддерживаются этим драйвером: {{name}}",
+      "uniqueDowngraded": "Индекс UNIQUE понижен до обычного индекса в этом драйвере: {{name}}",
+      "methodIgnored": "Метод индекса «{{method}}» проигнорирован в этом драйвере: {{name}}",
+      "partialUnsupported": "Условие WHERE частичного индекса не поддерживается этим драйвером: {{name}}"
+    },
+    "comments": {
+      "columnUnsupported": "Комментарии к столбцам не поддерживаются этим драйвером: {{name}}",
+      "tableUnsupported": "Комментарии к таблицам не поддерживаются этим драйвером"
+    },
+    "fk": {
+      "unsupported": "Внешние ключи не поддерживаются этим драйвером: {{name}}"
+    },
+    "check": {
+      "unsupported": "Ограничения CHECK не поддерживаются этим драйвером: {{name}}"
+    },
+    "sqlite": {
+      "alterColumnUnsupported": "SQLite не поддерживает ALTER COLUMN type/nullable/default — требуется пересоздание таблицы для столбца «{{name}}».",
+      "commentsUnsupported": "SQLite не поддерживает комментарии — операция пропущена.",
+      "fkInPlaceUnsupported": "SQLite не может ADD/DROP FOREIGN KEY на месте — требуется пересоздание таблицы.",
+      "checkInPlaceUnsupported": "SQLite не может ADD/DROP CHECK на месте — требуется пересоздание таблицы."
+    },
+    "duckdb": {
+      "fkInPlaceLimited": "DuckDB ограниченно поддерживает изменения внешних ключей на месте — операция может завершиться неудачей."
+    },
+    "sqlserver": {
+      "defaultsManual": "Значения по умолчанию SQL Server управляются через именованные ограничения DEFAULT — требуется ручная обработка.",
+      "commentsManual": "Комментарии SQL Server используют sp_addextendedproperty — не выводятся автоматически."
+    },
+    "internal": {
+      "columnNotFound": "Столбец «{{name}}» не найден в снимке таблицы — операция пропущена."
+    },
+    "alter": {
+      "driverUnsupported": "ALTER TABLE не поддерживается драйвером: {{driver}}"
+    }
   }
 }

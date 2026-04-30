@@ -225,7 +225,22 @@ pub(crate) fn decode_enum_array_binary(
     }
 }
 
-/// Bind a Value to a Postgres query
+/// A canonical 8-4-4-4-12 hyphenated UUID string round-trips through `Uuid`.
+/// Anything else (URN form, no-hyphen, padding) is treated as plain text so we
+/// don't misclassify legitimate text columns containing uuid-shaped data.
+fn parse_canonical_uuid(s: &str) -> Option<Uuid> {
+    if s.len() != 36 {
+        return None;
+    }
+    Uuid::parse_str(s).ok()
+}
+
+/// Bind a Value to a Postgres query.
+///
+/// `Value::Text` values that parse as a canonical UUID are bound as `uuid`
+/// rather than `text`. Without this, `WHERE id = $1` on a `uuid` column fails
+/// with "operator does not exist: uuid = text" because reads decode uuid
+/// columns into `Value::Text(uuid.to_string())`.
 pub(crate) fn bind_param<'q>(
     query: sqlx::query::Query<'q, Postgres, sqlx::postgres::PgArguments>,
     value: &'q Value,
@@ -235,7 +250,10 @@ pub(crate) fn bind_param<'q>(
         Value::Bool(b) => query.bind(b),
         Value::Int(i) => query.bind(i),
         Value::Float(f) => query.bind(f),
-        Value::Text(s) => query.bind(s),
+        Value::Text(s) => match parse_canonical_uuid(s) {
+            Some(uuid) => query.bind(uuid),
+            None => query.bind(s),
+        },
         Value::Bytes(b) => query.bind(b),
         Value::Json(j) => query.bind(j),
         Value::Array(_) => query.bind(Option::<String>::None),

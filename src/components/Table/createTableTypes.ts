@@ -6,7 +6,7 @@ export interface IdentifiedItem {
   _id: string;
 }
 
-export type EditableColumn = ColumnDef & IdentifiedItem;
+export type EditableColumn = ColumnDef & IdentifiedItem & { _originalName?: string };
 export type EditableForeignKey = ForeignKeyDef & IdentifiedItem;
 export type EditableIndex = IndexDef & IdentifiedItem;
 export type EditableCheck = CheckConstraintDef & IdentifiedItem;

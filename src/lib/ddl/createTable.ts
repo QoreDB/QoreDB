@@ -11,10 +11,11 @@ import type {
   NamespaceLike,
   TableDefinition,
 } from './types';
+import { type DdlWarning, warn } from './warnings';
 
 export interface BuildResult {
   statements: string[];
-  warnings: string[];
+  warnings: DdlWarning[];
 }
 
 interface ColumnSqlOptions {
@@ -90,15 +91,15 @@ function buildCreateIndexSql(
   idx: IndexDef,
   fullName: string,
   driver: Driver,
-  warnings: string[]
+  warnings: DdlWarning[]
 ): string | null {
   const caps = getDdlCapabilities(driver);
   if (!caps.supportsIndexes) {
-    warnings.push(`Indexes are not supported on this driver: ${idx.name}`);
+    warnings.push(warn('indexes.unsupported', { name: idx.name }));
     return null;
   }
   if (idx.unique && !caps.supportsUniqueIndex) {
-    warnings.push(`UNIQUE index not supported on this driver, emitted as plain index: ${idx.name}`);
+    warnings.push(warn('indexes.uniqueDowngraded', { name: idx.name }));
   }
 
   const cols = idx.columns.map(c => quoteIdentifier(c, driver)).join(', ');
@@ -109,7 +110,7 @@ function buildCreateIndexSql(
 
   if (idx.method) {
     if (!caps.supportsIndexMethod) {
-      warnings.push(`Index method "${idx.method}" ignored on this driver: ${idx.name}`);
+      warnings.push(warn('indexes.methodIgnored', { name: idx.name, method: idx.method }));
     } else if (caps.indexMethodPlacement === 'before-columns') {
       stmt += ` USING ${idx.method}`;
     }
@@ -125,7 +126,7 @@ function buildCreateIndexSql(
     if (caps.supportsPartialIndex) {
       stmt += ` WHERE ${idx.where}`;
     } else {
-      warnings.push(`Partial index WHERE clause not supported on this driver: ${idx.name}`);
+      warnings.push(warn('indexes.partialUnsupported', { name: idx.name }));
     }
   }
 
@@ -134,7 +135,7 @@ function buildCreateIndexSql(
 
 export function buildCreateTableStatements(table: TableDefinition, driver: Driver): BuildResult {
   const caps = getDdlCapabilities(driver);
-  const warnings: string[] = [];
+  const warnings: DdlWarning[] = [];
   const fullName = buildQualifiedTableName(table.namespace, table.tableName, driver);
 
   const pkCols = table.columns.filter(c => c.isPrimaryKey);
@@ -149,7 +150,7 @@ export function buildCreateTableStatements(table: TableDefinition, driver: Drive
     });
     lines.push(line);
     if (col.comment && !caps.inlineColumnComments && !caps.separateColumnComments) {
-      warnings.push(`Column comments not supported on this driver: ${col.name}`);
+      warnings.push(warn('comments.columnUnsupported', { name: col.name }));
     }
   }
 
@@ -160,9 +161,7 @@ export function buildCreateTableStatements(table: TableDefinition, driver: Drive
 
   for (const fk of table.foreignKeys ?? []) {
     if (!caps.supportsForeignKeys) {
-      warnings.push(
-        `Foreign keys not supported on this driver: ${fk.name ?? fk.columns.join(',')}`
-      );
+      warnings.push(warn('fk.unsupported', { name: fk.name ?? fk.columns.join(',') }));
       continue;
     }
     lines.push(buildForeignKeyClause(fk, table, driver));
@@ -170,7 +169,7 @@ export function buildCreateTableStatements(table: TableDefinition, driver: Drive
 
   for (const check of table.checks ?? []) {
     if (!caps.supportsCheckConstraints) {
-      warnings.push(`CHECK constraints not supported on this driver: ${check.name ?? '(unnamed)'}`);
+      warnings.push(warn('check.unsupported', { name: check.name ?? '' }));
       continue;
     }
     lines.push(buildCheckClause(check, driver));
@@ -188,7 +187,7 @@ export function buildCreateTableStatements(table: TableDefinition, driver: Drive
     if (caps.separateTableComment) {
       statements.push(`COMMENT ON TABLE ${fullName} IS ${quoteSqlString(table.comment)};`);
     } else {
-      warnings.push('Table comments not supported on this driver');
+      warnings.push(warn('comments.tableUnsupported'));
     }
   }
 

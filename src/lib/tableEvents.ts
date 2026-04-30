@@ -2,12 +2,13 @@
 
 import type { Namespace } from './tauri';
 
-export type TableChangeType = 'create' | 'truncate' | 'drop' | 'update';
+export type TableChangeType = 'create' | 'truncate' | 'drop' | 'update' | 'alter' | 'rename';
 
 export interface TableChangeEvent {
   type: TableChangeType;
   namespace: Namespace;
   tableName: string;
+  newName?: string;
 }
 
 const TABLE_CHANGE_EVENT = 'qoredb-table-change';

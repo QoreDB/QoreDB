@@ -202,6 +202,11 @@ export function ColumnsEditor({
 
               {isExpanded && (
                 <div className="grid grid-cols-2 gap-3 px-2 pb-2 pt-1 border-t border-border/40">
+                  {col._originalName && col._originalName !== col.name && (
+                    <p className="col-span-2 text-xs text-amber-600 dark:text-amber-400">
+                      {t('alterTable.renamedFrom', { name: col._originalName })}
+                    </p>
+                  )}
                   <div className="space-y-1">
                     <label
                       htmlFor={`col-default-${col._id}`}

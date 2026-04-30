@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
-export { buildAlterTableSQL, diffTableDefinitions } from './alterTable';
+export { buildAlterTableSQL, type DiffOptions, diffTableDefinitions } from './alterTable';
+export { buildAlterTableStatements } from './alterTableBuilders';
 export {
   type BuildResult,
   buildColumnSQL,
@@ -28,3 +29,4 @@ export type {
   ReferentialAction,
   TableDefinition,
 } from './types';
+export type { DdlWarning, DdlWarningCode, DdlWarningParams } from './warnings';

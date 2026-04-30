@@ -273,7 +273,7 @@ export function BulkEditDialog({
               {t('bulkEdit.operation')}
             </Label>
             <Select value={operation} onValueChange={v => setOperation(v as BulkEditOperation)}>
-              <SelectTrigger id="bulk-edit-op" className="h-9 w-32">
+              <SelectTrigger id="bulk-edit-op" className="h-9 w-40">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

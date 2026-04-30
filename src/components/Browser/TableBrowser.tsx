@@ -30,7 +30,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useTourManager } from '@/hooks/useTourManager';
-import { buildQualifiedTableName } from '@/lib/column-types';
+import { buildQualifiedTableName } from '@/lib/ddl';
 import {
   activateSandbox,
   clearSandboxBackup,
@@ -1341,7 +1341,7 @@ function TableInfoPanel({
               collection: tableName,
             })}
             confirmLabel={t('mongoIndex.drop')}
-            confirmationLabel={environment === 'production' ? dropTarget ?? undefined : undefined}
+            confirmationLabel={environment === 'production' ? (dropTarget ?? undefined) : undefined}
             loading={dropLoading}
             onConfirm={async () => {
               if (!dropTarget) return;

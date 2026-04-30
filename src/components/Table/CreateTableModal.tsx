@@ -20,12 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  buildCreateTableSQL,
-  type ColumnDef,
-  type ColumnType,
-  getColumnTypes,
-} from '@/lib/column-types';
+import { buildCreateTableSQL, type ColumnDef, type ColumnType, getColumnTypes } from '@/lib/ddl';
 import { Driver } from '@/lib/drivers';
 import { notify } from '@/lib/notify';
 import { executeQuery, type Namespace } from '@/lib/tauri';

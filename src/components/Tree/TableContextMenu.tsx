@@ -15,7 +15,7 @@ import {
   ContextMenuTrigger,
 } from '@/components/ui/context-menu';
 import { VirtualRelationDialog } from '@/components/VirtualRelations/VirtualRelationDialog';
-import { buildDropTableSQL, buildTruncateTableSQL } from '@/lib/column-types';
+import { buildDropTableSQL, buildTruncateTableSQL } from '@/lib/ddl';
 import { emitTableChange } from '@/lib/tableEvents';
 import { removeTableVisit } from '@/lib/tableInsights';
 import { invalidateCollectionsCache, invalidateTableSchemaCache } from '../../hooks/useSchemaCache';

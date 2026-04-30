@@ -215,7 +215,10 @@
     "pin": "Fijar pestaña",
     "unpin": "Desfijar pestaña",
     "contextMenu": "Opciones de pestaña",
-    "showAll": "Mostrar todas las pestañas"
+    "showAll": "Mostrar todas las pestañas",
+    "collapse": "Contraer {{name}}",
+    "expand": "Expandir {{name}}",
+    "ungrouped": "Sin agrupar"
   },
   "browser": {
     "searchPlaceholder": "Buscar {{label}}...",
@@ -540,6 +543,12 @@
       "runQuery": "Ejecutar consulta",
       "closeTab": "Cerrar pestaña",
       "escape": "Cerrar superposición / Cancelar"
+    },
+    "tabs": {
+      "title": "Pestañas",
+      "description": "Configurar el comportamiento de la barra de pestañas.",
+      "groupByConnection": "Agrupar pestañas por conexión",
+      "groupByConnectionDescription": "Mostrar pestañas en grupos plegables bajo el nombre de su conexión."
     }
   },
   "table": {

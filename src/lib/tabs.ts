@@ -34,6 +34,8 @@ export interface OpenTab {
   title: string;
   pinned?: boolean;
   initialQuery?: string;
+  /** Connection this tab belongs to. Used by Tab Groups by Connection. */
+  connectionId?: string;
   // Table-specific
   namespace?: Namespace;
   tableName?: string;

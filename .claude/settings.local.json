@@ -87,7 +87,10 @@
       "Bash(pkill -f \"until.*bbvezu4rm\")",
       "Bash(sed -E -i \"s|from \\(['\\\\\"]\\)\\\\\\\\.\\\\\\\\./connection/driverCapabilities\\\\\\\\1|from \\\\1../driverCapabilities\\\\1|g\" src/lib/ddl/alter/*.ts)",
       "Bash(sed -E -i \"s|from \\(['\\\\\"]\\)\\\\\\\\.\\\\\\\\./\\\\\\\\.\\\\\\\\./drivers\\\\\\\\1|from \\\\1../../connection/drivers\\\\1|g\" src/lib/ddl/alter/*.ts)",
-      "Bash(git mv *)"
+      "Bash(git mv *)",
+      "Bash(awk '/\"tabs\": \\\\{/,/^  \\\\}/' src/locales/en.json)",
+      "Bash(awk '/\"tabs\": \\\\{/,/^  \\\\}/' src/locales/fr.json)",
+      "Bash(pnpm check *)"
     ]
   }
 }

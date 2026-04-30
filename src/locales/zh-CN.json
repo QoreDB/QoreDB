@@ -215,7 +215,10 @@
     "pin": "固定标签页",
     "unpin": "取消固定标签页",
     "contextMenu": "标签页选项",
-    "showAll": "显示所有标签页"
+    "showAll": "显示所有标签页",
+    "collapse": "收起 {{name}}",
+    "expand": "展开 {{name}}",
+    "ungrouped": "未分组"
   },
   "browser": {
     "searchPlaceholder": "搜索 {{label}}…",
@@ -540,6 +543,12 @@
       "runQuery": "运行查询",
       "closeTab": "关闭标签页",
       "escape": "关闭叠加层/取消"
+    },
+    "tabs": {
+      "title": "标签页",
+      "description": "配置标签栏行为。",
+      "groupByConnection": "按连接分组标签页",
+      "groupByConnectionDescription": "在连接名称下方以可折叠的分组显示标签页。"
     }
   },
   "table": {

@@ -32,6 +32,11 @@ import {
   useUpdateStore,
 } from '@/lib/stores/updateStore';
 import { APP_VERSION } from '@/lib/version';
+import {
+  getGroupByConnection,
+  setGroupByConnection,
+  subscribeGroupByConnection,
+} from '../../Tabs/tabBarPreferences';
 import { SettingsCard } from '../SettingsCard';
 
 interface GeneralSectionProps {
@@ -70,6 +75,8 @@ export function GeneralSection({ searchQuery }: GeneralSectionProps) {
   const { t, i18n } = useTranslation();
   const { theme, resolvedTheme, setTheme } = useTheme();
   const [startupPrefs, setStartupPrefs] = useState<StartupPreferences>(getStartupPreferences);
+  const [tabsGroupByConnection, setTabsGroupByConnectionState] =
+    useState<boolean>(getGroupByConnection);
   const updateState = useUpdateStore();
   const [checking, setChecking] = useState(false);
   const [upToDate, setUpToDate] = useState(false);
@@ -77,6 +84,8 @@ export function GeneralSection({ searchQuery }: GeneralSectionProps) {
   useEffect(() => {
     setStartupPreferences(startupPrefs);
   }, [startupPrefs]);
+
+  useEffect(() => subscribeGroupByConnection(setTabsGroupByConnectionState), []);
 
   const handleCheckForUpdate = useCallback(async () => {
     setChecking(true);
@@ -315,6 +324,30 @@ export function GeneralSection({ searchQuery }: GeneralSectionProps) {
             </span>
           </Label>
         </div>
+      </SettingsCard>
+
+      <SettingsCard
+        id="tabs"
+        title={t('settings.tabs.title')}
+        description={t('settings.tabs.description')}
+        isModified={tabsGroupByConnection}
+        searchQuery={searchQuery}
+      >
+        <Label className="flex items-start gap-2.5 text-sm cursor-pointer">
+          <Checkbox
+            checked={tabsGroupByConnection}
+            onCheckedChange={checked => setGroupByConnection(!!checked)}
+            className="mt-0.5"
+          />
+          <span>
+            <span className="font-medium text-foreground">
+              {t('settings.tabs.groupByConnection')}
+            </span>
+            <span className="block text-xs text-muted-foreground mt-0.5">
+              {t('settings.tabs.groupByConnectionDescription')}
+            </span>
+          </span>
+        </Label>
       </SettingsCard>
     </>
   );

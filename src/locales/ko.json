@@ -215,7 +215,10 @@
     "pin": "탭 고정",
     "unpin": "탭 고정 해제",
     "contextMenu": "탭 옵션",
-    "showAll": "모든 탭 표시"
+    "showAll": "모든 탭 표시",
+    "collapse": "{{name}} 접기",
+    "expand": "{{name}} 펼치기",
+    "ungrouped": "그룹 없음"
   },
   "browser": {
     "searchPlaceholder": "{{label}} 검색...",
@@ -540,6 +543,12 @@
       "runQuery": "쿼리 실행",
       "closeTab": "탭 닫기",
       "escape": "오버레이 닫기 / 취소"
+    },
+    "tabs": {
+      "title": "탭",
+      "description": "탭 표시줄 동작을 구성합니다.",
+      "groupByConnection": "연결별로 탭 그룹화",
+      "groupByConnectionDescription": "연결 이름 아래에 접을 수 있는 그룹으로 탭을 표시합니다."
     }
   },
   "table": {

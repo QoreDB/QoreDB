@@ -215,7 +215,10 @@
     "pin": "Tab anheften",
     "unpin": "Tab lösen",
     "contextMenu": "Tab-Optionen",
-    "showAll": "Alle Tabs anzeigen"
+    "showAll": "Alle Tabs anzeigen",
+    "collapse": "{{name}} einklappen",
+    "expand": "{{name}} ausklappen",
+    "ungrouped": "Nicht gruppiert"
   },
   "browser": {
     "searchPlaceholder": "{{label}} suchen…",
@@ -540,6 +543,12 @@
       "runQuery": "Abfrage ausführen",
       "closeTab": "Tab schließen",
       "escape": "Overlay schließen / Abbrechen"
+    },
+    "tabs": {
+      "title": "Tabs",
+      "description": "Verhalten der Tab-Leiste konfigurieren.",
+      "groupByConnection": "Tabs nach Verbindung gruppieren",
+      "groupByConnectionDescription": "Tabs in einklappbaren Gruppen unter dem Namen ihrer Verbindung anzeigen."
     }
   },
   "table": {

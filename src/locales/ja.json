@@ -215,7 +215,10 @@
     "pin": "タブをピン留め",
     "unpin": "タブのピン留めを解除",
     "contextMenu": "タブオプション",
-    "showAll": "すべてのタブを表示"
+    "showAll": "すべてのタブを表示",
+    "collapse": "{{name}}を折りたたむ",
+    "expand": "{{name}}を展開",
+    "ungrouped": "グループなし"
   },
   "browser": {
     "searchPlaceholder": "{{label}} を検索...",
@@ -540,6 +543,12 @@
       "runQuery": "クエリを実行",
       "closeTab": "タブを閉じる",
       "escape": "オーバーレイを閉じる / キャンセル"
+    },
+    "tabs": {
+      "title": "タブ",
+      "description": "タブバーの動作を設定します。",
+      "groupByConnection": "接続ごとにタブをグループ化",
+      "groupByConnectionDescription": "折りたたみ可能なグループ内に、接続名の下にタブを表示します。"
     }
   },
   "table": {

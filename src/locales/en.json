@@ -216,7 +216,10 @@
     "pin": "Pin tab",
     "unpin": "Unpin tab",
     "contextMenu": "Tab options",
-    "showAll": "Show all tabs"
+    "showAll": "Show all tabs",
+    "collapse": "Collapse {{name}}",
+    "expand": "Expand {{name}}",
+    "ungrouped": "Ungrouped"
   },
   "browser": {
     "searchPlaceholder": "Search {{label}}...",
@@ -542,6 +545,12 @@
       "runQuery": "Run query",
       "closeTab": "Close tab",
       "escape": "Close overlay / Cancel"
+    },
+    "tabs": {
+      "title": "Tabs",
+      "description": "Configure the behavior of the tab bar.",
+      "groupByConnection": "Group tabs by connection",
+      "groupByConnectionDescription": "Display tabs in collapsible groups under their connection name."
     }
   },
   "table": {

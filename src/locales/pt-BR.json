@@ -215,7 +215,10 @@
     "pin": "Fixar aba",
     "unpin": "Desafixar aba",
     "contextMenu": "Opções da aba",
-    "showAll": "Mostrar todas as abas"
+    "showAll": "Mostrar todas as abas",
+    "collapse": "Recolher {{name}}",
+    "expand": "Expandir {{name}}",
+    "ungrouped": "Sem grupo"
   },
   "browser": {
     "searchPlaceholder": "Pesquisar {{label}}...",
@@ -540,6 +543,12 @@
       "runQuery": "Executar consulta",
       "closeTab": "Fechar aba",
       "escape": "Fechar overlay / Cancelar"
+    },
+    "tabs": {
+      "title": "Abas",
+      "description": "Configurar o comportamento da barra de abas.",
+      "groupByConnection": "Agrupar abas por conexão",
+      "groupByConnectionDescription": "Exibir abas em grupos recolhíveis sob o nome de sua conexão."
     }
   },
   "table": {

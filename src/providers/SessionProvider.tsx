@@ -162,7 +162,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setActiveConnection(null);
       setDriverCapabilities(null);
       setConnectionHealth('healthy');
-      resetTabs();
+      resetTabs({ currentConnectionId: null });
       setSidebarRefreshTrigger(prev => prev + 1);
     };
     window.addEventListener(UI_EVENT_WORKSPACE_CHANGED, handler);
@@ -329,6 +329,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         initialQueryDrafts: options?.queryDrafts,
         initialTableBrowserTabs: options?.tableBrowserTabs,
         initialDatabaseBrowserTabs: options?.databaseBrowserTabs,
+        currentConnectionId: connection.id,
       });
     },
     [resetTabs]
@@ -395,7 +396,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
               }
               setSessionId(null);
               setActiveConnection(null);
-              resetTabs();
+              resetTabs({ currentConnectionId: null });
             }
           } catch (err) {
             if (attemptId !== reconnectAttemptRef.current) return;

@@ -216,7 +216,10 @@
     "pin": "Épingler l'onglet",
     "unpin": "Désépingler l'onglet",
     "contextMenu": "Options de l'onglet",
-    "showAll": "Afficher tous les onglets"
+    "showAll": "Afficher tous les onglets",
+    "collapse": "Replier {{name}}",
+    "expand": "Déplier {{name}}",
+    "ungrouped": "Non groupé"
   },
   "browser": {
     "searchPlaceholder": "Rechercher connexions, tables...",
@@ -542,6 +545,12 @@
       "runQuery": "Exécuter la requête",
       "closeTab": "Fermer l'onglet",
       "escape": "Fermer la fenêtre / Annuler"
+    },
+    "tabs": {
+      "title": "Onglets",
+      "description": "Configurer le comportement de la barre d'onglets.",
+      "groupByConnection": "Grouper les onglets par connexion",
+      "groupByConnectionDescription": "Afficher les onglets dans des groupes pliables sous le nom de leur connexion."
     }
   },
   "table": {

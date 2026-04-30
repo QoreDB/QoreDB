@@ -763,8 +763,17 @@ export function AppLayout() {
                         title: t.title,
                         type: t.type,
                         pinned: t.pinned,
+                        connectionId: t.connectionId,
                       }))}
                       activeId={activeTabId || undefined}
+                      resolveConnection={id =>
+                        activeConnection && activeConnection.id === id
+                          ? {
+                              name: activeConnection.name,
+                              environment: activeConnection.environment,
+                            }
+                          : undefined
+                      }
                       onSelect={setActiveTabId}
                       onClose={closeTab}
                       onNew={handleNewQuery}

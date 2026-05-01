@@ -90,7 +90,8 @@
       "Bash(git mv *)",
       "Bash(awk '/\"tabs\": \\\\{/,/^  \\\\}/' src/locales/en.json)",
       "Bash(awk '/\"tabs\": \\\\{/,/^  \\\\}/' src/locales/fr.json)",
-      "Bash(pnpm check *)"
+      "Bash(pnpm check *)",
+      "Bash(pnpm test *)"
     ]
   }
 }

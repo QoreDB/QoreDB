@@ -31,9 +31,6 @@ import { SandboxBorder } from './components/Sandbox';
 import type { SearchResult } from './components/Search/GlobalSearch';
 import { Sidebar } from './components/Sidebar/Sidebar';
 
-// Lazy-loaded views — these tab kinds are opened on demand (or only by Pro
-// users). Splitting them out keeps the initial bundle lean. Each chunk is
-// fetched the first time the user opens the corresponding tab.
 const DataDiffViewer = lazy(() =>
   import('./components/Diff/DataDiffViewer').then(m => ({ default: m.DataDiffViewer }))
 );
@@ -443,7 +440,6 @@ export function AppLayout() {
       notify.warning(t('sandbox.envWarningProduction'));
   }, [activeConnection?.environment, sessionId, t]);
 
-  // --- Palette ---
   const paletteFeatures = useMemo(
     () =>
       sessionId
@@ -595,7 +591,6 @@ export function AppLayout() {
                   openTab(createNotebookTab(nbResult.notebook.metadata.title, nbResult.path));
                 }
               } catch {
-                /* dialog cancelled or invalid file */
               }
             }
             return;
@@ -673,7 +668,6 @@ export function AppLayout() {
             return;
           case 'feat_er':
           case 'feat_virtual_relations':
-            // These features are accessed via table context menu / schema browser
             return;
         }
       }
@@ -693,10 +687,10 @@ export function AppLayout() {
       handleOpenDiff,
       handleToggleSandbox,
       refreshSidebar,
+      projectId,
     ]
   );
 
-  // --- Derived state ---
   const canRefreshData = Boolean(sessionId && activeTab?.type === 'table');
   const canExportData = Boolean(sessionId && activeTab?.type === 'table');
 
@@ -942,10 +936,7 @@ interface AppContentProps {
   onOpenSequenceSource: (sequence: Sequence, namespace: Namespace) => void;
 }
 
-/// Suspense fallback shown while a lazy-loaded tab chunk is fetched. Kept
-/// minimal so the previous tab content stays visually replaced for only the
-/// few hundred ms the chunk takes to download (already-cached chunks resolve
-/// synchronously and skip this).
+
 function LazyTabFallback() {
   return (
     <div className="flex h-full w-full items-center justify-center p-8">

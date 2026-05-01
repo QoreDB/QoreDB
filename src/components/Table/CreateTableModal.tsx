@@ -161,10 +161,10 @@ export function CreateTableModal({
     setActiveSection('columns');
   }
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reset only when modal opens
   useEffect(() => {
     if (!isOpen) return;
     reset();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
   function addColumn() {

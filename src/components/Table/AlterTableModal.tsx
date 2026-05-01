@@ -105,6 +105,7 @@ export function AlterTableModal({
     setOriginalSnapshot(buildAlterSnapshot(namespace, tableName, cols, fks, idx));
   }
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: re-run only when the modal context changes
   useEffect(() => {
     if (!isOpen) return;
     setEditTableName(tableName);
@@ -129,7 +130,6 @@ export function AlterTableModal({
         onClose();
       })
       .finally(() => setLoadingSchema(false));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, sessionId, namespace, tableName, initialSchema]);
 
   const afterDefinition = useMemo<TableDefinition>(() => {

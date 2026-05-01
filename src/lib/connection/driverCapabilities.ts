@@ -95,6 +95,30 @@ const DRIVER_SCHEMA_OBJECT_CAPABILITIES: Record<Driver, DriverSchemaObjectCapabi
     events: true,
     sequences: true,
   },
+  supabase: {
+    routines: true,
+    functions: true,
+    procedures: true,
+    triggers: true,
+    events: false,
+    sequences: false,
+  },
+  neon: {
+    routines: true,
+    functions: true,
+    procedures: true,
+    triggers: true,
+    events: false,
+    sequences: false,
+  },
+  timescaledb: {
+    routines: true,
+    functions: true,
+    procedures: true,
+    triggers: true,
+    events: false,
+    sequences: false,
+  },
 };
 
 /**

@@ -171,6 +171,18 @@
       "passwordOptional": "任意",
       "connectTimeoutSecs": "接続タイムアウト（秒）",
       "summaryMissingHost": "（ホスト？）"
+    },
+    "smartPaste": {
+      "detected": "検出: {{name}}",
+      "switched": "ドライバを {{name}} に切替",
+      "hint": "接続 URL を貼り付けると自動でドライバが選択されます"
+    },
+    "supabaseHint": "Supabase: プロジェクト設定から DSN を貼り付け。ポート 5432 (直接) または 6543 (トランザクションプーラー)。",
+    "neonHint": "Neon: 初回接続時にエンドポイントが起動するまで 5〜10 秒かかる場合があります。",
+    "timescaledbHint": "TimescaleDB: timescaledb 拡張が有効な PostgreSQL として接続。",
+    "driverGroups": {
+      "sql": "SQL",
+      "nosql": "NoSQL"
     }
   },
   "sidebar": {

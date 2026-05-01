@@ -93,7 +93,14 @@ export function useConnectionForm(options: {
       ...prev,
       driver,
       port: DEFAULT_PORTS[driver],
+      // Cloud-managed Postgres providers are almost always configured via DSN —
+      // pre-enable the URL toggle so the user can paste right away.
+      useUrl: driverPrefersUrl(driver) ? true : prev.useUrl,
     }));
+  }
+
+  function driverPrefersUrl(driver: Driver): boolean {
+    return driver === Driver.Supabase || driver === Driver.Neon;
   }
 
   function handleChange(field: keyof ConnectionFormData, value: string | number | boolean) {

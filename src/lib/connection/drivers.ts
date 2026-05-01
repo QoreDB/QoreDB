@@ -17,6 +17,9 @@ export enum Driver {
   SqlServer = 'sqlserver',
   Cockroachdb = 'cockroachdb',
   Mariadb = 'mariadb',
+  Supabase = 'supabase',
+  Neon = 'neon',
+  Timescaledb = 'timescaledb',
 }
 
 /** Query builder functions for driver-specific SQL/commands */
@@ -345,6 +348,114 @@ export const DRIVERS: Record<Driver, DriverMetadata> = {
         `SELECT COUNT(DISTINCT index_name) as cnt
          FROM information_schema.statistics WHERE table_schema = '${db}'`,
       tableIndexesQuery: table => `SHOW INDEX FROM \`${table}\``,
+    },
+  },
+  [Driver.Supabase]: {
+    id: Driver.Supabase,
+    label: 'Supabase',
+    icon: 'supabase.png',
+    defaultPort: 5432,
+    namespaceLabel: 'dbtree.schema',
+    namespacePluralLabel: 'dbtree.schemas',
+    collectionLabel: 'dbtree.table',
+    collectionPluralLabel: 'dbtree.tables',
+    treeRootLabel: 'dbtree.schemasHeader',
+    createAction: 'schema',
+    databaseFieldLabel: 'connection.databaseInitial',
+    supportsSchemas: true,
+    supportsSQL: true,
+    dataModel: 'relational',
+    isDocumentBased: false,
+    identifier: {
+      quoteStart: '"',
+      quoteEnd: '"',
+      namespaceStrategy: 'schema',
+    },
+    queries: {
+      databaseSizeQuery: () =>
+        'SELECT pg_size_pretty(pg_database_size(current_database())) as size',
+      tableSizeQuery: (schema, table) =>
+        `SELECT pg_total_relation_size('"${schema}"."${table}"') as total_bytes,
+                pg_size_pretty(pg_total_relation_size('"${schema}"."${table}"')) as size_pretty`,
+      indexCountQuery: schema =>
+        `SELECT COUNT(*) as cnt FROM pg_indexes WHERE schemaname = '${schema}'`,
+      tableIndexesQuery: table =>
+        `SELECT indexname, indexdef FROM pg_indexes WHERE tablename = '${table}'`,
+      maintenanceQuery: (schema, table) =>
+        `SELECT last_vacuum, last_analyze FROM pg_stat_user_tables
+         WHERE schemaname = '${schema}' AND relname = '${table}'`,
+    },
+  },
+  [Driver.Neon]: {
+    id: Driver.Neon,
+    label: 'Neon',
+    icon: 'neon.png',
+    defaultPort: 5432,
+    namespaceLabel: 'dbtree.schema',
+    namespacePluralLabel: 'dbtree.schemas',
+    collectionLabel: 'dbtree.table',
+    collectionPluralLabel: 'dbtree.tables',
+    treeRootLabel: 'dbtree.schemasHeader',
+    createAction: 'schema',
+    databaseFieldLabel: 'connection.databaseInitial',
+    supportsSchemas: true,
+    supportsSQL: true,
+    dataModel: 'relational',
+    isDocumentBased: false,
+    identifier: {
+      quoteStart: '"',
+      quoteEnd: '"',
+      namespaceStrategy: 'schema',
+    },
+    queries: {
+      databaseSizeQuery: () =>
+        'SELECT pg_size_pretty(pg_database_size(current_database())) as size',
+      tableSizeQuery: (schema, table) =>
+        `SELECT pg_total_relation_size('"${schema}"."${table}"') as total_bytes,
+                pg_size_pretty(pg_total_relation_size('"${schema}"."${table}"')) as size_pretty`,
+      indexCountQuery: schema =>
+        `SELECT COUNT(*) as cnt FROM pg_indexes WHERE schemaname = '${schema}'`,
+      tableIndexesQuery: table =>
+        `SELECT indexname, indexdef FROM pg_indexes WHERE tablename = '${table}'`,
+      maintenanceQuery: (schema, table) =>
+        `SELECT last_vacuum, last_analyze FROM pg_stat_user_tables
+         WHERE schemaname = '${schema}' AND relname = '${table}'`,
+    },
+  },
+  [Driver.Timescaledb]: {
+    id: Driver.Timescaledb,
+    label: 'TimescaleDB',
+    icon: 'timescaledb.png',
+    defaultPort: 5432,
+    namespaceLabel: 'dbtree.schema',
+    namespacePluralLabel: 'dbtree.schemas',
+    collectionLabel: 'dbtree.table',
+    collectionPluralLabel: 'dbtree.tables',
+    treeRootLabel: 'dbtree.schemasHeader',
+    createAction: 'schema',
+    databaseFieldLabel: 'connection.databaseInitial',
+    supportsSchemas: true,
+    supportsSQL: true,
+    dataModel: 'time-series',
+    isDocumentBased: false,
+    identifier: {
+      quoteStart: '"',
+      quoteEnd: '"',
+      namespaceStrategy: 'schema',
+    },
+    queries: {
+      databaseSizeQuery: () =>
+        'SELECT pg_size_pretty(pg_database_size(current_database())) as size',
+      tableSizeQuery: (schema, table) =>
+        `SELECT pg_total_relation_size('"${schema}"."${table}"') as total_bytes,
+                pg_size_pretty(pg_total_relation_size('"${schema}"."${table}"')) as size_pretty`,
+      indexCountQuery: schema =>
+        `SELECT COUNT(*) as cnt FROM pg_indexes WHERE schemaname = '${schema}'`,
+      tableIndexesQuery: table =>
+        `SELECT indexname, indexdef FROM pg_indexes WHERE tablename = '${table}'`,
+      maintenanceQuery: (schema, table) =>
+        `SELECT last_vacuum, last_analyze FROM pg_stat_user_tables
+         WHERE schemaname = '${schema}' AND relname = '${table}'`,
     },
   },
 };

@@ -27,12 +27,12 @@ use qore_core::error::{EngineError, EngineResult};
 use qore_sql::safety;
 use qore_core::traits::{StreamEvent, StreamSender};
 use qore_core::types::{
-    CancelSupport, ColumnInfo, ConnectionConfig, FilterOperator, ForeignKey, Namespace,
-    PaginatedQueryResult, QueryId, QueryResult, Routine, RoutineDefinition, RoutineList,
-    RoutineListOptions, RoutineOperationResult, RoutineType, RowData, SessionId,
-    SortDirection, TableColumn, TableIndex, TableQueryOptions, TableSchema, Trigger,
-    TriggerDefinition, TriggerEvent, TriggerList, TriggerListOptions, TriggerOperationResult,
-    TriggerTiming, Value,
+    CancelSupport, Collection, CollectionList, CollectionListOptions, CollectionType, ColumnInfo,
+    ConnectionConfig, FilterOperator, ForeignKey, Namespace, PaginatedQueryResult, QueryId,
+    QueryResult, Routine, RoutineDefinition, RoutineList, RoutineListOptions,
+    RoutineOperationResult, RoutineType, RowData, SessionId, SortDirection, TableColumn,
+    TableIndex, TableQueryOptions, TableSchema, Trigger, TriggerDefinition, TriggerEvent,
+    TriggerList, TriggerListOptions, TriggerOperationResult, TriggerTiming, Value,
 };
 
 // =============================================================================
@@ -1348,6 +1348,134 @@ pub async fn describe_table_core(
         foreign_keys,
         row_count_estimate,
         indexes,
+    })
+}
+
+// =============================================================================
+// Namespaces & collections (default PG-compat implementation, matviews included)
+// =============================================================================
+
+/// Default `list_namespaces` implementation: lists every non-system schema in
+/// the current database. Drivers with stricter exclusion lists (e.g. CockroachDB)
+/// keep their own override.
+pub async fn list_namespaces_default(
+    sessions: &SessionMap,
+    session: SessionId,
+) -> EngineResult<Vec<Namespace>> {
+    let pg = get_session(sessions, session).await?;
+    let pool = &pg.pool;
+
+    let current_db: (String,) = sqlx::query_as("SELECT current_database()")
+        .fetch_one(pool)
+        .await
+        .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+    let rows: Vec<(String,)> = sqlx::query_as(
+        r#"
+        SELECT nspname
+        FROM pg_catalog.pg_namespace
+        WHERE nspname NOT IN ('information_schema', 'pg_catalog', 'pg_toast')
+          AND nspname NOT LIKE 'pg_temp_%'
+        ORDER BY nspname
+        "#,
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+    Ok(rows
+        .into_iter()
+        .map(|(name,)| Namespace::with_schema(&current_db.0, name))
+        .collect())
+}
+
+/// Default `list_collections` implementation: tables, views and materialized
+/// views. Drivers without matview support (CockroachDB) keep their own override.
+pub async fn list_collections_default(
+    sessions: &SessionMap,
+    session: SessionId,
+    namespace: &Namespace,
+    options: CollectionListOptions,
+) -> EngineResult<CollectionList> {
+    let pg = get_session(sessions, session).await?;
+    let pool = &pg.pool;
+
+    let schema = namespace.schema.as_deref().unwrap_or("public");
+    let search_pattern = options.search.as_ref().map(|s| format!("%{}%", s));
+
+    let count_row: (i64,) = sqlx::query_as(
+        r#"
+        SELECT COUNT(*) FROM (
+            SELECT table_name AS name
+            FROM information_schema.tables
+            WHERE table_schema = $1
+            AND ($2 IS NULL OR table_name LIKE $3)
+            UNION ALL
+            SELECT matviewname AS name
+            FROM pg_matviews
+            WHERE schemaname = $1
+            AND ($2 IS NULL OR matviewname LIKE $3)
+        ) combined
+        "#,
+    )
+    .bind(schema)
+    .bind(&search_pattern)
+    .bind(&search_pattern)
+    .fetch_one(pool)
+    .await
+    .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+    let mut query_str = r#"
+        SELECT name, ctype FROM (
+            SELECT table_name AS name,
+                CASE WHEN table_type = 'VIEW' THEN 'View' ELSE 'Table' END AS ctype
+            FROM information_schema.tables
+            WHERE table_schema = $1
+            AND ($2 IS NULL OR table_name LIKE $3)
+            UNION ALL
+            SELECT matviewname AS name, 'MaterializedView' AS ctype
+            FROM pg_matviews
+            WHERE schemaname = $1
+            AND ($2 IS NULL OR matviewname LIKE $3)
+        ) combined ORDER BY name
+    "#
+    .to_string();
+
+    if let Some(limit) = options.page_size {
+        query_str.push_str(&format!(" LIMIT {}", limit));
+        if let Some(page) = options.page {
+            let offset = (page.max(1) - 1) * limit;
+            query_str.push_str(&format!(" OFFSET {}", offset));
+        }
+    }
+
+    let rows: Vec<(String, String)> = sqlx::query_as(&query_str)
+        .bind(schema)
+        .bind(&search_pattern)
+        .bind(&search_pattern)
+        .fetch_all(pool)
+        .await
+        .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+    let collections = rows
+        .into_iter()
+        .map(|(name, ctype)| {
+            let collection_type = match ctype.as_str() {
+                "View" => CollectionType::View,
+                "MaterializedView" => CollectionType::MaterializedView,
+                _ => CollectionType::Table,
+            };
+            Collection {
+                namespace: namespace.clone(),
+                name,
+                collection_type,
+            }
+        })
+        .collect();
+
+    Ok(CollectionList {
+        collections,
+        total_count: count_row.0 as u32,
     })
 }
 

@@ -135,6 +135,9 @@ export const COLUMN_TYPES: Record<Driver, ColumnType[]> = {
   [Driver.SqlServer]: SQLSERVER_TYPES,
   [Driver.Cockroachdb]: POSTGRES_TYPES,
   [Driver.Mariadb]: MYSQL_TYPES,
+  [Driver.Supabase]: POSTGRES_TYPES,
+  [Driver.Neon]: POSTGRES_TYPES,
+  [Driver.Timescaledb]: POSTGRES_TYPES,
 };
 
 export function getColumnTypes(driver: Driver): ColumnType[] {

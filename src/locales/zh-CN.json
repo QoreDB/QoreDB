@@ -171,6 +171,18 @@
       "passwordOptional": "可选",
       "connectTimeoutSecs": "连接超时（秒）",
       "summaryMissingHost": "（主机？）"
+    },
+    "smartPaste": {
+      "detected": "已检测: {{name}}",
+      "switched": "驱动已切换为 {{name}}",
+      "hint": "粘贴连接 URL — 驱动会自动选择"
+    },
+    "supabaseHint": "Supabase: 从项目设置粘贴 DSN。端口 5432 (直接) 或 6543 (事务连接池)。",
+    "neonHint": "Neon: 端点首次连接可能需要 5–10 秒唤醒。",
+    "timescaledbHint": "TimescaleDB: 像启用了 timescaledb 扩展的 PostgreSQL 一样连接。",
+    "driverGroups": {
+      "sql": "SQL",
+      "nosql": "NoSQL"
     }
   },
   "sidebar": {

@@ -13,6 +13,9 @@ const DIALECT_MAP: Record<Driver, SqlLanguage> = {
   [Driver.Duckdb]: 'sql',
   [Driver.Cockroachdb]: 'postgresql',
   [Driver.Mariadb]: 'mysql',
+  [Driver.Supabase]: 'postgresql',
+  [Driver.Neon]: 'postgresql',
+  [Driver.Timescaledb]: 'postgresql',
 };
 
 export function formatSql(query: string, driver: Driver): string {

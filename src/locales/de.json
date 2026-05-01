@@ -171,6 +171,18 @@
       "passwordOptional": "Optional",
       "connectTimeoutSecs": "Verbindungs-Timeout (s)",
       "summaryMissingHost": "(Host?)"
+    },
+    "smartPaste": {
+      "detected": "Erkannt: {{name}}",
+      "switched": "Treiber gewechselt zu {{name}}",
+      "hint": "Verbindungs-URL einfügen — der Treiber wird automatisch gewählt"
+    },
+    "supabaseHint": "Supabase: Fügen Sie Ihren DSN aus den Projekteinstellungen ein. Standard-Port 5432 (direkt), 6543 (Transaction Pooler).",
+    "neonHint": "Neon: Endpoints brauchen beim ersten Connect 5–10s zum Aufwachen.",
+    "timescaledbHint": "TimescaleDB: verbindet sich wie PostgreSQL mit aktivierter timescaledb-Extension.",
+    "driverGroups": {
+      "sql": "SQL",
+      "nosql": "NoSQL"
     }
   },
   "sidebar": {

@@ -171,6 +171,18 @@
       "passwordOptional": "선택사항",
       "connectTimeoutSecs": "연결 시간 제한 (초)",
       "summaryMissingHost": "(호스트?)"
+    },
+    "smartPaste": {
+      "detected": "감지됨: {{name}}",
+      "switched": "드라이버가 {{name}}(으)로 변경되었습니다",
+      "hint": "연결 URL을 붙여넣으면 드라이버가 자동 선택됩니다"
+    },
+    "supabaseHint": "Supabase: 프로젝트 설정에서 DSN을 붙여넣으세요. 포트 5432(직접) 또는 6543(트랜잭션 풀러).",
+    "neonHint": "Neon: 첫 연결 시 엔드포인트 깨어남에 5–10초 걸릴 수 있습니다.",
+    "timescaledbHint": "TimescaleDB: timescaledb 확장이 활성화된 PostgreSQL처럼 연결됩니다.",
+    "driverGroups": {
+      "sql": "SQL",
+      "nosql": "NoSQL"
     }
   },
   "sidebar": {

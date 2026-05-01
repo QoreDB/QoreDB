@@ -171,6 +171,18 @@
       "passwordOptional": "Необязательно",
       "connectTimeoutSecs": "Таймаут подключения (с)",
       "summaryMissingHost": "(хост?)"
+    },
+    "smartPaste": {
+      "detected": "Обнаружено: {{name}}",
+      "switched": "Драйвер переключён на {{name}}",
+      "hint": "Вставьте строку подключения — драйвер выберется автоматически"
+    },
+    "supabaseHint": "Supabase: вставьте DSN из настроек проекта. Порт 5432 (прямой) или 6543 (transaction pooler).",
+    "neonHint": "Neon: эндпойнты могут просыпаться 5–10 с при первом подключении.",
+    "timescaledbHint": "TimescaleDB: подключение как к PostgreSQL с включённым расширением timescaledb.",
+    "driverGroups": {
+      "sql": "SQL",
+      "nosql": "NoSQL"
     }
   },
   "sidebar": {

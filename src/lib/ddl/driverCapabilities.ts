@@ -121,6 +121,9 @@ const CAPABILITIES: Record<Driver, DdlCapabilities> = {
   [Driver.SqlServer]: SQLSERVER_CAPS,
   [Driver.Mongodb]: NO_DDL,
   [Driver.Redis]: NO_DDL,
+  [Driver.Supabase]: POSTGRES_CAPS,
+  [Driver.Neon]: POSTGRES_CAPS,
+  [Driver.Timescaledb]: POSTGRES_CAPS,
 };
 
 export function getDdlCapabilities(driver: Driver): DdlCapabilities {

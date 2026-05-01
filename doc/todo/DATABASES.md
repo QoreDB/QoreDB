@@ -92,6 +92,25 @@
 
 ---
 
+## Support DDL Management UI (CREATE / ALTER TABLE)
+
+> Matrice de support de l'éditeur visuel CREATE/ALTER TABLE introduit en v0.1.27.
+
+| Driver         | CREATE TABLE | ALTER TABLE | FK | Indexes | CHECK | Comments | Notes |
+| -------------- | :----------: | :---------: | :-: | :-----: | :---: | :------: | ----- |
+| PostgreSQL     | ✅           | ✅          | ✅  | ✅      | ✅    | ✅       | Support complet |
+| MySQL / MariaDB| ✅           | ✅          | ✅  | ✅      | ✅¹   | ✅       | ¹ CHECK respecté à partir de MySQL 8.0.16 / MariaDB 10.2 |
+| SQLite         | ✅           | ⚠️          | ✅  | ✅      | ✅    | ❌       | ALTER limité avant SQLite 3.35 (warning explicite, pas de DROP/ALTER COLUMN auto) |
+| DuckDB         | ✅           | ✅          | ⚠️  | ✅      | ✅    | ✅       | FK syntaxiques uniquement (non vérifiées au runtime) |
+| SQL Server     | ✅           | ✅          | ✅  | ✅      | ✅    | ⚠️       | Comments via `sp_addextendedproperty` |
+| CockroachDB    | ✅           | ✅          | ✅  | ✅      | ✅    | ✅       | Wire-compatible PostgreSQL |
+| MongoDB        | ❌           | ❌          | —  | —       | —     | —        | Pas de schéma rigide. Voir `CreateCollectionModal` (v0.3.x). |
+| Redis          | ❌           | ❌          | —  | —       | —     | —        | Pas applicable (KV store). |
+
+Légende : ✅ supporté · ⚠️ partiel ou avec limitations · ❌ non applicable
+
+---
+
 ## Architecture Driver
 
 Chaque driver implémente le trait `DataEngine` :

@@ -24,13 +24,15 @@ Lightweight alternative to DBeaver and pgAdmin, designed for developers.
 
 ### Multi-Database Support
 
-| SQL | NoSQL / Analytical |
-| --- | --- |
-| PostgreSQL | MongoDB |
-| MySQL / MariaDB | Redis |
-| SQL Server | DuckDB |
-| SQLite | |
-| CockroachDB | |
+| SQL | PostgreSQL-Compatible | NoSQL / Analytical |
+| --- | --- | --- |
+| PostgreSQL | Supabase | MongoDB |
+| MySQL / MariaDB | Neon | Redis |
+| SQL Server | TimescaleDB | DuckDB |
+| SQLite | | |
+| CockroachDB | | |
+
+Driver auto-detection from DSN — paste a connection string and QoreDB picks the right driver (Supabase, Neon, TimescaleDB, MariaDB, …).
 
 ### Database Notebooks
 
@@ -44,36 +46,51 @@ Executable documents mixing SQL/Mongo and Markdown cells, connected to a live da
 
 ### Query & Schema Toolkit
 
-- **SQL + Mongo Editors** — Syntax highlighting, formatting, snippets, multi-statement execution
+- **SQL Editor** — Syntax highlighting, formatting, snippets, multi-statement execution
+- **MongoDB Editor** — Autocomplete (collections, methods, operators), syntax highlighting, real-time JSON linter, aggregation pipeline validation with stage classification and examples
+- **QoreQuery** — Type-safe multi-dialect query builder (JOINs, subqueries, aggregates, CAST, COALESCE, LIKE/ILIKE) targeting PostgreSQL, MySQL, SQLite, DuckDB and SQL Server
 - **Query Library** — Folders, tags, JSON import/export, reusable queries
+- **Convert Query to Notebook** — Promote any saved query into a notebook in one click
 - **ER Diagram** — Interactive schema graph with isolate/focus workflows [Pro]
-- **Visual DDL Editor** — Create and Alter Table with live SQL preview, foreign keys, indexes, check constraints (PG, MySQL, SQLite, DuckDB, SQL Server, CockroachDB)
+- **Visual DDL Editor** — Full CREATE and ALTER TABLE from the UI: add/modify/drop columns, foreign keys, indexes, check constraints with live driver-specific SQL preview and DDL warnings (PG, MySQL, SQLite, DuckDB, SQL Server, CockroachDB)
 - **Explain Plan Visualization** — Interactive execution plan tree with cost highlighting (PostgreSQL, MySQL, SQL Server)
 - **Visual Data Diff** — Side-by-side comparison of table/query results [Pro]
 - **Global Full-Text Search** — Search values across all tables and columns
 - **Foreign Key Peek + Virtual Relations** — Navigation even without native FK constraints
-- **Routines, Procedures, Triggers & Events** — List, create, and edit stored objects
+- **Routines, Procedures, Triggers & Events** — List, create, and edit stored objects with SQL templates
 
 ### Data Operations
 
 - **High-Performance Data Grid** — Virtualization, server-side filtering/sorting, pagination, infinite scroll, column pinning
+- **Advanced Column Filters** — `contains`, `regex`, `greater than`, `between`, and more across every driver
 - **Inline Editing** — Edit rows directly in SQL and NoSQL datasets
-- **Bulk Edit** — Multi-row column updates with live SQL preview (≤ 5 rows Core, more in Pro)
-- **Blob/Binary Viewer** — Hex / base64 / image preview (PNG, JPEG, GIF, SVG, BMP, ICO) with download and copy as data URI
+- **Bulk Edit** — Multi-row column updates from the DataGrid with live SQL preview (≤ 5 rows Core, more in Pro)
+- **Time Travel** — Browse the history of any row with a visual timeline, filter by date range, diff between any two points, and preview Rollback SQL before reverting [Pro]
+- **Table Insights** — Tracks most-visited tables and surfaces personalized previews
+- **Blob/Binary Viewer** — Hex / base64 / image preview (PNG, JPEG, GIF, SVG, BMP, ICO) with SVG rendering, copy as data URI, and open-in-external-app
 - **CSV Import** — Automatic separator/encoding detection, column mapping, preview before import
 - **Transaction Management** — Toggle autocommit, explicit Commit/Rollback, active transaction indicator
 - **Export Pipeline** — CSV, JSON, SQL, HTML, self-contained HTML (+ XLSX/Parquet in Pro)
+- **Share Results** — Share query results via configurable providers, upload exports and generate share links
 - **Cross-Database Federation** — Query and join across active connections via DuckDB
 - **Result Snapshots** — Save and compare query results over time
 - **Sandbox Mode** — Isolated local changes with migration generation
 
+### MongoDB & Redis
+
+- **MongoDB** — Bulk write/find, aggregation pipeline validation, regex and text search, native index management UI
+- **Redis Key Management** — Create, edit, and delete keys and values across all Redis types from the UI, with Lua script evaluation
+
 ### Security & Reliability
 
 - **Secure Vault** — Native OS keychain storage (Argon2) + optional app lock
-- **SSH Tunneling** — Native OpenSSH-based secure remote access
+- **SSH Tunneling** — Native OpenSSH client with proxy jump support, key path validation, clearer error messages
+- **SQL Server Windows Authentication** — NTLM (username/password) and SSPI/Kerberos (integrated, no credentials)
 - **Environment Safety** — Dev/Staging/Prod guards, dangerous query detection, read-only mode
+- **Governance Limits Override** — Bypass query limits explicitly via a confirmation dialog
 - **Universal Query Interceptor** — Central hooks for safety, audit, and profiling
-- **Connection Resilience** — Automatic reconnection, health monitoring, smart keep-alive
+- **Audit Logging** — Sensitive content redaction in logs, enhanced tracking and export
+- **Connection Resilience** — Automatic reconnection, health monitoring, smart keep-alive, crash recovery settings
 - **Content Security Policy** — Strict CSP configuration
 - **Background Job Manager** — Async execution for long-running tasks with error recovery
 
@@ -84,11 +101,20 @@ Executable documents mixing SQL/Mongo and Markdown cells, connected to a live da
 
 ### User Experience
 
-- **Multi-Tab Workspace** — Drag-and-drop reorder, pinned tabs, optional grouping by connection, persistent context across connection switches
+- **Workspaces** — Group connections, saved queries, notebooks and history per project; create, rename, switch and dismiss from the sidebar; favorites and history scoped per workspace; external file changes auto-synced
+- **Multi-Tab Workspace** — Drag-and-drop reorder, pinned tabs, persistent context across connection switches
+- **Tab Groups** — Tabs grouped by connection, collapsible, per-tab context menu (pin, close, close others), tab list dropdown, persistent grouping preferences
+- **Session Restore** — Tabs and their state persist and restore on app restart
+- **Persistent Notifications** — Categorized with auto-resolve
 - **Global Search (Cmd/Ctrl + K)** — Connections, history, commands, library items
 - **Breadcrumb Navigation** — `Connection > Database > Schema > Table` clickable path
 - **Dark / Light Theme**
 - **9 Languages** — English, French, Spanish, German, Portuguese (BR), Russian, Japanese, Korean, Chinese (Simplified)
+
+### Performance
+
+- **~25% faster** on real workloads (Apple Silicon) thanks to per-column decoders, MessagePack streaming between Rust and the frontend, batch streaming, expanded LRU caches, `mimalloc` allocator and PGO release builds
+- **Lazy Loading** — Heavy frontend modules load on demand for faster startup
 
 ---
 

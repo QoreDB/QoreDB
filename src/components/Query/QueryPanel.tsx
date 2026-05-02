@@ -5,21 +5,13 @@ import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { AiAssistantPanel } from '@/components/AI/AiAssistantPanel';
 import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
+import { UI_EVENT_OPEN_HISTORY } from '@/lib/events/uiEvents';
 import { createNotebookTab } from '@/lib/tabs';
-import { UI_EVENT_OPEN_HISTORY } from '@/lib/uiEvents';
 import { useTabActions } from '@/providers/TabProvider';
 import { forceRefreshCache } from '../../hooks/useSchemaCache';
 import { useTourManager } from '../../hooks/useTourManager';
-import { getQueryDialect, isDocumentDatabase } from '../../lib/driverCapabilities';
-import { Driver } from '../../lib/drivers';
-import {
-  ENVIRONMENT_CONFIG,
-  getDangerousQueryTarget,
-  isDangerousQuery,
-  isDropDatabaseQuery,
-  isMutationQuery,
-} from '../../lib/environment';
-import { logError } from '../../lib/errorLog';
+import { getQueryDialect, isDocumentDatabase } from '../../lib/connection/driverCapabilities';
+import { Driver } from '../../lib/connection/drivers';
 import {
   buildAliasMap,
   buildAliasSet,
@@ -27,9 +19,23 @@ import {
   type FederationSource,
   isFederationQuery,
   listFederationSources,
-} from '../../lib/federation';
-import { addToHistory } from '../../lib/history';
-import { formatSql } from '../../lib/sqlFormatter';
+} from '../../lib/connection/federation';
+import { logError } from '../../lib/diagnostics/errorLog';
+import {
+  ENVIRONMENT_CONFIG,
+  getDangerousQueryTarget,
+  isDangerousQuery,
+  isDropDatabaseQuery,
+  isMutationQuery,
+} from '../../lib/environment';
+import { addToHistory } from '../../lib/query/history';
+import { formatSql } from '../../lib/query/sqlFormatter';
+import {
+  incrementTransactionStatements,
+  resetTransactionState,
+  setTransactionActive,
+  useTransactionStore,
+} from '../../lib/stores/transactionStore';
 import {
   beginTransaction,
   type ColumnInfo,
@@ -45,12 +51,6 @@ import {
   rollbackTransaction,
   type Value,
 } from '../../lib/tauri';
-import {
-  incrementTransactionStatements,
-  resetTransactionState,
-  setTransactionActive,
-  useTransactionStore,
-} from '../../lib/transactionStore';
 import { DocumentEditorModal } from '../Editor/DocumentEditorModal';
 import { MONGO_TEMPLATES } from '../Editor/mongo-constants';
 import type { SQLEditorHandle } from '../Editor/SQLEditor';

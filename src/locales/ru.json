@@ -171,6 +171,18 @@
       "passwordOptional": "Необязательно",
       "connectTimeoutSecs": "Таймаут подключения (с)",
       "summaryMissingHost": "(хост?)"
+    },
+    "smartPaste": {
+      "detected": "Обнаружено: {{name}}",
+      "switched": "Драйвер переключён на {{name}}",
+      "hint": "Вставьте строку подключения — драйвер выберется автоматически"
+    },
+    "supabaseHint": "Supabase: вставьте DSN из настроек проекта. Порт 5432 (прямой) или 6543 (transaction pooler).",
+    "neonHint": "Neon: эндпойнты могут просыпаться 5–10 с при первом подключении.",
+    "timescaledbHint": "TimescaleDB: подключение как к PostgreSQL с включённым расширением timescaledb.",
+    "driverGroups": {
+      "sql": "SQL",
+      "nosql": "NoSQL"
     }
   },
   "sidebar": {
@@ -215,7 +227,10 @@
     "pin": "Закрепить вкладку",
     "unpin": "Открепить вкладку",
     "contextMenu": "Параметры вкладки",
-    "showAll": "Показать все вкладки"
+    "showAll": "Показать все вкладки",
+    "collapse": "Свернуть {{name}}",
+    "expand": "Развернуть {{name}}",
+    "ungrouped": "Без группы"
   },
   "browser": {
     "searchPlaceholder": "Поиск {{label}}…",
@@ -540,6 +555,12 @@
       "runQuery": "Выполнить запрос",
       "closeTab": "Закрыть вкладку",
       "escape": "Закрыть оверлей / Отмена"
+    },
+    "tabs": {
+      "title": "Вкладки",
+      "description": "Настройка поведения панели вкладок.",
+      "groupByConnection": "Группировать вкладки по подключению",
+      "groupByConnectionDescription": "Отображать вкладки в свёртываемых группах под именем подключения."
     }
   },
   "table": {
@@ -914,7 +935,9 @@
     "add": "Добавить",
     "back": "Назад",
     "noResults": "Результаты не найдены",
-    "copied": "Скопировано"
+    "copied": "Скопировано",
+    "none": "Нет",
+    "remove": "Удалить"
   },
   "environment": {
     "label": "Среда",
@@ -1112,7 +1135,51 @@
     "tableNameRequired": "Название таблицы обязательно",
     "success": "Таблица \"{{name}}\" успешно создана",
     "failed": "Не удалось создать таблицу",
-    "my_table": "Моя таблица"
+    "my_table": "Моя таблица",
+    "tableNamePlaceholder": "my_table",
+    "tableComment": "Комментарий к таблице",
+    "tabColumns": "Столбцы",
+    "tabForeignKeys": "Внешние ключи",
+    "tabIndexes": "Индексы",
+    "tabChecks": "CHECK-ограничения",
+    "tabSql": "SQL",
+    "toggleAdvanced": "Переключить расширенные настройки",
+    "defaultValue": "Значение по умолчанию",
+    "defaultValuePlaceholder": "напр. 0, NOW(), 'pending'",
+    "columnComment": "Комментарий",
+    "autoIncrement": "Авто-инкремент",
+    "foreignKeys": "Внешние ключи",
+    "addForeignKey": "Добавить внешний ключ",
+    "noForeignKeys": "Внешние ключи не определены.",
+    "foreignKeysUnsupported": "Этот драйвер не поддерживает внешние ключи.",
+    "constraintName": "Имя ограничения",
+    "constraintNamePlaceholder": "Необязательно",
+    "fkSourceColumns": "Исходные столбцы",
+    "fkRefSchema": "Ссылаемая схема",
+    "fkRefTable": "Ссылаемая таблица",
+    "fkRefColumns": "Ссылаемые столбцы",
+    "fkOnDelete": "ON DELETE",
+    "fkOnUpdate": "ON UPDATE",
+    "indexes": "Индексы",
+    "addIndex": "Добавить индекс",
+    "noIndexes": "Индексы не определены.",
+    "indexesUnsupported": "Этот драйвер не поддерживает индексы.",
+    "indexName": "Имя индекса",
+    "indexColumns": "Столбцы",
+    "indexUnique": "Уникальный",
+    "indexMethod": "Метод",
+    "indexWhere": "Частичный WHERE",
+    "indexWherePlaceholder": "напр. status = 'active'",
+    "checks": "CHECK-ограничения",
+    "addCheck": "Добавить CHECK",
+    "noChecks": "CHECK-ограничения не определены.",
+    "checksUnsupported": "Этот драйвер не поддерживает CHECK-ограничения.",
+    "checkExpression": "Выражение",
+    "checkExpressionPlaceholder": "напр. сумма > 0",
+    "previewPlaceholder": "Введите имя таблицы и хотя бы один столбец для предпросмотра SQL.",
+    "noColumns": "Добавьте хотя бы один столбец.",
+    "warningsCount": "{{count}} предупреждение",
+    "warningsCount_other": "{{count}} предупреждений"
   },
   "dropTable": {
     "title": "Удалить таблицу",
@@ -1937,7 +2004,49 @@
     "downloadError": "Не удалось сохранить файл",
     "clipboardError": "Не удалось скопировать в буфер обмена",
     "tooLarge": "Данные слишком велики для обработки в браузере",
-    "imagePreview": "Предпросмотр изображения"
+    "imagePreview": "Предпросмотр изображения",
+    "svgSource": "Исходник SVG",
+    "copyDataUri": "Копировать как Data URI",
+    "copyDataUriSuccess": "Data URI скопирован в буфер обмена",
+    "openExternal": "Открыть в приложении по умолчанию",
+    "openExternalError": "Не удалось открыть файл"
+  },
+  "bulkEdit": {
+    "title": "Массовое редактирование",
+    "subtitle": "Применить одно и то же изменение к {{count}} строкам",
+    "button": "Изменить {{count}}",
+    "column": "Колонка",
+    "columnPlaceholder": "Выберите колонку",
+    "operation": "Операция",
+    "setValue": "Установить значение",
+    "setNull": "Установить NULL",
+    "value": "Значение",
+    "valuePlaceholder": "Новое значение",
+    "previewLabel": "Запросов: {{count}}",
+    "previewError": "Не удалось сгенерировать предпросмотр",
+    "previewEmpty": "Здесь появится предпросмотр",
+    "generating": "Генерация предпросмотра SQL…",
+    "sandboxNote": "{{count}} обновлений будут добавлены в песочницу",
+    "proRequired": "Редактирование более {{limit}} строк за раз требует QoreDB Pro.",
+    "proRequiredTooltip": "Pro нужен при количестве строк больше {{limit}}",
+    "apply": "Применить к {{count}} строкам",
+    "applying": "Применение…",
+    "applySuccess": "Обновлено строк: {{count}}",
+    "applyError": "Не удалось применить массовое редактирование",
+    "queuedInSandbox": "{{count}} обновлений добавлены в песочницу",
+    "addToSandbox": "Добавить в песочницу",
+    "noSession": "Сессия недоступна",
+    "noSandboxHandler": "Песочница здесь недоступна",
+    "errors": {
+      "noRows": "Не выбрано ни одной строки",
+      "tooManyRows": "Выбрано слишком много строк (макс. 1000)",
+      "noPrimaryKey": "У таблицы нет первичного ключа",
+      "noColumn": "Выберите колонку для обновления",
+      "unknownColumn": "Неизвестная колонка",
+      "cannotEditPk": "Нельзя массово редактировать колонку первичного ключа",
+      "notNullable": "Колонка NOT NULL — нельзя установить NULL",
+      "requiresPro": "Требуется Pro"
+    }
   },
   "import": {
     "title": "Импорт CSV",
@@ -2189,5 +2298,56 @@
     "dangerousWarning": "В скрипте обнаружены потенциально деструктивные команды Redis.",
     "confirmTitle": "Запустить Lua-скрипт",
     "confirmDesc": "Скрипт выполнится не в окружении разработки и может изменить данные. Продолжить?"
+  },
+  "alterTable": {
+    "menuItem": "Изменить таблицу…",
+    "title": "Изменить таблицу — {{name}}",
+    "tabDiff": "Diff",
+    "apply": "Применить изменения",
+    "applying": "Применение…",
+    "noChanges": "Нет изменений для применения.",
+    "loading": "Загрузка схемы таблицы…",
+    "loadFailed": "Не удалось загрузить схему таблицы",
+    "failed": "Не удалось применить изменения",
+    "success": "Таблица \"{{name}}\" обновлена.",
+    "renamedFrom": "Переименовано из \"{{name}}\"",
+    "renamedTable": "Будет переименована из \"{{from}}\""
+  },
+  "ddlWarnings": {
+    "indexes": {
+      "unsupported": "Индексы не поддерживаются этим драйвером: {{name}}",
+      "uniqueDowngraded": "Индекс UNIQUE понижен до обычного индекса в этом драйвере: {{name}}",
+      "methodIgnored": "Метод индекса «{{method}}» проигнорирован в этом драйвере: {{name}}",
+      "partialUnsupported": "Условие WHERE частичного индекса не поддерживается этим драйвером: {{name}}"
+    },
+    "comments": {
+      "columnUnsupported": "Комментарии к столбцам не поддерживаются этим драйвером: {{name}}",
+      "tableUnsupported": "Комментарии к таблицам не поддерживаются этим драйвером"
+    },
+    "fk": {
+      "unsupported": "Внешние ключи не поддерживаются этим драйвером: {{name}}"
+    },
+    "check": {
+      "unsupported": "Ограничения CHECK не поддерживаются этим драйвером: {{name}}"
+    },
+    "sqlite": {
+      "alterColumnUnsupported": "SQLite не поддерживает ALTER COLUMN type/nullable/default — требуется пересоздание таблицы для столбца «{{name}}».",
+      "commentsUnsupported": "SQLite не поддерживает комментарии — операция пропущена.",
+      "fkInPlaceUnsupported": "SQLite не может ADD/DROP FOREIGN KEY на месте — требуется пересоздание таблицы.",
+      "checkInPlaceUnsupported": "SQLite не может ADD/DROP CHECK на месте — требуется пересоздание таблицы."
+    },
+    "duckdb": {
+      "fkInPlaceLimited": "DuckDB ограниченно поддерживает изменения внешних ключей на месте — операция может завершиться неудачей."
+    },
+    "sqlserver": {
+      "defaultsManual": "Значения по умолчанию SQL Server управляются через именованные ограничения DEFAULT — требуется ручная обработка.",
+      "commentsManual": "Комментарии SQL Server используют sp_addextendedproperty — не выводятся автоматически."
+    },
+    "internal": {
+      "columnNotFound": "Столбец «{{name}}» не найден в снимке таблицы — операция пропущена."
+    },
+    "alter": {
+      "driverUnsupported": "ALTER TABLE не поддерживается драйвером: {{driver}}"
+    }
   }
 }

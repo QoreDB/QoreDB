@@ -16,6 +16,7 @@ import {
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
+import { UpgradePrompt } from '@/components/License/UpgradePrompt';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
@@ -40,10 +41,9 @@ import {
   type QueryLibraryExportV1,
   type QueryLibraryItem,
   updateItem,
-} from '@/lib/queryLibrary';
+} from '@/lib/query/queryLibrary';
 import { cn } from '@/lib/utils';
 import { useLicense } from '@/providers/LicenseProvider';
-import { UpgradePrompt } from '@/components/License/UpgradePrompt';
 
 interface QueryLibraryModalProps {
   isOpen: boolean;

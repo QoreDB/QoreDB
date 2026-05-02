@@ -7,8 +7,8 @@ import { DBTree } from '@/components/Tree/DBTree';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { DRIVER_ICONS, DRIVER_LABELS, type Driver } from '@/lib/drivers';
-import type { FederationSource } from '@/lib/federation';
+import { DRIVER_ICONS, DRIVER_LABELS, type Driver } from '@/lib/connection/drivers';
+import type { FederationSource } from '@/lib/connection/federation';
 import type { Namespace } from '@/lib/tauri';
 import { cn } from '@/lib/utils';
 

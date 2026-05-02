@@ -171,6 +171,18 @@
       "passwordOptional": "Opcional",
       "connectTimeoutSecs": "Timeout de conexión (s)",
       "summaryMissingHost": "(host?)"
+    },
+    "smartPaste": {
+      "detected": "Detectado: {{name}}",
+      "switched": "Driver cambiado a {{name}}",
+      "hint": "Pega una URL de conexión — el driver se elige automáticamente"
+    },
+    "supabaseHint": "Supabase: pega tu DSN desde los ajustes del proyecto. Puerto 5432 (directo) o 6543 (pooler de transacción).",
+    "neonHint": "Neon: los endpoints pueden tardar 5–10s en despertar en la primera conexión.",
+    "timescaledbHint": "TimescaleDB: se conecta como PostgreSQL con la extensión timescaledb activada.",
+    "driverGroups": {
+      "sql": "SQL",
+      "nosql": "NoSQL"
     }
   },
   "sidebar": {
@@ -215,7 +227,10 @@
     "pin": "Fijar pestaña",
     "unpin": "Desfijar pestaña",
     "contextMenu": "Opciones de pestaña",
-    "showAll": "Mostrar todas las pestañas"
+    "showAll": "Mostrar todas las pestañas",
+    "collapse": "Contraer {{name}}",
+    "expand": "Expandir {{name}}",
+    "ungrouped": "Sin agrupar"
   },
   "browser": {
     "searchPlaceholder": "Buscar {{label}}...",
@@ -540,6 +555,12 @@
       "runQuery": "Ejecutar consulta",
       "closeTab": "Cerrar pestaña",
       "escape": "Cerrar superposición / Cancelar"
+    },
+    "tabs": {
+      "title": "Pestañas",
+      "description": "Configurar el comportamiento de la barra de pestañas.",
+      "groupByConnection": "Agrupar pestañas por conexión",
+      "groupByConnectionDescription": "Mostrar pestañas en grupos plegables bajo el nombre de su conexión."
     }
   },
   "table": {
@@ -914,7 +935,9 @@
     "add": "Agregar",
     "back": "Volver",
     "noResults": "No se encontraron resultados",
-    "copied": "Copiado"
+    "copied": "Copiado",
+    "none": "Ninguno",
+    "remove": "Eliminar"
   },
   "environment": {
     "label": "Entorno",
@@ -1112,7 +1135,51 @@
     "tableNameRequired": "El nombre de la tabla es obligatorio",
     "success": "Tabla \"{{name}}\" creada exitosamente",
     "failed": "Error al crear la tabla",
-    "my_table": "Mi tabla"
+    "my_table": "Mi tabla",
+    "tableNamePlaceholder": "mi_tabla",
+    "tableComment": "Comentario de la tabla",
+    "tabColumns": "Columnas",
+    "tabForeignKeys": "Claves foráneas",
+    "tabIndexes": "Índices",
+    "tabChecks": "Restricciones CHECK",
+    "tabSql": "SQL",
+    "toggleAdvanced": "Alternar avanzado",
+    "defaultValue": "Valor por defecto",
+    "defaultValuePlaceholder": "ej. 0, NOW(), 'pendiente'",
+    "columnComment": "Comentario",
+    "autoIncrement": "Autoincremento",
+    "foreignKeys": "Claves foráneas",
+    "addForeignKey": "Añadir clave foránea",
+    "noForeignKeys": "No hay claves foráneas definidas.",
+    "foreignKeysUnsupported": "Este controlador no admite claves foráneas.",
+    "constraintName": "Nombre de la restricción",
+    "constraintNamePlaceholder": "Opcional",
+    "fkSourceColumns": "Columnas de origen",
+    "fkRefSchema": "Esquema referenciado",
+    "fkRefTable": "Tabla referenciada",
+    "fkRefColumns": "Columnas referenciadas",
+    "fkOnDelete": "ON DELETE",
+    "fkOnUpdate": "ON UPDATE",
+    "indexes": "Índices",
+    "addIndex": "Añadir índice",
+    "noIndexes": "No hay índices definidos.",
+    "indexesUnsupported": "Este controlador no admite índices.",
+    "indexName": "Nombre del índice",
+    "indexColumns": "Columnas",
+    "indexUnique": "Único",
+    "indexMethod": "Método",
+    "indexWhere": "WHERE parcial",
+    "indexWherePlaceholder": "ej. status = 'active'",
+    "checks": "Restricciones CHECK",
+    "addCheck": "Añadir CHECK",
+    "noChecks": "No hay restricciones CHECK definidas.",
+    "checksUnsupported": "Este controlador no admite restricciones CHECK.",
+    "checkExpression": "Expresión",
+    "checkExpressionPlaceholder": "ej. monto > 0",
+    "previewPlaceholder": "Introduce un nombre de tabla y al menos una columna para ver la vista previa SQL.",
+    "noColumns": "Añade al menos una columna.",
+    "warningsCount": "{{count}} advertencia",
+    "warningsCount_other": "{{count}} advertencias"
   },
   "dropTable": {
     "title": "Eliminar tabla",
@@ -1937,7 +2004,49 @@
     "downloadError": "Error al guardar el archivo",
     "clipboardError": "Error al copiar al portapapeles",
     "tooLarge": "Datos demasiado grandes para procesar en el navegador",
-    "imagePreview": "Vista previa de imagen"
+    "imagePreview": "Vista previa de imagen",
+    "svgSource": "Código SVG",
+    "copyDataUri": "Copiar como Data URI",
+    "copyDataUriSuccess": "Data URI copiado al portapapeles",
+    "openExternal": "Abrir en la aplicación predeterminada",
+    "openExternalError": "No se pudo abrir el archivo"
+  },
+  "bulkEdit": {
+    "title": "Edición masiva",
+    "subtitle": "Aplicar el mismo cambio a {{count}} fila(s)",
+    "button": "Editar {{count}}",
+    "column": "Columna",
+    "columnPlaceholder": "Selecciona una columna",
+    "operation": "Operación",
+    "setValue": "Establecer valor",
+    "setNull": "Establecer NULL",
+    "value": "Valor",
+    "valuePlaceholder": "Nuevo valor",
+    "previewLabel": "{{count}} sentencia(s)",
+    "previewError": "No se pudo generar la vista previa",
+    "previewEmpty": "La vista previa aparecerá aquí",
+    "generating": "Generando vista previa SQL…",
+    "sandboxNote": "{{count}} actualización(es) se añadirán al sandbox",
+    "proRequired": "Editar más de {{limit}} filas a la vez requiere QoreDB Pro.",
+    "proRequiredTooltip": "Se requiere Pro a partir de {{limit}} filas",
+    "apply": "Aplicar a {{count}} fila(s)",
+    "applying": "Aplicando…",
+    "applySuccess": "{{count}} fila(s) actualizada(s)",
+    "applyError": "Error al aplicar la edición masiva",
+    "queuedInSandbox": "{{count}} actualización(es) añadidas al sandbox",
+    "addToSandbox": "Añadir al sandbox",
+    "noSession": "Sesión no disponible",
+    "noSandboxHandler": "El sandbox no está disponible aquí",
+    "errors": {
+      "noRows": "Ninguna fila seleccionada",
+      "tooManyRows": "Demasiadas filas seleccionadas (máx. 1000)",
+      "noPrimaryKey": "La tabla no tiene clave primaria",
+      "noColumn": "Elige una columna para actualizar",
+      "unknownColumn": "Columna desconocida",
+      "cannotEditPk": "No se puede editar masivamente una columna de clave primaria",
+      "notNullable": "La columna es NOT NULL — no se puede establecer NULL",
+      "requiresPro": "Pro requerido"
+    }
   },
   "import": {
     "title": "Importar CSV",
@@ -2189,5 +2298,56 @@
     "dangerousWarning": "Se detectaron comandos Redis potencialmente destructivos en el script.",
     "confirmTitle": "Ejecutar script Lua",
     "confirmDesc": "Este script se ejecutará en un entorno distinto al de desarrollo y puede modificar datos. ¿Continuar?"
+  },
+  "alterTable": {
+    "menuItem": "Modificar tabla…",
+    "title": "Modificar tabla — {{name}}",
+    "tabDiff": "Diff",
+    "apply": "Aplicar cambios",
+    "applying": "Aplicando…",
+    "noChanges": "No hay cambios que aplicar.",
+    "loading": "Cargando esquema de la tabla…",
+    "loadFailed": "No se pudo cargar el esquema de la tabla",
+    "failed": "No se pudieron aplicar los cambios",
+    "success": "Tabla \"{{name}}\" actualizada.",
+    "renamedFrom": "Renombrada desde \"{{name}}\"",
+    "renamedTable": "Será renombrada desde \"{{from}}\""
+  },
+  "ddlWarnings": {
+    "indexes": {
+      "unsupported": "Los índices no son compatibles con este driver: {{name}}",
+      "uniqueDowngraded": "Índice UNIQUE degradado a índice simple en este driver: {{name}}",
+      "methodIgnored": "Método de índice «{{method}}» ignorado en este driver: {{name}}",
+      "partialUnsupported": "Cláusula WHERE de índice parcial no compatible con este driver: {{name}}"
+    },
+    "comments": {
+      "columnUnsupported": "Comentarios de columna no compatibles con este driver: {{name}}",
+      "tableUnsupported": "Comentarios de tabla no compatibles con este driver"
+    },
+    "fk": {
+      "unsupported": "Claves foráneas no compatibles con este driver: {{name}}"
+    },
+    "check": {
+      "unsupported": "Restricciones CHECK no compatibles con este driver: {{name}}"
+    },
+    "sqlite": {
+      "alterColumnUnsupported": "SQLite no admite ALTER COLUMN type/nullable/default — se requiere recrear la tabla para la columna «{{name}}».",
+      "commentsUnsupported": "SQLite no admite comentarios — operación omitida.",
+      "fkInPlaceUnsupported": "SQLite no puede ADD/DROP FOREIGN KEY in situ — se requiere recrear la tabla.",
+      "checkInPlaceUnsupported": "SQLite no puede ADD/DROP CHECK in situ — se requiere recrear la tabla."
+    },
+    "duckdb": {
+      "fkInPlaceLimited": "DuckDB tiene soporte limitado para cambios in situ de claves foráneas — la operación puede fallar."
+    },
+    "sqlserver": {
+      "defaultsManual": "Los valores por defecto de SQL Server se gestionan mediante restricciones DEFAULT con nombre — se requiere manejo manual.",
+      "commentsManual": "Los comentarios de SQL Server usan sp_addextendedproperty — no se emiten automáticamente."
+    },
+    "internal": {
+      "columnNotFound": "Columna «{{name}}» no encontrada en la instantánea de la tabla — operación omitida."
+    },
+    "alter": {
+      "driverUnsupported": "ALTER TABLE no es compatible con el driver: {{driver}}"
+    }
   }
 }

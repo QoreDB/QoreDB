@@ -4,8 +4,8 @@ import { ArrowRight, Network, Plus, Zap } from 'lucide-react';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
-import { DRIVER_ICONS, DRIVER_LABELS, type Driver } from '@/lib/drivers';
-import type { FederationSource } from '@/lib/federation';
+import { DRIVER_ICONS, DRIVER_LABELS, type Driver } from '@/lib/connection/drivers';
+import type { FederationSource } from '@/lib/connection/federation';
 import { getModifierKey } from '@/utils/platform';
 
 interface FederationEmptyStateProps {

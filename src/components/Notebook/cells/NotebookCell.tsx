@@ -33,8 +33,11 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Tooltip } from '@/components/ui/tooltip';
-import type { Driver } from '@/lib/drivers';
-import type { CellExecutionState, NotebookCell as NotebookCellType } from '@/lib/notebookTypes';
+import type { Driver } from '@/lib/connection/drivers';
+import type {
+  CellExecutionState,
+  NotebookCell as NotebookCellType,
+} from '@/lib/notebook/notebookTypes';
 import type { Namespace } from '@/lib/tauri';
 import { cn } from '@/lib/utils';
 import { ChartCell } from './ChartCell';

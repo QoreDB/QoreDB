@@ -2,13 +2,13 @@
 
 import { AlertCircle, AlertTriangle, CheckCircle2, ExternalLink, Info, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { emitUiEvent } from '@/lib/events/uiEvents';
 import {
   dismissNotification,
   markAsRead,
   type Notification,
   type NotificationLevel,
-} from '@/lib/notificationStore';
-import { emitUiEvent } from '@/lib/uiEvents';
+} from '@/lib/stores/notificationStore';
 import { cn } from '@/lib/utils';
 
 interface NotificationItemProps {
@@ -124,8 +124,7 @@ export function NotificationItem({ notification }: NotificationItemProps) {
 
       <button
         onClick={handleDismiss}
-            type="button"
-
+        type="button"
         className={cn(
           'absolute top-1.5 right-1.5 p-0.5 rounded opacity-0 group-hover:opacity-100',
           'hover:bg-muted transition-opacity'

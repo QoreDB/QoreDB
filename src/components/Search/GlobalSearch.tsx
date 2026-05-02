@@ -4,15 +4,15 @@ import { Command, Compass, Database, FileCode, Folder, Search, Star } from 'luci
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
-import { getFavorites, type HistoryEntry, searchHistory } from '../../lib/history';
+import { useWorkspace } from '@/providers/WorkspaceProvider';
+import { getFavorites, type HistoryEntry, searchHistory } from '../../lib/query/history';
 import {
   listFolders,
   listItems,
   type QueryFolder,
   type QueryLibraryItem,
-} from '../../lib/queryLibrary';
+} from '../../lib/query/queryLibrary';
 import { listSavedConnections, type SavedConnection } from '../../lib/tauri';
-import { useWorkspace } from '@/providers/WorkspaceProvider';
 
 interface GlobalSearchProps {
   isOpen: boolean;

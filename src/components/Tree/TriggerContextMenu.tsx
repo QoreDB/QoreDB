@@ -13,7 +13,7 @@ import {
   ContextMenuTrigger,
 } from '@/components/ui/context-menu';
 import { notify } from '../../lib/notify';
-import { dropTrigger, toggleTrigger, type Environment, type Trigger } from '../../lib/tauri';
+import { dropTrigger, type Environment, type Trigger, toggleTrigger } from '../../lib/tauri';
 
 interface TriggerContextMenuProps {
   trigger: Trigger;

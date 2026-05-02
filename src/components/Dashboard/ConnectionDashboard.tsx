@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { CreateDatabaseModal } from '@/components/Tree/CreateDatabaseModal';
 import { Button } from '@/components/ui/button';
 import { useSchemaCache } from '@/hooks/useSchemaCache';
-import { type Driver, getDriverMetadata } from '@/lib/drivers';
+import { type Driver, getDriverMetadata } from '@/lib/connection/drivers';
 import { ENVIRONMENT_CONFIG } from '@/lib/environment';
 import type { Namespace, SavedConnection } from '@/lib/tauri';
 

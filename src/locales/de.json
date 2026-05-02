@@ -171,6 +171,18 @@
       "passwordOptional": "Optional",
       "connectTimeoutSecs": "Verbindungs-Timeout (s)",
       "summaryMissingHost": "(Host?)"
+    },
+    "smartPaste": {
+      "detected": "Erkannt: {{name}}",
+      "switched": "Treiber gewechselt zu {{name}}",
+      "hint": "Verbindungs-URL einfügen — der Treiber wird automatisch gewählt"
+    },
+    "supabaseHint": "Supabase: Fügen Sie Ihren DSN aus den Projekteinstellungen ein. Standard-Port 5432 (direkt), 6543 (Transaction Pooler).",
+    "neonHint": "Neon: Endpoints brauchen beim ersten Connect 5–10s zum Aufwachen.",
+    "timescaledbHint": "TimescaleDB: verbindet sich wie PostgreSQL mit aktivierter timescaledb-Extension.",
+    "driverGroups": {
+      "sql": "SQL",
+      "nosql": "NoSQL"
     }
   },
   "sidebar": {
@@ -215,7 +227,10 @@
     "pin": "Tab anheften",
     "unpin": "Tab lösen",
     "contextMenu": "Tab-Optionen",
-    "showAll": "Alle Tabs anzeigen"
+    "showAll": "Alle Tabs anzeigen",
+    "collapse": "{{name}} einklappen",
+    "expand": "{{name}} ausklappen",
+    "ungrouped": "Nicht gruppiert"
   },
   "browser": {
     "searchPlaceholder": "{{label}} suchen…",
@@ -540,6 +555,12 @@
       "runQuery": "Abfrage ausführen",
       "closeTab": "Tab schließen",
       "escape": "Overlay schließen / Abbrechen"
+    },
+    "tabs": {
+      "title": "Tabs",
+      "description": "Verhalten der Tab-Leiste konfigurieren.",
+      "groupByConnection": "Tabs nach Verbindung gruppieren",
+      "groupByConnectionDescription": "Tabs in einklappbaren Gruppen unter dem Namen ihrer Verbindung anzeigen."
     }
   },
   "table": {
@@ -914,7 +935,9 @@
     "add": "Hinzufügen",
     "back": "Zurück",
     "noResults": "Keine Ergebnisse gefunden",
-    "copied": "Kopiert"
+    "copied": "Kopiert",
+    "none": "Keine",
+    "remove": "Entfernen"
   },
   "environment": {
     "label": "Umgebung",
@@ -1112,7 +1135,51 @@
     "tableNameRequired": "Tabellenname ist erforderlich",
     "success": "Tabelle \"{{name}}\" erfolgreich erstellt",
     "failed": "Tabelle konnte nicht erstellt werden",
-    "my_table": "Meine Tabelle"
+    "my_table": "Meine Tabelle",
+    "tableNamePlaceholder": "meine_tabelle",
+    "tableComment": "Tabellen-Kommentar",
+    "tabColumns": "Spalten",
+    "tabForeignKeys": "Fremdschlüssel",
+    "tabIndexes": "Indizes",
+    "tabChecks": "CHECK-Constraints",
+    "tabSql": "SQL",
+    "toggleAdvanced": "Erweiterte Optionen umschalten",
+    "defaultValue": "Standardwert",
+    "defaultValuePlaceholder": "z.B. 0, NOW(), 'pending'",
+    "columnComment": "Kommentar",
+    "autoIncrement": "Auto-Inkrement",
+    "foreignKeys": "Fremdschlüssel",
+    "addForeignKey": "Fremdschlüssel hinzufügen",
+    "noForeignKeys": "Keine Fremdschlüssel definiert.",
+    "foreignKeysUnsupported": "Dieser Treiber unterstützt keine Fremdschlüssel.",
+    "constraintName": "Constraint-Name",
+    "constraintNamePlaceholder": "Optional",
+    "fkSourceColumns": "Quellspalten",
+    "fkRefSchema": "Referenziertes Schema",
+    "fkRefTable": "Referenzierte Tabelle",
+    "fkRefColumns": "Referenzierte Spalten",
+    "fkOnDelete": "ON DELETE",
+    "fkOnUpdate": "ON UPDATE",
+    "indexes": "Indizes",
+    "addIndex": "Index hinzufügen",
+    "noIndexes": "Keine Indizes definiert.",
+    "indexesUnsupported": "Dieser Treiber unterstützt keine Indizes.",
+    "indexName": "Indexname",
+    "indexColumns": "Spalten",
+    "indexUnique": "Eindeutig",
+    "indexMethod": "Methode",
+    "indexWhere": "Partielle WHERE",
+    "indexWherePlaceholder": "z.B. status = 'active'",
+    "checks": "CHECK-Constraints",
+    "addCheck": "CHECK hinzufügen",
+    "noChecks": "Keine CHECK-Constraints definiert.",
+    "checksUnsupported": "Dieser Treiber unterstützt keine CHECK-Constraints.",
+    "checkExpression": "Ausdruck",
+    "checkExpressionPlaceholder": "z.B. betrag > 0",
+    "previewPlaceholder": "Geben Sie einen Tabellennamen und mindestens eine Spalte ein, um die SQL-Vorschau anzuzeigen.",
+    "noColumns": "Fügen Sie mindestens eine Spalte hinzu.",
+    "warningsCount": "{{count}} Warnung",
+    "warningsCount_other": "{{count}} Warnungen"
   },
   "dropTable": {
     "title": "Tabelle löschen",
@@ -1937,7 +2004,49 @@
     "downloadError": "Datei konnte nicht gespeichert werden",
     "clipboardError": "Kopieren in Zwischenablage fehlgeschlagen",
     "tooLarge": "Daten zu groß für die Verarbeitung im Browser",
-    "imagePreview": "Bildvorschau"
+    "imagePreview": "Bildvorschau",
+    "svgSource": "SVG-Quellcode",
+    "copyDataUri": "Als Data-URI kopieren",
+    "copyDataUriSuccess": "Data-URI in die Zwischenablage kopiert",
+    "openExternal": "In Standardanwendung öffnen",
+    "openExternalError": "Datei konnte nicht geöffnet werden"
+  },
+  "bulkEdit": {
+    "title": "Massenbearbeitung",
+    "subtitle": "Dieselbe Änderung auf {{count}} Zeile(n) anwenden",
+    "button": "{{count}} bearbeiten",
+    "column": "Spalte",
+    "columnPlaceholder": "Spalte auswählen",
+    "operation": "Operation",
+    "setValue": "Wert setzen",
+    "setNull": "NULL setzen",
+    "value": "Wert",
+    "valuePlaceholder": "Neuer Wert",
+    "previewLabel": "{{count}} Anweisung(en)",
+    "previewError": "Vorschau konnte nicht erzeugt werden",
+    "previewEmpty": "Die Vorschau erscheint hier",
+    "generating": "SQL-Vorschau wird erzeugt…",
+    "sandboxNote": "{{count}} Aktualisierung(en) werden in die Sandbox eingereiht",
+    "proRequired": "Bearbeitung von mehr als {{limit}} Zeilen erfordert QoreDB Pro.",
+    "proRequiredTooltip": "Pro erforderlich ab {{limit}} Zeilen",
+    "apply": "Auf {{count}} Zeile(n) anwenden",
+    "applying": "Anwenden…",
+    "applySuccess": "{{count}} Zeile(n) aktualisiert",
+    "applyError": "Massenbearbeitung fehlgeschlagen",
+    "queuedInSandbox": "{{count}} Aktualisierung(en) in die Sandbox eingereiht",
+    "addToSandbox": "Zur Sandbox hinzufügen",
+    "noSession": "Sitzung nicht verfügbar",
+    "noSandboxHandler": "Sandbox ist hier nicht verfügbar",
+    "errors": {
+      "noRows": "Keine Zeilen ausgewählt",
+      "tooManyRows": "Zu viele Zeilen ausgewählt (max. 1000)",
+      "noPrimaryKey": "Tabelle hat keinen Primärschlüssel",
+      "noColumn": "Spalte zum Aktualisieren wählen",
+      "unknownColumn": "Unbekannte Spalte",
+      "cannotEditPk": "Primärschlüssel-Spalten können nicht in Masse bearbeitet werden",
+      "notNullable": "Spalte ist NOT NULL — kann nicht auf NULL gesetzt werden",
+      "requiresPro": "Pro erforderlich"
+    }
   },
   "import": {
     "title": "CSV importieren",
@@ -2189,5 +2298,56 @@
     "dangerousWarning": "Potenziell zerstörerische Redis-Befehle im Skript erkannt.",
     "confirmTitle": "Lua-Skript ausführen",
     "confirmDesc": "Dieses Skript wird in einer Nicht-Entwicklungsumgebung ausgeführt und kann Daten verändern. Fortfahren?"
+  },
+  "alterTable": {
+    "menuItem": "Tabelle ändern…",
+    "title": "Tabelle ändern — {{name}}",
+    "tabDiff": "Diff",
+    "apply": "Änderungen anwenden",
+    "applying": "Wird angewendet…",
+    "noChanges": "Keine Änderungen anzuwenden.",
+    "loading": "Tabellenschema wird geladen…",
+    "loadFailed": "Tabellenschema konnte nicht geladen werden",
+    "failed": "Änderungen konnten nicht angewendet werden",
+    "success": "Tabelle „{{name}}\" aktualisiert.",
+    "renamedFrom": "Umbenannt von „{{name}}\"",
+    "renamedTable": "Wird umbenannt von „{{from}}\""
+  },
+  "ddlWarnings": {
+    "indexes": {
+      "unsupported": "Indizes werden von diesem Treiber nicht unterstützt: {{name}}",
+      "uniqueDowngraded": "UNIQUE-Index auf einfachen Index zurückgestuft auf diesem Treiber: {{name}}",
+      "methodIgnored": "Indexmethode „{{method}}\" auf diesem Treiber ignoriert: {{name}}",
+      "partialUnsupported": "WHERE-Klausel für partiellen Index auf diesem Treiber nicht unterstützt: {{name}}"
+    },
+    "comments": {
+      "columnUnsupported": "Spaltenkommentare auf diesem Treiber nicht unterstützt: {{name}}",
+      "tableUnsupported": "Tabellenkommentare auf diesem Treiber nicht unterstützt"
+    },
+    "fk": {
+      "unsupported": "Fremdschlüssel auf diesem Treiber nicht unterstützt: {{name}}"
+    },
+    "check": {
+      "unsupported": "CHECK-Einschränkungen auf diesem Treiber nicht unterstützt: {{name}}"
+    },
+    "sqlite": {
+      "alterColumnUnsupported": "SQLite unterstützt ALTER COLUMN type/nullable/default nicht — Tabelle muss für Spalte „{{name}}\" neu erstellt werden.",
+      "commentsUnsupported": "SQLite unterstützt keine Kommentare — Vorgang übersprungen.",
+      "fkInPlaceUnsupported": "SQLite kann FOREIGN KEY nicht direkt ADD/DROP — Tabelle muss neu erstellt werden.",
+      "checkInPlaceUnsupported": "SQLite kann CHECK nicht direkt ADD/DROP — Tabelle muss neu erstellt werden."
+    },
+    "duckdb": {
+      "fkInPlaceLimited": "DuckDB unterstützt In-Place-Änderungen an Fremdschlüsseln nur eingeschränkt — der Vorgang kann fehlschlagen."
+    },
+    "sqlserver": {
+      "defaultsManual": "SQL Server-Standardwerte werden über benannte DEFAULT-Einschränkungen verwaltet — manuelle Behandlung erforderlich.",
+      "commentsManual": "SQL Server-Kommentare verwenden sp_addextendedproperty — nicht automatisch ausgegeben."
+    },
+    "internal": {
+      "columnNotFound": "Spalte „{{name}}\" nicht im Tabellen-Snapshot gefunden — Vorgang übersprungen."
+    },
+    "alter": {
+      "driverUnsupported": "ALTER TABLE wird vom Treiber nicht unterstützt: {{driver}}"
+    }
   }
 }

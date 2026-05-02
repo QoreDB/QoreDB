@@ -8,9 +8,9 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { UI_EVENT_CONNECTIONS_CHANGED } from '@/lib/events/uiEvents';
 import type { DiffSource } from '@/lib/tabs';
 import { listSavedConnections, type Namespace, type SavedConnection } from '@/lib/tauri';
-import { UI_EVENT_CONNECTIONS_CHANGED } from '@/lib/uiEvents';
 import { useWorkspace } from '@/providers/WorkspaceProvider';
 import { DiffConfigPanel } from './DiffConfigPanel';
 import { DiffResultsGrid } from './DiffResultsGrid';

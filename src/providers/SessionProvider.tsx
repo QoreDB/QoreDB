@@ -16,14 +16,19 @@ import { useTranslation } from 'react-i18next';
 import type { DatabaseBrowserTab } from '@/components/Browser/DatabaseBrowser';
 import type { TableBrowserTab } from '@/components/Browser/TableBrowser';
 import { useRecovery } from '@/hooks/useRecovery';
-import { type CrashRecoverySnapshot, saveCrashRecoverySnapshot } from '@/lib/crashRecovery';
-import { shouldSaveQueryDrafts } from '@/lib/crashRecoverySettings';
-import { Driver } from '@/lib/drivers';
+import { Driver } from '@/lib/connection/drivers';
+import {
+  type CrashRecoverySnapshot,
+  saveCrashRecoverySnapshot,
+} from '@/lib/diagnostics/crashRecovery';
+import { shouldSaveQueryDrafts } from '@/lib/diagnostics/crashRecoverySettings';
+import { UI_EVENT_CONNECTIONS_CHANGED, UI_EVENT_WORKSPACE_CHANGED } from '@/lib/events/uiEvents';
+import { notify } from '@/lib/notify';
 import {
   handleCloseConnectionModal as closeConnectionModal,
   setSettingsOpen,
-} from '@/lib/modalStore';
-import { notify } from '@/lib/notify';
+} from '@/lib/stores/modalStore';
+import { setUpdateAvailable } from '@/lib/stores/updateStore';
 import type { OpenTab } from '@/lib/tabs';
 import {
   type ConnectionHealth,
@@ -35,8 +40,6 @@ import {
   listSavedConnections,
   type SavedConnection,
 } from '@/lib/tauri';
-import { UI_EVENT_CONNECTIONS_CHANGED, UI_EVENT_WORKSPACE_CHANGED } from '@/lib/uiEvents';
-import { setUpdateAvailable } from '@/lib/updateStore';
 import { useTabContext } from './TabProvider';
 import { useWorkspace } from './WorkspaceProvider';
 
@@ -89,6 +92,7 @@ export interface SessionContextValue {
   activeConnection: SavedConnection | null;
   connectionHealth: ConnectionHealth;
   hasConnections: boolean;
+  savedConnections: SavedConnection[];
   sidebarRefreshTrigger: number;
   schemaRefreshTrigger: number;
   recovery: ReturnType<typeof useRecovery>;
@@ -105,6 +109,7 @@ export interface SessionContextValue {
   ) => void;
   handleRestoreSession: () => Promise<void>;
   handleConnectionSaved: (connection: SavedConnection) => void;
+  switchToConnection: (connectionId: string, targetTabId?: string) => Promise<boolean>;
   refreshSidebar: () => void;
   triggerSchemaRefresh: () => void;
   scheduleRecoverySave: () => void;
@@ -114,14 +119,23 @@ const SessionContext = createContext<SessionContextValue | null>(null);
 
 export function SessionProvider({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
-  const { tabs, activeTabId, queryDrafts, tableBrowserTabs, databaseBrowserTabs, resetTabs } =
-    useTabContext();
+  const {
+    tabs,
+    activeTabId,
+    queryDrafts,
+    tableBrowserTabs,
+    databaseBrowserTabs,
+    resetTabs,
+    setCurrentConnectionId,
+    setActiveTabId: setActiveTabIdAction,
+  } = useTabContext();
   const { projectId } = useWorkspace();
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [driver, setDriver] = useState<Driver>(Driver.Postgres);
   const [driverCapabilities, setDriverCapabilities] = useState<DriverCapabilities | null>(null);
   const [activeConnection, setActiveConnection] = useState<SavedConnection | null>(null);
   const [hasConnections, setHasConnections] = useState(false);
+  const [savedConnections, setSavedConnections] = useState<SavedConnection[]>([]);
   const [connectionHealth, setConnectionHealth] = useState<ConnectionHealth>('healthy');
   const [sidebarRefreshTrigger, setSidebarRefreshTrigger] = useState(0);
   const [schemaRefreshTrigger, setSchemaRefreshTrigger] = useState(0);
@@ -129,24 +143,34 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const recoverySaveHandleRef = useRef<number | null>(null);
   const reconnectAttemptRef = useRef(0);
   const pendingReconnectRef = useRef<string | null>(null);
+  const tabsRef = useRef(tabs);
+  const activeTabIdRef = useRef(activeTabId);
+  useEffect(() => {
+    tabsRef.current = tabs;
+    activeTabIdRef.current = activeTabId;
+  }, [tabs, activeTabId]);
 
   const recovery = useRecovery();
 
-  // Load saved connections on mount & refresh
+  // biome-ignore lint/correctness/useExhaustiveDependencies: sidebarRefreshTrigger is a refresh-counter trigger, not consumed in the effect body
   useEffect(() => {
     listSavedConnections(projectId)
-      .then(saved => setHasConnections(saved.length > 0))
-      .catch(() => setHasConnections(false));
-  }, [projectId]);
+      .then(saved => {
+        setSavedConnections(saved);
+        setHasConnections(saved.length > 0);
+      })
+      .catch(() => {
+        setSavedConnections([]);
+        setHasConnections(false);
+      });
+  }, [projectId, sidebarRefreshTrigger]);
 
-  // Listen for connections-changed events
   useEffect(() => {
     const handler = () => setSidebarRefreshTrigger(prev => prev + 1);
     window.addEventListener(UI_EVENT_CONNECTIONS_CHANGED, handler);
     return () => window.removeEventListener(UI_EVENT_CONNECTIONS_CHANGED, handler);
   }, []);
 
-  // Disconnect and reset when workspace changes
   useEffect(() => {
     const handler = () => {
       const currentSessionId = sessionId;
@@ -159,7 +183,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setActiveConnection(null);
       setDriverCapabilities(null);
       setConnectionHealth('healthy');
-      resetTabs();
+      resetTabs({ currentConnectionId: null });
       setSidebarRefreshTrigger(prev => prev + 1);
     };
     window.addEventListener(UI_EVENT_WORKSPACE_CHANGED, handler);
@@ -320,15 +344,79 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setDriver(connection.driver as Driver);
       setActiveConnection(connection);
       setSettingsOpen(false);
-      resetTabs({
-        initialTabs: options?.tabs,
-        initialActiveTabId: options?.activeTabId ?? options?.tabs?.[0]?.id ?? null,
-        initialQueryDrafts: options?.queryDrafts,
-        initialTableBrowserTabs: options?.tableBrowserTabs,
-        initialDatabaseBrowserTabs: options?.databaseBrowserTabs,
-      });
+      // Recovery / restore flow → reset tabs to the provided bundle.
+      // Plain connection switch (no options.tabs) → preserve existing tabs so
+      // tabs from other connections stay visible (Tab Groups by Connection),
+      // and move the active tab to one belonging to the new connection (or
+      // null when there is none — UI falls back to the connection dashboard).
+      if (options?.tabs !== undefined) {
+        resetTabs({
+          initialTabs: options.tabs,
+          initialActiveTabId: options.activeTabId ?? options.tabs[0]?.id ?? null,
+          initialQueryDrafts: options.queryDrafts,
+          initialTableBrowserTabs: options.tableBrowserTabs,
+          initialDatabaseBrowserTabs: options.databaseBrowserTabs,
+          currentConnectionId: connection.id,
+        });
+      } else {
+        setCurrentConnectionId(connection.id);
+        const currentTabs = tabsRef.current;
+        const currentActiveId = activeTabIdRef.current;
+        const activeBelongsToTarget = currentTabs.some(
+          tab => tab.id === currentActiveId && tab.connectionId === connection.id
+        );
+        if (!activeBelongsToTarget) {
+          const firstMatch = currentTabs.find(tab => tab.connectionId === connection.id);
+          setActiveTabIdAction(firstMatch?.id ?? null);
+        }
+      }
     },
-    [resetTabs]
+    [resetTabs, setActiveTabIdAction, setCurrentConnectionId]
+  );
+
+  const switchToConnection = useCallback(
+    async (connectionId: string, targetTabId?: string): Promise<boolean> => {
+      if (activeConnection?.id === connectionId) {
+        if (targetTabId) setActiveTabIdAction(targetTabId);
+        return true;
+      }
+      try {
+        const cached = savedConnections.find(c => c.id === connectionId);
+        const connection =
+          cached ?? (await listSavedConnections(projectId)).find(c => c.id === connectionId);
+        if (!connection) {
+          notify.error(t('sidebar.connectError'));
+          return false;
+        }
+        const result = await connectSavedConnection(projectId, connection.id);
+        if (!result.success || !result.session_id) {
+          notify.error(t('sidebar.connectionToFailed', { name: connection.name }), result.error);
+          return false;
+        }
+        const previousSessionId = sessionId;
+        notify.success(t('sidebar.connectedTo', { name: connection.name }));
+        handleConnected(result.session_id, connection);
+        if (targetTabId) setActiveTabIdAction(targetTabId);
+        if (previousSessionId) {
+          disconnect(previousSessionId).catch(err =>
+            console.warn('Failed to disconnect previous session on tab switch', err)
+          );
+        }
+        return true;
+      } catch (err) {
+        notify.error(t('sidebar.connectError'), err);
+        return false;
+      }
+    },
+    [
+      activeConnection?.id,
+      handleConnected,
+      projectId,
+      savedConnections,
+      sessionId,
+      setActiveTabIdAction,
+      t,
+    ]
   );
 
   const handleRestoreSession = useCallback(async () => {
@@ -392,7 +480,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
               }
               setSessionId(null);
               setActiveConnection(null);
-              resetTabs();
+              resetTabs({ currentConnectionId: null });
             }
           } catch (err) {
             if (attemptId !== reconnectAttemptRef.current) return;
@@ -424,12 +512,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       activeConnection,
       connectionHealth,
       hasConnections,
+      savedConnections,
       sidebarRefreshTrigger,
       schemaRefreshTrigger,
       recovery,
       handleConnected,
       handleRestoreSession,
       handleConnectionSaved,
+      switchToConnection,
       refreshSidebar,
       triggerSchemaRefresh,
       scheduleRecoverySave,
@@ -441,12 +531,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       activeConnection,
       connectionHealth,
       hasConnections,
+      savedConnections,
       sidebarRefreshTrigger,
       schemaRefreshTrigger,
       recovery,
       handleConnected,
       handleRestoreSession,
       handleConnectionSaved,
+      switchToConnection,
       refreshSidebar,
       triggerSchemaRefresh,
       scheduleRecoverySave,

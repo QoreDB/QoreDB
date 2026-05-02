@@ -12,7 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Driver } from '../../lib/drivers';
+import { Driver } from '../../lib/connection/drivers';
 import { notify } from '../../lib/notify';
 import {
   insertRow,

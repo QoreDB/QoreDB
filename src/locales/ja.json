@@ -171,6 +171,18 @@
       "passwordOptional": "任意",
       "connectTimeoutSecs": "接続タイムアウト（秒）",
       "summaryMissingHost": "（ホスト？）"
+    },
+    "smartPaste": {
+      "detected": "検出: {{name}}",
+      "switched": "ドライバを {{name}} に切替",
+      "hint": "接続 URL を貼り付けると自動でドライバが選択されます"
+    },
+    "supabaseHint": "Supabase: プロジェクト設定から DSN を貼り付け。ポート 5432 (直接) または 6543 (トランザクションプーラー)。",
+    "neonHint": "Neon: 初回接続時にエンドポイントが起動するまで 5〜10 秒かかる場合があります。",
+    "timescaledbHint": "TimescaleDB: timescaledb 拡張が有効な PostgreSQL として接続。",
+    "driverGroups": {
+      "sql": "SQL",
+      "nosql": "NoSQL"
     }
   },
   "sidebar": {
@@ -215,7 +227,10 @@
     "pin": "タブをピン留め",
     "unpin": "タブのピン留めを解除",
     "contextMenu": "タブオプション",
-    "showAll": "すべてのタブを表示"
+    "showAll": "すべてのタブを表示",
+    "collapse": "{{name}}を折りたたむ",
+    "expand": "{{name}}を展開",
+    "ungrouped": "グループなし"
   },
   "browser": {
     "searchPlaceholder": "{{label}} を検索...",
@@ -540,6 +555,12 @@
       "runQuery": "クエリを実行",
       "closeTab": "タブを閉じる",
       "escape": "オーバーレイを閉じる / キャンセル"
+    },
+    "tabs": {
+      "title": "タブ",
+      "description": "タブバーの動作を設定します。",
+      "groupByConnection": "接続ごとにタブをグループ化",
+      "groupByConnectionDescription": "折りたたみ可能なグループ内に、接続名の下にタブを表示します。"
     }
   },
   "table": {
@@ -914,7 +935,9 @@
     "add": "追加",
     "back": "戻る",
     "noResults": "結果が見つかりません",
-    "copied": "コピーしました"
+    "copied": "コピーしました",
+    "none": "なし",
+    "remove": "削除"
   },
   "environment": {
     "label": "環境",
@@ -1112,7 +1135,50 @@
     "tableNameRequired": "テーブル名は必須です",
     "success": "テーブル「{{name}}」を作成しました",
     "failed": "テーブルの作成に失敗しました",
-    "my_table": "マイテーブル"
+    "my_table": "マイテーブル",
+    "tableNamePlaceholder": "my_table",
+    "tableComment": "テーブルコメント",
+    "tabColumns": "カラム",
+    "tabForeignKeys": "外部キー",
+    "tabIndexes": "インデックス",
+    "tabChecks": "CHECK 制約",
+    "tabSql": "SQL",
+    "toggleAdvanced": "詳細設定を切り替え",
+    "defaultValue": "デフォルト値",
+    "defaultValuePlaceholder": "例: 0、NOW()、'pending'",
+    "columnComment": "コメント",
+    "autoIncrement": "オートインクリメント",
+    "foreignKeys": "外部キー",
+    "addForeignKey": "外部キーを追加",
+    "noForeignKeys": "外部キーが定義されていません。",
+    "foreignKeysUnsupported": "このドライバーは外部キーをサポートしていません。",
+    "constraintName": "制約名",
+    "constraintNamePlaceholder": "任意",
+    "fkSourceColumns": "ソースカラム",
+    "fkRefSchema": "参照スキーマ",
+    "fkRefTable": "参照テーブル",
+    "fkRefColumns": "参照カラム",
+    "fkOnDelete": "ON DELETE",
+    "fkOnUpdate": "ON UPDATE",
+    "indexes": "インデックス",
+    "addIndex": "インデックスを追加",
+    "noIndexes": "インデックスが定義されていません。",
+    "indexesUnsupported": "このドライバーはインデックスをサポートしていません。",
+    "indexName": "インデックス名",
+    "indexColumns": "カラム",
+    "indexUnique": "ユニーク",
+    "indexMethod": "方式",
+    "indexWhere": "部分 WHERE",
+    "indexWherePlaceholder": "例: status = 'active'",
+    "checks": "CHECK 制約",
+    "addCheck": "CHECK を追加",
+    "noChecks": "CHECK 制約が定義されていません。",
+    "checksUnsupported": "このドライバーは CHECK 制約をサポートしていません。",
+    "checkExpression": "式",
+    "checkExpressionPlaceholder": "例: amount > 0",
+    "previewPlaceholder": "テーブル名と少なくとも1つのカラムを入力すると SQL プレビューが表示されます。",
+    "noColumns": "少なくとも1つのカラムを追加してください。",
+    "warningsCount": "警告 {{count}} 件"
   },
   "dropTable": {
     "title": "テーブルを削除",
@@ -1937,7 +2003,49 @@
     "downloadError": "ファイルの保存に失敗しました",
     "clipboardError": "クリップボードへのコピーに失敗しました",
     "tooLarge": "ブラウザで処理するにはデータが大きすぎます",
-    "imagePreview": "画像プレビュー"
+    "imagePreview": "画像プレビュー",
+    "svgSource": "SVGソース",
+    "copyDataUri": "データURIとしてコピー",
+    "copyDataUriSuccess": "データURIをクリップボードにコピーしました",
+    "openExternal": "デフォルトアプリで開く",
+    "openExternalError": "ファイルを開けませんでした"
+  },
+  "bulkEdit": {
+    "title": "一括編集",
+    "subtitle": "{{count}} 行に同じ変更を適用",
+    "button": "{{count}} 件を編集",
+    "column": "カラム",
+    "columnPlaceholder": "カラムを選択",
+    "operation": "操作",
+    "setValue": "値を設定",
+    "setNull": "NULL を設定",
+    "value": "値",
+    "valuePlaceholder": "新しい値",
+    "previewLabel": "{{count}} 件のステートメント",
+    "previewError": "プレビューの生成に失敗しました",
+    "previewEmpty": "プレビューはここに表示されます",
+    "generating": "SQL プレビューを生成中…",
+    "sandboxNote": "{{count}} 件の更新がサンドボックスにキューされます",
+    "proRequired": "一度に {{limit}} 行を超える編集には QoreDB Pro が必要です。",
+    "proRequiredTooltip": "{{limit}} 行を超える場合 Pro が必要",
+    "apply": "{{count}} 行に適用",
+    "applying": "適用中…",
+    "applySuccess": "{{count}} 行を更新しました",
+    "applyError": "一括編集の適用に失敗しました",
+    "queuedInSandbox": "{{count}} 件の更新をサンドボックスにキューしました",
+    "addToSandbox": "サンドボックスに追加",
+    "noSession": "セッションが利用できません",
+    "noSandboxHandler": "このコンテキストではサンドボックスは利用できません",
+    "errors": {
+      "noRows": "行が選択されていません",
+      "tooManyRows": "選択された行が多すぎます（最大 1000）",
+      "noPrimaryKey": "テーブルに主キーがありません",
+      "noColumn": "更新するカラムを選択してください",
+      "unknownColumn": "不明なカラム",
+      "cannotEditPk": "主キーのカラムを一括編集することはできません",
+      "notNullable": "カラムは NOT NULL — NULL に設定できません",
+      "requiresPro": "Pro が必要"
+    }
   },
   "import": {
     "title": "CSV インポート",
@@ -2189,5 +2297,56 @@
     "dangerousWarning": "スクリプト内に破壊的な可能性がある Redis コマンドが検出されました。",
     "confirmTitle": "Lua スクリプトを実行",
     "confirmDesc": "このスクリプトは開発以外の環境で実行され、データを変更する可能性があります。続行しますか？"
+  },
+  "alterTable": {
+    "menuItem": "テーブルを変更…",
+    "title": "テーブル変更 — {{name}}",
+    "tabDiff": "差分",
+    "apply": "変更を適用",
+    "applying": "適用中…",
+    "noChanges": "適用する変更はありません。",
+    "loading": "テーブルスキーマを読み込み中…",
+    "loadFailed": "テーブルスキーマの読み込みに失敗しました",
+    "failed": "変更の適用に失敗しました",
+    "success": "テーブル「{{name}}」を更新しました。",
+    "renamedFrom": "元の名前: {{name}}",
+    "renamedTable": "「{{from}}」から名前変更されます"
+  },
+  "ddlWarnings": {
+    "indexes": {
+      "unsupported": "このドライバーではインデックスはサポートされていません: {{name}}",
+      "uniqueDowngraded": "このドライバーでは UNIQUE インデックスが通常のインデックスにダウングレードされました: {{name}}",
+      "methodIgnored": "このドライバーではインデックスメソッド「{{method}}」は無視されます: {{name}}",
+      "partialUnsupported": "このドライバーでは部分インデックスの WHERE 句はサポートされていません: {{name}}"
+    },
+    "comments": {
+      "columnUnsupported": "このドライバーではカラムコメントはサポートされていません: {{name}}",
+      "tableUnsupported": "このドライバーではテーブルコメントはサポートされていません"
+    },
+    "fk": {
+      "unsupported": "このドライバーでは外部キーはサポートされていません: {{name}}"
+    },
+    "check": {
+      "unsupported": "このドライバーでは CHECK 制約はサポートされていません: {{name}}"
+    },
+    "sqlite": {
+      "alterColumnUnsupported": "SQLite は ALTER COLUMN type/nullable/default をサポートしていません — カラム「{{name}}」のためにテーブルの再作成が必要です。",
+      "commentsUnsupported": "SQLite はコメントをサポートしていません — 操作はスキップされました。",
+      "fkInPlaceUnsupported": "SQLite はインプレースで FOREIGN KEY を ADD/DROP できません — テーブルの再作成が必要です。",
+      "checkInPlaceUnsupported": "SQLite はインプレースで CHECK を ADD/DROP できません — テーブルの再作成が必要です。"
+    },
+    "duckdb": {
+      "fkInPlaceLimited": "DuckDB はインプレースの外部キー変更を限定的にサポート — 操作が失敗する可能性があります。"
+    },
+    "sqlserver": {
+      "defaultsManual": "SQL Server のデフォルトは名前付き DEFAULT 制約で管理されます — 手動での処理が必要です。",
+      "commentsManual": "SQL Server のコメントは sp_addextendedproperty を使用します — 自動的には出力されません。"
+    },
+    "internal": {
+      "columnNotFound": "カラム「{{name}}」がテーブルスナップショットに見つかりません — 操作はスキップされました。"
+    },
+    "alter": {
+      "driverUnsupported": "ドライバーでは ALTER TABLE はサポートされていません: {{driver}}"
+    }
   }
 }

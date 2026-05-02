@@ -5297,7 +5297,7 @@ dependencies = [
 
 [[package]]
 name = "qoredb"
-version = "0.1.26"
+version = "0.1.27"
 dependencies = [
  "argon2",
  "arrow 54.3.1",

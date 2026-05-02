@@ -18,7 +18,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import type { ChartConfig, NotebookCell as NotebookCellType } from '@/lib/notebookTypes';
+import type { ChartConfig, NotebookCell as NotebookCellType } from '@/lib/notebook/notebookTypes';
 
 interface ChartCellProps {
   cell: NotebookCellType;

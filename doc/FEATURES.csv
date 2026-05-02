@@ -70,3 +70,8 @@ Data Tools,Virtual Relations Engine,Fullstack,Définition de relations FK virtue
 Data Tools,Export Self-contained HTML,Fullstack,Génération d'un fichier HTML unique avec données embarquées et interface de tri/filtrage.,Terminé,P2,V2,3,CSS/JS embarqués pour partage rapide.
 Data Engine Kernel,Connection Resilience,Backend / Core,Reconnexion automatique et monitoring proactif de la santé des connexions.,Terminé,P1,V2,4,Recovery tunnels SSH inclus.
 Data Engine Kernel,Smart Keep-Alive,Backend / Core,Détection proactive des timeouts et maintien des connexions actives.,Terminé,P1,V2,3,Health checks périodiques.
+Data Grid,Blob/Binary Viewer,Frontend / Grid,Visualisation des cellules binaires (hex - base64 - image preview - SVG source) avec téléchargement et copie data URI.,Terminé,P2,V2,3,Support PNG JPEG GIF SVG BMP ICO. Raccourci Space/Enter sur cellule binaire.
+Data Grid,Bulk Edit with Preview,Frontend / Grid,Édition en masse multi-lignes avec preview SQL avant application. Seuil Core 5 lignes Pro au-delà.,Terminé,P1,V2,4,Compatible Sandbox. Génère un SandboxChangeDto par ligne.
+DDL / Management,DDL Management UI - Create Table,Frontend / Schema,Formulaire visuel CREATE TABLE avec colonnes types contraintes FK indexes checks comments preview live.,Terminé,P1,V2,5,Support PG MySQL MariaDB SQLite DuckDB SQL Server CockroachDB.
+DDL / Management,DDL Management UI - Alter Table,Frontend / Schema,Formulaire visuel ALTER TABLE avec diff de schéma génération SQL warnings driver-specific.,Terminé,P1,V2,5,Limitations SQLite < 3.35 explicitement avertis.
+UX / Interface,Tab Groups by Connection,Frontend / Tabs,Regroupement des onglets par connexion avec headers pliables et tab count badges.,Terminé,P2,V2,3,Toggle dans Settings. Drag intra-groupe uniquement.

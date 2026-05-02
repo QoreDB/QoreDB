@@ -27,7 +27,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
-import { clearErrorLogs, type ErrorLogEntry, getErrorLogs } from '../../lib/errorLog';
+import { clearErrorLogs, type ErrorLogEntry, getErrorLogs } from '../../lib/diagnostics/errorLog';
 import { exportLogs } from '../../lib/tauri';
 
 interface ErrorLogPanelProps {

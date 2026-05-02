@@ -14,8 +14,8 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Driver } from '@/lib/drivers';
-import type { ApplySandboxResult, MigrationScript } from '@/lib/sandboxTypes';
+import { Driver } from '@/lib/connection/drivers';
+import type { ApplySandboxResult, MigrationScript } from '@/lib/sandbox/sandboxTypes';
 import type { Environment } from '@/lib/tauri';
 import { cn } from '@/lib/utils';
 import { SqlPreview } from './SqlPreview';

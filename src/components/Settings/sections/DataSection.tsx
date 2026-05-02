@@ -5,22 +5,22 @@ import { useTranslation } from 'react-i18next';
 import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   type DiagnosticsSettings,
   getDiagnosticsSettings,
   setDiagnosticsSettings,
-} from '@/lib/diagnosticsSettings';
-import { clearErrorLogs } from '@/lib/errorLog';
-import { clearHistory } from '@/lib/history';
+} from '@/lib/diagnostics/diagnosticsSettings';
+import { clearErrorLogs } from '@/lib/diagnostics/errorLog';
+import { clearHistory } from '@/lib/query/history';
 import type { SafetyPolicy, TimeTravelConfig } from '@/lib/tauri';
 import { getTimeTravelConfig, updateTimeTravelConfig } from '@/lib/tauri';
-import { ShareProviderCard } from '../ShareProviderCard';
+import { useLicense } from '@/providers/LicenseProvider';
+import { useWorkspace } from '@/providers/WorkspaceProvider';
 import { ConfigBackupCard } from '../ConfigBackupCard';
 import { ProjectTransferCard } from '../ProjectTransferCard';
 import { SettingsCard } from '../SettingsCard';
-import { useWorkspace } from '@/providers/WorkspaceProvider';
-import { useLicense } from '@/providers/LicenseProvider';
-import { Label } from '@/components/ui/label';
+import { ShareProviderCard } from '../ShareProviderCard';
 
 interface DataSectionProps {
   policy: SafetyPolicy | null;
@@ -28,7 +28,7 @@ interface DataSectionProps {
   searchQuery?: string;
 }
 
- const DEFAULTS = {
+const DEFAULTS = {
   storeHistory: true,
   storeErrorLogs: true,
   analyticsEnabled: true,
@@ -204,9 +204,7 @@ function TimeTravelSettingsCard({ searchQuery }: { searchQuery?: string }) {
             className="mt-0.5"
           />
           <span>
-            <span className="font-medium text-foreground">
-              {t('timeTravel.settings.enabled')}
-            </span>
+            <span className="font-medium text-foreground">{t('timeTravel.settings.enabled')}</span>
             <span className="block text-xs text-muted-foreground mt-0.5">
               {t('timeTravel.settings.enabledDescription')}
             </span>

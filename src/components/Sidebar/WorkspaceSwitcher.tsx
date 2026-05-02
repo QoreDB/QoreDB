@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { open as openDialog } from '@tauri-apps/plugin-dialog';
 import { ChevronDown, FolderOpen, Home, Pencil, Plus } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { open as openDialog } from '@tauri-apps/plugin-dialog';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -22,9 +22,9 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
-import { useWorkspace } from '@/providers/WorkspaceProvider';
-import { renameWorkspace } from '@/lib/tauri';
 import { CreateWorkspaceDialog } from '@/components/Workspace/CreateWorkspaceDialog';
+import { renameWorkspace } from '@/lib/tauri';
+import { useWorkspace } from '@/providers/WorkspaceProvider';
 
 export function WorkspaceSwitcher() {
   const { t } = useTranslation();

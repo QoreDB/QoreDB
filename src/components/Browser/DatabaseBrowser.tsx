@@ -26,27 +26,18 @@ import {
   X,
   Zap,
 } from 'lucide-react';
-import {
-  lazy,
-  Suspense,
-  type ReactNode,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from 'react';
+import { lazy, type ReactNode, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LuaScriptModal } from '@/components/Editor/LuaScriptModal';
-import {
-  RedisEditorModal,
-  type RedisEditorMode,
-} from '@/components/Editor/RedisEditorModal';
+import { RedisEditorModal, type RedisEditorMode } from '@/components/Editor/RedisEditorModal';
+
 // ERDiagram pulls in heavy graph-rendering dependencies (D3 / GoJS / etc.).
 // Lazy-loaded so the chunk is only fetched when the user actually opens
 // the schema-overview tab rather than every database browser.
 const ERDiagram = lazy(() =>
   import('@/components/Schema/ERDiagram').then(m => ({ default: m.ERDiagram }))
 );
+
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -54,8 +45,8 @@ import {
   type DriverTerminology,
   getSchemaObjectCapabilities,
   getTerminology,
-} from '@/lib/driverCapabilities';
-import { emitTableChange, onTableChange } from '@/lib/tableEvents';
+} from '@/lib/connection/driverCapabilities';
+import { emitTableChange, onTableChange } from '@/lib/events/tableEvents';
 import { getNamespaceTableVisits, type TableVisitInsight } from '@/lib/tableInsights';
 import { cn } from '@/lib/utils';
 import {
@@ -64,7 +55,7 @@ import {
   Driver,
   type DriverMetadata,
   getDriverMetadata,
-} from '../../lib/drivers';
+} from '../../lib/connection/drivers';
 import {
   type Collection,
   type DatabaseEvent,
@@ -1183,9 +1174,7 @@ function OverviewPreviewRow({
         </div>
       </div>
 
-      {item.personalized && item.visitCount && (
-        <VisitFrequencyDots count={item.visitCount} />
-      )}
+      {item.personalized && item.visitCount && <VisitFrequencyDots count={item.visitCount} />}
 
       <ChevronRight size={14} className="ml-2 shrink-0 text-muted-foreground" />
     </button>
@@ -1202,10 +1191,7 @@ function VisitFrequencyDots({ count }: { count: number }) {
       {Array.from({ length: VISIT_FREQUENCY_MAX_DOTS }, (_, i) => (
         <span
           key={`dot-${i.toString()}`}
-          className={cn(
-            'block w-1.5 h-1.5 rounded-full',
-            i < filled ? 'bg-accent' : 'bg-border'
-          )}
+          className={cn('block w-1.5 h-1.5 rounded-full', i < filled ? 'bg-accent' : 'bg-border')}
         />
       ))}
     </div>

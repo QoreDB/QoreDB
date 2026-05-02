@@ -4,7 +4,6 @@ import { Bell, History, Sparkles, Trash2, Wrench, Zap } from 'lucide-react';
 import { useCallback, useState, useSyncExternalStore } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Dialog,
   DialogContent,
@@ -12,13 +11,14 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { CHANGELOG, type ChangelogItem } from '@/data/changelog';
 import {
   clearAllNotifications,
   getNotificationsByCategory,
   type NotificationCategory,
   useNotifications,
-} from '@/lib/notificationStore';
+} from '@/lib/stores/notificationStore';
 import { APP_VERSION } from '@/lib/version';
 import { NotificationItem } from './NotificationItem';
 

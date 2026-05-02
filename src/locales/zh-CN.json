@@ -171,6 +171,18 @@
       "passwordOptional": "可选",
       "connectTimeoutSecs": "连接超时（秒）",
       "summaryMissingHost": "（主机？）"
+    },
+    "smartPaste": {
+      "detected": "已检测: {{name}}",
+      "switched": "驱动已切换为 {{name}}",
+      "hint": "粘贴连接 URL — 驱动会自动选择"
+    },
+    "supabaseHint": "Supabase: 从项目设置粘贴 DSN。端口 5432 (直接) 或 6543 (事务连接池)。",
+    "neonHint": "Neon: 端点首次连接可能需要 5–10 秒唤醒。",
+    "timescaledbHint": "TimescaleDB: 像启用了 timescaledb 扩展的 PostgreSQL 一样连接。",
+    "driverGroups": {
+      "sql": "SQL",
+      "nosql": "NoSQL"
     }
   },
   "sidebar": {
@@ -215,7 +227,10 @@
     "pin": "固定标签页",
     "unpin": "取消固定标签页",
     "contextMenu": "标签页选项",
-    "showAll": "显示所有标签页"
+    "showAll": "显示所有标签页",
+    "collapse": "收起 {{name}}",
+    "expand": "展开 {{name}}",
+    "ungrouped": "未分组"
   },
   "browser": {
     "searchPlaceholder": "搜索 {{label}}…",
@@ -540,6 +555,12 @@
       "runQuery": "运行查询",
       "closeTab": "关闭标签页",
       "escape": "关闭叠加层/取消"
+    },
+    "tabs": {
+      "title": "标签页",
+      "description": "配置标签栏行为。",
+      "groupByConnection": "按连接分组标签页",
+      "groupByConnectionDescription": "在连接名称下方以可折叠的分组显示标签页。"
     }
   },
   "table": {
@@ -914,7 +935,9 @@
     "add": "添加",
     "back": "返回",
     "noResults": "未找到结果",
-    "copied": "已复制"
+    "copied": "已复制",
+    "none": "无",
+    "remove": "移除"
   },
   "environment": {
     "label": "环境",
@@ -1112,7 +1135,50 @@
     "tableNameRequired": "表名为必填项",
     "success": "表“{{name}}”创建成功",
     "failed": "创建表失败",
-    "my_table": "我的表"
+    "my_table": "我的表",
+    "tableNamePlaceholder": "my_table",
+    "tableComment": "表注释",
+    "tabColumns": "列",
+    "tabForeignKeys": "外键",
+    "tabIndexes": "索引",
+    "tabChecks": "CHECK 约束",
+    "tabSql": "SQL",
+    "toggleAdvanced": "切换高级选项",
+    "defaultValue": "默认值",
+    "defaultValuePlaceholder": "例如：0、NOW()、'pending'",
+    "columnComment": "注释",
+    "autoIncrement": "自动递增",
+    "foreignKeys": "外键",
+    "addForeignKey": "添加外键",
+    "noForeignKeys": "未定义外键。",
+    "foreignKeysUnsupported": "此驱动不支持外键。",
+    "constraintName": "约束名称",
+    "constraintNamePlaceholder": "可选",
+    "fkSourceColumns": "源列",
+    "fkRefSchema": "引用的 schema",
+    "fkRefTable": "引用的表",
+    "fkRefColumns": "引用的列",
+    "fkOnDelete": "ON DELETE",
+    "fkOnUpdate": "ON UPDATE",
+    "indexes": "索引",
+    "addIndex": "添加索引",
+    "noIndexes": "未定义索引。",
+    "indexesUnsupported": "此驱动不支持索引。",
+    "indexName": "索引名称",
+    "indexColumns": "列",
+    "indexUnique": "唯一",
+    "indexMethod": "方法",
+    "indexWhere": "部分 WHERE",
+    "indexWherePlaceholder": "例如：status = 'active'",
+    "checks": "CHECK 约束",
+    "addCheck": "添加 CHECK",
+    "noChecks": "未定义 CHECK 约束。",
+    "checksUnsupported": "此驱动不支持 CHECK 约束。",
+    "checkExpression": "表达式",
+    "checkExpressionPlaceholder": "例如：amount > 0",
+    "previewPlaceholder": "输入表名和至少一列以查看 SQL 预览。",
+    "noColumns": "请至少添加一列。",
+    "warningsCount": "{{count}} 个警告"
   },
   "dropTable": {
     "title": "删除表",
@@ -1937,7 +2003,49 @@
     "downloadError": "保存文件失败",
     "clipboardError": "复制到剪贴板失败",
     "tooLarge": "数据太大，无法在浏览器中处理",
-    "imagePreview": "图片预览"
+    "imagePreview": "图片预览",
+    "svgSource": "SVG 源代码",
+    "copyDataUri": "复制为 Data URI",
+    "copyDataUriSuccess": "Data URI 已复制到剪贴板",
+    "openExternal": "在默认应用中打开",
+    "openExternalError": "无法打开文件"
+  },
+  "bulkEdit": {
+    "title": "批量编辑",
+    "subtitle": "对 {{count}} 行应用相同的更改",
+    "button": "编辑 {{count}}",
+    "column": "列",
+    "columnPlaceholder": "选择一列",
+    "operation": "操作",
+    "setValue": "设置值",
+    "setNull": "设置 NULL",
+    "value": "值",
+    "valuePlaceholder": "新值",
+    "previewLabel": "{{count}} 条语句",
+    "previewError": "无法生成预览",
+    "previewEmpty": "预览将显示在此处",
+    "generating": "正在生成 SQL 预览…",
+    "sandboxNote": "{{count}} 条更新将加入沙盒队列",
+    "proRequired": "一次编辑超过 {{limit}} 行需要 QoreDB Pro。",
+    "proRequiredTooltip": "超过 {{limit}} 行需要 Pro",
+    "apply": "应用到 {{count}} 行",
+    "applying": "应用中…",
+    "applySuccess": "已更新 {{count}} 行",
+    "applyError": "应用批量编辑失败",
+    "queuedInSandbox": "{{count}} 条更新已加入沙盒",
+    "addToSandbox": "加入沙盒",
+    "noSession": "会话不可用",
+    "noSandboxHandler": "沙盒在此处不可用",
+    "errors": {
+      "noRows": "未选中任何行",
+      "tooManyRows": "选中的行过多（最多 1000）",
+      "noPrimaryKey": "表没有主键",
+      "noColumn": "请选择要更新的列",
+      "unknownColumn": "未知列",
+      "cannotEditPk": "无法批量编辑主键列",
+      "notNullable": "列为 NOT NULL — 无法设置为 NULL",
+      "requiresPro": "需要 Pro"
+    }
   },
   "import": {
     "title": "导入 CSV",
@@ -2189,5 +2297,56 @@
     "dangerousWarning": "在脚本中检测到潜在的破坏性 Redis 命令。",
     "confirmTitle": "运行 Lua 脚本",
     "confirmDesc": "此脚本将在非开发环境中运行并可能修改数据。是否继续？"
+  },
+  "alterTable": {
+    "menuItem": "修改表…",
+    "title": "修改表 — {{name}}",
+    "tabDiff": "差异",
+    "apply": "应用更改",
+    "applying": "正在应用…",
+    "noChanges": "没有要应用的更改。",
+    "loading": "正在加载表结构…",
+    "loadFailed": "加载表结构失败",
+    "failed": "应用更改失败",
+    "success": "表 \"{{name}}\" 已更新。",
+    "renamedFrom": "原名：\"{{name}}\"",
+    "renamedTable": "将从 \"{{from}}\" 重命名"
+  },
+  "ddlWarnings": {
+    "indexes": {
+      "unsupported": "此驱动程序不支持索引：{{name}}",
+      "uniqueDowngraded": "此驱动程序中 UNIQUE 索引已降级为普通索引：{{name}}",
+      "methodIgnored": "此驱动程序忽略索引方法 \"{{method}}\"：{{name}}",
+      "partialUnsupported": "此驱动程序不支持部分索引 WHERE 子句：{{name}}"
+    },
+    "comments": {
+      "columnUnsupported": "此驱动程序不支持列注释：{{name}}",
+      "tableUnsupported": "此驱动程序不支持表注释"
+    },
+    "fk": {
+      "unsupported": "此驱动程序不支持外键：{{name}}"
+    },
+    "check": {
+      "unsupported": "此驱动程序不支持 CHECK 约束：{{name}}"
+    },
+    "sqlite": {
+      "alterColumnUnsupported": "SQLite 不支持 ALTER COLUMN type/nullable/default — 列 \"{{name}}\" 需要重建表。",
+      "commentsUnsupported": "SQLite 不支持注释 — 操作已跳过。",
+      "fkInPlaceUnsupported": "SQLite 无法就地 ADD/DROP FOREIGN KEY — 需要重建表。",
+      "checkInPlaceUnsupported": "SQLite 无法就地 ADD/DROP CHECK — 需要重建表。"
+    },
+    "duckdb": {
+      "fkInPlaceLimited": "DuckDB 对就地外键更改的支持有限 — 操作可能失败。"
+    },
+    "sqlserver": {
+      "defaultsManual": "SQL Server 默认值通过命名的 DEFAULT 约束管理 — 需要手动处理。",
+      "commentsManual": "SQL Server 注释使用 sp_addextendedproperty — 不会自动发出。"
+    },
+    "internal": {
+      "columnNotFound": "在表快照中找不到列 \"{{name}}\" — 操作已跳过。"
+    },
+    "alter": {
+      "driverUnsupported": "驱动程序不支持 ALTER TABLE：{{driver}}"
+    }
   }
 }

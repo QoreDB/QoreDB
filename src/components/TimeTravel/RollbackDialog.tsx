@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: BUSL-1.1
 
+import { AlertTriangle, Copy, FileCode } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Copy, FileCode, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from '@/components/ui/dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import type { RollbackSqlResponse } from '@/lib/tauri';
 
 interface RollbackDialogProps {
@@ -32,7 +32,7 @@ export function RollbackDialog({
   if (!result) return null;
 
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+    <Dialog open={open} onOpenChange={o => !o && onClose()}>
       <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>{t('timeTravel.rollback.title')}</DialogTitle>

@@ -16,19 +16,19 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
-  DEFAULT_SHARE_PROVIDER_SETTINGS,
-  getShareProviderSettings,
-  setShareProviderSettings,
-} from '@/lib/shareSettings';
-import {
-  shareDeleteProviderToken,
-  shareGetProviderStatus,
-  shareSaveProviderToken,
   type ShareBodyMode,
   type ShareHttpMethod,
   type ShareProviderSettings,
   type ShareProviderStatus,
-} from '@/lib/share';
+  shareDeleteProviderToken,
+  shareGetProviderStatus,
+  shareSaveProviderToken,
+} from '@/lib/share/share';
+import {
+  DEFAULT_SHARE_PROVIDER_SETTINGS,
+  getShareProviderSettings,
+  setShareProviderSettings,
+} from '@/lib/share/shareSettings';
 import { SettingsCard } from './SettingsCard';
 
 interface ShareProviderCardProps {

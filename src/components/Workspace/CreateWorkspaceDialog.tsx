@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { open as openDialog } from '@tauri-apps/plugin-dialog';
 import { FolderOpen } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { open as openDialog } from '@tauri-apps/plugin-dialog';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -17,8 +17,8 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useWorkspace } from '@/providers/WorkspaceProvider';
 import { importDefaultConnections } from '@/lib/tauri';
+import { useWorkspace } from '@/providers/WorkspaceProvider';
 
 interface CreateWorkspaceDialogProps {
   open: boolean;

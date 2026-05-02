@@ -8,9 +8,9 @@
  * - DataGrid for relational databases (PostgreSQL, MySQL, etc.)
  */
 import { memo } from 'react';
-import { isDocumentDatabase } from '@/lib/driverCapabilities';
-import type { Driver } from '@/lib/drivers';
-import type { SandboxChange, SandboxDeleteDisplay } from '@/lib/sandboxTypes';
+import { isDocumentDatabase } from '@/lib/connection/driverCapabilities';
+import type { Driver } from '@/lib/connection/drivers';
+import type { SandboxChange, SandboxDeleteDisplay } from '@/lib/sandbox/sandboxTypes';
 import type {
   ColumnFilter,
   Environment,
@@ -20,8 +20,8 @@ import type {
   TableSchema,
   Value,
 } from '@/lib/tauri';
-import { ErrorBoundary } from '../ui/error-boundary';
 import { DataGrid } from '../Grid/DataGrid';
+import { ErrorBoundary } from '../ui/error-boundary';
 import { DocumentResults } from './DocumentResults';
 
 interface ResultsViewerProps {
@@ -146,6 +146,7 @@ export const ResultsViewer = memo(function ResultsViewer({
       <DataGrid
         result={safeResult}
         sessionId={sessionId}
+        driver={driver}
         namespace={namespace}
         tableName={tableName}
         tableSchema={tableSchema}

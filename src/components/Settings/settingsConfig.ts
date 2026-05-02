@@ -3,7 +3,6 @@
 import {
   Code2,
   Database,
-
   Globe,
   Keyboard,
   KeyRound,
@@ -39,10 +38,16 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
       'appearance',
       'version',
       'update',
+      'tabs',
+      'tab groups',
+      'connection',
       'langue',
       'thème',
       'apparence',
       'mise à jour',
+      'onglets',
+      'groupes',
+      'connexion',
     ],
   },
   {

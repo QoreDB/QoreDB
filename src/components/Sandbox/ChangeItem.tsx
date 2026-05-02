@@ -3,8 +3,8 @@
 import { ChevronDown, Clock, Eye, Pencil, Plus, Trash2, Undo2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
-import { getChangeDiff } from '@/lib/sandboxOverlay';
-import type { SandboxChange, SandboxChangeType } from '@/lib/sandboxTypes';
+import { getChangeDiff } from '@/lib/sandbox/sandboxOverlay';
+import type { SandboxChange, SandboxChangeType } from '@/lib/sandbox/sandboxTypes';
 import type { Value } from '@/lib/tauri';
 import { cn } from '@/lib/utils';
 

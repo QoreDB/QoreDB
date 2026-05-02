@@ -5,7 +5,7 @@ import type { Ref } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Tooltip } from '@/components/ui/tooltip';
-import type { Driver } from '../../lib/drivers';
+import type { Driver } from '../../lib/connection/drivers';
 import type { Namespace } from '../../lib/tauri';
 import { MongoEditor } from '../Editor/MongoEditor';
 import { SQLEditor, type SQLEditorHandle } from '../Editor/SQLEditor';

@@ -7,13 +7,13 @@ import { type MutableRefObject, useCallback, useEffect, useMemo, useRef, useStat
 import { compareResults, type DiffResult, findCommonColumns } from '@/lib/diffUtils';
 import type { DiffSource } from '@/lib/tabs';
 import {
+  type ColumnInfo,
   connectSavedConnection,
   describeTable,
   disconnect,
   executeQuery,
   getSnapshot,
   listNamespaces,
-  type ColumnInfo,
   type Namespace,
   previewTable,
   type QueryResult,

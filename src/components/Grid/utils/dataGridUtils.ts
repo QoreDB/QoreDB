@@ -4,8 +4,8 @@
  * DataGrid utility functions
  */
 
-import type { QueryResult, Value } from '@/lib/tauri';
 import { estimateByteSizeFromBase64, formatFileSize, isBinaryType } from '@/lib/binaryUtils';
+import type { QueryResult, Value } from '@/lib/tauri';
 
 export type RowData = Record<string, Value>;
 

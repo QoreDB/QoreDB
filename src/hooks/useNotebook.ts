@@ -5,10 +5,10 @@ import { readTextFile, writeTextFile } from '@tauri-apps/plugin-fs';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import type { Driver } from '../lib/drivers';
-import { exportToHtml, exportToMarkdown } from '../lib/notebookExport';
-import { importFromMarkdown, importFromSql } from '../lib/notebookImport';
-import { resolveInterCellReferences } from '../lib/notebookInterCellRef';
+import type { Driver } from '../lib/connection/drivers';
+import { exportToHtml, exportToMarkdown } from '../lib/notebook/notebookExport';
+import { importFromMarkdown, importFromSql } from '../lib/notebook/notebookImport';
+import { resolveInterCellReferences } from '../lib/notebook/notebookInterCellRef';
 import {
   clearDraft,
   consumePendingNotebook,
@@ -16,7 +16,7 @@ import {
   openNotebookFromFile,
   saveDraft,
   saveNotebookToFile,
-} from '../lib/notebookIO';
+} from '../lib/notebook/notebookIO';
 import {
   type CellExecutionState,
   type CellResult,
@@ -26,8 +26,8 @@ import {
   type NotebookCell,
   type NotebookVariable,
   type QoreNotebook,
-} from '../lib/notebookTypes';
-import { extractVariableReferences, substituteVariables } from '../lib/notebookVariables';
+} from '../lib/notebook/notebookTypes';
+import { extractVariableReferences, substituteVariables } from '../lib/notebook/notebookVariables';
 import { cancelQuery, executeQuery, type Namespace } from '../lib/tauri';
 import { useNotebookHistory } from './useNotebookHistory';
 

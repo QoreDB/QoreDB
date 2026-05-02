@@ -14,6 +14,8 @@ export interface UseTabsOptions {
   initialQueryDrafts?: Record<string, string>;
   initialTableBrowserTabs?: Record<string, TableBrowserTab>;
   initialDatabaseBrowserTabs?: Record<string, DatabaseBrowserTab>;
+  /** Connection id stamped on tabs created via openTab. Tabs that already carry a connectionId are not overridden. */
+  currentConnectionId?: string | null;
 }
 
 export function useTabs(options: UseTabsOptions = {}) {
@@ -31,18 +33,29 @@ export function useTabs(options: UseTabsOptions = {}) {
 
   const activeTab = useMemo(() => tabs.find(t => t.id === activeTabId), [tabs, activeTabId]);
 
+  const currentConnectionIdRef = useRef<string | null>(options.currentConnectionId ?? null);
+
+  const setCurrentConnectionId = useCallback((connectionId: string | null) => {
+    currentConnectionIdRef.current = connectionId;
+  }, []);
+
   const openTab = useCallback((tab: OpenTab) => {
+    const stamped: OpenTab = {
+      ...tab,
+      connectionId: tab.connectionId ?? currentConnectionIdRef.current ?? undefined,
+    };
     setTabs(prev => {
       // For non-query tabs, check if already exists
       const existing =
-        tab.type === 'query'
+        stamped.type === 'query'
           ? undefined
           : prev.find(
               t =>
-                t.type === tab.type &&
-                t.namespace?.database === tab.namespace?.database &&
-                t.namespace?.schema === tab.namespace?.schema &&
-                t.tableName === tab.tableName
+                t.type === stamped.type &&
+                t.namespace?.database === stamped.namespace?.database &&
+                t.namespace?.schema === stamped.namespace?.schema &&
+                t.tableName === stamped.tableName &&
+                t.connectionId === stamped.connectionId
             );
 
       if (existing) {
@@ -51,22 +64,24 @@ export function useTabs(options: UseTabsOptions = {}) {
           t.id === existing.id
             ? {
                 ...t,
-                title: tab.title,
-                namespace: tab.namespace,
-                tableName: tab.tableName,
-                relationFilter: tab.relationFilter,
-                searchFilter: tab.searchFilter,
+                title: stamped.title,
+                namespace: stamped.namespace,
+                tableName: stamped.tableName,
+                relationFilter: stamped.relationFilter,
+                searchFilter: stamped.searchFilter,
               }
             : t
         );
       }
 
-      setActiveTabId(tab.id);
-      return [...prev, tab];
+      setActiveTabId(stamped.id);
+      return [...prev, stamped];
     });
 
-    if (tab.type === 'query' && tab.initialQuery) {
-      setQueryDrafts(prev => (prev[tab.id] ? prev : { ...prev, [tab.id]: tab.initialQuery || '' }));
+    if (stamped.type === 'query' && stamped.initialQuery) {
+      setQueryDrafts(prev =>
+        prev[stamped.id] ? prev : { ...prev, [stamped.id]: stamped.initialQuery || '' }
+      );
     }
   }, []);
 
@@ -181,6 +196,9 @@ export function useTabs(options: UseTabsOptions = {}) {
     setQueryDrafts(options.initialQueryDrafts ?? {});
     setTableBrowserTabs(options.initialTableBrowserTabs ?? {});
     setDatabaseBrowserTabs(options.initialDatabaseBrowserTabs ?? {});
+    if (options.currentConnectionId !== undefined) {
+      currentConnectionIdRef.current = options.currentConnectionId;
+    }
   }, []);
 
   return {
@@ -201,6 +219,7 @@ export function useTabs(options: UseTabsOptions = {}) {
     reorderTabs,
     togglePinTab,
     setBeforeCloseTab,
+    setCurrentConnectionId,
     reset,
   };
 }

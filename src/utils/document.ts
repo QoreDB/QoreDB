@@ -93,4 +93,4 @@ function normalizeDocument(
   return data;
 }
 
-export { coerceIdValue, formatIdLabel, normalizeDocument, DOCUMENT_COLUMN };
+export { coerceIdValue, DOCUMENT_COLUMN, formatIdLabel, normalizeDocument };

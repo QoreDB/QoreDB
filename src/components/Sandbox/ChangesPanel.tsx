@@ -28,8 +28,8 @@ import {
   removeSandboxChange,
   subscribeSandbox,
   subscribeSandboxPreferences,
-} from '@/lib/sandboxStore';
-import type { SandboxChangeGroup } from '@/lib/sandboxTypes';
+} from '@/lib/sandbox/sandboxStore';
+import type { SandboxChangeGroup } from '@/lib/sandbox/sandboxTypes';
 import type { Environment } from '@/lib/tauri';
 import { cn } from '@/lib/utils';
 import { ChangeItem } from './ChangeItem';

@@ -20,8 +20,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { isDocumentDatabase } from '../../lib/driverCapabilities';
-import { getDriverMetadata } from '../../lib/drivers';
+import { isDocumentDatabase } from '../../lib/connection/driverCapabilities';
+import { getDriverMetadata } from '../../lib/connection/drivers';
 import {
   type CharsetInfo,
   createDatabase,

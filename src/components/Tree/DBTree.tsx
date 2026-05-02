@@ -21,11 +21,14 @@ import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { emitTableChange } from '@/lib/tableEvents';
+import { emitTableChange } from '@/lib/events/tableEvents';
 import { cn } from '@/lib/utils';
 import { useSchemaCache } from '../../hooks/useSchemaCache';
-import { getSchemaObjectCapabilities, getTerminology } from '../../lib/driverCapabilities';
-import { type Driver, getDriverMetadata } from '../../lib/drivers';
+import {
+  getSchemaObjectCapabilities,
+  getTerminology,
+} from '../../lib/connection/driverCapabilities';
+import { type Driver, getDriverMetadata } from '../../lib/connection/drivers';
 import {
   type Collection,
   type DatabaseEvent,

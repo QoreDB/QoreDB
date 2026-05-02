@@ -172,6 +172,18 @@
       "passwordOptional": "Optional",
       "connectTimeoutSecs": "Connect timeout (s)",
       "summaryMissingHost": "(host?)"
+    },
+    "smartPaste": {
+      "detected": "Detected: {{name}}",
+      "switched": "Driver switched to {{name}}",
+      "hint": "Paste a connection URL — the driver picks itself"
+    },
+    "supabaseHint": "Supabase: paste your DSN from the project settings. Default port 5432 (direct), 6543 (transaction pooler).",
+    "neonHint": "Neon: endpoints can take 5–10s to wake up on first connect.",
+    "timescaledbHint": "TimescaleDB: connects like PostgreSQL with the timescaledb extension enabled.",
+    "driverGroups": {
+      "sql": "SQL",
+      "nosql": "NoSQL"
     }
   },
   "sidebar": {
@@ -216,7 +228,10 @@
     "pin": "Pin tab",
     "unpin": "Unpin tab",
     "contextMenu": "Tab options",
-    "showAll": "Show all tabs"
+    "showAll": "Show all tabs",
+    "collapse": "Collapse {{name}}",
+    "expand": "Expand {{name}}",
+    "ungrouped": "Ungrouped"
   },
   "browser": {
     "searchPlaceholder": "Search {{label}}...",
@@ -542,6 +557,12 @@
       "runQuery": "Run query",
       "closeTab": "Close tab",
       "escape": "Close overlay / Cancel"
+    },
+    "tabs": {
+      "title": "Tabs",
+      "description": "Configure the behavior of the tab bar.",
+      "groupByConnection": "Group tabs by connection",
+      "groupByConnectionDescription": "Display tabs in collapsible groups under their connection name."
     }
   },
   "table": {
@@ -933,7 +954,9 @@
     "add": "Add",
     "back": "Back",
     "noResults": "No results found",
-    "copied": "Copied"
+    "copied": "Copied",
+    "none": "None",
+    "remove": "Remove"
   },
   "environment": {
     "label": "Environment",
@@ -1131,7 +1154,51 @@
     "tableNameRequired": "Table name is required",
     "success": "Table \"{{name}}\" created successfully",
     "failed": "Failed to create table",
-    "my_table": "Ma table"
+    "my_table": "Ma table",
+    "tableNamePlaceholder": "my_table",
+    "tableComment": "Table comment",
+    "tabColumns": "Columns",
+    "tabForeignKeys": "Foreign Keys",
+    "tabIndexes": "Indexes",
+    "tabChecks": "Check Constraints",
+    "tabSql": "SQL",
+    "toggleAdvanced": "Toggle advanced",
+    "defaultValue": "Default value",
+    "defaultValuePlaceholder": "e.g. 0, NOW(), 'pending'",
+    "columnComment": "Comment",
+    "autoIncrement": "Auto increment",
+    "foreignKeys": "Foreign Keys",
+    "addForeignKey": "Add foreign key",
+    "noForeignKeys": "No foreign keys defined.",
+    "foreignKeysUnsupported": "This driver does not support foreign keys.",
+    "constraintName": "Constraint name",
+    "constraintNamePlaceholder": "Optional",
+    "fkSourceColumns": "Source columns",
+    "fkRefSchema": "Referenced schema",
+    "fkRefTable": "Referenced table",
+    "fkRefColumns": "Referenced columns",
+    "fkOnDelete": "ON DELETE",
+    "fkOnUpdate": "ON UPDATE",
+    "indexes": "Indexes",
+    "addIndex": "Add index",
+    "noIndexes": "No indexes defined.",
+    "indexesUnsupported": "This driver does not support indexes.",
+    "indexName": "Index name",
+    "indexColumns": "Columns",
+    "indexUnique": "Unique",
+    "indexMethod": "Method",
+    "indexWhere": "Partial WHERE",
+    "indexWherePlaceholder": "e.g. status = 'active'",
+    "checks": "Check Constraints",
+    "addCheck": "Add check",
+    "noChecks": "No check constraints defined.",
+    "checksUnsupported": "This driver does not support CHECK constraints.",
+    "checkExpression": "Expression",
+    "checkExpressionPlaceholder": "e.g. amount > 0",
+    "previewPlaceholder": "Add a table name and at least one column to see the SQL preview.",
+    "noColumns": "Add at least one column.",
+    "warningsCount": "{{count}} warning",
+    "warningsCount_other": "{{count}} warnings"
   },
   "dropTable": {
     "title": "Drop Table",
@@ -1956,7 +2023,49 @@
     "downloadError": "Failed to save file",
     "clipboardError": "Failed to copy to clipboard",
     "tooLarge": "Data too large to process in browser",
-    "imagePreview": "Image preview"
+    "imagePreview": "Image preview",
+    "svgSource": "SVG Source",
+    "copyDataUri": "Copy as Data URI",
+    "copyDataUriSuccess": "Data URI copied to clipboard",
+    "openExternal": "Open in default app",
+    "openExternalError": "Failed to open file"
+  },
+  "bulkEdit": {
+    "title": "Bulk Edit",
+    "subtitle": "Apply the same change to {{count}} row(s)",
+    "button": "Edit {{count}}",
+    "column": "Column",
+    "columnPlaceholder": "Select a column",
+    "operation": "Operation",
+    "setValue": "Set value",
+    "setNull": "Set NULL",
+    "value": "Value",
+    "valuePlaceholder": "New value",
+    "previewLabel": "{{count}} statement(s)",
+    "previewError": "Failed to generate preview",
+    "previewEmpty": "Preview will appear here",
+    "generating": "Generating SQL preview…",
+    "sandboxNote": "{{count}} update(s) will be queued in the sandbox",
+    "proRequired": "Editing more than {{limit}} rows at once requires QoreDB Pro.",
+    "proRequiredTooltip": "Pro required beyond {{limit}} rows",
+    "apply": "Apply to {{count}} row(s)",
+    "applying": "Applying…",
+    "applySuccess": "{{count}} row(s) updated",
+    "applyError": "Failed to apply bulk edit",
+    "queuedInSandbox": "{{count}} update(s) queued in sandbox",
+    "addToSandbox": "Add to sandbox",
+    "noSession": "Session not available",
+    "noSandboxHandler": "Sandbox is not available here",
+    "errors": {
+      "noRows": "No rows selected",
+      "tooManyRows": "Too many rows selected (max 1000)",
+      "noPrimaryKey": "Table has no primary key",
+      "noColumn": "Pick a column to update",
+      "unknownColumn": "Unknown column",
+      "cannotEditPk": "Cannot bulk-edit a primary key column",
+      "notNullable": "Column is NOT NULL — cannot set to NULL",
+      "requiresPro": "Pro required"
+    }
   },
   "import": {
     "title": "Import CSV",
@@ -2208,5 +2317,56 @@
     "dangerousWarning": "Potentially destructive Redis commands detected in the script.",
     "confirmTitle": "Run Lua script",
     "confirmDesc": "This script will run on a non-development environment and may mutate data. Proceed?"
+  },
+  "alterTable": {
+    "menuItem": "Alter Table…",
+    "title": "Alter Table — {{name}}",
+    "tabDiff": "Diff",
+    "apply": "Apply changes",
+    "applying": "Applying…",
+    "noChanges": "No changes to apply.",
+    "loading": "Loading table schema…",
+    "loadFailed": "Failed to load table schema",
+    "failed": "Failed to apply changes",
+    "success": "Table \"{{name}}\" updated.",
+    "renamedFrom": "Renamed from \"{{name}}\"",
+    "renamedTable": "Will be renamed from \"{{from}}\""
+  },
+  "ddlWarnings": {
+    "indexes": {
+      "unsupported": "Indexes are not supported on this driver: {{name}}",
+      "uniqueDowngraded": "UNIQUE index downgraded to plain index on this driver: {{name}}",
+      "methodIgnored": "Index method \"{{method}}\" ignored on this driver: {{name}}",
+      "partialUnsupported": "Partial index WHERE clause not supported on this driver: {{name}}"
+    },
+    "comments": {
+      "columnUnsupported": "Column comments not supported on this driver: {{name}}",
+      "tableUnsupported": "Table comments not supported on this driver"
+    },
+    "fk": {
+      "unsupported": "Foreign keys not supported on this driver: {{name}}"
+    },
+    "check": {
+      "unsupported": "CHECK constraints not supported on this driver: {{name}}"
+    },
+    "sqlite": {
+      "alterColumnUnsupported": "SQLite does not support ALTER COLUMN type/nullable/default — recreate table required for column \"{{name}}\".",
+      "commentsUnsupported": "SQLite does not support comments — operation skipped.",
+      "fkInPlaceUnsupported": "SQLite cannot ADD/DROP FOREIGN KEY in place — recreate table required.",
+      "checkInPlaceUnsupported": "SQLite cannot ADD/DROP CHECK in place — recreate table required."
+    },
+    "duckdb": {
+      "fkInPlaceLimited": "DuckDB has limited support for in-place foreign key changes — operation may fail."
+    },
+    "sqlserver": {
+      "defaultsManual": "SQL Server defaults are managed via named DEFAULT constraints — manual handling required.",
+      "commentsManual": "SQL Server comments use sp_addextendedproperty — not emitted automatically."
+    },
+    "internal": {
+      "columnNotFound": "Column \"{{name}}\" not found in table snapshot — operation skipped."
+    },
+    "alter": {
+      "driverUnsupported": "ALTER TABLE is not supported on driver: {{driver}}"
+    }
   }
 }

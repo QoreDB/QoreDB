@@ -32,10 +32,13 @@ use engine::drivers::duckdb::DuckDbDriver;
 use engine::drivers::mariadb::MariaDbDriver;
 use engine::drivers::mongodb::MongoDriver;
 use engine::drivers::mysql::MySqlDriver;
+use engine::drivers::neon::NeonDriver;
 use engine::drivers::postgres::PostgresDriver;
 use engine::drivers::redis::RedisDriver;
 use engine::drivers::sqlite::SqliteDriver;
 use engine::drivers::sqlserver::SqlServerDriver;
+use engine::drivers::supabase::SupabaseDriver;
+use engine::drivers::timescaledb::TimescaleDbDriver;
 use engine::{DriverRegistry, QueryManager, SessionManager};
 use export::ExportPipeline;
 use interceptor::InterceptorPipeline;
@@ -76,6 +79,9 @@ impl AppState {
         registry.register(Arc::new(CockroachDbDriver::new()));
         registry.register(Arc::new(SqlServerDriver::new()));
         registry.register(Arc::new(MariaDbDriver::new()));
+        registry.register(Arc::new(SupabaseDriver::new()));
+        registry.register(Arc::new(NeonDriver::new()));
+        registry.register(Arc::new(TimescaleDbDriver::new()));
 
         let registry = Arc::new(registry);
         let session_manager = Arc::new(SessionManager::new(Arc::clone(&registry)));

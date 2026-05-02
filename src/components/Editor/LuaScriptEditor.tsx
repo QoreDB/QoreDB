@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { autocompletion, type CompletionContext, type CompletionResult } from '@codemirror/autocomplete';
+import {
+  autocompletion,
+  type CompletionContext,
+  type CompletionResult,
+} from '@codemirror/autocomplete';
 import { defaultKeymap } from '@codemirror/commands';
 import { StreamLanguage } from '@codemirror/language';
 import { lua } from '@codemirror/legacy-modes/mode/lua';
@@ -187,5 +191,7 @@ export function LuaScriptEditor({
     }
   }, [value]);
 
-  return <div className="h-56 overflow-hidden text-sm border border-border rounded-md" ref={editorRef} />;
+  return (
+    <div className="h-56 overflow-hidden text-sm border border-border rounded-md" ref={editorRef} />
+  );
 }

@@ -4,19 +4,19 @@ import { lazy, Suspense, useCallback, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Toaster } from 'sonner';
 import {
-  activateSandbox,
-  deactivateSandbox,
-  getSandboxPreferences,
-  hasPendingChanges,
-  isSandboxActive,
-} from '@/lib/sandboxStore';
-import {
   emitUiEvent,
   UI_EVENT_EXPORT_DATA,
   UI_EVENT_OPEN_HISTORY,
   UI_EVENT_OPEN_LOGS,
   UI_EVENT_REFRESH_TABLE,
-} from '@/lib/uiEvents';
+} from '@/lib/events/uiEvents';
+import {
+  activateSandbox,
+  deactivateSandbox,
+  getSandboxPreferences,
+  hasPendingChanges,
+  isSandboxActive,
+} from '@/lib/sandbox/sandboxStore';
 import { getShortcut } from '@/utils/platform';
 import { AppOverlays } from './components/AppOverlays';
 import { DatabaseBrowser, type DatabaseBrowserTab } from './components/Browser/DatabaseBrowser';
@@ -31,9 +31,6 @@ import { SandboxBorder } from './components/Sandbox';
 import type { SearchResult } from './components/Search/GlobalSearch';
 import { Sidebar } from './components/Sidebar/Sidebar';
 
-// Lazy-loaded views — these tab kinds are opened on demand (or only by Pro
-// users). Splitting them out keeps the initial bundle lean. Each chunk is
-// fetched the first time the user opens the corresponding tab.
 const DataDiffViewer = lazy(() =>
   import('./components/Diff/DataDiffViewer').then(m => ({ default: m.DataDiffViewer }))
 );
@@ -54,6 +51,7 @@ const SettingsPage = lazy(() =>
 const SnapshotManager = lazy(() =>
   import('./components/Snapshot/SnapshotManager').then(m => ({ default: m.SnapshotManager }))
 );
+
 import { StatusBar } from './components/Status/StatusBar';
 import { TabBar } from './components/Tabs/TabBar';
 import { FeatureTour } from './components/Tour/FeatureTour';
@@ -64,8 +62,11 @@ import { useResizableSidebar } from './hooks/useResizableSidebar';
 import { useTheme } from './hooks/useTheme';
 import { useTourManager } from './hooks/useTourManager';
 import { useWebviewGuards } from './hooks/useWebviewGuards';
-import { Driver } from './lib/drivers';
-import type { HistoryEntry } from './lib/history';
+import { Driver } from './lib/connection/drivers';
+import { openNotebookFromFile, setPendingNotebook } from './lib/notebook/notebookIO';
+import { notify } from './lib/notify';
+import type { HistoryEntry } from './lib/query/history';
+import type { QueryLibraryItem } from './lib/query/queryLibrary';
 import {
   handleEditConnection,
   setConnectionModalOpen,
@@ -76,11 +77,7 @@ import {
   toggleSidebar,
   toggleZenMode,
   useModalStore,
-} from './lib/modalStore';
-import { openNotebookFromFile, setPendingNotebook } from './lib/notebookIO';
-import { notify } from './lib/notify';
-import type { QueryLibraryItem } from './lib/queryLibrary';
-import { getRoutineTemplate } from './lib/routineTemplates';
+} from './lib/stores/modalStore';
 import {
   createDatabaseTab,
   createDiffTab,
@@ -110,7 +107,8 @@ import {
   type Sequence,
   type Trigger,
 } from './lib/tauri';
-import { getEventTemplate, getTriggerTemplate } from './lib/triggerTemplates';
+import { getRoutineTemplate } from './lib/templates/routineTemplates';
+import { getEventTemplate, getTriggerTemplate } from './lib/templates/triggerTemplates';
 import { useSessionContext } from './providers/SessionProvider';
 import { useTabContext } from './providers/TabProvider';
 import { useWorkspace } from './providers/WorkspaceProvider';
@@ -149,11 +147,13 @@ export function AppLayout() {
     activeConnection,
     connectionHealth,
     hasConnections,
+    savedConnections,
     schemaRefreshTrigger,
     recovery,
     handleConnected,
     handleRestoreSession,
     handleConnectionSaved,
+    switchToConnection,
     refreshSidebar,
     triggerSchemaRefresh,
     scheduleRecoverySave,
@@ -164,14 +164,18 @@ export function AppLayout() {
   const sidebarVisible = useModalStore(s => s.sidebarVisible);
   const zenMode = useModalStore(s => s.zenMode);
 
-  // --- Zen mode toast ---
   useEffect(() => {
     if (zenMode) {
       notify.info(t('zenMode.enabled'), { duration: 2500 });
     }
   }, [zenMode, t]);
 
-  // --- Notebook unsaved changes guard ---
+  useEffect(() => {
+    if (!sessionId || !activeConnection || !activeTab?.connectionId) return;
+    if (activeTab.connectionId === activeConnection.id) return;
+    void switchToConnection(activeTab.connectionId, activeTab.id);
+  }, [sessionId, activeConnection, activeTab?.connectionId, activeTab?.id, switchToConnection]);
+
   useEffect(() => {
     setBeforeCloseTab((tabId: string) => {
       const tab = tabs.find(t => t.id === tabId);
@@ -210,6 +214,18 @@ export function AppLayout() {
   const handleNewQuery = useCallback(() => {
     if (sessionId) openTab(createQueryTab(undefined, activeTab?.namespace));
   }, [sessionId, openTab, activeTab?.namespace]);
+
+  const handleTabSelect = useCallback(
+    (tabId: string) => {
+      const target = tabs.find(t => t.id === tabId);
+      if (target?.connectionId && target.connectionId !== activeConnection?.id) {
+        void switchToConnection(target.connectionId, tabId);
+        return;
+      }
+      setActiveTabId(tabId);
+    },
+    [tabs, activeConnection?.id, switchToConnection, setActiveTabId]
+  );
 
   const handleNewNotebook = useCallback(() => {
     if (sessionId) openTab(createNotebookTab());
@@ -424,7 +440,6 @@ export function AppLayout() {
       notify.warning(t('sandbox.envWarningProduction'));
   }, [activeConnection?.environment, sessionId, t]);
 
-  // --- Palette ---
   const paletteFeatures = useMemo(
     () =>
       sessionId
@@ -575,9 +590,7 @@ export function AppLayout() {
                   setPendingNotebook(nbResult.path, nbResult.notebook);
                   openTab(createNotebookTab(nbResult.notebook.metadata.title, nbResult.path));
                 }
-              } catch {
-                /* dialog cancelled or invalid file */
-              }
+              } catch {}
             }
             return;
           case 'cmd_convert_to_notebook':
@@ -654,7 +667,6 @@ export function AppLayout() {
             return;
           case 'feat_er':
           case 'feat_virtual_relations':
-            // These features are accessed via table context menu / schema browser
             return;
         }
       }
@@ -674,10 +686,10 @@ export function AppLayout() {
       handleOpenDiff,
       handleToggleSandbox,
       refreshSidebar,
+      projectId,
     ]
   );
 
-  // --- Derived state ---
   const canRefreshData = Boolean(sessionId && activeTab?.type === 'table');
   const canExportData = Boolean(sessionId && activeTab?.type === 'table');
 
@@ -762,9 +774,19 @@ export function AppLayout() {
                         title: t.title,
                         type: t.type,
                         pinned: t.pinned,
+                        connectionId: t.connectionId,
                       }))}
                       activeId={activeTabId || undefined}
-                      onSelect={setActiveTabId}
+                      resolveConnection={id => {
+                        const conn =
+                          activeConnection?.id === id
+                            ? activeConnection
+                            : savedConnections.find(c => c.id === id);
+                        return conn
+                          ? { name: conn.name, environment: conn.environment }
+                          : undefined;
+                      }}
+                      onSelect={handleTabSelect}
                       onClose={closeTab}
                       onNew={handleNewQuery}
                       onReorder={reordered =>
@@ -791,40 +813,40 @@ export function AppLayout() {
                 <Suspense fallback={<LazyTabFallback />}>
                   <AppContent
                     sessionId={sessionId}
-                  driver={driver}
-                  driverCapabilities={driverCapabilities}
-                  activeConnection={activeConnection}
-                  activeTab={activeTab}
-                  queryDrafts={queryDrafts}
-                  tableBrowserTabs={tableBrowserTabs}
-                  databaseBrowserTabs={databaseBrowserTabs}
-                  onUpdateTableBrowserTab={updateTableBrowserTab}
-                  onUpdateDatabaseBrowserTab={updateDatabaseBrowserTab}
-                  onUpdateTab={updateTab}
-                  hasConnections={hasConnections}
-                  recovery={recovery}
-                  schemaRefreshTrigger={schemaRefreshTrigger}
-                  onTableSelect={handleTableSelect}
-                  onDatabaseSelect={handleDatabaseSelect}
-                  onNewQuery={handleNewQuery}
-                  onOpenLibrary={() => setLibraryModalOpen(true)}
-                  onOpenFulltextSearch={() => setFulltextSearchOpen(true)}
-                  onRestoreSession={handleRestoreSession}
-                  onOpenSearch={() => setSearchOpen(true)}
-                  onOpenConnectionModal={() => setConnectionModalOpen(true)}
-                  onSchemaChange={triggerSchemaRefresh}
-                  onCloseTab={closeTab}
-                  onOpenTab={openTab}
-                  onUpdateQueryDraft={updateQueryDraft}
-                  onUpdateTabNamespace={updateTabNamespace}
-                  onScheduleRecoverySave={scheduleRecoverySave}
-                  onOpenRoutineSource={handleOpenRoutineSource}
-                  onCreateRoutine={handleCreateRoutine}
-                  onOpenTriggerSource={handleOpenTriggerSource}
-                  onCreateTrigger={handleCreateTrigger}
-                  onOpenEventSource={handleOpenEventSource}
-                  onCreateEvent={handleCreateEvent}
-                  onOpenSequenceSource={handleOpenSequenceSource}
+                    driver={driver}
+                    driverCapabilities={driverCapabilities}
+                    activeConnection={activeConnection}
+                    activeTab={activeTab}
+                    queryDrafts={queryDrafts}
+                    tableBrowserTabs={tableBrowserTabs}
+                    databaseBrowserTabs={databaseBrowserTabs}
+                    onUpdateTableBrowserTab={updateTableBrowserTab}
+                    onUpdateDatabaseBrowserTab={updateDatabaseBrowserTab}
+                    onUpdateTab={updateTab}
+                    hasConnections={hasConnections}
+                    recovery={recovery}
+                    schemaRefreshTrigger={schemaRefreshTrigger}
+                    onTableSelect={handleTableSelect}
+                    onDatabaseSelect={handleDatabaseSelect}
+                    onNewQuery={handleNewQuery}
+                    onOpenLibrary={() => setLibraryModalOpen(true)}
+                    onOpenFulltextSearch={() => setFulltextSearchOpen(true)}
+                    onRestoreSession={handleRestoreSession}
+                    onOpenSearch={() => setSearchOpen(true)}
+                    onOpenConnectionModal={() => setConnectionModalOpen(true)}
+                    onSchemaChange={triggerSchemaRefresh}
+                    onCloseTab={closeTab}
+                    onOpenTab={openTab}
+                    onUpdateQueryDraft={updateQueryDraft}
+                    onUpdateTabNamespace={updateTabNamespace}
+                    onScheduleRecoverySave={scheduleRecoverySave}
+                    onOpenRoutineSource={handleOpenRoutineSource}
+                    onCreateRoutine={handleCreateRoutine}
+                    onOpenTriggerSource={handleOpenTriggerSource}
+                    onCreateTrigger={handleCreateTrigger}
+                    onOpenEventSource={handleOpenEventSource}
+                    onCreateEvent={handleCreateEvent}
+                    onOpenSequenceSource={handleOpenSequenceSource}
                   />
                 </Suspense>
               </ErrorBoundary>
@@ -913,10 +935,6 @@ interface AppContentProps {
   onOpenSequenceSource: (sequence: Sequence, namespace: Namespace) => void;
 }
 
-/// Suspense fallback shown while a lazy-loaded tab chunk is fetched. Kept
-/// minimal so the previous tab content stays visually replaced for only the
-/// few hundred ms the chunk takes to download (already-cached chunks resolve
-/// synchronously and skip this).
 function LazyTabFallback() {
   return (
     <div className="flex h-full w-full items-center justify-center p-8">
@@ -997,9 +1015,7 @@ function AppContent({
         connectionDatabase={activeConnection?.database}
         connectionId={activeConnection?.id}
         onOpenRelatedTable={onTableSelect}
-        onOpenTimeTravel={(ns, table) =>
-          onOpenTab(createTimeTravelTab(ns, table))
-        }
+        onOpenTimeTravel={(ns, table) => onOpenTab(createTimeTravelTab(ns, table))}
         relationFilter={activeTab.relationFilter}
         searchFilter={activeTab.searchFilter}
         initialTab={tableBrowserTabs[activeTab.id]}
@@ -1142,7 +1158,11 @@ function AppContent({
     );
   }
 
-  if (activeTab?.type === 'time-travel' && activeTab.timeTravelNamespace && activeTab.timeTravelTableName) {
+  if (
+    activeTab?.type === 'time-travel' &&
+    activeTab.timeTravelNamespace &&
+    activeTab.timeTravelTableName
+  ) {
     return (
       <div className="flex-1 min-h-0 flex flex-col">
         <LicenseGate feature="data_time_travel">

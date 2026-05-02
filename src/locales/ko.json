@@ -171,6 +171,18 @@
       "passwordOptional": "선택사항",
       "connectTimeoutSecs": "연결 시간 제한 (초)",
       "summaryMissingHost": "(호스트?)"
+    },
+    "smartPaste": {
+      "detected": "감지됨: {{name}}",
+      "switched": "드라이버가 {{name}}(으)로 변경되었습니다",
+      "hint": "연결 URL을 붙여넣으면 드라이버가 자동 선택됩니다"
+    },
+    "supabaseHint": "Supabase: 프로젝트 설정에서 DSN을 붙여넣으세요. 포트 5432(직접) 또는 6543(트랜잭션 풀러).",
+    "neonHint": "Neon: 첫 연결 시 엔드포인트 깨어남에 5–10초 걸릴 수 있습니다.",
+    "timescaledbHint": "TimescaleDB: timescaledb 확장이 활성화된 PostgreSQL처럼 연결됩니다.",
+    "driverGroups": {
+      "sql": "SQL",
+      "nosql": "NoSQL"
     }
   },
   "sidebar": {
@@ -215,7 +227,10 @@
     "pin": "탭 고정",
     "unpin": "탭 고정 해제",
     "contextMenu": "탭 옵션",
-    "showAll": "모든 탭 표시"
+    "showAll": "모든 탭 표시",
+    "collapse": "{{name}} 접기",
+    "expand": "{{name}} 펼치기",
+    "ungrouped": "그룹 없음"
   },
   "browser": {
     "searchPlaceholder": "{{label}} 검색...",
@@ -540,6 +555,12 @@
       "runQuery": "쿼리 실행",
       "closeTab": "탭 닫기",
       "escape": "오버레이 닫기 / 취소"
+    },
+    "tabs": {
+      "title": "탭",
+      "description": "탭 표시줄 동작을 구성합니다.",
+      "groupByConnection": "연결별로 탭 그룹화",
+      "groupByConnectionDescription": "연결 이름 아래에 접을 수 있는 그룹으로 탭을 표시합니다."
     }
   },
   "table": {
@@ -914,7 +935,9 @@
     "add": "추가",
     "back": "뒤로",
     "noResults": "결과를 찾을 수 없습니다",
-    "copied": "복사됨"
+    "copied": "복사됨",
+    "none": "없음",
+    "remove": "제거"
   },
   "environment": {
     "label": "환경",
@@ -1112,7 +1135,50 @@
     "tableNameRequired": "테이블 이름은 필수입니다",
     "success": "테이블 \"{{name}}\"이(가) 성공적으로 생성되었습니다",
     "failed": "테이블 생성에 실패했습니다",
-    "my_table": "내 테이블"
+    "my_table": "내 테이블",
+    "tableNamePlaceholder": "my_table",
+    "tableComment": "테이블 주석",
+    "tabColumns": "컬럼",
+    "tabForeignKeys": "외래 키",
+    "tabIndexes": "인덱스",
+    "tabChecks": "CHECK 제약 조건",
+    "tabSql": "SQL",
+    "toggleAdvanced": "고급 옵션 토글",
+    "defaultValue": "기본값",
+    "defaultValuePlaceholder": "예: 0, NOW(), 'pending'",
+    "columnComment": "주석",
+    "autoIncrement": "자동 증가",
+    "foreignKeys": "외래 키",
+    "addForeignKey": "외래 키 추가",
+    "noForeignKeys": "정의된 외래 키가 없습니다.",
+    "foreignKeysUnsupported": "이 드라이버는 외래 키를 지원하지 않습니다.",
+    "constraintName": "제약 조건 이름",
+    "constraintNamePlaceholder": "선택 사항",
+    "fkSourceColumns": "원본 컬럼",
+    "fkRefSchema": "참조 스키마",
+    "fkRefTable": "참조 테이블",
+    "fkRefColumns": "참조 컬럼",
+    "fkOnDelete": "ON DELETE",
+    "fkOnUpdate": "ON UPDATE",
+    "indexes": "인덱스",
+    "addIndex": "인덱스 추가",
+    "noIndexes": "정의된 인덱스가 없습니다.",
+    "indexesUnsupported": "이 드라이버는 인덱스를 지원하지 않습니다.",
+    "indexName": "인덱스 이름",
+    "indexColumns": "컬럼",
+    "indexUnique": "유니크",
+    "indexMethod": "방법",
+    "indexWhere": "부분 WHERE",
+    "indexWherePlaceholder": "예: status = 'active'",
+    "checks": "CHECK 제약 조건",
+    "addCheck": "CHECK 추가",
+    "noChecks": "정의된 CHECK 제약 조건이 없습니다.",
+    "checksUnsupported": "이 드라이버는 CHECK 제약 조건을 지원하지 않습니다.",
+    "checkExpression": "식",
+    "checkExpressionPlaceholder": "예: amount > 0",
+    "previewPlaceholder": "테이블 이름과 컬럼을 하나 이상 입력하면 SQL 미리보기를 볼 수 있습니다.",
+    "noColumns": "최소 한 개의 컬럼을 추가하세요.",
+    "warningsCount": "경고 {{count}}개"
   },
   "dropTable": {
     "title": "테이블 삭제",
@@ -1937,7 +2003,49 @@
     "downloadError": "파일 저장에 실패했습니다",
     "clipboardError": "클립보드에 복사하지 못했습니다",
     "tooLarge": "브라우저에서 처리하기에 데이터가 너무 큽니다",
-    "imagePreview": "이미지 미리보기"
+    "imagePreview": "이미지 미리보기",
+    "svgSource": "SVG 소스",
+    "copyDataUri": "Data URI로 복사",
+    "copyDataUriSuccess": "Data URI가 클립보드에 복사됨",
+    "openExternal": "기본 앱으로 열기",
+    "openExternalError": "파일을 열 수 없습니다"
+  },
+  "bulkEdit": {
+    "title": "일괄 편집",
+    "subtitle": "{{count}}개 행에 동일한 변경 적용",
+    "button": "{{count}}개 편집",
+    "column": "열",
+    "columnPlaceholder": "열 선택",
+    "operation": "작업",
+    "setValue": "값 설정",
+    "setNull": "NULL 설정",
+    "value": "값",
+    "valuePlaceholder": "새 값",
+    "previewLabel": "{{count}}개 명령문",
+    "previewError": "미리보기를 생성하지 못했습니다",
+    "previewEmpty": "미리보기가 여기에 표시됩니다",
+    "generating": "SQL 미리보기 생성 중…",
+    "sandboxNote": "{{count}}건의 업데이트가 샌드박스에 대기됩니다",
+    "proRequired": "한 번에 {{limit}}개 이상의 행을 편집하려면 QoreDB Pro가 필요합니다.",
+    "proRequiredTooltip": "{{limit}}행 초과 시 Pro 필요",
+    "apply": "{{count}}개 행에 적용",
+    "applying": "적용 중…",
+    "applySuccess": "{{count}}개 행 업데이트됨",
+    "applyError": "일괄 편집 적용에 실패했습니다",
+    "queuedInSandbox": "{{count}}건의 업데이트가 샌드박스에 대기됨",
+    "addToSandbox": "샌드박스에 추가",
+    "noSession": "세션을 사용할 수 없습니다",
+    "noSandboxHandler": "여기서는 샌드박스를 사용할 수 없습니다",
+    "errors": {
+      "noRows": "선택된 행이 없습니다",
+      "tooManyRows": "선택된 행이 너무 많습니다 (최대 1000)",
+      "noPrimaryKey": "테이블에 기본 키가 없습니다",
+      "noColumn": "업데이트할 열을 선택하세요",
+      "unknownColumn": "알 수 없는 열",
+      "cannotEditPk": "기본 키 열은 일괄 편집할 수 없습니다",
+      "notNullable": "열이 NOT NULL — NULL로 설정할 수 없습니다",
+      "requiresPro": "Pro 필요"
+    }
   },
   "import": {
     "title": "CSV 가져오기",
@@ -2189,5 +2297,56 @@
     "dangerousWarning": "스크립트에서 잠재적으로 파괴적인 Redis 명령이 감지되었습니다.",
     "confirmTitle": "Lua 스크립트 실행",
     "confirmDesc": "이 스크립트는 개발 환경이 아닌 곳에서 실행되며 데이터를 변경할 수 있습니다. 계속하시겠습니까?"
+  },
+  "alterTable": {
+    "menuItem": "테이블 변경…",
+    "title": "테이블 변경 — {{name}}",
+    "tabDiff": "차이",
+    "apply": "변경 사항 적용",
+    "applying": "적용 중…",
+    "noChanges": "적용할 변경 사항이 없습니다.",
+    "loading": "테이블 스키마 로드 중…",
+    "loadFailed": "테이블 스키마 로드 실패",
+    "failed": "변경 사항 적용 실패",
+    "success": "테이블 \"{{name}}\" 업데이트됨.",
+    "renamedFrom": "이전 이름: {{name}}",
+    "renamedTable": "\"{{from}}\"에서 이름 변경됨"
+  },
+  "ddlWarnings": {
+    "indexes": {
+      "unsupported": "이 드라이버에서는 인덱스를 지원하지 않습니다: {{name}}",
+      "uniqueDowngraded": "이 드라이버에서 UNIQUE 인덱스가 일반 인덱스로 강등되었습니다: {{name}}",
+      "methodIgnored": "이 드라이버에서 인덱스 메서드 \"{{method}}\"이(가) 무시됩니다: {{name}}",
+      "partialUnsupported": "이 드라이버에서는 부분 인덱스 WHERE 절을 지원하지 않습니다: {{name}}"
+    },
+    "comments": {
+      "columnUnsupported": "이 드라이버에서는 컬럼 주석을 지원하지 않습니다: {{name}}",
+      "tableUnsupported": "이 드라이버에서는 테이블 주석을 지원하지 않습니다"
+    },
+    "fk": {
+      "unsupported": "이 드라이버에서는 외래 키를 지원하지 않습니다: {{name}}"
+    },
+    "check": {
+      "unsupported": "이 드라이버에서는 CHECK 제약 조건을 지원하지 않습니다: {{name}}"
+    },
+    "sqlite": {
+      "alterColumnUnsupported": "SQLite는 ALTER COLUMN type/nullable/default를 지원하지 않습니다 — 컬럼 \"{{name}}\"의 테이블 재생성이 필요합니다.",
+      "commentsUnsupported": "SQLite는 주석을 지원하지 않습니다 — 작업이 건너뛰어졌습니다.",
+      "fkInPlaceUnsupported": "SQLite는 인플레이스로 FOREIGN KEY를 ADD/DROP할 수 없습니다 — 테이블 재생성이 필요합니다.",
+      "checkInPlaceUnsupported": "SQLite는 인플레이스로 CHECK를 ADD/DROP할 수 없습니다 — 테이블 재생성이 필요합니다."
+    },
+    "duckdb": {
+      "fkInPlaceLimited": "DuckDB는 인플레이스 외래 키 변경을 제한적으로 지원합니다 — 작업이 실패할 수 있습니다."
+    },
+    "sqlserver": {
+      "defaultsManual": "SQL Server 기본값은 명명된 DEFAULT 제약 조건으로 관리됩니다 — 수동 처리가 필요합니다.",
+      "commentsManual": "SQL Server 주석은 sp_addextendedproperty를 사용합니다 — 자동으로 발행되지 않습니다."
+    },
+    "internal": {
+      "columnNotFound": "테이블 스냅샷에서 컬럼 \"{{name}}\"을(를) 찾을 수 없습니다 — 작업이 건너뛰어졌습니다."
+    },
+    "alter": {
+      "driverUnsupported": "드라이버에서 ALTER TABLE을 지원하지 않습니다: {{driver}}"
+    }
   }
 }

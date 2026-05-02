@@ -20,7 +20,7 @@ import {
   hasPendingChanges,
   isSandboxActive,
   subscribeSandbox,
-} from '@/lib/sandboxStore';
+} from '@/lib/sandbox/sandboxStore';
 import type { Environment } from '@/lib/tauri';
 import { cn } from '@/lib/utils';
 import { useLicense } from '@/providers/LicenseProvider';

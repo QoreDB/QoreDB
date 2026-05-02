@@ -26,7 +26,7 @@ import {
   removeFromHistory,
   searchHistory,
   toggleFavorite,
-} from '../../lib/history';
+} from '../../lib/query/history';
 
 interface QueryHistoryProps {
   isOpen: boolean;

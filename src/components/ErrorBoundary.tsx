@@ -3,7 +3,7 @@
 import type { ReactNode } from 'react';
 import { type FallbackProps, ErrorBoundary as ReactErrorBoundary } from 'react-error-boundary';
 import { useTranslation } from 'react-i18next';
-import { logger } from '@/lib/logger';
+import { logger } from '@/lib/diagnostics/logger';
 
 function ErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
   const { t } = useTranslation();

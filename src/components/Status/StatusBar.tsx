@@ -12,10 +12,10 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { SandboxIndicator } from '@/components/Sandbox';
-import { getDriverMetadata } from '@/lib/drivers';
+import { getDriverMetadata } from '@/lib/connection/drivers';
 import { ENVIRONMENT_CONFIG } from '@/lib/environment';
+import { useTransactionStore } from '@/lib/stores/transactionStore';
 import type { ConnectionHealth, SavedConnection } from '@/lib/tauri';
-import { useTransactionStore } from '@/lib/transactionStore';
 import { APP_VERSION } from '@/lib/version';
 
 interface StatusBarProps {

@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: BUSL-1.1
 
-import { useState, useEffect, useCallback } from 'react';
+import { ChevronDown, Clock, Download, History, RotateCcw, Trash2 } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { History, Download, Trash2, RotateCcw, ChevronDown, Clock } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Select,
   SelectContent,
@@ -12,21 +13,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Input } from '@/components/ui/input';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import type { Namespace, TimelineEvent, ChangelogEntry, RollbackSqlResponse } from '@/lib/tauri';
+import { createQueryTab } from '@/lib/tabs';
+import type { ChangelogEntry, Namespace, RollbackSqlResponse, TimelineEvent } from '@/lib/tauri';
 import {
-  getTableTimeline,
-  getRowHistory,
-  generateEntryRollbackSql,
-  getTimeTravelConfig,
   clearTableChangelog,
   exportChangelog,
+  generateEntryRollbackSql,
+  getRowHistory,
+  getTableTimeline,
+  getTimeTravelConfig,
 } from '@/lib/tauri';
-import { createQueryTab } from '@/lib/tabs';
-import { OperationBadge, PrimaryKeyDisplay, formatTimestamp } from './OperationBadge';
-import { RowHistoryPanel } from './RowHistoryPanel';
+import { cn } from '@/lib/utils';
+import { formatTimestamp, OperationBadge, PrimaryKeyDisplay } from './OperationBadge';
 import { RollbackDialog } from './RollbackDialog';
+import { RowHistoryPanel } from './RowHistoryPanel';
 
 const PAGE_SIZE = 50;
 
@@ -77,7 +77,7 @@ export function TimeTravelViewer({
           }
         );
         if (res.success) {
-          setEvents(newOffset === 0 ? res.events : (prev) => [...prev, ...res.events]);
+          setEvents(newOffset === 0 ? res.events : prev => [...prev, ...res.events]);
           setTotalCount(res.total_count);
         }
       } catch {
@@ -96,7 +96,7 @@ export function TimeTravelViewer({
 
   useEffect(() => {
     getTimeTravelConfig()
-      .then((res) => res.success && setEnabled(res.config.enabled))
+      .then(res => res.success && setEnabled(res.config.enabled))
       .catch(() => {});
   }, []);
 
@@ -116,10 +116,9 @@ export function TimeTravelViewer({
   };
 
   const handleRollbackEntry = async (entry: ChangelogEntry) => {
-    const res = await generateEntryRollbackSql(
-      entry.id,
-      driverId || entry.driver_id
-    ).catch(() => null);
+    const res = await generateEntryRollbackSql(entry.id, driverId || entry.driver_id).catch(
+      () => null
+    );
     if (res?.success) {
       setRollbackResult(res);
       setRollbackOpen(true);
@@ -208,7 +207,7 @@ export function TimeTravelViewer({
         <Input
           placeholder={t('timeTravel.filters.searchPk')}
           value={pkSearch}
-          onChange={(e) => setPkSearch(e.target.value)}
+          onChange={e => setPkSearch(e.target.value)}
           className="h-7 text-xs max-w-60"
         />
       </div>
@@ -217,7 +216,7 @@ export function TimeTravelViewer({
       <div className="flex flex-1 overflow-hidden">
         <ScrollArea className={cn('flex-1', showRowHistory && 'border-r border-border')}>
           <div className="divide-y divide-border">
-            {events.map((event) => (
+            {events.map(event => (
               <TimelineEventRow
                 key={event.entry_id}
                 event={event}

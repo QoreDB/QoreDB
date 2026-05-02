@@ -10,8 +10,12 @@ import { toast } from 'sonner';
 import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
 import { Button } from '@/components/ui/button';
 import { useTheme } from '@/hooks/useTheme';
-import { applyConfigBackupV1, buildConfigBackupV1, isConfigBackupV1 } from '@/lib/configBackup';
-import type { DiagnosticsSettings } from '@/lib/diagnosticsSettings';
+import type { DiagnosticsSettings } from '@/lib/diagnostics/diagnosticsSettings';
+import {
+  applyConfigBackupV1,
+  buildConfigBackupV1,
+  isConfigBackupV1,
+} from '@/lib/share/configBackup';
 import type { SafetyPolicy } from '@/lib/tauri';
 import { SettingsCard } from './SettingsCard';
 

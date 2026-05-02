@@ -19,6 +19,7 @@ import type { Environment } from '@/lib/tauri';
 import { executeQuery } from '@/lib/tauri';
 
 type ExecuteResponse = Awaited<ReturnType<typeof executeQuery>>;
+
 import {
   buildEvalScript,
   buildEvalSha,
@@ -246,12 +247,22 @@ export function LuaScriptModal({
             <Button variant="ghost" onClick={closeSelf} disabled={loading}>
               {t('common.close')}
             </Button>
-            <Button variant="outline" onClick={handleScriptLoad} disabled={loading} className="gap-2">
+            <Button
+              variant="outline"
+              onClick={handleScriptLoad}
+              disabled={loading}
+              className="gap-2"
+            >
               <Upload size={14} />
               {t('redisLua.scriptLoad')}
             </Button>
             {lastSha && (
-              <Button variant="outline" onClick={handleEvalSha} disabled={loading} className="gap-2">
+              <Button
+                variant="outline"
+                onClick={handleEvalSha}
+                disabled={loading}
+                className="gap-2"
+              >
                 <Play size={14} />
                 {t('redisLua.runViaSha')}
               </Button>

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useCallback, useMemo, useRef, useState } from 'react';
-import type { QoreNotebook } from '../lib/notebookTypes';
+import type { QoreNotebook } from '../lib/notebook/notebookTypes';
 
 const MAX_HISTORY = 50;
 const DEBOUNCE_MS = 500;

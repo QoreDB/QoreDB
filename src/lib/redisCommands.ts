@@ -98,10 +98,7 @@ export function buildSetZSetMember({ key, member, score }: ZSetMemberArgs): stri
   return buildCommand(['ZADD', quoteRedisArg(key), String(score), quoteRedisArg(member)]);
 }
 
-export function buildRemoveZSetMember({
-  key,
-  member,
-}: Omit<ZSetMemberArgs, 'score'>): string {
+export function buildRemoveZSetMember({ key, member }: Omit<ZSetMemberArgs, 'score'>): string {
   return buildCommand(['ZREM', quoteRedisArg(key), quoteRedisArg(member)]);
 }
 
@@ -196,8 +193,14 @@ export function detectDangerousLuaCalls(script: string): string[] {
     { token: 'FLUSHDB', regex: /redis\s*\.\s*p?call\s*\(\s*['"]FLUSHDB['"]/i },
     { token: 'SHUTDOWN', regex: /redis\s*\.\s*p?call\s*\(\s*['"]SHUTDOWN['"]/i },
     { token: 'CONFIG', regex: /redis\s*\.\s*p?call\s*\(\s*['"]CONFIG['"]/i },
-    { token: 'SCRIPT FLUSH', regex: /redis\s*\.\s*p?call\s*\(\s*['"]SCRIPT['"]\s*,\s*['"]FLUSH['"]/i },
-    { token: 'DEBUG SLEEP', regex: /redis\s*\.\s*p?call\s*\(\s*['"]DEBUG['"]\s*,\s*['"]SLEEP['"]/i },
+    {
+      token: 'SCRIPT FLUSH',
+      regex: /redis\s*\.\s*p?call\s*\(\s*['"]SCRIPT['"]\s*,\s*['"]FLUSH['"]/i,
+    },
+    {
+      token: 'DEBUG SLEEP',
+      regex: /redis\s*\.\s*p?call\s*\(\s*['"]DEBUG['"]\s*,\s*['"]SLEEP['"]/i,
+    },
   ];
   const found = new Set<string>();
   for (const { token, regex } of patterns) {

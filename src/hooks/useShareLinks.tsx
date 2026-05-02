@@ -9,24 +9,24 @@ import { ExportProgressToast } from '@/components/Export/ExportProgressToast';
 import {
   cancelExport,
   type ExportConfig,
-  exportProgressEvent,
   type ExportProgress,
   type ExportState,
+  exportProgressEvent,
   startExport,
 } from '@/lib/export';
 import { notify } from '@/lib/notify';
 import {
+  type ShareSnapshotRequest,
   shareCleanupExport,
   sharePrepareExport,
   shareSnapshot as shareSnapshotCommand,
   shareUploadPreparedExport,
-  type ShareSnapshotRequest,
-} from '@/lib/share';
+} from '@/lib/share/share';
 import {
   getShareProviderSettings,
   isShareProviderConfigured,
   toShareProviderConfig,
-} from '@/lib/shareSettings';
+} from '@/lib/share/shareSettings';
 import type { Namespace } from '@/lib/tauri';
 
 type ActiveExport = {

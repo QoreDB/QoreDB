@@ -5,8 +5,8 @@ import { Reorder } from 'framer-motion';
 import { Code, FileText } from 'lucide-react';
 import { useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import type { Driver } from '@/lib/drivers';
-import type { CellType, NotebookCell as NotebookCellType } from '@/lib/notebookTypes';
+import type { Driver } from '@/lib/connection/drivers';
+import type { CellType, NotebookCell as NotebookCellType } from '@/lib/notebook/notebookTypes';
 import type { Namespace } from '@/lib/tauri';
 import { NotebookCell } from './cells/NotebookCell';
 

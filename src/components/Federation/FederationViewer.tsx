@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Tooltip } from '@/components/ui/tooltip';
-import { Driver } from '@/lib/drivers';
+import { Driver } from '@/lib/connection/drivers';
 import {
   buildAliasMap,
   buildAliasSet,
@@ -14,8 +14,8 @@ import {
   type FederationSource,
   isFederationQuery,
   listFederationSources,
-} from '@/lib/federation';
-import type { SavedConnection, Namespace } from '@/lib/tauri';
+} from '@/lib/connection/federation';
+import type { Namespace, SavedConnection } from '@/lib/tauri';
 import { cancelQuery } from '@/lib/tauri';
 import { cn } from '@/lib/utils';
 import { getModifierKey } from '@/utils/platform';

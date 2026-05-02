@@ -17,7 +17,7 @@ import {
   setSearchOpen,
   setShowOnboarding,
   useModalStore,
-} from '@/lib/modalStore';
+} from '@/lib/stores/modalStore';
 import type { Namespace, SavedConnection, SearchFilter } from '@/lib/tauri';
 
 const CONNECTION_MODAL_EXIT_DELAY_MS = 200;

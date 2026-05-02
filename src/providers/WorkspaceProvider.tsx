@@ -4,27 +4,27 @@ import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { createContext, type ReactNode, useCallback, useContext, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { emitUiEvent, UI_EVENT_WORKSPACE_CHANGED } from '@/lib/uiEvents';
+import { emitUiEvent, UI_EVENT_WORKSPACE_CHANGED } from '@/lib/events/uiEvents';
+import { loadWorkspaceLibrary } from '@/lib/query/queryLibrary';
 import {
   setActiveWorkspace,
   setRecentWorkspaces,
   setWorkspaceLoading,
   useWorkspaceStore,
-} from '@/lib/workspaceStore';
+} from '@/lib/stores/workspaceStore';
 import {
-  type WorkspaceInfo,
-  type RecentWorkspace,
   detectWorkspace,
   getActiveWorkspace,
   getWorkspaceProjectId,
   listRecentWorkspaces,
-  switchWorkspace as tauriSwitchWorkspace,
+  type RecentWorkspace,
   switchToDefaultWorkspace,
   createWorkspace as tauriCreateWorkspace,
   openWorkspace as tauriOpenWorkspace,
+  switchWorkspace as tauriSwitchWorkspace,
+  type WorkspaceInfo,
   wsGetQueryLibrary,
 } from '@/lib/tauri';
-import { loadWorkspaceLibrary } from '@/lib/queryLibrary';
 
 const DISMISSED_WORKSPACE_KEY = 'qoredb_dismissed_workspaces';
 

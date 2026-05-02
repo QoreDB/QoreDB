@@ -29,7 +29,7 @@ import {
   listFolders,
   parseTags,
   type QueryFolder,
-} from '@/lib/queryLibrary';
+} from '@/lib/query/queryLibrary';
 
 interface SaveQueryDialogProps {
   open: boolean;

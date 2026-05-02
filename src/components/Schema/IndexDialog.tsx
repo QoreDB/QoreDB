@@ -208,7 +208,8 @@ export function IndexDialog({
 
           <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
             <div className="text-xs text-muted-foreground">
-              <span className="font-mono">{database}</span> / <span className="font-mono">{collection}</span>
+              <span className="font-mono">{database}</span> /{' '}
+              <span className="font-mono">{collection}</span>
             </div>
 
             <div className="space-y-2">

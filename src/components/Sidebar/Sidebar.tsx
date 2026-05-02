@@ -12,9 +12,9 @@ import { useTheme } from '@/hooks/useTheme';
 import {
   reconcileFavoriteConnectionIds,
   saveFavoriteConnectionIds,
-} from '@/lib/connectionFavorites';
-import { setLogsOpen, useModalStore } from '@/lib/modalStore';
-import { UI_EVENT_CONNECTIONS_CHANGED } from '@/lib/uiEvents';
+} from '@/lib/connection/connectionFavorites';
+import { UI_EVENT_CONNECTIONS_CHANGED } from '@/lib/events/uiEvents';
+import { setLogsOpen, useModalStore } from '@/lib/stores/modalStore';
 import { useLicense } from '@/providers/LicenseProvider';
 import { useWorkspace } from '@/providers/WorkspaceProvider';
 import {

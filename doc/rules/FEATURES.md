@@ -81,7 +81,7 @@ Notes:
 | ✅     | Contraintes                      | V1      |
 | ⬜     | Triggers                         | V2      |
 | ⬜     | Comments / descriptions          | V2      |
-| ⬜     | DDL preview (CREATE TABLE, etc.) | V1      |
+| ✅     | DDL preview (CREATE TABLE, etc.) | V1      |
 
 ### NoSQL
 
@@ -150,10 +150,10 @@ Note: en exécution multi-statements, seul le dernier résultat est affiché (UI
 | ✅     | Copy/paste (cell, row, selection)                     | POC     |
 | ✅     | Affichage types spéciaux (JSON, arrays, bytes, dates) | POC     |
 | ✅     | Viewer JSON (pretty / collapse)                       | POC     |
-| ⬜     | Viewer blobs (hex/base64, télécharger)                | V2      |
+| ✅     | Viewer blobs (hex/base64, image preview, télécharger) | V2      |
 | ✅     | Viewer dates (format local/UTC)                       | V1      |
 | ✅     | Column resizing + reorder                             | V1      |
-| ⬜     | Freeze columns                                        | V2      |
+| ✅     | Freeze columns                                        | V2      |
 | ✅     | Masquer/afficher colonnes                             | V1      |
 | ✅     | "NULL" distinct visuellement                          | POC     |
 | ✅     | Aperçu relationnel (peek definition FK)               | V2      |
@@ -174,7 +174,7 @@ Note: en exécution multi-statements, seul le dernier résultat est affiché (UI
 | ✅     | Insert row                                     | V1      |
 | ✅     | Update cell/row                                | V1      |
 | ✅     | Delete row(s)                                  | V1      |
-| ⬜     | Bulk edit                                      | V2      |
+| ✅     | Bulk edit (≤ 5 Core, > 5 Pro) avec preview SQL | V2      |
 | ✅     | Validation type                                | V1      |
 | ✅     | Commit / rollback                              | V1      |
 | ✅     | Mode safe update (limit, confirmations)        | V1      |
@@ -198,14 +198,14 @@ Note: en exécution multi-statements, seul le dernier résultat est affiché (UI
 
 | Status | Feature                           | Version |
 | ------ | --------------------------------- | ------- |
-| ⬜     | Create/alter table                | V1      |
+| ✅     | Create/alter table (UI visuelle)  | V1      |
 | ⬜     | Create/alter view                 | V2      |
-| ⬜     | Index management                  | V1      |
-| ⬜     | Contraintes (PK/FK)               | V1      |
-| ⬜     | Triggers & functions (PG surtout) | V2      |
+| ✅     | Index management                  | V1      |
+| ✅     | Contraintes (PK/FK/CHECK)         | V1      |
+| ✅     | Triggers & functions (PG surtout) | V2      |
 | ⬜     | Visual diff schema                | V3      |
 | ⬜     | Migrations helpers                | V3      |
-| ⬜     | DDL export / copy                 | V1      |
+| ✅     | DDL preview / copy live           | V1      |
 
 ---
 

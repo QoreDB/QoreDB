@@ -47,6 +47,7 @@ Executable documents mixing SQL/Mongo and Markdown cells, connected to a live da
 - **SQL + Mongo Editors** — Syntax highlighting, formatting, snippets, multi-statement execution
 - **Query Library** — Folders, tags, JSON import/export, reusable queries
 - **ER Diagram** — Interactive schema graph with isolate/focus workflows [Pro]
+- **Visual DDL Editor** — Create and Alter Table with live SQL preview, foreign keys, indexes, check constraints (PG, MySQL, SQLite, DuckDB, SQL Server, CockroachDB)
 - **Explain Plan Visualization** — Interactive execution plan tree with cost highlighting (PostgreSQL, MySQL, SQL Server)
 - **Visual Data Diff** — Side-by-side comparison of table/query results [Pro]
 - **Global Full-Text Search** — Search values across all tables and columns
@@ -57,6 +58,8 @@ Executable documents mixing SQL/Mongo and Markdown cells, connected to a live da
 
 - **High-Performance Data Grid** — Virtualization, server-side filtering/sorting, pagination, infinite scroll, column pinning
 - **Inline Editing** — Edit rows directly in SQL and NoSQL datasets
+- **Bulk Edit** — Multi-row column updates with live SQL preview (≤ 5 rows Core, more in Pro)
+- **Blob/Binary Viewer** — Hex / base64 / image preview (PNG, JPEG, GIF, SVG, BMP, ICO) with download and copy as data URI
 - **CSV Import** — Automatic separator/encoding detection, column mapping, preview before import
 - **Transaction Management** — Toggle autocommit, explicit Commit/Rollback, active transaction indicator
 - **Export Pipeline** — CSV, JSON, SQL, HTML, self-contained HTML (+ XLSX/Parquet in Pro)
@@ -81,7 +84,7 @@ Executable documents mixing SQL/Mongo and Markdown cells, connected to a live da
 
 ### User Experience
 
-- **Multi-Tab Workspace** — Drag-and-drop reorder, pinned tabs, persistent context
+- **Multi-Tab Workspace** — Drag-and-drop reorder, pinned tabs, optional grouping by connection, persistent context across connection switches
 - **Global Search (Cmd/Ctrl + K)** — Connections, history, commands, library items
 - **Breadcrumb Navigation** — `Connection > Database > Schema > Table` clickable path
 - **Dark / Light Theme**

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Driver } from '../../lib/drivers';
+import { Driver } from '../../lib/connection/drivers';
 import type { TableColumn, TableSchema, Value } from '../../lib/tauri';
 
 export type RowModalMode = 'insert' | 'update';

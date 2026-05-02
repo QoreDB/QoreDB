@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { DataGrid } from '@/components/Grid/DataGrid';
-import type { CellResult } from '@/lib/notebookTypes';
+import type { CellResult } from '@/lib/notebook/notebookTypes';
 import type { QueryResult } from '@/lib/tauri';
 import { CellErrorViewer } from './CellErrorViewer';
 

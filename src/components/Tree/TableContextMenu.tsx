@@ -1,12 +1,23 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Eraser, Eye, FileUp, GitCompare, Link2, Sparkles, Trash2, Wrench } from 'lucide-react';
+import {
+  Eraser,
+  Eye,
+  FileUp,
+  GitCompare,
+  Link2,
+  Pencil,
+  Sparkles,
+  Trash2,
+  Wrench,
+} from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { DangerConfirmDialog } from '@/components/Guard/DangerConfirmDialog';
 import { CSVImportDialog } from '@/components/Import/CSVImportDialog';
 import { MaintenanceDialog } from '@/components/Maintenance/MaintenanceDialog';
+import { AlterTableModal } from '@/components/Table/AlterTableModal';
 import {
   ContextMenu,
   ContextMenuContent,
@@ -15,12 +26,12 @@ import {
   ContextMenuTrigger,
 } from '@/components/ui/context-menu';
 import { VirtualRelationDialog } from '@/components/VirtualRelations/VirtualRelationDialog';
-import { buildDropTableSQL, buildTruncateTableSQL } from '@/lib/column-types';
-import { emitTableChange } from '@/lib/tableEvents';
+import { buildDropTableSQL, buildTruncateTableSQL } from '@/lib/ddl';
+import { emitTableChange } from '@/lib/events/tableEvents';
 import { removeTableVisit } from '@/lib/tableInsights';
 import { invalidateCollectionsCache, invalidateTableSchemaCache } from '../../hooks/useSchemaCache';
-import { isDocumentDatabase } from '../../lib/driverCapabilities';
-import type { Driver } from '../../lib/drivers';
+import { isDocumentDatabase } from '../../lib/connection/driverCapabilities';
+import type { Driver } from '../../lib/connection/drivers';
 import { notify } from '../../lib/notify';
 import {
   type Collection,
@@ -73,6 +84,7 @@ export function TableContextMenu({
   const [vrDialogOpen, setVrDialogOpen] = useState(false);
   const [maintenanceOpen, setMaintenanceOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [alterOpen, setAlterOpen] = useState(false);
   const [tableColumns, setTableColumns] = useState<TableColumn[]>([]);
 
   const isProduction = environment === 'production';
@@ -224,6 +236,13 @@ export function TableContextMenu({
             </ContextMenuItem>
           )}
 
+          {!isDocument && (
+            <ContextMenuItem onClick={() => setAlterOpen(true)} disabled={readOnly}>
+              <Pencil size={14} className="mr-2" />
+              {t('alterTable.menuItem')}
+            </ContextMenuItem>
+          )}
+
           <ContextMenuSeparator />
 
           <ContextMenuItem onClick={() => setMaintenanceOpen(true)}>
@@ -301,6 +320,29 @@ export function TableContextMenu({
           environment={environment}
           readOnly={readOnly}
           onSuccess={onRefresh}
+        />
+      )}
+
+      {/* Alter Table Modal */}
+      {!isDocument && (
+        <AlterTableModal
+          isOpen={alterOpen}
+          onClose={() => setAlterOpen(false)}
+          sessionId={sessionId}
+          namespace={collection.namespace}
+          driver={driver}
+          tableName={tableName}
+          onTableAltered={newName => {
+            invalidateTableSchemaCache(sessionId, collection.namespace, tableName);
+            invalidateCollectionsCache(sessionId, collection.namespace);
+            emitTableChange({
+              type: newName !== tableName ? 'rename' : 'alter',
+              namespace: collection.namespace,
+              tableName,
+              newName: newName !== tableName ? newName : undefined,
+            });
+            onRefresh();
+          }}
         />
       )}
 

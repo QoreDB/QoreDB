@@ -9,12 +9,12 @@ import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { emitUiEvent, UI_EVENT_CONNECTIONS_CHANGED } from '@/lib/events/uiEvents';
 import {
   buildProjectExportV1,
   importProjectExportV1,
   isProjectExportV1,
-} from '@/lib/projectTransfer';
-import { emitUiEvent, UI_EVENT_CONNECTIONS_CHANGED } from '@/lib/uiEvents';
+} from '@/lib/share/projectTransfer';
 import { SettingsCard } from './SettingsCard';
 
 interface ProjectTransferCardProps {

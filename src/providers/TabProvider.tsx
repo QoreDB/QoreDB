@@ -39,6 +39,7 @@ export interface TabActionsValue {
   reorderTabs: (newTabs: OpenTab[]) => void;
   togglePinTab: (tabId: string) => void;
   setBeforeCloseTab: (handler: BeforeCloseTabHandler | null) => void;
+  setCurrentConnectionId: (connectionId: string | null) => void;
   resetTabs: (options?: UseTabsOptions) => void;
 }
 
@@ -67,6 +68,7 @@ export function TabProvider({ children }: { children: ReactNode }) {
     reorderTabs,
     togglePinTab,
     setBeforeCloseTab,
+    setCurrentConnectionId,
     reset,
   } = useTabs();
 
@@ -95,6 +97,7 @@ export function TabProvider({ children }: { children: ReactNode }) {
       reorderTabs,
       togglePinTab,
       setBeforeCloseTab,
+      setCurrentConnectionId,
       resetTabs: reset,
     }),
     [
@@ -109,6 +112,7 @@ export function TabProvider({ children }: { children: ReactNode }) {
       reorderTabs,
       togglePinTab,
       setBeforeCloseTab,
+      setCurrentConnectionId,
       reset,
     ]
   );

@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { ChevronDown, ChevronRight, Database, GitBranch, Search, Table2 } from 'lucide-react';
+import { useCallback, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   getCostBarColor,
   getCostBarWidth,
   getCostColor,
-  parseExplainPlan,
   type PlanNode,
-} from '@/lib/explainPlanParser';
+  parseExplainPlan,
+} from '@/lib/query/explainPlanParser';
 import type { QueryResult } from '@/lib/tauri';
 import { cn } from '@/lib/utils';
-import { ChevronDown, ChevronRight, Database, GitBranch, Search, Table2 } from 'lucide-react';
-import { useCallback, useMemo, useState } from 'react';
-import { useTranslation } from 'react-i18next';
 
 interface ExplainPlanViewProps {
   result: QueryResult;

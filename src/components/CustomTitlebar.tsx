@@ -32,14 +32,14 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { useNotificationBadge } from '@/lib/notificationStore';
+import { toggleCheatsheet } from '@/lib/stores/modalStore';
+import { useNotificationBadge } from '@/lib/stores/notificationStore';
 import {
   setUpdateError,
   setUpdateInstalled,
   setUpdateInstalling,
   useUpdateStore,
-} from '@/lib/updateStore';
-import { toggleCheatsheet } from '@/lib/modalStore';
+} from '@/lib/stores/updateStore';
 import { cn } from '@/lib/utils';
 import { getShortcut, isMacOS, isWindowsOS } from '@/utils/platform';
 

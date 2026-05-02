@@ -13,7 +13,7 @@ import type { ConnectionFormData } from './types';
 interface UrlInputProps {
   formData: ConnectionFormData;
   onChange: (field: keyof ConnectionFormData, value: string | number | boolean) => void;
-  onParsedConfig: (config: PartialConnectionConfig) => void;
+  onParsedConfig: (config: PartialConnectionConfig, rawUrl: string) => void;
   onParseStatusChange: (isParsed: boolean) => void;
 }
 
@@ -82,7 +82,7 @@ export function UrlInput({
           setParseResult('success');
           setParsedPreview(result.config);
           lastParsedUrl.current = url;
-          onParsedConfig(result.config);
+          onParsedConfig(result.config, url);
         } else {
           setParseResult('error');
           setParseError(result.error || t('connection.url.parseError'));

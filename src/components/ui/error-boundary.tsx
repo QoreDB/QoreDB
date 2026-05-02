@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { AlertTriangle, RotateCcw } from 'lucide-react';
+import { Component, type ErrorInfo, type ReactNode } from 'react';
 
 interface ErrorBoundaryProps {
   children: ReactNode;

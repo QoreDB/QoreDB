@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { DEFAULT_PORTS, Driver } from '@/lib/connection/drivers';
+import { detectDriverFromDsn } from '@/lib/connection/dsnDetector';
 import type { PartialConnectionConfig, SavedConnection } from '@/lib/tauri';
 import { isConnectionFormValid } from './mappers';
 import { type ConnectionFormData, initialConnectionFormData } from './types';
@@ -111,10 +112,16 @@ export function useConnectionForm(options: {
    * Apply parsed URL configuration to form fields.
    * URL-derived values are applied, but existing non-empty values for name,
    * environment, readOnly, and pool settings are preserved (user overrides).
+   *
+   * `rawUrl` is the original DSN — used to detect specialized cloud drivers
+   * (Supabase, Neon) that share the `postgres://` scheme with vanilla Postgres
+   * but resolve to a specific managed provider. Detection wins over the
+   * scheme-based mapping so the connection keeps its distinct driver/icon.
    */
-  const applyParsedConfig = useCallback((config: PartialConnectionConfig) => {
+  const applyParsedConfig = useCallback((config: PartialConnectionConfig, rawUrl?: string) => {
     setFormData(prev => {
-      const driver = mapDriverString(config.driver) ?? prev.driver;
+      const detected = rawUrl ? detectDriverFromDsn(rawUrl) : null;
+      const driver = detected?.driver ?? mapDriverString(config.driver) ?? prev.driver;
       const port = config.port ?? DEFAULT_PORTS[driver];
 
       return {

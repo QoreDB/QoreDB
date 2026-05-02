@@ -137,6 +137,41 @@ export const DRIVERS: Record<Driver, DriverMetadata> = {
       tableIndexesQuery: table => `SHOW INDEX FROM \`${table}\``,
     },
   },
+    [Driver.Mariadb]: {
+    id: Driver.Mariadb,
+    label: 'MariaDB',
+    icon: 'mariadb.png',
+    defaultPort: 3306,
+    namespaceLabel: 'dbtree.database',
+    namespacePluralLabel: 'dbtree.databases',
+    collectionLabel: 'dbtree.table',
+    collectionPluralLabel: 'dbtree.tables',
+    treeRootLabel: 'dbtree.databasesHeader',
+    createAction: 'database',
+    databaseFieldLabel: 'connection.database',
+    supportsSchemas: false,
+    supportsSQL: true,
+    dataModel: 'relational',
+    isDocumentBased: false,
+    identifier: {
+      quoteStart: '`',
+      quoteEnd: '`',
+      namespaceStrategy: 'database',
+    },
+    queries: {
+      databaseSizeQuery: db =>
+        `SELECT COALESCE(SUM(IFNULL(data_length, 0) + IFNULL(index_length, 0)), 0) as size
+         FROM information_schema.tables WHERE table_schema = '${db}'`,
+      tableSizeQuery: (db, table) =>
+        `SELECT data_length + index_length as total_bytes, table_rows
+         FROM information_schema.tables
+         WHERE table_schema = '${db}' AND table_name = '${table}'`,
+      indexCountQuery: db =>
+        `SELECT COUNT(DISTINCT index_name) as cnt
+         FROM information_schema.statistics WHERE table_schema = '${db}'`,
+      tableIndexesQuery: table => `SHOW INDEX FROM \`${table}\``,
+    },
+  },
   [Driver.Mongodb]: {
     id: Driver.Mongodb,
     label: 'MongoDB',
@@ -313,41 +348,6 @@ export const DRIVERS: Record<Driver, DriverMetadata> = {
         `SELECT COUNT(*) as cnt FROM pg_indexes WHERE schemaname = '${schema}'`,
       tableIndexesQuery: table =>
         `SELECT indexname, indexdef FROM pg_indexes WHERE tablename = '${table}'`,
-    },
-  },
-  [Driver.Mariadb]: {
-    id: Driver.Mariadb,
-    label: 'MariaDB',
-    icon: 'mariadb.png',
-    defaultPort: 3306,
-    namespaceLabel: 'dbtree.database',
-    namespacePluralLabel: 'dbtree.databases',
-    collectionLabel: 'dbtree.table',
-    collectionPluralLabel: 'dbtree.tables',
-    treeRootLabel: 'dbtree.databasesHeader',
-    createAction: 'database',
-    databaseFieldLabel: 'connection.database',
-    supportsSchemas: false,
-    supportsSQL: true,
-    dataModel: 'relational',
-    isDocumentBased: false,
-    identifier: {
-      quoteStart: '`',
-      quoteEnd: '`',
-      namespaceStrategy: 'database',
-    },
-    queries: {
-      databaseSizeQuery: db =>
-        `SELECT COALESCE(SUM(IFNULL(data_length, 0) + IFNULL(index_length, 0)), 0) as size
-         FROM information_schema.tables WHERE table_schema = '${db}'`,
-      tableSizeQuery: (db, table) =>
-        `SELECT data_length + index_length as total_bytes, table_rows
-         FROM information_schema.tables
-         WHERE table_schema = '${db}' AND table_name = '${table}'`,
-      indexCountQuery: db =>
-        `SELECT COUNT(DISTINCT index_name) as cnt
-         FROM information_schema.statistics WHERE table_schema = '${db}'`,
-      tableIndexesQuery: table => `SHOW INDEX FROM \`${table}\``,
     },
   },
   [Driver.Supabase]: {

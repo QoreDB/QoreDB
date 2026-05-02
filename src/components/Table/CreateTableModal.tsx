@@ -161,7 +161,6 @@ export function CreateTableModal({
     setActiveSection('columns');
   }
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: reset only when modal opens
   useEffect(() => {
     if (!isOpen) return;
     reset();
@@ -313,7 +312,7 @@ export function CreateTableModal({
           <DialogTitle>{t('createTable.title')}</DialogTitle>
         </DialogHeader>
 
-        <div className="flex-1 overflow-auto space-y-4 py-3">
+        <div className="flex-1  space-y-4 py-3">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
               <label htmlFor="create-table-name" className="text-sm font-medium">

@@ -19,7 +19,7 @@ depends=(
     'libsoup'
     'openssl'
     'pango'
-    'webkit2gtk'
+    'webkit2gtk-4.1'
 )
 optdepends=(
     'postgresql-libs: PostgreSQL connection support'

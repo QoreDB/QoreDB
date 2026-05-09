@@ -2,14 +2,14 @@
 
 import { Filter, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Button } from '../ui/button';
-import { Label } from '../ui/label';
-import { ScrollArea } from '../ui/scroll-area';
 import {
   type AuditLogEntry,
   type Environment,
   formatExecutionTime,
 } from '../../lib/tauri/interceptor';
+import { Button } from '../ui/button';
+import { Label } from '../ui/label';
+import { ScrollArea } from '../ui/scroll-area';
 
 function getEnvironmentColor(env: Environment): string {
   switch (env) {

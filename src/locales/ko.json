@@ -201,7 +201,8 @@
     "favorites": "즐겨찾기",
     "otherConnections": "기타 연결",
     "addToFavorites": "즐겨찾기에 추가",
-    "removeFromFavorites": "즐겨찾기에서 제거"
+    "removeFromFavorites": "즐겨찾기에서 제거",
+    "auditLog": "감사 로그"
   },
   "search": {
     "placeholder": "명령어를 입력하거나 검색...",

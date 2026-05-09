@@ -225,6 +225,7 @@ impl AuditStore {
             from_date,
             to_date,
             None,
+            None,
         )
     }
 
@@ -243,6 +244,7 @@ impl AuditStore {
         from_date: Option<DateTime<Utc>>,
         to_date: Option<DateTime<Utc>>,
         fingerprint: Option<&str>,
+        blocked: Option<bool>,
     ) -> Vec<AuditLogEntry> {
         let entries = self.entries.read();
 
@@ -259,6 +261,7 @@ impl AuditStore {
                     from_date,
                     to_date,
                     fingerprint,
+                    blocked,
                 )
             })
             .skip(offset)
@@ -286,6 +289,7 @@ impl AuditStore {
         from_date: Option<DateTime<Utc>>,
         to_date: Option<DateTime<Utc>>,
         fingerprint: Option<&str>,
+        blocked: Option<bool>,
     ) -> std::io::Result<Vec<AuditLogEntry>> {
         if !self.log_path.exists() {
             return Ok(Vec::new());
@@ -314,6 +318,7 @@ impl AuditStore {
                 from_date,
                 to_date,
                 fingerprint,
+                blocked,
             ) {
                 matched.push(entry);
             }
@@ -403,7 +408,7 @@ impl AuditStore {
         from_disk: bool,
     ) -> std::io::Result<String> {
         let entries = if from_disk {
-            self.get_entries_from_disk(0, 0, None, None, None, None, None, None, None)?
+            self.get_entries_from_disk(0, 0, None, None, None, None, None, None, None, None)?
         } else {
             self.entries.read().iter().cloned().collect()
         };
@@ -421,6 +426,7 @@ fn entry_matches(
     from_date: Option<DateTime<Utc>>,
     to_date: Option<DateTime<Utc>>,
     fingerprint: Option<&str>,
+    blocked: Option<bool>,
 ) -> bool {
     if let Some(env) = environment {
         if entry.environment != env {
@@ -436,6 +442,12 @@ fn entry_matches(
 
     if let Some(want) = success {
         if entry.success != want {
+            return false;
+        }
+    }
+
+    if let Some(want) = blocked {
+        if entry.blocked != want {
             return false;
         }
     }
@@ -524,7 +536,7 @@ mod tests {
         assert!(in_memory.len() <= 3, "cache should respect max_entries");
 
         let on_disk = store
-            .get_entries_from_disk(0, 0, None, None, None, None, None, None, None)
+            .get_entries_from_disk(0, 0, None, None, None, None, None, None, None, None)
             .unwrap();
         assert!(
             on_disk.len() >= in_memory.len(),
@@ -550,7 +562,7 @@ mod tests {
             .expect("fingerprint should be populated");
 
         let matched = store
-            .get_entries_from_disk(0, 0, None, None, None, None, None, None, Some(&target_fp))
+            .get_entries_from_disk(0, 0, None, None, None, None, None, None, Some(&target_fp), None)
             .unwrap();
 
         assert_eq!(

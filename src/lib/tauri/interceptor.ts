@@ -157,6 +157,7 @@ export interface AuditFilter {
   success?: boolean;
   search?: string;
   fingerprint?: string;
+  blocked?: boolean;
 }
 
 // ============================================

@@ -201,7 +201,8 @@
     "favorites": "Favoritos",
     "otherConnections": "Otras conexiones",
     "addToFavorites": "Agregar a favoritos",
-    "removeFromFavorites": "Quitar de favoritos"
+    "removeFromFavorites": "Quitar de favoritos",
+    "auditLog": "Registro de auditoría"
   },
   "search": {
     "placeholder": "Escribe un comando o busca...",

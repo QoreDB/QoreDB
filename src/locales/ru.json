@@ -201,7 +201,8 @@
     "favorites": "Избранное",
     "otherConnections": "Другие подключения",
     "addToFavorites": "Добавить в избранное",
-    "removeFromFavorites": "Удалить из избранного"
+    "removeFromFavorites": "Удалить из избранного",
+    "auditLog": "Журнал аудита"
   },
   "search": {
     "placeholder": "Введите команду или выполните поиск…",

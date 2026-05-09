@@ -273,6 +273,7 @@ impl InterceptorPipeline {
         success: Option<bool>,
         search: Option<&str>,
         fingerprint: Option<&str>,
+        blocked: Option<bool>,
     ) -> Vec<AuditLogEntry> {
         self.audit.get_entries_filtered(
             limit,
@@ -284,6 +285,7 @@ impl InterceptorPipeline {
             None,
             None,
             fingerprint,
+            blocked,
         )
     }
 

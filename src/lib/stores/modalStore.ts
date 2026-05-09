@@ -14,6 +14,7 @@ interface ModalState {
   connectionModalOpen: boolean;
   libraryModalOpen: boolean;
   logsOpen: boolean;
+  auditLogOpen: boolean;
   settingsOpen: boolean;
   sidebarVisible: boolean;
   showOnboarding: boolean;
@@ -29,6 +30,7 @@ let state: ModalState = {
   connectionModalOpen: false,
   libraryModalOpen: false,
   logsOpen: false,
+  auditLogOpen: false,
   settingsOpen: false,
   sidebarVisible: true,
   showOnboarding: false,
@@ -95,6 +97,11 @@ export function setLibraryModalOpen(open: boolean) {
 export function setLogsOpen(open: boolean) {
   if (state.logsOpen === open) return;
   updateState({ logsOpen: open });
+}
+
+export function setAuditLogOpen(open: boolean) {
+  if (state.auditLogOpen === open) return;
+  updateState({ auditLogOpen: open });
 }
 
 export function setSettingsOpen(open: boolean) {

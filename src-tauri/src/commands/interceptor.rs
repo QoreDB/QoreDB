@@ -132,6 +132,8 @@ pub struct AuditFilter {
     pub search: Option<String>,
     /// Restrict results to entries matching this fingerprint (Pro).
     pub fingerprint: Option<String>,
+    /// `Some(true)` keeps only blocked entries; `Some(false)` excludes them.
+    pub blocked: Option<bool>,
 }
 
 /// Gets audit log entries with optional filtering
@@ -155,6 +157,7 @@ pub async fn get_audit_entries(
         filter.success,
         filter.search.as_deref(),
         filter.fingerprint.as_deref(),
+        filter.blocked,
     );
 
     #[cfg(not(feature = "pro"))]
@@ -166,6 +169,7 @@ pub async fn get_audit_entries(
         None, // No success filter in Core
         None, // No search in Core
         None, // No fingerprint filter in Core
+        None, // No blocked filter in Core
     );
 
     Ok(AuditEntriesResponse {

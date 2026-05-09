@@ -201,7 +201,8 @@
     "favorites": "お気に入り",
     "otherConnections": "その他の接続",
     "addToFavorites": "お気に入りに追加",
-    "removeFromFavorites": "お気に入りから削除"
+    "removeFromFavorites": "お気に入りから削除",
+    "auditLog": "監査ログ"
   },
   "search": {
     "placeholder": "コマンドまたは検索語を入力...",

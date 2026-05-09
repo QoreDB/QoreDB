@@ -160,14 +160,36 @@ interface StatsCardProps {
   label: string;
   value: number;
   color?: string;
+  active?: boolean;
+  onClick?: () => void;
 }
 
-function StatsCard({ label, value, color = 'text-foreground' }: StatsCardProps) {
+function StatsCard({
+  label,
+  value,
+  color = 'text-foreground',
+  active,
+  onClick,
+}: StatsCardProps) {
+  const baseClass = 'p-3 rounded-lg border text-left transition-colors';
+  const stateClass = active
+    ? 'bg-accent/10 border-accent/40 ring-1 ring-accent/30'
+    : 'bg-muted/50 border-border hover:bg-muted';
+
+  if (!onClick) {
+    return (
+      <div className={`${baseClass} bg-muted/50 border-border`}>
+        <p className="text-xs text-muted-foreground">{label}</p>
+        <p className={`text-lg font-semibold ${color}`}>{value.toLocaleString()}</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="p-3 rounded-lg bg-muted/50 border border-border">
+    <button type="button" onClick={onClick} className={`${baseClass} ${stateClass}`}>
       <p className="text-xs text-muted-foreground">{label}</p>
       <p className={`text-lg font-semibold ${color}`}>{value.toLocaleString()}</p>
-    </div>
+    </button>
   );
 }
 
@@ -225,6 +247,8 @@ export function AuditLogPanel() {
         filter.success = true;
       } else if (statusFilter === 'failed') {
         filter.success = false;
+      } else if (statusFilter === 'blocked') {
+        filter.blocked = true;
       }
 
       if (fingerprintFilter) {
@@ -250,7 +274,18 @@ export function AuditLogPanel() {
   }, [loadData]);
 
   // Reset page when filters change
-  useEffect(() => {
+  const updateSearch = useCallback((value: string) => {
+    setSearch(value);
+    setPage(0);
+  }, []);
+
+  const updateEnvironment = useCallback((value: Environment | 'all') => {
+    setEnvironmentFilter(value);
+    setPage(0);
+  }, []);
+
+  const updateStatus = useCallback((value: typeof statusFilter) => {
+    setStatusFilter(value);
     setPage(0);
   }, []);
 
@@ -317,24 +352,35 @@ export function AuditLogPanel() {
         </div>
       </div>
 
-      {/* Stats — Pro only */}
+      {/* Stats — Pro only. Click a status card to filter the list. */}
       {isAdvanced && stats && (
         <div className="grid grid-cols-5 gap-2 p-4 border-b border-border">
-          <StatsCard label={t('interceptor.audit.stats.total')} value={stats.total} />
+          <StatsCard
+            label={t('interceptor.audit.stats.total')}
+            value={stats.total}
+            active={statusFilter === 'all'}
+            onClick={() => updateStatus('all')}
+          />
           <StatsCard
             label={t('interceptor.audit.stats.success')}
             value={stats.successful}
             color="text-green-500"
+            active={statusFilter === 'success'}
+            onClick={() => updateStatus(statusFilter === 'success' ? 'all' : 'success')}
           />
           <StatsCard
             label={t('interceptor.audit.stats.failed')}
             value={stats.failed}
             color="text-red-500"
+            active={statusFilter === 'failed'}
+            onClick={() => updateStatus(statusFilter === 'failed' ? 'all' : 'failed')}
           />
           <StatsCard
             label={t('interceptor.audit.stats.blocked')}
             value={stats.blocked}
             color="text-yellow-500"
+            active={statusFilter === 'blocked'}
+            onClick={() => updateStatus(statusFilter === 'blocked' ? 'all' : 'blocked')}
           />
           <StatsCard
             label={t('interceptor.audit.stats.lastHour')}
@@ -352,14 +398,14 @@ export function AuditLogPanel() {
             <Input
               placeholder={t('search.placeholder')}
               value={search}
-              onChange={e => setSearch(e.target.value)}
+              onChange={e => updateSearch(e.target.value)}
               className="pl-9"
             />
           </div>
 
           <Select
             value={environmentFilter}
-            onValueChange={v => setEnvironmentFilter(v as Environment | 'all')}
+            onValueChange={v => updateEnvironment(v as Environment | 'all')}
           >
             <SelectTrigger className="w-40">
               <SelectValue placeholder={t('interceptor.audit.filters.environment')} />
@@ -374,7 +420,7 @@ export function AuditLogPanel() {
 
           <Select
             value={statusFilter}
-            onValueChange={v => setStatusFilter(v as typeof statusFilter)}
+            onValueChange={v => updateStatus(v as typeof statusFilter)}
           >
             <SelectTrigger className="w-32">
               <SelectValue placeholder={t('interceptor.audit.filters.status')} />

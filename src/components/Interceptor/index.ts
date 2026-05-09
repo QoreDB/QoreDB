@@ -6,6 +6,7 @@
  * UI components for the Universal Query Interceptor system
  */
 
+export { AuditLogModal } from './AuditLogModal';
 export { AuditLogPanel } from './AuditLogPanel';
 export { InterceptorSettingsPanel } from './InterceptorSettingsPanel';
 export { ProfilingPanel } from './ProfilingPanel';

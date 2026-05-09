@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
-import { Bug, Database, Plus, Search } from 'lucide-react';
+import { Database, Plus, Search } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -14,7 +14,7 @@ import {
   saveFavoriteConnectionIds,
 } from '@/lib/connection/connectionFavorites';
 import { UI_EVENT_CONNECTIONS_CHANGED } from '@/lib/events/uiEvents';
-import { setLogsOpen, useModalStore } from '@/lib/stores/modalStore';
+import { setAuditLogOpen, setLogsOpen, useModalStore } from '@/lib/stores/modalStore';
 import { useLicense } from '@/providers/LicenseProvider';
 import { useWorkspace } from '@/providers/WorkspaceProvider';
 import {
@@ -29,6 +29,7 @@ import {
   type Sequence,
   type Trigger,
 } from '../../lib/tauri';
+import { AuditLogModal } from '../Interceptor';
 import { ErrorLogPanel } from '../Logs/ErrorLogPanel';
 import { DBTree } from '../Tree/DBTree';
 import { ConnectionItem } from './ConnectionItem';
@@ -97,6 +98,7 @@ export function Sidebar({
   const { tier } = useLicense();
   const { projectId } = useWorkspace();
   const logsOpen = useModalStore(s => s.logsOpen);
+  const auditLogOpen = useModalStore(s => s.auditLogOpen);
 
   const loadConnections = useCallback(async () => {
     try {
@@ -373,7 +375,7 @@ export function Sidebar({
         </div>
       </section>
 
-      <footer className="p-3 border-t border-border space-y-1">
+      <footer className="p-3 border-t border-border">
         <Button
           className="w-full justify-start text-muted-foreground hover:text-foreground hover:bg-muted"
           variant="ghost"
@@ -382,20 +384,10 @@ export function Sidebar({
           <Plus size={16} className="mr-2" />
           {t('sidebar.newConnection')}
         </Button>
-        <Button
-          className="w-full justify-start text-muted-foreground hover:text-foreground hover:bg-muted"
-          variant="ghost"
-          onClick={() => {
-            AnalyticsService.capture('error_view_opened', { source: 'sidebar' });
-            setLogsOpen(true);
-          }}
-        >
-          <Bug size={16} className="mr-2" />
-          {t('sidebar.errorLogs')}
-        </Button>
       </footer>
 
       <ErrorLogPanel isOpen={logsOpen} onClose={() => setLogsOpen(false)} />
+      <AuditLogModal isOpen={auditLogOpen} onClose={() => setAuditLogOpen(false)} />
     </aside>
   );
 }

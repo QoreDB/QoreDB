@@ -202,7 +202,8 @@
     "favorites": "Favoris",
     "otherConnections": "Autres connexions",
     "addToFavorites": "Favoris",
-    "removeFromFavorites": "Retirer des favoris"
+    "removeFromFavorites": "Retirer des favoris",
+    "auditLog": "Journal d'audit"
   },
   "search": {
     "placeholder": "Tapez une commande ou recherchez...",

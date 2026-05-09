@@ -202,7 +202,8 @@
     "favorites": "Favorites",
     "otherConnections": "Other connections",
     "addToFavorites": "Add to favorites",
-    "removeFromFavorites": "Remove from favorites"
+    "removeFromFavorites": "Remove from favorites",
+    "auditLog": "Audit Log"
   },
   "search": {
     "placeholder": "Type a command or search...",

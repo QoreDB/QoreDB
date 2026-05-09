@@ -18,8 +18,8 @@ use sqlx::{Column, Executor, Row, TypeInfo};
 use tokio::sync::{Mutex, RwLock};
 use uuid::Uuid;
 
+use futures::StreamExt;
 use qore_core::error::{EngineError, EngineResult};
-use qore_sql::safety;
 use qore_core::traits::DataEngine;
 use qore_core::traits::{StreamEvent, StreamSender};
 use qore_core::types::{
@@ -34,7 +34,7 @@ use qore_core::types::{
     TriggerDefinition, TriggerEvent, TriggerList, TriggerListOptions, TriggerOperationResult,
     TriggerTiming, Value,
 };
-use futures::StreamExt;
+use qore_sql::safety;
 
 pub struct MySqlSession {
     pub pool: MySqlPool,
@@ -287,9 +287,7 @@ impl MysqlDecoder {
             "DECIMAL" | "NUMERIC" => Self::Decimal,
             "VARCHAR" | "CHAR" | "TEXT" | "TINYTEXT" | "MEDIUMTEXT" | "LONGTEXT" | "ENUM"
             | "SET" => Self::Text,
-            "BINARY" | "VARBINARY" | "BLOB" | "TINYBLOB" | "MEDIUMBLOB" | "LONGBLOB" => {
-                Self::Bytes
-            }
+            "BINARY" | "VARBINARY" | "BLOB" | "TINYBLOB" | "MEDIUMBLOB" | "LONGBLOB" => Self::Bytes,
             "DATE" => Self::Date,
             "TIME" => Self::Time,
             "DATETIME" => Self::DateTime,
@@ -519,7 +517,10 @@ impl DataEngine for MySqlDriver {
 
     async fn connect(&self, config: &ConnectionConfig) -> EngineResult<SessionId> {
         let max_connections = config.pool_max_connections.unwrap_or(10);
-        let min_connections = config.pool_min_connections.unwrap_or(2).min(max_connections);
+        let min_connections = config
+            .pool_min_connections
+            .unwrap_or(2)
+            .min(max_connections);
         let acquire_timeout = config.pool_acquire_timeout_secs.unwrap_or(15);
 
         let pool = Self::create_pool(
@@ -1534,9 +1535,16 @@ impl DataEngine for MySqlDriver {
                     let row = Self::convert_row_with_decoders(&mysql_row, &decoders);
                     batch.push(row);
                     row_count += 1;
-                    
+
                     if batch.len() >= 500 {
-                        if sender.send(StreamEvent::RowBatch(std::mem::replace(&mut batch, Vec::with_capacity(500)))).await.is_err() {
+                        if sender
+                            .send(StreamEvent::RowBatch(std::mem::replace(
+                                &mut batch,
+                                Vec::with_capacity(500),
+                            )))
+                            .await
+                            .is_err()
+                        {
                             break;
                         }
                     }
@@ -1549,9 +1557,9 @@ impl DataEngine for MySqlDriver {
                 }
             }
         }
-        
+
         if !batch.is_empty() {
-             let _ = sender.send(StreamEvent::RowBatch(batch)).await;
+            let _ = sender.send(StreamEvent::RowBatch(batch)).await;
         }
 
         {
@@ -1990,10 +1998,7 @@ impl DataEngine for MySqlDriver {
                             )
                         })?;
                         bind_values.push(filter.value.clone());
-                        format!(
-                            "MATCH({}) AGAINST(? IN NATURAL LANGUAGE MODE)",
-                            col_ident
-                        )
+                        format!("MATCH({}) AGAINST(? IN NATURAL LANGUAGE MODE)", col_ident)
                     }
                 };
                 where_clauses.push(clause);

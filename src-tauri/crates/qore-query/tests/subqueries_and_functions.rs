@@ -46,7 +46,10 @@ fn select_expr_with_alias_for_arbitrary_expressions() {
     let q = Query::select()
         .from("orders")
         .select_expr(col("id"))
-        .select_expr_as(qore_query::coalesce![col("discount"), col("rebate"), 0i64], "final_discount")
+        .select_expr_as(
+            qore_query::coalesce![col("discount"), col("rebate"), 0i64],
+            "final_discount",
+        )
         .build(pg())
         .unwrap();
     assert_eq!(
@@ -165,9 +168,7 @@ fn nested_subqueries_are_depth_checked() {
     let mut inner = Query::select().from("t").column("x");
     for _ in 0..(qore_query::compiler::MAX_AST_DEPTH + 10) {
         let prev = inner;
-        inner = Query::select()
-            .from_subquery(prev, "s")
-            .column("x");
+        inner = Query::select().from_subquery(prev, "s").column("x");
     }
     let err = Query::select()
         .from_subquery(inner, "outer_")
@@ -188,10 +189,7 @@ fn cast_via_column_method() {
         .select_expr_as(col("x").cast(SqlType::Int), "x_int")
         .build(pg())
         .unwrap();
-    assert_eq!(
-        q.sql,
-        r#"SELECT CAST("x" AS INT) AS "x_int" FROM "t""#
-    );
+    assert_eq!(q.sql, r#"SELECT CAST("x" AS INT) AS "x_int" FROM "t""#);
 }
 
 #[test]
@@ -274,10 +272,7 @@ fn coalesce_renders_with_all_arguments() {
         .select_expr(coalesce([col("a"), col("b"), col("c")]))
         .build(pg())
         .unwrap();
-    assert_eq!(
-        q.sql,
-        r#"SELECT COALESCE("a", "b", "c") FROM "t""#
-    );
+    assert_eq!(q.sql, r#"SELECT COALESCE("a", "b", "c") FROM "t""#);
 }
 
 #[test]
@@ -287,10 +282,7 @@ fn coalesce_mixes_columns_and_literals_via_macro() {
         .select_expr_as(qore_query::coalesce![col("discount"), 0i64], "d")
         .build(pg())
         .unwrap();
-    assert_eq!(
-        q.sql,
-        r#"SELECT COALESCE("discount", $1) AS "d" FROM "t""#
-    );
+    assert_eq!(q.sql, r#"SELECT COALESCE("discount", $1) AS "d" FROM "t""#);
     assert_eq!(q.params.len(), 1);
 }
 
@@ -355,7 +347,9 @@ fn realistic_query_with_subquery_join_cast_coalesce_and_alias() {
     // Just smoke-assert the structural pieces — the full SQL is long and
     // the snapshot-style tests above cover each piece individually.
     assert!(q.sql.contains(r#""id" AS "user_id""#));
-    assert!(q.sql.contains(r#"COALESCE("u"."nickname", "u"."email") AS "display""#));
+    assert!(q
+        .sql
+        .contains(r#"COALESCE("u"."nickname", "u"."email") AS "display""#));
     assert!(q.sql.contains("INNER JOIN"));
     assert!(q.sql.contains(r#"IN (SELECT "id" FROM "active_users")"#));
     // No bound params: `active_ids` has no literal, `big_buyers` is

@@ -267,6 +267,17 @@ Réutilise `Background Job Manager` existant pour suivi/cancel.
 
 Solde en une PR cinq findings de l'audit `SECURITY_AUDIT.md` (2026-04-05) + ajoute le query fingerprinting tracé en `v3.md` § Sécurité.
 
+**Statut (mise à jour 2026-05-09)** :
+
+| Sub-item | État | Notes |
+| --- | --- | --- |
+| 5.1 Read-only uniformity | ✅ | Couverture complète vérifiée sur `mutation`, `maintenance`, `routines`, `triggers` (incl. `toggle_trigger`, `drop_event`), `sequences`, `create_database`, `drop_database`. Tous gatent `is_read_only`. |
+| 5.2 Governance étendue | ⚠️ Partiel | `preview_table` et `query_table` clampent déjà `max_result_rows`. Restant : timeout + concurrency, et clamp pour `peek_foreign_key`. |
+| 5.3 Audit read-from-disk | ✅ | `AuditStore::get_entries_from_disk` + `export_format(from_disk)` exposés via `export_audit_log(format, from_disk)`. |
+| 5.4 Fingerprinting + JSONL/CSV | ✅ | Module `interceptor/fingerprint.rs` (SQL/Mongo/Redis, SHA-256 hex 16). Module `interceptor/export.rs` (JSON pretty / JSONL / CSV). UI : colonne hash, filtre, dropdown export. |
+| 5.5 Share HTTPS-only | ✅ | Déjà en place avant cette release (`validate_provider_config` + `validate_share_url`, exception loopback). |
+| 5.6 FS capability scope | ⏳ | Reporté en sub-task : nécessite audit chemin par chemin pour ne pas casser les exports/notebooks/blob downloads. |
+
 ### 5.1 Read-only uniformity (HIGH)
 
 **Cible** : tout `commands/*.rs` qui mute → passe par le même garde-fou que `execute_query`.

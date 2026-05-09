@@ -161,7 +161,7 @@ impl ProfilingStore {
 
         // Update percentiles periodically (every 100 queries)
         let total = self.metrics.read().total_queries;
-        if total % 100 == 0 {
+        if total.is_multiple_of(100) {
             self.update_percentiles();
         }
     }

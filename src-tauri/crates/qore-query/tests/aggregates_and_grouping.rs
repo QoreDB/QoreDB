@@ -37,10 +37,7 @@ fn count_column_renders_with_quoted_name() {
         .select_expr_as(count(col("email")), "emails")
         .build(pg())
         .unwrap();
-    assert_eq!(
-        q.sql,
-        r#"SELECT COUNT("email") AS "emails" FROM "users""#
-    );
+    assert_eq!(q.sql, r#"SELECT COUNT("email") AS "emails" FROM "users""#);
 }
 
 #[test]
@@ -116,10 +113,7 @@ fn group_by_multiple_columns_in_order() {
         .group_by("c")
         .build(pg())
         .unwrap();
-    assert_eq!(
-        q.sql,
-        r#"SELECT * FROM "t" GROUP BY "a", "b", "c""#
-    );
+    assert_eq!(q.sql, r#"SELECT * FROM "t" GROUP BY "a", "b", "c""#);
 }
 
 #[test]
@@ -197,7 +191,9 @@ fn multiple_having_calls_combine_with_and() {
         .having(sum(col("total")).ge(1000i64))
         .build(pg())
         .unwrap();
-    assert!(q.sql.contains("HAVING ((COUNT(*) > $1) AND (SUM(\"total\") >= $2))"));
+    assert!(q
+        .sql
+        .contains("HAVING ((COUNT(*) > $1) AND (SUM(\"total\") >= $2))"));
     assert_eq!(q.params.len(), 2);
 }
 

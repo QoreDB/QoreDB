@@ -63,12 +63,12 @@ impl XlsxWriter {
             Value::Bytes(b) => {
                 use base64::{engine::general_purpose::STANDARD, Engine as _};
                 worksheet
-                    .write_string(row, col, &STANDARD.encode(b))
+                    .write_string(row, col, STANDARD.encode(b))
                     .map_err(|e| e.to_string())?;
             }
             Value::Json(j) => {
                 worksheet
-                    .write_string(row, col, &j.to_string())
+                    .write_string(row, col, j.to_string())
                     .map_err(|e| e.to_string())?;
             }
             Value::Array(arr) => {

@@ -34,15 +34,11 @@ fn env_bool_opt(key: &str) -> Option<bool> {
 }
 
 fn env_u64_opt(key: &str) -> Option<u64> {
-    std::env::var(key)
-        .ok()
-        .and_then(|v| v.trim().parse().ok())
+    std::env::var(key).ok().and_then(|v| v.trim().parse().ok())
 }
 
 fn env_u32_opt(key: &str) -> Option<u32> {
-    std::env::var(key)
-        .ok()
-        .and_then(|v| v.trim().parse().ok())
+    std::env::var(key).ok().and_then(|v| v.trim().parse().ok())
 }
 
 fn config_path() -> PathBuf {

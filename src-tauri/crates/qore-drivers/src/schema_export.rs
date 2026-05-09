@@ -5,8 +5,8 @@
 //! Generates CREATE TABLE statements from TableSchema metadata,
 //! using SqlDialect for driver-specific formatting.
 
-use qore_sql::generator::SqlDialect;
 use qore_core::types::{Namespace, TableSchema};
+use qore_sql::generator::SqlDialect;
 
 /// Generates a complete CREATE TABLE DDL statement from a TableSchema,
 /// followed by CREATE INDEX statements for non-primary indexes.

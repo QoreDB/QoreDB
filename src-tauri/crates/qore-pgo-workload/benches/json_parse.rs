@@ -18,7 +18,11 @@ use std::hint::black_box;
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use serde_json::{json, Value};
 
-const SIZES: &[(usize, &str)] = &[(10 * 1024, "10kB"), (100 * 1024, "100kB"), (1024 * 1024, "1MB")];
+const SIZES: &[(usize, &str)] = &[
+    (10 * 1024, "10kB"),
+    (100 * 1024, "100kB"),
+    (1024 * 1024, "1MB"),
+];
 
 /// Build a JSONB-shaped payload of approximately `target_bytes` bytes.
 /// Shape mirrors a typical analytics row: top-level object, nested array

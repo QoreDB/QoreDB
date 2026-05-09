@@ -68,16 +68,20 @@ impl ProxyTunnel {
                 ),
             })?
             .map_err(|e| EngineError::ProxyError {
-                message: format!("Failed to connect to proxy {}:{}: {}", config.host, config.port, e),
+                message: format!(
+                    "Failed to connect to proxy {}:{}: {}",
+                    config.host, config.port, e
+                ),
             })?;
         drop(test_stream);
 
         // Bind local listener
-        let listener = TcpListener::bind("127.0.0.1:0")
-            .await
-            .map_err(|e| EngineError::ProxyError {
-                message: format!("Failed to bind local port: {}", e),
-            })?;
+        let listener =
+            TcpListener::bind("127.0.0.1:0")
+                .await
+                .map_err(|e| EngineError::ProxyError {
+                    message: format!("Failed to bind local port: {}", e),
+                })?;
 
         let local_port = listener
             .local_addr()
@@ -211,9 +215,7 @@ async fn connect_socks5(
                 )
                 .await
             }
-            _ => {
-                tokio_socks::tcp::Socks5Stream::connect(proxy_addr.as_str(), target).await
-            }
+            _ => tokio_socks::tcp::Socks5Stream::connect(proxy_addr.as_str(), target).await,
         }
     })
     .await
@@ -252,13 +254,17 @@ async fn connect_http(
         })?;
 
     // Build CONNECT request
-    let mut request = format!("CONNECT {}:{} HTTP/1.1\r\nHost: {}:{}\r\n", remote_host, remote_port, remote_host, remote_port);
+    let mut request = format!(
+        "CONNECT {}:{} HTTP/1.1\r\nHost: {}:{}\r\n",
+        remote_host, remote_port, remote_host, remote_port
+    );
 
     // Add proxy authentication if provided
     if let (Some(user), Some(pass)) = (&config.username, &config.password) {
         if !user.is_empty() {
             use base64::Engine;
-            let credentials = base64::engine::general_purpose::STANDARD.encode(format!("{}:{}", user, pass));
+            let credentials =
+                base64::engine::general_purpose::STANDARD.encode(format!("{}:{}", user, pass));
             request.push_str(&format!("Proxy-Authorization: Basic {}\r\n", credentials));
         }
     }

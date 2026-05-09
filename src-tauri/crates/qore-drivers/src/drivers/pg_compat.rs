@@ -20,11 +20,9 @@ use tokio::sync::{Mutex, RwLock};
 
 use crate::drivers::postgres_utils::{
     bind_param, build_decoders, collect_enum_type_oids, columns_and_rows,
-    convert_row_with_decoders, get_column_info, load_enum_labels, PgDecoder,
-    EnumLabelMap,
+    convert_row_with_decoders, get_column_info, load_enum_labels, EnumLabelMap, PgDecoder,
 };
 use qore_core::error::{EngineError, EngineResult};
-use qore_sql::safety;
 use qore_core::traits::{StreamEvent, StreamSender};
 use qore_core::types::{
     CancelSupport, Collection, CollectionList, CollectionListOptions, CollectionType, ColumnInfo,
@@ -34,6 +32,7 @@ use qore_core::types::{
     TableIndex, TableQueryOptions, TableSchema, Trigger, TriggerDefinition, TriggerEvent,
     TriggerList, TriggerListOptions, TriggerOperationResult, TriggerTiming, Value,
 };
+use qore_sql::safety;
 
 // =============================================================================
 // Session
@@ -231,8 +230,8 @@ pub async fn execute_in_namespace(
     let pg = get_session(sessions, session).await?;
     let start = Instant::now();
 
-    let returns_rows = safety::returns_rows(driver_id, query)
-        .unwrap_or_else(|_| safety::is_select_prefix(query));
+    let returns_rows =
+        safety::returns_rows(driver_id, query).unwrap_or_else(|_| safety::is_select_prefix(query));
 
     let mut tx_guard = pg.transaction_conn.lock().await;
 
@@ -399,8 +398,8 @@ pub async fn execute_stream_in_namespace(
 
     apply_namespace_on_conn(&mut conn, &namespace, query, false).await?;
 
-    let returns_rows = safety::returns_rows(driver_id, query)
-        .unwrap_or_else(|_| safety::is_select_prefix(query));
+    let returns_rows =
+        safety::returns_rows(driver_id, query).unwrap_or_else(|_| safety::is_select_prefix(query));
 
     if !returns_rows {
         let result =
@@ -454,9 +453,16 @@ pub async fn execute_stream_in_namespace(
                 let row = convert_row_with_decoders(&pg_row, &decoders, &enum_labels);
                 batch.push(row);
                 row_count += 1;
-                
+
                 if batch.len() >= 500 {
-                    if sender.send(StreamEvent::RowBatch(std::mem::replace(&mut batch, Vec::with_capacity(500)))).await.is_err() {
+                    if sender
+                        .send(StreamEvent::RowBatch(std::mem::replace(
+                            &mut batch,
+                            Vec::with_capacity(500),
+                        )))
+                        .await
+                        .is_err()
+                    {
                         break;
                     }
                 }
@@ -469,7 +475,7 @@ pub async fn execute_stream_in_namespace(
             }
         }
     }
-    
+
     if !batch.is_empty() {
         let _ = sender.send(StreamEvent::RowBatch(batch)).await;
     }
@@ -1329,13 +1335,15 @@ pub async fn describe_table_core(
 
     let indexes: Vec<TableIndex> = index_rows
         .into_iter()
-        .map(|(name, columns, is_unique, is_primary, index_type)| TableIndex {
-            name,
-            columns,
-            is_unique,
-            is_primary,
-            index_type,
-        })
+        .map(
+            |(name, columns, is_unique, is_primary, index_type)| TableIndex {
+                name,
+                columns,
+                is_unique,
+                is_primary,
+                index_type,
+            },
+        )
         .collect();
 
     Ok(TableSchema {
@@ -1980,10 +1988,11 @@ pub fn build_pg_connection_string(config: &ConnectionConfig, default_db: &str) -
     let db = config.database.as_deref().unwrap_or(default_db);
 
     // Use explicit ssl_mode if provided, otherwise fall back to boolean
-    let ssl_mode = config
-        .ssl_mode
-        .as_deref()
-        .unwrap_or(if config.ssl { "require" } else { "disable" });
+    let ssl_mode =
+        config
+            .ssl_mode
+            .as_deref()
+            .unwrap_or(if config.ssl { "require" } else { "disable" });
 
     let encoded_user = utf8_percent_encode(&config.username, NON_ALPHANUMERIC);
     let encoded_pass = utf8_percent_encode(&config.password, NON_ALPHANUMERIC);

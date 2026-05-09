@@ -71,11 +71,17 @@ pub async fn fetch_row_by_pk(
             }
         }
         Ok(Err(e)) => {
-            warn!("Time-travel: failed to fetch before-image for {}.{}: {}", namespace.database, table, e);
+            warn!(
+                "Time-travel: failed to fetch before-image for {}.{}: {}",
+                namespace.database, table, e
+            );
             None
         }
         Err(_) => {
-            warn!("Time-travel: before-image fetch timed out for {}.{}", namespace.database, table);
+            warn!(
+                "Time-travel: before-image fetch timed out for {}.{}",
+                namespace.database, table
+            );
             None
         }
     }
@@ -232,8 +238,7 @@ mod tests {
         let mut data = RowData {
             columns: HashMap::new(),
         };
-        data.columns
-            .insert("id".to_string(), Value::Int(42));
+        data.columns.insert("id".to_string(), Value::Int(42));
         data.columns
             .insert("name".to_string(), Value::Text("Alice".to_string()));
 

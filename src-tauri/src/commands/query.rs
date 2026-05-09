@@ -163,7 +163,7 @@ pub async fn execute_query(
             });
         }
     };
-    tracing::Span::current().record("driver", &field::display(driver.driver_id()));
+    tracing::Span::current().record("driver", field::display(driver.driver_id()));
 
     let environment = match session_manager.get_environment(session).await {
         Ok(value) => value,
@@ -369,7 +369,10 @@ pub async fn execute_query(
             return Ok(QueryResponse {
                 success: false,
                 result: None,
-                error: Some(format!("Too many concurrent queries ({}/{})", active, limit)),
+                error: Some(format!(
+                    "Too many concurrent queries ({}/{})",
+                    active, limit
+                )),
                 query_id: None,
                 truncated: None,
                 truncated_total: None,
@@ -429,11 +432,8 @@ pub async fn execute_query(
         // Use a long-lived `StreamDispatcher` so the buffer-capacity hint
         // accumulates across batches (avoids the realloc cascade in rmp_serde).
         tokio::spawn(async move {
-            let mut dispatcher = StreamDispatcher::new(
-                Some(&on_stream_cloned),
-                &window_cloned,
-                &qid_cloned,
-            );
+            let mut dispatcher =
+                StreamDispatcher::new(Some(&on_stream_cloned), &window_cloned, &qid_cloned);
             while let Some(event) = receiver.recv().await {
                 dispatcher.dispatch(event);
             }
@@ -731,7 +731,7 @@ pub async fn cancel_query(
             });
         }
     };
-    tracing::Span::current().record("driver", &field::display(driver.driver_id()));
+    tracing::Span::current().record("driver", field::display(driver.driver_id()));
 
     let query_id = if let Some(raw) = query_id {
         let parsed = Uuid::parse_str(&raw).map_err(|e| format!("Invalid query ID: {}", e))?;
@@ -1303,7 +1303,7 @@ pub async fn peek_foreign_key(
         Arc::clone(&state.session_manager)
     };
     let session = parse_session_id(&session_id)?;
-    let limit = limit.unwrap_or(3).max(1).min(25);
+    let limit = limit.unwrap_or(3).clamp(1, 25);
 
     if foreign_key.referenced_table.trim().is_empty()
         || foreign_key.referenced_column.trim().is_empty()
@@ -1473,7 +1473,7 @@ pub async fn create_database(
         None
     };
 
-    let engine_options = options.map(|v| crate::engine::types::Value::Json(v));
+    let engine_options = options.map(crate::engine::types::Value::Json);
 
     let start_time = std::time::Instant::now();
     match driver.create_database(session, &name, engine_options).await {

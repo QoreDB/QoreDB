@@ -357,7 +357,7 @@ fn flatten_mongo_documents(result: QueryResult) -> QueryResult {
                 .iter()
                 .map(|key| {
                     map.and_then(|m| m.get(key))
-                        .map(|v| json_value_to_engine_value(v))
+                        .map(json_value_to_engine_value)
                         .unwrap_or(Value::Null)
                 })
                 .collect();

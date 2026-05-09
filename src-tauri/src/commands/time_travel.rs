@@ -138,7 +138,7 @@ pub mod pro {
     use crate::engine::types::Namespace;
     use crate::time_travel::rollback::generate_rollback_statements;
     use crate::time_travel::types::{
-        ChangelogEntry, ChangelogFilter, TemporalDiff, TimelineEvent, TimeTravelConfig,
+        ChangelogEntry, ChangelogFilter, TemporalDiff, TimeTravelConfig, TimelineEvent,
     };
 
     // ─── Response types ────────────────────────────────────────────────
@@ -327,8 +327,7 @@ pub mod pro {
             .map_err(|e| format!("Invalid timestamp: {}", e))?
             .with_timezone(&chrono::Utc);
 
-        let row_state =
-            changelog_store.get_row_state_at(&namespace, &table_name, &primary_key, ts);
+        let row_state = changelog_store.get_row_state_at(&namespace, &table_name, &primary_key, ts);
         let exists = row_state.is_some();
 
         Ok(RowStateResponse {

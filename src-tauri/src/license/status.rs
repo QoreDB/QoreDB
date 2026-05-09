@@ -3,9 +3,10 @@
 use serde::{Deserialize, Serialize};
 
 /// License tier determines which features are available.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum LicenseTier {
+    #[default]
     Core,
     Pro,
     Team,
@@ -25,12 +26,6 @@ impl LicenseTier {
             LicenseTier::Team => 2,
             LicenseTier::Enterprise => 3,
         }
-    }
-}
-
-impl Default for LicenseTier {
-    fn default() -> Self {
-        LicenseTier::Core
     }
 }
 

@@ -263,6 +263,7 @@ impl InterceptorPipeline {
     // ==================== Audit API ====================
 
     /// Get audit log entries
+    #[allow(clippy::too_many_arguments)]
     pub fn get_audit_entries(
         &self,
         limit: usize,
@@ -271,8 +272,9 @@ impl InterceptorPipeline {
         operation: Option<QueryOperationType>,
         success: Option<bool>,
         search: Option<&str>,
+        fingerprint: Option<&str>,
     ) -> Vec<AuditLogEntry> {
-        self.audit.get_entries(
+        self.audit.get_entries_filtered(
             limit,
             offset,
             environment,
@@ -281,6 +283,7 @@ impl InterceptorPipeline {
             search,
             None,
             None,
+            fingerprint,
         )
     }
 
@@ -294,9 +297,22 @@ impl InterceptorPipeline {
         self.audit.clear();
     }
 
-    /// Export audit log
+    /// Export audit log (legacy in-memory pretty JSON).
     pub fn export_audit(&self) -> String {
         self.audit.export()
+    }
+
+    /// Export audit log in the requested format. When `from_disk` is `true`,
+    /// the full retained history is loaded from the rotated JSONL file rather
+    /// than the in-memory cache.
+    pub fn export_audit_format(
+        &self,
+        format: super::AuditExportFormat,
+        from_disk: bool,
+    ) -> Result<String, String> {
+        self.audit
+            .export_format(format, from_disk)
+            .map_err(|e| format!("Failed to read audit log: {}", e))
     }
 
     // ==================== Profiling API ====================

@@ -33,7 +33,6 @@ use async_trait::async_trait;
 use tokio::sync::RwLock;
 
 use qore_core::error::{EngineError, EngineResult};
-use qore_sql::safety;
 use qore_core::traits::{DataEngine, StreamEvent, StreamSender};
 use qore_core::types::{
     CancelSupport, Collection, CollectionList, CollectionListOptions, CollectionType, ColumnInfo,
@@ -42,6 +41,7 @@ use qore_core::types::{
     Namespace, PaginatedQueryResult, QueryId, QueryResult, Row as QRow, RowData, SessionId,
     SortDirection, TableColumn, TableIndex, TableQueryOptions, TableSchema, Value,
 };
+use qore_sql::safety;
 
 // ==================== Session & Driver ====================
 
@@ -801,7 +801,13 @@ impl DataEngine for DuckDbDriver {
             for row in rows {
                 batch.push(row);
                 if batch.len() >= 500 {
-                    if sender.blocking_send(StreamEvent::RowBatch(std::mem::replace(&mut batch, Vec::with_capacity(500)))).is_err() {
+                    if sender
+                        .blocking_send(StreamEvent::RowBatch(std::mem::replace(
+                            &mut batch,
+                            Vec::with_capacity(500),
+                        )))
+                        .is_err()
+                    {
                         return Ok(()); // Receiver dropped, stop streaming
                     }
                 }

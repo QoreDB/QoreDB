@@ -40,6 +40,12 @@ impl OpenAiProvider {
     }
 }
 
+impl Default for OpenAiProvider {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[async_trait]
 impl AIProvider for OpenAiProvider {
     fn provider_id(&self) -> &'static str {
@@ -147,6 +153,12 @@ impl AnthropicProvider {
         Self {
             client: Client::new(),
         }
+    }
+}
+
+impl Default for AnthropicProvider {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -275,6 +287,12 @@ impl OllamaProvider {
     }
 }
 
+impl Default for OllamaProvider {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[async_trait]
 impl AIProvider for OllamaProvider {
     fn provider_id(&self) -> &'static str {
@@ -382,6 +400,12 @@ impl MistralAiProvider {
     }
 }
 
+impl Default for MistralAiProvider {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[async_trait]
 impl AIProvider for MistralAiProvider {
     fn provider_id(&self) -> &'static str {
@@ -423,6 +447,12 @@ impl GoogleGeminiProvider {
         Self {
             client: Client::new(),
         }
+    }
+}
+
+impl Default for GoogleGeminiProvider {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -537,6 +567,12 @@ impl DeepSeekProvider {
         Self {
             client: Client::new(),
         }
+    }
+}
+
+impl Default for DeepSeekProvider {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

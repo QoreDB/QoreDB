@@ -88,7 +88,10 @@ export interface AuditLogEntry {
   blocked: boolean;
   safety_rule?: string;
   driver_id: string;
+  fingerprint?: string;
 }
+
+export type AuditExportFormat = 'json' | 'jsonl' | 'csv';
 
 export interface AuditStats {
   total: number;
@@ -153,6 +156,7 @@ export interface AuditFilter {
   operation?: QueryOperationType;
   success?: boolean;
   search?: string;
+  fingerprint?: string;
 }
 
 // ============================================
@@ -271,10 +275,20 @@ export async function clearAuditLog(): Promise<void> {
 }
 
 /**
- * Export audit log as JSON string
+ * Export audit log in the requested format.
+ *
+ * `fromDisk = true` reads the full retained history from the rotated JSONL
+ * file rather than the in-memory cache — needed when the user wants a
+ * faithful audit trail beyond the current cache window.
  */
-export async function exportAuditLog(): Promise<string> {
-  const result = await invoke<ExportResponse>('export_audit_log');
+export async function exportAuditLog(
+  format: AuditExportFormat = 'json',
+  fromDisk = false
+): Promise<string> {
+  const result = await invoke<ExportResponse>('export_audit_log', {
+    format,
+    fromDisk,
+  });
   if (!result.success || !result.data) {
     throw new Error(result.error || 'Failed to export audit log');
   }

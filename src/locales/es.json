@@ -1397,7 +1397,9 @@
         "executionTime": "Tiempo de ejecución",
         "rowCount": "Cantidad de filas",
         "blockedBy": "Bloqueada por regla de seguridad",
-        "error": "Error"
+        "error": "Error",
+        "fingerprint": "Huella",
+        "filterByFingerprint": "Filtrar por esta huella"
       },
       "stats": {
         "total": "Total de consultas",
@@ -1406,6 +1408,12 @@
         "success": "Exitosas",
         "failed": "Fallidas",
         "lastHour": "Última hora"
+      },
+      "fingerprintFilter": "Huella",
+      "export": {
+        "label": "Exportar",
+        "format": "Formato",
+        "fromDisk": "Incluir historial rotado"
       }
     },
     "profiling": {

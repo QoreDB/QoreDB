@@ -1396,7 +1396,9 @@
         "executionTime": "执行时间",
         "rowCount": "行数",
         "blockedBy": "被安全规则阻止",
-        "error": "错误"
+        "error": "错误",
+        "fingerprint": "指纹",
+        "filterByFingerprint": "按此指纹过滤"
       },
       "stats": {
         "total": "总查询数",
@@ -1405,6 +1407,12 @@
         "success": "成功",
         "failed": "失败",
         "lastHour": "最近一小时"
+      },
+      "fingerprintFilter": "指纹",
+      "export": {
+        "label": "导出",
+        "format": "格式",
+        "fromDisk": "包含轮转历史"
       }
     },
     "profiling": {

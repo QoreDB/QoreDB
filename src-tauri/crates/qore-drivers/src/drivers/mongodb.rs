@@ -8,7 +8,6 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Instant;
 
-use qore_core::types::RowData as QRowData;
 use async_trait::async_trait;
 use futures::future::{AbortHandle, Abortable};
 use mongodb::bson::{doc, Bson, Document};
@@ -17,6 +16,7 @@ use mongodb::options::{
     ReturnDocument, UpdateManyModel, UpdateOneModel, WriteModel,
 };
 use mongodb::{Client, ClientSession, IndexModel};
+use qore_core::types::RowData as QRowData;
 use tokio::sync::{Mutex, RwLock};
 
 use crate::mongo_pipeline::validate_pipeline;
@@ -250,8 +250,10 @@ impl MongoDriver {
     fn hello_supports_transactions(hello: &Document) -> bool {
         let has_set_name = matches!(hello.get("setName"), Some(Bson::String(_)));
         let is_mongos = matches!(hello.get("msg"), Some(Bson::String(msg)) if msg == "isdbgrid");
-        let has_sessions =
-            !matches!(hello.get("logicalSessionTimeoutMinutes"), Some(Bson::Null) | None);
+        let has_sessions = !matches!(
+            hello.get("logicalSessionTimeoutMinutes"),
+            Some(Bson::Null) | None
+        );
 
         (has_set_name || is_mongos) && has_sessions
     }
@@ -583,7 +585,14 @@ impl DataEngine for MongoDriver {
                         batch.push(row);
                         row_count += 1;
                         if batch.len() >= 500 {
-                            if sender.send(StreamEvent::RowBatch(std::mem::replace(&mut batch, Vec::with_capacity(500)))).await.is_err() {
+                            if sender
+                                .send(StreamEvent::RowBatch(std::mem::replace(
+                                    &mut batch,
+                                    Vec::with_capacity(500),
+                                )))
+                                .await
+                                .is_err()
+                            {
                                 break;
                             }
                         }
@@ -621,7 +630,14 @@ impl DataEngine for MongoDriver {
                     batch.push(row);
                     row_count += 1;
                     if batch.len() >= 500 {
-                        if sender.send(StreamEvent::RowBatch(std::mem::replace(&mut batch, Vec::with_capacity(500)))).await.is_err() {
+                        if sender
+                            .send(StreamEvent::RowBatch(std::mem::replace(
+                                &mut batch,
+                                Vec::with_capacity(500),
+                            )))
+                            .await
+                            .is_err()
+                        {
                             break;
                         }
                     }
@@ -1815,8 +1831,11 @@ impl DataEngine for MongoDriver {
                     .as_ref()
                     .and_then(|o| o.name.clone())
                     .unwrap_or_else(|| "unknown".to_string());
-                let columns: Vec<String> =
-                    index_model.keys.iter().map(|(k, _)| k.to_string()).collect();
+                let columns: Vec<String> = index_model
+                    .keys
+                    .iter()
+                    .map(|(k, _)| k.to_string())
+                    .collect();
                 let is_unique = index_model
                     .options
                     .as_ref()
@@ -1925,8 +1944,11 @@ impl DataEngine for MongoDriver {
                 .as_ref()
                 .and_then(|o| o.name.clone())
                 .unwrap_or_else(|| "unknown".to_string());
-            let columns: Vec<String> =
-                index_model.keys.iter().map(|(k, _)| k.to_string()).collect();
+            let columns: Vec<String> = index_model
+                .keys
+                .iter()
+                .map(|(k, _)| k.to_string())
+                .collect();
             let is_unique = index_model
                 .options
                 .as_ref()

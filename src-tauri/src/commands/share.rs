@@ -134,11 +134,14 @@ pub async fn share_snapshot(
         .clone()
         .unwrap_or_else(|| snapshot.meta.name.clone());
     let extension = extension_for_format(&request.format);
-    let (output_path, prepared_file_name) = share_manager.create_temp_file_path(&file_name, extension)?;
+    let (output_path, prepared_file_name) =
+        share_manager.create_temp_file_path(&file_name, extension)?;
 
     let resolved_table_name = request.table_name.clone().or_else(|| {
-        if matches!(request.format, crate::export::types::ExportFormat::SqlInsert)
-            && snapshot.meta.source_type == "table"
+        if matches!(
+            request.format,
+            crate::export::types::ExportFormat::SqlInsert
+        ) && snapshot.meta.source_type == "table"
         {
             Some(snapshot.meta.source.clone())
         } else {

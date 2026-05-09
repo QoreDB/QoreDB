@@ -65,7 +65,7 @@ pub struct ImportResponse {
 
 /// Detects the most likely delimiter by checking consistency across sample lines.
 fn detect_delimiter(sample: &str) -> u8 {
-    let candidates: &[u8] = &[b',', b';', b'\t', b'|'];
+    let candidates: &[u8] = b",;\t|";
     let lines: Vec<&str> = sample.lines().take(10).collect();
 
     if lines.is_empty() {
@@ -383,11 +383,7 @@ pub async fn import_csv(
     }
 
     let null_string = config.null_string.unwrap_or_default();
-    let abort_on_error = config
-        .on_conflict
-        .as_deref()
-        .unwrap_or("skip")
-        != "skip";
+    let abort_on_error = config.on_conflict.as_deref().unwrap_or("skip") != "skip";
 
     let start_time = std::time::Instant::now();
     let mut imported_rows: u64 = 0;
@@ -395,9 +391,7 @@ pub async fn import_csv(
     let mut errors: Vec<String> = Vec::new();
 
     // Get table schema to know column names if no mapping provided
-    let table_columns: Vec<String> = match driver
-        .describe_table(session, &namespace, &table)
-        .await
+    let table_columns: Vec<String> = match driver.describe_table(session, &namespace, &table).await
     {
         Ok(schema) => schema.columns.iter().map(|c| c.name.clone()).collect(),
         Err(e) => {

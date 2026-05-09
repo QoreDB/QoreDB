@@ -168,6 +168,7 @@ keyring = { version = "3", features = [
 ] }
 argon2 = "0.5"
 rand = "0.8"
+sha2 = "0.10"
 
 # License verification
 ed25519-dalek = { version = "2", features = ["serde"] }

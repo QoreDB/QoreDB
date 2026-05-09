@@ -1397,7 +1397,9 @@
         "executionTime": "Tempo de Execução",
         "rowCount": "Contagem de Linhas",
         "blockedBy": "Bloqueado por Regra de Segurança",
-        "error": "Erro"
+        "error": "Erro",
+        "fingerprint": "Impressão",
+        "filterByFingerprint": "Filtrar por esta impressão"
       },
       "stats": {
         "total": "Total de consultas",
@@ -1406,6 +1408,12 @@
         "success": "Bem-sucedidas",
         "failed": "Com falha",
         "lastHour": "Última hora"
+      },
+      "fingerprintFilter": "Impressão",
+      "export": {
+        "label": "Exportar",
+        "format": "Formato",
+        "fromDisk": "Incluir histórico rotacionado"
       }
     },
     "profiling": {

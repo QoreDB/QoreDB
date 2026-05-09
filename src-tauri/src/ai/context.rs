@@ -326,6 +326,7 @@ mod tests {
                 columns: vec!["email".to_string()],
                 is_unique: true,
                 is_primary: false,
+                index_type: None,
             }],
         };
 

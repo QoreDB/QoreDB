@@ -73,7 +73,7 @@ pub struct SearchProgressEvent {
 }
 
 /// Options for full-text search
-#[derive(Debug, Clone, serde::Deserialize)]
+#[derive(Debug, Clone, Default, serde::Deserialize)]
 pub struct FulltextSearchOptions {
     pub max_results_per_table: Option<u32>,
     pub max_total_results: Option<u32>,
@@ -660,20 +660,5 @@ fn error_response(error: &str, time_ms: f64) -> FulltextSearchResponse {
             timeout_count: 0,
             error_count: 0,
         },
-    }
-}
-
-impl Default for FulltextSearchOptions {
-    fn default() -> Self {
-        Self {
-            max_results_per_table: None,
-            max_total_results: None,
-            case_sensitive: None,
-            namespaces: None,
-            tables: None,
-            timeout_per_table_ms: None,
-            max_parallel: None,
-            stream_results: None,
-        }
     }
 }

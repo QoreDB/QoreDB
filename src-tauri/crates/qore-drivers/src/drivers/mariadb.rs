@@ -17,11 +17,10 @@ use qore_core::types::{
     CancelSupport, CollectionList, CollectionListOptions, ConnectionConfig, CreationOptions,
     DriverCapabilities, EventDefinition, EventList, EventListOptions, EventOperationResult,
     ForeignKey, MaintenanceOperationInfo, MaintenanceRequest, MaintenanceResult, Namespace,
-    PaginatedQueryResult, QueryId, QueryResult, RoutineDefinition, RoutineList,
-    RoutineListOptions, RoutineOperationResult, RoutineType, RowData, Sequence,
-    SequenceDefinition, SequenceList, SequenceListOptions, SequenceOperationResult, SessionId,
-    TableQueryOptions, TableSchema, TriggerDefinition, TriggerList, TriggerListOptions,
-    TriggerOperationResult, Value,
+    PaginatedQueryResult, QueryId, QueryResult, RoutineDefinition, RoutineList, RoutineListOptions,
+    RoutineOperationResult, RoutineType, RowData, Sequence, SequenceDefinition, SequenceList,
+    SequenceListOptions, SequenceOperationResult, SessionId, TableQueryOptions, TableSchema,
+    TriggerDefinition, TriggerList, TriggerListOptions, TriggerOperationResult, Value,
 };
 
 use super::mysql::MySqlDriver;
@@ -108,7 +107,9 @@ impl DataEngine for MariaDbDriver {
         namespace: &Namespace,
         options: CollectionListOptions,
     ) -> EngineResult<CollectionList> {
-        self.inner.list_collections(session, namespace, options).await
+        self.inner
+            .list_collections(session, namespace, options)
+            .await
     }
 
     // ==================== Routines ====================
@@ -222,9 +223,7 @@ impl DataEngine for MariaDbDriver {
         namespace: &Namespace,
         event_name: &str,
     ) -> EngineResult<EventOperationResult> {
-        self.inner
-            .drop_event(session, namespace, event_name)
-            .await
+        self.inner.drop_event(session, namespace, event_name).await
     }
 
     // ==================== Sequences (MariaDB 10.3+) ====================
@@ -344,10 +343,7 @@ impl DataEngine for MariaDbDriver {
         let pool = &mysql_session.pool;
 
         // USE the correct database before SHOW CREATE
-        let use_sql = format!(
-            "USE `{}`",
-            namespace.database.replace('`', "``")
-        );
+        let use_sql = format!("USE `{}`", namespace.database.replace('`', "``"));
         sqlx::query(&use_sql)
             .execute(pool)
             .await

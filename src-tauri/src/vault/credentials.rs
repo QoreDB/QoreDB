@@ -214,10 +214,7 @@ impl SavedConnection {
                     host: proxy_info.host.clone(),
                     port: proxy_info.port,
                     username: proxy_info.username.clone(),
-                    password: creds
-                        .proxy_password
-                        .as_ref()
-                        .map(|s| s.expose().clone()),
+                    password: creds.proxy_password.as_ref().map(|s| s.expose().clone()),
                     connect_timeout_secs: proxy_info.connect_timeout_secs,
                 })
             }
@@ -409,8 +406,7 @@ mod tests {
             "host":"localhost","port":1433,"username":"sa","database":null,
             "ssl":false,"ssh_tunnel":null,"project_id":"proj"
         }"#;
-        let parsed: SavedConnection =
-            serde_json::from_str(legacy).expect("legacy json must parse");
+        let parsed: SavedConnection = serde_json::from_str(legacy).expect("legacy json must parse");
         assert!(parsed.mssql_auth.is_none());
     }
 }

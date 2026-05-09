@@ -30,7 +30,6 @@ use sqlx::{Column, Row, TypeInfo};
 use tokio::sync::{Mutex, RwLock};
 
 use qore_core::error::{EngineError, EngineResult};
-use qore_sql::safety;
 use qore_core::traits::{DataEngine, StreamEvent, StreamSender};
 use qore_core::types::{
     CancelSupport, Collection, CollectionList, CollectionListOptions, CollectionType, ColumnInfo,
@@ -40,6 +39,7 @@ use qore_core::types::{
     SortDirection, TableColumn, TableIndex, TableQueryOptions, TableSchema, Trigger, TriggerEvent,
     TriggerList, TriggerListOptions, TriggerOperationResult, TriggerTiming, Value,
 };
+use qore_sql::safety;
 
 /// Holds the connection state for a SQLite session.
 pub struct SqliteSession {
@@ -251,9 +251,7 @@ impl SqliteDecoder {
         match name {
             "INTEGER" | "INT" | "BIGINT" | "SMALLINT" | "TINYINT" | "MEDIUMINT" | "INT2"
             | "INT4" | "INT8" | "UNSIGNED BIG INT" => Self::Int,
-            "REAL" | "DOUBLE" | "DOUBLE PRECISION" | "FLOAT" | "NUMERIC" | "DECIMAL" => {
-                Self::Float
-            }
+            "REAL" | "DOUBLE" | "DOUBLE PRECISION" | "FLOAT" | "NUMERIC" | "DECIMAL" => Self::Float,
             "BOOLEAN" | "BOOL" => Self::Bool,
             "TEXT" | "CLOB" | "VARCHAR" | "CHARACTER" | "CHAR" | "NCHAR" | "NVARCHAR"
             | "VARYING CHARACTER" | "NATIVE CHARACTER" => Self::Text,
@@ -593,9 +591,8 @@ impl DataEngine for SqliteDriver {
             sqlx::query(&sql).execute(&sqlite_session.pool).await
         };
 
-        result.map_err(|e| {
-            EngineError::execution_error(format!("Failed to drop trigger: {}", e))
-        })?;
+        result
+            .map_err(|e| EngineError::execution_error(format!("Failed to drop trigger: {}", e)))?;
 
         let execution_time_ms = start.elapsed().as_micros() as f64 / 1000.0;
 
@@ -694,7 +691,14 @@ impl DataEngine for SqliteDriver {
                     row_count += 1;
 
                     if batch.len() >= 500 {
-                        if sender.send(StreamEvent::RowBatch(std::mem::replace(&mut batch, Vec::with_capacity(500)))).await.is_err() {
+                        if sender
+                            .send(StreamEvent::RowBatch(std::mem::replace(
+                                &mut batch,
+                                Vec::with_capacity(500),
+                            )))
+                            .await
+                            .is_err()
+                        {
                             break;
                         }
                     }
@@ -709,7 +713,7 @@ impl DataEngine for SqliteDriver {
         }
 
         if !batch.is_empty() {
-             let _ = sender.send(StreamEvent::RowBatch(batch)).await;
+            let _ = sender.send(StreamEvent::RowBatch(batch)).await;
         }
 
         if stream_error.is_none() {

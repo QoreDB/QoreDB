@@ -19,8 +19,7 @@ impl SnapshotStore {
 
     /// Validate that a snapshot ID is a legitimate UUID (prevents path traversal).
     fn validate_snapshot_id(snapshot_id: &str) -> Result<(), String> {
-        uuid::Uuid::parse_str(snapshot_id)
-            .map_err(|_| "Invalid snapshot ID".to_string())?;
+        uuid::Uuid::parse_str(snapshot_id).map_err(|_| "Invalid snapshot ID".to_string())?;
         Ok(())
     }
 
@@ -205,11 +204,7 @@ mod tests {
         let store = SnapshotStore::new(PathBuf::from("/tmp/qoredb_test_snapshots"));
         assert!(store.get("../../../etc/passwd").is_err());
         assert!(store.delete("../../../etc/passwd").is_err());
-        assert!(
-            store
-                .rename("../../../etc/passwd", "evil".into())
-                .is_err()
-        );
+        assert!(store.rename("../../../etc/passwd", "evil".into()).is_err());
     }
 
     #[test]

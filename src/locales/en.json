@@ -1389,6 +1389,12 @@
       "noEntries": "No audit log entries",
       "upgradeForFilters": "Upgrade to Pro for filters, export, and advanced statistics",
       "blockedBy": "Blocked by: {{rule}}",
+      "fingerprintFilter": "Fingerprint",
+      "export": {
+        "label": "Export",
+        "format": "Format",
+        "fromDisk": "Include rotated history"
+      },
       "filters": {
         "environment": "Environment",
         "allEnvironments": "All Environments",
@@ -1415,6 +1421,8 @@
         "database": "Database",
         "executionTime": "Execution Time",
         "rowCount": "Row Count",
+        "fingerprint": "Fingerprint",
+        "filterByFingerprint": "Filter by this fingerprint",
         "blockedBy": "Blocked by Safety Rule",
         "error": "Error"
       },

@@ -9,7 +9,7 @@ use std::sync::Arc;
 use tauri::State;
 
 use crate::interceptor::{
-    AuditLogEntry, AuditStats, Environment, InterceptorConfig, ProfilingMetrics,
+    AuditExportFormat, AuditLogEntry, AuditStats, Environment, InterceptorConfig, ProfilingMetrics,
     QueryOperationType, SafetyRule, SlowQueryEntry,
 };
 
@@ -130,6 +130,8 @@ pub struct AuditFilter {
     pub operation: Option<QueryOperationType>,
     pub success: Option<bool>,
     pub search: Option<String>,
+    /// Restrict results to entries matching this fingerprint (Pro).
+    pub fingerprint: Option<String>,
 }
 
 /// Gets audit log entries with optional filtering
@@ -152,6 +154,7 @@ pub async fn get_audit_entries(
         filter.operation,
         filter.success,
         filter.search.as_deref(),
+        filter.fingerprint.as_deref(),
     );
 
     #[cfg(not(feature = "pro"))]
@@ -162,6 +165,7 @@ pub async fn get_audit_entries(
         None, // No operation filter in Core
         None, // No success filter in Core
         None, // No search in Core
+        None, // No fingerprint filter in Core
     );
 
     Ok(AuditEntriesResponse {
@@ -208,30 +212,47 @@ pub async fn clear_audit_log(
     })
 }
 
-/// Exports the audit log as JSON (Pro only)
+/// Exports the audit log (Pro only).
+///
+/// `format` selects the serialization (`json`, `jsonl`, `csv`). When
+/// `from_disk` is `true`, the entire retained history is read from the rotated
+/// JSONL file rather than just the in-memory cache — useful when retention
+/// exceeds the cache size.
 #[cfg(feature = "pro")]
 #[tauri::command]
 pub async fn export_audit_log(
     state: State<'_, crate::SharedState>,
+    format: Option<AuditExportFormat>,
+    from_disk: Option<bool>,
 ) -> Result<ExportResponse, String> {
     let interceptor = {
         let state = state.lock().await;
         Arc::clone(&state.interceptor)
     };
 
-    let data = interceptor.export_audit();
+    let format = format.unwrap_or_default();
+    let from_disk = from_disk.unwrap_or(false);
 
-    Ok(ExportResponse {
-        success: true,
-        data: Some(data),
-        error: None,
-    })
+    match interceptor.export_audit_format(format, from_disk) {
+        Ok(data) => Ok(ExportResponse {
+            success: true,
+            data: Some(data),
+            error: None,
+        }),
+        Err(e) => Ok(ExportResponse {
+            success: false,
+            data: None,
+            error: Some(e),
+        }),
+    }
 }
 
 #[cfg(not(feature = "pro"))]
 #[tauri::command]
 pub async fn export_audit_log(
     _state: State<'_, crate::SharedState>,
+    _format: Option<AuditExportFormat>,
+    _from_disk: Option<bool>,
 ) -> Result<ExportResponse, String> {
     Ok(ExportResponse {
         success: false,

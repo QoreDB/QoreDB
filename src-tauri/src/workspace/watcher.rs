@@ -75,9 +75,7 @@ fn is_relevant_event(kind: &EventKind) -> bool {
 
 /// Check if a path is a JSON file (our workspace data format).
 fn is_json_file(path: &Path) -> bool {
-    path.extension()
-        .and_then(|e| e.to_str())
-        .map_or(false, |ext| ext == "json")
+    path.extension().and_then(|e| e.to_str()) == Some("json")
 }
 
 /// Start the workspace file watcher background task.
@@ -218,7 +216,10 @@ mod tests {
     fn classify_connections() {
         let root = PathBuf::from("/project/.qoredb");
         assert_eq!(
-            classify_path(&PathBuf::from("/project/.qoredb/connections/conn_abc.json"), &root),
+            classify_path(
+                &PathBuf::from("/project/.qoredb/connections/conn_abc.json"),
+                &root
+            ),
             Some("connections")
         );
     }
@@ -227,7 +228,10 @@ mod tests {
     fn classify_queries() {
         let root = PathBuf::from("/project/.qoredb");
         assert_eq!(
-            classify_path(&PathBuf::from("/project/.qoredb/queries/library.json"), &root),
+            classify_path(
+                &PathBuf::from("/project/.qoredb/queries/library.json"),
+                &root
+            ),
             Some("queries")
         );
     }
@@ -236,7 +240,10 @@ mod tests {
     fn classify_notebooks() {
         let root = PathBuf::from("/project/.qoredb");
         assert_eq!(
-            classify_path(&PathBuf::from("/project/.qoredb/notebooks/analysis.qnb"), &root),
+            classify_path(
+                &PathBuf::from("/project/.qoredb/notebooks/analysis.qnb"),
+                &root
+            ),
             Some("notebooks")
         );
     }
@@ -258,7 +265,10 @@ mod tests {
             None
         );
         assert_eq!(
-            classify_path(&PathBuf::from("/project/.qoredb/contracts/rules.yaml"), &root),
+            classify_path(
+                &PathBuf::from("/project/.qoredb/contracts/rules.yaml"),
+                &root
+            ),
             None
         );
     }

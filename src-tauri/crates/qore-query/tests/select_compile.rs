@@ -113,7 +113,9 @@ fn multiple_filters_combine_with_and() {
 
 #[test]
 fn explicit_and_or_composition_preserves_parentheses() {
-    let expr = col("age").gt(18).and(col("role").eq("admin").or(col("vip").eq(true)));
+    let expr = col("age")
+        .gt(18)
+        .and(col("role").eq("admin").or(col("vip").eq(true)));
     let q = Query::select()
         .from("users")
         .all()
@@ -222,9 +224,18 @@ fn ilike_is_native_on_postgres() {
 #[test]
 fn ilike_falls_back_to_lower_on_mysql_and_sqlite_and_mssql() {
     let expected = [
-        (my(), "SELECT * FROM `users` WHERE (LOWER(`name`) LIKE LOWER(?))"),
-        (sl(), r#"SELECT * FROM "users" WHERE (LOWER("name") LIKE LOWER(?))"#),
-        (ms(), "SELECT * FROM [users] WHERE (LOWER([name]) LIKE LOWER(@p1))"),
+        (
+            my(),
+            "SELECT * FROM `users` WHERE (LOWER(`name`) LIKE LOWER(?))",
+        ),
+        (
+            sl(),
+            r#"SELECT * FROM "users" WHERE (LOWER("name") LIKE LOWER(?))"#,
+        ),
+        (
+            ms(),
+            "SELECT * FROM [users] WHERE (LOWER([name]) LIKE LOWER(@p1))",
+        ),
     ];
     for (d, sql) in expected {
         let q = Query::select()
@@ -314,7 +325,11 @@ fn placeholder_count_matches_params_vector() {
     let q = Query::select()
         .from("users")
         .all()
-        .filter(col("age").gt(18).and(col("name").eq("alice").or(col("vip").eq(true))))
+        .filter(
+            col("age")
+                .gt(18)
+                .and(col("name").eq("alice").or(col("vip").eq(true))),
+        )
         .build(pg())
         .unwrap();
     let n_placeholders = q.sql.matches('$').count();
@@ -393,10 +408,7 @@ fn qualified_column_reference() {
         .filter(tcol("u", "id").eq(42i64))
         .build(pg())
         .unwrap();
-    assert_eq!(
-        q.sql,
-        r#"SELECT * FROM "users" WHERE ("u"."id" = $1)"#
-    );
+    assert_eq!(q.sql, r#"SELECT * FROM "users" WHERE ("u"."id" = $1)"#);
 }
 
 #[test]
@@ -404,25 +416,13 @@ fn identifier_with_embedded_quote_is_escaped_per_dialect() {
     // Malicious-looking names must be quoted safely (embedded quote character
     // is doubled per ANSI / dialect rules). This is the injection defence for
     // identifiers — each dialect's DialectOps impl handles escape doubling.
-    let q_pg = Query::select()
-        .from(r#"we"ird"#)
-        .all()
-        .build(pg())
-        .unwrap();
+    let q_pg = Query::select().from(r#"we"ird"#).all().build(pg()).unwrap();
     assert_eq!(q_pg.sql, r#"SELECT * FROM "we""ird""#);
 
-    let q_my = Query::select()
-        .from("back`tick")
-        .all()
-        .build(my())
-        .unwrap();
+    let q_my = Query::select().from("back`tick").all().build(my()).unwrap();
     assert_eq!(q_my.sql, "SELECT * FROM `back``tick`");
 
-    let q_ms = Query::select()
-        .from("bra]cket")
-        .all()
-        .build(ms())
-        .unwrap();
+    let q_ms = Query::select().from("bra]cket").all().build(ms()).unwrap();
     assert_eq!(q_ms.sql, "SELECT * FROM [bra]]cket]");
 }
 
@@ -457,10 +457,19 @@ fn duckdb_supports_native_ilike() {
 #[test]
 fn dialect_from_driver_id_aliases_cockroachdb_and_mariadb() {
     use qore_query::Dialect;
-    assert_eq!(Dialect::from_driver_id("cockroachdb"), Some(Dialect::Postgres));
-    assert_eq!(Dialect::from_driver_id("cockroach"), Some(Dialect::Postgres));
+    assert_eq!(
+        Dialect::from_driver_id("cockroachdb"),
+        Some(Dialect::Postgres)
+    );
+    assert_eq!(
+        Dialect::from_driver_id("cockroach"),
+        Some(Dialect::Postgres)
+    );
     assert_eq!(Dialect::from_driver_id("mariadb"), Some(Dialect::MySql));
-    assert_eq!(Dialect::from_driver_id("postgresql"), Some(Dialect::Postgres));
+    assert_eq!(
+        Dialect::from_driver_id("postgresql"),
+        Some(Dialect::Postgres)
+    );
     assert_eq!(Dialect::from_driver_id("duckdb"), Some(Dialect::DuckDb));
     assert_eq!(Dialect::from_driver_id("mssql"), Some(Dialect::SqlServer));
     assert_eq!(Dialect::from_driver_id("MongoDB"), None);
@@ -474,7 +483,11 @@ fn deeply_nested_and_or_preserves_all_parentheses() {
         .eq(1i64)
         .and(col("b").eq(2i64))
         .or(col("c").eq(3i64))
-        .and(col("d").eq(4i64).or(col("e").eq(5i64).and(col("f").eq(6i64))));
+        .and(
+            col("d")
+                .eq(4i64)
+                .or(col("e").eq(5i64).and(col("f").eq(6i64))),
+        );
     let q = Query::select()
         .from("t")
         .all()

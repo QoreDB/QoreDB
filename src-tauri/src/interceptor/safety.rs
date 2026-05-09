@@ -199,12 +199,7 @@ impl SafetyEngine {
 
         if custom.len() == initial_len {
             // Check if it's a built-in rule
-            if self
-                .builtin_rules
-                .read()
-                .iter()
-                .any(|r| r.id == rule_id)
-            {
+            if self.builtin_rules.read().iter().any(|r| r.id == rule_id) {
                 return Err("Cannot remove built-in rules".to_string());
             }
             return Err(format!("Rule with ID '{}' not found", rule_id));

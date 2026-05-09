@@ -1397,7 +1397,9 @@
         "executionTime": "Ausführungszeit",
         "rowCount": "Zeilenanzahl",
         "blockedBy": "Blockiert durch Sicherheitsregel",
-        "error": "Fehler"
+        "error": "Fehler",
+        "fingerprint": "Fingerabdruck",
+        "filterByFingerprint": "Nach diesem Fingerabdruck filtern"
       },
       "stats": {
         "total": "Abfragen gesamt",
@@ -1406,6 +1408,12 @@
         "success": "Erfolgreich",
         "failed": "Fehlgeschlagen",
         "lastHour": "Letzte Stunde"
+      },
+      "fingerprintFilter": "Fingerabdruck",
+      "export": {
+        "label": "Exportieren",
+        "format": "Format",
+        "fromDisk": "Rotierten Verlauf einbeziehen"
       }
     },
     "profiling": {

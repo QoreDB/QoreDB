@@ -83,11 +83,10 @@ impl<'a> StreamDispatcher<'a> {
                     if buf.len() > self.capacity_hint {
                         self.capacity_hint = buf.len();
                     }
-                    if ch.send(InvokeResponseBody::Raw(buf)).is_ok() {
-                        return;
+                    if ch.send(InvokeResponseBody::Raw(buf)).is_err() {
+                        // Channel closed — degrade silently; the frontend has already
+                        // moved on.
                     }
-                    // Channel closed — degrade silently; the frontend has already
-                    // moved on.
                 }
                 Err(err) => {
                     tracing::warn!(?err, "msgpack encode failed; falling back to window.emit");

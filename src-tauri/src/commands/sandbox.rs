@@ -46,11 +46,11 @@ mod sandbox_impl {
     use super::*;
     use crate::engine::sql_generator::{generate_migration_script, SandboxChangeType};
     use crate::engine::types::{RowData, SessionId};
+    use crate::time_travel::capture::{build_changelog_entry, value_to_json_pub};
+    use crate::time_travel::ChangeOperation;
     use std::sync::Arc;
     use tracing::instrument;
     use uuid::Uuid;
-    use crate::time_travel::capture::{build_changelog_entry, value_to_json_pub};
-    use crate::time_travel::ChangeOperation;
 
     fn parse_session_id(id: &str) -> Result<SessionId, String> {
         let uuid = Uuid::parse_str(id).map_err(|e| format!("Invalid session ID: {}", e))?;
@@ -188,19 +188,18 @@ mod sandbox_impl {
                             SandboxChangeType::Delete => ChangeOperation::Delete,
                         };
                         let pk_data = change.primary_key.clone().unwrap_or_else(|| RowData {
-                            columns: change
-                                .new_values
-                                .clone()
-                                .unwrap_or_default(),
+                            columns: change.new_values.clone().unwrap_or_default(),
                         });
-                        let before = change
-                            .old_values
-                            .as_ref()
-                            .map(|v| v.iter().map(|(k, v)| (k.clone(), value_to_json_pub(v))).collect());
-                        let after = change
-                            .new_values
-                            .as_ref()
-                            .map(|v| v.iter().map(|(k, v)| (k.clone(), value_to_json_pub(v))).collect());
+                        let before = change.old_values.as_ref().map(|v| {
+                            v.iter()
+                                .map(|(k, v)| (k.clone(), value_to_json_pub(v)))
+                                .collect()
+                        });
+                        let after = change.new_values.as_ref().map(|v| {
+                            v.iter()
+                                .map(|(k, v)| (k.clone(), value_to_json_pub(v)))
+                                .collect()
+                        });
                         let entry = build_changelog_entry(
                             &session_id,
                             driver.driver_id(),

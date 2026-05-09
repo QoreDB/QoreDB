@@ -24,6 +24,12 @@ impl KeyringProvider {
     }
 }
 
+impl Default for KeyringProvider {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CredentialProvider for KeyringProvider {
     fn set_password(&self, service: &str, username: &str, password: &str) -> EngineResult<()> {
         let entry = Entry::new(service, username)
@@ -70,6 +76,12 @@ impl MockProvider {
 
     fn key(service: &str, username: &str) -> String {
         format!("{}::{}", service, username)
+    }
+}
+
+impl Default for MockProvider {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

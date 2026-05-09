@@ -1396,7 +1396,9 @@
         "executionTime": "実行時間",
         "rowCount": "行数",
         "blockedBy": "安全ルールによりブロック",
-        "error": "エラー"
+        "error": "エラー",
+        "fingerprint": "フィンガープリント",
+        "filterByFingerprint": "このフィンガープリントでフィルター"
       },
       "stats": {
         "total": "合計クエリ数",
@@ -1405,6 +1407,12 @@
         "success": "成功",
         "failed": "失敗",
         "lastHour": "直近1時間"
+      },
+      "fingerprintFilter": "フィンガープリント",
+      "export": {
+        "label": "エクスポート",
+        "format": "形式",
+        "fromDisk": "ローテーションされた履歴を含める"
       }
     },
     "profiling": {

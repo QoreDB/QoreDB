@@ -1389,6 +1389,12 @@
       "noEntries": "Aucune entrée dans le journal d'audit",
       "upgradeForFilters": "Passez à Pro pour les filtres, l'export et les statistiques avancées",
       "blockedBy": "Bloqué par : {{rule}}",
+      "fingerprintFilter": "Empreinte",
+      "export": {
+        "label": "Exporter",
+        "format": "Format",
+        "fromDisk": "Inclure l'historique sur disque"
+      },
       "filters": {
         "environment": "Environnement",
         "allEnvironments": "Tous les environnements",
@@ -1415,6 +1421,8 @@
         "database": "Base de données",
         "executionTime": "Temps d'exécution",
         "rowCount": "Nombre de lignes",
+        "fingerprint": "Empreinte",
+        "filterByFingerprint": "Filtrer par cette empreinte",
         "blockedBy": "Bloquée par une règle de sécurité",
         "error": "Erreur"
       },

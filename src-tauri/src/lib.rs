@@ -12,12 +12,12 @@ pub mod export;
 pub mod federation;
 pub mod interceptor;
 pub mod license;
-pub mod time_travel;
 pub mod metrics;
 pub mod observability;
 pub mod policy;
 pub mod share;
 pub mod snapshots;
+pub mod time_travel;
 pub mod vault;
 pub mod virtual_relations;
 pub mod workspace;
@@ -162,13 +162,13 @@ pub fn run() {
     let app_config_dir = dirs::config_dir()
         .unwrap_or_else(|| std::path::PathBuf::from("."))
         .join("com.qoredb.app");
-    let workspace_manager: SharedWorkspaceManager =
-        Arc::new(tokio::sync::Mutex::new(workspace::WorkspaceManager::new(app_config_dir)));
+    let workspace_manager: SharedWorkspaceManager = Arc::new(tokio::sync::Mutex::new(
+        workspace::WorkspaceManager::new(app_config_dir),
+    ));
 
     // Initialize workspace file watcher infrastructure
     let write_registry = workspace::write_registry::WriteRegistry::new();
-    let (ws_path_tx, ws_path_rx) =
-        tokio::sync::watch::channel::<Option<std::path::PathBuf>>(None);
+    let (ws_path_tx, ws_path_rx) = tokio::sync::watch::channel::<Option<std::path::PathBuf>>(None);
     let watcher_path_sender: commands::workspace::WatcherPathSender = Arc::new(ws_path_tx);
 
     tauri::Builder::default()

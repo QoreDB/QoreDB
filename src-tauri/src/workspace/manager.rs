@@ -18,7 +18,7 @@ const MAX_RECENT_WORKSPACES: usize = 10;
 
 const GITIGNORE_CONTENT: &str = "# Secrets are never stored in .qoredb, but just in case:\n*.key\n*.pem\n\n# Local cache\n.cache/\n";
 
-/// FNV-1a 64-bit hash 
+/// FNV-1a 64-bit hash
 fn fnv1a_hash(data: &[u8]) -> u64 {
     const FNV_OFFSET_BASIS: u64 = 0xcbf29ce484222325;
     const FNV_PRIME: u64 = 0x100000001b3;
@@ -82,7 +82,11 @@ impl WorkspaceManager {
     }
 
     /// Loads and switches to the workspace at the given `.qoredb/` path.
-    pub fn switch_to(&mut self, qoredb_path: &Path, source: WorkspaceSource) -> EngineResult<WorkspaceInfo> {
+    pub fn switch_to(
+        &mut self,
+        qoredb_path: &Path,
+        source: WorkspaceSource,
+    ) -> EngineResult<WorkspaceInfo> {
         let info = self.load_workspace_at(qoredb_path, source)?;
         self.active = info.clone();
         let _ = self.add_to_recent(&info);
@@ -119,7 +123,11 @@ impl WorkspaceManager {
     }
 
     /// Creates a new workspace at `project_dir/.qoredb/`.
-    pub fn create_workspace(&mut self, project_dir: &Path, name: &str) -> EngineResult<WorkspaceInfo> {
+    pub fn create_workspace(
+        &mut self,
+        project_dir: &Path,
+        name: &str,
+    ) -> EngineResult<WorkspaceInfo> {
         let qoredb_dir = project_dir.join(WORKSPACE_DIR);
 
         if qoredb_dir.join(WORKSPACE_MANIFEST_FILE).exists() {
@@ -140,7 +148,11 @@ impl WorkspaceManager {
 
         for dir in &dirs {
             fs::create_dir_all(dir).map_err(|e| {
-                EngineError::internal(format!("Failed to create directory {}: {}", dir.display(), e))
+                EngineError::internal(format!(
+                    "Failed to create directory {}: {}",
+                    dir.display(),
+                    e
+                ))
             })?;
         }
 
@@ -218,16 +230,11 @@ impl WorkspaceManager {
         let manifest_path = qoredb_path.join(WORKSPACE_MANIFEST_FILE);
 
         let content = fs::read_to_string(&manifest_path).map_err(|e| {
-            EngineError::internal(format!(
-                "Failed to read {}: {}",
-                manifest_path.display(),
-                e
-            ))
+            EngineError::internal(format!("Failed to read {}: {}", manifest_path.display(), e))
         })?;
 
-        let manifest: WorkspaceManifest = serde_json::from_str(&content).map_err(|e| {
-            EngineError::internal(format!("Invalid workspace.json: {}", e))
-        })?;
+        let manifest: WorkspaceManifest = serde_json::from_str(&content)
+            .map_err(|e| EngineError::internal(format!("Invalid workspace.json: {}", e)))?;
 
         if manifest.version == 0 {
             return Err(EngineError::internal(
@@ -355,7 +362,10 @@ mod tests {
     fn fnv1a_hash_stability() {
         assert_eq!(fnv1a_hash(b""), 0xcbf29ce484222325);
         assert_eq!(fnv1a_hash(b"a"), 0xaf63dc4c8601ec8c);
-        assert_eq!(fnv1a_hash(b"/Users/dev/project/.qoredb"), 0x1c089eff0e6e433e);
+        assert_eq!(
+            fnv1a_hash(b"/Users/dev/project/.qoredb"),
+            0x1c089eff0e6e433e
+        );
         assert_eq!(fnv1a_hash(b"/home/user/app/.qoredb"), 0x49f7a110a4ef9f9b);
 
         // Same input always gives same output

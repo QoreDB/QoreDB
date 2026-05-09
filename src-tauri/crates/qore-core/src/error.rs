@@ -153,8 +153,7 @@ pub fn sanitize_error_message(msg: &str) -> String {
         vec![
             // Connection strings with credentials: postgres://user:pass@host → postgres://***@host
             (
-                Regex::new(r"(?i)((?:postgres|mysql|mongodb|redis|rediss)://)([^@]+)@")
-                    .unwrap(),
+                Regex::new(r"(?i)((?:postgres|mysql|mongodb|redis|rediss)://)([^@]+)@").unwrap(),
                 "${1}***@",
             ),
             // password=... in query strings

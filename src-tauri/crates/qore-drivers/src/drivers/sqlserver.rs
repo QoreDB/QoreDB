@@ -32,7 +32,6 @@ use tokio::sync::{Mutex, RwLock};
 use tokio_util::compat::{Compat, TokioAsyncWriteCompatExt};
 
 use qore_core::error::{EngineError, EngineResult};
-use qore_sql::safety;
 use qore_core::traits::{DataEngine, StreamEvent, StreamSender};
 use qore_core::types::{
     CancelSupport, Collection, CollectionList, CollectionListOptions, CollectionType, ColumnInfo,
@@ -44,6 +43,7 @@ use qore_core::types::{
     TableSchema, Trigger, TriggerDefinition, TriggerEvent, TriggerList, TriggerListOptions,
     TriggerOperationResult, TriggerTiming, Value,
 };
+use qore_sql::safety;
 
 // ==================== Types ====================
 
@@ -117,9 +117,7 @@ impl SqlServerDriver {
                     ));
                 }
             }
-            MssqlAuthMode::WindowsIntegrated => {
-                AuthMethod::Integrated
-            }
+            MssqlAuthMode::WindowsIntegrated => AuthMethod::Integrated,
         };
         tib_config.authentication(auth);
 
@@ -1983,12 +1981,19 @@ async fn stream_select_results(
 
     let row_count = result_set.len() as u64;
     let mut batch = Vec::with_capacity(500);
-    
+
     for row in &result_set {
         let qrow = convert_row(row);
         batch.push(qrow);
         if batch.len() >= 500 {
-            if sender.send(StreamEvent::RowBatch(std::mem::replace(&mut batch, Vec::with_capacity(500)))).await.is_err() {
+            if sender
+                .send(StreamEvent::RowBatch(std::mem::replace(
+                    &mut batch,
+                    Vec::with_capacity(500),
+                )))
+                .await
+                .is_err()
+            {
                 return Ok(());
             }
         }

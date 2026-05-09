@@ -8,7 +8,7 @@
 
 use std::collections::HashSet;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -62,9 +62,9 @@ impl WorkspaceConnectionStore {
     }
 
     /// Register a file write with the write registry (if present).
-    fn register_write(&self, path: &PathBuf) {
+    fn register_write(&self, path: &Path) {
         if let Some(ref reg) = self.write_registry {
-            reg.register_with_auto_unregister(path.clone());
+            reg.register_with_auto_unregister(path.to_path_buf());
         }
     }
 
@@ -110,15 +110,13 @@ impl WorkspaceConnectionStore {
             return Ok(Vec::new());
         }
 
-        let entries = fs::read_dir(&self.connections_dir).map_err(|e| {
-            EngineError::internal(format!("Failed to read connections dir: {}", e))
-        })?;
+        let entries = fs::read_dir(&self.connections_dir)
+            .map_err(|e| EngineError::internal(format!("Failed to read connections dir: {}", e)))?;
 
         let mut connections = Vec::new();
         for entry in entries {
-            let entry = entry.map_err(|e| {
-                EngineError::internal(format!("Failed to read dir entry: {}", e))
-            })?;
+            let entry = entry
+                .map_err(|e| EngineError::internal(format!("Failed to read dir entry: {}", e)))?;
             let path = entry.path();
             if path.extension().and_then(|e| e.to_str()) != Some("json") {
                 continue;
@@ -127,7 +125,11 @@ impl WorkspaceConnectionStore {
                 Ok(content) => match serde_json::from_str::<SavedConnection>(&content) {
                     Ok(conn) => connections.push(conn),
                     Err(e) => {
-                        tracing::warn!("Skipping invalid connection file {}: {}", path.display(), e);
+                        tracing::warn!(
+                            "Skipping invalid connection file {}: {}",
+                            path.display(),
+                            e
+                        );
                     }
                 },
                 Err(e) => {
@@ -143,9 +145,8 @@ impl WorkspaceConnectionStore {
     /// Gets a specific connection by ID.
     pub fn get_connection(&self, connection_id: &str) -> EngineResult<SavedConnection> {
         let path = self.connection_file(connection_id)?;
-        let content = fs::read_to_string(&path).map_err(|e| {
-            EngineError::internal(format!("Connection not found: {}", e))
-        })?;
+        let content = fs::read_to_string(&path)
+            .map_err(|e| EngineError::internal(format!("Connection not found: {}", e)))?;
 
         serde_json::from_str(&content)
             .map_err(|e| EngineError::internal(format!("Invalid connection file: {}", e)))
@@ -168,15 +169,25 @@ impl WorkspaceConnectionStore {
 
         let file_path = self.connection_file(&connection.id)?;
         self.register_write(&file_path);
-        fs::write(&file_path, content)
-            .map_err(|e| EngineError::internal(format!("Failed to write connection file: {}", e)))?;
+        fs::write(&file_path, content).map_err(|e| {
+            EngineError::internal(format!("Failed to write connection file: {}", e))
+        })?;
 
         // Save credentials to keyring
         let creds_json = serde_json::to_string(&CredsJson {
             db_password: credentials.db_password.expose().clone(),
-            ssh_password: credentials.ssh_password.as_ref().map(|s| s.expose().clone()),
-            ssh_key_passphrase: credentials.ssh_key_passphrase.as_ref().map(|s| s.expose().clone()),
-            proxy_password: credentials.proxy_password.as_ref().map(|s| s.expose().clone()),
+            ssh_password: credentials
+                .ssh_password
+                .as_ref()
+                .map(|s| s.expose().clone()),
+            ssh_key_passphrase: credentials
+                .ssh_key_passphrase
+                .as_ref()
+                .map(|s| s.expose().clone()),
+            proxy_password: credentials
+                .proxy_password
+                .as_ref()
+                .map(|s| s.expose().clone()),
         })
         .map_err(|e| EngineError::internal(format!("Serialization error: {}", e)))?;
 
@@ -218,10 +229,9 @@ impl WorkspaceConnectionStore {
             })?;
         }
 
-        let _ = self.provider.delete_password(
-            &self.service_name,
-            &Self::credentials_key(connection_id),
-        );
+        let _ = self
+            .provider
+            .delete_password(&self.service_name, &Self::credentials_key(connection_id));
 
         Ok(())
     }

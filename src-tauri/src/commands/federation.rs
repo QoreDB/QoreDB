@@ -170,8 +170,7 @@ pub async fn execute_federation_query(
         let qid = query_id.clone();
         let channel_clone = on_stream.clone();
         tokio::spawn(async move {
-            let mut dispatcher =
-                StreamDispatcher::new(Some(&channel_clone), &window_clone, &qid);
+            let mut dispatcher = StreamDispatcher::new(Some(&channel_clone), &window_clone, &qid);
             while let Some(event) = rx.recv().await {
                 dispatcher.dispatch(event);
             }
@@ -318,7 +317,6 @@ fn normalize_alias(name: &str) -> String {
         })
         .collect::<String>()
         .trim_matches('_')
-        .to_string()
         // Collapse multiple underscores
         .split('_')
         .filter(|s| !s.is_empty())

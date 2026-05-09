@@ -1396,7 +1396,9 @@
         "executionTime": "실행 시간",
         "rowCount": "행 수",
         "blockedBy": "안전 규칙에 의해 차단됨",
-        "error": "오류"
+        "error": "오류",
+        "fingerprint": "지문",
+        "filterByFingerprint": "이 지문으로 필터링"
       },
       "stats": {
         "total": "전체 쿼리",
@@ -1405,6 +1407,12 @@
         "success": "성공",
         "failed": "실패",
         "lastHour": "최근 1시간"
+      },
+      "fingerprintFilter": "지문",
+      "export": {
+        "label": "내보내기",
+        "format": "형식",
+        "fromDisk": "회전된 기록 포함"
       }
     },
     "profiling": {

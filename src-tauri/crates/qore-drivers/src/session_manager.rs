@@ -15,9 +15,9 @@ use tokio::sync::RwLock;
 use tokio::time::{timeout, Duration};
 use tracing::instrument;
 
-use qore_core::error::{EngineError, EngineResult};
 use crate::proxy::ProxyTunnel;
 use crate::ssh_tunnel::SshTunnel;
+use qore_core::error::{EngineError, EngineResult};
 use qore_core::traits::DataEngine;
 use qore_core::types::{ConnectionConfig, SessionId};
 use qore_core::DriverRegistry;
@@ -105,12 +105,9 @@ impl SessionManager {
 
                 // If SSH tunnel is also configured, chain: proxy → SSH → DB
                 if let Some(ref ssh_config) = config.ssh_tunnel {
-                    let tunnel = SshTunnel::open(
-                        ssh_config,
-                        &tunneled_config.host,
-                        tunneled_config.port,
-                    )
-                    .await?;
+                    let tunnel =
+                        SshTunnel::open(ssh_config, &tunneled_config.host, tunneled_config.port)
+                            .await?;
                     tunneled_config.host = "127.0.0.1".to_string();
                     tunneled_config.port = tunnel.local_port();
                     let result = driver.test_connection(&tunneled_config).await;
@@ -163,26 +160,23 @@ impl SessionManager {
 
         let connect_future = async {
             // Setup proxy tunnel if configured
-            let (mut effective_config, proxy_tunnel) =
-                if let Some(ref proxy_config) = config.proxy {
-                    let proxy_tunnel =
-                        ProxyTunnel::open(proxy_config, &config.host, config.port).await?;
-                    let mut tunneled = config.clone();
-                    tunneled.host = "127.0.0.1".to_string();
-                    tunneled.port = proxy_tunnel.local_port();
-                    (tunneled, Some(proxy_tunnel))
-                } else {
-                    (config.clone(), None)
-                };
+            let (mut effective_config, proxy_tunnel) = if let Some(ref proxy_config) = config.proxy
+            {
+                let proxy_tunnel =
+                    ProxyTunnel::open(proxy_config, &config.host, config.port).await?;
+                let mut tunneled = config.clone();
+                tunneled.host = "127.0.0.1".to_string();
+                tunneled.port = proxy_tunnel.local_port();
+                (tunneled, Some(proxy_tunnel))
+            } else {
+                (config.clone(), None)
+            };
 
             // Setup SSH tunnel if configured (possibly over the proxy)
             let tunnel = if let Some(ref ssh_config) = config.ssh_tunnel {
-                let tunnel = SshTunnel::open(
-                    ssh_config,
-                    &effective_config.host,
-                    effective_config.port,
-                )
-                .await?;
+                let tunnel =
+                    SshTunnel::open(ssh_config, &effective_config.host, effective_config.port)
+                        .await?;
                 effective_config.host = "127.0.0.1".to_string();
                 effective_config.port = tunnel.local_port();
                 Some(tunnel)

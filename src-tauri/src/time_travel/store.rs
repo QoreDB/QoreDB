@@ -16,8 +16,8 @@ use parking_lot::RwLock;
 use tracing::{debug, error, info, warn};
 
 use super::types::{
-    ChangeOperation, ChangelogEntry, ChangelogFilter, DiffRowStatus, TemporalDiff,
-    TemporalDiffRow, TemporalDiffStats, TimelineEvent, TimeTravelConfig,
+    ChangeOperation, ChangelogEntry, ChangelogFilter, DiffRowStatus, TemporalDiff, TemporalDiffRow,
+    TemporalDiffStats, TimeTravelConfig, TimelineEvent,
 };
 use crate::engine::types::Namespace;
 
@@ -179,15 +179,13 @@ impl ChangelogStore {
                 let mut entries = self.entries.write();
                 let mut line_count: usize = 0;
 
-                for line in reader.lines() {
-                    if let Ok(line) = line {
-                        line_count += 1;
-                        if let Ok(entry) = serde_json::from_str::<ChangelogEntry>(&line) {
-                            if entries.len() >= MAX_CACHE_ENTRIES {
-                                entries.pop_front();
-                            }
-                            entries.push_back(entry);
+                for line in reader.lines().map_while(Result::ok) {
+                    line_count += 1;
+                    if let Ok(entry) = serde_json::from_str::<ChangelogEntry>(&line) {
+                        if entries.len() >= MAX_CACHE_ENTRIES {
+                            entries.pop_front();
                         }
+                        entries.push_back(entry);
                     }
                 }
 
@@ -220,7 +218,7 @@ impl ChangelogStore {
     fn rotate_file(&self, keep_count: usize) -> std::io::Result<usize> {
         let file = File::open(&self.log_path)?;
         let reader = BufReader::new(file);
-        let lines: Vec<String> = reader.lines().filter_map(|l| l.ok()).collect();
+        let lines: Vec<String> = reader.lines().map_while(Result::ok).collect();
 
         let total = lines.len();
         if total <= keep_count {
@@ -407,7 +405,7 @@ impl ChangelogStore {
                         .and_then(|e| e.state_at_t1.clone())
                         .or_else(|| entry.before.clone());
 
-                    if existing.map_or(false, |e| e.status == DiffRowStatus::Added) {
+                    if existing.is_some_and(|e| e.status == DiffRowStatus::Added) {
                         // Was added then deleted — net effect is nothing
                         diff_rows.remove(&pk_key);
                     } else {
@@ -440,12 +438,13 @@ impl ChangelogStore {
         }
 
         let mut rows: Vec<TemporalDiffRow> = diff_rows.into_values().take(limit).collect();
-        rows.sort_by(|a, b| {
-            serialize_pk(&a.primary_key).cmp(&serialize_pk(&b.primary_key))
-        });
+        rows.sort_by(|a, b| serialize_pk(&a.primary_key).cmp(&serialize_pk(&b.primary_key)));
 
         let stats = TemporalDiffStats {
-            added: rows.iter().filter(|r| r.status == DiffRowStatus::Added).count(),
+            added: rows
+                .iter()
+                .filter(|r| r.status == DiffRowStatus::Added)
+                .count(),
             modified: rows
                 .iter()
                 .filter(|r| r.status == DiffRowStatus::Modified)
@@ -506,7 +505,10 @@ impl ChangelogStore {
             entries.retain(|e| !self.matches_table(e, namespace, table_name));
         }
         self.rewrite_file_from_cache();
-        info!("Cleared changelog for {}.{}", namespace.database, table_name);
+        info!(
+            "Cleared changelog for {}.{}",
+            namespace.database, table_name
+        );
     }
 
     /// Clear all changelog entries.
@@ -555,7 +557,12 @@ impl ChangelogStore {
 
     // ─── Helpers ───────────────────────────────────────────────────────
 
-    fn matches_table(&self, entry: &ChangelogEntry, namespace: &Namespace, table_name: &str) -> bool {
+    fn matches_table(
+        &self,
+        entry: &ChangelogEntry,
+        namespace: &Namespace,
+        table_name: &str,
+    ) -> bool {
         entry.namespace.database == namespace.database
             && entry.namespace.schema == namespace.schema
             && entry.table_name == table_name

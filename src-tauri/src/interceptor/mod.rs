@@ -11,6 +11,8 @@
 //! The frontend only displays and configures what the backend provides.
 
 pub mod audit;
+pub mod export;
+pub mod fingerprint;
 pub mod pipeline;
 pub mod profiling;
 pub mod redaction;
@@ -18,6 +20,8 @@ pub mod safety;
 pub mod types;
 
 pub use audit::{AuditStats, AuditStore};
+pub use export::{export_entries, AuditExportFormat};
+pub use fingerprint::fingerprint_query;
 pub use pipeline::InterceptorPipeline;
 pub use profiling::ProfilingStore;
 pub use safety::SafetyEngine;

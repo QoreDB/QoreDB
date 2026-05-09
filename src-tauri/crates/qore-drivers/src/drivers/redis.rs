@@ -20,8 +20,8 @@ use qore_core::error::{EngineError, EngineResult};
 use qore_core::traits::DataEngine;
 use qore_core::types::{
     CancelSupport, Collection, CollectionList, CollectionListOptions, CollectionType, ColumnInfo,
-    ConnectionConfig, Namespace, PaginatedQueryResult, QueryId, QueryResult, Row as QRow,
-    RowData, SessionId, TableColumn, TableQueryOptions, TableSchema, Value,
+    ConnectionConfig, Namespace, PaginatedQueryResult, QueryId, QueryResult, Row as QRow, RowData,
+    SessionId, TableColumn, TableQueryOptions, TableSchema, Value,
 };
 
 /// Holds a Redis connection and session metadata
@@ -85,17 +85,12 @@ impl RedisDriver {
             client.get_multiplexed_async_connection(),
         )
         .await
-        .map_err(|_| {
-            EngineError::Timeout {
-                timeout_ms: Self::DEFAULT_TIMEOUT.as_millis() as u64,
-            }
+        .map_err(|_| EngineError::Timeout {
+            timeout_ms: Self::DEFAULT_TIMEOUT.as_millis() as u64,
         })?
         .map_err(|e| {
             let msg = e.to_string();
-            if msg.contains("AUTH")
-                || msg.contains("NOAUTH")
-                || msg.contains("invalid password")
-            {
+            if msg.contains("AUTH") || msg.contains("NOAUTH") || msg.contains("invalid password") {
                 EngineError::auth_failed(msg)
             } else {
                 EngineError::connection_failed(msg)
@@ -104,15 +99,11 @@ impl RedisDriver {
 
         // PING to verify (with timeout)
         tokio::time::timeout(Self::DEFAULT_TIMEOUT, async {
-            redis::cmd("PING")
-                .query_async::<String>(&mut conn)
-                .await
+            redis::cmd("PING").query_async::<String>(&mut conn).await
         })
         .await
-        .map_err(|_| {
-            EngineError::Timeout {
-                timeout_ms: Self::DEFAULT_TIMEOUT.as_millis() as u64,
-            }
+        .map_err(|_| EngineError::Timeout {
+            timeout_ms: Self::DEFAULT_TIMEOUT.as_millis() as u64,
         })?
         .map_err(|e| EngineError::connection_failed(format!("PING failed: {}", e)))?;
 

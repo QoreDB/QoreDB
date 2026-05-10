@@ -26,9 +26,6 @@ pub(crate) struct ClickHouseClient {
     user: String,
     password: String,
     default_database: String,
-    /// When `Some`, every query is sent with `database=<name>`. Lets the user
-    /// "USE database" semantics persist across calls without an actual session
-    /// on the server (HTTP is sessionless by default).
     active_database: Arc<RwLock<Option<String>>>,
 }
 
@@ -41,7 +38,11 @@ impl ClickHouseClient {
             config.host.as_str()
         };
         let port = if config.port == 0 {
-            if config.ssl { 8443 } else { 8123 }
+            if config.ssl {
+                8443
+            } else {
+                8123
+            }
         } else {
             config.port
         };
@@ -55,9 +56,7 @@ impl ClickHouseClient {
             HeaderValue::from_static("text/plain; charset=utf-8"),
         );
 
-        let timeout = Duration::from_secs(
-            config.pool_acquire_timeout_secs.unwrap_or(30) as u64,
-        );
+        let timeout = Duration::from_secs(config.pool_acquire_timeout_secs.unwrap_or(30) as u64);
 
         let mut builder = HttpClient::builder()
             .default_headers(headers)
@@ -72,9 +71,9 @@ impl ClickHouseClient {
             builder = builder.danger_accept_invalid_certs(true);
         }
 
-        let http = builder
-            .build()
-            .map_err(|e| EngineError::connection_failed(format!("HTTP client build failed: {e}")))?;
+        let http = builder.build().map_err(|e| {
+            EngineError::connection_failed(format!("HTTP client build failed: {e}"))
+        })?;
 
         let default_database = config
             .database
@@ -94,7 +93,9 @@ impl ClickHouseClient {
 
     pub fn current_database(&self) -> String {
         match self.active_database.read() {
-            Ok(guard) => guard.clone().unwrap_or_else(|| self.default_database.clone()),
+            Ok(guard) => guard
+                .clone()
+                .unwrap_or_else(|| self.default_database.clone()),
             Err(_) => self.default_database.clone(),
         }
     }
@@ -105,8 +106,7 @@ impl ClickHouseClient {
         }
     }
 
-    /// Issue a query that returns no rows (DDL / mutations). Returns the body
-    /// for debugging — ClickHouse echoes a summary on some statements.
+    /// Issue a query that returns no rows (DDL / mutations)
     pub async fn execute(&self, sql: &str, query_id: Option<&Uuid>) -> EngineResult<String> {
         self.execute_with_settings(sql, query_id, &[]).await
     }
@@ -191,7 +191,7 @@ impl ClickHouseClient {
             if let Some(db) = database {
                 q.append_pair("database", db);
             }
-            // ClickHouse defaults are fine, but ensure deterministic LF rows
+            // Ensure deterministic LF rows
             q.append_pair("default_format", "JSONCompactEachRowWithNamesAndTypes");
             for (k, v) in settings {
                 q.append_pair(k, v);
@@ -209,7 +209,7 @@ impl ClickHouseClient {
         if status.is_success() {
             Ok(body)
         } else {
-            // ClickHouse returns plain-text errors; trim ANSI artefacts.
+            // Trim ANSI artefacts.
             Err(EngineError::execution_error(format!(
                 "ClickHouse {}: {}",
                 status,
@@ -223,9 +223,6 @@ fn ensure_format(sql: &str) -> String {
     let trimmed = sql.trim_end_matches(|c: char| c.is_whitespace() || c == ';');
     let upper = trimmed.to_ascii_uppercase();
     if upper.contains(" FORMAT ") {
-        // User asked for an explicit format — respect it but the response
-        // parser will need to handle other formats. We only auto-inject when
-        // none is set.
         sql.to_string()
     } else {
         format!("{trimmed} FORMAT JSONCompactEachRowWithNamesAndTypes")
@@ -279,8 +276,7 @@ mod tests {
 
     #[test]
     fn honours_explicit_database() {
-        let c =
-            ClickHouseClient::new(&cfg("localhost", 8123, false, Some("metrics"))).unwrap();
+        let c = ClickHouseClient::new(&cfg("localhost", 8123, false, Some("metrics"))).unwrap();
         assert_eq!(c.current_database(), "metrics");
     }
 

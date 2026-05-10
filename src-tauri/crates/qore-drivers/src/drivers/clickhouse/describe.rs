@@ -11,7 +11,7 @@
 use qore_core::error::{EngineError, EngineResult};
 use qore_core::types::{
     Collection, CollectionList, CollectionListOptions, CollectionType, Namespace, TableColumn,
-    TableSchema, Value,
+    TableIndex, TableSchema, Value,
 };
 use uuid::Uuid;
 
@@ -194,13 +194,66 @@ pub async fn describe_table(
         Some(primary_key_cols)
     };
 
+    let indexes = fetch_indexes(client, &db, &tbl).await.unwrap_or_default();
+
     Ok(TableSchema {
         columns,
         primary_key,
         foreign_keys: Vec::new(), // ClickHouse has no FK enforcement.
         row_count_estimate,
-        indexes: Vec::new(),
+        indexes,
     })
+}
+
+/// Reads `system.data_skipping_indices` to surface MergeTree data-skipping
+/// indexes (bloom_filter / minmax / set / ngrambf_v1 …). These don't enforce
+/// uniqueness — they accelerate WHERE filtering — so `is_unique` and
+/// `is_primary` are always false.
+async fn fetch_indexes(
+    client: &ClickHouseClient,
+    db: &str,
+    tbl: &str,
+) -> EngineResult<Vec<TableIndex>> {
+    let sql = format!(
+        "SELECT name, type, expr \
+         FROM system.data_skipping_indices \
+         WHERE database = '{db}' AND table = '{tbl}' \
+         ORDER BY name"
+    );
+    let qr = match parse_query_result(&client.fetch_json(&sql, None).await?, 0.0) {
+        Ok(qr) => qr,
+        Err(_) => return Ok(Vec::new()),
+    };
+
+    let mut out = Vec::with_capacity(qr.rows.len());
+    for row in qr.rows {
+        let mut it = row.values.into_iter();
+        let name = match it.next() {
+            Some(Value::Text(s)) => s,
+            _ => continue,
+        };
+        let index_type = match it.next() {
+            Some(Value::Text(s)) if !s.is_empty() => Some(s),
+            _ => None,
+        };
+        // The `expr` column carries the comma-separated column list (or a
+        // free-form expression). We store the whole expression as a single
+        // virtual column entry so the UI can display it verbatim.
+        let expr = match it.next() {
+            Some(Value::Text(s)) => s,
+            _ => String::new(),
+        };
+        let columns = if expr.is_empty() { Vec::new() } else { vec![expr] };
+
+        out.push(TableIndex {
+            name,
+            columns,
+            is_unique: false,
+            is_primary: false,
+            index_type,
+        });
+    }
+    Ok(out)
 }
 
 /// Pings the server. We use `SELECT 1` + a fresh query_id so it shows up

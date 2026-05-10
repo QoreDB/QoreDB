@@ -85,6 +85,14 @@ pub fn analyze_sql(driver_id: &str, sql: &str) -> Result<SqlSafetyAnalysis, Stri
 }
 
 fn analyze_sql_uncached(driver_id: &str, trimmed: &str) -> Result<SqlSafetyAnalysis, String> {
+    // ClickHouse: sqlparser's GenericDialect fails to parse much of CH's
+    // dialect (ENGINE clauses, ARRAY JOIN, FINAL, SETTINGS, FORMAT, etc.),
+    // so we'd reject perfectly valid CH SQL as "parse error". Use our
+    // keyword-based classifier instead — coarser but never wrongly blocks.
+    if driver_id.eq_ignore_ascii_case("clickhouse") {
+        return Ok(analyze_clickhouse(trimmed));
+    }
+
     let dialect = dialect_for_driver(driver_id);
     let statements = Parser::parse_sql(&*dialect, trimmed).map_err(|err| err.to_string())?;
 
@@ -103,6 +111,38 @@ fn analyze_sql_uncached(driver_id: &str, trimmed: &str) -> Result<SqlSafetyAnaly
     }
 
     Ok(analysis)
+}
+
+fn analyze_clickhouse(trimmed: &str) -> SqlSafetyAnalysis {
+    use crate::clickhouse_safety::{classify, ClickHouseQueryClass};
+    // Multi-statement scripts on the HTTP wire are rare for CH; classify
+    // each segment split on `;` and OR the results so a `DROP TABLE; SELECT 1`
+    // still flags as dangerous.
+    let mut is_mutation = false;
+    let mut is_dangerous = false;
+    for stmt in trimmed.split(';') {
+        if stmt.trim().is_empty() {
+            continue;
+        }
+        match classify(stmt) {
+            ClickHouseQueryClass::Read => {}
+            ClickHouseQueryClass::Mutation => is_mutation = true,
+            ClickHouseQueryClass::Dangerous => {
+                is_mutation = true;
+                is_dangerous = true;
+            }
+            ClickHouseQueryClass::Unknown => {
+                // Treat unknown statements as potential mutations so the
+                // read-only guard still trips; production confirmation
+                // (`prod_require_confirmation`) covers ambiguous cases.
+                is_mutation = true;
+            }
+        }
+    }
+    SqlSafetyAnalysis {
+        is_mutation,
+        is_dangerous,
+    }
 }
 
 pub fn returns_rows(driver_id: &str, sql: &str) -> Result<bool, String> {
@@ -128,6 +168,11 @@ pub fn returns_rows(driver_id: &str, sql: &str) -> Result<bool, String> {
 }
 
 fn returns_rows_uncached(driver_id: &str, trimmed: &str) -> Result<bool, String> {
+    if driver_id.eq_ignore_ascii_case("clickhouse") {
+        use crate::clickhouse_safety::{classify, ClickHouseQueryClass};
+        return Ok(matches!(classify(trimmed), ClickHouseQueryClass::Read));
+    }
+
     let dialect = dialect_for_driver(driver_id);
     let statements = Parser::parse_sql(&*dialect, trimmed).map_err(|err| err.to_string())?;
 
@@ -158,6 +203,12 @@ pub fn split_sql_statements(driver_id: &str, sql: &str) -> Result<Vec<String>, S
 }
 
 fn split_sql_statements_uncached(driver_id: &str, trimmed: &str) -> Result<Vec<String>, String> {
+    if driver_id.eq_ignore_ascii_case("clickhouse") {
+        // sqlparser cannot reliably round-trip CH-specific syntax, so split
+        // on top-level `;` outside string literals and trim each piece.
+        return Ok(split_ch_statements(trimmed));
+    }
+
     let dialect = dialect_for_driver(driver_id);
     let statements = Parser::parse_sql(&*dialect, trimmed).map_err(|err| err.to_string())?;
 
@@ -179,6 +230,83 @@ pub fn is_select_prefix(sql: &str) -> bool {
         || trimmed.starts_with("SHOW")
         || trimmed.starts_with("EXPLAIN")
         || trimmed.starts_with("DESCRIBE")
+}
+
+/// Split a ClickHouse multi-statement script on top-level `;` while respecting
+/// string literals (`'…'`, `"…"`) and bracketed comments (`-- …`, `/* … */`).
+/// Cheaper and safer than running sqlparser on dialect-heavy CH SQL.
+fn split_ch_statements(input: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut buf = String::new();
+    let bytes = input.as_bytes();
+    let mut i = 0;
+    let len = bytes.len();
+    let mut in_single = false;
+    let mut in_double = false;
+    while i < len {
+        let c = bytes[i] as char;
+        if !in_single && !in_double && i + 1 < len {
+            // line comment
+            if bytes[i] == b'-' && bytes[i + 1] == b'-' {
+                while i < len && bytes[i] != b'\n' {
+                    buf.push(bytes[i] as char);
+                    i += 1;
+                }
+                continue;
+            }
+            // block comment
+            if bytes[i] == b'/' && bytes[i + 1] == b'*' {
+                buf.push_str("/*");
+                i += 2;
+                while i + 1 < len && !(bytes[i] == b'*' && bytes[i + 1] == b'/') {
+                    buf.push(bytes[i] as char);
+                    i += 1;
+                }
+                if i + 1 < len {
+                    buf.push_str("*/");
+                    i += 2;
+                }
+                continue;
+            }
+        }
+        match c {
+            '\'' if !in_double => {
+                // backslash escape inside single-quoted string
+                buf.push(c);
+                if i > 0 && bytes[i - 1] == b'\\' {
+                    i += 1;
+                    continue;
+                }
+                in_single = !in_single;
+                i += 1;
+                continue;
+            }
+            '"' if !in_single => {
+                buf.push(c);
+                in_double = !in_double;
+                i += 1;
+                continue;
+            }
+            ';' if !in_single && !in_double => {
+                let s = buf.trim().to_string();
+                if !s.is_empty() {
+                    out.push(s);
+                }
+                buf.clear();
+                i += 1;
+                continue;
+            }
+            _ => {
+                buf.push(c);
+                i += 1;
+            }
+        }
+    }
+    let s = buf.trim().to_string();
+    if !s.is_empty() {
+        out.push(s);
+    }
+    out
 }
 
 fn dialect_for_driver(driver_id: &str) -> Box<dyn Dialect> {
@@ -387,5 +515,85 @@ mod tests {
         assert!(statements[1]
             .to_ascii_uppercase()
             .starts_with("CREATE TABLE"));
+    }
+
+    // ===== ClickHouse-specific bypass =====
+
+    #[test]
+    fn clickhouse_engine_clause_classifies_without_parse_error() {
+        // sqlparser GenericDialect chokes on ENGINE = MergeTree(); the bypass
+        // must still classify this as a mutation, not bubble a parse error.
+        let analysis = analyze_sql(
+            "clickhouse",
+            "CREATE TABLE events (id UInt64, ts DateTime) ENGINE = MergeTree() ORDER BY (ts, id)",
+        )
+        .expect("ch should not parse-error");
+        assert!(analysis.is_mutation);
+        assert!(!analysis.is_dangerous);
+    }
+
+    #[test]
+    fn clickhouse_select_is_read_only() {
+        let analysis = analyze_sql(
+            "clickhouse",
+            "SELECT count() FROM events WHERE ts >= now() - INTERVAL 1 DAY",
+        )
+        .expect("ok");
+        assert!(!analysis.is_mutation);
+        assert!(!analysis.is_dangerous);
+    }
+
+    #[test]
+    fn clickhouse_drop_table_is_dangerous() {
+        let analysis = analyze_sql("clickhouse", "DROP TABLE events").expect("ok");
+        assert!(analysis.is_mutation);
+        assert!(analysis.is_dangerous);
+    }
+
+    #[test]
+    fn clickhouse_alter_update_is_mutation() {
+        let analysis = analyze_sql(
+            "clickhouse",
+            "ALTER TABLE events UPDATE name = 'x' WHERE id = 1",
+        )
+        .expect("ok");
+        assert!(analysis.is_mutation);
+        assert!(!analysis.is_dangerous);
+    }
+
+    #[test]
+    fn clickhouse_optimize_final_is_dangerous() {
+        let analysis = analyze_sql("clickhouse", "OPTIMIZE TABLE events FINAL").expect("ok");
+        assert!(analysis.is_dangerous);
+    }
+
+    #[test]
+    fn clickhouse_returns_rows_only_for_reads() {
+        assert_eq!(returns_rows("clickhouse", "SELECT 1"), Ok(true));
+        assert_eq!(
+            returns_rows("clickhouse", "INSERT INTO t VALUES (1)"),
+            Ok(false)
+        );
+        assert_eq!(returns_rows("clickhouse", "EXPLAIN SELECT 1"), Ok(true));
+    }
+
+    #[test]
+    fn clickhouse_split_respects_string_literals() {
+        let stmts = split_sql_statements(
+            "clickhouse",
+            "INSERT INTO t VALUES ('a;b', 'c'); SELECT 1;",
+        )
+        .expect("ok");
+        assert_eq!(stmts.len(), 2);
+        assert!(stmts[0].contains("'a;b'"));
+        assert!(stmts[1].to_ascii_uppercase().starts_with("SELECT"));
+    }
+
+    #[test]
+    fn clickhouse_unknown_first_keyword_is_treated_as_mutation() {
+        // `USE db` doesn't fit either Read or Mutation lists; classified as
+        // Unknown → bypass treats it as a mutation so read-only mode blocks.
+        let analysis = analyze_sql("clickhouse", "USE metrics").expect("ok");
+        assert!(analysis.is_mutation);
     }
 }

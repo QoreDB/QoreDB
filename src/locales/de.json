@@ -113,7 +113,9 @@
       "newQuery": "Neue Abfrage",
       "newNotebook": "Neues Notebook",
       "credentialLoadFail": "Verbindungsdetails konnten nicht geladen werden",
-      "testTitleSuccess": "Verbindung zu {{name}} erfolgreich!"
+      "testTitleSuccess": "Verbindung zu {{name}} erfolgreich!",
+      "backup": "Datenbank sichern…",
+      "restore": "Aus Sicherung wiederherstellen…"
     },
     "url": {
       "useUrl": "Über URL/DSN verbinden",
@@ -555,13 +557,31 @@
       "newQuery": "Neuer Abfrage-Tab",
       "runQuery": "Abfrage ausführen",
       "closeTab": "Tab schließen",
-      "escape": "Overlay schließen / Abbrechen"
+      "escape": "Overlay schließen / Abbrechen",
+      "title": "Tastenkürzel",
+      "description": "Klicke auf eine Bindung, um eine neue Tastenkombination aufzunehmen. Esc bricht ab.",
+      "recordHint": "Klicke auf ein Kürzel, um es neu zu binden. Die neue Kombination wird sofort wirksam.",
+      "recording": "Tasten drücken…",
+      "errorSystemReserved": "Vom System reserviert",
+      "conflictTooltip": "Konflikt mit einem anderen Kürzel",
+      "resetOne": "Auf Standard zurücksetzen",
+      "resetAll": "Alle zurücksetzen"
     },
     "tabs": {
       "title": "Tabs",
       "description": "Verhalten der Tab-Leiste konfigurieren.",
       "groupByConnection": "Tabs nach Verbindung gruppieren",
       "groupByConnectionDescription": "Tabs in einklappbaren Gruppen unter dem Namen ihrer Verbindung anzeigen."
+    },
+    "backupTools": {
+      "title": "Pfade zu Sicherungs-Tools",
+      "description": "QoreDB ruft die offiziellen CLI-Tools (pg_dump, mysqldump, mongodump, sqlite3) auf. Wenn die automatische Erkennung fehlschlägt, können Sie einen Pfad explizit setzen.",
+      "summary": "{{found}} von {{total}} Tools auf diesem System erkannt.",
+      "refresh": "Erneut erkennen",
+      "choose": "Auswählen…",
+      "overridden": "Manuell",
+      "notFound": "Nicht im PATH gefunden — Sicherungen, die dieses Tool benötigen, schlagen fehl.",
+      "empty": "Noch keine Tools erkannt."
     }
   },
   "table": {
@@ -2358,5 +2378,37 @@
     "alter": {
       "driverUnsupported": "ALTER TABLE wird vom Treiber nicht unterstützt: {{driver}}"
     }
+  },
+  "backup": {
+    "dialogTitle": "Sicherung {{name}}",
+    "mode": "Modus",
+    "modeFull": "Vollständig (Schema + Daten)",
+    "modeSchemaOnly": "Nur Schema",
+    "modeDataOnly": "Nur Daten",
+    "format": "Format",
+    "password": "Passwort",
+    "passwordPlaceholder": "Vom Dump-Tool benötigt",
+    "tablesOptional": "Tabellen (optional)",
+    "tablesPlaceholder": "Komma-getrennt; leer = alle",
+    "outputPath": "Ausgabedatei",
+    "outputPathPlaceholder": "Ziel auswählen",
+    "browse": "Durchsuchen…",
+    "start": "Sicherung starten",
+    "running": "Läuft…",
+    "starting": "Starte…",
+    "progress": "Fortschritt",
+    "completed": "Sicherung erfolgreich abgeschlossen.",
+    "exitedWithCode": "Sicherungstool wurde mit Code {{code}} beendet.",
+    "cancel": "Abbrechen",
+    "cancelling": "Wird abgebrochen…"
+  },
+  "restore": {
+    "dialogTitle": "Wiederherstellung in {{name}}",
+    "destructiveWarning": "Dieser Vorgang überschreibt oder verändert Daten in \"{{name}}\". Stellen Sie sicher, dass Sie eine aktuelle Sicherung haben, bevor Sie fortfahren.",
+    "inputPath": "Sicherungsdatei",
+    "inputPathPlaceholder": "Wählen Sie eine Sicherungsdatei zur Wiederherstellung",
+    "confirmLabel": "Geben Sie \"{{name}}\" ein, um zu bestätigen",
+    "start": "Wiederherstellung starten",
+    "completed": "Wiederherstellung erfolgreich abgeschlossen."
   }
 }

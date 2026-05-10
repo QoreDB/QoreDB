@@ -113,7 +113,9 @@
       "newQuery": "新建查询",
       "newNotebook": "新建笔记本",
       "credentialLoadFail": "加载连接详情失败",
-      "testTitleSuccess": "连接到 {{name}} 成功！"
+      "testTitleSuccess": "连接到 {{name}} 成功！",
+      "backup": "备份数据库…",
+      "restore": "从备份恢复…"
     },
     "url": {
       "useUrl": "使用 URL/DSN 连接",
@@ -555,13 +557,31 @@
       "newQuery": "新建查询标签页",
       "runQuery": "运行查询",
       "closeTab": "关闭标签页",
-      "escape": "关闭叠加层/取消"
+      "escape": "关闭叠加层/取消",
+      "title": "键盘快捷键",
+      "description": "点击绑定以记录新的按键组合。Esc 取消。",
+      "recordHint": "点击快捷键以重新分配。新组合立即生效。",
+      "recording": "按键…",
+      "errorSystemReserved": "系统保留",
+      "conflictTooltip": "与其他快捷键冲突",
+      "resetOne": "重置为默认",
+      "resetAll": "全部重置"
     },
     "tabs": {
       "title": "标签页",
       "description": "配置标签栏行为。",
       "groupByConnection": "按连接分组标签页",
       "groupByConnectionDescription": "在连接名称下方以可折叠的分组显示标签页。"
+    },
+    "backupTools": {
+      "title": "备份工具路径",
+      "description": "QoreDB 调用官方 CLI 工具（pg_dump、mysqldump、mongodump、sqlite3）。如果自动检测失败，您可以显式指定路径。",
+      "summary": "在此系统上检测到 {{total}} 个工具中的 {{found}} 个。",
+      "refresh": "重新检测",
+      "choose": "选择…",
+      "overridden": "手动",
+      "notFound": "在 PATH 中未找到 — 需要此工具的备份将失败。",
+      "empty": "尚未检测到任何工具。"
     }
   },
   "table": {
@@ -2357,5 +2377,37 @@
     "alter": {
       "driverUnsupported": "驱动程序不支持 ALTER TABLE：{{driver}}"
     }
+  },
+  "backup": {
+    "dialogTitle": "备份 {{name}}",
+    "mode": "模式",
+    "modeFull": "完整（架构 + 数据）",
+    "modeSchemaOnly": "仅架构",
+    "modeDataOnly": "仅数据",
+    "format": "格式",
+    "password": "密码",
+    "passwordPlaceholder": "导出工具需要",
+    "tablesOptional": "表（可选）",
+    "tablesPlaceholder": "逗号分隔；为空 = 全部",
+    "outputPath": "输出文件",
+    "outputPathPlaceholder": "选择目标",
+    "browse": "浏览…",
+    "start": "开始备份",
+    "running": "运行中…",
+    "starting": "启动中…",
+    "progress": "进度",
+    "completed": "备份成功完成。",
+    "exitedWithCode": "工具以代码 {{code}} 退出。",
+    "cancel": "取消",
+    "cancelling": "取消中…"
+  },
+  "restore": {
+    "dialogTitle": "恢复到 {{name}}",
+    "destructiveWarning": "此操作将覆盖或修改 \"{{name}}\" 中的数据。请确保在继续之前已有最新的备份。",
+    "inputPath": "备份文件",
+    "inputPathPlaceholder": "选择要恢复的备份文件",
+    "confirmLabel": "输入 \"{{name}}\" 以确认",
+    "start": "开始恢复",
+    "completed": "恢复成功完成。"
   }
 }

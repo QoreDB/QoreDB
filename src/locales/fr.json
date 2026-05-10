@@ -113,6 +113,8 @@
       "deleteFail": "Échec de la suppression de la connexion",
       "newQuery": "Nouvelle requête",
       "newNotebook": "Nouveau Notebook",
+      "backup": "Sauvegarder la base…",
+      "restore": "Restaurer depuis une sauvegarde…",
       "credentialLoadFail": "Échec du chargement des détails de la connexion",
       "testTitleSuccess": "Connexion à {{name}} réussie !"
     },
@@ -546,6 +548,14 @@
     },
     "modified": "Modifié",
     "shortcuts": {
+      "title": "Raccourcis clavier",
+      "description": "Clique sur un raccourci pour le réenregistrer. Esc annule l'enregistrement.",
+      "recordHint": "Clique sur un raccourci pour le réenregistrer. La nouvelle combinaison est appliquée immédiatement et persiste entre les sessions.",
+      "recording": "Tape la combinaison…",
+      "errorSystemReserved": "Réservé par le système",
+      "conflictTooltip": "Conflit avec un autre raccourci",
+      "resetOne": "Restaurer la valeur par défaut",
+      "resetAll": "Tout restaurer",
       "categoryNavigation": "Navigation",
       "categoryEditor": "Éditeur",
       "categoryGeneral": "Général",
@@ -564,6 +574,16 @@
       "description": "Configurer le comportement de la barre d'onglets.",
       "groupByConnection": "Grouper les onglets par connexion",
       "groupByConnectionDescription": "Afficher les onglets dans des groupes pliables sous le nom de leur connexion."
+    },
+    "backupTools": {
+      "title": "Chemins des outils de sauvegarde",
+      "description": "QoreDB délègue aux outils CLI officiels (pg_dump, mysqldump, mongodump, sqlite3). Si la détection automatique échoue, vous pouvez fixer un chemin explicite.",
+      "summary": "{{found}} outils sur {{total}} détectés sur ce système.",
+      "refresh": "Re-détecter",
+      "choose": "Choisir…",
+      "overridden": "Manuel",
+      "notFound": "Introuvable dans le PATH — les sauvegardes nécessitant cet outil échoueront.",
+      "empty": "Aucun outil détecté pour l'instant."
     }
   },
   "table": {
@@ -2377,5 +2397,37 @@
     "alter": {
       "driverUnsupported": "ALTER TABLE n'est pas pris en charge par le driver : {{driver}}"
     }
+  },
+  "backup": {
+    "dialogTitle": "Sauvegarde de {{name}}",
+    "mode": "Mode",
+    "modeFull": "Complète (schéma + données)",
+    "modeSchemaOnly": "Schéma seul",
+    "modeDataOnly": "Données seules",
+    "format": "Format",
+    "password": "Mot de passe",
+    "passwordPlaceholder": "Requis par l'outil de dump",
+    "tablesOptional": "Tables (optionnel)",
+    "tablesPlaceholder": "Séparées par virgules ; vide = toutes",
+    "outputPath": "Fichier de sortie",
+    "outputPathPlaceholder": "Choisir une destination",
+    "browse": "Parcourir…",
+    "start": "Démarrer la sauvegarde",
+    "running": "En cours…",
+    "starting": "Démarrage…",
+    "progress": "Progression",
+    "completed": "Sauvegarde terminée avec succès.",
+    "exitedWithCode": "L'outil de sauvegarde a quitté avec le code {{code}}.",
+    "cancel": "Annuler",
+    "cancelling": "Annulation…"
+  },
+  "restore": {
+    "dialogTitle": "Restaurer dans {{name}}",
+    "destructiveWarning": "Cette opération va écraser ou modifier les données de \"{{name}}\". Assurez-vous d'avoir une sauvegarde récente avant de continuer.",
+    "inputPath": "Fichier de sauvegarde",
+    "inputPathPlaceholder": "Choisir un fichier à restaurer",
+    "confirmLabel": "Saisissez \"{{name}}\" pour confirmer",
+    "start": "Démarrer la restauration",
+    "completed": "Restauration terminée avec succès."
   }
 }

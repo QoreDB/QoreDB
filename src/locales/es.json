@@ -113,7 +113,9 @@
       "newQuery": "Nueva consulta",
       "newNotebook": "Nuevo Notebook",
       "credentialLoadFail": "Error al cargar los detalles de la conexión",
-      "testTitleSuccess": "¡Conexión a {{name}} exitosa!"
+      "testTitleSuccess": "¡Conexión a {{name}} exitosa!",
+      "backup": "Respaldar base de datos…",
+      "restore": "Restaurar desde copia de seguridad…"
     },
     "url": {
       "useUrl": "Conectar usando URL/DSN",
@@ -555,13 +557,31 @@
       "newQuery": "Nueva pestaña de consulta",
       "runQuery": "Ejecutar consulta",
       "closeTab": "Cerrar pestaña",
-      "escape": "Cerrar superposición / Cancelar"
+      "escape": "Cerrar superposición / Cancelar",
+      "title": "Atajos de teclado",
+      "description": "Haz clic en un atajo para grabar una nueva combinación. Esc cancela.",
+      "recordHint": "Haz clic en un atajo para reasignarlo. La nueva combinación se aplica de inmediato.",
+      "recording": "Presiona teclas…",
+      "errorSystemReserved": "Reservado por el SO",
+      "conflictTooltip": "Conflicto con otro atajo",
+      "resetOne": "Restablecer al valor por defecto",
+      "resetAll": "Restablecer todos"
     },
     "tabs": {
       "title": "Pestañas",
       "description": "Configurar el comportamiento de la barra de pestañas.",
       "groupByConnection": "Agrupar pestañas por conexión",
       "groupByConnectionDescription": "Mostrar pestañas en grupos plegables bajo el nombre de su conexión."
+    },
+    "backupTools": {
+      "title": "Rutas de herramientas de respaldo",
+      "description": "QoreDB delega en las herramientas CLI oficiales (pg_dump, mysqldump, mongodump, sqlite3). Si la detección automática falla, puede fijar una ruta explícitamente.",
+      "summary": "{{found}} de {{total}} herramientas detectadas en este sistema.",
+      "refresh": "Volver a detectar",
+      "choose": "Elegir…",
+      "overridden": "Manual",
+      "notFound": "No encontrado en PATH — los respaldos que requieran esta herramienta fallarán.",
+      "empty": "Aún no se han detectado herramientas."
     }
   },
   "table": {
@@ -2358,5 +2378,37 @@
     "alter": {
       "driverUnsupported": "ALTER TABLE no es compatible con el driver: {{driver}}"
     }
+  },
+  "backup": {
+    "dialogTitle": "Respaldo de {{name}}",
+    "mode": "Modo",
+    "modeFull": "Completo (esquema + datos)",
+    "modeSchemaOnly": "Solo esquema",
+    "modeDataOnly": "Solo datos",
+    "format": "Formato",
+    "password": "Contraseña",
+    "passwordPlaceholder": "Requerido por la herramienta",
+    "tablesOptional": "Tablas (opcional)",
+    "tablesPlaceholder": "Separadas por comas; vacío = todas",
+    "outputPath": "Archivo de salida",
+    "outputPathPlaceholder": "Elegir destino",
+    "browse": "Examinar…",
+    "start": "Iniciar respaldo",
+    "running": "En curso…",
+    "starting": "Iniciando…",
+    "progress": "Progreso",
+    "completed": "Respaldo completado con éxito.",
+    "exitedWithCode": "La herramienta salió con código {{code}}.",
+    "cancel": "Cancelar",
+    "cancelling": "Cancelando…"
+  },
+  "restore": {
+    "dialogTitle": "Restaurar en {{name}}",
+    "destructiveWarning": "Esto sobrescribirá o modificará los datos en \"{{name}}\". Asegúrese de tener una copia de seguridad reciente antes de continuar.",
+    "inputPath": "Archivo de copia de seguridad",
+    "inputPathPlaceholder": "Elija un archivo de copia de seguridad para restaurar",
+    "confirmLabel": "Escriba \"{{name}}\" para confirmar",
+    "start": "Iniciar restauración",
+    "completed": "Restauración completada con éxito."
   }
 }

@@ -1,6 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { BookOpen, Copy, Loader2, Pencil, Star, Terminal, Trash2, Zap } from 'lucide-react';
+import {
+  BookOpen,
+  Copy,
+  Download,
+  Loader2,
+  Pencil,
+  Star,
+  Terminal,
+  Trash2,
+  Upload,
+  Zap,
+} from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
@@ -18,8 +29,22 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { openBackupDialog, openRestoreDialog } from '@/lib/stores/modalStore';
 import type { SavedConnection } from '../../lib/tauri';
 import { useConnectionActions } from './useConnectionActions';
+
+const BACKUP_SUPPORTED_DRIVERS = new Set([
+  'postgres',
+  'postgresql',
+  'mysql',
+  'mariadb',
+  'mongodb',
+  'sqlite',
+  'supabase',
+  'neon',
+  'timescaledb',
+  'cockroachdb',
+]);
 
 interface ConnectionContextMenuProps {
   connection: SavedConnection;
@@ -93,6 +118,18 @@ export function ConnectionContextMenu({
               <Star size={14} className={isFavorite ? 'fill-current text-yellow-500' : ''} />
               {isFavorite ? t('sidebar.removeFromFavorites') : t('sidebar.addToFavorites')}
             </ContextMenuItem>
+          )}
+          {BACKUP_SUPPORTED_DRIVERS.has(connection.driver.toLowerCase()) && (
+            <>
+              <ContextMenuItem onSelect={() => openBackupDialog(connection)}>
+                <Download size={14} />
+                {t('connection.menu.backup')}
+              </ContextMenuItem>
+              <ContextMenuItem onSelect={() => openRestoreDialog(connection)}>
+                <Upload size={14} />
+                {t('connection.menu.restore')}
+              </ContextMenuItem>
+            </>
           )}
           <ContextMenuSeparator />
           <ContextMenuItem

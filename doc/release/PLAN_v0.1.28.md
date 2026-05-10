@@ -183,6 +183,16 @@ Tous les endpoints (sauf `/health`) requièrent `Authorization: Bearer <token>`.
 
 **Objectif** : remplacer les raccourcis hardcodés dans `useKeyboardShortcuts` par un registry configurable, exposé dans Settings, exporté/importable.
 
+**Statut (mise à jour 2026-05-09)** : ✅ Livrée.
+
+- `src/lib/shortcuts/` — registry typé (`types.ts`, `defaults.ts`, `match.ts`, `format.ts`, `conflicts.ts`, `storage.ts`, `index.ts`).
+- `useShortcutBindings()` (dans `hooks/useKeyboardShortcuts.ts`) — réactif via `useSyncExternalStore`, re-résoud les bindings à chaque override.
+- `providers/ShortcutProvider.tsx` — refactoré pour matcher l'événement contre le registry, dispatcher par `ShortcutId`. Plus de chaînes `if` hardcodées.
+- `components/KeyboardCheatsheet.tsx` — lit le registry, affiche les chords dynamiques.
+- `components/Settings/sections/KeyboardShortcutsSection.tsx` — UI éditable : recorder click-to-rebind, détection de conflits, reset par raccourci ou globalement, refus des chords système-réservés (`Mod+Tab`, `Mod+Q`, `F11`/`F12`, naked `Enter`/`Space`).
+- 9 locales (clés `settings.shortcuts.{title,description,recordHint,recording,errorSystemReserved,conflictTooltip,resetOne,resetAll}`).
+- Constantes obsolètes `KEYBOARD_SHORTCUTS` retirées de `settingsConfig.ts`.
+
 ### Découpage fichiers
 
 `src/lib/shortcuts/` (nouveau)
@@ -213,6 +223,21 @@ Tous les endpoints (sauf `/health`) requièrent `Authorization: Bearer <token>`.
 ## 🎯 Phase 4 — Backup / Restore Helpers [Core]
 
 **Objectif** : wrappers autour de `pg_dump` / `mysqldump` / `mariadb-dump` / `mongodump` / `sqlite3 .dump` + leurs équivalents `restore`. Pas de réimplémentation : on délègue aux binaires officiels.
+
+**Statut (mise à jour 2026-05-09)** : ✅ Phase complète (backup + restore + cancel + tool paths).
+
+- Backend `src-tauri/src/backup/` :
+  - `tools.rs` — détection via `which` + override par tool (`BackupToolPaths`). 9 binaires connus (`pg_dump`, `pg_restore`, `psql`, `mysqldump`, `mariadb-dump`, `mysql`, `mongodump`, `mongorestore`, `sqlite3`).
+  - `args.rs` — builders d'arguments par driver, avec validation `safe_identifier` (refuse `--`-injection, caractères spéciaux). Mots de passe via env (`PGPASSWORD`, `MYSQL_PWD`, `MONGODB_PASSWORD`).
+  - `runner.rs` — `tokio::process::Command` + streaming stdout/stderr ligne par ligne via `EventSink`. Special-case sqlite (stdout redirigé vers le fichier de sortie). Cancellation via `tokio::select!` sur `oneshot::Receiver` + `child.start_kill()`. `kill_on_drop(true)` sur `Command` pour garantir la cleanup. Registry `ActiveBackups` (HashMap<job_id, oneshot::Sender>) dans `AppState`.
+- Tauri commands `src-tauri/src/commands/backup.rs` : `detect_backup_tools`, `set_backup_tool_path`, `start_backup`, `start_restore`, `cancel_backup`. Mapping driver → binaire (Postgres family / MySQL / MariaDB / Mongo / SQLite).
+- 14 tests Rust (args builders + safe_identifier + spawn echo + non-zero exit + missing binary + cancel kill).
+- Frontend `src/lib/tauri/backup.ts` — bindings TS (`startBackup`, `startRestore`, `cancelBackup`, `detectBackupTools`, `setBackupToolPath`) + `listenBackupProgress` qui s'abonne aux events `backup-progress`. Ajout du variant d'event `started` (émis avant la première ligne pour exposer le `job_id` à l'UI).
+- `src/components/Backup/BackupDialog.tsx` — UX : mode (full/schema/data), format pg_dump (sql/custom), tables optionnelles, picker output, password, log scroll temps réel, bouton cancel pendant le run, gestion succès/erreur.
+- `src/components/Backup/RestoreDialog.tsx` — banner destructif, picker input, format pg_restore (psql/pg_restore custom), password, double-confirm (saisie du nom de DB), log scroll, cancel.
+- `src/components/Settings/sections/BackupToolsCard.tsx` — Settings → Data : liste des 9 binaires avec status detected/manual, bouton "Choose…" pour override, refresh.
+- Wiring : entrées "Backup database…" / "Restore from backup…" dans `ConnectionContextMenu` (visibles uniquement pour les drivers supportés), modaux montés dans `Sidebar.tsx`, états `backupConnection`/`restoreConnection` dans `modalStore`.
+- 9 locales : `backup.*` (~22 clés, dont `cancel`/`cancelling`), `restore.*` (7 clés), `settings.backupTools.*` (8 clés), `connection.menu.backup` + `connection.menu.restore`.
 
 ### Décisions
 
@@ -272,7 +297,7 @@ Solde en une PR cinq findings de l'audit `SECURITY_AUDIT.md` (2026-04-05) + ajou
 | Sub-item | État | Notes |
 | --- | --- | --- |
 | 5.1 Read-only uniformity | ✅ | Couverture complète vérifiée sur `mutation`, `maintenance`, `routines`, `triggers` (incl. `toggle_trigger`, `drop_event`), `sequences`, `create_database`, `drop_database`. Tous gatent `is_read_only`. |
-| 5.2 Governance étendue | ⚠️ Partiel | `preview_table` et `query_table` clampent déjà `max_result_rows`. Restant : timeout + concurrency, et clamp pour `peek_foreign_key`. |
+| 5.2 Governance étendue | ✅ | Module `commands/governance.rs` (clamp_rows, check_concurrent_limit, with_timeout) appliqué à `preview_table`, `query_table`, `peek_foreign_key`. 5 tests unitaires. |
 | 5.3 Audit read-from-disk | ✅ | `AuditStore::get_entries_from_disk` + `export_format(from_disk)` exposés via `export_audit_log(format, from_disk)`. |
 | 5.4 Fingerprinting + JSONL/CSV | ✅ | Module `interceptor/fingerprint.rs` (SQL/Mongo/Redis, SHA-256 hex 16). Module `interceptor/export.rs` (JSON pretty / JSONL / CSV). UI : colonne hash, filtre, dropdown export. |
 | 5.5 Share HTTPS-only | ✅ | Déjà en place avant cette release (`validate_provider_config` + `validate_share_url`, exception loopback). |

@@ -11,6 +11,7 @@ use tokio::time::{timeout, Duration};
 use tracing::{field, instrument};
 use uuid::Uuid;
 
+use crate::commands::governance;
 use crate::commands::stream_msg::{dispatch_stream_event, StreamDispatcher};
 use crate::engine::{
     mongo_safety, redis_safety, sql_safety,
@@ -1172,17 +1173,28 @@ pub async fn preview_table(
     table: String,
     limit: u32,
 ) -> Result<QueryResponse, String> {
-    let (session_manager, policy) = {
+    let (session_manager, query_manager, policy) = {
         let state = state.lock().await;
-        (Arc::clone(&state.session_manager), state.policy.clone())
+        (
+            Arc::clone(&state.session_manager),
+            Arc::clone(&state.query_manager),
+            state.policy.clone(),
+        )
     };
     let session = parse_session_id(&session_id)?;
 
-    let effective_limit = if let Some(max_rows) = policy.max_result_rows {
-        limit.min(max_rows as u32)
-    } else {
-        limit
-    };
+    let effective_limit = governance::clamp_rows(&policy, limit);
+
+    if let Err(msg) = governance::check_concurrent_limit(&policy, &query_manager).await {
+        return Ok(QueryResponse {
+            success: false,
+            result: None,
+            error: Some(msg),
+            query_id: None,
+            truncated: None,
+            truncated_total: None,
+        });
+    }
 
     let driver = match session_manager.get_driver(session).await {
         Ok(d) => d,
@@ -1198,11 +1210,14 @@ pub async fn preview_table(
         }
     };
 
-    match driver
-        .preview_table(session, &namespace, &table, effective_limit)
-        .await
-    {
-        Ok(result) => Ok(QueryResponse {
+    let result = governance::with_timeout(
+        &policy,
+        driver.preview_table(session, &namespace, &table, effective_limit),
+    )
+    .await;
+
+    match result {
+        Ok(Ok(result)) => Ok(QueryResponse {
             success: true,
             result: Some(result),
             error: None,
@@ -1210,10 +1225,18 @@ pub async fn preview_table(
             truncated: None,
             truncated_total: None,
         }),
-        Err(e) => Ok(QueryResponse {
+        Ok(Err(e)) => Ok(QueryResponse {
             success: false,
             result: None,
             error: Some(e.sanitized_message()),
+            query_id: None,
+            truncated: None,
+            truncated_total: None,
+        }),
+        Err(timeout_msg) => Ok(QueryResponse {
+            success: false,
+            result: None,
+            error: Some(timeout_msg),
             query_id: None,
             truncated: None,
             truncated_total: None,
@@ -1242,9 +1265,13 @@ pub async fn query_table(
     table: String,
     options: TableQueryOptions,
 ) -> Result<PaginatedQueryResponse, String> {
-    let (session_manager, policy) = {
+    let (session_manager, query_manager, policy) = {
         let state = state.lock().await;
-        (Arc::clone(&state.session_manager), state.policy.clone())
+        (
+            Arc::clone(&state.session_manager),
+            Arc::clone(&state.query_manager),
+            state.policy.clone(),
+        )
     };
     let session = parse_session_id(&session_id)?;
 
@@ -1252,6 +1279,16 @@ pub async fn query_table(
     if let Some(max_rows) = policy.max_result_rows {
         let max_page = max_rows as u32;
         options.page_size = Some(options.page_size.unwrap_or(50).min(max_page));
+    }
+
+    if let Err(msg) = governance::check_concurrent_limit(&policy, &query_manager).await {
+        return Ok(PaginatedQueryResponse {
+            success: false,
+            result: None,
+            error: Some(msg),
+            truncated: None,
+            truncated_total: None,
+        });
     }
 
     let driver = match session_manager.get_driver(session).await {
@@ -1267,21 +1304,31 @@ pub async fn query_table(
         }
     };
 
-    match driver
-        .query_table(session, &namespace, &table, options)
-        .await
-    {
-        Ok(result) => Ok(PaginatedQueryResponse {
+    let result = governance::with_timeout(
+        &policy,
+        driver.query_table(session, &namespace, &table, options),
+    )
+    .await;
+
+    match result {
+        Ok(Ok(result)) => Ok(PaginatedQueryResponse {
             success: true,
             result: Some(result),
             error: None,
             truncated: None,
             truncated_total: None,
         }),
-        Err(e) => Ok(PaginatedQueryResponse {
+        Ok(Err(e)) => Ok(PaginatedQueryResponse {
             success: false,
             result: None,
             error: Some(e.sanitized_message()),
+            truncated: None,
+            truncated_total: None,
+        }),
+        Err(timeout_msg) => Ok(PaginatedQueryResponse {
+            success: false,
+            result: None,
+            error: Some(timeout_msg),
             truncated: None,
             truncated_total: None,
         }),
@@ -1298,12 +1345,18 @@ pub async fn peek_foreign_key(
     value: Value,
     limit: Option<u32>,
 ) -> Result<QueryResponse, String> {
-    let session_manager = {
+    let (session_manager, query_manager, policy) = {
         let state = state.lock().await;
-        Arc::clone(&state.session_manager)
+        (
+            Arc::clone(&state.session_manager),
+            Arc::clone(&state.query_manager),
+            state.policy.clone(),
+        )
     };
     let session = parse_session_id(&session_id)?;
-    let limit = limit.unwrap_or(3).clamp(1, 25);
+    // The hardcoded 25 stays as a UX cap (tooltip preview); policy can tighten further.
+    let requested = limit.unwrap_or(3).clamp(1, 25);
+    let limit = governance::clamp_rows(&policy, requested);
 
     if foreign_key.referenced_table.trim().is_empty()
         || foreign_key.referenced_column.trim().is_empty()
@@ -1324,6 +1377,17 @@ pub async fn peek_foreign_key(
         });
     }
 
+    if let Err(msg) = governance::check_concurrent_limit(&policy, &query_manager).await {
+        return Ok(QueryResponse {
+            success: false,
+            result: None,
+            error: Some(msg),
+            query_id: None,
+            truncated: None,
+            truncated_total: None,
+        });
+    }
+
     let driver = match session_manager.get_driver(session).await {
         Ok(d) => d,
         Err(e) => {
@@ -1338,11 +1402,14 @@ pub async fn peek_foreign_key(
         }
     };
 
-    match driver
-        .peek_foreign_key(session, &namespace, &foreign_key, &value, limit)
-        .await
-    {
-        Ok(result) => Ok(QueryResponse {
+    let result = governance::with_timeout(
+        &policy,
+        driver.peek_foreign_key(session, &namespace, &foreign_key, &value, limit),
+    )
+    .await;
+
+    match result {
+        Ok(Ok(result)) => Ok(QueryResponse {
             success: true,
             result: Some(result),
             error: None,
@@ -1350,10 +1417,18 @@ pub async fn peek_foreign_key(
             truncated: None,
             truncated_total: None,
         }),
-        Err(e) => Ok(QueryResponse {
+        Ok(Err(e)) => Ok(QueryResponse {
             success: false,
             result: None,
             error: Some(e.sanitized_message()),
+            query_id: None,
+            truncated: None,
+            truncated_total: None,
+        }),
+        Err(timeout_msg) => Ok(QueryResponse {
+            success: false,
+            result: None,
+            error: Some(timeout_msg),
             query_id: None,
             truncated: None,
             truncated_total: None,

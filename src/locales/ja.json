@@ -113,7 +113,9 @@
       "newQuery": "新しいクエリ",
       "newNotebook": "新しいノートブック",
       "credentialLoadFail": "接続情報の読み込みに失敗しました",
-      "testTitleSuccess": "{{name}} への接続に成功しました！"
+      "testTitleSuccess": "{{name}} への接続に成功しました！",
+      "backup": "データベースをバックアップ…",
+      "restore": "バックアップから復元…"
     },
     "url": {
       "useUrl": "URL/DSN で接続",
@@ -555,13 +557,31 @@
       "newQuery": "新しいクエリタブ",
       "runQuery": "クエリを実行",
       "closeTab": "タブを閉じる",
-      "escape": "オーバーレイを閉じる / キャンセル"
+      "escape": "オーバーレイを閉じる / キャンセル",
+      "title": "キーボードショートカット",
+      "description": "バインディングをクリックして新しいキーの組み合わせを記録します。Esc でキャンセル。",
+      "recordHint": "ショートカットをクリックして再割り当てします。新しい組み合わせは即座に適用されます。",
+      "recording": "キーを押してください…",
+      "errorSystemReserved": "OS によって予約済み",
+      "conflictTooltip": "別のショートカットと競合",
+      "resetOne": "デフォルトにリセット",
+      "resetAll": "すべてリセット"
     },
     "tabs": {
       "title": "タブ",
       "description": "タブバーの動作を設定します。",
       "groupByConnection": "接続ごとにタブをグループ化",
       "groupByConnectionDescription": "折りたたみ可能なグループ内に、接続名の下にタブを表示します。"
+    },
+    "backupTools": {
+      "title": "バックアップツールのパス",
+      "description": "QoreDB は公式 CLI ツール (pg_dump, mysqldump, mongodump, sqlite3) を呼び出します。自動検出が失敗した場合、パスを明示的に指定できます。",
+      "summary": "このシステムで {{total}} 個中 {{found}} 個のツールを検出しました。",
+      "refresh": "再検出",
+      "choose": "選択…",
+      "overridden": "手動",
+      "notFound": "PATH に見つかりません — このツールを必要とするバックアップは失敗します。",
+      "empty": "ツールはまだ検出されていません。"
     }
   },
   "table": {
@@ -2357,5 +2377,37 @@
     "alter": {
       "driverUnsupported": "ドライバーでは ALTER TABLE はサポートされていません: {{driver}}"
     }
+  },
+  "backup": {
+    "dialogTitle": "{{name}} のバックアップ",
+    "mode": "モード",
+    "modeFull": "フル（スキーマ + データ）",
+    "modeSchemaOnly": "スキーマのみ",
+    "modeDataOnly": "データのみ",
+    "format": "フォーマット",
+    "password": "パスワード",
+    "passwordPlaceholder": "ダンプツールに必要",
+    "tablesOptional": "テーブル（オプション）",
+    "tablesPlaceholder": "カンマ区切り。空 = 全て",
+    "outputPath": "出力ファイル",
+    "outputPathPlaceholder": "保存先を選択",
+    "browse": "参照…",
+    "start": "バックアップ開始",
+    "running": "実行中…",
+    "starting": "開始中…",
+    "progress": "進捗",
+    "completed": "バックアップが正常に完了しました。",
+    "exitedWithCode": "ツールがコード {{code}} で終了しました。",
+    "cancel": "キャンセル",
+    "cancelling": "キャンセル中…"
+  },
+  "restore": {
+    "dialogTitle": "{{name}} へのリストア",
+    "destructiveWarning": "この操作は「{{name}}」のデータを上書きまたは変更します。続行する前に最新のバックアップがあることを確認してください。",
+    "inputPath": "バックアップファイル",
+    "inputPathPlaceholder": "リストアするバックアップファイルを選択",
+    "confirmLabel": "「{{name}}」と入力して確認してください",
+    "start": "リストアを開始",
+    "completed": "リストアが正常に完了しました。"
   }
 }

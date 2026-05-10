@@ -113,6 +113,8 @@
       "deleteFail": "Failed to delete connection",
       "newQuery": "New Query",
       "newNotebook": "New Notebook",
+      "backup": "Backup database…",
+      "restore": "Restore from backup…",
       "credentialLoadFail": "Failed to load connection details",
       "testTitleSuccess": "Connection to {{name}} successful!"
     },
@@ -546,6 +548,14 @@
     },
     "modified": "Modified",
     "shortcuts": {
+      "title": "Keyboard shortcuts",
+      "description": "Click any binding to record a new key combination. Esc cancels recording.",
+      "recordHint": "Click a shortcut to rebind it. The new combination applies immediately and persists across sessions.",
+      "recording": "Press keys…",
+      "errorSystemReserved": "Reserved by the OS",
+      "conflictTooltip": "Conflicts with another shortcut",
+      "resetOne": "Reset to default",
+      "resetAll": "Reset all to defaults",
       "categoryNavigation": "Navigation",
       "categoryEditor": "Editor",
       "categoryGeneral": "General",
@@ -564,6 +574,16 @@
       "description": "Configure the behavior of the tab bar.",
       "groupByConnection": "Group tabs by connection",
       "groupByConnectionDescription": "Display tabs in collapsible groups under their connection name."
+    },
+    "backupTools": {
+      "title": "Backup tool paths",
+      "description": "QoreDB shells out to the official CLI tools (pg_dump, mysqldump, mongodump, sqlite3). When auto-detection fails, you can pin a binary path explicitly.",
+      "summary": "{{found}} of {{total}} tools detected on this system.",
+      "refresh": "Re-detect",
+      "choose": "Choose…",
+      "overridden": "Manual",
+      "notFound": "Not found in PATH — backups requiring this tool will fail.",
+      "empty": "No tools detected yet."
     }
   },
   "table": {
@@ -2377,5 +2397,37 @@
     "alter": {
       "driverUnsupported": "ALTER TABLE is not supported on driver: {{driver}}"
     }
+  },
+  "backup": {
+    "dialogTitle": "Backup {{name}}",
+    "mode": "Mode",
+    "modeFull": "Full (schema + data)",
+    "modeSchemaOnly": "Schema only",
+    "modeDataOnly": "Data only",
+    "format": "Format",
+    "password": "Password",
+    "passwordPlaceholder": "Required by the dump tool",
+    "tablesOptional": "Tables (optional)",
+    "tablesPlaceholder": "Comma-separated; empty = all tables",
+    "outputPath": "Output file",
+    "outputPathPlaceholder": "Pick a destination",
+    "browse": "Browse…",
+    "start": "Start backup",
+    "running": "Running…",
+    "starting": "Starting…",
+    "progress": "Progress",
+    "completed": "Backup completed successfully.",
+    "exitedWithCode": "Backup tool exited with code {{code}}.",
+    "cancel": "Cancel",
+    "cancelling": "Cancelling…"
+  },
+  "restore": {
+    "dialogTitle": "Restore into {{name}}",
+    "destructiveWarning": "This will overwrite or modify data in \"{{name}}\". Make sure you have a current backup before continuing.",
+    "inputPath": "Backup file",
+    "inputPathPlaceholder": "Pick a backup file to restore",
+    "confirmLabel": "Type \"{{name}}\" to confirm",
+    "start": "Start restore",
+    "completed": "Restore completed successfully."
   }
 }

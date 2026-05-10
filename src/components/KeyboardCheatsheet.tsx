@@ -1,18 +1,31 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { X } from 'lucide-react';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { getShortcutSymbol } from '@/utils/platform';
+import { useShortcutBindings } from '@/hooks/useKeyboardShortcuts';
+import {
+  formatChord,
+  SHORTCUT_DEFINITIONS,
+  type ShortcutCategory,
+  type ShortcutDefinition,
+} from '@/lib/shortcuts';
 
 interface KeyboardCheatsheetProps {
   open: boolean;
   onClose: () => void;
 }
 
+const CATEGORY_ORDER: ShortcutCategory[] = ['general', 'tabs', 'editor'];
+const CATEGORY_KEY: Record<ShortcutCategory, string> = {
+  general: 'cheatsheet.general',
+  tabs: 'cheatsheet.tabs',
+  editor: 'cheatsheet.queryEditor',
+};
+
 export function KeyboardCheatsheet({ open, onClose }: KeyboardCheatsheetProps) {
   const { t } = useTranslation();
-  const mod = getShortcutSymbol();
+  const bindings = useShortcutBindings();
 
   useEffect(() => {
     if (!open) return;
@@ -26,36 +39,21 @@ export function KeyboardCheatsheet({ open, onClose }: KeyboardCheatsheetProps) {
     return () => window.removeEventListener('keydown', handler);
   }, [open, onClose]);
 
-  if (!open) return null;
+  const sections = useMemo(() => {
+    const grouped = new Map<ShortcutCategory, ShortcutDefinition[]>();
+    for (const def of SHORTCUT_DEFINITIONS) {
+      const existing = grouped.get(def.category) ?? [];
+      existing.push(def);
+      grouped.set(def.category, existing);
+    }
+    return CATEGORY_ORDER.filter(c => grouped.has(c)).map(category => ({
+      category,
+      title: t(CATEGORY_KEY[category]),
+      shortcuts: grouped.get(category) ?? [],
+    }));
+  }, [t]);
 
-  const sections = [
-    {
-      title: t('cheatsheet.general'),
-      shortcuts: [
-        { keys: `${mod}+K`, label: t('cheatsheet.search') },
-        { keys: `${mod}+,`, label: t('cheatsheet.settings') },
-        { keys: '?', label: t('cheatsheet.thisDialog') },
-        { keys: 'Esc', label: t('cheatsheet.exitZenMode') },
-      ],
-    },
-    {
-      title: t('cheatsheet.tabs'),
-      shortcuts: [
-        { keys: `${mod}+T`, label: t('cheatsheet.newQuery') },
-        { keys: `${mod}+W`, label: t('cheatsheet.closeTab') },
-        { keys: `${mod}+N`, label: t('cheatsheet.newConnection') },
-      ],
-    },
-    {
-      title: t('cheatsheet.queryEditor'),
-      shortcuts: [
-        { keys: `${mod}+Enter`, label: t('cheatsheet.executeQuery') },
-        { keys: `${mod}+Shift+N`, label: t('cheatsheet.convertToNotebook') },
-        { keys: `${mod}+Shift+L`, label: t('cheatsheet.openLibrary') },
-        { keys: `${mod}+Shift+F`, label: t('cheatsheet.fulltextSearch') },
-      ],
-    },
-  ];
+  if (!open) return null;
 
   return (
     <>
@@ -79,16 +77,16 @@ export function KeyboardCheatsheet({ open, onClose }: KeyboardCheatsheetProps) {
         </div>
         <div className="space-y-5">
           {sections.map(section => (
-            <div key={section.title}>
+            <div key={section.category}>
               <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
                 {section.title}
               </h3>
               <div className="space-y-1">
-                {section.shortcuts.map(shortcut => (
-                  <div key={shortcut.keys} className="flex items-center justify-between py-1">
-                    <span className="text-sm text-foreground">{shortcut.label}</span>
+                {section.shortcuts.map(def => (
+                  <div key={def.id} className="flex items-center justify-between py-1">
+                    <span className="text-sm text-foreground">{t(def.labelKey)}</span>
                     <kbd className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-mono bg-muted rounded border border-border text-muted-foreground">
-                      {shortcut.keys}
+                      {formatChord(bindings[def.id])}
                     </kbd>
                   </div>
                 ))}

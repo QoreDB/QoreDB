@@ -22,6 +22,8 @@ interface ModalState {
   zenMode: boolean;
   editConnection: SavedConnection | null;
   editPassword: string;
+  backupConnection: SavedConnection | null;
+  restoreConnection: SavedConnection | null;
 }
 
 let state: ModalState = {
@@ -38,6 +40,8 @@ let state: ModalState = {
   zenMode: false,
   editConnection: null,
   editPassword: '',
+  backupConnection: null,
+  restoreConnection: null,
 };
 
 const listeners = new Set<() => void>();
@@ -102,6 +106,22 @@ export function setLogsOpen(open: boolean) {
 export function setAuditLogOpen(open: boolean) {
   if (state.auditLogOpen === open) return;
   updateState({ auditLogOpen: open });
+}
+
+export function openBackupDialog(connection: SavedConnection) {
+  updateState({ backupConnection: connection });
+}
+
+export function closeBackupDialog() {
+  updateState({ backupConnection: null });
+}
+
+export function openRestoreDialog(connection: SavedConnection) {
+  updateState({ restoreConnection: connection });
+}
+
+export function closeRestoreDialog() {
+  updateState({ restoreConnection: null });
 }
 
 export function setSettingsOpen(open: boolean) {

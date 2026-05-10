@@ -5,6 +5,7 @@
 
 #[cfg(feature = "pro")]
 pub mod ai;
+pub mod backup;
 pub mod commands;
 pub mod engine;
 pub mod export;
@@ -64,6 +65,8 @@ pub struct AppState {
     #[cfg(feature = "pro")]
     pub ai_manager: Arc<ai::manager::AiManager>,
     pub changelog_store: Arc<time_travel::ChangelogStore>,
+    pub backup_tool_paths: Arc<backup::BackupToolPaths>,
+    pub active_backups: Arc<backup::runner::ActiveBackups>,
 }
 
 impl AppState {
@@ -136,6 +139,8 @@ impl AppState {
             #[cfg(feature = "pro")]
             ai_manager,
             changelog_store,
+            backup_tool_paths: Arc::new(backup::BackupToolPaths::new()),
+            active_backups: Arc::new(backup::runner::ActiveBackups::new()),
         }
     }
 }
@@ -328,6 +333,12 @@ pub fn run() {
             commands::interceptor::add_safety_rule,
             commands::interceptor::update_safety_rule,
             commands::interceptor::remove_safety_rule,
+            // Backup / Restore commands
+            commands::backup::detect_backup_tools,
+            commands::backup::set_backup_tool_path,
+            commands::backup::start_backup,
+            commands::backup::start_restore,
+            commands::backup::cancel_backup,
             // Snapshot commands
             commands::snapshots::save_snapshot,
             commands::snapshots::list_snapshots,

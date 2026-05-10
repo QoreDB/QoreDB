@@ -170,6 +170,9 @@ argon2 = "0.5"
 rand = "0.8"
 sha2 = "0.10"
 
+# Backup/Restore: detection of `pg_dump`, `mysqldump`, `mongodump`, etc. in $PATH
+which = "6"
+
 # License verification
 ed25519-dalek = { version = "2", features = ["serde"] }
 

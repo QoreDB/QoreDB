@@ -92,7 +92,8 @@
       "Bash(awk '/\"tabs\": \\\\{/,/^  \\\\}/' src/locales/fr.json)",
       "Bash(pnpm check *)",
       "Bash(pnpm test *)",
-      "Bash(git -C /home/raphael/dev/perso/QoreDB tag --sort=-v:refname)"
+      "Bash(git -C /home/raphael/dev/perso/QoreDB tag --sort=-v:refname)",
+      "Bash(pnpm --dir /home/raphael/dev/perso/QoreDB exec tsc --noEmit)"
     ]
   }
 }

@@ -14,7 +14,13 @@ import {
   saveFavoriteConnectionIds,
 } from '@/lib/connection/connectionFavorites';
 import { UI_EVENT_CONNECTIONS_CHANGED } from '@/lib/events/uiEvents';
-import { setAuditLogOpen, setLogsOpen, useModalStore } from '@/lib/stores/modalStore';
+import {
+  closeBackupDialog,
+  closeRestoreDialog,
+  setAuditLogOpen,
+  setLogsOpen,
+  useModalStore,
+} from '@/lib/stores/modalStore';
 import { useLicense } from '@/providers/LicenseProvider';
 import { useWorkspace } from '@/providers/WorkspaceProvider';
 import {
@@ -29,6 +35,7 @@ import {
   type Sequence,
   type Trigger,
 } from '../../lib/tauri';
+import { BackupDialog, RestoreDialog } from '../Backup';
 import { AuditLogModal } from '../Interceptor';
 import { ErrorLogPanel } from '../Logs/ErrorLogPanel';
 import { DBTree } from '../Tree/DBTree';
@@ -99,6 +106,8 @@ export function Sidebar({
   const { projectId } = useWorkspace();
   const logsOpen = useModalStore(s => s.logsOpen);
   const auditLogOpen = useModalStore(s => s.auditLogOpen);
+  const backupConnection = useModalStore(s => s.backupConnection);
+  const restoreConnection = useModalStore(s => s.restoreConnection);
 
   const loadConnections = useCallback(async () => {
     try {
@@ -388,6 +397,16 @@ export function Sidebar({
 
       <ErrorLogPanel isOpen={logsOpen} onClose={() => setLogsOpen(false)} />
       <AuditLogModal isOpen={auditLogOpen} onClose={() => setAuditLogOpen(false)} />
+      <BackupDialog
+        connection={backupConnection}
+        open={!!backupConnection}
+        onClose={closeBackupDialog}
+      />
+      <RestoreDialog
+        connection={restoreConnection}
+        open={!!restoreConnection}
+        onClose={closeRestoreDialog}
+      />
     </aside>
   );
 }

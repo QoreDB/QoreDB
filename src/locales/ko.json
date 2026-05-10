@@ -580,7 +580,7 @@
       "refresh": "다시 감지",
       "choose": "선택…",
       "overridden": "수동",
-      "notFound": "PATH에서 찾을 수 없음 — 이 도구가 필요한 백업은 실패합니다.",
+      "notFound": "PATH에서 찾을 수 없음.",
       "empty": "감지된 도구가 아직 없습니다."
     }
   },

@@ -23,8 +23,6 @@ pub fn classify(query: &str) -> ClickHouseQueryClass {
     }
     let upper = stripped.to_ascii_uppercase();
 
-    // Dangerous keywords come first so a `DROP TABLE` lined up against a
-    // `DROP COLUMN` (which is a Mutation) doesn't mis-classify.
     if is_dangerous(&upper) {
         return ClickHouseQueryClass::Dangerous;
     }
@@ -58,14 +56,10 @@ fn is_dangerous(upper: &str) -> bool {
     }
 
     if upper.starts_with("DETACH ") {
-        // DETACH TABLE/VIEW/PARTITION — all destructive (data inaccessible).
         return true;
     }
 
     if upper.starts_with("SYSTEM ") {
-        // SYSTEM SHUTDOWN / SYSTEM DROP MARK CACHE / SYSTEM FLUSH LOGS …
-        // The bulk of SYSTEM commands mutate cluster state — flag as
-        // dangerous and let the user confirm.
         let rest = upper.trim_start_matches("SYSTEM ").trim_start();
         if rest.starts_with("SHUTDOWN")
             || rest.starts_with("KILL")
@@ -81,8 +75,6 @@ fn is_dangerous(upper: &str) -> bool {
     }
 
     if upper.starts_with("OPTIMIZE ") && upper.contains(" FINAL") {
-        // OPTIMIZE TABLE … FINAL is a heavy O(N) operation that can fill
-        // disks; treat as dangerous.
         return true;
     }
 
@@ -110,14 +102,9 @@ fn is_mutation(upper: &str) -> bool {
         return true;
     }
     if head == "ALTER" {
-        // `ALTER TABLE ... DELETE WHERE` and `... UPDATE WHERE` are mutations.
-        // `ALTER TABLE ... DROP COLUMN` is also a mutation (column removal),
-        // not a "dangerous" full-table drop. Both fall into Mutation here.
         return true;
     }
     if head == "OPTIMIZE" {
-        // OPTIMIZE without FINAL is a routine maintenance op, but it does
-        // mutate parts on disk, so report Mutation.
         return true;
     }
     false
@@ -132,13 +119,12 @@ fn first_keyword(upper: &str) -> String {
 }
 
 /// Strip line and block comments from the front so `-- a\nSELECT 1` and
-/// `/* foo */ SELECT 1` classify as Read.
+/// `/* foo*/ SELECT 1` classify as Read.
 fn strip_leading_comments(input: &str) -> &str {
     let mut s = input;
     loop {
         s = s.trim_start();
         if let Some(rest) = s.strip_prefix("--") {
-            // line comment to end of line
             if let Some(idx) = rest.find('\n') {
                 s = &rest[idx + 1..];
                 continue;
@@ -165,7 +151,10 @@ mod tests {
     #[test]
     fn classifies_read_queries() {
         assert_eq!(classify("SELECT 1"), ClickHouseQueryClass::Read);
-        assert_eq!(classify("WITH x AS (SELECT 1) SELECT * FROM x"), ClickHouseQueryClass::Read);
+        assert_eq!(
+            classify("WITH x AS (SELECT 1) SELECT * FROM x"),
+            ClickHouseQueryClass::Read
+        );
         assert_eq!(classify("SHOW TABLES"), ClickHouseQueryClass::Read);
         assert_eq!(classify("DESCRIBE TABLE t"), ClickHouseQueryClass::Read);
         assert_eq!(classify("EXPLAIN SELECT 1"), ClickHouseQueryClass::Read);
@@ -195,16 +184,28 @@ mod tests {
     #[test]
     fn classifies_dangerous() {
         assert_eq!(classify("DROP TABLE t"), ClickHouseQueryClass::Dangerous);
-        assert_eq!(classify("DROP DATABASE prod"), ClickHouseQueryClass::Dangerous);
-        assert_eq!(classify("TRUNCATE TABLE t"), ClickHouseQueryClass::Dangerous);
+        assert_eq!(
+            classify("DROP DATABASE prod"),
+            ClickHouseQueryClass::Dangerous
+        );
+        assert_eq!(
+            classify("TRUNCATE TABLE t"),
+            ClickHouseQueryClass::Dangerous
+        );
         assert_eq!(classify("DETACH TABLE t"), ClickHouseQueryClass::Dangerous);
         assert_eq!(classify("SYSTEM SHUTDOWN"), ClickHouseQueryClass::Dangerous);
-        assert_eq!(classify("SYSTEM FLUSH LOGS"), ClickHouseQueryClass::Dangerous);
+        assert_eq!(
+            classify("SYSTEM FLUSH LOGS"),
+            ClickHouseQueryClass::Dangerous
+        );
         assert_eq!(
             classify("OPTIMIZE TABLE t FINAL"),
             ClickHouseQueryClass::Dangerous
         );
-        assert_eq!(classify("KILL QUERY WHERE 1"), ClickHouseQueryClass::Dangerous);
+        assert_eq!(
+            classify("KILL QUERY WHERE 1"),
+            ClickHouseQueryClass::Dangerous
+        );
     }
 
     #[test]

@@ -580,7 +580,7 @@
       "refresh": "Detectar novamente",
       "choose": "Escolher…",
       "overridden": "Manual",
-      "notFound": "Não encontrado no PATH — backups que requerem esta ferramenta falharão.",
+      "notFound": "Não encontrado no PATH.",
       "empty": "Nenhuma ferramenta detectada ainda."
     }
   },

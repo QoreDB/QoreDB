@@ -582,7 +582,7 @@
       "refresh": "Re-détecter",
       "choose": "Choisir…",
       "overridden": "Manuel",
-      "notFound": "Introuvable dans le PATH — les sauvegardes nécessitant cet outil échoueront.",
+      "notFound": "Introuvable dans le PATH.",
       "empty": "Aucun outil détecté pour l'instant."
     }
   },

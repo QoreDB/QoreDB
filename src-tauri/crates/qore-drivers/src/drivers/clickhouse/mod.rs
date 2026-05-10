@@ -6,6 +6,7 @@
 mod client;
 mod describe;
 mod driver;
+mod literal;
 mod response;
 mod types;
 

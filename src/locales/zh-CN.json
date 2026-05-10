@@ -580,7 +580,7 @@
       "refresh": "重新检测",
       "choose": "选择…",
       "overridden": "手动",
-      "notFound": "在 PATH 中未找到 — 需要此工具的备份将失败。",
+      "notFound": "在 PATH 中未找到。",
       "empty": "尚未检测到任何工具。"
     }
   },

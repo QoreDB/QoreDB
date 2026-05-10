@@ -580,7 +580,7 @@
       "refresh": "Erneut erkennen",
       "choose": "Auswählen…",
       "overridden": "Manuell",
-      "notFound": "Nicht im PATH gefunden — Sicherungen, die dieses Tool benötigen, schlagen fehl.",
+      "notFound": "Nicht im PATH gefunden.",
       "empty": "Noch keine Tools erkannt."
     }
   },

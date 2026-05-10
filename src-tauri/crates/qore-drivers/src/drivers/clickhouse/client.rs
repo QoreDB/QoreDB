@@ -108,7 +108,23 @@ impl ClickHouseClient {
     /// Issue a query that returns no rows (DDL / mutations). Returns the body
     /// for debugging — ClickHouse echoes a summary on some statements.
     pub async fn execute(&self, sql: &str, query_id: Option<&Uuid>) -> EngineResult<String> {
-        let url = self.build_url(query_id, None);
+        self.execute_with_settings(sql, query_id, &[]).await
+    }
+
+    /// Like `execute` but lets the caller pass extra ClickHouse settings
+    /// (e.g. `("mutations_sync", "2")`) via the URL query string. Used by
+    /// `ALTER TABLE … UPDATE` to wait for mutation completion synchronously.
+    pub async fn execute_with_settings(
+        &self,
+        sql: &str,
+        query_id: Option<&Uuid>,
+        settings: &[(&str, &str)],
+    ) -> EngineResult<String> {
+        let url = self.build_url_with_settings(
+            query_id,
+            Some(self.current_database().as_str()),
+            settings,
+        );
         let body = sql.to_owned();
         let resp = self
             .http
@@ -157,6 +173,15 @@ impl ClickHouseClient {
     }
 
     fn build_url(&self, query_id: Option<&Uuid>, database: Option<&str>) -> Url {
+        self.build_url_with_settings(query_id, database, &[])
+    }
+
+    fn build_url_with_settings(
+        &self,
+        query_id: Option<&Uuid>,
+        database: Option<&str>,
+        settings: &[(&str, &str)],
+    ) -> Url {
         let mut url = self.base_url.clone();
         {
             let mut q = url.query_pairs_mut();
@@ -168,6 +193,9 @@ impl ClickHouseClient {
             }
             // ClickHouse defaults are fine, but ensure deterministic LF rows
             q.append_pair("default_format", "JSONCompactEachRowWithNamesAndTypes");
+            for (k, v) in settings {
+                q.append_pair(k, v);
+            }
         }
         url
     }

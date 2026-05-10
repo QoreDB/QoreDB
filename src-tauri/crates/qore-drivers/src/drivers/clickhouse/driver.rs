@@ -11,13 +11,15 @@ use qore_core::error::{EngineError, EngineResult};
 use qore_core::traits::DataEngine;
 use qore_core::types::{
     CancelSupport, CollectionList, CollectionListOptions, ConnectionConfig, Namespace,
-    PaginatedQueryResult, QueryId, QueryResult, SessionId, TableQueryOptions, TableSchema, Value,
+    PaginatedQueryResult, QueryId, QueryResult, RowData, SessionId, TableQueryOptions,
+    TableSchema, Value,
 };
 use tokio::sync::{Mutex, RwLock};
 use uuid::Uuid;
 
 use super::client::ClickHouseClient;
 use super::describe::{describe_table, list_databases, list_tables, ping};
+use super::literal::format_literal;
 use super::response::parse_query_result;
 
 type SessionMap = Arc<RwLock<HashMap<SessionId, Arc<ClickHouseClient>>>>;
@@ -160,12 +162,7 @@ impl DataEngine for ClickHouseDriver {
         let server_id = Uuid::new_v4();
         self.track_query(session, query_id, server_id).await;
 
-        let trimmed = query.trim_start();
-        let upper = trimmed.to_ascii_uppercase();
-        let is_query =
-            upper.starts_with("SELECT") || upper.starts_with("WITH") || upper.starts_with("SHOW")
-                || upper.starts_with("DESCRIBE") || upper.starts_with("DESC")
-                || upper.starts_with("EXPLAIN");
+        let is_query = is_result_query(query);
 
         let started = Instant::now();
         let res = if is_query {
@@ -317,6 +314,136 @@ impl DataEngine for ClickHouseDriver {
     fn supports_explain(&self) -> bool {
         true
     }
+
+    fn supports_mutations(&self) -> bool {
+        true
+    }
+
+    // ==================== Row mutations ====================
+
+    async fn insert_row(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        table: &str,
+        data: &RowData,
+    ) -> EngineResult<QueryResult> {
+        let client = self.get(session).await?;
+        let qualified = qualified_table(namespace, table);
+
+        let mut keys: Vec<&String> = data.columns.keys().collect();
+        keys.sort();
+
+        let sql = if keys.is_empty() {
+            // ClickHouse has no "DEFAULT VALUES" — emit an empty column list.
+            format!("INSERT INTO {qualified} VALUES ()")
+        } else {
+            let cols: Vec<String> = keys.iter().map(|k| quote_ident(k)).collect();
+            let vals: Vec<String> = keys
+                .iter()
+                .map(|k| format_literal(data.columns.get(*k).unwrap()))
+                .collect();
+            format!(
+                "INSERT INTO {qualified} ({}) VALUES ({})",
+                cols.join(", "),
+                vals.join(", ")
+            )
+        };
+
+        let server_id = Uuid::new_v4();
+        let started = Instant::now();
+        client.execute(&sql, Some(&server_id)).await?;
+        let elapsed_ms = started.elapsed().as_micros() as f64 / 1000.0;
+        Ok(QueryResult::with_affected_rows(1, elapsed_ms))
+    }
+
+    async fn update_row(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        table: &str,
+        primary_key: &RowData,
+        data: &RowData,
+    ) -> EngineResult<QueryResult> {
+        if primary_key.columns.is_empty() {
+            return Err(EngineError::validation(
+                "Primary key required for update operations",
+            ));
+        }
+        if data.columns.is_empty() {
+            return Ok(QueryResult::with_affected_rows(0, 0.0));
+        }
+
+        let client = self.get(session).await?;
+        let qualified = qualified_table(namespace, table);
+
+        let mut data_keys: Vec<&String> = data.columns.keys().collect();
+        data_keys.sort();
+        let mut pk_keys: Vec<&String> = primary_key.columns.keys().collect();
+        pk_keys.sort();
+
+        let set: Vec<String> = data_keys
+            .iter()
+            .map(|k| {
+                format!(
+                    "{} = {}",
+                    quote_ident(k),
+                    format_literal(data.columns.get(*k).unwrap())
+                )
+            })
+            .collect();
+
+        let where_clause = build_pk_predicate(&pk_keys, primary_key)?;
+
+        let sql = format!(
+            "ALTER TABLE {qualified} UPDATE {} WHERE {}",
+            set.join(", "),
+            where_clause
+        );
+
+        let server_id = Uuid::new_v4();
+        let started = Instant::now();
+        // mutations_sync=2 waits for the mutation to finish on all replicas
+        // — without it the call returns immediately and the UI refetch would
+        // race the still-running rewrite.
+        client
+            .execute_with_settings(&sql, Some(&server_id), &[("mutations_sync", "2")])
+            .await?;
+        let elapsed_ms = started.elapsed().as_micros() as f64 / 1000.0;
+        Ok(QueryResult::with_affected_rows(1, elapsed_ms))
+    }
+
+    async fn delete_row(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        table: &str,
+        primary_key: &RowData,
+    ) -> EngineResult<QueryResult> {
+        if primary_key.columns.is_empty() {
+            return Err(EngineError::validation(
+                "Primary key required for delete operations",
+            ));
+        }
+
+        let client = self.get(session).await?;
+        let qualified = qualified_table(namespace, table);
+
+        let mut pk_keys: Vec<&String> = primary_key.columns.keys().collect();
+        pk_keys.sort();
+        let where_clause = build_pk_predicate(&pk_keys, primary_key)?;
+
+        // Lightweight DELETE (GA since 23.3) — synchronous and much cheaper
+        // than `ALTER TABLE … DELETE`. Falls back gracefully on older
+        // servers, which will surface a clear error message.
+        let sql = format!("DELETE FROM {qualified} WHERE {where_clause}");
+
+        let server_id = Uuid::new_v4();
+        let started = Instant::now();
+        client.execute(&sql, Some(&server_id)).await?;
+        let elapsed_ms = started.elapsed().as_micros() as f64 / 1000.0;
+        Ok(QueryResult::with_affected_rows(1, elapsed_ms))
+    }
 }
 
 /// ClickHouse identifier quoting uses backticks. We only escape backticks to
@@ -324,6 +451,36 @@ impl DataEngine for ClickHouseDriver {
 fn quote_ident(raw: &str) -> String {
     let escaped = raw.replace('`', "``");
     format!("`{escaped}`")
+}
+
+fn qualified_table(namespace: &Namespace, table: &str) -> String {
+    format!("{}.{}", quote_ident(&namespace.database), quote_ident(table))
+}
+
+fn build_pk_predicate(pk_keys: &[&String], primary_key: &RowData) -> EngineResult<String> {
+    let parts: Vec<String> = pk_keys
+        .iter()
+        .map(|k| {
+            let v = primary_key.columns.get(*k).unwrap();
+            // ClickHouse rejects `col = NULL` — use IS NULL for a tombstoned PK.
+            if matches!(v, Value::Null) {
+                format!("{} IS NULL", quote_ident(k))
+            } else {
+                format!("{} = {}", quote_ident(k), format_literal(v))
+            }
+        })
+        .collect();
+    if parts.is_empty() {
+        return Err(EngineError::validation("Empty primary key predicate"));
+    }
+    Ok(parts.join(" AND "))
+}
+
+/// Whether a statement returns a result set (vs. a side-effecting mutation).
+/// Keep in lock-step with `clickhouse_safety::ClickHouseQueryClass::Read`.
+fn is_result_query(query: &str) -> bool {
+    use crate::clickhouse_safety::{classify, ClickHouseQueryClass};
+    matches!(classify(query), ClickHouseQueryClass::Read)
 }
 
 /// Conservative validator — DDL identifiers (database/table) come straight
@@ -364,5 +521,45 @@ mod tests {
         assert!(!is_safe_ident("a`b"));
         assert!(!is_safe_ident("123foo"));
         assert!(!is_safe_ident("foo--bar"));
+    }
+
+    #[test]
+    fn qualified_table_quotes_both_sides() {
+        let ns = Namespace {
+            database: "metrics".into(),
+            schema: None,
+        };
+        assert_eq!(qualified_table(&ns, "events"), "`metrics`.`events`");
+    }
+
+    #[test]
+    fn is_result_query_classification() {
+        assert!(is_result_query("SELECT 1"));
+        assert!(is_result_query("  -- c\nSELECT 1"));
+        assert!(is_result_query("EXPLAIN SELECT 1"));
+        assert!(!is_result_query("INSERT INTO t VALUES (1)"));
+        assert!(!is_result_query("ALTER TABLE t UPDATE x = 1 WHERE id = 1"));
+        assert!(!is_result_query("DELETE FROM t WHERE id = 1"));
+    }
+
+    #[test]
+    fn build_pk_predicate_emits_is_null_for_null() {
+        let mut pk = RowData::new();
+        pk.columns.insert("id".to_string(), Value::Int(7));
+        pk.columns.insert("region".to_string(), Value::Null);
+        let keys: Vec<&String> = {
+            let mut k: Vec<&String> = pk.columns.keys().collect();
+            k.sort();
+            k
+        };
+        let out = build_pk_predicate(&keys, &pk).unwrap();
+        assert_eq!(out, "`id` = 7 AND `region` IS NULL");
+    }
+
+    #[test]
+    fn build_pk_predicate_rejects_empty() {
+        let pk = RowData::new();
+        let empty: Vec<&String> = Vec::new();
+        assert!(build_pk_predicate(&empty, &pk).is_err());
     }
 }

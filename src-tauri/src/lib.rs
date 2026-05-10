@@ -28,6 +28,7 @@ use tauri::Manager;
 use tokio::sync::Mutex;
 
 use commands::workspace::SharedWorkspaceManager;
+use engine::drivers::clickhouse::ClickHouseDriver;
 use engine::drivers::cockroachdb::CockroachDbDriver;
 use engine::drivers::duckdb::DuckDbDriver;
 use engine::drivers::mariadb::MariaDbDriver;
@@ -85,6 +86,7 @@ impl AppState {
         registry.register(Arc::new(SupabaseDriver::new()));
         registry.register(Arc::new(NeonDriver::new()));
         registry.register(Arc::new(TimescaleDbDriver::new()));
+        registry.register(Arc::new(ClickHouseDriver::new()));
 
         let registry = Arc::new(registry);
         let session_manager = Arc::new(SessionManager::new(Arc::clone(&registry)));

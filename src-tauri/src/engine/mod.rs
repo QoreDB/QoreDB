@@ -44,6 +44,9 @@ pub mod query_manager {
 pub mod redis_safety {
     pub use qore_drivers::redis_safety::*;
 }
+pub mod clickhouse_safety {
+    pub use qore_drivers::clickhouse_safety::*;
+}
 pub mod schema_export {
     pub use qore_drivers::schema_export::*;
 }

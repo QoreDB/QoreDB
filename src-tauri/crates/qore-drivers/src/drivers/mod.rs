@@ -2,6 +2,7 @@
 
 // Database drivers module
 
+pub mod clickhouse;
 pub mod cockroachdb;
 pub mod duckdb;
 pub mod mariadb;

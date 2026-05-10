@@ -13,6 +13,7 @@ qore-sql = { path = "../qore-sql" }
 # Serialization
 serde = { workspace = true }
 serde_json = { workspace = true }
+compact_str = { workspace = true }
 
 # Async runtime
 tokio = { workspace = true }
@@ -41,6 +42,9 @@ tiberius = { workspace = true }
 bb8 = { workspace = true }
 bb8-tiberius = { workspace = true }
 duckdb = { workspace = true }
+
+# ClickHouse driver: speaks HTTP (8123/8443) via JSONCompactEachRowWithNamesAndTypes.
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json", "gzip"] }
 
 # SOCKS5 proxy support
 tokio-socks = "0.5"

@@ -6,6 +6,7 @@
 //! Redis, DuckDB, SQL Server, CockroachDB, MariaDB), session management,
 //! SSH tunneling, and query tracking.
 
+pub mod clickhouse_safety;
 pub mod drivers;
 pub mod fulltext_strategy;
 pub mod mongo_pipeline;

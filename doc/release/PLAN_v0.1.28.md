@@ -312,7 +312,7 @@ Solde en une PR cinq findings de l'audit `SECURITY_AUDIT.md` (2026-04-05) + ajou
 - `src-tauri/src/commands/maintenance.rs`, `routines.rs`, `triggers.rs`, `sequences.rs`, `mutation.rs` — vérifier la couverture, ajouter si manquant.
 - Ajouter test d'intégration matriciel : pour chaque command mutante × env Production → assert `Err(PolicyViolation::ReadOnly)`.
 
-### 5.2 Governance limits étendues (MEDIUM)
+### 5.2 Governance limits étendues (MEDIUM) 
 
 **Cible** : timeout, max_rows, concurrent_queries appliqués à `preview_table`, `query_table`, `peek_foreign_key`.
 
@@ -364,29 +364,34 @@ Tout autre chemin → médiatisé par le file picker (déjà en place).
 
 **Objectif** : driver natif ClickHouse, intégré dans `DriverRegistry`, classification AST safety, support des concepts MergeTree.
 
-### Décisions
+**Statut (mise à jour 2026-05-10)** : ✅ Phase complète (driver + safety + tests + frontend).
 
-1. **Crate** : `klickhouse` (tokio-native, pas de bridge C). Évalué vs `clickhouse-rs` : `klickhouse` plus actif, async-first, support TLS via Rustls.
-2. **Protocol** : binaire natif (port 9000 / 9440 TLS) plutôt que HTTP. Cohérent avec les autres drivers (perf streaming).
-3. **Mapping types** : `Int8/16/32/64`, `UInt*`, `Float32/64`, `String`, `FixedString`, `Date`, `DateTime`, `DateTime64`, `UUID`, `Decimal`, `Array(T)`, `Nullable(T)`, `LowCardinality(T)`, `Tuple`, `Map`, `Enum8/16`. Mappage vers `Value` interne avec extension `Value::Decimal` déjà présente.
-4. **describeTable** : remonte engine (MergeTree, ReplicatedMergeTree, Distributed, Log, etc.), partition key, sorting key, sample by → tags affichés dans l'UI.
-5. **Pagination** : `LIMIT N OFFSET M` natif. Pas de cursor.
-6. **Mutations** : `INSERT`, `ALTER TABLE ... UPDATE WHERE`, `ALTER TABLE ... DELETE WHERE`. Pas de UPDATE/DELETE row-level standard.
-7. **Safety classification** : `DROP DATABASE`, `TRUNCATE`, `DETACH`, `SYSTEM SHUTDOWN`, `OPTIMIZE FINAL` → dangerous. Inserts sans WHERE n'existent pas (INSERT n'a pas de WHERE).
+- Backend `src-tauri/crates/qore-drivers/src/drivers/clickhouse/` :
+  - `client.rs` — `reqwest::Client` + URL builder, TLS via Rustls, basic-auth, query_id pour cancel, `ensure_format` qui ajoute `FORMAT JSONCompactEachRowWithNamesAndTypes` quand l'utilisateur n'en spécifie pas un.
+  - `types.rs` — mapping `Nullable(T)` / `LowCardinality(T)` → flag nullable, `json_to_value` qui couvre Int8..Int128, UInt*, Float32/64, Decimal, String, FixedString, Date, DateTime, DateTime64, UUID, Enum, Array(T) (récursif), Tuple/Map/Variant (préservés en `Value::Json`).
+  - `response.rs` — parser 3 lignes (names / types / data) du format `JSONCompactEachRowWithNamesAndTypes`. Empty body → no result set.
+  - `describe.rs` — `list_databases` (filtrant `system`/`INFORMATION_SCHEMA`), `list_tables` via `system.tables`, `describe_table` via `system.columns` + `total_rows` pour MergeTree-family.
+  - `driver.rs` — `DataEngine` complet : connect/disconnect/ping, list_namespaces, list_collections, describe_table, execute, preview_table, query_table avec pagination + tri, cancel via `KILL QUERY WHERE query_id = ...`, create_database / drop_database avec `safe_ident` validator.
+- `src-tauri/crates/qore-drivers/src/clickhouse_safety.rs` — classification 4 niveaux (Read / Mutation / Dangerous / Unknown). Strip leading `--` et `/* */`, dangerous list (DROP DATABASE/TABLE/VIEW/DICTIONARY/FUNCTION/USER/ROLE, TRUNCATE, DETACH, SYSTEM SHUTDOWN/KILL/DROP/RESTART/RELOAD/STOP/START/FLUSH, OPTIMIZE … FINAL, KILL QUERY).
+- `src-tauri/src/lib.rs` — `ClickHouseDriver::new()` enregistré dans `AppState::new()` (13e driver).
+- `src-tauri/src/engine/mod.rs` — re-export `qore_drivers::clickhouse_safety::*`.
+- 33 tests unitaires (client URL building, format injection, type mapping, response parsing, safety classification, identifier validation).
+- Test d'intégration `clickhouse_e2e` dans `src-tauri/tests/integration_databases.rs` — create / insert / list_collections / describe_table / count / preview / query_table avec pagination. Skip propre si Docker non lancé.
+- `docker-compose.yml` — service `clickhouse` (image `clickhouse/clickhouse-server:24-alpine`, ports 8123/9000, volume persistent).
+- Frontend :
+  - `src/lib/connection/drivers.ts` — entrée `Driver.Clickhouse` avec port 8123, identifier backtick, `dataModel: 'time-series'`, queries `system.parts` pour size/index count.
+  - `src/lib/ddl/typeDefinitions.ts` — `CLICKHOUSE_TYPES` (28 types : Int8..Int128, UInt*, Float32/64, Decimal, String, FixedString, Date(32), DateTime(64), Bool, UUID, Enum8/16, JSON, Array, Tuple, Map, IPv4/6).
+  - `src/lib/ddl/driverCapabilities.ts` — `CLICKHOUSE_CAPS` : pas de FK enforcement, CHECK CONSTRAINT supporté, INDEX … TYPE bloom_filter|minmax|set après les colonnes.
+  - `src/lib/connection/driverCapabilities.ts` — entrée `clickhouse` (no routines / no triggers / no events).
+  - `src/lib/query/sqlFormatter.ts` — dialecte `sql` (sql-formatter générique).
 
-### Découpage fichiers
+### Décisions effectives
 
-`src-tauri/crates/qore-drivers/src/drivers/clickhouse.rs` (~1200 lignes max, sinon split en `clickhouse/` module : `mod.rs`, `types.rs`, `query.rs`, `describe.rs`).
-
-`src-tauri/crates/qore-drivers/src/clickhouse_safety.rs` (~300 lignes) — analogue `mongo_safety.rs`, classification 4 niveaux (Read / Mutation / Dangerous / Unknown).
-
-**Tests** : `docker-compose.yml` — service `clickhouse` (image `clickhouse/clickhouse-server:24-alpine`). Tests d'intégration alignés sur les autres drivers (`tests/clickhouse_*.rs`).
-
-`src/lib/connection/drivers.ts` — entrée `clickhouse` avec icône + couleur dédiée + DSN smart-paste (`clickhouse://`, `tcp://`).
-
-`src/lib/ddl/typeDefinitions.ts` — types ClickHouse pour le DDL editor (subset : MergeTree, Engine, partition by, order by).
-
-**i18n** : entrée driver `clickhouse` dans les 9 locales.
+1. **Crate** : `reqwest 0.12` (déjà présent dans le workspace) + protocole HTTP plutôt que `clickhouse 0.13` ou `klickhouse`. Raison : la crate officielle force des structs `Row`-derive par query, incompatible avec le workload SQL dynamique de QoreDB. HTTP + `JSONCompactEachRowWithNamesAndTypes` retourne schéma + données en une réponse, sans lock-in sur des types Rust.
+2. **Protocol** : HTTP (8123) / HTTPS (8443) plutôt que TCP natif. Plus simple à debugger, TLS gratuit via Rustls, pas de feature flag à exposer.
+3. **describe_table** : ne remonte que columns + nullable + default + primary_key + row_count_estimate. Engine / partition_key / sorting_key sont laissés pour V2 (le `TableSchema` actuel ne porte pas ces champs).
+4. **Cancel** : best-effort via `KILL QUERY WHERE query_id = '<uuid>' SYNC`. La crate déclare `CancelSupport::BestEffort`.
+5. **Identifier quoting** : backtick ClickHouse. `is_safe_ident` impose `[A-Za-z_][A-Za-z0-9_]*` pour les noms de DB en DDL.
 
 **Events PostHog** : aucun nouveau, le driver hérite des events généraux (`query_executed`, etc.).
 

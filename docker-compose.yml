@@ -70,9 +70,28 @@ services:
     volumes:
       - sqlserver_data:/var/opt/mssql
 
+  clickhouse:
+    image: clickhouse/clickhouse-server:24-alpine
+    container_name: qoredb-clickhouse
+    environment:
+      CLICKHOUSE_USER: qoredb
+      CLICKHOUSE_PASSWORD: qoredb_test
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
+      CLICKHOUSE_DB: testdb
+    ports:
+      - '8123:8123' # HTTP
+      - '9000:9000' # native (unused by QoreDB but exposed for tooling)
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+
 volumes:
   postgres_data:
   mysql_data:
   mongo_data:
   redis_data:
   sqlserver_data:
+  clickhouse_data:

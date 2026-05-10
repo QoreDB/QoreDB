@@ -20,6 +20,7 @@ export enum Driver {
   Supabase = 'supabase',
   Neon = 'neon',
   Timescaledb = 'timescaledb',
+  Clickhouse = 'clickhouse',
 }
 
 /** Query builder functions for driver-specific SQL/commands */
@@ -420,6 +421,40 @@ export const DRIVERS: Record<Driver, DriverMetadata> = {
       maintenanceQuery: (schema, table) =>
         `SELECT last_vacuum, last_analyze FROM pg_stat_user_tables
          WHERE schemaname = '${schema}' AND relname = '${table}'`,
+    },
+  },
+  [Driver.Clickhouse]: {
+    id: Driver.Clickhouse,
+    label: 'ClickHouse',
+    icon: 'clickhouse.png',
+    defaultPort: 8123,
+    namespaceLabel: 'dbtree.database',
+    namespacePluralLabel: 'dbtree.databases',
+    collectionLabel: 'dbtree.table',
+    collectionPluralLabel: 'dbtree.tables',
+    treeRootLabel: 'dbtree.databasesHeader',
+    createAction: 'database',
+    databaseFieldLabel: 'connection.database',
+    supportsSchemas: false,
+    supportsSQL: true,
+    dataModel: 'time-series',
+    isDocumentBased: false,
+    identifier: {
+      quoteStart: '`',
+      quoteEnd: '`',
+      namespaceStrategy: 'database',
+    },
+    queries: {
+      databaseSizeQuery: db =>
+        `SELECT formatReadableSize(sum(bytes_on_disk)) AS size FROM system.parts WHERE database = '${db}' AND active`,
+      tableSizeQuery: (db, table) =>
+        `SELECT sum(bytes_on_disk) AS total_bytes, sum(rows) AS table_rows
+         FROM system.parts
+         WHERE database = '${db}' AND table = '${table}' AND active`,
+      indexCountQuery: db =>
+        `SELECT count() AS cnt FROM system.data_skipping_indices WHERE database = '${db}'`,
+      tableIndexesQuery: table =>
+        `SELECT name, type, expr FROM system.data_skipping_indices WHERE table = '${table}'`,
     },
   },
   [Driver.Timescaledb]: {

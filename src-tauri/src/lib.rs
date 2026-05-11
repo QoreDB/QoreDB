@@ -7,6 +7,8 @@
 pub mod ai;
 pub mod backup;
 pub mod commands;
+#[cfg(feature = "pro")]
+pub mod contracts;
 pub mod engine;
 pub mod export;
 #[cfg(feature = "pro")]

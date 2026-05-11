@@ -9,6 +9,7 @@
 #![cfg(feature = "pro")]
 
 pub mod parser;
+pub mod sql;
 
 use serde::{Deserialize, Serialize};
 

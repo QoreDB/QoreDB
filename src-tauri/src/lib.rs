@@ -370,6 +370,17 @@ pub fn run() {
             commands::ai::ai_save_api_key,
             commands::ai::ai_delete_api_key,
             commands::ai::ai_get_provider_status,
+            // Data Contracts commands (Pro)
+            #[cfg(feature = "pro")]
+            commands::contracts::list_contracts,
+            #[cfg(feature = "pro")]
+            commands::contracts::load_contract,
+            #[cfg(feature = "pro")]
+            commands::contracts::save_contract,
+            #[cfg(feature = "pro")]
+            commands::contracts::run_contract,
+            #[cfg(feature = "pro")]
+            commands::contracts::get_contract_history,
             // Workspace commands
             commands::workspace::detect_workspace,
             commands::workspace::get_active_workspace,

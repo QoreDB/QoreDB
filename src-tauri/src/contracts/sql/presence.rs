@@ -6,7 +6,7 @@ use super::{dialect::Dialect, RuleSql, RuleSqlKind, SqlBuildError};
 
 /// `metric_value` is the percentage of non-NULL rows.
 pub fn build_not_null_pct(
-    dialect: Dialect,
+    _dialect: Dialect,
     table_sql: &str,
     column_sql: &str,
     sample_limit: u32,

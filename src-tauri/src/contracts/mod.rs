@@ -8,8 +8,11 @@
 
 #![cfg(feature = "pro")]
 
+pub mod events;
 pub mod parser;
+pub mod runner;
 pub mod sql;
+pub mod storage;
 
 use serde::{Deserialize, Serialize};
 
@@ -236,6 +239,25 @@ impl Rule {
         };
         enabled.unwrap_or(true)
     }
+
+    /// Discriminant string matching the YAML/JSON `type:` field and the
+    /// TypeScript `RuleType` union (snake_case).
+    pub fn rule_type(&self) -> &'static str {
+        match self {
+            Rule::NotNullPct { .. } => "not_null_pct",
+            Rule::NotEmpty { .. } => "not_empty",
+            Rule::RegexMatch { .. } => "regex_match",
+            Rule::LengthRange { .. } => "length_range",
+            Rule::NumericRange { .. } => "numeric_range",
+            Rule::DateRange { .. } => "date_range",
+            Rule::AllowedValues { .. } => "allowed_values",
+            Rule::Unique { .. } => "unique",
+            Rule::DistinctCount { .. } => "distinct_count",
+            Rule::ForeignKeyIntegrity { .. } => "foreign_key_integrity",
+            Rule::RowCount { .. } => "row_count",
+            Rule::CustomSql { .. } => "custom_sql",
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -271,6 +293,19 @@ pub struct RuleResult {
     pub duration_ms: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
+}
+
+/// Index entry returned by `list_contracts`. `path` is the absolute path to
+/// the YAML file; `id` is the canonical contract name (which is also the
+/// filename without extension).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ContractMeta {
+    pub id: String,
+    pub name: String,
+    pub path: String,
+    pub rules_count: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_run: Option<ContractRun>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

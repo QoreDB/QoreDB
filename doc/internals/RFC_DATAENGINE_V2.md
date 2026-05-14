@@ -4,7 +4,6 @@
 > **Auteur** : équipe core QoreDB
 > **Créé** : 2026-04-24
 > **Dernière maj** : 2026-04-24
-> **Référence plan** : `doc/todo/NOSQL_PLAN.md` § 3.1
 > **Breaking change** : oui — à planifier pour une release majeure
 
 ---
@@ -504,7 +503,7 @@ Après migration complète :
 1. **Review de cette RFC** par les mainteneurs (SQL + NoSQL, frontend).
 2. **Prototype SQLite** (~1 semaine) pour valider le design sur un driver complet.
 3. **Décider de la release cible** (vraisemblablement 0.3.0 en tant que majeure interne).
-4. **Ouvrir une sous-tâche par driver** dans `NOSQL_PLAN.md` § 3.1.
+4. **Ouvrir une sous-tâche de migration par driver** dans le tracker.
 5. **Annoncer la dépréciation v1** dans `CHANGELOG.md` dès la release N pour préparer les consommateurs externes (MCP, CLI future).
 
 ---

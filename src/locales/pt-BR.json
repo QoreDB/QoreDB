@@ -2142,6 +2142,8 @@
     "importedCount": "{{count}} conexões importadas",
     "gitWarning": "Os metadados de conexão (host, porta, usuário) serão armazenados em .qoredb/ e podem ser versionados com Git. Senhas nunca são salvas no disco.",
     "rename": "Renomear",
+    "revealFolder": "Abrir pasta",
+    "revealFolderFailed": "Não foi possível abrir a pasta do workspace.",
     "renamePrompt": "Novo nome:",
     "leave": "Sair"
   },

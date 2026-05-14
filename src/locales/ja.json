@@ -2141,6 +2141,8 @@
     "importedCount": "{{count}}件の接続をインポートしました",
     "gitWarning": "接続メタデータ（ホスト、ポート、ユーザー名）は.qoredb/に保存され、Gitでバージョン管理できます。パスワードはディスクに保存されません。",
     "rename": "名前変更",
+    "revealFolder": "フォルダを開く",
+    "revealFolderFailed": "ワークスペースのフォルダを開けませんでした。",
     "renamePrompt": "新しい名前:",
     "leave": "離れる"
   },

@@ -506,20 +506,22 @@ export function DBTree({
 
             {isExpanded && (
               <div className="flex flex-col ml-2 pl-2 border-l border-border mt-0.5 space-y-0.5">
-                <div className="px-2 mb-2 pb-1.5 relative border-b border-border/50">
-                  <Search
-                    size={12}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground z-10"
-                  />
-                  <Input
-                    className="h-7 text-xs pl-7 bg-muted/50 border-transparent focus-visible:bg-background shadow-none"
-                    placeholder={t('browser.searchPlaceholder', {
-                      label: t(terminology.tablePluralLabel).toLowerCase(),
-                    })}
-                    value={searchValue}
-                    onChange={e => setSearchValue(e.target.value)}
-                    onClick={e => e.stopPropagation()}
-                  />
+                <div className="px-2 mb-2 pb-1.5 border-b border-border/50">
+                  <div className="relative">
+                    <Search
+                      size={12}
+                      className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground z-10"
+                    />
+                    <Input
+                      className="h-7 text-xs pl-7 bg-muted/50 border-transparent focus-visible:bg-background shadow-none"
+                      placeholder={t('browser.searchPlaceholder', {
+                        label: t(terminology.tablePluralLabel).toLowerCase(),
+                      })}
+                      value={searchValue}
+                      onChange={e => setSearchValue(e.target.value)}
+                      onClick={e => e.stopPropagation()}
+                    />
+                  </div>
                 </div>
 
                 {(() => {

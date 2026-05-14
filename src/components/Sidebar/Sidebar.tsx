@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
-import { Database, Plus, Search } from 'lucide-react';
+import { Database, Plus, Search, ShieldCheck } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -18,6 +18,7 @@ import {
   closeBackupDialog,
   closeRestoreDialog,
   setAuditLogOpen,
+  setContractsOpen,
   setLogsOpen,
   useModalStore,
 } from '@/lib/stores/modalStore';
@@ -36,6 +37,7 @@ import {
   type Trigger,
 } from '../../lib/tauri';
 import { BackupDialog, RestoreDialog } from '../Backup';
+import { ContractsPanel } from '../Contracts';
 import { AuditLogModal } from '../Interceptor';
 import { ErrorLogPanel } from '../Logs/ErrorLogPanel';
 import { DBTree } from '../Tree/DBTree';
@@ -106,6 +108,7 @@ export function Sidebar({
   const { projectId } = useWorkspace();
   const logsOpen = useModalStore(s => s.logsOpen);
   const auditLogOpen = useModalStore(s => s.auditLogOpen);
+  const contractsOpen = useModalStore(s => s.contractsOpen);
   const backupConnection = useModalStore(s => s.backupConnection);
   const restoreConnection = useModalStore(s => s.restoreConnection);
 
@@ -384,7 +387,17 @@ export function Sidebar({
         </div>
       </section>
 
-      <footer className="p-3 border-t border-border">
+      <footer className="p-3 border-t border-border space-y-1">
+        {tier !== 'core' && (
+          <Button
+            className="w-full justify-start text-muted-foreground hover:text-foreground hover:bg-muted"
+            variant="ghost"
+            onClick={() => setContractsOpen(true)}
+          >
+            <ShieldCheck size={16} className="mr-2" />
+            {t('contracts.openPanel')}
+          </Button>
+        )}
         <Button
           className="w-full justify-start text-muted-foreground hover:text-foreground hover:bg-muted"
           variant="ghost"
@@ -397,6 +410,12 @@ export function Sidebar({
 
       <ErrorLogPanel isOpen={logsOpen} onClose={() => setLogsOpen(false)} />
       <AuditLogModal isOpen={auditLogOpen} onClose={() => setAuditLogOpen(false)} />
+      <ContractsPanel
+        open={contractsOpen}
+        onClose={() => setContractsOpen(false)}
+        sessionId={connectedSessionId}
+        connectionId={connectedConnectionId}
+      />
       <BackupDialog
         connection={backupConnection}
         open={!!backupConnection}

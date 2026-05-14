@@ -2401,6 +2401,108 @@
     "cancel": "취소",
     "cancelling": "취소 중…"
   },
+  "contracts": {
+    "title": "데이터 계약",
+    "description": "선언적 데이터 품질 검증",
+    "openPanel": "데이터 계약…",
+    "newContract": "새 계약",
+    "edit": "편집",
+    "delete": "삭제",
+    "run": {
+      "dialogTitle": "계약 실행: {{name}}",
+      "connectionMissing": "실행 전에 계약 대상에 연결하세요.",
+      "starting": "시작 중…",
+      "ruleProgress": "규칙 {{index}} / {{total}}",
+      "completedSummary": "완료: 성공 {{pass}}, 실패 {{fail}}, 오류 {{error}}, 건너뜀 {{skipped}}",
+      "runFailed": "실행에 실패했습니다",
+      "results": "결과"
+    },
+    "running": "실행 중…",
+    "rerun": "다시 실행",
+    "save": "저장",
+    "cancel": "취소",
+    "close": "닫기",
+    "discard": "버리기",
+    "unsavedChanges": "저장되지 않은 변경 사항",
+    "empty": {
+      "title": "계약이 없습니다",
+      "description": "이 워크스페이스의 데이터 품질을 검증하기 위해 YAML 계약을 만드세요.",
+      "createFirst": "첫 계약 만들기"
+    },
+    "list": {
+      "name": "이름",
+      "rulesCount_one": "규칙 {{count}}개",
+      "rulesCount_other": "규칙 {{count}}개",
+      "lastRun": "마지막 실행",
+      "neverRun": "실행된 적 없음",
+      "status": "상태"
+    },
+    "editor": {
+      "title": "계약 편집기",
+      "namePlaceholder": "이름 (파일명과 일치)",
+      "yamlSource": "YAML 소스",
+      "validating": "검증 중…",
+      "valid": "유효함",
+      "invalid": "유효하지 않음",
+      "save": "계약 저장",
+      "saved": "계약을 저장했습니다",
+      "saveFailed": "계약 저장에 실패했습니다",
+      "template": "템플릿 삽입",
+      "nameMismatch": "내부 이름은 파일명과 일치해야 합니다"
+    },
+    "results": {
+      "rule": "규칙",
+      "type": "유형",
+      "status": "상태",
+      "violations": "위반",
+      "metric": "메트릭",
+      "duration": "소요 시간",
+      "samples": "샘플",
+      "showSamples": "샘플 위반 표시",
+      "hideSamples": "샘플 위반 숨기기",
+      "noSamples": "사용 가능한 샘플 없음"
+    },
+    "status": {
+      "pass": "통과",
+      "fail": "실패",
+      "skipped": "건너뜀",
+      "error": "오류"
+    },
+    "health": {
+      "healthy": "정상",
+      "warning": "경고",
+      "failing": "실패 중",
+      "unknown": "아직 실행되지 않음"
+    },
+    "ruleType": {
+      "not_null_pct": "Null 아님 %",
+      "not_empty": "비어 있지 않음",
+      "regex_match": "정규식 일치",
+      "length_range": "길이 범위",
+      "numeric_range": "숫자 범위",
+      "date_range": "날짜 범위",
+      "allowed_values": "허용된 값",
+      "unique": "고유",
+      "distinct_count": "고유 개수",
+      "foreign_key_integrity": "외래 키 무결성",
+      "row_count": "행 수",
+      "custom_sql": "사용자 정의 SQL"
+    },
+    "history": {
+      "title": "실행 기록",
+      "empty": "실행 기록 없음",
+      "viewDetails": "세부 정보 보기"
+    },
+    "errors": {
+      "loadFailed": "계약을 불러오지 못했습니다",
+      "deleteFailed": "계약을 삭제하지 못했습니다",
+      "runFailed": "계약을 실행하지 못했습니다"
+    },
+    "confirm": {
+      "deleteTitle": "계약 \"{{name}}\"을(를) 삭제하시겠습니까?",
+      "deleteBody": "계약 파일과 기록이 영구적으로 삭제됩니다."
+    }
+  },
   "restore": {
     "dialogTitle": "{{name}}(으)로 복원",
     "destructiveWarning": "이 작업은 \"{{name}}\"의 데이터를 덮어쓰거나 수정합니다. 계속하기 전에 최신 백업이 있는지 확인하세요.",

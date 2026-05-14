@@ -2401,6 +2401,108 @@
     "cancel": "取消",
     "cancelling": "取消中…"
   },
+  "contracts": {
+    "title": "数据契约",
+    "description": "声明式数据质量断言",
+    "openPanel": "数据契约…",
+    "newContract": "新建契约",
+    "edit": "编辑",
+    "delete": "删除",
+    "run": {
+      "dialogTitle": "运行契约：{{name}}",
+      "connectionMissing": "运行前请先连接到契约目标。",
+      "starting": "启动中…",
+      "ruleProgress": "规则 {{index}} / {{total}}",
+      "completedSummary": "完成：通过 {{pass}}，失败 {{fail}}，错误 {{error}}，跳过 {{skipped}}",
+      "runFailed": "运行失败",
+      "results": "结果"
+    },
+    "running": "运行中…",
+    "rerun": "重新运行",
+    "save": "保存",
+    "cancel": "取消",
+    "close": "关闭",
+    "discard": "舍弃",
+    "unsavedChanges": "未保存的更改",
+    "empty": {
+      "title": "暂无契约",
+      "description": "创建一个 YAML 契约，以验证此工作区的数据质量。",
+      "createFirst": "创建第一个契约"
+    },
+    "list": {
+      "name": "名称",
+      "rulesCount_one": "{{count}} 条规则",
+      "rulesCount_other": "{{count}} 条规则",
+      "lastRun": "最近运行",
+      "neverRun": "从未运行",
+      "status": "状态"
+    },
+    "editor": {
+      "title": "契约编辑器",
+      "namePlaceholder": "名称（需与文件名一致）",
+      "yamlSource": "YAML 源",
+      "validating": "校验中…",
+      "valid": "有效",
+      "invalid": "无效",
+      "save": "保存契约",
+      "saved": "已保存契约",
+      "saveFailed": "保存契约失败",
+      "template": "插入模板",
+      "nameMismatch": "内嵌名称必须与文件名一致"
+    },
+    "results": {
+      "rule": "规则",
+      "type": "类型",
+      "status": "状态",
+      "violations": "违规",
+      "metric": "指标",
+      "duration": "耗时",
+      "samples": "示例",
+      "showSamples": "显示违规示例",
+      "hideSamples": "隐藏违规示例",
+      "noSamples": "暂无示例"
+    },
+    "status": {
+      "pass": "通过",
+      "fail": "失败",
+      "skipped": "跳过",
+      "error": "错误"
+    },
+    "health": {
+      "healthy": "健康",
+      "warning": "警告",
+      "failing": "失败",
+      "unknown": "尚未运行"
+    },
+    "ruleType": {
+      "not_null_pct": "非空 %",
+      "not_empty": "非空字符串",
+      "regex_match": "正则匹配",
+      "length_range": "长度范围",
+      "numeric_range": "数值范围",
+      "date_range": "日期范围",
+      "allowed_values": "允许的取值",
+      "unique": "唯一",
+      "distinct_count": "去重计数",
+      "foreign_key_integrity": "外键完整性",
+      "row_count": "行数",
+      "custom_sql": "自定义 SQL"
+    },
+    "history": {
+      "title": "运行历史",
+      "empty": "暂无运行记录",
+      "viewDetails": "查看详情"
+    },
+    "errors": {
+      "loadFailed": "加载契约失败",
+      "deleteFailed": "删除契约失败",
+      "runFailed": "运行契约失败"
+    },
+    "confirm": {
+      "deleteTitle": "删除契约 \"{{name}}\"？",
+      "deleteBody": "契约文件及其历史将被永久删除。"
+    }
+  },
   "restore": {
     "dialogTitle": "恢复到 {{name}}",
     "destructiveWarning": "此操作将覆盖或修改 \"{{name}}\" 中的数据。请确保在继续之前已有最新的备份。",

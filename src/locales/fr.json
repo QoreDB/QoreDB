@@ -2421,6 +2421,108 @@
     "cancel": "Annuler",
     "cancelling": "Annulation…"
   },
+  "contracts": {
+    "title": "Contrats de données",
+    "description": "Assertions déclaratives de qualité des données",
+    "openPanel": "Contrats de données…",
+    "newContract": "Nouveau contrat",
+    "edit": "Modifier",
+    "delete": "Supprimer",
+    "run": {
+      "dialogTitle": "Exécuter le contrat : {{name}}",
+      "connectionMissing": "Connectez-vous à la cible du contrat avant l'exécution.",
+      "starting": "Démarrage…",
+      "ruleProgress": "Règle {{index}} sur {{total}}",
+      "completedSummary": "Terminé : {{pass}} succès, {{fail}} échecs, {{error}} erreurs, {{skipped}} ignorées",
+      "runFailed": "Échec de l'exécution",
+      "results": "Résultats"
+    },
+    "running": "Exécution…",
+    "rerun": "Réexécuter",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "close": "Fermer",
+    "discard": "Abandonner",
+    "unsavedChanges": "Modifications non enregistrées",
+    "empty": {
+      "title": "Aucun contrat",
+      "description": "Créez un contrat YAML pour vérifier la qualité des données de ce workspace.",
+      "createFirst": "Créer un premier contrat"
+    },
+    "list": {
+      "name": "Nom",
+      "rulesCount_one": "{{count}} règle",
+      "rulesCount_other": "{{count}} règles",
+      "lastRun": "Dernière exécution",
+      "neverRun": "Jamais exécuté",
+      "status": "État"
+    },
+    "editor": {
+      "title": "Éditeur de contrat",
+      "namePlaceholder": "nom (correspond au nom de fichier)",
+      "yamlSource": "Source YAML",
+      "validating": "Validation…",
+      "valid": "Valide",
+      "invalid": "Invalide",
+      "save": "Enregistrer le contrat",
+      "saved": "Contrat enregistré",
+      "saveFailed": "Échec de l'enregistrement du contrat",
+      "template": "Insérer un modèle",
+      "nameMismatch": "Le nom intégré doit correspondre au nom de fichier"
+    },
+    "results": {
+      "rule": "Règle",
+      "type": "Type",
+      "status": "État",
+      "violations": "Violations",
+      "metric": "Métrique",
+      "duration": "Durée",
+      "samples": "Échantillons",
+      "showSamples": "Afficher les violations",
+      "hideSamples": "Masquer les violations",
+      "noSamples": "Aucun échantillon disponible"
+    },
+    "status": {
+      "pass": "Réussite",
+      "fail": "Échec",
+      "skipped": "Ignorée",
+      "error": "Erreur"
+    },
+    "health": {
+      "healthy": "Sain",
+      "warning": "Avertissements",
+      "failing": "En échec",
+      "unknown": "Pas encore exécuté"
+    },
+    "ruleType": {
+      "not_null_pct": "Non null %",
+      "not_empty": "Non vide",
+      "regex_match": "Correspondance regex",
+      "length_range": "Plage de longueur",
+      "numeric_range": "Plage numérique",
+      "date_range": "Plage de dates",
+      "allowed_values": "Valeurs autorisées",
+      "unique": "Unique",
+      "distinct_count": "Nombre distinct",
+      "foreign_key_integrity": "Intégrité référentielle",
+      "row_count": "Nombre de lignes",
+      "custom_sql": "SQL personnalisé"
+    },
+    "history": {
+      "title": "Historique des exécutions",
+      "empty": "Aucune exécution",
+      "viewDetails": "Voir les détails"
+    },
+    "errors": {
+      "loadFailed": "Échec du chargement des contrats",
+      "deleteFailed": "Échec de la suppression du contrat",
+      "runFailed": "Échec de l'exécution du contrat"
+    },
+    "confirm": {
+      "deleteTitle": "Supprimer le contrat « {{name}} » ?",
+      "deleteBody": "Le fichier du contrat et son historique seront supprimés définitivement."
+    }
+  },
   "restore": {
     "dialogTitle": "Restaurer dans {{name}}",
     "destructiveWarning": "Cette opération va écraser ou modifier les données de \"{{name}}\". Assurez-vous d'avoir une sauvegarde récente avant de continuer.",

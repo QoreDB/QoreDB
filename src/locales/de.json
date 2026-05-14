@@ -2402,6 +2402,108 @@
     "cancel": "Abbrechen",
     "cancelling": "Wird abgebrochen…"
   },
+  "contracts": {
+    "title": "Datenverträge",
+    "description": "Deklarative Datenqualitätsprüfungen",
+    "openPanel": "Datenverträge…",
+    "newContract": "Neuer Vertrag",
+    "edit": "Bearbeiten",
+    "delete": "Löschen",
+    "run": {
+      "dialogTitle": "Vertrag ausführen: {{name}}",
+      "connectionMissing": "Verbinden Sie sich vor der Ausführung mit dem Vertragsziel.",
+      "starting": "Wird gestartet…",
+      "ruleProgress": "Regel {{index}} von {{total}}",
+      "completedSummary": "Fertig: {{pass}} bestanden, {{fail}} fehlgeschlagen, {{error}} Fehler, {{skipped}} übersprungen",
+      "runFailed": "Ausführung fehlgeschlagen",
+      "results": "Ergebnisse"
+    },
+    "running": "Wird ausgeführt…",
+    "rerun": "Erneut ausführen",
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "close": "Schließen",
+    "discard": "Verwerfen",
+    "unsavedChanges": "Ungespeicherte Änderungen",
+    "empty": {
+      "title": "Noch keine Verträge",
+      "description": "Erstellen Sie einen YAML-Vertrag, um die Datenqualität in diesem Workspace zu prüfen.",
+      "createFirst": "Ersten Vertrag erstellen"
+    },
+    "list": {
+      "name": "Name",
+      "rulesCount_one": "{{count}} Regel",
+      "rulesCount_other": "{{count}} Regeln",
+      "lastRun": "Letzte Ausführung",
+      "neverRun": "Nie ausgeführt",
+      "status": "Status"
+    },
+    "editor": {
+      "title": "Vertragseditor",
+      "namePlaceholder": "Name (muss dem Dateinamen entsprechen)",
+      "yamlSource": "YAML-Quelle",
+      "validating": "Validierung…",
+      "valid": "Gültig",
+      "invalid": "Ungültig",
+      "save": "Vertrag speichern",
+      "saved": "Vertrag gespeichert",
+      "saveFailed": "Vertrag konnte nicht gespeichert werden",
+      "template": "Vorlage einfügen",
+      "nameMismatch": "Der eingebettete Name muss dem Dateinamen entsprechen"
+    },
+    "results": {
+      "rule": "Regel",
+      "type": "Typ",
+      "status": "Status",
+      "violations": "Verstöße",
+      "metric": "Metrik",
+      "duration": "Dauer",
+      "samples": "Beispiele",
+      "showSamples": "Beispielverstöße anzeigen",
+      "hideSamples": "Beispielverstöße ausblenden",
+      "noSamples": "Keine Beispiele verfügbar"
+    },
+    "status": {
+      "pass": "Bestanden",
+      "fail": "Fehlgeschlagen",
+      "skipped": "Übersprungen",
+      "error": "Fehler"
+    },
+    "health": {
+      "healthy": "Gesund",
+      "warning": "Warnungen",
+      "failing": "Fehlerhaft",
+      "unknown": "Noch nicht ausgeführt"
+    },
+    "ruleType": {
+      "not_null_pct": "Nicht null %",
+      "not_empty": "Nicht leer",
+      "regex_match": "Regex-Treffer",
+      "length_range": "Längenbereich",
+      "numeric_range": "Zahlenbereich",
+      "date_range": "Datumsbereich",
+      "allowed_values": "Erlaubte Werte",
+      "unique": "Eindeutig",
+      "distinct_count": "Anzahl eindeutiger Werte",
+      "foreign_key_integrity": "Fremdschlüssel-Integrität",
+      "row_count": "Zeilenanzahl",
+      "custom_sql": "Benutzerdefiniertes SQL"
+    },
+    "history": {
+      "title": "Ausführungsverlauf",
+      "empty": "Noch keine Ausführungen",
+      "viewDetails": "Details anzeigen"
+    },
+    "errors": {
+      "loadFailed": "Verträge konnten nicht geladen werden",
+      "deleteFailed": "Vertrag konnte nicht gelöscht werden",
+      "runFailed": "Vertrag konnte nicht ausgeführt werden"
+    },
+    "confirm": {
+      "deleteTitle": "Vertrag „{{name}}\" löschen?",
+      "deleteBody": "Die Vertragsdatei und ihr Verlauf werden dauerhaft gelöscht."
+    }
+  },
   "restore": {
     "dialogTitle": "Wiederherstellung in {{name}}",
     "destructiveWarning": "Dieser Vorgang überschreibt oder verändert Daten in \"{{name}}\". Stellen Sie sicher, dass Sie eine aktuelle Sicherung haben, bevor Sie fortfahren.",

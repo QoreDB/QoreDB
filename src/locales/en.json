@@ -2421,6 +2421,108 @@
     "cancel": "Cancel",
     "cancelling": "Cancelling…"
   },
+  "contracts": {
+    "title": "Data Contracts",
+    "description": "Declarative data-quality assertions",
+    "openPanel": "Data Contracts…",
+    "newContract": "New contract",
+    "edit": "Edit",
+    "delete": "Delete",
+    "run": {
+      "dialogTitle": "Run contract: {{name}}",
+      "connectionMissing": "Connect to the contract target before running.",
+      "starting": "Starting…",
+      "ruleProgress": "Rule {{index}} of {{total}}",
+      "completedSummary": "Completed: {{pass}} passed, {{fail}} failed, {{error}} errors, {{skipped}} skipped",
+      "runFailed": "Run failed",
+      "results": "Results"
+    },
+    "running": "Running…",
+    "rerun": "Run again",
+    "save": "Save",
+    "cancel": "Cancel",
+    "close": "Close",
+    "discard": "Discard",
+    "unsavedChanges": "Unsaved changes",
+    "empty": {
+      "title": "No contracts yet",
+      "description": "Create a YAML contract to assert data quality on this workspace.",
+      "createFirst": "Create your first contract"
+    },
+    "list": {
+      "name": "Name",
+      "rulesCount_one": "{{count}} rule",
+      "rulesCount_other": "{{count}} rules",
+      "lastRun": "Last run",
+      "neverRun": "Never run",
+      "status": "Status"
+    },
+    "editor": {
+      "title": "Contract editor",
+      "namePlaceholder": "name (matches the filename)",
+      "yamlSource": "YAML source",
+      "validating": "Validating…",
+      "valid": "Valid",
+      "invalid": "Invalid",
+      "save": "Save contract",
+      "saved": "Contract saved",
+      "saveFailed": "Failed to save contract",
+      "template": "Insert template",
+      "nameMismatch": "The embedded name must match the filename"
+    },
+    "results": {
+      "rule": "Rule",
+      "type": "Type",
+      "status": "Status",
+      "violations": "Violations",
+      "metric": "Metric",
+      "duration": "Duration",
+      "samples": "Samples",
+      "showSamples": "Show sample violations",
+      "hideSamples": "Hide sample violations",
+      "noSamples": "No samples available"
+    },
+    "status": {
+      "pass": "Pass",
+      "fail": "Fail",
+      "skipped": "Skipped",
+      "error": "Error"
+    },
+    "health": {
+      "healthy": "Healthy",
+      "warning": "Warnings",
+      "failing": "Failing",
+      "unknown": "Not run yet"
+    },
+    "ruleType": {
+      "not_null_pct": "Not null %",
+      "not_empty": "Not empty",
+      "regex_match": "Regex match",
+      "length_range": "Length range",
+      "numeric_range": "Numeric range",
+      "date_range": "Date range",
+      "allowed_values": "Allowed values",
+      "unique": "Unique",
+      "distinct_count": "Distinct count",
+      "foreign_key_integrity": "Foreign key integrity",
+      "row_count": "Row count",
+      "custom_sql": "Custom SQL"
+    },
+    "history": {
+      "title": "Run history",
+      "empty": "No runs yet",
+      "viewDetails": "View details"
+    },
+    "errors": {
+      "loadFailed": "Failed to load contracts",
+      "deleteFailed": "Failed to delete contract",
+      "runFailed": "Failed to run contract"
+    },
+    "confirm": {
+      "deleteTitle": "Delete contract \"{{name}}\"?",
+      "deleteBody": "This will permanently delete the contract file and its history."
+    }
+  },
   "restore": {
     "dialogTitle": "Restore into {{name}}",
     "destructiveWarning": "This will overwrite or modify data in \"{{name}}\". Make sure you have a current backup before continuing.",

@@ -2402,6 +2402,108 @@
     "cancel": "Cancelar",
     "cancelling": "Cancelando…"
   },
+  "contracts": {
+    "title": "Contratos de datos",
+    "description": "Aserciones declarativas de calidad de datos",
+    "openPanel": "Contratos de datos…",
+    "newContract": "Nuevo contrato",
+    "edit": "Editar",
+    "delete": "Eliminar",
+    "run": {
+      "dialogTitle": "Ejecutar contrato: {{name}}",
+      "connectionMissing": "Conéctate al destino del contrato antes de ejecutar.",
+      "starting": "Iniciando…",
+      "ruleProgress": "Regla {{index}} de {{total}}",
+      "completedSummary": "Completado: {{pass}} aprobadas, {{fail}} fallidas, {{error}} errores, {{skipped}} omitidas",
+      "runFailed": "Ejecución fallida",
+      "results": "Resultados"
+    },
+    "running": "Ejecutando…",
+    "rerun": "Ejecutar de nuevo",
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "close": "Cerrar",
+    "discard": "Descartar",
+    "unsavedChanges": "Cambios sin guardar",
+    "empty": {
+      "title": "Aún no hay contratos",
+      "description": "Crea un contrato YAML para validar la calidad de los datos en este espacio de trabajo.",
+      "createFirst": "Crear tu primer contrato"
+    },
+    "list": {
+      "name": "Nombre",
+      "rulesCount_one": "{{count}} regla",
+      "rulesCount_other": "{{count}} reglas",
+      "lastRun": "Última ejecución",
+      "neverRun": "Nunca ejecutado",
+      "status": "Estado"
+    },
+    "editor": {
+      "title": "Editor de contratos",
+      "namePlaceholder": "nombre (coincide con el archivo)",
+      "yamlSource": "Fuente YAML",
+      "validating": "Validando…",
+      "valid": "Válido",
+      "invalid": "Inválido",
+      "save": "Guardar contrato",
+      "saved": "Contrato guardado",
+      "saveFailed": "No se pudo guardar el contrato",
+      "template": "Insertar plantilla",
+      "nameMismatch": "El nombre incrustado debe coincidir con el del archivo"
+    },
+    "results": {
+      "rule": "Regla",
+      "type": "Tipo",
+      "status": "Estado",
+      "violations": "Violaciones",
+      "metric": "Métrica",
+      "duration": "Duración",
+      "samples": "Muestras",
+      "showSamples": "Mostrar violaciones de muestra",
+      "hideSamples": "Ocultar violaciones de muestra",
+      "noSamples": "No hay muestras disponibles"
+    },
+    "status": {
+      "pass": "Aprobada",
+      "fail": "Fallida",
+      "skipped": "Omitida",
+      "error": "Error"
+    },
+    "health": {
+      "healthy": "Saludable",
+      "warning": "Advertencias",
+      "failing": "Fallando",
+      "unknown": "Aún no ejecutado"
+    },
+    "ruleType": {
+      "not_null_pct": "No nulo %",
+      "not_empty": "No vacío",
+      "regex_match": "Coincidencia regex",
+      "length_range": "Rango de longitud",
+      "numeric_range": "Rango numérico",
+      "date_range": "Rango de fechas",
+      "allowed_values": "Valores permitidos",
+      "unique": "Único",
+      "distinct_count": "Cuenta distinta",
+      "foreign_key_integrity": "Integridad referencial",
+      "row_count": "Cuenta de filas",
+      "custom_sql": "SQL personalizado"
+    },
+    "history": {
+      "title": "Historial de ejecuciones",
+      "empty": "Aún no hay ejecuciones",
+      "viewDetails": "Ver detalles"
+    },
+    "errors": {
+      "loadFailed": "No se pudieron cargar los contratos",
+      "deleteFailed": "No se pudo eliminar el contrato",
+      "runFailed": "No se pudo ejecutar el contrato"
+    },
+    "confirm": {
+      "deleteTitle": "¿Eliminar el contrato \"{{name}}\"?",
+      "deleteBody": "El archivo del contrato y su historial se eliminarán de forma permanente."
+    }
+  },
   "restore": {
     "dialogTitle": "Restaurar en {{name}}",
     "destructiveWarning": "Esto sobrescribirá o modificará los datos en \"{{name}}\". Asegúrese de tener una copia de seguridad reciente antes de continuar.",

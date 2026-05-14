@@ -2401,6 +2401,108 @@
     "cancel": "キャンセル",
     "cancelling": "キャンセル中…"
   },
+  "contracts": {
+    "title": "データ契約",
+    "description": "宣言的なデータ品質アサーション",
+    "openPanel": "データ契約…",
+    "newContract": "新規契約",
+    "edit": "編集",
+    "delete": "削除",
+    "run": {
+      "dialogTitle": "契約を実行: {{name}}",
+      "connectionMissing": "実行前に契約の対象に接続してください。",
+      "starting": "開始中…",
+      "ruleProgress": "ルール {{index}} / {{total}}",
+      "completedSummary": "完了: 成功 {{pass}}、失敗 {{fail}}、エラー {{error}}、スキップ {{skipped}}",
+      "runFailed": "実行に失敗しました",
+      "results": "結果"
+    },
+    "running": "実行中…",
+    "rerun": "再実行",
+    "save": "保存",
+    "cancel": "キャンセル",
+    "close": "閉じる",
+    "discard": "破棄",
+    "unsavedChanges": "未保存の変更",
+    "empty": {
+      "title": "契約がありません",
+      "description": "YAML 契約を作成して、このワークスペースのデータ品質を検証してください。",
+      "createFirst": "最初の契約を作成"
+    },
+    "list": {
+      "name": "名前",
+      "rulesCount_one": "{{count}} ルール",
+      "rulesCount_other": "{{count}} ルール",
+      "lastRun": "最終実行",
+      "neverRun": "未実行",
+      "status": "ステータス"
+    },
+    "editor": {
+      "title": "契約エディター",
+      "namePlaceholder": "名前 (ファイル名と一致)",
+      "yamlSource": "YAML ソース",
+      "validating": "検証中…",
+      "valid": "有効",
+      "invalid": "無効",
+      "save": "契約を保存",
+      "saved": "契約を保存しました",
+      "saveFailed": "契約の保存に失敗しました",
+      "template": "テンプレートを挿入",
+      "nameMismatch": "埋め込み名はファイル名と一致する必要があります"
+    },
+    "results": {
+      "rule": "ルール",
+      "type": "種類",
+      "status": "ステータス",
+      "violations": "違反",
+      "metric": "メトリック",
+      "duration": "所要時間",
+      "samples": "サンプル",
+      "showSamples": "サンプル違反を表示",
+      "hideSamples": "サンプル違反を非表示",
+      "noSamples": "利用可能なサンプルなし"
+    },
+    "status": {
+      "pass": "成功",
+      "fail": "失敗",
+      "skipped": "スキップ",
+      "error": "エラー"
+    },
+    "health": {
+      "healthy": "正常",
+      "warning": "警告",
+      "failing": "失敗",
+      "unknown": "未実行"
+    },
+    "ruleType": {
+      "not_null_pct": "Null でない %",
+      "not_empty": "空でない",
+      "regex_match": "正規表現一致",
+      "length_range": "長さの範囲",
+      "numeric_range": "数値の範囲",
+      "date_range": "日付の範囲",
+      "allowed_values": "許可された値",
+      "unique": "一意",
+      "distinct_count": "個別件数",
+      "foreign_key_integrity": "外部キー整合性",
+      "row_count": "行数",
+      "custom_sql": "カスタム SQL"
+    },
+    "history": {
+      "title": "実行履歴",
+      "empty": "実行履歴なし",
+      "viewDetails": "詳細を表示"
+    },
+    "errors": {
+      "loadFailed": "契約の読み込みに失敗しました",
+      "deleteFailed": "契約の削除に失敗しました",
+      "runFailed": "契約の実行に失敗しました"
+    },
+    "confirm": {
+      "deleteTitle": "契約「{{name}}」を削除しますか？",
+      "deleteBody": "契約ファイルとその履歴は完全に削除されます。"
+    }
+  },
   "restore": {
     "dialogTitle": "{{name}} へのリストア",
     "destructiveWarning": "この操作は「{{name}}」のデータを上書きまたは変更します。続行する前に最新のバックアップがあることを確認してください。",

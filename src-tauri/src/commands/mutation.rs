@@ -6,7 +6,7 @@
 
 use serde::Serialize;
 use std::sync::Arc;
-use tauri::State;
+use tauri::{AppHandle, State};
 use tracing::instrument;
 use uuid::Uuid;
 
@@ -59,6 +59,7 @@ fn parse_session_id(id: &str) -> Result<SessionId, String> {
     fields(session_id = %session_id, database = %database, schema = ?schema, table = %table)
 )]
 pub async fn insert_row(
+    app: AppHandle,
     state: State<'_, crate::SharedState>,
     session_id: String,
     database: String,
@@ -204,6 +205,14 @@ pub async fn insert_row(
                 changelog_store.record(entry);
             }
 
+            #[cfg(feature = "pro")]
+            crate::contracts::alert::schedule_post_mutation_check(
+                app.clone(),
+                session,
+                namespace.schema.clone(),
+                table.clone(),
+            );
+
             Ok(MutationResponse {
                 success: true,
                 result: Some(result),
@@ -239,6 +248,7 @@ pub async fn insert_row(
     fields(session_id = %session_id, database = %database, schema = ?schema, table = %table)
 )]
 pub async fn update_row(
+    app: AppHandle,
     state: State<'_, crate::SharedState>,
     session_id: String,
     database: String,
@@ -396,6 +406,14 @@ pub async fn update_row(
                 changelog_store.record(entry);
             }
 
+            #[cfg(feature = "pro")]
+            crate::contracts::alert::schedule_post_mutation_check(
+                app.clone(),
+                session,
+                namespace.schema.clone(),
+                table.clone(),
+            );
+
             Ok(MutationResponse {
                 success: true,
                 result: Some(result),
@@ -431,6 +449,7 @@ pub async fn update_row(
     fields(session_id = %session_id, database = %database, schema = ?schema, table = %table)
 )]
 pub async fn delete_row(
+    app: AppHandle,
     state: State<'_, crate::SharedState>,
     session_id: String,
     database: String,
@@ -583,6 +602,14 @@ pub async fn delete_row(
                 );
                 changelog_store.record(entry);
             }
+
+            #[cfg(feature = "pro")]
+            crate::contracts::alert::schedule_post_mutation_check(
+                app.clone(),
+                session,
+                namespace.schema.clone(),
+                table.clone(),
+            );
 
             Ok(MutationResponse {
                 success: true,

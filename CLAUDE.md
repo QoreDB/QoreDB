@@ -127,6 +127,71 @@ Consulte ces fichiers selon le contexte de ta tâche :
 | Open-core roadmap (priv) | `doc/private/OPEN_CORE_ROADMAP_1.md`           |
 | Open-core TODO (priv)    | `doc/private/OPEN_CORE_TODO.md`                |
 
+## Principes de collaboration
+
+Ces principes prennent le pas sur la vitesse : pour une tâche triviale, utilise ton jugement.
+
+### 1. Réfléchir avant de coder
+
+**Ne pas supposer. Ne pas masquer la confusion. Exposer les compromis.**
+
+Avant d'implémenter :
+
+- Énonce explicitement tes hypothèses. En cas de doute, demande.
+- Si plusieurs interprétations sont possibles, présente-les — ne choisis pas en silence.
+- Si une approche plus simple existe, dis-le. Pousse-la quand c'est justifié.
+- Si quelque chose n'est pas clair, arrête-toi. Nomme ce qui est confus. Demande.
+
+### 2. La simplicité d'abord
+
+**Le minimum de code qui résout le problème. Rien de spéculatif.**
+
+- Pas de fonctionnalités au-delà de ce qui a été demandé.
+- Pas d'abstractions pour du code à usage unique.
+- Pas de « flexibilité » ou de « configurabilité » non demandée.
+- Pas de gestion d'erreur pour des scénarios impossibles.
+- Si tu écris 200 lignes et que 50 suffiraient, réécris.
+
+Pose-toi la question : « Un ingénieur senior dirait-il que c'est sur-compliqué ? » Si oui, simplifie.
+
+### 3. Modifications chirurgicales
+
+**Ne touche qu'à ce qui est nécessaire. Ne nettoie que ton propre désordre.**
+
+Lors d'édition de code existant :
+
+- Ne « améliore » pas le code, les commentaires ou le formatage adjacents.
+- Ne refactorise pas ce qui n'est pas cassé.
+- Respecte le style existant, même si tu ferais autrement.
+- Si tu remarques du code mort non lié, signale-le — ne le supprime pas.
+
+Quand tes changements créent des orphelins :
+
+- Supprime les imports/variables/fonctions que TES changements ont rendu inutilisés.
+- Ne supprime pas le code mort préexistant sauf demande explicite.
+
+Le test : chaque ligne modifiée doit pouvoir se rattacher directement à la demande de l'utilisateur.
+
+### 4. Exécution guidée par l'objectif
+
+**Définir des critères de succès. Itérer jusqu'à vérification.**
+
+Transforme les tâches en objectifs vérifiables :
+
+- « Ajouter une validation » → « Écrire des tests pour les entrées invalides, puis les faire passer »
+- « Corriger le bug » → « Écrire un test qui le reproduit, puis le faire passer »
+- « Refactoriser X » → « S'assurer que les tests passent avant et après »
+
+Pour les tâches en plusieurs étapes, énonce un plan bref :
+
+```text
+1. [Étape] → vérification : [contrôle]
+2. [Étape] → vérification : [contrôle]
+3. [Étape] → vérification : [contrôle]
+```
+
+Des critères de succès solides permettent d'itérer en autonomie. Des critères faibles (« faire que ça marche ») exigent une clarification permanente.
+
 ## Règles générales
 
 Applique l'internationalisation de manière systématique via `src/lib/i18n.ts`.

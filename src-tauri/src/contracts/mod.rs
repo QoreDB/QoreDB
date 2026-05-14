@@ -8,6 +8,7 @@
 
 #![cfg(feature = "pro")]
 
+pub mod alert;
 pub mod events;
 pub mod parser;
 pub mod runner;

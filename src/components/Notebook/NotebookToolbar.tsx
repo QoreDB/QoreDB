@@ -13,6 +13,7 @@ import {
   Plus,
   Redo2,
   Save,
+  ShieldCheck,
   Square,
   Undo2,
   Upload,
@@ -42,6 +43,7 @@ import {
 import { Tooltip } from '@/components/ui/tooltip';
 import type { CellType } from '@/lib/notebook/notebookTypes';
 import type { Namespace } from '@/lib/tauri';
+import { useLicense } from '@/providers/LicenseProvider';
 import { getShortcut } from '@/utils/platform';
 
 function formatNamespace(ns: Namespace): string {
@@ -104,6 +106,8 @@ export function NotebookToolbar({
   onToggleVariables,
 }: NotebookToolbarProps) {
   const { t } = useTranslation();
+  const { isFeatureEnabled } = useLicense();
+  const contractsEnabled = isFeatureEnabled('data_contracts');
   const [editingTitle, setEditingTitle] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -264,6 +268,12 @@ export function NotebookToolbar({
             <FileText size={14} className="mr-2" />
             {t('notebook.addCellMarkdown')}
           </DropdownMenuItem>
+          {contractsEnabled && (
+            <DropdownMenuItem onClick={() => onAddCell('contract')}>
+              <ShieldCheck size={14} className="mr-2" />
+              {t('contracts.title')}
+            </DropdownMenuItem>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
 

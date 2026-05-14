@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import type { ContractRun } from '../contracts';
 import type { ColumnInfo, Namespace, Row } from '../tauri';
 
 // --- File format types (serialized to .qnb) ---
@@ -26,7 +27,7 @@ export interface NotebookMetadata {
   };
 }
 
-export type CellType = 'sql' | 'mongo' | 'markdown' | 'chart';
+export type CellType = 'sql' | 'mongo' | 'markdown' | 'chart' | 'contract';
 
 export interface NotebookCell {
   id: string;
@@ -61,7 +62,7 @@ export interface ChartConfig {
 }
 
 export interface CellResult {
-  type: 'table' | 'document' | 'message' | 'error';
+  type: 'table' | 'document' | 'message' | 'error' | 'contract';
   columns?: ColumnInfo[];
   rows?: Row[];
   totalRows?: number;
@@ -69,6 +70,8 @@ export interface CellResult {
   documents?: object[];
   error?: string;
   message?: string;
+  /** Populated when `type === 'contract'`. */
+  contractRun?: ContractRun;
 }
 
 export interface NotebookVariable {

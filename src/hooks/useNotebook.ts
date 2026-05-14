@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import type { Driver } from '../lib/connection/drivers';
+import { loadContract, runContract } from '../lib/contracts';
 import { exportToHtml, exportToMarkdown } from '../lib/notebook/notebookExport';
 import { importFromMarkdown, importFromSql } from '../lib/notebook/notebookImport';
 import { resolveInterCellReferences } from '../lib/notebook/notebookInterCellRef';
@@ -276,6 +277,71 @@ export function useNotebook(options: UseNotebookOptions): UseNotebookReturn {
 
   // --- Execution ---
 
+  const executeContractCell = useCallback(
+    async (cellId: string, signal?: AbortSignal) => {
+      const cell = notebookRef.current.cells.find(c => c.id === cellId);
+      if (!cell || cell.type !== 'contract') return;
+      const name = cell.source.trim();
+      if (!name) return;
+      if (!sessionId) {
+        toast.error(t('query.noConnectionError'));
+        return;
+      }
+      if (signal?.aborted) return;
+
+      setExecutingCellId(cellId);
+      setFocusedCell(cellId);
+      updateCell(cellId, c => ({
+        ...c,
+        executionState: 'running' as CellExecutionState,
+      }));
+
+      const startTime = performance.now();
+      try {
+        const source = await loadContract(name);
+        if (signal?.aborted) return;
+        const run = await runContract(sessionId, source);
+        if (signal?.aborted) return;
+
+        const totalTimeMs = Math.round(performance.now() - startTime);
+        const success = run.fail_count === 0 && run.error_count === 0;
+        const result: CellResult = {
+          type: 'contract',
+          contractRun: run,
+        };
+        updateCell(cellId, c => ({
+          ...c,
+          lastResult: result,
+          executionState: success ? 'success' : 'error',
+          executionCount: (c.executionCount ?? 0) + 1,
+          executedAt: new Date().toISOString(),
+          executionTimeMs: totalTimeMs,
+        }));
+        if (!success) {
+          throw new Error(t('contracts.errors.runFailed'));
+        }
+      } catch (err) {
+        if (signal?.aborted) return;
+        const errorMessage = err instanceof Error ? err.message : String(err);
+        const current = notebookRef.current.cells.find(c => c.id === cellId);
+        if (current?.executionState === 'running') {
+          updateCell(cellId, c => ({
+            ...c,
+            lastResult: { type: 'error', error: errorMessage },
+            executionState: 'error',
+            executionCount: (c.executionCount ?? 0) + 1,
+            executedAt: new Date().toISOString(),
+            executionTimeMs: Math.round(performance.now() - startTime),
+          }));
+        }
+        throw err;
+      } finally {
+        setExecutingCellId(null);
+      }
+    },
+    [sessionId, updateCell, t]
+  );
+
   const executeSingleCell = useCallback(
     async (cellId: string, signal?: AbortSignal) => {
       if (!sessionId) {
@@ -284,7 +350,12 @@ export function useNotebook(options: UseNotebookOptions): UseNotebookReturn {
       }
 
       const cell = notebookRef.current.cells.find(c => c.id === cellId);
-      if (!cell || (cell.type !== 'sql' && cell.type !== 'mongo')) return;
+      if (!cell) return;
+      if (cell.type === 'contract') {
+        await executeContractCell(cellId, signal);
+        return;
+      }
+      if (cell.type !== 'sql' && cell.type !== 'mongo') return;
       if (!cell.source.trim()) return;
 
       if (signal?.aborted) return;
@@ -378,7 +449,7 @@ export function useNotebook(options: UseNotebookOptions): UseNotebookReturn {
         setExecutingCellId(null);
       }
     },
-    [sessionId, namespace, updateCell, t]
+    [sessionId, namespace, updateCell, t, executeContractCell]
   );
 
   const executeCell = useCallback(
@@ -407,7 +478,9 @@ export function useNotebook(options: UseNotebookOptions): UseNotebookReturn {
           if (abort.signal.aborted) break;
 
           const cell = notebookRef.current.cells.find(c => c.id === cellId);
-          if (!cell || (cell.type !== 'sql' && cell.type !== 'mongo')) continue;
+          if (!cell) continue;
+          if (cell.type !== 'sql' && cell.type !== 'mongo' && cell.type !== 'contract')
+            continue;
           if (!cell.source.trim()) continue;
 
           try {

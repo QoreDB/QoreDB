@@ -54,6 +54,7 @@ export function InstantApiPanel({ open, onClose }: Props) {
   const [newOpen, setNewOpen] = useState(false);
   const [openApiOpen, setOpenApiOpen] = useState(false);
   const [tokenView, setTokenView] = useState<CreateEndpointResponse | null>(null);
+  const [tlsPref, setTlsPref] = useState(false);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -79,7 +80,9 @@ export function InstantApiPanel({ open, onClose }: Props) {
   async function toggleServer() {
     setBusy(true);
     try {
-      const next = status?.running ? await stopInstantApi() : await startInstantApi();
+      const next = status?.running
+        ? await stopInstantApi()
+        : await startInstantApi(undefined, { tls: tlsPref });
       setStatus(next);
     } catch (e) {
       toast.error(
@@ -145,6 +148,8 @@ export function InstantApiPanel({ open, onClose }: Props) {
               busy={busy}
               onToggle={toggleServer}
               onRefresh={refresh}
+              tlsPref={tlsPref}
+              onToggleTls={() => setTlsPref(v => !v)}
             />
 
             <div className="flex items-center justify-between">
@@ -207,11 +212,22 @@ interface StatusBarProps {
   busy: boolean;
   onToggle: () => void;
   onRefresh: () => void;
+  tlsPref: boolean;
+  onToggleTls: () => void;
 }
 
-function ServerStatusBar({ status, loading, busy, onToggle, onRefresh }: StatusBarProps) {
+function ServerStatusBar({
+  status,
+  loading,
+  busy,
+  onToggle,
+  onRefresh,
+  tlsPref,
+  onToggleTls,
+}: StatusBarProps) {
   const { t } = useTranslation();
   const running = status?.running ?? false;
+  const tlsActive = running && (status?.tls ?? false);
 
   return (
     <div className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-md border border-border bg-muted/30">
@@ -226,8 +242,16 @@ function ServerStatusBar({ status, loading, busy, onToggle, onRefresh }: StatusB
           )}
         </div>
         <div className="flex flex-col min-w-0">
-          <span className="text-sm font-medium">
+          <span className="text-sm font-medium inline-flex items-center gap-1.5">
             {running ? t('instantApi.status.running') : t('instantApi.status.stopped')}
+            {tlsActive && (
+              <span
+                className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] uppercase tracking-wide font-semibold bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
+                title={t('instantApi.tls.selfSigned')}
+              >
+                {t('instantApi.tls.badge')}
+              </span>
+            )}
           </span>
           {status?.base_url && (
             <span className="text-[11px] text-muted-foreground font-mono truncate">
@@ -237,6 +261,18 @@ function ServerStatusBar({ status, loading, busy, onToggle, onRefresh }: StatusB
         </div>
       </div>
       <div className="flex items-center gap-2">
+        {!running && (
+          <label className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground select-none cursor-pointer">
+            <input
+              type="checkbox"
+              checked={tlsPref}
+              onChange={onToggleTls}
+              className="h-3 w-3 accent-primary"
+              disabled={busy}
+            />
+            {t('instantApi.tls.useHttps')}
+          </label>
+        )}
         <Button variant="ghost" size="sm" onClick={onRefresh} disabled={loading}>
           <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
         </Button>

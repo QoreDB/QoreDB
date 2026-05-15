@@ -2599,6 +2599,11 @@
       "download": "ダウンロード",
       "loadFailed": "OpenAPI ドキュメントの読み込みに失敗しました",
       "close": "閉じる"
+    },
+    "tls": {
+      "useHttps": "HTTPS を使用",
+      "badge": "HTTPS",
+      "selfSigned": "起動時に自己署名証明書を生成します。ブラウザは初回アクセス時に例外承認を求めます。"
     }
   },
   "restore": {

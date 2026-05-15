@@ -2600,6 +2600,11 @@
       "download": "Descargar",
       "loadFailed": "No se pudo cargar el documento OpenAPI",
       "close": "Cerrar"
+    },
+    "tls": {
+      "useHttps": "Usar HTTPS",
+      "badge": "HTTPS",
+      "selfSigned": "Certificado autofirmado generado al iniciar. Los navegadores pedirán una excepción manual en la primera visita."
     }
   },
   "restore": {

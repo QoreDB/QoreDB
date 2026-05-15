@@ -2599,6 +2599,11 @@
       "download": "下载",
       "loadFailed": "加载 OpenAPI 文档失败",
       "close": "关闭"
+    },
+    "tls": {
+      "useHttps": "启用 HTTPS",
+      "badge": "HTTPS",
+      "selfSigned": "启动时生成自签名证书。浏览器首次访问时将要求手动确认信任。"
     }
   },
   "restore": {

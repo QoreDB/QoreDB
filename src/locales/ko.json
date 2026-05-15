@@ -2599,6 +2599,11 @@
       "download": "다운로드",
       "loadFailed": "OpenAPI 문서를 불러오지 못했습니다",
       "close": "닫기"
+    },
+    "tls": {
+      "useHttps": "HTTPS 사용",
+      "badge": "HTTPS",
+      "selfSigned": "서버 시작 시 자체 서명 인증서가 생성됩니다. 브라우저는 첫 접속 시 신뢰 예외를 요청합니다."
     }
   },
   "restore": {

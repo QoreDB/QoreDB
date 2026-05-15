@@ -139,6 +139,25 @@ impl EndpointStore {
         self.flush(&state)
     }
 
+    /// Replaces the stored token hash for an existing endpoint. Caller is
+    /// responsible for hashing the new raw token (via [`crate::api::auth`])
+    /// and for showing the raw value to the user one time.
+    pub fn regenerate_token(
+        &self,
+        id: &str,
+        new_token_hash: String,
+    ) -> Result<Endpoint, StoreError> {
+        let mut state = self.state.write().unwrap();
+        let endpoint = state
+            .get_mut(id)
+            .ok_or_else(|| StoreError::NotFound(id.to_string()))?;
+        endpoint.token_hash = new_token_hash;
+        endpoint.updated_at = Utc::now().to_rfc3339();
+        let snapshot = endpoint.clone();
+        self.flush(&state)?;
+        Ok(snapshot)
+    }
+
     fn flush(&self, state: &HashMap<String, Endpoint>) -> Result<(), StoreError> {
         let mut endpoints: Vec<Endpoint> = state.values().cloned().collect();
         endpoints.sort_by(|a, b| a.name.cmp(&b.name));
@@ -262,6 +281,40 @@ mod tests {
             )
             .unwrap_err();
         assert!(matches!(err, StoreError::DuplicateName(_)));
+    }
+
+    #[test]
+    fn regenerate_token_updates_hash_and_timestamp() {
+        let tmp = TempDir::new().unwrap();
+        let store = make_store(&tmp);
+        let ep = store
+            .create(
+                "a".into(),
+                "c".into(),
+                "SELECT 1".into(),
+                vec![],
+                QueryShape::Rows,
+                100,
+                "old-hash".into(),
+            )
+            .unwrap();
+        // updated_at is bumped on regenerate; sleep to guarantee a different rfc3339 value
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        let refreshed = store
+            .regenerate_token(&ep.id, "new-hash".into())
+            .unwrap();
+        assert_eq!(refreshed.token_hash, "new-hash");
+        assert_ne!(refreshed.updated_at, ep.updated_at);
+        assert_eq!(refreshed.id, ep.id);
+        assert_eq!(refreshed.name, ep.name);
+    }
+
+    #[test]
+    fn regenerate_token_rejects_missing_id() {
+        let tmp = TempDir::new().unwrap();
+        let store = make_store(&tmp);
+        let err = store.regenerate_token("nope", "h".into()).unwrap_err();
+        assert!(matches!(err, StoreError::NotFound(_)));
     }
 
     #[test]

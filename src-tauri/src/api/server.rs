@@ -28,6 +28,7 @@ use tokio::sync::{oneshot, Mutex};
 use qore_drivers::session_manager::SessionManager;
 
 use super::handlers::{handle_endpoint, ApiState};
+use super::openapi::{handle_health, handle_openapi};
 use super::rate_limit::RateLimiter;
 use super::EndpointStore;
 
@@ -120,6 +121,7 @@ impl ApiServer {
             source,
         })?;
 
+        let started_at = Arc::new(Instant::now());
         let state = ApiState {
             store: Arc::clone(&self.store),
             limiter: Arc::clone(&self.limiter),
@@ -127,10 +129,13 @@ impl ApiServer {
             sessions: Arc::clone(&self.sessions),
             project_id: self.project_id.clone(),
             storage_dir: self.storage_dir.clone(),
+            started_at: Arc::clone(&started_at),
         };
 
         let app: Router = Router::new()
             .route("/api/:name", get(handle_endpoint))
+            .route("/openapi.json", get(handle_openapi))
+            .route("/health", get(handle_health))
             .with_state(state);
 
         let (tx, rx) = oneshot::channel::<()>();
@@ -146,7 +151,7 @@ impl ApiServer {
         *guard = Some(RunningServer {
             addr: local_addr,
             shutdown: tx,
-            started_at: Instant::now(),
+            started_at: *started_at,
         });
         Ok(local_addr)
     }

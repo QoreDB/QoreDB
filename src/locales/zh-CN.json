@@ -2505,6 +2505,95 @@
       "deleteBody": "契约文件及其历史将被永久删除。"
     }
   },
+  "instantApi": {
+    "title": "Instant Data API",
+    "description": "将保存的查询作为本地只读 REST 端点公开。",
+    "close": "关闭",
+    "newEndpoint": "新建端点",
+    "endpointsLabel": "个端点",
+    "confirmDelete": "删除端点 \"{{name}}\"?",
+    "regenerate": "重新生成令牌",
+    "regenerateConfirm": "为 \"{{name}}\" 生成新的令牌？旧令牌将立即失效。",
+    "regenerateFailed": "重新生成令牌失败",
+    "status": {
+      "running": "服务器运行中",
+      "stopped": "服务器已停止",
+      "start": "启动",
+      "stop": "停止"
+    },
+    "empty": {
+      "title": "尚无端点",
+      "description": "创建第一个端点，将保存的查询作为 REST URL 公开。",
+      "createFirst": "创建端点"
+    },
+    "errors": {
+      "statusFailed": "加载 Instant API 状态失败",
+      "startFailed": "启动 Instant API 服务器失败",
+      "stopFailed": "停止 Instant API 服务器失败",
+      "deleteFailed": "删除端点失败"
+    },
+    "list": {
+      "name": "名称",
+      "shape": "形式",
+      "url": "URL",
+      "serverStopped": "请先启动服务器，再打开此 URL。",
+      "paramsCount_one": "{{count}} 个参数",
+      "paramsCount_other": "{{count}} 个参数",
+      "pageSize_one": "每页 {{count}} 行",
+      "pageSize_other": "每页 {{count}} 行"
+    },
+    "endpoint": {
+      "newTitle": "新建端点",
+      "newDescription": "选择连接，编写带参数的只读查询即可。",
+      "nameLabel": "名称",
+      "nameHint": "字母、数字、连字符、下划线 — 用于 URL 路径。",
+      "connectionLabel": "连接",
+      "selectConnection": "选择连接…",
+      "queryLabel": "查询",
+      "queryHint": "用 {{tag}} 占位符引用已声明的参数。",
+      "shapeLabel": "响应形式",
+      "shape": {
+        "rows": "行列表",
+        "object": "单个对象"
+      },
+      "pageSizeLabel": "每页大小",
+      "paramsLabel": "参数",
+      "addParam": "添加",
+      "noParams": "未声明参数。",
+      "paramName": "名称",
+      "paramDefault": "默认值",
+      "cancel": "取消",
+      "create": "创建端点",
+      "creating": "正在创建…",
+      "createFailed": "创建端点失败",
+      "invalidName": "名称无效 — 字母、数字、连字符、下划线 (1–64)。",
+      "missingConnection": "请选择连接。",
+      "missingQuery": "查询为空。",
+      "invalidPageSize": "每页大小必须介于 1 与 10000 之间。",
+      "invalidParamName": "参数名称无效：{{name}}",
+      "paramNotInQuery": "查询中未引用参数 {{name}}。",
+      "loadConnectionsFailed": "加载连接失败"
+    },
+    "token": {
+      "title": "端点令牌（仅显示一次）",
+      "description": "请立即复制此令牌 — 之后无法再次获取。将其用于 Authorization 头。",
+      "tokenLabel": "Bearer 令牌",
+      "curlLabel": "示例",
+      "warning": "此令牌授予对此端点的读取权限。请像密码一样保管。",
+      "copyFailed": "复制失败",
+      "done": "已保存"
+    },
+    "openapi": {
+      "open": "OpenAPI 预览",
+      "title": "OpenAPI 3.1 规范",
+      "description": "由已注册端点自动生成。可导入 Swagger UI 或 Postman。",
+      "copy": "复制 JSON",
+      "copied": "已复制",
+      "download": "下载",
+      "loadFailed": "加载 OpenAPI 文档失败",
+      "close": "关闭"
+    }
+  },
   "restore": {
     "dialogTitle": "恢复到 {{name}}",
     "destructiveWarning": "此操作将覆盖或修改 \"{{name}}\" 中的数据。请确保在继续之前已有最新的备份。",

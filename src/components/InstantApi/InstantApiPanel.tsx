@@ -1,6 +1,16 @@
 // SPDX-License-Identifier: BUSL-1.1
 
-import { Activity, Globe, Play, Plus, Power, RefreshCw, Trash2 } from 'lucide-react';
+import {
+  Activity,
+  FileJson,
+  Globe,
+  KeyRound,
+  Play,
+  Plus,
+  Power,
+  RefreshCw,
+  Trash2,
+} from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -21,12 +31,14 @@ import {
   getInstantApiStatus,
   type InstantApiStatus,
   listEndpoints,
+  regenerateEndpointToken,
   startInstantApi,
   stopInstantApi,
 } from '@/lib/instantApi';
 
 import { EndpointDialog } from './EndpointDialog';
 import { EndpointTokenDialog } from './EndpointTokenDialog';
+import { OpenApiPreview } from './OpenApiPreview';
 
 interface Props {
   open: boolean;
@@ -40,6 +52,7 @@ export function InstantApiPanel({ open, onClose }: Props) {
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [newOpen, setNewOpen] = useState(false);
+  const [openApiOpen, setOpenApiOpen] = useState(false);
   const [tokenView, setTokenView] = useState<CreateEndpointResponse | null>(null);
 
   const refresh = useCallback(async () => {
@@ -91,6 +104,19 @@ export function InstantApiPanel({ open, onClose }: Props) {
     }
   }
 
+  async function handleRegenerate(meta: EndpointMeta) {
+    const ok = window.confirm(t('instantApi.regenerateConfirm', { name: meta.name }));
+    if (!ok) return;
+    try {
+      const response = await regenerateEndpointToken(meta.id);
+      setTokenView(response);
+    } catch (e) {
+      toast.error(t('instantApi.regenerateFailed'), {
+        description: e instanceof Error ? e.message : String(e),
+      });
+    }
+  }
+
   function handleCreated(response: CreateEndpointResponse) {
     setTokenView(response);
     void refresh();
@@ -126,10 +152,21 @@ export function InstantApiPanel({ open, onClose }: Props) {
                 <strong className="text-foreground tabular-nums">{endpoints.length}</strong>{' '}
                 {t('instantApi.endpointsLabel')}
               </div>
-              <Button size="sm" onClick={() => setNewOpen(true)}>
-                <Plus size={14} />
-                {t('instantApi.newEndpoint')}
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setOpenApiOpen(true)}
+                  disabled={endpoints.length === 0}
+                >
+                  <FileJson size={13} />
+                  {t('instantApi.openapi.open')}
+                </Button>
+                <Button size="sm" onClick={() => setNewOpen(true)}>
+                  <Plus size={14} />
+                  {t('instantApi.newEndpoint')}
+                </Button>
+              </div>
             </div>
 
             <EndpointList
@@ -138,6 +175,7 @@ export function InstantApiPanel({ open, onClose }: Props) {
               loading={loading}
               onCreate={() => setNewOpen(true)}
               onDelete={handleDelete}
+              onRegenerate={handleRegenerate}
             />
           </div>
 
@@ -150,6 +188,8 @@ export function InstantApiPanel({ open, onClose }: Props) {
       </Dialog>
 
       <EndpointDialog open={newOpen} onClose={() => setNewOpen(false)} onCreated={handleCreated} />
+
+      <OpenApiPreview open={openApiOpen} onClose={() => setOpenApiOpen(false)} />
 
       <EndpointTokenDialog
         open={tokenView !== null}
@@ -220,9 +260,17 @@ interface EndpointListProps {
   loading: boolean;
   onCreate: () => void;
   onDelete: (meta: EndpointMeta) => void;
+  onRegenerate: (meta: EndpointMeta) => void;
 }
 
-function EndpointList({ endpoints, baseUrl, loading, onCreate, onDelete }: EndpointListProps) {
+function EndpointList({
+  endpoints,
+  baseUrl,
+  loading,
+  onCreate,
+  onDelete,
+  onRegenerate,
+}: EndpointListProps) {
   const { t } = useTranslation();
 
   if (!loading && endpoints.length === 0) {
@@ -249,7 +297,7 @@ function EndpointList({ endpoints, baseUrl, loading, onCreate, onDelete }: Endpo
             <th className="px-3 py-2 text-left font-medium">{t('instantApi.list.name')}</th>
             <th className="px-3 py-2 text-left font-medium">{t('instantApi.list.shape')}</th>
             <th className="px-3 py-2 text-left font-medium">{t('instantApi.list.url')}</th>
-            <th className="px-3 py-2 text-right font-medium w-12" />
+            <th className="px-3 py-2 text-right font-medium w-24" />
           </tr>
         </thead>
         <tbody>
@@ -259,6 +307,7 @@ function EndpointList({ endpoints, baseUrl, loading, onCreate, onDelete }: Endpo
               meta={meta}
               baseUrl={baseUrl}
               onDelete={() => onDelete(meta)}
+              onRegenerate={() => onRegenerate(meta)}
             />
           ))}
         </tbody>
@@ -271,9 +320,10 @@ interface RowProps {
   meta: EndpointMeta;
   baseUrl: string | null;
   onDelete: () => void;
+  onRegenerate: () => void;
 }
 
-function EndpointRow({ meta, baseUrl, onDelete }: RowProps) {
+function EndpointRow({ meta, baseUrl, onDelete, onRegenerate }: RowProps) {
   const { t } = useTranslation();
   const url = baseUrl ? `${baseUrl}/api/${meta.name}` : `/api/${meta.name}`;
 
@@ -311,7 +361,10 @@ function EndpointRow({ meta, baseUrl, onDelete }: RowProps) {
           <span className="truncate">{url}</span>
         </button>
       </td>
-      <td className="px-3 py-2 align-middle text-right">
+      <td className="px-3 py-2 align-middle text-right whitespace-nowrap">
+        <Button variant="ghost" size="sm" onClick={onRegenerate} title={t('instantApi.regenerate')}>
+          <KeyRound size={13} />
+        </Button>
         <Button variant="ghost" size="sm" onClick={onDelete}>
           <Trash2 size={13} />
         </Button>

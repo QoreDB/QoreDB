@@ -54,6 +54,15 @@ export async function createEndpoint(input: CreateEndpointInput): Promise<Create
   });
 }
 
+export async function regenerateEndpointToken(id: string): Promise<CreateEndpointResponse> {
+  return invoke('regenerate_endpoint_token', { id });
+}
+
+/** Returns the OpenAPI 3.1 document as a pretty-printed JSON string. */
+export async function getOpenApiDocument(): Promise<string> {
+  return invoke('get_openapi_document');
+}
+
 export async function deleteEndpoint(id: string): Promise<void> {
   await invoke('delete_endpoint', { id });
 }

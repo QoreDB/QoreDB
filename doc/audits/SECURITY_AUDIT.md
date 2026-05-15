@@ -24,9 +24,10 @@ QoreDB follows a solid baseline for a desktop database client: credentials are s
 
 - **Medium Risk: Filesystem permissions remain broad**
   - **Location:** `src-tauri/capabilities/default.json`
-  - **Finding:** The frontend has write access through `fs:allow-write-text-file` and `fs:allow-write-file`, plus text-file read access, without an explicit path scope in the capability file.
-  - **Implication:** This is partly required for notebooks, exports, imports, and log saves, but it still expands the blast radius of any future frontend compromise.
-  - **Recommendation:** Reduce scope where Tauri plugin support allows it, or document that access is intentionally user-path based and mediated by file pickers.
+  - **Finding:** The frontend has write access through `fs:allow-write-text-file` and `fs:allow-write-file`, plus text-file read access, with a deny-list for sensitive locations (`.ssh`, `.aws`, `.kube`, history files, `/etc`, `/root`, …) but no positive allow-list.
+  - **Implication:** This is partly required for notebooks, exports, imports, and log saves; the deny-list prevents the worst exfiltration paths but still expands the blast radius of any future frontend compromise.
+  - **Status (v0.1.28):** Deny-list shipped in v0.1.28 (`fs:scope` block in `default.json`). Tightening to a positive allow-list (`$DOCUMENT/qoredb/*`, `$DOWNLOAD/*`, `$APPDATA/qoredb/*`, `$HOME/.qoredb/*`) is **deferred to v0.1.29** — it requires a path-by-path audit of exports / notebooks / blob downloads to avoid regressions, which is out of scope for v0.1.28.
+  - **Recommendation:** Plan the allow-list switch alongside the v0.1.29 sandbox work.
 
 ### 2. Backend Safety Enforcement
 

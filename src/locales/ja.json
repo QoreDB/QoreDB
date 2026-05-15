@@ -2505,6 +2505,95 @@
       "deleteBody": "契約ファイルとその履歴は完全に削除されます。"
     }
   },
+  "instantApi": {
+    "title": "Instant Data API",
+    "description": "保存済みクエリをローカルの読み取り専用 REST エンドポイントとして公開します。",
+    "close": "閉じる",
+    "newEndpoint": "新しいエンドポイント",
+    "endpointsLabel": "個のエンドポイント",
+    "confirmDelete": "エンドポイント「{{name}}」を削除しますか？",
+    "regenerate": "トークンを再生成",
+    "regenerateConfirm": "「{{name}}」用に新しいトークンを生成しますか？古いトークンは直ちに無効になります。",
+    "regenerateFailed": "トークンの再生成に失敗しました",
+    "status": {
+      "running": "サーバー稼働中",
+      "stopped": "サーバー停止中",
+      "start": "開始",
+      "stop": "停止"
+    },
+    "empty": {
+      "title": "エンドポイントはまだありません",
+      "description": "最初のエンドポイントを作成して、保存したクエリを REST URL として公開しましょう。",
+      "createFirst": "エンドポイントを作成"
+    },
+    "errors": {
+      "statusFailed": "Instant API のステータス取得に失敗しました",
+      "startFailed": "Instant API サーバーの起動に失敗しました",
+      "stopFailed": "Instant API サーバーの停止に失敗しました",
+      "deleteFailed": "エンドポイントの削除に失敗しました"
+    },
+    "list": {
+      "name": "名前",
+      "shape": "形式",
+      "url": "URL",
+      "serverStopped": "この URL を開く前にサーバーを起動してください。",
+      "paramsCount_one": "パラメータ {{count}} 個",
+      "paramsCount_other": "パラメータ {{count}} 個",
+      "pageSize_one": "{{count}} 行/ページ",
+      "pageSize_other": "{{count}} 行/ページ"
+    },
+    "endpoint": {
+      "newTitle": "新しいエンドポイント",
+      "newDescription": "接続を選び、パラメータ化された読み取り専用クエリを記述します。",
+      "nameLabel": "名前",
+      "nameHint": "英数字・ハイフン・アンダースコア — URL パスに使用されます。",
+      "connectionLabel": "接続",
+      "selectConnection": "接続を選択…",
+      "queryLabel": "クエリ",
+      "queryHint": "宣言したパラメータは {{tag}} で参照します。",
+      "shapeLabel": "レスポンス形式",
+      "shape": {
+        "rows": "行のリスト",
+        "object": "単一オブジェクト"
+      },
+      "pageSizeLabel": "ページサイズ",
+      "paramsLabel": "パラメータ",
+      "addParam": "追加",
+      "noParams": "パラメータは宣言されていません。",
+      "paramName": "名前",
+      "paramDefault": "デフォルト",
+      "cancel": "キャンセル",
+      "create": "エンドポイントを作成",
+      "creating": "作成中…",
+      "createFailed": "エンドポイントの作成に失敗しました",
+      "invalidName": "無効な名前 — 英数字・ハイフン・アンダースコア（1〜64）。",
+      "missingConnection": "接続を選択してください。",
+      "missingQuery": "クエリが空です。",
+      "invalidPageSize": "ページサイズは 1〜10000 の範囲で指定してください。",
+      "invalidParamName": "無効なパラメータ名: {{name}}",
+      "paramNotInQuery": "パラメータ {{name}} はクエリで参照されていません。",
+      "loadConnectionsFailed": "接続の読み込みに失敗しました"
+    },
+    "token": {
+      "title": "エンドポイントのトークン（一度だけ表示）",
+      "description": "後で取得することはできません。今コピーして Authorization ヘッダーで使用してください。",
+      "tokenLabel": "Bearer トークン",
+      "curlLabel": "例",
+      "warning": "このトークンはこのエンドポイントへの読み取り権を与えます。パスワードのように扱ってください。",
+      "copyFailed": "コピーに失敗しました",
+      "done": "保存しました"
+    },
+    "openapi": {
+      "open": "OpenAPI プレビュー",
+      "title": "OpenAPI 3.1 仕様",
+      "description": "登録済みエンドポイントから自動生成されます。Swagger UI や Postman に読み込めます。",
+      "copy": "JSON をコピー",
+      "copied": "コピー済み",
+      "download": "ダウンロード",
+      "loadFailed": "OpenAPI ドキュメントの読み込みに失敗しました",
+      "close": "閉じる"
+    }
+  },
   "restore": {
     "dialogTitle": "{{name}} へのリストア",
     "destructiveWarning": "この操作は「{{name}}」のデータを上書きまたは変更します。続行する前に最新のバックアップがあることを確認してください。",

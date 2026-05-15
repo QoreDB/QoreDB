@@ -2525,6 +2525,95 @@
       "deleteBody": "Le fichier du contrat et son historique seront supprimés définitivement."
     }
   },
+  "instantApi": {
+    "title": "Instant Data API",
+    "description": "Expose des requêtes sauvegardées en endpoints REST locaux, en lecture seule.",
+    "close": "Fermer",
+    "newEndpoint": "Nouvel endpoint",
+    "endpointsLabel": "endpoint(s)",
+    "confirmDelete": "Supprimer l'endpoint « {{name}} » ?",
+    "regenerate": "Régénérer le jeton",
+    "regenerateConfirm": "Générer un nouveau jeton pour « {{name}} » ? L'ancien cessera de fonctionner immédiatement.",
+    "regenerateFailed": "Échec de la régénération du jeton",
+    "status": {
+      "running": "Serveur en marche",
+      "stopped": "Serveur arrêté",
+      "start": "Démarrer",
+      "stop": "Arrêter"
+    },
+    "empty": {
+      "title": "Aucun endpoint pour l'instant",
+      "description": "Créez votre premier endpoint pour exposer une requête comme URL REST.",
+      "createFirst": "Créer un endpoint"
+    },
+    "errors": {
+      "statusFailed": "Échec du chargement du statut Instant API",
+      "startFailed": "Échec du démarrage du serveur Instant API",
+      "stopFailed": "Échec de l'arrêt du serveur Instant API",
+      "deleteFailed": "Échec de la suppression de l'endpoint"
+    },
+    "list": {
+      "name": "Nom",
+      "shape": "Forme",
+      "url": "URL",
+      "serverStopped": "Démarrez le serveur avant d'ouvrir cette URL.",
+      "paramsCount_one": "{{count}} param.",
+      "paramsCount_other": "{{count}} params.",
+      "pageSize_one": "{{count}} ligne/page",
+      "pageSize_other": "{{count}} lignes/page"
+    },
+    "endpoint": {
+      "newTitle": "Nouvel endpoint",
+      "newDescription": "Choisissez une connexion, écrivez une requête paramétrée en lecture seule, c'est tout.",
+      "nameLabel": "Nom",
+      "nameHint": "Lettres, chiffres, tiret, underscore — utilisé dans l'URL.",
+      "connectionLabel": "Connexion",
+      "selectConnection": "Choisir une connexion…",
+      "queryLabel": "Requête",
+      "queryHint": "Utilisez les balises {{tag}} pour les paramètres déclarés.",
+      "shapeLabel": "Forme de la réponse",
+      "shape": {
+        "rows": "Liste de lignes",
+        "object": "Objet unique"
+      },
+      "pageSizeLabel": "Taille de page",
+      "paramsLabel": "Paramètres",
+      "addParam": "Ajouter",
+      "noParams": "Aucun paramètre déclaré.",
+      "paramName": "nom",
+      "paramDefault": "défaut",
+      "cancel": "Annuler",
+      "create": "Créer l'endpoint",
+      "creating": "Création…",
+      "createFailed": "Échec de la création de l'endpoint",
+      "invalidName": "Nom invalide — lettres, chiffres, tiret, underscore (1–64).",
+      "missingConnection": "Choisissez une connexion.",
+      "missingQuery": "La requête est vide.",
+      "invalidPageSize": "La taille de page doit être entre 1 et 10000.",
+      "invalidParamName": "Nom de paramètre invalide : {{name}}",
+      "paramNotInQuery": "Le paramètre {{name}} n'est pas utilisé dans la requête.",
+      "loadConnectionsFailed": "Échec du chargement des connexions"
+    },
+    "token": {
+      "title": "Jeton d'endpoint (affiché une seule fois)",
+      "description": "Copiez ce jeton maintenant — il ne pourra plus être récupéré. Utilisez-le dans l'en-tête Authorization.",
+      "tokenLabel": "Jeton Bearer",
+      "curlLabel": "Exemple",
+      "warning": "Ce jeton donne un accès en lecture à cet endpoint. Traitez-le comme un mot de passe.",
+      "copyFailed": "Échec de la copie",
+      "done": "C'est noté"
+    },
+    "openapi": {
+      "open": "Aperçu OpenAPI",
+      "title": "Spécification OpenAPI 3.1",
+      "description": "Générée automatiquement depuis les endpoints. Importable dans Swagger UI ou Postman.",
+      "copy": "Copier le JSON",
+      "copied": "Copié",
+      "download": "Télécharger",
+      "loadFailed": "Échec du chargement du document OpenAPI",
+      "close": "Fermer"
+    }
+  },
   "restore": {
     "dialogTitle": "Restaurer dans {{name}}",
     "destructiveWarning": "Cette opération va écraser ou modifier les données de \"{{name}}\". Assurez-vous d'avoir une sauvegarde récente avant de continuer.",

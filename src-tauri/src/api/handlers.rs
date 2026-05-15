@@ -21,6 +21,7 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::Instant;
 
 use axum::{
     extract::{Path, Query, State},
@@ -57,6 +58,8 @@ pub struct ApiState {
     pub project_id: String,
     /// Vault storage directory captured at server start.
     pub storage_dir: PathBuf,
+    /// Server start instant — read by `/health` to compute uptime.
+    pub started_at: Arc<Instant>,
 }
 
 /// Error envelope returned to clients. Lives outside `ApiError` so we can

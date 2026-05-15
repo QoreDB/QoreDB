@@ -2506,6 +2506,95 @@
       "deleteBody": "El archivo del contrato y su historial se eliminarán de forma permanente."
     }
   },
+  "instantApi": {
+    "title": "Instant Data API",
+    "description": "Expone consultas guardadas como endpoints REST locales, en solo lectura.",
+    "close": "Cerrar",
+    "newEndpoint": "Nuevo endpoint",
+    "endpointsLabel": "endpoint(s)",
+    "confirmDelete": "¿Eliminar el endpoint «{{name}}»?",
+    "regenerate": "Regenerar token",
+    "regenerateConfirm": "¿Generar un nuevo token para «{{name}}»? El anterior dejará de funcionar de inmediato.",
+    "regenerateFailed": "Error al regenerar el token",
+    "status": {
+      "running": "Servidor en marcha",
+      "stopped": "Servidor detenido",
+      "start": "Iniciar",
+      "stop": "Detener"
+    },
+    "empty": {
+      "title": "Aún no hay endpoints",
+      "description": "Crea tu primer endpoint para exponer una consulta como URL REST.",
+      "createFirst": "Crear un endpoint"
+    },
+    "errors": {
+      "statusFailed": "No se pudo cargar el estado de Instant API",
+      "startFailed": "No se pudo iniciar el servidor Instant API",
+      "stopFailed": "No se pudo detener el servidor Instant API",
+      "deleteFailed": "No se pudo eliminar el endpoint"
+    },
+    "list": {
+      "name": "Nombre",
+      "shape": "Forma",
+      "url": "URL",
+      "serverStopped": "Inicia el servidor antes de abrir esta URL.",
+      "paramsCount_one": "{{count}} parámetro",
+      "paramsCount_other": "{{count}} parámetros",
+      "pageSize_one": "{{count}} fila/página",
+      "pageSize_other": "{{count}} filas/página"
+    },
+    "endpoint": {
+      "newTitle": "Nuevo endpoint",
+      "newDescription": "Elige una conexión y escribe una consulta parametrizada en solo lectura.",
+      "nameLabel": "Nombre",
+      "nameHint": "Letras, dígitos, guion, guion bajo — se usa en la URL.",
+      "connectionLabel": "Conexión",
+      "selectConnection": "Selecciona una conexión…",
+      "queryLabel": "Consulta",
+      "queryHint": "Usa los marcadores {{tag}} para los parámetros declarados.",
+      "shapeLabel": "Forma de respuesta",
+      "shape": {
+        "rows": "Lista de filas",
+        "object": "Objeto único"
+      },
+      "pageSizeLabel": "Tamaño de página",
+      "paramsLabel": "Parámetros",
+      "addParam": "Añadir",
+      "noParams": "Sin parámetros declarados.",
+      "paramName": "nombre",
+      "paramDefault": "por defecto",
+      "cancel": "Cancelar",
+      "create": "Crear endpoint",
+      "creating": "Creando…",
+      "createFailed": "Error al crear el endpoint",
+      "invalidName": "Nombre no válido — letras, dígitos, guion, guion bajo (1–64).",
+      "missingConnection": "Selecciona una conexión.",
+      "missingQuery": "La consulta está vacía.",
+      "invalidPageSize": "El tamaño de página debe estar entre 1 y 10000.",
+      "invalidParamName": "Nombre de parámetro no válido: {{name}}",
+      "paramNotInQuery": "El parámetro {{name}} no se usa en la consulta.",
+      "loadConnectionsFailed": "No se pudieron cargar las conexiones"
+    },
+    "token": {
+      "title": "Token del endpoint (mostrado una sola vez)",
+      "description": "Copia este token ahora — no podrá recuperarse después. Úsalo en la cabecera Authorization.",
+      "tokenLabel": "Token Bearer",
+      "curlLabel": "Ejemplo",
+      "warning": "Este token concede acceso de lectura a este endpoint. Trátalo como una contraseña.",
+      "copyFailed": "Error al copiar",
+      "done": "Guardado"
+    },
+    "openapi": {
+      "open": "Vista previa OpenAPI",
+      "title": "Especificación OpenAPI 3.1",
+      "description": "Generada automáticamente a partir de los endpoints. Importable en Swagger UI o Postman.",
+      "copy": "Copiar JSON",
+      "copied": "Copiado",
+      "download": "Descargar",
+      "loadFailed": "No se pudo cargar el documento OpenAPI",
+      "close": "Cerrar"
+    }
+  },
   "restore": {
     "dialogTitle": "Restaurar en {{name}}",
     "destructiveWarning": "Esto sobrescribirá o modificará los datos en \"{{name}}\". Asegúrese de tener una copia de seguridad reciente antes de continuar.",

@@ -2525,6 +2525,95 @@
       "deleteBody": "This will permanently delete the contract file and its history."
     }
   },
+  "instantApi": {
+    "title": "Instant Data API",
+    "description": "Expose saved queries as read-only REST endpoints on localhost.",
+    "close": "Close",
+    "newEndpoint": "New endpoint",
+    "endpointsLabel": "endpoint(s)",
+    "confirmDelete": "Delete endpoint \"{{name}}\"?",
+    "regenerate": "Regenerate token",
+    "regenerateConfirm": "Generate a new token for \"{{name}}\"? The previous one will stop working immediately.",
+    "regenerateFailed": "Failed to regenerate token",
+    "status": {
+      "running": "Server running",
+      "stopped": "Server stopped",
+      "start": "Start",
+      "stop": "Stop"
+    },
+    "empty": {
+      "title": "No endpoints yet",
+      "description": "Create your first endpoint to expose a saved query as a REST URL.",
+      "createFirst": "Create an endpoint"
+    },
+    "errors": {
+      "statusFailed": "Failed to load Instant API status",
+      "startFailed": "Failed to start the Instant API server",
+      "stopFailed": "Failed to stop the Instant API server",
+      "deleteFailed": "Failed to delete endpoint"
+    },
+    "list": {
+      "name": "Name",
+      "shape": "Shape",
+      "url": "URL",
+      "serverStopped": "Start the server before opening this URL.",
+      "paramsCount_one": "{{count}} param",
+      "paramsCount_other": "{{count}} params",
+      "pageSize_one": "{{count}} row/page",
+      "pageSize_other": "{{count}} rows/page"
+    },
+    "endpoint": {
+      "newTitle": "New endpoint",
+      "newDescription": "Pick a connection, write a parameterized read-only query, and you are done.",
+      "nameLabel": "Name",
+      "nameHint": "Letters, digits, dash, underscore — used in the URL path.",
+      "connectionLabel": "Connection",
+      "selectConnection": "Select a connection…",
+      "queryLabel": "Query",
+      "queryHint": "Use {{tag}} placeholders for declared parameters.",
+      "shapeLabel": "Response shape",
+      "shape": {
+        "rows": "List of rows",
+        "object": "Single object"
+      },
+      "pageSizeLabel": "Page size",
+      "paramsLabel": "Parameters",
+      "addParam": "Add",
+      "noParams": "No parameters declared.",
+      "paramName": "name",
+      "paramDefault": "default",
+      "cancel": "Cancel",
+      "create": "Create endpoint",
+      "creating": "Creating…",
+      "createFailed": "Endpoint creation failed",
+      "invalidName": "Invalid name — use letters, digits, dash, underscore (1–64).",
+      "missingConnection": "Pick a connection.",
+      "missingQuery": "Query is empty.",
+      "invalidPageSize": "Page size must be between 1 and 10000.",
+      "invalidParamName": "Invalid parameter name: {{name}}",
+      "paramNotInQuery": "Parameter {{name}} is not referenced in the query.",
+      "loadConnectionsFailed": "Failed to load connections"
+    },
+    "token": {
+      "title": "Endpoint token (shown once)",
+      "description": "Copy this token now — it cannot be retrieved later. Use it in the Authorization header.",
+      "tokenLabel": "Bearer token",
+      "curlLabel": "Example",
+      "warning": "This token grants read access to this endpoint. Treat it like a password.",
+      "copyFailed": "Copy failed",
+      "done": "I've saved it"
+    },
+    "openapi": {
+      "open": "OpenAPI preview",
+      "title": "OpenAPI 3.1 specification",
+      "description": "Auto-generated from the registered endpoints. Drop into Swagger UI or Postman.",
+      "copy": "Copy JSON",
+      "copied": "Copied",
+      "download": "Download",
+      "loadFailed": "Failed to load OpenAPI document",
+      "close": "Close"
+    }
+  },
   "restore": {
     "dialogTitle": "Restore into {{name}}",
     "destructiveWarning": "This will overwrite or modify data in \"{{name}}\". Make sure you have a current backup before continuing.",

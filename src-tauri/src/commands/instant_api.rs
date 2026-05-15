@@ -127,6 +127,17 @@ pub async fn list_endpoints(
     Ok(guard.store.list())
 }
 
+/// Returns the OpenAPI 3.1 document generated from the current registry.
+/// Pretty-printed so the preview UI stays readable when piped to the user.
+#[tauri::command]
+pub async fn get_openapi_document(
+    api_state: State<'_, SharedInstantApi>,
+) -> Result<String, String> {
+    let guard = api_state.lock().await;
+    let doc = crate::api::openapi::build_document(&guard.store);
+    serde_json::to_string_pretty(&doc).map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 pub async fn create_endpoint(
     api_state: State<'_, SharedInstantApi>,
@@ -152,6 +163,26 @@ pub async fn create_endpoint(
         )
         .map_err(|e| e.to_string())?;
 
+    Ok(CreateEndpointResponse {
+        endpoint: EndpointMeta::from(&endpoint),
+        token: token.value,
+    })
+}
+
+/// Replaces the bearer token for an existing endpoint. The new raw token is
+/// returned **once** to the caller, exactly like `create_endpoint`. The old
+/// token stops being accepted as soon as the store has been flushed.
+#[tauri::command]
+pub async fn regenerate_endpoint_token(
+    api_state: State<'_, SharedInstantApi>,
+    id: String,
+) -> Result<CreateEndpointResponse, String> {
+    let token = issue_token().map_err(|e| e.to_string())?;
+    let guard = api_state.lock().await;
+    let endpoint = guard
+        .store
+        .regenerate_token(&id, token.hash)
+        .map_err(|e| e.to_string())?;
     Ok(CreateEndpointResponse {
         endpoint: EndpointMeta::from(&endpoint),
         token: token.value,

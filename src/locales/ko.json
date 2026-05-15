@@ -2505,6 +2505,95 @@
       "deleteBody": "계약 파일과 기록이 영구적으로 삭제됩니다."
     }
   },
+  "instantApi": {
+    "title": "Instant Data API",
+    "description": "저장된 쿼리를 로컬 읽기 전용 REST 엔드포인트로 노출합니다.",
+    "close": "닫기",
+    "newEndpoint": "새 엔드포인트",
+    "endpointsLabel": "개의 엔드포인트",
+    "confirmDelete": "엔드포인트 \"{{name}}\" 을(를) 삭제하시겠습니까?",
+    "regenerate": "토큰 재생성",
+    "regenerateConfirm": "\"{{name}}\" 의 새 토큰을 생성하시겠습니까? 이전 토큰은 즉시 무효화됩니다.",
+    "regenerateFailed": "토큰 재생성에 실패했습니다",
+    "status": {
+      "running": "서버 실행 중",
+      "stopped": "서버 중지됨",
+      "start": "시작",
+      "stop": "중지"
+    },
+    "empty": {
+      "title": "아직 엔드포인트가 없습니다",
+      "description": "저장된 쿼리를 REST URL 로 노출할 첫 엔드포인트를 만들어 보세요.",
+      "createFirst": "엔드포인트 만들기"
+    },
+    "errors": {
+      "statusFailed": "Instant API 상태를 불러오지 못했습니다",
+      "startFailed": "Instant API 서버를 시작하지 못했습니다",
+      "stopFailed": "Instant API 서버를 중지하지 못했습니다",
+      "deleteFailed": "엔드포인트를 삭제하지 못했습니다"
+    },
+    "list": {
+      "name": "이름",
+      "shape": "형식",
+      "url": "URL",
+      "serverStopped": "이 URL 을 열기 전에 서버를 시작하세요.",
+      "paramsCount_one": "파라미터 {{count}}개",
+      "paramsCount_other": "파라미터 {{count}}개",
+      "pageSize_one": "페이지당 {{count}}행",
+      "pageSize_other": "페이지당 {{count}}행"
+    },
+    "endpoint": {
+      "newTitle": "새 엔드포인트",
+      "newDescription": "연결을 선택하고 매개변수가 있는 읽기 전용 쿼리를 작성하세요.",
+      "nameLabel": "이름",
+      "nameHint": "영문자, 숫자, 하이픈, 밑줄 — URL 경로에 사용됩니다.",
+      "connectionLabel": "연결",
+      "selectConnection": "연결 선택…",
+      "queryLabel": "쿼리",
+      "queryHint": "선언된 매개변수는 {{tag}} 자리표시자로 참조합니다.",
+      "shapeLabel": "응답 형식",
+      "shape": {
+        "rows": "행 목록",
+        "object": "단일 객체"
+      },
+      "pageSizeLabel": "페이지 크기",
+      "paramsLabel": "매개변수",
+      "addParam": "추가",
+      "noParams": "선언된 매개변수가 없습니다.",
+      "paramName": "이름",
+      "paramDefault": "기본값",
+      "cancel": "취소",
+      "create": "엔드포인트 만들기",
+      "creating": "생성 중…",
+      "createFailed": "엔드포인트 생성에 실패했습니다",
+      "invalidName": "잘못된 이름 — 영문자, 숫자, 하이픈, 밑줄 (1–64).",
+      "missingConnection": "연결을 선택하세요.",
+      "missingQuery": "쿼리가 비어 있습니다.",
+      "invalidPageSize": "페이지 크기는 1 ~ 10000 사이여야 합니다.",
+      "invalidParamName": "잘못된 매개변수 이름: {{name}}",
+      "paramNotInQuery": "매개변수 {{name}} 이(가) 쿼리에서 참조되지 않습니다.",
+      "loadConnectionsFailed": "연결을 불러오지 못했습니다"
+    },
+    "token": {
+      "title": "엔드포인트 토큰 (1회만 표시)",
+      "description": "지금 복사하세요 — 이후에는 다시 확인할 수 없습니다. Authorization 헤더에 사용하세요.",
+      "tokenLabel": "Bearer 토큰",
+      "curlLabel": "예시",
+      "warning": "이 토큰은 이 엔드포인트의 읽기 권한을 부여합니다. 비밀번호처럼 다루세요.",
+      "copyFailed": "복사에 실패했습니다",
+      "done": "저장했습니다"
+    },
+    "openapi": {
+      "open": "OpenAPI 미리보기",
+      "title": "OpenAPI 3.1 명세",
+      "description": "등록된 엔드포인트로부터 자동 생성됩니다. Swagger UI 또는 Postman 에서 열 수 있습니다.",
+      "copy": "JSON 복사",
+      "copied": "복사됨",
+      "download": "다운로드",
+      "loadFailed": "OpenAPI 문서를 불러오지 못했습니다",
+      "close": "닫기"
+    }
+  },
   "restore": {
     "dialogTitle": "{{name}}(으)로 복원",
     "destructiveWarning": "이 작업은 \"{{name}}\"의 데이터를 덮어쓰거나 수정합니다. 계속하기 전에 최신 백업이 있는지 확인하세요.",

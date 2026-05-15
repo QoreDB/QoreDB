@@ -408,7 +408,11 @@ pub fn run() {
             #[cfg(feature = "pro")]
             commands::instant_api::list_endpoints,
             #[cfg(feature = "pro")]
+            commands::instant_api::get_openapi_document,
+            #[cfg(feature = "pro")]
             commands::instant_api::create_endpoint,
+            #[cfg(feature = "pro")]
+            commands::instant_api::regenerate_endpoint_token,
             #[cfg(feature = "pro")]
             commands::instant_api::delete_endpoint,
             // Workspace commands

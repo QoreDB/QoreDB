@@ -182,7 +182,16 @@ pub fn run() {
     let (ws_path_tx, ws_path_rx) = tokio::sync::watch::channel::<Option<std::path::PathBuf>>(None);
     let watcher_path_sender: commands::workspace::WatcherPathSender = Arc::new(ws_path_tx);
 
-    tauri::Builder::default()
+    // Pro: Instant Data API — endpoints store is created up-front so it
+    // survives across start/stop cycles; the server itself is spun up on
+    // demand by the `start_instant_api` command.
+    #[cfg(feature = "pro")]
+    let instant_api: commands::instant_api::SharedInstantApi = Arc::new(tokio::sync::Mutex::new(
+        commands::instant_api::InstantApiState::new(data_dir.clone())
+            .expect("failed to initialize Instant API endpoint store"),
+    ));
+
+    let builder = tauri::Builder::default()
         .setup(|app| {
             #[cfg(desktop)]
             app.handle()
@@ -224,8 +233,14 @@ pub fn run() {
         .manage(snapshot_store)
         .manage(workspace_manager)
         .manage(write_registry)
-        .manage(watcher_path_sender)
+        .manage(watcher_path_sender);
+
+    #[cfg(feature = "pro")]
+    let builder = builder.manage(instant_api);
+
+    builder
         .invoke_handler(tauri::generate_handler![
+
             // Connection commands
             commands::connection::test_connection,
             commands::connection::test_saved_connection,
@@ -383,6 +398,19 @@ pub fn run() {
             commands::contracts::run_contract,
             #[cfg(feature = "pro")]
             commands::contracts::get_contract_history,
+            // Instant Data API commands (Pro)
+            #[cfg(feature = "pro")]
+            commands::instant_api::start_instant_api,
+            #[cfg(feature = "pro")]
+            commands::instant_api::stop_instant_api,
+            #[cfg(feature = "pro")]
+            commands::instant_api::get_instant_api_status,
+            #[cfg(feature = "pro")]
+            commands::instant_api::list_endpoints,
+            #[cfg(feature = "pro")]
+            commands::instant_api::create_endpoint,
+            #[cfg(feature = "pro")]
+            commands::instant_api::delete_endpoint,
             // Workspace commands
             commands::workspace::detect_workspace,
             commands::workspace::get_active_workspace,

@@ -14,6 +14,8 @@ pub mod federation;
 pub mod fulltext_search;
 pub mod governance;
 pub mod import;
+#[cfg(feature = "pro")]
+pub mod instant_api;
 pub mod interceptor;
 pub mod license;
 pub mod logs;

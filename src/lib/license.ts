@@ -34,7 +34,8 @@ export type ProFeature =
   | 'virtual_relations_auto_suggest'
   | 'data_time_travel'
   | 'bulk_edit_unlimited'
-  | 'data_contracts';
+  | 'data_contracts'
+  | 'instant_api';
 
 // ============================================
 // TIER UTILITIES
@@ -62,6 +63,7 @@ const FEATURE_REQUIRED_TIER: Record<ProFeature, LicenseTier> = {
   data_time_travel: 'pro',
   bulk_edit_unlimited: 'pro',
   data_contracts: 'pro',
+  instant_api: 'pro',
 };
 
 /** Returns true if `current` tier includes features of `required` tier. */

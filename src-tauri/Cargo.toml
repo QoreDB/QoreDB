@@ -190,6 +190,11 @@ parquet = { version = "54", optional = true, default-features = false, features 
 # Pro: Data Contracts — YAML parsing for assertion definitions.
 serde_yml = { version = "0.0.12", optional = true }
 
+# Pro: Instant Data API — local HTTP server exposing saved queries.
+axum = { version = "0.7", optional = true }
+tower = { version = "0.5", optional = true }
+tower-http = { version = "0.6", optional = true, features = ["cors", "trace"] }
+
 # Network clients (AI BYOK + temporary share uploads)
 reqwest = { version = "0.12", features = ["json", "stream", "multipart"] }
 
@@ -208,7 +213,7 @@ duckdb = { workspace = true }
 # Enterprise: cargo build --features enterprise (includes team + pro)
 [features]
 default = []
-pro = ["rust_xlsxwriter", "parquet", "arrow", "serde_yml"]
+pro = ["rust_xlsxwriter", "parquet", "arrow", "serde_yml", "axum", "tower", "tower-http"]
 team = ["pro"]
 enterprise = ["team"]
 

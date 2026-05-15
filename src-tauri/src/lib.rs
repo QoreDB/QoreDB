@@ -5,6 +5,8 @@
 
 #[cfg(feature = "pro")]
 pub mod ai;
+#[cfg(feature = "pro")]
+pub mod api;
 pub mod backup;
 pub mod commands;
 #[cfg(feature = "pro")]

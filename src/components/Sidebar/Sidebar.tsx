@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
-import { Database, Plus, Search, ShieldCheck } from 'lucide-react';
+import { Database, Globe, Plus, Search, ShieldCheck } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -19,6 +19,7 @@ import {
   closeRestoreDialog,
   setAuditLogOpen,
   setContractsOpen,
+  setInstantApiOpen,
   setLogsOpen,
   useModalStore,
 } from '@/lib/stores/modalStore';
@@ -38,6 +39,7 @@ import {
 } from '../../lib/tauri';
 import { BackupDialog, RestoreDialog } from '../Backup';
 import { ContractsPanel } from '../Contracts';
+import { InstantApiPanel } from '../InstantApi';
 import { AuditLogModal } from '../Interceptor';
 import { ErrorLogPanel } from '../Logs/ErrorLogPanel';
 import { DBTree } from '../Tree/DBTree';
@@ -109,6 +111,7 @@ export function Sidebar({
   const logsOpen = useModalStore(s => s.logsOpen);
   const auditLogOpen = useModalStore(s => s.auditLogOpen);
   const contractsOpen = useModalStore(s => s.contractsOpen);
+  const instantApiOpen = useModalStore(s => s.instantApiOpen);
   const backupConnection = useModalStore(s => s.backupConnection);
   const restoreConnection = useModalStore(s => s.restoreConnection);
 
@@ -398,6 +401,16 @@ export function Sidebar({
             {t('contracts.openPanel')}
           </Button>
         )}
+        {tier !== 'core' && (
+          <Button
+            className="w-full justify-start text-muted-foreground hover:text-foreground hover:bg-muted"
+            variant="ghost"
+            onClick={() => setInstantApiOpen(true)}
+          >
+            <Globe size={16} className="mr-2" />
+            {t('instantApi.openPanel')}
+          </Button>
+        )}
         <Button
           className="w-full justify-start text-muted-foreground hover:text-foreground hover:bg-muted"
           variant="ghost"
@@ -415,6 +428,10 @@ export function Sidebar({
         onClose={() => setContractsOpen(false)}
         sessionId={connectedSessionId}
         connectionId={connectedConnectionId}
+      />
+      <InstantApiPanel
+        open={instantApiOpen}
+        onClose={() => setInstantApiOpen(false)}
       />
       <BackupDialog
         connection={backupConnection}

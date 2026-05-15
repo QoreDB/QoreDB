@@ -43,9 +43,7 @@ export interface CreateEndpointInput {
   pageSize?: number;
 }
 
-export async function createEndpoint(
-  input: CreateEndpointInput
-): Promise<CreateEndpointResponse> {
+export async function createEndpoint(input: CreateEndpointInput): Promise<CreateEndpointResponse> {
   return invoke('create_endpoint', {
     name: input.name,
     connectionId: input.connectionId,

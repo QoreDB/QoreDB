@@ -16,6 +16,7 @@ interface ModalState {
   logsOpen: boolean;
   auditLogOpen: boolean;
   contractsOpen: boolean;
+  instantApiOpen: boolean;
   settingsOpen: boolean;
   sidebarVisible: boolean;
   showOnboarding: boolean;
@@ -35,6 +36,7 @@ let state: ModalState = {
   logsOpen: false,
   auditLogOpen: false,
   contractsOpen: false,
+  instantApiOpen: false,
   settingsOpen: false,
   sidebarVisible: true,
   showOnboarding: false,
@@ -113,6 +115,11 @@ export function setAuditLogOpen(open: boolean) {
 export function setContractsOpen(open: boolean) {
   if (state.contractsOpen === open) return;
   updateState({ contractsOpen: open });
+}
+
+export function setInstantApiOpen(open: boolean) {
+  if (state.instantApiOpen === open) return;
+  updateState({ instantApiOpen: open });
 }
 
 export function openBackupDialog(connection: SavedConnection) {

@@ -20,6 +20,7 @@ pub mod handlers;
 pub mod openapi;
 pub mod rate_limit;
 pub mod server;
+pub mod tls;
 pub mod types;
 
 pub use endpoints::EndpointStore;

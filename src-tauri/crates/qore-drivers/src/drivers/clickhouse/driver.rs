@@ -285,7 +285,12 @@ impl DataEngine for ClickHouseDriver {
                 "Invalid database name: {name}"
             )));
         }
-        let sql = format!("CREATE DATABASE IF NOT EXISTS {}", quote_ident(name));
+        let client = self.get(session).await?;
+        let on_cluster = format_on_cluster(client.cluster())?;
+        let sql = format!(
+            "CREATE DATABASE IF NOT EXISTS {}{on_cluster}",
+            quote_ident(name),
+        );
         self.execute(session, &sql, QueryId::new()).await?;
         Ok(())
     }
@@ -296,7 +301,12 @@ impl DataEngine for ClickHouseDriver {
                 "Invalid database name: {name}"
             )));
         }
-        let sql = format!("DROP DATABASE IF EXISTS {} SYNC", quote_ident(name));
+        let client = self.get(session).await?;
+        let on_cluster = format_on_cluster(client.cluster())?;
+        let sql = format!(
+            "DROP DATABASE IF EXISTS {}{on_cluster} SYNC",
+            quote_ident(name),
+        );
         self.execute(session, &sql, QueryId::new()).await?;
         Ok(())
     }
@@ -495,9 +505,46 @@ fn is_safe_ident(raw: &str) -> bool {
     chars.all(|c| c.is_ascii_alphanumeric() || c == '_')
 }
 
+/// Returns the `" ON CLUSTER <ident>"` fragment when `cluster` is set, or an
+/// empty string otherwise. The cluster name is validated the same way as any
+/// other DDL identifier — distributed DDL is meaningless without a safe name.
+fn format_on_cluster(cluster: Option<&str>) -> EngineResult<String> {
+    match cluster {
+        Some(name) => {
+            if !is_safe_ident(name) {
+                return Err(EngineError::validation(format!(
+                    "Invalid ClickHouse cluster name: {name}"
+                )));
+            }
+            Ok(format!(" ON CLUSTER {}", quote_ident(name)))
+        }
+        None => Ok(String::new()),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn on_cluster_empty_when_none() {
+        assert_eq!(format_on_cluster(None).unwrap(), "");
+    }
+
+    #[test]
+    fn on_cluster_renders_quoted_name() {
+        assert_eq!(
+            format_on_cluster(Some("shard_1")).unwrap(),
+            " ON CLUSTER `shard_1`"
+        );
+    }
+
+    #[test]
+    fn on_cluster_rejects_unsafe_name() {
+        assert!(format_on_cluster(Some("evil; DROP")).is_err());
+        assert!(format_on_cluster(Some("with space")).is_err());
+        assert!(format_on_cluster(Some("0digit-first")).is_err());
+    }
 
     #[test]
     fn quote_ident_escapes_backticks() {

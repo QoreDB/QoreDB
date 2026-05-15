@@ -1580,6 +1580,7 @@ mod tests {
             pool_min_connections: None,
             proxy: None,
             mssql_auth: None,
+clickhouse_cluster: None,
         };
 
         let session_id = driver.connect(&config).await.unwrap();
@@ -1607,6 +1608,7 @@ mod tests {
             pool_min_connections: None,
             proxy: None,
             mssql_auth: None,
+clickhouse_cluster: None,
         };
 
         let session_id = driver.connect(&config).await.unwrap();
@@ -1665,6 +1667,7 @@ mod tests {
             pool_min_connections: None,
             proxy: None,
             mssql_auth: None,
+clickhouse_cluster: None,
         };
 
         let session_id = driver.connect(&config).await.unwrap();
@@ -1697,6 +1700,7 @@ mod tests {
             pool_min_connections: None,
             proxy: None,
             mssql_auth: None,
+clickhouse_cluster: None,
         };
 
         let session_id = driver.connect(&config).await.unwrap();

@@ -185,6 +185,11 @@
     "driverGroups": {
       "sql": "SQL",
       "nosql": "NoSQL"
+    },
+    "clickhouse": {
+      "cluster": "Nombre del clúster (opcional)",
+      "clusterPlaceholder": "p. ej. shard_cluster",
+      "clusterHint": "Cuando se establece, las sentencias DDL (CREATE/DROP DATABASE/TABLE) se emiten con ON CLUSTER para propagarse a todas las réplicas. Déjalo vacío para instalaciones de un solo nodo."
     }
   },
   "sidebar": {
@@ -2402,7 +2407,9 @@
     "completed": "Respaldo completado con éxito.",
     "exitedWithCode": "La herramienta salió con código {{code}}.",
     "cancel": "Cancelar",
-    "cancelling": "Cancelando…"
+    "cancelling": "Cancelando…",
+    "outputDir": "Directorio de salida",
+    "duckdbHint": "DuckDB EXPORT DATABASE escribe un directorio con schema.sql y un archivo por tabla."
   },
   "contracts": {
     "title": "Contratos de datos",
@@ -2602,6 +2609,7 @@
     "inputPathPlaceholder": "Elija un archivo de copia de seguridad para restaurar",
     "confirmLabel": "Escriba \"{{name}}\" para confirmar",
     "start": "Iniciar restauración",
-    "completed": "Restauración completada con éxito."
+    "completed": "Restauración completada con éxito.",
+    "duckdbHint": "Elige el directorio producido previamente por EXPORT DATABASE."
   }
 }

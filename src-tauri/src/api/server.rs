@@ -21,6 +21,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use axum::{routing::get, Router};
+use axum_server::tls_rustls::RustlsConfig;
 use thiserror::Error;
 use tokio::net::TcpListener;
 use tokio::sync::{oneshot, Mutex};
@@ -30,6 +31,7 @@ use qore_drivers::session_manager::SessionManager;
 use super::handlers::{handle_endpoint, ApiState};
 use super::openapi::{handle_health, handle_openapi};
 use super::rate_limit::RateLimiter;
+use super::tls::{generate_self_signed, TlsError};
 use super::EndpointStore;
 
 /// Default listen port. 4787 spells "QORE" on a phone keypad and lives well
@@ -48,12 +50,19 @@ pub enum ServerError {
         #[source]
         source: std::io::Error,
     },
+    #[error("TLS setup failed: {0}")]
+    Tls(#[from] TlsError),
+    #[error("TLS configuration error: {0}")]
+    TlsConfig(String),
 }
 
 struct RunningServer {
     addr: SocketAddr,
     shutdown: oneshot::Sender<()>,
     started_at: Instant,
+    /// True when the server is serving HTTPS (self-signed). Influences the
+    /// `base_url` scheme returned in [`InstantApiStatus`].
+    tls: bool,
 }
 
 pub struct ApiServer {
@@ -100,9 +109,31 @@ impl ApiServer {
             .map(|r| r.started_at.elapsed().as_secs())
     }
 
+    /// Returns `true` when the running server is serving HTTPS. `false` when
+    /// stopped or running plain HTTP.
+    pub async fn is_tls(&self) -> bool {
+        self.inner
+            .lock()
+            .await
+            .as_ref()
+            .map(|r| r.tls)
+            .unwrap_or(false)
+    }
+
     /// Binds the listener and spawns the axum task. Returns the actual
     /// `SocketAddr` (useful when `port == 0` for OS-assigned).
     pub async fn start(&self, port: Option<u16>) -> Result<SocketAddr, ServerError> {
+        self.start_with_tls(port, false).await
+    }
+
+    /// Same as [`start`] but with optional TLS. When `tls = true`, a fresh
+    /// self-signed cert is minted, kept in memory, and used by
+    /// `axum_server::bind_rustls`.
+    pub async fn start_with_tls(
+        &self,
+        port: Option<u16>,
+        tls: bool,
+    ) -> Result<SocketAddr, ServerError> {
         let mut guard = self.inner.lock().await;
         if let Some(existing) = guard.as_ref() {
             return Err(ServerError::AlreadyRunning(existing.addr));
@@ -110,16 +141,6 @@ impl ApiServer {
 
         let requested = port.unwrap_or(DEFAULT_PORT);
         let addr: SocketAddr = ([127, 0, 0, 1], requested).into();
-        let listener = TcpListener::bind(addr).await.map_err(|source| {
-            ServerError::Bind {
-                addr,
-                source,
-            }
-        })?;
-        let local_addr = listener.local_addr().map_err(|source| ServerError::Bind {
-            addr,
-            source,
-        })?;
 
         let started_at = Arc::new(Instant::now());
         let state = ApiState {
@@ -139,19 +160,17 @@ impl ApiServer {
             .with_state(state);
 
         let (tx, rx) = oneshot::channel::<()>();
-        tokio::spawn(async move {
-            let server = axum::serve(listener, app).with_graceful_shutdown(async {
-                let _ = rx.await;
-            });
-            if let Err(e) = server.await {
-                tracing::error!(error = %e, "Instant API server stopped with error");
-            }
-        });
+        let local_addr = if tls {
+            spawn_tls(addr, app, rx).await?
+        } else {
+            spawn_http(addr, app, rx).await?
+        };
 
         *guard = Some(RunningServer {
             addr: local_addr,
             shutdown: tx,
             started_at: *started_at,
+            tls,
         });
         Ok(local_addr)
     }
@@ -178,6 +197,95 @@ impl ApiServer {
         // connection may still be using it. Sessions are dropped on stop().
         let _ = connection_id;
     }
+}
+
+/// Binds a plain-HTTP listener, spawns the axum task, and returns the actual
+/// bound address. The graceful-shutdown future awaits `shutdown_rx`.
+async fn spawn_http(
+    addr: SocketAddr,
+    app: Router,
+    shutdown_rx: oneshot::Receiver<()>,
+) -> Result<SocketAddr, ServerError> {
+    let listener = TcpListener::bind(addr).await.map_err(|source| ServerError::Bind {
+        addr,
+        source,
+    })?;
+    let local_addr = listener.local_addr().map_err(|source| ServerError::Bind {
+        addr,
+        source,
+    })?;
+
+    tokio::spawn(async move {
+        let server = axum::serve(listener, app).with_graceful_shutdown(async {
+            let _ = shutdown_rx.await;
+        });
+        if let Err(e) = server.await {
+            tracing::error!(error = %e, "Instant API server stopped with error");
+        }
+    });
+    Ok(local_addr)
+}
+
+/// Same as [`spawn_http`] but wraps the listener with Rustls using a freshly
+/// minted self-signed certificate. The cert never touches disk — it lives in
+/// the spawned task and is dropped when the server stops.
+async fn spawn_tls(
+    addr: SocketAddr,
+    app: Router,
+    shutdown_rx: oneshot::Receiver<()>,
+) -> Result<SocketAddr, ServerError> {
+    let bundle = generate_self_signed()?;
+    let tls_config = RustlsConfig::from_pem(
+        bundle.cert_pem.into_bytes(),
+        bundle.key_pem.into_bytes(),
+    )
+    .await
+    .map_err(|e| ServerError::TlsConfig(e.to_string()))?;
+
+    let handle = axum_server::Handle::new();
+    let bound = handle.clone();
+    let handle_for_shutdown = handle.clone();
+    let local_addr = {
+        // axum-server doesn't expose `bind()` synchronously the way TcpListener
+        // does; we resolve the port lazily through `Handle::listening`.
+        let server_handle = tokio::spawn(async move {
+            let server = axum_server::bind_rustls(addr, tls_config)
+                .handle(bound)
+                .serve(app.into_make_service());
+            if let Err(e) = server.await {
+                tracing::error!(error = %e, "Instant API HTTPS server stopped with error");
+            }
+        });
+        // Wait for the listener to bind (or fail). `listening()` resolves to
+        // `Some(addr)` once the bind succeeds, or `None` on bind error.
+        let resolved = handle.listening().await;
+        match resolved {
+            Some(actual) => {
+                // Hook up the shutdown receiver so a `stop()` call gracefully
+                // shuts down the axum-server.
+                tokio::spawn(async move {
+                    if shutdown_rx.await.is_ok() {
+                        handle_for_shutdown.graceful_shutdown(Some(
+                            std::time::Duration::from_secs(2),
+                        ));
+                    }
+                });
+                actual
+            }
+            None => {
+                // Bind failed — drop the spawn handle and propagate.
+                server_handle.abort();
+                return Err(ServerError::Bind {
+                    addr,
+                    source: std::io::Error::new(
+                        std::io::ErrorKind::AddrInUse,
+                        "axum-server failed to bind TLS listener",
+                    ),
+                });
+            }
+        }
+    };
+    Ok(local_addr)
 }
 
 #[cfg(test)]

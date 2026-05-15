@@ -190,10 +190,16 @@ parquet = { version = "54", optional = true, default-features = false, features 
 # Pro: Data Contracts — YAML parsing for assertion definitions.
 serde_yml = { version = "0.0.12", optional = true }
 
-# Pro: Instant Data API — local HTTP server exposing saved queries.
+# Pro: Instant Data API — local HTTP(S) server exposing saved queries.
 axum = { version = "0.7", optional = true }
+axum-server = { version = "0.7", optional = true, features = ["tls-rustls"] }
 tower = { version = "0.5", optional = true }
 tower-http = { version = "0.6", optional = true, features = ["cors", "trace"] }
+# Pro: rcgen generates the self-signed certificate served on https://127.0.0.1.
+# Kept in RAM, never written to disk; rotated on every server start.
+rcgen = { version = "0.13", optional = true, default-features = false, features = ["aws_lc_rs", "pem"] }
+# Pin a single rustls implementation for axum-server's tls-rustls feature.
+rustls = { version = "0.23", optional = true, default-features = false, features = ["aws_lc_rs"] }
 
 # Network clients (AI BYOK + temporary share uploads)
 reqwest = { version = "0.12", features = ["json", "stream", "multipart"] }
@@ -213,7 +219,7 @@ duckdb = { workspace = true }
 # Enterprise: cargo build --features enterprise (includes team + pro)
 [features]
 default = []
-pro = ["rust_xlsxwriter", "parquet", "arrow", "serde_yml", "axum", "tower", "tower-http"]
+pro = ["rust_xlsxwriter", "parquet", "arrow", "serde_yml", "axum", "axum-server", "tower", "tower-http", "rcgen", "rustls"]
 team = ["pro"]
 enterprise = ["team"]
 

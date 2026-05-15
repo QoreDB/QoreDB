@@ -40,6 +40,7 @@ const BACKUP_SUPPORTED_DRIVERS = new Set([
   'mariadb',
   'mongodb',
   'sqlite',
+  'duckdb',
   'supabase',
   'neon',
   'timescaledb',

@@ -31,6 +31,8 @@ export interface ConnectionConfig {
   ssh_tunnel?: SshTunnelConfig;
   proxy?: ProxyConfig;
   mssql_auth?: MssqlAuthMode;
+  /** Distributed cluster name for ClickHouse DDL (`ON CLUSTER`). */
+  clickhouse_cluster?: string;
 }
 
 export type ProxyType = 'http_connect' | 'socks5';
@@ -92,6 +94,8 @@ export interface SavedConnection {
   pool_acquire_timeout_secs?: number;
   project_id: string;
   mssql_auth?: MssqlAuthMode;
+  /** Distributed cluster name for ClickHouse DDL (`ON CLUSTER`). */
+  clickhouse_cluster?: string;
   ssh_tunnel?: {
     host: string;
     port: number;
@@ -1355,6 +1359,8 @@ export async function saveConnection(input: {
   pool_acquire_timeout_secs?: number;
   project_id: string;
   mssql_auth?: MssqlAuthMode;
+  /** Distributed cluster name for ClickHouse DDL (`ON CLUSTER`). */
+  clickhouse_cluster?: string;
   ssh_tunnel?: {
     host: string;
     port: number;

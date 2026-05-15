@@ -111,6 +111,10 @@ pub struct InstantApiStatus {
     pub endpoints_count: u32,
     /// Seconds since the server started, or `None` when stopped.
     pub uptime_s: Option<u64>,
+    /// `true` when the running server is serving HTTPS (self-signed cert).
+    /// Defaults to `false` when stopped or when running plain HTTP.
+    #[serde(default)]
+    pub tls: bool,
 }
 
 /// Validated request payload parsed from the request query string for one

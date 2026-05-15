@@ -90,19 +90,26 @@ export function RestoreDialog({ connection, open: isOpen, onClose }: RestoreDial
 
   const driver = connection?.driver ?? 'postgres';
   const isPostgres = PG_DRIVERS.has(driver);
+  const isDuckdb = driver === 'duckdb';
   const expectedDb = connection?.database ?? '';
   // Confirmation only required when actually targeting a named database
   const requiresConfirm = !!expectedDb;
   const confirmOk = !requiresConfirm || confirmDb.trim() === expectedDb;
 
   const pickInput = useCallback(async () => {
+    if (isDuckdb) {
+      // DuckDB IMPORT DATABASE reads a directory produced by EXPORT DATABASE.
+      const chosen = await open({ directory: true, multiple: false });
+      if (typeof chosen === 'string') setInputPath(chosen);
+      return;
+    }
     const exts = defaultExtensionsForDriver(driver);
     const chosen = await open({
       multiple: false,
       filters: [{ name: 'Backup file', extensions: exts }],
     });
     if (typeof chosen === 'string') setInputPath(chosen);
-  }, [driver]);
+  }, [driver, isDuckdb]);
 
   const handleStart = useCallback(async () => {
     if (!connection || !inputPath || !confirmOk) return;
@@ -182,7 +189,9 @@ export function RestoreDialog({ connection, open: isOpen, onClose }: RestoreDial
           </div>
 
           <div>
-            <Label className="text-xs text-muted-foreground">{t('restore.inputPath')}</Label>
+            <Label className="text-xs text-muted-foreground">
+              {isDuckdb ? t('backup.outputDir') : t('restore.inputPath')}
+            </Label>
             <div className="flex items-center gap-2">
               <Input
                 value={inputPath}
@@ -194,6 +203,9 @@ export function RestoreDialog({ connection, open: isOpen, onClose }: RestoreDial
                 {t('backup.browse')}
               </Button>
             </div>
+            {isDuckdb && (
+              <p className="text-[11px] text-muted-foreground mt-1">{t('restore.duckdbHint')}</p>
+            )}
           </div>
 
           {isPostgres && (

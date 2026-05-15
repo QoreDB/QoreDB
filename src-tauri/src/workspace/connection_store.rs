@@ -299,6 +299,7 @@ mod tests {
             ssh_tunnel: None,
             proxy: None,
             mssql_auth: None,
+            clickhouse_cluster: None,
             project_id: "ws_test".to_string(),
         }
     }

@@ -82,6 +82,8 @@ pub struct SaveConnectionInput {
     pub proxy: Option<ProxyInput>,
     #[serde(default)]
     pub mssql_auth: Option<MssqlAuthMode>,
+    #[serde(default)]
+    pub clickhouse_cluster: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -245,6 +247,7 @@ pub async fn save_connection(
         ssh_tunnel,
         proxy,
         mssql_auth: input.mssql_auth,
+        clickhouse_cluster: input.clickhouse_cluster,
         project_id: input.project_id,
     };
 

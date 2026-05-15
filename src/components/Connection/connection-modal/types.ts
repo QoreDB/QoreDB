@@ -16,6 +16,8 @@ export interface ConnectionFormData {
   ssl: boolean;
   sslMode: string;
   mssqlAuthMode: MssqlAuthMode;
+  /** ClickHouse distributed cluster name. Empty string = no `ON CLUSTER`. */
+  clickhouseCluster: string;
   poolMaxConnections: number;
   poolMinConnections: number;
   poolAcquireTimeoutSecs: number;
@@ -56,6 +58,7 @@ export const initialConnectionFormData: ConnectionFormData = {
   ssl: false,
   sslMode: '',
   mssqlAuthMode: 'sql_password',
+  clickhouseCluster: '',
   poolMaxConnections: 5,
   poolMinConnections: 0,
   poolAcquireTimeoutSecs: 30,

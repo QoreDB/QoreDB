@@ -186,6 +186,11 @@
     "driverGroups": {
       "sql": "SQL",
       "nosql": "NoSQL"
+    },
+    "clickhouse": {
+      "cluster": "Cluster name (optional)",
+      "clusterPlaceholder": "e.g. shard_cluster",
+      "clusterHint": "When set, DDL statements (CREATE/DROP DATABASE/TABLE) are issued with ON CLUSTER to propagate to every replica. Leave empty for single-node installs."
     }
   },
   "sidebar": {
@@ -2421,7 +2426,9 @@
     "completed": "Backup completed successfully.",
     "exitedWithCode": "Backup tool exited with code {{code}}.",
     "cancel": "Cancel",
-    "cancelling": "Cancelling…"
+    "cancelling": "Cancelling…",
+    "outputDir": "Output directory",
+    "duckdbHint": "DuckDB EXPORT DATABASE writes a directory containing schema.sql and one file per table."
   },
   "contracts": {
     "title": "Data Contracts",
@@ -2621,6 +2628,7 @@
     "inputPathPlaceholder": "Pick a backup file to restore",
     "confirmLabel": "Type \"{{name}}\" to confirm",
     "start": "Start restore",
-    "completed": "Restore completed successfully."
+    "completed": "Restore completed successfully.",
+    "duckdbHint": "Pick the directory previously produced by EXPORT DATABASE."
   }
 }

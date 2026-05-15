@@ -72,6 +72,11 @@ pub struct SavedConnection {
     /// SQL Server authentication mode. `None` on legacy saved connections.
     #[serde(default)]
     pub mssql_auth: Option<MssqlAuthMode>,
+    /// ClickHouse distributed cluster name. When set, DDL operations are
+    /// issued with `ON CLUSTER <name>` so they propagate to every replica.
+    /// `None` for non-clustered installs (single-node behaviour).
+    #[serde(default)]
+    pub clickhouse_cluster: Option<String>,
     /// Project ID for isolation
     pub project_id: String,
 }
@@ -238,6 +243,7 @@ impl SavedConnection {
             ssh_tunnel,
             proxy,
             mssql_auth: self.mssql_auth,
+            clickhouse_cluster: self.clickhouse_cluster.clone(),
         })
     }
 }
@@ -277,6 +283,7 @@ mod tests {
             }),
             proxy: None,
             mssql_auth: None,
+            clickhouse_cluster: None,
             project_id: "proj".to_string(),
         }
     }

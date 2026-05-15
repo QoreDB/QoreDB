@@ -1989,6 +1989,7 @@ mod tests {
             pool_min_connections: None,
             proxy: None,
             mssql_auth: None,
+clickhouse_cluster: None,
         };
 
         let conn_str = RedisDriver::build_connection_string(&config);
@@ -2014,6 +2015,7 @@ mod tests {
             pool_min_connections: None,
             proxy: None,
             mssql_auth: None,
+clickhouse_cluster: None,
         };
 
         let conn_str = RedisDriver::build_connection_string(&config);
@@ -2039,6 +2041,7 @@ mod tests {
             pool_min_connections: None,
             proxy: None,
             mssql_auth: None,
+clickhouse_cluster: None,
         };
 
         let conn_str = RedisDriver::build_connection_string(&config);

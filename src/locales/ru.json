@@ -185,6 +185,11 @@
     "driverGroups": {
       "sql": "SQL",
       "nosql": "NoSQL"
+    },
+    "clickhouse": {
+      "cluster": "Имя кластера (опционально)",
+      "clusterPlaceholder": "напр. shard_cluster",
+      "clusterHint": "Если задано, DDL-команды (CREATE/DROP DATABASE/TABLE) выполняются с ON CLUSTER и распространяются на все реплики. Оставьте пустым для одно-узловых установок."
     }
   },
   "sidebar": {
@@ -2402,7 +2407,9 @@
     "completed": "Резервное копирование успешно завершено.",
     "exitedWithCode": "Утилита завершилась с кодом {{code}}.",
     "cancel": "Отмена",
-    "cancelling": "Отмена…"
+    "cancelling": "Отмена…",
+    "outputDir": "Каталог вывода",
+    "duckdbHint": "DuckDB EXPORT DATABASE записывает каталог с schema.sql и по одному файлу на таблицу."
   },
   "contracts": {
     "title": "Контракты данных",
@@ -2604,6 +2611,7 @@
     "inputPathPlaceholder": "Выберите файл резервной копии для восстановления",
     "confirmLabel": "Введите «{{name}}» для подтверждения",
     "start": "Начать восстановление",
-    "completed": "Восстановление успешно завершено."
+    "completed": "Восстановление успешно завершено.",
+    "duckdbHint": "Выберите каталог, ранее созданный с помощью EXPORT DATABASE."
   }
 }

@@ -60,7 +60,9 @@ pub struct CreateEndpointResponse {
     pub token: String,
 }
 
-/// Starts the local HTTP server on the requested port (default 4787).
+/// Starts the local HTTP(S) server on the requested port (default 4787).
+/// When `tls = true`, the server is wrapped with Rustls using a freshly
+/// minted self-signed certificate (`https://127.0.0.1`).
 #[tauri::command]
 pub async fn start_instant_api(
     app: AppHandle,
@@ -68,6 +70,7 @@ pub async fn start_instant_api(
     state: State<'_, crate::SharedState>,
     ws_manager: State<'_, SharedWorkspaceManager>,
     port: Option<u16>,
+    tls: Option<bool>,
 ) -> Result<InstantApiStatus, String> {
     let project_id = {
         let mgr = ws_manager.lock().await;
@@ -91,7 +94,7 @@ pub async fn start_instant_api(
         storage_dir,
     ));
     server
-        .start(port)
+        .start_with_tls(port, tls.unwrap_or(false))
         .await
         .map_err(|e: ServerError| e.to_string())?;
     guard.server = Some(server);
@@ -219,12 +222,15 @@ async fn build_status(state: &InstantApiState) -> Result<InstantApiStatus, Strin
         Some(server) => {
             let addr = server.current_addr().await;
             let uptime = server.uptime_secs().await;
+            let tls = server.is_tls().await;
+            let scheme = if tls { "https" } else { "http" };
             Ok(InstantApiStatus {
                 running: addr.is_some(),
                 port: addr.map(|a| a.port()),
-                base_url: addr.map(|a| format!("http://{}", a)),
+                base_url: addr.map(|a| format!("{scheme}://{a}")),
                 endpoints_count,
                 uptime_s: uptime,
+                tls,
             })
         }
         None => Ok(InstantApiStatus {
@@ -233,6 +239,7 @@ async fn build_status(state: &InstantApiState) -> Result<InstantApiStatus, Strin
             base_url: None,
             endpoints_count,
             uptime_s: None,
+            tls: false,
         }),
     }
 }

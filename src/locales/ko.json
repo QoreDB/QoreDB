@@ -185,6 +185,11 @@
     "driverGroups": {
       "sql": "SQL",
       "nosql": "NoSQL"
+    },
+    "clickhouse": {
+      "cluster": "클러스터 이름 (선택)",
+      "clusterPlaceholder": "예: shard_cluster",
+      "clusterHint": "값을 설정하면 DDL(CREATE/DROP DATABASE/TABLE)이 ON CLUSTER 와 함께 실행되어 모든 복제본에 전파됩니다. 단일 노드 설치에서는 비워두세요."
     }
   },
   "sidebar": {
@@ -2401,7 +2406,9 @@
     "completed": "백업이 성공적으로 완료되었습니다.",
     "exitedWithCode": "도구가 코드 {{code}}로 종료되었습니다.",
     "cancel": "취소",
-    "cancelling": "취소 중…"
+    "cancelling": "취소 중…",
+    "outputDir": "출력 디렉터리",
+    "duckdbHint": "DuckDB EXPORT DATABASE 는 schema.sql 과 테이블당 하나의 파일이 들어 있는 디렉터리를 생성합니다."
   },
   "contracts": {
     "title": "데이터 계약",
@@ -2601,6 +2608,7 @@
     "inputPathPlaceholder": "복원할 백업 파일 선택",
     "confirmLabel": "확인하려면 \"{{name}}\"을(를) 입력하세요",
     "start": "복원 시작",
-    "completed": "복원이 성공적으로 완료되었습니다."
+    "completed": "복원이 성공적으로 완료되었습니다.",
+    "duckdbHint": "이전에 EXPORT DATABASE 로 생성된 디렉터리를 선택하세요."
   }
 }

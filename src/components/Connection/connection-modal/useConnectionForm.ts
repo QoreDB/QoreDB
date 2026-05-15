@@ -58,6 +58,7 @@ export function useConnectionForm(options: {
         ssl: editConnection.ssl,
         sslMode: editConnection.ssl_mode || '',
         mssqlAuthMode: editConnection.mssql_auth ?? 'sql_password',
+        clickhouseCluster: editConnection.clickhouse_cluster ?? '',
         poolMaxConnections: editConnection.pool_max_connections ?? 5,
         poolMinConnections: editConnection.pool_min_connections ?? 0,
         poolAcquireTimeoutSecs: editConnection.pool_acquire_timeout_secs ?? 30,

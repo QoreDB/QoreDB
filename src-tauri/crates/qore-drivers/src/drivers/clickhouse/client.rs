@@ -27,6 +27,9 @@ pub(crate) struct ClickHouseClient {
     password: String,
     default_database: String,
     active_database: Arc<RwLock<Option<String>>>,
+    /// Distributed cluster name for DDL `ON CLUSTER` propagation. `None` means
+    /// single-node behaviour (DDL applies locally only).
+    cluster: Option<String>,
 }
 
 impl ClickHouseClient {
@@ -81,6 +84,13 @@ impl ClickHouseClient {
             .filter(|d| !d.is_empty())
             .unwrap_or_else(|| "default".to_string());
 
+        let cluster = config
+            .clickhouse_cluster
+            .as_deref()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(str::to_owned);
+
         Ok(Self {
             http,
             base_url,
@@ -88,7 +98,13 @@ impl ClickHouseClient {
             password: config.password.clone(),
             default_database: default_database.clone(),
             active_database: Arc::new(RwLock::new(Some(default_database))),
+            cluster,
         })
+    }
+
+    /// Returns the configured cluster name (validated, trimmed), if any.
+    pub fn cluster(&self) -> Option<&str> {
+        self.cluster.as_deref()
     }
 
     pub fn current_database(&self) -> String {
@@ -234,6 +250,16 @@ mod tests {
     use super::*;
 
     fn cfg(host: &str, port: u16, ssl: bool, db: Option<&str>) -> ConnectionConfig {
+        cfg_with_cluster(host, port, ssl, db, None)
+    }
+
+    fn cfg_with_cluster(
+        host: &str,
+        port: u16,
+        ssl: bool,
+        db: Option<&str>,
+        cluster: Option<&str>,
+    ) -> ConnectionConfig {
         ConnectionConfig {
             driver: "clickhouse".into(),
             host: host.into(),
@@ -251,6 +277,7 @@ mod tests {
             pool_min_connections: None,
             proxy: None,
             mssql_auth: None,
+            clickhouse_cluster: cluster.map(|s| s.to_string()),
         }
     }
 
@@ -297,5 +324,32 @@ mod tests {
         let out = ensure_format("SELECT 1;");
         assert!(out.starts_with("SELECT 1 FORMAT"));
         assert!(!out.contains(";"));
+    }
+
+    #[test]
+    fn cluster_is_none_by_default() {
+        let c = ClickHouseClient::new(&cfg("localhost", 8123, false, None)).unwrap();
+        assert!(c.cluster().is_none());
+    }
+
+    #[test]
+    fn cluster_is_captured_when_set() {
+        let c = ClickHouseClient::new(&cfg_with_cluster(
+            "localhost",
+            8123,
+            false,
+            None,
+            Some("shard_1"),
+        ))
+        .unwrap();
+        assert_eq!(c.cluster(), Some("shard_1"));
+    }
+
+    #[test]
+    fn cluster_blank_string_is_ignored() {
+        let c =
+            ClickHouseClient::new(&cfg_with_cluster("localhost", 8123, false, None, Some("   ")))
+                .unwrap();
+        assert!(c.cluster().is_none());
     }
 }

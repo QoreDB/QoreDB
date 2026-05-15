@@ -52,8 +52,6 @@ pub struct ConnectionConfig {
     pub password: String,
     pub database: Option<String>,
     pub ssl: bool,
-    /// Optional SSL mode override (e.g. "verify-full", "verify-ca", "require", "prefer", "disable").
-    /// When set, takes precedence over the `ssl` boolean for drivers that support it.
     #[serde(default)]
     pub ssl_mode: Option<String>,
     pub environment: String,
@@ -62,13 +60,17 @@ pub struct ConnectionConfig {
     pub pool_min_connections: Option<u32>,
     pub pool_acquire_timeout_secs: Option<u32>,
     pub ssh_tunnel: Option<SshTunnelConfig>,
-    /// Network proxy configuration (HTTP CONNECT or SOCKS5)
     #[serde(default)]
     pub proxy: Option<ProxyConfig>,
     /// SQL Server authentication mode. `None` means SQL auth (legacy default),
     /// kept optional for JSON back-compat with pre-NTLM saved connections.
     #[serde(default)]
     pub mssql_auth: Option<MssqlAuthMode>,
+    /// ClickHouse cluster name for distributed DDL. When set, DDL commands
+    /// (CREATE/DROP DATABASE/TABLE) are issued with `ON CLUSTER <name>` so they
+    /// propagate to every replica. `None` keeps the single-node behaviour.
+    #[serde(default)]
+    pub clickhouse_cluster: Option<String>,
 }
 
 /// Authentication mode for SQL Server connections.

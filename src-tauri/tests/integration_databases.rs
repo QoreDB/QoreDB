@@ -78,6 +78,7 @@ fn postgres_config() -> ConnectionConfig {
         pool_min_connections: None,
         proxy: None,
         mssql_auth: None,
+        clickhouse_cluster: None,
     }
 }
 
@@ -99,6 +100,7 @@ fn mysql_config() -> ConnectionConfig {
         pool_min_connections: None,
         proxy: None,
         mssql_auth: None,
+        clickhouse_cluster: None,
     }
 }
 
@@ -120,6 +122,7 @@ fn mongo_config() -> ConnectionConfig {
         pool_min_connections: None,
         proxy: None,
         mssql_auth: None,
+        clickhouse_cluster: None,
     }
 }
 
@@ -141,6 +144,7 @@ fn clickhouse_config() -> ConnectionConfig {
         pool_min_connections: None,
         proxy: None,
         mssql_auth: None,
+        clickhouse_cluster: None,
     }
 }
 
@@ -162,6 +166,7 @@ fn redis_config() -> ConnectionConfig {
         pool_min_connections: None,
         proxy: None,
         mssql_auth: None,
+        clickhouse_cluster: None,
     }
 }
 

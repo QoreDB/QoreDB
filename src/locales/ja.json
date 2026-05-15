@@ -185,6 +185,11 @@
     "driverGroups": {
       "sql": "SQL",
       "nosql": "NoSQL"
+    },
+    "clickhouse": {
+      "cluster": "クラスター名（任意）",
+      "clusterPlaceholder": "例: shard_cluster",
+      "clusterHint": "指定すると、DDL（CREATE/DROP DATABASE/TABLE）が ON CLUSTER 付きで実行され、全レプリカに伝播します。単一ノード構成では空のままにします。"
     }
   },
   "sidebar": {
@@ -2401,7 +2406,9 @@
     "completed": "バックアップが正常に完了しました。",
     "exitedWithCode": "ツールがコード {{code}} で終了しました。",
     "cancel": "キャンセル",
-    "cancelling": "キャンセル中…"
+    "cancelling": "キャンセル中…",
+    "outputDir": "出力ディレクトリ",
+    "duckdbHint": "DuckDB の EXPORT DATABASE は schema.sql とテーブルごとのファイルを含むディレクトリを書き出します。"
   },
   "contracts": {
     "title": "データ契約",
@@ -2601,6 +2608,7 @@
     "inputPathPlaceholder": "リストアするバックアップファイルを選択",
     "confirmLabel": "「{{name}}」と入力して確認してください",
     "start": "リストアを開始",
-    "completed": "リストアが正常に完了しました。"
+    "completed": "リストアが正常に完了しました。",
+    "duckdbHint": "以前に EXPORT DATABASE で生成されたディレクトリを選択してください。"
   }
 }

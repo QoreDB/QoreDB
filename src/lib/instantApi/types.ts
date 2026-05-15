@@ -35,6 +35,8 @@ export interface InstantApiStatus {
   base_url: string | null;
   endpoints_count: number;
   uptime_s: number | null;
+  /** True when the running server is serving HTTPS (self-signed cert). */
+  tls: boolean;
 }
 
 export interface CreateEndpointResponse {

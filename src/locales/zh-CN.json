@@ -185,6 +185,11 @@
     "driverGroups": {
       "sql": "SQL",
       "nosql": "NoSQL"
+    },
+    "clickhouse": {
+      "cluster": "集群名称（可选）",
+      "clusterPlaceholder": "例如 shard_cluster",
+      "clusterHint": "设置后，DDL 语句（CREATE/DROP DATABASE/TABLE）将带 ON CLUSTER 执行并传播到所有副本。单节点安装请留空。"
     }
   },
   "sidebar": {
@@ -2401,7 +2406,9 @@
     "completed": "备份成功完成。",
     "exitedWithCode": "工具以代码 {{code}} 退出。",
     "cancel": "取消",
-    "cancelling": "取消中…"
+    "cancelling": "取消中…",
+    "outputDir": "输出目录",
+    "duckdbHint": "DuckDB EXPORT DATABASE 会写入一个包含 schema.sql 以及每张表对应一个文件的目录。"
   },
   "contracts": {
     "title": "数据契约",
@@ -2601,6 +2608,7 @@
     "inputPathPlaceholder": "选择要恢复的备份文件",
     "confirmLabel": "输入 \"{{name}}\" 以确认",
     "start": "开始恢复",
-    "completed": "恢复成功完成。"
+    "completed": "恢复成功完成。",
+    "duckdbHint": "请选择之前由 EXPORT DATABASE 生成的目录。"
   }
 }

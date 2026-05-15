@@ -18,8 +18,14 @@ import type {
   QueryShape,
 } from './types';
 
-export async function startInstantApi(port?: number): Promise<InstantApiStatus> {
-  return invoke('start_instant_api', { port: port ?? null });
+export async function startInstantApi(
+  port?: number,
+  options?: { tls?: boolean }
+): Promise<InstantApiStatus> {
+  return invoke('start_instant_api', {
+    port: port ?? null,
+    tls: options?.tls ?? null,
+  });
 }
 
 export async function stopInstantApi(): Promise<InstantApiStatus> {

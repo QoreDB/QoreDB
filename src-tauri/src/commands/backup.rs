@@ -17,8 +17,8 @@ use serde::Deserialize;
 use tauri::{AppHandle, Emitter, State};
 
 use crate::backup::{
-    detect_tool, run_backup, run_restore, BackupEvent, BackupFormat, BackupJobOutcome,
-    BackupOptions, BackupTool, BackupToolInfo, RestoreOptions,
+    detect_tool, run_backup, run_duckdb_backup, run_duckdb_restore, run_restore, BackupEvent,
+    BackupFormat, BackupJobOutcome, BackupOptions, BackupTool, BackupToolInfo, RestoreOptions,
 };
 use crate::backup::runner::{ActiveBackups, EventSink};
 
@@ -75,7 +75,8 @@ pub struct StartBackupArgs {
 }
 
 /// Spawn the right binary for the given driver, stream events, return the
-/// final outcome.
+/// final outcome. DuckDB short-circuits to the in-process runner since it
+/// ships `EXPORT DATABASE` natively and needs no external binary.
 #[tauri::command]
 pub async fn start_backup(
     app: AppHandle,
@@ -89,6 +90,11 @@ pub async fn start_backup(
             Arc::clone(&state.active_backups),
         )
     };
+
+    if options.driver.eq_ignore_ascii_case("duckdb") {
+        let sink: Arc<dyn EventSink> = Arc::new(AppHandleSink { app });
+        return run_duckdb_backup(options, sink, active).await;
+    }
 
     let tool = backup_tool_for_driver(&options.driver, options.format)?;
     let info = detect_tool(tool, &overrides);
@@ -118,6 +124,11 @@ pub async fn start_restore(
             Arc::clone(&state.active_backups),
         )
     };
+
+    if options.driver.eq_ignore_ascii_case("duckdb") {
+        let sink: Arc<dyn EventSink> = Arc::new(AppHandleSink { app });
+        return run_duckdb_restore(options, sink, active).await;
+    }
 
     let tool = restore_tool_for_driver(&options.driver, options.format)?;
     let info = detect_tool(tool, &overrides);

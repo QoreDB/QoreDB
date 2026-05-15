@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { save } from '@tauri-apps/plugin-dialog';
+import { open as openDialog, save } from '@tauri-apps/plugin-dialog';
 import { Loader2, Play, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -94,9 +94,16 @@ export function BackupDialog({ connection, open, onClose }: BackupDialogProps) {
 
   const driver = connection?.driver ?? 'postgres';
   const isPostgres = PG_DRIVERS.has(driver);
+  const isDuckdb = driver === 'duckdb';
 
   const pickOutput = useCallback(async () => {
     if (!connection) return;
+    if (isDuckdb) {
+      // DuckDB EXPORT DATABASE writes a directory, not a single file.
+      const chosen = await openDialog({ directory: true, multiple: false });
+      if (typeof chosen === 'string') setOutputPath(chosen);
+      return;
+    }
     const ext = defaultExtension(driver, format);
     const suggested = `${connection.name}-${new Date().toISOString().slice(0, 10)}.${ext}`;
     const chosen = await save({
@@ -104,7 +111,7 @@ export function BackupDialog({ connection, open, onClose }: BackupDialogProps) {
       filters: [{ name: ext.toUpperCase(), extensions: [ext] }],
     });
     if (chosen) setOutputPath(chosen);
-  }, [connection, driver, format]);
+  }, [connection, driver, format, isDuckdb]);
 
   const handleStart = useCallback(async () => {
     if (!connection || !outputPath) return;
@@ -249,7 +256,9 @@ export function BackupDialog({ connection, open, onClose }: BackupDialogProps) {
           </div>
 
           <div>
-            <Label className="text-xs text-muted-foreground">{t('backup.outputPath')}</Label>
+            <Label className="text-xs text-muted-foreground">
+              {isDuckdb ? t('backup.outputDir') : t('backup.outputPath')}
+            </Label>
             <div className="flex items-center gap-2">
               <Input
                 value={outputPath}
@@ -261,6 +270,9 @@ export function BackupDialog({ connection, open, onClose }: BackupDialogProps) {
                 {t('backup.browse')}
               </Button>
             </div>
+            {isDuckdb && (
+              <p className="text-[11px] text-muted-foreground mt-1">{t('backup.duckdbHint')}</p>
+            )}
           </div>
 
           {(phase === 'running' || phase === 'done') && (

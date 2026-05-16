@@ -38,9 +38,24 @@ pub struct FailedChange {
 // Always compiled. Core mode enforces a 5-change batch limit (covers
 // Bulk Edit and other batched mutation flows). The Sandbox UI itself is
 // still Pro-gated, so Core users only reach this limit through Bulk Edit.
+//
+// The check is **runtime**, not `#[cfg(feature = "pro")]`: a Pro build whose
+// licence has expired or downgraded to Core must still enforce the cap, so
+// we ask the in-memory `LicenseManager` rather than the compile-time feature
+// flag (cf. audit B6-C5).
 
-#[cfg(not(feature = "pro"))]
 const CORE_SANDBOX_LIMIT: usize = 5;
+
+/// True iff the in-memory licence currently grants Pro-tier features. Pulled
+/// out as a helper because every entry point in this module needs the same
+/// check before applying the Core batch cap.
+async fn license_allows_unlimited_sandbox(state: &State<'_, crate::SharedState>) -> bool {
+    let tier = {
+        let guard = state.lock().await;
+        guard.license_manager.effective_status().tier
+    };
+    tier.includes(crate::license::status::LicenseTier::Pro)
+}
 
 mod sandbox_impl {
     use super::*;
@@ -64,8 +79,9 @@ mod sandbox_impl {
         session_id: String,
         changes: Vec<SandboxChangeDto>,
     ) -> Result<MigrationScriptResponse, String> {
-        #[cfg(not(feature = "pro"))]
-        if changes.len() > CORE_SANDBOX_LIMIT {
+        if changes.len() > CORE_SANDBOX_LIMIT
+            && !super::license_allows_unlimited_sandbox(&state).await
+        {
             return Ok(MigrationScriptResponse {
                 success: false,
                 script: None,
@@ -107,8 +123,9 @@ mod sandbox_impl {
         changes: Vec<SandboxChangeDto>,
         use_transaction: bool,
     ) -> Result<ApplySandboxResponse, String> {
-        #[cfg(not(feature = "pro"))]
-        if changes.len() > CORE_SANDBOX_LIMIT {
+        if changes.len() > CORE_SANDBOX_LIMIT
+            && !super::license_allows_unlimited_sandbox(&state).await
+        {
             return Ok(ApplySandboxResponse {
                 success: false,
                 applied_count: 0,

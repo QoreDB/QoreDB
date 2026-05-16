@@ -19,7 +19,19 @@ use mongodb::{Client, ClientSession, IndexModel};
 use qore_core::types::RowData as QRowData;
 use tokio::sync::{Mutex, RwLock};
 
-use crate::mongo_pipeline::validate_pipeline;
+use crate::mongo_pipeline::{assert_no_forbidden_operators, validate_pipeline};
+
+/// Hard ceiling on the number of documents the non-streaming `execute` path
+/// will accumulate in memory from a single MongoDB query. Without this cap,
+/// `find` / `aggregate` on a 100M-document collection drives the client OOM
+/// instantly because everything is pushed into `Vec<Document>` before
+/// returning (cf. audit B4-C5). The command layer can apply tighter limits
+/// via `SafetyPolicy.max_result_rows`; this is the last-resort fuse.
+const MAX_NON_STREAMING_ROWS: usize = 1_000_000;
+
+fn too_many_rows_error() -> EngineError {
+    EngineError::result_too_large(MAX_NON_STREAMING_ROWS as u64, MAX_NON_STREAMING_ROWS as u64)
+}
 use qore_core::error::{EngineError, EngineResult};
 use qore_core::traits::DataEngine;
 use qore_core::traits::{StreamEvent, StreamSender};
@@ -170,6 +182,15 @@ impl MongoDriver {
                 .to_string();
 
             let filter = if let Some(q) = parsed.get("query") {
+                // Refuse server-side JS / accumulator operators in the
+                // `find` filter — they would let an attacker bypass the
+                // aggregation-only ban (cf. audit B4-C4).
+                assert_no_forbidden_operators(q).map_err(|e| {
+                    EngineError::validation(format!(
+                        "forbidden operator in query: {}",
+                        e.user_message()
+                    ))
+                })?;
                 mongodb::bson::to_document(q)
                     .map_err(|e| EngineError::syntax_error(format!("Invalid query: {}", e)))?
             } else {
@@ -1609,6 +1630,9 @@ impl DataEngine for MongoDriver {
                                     while let Some(doc_result) = cursor.next(&mut *txn).await {
                                         let doc = doc_result
                                             .map_err(|e| EngineError::execution_error(e.to_string()))?;
+                                        if out.len() >= MAX_NON_STREAMING_ROWS {
+                                            return Err(too_many_rows_error());
+                                        }
                                         out.push(doc);
                                     }
                                     out
@@ -1626,6 +1650,9 @@ impl DataEngine for MongoDriver {
                                         .await
                                         .map_err(|e| EngineError::execution_error(e.to_string()))?
                                     {
+                                        if out.len() >= MAX_NON_STREAMING_ROWS {
+                                            return Err(too_many_rows_error());
+                                        }
                                         out.push(doc);
                                     }
                                     out
@@ -1674,6 +1701,9 @@ impl DataEngine for MongoDriver {
                     while let Some(doc_result) = cursor.next(&mut *txn).await {
                         let doc = doc_result
                             .map_err(|e| EngineError::execution_error(e.to_string()))?;
+                        if documents.len() >= MAX_NON_STREAMING_ROWS {
+                            return Err(too_many_rows_error());
+                        }
                         documents.push(doc);
                     }
                     documents
@@ -1691,6 +1721,9 @@ impl DataEngine for MongoDriver {
                         .await
                         .map_err(|e| EngineError::execution_error(e.to_string()))?
                     {
+                        if documents.len() >= MAX_NON_STREAMING_ROWS {
+                            return Err(too_many_rows_error());
+                        }
                         documents.push(doc);
                     }
                     documents

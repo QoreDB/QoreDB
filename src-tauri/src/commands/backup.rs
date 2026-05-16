@@ -49,6 +49,14 @@ pub async fn detect_backup_tools(
 }
 
 /// Register a custom path for a tool. Pass an empty string to clear it.
+///
+/// The path is validated before being stored: it must point at an existing,
+/// non-symlink file whose basename matches the expected binary name for the
+/// requested tool (e.g. only `pg_dump` / `pg_dump.exe` for `BackupTool::PgDump`).
+/// Without this check, an attacker who could invoke this IPC command from the
+/// webview could redirect `pg_dump` to `/bin/sh` or any other binary, which
+/// would then run with the arguments the backup runner produces (cf. audit
+/// B6-C3).
 #[tauri::command]
 pub async fn set_backup_tool_path(
     state: State<'_, crate::SharedState>,
@@ -63,10 +71,56 @@ pub async fn set_backup_tool_path(
     let trimmed = path.trim();
     if trimmed.is_empty() {
         overrides.clear(tool);
-    } else {
-        overrides.set(tool, PathBuf::from(trimmed));
+        return Ok(());
     }
+
+    let validated = validate_backup_tool_path(tool, trimmed)?;
+    overrides.set(tool, validated);
     Ok(())
+}
+
+/// Resolves `path` to a real, existing file and verifies that its basename
+/// matches the expected binary name (or `<name>.exe` on any platform — Wine
+/// setups under Linux ship `.exe` artefacts).
+fn validate_backup_tool_path(tool: BackupTool, path: &str) -> Result<PathBuf, String> {
+    let candidate = PathBuf::from(path);
+
+    // Reject relative paths — an override is meant to point at a specific
+    // installation, not a `$PATH` lookup.
+    if !candidate.is_absolute() {
+        return Err(format!(
+            "Backup tool path must be absolute, got `{}`",
+            path
+        ));
+    }
+
+    // Resolve symlinks. This both catches `pg_dump -> /bin/sh` (the symlink
+    // attack) and surfaces dangling-symlink misconfiguration up-front.
+    let canonical = std::fs::canonicalize(&candidate)
+        .map_err(|e| format!("Backup tool path `{}` is not accessible: {}", path, e))?;
+
+    let metadata = std::fs::metadata(&canonical)
+        .map_err(|e| format!("Backup tool path `{}` stat failed: {}", path, e))?;
+    if !metadata.is_file() {
+        return Err(format!("Backup tool path `{}` is not a regular file", path));
+    }
+
+    let basename = canonical
+        .file_name()
+        .and_then(|s| s.to_str())
+        .ok_or_else(|| format!("Backup tool path `{}` has no filename", path))?;
+    let expected = tool.binary_name();
+    let basename_lower = basename.to_ascii_lowercase();
+    let matches = basename_lower == expected
+        || basename_lower == format!("{}.exe", expected);
+    if !matches {
+        return Err(format!(
+            "Backup tool path `{}` does not match expected binary `{}` (got `{}`)",
+            path, expected, basename
+        ));
+    }
+
+    Ok(canonical)
 }
 
 #[derive(Debug, Deserialize)]

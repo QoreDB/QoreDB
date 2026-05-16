@@ -527,6 +527,109 @@ fn next_char_is_separator(s: &str, idx: usize) -> bool {
     }
 }
 
+/// Why a SQLite statement was flagged dangerous. Returned by
+/// [`classify_sqlite_dangerous`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SqliteDanger {
+    /// `ATTACH DATABASE '/path'` — mounts an arbitrary file/URI into the
+    /// session, bypassing the read-only flag on the main database.
+    Attach,
+    /// `PRAGMA writable_schema = …` — toggles direct edits to `sqlite_master`,
+    /// can corrupt the schema.
+    WritableSchema,
+    /// `PRAGMA journal_mode = OFF` — disables durability (crash = corruption).
+    JournalModeOff,
+    /// `PRAGMA foreign_keys = OFF` — disables referential integrity.
+    ForeignKeysOff,
+}
+
+impl SqliteDanger {
+    pub fn reason(self) -> &'static str {
+        match self {
+            SqliteDanger::Attach => "ATTACH DATABASE is blocked (can mount arbitrary files outside the session policy)",
+            SqliteDanger::WritableSchema => {
+                "PRAGMA writable_schema is blocked (allows direct edits to sqlite_master)"
+            }
+            SqliteDanger::JournalModeOff => {
+                "PRAGMA journal_mode = OFF is blocked (disables durability)"
+            }
+            SqliteDanger::ForeignKeysOff => {
+                "PRAGMA foreign_keys = OFF is blocked (disables referential integrity)"
+            }
+        }
+    }
+}
+
+/// Classifies a single SQLite statement and returns the reason if it would
+/// silently weaken the database (corrupt schema, disable durability, or
+/// mount an arbitrary file).
+///
+/// Read-only PRAGMA inspections (`PRAGMA table_info`, `PRAGMA foreign_key_list`,
+/// `PRAGMA database_list`, …) are not affected — only the specific assignments
+/// that flip safety guarantees are blocked.
+pub fn classify_sqlite_dangerous(sql: &str) -> Option<SqliteDanger> {
+    let trimmed = strip_leading_sql_noise(sql);
+    let upper = trimmed.to_ascii_uppercase();
+
+    if upper.starts_with("ATTACH") && next_char_is_separator(&trimmed, "ATTACH".len()) {
+        return Some(SqliteDanger::Attach);
+    }
+    if upper.starts_with("PRAGMA") {
+        let rest = upper["PRAGMA".len()..].trim_start();
+        // Strip a leading `<dbname>.` qualifier (e.g. `PRAGMA main.writable_schema`).
+        let rest = match rest.find('.') {
+            Some(idx) => {
+                let before_dot = &rest[..idx];
+                if !before_dot.is_empty()
+                    && before_dot.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+                {
+                    rest[idx + 1..].trim_start()
+                } else {
+                    rest
+                }
+            }
+            None => rest,
+        };
+        if rest.starts_with("WRITABLE_SCHEMA") && has_assignment(rest) {
+            return Some(SqliteDanger::WritableSchema);
+        }
+        if rest.starts_with("JOURNAL_MODE")
+            && has_assignment(rest)
+            && pragma_argument_is(rest, "OFF")
+        {
+            return Some(SqliteDanger::JournalModeOff);
+        }
+        if rest.starts_with("FOREIGN_KEYS")
+            && has_assignment(rest)
+            && pragma_argument_is(rest, "OFF")
+        {
+            return Some(SqliteDanger::ForeignKeysOff);
+        }
+    }
+    None
+}
+
+/// True iff `s` (an already-uppercased PRAGMA tail) contains an `=` or `(` —
+/// i.e. it's an assignment / call form rather than a bare read.
+fn has_assignment(s: &str) -> bool {
+    s.contains('=') || s.contains('(')
+}
+
+/// Best-effort check that a PRAGMA's argument matches `expected` (already
+/// uppercase). Accepts both `PRAGMA x = OFF` and `PRAGMA x(OFF)`. We deliberately
+/// only block the *specific* dangerous values so that swapping `journal_mode`
+/// to `WAL` or `MEMORY` from the editor remains possible.
+fn pragma_argument_is(s: &str, expected: &str) -> bool {
+    let after = s.find(['=', '(']).map(|i| &s[i + 1..]).unwrap_or("");
+    let arg = after
+        .trim()
+        .trim_end_matches(';')
+        .trim()
+        .trim_end_matches(')')
+        .trim();
+    arg == expected
+}
+
 fn has_copy_to_clause(upper: &str) -> bool {
     // Looks for a ` TO ` keyword followed by a quoted/identifier target.
     // We intentionally search anywhere after the leading `COPY` since DuckDB
@@ -793,5 +896,73 @@ mod tests {
         // boundary so identifiers starting with the keyword don't trip it.
         assert_eq!(classify_duckdb_dangerous("INSTALLED_VIEW"), None);
         assert_eq!(classify_duckdb_dangerous("LOADER"), None);
+    }
+
+    #[test]
+    fn sqlite_attach_is_flagged() {
+        assert_eq!(
+            classify_sqlite_dangerous("ATTACH DATABASE '/etc/passwd' AS x"),
+            Some(SqliteDanger::Attach)
+        );
+        assert_eq!(
+            classify_sqlite_dangerous("attach 'remote.db' as r"),
+            Some(SqliteDanger::Attach)
+        );
+    }
+
+    #[test]
+    fn sqlite_pragma_writable_schema_assignment_is_flagged() {
+        assert_eq!(
+            classify_sqlite_dangerous("PRAGMA writable_schema = 1"),
+            Some(SqliteDanger::WritableSchema)
+        );
+        assert_eq!(
+            classify_sqlite_dangerous("PRAGMA writable_schema(ON)"),
+            Some(SqliteDanger::WritableSchema)
+        );
+        // Bare read is informational and stays allowed.
+        assert_eq!(classify_sqlite_dangerous("PRAGMA writable_schema"), None);
+    }
+
+    #[test]
+    fn sqlite_pragma_journal_mode_off_is_flagged() {
+        assert_eq!(
+            classify_sqlite_dangerous("PRAGMA journal_mode = OFF"),
+            Some(SqliteDanger::JournalModeOff)
+        );
+        // Other journal modes stay allowed.
+        assert_eq!(classify_sqlite_dangerous("PRAGMA journal_mode = WAL"), None);
+        assert_eq!(classify_sqlite_dangerous("PRAGMA journal_mode = MEMORY"), None);
+    }
+
+    #[test]
+    fn sqlite_pragma_foreign_keys_off_is_flagged() {
+        assert_eq!(
+            classify_sqlite_dangerous("PRAGMA foreign_keys = OFF"),
+            Some(SqliteDanger::ForeignKeysOff)
+        );
+        assert_eq!(
+            classify_sqlite_dangerous("PRAGMA foreign_keys = ON"),
+            None
+        );
+    }
+
+    #[test]
+    fn sqlite_pragma_with_db_qualifier_is_still_caught() {
+        assert_eq!(
+            classify_sqlite_dangerous("PRAGMA main.foreign_keys = OFF"),
+            Some(SqliteDanger::ForeignKeysOff)
+        );
+    }
+
+    #[test]
+    fn sqlite_safe_pragmas_pass() {
+        assert_eq!(classify_sqlite_dangerous("PRAGMA table_info(users)"), None);
+        assert_eq!(
+            classify_sqlite_dangerous("PRAGMA foreign_key_list(orders)"),
+            None
+        );
+        assert_eq!(classify_sqlite_dangerous("PRAGMA index_list(users)"), None);
+        assert_eq!(classify_sqlite_dangerous("SELECT 1"), None);
     }
 }

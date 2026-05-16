@@ -643,6 +643,9 @@ impl DataEngine for SqliteDriver {
         query_id: QueryId,
         sender: StreamSender,
     ) -> EngineResult<()> {
+        if let Some(danger) = safety::classify_sqlite_dangerous(query) {
+            return Err(EngineError::not_supported(danger.reason()));
+        }
         let sqlite_session = self.get_session(session).await?;
 
         // Use pool for streaming
@@ -744,6 +747,14 @@ impl DataEngine for SqliteDriver {
         query: &str,
         _query_id: QueryId,
     ) -> EngineResult<QueryResult> {
+        // Block ATTACH DATABASE (mounts arbitrary files past the read-only
+        // flag) and the specific destructive PRAGMA assignments
+        // (`writable_schema`, `journal_mode = OFF`, `foreign_keys = OFF`).
+        // Read-only PRAGMA inspections used by the UI remain allowed. See
+        // audit B3-C4 / B3-C5.
+        if let Some(danger) = safety::classify_sqlite_dangerous(query) {
+            return Err(EngineError::not_supported(danger.reason()));
+        }
         let sqlite_session = self.get_session(session).await?;
         let start = Instant::now();
 

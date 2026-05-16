@@ -42,41 +42,69 @@ pub async fn list_tables(
     namespace: &Namespace,
     options: CollectionListOptions,
 ) -> EngineResult<CollectionList> {
-    let database = namespace.database.replace('\'', "''");
-    let where_search = options
+    // Bind `database` and the `ILIKE` pattern as named parameters
+    // (`{db:String}` / `{pat:String}`) so the value cannot break out of the
+    // quoted literal. We also escape LIKE wildcards in the user-supplied
+    // `search` so `50%` only matches names containing the literal "50%" —
+    // not every name containing "50" (cf. audit B4-C7).
+    let database = namespace.database.clone();
+    let like_pattern = options
         .search
         .as_ref()
-        .map(|s| format!("AND name ILIKE '%{}%'", s.replace('\'', "''")));
+        .map(|s| format!("%{}%", escape_like(s)));
 
-    let count_sql = format!(
-        "SELECT count() FROM system.tables WHERE database = '{database}' {}",
-        where_search.as_deref().unwrap_or("")
-    );
-    let total = parse_query_result(&client.fetch_json(&count_sql, None).await?, 0.0)?
-        .rows
-        .into_iter()
-        .next()
-        .and_then(|r| match r.values.into_iter().next() {
-            Some(Value::Int(i)) => Some(i as u32),
-            _ => None,
-        })
-        .unwrap_or(0);
+    let (count_sql, count_params): (&str, Vec<(&str, &str)>) = match like_pattern.as_deref() {
+        Some(p) => (
+            "SELECT count() FROM system.tables \
+             WHERE database = {db:String} AND name ILIKE {pat:String}",
+            vec![("db", database.as_str()), ("pat", p)],
+        ),
+        None => (
+            "SELECT count() FROM system.tables WHERE database = {db:String}",
+            vec![("db", database.as_str())],
+        ),
+    };
+    let total = parse_query_result(
+        &client
+            .fetch_json_with_params(count_sql, None, &count_params)
+            .await?,
+        0.0,
+    )?
+    .rows
+    .into_iter()
+    .next()
+    .and_then(|r| match r.values.into_iter().next() {
+        Some(Value::Int(i)) => Some(i as u32),
+        _ => None,
+    })
+    .unwrap_or(0);
 
-    let mut sql = format!(
-        "SELECT name, engine FROM system.tables \
-         WHERE database = '{database}' {} \
-         ORDER BY name",
-        where_search.as_deref().unwrap_or("")
-    );
+    let mut data_sql = match like_pattern.as_deref() {
+        Some(_) => String::from(
+            "SELECT name, engine FROM system.tables \
+             WHERE database = {db:String} AND name ILIKE {pat:String} \
+             ORDER BY name",
+        ),
+        None => String::from(
+            "SELECT name, engine FROM system.tables \
+             WHERE database = {db:String} \
+             ORDER BY name",
+        ),
+    };
     if let Some(limit) = options.page_size {
-        sql.push_str(&format!(" LIMIT {}", limit));
+        data_sql.push_str(&format!(" LIMIT {}", limit));
         if let Some(page) = options.page {
             let offset = (page.max(1) - 1) * limit;
-            sql.push_str(&format!(" OFFSET {}", offset));
+            data_sql.push_str(&format!(" OFFSET {}", offset));
         }
     }
 
-    let qr = parse_query_result(&client.fetch_json(&sql, None).await?, 0.0)?;
+    let qr = parse_query_result(
+        &client
+            .fetch_json_with_params(&data_sql, None, &count_params)
+            .await?,
+        0.0,
+    )?;
     let collections = qr
         .rows
         .into_iter()
@@ -119,17 +147,23 @@ pub async fn describe_table(
     namespace: &Namespace,
     table: &str,
 ) -> EngineResult<TableSchema> {
-    let db = namespace.database.replace('\'', "''");
-    let tbl = table.replace('\'', "''");
+    let db = namespace.database.clone();
+    let tbl = table.to_string();
+    let params: Vec<(&str, &str)> = vec![("db", db.as_str()), ("tbl", tbl.as_str())];
 
-    // Columns + nullable + default expression
-    let cols_sql = format!(
-        "SELECT name, type, default_expression, is_in_primary_key \
+    // Columns + nullable + default expression — `database` / `table` are
+    // bound as named parameters to avoid quote-escape SQL injection
+    // (cf. audit B4-C7).
+    let cols_sql = "SELECT name, type, default_expression, is_in_primary_key \
          FROM system.columns \
-         WHERE database = '{db}' AND table = '{tbl}' \
-         ORDER BY position"
-    );
-    let cols = parse_query_result(&client.fetch_json(&cols_sql, None).await?, 0.0)?;
+         WHERE database = {db:String} AND table = {tbl:String} \
+         ORDER BY position";
+    let cols = parse_query_result(
+        &client
+            .fetch_json_with_params(cols_sql, None, &params)
+            .await?,
+        0.0,
+    )?;
     if cols.rows.is_empty() {
         return Err(EngineError::execution_error(format!(
             "Table {db}.{tbl} not found"
@@ -171,12 +205,15 @@ pub async fn describe_table(
 
     // Approximate row count via system.tables.total_rows (only populated for
     // engines that track it: MergeTree family, etc.).
-    let count_sql = format!(
-        "SELECT total_rows FROM system.tables \
-         WHERE database = '{db}' AND name = '{tbl}'"
-    );
+    let count_sql = "SELECT total_rows FROM system.tables \
+         WHERE database = {db:String} AND name = {tbl:String}";
     let row_count_estimate =
-        match parse_query_result(&client.fetch_json(&count_sql, None).await?, 0.0) {
+        match parse_query_result(
+            &client
+                .fetch_json_with_params(count_sql, None, &params)
+                .await?,
+            0.0,
+        ) {
             Ok(qr) => qr
                 .rows
                 .into_iter()
@@ -214,13 +251,15 @@ async fn fetch_indexes(
     db: &str,
     tbl: &str,
 ) -> EngineResult<Vec<TableIndex>> {
-    let sql = format!(
-        "SELECT name, type, expr \
+    let sql = "SELECT name, type, expr \
          FROM system.data_skipping_indices \
-         WHERE database = '{db}' AND table = '{tbl}' \
-         ORDER BY name"
-    );
-    let qr = match parse_query_result(&client.fetch_json(&sql, None).await?, 0.0) {
+         WHERE database = {db:String} AND table = {tbl:String} \
+         ORDER BY name";
+    let params: Vec<(&str, &str)> = vec![("db", db), ("tbl", tbl)];
+    let qr = match parse_query_result(
+        &client.fetch_json_with_params(sql, None, &params).await?,
+        0.0,
+    ) {
         Ok(qr) => qr,
         Err(_) => return Ok(Vec::new()),
     };
@@ -254,6 +293,22 @@ async fn fetch_indexes(
         });
     }
     Ok(out)
+}
+
+/// Escape ClickHouse `LIKE` / `ILIKE` wildcards in user-supplied search
+/// terms. Without this, a search for `50%` matches *every* name containing
+/// "50" because `%` is the multi-character wildcard.
+fn escape_like(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for ch in s.chars() {
+        match ch {
+            '\\' => out.push_str("\\\\"),
+            '%' => out.push_str("\\%"),
+            '_' => out.push_str("\\_"),
+            other => out.push(other),
+        }
+    }
+    out
 }
 
 /// Pings the server. We use `SELECT 1` + a fresh query_id so it shows up

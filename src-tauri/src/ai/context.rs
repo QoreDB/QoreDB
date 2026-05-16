@@ -375,8 +375,16 @@ mod tests {
         let result = format_table_schema("users", &schema, "postgres");
         assert!(result.contains("- users"));
         assert!(result.contains("id: SERIAL PK NOT NULL"));
-        assert!(result.contains("email: VARCHAR(255) NULL"));
-        assert!(result.contains("idx_users_email(email) UNIQUE"));
+        // `email` is in the sensitive-columns list, so the column reference
+        // (and the index's column list) are redacted before being sent to
+        // the LLM (cf. B7-C2). The data-type and shape stay visible. The
+        // index *name* (`idx_users_email`) is preserved — index names are
+        // operator-defined and don't carry row values, only schema hints.
+        assert!(result.contains("<redacted>: VARCHAR(255) NULL"));
+        assert!(result.contains("idx_users_email(<redacted>) UNIQUE"));
+        // No standalone column reference to `email:` survives.
+        assert!(!result.contains("email:"));
+        assert!(!result.contains("(email)"));
     }
 
     #[test]

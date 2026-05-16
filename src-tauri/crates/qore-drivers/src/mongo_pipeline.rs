@@ -221,6 +221,15 @@ pub fn validate_pipeline(value: &JsonValue) -> Result<ValidatedPipeline, Pipelin
     validate_stages_array(stages_value)
 }
 
+/// Recursively rejects any forbidden server-side execution operator
+/// (`$function`, `$accumulator`, `$where`) appearing anywhere in a filter or
+/// projection document. The aggregation validator already calls this for
+/// pipeline stages — exposed here so the `find` path (cf. audit B4-C4) can
+/// apply the same guard.
+pub fn assert_no_forbidden_operators(value: &JsonValue) -> Result<(), PipelineError> {
+    scan_forbidden_operators(None, value)
+}
+
 fn extract_pipeline_array(value: &JsonValue) -> Result<&JsonValue, PipelineError> {
     if value.is_array() {
         return Ok(value);

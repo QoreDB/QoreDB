@@ -37,6 +37,27 @@ export interface DriverQueryBuilders {
   maintenanceQuery?: (schemaOrDb: string, tableName: string) => string;
 }
 
+/**
+ * Identifier safety check applied before any meta query builder
+ * interpolates a schema/table name into raw SQL (cf. audit B9-C2).
+ *
+ * Allowed: ASCII alphanumeric + underscore, starting with a letter or `_`,
+ * up to 128 characters. This intentionally rejects quoted identifiers with
+ * embedded `"` or `]`, dollar-tagged names, and anything Unicode-fancy —
+ * if a future feature legitimately needs those, the meta query should
+ * accept the identifier as a bind parameter instead of an interpolated
+ * string.
+ *
+ * Throws so the call site short-circuits rather than emitting a query the
+ * driver might mis-parse.
+ */
+export function assertSafeSqlIdent(value: string, kind = 'identifier'): string {
+  if (!/^[A-Za-z_][A-Za-z0-9_]{0,127}$/.test(value)) {
+    throw new Error(`Refusing to interpolate unsafe ${kind}: ${JSON.stringify(value)}`);
+  }
+  return value;
+}
+
 export interface IdentifierRules {
   quoteStart: string;
   quoteEnd: string;
@@ -91,16 +112,26 @@ export const DRIVERS: Record<Driver, DriverMetadata> = {
     queries: {
       databaseSizeQuery: () =>
         'SELECT pg_size_pretty(pg_database_size(current_database())) as size',
-      tableSizeQuery: (schema, table) =>
-        `SELECT pg_total_relation_size('"${schema}"."${table}"') as total_bytes,
-                pg_size_pretty(pg_total_relation_size('"${schema}"."${table}"')) as size_pretty`,
-      indexCountQuery: schema =>
-        `SELECT COUNT(*) as cnt FROM pg_indexes WHERE schemaname = '${schema}'`,
-      tableIndexesQuery: table =>
-        `SELECT indexname, indexdef FROM pg_indexes WHERE tablename = '${table}'`,
-      maintenanceQuery: (schema, table) =>
-        `SELECT last_vacuum, last_analyze FROM pg_stat_user_tables 
-         WHERE schemaname = '${schema}' AND relname = '${table}'`,
+      tableSizeQuery: (schema, table) => {
+        const s = assertSafeSqlIdent(schema, 'schema');
+        const t = assertSafeSqlIdent(table, 'table');
+        return `SELECT pg_total_relation_size('"${s}"."${t}"') as total_bytes,
+                pg_size_pretty(pg_total_relation_size('"${s}"."${t}"')) as size_pretty`;
+      },
+      indexCountQuery: schema => {
+        const s = assertSafeSqlIdent(schema, 'schema');
+        return `SELECT COUNT(*) as cnt FROM pg_indexes WHERE schemaname = '${s}'`;
+      },
+      tableIndexesQuery: table => {
+        const t = assertSafeSqlIdent(table, 'table');
+        return `SELECT indexname, indexdef FROM pg_indexes WHERE tablename = '${t}'`;
+      },
+      maintenanceQuery: (schema, table) => {
+        const s = assertSafeSqlIdent(schema, 'schema');
+        const t = assertSafeSqlIdent(table, 'table');
+        return `SELECT last_vacuum, last_analyze FROM pg_stat_user_tables
+         WHERE schemaname = '${s}' AND relname = '${t}'`;
+      },
     },
   },
   [Driver.Mysql]: {
@@ -125,17 +156,27 @@ export const DRIVERS: Record<Driver, DriverMetadata> = {
       namespaceStrategy: 'database',
     },
     queries: {
-      databaseSizeQuery: db =>
-        `SELECT COALESCE(SUM(IFNULL(data_length, 0) + IFNULL(index_length, 0)), 0) as size
-         FROM information_schema.tables WHERE table_schema = '${db}'`,
-      tableSizeQuery: (db, table) =>
-        `SELECT data_length + index_length as total_bytes, table_rows
-         FROM information_schema.tables 
-         WHERE table_schema = '${db}' AND table_name = '${table}'`,
-      indexCountQuery: db =>
-        `SELECT COUNT(DISTINCT index_name) as cnt 
-         FROM information_schema.statistics WHERE table_schema = '${db}'`,
-      tableIndexesQuery: table => `SHOW INDEX FROM \`${table}\``,
+      databaseSizeQuery: db => {
+        const d = assertSafeSqlIdent(db, 'database');
+        return `SELECT COALESCE(SUM(IFNULL(data_length, 0) + IFNULL(index_length, 0)), 0) as size
+         FROM information_schema.tables WHERE table_schema = '${d}'`;
+      },
+      tableSizeQuery: (db, table) => {
+        const d = assertSafeSqlIdent(db, 'database');
+        const t = assertSafeSqlIdent(table, 'table');
+        return `SELECT data_length + index_length as total_bytes, table_rows
+         FROM information_schema.tables
+         WHERE table_schema = '${d}' AND table_name = '${t}'`;
+      },
+      indexCountQuery: db => {
+        const d = assertSafeSqlIdent(db, 'database');
+        return `SELECT COUNT(DISTINCT index_name) as cnt
+         FROM information_schema.statistics WHERE table_schema = '${d}'`;
+      },
+      tableIndexesQuery: table => {
+        const t = assertSafeSqlIdent(table, 'table');
+        return `SHOW INDEX FROM \`${t}\``;
+      },
     },
   },
   [Driver.Mariadb]: {
@@ -160,17 +201,27 @@ export const DRIVERS: Record<Driver, DriverMetadata> = {
       namespaceStrategy: 'database',
     },
     queries: {
-      databaseSizeQuery: db =>
-        `SELECT COALESCE(SUM(IFNULL(data_length, 0) + IFNULL(index_length, 0)), 0) as size
-          FROM information_schema.tables WHERE table_schema = '${db}'`,
-      tableSizeQuery: (db, table) =>
-        `SELECT data_length + index_length as total_bytes, table_rows
+      databaseSizeQuery: db => {
+        const d = assertSafeSqlIdent(db, 'database');
+        return `SELECT COALESCE(SUM(IFNULL(data_length, 0) + IFNULL(index_length, 0)), 0) as size
+          FROM information_schema.tables WHERE table_schema = '${d}'`;
+      },
+      tableSizeQuery: (db, table) => {
+        const d = assertSafeSqlIdent(db, 'database');
+        const t = assertSafeSqlIdent(table, 'table');
+        return `SELECT data_length + index_length as total_bytes, table_rows
           FROM information_schema.tables
-          WHERE table_schema = '${db}' AND table_name = '${table}'`,
-      indexCountQuery: db =>
-        `SELECT COUNT(DISTINCT index_name) as cnt
-          FROM information_schema.statistics WHERE table_schema = '${db}'`,
-      tableIndexesQuery: table => `SHOW INDEX FROM \`${table}\``,
+          WHERE table_schema = '${d}' AND table_name = '${t}'`;
+      },
+      indexCountQuery: db => {
+        const d = assertSafeSqlIdent(db, 'database');
+        return `SELECT COUNT(DISTINCT index_name) as cnt
+          FROM information_schema.statistics WHERE table_schema = '${d}'`;
+      },
+      tableIndexesQuery: table => {
+        const t = assertSafeSqlIdent(table, 'table');
+        return `SHOW INDEX FROM \`${t}\``;
+      },
     },
   },
   [Driver.Mongodb]: {
@@ -241,8 +292,10 @@ export const DRIVERS: Record<Driver, DriverMetadata> = {
       namespaceStrategy: 'database',
     },
     queries: {
-      tableSizeQuery: (_, table) =>
-        `SELECT page_count * page_size as total_bytes FROM pragma_page_count('${table}'), pragma_page_size()`,
+      tableSizeQuery: (_, table) => {
+        const t = assertSafeSqlIdent(table, 'table');
+        return `SELECT page_count * page_size as total_bytes FROM pragma_page_count('${t}'), pragma_page_size()`;
+      },
     },
   },
   [Driver.Duckdb]: {
@@ -269,10 +322,15 @@ export const DRIVERS: Record<Driver, DriverMetadata> = {
     queries: {
       databaseSizeQuery: () =>
         'SELECT pg_size_pretty(database_size) as size FROM duckdb_databases() WHERE database_name = current_database()',
-      tableSizeQuery: (schema, table) =>
-        `SELECT estimated_size as total_bytes FROM duckdb_tables() WHERE schema_name = '${schema}' AND table_name = '${table}'`,
-      indexCountQuery: schema =>
-        `SELECT COUNT(*) as cnt FROM duckdb_indexes() WHERE schema_name = '${schema}'`,
+      tableSizeQuery: (schema, table) => {
+        const s = assertSafeSqlIdent(schema, 'schema');
+        const t = assertSafeSqlIdent(table, 'table');
+        return `SELECT estimated_size as total_bytes FROM duckdb_tables() WHERE schema_name = '${s}' AND table_name = '${t}'`;
+      },
+      indexCountQuery: schema => {
+        const s = assertSafeSqlIdent(schema, 'schema');
+        return `SELECT COUNT(*) as cnt FROM duckdb_indexes() WHERE schema_name = '${s}'`;
+      },
     },
   },
   [Driver.SqlServer]: {
@@ -300,22 +358,29 @@ export const DRIVERS: Record<Driver, DriverMetadata> = {
       databaseSizeQuery: () =>
         `SELECT CAST(SUM(size) * 8.0 / 1024 AS DECIMAL(18,2)) AS size_mb
          FROM sys.database_files`,
-      tableSizeQuery: (schema, table) =>
-        `SELECT SUM(ps.reserved_page_count) * 8192 AS total_bytes
+      tableSizeQuery: (schema, table) => {
+        const s = assertSafeSqlIdent(schema, 'schema');
+        const t = assertSafeSqlIdent(table, 'table');
+        return `SELECT SUM(ps.reserved_page_count) * 8192 AS total_bytes
          FROM sys.dm_db_partition_stats ps
          JOIN sys.tables t ON ps.object_id = t.object_id
          JOIN sys.schemas s ON t.schema_id = s.schema_id
-         WHERE s.name = '${schema}' AND t.name = '${table}'`,
-      indexCountQuery: schema =>
-        `SELECT COUNT(*) AS cnt FROM sys.indexes i
+         WHERE s.name = '${s}' AND t.name = '${t}'`;
+      },
+      indexCountQuery: schema => {
+        const s = assertSafeSqlIdent(schema, 'schema');
+        return `SELECT COUNT(*) AS cnt FROM sys.indexes i
          JOIN sys.tables t ON i.object_id = t.object_id
          JOIN sys.schemas s ON t.schema_id = s.schema_id
-         WHERE s.name = '${schema}' AND i.type > 0`,
-      tableIndexesQuery: table =>
-        `SELECT i.name AS index_name, i.type_desc
+         WHERE s.name = '${s}' AND i.type > 0`;
+      },
+      tableIndexesQuery: table => {
+        const t = assertSafeSqlIdent(table, 'table');
+        return `SELECT i.name AS index_name, i.type_desc
          FROM sys.indexes i
          JOIN sys.tables t ON i.object_id = t.object_id
-         WHERE t.name = '${table}' AND i.type > 0`,
+         WHERE t.name = '${t}' AND i.type > 0`;
+      },
     },
   },
   [Driver.Cockroachdb]: {
@@ -342,13 +407,20 @@ export const DRIVERS: Record<Driver, DriverMetadata> = {
     queries: {
       databaseSizeQuery: () =>
         'SELECT pg_size_pretty(pg_database_size(current_database())) as size',
-      tableSizeQuery: (schema, table) =>
-        `SELECT pg_total_relation_size('"${schema}"."${table}"') as total_bytes,
-                pg_size_pretty(pg_total_relation_size('"${schema}"."${table}"')) as size_pretty`,
-      indexCountQuery: schema =>
-        `SELECT COUNT(*) as cnt FROM pg_indexes WHERE schemaname = '${schema}'`,
-      tableIndexesQuery: table =>
-        `SELECT indexname, indexdef FROM pg_indexes WHERE tablename = '${table}'`,
+      tableSizeQuery: (schema, table) => {
+        const s = assertSafeSqlIdent(schema, 'schema');
+        const t = assertSafeSqlIdent(table, 'table');
+        return `SELECT pg_total_relation_size('"${s}"."${t}"') as total_bytes,
+                pg_size_pretty(pg_total_relation_size('"${s}"."${t}"')) as size_pretty`;
+      },
+      indexCountQuery: schema => {
+        const s = assertSafeSqlIdent(schema, 'schema');
+        return `SELECT COUNT(*) as cnt FROM pg_indexes WHERE schemaname = '${s}'`;
+      },
+      tableIndexesQuery: table => {
+        const t = assertSafeSqlIdent(table, 'table');
+        return `SELECT indexname, indexdef FROM pg_indexes WHERE tablename = '${t}'`;
+      },
     },
   },
   [Driver.Supabase]: {
@@ -375,16 +447,26 @@ export const DRIVERS: Record<Driver, DriverMetadata> = {
     queries: {
       databaseSizeQuery: () =>
         'SELECT pg_size_pretty(pg_database_size(current_database())) as size',
-      tableSizeQuery: (schema, table) =>
-        `SELECT pg_total_relation_size('"${schema}"."${table}"') as total_bytes,
-                pg_size_pretty(pg_total_relation_size('"${schema}"."${table}"')) as size_pretty`,
-      indexCountQuery: schema =>
-        `SELECT COUNT(*) as cnt FROM pg_indexes WHERE schemaname = '${schema}'`,
-      tableIndexesQuery: table =>
-        `SELECT indexname, indexdef FROM pg_indexes WHERE tablename = '${table}'`,
-      maintenanceQuery: (schema, table) =>
-        `SELECT last_vacuum, last_analyze FROM pg_stat_user_tables
-         WHERE schemaname = '${schema}' AND relname = '${table}'`,
+      tableSizeQuery: (schema, table) => {
+        const s = assertSafeSqlIdent(schema, 'schema');
+        const t = assertSafeSqlIdent(table, 'table');
+        return `SELECT pg_total_relation_size('"${s}"."${t}"') as total_bytes,
+                pg_size_pretty(pg_total_relation_size('"${s}"."${t}"')) as size_pretty`;
+      },
+      indexCountQuery: schema => {
+        const s = assertSafeSqlIdent(schema, 'schema');
+        return `SELECT COUNT(*) as cnt FROM pg_indexes WHERE schemaname = '${s}'`;
+      },
+      tableIndexesQuery: table => {
+        const t = assertSafeSqlIdent(table, 'table');
+        return `SELECT indexname, indexdef FROM pg_indexes WHERE tablename = '${t}'`;
+      },
+      maintenanceQuery: (schema, table) => {
+        const s = assertSafeSqlIdent(schema, 'schema');
+        const t = assertSafeSqlIdent(table, 'table');
+        return `SELECT last_vacuum, last_analyze FROM pg_stat_user_tables
+         WHERE schemaname = '${s}' AND relname = '${t}'`;
+      },
     },
   },
   [Driver.Neon]: {
@@ -411,16 +493,26 @@ export const DRIVERS: Record<Driver, DriverMetadata> = {
     queries: {
       databaseSizeQuery: () =>
         'SELECT pg_size_pretty(pg_database_size(current_database())) as size',
-      tableSizeQuery: (schema, table) =>
-        `SELECT pg_total_relation_size('"${schema}"."${table}"') as total_bytes,
-                pg_size_pretty(pg_total_relation_size('"${schema}"."${table}"')) as size_pretty`,
-      indexCountQuery: schema =>
-        `SELECT COUNT(*) as cnt FROM pg_indexes WHERE schemaname = '${schema}'`,
-      tableIndexesQuery: table =>
-        `SELECT indexname, indexdef FROM pg_indexes WHERE tablename = '${table}'`,
-      maintenanceQuery: (schema, table) =>
-        `SELECT last_vacuum, last_analyze FROM pg_stat_user_tables
-         WHERE schemaname = '${schema}' AND relname = '${table}'`,
+      tableSizeQuery: (schema, table) => {
+        const s = assertSafeSqlIdent(schema, 'schema');
+        const t = assertSafeSqlIdent(table, 'table');
+        return `SELECT pg_total_relation_size('"${s}"."${t}"') as total_bytes,
+                pg_size_pretty(pg_total_relation_size('"${s}"."${t}"')) as size_pretty`;
+      },
+      indexCountQuery: schema => {
+        const s = assertSafeSqlIdent(schema, 'schema');
+        return `SELECT COUNT(*) as cnt FROM pg_indexes WHERE schemaname = '${s}'`;
+      },
+      tableIndexesQuery: table => {
+        const t = assertSafeSqlIdent(table, 'table');
+        return `SELECT indexname, indexdef FROM pg_indexes WHERE tablename = '${t}'`;
+      },
+      maintenanceQuery: (schema, table) => {
+        const s = assertSafeSqlIdent(schema, 'schema');
+        const t = assertSafeSqlIdent(table, 'table');
+        return `SELECT last_vacuum, last_analyze FROM pg_stat_user_tables
+         WHERE schemaname = '${s}' AND relname = '${t}'`;
+      },
     },
   },
   [Driver.Clickhouse]: {
@@ -445,16 +537,25 @@ export const DRIVERS: Record<Driver, DriverMetadata> = {
       namespaceStrategy: 'database',
     },
     queries: {
-      databaseSizeQuery: db =>
-        `SELECT formatReadableSize(sum(bytes_on_disk)) AS size FROM system.parts WHERE database = '${db}' AND active`,
-      tableSizeQuery: (db, table) =>
-        `SELECT sum(bytes_on_disk) AS total_bytes, sum(rows) AS table_rows
+      databaseSizeQuery: db => {
+        const d = assertSafeSqlIdent(db, 'database');
+        return `SELECT formatReadableSize(sum(bytes_on_disk)) AS size FROM system.parts WHERE database = '${d}' AND active`;
+      },
+      tableSizeQuery: (db, table) => {
+        const d = assertSafeSqlIdent(db, 'database');
+        const t = assertSafeSqlIdent(table, 'table');
+        return `SELECT sum(bytes_on_disk) AS total_bytes, sum(rows) AS table_rows
          FROM system.parts
-         WHERE database = '${db}' AND table = '${table}' AND active`,
-      indexCountQuery: db =>
-        `SELECT count() AS cnt FROM system.data_skipping_indices WHERE database = '${db}'`,
-      tableIndexesQuery: table =>
-        `SELECT name, type, expr FROM system.data_skipping_indices WHERE table = '${table}'`,
+         WHERE database = '${d}' AND table = '${t}' AND active`;
+      },
+      indexCountQuery: db => {
+        const d = assertSafeSqlIdent(db, 'database');
+        return `SELECT count() AS cnt FROM system.data_skipping_indices WHERE database = '${d}'`;
+      },
+      tableIndexesQuery: table => {
+        const t = assertSafeSqlIdent(table, 'table');
+        return `SELECT name, type, expr FROM system.data_skipping_indices WHERE table = '${t}'`;
+      },
     },
   },
   [Driver.Timescaledb]: {
@@ -481,16 +582,26 @@ export const DRIVERS: Record<Driver, DriverMetadata> = {
     queries: {
       databaseSizeQuery: () =>
         'SELECT pg_size_pretty(pg_database_size(current_database())) as size',
-      tableSizeQuery: (schema, table) =>
-        `SELECT pg_total_relation_size('"${schema}"."${table}"') as total_bytes,
-                pg_size_pretty(pg_total_relation_size('"${schema}"."${table}"')) as size_pretty`,
-      indexCountQuery: schema =>
-        `SELECT COUNT(*) as cnt FROM pg_indexes WHERE schemaname = '${schema}'`,
-      tableIndexesQuery: table =>
-        `SELECT indexname, indexdef FROM pg_indexes WHERE tablename = '${table}'`,
-      maintenanceQuery: (schema, table) =>
-        `SELECT last_vacuum, last_analyze FROM pg_stat_user_tables
-         WHERE schemaname = '${schema}' AND relname = '${table}'`,
+      tableSizeQuery: (schema, table) => {
+        const s = assertSafeSqlIdent(schema, 'schema');
+        const t = assertSafeSqlIdent(table, 'table');
+        return `SELECT pg_total_relation_size('"${s}"."${t}"') as total_bytes,
+                pg_size_pretty(pg_total_relation_size('"${s}"."${t}"')) as size_pretty`;
+      },
+      indexCountQuery: schema => {
+        const s = assertSafeSqlIdent(schema, 'schema');
+        return `SELECT COUNT(*) as cnt FROM pg_indexes WHERE schemaname = '${s}'`;
+      },
+      tableIndexesQuery: table => {
+        const t = assertSafeSqlIdent(table, 'table');
+        return `SELECT indexname, indexdef FROM pg_indexes WHERE tablename = '${t}'`;
+      },
+      maintenanceQuery: (schema, table) => {
+        const s = assertSafeSqlIdent(schema, 'schema');
+        const t = assertSafeSqlIdent(table, 'table');
+        return `SELECT last_vacuum, last_analyze FROM pg_stat_user_tables
+         WHERE schemaname = '${s}' AND relname = '${t}'`;
+      },
     },
   },
 };

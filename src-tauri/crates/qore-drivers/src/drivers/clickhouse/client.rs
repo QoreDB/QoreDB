@@ -34,6 +34,22 @@ pub(crate) struct ClickHouseClient {
 
 impl ClickHouseClient {
     pub fn new(config: &ConnectionConfig) -> EngineResult<Self> {
+        // Refuse to send a password over cleartext HTTP. With `ssl_mode =
+        // "disable"` (or `ssl = false` and no opt-out via `ssl_mode = "allow"`)
+        // the Basic-auth header would otherwise be base64-encoded and trivial
+        // to sniff on the wire (cf. audit B4-C8). Allow it only when the user
+        // explicitly chose to disable TLS *and* there is no password to leak,
+        // or when the operator opted into `allow` mode against a localhost
+        // target with no password (test rigs, docker compose).
+        let ssl_disabled = !config.ssl
+            && matches!(config.ssl_mode.as_deref(), None | Some("disable") | Some("allow"));
+        if ssl_disabled && !config.password.is_empty() {
+            return Err(EngineError::connection_failed(
+                "ClickHouse: refusing to send password over cleartext HTTP. \
+                 Enable TLS (ssl=true / ssl_mode=require) or remove the password.",
+            ));
+        }
+
         let scheme = if config.ssl { "https" } else { "http" };
         let host = if config.host.is_empty() {
             "localhost"
@@ -157,8 +173,36 @@ impl ClickHouseClient {
     /// Issue a query that streams JSON rows. Caller is responsible for parsing.
     /// Adds `FORMAT JSONCompactEachRowWithNamesAndTypes` if not already present.
     pub async fn fetch_json(&self, sql: &str, query_id: Option<&Uuid>) -> EngineResult<String> {
+        self.fetch_json_with_params(sql, query_id, &[]).await
+    }
+
+    /// Like [`fetch_json`], but binds named parameters as `param_<name>` URL
+    /// settings. Reference them in SQL with `{name:Type}` placeholders. This
+    /// is the safe way to interpolate user-supplied strings (database name,
+    /// table name, LIKE patterns) into a query — ClickHouse parses them as
+    /// values rather than SQL fragments.
+    pub async fn fetch_json_with_params(
+        &self,
+        sql: &str,
+        query_id: Option<&Uuid>,
+        params: &[(&str, &str)],
+    ) -> EngineResult<String> {
         let with_format = ensure_format(sql);
-        let url = self.build_url(query_id, Some(self.current_database().as_str()));
+        // Materialise the `param_<name>` keys with their values; the URL
+        // builder pushes them straight as query pairs.
+        let param_pairs: Vec<(String, String)> = params
+            .iter()
+            .map(|(name, value)| (format!("param_{}", name), (*value).to_string()))
+            .collect();
+        let settings: Vec<(&str, &str)> = param_pairs
+            .iter()
+            .map(|(k, v)| (k.as_str(), v.as_str()))
+            .collect();
+        let url = self.build_url_with_settings(
+            query_id,
+            Some(self.current_database().as_str()),
+            &settings,
+        );
         let resp = self
             .http
             .post(url)

@@ -37,22 +37,14 @@ impl VaultLock {
         (service, key)
     }
 
-    /// Checks if a master password has been set
+    /// Checks if a master password has been set. Uses the typed
+    /// `has_credential` API so a future wording change in the keyring crate
+    /// can't silently flip the answer (cf. audit B5-C1).
     pub fn has_master_password(&self) -> EngineResult<bool> {
         let (service, key) = self.master_key_params();
-
-        match self.provider.get_password(&service, &key) {
-            Ok(_) => Ok(true),
-            Err(e) if e.to_string().contains("not found") => Ok(false),
-            Err(e) if e.to_string().contains("NoEntry") => Ok(false),
-            Err(e) if e.to_string().contains("internal") => {
-                if e.to_string().contains("Credentials not found") {
-                    return Ok(false);
-                }
-                Err(e)
-            }
-            Err(e) => Err(e),
-        }
+        self.provider
+            .has_credential(&service, &key)
+            .map_err(EngineError::from)
     }
 
     /// Sets up a new master password
@@ -135,9 +127,21 @@ impl VaultLock {
         Ok(())
     }
 
-    /// Auto-unlocks if no master password is set
+    /// Auto-unlocks the vault when no master password is set. This is a
+    /// deliberate UX trade-off (no prompt on first launch) but it means a
+    /// fresh install ships with credentials decryptable by anyone with
+    /// session-level access to the OS account. We `tracing::warn!` so the
+    /// state is at least observable in logs — the proper fix is an
+    /// onboarding flow forcing master-password setup (cf. audit B5-C3,
+    /// tracked separately).
     pub fn auto_unlock_if_no_password(&mut self) -> EngineResult<()> {
         if !self.has_master_password()? {
+            tracing::warn!(
+                "Vault auto-unlocked because no master password is configured. \
+                 Credentials are stored in the OS keyring but the in-memory \
+                 vault is open by default — set a master password to require \
+                 unlock at startup."
+            );
             self.is_unlocked = true;
         }
         Ok(())

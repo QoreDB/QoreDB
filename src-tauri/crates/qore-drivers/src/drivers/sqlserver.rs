@@ -405,23 +405,20 @@ impl DataEngine for SqlServerDriver {
         let schema = namespace.schema.as_deref().unwrap_or("dbo");
         let search_pattern = options.search.as_ref().map(|s| format!("%{}%", s));
 
-        // Count query
+        // All schema/table identifiers are passed as tiberius `@PN` parameters
+        // — never interpolated. Quote-doubling (`'\''` -> `''`) is not enough
+        // on its own; for instance a schema name with control characters or
+        // a NUL byte can still confuse downstream parsers (cf. audit B3-C2).
         let count_sql = if search_pattern.is_some() {
-            format!(
-                "SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES \
-                 WHERE TABLE_SCHEMA = '{}' AND TABLE_NAME LIKE @P1",
-                schema.replace('\'', "''")
-            )
+            "SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES \
+             WHERE TABLE_SCHEMA = @P1 AND TABLE_NAME LIKE @P2"
         } else {
-            format!(
-                "SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = '{}'",
-                schema.replace('\'', "''")
-            )
+            "SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = @P1"
         };
 
         let count_result = if let Some(ref pattern) = search_pattern {
             let stream = conn
-                .query(&count_sql, &[pattern])
+                .query(count_sql, &[&schema, pattern])
                 .await
                 .map_err(|e| EngineError::execution_error(e.to_string()))?;
             stream
@@ -430,7 +427,7 @@ impl DataEngine for SqlServerDriver {
                 .map_err(|e| EngineError::execution_error(e.to_string()))?
         } else {
             let stream = conn
-                .simple_query(&count_sql)
+                .query(count_sql, &[&schema])
                 .await
                 .map_err(|e| EngineError::execution_error(e.to_string()))?;
             stream
@@ -441,14 +438,13 @@ impl DataEngine for SqlServerDriver {
 
         let total_count: i32 = count_result.first().and_then(|row| row.get(0)).unwrap_or(0);
 
-        // Data query with pagination
-        let mut data_sql = format!(
+        // Data query with pagination — same parametrisation rule.
+        let mut data_sql = String::from(
             "SELECT TABLE_NAME, TABLE_TYPE FROM INFORMATION_SCHEMA.TABLES \
-             WHERE TABLE_SCHEMA = '{}'",
-            schema.replace('\'', "''")
+             WHERE TABLE_SCHEMA = @P1",
         );
         if search_pattern.is_some() {
-            data_sql.push_str(" AND TABLE_NAME LIKE @P1");
+            data_sql.push_str(" AND TABLE_NAME LIKE @P2");
         }
         data_sql.push_str(" ORDER BY TABLE_NAME");
 
@@ -462,7 +458,7 @@ impl DataEngine for SqlServerDriver {
 
         let data_rows = if let Some(ref pattern) = search_pattern {
             let stream = conn
-                .query(&data_sql, &[pattern])
+                .query(&data_sql, &[&schema, pattern])
                 .await
                 .map_err(|e| EngineError::execution_error(e.to_string()))?;
             stream
@@ -471,7 +467,7 @@ impl DataEngine for SqlServerDriver {
                 .map_err(|e| EngineError::execution_error(e.to_string()))?
         } else {
             let stream = conn
-                .simple_query(&data_sql)
+                .query(&data_sql, &[&schema])
                 .await
                 .map_err(|e| EngineError::execution_error(e.to_string()))?;
             stream
@@ -517,17 +513,15 @@ impl DataEngine for SqlServerDriver {
         })?;
         let schema = namespace.schema.as_deref().unwrap_or("dbo");
 
-        // 1. Columns from INFORMATION_SCHEMA
-        let col_sql = format!(
-            "SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE, COLUMN_DEFAULT \
+        // All `WHERE ... = '<schema>' AND ... = '<table>'` predicates below
+        // are bound through `@P1`/`@P2` rather than interpolated strings —
+        // see the same defence applied in `list_collections` (audit B3-C2).
+        let col_sql = "SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE, COLUMN_DEFAULT \
              FROM INFORMATION_SCHEMA.COLUMNS \
-             WHERE TABLE_SCHEMA = '{}' AND TABLE_NAME = '{}' \
-             ORDER BY ORDINAL_POSITION",
-            schema.replace('\'', "''"),
-            table.replace('\'', "''")
-        );
+             WHERE TABLE_SCHEMA = @P1 AND TABLE_NAME = @P2 \
+             ORDER BY ORDINAL_POSITION";
         let col_stream = conn
-            .simple_query(&col_sql)
+            .query(col_sql, &[&schema, &table])
             .await
             .map_err(|e| EngineError::execution_error(e.to_string()))?;
         let col_rows = col_stream
@@ -553,20 +547,16 @@ impl DataEngine for SqlServerDriver {
             .collect();
 
         // 2. Primary keys
-        let pk_sql = format!(
-            "SELECT c.name AS column_name \
+        let pk_sql = "SELECT c.name AS column_name \
              FROM sys.indexes i \
              JOIN sys.index_columns ic ON i.object_id = ic.object_id AND i.index_id = ic.index_id \
              JOIN sys.columns c ON ic.object_id = c.object_id AND ic.column_id = c.column_id \
              JOIN sys.tables t ON i.object_id = t.object_id \
              JOIN sys.schemas s ON t.schema_id = s.schema_id \
-             WHERE i.is_primary_key = 1 AND s.name = '{}' AND t.name = '{}' \
-             ORDER BY ic.key_ordinal",
-            schema.replace('\'', "''"),
-            table.replace('\'', "''")
-        );
+             WHERE i.is_primary_key = 1 AND s.name = @P1 AND t.name = @P2 \
+             ORDER BY ic.key_ordinal";
         let pk_stream = conn
-            .simple_query(&pk_sql)
+            .query(pk_sql, &[&schema, &table])
             .await
             .map_err(|e| EngineError::execution_error(e.to_string()))?;
         let pk_rows = pk_stream
@@ -586,8 +576,7 @@ impl DataEngine for SqlServerDriver {
         }
 
         // 3. Foreign keys
-        let fk_sql = format!(
-            "SELECT \
+        let fk_sql = "SELECT \
                  kcu.COLUMN_NAME, \
                  kcu2.TABLE_NAME AS referenced_table, \
                  kcu2.COLUMN_NAME AS referenced_column, \
@@ -603,12 +592,9 @@ impl DataEngine for SqlServerDriver {
                  AND rc.UNIQUE_CONSTRAINT_SCHEMA = kcu2.TABLE_SCHEMA \
                  AND kcu.ORDINAL_POSITION = kcu2.ORDINAL_POSITION \
              WHERE tc.CONSTRAINT_TYPE = 'FOREIGN KEY' \
-                 AND tc.TABLE_SCHEMA = '{}' AND tc.TABLE_NAME = '{}'",
-            schema.replace('\'', "''"),
-            table.replace('\'', "''")
-        );
+                 AND tc.TABLE_SCHEMA = @P1 AND tc.TABLE_NAME = @P2";
         let fk_stream = conn
-            .simple_query(&fk_sql)
+            .query(fk_sql, &[&schema, &table])
             .await
             .map_err(|e| EngineError::execution_error(e.to_string()))?;
         let fk_rows = fk_stream
@@ -637,8 +623,7 @@ impl DataEngine for SqlServerDriver {
             .collect();
 
         // 4. Indexes
-        let idx_sql = format!(
-            "SELECT i.name AS index_name, \
+        let idx_sql = "SELECT i.name AS index_name, \
                     c.name AS column_name, \
                     i.is_unique, \
                     i.is_primary_key \
@@ -647,13 +632,10 @@ impl DataEngine for SqlServerDriver {
              JOIN sys.columns c ON ic.object_id = c.object_id AND ic.column_id = c.column_id \
              JOIN sys.tables t ON i.object_id = t.object_id \
              JOIN sys.schemas s ON t.schema_id = s.schema_id \
-             WHERE s.name = '{}' AND t.name = '{}' AND i.name IS NOT NULL \
-             ORDER BY i.name, ic.key_ordinal",
-            schema.replace('\'', "''"),
-            table.replace('\'', "''")
-        );
+             WHERE s.name = @P1 AND t.name = @P2 AND i.name IS NOT NULL \
+             ORDER BY i.name, ic.key_ordinal";
         let idx_stream = conn
-            .simple_query(&idx_sql)
+            .query(idx_sql, &[&schema, &table])
             .await
             .map_err(|e| EngineError::execution_error(e.to_string()))?;
         let idx_rows = idx_stream
@@ -685,17 +667,13 @@ impl DataEngine for SqlServerDriver {
             .collect();
 
         // 5. Row count estimate
-        let count_sql = format!(
-            "SELECT SUM(p.rows) AS row_count \
+        let count_sql = "SELECT SUM(p.rows) AS row_count \
              FROM sys.partitions p \
              JOIN sys.tables t ON p.object_id = t.object_id \
              JOIN sys.schemas s ON t.schema_id = s.schema_id \
-             WHERE s.name = '{}' AND t.name = '{}' AND p.index_id IN (0, 1)",
-            schema.replace('\'', "''"),
-            table.replace('\'', "''")
-        );
+             WHERE s.name = @P1 AND t.name = @P2 AND p.index_id IN (0, 1)";
         let count_stream = conn
-            .simple_query(&count_sql)
+            .query(count_sql, &[&schema, &table])
             .await
             .map_err(|e| EngineError::execution_error(e.to_string()))?;
         let count_rows = count_stream

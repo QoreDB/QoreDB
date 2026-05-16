@@ -121,6 +121,44 @@ pub fn start_workspace_watcher(
                     debounce_deadline = None;
 
                     if let Some(ref ws_path) = new_path {
+                        // Refuse to watch a symlinked workspace root: the
+                        // recursive watcher follows symlinks, so a workspace
+                        // at e.g. `~/work -> /etc` would surface system files
+                        // to the frontend (cf. audit B8-C1). We canonicalise
+                        // here and store the resolved path; event handling
+                        // then re-checks every reported path against this
+                        // canonical root before forwarding.
+                        let canonical_root = match std::fs::canonicalize(ws_path) {
+                            Ok(p) => p,
+                            Err(e) => {
+                                tracing::warn!(
+                                    "Workspace path {} cannot be canonicalised: {}; \
+                                     watcher not started",
+                                    ws_path.display(),
+                                    e
+                                );
+                                continue;
+                            }
+                        };
+                        match std::fs::symlink_metadata(ws_path) {
+                            Ok(meta) if meta.file_type().is_symlink() => {
+                                tracing::warn!(
+                                    "Workspace path {} is a symlink; refusing to watch",
+                                    ws_path.display()
+                                );
+                                continue;
+                            }
+                            Ok(_) => {}
+                            Err(e) => {
+                                tracing::warn!(
+                                    "Workspace path {} stat failed: {}; watcher not started",
+                                    ws_path.display(),
+                                    e
+                                );
+                                continue;
+                            }
+                        }
+
                         // Start new watcher
                         let tx = notify_tx.clone();
                         match RecommendedWatcher::new(
@@ -133,12 +171,18 @@ pub fn start_workspace_watcher(
                                 .with_poll_interval(Duration::from_secs(2)),
                         ) {
                             Ok(mut watcher) => {
-                                if watcher.watch(ws_path, RecursiveMode::Recursive).is_ok() {
-                                    tracing::info!("Workspace watcher started on {}", ws_path.display());
+                                if watcher.watch(&canonical_root, RecursiveMode::Recursive).is_ok() {
+                                    tracing::info!(
+                                        "Workspace watcher started on {}",
+                                        canonical_root.display()
+                                    );
                                     _current_watcher = Some(watcher);
-                                    current_path = Some(ws_path.clone());
+                                    current_path = Some(canonical_root);
                                 } else {
-                                    tracing::warn!("Failed to watch workspace path: {}", ws_path.display());
+                                    tracing::warn!(
+                                        "Failed to watch workspace path: {}",
+                                        canonical_root.display()
+                                    );
                                 }
                             }
                             Err(e) => {
@@ -166,6 +210,24 @@ pub fn start_workspace_watcher(
 
                         if write_registry.is_self_write(path) {
                             continue;
+                        }
+
+                        // Defence-in-depth: even with a canonicalised root, a
+                        // symlink *inside* the workspace can still surface
+                        // events whose path resolves outside it. Drop those.
+                        match std::fs::canonicalize(path) {
+                            Ok(canon) if !canon.starts_with(ws_root) => {
+                                tracing::debug!(
+                                    "Ignoring watcher event for {} (resolves outside workspace root {})",
+                                    path.display(),
+                                    ws_root.display()
+                                );
+                                continue;
+                            }
+                            // Path no longer exists (deletion event) — fall
+                            // through to `classify_path` which only inspects
+                            // string components, not the filesystem.
+                            Ok(_) | Err(_) => {}
                         }
 
                         if let Some(category) = classify_path(path, ws_root) {

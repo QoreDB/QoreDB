@@ -131,9 +131,24 @@ impl ChangelogStore {
     // ─── Recording ─────────────────────────────────────────────────────
 
     /// Record a changelog entry. Best-effort: never blocks the caller on failure.
-    pub fn record(&self, entry: ChangelogEntry) {
+    pub fn record(&self, mut entry: ChangelogEntry) {
         if !self.is_enabled() {
             return;
+        }
+
+        // Redact sensitive column values before the entry is stored — both
+        // in-memory and on disk. The changelog is a plain-text JSONL file, so
+        // a column named `password_hash` or `api_key` would otherwise sit on
+        // the user's filesystem until manual purge (cf. audit B7-C3).
+        let sensitive: Vec<String> = self
+            .config
+            .read()
+            .sensitive_columns
+            .iter()
+            .map(|s| s.to_ascii_lowercase())
+            .collect();
+        if !sensitive.is_empty() {
+            redact_entry(&mut entry, &sensitive);
         }
 
         // Add to in-memory cache
@@ -652,6 +667,28 @@ fn pk_matches(
     a.iter().all(|(k, v)| b.get(k) == Some(v))
 }
 
+/// Redact sensitive column values in `before` / `after` maps. `sensitive`
+/// must be pre-lowercased so the match is O(1) per column. `changed_columns`
+/// is left untouched — knowing *which* column changed (by name) is not the
+/// leak; the value is.
+fn redact_entry(entry: &mut ChangelogEntry, sensitive: &[String]) {
+    if let Some(before) = entry.before.as_mut() {
+        redact_map(before, sensitive);
+    }
+    if let Some(after) = entry.after.as_mut() {
+        redact_map(after, sensitive);
+    }
+}
+
+fn redact_map(map: &mut std::collections::HashMap<String, serde_json::Value>, sensitive: &[String]) {
+    for (key, value) in map.iter_mut() {
+        let lower = key.to_ascii_lowercase();
+        if sensitive.iter().any(|s| lower.contains(s.as_str())) {
+            *value = serde_json::Value::String("[REDACTED]".to_string());
+        }
+    }
+}
+
 /// Serialize a PK map into a deterministic string for hashing.
 fn serialize_pk(pk: &std::collections::HashMap<String, serde_json::Value>) -> String {
     let mut pairs: Vec<_> = pk.iter().collect();
@@ -707,6 +744,53 @@ mod tests {
         m.insert("id".to_string(), serde_json::json!(id));
         m.insert("name".to_string(), serde_json::json!(name));
         m
+    }
+
+    #[test]
+    fn redact_map_replaces_only_sensitive_columns() {
+        let mut m = HashMap::new();
+        m.insert("id".to_string(), serde_json::json!(1));
+        m.insert("email".to_string(), serde_json::json!("a@b.com"));
+        m.insert(
+            "password_hash".to_string(),
+            serde_json::json!("$2b$12$..."),
+        );
+        m.insert("api_key".to_string(), serde_json::json!("sk-leak"));
+        m.insert("name".to_string(), serde_json::json!("Alice"));
+        let sensitive: Vec<String> = ["password", "api_key", "email"]
+            .into_iter()
+            .map(|s| s.to_ascii_lowercase())
+            .collect();
+        redact_map(&mut m, &sensitive);
+        assert_eq!(m["id"], serde_json::json!(1));
+        assert_eq!(m["name"], serde_json::json!("Alice"));
+        assert_eq!(m["email"], serde_json::json!("[REDACTED]"));
+        assert_eq!(m["password_hash"], serde_json::json!("[REDACTED]"));
+        assert_eq!(m["api_key"], serde_json::json!("[REDACTED]"));
+    }
+
+    #[test]
+    fn record_redacts_before_writing_to_disk() {
+        let tmp = TempDir::new().unwrap();
+        let store = ChangelogStore::new(tmp.path().to_path_buf());
+        let mut before = HashMap::new();
+        before.insert("id".to_string(), serde_json::json!(1));
+        before.insert(
+            "password".to_string(),
+            serde_json::json!("hunter2"),
+        );
+        let entry = make_entry(
+            "users",
+            ChangeOperation::Delete,
+            pk(1),
+            Some(before),
+            None,
+        );
+        store.record(entry);
+        // Read what was actually persisted
+        let content = std::fs::read_to_string(tmp.path().join("changelog.jsonl")).unwrap();
+        assert!(content.contains("[REDACTED]"));
+        assert!(!content.contains("hunter2"));
     }
 
     #[test]

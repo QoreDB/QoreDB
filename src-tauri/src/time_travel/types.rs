@@ -148,6 +148,50 @@ pub struct TimeTravelConfig {
     pub excluded_tables: Vec<String>,
     /// Only capture mutations in production environments
     pub production_only: bool,
+    /// Column names whose values must be redacted before being written to the
+    /// changelog on disk. Matched case-insensitively against the column key;
+    /// the redaction replaces the value with the literal string `"[REDACTED]"`.
+    /// Defaults to a conservative list of common PII / secret identifiers so
+    /// `passwords_hash` / `api_key` / `cc_number` / `email` columns never land
+    /// in plain text on disk (cf. audit B7-C3).
+    #[serde(default = "default_sensitive_columns")]
+    pub sensitive_columns: Vec<String>,
+}
+
+fn default_sensitive_columns() -> Vec<String> {
+    [
+        "password",
+        "passwd",
+        "pwd",
+        "password_hash",
+        "secret",
+        "api_key",
+        "access_token",
+        "refresh_token",
+        "auth_token",
+        "token",
+        "ssn",
+        "social_security",
+        "tax_id",
+        "cc_number",
+        "card_number",
+        "credit_card",
+        "cvv",
+        "cvc",
+        "iban",
+        "email",
+        "phone",
+        "address",
+        "postal_code",
+        "zip",
+        "birth_date",
+        "date_of_birth",
+        "dob",
+        "salary",
+    ]
+    .into_iter()
+    .map(String::from)
+    .collect()
 }
 
 impl Default for TimeTravelConfig {
@@ -159,6 +203,7 @@ impl Default for TimeTravelConfig {
             max_file_size_mb: 500,
             excluded_tables: vec![],
             production_only: false,
+            sensitive_columns: default_sensitive_columns(),
         }
     }
 }

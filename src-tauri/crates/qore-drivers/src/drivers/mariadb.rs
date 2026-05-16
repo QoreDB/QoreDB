@@ -243,63 +243,76 @@ impl DataEngine for MariaDbDriver {
 
         let search = options.search.unwrap_or_default();
         let page = options.page.unwrap_or(1).max(1);
-        let page_size = options.page_size.unwrap_or(100).min(1000);
-        let offset = (page - 1) * page_size;
+        let page_size = options.page_size.unwrap_or(100).min(1000) as i64;
+        let offset = ((page - 1) as i64) * page_size;
+        let database = namespace.database.clone();
 
-        // Count total
-        let count_query = if search.is_empty() {
-            format!(
-                "SELECT COUNT(*) as cnt FROM information_schema.SEQUENCES \
-                 WHERE SEQUENCE_SCHEMA = '{}'",
-                namespace.database.replace('\'', "''")
-            )
+        // Wrap the search pattern with `%...%` and escape LIKE wildcards (`%`,
+        // `_`, `\\`) so a user typing `50%` doesn't match every row containing
+        // `50`. We bind the resulting string — sqlx parameterises it safely
+        // regardless of `NO_BACKSLASH_ESCAPES` mode (cf. B3-C1 / B3-H5).
+        let like_pattern = if search.is_empty() {
+            None
         } else {
-            format!(
-                "SELECT COUNT(*) as cnt FROM information_schema.SEQUENCES \
-                 WHERE SEQUENCE_SCHEMA = '{}' AND SEQUENCE_NAME LIKE '%{}%'",
-                namespace.database.replace('\'', "''"),
-                search.replace('\'', "''")
-            )
+            let escaped = search
+                .replace('\\', "\\\\")
+                .replace('%', "\\%")
+                .replace('_', "\\_");
+            Some(format!("%{}%", escaped))
         };
 
-        let count_row: (i64,) = sqlx::query_as(&count_query)
+        let total_count = if let Some(pattern) = like_pattern.as_ref() {
+            let (cnt,): (i64,) = sqlx::query_as(
+                "SELECT COUNT(*) FROM information_schema.SEQUENCES \
+                 WHERE SEQUENCE_SCHEMA = ? AND SEQUENCE_NAME LIKE ?",
+            )
+            .bind(&database)
+            .bind(pattern)
             .fetch_one(pool)
             .await
             .map_err(|e| EngineError::execution_error(e.to_string()))?;
-        let total_count = count_row.0 as u32;
-
-        // Fetch sequences
-        let data_query = if search.is_empty() {
-            format!(
-                "SELECT SEQUENCE_NAME, DATA_TYPE, START_VALUE, MINIMUM_VALUE, \
-                 MAXIMUM_VALUE, `INCREMENT`, CYCLE_OPTION, CACHE_SIZE \
-                 FROM information_schema.SEQUENCES \
-                 WHERE SEQUENCE_SCHEMA = '{}' \
-                 ORDER BY SEQUENCE_NAME \
-                 LIMIT {} OFFSET {}",
-                namespace.database.replace('\'', "''"),
-                page_size,
-                offset
-            )
+            cnt as u32
         } else {
-            format!(
-                "SELECT SEQUENCE_NAME, DATA_TYPE, START_VALUE, MINIMUM_VALUE, \
-                 MAXIMUM_VALUE, `INCREMENT`, CYCLE_OPTION, CACHE_SIZE \
-                 FROM information_schema.SEQUENCES \
-                 WHERE SEQUENCE_SCHEMA = '{}' AND SEQUENCE_NAME LIKE '%{}%' \
-                 ORDER BY SEQUENCE_NAME \
-                 LIMIT {} OFFSET {}",
-                namespace.database.replace('\'', "''"),
-                search.replace('\'', "''"),
-                page_size,
-                offset
+            let (cnt,): (i64,) = sqlx::query_as(
+                "SELECT COUNT(*) FROM information_schema.SEQUENCES WHERE SEQUENCE_SCHEMA = ?",
             )
-        };
-
-        let rows = sqlx::query(&data_query)
-            .fetch_all(pool)
+            .bind(&database)
+            .fetch_one(pool)
             .await
             .map_err(|e| EngineError::execution_error(e.to_string()))?;
+            cnt as u32
+        };
+
+        let rows = if let Some(pattern) = like_pattern.as_ref() {
+            sqlx::query(
+                "SELECT SEQUENCE_NAME, DATA_TYPE, START_VALUE, MINIMUM_VALUE, \
+                 MAXIMUM_VALUE, `INCREMENT`, CYCLE_OPTION, CACHE_SIZE \
+                 FROM information_schema.SEQUENCES \
+                 WHERE SEQUENCE_SCHEMA = ? AND SEQUENCE_NAME LIKE ? \
+                 ORDER BY SEQUENCE_NAME LIMIT ? OFFSET ?",
+            )
+            .bind(&database)
+            .bind(pattern)
+            .bind(page_size)
+            .bind(offset)
+            .fetch_all(pool)
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?
+        } else {
+            sqlx::query(
+                "SELECT SEQUENCE_NAME, DATA_TYPE, START_VALUE, MINIMUM_VALUE, \
+                 MAXIMUM_VALUE, `INCREMENT`, CYCLE_OPTION, CACHE_SIZE \
+                 FROM information_schema.SEQUENCES \
+                 WHERE SEQUENCE_SCHEMA = ? \
+                 ORDER BY SEQUENCE_NAME LIMIT ? OFFSET ?",
+            )
+            .bind(&database)
+            .bind(page_size)
+            .bind(offset)
+            .fetch_all(pool)
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?
+        };
 
         let sequences = rows
             .into_iter()

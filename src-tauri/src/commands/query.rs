@@ -125,16 +125,44 @@ pub async fn execute_query(
     bypass_limits: Option<bool>,
     on_stream: Channel<InvokeResponseBody>,
 ) -> Result<QueryResponse, String> {
-    let bypass_limits = bypass_limits.unwrap_or(false);
-    let (session_manager, query_manager, policy, interceptor) = {
+    let requested_bypass = bypass_limits.unwrap_or(false);
+    let (session_manager, query_manager, policy, interceptor, license_tier) = {
         let state = state.lock().await;
         (
             Arc::clone(&state.session_manager),
             Arc::clone(&state.query_manager),
             state.policy.clone(),
             Arc::clone(&state.interceptor),
+            state.license_manager.effective_status().tier,
         )
     };
+
+    // Gate governance-limit bypass behind Team+. Without this check, any JS in
+    // the webview (or a DevTools call in debug) can pass `bypass_limits=true`
+    // and dodge max_query_duration_ms / max_result_rows / concurrency caps.
+    let bypass_limits = if requested_bypass {
+        if !license_tier.includes(crate::license::status::LicenseTier::Team) {
+            tracing::warn!(
+                session = %session_id,
+                tier = ?license_tier,
+                "bypass_limits rejected: requires Team+ license"
+            );
+            return Ok(QueryResponse {
+                success: false,
+                result: None,
+                error: Some(
+                    "Governance limit bypass requires a Team or Enterprise license".to_string(),
+                ),
+                query_id: None,
+                truncated: None,
+                truncated_total: None,
+            });
+        }
+        true
+    } else {
+        false
+    };
+
     let session = parse_session_id(&session_id)?;
 
     let read_only = match session_manager.is_read_only(session).await {
@@ -406,8 +434,15 @@ pub async fn execute_query(
     let should_stream =
         sql_statements.is_none() && stream.unwrap_or(false) && driver.capabilities().streaming;
 
+    // Absolute cap (1h) applied even when bypass_limits is granted, so a
+    // misconfigured Team+ client cannot pin a query indefinitely.
+    const BYPASS_TIMEOUT_CAP_MS: u64 = 3_600_000;
     let effective_timeout = if bypass_limits {
-        timeout_ms
+        Some(
+            timeout_ms
+                .unwrap_or(BYPASS_TIMEOUT_CAP_MS)
+                .min(BYPASS_TIMEOUT_CAP_MS),
+        )
     } else {
         timeout_ms.or(policy.max_query_duration_ms)
     };
@@ -418,7 +453,9 @@ pub async fn execute_query(
             query_id = %query_id_str,
             driver = %driver.driver_id(),
             env = %environment,
-            "Governance limits bypassed for single query (user confirmed override)"
+            tier = ?license_tier,
+            effective_timeout_ms = ?effective_timeout,
+            "Governance limits bypassed for single query (Team+ override)"
         );
     }
 

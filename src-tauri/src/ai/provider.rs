@@ -476,8 +476,8 @@ impl AIProvider for GoogleGeminiProvider {
         let temperature = config.effective_temperature();
 
         let url = format!(
-            "https://generativelanguage.googleapis.com/v1beta/models/{}:streamGenerateContent?alt=sse&key={}",
-            model, api_key
+            "https://generativelanguage.googleapis.com/v1beta/models/{}:streamGenerateContent?alt=sse",
+            model
         );
 
         let body = json!({
@@ -499,6 +499,7 @@ impl AIProvider for GoogleGeminiProvider {
         let response = self
             .client
             .post(&url)
+            .header("x-goog-api-key", api_key)
             .header("Content-Type", "application/json")
             .json(&body)
             .send()

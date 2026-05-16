@@ -84,7 +84,9 @@
       "Bash(awk '/\"tabs\": \\\\{/,/^  \\\\}/' src/locales/fr.json)",
       "Bash(pnpm check *)",
       "Bash(pnpm test *)",
-      "Bash(awk '/^  \"contracts\": {/,/^  },/' /home/raphael/dev/perso/QoreDB/src/locales/en.json)"
+      "Bash(awk '/^  \"contracts\": {/,/^  },/' /home/raphael/dev/perso/QoreDB/src/locales/en.json)",
+      "Bash(awk '/^## \\(Bloc|Rapport\\)/||/^### \\(🔴 Critique|Synthèse\\)/' /Users/raph/Documents/Travail/Personnel/Repositories/QoreDB/doc/audits/INTERNAL_AUDIT_2026-05.md)",
+      "Bash(awk *)"
     ]
   }
 }

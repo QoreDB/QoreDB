@@ -41,8 +41,13 @@ impl Default for QueryId {
     }
 }
 
-/// Database connection configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// Database connection configuration.
+///
+/// `Debug` is implemented manually: the `password` field is redacted so it
+/// cannot leak via `tracing::debug!("{:?}", cfg)`, panic messages, or failed
+/// assertions. Use the explicit `password` field accessor when you actually
+/// need the value.
+#[derive(Clone, Serialize, Deserialize)]
 pub struct ConnectionConfig {
     pub driver: String,
     pub host: String,
@@ -73,6 +78,41 @@ pub struct ConnectionConfig {
     pub clickhouse_cluster: Option<String>,
 }
 
+impl std::fmt::Debug for ConnectionConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ConnectionConfig")
+            .field("driver", &self.driver)
+            .field("host", &self.host)
+            .field("port", &self.port)
+            .field("username", &self.username)
+            .field("password", &redacted_field(&self.password))
+            .field("database", &self.database)
+            .field("ssl", &self.ssl)
+            .field("ssl_mode", &self.ssl_mode)
+            .field("environment", &self.environment)
+            .field("read_only", &self.read_only)
+            .field("pool_max_connections", &self.pool_max_connections)
+            .field("pool_min_connections", &self.pool_min_connections)
+            .field("pool_acquire_timeout_secs", &self.pool_acquire_timeout_secs)
+            .field("ssh_tunnel", &self.ssh_tunnel)
+            .field("proxy", &self.proxy)
+            .field("mssql_auth", &self.mssql_auth)
+            .field("clickhouse_cluster", &self.clickhouse_cluster)
+            .finish()
+    }
+}
+
+/// Sentinel used by manual `Debug` impls in this module: prints `"[REDACTED]"`
+/// when the secret is set, `"<empty>"` otherwise, so logs still convey shape
+/// without leaking the value.
+fn redacted_field(value: &str) -> &'static str {
+    if value.is_empty() {
+        "<empty>"
+    } else {
+        "[REDACTED]"
+    }
+}
+
 /// Authentication mode for SQL Server connections.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
 #[serde(rename_all = "snake_case")]
@@ -83,8 +123,9 @@ pub enum MssqlAuthMode {
     WindowsIntegrated,
 }
 
-/// Network proxy configuration for corporate environments
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// Network proxy configuration for corporate environments. `Debug` redacts
+/// the password.
+#[derive(Clone, Serialize, Deserialize)]
 pub struct ProxyConfig {
     /// Proxy type (HTTP CONNECT or SOCKS5)
     pub proxy_type: ProxyType,
@@ -99,6 +140,23 @@ pub struct ProxyConfig {
     pub password: Option<String>,
     /// Connection timeout in seconds
     pub connect_timeout_secs: u32,
+}
+
+impl std::fmt::Debug for ProxyConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let password = match self.password.as_deref() {
+            Some(s) => Some(redacted_field(s)),
+            None => None,
+        };
+        f.debug_struct("ProxyConfig")
+            .field("proxy_type", &self.proxy_type)
+            .field("host", &self.host)
+            .field("port", &self.port)
+            .field("username", &self.username)
+            .field("password", &password)
+            .field("connect_timeout_secs", &self.connect_timeout_secs)
+            .finish()
+    }
 }
 
 /// Supported proxy protocol types
@@ -151,16 +209,44 @@ pub enum SshHostKeyPolicy {
     InsecureNoCheck,
 }
 
-/// SSH authentication method
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// SSH authentication method. `Debug` redacts the password / passphrase, and
+/// these fields are also `skip_serializing` so they never leak into a saved
+/// connection JSON dump (the vault stores them separately in the keyring).
+#[derive(Clone, Serialize, Deserialize)]
 pub enum SshAuth {
     Password {
+        #[serde(skip_serializing)]
         password: String,
     },
     Key {
         private_key_path: String,
+        #[serde(skip_serializing)]
         passphrase: Option<String>,
     },
+}
+
+impl std::fmt::Debug for SshAuth {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SshAuth::Password { password } => f
+                .debug_struct("SshAuth::Password")
+                .field("password", &redacted_field(password))
+                .finish(),
+            SshAuth::Key {
+                private_key_path,
+                passphrase,
+            } => {
+                let passphrase = match passphrase.as_deref() {
+                    Some(s) => Some(redacted_field(s)),
+                    None => None,
+                };
+                f.debug_struct("SshAuth::Key")
+                    .field("private_key_path", private_key_path)
+                    .field("passphrase", &passphrase)
+                    .finish()
+            }
+        }
+    }
 }
 
 /// Query cancellation support level for a driver.
@@ -249,6 +335,72 @@ mod tests {
         }"#;
         let cfg: ConnectionConfig = serde_json::from_str(legacy).expect("legacy config must parse");
         assert!(cfg.mssql_auth.is_none());
+    }
+
+    #[test]
+    fn connection_config_debug_redacts_password() {
+        let cfg = ConnectionConfig {
+            driver: "postgres".into(),
+            host: "localhost".into(),
+            port: 5432,
+            username: "alice".into(),
+            password: "s3cret".into(),
+            database: None,
+            ssl: false,
+            ssl_mode: None,
+            environment: "development".into(),
+            read_only: false,
+            pool_max_connections: None,
+            pool_min_connections: None,
+            pool_acquire_timeout_secs: None,
+            ssh_tunnel: None,
+            proxy: None,
+            mssql_auth: None,
+            clickhouse_cluster: None,
+        };
+        let dbg = format!("{:?}", cfg);
+        assert!(dbg.contains("[REDACTED]"), "expected redaction in {dbg}");
+        assert!(!dbg.contains("s3cret"), "password leaked: {dbg}");
+    }
+
+    #[test]
+    fn ssh_auth_debug_redacts_password_and_passphrase() {
+        let pwd = SshAuth::Password {
+            password: "leakme".into(),
+        };
+        let key = SshAuth::Key {
+            private_key_path: "/path/id_ed25519".into(),
+            passphrase: Some("ZZZQQQ".into()),
+        };
+        assert!(!format!("{:?}", pwd).contains("leakme"));
+        assert!(!format!("{:?}", key).contains("ZZZQQQ"));
+        // path is allowed to surface
+        assert!(format!("{:?}", key).contains("id_ed25519"));
+    }
+
+    #[test]
+    fn proxy_config_debug_redacts_password() {
+        let cfg = ProxyConfig {
+            proxy_type: ProxyType::HttpConnect,
+            host: "proxy.local".into(),
+            port: 8080,
+            username: Some("alice".into()),
+            password: Some("hideme".into()),
+            connect_timeout_secs: 10,
+        };
+        assert!(!format!("{:?}", cfg).contains("hideme"));
+    }
+
+    #[test]
+    fn ssh_auth_passphrase_not_serialized() {
+        let key = SshAuth::Key {
+            private_key_path: "/p".into(),
+            passphrase: Some("secret".into()),
+        };
+        let json = serde_json::to_string(&key).unwrap();
+        assert!(!json.contains("secret"), "passphrase leaked: {json}");
+        // path is fine to keep
+        assert!(json.contains("/p"));
     }
 
     #[test]

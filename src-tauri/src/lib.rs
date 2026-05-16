@@ -72,6 +72,7 @@ pub struct AppState {
     pub changelog_store: Arc<time_travel::ChangelogStore>,
     pub backup_tool_paths: Arc<backup::BackupToolPaths>,
     pub active_backups: Arc<backup::runner::ActiveBackups>,
+    pub confirmation_tokens: Arc<commands::confirmation::ConfirmationTokenStore>,
 }
 
 impl AppState {
@@ -147,6 +148,7 @@ impl AppState {
             changelog_store,
             backup_tool_paths: Arc::new(backup::BackupToolPaths::new()),
             active_backups: Arc::new(backup::runner::ActiveBackups::new()),
+            confirmation_tokens: Arc::new(commands::confirmation::ConfirmationTokenStore::new()),
         }
     }
 }
@@ -338,6 +340,8 @@ pub fn run() {
             commands::sandbox::apply_sandbox_changes,
             // Full-text search
             commands::fulltext_search::fulltext_search,
+            // Confirmation tokens for destructive commands
+            commands::confirmation::request_confirmation_token,
             // Interceptor commands
             commands::interceptor::get_interceptor_config,
             commands::interceptor::update_interceptor_config,

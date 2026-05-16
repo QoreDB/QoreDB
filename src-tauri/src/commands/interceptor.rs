@@ -198,17 +198,25 @@ pub async fn get_audit_stats(
     })
 }
 
-/// Clears the audit log
+/// Clears the audit log. Requires a one-shot confirmation token issued by
+/// `request_confirmation_token("clear_audit_log")` to prevent drive-by IPC
+/// calls from destroying the audit trail (SOC2 / RGPD impact).
 #[tauri::command]
 pub async fn clear_audit_log(
     state: State<'_, crate::SharedState>,
+    confirmation_token: String,
 ) -> Result<GenericResponse, String> {
-    let interceptor = {
+    let (interceptor, confirmation_tokens) = {
         let state = state.lock().await;
-        Arc::clone(&state.interceptor)
+        (
+            Arc::clone(&state.interceptor),
+            Arc::clone(&state.confirmation_tokens),
+        )
     };
 
+    confirmation_tokens.consume("clear_audit_log", &confirmation_token)?;
     interceptor.clear_audit();
+    tracing::warn!("audit log cleared via clear_audit_log");
 
     Ok(GenericResponse {
         success: true,

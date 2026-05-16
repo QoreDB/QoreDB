@@ -266,10 +266,17 @@ export async function getAuditStats(): Promise<AuditStats> {
 }
 
 /**
- * Clear the audit log
+ * Clear the audit log. Acquires a one-shot confirmation token first so a
+ * drive-by IPC call cannot wipe the audit trail.
  */
 export async function clearAuditLog(): Promise<void> {
-  const result = await invoke<GenericResponse>('clear_audit_log');
+  const { token } = await invoke<{ token: string; expires_in_secs: number }>(
+    'request_confirmation_token',
+    { action: 'clear_audit_log' },
+  );
+  const result = await invoke<GenericResponse>('clear_audit_log', {
+    confirmationToken: token,
+  });
   if (!result.success) {
     throw new Error(result.error || 'Failed to clear audit log');
   }

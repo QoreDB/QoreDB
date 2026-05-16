@@ -77,6 +77,23 @@ impl MySqlDriver {
             .max_connections(max_connections)
             .min_connections(min_connections)
             .acquire_timeout(std::time::Duration::from_secs(acquire_timeout_secs))
+            // Force NO_BACKSLASH_ESCAPES + utf8mb4 on every new connection.
+            // Without this, the server's default sql_mode controls whether
+            // `\'` is interpreted as an escape — turning quote-doubling
+            // (`replace('\'', "''")`) into an unsafe defence. utf8mb4 also
+            // avoids silent corruption of emoji/4-byte chars when the server
+            // default is latin1 / utf8mb3.
+            .after_connect(|conn, _meta| {
+                Box::pin(async move {
+                    sqlx::query(
+                        "SET SESSION sql_mode = CONCAT_WS(',', @@sql_mode, 'NO_BACKSLASH_ESCAPES')",
+                    )
+                    .execute(&mut *conn)
+                    .await?;
+                    sqlx::query("SET NAMES utf8mb4").execute(&mut *conn).await?;
+                    Ok(())
+                })
+            })
             .connect_with(opts)
             .await
             .map_err(|e| {

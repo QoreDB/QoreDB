@@ -1272,7 +1272,7 @@ impl DataEngine for SqlServerDriver {
         session: SessionId,
         _namespace: Option<Namespace>,
         query: &str,
-        _query_id: QueryId,
+        query_id: QueryId,
     ) -> EngineResult<QueryResult> {
         let mssql_session = self.get_session(session).await?;
         let returns_rows = safety::returns_rows(self.driver_id(), query)
@@ -1284,22 +1284,33 @@ impl DataEngine for SqlServerDriver {
         let start = Instant::now();
 
         if let Some(ref mut tx_conn) = *tx_guard {
-            if returns_rows {
+            // Track SPID so that `cancel(query_id)` can KILL this session.
+            // Without this, the active_queries map stays empty and cancel
+            // silently no-ops (cf. audit B3-C3).
+            let spid = fetch_spid(tx_conn).await?;
+            register_active_query(&mssql_session, query_id, spid).await;
+            let result = if returns_rows {
                 execute_select(tx_conn, query, start).await
             } else {
                 execute_dml(tx_conn, query, start).await
-            }
+            };
+            unregister_active_query(&mssql_session, query_id).await;
+            result
         } else {
             drop(tx_guard);
             let mut conn = mssql_session.pool.get().await.map_err(|e| {
                 EngineError::connection_failed(format!("Failed to acquire connection: {e}"))
             })?;
 
-            if returns_rows {
+            let spid = fetch_spid(&mut conn).await?;
+            register_active_query(&mssql_session, query_id, spid).await;
+            let result = if returns_rows {
                 execute_select(&mut conn, query, start).await
             } else {
                 execute_dml(&mut conn, query, start).await
-            }
+            };
+            unregister_active_query(&mssql_session, query_id).await;
+            result
         }
     }
 
@@ -1319,7 +1330,7 @@ impl DataEngine for SqlServerDriver {
         session: SessionId,
         namespace: Option<Namespace>,
         query: &str,
-        _query_id: QueryId,
+        query_id: QueryId,
         sender: StreamSender,
     ) -> EngineResult<()> {
         let mssql_session = self.get_session(session).await?;
@@ -1329,7 +1340,7 @@ impl DataEngine for SqlServerDriver {
 
         if !returns_rows {
             let result = self
-                .execute_in_namespace(session, namespace, query, QueryId::new())
+                .execute_in_namespace(session, namespace, query, query_id)
                 .await?;
             let _ = sender
                 .send(StreamEvent::Done(result.affected_rows.unwrap_or(0)))
@@ -1341,13 +1352,21 @@ impl DataEngine for SqlServerDriver {
         let mut tx_guard = mssql_session.transaction_conn.lock().await;
 
         if let Some(ref mut tx_conn) = *tx_guard {
-            stream_select_results(tx_conn, query, &sender).await
+            let spid = fetch_spid(tx_conn).await?;
+            register_active_query(&mssql_session, query_id, spid).await;
+            let result = stream_select_results(tx_conn, query, &sender).await;
+            unregister_active_query(&mssql_session, query_id).await;
+            result
         } else {
             drop(tx_guard);
             let mut conn = mssql_session.pool.get().await.map_err(|e| {
                 EngineError::connection_failed(format!("Failed to acquire connection: {e}"))
             })?;
-            stream_select_results(&mut conn, query, &sender).await
+            let spid = fetch_spid(&mut conn).await?;
+            register_active_query(&mssql_session, query_id, spid).await;
+            let result = stream_select_results(&mut conn, query, &sender).await;
+            unregister_active_query(&mssql_session, query_id).await;
+            result
         }
     }
 
@@ -2060,6 +2079,38 @@ async fn execute_dml(
     let execution_time_ms = start.elapsed().as_micros() as f64 / 1000.0;
 
     Ok(QueryResult::with_affected_rows(affected, execution_time_ms))
+}
+
+/// Fetches the SQL Server SPID of the connection. We track it so that a later
+/// `cancel(query_id)` can issue `KILL <spid>` on the right session — without
+/// this lookup, `active_queries` would stay empty and cancel would silently
+/// no-op (cf. audit B3-C3).
+async fn fetch_spid(conn: &mut MssqlClient) -> EngineResult<u16> {
+    let stream = conn
+        .simple_query("SELECT @@SPID")
+        .await
+        .map_err(|e| EngineError::execution_error(e.to_string()))?;
+    let rows = stream
+        .into_first_result()
+        .await
+        .map_err(|e| EngineError::execution_error(e.to_string()))?;
+    let row = rows
+        .first()
+        .ok_or_else(|| EngineError::execution_error("@@SPID returned no row"))?;
+    // @@SPID is a smallint in SQL Server.
+    let spid: Option<i16> = row.get(0);
+    let spid = spid.ok_or_else(|| EngineError::execution_error("@@SPID was NULL"))?;
+    Ok(spid as u16)
+}
+
+async fn register_active_query(session: &SqlServerSession, query_id: QueryId, spid: u16) {
+    let mut active = session.active_queries.lock().await;
+    active.insert(query_id, spid);
+}
+
+async fn unregister_active_query(session: &SqlServerSession, query_id: QueryId) {
+    let mut active = session.active_queries.lock().await;
+    active.remove(&query_id);
 }
 
 /// Format a Value as a SQL literal for inline queries.

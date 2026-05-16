@@ -24,10 +24,17 @@ use qore_core::types::{
     SessionId, TableColumn, TableQueryOptions, TableSchema, Value,
 };
 
+use crate::redis_safety::{classify, RedisQueryClass};
+
 /// Holds a Redis connection and session metadata
 pub struct RedisSession {
     pub connection: Mutex<redis::aio::MultiplexedConnection>,
     pub current_db: AtomicU16,
+    /// Subset of the connection config used at runtime for safety enforcement.
+    /// Storing the full config keeps the password in memory; we copy only what
+    /// the driver needs (read_only flag + environment).
+    pub read_only: bool,
+    pub environment: String,
 }
 
 /// Redis driver implementation
@@ -188,6 +195,34 @@ impl RedisDriver {
 
         let cmd_name = parts[0].to_ascii_uppercase();
         let args = &parts[1..];
+
+        let class = classify(&query);
+        let is_production = redis_session.environment.eq_ignore_ascii_case("production");
+        match class {
+            RedisQueryClass::Dangerous => {
+                if is_production {
+                    return Err(EngineError::not_supported(format!(
+                        "Redis command '{}' is blocked in production environment",
+                        cmd_name
+                    )));
+                }
+                if redis_session.read_only {
+                    return Err(EngineError::validation(format!(
+                        "Redis command '{}' rejected: session is read-only",
+                        cmd_name
+                    )));
+                }
+            }
+            RedisQueryClass::Mutation => {
+                if redis_session.read_only {
+                    return Err(EngineError::validation(format!(
+                        "Redis command '{}' rejected: session is read-only",
+                        cmd_name
+                    )));
+                }
+            }
+            RedisQueryClass::Read | RedisQueryClass::Unknown => {}
+        }
 
         let mut conn = redis_session.connection.lock().await;
 
@@ -980,6 +1015,8 @@ impl DataEngine for RedisDriver {
         let redis_session = Arc::new(RedisSession {
             connection: Mutex::new(conn),
             current_db: AtomicU16::new(db),
+            read_only: config.read_only,
+            environment: config.environment.clone(),
         });
 
         let mut sessions = self.sessions.write().await;

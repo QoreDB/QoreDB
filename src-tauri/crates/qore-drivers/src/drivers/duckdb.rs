@@ -681,6 +681,13 @@ impl DataEngine for DuckDbDriver {
         query: &str,
         _query_id: QueryId,
     ) -> EngineResult<QueryResult> {
+        // Block INSTALL / LOAD / ATTACH / COPY ... TO / PRAGMA
+        // enable_external_access. Without this filter, a single statement in
+        // the editor can install `httpfs` and then exfiltrate data over HTTP
+        // or write to arbitrary local paths (cf. audit B4-C3).
+        if let Some(danger) = safety::classify_duckdb_dangerous(query) {
+            return Err(EngineError::not_supported(danger.reason()));
+        }
         let duck_session = self.get_session(session).await?;
         let query = query.to_string();
         let returns_rows = safety::returns_rows("duckdb", &query)
@@ -726,6 +733,9 @@ impl DataEngine for DuckDbDriver {
         _query_id: QueryId,
         sender: StreamSender,
     ) -> EngineResult<()> {
+        if let Some(danger) = safety::classify_duckdb_dangerous(query) {
+            return Err(EngineError::not_supported(danger.reason()));
+        }
         let duck_session = self.get_session(session).await?;
         let query = query.to_string();
 

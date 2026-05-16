@@ -429,6 +429,128 @@ fn select_has_into(select: &Select) -> bool {
     select.into.is_some()
 }
 
+/// Why a DuckDB statement was flagged dangerous. Returned by
+/// [`classify_duckdb_dangerous`] so callers can produce a precise error.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DuckDbDanger {
+    /// `INSTALL <ext>` — installs an extension (httpfs, postgres_scanner, …).
+    Install,
+    /// `LOAD <ext>` — loads an extension into the session.
+    Load,
+    /// `ATTACH '…'` — attaches an arbitrary database (file, HTTP, postgres).
+    Attach,
+    /// `COPY … TO '<path>'` — writes query results to an arbitrary path.
+    CopyTo,
+    /// `PRAGMA enable_external_access` — toggles network / file egress.
+    EnableExternalAccess,
+}
+
+impl DuckDbDanger {
+    pub fn reason(self) -> &'static str {
+        match self {
+            DuckDbDanger::Install => "INSTALL is blocked (extensions can fetch remote code)",
+            DuckDbDanger::Load => "LOAD is blocked (loading extensions enables network/file egress)",
+            DuckDbDanger::Attach => "ATTACH is blocked (can mount arbitrary databases, including HTTP)",
+            DuckDbDanger::CopyTo => "COPY ... TO is blocked (writes to arbitrary filesystem paths)",
+            DuckDbDanger::EnableExternalAccess => {
+                "PRAGMA enable_external_access is blocked (toggles network/file egress)"
+            }
+        }
+    }
+}
+
+/// Classifies a single DuckDB statement and returns the reason if it would
+/// give the user filesystem or network egress beyond the open database.
+///
+/// Designed to be cheap and conservative: it inspects the leading keyword
+/// after stripping comments and whitespace, so an editor pasting a benign
+/// `SELECT 1` is unaffected.
+pub fn classify_duckdb_dangerous(sql: &str) -> Option<DuckDbDanger> {
+    let trimmed = strip_leading_sql_noise(sql);
+    let upper = trimmed.to_ascii_uppercase();
+
+    if upper.starts_with("INSTALL") && next_char_is_separator(&trimmed, "INSTALL".len()) {
+        return Some(DuckDbDanger::Install);
+    }
+    if upper.starts_with("LOAD") && next_char_is_separator(&trimmed, "LOAD".len()) {
+        return Some(DuckDbDanger::Load);
+    }
+    if upper.starts_with("ATTACH") && next_char_is_separator(&trimmed, "ATTACH".len()) {
+        return Some(DuckDbDanger::Attach);
+    }
+    if upper.starts_with("PRAGMA") {
+        let rest = &upper["PRAGMA".len()..];
+        if rest.trim_start().starts_with("ENABLE_EXTERNAL_ACCESS") {
+            return Some(DuckDbDanger::EnableExternalAccess);
+        }
+    }
+    if upper.starts_with("COPY") && next_char_is_separator(&trimmed, "COPY".len()) {
+        // Only block `COPY <something> TO '<path>'`. `COPY <table> FROM '…'`
+        // imports a *local* file the user already controls and is the normal
+        // way to load CSV/Parquet into DuckDB.
+        if has_copy_to_clause(&upper) {
+            return Some(DuckDbDanger::CopyTo);
+        }
+    }
+
+    None
+}
+
+fn strip_leading_sql_noise(sql: &str) -> &str {
+    let mut s = sql.trim_start();
+    loop {
+        if let Some(rest) = s.strip_prefix("--") {
+            // line comment until newline
+            if let Some(nl) = rest.find('\n') {
+                s = rest[nl + 1..].trim_start();
+                continue;
+            } else {
+                return "";
+            }
+        }
+        if let Some(rest) = s.strip_prefix("/*") {
+            if let Some(end) = rest.find("*/") {
+                s = rest[end + 2..].trim_start();
+                continue;
+            } else {
+                return "";
+            }
+        }
+        return s;
+    }
+}
+
+fn next_char_is_separator(s: &str, idx: usize) -> bool {
+    match s.as_bytes().get(idx) {
+        None => true,
+        Some(b) => matches!(*b, b' ' | b'\t' | b'\n' | b'\r' | b'(' | b';'),
+    }
+}
+
+fn has_copy_to_clause(upper: &str) -> bool {
+    // Looks for a ` TO ` keyword followed by a quoted/identifier target.
+    // We intentionally search anywhere after the leading `COPY` since DuckDB
+    // accepts forms like `COPY (subquery) TO 'path'` and `COPY tbl TO 'p'`.
+    let after_copy = &upper["COPY".len()..];
+    // Crude but effective: require ` TO ` separated by whitespace and then a
+    // quote-like character ('"`) before a newline / end.
+    let mut idx = 0;
+    while let Some(pos) = after_copy[idx..].find(" TO") {
+        let abs = idx + pos;
+        let after = abs + " TO".len();
+        let next = after_copy.as_bytes().get(after).copied().unwrap_or(b' ');
+        if matches!(next, b' ' | b'\t' | b'\n' | b'\r') {
+            // Look ahead for a quote on the rest of the line.
+            let tail = &after_copy[after..];
+            if tail.contains('\'') || tail.contains('"') {
+                return true;
+            }
+        }
+        idx = after;
+    }
+    false
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -595,5 +717,81 @@ mod tests {
         // Unknown → bypass treats it as a mutation so read-only mode blocks.
         let analysis = analyze_sql("clickhouse", "USE metrics").expect("ok");
         assert!(analysis.is_mutation);
+    }
+
+    #[test]
+    fn duckdb_install_is_flagged() {
+        assert_eq!(
+            classify_duckdb_dangerous("INSTALL httpfs"),
+            Some(DuckDbDanger::Install)
+        );
+        assert_eq!(
+            classify_duckdb_dangerous("  install postgres_scanner"),
+            Some(DuckDbDanger::Install)
+        );
+    }
+
+    #[test]
+    fn duckdb_load_is_flagged() {
+        assert_eq!(
+            classify_duckdb_dangerous("LOAD httpfs"),
+            Some(DuckDbDanger::Load)
+        );
+    }
+
+    #[test]
+    fn duckdb_attach_is_flagged() {
+        assert_eq!(
+            classify_duckdb_dangerous("ATTACH 'http://x.com/db.duckdb' AS evil"),
+            Some(DuckDbDanger::Attach)
+        );
+    }
+
+    #[test]
+    fn duckdb_copy_to_is_flagged() {
+        assert_eq!(
+            classify_duckdb_dangerous("COPY (SELECT * FROM t) TO '/tmp/leak.csv'"),
+            Some(DuckDbDanger::CopyTo)
+        );
+        assert_eq!(
+            classify_duckdb_dangerous("COPY tbl TO '/tmp/x.parquet' (FORMAT PARQUET)"),
+            Some(DuckDbDanger::CopyTo)
+        );
+    }
+
+    #[test]
+    fn duckdb_pragma_external_access_is_flagged() {
+        assert_eq!(
+            classify_duckdb_dangerous("PRAGMA enable_external_access = true"),
+            Some(DuckDbDanger::EnableExternalAccess)
+        );
+    }
+
+    #[test]
+    fn duckdb_safe_statements_pass() {
+        assert_eq!(classify_duckdb_dangerous("SELECT 1"), None);
+        assert_eq!(
+            classify_duckdb_dangerous("INSERT INTO t VALUES (1)"),
+            None
+        );
+        // COPY FROM is the normal data import path — should not be blocked.
+        assert_eq!(
+            classify_duckdb_dangerous("COPY t FROM '/data/x.csv'"),
+            None
+        );
+        // PRAGMA other than enable_external_access is allowed (table_info,
+        // database_size, etc. are common metadata helpers).
+        assert_eq!(classify_duckdb_dangerous("PRAGMA database_size"), None);
+        // Comment-only or empty input must not crash.
+        assert_eq!(classify_duckdb_dangerous(""), None);
+        assert_eq!(classify_duckdb_dangerous("-- INSTALL httpfs"), None);
+    }
+
+    #[test]
+    fn duckdb_keyword_prefix_is_not_enough() {
+        // `INSTALLED` is not `INSTALL`. The classifier must require a word
+        // boundary so identifiers starting with the keyword don't trip it.
+        assert_eq!(classify_duckdb_dangerous("INSTALLED_VIEW"), None);
+        assert_eq!(classify_duckdb_dangerous("LOADER"), None);
     }
 }

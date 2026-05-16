@@ -1962,16 +1962,31 @@ export async function updateTimeTravelConfig(config: TimeTravelConfig): Promise<
   return invoke('update_time_travel_config', { config });
 }
 
+async function requestConfirmationToken(action: string): Promise<string> {
+  const { token } = await invoke<{ token: string; expires_in_secs: number }>(
+    'request_confirmation_token',
+    { action }
+  );
+  return token;
+}
+
 export async function clearTableChangelog(
   database: string,
   schema: string | null,
   tableName: string
 ): Promise<{ success: boolean; error: string | null }> {
-  return invoke('clear_table_changelog', { database, schema, tableName });
+  const confirmationToken = await requestConfirmationToken('clear_table_changelog');
+  return invoke('clear_table_changelog', {
+    database,
+    schema,
+    tableName,
+    confirmationToken,
+  });
 }
 
 export async function clearAllChangelog(): Promise<{ success: boolean; error: string | null }> {
-  return invoke('clear_all_changelog');
+  const confirmationToken = await requestConfirmationToken('clear_all_changelog');
+  return invoke('clear_all_changelog', { confirmationToken });
 }
 
 export async function exportChangelog(filter: {

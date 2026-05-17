@@ -11,4 +11,19 @@ ignore = [
     # Transitive deps via tauri (Linux only). No alternative until tauri migrates to GTK4.
     "RUSTSEC-2024-0413",
     "RUSTSEC-2024-0416",
+
+    # libyml - unsound and unmaintained
+    # Transitive dep via serde_yml (used in pro/contracts feature).
+    # No actively maintained drop-in replacement available.
+    "RUSTSEC-2025-0067",
+
+    # serde_yml - unsound and unmaintained
+    # Used in pro/contracts feature for YAML parsing. serde_yaml is also unmaintained.
+    # Migration to an alternative (e.g. serde_yaml_ng) tracked separately.
+    "RUSTSEC-2025-0068",
+
+    # rand 0.7.3 - unsound only with a custom logger calling rand::rng()
+    # Transitive via tiberius (MSSQL driver) and tauri (phf_generator).
+    # QoreDB defines no such logger; not exploitable in our context.
+    "RUSTSEC-2026-0097",
 ]

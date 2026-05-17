@@ -132,7 +132,9 @@ fn clickhouse_config() -> ConnectionConfig {
         host: env_or_default("QOREDB_TEST_CLICKHOUSE_HOST", "127.0.0.1"),
         port: env_u16_or_default("QOREDB_TEST_CLICKHOUSE_PORT", 8123),
         username: env_or_default("QOREDB_TEST_CLICKHOUSE_USER", "qoredb"),
-        password: env_or_default("QOREDB_TEST_CLICKHOUSE_PASSWORD", "qoredb_test"),
+        // Empty by default: driver refuses Basic-auth over cleartext HTTP.
+        // The docker-compose ClickHouse is configured with no password to match.
+        password: env_or_default("QOREDB_TEST_CLICKHOUSE_PASSWORD", ""),
         database: Some(env_or_default("QOREDB_TEST_CLICKHOUSE_DB", DEFAULT_DB)),
         ssl: false,
         ssl_mode: None,

@@ -75,7 +75,10 @@ services:
     container_name: qoredb-clickhouse
     environment:
       CLICKHOUSE_USER: qoredb
-      CLICKHOUSE_PASSWORD: qoredb_test
+      # No password: integration tests run over cleartext HTTP and the driver
+      # refuses Basic-auth in cleartext (audit B4-C8). TLS isn't worth wiring
+      # up for a local test container.
+      CLICKHOUSE_PASSWORD: ""
       CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
       CLICKHOUSE_DB: testdb
     ports:

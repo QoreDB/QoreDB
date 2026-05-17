@@ -1,9 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-//! Universal data types for the QoreDB Data Engine
-//!
-//! These types provide a normalized representation of database concepts
-//! across SQL and NoSQL engines.
+//! Normalized data types shared across SQL and NoSQL engines.
 
 use compact_str::CompactString;
 use serde::{Deserialize, Serialize};
@@ -374,7 +371,6 @@ mod tests {
         };
         assert!(!format!("{:?}", pwd).contains("leakme"));
         assert!(!format!("{:?}", key).contains("ZZZQQQ"));
-        // path is allowed to surface
         assert!(format!("{:?}", key).contains("id_ed25519"));
     }
 
@@ -399,7 +395,6 @@ mod tests {
         };
         let json = serde_json::to_string(&key).unwrap();
         assert!(!json.contains("secret"), "passphrase leaked: {json}");
-        // path is fine to keep
         assert!(json.contains("/p"));
     }
 
@@ -575,9 +570,8 @@ where
     }
 }
 
-// Borrowed-value conversions — let callers pass slices like `&[1i64, 2, 3]`
-// whose iterator yields `&T`. We derive these from the owned impls above
-// via `Copy` so the behaviour stays in one place.
+// Borrowed-value conversions for callers passing slices like `&[1i64, 2, 3]`
+// whose iterator yields `&T`. Derived from the owned impls via `Copy`.
 macro_rules! impl_from_ref_copy {
     ($($t:ty),*) => {
         $(
@@ -750,7 +744,7 @@ pub struct TableColumn {
     pub is_primary_key: bool,
 }
 
-// ==================== Collection List Types ====================
+// ==================== Collection list ====================
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct CollectionListOptions {
     pub search: Option<String>,
@@ -764,7 +758,7 @@ pub struct CollectionList {
     pub total_count: u32,
 }
 
-// ==================== Routine Types ====================
+// ==================== Routines ====================
 
 /// Type of database routine
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -823,7 +817,7 @@ pub struct RoutineOperationResult {
     pub execution_time_ms: f64,
 }
 
-// ==================== Trigger Types ====================
+// ==================== Triggers ====================
 
 /// Timing of a database trigger
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -870,7 +864,7 @@ pub struct TriggerList {
     pub total_count: u32,
 }
 
-// ==================== Event Types (MySQL) ====================
+// ==================== Events (MySQL) ====================
 
 /// Status of a MySQL scheduled event
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -906,7 +900,7 @@ pub struct EventList {
     pub total_count: u32,
 }
 
-// ==================== Trigger Definition & Operation ====================
+// ==================== Trigger definition & operation ====================
 
 /// Full trigger definition (CREATE statement) for viewing/editing
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -952,7 +946,7 @@ pub struct EventOperationResult {
     pub execution_time_ms: f64,
 }
 
-// ==================== Sequence Types (MariaDB) ====================
+// ==================== Sequences (MariaDB) ====================
 
 /// Database sequence metadata (MariaDB 10.3+)
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1002,7 +996,7 @@ pub struct SequenceOperationResult {
     pub execution_time_ms: f64,
 }
 
-// ==================== Database Creation Options ====================
+// ==================== Database creation options ====================
 
 /// Information about a character set available for database creation
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1026,7 +1020,7 @@ pub struct CreationOptions {
     pub charsets: Vec<CharsetInfo>,
 }
 
-// ==================== Table Query Types (Pagination) ====================
+// ==================== Table query (pagination) ====================
 
 /// Sort direction for query results
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Default, PartialEq, Eq)]
@@ -1186,7 +1180,7 @@ impl PaginatedQueryResult {
     }
 }
 
-// ==================== Maintenance Types ====================
+// ==================== Maintenance ====================
 
 /// Type of maintenance operation available for a table
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

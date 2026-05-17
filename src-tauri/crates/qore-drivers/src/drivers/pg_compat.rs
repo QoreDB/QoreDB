@@ -34,9 +34,7 @@ use qore_core::types::{
 };
 use qore_sql::safety;
 
-// =============================================================================
 // Session
-// =============================================================================
 
 /// A session backed by a PgPool (works for any PG-compatible database).
 pub struct PgCompatSession {
@@ -62,9 +60,7 @@ pub fn new_session_map() -> SessionMap {
     Arc::new(RwLock::new(HashMap::new()))
 }
 
-// =============================================================================
-// Pool & connection helpers
-// =============================================================================
+// Pool and connection helpers
 
 pub async fn create_pg_pool(
     conn_str: &str,
@@ -160,9 +156,7 @@ pub async fn fetch_backend_pid(conn: &mut PoolConnection<Postgres>) -> EngineRes
         .map_err(|e| EngineError::execution_error(e.to_string()))
 }
 
-// =============================================================================
-// Test / Connect / Disconnect
-// =============================================================================
+// Connection lifecycle
 
 pub async fn test_connection(conn_str: &str) -> EngineResult<()> {
     let pool = create_pg_pool(conn_str, 1, 0, 10, true, true).await?;
@@ -223,9 +217,7 @@ pub async fn ping(sessions: &SessionMap, session: SessionId) -> EngineResult<()>
     Ok(())
 }
 
-// =============================================================================
 // Execute
-// =============================================================================
 
 pub async fn execute_in_namespace(
     sessions: &SessionMap,
@@ -383,9 +375,7 @@ async fn rows_to_result(
     })
 }
 
-// =============================================================================
 // Streaming
-// =============================================================================
 
 pub async fn execute_stream_in_namespace(
     sessions: &SessionMap,
@@ -504,9 +494,7 @@ pub async fn execute_stream_in_namespace(
     Ok(())
 }
 
-// =============================================================================
 // Cancel
-// =============================================================================
 
 pub async fn cancel(
     sessions: &SessionMap,
@@ -582,9 +570,7 @@ pub fn cancel_support() -> CancelSupport {
     CancelSupport::Driver
 }
 
-// =============================================================================
 // Transactions
-// =============================================================================
 
 pub async fn begin_transaction(sessions: &SessionMap, session: SessionId) -> EngineResult<()> {
     let pg = get_session(sessions, session).await?;
@@ -648,9 +634,7 @@ pub async fn rollback(sessions: &SessionMap, session: SessionId) -> EngineResult
     Ok(())
 }
 
-// =============================================================================
 // Mutations
-// =============================================================================
 
 pub async fn insert_row(
     sessions: &SessionMap,
@@ -826,9 +810,7 @@ pub async fn delete_row(
     ))
 }
 
-// =============================================================================
 // Peek FK
-// =============================================================================
 
 pub async fn peek_foreign_key(
     sessions: &SessionMap,
@@ -872,9 +854,7 @@ pub async fn peek_foreign_key(
     rows_to_result(pg_rows, &pg.pool, start).await
 }
 
-// =============================================================================
 // Query Table (paginated)
-// =============================================================================
 
 pub async fn query_table(
     sessions: &SessionMap,
@@ -895,7 +875,6 @@ pub async fn query_table(
     let page_size = options.effective_page_size();
     let offset = options.offset();
 
-    // Build WHERE clause from filters
     let mut where_clauses: Vec<String> = Vec::new();
     let mut bind_values: Vec<Value> = Vec::new();
 
@@ -966,7 +945,6 @@ pub async fn query_table(
         }
     }
 
-    // Handle search across all columns
     if let Some(ref search_term) = options.search {
         if !search_term.trim().is_empty() {
             let columns_sql = "SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = $1 AND table_name = $2";
@@ -1047,7 +1025,6 @@ pub async fn query_table(
         String::new()
     };
 
-    // COUNT
     let count_sql = format!(
         "SELECT COUNT(*)::bigint AS cnt FROM {}{}",
         table_ref, where_sql
@@ -1072,7 +1049,6 @@ pub async fn query_table(
         .map_err(|e| EngineError::execution_error(e.to_string()))?;
     let total_rows = total_rows.max(0) as u64;
 
-    // DATA
     let data_sql = format!(
         "SELECT * FROM {}{}{} LIMIT {} OFFSET {}",
         table_ref, where_sql, order_sql, page_size, offset
@@ -1158,9 +1134,7 @@ pub async fn query_table(
     ))
 }
 
-// =============================================================================
 // Describe Table
-// =============================================================================
 
 pub async fn describe_table_core(
     sessions: &SessionMap,
@@ -1397,9 +1371,7 @@ pub async fn describe_table_core(
     })
 }
 
-// =============================================================================
 // Namespaces & collections (default PG-compat implementation, matviews included)
-// =============================================================================
 
 /// Default `list_namespaces` implementation: lists every non-system schema in
 /// the current database. Drivers with stricter exclusion lists (e.g. CockroachDB)
@@ -1525,9 +1497,7 @@ pub async fn list_collections_default(
     })
 }
 
-// =============================================================================
 // Routines
-// =============================================================================
 
 pub async fn list_routines(
     sessions: &SessionMap,
@@ -1726,9 +1696,7 @@ pub async fn drop_routine(
     })
 }
 
-// =============================================================================
 // Triggers
-// =============================================================================
 
 pub async fn list_triggers(
     sessions: &SessionMap,
@@ -1912,9 +1880,7 @@ pub async fn toggle_trigger(
     })
 }
 
-// =============================================================================
 // Schema operations
-// =============================================================================
 
 pub async fn create_schema(
     sessions: &SessionMap,
@@ -1977,9 +1943,7 @@ pub async fn drop_schema(
     Ok(())
 }
 
-// =============================================================================
 // Internal helpers
-// =============================================================================
 
 fn qualified_table_name(namespace: &Namespace, table: &str) -> String {
     if let Some(schema) = &namespace.schema {
@@ -2016,16 +1980,14 @@ fn decode_trigger_events(tg_type: i32) -> Vec<TriggerEvent> {
     events
 }
 
-// =============================================================================
 // Connection string builder
-// =============================================================================
 
 pub fn build_pg_connection_string(config: &ConnectionConfig, default_db: &str) -> String {
     use percent_encoding::{utf8_percent_encode, NON_ALPHANUMERIC};
 
     let db = config.database.as_deref().unwrap_or(default_db);
 
-    // Use explicit ssl_mode if provided, otherwise fall back to boolean
+    // Explicit ssl_mode wins; otherwise derive a sslmode from the boolean.
     let ssl_mode =
         config
             .ssl_mode

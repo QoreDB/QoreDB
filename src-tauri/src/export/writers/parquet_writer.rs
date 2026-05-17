@@ -173,7 +173,6 @@ impl ParquetExportWriter {
             }
             DataType::Null => Ok(Arc::new(NullArray::new(self.buffered_rows.len()))),
             _ => {
-                // Fallback: convert to string
                 let values: Vec<Option<String>> = self
                     .buffered_rows
                     .iter()
@@ -252,7 +251,6 @@ impl ExportWriter for ParquetExportWriter {
     }
 
     async fn finish(&mut self) -> Result<(), String> {
-        // Flush remaining buffered rows
         self.flush_buffer()?;
 
         if let Some(writer) = self.writer.take() {
@@ -260,7 +258,6 @@ impl ExportWriter for ParquetExportWriter {
                 .close()
                 .map_err(|e| format!("Failed to finalize Parquet file: {}", e))?;
 
-            // Sum up row group sizes for bytes_written
             for rg in file_meta.row_groups {
                 self.bytes_written += rg.total_byte_size as u64;
             }

@@ -187,7 +187,7 @@ pub async fn insert_row(
                 safety_warning.as_deref(),
             );
 
-            // Time-Travel: record the INSERT (after-image = data params)
+            // Time-Travel: after-image equals the inserted data; PK is also the data row.
             if changelog_store.should_capture(&table, &environment) {
                 let after_image = rowdata_to_json_map(&data);
                 let entry = build_changelog_entry(
@@ -196,7 +196,7 @@ pub async fn insert_row(
                     &namespace,
                     &table,
                     ChangeOperation::Insert,
-                    &data, // PK = the inserted data
+                    &data,
                     None,
                     Some(after_image),
                     None,
@@ -360,7 +360,7 @@ pub async fn update_row(
 
     let namespace = Namespace { database, schema };
 
-    // Time-Travel: fetch before-image BEFORE the mutation
+    // Time-Travel: fetch before-image prior to the mutation.
     let before_image = if changelog_store.should_capture(&table, &environment) {
         fetch_row_by_pk(&driver, session, &namespace, &table, &primary_key).await
     } else {
@@ -386,7 +386,7 @@ pub async fn update_row(
                 safety_warning.as_deref(),
             );
 
-            // Time-Travel: record the UPDATE with before + after images
+
             if changelog_store.should_capture(&table, &environment) {
                 let after_image = before_image
                     .as_ref()
@@ -560,7 +560,7 @@ pub async fn delete_row(
 
     let namespace = Namespace { database, schema };
 
-    // Time-Travel: fetch before-image BEFORE the deletion
+    // Time-Travel: fetch before-image prior to the deletion.
     let before_image = if changelog_store.should_capture(&table, &environment) {
         fetch_row_by_pk(&driver, session, &namespace, &table, &primary_key).await
     } else {
@@ -586,7 +586,6 @@ pub async fn delete_row(
                 safety_warning.as_deref(),
             );
 
-            // Time-Travel: record the DELETE with before-image
             if changelog_store.should_capture(&table, &environment) {
                 let entry = build_changelog_entry(
                     &session_id,

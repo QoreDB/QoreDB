@@ -43,7 +43,6 @@ impl ProxyTunnel {
         remote_host: &str,
         remote_port: u16,
     ) -> EngineResult<Self> {
-        // Validate proxy config
         if config.host.trim().is_empty() {
             return Err(EngineError::ProxyError {
                 message: "Proxy host is required".into(),
@@ -55,7 +54,7 @@ impl ProxyTunnel {
             });
         }
 
-        // Test that we can actually reach the proxy
+        // Probe the proxy upfront so open() fails fast instead of deferring to the first relay.
         let proxy_addr = format!("{}:{}", config.host, config.port);
         let connect_timeout = Duration::from_secs(config.connect_timeout_secs as u64);
 
@@ -75,7 +74,6 @@ impl ProxyTunnel {
             })?;
         drop(test_stream);
 
-        // Bind local listener
         let listener =
             TcpListener::bind("127.0.0.1:0")
                 .await
@@ -105,7 +103,6 @@ impl ProxyTunnel {
             remote_port
         );
 
-        // Spawn acceptor loop
         tokio::spawn(async move {
             let config = config_clone;
             let remote_host = remote_host_str;
@@ -174,7 +171,6 @@ async fn handle_client(
         }
     };
 
-    // Bidirectional relay
     let (mut client_read, mut client_write) = tokio::io::split(client_stream);
     let (mut proxy_read, mut proxy_write) = tokio::io::split(proxy_stream);
 
@@ -253,13 +249,11 @@ async fn connect_http(
             message: format!("Failed to connect to HTTP proxy: {}", e),
         })?;
 
-    // Build CONNECT request
     let mut request = format!(
         "CONNECT {}:{} HTTP/1.1\r\nHost: {}:{}\r\n",
         remote_host, remote_port, remote_host, remote_port
     );
 
-    // Add proxy authentication if provided
     if let (Some(user), Some(pass)) = (&config.username, &config.password) {
         if !user.is_empty() {
             use base64::Engine;
@@ -271,7 +265,6 @@ async fn connect_http(
 
     request.push_str("\r\n");
 
-    // Send CONNECT request
     stream
         .write_all(request.as_bytes())
         .await
@@ -279,7 +272,7 @@ async fn connect_http(
             message: format!("Failed to send CONNECT request: {}", e),
         })?;
 
-    // Read response (we only need the status line)
+    // Only the status line is needed; a single 1KB read covers the whole header block in practice.
     let mut buf = [0u8; 1024];
     let n = stream
         .read(&mut buf)
@@ -291,7 +284,6 @@ async fn connect_http(
     let response = String::from_utf8_lossy(&buf[..n]);
     let status_line = response.lines().next().unwrap_or("");
 
-    // Check for 200 OK
     if !status_line.contains("200") {
         return Err(EngineError::ProxyError {
             message: format!(

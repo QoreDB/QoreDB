@@ -114,7 +114,6 @@ impl SqliteDriver {
 
         let path = &config.host;
 
-        // Build connection string
         let conn_str = if path == ":memory:" {
             "sqlite::memory:".to_string()
         } else {
@@ -380,8 +379,7 @@ impl DataEngine for SqliteDriver {
     async fn list_namespaces(&self, session: SessionId) -> EngineResult<Vec<Namespace>> {
         let sqlite_session = self.get_session(session).await?;
 
-        // SQLite has only one "database" per file
-        // Use the filename as the namespace name
+        // SQLite has one database per file — expose the filename as the namespace.
         let db_name = if sqlite_session.db_path == ":memory:" {
             "memory".to_string()
         } else {
@@ -406,7 +404,6 @@ impl DataEngine for SqliteDriver {
 
         let search_pattern = options.search.as_ref().map(|s| format!("%{}%", s));
 
-        // Get total count
         let count_query = r#"
             SELECT COUNT(*)
             FROM sqlite_master
@@ -424,7 +421,6 @@ impl DataEngine for SqliteDriver {
 
         let total_count = count_row.0;
 
-        // Get paginated results
         let mut query_str = r#"
             SELECT name, type
             FROM sqlite_master
@@ -610,15 +606,14 @@ impl DataEngine for SqliteDriver {
         _name: &str,
         _options: Option<Value>,
     ) -> EngineResult<()> {
-        // SQLite doesn't support creating databases within a connection
-        // A new database is created by opening a new file
+        // SQLite materialises a database by opening a new file path, not by SQL.
         Err(EngineError::not_supported(
             "SQLite databases are created by opening a new file path",
         ))
     }
 
     async fn drop_database(&self, _session: SessionId, _name: &str) -> EngineResult<()> {
-        // SQLite doesn't support dropping databases
+        // SQLite databases are deleted by removing the file.
         Err(EngineError::not_supported(
             "SQLite databases are deleted by removing the file",
         ))
@@ -648,19 +643,16 @@ impl DataEngine for SqliteDriver {
         }
         let sqlite_session = self.get_session(session).await?;
 
-        // Use pool for streaming
         let mut conn = sqlite_session
             .pool
             .acquire()
             .await
             .map_err(|e| EngineError::connection_failed(e.to_string()))?;
 
-        // Check if query returns rows
         let returns_rows = safety::returns_rows(self.driver_id(), query)
             .unwrap_or_else(|_| safety::is_select_prefix(query));
 
         if !returns_rows {
-            // Fallback to normal execute
             let result = self
                 .execute_in_namespace(session, None, query, query_id)
                 .await?;
@@ -764,7 +756,6 @@ impl DataEngine for SqliteDriver {
         let mut tx_guard = sqlite_session.transaction_conn.lock().await;
 
         let result = if let Some(ref mut conn) = *tx_guard {
-            // Use dedicated transaction connection
             if returns_rows {
                 let sqlite_rows: Vec<SqliteRow> = sqlx::query(query)
                     .fetch_all(&mut **conn)
@@ -895,7 +886,6 @@ impl DataEngine for SqliteDriver {
         let sqlite_session = self.get_session(session).await?;
         let pool = &sqlite_session.pool;
 
-        // Get column info using PRAGMA table_info
         let table_ident = Self::quote_ident(table);
         let pragma_query = format!("PRAGMA table_info({})", table_ident);
 
@@ -923,7 +913,6 @@ impl DataEngine for SqliteDriver {
             })
             .collect();
 
-        // Get foreign keys using PRAGMA foreign_key_list
         let fk_query = format!("PRAGMA foreign_key_list({})", table_ident);
         let fk_rows: Vec<(i64, i64, String, String, String, String, String, String)> =
             sqlx::query_as(&fk_query)
@@ -948,7 +937,6 @@ impl DataEngine for SqliteDriver {
             )
             .collect();
 
-        // Get indexes using PRAGMA index_list
         let index_query = format!("PRAGMA index_list({})", table_ident);
         let index_list: Vec<(i64, String, i64, String, i64)> = sqlx::query_as(&index_query)
             .fetch_all(pool)
@@ -957,7 +945,6 @@ impl DataEngine for SqliteDriver {
 
         let mut indexes: Vec<TableIndex> = Vec::new();
         for (_seq, index_name, is_unique, _origin, _partial) in index_list {
-            // Get columns for this index
             let index_info_query = format!("PRAGMA index_info({})", Self::quote_ident(&index_name));
             let index_cols: Vec<(i64, i64, String)> = sqlx::query_as(&index_info_query)
                 .fetch_all(pool)
@@ -976,7 +963,6 @@ impl DataEngine for SqliteDriver {
             });
         }
 
-        // Get row count estimate
         let count_query = format!("SELECT COUNT(*) FROM {}", table_ident);
         let row_count: Option<(i64,)> = sqlx::query_as(&count_query)
             .fetch_optional(pool)
@@ -1025,7 +1011,6 @@ impl DataEngine for SqliteDriver {
         let page_size = options.effective_page_size();
         let offset = options.offset();
 
-        // Build WHERE clause from filters
         let mut where_clauses: Vec<String> = Vec::new();
         let mut bind_values: Vec<Value> = Vec::new();
 
@@ -1065,10 +1050,8 @@ impl DataEngine for SqliteDriver {
                     FilterOperator::IsNull => format!("{} IS NULL", col_ident),
                     FilterOperator::IsNotNull => format!("{} IS NOT NULL", col_ident),
                     FilterOperator::Regex => {
-                        // SQLite's REGEXP operator relies on a user-defined
-                        // function. When it is not loaded the call will return
-                        // a clear error at execution time, which is preferable
-                        // to silently falling back to LIKE.
+                        // SQLite REGEXP delegates to a user-defined function; if it's not loaded the
+                        // engine surfaces a clear error rather than silently falling back to LIKE.
                         let raw = filter.value.as_text().ok_or_else(|| {
                             EngineError::syntax_error(
                                 "regex operator requires a string value in 'value'",
@@ -1084,10 +1067,8 @@ impl DataEngine for SqliteDriver {
                         format!("{} REGEXP ?", col_ident)
                     }
                     FilterOperator::Text => {
-                        // SQLite has no native full-text operator at the column
-                        // level (FTS5 lives in dedicated virtual tables); fall
-                        // back to a case-insensitive substring match so the
-                        // operator is still useful.
+                        // SQLite has no column-level FTS operator (FTS5 lives in virtual tables) —
+                        // fall back to a substring LIKE so the filter still does something useful.
                         let term = filter.value.as_text().ok_or_else(|| {
                             EngineError::syntax_error(
                                 "text operator requires a string value in 'value'",
@@ -1101,10 +1082,8 @@ impl DataEngine for SqliteDriver {
             }
         }
 
-        // Handle search across all columns
         if let Some(ref search_term) = options.search {
             if !search_term.trim().is_empty() {
-                // Get column info
                 let pragma_query = format!("PRAGMA table_info({})", table_ident);
                 let columns_rows: Vec<(i64, String, String, i64, Option<String>, i64)> =
                     sqlx::query_as(&pragma_query)
@@ -1114,7 +1093,6 @@ impl DataEngine for SqliteDriver {
 
                 let mut search_clauses: Vec<String> = Vec::new();
                 for (_, col_name, data_type, _, _, _) in &columns_rows {
-                    // Skip blob columns
                     let upper = data_type.to_uppercase();
                     if upper.contains("BLOB") {
                         continue;
@@ -1123,7 +1101,7 @@ impl DataEngine for SqliteDriver {
                     let col_ident = Self::quote_ident(col_name);
                     bind_values.push(Value::Text(format!("%{}%", search_term)));
 
-                    // In SQLite, CAST(col AS TEXT) works for all non-blob types
+                    // CAST(col AS TEXT) works for every non-blob SQLite type, so use it as a fallback.
                     let is_text = upper.contains("TEXT")
                         || upper.contains("CHAR")
                         || upper.contains("VARCHAR")
@@ -1147,7 +1125,6 @@ impl DataEngine for SqliteDriver {
             format!(" WHERE {}", where_clauses.join(" AND "))
         };
 
-        // Build ORDER BY clause
         let order_sql = if let Some(sort_col) = &options.sort_column {
             let sort_ident = Self::quote_ident(sort_col);
             let direction = match options.sort_direction.unwrap_or_default() {
@@ -1159,7 +1136,6 @@ impl DataEngine for SqliteDriver {
             String::new()
         };
 
-        // Execute COUNT query for total rows
         let count_sql = format!("SELECT COUNT(*) AS cnt FROM {}{}", table_ident, where_sql);
         let mut count_query = sqlx::query(&count_sql);
         for val in &bind_values {
@@ -1205,7 +1181,7 @@ impl DataEngine for SqliteDriver {
         let execution_time_ms = start.elapsed().as_micros() as f64 / 1000.0;
 
         let result = if sqlite_rows.is_empty() {
-            // Get column metadata from PRAGMA even when no rows match
+            // No rows means no driver column metadata — fetch it from PRAGMA instead.
             let pragma_col_sql = format!("PRAGMA table_info({})", table_ident);
             let pragma_rows: Vec<(i64, String, String, i64, Option<String>, i64)> =
                 sqlx::query_as(&pragma_col_sql)
@@ -1305,8 +1281,8 @@ impl DataEngine for SqliteDriver {
     }
 
     async fn cancel(&self, _session: SessionId, _query_id: Option<QueryId>) -> EngineResult<()> {
-        // SQLite doesn't support query cancellation via a separate connection
-        // The sqlite3_interrupt API would need to be called on the same connection
+        // Cancellation requires `sqlite3_interrupt` on the same connection running the query —
+        // the pool architecture can't reach the busy connection from another thread.
         Err(EngineError::not_supported(
             "SQLite does not support query cancellation",
         ))
@@ -1315,8 +1291,6 @@ impl DataEngine for SqliteDriver {
     fn cancel_support(&self) -> CancelSupport {
         CancelSupport::None
     }
-
-    // ==================== Transaction Methods ====================
 
     async fn begin_transaction(&self, session: SessionId) -> EngineResult<()> {
         let sqlite_session = self.get_session(session).await?;
@@ -1393,8 +1367,6 @@ impl DataEngine for SqliteDriver {
     fn supports_explain(&self) -> bool {
         true
     }
-
-    // ==================== Mutation Methods ====================
 
     async fn insert_row(
         &self,
@@ -1475,7 +1447,6 @@ impl DataEngine for SqliteDriver {
         let mut pk_keys: Vec<&String> = primary_key.columns.keys().collect();
         pk_keys.sort();
 
-        // UPDATE table SET col1=?, col2=? WHERE pk1=? AND pk2=?
         let set_clauses: Vec<String> = data_keys
             .iter()
             .map(|k| format!("{}=?", Self::quote_ident(k)))
@@ -1543,7 +1514,6 @@ impl DataEngine for SqliteDriver {
         let mut pk_keys: Vec<&String> = primary_key.columns.keys().collect();
         pk_keys.sort();
 
-        // DELETE FROM table WHERE pk1=?
         let where_clauses: Vec<String> = pk_keys
             .iter()
             .map(|k| format!("{}=?", Self::quote_ident(k)))
@@ -1580,8 +1550,6 @@ impl DataEngine for SqliteDriver {
     fn supports_mutations(&self) -> bool {
         true
     }
-
-    // ==================== Maintenance ====================
 
     fn supports_maintenance(&self) -> bool {
         true
@@ -1625,10 +1593,10 @@ impl DataEngine for SqliteDriver {
         request: &MaintenanceRequest,
     ) -> EngineResult<MaintenanceResult> {
         let sqlite_session = self.get_session(session).await?;
-        let _ = namespace; // SQLite has a single namespace
+        let _ = namespace; // SQLite has a single namespace.
 
         let sql = match request.operation {
-            // SQLite VACUUM is database-wide, not per-table
+            // SQLite VACUUM operates on the entire database; the table argument is ignored.
             MaintenanceOperationType::Vacuum => "VACUUM".to_string(),
             MaintenanceOperationType::Analyze => {
                 format!("ANALYZE {}", Self::quote_ident(table))
@@ -1649,7 +1617,7 @@ impl DataEngine for SqliteDriver {
         let start = Instant::now();
 
         if request.operation == MaintenanceOperationType::IntegrityCheck {
-            // PRAGMA integrity_check returns rows with a single text column
+            // PRAGMA integrity_check yields a single text column per row ("ok" on success).
             let rows: Vec<SqliteRow> = sqlx::query(&sql)
                 .fetch_all(&sqlite_session.pool)
                 .await

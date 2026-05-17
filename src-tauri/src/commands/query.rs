@@ -314,7 +314,6 @@ pub async fn execute_query(
         }
     }
 
-    // Build interceptor context
     let is_mutation_for_context = if is_sql_driver {
         sql_analysis
             .as_ref()
@@ -338,10 +337,8 @@ pub async fn execute_query(
         is_mutation_for_context,
     );
 
-    // Run interceptor pre-execution checks (safety rules)
     let safety_result = interceptor.pre_execute(&interceptor_context);
     if !safety_result.allowed {
-        // Record blocked query in interceptor
         interceptor.post_execute(
             &interceptor_context,
             &QueryExecutionResult {
@@ -370,7 +367,7 @@ pub async fn execute_query(
                 )
             }
             SafetyAction::Warn => {
-                // Warn allows execution, so this shouldn't happen
+                // Unreachable: Warn does not block execution.
                 "Warning triggered".to_string()
             }
         };
@@ -391,7 +388,6 @@ pub async fn execute_query(
         None
     };
 
-    // Governance: check concurrent query limit
     if let Some(limit) = policy.max_concurrent_queries {
         let active = query_manager.count_active().await;
         if active >= limit as usize {
@@ -460,15 +456,13 @@ pub async fn execute_query(
     }
 
     if should_stream {
-        // Create channel for stream events
         let (sender, mut receiver) = tokio::sync::mpsc::channel(1024);
         let qid_cloned = query_id_str.clone();
         let window_cloned = window.clone();
         let on_stream_cloned = on_stream.clone();
 
-        // Spawn task to hand events to the frontend via the MessagePack Channel.
-        // Use a long-lived `StreamDispatcher` so the buffer-capacity hint
-        // accumulates across batches (avoids the realloc cascade in rmp_serde).
+        // A long-lived `StreamDispatcher` lets the buffer-capacity hint
+        // accumulate across batches and avoids the realloc cascade in rmp_serde.
         tokio::spawn(async move {
             let mut dispatcher =
                 StreamDispatcher::new(Some(&on_stream_cloned), &window_cloned, &qid_cloned);
@@ -477,7 +471,6 @@ pub async fn execute_query(
             }
         });
 
-        // Execute streaming
         let start_time = std::time::Instant::now();
         let execution = driver.execute_stream_in_namespace(
             session,
@@ -487,10 +480,8 @@ pub async fn execute_query(
             sender,
         );
 
-        // Handle timeout for the *start* or completion?
-        // With streaming, the execution future completes when the stream is DONE.
-        // So we can still await it with timeout.
-
+        // The streaming future resolves on stream completion, so a wrapping
+        // timeout covers the entire run.
         let result = if let Some(timeout_value) = effective_timeout {
             match timeout(Duration::from_millis(timeout_value), execution).await {
                 Ok(res) => res,
@@ -499,7 +490,6 @@ pub async fn execute_query(
                     query_manager.finish(query_id).await;
                     metrics::record_timeout();
 
-                    // Record timeout in interceptor
                     let duration_ms = start_time.elapsed().as_micros() as f64 / 1000.0;
                     interceptor.post_execute(
                         &interceptor_context,
@@ -513,7 +503,6 @@ pub async fn execute_query(
                         safety_warning.as_deref(),
                     );
 
-                    // Emit timeout error through the stream Channel.
                     dispatch_stream_event(
                         StreamEvent::Error("Operation timed out".to_string()),
                         Some(&on_stream),
@@ -539,14 +528,13 @@ pub async fn execute_query(
 
         match result {
             Ok(_) => {
-                // Record successful streaming execution
                 interceptor.post_execute(
                     &interceptor_context,
                     &QueryExecutionResult {
                         success: true,
                         error: None,
                         execution_time_ms: duration_ms,
-                        row_count: None, // Row count tracked via stream events
+                        row_count: None,
                     },
                     false,
                     safety_warning.as_deref(),
@@ -554,7 +542,7 @@ pub async fn execute_query(
 
                 Ok(QueryResponse {
                     success: true,
-                    result: None, // Results are streamed
+                    result: None,
                     error: None,
                     query_id: Some(query_id_str),
                     truncated: None,
@@ -562,7 +550,6 @@ pub async fn execute_query(
                 })
             }
             Err(e) => {
-                // Record failed streaming execution
                 interceptor.post_execute(
                     &interceptor_context,
                     &QueryExecutionResult {
@@ -586,7 +573,6 @@ pub async fn execute_query(
             }
         }
     } else {
-        // Normal execution
         let start_time = std::time::Instant::now();
         let execution = async {
             if let Some(statements) = sql_statements {
@@ -632,7 +618,6 @@ pub async fn execute_query(
                     query_manager.finish(query_id).await;
                     metrics::record_timeout();
 
-                    // Record timeout in interceptor
                     let duration_ms = start_time.elapsed().as_micros() as f64 / 1000.0;
                     interceptor.post_execute(
                         &interceptor_context,
@@ -666,7 +651,6 @@ pub async fn execute_query(
                 result.execution_time_ms = duration_ms;
                 metrics::record_query(duration_ms, true);
 
-                // Record successful execution in interceptor
                 interceptor.post_execute(
                     &interceptor_context,
                     &QueryExecutionResult {
@@ -679,8 +663,8 @@ pub async fn execute_query(
                     safety_warning.as_deref(),
                 );
 
-                // Governance: truncate results if max_result_rows is set
-                // (skipped when the caller explicitly opted into bypass_limits)
+                // Governance: truncate results when max_result_rows is set
+                // (skipped when the caller explicitly opted into bypass_limits).
                 let (truncated, truncated_total) = if bypass_limits {
                     (None, None)
                 } else if let Some(max_rows) = policy.max_result_rows {
@@ -707,7 +691,6 @@ pub async fn execute_query(
             Err(e) => {
                 metrics::record_query(duration_ms, false);
 
-                // Record failed execution in interceptor
                 interceptor.post_execute(
                     &interceptor_context,
                     &QueryExecutionResult {
@@ -934,7 +917,6 @@ pub async fn list_routines(
         }
     };
 
-    // Parse routine_type string to enum
     let routine_type_enum = routine_type.as_ref().and_then(|t| match t.as_str() {
         "Function" => Some(RoutineType::Function),
         "Procedure" => Some(RoutineType::Procedure),
@@ -1166,7 +1148,6 @@ pub async fn describe_table(
 
     match driver.describe_table(session, &namespace, &table).await {
         Ok(mut schema) => {
-            // Merge virtual foreign keys if connection_id is provided
             if let Some(ref conn_id) = connection_id {
                 let virtual_fks = vr_store.get_foreign_keys_for_table(
                     conn_id,
@@ -1174,7 +1155,7 @@ pub async fn describe_table(
                     namespace.schema.as_deref(),
                     &table,
                 );
-                // Filter out virtual FKs that duplicate real ones
+                // Skip virtual FKs that duplicate real ones.
                 for vfk in virtual_fks {
                     let is_duplicate = schema.foreign_keys.iter().any(|fk| {
                         fk.column == vfk.column
@@ -1391,7 +1372,7 @@ pub async fn peek_foreign_key(
         )
     };
     let session = parse_session_id(&session_id)?;
-    // The hardcoded 25 stays as a UX cap (tooltip preview); policy can tighten further.
+    // UX cap for the tooltip preview; policy may tighten further.
     let requested = limit.unwrap_or(3).clamp(1, 25);
     let limit = governance::clamp_rows(&policy, requested);
 
@@ -2041,8 +2022,8 @@ pub async fn get_governance_limits(
 /// caller (or compromised webview JS) could send `max_query_duration_ms = 0`
 /// — every query times out instantly — or `max_result_rows = u64::MAX` —
 /// the limit is effectively gone (cf. audit B6-H4).
-const MIN_QUERY_DURATION_MS: u64 = 100; // ~one trivial roundtrip
-const MAX_QUERY_DURATION_MS: u64 = 60 * 60 * 1000; // 1 h hard cap
+const MIN_QUERY_DURATION_MS: u64 = 100;
+const MAX_QUERY_DURATION_MS: u64 = 60 * 60 * 1000; // 1h hard cap
 const MIN_RESULT_ROWS: u64 = 1;
 const MAX_RESULT_ROWS_CAP: u64 = 100_000_000;
 const MIN_CONCURRENT_QUERIES: u32 = 1;

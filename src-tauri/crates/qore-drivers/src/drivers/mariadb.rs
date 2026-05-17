@@ -54,7 +54,6 @@ impl DataEngine for MariaDbDriver {
         "MariaDB"
     }
 
-    // ==================== Connection ====================
 
     async fn test_connection(&self, config: &ConnectionConfig) -> EngineResult<()> {
         self.inner.test_connection(config).await
@@ -72,7 +71,6 @@ impl DataEngine for MariaDbDriver {
         self.inner.ping(session).await
     }
 
-    // ==================== Namespaces ====================
 
     /// MariaDB-specific namespace filtering.
     /// Unlike MySQL, MariaDB may not have `performance_schema` or `sys` enabled by default.
@@ -99,7 +97,6 @@ impl DataEngine for MariaDbDriver {
         Ok(namespaces)
     }
 
-    // ==================== Collections ====================
 
     async fn list_collections(
         &self,
@@ -112,7 +109,6 @@ impl DataEngine for MariaDbDriver {
             .await
     }
 
-    // ==================== Routines ====================
 
     fn supports_routines(&self) -> bool {
         true
@@ -153,7 +149,6 @@ impl DataEngine for MariaDbDriver {
             .await
     }
 
-    // ==================== Triggers ====================
 
     fn supports_triggers(&self) -> bool {
         true
@@ -191,7 +186,6 @@ impl DataEngine for MariaDbDriver {
             .await
     }
 
-    // ==================== Events ====================
 
     fn supports_events(&self) -> bool {
         true
@@ -226,7 +220,6 @@ impl DataEngine for MariaDbDriver {
         self.inner.drop_event(session, namespace, event_name).await
     }
 
-    // ==================== Sequences (MariaDB 10.3+) ====================
 
     fn supports_sequences(&self) -> bool {
         true
@@ -355,7 +348,7 @@ impl DataEngine for MariaDbDriver {
         let mysql_session = self.inner.get_session(session).await?;
         let pool = &mysql_session.pool;
 
-        // USE the correct database before SHOW CREATE
+        // SHOW CREATE SEQUENCE resolves the name against the current database, so USE it first.
         let use_sql = format!("USE `{}`", namespace.database.replace('`', "``"));
         sqlx::query(&use_sql)
             .execute(pool)
@@ -412,7 +405,6 @@ impl DataEngine for MariaDbDriver {
         })
     }
 
-    // ==================== Database Management ====================
 
     async fn get_creation_options(&self, session: SessionId) -> EngineResult<CreationOptions> {
         self.inner.get_creation_options(session).await
@@ -431,7 +423,6 @@ impl DataEngine for MariaDbDriver {
         self.inner.drop_database(session, name).await
     }
 
-    // ==================== Query Execution ====================
 
     async fn execute(
         &self,
@@ -479,7 +470,6 @@ impl DataEngine for MariaDbDriver {
             .await
     }
 
-    // ==================== Table Inspection ====================
 
     async fn describe_table(
         &self,
@@ -527,7 +517,6 @@ impl DataEngine for MariaDbDriver {
             .await
     }
 
-    // ==================== Cancellation ====================
 
     async fn cancel(&self, session: SessionId, query_id: Option<QueryId>) -> EngineResult<()> {
         self.inner.cancel(session, query_id).await
@@ -537,7 +526,6 @@ impl DataEngine for MariaDbDriver {
         self.inner.cancel_support()
     }
 
-    // ==================== Transactions ====================
 
     async fn begin_transaction(&self, session: SessionId) -> EngineResult<()> {
         self.inner.begin_transaction(session).await
@@ -563,7 +551,6 @@ impl DataEngine for MariaDbDriver {
         true
     }
 
-    // ==================== Mutations ====================
 
     async fn insert_row(
         &self,
@@ -604,7 +591,6 @@ impl DataEngine for MariaDbDriver {
         true
     }
 
-    // ==================== Maintenance ====================
     // MariaDB supports all MySQL maintenance ops plus the Aria storage engine.
 
     fn supports_maintenance(&self) -> bool {
@@ -634,7 +620,6 @@ impl DataEngine for MariaDbDriver {
             .await
     }
 
-    // ==================== Capabilities ====================
 
     fn capabilities(&self) -> DriverCapabilities {
         DriverCapabilities {

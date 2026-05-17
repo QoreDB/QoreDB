@@ -15,12 +15,9 @@ use super::types::{
     ConnectionAliasMap, FederatedTableRef, FederationPlan, SourceFetchPlan, DEFAULT_ROW_LIMIT,
 };
 
-/// Builds a `FederationPlan` from a user query.
-///
-/// 1. Parses the query to extract federated table references
-/// 2. Resolves each connection alias to a session ID
-/// 3. Generates source fetch plans with pushdown predicates
-/// 4. Rewrites the query for DuckDB execution
+/// Builds a `FederationPlan` from a user query: extracts federated refs,
+/// resolves aliases to sessions, derives source fetch plans, and rewrites
+/// the query for DuckDB.
 pub fn build_plan(
     sql: &str,
     alias_map: &ConnectionAliasMap,
@@ -30,13 +27,8 @@ pub fn build_plan(
     let known_aliases = alias_map.keys().cloned().collect();
     let federated_refs = parse_federation_refs(sql, &known_aliases)?;
 
-    // Resolve aliases to sessions
     let sources = resolve_sources(&federated_refs, alias_map, row_limit)?;
-
-    // Build the mapping for query rewriting: dotted_name -> local_alias
     let mappings = build_rewrite_mappings(&federated_refs);
-
-    // Rewrite the query for DuckDB
     let duckdb_query = rewrite_query(sql, &mappings)?;
 
     Ok(FederationPlan {
@@ -87,9 +79,7 @@ fn resolve_sources(
 fn build_rewrite_mappings(refs: &[FederatedTableRef]) -> HashMap<String, String> {
     let mut mappings = HashMap::new();
     for r in refs {
-        // Build dotted name exactly as it appears in SQL:
-        // - 3-part: alias.database.table
-        // - 4-part: alias.database.schema.table
+        // Dotted name as written in SQL: alias.database[.schema].table.
         let dotted = if let Some(ref schema) = r.namespace.schema {
             build_dotted_name(&[
                 r.connection_alias.clone(),
@@ -113,12 +103,10 @@ fn build_rewrite_mappings(refs: &[FederatedTableRef]) -> HashMap<String, String>
 ///
 /// Generates: `SELECT {columns} FROM {table} WHERE {predicates} LIMIT {limit}`
 pub fn build_source_query(source: &SourceFetchPlan) -> String {
-    // For MongoDB, we use a different query format
     if source.driver_id == "mongodb" {
         return build_mongo_source_query(source);
     }
 
-    // Use dialect-aware quoting: backticks for MySQL, double quotes for Postgres/SQLite, etc.
     let dialect = SqlDialect::from_driver_id(&source.driver_id).unwrap_or(SqlDialect::Postgres);
 
     let columns_clause = match &source.columns {
@@ -152,8 +140,7 @@ fn build_mongo_source_query(source: &SourceFetchPlan) -> String {
     let database = &source.table_ref.namespace.database;
     let collection = &source.table_ref.table;
 
-    // Use the JSON format that the MongoDB driver's parse_query() expects:
-    // {"database": "...", "collection": "...", "query": {...}}
+    // Format expected by the MongoDB driver's parse_query().
     format!(
         r#"{{"database":"{}","collection":"{}","query":{{}}}}"#,
         database.replace('"', "\\\""),

@@ -43,7 +43,6 @@ use qore_core::types::{
 };
 use qore_sql::safety;
 
-// ==================== Session & Driver ====================
 
 /// Holds the connection state for a DuckDB session.
 pub struct DuckDbSession {
@@ -155,7 +154,6 @@ impl Default for DuckDbDriver {
     }
 }
 
-// ==================== Type Conversion ====================
 
 /// Converts a QoreDB Value to a DuckDB Value for parameter binding.
 fn value_to_duckdb(value: &Value) -> DuckValue {
@@ -173,7 +171,6 @@ fn value_to_duckdb(value: &Value) -> DuckValue {
 
 /// Extracts a value from a DuckDB row and converts it to a QoreDB Value.
 fn duckdb_value_to_qoredb(row: &::duckdb::Row<'_>, idx: usize) -> Value {
-    // Try types in order of likelihood
     if let Ok(v) = row.get::<_, Option<i64>>(idx) {
         return match v {
             Some(i) => Value::Int(i),
@@ -223,8 +220,7 @@ fn execute_select(conn: &Connection, sql: &str, start: Instant) -> EngineResult<
         .prepare(sql)
         .map_err(|e| classify_error(e.to_string()))?;
 
-    // DuckDB crate: column_count/column_name panic before execution.
-    // query_map executes internally, so we get column_count from the Row.
+    // duckdb crate: column_count/column_name panic before execution; read column count off the Row inside the closure.
     let rows_iter = stmt
         .query_map([], |row| {
             let col_count = row.as_ref().column_count();
@@ -241,7 +237,6 @@ fn execute_select(conn: &Connection, sql: &str, start: Instant) -> EngineResult<
         rows.push(row);
     }
 
-    // After iteration, statement has been executed — column_count/column_name work
     let column_count = stmt.column_count();
     let columns: Vec<ColumnInfo> = (0..column_count)
         .map(|i| ColumnInfo {
@@ -288,7 +283,6 @@ fn classify_error(msg: String) -> EngineError {
     }
 }
 
-// ==================== DataEngine Implementation ====================
 
 #[async_trait]
 impl DataEngine for DuckDbDriver {
@@ -341,7 +335,6 @@ impl DataEngine for DuckDbDriver {
         sessions
             .remove(&session)
             .ok_or_else(|| EngineError::session_not_found(session.0.to_string()))?;
-        // Connection is dropped when session Arc refcount reaches 0
         Ok(())
     }
 
@@ -355,7 +348,6 @@ impl DataEngine for DuckDbDriver {
         .await
     }
 
-    // ==================== Schema Browsing ====================
 
     async fn list_namespaces(&self, session: SessionId) -> EngineResult<Vec<Namespace>> {
         let duck_session = self.get_session(session).await?;
@@ -404,7 +396,7 @@ impl DataEngine for DuckDbDriver {
         Self::with_conn(&duck_session, move |conn| {
             let search_pattern = options.search.as_ref().map(|s| format!("%{}%", s));
 
-            // Count query — unified params to avoid closure type mismatch
+            // Build a unified Vec<String> param list to keep closure types consistent across branches.
             let mut count_sql = String::from(
                 "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = ?1",
             );
@@ -420,8 +412,6 @@ impl DataEngine for DuckDbDriver {
                 })
                 .map_err(|e| EngineError::execution_error(e.to_string()))?;
 
-            // Data query with pagination — always use ?1 for schema,
-            // optionally ?2 for search pattern via a unified param list.
             let mut data_sql = String::from(
                 "SELECT table_name, table_type FROM information_schema.tables \
                  WHERE table_schema = ?1",
@@ -492,7 +482,6 @@ impl DataEngine for DuckDbDriver {
         let table = table.to_string();
 
         Self::with_conn(&duck_session, move |conn| {
-            // 1. Get columns from information_schema
             let mut col_stmt = conn
                 .prepare(
                     "SELECT column_name, data_type, is_nullable, column_default \
@@ -521,11 +510,10 @@ impl DataEngine for DuckDbDriver {
                     data_type,
                     nullable: is_nullable == "YES",
                     default_value,
-                    is_primary_key: false, // Set below from constraints
+                    is_primary_key: false,
                 });
             }
 
-            // 2. Get primary key constraints
             let mut pk_columns: Vec<String> = Vec::new();
             if let Ok(mut pk_stmt) = conn.prepare(
                 "SELECT unnest(constraint_column_names) as col_name \
@@ -545,14 +533,12 @@ impl DataEngine for DuckDbDriver {
                 }
             }
 
-            // Mark PK columns
             for col in &mut columns {
                 if pk_columns.contains(&col.name) {
                     col.is_primary_key = true;
                 }
             }
 
-            // 3. Get foreign keys
             let mut foreign_keys: Vec<ForeignKey> = Vec::new();
             if let Ok(mut fk_stmt) = conn.prepare(
                 "SELECT \
@@ -583,7 +569,6 @@ impl DataEngine for DuckDbDriver {
                 }
             }
 
-            // 4. Get indexes
             let mut indexes: Vec<TableIndex> = Vec::new();
             if let Ok(mut idx_stmt) = conn.prepare(
                 "SELECT index_name, is_unique, sql \
@@ -598,7 +583,7 @@ impl DataEngine for DuckDbDriver {
                 }) {
                     for row in idx_rows {
                         if let Ok((name, is_unique, sql)) = row {
-                            // Extract column names from CREATE INDEX SQL
+                            // duckdb_indexes() doesn't expose the column list directly — parse CREATE INDEX.
                             let idx_columns = extract_index_columns(sql.as_deref());
                             indexes.push(TableIndex {
                                 name,
@@ -612,7 +597,6 @@ impl DataEngine for DuckDbDriver {
                 }
             }
 
-            // 5. Get row count estimate
             let row_count_estimate = conn
                 .query_row(
                     &format!(
@@ -662,7 +646,6 @@ impl DataEngine for DuckDbDriver {
         self.execute(session, &query, QueryId::new()).await
     }
 
-    // ==================== Query Execution ====================
 
     async fn execute(
         &self,
@@ -694,7 +677,6 @@ impl DataEngine for DuckDbDriver {
             .unwrap_or_else(|_| safety::is_select_prefix(&query));
 
         Self::with_conn(&duck_session, move |conn| {
-            // Set schema if namespace provided
             if let Some(ns) = &namespace {
                 let schema = ns.schema.as_deref().unwrap_or(&ns.database);
                 conn.execute(
@@ -752,14 +734,12 @@ impl DataEngine for DuckDbDriver {
             return Ok(());
         }
 
-        // Stream results directly from spawn_blocking using blocking_send
         let session_clone = Arc::clone(&duck_session);
         tokio::task::spawn_blocking(move || {
             let conn = session_clone.conn.lock().map_err(|e| {
                 EngineError::internal(format!("Failed to lock DuckDB connection: {e}"))
             })?;
 
-            // Set schema if namespace provided
             if let Some(ns) = &namespace {
                 let schema = ns.schema.as_deref().unwrap_or(&ns.database);
                 conn.execute(
@@ -773,9 +753,8 @@ impl DataEngine for DuckDbDriver {
                 .prepare(&query)
                 .map_err(|e| classify_error(e.to_string()))?;
 
-            // DuckDB crate: column_count/column_name panic before execution,
-            // and query_map holds a mutable borrow on stmt preventing column access.
-            // Collect rows first (releases borrow), then extract column metadata.
+            // duckdb crate quirk: column_count/column_name panic before execution, and query_map
+            // holds a mutable borrow on stmt. Collect rows first to release the borrow.
             let rows: Vec<QRow> = stmt
                 .query_map([], |row| {
                     let col_count = row.as_ref().column_count();
@@ -788,7 +767,6 @@ impl DataEngine for DuckDbDriver {
                 .collect::<Result<Vec<_>, _>>()
                 .map_err(|e| EngineError::execution_error(e.to_string()))?;
 
-            // Now stmt borrow is released, extract column metadata
             let column_count = stmt.column_count();
             let columns: Vec<ColumnInfo> = (0..column_count)
                 .map(|i| ColumnInfo {
@@ -801,7 +779,6 @@ impl DataEngine for DuckDbDriver {
                 })
                 .collect();
 
-            // Stream: send columns first, then rows one-by-one with backpressure
             if sender.blocking_send(StreamEvent::Columns(columns)).is_err() {
                 return Ok(());
             }
@@ -818,7 +795,7 @@ impl DataEngine for DuckDbDriver {
                         )))
                         .is_err()
                     {
-                        return Ok(()); // Receiver dropped, stop streaming
+                        return Ok(());
                     }
                 }
             }
@@ -833,7 +810,6 @@ impl DataEngine for DuckDbDriver {
         .map_err(|e| EngineError::internal(format!("DuckDB streaming task panicked: {e}")))?
     }
 
-    // ==================== Table Querying ====================
 
     async fn query_table(
         &self,
@@ -861,7 +837,6 @@ impl DataEngine for DuckDbDriver {
                 Self::quote_ident(&table)
             );
 
-            // Build WHERE clause
             let mut where_clauses: Vec<String> = Vec::new();
             let mut bind_values: Vec<DuckValue> = Vec::new();
 
@@ -906,9 +881,7 @@ impl DataEngine for DuckDbDriver {
                                 )
                             })?;
                             bind_values.push(value_to_duckdb(&filter.value));
-                            // DuckDB: regexp_matches(col, pat[, flags]).
-                            // `sanitized_regex_flags` guarantees flags are a
-                            // subset of `imxs`, safe to interpolate.
+                            // sanitized_regex_flags restricts flags to `imxs` so the literal is safe to interpolate.
                             let flags_lit = filter.options.sanitized_regex_flags();
                             if flags_lit.is_empty() {
                                 format!("regexp_matches({}::VARCHAR, ?)", col_ident)
@@ -920,10 +893,8 @@ impl DataEngine for DuckDbDriver {
                             }
                         }
                         FilterOperator::Text => {
-                            // DuckDB has no native full-text index; fall back to
-                            // a case-insensitive substring match so the operator
-                            // still works (the filter bar UI warns on absence of
-                            // a text index).
+                            // DuckDB has no full-text index; fall back to a case-insensitive substring match.
+                            // The filter bar UI warns on absence of a text index.
                             let term = filter.value.as_text().ok_or_else(|| {
                                 EngineError::syntax_error(
                                     "text operator requires a string value in 'value'",
@@ -939,10 +910,8 @@ impl DataEngine for DuckDbDriver {
                 }
             }
 
-            // Search across text columns
             if let Some(ref search_term) = options.search {
                 if !search_term.trim().is_empty() {
-                    // Get column info for text columns
                     if let Ok(mut col_stmt) = conn.prepare(
                         "SELECT column_name, data_type FROM information_schema.columns \
                          WHERE table_schema = ?1 AND table_name = ?2",
@@ -956,7 +925,6 @@ impl DataEngine for DuckDbDriver {
                             for row in col_rows {
                                 if let Ok((col_name, dtype)) = row {
                                     let upper = dtype.to_uppercase();
-                                    // Skip binary/unsearchable types
                                     if upper.contains("BLOB") {
                                         continue;
                                     }
@@ -964,7 +932,6 @@ impl DataEngine for DuckDbDriver {
                                     let col_ident = Self::quote_ident(&col_name);
                                     bind_values.push(DuckValue::Text(format!("%{}%", search_term)));
 
-                                    // Text columns can use ILIKE directly, others need CAST
                                     if upper.contains("VARCHAR")
                                         || upper.contains("TEXT")
                                         || upper.contains("CHAR")
@@ -1003,7 +970,6 @@ impl DataEngine for DuckDbDriver {
                 String::new()
             };
 
-            // COUNT query
             let count_sql = format!("SELECT COUNT(*) AS cnt FROM {}{}", table_ref, where_sql);
             let total_rows: i64 = conn
                 .query_row(&count_sql, params_from_iter(bind_values.iter()), |row| {
@@ -1012,7 +978,6 @@ impl DataEngine for DuckDbDriver {
                 .map_err(|e| EngineError::execution_error(e.to_string()))?;
             let total_rows = total_rows.max(0) as u64;
 
-            // Data query
             let data_sql = format!(
                 "SELECT * FROM {}{}{} LIMIT {} OFFSET {}",
                 table_ref, where_sql, order_sql, page_size, offset
@@ -1022,7 +987,7 @@ impl DataEngine for DuckDbDriver {
                 .prepare(&data_sql)
                 .map_err(|e| EngineError::execution_error(e.to_string()))?;
 
-            // DuckDB crate: column_count/column_name panic before execution.
+            // duckdb crate: column_count/column_name panic before execution — collect first.
             let rows_iter = stmt
                 .query_map(params_from_iter(bind_values.iter()), |row| {
                     let col_count = row.as_ref().column_count();
@@ -1039,7 +1004,6 @@ impl DataEngine for DuckDbDriver {
                 rows.push(row);
             }
 
-            // After iteration, statement has been executed
             let column_count = stmt.column_count();
             let columns: Vec<ColumnInfo> = (0..column_count)
                 .map(|i| ColumnInfo {
@@ -1100,7 +1064,7 @@ impl DataEngine for DuckDbDriver {
                 .prepare(&sql)
                 .map_err(|e| EngineError::execution_error(e.to_string()))?;
 
-            // DuckDB crate: column_count/column_name panic before execution.
+            // duckdb crate: column_count/column_name panic before execution — collect first.
             let rows_iter = stmt
                 .query_map([&duck_value], |row| {
                     let col_count = row.as_ref().column_count();
@@ -1117,7 +1081,6 @@ impl DataEngine for DuckDbDriver {
                 rows.push(row);
             }
 
-            // After iteration, statement has been executed
             let column_count = stmt.column_count();
             let columns: Vec<ColumnInfo> = (0..column_count)
                 .map(|i| ColumnInfo {
@@ -1142,7 +1105,6 @@ impl DataEngine for DuckDbDriver {
         .await
     }
 
-    // ==================== Schema Management ====================
 
     async fn create_database(
         &self,
@@ -1175,7 +1137,6 @@ impl DataEngine for DuckDbDriver {
         .await
     }
 
-    // ==================== Transaction Methods ====================
 
     async fn begin_transaction(&self, session: SessionId) -> EngineResult<()> {
         let duck_session = self.get_session(session).await?;
@@ -1250,7 +1211,6 @@ impl DataEngine for DuckDbDriver {
         true
     }
 
-    // ==================== Mutation Methods ====================
 
     async fn insert_row(
         &self,
@@ -1456,7 +1416,6 @@ impl DataEngine for DuckDbDriver {
         true
     }
 
-    // ==================== Capability Flags ====================
 
     fn supports_streaming(&self) -> bool {
         true
@@ -1476,7 +1435,6 @@ impl DataEngine for DuckDbDriver {
         CancelSupport::None
     }
 
-    // ==================== Maintenance ====================
 
     fn supports_maintenance(&self) -> bool {
         true
@@ -1540,7 +1498,6 @@ impl DataEngine for DuckDbDriver {
     }
 }
 
-// ==================== Helpers ====================
 
 /// Extracts column names from a CREATE INDEX SQL statement.
 fn extract_index_columns(sql: Option<&str>) -> Vec<String> {
@@ -1548,7 +1505,7 @@ fn extract_index_columns(sql: Option<&str>) -> Vec<String> {
         return Vec::new();
     };
 
-    // Parse "... ON table (col1, col2, ...)" pattern
+    // Match the `... ON table (col1, col2, ...)` tail of a CREATE INDEX statement.
     if let Some(start) = sql.rfind('(') {
         if let Some(end) = sql.rfind(')') {
             if start < end {
@@ -1563,7 +1520,6 @@ fn extract_index_columns(sql: Option<&str>) -> Vec<String> {
     Vec::new()
 }
 
-// ==================== Tests ====================
 
 #[cfg(test)]
 mod tests {
@@ -1623,7 +1579,6 @@ clickhouse_cluster: None,
 
         let session_id = driver.connect(&config).await.unwrap();
 
-        // Create table
         let result = driver
             .execute(
                 session_id,
@@ -1634,7 +1589,6 @@ clickhouse_cluster: None,
             .unwrap();
         assert!(result.affected_rows.is_some());
 
-        // Insert data
         let result = driver
             .execute(
                 session_id,
@@ -1645,7 +1599,6 @@ clickhouse_cluster: None,
             .unwrap();
         assert_eq!(result.affected_rows, Some(1));
 
-        // Query data
         let result = driver
             .execute(session_id, "SELECT * FROM test", QueryId::new())
             .await
@@ -1683,7 +1636,7 @@ clickhouse_cluster: None,
         let session_id = driver.connect(&config).await.unwrap();
 
         let namespaces = driver.list_namespaces(session_id).await.unwrap();
-        // DuckDB always has at least the 'main' schema
+        // DuckDB always exposes the built-in 'main' schema.
         assert!(namespaces.iter().any(|n| n.database == "main"));
 
         driver.disconnect(session_id).await.unwrap();
@@ -1715,7 +1668,6 @@ clickhouse_cluster: None,
 
         let session_id = driver.connect(&config).await.unwrap();
 
-        // Create table
         driver
             .execute(
                 session_id,
@@ -1725,10 +1677,8 @@ clickhouse_cluster: None,
             .await
             .unwrap();
 
-        // Begin transaction
         driver.begin_transaction(session_id).await.unwrap();
 
-        // Insert within transaction
         driver
             .execute(
                 session_id,
@@ -1738,10 +1688,8 @@ clickhouse_cluster: None,
             .await
             .unwrap();
 
-        // Rollback
         driver.rollback(session_id).await.unwrap();
 
-        // Verify rollback
         let result = driver
             .execute(session_id, "SELECT * FROM test", QueryId::new())
             .await

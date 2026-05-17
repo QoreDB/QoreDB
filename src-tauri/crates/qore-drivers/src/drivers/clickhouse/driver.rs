@@ -78,8 +78,6 @@ impl DataEngine for ClickHouseDriver {
         "ClickHouse"
     }
 
-    // ==================== Connection ====================
-
     async fn test_connection(&self, config: &ConnectionConfig) -> EngineResult<()> {
         let client = ClickHouseClient::new(config)?;
         ping(&client).await
@@ -95,7 +93,6 @@ impl DataEngine for ClickHouseDriver {
 
     async fn disconnect(&self, session: SessionId) -> EngineResult<()> {
         self.sessions.write().await.remove(&session);
-        // Drop any tracked queries belonging to this session.
         let mut queries = self.queries.lock().await;
         queries.retain(|_, (sid, _)| *sid != session);
         Ok(())
@@ -105,8 +102,6 @@ impl DataEngine for ClickHouseDriver {
         let client = self.get(session).await?;
         ping(&client).await
     }
-
-    // ==================== Namespaces ====================
 
     async fn list_namespaces(&self, session: SessionId) -> EngineResult<Vec<Namespace>> {
         let client = self.get(session).await?;
@@ -123,8 +118,6 @@ impl DataEngine for ClickHouseDriver {
         list_tables(&client, namespace, options).await
     }
 
-    // ==================== Schema ====================
-
     async fn describe_table(
         &self,
         session: SessionId,
@@ -134,8 +127,6 @@ impl DataEngine for ClickHouseDriver {
         let client = self.get(session).await?;
         describe_table(&client, namespace, table).await
     }
-
-    // ==================== Execute ====================
 
     async fn execute(
         &self,
@@ -186,8 +177,6 @@ impl DataEngine for ClickHouseDriver {
         }
     }
 
-    // ==================== Preview / table query ====================
-
     async fn preview_table(
         &self,
         session: SessionId,
@@ -221,8 +210,7 @@ impl DataEngine for ClickHouseDriver {
             quote_ident(table)
         );
 
-        // Total count first — uses the engine's optimized counter when
-        // available (MergeTree family).
+        // MergeTree-family engines answer `count()` from a metadata counter, so do the count first.
         let total_sql = format!("SELECT count() FROM {qualified}");
         let total = self
             .execute(session, &total_sql, QueryId::new())
@@ -250,8 +238,6 @@ impl DataEngine for ClickHouseDriver {
         Ok(PaginatedQueryResult::new(result, total, page, page_size))
     }
 
-    // ==================== Cancel ====================
-
     async fn cancel(&self, _session: SessionId, query_id: Option<QueryId>) -> EngineResult<()> {
         let qid = match query_id {
             Some(q) => q,
@@ -267,12 +253,9 @@ impl DataEngine for ClickHouseDriver {
     }
 
     fn cancel_support(&self) -> CancelSupport {
-        // ClickHouse exposes `KILL QUERY WHERE query_id = ...` — best-effort
-        // because the running query might have already finished.
+        // `KILL QUERY` is best-effort: the running query may already have finished.
         CancelSupport::BestEffort
     }
-
-    // ==================== Schema ops ====================
 
     async fn create_database(
         &self,
@@ -312,8 +295,7 @@ impl DataEngine for ClickHouseDriver {
     }
 
     fn supports_transactions(&self) -> bool {
-        // ClickHouse supports limited transactions only on a few engines;
-        // not exposed in V1.
+        // ClickHouse only offers limited transaction support on a few engines and we don't expose it in V1.
         false
     }
 
@@ -328,8 +310,6 @@ impl DataEngine for ClickHouseDriver {
     fn supports_mutations(&self) -> bool {
         true
     }
-
-    // ==================== Row mutations ====================
 
     async fn insert_row(
         &self,
@@ -413,9 +393,8 @@ impl DataEngine for ClickHouseDriver {
 
         let server_id = Uuid::new_v4();
         let started = Instant::now();
-        // mutations_sync=2 waits for the mutation to finish on all replicas
-        // — without it the call returns immediately and the UI refetch would
-        // race the still-running rewrite.
+        // mutations_sync=2 waits for the mutation to finish on all replicas; otherwise the
+        // UI refetch would race the still-running rewrite.
         client
             .execute_with_settings(&sql, Some(&server_id), &[("mutations_sync", "2")])
             .await?;
@@ -443,9 +422,8 @@ impl DataEngine for ClickHouseDriver {
         pk_keys.sort();
         let where_clause = build_pk_predicate(&pk_keys, primary_key)?;
 
-        // Lightweight DELETE (GA since 23.3) — synchronous and much cheaper
-        // than `ALTER TABLE … DELETE`. Falls back gracefully on older
-        // servers, which will surface a clear error message.
+        // Lightweight DELETE (GA since 23.3) is synchronous and much cheaper than
+        // `ALTER TABLE … DELETE`. Older servers surface a clear error message.
         let sql = format!("DELETE FROM {qualified} WHERE {where_clause}");
 
         let server_id = Uuid::new_v4();

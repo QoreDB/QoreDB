@@ -34,13 +34,8 @@ pub(crate) struct ClickHouseClient {
 
 impl ClickHouseClient {
     pub fn new(config: &ConnectionConfig) -> EngineResult<Self> {
-        // Refuse to send a password over cleartext HTTP. With `ssl_mode =
-        // "disable"` (or `ssl = false` and no opt-out via `ssl_mode = "allow"`)
-        // the Basic-auth header would otherwise be base64-encoded and trivial
-        // to sniff on the wire (cf. audit B4-C8). Allow it only when the user
-        // explicitly chose to disable TLS *and* there is no password to leak,
-        // or when the operator opted into `allow` mode against a localhost
-        // target with no password (test rigs, docker compose).
+        // Refuse Basic-auth over cleartext HTTP because the base64 header is trivial to sniff
+        // (audit B4-C8). Cleartext is only allowed when there is no password to leak.
         let ssl_disabled = !config.ssl
             && matches!(config.ssl_mode.as_deref(), None | Some("disable") | Some("allow"));
         if ssl_disabled && !config.password.is_empty() {
@@ -188,8 +183,7 @@ impl ClickHouseClient {
         params: &[(&str, &str)],
     ) -> EngineResult<String> {
         let with_format = ensure_format(sql);
-        // Materialise the `param_<name>` keys with their values; the URL
-        // builder pushes them straight as query pairs.
+        // ClickHouse reads bound params from `?param_<name>=` URL pairs.
         let param_pairs: Vec<(String, String)> = params
             .iter()
             .map(|(name, value)| (format!("param_{}", name), (*value).to_string()))
@@ -251,7 +245,7 @@ impl ClickHouseClient {
             if let Some(db) = database {
                 q.append_pair("database", db);
             }
-            // Ensure deterministic LF rows
+            // Pin the default format so parsers can rely on JSONCompactEachRowWithNamesAndTypes framing.
             q.append_pair("default_format", "JSONCompactEachRowWithNamesAndTypes");
             for (k, v) in settings {
                 q.append_pair(k, v);
@@ -269,7 +263,6 @@ impl ClickHouseClient {
         if status.is_success() {
             Ok(body)
         } else {
-            // Trim ANSI artefacts.
             Err(EngineError::execution_error(format!(
                 "ClickHouse {}: {}",
                 status,

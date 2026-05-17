@@ -19,7 +19,7 @@ use crate::vault::backend::CredentialProvider;
 use crate::vault::credentials::{SavedConnection, StoredCredentials};
 use crate::workspace::write_registry::WriteRegistry;
 
-/// Credentials JSON shape (same as vault storage — shared format).
+/// Mirror of `vault::storage::CredsJson` so on-disk credentials interoperate.
 #[derive(Serialize, Deserialize)]
 struct CredsJson {
     db_password: String,
@@ -31,13 +31,11 @@ struct CredsJson {
 
 /// Connection store that persists metadata in a workspace directory.
 pub struct WorkspaceConnectionStore {
-    /// `.qoredb/connections/` directory
     connections_dir: PathBuf,
-    /// Keyring service name (unique per workspace)
+    /// Keyring service name (unique per workspace).
     service_name: String,
-    /// Keyring provider
     provider: Box<dyn CredentialProvider>,
-    /// Optional write registry for file watcher exclusion
+    /// Used to mark our own writes so the file watcher ignores them.
     write_registry: Option<WriteRegistry>,
 }
 
@@ -83,7 +81,6 @@ impl WorkspaceConnectionStore {
                 "Connection ID contains invalid characters",
             ));
         }
-        // Only allow alphanumeric, underscore, hyphen
         if !connection_id
             .chars()
             .all(|c| c.is_alphanumeric() || c == '_' || c == '-')
@@ -158,12 +155,10 @@ impl WorkspaceConnectionStore {
         connection: &SavedConnection,
         credentials: &StoredCredentials,
     ) -> EngineResult<()> {
-        // Ensure directory exists
         fs::create_dir_all(&self.connections_dir).map_err(|e| {
             EngineError::internal(format!("Failed to create connections dir: {}", e))
         })?;
 
-        // Write metadata to file
         let content = serde_json::to_string_pretty(connection)
             .map_err(|e| EngineError::internal(format!("Serialization error: {}", e)))?;
 
@@ -173,7 +168,6 @@ impl WorkspaceConnectionStore {
             EngineError::internal(format!("Failed to write connection file: {}", e))
         })?;
 
-        // Save credentials to keyring
         let creds_json = serde_json::to_string(&CredsJson {
             db_password: credentials.db_password.expose().clone(),
             ssh_password: credentials

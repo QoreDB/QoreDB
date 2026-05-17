@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 
-//! Server-side relecture of contract YAML/JSON.
+//! Server-side re-validation of contract YAML/JSON.
 //!
 //! Defense-in-depth: even if the frontend validates, contracts on disk can be
 //! edited externally. Same invariants as `src/lib/contracts/parser.ts`.

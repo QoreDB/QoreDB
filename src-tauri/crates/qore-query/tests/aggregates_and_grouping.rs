@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-//! Semaine 7 coverage: aggregate functions, GROUP BY, HAVING.
+//! Aggregate functions, GROUP BY, HAVING.
 
 use qore_query::ident::tcol;
 use qore_query::prelude::*;
@@ -15,10 +15,6 @@ fn my() -> Dialect {
 fn ms() -> Dialect {
     Dialect::SqlServer
 }
-
-// ============================================================================
-// Aggregate functions
-// ============================================================================
 
 #[test]
 fn count_star_renders_as_count_asterisk() {
@@ -71,8 +67,8 @@ fn sum_avg_min_max() {
 
 #[test]
 fn aggregates_dialect_agnostic() {
-    // Aggregate function names are standard ANSI SQL — same across
-    // all five dialects, only quoting differs.
+    // ANSI aggregate names are identical across dialects; only identifier
+    // quoting differs.
     let dialects = [pg(), my(), ms(), Dialect::Sqlite, Dialect::DuckDb];
     for d in dialects {
         let q = Query::select()
@@ -83,10 +79,6 @@ fn aggregates_dialect_agnostic() {
         assert!(q.sql.contains("COUNT(*)"), "dialect {:?}", d);
     }
 }
-
-// ============================================================================
-// GROUP BY
-// ============================================================================
 
 #[test]
 fn group_by_single_column() {
@@ -130,8 +122,7 @@ fn group_by_qualified_column() {
 
 #[test]
 fn group_by_expression() {
-    // GROUP BY CAST("created" AS DATE) — a common real-world pattern
-    // for aggregating by day.
+    // Aggregating by day via `GROUP BY CAST("created" AS DATE)`.
     let q = Query::select()
         .from("events")
         .select_expr(col("created").cast(SqlType::Date))
@@ -159,10 +150,6 @@ fn group_by_appears_after_where_and_before_order_by() {
     assert!(where_idx < group_idx);
     assert!(group_idx < order_idx);
 }
-
-// ============================================================================
-// HAVING
-// ============================================================================
 
 #[test]
 fn having_combined_with_group_by() {
@@ -225,20 +212,8 @@ fn having_appears_after_group_by_and_before_order_by() {
     assert!(having_idx < order_idx);
 }
 
-// ============================================================================
-// Combined real-world scenario
-// ============================================================================
-
 #[test]
 fn analytical_query_with_join_group_having_order_limit() {
-    // SELECT o.user_id, COUNT(*) AS n, SUM(o.total) AS revenue
-    // FROM orders AS o
-    // INNER JOIN users AS u ON u.id = o.user_id
-    // WHERE u.active = true
-    // GROUP BY o.user_id
-    // HAVING COUNT(*) > 3
-    // ORDER BY revenue DESC
-    // LIMIT 20
     let q = Query::select()
         .from_as("orders", "o")
         .select_expr(tcol("o", "user_id"))

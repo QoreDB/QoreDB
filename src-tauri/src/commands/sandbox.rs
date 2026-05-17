@@ -197,7 +197,6 @@ mod sandbox_impl {
                 Ok(_) => {
                     applied_count += 1;
 
-                    // Time-Travel: record changelog entry for each applied change
                     if changelog_store.should_capture(&change.table_name, &environment) {
                         let operation = match change.change_type {
                             SandboxChangeType::Insert => ChangeOperation::Insert,

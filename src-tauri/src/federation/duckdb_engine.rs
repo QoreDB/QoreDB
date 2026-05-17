@@ -132,11 +132,10 @@ impl DuckDbEngine {
             .prepare(sql)
             .map_err(|e| EngineError::execution_error(format!("Federation query failed: {e}")))?;
 
-        // Execute first — column_count/column_name panic on unexecuted statements in DuckDB 1.4+
+        // DuckDB 1.4+ panics on column_count/column_name if the statement has not run yet.
         stmt.execute([])
             .map_err(|e| EngineError::execution_error(format!("Federation query failed: {e}")))?;
 
-        // Now safe to read column metadata
         let column_count = stmt.column_count();
         let columns: Vec<ColumnInfo> = (0..column_count)
             .map(|i| ColumnInfo {
@@ -149,7 +148,6 @@ impl DuckDbEngine {
             })
             .collect();
 
-        // Re-execute and collect rows via query_map
         let rows_iter = stmt
             .query_map([], |row| {
                 let values: Vec<Value> = (0..column_count)
@@ -175,9 +173,8 @@ fn map_type_to_duckdb(data_type: &str) -> &'static str {
     let lower = data_type.to_lowercase();
     let normalized = lower.trim();
 
-    // Check for array types first
     if normalized.ends_with("[]") || normalized.starts_with("array") {
-        return "VARCHAR"; // Serialize arrays as JSON strings
+        return "VARCHAR"; // Serialize arrays as JSON strings.
     }
 
     match normalized {
@@ -226,9 +223,8 @@ fn map_type_to_duckdb(data_type: &str) -> &'static str {
         // Other
         "xml" | "tsvector" | "tsquery" | "bit" | "bit varying" | "varbit" => "VARCHAR",
 
-        // Fallback: anything unknown becomes VARCHAR
         _ => {
-            // Handle parameterized types like varchar(255), numeric(10,2)
+            // Parameterized fallbacks: varchar(255), numeric(10,2), timestamp(6), etc.
             if normalized.starts_with("varchar")
                 || normalized.starts_with("character varying")
                 || normalized.starts_with("char")
@@ -269,7 +265,6 @@ fn value_to_duckdb(value: &Value) -> DuckValue {
 
 /// Extracts a value from a DuckDB row and converts it to a QoreDB `Value`.
 fn duckdb_value_to_qoredb(row: &duckdb::Row<'_>, idx: usize) -> Value {
-    // Try types in order of likelihood
     if let Ok(v) = row.get::<_, Option<i64>>(idx) {
         return match v {
             Some(i) => Value::Int(i),

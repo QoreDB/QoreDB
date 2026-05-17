@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-// QoreDB - Modern local-first database client
-// Core library
+//! QoreDB core library — modern local-first database client.
 
 #[cfg(feature = "pro")]
 pub mod ai;
@@ -107,7 +106,6 @@ impl AppState {
         let interceptor = Arc::new(InterceptorPipeline::new(data_dir.join("interceptor")));
         let _ = interceptor.load_config();
 
-        // Initialize virtual relations store
         let virtual_relations = Arc::new(VirtualRelationStore::new(
             data_dir.join("virtual_relations"),
         ));
@@ -118,16 +116,14 @@ impl AppState {
 
         let _ = vault_lock.auto_unlock_if_no_password();
 
-        // Initialize license manager (loads stored key from keyring)
+        // Loads any stored key from the keyring on construction.
         let license_manager = LicenseManager::new(Box::new(KeyringProvider::new()));
 
-        // Initialize AI manager (Pro only)
         #[cfg(feature = "pro")]
         let ai_manager = Arc::new(ai::manager::AiManager::new(
             Box::new(KeyringProvider::new()),
         ));
 
-        // Initialize changelog store for Data Time-Travel
         let changelog_store = Arc::new(time_travel::ChangelogStore::new(
             data_dir.join("time-travel"),
         ));
@@ -181,7 +177,6 @@ pub fn run() {
         workspace::WorkspaceManager::new(app_config_dir),
     ));
 
-    // Initialize workspace file watcher infrastructure
     let write_registry = workspace::write_registry::WriteRegistry::new();
     let (ws_path_tx, ws_path_rx) = tokio::sync::watch::channel::<Option<std::path::PathBuf>>(None);
     let watcher_path_sender: commands::workspace::WatcherPathSender = Arc::new(ws_path_tx);
@@ -211,7 +206,6 @@ pub fn run() {
                 }
             }
 
-            // Start the connection health monitor
             let state: tauri::State<SharedState> = app.state();
             let session_manager = {
                 let app_state = state.blocking_lock();
@@ -219,7 +213,6 @@ pub fn run() {
             };
             session_manager.start_health_monitor(app.handle().clone());
 
-            // Start workspace file watcher
             let wr: tauri::State<workspace::write_registry::WriteRegistry> = app.state();
             workspace::watcher::start_workspace_watcher(
                 app.handle().clone(),

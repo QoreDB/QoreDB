@@ -102,7 +102,6 @@ impl SnapshotStore {
                 Err(_) => continue,
             };
 
-            // Parse only the meta field to avoid loading all row data
             let snapshot: Result<Snapshot, _> = serde_json::from_str(&content);
             if let Ok(snapshot) = snapshot {
                 let mut meta = snapshot.meta;
@@ -111,7 +110,6 @@ impl SnapshotStore {
             }
         }
 
-        // Sort by created_at descending (most recent first)
         metas.sort_by(|a, b| b.created_at.cmp(&a.created_at));
         Ok(metas)
     }

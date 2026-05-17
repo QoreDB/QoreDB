@@ -267,7 +267,6 @@ pub async fn save_connection(
             .and_then(|p| p.password.clone().map(Sensitive::new)),
     };
 
-    // Route to workspace connection store if a file-based workspace is active
     let result = if let Some(ws_store) = get_workspace_store(&ws_manager).await {
         ws_store.save_connection(&connection, &credentials)
     } else {
@@ -310,7 +309,6 @@ pub async fn list_saved_connections(
     }
     drop(state);
 
-    // Route to workspace connection store if a file-based workspace is active
     if let Some(ws_store) = get_workspace_store(&ws_manager).await {
         return ws_store.list_connections().map_err(|e| e.to_string());
     }

@@ -535,8 +535,6 @@ mod tests {
         o.driver = "sqlite".into();
         o.mode = BackupMode::DataOnly;
         o.database = Some("/tmp/foo.db".into());
-        // sqlite needs a file path, not a regular identifier — relax check
-        // ... but we still call build_sqlite_dump_args directly.
         let err = build_sqlite_dump_args(&o).unwrap_err();
         assert!(err.contains("data-only"));
     }

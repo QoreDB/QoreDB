@@ -95,7 +95,6 @@ impl SessionManager {
             .ok_or_else(|| EngineError::driver_not_found(&config.driver))?;
 
         let test_future = async {
-            // If proxy is configured, tunnel through it
             if let Some(ref proxy_config) = config.proxy {
                 let mut proxy_tunnel =
                     ProxyTunnel::open(proxy_config, &config.host, config.port).await?;
@@ -103,7 +102,7 @@ impl SessionManager {
                 tunneled_config.host = "127.0.0.1".to_string();
                 tunneled_config.port = proxy_tunnel.local_port();
 
-                // If SSH tunnel is also configured, chain: proxy → SSH → DB
+                // Chain proxy → SSH → DB when both are configured.
                 if let Some(ref ssh_config) = config.ssh_tunnel {
                     let tunnel =
                         SshTunnel::open(ssh_config, &tunneled_config.host, tunneled_config.port)
@@ -120,13 +119,12 @@ impl SessionManager {
                 return result;
             }
 
-            // If SSH tunnel is configured, we need to test through it
             if let Some(ref ssh_config) = config.ssh_tunnel {
                 let tunnel = SshTunnel::open(ssh_config, &config.host, config.port).await?;
                 let mut tunneled_config = config.clone();
                 tunneled_config.host = "127.0.0.1".to_string();
                 tunneled_config.port = tunnel.local_port();
-                // Tunnel will be dropped after test, closing the connection
+                // Tunnel drops at end of scope, which closes the forwarding.
                 return driver.test_connection(&tunneled_config).await;
             }
 
@@ -159,7 +157,6 @@ impl SessionManager {
             .ok_or_else(|| EngineError::driver_not_found(&config.driver))?;
 
         let connect_future = async {
-            // Setup proxy tunnel if configured
             let (mut effective_config, proxy_tunnel) = if let Some(ref proxy_config) = config.proxy
             {
                 let proxy_tunnel =
@@ -172,7 +169,7 @@ impl SessionManager {
                 (config.clone(), None)
             };
 
-            // Setup SSH tunnel if configured (possibly over the proxy)
+            // SSH tunnel may be layered on top of the proxy.
             let tunnel = if let Some(ref ssh_config) = config.ssh_tunnel {
                 let tunnel =
                     SshTunnel::open(ssh_config, &effective_config.host, effective_config.port)
@@ -187,7 +184,7 @@ impl SessionManager {
             let session_id = match driver.connect(&effective_config).await {
                 Ok(id) => id,
                 Err(e) => {
-                    // Explicitly close tunnels on connection failure
+                    // Close tunnels explicitly on failure so the port is released immediately.
                     if let Some(mut tun) = tunnel {
                         let _ = tun.close().await;
                     }
@@ -264,12 +261,10 @@ impl SessionManager {
             return Err(err);
         }
 
-        // Close SSH tunnel if present
         if let Some(ref mut tunnel) = session.tunnel {
             tunnel.close().await?;
         }
 
-        // Close proxy tunnel if present
         if let Some(ref mut proxy_tunnel) = session.proxy_tunnel {
             proxy_tunnel.close().await?;
         }
@@ -418,7 +413,6 @@ impl SessionManager {
                 }
             };
 
-            // 1. Check SSH tunnel first (if applicable)
             let tunnel_ok = {
                 let sessions = self.sessions.read().await;
                 match sessions.get(&sid) {
@@ -430,7 +424,6 @@ impl SessionManager {
                 }
             };
 
-            // 2. If tunnel is down and above threshold, try reconnection
             if !tunnel_ok {
                 let should_reconnect = {
                     let sessions = self.sessions.read().await;
@@ -441,7 +434,6 @@ impl SessionManager {
                 };
 
                 if should_reconnect {
-                    // Set status to reconnecting
                     {
                         let mut sessions = self.sessions.write().await;
                         if let Some(s) = sessions.get_mut(&sid) {
@@ -456,7 +448,6 @@ impl SessionManager {
                         });
                     }
 
-                    // Attempt reconnection
                     let config = {
                         let sessions = self.sessions.read().await;
                         match sessions.get(&sid) {
@@ -469,7 +460,7 @@ impl SessionManager {
                         Ok(new_tunnel) => {
                             let mut sessions = self.sessions.write().await;
                             if let Some(s) = sessions.get_mut(&sid) {
-                                // Close old tunnel (best effort)
+                                // Best-effort close: failures here are logged by the tunnel itself.
                                 if let Some(ref mut old_tunnel) = s.tunnel {
                                     let _ = old_tunnel.close().await;
                                 }
@@ -494,7 +485,6 @@ impl SessionManager {
                     }
                 }
 
-                // Mark as unhealthy
                 let mut sessions = self.sessions.write().await;
                 if let Some(s) = sessions.get_mut(&sid) {
                     s.consecutive_failures += 1;
@@ -509,7 +499,6 @@ impl SessionManager {
                 continue;
             }
 
-            // 3. Ping the database
             let ping_result = self.ping(sid).await;
 
             let new_health = if ping_result.is_ok() {
@@ -518,7 +507,6 @@ impl SessionManager {
                 ConnectionHealth::Unhealthy
             };
 
-            // Update state
             {
                 let mut sessions = self.sessions.write().await;
                 if let Some(s) = sessions.get_mut(&sid) {
@@ -554,7 +542,7 @@ impl SessionManager {
 
         tauri::async_runtime::spawn(async move {
             let mut interval = tokio::time::interval(Duration::from_secs(interval_secs));
-            // Skip the first immediate tick
+            // Skip the immediate first tick that tokio::time::interval fires.
             interval.tick().await;
 
             loop {

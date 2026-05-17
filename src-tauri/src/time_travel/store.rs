@@ -151,7 +151,6 @@ impl ChangelogStore {
             redact_entry(&mut entry, &sensitive);
         }
 
-        // Add to in-memory cache
         {
             let mut entries = self.entries.write();
             if entries.len() >= MAX_CACHE_ENTRIES {
@@ -160,7 +159,6 @@ impl ChangelogStore {
             entries.push_back(entry.clone());
         }
 
-        // Append to file
         if let Err(e) = self.append_to_file(&entry) {
             error!("Failed to write changelog entry: {}", e);
         }
@@ -356,7 +354,6 @@ impl ChangelogStore {
         let entries = self.entries.read();
         let limit = limit.unwrap_or(10_000);
 
-        // Collect all entries between t1 and t2 for this table, ordered by timestamp ASC
         let mut relevant: Vec<&ChangelogEntry> = entries
             .iter()
             .filter(|e| self.matches_table(e, namespace, table_name))
@@ -364,8 +361,7 @@ impl ChangelogStore {
             .collect();
         relevant.sort_by_key(|e| e.timestamp);
 
-        // Replay changes to build the diff
-        // Key: serialized PK → accumulated state
+        // Replay changes keyed by serialized PK.
         let mut diff_rows: std::collections::HashMap<String, TemporalDiffRow> =
             std::collections::HashMap::new();
         let mut all_columns: std::collections::HashSet<String> = std::collections::HashSet::new();
@@ -373,7 +369,6 @@ impl ChangelogStore {
         for entry in &relevant {
             let pk_key = serialize_pk(&entry.primary_key);
 
-            // Collect column names
             if let Some(before) = &entry.before {
                 all_columns.extend(before.keys().cloned());
             }
@@ -421,7 +416,7 @@ impl ChangelogStore {
                         .or_else(|| entry.before.clone());
 
                     if existing.is_some_and(|e| e.status == DiffRowStatus::Added) {
-                        // Was added then deleted — net effect is nothing
+                        // Added then deleted within the window — net effect is nothing.
                         diff_rows.remove(&pk_key);
                     } else {
                         diff_rows.insert(
@@ -439,7 +434,6 @@ impl ChangelogStore {
             }
         }
 
-        // Recompute changed_columns for Modified rows
         for row in diff_rows.values_mut() {
             if row.status == DiffRowStatus::Modified {
                 if let (Some(t1), Some(t2)) = (&row.state_at_t1, &row.state_at_t2) {
@@ -494,7 +488,6 @@ impl ChangelogStore {
     ) -> Option<std::collections::HashMap<String, serde_json::Value>> {
         let entries = self.entries.read();
 
-        // Find the last entry for this PK at or before the timestamp
         let last_entry = entries
             .iter()
             .filter(|e| self.matches_table(e, namespace, table_name))
@@ -543,7 +536,7 @@ impl ChangelogStore {
     pub fn purge_expired(&self) {
         let retention_days = self.config.read().retention_days;
         if retention_days == 0 {
-            return; // Unlimited retention
+            return; // 0 = unlimited retention
         }
 
         let cutoff = Utc::now() - Duration::days(retention_days as i64);
@@ -1003,13 +996,6 @@ mod tests {
 
         assert_eq!(diff.stats.total_changes, 2); // id=1 modified (insert+update), id=2 added
         assert_eq!(diff.stats.added, 1);
-        // id=1 was inserted then updated in the window — it's "Added" because state_at_t1 is None
-        // Actually the first insert sets it as Added, then the update sets it as Modified
-        // But state_at_t1 was None (from the insert being the first entry), so it stays Added
-        // Let me verify: the insert creates Added, then the update sees existing with state_at_t1=None
-        // so t1_state = existing.state_at_t1 (None) or entry.before. The update's before is Some(row(1, Alice))
-        // So t1_state = None (from existing). Status = Modified.
-        // So: id=1 = Modified, id=2 = Added
     }
 
     #[test]

@@ -246,7 +246,6 @@ fn split_ch_statements(input: &str) -> Vec<String> {
     while i < len {
         let c = bytes[i] as char;
         if !in_single && !in_double && i + 1 < len {
-            // line comment
             if bytes[i] == b'-' && bytes[i + 1] == b'-' {
                 while i < len && bytes[i] != b'\n' {
                     buf.push(bytes[i] as char);
@@ -254,7 +253,6 @@ fn split_ch_statements(input: &str) -> Vec<String> {
                 }
                 continue;
             }
-            // block comment
             if bytes[i] == b'/' && bytes[i + 1] == b'*' {
                 buf.push_str("/*");
                 i += 2;
@@ -271,7 +269,7 @@ fn split_ch_statements(input: &str) -> Vec<String> {
         }
         match c {
             '\'' if !in_double => {
-                // backslash escape inside single-quoted string
+                // Treat `\'` as an escaped quote, not a string boundary.
                 buf.push(c);
                 if i > 0 && bytes[i - 1] == b'\\' {
                     i += 1;
@@ -485,9 +483,9 @@ pub fn classify_duckdb_dangerous(sql: &str) -> Option<DuckDbDanger> {
         }
     }
     if upper.starts_with("COPY") && next_char_is_separator(&trimmed, "COPY".len()) {
-        // Only block `COPY <something> TO '<path>'`. `COPY <table> FROM '…'`
-        // imports a *local* file the user already controls and is the normal
-        // way to load CSV/Parquet into DuckDB.
+        // Block only `COPY … TO '<path>'`. `COPY <table> FROM '…'` imports
+        // a local file the user already controls — the normal way to load
+        // CSV/Parquet into DuckDB.
         if has_copy_to_clause(&upper) {
             return Some(DuckDbDanger::CopyTo);
         }
@@ -500,7 +498,6 @@ fn strip_leading_sql_noise(sql: &str) -> &str {
     let mut s = sql.trim_start();
     loop {
         if let Some(rest) = s.strip_prefix("--") {
-            // line comment until newline
             if let Some(nl) = rest.find('\n') {
                 s = rest[nl + 1..].trim_start();
                 continue;
@@ -741,8 +738,6 @@ mod tests {
             .to_ascii_uppercase()
             .starts_with("CREATE TABLE"));
     }
-
-    // ===== ClickHouse-specific bypass =====
 
     #[test]
     fn clickhouse_engine_clause_classifies_without_parse_error() {

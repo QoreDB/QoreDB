@@ -79,7 +79,6 @@ pub fn json_to_value(declared_type: &str, json: &JsonValue) -> Value {
 fn json_to_value_inner(declared_type: &str, json: &JsonValue) -> Value {
     let upper = declared_type.to_ascii_uppercase();
 
-    // Composite — Array(T)
     if let Some(inner) = strip_prefix_paren(&upper, "ARRAY(") {
         if let JsonValue::Array(items) = json {
             let inner_decl = original_inside(declared_type, "Array(", inner.len());
@@ -173,7 +172,7 @@ fn strip_prefix_paren<'a>(upper: &'a str, prefix: &str) -> Option<&'a str> {
 /// vs `STRING` in nested errors / display).
 fn original_inside<'a>(declared: &'a str, prefix: &str, _inner_len: usize) -> &'a str {
     let start = prefix.len();
-    let end = declared.len().saturating_sub(1); // drop trailing ')'
+    let end = declared.len().saturating_sub(1);
     &declared[start..end]
 }
 

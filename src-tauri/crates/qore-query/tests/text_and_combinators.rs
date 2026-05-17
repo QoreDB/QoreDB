@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-//! Semaine 5 coverage: text search helpers with wildcard escaping and
-//! N-ary combinators.
+//! Text search helpers with wildcard escaping; N-ary AND/OR combinators.
 
 use qore_core::Value;
 use qore_query::prelude::*;
@@ -23,9 +22,8 @@ fn dd() -> Dialect {
     Dialect::DuckDb
 }
 
-// ============================================================================
-// Text search helpers - wildcards are pre-escaped in the bound value
-// ============================================================================
+// Text search helpers — wildcards in user input must be escaped so they
+// match literally rather than as LIKE metacharacters.
 
 #[test]
 fn starts_with_wraps_with_percent_suffix_and_escape() {
@@ -147,14 +145,10 @@ fn text_helpers_work_on_all_dialects() {
     }
 }
 
-// ============================================================================
-// ILIKE unchanged by the refactor — regression guard
-// ============================================================================
+// `.like` is a low-level pass-through; only the helper builders escape.
 
 #[test]
 fn plain_like_still_has_no_escape_clause() {
-    // `.like(pattern)` is a low-level pass-through; users opt into escaping
-    // by calling `.starts_with`/etc. instead.
     let q = Query::select()
         .from("t")
         .all()
@@ -174,10 +168,6 @@ fn plain_ilike_still_falls_back_to_lower_on_mysql() {
         .unwrap();
     assert_eq!(q.sql, "SELECT * FROM `t` WHERE (LOWER(`x`) LIKE LOWER(?))");
 }
-
-// ============================================================================
-// N-ary combinators
-// ============================================================================
 
 #[test]
 fn and_all_folds_expressions_left_to_right() {
@@ -237,7 +227,7 @@ fn or_any_with_empty_iter_returns_none() {
 
 #[test]
 fn dynamic_filter_composition_pattern() {
-    // Real use case: conditionally build filters and combine.
+    // Conditionally build filters then fold with `and_all`.
     let name_filter: Option<&str> = Some("bob");
     let min_age: Option<i64> = Some(18);
     let only_active: bool = true;
@@ -258,7 +248,7 @@ fn dynamic_filter_composition_pattern() {
         q = q.filter(combined);
     }
     let built = q.build(pg()).unwrap();
-    assert_eq!(built.params.len(), 3); // name pattern, age, active
+    assert_eq!(built.params.len(), 3);
     assert!(built.sql.contains("LIKE"));
     assert!(built.sql.contains("ESCAPE"));
 }

@@ -75,7 +75,6 @@ impl ProFeature {
     /// Minimum tier required for this feature.
     pub fn required_tier(&self) -> LicenseTier {
         match self {
-            // All Pro features require at least Pro
             ProFeature::Sandbox
             | ProFeature::VisualDiff
             | ProFeature::ErDiagram

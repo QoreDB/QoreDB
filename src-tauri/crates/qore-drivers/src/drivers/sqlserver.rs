@@ -45,12 +45,10 @@ use qore_core::types::{
 };
 use qore_sql::safety;
 
-// ==================== Types ====================
 
 type MssqlPool = Pool<ConnectionManager>;
 type MssqlClient = Client<Compat<TcpStream>>;
 
-// ==================== Session & Driver ====================
 
 pub struct SqlServerSession {
     pool: MssqlPool,
@@ -180,7 +178,6 @@ impl Default for SqlServerDriver {
     }
 }
 
-// ==================== Type Conversion ====================
 
 /// Convert a tiberius ColumnData to a QoreDB Value.
 fn convert_column_data(data: &ColumnData<'_>) -> Value {
@@ -200,14 +197,13 @@ fn convert_column_data(data: &ColumnData<'_>) -> Value {
         ColumnData::Guid(Some(g)) => Value::Text(format!("{}", g)),
         ColumnData::Binary(Some(b)) => Value::Bytes(b.to_vec()),
         ColumnData::Xml(Some(xml)) => Value::Text(xml.to_string()),
-        // Date/time types are handled in convert_row via chrono
+        // Date/time variants are decoded in convert_row via chrono; this is the fallback path.
         ColumnData::DateTime(Some(_))
         | ColumnData::SmallDateTime(Some(_))
         | ColumnData::DateTime2(Some(_))
         | ColumnData::DateTimeOffset(Some(_))
         | ColumnData::Date(Some(_))
-        | ColumnData::Time(Some(_)) => Value::Null, // fallback
-        // All None variants and unhandled types
+        | ColumnData::Time(Some(_)) => Value::Null,
         _ => Value::Null,
     }
 }
@@ -220,7 +216,7 @@ fn convert_row(row: &tiberius::Row) -> QRow {
         .enumerate()
         .map(|(i, (_col, data))| {
             match data {
-                // Date/time types: use chrono via typed getters
+                // Date/time types must go through chrono getters; tiberius doesn't expose them as primitives.
                 ColumnData::DateTime(Some(_))
                 | ColumnData::SmallDateTime(Some(_))
                 | ColumnData::DateTime2(Some(_)) => row
@@ -247,7 +243,6 @@ fn convert_row(row: &tiberius::Row) -> QRow {
                     .flatten()
                     .map(|t| Value::Text(t.format("%H:%M:%S%.f").to_string()))
                     .unwrap_or(Value::Null),
-                // All other types: direct conversion
                 _ => convert_column_data(data),
             }
         })
@@ -277,7 +272,6 @@ fn classify_error(msg: String) -> EngineError {
     }
 }
 
-// ==================== DataEngine Implementation ====================
 
 #[async_trait]
 impl DataEngine for SqlServerDriver {
@@ -289,7 +283,6 @@ impl DataEngine for SqlServerDriver {
         "SQL Server"
     }
 
-    // ==================== Connection Management ====================
 
     async fn test_connection(&self, config: &ConnectionConfig) -> EngineResult<()> {
         let mut client = Self::connect_raw(config).await?;
@@ -352,7 +345,6 @@ impl DataEngine for SqlServerDriver {
         Ok(())
     }
 
-    // ==================== Schema Browsing ====================
 
     async fn list_namespaces(&self, session: SessionId) -> EngineResult<Vec<Namespace>> {
         let mssql_session = self.get_session(session).await?;
@@ -405,10 +397,8 @@ impl DataEngine for SqlServerDriver {
         let schema = namespace.schema.as_deref().unwrap_or("dbo");
         let search_pattern = options.search.as_ref().map(|s| format!("%{}%", s));
 
-        // All schema/table identifiers are passed as tiberius `@PN` parameters
-        // — never interpolated. Quote-doubling (`'\''` -> `''`) is not enough
-        // on its own; for instance a schema name with control characters or
-        // a NUL byte can still confuse downstream parsers (cf. audit B3-C2).
+        // Pass schema/table identifiers as tiberius `@PN` parameters rather than interpolating —
+        // quote-doubling alone leaves control characters/NUL bytes able to confuse parsers (audit B3-C2).
         let count_sql = if search_pattern.is_some() {
             "SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES \
              WHERE TABLE_SCHEMA = @P1 AND TABLE_NAME LIKE @P2"
@@ -513,9 +503,7 @@ impl DataEngine for SqlServerDriver {
         })?;
         let schema = namespace.schema.as_deref().unwrap_or("dbo");
 
-        // All `WHERE ... = '<schema>' AND ... = '<table>'` predicates below
-        // are bound through `@P1`/`@P2` rather than interpolated strings —
-        // see the same defence applied in `list_collections` (audit B3-C2).
+        // Bind schema/table as `@P1`/`@P2` rather than interpolating — same defence as list_collections (audit B3-C2).
         let col_sql = "SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE, COLUMN_DEFAULT \
              FROM INFORMATION_SCHEMA.COLUMNS \
              WHERE TABLE_SCHEMA = @P1 AND TABLE_NAME = @P2 \
@@ -546,7 +534,6 @@ impl DataEngine for SqlServerDriver {
             })
             .collect();
 
-        // 2. Primary keys
         let pk_sql = "SELECT c.name AS column_name \
              FROM sys.indexes i \
              JOIN sys.index_columns ic ON i.object_id = ic.object_id AND i.index_id = ic.index_id \
@@ -575,7 +562,6 @@ impl DataEngine for SqlServerDriver {
             }
         }
 
-        // 3. Foreign keys
         let fk_sql = "SELECT \
                  kcu.COLUMN_NAME, \
                  kcu2.TABLE_NAME AS referenced_table, \
@@ -622,7 +608,6 @@ impl DataEngine for SqlServerDriver {
             })
             .collect();
 
-        // 4. Indexes
         let idx_sql = "SELECT i.name AS index_name, \
                     c.name AS column_name, \
                     i.is_unique, \
@@ -666,7 +651,6 @@ impl DataEngine for SqlServerDriver {
             })
             .collect();
 
-        // 5. Row count estimate
         let count_sql = "SELECT SUM(p.rows) AS row_count \
              FROM sys.partitions p \
              JOIN sys.tables t ON p.object_id = t.object_id \
@@ -716,7 +700,6 @@ impl DataEngine for SqlServerDriver {
         self.execute(session, &query, QueryId::new()).await
     }
 
-    // ==================== Routines ====================
 
     async fn list_routines(
         &self,
@@ -737,7 +720,6 @@ impl DataEngine for SqlServerDriver {
             None => None,
         };
 
-        // Count
         let mut count_sql = format!(
             "SELECT COUNT(*) FROM INFORMATION_SCHEMA.ROUTINES WHERE ROUTINE_SCHEMA = '{}'",
             schema.replace('\'', "''")
@@ -771,7 +753,6 @@ impl DataEngine for SqlServerDriver {
 
         let total_count: i32 = count_result.first().and_then(|r| r.get(0)).unwrap_or(0);
 
-        // Data
         let mut data_sql = format!(
             "SELECT ROUTINE_NAME, ROUTINE_TYPE, DATA_TYPE, ROUTINE_BODY \
              FROM INFORMATION_SCHEMA.ROUTINES WHERE ROUTINE_SCHEMA = '{}'",
@@ -859,7 +840,6 @@ impl DataEngine for SqlServerDriver {
         })?;
         let schema = namespace.schema.as_deref().unwrap_or("dbo");
 
-        // Use OBJECT_DEFINITION to get the full source
         let sql = format!(
             "SELECT OBJECT_DEFINITION(OBJECT_ID('[{}].[{}]')) AS definition, \
              r.DATA_TYPE, r.ROUTINE_BODY \
@@ -952,7 +932,6 @@ impl DataEngine for SqlServerDriver {
         })
     }
 
-    // ==================== Triggers ====================
 
     async fn list_triggers(
         &self,
@@ -996,7 +975,6 @@ impl DataEngine for SqlServerDriver {
             let event_type: &str = row.get::<&str, _>(2).unwrap_or("");
             let timing_str: &str = row.get::<&str, _>(3).unwrap_or("AFTER");
 
-            // Apply search filter if present
             if let Some(ref search) = options.search {
                 if !name.to_lowercase().contains(&search.to_lowercase()) {
                     continue;
@@ -1036,7 +1014,6 @@ impl DataEngine for SqlServerDriver {
 
         let total_count = triggers.len() as u32;
 
-        // Apply pagination
         if let Some(limit) = options.page_size {
             let offset = options.page.map(|p| (p.max(1) - 1) * limit).unwrap_or(0) as usize;
             let limit = limit as usize;
@@ -1065,7 +1042,6 @@ impl DataEngine for SqlServerDriver {
         })?;
         let schema = namespace.schema.as_deref().unwrap_or("dbo");
 
-        // Get trigger metadata
         let meta_sql = format!(
             "SELECT t.name AS trigger_name, \
                     OBJECT_NAME(t.parent_id) AS table_name, \
@@ -1123,7 +1099,6 @@ impl DataEngine for SqlServerDriver {
             events.push(TriggerEvent::Insert);
         }
 
-        // Get definition via OBJECT_DEFINITION
         let def_sql = format!(
             "SELECT OBJECT_DEFINITION(OBJECT_ID('{}.{}'))",
             schema.replace('\'', "''"),
@@ -1233,7 +1208,6 @@ impl DataEngine for SqlServerDriver {
         })
     }
 
-    // ==================== Query Execution ====================
 
     async fn execute(
         &self,
@@ -1256,15 +1230,12 @@ impl DataEngine for SqlServerDriver {
         let returns_rows = safety::returns_rows(self.driver_id(), query)
             .unwrap_or_else(|_| safety::is_select_prefix(query));
 
-        // Check if we should use the transaction connection
         let mut tx_guard = mssql_session.transaction_conn.lock().await;
 
         let start = Instant::now();
 
         if let Some(ref mut tx_conn) = *tx_guard {
-            // Track SPID so that `cancel(query_id)` can KILL this session.
-            // Without this, the active_queries map stays empty and cancel
-            // silently no-ops (cf. audit B3-C3).
+            // Record SPID so `cancel(query_id)` can KILL this session; otherwise cancel silently no-ops (audit B3-C3).
             let spid = fetch_spid(tx_conn).await?;
             register_active_query(&mssql_session, query_id, spid).await;
             let result = if returns_rows {
@@ -1326,7 +1297,6 @@ impl DataEngine for SqlServerDriver {
             return Ok(());
         }
 
-        // Check if we should use the transaction connection
         let mut tx_guard = mssql_session.transaction_conn.lock().await;
 
         if let Some(ref mut tx_conn) = *tx_guard {
@@ -1348,7 +1318,6 @@ impl DataEngine for SqlServerDriver {
         }
     }
 
-    // ==================== Table Querying ====================
 
     async fn query_table(
         &self,
@@ -1371,7 +1340,6 @@ impl DataEngine for SqlServerDriver {
 
         let start = Instant::now();
 
-        // Build WHERE clause
         let mut where_clauses: Vec<String> = Vec::new();
 
         if let Some(filters) = &options.filters {
@@ -1402,10 +1370,8 @@ impl DataEngine for SqlServerDriver {
                     FilterOperator::IsNull => format!("{} IS NULL", col),
                     FilterOperator::IsNotNull => format!("{} IS NOT NULL", col),
                     FilterOperator::Regex => {
-                        // SQL Server has no native POSIX regex without CLR.
-                        // Fall back to PATINDEX with the raw pattern so users
-                        // can still run simple wildcard expressions; flags are
-                        // not expressible server-side and are ignored.
+                        // SQL Server has no native POSIX regex without CLR — fall back to PATINDEX
+                        // with the raw pattern so wildcards still work. Flags are server-side ignored.
                         let pattern = filter.value.as_text().ok_or_else(|| {
                             EngineError::syntax_error(
                                 "regex operator requires a string value in 'value'",
@@ -1418,10 +1384,8 @@ impl DataEngine for SqlServerDriver {
                         )
                     }
                     FilterOperator::Text => {
-                        // SQL Server: CONTAINS(col, 'query') requires a
-                        // full-text catalog + index on the column. Absence is
-                        // surfaced as a server error — the UI is responsible
-                        // for verifying `index_type = fulltext` first.
+                        // CONTAINS() requires a full-text catalog + index on the column; absence
+                        // surfaces as a server error. UI must verify `index_type = fulltext` first.
                         let term = filter.value.as_text().ok_or_else(|| {
                             EngineError::syntax_error(
                                 "text operator requires a string value in 'value'",
@@ -1438,7 +1402,6 @@ impl DataEngine for SqlServerDriver {
             }
         }
 
-        // Search across columns
         if let Some(ref search_term) = options.search {
             if !search_term.trim().is_empty() {
                 let search_sql = format!(
@@ -1455,7 +1418,6 @@ impl DataEngine for SqlServerDriver {
                             let col_name: &str = row.get::<&str, _>(0).unwrap_or("");
                             let dtype: &str = row.get::<&str, _>(1).unwrap_or("");
                             let upper = dtype.to_uppercase();
-                            // Skip binary types
                             if upper.contains("BINARY") || upper.contains("IMAGE") {
                                 continue;
                             }
@@ -1499,7 +1461,6 @@ impl DataEngine for SqlServerDriver {
             " ORDER BY (SELECT NULL)".to_string()
         };
 
-        // COUNT query
         let count_sql = format!("SELECT COUNT(*) FROM {}{}", table_ref, where_sql);
         let count_stream = conn
             .simple_query(&count_sql)
@@ -1516,7 +1477,6 @@ impl DataEngine for SqlServerDriver {
             .unwrap_or(0);
         let total_rows = total_rows.max(0) as u64;
 
-        // Data query with OFFSET...FETCH
         let data_sql = format!(
             "SELECT * FROM {}{}{} OFFSET {} ROWS FETCH NEXT {} ROWS ONLY",
             table_ref, where_sql, order_sql, offset, page_size
@@ -1574,7 +1534,6 @@ impl DataEngine for SqlServerDriver {
         self.execute(session, &query, QueryId::new()).await
     }
 
-    // ==================== Schema Management ====================
 
     async fn create_database(
         &self,
@@ -1615,7 +1574,6 @@ impl DataEngine for SqlServerDriver {
         Ok(())
     }
 
-    // ==================== Transaction Methods ====================
 
     async fn begin_transaction(&self, session: SessionId) -> EngineResult<()> {
         let mssql_session = self.get_session(session).await?;
@@ -1627,8 +1585,8 @@ impl DataEngine for SqlServerDriver {
             ));
         }
 
-        // Create a dedicated raw connection (bypassing bb8 pool) to ensure
-        // all transaction queries run on the same connection.
+        // bb8 pool may route subsequent queries to a different connection — open a dedicated
+        // raw connection so the entire transaction stays pinned to the same session.
         let mut conn = Self::connect_raw(&mssql_session.config)
             .await
             .map_err(|e| {
@@ -1691,7 +1649,6 @@ impl DataEngine for SqlServerDriver {
         true
     }
 
-    // ==================== Mutation Methods ====================
 
     async fn insert_row(
         &self,
@@ -1805,7 +1762,6 @@ impl DataEngine for SqlServerDriver {
         true
     }
 
-    // ==================== Capability Flags ====================
 
     fn supports_streaming(&self) -> bool {
         true
@@ -1858,7 +1814,6 @@ impl DataEngine for SqlServerDriver {
         CancelSupport::Driver
     }
 
-    // ==================== Maintenance ====================
 
     fn supports_maintenance(&self) -> bool {
         true
@@ -1951,7 +1906,6 @@ impl DataEngine for SqlServerDriver {
     }
 }
 
-// ==================== Helpers ====================
 
 /// Execute a SELECT query on a connection and stream results via sender.
 async fn stream_select_results(
@@ -2052,7 +2006,7 @@ async fn execute_dml(
         .await
         .map_err(|e| classify_error(e.to_string()))?;
 
-    // Sum up the row counts from all result sets
+    // tiberius returns one row set per statement in a batch; sum their lengths.
     let affected = result.iter().map(|rs| rs.len() as u64).sum::<u64>();
     let execution_time_ms = start.elapsed().as_micros() as f64 / 1000.0;
 
@@ -2111,7 +2065,6 @@ fn format_filter_value(value: &Value) -> String {
     }
 }
 
-// ==================== Tests ====================
 
 #[cfg(test)]
 mod tests {

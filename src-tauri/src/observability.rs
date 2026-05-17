@@ -21,18 +21,15 @@ pub fn init_tracing() {
     let log_dir = log_directory();
     let _ = fs::create_dir_all(&log_dir);
 
-    // Clean up old logs
     if let Err(e) = cleanup_old_logs(&log_dir, LOG_RETENTION_DAYS) {
         eprintln!("Failed to clean up old logs: {}", e);
     }
 
-    // Setup file appender
     let file_appender: RollingFileAppender =
         tracing_appender::rolling::daily(&log_dir, LOG_FILE_PREFIX);
     let env_filter = EnvFilter::try_from_default_env()
         .unwrap_or_else(|_| EnvFilter::new("qoredb=info,tauri=warn"));
 
-    // Setup subscriber
     let _ = tracing_subscriber::fmt()
         .with_env_filter(env_filter)
         .with_writer(file_appender)
@@ -42,7 +39,7 @@ pub fn init_tracing() {
         .with_ansi(false)
         .try_init();
 
-    // Register panic hook
+    // Chain into the previous panic hook so we keep its behaviour (e.g. abort).
     let previous_hook = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |panic_info| {
         let payload = panic_info.payload();

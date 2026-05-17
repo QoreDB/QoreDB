@@ -96,7 +96,6 @@ impl ProfilingStore {
 
         let threshold = *self.slow_threshold_ms.read();
 
-        // Update metrics
         {
             let mut metrics = self.metrics.write();
 
@@ -110,7 +109,6 @@ impl ProfilingStore {
                 metrics.failed_queries += 1;
             }
 
-            // Update execution time stats
             metrics.total_execution_time_ms += execution_time_ms;
             metrics.avg_execution_time_ms =
                 metrics.total_execution_time_ms / metrics.total_queries as f64;
@@ -122,30 +120,26 @@ impl ProfilingStore {
                 metrics.max_execution_time_ms = execution_time_ms;
             }
 
-            // Track slow queries
             if execution_time_ms >= threshold as f64 {
                 metrics.slow_query_count += 1;
             }
 
-            // Update by operation type
             let op_key = format!("{:?}", operation_type).to_lowercase();
             *metrics.by_operation_type.entry(op_key).or_insert(0) += 1;
 
-            // Update by environment
             let env_key = format!("{:?}", environment).to_lowercase();
             *metrics.by_environment.entry(env_key).or_insert(0) += 1;
         }
 
-        // Track execution time for percentiles (insertion order, sorted on demand)
+        // Insertion-order ring buffer; sorted on demand for percentiles.
         {
             let mut times = self.execution_times.write();
             if times.len() >= MAX_EXECUTION_TIMES {
-                times.pop_front(); // Remove oldest, not smallest
+                times.pop_front();
             }
             times.push_back(execution_time_ms);
         }
 
-        // Record slow query if above threshold
         if execution_time_ms >= threshold as f64 {
             if let Some(query_str) = query {
                 self.record_slow_query(
@@ -159,7 +153,7 @@ impl ProfilingStore {
             }
         }
 
-        // Update percentiles periodically (every 100 queries)
+        // Recompute percentiles every 100 queries to amortise the sort cost.
         let total = self.metrics.read().total_queries;
         if total.is_multiple_of(100) {
             self.update_percentiles();
@@ -222,7 +216,6 @@ impl ProfilingStore {
 
     /// Get current profiling metrics
     pub fn get_metrics(&self) -> ProfilingMetrics {
-        // Update percentiles before returning
         self.update_percentiles();
 
         let metrics = self.metrics.read();
@@ -234,7 +227,7 @@ impl ProfilingStore {
         let slow_queries = self.slow_queries.read();
         slow_queries
             .iter()
-            .rev() // Most recent first
+            .rev()
             .skip(offset)
             .take(limit)
             .cloned()

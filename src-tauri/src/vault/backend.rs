@@ -55,7 +55,6 @@ pub trait CredentialProvider: Send + Sync {
     fn delete_credential(&self, service: &str, username: &str) -> Result<(), CredentialError>;
 }
 
-/// Production implementation using OS Keyring
 pub struct KeyringProvider;
 
 impl KeyringProvider {
@@ -134,7 +133,6 @@ impl CredentialProvider for KeyringProvider {
     }
 }
 
-/// Mock implementation for testing
 #[derive(Clone)]
 pub struct MockProvider {
     storage: Arc<Mutex<HashMap<String, String>>>,

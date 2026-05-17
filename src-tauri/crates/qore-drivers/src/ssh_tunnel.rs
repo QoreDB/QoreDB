@@ -120,7 +120,6 @@ impl SshTunnelBackend for OpenSshBackend {
         remote_host: &str,
         remote_port: u16,
     ) -> EngineResult<Box<dyn SshTunnelHandle>> {
-        // Find an available local port
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
             .await
             .map_err(|e| EngineError::SshError {
@@ -134,10 +133,9 @@ impl SshTunnelBackend for OpenSshBackend {
             })?
             .port();
 
-        // Drop the listener so ssh can bind to this port
+        // Release the port so ssh can rebind it for the actual forwarding.
         drop(listener);
 
-        // Validate private key file exists before building the SSH command
         if let SshAuth::Key {
             private_key_path, ..
         } = &config.auth
@@ -159,7 +157,6 @@ impl SshTunnelBackend for OpenSshBackend {
             remote_port,
         )?;
 
-        // Spawn the SSH process
         let mut process = cmd
             .stdin(Stdio::null())
             .stdout(Stdio::null())
@@ -169,12 +166,11 @@ impl SshTunnelBackend for OpenSshBackend {
                 message: format!("Failed to spawn SSH process: {}. Is OpenSSH installed?", e),
             })?;
 
-        // Wait until ssh is actually listening on the local port, or fail with stderr.
+        // Wait until ssh is actually listening on the local port, or surface stderr on early exit.
         let startup_deadline = tokio::time::Instant::now()
             + tokio::time::Duration::from_millis(Self::STARTUP_TIMEOUT_MS);
 
         loop {
-            // If the process exited early, surface stderr.
             if let Some(status) = process.try_wait().map_err(|e| EngineError::SshError {
                 message: format!("Failed to check SSH process status: {}", e),
             })? {
@@ -200,7 +196,6 @@ impl SshTunnelBackend for OpenSshBackend {
                 });
             }
 
-            // Port is open?
             match tokio::net::TcpStream::connect(("127.0.0.1", local_port)).await {
                 Ok(stream) => {
                     drop(stream);
@@ -262,7 +257,7 @@ fn build_ssh_command(
     // ssh -N -L 127.0.0.1:local_port:remote_host:remote_port user@ssh_host -p ssh_port
     let mut cmd = Command::new("ssh");
 
-    // Use only our app-owned known_hosts file for deterministic behavior.
+    // Pin known_hosts to the app-owned file by sending the global file to the null device.
     let null_device = null_device_path();
 
     let connect_timeout_secs = config.connect_timeout_secs;
@@ -339,8 +334,8 @@ fn build_ssh_command(
 
 fn default_known_hosts_path() -> String {
     // Per-user, app-owned file.
-    // Windows: %APPDATA%\QoreDB\ssh\known_hosts
-    // Others:  $HOME/.qoredb/ssh/known_hosts
+    //   Windows: %APPDATA%\QoreDB\ssh\known_hosts
+    //   Others:  $HOME/.qoredb/ssh/known_hosts
     if cfg!(windows) {
         let appdata = std::env::var_os("APPDATA")
             .unwrap_or_else(|| std::env::var_os("USERPROFILE").unwrap_or_default());
@@ -404,7 +399,6 @@ fn sanitize_ssh_stderr(stderr: &str) -> String {
 
     let mut sanitized = lines.join("\n");
 
-    // Redact IPv4 addresses
     let ip_re = regex::Regex::new(r"\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b").unwrap();
     sanitized = ip_re.replace_all(&sanitized, "[redacted-ip]").to_string();
 
@@ -526,14 +520,13 @@ mod tests {
     fn sanitizes_ssh_stderr_truncates_long_output() {
         let stderr = "x".repeat(300);
         let sanitized = sanitize_ssh_stderr(&stderr);
-        assert!(sanitized.len() <= 204); // 200 + "..."
+        assert!(sanitized.len() <= 204);
     }
 
     #[test]
     fn sanitizes_ssh_stderr_filters_at_sign() {
         let stderr = "user@internal-host: Permission denied\nsome other info";
         let sanitized = sanitize_ssh_stderr(stderr);
-        // "Permission denied" lines with @ are kept
         assert!(sanitized.contains("Permission denied"));
     }
 

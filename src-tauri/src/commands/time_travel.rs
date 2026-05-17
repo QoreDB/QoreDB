@@ -362,7 +362,6 @@ pub mod pro {
             .map_err(|e| format!("Invalid target_timestamp: {}", e))?
             .with_timezone(&chrono::Utc);
 
-        // Get all entries after the target timestamp for this table
         let filter = ChangelogFilter {
             table_name: Some(table_name.clone()),
             namespace: Some(namespace.clone()),

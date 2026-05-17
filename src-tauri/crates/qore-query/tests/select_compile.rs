@@ -1,14 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
-//! Integration tests for SELECT compilation across all four dialects.
+//! Integration tests for SELECT compilation across all five dialects.
 //!
-//! Covers Semaine 1-2 scope of the Phase 2 plan:
-//! - projection, FROM, WHERE, ORDER BY, LIMIT/OFFSET
-//! - AND / OR / NOT composition
-//! - IN / NOT IN / BETWEEN
-//! - IS NULL / IS NOT NULL
-//! - LIKE / ILIKE fallback on non-PG dialects
-//! - MSSQL `OFFSET..FETCH NEXT` with required ORDER BY
+//! Covers: projection, FROM, WHERE, ORDER BY, LIMIT/OFFSET; AND/OR/NOT;
+//! IN / NOT IN / BETWEEN; IS NULL / IS NOT NULL; LIKE / ILIKE (native +
+//! LOWER fallback); MSSQL `OFFSET … FETCH NEXT` with required ORDER BY.
 
 use qore_core::Value;
 use qore_query::prelude::*;
@@ -321,7 +317,6 @@ fn mssql_offset_only_without_fetch() {
 
 #[test]
 fn placeholder_count_matches_params_vector() {
-    // Three literals = three placeholders = three params, in order of appearance.
     let q = Query::select()
         .from("users")
         .all()
@@ -364,7 +359,7 @@ fn nan_and_infinity_are_rejected() {
 
 #[test]
 fn in_accepts_borrowed_slice() {
-    // Regression: `&[T]` yields `&T`, which requires `From<&T> for Value`.
+    // Regression: iterating `&[T]` yields `&T`, requiring `From<&T> for Value`.
     let ids: &[i64] = &[1, 2, 3];
     let q = Query::select()
         .from("users")
@@ -374,7 +369,6 @@ fn in_accepts_borrowed_slice() {
         .unwrap();
     assert_eq!(q.params.len(), 3);
 
-    // Also accept a direct array literal.
     let q2 = Query::select()
         .from("users")
         .all()
@@ -392,9 +386,9 @@ fn null_literal_via_option_none() {
         .filter(col("email").eq(Option::<&str>::None))
         .build(pg())
         .unwrap();
-    // NOTE: `= NULL` never matches in SQL — users should prefer .is_null().
-    // We still emit it faithfully: catching this semantic pitfall is the
-    // caller's job, not the builder's. Test pins the mechanical behaviour.
+    // NOTE: `= NULL` never matches in SQL — callers should use `.is_null()`.
+    // The builder still emits this faithfully; pinning the mechanical
+    // behaviour is the test's purpose.
     assert_eq!(q.sql, r#"SELECT * FROM "users" WHERE ("email" = $1)"#);
     assert!(matches!(q.params.as_slice(), [Value::Null]));
 }
@@ -413,9 +407,8 @@ fn qualified_column_reference() {
 
 #[test]
 fn identifier_with_embedded_quote_is_escaped_per_dialect() {
-    // Malicious-looking names must be quoted safely (embedded quote character
-    // is doubled per ANSI / dialect rules). This is the injection defence for
-    // identifiers — each dialect's DialectOps impl handles escape doubling.
+    // SQL identifier injection defence: each dialect's `DialectOps` doubles
+    // its quoting character so embedded quotes can't terminate the ident.
     let q_pg = Query::select().from(r#"we"ird"#).all().build(pg()).unwrap();
     assert_eq!(q_pg.sql, r#"SELECT * FROM "we""ird""#);
 
@@ -434,7 +427,6 @@ fn duckdb_uses_postgres_style_quoting_and_question_placeholders() {
         .filter(col("age").gt(18))
         .build(dd())
         .unwrap();
-    // DuckDB: ANSI double-quoted idents + positional `?` placeholders.
     assert_eq!(
         q.sql,
         r#"SELECT "id", "name" FROM "users" WHERE ("age" > ?)"#
@@ -450,7 +442,7 @@ fn duckdb_supports_native_ilike() {
         .filter(col("name").ilike("a%"))
         .build(dd())
         .unwrap();
-    // Native ILIKE — no LOWER() fallback, index-friendly.
+    // Native ILIKE — no LOWER fallback, index-friendly.
     assert_eq!(q.sql, r#"SELECT * FROM "users" WHERE ("name" ILIKE ?)"#);
 }
 
@@ -478,7 +470,7 @@ fn dialect_from_driver_id_aliases_cockroachdb_and_mariadb() {
 
 #[test]
 fn deeply_nested_and_or_preserves_all_parentheses() {
-    // Build: (((a=1 AND b=2) OR c=3) AND (d=4 OR (e=5 AND f=6)))
+    // Shape: (((a=1 AND b=2) OR c=3) AND (d=4 OR (e=5 AND f=6))).
     let expr = col("a")
         .eq(1i64)
         .and(col("b").eq(2i64))
@@ -494,8 +486,8 @@ fn deeply_nested_and_or_preserves_all_parentheses() {
         .filter(expr)
         .build(pg())
         .unwrap();
-    // Every binary node is wrapped — no ambiguity regardless of reader's
-    // assumed precedence.
+    // Every binary node is wrapped — precedence is unambiguous regardless
+    // of reader assumptions.
     assert_eq!(
         q.sql,
         r#"SELECT * FROM "t" WHERE (((("a" = $1) AND ("b" = $2)) OR ("c" = $3)) AND (("d" = $4) OR (("e" = $5) AND ("f" = $6))))"#

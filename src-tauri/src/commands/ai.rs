@@ -455,27 +455,23 @@ async fn stream_ai_request(
     let system_prompt = schema_ctx.system_prompt;
     let event_name = format!("ai_stream:{}", request_id);
 
-    // Spawn the streaming task
     tokio::spawn(async move {
         let (tx, mut rx) = tokio::sync::mpsc::channel::<AiStreamChunk>(64);
         let rid = request_id.clone();
         let event = event_name.clone();
 
-        // Spawn the provider stream
         let provider_handle = tokio::spawn(async move {
             provider
                 .stream(&api_key, &system_prompt, &user_prompt, &config, tx, rid)
                 .await
         });
 
-        // Forward chunks to the frontend
         let mut full_response = String::new();
         while let Some(chunk) = rx.recv().await {
             full_response.push_str(&chunk.delta);
             let _ = window.emit(&event, &chunk);
         }
 
-        // Wait for the provider to finish
         let stream_result = provider_handle.await;
         let error = match stream_result {
             Ok(Ok(())) => None,
@@ -483,13 +479,11 @@ async fn stream_ai_request(
             Err(e) => Some(format!("Stream task panicked: {}", e)),
         };
 
-        // Extract query and run safety analysis
         let generated_query = extract_query_from_response(&full_response);
         let safety_analysis = generated_query
             .as_ref()
             .map(|q| validate_generated_query(&driver_id, q));
 
-        // Send final chunk with done=true
         let final_chunk = AiStreamChunk {
             request_id: request_id.clone(),
             delta: String::new(),

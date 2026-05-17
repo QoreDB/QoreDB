@@ -99,7 +99,6 @@ impl AuditStore {
     /// Update max audit entries
     pub fn set_max_entries(&self, max_entries: usize) {
         *self.max_entries.write() = max_entries;
-        // Trim in-memory cache if it exceeds the new limit
         let mut entries = self.entries.write();
         while entries.len() > max_entries {
             entries.pop_front();
@@ -130,7 +129,6 @@ impl AuditStore {
             error!("Failed to write audit log entry: {}", e);
         }
 
-        // Rotate if needed
         self.maybe_rotate();
     }
 
@@ -159,7 +157,7 @@ impl AuditStore {
             return;
         }
 
-        // Keep only the last 75% of max_entries
+        // Keep the last 75% of max_entries — leaves headroom before the next rotation.
         let entries_to_keep = max_entries * 3 / 4;
 
         match self.rotate_file(entries_to_keep) {
@@ -187,7 +185,8 @@ impl AuditStore {
         let skip = total - keep_count;
         let to_keep: Vec<&String> = lines.iter().skip(skip).collect();
 
-        // Write to temp file then rename
+        // Write-then-rename for an atomic swap; a crash mid-write leaves the
+        // original file intact.
         let temp_path = self.log_path.with_extension("jsonl.tmp");
         {
             let file = File::create(&temp_path)?;
@@ -250,7 +249,7 @@ impl AuditStore {
 
         entries
             .iter()
-            .rev() // Most recent first
+            .rev()
             .filter(|e| {
                 entry_matches(
                     e,
@@ -306,7 +305,7 @@ impl AuditStore {
             };
             let entry: AuditLogEntry = match serde_json::from_str(&line) {
                 Ok(e) => e,
-                Err(_) => continue, // Skip malformed lines, keep going
+                Err(_) => continue,
             };
 
             if entry_matches(
@@ -324,7 +323,6 @@ impl AuditStore {
             }
         }
 
-        // Most recent first
         matched.reverse();
 
         let result = if limit == 0 {
@@ -366,11 +364,9 @@ impl AuditStore {
                 stats.last_day += 1;
             }
 
-            // Count by environment
             let env_key = format!("{:?}", entry.environment).to_lowercase();
             *stats.by_environment.entry(env_key).or_insert(0) += 1;
 
-            // Count by operation
             let op_key = format!("{:?}", entry.operation_type).to_lowercase();
             *stats.by_operation.entry(op_key).or_insert(0) += 1;
         }
@@ -380,10 +376,8 @@ impl AuditStore {
 
     /// Clear all audit log entries
     pub fn clear(&self) {
-        // Clear memory cache
         self.entries.write().clear();
 
-        // Clear file
         if let Err(e) = File::create(&self.log_path) {
             error!("Failed to clear audit log file: {}", e);
         }
@@ -527,7 +521,7 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         let store = new_store(&tmp, 3);
 
-        // Write 5 entries — only the last 3 stay in memory after rotation
+        // Five entries, cache size 3 → cache is truncated, disk keeps all.
         for i in 0..5 {
             store.log(entry(&format!("SELECT {}", i)));
         }

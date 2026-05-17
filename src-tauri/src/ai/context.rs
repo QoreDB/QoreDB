@@ -83,11 +83,10 @@ pub async fn build_context(
         .await
         .map_err(|e| e.to_string())?;
 
-    // 1. List all collections/tables
     let options = CollectionListOptions {
         search: None,
         page: None,
-        page_size: Some(200), // Fetch up to 200 table names
+        page_size: Some(200),
     };
     let collection_list = driver
         .list_collections(session_id, namespace, options)
@@ -100,7 +99,7 @@ pub async fn build_context(
         .map(|c| c.name.clone())
         .collect();
 
-    // Prioritize tables mentioned in the user prompt
+    // Prioritize tables mentioned in the user prompt.
     let prompt_lower = user_prompt.to_lowercase();
     table_names.sort_by(|a, b| {
         let a_mentioned = prompt_lower.contains(&a.to_lowercase());
@@ -108,10 +107,8 @@ pub async fn build_context(
         b_mentioned.cmp(&a_mentioned)
     });
 
-    // Limit to MAX_TABLES
     table_names.truncate(MAX_TABLES);
 
-    // 2. Describe each table
     let mut schema_parts: Vec<String> = Vec::new();
     let mut total_words = 0;
 
@@ -127,7 +124,6 @@ pub async fn build_context(
             Ok(schema) => {
                 let desc = format_table_schema(table_name, &schema, driver_id);
 
-                // Append virtual relations if available
                 let virtual_fks = if let Some(cid) = connection_id {
                     virtual_relations.get_foreign_keys_for_table(
                         cid,
@@ -165,7 +161,7 @@ pub async fn build_context(
         }
     }
 
-    // If there are more tables not described, list them briefly
+    // Briefly list any remaining tables that were not described.
     if collection_list.collections.len() > table_names.len() {
         let remaining: Vec<String> = collection_list
             .collections

@@ -72,7 +72,7 @@ pub async fn export_schema(
     let driver_id = driver.driver_id();
     let dialect = SqlDialect::from_driver_id(driver_id);
 
-    // NoSQL drivers don't support schema export
+    // NoSQL drivers have no DDL dialect.
     if dialect.is_none() {
         return Ok(ExportSchemaResponse {
             success: false,
@@ -105,7 +105,6 @@ pub async fn export_schema(
     let mut event_count: u32 = 0;
     let mut sequence_count: u32 = 0;
 
-    // Header
     let now = chrono::Utc::now().format("%Y-%m-%dT%H:%M:%SZ");
     output.push_str("-- ================================================\n");
     output.push_str("-- QoreDB Schema Export\n");
@@ -132,7 +131,6 @@ pub async fn export_schema(
             .await
             .map_err(|e| e.to_string())?;
 
-        // Filter to tables and views only
         let tables: Vec<_> = collections
             .collections
             .iter()
@@ -379,7 +377,6 @@ pub async fn export_schema(
     // write `~/.ssh/authorized_keys` or `/etc/...`.
     let resolved = resolve_export_path(&file_path)?;
 
-    // Write to file
     let file_size_bytes = output.len() as u64;
     tokio::fs::write(&resolved, &output)
         .await

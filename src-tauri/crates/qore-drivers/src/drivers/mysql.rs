@@ -129,7 +129,7 @@ impl MySqlDriver {
             .ok_or_else(|| EngineError::session_not_found(session.0.to_string()))
     }
 
-    /// Helper to bind a Value to a MySQL query
+    /// Binds a `Value` to a MySQL query.
     fn bind_param<'q>(
         query: sqlx::query::Query<'q, MySql, sqlx::mysql::MySqlArguments>,
         value: &'q Value,
@@ -142,7 +142,7 @@ impl MySqlDriver {
             Value::Text(s) => query.bind(s),
             Value::Bytes(b) => query.bind(b),
             Value::Json(j) => query.bind(j),
-            // Fallback for arrays
+            // MySQL has no native array binding — drop to NULL rather than emit garbage.
             Value::Array(_) => query.bind(Option::<String>::None),
         }
     }
@@ -209,7 +209,7 @@ impl MySqlDriver {
             let db = ns.database.trim();
             if !db.is_empty() {
                 let use_sql = format!("USE {}", Self::quote_ident(db));
-                // Use simple query protocol for maximum compatibility.
+                // Simple query protocol — some MySQL forks reject USE via the prepared path.
                 conn.execute(sqlx::raw_sql(&use_sql))
                     .await
                     .map_err(|e| EngineError::execution_error(e.to_string()))?;
@@ -252,7 +252,6 @@ impl MySqlDriver {
         (columns, rows)
     }
 
-    /// Gets column info from a MySqlRow
     fn get_column_info(row: &MySqlRow) -> Vec<ColumnInfo> {
         row.columns()
             .iter()
@@ -417,8 +416,8 @@ impl MysqlDecoder {
                 Err(_) => Self::fallback_extract(row, idx),
             },
             Self::Timestamp => {
-                // TIMESTAMP can decode as DateTime<Utc> or NaiveDateTime depending
-                // on session time_zone config; try UTC first, then Naive.
+                // MySQL TIMESTAMP decodes as DateTime<Utc> when the session is UTC and
+                // NaiveDateTime otherwise — try the UTC path first.
                 if let Ok(opt) = row.try_get::<Option<chrono::DateTime<chrono::Utc>>, _>(idx) {
                     return opt
                         .map(|dt| Value::Text(dt.to_rfc3339()))
@@ -634,7 +633,6 @@ impl DataEngine for MySqlDriver {
 
         let search_pattern = options.search.as_ref().map(|s| format!("%{}%", s));
 
-        // 1. Get total count
         let count_query = r#"
             SELECT COUNT(*)
             FROM information_schema.TABLES
@@ -652,8 +650,7 @@ impl DataEngine for MySqlDriver {
 
         let total_count = count_row.0;
 
-        // 2. Get paginated results
-        // Cast to CHAR to avoid BINARY type mismatch with Rust String
+        // CAST to CHAR: information_schema columns are BINARY by default, which sqlx refuses to decode as String.
         let mut query_str = r#"
             SELECT CAST(TABLE_NAME AS CHAR) AS table_name, CAST(TABLE_TYPE AS CHAR) AS table_type
             FROM information_schema.TABLES
@@ -711,14 +708,12 @@ impl DataEngine for MySqlDriver {
 
         let search_pattern = options.search.as_ref().map(|s| format!("%{}%", s));
 
-        // Filter by routine type if specified
         let type_filter = match &options.routine_type {
             Some(RoutineType::Function) => Some("FUNCTION"),
             Some(RoutineType::Procedure) => Some("PROCEDURE"),
             None => None,
         };
 
-        // 1. Get total count
         let count_query = r#"
             SELECT COUNT(*)
             FROM information_schema.ROUTINES
@@ -739,7 +734,6 @@ impl DataEngine for MySqlDriver {
 
         let total_count = count_row.0;
 
-        // 2. Get paginated results
         let mut query_str = r#"
             SELECT
                 CAST(ROUTINE_NAME AS CHAR) AS name,
@@ -783,7 +777,8 @@ impl DataEngine for MySqlDriver {
                     namespace: namespace.clone(),
                     name,
                     routine_type,
-                    arguments: String::new(), // MySQL doesn't easily expose this in information_schema
+                    // MySQL's information_schema doesn't expose parameter signatures usefully.
+                    arguments: String::new(),
                     return_type: if return_type.is_empty() {
                         None
                     } else {
@@ -820,10 +815,8 @@ impl DataEngine for MySqlDriver {
             RoutineType::Procedure => "PROCEDURE",
         };
 
-        // SHOW CREATE FUNCTION/PROCEDURE returns the full CREATE statement.
-        // Identifiers are quoted via `Self::quote_ident` (which doubles any
-        // embedded backtick) so a routine name like `` `weird` `` doesn't
-        // break the query mid-flight (cf. audit B3-H6).
+        // Identifiers are quoted via `quote_ident` (which doubles embedded backticks) so a
+        // routine named `` `weird` `` cannot break the query (audit B3-H6).
         let sql = format!(
             "SHOW CREATE {} {}.{}",
             keyword,
@@ -842,7 +835,7 @@ impl DataEngine for MySqlDriver {
                 ))
             })?;
 
-        // Column name is "Create Function" or "Create Procedure"
+        // SHOW CREATE returns the DDL in a column named "Create Function" or "Create Procedure".
         let create_col = format!(
             "Create {}",
             if keyword == "FUNCTION" {
@@ -855,7 +848,6 @@ impl DataEngine for MySqlDriver {
             .try_get(create_col.as_str())
             .map_err(|e| EngineError::execution_error(e.to_string()))?;
 
-        // Also get metadata from information_schema
         let meta_query = r#"
             SELECT
                 CAST(IFNULL(DTD_IDENTIFIER, '') AS CHAR) AS return_type,
@@ -1038,7 +1030,6 @@ impl DataEngine for MySqlDriver {
         let mysql_session = self.get_session(session).await?;
         let pool = &mysql_session.pool;
 
-        // Get trigger metadata
         let meta_query = r#"
             SELECT
                 CAST(TRIGGER_NAME AS CHAR) AS trigger_name,
@@ -1074,8 +1065,7 @@ impl DataEngine for MySqlDriver {
             _ => TriggerEvent::Insert,
         };
 
-        // Get CREATE TRIGGER statement via SHOW CREATE TRIGGER
-        // Returns columns: Trigger, sql_mode, SQL Original Statement, ...
+        // SHOW CREATE TRIGGER returns: (Trigger, sql_mode, SQL Original Statement, ...).
         let show_sql = format!(
             "SHOW CREATE TRIGGER `{}`.`{}`",
             namespace.database.replace('`', "``"),
@@ -1240,7 +1230,6 @@ impl DataEngine for MySqlDriver {
         let mysql_session = self.get_session(session).await?;
         let pool = &mysql_session.pool;
 
-        // Get event status
         let status_query = r#"
             SELECT CAST(STATUS AS CHAR)
             FROM information_schema.EVENTS
@@ -1265,8 +1254,7 @@ impl DataEngine for MySqlDriver {
             _ => EventStatus::Disabled,
         };
 
-        // Get CREATE EVENT statement via SHOW CREATE EVENT
-        // Returns columns: Event, sql_mode, time_zone, Create Event, ...
+        // SHOW CREATE EVENT returns: (Event, sql_mode, time_zone, Create Event, ...).
         let show_sql = format!(
             "SHOW CREATE EVENT `{}`.`{}`",
             namespace.database.replace('`', "``"),
@@ -1322,7 +1310,6 @@ impl DataEngine for MySqlDriver {
         let mysql_session = self.get_session(session).await?;
         let pool = &mysql_session.pool;
 
-        // Fetch all charsets and their default collation
         let charset_rows: Vec<(String, String, String)> = sqlx::query_as(
             r#"
             SELECT
@@ -1337,7 +1324,6 @@ impl DataEngine for MySqlDriver {
         .await
         .map_err(|e| EngineError::execution_error(e.to_string()))?;
 
-        // Fetch all collations grouped by charset
         let collation_rows: Vec<(String, String, String)> = sqlx::query_as(
             r#"
             SELECT
@@ -1352,7 +1338,6 @@ impl DataEngine for MySqlDriver {
         .await
         .map_err(|e| EngineError::execution_error(e.to_string()))?;
 
-        // Group collations by charset
         let mut collations_by_charset: std::collections::HashMap<String, Vec<CollationInfo>> =
             std::collections::HashMap::new();
         for (collation_name, charset_name, is_default) in collation_rows {
@@ -1390,14 +1375,12 @@ impl DataEngine for MySqlDriver {
         let mysql_session = self.get_session(session).await?;
         let pool = &mysql_session.pool;
 
-        // Basic validation
         if name.is_empty() || name.len() > 64 {
             return Err(EngineError::validation(
                 "Database name must be between 1 and 64 characters",
             ));
         }
 
-        // Parse optional charset and collation from JSON options
         let (charset, collation) = if let Some(Value::Json(opts)) = &options {
             let charset = opts
                 .get("charset")
@@ -1412,7 +1395,7 @@ impl DataEngine for MySqlDriver {
             (None, None)
         };
 
-        // Security: validate charset and collation names (alphanumeric + underscore only)
+        // Charset/collation names are concatenated into DDL — restrict to safe identifier chars.
         fn is_valid_identifier(s: &str) -> bool {
             !s.is_empty() && s.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
         }
@@ -1432,7 +1415,6 @@ impl DataEngine for MySqlDriver {
             }
         }
 
-        // Build CREATE DATABASE statement
         let escaped_name = name.replace('`', "``");
         let mut query = format!("CREATE DATABASE `{}`", escaped_name);
         if let Some(ref cs) = charset {
@@ -1462,14 +1444,12 @@ impl DataEngine for MySqlDriver {
         let mysql_session = self.get_session(session).await?;
         let pool = &mysql_session.pool;
 
-        // Basic validation
         if name.is_empty() || name.len() > 64 {
             return Err(EngineError::validation(
                 "Database name must be between 1 and 64 characters",
             ));
         }
 
-        // Identifier quoting with backticks for MySQL
         let escaped_name = name.replace('`', "``");
         let query = format!("DROP DATABASE `{}`", escaped_name);
 
@@ -1489,9 +1469,7 @@ impl DataEngine for MySqlDriver {
         Ok(())
     }
 
-    /// Executes a query and returns the result
-    ///
-    /// Routes to transaction connection if active, otherwise uses pool.
+    /// Routes to the transaction connection if active, otherwise uses the pool.
     async fn execute_stream(
         &self,
         session: SessionId,
@@ -1513,7 +1491,6 @@ impl DataEngine for MySqlDriver {
     ) -> EngineResult<()> {
         let mysql_session = self.get_session(session).await?;
 
-        // Use pool for streaming
         let mut conn = mysql_session
             .pool
             .acquire()
@@ -1522,12 +1499,10 @@ impl DataEngine for MySqlDriver {
 
         Self::apply_namespace_on_conn(&mut conn, &namespace, query).await?;
 
-        // Check if query returns rows
         let returns_rows = safety::returns_rows(self.driver_id(), query)
             .unwrap_or_else(|_| safety::is_select_prefix(query));
 
         if !returns_rows {
-            // Fallback
             let result = self
                 .execute_in_namespace(session, namespace, query, query_id)
                 .await?;
@@ -1597,12 +1572,10 @@ impl DataEngine for MySqlDriver {
             active.remove(&query_id);
         }
 
-        // Only send Done if no error occurred
         if stream_error.is_none() {
             let _ = sender.send(StreamEvent::Done(row_count)).await;
         }
 
-        // Return error if stream failed, so frontend knows about it
         if let Some(err) = stream_error {
             return Err(EngineError::execution_error(err));
         }
@@ -1666,8 +1639,7 @@ impl DataEngine for MySqlDriver {
                     execution_time_ms,
                 })
             } else {
-                // Use simple query protocol for DDL and other statements that may not be
-                // supported via the prepared statement protocol on some MySQL/MariaDB versions.
+                // Simple query protocol — some MySQL/MariaDB versions reject DDL over prepared statements.
                 let result = conn.execute(sqlx::raw_sql(query)).await.map_err(|e| {
                     let msg = e.to_string();
                     if msg.contains("syntax") {
@@ -1725,8 +1697,7 @@ impl DataEngine for MySqlDriver {
                     execution_time_ms,
                 })
             } else {
-                // Use simple query protocol for DDL and other statements that may not be
-                // supported via the prepared statement protocol on some MySQL/MariaDB versions.
+                // Simple query protocol — some MySQL/MariaDB versions reject DDL over prepared statements.
                 let result = conn.execute(sqlx::raw_sql(query)).await.map_err(|e| {
                     let msg = e.to_string();
                     if msg.contains("syntax") {
@@ -1762,7 +1733,7 @@ impl DataEngine for MySqlDriver {
         let pool = &mysql_session.pool;
 
         let database = &namespace.database;
-        // Cast to CHAR to avoid BINARY type mismatch with Rust String
+        // CAST to CHAR — information_schema columns are BINARY by default.
         let column_rows: Vec<(String, String, String, Option<String>, String)> = sqlx::query_as(
             r#"
             SELECT 
@@ -1782,7 +1753,6 @@ impl DataEngine for MySqlDriver {
         .await
         .map_err(|e| EngineError::execution_error(e.to_string()))?;
 
-        // Build columns vec, collecting primary keys
         let mut pk_columns: Vec<String> = Vec::new();
         let columns: Vec<TableColumn> = column_rows
             .into_iter()
@@ -1803,8 +1773,7 @@ impl DataEngine for MySqlDriver {
             )
             .collect();
 
-        // Get foreign keys
-        // Filter for REFERENCED_TABLE_NAME IS NOT NULL to find FKs
+        // FK rows in KEY_COLUMN_USAGE have REFERENCED_TABLE_NAME populated.
         let fk_rows: Vec<(String, String, String, String, String)> = sqlx::query_as(
             r#"
             SELECT
@@ -1846,7 +1815,7 @@ impl DataEngine for MySqlDriver {
             )
             .collect();
 
-        // Get row count estimate from table_rows (u64 for BIGINT UNSIGNED)
+        // information_schema.TABLE_ROWS is BIGINT UNSIGNED — decode as u64.
         let count_row: Option<(u64,)> = sqlx::query_as(
             r#"
             SELECT TABLE_ROWS
@@ -1862,7 +1831,6 @@ impl DataEngine for MySqlDriver {
 
         let row_count_estimate = count_row.map(|(c,)| c);
 
-        // Get indexes
         let index_rows: Vec<(String, String, i32, i32, Option<String>)> = sqlx::query_as(
             r#"
             SELECT
@@ -1882,7 +1850,7 @@ impl DataEngine for MySqlDriver {
         .await
         .map_err(|e| EngineError::execution_error(e.to_string()))?;
 
-        // Group by index name (keep index_type from the first row of each group)
+        // Group by index name and keep the index_type observed on the first row of each group.
         let mut index_map: std::collections::HashMap<
             String,
             (Vec<String>, bool, bool, Option<String>),
@@ -1934,7 +1902,6 @@ impl DataEngine for MySqlDriver {
         table: &str,
         limit: u32,
     ) -> EngineResult<QueryResult> {
-        // Use backticks for MySQL identifier quoting
         let query = format!(
             "SELECT * FROM `{}`.`{}` LIMIT {}",
             namespace.database, table, limit
@@ -1960,7 +1927,6 @@ impl DataEngine for MySqlDriver {
         let page_size = options.effective_page_size();
         let offset = options.offset();
 
-        // Build WHERE clause from filters
         let mut where_clauses: Vec<String> = Vec::new();
         let mut bind_values: Vec<Value> = Vec::new();
 
@@ -2018,10 +1984,8 @@ impl DataEngine for MySqlDriver {
                         format!("{} REGEXP ?", col_ident)
                     }
                     FilterOperator::Text => {
-                        // MySQL: MATCH(col) AGAINST(? IN NATURAL LANGUAGE MODE)
-                        // requires a FULLTEXT index on the column. The caller
-                        // is responsible for verifying that such an index
-                        // exists before calling; otherwise MySQL errors out.
+                        // MATCH() AGAINST(... IN NATURAL LANGUAGE MODE) requires a FULLTEXT index
+                        // on the column; the caller checks that before issuing this filter.
                         filter.value.as_text().ok_or_else(|| {
                             EngineError::syntax_error(
                                 "text operator requires a string value in 'value'",
@@ -2035,10 +1999,9 @@ impl DataEngine for MySqlDriver {
             }
         }
 
-        // Handle search across all columns
         if let Some(ref search_term) = options.search {
             if !search_term.trim().is_empty() {
-                // Get column info to determine cast strategy
+                // Look up column types so non-text columns can be CAST to CHAR before the LIKE.
                 let columns_sql = "SELECT COLUMN_NAME, CAST(DATA_TYPE AS CHAR) AS DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?";
                 let columns_rows: Vec<MySqlRow> = {
                     let mut tx_guard = mysql_session.transaction_conn.lock().await;
@@ -2067,7 +2030,6 @@ impl DataEngine for MySqlDriver {
                         .try_get("DATA_TYPE")
                         .map_err(|e| EngineError::execution_error(e.to_string()))?;
 
-                    // Skip binary/unsearchable column types
                     let lower = data_type.to_lowercase();
                     let is_unsearchable = matches!(
                         lower.as_str(),
@@ -2089,7 +2051,6 @@ impl DataEngine for MySqlDriver {
                     let col_ident = Self::quote_ident(&col_name);
                     bind_values.push(Value::Text(format!("%{}%", search_term)));
 
-                    // Text columns can use LIKE directly, others need CAST
                     let is_text = matches!(
                         lower.as_str(),
                         "varchar"
@@ -2120,7 +2081,6 @@ impl DataEngine for MySqlDriver {
             format!(" WHERE {}", where_clauses.join(" AND "))
         };
 
-        // Build ORDER BY clause
         let order_sql = if let Some(sort_col) = &options.sort_column {
             let sort_ident = Self::quote_ident(sort_col);
             let direction = match options.sort_direction.unwrap_or_default() {
@@ -2132,7 +2092,6 @@ impl DataEngine for MySqlDriver {
             String::new()
         };
 
-        // Execute COUNT query for total rows
         let count_sql = format!("SELECT COUNT(*) AS cnt FROM {}{}", table_ref, where_sql);
         let mut count_query = sqlx::query(&count_sql);
         for val in &bind_values {
@@ -2154,7 +2113,6 @@ impl DataEngine for MySqlDriver {
             .map_err(|e| EngineError::execution_error(e.to_string()))?;
         let total_rows = total_rows.max(0) as u64;
 
-        // Execute data query with pagination
         let data_sql = format!(
             "SELECT * FROM {}{}{} LIMIT {} OFFSET {}",
             table_ref, where_sql, order_sql, page_size, offset
@@ -2178,7 +2136,7 @@ impl DataEngine for MySqlDriver {
         let execution_time_ms = start.elapsed().as_micros() as f64 / 1000.0;
 
         let result = if mysql_rows.is_empty() {
-            // Get column metadata from information_schema even when no rows match
+            // No rows means no column metadata in the result set — fetch it from information_schema instead.
             let col_meta_sql = "SELECT COLUMN_NAME, CAST(DATA_TYPE AS CHAR) AS DATA_TYPE, IS_NULLABLE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? ORDER BY ORDINAL_POSITION";
             let col_meta_rows: Vec<MySqlRow> = {
                 let mut tx_guard = mysql_session.transaction_conn.lock().await;
@@ -2332,8 +2290,6 @@ impl DataEngine for MySqlDriver {
         CancelSupport::Driver
     }
 
-    // ==================== Transaction Methods ====================
-
     async fn begin_transaction(&self, session: SessionId) -> EngineResult<()> {
         let mysql_session = self.get_session(session).await?;
         let mut tx = mysql_session.transaction_conn.lock().await;
@@ -2403,8 +2359,6 @@ impl DataEngine for MySqlDriver {
         true
     }
 
-    // ==================== Mutation Methods ====================
-
     async fn insert_row(
         &self,
         session: SessionId,
@@ -2414,8 +2368,6 @@ impl DataEngine for MySqlDriver {
     ) -> EngineResult<QueryResult> {
         let mysql_session = self.get_session(session).await?;
 
-        // 1. Build Query String
-        // MySQL uses backticks for identifiers
         let table_name = format!(
             "`{}`.`{}`",
             namespace.database.replace("`", "``"),
@@ -2426,7 +2378,7 @@ impl DataEngine for MySqlDriver {
         keys.sort();
 
         let sql = if keys.is_empty() {
-            // MySQL: INSERT INTO table () VALUES ()
+            // MySQL accepts an empty column list to insert a row of defaults.
             format!("INSERT INTO {} () VALUES ()", table_name)
         } else {
             let cols_str = keys
@@ -2441,14 +2393,12 @@ impl DataEngine for MySqlDriver {
             )
         };
 
-        // 2. Prepare Query
         let mut query = sqlx::query(&sql);
         for k in &keys {
             let val = data.columns.get(*k).unwrap();
             query = Self::bind_param(query, val);
         }
 
-        // 3. Execute
         let start = Instant::now();
         let mut tx_guard = mysql_session.transaction_conn.lock().await;
         let result = if let Some(ref mut conn) = *tx_guard {
@@ -2497,7 +2447,6 @@ impl DataEngine for MySqlDriver {
         let mut pk_keys: Vec<&String> = primary_key.columns.keys().collect();
         pk_keys.sort();
 
-        // UPDATE table SET col1=?, col2=? WHERE pk1=? AND pk2=?
         let set_clauses: Vec<String> = data_keys
             .iter()
             .map(|k| format!("`{}`=?", k.replace("`", "``")))
@@ -2517,13 +2466,11 @@ impl DataEngine for MySqlDriver {
 
         let mut query = sqlx::query(&sql);
 
-        // Bind data values
         for k in &data_keys {
             let val = data.columns.get(*k).unwrap();
             query = Self::bind_param(query, val);
         }
 
-        // Bind PK values
         for k in &pk_keys {
             let val = primary_key.columns.get(*k).unwrap();
             query = Self::bind_param(query, val);
@@ -2569,7 +2516,6 @@ impl DataEngine for MySqlDriver {
         let mut pk_keys: Vec<&String> = primary_key.columns.keys().collect();
         pk_keys.sort();
 
-        // DELETE FROM table WHERE pk1=?
         let where_clauses: Vec<String> = pk_keys
             .iter()
             .map(|k| format!("`{}`=?", k.replace("`", "``")))
@@ -2606,8 +2552,6 @@ impl DataEngine for MySqlDriver {
     fn supports_mutations(&self) -> bool {
         true
     }
-
-    // ==================== Maintenance ====================
 
     fn supports_maintenance(&self) -> bool {
         true
@@ -2673,7 +2617,7 @@ impl DataEngine for MySqlDriver {
                         "target_engine option is required for ChangeEngine",
                     )
                 })?;
-                // Validate engine name: only allow alphanumeric
+                // Engine names are concatenated into DDL — restrict to safe identifier chars.
                 if !engine.chars().all(|c| c.is_alphanumeric() || c == '_') {
                     return Err(EngineError::execution_error("Invalid engine name"));
                 }
@@ -2688,7 +2632,7 @@ impl DataEngine for MySqlDriver {
 
         let start = Instant::now();
 
-        // MySQL maintenance commands return result sets with Table, Op, Msg_type, Msg_text
+        // MySQL maintenance commands return result sets with (Table, Op, Msg_type, Msg_text).
         let rows: Vec<MySqlRow> = sqlx::query(&sql)
             .fetch_all(&mysql_session.pool)
             .await

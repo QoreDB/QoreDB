@@ -114,7 +114,6 @@ pub fn start_workspace_watcher(
 
                     let new_path = path_rx.borrow().clone();
 
-                    // Stop old watcher
                     _current_watcher = None;
                     current_path = None;
                     pending.clear();
@@ -159,7 +158,6 @@ pub fn start_workspace_watcher(
                             }
                         }
 
-                        // Start new watcher
                         let tx = notify_tx.clone();
                         match RecommendedWatcher::new(
                             move |res: Result<notify::Event, notify::Error>| {

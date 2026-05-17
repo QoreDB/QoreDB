@@ -29,7 +29,6 @@ pub async fn fetch_row_by_pk(
     table: &str,
     primary_key: &RowData,
 ) -> Option<HashMap<String, serde_json::Value>> {
-    // Build filters from PK columns
     let filters: Vec<ColumnFilter> = primary_key
         .columns
         .iter()
@@ -54,7 +53,7 @@ pub async fn fetch_row_by_pk(
         search: None,
     };
 
-    // Use tokio timeout (2 seconds) for the before-image fetch
+    // 2s ceiling so a slow driver can't stall the mutation path.
     let result = tokio::time::timeout(
         std::time::Duration::from_secs(2),
         driver.query_table(session_id, namespace, table, options),

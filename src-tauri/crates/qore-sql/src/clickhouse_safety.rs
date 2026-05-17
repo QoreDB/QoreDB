@@ -39,7 +39,6 @@ pub fn classify(query: &str) -> ClickHouseQueryClass {
 }
 
 fn is_dangerous(upper: &str) -> bool {
-    // DROP DATABASE / DROP TABLE / DROP DICTIONARY / DROP VIEW
     if let Some(rest) = upper.strip_prefix("DROP ") {
         let head = rest.trim_start();
         if head.starts_with("DATABASE")

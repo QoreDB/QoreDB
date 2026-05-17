@@ -14,7 +14,7 @@ fn pg() -> Dialect {
 
 #[test]
 fn deeply_nested_beyond_limit_errors_cleanly() {
-    // Build a tree far beyond MAX_AST_DEPTH by repeated AND nesting.
+    // AND-nesting past MAX_AST_DEPTH must surface AstTooDeep, not panic.
     let mut e: Expr = col("x").eq(1i64);
     for _ in 0..(MAX_AST_DEPTH + 100) {
         e = e.and(col("x").eq(1i64));
@@ -33,7 +33,6 @@ fn deeply_nested_beyond_limit_errors_cleanly() {
 
 #[test]
 fn reasonable_depth_still_compiles() {
-    // A 50-level deep AND chain must stay well within the limit.
     let mut e: Expr = col("x").eq(1i64);
     for _ in 0..50 {
         e = e.and(col("x").eq(1i64));
@@ -49,7 +48,7 @@ fn reasonable_depth_still_compiles() {
 
 #[test]
 fn too_many_parameters_errors_cleanly() {
-    // A 70k-element IN list exceeds MAX_PARAMS (65535).
+    // Exceeding MAX_PARAMS (65535) must surface TooManyParameters.
     let huge: Vec<i64> = (0..(MAX_PARAMS as i64 + 100)).collect();
     let err = Query::select()
         .from("t")
@@ -65,9 +64,8 @@ fn too_many_parameters_errors_cleanly() {
 
 #[test]
 fn in_accepts_column_references_for_future_subquery_compat() {
-    // `col IN (col_a, col_b, col_c)` is legal SQL — same shape as the
-    // future `col IN (subquery)` path. Migration to IntoOperand enables
-    // both without further API changes.
+    // `col IN (col_a, col_b, …)` shares the AST shape of `col IN (subquery)`,
+    // so `IntoOperand` lets both compose without API churn.
     let q = Query::select()
         .from("t")
         .all()
@@ -83,8 +81,7 @@ fn in_accepts_column_references_for_future_subquery_compat() {
 
 #[test]
 fn between_accepts_columns_as_bounds() {
-    // Common pattern: `ts BETWEEN start_ts AND end_ts` where bounds are
-    // other columns, not literals.
+    // `ts BETWEEN start_ts AND end_ts` with column bounds (not literals).
     let q = Query::select()
         .from("events")
         .all()
@@ -129,8 +126,8 @@ fn order_by_qualified_column() {
 
 #[test]
 fn crate_docs_example_compiles_and_produces_expected_shape() {
-    // Mirrors the `lib.rs` doc example — serves as a regression test
-    // that the headline example keeps working as the API evolves.
+    // Mirrors the `lib.rs` doc example — regression guard for the headline
+    // snippet shipped in user-facing docs.
     let q = Query::select()
         .from_as("users", "u")
         .columns(["id", "name", "email"])

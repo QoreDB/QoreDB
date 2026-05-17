@@ -129,7 +129,6 @@ pub async fn execute_federation_query(
 
     let streaming = options.stream.unwrap_or(false);
 
-    // Resolve alias_map (alias -> session_id string) to ConnectionAliasMap
     let resolved_map = {
         let app_state = state.lock().await;
         resolve_alias_map(&alias_map, &app_state.session_manager).await?
@@ -141,7 +140,6 @@ pub async fn execute_federation_query(
     };
 
     if streaming {
-        // Streaming mode: send events via Tauri, return empty response
         let (tx, mut rx) = tokio::sync::mpsc::channel::<StreamEvent>(1024);
 
         let query_clone = query.clone();
@@ -150,7 +148,6 @@ pub async fn execute_federation_query(
         let resolved_map_clone = resolved_map.clone();
         let sm = Arc::clone(&session_manager);
 
-        // Spawn the federation execution
         let handle = tokio::spawn(async move {
             manager::execute_federation_stream(
                 &query_clone,
@@ -162,10 +159,9 @@ pub async fn execute_federation_query(
             .await
         });
 
-        // Spawn the event forwarder — uses the Tauri Channel (MessagePack)
-        // path, identical to the primary execute_query command. Reuses a
-        // single `StreamDispatcher` so the msgpack buffer-capacity hint
-        // accumulates across batches.
+        // Uses the Tauri Channel (MessagePack) path identical to execute_query.
+        // A single `StreamDispatcher` is reused so the msgpack buffer-capacity
+        // hint accumulates across batches.
         let window_clone = window.clone();
         let qid = query_id.clone();
         let channel_clone = on_stream.clone();
@@ -176,7 +172,6 @@ pub async fn execute_federation_query(
             }
         });
 
-        // Wait for the federation to complete
         let meta = handle
             .await
             .map_err(|e| format!("Federation task panicked: {e}"))?
@@ -184,13 +179,12 @@ pub async fn execute_federation_query(
 
         Ok(FederationQueryResponse {
             success: true,
-            result: None, // Streamed via events
+            result: None,
             error: None,
             query_id: Some(query_id),
             federation: Some(convert_metadata(&meta)),
         })
     } else {
-        // Batch mode: return full result
         match manager::execute_federation(&query, &resolved_map, &session_manager, &options).await {
             Ok((result, meta)) => Ok(FederationQueryResponse {
                 success: true,
@@ -223,7 +217,7 @@ pub async fn list_federation_sources(
     let mut seen_display_names = std::collections::HashSet::new();
 
     for (session_id, display_name) in sessions {
-        // Only keep the first session encountered for each unique connection name
+        // Keep only the first session per unique connection name.
         if !seen_display_names.contains(&display_name) {
             if let Ok(driver) = app_state.session_manager.get_driver(session_id).await {
                 let alias = normalize_alias(&display_name);
@@ -253,7 +247,6 @@ async fn resolve_alias_map(
     for (alias, session_id_str) in alias_map {
         let session_id = parse_session_id(session_id_str)?;
 
-        // Verify session exists
         if !session_manager.session_exists(session_id).await {
             return Err(format!(
                 "Session '{session_id_str}' not found for alias '{alias}'"
@@ -317,7 +310,6 @@ fn normalize_alias(name: &str) -> String {
         })
         .collect::<String>()
         .trim_matches('_')
-        // Collapse multiple underscores
         .split('_')
         .filter(|s| !s.is_empty())
         .collect::<Vec<_>>()

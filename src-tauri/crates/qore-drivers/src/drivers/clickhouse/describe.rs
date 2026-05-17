@@ -42,11 +42,9 @@ pub async fn list_tables(
     namespace: &Namespace,
     options: CollectionListOptions,
 ) -> EngineResult<CollectionList> {
-    // Bind `database` and the `ILIKE` pattern as named parameters
-    // (`{db:String}` / `{pat:String}`) so the value cannot break out of the
-    // quoted literal. We also escape LIKE wildcards in the user-supplied
-    // `search` so `50%` only matches names containing the literal "50%" —
-    // not every name containing "50" (cf. audit B4-C7).
+    // Bind `database` / `pattern` as `{db:String}` / `{pat:String}` to prevent
+    // quote-escape injection, and pre-escape LIKE wildcards in the user-supplied
+    // `search` so `50%` matches the literal substring (cf. audit B4-C7).
     let database = namespace.database.clone();
     let like_pattern = options
         .search
@@ -151,9 +149,7 @@ pub async fn describe_table(
     let tbl = table.to_string();
     let params: Vec<(&str, &str)> = vec![("db", db.as_str()), ("tbl", tbl.as_str())];
 
-    // Columns + nullable + default expression — `database` / `table` are
-    // bound as named parameters to avoid quote-escape SQL injection
-    // (cf. audit B4-C7).
+    // Bind database/table as named parameters to avoid quote-escape injection (audit B4-C7).
     let cols_sql = "SELECT name, type, default_expression, is_in_primary_key \
          FROM system.columns \
          WHERE database = {db:String} AND table = {tbl:String} \

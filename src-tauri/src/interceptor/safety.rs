@@ -116,7 +116,6 @@ impl SafetyEngine {
         let mut custom = self.custom_rules.write();
         *custom = rules.into_iter().filter(|r| !r.builtin).collect();
 
-        // Clear pattern cache
         self.pattern_cache.write().clear();
 
         info!("Loaded {} custom safety rules", custom.len());
@@ -138,7 +137,6 @@ impl SafetyEngine {
             return Err("Cannot add built-in rules".to_string());
         }
 
-        // Validate regex pattern if present
         if let Some(ref pattern) = rule.pattern {
             if let Err(e) = Regex::new(pattern) {
                 return Err(format!("Invalid regex pattern: {}", e));
@@ -147,14 +145,12 @@ impl SafetyEngine {
 
         let mut custom = self.custom_rules.write();
 
-        // Check for duplicate ID
         if custom.iter().any(|r| r.id == rule.id) {
             return Err(format!("Rule with ID '{}' already exists", rule.id));
         }
 
         custom.push(rule);
 
-        // Clear pattern cache
         self.pattern_cache.write().clear();
 
         Ok(())
@@ -162,7 +158,6 @@ impl SafetyEngine {
 
     /// Update a rule
     pub fn update_rule(&self, rule: SafetyRule) -> Result<(), String> {
-        // Validate regex pattern if present
         if let Some(ref pattern) = rule.pattern {
             if let Err(e) = Regex::new(pattern) {
                 return Err(format!("Invalid regex pattern: {}", e));
@@ -170,7 +165,7 @@ impl SafetyEngine {
         }
 
         if rule.builtin {
-            // Update built-in rule enabled state only
+            // Built-in rules only expose `enabled` for mutation.
             let mut builtin = self.builtin_rules.write();
             if let Some(existing) = builtin.iter_mut().find(|r| r.id == rule.id) {
                 existing.enabled = rule.enabled;
@@ -183,7 +178,6 @@ impl SafetyEngine {
 
         if let Some(existing) = custom.iter_mut().find(|r| r.id == rule.id) {
             *existing = rule;
-            // Clear pattern cache
             self.pattern_cache.write().clear();
             Ok(())
         } else {
@@ -198,14 +192,12 @@ impl SafetyEngine {
         custom.retain(|r| r.id != rule_id);
 
         if custom.len() == initial_len {
-            // Check if it's a built-in rule
             if self.builtin_rules.read().iter().any(|r| r.id == rule_id) {
                 return Err("Cannot remove built-in rules".to_string());
             }
             return Err(format!("Rule with ID '{}' not found", rule_id));
         }
 
-        // Clear pattern cache
         self.pattern_cache.write().clear();
 
         Ok(())
@@ -239,7 +231,6 @@ impl SafetyEngine {
             return SafetyCheckResult::allowed();
         }
 
-        // Get all applicable rules
         let builtin = self.builtin_rules.read();
         let custom = self.custom_rules.read();
         let all_rules: Vec<&SafetyRule> = builtin
@@ -248,7 +239,7 @@ impl SafetyEngine {
             .filter(|r| r.enabled)
             .collect();
 
-        // Check each rule in order (first match wins)
+        // First match wins — built-in rules take priority over custom ones.
         for rule in all_rules {
             if let Some(result) = self.check_rule(rule, context) {
                 debug!("Safety rule '{}' triggered for query", rule.name);
@@ -261,24 +252,21 @@ impl SafetyEngine {
 
     /// Check a single rule against the query context
     fn check_rule(&self, rule: &SafetyRule, context: &QueryContext) -> Option<SafetyCheckResult> {
-        // Check environment
         if !rule.environments.contains(&context.environment) {
             return None;
         }
 
-        // Check operation type (empty = match all)
+        // Empty `operations` means match-all.
         if !rule.operations.is_empty() && !rule.operations.contains(&context.operation_type) {
             return None;
         }
 
-        // Check pattern if present
         if let Some(ref pattern_str) = rule.pattern {
             if !self.matches_pattern(pattern_str, &context.query) {
                 return None;
             }
         }
 
-        // Rule matches - return appropriate result
         let message = format!("{}: {}", rule.name, rule.description);
 
         Some(match rule.action {
@@ -296,7 +284,6 @@ impl SafetyEngine {
 
     /// Check if query matches a regex pattern
     fn matches_pattern(&self, pattern: &str, query: &str) -> bool {
-        // Check cache first
         {
             let cache = self.pattern_cache.read();
             if let Some(regex) = cache.get(pattern) {
@@ -304,7 +291,6 @@ impl SafetyEngine {
             }
         }
 
-        // Compile and cache
         match Regex::new(&format!("(?i){}", pattern)) {
             Ok(regex) => {
                 let matches = regex.is_match(query);

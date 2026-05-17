@@ -56,8 +56,6 @@ impl DataEngine for PostgresDriver {
         "PostgreSQL"
     }
 
-    // ==================== Connection ====================
-
     async fn test_connection(&self, config: &ConnectionConfig) -> EngineResult<()> {
         pg_compat::test_connection(&Self::conn_str(config)).await
     }
@@ -73,8 +71,6 @@ impl DataEngine for PostgresDriver {
     async fn ping(&self, session: SessionId) -> EngineResult<()> {
         pg_compat::ping(&self.sessions, session).await
     }
-
-    // ==================== Namespaces ====================
 
     async fn list_namespaces(&self, session: SessionId) -> EngineResult<Vec<Namespace>> {
         let pg = pg_compat::get_session(&self.sessions, session).await?;
@@ -104,9 +100,7 @@ impl DataEngine for PostgresDriver {
             .collect())
     }
 
-    // ==================== Collections ====================
-    // PostgreSQL-specific: includes materialized views
-
+    // Postgres-specific: materialized views are surfaced alongside tables and views.
     async fn list_collections(
         &self,
         session: SessionId,
@@ -195,8 +189,6 @@ impl DataEngine for PostgresDriver {
         })
     }
 
-    // ==================== Describe Table ====================
-
     async fn describe_table(
         &self,
         session: SessionId,
@@ -205,8 +197,6 @@ impl DataEngine for PostgresDriver {
     ) -> EngineResult<TableSchema> {
         pg_compat::describe_table_core(&self.sessions, session, namespace, table, true).await
     }
-
-    // ==================== Execute ====================
 
     async fn execute(
         &self,
@@ -282,8 +272,6 @@ impl DataEngine for PostgresDriver {
         .await
     }
 
-    // ==================== Preview / Query Table / Peek FK ====================
-
     async fn preview_table(
         &self,
         session: SessionId,
@@ -330,8 +318,6 @@ impl DataEngine for PostgresDriver {
         .await
     }
 
-    // ==================== Cancel ====================
-
     async fn cancel(&self, session: SessionId, query_id: Option<QueryId>) -> EngineResult<()> {
         pg_compat::cancel(&self.sessions, session, query_id).await
     }
@@ -339,8 +325,6 @@ impl DataEngine for PostgresDriver {
     fn cancel_support(&self) -> CancelSupport {
         pg_compat::cancel_support()
     }
-
-    // ==================== Transactions ====================
 
     async fn begin_transaction(&self, session: SessionId) -> EngineResult<()> {
         pg_compat::begin_transaction(&self.sessions, session).await
@@ -357,8 +341,6 @@ impl DataEngine for PostgresDriver {
     fn supports_transactions(&self) -> bool {
         true
     }
-
-    // ==================== Mutations ====================
 
     async fn insert_row(
         &self,
@@ -394,8 +376,6 @@ impl DataEngine for PostgresDriver {
     fn supports_mutations(&self) -> bool {
         true
     }
-
-    // ==================== Routines ====================
 
     fn supports_routines(&self) -> bool {
         true
@@ -448,8 +428,6 @@ impl DataEngine for PostgresDriver {
         .await
     }
 
-    // ==================== Triggers ====================
-
     fn supports_triggers(&self) -> bool {
         true
     }
@@ -501,8 +479,6 @@ impl DataEngine for PostgresDriver {
         .await
     }
 
-    // ==================== Schema operations ====================
-
     async fn create_database(
         &self,
         session: SessionId,
@@ -516,9 +492,7 @@ impl DataEngine for PostgresDriver {
         pg_compat::drop_schema(&self.sessions, session, name, "Postgres").await
     }
 
-    // ==================== Maintenance ====================
-    // PostgreSQL-specific: VACUUM, ANALYZE, REINDEX, CLUSTER
-
+    // Postgres-specific maintenance: VACUUM, ANALYZE, REINDEX, CLUSTER.
     fn supports_maintenance(&self) -> bool {
         true
     }
@@ -611,7 +585,7 @@ impl DataEngine for PostgresDriver {
         };
 
         let start = Instant::now();
-        // VACUUM cannot run inside a transaction, so always use pool directly
+        // VACUUM cannot run inside a transaction, so always run on the pool directly.
         sqlx::query(&sql)
             .execute(&pg.pool)
             .await
@@ -680,10 +654,8 @@ clickhouse_cluster: None,
         let config = make_config("admin", "p@ss:word/123?#&=!");
 
         let conn_str = PostgresDriver::conn_str(&config);
-        // Password must be percent-encoded so it doesn't break the URL structure
         assert!(!conn_str.contains("p@ss:word/123?#&=!"));
         assert!(conn_str.contains("p%40ss%3Aword%2F123%3F%23%26%3D%21"));
-        // Host and port must remain intact
         assert!(conn_str.contains("@localhost:5432"));
     }
 

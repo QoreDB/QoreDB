@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-//! Semaine 6 coverage: subqueries (scalar, IN, EXISTS, FROM), CAST,
-//! COALESCE, and column aliases in SELECT.
+//! Subqueries (scalar, IN, EXISTS, FROM), CAST, COALESCE, column aliases.
 
 use qore_query::ident::tcol;
 use qore_query::prelude::*;
@@ -22,10 +21,6 @@ fn ms() -> Dialect {
 fn dd() -> Dialect {
     Dialect::DuckDb
 }
-
-// ============================================================================
-// Column aliases in SELECT
-// ============================================================================
 
 #[test]
 fn column_as_renders_alias_in_projection() {
@@ -59,14 +54,8 @@ fn select_expr_with_alias_for_arbitrary_expressions() {
     assert_eq!(q.params.len(), 1);
 }
 
-// ============================================================================
-// Subqueries
-// ============================================================================
-
 #[test]
 fn scalar_subquery_in_where() {
-    // WHERE age > (SELECT AVG(age) FROM users) — can't express AVG yet,
-    // so use a representative shape: WHERE id = (SELECT max_id FROM t).
     let inner = Query::select().from("config").column("max_user_id");
     let q = Query::select()
         .from("users")
@@ -92,7 +81,8 @@ fn in_subquery_via_in_sub_helper() {
         .filter(col("id").in_sub(inner))
         .build(pg())
         .unwrap();
-    // Parameter $1 comes from the inner query — numbering is continuous.
+    // Parameter $1 comes from the inner query — placeholder numbering is
+    // continuous across the whole compiled SQL.
     assert_eq!(
         q.sql,
         r#"SELECT * FROM "users" WHERE ("id" IN (SELECT "user_id" FROM "orders" WHERE ("total" > $1)))"#
@@ -163,8 +153,7 @@ fn from_subquery_requires_alias_and_wraps_correctly() {
 
 #[test]
 fn nested_subqueries_are_depth_checked() {
-    // Build a chain of N nested scalar subqueries and verify the depth
-    // bound trips before we hit stack overflow.
+    // Pathological nesting must trip MAX_AST_DEPTH before stack overflow.
     let mut inner = Query::select().from("t").column("x");
     for _ in 0..(qore_query::compiler::MAX_AST_DEPTH + 10) {
         let prev = inner;
@@ -177,10 +166,6 @@ fn nested_subqueries_are_depth_checked() {
         .unwrap_err();
     assert!(matches!(err, QueryError::AstTooDeep(_)));
 }
-
-// ============================================================================
-// CAST
-// ============================================================================
 
 #[test]
 fn cast_via_column_method() {
@@ -261,10 +246,6 @@ fn cast_bool_is_bit_on_mssql_and_integer_on_sqlite() {
     assert!(q_sl.sql.contains("AS INTEGER"));
 }
 
-// ============================================================================
-// COALESCE
-// ============================================================================
-
 #[test]
 fn coalesce_renders_with_all_arguments() {
     let q = Query::select()
@@ -308,9 +289,7 @@ fn coalesce_zero_args_errors_at_compile() {
     assert!(matches!(q, Err(QueryError::InvalidExpr(_))));
 }
 
-// ============================================================================
-// Composition — real-world-ish scenario
-// ============================================================================
+// Composition — realistic end-to-end scenario.
 
 #[test]
 fn realistic_query_with_subquery_join_cast_coalesce_and_alias() {
@@ -344,17 +323,16 @@ fn realistic_query_with_subquery_join_cast_coalesce_and_alias() {
         .build(pg())
         .unwrap();
 
-    // Just smoke-assert the structural pieces — the full SQL is long and
-    // the snapshot-style tests above cover each piece individually.
+    // Smoke-assert the structural pieces — per-piece snapshot tests above
+    // cover the exact rendering.
     assert!(q.sql.contains(r#""id" AS "user_id""#));
     assert!(q
         .sql
         .contains(r#"COALESCE("u"."nickname", "u"."email") AS "display""#));
     assert!(q.sql.contains("INNER JOIN"));
     assert!(q.sql.contains(r#"IN (SELECT "id" FROM "active_users")"#));
-    // No bound params: `active_ids` has no literal, `big_buyers` is
-    // declared but unused (deliberately — shows builder values can be
-    // constructed ahead of time without committing).
+    // `big_buyers` is built but unused — shows builder values can be
+    // prepared ahead of time without being committed to the final query.
     assert_eq!(q.params.len(), 0);
-    let _ = big_buyers; // silence unused
+    let _ = big_buyers;
 }

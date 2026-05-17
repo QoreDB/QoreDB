@@ -19,6 +19,7 @@ pub mod interceptor;
 pub mod license;
 pub mod metrics;
 pub mod observability;
+pub mod paths;
 pub mod policy;
 pub mod share;
 pub mod snapshots;
@@ -100,10 +101,9 @@ impl AppState {
         let query_manager = Arc::new(QueryManager::new());
         let export_pipeline = Arc::new(ExportPipeline::new());
 
-        // Initialize interceptor with data directory
-        let data_dir = dirs::data_local_dir()
-            .unwrap_or_else(|| std::path::PathBuf::from("."))
-            .join("com.qoredb.app");
+        // Initialize interceptor with data directory. `paths::app_data_dir()`
+        // is the single source of truth shared with policy + logs (B1-H4).
+        let data_dir = paths::app_data_dir();
         let interceptor = Arc::new(InterceptorPipeline::new(data_dir.join("interceptor")));
         let _ = interceptor.load_config();
 
@@ -164,14 +164,16 @@ pub fn run() {
     observability::init_tracing();
     let state: SharedState = Arc::new(Mutex::new(AppState::new()));
 
-    // Initialize snapshot store (managed separately — no mutex needed)
-    let data_dir = dirs::data_local_dir()
-        .unwrap_or_else(|| std::path::PathBuf::from("."))
-        .join("com.qoredb.app");
+    // Initialize snapshot store (managed separately — no mutex needed).
+    // Re-uses the shared root from `paths::app_data_dir()`.
+    let data_dir = paths::app_data_dir();
     let snapshot_store: commands::snapshots::SharedSnapshotStore =
         Arc::new(SnapshotStore::new(data_dir.join("snapshots")));
 
-    // Initialize workspace manager
+    // Initialize workspace manager. Workspace config follows the OS config
+    // convention (XDG `$XDG_CONFIG_HOME` on Linux, `~/Library/Application
+    // Support` on macOS, `%APPDATA%` on Windows) so users can sync workspace
+    // metadata via tools that target the config dir specifically.
     let app_config_dir = dirs::config_dir()
         .unwrap_or_else(|| std::path::PathBuf::from("."))
         .join("com.qoredb.app");

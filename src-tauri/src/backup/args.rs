@@ -96,11 +96,12 @@ pub fn build_restore_args(
 }
 
 fn build_pg_dump_args(opts: &BackupOptions) -> Result<(Vec<String>, Vec<(String, String)>), String> {
-    let mut args = vec!["--host".into(), opts.host.clone(), "--port".into(), opts.port.to_string()];
+    let host = safe_arg_value(&opts.host, "Host")?;
+    let mut args = vec!["--host".into(), host, "--port".into(), opts.port.to_string()];
 
     if let Some(user) = opts.username.as_ref().filter(|u| !u.is_empty()) {
         args.push("--username".into());
-        args.push(user.clone());
+        args.push(safe_arg_value(user, "Username")?);
         args.push("--no-password".into()); // password supplied via env
     }
 
@@ -142,12 +143,14 @@ fn build_mysql_dump_args(
     opts: &BackupOptions,
     _mariadb: bool,
 ) -> Result<(Vec<String>, Vec<(String, String)>), String> {
+    let host = safe_arg_value(&opts.host, "Host")?;
     let mut args = vec![
-        format!("--host={}", opts.host),
+        format!("--host={}", host),
         format!("--port={}", opts.port),
     ];
 
     if let Some(user) = opts.username.as_ref().filter(|u| !u.is_empty()) {
+        let user = safe_arg_value(user, "Username")?;
         args.push(format!("--user={}", user));
     }
 
@@ -190,8 +193,9 @@ fn build_mysql_dump_args(
 fn build_mongo_dump_args(
     opts: &BackupOptions,
 ) -> Result<(Vec<String>, Vec<(String, String)>), String> {
+    let host = safe_arg_value(&opts.host, "Host")?;
     let mut args = vec![
-        format!("--host={}", opts.host),
+        format!("--host={}", host),
         format!("--port={}", opts.port),
         "--archive".to_string(),
         format!("--archive={}", path_to_string(&opts.output_path)?),
@@ -200,6 +204,7 @@ fn build_mongo_dump_args(
     args.retain(|a| a != "--archive");
 
     if let Some(user) = opts.username.as_ref().filter(|u| !u.is_empty()) {
+        let user = safe_arg_value(user, "Username")?;
         args.push(format!("--username={}", user));
         args.push("--authenticationDatabase=admin".into());
     }
@@ -245,16 +250,17 @@ fn build_sqlite_dump_args(
 fn build_pg_restore_args(
     opts: &RestoreOptions,
 ) -> Result<(Vec<String>, Vec<(String, String)>), String> {
+    let host = safe_arg_value(&opts.host, "Host")?;
     let mut args = vec![
         "--host".into(),
-        opts.host.clone(),
+        host,
         "--port".into(),
         opts.port.to_string(),
     ];
 
     if let Some(user) = opts.username.as_ref().filter(|u| !u.is_empty()) {
         args.push("--username".into());
-        args.push(user.clone());
+        args.push(safe_arg_value(user, "Username")?);
         args.push("--no-password".into());
     }
 
@@ -279,16 +285,17 @@ fn build_pg_restore_args(
 fn build_psql_restore_args(
     opts: &RestoreOptions,
 ) -> Result<(Vec<String>, Vec<(String, String)>), String> {
+    let host = safe_arg_value(&opts.host, "Host")?;
     let mut args = vec![
         "--host".into(),
-        opts.host.clone(),
+        host,
         "--port".into(),
         opts.port.to_string(),
     ];
 
     if let Some(user) = opts.username.as_ref().filter(|u| !u.is_empty()) {
         args.push("--username".into());
-        args.push(user.clone());
+        args.push(safe_arg_value(user, "Username")?);
     }
 
     if let Some(db) = opts.database.as_ref().filter(|d| !d.is_empty()) {
@@ -312,12 +319,14 @@ fn build_psql_restore_args(
 fn build_mysql_restore_args(
     opts: &RestoreOptions,
 ) -> Result<(Vec<String>, Vec<(String, String)>), String> {
+    let host = safe_arg_value(&opts.host, "Host")?;
     let mut args = vec![
-        format!("--host={}", opts.host),
+        format!("--host={}", host),
         format!("--port={}", opts.port),
     ];
 
     if let Some(user) = opts.username.as_ref().filter(|u| !u.is_empty()) {
+        let user = safe_arg_value(user, "Username")?;
         args.push(format!("--user={}", user));
     }
 
@@ -339,13 +348,15 @@ fn build_mysql_restore_args(
 fn build_mongo_restore_args(
     opts: &RestoreOptions,
 ) -> Result<(Vec<String>, Vec<(String, String)>), String> {
+    let host = safe_arg_value(&opts.host, "Host")?;
     let mut args = vec![
-        format!("--host={}", opts.host),
+        format!("--host={}", host),
         format!("--port={}", opts.port),
         format!("--archive={}", path_to_string(&opts.input_path)?),
     ];
 
     if let Some(user) = opts.username.as_ref().filter(|u| !u.is_empty()) {
+        let user = safe_arg_value(user, "Username")?;
         args.push(format!("--username={}", user));
         args.push("--authenticationDatabase=admin".into());
     }
@@ -375,6 +386,21 @@ fn build_sqlite_restore_args(
         .ok_or_else(|| "Database file path is required for SQLite restore".to_string())?;
 
     Ok((vec![db_file.clone()], Vec::new()))
+}
+
+/// Reject values that would be parsed as a CLI flag by the backup binaries.
+/// Used for `host` and `username` which are passed verbatim to `Command::arg`.
+/// We still accept dots, hyphens, underscores so things like
+/// `db.internal-corp.local` or `service-account-1` keep working — we only
+/// guard against `--flag` injection.
+fn safe_arg_value(value: &str, field: &str) -> Result<String, String> {
+    if value.starts_with('-') {
+        return Err(format!("{} '{}' starts with a dash", field, value));
+    }
+    if value.contains('\0') {
+        return Err(format!("{} contains a null byte", field));
+    }
+    Ok(value.to_string())
 }
 
 /// Allow only ASCII identifier characters plus dot (qualified names) and
@@ -459,6 +485,39 @@ mod tests {
         assert!(args.iter().any(|a| a == "--host=localhost"));
         assert!(args.iter().any(|a| a == "--user=admin"));
         assert_eq!(env, vec![("MYSQL_PWD".to_string(), "hunter2".to_string())]);
+    }
+
+    #[test]
+    fn pg_dump_rejects_dash_prefixed_host() {
+        let mut o = opts();
+        o.host = "--malicious".into();
+        let err = build_pg_dump_args(&o).unwrap_err();
+        assert!(err.contains("Host"));
+        assert!(err.contains("starts with a dash"));
+    }
+
+    #[test]
+    fn pg_dump_rejects_dash_prefixed_username() {
+        let mut o = opts();
+        o.username = Some("--evil".into());
+        let err = build_pg_dump_args(&o).unwrap_err();
+        assert!(err.contains("Username"));
+    }
+
+    #[test]
+    fn mysql_dump_rejects_dash_prefixed_username() {
+        let mut o = opts();
+        o.driver = "mysql".into();
+        o.username = Some("--evil".into());
+        let err = build_mysql_dump_args(&o, false).unwrap_err();
+        assert!(err.contains("Username"));
+    }
+
+    #[test]
+    fn safe_arg_value_accepts_realistic_hostnames() {
+        // hostnames with dots and hyphens must still pass
+        assert!(safe_arg_value("db.internal-corp.local", "Host").is_ok());
+        assert!(safe_arg_value("service-account-1", "Username").is_ok());
     }
 
     #[test]

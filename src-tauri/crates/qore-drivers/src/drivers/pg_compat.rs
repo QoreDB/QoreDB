@@ -198,8 +198,16 @@ pub async fn disconnect(sessions: &SessionMap, session: SessionId) -> EngineResu
     };
 
     {
+        // Best-effort ROLLBACK on the transaction-owned connection before we
+        // drop it. PostgreSQL otherwise keeps the open transaction (and its
+        // locks) until the server `idle_in_transaction_session_timeout`
+        // expires, which is typically minutes (cf. audit B3-H2).
         let mut tx = session.transaction_conn.lock().await;
-        tx.take();
+        if let Some(mut conn) = tx.take() {
+            if let Err(e) = sqlx::query("ROLLBACK").execute(&mut *conn).await {
+                tracing::warn!(?e, "ROLLBACK on disconnect failed");
+            }
+        }
     }
 
     session.pool.close().await;
@@ -529,12 +537,42 @@ pub async fn cancel(
         .await
         .map_err(|e| EngineError::connection_failed(e.to_string()))?;
 
-    for pid in backend_pids {
-        let _ = sqlx::query("SELECT pg_cancel_backend($1)")
-            .bind(pid)
-            .execute(&mut *conn)
+    // `pg_cancel_backend` returns `false` when the PID is unknown or already
+    // gone. The original code threw the return value away, so the frontend
+    // saw a successful cancel for queries that never received the signal —
+    // and there was no fallback (`pg_terminate_backend`) if cancellation
+    // simply didn't take (cf. audit B3-H1). We surface the per-PID outcome
+    // and escalate to `pg_terminate_backend` after a brief grace window
+    // when `pg_cancel_backend` says the PID was rejected.
+    let mut failures: Vec<i32> = Vec::new();
+    for pid in &backend_pids {
+        let cancelled: bool = sqlx::query_scalar("SELECT pg_cancel_backend($1)")
+            .bind(*pid)
+            .fetch_one(&mut *conn)
             .await
             .map_err(|e| EngineError::execution_error(e.to_string()))?;
+        if !cancelled {
+            tracing::warn!(
+                pid = pid,
+                "pg_cancel_backend returned false; escalating to pg_terminate_backend"
+            );
+            let terminated: bool = sqlx::query_scalar("SELECT pg_terminate_backend($1)")
+                .bind(*pid)
+                .fetch_one(&mut *conn)
+                .await
+                .map_err(|e| EngineError::execution_error(e.to_string()))?;
+            if !terminated {
+                failures.push(*pid);
+            }
+        }
+    }
+
+    if !failures.is_empty() {
+        return Err(EngineError::execution_error(format!(
+            "Failed to cancel {} backend pid(s): {:?}",
+            failures.len(),
+            failures
+        )));
     }
 
     Ok(())

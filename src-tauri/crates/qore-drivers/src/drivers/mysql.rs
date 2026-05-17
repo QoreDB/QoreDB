@@ -91,6 +91,12 @@ impl MySqlDriver {
                     .execute(&mut *conn)
                     .await?;
                     sqlx::query("SET NAMES utf8mb4").execute(&mut *conn).await?;
+                    // Force UTC on the session so TIMESTAMP values render
+                    // identically across clients and don't drift with the
+                    // server's `@@global.time_zone` (cf. audit B3-H8).
+                    sqlx::query("SET time_zone = '+00:00'")
+                        .execute(&mut *conn)
+                        .await?;
                     Ok(())
                 })
             })
@@ -814,10 +820,15 @@ impl DataEngine for MySqlDriver {
             RoutineType::Procedure => "PROCEDURE",
         };
 
-        // SHOW CREATE FUNCTION/PROCEDURE returns the full CREATE statement
+        // SHOW CREATE FUNCTION/PROCEDURE returns the full CREATE statement.
+        // Identifiers are quoted via `Self::quote_ident` (which doubles any
+        // embedded backtick) so a routine name like `` `weird` `` doesn't
+        // break the query mid-flight (cf. audit B3-H6).
         let sql = format!(
-            "SHOW CREATE {} `{}`.`{}`",
-            keyword, namespace.database, routine_name
+            "SHOW CREATE {} {}.{}",
+            keyword,
+            Self::quote_ident(&namespace.database),
+            Self::quote_ident(routine_name)
         );
 
         let row = sqlx::query(&sql)
@@ -902,8 +913,10 @@ impl DataEngine for MySqlDriver {
         };
 
         let sql = format!(
-            "DROP {} `{}`.`{}`",
-            keyword, namespace.database, routine_name
+            "DROP {} {}.{}",
+            keyword,
+            Self::quote_ident(&namespace.database),
+            Self::quote_ident(routine_name)
         );
 
         let start = Instant::now();

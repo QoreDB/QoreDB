@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 
+use std::time::Duration;
+
 use async_trait::async_trait;
 use reqwest::Client;
 use serde_json::{json, Value};
@@ -7,6 +9,28 @@ use tokio::sync::mpsc;
 use tracing::debug;
 
 use super::types::{AiConfig, AiStreamChunk};
+
+/// Per-request timeout applied to every LLM HTTP client. Streaming SSE
+/// completions can legitimately take ~60 s for long answers, so we pick
+/// 120 s as a generous ceiling — beyond that the user has likely lost
+/// interest and the request would hold the abort handle / connection
+/// indefinitely (cf. audit B7-A1).
+const PROVIDER_HTTP_TIMEOUT: Duration = Duration::from_secs(120);
+const PROVIDER_CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
+
+fn build_provider_client() -> Client {
+    Client::builder()
+        .connect_timeout(PROVIDER_CONNECT_TIMEOUT)
+        .timeout(PROVIDER_HTTP_TIMEOUT)
+        .build()
+        .unwrap_or_else(|err| {
+            // Fall back to the default client rather than panic at startup; the
+            // request will still surface a transport error on send if the env
+            // is truly broken.
+            tracing::warn!(?err, "AI provider client builder failed; using default");
+            Client::new()
+        })
+}
 
 // ─── Trait ───────────────────────────────────────────────────
 
@@ -35,7 +59,7 @@ pub struct OpenAiProvider {
 impl OpenAiProvider {
     pub fn new() -> Self {
         Self {
-            client: Client::new(),
+            client: build_provider_client(),
         }
     }
 }
@@ -151,7 +175,7 @@ pub struct AnthropicProvider {
 impl AnthropicProvider {
     pub fn new() -> Self {
         Self {
-            client: Client::new(),
+            client: build_provider_client(),
         }
     }
 }
@@ -282,7 +306,7 @@ pub struct OllamaProvider {
 impl OllamaProvider {
     pub fn new() -> Self {
         Self {
-            client: Client::new(),
+            client: build_provider_client(),
         }
     }
 }
@@ -395,7 +419,7 @@ pub struct MistralAiProvider {
 impl MistralAiProvider {
     pub fn new() -> Self {
         Self {
-            client: Client::new(),
+            client: build_provider_client(),
         }
     }
 }
@@ -445,7 +469,7 @@ pub struct GoogleGeminiProvider {
 impl GoogleGeminiProvider {
     pub fn new() -> Self {
         Self {
-            client: Client::new(),
+            client: build_provider_client(),
         }
     }
 }
@@ -566,7 +590,7 @@ pub struct DeepSeekProvider {
 impl DeepSeekProvider {
     pub fn new() -> Self {
         Self {
-            client: Client::new(),
+            client: build_provider_client(),
         }
     }
 }
@@ -709,7 +733,13 @@ fn extract_api_error(body: &str) -> Option<String> {
     parsed["error"]["message"].as_str().map(|s| s.to_string())
 }
 
-/// Extract a SQL/MQL code block from LLM response text
+/// Extract a SQL/MQL code block from LLM response text.
+///
+/// We also sanity-check the first non-empty token: if it doesn't look like
+/// a query/statement (SELECT, INSERT, db., {...}, etc.), the candidate is
+/// rejected so an LLM that escaped the code-block contract — "Sure! Here is
+/// the password: 12345" — doesn't get forwarded verbatim to the user
+/// (cf. audit B7-A5).
 pub fn extract_query_from_response(response: &str) -> Option<String> {
     // Try to find a fenced code block (```sql ... ``` or ```json ... ``` or ``` ... ```)
     let code_block_patterns = [
@@ -735,7 +765,7 @@ pub fn extract_query_from_response(response: &str) -> Option<String> {
 
             if let Some(end_idx) = response[content_start..].find("```") {
                 let query = response[content_start..content_start + end_idx].trim();
-                if !query.is_empty() {
+                if !query.is_empty() && looks_like_query(query) {
                     return Some(query.to_string());
                 }
             }
@@ -743,6 +773,45 @@ pub fn extract_query_from_response(response: &str) -> Option<String> {
     }
 
     None
+}
+
+/// Heuristic check that the extracted block resembles a SQL / MQL / Redis
+/// statement. Intentionally permissive — we don't want to reject a valid
+/// query just because it starts with a comment — but explicit enough to
+/// catch obvious natural-language leakage.
+fn looks_like_query(candidate: &str) -> bool {
+    // Strip leading SQL/Mongo line comments + whitespace so `-- header\nSELECT…`
+    // still classifies correctly.
+    let mut text = candidate.trim_start();
+    while text.starts_with("--") {
+        match text.find('\n') {
+            Some(idx) => text = text[idx + 1..].trim_start(),
+            None => return false,
+        }
+    }
+    if text.is_empty() {
+        return false;
+    }
+
+    // JSON / Mongo-shell payload.
+    if text.starts_with('{') || text.starts_with('[') || text.starts_with("db.") {
+        return true;
+    }
+
+    // SQL / Redis keyword prefix.
+    const ALLOWED_PREFIXES: &[&str] = &[
+        "SELECT", "WITH", "INSERT", "UPDATE", "DELETE", "MERGE", "CREATE", "DROP", "ALTER",
+        "TRUNCATE", "EXPLAIN", "SHOW", "DESCRIBE", "DESC", "VALUES", "CALL", "PRAGMA",
+        // Mongo shell verbs that don't start with `db.` (rare but legal).
+        "USE",
+        // Redis commands.
+        "GET", "SET", "HGET", "HSET", "LPUSH", "RPUSH", "LRANGE", "SADD", "ZADD", "KEYS",
+        "SCAN", "DEL", "EXPIRE", "INCR", "DECR", "PING", "INFO",
+    ];
+    let upper_head: String = text.chars().take(16).collect::<String>().to_ascii_uppercase();
+    ALLOWED_PREFIXES
+        .iter()
+        .any(|p| upper_head.starts_with(p))
 }
 
 #[cfg(test)]

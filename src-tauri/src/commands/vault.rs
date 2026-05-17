@@ -161,7 +161,7 @@ pub async fn unlock_vault(
 ) -> Result<VaultResponse, String> {
     let mut state = state.lock().await;
 
-    match state.vault_lock.unlock(&password) {
+    match state.vault_lock.unlock(&password).await {
         Ok(true) => Ok(VaultResponse {
             success: true,
             error: None,
@@ -434,6 +434,23 @@ pub async fn get_connection_credentials(
             error: Some("Vault is locked".to_string()),
         });
     }
+    // Sensitive read: require the user to have unlocked the vault recently
+    // (cf. audit B6-H3). Without this, a vault unlocked at app start stays
+    // open for the entire session and any IPC caller can read passwords.
+    if !app_state.vault_lock.is_fresh_authentication() {
+        return Ok(CredentialsResponse {
+            success: false,
+            password: None,
+            error: Some(
+                "Vault session expired — re-unlock the vault to access credentials"
+                    .to_string(),
+            ),
+        });
+    }
+    tracing::info!(
+        connection_id = %connection_id,
+        "vault credential read"
+    );
     drop(app_state);
 
     let result = if let Some(ws_store) = get_workspace_store(&ws_manager).await {

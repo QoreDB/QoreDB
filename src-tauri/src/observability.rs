@@ -116,20 +116,9 @@ pub fn collect_logs() -> Result<LogExport, String> {
 }
 
 pub fn log_directory() -> PathBuf {
-    if cfg!(windows) {
-        let appdata = std::env::var_os("APPDATA")
-            .unwrap_or_else(|| std::env::var_os("USERPROFILE").unwrap_or_default());
-        let mut path = PathBuf::from(appdata);
-        path.push("QoreDB");
-        path.push("logs");
-        path
-    } else {
-        let home = std::env::var_os("HOME").unwrap_or_default();
-        let mut path = PathBuf::from(home);
-        path.push(".qoredb");
-        path.push("logs");
-        path
-    }
+    // Delegates to the shared `paths` module so policy / logs / interceptor
+    // all live under the same root (cf. audit B1-H4).
+    crate::paths::app_log_dir()
 }
 
 fn cleanup_old_logs(log_dir: &Path, retention_days: u64) -> std::io::Result<()> {

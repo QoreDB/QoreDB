@@ -42,20 +42,9 @@ fn env_u32_opt(key: &str) -> Option<u32> {
 }
 
 fn config_path() -> PathBuf {
-    if cfg!(windows) {
-        let appdata = std::env::var_os("APPDATA")
-            .unwrap_or_else(|| std::env::var_os("USERPROFILE").unwrap_or_default());
-        let mut path = PathBuf::from(appdata);
-        path.push("QoreDB");
-        path.push("config.json");
-        path
-    } else {
-        let home = std::env::var_os("HOME").unwrap_or_default();
-        let mut path = PathBuf::from(home);
-        path.push(".qoredb");
-        path.push("config.json");
-        path
-    }
+    // Delegates to the shared `paths` module so policy / logs / interceptor
+    // all live under the same root (cf. audit B1-H4).
+    crate::paths::safety_policy_file()
 }
 
 fn load_from_file(path: &PathBuf) -> Option<SafetyPolicy> {

@@ -2037,11 +2037,36 @@ pub async fn get_governance_limits(
     })
 }
 
+/// Clamp ranges for [`update_governance_limits`]. Without these, a frontend
+/// caller (or compromised webview JS) could send `max_query_duration_ms = 0`
+/// — every query times out instantly — or `max_result_rows = u64::MAX` —
+/// the limit is effectively gone (cf. audit B6-H4).
+const MIN_QUERY_DURATION_MS: u64 = 100; // ~one trivial roundtrip
+const MAX_QUERY_DURATION_MS: u64 = 60 * 60 * 1000; // 1 h hard cap
+const MIN_RESULT_ROWS: u64 = 1;
+const MAX_RESULT_ROWS_CAP: u64 = 100_000_000;
+const MIN_CONCURRENT_QUERIES: u32 = 1;
+const MAX_CONCURRENT_QUERIES: u32 = 256;
+
+fn clamp_governance_limits(mut limits: GovernanceLimits) -> GovernanceLimits {
+    limits.max_query_duration_ms = limits
+        .max_query_duration_ms
+        .map(|v| v.clamp(MIN_QUERY_DURATION_MS, MAX_QUERY_DURATION_MS));
+    limits.max_result_rows = limits
+        .max_result_rows
+        .map(|v| v.clamp(MIN_RESULT_ROWS, MAX_RESULT_ROWS_CAP));
+    limits.max_concurrent_queries = limits
+        .max_concurrent_queries
+        .map(|v| v.clamp(MIN_CONCURRENT_QUERIES, MAX_CONCURRENT_QUERIES));
+    limits
+}
+
 #[tauri::command]
 pub async fn update_governance_limits(
     state: State<'_, crate::SharedState>,
     limits: GovernanceLimits,
 ) -> Result<GovernanceLimits, String> {
+    let limits = clamp_governance_limits(limits);
     let mut state = state.lock().await;
     state.policy.max_query_duration_ms = limits.max_query_duration_ms;
     state.policy.max_result_rows = limits.max_result_rows;

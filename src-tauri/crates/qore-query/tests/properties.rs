@@ -26,19 +26,17 @@ use sqlparser::parser::Parser;
 /// Strategy producing a bounded-depth [`Expr`] tree over a fixed
 /// alphabet of columns and small integer literals.
 fn expr_strategy() -> impl Strategy<Value = Expr> {
-    let leaf = prop_oneof![
-        Just("a"), Just("b"), Just("c"),
-    ]
-    .prop_map(|name| col(name).into_operand());
+    let leaf =
+        prop_oneof![Just("a"), Just("b"), Just("c"),].prop_map(|name| col(name).into_operand());
 
     let lit = any::<i32>().prop_map(|n| Expr::Literal((n as i64).into()));
 
     let atom = prop_oneof![leaf, lit];
 
     atom.prop_recursive(
-        4,   // depth
-        32,  // max nodes
-        4,   // max items per collection
+        4,  // depth
+        32, // max nodes
+        4,  // max items per collection
         |inner| {
             prop_oneof![
                 (inner.clone(), inner.clone()).prop_map(|(a, b)| a.and(b)),

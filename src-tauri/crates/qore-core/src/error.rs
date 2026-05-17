@@ -1,14 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
-//! Normalized error types for the QoreDB Data Engine
-//!
-//! All driver-specific errors are mapped to these unified error types
-//! to provide consistent error handling across the application.
+//! Unified error types — every driver maps its native errors into these.
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-/// Unified error type for all data engine operations
 #[derive(Debug, Error, Serialize, Deserialize)]
 pub enum EngineError {
     #[error("Connection failed: {message}")]
@@ -141,28 +137,26 @@ impl EngineError {
     }
 }
 
-/// Strips sensitive patterns from an error message.
+/// Strips sensitive patterns (credentials in URLs, `password=` query params,
+/// absolute filesystem paths) from an error message before it leaves the
+/// process boundary.
 pub fn sanitize_error_message(msg: &str) -> String {
     use regex::Regex;
-
-    // Lazy-init compiled patterns (compiled once, reused)
     use std::sync::OnceLock;
     static PATTERNS: OnceLock<Vec<(Regex, &'static str)>> = OnceLock::new();
 
     let patterns = PATTERNS.get_or_init(|| {
         vec![
-            // Connection strings with credentials: postgres://user:pass@host → postgres://***@host
+            // postgres://user:pass@host → postgres://***@host
             (
-                Regex::new(r"(?i)((?:postgres|mysql|mongodb|redis|rediss)://)([^@]+)@")
-                    .unwrap(),
+                Regex::new(r"(?i)((?:postgres|mysql|mongodb|redis|rediss)://)([^@]+)@").unwrap(),
                 "${1}***@",
             ),
-            // password=... in query strings
             (
                 Regex::new(r"(?i)(password|passwd|pwd)\s*=\s*\S+").unwrap(),
                 "${1}=***",
             ),
-            // Absolute file paths (Unix and Windows)
+            // Absolute Unix or Windows paths.
             (
                 Regex::new(r"(/(?:Users|home|tmp|var|etc)/\S+|[A-Z]:\\[^\s:]+)").unwrap(),
                 "[path]",
@@ -177,5 +171,4 @@ pub fn sanitize_error_message(msg: &str) -> String {
     result
 }
 
-/// Result type alias for engine operations
 pub type EngineResult<T> = Result<T, EngineError>;

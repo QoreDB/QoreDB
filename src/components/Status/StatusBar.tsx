@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import {
+  Bug,
   Database,
+  FileText,
   GitBranch,
   Link2Off,
   Lock,
@@ -11,9 +13,12 @@ import {
   WifiOff,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
 import { SandboxIndicator } from '@/components/Sandbox';
+import { Tooltip } from '@/components/ui/tooltip';
 import { getDriverMetadata } from '@/lib/connection/drivers';
 import { ENVIRONMENT_CONFIG } from '@/lib/environment';
+import { setAuditLogOpen, setLogsOpen } from '@/lib/stores/modalStore';
 import { useTransactionStore } from '@/lib/stores/transactionStore';
 import type { ConnectionHealth, SavedConnection } from '@/lib/tauri';
 import { APP_VERSION } from '@/lib/version';
@@ -140,6 +145,30 @@ export function StatusBar({ sessionId, connection, connectionHealth = 'healthy' 
         ) : (
           <span className="text-muted-foreground">{t('status.noSession')}</span>
         )}
+        <div className="h-4 w-px bg-border/50" />
+        <Tooltip content={t('sidebar.errorLogs')}>
+          <button
+            type="button"
+            aria-label={t('sidebar.errorLogs')}
+            className="flex items-center justify-center h-5 w-5 rounded text-muted-foreground/70 hover:text-foreground hover:bg-muted/50 transition-colors"
+            onClick={() => {
+              AnalyticsService.capture('error_view_opened', { source: 'statusbar' });
+              setLogsOpen(true);
+            }}
+          >
+            <Bug size={12} />
+          </button>
+        </Tooltip>
+        <Tooltip content={t('sidebar.auditLog')}>
+          <button
+            type="button"
+            aria-label={t('sidebar.auditLog')}
+            className="flex items-center justify-center h-5 w-5 rounded text-muted-foreground/70 hover:text-foreground hover:bg-muted/50 transition-colors"
+            onClick={() => setAuditLogOpen(true)}
+          >
+            <FileText size={12} />
+          </button>
+        </Tooltip>
         <div className="h-4 w-px bg-border/50" />
         <span className="text-muted-foreground/60">v{APP_VERSION}</span>
       </div>

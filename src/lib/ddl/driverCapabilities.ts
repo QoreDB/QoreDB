@@ -96,6 +96,21 @@ const DUCKDB_CAPS: DdlCapabilities = {
   supportsPartialIndex: false,
 };
 
+const CLICKHOUSE_CAPS: DdlCapabilities = {
+  supportsForeignKeys: false, // ClickHouse has no FK enforcement.
+  supportsCheckConstraints: true, // CONSTRAINT … CHECK is supported on MergeTree.
+  supportsUniqueConstraint: false,
+  inlineColumnComments: true,
+  separateColumnComments: false,
+  inlineTableComment: true,
+  separateTableComment: false,
+  supportsIndexes: true, // Data-skipping indices.
+  supportsUniqueIndex: false,
+  supportsIndexMethod: true, // INDEX … TYPE bloom_filter|minmax|set
+  indexMethodPlacement: 'after-columns',
+  supportsPartialIndex: false,
+};
+
 const SQLSERVER_CAPS: DdlCapabilities = {
   supportsForeignKeys: true,
   supportsCheckConstraints: true,
@@ -124,6 +139,7 @@ const CAPABILITIES: Record<Driver, DdlCapabilities> = {
   [Driver.Supabase]: POSTGRES_CAPS,
   [Driver.Neon]: POSTGRES_CAPS,
   [Driver.Timescaledb]: POSTGRES_CAPS,
+  [Driver.Clickhouse]: CLICKHOUSE_CAPS,
 };
 
 export function getDdlCapabilities(driver: Driver): DdlCapabilities {

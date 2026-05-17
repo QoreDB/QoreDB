@@ -67,16 +67,18 @@ pub async fn ws_save_query_library(
     }
 
     let queries_dir = ws.path.join("queries");
-    fs::create_dir_all(&queries_dir)
-        .map_err(|e| EngineError::internal(format!("Failed to create queries dir: {}", e)).to_string())?;
+    fs::create_dir_all(&queries_dir).map_err(|e| {
+        EngineError::internal(format!("Failed to create queries dir: {}", e)).to_string()
+    })?;
 
     let content = serde_json::to_string_pretty(&library)
         .map_err(|e| EngineError::internal(format!("Serialization error: {}", e)).to_string())?;
 
     let library_path = queries_dir.join("library.json");
     write_registry.register_with_auto_unregister(library_path.clone());
-    fs::write(&library_path, content)
-        .map_err(|e| EngineError::internal(format!("Failed to write library: {}", e)).to_string())?;
+    fs::write(&library_path, content).map_err(|e| {
+        EngineError::internal(format!("Failed to write library: {}", e)).to_string()
+    })?;
 
     Ok(true)
 }

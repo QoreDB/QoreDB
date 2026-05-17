@@ -66,7 +66,7 @@
 
 - [ ] **Elasticsearch** — Recherche full-text
 - [ ] **OpenSearch** — Fork Elasticsearch
-- [ ] **ClickHouse** — Analytics OLAP
+- [x] **ClickHouse** — Analytics OLAP _(v0.1.28)_
 - [ ] **Apache Druid** — Real-time analytics
 
 ### Cloud-Native / Serverless
@@ -104,6 +104,7 @@
 | DuckDB         | ✅           | ✅          | ⚠️  | ✅      | ✅    | ✅       | FK syntaxiques uniquement (non vérifiées au runtime) |
 | SQL Server     | ✅           | ✅          | ✅  | ✅      | ✅    | ⚠️       | Comments via `sp_addextendedproperty` |
 | CockroachDB    | ✅           | ✅          | ✅  | ✅      | ✅    | ✅       | Wire-compatible PostgreSQL |
+| ClickHouse     | ✅           | ⚠️          | ❌  | ✅      | ✅    | ✅       | MergeTree-family subset. Pas de FK enforcement (laissée syntaxique uniquement). INDEX … TYPE bloom_filter\|minmax\|set. (v0.1.28) |
 | MongoDB        | ❌           | ❌          | —  | —       | —     | —        | Pas de schéma rigide. Voir `CreateCollectionModal` (v0.3.x). |
 | Redis          | ❌           | ❌          | —  | —       | —     | —        | Pas applicable (KV store). |
 

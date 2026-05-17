@@ -102,9 +102,18 @@ L'Universal Query Interceptor est un système complet d'interception de requête
 - Nombre de lignes affectées
 - Si bloquée par une règle de sécurité
 
-### Limitation actuelle importante
+### Rédaction et fingerprinting
 
-Le backend persiste aujourd'hui la requête brute dans l'audit et dans les slow queries. Il ne faut donc pas considérer l'interceptor comme un système de journalisation avec rédaction côté backend.
+Depuis v0.1.28, `AuditLogEntry::new` applique systématiquement `redact_query` avant persistance (driver-aware : littéraux SQL + URIs de connexion, champs sensibles MongoDB, arguments `AUTH` / `CONFIG SET` / `EVAL` Redis). La forme redactée est ensuite hashée en **fingerprint** stable (SHA-256 hex, 16 caractères) pour permettre le regroupement sans exposer les littéraux.
+
+Fingerprinting (`src-tauri/src/interceptor/fingerprint.rs`) :
+
+- Normalisation par dialecte : littéraux → `?`, identifiers préservés, whitespace collapsé.
+- SHA-256 du résultat tronqué à 16 hex.
+- Multi-dialecte (SQL via `sqlparser`, Mongo / Redis via parseurs dédiés).
+- Recompute best-effort au démarrage si un fichier `audit.jsonl` existant n'a pas le champ.
+
+L'UI (`AuditPanel.tsx`) expose une colonne **Fingerprint**, un filtre par fingerprint, et un dropdown d'export (JSON / JSONL / CSV).
 
 #### Persistance :
 
@@ -112,16 +121,20 @@ Le backend persiste aujourd'hui la requête brute dans l'audit et dans les slow 
 - Localisation : `{app_data}/com.qoredb.app/interceptor/audit.jsonl`
 - Rotation automatique quand le fichier dépasse `max_audit_entries`
 - Cache mémoire des 1000 dernières entrées pour accès rapide
-- `get_audit_entries()` et `export_audit_log()` travaillent actuellement sur ce cache mémoire, pas sur l'historique complet du fichier
+- **v0.1.28** : `export_audit_log(format, from_disk)` accepte `from_disk = true` pour streamer la rétention complète depuis disque (`AuditStore::get_entries_from_disk`). Le cache mémoire reste utilisé pour le browsing rapide.
 
 #### API disponibles :
 
 ```rust
-get_audit_entries(filter)   // Récupérer avec filtres
-get_audit_stats()           // Statistiques agrégées
-clear_audit_log()           // Vider le log
-export_audit_log()          // Export JSON du cache courant
+get_audit_entries(filter)            // Récupérer avec filtres (cache mémoire)
+get_audit_stats()                    // Statistiques agrégées
+clear_audit_log()                    // Vider le log
+export_audit_log(format, from_disk)  // Export JSON / JSONL / CSV, mémoire ou disque (v0.1.28)
 ```
+
+### Contract alert hook (v0.1.28, Pro)
+
+Le module `src-tauri/src/interceptor/contract_alert.rs` (Pro, BUSL-1.1) s'abonne au flux post-execute. Quand une mutation cible une table couverte par un contrat actif, les règles concernées sont **ré-évaluées de manière asynchrone** (best-effort, non bloquant). Si une nouvelle violation apparaît, une notification UI est émise via le canal d'events Tauri. Le hook n'a aucun effet sur les exécutions hors périmètre des contrats.
 
 ---
 

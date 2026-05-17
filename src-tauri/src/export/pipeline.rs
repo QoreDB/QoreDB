@@ -121,6 +121,12 @@ impl ExportPipeline {
     }
 }
 
+impl Default for ExportPipeline {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 async fn run_export_task(
     driver: Arc<dyn DataEngine>,
     driver_id: String,
@@ -232,7 +238,7 @@ async fn run_export_task(
                         }
                         rows_exported += 1;
 
-                        if rows_exported % batch_size == 0 {
+                        if rows_exported.is_multiple_of(batch_size) {
                             if let Err(err) = writer.flush().await {
                                 state = ExportState::Failed;
                                 error = Some(err);
@@ -275,7 +281,7 @@ async fn run_export_task(
                             }
                             rows_exported += 1;
 
-                            if rows_exported % batch_size == 0 {
+                            if rows_exported.is_multiple_of(batch_size) {
                                 if let Err(err) = writer.flush().await {
                                     state = ExportState::Failed;
                                     error = Some(err);

@@ -113,6 +113,8 @@
       "deleteFail": "Failed to delete connection",
       "newQuery": "New Query",
       "newNotebook": "New Notebook",
+      "backup": "Backup database…",
+      "restore": "Restore from backup…",
       "credentialLoadFail": "Failed to load connection details",
       "testTitleSuccess": "Connection to {{name}} successful!"
     },
@@ -184,6 +186,11 @@
     "driverGroups": {
       "sql": "SQL",
       "nosql": "NoSQL"
+    },
+    "clickhouse": {
+      "cluster": "Cluster name (optional)",
+      "clusterPlaceholder": "e.g. shard_cluster",
+      "clusterHint": "When set, DDL statements (CREATE/DROP DATABASE/TABLE) are issued with ON CLUSTER to propagate to every replica. Leave empty for single-node installs."
     }
   },
   "sidebar": {
@@ -202,7 +209,8 @@
     "favorites": "Favorites",
     "otherConnections": "Other connections",
     "addToFavorites": "Add to favorites",
-    "removeFromFavorites": "Remove from favorites"
+    "removeFromFavorites": "Remove from favorites",
+    "auditLog": "Audit Log"
   },
   "search": {
     "placeholder": "Type a command or search...",
@@ -545,6 +553,14 @@
     },
     "modified": "Modified",
     "shortcuts": {
+      "title": "Keyboard shortcuts",
+      "description": "Click any binding to record a new key combination. Esc cancels recording.",
+      "recordHint": "Click a shortcut to rebind it. The new combination applies immediately and persists across sessions.",
+      "recording": "Press keys…",
+      "errorSystemReserved": "Reserved by the OS",
+      "conflictTooltip": "Conflicts with another shortcut",
+      "resetOne": "Reset to default",
+      "resetAll": "Reset all to defaults",
       "categoryNavigation": "Navigation",
       "categoryEditor": "Editor",
       "categoryGeneral": "General",
@@ -563,6 +579,16 @@
       "description": "Configure the behavior of the tab bar.",
       "groupByConnection": "Group tabs by connection",
       "groupByConnectionDescription": "Display tabs in collapsible groups under their connection name."
+    },
+    "backupTools": {
+      "title": "Backup tool paths",
+      "description": "QoreDB shells out to the official CLI tools (pg_dump, mysqldump, mongodump, sqlite3). When auto-detection fails, you can pin a binary path explicitly.",
+      "summary": "{{found}} of {{total}} tools detected on this system.",
+      "refresh": "Re-detect",
+      "choose": "Choose…",
+      "overridden": "Manual",
+      "notFound": "Not found in PATH.",
+      "empty": "No tools detected yet."
     }
   },
   "table": {
@@ -1389,6 +1415,12 @@
       "noEntries": "No audit log entries",
       "upgradeForFilters": "Upgrade to Pro for filters, export, and advanced statistics",
       "blockedBy": "Blocked by: {{rule}}",
+      "fingerprintFilter": "Fingerprint",
+      "export": {
+        "label": "Export",
+        "format": "Format",
+        "fromDisk": "Include rotated history"
+      },
       "filters": {
         "environment": "Environment",
         "allEnvironments": "All Environments",
@@ -1415,6 +1447,8 @@
         "database": "Database",
         "executionTime": "Execution Time",
         "rowCount": "Row Count",
+        "fingerprint": "Fingerprint",
+        "filterByFingerprint": "Filter by this fingerprint",
         "blockedBy": "Blocked by Safety Rule",
         "error": "Error"
       },
@@ -2132,6 +2166,8 @@
     "importedCount": "{{count}} connections imported",
     "gitWarning": "Connection metadata (host, port, username) will be stored in .qoredb/ and can be versioned with Git. Passwords are never stored on disk.",
     "rename": "Rename",
+    "revealFolder": "Open folder",
+    "revealFolderFailed": "Couldn't open the workspace folder.",
     "renamePrompt": "New workspace name:",
     "leave": "Leave workspace"
   },
@@ -2368,5 +2404,236 @@
     "alter": {
       "driverUnsupported": "ALTER TABLE is not supported on driver: {{driver}}"
     }
+  },
+  "backup": {
+    "dialogTitle": "Backup {{name}}",
+    "mode": "Mode",
+    "modeFull": "Full (schema + data)",
+    "modeSchemaOnly": "Schema only",
+    "modeDataOnly": "Data only",
+    "format": "Format",
+    "password": "Password",
+    "passwordPlaceholder": "Required by the dump tool",
+    "tablesOptional": "Tables (optional)",
+    "tablesPlaceholder": "Comma-separated; empty = all tables",
+    "outputPath": "Output file",
+    "outputPathPlaceholder": "Pick a destination",
+    "browse": "Browse…",
+    "start": "Start backup",
+    "running": "Running…",
+    "starting": "Starting…",
+    "progress": "Progress",
+    "completed": "Backup completed successfully.",
+    "exitedWithCode": "Backup tool exited with code {{code}}.",
+    "cancel": "Cancel",
+    "cancelling": "Cancelling…",
+    "outputDir": "Output directory",
+    "duckdbHint": "DuckDB EXPORT DATABASE writes a directory containing schema.sql and one file per table."
+  },
+  "contracts": {
+    "title": "Data Contracts",
+    "description": "Declarative data-quality assertions",
+    "openPanel": "Data Contracts…",
+    "newContract": "New contract",
+    "edit": "Edit",
+    "delete": "Delete",
+    "run": {
+      "dialogTitle": "Run contract: {{name}}",
+      "connectionMissing": "Connect to the contract target before running.",
+      "starting": "Starting…",
+      "ruleProgress": "Rule {{index}} of {{total}}",
+      "completedSummary": "Completed: {{pass}} passed, {{fail}} failed, {{error}} errors, {{skipped}} skipped",
+      "runFailed": "Run failed",
+      "results": "Results"
+    },
+    "running": "Running…",
+    "rerun": "Run again",
+    "save": "Save",
+    "cancel": "Cancel",
+    "close": "Close",
+    "discard": "Discard",
+    "unsavedChanges": "Unsaved changes",
+    "empty": {
+      "title": "No contracts yet",
+      "description": "Create a YAML contract to assert data quality on this workspace.",
+      "createFirst": "Create your first contract"
+    },
+    "list": {
+      "name": "Name",
+      "rulesCount_one": "{{count}} rule",
+      "rulesCount_other": "{{count}} rules",
+      "lastRun": "Last run",
+      "neverRun": "Never run",
+      "status": "Status"
+    },
+    "editor": {
+      "title": "Contract editor",
+      "namePlaceholder": "name (matches the filename)",
+      "yamlSource": "YAML source",
+      "validating": "Validating…",
+      "valid": "Valid",
+      "invalid": "Invalid",
+      "save": "Save contract",
+      "saved": "Contract saved",
+      "saveFailed": "Failed to save contract",
+      "template": "Insert template",
+      "nameMismatch": "The embedded name must match the filename"
+    },
+    "results": {
+      "rule": "Rule",
+      "type": "Type",
+      "status": "Status",
+      "violations": "Violations",
+      "metric": "Metric",
+      "duration": "Duration",
+      "samples": "Samples",
+      "showSamples": "Show sample violations",
+      "hideSamples": "Hide sample violations",
+      "noSamples": "No samples available"
+    },
+    "status": {
+      "pass": "Pass",
+      "fail": "Fail",
+      "skipped": "Skipped",
+      "error": "Error"
+    },
+    "health": {
+      "healthy": "Healthy",
+      "warning": "Warnings",
+      "failing": "Failing",
+      "unknown": "Not run yet"
+    },
+    "ruleType": {
+      "not_null_pct": "Not null %",
+      "not_empty": "Not empty",
+      "regex_match": "Regex match",
+      "length_range": "Length range",
+      "numeric_range": "Numeric range",
+      "date_range": "Date range",
+      "allowed_values": "Allowed values",
+      "unique": "Unique",
+      "distinct_count": "Distinct count",
+      "foreign_key_integrity": "Foreign key integrity",
+      "row_count": "Row count",
+      "custom_sql": "Custom SQL"
+    },
+    "history": {
+      "title": "Run history",
+      "empty": "No runs yet",
+      "viewDetails": "View details"
+    },
+    "errors": {
+      "loadFailed": "Failed to load contracts",
+      "deleteFailed": "Failed to delete contract",
+      "runFailed": "Failed to run contract"
+    },
+    "confirm": {
+      "deleteTitle": "Delete contract \"{{name}}\"?",
+      "deleteBody": "This will permanently delete the contract file and its history."
+    }
+  },
+  "instantApi": {
+    "title": "Instant Data API",
+    "description": "Expose saved queries as read-only REST endpoints on localhost.",
+    "close": "Close",
+    "newEndpoint": "New endpoint",
+    "endpointsLabel": "endpoint(s)",
+    "confirmDelete": "Delete endpoint \"{{name}}\"?",
+    "regenerate": "Regenerate token",
+    "regenerateConfirm": "Generate a new token for \"{{name}}\"? The previous one will stop working immediately.",
+    "regenerateFailed": "Failed to regenerate token",
+    "status": {
+      "running": "Server running",
+      "stopped": "Server stopped",
+      "start": "Start",
+      "stop": "Stop"
+    },
+    "empty": {
+      "title": "No endpoints yet",
+      "description": "Create your first endpoint to expose a saved query as a REST URL.",
+      "createFirst": "Create an endpoint"
+    },
+    "errors": {
+      "statusFailed": "Failed to load Instant API status",
+      "startFailed": "Failed to start the Instant API server",
+      "stopFailed": "Failed to stop the Instant API server",
+      "deleteFailed": "Failed to delete endpoint"
+    },
+    "list": {
+      "name": "Name",
+      "shape": "Shape",
+      "url": "URL",
+      "serverStopped": "Start the server before opening this URL.",
+      "paramsCount_one": "{{count}} param",
+      "paramsCount_other": "{{count}} params",
+      "pageSize_one": "{{count}} row/page",
+      "pageSize_other": "{{count}} rows/page"
+    },
+    "endpoint": {
+      "newTitle": "New endpoint",
+      "newDescription": "Pick a connection, write a parameterized read-only query, and you are done.",
+      "nameLabel": "Name",
+      "nameHint": "Letters, digits, dash, underscore — used in the URL path.",
+      "connectionLabel": "Connection",
+      "selectConnection": "Select a connection…",
+      "queryLabel": "Query",
+      "queryHint": "Use {{tag}} placeholders for declared parameters.",
+      "shapeLabel": "Response shape",
+      "shape": {
+        "rows": "List of rows",
+        "object": "Single object"
+      },
+      "pageSizeLabel": "Page size",
+      "paramsLabel": "Parameters",
+      "addParam": "Add",
+      "noParams": "No parameters declared.",
+      "paramName": "name",
+      "paramDefault": "default",
+      "cancel": "Cancel",
+      "create": "Create endpoint",
+      "creating": "Creating…",
+      "createFailed": "Endpoint creation failed",
+      "invalidName": "Invalid name — use letters, digits, dash, underscore (1–64).",
+      "missingConnection": "Pick a connection.",
+      "missingQuery": "Query is empty.",
+      "invalidPageSize": "Page size must be between 1 and 10000.",
+      "invalidParamName": "Invalid parameter name: {{name}}",
+      "paramNotInQuery": "Parameter {{name}} is not referenced in the query.",
+      "loadConnectionsFailed": "Failed to load connections"
+    },
+    "token": {
+      "title": "Endpoint token (shown once)",
+      "description": "Copy this token now — it cannot be retrieved later. Use it in the Authorization header.",
+      "tokenLabel": "Bearer token",
+      "curlLabel": "Example",
+      "warning": "This token grants read access to this endpoint. Treat it like a password.",
+      "copyFailed": "Copy failed",
+      "done": "I've saved it"
+    },
+    "openapi": {
+      "open": "OpenAPI preview",
+      "title": "OpenAPI 3.1 specification",
+      "description": "Auto-generated from the registered endpoints. Drop into Swagger UI or Postman.",
+      "copy": "Copy JSON",
+      "copied": "Copied",
+      "download": "Download",
+      "loadFailed": "Failed to load OpenAPI document",
+      "close": "Close"
+    },
+    "tls": {
+      "useHttps": "Use HTTPS",
+      "badge": "HTTPS",
+      "selfSigned": "Self-signed certificate generated on start. Browsers will require a one-time trust override."
+    }
+  },
+  "restore": {
+    "dialogTitle": "Restore into {{name}}",
+    "destructiveWarning": "This will overwrite or modify data in \"{{name}}\". Make sure you have a current backup before continuing.",
+    "inputPath": "Backup file",
+    "inputPathPlaceholder": "Pick a backup file to restore",
+    "confirmLabel": "Type \"{{name}}\" to confirm",
+    "start": "Start restore",
+    "completed": "Restore completed successfully.",
+    "duckdbHint": "Pick the directory previously produced by EXPORT DATABASE."
   }
 }

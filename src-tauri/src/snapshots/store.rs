@@ -19,8 +19,7 @@ impl SnapshotStore {
 
     /// Validate that a snapshot ID is a legitimate UUID (prevents path traversal).
     fn validate_snapshot_id(snapshot_id: &str) -> Result<(), String> {
-        uuid::Uuid::parse_str(snapshot_id)
-            .map_err(|_| "Invalid snapshot ID".to_string())?;
+        uuid::Uuid::parse_str(snapshot_id).map_err(|_| "Invalid snapshot ID".to_string())?;
         Ok(())
     }
 
@@ -103,7 +102,6 @@ impl SnapshotStore {
                 Err(_) => continue,
             };
 
-            // Parse only the meta field to avoid loading all row data
             let snapshot: Result<Snapshot, _> = serde_json::from_str(&content);
             if let Ok(snapshot) = snapshot {
                 let mut meta = snapshot.meta;
@@ -112,7 +110,6 @@ impl SnapshotStore {
             }
         }
 
-        // Sort by created_at descending (most recent first)
         metas.sort_by(|a, b| b.created_at.cmp(&a.created_at));
         Ok(metas)
     }
@@ -205,11 +202,7 @@ mod tests {
         let store = SnapshotStore::new(PathBuf::from("/tmp/qoredb_test_snapshots"));
         assert!(store.get("../../../etc/passwd").is_err());
         assert!(store.delete("../../../etc/passwd").is_err());
-        assert!(
-            store
-                .rename("../../../etc/passwd", "evil".into())
-                .is_err()
-        );
+        assert!(store.rename("../../../etc/passwd", "evil".into()).is_err());
     }
 
     #[test]

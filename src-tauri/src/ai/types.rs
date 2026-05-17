@@ -190,8 +190,16 @@ impl AiConfig {
             .or_else(|| self.provider.default_base_url().map(String::from))
     }
 
+    /// Upper bound applied to `max_tokens` regardless of what the user
+    /// configured. Picked at 8000 — large enough for a multi-table EXPLAIN
+    /// answer, small enough that a single mistuned request can't burn $30
+    /// of Claude Opus by accident (cf. audit B7-A2).
+    pub const MAX_TOKENS_CEILING: u32 = 8_000;
+
     pub fn effective_max_tokens(&self) -> u32 {
-        self.max_tokens.unwrap_or(2048)
+        self.max_tokens
+            .unwrap_or(2048)
+            .min(Self::MAX_TOKENS_CEILING)
     }
 
     pub fn effective_temperature(&self) -> f32 {

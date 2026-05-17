@@ -45,6 +45,10 @@ pub fn classify(query: &str) -> RedisQueryClass {
 fn is_dangerous_command(cmd: &str, sub: Option<&str>) -> bool {
     match cmd {
         "FLUSHALL" | "FLUSHDB" | "SHUTDOWN" | "SWAPDB" => true,
+        // Server-side Lua / Redis Functions can invoke any other command
+        // (including CONFIG / MODULE / SHUTDOWN). MIGRATE can exfiltrate data
+        // to an arbitrary host. Treat as dangerous, not mere mutations.
+        "EVAL" | "EVALSHA" | "FCALL" | "MIGRATE" => true,
         "CONFIG" => matches!(sub, Some("SET" | "REWRITE" | "RESETSTAT")),
         "SCRIPT" => matches!(sub, Some("FLUSH" | "KILL")),
         "FUNCTION" => matches!(sub, Some("FLUSH" | "DELETE" | "RESTORE")),
@@ -94,7 +98,7 @@ fn is_mutation_command(cmd: &str, sub: Option<&str>) -> bool {
             Some("CREATE" | "CREATECONSUMER" | "DELCONSUMER" | "DESTROY" | "SETID")
         ),
         "MULTI" | "EXEC" | "DISCARD" | "WATCH" | "UNWATCH" => true,
-        "EVAL" | "EVALSHA" | "FCALL" | "PUBLISH" | "SPUBLISH" => true,
+        "PUBLISH" | "SPUBLISH" => true,
         _ => false,
     }
 }
@@ -131,6 +135,20 @@ mod tests {
             RedisQueryClass::Dangerous
         );
         assert_eq!(classify("SCRIPT FLUSH"), RedisQueryClass::Dangerous);
+        assert_eq!(
+            classify("EVAL \"return 1\" 0"),
+            RedisQueryClass::Dangerous
+        );
+        assert_eq!(
+            classify("EVALSHA abc123 0"),
+            RedisQueryClass::Dangerous
+        );
+        assert_eq!(classify("FCALL myfunc 0"), RedisQueryClass::Dangerous);
+        assert_eq!(
+            classify("MIGRATE host 6379 key 0 5000"),
+            RedisQueryClass::Dangerous
+        );
+        assert_eq!(classify("MODULE LOAD /tmp/x.so"), RedisQueryClass::Dangerous);
     }
 
     #[test]

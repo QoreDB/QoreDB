@@ -74,7 +74,6 @@ impl VaultStorage {
     fn save_connections_file(&self, connections: &[SavedConnection]) -> EngineResult<()> {
         let path = self.connections_file_path();
 
-        // Ensure directory exists
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent).map_err(|e| {
                 EngineError::internal(format!("Failed to create storage directory: {}", e))
@@ -98,16 +97,13 @@ impl VaultStorage {
         connection: &SavedConnection,
         credentials: &StoredCredentials,
     ) -> EngineResult<()> {
-        // 1. Update metadata in JSON file
         let mut connections = self.load_connections_file()?;
 
-        // Remove existing if present (update)
         connections.retain(|c| c.id != connection.id);
         connections.push(connection.clone());
 
         self.save_connections_file(&connections)?;
 
-        // 2. Save credentials to Keychain (secrets only)
         let service = self.service_name();
 
         let creds_json = serde_json::to_string(&CredsJson {
@@ -164,7 +160,6 @@ impl VaultStorage {
 
     /// Deletes a saved connection
     pub fn delete_connection(&self, connection_id: &str) -> EngineResult<()> {
-        // 1. Remove from JSON file
         let mut connections = self.load_connections_file()?;
         let original_len = connections.len();
         connections.retain(|c| c.id != connection_id);
@@ -173,15 +168,12 @@ impl VaultStorage {
             self.save_connections_file(&connections)?;
         }
 
-        // 2. Remove credentials from Keychain
-        // 2. Remove credentials from Keychain
         let service = self.service_name();
         let _ = self
             .provider
             .delete_password(&service, &self.credentials_key(connection_id));
 
-        // Try to clean up old metadata from keychain if it exists (migration cleanup)
-        // We don't error if this fails, just best effort
+        // Best-effort cleanup of legacy metadata entries from older versions.
         let _ = self
             .provider
             .delete_password(&service, &format!("meta_{}", connection_id));
@@ -237,7 +229,6 @@ fn make_copy_name(base_name: &str, existing_names: &HashSet<String>) -> String {
     }
 }
 
-/// Internal struct for serializing credentials
 #[derive(Serialize, Deserialize)]
 struct CredsJson {
     db_password: String,
@@ -298,6 +289,7 @@ mod tests {
             pool_min_connections: None,
             proxy: None,
             mssql_auth: None,
+            clickhouse_cluster: None,
         };
 
         let credentials = StoredCredentials {

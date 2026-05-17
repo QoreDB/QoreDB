@@ -9,22 +9,17 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 /// Environment classification for connections
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Environment {
+    #[default]
     Development,
     Staging,
     Production,
 }
 
-impl Default for Environment {
-    fn default() -> Self {
-        Self::Development
-    }
-}
-
 /// Query operation type for classification
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum QueryOperationType {
     Select,
@@ -38,13 +33,8 @@ pub enum QueryOperationType {
     Grant,
     Revoke,
     Execute,
+    #[default]
     Other,
-}
-
-impl Default for QueryOperationType {
-    fn default() -> Self {
-        Self::Other
-    }
 }
 
 impl QueryOperationType {
@@ -63,21 +53,16 @@ impl QueryOperationType {
 }
 
 /// Action to take when a safety rule matches
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SafetyAction {
     /// Block the query entirely
+    #[default]
     Block,
     /// Allow but emit a warning
     Warn,
     /// Require explicit user confirmation
     RequireConfirmation,
-}
-
-impl Default for SafetyAction {
-    fn default() -> Self {
-        Self::Block
-    }
 }
 
 /// A custom safety rule for blocking or warning on certain queries
@@ -207,6 +192,10 @@ pub struct AuditLogEntry {
     pub safety_rule: Option<String>,
     /// Driver ID (postgres, mysql, etc.)
     pub driver_id: String,
+    /// Stable fingerprint (hex prefix) computed from the normalized query.
+    /// `None` for entries persisted before fingerprinting was introduced.
+    #[serde(default)]
+    pub fingerprint: Option<String>,
 }
 
 impl AuditLogEntry {
@@ -216,14 +205,17 @@ impl AuditLogEntry {
         environment: Environment,
         driver_id: String,
     ) -> Self {
+        use super::fingerprint::fingerprint_query;
         use super::redaction::redact_query;
 
         let redacted = redact_query(&query, &driver_id);
         let mut preview = redacted.chars().take(100).collect::<String>();
-        let truncated = redacted.chars().skip(100).next().is_some();
+        let truncated = redacted.chars().nth(100).is_some();
         if truncated {
             preview.push_str("...");
         }
+
+        let fingerprint = fingerprint_query(&redacted, &driver_id);
 
         Self {
             id: Uuid::new_v4().to_string(),
@@ -241,6 +233,7 @@ impl AuditLogEntry {
             blocked: false,
             safety_rule: None,
             driver_id,
+            fingerprint: Some(fingerprint),
         }
     }
 }
@@ -425,15 +418,14 @@ pub struct QueryExecutionResult {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::redaction::{set_redaction_enabled, test_lock};
+    use super::*;
 
     #[test]
     fn audit_entry_redacts_mongodb_password() {
         let _guard = test_lock();
         set_redaction_enabled(true);
-        let query =
-            r#"{"operation":"insert","document":{"email":"a@b.c","password":"hunter2"}}"#;
+        let query = r#"{"operation":"insert","document":{"email":"a@b.c","password":"hunter2"}}"#;
         let entry = AuditLogEntry::new(
             "sess-1".into(),
             query.into(),

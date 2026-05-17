@@ -7,29 +7,22 @@ use crate::engine::types::{ColumnInfo, Namespace, QueryResult, Row};
 /// Metadata about a snapshot (returned in list operations, without the full data)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SnapshotMeta {
-    /// Unique identifier (UUID)
+    /// UUID v4 identifier.
     pub id: String,
-    /// User-facing name
     pub name: String,
-    /// Optional description
     pub description: Option<String>,
-    /// SQL query or table name that produced this data
+    /// SQL query text or table name that produced this data.
     pub source: String,
-    /// Source type: "query" or "table"
+    /// `"query"` or `"table"`.
     pub source_type: String,
-    /// Connection name at time of capture
     pub connection_name: Option<String>,
-    /// Driver used (postgres, mysql, etc.)
     pub driver: Option<String>,
-    /// Namespace at time of capture
     pub namespace: Option<Namespace>,
-    /// Column definitions
     pub columns: Vec<ColumnInfo>,
-    /// Number of rows captured
     pub row_count: usize,
-    /// Timestamp of creation (ISO 8601)
+    /// ISO 8601 timestamp of creation.
     pub created_at: String,
-    /// File size in bytes (populated when listing)
+    /// File size in bytes, populated when listing.
     #[serde(default)]
     pub file_size: u64,
 }

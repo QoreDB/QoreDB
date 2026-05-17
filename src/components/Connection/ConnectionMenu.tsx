@@ -11,7 +11,7 @@ import {
   Trash2,
   Zap,
 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import {
@@ -21,6 +21,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import type { SavedConnection } from '../../lib/tauri';
 import { useConnectionActions } from './useConnectionActions';
 
@@ -47,7 +54,6 @@ export function ConnectionMenu({
 }: ConnectionMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
   const { t } = useTranslation();
 
   const { testing, deleting, duplicating, handleTest, handleEdit, handleDelete, handleDuplicate } =
@@ -61,132 +67,98 @@ export function ConnectionMenu({
       },
     });
 
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setIsOpen(false);
-      }
-    }
-    if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
-    }
-  }, [isOpen]);
-
-  const onSelectDelete = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setIsOpen(false);
-    setShowDeleteConfirm(true);
-  };
-
   return (
     <>
-      <div className="relative" ref={menuRef}>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-6 w-6"
-          onClick={e => {
-            e.stopPropagation();
-            setIsOpen(!isOpen);
-          }}
-        >
-          <MoreVertical size={14} />
-        </Button>
-
-        {isOpen && (
-          <div
-            className="absolute right-0 top-full mt-1 z-50 min-w-40 bg-background border border-border rounded-md shadow-lg py-1 animate-in fade-in-0 zoom-in-95"
+      <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6"
             onClick={e => e.stopPropagation()}
           >
-            {isConnected && (onNewQuery || onNewNotebook) && (
-              <>
-                {onNewQuery && (
-                  <button
-                    type="button"
-                    className="w-full flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-muted transition-colors text-left"
-                    onClick={() => {
-                      onNewQuery();
-                      setIsOpen(false);
-                    }}
-                  >
-                    <Terminal size={14} />
-                    {t('connection.menu.newQuery')}
-                  </button>
-                )}
-                {onNewNotebook && (
-                  <button
-                    type="button"
-                    className="w-full flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-muted transition-colors text-left"
-                    onClick={() => {
-                      onNewNotebook();
-                      setIsOpen(false);
-                    }}
-                  >
-                    <BookOpen size={14} />
-                    {t('connection.menu.newNotebook')}
-                  </button>
-                )}
-                <div className="h-px bg-border my-1" />
-              </>
-            )}
-            <button
-              type="button"
-              className="w-full flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-muted transition-colors text-left"
-              onClick={handleTest}
-              disabled={testing}
-            >
-              {testing ? <Loader2 size={14} className="animate-spin" /> : <Zap size={14} />}
-              {t('connection.menu.testConnection')}
-            </button>
+            <MoreVertical size={14} />
+          </Button>
+        </DropdownMenuTrigger>
 
-            <button
-              type="button"
-              className="w-full flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-muted transition-colors text-left"
-              onClick={handleEdit}
-            >
-              <Pencil size={14} />
-              {t('connection.menu.edit')}
-            </button>
+        <DropdownMenuContent
+          align="end"
+          className="whitespace-nowrap"
+          onClick={e => e.stopPropagation()}
+        >
+          {isConnected && (onNewQuery || onNewNotebook) && (
+            <>
+              {onNewQuery && (
+                <DropdownMenuItem onSelect={onNewQuery}>
+                  <Terminal size={14} />
+                  {t('connection.menu.newQuery')}
+                </DropdownMenuItem>
+              )}
+              {onNewNotebook && (
+                <DropdownMenuItem onSelect={onNewNotebook}>
+                  <BookOpen size={14} />
+                  {t('connection.menu.newNotebook')}
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuSeparator />
+            </>
+          )}
 
-            <button
-              type="button"
-              className="w-full flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-muted transition-colors text-left"
-              onClick={handleDuplicate}
-              disabled={duplicating}
-            >
-              {duplicating ? <Loader2 size={14} className="animate-spin" /> : <Copy size={14} />}
-              {t('connection.menu.duplicate')}
-            </button>
+          <DropdownMenuItem
+            onSelect={event => {
+              event.preventDefault();
+              handleTest();
+            }}
+            disabled={testing}
+          >
+            {testing ? <Loader2 size={14} className="animate-spin" /> : <Zap size={14} />}
+            {t('connection.menu.testConnection')}
+          </DropdownMenuItem>
 
-            {onToggleFavorite && (
-              <button
-                type="button"
-                className="w-full flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-muted transition-colors text-left"
-                onClick={() => {
-                  onToggleFavorite();
-                  setIsOpen(false);
-                }}
-              >
-                <Star size={14} className={isFavorite ? 'fill-current text-yellow-500' : ''} />
-                {isFavorite ? t('sidebar.removeFromFavorites') : t('sidebar.addToFavorites')}
-              </button>
-            )}
+          <DropdownMenuItem
+            onSelect={event => {
+              event.preventDefault();
+              handleEdit();
+            }}
+          >
+            <Pencil size={14} />
+            {t('connection.menu.edit')}
+          </DropdownMenuItem>
 
-            <div className="h-px bg-border my-1" />
+          <DropdownMenuItem
+            onSelect={event => {
+              event.preventDefault();
+              handleDuplicate();
+            }}
+            disabled={duplicating}
+          >
+            {duplicating ? <Loader2 size={14} className="animate-spin" /> : <Copy size={14} />}
+            {t('connection.menu.duplicate')}
+          </DropdownMenuItem>
 
-            <button
-              type="button"
-              className="w-full flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-error/10 text-error transition-colors text-left"
-              onClick={onSelectDelete}
-              disabled={deleting}
-            >
-              {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
-              {t('connection.menu.delete')}
-            </button>
-          </div>
-        )}
-      </div>
+          {onToggleFavorite && (
+            <DropdownMenuItem onSelect={onToggleFavorite}>
+              <Star size={14} className={isFavorite ? 'fill-current text-yellow-500' : ''} />
+              {isFavorite ? t('sidebar.removeFromFavorites') : t('sidebar.addToFavorites')}
+            </DropdownMenuItem>
+          )}
+
+          <DropdownMenuSeparator />
+
+          <DropdownMenuItem
+            variant="destructive"
+            onSelect={event => {
+              event.preventDefault();
+              setIsOpen(false);
+              setShowDeleteConfirm(true);
+            }}
+            disabled={deleting}
+          >
+            {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+            {t('connection.menu.delete')}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
 
       <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
         <DialogContent>

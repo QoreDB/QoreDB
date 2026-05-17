@@ -186,7 +186,6 @@ fn normalize_config(mut config: ConnectionConfig) -> Result<ConnectionConfig, St
             return Err("Proxy connect timeout must be at least 1 second".to_string());
         }
 
-        // Trim optional auth fields
         if let Some(ref mut user) = proxy.username {
             let trimmed = user.trim().to_string();
             if trimmed.is_empty() {
@@ -412,7 +411,6 @@ pub async fn connect_saved_connection(
 
     match session_manager.connect(config).await {
         Ok(session_id) => {
-            // Update the session display name to the saved connection name
             session_manager
                 .set_display_name(session_id, connection_name)
                 .await;

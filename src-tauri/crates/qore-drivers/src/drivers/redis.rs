@@ -20,14 +20,21 @@ use qore_core::error::{EngineError, EngineResult};
 use qore_core::traits::DataEngine;
 use qore_core::types::{
     CancelSupport, Collection, CollectionList, CollectionListOptions, CollectionType, ColumnInfo,
-    ConnectionConfig, Namespace, PaginatedQueryResult, QueryId, QueryResult, Row as QRow,
-    RowData, SessionId, TableColumn, TableQueryOptions, TableSchema, Value,
+    ConnectionConfig, Namespace, PaginatedQueryResult, QueryId, QueryResult, Row as QRow, RowData,
+    SessionId, TableColumn, TableQueryOptions, TableSchema, Value,
 };
+
+use crate::redis_safety::{classify, RedisQueryClass};
 
 /// Holds a Redis connection and session metadata
 pub struct RedisSession {
     pub connection: Mutex<redis::aio::MultiplexedConnection>,
     pub current_db: AtomicU16,
+    /// Subset of the connection config used at runtime for safety enforcement.
+    /// Storing the full config keeps the password in memory; we copy only what
+    /// the driver needs (read_only flag + environment).
+    pub read_only: bool,
+    pub environment: String,
 }
 
 /// Redis driver implementation
@@ -85,34 +92,24 @@ impl RedisDriver {
             client.get_multiplexed_async_connection(),
         )
         .await
-        .map_err(|_| {
-            EngineError::Timeout {
-                timeout_ms: Self::DEFAULT_TIMEOUT.as_millis() as u64,
-            }
+        .map_err(|_| EngineError::Timeout {
+            timeout_ms: Self::DEFAULT_TIMEOUT.as_millis() as u64,
         })?
         .map_err(|e| {
             let msg = e.to_string();
-            if msg.contains("AUTH")
-                || msg.contains("NOAUTH")
-                || msg.contains("invalid password")
-            {
+            if msg.contains("AUTH") || msg.contains("NOAUTH") || msg.contains("invalid password") {
                 EngineError::auth_failed(msg)
             } else {
                 EngineError::connection_failed(msg)
             }
         })?;
 
-        // PING to verify (with timeout)
         tokio::time::timeout(Self::DEFAULT_TIMEOUT, async {
-            redis::cmd("PING")
-                .query_async::<String>(&mut conn)
-                .await
+            redis::cmd("PING").query_async::<String>(&mut conn).await
         })
         .await
-        .map_err(|_| {
-            EngineError::Timeout {
-                timeout_ms: Self::DEFAULT_TIMEOUT.as_millis() as u64,
-            }
+        .map_err(|_| EngineError::Timeout {
+            timeout_ms: Self::DEFAULT_TIMEOUT.as_millis() as u64,
         })?
         .map_err(|e| EngineError::connection_failed(format!("PING failed: {}", e)))?;
 
@@ -197,6 +194,34 @@ impl RedisDriver {
 
         let cmd_name = parts[0].to_ascii_uppercase();
         let args = &parts[1..];
+
+        let class = classify(&query);
+        let is_production = redis_session.environment.eq_ignore_ascii_case("production");
+        match class {
+            RedisQueryClass::Dangerous => {
+                if is_production {
+                    return Err(EngineError::not_supported(format!(
+                        "Redis command '{}' is blocked in production environment",
+                        cmd_name
+                    )));
+                }
+                if redis_session.read_only {
+                    return Err(EngineError::validation(format!(
+                        "Redis command '{}' rejected: session is read-only",
+                        cmd_name
+                    )));
+                }
+            }
+            RedisQueryClass::Mutation => {
+                if redis_session.read_only {
+                    return Err(EngineError::validation(format!(
+                        "Redis command '{}' rejected: session is read-only",
+                        cmd_name
+                    )));
+                }
+            }
+            RedisQueryClass::Read | RedisQueryClass::Unknown => {}
+        }
 
         let mut conn = redis_session.connection.lock().await;
 
@@ -717,7 +742,7 @@ impl RedisDriver {
             while let (Some(key), Some(val)) = (iter.next(), iter.next()) {
                 let k = Self::redis_value_to_string(key);
                 let v = Self::redis_value_to_string(val);
-                // Try to parse as JSON value
+                // Hashes that hold serialised JSON are surfaced as structured values when possible.
                 let json_v = if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&v) {
                     parsed
                 } else {
@@ -740,7 +765,6 @@ impl RedisDriver {
             redis::Value::BulkString(bytes) => {
                 match String::from_utf8(bytes.clone()) {
                     Ok(s) => {
-                        // Try JSON parsing
                         if let Ok(json) = serde_json::from_str::<serde_json::Value>(&s) {
                             Value::Json(json)
                         } else {
@@ -989,6 +1013,8 @@ impl DataEngine for RedisDriver {
         let redis_session = Arc::new(RedisSession {
             connection: Mutex::new(conn),
             current_db: AtomicU16::new(db),
+            read_only: config.read_only,
+            environment: config.environment.clone(),
         });
 
         let mut sessions = self.sessions.write().await;
@@ -1019,7 +1045,7 @@ impl DataEngine for RedisDriver {
         let redis_session = self.get_session(session).await?;
         let mut conn = redis_session.connection.lock().await;
 
-        // Try to get the configured number of databases
+        // Redis exposes its database count via `CONFIG GET databases` (default 16).
         let db_count: u16 = match redis::cmd("CONFIG")
             .arg("GET")
             .arg("databases")
@@ -1027,13 +1053,12 @@ impl DataEngine for RedisDriver {
             .await
         {
             Ok(vals) if vals.len() >= 2 => vals[1].parse().unwrap_or(16),
-            _ => 16, // Default Redis config
+            _ => 16,
         };
 
         let mut namespaces = Vec::new();
 
         for db in 0..db_count {
-            // SELECT the database
             let select_ok: Result<String, _> =
                 redis::cmd("SELECT").arg(db).query_async(&mut *conn).await;
 
@@ -1041,7 +1066,6 @@ impl DataEngine for RedisDriver {
                 continue;
             }
 
-            // Check if it has any keys
             let dbsize: Result<i64, _> = redis::cmd("DBSIZE").query_async(&mut *conn).await;
 
             match dbsize {
@@ -1049,7 +1073,7 @@ impl DataEngine for RedisDriver {
                     namespaces.push(Namespace::new(format!("db{}", db)));
                 }
                 Ok(_) => {
-                    // Empty database — still show db0 always
+                    // db0 is always exposed even when empty so the tree has a default entry.
                     if db == 0 {
                         namespaces.push(Namespace::new("db0".to_string()));
                     }
@@ -1058,13 +1082,12 @@ impl DataEngine for RedisDriver {
             }
         }
 
-        // Restore the original database selection
+        // SELECT/DBSIZE leaves the connection on the last visited db; restore the user's selection.
         let _ = redis::cmd("SELECT")
             .arg(redis_session.current_db.load(Ordering::Relaxed))
             .query_async::<String>(&mut *conn)
             .await;
 
-        // If no namespaces found, always show db0
         if namespaces.is_empty() {
             namespaces.push(Namespace::new("db0".to_string()));
         }
@@ -1081,7 +1104,6 @@ impl DataEngine for RedisDriver {
         let redis_session = self.get_session(session).await?;
         let mut conn = redis_session.connection.lock().await;
 
-        // SELECT the right database
         let db_index = Self::parse_db_index(&namespace.database);
 
         redis::cmd("SELECT")
@@ -1090,7 +1112,6 @@ impl DataEngine for RedisDriver {
             .await
             .map_err(|e| EngineError::execution_error(format!("SELECT db{}: {}", db_index, e)))?;
 
-        // SCAN all keys
         let pattern = if let Some(ref search) = options.search {
             if search.is_empty() {
                 "*".to_string()
@@ -1104,8 +1125,7 @@ impl DataEngine for RedisDriver {
         let mut cursor: u64 = 0;
 
         let (paginated, total_count) = if let Some(limit_u32) = options.page_size {
-            // Optimized path for paginated browsing: keep only the smallest `offset + limit`
-            // keys in memory via a max-heap, instead of materializing all keys.
+            // Paginated browsing: a max-heap keeps only the smallest `offset + limit` keys in memory.
             let page = options.page.unwrap_or(1).max(1);
             let offset = ((page - 1) * limit_u32) as usize;
             let limit = limit_u32 as usize;
@@ -1167,7 +1187,7 @@ impl DataEngine for RedisDriver {
 
             (paginated, total_count)
         } else {
-            // Full listing keeps previous behavior: sorted and deduplicated.
+            // Full listing path: sort + dedup the entire keyspace, capped at 100k.
             let mut all_keys: Vec<String> = Vec::new();
             loop {
                 let (next_cursor, keys): (u64, Vec<String>) = redis::cmd("SCAN")
@@ -1187,7 +1207,6 @@ impl DataEngine for RedisDriver {
                     break;
                 }
 
-                // Safety limit
                 if all_keys.len() > 100_000 {
                     break;
                 }
@@ -1264,7 +1283,6 @@ impl DataEngine for RedisDriver {
         let redis_session = self.get_session(session).await?;
         let mut conn = redis_session.connection.lock().await;
 
-        // SELECT database
         let db_index = Self::parse_db_index(&namespace.database);
 
         redis::cmd("SELECT")
@@ -1277,7 +1295,6 @@ impl DataEngine for RedisDriver {
         let type_str = Self::key_type(&mut conn, key).await?;
         let ttl = Self::key_ttl(&mut conn, key).await?;
 
-        // Get encoding
         let encoding: String = redis::cmd("OBJECT")
             .arg("ENCODING")
             .arg(key)
@@ -1285,7 +1302,7 @@ impl DataEngine for RedisDriver {
             .await
             .unwrap_or_else(|_| "unknown".to_string());
 
-        // Build columns based on type
+        // Synthetic columns vary per Redis key type so the UI can render typed pages.
         let columns = match type_str.as_str() {
             "string" => vec![TableColumn {
                 name: "value".into(),
@@ -1374,7 +1391,6 @@ impl DataEngine for RedisDriver {
             }],
         };
 
-        // Get element count
         let element_count: Option<u64> = match type_str.as_str() {
             "string" => Some(1),
             "hash" => redis::cmd("HLEN")
@@ -1441,7 +1457,6 @@ impl DataEngine for RedisDriver {
         let redis_session = self.get_session(session).await?;
         let mut conn = redis_session.connection.lock().await;
 
-        // SELECT database
         let db_index = Self::parse_db_index(&namespace.database);
 
         redis::cmd("SELECT")
@@ -1481,7 +1496,6 @@ impl DataEngine for RedisDriver {
         let redis_session = self.get_session(session).await?;
         let mut conn = redis_session.connection.lock().await;
 
-        // SELECT database
         let db_index = Self::parse_db_index(&namespace.database);
 
         redis::cmd("SELECT")
@@ -1628,7 +1642,6 @@ impl DataEngine for RedisDriver {
         false
     }
 
-    // ==================== Mutation Methods ====================
 
     fn supports_mutations(&self) -> bool {
         true
@@ -1660,7 +1673,6 @@ impl DataEngine for RedisDriver {
 
         match type_str.as_str() {
             "string" | "none" => {
-                // For string keys or new keys: SET key value
                 let value = Self::require_column(data, "value")?;
                 redis::cmd("SET")
                     .arg(key)
@@ -1716,10 +1728,9 @@ impl DataEngine for RedisDriver {
                     .map_err(|e| EngineError::execution_error(e.to_string()))?;
             }
             "stream" => {
-                // XADD key * field1 value1 field2 value2 ...
                 let mut cmd = redis::cmd("XADD");
                 cmd.arg(key).arg("*");
-                // Use the "data" column if it's JSON, otherwise use all columns as field-value pairs
+                // Prefer a JSON `data` column when present, otherwise treat each column as a stream field.
                 if let Some(Value::Json(json)) = data.columns.get("data") {
                     if let Some(obj) = json.as_object() {
                         for (k, v) in obj {
@@ -1730,7 +1741,6 @@ impl DataEngine for RedisDriver {
                         cmd.arg("data").arg(json.to_string());
                     }
                 } else {
-                    // Use all provided columns as stream fields
                     let mut has_fields = false;
                     for (col_name, val) in &data.columns {
                         if col_name != "id" {
@@ -1826,7 +1836,7 @@ impl DataEngine for RedisDriver {
                     .map_err(|e| EngineError::execution_error(e.to_string()))?;
             }
             "zset" => {
-                // Update score of an existing member
+                // ZADD with an existing member rewrites its score in place.
                 let member = Self::require_column(primary_key, "member")?;
                 let score_str = Self::require_column(data, "score")?;
                 let score: f64 = score_str.parse().map_err(|_| {
@@ -1998,6 +2008,7 @@ mod tests {
             pool_min_connections: None,
             proxy: None,
             mssql_auth: None,
+clickhouse_cluster: None,
         };
 
         let conn_str = RedisDriver::build_connection_string(&config);
@@ -2023,6 +2034,7 @@ mod tests {
             pool_min_connections: None,
             proxy: None,
             mssql_auth: None,
+clickhouse_cluster: None,
         };
 
         let conn_str = RedisDriver::build_connection_string(&config);
@@ -2048,6 +2060,7 @@ mod tests {
             pool_min_connections: None,
             proxy: None,
             mssql_auth: None,
+clickhouse_cluster: None,
         };
 
         let conn_str = RedisDriver::build_connection_string(&config);

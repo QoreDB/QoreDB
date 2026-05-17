@@ -101,7 +101,7 @@ impl LicenseManager {
             .get_password(LICENSE_SERVICE, LICENSE_USERNAME)
         {
             Ok(key) => key,
-            Err(_) => return, // No stored key → keep default Core status
+            Err(_) => return,
         };
 
         match verify_license(&stored_key) {
@@ -116,7 +116,8 @@ impl LicenseManager {
                 };
             }
             Err(LicenseError::Expired) => {
-                // Show info but mark as expired (tier falls back to Core)
+                // Expose payload metadata for the UI while forcing the tier
+                // back to Core so gated features remain locked.
                 if let Ok(payload) = decode_license(&stored_key) {
                     self.cached_status = LicenseStatus {
                         tier: LicenseTier::Core,
@@ -129,7 +130,7 @@ impl LicenseManager {
                 }
             }
             Err(_) => {
-                // Corrupt key — remove it silently
+                // Drop corrupt or tampered keys so we don't keep retrying them.
                 let _ = self
                     .provider
                     .delete_password(LICENSE_SERVICE, LICENSE_USERNAME);
@@ -166,7 +167,6 @@ mod tests {
     #[test]
     fn deactivate_resets_to_core() {
         let mut mgr = make_manager();
-        // Even without activation, deactivate should succeed
         assert!(mgr.deactivate().is_ok());
         assert_eq!(mgr.status().tier, LicenseTier::Core);
     }

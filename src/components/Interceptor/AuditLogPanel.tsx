@@ -13,12 +13,11 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
-  Download,
+  Hash,
   RefreshCw,
   Search,
   Shield,
   Trash2,
-  X,
   XCircle,
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
@@ -32,16 +31,16 @@ import {
   BUILTIN_SAFETY_RULE_I18N,
   clearAuditLog,
   type Environment,
-  exportAuditLog,
   formatExecutionTime,
   getAuditEntries,
   getAuditStats,
 } from '../../lib/tauri/interceptor';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
-import { Label } from '../ui/label';
 import { ScrollArea } from '../ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { AuditEntryDetail } from './AuditEntryDetail';
+import { AuditExportMenu } from './AuditExportMenu';
 
 const PAGE_SIZE = 50;
 
@@ -134,6 +133,12 @@ function AuditEntryItem({ entry, onSelect, getSafetyRuleLabel }: AuditEntryItemP
                 {entry.row_count} {t('table.rows')}
               </span>
             )}
+            {entry.fingerprint && (
+              <span className="flex items-center gap-1 font-mono">
+                <Hash className="w-3 h-3" />
+                {entry.fingerprint.slice(0, 8)}
+              </span>
+            )}
           </div>
 
           {entry.blocked && entry.safety_rule && (
@@ -155,14 +160,36 @@ interface StatsCardProps {
   label: string;
   value: number;
   color?: string;
+  active?: boolean;
+  onClick?: () => void;
 }
 
-function StatsCard({ label, value, color = 'text-foreground' }: StatsCardProps) {
+function StatsCard({
+  label,
+  value,
+  color = 'text-foreground',
+  active,
+  onClick,
+}: StatsCardProps) {
+  const baseClass = 'p-3 rounded-lg border text-left transition-colors';
+  const stateClass = active
+    ? 'bg-accent/10 border-accent/40 ring-1 ring-accent/30'
+    : 'bg-muted/50 border-border hover:bg-muted';
+
+  if (!onClick) {
+    return (
+      <div className={`${baseClass} bg-muted/50 border-border`}>
+        <p className="text-xs text-muted-foreground">{label}</p>
+        <p className={`text-lg font-semibold ${color}`}>{value.toLocaleString()}</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="p-3 rounded-lg bg-muted/50 border border-border">
+    <button type="button" onClick={onClick} className={`${baseClass} ${stateClass}`}>
       <p className="text-xs text-muted-foreground">{label}</p>
       <p className={`text-lg font-semibold ${color}`}>{value.toLocaleString()}</p>
-    </div>
+    </button>
   );
 }
 
@@ -195,6 +222,7 @@ export function AuditLogPanel() {
   const [search, setSearch] = useState('');
   const [environmentFilter, setEnvironmentFilter] = useState<Environment | 'all'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'success' | 'failed' | 'blocked'>('all');
+  const [fingerprintFilter, setFingerprintFilter] = useState<string | null>(null);
 
   // Load data from backend
   const loadData = useCallback(async () => {
@@ -219,8 +247,13 @@ export function AuditLogPanel() {
         filter.success = true;
       } else if (statusFilter === 'failed') {
         filter.success = false;
+      } else if (statusFilter === 'blocked') {
+        filter.blocked = true;
       }
-      // Note: blocked filter not directly supported, would need to add to backend
+
+      if (fingerprintFilter) {
+        filter.fingerprint = fingerprintFilter;
+      }
 
       const [entriesData, statsData] = await Promise.all([
         getAuditEntries(filter),
@@ -234,14 +267,25 @@ export function AuditLogPanel() {
     } finally {
       setLoading(false);
     }
-  }, [page, search, environmentFilter, statusFilter]);
+  }, [page, search, environmentFilter, statusFilter, fingerprintFilter]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
 
   // Reset page when filters change
-  useEffect(() => {
+  const updateSearch = useCallback((value: string) => {
+    setSearch(value);
+    setPage(0);
+  }, []);
+
+  const updateEnvironment = useCallback((value: Environment | 'all') => {
+    setEnvironmentFilter(value);
+    setPage(0);
+  }, []);
+
+  const updateStatus = useCallback((value: typeof statusFilter) => {
+    setStatusFilter(value);
     setPage(0);
   }, []);
 
@@ -256,19 +300,14 @@ export function AuditLogPanel() {
     }
   }, [t, loadData]);
 
-  const handleExport = useCallback(async () => {
-    try {
-      const content = await exportAuditLog();
-      const blob = new Blob([content], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `qoredb-audit-log-${new Date().toISOString().split('T')[0]}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      console.error('Failed to export audit log:', err);
-    }
+  const handleFilterByFingerprint = useCallback((fingerprint: string) => {
+    setFingerprintFilter(fingerprint);
+    setPage(0);
+  }, []);
+
+  const clearFingerprintFilter = useCallback(() => {
+    setFingerprintFilter(null);
+    setPage(0);
   }, []);
 
   const hasMore = entries.length === PAGE_SIZE;
@@ -303,10 +342,7 @@ export function AuditLogPanel() {
           </Button>
           {isAdvanced && (
             <>
-              <Button variant="outline" size="sm" onClick={handleExport}>
-                <Download className="w-4 h-4 mr-1" />
-                JSON
-              </Button>
+              <AuditExportMenu />
               <Button variant="outline" size="sm" onClick={handleClear}>
                 <Trash2 className="w-4 h-4 mr-1" />
                 {t('interceptor.audit.clearLog')}
@@ -316,24 +352,35 @@ export function AuditLogPanel() {
         </div>
       </div>
 
-      {/* Stats — Pro only */}
+      {/* Stats — Pro only. Click a status card to filter the list. */}
       {isAdvanced && stats && (
         <div className="grid grid-cols-5 gap-2 p-4 border-b border-border">
-          <StatsCard label={t('interceptor.audit.stats.total')} value={stats.total} />
+          <StatsCard
+            label={t('interceptor.audit.stats.total')}
+            value={stats.total}
+            active={statusFilter === 'all'}
+            onClick={() => updateStatus('all')}
+          />
           <StatsCard
             label={t('interceptor.audit.stats.success')}
             value={stats.successful}
             color="text-green-500"
+            active={statusFilter === 'success'}
+            onClick={() => updateStatus(statusFilter === 'success' ? 'all' : 'success')}
           />
           <StatsCard
             label={t('interceptor.audit.stats.failed')}
             value={stats.failed}
             color="text-red-500"
+            active={statusFilter === 'failed'}
+            onClick={() => updateStatus(statusFilter === 'failed' ? 'all' : 'failed')}
           />
           <StatsCard
             label={t('interceptor.audit.stats.blocked')}
             value={stats.blocked}
             color="text-yellow-500"
+            active={statusFilter === 'blocked'}
+            onClick={() => updateStatus(statusFilter === 'blocked' ? 'all' : 'blocked')}
           />
           <StatsCard
             label={t('interceptor.audit.stats.lastHour')}
@@ -351,14 +398,14 @@ export function AuditLogPanel() {
             <Input
               placeholder={t('search.placeholder')}
               value={search}
-              onChange={e => setSearch(e.target.value)}
+              onChange={e => updateSearch(e.target.value)}
               className="pl-9"
             />
           </div>
 
           <Select
             value={environmentFilter}
-            onValueChange={v => setEnvironmentFilter(v as Environment | 'all')}
+            onValueChange={v => updateEnvironment(v as Environment | 'all')}
           >
             <SelectTrigger className="w-40">
               <SelectValue placeholder={t('interceptor.audit.filters.environment')} />
@@ -373,7 +420,7 @@ export function AuditLogPanel() {
 
           <Select
             value={statusFilter}
-            onValueChange={v => setStatusFilter(v as typeof statusFilter)}
+            onValueChange={v => updateStatus(v as typeof statusFilter)}
           >
             <SelectTrigger className="w-32">
               <SelectValue placeholder={t('interceptor.audit.filters.status')} />
@@ -393,7 +440,24 @@ export function AuditLogPanel() {
         </div>
       )}
 
-      {/* Entries */}
+      {isAdvanced && fingerprintFilter && (
+        <div className="flex items-center gap-2 px-4 py-2 border-b border-border bg-muted/30 text-xs">
+          <Hash className="w-3 h-3 text-muted-foreground" />
+          <span className="text-muted-foreground">{t('interceptor.audit.fingerprintFilter')}</span>
+          <code className="font-mono px-2 py-0.5 rounded bg-background border border-border">
+            {fingerprintFilter}
+          </code>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 px-2 text-xs"
+            onClick={clearFingerprintFilter}
+          >
+            {t('common.clear')}
+          </Button>
+        </div>
+      )}
+
       <ScrollArea className="flex-1">
         <div className="p-4 space-y-2">
           {entries.length === 0 ? (
@@ -441,145 +505,14 @@ export function AuditLogPanel() {
         </div>
       </div>
 
-      {/* Entry Detail Modal */}
       {selectedEntry && (
         <AuditEntryDetail
           entry={selectedEntry}
           onClose={() => setSelectedEntry(null)}
           getSafetyRuleLabel={getSafetyRuleLabel}
+          onFilterByFingerprint={handleFilterByFingerprint}
         />
       )}
-    </div>
-  );
-}
-
-interface AuditEntryDetailProps {
-  entry: AuditLogEntry;
-  onClose: () => void;
-  getSafetyRuleLabel?: (ruleId?: string | null) => string;
-}
-
-function AuditEntryDetail({ entry, onClose, getSafetyRuleLabel }: AuditEntryDetailProps) {
-  const { t } = useTranslation();
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-
-      <div className="relative bg-background rounded-lg shadow-xl border border-border w-full max-w-2xl mx-4 max-h-[80vh] overflow-hidden flex flex-col">
-        <div className="flex items-center justify-between p-4 border-b border-border">
-          <h3 className="font-semibold">{t('interceptor.audit.detail.title')}</h3>
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-1 rounded hover:bg-muted transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        <ScrollArea className="flex-1 p-4">
-          <div className="space-y-4">
-            {/* Status */}
-            <div className="flex items-center gap-2 flex-wrap">
-              <span
-                className={`text-xs px-2 py-1 rounded font-medium ${getEnvironmentColor(entry.environment)}`}
-              >
-                {entry.environment.toUpperCase()}
-              </span>
-              <span className="text-xs px-2 py-1 rounded bg-muted">{entry.operation_type}</span>
-              <span className="text-xs px-2 py-1 rounded bg-muted">{entry.driver_id}</span>
-              <span
-                className={`text-xs px-2 py-1 rounded ${
-                  entry.blocked
-                    ? 'bg-yellow-500/10 text-yellow-600'
-                    : entry.success
-                      ? 'bg-green-500/10 text-green-600'
-                      : 'bg-red-500/10 text-red-600'
-                }`}
-              >
-                {entry.blocked
-                  ? t('interceptor.audit.status.blocked')
-                  : entry.success
-                    ? t('interceptor.audit.status.success')
-                    : t('interceptor.audit.status.failed')}
-              </span>
-            </div>
-
-            {/* Query */}
-            <div>
-              <Label className="text-sm font-medium">{t('interceptor.audit.detail.query')}</Label>
-              <pre className="mt-1 p-3 rounded bg-muted font-mono text-sm whitespace-pre-wrap break-all">
-                {entry.query}
-              </pre>
-            </div>
-
-            {/* Details Grid */}
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <Label className="text-muted-foreground">
-                  {t('interceptor.audit.detail.timestamp')}
-                </Label>
-                <p>{new Date(entry.timestamp).toLocaleString()}</p>
-              </div>
-              <div>
-                <Label className="text-muted-foreground">
-                  {t('interceptor.audit.detail.sessionId')}
-                </Label>
-                <p className="font-mono text-xs">{entry.session_id}</p>
-              </div>
-              <div>
-                <Label className="text-muted-foreground">
-                  {t('interceptor.audit.detail.database')}
-                </Label>
-                <p>{entry.database || '-'}</p>
-              </div>
-              <div>
-                <Label className="text-muted-foreground">
-                  {t('interceptor.audit.detail.executionTime')}
-                </Label>
-                <p>{formatExecutionTime(entry.execution_time_ms)}</p>
-              </div>
-              {entry.row_count != null && (
-                <div>
-                  <Label className="text-muted-foreground">
-                    {t('interceptor.audit.detail.rowCount')}
-                  </Label>
-                  <p>{entry.row_count}</p>
-                </div>
-              )}
-            </div>
-
-            {/* Safety Rule */}
-            {entry.blocked && entry.safety_rule && (
-              <div>
-                <Label className="text-sm font-medium text-yellow-600">
-                  {t('interceptor.audit.detail.blockedBy')}
-                </Label>
-                <p className="mt-1 text-sm text-yellow-600">
-                  {getSafetyRuleLabel?.(entry.safety_rule) ?? entry.safety_rule}
-                </p>
-              </div>
-            )}
-
-            {/* Error */}
-            {entry.error && (
-              <div>
-                <Label className="text-sm font-medium text-red-600">
-                  {t('interceptor.audit.detail.error')}
-                </Label>
-                <p className="mt-1 text-sm text-red-600">{entry.error}</p>
-              </div>
-            )}
-          </div>
-        </ScrollArea>
-
-        <div className="flex justify-end p-4 border-t border-border">
-          <Button variant="outline" onClick={onClose}>
-            {t('common.close')}
-          </Button>
-        </div>
-      </div>
     </div>
   );
 }

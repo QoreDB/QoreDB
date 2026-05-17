@@ -14,6 +14,9 @@ interface ModalState {
   connectionModalOpen: boolean;
   libraryModalOpen: boolean;
   logsOpen: boolean;
+  auditLogOpen: boolean;
+  contractsOpen: boolean;
+  instantApiOpen: boolean;
   settingsOpen: boolean;
   sidebarVisible: boolean;
   showOnboarding: boolean;
@@ -21,6 +24,8 @@ interface ModalState {
   zenMode: boolean;
   editConnection: SavedConnection | null;
   editPassword: string;
+  backupConnection: SavedConnection | null;
+  restoreConnection: SavedConnection | null;
 }
 
 let state: ModalState = {
@@ -29,6 +34,9 @@ let state: ModalState = {
   connectionModalOpen: false,
   libraryModalOpen: false,
   logsOpen: false,
+  auditLogOpen: false,
+  contractsOpen: false,
+  instantApiOpen: false,
   settingsOpen: false,
   sidebarVisible: true,
   showOnboarding: false,
@@ -36,6 +44,8 @@ let state: ModalState = {
   zenMode: false,
   editConnection: null,
   editPassword: '',
+  backupConnection: null,
+  restoreConnection: null,
 };
 
 const listeners = new Set<() => void>();
@@ -95,6 +105,37 @@ export function setLibraryModalOpen(open: boolean) {
 export function setLogsOpen(open: boolean) {
   if (state.logsOpen === open) return;
   updateState({ logsOpen: open });
+}
+
+export function setAuditLogOpen(open: boolean) {
+  if (state.auditLogOpen === open) return;
+  updateState({ auditLogOpen: open });
+}
+
+export function setContractsOpen(open: boolean) {
+  if (state.contractsOpen === open) return;
+  updateState({ contractsOpen: open });
+}
+
+export function setInstantApiOpen(open: boolean) {
+  if (state.instantApiOpen === open) return;
+  updateState({ instantApiOpen: open });
+}
+
+export function openBackupDialog(connection: SavedConnection) {
+  updateState({ backupConnection: connection });
+}
+
+export function closeBackupDialog() {
+  updateState({ backupConnection: null });
+}
+
+export function openRestoreDialog(connection: SavedConnection) {
+  updateState({ restoreConnection: connection });
+}
+
+export function closeRestoreDialog() {
+  updateState({ restoreConnection: null });
 }
 
 export function setSettingsOpen(open: boolean) {

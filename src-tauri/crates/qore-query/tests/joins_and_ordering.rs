@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-//! Semaine 4 coverage: JOINs, table aliases, NULLS FIRST/LAST ordering.
+//! JOINs, table aliases, NULLS FIRST/LAST ordering.
 
 use qore_query::prelude::*;
 use qore_query::query::{Nulls, Order, Query};
@@ -20,10 +20,6 @@ fn ms() -> Dialect {
 fn dd() -> Dialect {
     Dialect::DuckDb
 }
-
-// ============================================================================
-// JOINs
-// ============================================================================
 
 #[test]
 fn inner_join_with_aliases_postgres() {
@@ -99,7 +95,7 @@ fn full_join_accepted_on_postgres_and_mssql_and_duckdb() {
             .from("a")
             .all()
             .full_join("b", col("x").eq(1i64))
-            .order_by("x", Order::Asc) // MSSQL-safe; others ignore
+            .order_by("x", Order::Asc) // ORDER BY required by MSSQL OFFSET/FETCH; harmless elsewhere.
             .build(d)
             .unwrap();
         assert!(q.sql.contains("FULL JOIN"), "dialect: {:?}", d);
@@ -140,10 +136,6 @@ fn multiple_joins_preserve_order() {
     );
 }
 
-// ============================================================================
-// Table alias on FROM
-// ============================================================================
-
 #[test]
 fn from_as_renders_with_as_keyword() {
     let q = Query::select()
@@ -156,19 +148,15 @@ fn from_as_renders_with_as_keyword() {
 
 #[test]
 fn from_after_from_as_resets_alias() {
-    // Calling .from() after .from_as() should clear the alias (no stale state).
+    // `.from()` after `.from_as()` must drop the alias (no stale state).
     let q = Query::select()
         .from_as("users", "u")
-        .from("products") // overrides and drops alias
+        .from("products")
         .all()
         .build(pg())
         .unwrap();
     assert_eq!(q.sql, r#"SELECT * FROM "products""#);
 }
-
-// ============================================================================
-// NULLS FIRST / LAST
-// ============================================================================
 
 #[test]
 fn nulls_ordering_native_on_postgres_sqlite_duckdb() {
@@ -196,7 +184,7 @@ fn nulls_ordering_emulated_on_mysql() {
         .order_by_nulls("name", Order::Asc, Nulls::Last)
         .build(my())
         .unwrap();
-    // NULLS LAST: non-NULLs (key 0) sort before NULLs (key 1)
+    // NULLS LAST: non-NULLs (key 0) sort before NULLs (key 1).
     assert_eq!(
         q.sql,
         "SELECT * FROM `t` ORDER BY CASE WHEN `name` IS NULL THEN 1 ELSE 0 END, `name` ASC"
@@ -211,7 +199,7 @@ fn nulls_first_emulated_on_mssql() {
         .order_by_nulls("created_at", Order::Desc, Nulls::First)
         .build(ms())
         .unwrap();
-    // NULLS FIRST: NULLs (key 0) sort before non-NULLs (key 1)
+    // NULLS FIRST: NULLs (key 0) sort before non-NULLs (key 1).
     assert_eq!(
         q.sql,
         "SELECT * FROM [t] ORDER BY CASE WHEN [created_at] IS NULL THEN 0 ELSE 1 END, [created_at] DESC"
@@ -220,8 +208,8 @@ fn nulls_first_emulated_on_mssql() {
 
 #[test]
 fn order_by_without_nulls_clause_is_untouched() {
-    // Sanity: regular order_by() should not emit any CASE WHEN prefix,
-    // even on a dialect that lacks NULLS support.
+    // Plain `order_by` must not emit a CASE WHEN prefix, even on dialects
+    // without native NULLS ordering.
     let q = Query::select()
         .from("t")
         .all()
@@ -233,7 +221,6 @@ fn order_by_without_nulls_clause_is_untouched() {
 
 #[test]
 fn mixed_order_by_with_and_without_nulls() {
-    // Multiple order keys where only some have NULLS clause.
     let q = Query::select()
         .from("t")
         .all()

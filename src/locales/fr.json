@@ -113,6 +113,8 @@
       "deleteFail": "Échec de la suppression de la connexion",
       "newQuery": "Nouvelle requête",
       "newNotebook": "Nouveau Notebook",
+      "backup": "Sauvegarder la base…",
+      "restore": "Restaurer depuis une sauvegarde…",
       "credentialLoadFail": "Échec du chargement des détails de la connexion",
       "testTitleSuccess": "Connexion à {{name}} réussie !"
     },
@@ -184,6 +186,11 @@
     "driverGroups": {
       "sql": "SQL",
       "nosql": "NoSQL"
+    },
+    "clickhouse": {
+      "cluster": "Nom du cluster (optionnel)",
+      "clusterPlaceholder": "ex. shard_cluster",
+      "clusterHint": "Quand renseigné, les DDL (CREATE/DROP DATABASE/TABLE) utilisent ON CLUSTER pour se propager à toutes les répliques. Laisser vide pour une installation mono-nœud."
     }
   },
   "sidebar": {
@@ -202,7 +209,8 @@
     "favorites": "Favoris",
     "otherConnections": "Autres connexions",
     "addToFavorites": "Favoris",
-    "removeFromFavorites": "Retirer des favoris"
+    "removeFromFavorites": "Retirer des favoris",
+    "auditLog": "Journal d'audit"
   },
   "search": {
     "placeholder": "Tapez une commande ou recherchez...",
@@ -545,6 +553,14 @@
     },
     "modified": "Modifié",
     "shortcuts": {
+      "title": "Raccourcis clavier",
+      "description": "Clique sur un raccourci pour le réenregistrer. Esc annule l'enregistrement.",
+      "recordHint": "Clique sur un raccourci pour le réenregistrer. La nouvelle combinaison est appliquée immédiatement et persiste entre les sessions.",
+      "recording": "Tape la combinaison…",
+      "errorSystemReserved": "Réservé par le système",
+      "conflictTooltip": "Conflit avec un autre raccourci",
+      "resetOne": "Restaurer la valeur par défaut",
+      "resetAll": "Tout restaurer",
       "categoryNavigation": "Navigation",
       "categoryEditor": "Éditeur",
       "categoryGeneral": "Général",
@@ -563,6 +579,16 @@
       "description": "Configurer le comportement de la barre d'onglets.",
       "groupByConnection": "Grouper les onglets par connexion",
       "groupByConnectionDescription": "Afficher les onglets dans des groupes pliables sous le nom de leur connexion."
+    },
+    "backupTools": {
+      "title": "Chemins des outils de sauvegarde",
+      "description": "QoreDB délègue aux outils CLI officiels (pg_dump, mysqldump, mongodump, sqlite3). Si la détection automatique échoue, vous pouvez fixer un chemin explicite.",
+      "summary": "{{found}} outils sur {{total}} détectés sur ce système.",
+      "refresh": "Re-détecter",
+      "choose": "Choisir…",
+      "overridden": "Manuel",
+      "notFound": "Introuvable dans le PATH.",
+      "empty": "Aucun outil détecté pour l'instant."
     }
   },
   "table": {
@@ -1389,6 +1415,12 @@
       "noEntries": "Aucune entrée dans le journal d'audit",
       "upgradeForFilters": "Passez à Pro pour les filtres, l'export et les statistiques avancées",
       "blockedBy": "Bloqué par : {{rule}}",
+      "fingerprintFilter": "Empreinte",
+      "export": {
+        "label": "Exporter",
+        "format": "Format",
+        "fromDisk": "Inclure l'historique sur disque"
+      },
       "filters": {
         "environment": "Environnement",
         "allEnvironments": "Tous les environnements",
@@ -1415,6 +1447,8 @@
         "database": "Base de données",
         "executionTime": "Temps d'exécution",
         "rowCount": "Nombre de lignes",
+        "fingerprint": "Empreinte",
+        "filterByFingerprint": "Filtrer par cette empreinte",
         "blockedBy": "Bloquée par une règle de sécurité",
         "error": "Erreur"
       },
@@ -2132,6 +2166,8 @@
     "importedCount": "{{count}} connexions importées",
     "gitWarning": "Les métadonnées de connexion (hôte, port, utilisateur) seront stockées dans .qoredb/ et versionnables avec Git. Les mots de passe ne sont jamais écrits sur disque.",
     "rename": "Renommer",
+    "revealFolder": "Ouvrir le dossier",
+    "revealFolderFailed": "Impossible d'ouvrir le dossier du workspace.",
     "renamePrompt": "Nouveau nom de l'espace :",
     "leave": "Quitter l'espace"
   },
@@ -2368,5 +2404,236 @@
     "alter": {
       "driverUnsupported": "ALTER TABLE n'est pas pris en charge par le driver : {{driver}}"
     }
+  },
+  "backup": {
+    "dialogTitle": "Sauvegarde de {{name}}",
+    "mode": "Mode",
+    "modeFull": "Complète (schéma + données)",
+    "modeSchemaOnly": "Schéma seul",
+    "modeDataOnly": "Données seules",
+    "format": "Format",
+    "password": "Mot de passe",
+    "passwordPlaceholder": "Requis par l'outil de dump",
+    "tablesOptional": "Tables (optionnel)",
+    "tablesPlaceholder": "Séparées par virgules ; vide = toutes",
+    "outputPath": "Fichier de sortie",
+    "outputPathPlaceholder": "Choisir une destination",
+    "browse": "Parcourir…",
+    "start": "Démarrer la sauvegarde",
+    "running": "En cours…",
+    "starting": "Démarrage…",
+    "progress": "Progression",
+    "completed": "Sauvegarde terminée avec succès.",
+    "exitedWithCode": "L'outil de sauvegarde a quitté avec le code {{code}}.",
+    "cancel": "Annuler",
+    "cancelling": "Annulation…",
+    "outputDir": "Dossier de sortie",
+    "duckdbHint": "DuckDB EXPORT DATABASE écrit un dossier contenant schema.sql et un fichier par table."
+  },
+  "contracts": {
+    "title": "Contrats de données",
+    "description": "Assertions déclaratives de qualité des données",
+    "openPanel": "Contrats de données…",
+    "newContract": "Nouveau contrat",
+    "edit": "Modifier",
+    "delete": "Supprimer",
+    "run": {
+      "dialogTitle": "Exécuter le contrat : {{name}}",
+      "connectionMissing": "Connectez-vous à la cible du contrat avant l'exécution.",
+      "starting": "Démarrage…",
+      "ruleProgress": "Règle {{index}} sur {{total}}",
+      "completedSummary": "Terminé : {{pass}} succès, {{fail}} échecs, {{error}} erreurs, {{skipped}} ignorées",
+      "runFailed": "Échec de l'exécution",
+      "results": "Résultats"
+    },
+    "running": "Exécution…",
+    "rerun": "Réexécuter",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "close": "Fermer",
+    "discard": "Abandonner",
+    "unsavedChanges": "Modifications non enregistrées",
+    "empty": {
+      "title": "Aucun contrat",
+      "description": "Créez un contrat YAML pour vérifier la qualité des données de ce workspace.",
+      "createFirst": "Créer un premier contrat"
+    },
+    "list": {
+      "name": "Nom",
+      "rulesCount_one": "{{count}} règle",
+      "rulesCount_other": "{{count}} règles",
+      "lastRun": "Dernière exécution",
+      "neverRun": "Jamais exécuté",
+      "status": "État"
+    },
+    "editor": {
+      "title": "Éditeur de contrat",
+      "namePlaceholder": "nom (correspond au nom de fichier)",
+      "yamlSource": "Source YAML",
+      "validating": "Validation…",
+      "valid": "Valide",
+      "invalid": "Invalide",
+      "save": "Enregistrer le contrat",
+      "saved": "Contrat enregistré",
+      "saveFailed": "Échec de l'enregistrement du contrat",
+      "template": "Insérer un modèle",
+      "nameMismatch": "Le nom intégré doit correspondre au nom de fichier"
+    },
+    "results": {
+      "rule": "Règle",
+      "type": "Type",
+      "status": "État",
+      "violations": "Violations",
+      "metric": "Métrique",
+      "duration": "Durée",
+      "samples": "Échantillons",
+      "showSamples": "Afficher les violations",
+      "hideSamples": "Masquer les violations",
+      "noSamples": "Aucun échantillon disponible"
+    },
+    "status": {
+      "pass": "Réussite",
+      "fail": "Échec",
+      "skipped": "Ignorée",
+      "error": "Erreur"
+    },
+    "health": {
+      "healthy": "Sain",
+      "warning": "Avertissements",
+      "failing": "En échec",
+      "unknown": "Pas encore exécuté"
+    },
+    "ruleType": {
+      "not_null_pct": "Non null %",
+      "not_empty": "Non vide",
+      "regex_match": "Correspondance regex",
+      "length_range": "Plage de longueur",
+      "numeric_range": "Plage numérique",
+      "date_range": "Plage de dates",
+      "allowed_values": "Valeurs autorisées",
+      "unique": "Unique",
+      "distinct_count": "Nombre distinct",
+      "foreign_key_integrity": "Intégrité référentielle",
+      "row_count": "Nombre de lignes",
+      "custom_sql": "SQL personnalisé"
+    },
+    "history": {
+      "title": "Historique des exécutions",
+      "empty": "Aucune exécution",
+      "viewDetails": "Voir les détails"
+    },
+    "errors": {
+      "loadFailed": "Échec du chargement des contrats",
+      "deleteFailed": "Échec de la suppression du contrat",
+      "runFailed": "Échec de l'exécution du contrat"
+    },
+    "confirm": {
+      "deleteTitle": "Supprimer le contrat « {{name}} » ?",
+      "deleteBody": "Le fichier du contrat et son historique seront supprimés définitivement."
+    }
+  },
+  "instantApi": {
+    "title": "Instant Data API",
+    "description": "Expose des requêtes sauvegardées en endpoints REST locaux, en lecture seule.",
+    "close": "Fermer",
+    "newEndpoint": "Nouvel endpoint",
+    "endpointsLabel": "endpoint(s)",
+    "confirmDelete": "Supprimer l'endpoint « {{name}} » ?",
+    "regenerate": "Régénérer le jeton",
+    "regenerateConfirm": "Générer un nouveau jeton pour « {{name}} » ? L'ancien cessera de fonctionner immédiatement.",
+    "regenerateFailed": "Échec de la régénération du jeton",
+    "status": {
+      "running": "Serveur en marche",
+      "stopped": "Serveur arrêté",
+      "start": "Démarrer",
+      "stop": "Arrêter"
+    },
+    "empty": {
+      "title": "Aucun endpoint pour l'instant",
+      "description": "Créez votre premier endpoint pour exposer une requête comme URL REST.",
+      "createFirst": "Créer un endpoint"
+    },
+    "errors": {
+      "statusFailed": "Échec du chargement du statut Instant API",
+      "startFailed": "Échec du démarrage du serveur Instant API",
+      "stopFailed": "Échec de l'arrêt du serveur Instant API",
+      "deleteFailed": "Échec de la suppression de l'endpoint"
+    },
+    "list": {
+      "name": "Nom",
+      "shape": "Forme",
+      "url": "URL",
+      "serverStopped": "Démarrez le serveur avant d'ouvrir cette URL.",
+      "paramsCount_one": "{{count}} param.",
+      "paramsCount_other": "{{count}} params.",
+      "pageSize_one": "{{count}} ligne/page",
+      "pageSize_other": "{{count}} lignes/page"
+    },
+    "endpoint": {
+      "newTitle": "Nouvel endpoint",
+      "newDescription": "Choisissez une connexion, écrivez une requête paramétrée en lecture seule, c'est tout.",
+      "nameLabel": "Nom",
+      "nameHint": "Lettres, chiffres, tiret, underscore — utilisé dans l'URL.",
+      "connectionLabel": "Connexion",
+      "selectConnection": "Choisir une connexion…",
+      "queryLabel": "Requête",
+      "queryHint": "Utilisez les balises {{tag}} pour les paramètres déclarés.",
+      "shapeLabel": "Forme de la réponse",
+      "shape": {
+        "rows": "Liste de lignes",
+        "object": "Objet unique"
+      },
+      "pageSizeLabel": "Taille de page",
+      "paramsLabel": "Paramètres",
+      "addParam": "Ajouter",
+      "noParams": "Aucun paramètre déclaré.",
+      "paramName": "nom",
+      "paramDefault": "défaut",
+      "cancel": "Annuler",
+      "create": "Créer l'endpoint",
+      "creating": "Création…",
+      "createFailed": "Échec de la création de l'endpoint",
+      "invalidName": "Nom invalide — lettres, chiffres, tiret, underscore (1–64).",
+      "missingConnection": "Choisissez une connexion.",
+      "missingQuery": "La requête est vide.",
+      "invalidPageSize": "La taille de page doit être entre 1 et 10000.",
+      "invalidParamName": "Nom de paramètre invalide : {{name}}",
+      "paramNotInQuery": "Le paramètre {{name}} n'est pas utilisé dans la requête.",
+      "loadConnectionsFailed": "Échec du chargement des connexions"
+    },
+    "token": {
+      "title": "Jeton d'endpoint (affiché une seule fois)",
+      "description": "Copiez ce jeton maintenant — il ne pourra plus être récupéré. Utilisez-le dans l'en-tête Authorization.",
+      "tokenLabel": "Jeton Bearer",
+      "curlLabel": "Exemple",
+      "warning": "Ce jeton donne un accès en lecture à cet endpoint. Traitez-le comme un mot de passe.",
+      "copyFailed": "Échec de la copie",
+      "done": "C'est noté"
+    },
+    "openapi": {
+      "open": "Aperçu OpenAPI",
+      "title": "Spécification OpenAPI 3.1",
+      "description": "Générée automatiquement depuis les endpoints. Importable dans Swagger UI ou Postman.",
+      "copy": "Copier le JSON",
+      "copied": "Copié",
+      "download": "Télécharger",
+      "loadFailed": "Échec du chargement du document OpenAPI",
+      "close": "Fermer"
+    },
+    "tls": {
+      "useHttps": "Utiliser HTTPS",
+      "badge": "HTTPS",
+      "selfSigned": "Certificat auto-signé généré au démarrage. Les navigateurs demanderont une exception manuelle à la première visite."
+    }
+  },
+  "restore": {
+    "dialogTitle": "Restaurer dans {{name}}",
+    "destructiveWarning": "Cette opération va écraser ou modifier les données de \"{{name}}\". Assurez-vous d'avoir une sauvegarde récente avant de continuer.",
+    "inputPath": "Fichier de sauvegarde",
+    "inputPathPlaceholder": "Choisir un fichier à restaurer",
+    "confirmLabel": "Saisissez \"{{name}}\" pour confirmer",
+    "start": "Démarrer la restauration",
+    "completed": "Restauration terminée avec succès.",
+    "duckdbHint": "Choisissez le dossier précédemment produit par EXPORT DATABASE."
   }
 }

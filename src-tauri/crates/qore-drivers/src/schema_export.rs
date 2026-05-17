@@ -5,8 +5,8 @@
 //! Generates CREATE TABLE statements from TableSchema metadata,
 //! using SqlDialect for driver-specific formatting.
 
-use qore_sql::generator::SqlDialect;
 use qore_core::types::{Namespace, TableSchema};
+use qore_sql::generator::SqlDialect;
 
 /// Generates a complete CREATE TABLE DDL statement from a TableSchema,
 /// followed by CREATE INDEX statements for non-primary indexes.
@@ -19,13 +19,11 @@ pub fn generate_create_table_ddl(
     let mut output = String::new();
     let qualified = dialect.qualified_table(namespace, table_name);
 
-    // -- Comment header
     output.push_str(&format!("-- Table: {}\n", qualified));
     output.push_str(&format!("CREATE TABLE {} (\n", qualified));
 
     let mut parts: Vec<String> = Vec::new();
 
-    // Column definitions
     for col in &schema.columns {
         let mut def = format!("  {} {}", dialect.quote_ident(&col.name), col.data_type);
 
@@ -42,7 +40,6 @@ pub fn generate_create_table_ddl(
         parts.push(def);
     }
 
-    // PRIMARY KEY constraint (composite or multi-column)
     if let Some(ref pk_cols) = schema.primary_key {
         if !pk_cols.is_empty() {
             let pk_quoted: Vec<String> = pk_cols.iter().map(|c| dialect.quote_ident(c)).collect();
@@ -50,7 +47,7 @@ pub fn generate_create_table_ddl(
         }
     }
 
-    // FOREIGN KEY constraints (skip virtual relations)
+    // Skip virtual relations: only emit real FK constraints.
     for fk in &schema.foreign_keys {
         if fk.is_virtual {
             continue;
@@ -84,7 +81,6 @@ pub fn generate_create_table_ddl(
     output.push_str(&parts.join(",\n"));
     output.push_str("\n);\n");
 
-    // CREATE INDEX statements (non-primary)
     for idx in &schema.indexes {
         if idx.is_primary {
             continue;

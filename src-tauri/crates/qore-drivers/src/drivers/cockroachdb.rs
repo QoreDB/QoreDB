@@ -53,7 +53,6 @@ impl DataEngine for CockroachDbDriver {
         "CockroachDB"
     }
 
-    // ==================== Connection ====================
 
     async fn test_connection(&self, config: &ConnectionConfig) -> EngineResult<()> {
         pg_compat::test_connection(&Self::conn_str(config)).await
@@ -71,7 +70,6 @@ impl DataEngine for CockroachDbDriver {
         pg_compat::ping(&self.sessions, session).await
     }
 
-    // ==================== Namespaces ====================
     // CockroachDB-specific: filter out crdb_internal, pg_extension
 
     async fn list_namespaces(&self, session: SessionId) -> EngineResult<Vec<Namespace>> {
@@ -103,7 +101,6 @@ impl DataEngine for CockroachDbDriver {
             .collect())
     }
 
-    // ==================== Collections ====================
     // CockroachDB-specific: no materialized views
 
     async fn list_collections(
@@ -177,7 +174,6 @@ impl DataEngine for CockroachDbDriver {
         })
     }
 
-    // ==================== Describe Table ====================
     // CockroachDB-specific: don't rely on pg_stat_user_tables
 
     async fn describe_table(
@@ -189,7 +185,6 @@ impl DataEngine for CockroachDbDriver {
         pg_compat::describe_table_core(&self.sessions, session, namespace, table, false).await
     }
 
-    // ==================== Execute ====================
 
     async fn execute(
         &self,
@@ -265,7 +260,6 @@ impl DataEngine for CockroachDbDriver {
         .await
     }
 
-    // ==================== Preview / Query Table / Peek FK ====================
 
     async fn preview_table(
         &self,
@@ -313,7 +307,6 @@ impl DataEngine for CockroachDbDriver {
         .await
     }
 
-    // ==================== Cancel ====================
 
     async fn cancel(&self, session: SessionId, query_id: Option<QueryId>) -> EngineResult<()> {
         pg_compat::cancel(&self.sessions, session, query_id).await
@@ -323,7 +316,6 @@ impl DataEngine for CockroachDbDriver {
         pg_compat::cancel_support()
     }
 
-    // ==================== Transactions ====================
 
     async fn begin_transaction(&self, session: SessionId) -> EngineResult<()> {
         pg_compat::begin_transaction(&self.sessions, session).await
@@ -341,7 +333,6 @@ impl DataEngine for CockroachDbDriver {
         true
     }
 
-    // ==================== Mutations ====================
 
     async fn insert_row(
         &self,
@@ -378,7 +369,6 @@ impl DataEngine for CockroachDbDriver {
         true
     }
 
-    // ==================== Routines ====================
 
     fn supports_routines(&self) -> bool {
         true
@@ -431,7 +421,6 @@ impl DataEngine for CockroachDbDriver {
         .await
     }
 
-    // ==================== Triggers ====================
 
     fn supports_triggers(&self) -> bool {
         true
@@ -484,7 +473,6 @@ impl DataEngine for CockroachDbDriver {
         .await
     }
 
-    // ==================== Schema operations ====================
 
     async fn create_database(
         &self,
@@ -499,7 +487,6 @@ impl DataEngine for CockroachDbDriver {
         pg_compat::drop_schema(&self.sessions, session, name, "CockroachDB").await
     }
 
-    // ==================== Maintenance ====================
     // CockroachDB-specific: only ANALYZE is supported
 
     fn supports_maintenance(&self) -> bool {
@@ -590,6 +577,7 @@ mod tests {
             pool_min_connections: None,
             proxy: None,
             mssql_auth: None,
+clickhouse_cluster: None,
         }
     }
 

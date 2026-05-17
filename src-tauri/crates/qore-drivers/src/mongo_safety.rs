@@ -269,8 +269,7 @@ mod tests {
 
     #[test]
     fn json_aggregate_with_where_operator_is_unknown() {
-        let query =
-            r#"{"operation":"aggregate","pipeline":[{"$match":{"$where":"this.x>0"}}]}"#;
+        let query = r#"{"operation":"aggregate","pipeline":[{"$match":{"$where":"this.x>0"}}]}"#;
         assert_eq!(classify(query), MongoQueryClass::Unknown);
     }
 
@@ -288,13 +287,15 @@ mod tests {
 
     #[test]
     fn json_create_index_is_mutation() {
-        let query = r#"{"operation":"createIndex","database":"db","collection":"col","keys":{"a":1}}"#;
+        let query =
+            r#"{"operation":"createIndex","database":"db","collection":"col","keys":{"a":1}}"#;
         assert_eq!(classify(query), MongoQueryClass::Mutation);
     }
 
     #[test]
     fn json_drop_index_is_mutation() {
-        let query = r#"{"operation":"dropIndex","database":"db","collection":"col","name":"idx_a"}"#;
+        let query =
+            r#"{"operation":"dropIndex","database":"db","collection":"col","name":"idx_a"}"#;
         assert_eq!(classify(query), MongoQueryClass::Mutation);
     }
 

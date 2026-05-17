@@ -51,7 +51,8 @@ DBeaver, pgAdmin, phpMyAdmin do the job — but they feel slow, dated, and full 
   <img src="public/databases/redis.png" alt="Redis" height="40" />&nbsp;&nbsp;
   <img src="public/databases/supabase.png" alt="Supabase" height="40" />&nbsp;&nbsp;
   <img src="public/databases/neon.png" alt="Neon" height="40" />&nbsp;&nbsp;
-  <img src="public/databases/timescaledb.png" alt="TimescaleDB" height="40" />
+  <img src="public/databases/timescaledb.png" alt="TimescaleDB" height="40" />&nbsp;&nbsp;
+  <img src="public/databases/clickhouse.png" alt="ClickHouse" height="40" />
 </div>
 
 <div align="center">
@@ -107,6 +108,14 @@ DBeaver, pgAdmin, phpMyAdmin do the job — but they feel slow, dated, and full 
 - **Export pipeline** — CSV, JSON, SQL, HTML, self-contained HTML (+ XLSX/Parquet in Pro)
 - **Cross-database federation** — Query and join across active connections via DuckDB
 - **Sandbox mode** — Isolated local changes with migration generation
+- **Backup &amp; restore** — Visual wrappers around `pg_dump`, `mysqldump`, `mongodump` and `sqlite3 .dump`, with streaming logs, cancel mid-run and tool-path overrides
+</details>
+
+<details>
+<summary><b>Data quality &amp; integration</b></summary>
+
+- **Data Contracts** — Declarative YAML assertions (12 rule types: NOT NULL %, regex, range, unique, FK integrity, custom SQL) executed as generated SQL, with a health dashboard, notebook cell and post-mutation alert hook _[Pro]_
+- **Instant Data API** — Expose saved queries as read-only REST endpoints on `127.0.0.1`, with Bearer auth, rate limiting, OpenAPI 3.1 generation and one-shot token regeneration _[Pro]_
 </details>
 
 <details>
@@ -135,7 +144,7 @@ DBeaver, pgAdmin, phpMyAdmin do the job — but they feel slow, dated, and full 
 - **SQL Server Windows authentication** — NTLM (username/password) and SSPI/Kerberos (integrated, no credentials)
 - **Environment safety** — Dev/Staging/Prod guards, dangerous query detection, read-only mode
 - **Universal Query Interceptor** — Central hooks for safety, audit and profiling
-- **Audit logging** — Sensitive content redaction in logs
+- **Audit logging** — Sensitive content redaction in logs, stable SHA-256 query fingerprint per entry, JSONL/CSV export from the full retained trail
 - **Connection resilience** — Automatic reconnection, health monitoring, smart keep-alive
 - **Background job manager** — Async execution for long-running tasks with error recovery
 </details>
@@ -150,6 +159,7 @@ DBeaver, pgAdmin, phpMyAdmin do the job — but they feel slow, dated, and full 
 - **Global search** — `Cmd/Ctrl + K` across connections, history, commands, library
 - **Breadcrumb navigation** — `Connection > Database > Schema > Table` clickable path
 - **Dark / light theme**
+- **Customizable keyboard shortcuts** — Every binding editable from Settings, click-to-rebind, conflict detection, cross-OS chords, reset per shortcut or globally
 - **9 languages** — English, French, Spanish, German, Portuguese (BR), Russian, Japanese, Korean, Chinese (Simplified)
 </details>
 

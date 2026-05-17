@@ -221,6 +221,15 @@ pub fn validate_pipeline(value: &JsonValue) -> Result<ValidatedPipeline, Pipelin
     validate_stages_array(stages_value)
 }
 
+/// Recursively rejects any forbidden server-side execution operator
+/// (`$function`, `$accumulator`, `$where`) appearing anywhere in a filter or
+/// projection document. The aggregation validator already calls this for
+/// pipeline stages — exposed here so the `find` path (cf. audit B4-C4) can
+/// apply the same guard.
+pub fn assert_no_forbidden_operators(value: &JsonValue) -> Result<(), PipelineError> {
+    scan_forbidden_operators(None, value)
+}
+
 fn extract_pipeline_array(value: &JsonValue) -> Result<&JsonValue, PipelineError> {
     if value.is_array() {
         return Ok(value);
@@ -310,7 +319,10 @@ fn parse_stage(index: usize, value: &JsonValue) -> Result<PipelineStage, Pipelin
 
 /// Recursively scan a JSON value for forbidden operators (`$function`,
 /// `$accumulator`, `$where`) anywhere in the tree.
-fn scan_forbidden_operators(stage_index: Option<usize>, value: &JsonValue) -> Result<(), PipelineError> {
+fn scan_forbidden_operators(
+    stage_index: Option<usize>,
+    value: &JsonValue,
+) -> Result<(), PipelineError> {
     scan_recursive(stage_index, value, 0)
 }
 
@@ -431,7 +443,9 @@ mod tests {
             {"$match": {"$expr": {"$and": [{"$where": "this.score > 5"}]}}},
         ]);
         let err = validate_pipeline(&pipeline).unwrap_err();
-        assert!(matches!(err, PipelineError::ForbiddenOperator { operator, .. } if operator == "$where"));
+        assert!(
+            matches!(err, PipelineError::ForbiddenOperator { operator, .. } if operator == "$where")
+        );
     }
 
     #[test]
@@ -443,7 +457,9 @@ mod tests {
             }},
         ]);
         let err = validate_pipeline(&pipeline).unwrap_err();
-        assert!(matches!(err, PipelineError::ForbiddenOperator { operator, .. } if operator == "$accumulator"));
+        assert!(
+            matches!(err, PipelineError::ForbiddenOperator { operator, .. } if operator == "$accumulator")
+        );
     }
 
     #[test]
@@ -534,11 +550,26 @@ mod tests {
             PipelineError::NotAnArray,
             PipelineError::TooManyStages { got: 100, max: 50 },
             PipelineError::InvalidStageShape { index: 0 },
-            PipelineError::AmbiguousStage { index: 0, key_count: 2 },
-            PipelineError::MissingOperatorPrefix { index: 0, key: "x".into() },
-            PipelineError::UnknownOperator { index: 0, operator: "$x".into() },
-            PipelineError::ForbiddenOperator { index: Some(0), operator: "$where".into() },
-            PipelineError::NonTerminalWrite { index: 0, operator: "$out".into() },
+            PipelineError::AmbiguousStage {
+                index: 0,
+                key_count: 2,
+            },
+            PipelineError::MissingOperatorPrefix {
+                index: 0,
+                key: "x".into(),
+            },
+            PipelineError::UnknownOperator {
+                index: 0,
+                operator: "$x".into(),
+            },
+            PipelineError::ForbiddenOperator {
+                index: Some(0),
+                operator: "$where".into(),
+            },
+            PipelineError::NonTerminalWrite {
+                index: 0,
+                operator: "$out".into(),
+            },
         ];
         for case in &cases {
             assert!(!case.user_message().is_empty());

@@ -18,7 +18,7 @@ const MAX_RECENT_WORKSPACES: usize = 10;
 
 const GITIGNORE_CONTENT: &str = "# Secrets are never stored in .qoredb, but just in case:\n*.key\n*.pem\n\n# Local cache\n.cache/\n";
 
-/// FNV-1a 64-bit hash 
+/// FNV-1a 64-bit hash
 fn fnv1a_hash(data: &[u8]) -> u64 {
     const FNV_OFFSET_BASIS: u64 = 0xcbf29ce484222325;
     const FNV_PRIME: u64 = 0x100000001b3;
@@ -33,9 +33,9 @@ fn fnv1a_hash(data: &[u8]) -> u64 {
 
 /// Manages workspace lifecycle: detection, creation, loading, switching.
 pub struct WorkspaceManager {
-    /// Path to the global app config directory (for recent workspaces, default workspace).
+    /// Global app config dir, used to persist recent workspaces and host the
+    /// default workspace.
     app_config_dir: PathBuf,
-    /// The currently active workspace.
     active: WorkspaceInfo,
 }
 
@@ -82,7 +82,11 @@ impl WorkspaceManager {
     }
 
     /// Loads and switches to the workspace at the given `.qoredb/` path.
-    pub fn switch_to(&mut self, qoredb_path: &Path, source: WorkspaceSource) -> EngineResult<WorkspaceInfo> {
+    pub fn switch_to(
+        &mut self,
+        qoredb_path: &Path,
+        source: WorkspaceSource,
+    ) -> EngineResult<WorkspaceInfo> {
         let info = self.load_workspace_at(qoredb_path, source)?;
         self.active = info.clone();
         let _ = self.add_to_recent(&info);
@@ -119,7 +123,11 @@ impl WorkspaceManager {
     }
 
     /// Creates a new workspace at `project_dir/.qoredb/`.
-    pub fn create_workspace(&mut self, project_dir: &Path, name: &str) -> EngineResult<WorkspaceInfo> {
+    pub fn create_workspace(
+        &mut self,
+        project_dir: &Path,
+        name: &str,
+    ) -> EngineResult<WorkspaceInfo> {
         let qoredb_dir = project_dir.join(WORKSPACE_DIR);
 
         if qoredb_dir.join(WORKSPACE_MANIFEST_FILE).exists() {
@@ -128,7 +136,6 @@ impl WorkspaceManager {
             ));
         }
 
-        // Create the directory structure
         let dirs = [
             qoredb_dir.clone(),
             qoredb_dir.join("connections"),
@@ -140,11 +147,14 @@ impl WorkspaceManager {
 
         for dir in &dirs {
             fs::create_dir_all(dir).map_err(|e| {
-                EngineError::internal(format!("Failed to create directory {}: {}", dir.display(), e))
+                EngineError::internal(format!(
+                    "Failed to create directory {}: {}",
+                    dir.display(),
+                    e
+                ))
             })?;
         }
 
-        // Write workspace.json
         let now = Utc::now().to_rfc3339();
         let manifest = WorkspaceManifest {
             version: WORKSPACE_SCHEMA_VERSION,
@@ -159,11 +169,9 @@ impl WorkspaceManager {
         fs::write(qoredb_dir.join(WORKSPACE_MANIFEST_FILE), manifest_json)
             .map_err(|e| EngineError::internal(format!("Failed to write workspace.json: {}", e)))?;
 
-        // Write .gitignore
         fs::write(qoredb_dir.join(".gitignore"), GITIGNORE_CONTENT)
             .map_err(|e| EngineError::internal(format!("Failed to write .gitignore: {}", e)))?;
 
-        // Write empty query library
         fs::write(
             qoredb_dir.join("queries").join("library.json"),
             r#"{"version":1,"folders":[],"items":[]}"#,
@@ -218,16 +226,11 @@ impl WorkspaceManager {
         let manifest_path = qoredb_path.join(WORKSPACE_MANIFEST_FILE);
 
         let content = fs::read_to_string(&manifest_path).map_err(|e| {
-            EngineError::internal(format!(
-                "Failed to read {}: {}",
-                manifest_path.display(),
-                e
-            ))
+            EngineError::internal(format!("Failed to read {}: {}", manifest_path.display(), e))
         })?;
 
-        let manifest: WorkspaceManifest = serde_json::from_str(&content).map_err(|e| {
-            EngineError::internal(format!("Invalid workspace.json: {}", e))
-        })?;
+        let manifest: WorkspaceManifest = serde_json::from_str(&content)
+            .map_err(|e| EngineError::internal(format!("Invalid workspace.json: {}", e)))?;
 
         if manifest.version == 0 {
             return Err(EngineError::internal(
@@ -257,10 +260,8 @@ impl WorkspaceManager {
 
         let mut recents = self.list_recent();
 
-        // Remove existing entry for this path
         recents.retain(|r| r.path != info.path);
 
-        // Prepend
         recents.insert(
             0,
             RecentWorkspace {
@@ -270,7 +271,6 @@ impl WorkspaceManager {
             },
         );
 
-        // Trim
         recents.truncate(MAX_RECENT_WORKSPACES);
 
         let path = self.app_config_dir.join(RECENT_WORKSPACES_FILE);
@@ -315,10 +315,8 @@ mod tests {
         assert!(info.path.join("notebooks").is_dir());
         assert!(info.path.join("queries/library.json").exists());
 
-        // project_id should be ws_<hash>
         assert!(mgr.project_id().starts_with("ws_"));
 
-        // Recent workspaces should include it
         let recents = mgr.list_recent();
         assert_eq!(recents.len(), 1);
         assert_eq!(recents[0].name, "My Project");
@@ -355,10 +353,12 @@ mod tests {
     fn fnv1a_hash_stability() {
         assert_eq!(fnv1a_hash(b""), 0xcbf29ce484222325);
         assert_eq!(fnv1a_hash(b"a"), 0xaf63dc4c8601ec8c);
-        assert_eq!(fnv1a_hash(b"/Users/dev/project/.qoredb"), 0x1c089eff0e6e433e);
+        assert_eq!(
+            fnv1a_hash(b"/Users/dev/project/.qoredb"),
+            0x1c089eff0e6e433e
+        );
         assert_eq!(fnv1a_hash(b"/home/user/app/.qoredb"), 0x49f7a110a4ef9f9b);
 
-        // Same input always gives same output
         let input = b"/some/path/.qoredb";
         assert_eq!(fnv1a_hash(input), fnv1a_hash(input));
     }
@@ -375,6 +375,6 @@ mod tests {
         let id2 = mgr.project_id();
         assert_eq!(id1, id2);
         assert!(id1.starts_with("ws_"));
-        assert_eq!(id1.len(), 3 + 16); // "ws_" + 16 hex chars
+        assert_eq!(id1.len(), 3 + 16);
     }
 }

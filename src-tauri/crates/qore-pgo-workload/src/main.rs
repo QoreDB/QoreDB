@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
-//! Headless PGO workload for QoreDB.
-//!
-//! Drives the SQLite driver through `DataEngine` so the LLVM PGO pass records
-//! profiles for the hot paths the production app spends most CPU cycles in:
+//! Headless PGO workload — drives the SQLite driver through `DataEngine`
+//! so LLVM profile-guided optimization records the production hot paths:
 //!   - SQLx Sqlite pool acquire / fetch / row decoding
 //!   - `qore-drivers` row → `Value` conversion (`extract_value`)
 //!   - `serde_json` serialization of the universal `Value` enum
@@ -13,7 +11,7 @@
 //! merges the resulting `.profraw` files via `llvm-profdata` and feeds the
 //! merged profile into the second-stage release build of `qoredb`.
 //!
-//! NOT shipped — workspace-only binary.
+//! Workspace-only — not shipped.
 
 use std::error::Error;
 use std::fmt::Write as _;

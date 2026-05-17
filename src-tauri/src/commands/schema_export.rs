@@ -6,6 +6,7 @@
 //! of a database to a .sql file.
 
 use serde::{Deserialize, Serialize};
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tauri::State;
 use tracing::instrument;
@@ -71,7 +72,7 @@ pub async fn export_schema(
     let driver_id = driver.driver_id();
     let dialect = SqlDialect::from_driver_id(driver_id);
 
-    // NoSQL drivers don't support schema export
+    // NoSQL drivers have no DDL dialect.
     if dialect.is_none() {
         return Ok(ExportSchemaResponse {
             success: false,
@@ -104,7 +105,6 @@ pub async fn export_schema(
     let mut event_count: u32 = 0;
     let mut sequence_count: u32 = 0;
 
-    // Header
     let now = chrono::Utc::now().format("%Y-%m-%dT%H:%M:%SZ");
     output.push_str("-- ================================================\n");
     output.push_str("-- QoreDB Schema Export\n");
@@ -131,7 +131,6 @@ pub async fn export_schema(
             .await
             .map_err(|e| e.to_string())?;
 
-        // Filter to tables and views only
         let tables: Vec<_> = collections
             .collections
             .iter()
@@ -372,9 +371,14 @@ pub async fn export_schema(
         }
     }
 
-    // Write to file
+    // Validate the destination before writing: `file_path` comes from the
+    // frontend and `tokio::fs::write` bypasses the Tauri `fs:scope` plugin
+    // (cf. audit B6-C4). Without this guard, a forged IPC payload could
+    // write `~/.ssh/authorized_keys` or `/etc/...`.
+    let resolved = resolve_export_path(&file_path)?;
+
     let file_size_bytes = output.len() as u64;
-    tokio::fs::write(&file_path, &output)
+    tokio::fs::write(&resolved, &output)
         .await
         .map_err(|e| format!("Failed to write file: {}", e))?;
 
@@ -388,4 +392,76 @@ pub async fn export_schema(
         file_size_bytes,
         error: None,
     })
+}
+
+/// Whitelist of root directories the frontend may write schema dumps to.
+/// Each entry is canonicalised on use so a symlink at `~/Documents` is
+/// resolved before the prefix check. Returning an empty `Vec` is fine — the
+/// caller will reject any path because no root matches.
+fn allowed_export_roots() -> Vec<PathBuf> {
+    let mut roots = Vec::new();
+    if let Some(p) = dirs::document_dir() {
+        roots.push(p);
+    }
+    if let Some(p) = dirs::download_dir() {
+        roots.push(p);
+    }
+    if let Some(p) = dirs::desktop_dir() {
+        roots.push(p);
+    }
+    if let Some(mut p) = dirs::data_local_dir() {
+        p.push("com.qoredb.app");
+        roots.push(p);
+    }
+    roots
+        .into_iter()
+        .filter_map(|p| std::fs::canonicalize(&p).ok().or(Some(p)))
+        .collect()
+}
+
+/// Resolve `requested` (frontend input) to an absolute path located under one
+/// of the [`allowed_export_roots`]. Rejects:
+/// * relative paths,
+/// * paths whose parent directory cannot be canonicalised,
+/// * paths that escape the whitelist via `..` once resolved.
+fn resolve_export_path(requested: &str) -> Result<PathBuf, String> {
+    let trimmed = requested.trim();
+    if trimmed.is_empty() {
+        return Err("Export path must not be empty".to_string());
+    }
+    let candidate = PathBuf::from(trimmed);
+    if !candidate.is_absolute() {
+        return Err(format!(
+            "Export path must be absolute, got `{}`",
+            trimmed
+        ));
+    }
+
+    let parent = candidate
+        .parent()
+        .ok_or_else(|| format!("Export path `{}` has no parent directory", trimmed))?;
+    let parent_canon = std::fs::canonicalize(parent).map_err(|e| {
+        format!(
+            "Parent directory of `{}` is not accessible: {}",
+            trimmed, e
+        )
+    })?;
+
+    let roots = allowed_export_roots();
+    if !roots.iter().any(|root| parent_canon.starts_with(root)) {
+        return Err(format!(
+            "Export path `{}` is outside the allowed locations \
+             (Documents, Downloads, Desktop, or app data directory)",
+            trimmed
+        ));
+    }
+
+    // Recombine the canonical parent with the requested filename so we don't
+    // accidentally widen the path (e.g. symlinked Documents → /Volumes/Other).
+    let filename = candidate
+        .file_name()
+        .ok_or_else(|| format!("Export path `{}` has no filename", trimmed))?;
+    let mut resolved = parent_canon;
+    resolved.push(Path::new(filename));
+    Ok(resolved)
 }

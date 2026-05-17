@@ -1,14 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
-//! Integration tests for SELECT compilation across all four dialects.
+//! Integration tests for SELECT compilation across all five dialects.
 //!
-//! Covers Semaine 1-2 scope of the Phase 2 plan:
-//! - projection, FROM, WHERE, ORDER BY, LIMIT/OFFSET
-//! - AND / OR / NOT composition
-//! - IN / NOT IN / BETWEEN
-//! - IS NULL / IS NOT NULL
-//! - LIKE / ILIKE fallback on non-PG dialects
-//! - MSSQL `OFFSET..FETCH NEXT` with required ORDER BY
+//! Covers: projection, FROM, WHERE, ORDER BY, LIMIT/OFFSET; AND/OR/NOT;
+//! IN / NOT IN / BETWEEN; IS NULL / IS NOT NULL; LIKE / ILIKE (native +
+//! LOWER fallback); MSSQL `OFFSET … FETCH NEXT` with required ORDER BY.
 
 use qore_core::Value;
 use qore_query::prelude::*;
@@ -113,7 +109,9 @@ fn multiple_filters_combine_with_and() {
 
 #[test]
 fn explicit_and_or_composition_preserves_parentheses() {
-    let expr = col("age").gt(18).and(col("role").eq("admin").or(col("vip").eq(true)));
+    let expr = col("age")
+        .gt(18)
+        .and(col("role").eq("admin").or(col("vip").eq(true)));
     let q = Query::select()
         .from("users")
         .all()
@@ -222,9 +220,18 @@ fn ilike_is_native_on_postgres() {
 #[test]
 fn ilike_falls_back_to_lower_on_mysql_and_sqlite_and_mssql() {
     let expected = [
-        (my(), "SELECT * FROM `users` WHERE (LOWER(`name`) LIKE LOWER(?))"),
-        (sl(), r#"SELECT * FROM "users" WHERE (LOWER("name") LIKE LOWER(?))"#),
-        (ms(), "SELECT * FROM [users] WHERE (LOWER([name]) LIKE LOWER(@p1))"),
+        (
+            my(),
+            "SELECT * FROM `users` WHERE (LOWER(`name`) LIKE LOWER(?))",
+        ),
+        (
+            sl(),
+            r#"SELECT * FROM "users" WHERE (LOWER("name") LIKE LOWER(?))"#,
+        ),
+        (
+            ms(),
+            "SELECT * FROM [users] WHERE (LOWER([name]) LIKE LOWER(@p1))",
+        ),
     ];
     for (d, sql) in expected {
         let q = Query::select()
@@ -310,11 +317,14 @@ fn mssql_offset_only_without_fetch() {
 
 #[test]
 fn placeholder_count_matches_params_vector() {
-    // Three literals = three placeholders = three params, in order of appearance.
     let q = Query::select()
         .from("users")
         .all()
-        .filter(col("age").gt(18).and(col("name").eq("alice").or(col("vip").eq(true))))
+        .filter(
+            col("age")
+                .gt(18)
+                .and(col("name").eq("alice").or(col("vip").eq(true))),
+        )
         .build(pg())
         .unwrap();
     let n_placeholders = q.sql.matches('$').count();
@@ -349,7 +359,7 @@ fn nan_and_infinity_are_rejected() {
 
 #[test]
 fn in_accepts_borrowed_slice() {
-    // Regression: `&[T]` yields `&T`, which requires `From<&T> for Value`.
+    // Regression: iterating `&[T]` yields `&T`, requiring `From<&T> for Value`.
     let ids: &[i64] = &[1, 2, 3];
     let q = Query::select()
         .from("users")
@@ -359,7 +369,6 @@ fn in_accepts_borrowed_slice() {
         .unwrap();
     assert_eq!(q.params.len(), 3);
 
-    // Also accept a direct array literal.
     let q2 = Query::select()
         .from("users")
         .all()
@@ -377,9 +386,9 @@ fn null_literal_via_option_none() {
         .filter(col("email").eq(Option::<&str>::None))
         .build(pg())
         .unwrap();
-    // NOTE: `= NULL` never matches in SQL — users should prefer .is_null().
-    // We still emit it faithfully: catching this semantic pitfall is the
-    // caller's job, not the builder's. Test pins the mechanical behaviour.
+    // NOTE: `= NULL` never matches in SQL — callers should use `.is_null()`.
+    // The builder still emits this faithfully; pinning the mechanical
+    // behaviour is the test's purpose.
     assert_eq!(q.sql, r#"SELECT * FROM "users" WHERE ("email" = $1)"#);
     assert!(matches!(q.params.as_slice(), [Value::Null]));
 }
@@ -393,36 +402,20 @@ fn qualified_column_reference() {
         .filter(tcol("u", "id").eq(42i64))
         .build(pg())
         .unwrap();
-    assert_eq!(
-        q.sql,
-        r#"SELECT * FROM "users" WHERE ("u"."id" = $1)"#
-    );
+    assert_eq!(q.sql, r#"SELECT * FROM "users" WHERE ("u"."id" = $1)"#);
 }
 
 #[test]
 fn identifier_with_embedded_quote_is_escaped_per_dialect() {
-    // Malicious-looking names must be quoted safely (embedded quote character
-    // is doubled per ANSI / dialect rules). This is the injection defence for
-    // identifiers — each dialect's DialectOps impl handles escape doubling.
-    let q_pg = Query::select()
-        .from(r#"we"ird"#)
-        .all()
-        .build(pg())
-        .unwrap();
+    // SQL identifier injection defence: each dialect's `DialectOps` doubles
+    // its quoting character so embedded quotes can't terminate the ident.
+    let q_pg = Query::select().from(r#"we"ird"#).all().build(pg()).unwrap();
     assert_eq!(q_pg.sql, r#"SELECT * FROM "we""ird""#);
 
-    let q_my = Query::select()
-        .from("back`tick")
-        .all()
-        .build(my())
-        .unwrap();
+    let q_my = Query::select().from("back`tick").all().build(my()).unwrap();
     assert_eq!(q_my.sql, "SELECT * FROM `back``tick`");
 
-    let q_ms = Query::select()
-        .from("bra]cket")
-        .all()
-        .build(ms())
-        .unwrap();
+    let q_ms = Query::select().from("bra]cket").all().build(ms()).unwrap();
     assert_eq!(q_ms.sql, "SELECT * FROM [bra]]cket]");
 }
 
@@ -434,7 +427,6 @@ fn duckdb_uses_postgres_style_quoting_and_question_placeholders() {
         .filter(col("age").gt(18))
         .build(dd())
         .unwrap();
-    // DuckDB: ANSI double-quoted idents + positional `?` placeholders.
     assert_eq!(
         q.sql,
         r#"SELECT "id", "name" FROM "users" WHERE ("age" > ?)"#
@@ -450,17 +442,26 @@ fn duckdb_supports_native_ilike() {
         .filter(col("name").ilike("a%"))
         .build(dd())
         .unwrap();
-    // Native ILIKE — no LOWER() fallback, index-friendly.
+    // Native ILIKE — no LOWER fallback, index-friendly.
     assert_eq!(q.sql, r#"SELECT * FROM "users" WHERE ("name" ILIKE ?)"#);
 }
 
 #[test]
 fn dialect_from_driver_id_aliases_cockroachdb_and_mariadb() {
     use qore_query::Dialect;
-    assert_eq!(Dialect::from_driver_id("cockroachdb"), Some(Dialect::Postgres));
-    assert_eq!(Dialect::from_driver_id("cockroach"), Some(Dialect::Postgres));
+    assert_eq!(
+        Dialect::from_driver_id("cockroachdb"),
+        Some(Dialect::Postgres)
+    );
+    assert_eq!(
+        Dialect::from_driver_id("cockroach"),
+        Some(Dialect::Postgres)
+    );
     assert_eq!(Dialect::from_driver_id("mariadb"), Some(Dialect::MySql));
-    assert_eq!(Dialect::from_driver_id("postgresql"), Some(Dialect::Postgres));
+    assert_eq!(
+        Dialect::from_driver_id("postgresql"),
+        Some(Dialect::Postgres)
+    );
     assert_eq!(Dialect::from_driver_id("duckdb"), Some(Dialect::DuckDb));
     assert_eq!(Dialect::from_driver_id("mssql"), Some(Dialect::SqlServer));
     assert_eq!(Dialect::from_driver_id("MongoDB"), None);
@@ -469,20 +470,24 @@ fn dialect_from_driver_id_aliases_cockroachdb_and_mariadb() {
 
 #[test]
 fn deeply_nested_and_or_preserves_all_parentheses() {
-    // Build: (((a=1 AND b=2) OR c=3) AND (d=4 OR (e=5 AND f=6)))
+    // Shape: (((a=1 AND b=2) OR c=3) AND (d=4 OR (e=5 AND f=6))).
     let expr = col("a")
         .eq(1i64)
         .and(col("b").eq(2i64))
         .or(col("c").eq(3i64))
-        .and(col("d").eq(4i64).or(col("e").eq(5i64).and(col("f").eq(6i64))));
+        .and(
+            col("d")
+                .eq(4i64)
+                .or(col("e").eq(5i64).and(col("f").eq(6i64))),
+        );
     let q = Query::select()
         .from("t")
         .all()
         .filter(expr)
         .build(pg())
         .unwrap();
-    // Every binary node is wrapped — no ambiguity regardless of reader's
-    // assumed precedence.
+    // Every binary node is wrapped — precedence is unambiguous regardless
+    // of reader assumptions.
     assert_eq!(
         q.sql,
         r#"SELECT * FROM "t" WHERE (((("a" = $1) AND ("b" = $2)) OR ("c" = $3)) AND (("d" = $4) OR (("e" = $5) AND ("f" = $6))))"#

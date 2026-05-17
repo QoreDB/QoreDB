@@ -1,17 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
-//! Connection URL parsing module
-//!
-//! Provides a unified interface for parsing database connection URLs/DSNs
-//! into normalized configuration fields. Supports PostgreSQL, MySQL, and MongoDB.
+//! Connection URL / DSN parsing into normalized `PartialConnectionConfig`.
+//! Supports PostgreSQL, MySQL, MongoDB, Redis, SQL Server, CockroachDB.
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use url::Url;
 
-/// Partial connection configuration derived from URL parsing.
-/// Contains only fields that can be extracted from a connection URL.
-/// These are merged with explicit overrides to form the final ConnectionConfig.
+/// Connection fields extracted from a URL. Merged with explicit user
+/// overrides to form the final `ConnectionConfig`.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct PartialConnectionConfig {
     pub driver: Option<String>,
@@ -57,26 +54,14 @@ impl ParseError {
     }
 }
 
-/// Result type for URL parsing operations
 pub type ParseResult<T> = Result<T, ParseError>;
 
 pub trait ConnectionUrlParser: Send + Sync {
-    /// Return river identifier
     fn driver_id(&self) -> &str;
-
-    /// Return URL schemes supported by this parser
     fn schemes(&self) -> &[&str];
-
-    /// Return default port for this database
     fn default_port(&self) -> u16;
-
-    /// Parses a URL into a partial configuration
     fn parse(&self, url: &Url) -> ParseResult<PartialConnectionConfig>;
 }
-
-// =============================================================================
-// PostgreSQL Parser
-// =============================================================================
 
 pub struct PostgresUrlParser;
 
@@ -121,7 +106,6 @@ impl ConnectionUrlParser for PostgresUrlParser {
                 ParseError::new(ParseErrorCode::InvalidUtf8, "Invalid password encoding")
             })?;
 
-        // Database is the path without leading slash
         let database = url
             .path()
             .strip_prefix('/')
@@ -136,7 +120,6 @@ impl ConnectionUrlParser for PostgresUrlParser {
             })
             .transpose()?;
 
-        // Parse query parameters
         let mut options = HashMap::new();
         let mut ssl_explicit = None;
         let mut ssl_mode_seen = false;
@@ -148,11 +131,10 @@ impl ConnectionUrlParser for PostgresUrlParser {
             let value_str = value.as_ref();
 
             if key_lower == "sslmode" {
-                // PostgreSQL sslmode values: disable, allow, prefer, require, verify-ca, verify-full
+                // PostgreSQL sslmode values: disable | allow | prefer | require | verify-ca | verify-full
                 ssl_explicit = Some(!value_str.eq_ignore_ascii_case("disable"));
                 ssl_mode_seen = true;
             } else if key_lower == "ssl" && !ssl_mode_seen {
-                // Simple ssl=true/false
                 if let Some(parsed) = parse_bool_param(value_str) {
                     ssl_explicit = Some(parsed);
                 }
@@ -179,10 +161,6 @@ impl ConnectionUrlParser for PostgresUrlParser {
         })
     }
 }
-
-// =============================================================================
-// MySQL Parser
-// =============================================================================
 
 pub struct MySqlUrlParser;
 
@@ -227,7 +205,6 @@ impl ConnectionUrlParser for MySqlUrlParser {
                 ParseError::new(ParseErrorCode::InvalidUtf8, "Invalid password encoding")
             })?;
 
-        // Database is the path without leading slash
         let database = url
             .path()
             .strip_prefix('/')
@@ -242,7 +219,6 @@ impl ConnectionUrlParser for MySqlUrlParser {
             })
             .transpose()?;
 
-        // Parse query parameters
         let mut options = HashMap::new();
         let mut ssl_explicit = None;
         let mut ssl_mode_seen = false;
@@ -254,7 +230,7 @@ impl ConnectionUrlParser for MySqlUrlParser {
             let value_str = value.as_ref();
 
             if key_lower == "ssl-mode" || key_lower == "sslmode" {
-                // MySQL ssl-mode values: DISABLED, PREFERRED, REQUIRED, VERIFY_CA, VERIFY_IDENTITY
+                // MySQL ssl-mode values: DISABLED | PREFERRED | REQUIRED | VERIFY_CA | VERIFY_IDENTITY
                 ssl_explicit = Some(!value_str.eq_ignore_ascii_case("disabled"));
                 ssl_mode_seen = true;
             } else if (key_lower == "ssl" || key_lower == "usessl") && !ssl_mode_seen {
@@ -285,10 +261,6 @@ impl ConnectionUrlParser for MySqlUrlParser {
     }
 }
 
-// =============================================================================
-// MongoDB Parser
-// =============================================================================
-
 pub struct MongoDbUrlParser;
 
 impl ConnectionUrlParser for MongoDbUrlParser {
@@ -316,7 +288,7 @@ impl ConnectionUrlParser for MongoDbUrlParser {
             ));
         }
 
-        // SRV records don't use explicit ports
+        // SRV records resolve their own port via DNS.
         let port = if is_srv {
             None
         } else {
@@ -339,7 +311,8 @@ impl ConnectionUrlParser for MongoDbUrlParser {
                 ParseError::new(ParseErrorCode::InvalidUtf8, "Invalid password encoding")
             })?;
 
-        // MongoDB: database is the path, but authSource can override for auth
+        // Database is the path; `authSource` query param can override the
+        // auth DB without changing the working database.
         let database = url
             .path()
             .strip_prefix('/')
@@ -354,9 +327,9 @@ impl ConnectionUrlParser for MongoDbUrlParser {
             })
             .transpose()?;
 
-        // Parse query parameters
         let mut options = HashMap::new();
-        let ssl_default = if is_srv { Some(true) } else { None }; // SRV implies TLS
+        // SRV scheme implies TLS by default.
+        let ssl_default = if is_srv { Some(true) } else { None };
         let mut ssl_explicit = None;
         let mut ssl_implied = false;
 
@@ -373,7 +346,6 @@ impl ConnectionUrlParser for MongoDbUrlParser {
                     options.insert(key.into_owned(), value.into_owned());
                 }
                 "authsource" => {
-                    // Store authSource but don't override database
                     options.insert("authSource".to_string(), value.into_owned());
                 }
                 "replicaset" => {
@@ -415,10 +387,6 @@ impl ConnectionUrlParser for MongoDbUrlParser {
         })
     }
 }
-
-// =============================================================================
-// Redis Parser
-// =============================================================================
 
 pub struct RedisUrlParser;
 
@@ -465,14 +433,13 @@ impl ConnectionUrlParser for RedisUrlParser {
                 ParseError::new(ParseErrorCode::InvalidUtf8, "Invalid password encoding")
             })?;
 
-        // Database index is the path (e.g., /0, /2)
+        // Redis path is a numeric DB index (e.g. /0, /2).
         let database = url
             .path()
             .strip_prefix('/')
             .filter(|db| !db.is_empty())
             .map(String::from);
 
-        // Parse query parameters
         let mut options = HashMap::new();
         for (key, value) in url.query_pairs() {
             options.insert(key.into_owned(), value.into_owned());
@@ -492,10 +459,6 @@ impl ConnectionUrlParser for RedisUrlParser {
         })
     }
 }
-
-// =============================================================================
-// SQL Server Parser
-// =============================================================================
 
 pub struct SqlServerUrlParser;
 
@@ -582,10 +545,6 @@ impl ConnectionUrlParser for SqlServerUrlParser {
         })
     }
 }
-
-// =============================================================================
-// CockroachDB Parser
-// =============================================================================
 
 pub struct CockroachDbUrlParser;
 
@@ -685,11 +644,7 @@ impl ConnectionUrlParser for CockroachDbUrlParser {
     }
 }
 
-// =============================================================================
-// URL Parser Registry
-// =============================================================================
-
-/// Central URL parser that delegates to driver-specific parsers
+/// Central URL parser that delegates to driver-specific parsers.
 pub struct ConnectionUrlParserRegistry {
     parsers: Vec<Box<dyn ConnectionUrlParser>>,
 }
@@ -706,7 +661,6 @@ impl ConnectionUrlParserRegistry {
             parsers: Vec::new(),
         };
 
-        // Register built-in parsers
         registry.register(Box::new(PostgresUrlParser));
         registry.register(Box::new(MySqlUrlParser));
         registry.register(Box::new(MongoDbUrlParser));
@@ -717,12 +671,10 @@ impl ConnectionUrlParserRegistry {
         registry
     }
 
-    /// Register a new parser
     pub fn register(&mut self, parser: Box<dyn ConnectionUrlParser>) {
         self.parsers.push(parser);
     }
 
-    /// Find a parser for the given URL scheme
     fn find_parser(&self, scheme: &str) -> Option<&dyn ConnectionUrlParser> {
         self.parsers
             .iter()
@@ -730,7 +682,6 @@ impl ConnectionUrlParserRegistry {
             .map(|p| p.as_ref())
     }
 
-    /// Parse a connection URL string
     pub fn parse(&self, url_str: &str) -> ParseResult<PartialConnectionConfig> {
         let url = Url::parse(url_str).map_err(|e| {
             ParseError::new(ParseErrorCode::InvalidUrl, format!("Invalid URL: {}", e))
@@ -750,7 +701,6 @@ impl ConnectionUrlParserRegistry {
         parser.parse(&url)
     }
 
-    /// Get the list of supported schemes
     pub fn supported_schemes(&self) -> Vec<&str> {
         self.parsers
             .iter()
@@ -759,11 +709,6 @@ impl ConnectionUrlParserRegistry {
     }
 }
 
-// =============================================================================
-// Helper Functions
-// =============================================================================
-
-/// URL percent-decode a string
 fn percent_decode(s: &str) -> Result<String, std::str::Utf8Error> {
     percent_encoding::percent_decode_str(s)
         .decode_utf8()
@@ -782,24 +727,15 @@ fn is_ssl_query_key(lower_key: &str) -> bool {
     lower_key.starts_with("ssl") || lower_key.starts_with("tls")
 }
 
-/// Parse a connection URL and return a partial configuration.
-/// This is the main entry point for URL parsing.
+/// Parse a connection URL into a partial configuration. Main entry point.
 pub fn parse_connection_url(url: &str) -> ParseResult<PartialConnectionConfig> {
     let registry = ConnectionUrlParserRegistry::new();
     registry.parse(url)
 }
 
-// =============================================================================
-// Tests
-// =============================================================================
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    // -------------------------------------------------------------------------
-    // PostgreSQL Tests
-    // -------------------------------------------------------------------------
 
     #[test]
     fn test_postgres_full_url() {
@@ -878,10 +814,6 @@ mod tests {
         assert_eq!(result.unwrap_err().code, ParseErrorCode::MissingHost);
     }
 
-    // -------------------------------------------------------------------------
-    // MySQL Tests
-    // -------------------------------------------------------------------------
-
     #[test]
     fn test_mysql_full_url() {
         let result = parse_connection_url("mysql://root:secret@db.example.com:3307/app").unwrap();
@@ -931,10 +863,6 @@ mod tests {
         assert_eq!(result.ssl, Some(false));
     }
 
-    // -------------------------------------------------------------------------
-    // MongoDB Tests
-    // -------------------------------------------------------------------------
-
     #[test]
     fn test_mongodb_full_url() {
         let result =
@@ -957,8 +885,8 @@ mod tests {
     fn test_mongodb_srv_no_port() {
         let result = parse_connection_url("mongodb+srv://user@cluster.mongodb.net/mydb").unwrap();
         assert_eq!(result.driver.as_deref(), Some("mongodb"));
-        assert_eq!(result.port, None); // SRV doesn't use explicit ports
-        assert_eq!(result.ssl, Some(true)); // SRV implies TLS
+        assert_eq!(result.port, None);
+        assert_eq!(result.ssl, Some(true));
     }
 
     #[test]
@@ -995,20 +923,12 @@ mod tests {
         assert_eq!(result.options.get("authSource"), Some(&"admin".to_string()));
     }
 
-    // -------------------------------------------------------------------------
-    // Error Cases
-    // -------------------------------------------------------------------------
-
     #[test]
     fn test_unsupported_scheme() {
         let result = parse_connection_url("ftp://localhost:21");
         assert!(result.is_err());
         assert_eq!(result.unwrap_err().code, ParseErrorCode::UnsupportedScheme);
     }
-
-    // -------------------------------------------------------------------------
-    // Redis Tests
-    // -------------------------------------------------------------------------
 
     #[test]
     fn test_redis_full_url() {
@@ -1065,10 +985,6 @@ mod tests {
         assert_eq!(result.unwrap_err().code, ParseErrorCode::InvalidUrl);
     }
 
-    // -------------------------------------------------------------------------
-    // Edge Cases
-    // -------------------------------------------------------------------------
-
     #[test]
     fn test_ipv6_host() {
         let result = parse_connection_url("postgres://user@[::1]:5432/mydb").unwrap();
@@ -1083,7 +999,7 @@ mod tests {
 
     #[test]
     fn test_empty_password() {
-        // URL library treats empty password (user:@host) as no password
+        // `url` treats `user:@host` (empty after the colon) as no password.
         let result = parse_connection_url("postgres://user:@localhost/mydb").unwrap();
         assert_eq!(result.password, None);
     }

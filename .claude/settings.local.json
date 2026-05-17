@@ -72,26 +72,21 @@
       "Bash(rtk git *)",
       "Bash(rtk cargo *)",
       "Bash(rtk wc *)",
-      "Bash(/usr/bin/git -C /Users/raph/Documents/Travail/Personnel/Repositories/QoreDB sparse-checkout list)",
-      "Bash(/usr/bin/git -C /Users/raph/Documents/Travail/Personnel/Repositories/QoreDB config --get core.sparseCheckout)",
-      "Bash(/usr/bin/git -C /Users/raph/Documents/Travail/Personnel/Repositories/QoreDB add --dry-run --verbose -- .github/workflows/pgo-release.yml src-tauri/crates/qore-pgo-workload/)",
-      "Bash(/usr/bin/git -C /Users/raph/Documents/Travail/Personnel/Repositories/QoreDB ls-files --others --exclude-standard --directory --exclude-from=.gitignore)",
-      "Bash(/usr/bin/git -C /Users/raph/Documents/Travail/Personnel/Repositories/QoreDB ls-files --others)",
       "Bash(rtk find *)",
       "Bash(samply --version)",
       "Bash(samply record *)",
-      "Bash(dsymutil /Users/raph/Documents/Travail/Personnel/Repositories/QoreDB/src-tauri/target/release/qore-pgo-workload)",
       "Bash(/usr/bin/grep *)",
       "Bash(dsymutil target/release/qore-pgo-workload)",
       "Bash(kill %1)",
       "Bash(pkill -f \"until.*bbvezu4rm\")",
-      "Bash(sed -E -i \"s|from \\(['\\\\\"]\\)\\\\\\\\.\\\\\\\\./connection/driverCapabilities\\\\\\\\1|from \\\\1../driverCapabilities\\\\1|g\" src/lib/ddl/alter/*.ts)",
-      "Bash(sed -E -i \"s|from \\(['\\\\\"]\\)\\\\\\\\.\\\\\\\\./\\\\\\\\.\\\\\\\\./drivers\\\\\\\\1|from \\\\1../../connection/drivers\\\\1|g\" src/lib/ddl/alter/*.ts)",
       "Bash(git mv *)",
       "Bash(awk '/\"tabs\": \\\\{/,/^  \\\\}/' src/locales/en.json)",
       "Bash(awk '/\"tabs\": \\\\{/,/^  \\\\}/' src/locales/fr.json)",
       "Bash(pnpm check *)",
-      "Bash(pnpm test *)"
+      "Bash(pnpm test *)",
+      "Bash(awk '/^  \"contracts\": {/,/^  },/' /home/raphael/dev/perso/QoreDB/src/locales/en.json)",
+      "Bash(awk '/^## \\(Bloc|Rapport\\)/||/^### \\(🔴 Critique|Synthèse\\)/' /Users/raph/Documents/Travail/Personnel/Repositories/QoreDB/doc/audits/INTERNAL_AUDIT_2026-05.md)",
+      "Bash(awk *)"
     ]
   }
 }

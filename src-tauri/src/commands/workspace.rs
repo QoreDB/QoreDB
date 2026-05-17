@@ -12,8 +12,7 @@ use crate::workspace::types::{RecentWorkspace, WorkspaceInfo, WorkspaceSource};
 use crate::workspace::WorkspaceManager;
 
 pub type SharedWorkspaceManager = std::sync::Arc<tokio::sync::Mutex<WorkspaceManager>>;
-pub type WatcherPathSender =
-    std::sync::Arc<tokio::sync::watch::Sender<Option<std::path::PathBuf>>>;
+pub type WatcherPathSender = std::sync::Arc<tokio::sync::watch::Sender<Option<std::path::PathBuf>>>;
 
 #[derive(Debug, Serialize)]
 pub struct WorkspaceResponse {

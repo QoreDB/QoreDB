@@ -68,7 +68,6 @@ pub fn parse_federation_refs(
 
     let statement = &statements[0];
 
-    // Federation queries must be SELECT-like
     if !matches!(statement, Statement::Query(_)) {
         return Err(EngineError::validation(
             "Federation queries must be SELECT statements",
@@ -83,8 +82,8 @@ pub fn parse_federation_refs(
         if parts.len() >= 3 {
             let alias_candidate = parts[0].to_lowercase();
             if known_aliases.contains(&alias_candidate) {
+                // 3-part: connection.database.table; 4-part: connection.database.schema.table.
                 let (namespace, table) = if parts.len() == 3 {
-                    // connection.schema_or_db.table
                     (
                         Namespace {
                             database: parts[1].clone(),
@@ -93,7 +92,6 @@ pub fn parse_federation_refs(
                         parts[2].clone(),
                     )
                 } else {
-                    // connection.database.schema.table (4-part, e.g. PostgreSQL)
                     (
                         Namespace::with_schema(parts[1].clone(), parts[2].clone()),
                         parts[parts.len() - 1].clone(),
@@ -225,14 +223,12 @@ fn rewrite_statement(statement: &mut Statement, mappings: &HashMap<String, Strin
 fn rewrite_query_ast(query: &mut Query, mappings: &HashMap<String, String>) {
     rewrite_set_expr(&mut query.body, mappings);
 
-    // Rewrite CTEs
     if let Some(ref mut with) = query.with {
         for cte in &mut with.cte_tables {
             rewrite_query_ast(&mut cte.query, mappings);
         }
     }
 
-    // Rewrite ORDER BY expressions
     if let Some(ref mut order_by) = query.order_by {
         if let OrderByKind::Expressions(ref mut exprs) = order_by.kind {
             for expr_with_alias in exprs {
@@ -255,31 +251,26 @@ fn rewrite_set_expr(set_expr: &mut SetExpr, mappings: &HashMap<String, String>) 
 }
 
 fn rewrite_select(select: &mut Select, mappings: &HashMap<String, String>) {
-    // Rewrite FROM tables
     for table_with_joins in &mut select.from {
         rewrite_table_with_joins(table_with_joins, mappings);
     }
 
-    // Rewrite SELECT items
     for item in &mut select.projection {
         if let SelectItem::UnnamedExpr(expr) | SelectItem::ExprWithAlias { expr, .. } = item {
             rewrite_expr(expr, mappings);
         }
     }
 
-    // Rewrite WHERE
     if let Some(ref mut selection) = select.selection {
         rewrite_expr(selection, mappings);
     }
 
-    // Rewrite GROUP BY
     if let sqlparser::ast::GroupByExpr::Expressions(ref mut exprs, _) = select.group_by {
         for expr in exprs {
             rewrite_expr(expr, mappings);
         }
     }
 
-    // Rewrite HAVING
     if let Some(ref mut having) = select.having {
         rewrite_expr(having, mappings);
     }
@@ -289,7 +280,6 @@ fn rewrite_table_with_joins(twj: &mut TableWithJoins, mappings: &HashMap<String,
     rewrite_table_factor(&mut twj.relation, mappings);
     for join in &mut twj.joins {
         rewrite_table_factor(&mut join.relation, mappings);
-        // Rewrite JOIN conditions
         match &mut join.join_operator {
             sqlparser::ast::JoinOperator::Inner(constraint)
             | sqlparser::ast::JoinOperator::LeftOuter(constraint)
@@ -311,7 +301,6 @@ fn rewrite_table_factor(factor: &mut TableFactor, mappings: &HashMap<String, Str
             if parts.len() >= 3 {
                 let dotted = build_dotted_name(&parts);
                 if let Some(local_alias) = mappings.get(&dotted) {
-                    // Replace the multi-part name with the local DuckDB alias
                     name.0 = vec![ObjectNamePart::Identifier(sqlparser::ast::Ident::new(
                         local_alias.clone(),
                     ))];
@@ -333,12 +322,9 @@ fn rewrite_table_factor(factor: &mut TableFactor, mappings: &HashMap<String, Str
 fn rewrite_expr(expr: &mut Expr, mappings: &HashMap<String, String>) {
     match expr {
         Expr::CompoundIdentifier(idents) => {
-            // Check if this is a qualified reference to a federated table:
-            // - 3-part table + column: alias.db.table.col
-            // - 4-part table + column: alias.db.schema.table.col
+            // Qualified column reference: alias.db[.schema].table.col (4 or 5 parts).
+            // Try the longest table prefix first so PostgreSQL 4-part names win.
             if idents.len() >= 4 {
-                // Try the longest possible table prefix first (len - 1 parts).
-                // This handles PostgreSQL 4-part table references correctly.
                 let max_prefix = idents.len() - 1;
                 let min_prefix = 3usize;
 

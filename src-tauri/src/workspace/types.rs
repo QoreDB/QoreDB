@@ -27,10 +27,9 @@ pub enum WorkspaceSource {
     Default,
 }
 
-/// Full workspace descriptor
+/// Full workspace descriptor. `path` is the absolute `.qoredb/` directory.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkspaceInfo {
-    /// Absolute path to the `.qoredb/` directory
     pub path: PathBuf,
     pub manifest: WorkspaceManifest,
     pub source: WorkspaceSource,

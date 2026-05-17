@@ -1,30 +1,32 @@
 // SPDX-License-Identifier: Apache-2.0
-//
-// JSON parsing benchmark — feeds the §2.2 decision in PERFORMANCE_PLAN.md.
-//
-// We compare `serde_json::from_slice` (current path: SQLx decodes Postgres
-// JSONB through this; MongoDB filter/extjson parsing also goes through it)
-// against `simd_json::serde::from_slice` (the serde-compatible API that
-// returns the exact same `serde_json::Value` type sqlx expects). Sizes mirror
-// realistic production payloads: 10 KB row, 100 KB document, 1 MB blob.
-//
-// Decision rule: ship simd-json only on the JSONB / Mongo hot paths if and
-// only if the **median** wall-clock improvement is ≥ 30 % across the three
-// sizes. Below that, the unsafe surface and supply-chain risk of simd-json
-// outweigh the gain — we keep serde_json.
+
+//! JSON parsing benchmark feeding the §2.2 decision in PERFORMANCE_PLAN.md.
+//!
+//! Compares `serde_json::from_slice` (current SQLx JSONB / Mongo path) with
+//! `simd_json::serde::from_slice` (drop-in returning the same
+//! `serde_json::Value`). Sizes mirror production payloads: 10 KB row,
+//! 100 KB document, 1 MB blob.
+//!
+//! Decision rule: adopt simd-json on JSONB / Mongo hot paths iff the
+//! **median** wall-clock improvement is ≥ 30 % across the three sizes.
+//! Below that, simd-json's unsafe surface and supply-chain risk outweigh
+//! the gain — keep serde_json.
 
 use std::hint::black_box;
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use serde_json::{json, Value};
 
-const SIZES: &[(usize, &str)] = &[(10 * 1024, "10kB"), (100 * 1024, "100kB"), (1024 * 1024, "1MB")];
+const SIZES: &[(usize, &str)] = &[
+    (10 * 1024, "10kB"),
+    (100 * 1024, "100kB"),
+    (1024 * 1024, "1MB"),
+];
 
 /// Build a JSONB-shaped payload of approximately `target_bytes` bytes.
 /// Shape mirrors a typical analytics row: top-level object, nested array
 /// of records each carrying scalars + a small nested object + a tag list.
 fn build_payload(target_bytes: usize) -> Vec<u8> {
-    // Each record is ~120 bytes serialized; size to fit the target.
     let record = json!({
         "id": 4_294_967_296_u64,
         "user": "alice.smith",

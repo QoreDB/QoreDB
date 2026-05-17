@@ -11,6 +11,7 @@ use tokio::time::{timeout, Duration};
 use tracing::{field, instrument};
 use uuid::Uuid;
 
+use crate::commands::governance;
 use crate::commands::stream_msg::{dispatch_stream_event, StreamDispatcher};
 use crate::engine::{
     mongo_safety, redis_safety, sql_safety,
@@ -124,16 +125,44 @@ pub async fn execute_query(
     bypass_limits: Option<bool>,
     on_stream: Channel<InvokeResponseBody>,
 ) -> Result<QueryResponse, String> {
-    let bypass_limits = bypass_limits.unwrap_or(false);
-    let (session_manager, query_manager, policy, interceptor) = {
+    let requested_bypass = bypass_limits.unwrap_or(false);
+    let (session_manager, query_manager, policy, interceptor, license_tier) = {
         let state = state.lock().await;
         (
             Arc::clone(&state.session_manager),
             Arc::clone(&state.query_manager),
             state.policy.clone(),
             Arc::clone(&state.interceptor),
+            state.license_manager.effective_status().tier,
         )
     };
+
+    // Gate governance-limit bypass behind Team+. Without this check, any JS in
+    // the webview (or a DevTools call in debug) can pass `bypass_limits=true`
+    // and dodge max_query_duration_ms / max_result_rows / concurrency caps.
+    let bypass_limits = if requested_bypass {
+        if !license_tier.includes(crate::license::status::LicenseTier::Team) {
+            tracing::warn!(
+                session = %session_id,
+                tier = ?license_tier,
+                "bypass_limits rejected: requires Team+ license"
+            );
+            return Ok(QueryResponse {
+                success: false,
+                result: None,
+                error: Some(
+                    "Governance limit bypass requires a Team or Enterprise license".to_string(),
+                ),
+                query_id: None,
+                truncated: None,
+                truncated_total: None,
+            });
+        }
+        true
+    } else {
+        false
+    };
+
     let session = parse_session_id(&session_id)?;
 
     let read_only = match session_manager.is_read_only(session).await {
@@ -163,7 +192,7 @@ pub async fn execute_query(
             });
         }
     };
-    tracing::Span::current().record("driver", &field::display(driver.driver_id()));
+    tracing::Span::current().record("driver", field::display(driver.driver_id()));
 
     let environment = match session_manager.get_environment(session).await {
         Ok(value) => value,
@@ -285,7 +314,6 @@ pub async fn execute_query(
         }
     }
 
-    // Build interceptor context
     let is_mutation_for_context = if is_sql_driver {
         sql_analysis
             .as_ref()
@@ -309,10 +337,8 @@ pub async fn execute_query(
         is_mutation_for_context,
     );
 
-    // Run interceptor pre-execution checks (safety rules)
     let safety_result = interceptor.pre_execute(&interceptor_context);
     if !safety_result.allowed {
-        // Record blocked query in interceptor
         interceptor.post_execute(
             &interceptor_context,
             &QueryExecutionResult {
@@ -341,7 +367,7 @@ pub async fn execute_query(
                 )
             }
             SafetyAction::Warn => {
-                // Warn allows execution, so this shouldn't happen
+                // Unreachable: Warn does not block execution.
                 "Warning triggered".to_string()
             }
         };
@@ -362,14 +388,16 @@ pub async fn execute_query(
         None
     };
 
-    // Governance: check concurrent query limit
     if let Some(limit) = policy.max_concurrent_queries {
         let active = query_manager.count_active().await;
         if active >= limit as usize {
             return Ok(QueryResponse {
                 success: false,
                 result: None,
-                error: Some(format!("Too many concurrent queries ({}/{})", active, limit)),
+                error: Some(format!(
+                    "Too many concurrent queries ({}/{})",
+                    active, limit
+                )),
                 query_id: None,
                 truncated: None,
                 truncated_total: None,
@@ -402,8 +430,15 @@ pub async fn execute_query(
     let should_stream =
         sql_statements.is_none() && stream.unwrap_or(false) && driver.capabilities().streaming;
 
+    // Absolute cap (1h) applied even when bypass_limits is granted, so a
+    // misconfigured Team+ client cannot pin a query indefinitely.
+    const BYPASS_TIMEOUT_CAP_MS: u64 = 3_600_000;
     let effective_timeout = if bypass_limits {
-        timeout_ms
+        Some(
+            timeout_ms
+                .unwrap_or(BYPASS_TIMEOUT_CAP_MS)
+                .min(BYPASS_TIMEOUT_CAP_MS),
+        )
     } else {
         timeout_ms.or(policy.max_query_duration_ms)
     };
@@ -414,32 +449,28 @@ pub async fn execute_query(
             query_id = %query_id_str,
             driver = %driver.driver_id(),
             env = %environment,
-            "Governance limits bypassed for single query (user confirmed override)"
+            tier = ?license_tier,
+            effective_timeout_ms = ?effective_timeout,
+            "Governance limits bypassed for single query (Team+ override)"
         );
     }
 
     if should_stream {
-        // Create channel for stream events
         let (sender, mut receiver) = tokio::sync::mpsc::channel(1024);
         let qid_cloned = query_id_str.clone();
         let window_cloned = window.clone();
         let on_stream_cloned = on_stream.clone();
 
-        // Spawn task to hand events to the frontend via the MessagePack Channel.
-        // Use a long-lived `StreamDispatcher` so the buffer-capacity hint
-        // accumulates across batches (avoids the realloc cascade in rmp_serde).
+        // A long-lived `StreamDispatcher` lets the buffer-capacity hint
+        // accumulate across batches and avoids the realloc cascade in rmp_serde.
         tokio::spawn(async move {
-            let mut dispatcher = StreamDispatcher::new(
-                Some(&on_stream_cloned),
-                &window_cloned,
-                &qid_cloned,
-            );
+            let mut dispatcher =
+                StreamDispatcher::new(Some(&on_stream_cloned), &window_cloned, &qid_cloned);
             while let Some(event) = receiver.recv().await {
                 dispatcher.dispatch(event);
             }
         });
 
-        // Execute streaming
         let start_time = std::time::Instant::now();
         let execution = driver.execute_stream_in_namespace(
             session,
@@ -449,10 +480,8 @@ pub async fn execute_query(
             sender,
         );
 
-        // Handle timeout for the *start* or completion?
-        // With streaming, the execution future completes when the stream is DONE.
-        // So we can still await it with timeout.
-
+        // The streaming future resolves on stream completion, so a wrapping
+        // timeout covers the entire run.
         let result = if let Some(timeout_value) = effective_timeout {
             match timeout(Duration::from_millis(timeout_value), execution).await {
                 Ok(res) => res,
@@ -461,7 +490,6 @@ pub async fn execute_query(
                     query_manager.finish(query_id).await;
                     metrics::record_timeout();
 
-                    // Record timeout in interceptor
                     let duration_ms = start_time.elapsed().as_micros() as f64 / 1000.0;
                     interceptor.post_execute(
                         &interceptor_context,
@@ -475,7 +503,6 @@ pub async fn execute_query(
                         safety_warning.as_deref(),
                     );
 
-                    // Emit timeout error through the stream Channel.
                     dispatch_stream_event(
                         StreamEvent::Error("Operation timed out".to_string()),
                         Some(&on_stream),
@@ -501,14 +528,13 @@ pub async fn execute_query(
 
         match result {
             Ok(_) => {
-                // Record successful streaming execution
                 interceptor.post_execute(
                     &interceptor_context,
                     &QueryExecutionResult {
                         success: true,
                         error: None,
                         execution_time_ms: duration_ms,
-                        row_count: None, // Row count tracked via stream events
+                        row_count: None,
                     },
                     false,
                     safety_warning.as_deref(),
@@ -516,7 +542,7 @@ pub async fn execute_query(
 
                 Ok(QueryResponse {
                     success: true,
-                    result: None, // Results are streamed
+                    result: None,
                     error: None,
                     query_id: Some(query_id_str),
                     truncated: None,
@@ -524,7 +550,6 @@ pub async fn execute_query(
                 })
             }
             Err(e) => {
-                // Record failed streaming execution
                 interceptor.post_execute(
                     &interceptor_context,
                     &QueryExecutionResult {
@@ -548,7 +573,6 @@ pub async fn execute_query(
             }
         }
     } else {
-        // Normal execution
         let start_time = std::time::Instant::now();
         let execution = async {
             if let Some(statements) = sql_statements {
@@ -594,7 +618,6 @@ pub async fn execute_query(
                     query_manager.finish(query_id).await;
                     metrics::record_timeout();
 
-                    // Record timeout in interceptor
                     let duration_ms = start_time.elapsed().as_micros() as f64 / 1000.0;
                     interceptor.post_execute(
                         &interceptor_context,
@@ -628,7 +651,6 @@ pub async fn execute_query(
                 result.execution_time_ms = duration_ms;
                 metrics::record_query(duration_ms, true);
 
-                // Record successful execution in interceptor
                 interceptor.post_execute(
                     &interceptor_context,
                     &QueryExecutionResult {
@@ -641,8 +663,8 @@ pub async fn execute_query(
                     safety_warning.as_deref(),
                 );
 
-                // Governance: truncate results if max_result_rows is set
-                // (skipped when the caller explicitly opted into bypass_limits)
+                // Governance: truncate results when max_result_rows is set
+                // (skipped when the caller explicitly opted into bypass_limits).
                 let (truncated, truncated_total) = if bypass_limits {
                     (None, None)
                 } else if let Some(max_rows) = policy.max_result_rows {
@@ -669,7 +691,6 @@ pub async fn execute_query(
             Err(e) => {
                 metrics::record_query(duration_ms, false);
 
-                // Record failed execution in interceptor
                 interceptor.post_execute(
                     &interceptor_context,
                     &QueryExecutionResult {
@@ -731,7 +752,7 @@ pub async fn cancel_query(
             });
         }
     };
-    tracing::Span::current().record("driver", &field::display(driver.driver_id()));
+    tracing::Span::current().record("driver", field::display(driver.driver_id()));
 
     let query_id = if let Some(raw) = query_id {
         let parsed = Uuid::parse_str(&raw).map_err(|e| format!("Invalid query ID: {}", e))?;
@@ -896,7 +917,6 @@ pub async fn list_routines(
         }
     };
 
-    // Parse routine_type string to enum
     let routine_type_enum = routine_type.as_ref().and_then(|t| match t.as_str() {
         "Function" => Some(RoutineType::Function),
         "Procedure" => Some(RoutineType::Procedure),
@@ -1128,7 +1148,6 @@ pub async fn describe_table(
 
     match driver.describe_table(session, &namespace, &table).await {
         Ok(mut schema) => {
-            // Merge virtual foreign keys if connection_id is provided
             if let Some(ref conn_id) = connection_id {
                 let virtual_fks = vr_store.get_foreign_keys_for_table(
                     conn_id,
@@ -1136,7 +1155,7 @@ pub async fn describe_table(
                     namespace.schema.as_deref(),
                     &table,
                 );
-                // Filter out virtual FKs that duplicate real ones
+                // Skip virtual FKs that duplicate real ones.
                 for vfk in virtual_fks {
                     let is_duplicate = schema.foreign_keys.iter().any(|fk| {
                         fk.column == vfk.column
@@ -1172,17 +1191,28 @@ pub async fn preview_table(
     table: String,
     limit: u32,
 ) -> Result<QueryResponse, String> {
-    let (session_manager, policy) = {
+    let (session_manager, query_manager, policy) = {
         let state = state.lock().await;
-        (Arc::clone(&state.session_manager), state.policy.clone())
+        (
+            Arc::clone(&state.session_manager),
+            Arc::clone(&state.query_manager),
+            state.policy.clone(),
+        )
     };
     let session = parse_session_id(&session_id)?;
 
-    let effective_limit = if let Some(max_rows) = policy.max_result_rows {
-        limit.min(max_rows as u32)
-    } else {
-        limit
-    };
+    let effective_limit = governance::clamp_rows(&policy, limit);
+
+    if let Err(msg) = governance::check_concurrent_limit(&policy, &query_manager).await {
+        return Ok(QueryResponse {
+            success: false,
+            result: None,
+            error: Some(msg),
+            query_id: None,
+            truncated: None,
+            truncated_total: None,
+        });
+    }
 
     let driver = match session_manager.get_driver(session).await {
         Ok(d) => d,
@@ -1198,11 +1228,14 @@ pub async fn preview_table(
         }
     };
 
-    match driver
-        .preview_table(session, &namespace, &table, effective_limit)
-        .await
-    {
-        Ok(result) => Ok(QueryResponse {
+    let result = governance::with_timeout(
+        &policy,
+        driver.preview_table(session, &namespace, &table, effective_limit),
+    )
+    .await;
+
+    match result {
+        Ok(Ok(result)) => Ok(QueryResponse {
             success: true,
             result: Some(result),
             error: None,
@@ -1210,10 +1243,18 @@ pub async fn preview_table(
             truncated: None,
             truncated_total: None,
         }),
-        Err(e) => Ok(QueryResponse {
+        Ok(Err(e)) => Ok(QueryResponse {
             success: false,
             result: None,
             error: Some(e.sanitized_message()),
+            query_id: None,
+            truncated: None,
+            truncated_total: None,
+        }),
+        Err(timeout_msg) => Ok(QueryResponse {
+            success: false,
+            result: None,
+            error: Some(timeout_msg),
             query_id: None,
             truncated: None,
             truncated_total: None,
@@ -1242,9 +1283,13 @@ pub async fn query_table(
     table: String,
     options: TableQueryOptions,
 ) -> Result<PaginatedQueryResponse, String> {
-    let (session_manager, policy) = {
+    let (session_manager, query_manager, policy) = {
         let state = state.lock().await;
-        (Arc::clone(&state.session_manager), state.policy.clone())
+        (
+            Arc::clone(&state.session_manager),
+            Arc::clone(&state.query_manager),
+            state.policy.clone(),
+        )
     };
     let session = parse_session_id(&session_id)?;
 
@@ -1252,6 +1297,16 @@ pub async fn query_table(
     if let Some(max_rows) = policy.max_result_rows {
         let max_page = max_rows as u32;
         options.page_size = Some(options.page_size.unwrap_or(50).min(max_page));
+    }
+
+    if let Err(msg) = governance::check_concurrent_limit(&policy, &query_manager).await {
+        return Ok(PaginatedQueryResponse {
+            success: false,
+            result: None,
+            error: Some(msg),
+            truncated: None,
+            truncated_total: None,
+        });
     }
 
     let driver = match session_manager.get_driver(session).await {
@@ -1267,21 +1322,31 @@ pub async fn query_table(
         }
     };
 
-    match driver
-        .query_table(session, &namespace, &table, options)
-        .await
-    {
-        Ok(result) => Ok(PaginatedQueryResponse {
+    let result = governance::with_timeout(
+        &policy,
+        driver.query_table(session, &namespace, &table, options),
+    )
+    .await;
+
+    match result {
+        Ok(Ok(result)) => Ok(PaginatedQueryResponse {
             success: true,
             result: Some(result),
             error: None,
             truncated: None,
             truncated_total: None,
         }),
-        Err(e) => Ok(PaginatedQueryResponse {
+        Ok(Err(e)) => Ok(PaginatedQueryResponse {
             success: false,
             result: None,
             error: Some(e.sanitized_message()),
+            truncated: None,
+            truncated_total: None,
+        }),
+        Err(timeout_msg) => Ok(PaginatedQueryResponse {
+            success: false,
+            result: None,
+            error: Some(timeout_msg),
             truncated: None,
             truncated_total: None,
         }),
@@ -1298,12 +1363,18 @@ pub async fn peek_foreign_key(
     value: Value,
     limit: Option<u32>,
 ) -> Result<QueryResponse, String> {
-    let session_manager = {
+    let (session_manager, query_manager, policy) = {
         let state = state.lock().await;
-        Arc::clone(&state.session_manager)
+        (
+            Arc::clone(&state.session_manager),
+            Arc::clone(&state.query_manager),
+            state.policy.clone(),
+        )
     };
     let session = parse_session_id(&session_id)?;
-    let limit = limit.unwrap_or(3).max(1).min(25);
+    // UX cap for the tooltip preview; policy may tighten further.
+    let requested = limit.unwrap_or(3).clamp(1, 25);
+    let limit = governance::clamp_rows(&policy, requested);
 
     if foreign_key.referenced_table.trim().is_empty()
         || foreign_key.referenced_column.trim().is_empty()
@@ -1324,6 +1395,17 @@ pub async fn peek_foreign_key(
         });
     }
 
+    if let Err(msg) = governance::check_concurrent_limit(&policy, &query_manager).await {
+        return Ok(QueryResponse {
+            success: false,
+            result: None,
+            error: Some(msg),
+            query_id: None,
+            truncated: None,
+            truncated_total: None,
+        });
+    }
+
     let driver = match session_manager.get_driver(session).await {
         Ok(d) => d,
         Err(e) => {
@@ -1338,11 +1420,14 @@ pub async fn peek_foreign_key(
         }
     };
 
-    match driver
-        .peek_foreign_key(session, &namespace, &foreign_key, &value, limit)
-        .await
-    {
-        Ok(result) => Ok(QueryResponse {
+    let result = governance::with_timeout(
+        &policy,
+        driver.peek_foreign_key(session, &namespace, &foreign_key, &value, limit),
+    )
+    .await;
+
+    match result {
+        Ok(Ok(result)) => Ok(QueryResponse {
             success: true,
             result: Some(result),
             error: None,
@@ -1350,10 +1435,18 @@ pub async fn peek_foreign_key(
             truncated: None,
             truncated_total: None,
         }),
-        Err(e) => Ok(QueryResponse {
+        Ok(Err(e)) => Ok(QueryResponse {
             success: false,
             result: None,
             error: Some(e.sanitized_message()),
+            query_id: None,
+            truncated: None,
+            truncated_total: None,
+        }),
+        Err(timeout_msg) => Ok(QueryResponse {
+            success: false,
+            result: None,
+            error: Some(timeout_msg),
             query_id: None,
             truncated: None,
             truncated_total: None,
@@ -1473,7 +1566,7 @@ pub async fn create_database(
         None
     };
 
-    let engine_options = options.map(|v| crate::engine::types::Value::Json(v));
+    let engine_options = options.map(crate::engine::types::Value::Json);
 
     let start_time = std::time::Instant::now();
     match driver.create_database(session, &name, engine_options).await {
@@ -1925,11 +2018,36 @@ pub async fn get_governance_limits(
     })
 }
 
+/// Clamp ranges for [`update_governance_limits`]. Without these, a frontend
+/// caller (or compromised webview JS) could send `max_query_duration_ms = 0`
+/// — every query times out instantly — or `max_result_rows = u64::MAX` —
+/// the limit is effectively gone (cf. audit B6-H4).
+const MIN_QUERY_DURATION_MS: u64 = 100;
+const MAX_QUERY_DURATION_MS: u64 = 60 * 60 * 1000; // 1h hard cap
+const MIN_RESULT_ROWS: u64 = 1;
+const MAX_RESULT_ROWS_CAP: u64 = 100_000_000;
+const MIN_CONCURRENT_QUERIES: u32 = 1;
+const MAX_CONCURRENT_QUERIES: u32 = 256;
+
+fn clamp_governance_limits(mut limits: GovernanceLimits) -> GovernanceLimits {
+    limits.max_query_duration_ms = limits
+        .max_query_duration_ms
+        .map(|v| v.clamp(MIN_QUERY_DURATION_MS, MAX_QUERY_DURATION_MS));
+    limits.max_result_rows = limits
+        .max_result_rows
+        .map(|v| v.clamp(MIN_RESULT_ROWS, MAX_RESULT_ROWS_CAP));
+    limits.max_concurrent_queries = limits
+        .max_concurrent_queries
+        .map(|v| v.clamp(MIN_CONCURRENT_QUERIES, MAX_CONCURRENT_QUERIES));
+    limits
+}
+
 #[tauri::command]
 pub async fn update_governance_limits(
     state: State<'_, crate::SharedState>,
     limits: GovernanceLimits,
 ) -> Result<GovernanceLimits, String> {
+    let limits = clamp_governance_limits(limits);
     let mut state = state.lock().await;
     state.policy.max_query_duration_ms = limits.max_query_duration_ms;
     state.policy.max_result_rows = limits.max_result_rows;

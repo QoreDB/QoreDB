@@ -11,6 +11,7 @@ import {
   MoreHorizontal,
   Play,
   RefreshCw,
+  ShieldCheck,
   Square,
   Trash2,
   UnfoldVertical,
@@ -41,6 +42,7 @@ import type {
 import type { Namespace } from '@/lib/tauri';
 import { cn } from '@/lib/utils';
 import { ChartCell } from './ChartCell';
+import { ContractCell } from './ContractCell';
 import { MarkdownCell } from './MarkdownCell';
 import { SqlCell } from './SqlCell';
 
@@ -82,6 +84,8 @@ const CellTypeIcon = ({ type }: { type: string }) => {
       return <Code size={13} className="text-muted-foreground" />;
     case 'markdown':
       return <FileText size={13} className="text-muted-foreground" />;
+    case 'contract':
+      return <ShieldCheck size={13} className="text-muted-foreground" />;
     default:
       return <Code size={13} className="text-muted-foreground" />;
   }
@@ -126,7 +130,8 @@ export function NotebookCell({
       ? 'idle'
       : (cell.executionState ?? 'idle');
 
-  const isExecutable = cell.type === 'sql' || cell.type === 'mongo';
+  const isExecutable =
+    cell.type === 'sql' || cell.type === 'mongo' || cell.type === 'contract';
   const isRunning = cell.executionState === 'running';
   const isCollapsed = cell.config?.collapsed;
 
@@ -335,6 +340,9 @@ export function NotebookCell({
                 )}
                 {cell.type === 'markdown' && (
                   <MarkdownCell cell={cell} onSourceChange={onSourceChange} />
+                )}
+                {cell.type === 'contract' && (
+                  <ContractCell cell={cell} onSourceChange={onSourceChange} />
                 )}
                 {cell.type === 'chart' && allCells && <ChartCell cell={cell} allCells={allCells} />}
               </>

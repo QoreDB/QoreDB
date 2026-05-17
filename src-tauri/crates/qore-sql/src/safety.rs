@@ -85,6 +85,14 @@ pub fn analyze_sql(driver_id: &str, sql: &str) -> Result<SqlSafetyAnalysis, Stri
 }
 
 fn analyze_sql_uncached(driver_id: &str, trimmed: &str) -> Result<SqlSafetyAnalysis, String> {
+    // ClickHouse: sqlparser's GenericDialect fails to parse much of CH's
+    // dialect (ENGINE clauses, ARRAY JOIN, FINAL, SETTINGS, FORMAT, etc.),
+    // so we'd reject perfectly valid CH SQL as "parse error". Use our
+    // keyword-based classifier instead — coarser but never wrongly blocks.
+    if driver_id.eq_ignore_ascii_case("clickhouse") {
+        return Ok(analyze_clickhouse(trimmed));
+    }
+
     let dialect = dialect_for_driver(driver_id);
     let statements = Parser::parse_sql(&*dialect, trimmed).map_err(|err| err.to_string())?;
 
@@ -103,6 +111,38 @@ fn analyze_sql_uncached(driver_id: &str, trimmed: &str) -> Result<SqlSafetyAnaly
     }
 
     Ok(analysis)
+}
+
+fn analyze_clickhouse(trimmed: &str) -> SqlSafetyAnalysis {
+    use crate::clickhouse_safety::{classify, ClickHouseQueryClass};
+    // Multi-statement scripts on the HTTP wire are rare for CH; classify
+    // each segment split on `;` and OR the results so a `DROP TABLE; SELECT 1`
+    // still flags as dangerous.
+    let mut is_mutation = false;
+    let mut is_dangerous = false;
+    for stmt in trimmed.split(';') {
+        if stmt.trim().is_empty() {
+            continue;
+        }
+        match classify(stmt) {
+            ClickHouseQueryClass::Read => {}
+            ClickHouseQueryClass::Mutation => is_mutation = true,
+            ClickHouseQueryClass::Dangerous => {
+                is_mutation = true;
+                is_dangerous = true;
+            }
+            ClickHouseQueryClass::Unknown => {
+                // Treat unknown statements as potential mutations so the
+                // read-only guard still trips; production confirmation
+                // (`prod_require_confirmation`) covers ambiguous cases.
+                is_mutation = true;
+            }
+        }
+    }
+    SqlSafetyAnalysis {
+        is_mutation,
+        is_dangerous,
+    }
 }
 
 pub fn returns_rows(driver_id: &str, sql: &str) -> Result<bool, String> {
@@ -128,6 +168,11 @@ pub fn returns_rows(driver_id: &str, sql: &str) -> Result<bool, String> {
 }
 
 fn returns_rows_uncached(driver_id: &str, trimmed: &str) -> Result<bool, String> {
+    if driver_id.eq_ignore_ascii_case("clickhouse") {
+        use crate::clickhouse_safety::{classify, ClickHouseQueryClass};
+        return Ok(matches!(classify(trimmed), ClickHouseQueryClass::Read));
+    }
+
     let dialect = dialect_for_driver(driver_id);
     let statements = Parser::parse_sql(&*dialect, trimmed).map_err(|err| err.to_string())?;
 
@@ -158,6 +203,12 @@ pub fn split_sql_statements(driver_id: &str, sql: &str) -> Result<Vec<String>, S
 }
 
 fn split_sql_statements_uncached(driver_id: &str, trimmed: &str) -> Result<Vec<String>, String> {
+    if driver_id.eq_ignore_ascii_case("clickhouse") {
+        // sqlparser cannot reliably round-trip CH-specific syntax, so split
+        // on top-level `;` outside string literals and trim each piece.
+        return Ok(split_ch_statements(trimmed));
+    }
+
     let dialect = dialect_for_driver(driver_id);
     let statements = Parser::parse_sql(&*dialect, trimmed).map_err(|err| err.to_string())?;
 
@@ -179,6 +230,81 @@ pub fn is_select_prefix(sql: &str) -> bool {
         || trimmed.starts_with("SHOW")
         || trimmed.starts_with("EXPLAIN")
         || trimmed.starts_with("DESCRIBE")
+}
+
+/// Split a ClickHouse multi-statement script on top-level `;` while respecting
+/// string literals (`'…'`, `"…"`) and bracketed comments (`-- …`, `/* … */`).
+/// Cheaper and safer than running sqlparser on dialect-heavy CH SQL.
+fn split_ch_statements(input: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut buf = String::new();
+    let bytes = input.as_bytes();
+    let mut i = 0;
+    let len = bytes.len();
+    let mut in_single = false;
+    let mut in_double = false;
+    while i < len {
+        let c = bytes[i] as char;
+        if !in_single && !in_double && i + 1 < len {
+            if bytes[i] == b'-' && bytes[i + 1] == b'-' {
+                while i < len && bytes[i] != b'\n' {
+                    buf.push(bytes[i] as char);
+                    i += 1;
+                }
+                continue;
+            }
+            if bytes[i] == b'/' && bytes[i + 1] == b'*' {
+                buf.push_str("/*");
+                i += 2;
+                while i + 1 < len && !(bytes[i] == b'*' && bytes[i + 1] == b'/') {
+                    buf.push(bytes[i] as char);
+                    i += 1;
+                }
+                if i + 1 < len {
+                    buf.push_str("*/");
+                    i += 2;
+                }
+                continue;
+            }
+        }
+        match c {
+            '\'' if !in_double => {
+                // Treat `\'` as an escaped quote, not a string boundary.
+                buf.push(c);
+                if i > 0 && bytes[i - 1] == b'\\' {
+                    i += 1;
+                    continue;
+                }
+                in_single = !in_single;
+                i += 1;
+                continue;
+            }
+            '"' if !in_single => {
+                buf.push(c);
+                in_double = !in_double;
+                i += 1;
+                continue;
+            }
+            ';' if !in_single && !in_double => {
+                let s = buf.trim().to_string();
+                if !s.is_empty() {
+                    out.push(s);
+                }
+                buf.clear();
+                i += 1;
+                continue;
+            }
+            _ => {
+                buf.push(c);
+                i += 1;
+            }
+        }
+    }
+    let s = buf.trim().to_string();
+    if !s.is_empty() {
+        out.push(s);
+    }
+    out
 }
 
 fn dialect_for_driver(driver_id: &str) -> Box<dyn Dialect> {
@@ -301,6 +427,230 @@ fn select_has_into(select: &Select) -> bool {
     select.into.is_some()
 }
 
+/// Why a DuckDB statement was flagged dangerous. Returned by
+/// [`classify_duckdb_dangerous`] so callers can produce a precise error.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DuckDbDanger {
+    /// `INSTALL <ext>` — installs an extension (httpfs, postgres_scanner, …).
+    Install,
+    /// `LOAD <ext>` — loads an extension into the session.
+    Load,
+    /// `ATTACH '…'` — attaches an arbitrary database (file, HTTP, postgres).
+    Attach,
+    /// `COPY … TO '<path>'` — writes query results to an arbitrary path.
+    CopyTo,
+    /// `PRAGMA enable_external_access` — toggles network / file egress.
+    EnableExternalAccess,
+}
+
+impl DuckDbDanger {
+    pub fn reason(self) -> &'static str {
+        match self {
+            DuckDbDanger::Install => "INSTALL is blocked (extensions can fetch remote code)",
+            DuckDbDanger::Load => "LOAD is blocked (loading extensions enables network/file egress)",
+            DuckDbDanger::Attach => "ATTACH is blocked (can mount arbitrary databases, including HTTP)",
+            DuckDbDanger::CopyTo => "COPY ... TO is blocked (writes to arbitrary filesystem paths)",
+            DuckDbDanger::EnableExternalAccess => {
+                "PRAGMA enable_external_access is blocked (toggles network/file egress)"
+            }
+        }
+    }
+}
+
+/// Classifies a single DuckDB statement and returns the reason if it would
+/// give the user filesystem or network egress beyond the open database.
+///
+/// Designed to be cheap and conservative: it inspects the leading keyword
+/// after stripping comments and whitespace, so an editor pasting a benign
+/// `SELECT 1` is unaffected.
+pub fn classify_duckdb_dangerous(sql: &str) -> Option<DuckDbDanger> {
+    let trimmed = strip_leading_sql_noise(sql);
+    let upper = trimmed.to_ascii_uppercase();
+
+    if upper.starts_with("INSTALL") && next_char_is_separator(&trimmed, "INSTALL".len()) {
+        return Some(DuckDbDanger::Install);
+    }
+    if upper.starts_with("LOAD") && next_char_is_separator(&trimmed, "LOAD".len()) {
+        return Some(DuckDbDanger::Load);
+    }
+    if upper.starts_with("ATTACH") && next_char_is_separator(&trimmed, "ATTACH".len()) {
+        return Some(DuckDbDanger::Attach);
+    }
+    if upper.starts_with("PRAGMA") {
+        let rest = &upper["PRAGMA".len()..];
+        if rest.trim_start().starts_with("ENABLE_EXTERNAL_ACCESS") {
+            return Some(DuckDbDanger::EnableExternalAccess);
+        }
+    }
+    if upper.starts_with("COPY") && next_char_is_separator(&trimmed, "COPY".len()) {
+        // Block only `COPY … TO '<path>'`. `COPY <table> FROM '…'` imports
+        // a local file the user already controls — the normal way to load
+        // CSV/Parquet into DuckDB.
+        if has_copy_to_clause(&upper) {
+            return Some(DuckDbDanger::CopyTo);
+        }
+    }
+
+    None
+}
+
+fn strip_leading_sql_noise(sql: &str) -> &str {
+    let mut s = sql.trim_start();
+    loop {
+        if let Some(rest) = s.strip_prefix("--") {
+            if let Some(nl) = rest.find('\n') {
+                s = rest[nl + 1..].trim_start();
+                continue;
+            } else {
+                return "";
+            }
+        }
+        if let Some(rest) = s.strip_prefix("/*") {
+            if let Some(end) = rest.find("*/") {
+                s = rest[end + 2..].trim_start();
+                continue;
+            } else {
+                return "";
+            }
+        }
+        return s;
+    }
+}
+
+fn next_char_is_separator(s: &str, idx: usize) -> bool {
+    match s.as_bytes().get(idx) {
+        None => true,
+        Some(b) => matches!(*b, b' ' | b'\t' | b'\n' | b'\r' | b'(' | b';'),
+    }
+}
+
+/// Why a SQLite statement was flagged dangerous. Returned by
+/// [`classify_sqlite_dangerous`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SqliteDanger {
+    /// `ATTACH DATABASE '/path'` — mounts an arbitrary file/URI into the
+    /// session, bypassing the read-only flag on the main database.
+    Attach,
+    /// `PRAGMA writable_schema = …` — toggles direct edits to `sqlite_master`,
+    /// can corrupt the schema.
+    WritableSchema,
+    /// `PRAGMA journal_mode = OFF` — disables durability (crash = corruption).
+    JournalModeOff,
+    /// `PRAGMA foreign_keys = OFF` — disables referential integrity.
+    ForeignKeysOff,
+}
+
+impl SqliteDanger {
+    pub fn reason(self) -> &'static str {
+        match self {
+            SqliteDanger::Attach => "ATTACH DATABASE is blocked (can mount arbitrary files outside the session policy)",
+            SqliteDanger::WritableSchema => {
+                "PRAGMA writable_schema is blocked (allows direct edits to sqlite_master)"
+            }
+            SqliteDanger::JournalModeOff => {
+                "PRAGMA journal_mode = OFF is blocked (disables durability)"
+            }
+            SqliteDanger::ForeignKeysOff => {
+                "PRAGMA foreign_keys = OFF is blocked (disables referential integrity)"
+            }
+        }
+    }
+}
+
+/// Classifies a single SQLite statement and returns the reason if it would
+/// silently weaken the database (corrupt schema, disable durability, or
+/// mount an arbitrary file).
+///
+/// Read-only PRAGMA inspections (`PRAGMA table_info`, `PRAGMA foreign_key_list`,
+/// `PRAGMA database_list`, …) are not affected — only the specific assignments
+/// that flip safety guarantees are blocked.
+pub fn classify_sqlite_dangerous(sql: &str) -> Option<SqliteDanger> {
+    let trimmed = strip_leading_sql_noise(sql);
+    let upper = trimmed.to_ascii_uppercase();
+
+    if upper.starts_with("ATTACH") && next_char_is_separator(&trimmed, "ATTACH".len()) {
+        return Some(SqliteDanger::Attach);
+    }
+    if upper.starts_with("PRAGMA") {
+        let rest = upper["PRAGMA".len()..].trim_start();
+        // Strip a leading `<dbname>.` qualifier (e.g. `PRAGMA main.writable_schema`).
+        let rest = match rest.find('.') {
+            Some(idx) => {
+                let before_dot = &rest[..idx];
+                if !before_dot.is_empty()
+                    && before_dot.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+                {
+                    rest[idx + 1..].trim_start()
+                } else {
+                    rest
+                }
+            }
+            None => rest,
+        };
+        if rest.starts_with("WRITABLE_SCHEMA") && has_assignment(rest) {
+            return Some(SqliteDanger::WritableSchema);
+        }
+        if rest.starts_with("JOURNAL_MODE")
+            && has_assignment(rest)
+            && pragma_argument_is(rest, "OFF")
+        {
+            return Some(SqliteDanger::JournalModeOff);
+        }
+        if rest.starts_with("FOREIGN_KEYS")
+            && has_assignment(rest)
+            && pragma_argument_is(rest, "OFF")
+        {
+            return Some(SqliteDanger::ForeignKeysOff);
+        }
+    }
+    None
+}
+
+/// True iff `s` (an already-uppercased PRAGMA tail) contains an `=` or `(` —
+/// i.e. it's an assignment / call form rather than a bare read.
+fn has_assignment(s: &str) -> bool {
+    s.contains('=') || s.contains('(')
+}
+
+/// Best-effort check that a PRAGMA's argument matches `expected` (already
+/// uppercase). Accepts both `PRAGMA x = OFF` and `PRAGMA x(OFF)`. We deliberately
+/// only block the *specific* dangerous values so that swapping `journal_mode`
+/// to `WAL` or `MEMORY` from the editor remains possible.
+fn pragma_argument_is(s: &str, expected: &str) -> bool {
+    let after = s.find(['=', '(']).map(|i| &s[i + 1..]).unwrap_or("");
+    let arg = after
+        .trim()
+        .trim_end_matches(';')
+        .trim()
+        .trim_end_matches(')')
+        .trim();
+    arg == expected
+}
+
+fn has_copy_to_clause(upper: &str) -> bool {
+    // Looks for a ` TO ` keyword followed by a quoted/identifier target.
+    // We intentionally search anywhere after the leading `COPY` since DuckDB
+    // accepts forms like `COPY (subquery) TO 'path'` and `COPY tbl TO 'p'`.
+    let after_copy = &upper["COPY".len()..];
+    // Crude but effective: require ` TO ` separated by whitespace and then a
+    // quote-like character ('"`) before a newline / end.
+    let mut idx = 0;
+    while let Some(pos) = after_copy[idx..].find(" TO") {
+        let abs = idx + pos;
+        let after = abs + " TO".len();
+        let next = after_copy.as_bytes().get(after).copied().unwrap_or(b' ');
+        if matches!(next, b' ' | b'\t' | b'\n' | b'\r') {
+            // Look ahead for a quote on the rest of the line.
+            let tail = &after_copy[after..];
+            if tail.contains('\'') || tail.contains('"') {
+                return true;
+            }
+        }
+        idx = after;
+    }
+    false
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -387,5 +737,227 @@ mod tests {
         assert!(statements[1]
             .to_ascii_uppercase()
             .starts_with("CREATE TABLE"));
+    }
+
+    #[test]
+    fn clickhouse_engine_clause_classifies_without_parse_error() {
+        // sqlparser GenericDialect chokes on ENGINE = MergeTree(); the bypass
+        // must still classify this as a mutation, not bubble a parse error.
+        let analysis = analyze_sql(
+            "clickhouse",
+            "CREATE TABLE events (id UInt64, ts DateTime) ENGINE = MergeTree() ORDER BY (ts, id)",
+        )
+        .expect("ch should not parse-error");
+        assert!(analysis.is_mutation);
+        assert!(!analysis.is_dangerous);
+    }
+
+    #[test]
+    fn clickhouse_select_is_read_only() {
+        let analysis = analyze_sql(
+            "clickhouse",
+            "SELECT count() FROM events WHERE ts >= now() - INTERVAL 1 DAY",
+        )
+        .expect("ok");
+        assert!(!analysis.is_mutation);
+        assert!(!analysis.is_dangerous);
+    }
+
+    #[test]
+    fn clickhouse_drop_table_is_dangerous() {
+        let analysis = analyze_sql("clickhouse", "DROP TABLE events").expect("ok");
+        assert!(analysis.is_mutation);
+        assert!(analysis.is_dangerous);
+    }
+
+    #[test]
+    fn clickhouse_alter_update_is_mutation() {
+        let analysis = analyze_sql(
+            "clickhouse",
+            "ALTER TABLE events UPDATE name = 'x' WHERE id = 1",
+        )
+        .expect("ok");
+        assert!(analysis.is_mutation);
+        assert!(!analysis.is_dangerous);
+    }
+
+    #[test]
+    fn clickhouse_optimize_final_is_dangerous() {
+        let analysis = analyze_sql("clickhouse", "OPTIMIZE TABLE events FINAL").expect("ok");
+        assert!(analysis.is_dangerous);
+    }
+
+    #[test]
+    fn clickhouse_returns_rows_only_for_reads() {
+        assert_eq!(returns_rows("clickhouse", "SELECT 1"), Ok(true));
+        assert_eq!(
+            returns_rows("clickhouse", "INSERT INTO t VALUES (1)"),
+            Ok(false)
+        );
+        assert_eq!(returns_rows("clickhouse", "EXPLAIN SELECT 1"), Ok(true));
+    }
+
+    #[test]
+    fn clickhouse_split_respects_string_literals() {
+        let stmts = split_sql_statements(
+            "clickhouse",
+            "INSERT INTO t VALUES ('a;b', 'c'); SELECT 1;",
+        )
+        .expect("ok");
+        assert_eq!(stmts.len(), 2);
+        assert!(stmts[0].contains("'a;b'"));
+        assert!(stmts[1].to_ascii_uppercase().starts_with("SELECT"));
+    }
+
+    #[test]
+    fn clickhouse_unknown_first_keyword_is_treated_as_mutation() {
+        // `USE db` doesn't fit either Read or Mutation lists; classified as
+        // Unknown → bypass treats it as a mutation so read-only mode blocks.
+        let analysis = analyze_sql("clickhouse", "USE metrics").expect("ok");
+        assert!(analysis.is_mutation);
+    }
+
+    #[test]
+    fn duckdb_install_is_flagged() {
+        assert_eq!(
+            classify_duckdb_dangerous("INSTALL httpfs"),
+            Some(DuckDbDanger::Install)
+        );
+        assert_eq!(
+            classify_duckdb_dangerous("  install postgres_scanner"),
+            Some(DuckDbDanger::Install)
+        );
+    }
+
+    #[test]
+    fn duckdb_load_is_flagged() {
+        assert_eq!(
+            classify_duckdb_dangerous("LOAD httpfs"),
+            Some(DuckDbDanger::Load)
+        );
+    }
+
+    #[test]
+    fn duckdb_attach_is_flagged() {
+        assert_eq!(
+            classify_duckdb_dangerous("ATTACH 'http://x.com/db.duckdb' AS evil"),
+            Some(DuckDbDanger::Attach)
+        );
+    }
+
+    #[test]
+    fn duckdb_copy_to_is_flagged() {
+        assert_eq!(
+            classify_duckdb_dangerous("COPY (SELECT * FROM t) TO '/tmp/leak.csv'"),
+            Some(DuckDbDanger::CopyTo)
+        );
+        assert_eq!(
+            classify_duckdb_dangerous("COPY tbl TO '/tmp/x.parquet' (FORMAT PARQUET)"),
+            Some(DuckDbDanger::CopyTo)
+        );
+    }
+
+    #[test]
+    fn duckdb_pragma_external_access_is_flagged() {
+        assert_eq!(
+            classify_duckdb_dangerous("PRAGMA enable_external_access = true"),
+            Some(DuckDbDanger::EnableExternalAccess)
+        );
+    }
+
+    #[test]
+    fn duckdb_safe_statements_pass() {
+        assert_eq!(classify_duckdb_dangerous("SELECT 1"), None);
+        assert_eq!(
+            classify_duckdb_dangerous("INSERT INTO t VALUES (1)"),
+            None
+        );
+        // COPY FROM is the normal data import path — should not be blocked.
+        assert_eq!(
+            classify_duckdb_dangerous("COPY t FROM '/data/x.csv'"),
+            None
+        );
+        // PRAGMA other than enable_external_access is allowed (table_info,
+        // database_size, etc. are common metadata helpers).
+        assert_eq!(classify_duckdb_dangerous("PRAGMA database_size"), None);
+        // Comment-only or empty input must not crash.
+        assert_eq!(classify_duckdb_dangerous(""), None);
+        assert_eq!(classify_duckdb_dangerous("-- INSTALL httpfs"), None);
+    }
+
+    #[test]
+    fn duckdb_keyword_prefix_is_not_enough() {
+        // `INSTALLED` is not `INSTALL`. The classifier must require a word
+        // boundary so identifiers starting with the keyword don't trip it.
+        assert_eq!(classify_duckdb_dangerous("INSTALLED_VIEW"), None);
+        assert_eq!(classify_duckdb_dangerous("LOADER"), None);
+    }
+
+    #[test]
+    fn sqlite_attach_is_flagged() {
+        assert_eq!(
+            classify_sqlite_dangerous("ATTACH DATABASE '/etc/passwd' AS x"),
+            Some(SqliteDanger::Attach)
+        );
+        assert_eq!(
+            classify_sqlite_dangerous("attach 'remote.db' as r"),
+            Some(SqliteDanger::Attach)
+        );
+    }
+
+    #[test]
+    fn sqlite_pragma_writable_schema_assignment_is_flagged() {
+        assert_eq!(
+            classify_sqlite_dangerous("PRAGMA writable_schema = 1"),
+            Some(SqliteDanger::WritableSchema)
+        );
+        assert_eq!(
+            classify_sqlite_dangerous("PRAGMA writable_schema(ON)"),
+            Some(SqliteDanger::WritableSchema)
+        );
+        // Bare read is informational and stays allowed.
+        assert_eq!(classify_sqlite_dangerous("PRAGMA writable_schema"), None);
+    }
+
+    #[test]
+    fn sqlite_pragma_journal_mode_off_is_flagged() {
+        assert_eq!(
+            classify_sqlite_dangerous("PRAGMA journal_mode = OFF"),
+            Some(SqliteDanger::JournalModeOff)
+        );
+        // Other journal modes stay allowed.
+        assert_eq!(classify_sqlite_dangerous("PRAGMA journal_mode = WAL"), None);
+        assert_eq!(classify_sqlite_dangerous("PRAGMA journal_mode = MEMORY"), None);
+    }
+
+    #[test]
+    fn sqlite_pragma_foreign_keys_off_is_flagged() {
+        assert_eq!(
+            classify_sqlite_dangerous("PRAGMA foreign_keys = OFF"),
+            Some(SqliteDanger::ForeignKeysOff)
+        );
+        assert_eq!(
+            classify_sqlite_dangerous("PRAGMA foreign_keys = ON"),
+            None
+        );
+    }
+
+    #[test]
+    fn sqlite_pragma_with_db_qualifier_is_still_caught() {
+        assert_eq!(
+            classify_sqlite_dangerous("PRAGMA main.foreign_keys = OFF"),
+            Some(SqliteDanger::ForeignKeysOff)
+        );
+    }
+
+    #[test]
+    fn sqlite_safe_pragmas_pass() {
+        assert_eq!(classify_sqlite_dangerous("PRAGMA table_info(users)"), None);
+        assert_eq!(
+            classify_sqlite_dangerous("PRAGMA foreign_key_list(orders)"),
+            None
+        );
+        assert_eq!(classify_sqlite_dangerous("PRAGMA index_list(users)"), None);
+        assert_eq!(classify_sqlite_dangerous("SELECT 1"), None);
     }
 }

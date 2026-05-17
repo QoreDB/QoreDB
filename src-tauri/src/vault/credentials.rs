@@ -32,47 +32,36 @@ impl Environment {
 /// A saved connection (credentials stored separately in vault)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SavedConnection {
-    /// Unique identifier for this connection
     pub id: String,
-    /// Display name
     pub name: String,
-    /// Driver type
     pub driver: String,
-    /// Environment classification (dev/staging/prod)
     pub environment: Environment,
-    /// Read-only mode
     pub read_only: bool,
-    /// Host address
     pub host: String,
-    /// Port number
     pub port: u16,
-    /// Username
     pub username: String,
-    /// Database name (optional)
     pub database: Option<String>,
-    /// Use SSL/TLS
     pub ssl: bool,
     /// Optional SSL mode override (e.g. "verify-full", "verify-ca")
     #[serde(default)]
     pub ssl_mode: Option<String>,
-    /// Pool max connections
     #[serde(default)]
     pub pool_max_connections: Option<u32>,
-    /// Pool min connections
     #[serde(default)]
     pub pool_min_connections: Option<u32>,
-    /// Pool acquire timeout (seconds)
     #[serde(default)]
     pub pool_acquire_timeout_secs: Option<u32>,
-    /// SSH tunnel configuration (without credentials)
     pub ssh_tunnel: Option<SshTunnelInfo>,
-    /// Network proxy configuration (without credentials)
     #[serde(default)]
     pub proxy: Option<ProxyInfo>,
     /// SQL Server authentication mode. `None` on legacy saved connections.
     #[serde(default)]
     pub mssql_auth: Option<MssqlAuthMode>,
-    /// Project ID for isolation
+    /// ClickHouse distributed cluster name. When set, DDL operations are
+    /// issued with `ON CLUSTER <name>` so they propagate to every replica.
+    /// `None` for non-clustered installs (single-node behaviour).
+    #[serde(default)]
+    pub clickhouse_cluster: Option<String>,
     pub project_id: String,
 }
 
@@ -214,10 +203,7 @@ impl SavedConnection {
                     host: proxy_info.host.clone(),
                     port: proxy_info.port,
                     username: proxy_info.username.clone(),
-                    password: creds
-                        .proxy_password
-                        .as_ref()
-                        .map(|s| s.expose().clone()),
+                    password: creds.proxy_password.as_ref().map(|s| s.expose().clone()),
                     connect_timeout_secs: proxy_info.connect_timeout_secs,
                 })
             }
@@ -241,6 +227,7 @@ impl SavedConnection {
             ssh_tunnel,
             proxy,
             mssql_auth: self.mssql_auth,
+            clickhouse_cluster: self.clickhouse_cluster.clone(),
         })
     }
 }
@@ -280,6 +267,7 @@ mod tests {
             }),
             proxy: None,
             mssql_auth: None,
+            clickhouse_cluster: None,
             project_id: "proj".to_string(),
         }
     }
@@ -409,8 +397,7 @@ mod tests {
             "host":"localhost","port":1433,"username":"sa","database":null,
             "ssl":false,"ssh_tunnel":null,"project_id":"proj"
         }"#;
-        let parsed: SavedConnection =
-            serde_json::from_str(legacy).expect("legacy json must parse");
+        let parsed: SavedConnection = serde_json::from_str(legacy).expect("legacy json must parse");
         assert!(parsed.mssql_auth.is_none());
     }
 }

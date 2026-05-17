@@ -3,6 +3,71 @@
 Client desktop de bases de données moderne construit avec **Tauri 2 + React 19 + Rust**.
 Alternative légère et rapide à DBeaver/pgAdmin pour développeurs.
 
+## Principes de collaboration (à lire en premier)
+
+Ces principes prennent le pas sur la vitesse. Pour une tâche triviale, utilise ton jugement.
+
+### 1. Réfléchir avant de coder
+
+**Ne pas supposer. Ne pas masquer la confusion. Exposer les compromis.**
+
+Avant d'implémenter :
+
+- Énonce explicitement tes hypothèses. En cas de doute, demande.
+- Si plusieurs interprétations sont possibles, présente-les — ne choisis pas en silence.
+- Si une approche plus simple existe, dis-le. Pousse-la quand c'est justifié.
+- Si quelque chose n'est pas clair, arrête-toi. Nomme ce qui est confus. Demande.
+
+### 2. La simplicité d'abord
+
+**Le minimum de code qui résout le problème. Rien de spéculatif.**
+
+- Pas de fonctionnalités au-delà de ce qui a été demandé.
+- Pas d'abstractions pour du code à usage unique.
+- Pas de « flexibilité » ou de « configurabilité » non demandée.
+- Pas de gestion d'erreur pour des scénarios impossibles.
+- Si tu écris 200 lignes et que 50 suffiraient, réécris.
+
+Pose-toi la question : « Un ingénieur senior dirait-il que c'est sur-compliqué ? » Si oui, simplifie.
+
+### 3. Modifications chirurgicales
+
+**Ne touche qu'à ce qui est nécessaire. Ne nettoie que ton propre désordre.**
+
+Lors d'édition de code existant :
+
+- Ne « améliore » pas le code, les commentaires ou le formatage adjacents.
+- Ne refactorise pas ce qui n'est pas cassé.
+- Respecte le style existant, même si tu ferais autrement.
+- Si tu remarques du code mort non lié, signale-le — ne le supprime pas.
+
+Quand tes changements créent des orphelins :
+
+- Supprime les imports/variables/fonctions que TES changements ont rendu inutilisés.
+- Ne supprime pas le code mort préexistant sauf demande explicite.
+
+Le test : chaque ligne modifiée doit pouvoir se rattacher directement à la demande de l'utilisateur.
+
+### 4. Exécution guidée par l'objectif
+
+**Définir des critères de succès. Itérer jusqu'à vérification.**
+
+Transforme les tâches en objectifs vérifiables :
+
+- « Ajouter une validation » → « Écrire des tests pour les entrées invalides, puis les faire passer »
+- « Corriger le bug » → « Écrire un test qui le reproduit, puis le faire passer »
+- « Refactoriser X » → « S'assurer que les tests passent avant et après »
+
+Pour les tâches en plusieurs étapes, énonce un plan bref :
+
+```text
+1. [Étape] → vérification : [contrôle]
+2. [Étape] → vérification : [contrôle]
+3. [Étape] → vérification : [contrôle]
+```
+
+Des critères de succès solides permettent d'itérer en autonomie. Des critères faibles (« faire que ça marche ») exigent une clarification permanente.
+
 ## Stack technique
 
 | Couche   | Technologies                                         |
@@ -85,11 +150,60 @@ ou, pour les fichiers Premium :
 
 ### Périmètre Premium actuel
 
-Les fichiers suivants sont actuellement marqués Premium (`BUSL-1.1`) :
+Les fichiers suivants sont actuellement marqués Premium (`BUSL-1.1`), regroupés par module :
+
+#### AI Assistant
+
+- `src/components/AI/*`
+- `src/components/Settings/sections/AiSection.tsx`
+- `src/hooks/useAiAssistant.ts`
+- `src/lib/ai.ts`
+- `src/providers/AiPreferencesProvider.tsx`
+- `src-tauri/src/ai/*`
+- `src-tauri/src/commands/ai.rs`
+
+#### Data Contracts
+
+- `src/components/Contracts/*`
+- `src/lib/contracts/*`
+- `src-tauri/src/contracts/*`
+- `src-tauri/src/commands/contracts.rs`
+
+#### Diff
 
 - `src/components/Diff/*`
-- `src/components/Schema/ERDiagram.tsx`
 - `src/lib/diffUtils.ts`
+
+#### Federation
+
+- `src/components/Federation/*`
+- `src/lib/connection/federation.ts`
+- `src-tauri/src/federation/*`
+- `src-tauri/src/commands/federation.rs`
+
+#### Time Travel
+
+- `src/components/TimeTravel/*`
+- `src-tauri/src/time_travel/*`
+- `src-tauri/src/commands/time_travel.rs`
+
+#### Notebook avancé
+
+- `src/components/Notebook/cells/ChartCell.tsx`
+- `src/components/Notebook/cells/ContractCell.tsx`
+- `src/lib/notebook/notebookInterCellRef.ts`
+
+#### Schema avancé
+
+- `src/components/Schema/ERDiagram.tsx`
+
+#### Export avancé
+
+- `src-tauri/src/export/writers/parquet_writer.rs`
+- `src-tauri/src/export/writers/xlsx.rs`
+
+#### Profiling
+
 - `src-tauri/src/interceptor/profiling.rs`
 
 Tout le reste est Core par défaut (`Apache-2.0`), sauf décision explicite contraire.
@@ -111,8 +225,7 @@ Consulte ces fichiers selon le contexte de ta tâche :
 | Features (liste)         | `doc/FEATURES.csv`                             |
 | Design system UI         | `doc/rules/DESIGN_SYSTEM.md`                   |
 | Fondations visuelles     | `doc/rules/VISUAL_FOUNDATION.md`               |
-| Features (spécs)         | `doc/rules/FEATURES.md`                        |
-| Spécificités drivers BDD | `doc/rules/DATABASES.md`                       |
+| Spécificités drivers BDD | `doc/todo/DATABASES.md`                        |
 | Sécurité / menaces       | `doc/security/THREAT_MODEL.md`                 |
 | Sécurité / prod          | `doc/security/PRODUCTION_SAFETY.md`            |
 | Audits sécurité          | `doc/audits/SECURITY_AUDIT.md`                 |
@@ -132,5 +245,5 @@ Consulte ces fichiers selon le contexte de ta tâche :
 Applique l'internationalisation de manière systématique via `src/lib/i18n.ts`.
 Pour les traductions, pense à toutes les langues, et écris dans un français clair et concis (avec les accents).
 Utilise les composants UI de `src/components/ui/` autant que possible pour garantir la cohérence visuelle.
-Quand tu ajoutes une nouvelle fonctionnalité, pense à la documentation associée (README, doc/rules/FEATURES.md) et à la licence (header SPDX).
+Quand tu ajoutes une nouvelle fonctionnalité, pense à la documentation associée (README, doc/FEATURES.csv) et à la licence (header SPDX).
 Commente le code avec parcimonie, les commentaires doivent seulement etre utiles à la compréhension du code, pas des réflexions internes.

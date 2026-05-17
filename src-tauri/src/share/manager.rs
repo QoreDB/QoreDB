@@ -176,7 +176,10 @@ impl ShareManager {
             ShareBodyMode::Binary => {
                 request = request
                     .header("Content-Type", content_type_for_file(file_name))
-                    .header("Content-Disposition", format!("attachment; filename=\"{}\"", file_name))
+                    .header(
+                        "Content-Disposition",
+                        format!("attachment; filename=\"{}\"", file_name),
+                    )
                     .body(body);
             }
         }
@@ -271,7 +274,8 @@ fn validate_provider_config(provider: &ShareProviderConfig) -> Result<(), String
         "https" => {}
         "http" => {
             let host = parsed.host_str().unwrap_or("");
-            let is_loopback = host == "localhost" || host == "127.0.0.1" || host == "::1" || host == "[::1]";
+            let is_loopback =
+                host == "localhost" || host == "127.0.0.1" || host == "::1" || host == "[::1]";
             if !is_loopback {
                 return Err("Share upload URL must use HTTPS for non-localhost hosts".to_string());
             }
@@ -332,12 +336,8 @@ fn extract_share_url(
                 path, e
             )
         })?;
-        let value = extract_value_at_path(&parsed, path).ok_or_else(|| {
-            format!(
-                "Share provider response does not contain path '{}'",
-                path
-            )
-        })?;
+        let value = extract_value_at_path(&parsed, path)
+            .ok_or_else(|| format!("Share provider response does not contain path '{}'", path))?;
         let url = value
             .as_str()
             .ok_or_else(|| format!("Share provider response path '{}' is not a string", path))?;
@@ -388,9 +388,7 @@ fn validate_share_url(url: &str) -> Result<String, String> {
             let is_loopback =
                 host == "localhost" || host == "127.0.0.1" || host == "::1" || host == "[::1]";
             if !is_loopback {
-                return Err(
-                    "Share URL must use HTTPS for non-localhost hosts".to_string(),
-                );
+                return Err("Share URL must use HTTPS for non-localhost hosts".to_string());
             }
             Ok(parsed.to_string())
         }

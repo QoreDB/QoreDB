@@ -99,13 +99,10 @@ async fn execute_federation_inner(
 ) -> EngineResult<(QueryResult, FederationMetadata)> {
     let row_limit = options.row_limit_per_source;
 
-    // Step 1: Build plan
     let plan = build_plan(sql, alias_map, row_limit, false)?;
-
-    // Step 2: Fetch from all sources in parallel
     let (source_results, fetch_results) = fetch_all_sources(&plan, session_manager).await?;
 
-    // Step 3: Flatten MongoDB document results into individual columns
+    // MongoDB results arrive as one `document` column; flatten to per-key columns.
     let source_results: Vec<QueryResult> = source_results
         .into_iter()
         .zip(plan.sources.iter())
@@ -118,7 +115,6 @@ async fn execute_federation_inner(
         })
         .collect();
 
-    // Step 4: Load into DuckDB and execute
     let duckdb_start = Instant::now();
     let engine = DuckDbEngine::new()?;
 
@@ -130,7 +126,6 @@ async fn execute_federation_inner(
     let query_result = engine.execute_query(&plan.duckdb_query)?;
     let duckdb_time_ms = duckdb_start.elapsed().as_secs_f64() * 1000.0;
 
-    // Build metadata
     let warnings: Vec<String> = fetch_results
         .iter()
         .filter(|r| r.row_limit_hit)
@@ -145,7 +140,7 @@ async fn execute_federation_inner(
     let metadata = FederationMetadata {
         source_results: fetch_results,
         duckdb_time_ms,
-        total_time_ms: 0.0, // Set by caller
+        total_time_ms: 0.0, // set by caller
         warnings,
     };
 
@@ -162,13 +157,10 @@ async fn execute_federation_stream_inner(
 ) -> EngineResult<FederationMetadata> {
     let row_limit = options.row_limit_per_source;
 
-    // Step 1: Build plan
     let plan = build_plan(sql, alias_map, row_limit, true)?;
-
-    // Step 2: Fetch from all sources in parallel
     let (source_results, fetch_results) = fetch_all_sources(&plan, session_manager).await?;
 
-    // Step 3: Flatten MongoDB document results into individual columns
+    // MongoDB results arrive as one `document` column; flatten to per-key columns.
     let source_results: Vec<QueryResult> = source_results
         .into_iter()
         .zip(plan.sources.iter())
@@ -181,7 +173,6 @@ async fn execute_federation_stream_inner(
         })
         .collect();
 
-    // Step 4: Load into DuckDB and stream
     let duckdb_start = Instant::now();
     let engine = DuckDbEngine::new()?;
 
@@ -190,16 +181,15 @@ async fn execute_federation_stream_inner(
         engine.insert_batch(&source.table_ref.local_alias, &result.rows, &result.columns)?;
     }
 
-    // Execute synchronously (DuckDB types are not Send/Sync), then stream results
+    // DuckDB statement/row handles are not Send: execute sync, then stream out.
     let (columns, rows) = engine.execute_query_for_stream(&plan.duckdb_query)?;
     let duckdb_time_ms = duckdb_start.elapsed().as_secs_f64() * 1000.0;
 
-    // Stream results through the channel
     let _ = sender.send(StreamEvent::Columns(columns)).await;
     let row_count = rows.len() as u64;
     for row in rows {
         if sender.send(StreamEvent::Row(row)).await.is_err() {
-            break; // Receiver dropped (cancelled)
+            break; // receiver dropped (cancelled)
         }
     }
     let _ = sender.send(StreamEvent::Done(row_count)).await;
@@ -306,7 +296,6 @@ async fn fetch_single_source(
 /// This allows DuckDB to reference MongoDB fields directly (e.g. `l.profileId`)
 /// instead of requiring JSON extraction on a single `document` column.
 fn flatten_mongo_documents(result: QueryResult) -> QueryResult {
-    // Only flatten if we have the single "document" column pattern
     if result.columns.len() != 1 || result.columns[0].name != "document" {
         return result;
     }
@@ -315,7 +304,7 @@ fn flatten_mongo_documents(result: QueryResult) -> QueryResult {
         return result;
     }
 
-    // Collect all unique keys from all documents (preserving discovery order)
+    // Collect unique keys across all documents, preserving discovery order.
     let mut column_names: Vec<String> = Vec::new();
     let mut seen = std::collections::HashSet::new();
 
@@ -333,7 +322,7 @@ fn flatten_mongo_documents(result: QueryResult) -> QueryResult {
         return result;
     }
 
-    // Build columns — all as VARCHAR since MongoDB types are dynamic
+    // MongoDB fields are dynamically typed, so every flattened column is VARCHAR.
     let columns: Vec<ColumnInfo> = column_names
         .iter()
         .map(|name| ColumnInfo {
@@ -343,7 +332,6 @@ fn flatten_mongo_documents(result: QueryResult) -> QueryResult {
         })
         .collect();
 
-    // Build rows by extracting each field
     let rows: Vec<Row> = result
         .rows
         .iter()
@@ -357,7 +345,7 @@ fn flatten_mongo_documents(result: QueryResult) -> QueryResult {
                 .iter()
                 .map(|key| {
                     map.and_then(|m| m.get(key))
-                        .map(|v| json_value_to_engine_value(v))
+                        .map(json_value_to_engine_value)
                         .unwrap_or(Value::Null)
                 })
                 .collect();
@@ -389,7 +377,7 @@ fn json_value_to_engine_value(v: &serde_json::Value) -> Value {
             }
         }
         serde_json::Value::String(s) => Value::Text(s.clone()),
-        // Objects and arrays: serialize back to JSON string for DuckDB VARCHAR
+        // Objects and arrays serialize back to JSON for DuckDB's VARCHAR column.
         _ => Value::Text(v.to_string()),
     }
 }

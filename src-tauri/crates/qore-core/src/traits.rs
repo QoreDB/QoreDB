@@ -1,10 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
-//! DataEngine trait definition
-//!
-//! This is the core abstraction that all database drivers must implement.
-//! It provides a unified interface for connecting, querying, and managing
-//! database sessions across SQL and NoSQL engines.
+//! `DataEngine` — the trait every database driver implements. Defines the
+//! universal surface for connections, queries, schema, and sessions across
+//! SQL and NoSQL engines.
 
 use async_trait::async_trait;
 
@@ -38,11 +36,8 @@ pub enum StreamEvent {
 /// Sender for streaming events
 pub type StreamSender = tokio::sync::mpsc::Sender<StreamEvent>;
 
-/// Core trait that all database drivers must implement
-///
-/// This trait defines the universal interface for database operations.
-/// Each driver (PostgreSQL, MySQL, MongoDB, etc.) implements this trait
-/// to provide consistent behavior across different database engines.
+/// Universal database driver interface. One implementor per backend
+/// (PostgreSQL, MySQL, MongoDB, …).
 #[async_trait]
 pub trait DataEngine: Send + Sync {
     /// Returns the unique identifier for this driver (e.g., "postgres", "mysql", "mongodb")
@@ -393,8 +388,8 @@ pub trait DataEngine: Send + Sync {
 
     /// Queries table data with pagination, sorting, and filtering support.
     ///
-    /// This is the preferred method for table browsing. Default implementation
-    /// falls back to preview_table for backwards compatibility.
+    /// Preferred method for table browsing. Default falls back to
+    /// `preview_table` (no real pagination) for backwards compatibility.
     async fn query_table(
         &self,
         session: SessionId,
@@ -402,7 +397,6 @@ pub trait DataEngine: Send + Sync {
         table: &str,
         options: TableQueryOptions,
     ) -> EngineResult<PaginatedQueryResult> {
-        // Default: fall back to preview_table (no real pagination)
         let page = options.effective_page();
         let page_size = options.effective_page_size();
         let result = self
@@ -461,16 +455,13 @@ pub trait DataEngine: Send + Sync {
         }
     }
 
-    // ==================== Transaction Methods ====================
-    // These have default implementations that return NotSupported.
-    // Drivers that support transactions should override these.
+    // ==================== Transactions ====================
+    // Default implementations return NotSupported.
 
-    /// Begin a transaction for the session.
+    /// Begin a transaction for the session. Subsequent queries on this
+    /// session join the transaction until `commit` or `rollback`.
     ///
-    /// After calling this, all subsequent queries will be part of the transaction
-    /// until commit() or rollback() is called.
-    ///
-    /// Note: For connection-pooled drivers (SQLx), this acquires a dedicated connection.
+    /// For pooled drivers (SQLx) this acquires a dedicated connection.
     async fn begin_transaction(&self, session: SessionId) -> EngineResult<()> {
         let _ = session;
         Err(EngineError::not_supported(
@@ -479,8 +470,6 @@ pub trait DataEngine: Send + Sync {
     }
 
     /// Commit the current transaction.
-    ///
-    /// All changes made since begin_transaction() will be persisted.
     async fn commit(&self, session: SessionId) -> EngineResult<()> {
         let _ = session;
         Err(EngineError::not_supported(
@@ -489,8 +478,6 @@ pub trait DataEngine: Send + Sync {
     }
 
     /// Rollback the current transaction.
-    ///
-    /// All changes made since begin_transaction() will be discarded.
     async fn rollback(&self, session: SessionId) -> EngineResult<()> {
         let _ = session;
         Err(EngineError::not_supported(
@@ -524,20 +511,10 @@ pub trait DataEngine: Send + Sync {
         false
     }
 
-    // ==================== Mutation Methods ====================
-    // These have default implementations that return NotSupported.
-    // Drivers should override these to provide CRUD functionality.
+    // ==================== Mutations ====================
+    // Default implementations return NotSupported.
 
-    /// Insert a new row into a table.
-    ///
-    /// # Arguments
-    /// * `session` - The session ID
-    /// * `namespace` - The namespace (database/schema) containing the table
-    /// * `table` - The table name
-    /// * `data` - The row data to insert (column name -> value mapping)
-    ///
-    /// # Returns
-    /// QueryResult with affected_rows = 1 on success
+    /// Insert a new row. Returns `QueryResult` with `affected_rows = 1`.
     async fn insert_row(
         &self,
         session: SessionId,
@@ -551,17 +528,8 @@ pub trait DataEngine: Send + Sync {
         ))
     }
 
-    /// Update a row identified by primary key.
-    ///
-    /// # Arguments
-    /// * `session` - The session ID
-    /// * `namespace` - The namespace (database/schema) containing the table
-    /// * `table` - The table name
-    /// * `primary_key` - The primary key columns and their values
-    /// * `data` - The columns to update (column name -> new value mapping)
-    ///
-    /// # Returns
-    /// QueryResult with affected_rows indicating how many rows were updated
+    /// Update a row identified by primary key. `affected_rows` reports how
+    /// many rows matched.
     async fn update_row(
         &self,
         session: SessionId,
@@ -576,16 +544,8 @@ pub trait DataEngine: Send + Sync {
         ))
     }
 
-    /// Delete a row identified by primary key.
-    ///
-    /// # Arguments
-    /// * `session` - The session ID
-    /// * `namespace` - The namespace (database/schema) containing the table
-    /// * `table` - The table name
-    /// * `primary_key` - The primary key columns and their values
-    ///
-    /// # Returns
-    /// QueryResult with affected_rows indicating how many rows were deleted
+    /// Delete a row identified by primary key. `affected_rows` reports how
+    /// many rows matched.
     async fn delete_row(
         &self,
         session: SessionId,
@@ -604,9 +564,8 @@ pub trait DataEngine: Send + Sync {
         false
     }
 
-    // ==================== Maintenance Methods ====================
-    // These have default implementations that return NotSupported or empty.
-    // Drivers should override these to provide table maintenance operations.
+    // ==================== Maintenance ====================
+    // Default implementations return NotSupported or empty.
 
     /// Returns the list of maintenance operations available for this driver.
     /// Default returns empty (no maintenance support).

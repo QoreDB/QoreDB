@@ -1,23 +1,28 @@
 // SPDX-License-Identifier: Apache-2.0
 
-// QoreDB - Modern local-first database client
-// Core library
+//! QoreDB core library — modern local-first database client.
 
 #[cfg(feature = "pro")]
 pub mod ai;
+#[cfg(feature = "pro")]
+pub mod api;
+pub mod backup;
 pub mod commands;
+#[cfg(feature = "pro")]
+pub mod contracts;
 pub mod engine;
 pub mod export;
 #[cfg(feature = "pro")]
 pub mod federation;
 pub mod interceptor;
 pub mod license;
-pub mod time_travel;
 pub mod metrics;
 pub mod observability;
+pub mod paths;
 pub mod policy;
 pub mod share;
 pub mod snapshots;
+pub mod time_travel;
 pub mod vault;
 pub mod virtual_relations;
 pub mod workspace;
@@ -27,6 +32,7 @@ use tauri::Manager;
 use tokio::sync::Mutex;
 
 use commands::workspace::SharedWorkspaceManager;
+use engine::drivers::clickhouse::ClickHouseDriver;
 use engine::drivers::cockroachdb::CockroachDbDriver;
 use engine::drivers::duckdb::DuckDbDriver;
 use engine::drivers::mariadb::MariaDbDriver;
@@ -64,6 +70,9 @@ pub struct AppState {
     #[cfg(feature = "pro")]
     pub ai_manager: Arc<ai::manager::AiManager>,
     pub changelog_store: Arc<time_travel::ChangelogStore>,
+    pub backup_tool_paths: Arc<backup::BackupToolPaths>,
+    pub active_backups: Arc<backup::runner::ActiveBackups>,
+    pub confirmation_tokens: Arc<commands::confirmation::ConfirmationTokenStore>,
 }
 
 impl AppState {
@@ -82,6 +91,7 @@ impl AppState {
         registry.register(Arc::new(SupabaseDriver::new()));
         registry.register(Arc::new(NeonDriver::new()));
         registry.register(Arc::new(TimescaleDbDriver::new()));
+        registry.register(Arc::new(ClickHouseDriver::new()));
 
         let registry = Arc::new(registry);
         let session_manager = Arc::new(SessionManager::new(Arc::clone(&registry)));
@@ -90,14 +100,12 @@ impl AppState {
         let query_manager = Arc::new(QueryManager::new());
         let export_pipeline = Arc::new(ExportPipeline::new());
 
-        // Initialize interceptor with data directory
-        let data_dir = dirs::data_local_dir()
-            .unwrap_or_else(|| std::path::PathBuf::from("."))
-            .join("com.qoredb.app");
+        // Initialize interceptor with data directory. `paths::app_data_dir()`
+        // is the single source of truth shared with policy + logs (B1-H4).
+        let data_dir = paths::app_data_dir();
         let interceptor = Arc::new(InterceptorPipeline::new(data_dir.join("interceptor")));
         let _ = interceptor.load_config();
 
-        // Initialize virtual relations store
         let virtual_relations = Arc::new(VirtualRelationStore::new(
             data_dir.join("virtual_relations"),
         ));
@@ -108,16 +116,14 @@ impl AppState {
 
         let _ = vault_lock.auto_unlock_if_no_password();
 
-        // Initialize license manager (loads stored key from keyring)
+        // Loads any stored key from the keyring on construction.
         let license_manager = LicenseManager::new(Box::new(KeyringProvider::new()));
 
-        // Initialize AI manager (Pro only)
         #[cfg(feature = "pro")]
         let ai_manager = Arc::new(ai::manager::AiManager::new(
             Box::new(KeyringProvider::new()),
         ));
 
-        // Initialize changelog store for Data Time-Travel
         let changelog_store = Arc::new(time_travel::ChangelogStore::new(
             data_dir.join("time-travel"),
         ));
@@ -136,6 +142,9 @@ impl AppState {
             #[cfg(feature = "pro")]
             ai_manager,
             changelog_store,
+            backup_tool_paths: Arc::new(backup::BackupToolPaths::new()),
+            active_backups: Arc::new(backup::runner::ActiveBackups::new()),
+            confirmation_tokens: Arc::new(commands::confirmation::ConfirmationTokenStore::new()),
         }
     }
 }
@@ -151,27 +160,37 @@ pub fn run() {
     observability::init_tracing();
     let state: SharedState = Arc::new(Mutex::new(AppState::new()));
 
-    // Initialize snapshot store (managed separately — no mutex needed)
-    let data_dir = dirs::data_local_dir()
-        .unwrap_or_else(|| std::path::PathBuf::from("."))
-        .join("com.qoredb.app");
+    // Initialize snapshot store (managed separately — no mutex needed).
+    // Re-uses the shared root from `paths::app_data_dir()`.
+    let data_dir = paths::app_data_dir();
     let snapshot_store: commands::snapshots::SharedSnapshotStore =
         Arc::new(SnapshotStore::new(data_dir.join("snapshots")));
 
-    // Initialize workspace manager
+    // Initialize workspace manager. Workspace config follows the OS config
+    // convention (XDG `$XDG_CONFIG_HOME` on Linux, `~/Library/Application
+    // Support` on macOS, `%APPDATA%` on Windows) so users can sync workspace
+    // metadata via tools that target the config dir specifically.
     let app_config_dir = dirs::config_dir()
         .unwrap_or_else(|| std::path::PathBuf::from("."))
         .join("com.qoredb.app");
-    let workspace_manager: SharedWorkspaceManager =
-        Arc::new(tokio::sync::Mutex::new(workspace::WorkspaceManager::new(app_config_dir)));
+    let workspace_manager: SharedWorkspaceManager = Arc::new(tokio::sync::Mutex::new(
+        workspace::WorkspaceManager::new(app_config_dir),
+    ));
 
-    // Initialize workspace file watcher infrastructure
     let write_registry = workspace::write_registry::WriteRegistry::new();
-    let (ws_path_tx, ws_path_rx) =
-        tokio::sync::watch::channel::<Option<std::path::PathBuf>>(None);
+    let (ws_path_tx, ws_path_rx) = tokio::sync::watch::channel::<Option<std::path::PathBuf>>(None);
     let watcher_path_sender: commands::workspace::WatcherPathSender = Arc::new(ws_path_tx);
 
-    tauri::Builder::default()
+    // Pro: Instant Data API — endpoints store is created up-front so it
+    // survives across start/stop cycles; the server itself is spun up on
+    // demand by the `start_instant_api` command.
+    #[cfg(feature = "pro")]
+    let instant_api: commands::instant_api::SharedInstantApi = Arc::new(tokio::sync::Mutex::new(
+        commands::instant_api::InstantApiState::new(data_dir.clone())
+            .expect("failed to initialize Instant API endpoint store"),
+    ));
+
+    let builder = tauri::Builder::default()
         .setup(|app| {
             #[cfg(desktop)]
             app.handle()
@@ -187,7 +206,6 @@ pub fn run() {
                 }
             }
 
-            // Start the connection health monitor
             let state: tauri::State<SharedState> = app.state();
             let session_manager = {
                 let app_state = state.blocking_lock();
@@ -195,7 +213,6 @@ pub fn run() {
             };
             session_manager.start_health_monitor(app.handle().clone());
 
-            // Start workspace file watcher
             let wr: tauri::State<workspace::write_registry::WriteRegistry> = app.state();
             workspace::watcher::start_workspace_watcher(
                 app.handle().clone(),
@@ -213,8 +230,14 @@ pub fn run() {
         .manage(snapshot_store)
         .manage(workspace_manager)
         .manage(write_registry)
-        .manage(watcher_path_sender)
+        .manage(watcher_path_sender);
+
+    #[cfg(feature = "pro")]
+    let builder = builder.manage(instant_api);
+
+    builder
         .invoke_handler(tauri::generate_handler![
+
             // Connection commands
             commands::connection::test_connection,
             commands::connection::test_saved_connection,
@@ -312,6 +335,8 @@ pub fn run() {
             commands::sandbox::apply_sandbox_changes,
             // Full-text search
             commands::fulltext_search::fulltext_search,
+            // Confirmation tokens for destructive commands
+            commands::confirmation::request_confirmation_token,
             // Interceptor commands
             commands::interceptor::get_interceptor_config,
             commands::interceptor::update_interceptor_config,
@@ -328,6 +353,12 @@ pub fn run() {
             commands::interceptor::add_safety_rule,
             commands::interceptor::update_safety_rule,
             commands::interceptor::remove_safety_rule,
+            // Backup / Restore commands
+            commands::backup::detect_backup_tools,
+            commands::backup::set_backup_tool_path,
+            commands::backup::start_backup,
+            commands::backup::start_restore,
+            commands::backup::cancel_backup,
             // Snapshot commands
             commands::snapshots::save_snapshot,
             commands::snapshots::list_snapshots,
@@ -355,6 +386,34 @@ pub fn run() {
             commands::ai::ai_save_api_key,
             commands::ai::ai_delete_api_key,
             commands::ai::ai_get_provider_status,
+            // Data Contracts commands (Pro)
+            #[cfg(feature = "pro")]
+            commands::contracts::list_contracts,
+            #[cfg(feature = "pro")]
+            commands::contracts::load_contract,
+            #[cfg(feature = "pro")]
+            commands::contracts::save_contract,
+            #[cfg(feature = "pro")]
+            commands::contracts::run_contract,
+            #[cfg(feature = "pro")]
+            commands::contracts::get_contract_history,
+            // Instant Data API commands (Pro)
+            #[cfg(feature = "pro")]
+            commands::instant_api::start_instant_api,
+            #[cfg(feature = "pro")]
+            commands::instant_api::stop_instant_api,
+            #[cfg(feature = "pro")]
+            commands::instant_api::get_instant_api_status,
+            #[cfg(feature = "pro")]
+            commands::instant_api::list_endpoints,
+            #[cfg(feature = "pro")]
+            commands::instant_api::get_openapi_document,
+            #[cfg(feature = "pro")]
+            commands::instant_api::create_endpoint,
+            #[cfg(feature = "pro")]
+            commands::instant_api::regenerate_endpoint_token,
+            #[cfg(feature = "pro")]
+            commands::instant_api::delete_endpoint,
             // Workspace commands
             commands::workspace::detect_workspace,
             commands::workspace::get_active_workspace,

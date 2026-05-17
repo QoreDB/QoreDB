@@ -102,6 +102,7 @@ pub mod stubs {
         _database: String,
         _schema: Option<String>,
         _table_name: String,
+        _confirmation_token: String,
     ) -> Result<serde_json::Value, String> {
         Err(PRO_REQUIRED.to_string())
     }
@@ -109,6 +110,7 @@ pub mod stubs {
     #[tauri::command]
     pub async fn clear_all_changelog(
         _state: State<'_, crate::SharedState>,
+        _confirmation_token: String,
     ) -> Result<serde_json::Value, String> {
         Err(PRO_REQUIRED.to_string())
     }
@@ -138,7 +140,7 @@ pub mod pro {
     use crate::engine::types::Namespace;
     use crate::time_travel::rollback::generate_rollback_statements;
     use crate::time_travel::types::{
-        ChangelogEntry, ChangelogFilter, TemporalDiff, TimelineEvent, TimeTravelConfig,
+        ChangelogEntry, ChangelogFilter, TemporalDiff, TimeTravelConfig, TimelineEvent,
     };
 
     // ─── Response types ────────────────────────────────────────────────
@@ -327,8 +329,7 @@ pub mod pro {
             .map_err(|e| format!("Invalid timestamp: {}", e))?
             .with_timezone(&chrono::Utc);
 
-        let row_state =
-            changelog_store.get_row_state_at(&namespace, &table_name, &primary_key, ts);
+        let row_state = changelog_store.get_row_state_at(&namespace, &table_name, &primary_key, ts);
         let exists = row_state.is_some();
 
         Ok(RowStateResponse {
@@ -361,7 +362,6 @@ pub mod pro {
             .map_err(|e| format!("Invalid target_timestamp: {}", e))?
             .with_timezone(&chrono::Utc);
 
-        // Get all entries after the target timestamp for this table
         let filter = ChangelogFilter {
             table_name: Some(table_name.clone()),
             namespace: Some(namespace.clone()),
@@ -460,20 +460,34 @@ pub mod pro {
 
     // ─── Maintenance commands ──────────────────────────────────────────
 
+    /// Requires a one-shot confirmation token from
+    /// `request_confirmation_token("clear_table_changelog")`.
     #[tauri::command]
     pub async fn clear_table_changelog(
         state: State<'_, crate::SharedState>,
         database: String,
         schema: Option<String>,
         table_name: String,
+        confirmation_token: String,
     ) -> Result<GenericResponse, String> {
-        let changelog_store = {
+        let (changelog_store, confirmation_tokens) = {
             let state = state.lock().await;
-            Arc::clone(&state.changelog_store)
+            (
+                Arc::clone(&state.changelog_store),
+                Arc::clone(&state.confirmation_tokens),
+            )
         };
+
+        confirmation_tokens.consume("clear_table_changelog", &confirmation_token)?;
 
         let namespace = Namespace { database, schema };
         changelog_store.clear_table(&namespace, &table_name);
+        tracing::warn!(
+            database = %namespace.database,
+            schema = ?namespace.schema,
+            table = %table_name,
+            "time-travel changelog cleared for table"
+        );
 
         Ok(GenericResponse {
             success: true,
@@ -481,16 +495,24 @@ pub mod pro {
         })
     }
 
+    /// Requires a one-shot confirmation token from
+    /// `request_confirmation_token("clear_all_changelog")`.
     #[tauri::command]
     pub async fn clear_all_changelog(
         state: State<'_, crate::SharedState>,
+        confirmation_token: String,
     ) -> Result<GenericResponse, String> {
-        let changelog_store = {
+        let (changelog_store, confirmation_tokens) = {
             let state = state.lock().await;
-            Arc::clone(&state.changelog_store)
+            (
+                Arc::clone(&state.changelog_store),
+                Arc::clone(&state.confirmation_tokens),
+            )
         };
 
+        confirmation_tokens.consume("clear_all_changelog", &confirmation_token)?;
         changelog_store.clear_all();
+        tracing::warn!("time-travel changelog cleared (all tables)");
 
         Ok(GenericResponse {
             success: true,

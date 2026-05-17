@@ -20,11 +20,9 @@ use tokio::sync::{Mutex, RwLock};
 
 use crate::drivers::postgres_utils::{
     bind_param, build_decoders, collect_enum_type_oids, columns_and_rows,
-    convert_row_with_decoders, get_column_info, load_enum_labels, PgDecoder,
-    EnumLabelMap,
+    convert_row_with_decoders, get_column_info, load_enum_labels, EnumLabelMap, PgDecoder,
 };
 use qore_core::error::{EngineError, EngineResult};
-use qore_sql::safety;
 use qore_core::traits::{StreamEvent, StreamSender};
 use qore_core::types::{
     CancelSupport, Collection, CollectionList, CollectionListOptions, CollectionType, ColumnInfo,
@@ -34,10 +32,9 @@ use qore_core::types::{
     TableIndex, TableQueryOptions, TableSchema, Trigger, TriggerDefinition, TriggerEvent,
     TriggerList, TriggerListOptions, TriggerOperationResult, TriggerTiming, Value,
 };
+use qore_sql::safety;
 
-// =============================================================================
 // Session
-// =============================================================================
 
 /// A session backed by a PgPool (works for any PG-compatible database).
 pub struct PgCompatSession {
@@ -63,9 +60,7 @@ pub fn new_session_map() -> SessionMap {
     Arc::new(RwLock::new(HashMap::new()))
 }
 
-// =============================================================================
-// Pool & connection helpers
-// =============================================================================
+// Pool and connection helpers
 
 pub async fn create_pg_pool(
     conn_str: &str,
@@ -161,9 +156,7 @@ pub async fn fetch_backend_pid(conn: &mut PoolConnection<Postgres>) -> EngineRes
         .map_err(|e| EngineError::execution_error(e.to_string()))
 }
 
-// =============================================================================
-// Test / Connect / Disconnect
-// =============================================================================
+// Connection lifecycle
 
 pub async fn test_connection(conn_str: &str) -> EngineResult<()> {
     let pool = create_pg_pool(conn_str, 1, 0, 10, true, true).await?;
@@ -199,8 +192,16 @@ pub async fn disconnect(sessions: &SessionMap, session: SessionId) -> EngineResu
     };
 
     {
+        // Best-effort ROLLBACK on the transaction-owned connection before we
+        // drop it. PostgreSQL otherwise keeps the open transaction (and its
+        // locks) until the server `idle_in_transaction_session_timeout`
+        // expires, which is typically minutes (cf. audit B3-H2).
         let mut tx = session.transaction_conn.lock().await;
-        tx.take();
+        if let Some(mut conn) = tx.take() {
+            if let Err(e) = sqlx::query("ROLLBACK").execute(&mut *conn).await {
+                tracing::warn!(?e, "ROLLBACK on disconnect failed");
+            }
+        }
     }
 
     session.pool.close().await;
@@ -216,9 +217,7 @@ pub async fn ping(sessions: &SessionMap, session: SessionId) -> EngineResult<()>
     Ok(())
 }
 
-// =============================================================================
 // Execute
-// =============================================================================
 
 pub async fn execute_in_namespace(
     sessions: &SessionMap,
@@ -231,8 +230,8 @@ pub async fn execute_in_namespace(
     let pg = get_session(sessions, session).await?;
     let start = Instant::now();
 
-    let returns_rows = safety::returns_rows(driver_id, query)
-        .unwrap_or_else(|_| safety::is_select_prefix(query));
+    let returns_rows =
+        safety::returns_rows(driver_id, query).unwrap_or_else(|_| safety::is_select_prefix(query));
 
     let mut tx_guard = pg.transaction_conn.lock().await;
 
@@ -376,9 +375,7 @@ async fn rows_to_result(
     })
 }
 
-// =============================================================================
 // Streaming
-// =============================================================================
 
 pub async fn execute_stream_in_namespace(
     sessions: &SessionMap,
@@ -399,8 +396,8 @@ pub async fn execute_stream_in_namespace(
 
     apply_namespace_on_conn(&mut conn, &namespace, query, false).await?;
 
-    let returns_rows = safety::returns_rows(driver_id, query)
-        .unwrap_or_else(|_| safety::is_select_prefix(query));
+    let returns_rows =
+        safety::returns_rows(driver_id, query).unwrap_or_else(|_| safety::is_select_prefix(query));
 
     if !returns_rows {
         let result =
@@ -454,9 +451,16 @@ pub async fn execute_stream_in_namespace(
                 let row = convert_row_with_decoders(&pg_row, &decoders, &enum_labels);
                 batch.push(row);
                 row_count += 1;
-                
+
                 if batch.len() >= 500 {
-                    if sender.send(StreamEvent::RowBatch(std::mem::replace(&mut batch, Vec::with_capacity(500)))).await.is_err() {
+                    if sender
+                        .send(StreamEvent::RowBatch(std::mem::replace(
+                            &mut batch,
+                            Vec::with_capacity(500),
+                        )))
+                        .await
+                        .is_err()
+                    {
                         break;
                     }
                 }
@@ -469,7 +473,7 @@ pub async fn execute_stream_in_namespace(
             }
         }
     }
-    
+
     if !batch.is_empty() {
         let _ = sender.send(StreamEvent::RowBatch(batch)).await;
     }
@@ -490,9 +494,7 @@ pub async fn execute_stream_in_namespace(
     Ok(())
 }
 
-// =============================================================================
 // Cancel
-// =============================================================================
 
 pub async fn cancel(
     sessions: &SessionMap,
@@ -523,12 +525,42 @@ pub async fn cancel(
         .await
         .map_err(|e| EngineError::connection_failed(e.to_string()))?;
 
-    for pid in backend_pids {
-        let _ = sqlx::query("SELECT pg_cancel_backend($1)")
-            .bind(pid)
-            .execute(&mut *conn)
+    // `pg_cancel_backend` returns `false` when the PID is unknown or already
+    // gone. The original code threw the return value away, so the frontend
+    // saw a successful cancel for queries that never received the signal —
+    // and there was no fallback (`pg_terminate_backend`) if cancellation
+    // simply didn't take (cf. audit B3-H1). We surface the per-PID outcome
+    // and escalate to `pg_terminate_backend` after a brief grace window
+    // when `pg_cancel_backend` says the PID was rejected.
+    let mut failures: Vec<i32> = Vec::new();
+    for pid in &backend_pids {
+        let cancelled: bool = sqlx::query_scalar("SELECT pg_cancel_backend($1)")
+            .bind(*pid)
+            .fetch_one(&mut *conn)
             .await
             .map_err(|e| EngineError::execution_error(e.to_string()))?;
+        if !cancelled {
+            tracing::warn!(
+                pid = pid,
+                "pg_cancel_backend returned false; escalating to pg_terminate_backend"
+            );
+            let terminated: bool = sqlx::query_scalar("SELECT pg_terminate_backend($1)")
+                .bind(*pid)
+                .fetch_one(&mut *conn)
+                .await
+                .map_err(|e| EngineError::execution_error(e.to_string()))?;
+            if !terminated {
+                failures.push(*pid);
+            }
+        }
+    }
+
+    if !failures.is_empty() {
+        return Err(EngineError::execution_error(format!(
+            "Failed to cancel {} backend pid(s): {:?}",
+            failures.len(),
+            failures
+        )));
     }
 
     Ok(())
@@ -538,9 +570,7 @@ pub fn cancel_support() -> CancelSupport {
     CancelSupport::Driver
 }
 
-// =============================================================================
 // Transactions
-// =============================================================================
 
 pub async fn begin_transaction(sessions: &SessionMap, session: SessionId) -> EngineResult<()> {
     let pg = get_session(sessions, session).await?;
@@ -604,9 +634,7 @@ pub async fn rollback(sessions: &SessionMap, session: SessionId) -> EngineResult
     Ok(())
 }
 
-// =============================================================================
 // Mutations
-// =============================================================================
 
 pub async fn insert_row(
     sessions: &SessionMap,
@@ -782,9 +810,7 @@ pub async fn delete_row(
     ))
 }
 
-// =============================================================================
 // Peek FK
-// =============================================================================
 
 pub async fn peek_foreign_key(
     sessions: &SessionMap,
@@ -828,9 +854,7 @@ pub async fn peek_foreign_key(
     rows_to_result(pg_rows, &pg.pool, start).await
 }
 
-// =============================================================================
 // Query Table (paginated)
-// =============================================================================
 
 pub async fn query_table(
     sessions: &SessionMap,
@@ -851,7 +875,6 @@ pub async fn query_table(
     let page_size = options.effective_page_size();
     let offset = options.offset();
 
-    // Build WHERE clause from filters
     let mut where_clauses: Vec<String> = Vec::new();
     let mut bind_values: Vec<Value> = Vec::new();
 
@@ -922,7 +945,6 @@ pub async fn query_table(
         }
     }
 
-    // Handle search across all columns
     if let Some(ref search_term) = options.search {
         if !search_term.trim().is_empty() {
             let columns_sql = "SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = $1 AND table_name = $2";
@@ -1003,7 +1025,6 @@ pub async fn query_table(
         String::new()
     };
 
-    // COUNT
     let count_sql = format!(
         "SELECT COUNT(*)::bigint AS cnt FROM {}{}",
         table_ref, where_sql
@@ -1028,7 +1049,6 @@ pub async fn query_table(
         .map_err(|e| EngineError::execution_error(e.to_string()))?;
     let total_rows = total_rows.max(0) as u64;
 
-    // DATA
     let data_sql = format!(
         "SELECT * FROM {}{}{} LIMIT {} OFFSET {}",
         table_ref, where_sql, order_sql, page_size, offset
@@ -1114,9 +1134,7 @@ pub async fn query_table(
     ))
 }
 
-// =============================================================================
 // Describe Table
-// =============================================================================
 
 pub async fn describe_table_core(
     sessions: &SessionMap,
@@ -1329,13 +1347,15 @@ pub async fn describe_table_core(
 
     let indexes: Vec<TableIndex> = index_rows
         .into_iter()
-        .map(|(name, columns, is_unique, is_primary, index_type)| TableIndex {
-            name,
-            columns,
-            is_unique,
-            is_primary,
-            index_type,
-        })
+        .map(
+            |(name, columns, is_unique, is_primary, index_type)| TableIndex {
+                name,
+                columns,
+                is_unique,
+                is_primary,
+                index_type,
+            },
+        )
         .collect();
 
     Ok(TableSchema {
@@ -1351,9 +1371,7 @@ pub async fn describe_table_core(
     })
 }
 
-// =============================================================================
 // Namespaces & collections (default PG-compat implementation, matviews included)
-// =============================================================================
 
 /// Default `list_namespaces` implementation: lists every non-system schema in
 /// the current database. Drivers with stricter exclusion lists (e.g. CockroachDB)
@@ -1479,9 +1497,7 @@ pub async fn list_collections_default(
     })
 }
 
-// =============================================================================
 // Routines
-// =============================================================================
 
 pub async fn list_routines(
     sessions: &SessionMap,
@@ -1680,9 +1696,7 @@ pub async fn drop_routine(
     })
 }
 
-// =============================================================================
 // Triggers
-// =============================================================================
 
 pub async fn list_triggers(
     sessions: &SessionMap,
@@ -1866,9 +1880,7 @@ pub async fn toggle_trigger(
     })
 }
 
-// =============================================================================
 // Schema operations
-// =============================================================================
 
 pub async fn create_schema(
     sessions: &SessionMap,
@@ -1931,9 +1943,7 @@ pub async fn drop_schema(
     Ok(())
 }
 
-// =============================================================================
 // Internal helpers
-// =============================================================================
 
 fn qualified_table_name(namespace: &Namespace, table: &str) -> String {
     if let Some(schema) = &namespace.schema {
@@ -1970,20 +1980,19 @@ fn decode_trigger_events(tg_type: i32) -> Vec<TriggerEvent> {
     events
 }
 
-// =============================================================================
 // Connection string builder
-// =============================================================================
 
 pub fn build_pg_connection_string(config: &ConnectionConfig, default_db: &str) -> String {
     use percent_encoding::{utf8_percent_encode, NON_ALPHANUMERIC};
 
     let db = config.database.as_deref().unwrap_or(default_db);
 
-    // Use explicit ssl_mode if provided, otherwise fall back to boolean
-    let ssl_mode = config
-        .ssl_mode
-        .as_deref()
-        .unwrap_or(if config.ssl { "require" } else { "disable" });
+    // Explicit ssl_mode wins; otherwise derive a sslmode from the boolean.
+    let ssl_mode =
+        config
+            .ssl_mode
+            .as_deref()
+            .unwrap_or(if config.ssl { "require" } else { "disable" });
 
     let encoded_user = utf8_percent_encode(&config.username, NON_ALPHANUMERIC);
     let encoded_pass = utf8_percent_encode(&config.password, NON_ALPHANUMERIC);

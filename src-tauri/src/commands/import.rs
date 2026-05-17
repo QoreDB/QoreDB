@@ -65,7 +65,7 @@ pub struct ImportResponse {
 
 /// Detects the most likely delimiter by checking consistency across sample lines.
 fn detect_delimiter(sample: &str) -> u8 {
-    let candidates: &[u8] = &[b',', b';', b'\t', b'|'];
+    let candidates: &[u8] = b",;\t|";
     let lines: Vec<&str> = sample.lines().take(10).collect();
 
     if lines.is_empty() {
@@ -85,13 +85,12 @@ fn detect_delimiter(sample: &str) -> u8 {
             continue;
         }
 
-        // Score = count if all lines have the same number of delimiters
+        // Full score when all lines agree, partial score otherwise.
         let first = counts[0];
         let consistent = counts.iter().all(|&c| c == first);
         let score = if consistent {
             first as i64
         } else {
-            // Partial score for inconsistent but present
             (first as i64) / 2
         };
 
@@ -133,7 +132,7 @@ pub async fn preview_csv(
         .await
         .map_err(|e| format!("Failed to read file: {}", e))?;
 
-    // Strip UTF-8 BOM if present
+    // Strip UTF-8 BOM if present.
     let content = content.strip_prefix('\u{feff}').unwrap_or(&content);
 
     let delim = match &delimiter {
@@ -157,7 +156,6 @@ pub async fn preview_csv(
             .map(|h| h.to_string())
             .collect()
     } else {
-        // Read first record to determine column count
         let first = rdr.records().next();
         match first {
             Some(Ok(ref record)) => (0..record.len())
@@ -167,7 +165,7 @@ pub async fn preview_csv(
         }
     };
 
-    // Re-read for preview rows (need to re-create reader for no-header case)
+    // Re-create reader for the no-header case where headers consumed the first record.
     let mut rdr = csv::ReaderBuilder::new()
         .delimiter(delim)
         .has_headers(has_header)
@@ -186,7 +184,6 @@ pub async fn preview_csv(
         }
     }
 
-    // Count total lines (approximate)
     let total_lines = content.lines().count() as u64;
     let total_lines = if has_header && total_lines > 0 {
         total_lines - 1
@@ -228,7 +225,6 @@ pub async fn import_csv(
     };
     let session = parse_session_id(&session_id)?;
 
-    // Check read-only
     let read_only = session_manager
         .is_read_only(session)
         .await
@@ -243,7 +239,6 @@ pub async fn import_csv(
         });
     }
 
-    // Check driver supports mutations
     let driver = session_manager
         .get_driver(session)
         .await
@@ -259,7 +254,6 @@ pub async fn import_csv(
         });
     }
 
-    // Interceptor safety check
     let environment = session_manager
         .get_environment(session)
         .await
@@ -323,7 +317,6 @@ pub async fn import_csv(
         });
     }
 
-    // Read and parse CSV
     let content = tokio::fs::read_to_string(&file_path)
         .await
         .map_err(|e| format!("Failed to read file: {}", e))?;
@@ -341,7 +334,6 @@ pub async fn import_csv(
         .flexible(true)
         .from_reader(content.as_bytes());
 
-    // Get CSV headers for mapping
     let csv_headers: Vec<String> = if config.has_header {
         rdr.headers()
             .map_err(|e| format!("Failed to read headers: {}", e))?
@@ -349,7 +341,6 @@ pub async fn import_csv(
             .map(|h| h.to_string())
             .collect()
     } else {
-        // Will be determined from first record
         vec![]
     };
 
@@ -383,21 +374,15 @@ pub async fn import_csv(
     }
 
     let null_string = config.null_string.unwrap_or_default();
-    let abort_on_error = config
-        .on_conflict
-        .as_deref()
-        .unwrap_or("skip")
-        != "skip";
+    let abort_on_error = config.on_conflict.as_deref().unwrap_or("skip") != "skip";
 
     let start_time = std::time::Instant::now();
     let mut imported_rows: u64 = 0;
     let mut failed_rows: u64 = 0;
     let mut errors: Vec<String> = Vec::new();
 
-    // Get table schema to know column names if no mapping provided
-    let table_columns: Vec<String> = match driver
-        .describe_table(session, &namespace, &table)
-        .await
+    // Used as fallback when no explicit column mapping is provided.
+    let table_columns: Vec<String> = match driver.describe_table(session, &namespace, &table).await
     {
         Ok(schema) => schema.columns.iter().map(|c| c.name.clone()).collect(),
         Err(e) => {
@@ -429,7 +414,6 @@ pub async fn import_csv(
         let mut row_data = RowData::new();
 
         if let Some(ref mapping) = config.column_mapping {
-            // Use explicit mapping: csv_index → table_column_name
             for (csv_idx, table_col) in mapping {
                 if let Some(field) = record.get(*csv_idx) {
                     let value = csv_field_to_value(field, &null_string);
@@ -437,10 +421,9 @@ pub async fn import_csv(
                 }
             }
         } else if config.has_header && !csv_headers.is_empty() {
-            // Map by CSV header name matching table column name
+            // Match CSV headers against table columns; ignore unknowns.
             for (i, field) in record.iter().enumerate() {
                 if let Some(header) = csv_headers.get(i) {
-                    // Only insert if the header matches a table column
                     if table_columns.iter().any(|c| c == header) {
                         let value = csv_field_to_value(field, &null_string);
                         row_data.columns.insert(header.clone(), value);
@@ -448,7 +431,6 @@ pub async fn import_csv(
                 }
             }
         } else {
-            // Map by position
             for (i, field) in record.iter().enumerate() {
                 if let Some(col_name) = table_columns.get(i) {
                     let value = csv_field_to_value(field, &null_string);
@@ -488,7 +470,6 @@ pub async fn import_csv(
 
     let execution_time_ms = start_time.elapsed().as_micros() as f64 / 1000.0;
 
-    // Log to interceptor
     interceptor.post_execute(
         &interceptor_context,
         &QueryExecutionResult {
@@ -505,7 +486,7 @@ pub async fn import_csv(
         None,
     );
 
-    // Cap errors to avoid huge payloads
+    // Cap errors to avoid huge payloads.
     if errors.len() > 50 {
         let total = errors.len();
         errors.truncate(50);
@@ -527,19 +508,16 @@ fn csv_field_to_value(field: &str, null_string: &str) -> Value {
         return Value::Null;
     }
 
-    // Try boolean
     match field.to_lowercase().as_str() {
         "true" => return Value::Bool(true),
         "false" => return Value::Bool(false),
         _ => {}
     }
 
-    // Try integer
     if let Ok(n) = field.parse::<i64>() {
         return Value::Int(n);
     }
 
-    // Try float
     if let Ok(f) = field.parse::<f64>() {
         return Value::Float(f);
     }

@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { open as openDialog } from '@tauri-apps/plugin-dialog';
-import { ChevronDown, FolderOpen, Home, Pencil, Plus } from 'lucide-react';
+import { openPath } from '@tauri-apps/plugin-opener';
+import { ChevronDown, FolderOpen, FolderSearch, Home, Pencil, Plus } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -44,6 +45,15 @@ export function WorkspaceSwitcher() {
     if (!selected) return;
     const qoredbPath = selected.endsWith('.qoredb') ? selected : `${selected}/.qoredb`;
     await openWorkspace(qoredbPath);
+  }
+
+  async function handleRevealFolder() {
+    if (!activeWorkspace) return;
+    try {
+      await openPath(activeWorkspace.path);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t('workspace.revealFolderFailed'));
+    }
   }
 
   function openRenameDialog() {
@@ -124,6 +134,10 @@ export function WorkspaceSwitcher() {
             )}
 
             {/* Active workspace actions */}
+            <DropdownMenuItem onClick={handleRevealFolder}>
+              <FolderSearch size={14} className="mr-2" />
+              {t('workspace.revealFolder')}
+            </DropdownMenuItem>
             {!isDefault && (
               <DropdownMenuItem onClick={openRenameDialog}>
                 <Pencil size={14} className="mr-2" />

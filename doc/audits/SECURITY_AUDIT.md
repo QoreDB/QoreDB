@@ -24,9 +24,10 @@ QoreDB follows a solid baseline for a desktop database client: credentials are s
 
 - **Medium Risk: Filesystem permissions remain broad**
   - **Location:** `src-tauri/capabilities/default.json`
-  - **Finding:** The frontend has write access through `fs:allow-write-text-file` and `fs:allow-write-file`, plus text-file read access, without an explicit path scope in the capability file.
-  - **Implication:** This is partly required for notebooks, exports, imports, and log saves, but it still expands the blast radius of any future frontend compromise.
-  - **Recommendation:** Reduce scope where Tauri plugin support allows it, or document that access is intentionally user-path based and mediated by file pickers.
+  - **Finding:** The frontend has write access through `fs:allow-write-text-file` and `fs:allow-write-file`, plus text-file read access, with a deny-list for sensitive locations (`.ssh`, `.aws`, `.kube`, history files, `/etc`, `/root`, …) but no positive allow-list.
+  - **Implication:** This is partly required for notebooks, exports, imports, and log saves; the deny-list prevents the worst exfiltration paths but still expands the blast radius of any future frontend compromise.
+  - **Status (v0.1.28):** Deny-list shipped in v0.1.28 (`fs:scope` block in `default.json`). Tightening to a positive allow-list (`$DOCUMENT/qoredb/*`, `$DOWNLOAD/*`, `$APPDATA/qoredb/*`, `$HOME/.qoredb/*`) is **deferred to v0.1.29** — it requires a path-by-path audit of exports / notebooks / blob downloads to avoid regressions, which is out of scope for v0.1.28.
+  - **Recommendation:** Plan the allow-list switch alongside the v0.1.29 sandbox work.
 
 ### 2. Backend Safety Enforcement
 
@@ -42,17 +43,13 @@ QoreDB follows a solid baseline for a desktop database client: credentials are s
   - **Implication:** Large browser-driven reads can bypass limits that users may believe are global.
   - **Recommendation:** Either extend governance to those commands or narrow the documentation so the scope is explicit.
 
-- **Medium Risk: Raw queries are stored by audit and profiling**
-  - **Location:** `src-tauri/src/interceptor/*`
-  - **Finding:** Audit entries and slow-query entries persist the original query string, not a redacted version.
-  - **Implication:** literals, secrets typed into queries, temporary tokens, or sensitive identifiers may be written to local audit/profiling storage.
-  - **Recommendation:** Add backend-side redaction before persistence, or make the raw-query storage behavior explicit in product documentation and UI.
+- **Resolved Since May 9, 2026: Raw queries are redacted before persistence**
+  - **Location:** `src-tauri/src/interceptor/redaction.rs`, `src-tauri/src/interceptor/types.rs`
+  - **Current state:** `AuditLogEntry::new` runs `redact_query` (driver-aware: SQL string literals + connection URIs, MongoDB sensitive fields, Redis `AUTH`/`CONFIG SET`/`EVAL` arguments). The same path also computes a stable fingerprint to enable grouping without exposing literals.
 
-- **Medium Risk: Custom share providers allow plaintext HTTP**
-  - **Location:** `src-tauri/src/share/manager.rs`
-  - **Finding:** custom share upload URLs and returned share URLs currently accept both `http` and `https`.
-  - **Implication:** exports and optional bearer tokens can be transmitted without transport encryption.
-  - **Recommendation:** require `https` by default, with an explicit localhost-only exception if needed for development.
+- **Resolved Since May 9, 2026: Custom share providers require HTTPS**
+  - **Location:** `src-tauri/src/share/manager.rs` (`validate_provider_config`, `validate_share_url`)
+  - **Current state:** Upload URLs and returned share URLs are rejected unless they use `https://`, with an explicit loopback exception (`localhost`, `127.0.0.1`, `::1`) for local development.
 
 ### 3. Frontend and Local Persistence
 
@@ -69,11 +66,9 @@ QoreDB follows a solid baseline for a desktop database client: credentials are s
 
 ### 4. Observability Reliability
 
-- **Medium Risk: Audit retention and export semantics are misleading**
-  - **Location:** `src-tauri/src/interceptor/audit.rs`
-  - **Finding:** `max_audit_entries` governs file rotation, but `get_audit_entries()` and `export_audit_log()` only operate on the 1000-entry in-memory cache.
-  - **Implication:** operators can believe they are browsing/exporting the full retained audit trail when they are not.
-  - **Recommendation:** either load from disk for export/history views or document the distinction clearly in the product and internal docs.
+- **Resolved Since May 9, 2026: Audit export now reads the full retained trail from disk**
+  - **Location:** `src-tauri/src/interceptor/audit.rs` (`get_entries_from_disk`, `export_format`), `src-tauri/src/interceptor/export.rs`
+  - **Current state:** `export_audit_log` accepts a `format` (`json` / `jsonl` / `csv`) and a `from_disk` flag. When `from_disk = true`, the rotated `audit.jsonl` is streamed in full — no longer bounded by the in-memory cache. The cache stays available for fast browsing, the export reflects retention.
 
 - **Low Risk: Profiling percentiles should be treated as indicative**
   - **Location:** `src-tauri/src/interceptor/profiling.rs`
@@ -89,12 +84,12 @@ QoreDB follows a solid baseline for a desktop database client: credentials are s
 
 ## Recommendations
 
-1. Enforce read-only mode uniformly across all mutating commands, including specialized DDL helpers.
-2. Redact query text before writing audit entries and slow-query entries.
+1. ~~Enforce read-only mode uniformly across all mutating commands, including specialized DDL helpers.~~ **Resolved (v0.1.28)** — `mutation`, `maintenance`, `routines`, `triggers` (incl. `toggle_trigger` and `drop_event`), `sequences`, `create_database`, `drop_database` all gate on `is_read_only` before dispatching to the driver.
+2. ~~Redact query text before writing audit entries and slow-query entries.~~ **Resolved (v0.1.28)** — `AuditLogEntry::new` redacts before persistence; fingerprint computed from the redacted form.
 3. Clarify and/or reduce local persistence of raw drafts in crash recovery.
-4. Restrict custom share providers to `https` by default.
+4. ~~Restrict custom share providers to `https` by default.~~ **Resolved (v0.1.28)** — HTTPS enforced with explicit loopback exception.
 5. Align governance documentation with actual runtime scope, or extend scope to browser endpoints.
-6. Clarify audit retention/export semantics and tighten filesystem capability scope where possible.
+6. ~~Clarify audit retention/export semantics~~ **Resolved (v0.1.28)** — export reads from disk on demand. ~~tighten filesystem capability scope where possible.~~ Pending.
 7. Continue regular `pnpm audit`, `cargo audit`, and `cargo deny` checks in CI.
 
 ## Conclusion

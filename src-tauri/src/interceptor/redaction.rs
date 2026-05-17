@@ -51,10 +51,7 @@ pub(crate) fn test_lock() -> std::sync::MutexGuard<'static, ()> {
 /// Replace the custom pattern list. Invalid regexes are silently skipped —
 /// validation is expected at configuration time.
 pub fn set_custom_patterns(patterns: &[String]) {
-    let compiled: Vec<Regex> = patterns
-        .iter()
-        .filter_map(|p| Regex::new(p).ok())
-        .collect();
+    let compiled: Vec<Regex> = patterns.iter().filter_map(|p| Regex::new(p).ok()).collect();
     *custom_patterns_lock().write() = compiled;
 }
 
@@ -102,14 +99,12 @@ fn redact_sql(query: &str) -> String {
         vec![
             // Connection strings with credentials
             (
-                Regex::new(r"(?i)((?:postgres|mysql|mongodb|redis|rediss)://)([^@\s]+)@")
-                    .unwrap(),
+                Regex::new(r"(?i)((?:postgres|mysql|mongodb|redis|rediss)://)([^@\s]+)@").unwrap(),
                 "${1}***@",
             ),
             // Secret assignments: password=xxx, token=xxx, api_key=xxx, etc.
             (
-                Regex::new(r"(?i)(password|passwd|secret|token|api[_\-]?key)\s*=\s*\S+")
-                    .unwrap(),
+                Regex::new(r"(?i)(password|passwd|secret|token|api[_\-]?key)\s*=\s*\S+").unwrap(),
                 "${1}=***",
             ),
             // SQL string literals: 'value' → '[REDACTED]' (handles doubled quotes '')

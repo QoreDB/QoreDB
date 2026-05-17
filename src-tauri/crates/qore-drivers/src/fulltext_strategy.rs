@@ -135,8 +135,7 @@ impl CapabilityCache {
             },
         );
 
-        // Clean up old entries
-        // TODO: Use a better eviction strategy if needed
+        // TODO: replace with a proper LRU eviction once capability count grows past this guard.
         if cache.len() > 1000 {
             let now = Instant::now();
             cache.retain(|_, v| now.duration_since(v.cached_at) < CAPABILITY_CACHE_TTL);
@@ -227,9 +226,7 @@ pub trait FulltextSearchStrategy: Send + Sync {
     ) -> String;
 }
 
-// ============================================
-// POSTGRESQL STRATEGY
-// ============================================
+// PostgreSQL strategy
 
 pub struct PostgresSearchStrategy;
 
@@ -250,7 +247,7 @@ impl PostgresSearchStrategy {
     }
 
     fn escape_tsquery(term: &str) -> String {
-        // Escape special tsquery characters
+        // Strip every tsquery operator character; remaining tokens are joined with `&`.
         let escaped = term
             .replace('\\', "")
             .replace('\'', "")
@@ -264,7 +261,6 @@ impl PostgresSearchStrategy {
             .replace('<', "")
             .replace('>', "");
 
-        // Split into words and join with & for AND search
         let words: Vec<&str> = escaped
             .split_whitespace()
             .filter(|w| !w.is_empty())
@@ -298,8 +294,8 @@ impl FulltextSearchStrategy for PostgresSearchStrategy {
         table_name: &str,
     ) -> Option<String> {
         let schema = namespace.schema.as_deref().unwrap_or("public");
-        // Query to find GIN/GiST indexes that might be used for full-text search
-        // Also checks for tsvector columns
+        // Detect GIN/GiST indexes whose definition references tsvector or whose
+        // backing column is `tsvector` — both signal full-text search support.
         Some(format!(
             r#"
             SELECT
@@ -379,7 +375,6 @@ impl FulltextSearchStrategy for PostgresSearchStrategy {
         detected_indexes: &[FulltextIndexInfo],
         estimated_rows: Option<u64>,
     ) -> TableSearchCapability {
-        // Build a set of columns that have full-text indexes
         let indexed_columns: HashMap<String, String> = detected_indexes
             .iter()
             .flat_map(|idx| {
@@ -445,7 +440,7 @@ impl FulltextSearchStrategy for PostgresSearchStrategy {
 
             let mut conditions = Vec::new();
 
-            // Full-text conditions using to_tsvector for flexibility
+            // Wrap columns in to_tsvector so the predicate works even when the column type isn't tsvector.
             for col in &fulltext_cols {
                 let quoted = Self::quote_identifier(&col.name);
                 let tsquery = Self::escape_tsquery(&options.search_term);
@@ -455,7 +450,6 @@ impl FulltextSearchStrategy for PostgresSearchStrategy {
                 ));
             }
 
-            // Pattern match for non-indexed columns
             if !pattern_cols.is_empty() {
                 let pattern = format!("%{}%", Self::escape_like_pattern(&options.search_term));
                 for col in &pattern_cols {
@@ -545,9 +539,7 @@ impl FulltextSearchStrategy for PostgresSearchStrategy {
     }
 }
 
-// ============================================
-// MYSQL STRATEGY
-// ============================================
+// MySQL strategy
 
 pub struct MySqlSearchStrategy;
 
@@ -706,7 +698,6 @@ impl FulltextSearchStrategy for MySqlSearchStrategy {
         capability: &TableSearchCapability,
         options: &TableSearchOptions,
     ) -> (String, SearchMethod) {
-        // Group columns by their FULLTEXT index
         let fulltext_cols: Vec<_> = capability
             .searchable_columns
             .iter()
@@ -714,7 +705,7 @@ impl FulltextSearchStrategy for MySqlSearchStrategy {
             .collect();
 
         if !fulltext_cols.is_empty() && options.prefer_native {
-            // Group by index name for MATCH...AGAINST
+            // MySQL MATCH() requires the column list to match the FULLTEXT index exactly, so group by index.
             let mut index_groups: HashMap<String, Vec<String>> = HashMap::new();
             for col in &fulltext_cols {
                 if let Some(idx_name) = &col.fulltext_index_name {
@@ -735,14 +726,13 @@ impl FulltextSearchStrategy for MySqlSearchStrategy {
                     .collect::<Vec<_>>()
                     .join(", ");
 
-                // Use BOOLEAN MODE with wildcards for partial matching
+                // BOOLEAN MODE with `*` enables prefix matching that natural mode would skip.
                 conditions.push(format!(
                     "MATCH({}) AGAINST('*{}*' IN BOOLEAN MODE)",
                     cols_str, search_term
                 ));
             }
 
-            // Add LIKE for non-indexed columns
             let pattern_cols: Vec<_> = capability
                 .searchable_columns
                 .iter()
@@ -826,9 +816,7 @@ impl FulltextSearchStrategy for MySqlSearchStrategy {
     }
 }
 
-// ============================================
-// SQLITE STRATEGY
-// ============================================
+// SQLite strategy
 
 pub struct SqliteSearchStrategy;
 
@@ -890,7 +878,7 @@ impl FulltextSearchStrategy for SqliteSearchStrategy {
         let like_content_double = format!("%content=\"{}\"%", table_name);
         let like_content_plain = format!("%content={}%", table_name);
 
-        //TODO : pas de queries SQL en frontend, à déplacer dans le backend (src-tauri)
+        // TODO: this SQL belongs in the backend, not in frontend code paths.
         Some(format!(
             r#"
             SELECT
@@ -1146,9 +1134,7 @@ impl FulltextSearchStrategy for SqliteSearchStrategy {
     }
 }
 
-// ============================================
 // MONGODB STRATEGY
-// ============================================
 
 pub struct MongoSearchStrategy;
 
@@ -1168,7 +1154,7 @@ impl MongoSearchStrategy {
             }
             escaped.push(c);
         }
-        // Also escape quotes for JSON
+        // Quotes are escaped too so the regex can be embedded in a JSON string.
         escaped.replace('"', "\\\"")
     }
 }
@@ -1190,8 +1176,7 @@ impl FulltextSearchStrategy for MongoSearchStrategy {
         _namespace: &Namespace,
         _table_name: &str,
     ) -> Option<String> {
-        // MongoDB uses listIndexes command, not a query
-        // We'll handle this separately in the search command
+        // MongoDB has no SQL surface — text indexes are inspected via the `listIndexes` command.
         None
     }
 
@@ -1200,7 +1185,7 @@ impl FulltextSearchStrategy for MongoSearchStrategy {
         _rows: &[Vec<Value>],
         _columns: &[String],
     ) -> Vec<FulltextIndexInfo> {
-        // Not used for MongoDB (handled differently)
+        // Unused for MongoDB: detection is performed via the driver's index introspection path.
         Vec::new()
     }
 
@@ -1210,7 +1195,6 @@ impl FulltextSearchStrategy for MongoSearchStrategy {
         detected_indexes: &[FulltextIndexInfo],
         estimated_rows: Option<u64>,
     ) -> TableSearchCapability {
-        // Check if there's a text index
         let has_text_index = detected_indexes.iter().any(|idx| idx.index_type == "text");
 
         let searchable_columns: Vec<ColumnSearchInfo> = text_columns
@@ -1249,7 +1233,7 @@ impl FulltextSearchStrategy for MongoSearchStrategy {
         options: &TableSearchOptions,
     ) -> (String, SearchMethod) {
         if capability.has_any_fulltext_index && options.prefer_native {
-            // Use $text search (requires text index on collection)
+            // MongoDB `$text` requires a `text` index on the collection.
             let search_term = options
                 .search_term
                 .replace('\\', "\\\\")
@@ -1301,9 +1285,7 @@ impl FulltextSearchStrategy for MongoSearchStrategy {
     }
 }
 
-// ============================================
-// SQL SERVER STRATEGY
-// ============================================
+// SQL Server strategy
 
 pub struct SqlServerSearchStrategy;
 
@@ -1451,7 +1433,7 @@ impl FulltextSearchStrategy for SqlServerSearchStrategy {
         capability: &TableSearchCapability,
         options: &TableSearchOptions,
     ) -> (String, SearchMethod) {
-        // SQL Server: always use LIKE-based pattern matching (CONTAINS requires full-text catalog setup)
+        // SQL Server `CONTAINS` needs a configured full-text catalog, so always fall back to LIKE.
         let columns: Vec<String> = capability
             .searchable_columns
             .iter()
@@ -1503,11 +1485,9 @@ impl FulltextSearchStrategy for SqlServerSearchStrategy {
     }
 }
 
-// ============================================
-// STRATEGY FACTORY
-// ============================================
+// Strategy factory
 
-/// Get the appropriate search strategy for a driver
+/// Returns the search strategy matching the driver id, defaulting to Postgres.
 pub fn get_search_strategy(driver_id: &str) -> Box<dyn FulltextSearchStrategy> {
     match driver_id.to_lowercase().as_str() {
         "postgres" | "postgresql" => Box::new(PostgresSearchStrategy::new()),
@@ -1574,16 +1554,13 @@ mod tests {
             has_any_fulltext_index: false,
         };
 
-        // Should be empty initially
         assert!(cache.get(&ns, "users").await.is_none());
 
-        // Set and get
         cache.set(&ns, "users", capability.clone()).await;
         let cached = cache.get(&ns, "users").await;
         assert!(cached.is_some());
         assert_eq!(cached.unwrap().estimated_rows, Some(100));
 
-        // Invalidate
         cache.invalidate(&ns, "users").await;
         assert!(cache.get(&ns, "users").await.is_none());
     }

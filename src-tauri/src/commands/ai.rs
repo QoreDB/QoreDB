@@ -252,7 +252,10 @@ pub async fn ai_summarize_schema(
     })
 }
 
-/// Store an API key for a provider
+/// Store an API key for a provider. The key shape is validated per-provider
+/// before being persisted so an empty or obviously-wrong value isn't
+/// silently stored — saving "" then watching every request fail is a
+/// confusing UX bug, not "security" (cf. audit B6-H10).
 #[cfg(feature = "pro")]
 #[tauri::command]
 pub async fn ai_save_api_key(
@@ -260,11 +263,44 @@ pub async fn ai_save_api_key(
     provider: AiProvider,
     key: String,
 ) -> Result<(), String> {
+    validate_api_key_shape(&provider, &key)?;
     let ai_manager = {
         let s = state.lock().await;
         Arc::clone(&s.ai_manager)
     };
     ai_manager.save_api_key(&provider, &key)
+}
+
+/// Cheap structural check on the API key shape. We intentionally don't try
+/// to call the provider — that would block the IPC for seconds and require
+/// network access just to save a key. Instead we look for the recognisable
+/// prefix each vendor documents and a plausible minimum length.
+#[cfg(feature = "pro")]
+fn validate_api_key_shape(provider: &AiProvider, key: &str) -> Result<(), String> {
+    let trimmed = key.trim();
+    if trimmed.is_empty() {
+        return Err("API key must not be empty".to_string());
+    }
+    if trimmed.len() < 16 {
+        return Err("API key looks too short — double-check the value".to_string());
+    }
+    // Format hints per provider; the prefix is documented and stable.
+    let expected_prefix: Option<&str> = match provider {
+        AiProvider::OpenAi => Some("sk-"),
+        AiProvider::Anthropic => Some("sk-ant-"),
+        AiProvider::DeepSeek => Some("sk-"),
+        // No fixed prefix or self-hosted — accept any non-empty string.
+        AiProvider::GoogleGemini | AiProvider::MistralAi | AiProvider::Ollama => None,
+    };
+    if let Some(prefix) = expected_prefix {
+        if !trimmed.starts_with(prefix) {
+            return Err(format!(
+                "{:?} API keys start with `{}` — refusing to store a value that doesn't",
+                provider, prefix
+            ));
+        }
+    }
+    Ok(())
 }
 
 /// Delete an API key for a provider
@@ -365,6 +401,11 @@ async fn stream_ai_request(
     window: tauri::Window,
     request: AiRequest,
 ) -> Result<(), String> {
+    // Cap the user prompt size before doing any work — long prompts are
+    // both expensive and the standard vector for "ignore previous
+    // instructions" injection (cf. audit B7-A4).
+    context::validate_user_prompt(&request.prompt)?;
+
     let (session_manager, ai_manager, virtual_relations) = {
         let s = state.lock().await;
         (
@@ -414,27 +455,23 @@ async fn stream_ai_request(
     let system_prompt = schema_ctx.system_prompt;
     let event_name = format!("ai_stream:{}", request_id);
 
-    // Spawn the streaming task
     tokio::spawn(async move {
         let (tx, mut rx) = tokio::sync::mpsc::channel::<AiStreamChunk>(64);
         let rid = request_id.clone();
         let event = event_name.clone();
 
-        // Spawn the provider stream
         let provider_handle = tokio::spawn(async move {
             provider
                 .stream(&api_key, &system_prompt, &user_prompt, &config, tx, rid)
                 .await
         });
 
-        // Forward chunks to the frontend
         let mut full_response = String::new();
         while let Some(chunk) = rx.recv().await {
             full_response.push_str(&chunk.delta);
             let _ = window.emit(&event, &chunk);
         }
 
-        // Wait for the provider to finish
         let stream_result = provider_handle.await;
         let error = match stream_result {
             Ok(Ok(())) => None,
@@ -442,13 +479,11 @@ async fn stream_ai_request(
             Err(e) => Some(format!("Stream task panicked: {}", e)),
         };
 
-        // Extract query and run safety analysis
         let generated_query = extract_query_from_response(&full_response);
         let safety_analysis = generated_query
             .as_ref()
             .map(|q| validate_generated_query(&driver_id, q));
 
-        // Send final chunk with done=true
         let final_chunk = AiStreamChunk {
             request_id: request_id.clone(),
             delta: String::new(),

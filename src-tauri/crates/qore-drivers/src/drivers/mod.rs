@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-// Database drivers module
-
+pub mod clickhouse;
 pub mod cockroachdb;
 pub mod duckdb;
 pub mod mariadb;

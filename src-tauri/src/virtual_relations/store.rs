@@ -8,7 +8,7 @@ use crate::engine::types::ForeignKey;
 
 use super::types::{VirtualRelation, VirtualRelationsConfig};
 
-/// In-memory store for virtual relations, with JSON persistence per connection
+/// In-memory store for virtual relations, with JSON persistence per connection.
 pub struct VirtualRelationStore {
     data_dir: PathBuf,
     cache: RwLock<HashMap<String, VirtualRelationsConfig>>,
@@ -57,7 +57,6 @@ impl VirtualRelationStore {
         Ok(())
     }
 
-    /// Get all virtual relations for a connection
     pub fn list(&self, connection_id: &str) -> Vec<VirtualRelation> {
         self.ensure_loaded(connection_id).relations
     }
@@ -93,14 +92,12 @@ impl VirtualRelationStore {
             .collect()
     }
 
-    /// Add a new virtual relation
     pub fn add(&self, connection_id: &str, relation: VirtualRelation) -> Result<(), String> {
         let mut config = self.ensure_loaded(connection_id);
         config.relations.push(relation);
         self.save(connection_id, &config)
     }
 
-    /// Update an existing virtual relation
     pub fn update(&self, connection_id: &str, relation: VirtualRelation) -> Result<(), String> {
         let mut config = self.ensure_loaded(connection_id);
         if let Some(pos) = config.relations.iter().position(|r| r.id == relation.id) {
@@ -111,7 +108,6 @@ impl VirtualRelationStore {
         }
     }
 
-    /// Delete a virtual relation by ID
     pub fn delete(&self, connection_id: &str, relation_id: &str) -> Result<(), String> {
         let mut config = self.ensure_loaded(connection_id);
         let original_len = config.relations.len();

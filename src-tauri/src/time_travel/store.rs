@@ -16,8 +16,8 @@ use parking_lot::RwLock;
 use tracing::{debug, error, info, warn};
 
 use super::types::{
-    ChangeOperation, ChangelogEntry, ChangelogFilter, DiffRowStatus, TemporalDiff,
-    TemporalDiffRow, TemporalDiffStats, TimelineEvent, TimeTravelConfig,
+    ChangeOperation, ChangelogEntry, ChangelogFilter, DiffRowStatus, TemporalDiff, TemporalDiffRow,
+    TemporalDiffStats, TimeTravelConfig, TimelineEvent,
 };
 use crate::engine::types::Namespace;
 
@@ -131,12 +131,26 @@ impl ChangelogStore {
     // ─── Recording ─────────────────────────────────────────────────────
 
     /// Record a changelog entry. Best-effort: never blocks the caller on failure.
-    pub fn record(&self, entry: ChangelogEntry) {
+    pub fn record(&self, mut entry: ChangelogEntry) {
         if !self.is_enabled() {
             return;
         }
 
-        // Add to in-memory cache
+        // Redact sensitive column values before the entry is stored — both
+        // in-memory and on disk. The changelog is a plain-text JSONL file, so
+        // a column named `password_hash` or `api_key` would otherwise sit on
+        // the user's filesystem until manual purge (cf. audit B7-C3).
+        let sensitive: Vec<String> = self
+            .config
+            .read()
+            .sensitive_columns
+            .iter()
+            .map(|s| s.to_ascii_lowercase())
+            .collect();
+        if !sensitive.is_empty() {
+            redact_entry(&mut entry, &sensitive);
+        }
+
         {
             let mut entries = self.entries.write();
             if entries.len() >= MAX_CACHE_ENTRIES {
@@ -145,7 +159,6 @@ impl ChangelogStore {
             entries.push_back(entry.clone());
         }
 
-        // Append to file
         if let Err(e) = self.append_to_file(&entry) {
             error!("Failed to write changelog entry: {}", e);
         }
@@ -179,15 +192,13 @@ impl ChangelogStore {
                 let mut entries = self.entries.write();
                 let mut line_count: usize = 0;
 
-                for line in reader.lines() {
-                    if let Ok(line) = line {
-                        line_count += 1;
-                        if let Ok(entry) = serde_json::from_str::<ChangelogEntry>(&line) {
-                            if entries.len() >= MAX_CACHE_ENTRIES {
-                                entries.pop_front();
-                            }
-                            entries.push_back(entry);
+                for line in reader.lines().map_while(Result::ok) {
+                    line_count += 1;
+                    if let Ok(entry) = serde_json::from_str::<ChangelogEntry>(&line) {
+                        if entries.len() >= MAX_CACHE_ENTRIES {
+                            entries.pop_front();
                         }
+                        entries.push_back(entry);
                     }
                 }
 
@@ -220,7 +231,7 @@ impl ChangelogStore {
     fn rotate_file(&self, keep_count: usize) -> std::io::Result<usize> {
         let file = File::open(&self.log_path)?;
         let reader = BufReader::new(file);
-        let lines: Vec<String> = reader.lines().filter_map(|l| l.ok()).collect();
+        let lines: Vec<String> = reader.lines().map_while(Result::ok).collect();
 
         let total = lines.len();
         if total <= keep_count {
@@ -343,7 +354,6 @@ impl ChangelogStore {
         let entries = self.entries.read();
         let limit = limit.unwrap_or(10_000);
 
-        // Collect all entries between t1 and t2 for this table, ordered by timestamp ASC
         let mut relevant: Vec<&ChangelogEntry> = entries
             .iter()
             .filter(|e| self.matches_table(e, namespace, table_name))
@@ -351,8 +361,7 @@ impl ChangelogStore {
             .collect();
         relevant.sort_by_key(|e| e.timestamp);
 
-        // Replay changes to build the diff
-        // Key: serialized PK → accumulated state
+        // Replay changes keyed by serialized PK.
         let mut diff_rows: std::collections::HashMap<String, TemporalDiffRow> =
             std::collections::HashMap::new();
         let mut all_columns: std::collections::HashSet<String> = std::collections::HashSet::new();
@@ -360,7 +369,6 @@ impl ChangelogStore {
         for entry in &relevant {
             let pk_key = serialize_pk(&entry.primary_key);
 
-            // Collect column names
             if let Some(before) = &entry.before {
                 all_columns.extend(before.keys().cloned());
             }
@@ -407,8 +415,8 @@ impl ChangelogStore {
                         .and_then(|e| e.state_at_t1.clone())
                         .or_else(|| entry.before.clone());
 
-                    if existing.map_or(false, |e| e.status == DiffRowStatus::Added) {
-                        // Was added then deleted — net effect is nothing
+                    if existing.is_some_and(|e| e.status == DiffRowStatus::Added) {
+                        // Added then deleted within the window — net effect is nothing.
                         diff_rows.remove(&pk_key);
                     } else {
                         diff_rows.insert(
@@ -426,7 +434,6 @@ impl ChangelogStore {
             }
         }
 
-        // Recompute changed_columns for Modified rows
         for row in diff_rows.values_mut() {
             if row.status == DiffRowStatus::Modified {
                 if let (Some(t1), Some(t2)) = (&row.state_at_t1, &row.state_at_t2) {
@@ -440,12 +447,13 @@ impl ChangelogStore {
         }
 
         let mut rows: Vec<TemporalDiffRow> = diff_rows.into_values().take(limit).collect();
-        rows.sort_by(|a, b| {
-            serialize_pk(&a.primary_key).cmp(&serialize_pk(&b.primary_key))
-        });
+        rows.sort_by(|a, b| serialize_pk(&a.primary_key).cmp(&serialize_pk(&b.primary_key)));
 
         let stats = TemporalDiffStats {
-            added: rows.iter().filter(|r| r.status == DiffRowStatus::Added).count(),
+            added: rows
+                .iter()
+                .filter(|r| r.status == DiffRowStatus::Added)
+                .count(),
             modified: rows
                 .iter()
                 .filter(|r| r.status == DiffRowStatus::Modified)
@@ -480,7 +488,6 @@ impl ChangelogStore {
     ) -> Option<std::collections::HashMap<String, serde_json::Value>> {
         let entries = self.entries.read();
 
-        // Find the last entry for this PK at or before the timestamp
         let last_entry = entries
             .iter()
             .filter(|e| self.matches_table(e, namespace, table_name))
@@ -506,7 +513,10 @@ impl ChangelogStore {
             entries.retain(|e| !self.matches_table(e, namespace, table_name));
         }
         self.rewrite_file_from_cache();
-        info!("Cleared changelog for {}.{}", namespace.database, table_name);
+        info!(
+            "Cleared changelog for {}.{}",
+            namespace.database, table_name
+        );
     }
 
     /// Clear all changelog entries.
@@ -526,7 +536,7 @@ impl ChangelogStore {
     pub fn purge_expired(&self) {
         let retention_days = self.config.read().retention_days;
         if retention_days == 0 {
-            return; // Unlimited retention
+            return; // 0 = unlimited retention
         }
 
         let cutoff = Utc::now() - Duration::days(retention_days as i64);
@@ -555,7 +565,12 @@ impl ChangelogStore {
 
     // ─── Helpers ───────────────────────────────────────────────────────
 
-    fn matches_table(&self, entry: &ChangelogEntry, namespace: &Namespace, table_name: &str) -> bool {
+    fn matches_table(
+        &self,
+        entry: &ChangelogEntry,
+        namespace: &Namespace,
+        table_name: &str,
+    ) -> bool {
         entry.namespace.database == namespace.database
             && entry.namespace.schema == namespace.schema
             && entry.table_name == table_name
@@ -645,6 +660,28 @@ fn pk_matches(
     a.iter().all(|(k, v)| b.get(k) == Some(v))
 }
 
+/// Redact sensitive column values in `before` / `after` maps. `sensitive`
+/// must be pre-lowercased so the match is O(1) per column. `changed_columns`
+/// is left untouched — knowing *which* column changed (by name) is not the
+/// leak; the value is.
+fn redact_entry(entry: &mut ChangelogEntry, sensitive: &[String]) {
+    if let Some(before) = entry.before.as_mut() {
+        redact_map(before, sensitive);
+    }
+    if let Some(after) = entry.after.as_mut() {
+        redact_map(after, sensitive);
+    }
+}
+
+fn redact_map(map: &mut std::collections::HashMap<String, serde_json::Value>, sensitive: &[String]) {
+    for (key, value) in map.iter_mut() {
+        let lower = key.to_ascii_lowercase();
+        if sensitive.iter().any(|s| lower.contains(s.as_str())) {
+            *value = serde_json::Value::String("[REDACTED]".to_string());
+        }
+    }
+}
+
 /// Serialize a PK map into a deterministic string for hashing.
 fn serialize_pk(pk: &std::collections::HashMap<String, serde_json::Value>) -> String {
     let mut pairs: Vec<_> = pk.iter().collect();
@@ -700,6 +737,53 @@ mod tests {
         m.insert("id".to_string(), serde_json::json!(id));
         m.insert("name".to_string(), serde_json::json!(name));
         m
+    }
+
+    #[test]
+    fn redact_map_replaces_only_sensitive_columns() {
+        let mut m = HashMap::new();
+        m.insert("id".to_string(), serde_json::json!(1));
+        m.insert("email".to_string(), serde_json::json!("a@b.com"));
+        m.insert(
+            "password_hash".to_string(),
+            serde_json::json!("$2b$12$..."),
+        );
+        m.insert("api_key".to_string(), serde_json::json!("sk-leak"));
+        m.insert("name".to_string(), serde_json::json!("Alice"));
+        let sensitive: Vec<String> = ["password", "api_key", "email"]
+            .into_iter()
+            .map(|s| s.to_ascii_lowercase())
+            .collect();
+        redact_map(&mut m, &sensitive);
+        assert_eq!(m["id"], serde_json::json!(1));
+        assert_eq!(m["name"], serde_json::json!("Alice"));
+        assert_eq!(m["email"], serde_json::json!("[REDACTED]"));
+        assert_eq!(m["password_hash"], serde_json::json!("[REDACTED]"));
+        assert_eq!(m["api_key"], serde_json::json!("[REDACTED]"));
+    }
+
+    #[test]
+    fn record_redacts_before_writing_to_disk() {
+        let tmp = TempDir::new().unwrap();
+        let store = ChangelogStore::new(tmp.path().to_path_buf());
+        let mut before = HashMap::new();
+        before.insert("id".to_string(), serde_json::json!(1));
+        before.insert(
+            "password".to_string(),
+            serde_json::json!("hunter2"),
+        );
+        let entry = make_entry(
+            "users",
+            ChangeOperation::Delete,
+            pk(1),
+            Some(before),
+            None,
+        );
+        store.record(entry);
+        // Read what was actually persisted
+        let content = std::fs::read_to_string(tmp.path().join("changelog.jsonl")).unwrap();
+        assert!(content.contains("[REDACTED]"));
+        assert!(!content.contains("hunter2"));
     }
 
     #[test]
@@ -912,13 +996,6 @@ mod tests {
 
         assert_eq!(diff.stats.total_changes, 2); // id=1 modified (insert+update), id=2 added
         assert_eq!(diff.stats.added, 1);
-        // id=1 was inserted then updated in the window — it's "Added" because state_at_t1 is None
-        // Actually the first insert sets it as Added, then the update sets it as Modified
-        // But state_at_t1 was None (from the insert being the first entry), so it stays Added
-        // Let me verify: the insert creates Added, then the update sees existing with state_at_t1=None
-        // so t1_state = existing.state_at_t1 (None) or entry.before. The update's before is Some(row(1, Alice))
-        // So t1_state = None (from existing). Status = Modified.
-        // So: id=1 = Modified, id=2 = Added
     }
 
     #[test]

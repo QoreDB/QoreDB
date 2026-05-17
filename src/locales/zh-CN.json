@@ -113,7 +113,9 @@
       "newQuery": "新建查询",
       "newNotebook": "新建笔记本",
       "credentialLoadFail": "加载连接详情失败",
-      "testTitleSuccess": "连接到 {{name}} 成功！"
+      "testTitleSuccess": "连接到 {{name}} 成功！",
+      "backup": "备份数据库…",
+      "restore": "从备份恢复…"
     },
     "url": {
       "useUrl": "使用 URL/DSN 连接",
@@ -183,6 +185,11 @@
     "driverGroups": {
       "sql": "SQL",
       "nosql": "NoSQL"
+    },
+    "clickhouse": {
+      "cluster": "集群名称（可选）",
+      "clusterPlaceholder": "例如 shard_cluster",
+      "clusterHint": "设置后，DDL 语句（CREATE/DROP DATABASE/TABLE）将带 ON CLUSTER 执行并传播到所有副本。单节点安装请留空。"
     }
   },
   "sidebar": {
@@ -201,7 +208,8 @@
     "favorites": "收藏夹",
     "otherConnections": "其他连接",
     "addToFavorites": "添加到收藏夹",
-    "removeFromFavorites": "从收藏夹移除"
+    "removeFromFavorites": "从收藏夹移除",
+    "auditLog": "审计日志"
   },
   "search": {
     "placeholder": "输入命令或搜索…",
@@ -554,13 +562,31 @@
       "newQuery": "新建查询标签页",
       "runQuery": "运行查询",
       "closeTab": "关闭标签页",
-      "escape": "关闭叠加层/取消"
+      "escape": "关闭叠加层/取消",
+      "title": "键盘快捷键",
+      "description": "点击绑定以记录新的按键组合。Esc 取消。",
+      "recordHint": "点击快捷键以重新分配。新组合立即生效。",
+      "recording": "按键…",
+      "errorSystemReserved": "系统保留",
+      "conflictTooltip": "与其他快捷键冲突",
+      "resetOne": "重置为默认",
+      "resetAll": "全部重置"
     },
     "tabs": {
       "title": "标签页",
       "description": "配置标签栏行为。",
       "groupByConnection": "按连接分组标签页",
       "groupByConnectionDescription": "在连接名称下方以可折叠的分组显示标签页。"
+    },
+    "backupTools": {
+      "title": "备份工具路径",
+      "description": "QoreDB 调用官方 CLI 工具（pg_dump、mysqldump、mongodump、sqlite3）。如果自动检测失败，您可以显式指定路径。",
+      "summary": "在此系统上检测到 {{total}} 个工具中的 {{found}} 个。",
+      "refresh": "重新检测",
+      "choose": "选择…",
+      "overridden": "手动",
+      "notFound": "在 PATH 中未找到。",
+      "empty": "尚未检测到任何工具。"
     }
   },
   "table": {
@@ -1396,7 +1422,9 @@
         "executionTime": "执行时间",
         "rowCount": "行数",
         "blockedBy": "被安全规则阻止",
-        "error": "错误"
+        "error": "错误",
+        "fingerprint": "指纹",
+        "filterByFingerprint": "按此指纹过滤"
       },
       "stats": {
         "total": "总查询数",
@@ -1405,6 +1433,12 @@
         "success": "成功",
         "failed": "失败",
         "lastHour": "最近一小时"
+      },
+      "fingerprintFilter": "指纹",
+      "export": {
+        "label": "导出",
+        "format": "格式",
+        "fromDisk": "包含轮转历史"
       }
     },
     "profiling": {
@@ -2112,6 +2146,8 @@
     "importedCount": "已导入{{count}}个连接",
     "gitWarning": "连接元数据（主机、端口、用户名）将存储在.qoredb/中，可通过Git进行版本控制。密码永远不会保存到磁盘。",
     "rename": "重命名",
+    "revealFolder": "打开文件夹",
+    "revealFolderFailed": "无法打开工作区文件夹。",
     "renamePrompt": "新名称：",
     "leave": "离开"
   },
@@ -2348,5 +2384,236 @@
     "alter": {
       "driverUnsupported": "驱动程序不支持 ALTER TABLE：{{driver}}"
     }
+  },
+  "backup": {
+    "dialogTitle": "备份 {{name}}",
+    "mode": "模式",
+    "modeFull": "完整（架构 + 数据）",
+    "modeSchemaOnly": "仅架构",
+    "modeDataOnly": "仅数据",
+    "format": "格式",
+    "password": "密码",
+    "passwordPlaceholder": "导出工具需要",
+    "tablesOptional": "表（可选）",
+    "tablesPlaceholder": "逗号分隔；为空 = 全部",
+    "outputPath": "输出文件",
+    "outputPathPlaceholder": "选择目标",
+    "browse": "浏览…",
+    "start": "开始备份",
+    "running": "运行中…",
+    "starting": "启动中…",
+    "progress": "进度",
+    "completed": "备份成功完成。",
+    "exitedWithCode": "工具以代码 {{code}} 退出。",
+    "cancel": "取消",
+    "cancelling": "取消中…",
+    "outputDir": "输出目录",
+    "duckdbHint": "DuckDB EXPORT DATABASE 会写入一个包含 schema.sql 以及每张表对应一个文件的目录。"
+  },
+  "contracts": {
+    "title": "数据契约",
+    "description": "声明式数据质量断言",
+    "openPanel": "数据契约…",
+    "newContract": "新建契约",
+    "edit": "编辑",
+    "delete": "删除",
+    "run": {
+      "dialogTitle": "运行契约：{{name}}",
+      "connectionMissing": "运行前请先连接到契约目标。",
+      "starting": "启动中…",
+      "ruleProgress": "规则 {{index}} / {{total}}",
+      "completedSummary": "完成：通过 {{pass}}，失败 {{fail}}，错误 {{error}}，跳过 {{skipped}}",
+      "runFailed": "运行失败",
+      "results": "结果"
+    },
+    "running": "运行中…",
+    "rerun": "重新运行",
+    "save": "保存",
+    "cancel": "取消",
+    "close": "关闭",
+    "discard": "舍弃",
+    "unsavedChanges": "未保存的更改",
+    "empty": {
+      "title": "暂无契约",
+      "description": "创建一个 YAML 契约，以验证此工作区的数据质量。",
+      "createFirst": "创建第一个契约"
+    },
+    "list": {
+      "name": "名称",
+      "rulesCount_one": "{{count}} 条规则",
+      "rulesCount_other": "{{count}} 条规则",
+      "lastRun": "最近运行",
+      "neverRun": "从未运行",
+      "status": "状态"
+    },
+    "editor": {
+      "title": "契约编辑器",
+      "namePlaceholder": "名称（需与文件名一致）",
+      "yamlSource": "YAML 源",
+      "validating": "校验中…",
+      "valid": "有效",
+      "invalid": "无效",
+      "save": "保存契约",
+      "saved": "已保存契约",
+      "saveFailed": "保存契约失败",
+      "template": "插入模板",
+      "nameMismatch": "内嵌名称必须与文件名一致"
+    },
+    "results": {
+      "rule": "规则",
+      "type": "类型",
+      "status": "状态",
+      "violations": "违规",
+      "metric": "指标",
+      "duration": "耗时",
+      "samples": "示例",
+      "showSamples": "显示违规示例",
+      "hideSamples": "隐藏违规示例",
+      "noSamples": "暂无示例"
+    },
+    "status": {
+      "pass": "通过",
+      "fail": "失败",
+      "skipped": "跳过",
+      "error": "错误"
+    },
+    "health": {
+      "healthy": "健康",
+      "warning": "警告",
+      "failing": "失败",
+      "unknown": "尚未运行"
+    },
+    "ruleType": {
+      "not_null_pct": "非空 %",
+      "not_empty": "非空字符串",
+      "regex_match": "正则匹配",
+      "length_range": "长度范围",
+      "numeric_range": "数值范围",
+      "date_range": "日期范围",
+      "allowed_values": "允许的取值",
+      "unique": "唯一",
+      "distinct_count": "去重计数",
+      "foreign_key_integrity": "外键完整性",
+      "row_count": "行数",
+      "custom_sql": "自定义 SQL"
+    },
+    "history": {
+      "title": "运行历史",
+      "empty": "暂无运行记录",
+      "viewDetails": "查看详情"
+    },
+    "errors": {
+      "loadFailed": "加载契约失败",
+      "deleteFailed": "删除契约失败",
+      "runFailed": "运行契约失败"
+    },
+    "confirm": {
+      "deleteTitle": "删除契约 \"{{name}}\"？",
+      "deleteBody": "契约文件及其历史将被永久删除。"
+    }
+  },
+  "instantApi": {
+    "title": "Instant Data API",
+    "description": "将保存的查询作为本地只读 REST 端点公开。",
+    "close": "关闭",
+    "newEndpoint": "新建端点",
+    "endpointsLabel": "个端点",
+    "confirmDelete": "删除端点 \"{{name}}\"?",
+    "regenerate": "重新生成令牌",
+    "regenerateConfirm": "为 \"{{name}}\" 生成新的令牌？旧令牌将立即失效。",
+    "regenerateFailed": "重新生成令牌失败",
+    "status": {
+      "running": "服务器运行中",
+      "stopped": "服务器已停止",
+      "start": "启动",
+      "stop": "停止"
+    },
+    "empty": {
+      "title": "尚无端点",
+      "description": "创建第一个端点，将保存的查询作为 REST URL 公开。",
+      "createFirst": "创建端点"
+    },
+    "errors": {
+      "statusFailed": "加载 Instant API 状态失败",
+      "startFailed": "启动 Instant API 服务器失败",
+      "stopFailed": "停止 Instant API 服务器失败",
+      "deleteFailed": "删除端点失败"
+    },
+    "list": {
+      "name": "名称",
+      "shape": "形式",
+      "url": "URL",
+      "serverStopped": "请先启动服务器，再打开此 URL。",
+      "paramsCount_one": "{{count}} 个参数",
+      "paramsCount_other": "{{count}} 个参数",
+      "pageSize_one": "每页 {{count}} 行",
+      "pageSize_other": "每页 {{count}} 行"
+    },
+    "endpoint": {
+      "newTitle": "新建端点",
+      "newDescription": "选择连接，编写带参数的只读查询即可。",
+      "nameLabel": "名称",
+      "nameHint": "字母、数字、连字符、下划线 — 用于 URL 路径。",
+      "connectionLabel": "连接",
+      "selectConnection": "选择连接…",
+      "queryLabel": "查询",
+      "queryHint": "用 {{tag}} 占位符引用已声明的参数。",
+      "shapeLabel": "响应形式",
+      "shape": {
+        "rows": "行列表",
+        "object": "单个对象"
+      },
+      "pageSizeLabel": "每页大小",
+      "paramsLabel": "参数",
+      "addParam": "添加",
+      "noParams": "未声明参数。",
+      "paramName": "名称",
+      "paramDefault": "默认值",
+      "cancel": "取消",
+      "create": "创建端点",
+      "creating": "正在创建…",
+      "createFailed": "创建端点失败",
+      "invalidName": "名称无效 — 字母、数字、连字符、下划线 (1–64)。",
+      "missingConnection": "请选择连接。",
+      "missingQuery": "查询为空。",
+      "invalidPageSize": "每页大小必须介于 1 与 10000 之间。",
+      "invalidParamName": "参数名称无效：{{name}}",
+      "paramNotInQuery": "查询中未引用参数 {{name}}。",
+      "loadConnectionsFailed": "加载连接失败"
+    },
+    "token": {
+      "title": "端点令牌（仅显示一次）",
+      "description": "请立即复制此令牌 — 之后无法再次获取。将其用于 Authorization 头。",
+      "tokenLabel": "Bearer 令牌",
+      "curlLabel": "示例",
+      "warning": "此令牌授予对此端点的读取权限。请像密码一样保管。",
+      "copyFailed": "复制失败",
+      "done": "已保存"
+    },
+    "openapi": {
+      "open": "OpenAPI 预览",
+      "title": "OpenAPI 3.1 规范",
+      "description": "由已注册端点自动生成。可导入 Swagger UI 或 Postman。",
+      "copy": "复制 JSON",
+      "copied": "已复制",
+      "download": "下载",
+      "loadFailed": "加载 OpenAPI 文档失败",
+      "close": "关闭"
+    },
+    "tls": {
+      "useHttps": "启用 HTTPS",
+      "badge": "HTTPS",
+      "selfSigned": "启动时生成自签名证书。浏览器首次访问时将要求手动确认信任。"
+    }
+  },
+  "restore": {
+    "dialogTitle": "恢复到 {{name}}",
+    "destructiveWarning": "此操作将覆盖或修改 \"{{name}}\" 中的数据。请确保在继续之前已有最新的备份。",
+    "inputPath": "备份文件",
+    "inputPathPlaceholder": "选择要恢复的备份文件",
+    "confirmLabel": "输入 \"{{name}}\" 以确认",
+    "start": "开始恢复",
+    "completed": "恢复成功完成。",
+    "duckdbHint": "请选择之前由 EXPORT DATABASE 生成的目录。"
   }
 }

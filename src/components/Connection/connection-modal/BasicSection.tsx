@@ -31,6 +31,7 @@ export function BasicSection({
   const isFileBased = formData.driver === Driver.Sqlite || formData.driver === Driver.Duckdb;
   const usernameRequired = formData.driver !== Driver.Mongodb && formData.driver !== Driver.Redis;
   const isSqlServer = formData.driver === Driver.SqlServer;
+  const isClickhouse = formData.driver === Driver.Clickhouse;
   const isNtlm = isSqlServer && formData.mssqlAuthMode === 'windows_ntlm';
   const isIntegrated = isSqlServer && formData.mssqlAuthMode === 'windows_integrated';
   const authModes: { value: MssqlAuthMode; label: string }[] = [
@@ -174,6 +175,21 @@ export function BasicSection({
                   {t('connection.mssql.integratedHint')}
                 </p>
               )}
+            </div>
+          )}
+
+          {isClickhouse && (
+            <div className="space-y-2">
+              <Label>{t('connection.clickhouse.cluster')}</Label>
+              <Input
+                placeholder={t('connection.clickhouse.clusterPlaceholder')}
+                value={formData.clickhouseCluster}
+                onChange={e => onChange('clickhouseCluster', e.target.value)}
+                spellCheck={false}
+              />
+              <p className="text-xs text-muted-foreground">
+                {t('connection.clickhouse.clusterHint')}
+              </p>
             </div>
           )}
 

@@ -2,7 +2,8 @@
 
 use qoredb_lib::engine::{
     drivers::{
-        mongodb::MongoDriver, mysql::MySqlDriver, postgres::PostgresDriver, redis::RedisDriver,
+        clickhouse::ClickHouseDriver, mongodb::MongoDriver, mysql::MySqlDriver,
+        postgres::PostgresDriver, redis::RedisDriver,
     },
     error::{EngineError, EngineResult},
     traits::DataEngine,
@@ -77,6 +78,7 @@ fn postgres_config() -> ConnectionConfig {
         pool_min_connections: None,
         proxy: None,
         mssql_auth: None,
+        clickhouse_cluster: None,
     }
 }
 
@@ -98,6 +100,7 @@ fn mysql_config() -> ConnectionConfig {
         pool_min_connections: None,
         proxy: None,
         mssql_auth: None,
+        clickhouse_cluster: None,
     }
 }
 
@@ -119,6 +122,31 @@ fn mongo_config() -> ConnectionConfig {
         pool_min_connections: None,
         proxy: None,
         mssql_auth: None,
+        clickhouse_cluster: None,
+    }
+}
+
+fn clickhouse_config() -> ConnectionConfig {
+    ConnectionConfig {
+        driver: "clickhouse".to_string(),
+        host: env_or_default("QOREDB_TEST_CLICKHOUSE_HOST", "127.0.0.1"),
+        port: env_u16_or_default("QOREDB_TEST_CLICKHOUSE_PORT", 8123),
+        username: env_or_default("QOREDB_TEST_CLICKHOUSE_USER", "qoredb"),
+        // Empty by default: driver refuses Basic-auth over cleartext HTTP.
+        // The docker-compose ClickHouse is configured with no password to match.
+        password: env_or_default("QOREDB_TEST_CLICKHOUSE_PASSWORD", ""),
+        database: Some(env_or_default("QOREDB_TEST_CLICKHOUSE_DB", DEFAULT_DB)),
+        ssl: false,
+        ssl_mode: None,
+        environment: "development".to_string(),
+        read_only: false,
+        ssh_tunnel: None,
+        pool_acquire_timeout_secs: None,
+        pool_max_connections: None,
+        pool_min_connections: None,
+        proxy: None,
+        mssql_auth: None,
+        clickhouse_cluster: None,
     }
 }
 
@@ -140,6 +168,7 @@ fn redis_config() -> ConnectionConfig {
         pool_min_connections: None,
         proxy: None,
         mssql_auth: None,
+        clickhouse_cluster: None,
     }
 }
 
@@ -230,6 +259,15 @@ async fn connect_mongo() -> EngineResult<(Arc<MongoDriver>, SessionId, Connectio
 async fn connect_redis() -> EngineResult<(Arc<RedisDriver>, SessionId, ConnectionConfig)> {
     let config = redis_config();
     let driver = Arc::new(RedisDriver::new());
+    wait_for_connection(driver.as_ref(), &config).await?;
+    let session = driver.connect(&config).await?;
+    Ok((driver, session, config))
+}
+
+async fn connect_clickhouse(
+) -> EngineResult<(Arc<ClickHouseDriver>, SessionId, ConnectionConfig)> {
+    let config = clickhouse_config();
+    let driver = Arc::new(ClickHouseDriver::new());
     wait_for_connection(driver.as_ref(), &config).await?;
     let session = driver.connect(&config).await?;
     Ok((driver, session, config))
@@ -799,6 +837,113 @@ async fn mongodb_streaming() -> EngineResult<()> {
 
     test_streaming(driver.as_ref(), session, &query, 3).await?;
 
+    driver.disconnect(session).await?;
+    Ok(())
+}
+
+fn is_clickhouse_unavailable(err: &EngineError) -> bool {
+    match err {
+        EngineError::ConnectionFailed { message } | EngineError::ExecutionError { message } => {
+            let lower = message.to_ascii_lowercase();
+            lower.contains("connection refused")
+                || lower.contains("no route to host")
+                || lower.contains("timed out")
+                || lower.contains("network is unreachable")
+                || lower.contains("error sending request")
+        }
+        _ => false,
+    }
+}
+
+#[tokio::test]
+async fn clickhouse_e2e() -> EngineResult<()> {
+    let connect_result = connect_clickhouse().await;
+    let (driver, session, config) = match connect_result {
+        Ok(t) => t,
+        Err(err) if is_clickhouse_unavailable(&err) => {
+            eprintln!("clickhouse not reachable, skipping: {err}");
+            return Ok(());
+        }
+        Err(err) => return Err(err),
+    };
+
+    let table = unique_name("qoredb_ch");
+    let db = config.database.clone().unwrap_or_else(|| "default".into());
+
+    // Plain MergeTree on a small int — exercise create / insert / select.
+    driver
+        .execute(
+            session,
+            &format!(
+                "CREATE TABLE IF NOT EXISTS {db}.{table} \
+                 (id UInt32, name String, ts DateTime DEFAULT now()) \
+                 ENGINE = MergeTree ORDER BY id"
+            ),
+            QueryId::new(),
+        )
+        .await?;
+
+    driver
+        .execute(
+            session,
+            &format!("INSERT INTO {db}.{table} (id, name) VALUES (1, 'alpha'), (2, 'beta')"),
+            QueryId::new(),
+        )
+        .await?;
+
+    // list_collections sees the new table
+    let namespace = Namespace::new(db.clone());
+    let collections = driver
+        .list_collections(session, &namespace, CollectionListOptions::default())
+        .await?;
+    assert!(
+        collections.collections.iter().any(|c| c.name == table),
+        "table {table} not listed; got {:?}",
+        collections.collections.iter().map(|c| &c.name).collect::<Vec<_>>()
+    );
+
+    // describe_table exposes columns, types, and the primary-key column
+    let schema = driver.describe_table(session, &namespace, &table).await?;
+    let col_names: Vec<&str> = schema.columns.iter().map(|c| c.name.as_str()).collect();
+    assert!(col_names.contains(&"id"));
+    assert!(col_names.contains(&"name"));
+    assert!(col_names.contains(&"ts"));
+    assert_eq!(schema.primary_key.as_deref(), Some(&["id".to_string()][..]));
+
+    // Read back via execute, then via preview_table.
+    let select = driver
+        .execute(
+            session,
+            &format!("SELECT count() FROM {db}.{table}"),
+            QueryId::new(),
+        )
+        .await?;
+    assert_count(&select, 2);
+
+    let preview = driver
+        .preview_table(session, &namespace, &table, 10)
+        .await?;
+    assert_eq!(preview.rows.len(), 2);
+
+    // Pagination via query_table.
+    let mut opts = TableQueryOptions::default();
+    opts.page_size = Some(1);
+    opts.page = Some(1);
+    opts.sort_column = Some("id".into());
+    let paged = driver
+        .query_table(session, &namespace, &table, opts)
+        .await?;
+    assert_eq!(paged.result.rows.len(), 1);
+    assert_eq!(paged.total_rows, 2);
+
+    // Cleanup.
+    let _ = driver
+        .execute(
+            session,
+            &format!("DROP TABLE {db}.{table}"),
+            QueryId::new(),
+        )
+        .await;
     driver.disconnect(session).await?;
     Ok(())
 }

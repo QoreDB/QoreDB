@@ -113,7 +113,9 @@
       "newQuery": "새 쿼리",
       "newNotebook": "새 노트북",
       "credentialLoadFail": "연결 정보를 불러오지 못했습니다",
-      "testTitleSuccess": "{{name}} 연결 성공!"
+      "testTitleSuccess": "{{name}} 연결 성공!",
+      "backup": "데이터베이스 백업…",
+      "restore": "백업에서 복원…"
     },
     "url": {
       "useUrl": "URL/DSN으로 연결",
@@ -183,6 +185,11 @@
     "driverGroups": {
       "sql": "SQL",
       "nosql": "NoSQL"
+    },
+    "clickhouse": {
+      "cluster": "클러스터 이름 (선택)",
+      "clusterPlaceholder": "예: shard_cluster",
+      "clusterHint": "값을 설정하면 DDL(CREATE/DROP DATABASE/TABLE)이 ON CLUSTER 와 함께 실행되어 모든 복제본에 전파됩니다. 단일 노드 설치에서는 비워두세요."
     }
   },
   "sidebar": {
@@ -201,7 +208,8 @@
     "favorites": "즐겨찾기",
     "otherConnections": "기타 연결",
     "addToFavorites": "즐겨찾기에 추가",
-    "removeFromFavorites": "즐겨찾기에서 제거"
+    "removeFromFavorites": "즐겨찾기에서 제거",
+    "auditLog": "감사 로그"
   },
   "search": {
     "placeholder": "명령어를 입력하거나 검색...",
@@ -554,13 +562,31 @@
       "newQuery": "새 쿼리 탭",
       "runQuery": "쿼리 실행",
       "closeTab": "탭 닫기",
-      "escape": "오버레이 닫기 / 취소"
+      "escape": "오버레이 닫기 / 취소",
+      "title": "키보드 단축키",
+      "description": "바인딩을 클릭하여 새 키 조합을 기록합니다. Esc로 취소합니다.",
+      "recordHint": "단축키를 클릭하여 재할당합니다. 새 조합은 즉시 적용됩니다.",
+      "recording": "키를 누르세요…",
+      "errorSystemReserved": "OS에 의해 예약됨",
+      "conflictTooltip": "다른 단축키와 충돌",
+      "resetOne": "기본값으로 재설정",
+      "resetAll": "모두 재설정"
     },
     "tabs": {
       "title": "탭",
       "description": "탭 표시줄 동작을 구성합니다.",
       "groupByConnection": "연결별로 탭 그룹화",
       "groupByConnectionDescription": "연결 이름 아래에 접을 수 있는 그룹으로 탭을 표시합니다."
+    },
+    "backupTools": {
+      "title": "백업 도구 경로",
+      "description": "QoreDB는 공식 CLI 도구(pg_dump, mysqldump, mongodump, sqlite3)에 위임합니다. 자동 감지가 실패하면 경로를 명시적으로 고정할 수 있습니다.",
+      "summary": "이 시스템에서 {{total}}개 중 {{found}}개 도구가 감지되었습니다.",
+      "refresh": "다시 감지",
+      "choose": "선택…",
+      "overridden": "수동",
+      "notFound": "PATH에서 찾을 수 없음.",
+      "empty": "감지된 도구가 아직 없습니다."
     }
   },
   "table": {
@@ -1396,7 +1422,9 @@
         "executionTime": "실행 시간",
         "rowCount": "행 수",
         "blockedBy": "안전 규칙에 의해 차단됨",
-        "error": "오류"
+        "error": "오류",
+        "fingerprint": "지문",
+        "filterByFingerprint": "이 지문으로 필터링"
       },
       "stats": {
         "total": "전체 쿼리",
@@ -1405,6 +1433,12 @@
         "success": "성공",
         "failed": "실패",
         "lastHour": "최근 1시간"
+      },
+      "fingerprintFilter": "지문",
+      "export": {
+        "label": "내보내기",
+        "format": "형식",
+        "fromDisk": "회전된 기록 포함"
       }
     },
     "profiling": {
@@ -2112,6 +2146,8 @@
     "importedCount": "{{count}}개의 연결을 가져왔습니다",
     "gitWarning": "연결 메타데이터(호스트, 포트, 사용자 이름)는 .qoredb/에 저장되며 Git으로 버전 관리할 수 있습니다. 비밀번호는 디스크에 저장되지 않습니다.",
     "rename": "이름 변경",
+    "revealFolder": "폴더 열기",
+    "revealFolderFailed": "워크스페이스 폴더를 열 수 없습니다.",
     "renamePrompt": "새 이름:",
     "leave": "나가기"
   },
@@ -2348,5 +2384,236 @@
     "alter": {
       "driverUnsupported": "드라이버에서 ALTER TABLE을 지원하지 않습니다: {{driver}}"
     }
+  },
+  "backup": {
+    "dialogTitle": "{{name}} 백업",
+    "mode": "모드",
+    "modeFull": "전체(스키마 + 데이터)",
+    "modeSchemaOnly": "스키마만",
+    "modeDataOnly": "데이터만",
+    "format": "형식",
+    "password": "비밀번호",
+    "passwordPlaceholder": "덤프 도구에 필요",
+    "tablesOptional": "테이블(선택)",
+    "tablesPlaceholder": "쉼표로 구분, 비어 있음 = 전체",
+    "outputPath": "출력 파일",
+    "outputPathPlaceholder": "대상 선택",
+    "browse": "찾아보기…",
+    "start": "백업 시작",
+    "running": "실행 중…",
+    "starting": "시작 중…",
+    "progress": "진행",
+    "completed": "백업이 성공적으로 완료되었습니다.",
+    "exitedWithCode": "도구가 코드 {{code}}로 종료되었습니다.",
+    "cancel": "취소",
+    "cancelling": "취소 중…",
+    "outputDir": "출력 디렉터리",
+    "duckdbHint": "DuckDB EXPORT DATABASE 는 schema.sql 과 테이블당 하나의 파일이 들어 있는 디렉터리를 생성합니다."
+  },
+  "contracts": {
+    "title": "데이터 계약",
+    "description": "선언적 데이터 품질 검증",
+    "openPanel": "데이터 계약…",
+    "newContract": "새 계약",
+    "edit": "편집",
+    "delete": "삭제",
+    "run": {
+      "dialogTitle": "계약 실행: {{name}}",
+      "connectionMissing": "실행 전에 계약 대상에 연결하세요.",
+      "starting": "시작 중…",
+      "ruleProgress": "규칙 {{index}} / {{total}}",
+      "completedSummary": "완료: 성공 {{pass}}, 실패 {{fail}}, 오류 {{error}}, 건너뜀 {{skipped}}",
+      "runFailed": "실행에 실패했습니다",
+      "results": "결과"
+    },
+    "running": "실행 중…",
+    "rerun": "다시 실행",
+    "save": "저장",
+    "cancel": "취소",
+    "close": "닫기",
+    "discard": "버리기",
+    "unsavedChanges": "저장되지 않은 변경 사항",
+    "empty": {
+      "title": "계약이 없습니다",
+      "description": "이 워크스페이스의 데이터 품질을 검증하기 위해 YAML 계약을 만드세요.",
+      "createFirst": "첫 계약 만들기"
+    },
+    "list": {
+      "name": "이름",
+      "rulesCount_one": "규칙 {{count}}개",
+      "rulesCount_other": "규칙 {{count}}개",
+      "lastRun": "마지막 실행",
+      "neverRun": "실행된 적 없음",
+      "status": "상태"
+    },
+    "editor": {
+      "title": "계약 편집기",
+      "namePlaceholder": "이름 (파일명과 일치)",
+      "yamlSource": "YAML 소스",
+      "validating": "검증 중…",
+      "valid": "유효함",
+      "invalid": "유효하지 않음",
+      "save": "계약 저장",
+      "saved": "계약을 저장했습니다",
+      "saveFailed": "계약 저장에 실패했습니다",
+      "template": "템플릿 삽입",
+      "nameMismatch": "내부 이름은 파일명과 일치해야 합니다"
+    },
+    "results": {
+      "rule": "규칙",
+      "type": "유형",
+      "status": "상태",
+      "violations": "위반",
+      "metric": "메트릭",
+      "duration": "소요 시간",
+      "samples": "샘플",
+      "showSamples": "샘플 위반 표시",
+      "hideSamples": "샘플 위반 숨기기",
+      "noSamples": "사용 가능한 샘플 없음"
+    },
+    "status": {
+      "pass": "통과",
+      "fail": "실패",
+      "skipped": "건너뜀",
+      "error": "오류"
+    },
+    "health": {
+      "healthy": "정상",
+      "warning": "경고",
+      "failing": "실패 중",
+      "unknown": "아직 실행되지 않음"
+    },
+    "ruleType": {
+      "not_null_pct": "Null 아님 %",
+      "not_empty": "비어 있지 않음",
+      "regex_match": "정규식 일치",
+      "length_range": "길이 범위",
+      "numeric_range": "숫자 범위",
+      "date_range": "날짜 범위",
+      "allowed_values": "허용된 값",
+      "unique": "고유",
+      "distinct_count": "고유 개수",
+      "foreign_key_integrity": "외래 키 무결성",
+      "row_count": "행 수",
+      "custom_sql": "사용자 정의 SQL"
+    },
+    "history": {
+      "title": "실행 기록",
+      "empty": "실행 기록 없음",
+      "viewDetails": "세부 정보 보기"
+    },
+    "errors": {
+      "loadFailed": "계약을 불러오지 못했습니다",
+      "deleteFailed": "계약을 삭제하지 못했습니다",
+      "runFailed": "계약을 실행하지 못했습니다"
+    },
+    "confirm": {
+      "deleteTitle": "계약 \"{{name}}\"을(를) 삭제하시겠습니까?",
+      "deleteBody": "계약 파일과 기록이 영구적으로 삭제됩니다."
+    }
+  },
+  "instantApi": {
+    "title": "Instant Data API",
+    "description": "저장된 쿼리를 로컬 읽기 전용 REST 엔드포인트로 노출합니다.",
+    "close": "닫기",
+    "newEndpoint": "새 엔드포인트",
+    "endpointsLabel": "개의 엔드포인트",
+    "confirmDelete": "엔드포인트 \"{{name}}\" 을(를) 삭제하시겠습니까?",
+    "regenerate": "토큰 재생성",
+    "regenerateConfirm": "\"{{name}}\" 의 새 토큰을 생성하시겠습니까? 이전 토큰은 즉시 무효화됩니다.",
+    "regenerateFailed": "토큰 재생성에 실패했습니다",
+    "status": {
+      "running": "서버 실행 중",
+      "stopped": "서버 중지됨",
+      "start": "시작",
+      "stop": "중지"
+    },
+    "empty": {
+      "title": "아직 엔드포인트가 없습니다",
+      "description": "저장된 쿼리를 REST URL 로 노출할 첫 엔드포인트를 만들어 보세요.",
+      "createFirst": "엔드포인트 만들기"
+    },
+    "errors": {
+      "statusFailed": "Instant API 상태를 불러오지 못했습니다",
+      "startFailed": "Instant API 서버를 시작하지 못했습니다",
+      "stopFailed": "Instant API 서버를 중지하지 못했습니다",
+      "deleteFailed": "엔드포인트를 삭제하지 못했습니다"
+    },
+    "list": {
+      "name": "이름",
+      "shape": "형식",
+      "url": "URL",
+      "serverStopped": "이 URL 을 열기 전에 서버를 시작하세요.",
+      "paramsCount_one": "파라미터 {{count}}개",
+      "paramsCount_other": "파라미터 {{count}}개",
+      "pageSize_one": "페이지당 {{count}}행",
+      "pageSize_other": "페이지당 {{count}}행"
+    },
+    "endpoint": {
+      "newTitle": "새 엔드포인트",
+      "newDescription": "연결을 선택하고 매개변수가 있는 읽기 전용 쿼리를 작성하세요.",
+      "nameLabel": "이름",
+      "nameHint": "영문자, 숫자, 하이픈, 밑줄 — URL 경로에 사용됩니다.",
+      "connectionLabel": "연결",
+      "selectConnection": "연결 선택…",
+      "queryLabel": "쿼리",
+      "queryHint": "선언된 매개변수는 {{tag}} 자리표시자로 참조합니다.",
+      "shapeLabel": "응답 형식",
+      "shape": {
+        "rows": "행 목록",
+        "object": "단일 객체"
+      },
+      "pageSizeLabel": "페이지 크기",
+      "paramsLabel": "매개변수",
+      "addParam": "추가",
+      "noParams": "선언된 매개변수가 없습니다.",
+      "paramName": "이름",
+      "paramDefault": "기본값",
+      "cancel": "취소",
+      "create": "엔드포인트 만들기",
+      "creating": "생성 중…",
+      "createFailed": "엔드포인트 생성에 실패했습니다",
+      "invalidName": "잘못된 이름 — 영문자, 숫자, 하이픈, 밑줄 (1–64).",
+      "missingConnection": "연결을 선택하세요.",
+      "missingQuery": "쿼리가 비어 있습니다.",
+      "invalidPageSize": "페이지 크기는 1 ~ 10000 사이여야 합니다.",
+      "invalidParamName": "잘못된 매개변수 이름: {{name}}",
+      "paramNotInQuery": "매개변수 {{name}} 이(가) 쿼리에서 참조되지 않습니다.",
+      "loadConnectionsFailed": "연결을 불러오지 못했습니다"
+    },
+    "token": {
+      "title": "엔드포인트 토큰 (1회만 표시)",
+      "description": "지금 복사하세요 — 이후에는 다시 확인할 수 없습니다. Authorization 헤더에 사용하세요.",
+      "tokenLabel": "Bearer 토큰",
+      "curlLabel": "예시",
+      "warning": "이 토큰은 이 엔드포인트의 읽기 권한을 부여합니다. 비밀번호처럼 다루세요.",
+      "copyFailed": "복사에 실패했습니다",
+      "done": "저장했습니다"
+    },
+    "openapi": {
+      "open": "OpenAPI 미리보기",
+      "title": "OpenAPI 3.1 명세",
+      "description": "등록된 엔드포인트로부터 자동 생성됩니다. Swagger UI 또는 Postman 에서 열 수 있습니다.",
+      "copy": "JSON 복사",
+      "copied": "복사됨",
+      "download": "다운로드",
+      "loadFailed": "OpenAPI 문서를 불러오지 못했습니다",
+      "close": "닫기"
+    },
+    "tls": {
+      "useHttps": "HTTPS 사용",
+      "badge": "HTTPS",
+      "selfSigned": "서버 시작 시 자체 서명 인증서가 생성됩니다. 브라우저는 첫 접속 시 신뢰 예외를 요청합니다."
+    }
+  },
+  "restore": {
+    "dialogTitle": "{{name}}(으)로 복원",
+    "destructiveWarning": "이 작업은 \"{{name}}\"의 데이터를 덮어쓰거나 수정합니다. 계속하기 전에 최신 백업이 있는지 확인하세요.",
+    "inputPath": "백업 파일",
+    "inputPathPlaceholder": "복원할 백업 파일 선택",
+    "confirmLabel": "확인하려면 \"{{name}}\"을(를) 입력하세요",
+    "start": "복원 시작",
+    "completed": "복원이 성공적으로 완료되었습니다.",
+    "duckdbHint": "이전에 EXPORT DATABASE 로 생성된 디렉터리를 선택하세요."
   }
 }

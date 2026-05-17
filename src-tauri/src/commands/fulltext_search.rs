@@ -73,7 +73,7 @@ pub struct SearchProgressEvent {
 }
 
 /// Options for full-text search
-#[derive(Debug, Clone, serde::Deserialize)]
+#[derive(Debug, Clone, Default, serde::Deserialize)]
 pub struct FulltextSearchOptions {
     pub max_results_per_table: Option<u32>,
     pub max_total_results: Option<u32>,
@@ -189,7 +189,6 @@ pub async fn fulltext_search(
 ) -> Result<FulltextSearchResponse, String> {
     let start_time = std::time::Instant::now();
 
-    // Validate search term
     let search_term = search_term.trim();
     if search_term.is_empty() {
         return Ok(empty_response("Search term cannot be empty"));
@@ -230,7 +229,6 @@ pub async fn fulltext_search(
     let search_strategy = get_search_strategy(driver_id);
     let capability_cache = get_capability_cache();
 
-    // Get namespaces to search
     let namespaces = if let Some(ns) = opts.namespaces {
         ns
     } else {
@@ -245,7 +243,6 @@ pub async fn fulltext_search(
         }
     };
 
-    // Collect all tables to search with their capabilities
     let mut tables_to_search: Vec<(Namespace, String, Vec<String>)> = Vec::new();
 
     let is_sqlite = driver.driver_id().eq_ignore_ascii_case("sqlite");
@@ -329,7 +326,6 @@ pub async fn fulltext_search(
         });
     }
 
-    // Search options
     let search_options = TableSearchOptions {
         search_term: search_term.to_string(),
         case_sensitive,
@@ -338,7 +334,6 @@ pub async fn fulltext_search(
         prefer_native: true,
     };
 
-    // Counter for streaming progress
     let tables_searched_counter = Arc::new(std::sync::atomic::AtomicU32::new(0));
     let matches_found_counter = Arc::new(std::sync::atomic::AtomicU32::new(0));
 
@@ -351,12 +346,10 @@ pub async fn fulltext_search(
     let tables_searched_counter_ref = &tables_searched_counter;
     let matches_found_counter_ref = &matches_found_counter;
 
-    // Search tables in parallel
     let results: Vec<TableSearchResult> = stream::iter(tables_to_search)
         .map(|(namespace, table_name, text_columns)| async move {
             let text_column_set: HashSet<String> =
                 text_columns.iter().map(|c| c.to_lowercase()).collect();
-            // Check cache first
             let capability =
                 if let Some(cached) = capability_cache_ref.get(&namespace, &table_name).await {
                     debug!(
@@ -365,7 +358,6 @@ pub async fn fulltext_search(
                     );
                     cached
                 } else {
-                    // Detect full-text indexes
                     let detected_indexes = detect_fulltext_indexes(
                         driver_ref,
                         session,
@@ -378,7 +370,6 @@ pub async fn fulltext_search(
                     let capability =
                         strategy_ref.build_capability(&text_columns, &detected_indexes, None);
 
-                    // Cache the result
                     capability_cache_ref
                         .set(&namespace, &table_name, capability.clone())
                         .await;
@@ -386,7 +377,6 @@ pub async fn fulltext_search(
                     capability
                 };
 
-            // Build and execute query
             let (query, method) = strategy_ref.build_search_query(
                 &namespace,
                 &table_name,
@@ -410,7 +400,6 @@ pub async fn fulltext_search(
             let timeout_duration = Duration::from_millis(table_timeout_ms);
             let result = timeout(timeout_duration, search_future).await;
 
-            // Update progress counter
             tables_searched_counter_ref.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
 
             let table_result = match result {
@@ -465,7 +454,6 @@ pub async fn fulltext_search(
                         }
                     }
 
-                    // Update matches counter
                     matches_found_counter_ref
                         .fetch_add(matches.len() as u32, std::sync::atomic::Ordering::SeqCst);
 
@@ -499,7 +487,6 @@ pub async fn fulltext_search(
                 }
             };
 
-            // Emit progress event if streaming
             if stream_results {
                 let progress = SearchProgressEvent {
                     tables_searched: tables_searched_counter_ref
@@ -521,7 +508,6 @@ pub async fn fulltext_search(
         .collect()
         .await;
 
-    // Aggregate results
     let mut all_matches: Vec<FulltextMatch> = Vec::new();
     let mut stats = SearchStats {
         native_fulltext_count: 0,
@@ -586,7 +572,7 @@ pub async fn fulltext_search(
     })
 }
 
-/// Detect full-text indexes for a table
+/// Detect full-text indexes for a table.
 async fn detect_fulltext_indexes(
     driver: &Arc<dyn crate::engine::traits::DataEngine>,
     session: crate::engine::types::SessionId,
@@ -594,12 +580,10 @@ async fn detect_fulltext_indexes(
     namespace: &Namespace,
     table_name: &str,
 ) -> Vec<FulltextIndexInfo> {
-    // Get index detection query from strategy
     let Some(detection_query) = strategy.build_index_detection_query(namespace, table_name) else {
         return Vec::new();
     };
 
-    // Execute detection query
     let query_id = QueryId::new();
     let result = match driver
         .execute_in_namespace(session, Some(namespace.clone()), &detection_query, query_id)
@@ -615,7 +599,6 @@ async fn detect_fulltext_indexes(
         }
     };
 
-    // Convert rows to Vec<Vec<Value>> format
     let rows: Vec<Vec<Value>> = result.rows.into_iter().map(|r| r.values).collect();
     let columns: Vec<String> = result
         .columns
@@ -623,7 +606,6 @@ async fn detect_fulltext_indexes(
         .map(|c| c.name.to_string())
         .collect();
 
-    // Parse results using strategy
     strategy.parse_index_detection_result(&rows, &columns)
 }
 
@@ -660,20 +642,5 @@ fn error_response(error: &str, time_ms: f64) -> FulltextSearchResponse {
             timeout_count: 0,
             error_count: 0,
         },
-    }
-}
-
-impl Default for FulltextSearchOptions {
-    fn default() -> Self {
-        Self {
-            max_results_per_table: None,
-            max_total_results: None,
-            case_sensitive: None,
-            namespaces: None,
-            tables: None,
-            timeout_per_table_ms: None,
-            max_parallel: None,
-            stream_results: None,
-        }
     }
 }

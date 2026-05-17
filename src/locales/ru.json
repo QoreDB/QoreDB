@@ -113,7 +113,9 @@
       "newQuery": "Новый запрос",
       "newNotebook": "Новый блокнот",
       "credentialLoadFail": "Не удалось загрузить данные подключения",
-      "testTitleSuccess": "Подключение к {{name}} выполнено успешно!"
+      "testTitleSuccess": "Подключение к {{name}} выполнено успешно!",
+      "backup": "Резервная копия базы…",
+      "restore": "Восстановить из резервной копии…"
     },
     "url": {
       "useUrl": "Подключиться по URL/DSN",
@@ -183,6 +185,11 @@
     "driverGroups": {
       "sql": "SQL",
       "nosql": "NoSQL"
+    },
+    "clickhouse": {
+      "cluster": "Имя кластера (опционально)",
+      "clusterPlaceholder": "напр. shard_cluster",
+      "clusterHint": "Если задано, DDL-команды (CREATE/DROP DATABASE/TABLE) выполняются с ON CLUSTER и распространяются на все реплики. Оставьте пустым для одно-узловых установок."
     }
   },
   "sidebar": {
@@ -201,7 +208,8 @@
     "favorites": "Избранное",
     "otherConnections": "Другие подключения",
     "addToFavorites": "Добавить в избранное",
-    "removeFromFavorites": "Удалить из избранного"
+    "removeFromFavorites": "Удалить из избранного",
+    "auditLog": "Журнал аудита"
   },
   "search": {
     "placeholder": "Введите команду или выполните поиск…",
@@ -554,13 +562,31 @@
       "newQuery": "Новая вкладка запроса",
       "runQuery": "Выполнить запрос",
       "closeTab": "Закрыть вкладку",
-      "escape": "Закрыть оверлей / Отмена"
+      "escape": "Закрыть оверлей / Отмена",
+      "title": "Сочетания клавиш",
+      "description": "Нажмите на сочетание, чтобы записать новое. Esc отменяет.",
+      "recordHint": "Нажмите на сочетание, чтобы переназначить. Изменение применяется немедленно.",
+      "recording": "Нажмите клавиши…",
+      "errorSystemReserved": "Зарезервировано ОС",
+      "conflictTooltip": "Конфликт с другим сочетанием",
+      "resetOne": "Сбросить к значению по умолчанию",
+      "resetAll": "Сбросить все"
     },
     "tabs": {
       "title": "Вкладки",
       "description": "Настройка поведения панели вкладок.",
       "groupByConnection": "Группировать вкладки по подключению",
       "groupByConnectionDescription": "Отображать вкладки в свёртываемых группах под именем подключения."
+    },
+    "backupTools": {
+      "title": "Пути к инструментам резервного копирования",
+      "description": "QoreDB вызывает официальные CLI-инструменты (pg_dump, mysqldump, mongodump, sqlite3). Если автоопределение не работает, можно явно указать путь.",
+      "summary": "Обнаружено {{found}} из {{total}} инструментов в этой системе.",
+      "refresh": "Перепроверить",
+      "choose": "Выбрать…",
+      "overridden": "Вручную",
+      "notFound": "Не найден в PATH.",
+      "empty": "Инструменты ещё не обнаружены."
     }
   },
   "table": {
@@ -1397,7 +1423,9 @@
         "executionTime": "Время выполнения",
         "rowCount": "Количество строк",
         "blockedBy": "Заблокировано правилом безопасности",
-        "error": "Ошибка"
+        "error": "Ошибка",
+        "fingerprint": "Отпечаток",
+        "filterByFingerprint": "Фильтровать по этому отпечатку"
       },
       "stats": {
         "total": "Всего запросов",
@@ -1406,6 +1434,12 @@
         "success": "Успешных",
         "failed": "Неудачных",
         "lastHour": "За последний час"
+      },
+      "fingerprintFilter": "Отпечаток",
+      "export": {
+        "label": "Экспорт",
+        "format": "Формат",
+        "fromDisk": "Включить ротированную историю"
       }
     },
     "profiling": {
@@ -2113,6 +2147,8 @@
     "importedCount": "Импортировано подключений: {{count}}",
     "gitWarning": "Метаданные подключений (хост, порт, имя пользователя) будут сохранены в .qoredb/ и могут быть версионированы через Git. Пароли никогда не сохраняются на диск.",
     "rename": "Переименовать",
+    "revealFolder": "Открыть папку",
+    "revealFolderFailed": "Не удалось открыть папку рабочего пространства.",
     "renamePrompt": "Новое имя:",
     "leave": "Покинуть"
   },
@@ -2349,5 +2385,238 @@
     "alter": {
       "driverUnsupported": "ALTER TABLE не поддерживается драйвером: {{driver}}"
     }
+  },
+  "backup": {
+    "dialogTitle": "Резервная копия {{name}}",
+    "mode": "Режим",
+    "modeFull": "Полная (схема + данные)",
+    "modeSchemaOnly": "Только схема",
+    "modeDataOnly": "Только данные",
+    "format": "Формат",
+    "password": "Пароль",
+    "passwordPlaceholder": "Требуется утилитой дампа",
+    "tablesOptional": "Таблицы (опционально)",
+    "tablesPlaceholder": "Через запятую; пусто = все",
+    "outputPath": "Файл вывода",
+    "outputPathPlaceholder": "Выберите место",
+    "browse": "Обзор…",
+    "start": "Начать резервное копирование",
+    "running": "Выполняется…",
+    "starting": "Запуск…",
+    "progress": "Прогресс",
+    "completed": "Резервное копирование успешно завершено.",
+    "exitedWithCode": "Утилита завершилась с кодом {{code}}.",
+    "cancel": "Отмена",
+    "cancelling": "Отмена…",
+    "outputDir": "Каталог вывода",
+    "duckdbHint": "DuckDB EXPORT DATABASE записывает каталог с schema.sql и по одному файлу на таблицу."
+  },
+  "contracts": {
+    "title": "Контракты данных",
+    "description": "Декларативные проверки качества данных",
+    "openPanel": "Контракты данных…",
+    "newContract": "Новый контракт",
+    "edit": "Изменить",
+    "delete": "Удалить",
+    "run": {
+      "dialogTitle": "Запуск контракта: {{name}}",
+      "connectionMissing": "Подключитесь к цели контракта перед запуском.",
+      "starting": "Запуск…",
+      "ruleProgress": "Правило {{index}} из {{total}}",
+      "completedSummary": "Готово: {{pass}} успешно, {{fail}} ошибок, {{error}} сбоев, {{skipped}} пропущено",
+      "runFailed": "Сбой выполнения",
+      "results": "Результаты"
+    },
+    "running": "Выполняется…",
+    "rerun": "Запустить снова",
+    "save": "Сохранить",
+    "cancel": "Отмена",
+    "close": "Закрыть",
+    "discard": "Отклонить",
+    "unsavedChanges": "Несохранённые изменения",
+    "empty": {
+      "title": "Контрактов пока нет",
+      "description": "Создайте YAML-контракт, чтобы проверять качество данных в этом рабочем пространстве.",
+      "createFirst": "Создать первый контракт"
+    },
+    "list": {
+      "name": "Имя",
+      "rulesCount_one": "{{count}} правило",
+      "rulesCount_few": "{{count}} правила",
+      "rulesCount_many": "{{count}} правил",
+      "rulesCount_other": "{{count}} правил",
+      "lastRun": "Последний запуск",
+      "neverRun": "Не запускался",
+      "status": "Статус"
+    },
+    "editor": {
+      "title": "Редактор контракта",
+      "namePlaceholder": "имя (совпадает с именем файла)",
+      "yamlSource": "YAML-источник",
+      "validating": "Проверка…",
+      "valid": "Корректный",
+      "invalid": "Некорректный",
+      "save": "Сохранить контракт",
+      "saved": "Контракт сохранён",
+      "saveFailed": "Не удалось сохранить контракт",
+      "template": "Вставить шаблон",
+      "nameMismatch": "Имя в файле должно совпадать с именем файла"
+    },
+    "results": {
+      "rule": "Правило",
+      "type": "Тип",
+      "status": "Статус",
+      "violations": "Нарушения",
+      "metric": "Метрика",
+      "duration": "Длительность",
+      "samples": "Примеры",
+      "showSamples": "Показать примеры нарушений",
+      "hideSamples": "Скрыть примеры нарушений",
+      "noSamples": "Примеры недоступны"
+    },
+    "status": {
+      "pass": "Пройдено",
+      "fail": "Провалено",
+      "skipped": "Пропущено",
+      "error": "Ошибка"
+    },
+    "health": {
+      "healthy": "Здоров",
+      "warning": "Предупреждения",
+      "failing": "Сбой",
+      "unknown": "Ещё не запускался"
+    },
+    "ruleType": {
+      "not_null_pct": "Не null %",
+      "not_empty": "Не пустое",
+      "regex_match": "Соответствие regex",
+      "length_range": "Диапазон длины",
+      "numeric_range": "Числовой диапазон",
+      "date_range": "Диапазон дат",
+      "allowed_values": "Допустимые значения",
+      "unique": "Уникальность",
+      "distinct_count": "Число уникальных",
+      "foreign_key_integrity": "Целостность внешнего ключа",
+      "row_count": "Количество строк",
+      "custom_sql": "Пользовательский SQL"
+    },
+    "history": {
+      "title": "История запусков",
+      "empty": "Запусков пока нет",
+      "viewDetails": "Подробности"
+    },
+    "errors": {
+      "loadFailed": "Не удалось загрузить контракты",
+      "deleteFailed": "Не удалось удалить контракт",
+      "runFailed": "Не удалось запустить контракт"
+    },
+    "confirm": {
+      "deleteTitle": "Удалить контракт «{{name}}»?",
+      "deleteBody": "Файл контракта и его история будут удалены без возможности восстановления."
+    }
+  },
+  "instantApi": {
+    "title": "Instant Data API",
+    "description": "Опубликуйте сохранённые запросы как локальные REST-эндпоинты в режиме только-чтения.",
+    "close": "Закрыть",
+    "newEndpoint": "Новый эндпоинт",
+    "endpointsLabel": "эндпоинт(ов)",
+    "confirmDelete": "Удалить эндпоинт «{{name}}»?",
+    "regenerate": "Сбросить токен",
+    "regenerateConfirm": "Сгенерировать новый токен для «{{name}}»? Прежний перестанет работать немедленно.",
+    "regenerateFailed": "Не удалось пересоздать токен",
+    "status": {
+      "running": "Сервер запущен",
+      "stopped": "Сервер остановлен",
+      "start": "Запустить",
+      "stop": "Остановить"
+    },
+    "empty": {
+      "title": "Эндпоинтов пока нет",
+      "description": "Создайте первый эндпоинт, чтобы опубликовать сохранённый запрос как REST URL.",
+      "createFirst": "Создать эндпоинт"
+    },
+    "errors": {
+      "statusFailed": "Не удалось получить статус Instant API",
+      "startFailed": "Не удалось запустить сервер Instant API",
+      "stopFailed": "Не удалось остановить сервер Instant API",
+      "deleteFailed": "Не удалось удалить эндпоинт"
+    },
+    "list": {
+      "name": "Имя",
+      "shape": "Форма",
+      "url": "URL",
+      "serverStopped": "Запустите сервер перед открытием этого URL.",
+      "paramsCount_one": "{{count}} параметр",
+      "paramsCount_other": "{{count}} параметров",
+      "pageSize_one": "{{count}} строка/страница",
+      "pageSize_other": "{{count}} строк/страница"
+    },
+    "endpoint": {
+      "newTitle": "Новый эндпоинт",
+      "newDescription": "Выберите соединение и напишите параметризованный запрос только для чтения.",
+      "nameLabel": "Имя",
+      "nameHint": "Буквы, цифры, дефис, подчёркивание — используется в URL.",
+      "connectionLabel": "Соединение",
+      "selectConnection": "Выберите соединение…",
+      "queryLabel": "Запрос",
+      "queryHint": "Используйте плейсхолдеры {{tag}} для объявленных параметров.",
+      "shapeLabel": "Форма ответа",
+      "shape": {
+        "rows": "Список строк",
+        "object": "Один объект"
+      },
+      "pageSizeLabel": "Размер страницы",
+      "paramsLabel": "Параметры",
+      "addParam": "Добавить",
+      "noParams": "Параметры не объявлены.",
+      "paramName": "имя",
+      "paramDefault": "по умолч.",
+      "cancel": "Отмена",
+      "create": "Создать эндпоинт",
+      "creating": "Создание…",
+      "createFailed": "Не удалось создать эндпоинт",
+      "invalidName": "Недопустимое имя — буквы, цифры, дефис, подчёркивание (1–64).",
+      "missingConnection": "Выберите соединение.",
+      "missingQuery": "Запрос пуст.",
+      "invalidPageSize": "Размер страницы должен быть от 1 до 10000.",
+      "invalidParamName": "Недопустимое имя параметра: {{name}}",
+      "paramNotInQuery": "Параметр {{name}} не используется в запросе.",
+      "loadConnectionsFailed": "Не удалось загрузить соединения"
+    },
+    "token": {
+      "title": "Токен эндпоинта (показан один раз)",
+      "description": "Скопируйте токен сейчас — позже его получить невозможно. Используйте его в заголовке Authorization.",
+      "tokenLabel": "Bearer-токен",
+      "curlLabel": "Пример",
+      "warning": "Этот токен даёт доступ на чтение к этому эндпоинту. Храните его как пароль.",
+      "copyFailed": "Не удалось скопировать",
+      "done": "Сохранил"
+    },
+    "openapi": {
+      "open": "Просмотр OpenAPI",
+      "title": "Спецификация OpenAPI 3.1",
+      "description": "Сгенерирована автоматически из зарегистрированных эндпоинтов. Импортируется в Swagger UI или Postman.",
+      "copy": "Копировать JSON",
+      "copied": "Скопировано",
+      "download": "Скачать",
+      "loadFailed": "Не удалось загрузить документ OpenAPI",
+      "close": "Закрыть"
+    },
+    "tls": {
+      "useHttps": "Использовать HTTPS",
+      "badge": "HTTPS",
+      "selfSigned": "Самоподписанный сертификат генерируется при запуске. Браузеры потребуют ручного подтверждения при первом посещении."
+    }
+  },
+  "restore": {
+    "dialogTitle": "Восстановление в {{name}}",
+    "destructiveWarning": "Эта операция перезапишет или изменит данные в «{{name}}». Убедитесь, что у вас есть актуальная резервная копия, прежде чем продолжить.",
+    "inputPath": "Файл резервной копии",
+    "inputPathPlaceholder": "Выберите файл резервной копии для восстановления",
+    "confirmLabel": "Введите «{{name}}» для подтверждения",
+    "start": "Начать восстановление",
+    "completed": "Восстановление успешно завершено.",
+    "duckdbHint": "Выберите каталог, ранее созданный с помощью EXPORT DATABASE."
   }
 }

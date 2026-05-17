@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
-//! SQL Generator
-//!
-//! Generates driver-specific SQL statements for INSERT, UPDATE, and DELETE operations.
-//! Used by the sandbox feature to create migration scripts.
+//! Driver-specific INSERT / UPDATE / DELETE generation for sandbox
+//! migration scripts.
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -58,7 +56,7 @@ impl SqlDialect {
         }
     }
 
-    /// Quote an identifier according to the dialect
+    /// Quote an identifier per the dialect's escaping rules.
     pub fn quote_ident(&self, name: &str) -> String {
         match self {
             SqlDialect::Postgres | SqlDialect::Sqlite => {
@@ -73,7 +71,7 @@ impl SqlDialect {
         }
     }
 
-    /// Format a qualified table name (schema.table or database.table)
+    /// Format a fully-qualified table name (schema.table or database.table).
     pub fn qualified_table(&self, namespace: &Namespace, table_name: &str) -> String {
         match self {
             SqlDialect::Postgres => {
@@ -103,7 +101,7 @@ impl SqlDialect {
         }
     }
 
-    /// Format a value as a SQL literal
+    /// Format a value as a SQL literal.
     pub fn format_value(&self, value: &Value) -> String {
         match value {
             Value::Null => "NULL".to_string(),
@@ -137,13 +135,13 @@ impl SqlDialect {
             Value::Array(arr) => {
                 match self {
                     SqlDialect::Postgres => {
-                        // PostgreSQL array literal
                         let elements: Vec<String> =
                             arr.iter().map(|v| self.format_value(v)).collect();
                         format!("ARRAY[{}]", elements.join(", "))
                     }
+                    // MySQL/SQLite/SQL Server have no portable array literal —
+                    // serialize as JSON text.
                     SqlDialect::MySql | SqlDialect::Sqlite | SqlDialect::SqlServer => {
-                        // Store as JSON for MySQL/SQLite/SQL Server
                         let json = serde_json::to_string(arr).unwrap_or_else(|_| "[]".to_string());
                         self.escape_string(&json)
                     }
@@ -152,7 +150,7 @@ impl SqlDialect {
         }
     }
 
-    /// Escape a string for SQL
+    /// Escape a string literal for SQL.
     fn escape_string(&self, s: &str) -> String {
         match self {
             SqlDialect::Postgres => {
@@ -199,13 +197,13 @@ impl SqlDialect {
                 format!("'{}'", s.replace('\'', "''"))
             }
             SqlDialect::SqlServer => {
-                // N prefix for Unicode strings, escape single quotes
+                // N-prefix marks the literal as nvarchar (Unicode-safe).
                 format!("N'{}'", s.replace('\'', "''"))
             }
         }
     }
 
-    /// Format bytes as a SQL literal
+    /// Format a byte string as a SQL literal.
     fn format_bytes(&self, bytes: &[u8]) -> String {
         let hex_string: String = bytes.iter().map(|b| format!("{:02x}", b)).collect();
         match self {
@@ -224,13 +222,12 @@ impl SqlDialect {
         }
     }
 
-    /// Get the statement terminator
     pub fn terminator(&self) -> &'static str {
         ";"
     }
 }
 
-/// Generate an INSERT statement
+/// Generate an INSERT statement.
 pub fn generate_insert(
     dialect: SqlDialect,
     namespace: &Namespace,
@@ -260,7 +257,7 @@ pub fn generate_insert(
     )
 }
 
-/// Generate an UPDATE statement
+/// Generate an UPDATE statement.
 pub fn generate_update(
     dialect: SqlDialect,
     namespace: &Namespace,
@@ -274,7 +271,6 @@ pub fn generate_update(
 
     let table = dialect.qualified_table(namespace, table_name);
 
-    // SET clause
     let set_parts: Vec<String> = data
         .iter()
         .map(|(col, val)| {
@@ -286,7 +282,6 @@ pub fn generate_update(
         })
         .collect();
 
-    // WHERE clause
     let where_parts: Vec<String> = primary_key
         .columns
         .iter()
@@ -307,7 +302,7 @@ pub fn generate_update(
     ))
 }
 
-/// Generate a DELETE statement
+/// Generate a DELETE statement.
 pub fn generate_delete(
     dialect: SqlDialect,
     namespace: &Namespace,
@@ -320,7 +315,6 @@ pub fn generate_delete(
 
     let table = dialect.qualified_table(namespace, table_name);
 
-    // WHERE clause
     let where_parts: Vec<String> = primary_key
         .columns
         .iter()
@@ -340,7 +334,7 @@ pub fn generate_delete(
     ))
 }
 
-/// Generate a MongoDB operation string (for display purposes)
+/// Render a MongoDB shell-style operation string (for display only).
 pub fn generate_mongo_operation(change: &SandboxChangeDto) -> String {
     let collection = &change.table_name;
     let db = &change.namespace.database;
@@ -392,12 +386,11 @@ pub fn generate_mongo_operation(change: &SandboxChangeDto) -> String {
     }
 }
 
-/// Generate a complete migration script from a list of changes
+/// Generate a complete migration script from a list of changes.
 pub fn generate_migration_script(driver_id: &str, changes: &[SandboxChangeDto]) -> MigrationScript {
     let mut statements: Vec<String> = Vec::new();
     let mut warnings: Vec<String> = Vec::new();
 
-    // Check if it's MongoDB
     if driver_id.to_lowercase() == "mongodb" {
         for change in changes {
             statements.push(generate_mongo_operation(change));
@@ -410,7 +403,6 @@ pub fn generate_migration_script(driver_id: &str, changes: &[SandboxChangeDto]) 
         };
     }
 
-    // SQL dialects
     let dialect = match SqlDialect::from_driver_id(driver_id) {
         Some(d) => d,
         None => {
@@ -470,7 +462,6 @@ pub fn generate_migration_script(driver_id: &str, changes: &[SandboxChangeDto]) 
         }
     }
 
-    // Add transaction wrapper comment
     let header = match dialect {
         SqlDialect::Postgres => {
             "-- PostgreSQL Migration Script\n-- Generated by QoreDB Sandbox\n\n"

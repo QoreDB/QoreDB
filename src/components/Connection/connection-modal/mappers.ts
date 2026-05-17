@@ -22,6 +22,10 @@ export function buildConnectionConfig(formData: ConnectionFormData): ConnectionC
     ssl: formData.ssl,
     ssl_mode: formData.sslMode || undefined,
     mssql_auth: formData.driver === Driver.SqlServer ? formData.mssqlAuthMode : undefined,
+    clickhouse_cluster:
+      formData.driver === Driver.Clickhouse && formData.clickhouseCluster.trim().length > 0
+        ? formData.clickhouseCluster.trim()
+        : undefined,
     pool_max_connections: formData.poolMaxConnections,
     pool_min_connections: formData.poolMinConnections,
     pool_acquire_timeout_secs: formData.poolAcquireTimeoutSecs,
@@ -76,6 +80,10 @@ export function buildSavedConnection(
     ssl: formData.ssl,
     ssl_mode: formData.sslMode || undefined,
     mssql_auth: formData.driver === Driver.SqlServer ? formData.mssqlAuthMode : undefined,
+    clickhouse_cluster:
+      formData.driver === Driver.Clickhouse && formData.clickhouseCluster.trim().length > 0
+        ? formData.clickhouseCluster.trim()
+        : undefined,
     pool_max_connections: formData.poolMaxConnections,
     pool_min_connections: formData.poolMinConnections,
     pool_acquire_timeout_secs: formData.poolAcquireTimeoutSecs,

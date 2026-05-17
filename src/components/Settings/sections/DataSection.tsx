@@ -21,6 +21,7 @@ import { ConfigBackupCard } from '../ConfigBackupCard';
 import { ProjectTransferCard } from '../ProjectTransferCard';
 import { SettingsCard } from '../SettingsCard';
 import { ShareProviderCard } from '../ShareProviderCard';
+import { BackupToolsCard } from './BackupToolsCard';
 
 interface DataSectionProps {
   policy: SafetyPolicy | null;
@@ -137,6 +138,8 @@ export function DataSection({ policy, onApplyPolicy, searchQuery }: DataSectionP
       />
 
       <ShareProviderCard searchQuery={searchQuery} />
+
+      <BackupToolsCard searchQuery={searchQuery} />
 
       <ProjectTransferCard projectId={projectId} />
 

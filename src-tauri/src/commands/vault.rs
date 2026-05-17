@@ -8,9 +8,9 @@ use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager, State};
 
 use crate::commands::workspace::SharedWorkspaceManager;
+use crate::engine::types::MssqlAuthMode;
 use crate::observability::Sensitive;
 use crate::vault::backend::KeyringProvider;
-use crate::engine::types::MssqlAuthMode;
 use crate::vault::credentials::{
     Environment, ProxyInfo, SavedConnection, SshTunnelInfo, StoredCredentials,
 };
@@ -82,6 +82,8 @@ pub struct SaveConnectionInput {
     pub proxy: Option<ProxyInput>,
     #[serde(default)]
     pub mssql_auth: Option<MssqlAuthMode>,
+    #[serde(default)]
+    pub clickhouse_cluster: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -159,7 +161,7 @@ pub async fn unlock_vault(
 ) -> Result<VaultResponse, String> {
     let mut state = state.lock().await;
 
-    match state.vault_lock.unlock(&password) {
+    match state.vault_lock.unlock(&password).await {
         Ok(true) => Ok(VaultResponse {
             success: true,
             error: None,
@@ -245,6 +247,7 @@ pub async fn save_connection(
         ssh_tunnel,
         proxy,
         mssql_auth: input.mssql_auth,
+        clickhouse_cluster: input.clickhouse_cluster,
         project_id: input.project_id,
     };
 
@@ -264,11 +267,13 @@ pub async fn save_connection(
             .and_then(|p| p.password.clone().map(Sensitive::new)),
     };
 
-    // Route to workspace connection store if a file-based workspace is active
     let result = if let Some(ws_store) = get_workspace_store(&ws_manager).await {
         ws_store.save_connection(&connection, &credentials)
     } else {
-        let storage_dir = app.path().app_config_dir().map_err(|e: tauri::Error| e.to_string())?;
+        let storage_dir = app
+            .path()
+            .app_config_dir()
+            .map_err(|e: tauri::Error| e.to_string())?;
         let storage = VaultStorage::new(
             &input_project_id,
             storage_dir,
@@ -304,7 +309,6 @@ pub async fn list_saved_connections(
     }
     drop(state);
 
-    // Route to workspace connection store if a file-based workspace is active
     if let Some(ws_store) = get_workspace_store(&ws_manager).await {
         return ws_store.list_connections().map_err(|e| e.to_string());
     }
@@ -337,7 +341,10 @@ pub async fn delete_saved_connection(
     let result = if let Some(ws_store) = get_workspace_store(&ws_manager).await {
         ws_store.delete_connection(&connection_id)
     } else {
-        let storage_dir = app.path().app_config_dir().map_err(|e: tauri::Error| e.to_string())?;
+        let storage_dir = app
+            .path()
+            .app_config_dir()
+            .map_err(|e: tauri::Error| e.to_string())?;
         let storage = VaultStorage::new(&project_id, storage_dir, Box::new(KeyringProvider::new()));
         storage.delete_connection(&connection_id)
     };
@@ -377,7 +384,10 @@ pub async fn duplicate_saved_connection(
     let result = if let Some(ws_store) = get_workspace_store(&ws_manager).await {
         ws_store.duplicate_connection(&connection_id)
     } else {
-        let storage_dir = app.path().app_config_dir().map_err(|e: tauri::Error| e.to_string())?;
+        let storage_dir = app
+            .path()
+            .app_config_dir()
+            .map_err(|e: tauri::Error| e.to_string())?;
         let storage = VaultStorage::new(&project_id, storage_dir, Box::new(KeyringProvider::new()));
         storage.duplicate_connection(&connection_id)
     };
@@ -422,12 +432,32 @@ pub async fn get_connection_credentials(
             error: Some("Vault is locked".to_string()),
         });
     }
+    // Sensitive read: require the user to have unlocked the vault recently
+    // (cf. audit B6-H3). Without this, a vault unlocked at app start stays
+    // open for the entire session and any IPC caller can read passwords.
+    if !app_state.vault_lock.is_fresh_authentication() {
+        return Ok(CredentialsResponse {
+            success: false,
+            password: None,
+            error: Some(
+                "Vault session expired — re-unlock the vault to access credentials"
+                    .to_string(),
+            ),
+        });
+    }
+    tracing::info!(
+        connection_id = %connection_id,
+        "vault credential read"
+    );
     drop(app_state);
 
     let result = if let Some(ws_store) = get_workspace_store(&ws_manager).await {
         ws_store.get_credentials(&connection_id)
     } else {
-        let storage_dir = app.path().app_config_dir().map_err(|e: tauri::Error| e.to_string())?;
+        let storage_dir = app
+            .path()
+            .app_config_dir()
+            .map_err(|e: tauri::Error| e.to_string())?;
         let storage = VaultStorage::new(&project_id, storage_dir, Box::new(KeyringProvider::new()));
         storage.get_credentials(&connection_id)
     };

@@ -94,6 +94,37 @@ const DUCKDB_TYPES: ColumnType[] = [
   { name: 'JSON', category: 'json' },
 ];
 
+const CLICKHOUSE_TYPES: ColumnType[] = [
+  { name: 'Int8', category: 'integer' },
+  { name: 'Int16', category: 'integer' },
+  { name: 'Int32', category: 'integer' },
+  { name: 'Int64', category: 'integer' },
+  { name: 'Int128', category: 'integer' },
+  { name: 'UInt8', category: 'integer' },
+  { name: 'UInt16', category: 'integer' },
+  { name: 'UInt32', category: 'integer' },
+  { name: 'UInt64', category: 'integer' },
+  { name: 'Float32', category: 'float' },
+  { name: 'Float64', category: 'float' },
+  { name: 'Decimal', category: 'float', hasPrecision: true },
+  { name: 'String', category: 'text' },
+  { name: 'FixedString', category: 'string', hasLength: true },
+  { name: 'Date', category: 'date' },
+  { name: 'Date32', category: 'date' },
+  { name: 'DateTime', category: 'date' },
+  { name: 'DateTime64', category: 'date', hasPrecision: true },
+  { name: 'Bool', category: 'boolean' },
+  { name: 'UUID', category: 'other' },
+  { name: 'Enum8', category: 'other' },
+  { name: 'Enum16', category: 'other' },
+  { name: 'JSON', category: 'json' },
+  { name: 'Array', category: 'other' },
+  { name: 'Tuple', category: 'other' },
+  { name: 'Map', category: 'other' },
+  { name: 'IPv4', category: 'other' },
+  { name: 'IPv6', category: 'other' },
+];
+
 const SQLSERVER_TYPES: ColumnType[] = [
   { name: 'TINYINT', category: 'integer' },
   { name: 'SMALLINT', category: 'integer' },
@@ -138,6 +169,7 @@ export const COLUMN_TYPES: Record<Driver, ColumnType[]> = {
   [Driver.Supabase]: POSTGRES_TYPES,
   [Driver.Neon]: POSTGRES_TYPES,
   [Driver.Timescaledb]: POSTGRES_TYPES,
+  [Driver.Clickhouse]: CLICKHOUSE_TYPES,
 };
 
 export function getColumnTypes(driver: Driver): ColumnType[] {

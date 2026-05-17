@@ -144,7 +144,6 @@ var DATA=[
 
     async fn finish(&mut self) -> Result<(), String> {
         if !self.header_written {
-            // No data at all — write a minimal empty page
             self.write_bytes(b"<!DOCTYPE html><html><body><p>No data.</p></body></html>")
                 .await?;
             return self.flush().await;

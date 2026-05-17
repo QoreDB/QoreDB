@@ -240,8 +240,7 @@ impl SelectQuery {
         name: impl Into<Cow<'static, str>>,
         order: Order,
     ) -> Self {
-        self.order_by
-            .push(OrderItem::qualified(table, name, order));
+        self.order_by.push(OrderItem::qualified(table, name, order));
         self
     }
 

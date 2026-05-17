@@ -38,19 +38,34 @@ pub struct FailedChange {
 // Always compiled. Core mode enforces a 5-change batch limit (covers
 // Bulk Edit and other batched mutation flows). The Sandbox UI itself is
 // still Pro-gated, so Core users only reach this limit through Bulk Edit.
+//
+// The check is **runtime**, not `#[cfg(feature = "pro")]`: a Pro build whose
+// licence has expired or downgraded to Core must still enforce the cap, so
+// we ask the in-memory `LicenseManager` rather than the compile-time feature
+// flag (cf. audit B6-C5).
 
-#[cfg(not(feature = "pro"))]
 const CORE_SANDBOX_LIMIT: usize = 5;
+
+/// True iff the in-memory licence currently grants Pro-tier features. Pulled
+/// out as a helper because every entry point in this module needs the same
+/// check before applying the Core batch cap.
+async fn license_allows_unlimited_sandbox(state: &State<'_, crate::SharedState>) -> bool {
+    let tier = {
+        let guard = state.lock().await;
+        guard.license_manager.effective_status().tier
+    };
+    tier.includes(crate::license::status::LicenseTier::Pro)
+}
 
 mod sandbox_impl {
     use super::*;
     use crate::engine::sql_generator::{generate_migration_script, SandboxChangeType};
     use crate::engine::types::{RowData, SessionId};
+    use crate::time_travel::capture::{build_changelog_entry, value_to_json_pub};
+    use crate::time_travel::ChangeOperation;
     use std::sync::Arc;
     use tracing::instrument;
     use uuid::Uuid;
-    use crate::time_travel::capture::{build_changelog_entry, value_to_json_pub};
-    use crate::time_travel::ChangeOperation;
 
     fn parse_session_id(id: &str) -> Result<SessionId, String> {
         let uuid = Uuid::parse_str(id).map_err(|e| format!("Invalid session ID: {}", e))?;
@@ -64,8 +79,9 @@ mod sandbox_impl {
         session_id: String,
         changes: Vec<SandboxChangeDto>,
     ) -> Result<MigrationScriptResponse, String> {
-        #[cfg(not(feature = "pro"))]
-        if changes.len() > CORE_SANDBOX_LIMIT {
+        if changes.len() > CORE_SANDBOX_LIMIT
+            && !super::license_allows_unlimited_sandbox(&state).await
+        {
             return Ok(MigrationScriptResponse {
                 success: false,
                 script: None,
@@ -107,8 +123,9 @@ mod sandbox_impl {
         changes: Vec<SandboxChangeDto>,
         use_transaction: bool,
     ) -> Result<ApplySandboxResponse, String> {
-        #[cfg(not(feature = "pro"))]
-        if changes.len() > CORE_SANDBOX_LIMIT {
+        if changes.len() > CORE_SANDBOX_LIMIT
+            && !super::license_allows_unlimited_sandbox(&state).await
+        {
             return Ok(ApplySandboxResponse {
                 success: false,
                 applied_count: 0,
@@ -180,7 +197,6 @@ mod sandbox_impl {
                 Ok(_) => {
                     applied_count += 1;
 
-                    // Time-Travel: record changelog entry for each applied change
                     if changelog_store.should_capture(&change.table_name, &environment) {
                         let operation = match change.change_type {
                             SandboxChangeType::Insert => ChangeOperation::Insert,
@@ -188,19 +204,18 @@ mod sandbox_impl {
                             SandboxChangeType::Delete => ChangeOperation::Delete,
                         };
                         let pk_data = change.primary_key.clone().unwrap_or_else(|| RowData {
-                            columns: change
-                                .new_values
-                                .clone()
-                                .unwrap_or_default(),
+                            columns: change.new_values.clone().unwrap_or_default(),
                         });
-                        let before = change
-                            .old_values
-                            .as_ref()
-                            .map(|v| v.iter().map(|(k, v)| (k.clone(), value_to_json_pub(v))).collect());
-                        let after = change
-                            .new_values
-                            .as_ref()
-                            .map(|v| v.iter().map(|(k, v)| (k.clone(), value_to_json_pub(v))).collect());
+                        let before = change.old_values.as_ref().map(|v| {
+                            v.iter()
+                                .map(|(k, v)| (k.clone(), value_to_json_pub(v)))
+                                .collect()
+                        });
+                        let after = change.new_values.as_ref().map(|v| {
+                            v.iter()
+                                .map(|(k, v)| (k.clone(), value_to_json_pub(v)))
+                                .collect()
+                        });
                         let entry = build_changelog_entry(
                             &session_id,
                             driver.driver_id(),

@@ -414,6 +414,7 @@ mod tests {
             pool_min_connections: None,
             proxy: None,
             mssql_auth: None,
+clickhouse_cluster: None,
         }
     }
 

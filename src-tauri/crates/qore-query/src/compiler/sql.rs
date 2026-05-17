@@ -261,10 +261,8 @@ impl Ctx {
         distinct: bool,
         depth: u32,
     ) -> QueryResult<()> {
-        // DISTINCT is only meaningful on COUNT/SUM/AVG for our targets.
-        // Most dialects accept it on MIN/MAX too (no-op) but reject it
-        // on some analytical functions we don't yet expose — so we
-        // allow it uniformly here.
+        // DISTINCT is allowed on every aggregate exposed today. MIN/MAX
+        // accept it as a no-op on every target dialect.
         out.push_str(func.sql_name());
         out.push('(');
         if distinct {
@@ -508,8 +506,8 @@ impl Ctx {
     fn write_order_item(&self, out: &mut String, o: &OrderItem) {
         match (o.nulls, self.ops.supports_nulls_ordering()) {
             (Some(nulls), false) => {
-                // Portable emulation: CASE WHEN col IS NULL THEN N ELSE M END
-                // used as a leading sort key.
+                // Portable emulation for dialects without native NULLS FIRST/LAST:
+                // `CASE WHEN col IS NULL THEN N ELSE M END` as the leading sort key.
                 let (null_key, nonnull_key) = match nulls {
                     Nulls::First => (0, 1),
                     Nulls::Last => (1, 0),

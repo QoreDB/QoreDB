@@ -2,6 +2,12 @@
 
 import { type ReactNode, useEffect, useEffectEvent } from 'react';
 import { KeyboardCheatsheet } from '@/components/KeyboardCheatsheet';
+import { useShortcutBindings } from '@/hooks/useKeyboardShortcuts';
+import {
+  chordMatches,
+  SHORTCUT_DEFINITIONS,
+  type ShortcutId,
+} from '@/lib/shortcuts';
 import {
   getModalState,
   setCheatsheetOpen,
@@ -28,6 +34,7 @@ export function ShortcutProvider({ children }: { children: ReactNode }) {
   const { activeTabId, activeTab, closeTab, openTab, queryDrafts } = useTabContext();
   const { sessionId } = useSessionContext();
   const cheatsheetOpen = useModalStore(s => s.cheatsheetOpen);
+  const bindings = useShortcutBindings();
 
   const handleKeyDown = useEffectEvent((e: KeyboardEvent) => {
     const modal = getModalState();
@@ -36,103 +43,77 @@ export function ShortcutProvider({ children }: { children: ReactNode }) {
       modal.fulltextSearchOpen ||
       modal.connectionModalOpen ||
       modal.libraryModalOpen ||
-      modal.logsOpen;
+      modal.logsOpen ||
+      modal.auditLogOpen;
 
-    // Block all shortcuts while a dialog overlay is open.
-    // Escape is handled by Radix Dialog itself (stopPropagation prevents it from reaching here).
-    if (isOverlayOpen) {
+    // Block window-level shortcuts while a dialog overlay is open.
+    // Escape is handled by Radix Dialog itself.
+    if (isOverlayOpen) return;
+
+    const inTextInput = isTextInputTarget(e.target);
+
+    // Find the first definition whose chord matches the event.
+    const triggered = SHORTCUT_DEFINITIONS.find(def =>
+      chordMatches(e, bindings[def.id]),
+    );
+    if (!triggered) return;
+
+    if (inTextInput && !triggered.worksInTextInput && triggered.id !== 'escape') {
       return;
     }
 
-    // Mod+K always opens search, even in text inputs
-    if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-      e.preventDefault();
-      setSearchOpen(true);
-      return;
-    }
-
-    // Mod+Shift+N: Convert query to notebook (works even in text inputs)
-    if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'n') {
-      e.preventDefault();
-      if (sessionId && activeTab?.type === 'query') {
-        const draft = queryDrafts[activeTab.id] ?? '';
-        const tab = createNotebookTab(undefined, undefined, draft);
-        tab.namespace = activeTab.namespace;
-        openTab(tab);
-      }
-      return;
-    }
-
-    // Skip other shortcuts when in text input
-    if (isTextInputTarget(e.target)) {
-      return;
-    }
-
-    // ?: Toggle keyboard cheatsheet
-    if (e.key === '?') {
-      e.preventDefault();
-      toggleCheatsheet();
-      return;
-    }
-
-    // Mod+N: New connection
-    if ((e.metaKey || e.ctrlKey) && e.key === 'n') {
-      e.preventDefault();
-      setConnectionModalOpen(true);
-      return;
-    }
-
-    // Mod+Shift+L: Open library
-    if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'l') {
-      e.preventDefault();
-      setLibraryModalOpen(true);
-      return;
-    }
-
-    // Mod+Shift+F: Open full-text search
-    if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'f') {
-      e.preventDefault();
-      if (sessionId) {
-        setFulltextSearchOpen(true);
-      }
-      return;
-    }
-
-    // Mod+,: Settings
-    if ((e.metaKey || e.ctrlKey) && e.key === ',') {
-      e.preventDefault();
-      setSettingsOpen(true);
-      return;
-    }
-
-    // Escape: Exit zen mode first, then close active tab or settings
-    if (e.key === 'Escape') {
-      if (modal.zenMode) {
-        setZenMode(false);
-        return;
-      }
-      if (activeTabId) closeTab(activeTabId);
-      else if (modal.settingsOpen) setSettingsOpen(false);
-      return;
-    }
-
-    // Mod+W: Close active tab
-    if ((e.metaKey || e.ctrlKey) && e.key === 'w') {
-      e.preventDefault();
-      if (activeTabId) {
-        closeTab(activeTabId);
-      }
-      return;
-    }
-
-    // Mod+T: New query tab
-    if ((e.metaKey || e.ctrlKey) && e.key === 't') {
-      e.preventDefault();
-      if (sessionId) {
-        openTab(createQueryTab(undefined, activeTab?.namespace));
-      }
-    }
+    e.preventDefault();
+    dispatch(triggered.id);
   });
+
+  function dispatch(id: ShortcutId) {
+    const modal = getModalState();
+    switch (id) {
+      case 'search':
+        setSearchOpen(true);
+        break;
+      case 'settings':
+        setSettingsOpen(true);
+        break;
+      case 'cheatsheet':
+        toggleCheatsheet();
+        break;
+      case 'escape':
+        if (modal.zenMode) {
+          setZenMode(false);
+        } else if (activeTabId) {
+          closeTab(activeTabId);
+        } else if (modal.settingsOpen) {
+          setSettingsOpen(false);
+        }
+        break;
+      case 'newQuery':
+        if (sessionId) {
+          openTab(createQueryTab(undefined, activeTab?.namespace));
+        }
+        break;
+      case 'closeTab':
+        if (activeTabId) closeTab(activeTabId);
+        break;
+      case 'newConnection':
+        setConnectionModalOpen(true);
+        break;
+      case 'convertToNotebook':
+        if (sessionId && activeTab?.type === 'query') {
+          const draft = queryDrafts[activeTab.id] ?? '';
+          const tab = createNotebookTab(undefined, undefined, draft);
+          tab.namespace = activeTab.namespace;
+          openTab(tab);
+        }
+        break;
+      case 'openLibrary':
+        setLibraryModalOpen(true);
+        break;
+      case 'fulltextSearch':
+        if (sessionId) setFulltextSearchOpen(true);
+        break;
+    }
+  }
 
   useEffect(() => {
     function onWindowKeyDown(e: KeyboardEvent) {

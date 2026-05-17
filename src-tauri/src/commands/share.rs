@@ -123,6 +123,12 @@ pub async fn share_snapshot(
     snapshot_store: State<'_, SharedSnapshotStore>,
     request: ShareSnapshotRequest,
 ) -> Result<ShareUploadResponse, String> {
+    // Fail fast on malformed IDs so we don't leak storage internals via the
+    // upload pipeline. The store re-validates via canonicalization (cf.
+    // B6-H8) — single-user desktop, so ownership is implicit.
+    uuid::Uuid::parse_str(&request.snapshot_id)
+        .map_err(|_| "Invalid snapshot ID".to_string())?;
+
     let share_manager = {
         let state = state.lock().await;
         Arc::clone(&state.share_manager)
@@ -134,11 +140,14 @@ pub async fn share_snapshot(
         .clone()
         .unwrap_or_else(|| snapshot.meta.name.clone());
     let extension = extension_for_format(&request.format);
-    let (output_path, prepared_file_name) = share_manager.create_temp_file_path(&file_name, extension)?;
+    let (output_path, prepared_file_name) =
+        share_manager.create_temp_file_path(&file_name, extension)?;
 
     let resolved_table_name = request.table_name.clone().or_else(|| {
-        if matches!(request.format, crate::export::types::ExportFormat::SqlInsert)
-            && snapshot.meta.source_type == "table"
+        if matches!(
+            request.format,
+            crate::export::types::ExportFormat::SqlInsert
+        ) && snapshot.meta.source_type == "table"
         {
             Some(snapshot.meta.source.clone())
         } else {

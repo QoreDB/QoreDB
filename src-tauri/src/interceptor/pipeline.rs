@@ -131,7 +131,6 @@ impl InterceptorPipeline {
 
     /// Pre-execution check: validates query against safety rules
     pub fn pre_execute(&self, context: &QueryContext) -> SafetyCheckResult {
-        // Check safety rules
         self.safety.check(context)
     }
 
@@ -148,12 +147,11 @@ impl InterceptorPipeline {
         sql_analysis: Option<&SqlSafetyAnalysis>,
         is_mongo_mutation: bool,
     ) -> QueryContext {
-        // Determine operation type from analysis
         let (operation_type, is_mutation, is_dangerous) = if let Some(analysis) = sql_analysis {
             let op = self.classify_sql_operation(query);
             (op, analysis.is_mutation, analysis.is_dangerous)
         } else {
-            // MongoDB or unknown
+            // MongoDB or unknown driver: SQL analysis is unavailable.
             let op = self.classify_operation(query, driver_id);
             (op, is_mongo_mutation, false)
         };
@@ -196,7 +194,6 @@ impl InterceptorPipeline {
     /// Classify operation for non-SQL (MongoDB) queries
     fn classify_operation(&self, query: &str, driver_id: &str) -> QueryOperationType {
         if driver_id.eq_ignore_ascii_case("mongodb") {
-            // MongoDB command detection
             let query_lower = query.to_lowercase();
             if query_lower.contains("find") || query_lower.contains("aggregate") {
                 QueryOperationType::Select
@@ -228,7 +225,6 @@ impl InterceptorPipeline {
         blocked: bool,
         safety_rule: Option<&str>,
     ) {
-        // Record profiling metrics
         self.profiling.record(
             result.execution_time_ms,
             result.success,
@@ -241,7 +237,6 @@ impl InterceptorPipeline {
             &context.driver_id,
         );
 
-        // Record audit log entry
         let mut entry = AuditLogEntry::new(
             context.session_id.clone(),
             context.query.clone(),
@@ -263,6 +258,7 @@ impl InterceptorPipeline {
     // ==================== Audit API ====================
 
     /// Get audit log entries
+    #[allow(clippy::too_many_arguments)]
     pub fn get_audit_entries(
         &self,
         limit: usize,
@@ -271,8 +267,10 @@ impl InterceptorPipeline {
         operation: Option<QueryOperationType>,
         success: Option<bool>,
         search: Option<&str>,
+        fingerprint: Option<&str>,
+        blocked: Option<bool>,
     ) -> Vec<AuditLogEntry> {
-        self.audit.get_entries(
+        self.audit.get_entries_filtered(
             limit,
             offset,
             environment,
@@ -281,6 +279,8 @@ impl InterceptorPipeline {
             search,
             None,
             None,
+            fingerprint,
+            blocked,
         )
     }
 
@@ -294,9 +294,22 @@ impl InterceptorPipeline {
         self.audit.clear();
     }
 
-    /// Export audit log
+    /// Export audit log (legacy in-memory pretty JSON).
     pub fn export_audit(&self) -> String {
         self.audit.export()
+    }
+
+    /// Export audit log in the requested format. When `from_disk` is `true`,
+    /// the full retained history is loaded from the rotated JSONL file rather
+    /// than the in-memory cache.
+    pub fn export_audit_format(
+        &self,
+        format: super::AuditExportFormat,
+        from_disk: bool,
+    ) -> Result<String, String> {
+        self.audit
+            .export_format(format, from_disk)
+            .map_err(|e| format!("Failed to read audit log: {}", e))
     }
 
     // ==================== Profiling API ====================
@@ -337,7 +350,6 @@ impl InterceptorPipeline {
     pub fn add_safety_rule(&self, rule: SafetyRule) -> Result<(), String> {
         self.safety.add_rule(rule.clone())?;
 
-        // Update config and save
         let mut config = self.config.write();
         config.safety_rules.push(rule);
         drop(config);
@@ -349,7 +361,6 @@ impl InterceptorPipeline {
     pub fn update_safety_rule(&self, rule: SafetyRule) -> Result<(), String> {
         self.safety.update_rule(rule.clone())?;
 
-        // Update config and save
         let mut config = self.config.write();
         if rule.builtin {
             upsert_builtin_override(&mut config.builtin_rule_overrides, &rule.id, rule.enabled);
@@ -365,7 +376,6 @@ impl InterceptorPipeline {
     pub fn remove_safety_rule(&self, rule_id: &str) -> Result<(), String> {
         self.safety.remove_rule(rule_id)?;
 
-        // Update config and save
         let mut config = self.config.write();
         config.safety_rules.retain(|r| r.id != rule_id);
         drop(config);

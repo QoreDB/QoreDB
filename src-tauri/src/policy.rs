@@ -34,32 +34,17 @@ fn env_bool_opt(key: &str) -> Option<bool> {
 }
 
 fn env_u64_opt(key: &str) -> Option<u64> {
-    std::env::var(key)
-        .ok()
-        .and_then(|v| v.trim().parse().ok())
+    std::env::var(key).ok().and_then(|v| v.trim().parse().ok())
 }
 
 fn env_u32_opt(key: &str) -> Option<u32> {
-    std::env::var(key)
-        .ok()
-        .and_then(|v| v.trim().parse().ok())
+    std::env::var(key).ok().and_then(|v| v.trim().parse().ok())
 }
 
 fn config_path() -> PathBuf {
-    if cfg!(windows) {
-        let appdata = std::env::var_os("APPDATA")
-            .unwrap_or_else(|| std::env::var_os("USERPROFILE").unwrap_or_default());
-        let mut path = PathBuf::from(appdata);
-        path.push("QoreDB");
-        path.push("config.json");
-        path
-    } else {
-        let home = std::env::var_os("HOME").unwrap_or_default();
-        let mut path = PathBuf::from(home);
-        path.push(".qoredb");
-        path.push("config.json");
-        path
-    }
+    // Delegates to the shared `paths` module so policy / logs / interceptor
+    // all live under the same root (cf. audit B1-H4).
+    crate::paths::safety_policy_file()
 }
 
 fn load_from_file(path: &PathBuf) -> Option<SafetyPolicy> {
@@ -144,7 +129,6 @@ mod tests {
     fn test_env_overrides() {
         let _guard = ENV_LOCK.lock().unwrap();
 
-        // Helper to safely set/unset env
         let set_env = |key: &str, val: Option<&str>| {
             if let Some(v) = val {
                 std::env::set_var(key, v);
@@ -153,11 +137,9 @@ mod tests {
             }
         };
 
-        // Save original vars
         let orig_confirm = std::env::var("QOREDB_PROD_REQUIRE_CONFIRMATION").ok();
         let orig_block = std::env::var("QOREDB_PROD_BLOCK_DANGEROUS").ok();
 
-        // Case 1: Override both to true
         set_env("QOREDB_PROD_REQUIRE_CONFIRMATION", Some("true"));
         set_env("QOREDB_PROD_BLOCK_DANGEROUS", Some("1"));
 
@@ -167,7 +149,6 @@ mod tests {
         assert!(policy.prod_require_confirmation);
         assert!(policy.prod_block_dangerous_sql);
 
-        // Case 2: Override both to false
         set_env("QOREDB_PROD_REQUIRE_CONFIRMATION", Some("false"));
         set_env("QOREDB_PROD_BLOCK_DANGEROUS", Some("off"));
 
@@ -177,7 +158,6 @@ mod tests {
         assert!(!policy.prod_require_confirmation);
         assert!(!policy.prod_block_dangerous_sql);
 
-        // Cleanup
         set_env("QOREDB_PROD_REQUIRE_CONFIRMATION", orig_confirm.as_deref());
         set_env("QOREDB_PROD_BLOCK_DANGEROUS", orig_block.as_deref());
     }

@@ -8,7 +8,6 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Instant;
 
-use qore_core::types::RowData as QRowData;
 use async_trait::async_trait;
 use futures::future::{AbortHandle, Abortable};
 use mongodb::bson::{doc, Bson, Document};
@@ -17,9 +16,22 @@ use mongodb::options::{
     ReturnDocument, UpdateManyModel, UpdateOneModel, WriteModel,
 };
 use mongodb::{Client, ClientSession, IndexModel};
+use qore_core::types::RowData as QRowData;
 use tokio::sync::{Mutex, RwLock};
 
-use crate::mongo_pipeline::validate_pipeline;
+use crate::mongo_pipeline::{assert_no_forbidden_operators, validate_pipeline};
+
+/// Hard ceiling on the number of documents the non-streaming `execute` path
+/// will accumulate in memory from a single MongoDB query. Without this cap,
+/// `find` / `aggregate` on a 100M-document collection drives the client OOM
+/// instantly because everything is pushed into `Vec<Document>` before
+/// returning (cf. audit B4-C5). The command layer can apply tighter limits
+/// via `SafetyPolicy.max_result_rows`; this is the last-resort fuse.
+const MAX_NON_STREAMING_ROWS: usize = 1_000_000;
+
+fn too_many_rows_error() -> EngineError {
+    EngineError::result_too_large(MAX_NON_STREAMING_ROWS as u64, MAX_NON_STREAMING_ROWS as u64)
+}
 use qore_core::error::{EngineError, EngineResult};
 use qore_core::traits::DataEngine;
 use qore_core::traits::{StreamEvent, StreamSender};
@@ -74,7 +86,7 @@ impl MongoDriver {
             .await
             .map_err(|e| EngineError::connection_failed(e.to_string()))?;
 
-        // Set timeouts to prevent indefinite hangs on unreachable hosts
+        // Bound connection attempts so an unreachable host fails fast instead of hanging.
         options.connect_timeout = Some(Self::DEFAULT_TIMEOUT);
         options.server_selection_timeout = Some(Self::DEFAULT_TIMEOUT);
 
@@ -112,7 +124,7 @@ impl MongoDriver {
         let db = config.database.as_deref().unwrap_or("admin");
         let tls = if config.ssl { "true" } else { "false" };
 
-        // Only include credentials if username is provided (percent-encoded for safety)
+        // Username/password must be percent-encoded so `@`, `:`, `/` don't break the URI parser.
         let credentials = if !config.username.is_empty() {
             let encoded_user = utf8_percent_encode(&config.username, NON_ALPHANUMERIC);
             let encoded_pass = utf8_percent_encode(&config.password, NON_ALPHANUMERIC);
@@ -154,7 +166,6 @@ impl MongoDriver {
     fn parse_query(query: &str) -> EngineResult<(String, String, Document)> {
         let trimmed = query.trim();
 
-        // Try JSON format
         if trimmed.starts_with('{') {
             let parsed: serde_json::Value = serde_json::from_str(trimmed)
                 .map_err(|e| EngineError::syntax_error(format!("Invalid JSON: {}", e)))?;
@@ -170,6 +181,14 @@ impl MongoDriver {
                 .to_string();
 
             let filter = if let Some(q) = parsed.get("query") {
+                // Reject `$where`/`$accumulator`/`$function` here too; otherwise the `find` path
+                // would bypass the aggregation ban (audit B4-C4).
+                assert_no_forbidden_operators(q).map_err(|e| {
+                    EngineError::validation(format!(
+                        "forbidden operator in query: {}",
+                        e.user_message()
+                    ))
+                })?;
                 mongodb::bson::to_document(q)
                     .map_err(|e| EngineError::syntax_error(format!("Invalid query: {}", e)))?
             } else {
@@ -179,7 +198,7 @@ impl MongoDriver {
             return Ok((database, collection, filter));
         }
 
-        // Fallback
+        // Fallback to `db.collection` shorthand for ad-hoc queries.
         let parts: Vec<&str> = trimmed.split('.').collect();
         if parts.len() >= 2 {
             return Ok((parts[0].to_string(), parts[1].to_string(), doc! {}));
@@ -190,7 +209,6 @@ impl MongoDriver {
         ))
     }
 
-    // Convert universal Value back to BSON
     fn value_to_bson(value: &Value) -> mongodb::bson::Bson {
         use mongodb::bson::Bson;
         match value {
@@ -214,7 +232,6 @@ impl MongoDriver {
         }
     }
 
-    // Convert RowData to Document
     fn row_data_to_document(data: &QRowData) -> Document {
         let mut doc = Document::new();
         for (key, value) in &data.columns {
@@ -250,8 +267,10 @@ impl MongoDriver {
     fn hello_supports_transactions(hello: &Document) -> bool {
         let has_set_name = matches!(hello.get("setName"), Some(Bson::String(_)));
         let is_mongos = matches!(hello.get("msg"), Some(Bson::String(msg)) if msg == "isdbgrid");
-        let has_sessions =
-            !matches!(hello.get("logicalSessionTimeoutMinutes"), Some(Bson::Null) | None);
+        let has_sessions = !matches!(
+            hello.get("logicalSessionTimeoutMinutes"),
+            Some(Bson::Null) | None
+        );
 
         (has_set_name || is_mongos) && has_sessions
     }
@@ -366,8 +385,7 @@ impl DataEngine for MongoDriver {
         let mongo_session = self.get_session(session).await?;
         let client = &mongo_session.client;
 
-        // In MongoDB, a database is created when the first collection is created.
-        // We require a collection name in the options for explicit creation.
+        // MongoDB only materialises a database when its first collection is created — require one.
         let collection_name = if let Some(opts) = options {
             match opts {
                 Value::Json(json) => json
@@ -443,7 +461,7 @@ impl DataEngine for MongoDriver {
             .await
             .map_err(|e| EngineError::execution_error(e.to_string()))?;
 
-        // In-memory filtering and pagination
+        // MongoDB has no server-side pattern search for `listCollections`; filter and paginate in memory.
         let mut filtered: Vec<String> = if let Some(search) = &options.search {
             let search = search.to_lowercase();
             collection_names
@@ -511,18 +529,12 @@ impl DataEngine for MongoDriver {
                 let sender = sender_inner;
                 let trimmed = query.trim();
 
-                // Handle special commands that don't stream (Create Collection, etc)
+                // Non-streaming commands like `create_collection` are handled inline because
+                // self.execute() can't be reused from the streaming closure.
                 if trimmed.starts_with('{') {
-                    // Parse partially to check operation
                     if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(trimmed) {
                         if let Some(op) = parsed.get("operation").and_then(|v| v.as_str()) {
                             if op == "create_collection" {
-                                // Execute standard execute for non-streaming ops
-                                // We can't reuse self.execute easily here due to ownership/async
-                                // So we just return early and let the caller handle it or
-                                // better yet, we implement the logic here.
-
-                                // Re-use logic from execute
                                 let database = parsed["database"].as_str().ok_or_else(|| {
                                     EngineError::syntax_error("Missing 'database' field")
                                 })?;
@@ -568,7 +580,6 @@ impl DataEngine for MongoDriver {
                         .await
                         .map_err(|e| EngineError::execution_error(e.to_string()))?;
 
-                    // Send columns info first
                     let columns = Self::document_column_info();
                     if sender.send(StreamEvent::Columns(columns)).await.is_err() {
                         return Ok(());
@@ -583,7 +594,14 @@ impl DataEngine for MongoDriver {
                         batch.push(row);
                         row_count += 1;
                         if batch.len() >= 500 {
-                            if sender.send(StreamEvent::RowBatch(std::mem::replace(&mut batch, Vec::with_capacity(500)))).await.is_err() {
+                            if sender
+                                .send(StreamEvent::RowBatch(std::mem::replace(
+                                    &mut batch,
+                                    Vec::with_capacity(500),
+                                )))
+                                .await
+                                .is_err()
+                            {
                                 break;
                             }
                         }
@@ -621,7 +639,14 @@ impl DataEngine for MongoDriver {
                     batch.push(row);
                     row_count += 1;
                     if batch.len() >= 500 {
-                        if sender.send(StreamEvent::RowBatch(std::mem::replace(&mut batch, Vec::with_capacity(500)))).await.is_err() {
+                        if sender
+                            .send(StreamEvent::RowBatch(std::mem::replace(
+                                &mut batch,
+                                Vec::with_capacity(500),
+                            )))
+                            .await
+                            .is_err()
+                        {
                             break;
                         }
                     }
@@ -1593,6 +1618,9 @@ impl DataEngine for MongoDriver {
                                     while let Some(doc_result) = cursor.next(&mut *txn).await {
                                         let doc = doc_result
                                             .map_err(|e| EngineError::execution_error(e.to_string()))?;
+                                        if out.len() >= MAX_NON_STREAMING_ROWS {
+                                            return Err(too_many_rows_error());
+                                        }
                                         out.push(doc);
                                     }
                                     out
@@ -1610,6 +1638,9 @@ impl DataEngine for MongoDriver {
                                         .await
                                         .map_err(|e| EngineError::execution_error(e.to_string()))?
                                     {
+                                        if out.len() >= MAX_NON_STREAMING_ROWS {
+                                            return Err(too_many_rows_error());
+                                        }
                                         out.push(doc);
                                     }
                                     out
@@ -1629,7 +1660,7 @@ impl DataEngine for MongoDriver {
                                     execution_time_ms,
                                 });
                             }
-                            // Read operations and unknown ops: fall through to find path
+                            // Read ops fall through to the generic `find` execution path below.
                             "find" | "findone" | "count" | "countdocuments"
                             | "distinct" => {}
                             _ => {
@@ -1658,6 +1689,9 @@ impl DataEngine for MongoDriver {
                     while let Some(doc_result) = cursor.next(&mut *txn).await {
                         let doc = doc_result
                             .map_err(|e| EngineError::execution_error(e.to_string()))?;
+                        if documents.len() >= MAX_NON_STREAMING_ROWS {
+                            return Err(too_many_rows_error());
+                        }
                         documents.push(doc);
                     }
                     documents
@@ -1675,6 +1709,9 @@ impl DataEngine for MongoDriver {
                         .await
                         .map_err(|e| EngineError::execution_error(e.to_string()))?
                     {
+                        if documents.len() >= MAX_NON_STREAMING_ROWS {
+                            return Err(too_many_rows_error());
+                        }
                         documents.push(doc);
                     }
                     documents
@@ -1731,7 +1768,7 @@ impl DataEngine for MongoDriver {
 
         let mut tx_guard = mongo_session.transaction_session.lock().await;
         if let Some(txn) = tx_guard.as_mut() {
-            // Sample documents to infer schema (MongoDB is schemaless)
+            // MongoDB is schemaless — sample up to 100 documents to derive a synthetic schema.
             let mut cursor = collection
                 .find(doc! {})
                 .limit(100)
@@ -1745,7 +1782,6 @@ impl DataEngine for MongoDriver {
                 documents.push(doc);
             }
 
-            // Collect all unique field names and their types
             let mut fields: std::collections::HashMap<String, String> =
                 std::collections::HashMap::new();
             for doc in &documents {
@@ -1770,7 +1806,7 @@ impl DataEngine for MongoDriver {
                 }
             }
 
-            // Build columns (sorted, with _id first if present)
+            // _id is always pinned first; the rest of the columns are alphabetical.
             let mut columns: Vec<TableColumn> = fields
                 .into_iter()
                 .map(|(name, data_type)| TableColumn {
@@ -1782,7 +1818,6 @@ impl DataEngine for MongoDriver {
                 })
                 .collect();
 
-            // Sort with _id first
             columns.sort_by(|a, b| {
                 if a.name == "_id" {
                     std::cmp::Ordering::Less
@@ -1799,7 +1834,6 @@ impl DataEngine for MongoDriver {
                 .await
                 .ok();
 
-            // Fetch indexes
             let mut index_cursor = collection
                 .list_indexes()
                 .session(&mut *txn)
@@ -1815,8 +1849,11 @@ impl DataEngine for MongoDriver {
                     .as_ref()
                     .and_then(|o| o.name.clone())
                     .unwrap_or_else(|| "unknown".to_string());
-                let columns: Vec<String> =
-                    index_model.keys.iter().map(|(k, _)| k.to_string()).collect();
+                let columns: Vec<String> = index_model
+                    .keys
+                    .iter()
+                    .map(|(k, _)| k.to_string())
+                    .collect();
                 let is_unique = index_model
                     .options
                     .as_ref()
@@ -1844,7 +1881,7 @@ impl DataEngine for MongoDriver {
 
         drop(tx_guard);
 
-        // Sample documents to infer schema (MongoDB is schemaless)
+        // MongoDB is schemaless — sample up to 100 documents to derive a synthetic schema.
         use futures::TryStreamExt;
         let cursor = collection
             .find(doc! {})
@@ -1857,7 +1894,6 @@ impl DataEngine for MongoDriver {
             .await
             .map_err(|e| EngineError::execution_error(e.to_string()))?;
 
-        // Collect all unique field names and their types
         let mut fields: std::collections::HashMap<String, String> =
             std::collections::HashMap::new();
         for doc in &documents {
@@ -1882,7 +1918,7 @@ impl DataEngine for MongoDriver {
             }
         }
 
-        // Build columns (sorted, with _id first if present)
+        // _id is always pinned first; the rest of the columns are alphabetical.
         let mut columns: Vec<TableColumn> = fields
             .into_iter()
             .map(|(name, data_type)| TableColumn {
@@ -1894,7 +1930,6 @@ impl DataEngine for MongoDriver {
             })
             .collect();
 
-        // Sort with _id first
         columns.sort_by(|a, b| {
             if a.name == "_id" {
                 std::cmp::Ordering::Less
@@ -1905,10 +1940,8 @@ impl DataEngine for MongoDriver {
             }
         });
 
-        // Get estimated document count
         let count = collection.estimated_document_count().await.ok();
 
-        // Fetch indexes
         let mut index_cursor = collection
             .list_indexes()
             .await
@@ -1925,8 +1958,11 @@ impl DataEngine for MongoDriver {
                 .as_ref()
                 .and_then(|o| o.name.clone())
                 .unwrap_or_else(|| "unknown".to_string());
-            let columns: Vec<String> =
-                index_model.keys.iter().map(|(k, _)| k.to_string()).collect();
+            let columns: Vec<String> = index_model
+                .keys
+                .iter()
+                .map(|(k, _)| k.to_string())
+                .collect();
             let is_unique = index_model
                 .options
                 .as_ref()
@@ -2053,17 +2089,14 @@ impl DataEngine for MongoDriver {
             table
         );
 
-        // Build $match filter document
         let mut filter_doc = Document::new();
 
         if let Some(filters) = &options.filters {
             for filter in filters {
                 let bson_value = Self::value_to_bson(&filter.value);
 
-                // `$text` is special: it must live at the top level of the
-                // query document, not under a field name. A single `$text`
-                // applies across all fields covered by the collection's text
-                // index — emit it only once and ignore the column name.
+                // `$text` lives at the top level of the query document and applies across all fields
+                // covered by the text index — emit only once, regardless of the source column.
                 if matches!(filter.operator, FilterOperator::Text) {
                     if filter_doc.contains_key("$text") {
                         continue;
@@ -2074,8 +2107,7 @@ impl DataEngine for MongoDriver {
                         )
                     })?;
                     let mut text_doc = doc! { "$search": search.to_string() };
-                    // `sanitized_text_language` validates the tag against
-                    // `[a-z_]{1,32}`; ignore if empty (fallback to server default).
+                    // sanitized_text_language enforces `[a-z_]{1,32}`; empty means server default.
                     let lang = filter.options.sanitized_text_language("");
                     if !lang.is_empty() {
                         text_doc.insert("$language", lang);
@@ -2098,7 +2130,6 @@ impl DataEngine for MongoDriver {
                         mongodb::bson::Bson::Document(doc! { "$lte": bson_value })
                     }
                     FilterOperator::Like => {
-                        // Convert LIKE pattern to regex
                         if let mongodb::bson::Bson::String(s) = &bson_value {
                             let pattern = s.replace('%', ".*").replace('_', ".");
                             mongodb::bson::Bson::Document(
@@ -2115,8 +2146,7 @@ impl DataEngine for MongoDriver {
                         mongodb::bson::Bson::Document(doc! { "$ne": mongodb::bson::Bson::Null })
                     }
                     FilterOperator::Regex => {
-                        // Pattern must be a string; flags are sanitized to the
-                        // subset MongoDB accepts (`imxs`).
+                        // Flags are restricted to the `imxs` subset MongoDB accepts.
                         let pattern = filter.value.as_text().ok_or_else(|| {
                             EngineError::syntax_error(
                                 "regex operator requires a string value in 'value'",
@@ -2134,13 +2164,12 @@ impl DataEngine for MongoDriver {
             }
         }
 
-        // Handle search across string fields
         let mut tx_guard = mongo_session.transaction_session.lock().await;
         let (total_rows, documents) = if let Some(txn) = tx_guard.as_mut() {
             if let Some(ref search_term) = options.search {
                 if !search_term.trim().is_empty() {
                     let escaped_term = Self::escape_regex(search_term);
-                    // Sample one document to discover string fields
+                    // Sample one document to discover which fields are strings.
                     let sample_doc = collection
                         .find_one(doc! {})
                         .session(&mut *txn)
@@ -2151,7 +2180,6 @@ impl DataEngine for MongoDriver {
 
                     if let Some(doc) = sample_doc {
                         for (key, value) in doc.iter() {
-                            // Only search string fields
                             if matches!(value, mongodb::bson::Bson::String(_)) {
                                 search_conditions.push(doc! {
                                     key: { "$regex": escaped_term.as_str(), "$options": "i" }
@@ -2166,14 +2194,12 @@ impl DataEngine for MongoDriver {
                 }
             }
 
-            // Get total count with filters
             let total_rows = collection
                 .count_documents(filter_doc.clone())
                 .session(&mut *txn)
                 .await
                 .map_err(|e| EngineError::execution_error(e.to_string()))?;
 
-            // Build find options with sort, skip, limit
             use mongodb::options::FindOptions;
             let mut find_options = FindOptions::builder()
                 .skip(Some(offset))
@@ -2208,7 +2234,6 @@ impl DataEngine for MongoDriver {
             if let Some(ref search_term) = options.search {
                 if !search_term.trim().is_empty() {
                     let escaped_term = Self::escape_regex(search_term);
-                    // Sample one document to discover string fields
                     let sample_doc = collection
                         .find_one(doc! {})
                         .await
@@ -2218,7 +2243,6 @@ impl DataEngine for MongoDriver {
 
                     if let Some(doc) = sample_doc {
                         for (key, value) in doc.iter() {
-                            // Only search string fields
                             if matches!(value, mongodb::bson::Bson::String(_)) {
                                 search_conditions.push(doc! {
                                     key: { "$regex": escaped_term.as_str(), "$options": "i" }
@@ -2233,13 +2257,11 @@ impl DataEngine for MongoDriver {
                 }
             }
 
-            // Get total count with filters
             let total_rows = collection
                 .count_documents(filter_doc.clone())
                 .await
                 .map_err(|e| EngineError::execution_error(e.to_string()))?;
 
-            // Build find options with sort, skip, limit
             use mongodb::options::FindOptions;
             let mut find_options = FindOptions::builder()
                 .skip(Some(offset))
@@ -2334,10 +2356,7 @@ impl DataEngine for MongoDriver {
         CancelSupport::BestEffort
     }
 
-    // ==================== Transaction Methods ====================
-    // MongoDB transactions require a replica set configuration.
-    // Standalone MongoDB instances do not support multi-document transactions.
-
+    // MongoDB transactions require a replica set or sharded cluster; standalone instances reject them.
     async fn begin_transaction(&self, session: SessionId) -> EngineResult<()> {
         let mongo_session = self.get_session(session).await?;
 
@@ -2409,8 +2428,6 @@ impl DataEngine for MongoDriver {
         true
     }
 
-    // ==================== Mutation Methods ====================
-
     async fn insert_row(
         &self,
         session: SessionId,
@@ -2475,13 +2492,11 @@ impl DataEngine for MongoDriver {
             .database(&namespace.database)
             .collection::<Document>(table);
 
-        // Construct filter from primary key (usually _id)
         let mut filter = Document::new();
         for (key, value) in &primary_key.columns {
             filter.insert(key, Self::value_to_bson(value));
         }
 
-        // Construct update document
         let update_doc = Self::row_data_to_document(data);
         let update = doc! { "$set": update_doc };
 
@@ -2527,7 +2542,6 @@ impl DataEngine for MongoDriver {
             .database(&namespace.database)
             .collection::<Document>(table);
 
-        // Construct filter from primary key (usually _id)
         let mut filter = Document::new();
         for (key, value) in &primary_key.columns {
             filter.insert(key, Self::value_to_bson(value));
@@ -2557,8 +2571,6 @@ impl DataEngine for MongoDriver {
     fn supports_streaming(&self) -> bool {
         true
     }
-
-    // ==================== Maintenance ====================
 
     fn supports_maintenance(&self) -> bool {
         true
@@ -2617,13 +2629,11 @@ impl DataEngine for MongoDriver {
 
         let execution_time_ms = start.elapsed().as_micros() as f64 / 1000.0;
 
-        // Extract ok field to determine success
         let ok = result.get_f64("ok").unwrap_or(0.0);
         let success = ok == 1.0;
 
         let mut messages = Vec::new();
 
-        // For validate, extract useful fields
         if request.operation == MaintenanceOperationType::Validate {
             if let Some(valid) = result.get_bool("valid").ok() {
                 messages.push(MaintenanceMessage {

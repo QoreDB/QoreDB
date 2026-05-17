@@ -75,9 +75,7 @@ fn is_relevant_event(kind: &EventKind) -> bool {
 
 /// Check if a path is a JSON file (our workspace data format).
 fn is_json_file(path: &Path) -> bool {
-    path.extension()
-        .and_then(|e| e.to_str())
-        .map_or(false, |ext| ext == "json")
+    path.extension().and_then(|e| e.to_str()) == Some("json")
 }
 
 /// Start the workspace file watcher background task.
@@ -116,14 +114,50 @@ pub fn start_workspace_watcher(
 
                     let new_path = path_rx.borrow().clone();
 
-                    // Stop old watcher
                     _current_watcher = None;
                     current_path = None;
                     pending.clear();
                     debounce_deadline = None;
 
                     if let Some(ref ws_path) = new_path {
-                        // Start new watcher
+                        // Refuse to watch a symlinked workspace root: the
+                        // recursive watcher follows symlinks, so a workspace
+                        // at e.g. `~/work -> /etc` would surface system files
+                        // to the frontend (cf. audit B8-C1). We canonicalise
+                        // here and store the resolved path; event handling
+                        // then re-checks every reported path against this
+                        // canonical root before forwarding.
+                        let canonical_root = match std::fs::canonicalize(ws_path) {
+                            Ok(p) => p,
+                            Err(e) => {
+                                tracing::warn!(
+                                    "Workspace path {} cannot be canonicalised: {}; \
+                                     watcher not started",
+                                    ws_path.display(),
+                                    e
+                                );
+                                continue;
+                            }
+                        };
+                        match std::fs::symlink_metadata(ws_path) {
+                            Ok(meta) if meta.file_type().is_symlink() => {
+                                tracing::warn!(
+                                    "Workspace path {} is a symlink; refusing to watch",
+                                    ws_path.display()
+                                );
+                                continue;
+                            }
+                            Ok(_) => {}
+                            Err(e) => {
+                                tracing::warn!(
+                                    "Workspace path {} stat failed: {}; watcher not started",
+                                    ws_path.display(),
+                                    e
+                                );
+                                continue;
+                            }
+                        }
+
                         let tx = notify_tx.clone();
                         match RecommendedWatcher::new(
                             move |res: Result<notify::Event, notify::Error>| {
@@ -135,12 +169,18 @@ pub fn start_workspace_watcher(
                                 .with_poll_interval(Duration::from_secs(2)),
                         ) {
                             Ok(mut watcher) => {
-                                if watcher.watch(ws_path, RecursiveMode::Recursive).is_ok() {
-                                    tracing::info!("Workspace watcher started on {}", ws_path.display());
+                                if watcher.watch(&canonical_root, RecursiveMode::Recursive).is_ok() {
+                                    tracing::info!(
+                                        "Workspace watcher started on {}",
+                                        canonical_root.display()
+                                    );
                                     _current_watcher = Some(watcher);
-                                    current_path = Some(ws_path.clone());
+                                    current_path = Some(canonical_root);
                                 } else {
-                                    tracing::warn!("Failed to watch workspace path: {}", ws_path.display());
+                                    tracing::warn!(
+                                        "Failed to watch workspace path: {}",
+                                        canonical_root.display()
+                                    );
                                 }
                             }
                             Err(e) => {
@@ -168,6 +208,24 @@ pub fn start_workspace_watcher(
 
                         if write_registry.is_self_write(path) {
                             continue;
+                        }
+
+                        // Defence-in-depth: even with a canonicalised root, a
+                        // symlink *inside* the workspace can still surface
+                        // events whose path resolves outside it. Drop those.
+                        match std::fs::canonicalize(path) {
+                            Ok(canon) if !canon.starts_with(ws_root) => {
+                                tracing::debug!(
+                                    "Ignoring watcher event for {} (resolves outside workspace root {})",
+                                    path.display(),
+                                    ws_root.display()
+                                );
+                                continue;
+                            }
+                            // Path no longer exists (deletion event) — fall
+                            // through to `classify_path` which only inspects
+                            // string components, not the filesystem.
+                            Ok(_) | Err(_) => {}
                         }
 
                         if let Some(category) = classify_path(path, ws_root) {
@@ -218,7 +276,10 @@ mod tests {
     fn classify_connections() {
         let root = PathBuf::from("/project/.qoredb");
         assert_eq!(
-            classify_path(&PathBuf::from("/project/.qoredb/connections/conn_abc.json"), &root),
+            classify_path(
+                &PathBuf::from("/project/.qoredb/connections/conn_abc.json"),
+                &root
+            ),
             Some("connections")
         );
     }
@@ -227,7 +288,10 @@ mod tests {
     fn classify_queries() {
         let root = PathBuf::from("/project/.qoredb");
         assert_eq!(
-            classify_path(&PathBuf::from("/project/.qoredb/queries/library.json"), &root),
+            classify_path(
+                &PathBuf::from("/project/.qoredb/queries/library.json"),
+                &root
+            ),
             Some("queries")
         );
     }
@@ -236,7 +300,10 @@ mod tests {
     fn classify_notebooks() {
         let root = PathBuf::from("/project/.qoredb");
         assert_eq!(
-            classify_path(&PathBuf::from("/project/.qoredb/notebooks/analysis.qnb"), &root),
+            classify_path(
+                &PathBuf::from("/project/.qoredb/notebooks/analysis.qnb"),
+                &root
+            ),
             Some("notebooks")
         );
     }
@@ -258,7 +325,10 @@ mod tests {
             None
         );
         assert_eq!(
-            classify_path(&PathBuf::from("/project/.qoredb/contracts/rules.yaml"), &root),
+            classify_path(
+                &PathBuf::from("/project/.qoredb/contracts/rules.yaml"),
+                &root
+            ),
             None
         );
     }

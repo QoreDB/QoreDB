@@ -13,10 +13,55 @@
     "updater:default",
     "process:allow-restart",
     "opener:default",
-    "opener:allow-open-path",
+    {
+      "identifier": "opener:allow-open-path",
+      "allow": [
+        { "path": "$APPCONFIG" },
+        { "path": "$APPCONFIG/**" },
+        { "path": "$APPDATA" },
+        { "path": "$APPDATA/**" },
+        { "path": "$APPLOCALDATA" },
+        { "path": "$APPLOCALDATA/**" },
+        { "path": "$HOME" },
+        { "path": "$HOME/**" },
+        { "path": "$DOCUMENT" },
+        { "path": "$DOCUMENT/**" },
+        { "path": "$DOWNLOAD" },
+        { "path": "$DOWNLOAD/**" },
+        { "path": "$DESKTOP" },
+        { "path": "$DESKTOP/**" }
+      ]
+    },
     "dialog:default",
     "fs:allow-read-text-file",
     "fs:allow-write-text-file",
-    "fs:allow-write-file"
+    "fs:allow-write-file",
+    {
+      "identifier": "fs:scope",
+      "deny": [
+        { "path": "$HOME/.ssh/**" },
+        { "path": "$HOME/.aws/**" },
+        { "path": "$HOME/.gnupg/**" },
+        { "path": "$HOME/.kube/**" },
+        { "path": "$HOME/.docker/**" },
+        { "path": "$HOME/.config/gcloud/**" },
+        { "path": "$HOME/.config/gh/**" },
+        { "path": "$HOME/.netrc" },
+        { "path": "$HOME/.pgpass" },
+        { "path": "$HOME/.my.cnf" },
+        { "path": "$HOME/.bash_history" },
+        { "path": "$HOME/.zsh_history" },
+        { "path": "$HOME/.psql_history" },
+        { "path": "$HOME/.mysql_history" },
+        { "path": "$HOME/.python_history" },
+        { "path": "$HOME/.bashrc" },
+        { "path": "$HOME/.zshrc" },
+        { "path": "$HOME/.bash_profile" },
+        { "path": "$HOME/.zprofile" },
+        { "path": "$HOME/.profile" },
+        { "path": "/etc/**" },
+        { "path": "/root/**" }
+      ]
+    }
   ]
 }

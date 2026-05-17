@@ -113,7 +113,9 @@
       "newQuery": "Neue Abfrage",
       "newNotebook": "Neues Notebook",
       "credentialLoadFail": "Verbindungsdetails konnten nicht geladen werden",
-      "testTitleSuccess": "Verbindung zu {{name}} erfolgreich!"
+      "testTitleSuccess": "Verbindung zu {{name}} erfolgreich!",
+      "backup": "Datenbank sichern…",
+      "restore": "Aus Sicherung wiederherstellen…"
     },
     "url": {
       "useUrl": "Über URL/DSN verbinden",
@@ -183,6 +185,11 @@
     "driverGroups": {
       "sql": "SQL",
       "nosql": "NoSQL"
+    },
+    "clickhouse": {
+      "cluster": "Cluster-Name (optional)",
+      "clusterPlaceholder": "z. B. shard_cluster",
+      "clusterHint": "Wenn gesetzt, werden DDL-Befehle (CREATE/DROP DATABASE/TABLE) mit ON CLUSTER abgesetzt und auf alle Replikate propagiert. Bei Single-Node-Installationen leer lassen."
     }
   },
   "sidebar": {
@@ -201,7 +208,8 @@
     "favorites": "Favoriten",
     "otherConnections": "Weitere Verbindungen",
     "addToFavorites": "Zu Favoriten hinzufügen",
-    "removeFromFavorites": "Aus Favoriten entfernen"
+    "removeFromFavorites": "Aus Favoriten entfernen",
+    "auditLog": "Audit-Log"
   },
   "search": {
     "placeholder": "Befehl eingeben oder suchen…",
@@ -554,13 +562,31 @@
       "newQuery": "Neuer Abfrage-Tab",
       "runQuery": "Abfrage ausführen",
       "closeTab": "Tab schließen",
-      "escape": "Overlay schließen / Abbrechen"
+      "escape": "Overlay schließen / Abbrechen",
+      "title": "Tastenkürzel",
+      "description": "Klicke auf eine Bindung, um eine neue Tastenkombination aufzunehmen. Esc bricht ab.",
+      "recordHint": "Klicke auf ein Kürzel, um es neu zu binden. Die neue Kombination wird sofort wirksam.",
+      "recording": "Tasten drücken…",
+      "errorSystemReserved": "Vom System reserviert",
+      "conflictTooltip": "Konflikt mit einem anderen Kürzel",
+      "resetOne": "Auf Standard zurücksetzen",
+      "resetAll": "Alle zurücksetzen"
     },
     "tabs": {
       "title": "Tabs",
       "description": "Verhalten der Tab-Leiste konfigurieren.",
       "groupByConnection": "Tabs nach Verbindung gruppieren",
       "groupByConnectionDescription": "Tabs in einklappbaren Gruppen unter dem Namen ihrer Verbindung anzeigen."
+    },
+    "backupTools": {
+      "title": "Pfade zu Sicherungs-Tools",
+      "description": "QoreDB ruft die offiziellen CLI-Tools (pg_dump, mysqldump, mongodump, sqlite3) auf. Wenn die automatische Erkennung fehlschlägt, können Sie einen Pfad explizit setzen.",
+      "summary": "{{found}} von {{total}} Tools auf diesem System erkannt.",
+      "refresh": "Erneut erkennen",
+      "choose": "Auswählen…",
+      "overridden": "Manuell",
+      "notFound": "Nicht im PATH gefunden.",
+      "empty": "Noch keine Tools erkannt."
     }
   },
   "table": {
@@ -1397,7 +1423,9 @@
         "executionTime": "Ausführungszeit",
         "rowCount": "Zeilenanzahl",
         "blockedBy": "Blockiert durch Sicherheitsregel",
-        "error": "Fehler"
+        "error": "Fehler",
+        "fingerprint": "Fingerabdruck",
+        "filterByFingerprint": "Nach diesem Fingerabdruck filtern"
       },
       "stats": {
         "total": "Abfragen gesamt",
@@ -1406,6 +1434,12 @@
         "success": "Erfolgreich",
         "failed": "Fehlgeschlagen",
         "lastHour": "Letzte Stunde"
+      },
+      "fingerprintFilter": "Fingerabdruck",
+      "export": {
+        "label": "Exportieren",
+        "format": "Format",
+        "fromDisk": "Rotierten Verlauf einbeziehen"
       }
     },
     "profiling": {
@@ -2113,6 +2147,8 @@
     "importedCount": "{{count}} Verbindungen importiert",
     "gitWarning": "Verbindungsmetadaten (Host, Port, Benutzername) werden in .qoredb/ gespeichert und können mit Git versioniert werden. Passwörter werden niemals auf der Festplatte gespeichert.",
     "rename": "Umbenennen",
+    "revealFolder": "Ordner öffnen",
+    "revealFolderFailed": "Workspace-Ordner konnte nicht geöffnet werden.",
     "renamePrompt": "Neuer Arbeitsbereichsname:",
     "leave": "Arbeitsbereich verlassen"
   },
@@ -2349,5 +2385,236 @@
     "alter": {
       "driverUnsupported": "ALTER TABLE wird vom Treiber nicht unterstützt: {{driver}}"
     }
+  },
+  "backup": {
+    "dialogTitle": "Sicherung {{name}}",
+    "mode": "Modus",
+    "modeFull": "Vollständig (Schema + Daten)",
+    "modeSchemaOnly": "Nur Schema",
+    "modeDataOnly": "Nur Daten",
+    "format": "Format",
+    "password": "Passwort",
+    "passwordPlaceholder": "Vom Dump-Tool benötigt",
+    "tablesOptional": "Tabellen (optional)",
+    "tablesPlaceholder": "Komma-getrennt; leer = alle",
+    "outputPath": "Ausgabedatei",
+    "outputPathPlaceholder": "Ziel auswählen",
+    "browse": "Durchsuchen…",
+    "start": "Sicherung starten",
+    "running": "Läuft…",
+    "starting": "Starte…",
+    "progress": "Fortschritt",
+    "completed": "Sicherung erfolgreich abgeschlossen.",
+    "exitedWithCode": "Sicherungstool wurde mit Code {{code}} beendet.",
+    "cancel": "Abbrechen",
+    "cancelling": "Wird abgebrochen…",
+    "outputDir": "Ausgabeverzeichnis",
+    "duckdbHint": "DuckDB EXPORT DATABASE schreibt ein Verzeichnis mit schema.sql und einer Datei pro Tabelle."
+  },
+  "contracts": {
+    "title": "Datenverträge",
+    "description": "Deklarative Datenqualitätsprüfungen",
+    "openPanel": "Datenverträge…",
+    "newContract": "Neuer Vertrag",
+    "edit": "Bearbeiten",
+    "delete": "Löschen",
+    "run": {
+      "dialogTitle": "Vertrag ausführen: {{name}}",
+      "connectionMissing": "Verbinden Sie sich vor der Ausführung mit dem Vertragsziel.",
+      "starting": "Wird gestartet…",
+      "ruleProgress": "Regel {{index}} von {{total}}",
+      "completedSummary": "Fertig: {{pass}} bestanden, {{fail}} fehlgeschlagen, {{error}} Fehler, {{skipped}} übersprungen",
+      "runFailed": "Ausführung fehlgeschlagen",
+      "results": "Ergebnisse"
+    },
+    "running": "Wird ausgeführt…",
+    "rerun": "Erneut ausführen",
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "close": "Schließen",
+    "discard": "Verwerfen",
+    "unsavedChanges": "Ungespeicherte Änderungen",
+    "empty": {
+      "title": "Noch keine Verträge",
+      "description": "Erstellen Sie einen YAML-Vertrag, um die Datenqualität in diesem Workspace zu prüfen.",
+      "createFirst": "Ersten Vertrag erstellen"
+    },
+    "list": {
+      "name": "Name",
+      "rulesCount_one": "{{count}} Regel",
+      "rulesCount_other": "{{count}} Regeln",
+      "lastRun": "Letzte Ausführung",
+      "neverRun": "Nie ausgeführt",
+      "status": "Status"
+    },
+    "editor": {
+      "title": "Vertragseditor",
+      "namePlaceholder": "Name (muss dem Dateinamen entsprechen)",
+      "yamlSource": "YAML-Quelle",
+      "validating": "Validierung…",
+      "valid": "Gültig",
+      "invalid": "Ungültig",
+      "save": "Vertrag speichern",
+      "saved": "Vertrag gespeichert",
+      "saveFailed": "Vertrag konnte nicht gespeichert werden",
+      "template": "Vorlage einfügen",
+      "nameMismatch": "Der eingebettete Name muss dem Dateinamen entsprechen"
+    },
+    "results": {
+      "rule": "Regel",
+      "type": "Typ",
+      "status": "Status",
+      "violations": "Verstöße",
+      "metric": "Metrik",
+      "duration": "Dauer",
+      "samples": "Beispiele",
+      "showSamples": "Beispielverstöße anzeigen",
+      "hideSamples": "Beispielverstöße ausblenden",
+      "noSamples": "Keine Beispiele verfügbar"
+    },
+    "status": {
+      "pass": "Bestanden",
+      "fail": "Fehlgeschlagen",
+      "skipped": "Übersprungen",
+      "error": "Fehler"
+    },
+    "health": {
+      "healthy": "Gesund",
+      "warning": "Warnungen",
+      "failing": "Fehlerhaft",
+      "unknown": "Noch nicht ausgeführt"
+    },
+    "ruleType": {
+      "not_null_pct": "Nicht null %",
+      "not_empty": "Nicht leer",
+      "regex_match": "Regex-Treffer",
+      "length_range": "Längenbereich",
+      "numeric_range": "Zahlenbereich",
+      "date_range": "Datumsbereich",
+      "allowed_values": "Erlaubte Werte",
+      "unique": "Eindeutig",
+      "distinct_count": "Anzahl eindeutiger Werte",
+      "foreign_key_integrity": "Fremdschlüssel-Integrität",
+      "row_count": "Zeilenanzahl",
+      "custom_sql": "Benutzerdefiniertes SQL"
+    },
+    "history": {
+      "title": "Ausführungsverlauf",
+      "empty": "Noch keine Ausführungen",
+      "viewDetails": "Details anzeigen"
+    },
+    "errors": {
+      "loadFailed": "Verträge konnten nicht geladen werden",
+      "deleteFailed": "Vertrag konnte nicht gelöscht werden",
+      "runFailed": "Vertrag konnte nicht ausgeführt werden"
+    },
+    "confirm": {
+      "deleteTitle": "Vertrag „{{name}}\" löschen?",
+      "deleteBody": "Die Vertragsdatei und ihr Verlauf werden dauerhaft gelöscht."
+    }
+  },
+  "instantApi": {
+    "title": "Instant Data API",
+    "description": "Stelle gespeicherte Abfragen schreibgeschützt als lokale REST-Endpunkte bereit.",
+    "close": "Schließen",
+    "newEndpoint": "Neuer Endpunkt",
+    "endpointsLabel": "Endpunkt(e)",
+    "confirmDelete": "Endpunkt „{{name}}\" löschen?",
+    "regenerate": "Token neu erzeugen",
+    "regenerateConfirm": "Neues Token für „{{name}}\" erzeugen? Das vorherige ist sofort ungültig.",
+    "regenerateFailed": "Token konnte nicht neu erzeugt werden",
+    "status": {
+      "running": "Server läuft",
+      "stopped": "Server gestoppt",
+      "start": "Starten",
+      "stop": "Stoppen"
+    },
+    "empty": {
+      "title": "Noch keine Endpunkte",
+      "description": "Lege deinen ersten Endpunkt an, um eine gespeicherte Abfrage als REST-URL bereitzustellen.",
+      "createFirst": "Endpunkt anlegen"
+    },
+    "errors": {
+      "statusFailed": "Instant-API-Status konnte nicht geladen werden",
+      "startFailed": "Instant-API-Server konnte nicht gestartet werden",
+      "stopFailed": "Instant-API-Server konnte nicht gestoppt werden",
+      "deleteFailed": "Endpunkt konnte nicht gelöscht werden"
+    },
+    "list": {
+      "name": "Name",
+      "shape": "Form",
+      "url": "URL",
+      "serverStopped": "Starte den Server, bevor du diese URL öffnest.",
+      "paramsCount_one": "{{count}} Parameter",
+      "paramsCount_other": "{{count}} Parameter",
+      "pageSize_one": "{{count}} Zeile/Seite",
+      "pageSize_other": "{{count}} Zeilen/Seite"
+    },
+    "endpoint": {
+      "newTitle": "Neuer Endpunkt",
+      "newDescription": "Wähle eine Verbindung und schreibe eine parametrisierte, schreibgeschützte Abfrage.",
+      "nameLabel": "Name",
+      "nameHint": "Buchstaben, Ziffern, Bindestrich, Unterstrich — wird im URL-Pfad verwendet.",
+      "connectionLabel": "Verbindung",
+      "selectConnection": "Verbindung wählen…",
+      "queryLabel": "Abfrage",
+      "queryHint": "Verwende {{tag}}-Platzhalter für deklarierte Parameter.",
+      "shapeLabel": "Antwort-Form",
+      "shape": {
+        "rows": "Liste von Zeilen",
+        "object": "Einzelobjekt"
+      },
+      "pageSizeLabel": "Seitengröße",
+      "paramsLabel": "Parameter",
+      "addParam": "Hinzufügen",
+      "noParams": "Keine Parameter deklariert.",
+      "paramName": "Name",
+      "paramDefault": "Standard",
+      "cancel": "Abbrechen",
+      "create": "Endpunkt erstellen",
+      "creating": "Wird erstellt…",
+      "createFailed": "Endpunkt konnte nicht erstellt werden",
+      "invalidName": "Ungültiger Name — Buchstaben, Ziffern, Bindestrich, Unterstrich (1–64).",
+      "missingConnection": "Bitte eine Verbindung wählen.",
+      "missingQuery": "Die Abfrage ist leer.",
+      "invalidPageSize": "Seitengröße muss zwischen 1 und 10000 liegen.",
+      "invalidParamName": "Ungültiger Parametername: {{name}}",
+      "paramNotInQuery": "Parameter {{name}} wird in der Abfrage nicht referenziert.",
+      "loadConnectionsFailed": "Verbindungen konnten nicht geladen werden"
+    },
+    "token": {
+      "title": "Endpunkt-Token (einmalig)",
+      "description": "Kopiere dieses Token jetzt — es kann später nicht erneut abgerufen werden. Verwende es im Authorization-Header.",
+      "tokenLabel": "Bearer-Token",
+      "curlLabel": "Beispiel",
+      "warning": "Dieses Token gewährt Lesezugriff auf den Endpunkt. Behandle es wie ein Passwort.",
+      "copyFailed": "Kopieren fehlgeschlagen",
+      "done": "Gespeichert"
+    },
+    "openapi": {
+      "open": "OpenAPI-Vorschau",
+      "title": "OpenAPI-3.1-Spezifikation",
+      "description": "Automatisch aus den registrierten Endpunkten erzeugt. Direkt in Swagger UI oder Postman ladbar.",
+      "copy": "JSON kopieren",
+      "copied": "Kopiert",
+      "download": "Herunterladen",
+      "loadFailed": "OpenAPI-Dokument konnte nicht geladen werden",
+      "close": "Schließen"
+    },
+    "tls": {
+      "useHttps": "HTTPS verwenden",
+      "badge": "HTTPS",
+      "selfSigned": "Selbst signiertes Zertifikat, beim Start erzeugt. Browser verlangen eine einmalige Vertrauensbestätigung."
+    }
+  },
+  "restore": {
+    "dialogTitle": "Wiederherstellung in {{name}}",
+    "destructiveWarning": "Dieser Vorgang überschreibt oder verändert Daten in \"{{name}}\". Stellen Sie sicher, dass Sie eine aktuelle Sicherung haben, bevor Sie fortfahren.",
+    "inputPath": "Sicherungsdatei",
+    "inputPathPlaceholder": "Wählen Sie eine Sicherungsdatei zur Wiederherstellung",
+    "confirmLabel": "Geben Sie \"{{name}}\" ein, um zu bestätigen",
+    "start": "Wiederherstellung starten",
+    "completed": "Wiederherstellung erfolgreich abgeschlossen.",
+    "duckdbHint": "Wähle das Verzeichnis, das zuvor von EXPORT DATABASE erzeugt wurde."
   }
 }

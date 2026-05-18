@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { AnimatePresence, motion } from 'framer-motion';
 import type { LucideIcon } from 'lucide-react';
 import {
   ArrowLeft,
@@ -16,7 +15,7 @@ import {
   X,
   Zap,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -24,6 +23,7 @@ import { AnalyticsService } from './AnalyticsService';
 
 const ACCENT = '#6B5CFF';
 const TOTAL_STEPS = 5;
+const EXIT_DURATION_MS = 160;
 
 interface OnboardingModalProps {
   onComplete: () => void;
@@ -93,6 +93,12 @@ export function OnboardingModal({ onComplete }: OnboardingModalProps) {
   const [analyticsEnabled, setAnalyticsEnabled] = useState(false);
   const [isExiting, setIsExiting] = useState(false);
 
+  useEffect(() => {
+    if (!isExiting) return;
+    const timer = window.setTimeout(onComplete, EXIT_DURATION_MS);
+    return () => window.clearTimeout(timer);
+  }, [isExiting, onComplete]);
+
   const handlePrev = () => {
     if (step > 0) setStep(prev => prev - 1);
   };
@@ -116,37 +122,27 @@ export function OnboardingModal({ onComplete }: OnboardingModalProps) {
     setIsExiting(true);
   };
 
-  const variants = {
-    enter: (direction: number) => ({ x: direction > 0 ? 60 : -60, opacity: 0 }),
-    center: { x: 0, opacity: 1 },
-    exit: (direction: number) => ({ x: direction < 0 ? 60 : -60, opacity: 0 }),
-  };
-
   return (
-    <motion.div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-background/95 backdrop-blur-sm p-4"
+    <div
+      className={`fixed inset-0 z-50 flex items-center justify-center bg-background/95 p-4 backdrop-blur-sm transition-opacity duration-200 ${
+        isExiting ? 'opacity-0' : 'opacity-100'
+      }`}
       role="dialog"
       aria-modal="true"
       aria-labelledby="onboarding-title"
-      initial={{ opacity: 0 }}
-      animate={isExiting ? { opacity: 0 } : { opacity: 1 }}
-      onAnimationComplete={() => {
-        if (isExiting) onComplete();
-      }}
     >
-      <motion.div
-        className="relative w-full max-w-2xl rounded-xl border bg-card shadow-2xl"
-        initial={{ scale: 0.95, opacity: 0 }}
-        animate={isExiting ? { scale: 1.02, opacity: 0 } : { scale: 1, opacity: 1 }}
-        transition={{ duration: 0.25 }}
+      <div
+        className={`relative w-full max-w-2xl overflow-hidden rounded-xl border bg-card shadow-2xl transition-transform duration-200 ${
+          isExiting ? 'scale-[0.98]' : 'scale-100'
+        }`}
       >
-        <div className="absolute left-0 right-0 top-0 h-0.5 overflow-hidden rounded-t-xl bg-muted">
-          <motion.div
-            className="h-full"
-            style={{ background: ACCENT }}
-            initial={{ width: '0%' }}
-            animate={{ width: `${((step + 1) / TOTAL_STEPS) * 100}%` }}
-            transition={{ duration: 0.4 }}
+        <div className="h-1 w-full bg-muted">
+          <div
+            className="h-full transition-[width] duration-300 ease-out"
+            style={{
+              background: ACCENT,
+              width: `${((step + 1) / TOTAL_STEPS) * 100}%`,
+            }}
           />
         </div>
 
@@ -154,7 +150,7 @@ export function OnboardingModal({ onComplete }: OnboardingModalProps) {
           <button
             type="button"
             onClick={handleSkip}
-            className="absolute right-4 top-4 z-10 inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+            className="absolute right-4 top-5 z-10 inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
             aria-label={t('onboarding.skip', 'Skip')}
           >
             {t('onboarding.skip', 'Skip')}
@@ -162,260 +158,220 @@ export function OnboardingModal({ onComplete }: OnboardingModalProps) {
           </button>
         )}
 
-        <div className="relative h-[480px] overflow-hidden p-8 pt-10">
-          <AnimatePresence mode="wait" custom={step}>
-            {step === 0 && (
-              <motion.div
-                key="step0"
-                variants={variants}
-                initial="enter"
-                animate="center"
-                exit="exit"
-                custom={step}
-                className="flex h-full flex-col items-center justify-center gap-4 text-center"
+        <div
+          // biome-ignore lint/suspicious/noArrayIndexKey: step index drives the fade-in remount
+          key={step}
+          className="relative min-h-[380px] animate-in fade-in p-8 duration-200"
+        >
+          {step === 0 && (
+            <div className="flex min-h-[380px] flex-col items-center justify-center gap-4 text-center">
+              <div
+                className="flex h-20 w-20 items-center justify-center rounded-2xl"
+                style={{ background: 'rgba(107, 92, 255, 0.08)' }}
               >
-                <div
-                  className="flex h-20 w-20 items-center justify-center rounded-2xl"
-                  style={{ background: 'rgba(107, 92, 255, 0.08)' }}
-                >
-                  <img src="/logo.png" alt="QoreDB" width={56} height={56} />
-                </div>
-                <h1 id="onboarding-title" className="text-3xl font-semibold tracking-tight">
-                  {t('onboarding.welcome.title')}
-                </h1>
-                <p className="max-w-md text-base text-muted-foreground">
-                  {t('onboarding.welcome.subtitle')}
+                <img src="/logo.png" alt="QoreDB" width={56} height={56} />
+              </div>
+              <h1 id="onboarding-title" className="text-3xl font-semibold tracking-tight">
+                {t('onboarding.welcome.title')}
+              </h1>
+              <p className="max-w-md text-base text-muted-foreground">
+                {t('onboarding.welcome.subtitle')}
+              </p>
+              <div className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground/70">
+                <Zap size={12} style={{ color: ACCENT }} aria-hidden />
+                <span>
+                  {t(
+                    'onboarding.welcome.tagline',
+                    '12 drivers · SQL + NoSQL · Rust-fast · Local-first'
+                  )}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {step === 1 && (
+            <div className="flex flex-col gap-5">
+              <div className="flex flex-col gap-1">
+                <h2 className="text-xl font-semibold">{t('onboarding.capabilities.title')}</h2>
+                <p className="text-sm text-muted-foreground">
+                  {t('onboarding.capabilities.subtitle')}
                 </p>
-                <div className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground/70">
-                  <Zap size={12} style={{ color: ACCENT }} aria-hidden />
-                  <span>
-                    {t(
-                      'onboarding.welcome.tagline',
-                      '12 drivers · SQL + NoSQL · Rust-fast · Local-first'
-                    )}
-                  </span>
-                </div>
-              </motion.div>
-            )}
-
-            {step === 1 && (
-              <motion.div
-                key="step1"
-                variants={variants}
-                initial="enter"
-                animate="center"
-                exit="exit"
-                custom={step}
-                className="flex h-full flex-col gap-5"
-              >
-                <div className="flex flex-col gap-1">
-                  <h2 className="text-xl font-semibold">{t('onboarding.capabilities.title')}</h2>
-                  <p className="text-sm text-muted-foreground">
-                    {t('onboarding.capabilities.subtitle')}
-                  </p>
-                </div>
-                <div className="grid flex-1 grid-cols-2 gap-3">
-                  {CAPABILITIES.map(({ icon: Icon, titleKey, descKey }) => (
-                    <div
-                      key={titleKey}
-                      className="flex flex-col gap-2 rounded-lg border p-4 transition-colors hover:bg-muted/40"
-                    >
-                      <div
-                        className="flex h-9 w-9 items-center justify-center rounded-md"
-                        style={{ background: 'rgba(107, 92, 255, 0.1)', color: ACCENT }}
-                      >
-                        <Icon size={18} aria-hidden />
-                      </div>
-                      <h3 className="text-sm font-semibold">{t(titleKey)}</h3>
-                      <p className="text-xs leading-relaxed text-muted-foreground">{t(descKey)}</p>
-                    </div>
-                  ))}
-                </div>
-              </motion.div>
-            )}
-
-            {step === 2 && (
-              <motion.div
-                key="step2"
-                variants={variants}
-                initial="enter"
-                animate="center"
-                exit="exit"
-                custom={step}
-                className="flex h-full flex-col gap-5"
-              >
-                <div className="flex flex-col gap-1">
-                  <h2 className="text-xl font-semibold">{t('onboarding.privacy.title')}</h2>
-                  <p className="text-sm text-muted-foreground">
-                    {t('onboarding.privacy.subtitle')}
-                  </p>
-                </div>
-                <ul className="flex flex-col gap-3">
-                  {SAFETY_POINTS.map(({ icon: Icon, titleKey, descKey }) => (
-                    <li key={titleKey} className="flex items-start gap-3">
-                      <div
-                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md"
-                        style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#10B981' }}
-                      >
-                        <Icon size={15} aria-hidden />
-                      </div>
-                      <div className="flex flex-col gap-0.5">
-                        <span className="text-sm font-medium">{t(titleKey)}</span>
-                        <span className="text-xs text-muted-foreground">{t(descKey)}</span>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </motion.div>
-            )}
-
-            {step === 3 && (
-              <motion.div
-                key="step3"
-                variants={variants}
-                initial="enter"
-                animate="center"
-                exit="exit"
-                custom={step}
-                className="flex h-full flex-col gap-5"
-              >
-                <div className="flex flex-col gap-1">
-                  <h2 className="text-xl font-semibold">{t('onboarding.tiers.title')}</h2>
-                  <p className="text-sm text-muted-foreground">{t('onboarding.tiers.subtitle')}</p>
-                </div>
-                <div className="grid flex-1 grid-cols-2 gap-3">
-                  <div className="flex flex-col gap-3 rounded-lg border p-4">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      {t('onboarding.tiers.freeLabel', 'Free')}
-                    </span>
-                    <span className="text-sm font-medium">{t('onboarding.tiers.freeFor')}</span>
-                    <ul className="flex flex-col gap-1.5 text-xs text-muted-foreground">
-                      <li className="flex gap-2">
-                        <CheckCircle2
-                          size={12}
-                          className="mt-0.5 shrink-0 text-green-500"
-                          aria-hidden
-                        />
-                        {t('onboarding.tiers.freeBullet1')}
-                      </li>
-                      <li className="flex gap-2">
-                        <CheckCircle2
-                          size={12}
-                          className="mt-0.5 shrink-0 text-green-500"
-                          aria-hidden
-                        />
-                        {t('onboarding.tiers.freeBullet2')}
-                      </li>
-                      <li className="flex gap-2">
-                        <CheckCircle2
-                          size={12}
-                          className="mt-0.5 shrink-0 text-green-500"
-                          aria-hidden
-                        />
-                        {t('onboarding.tiers.freeBullet3')}
-                      </li>
-                    </ul>
-                  </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                {CAPABILITIES.map(({ icon: Icon, titleKey, descKey }) => (
                   <div
-                    className="flex flex-col gap-3 rounded-lg border p-4"
-                    style={{
-                      borderColor: 'rgba(107, 92, 255, 0.25)',
-                      background:
-                        'linear-gradient(180deg, rgba(107, 92, 255, 0.04) 0%, transparent 100%)',
-                    }}
+                    key={titleKey}
+                    className="flex flex-col gap-2 rounded-lg border p-4 transition-colors hover:bg-muted/40"
                   >
-                    <span
-                      className="text-xs font-semibold uppercase tracking-wider"
-                      style={{ color: ACCENT }}
+                    <div
+                      className="flex h-9 w-9 items-center justify-center rounded-md"
+                      style={{ background: 'rgba(107, 92, 255, 0.1)', color: ACCENT }}
                     >
-                      {t('onboarding.tiers.proLabel', 'Pro')}
-                    </span>
-                    <span className="text-sm font-medium">{t('onboarding.tiers.proFor')}</span>
-                    <ul className="flex flex-col gap-1.5 text-xs text-muted-foreground">
-                      <li className="flex gap-2">
-                        <CheckCircle2
-                          size={12}
-                          className="mt-0.5 shrink-0"
-                          style={{ color: ACCENT }}
-                          aria-hidden
-                        />
-                        {t('onboarding.tiers.proBullet1')}
-                      </li>
-                      <li className="flex gap-2">
-                        <CheckCircle2
-                          size={12}
-                          className="mt-0.5 shrink-0"
-                          style={{ color: ACCENT }}
-                          aria-hidden
-                        />
-                        {t('onboarding.tiers.proBullet2')}
-                      </li>
-                      <li className="flex gap-2">
-                        <CheckCircle2
-                          size={12}
-                          className="mt-0.5 shrink-0"
-                          style={{ color: ACCENT }}
-                          aria-hidden
-                        />
-                        {t('onboarding.tiers.proBullet3')}
-                      </li>
-                    </ul>
+                      <Icon size={18} aria-hidden />
+                    </div>
+                    <h3 className="text-sm font-semibold">{t(titleKey)}</h3>
+                    <p className="text-xs leading-relaxed text-muted-foreground">{t(descKey)}</p>
                   </div>
-                </div>
-                <p className="text-center text-xs text-muted-foreground/70">
-                  {t('onboarding.tiers.footnote')}
-                </p>
-              </motion.div>
-            )}
+                ))}
+              </div>
+            </div>
+          )}
 
-            {step === 4 && (
-              <motion.div
-                key="step4"
-                variants={variants}
-                initial="enter"
-                animate="center"
-                exit="exit"
-                custom={step}
-                className="flex h-full flex-col gap-5"
-              >
-                <div className="flex flex-col gap-1">
-                  <h2 className="text-xl font-semibold">{t('onboarding.analytics.title')}</h2>
-                  <p className="text-sm text-muted-foreground">
-                    {t('onboarding.analytics.subtitle')}
-                  </p>
+          {step === 2 && (
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-1">
+                <h2 className="text-xl font-semibold">{t('onboarding.privacy.title')}</h2>
+                <p className="text-sm text-muted-foreground">{t('onboarding.privacy.subtitle')}</p>
+              </div>
+              <ul className="flex flex-col gap-3">
+                {SAFETY_POINTS.map(({ icon: Icon, titleKey, descKey }) => (
+                  <li key={titleKey} className="flex items-start gap-3">
+                    <div
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md"
+                      style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#10B981' }}
+                    >
+                      <Icon size={15} aria-hidden />
+                    </div>
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-sm font-medium">{t(titleKey)}</span>
+                      <span className="text-xs text-muted-foreground">{t(descKey)}</span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {step === 3 && (
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-1">
+                <h2 className="text-xl font-semibold">{t('onboarding.tiers.title')}</h2>
+                <p className="text-sm text-muted-foreground">{t('onboarding.tiers.subtitle')}</p>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col gap-3 rounded-lg border p-4">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    {t('onboarding.tiers.freeLabel', 'Free')}
+                  </span>
+                  <span className="text-sm font-medium">{t('onboarding.tiers.freeFor')}</span>
+                  <ul className="flex flex-col gap-1.5 text-xs text-muted-foreground">
+                    <li className="flex gap-2">
+                      <CheckCircle2
+                        size={12}
+                        className="mt-0.5 shrink-0 text-green-500"
+                        aria-hidden
+                      />
+                      {t('onboarding.tiers.freeBullet1')}
+                    </li>
+                    <li className="flex gap-2">
+                      <CheckCircle2
+                        size={12}
+                        className="mt-0.5 shrink-0 text-green-500"
+                        aria-hidden
+                      />
+                      {t('onboarding.tiers.freeBullet2')}
+                    </li>
+                    <li className="flex gap-2">
+                      <CheckCircle2
+                        size={12}
+                        className="mt-0.5 shrink-0 text-green-500"
+                        aria-hidden
+                      />
+                      {t('onboarding.tiers.freeBullet3')}
+                    </li>
+                  </ul>
                 </div>
-                <button
-                  type="button"
-                  className="flex w-full items-start gap-3 rounded-lg border p-4 text-left transition-colors hover:bg-muted/40"
-                  onClick={() => setAnalyticsEnabled(!analyticsEnabled)}
+                <div
+                  className="flex flex-col gap-3 rounded-lg border p-4"
+                  style={{
+                    borderColor: 'rgba(107, 92, 255, 0.25)',
+                    background:
+                      'linear-gradient(180deg, rgba(107, 92, 255, 0.04) 0%, transparent 100%)',
+                  }}
                 >
-                  <Checkbox
-                    id="analytics"
-                    checked={analyticsEnabled}
-                    onCheckedChange={c => setAnalyticsEnabled(c === true)}
-                    className="mt-0.5"
-                  />
-                  <div className="flex flex-col gap-1">
-                    <span className="text-sm font-medium leading-tight">
-                      {t('onboarding.analytics.checkbox')}
-                    </span>
-                    <span className="text-xs text-muted-foreground leading-relaxed">
-                      {t('onboarding.analytics.privacyHint')}
-                    </span>
-                  </div>
-                </button>
-                <div className="flex items-center gap-2 rounded-md border border-dashed bg-muted/20 p-3">
-                  <Lock size={14} className="shrink-0 text-muted-foreground" aria-hidden />
-                  <span className="text-xs text-muted-foreground">
-                    {t(
-                      'onboarding.analytics.guarantee',
-                      'Your queries, results, and credentials never leave your machine — regardless of this setting.'
-                    )}
+                  <span
+                    className="text-xs font-semibold uppercase tracking-wider"
+                    style={{ color: ACCENT }}
+                  >
+                    {t('onboarding.tiers.proLabel', 'Pro')}
+                  </span>
+                  <span className="text-sm font-medium">{t('onboarding.tiers.proFor')}</span>
+                  <ul className="flex flex-col gap-1.5 text-xs text-muted-foreground">
+                    <li className="flex gap-2">
+                      <CheckCircle2
+                        size={12}
+                        className="mt-0.5 shrink-0"
+                        style={{ color: ACCENT }}
+                        aria-hidden
+                      />
+                      {t('onboarding.tiers.proBullet1')}
+                    </li>
+                    <li className="flex gap-2">
+                      <CheckCircle2
+                        size={12}
+                        className="mt-0.5 shrink-0"
+                        style={{ color: ACCENT }}
+                        aria-hidden
+                      />
+                      {t('onboarding.tiers.proBullet2')}
+                    </li>
+                    <li className="flex gap-2">
+                      <CheckCircle2
+                        size={12}
+                        className="mt-0.5 shrink-0"
+                        style={{ color: ACCENT }}
+                        aria-hidden
+                      />
+                      {t('onboarding.tiers.proBullet3')}
+                    </li>
+                  </ul>
+                </div>
+              </div>
+              <p className="text-center text-xs text-muted-foreground/70">
+                {t('onboarding.tiers.footnote')}
+              </p>
+            </div>
+          )}
+
+          {step === 4 && (
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-1">
+                <h2 className="text-xl font-semibold">{t('onboarding.analytics.title')}</h2>
+                <p className="text-sm text-muted-foreground">
+                  {t('onboarding.analytics.subtitle')}
+                </p>
+              </div>
+              <button
+                type="button"
+                className="flex w-full items-start gap-3 rounded-lg border p-4 text-left transition-colors hover:bg-muted/40"
+                onClick={() => setAnalyticsEnabled(!analyticsEnabled)}
+              >
+                <Checkbox
+                  id="analytics"
+                  checked={analyticsEnabled}
+                  onCheckedChange={c => setAnalyticsEnabled(c === true)}
+                  className="mt-0.5"
+                />
+                <div className="flex flex-col gap-1">
+                  <span className="text-sm font-medium leading-tight">
+                    {t('onboarding.analytics.checkbox')}
+                  </span>
+                  <span className="text-xs leading-relaxed text-muted-foreground">
+                    {t('onboarding.analytics.privacyHint')}
                   </span>
                 </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+              </button>
+              <div className="flex items-center gap-2 rounded-md border border-dashed bg-muted/20 p-3">
+                <Lock size={14} className="shrink-0 text-muted-foreground" aria-hidden />
+                <span className="text-xs text-muted-foreground">
+                  {t(
+                    'onboarding.analytics.guarantee',
+                    'Your queries, results, and credentials never leave your machine — regardless of this setting.'
+                  )}
+                </span>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="flex items-center justify-between border-t bg-muted/20 px-8 py-4">
@@ -453,7 +409,7 @@ export function OnboardingModal({ onComplete }: OnboardingModalProps) {
                 : t('common.next', 'Next')}
           </Button>
         </div>
-      </motion.div>
-    </motion.div>
+      </div>
+    </div>
   );
 }

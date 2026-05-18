@@ -22,6 +22,9 @@ interface ModalState {
   showOnboarding: boolean;
   cheatsheetOpen: boolean;
   zenMode: boolean;
+  proDiscoveryOpen: boolean;
+  whatsNewOpen: boolean;
+  newsletterPromptOpen: boolean;
   editConnection: SavedConnection | null;
   editPassword: string;
   backupConnection: SavedConnection | null;
@@ -42,6 +45,9 @@ let state: ModalState = {
   showOnboarding: false,
   cheatsheetOpen: false,
   zenMode: false,
+  proDiscoveryOpen: false,
+  whatsNewOpen: false,
+  newsletterPromptOpen: false,
   editConnection: null,
   editPassword: '',
   backupConnection: null,
@@ -140,6 +146,21 @@ export function closeRestoreDialog() {
 
 export function setSettingsOpen(open: boolean) {
   updateState({ settingsOpen: open });
+}
+
+export function setProDiscoveryOpen(open: boolean) {
+  if (state.proDiscoveryOpen === open) return;
+  updateState({ proDiscoveryOpen: open });
+}
+
+export function setWhatsNewOpen(open: boolean) {
+  if (state.whatsNewOpen === open) return;
+  updateState({ whatsNewOpen: open });
+}
+
+export function setNewsletterPromptOpen(open: boolean) {
+  if (state.newsletterPromptOpen === open) return;
+  updateState({ newsletterPromptOpen: open });
 }
 
 export function setSidebarVisible(visible: boolean) {

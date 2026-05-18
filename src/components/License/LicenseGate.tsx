@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import type { ReactNode } from 'react';
+import { type ReactNode, useEffect } from 'react';
 import type { ProFeature } from '@/lib/license';
+import { trackProEvent } from '@/lib/licenseTracking';
 import { useLicense } from '@/providers/LicenseProvider';
 import { UpgradePrompt } from './UpgradePrompt';
 
@@ -9,18 +10,23 @@ interface LicenseGateProps {
   feature: ProFeature;
   children: ReactNode;
   fallback?: ReactNode;
+  source?: string;
 }
 
 /**
  * Conditionally renders children if the feature is unlocked,
  * otherwise shows a fallback (defaults to UpgradePrompt).
+ *
+ * Fires `pro_feature_seen` when unlocked, `pro_feature_blocked` when gated.
  */
-export function LicenseGate({ feature, children, fallback }: LicenseGateProps) {
+export function LicenseGate({ feature, children, fallback, source }: LicenseGateProps) {
   const { isFeatureEnabled } = useLicense();
+  const enabled = isFeatureEnabled(feature);
 
-  if (isFeatureEnabled(feature)) {
-    return <>{children}</>;
-  }
+  useEffect(() => {
+    trackProEvent(enabled ? 'pro_feature_seen' : 'pro_feature_blocked', { feature, source });
+  }, [enabled, feature, source]);
 
-  return <>{fallback ?? <UpgradePrompt feature={feature} />}</>;
+  if (enabled) return <>{children}</>;
+  return <>{fallback ?? <UpgradePrompt feature={feature} source={source} />}</>;
 }

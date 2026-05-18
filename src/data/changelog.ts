@@ -4,6 +4,7 @@ export interface ChangelogItem {
   title: string;
   description: string;
   type: 'feature' | 'improvement' | 'fix';
+  proOnly?: boolean;
 }
 
 export interface ChangelogEntry {
@@ -18,6 +19,31 @@ export interface ChangelogEntry {
  * Strings are literal text (not i18n keys) — release notes are factual and language-neutral.
  */
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '0.1.28',
+    date: '2026-05-17',
+    items: [
+      {
+        title: 'Data Contracts',
+        description:
+          'Define and enforce schema invariants across your databases — catch breaking changes at connect time.',
+        type: 'feature',
+        proOnly: true,
+      },
+      {
+        title: 'Instant Data API',
+        description:
+          'Expose any table as a local REST or GraphQL endpoint with zero configuration.',
+        type: 'feature',
+        proOnly: true,
+      },
+      {
+        title: 'ClickHouse driver',
+        description: 'New driver for ClickHouse — fast analytical queries on columnar data.',
+        type: 'feature',
+      },
+    ],
+  },
   {
     version: '0.1.26',
     date: '2026-04-22',

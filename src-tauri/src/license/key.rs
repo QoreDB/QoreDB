@@ -37,6 +37,8 @@ pub struct LicensePayload {
     #[serde(default)]
     pub expires_at: Option<String>,
     pub payment_id: String,
+    #[serde(default)]
+    pub is_founder: bool,
 }
 
 /// Errors from license operations.

@@ -107,6 +107,10 @@ export const AnalyticsService = {
     AnalyticsService.capture('onboarding_completed');
   },
 
+  resetOnboarding: () => {
+    localStorage.removeItem(ONBOARDING_KEY);
+  },
+
   isAnalyticsEnabled: (): boolean => {
     return isEnabledFromStorage();
   },

@@ -28,6 +28,7 @@ const DEFAULT_STATUS: LicenseStatus = {
   issued_at: null,
   expires_at: null,
   is_expired: false,
+  is_founder: false,
 };
 
 const LicenseContext = createContext<LicenseContextValue | null>(null);

@@ -5,6 +5,7 @@ import { check } from '@tauri-apps/plugin-updater';
 import {
   ChevronDown,
   Download,
+  GraduationCap,
   Loader2,
   Monitor,
   Moon,
@@ -14,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -24,6 +26,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Label } from '@/components/ui/label';
 import { useTheme } from '@/hooks/useTheme';
+import { setSettingsOpen, setShowOnboarding } from '@/lib/stores/modalStore';
 import {
   setUpdateAvailable,
   setUpdateError,
@@ -348,6 +351,27 @@ export function GeneralSection({ searchQuery }: GeneralSectionProps) {
             </span>
           </span>
         </Label>
+      </SettingsCard>
+
+      <SettingsCard
+        id="onboarding"
+        title={t('settings.onboarding.title')}
+        description={t('settings.onboarding.description')}
+        searchQuery={searchQuery}
+      >
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-1.5"
+          onClick={() => {
+            AnalyticsService.resetOnboarding();
+            setSettingsOpen(false);
+            setShowOnboarding(true);
+          }}
+        >
+          <GraduationCap size={14} />
+          {t('settings.onboarding.replay')}
+        </Button>
       </SettingsCard>
     </>
   );

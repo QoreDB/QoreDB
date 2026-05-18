@@ -7,6 +7,8 @@ import { AiAssistantPanel } from '@/components/AI/AiAssistantPanel';
 import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
 import { UI_EVENT_OPEN_HISTORY } from '@/lib/events/uiEvents';
 import { createNotebookTab } from '@/lib/tabs';
+import { recordQueryAndMaybeNotify } from '@/lib/usageBanner';
+import { useLicense } from '@/providers/LicenseProvider';
 import { useTabActions } from '@/providers/TabProvider';
 import { forceRefreshCache } from '../../hooks/useSchemaCache';
 import { useTourManager } from '../../hooks/useTourManager';
@@ -132,6 +134,7 @@ export function QueryPanel({
 }: QueryPanelProps) {
   const { t } = useTranslation();
   const { openTab } = useTabActions();
+  const { tier } = useLicense();
   const isDocument = isDocumentDatabase(dialect);
   const queryDialect = getQueryDialect(dialect);
   const defaultQuery = getDefaultQuery(isDocument);
@@ -479,6 +482,7 @@ export function QueryPanel({
                 driver: dialect,
                 row_count: enrichedResult.rows.length,
               });
+              recordQueryAndMaybeNotify(tier, t);
               incrementTransactionStatements();
             }
 

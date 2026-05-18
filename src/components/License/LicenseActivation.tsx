@@ -62,20 +62,27 @@ export function LicenseActivation() {
 
   const isActive = status.tier !== 'core' && !status.is_expired;
   const hasLicenseInfo = status.email || status.payment_id;
+  const taglineKey = `license.tierTagline.${isActive ? status.tier : 'core'}`;
+  const tagline = t(taglineKey, { defaultValue: '' });
 
   return (
     <div className="flex flex-col gap-4">
       {/* Current status */}
-      <div className="flex items-center gap-2">
-        <span className="text-sm font-medium text-[var(--color-text-primary)]">
-          {t('license.currentTier')}:
-        </span>
-        {isActive ? (
-          <LicenseBadge tier={status.tier} />
-        ) : (
-          <span className="text-sm text-[var(--color-text-secondary)]">Core</span>
-        )}
-        {status.is_expired && <span className="text-xs text-red-500">{t('license.expired')}</span>}
+      <div className="flex flex-col gap-1">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium text-[var(--color-text-primary)]">
+            {t('license.currentTier')}:
+          </span>
+          {isActive ? (
+            <LicenseBadge tier={status.tier} />
+          ) : (
+            <span className="text-sm text-[var(--color-text-secondary)]">Free</span>
+          )}
+          {status.is_expired && (
+            <span className="text-xs text-red-500">{t('license.expired')}</span>
+          )}
+        </div>
+        {tagline && <p className="text-xs text-[var(--color-text-secondary)]">{tagline}</p>}
       </div>
 
       {/* License details */}

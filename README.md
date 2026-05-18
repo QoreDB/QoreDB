@@ -16,6 +16,8 @@ The fast, open-source database client built with Rust. Connect to **12 native dr
 
 [**Website**](https://qoredb.com) · [**Download**](https://qoredb.com/download) · [**Docs**](https://qoredb.com/docs) · [**Roadmap**](https://qoredb.com/roadmap) · [**Discord**](https://discord.gg/Yr6P3wuZDt)
 
+<sub>5,000+ downloads · 12 database drivers · Two releases a month · Used in production by indie devs and startups.</sub>
+
   <img src="docs/screenshots/query-screen.png" alt="QoreDB SQL editor and result grid" width="100%" />
 
 </div>

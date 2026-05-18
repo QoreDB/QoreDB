@@ -98,7 +98,7 @@ Depuis Rust 1.81 (oct. 2024), `set_var`/`remove_var` sont `unsafe`. Compile aujo
 ```json
 "endpoints": ["https://github.com/QoreDB/QoreDB/releases/latest/download/latest.json"]
 ```
-Le repo local est sous `raphplt/QoreDB` (cf git config). Cette org `QoreDB/QoreDB` doit exister et être correctement signée pour que les updates fonctionnent. **À vérifier** : org GitHub existe + releases publiées + signature minisign correcte.
+Le repo est hébergé sous `QoreDB/QoreDB` (cf git remote). **À vérifier** : releases publiées + signature minisign correcte.
 
 **B1-H7 — Dépendance `reqwest` non-optionnelle (`src-tauri/Cargo.toml:139`)**
 ```toml

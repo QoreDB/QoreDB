@@ -47,7 +47,7 @@ L'audit du projet **QoreDB** révèle une architecture **"Local-First"** (Priori
 ### 2.2 Mises à jour (Auto-Updater)
 
 - **Service :** Tauri Plugin Updater.
-- **Flux :** L'application interroge les "Releases" GitHub (`https://github.com/raphplt/QoreDB/releases`).
+- **Flux :** L'application interroge les "Releases" GitHub (`https://github.com/QoreDB/QoreDB/releases`).
 - **Implication RGPD :** L'adresse IP de l'utilisateur est visible par GitHub (Microsoft) lors de la vérification des mises à jour. C'est un fonctionnement standard pour les applications Desktop open-source.
 
 ### 2.3 Rapports de Crash

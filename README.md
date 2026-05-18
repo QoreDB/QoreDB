@@ -8,10 +8,10 @@
 The fast, open-source database client built with Rust. Connect to **12 native drivers** from a single, beautiful interface. Local-first: your data stays yours.
 
 [![License](https://img.shields.io/badge/license-Apache--2.0%20%2F%20BUSL--1.1-blue?style=flat-square)](LICENSE)
-[![Release](https://img.shields.io/github/v/release/raphplt/QoreDB?style=flat-square&color=8b5cf6)](https://github.com/raphplt/QoreDB/releases)
-[![Downloads](https://img.shields.io/github/downloads/raphplt/QoreDB/total?style=flat-square&color=10b981)](https://github.com/raphplt/QoreDB/releases)
-[![Stars](https://img.shields.io/github/stars/raphplt/QoreDB?style=flat-square&color=facc15)](https://github.com/raphplt/QoreDB/stargazers)
-[![Issues](https://img.shields.io/github/issues/raphplt/QoreDB?style=flat-square)](https://github.com/raphplt/QoreDB/issues)
+[![Release](https://img.shields.io/github/v/release/QoreDB/QoreDB?style=flat-square&color=8b5cf6)](https://github.com/QoreDB/QoreDB/releases)
+[![Downloads](https://img.shields.io/github/downloads/QoreDB/QoreDB/total?style=flat-square&color=10b981)](https://github.com/QoreDB/QoreDB/releases)
+[![Stars](https://img.shields.io/github/stars/QoreDB/QoreDB?style=flat-square&color=facc15)](https://github.com/QoreDB/QoreDB/stargazers)
+[![Issues](https://img.shields.io/github/issues/QoreDB/QoreDB?style=flat-square)](https://github.com/QoreDB/QoreDB/issues)
 [![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey?style=flat-square)](#installation)
 
 [**Website**](https://qoredb.com) · [**Download**](https://qoredb.com/download) · [**Docs**](https://qoredb.com/docs) · [**Roadmap**](https://qoredb.com/roadmap) · [**Discord**](https://discord.gg/Yr6P3wuZDt)
@@ -207,7 +207,7 @@ We're young but moving fast — see the [public roadmap](https://qoredb.com/road
 
 ### Download
 
-Grab the latest release for your platform from the [Releases page](https://github.com/raphplt/QoreDB/releases) or [qoredb.com/download](https://qoredb.com/download).
+Grab the latest release for your platform from the [Releases page](https://github.com/QoreDB/QoreDB/releases) or [qoredb.com/download](https://qoredb.com/download).
 
 | Platform | Format |
 |---|---|
@@ -226,7 +226,7 @@ yay -S qoredb-bin
 **Prerequisites:** Node.js 18+, pnpm, Rust 1.70+, [Tauri system dependencies](https://tauri.app/start/prerequisites/).
 
 ```bash
-git clone https://github.com/raphplt/QoreDB.git
+git clone https://github.com/QoreDB/QoreDB.git
 cd QoreDB
 pnpm install
 pnpm tauri dev      # development
@@ -291,9 +291,9 @@ For project structure, architecture notes and contribution workflow, see [CONTRI
 ## Roadmap &amp; community
 
 - 🗺️ [Public roadmap](https://qoredb.com/roadmap) — what's shipped, what's next
-- 📝 [Changelog](https://github.com/raphplt/QoreDB/releases) — release notes on GitHub
+- 📝 [Changelog](https://github.com/QoreDB/QoreDB/releases) — release notes on GitHub
 - 💬 [Discord](https://discord.gg/Yr6P3wuZDt) — get help, share feedback
-- 🐛 [Issues](https://github.com/raphplt/QoreDB/issues) — report bugs or request features
+- 🐛 [Issues](https://github.com/QoreDB/QoreDB/issues) — report bugs or request features
 - 💼 [LinkedIn](https://www.linkedin.com/company/qoredb/) — follow project updates
 
 ---

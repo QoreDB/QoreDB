@@ -11,7 +11,7 @@
    ```
 
 2. **Ajouter les secrets GitHub** :
-   - Aller sur [Settings → Secrets → Actions](https://github.com/raphplt/QoreDB/settings/secrets/actions)
+   - Aller sur [Settings → Secrets → Actions](https://github.com/QoreDB/QoreDB/settings/secrets/actions)
    - Ajouter `TAURI_SIGNING_PRIVATE_KEY` : contenu de `~/.tauri/qoredb.key`
    - Ajouter `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` : le mot de passe choisi
 
@@ -69,7 +69,7 @@ Note : le **Package Family Name** est dérivé automatiquement de `Identity.Name
    - Crée une **release draft** avec tous les fichiers
 
 4. **Finaliser** :
-   - Aller sur [Releases](https://github.com/raphplt/QoreDB/releases)
+   - Aller sur [Releases](https://github.com/QoreDB/QoreDB/releases)
    - Éditer le draft, ajouter des notes de version
    - Publier la release
 

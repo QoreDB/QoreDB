@@ -16,11 +16,17 @@ const TYPE_ICON: Record<ChangelogItem['type'], LucideIcon> = {
   fix: Wrench,
 };
 
-const TYPE_COLOR: Record<ChangelogItem['type'], string> = {
-  feature: '#6B5CFF',
-  improvement: '#10B981',
-  fix: '#F59E0B',
+const TYPE_STYLE: Record<ChangelogItem['type'], { background: string; color: string }> = {
+  feature: {
+    background: 'color-mix(in srgb, var(--color-accent) 12%, transparent)',
+    color: 'var(--color-accent)',
+  },
+  improvement: { background: '#10B9811F', color: '#10B981' },
+  fix: { background: '#F59E0B1F', color: '#F59E0B' },
 };
+const ACCENT_BORDER = 'color-mix(in srgb, var(--color-accent) 18%, transparent)';
+const ACCENT_HEADER_GRADIENT =
+  'linear-gradient(180deg, color-mix(in srgb, var(--color-accent) 6%, transparent) 0%, color-mix(in srgb, var(--color-accent) 1%, transparent) 100%)';
 
 const MAX_ITEMS = 5;
 
@@ -49,9 +55,8 @@ export function WhatsNewModal({ open, entry, onClose }: WhatsNewModalProps) {
         <div
           className="border-b px-6 py-5"
           style={{
-            background:
-              'linear-gradient(180deg, rgba(107, 92, 255, 0.06) 0%, rgba(107, 92, 255, 0.01) 100%)',
-            borderColor: 'rgba(107, 92, 255, 0.18)',
+            background: ACCENT_HEADER_GRADIENT,
+            borderColor: ACCENT_BORDER,
           }}
         >
           <DialogTitle className="text-lg font-semibold">
@@ -65,14 +70,12 @@ export function WhatsNewModal({ open, entry, onClose }: WhatsNewModalProps) {
         <ul className="flex flex-col divide-y">
           {items.map(item => {
             const Icon = TYPE_ICON[item.type];
+            const typeStyle = TYPE_STYLE[item.type];
             return (
               <li key={item.title} className="flex items-start gap-3 px-6 py-4">
                 <div
                   className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md"
-                  style={{
-                    background: `${TYPE_COLOR[item.type]}1F`,
-                    color: TYPE_COLOR[item.type],
-                  }}
+                  style={typeStyle}
                 >
                   <Icon size={15} aria-hidden />
                 </div>

@@ -423,7 +423,7 @@ export function Sidebar({
             variant="ghost"
             onClick={() => setProDiscoveryOpen(true)}
           >
-            <Sparkles size={16} className="mr-2" style={{ color: '#6B5CFF' }} />
+            <Sparkles size={16} className="mr-2 text-accent" />
             {t('proDiscovery.sidebarEntry', 'Discover Pro')}
           </Button>
         )}

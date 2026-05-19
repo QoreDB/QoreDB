@@ -8,7 +8,6 @@ import {
   Braces,
   Bug,
   CheckCircle2,
-  Clock,
   ExternalLink,
   FileSpreadsheet,
   GitCompare,
@@ -28,10 +27,15 @@ import { Button } from '@/components/ui/button';
 import type { ProFeature } from '@/lib/license';
 import { featureRequiredTier } from '@/lib/license';
 import { dismissPrompt, isPromptDismissed, trackProEvent } from '@/lib/licenseTracking';
-import { getCheckoutUrl, getPricingUrl, PRO_PRICE_LABEL } from '@/lib/pricing';
+import { getCheckoutUrl, getPricingUrl } from '@/lib/pricing';
 import { LicenseBadge } from './LicenseBadge';
 
-const ACCENT = '#6B5CFF';
+const ACCENT = 'var(--color-accent)';
+const ACCENT_BORDER = 'color-mix(in srgb, var(--color-accent) 25%, transparent)';
+const ACCENT_BG_SUBTLE = 'color-mix(in srgb, var(--color-accent) 4%, transparent)';
+const ACCENT_BG_SOFT = 'color-mix(in srgb, var(--color-accent) 12%, transparent)';
+const ACCENT_GRADIENT =
+  'linear-gradient(180deg, color-mix(in srgb, var(--color-accent) 5%, transparent) 0%, color-mix(in srgb, var(--color-accent) 1%, transparent) 100%)';
 
 const FEATURE_ICONS: Record<ProFeature, LucideIcon> = {
   sandbox: Box,
@@ -58,11 +62,6 @@ interface UpgradePromptProps {
   className?: string;
   variant?: 'inline' | 'compact';
   source?: string;
-  /**
-   * When true, the prompt won't render if the user has dismissed it previously.
-   * Use for ambient banners (sidebar, settings) — not for inline gating.
-   * Defaults to false: the gate page always shows the prompt so users see context.
-   */
   hideIfDismissed?: boolean;
 }
 
@@ -131,8 +130,8 @@ export function UpgradePrompt({
       <section
         className={`flex items-center gap-3 rounded-md border px-3 py-2 text-sm ${className ?? ''}`}
         style={{
-          borderColor: 'rgba(107, 92, 255, 0.25)',
-          background: 'rgba(107, 92, 255, 0.04)',
+          borderColor: ACCENT_BORDER,
+          background: ACCENT_BG_SUBTLE,
         }}
         aria-label={title}
       >
@@ -164,9 +163,8 @@ export function UpgradePrompt({
     <section
       className={`relative flex flex-col gap-4 overflow-hidden rounded-lg border p-6 ${className ?? ''}`}
       style={{
-        borderColor: 'rgba(107, 92, 255, 0.25)',
-        background:
-          'linear-gradient(180deg, rgba(107, 92, 255, 0.05) 0%, rgba(107, 92, 255, 0.01) 100%)',
+        borderColor: ACCENT_BORDER,
+        background: ACCENT_GRADIENT,
       }}
       aria-label={title}
     >
@@ -182,7 +180,7 @@ export function UpgradePrompt({
       <div className="flex items-start gap-3">
         <div
           className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md"
-          style={{ background: 'rgba(107, 92, 255, 0.12)', color: ACCENT }}
+          style={{ background: ACCENT_BG_SOFT, color: ACCENT }}
         >
           <Icon size={20} aria-hidden />
         </div>
@@ -213,15 +211,6 @@ export function UpgradePrompt({
           ))}
         </ul>
       )}
-
-      <div className="flex items-center gap-2 text-xs text-(--color-text-tertiary)">
-        <Clock size={12} aria-hidden />
-        <span>
-          {t('license.upgrade.priceLine', '{{price}} — perpetual, no subscription', {
-            price: PRO_PRICE_LABEL,
-          })}
-        </span>
-      </div>
 
       <div className="flex flex-wrap items-center gap-2 pt-1">
         <Button

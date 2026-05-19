@@ -25,9 +25,12 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import type { ProFeature } from '@/lib/license';
 import { trackProEvent } from '@/lib/licenseTracking';
-import { getCheckoutUrl, getPricingUrl, PRO_PRICE_LABEL } from '@/lib/pricing';
+import { getCheckoutUrl, getPricingUrl } from '@/lib/pricing';
 
-const ACCENT = '#6B5CFF';
+const ACCENT = 'var(--color-accent)';
+const ACCENT_BORDER = 'color-mix(in srgb, var(--color-accent) 20%, transparent)';
+const ACCENT_HEADER_GRADIENT =
+  'linear-gradient(180deg, color-mix(in srgb, var(--color-accent) 8%, transparent) 0%, color-mix(in srgb, var(--color-accent) 1%, transparent) 100%)';
 
 interface FeatureEntry {
   id: ProFeature;
@@ -90,13 +93,12 @@ export function ProDiscoveryPanel({ open, onClose, source, onActivate }: ProDisc
         <div
           className="border-b px-6 py-5"
           style={{
-            background:
-              'linear-gradient(180deg, rgba(107, 92, 255, 0.08) 0%, rgba(107, 92, 255, 0.01) 100%)',
-            borderColor: 'rgba(107, 92, 255, 0.2)',
+            background: ACCENT_HEADER_GRADIENT,
+            borderColor: ACCENT_BORDER,
           }}
         >
           <DialogTitle className="text-lg font-semibold">
-            {t('proDiscovery.title', 'QoreDB Pro — Built for serious work')}
+            {t('proDiscovery.title', 'QoreDB Pro: Built for serious work')}
           </DialogTitle>
           <DialogDescription className="mt-1 text-sm">
             {t(
@@ -162,11 +164,6 @@ export function ProDiscoveryPanel({ open, onClose, source, onActivate }: ProDisc
           <div className="flex flex-col text-xs text-(--color-text-secondary)">
             <span className="text-sm font-semibold text-(--color-text-primary)">
               {t('proDiscovery.priceTitle', 'One-time payment, lifetime access')}
-            </span>
-            <span>
-              {t('license.upgrade.priceLine', '{{price}} — perpetual, no subscription', {
-                price: PRO_PRICE_LABEL,
-              })}
             </span>
           </div>
           <div className="flex flex-wrap items-center gap-2">

@@ -136,8 +136,7 @@ export function LicenseActivation() {
           <Button
             variant="link"
             size="sm"
-            className="w-fit gap-1.5 px-0 text-xs"
-            style={{ color: '#6B5CFF' }}
+            className="w-fit gap-1.5 px-0 text-xs text-accent"
             onClick={() => openUrl('https://qoredb.com/pricing')}
           >
             <ExternalLink size={12} />

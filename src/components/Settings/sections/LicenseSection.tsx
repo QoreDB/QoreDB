@@ -59,11 +59,7 @@ export function LicenseSection({ searchQuery }: LicenseSectionProps) {
                 <span className={enabled ? 'text-(--color-text-primary)' : 'text-muted-foreground'}>
                   {t(`settings.license.featureNames.${feature}`)}
                 </span>
-                {!enabled && (
-                  <span className="ml-auto text-xs font-medium" style={{ color: '#6B5CFF' }}>
-                    Pro
-                  </span>
-                )}
+                {!enabled && <span className="ml-auto text-xs font-medium text-accent">Pro</span>}
               </li>
             );
           })}

@@ -40,7 +40,7 @@ export function recordQueryAndMaybeNotify(tier: LicenseTier, t: TFunction): void
         'Support the project and unlock the Pro features built for serious work.'
       ),
       duration: 12000,
-      icon: <Sparkles size={16} style={{ color: '#6B5CFF' }} />,
+      icon: <Sparkles size={16} style={{ color: 'var(--color-accent)' }} />,
       action: {
         label: t('usageBanner.cta', 'Discover Pro'),
         onClick: () => {

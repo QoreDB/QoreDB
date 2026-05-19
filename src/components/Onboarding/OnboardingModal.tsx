@@ -21,7 +21,12 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { AnalyticsService } from './AnalyticsService';
 
-const ACCENT = '#6B5CFF';
+const ACCENT = 'var(--color-accent)';
+const ACCENT_BG_SUBTLE = 'color-mix(in srgb, var(--color-accent) 8%, transparent)';
+const ACCENT_BG_SOFT = 'color-mix(in srgb, var(--color-accent) 10%, transparent)';
+const ACCENT_BORDER = 'color-mix(in srgb, var(--color-accent) 25%, transparent)';
+const ACCENT_GRADIENT =
+  'linear-gradient(180deg, color-mix(in srgb, var(--color-accent) 4%, transparent) 0%, transparent 100%)';
 const TOTAL_STEPS = 5;
 const EXIT_DURATION_MS = 160;
 
@@ -167,7 +172,7 @@ export function OnboardingModal({ onComplete }: OnboardingModalProps) {
             <div className="flex min-h-[380px] flex-col items-center justify-center gap-4 text-center">
               <div
                 className="flex h-20 w-20 items-center justify-center rounded-2xl"
-                style={{ background: 'rgba(107, 92, 255, 0.08)' }}
+                style={{ background: ACCENT_BG_SUBTLE }}
               >
                 <img src="/logo.png" alt="QoreDB" width={56} height={56} />
               </div>
@@ -205,7 +210,7 @@ export function OnboardingModal({ onComplete }: OnboardingModalProps) {
                   >
                     <div
                       className="flex h-9 w-9 items-center justify-center rounded-md"
-                      style={{ background: 'rgba(107, 92, 255, 0.1)', color: ACCENT }}
+                      style={{ background: ACCENT_BG_SOFT, color: ACCENT }}
                     >
                       <Icon size={18} aria-hidden />
                     </div>
@@ -284,9 +289,8 @@ export function OnboardingModal({ onComplete }: OnboardingModalProps) {
                 <div
                   className="flex flex-col gap-3 rounded-lg border p-4"
                   style={{
-                    borderColor: 'rgba(107, 92, 255, 0.25)',
-                    background:
-                      'linear-gradient(180deg, rgba(107, 92, 255, 0.04) 0%, transparent 100%)',
+                    borderColor: ACCENT_BORDER,
+                    background: ACCENT_GRADIENT,
                   }}
                 >
                   <span

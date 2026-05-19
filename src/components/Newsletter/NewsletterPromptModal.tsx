@@ -8,7 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { markNewsletterPromptSeen, NEWSLETTER_URL } from '@/lib/newsletter';
 
-const ACCENT = '#6B5CFF';
+const ACCENT = 'var(--color-accent)';
+const ACCENT_BG_SOFT = 'color-mix(in srgb, var(--color-accent) 12%, transparent)';
 
 interface NewsletterPromptModalProps {
   open: boolean;
@@ -37,7 +38,7 @@ export function NewsletterPromptModal({ open, onClose }: NewsletterPromptModalPr
         <div className="flex flex-col items-center gap-3 px-6 pt-8 pb-4 text-center">
           <div
             className="flex h-12 w-12 items-center justify-center rounded-full"
-            style={{ background: 'rgba(107, 92, 255, 0.12)', color: ACCENT }}
+            style={{ background: ACCENT_BG_SOFT, color: ACCENT }}
           >
             <Mail size={22} aria-hidden />
           </div>

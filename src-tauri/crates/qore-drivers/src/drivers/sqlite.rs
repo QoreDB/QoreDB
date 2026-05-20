@@ -87,7 +87,8 @@ impl SqliteDriver {
                 Box::pin(async move {
                     let mut handle = conn.lock_handle().await?;
                     let db = handle.as_raw_handle().as_ptr();
-                    super::sqlite_functions::register(db)
+                    // SAFETY: `db` is the live handle owned by `handle`.
+                    unsafe { super::sqlite_functions::register(db) }
                         .map_err(|e| sqlx::Error::Configuration(e.into()))?;
                     Ok(())
                 })

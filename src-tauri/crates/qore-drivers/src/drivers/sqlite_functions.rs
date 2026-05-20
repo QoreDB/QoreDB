@@ -18,7 +18,11 @@ use libsqlite3_sys as ffi;
 static IF_FN_NAME: &[u8] = b"if\0";
 
 /// Registers QoreDB's custom `if()` scalar function on a raw SQLite handle.
-pub fn register(db: *mut ffi::sqlite3) -> Result<(), String> {
+///
+/// # Safety
+///
+/// `db` must be a valid, open SQLite connection handle.
+pub unsafe fn register(db: *mut ffi::sqlite3) -> Result<(), String> {
     // `if` always takes exactly three arguments, mirroring MySQL's
     // `IF(expr, true_value, false_value)`.
     let rc = unsafe {

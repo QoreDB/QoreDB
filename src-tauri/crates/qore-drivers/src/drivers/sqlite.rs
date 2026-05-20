@@ -26,7 +26,7 @@ use sqlx::pool::PoolConnection;
 use sqlx::sqlite::{
     Sqlite, SqliteColumn, SqliteConnectOptions, SqlitePool, SqlitePoolOptions, SqliteRow,
 };
-use sqlx::{Column, Row, TypeInfo};
+use sqlx::{Column, Row, TypeInfo, ValueRef};
 use tokio::sync::{Mutex, RwLock};
 
 use qore_core::error::{EngineError, EngineResult};
@@ -153,31 +153,29 @@ impl SqliteDriver {
         }
     }
 
-    /// Converts a SQLx row to our universal Row type
-    /// Extracts a value from a SqliteRow at the given index, falling back to a
-    /// type-probing cascade. Reserved for unknown column types or when the
-    /// dispatched decoder fails — the happy path goes through [`SqliteDecoder`].
+    /// Extracts a value from a SqliteRow by inspecting its actual runtime
+    /// storage class. Used for columns SQLx could not type statically — it
+    /// reports those as `NULL`, e.g. expressions and user-defined functions
+    /// such as `if()` — and as the recovery path when a dispatched decoder
+    /// fails. SQLite is dynamically typed, so the storage class is read per
+    /// value rather than per column.
     fn extract_value(row: &SqliteRow, idx: usize) -> Value {
-        if let Ok(v) = row.try_get::<Option<i64>, _>(idx) {
-            return v.map(Value::Int).unwrap_or(Value::Null);
-        }
-        if let Ok(v) = row.try_get::<Option<i32>, _>(idx) {
-            return v.map(|i| Value::Int(i as i64)).unwrap_or(Value::Null);
-        }
-        if let Ok(v) = row.try_get::<Option<f64>, _>(idx) {
-            return v.map(Value::Float).unwrap_or(Value::Null);
-        }
-        if let Ok(v) = row.try_get::<Option<bool>, _>(idx) {
-            return v.map(Value::Bool).unwrap_or(Value::Null);
-        }
-        if let Ok(v) = row.try_get::<Option<String>, _>(idx) {
-            return v.map(Value::Text).unwrap_or(Value::Null);
-        }
-        if let Ok(v) = row.try_get::<Option<Vec<u8>>, _>(idx) {
-            return v.map(Value::Bytes).unwrap_or(Value::Null);
+        let raw = match row.try_get_raw(idx) {
+            Ok(raw) => raw,
+            Err(_) => return Value::Null,
+        };
+        if raw.is_null() {
+            return Value::Null;
         }
 
-        Value::Null
+        // For a non-NULL value, `type_info()` reflects the real storage class.
+        let decoded = match raw.type_info().name() {
+            "INTEGER" => row.try_get::<i64, _>(idx).map(Value::Int),
+            "REAL" => row.try_get::<f64, _>(idx).map(Value::Float),
+            "BLOB" => row.try_get::<Vec<u8>, _>(idx).map(Value::Bytes),
+            _ => row.try_get::<String, _>(idx).map(Value::Text),
+        };
+        decoded.unwrap_or(Value::Null)
     }
 
     /// Gets column info from a SqliteRow
@@ -234,12 +232,16 @@ impl Default for SqliteDriver {
 
 /// Per-column typed decoder.
 ///
-/// SQLite reports five dynamic types via `type_info().name()` (`NULL`, `INTEGER`,
-/// `REAL`, `TEXT`, `BLOB`) plus the declared schema names for typed columns.
-/// Computing one decoder per column up-front avoids the cascade of failed
-/// `try_get`s that the original `extract_value` triggered — each failure built a
-/// `format!()`-ed error message in sqlx, accounting for ~28 % of CPU active time
-/// on the workload (see `doc/internals/PROFILES.md`, snapshot 2026-04-26).
+/// `SqliteColumn::type_info()` reports the type SQLx infers for a statement
+/// column: a declared schema type, an inferred storage class, or `NULL` when
+/// SQLx cannot determine one (expressions, user-defined functions). Dispatching
+/// one decoder per column up-front avoids a per-value `try_get` cascade — each
+/// failed `try_get` built a `format!()`-ed error message in sqlx, ~28 % of CPU
+/// active time on the profiled workload (see `doc/internals/PROFILES.md`,
+/// snapshot 2026-04-26).
+///
+/// Columns SQLx reports as `NULL` carry no usable static type, so they use
+/// [`SqliteDecoder::Fallback`], which reads each value's runtime storage class.
 #[derive(Clone, Copy)]
 enum SqliteDecoder {
     Int,
@@ -247,7 +249,6 @@ enum SqliteDecoder {
     Bool,
     Text,
     Bytes,
-    Null,
     Fallback,
 }
 
@@ -264,7 +265,8 @@ impl SqliteDecoder {
             "TEXT" | "CLOB" | "VARCHAR" | "CHARACTER" | "CHAR" | "NCHAR" | "NVARCHAR"
             | "VARYING CHARACTER" | "NATIVE CHARACTER" => Self::Text,
             "BLOB" => Self::Bytes,
-            "NULL" => Self::Null,
+            // `NULL` means SQLx could not type the column — fall through to a
+            // per-value runtime probe instead of assuming every value is NULL.
             _ => Self::Fallback,
         }
     }
@@ -297,7 +299,6 @@ impl SqliteDecoder {
                 Ok(None) => Value::Null,
                 Err(_) => SqliteDriver::extract_value(row, idx),
             },
-            Self::Null => Value::Null,
             Self::Fallback => SqliteDriver::extract_value(row, idx),
         }
     }

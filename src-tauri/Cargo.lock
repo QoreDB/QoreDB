@@ -5422,6 +5422,7 @@ dependencies = [
  "compact_str",
  "duckdb",
  "futures",
+ "libsqlite3-sys",
  "mongodb",
  "percent-encoding",
  "qore-core",

@@ -83,6 +83,15 @@ impl SqliteDriver {
             .max_connections(max_connections)
             .min_connections(min_connections)
             .acquire_timeout(std::time::Duration::from_secs(acquire_timeout_secs))
+            .after_connect(|conn, _meta| {
+                Box::pin(async move {
+                    let mut handle = conn.lock_handle().await?;
+                    let db = handle.as_raw_handle().as_ptr();
+                    super::sqlite_functions::register(db)
+                        .map_err(|e| sqlx::Error::Configuration(e.into()))?;
+                    Ok(())
+                })
+            })
             .connect_with(opts)
             .await
             .map_err(|e| EngineError::connection_failed(e.to_string()))?;
@@ -1725,7 +1734,7 @@ mod tests {
             pool_min_connections: None,
             proxy: None,
             mssql_auth: None,
-clickhouse_cluster: None,
+            clickhouse_cluster: None,
         };
 
         let session_id = driver.connect(&config).await.unwrap();
@@ -1783,7 +1792,7 @@ clickhouse_cluster: None,
             pool_min_connections: None,
             proxy: None,
             mssql_auth: None,
-clickhouse_cluster: None,
+            clickhouse_cluster: None,
         };
 
         let session_id = driver.connect(&config).await.unwrap();
@@ -1820,6 +1829,76 @@ clickhouse_cluster: None,
             .await
             .unwrap();
         assert_eq!(result.rows.len(), 0);
+
+        driver.disconnect(session_id).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_if_function_in_view() {
+        let driver = SqliteDriver::new();
+
+        let config = ConnectionConfig {
+            driver: "sqlite".to_string(),
+            host: ":memory:".to_string(),
+            port: 0,
+            username: String::new(),
+            password: String::new(),
+            database: None,
+            ssl: false,
+            ssl_mode: None,
+            environment: "development".to_string(),
+            read_only: false,
+            ssh_tunnel: None,
+            pool_acquire_timeout_secs: None,
+            pool_max_connections: None,
+            pool_min_connections: None,
+            proxy: None,
+            mssql_auth: None,
+            clickhouse_cluster: None,
+        };
+
+        let session_id = driver.connect(&config).await.unwrap();
+
+        driver
+            .execute(
+                session_id,
+                "CREATE TABLE scores (id INTEGER PRIMARY KEY, score INTEGER)",
+                QueryId::new(),
+            )
+            .await
+            .unwrap();
+        driver
+            .execute(
+                session_id,
+                "INSERT INTO scores (id, score) VALUES (1, 80), (2, 30)",
+                QueryId::new(),
+            )
+            .await
+            .unwrap();
+
+        // A view whose body calls if() — the exact shape reported in issue #49.
+        driver
+            .execute(
+                session_id,
+                "CREATE VIEW graded AS \
+                 SELECT id, if(score >= 50, 'pass', 'fail') AS grade FROM scores",
+                QueryId::new(),
+            )
+            .await
+            .unwrap();
+
+        let result = driver
+            .execute(
+                session_id,
+                "SELECT grade FROM graded ORDER BY id",
+                QueryId::new(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(result.rows.len(), 2);
+        assert!(matches!(&result.rows[0].values[0], Value::Text(s) if s == "pass"));
+        assert!(matches!(&result.rows[1].values[0], Value::Text(s) if s == "fail"));
 
         driver.disconnect(session_id).await.unwrap();
     }

@@ -36,6 +36,9 @@ bigdecimal = { workspace = true }
 
 # Database drivers
 sqlx = { workspace = true }
+# Raw SQLite FFI — used to register a MySQL-compatible `if()` scalar function.
+# Version must stay compatible with the `libsqlite3-sys` pulled in by `sqlx`.
+libsqlite3-sys = "0.30"
 mongodb = { workspace = true }
 redis = { workspace = true }
 tiberius = { workspace = true }

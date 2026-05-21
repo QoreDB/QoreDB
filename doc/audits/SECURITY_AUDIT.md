@@ -22,12 +22,11 @@ QoreDB follows a solid baseline for a desktop database client: credentials are s
   - **Current state:** The app now defines a CSP with explicit `default-src`, `script-src`, `style-src`, `img-src`, `font-src`, and `connect-src` allowlists.
   - **Assessment:** This closes the previously documented `csp: null` issue and materially improves resistance to webview content injection.
 
-- **Medium Risk: Filesystem permissions remain broad**
+- **Resolved Since v0.1.29: Filesystem permissions scoped to an allow-list**
   - **Location:** `src-tauri/capabilities/default.json`
-  - **Finding:** The frontend has write access through `fs:allow-write-text-file` and `fs:allow-write-file`, plus text-file read access, with a deny-list for sensitive locations (`.ssh`, `.aws`, `.kube`, history files, `/etc`, `/root`, …) but no positive allow-list.
-  - **Implication:** This is partly required for notebooks, exports, imports, and log saves; the deny-list prevents the worst exfiltration paths but still expands the blast radius of any future frontend compromise.
-  - **Status (v0.1.28):** Deny-list shipped in v0.1.28 (`fs:scope` block in `default.json`). Tightening to a positive allow-list (`$DOCUMENT/qoredb/*`, `$DOWNLOAD/*`, `$APPDATA/qoredb/*`, `$HOME/.qoredb/*`) is **deferred to v0.1.29** — it requires a path-by-path audit of exports / notebooks / blob downloads to avoid regressions, which is out of scope for v0.1.28.
-  - **Recommendation:** Plan the allow-list switch alongside the v0.1.29 sandbox work.
+  - **Finding:** The frontend previously had broad write access through `fs:allow-write-text-file` and `fs:allow-write-file`, mitigated only by a deny-list of sensitive locations (`.ssh`, `.aws`, `.kube`, history files, `/etc`, `/root`, …) with no positive allow-list.
+  - **Current state (v0.1.29):** `fs:scope` now ships a positive **allow-list** (`$APPCONFIG`, `$APPDATA`, `$APPLOCALDATA` and their subtrees); the sensitive-path deny-list is retained as defence in depth (a denied path is rejected even within an allowed parent). A path-by-path audit confirmed every frontend write (exports, notebooks, blob downloads, config/project transfer, log saves) goes through the system file dialog — and Tauri 2 grants the fs plugin runtime scope for dialog-selected paths — so no regression results from the switch.
+  - **Assessment:** This closes the item deferred from v0.1.28 and bounds the blast radius of any future frontend compromise to QoreDB's own directories plus paths the user explicitly picks.
 
 ### 2. Backend Safety Enforcement
 

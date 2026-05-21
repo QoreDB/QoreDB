@@ -4,6 +4,7 @@
 
 pub mod ai;
 pub mod backup;
+pub mod cache;
 pub mod confirmation;
 pub mod connection;
 pub mod connection_url;

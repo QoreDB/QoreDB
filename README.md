@@ -111,6 +111,8 @@ DBeaver, pgAdmin, phpMyAdmin do the job — but they feel slow, dated, and full 
 - **Cross-database federation** — Query and join across active connections via DuckDB
 - **Sandbox mode** — Isolated local changes with migration generation
 - **Backup &amp; restore** — Visual wrappers around `pg_dump`, `mysqldump`, `mongodump` and `sqlite3 .dump`, with streaming logs, cancel mid-run and tool-path overrides
+- **Query result cache** — Recent table navigation served instantly from a local cache, auto-invalidated when you change data through QoreDB
+- **Plugin system** — Install declarative plugins contributing SQL snippet packs, connection templates and color themes — no code execution
 </details>
 
 <details>
@@ -145,6 +147,7 @@ DBeaver, pgAdmin, phpMyAdmin do the job — but they feel slow, dated, and full 
 - **SSH tunneling** — Native OpenSSH client with proxy jump support
 - **SQL Server Windows authentication** — NTLM (username/password) and SSPI/Kerberos (integrated, no credentials)
 - **Environment safety** — Dev/Staging/Prod guards, dangerous query detection, read-only mode
+- **Query rate limiting** — Per-connection guardrail against accidental runaway query loops, plus a filesystem capability allow-list
 - **Universal Query Interceptor** — Central hooks for safety, audit and profiling
 - **Audit logging** — Sensitive content redaction in logs, stable SHA-256 query fingerprint per entry, JSONL/CSV export from the full retained trail
 - **Connection resilience** — Automatic reconnection, health monitoring, smart keep-alive

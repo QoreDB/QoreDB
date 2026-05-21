@@ -7,6 +7,7 @@ pub mod ai;
 #[cfg(feature = "pro")]
 pub mod api;
 pub mod backup;
+pub mod cache;
 pub mod commands;
 #[cfg(feature = "pro")]
 pub mod contracts;
@@ -33,6 +34,7 @@ use std::sync::Arc;
 use tauri::Manager;
 use tokio::sync::Mutex;
 
+use cache::QueryCache;
 use commands::workspace::SharedWorkspaceManager;
 use engine::drivers::clickhouse::ClickHouseDriver;
 use engine::drivers::cockroachdb::CockroachDbDriver;
@@ -66,6 +68,7 @@ pub struct AppState {
     pub policy: SafetyPolicy,
     pub query_manager: Arc<QueryManager>,
     pub query_rate_limiter: Arc<QueryRateLimiter>,
+    pub query_cache: Arc<QueryCache>,
     pub interceptor: Arc<InterceptorPipeline>,
     pub export_pipeline: Arc<ExportPipeline>,
     pub share_manager: Arc<ShareManager>,
@@ -139,6 +142,7 @@ impl AppState {
             policy,
             query_manager,
             query_rate_limiter: Arc::new(QueryRateLimiter::with_defaults()),
+            query_cache: Arc::new(QueryCache::new()),
             interceptor,
             export_pipeline,
             share_manager,
@@ -335,6 +339,11 @@ pub fn run() {
             // Governance commands
             commands::query::get_governance_limits,
             commands::query::update_governance_limits,
+            // Query result cache commands
+            commands::cache::get_cache_config,
+            commands::cache::set_cache_config,
+            commands::cache::clear_query_cache,
+            commands::cache::get_cache_stats,
             // Sandbox commands
             commands::sandbox::generate_migration_sql,
             commands::sandbox::apply_sandbox_changes,

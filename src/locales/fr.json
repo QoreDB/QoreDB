@@ -1,4 +1,14 @@
 {
+  "cache": {
+    "title": "Cache des résultats",
+    "description": "Met en cache les résultats de navigation récents pour un affichage instantané.",
+    "enabledLabel": "Activer le cache des résultats",
+    "enabledDescription": "Les résultats en cache sont invalidés lorsque vous modifiez des données via QoreDB, et expirent après la durée de vie ci-dessous.",
+    "ttl": "Durée de vie (secondes)",
+    "maxEntries": "Entrées maximum",
+    "stats": "{{entries}} entrées en cache · {{hitRate}} % de réussite",
+    "clear": "Vider le cache"
+  },
   "plugins": {
     "title": "Extensions",
     "description": "Étendez QoreDB avec des extensions déclaratives — packs de snippets SQL, modèles de connexion et thèmes de couleurs. Aucun code n'est exécuté.",

@@ -72,6 +72,7 @@ pub async fn insert_row(
     let session_manager = Arc::clone(&state_guard.session_manager);
     let interceptor = Arc::clone(&state_guard.interceptor);
     let changelog_store = Arc::clone(&state_guard.changelog_store);
+    let query_cache = Arc::clone(&state_guard.query_cache);
     drop(state_guard);
 
     let session = parse_session_id(&session_id)?;
@@ -213,6 +214,7 @@ pub async fn insert_row(
                 table.clone(),
             );
 
+            query_cache.invalidate_session(&session_id);
             Ok(MutationResponse {
                 success: true,
                 result: Some(result),
@@ -262,6 +264,7 @@ pub async fn update_row(
     let session_manager = Arc::clone(&state_guard.session_manager);
     let interceptor = Arc::clone(&state_guard.interceptor);
     let changelog_store = Arc::clone(&state_guard.changelog_store);
+    let query_cache = Arc::clone(&state_guard.query_cache);
     drop(state_guard);
     let session = parse_session_id(&session_id)?;
 
@@ -414,6 +417,7 @@ pub async fn update_row(
                 table.clone(),
             );
 
+            query_cache.invalidate_session(&session_id);
             Ok(MutationResponse {
                 success: true,
                 result: Some(result),
@@ -462,6 +466,7 @@ pub async fn delete_row(
     let session_manager = Arc::clone(&state_guard.session_manager);
     let interceptor = Arc::clone(&state_guard.interceptor);
     let changelog_store = Arc::clone(&state_guard.changelog_store);
+    let query_cache = Arc::clone(&state_guard.query_cache);
     drop(state_guard);
     let session = parse_session_id(&session_id)?;
 
@@ -610,6 +615,7 @@ pub async fn delete_row(
                 table.clone(),
             );
 
+            query_cache.invalidate_session(&session_id);
             Ok(MutationResponse {
                 success: true,
                 result: Some(result),

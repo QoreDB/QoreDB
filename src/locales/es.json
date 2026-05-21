@@ -1,4 +1,14 @@
 {
+  "cache": {
+    "title": "Caché de resultados",
+    "description": "Almacena en caché los resultados de navegación recientes para que la navegación repetida sea instantánea.",
+    "enabledLabel": "Activar la caché de resultados",
+    "enabledDescription": "Los resultados en caché se invalidan cuando cambias datos a través de QoreDB y caducan tras el tiempo de vida indicado abajo.",
+    "ttl": "Tiempo de vida (segundos)",
+    "maxEntries": "Entradas máximas",
+    "stats": "{{entries}} entradas en caché · {{hitRate}} % de aciertos",
+    "clear": "Vaciar caché"
+  },
   "plugins": {
     "title": "Complementos",
     "description": "Amplía QoreDB con complementos declarativos — paquetes de snippets SQL, plantillas de conexión y temas de color. No se ejecuta ningún código.",
@@ -89,6 +99,7 @@
     "install": "Instalar y reiniciar",
     "installing": "Instalando actualización…",
     "installed": "Actualización instalada.",
+    "restart": "Reiniciar",
     "restartRequired": "Reinicia QoreDB para terminar de aplicar la actualización.",
     "installFailed": "Error al instalar la actualización."
   },
@@ -155,10 +166,10 @@
       "deleteFail": "Error al eliminar la conexión",
       "newQuery": "Nueva consulta",
       "newNotebook": "Nuevo Notebook",
-      "credentialLoadFail": "Error al cargar los detalles de la conexión",
-      "testTitleSuccess": "¡Conexión a {{name}} exitosa!",
       "backup": "Respaldar base de datos…",
-      "restore": "Restaurar desde copia de seguridad…"
+      "restore": "Restaurar desde copia de seguridad…",
+      "credentialLoadFail": "Error al cargar los detalles de la conexión",
+      "testTitleSuccess": "¡Conexión a {{name}} exitosa!"
     },
     "url": {
       "useUrl": "Conectar usando URL/DSN",
@@ -585,6 +596,7 @@
       "installUpdate": "Instalar v{{version}}",
       "installing": "Instalando...",
       "installed": "Actualización instalada — reinicia para aplicar.",
+      "restart": "Reiniciar ahora",
       "upToDate": "¡Estás al día!"
     },
     "startup": {
@@ -597,6 +609,14 @@
     },
     "modified": "Modificado",
     "shortcuts": {
+      "title": "Atajos de teclado",
+      "description": "Haz clic en un atajo para grabar una nueva combinación. Esc cancela.",
+      "recordHint": "Haz clic en un atajo para reasignarlo. La nueva combinación se aplica de inmediato.",
+      "recording": "Presiona teclas…",
+      "errorSystemReserved": "Reservado por el SO",
+      "conflictTooltip": "Conflicto con otro atajo",
+      "resetOne": "Restablecer al valor por defecto",
+      "resetAll": "Restablecer todos",
       "categoryNavigation": "Navegación",
       "categoryEditor": "Editor",
       "categoryGeneral": "General",
@@ -608,21 +628,18 @@
       "newQuery": "Nueva pestaña de consulta",
       "runQuery": "Ejecutar consulta",
       "closeTab": "Cerrar pestaña",
-      "escape": "Cerrar superposición / Cancelar",
-      "title": "Atajos de teclado",
-      "description": "Haz clic en un atajo para grabar una nueva combinación. Esc cancela.",
-      "recordHint": "Haz clic en un atajo para reasignarlo. La nueva combinación se aplica de inmediato.",
-      "recording": "Presiona teclas…",
-      "errorSystemReserved": "Reservado por el SO",
-      "conflictTooltip": "Conflicto con otro atajo",
-      "resetOne": "Restablecer al valor por defecto",
-      "resetAll": "Restablecer todos"
+      "escape": "Cerrar superposición / Cancelar"
     },
     "tabs": {
       "title": "Pestañas",
       "description": "Configurar el comportamiento de la barra de pestañas.",
       "groupByConnection": "Agrupar pestañas por conexión",
       "groupByConnectionDescription": "Mostrar pestañas en grupos plegables bajo el nombre de su conexión."
+    },
+    "onboarding": {
+      "title": "Tour de bienvenida",
+      "description": "Repite el tour de bienvenida para repasar qué hace QoreDB, el modelo de privacidad y la diferencia entre Free y Pro.",
+      "replay": "Repetir onboarding"
     },
     "backupTools": {
       "title": "Rutas de herramientas de respaldo",
@@ -742,6 +759,23 @@
     "multiStatementNotice": "Se detectaron múltiples sentencias ({{count}}). Solo se muestra el último resultado.",
     "expandEditor": "Expandir editor",
     "collapseEditor": "Contraer editor",
+    "truncated": {
+      "title": "Resultados truncados por el límite de gobernanza",
+      "description": "Mostrando {{shown}} de {{total}} filas. Las filas adicionales se ocultaron para proteger la memoria y el rendimiento de la interfaz.",
+      "rerun": "Volver a ejecutar sin límite"
+    },
+    "timedOut": {
+      "rerun": "Volver a ejecutar sin tiempo límite"
+    },
+    "overrideLimits": {
+      "titleRows": "¿Volver a ejecutar sin límite de filas?",
+      "titleTimeout": "¿Volver a ejecutar sin tiempo límite?",
+      "descriptionRows": "El límite de filas impuesto por la política de tu entorno se omitirá para esta ejecución. Los resultados no serán truncados.",
+      "descriptionTimeout": "El tiempo límite de ejecución impuesto por la política de tu entorno se omitirá para esta ejecución. La consulta puede ejecutarse hasta que la base de datos la cancele.",
+      "warning": "Los conjuntos de resultados grandes pueden consumir memoria significativa y ralentizar la interfaz. Las consultas de larga duración pueden mantener bloqueos o consumir recursos de la base de datos.",
+      "confirm": "Ejecutar sin límite",
+      "toast": "Volviendo a ejecutar la consulta sin límites de gobernanza"
+    },
     "time": {
       "exec": "EJEC",
       "transfer": "TRANSFER",
@@ -1087,6 +1121,8 @@
   "whatsNew": {
     "title": "Novedades",
     "titleWithVersion": "Novedades en v{{version}}",
+    "subtitle": "Un vistazo rápido a los cambios desde tu última sesión.",
+    "dismiss": "Entendido",
     "tryIt": "Probar",
     "markSeen": "Descartar",
     "feature": "Nuevo",
@@ -1310,24 +1346,58 @@
     "jsonLabel": "Documento JSON"
   },
   "onboarding": {
+    "skip": "Omitir",
     "welcome": {
       "title": "Bienvenido a QoreDB",
       "subtitle": "El cliente de bases de datos universal para la era moderna.",
+      "tagline": "12 drivers · SQL + NoSQL · Rápido con Rust · Local-first",
       "next": "Iniciar tour"
     },
-    "concepts": {
-      "title": "¿Por qué QoreDB?",
-      "universalTitle": "Cliente universal",
-      "universalDesc": "Administra bases de datos SQL (Postgres, MySQL) y NoSQL (MongoDB, Redis) en una interfaz unificada.",
-      "localTitle": "Local primero",
-      "localDesc": "Tus datos se quedan en tu máquina. Sin intermediarios en la nube, sin rastreo intrusivo.",
-      "next": "Continuar"
+    "capabilities": {
+      "title": "Qué puedes hacer con QoreDB",
+      "subtitle": "Una sola app para todo tu flujo de trabajo con bases de datos — sin saltar entre herramientas.",
+      "driversTitle": "12 drivers nativos",
+      "driversDesc": "PostgreSQL, MySQL, SQL Server, SQLite, DuckDB, CockroachDB, ClickHouse, MongoDB, Redis — y más.",
+      "aiTitle": "Asistente de IA",
+      "aiDesc": "Genera, corrige y explica SQL/MQL con contexto completo del esquema. Usa tus propias claves de OpenAI, Anthropic u Ollama local.",
+      "notebooksTitle": "Notebooks de base de datos",
+      "notebooksDesc": "Combina celdas SQL, Markdown y gráficos con variables entre celdas. Archivos .qnb compatibles con Git.",
+      "federationTitle": "Consultas entre bases de datos",
+      "federationDesc": "Combina tablas de PostgreSQL, MySQL, MongoDB y más en una sola sentencia SQL."
+    },
+    "privacy": {
+      "title": "Local-first y seguro por defecto",
+      "subtitle": "Los datos de producción merecen una herramienta cuidadosa. Así es como QoreDB los protege.",
+      "vaultTitle": "Credenciales en el llavero del SO",
+      "vaultDesc": "Las contraseñas se cifran con Argon2 y se almacenan en el vault del sistema — nunca en texto plano en disco.",
+      "guardsTitle": "Reglas de seguridad en producción",
+      "guardsDesc": "Las consultas peligrosas se detectan y se confirman dos veces en producción. Modo de solo lectura para cualquier conexión con un solo toggle.",
+      "sandboxTitle": "Modo Sandbox",
+      "sandboxDesc": "Prueba consultas destructivas contra una conexión real sin tocar datos reales. Cada cambio se revierte.",
+      "localTitle": "Nada sale de tu máquina",
+      "localDesc": "Sin sincronización en la nube, sin telemetría de tus datos, sin indexación remota del esquema. Tus consultas y resultados permanecen locales."
+    },
+    "tiers": {
+      "title": "Open core — Free y Pro",
+      "subtitle": "QoreDB es de código abierto. Pro es para las cargas de trabajo que se pagan solas.",
+      "freeLabel": "Free",
+      "freeFor": "Proyectos personales y exploración",
+      "freeBullet1": "Los 12 drivers de bases de datos",
+      "freeBullet2": "Editor de consultas, notebooks, diagramas ER",
+      "freeBullet3": "Tus propias claves de IA",
+      "proLabel": "Pro",
+      "proFor": "Para tu trabajo profesional",
+      "proBullet1": "Modo Sandbox, viaje en el tiempo de datos, diff visual",
+      "proBullet2": "Registro de auditoría avanzado, perfilado, reglas de seguridad personalizadas",
+      "proBullet3": "Contratos de datos, Data API instantánea, exportaciones avanzadas",
+      "footnote": "Pro es un pago único con licencia perpetua. Sin suscripción."
     },
     "analytics": {
       "title": "Ayúdanos a mejorar",
       "subtitle": "Somos un proyecto de código abierto. Los datos de uso anónimos nos ayudan a priorizar funcionalidades y corregir errores — puedes cambiar esto en cualquier momento en Configuración.",
       "checkbox": "Compartir analíticas de uso anónimas (recomendado)",
       "privacyHint": "Solo recopilamos informes de errores y conteos de uso de funcionalidades. Ninguna consulta, resultado ni credencial sale de tu máquina.",
+      "guarantee": "Tus consultas, resultados y credenciales nunca salen de tu máquina — independientemente de esta configuración.",
       "finish": "Comenzar"
     },
     "workspace": {
@@ -1442,6 +1512,12 @@
       "noEntries": "Sin entradas en el registro de auditoría",
       "upgradeForFilters": "Actualiza a Pro para obtener filtros, exportación y estadísticas avanzadas",
       "blockedBy": "Bloqueado por: {{rule}}",
+      "fingerprintFilter": "Huella",
+      "export": {
+        "label": "Exportar",
+        "format": "Formato",
+        "fromDisk": "Incluir historial rotado"
+      },
       "filters": {
         "environment": "Entorno",
         "allEnvironments": "Todos los entornos",
@@ -1468,10 +1544,10 @@
         "database": "Base de datos",
         "executionTime": "Tiempo de ejecución",
         "rowCount": "Cantidad de filas",
-        "blockedBy": "Bloqueada por regla de seguridad",
-        "error": "Error",
         "fingerprint": "Huella",
-        "filterByFingerprint": "Filtrar por esta huella"
+        "filterByFingerprint": "Filtrar por esta huella",
+        "blockedBy": "Bloqueada por regla de seguridad",
+        "error": "Error"
       },
       "stats": {
         "total": "Total de consultas",
@@ -1480,12 +1556,6 @@
         "success": "Exitosas",
         "failed": "Fallidas",
         "lastHour": "Última hora"
-      },
-      "fingerprintFilter": "Huella",
-      "export": {
-        "label": "Exportar",
-        "format": "Formato",
-        "fromDisk": "Incluir historial rotado"
       }
     },
     "profiling": {
@@ -1805,6 +1875,14 @@
   },
   "license": {
     "currentTier": "Nivel actual",
+    "founderBadge": "Fundador",
+    "founderTooltip": "Gracias por ser un apoyo temprano de QoreDB.",
+    "tierTagline": {
+      "core": "Free — Proyectos personales y exploración",
+      "pro": "Pro — Diseñado para tu trabajo profesional",
+      "team": "Team — Espacios de trabajo compartidos para tu equipo",
+      "enterprise": "Enterprise — Controles de nivel empresarial"
+    },
     "activate": "Activar",
     "deactivate": "Desactivar licencia",
     "deactivateConfirm": {
@@ -1823,7 +1901,120 @@
     "getPro": "Obtener QoreDB Pro",
     "upgrade": {
       "description": "Esta función requiere una licencia Pro.",
-      "hint": "Ve a Configuración para activar tu clave de licencia."
+      "hint": "Ve a Configuración para activar tu clave de licencia.",
+      "defaultTitle": "Desbloquea esta función con QoreDB Pro",
+      "defaultDescription": "Esta función forma parte de QoreDB Pro — diseñado para trabajo serio con bases de datos.",
+      "unlock": "Desbloquear Pro",
+      "learnMore": "Más información",
+      "dismiss": "No volver a preguntar para esta función",
+      "priceLine": "{{price}} — perpetuo, sin suscripción",
+      "features": {
+        "sandbox": {
+          "title": "Modo Sandbox",
+          "description": "Ejecuta consultas destructivas contra una conexión real sin tocar datos reales.",
+          "bullet1": "Revierte automáticamente cada cambio",
+          "bullet2": "Prueba migraciones de forma segura en staging",
+          "bullet3": "Un clic para entrar, otro para salir"
+        },
+        "visual_diff": {
+          "title": "Diff visual de datos",
+          "description": "Compara dos conjuntos de resultados fila a fila, con resaltado a nivel de columna.",
+          "bullet1": "Vistas en paralelo y unificada",
+          "bullet2": "Detecta renombrados y reordenaciones",
+          "bullet3": "Exporta el diff como SQL o informe"
+        },
+        "er_diagram": {
+          "title": "Diagrama ER",
+          "description": "Visualiza tablas, claves foráneas y relaciones como un diagrama interactivo.",
+          "bullet1": "Disposición automática para cualquier tamaño de esquema",
+          "bullet2": "Haz clic para ir a una tabla",
+          "bullet3": "Exporta como PNG o SVG"
+        },
+        "audit_advanced": {
+          "title": "Registro de auditoría avanzado",
+          "description": "Registra cada consulta, mutación y conexión en tu espacio de trabajo.",
+          "bullet1": "Historial ilimitado (Core tiene un límite de 50 entradas)",
+          "bullet2": "Filtra por usuario, driver o gravedad",
+          "bullet3": "Exporta a CSV o JSON"
+        },
+        "profiling": {
+          "title": "Perfilado de consultas",
+          "description": "Tiempos por consulta, plan de ejecución y sugerencias de recursos.",
+          "bullet1": "EXPLAIN ANALYZE en paralelo",
+          "bullet2": "Detecta índices faltantes",
+          "bullet3": "Compara ejecuciones a lo largo del tiempo"
+        },
+        "ai": {
+          "title": "Asistente de IA",
+          "description": "Genera, corrige y explica SQL/MQL con contexto completo del esquema.",
+          "bullet1": "OpenAI, Anthropic u Ollama local",
+          "bullet2": "Tus claves, tus datos — usa las tuyas propias",
+          "bullet3": "Verificación de seguridad antes de la ejecución"
+        },
+        "export_xlsx": {
+          "title": "Exportación a Excel",
+          "description": "Exporta resultados directamente a .xlsx nativo con formato.",
+          "bullet1": "Exportaciones de múltiples hojas",
+          "bullet2": "Columnas con tipos nativos",
+          "bullet3": "Transmite conjuntos de resultados grandes"
+        },
+        "export_parquet": {
+          "title": "Exportación a Parquet",
+          "description": "Exporta a Parquet columnar para pipelines de análisis.",
+          "bullet1": "Compresión Snappy, gzip, zstd",
+          "bullet2": "Esquema preservado con tipos",
+          "bullet3": "Transmisión por fragmentos"
+        },
+        "custom_safety_rules": {
+          "title": "Reglas de seguridad personalizadas",
+          "description": "Define tus propias comprobaciones previas para operaciones de riesgo.",
+          "bullet1": "Bloquea patrones en todas las conexiones",
+          "bullet2": "Reglas por entorno",
+          "bullet3": "Reutilizables entre espacios de trabajo"
+        },
+        "query_library_advanced": {
+          "title": "Biblioteca de consultas avanzada",
+          "description": "Organiza, busca y parametriza tus consultas guardadas.",
+          "bullet1": "Carpetas, etiquetas, snippets",
+          "bullet2": "Variables y prompts",
+          "bullet3": "Compartible dentro de tu equipo"
+        },
+        "virtual_relations_auto_suggest": {
+          "title": "Auto-sugerencia de relaciones",
+          "description": "Detecta claves foráneas probables cuando el esquema no las declara.",
+          "bullet1": "Coincidencia heurística entre tablas",
+          "bullet2": "Confirma y persiste como virtual",
+          "bullet3": "Mejora los flujos de trabajo de ER y JOIN"
+        },
+        "data_time_travel": {
+          "title": "Viaje en el tiempo de datos",
+          "description": "Inspecciona, compara y restaura estados históricos de tus tablas.",
+          "bullet1": "Snapshot bajo demanda",
+          "bullet2": "Navegación en un punto en el tiempo",
+          "bullet3": "Restaura filas o tablas completas"
+        },
+        "bulk_edit_unlimited": {
+          "title": "Edición masiva ilimitada",
+          "description": "Edita cientos de filas en un solo lote — Core tiene un límite de 5 filas.",
+          "bullet1": "Actualizaciones en lote de forma segura",
+          "bullet2": "Vista previa antes de confirmar",
+          "bullet3": "Revertir con un clic"
+        },
+        "data_contracts": {
+          "title": "Contratos de datos",
+          "description": "Define y aplica invariantes de esquema en tus bases de datos.",
+          "bullet1": "Detecta cambios incompatibles a tiempo",
+          "bullet2": "Ejecuta comprobaciones en cada conexión",
+          "bullet3": "Versionados entre versiones"
+        },
+        "instant_api": {
+          "title": "Data API instantánea",
+          "description": "Expone cualquier tabla como un endpoint REST o GraphQL, localmente.",
+          "bullet1": "Sin configuración",
+          "bullet2": "Solo lectura por defecto",
+          "bullet3": "Ideal para prototipos y demos"
+        }
+      }
     },
     "features": {
       "sandbox": "El modo Sandbox requiere una licencia Pro.",
@@ -1839,6 +2030,24 @@
       "virtual_relations_auto_suggest": "La auto-sugerencia de relaciones virtuales requiere una licencia Pro.",
       "federation": "La federación entre bases de datos requiere una licencia Pro."
     }
+  },
+  "proDiscovery": {
+    "sidebarEntry": "Descubrir Pro",
+    "title": "QoreDB Pro: Diseñado para trabajo serio",
+    "subtitle": "Free es ideal para proyectos personales y exploración. Pro desbloquea las funciones que necesitas para trabajo con bases de datos a nivel de producción.",
+    "priceTitle": "Pago único, acceso de por vida",
+    "alreadyHaveKey": "Tengo una clave de licencia"
+  },
+  "usageBanner": {
+    "title": "Has ejecutado {{count}} consultas con QoreDB",
+    "description": "Apoya el proyecto y desbloquea las funciones Pro diseñadas para trabajo serio.",
+    "cta": "Descubrir Pro"
+  },
+  "newsletter": {
+    "title": "Mantente al día",
+    "description": "Un correo breve al mes con nuevas funciones y consejos sobre bases de datos. Cancela la suscripción en un clic, nunca spam.",
+    "subscribe": "Suscribirse",
+    "dismiss": "No, gracias"
   },
   "ai": {
     "title": "Asistente de IA",

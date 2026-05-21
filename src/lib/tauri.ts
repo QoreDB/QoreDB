@@ -949,13 +949,14 @@ export async function previewTable(
   sessionId: string,
   namespace: Namespace,
   table: string,
-  limit: number = 100
+  limit: number = 100,
+  bypassCache: boolean = false
 ): Promise<{
   success: boolean;
   result?: QueryResult;
   error?: string;
 }> {
-  return invoke('preview_table', { sessionId, namespace, table, limit });
+  return invoke('preview_table', { sessionId, namespace, table, limit, bypassCache });
 }
 
 // ============================================
@@ -1011,13 +1012,46 @@ export async function queryTable(
   sessionId: string,
   namespace: Namespace,
   table: string,
-  options: TableQueryOptions = {}
+  options: TableQueryOptions = {},
+  bypassCache: boolean = false
 ): Promise<{
   success: boolean;
   result?: PaginatedQueryResult;
   error?: string;
 }> {
-  return invoke('query_table', { sessionId, namespace, table, options });
+  return invoke('query_table', { sessionId, namespace, table, options, bypassCache });
+}
+
+// ============================================
+// QUERY RESULT CACHE
+// ============================================
+
+export interface CacheConfig {
+  enabled: boolean;
+  ttlSecs: number;
+  maxEntries: number;
+}
+
+export interface CacheStats {
+  entries: number;
+  hits: number;
+  misses: number;
+}
+
+export async function getCacheConfig(): Promise<CacheConfig> {
+  return invoke('get_cache_config');
+}
+
+export async function setCacheConfig(config: CacheConfig): Promise<CacheConfig> {
+  return invoke('set_cache_config', { config });
+}
+
+export async function clearQueryCache(): Promise<void> {
+  return invoke('clear_query_cache');
+}
+
+export async function getCacheStats(): Promise<CacheStats> {
+  return invoke('get_cache_stats');
 }
 
 export async function peekForeignKey(

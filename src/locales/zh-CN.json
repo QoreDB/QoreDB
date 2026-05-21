@@ -1,4 +1,14 @@
 {
+  "cache": {
+    "title": "查询结果缓存",
+    "description": "缓存最近的表格浏览结果，使重复导航即时完成。",
+    "enabledLabel": "启用查询结果缓存",
+    "enabledDescription": "通过 QoreDB 更改数据时缓存结果将失效，并在下方设定的存活时间后过期。",
+    "ttl": "存活时间（秒）",
+    "maxEntries": "最大条目数",
+    "stats": "已缓存 {{entries}} 条 · 命中率 {{hitRate}}%",
+    "clear": "清除缓存"
+  },
   "plugins": {
     "title": "插件",
     "description": "使用声明式插件扩展 QoreDB — SQL 代码片段包、连接模板和配色主题。不执行任何代码。",
@@ -89,6 +99,7 @@
     "install": "安装并重启",
     "installing": "正在安装更新…",
     "installed": "更新已安装。",
+    "restart": "重启",
     "restartRequired": "重启 QoreDB 以完成更新。",
     "installFailed": "安装更新失败。"
   },
@@ -155,10 +166,10 @@
       "deleteFail": "删除连接失败",
       "newQuery": "新建查询",
       "newNotebook": "新建笔记本",
-      "credentialLoadFail": "加载连接详情失败",
-      "testTitleSuccess": "连接到 {{name}} 成功！",
       "backup": "备份数据库…",
-      "restore": "从备份恢复…"
+      "restore": "从备份恢复…",
+      "credentialLoadFail": "加载连接详情失败",
+      "testTitleSuccess": "连接到 {{name}} 成功！"
     },
     "url": {
       "useUrl": "使用 URL/DSN 连接",
@@ -585,6 +596,7 @@
       "installUpdate": "安装 v{{version}}",
       "installing": "正在安装…",
       "installed": "更新已安装 — 重启以应用。",
+      "restart": "立即重启",
       "upToDate": "已是最新版本！"
     },
     "startup": {
@@ -597,6 +609,14 @@
     },
     "modified": "已修改",
     "shortcuts": {
+      "title": "键盘快捷键",
+      "description": "点击绑定以记录新的按键组合。Esc 取消。",
+      "recordHint": "点击快捷键以重新分配。新组合立即生效。",
+      "recording": "按键…",
+      "errorSystemReserved": "系统保留",
+      "conflictTooltip": "与其他快捷键冲突",
+      "resetOne": "重置为默认",
+      "resetAll": "全部重置",
       "categoryNavigation": "导航",
       "categoryEditor": "编辑器",
       "categoryGeneral": "常规",
@@ -608,21 +628,18 @@
       "newQuery": "新建查询标签页",
       "runQuery": "运行查询",
       "closeTab": "关闭标签页",
-      "escape": "关闭叠加层/取消",
-      "title": "键盘快捷键",
-      "description": "点击绑定以记录新的按键组合。Esc 取消。",
-      "recordHint": "点击快捷键以重新分配。新组合立即生效。",
-      "recording": "按键…",
-      "errorSystemReserved": "系统保留",
-      "conflictTooltip": "与其他快捷键冲突",
-      "resetOne": "重置为默认",
-      "resetAll": "全部重置"
+      "escape": "关闭叠加层/取消"
     },
     "tabs": {
       "title": "标签页",
       "description": "配置标签栏行为。",
       "groupByConnection": "按连接分组标签页",
       "groupByConnectionDescription": "在连接名称下方以可折叠的分组显示标签页。"
+    },
+    "onboarding": {
+      "title": "欢迎导览",
+      "description": "重播欢迎导览，重温 QoreDB 的功能介绍、隐私模型以及免费版与 Pro 版的区别。",
+      "replay": "重播导览"
     },
     "backupTools": {
       "title": "备份工具路径",
@@ -742,6 +759,23 @@
     "multiStatementNotice": "检测到多个语句（{{count}}）。仅显示最后一个结果。",
     "expandEditor": "展开编辑器",
     "collapseEditor": "折叠编辑器",
+    "truncated": {
+      "title": "结果已被治理限制截断",
+      "description": "显示 {{total}} 行中的 {{shown}} 行。多余的行已被隐藏以保护内存和界面性能。",
+      "rerun": "不限行数重新运行"
+    },
+    "timedOut": {
+      "rerun": "不限超时重新运行"
+    },
+    "overrideLimits": {
+      "titleRows": "不限行数重新运行？",
+      "titleTimeout": "不限超时重新运行？",
+      "descriptionRows": "本次单次执行将绕过环境策略强制的行数限制，结果不会被截断。",
+      "descriptionTimeout": "本次单次执行将绕过环境策略强制的执行超时，查询可能持续运行直至数据库取消。",
+      "warning": "大型结果集可能消耗大量内存并拖慢界面。长时间运行的查询可能持有锁或占用数据库资源。",
+      "confirm": "不限制运行",
+      "toast": "正在不受治理限制地重新运行查询"
+    },
     "time": {
       "exec": "执行",
       "transfer": "传输",
@@ -1087,6 +1121,8 @@
   "whatsNew": {
     "title": "新功能",
     "titleWithVersion": "v{{version}} 的新功能",
+    "subtitle": "快速了解上次使用以来的变化。",
+    "dismiss": "知道了",
     "tryIt": "立即体验",
     "markSeen": "关闭",
     "feature": "新增",
@@ -1250,7 +1286,8 @@
     "checkExpressionPlaceholder": "例如：amount > 0",
     "previewPlaceholder": "输入表名和至少一列以查看 SQL 预览。",
     "noColumns": "请至少添加一列。",
-    "warningsCount": "{{count}} 个警告"
+    "warningsCount": "{{count}} 个警告",
+    "warningsCount_other": "{{count}} 个警告"
   },
   "dropTable": {
     "title": "删除表",
@@ -1309,24 +1346,58 @@
     "jsonLabel": "JSON 文档"
   },
   "onboarding": {
+    "skip": "跳过",
     "welcome": {
       "title": "欢迎使用 QoreDB",
       "subtitle": "面向现代开发者的通用数据库客户端。",
+      "tagline": "12 种驱动 · SQL + NoSQL · Rust 驱动 · 本地优先",
       "next": "开始导览"
     },
-    "concepts": {
-      "title": "为什么选择 QoreDB？",
-      "universalTitle": "通用客户端",
-      "universalDesc": "在统一界面中管理 SQL（Postgres、MySQL）和 NoSQL（MongoDB、Redis）数据库。",
-      "localTitle": "本地优先",
-      "localDesc": "您的数据保存在本机。没有云中间层，没有侵入式追踪。",
-      "next": "继续"
+    "capabilities": {
+      "title": "QoreDB 能做什么",
+      "subtitle": "一款应用覆盖完整的数据库工作流 — 无需在多个工具间切换。",
+      "driversTitle": "12 种原生驱动",
+      "driversDesc": "PostgreSQL、MySQL、SQL Server、SQLite、DuckDB、CockroachDB、ClickHouse、MongoDB、Redis 等。",
+      "aiTitle": "AI 助手",
+      "aiDesc": "结合完整的 Schema 上下文生成、修复和解释 SQL/MQL。支持自带 OpenAI、Anthropic 或本地 Ollama 密钥。",
+      "notebooksTitle": "数据库笔记本",
+      "notebooksDesc": "混合 SQL、Markdown 和图表单元格，支持跨单元格变量。可 Git 差异对比的 .qnb 文件。",
+      "federationTitle": "跨数据库查询",
+      "federationDesc": "在单条 SQL 语句中跨 PostgreSQL、MySQL、MongoDB 等数据库关联表。"
+    },
+    "privacy": {
+      "title": "本地优先，默认安全",
+      "subtitle": "生产数据需要谨慎的工具。以下是 QoreDB 的保护方式。",
+      "vaultTitle": "凭据存储于系统密钥链",
+      "vaultDesc": "密码通过 Argon2 加密后存储在系统保管库中，从不以明文形式写入磁盘。",
+      "guardsTitle": "生产安全规则",
+      "guardsDesc": "危险查询在生产环境中会被检测并需要二次确认。任意连接均可一键切换为只读模式。",
+      "sandboxTitle": "沙盒模式",
+      "sandboxDesc": "在真实连接上测试破坏性查询而不影响真实数据。所有更改均会回滚。",
+      "localTitle": "数据不离开本机",
+      "localDesc": "无云同步、无数据遥测、无远程 Schema 索引。您的查询和结果始终保留在本地。"
+    },
+    "tiers": {
+      "title": "开放核心 — 免费版与 Pro 版",
+      "subtitle": "QoreDB 是开源软件。Pro 专为能带来实际价值的工作负载而设计。",
+      "freeLabel": "免费版",
+      "freeFor": "个人项目与探索",
+      "freeBullet1": "全部 12 种数据库驱动",
+      "freeBullet2": "查询编辑器、笔记本、ER 图",
+      "freeBullet3": "自带 AI 密钥",
+      "proLabel": "Pro",
+      "proFor": "专业工作使用",
+      "proBullet1": "沙盒模式、数据时间旅行、可视化差异对比",
+      "proBullet2": "高级审计日志、性能分析、自定义安全规则",
+      "proBullet3": "数据合约、即时数据 API、高级导出",
+      "footnote": "Pro 为一次性付款，永久授权，无需订阅。"
     },
     "analytics": {
       "title": "帮助我们改进",
       "subtitle": "我们是一个开源项目。匿名使用数据帮助我们确定功能优先级并修复错误 — 您可以随时在设置中更改此选项。",
       "checkbox": "分享匿名使用分析（推荐）",
       "privacyHint": "我们仅收集崩溃报告和功能使用计数。查询、结果或凭据绝不会离开您的设备。",
+      "guarantee": "无论此设置如何，您的查询、结果和凭据都不会离开本机。",
       "finish": "开始使用"
     },
     "workspace": {
@@ -1441,6 +1512,12 @@
       "noEntries": "暂无审计日志条目",
       "upgradeForFilters": "升级到 Pro 以获取筛选、导出和高级统计功能",
       "blockedBy": "被阻止原因：{{rule}}",
+      "fingerprintFilter": "指纹",
+      "export": {
+        "label": "导出",
+        "format": "格式",
+        "fromDisk": "包含轮转历史"
+      },
       "filters": {
         "environment": "环境",
         "allEnvironments": "所有环境",
@@ -1467,10 +1544,10 @@
         "database": "数据库",
         "executionTime": "执行时间",
         "rowCount": "行数",
-        "blockedBy": "被安全规则阻止",
-        "error": "错误",
         "fingerprint": "指纹",
-        "filterByFingerprint": "按此指纹过滤"
+        "filterByFingerprint": "按此指纹过滤",
+        "blockedBy": "被安全规则阻止",
+        "error": "错误"
       },
       "stats": {
         "total": "总查询数",
@@ -1479,12 +1556,6 @@
         "success": "成功",
         "failed": "失败",
         "lastHour": "最近一小时"
-      },
-      "fingerprintFilter": "指纹",
-      "export": {
-        "label": "导出",
-        "format": "格式",
-        "fromDisk": "包含轮转历史"
       }
     },
     "profiling": {
@@ -1804,6 +1875,14 @@
   },
   "license": {
     "currentTier": "当前等级",
+    "founderBadge": "创始人",
+    "founderTooltip": "感谢您成为 QoreDB 的早期支持者。",
+    "tierTagline": {
+      "core": "免费版 — 个人项目与探索",
+      "pro": "Pro — 专为专业工作而生",
+      "team": "Team — 团队共享工作区",
+      "enterprise": "Enterprise — 企业级管控能力"
+    },
     "activate": "激活",
     "deactivate": "停用许可证",
     "deactivateConfirm": {
@@ -1822,7 +1901,120 @@
     "getPro": "获取 QoreDB Pro",
     "upgrade": {
       "description": "此功能需要 Pro 许可证。",
-      "hint": "前往设置激活您的许可证密钥。"
+      "hint": "前往设置激活您的许可证密钥。",
+      "defaultTitle": "使用 QoreDB Pro 解锁此功能",
+      "defaultDescription": "此功能属于 QoreDB Pro，专为专业数据库工作而构建。",
+      "unlock": "解锁 Pro",
+      "learnMore": "了解更多",
+      "dismiss": "不再提示此功能",
+      "priceLine": "{{price}} — 永久授权，无需订阅",
+      "features": {
+        "sandbox": {
+          "title": "沙盒模式",
+          "description": "在真实连接上运行破坏性查询而不影响真实数据。",
+          "bullet1": "自动回滚所有更改",
+          "bullet2": "在预发布环境安全测试迁移",
+          "bullet3": "一键进入，一键退出"
+        },
+        "visual_diff": {
+          "title": "可视化数据差异对比",
+          "description": "逐行比较任意两个结果集，并高亮显示列级差异。",
+          "bullet1": "并排视图与统一视图",
+          "bullet2": "检测重命名和重新排序",
+          "bullet3": "将差异导出为 SQL 或报告"
+        },
+        "er_diagram": {
+          "title": "ER 图",
+          "description": "以交互式图表可视化表、外键和关系。",
+          "bullet1": "任意 Schema 大小的自动布局",
+          "bullet2": "点击跳转到指定表",
+          "bullet3": "导出为 PNG 或 SVG"
+        },
+        "audit_advanced": {
+          "title": "高级审计日志",
+          "description": "跟踪工作区中的每条查询、数据变更和连接操作。",
+          "bullet1": "无限历史记录（免费版上限 50 条）",
+          "bullet2": "按用户、驱动、严重级别筛选",
+          "bullet3": "导出为 CSV 或 JSON"
+        },
+        "profiling": {
+          "title": "查询性能分析",
+          "description": "每条查询的耗时、执行计划和资源建议。",
+          "bullet1": "EXPLAIN ANALYZE 并排显示",
+          "bullet2": "检测缺失索引",
+          "bullet3": "跨时间对比运行结果"
+        },
+        "ai": {
+          "title": "AI 助手",
+          "description": "结合完整 Schema 上下文生成、修复和解释 SQL/MQL。",
+          "bullet1": "支持 OpenAI、Anthropic 或本地 Ollama",
+          "bullet2": "自带密钥，数据归您所有",
+          "bullet3": "执行前进行安全检查"
+        },
+        "export_xlsx": {
+          "title": "Excel 导出",
+          "description": "将结果直接导出为带格式的原生 .xlsx 文件。",
+          "bullet1": "多工作表导出",
+          "bullet2": "类型感知列",
+          "bullet3": "流式处理大型结果集"
+        },
+        "export_parquet": {
+          "title": "Parquet 导出",
+          "description": "导出为列式 Parquet 格式，适用于分析流水线。",
+          "bullet1": "支持 Snappy、gzip、zstd 压缩",
+          "bullet2": "保留带类型的 Schema",
+          "bullet3": "分块流式传输"
+        },
+        "custom_safety_rules": {
+          "title": "自定义安全规则",
+          "description": "为高风险操作定义自己的预检查规则。",
+          "bullet1": "跨所有连接阻止指定模式",
+          "bullet2": "按环境配置规则",
+          "bullet3": "可跨工作区复用"
+        },
+        "query_library_advanced": {
+          "title": "高级查询库",
+          "description": "整理、搜索并参数化已保存的查询。",
+          "bullet1": "文件夹、标签、代码片段",
+          "bullet2": "变量与提示词",
+          "bullet3": "可在团队内共享"
+        },
+        "virtual_relations_auto_suggest": {
+          "title": "自动建议关系",
+          "description": "在 Schema 未声明外键时自动检测可能的外键关系。",
+          "bullet1": "跨表启发式匹配",
+          "bullet2": "确认后持久化为虚拟关系",
+          "bullet3": "增强 ER 图和 JOIN 工作流"
+        },
+        "data_time_travel": {
+          "title": "数据时间旅行",
+          "description": "检查、对比并还原表的历史状态。",
+          "bullet1": "按需快照",
+          "bullet2": "按时间点浏览",
+          "bullet3": "还原行或整张表"
+        },
+        "bulk_edit_unlimited": {
+          "title": "无限批量编辑",
+          "description": "一次批量编辑数百行 — 免费版上限为 5 行。",
+          "bullet1": "安全批量更新",
+          "bullet2": "提交前预览",
+          "bullet3": "一键回滚"
+        },
+        "data_contracts": {
+          "title": "数据合约",
+          "description": "在数据库间定义并强制执行 Schema 不变量。",
+          "bullet1": "尽早发现破坏性变更",
+          "bullet2": "每次连接时运行检查",
+          "bullet3": "跨版本进行版本管理"
+        },
+        "instant_api": {
+          "title": "即时数据 API",
+          "description": "在本地将任意表暴露为 REST 或 GraphQL 端点。",
+          "bullet1": "零配置",
+          "bullet2": "默认只读",
+          "bullet3": "非常适合原型和演示"
+        }
+      }
     },
     "features": {
       "sandbox": "沙盒模式需要 Pro 许可证。",
@@ -1838,6 +2030,24 @@
       "virtual_relations_auto_suggest": "自动建议虚拟关系需要 Pro 许可证。",
       "federation": "跨数据库联合查询需要 Pro 许可证。"
     }
+  },
+  "proDiscovery": {
+    "sidebarEntry": "探索 Pro",
+    "title": "QoreDB Pro：专为专业工作而生",
+    "subtitle": "免费版非常适合个人项目和探索。Pro 解锁生产级数据库工作所需的功能。",
+    "priceTitle": "一次性付款，终身使用",
+    "alreadyHaveKey": "我有许可证密钥"
+  },
+  "usageBanner": {
+    "title": "您已使用 QoreDB 运行了 {{count}} 次查询",
+    "description": "支持此项目并解锁专为专业工作打造的 Pro 功能。",
+    "cta": "探索 Pro"
+  },
+  "newsletter": {
+    "title": "保持关注",
+    "description": "每月一封简短邮件，包含新功能和数据库技巧。一键退订，绝无垃圾邮件。",
+    "subscribe": "订阅",
+    "dismiss": "不，谢谢"
   },
   "ai": {
     "title": "AI 助手",

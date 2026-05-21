@@ -128,12 +128,21 @@ pub async fn execute_query(
     on_stream: Channel<InvokeResponseBody>,
 ) -> Result<QueryResponse, String> {
     let requested_bypass = bypass_limits.unwrap_or(false);
-    let (session_manager, query_manager, query_rate_limiter, policy, interceptor, license_tier) = {
+    let (
+        session_manager,
+        query_manager,
+        query_rate_limiter,
+        query_cache,
+        policy,
+        interceptor,
+        license_tier,
+    ) = {
         let state = state.lock().await;
         (
             Arc::clone(&state.session_manager),
             Arc::clone(&state.query_manager),
             Arc::clone(&state.query_rate_limiter),
+            Arc::clone(&state.query_cache),
             state.policy.clone(),
             Arc::clone(&state.interceptor),
             state.license_manager.effective_status().tier,
@@ -557,6 +566,10 @@ pub async fn execute_query(
                     safety_warning.as_deref(),
                 );
 
+                if is_mutation_for_context {
+                    query_cache.invalidate_session(&session_id);
+                }
+
                 Ok(QueryResponse {
                     success: true,
                     result: None,
@@ -679,6 +692,12 @@ pub async fn execute_query(
                     false,
                     safety_warning.as_deref(),
                 );
+
+                // A successful mutation through QoreDB stales this
+                // connection's cached read results.
+                if is_mutation_for_context {
+                    query_cache.invalidate_session(&session_id);
+                }
 
                 // Governance: truncate results when max_result_rows is set
                 // (skipped when the caller explicitly opted into bypass_limits).
@@ -1207,18 +1226,45 @@ pub async fn preview_table(
     namespace: Namespace,
     table: String,
     limit: u32,
+    bypass_cache: Option<bool>,
 ) -> Result<QueryResponse, String> {
-    let (session_manager, query_manager, policy) = {
+    let (session_manager, query_manager, policy, query_cache) = {
         let state = state.lock().await;
         (
             Arc::clone(&state.session_manager),
             Arc::clone(&state.query_manager),
             state.policy.clone(),
+            Arc::clone(&state.query_cache),
         )
     };
     let session = parse_session_id(&session_id)?;
 
     let effective_limit = governance::clamp_rows(&policy, limit);
+
+    // Query result cache: serve repeated table previews instantly.
+    let use_cache = !bypass_cache.unwrap_or(false);
+    let cache_key = format!(
+        "preview\u{1}{}\u{1}{}\u{1}{}\u{1}{}\u{1}{}",
+        session_id,
+        namespace.database,
+        namespace.schema.as_deref().unwrap_or(""),
+        table,
+        effective_limit
+    );
+    if use_cache {
+        if let Some(cached) = query_cache.get(&cache_key) {
+            if let Ok(result) = serde_json::from_value::<QueryResult>(cached) {
+                return Ok(QueryResponse {
+                    success: true,
+                    result: Some(result),
+                    error: None,
+                    query_id: None,
+                    truncated: None,
+                    truncated_total: None,
+                });
+            }
+        }
+    }
 
     if let Err(msg) = governance::check_concurrent_limit(&policy, &query_manager).await {
         return Ok(QueryResponse {
@@ -1252,14 +1298,21 @@ pub async fn preview_table(
     .await;
 
     match result {
-        Ok(Ok(result)) => Ok(QueryResponse {
-            success: true,
-            result: Some(result),
-            error: None,
-            query_id: None,
-            truncated: None,
-            truncated_total: None,
-        }),
+        Ok(Ok(result)) => {
+            if use_cache {
+                if let Ok(value) = serde_json::to_value(&result) {
+                    query_cache.put(cache_key.clone(), session_id.clone(), value);
+                }
+            }
+            Ok(QueryResponse {
+                success: true,
+                result: Some(result),
+                error: None,
+                query_id: None,
+                truncated: None,
+                truncated_total: None,
+            })
+        }
         Ok(Err(e)) => Ok(QueryResponse {
             success: false,
             result: None,
@@ -1299,13 +1352,15 @@ pub async fn query_table(
     namespace: Namespace,
     table: String,
     options: TableQueryOptions,
+    bypass_cache: Option<bool>,
 ) -> Result<PaginatedQueryResponse, String> {
-    let (session_manager, query_manager, policy) = {
+    let (session_manager, query_manager, policy, query_cache) = {
         let state = state.lock().await;
         (
             Arc::clone(&state.session_manager),
             Arc::clone(&state.query_manager),
             state.policy.clone(),
+            Arc::clone(&state.query_cache),
         )
     };
     let session = parse_session_id(&session_id)?;
@@ -1314,6 +1369,30 @@ pub async fn query_table(
     if let Some(max_rows) = policy.max_result_rows {
         let max_page = max_rows as u32;
         options.page_size = Some(options.page_size.unwrap_or(50).min(max_page));
+    }
+
+    // Query result cache: serve repeated table navigation instantly.
+    let use_cache = !bypass_cache.unwrap_or(false);
+    let cache_key = format!(
+        "query\u{1}{}\u{1}{}\u{1}{}\u{1}{}\u{1}{}",
+        session_id,
+        namespace.database,
+        namespace.schema.as_deref().unwrap_or(""),
+        table,
+        serde_json::to_string(&options).unwrap_or_default()
+    );
+    if use_cache {
+        if let Some(cached) = query_cache.get(&cache_key) {
+            if let Ok(result) = serde_json::from_value::<PaginatedQueryResult>(cached) {
+                return Ok(PaginatedQueryResponse {
+                    success: true,
+                    result: Some(result),
+                    error: None,
+                    truncated: None,
+                    truncated_total: None,
+                });
+            }
+        }
     }
 
     if let Err(msg) = governance::check_concurrent_limit(&policy, &query_manager).await {
@@ -1346,13 +1425,20 @@ pub async fn query_table(
     .await;
 
     match result {
-        Ok(Ok(result)) => Ok(PaginatedQueryResponse {
-            success: true,
-            result: Some(result),
-            error: None,
-            truncated: None,
-            truncated_total: None,
-        }),
+        Ok(Ok(result)) => {
+            if use_cache {
+                if let Ok(value) = serde_json::to_value(&result) {
+                    query_cache.put(cache_key.clone(), session_id.clone(), value);
+                }
+            }
+            Ok(PaginatedQueryResponse {
+                success: true,
+                result: Some(result),
+                error: None,
+                truncated: None,
+                truncated_total: None,
+            })
+        }
         Ok(Err(e)) => Ok(PaginatedQueryResponse {
             success: false,
             result: None,

@@ -20,6 +20,30 @@ export interface ChangelogEntry {
  */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.1.29',
+    date: '2026-05-21',
+    items: [
+      {
+        title: 'Query result cache',
+        description:
+          'Recent table navigation is served instantly from a local cache, invalidated automatically when you change data through QoreDB.',
+        type: 'feature',
+      },
+      {
+        title: 'Plugin system',
+        description:
+          'Install declarative plugins that contribute SQL snippet packs, connection templates, and color themes — no code execution.',
+        type: 'feature',
+      },
+      {
+        title: 'Security hardening',
+        description:
+          'Per-connection query rate limiting stops runaway loops, and filesystem access is now restricted to an explicit allow-list.',
+        type: 'improvement',
+      },
+    ],
+  },
+  {
     version: '0.1.28',
     date: '2026-05-17',
     items: [

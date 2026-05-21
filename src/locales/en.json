@@ -1,4 +1,14 @@
 {
+  "cache": {
+    "title": "Query result cache",
+    "description": "Cache recent table-browse results so repeated navigation is instant.",
+    "enabledLabel": "Enable query result cache",
+    "enabledDescription": "Cached results are invalidated when you change data through QoreDB, and expire after the time-to-live below.",
+    "ttl": "Time to live (seconds)",
+    "maxEntries": "Maximum entries",
+    "stats": "{{entries}} entries cached · {{hitRate}}% hit rate",
+    "clear": "Clear cache"
+  },
   "plugins": {
     "title": "Plugins",
     "description": "Extend QoreDB with declarative plugins — SQL snippet packs, connection templates and color themes. No code is executed.",

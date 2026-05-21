@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
+import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -13,8 +14,15 @@ import {
 } from '@/lib/diagnostics/diagnosticsSettings';
 import { clearErrorLogs } from '@/lib/diagnostics/errorLog';
 import { clearHistory } from '@/lib/query/history';
-import type { SafetyPolicy, TimeTravelConfig } from '@/lib/tauri';
-import { getTimeTravelConfig, updateTimeTravelConfig } from '@/lib/tauri';
+import type { CacheConfig, CacheStats, SafetyPolicy, TimeTravelConfig } from '@/lib/tauri';
+import {
+  clearQueryCache,
+  getCacheConfig,
+  getCacheStats,
+  getTimeTravelConfig,
+  setCacheConfig,
+  updateTimeTravelConfig,
+} from '@/lib/tauri';
 import { useLicense } from '@/providers/LicenseProvider';
 import { useWorkspace } from '@/providers/WorkspaceProvider';
 import { ConfigBackupCard } from '../ConfigBackupCard';
@@ -143,8 +151,116 @@ export function DataSection({ policy, onApplyPolicy, searchQuery }: DataSectionP
 
       <ProjectTransferCard projectId={projectId} />
 
+      <QueryCacheCard searchQuery={searchQuery} />
+
       <TimeTravelSettingsCard searchQuery={searchQuery} />
     </>
+  );
+}
+
+const CACHE_DEFAULTS: CacheConfig = { enabled: true, ttlSecs: 60, maxEntries: 100 };
+
+function QueryCacheCard({ searchQuery }: { searchQuery?: string }) {
+  const { t } = useTranslation();
+  const [config, setConfig] = useState<CacheConfig>(CACHE_DEFAULTS);
+  const [stats, setStats] = useState<CacheStats | null>(null);
+  const [loaded, setLoaded] = useState(false);
+
+  const refreshStats = () => {
+    getCacheStats()
+      .then(setStats)
+      .catch(() => {});
+  };
+
+  useEffect(() => {
+    getCacheConfig()
+      .then(c => {
+        setConfig(c);
+        setLoaded(true);
+      })
+      .catch(() => {});
+    refreshStats();
+  }, []);
+
+  function update(patch: Partial<CacheConfig>) {
+    const next = { ...config, ...patch };
+    setConfig(next);
+    setCacheConfig(next).catch(() => {});
+  }
+
+  async function clear() {
+    await clearQueryCache().catch(() => {});
+    refreshStats();
+  }
+
+  const isModified =
+    loaded &&
+    (config.enabled !== CACHE_DEFAULTS.enabled ||
+      config.ttlSecs !== CACHE_DEFAULTS.ttlSecs ||
+      config.maxEntries !== CACHE_DEFAULTS.maxEntries);
+
+  const total = stats ? stats.hits + stats.misses : 0;
+  const hitRate = total > 0 ? Math.round(((stats?.hits ?? 0) / total) * 100) : 0;
+
+  return (
+    <SettingsCard
+      id="query-cache"
+      title={t('cache.title')}
+      description={t('cache.description')}
+      isModified={isModified}
+      searchQuery={searchQuery}
+    >
+      <div className="space-y-4">
+        <Label className="flex items-start gap-2.5 text-sm cursor-pointer">
+          <Checkbox
+            checked={config.enabled}
+            onCheckedChange={checked => update({ enabled: !!checked })}
+            className="mt-0.5"
+          />
+          <span>
+            <span className="font-medium text-foreground">{t('cache.enabledLabel')}</span>
+            <span className="block text-xs text-muted-foreground mt-0.5">
+              {t('cache.enabledDescription')}
+            </span>
+          </span>
+        </Label>
+
+        <div className="flex items-center gap-3">
+          <Label className="w-40 text-sm text-foreground">{t('cache.ttl')}</Label>
+          <Input
+            type="number"
+            min={5}
+            max={3600}
+            value={config.ttlSecs}
+            disabled={!config.enabled}
+            onChange={e => update({ ttlSecs: Math.max(5, Number(e.target.value) || 60) })}
+            className="w-28"
+          />
+        </div>
+
+        <div className="flex items-center gap-3">
+          <Label className="w-40 text-sm text-foreground">{t('cache.maxEntries')}</Label>
+          <Input
+            type="number"
+            min={10}
+            max={1000}
+            value={config.maxEntries}
+            disabled={!config.enabled}
+            onChange={e => update({ maxEntries: Math.max(10, Number(e.target.value) || 100) })}
+            className="w-28"
+          />
+        </div>
+
+        <div className="flex items-center justify-between border-t border-border/50 pt-3">
+          <span className="text-xs text-muted-foreground">
+            {t('cache.stats', { entries: stats?.entries ?? 0, hitRate })}
+          </span>
+          <Button variant="outline" size="sm" onClick={clear}>
+            {t('cache.clear')}
+          </Button>
+        </div>
+      </div>
+    </SettingsCard>
   );
 }
 

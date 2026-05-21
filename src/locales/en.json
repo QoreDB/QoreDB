@@ -489,6 +489,8 @@
     "safetyPolicyRequireConfirmationDescription": "Ask for explicit confirmation before running destructive SQL in production.",
     "safetyPolicyBlockDangerous": "Block dangerous SQL in production",
     "safetyPolicyBlockDangerousDescription": "Reject destructive SQL in production even if confirmed.",
+    "safetyPolicyRateLimit": "Rate-limit queries per connection",
+    "safetyPolicyRateLimitDescription": "Stop runaway query loops by capping how fast queries can run on a connection.",
     "safetyPolicyNote": "Environment variables can override these settings in managed deployments.",
     "safetyPolicyError": "Unable to load or save safety policy settings.",
     "configBackup": "Config backup",

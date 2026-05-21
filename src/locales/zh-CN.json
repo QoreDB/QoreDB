@@ -488,6 +488,8 @@
     "safetyPolicyRequireConfirmationDescription": "在生产环境中执行破坏性 SQL 前要求明确确认。",
     "safetyPolicyBlockDangerous": "在生产环境中阻止危险 SQL",
     "safetyPolicyBlockDangerousDescription": "即使确认也拒绝生产环境中的破坏性 SQL。",
+    "safetyPolicyRateLimit": "限制每个连接的查询速率",
+    "safetyPolicyRateLimitDescription": "通过限制连接上的查询执行速度来阻止失控的查询循环。",
     "safetyPolicyNote": "环境变量可在托管部署中覆盖这些设置。",
     "safetyPolicyError": "无法加载或保存安全策略设置。",
     "configBackup": "配置备份",

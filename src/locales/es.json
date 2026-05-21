@@ -488,6 +488,8 @@
     "safetyPolicyRequireConfirmationDescription": "Solicitar confirmación explícita antes de ejecutar SQL destructivo en producción.",
     "safetyPolicyBlockDangerous": "Bloquear SQL peligroso en producción",
     "safetyPolicyBlockDangerousDescription": "Rechazar SQL destructivo en producción incluso si se confirma.",
+    "safetyPolicyRateLimit": "Limitar la frecuencia de consultas por conexión",
+    "safetyPolicyRateLimitDescription": "Detiene los bucles de consultas descontrolados limitando la velocidad de ejecución en una conexión.",
     "safetyPolicyNote": "Las variables de entorno pueden sobrescribir estas configuraciones en despliegues administrados.",
     "safetyPolicyError": "No se pudo cargar o guardar la configuración de la política de seguridad.",
     "configBackup": "Respaldo de configuración",

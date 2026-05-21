@@ -488,6 +488,8 @@
     "safetyPolicyRequireConfirmationDescription": "프로덕션에서 파괴적인 SQL을 실행하기 전에 명시적인 확인을 요청합니다.",
     "safetyPolicyBlockDangerous": "프로덕션에서 위험한 SQL 차단",
     "safetyPolicyBlockDangerousDescription": "확인된 경우에도 프로덕션에서 파괴적인 SQL을 거부합니다.",
+    "safetyPolicyRateLimit": "연결당 쿼리 속도 제한",
+    "safetyPolicyRateLimitDescription": "연결의 쿼리 실행 속도를 제한하여 폭주하는 쿼리 루프를 중지합니다.",
     "safetyPolicyNote": "관리형 배포에서는 환경 변수로 이 설정을 재정의할 수 있습니다.",
     "safetyPolicyError": "안전 정책 설정을 불러오거나 저장할 수 없습니다.",
     "configBackup": "설정 백업",

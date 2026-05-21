@@ -24,6 +24,7 @@ import { useSchemaCache } from '../../hooks/useSchemaCache';
 import { useTheme } from '../../hooks/useTheme';
 import { Driver } from '../../lib/connection/drivers';
 import { SQL_SNIPPETS } from '../../lib/query/sqlSnippets';
+import { usePlugins } from '@/providers/PluginProvider';
 import type { Collection, Namespace } from '../../lib/tauri';
 
 interface SQLEditorProps {
@@ -113,16 +114,18 @@ export const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQ
 
   const keywordSource = useMemo(() => keywordCompletionSource(sqlDialect, true), [sqlDialect]);
 
+  // Built-in snippets plus any contributed by enabled declarative plugins.
+  const { contributions: pluginContributions } = usePlugins();
   const snippetCompletions = useMemo(
     () =>
-      SQL_SNIPPETS.map(snippetDef =>
+      [...SQL_SNIPPETS, ...pluginContributions.snippets].map(snippetDef =>
         snippetCompletion(snippetDef.template, {
           label: snippetDef.label,
           detail: snippetDef.description,
           type: 'keyword',
         })
       ),
-    []
+    [pluginContributions.snippets]
   );
 
   const resolveDefaultNamespace = useCallback(

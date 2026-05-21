@@ -488,6 +488,8 @@
     "safetyPolicyRequireConfirmationDescription": "Explizite Bestätigung anfordern, bevor destruktives SQL in der Produktion ausgeführt wird.",
     "safetyPolicyBlockDangerous": "Gefährliches SQL in Produktion blockieren",
     "safetyPolicyBlockDangerousDescription": "Destruktives SQL in der Produktion ablehnen, auch wenn bestätigt.",
+    "safetyPolicyRateLimit": "Abfragerate pro Verbindung begrenzen",
+    "safetyPolicyRateLimitDescription": "Stoppt außer Kontrolle geratene Abfrageschleifen, indem die Ausführungsrate pro Verbindung begrenzt wird.",
     "safetyPolicyNote": "Umgebungsvariablen können diese Einstellungen in verwalteten Bereitstellungen überschreiben.",
     "safetyPolicyError": "Sicherheitsrichtlinien konnten nicht geladen oder gespeichert werden.",
     "configBackup": "Konfigurationssicherung",

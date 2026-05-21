@@ -74,6 +74,7 @@ mod tests {
             max_query_duration_ms: max_dur_ms,
             max_result_rows: max_rows,
             max_concurrent_queries: None,
+            query_rate_limit_enabled: true,
         }
     }
 

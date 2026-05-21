@@ -22,6 +22,13 @@ pub struct SafetyPolicy {
     /// Maximum number of concurrent queries (None = no limit)
     #[serde(default)]
     pub max_concurrent_queries: Option<u32>,
+    /// Anti-loop guardrail: cap the query rate per session (defaults to on).
+    #[serde(default = "default_query_rate_limit")]
+    pub query_rate_limit_enabled: bool,
+}
+
+fn default_query_rate_limit() -> bool {
+    true
 }
 
 fn env_bool_opt(key: &str) -> Option<bool> {
@@ -60,6 +67,7 @@ impl SafetyPolicy {
             max_query_duration_ms: None,
             max_result_rows: None,
             max_concurrent_queries: None,
+            query_rate_limit_enabled: true,
         }
     }
 
@@ -78,6 +86,9 @@ impl SafetyPolicy {
         }
         if let Some(value) = env_u32_opt("QOREDB_MAX_CONCURRENT_QUERIES") {
             self.max_concurrent_queries = Some(value);
+        }
+        if let Some(value) = env_bool_opt("QOREDB_QUERY_RATE_LIMIT") {
+            self.query_rate_limit_enabled = value;
         }
     }
 
@@ -123,6 +134,7 @@ mod tests {
         assert!(policy.max_query_duration_ms.is_none());
         assert!(policy.max_result_rows.is_none());
         assert!(policy.max_concurrent_queries.is_none());
+        assert!(policy.query_rate_limit_enabled);
     }
 
     #[test]

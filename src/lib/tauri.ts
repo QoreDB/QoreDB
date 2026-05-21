@@ -131,6 +131,7 @@ export interface VaultResponse {
 export interface SafetyPolicy {
   prod_require_confirmation: boolean;
   prod_block_dangerous_sql: boolean;
+  query_rate_limit_enabled?: boolean;
 }
 
 export interface SafetyPolicyResponse {

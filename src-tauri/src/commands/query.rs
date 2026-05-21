@@ -32,6 +32,8 @@ const READ_ONLY_BLOCKED: &str = "Operation blocked: read-only mode";
 const DANGEROUS_BLOCKED: &str = "Dangerous query blocked: confirmation required";
 const DANGEROUS_BLOCKED_POLICY: &str = "Dangerous query blocked by policy";
 const SQL_PARSE_BLOCKED: &str = "Operation blocked: SQL parser could not classify the query";
+const RATE_LIMIT_BLOCKED: &str =
+    "Operation blocked: query rate limit exceeded — too many queries in a short time";
 const TRANSACTIONS_NOT_SUPPORTED: &str = "Transactions are not supported by this driver";
 const SAFETY_RULE_BLOCKED: &str = "Query blocked by safety rule";
 
@@ -126,11 +128,12 @@ pub async fn execute_query(
     on_stream: Channel<InvokeResponseBody>,
 ) -> Result<QueryResponse, String> {
     let requested_bypass = bypass_limits.unwrap_or(false);
-    let (session_manager, query_manager, policy, interceptor, license_tier) = {
+    let (session_manager, query_manager, query_rate_limiter, policy, interceptor, license_tier) = {
         let state = state.lock().await;
         (
             Arc::clone(&state.session_manager),
             Arc::clone(&state.query_manager),
+            Arc::clone(&state.query_rate_limiter),
             state.policy.clone(),
             Arc::clone(&state.interceptor),
             state.license_manager.effective_status().tier,
@@ -164,6 +167,20 @@ pub async fn execute_query(
     };
 
     let session = parse_session_id(&session_id)?;
+
+    // Anti-loop guardrail: cap the query rate per session so a runaway client
+    // loop cannot saturate the connection. Generous budget — never reached by
+    // human use. Skipped entirely when disabled in the safety policy.
+    if policy.query_rate_limit_enabled && !query_rate_limiter.try_acquire(&session_id) {
+        return Ok(QueryResponse {
+            success: false,
+            result: None,
+            error: Some(RATE_LIMIT_BLOCKED.to_string()),
+            query_id: None,
+            truncated: None,
+            truncated_total: None,
+        });
+    }
 
     let read_only = match session_manager.is_read_only(session).await {
         Ok(read_only) => read_only,

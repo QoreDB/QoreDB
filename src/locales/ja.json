@@ -488,6 +488,8 @@
     "safetyPolicyRequireConfirmationDescription": "本番環境で破壊的な SQL を実行する前に、明示的な確認を求めます。",
     "safetyPolicyBlockDangerous": "本番環境で危険な SQL をブロック",
     "safetyPolicyBlockDangerousDescription": "確認済みでも、本番環境での破壊的な SQL を拒否します。",
+    "safetyPolicyRateLimit": "接続ごとにクエリのレートを制限",
+    "safetyPolicyRateLimitDescription": "接続上のクエリ実行速度に上限を設け、暴走するクエリループを停止します。",
     "safetyPolicyNote": "マネージドデプロイメントでは、環境変数でこれらの設定を上書きできます。",
     "safetyPolicyError": "安全ポリシー設定の読み込みまたは保存に失敗しました。",
     "configBackup": "設定バックアップ",

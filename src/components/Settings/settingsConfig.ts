@@ -7,6 +7,7 @@ import {
   Keyboard,
   KeyRound,
   type LucideIcon,
+  Puzzle,
   Shield,
   Sparkles,
 } from 'lucide-react';
@@ -17,6 +18,7 @@ export type SettingsSectionId =
   | 'security'
   | 'data'
   | 'shortcuts'
+  | 'plugins'
   | 'license'
   | 'ai';
 
@@ -102,6 +104,23 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     labelKey: 'settings.sections.shortcuts',
     icon: Keyboard,
     keywords: ['keyboard', 'shortcut', 'hotkey', 'raccourci', 'clavier'],
+  },
+  {
+    id: 'plugins',
+    labelKey: 'settings.sections.plugins',
+    icon: Puzzle,
+    keywords: [
+      'plugin',
+      'plugins',
+      'extension',
+      'addon',
+      'snippet',
+      'template',
+      'theme',
+      'extension',
+      'thème',
+      'modèle',
+    ],
   },
   {
     id: 'license',

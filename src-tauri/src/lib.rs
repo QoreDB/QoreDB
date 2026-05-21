@@ -19,7 +19,9 @@ pub mod license;
 pub mod metrics;
 pub mod observability;
 pub mod paths;
+pub mod plugins;
 pub mod policy;
+pub mod ratelimit;
 pub mod share;
 pub mod snapshots;
 pub mod time_travel;
@@ -50,6 +52,7 @@ use export::ExportPipeline;
 use interceptor::InterceptorPipeline;
 use license::LicenseManager;
 use policy::SafetyPolicy;
+use ratelimit::QueryRateLimiter;
 use share::ShareManager;
 use snapshots::SnapshotStore;
 use vault::{backend::KeyringProvider, VaultLock};
@@ -62,6 +65,7 @@ pub struct AppState {
     pub vault_lock: VaultLock,
     pub policy: SafetyPolicy,
     pub query_manager: Arc<QueryManager>,
+    pub query_rate_limiter: Arc<QueryRateLimiter>,
     pub interceptor: Arc<InterceptorPipeline>,
     pub export_pipeline: Arc<ExportPipeline>,
     pub share_manager: Arc<ShareManager>,
@@ -134,6 +138,7 @@ impl AppState {
             vault_lock,
             policy,
             query_manager,
+            query_rate_limiter: Arc::new(QueryRateLimiter::with_defaults()),
             interceptor,
             export_pipeline,
             share_manager,
@@ -428,6 +433,12 @@ pub fn run() {
             // Workspace query library commands
             commands::workspace_queries::ws_get_query_library,
             commands::workspace_queries::ws_save_query_library,
+            // Plugin system commands
+            commands::plugins::list_plugins,
+            commands::plugins::install_plugin,
+            commands::plugins::remove_plugin,
+            commands::plugins::set_plugin_enabled,
+            commands::plugins::get_plugin_contributions,
             // Time-Travel commands
             commands::time_travel::get_table_timeline,
             commands::time_travel::get_row_history,

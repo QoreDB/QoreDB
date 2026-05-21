@@ -6,4 +6,5 @@ export { EditorSection } from './EditorSection';
 export { GeneralSection } from './GeneralSection';
 export { KeyboardShortcutsSection } from './KeyboardShortcutsSection';
 export { LicenseSection } from './LicenseSection';
+export { PluginsSection } from './PluginsSection';
 export { SecuritySection } from './SecuritySection';

@@ -1,4 +1,47 @@
 {
+  "plugins": {
+    "title": "플러그인",
+    "description": "선언형 플러그인으로 QoreDB를 확장하세요 — SQL 스니펫 팩, 연결 템플릿, 색상 테마. 코드는 실행되지 않습니다.",
+    "empty": "설치된 플러그인이 없습니다.",
+    "install": "플러그인 설치",
+    "installDialog": {
+      "title": "플러그인 설치",
+      "description": "plugin.json 매니페스트가 포함된 폴더를 선택하세요.",
+      "pickFolder": "폴더 선택…",
+      "installing": "설치 중…"
+    },
+    "card": {
+      "version": "버전",
+      "by": "{{author}} 제작",
+      "incompatible": "호환되지 않음",
+      "enable": "플러그인 활성화",
+      "disable": "플러그인 비활성화",
+      "remove": "플러그인 제거",
+      "removeConfirm": "플러그인 \"{{name}}\"을(를) 제거할까요?"
+    },
+    "contributions": {
+      "snippets": "스니펫: {{count}}",
+      "connectionTemplates": "템플릿: {{count}}",
+      "themes": "테마: {{count}}"
+    },
+    "detail": {
+      "requires": "QoreDB {{version}} 필요",
+      "noContributions": "이 플러그인은 제공하는 항목이 없습니다.",
+      "snippets": "SQL 스니펫",
+      "templates": "연결 템플릿",
+      "themes": "테마"
+    },
+    "themes": {
+      "title": "플러그인 테마",
+      "description": "활성화된 플러그인이 제공하는 색상 테마.",
+      "apply": "적용",
+      "active": "사용 중"
+    },
+    "toast": {
+      "installed": "플러그인 \"{{name}}\"을(를) 설치했습니다",
+      "removed": "플러그인 \"{{name}}\"을(를) 제거했습니다"
+    }
+  },
   "home": {
     "noConnections": {
       "title": "구성된 연결이 없습니다",
@@ -525,6 +568,7 @@
       "security": "보안",
       "data": "데이터 및 개인정보",
       "shortcuts": "키보드 단축키",
+      "plugins": "플러그인",
       "license": "라이선스",
       "ai": "AI 어시스턴트"
     },

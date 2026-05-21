@@ -1,4 +1,47 @@
 {
+  "plugins": {
+    "title": "Plugins",
+    "description": "Extend QoreDB with declarative plugins — SQL snippet packs, connection templates and color themes. No code is executed.",
+    "empty": "No plugins installed yet.",
+    "install": "Install plugin",
+    "installDialog": {
+      "title": "Install a plugin",
+      "description": "Select a folder containing a plugin.json manifest.",
+      "pickFolder": "Choose folder…",
+      "installing": "Installing…"
+    },
+    "card": {
+      "version": "Version",
+      "by": "by {{author}}",
+      "incompatible": "Incompatible",
+      "enable": "Enable plugin",
+      "disable": "Disable plugin",
+      "remove": "Remove plugin",
+      "removeConfirm": "Remove the plugin “{{name}}”?"
+    },
+    "contributions": {
+      "snippets": "Snippets: {{count}}",
+      "connectionTemplates": "Templates: {{count}}",
+      "themes": "Themes: {{count}}"
+    },
+    "detail": {
+      "requires": "Requires QoreDB {{version}}",
+      "noContributions": "This plugin contributes nothing.",
+      "snippets": "SQL snippets",
+      "templates": "Connection templates",
+      "themes": "Themes"
+    },
+    "themes": {
+      "title": "Plugin themes",
+      "description": "Color themes contributed by enabled plugins.",
+      "apply": "Apply",
+      "active": "Active"
+    },
+    "toast": {
+      "installed": "Plugin “{{name}}” installed",
+      "removed": "Plugin “{{name}}” removed"
+    }
+  },
   "home": {
     "noConnections": {
       "title": "No connections configured",
@@ -526,6 +569,7 @@
       "security": "Security",
       "data": "Data & Privacy",
       "shortcuts": "Keyboard Shortcuts",
+      "plugins": "Plugins",
       "license": "License",
       "ai": "AI Assistant"
     },
@@ -1065,8 +1109,10 @@
     }
   },
   "whatsNew": {
-    "title": "What's New",
+    "title": "What's new in QoreDB {{version}}",
     "titleWithVersion": "What's New in v{{version}}",
+    "subtitle": "A quick look at what changed since your last session.",
+    "dismiss": "Got it",
     "tryIt": "Try it",
     "markSeen": "Dismiss",
     "feature": "New",
@@ -1981,11 +2027,6 @@
     "subtitle": "Free is great for solo projects and exploration. Pro unlocks the features you need for production-grade database work.",
     "priceTitle": "One-time payment, lifetime access",
     "alreadyHaveKey": "I have a license key"
-  },
-  "whatsNew": {
-    "title": "What's new in QoreDB {{version}}",
-    "subtitle": "A quick look at what changed since your last session.",
-    "dismiss": "Got it"
   },
   "usageBanner": {
     "title": "You've run {{count}} queries with QoreDB",

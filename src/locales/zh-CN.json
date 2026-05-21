@@ -1,4 +1,47 @@
 {
+  "plugins": {
+    "title": "插件",
+    "description": "使用声明式插件扩展 QoreDB — SQL 代码片段包、连接模板和配色主题。不执行任何代码。",
+    "empty": "尚未安装任何插件。",
+    "install": "安装插件",
+    "installDialog": {
+      "title": "安装插件",
+      "description": "选择包含 plugin.json 清单的文件夹。",
+      "pickFolder": "选择文件夹…",
+      "installing": "正在安装…"
+    },
+    "card": {
+      "version": "版本",
+      "by": "作者：{{author}}",
+      "incompatible": "不兼容",
+      "enable": "启用插件",
+      "disable": "禁用插件",
+      "remove": "移除插件",
+      "removeConfirm": "移除插件“{{name}}”？"
+    },
+    "contributions": {
+      "snippets": "代码片段：{{count}}",
+      "connectionTemplates": "模板：{{count}}",
+      "themes": "主题：{{count}}"
+    },
+    "detail": {
+      "requires": "需要 QoreDB {{version}}",
+      "noContributions": "此插件不提供任何内容。",
+      "snippets": "SQL 代码片段",
+      "templates": "连接模板",
+      "themes": "主题"
+    },
+    "themes": {
+      "title": "插件主题",
+      "description": "由已启用插件提供的配色主题。",
+      "apply": "应用",
+      "active": "使用中"
+    },
+    "toast": {
+      "installed": "已安装插件“{{name}}”",
+      "removed": "已移除插件“{{name}}”"
+    }
+  },
   "home": {
     "noConnections": {
       "title": "未配置连接",
@@ -525,6 +568,7 @@
       "security": "安全",
       "data": "数据与隐私",
       "shortcuts": "键盘快捷键",
+      "plugins": "插件",
       "license": "许可证",
       "ai": "AI 助手"
     },

@@ -1,4 +1,47 @@
 {
+  "plugins": {
+    "title": "Plugins",
+    "description": "Estenda o QoreDB com plugins declarativos — pacotes de snippets SQL, modelos de conexão e temas de cores. Nenhum código é executado.",
+    "empty": "Nenhum plugin instalado ainda.",
+    "install": "Instalar plugin",
+    "installDialog": {
+      "title": "Instalar um plugin",
+      "description": "Selecione uma pasta contendo um manifesto plugin.json.",
+      "pickFolder": "Escolher pasta…",
+      "installing": "Instalando…"
+    },
+    "card": {
+      "version": "Versão",
+      "by": "por {{author}}",
+      "incompatible": "Incompatível",
+      "enable": "Ativar plugin",
+      "disable": "Desativar plugin",
+      "remove": "Remover plugin",
+      "removeConfirm": "Remover o plugin “{{name}}”?"
+    },
+    "contributions": {
+      "snippets": "Snippets: {{count}}",
+      "connectionTemplates": "Modelos: {{count}}",
+      "themes": "Temas: {{count}}"
+    },
+    "detail": {
+      "requires": "Requer QoreDB {{version}}",
+      "noContributions": "Este plugin não contribui com nada.",
+      "snippets": "Snippets SQL",
+      "templates": "Modelos de conexão",
+      "themes": "Temas"
+    },
+    "themes": {
+      "title": "Temas de plugins",
+      "description": "Temas de cores fornecidos pelos plugins ativados.",
+      "apply": "Aplicar",
+      "active": "Ativo"
+    },
+    "toast": {
+      "installed": "Plugin “{{name}}” instalado",
+      "removed": "Plugin “{{name}}” removido"
+    }
+  },
   "home": {
     "noConnections": {
       "title": "Nenhuma conexão configurada",
@@ -525,6 +568,7 @@
       "security": "Segurança",
       "data": "Dados e Privacidade",
       "shortcuts": "Atalhos de Teclado",
+      "plugins": "Plugins",
       "license": "Licença",
       "ai": "Assistente de IA"
     },

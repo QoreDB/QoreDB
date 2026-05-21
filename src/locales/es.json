@@ -1,4 +1,47 @@
 {
+  "plugins": {
+    "title": "Complementos",
+    "description": "Amplía QoreDB con complementos declarativos — paquetes de snippets SQL, plantillas de conexión y temas de color. No se ejecuta ningún código.",
+    "empty": "Aún no hay complementos instalados.",
+    "install": "Instalar complemento",
+    "installDialog": {
+      "title": "Instalar un complemento",
+      "description": "Selecciona una carpeta que contenga un manifiesto plugin.json.",
+      "pickFolder": "Elegir carpeta…",
+      "installing": "Instalando…"
+    },
+    "card": {
+      "version": "Versión",
+      "by": "por {{author}}",
+      "incompatible": "Incompatible",
+      "enable": "Activar complemento",
+      "disable": "Desactivar complemento",
+      "remove": "Eliminar complemento",
+      "removeConfirm": "¿Eliminar el complemento «{{name}}»?"
+    },
+    "contributions": {
+      "snippets": "Snippets: {{count}}",
+      "connectionTemplates": "Plantillas: {{count}}",
+      "themes": "Temas: {{count}}"
+    },
+    "detail": {
+      "requires": "Requiere QoreDB {{version}}",
+      "noContributions": "Este complemento no aporta nada.",
+      "snippets": "Snippets SQL",
+      "templates": "Plantillas de conexión",
+      "themes": "Temas"
+    },
+    "themes": {
+      "title": "Temas de complementos",
+      "description": "Temas de color aportados por los complementos activados.",
+      "apply": "Aplicar",
+      "active": "Activo"
+    },
+    "toast": {
+      "installed": "Complemento «{{name}}» instalado",
+      "removed": "Complemento «{{name}}» eliminado"
+    }
+  },
   "home": {
     "noConnections": {
       "title": "No hay conexiones configuradas",
@@ -525,6 +568,7 @@
       "security": "Seguridad",
       "data": "Datos y privacidad",
       "shortcuts": "Atajos de teclado",
+      "plugins": "Complementos",
       "license": "Licencia",
       "ai": "Asistente de IA"
     },

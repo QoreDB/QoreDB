@@ -1,4 +1,47 @@
 {
+  "plugins": {
+    "title": "Plugins",
+    "description": "Erweitern Sie QoreDB mit deklarativen Plugins — SQL-Snippet-Pakete, Verbindungsvorlagen und Farbthemen. Es wird kein Code ausgeführt.",
+    "empty": "Noch keine Plugins installiert.",
+    "install": "Plugin installieren",
+    "installDialog": {
+      "title": "Plugin installieren",
+      "description": "Wählen Sie einen Ordner mit einer plugin.json-Manifestdatei.",
+      "pickFolder": "Ordner wählen…",
+      "installing": "Wird installiert…"
+    },
+    "card": {
+      "version": "Version",
+      "by": "von {{author}}",
+      "incompatible": "Inkompatibel",
+      "enable": "Plugin aktivieren",
+      "disable": "Plugin deaktivieren",
+      "remove": "Plugin entfernen",
+      "removeConfirm": "Plugin „{{name}}“ entfernen?"
+    },
+    "contributions": {
+      "snippets": "Snippets: {{count}}",
+      "connectionTemplates": "Vorlagen: {{count}}",
+      "themes": "Themen: {{count}}"
+    },
+    "detail": {
+      "requires": "Erfordert QoreDB {{version}}",
+      "noContributions": "Dieses Plugin trägt nichts bei.",
+      "snippets": "SQL-Snippets",
+      "templates": "Verbindungsvorlagen",
+      "themes": "Themen"
+    },
+    "themes": {
+      "title": "Plugin-Themen",
+      "description": "Von aktivierten Plugins bereitgestellte Farbthemen.",
+      "apply": "Anwenden",
+      "active": "Aktiv"
+    },
+    "toast": {
+      "installed": "Plugin „{{name}}“ installiert",
+      "removed": "Plugin „{{name}}“ entfernt"
+    }
+  },
   "home": {
     "noConnections": {
       "title": "Keine Verbindungen konfiguriert",
@@ -525,6 +568,7 @@
       "security": "Sicherheit",
       "data": "Daten und Datenschutz",
       "shortcuts": "Tastenkürzel",
+      "plugins": "Plugins",
       "license": "Lizenz",
       "ai": "KI-Assistent"
     },

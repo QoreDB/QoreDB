@@ -1,4 +1,47 @@
 {
+  "plugins": {
+    "title": "Extensions",
+    "description": "Étendez QoreDB avec des extensions déclaratives — packs de snippets SQL, modèles de connexion et thèmes de couleurs. Aucun code n'est exécuté.",
+    "empty": "Aucune extension installée pour le moment.",
+    "install": "Installer une extension",
+    "installDialog": {
+      "title": "Installer une extension",
+      "description": "Sélectionnez un dossier contenant un manifeste plugin.json.",
+      "pickFolder": "Choisir un dossier…",
+      "installing": "Installation…"
+    },
+    "card": {
+      "version": "Version",
+      "by": "par {{author}}",
+      "incompatible": "Incompatible",
+      "enable": "Activer l'extension",
+      "disable": "Désactiver l'extension",
+      "remove": "Supprimer l'extension",
+      "removeConfirm": "Supprimer l'extension « {{name}} » ?"
+    },
+    "contributions": {
+      "snippets": "Snippets : {{count}}",
+      "connectionTemplates": "Modèles : {{count}}",
+      "themes": "Thèmes : {{count}}"
+    },
+    "detail": {
+      "requires": "Nécessite QoreDB {{version}}",
+      "noContributions": "Cette extension n'apporte aucune contribution.",
+      "snippets": "Snippets SQL",
+      "templates": "Modèles de connexion",
+      "themes": "Thèmes"
+    },
+    "themes": {
+      "title": "Thèmes d'extension",
+      "description": "Thèmes de couleurs fournis par les extensions activées.",
+      "apply": "Appliquer",
+      "active": "Actif"
+    },
+    "toast": {
+      "installed": "Extension « {{name}} » installée",
+      "removed": "Extension « {{name}} » supprimée"
+    }
+  },
   "home": {
     "noConnections": {
       "title": "Aucune connexion configurée",
@@ -526,6 +569,7 @@
       "security": "Sécurité",
       "data": "Données & Confidentialité",
       "shortcuts": "Raccourcis clavier",
+      "plugins": "Extensions",
       "license": "Licence",
       "ai": "Assistant IA"
     },
@@ -1065,8 +1109,10 @@
     }
   },
   "whatsNew": {
-    "title": "Nouveautés",
+    "title": "Quoi de neuf dans QoreDB {{version}}",
     "titleWithVersion": "Nouveautés de la v{{version}}",
+    "subtitle": "Un aperçu rapide des changements depuis votre dernière session.",
+    "dismiss": "Compris",
     "tryIt": "Essayer",
     "markSeen": "Masquer",
     "feature": "Nouveau",
@@ -1981,11 +2027,6 @@
     "subtitle": "Free est parfait pour les projets solo et l'exploration. Pro débloque les fonctionnalités dont vous avez besoin pour un travail base de données de niveau production.",
     "priceTitle": "Paiement unique, accès à vie",
     "alreadyHaveKey": "J'ai déjà une clé de licence"
-  },
-  "whatsNew": {
-    "title": "Quoi de neuf dans QoreDB {{version}}",
-    "subtitle": "Un aperçu rapide des changements depuis votre dernière session.",
-    "dismiss": "Compris"
   },
   "usageBanner": {
     "title": "Vous avez exécuté {{count}} requêtes avec QoreDB",

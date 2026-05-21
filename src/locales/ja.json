@@ -1,4 +1,47 @@
 {
+  "plugins": {
+    "title": "プラグイン",
+    "description": "宣言型プラグインで QoreDB を拡張します — SQL スニペットパック、接続テンプレート、カラーテーマ。コードは実行されません。",
+    "empty": "インストール済みのプラグインはありません。",
+    "install": "プラグインをインストール",
+    "installDialog": {
+      "title": "プラグインのインストール",
+      "description": "plugin.json マニフェストを含むフォルダーを選択してください。",
+      "pickFolder": "フォルダーを選択…",
+      "installing": "インストール中…"
+    },
+    "card": {
+      "version": "バージョン",
+      "by": "作成者: {{author}}",
+      "incompatible": "非対応",
+      "enable": "プラグインを有効化",
+      "disable": "プラグインを無効化",
+      "remove": "プラグインを削除",
+      "removeConfirm": "プラグイン「{{name}}」を削除しますか？"
+    },
+    "contributions": {
+      "snippets": "スニペット: {{count}}",
+      "connectionTemplates": "テンプレート: {{count}}",
+      "themes": "テーマ: {{count}}"
+    },
+    "detail": {
+      "requires": "QoreDB {{version}} が必要です",
+      "noContributions": "このプラグインは何も提供しません。",
+      "snippets": "SQL スニペット",
+      "templates": "接続テンプレート",
+      "themes": "テーマ"
+    },
+    "themes": {
+      "title": "プラグインテーマ",
+      "description": "有効なプラグインが提供するカラーテーマ。",
+      "apply": "適用",
+      "active": "適用中"
+    },
+    "toast": {
+      "installed": "プラグイン「{{name}}」をインストールしました",
+      "removed": "プラグイン「{{name}}」を削除しました"
+    }
+  },
   "home": {
     "noConnections": {
       "title": "接続が設定されていません",
@@ -525,6 +568,7 @@
       "security": "セキュリティ",
       "data": "データとプライバシー",
       "shortcuts": "キーボードショートカット",
+      "plugins": "プラグイン",
       "license": "ライセンス",
       "ai": "AI アシスタント"
     },

@@ -1,4 +1,47 @@
 {
+  "plugins": {
+    "title": "Плагины",
+    "description": "Расширяйте QoreDB декларативными плагинами — наборами SQL-сниппетов, шаблонами подключений и цветовыми темами. Код не выполняется.",
+    "empty": "Плагины ещё не установлены.",
+    "install": "Установить плагин",
+    "installDialog": {
+      "title": "Установка плагина",
+      "description": "Выберите папку с манифестом plugin.json.",
+      "pickFolder": "Выбрать папку…",
+      "installing": "Установка…"
+    },
+    "card": {
+      "version": "Версия",
+      "by": "от {{author}}",
+      "incompatible": "Несовместим",
+      "enable": "Включить плагин",
+      "disable": "Отключить плагин",
+      "remove": "Удалить плагин",
+      "removeConfirm": "Удалить плагин «{{name}}»?"
+    },
+    "contributions": {
+      "snippets": "Сниппеты: {{count}}",
+      "connectionTemplates": "Шаблоны: {{count}}",
+      "themes": "Темы: {{count}}"
+    },
+    "detail": {
+      "requires": "Требуется QoreDB {{version}}",
+      "noContributions": "Этот плагин ничего не добавляет.",
+      "snippets": "SQL-сниппеты",
+      "templates": "Шаблоны подключений",
+      "themes": "Темы"
+    },
+    "themes": {
+      "title": "Темы плагинов",
+      "description": "Цветовые темы, предоставленные включёнными плагинами.",
+      "apply": "Применить",
+      "active": "Активна"
+    },
+    "toast": {
+      "installed": "Плагин «{{name}}» установлен",
+      "removed": "Плагин «{{name}}» удалён"
+    }
+  },
   "home": {
     "noConnections": {
       "title": "Подключения не настроены",
@@ -525,6 +568,7 @@
       "security": "Безопасность",
       "data": "Данные и конфиденциальность",
       "shortcuts": "Сочетания клавиш",
+      "plugins": "Плагины",
       "license": "Лицензия",
       "ai": "AI-ассистент"
     },

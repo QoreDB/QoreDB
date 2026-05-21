@@ -12,7 +12,6 @@ pub mod postgres;
 pub mod postgres_utils;
 pub mod redis;
 pub mod sqlite;
-pub mod sqlite_functions;
 pub mod sqlserver;
 pub mod supabase;
 pub mod timescaledb;

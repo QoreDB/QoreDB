@@ -8,7 +8,7 @@
     "maxEntries": "最大エントリ数",
     "stats": "キャッシュ {{entries}} 件 · ヒット率 {{hitRate}}%",
     "clear": "キャッシュをクリア",
-    "fromCache": "キャッシュ済み · {{age}}前",
+    "fromCache": "キャッシュから提供されたデータ（{{age}}前）· クリックで更新",
     "refresh": "更新"
   },
   "plugins": {
@@ -579,7 +579,7 @@
       "general": "一般",
       "editor": "エディタ",
       "security": "セキュリティ",
-      "data": "データとプライバシー",
+      "data": "プライバシー",
       "shortcuts": "キーボードショートカット",
       "plugins": "プラグイン",
       "license": "ライセンス",
@@ -2039,6 +2039,51 @@
     "subtitle": "無料版は個人プロジェクトや探索に最適です。Pro は本番グレードのデータベース作業に必要な機能をアンロックします。",
     "priceTitle": "一回払いで永続アクセス",
     "alreadyHaveKey": "ライセンスキーを持っています"
+  },
+  "proActivation": {
+    "title": "QoreDB Pro が有効になりました",
+    "description": "このデバイスで Pro 機能を利用できます。",
+    "statusLine": "ライセンスを確認しました。ワークスペースで Pro ワークフローを使えます。",
+    "starterTitle": "おすすめの開始ポイント",
+    "starterDescription": "ここにあるのは最初に見る場所だけです。下の Pro 機能はすべてアンロックされています。",
+    "allFeaturesTitle": "すべての Pro 機能がアンロックされました",
+    "allFeaturesDescription": "ライセンスには上のハイライトだけでなく、Pro 機能一式が含まれます。",
+    "continue": "続ける",
+    "viewTour": "Pro ツアーを見る",
+    "backToSummary": "戻る",
+    "previous": "前へ",
+    "next": "次へ",
+    "finish": "完了",
+    "benefits": {
+      "ai": {
+        "title": "AI アシスタント",
+        "description": "スキーマの文脈を使ってクエリを生成、説明、修正します。"
+      },
+      "history": {
+        "title": "Time Travel と Diff",
+        "description": "履歴状態を確認し、結果を比較して、より安心して変更を復元できます。"
+      },
+      "exports": {
+        "title": "プロ向けエクスポート",
+        "description": "XLSX、Parquet、高度な共有フローを本番作業で利用できます。"
+      }
+    },
+    "tour": {
+      "title": "最初に見る 3 つの場所",
+      "description": "まず役立つ Pro ツールを短く紹介します。",
+      "progress": "{{current}} / {{total}}",
+      "steps": [
+        {
+          "hint": "下書き、修正、結果の説明が必要なときは、サイドバーから AI アシスタントを開きます。"
+        },
+        {
+          "hint": "復元やエクスポートの前に、Time Travel と Visual Diff で変更内容を確認します。"
+        },
+        {
+          "hint": "プロバイダーを設定すると、エクスポートと共有で Pro 形式や一時リンクを使えます。"
+        }
+      ]
+    }
   },
   "usageBanner": {
     "title": "QoreDB で {{count}} 件のクエリを実行しました",

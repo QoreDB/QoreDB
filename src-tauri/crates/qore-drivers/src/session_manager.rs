@@ -299,6 +299,28 @@ impl SessionManager {
         sessions.get(&session_id).map(|s| s.display_name.clone())
     }
 
+    /// Returns a stable identifier for the *connection* backing a session.
+    ///
+    /// Derived from the connection config (driver, host, port, user, database,
+    /// environment) so two sessions opened from the same connection share the
+    /// key. Caches keyed by it therefore invalidate consistently across every
+    /// session of that connection. The password is deliberately excluded.
+    pub async fn connection_key(&self, session_id: SessionId) -> Option<String> {
+        let sessions = self.sessions.read().await;
+        sessions.get(&session_id).map(|s| {
+            let c = &s.config;
+            format!(
+                "{}|{}|{}|{}|{}|{}",
+                c.driver,
+                c.host,
+                c.port,
+                c.username,
+                c.database.as_deref().unwrap_or(""),
+                c.environment,
+            )
+        })
+    }
+
     /// Updates the display name for an active session.
     pub async fn set_display_name(&self, session_id: SessionId, name: String) {
         let mut sessions = self.sessions.write().await;

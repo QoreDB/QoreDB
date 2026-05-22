@@ -8,12 +8,12 @@
     "maxEntries": "Maximum entries",
     "stats": "{{entries}} entries cached · {{hitRate}}% hit rate",
     "clear": "Clear cache",
-    "fromCache": "Cached · {{age}} ago",
+    "fromCache": "Data served from cache ({{age}} old) · click to refresh",
     "refresh": "Refresh"
   },
   "plugins": {
     "title": "Plugins",
-    "description": "Extend QoreDB with declarative plugins — SQL snippet packs, connection templates and color themes. No code is executed.",
+    "description": "Extend QoreDB with declarative plugins : SQL snippet packs, connection templates and color themes. No code is executed.",
     "empty": "No plugins installed yet.",
     "install": "Install plugin",
     "installDialog": {
@@ -536,7 +536,7 @@
       },
       "devOverrideTitle": "Dev License Override",
       "devOverrideDescription": "Override license tier for development testing. Resets on app restart.",
-      "devOnly": "Development only — not available in production builds"
+      "devOnly": "Development only, not available in production builds"
     },
     "safetyPolicy": "Production Safety",
     "safetyPolicyDescription": "Control server-side guardrails for production queries.",
@@ -579,7 +579,7 @@
       "general": "General",
       "editor": "Editor",
       "security": "Security",
-      "data": "Data & Privacy",
+      "data": "Privacy",
       "shortcuts": "Keyboard Shortcuts",
       "plugins": "Plugins",
       "license": "License",
@@ -2039,6 +2039,51 @@
     "subtitle": "Free is great for solo projects and exploration. Pro unlocks the features you need for production-grade database work.",
     "priceTitle": "One-time payment, lifetime access",
     "alreadyHaveKey": "I have a license key"
+  },
+  "proActivation": {
+    "title": "QoreDB Pro is active",
+    "description": "Your Pro features are now available on this device.",
+    "statusLine": "License verified. Your workspace is ready for Pro workflows.",
+    "starterTitle": "Suggested starting points",
+    "starterDescription": "These are only the first places to look. Every Pro feature below is now unlocked.",
+    "allFeaturesTitle": "All Pro features unlocked",
+    "allFeaturesDescription": "Your license includes the complete Pro feature set, not just the highlights above.",
+    "continue": "Continue",
+    "viewTour": "View Pro tour",
+    "backToSummary": "Back",
+    "previous": "Previous",
+    "next": "Next",
+    "finish": "Done",
+    "benefits": {
+      "ai": {
+        "title": "AI assistant",
+        "description": "Generate, explain and fix queries with schema-aware context."
+      },
+      "history": {
+        "title": "Time travel and diffs",
+        "description": "Inspect historical states, compare results and recover changes with more confidence."
+      },
+      "exports": {
+        "title": "Professional exports",
+        "description": "Use XLSX, Parquet and advanced sharing flows for production work."
+      }
+    },
+    "tour": {
+      "title": "Three places to start",
+      "description": "A short tour of the Pro tools that usually matter first.",
+      "progress": "{{current}} of {{total}}",
+      "steps": [
+        {
+          "hint": "Open the AI assistant from the sidebar when you need a first draft, a fix, or an explanation for a result set."
+        },
+        {
+          "hint": "Use Time Travel and Visual Diff when you want to understand how data changed before restoring or exporting anything."
+        },
+        {
+          "hint": "Export and sharing actions now include Pro formats and provider-based temporary links when configured."
+        }
+      ]
+    }
   },
   "usageBanner": {
     "title": "You've run {{count}} queries with QoreDB",

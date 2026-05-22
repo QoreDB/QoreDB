@@ -8,7 +8,7 @@
     "maxEntries": "Maximale Einträge",
     "stats": "{{entries}} Einträge zwischengespeichert · {{hitRate}} % Trefferquote",
     "clear": "Cache leeren",
-    "fromCache": "Zwischengespeichert · vor {{age}}",
+    "fromCache": "Daten aus dem Cache (vor {{age}}) · zum Aktualisieren klicken",
     "refresh": "Aktualisieren"
   },
   "plugins": {
@@ -536,7 +536,7 @@
       },
       "devOverrideTitle": "Entwickler-Lizenz-Override",
       "devOverrideDescription": "Lizenzstufe für Entwicklungstests überschreiben. Wird beim Neustart zurückgesetzt.",
-      "devOnly": "Nur für Entwicklung — nicht in Produktions-Builds verfügbar"
+      "devOnly": "Nur für Entwicklung, nicht in Produktions-Builds verfügbar"
     },
     "safetyPolicy": "Produktionssicherheit",
     "safetyPolicyDescription": "Serverseitige Schutzmaßnahmen für Produktionsabfragen steuern.",
@@ -579,7 +579,7 @@
       "general": "Allgemein",
       "editor": "Editor",
       "security": "Sicherheit",
-      "data": "Daten und Datenschutz",
+      "data": "Datenschutz",
       "shortcuts": "Tastenkürzel",
       "plugins": "Plugins",
       "license": "Lizenz",
@@ -2039,6 +2039,51 @@
     "subtitle": "Free ist ideal für Einzelprojekte und Erkundung. Pro schaltet die Funktionen frei, die Sie für professionelle Datenbankarbeit benötigen.",
     "priceTitle": "Einmalzahlung, lebenslanger Zugang",
     "alreadyHaveKey": "Ich habe einen Lizenzschlüssel"
+  },
+  "proActivation": {
+    "title": "QoreDB Pro ist aktiv",
+    "description": "Ihre Pro-Funktionen sind jetzt auf diesem Gerät verfügbar.",
+    "statusLine": "Lizenz verifiziert. Ihr Workspace ist bereit für Pro-Workflows.",
+    "starterTitle": "Empfohlene Startpunkte",
+    "starterDescription": "Das sind nur die ersten Stellen zum Anschauen. Alle unten aufgeführten Pro-Funktionen sind jetzt freigeschaltet.",
+    "allFeaturesTitle": "Alle Pro-Funktionen freigeschaltet",
+    "allFeaturesDescription": "Ihre Lizenz enthält den vollständigen Pro-Funktionsumfang, nicht nur die Highlights oben.",
+    "continue": "Weiter",
+    "viewTour": "Pro-Tour ansehen",
+    "backToSummary": "Zurück",
+    "previous": "Zurück",
+    "next": "Weiter",
+    "finish": "Fertig",
+    "benefits": {
+      "ai": {
+        "title": "KI-Assistent",
+        "description": "Abfragen mit Schemakontext generieren, erklären und korrigieren."
+      },
+      "history": {
+        "title": "Time Travel und Diffs",
+        "description": "Historische Zustände prüfen, Ergebnisse vergleichen und Änderungen sicherer wiederherstellen."
+      },
+      "exports": {
+        "title": "Professionelle Exporte",
+        "description": "XLSX, Parquet und erweiterte Sharing-Flows für Produktionsarbeit nutzen."
+      }
+    },
+    "tour": {
+      "title": "Drei gute Startpunkte",
+      "description": "Eine kurze Tour durch die Pro-Werkzeuge, die meist zuerst wichtig sind.",
+      "progress": "{{current}} von {{total}}",
+      "steps": [
+        {
+          "hint": "Öffnen Sie den KI-Assistenten über die Seitenleiste, wenn Sie einen Entwurf, eine Korrektur oder eine Erklärung brauchen."
+        },
+        {
+          "hint": "Nutzen Sie Time Travel und Visual Diff, um Änderungen zu verstehen, bevor Sie wiederherstellen oder exportieren."
+        },
+        {
+          "hint": "Export- und Sharing-Aktionen enthalten jetzt Pro-Formate und temporäre Links, wenn ein Provider konfiguriert ist."
+        }
+      ]
+    }
   },
   "usageBanner": {
     "title": "Sie haben {{count}} Abfragen mit QoreDB ausgeführt",

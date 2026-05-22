@@ -177,6 +177,10 @@ pub async fn execute_query(
 
     let session = parse_session_id(&session_id)?;
 
+    // Connection identity for query-cache invalidation: a mutation here
+    // stales cached reads across every session sharing this connection.
+    let connection_key = session_manager.connection_key(session).await;
+
     // Anti-loop guardrail: cap the query rate per session so a runaway client
     // loop cannot saturate the connection. Generous budget — never reached by
     // human use. Skipped entirely when disabled in the safety policy.
@@ -567,7 +571,9 @@ pub async fn execute_query(
                 );
 
                 if is_mutation_for_context {
-                    query_cache.invalidate_session(&session_id);
+                    if let Some(key) = &connection_key {
+                        query_cache.invalidate_connection(key);
+                    }
                 }
 
                 Ok(QueryResponse {
@@ -696,7 +702,9 @@ pub async fn execute_query(
                 // A successful mutation through QoreDB stales this
                 // connection's cached read results.
                 if is_mutation_for_context {
-                    query_cache.invalidate_session(&session_id);
+                    if let Some(key) = &connection_key {
+                        query_cache.invalidate_connection(key);
+                    }
                 }
 
                 // Governance: truncate results when max_result_rows is set
@@ -1241,11 +1249,13 @@ pub async fn preview_table(
 
     let effective_limit = governance::clamp_rows(&policy, limit);
 
-    // Query result cache: serve repeated table previews instantly.
-    let use_cache = !bypass_cache.unwrap_or(false);
+    // Query result cache: serve repeated table previews instantly. Keyed by
+    // connection so a mutation on any session of it invalidates the entry.
+    let connection_key = session_manager.connection_key(session).await;
+    let use_cache = !bypass_cache.unwrap_or(false) && connection_key.is_some();
     let cache_key = format!(
         "preview\u{1}{}\u{1}{}\u{1}{}\u{1}{}\u{1}{}",
-        session_id,
+        connection_key.as_deref().unwrap_or(""),
         namespace.database,
         namespace.schema.as_deref().unwrap_or(""),
         table,
@@ -1253,7 +1263,7 @@ pub async fn preview_table(
     );
     if use_cache {
         if let Some(hit) = query_cache.get(&cache_key) {
-            if let Ok(result) = serde_json::from_value::<QueryResult>(hit.value) {
+            if let Ok(result) = serde_json::from_str::<QueryResult>(&hit.value) {
                 return Ok(QueryResponse {
                     success: true,
                     result: Some(result),
@@ -1300,8 +1310,12 @@ pub async fn preview_table(
     match result {
         Ok(Ok(result)) => {
             if use_cache {
-                if let Ok(value) = serde_json::to_value(&result) {
-                    query_cache.put(cache_key.clone(), session_id.clone(), value);
+                if let Ok(json) = serde_json::to_string(&result) {
+                    query_cache.put(
+                        cache_key.clone(),
+                        connection_key.clone().unwrap_or_default(),
+                        json,
+                    );
                 }
             }
             Ok(QueryResponse {
@@ -1377,11 +1391,13 @@ pub async fn query_table(
         options.page_size = Some(options.page_size.unwrap_or(50).min(max_page));
     }
 
-    // Query result cache: serve repeated table navigation instantly.
-    let use_cache = !bypass_cache.unwrap_or(false);
+    // Query result cache: serve repeated table navigation instantly. Keyed by
+    // connection so a mutation on any session of it invalidates the entry.
+    let connection_key = session_manager.connection_key(session).await;
+    let use_cache = !bypass_cache.unwrap_or(false) && connection_key.is_some();
     let cache_key = format!(
         "query\u{1}{}\u{1}{}\u{1}{}\u{1}{}\u{1}{}",
-        session_id,
+        connection_key.as_deref().unwrap_or(""),
         namespace.database,
         namespace.schema.as_deref().unwrap_or(""),
         table,
@@ -1389,7 +1405,7 @@ pub async fn query_table(
     );
     if use_cache {
         if let Some(hit) = query_cache.get(&cache_key) {
-            if let Ok(result) = serde_json::from_value::<PaginatedQueryResult>(hit.value) {
+            if let Ok(result) = serde_json::from_str::<PaginatedQueryResult>(&hit.value) {
                 return Ok(PaginatedQueryResponse {
                     success: true,
                     result: Some(result),
@@ -1439,8 +1455,12 @@ pub async fn query_table(
     match result {
         Ok(Ok(result)) => {
             if use_cache {
-                if let Ok(value) = serde_json::to_value(&result) {
-                    query_cache.put(cache_key.clone(), session_id.clone(), value);
+                if let Ok(json) = serde_json::to_string(&result) {
+                    query_cache.put(
+                        cache_key.clone(),
+                        connection_key.clone().unwrap_or_default(),
+                        json,
+                    );
                 }
             }
             Ok(PaginatedQueryResponse {

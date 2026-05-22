@@ -8,7 +8,7 @@
     "maxEntries": "最大条目数",
     "stats": "已缓存 {{entries}} 条 · 命中率 {{hitRate}}%",
     "clear": "清除缓存",
-    "fromCache": "已缓存 · {{age}}前",
+    "fromCache": "数据来自缓存（{{age}}前）· 点击刷新",
     "refresh": "刷新"
   },
   "plugins": {
@@ -579,7 +579,7 @@
       "general": "常规",
       "editor": "编辑器",
       "security": "安全",
-      "data": "数据与隐私",
+      "data": "隐私",
       "shortcuts": "键盘快捷键",
       "plugins": "插件",
       "license": "许可证",
@@ -2039,6 +2039,51 @@
     "subtitle": "免费版非常适合个人项目和探索。Pro 解锁生产级数据库工作所需的功能。",
     "priceTitle": "一次性付款，终身使用",
     "alreadyHaveKey": "我有许可证密钥"
+  },
+  "proActivation": {
+    "title": "QoreDB Pro 已激活",
+    "description": "Pro 功能现在可在此设备上使用。",
+    "statusLine": "许可证已验证。您的工作区已准备好使用 Pro 工作流。",
+    "starterTitle": "建议的开始位置",
+    "starterDescription": "这些只是最先可以查看的地方。下面列出的所有 Pro 功能现在都已解锁。",
+    "allFeaturesTitle": "所有 Pro 功能已解锁",
+    "allFeaturesDescription": "您的许可证包含完整的 Pro 功能集，而不仅是上方的重点功能。",
+    "continue": "继续",
+    "viewTour": "查看 Pro 导览",
+    "backToSummary": "返回",
+    "previous": "上一步",
+    "next": "下一步",
+    "finish": "完成",
+    "benefits": {
+      "ai": {
+        "title": "AI 助手",
+        "description": "结合架构上下文生成、解释和修复查询。"
+      },
+      "history": {
+        "title": "Time Travel 和差异比较",
+        "description": "检查历史状态、比较结果，并更有把握地恢复更改。"
+      },
+      "exports": {
+        "title": "专业导出",
+        "description": "在生产工作中使用 XLSX、Parquet 和高级共享流程。"
+      }
+    },
+    "tour": {
+      "title": "三个开始位置",
+      "description": "快速了解最常用的 Pro 工具。",
+      "progress": "{{current}} / {{total}}",
+      "steps": [
+        {
+          "hint": "需要初稿、修复或结果解释时，可从侧边栏打开 AI 助手。"
+        },
+        {
+          "hint": "恢复或导出之前，使用 Time Travel 和 Visual Diff 了解数据发生了什么变化。"
+        },
+        {
+          "hint": "配置提供商后，导出和共享操作现在支持 Pro 格式和临时链接。"
+        }
+      ]
+    }
   },
   "usageBanner": {
     "title": "您已使用 QoreDB 运行了 {{count}} 次查询",

@@ -137,6 +137,64 @@ button {
   cursor: pointer;
 }
 
+.pro-activation-sweep {
+  pointer-events: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 60;
+  height: 2px;
+  width: 100%;
+  overflow: hidden;
+}
+
+.pro-activation-sweep::after {
+  display: block;
+  height: 100%;
+  width: 45%;
+  content: '';
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--q-accent) 82%, white 18%),
+    transparent
+  );
+  animation: pro-activation-sweep 900ms ease-out both;
+}
+
+.pro-activation-mark {
+  animation: pro-activation-mark 700ms ease-out both;
+}
+
+@keyframes pro-activation-sweep {
+  from {
+    transform: translateX(-120%);
+    opacity: 0;
+  }
+  16% {
+    opacity: 1;
+  }
+  to {
+    transform: translateX(240%);
+    opacity: 0;
+  }
+}
+
+@keyframes pro-activation-mark {
+  from {
+    transform: scale(0.96);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--q-accent) 32%, transparent);
+  }
+  45% {
+    transform: scale(1);
+    box-shadow: 0 0 0 6px color-mix(in srgb, var(--q-accent) 12%, transparent);
+  }
+  to {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
 @theme inline {
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);

@@ -1,13 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { RefreshCw, Zap } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Tooltip } from '@/components/ui/tooltip';
 
 interface CacheBadgeProps {
-  /** Age of the cached entry, in milliseconds, at the time it was fetched. */
   ageMs: number;
-  /** Re-fetches live data, bypassing the cache. */
   onRefresh: () => void;
 }
 
@@ -19,41 +18,34 @@ function formatAge(ms: number): string {
 }
 
 /**
- * Discreet pill shown when table data is served from the query cache, with a
- * button to re-fetch live data. The age ticks every second so it stays accurate.
+ * Discreet refresh control shown when table data is served from the query
+ * cache. The cache state stays out of the way — it lives in the tooltip rather
+ * than a persistent badge — and clicking re-fetches live data.
  */
 export function CacheBadge({ ageMs, onRefresh }: CacheBadgeProps) {
   const { t } = useTranslation();
-  const insertedAtRef = useRef(Date.now() - ageMs);
-  const [now, setNow] = useState(Date.now());
+  const fetchedAt = useRef(Date.now() - ageMs);
+  const [age, setAge] = useState(() => formatAge(ageMs));
 
-  // Re-anchor when a new fetch reports a different age.
   useEffect(() => {
-    insertedAtRef.current = Date.now() - ageMs;
-    setNow(Date.now());
+    fetchedAt.current = Date.now() - ageMs;
+    setAge(formatAge(ageMs));
   }, [ageMs]);
 
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(id);
-  }, []);
-
-  const age = formatAge(now - insertedAtRef.current);
+  const syncAge = () => setAge(formatAge(Date.now() - fetchedAt.current));
 
   return (
-    <div className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground">
-      <span className="flex items-center gap-1 rounded-md bg-muted px-2 py-1">
-        <Zap size={12} className="text-accent" />
-        {t('cache.fromCache', { age })}
-      </span>
+    <Tooltip content={t('cache.fromCache', { age })}>
       <button
         type="button"
         onClick={onRefresh}
-        title={t('cache.refresh')}
-        className="flex items-center justify-center rounded-md p-1 transition-colors hover:bg-muted hover:text-foreground"
+        onMouseEnter={syncAge}
+        onFocus={syncAge}
+        aria-label={t('cache.refresh')}
+        className="ml-auto flex items-center justify-center rounded-md p-1 text-accent transition-colors hover:bg-muted hover:text-foreground"
       >
-        <RefreshCw size={12} />
+        <RefreshCw size={14} />
       </button>
-    </div>
+    </Tooltip>
   );
 }

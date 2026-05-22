@@ -435,9 +435,12 @@ pub async fn disconnect(
     state: State<'_, crate::SharedState>,
     session_id: String,
 ) -> Result<ConnectionResponse, String> {
-    let session_manager = {
+    let (session_manager, query_rate_limiter) = {
         let state = state.lock().await;
-        Arc::clone(&state.session_manager)
+        (
+            Arc::clone(&state.session_manager),
+            Arc::clone(&state.query_rate_limiter),
+        )
     };
 
     let uuid = Uuid::parse_str(&session_id).map_err(|e| format!("Invalid session ID: {}", e))?;
@@ -446,11 +449,16 @@ pub async fn disconnect(
         .disconnect(crate::engine::types::SessionId(uuid))
         .await
     {
-        Ok(()) => Ok(ConnectionResponse {
-            success: true,
-            session_id: None,
-            error: None,
-        }),
+        Ok(()) => {
+            // Release the session's rate-limiter bucket so the map does not
+            // grow unbounded across reconnects.
+            query_rate_limiter.forget(&session_id);
+            Ok(ConnectionResponse {
+                success: true,
+                session_id: None,
+                error: None,
+            })
+        }
         Err(e) => Ok(ConnectionResponse {
             success: false,
             session_id: None,

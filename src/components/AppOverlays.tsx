@@ -2,6 +2,7 @@
 
 import { memo, useEffect, useState } from 'react';
 import { ConnectionModal } from '@/components/Connection/ConnectionModal';
+import { ProActivationDialog } from '@/components/License/ProActivationDialog';
 import { NewsletterPromptModal } from '@/components/Newsletter/NewsletterPromptModal';
 import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
 import { OnboardingModal } from '@/components/Onboarding/OnboardingModal';
@@ -134,6 +135,7 @@ export const AppOverlays = memo(function AppOverlays({
         open={newsletterPromptOpen && !showOnboarding && !whatsNewOpen}
         onClose={() => setNewsletterPromptOpen(false)}
       />
+      <ProActivationDialog />
     </>
   );
 });

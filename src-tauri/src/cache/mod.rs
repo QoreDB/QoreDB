@@ -41,22 +41,28 @@ fn config_path() -> PathBuf {
 }
 
 impl CacheConfig {
-    /// Loads the persisted config, falling back to defaults.
+    /// Clamps user-supplied values into safe ranges. Applied on load and
+    /// before persisting so a hand-edited config file cannot, e.g., set an
+    /// unbounded entry count or a near-infinite TTL.
+    pub fn clamp(&mut self) {
+        self.ttl_secs = self.ttl_secs.clamp(5, 3600);
+        self.max_entries = self.max_entries.clamp(10, 1000);
+    }
+
+    /// Loads the persisted config (clamped), falling back to defaults.
     pub fn load() -> Self {
-        std::fs::read_to_string(config_path())
+        let mut config: Self = std::fs::read_to_string(config_path())
             .ok()
             .and_then(|raw| serde_json::from_str(&raw).ok())
-            .unwrap_or_default()
+            .unwrap_or_default();
+        config.clamp();
+        config
     }
 
     /// Persists the config to the app data directory.
     pub fn save(&self) -> Result<(), String> {
-        let path = config_path();
-        if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
-        }
         let raw = serde_json::to_string_pretty(self).map_err(|e| e.to_string())?;
-        std::fs::write(path, raw).map_err(|e| e.to_string())
+        crate::paths::atomic_write(&config_path(), raw.as_bytes()).map_err(|e| e.to_string())
     }
 }
 

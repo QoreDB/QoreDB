@@ -8,12 +8,12 @@
     "maxEntries": "Entrées maximum",
     "stats": "{{entries}} entrées en cache · {{hitRate}} % de réussite",
     "clear": "Vider le cache",
-    "fromCache": "Mis en cache · il y a {{age}}",
+    "fromCache": "Données servies depuis le cache (il y a {{age}}) · cliquer pour rafraîchir",
     "refresh": "Rafraîchir"
   },
   "plugins": {
     "title": "Extensions",
-    "description": "Étendez QoreDB avec des extensions déclaratives — packs de snippets SQL, modèles de connexion et thèmes de couleurs. Aucun code n'est exécuté.",
+    "description": "Étendez QoreDB avec des extensions déclaratives : packs de snippets SQL, modèles de connexion et thèmes de couleurs. Aucun code n'est exécuté.",
     "empty": "Aucune extension installée pour le moment.",
     "install": "Installer une extension",
     "installDialog": {
@@ -536,7 +536,7 @@
       },
       "devOverrideTitle": "Override licence (dev)",
       "devOverrideDescription": "Changer le tier de licence pour le développement. Réinitialisé au redémarrage.",
-      "devOnly": "Développement uniquement — indisponible en builds de production"
+      "devOnly": "Développement uniquement, indisponible en builds de production"
     },
     "safetyPolicy": "Sécurité production",
     "safetyPolicyDescription": "Contrôlez les garde-fous côté backend pour la production.",
@@ -579,7 +579,7 @@
       "general": "Général",
       "editor": "Éditeur",
       "security": "Sécurité",
-      "data": "Données & Confidentialité",
+      "data": "Confidentialité",
       "shortcuts": "Raccourcis clavier",
       "plugins": "Extensions",
       "license": "Licence",
@@ -2039,6 +2039,51 @@
     "subtitle": "Free est parfait pour les projets solo et l'exploration. Pro débloque les fonctionnalités dont vous avez besoin pour un travail base de données de niveau production.",
     "priceTitle": "Paiement unique, accès à vie",
     "alreadyHaveKey": "J'ai déjà une clé de licence"
+  },
+  "proActivation": {
+    "title": "QoreDB Pro est activé",
+    "description": "Les fonctionnalités Pro sont maintenant disponibles sur cet appareil.",
+    "statusLine": "Licence vérifiée. Votre workspace est prêt pour les workflows Pro.",
+    "starterTitle": "Points de départ suggérés",
+    "starterDescription": "Ce ne sont que les premiers endroits à regarder. Toutes les fonctionnalités Pro ci-dessous sont maintenant débloquées.",
+    "allFeaturesTitle": "Toutes les fonctionnalités Pro sont débloquées",
+    "allFeaturesDescription": "Votre licence inclut l'ensemble des fonctionnalités Pro, pas seulement les points forts ci-dessus.",
+    "continue": "Continuer",
+    "viewTour": "Voir le tour Pro",
+    "backToSummary": "Retour",
+    "previous": "Précédent",
+    "next": "Suivant",
+    "finish": "Terminer",
+    "benefits": {
+      "ai": {
+        "title": "Assistant IA",
+        "description": "Générez, expliquez et corrigez des requêtes avec le contexte du schéma."
+      },
+      "history": {
+        "title": "Time travel et diffs",
+        "description": "Inspectez l'historique, comparez les résultats et restaurez avec plus de confiance."
+      },
+      "exports": {
+        "title": "Exports professionnels",
+        "description": "Utilisez les formats XLSX, Parquet et les flows de partage avancés."
+      }
+    },
+    "tour": {
+      "title": "Trois points de départ",
+      "description": "Un tour court des outils Pro qui comptent le plus au début.",
+      "progress": "{{current}} sur {{total}}",
+      "steps": [
+        {
+          "hint": "Ouvrez l'assistant IA depuis la sidebar quand vous avez besoin d'un premier jet, d'un correctif ou d'une explication."
+        },
+        {
+          "hint": "Utilisez Time Travel et Visual Diff pour comprendre ce qui a changé avant de restaurer ou d'exporter."
+        },
+        {
+          "hint": "Les actions d'export et de partage incluent maintenant les formats Pro et les liens temporaires si un provider est configuré."
+        }
+      ]
+    }
   },
   "usageBanner": {
     "title": "Vous avez exécuté {{count}} requêtes avec QoreDB",

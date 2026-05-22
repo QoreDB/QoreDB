@@ -19,7 +19,7 @@
 //! the OS query fails (no `$HOME`, headless CI, etc.) — same shape as the
 //! pre-existing call sites, so the failure mode is unchanged.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 /// Identifier embedded in every QoreDB path. Matches Tauri's bundle
 /// identifier so the OS attributes data dirs to the same app.
@@ -46,6 +46,18 @@ pub fn app_log_dir() -> PathBuf {
 /// alongside the interceptor / time-travel files for a single backup target.
 pub fn safety_policy_file() -> PathBuf {
     app_data_dir().join("config.json")
+}
+
+/// Writes `contents` to `path` atomically: data is written to a sibling temp
+/// file first, then a rename swaps it in. A crash mid-write therefore leaves
+/// the previous file intact instead of a truncated, unparseable one.
+pub fn atomic_write(path: &Path, contents: &[u8]) -> std::io::Result<()> {
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    let tmp = path.with_extension("tmp");
+    std::fs::write(&tmp, contents)?;
+    std::fs::rename(&tmp, path)
 }
 
 #[cfg(test)]

@@ -55,13 +55,41 @@ fn validate_contributions(c: &PluginContributions) -> Result<(), String> {
         if theme.id.trim().is_empty() || theme.name.trim().is_empty() {
             return Err("Theme contributions require a non-empty id and name".into());
         }
-        for key in theme.light.keys().chain(theme.dark.keys()) {
+        for (key, value) in theme.light.iter().chain(theme.dark.iter()) {
             if !key.starts_with("--q-") {
                 return Err(format!(
                     "Theme '{}' variable '{}' is not allowed: only '--q-*' design tokens",
                     theme.id, key
                 ));
             }
+            validate_css_value(&theme.id, key, value)?;
+        }
+    }
+    Ok(())
+}
+
+/// CSS fragments a declarative theme value must never contain. A theme only
+/// needs colours and sizes; these would let it fetch remote resources
+/// (`url(...)`) or pull in external stylesheets, leaking that the app ran.
+/// Themes are applied via `setProperty`, so this is defence in depth.
+const FORBIDDEN_CSS: [&str; 4] = ["url(", "expression(", "javascript:", "@import"];
+
+/// Maximum length of a theme variable value (a colour or size literal).
+const MAX_CSS_VALUE_LEN: usize = 256;
+
+/// Rejects theme values that are over-long or carry active CSS.
+fn validate_css_value(theme_id: &str, key: &str, value: &str) -> Result<(), String> {
+    if value.len() > MAX_CSS_VALUE_LEN {
+        return Err(format!(
+            "Theme '{theme_id}' variable '{key}' value is too long (max {MAX_CSS_VALUE_LEN})"
+        ));
+    }
+    let lower = value.to_ascii_lowercase();
+    for fragment in FORBIDDEN_CSS {
+        if lower.contains(fragment) {
+            return Err(format!(
+                "Theme '{theme_id}' variable '{key}' contains disallowed CSS ('{fragment}')"
+            ));
         }
     }
     Ok(())
@@ -148,6 +176,18 @@ mod tests {
             ]}
         }"##;
         assert!(manifest(json).is_ok());
+    }
+
+    #[test]
+    fn rejects_theme_value_with_remote_url() {
+        let json = r##"{
+            "id":"acme.theme","name":"Theme","version":"1.0.0",
+            "contributes":{"themes":[
+                {"id":"x","name":"X","light":{"--q-bg":"url(https://evil.test/x)"}}
+            ]}
+        }"##;
+        let err = manifest(json).unwrap_err();
+        assert!(err.contains("disallowed CSS"));
     }
 
     #[test]

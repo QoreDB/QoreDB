@@ -214,7 +214,9 @@ pub async fn insert_row(
                 table.clone(),
             );
 
-            query_cache.invalidate_session(&session_id);
+            if let Some(key) = session_manager.connection_key(session).await {
+                query_cache.invalidate_connection(&key);
+            }
             Ok(MutationResponse {
                 success: true,
                 result: Some(result),
@@ -417,7 +419,9 @@ pub async fn update_row(
                 table.clone(),
             );
 
-            query_cache.invalidate_session(&session_id);
+            if let Some(key) = session_manager.connection_key(session).await {
+                query_cache.invalidate_connection(&key);
+            }
             Ok(MutationResponse {
                 success: true,
                 result: Some(result),
@@ -615,7 +619,9 @@ pub async fn delete_row(
                 table.clone(),
             );
 
-            query_cache.invalidate_session(&session_id);
+            if let Some(key) = session_manager.connection_key(session).await {
+                query_cache.invalidate_connection(&key);
+            }
             Ok(MutationResponse {
                 success: true,
                 result: Some(result),

@@ -23,9 +23,8 @@ fn read_index(dir: &Path) -> EnabledIndex {
 }
 
 fn write_index(dir: &Path, index: &EnabledIndex) -> Result<(), String> {
-    fs::create_dir_all(dir).map_err(|e| format!("Failed to create plugins directory: {e}"))?;
     let raw = serde_json::to_string_pretty(index).map_err(|e| e.to_string())?;
-    fs::write(dir.join("index.json"), raw)
+    crate::paths::atomic_write(&dir.join("index.json"), raw.as_bytes())
         .map_err(|e| format!("Failed to write plugin index: {e}"))
 }
 
@@ -46,8 +45,12 @@ pub fn list_plugins(dir: &Path) -> Vec<InstalledPlugin> {
         let Ok(raw) = fs::read_to_string(path.join("plugin.json")) else {
             continue;
         };
-        let Ok(manifest) = manifest::parse_manifest(&raw) else {
-            continue;
+        let manifest = match manifest::parse_manifest(&raw) {
+            Ok(manifest) => manifest,
+            Err(e) => {
+                tracing::warn!(plugin = %path.display(), error = %e, "skipping invalid plugin");
+                continue;
+            }
         };
         let enabled = index.get(&manifest.id).copied().unwrap_or(true);
         let compatible = manifest::is_compatible(manifest.qoredb.as_deref());
@@ -80,7 +83,11 @@ pub fn install_plugin(dir: &Path, source: &str) -> Result<InstalledPlugin, Strin
         fs::remove_dir_all(&target)
             .map_err(|e| format!("Failed to replace existing plugin: {e}"))?;
     }
-    copy_dir(source, &target)?;
+    if let Err(e) = copy_dir(source, &target) {
+        // Leave no half-copied folder behind on a rejected install.
+        let _ = fs::remove_dir_all(&target);
+        return Err(e);
+    }
 
     let enabled = read_index(dir).get(&manifest.id).copied().unwrap_or(true);
     let compatible = manifest::is_compatible(manifest.qoredb.as_deref());
@@ -144,14 +151,53 @@ fn find_plugin(dir: &Path, plugin_id: &str) -> Result<InstalledPlugin, String> {
         .ok_or_else(|| format!("Plugin '{plugin_id}' is not installed"))
 }
 
+/// Generous bounds for a plugin install. A declarative plugin is a small JSON
+/// manifest plus maybe a readme; these caps stop a runaway or malicious source
+/// folder from filling the disk or recursing forever through a symlink.
+const MAX_PLUGIN_BYTES: u64 = 8 * 1024 * 1024;
+const MAX_PLUGIN_FILES: usize = 256;
+
+/// Remaining install budget, decremented as files are copied.
+struct CopyBudget {
+    bytes: u64,
+    files: usize,
+}
+
 fn copy_dir(from: &Path, to: &Path) -> Result<(), String> {
+    let mut budget = CopyBudget {
+        bytes: MAX_PLUGIN_BYTES,
+        files: MAX_PLUGIN_FILES,
+    };
+    copy_dir_bounded(from, to, &mut budget)
+}
+
+fn copy_dir_bounded(from: &Path, to: &Path, budget: &mut CopyBudget) -> Result<(), String> {
     fs::create_dir_all(to).map_err(|e| format!("Failed to create plugin directory: {e}"))?;
     for entry in fs::read_dir(from).map_err(|e| e.to_string())?.flatten() {
         let path = entry.path();
+        // Never follow symlinks: one pointing to an ancestor would recurse
+        // forever, one pointing outside would copy unintended files.
+        let meta = fs::symlink_metadata(&path).map_err(|e| e.to_string())?;
+        if meta.file_type().is_symlink() {
+            return Err(format!(
+                "Plugin folder contains a symbolic link ('{}'), which is not allowed",
+                entry.file_name().to_string_lossy()
+            ));
+        }
         let dest = to.join(entry.file_name());
-        if path.is_dir() {
-            copy_dir(&path, &dest)?;
+        if meta.is_dir() {
+            copy_dir_bounded(&path, &dest, budget)?;
         } else {
+            budget.files = budget
+                .files
+                .checked_sub(1)
+                .ok_or_else(|| format!("Plugin has too many files (limit {MAX_PLUGIN_FILES})"))?;
+            budget.bytes = budget.bytes.checked_sub(meta.len()).ok_or_else(|| {
+                format!(
+                    "Plugin exceeds the size limit ({} MiB)",
+                    MAX_PLUGIN_BYTES / 1024 / 1024
+                )
+            })?;
             fs::copy(&path, &dest).map_err(|e| format!("Failed to copy plugin file: {e}"))?;
         }
     }

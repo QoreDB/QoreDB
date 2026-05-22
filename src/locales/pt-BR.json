@@ -8,7 +8,7 @@
     "maxEntries": "Máximo de entradas",
     "stats": "{{entries}} entradas em cache · {{hitRate}}% de acertos",
     "clear": "Limpar cache",
-    "fromCache": "Em cache · há {{age}}",
+    "fromCache": "Dados servidos do cache (há {{age}}) · clique para atualizar",
     "refresh": "Atualizar"
   },
   "plugins": {
@@ -579,7 +579,7 @@
       "general": "Geral",
       "editor": "Editor",
       "security": "Segurança",
-      "data": "Dados e Privacidade",
+      "data": "Privacidade",
       "shortcuts": "Atalhos de Teclado",
       "plugins": "Plugins",
       "license": "Licença",
@@ -2039,6 +2039,51 @@
     "subtitle": "O Free é ótimo para projetos solo e exploração. O Pro desbloqueia os recursos que você precisa para trabalho com bancos de dados em nível de produção.",
     "priceTitle": "Pagamento único, acesso vitalício",
     "alreadyHaveKey": "Tenho uma chave de licença"
+  },
+  "proActivation": {
+    "title": "QoreDB Pro está ativo",
+    "description": "Os recursos Pro agora estão disponíveis neste dispositivo.",
+    "statusLine": "Licença verificada. Seu workspace está pronto para fluxos Pro.",
+    "starterTitle": "Pontos de partida sugeridos",
+    "starterDescription": "Estes são apenas os primeiros lugares para olhar. Todos os recursos Pro abaixo agora estão desbloqueados.",
+    "allFeaturesTitle": "Todos os recursos Pro desbloqueados",
+    "allFeaturesDescription": "Sua licença inclui o conjunto completo de recursos Pro, não apenas os destaques acima.",
+    "continue": "Continuar",
+    "viewTour": "Ver tour Pro",
+    "backToSummary": "Voltar",
+    "previous": "Anterior",
+    "next": "Próximo",
+    "finish": "Concluir",
+    "benefits": {
+      "ai": {
+        "title": "Assistente de IA",
+        "description": "Gere, explique e corrija consultas com contexto do esquema."
+      },
+      "history": {
+        "title": "Time travel e diffs",
+        "description": "Inspecione estados históricos, compare resultados e recupere alterações com mais confiança."
+      },
+      "exports": {
+        "title": "Exportações profissionais",
+        "description": "Use XLSX, Parquet e fluxos avançados de compartilhamento no trabalho de produção."
+      }
+    },
+    "tour": {
+      "title": "Três lugares para começar",
+      "description": "Um tour curto pelos recursos Pro que geralmente importam primeiro.",
+      "progress": "{{current}} de {{total}}",
+      "steps": [
+        {
+          "hint": "Abra o assistente de IA pela barra lateral quando precisar de um rascunho, uma correção ou uma explicação."
+        },
+        {
+          "hint": "Use Time Travel e Visual Diff para entender o que mudou antes de restaurar ou exportar."
+        },
+        {
+          "hint": "As ações de exportação e compartilhamento agora incluem formatos Pro e links temporários quando um provedor estiver configurado."
+        }
+      ]
+    }
   },
   "usageBanner": {
     "title": "Você executou {{count}} consultas com o QoreDB",

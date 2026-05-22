@@ -8,7 +8,7 @@
     "maxEntries": "최대 항목 수",
     "stats": "캐시 {{entries}}개 · 적중률 {{hitRate}}%",
     "clear": "캐시 비우기",
-    "fromCache": "캐시됨 · {{age}} 전",
+    "fromCache": "캐시에서 제공된 데이터({{age}} 전) · 클릭하여 새로 고침",
     "refresh": "새로 고침"
   },
   "plugins": {
@@ -579,7 +579,7 @@
       "general": "일반",
       "editor": "편집기",
       "security": "보안",
-      "data": "데이터 및 개인정보",
+      "data": "개인정보",
       "shortcuts": "키보드 단축키",
       "plugins": "플러그인",
       "license": "라이선스",
@@ -2039,6 +2039,51 @@
     "subtitle": "무료는 개인 프로젝트 및 탐색에 적합합니다. Pro는 프로덕션 수준의 데이터베이스 작업에 필요한 기능을 잠금 해제합니다.",
     "priceTitle": "일회성 결제, 평생 이용",
     "alreadyHaveKey": "라이선스 키가 있습니다"
+  },
+  "proActivation": {
+    "title": "QoreDB Pro가 활성화되었습니다",
+    "description": "이 기기에서 Pro 기능을 사용할 수 있습니다.",
+    "statusLine": "라이선스가 확인되었습니다. 워크스페이스가 Pro 워크플로에 준비되었습니다.",
+    "starterTitle": "추천 시작 지점",
+    "starterDescription": "이 항목들은 먼저 살펴볼 곳일 뿐입니다. 아래의 모든 Pro 기능이 이제 잠금 해제되었습니다.",
+    "allFeaturesTitle": "모든 Pro 기능 잠금 해제됨",
+    "allFeaturesDescription": "라이선스에는 위의 주요 기능뿐 아니라 전체 Pro 기능 세트가 포함됩니다.",
+    "continue": "계속",
+    "viewTour": "Pro 둘러보기",
+    "backToSummary": "뒤로",
+    "previous": "이전",
+    "next": "다음",
+    "finish": "완료",
+    "benefits": {
+      "ai": {
+        "title": "AI 어시스턴트",
+        "description": "스키마 컨텍스트로 쿼리를 생성, 설명, 수정합니다."
+      },
+      "history": {
+        "title": "Time Travel 및 Diff",
+        "description": "이전 상태를 확인하고 결과를 비교하며 더 확신 있게 변경을 복구합니다."
+      },
+      "exports": {
+        "title": "전문가용 내보내기",
+        "description": "프로덕션 작업에서 XLSX, Parquet 및 고급 공유 흐름을 사용합니다."
+      }
+    },
+    "tour": {
+      "title": "시작할 세 곳",
+      "description": "처음에 유용한 Pro 도구를 짧게 둘러봅니다.",
+      "progress": "{{current}} / {{total}}",
+      "steps": [
+        {
+          "hint": "초안, 수정 또는 결과 설명이 필요할 때 사이드바에서 AI 어시스턴트를 여세요."
+        },
+        {
+          "hint": "복원하거나 내보내기 전에 Time Travel과 Visual Diff로 무엇이 바뀌었는지 확인하세요."
+        },
+        {
+          "hint": "제공자를 구성하면 내보내기와 공유 작업에서 Pro 형식 및 임시 링크를 사용할 수 있습니다."
+        }
+      ]
+    }
   },
   "usageBanner": {
     "title": "QoreDB로 {{count}}개의 쿼리를 실행했습니다",

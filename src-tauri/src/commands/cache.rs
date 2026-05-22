@@ -20,8 +20,9 @@ pub async fn get_cache_config(state: State<'_, SharedState>) -> Result<CacheConf
 #[tauri::command]
 pub async fn set_cache_config(
     state: State<'_, SharedState>,
-    config: CacheConfig,
+    mut config: CacheConfig,
 ) -> Result<CacheConfig, String> {
+    config.clamp();
     config.save()?;
     let cache = Arc::clone(&state.lock().await.query_cache);
     cache.set_config(config);

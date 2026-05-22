@@ -118,8 +118,6 @@ export function GeneralSection({ searchQuery }: GeneralSectionProps) {
     }
   }, [updateState.update]);
 
-  const isLanguageModified = !i18n.language.startsWith('en');
-  const isThemeModified = theme !== 'auto';
   const isStartupModified =
     startupPrefs.restoreSession !== DEFAULT_STARTUP_PREFS.restoreSession ||
     startupPrefs.checkUpdates !== DEFAULT_STARTUP_PREFS.checkUpdates;
@@ -193,7 +191,6 @@ export function GeneralSection({ searchQuery }: GeneralSectionProps) {
         id="language"
         title={t('settings.language')}
         description={t('settings.languageDescription')}
-        isModified={isLanguageModified}
         searchQuery={searchQuery}
       >
         <DropdownMenu>
@@ -241,7 +238,6 @@ export function GeneralSection({ searchQuery }: GeneralSectionProps) {
         id="theme"
         title={t('settings.theme')}
         description={t('settings.themeDescription')}
-        isModified={isThemeModified}
         searchQuery={searchQuery}
       >
         <DropdownMenu>

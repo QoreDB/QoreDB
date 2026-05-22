@@ -53,10 +53,42 @@ interface StartupPreferences {
   checkUpdates: boolean;
 }
 
+interface LanguageOption {
+  code: string;
+  label: string;
+  matchPrefix: string;
+}
+
 const DEFAULT_STARTUP_PREFS: StartupPreferences = {
   restoreSession: true,
   checkUpdates: true,
 };
+
+const DEFAULT_LANGUAGE: LanguageOption = {
+  code: 'en',
+  label: 'English',
+  matchPrefix: 'en',
+};
+
+const LANGUAGE_OPTIONS: LanguageOption[] = [
+  DEFAULT_LANGUAGE,
+  { code: 'fr', label: 'Français', matchPrefix: 'fr' },
+  { code: 'es', label: 'Español', matchPrefix: 'es' },
+  { code: 'de', label: 'Deutsch', matchPrefix: 'de' },
+  { code: 'pt-BR', label: 'Português (Brasil)', matchPrefix: 'pt' },
+  { code: 'zh-CN', label: '简体中文', matchPrefix: 'zh' },
+  { code: 'ja', label: '日本語', matchPrefix: 'ja' },
+  { code: 'ko', label: '한국어', matchPrefix: 'ko' },
+  { code: 'ru', label: 'Русский', matchPrefix: 'ru' },
+];
+
+function getLanguageOption(language: string): LanguageOption {
+  const normalized = language.toLowerCase();
+  return (
+    LANGUAGE_OPTIONS.find(option => normalized.startsWith(option.matchPrefix.toLowerCase())) ??
+    DEFAULT_LANGUAGE
+  );
+}
 
 function getStartupPreferences(): StartupPreferences {
   try {
@@ -121,6 +153,7 @@ export function GeneralSection({ searchQuery }: GeneralSectionProps) {
   const isStartupModified =
     startupPrefs.restoreSession !== DEFAULT_STARTUP_PREFS.restoreSession ||
     startupPrefs.checkUpdates !== DEFAULT_STARTUP_PREFS.checkUpdates;
+  const selectedLanguage = getLanguageOption(i18n.language);
 
   return (
     <>
@@ -196,40 +229,19 @@ export function GeneralSection({ searchQuery }: GeneralSectionProps) {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm" className="w-52 justify-between">
-              {i18n.language.startsWith('fr')
-                ? 'Français'
-                : i18n.language.startsWith('es')
-                  ? 'Español'
-                  : i18n.language.startsWith('de')
-                    ? 'Deutsch'
-                    : i18n.language.startsWith('pt')
-                      ? 'Português (Brasil)'
-                      : i18n.language.startsWith('zh')
-                        ? '简体中文'
-                        : i18n.language.startsWith('ja')
-                          ? '日本語'
-                          : i18n.language.startsWith('ko')
-                            ? '한국어'
-                            : i18n.language.startsWith('ru')
-                              ? 'Русский'
-                              : 'English'}
+              {selectedLanguage.label}
               <ChevronDown className="ml-2 h-3.5 w-3.5 opacity-50" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent className="w-52">
-            <DropdownMenuItem onClick={() => i18n.changeLanguage('en')}>English</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => i18n.changeLanguage('fr')}>Français</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => i18n.changeLanguage('es')}>Español</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => i18n.changeLanguage('de')}>Deutsch</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => i18n.changeLanguage('pt-BR')}>
-              Português (Brasil)
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => i18n.changeLanguage('zh-CN')}>
-              简体中文
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => i18n.changeLanguage('ja')}>日本語</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => i18n.changeLanguage('ko')}>한국어</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => i18n.changeLanguage('ru')}>Русский</DropdownMenuItem>
+            {LANGUAGE_OPTIONS.map(language => (
+              <DropdownMenuItem
+                key={language.code}
+                onClick={() => i18n.changeLanguage(language.code)}
+              >
+                {language.label}
+              </DropdownMenuItem>
+            ))}
           </DropdownMenuContent>
         </DropdownMenu>
       </SettingsCard>

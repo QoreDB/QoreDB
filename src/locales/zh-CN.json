@@ -265,6 +265,7 @@
     "otherConnections": "其他连接",
     "addToFavorites": "添加到收藏夹",
     "removeFromFavorites": "从收藏夹移除",
+    "proTools": "Pro 工具",
     "auditLog": "审计日志"
   },
   "search": {
@@ -2818,6 +2819,7 @@
   "instantApi": {
     "title": "Instant Data API",
     "description": "将保存的查询作为本地只读 REST 端点公开。",
+    "openPanel": "Instant Data API…",
     "close": "关闭",
     "newEndpoint": "新建端点",
     "endpointsLabel": "个端点",

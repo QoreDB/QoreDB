@@ -265,6 +265,7 @@
     "otherConnections": "Другие подключения",
     "addToFavorites": "Добавить в избранное",
     "removeFromFavorites": "Удалить из избранного",
+    "proTools": "Инструменты Pro",
     "auditLog": "Журнал аудита"
   },
   "search": {
@@ -2818,6 +2819,7 @@
   "instantApi": {
     "title": "Instant Data API",
     "description": "Опубликуйте сохранённые запросы как локальные REST-эндпоинты в режиме только-чтения.",
+    "openPanel": "Instant Data API…",
     "close": "Закрыть",
     "newEndpoint": "Новый эндпоинт",
     "endpointsLabel": "эндпоинт(ов)",

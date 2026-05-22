@@ -265,6 +265,7 @@
     "otherConnections": "기타 연결",
     "addToFavorites": "즐겨찾기에 추가",
     "removeFromFavorites": "즐겨찾기에서 제거",
+    "proTools": "Pro 도구",
     "auditLog": "감사 로그"
   },
   "search": {
@@ -2818,6 +2819,7 @@
   "instantApi": {
     "title": "Instant Data API",
     "description": "저장된 쿼리를 로컬 읽기 전용 REST 엔드포인트로 노출합니다.",
+    "openPanel": "Instant Data API…",
     "close": "닫기",
     "newEndpoint": "새 엔드포인트",
     "endpointsLabel": "개의 엔드포인트",

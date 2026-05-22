@@ -265,6 +265,7 @@
     "otherConnections": "Other connections",
     "addToFavorites": "Add to favorites",
     "removeFromFavorites": "Remove from favorites",
+    "proTools": "Pro tools",
     "auditLog": "Audit Log"
   },
   "search": {
@@ -2818,6 +2819,7 @@
   "instantApi": {
     "title": "Instant Data API",
     "description": "Expose saved queries as read-only REST endpoints on localhost.",
+    "openPanel": "Instant Data API…",
     "close": "Close",
     "newEndpoint": "New endpoint",
     "endpointsLabel": "endpoint(s)",

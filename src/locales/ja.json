@@ -265,6 +265,7 @@
     "otherConnections": "その他の接続",
     "addToFavorites": "お気に入りに追加",
     "removeFromFavorites": "お気に入りから削除",
+    "proTools": "Pro ツール",
     "auditLog": "監査ログ"
   },
   "search": {
@@ -2818,6 +2819,7 @@
   "instantApi": {
     "title": "Instant Data API",
     "description": "保存済みクエリをローカルの読み取り専用 REST エンドポイントとして公開します。",
+    "openPanel": "Instant Data API…",
     "close": "閉じる",
     "newEndpoint": "新しいエンドポイント",
     "endpointsLabel": "個のエンドポイント",

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
-import { Database, Globe, Plus, Search, ShieldCheck, Sparkles } from 'lucide-react';
+import { ChevronUp, Database, Globe, Plus, Search, ShieldCheck, Sparkles } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -10,6 +10,12 @@ import { LicenseBadge } from '@/components/License/LicenseBadge';
 import { ProDiscoveryPanel } from '@/components/License/ProDiscoveryPanel';
 import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { useTheme } from '@/hooks/useTheme';
 import {
   reconcileFavoriteConnectionIds,
@@ -398,24 +404,32 @@ export function Sidebar({
 
       <footer className="p-3 border-t border-border space-y-1">
         {tier !== 'core' && (
-          <Button
-            className="w-full justify-start text-muted-foreground hover:text-foreground hover:bg-muted"
-            variant="ghost"
-            onClick={() => setContractsOpen(true)}
-          >
-            <ShieldCheck size={16} className="mr-2" />
-            {t('contracts.openPanel')}
-          </Button>
-        )}
-        {tier !== 'core' && (
-          <Button
-            className="w-full justify-start text-muted-foreground hover:text-foreground hover:bg-muted"
-            variant="ghost"
-            onClick={() => setInstantApiOpen(true)}
-          >
-            <Globe size={16} className="mr-2" />
-            {t('instantApi.openPanel')}
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                className="w-full justify-start text-muted-foreground hover:text-foreground hover:bg-muted"
+                variant="ghost"
+              >
+                <Sparkles size={16} className="mr-2 text-accent" />
+                <span className="flex-1 text-left">{t('sidebar.proTools')}</span>
+                <ChevronUp size={14} className="ml-auto text-muted-foreground/70" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              side="top"
+              align="start"
+              className="w-[var(--radix-dropdown-menu-trigger-width)]"
+            >
+              <DropdownMenuItem onClick={() => setContractsOpen(true)}>
+                <ShieldCheck size={16} />
+                {t('contracts.openPanel')}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setInstantApiOpen(true)}>
+                <Globe size={16} />
+                {t('instantApi.openPanel')}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         )}
         {tier === 'core' && (
           <Button

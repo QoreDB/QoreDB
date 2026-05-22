@@ -265,6 +265,7 @@
     "otherConnections": "Otras conexiones",
     "addToFavorites": "Agregar a favoritos",
     "removeFromFavorites": "Quitar de favoritos",
+    "proTools": "Herramientas Pro",
     "auditLog": "Registro de auditoría"
   },
   "search": {
@@ -2818,6 +2819,7 @@
   "instantApi": {
     "title": "Instant Data API",
     "description": "Expone consultas guardadas como endpoints REST locales, en solo lectura.",
+    "openPanel": "Instant Data API…",
     "close": "Cerrar",
     "newEndpoint": "Nuevo endpoint",
     "endpointsLabel": "endpoint(s)",

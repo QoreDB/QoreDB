@@ -95,9 +95,16 @@ pub fn build_restore_args(
     }
 }
 
-fn build_pg_dump_args(opts: &BackupOptions) -> Result<(Vec<String>, Vec<(String, String)>), String> {
+fn build_pg_dump_args(
+    opts: &BackupOptions,
+) -> Result<(Vec<String>, Vec<(String, String)>), String> {
     let host = safe_arg_value(&opts.host, "Host")?;
-    let mut args = vec!["--host".into(), host, "--port".into(), opts.port.to_string()];
+    let mut args = vec![
+        "--host".into(),
+        host,
+        "--port".into(),
+        opts.port.to_string(),
+    ];
 
     if let Some(user) = opts.username.as_ref().filter(|u| !u.is_empty()) {
         args.push("--username".into());
@@ -144,10 +151,7 @@ fn build_mysql_dump_args(
     _mariadb: bool,
 ) -> Result<(Vec<String>, Vec<(String, String)>), String> {
     let host = safe_arg_value(&opts.host, "Host")?;
-    let mut args = vec![
-        format!("--host={}", host),
-        format!("--port={}", opts.port),
-    ];
+    let mut args = vec![format!("--host={}", host), format!("--port={}", opts.port)];
 
     if let Some(user) = opts.username.as_ref().filter(|u| !u.is_empty()) {
         let user = safe_arg_value(user, "Username")?;
@@ -320,10 +324,7 @@ fn build_mysql_restore_args(
     opts: &RestoreOptions,
 ) -> Result<(Vec<String>, Vec<(String, String)>), String> {
     let host = safe_arg_value(&opts.host, "Host")?;
-    let mut args = vec![
-        format!("--host={}", host),
-        format!("--port={}", opts.port),
-    ];
+    let mut args = vec![format!("--host={}", host), format!("--port={}", opts.port)];
 
     if let Some(user) = opts.username.as_ref().filter(|u| !u.is_empty()) {
         let user = safe_arg_value(user, "Username")?;
@@ -418,7 +419,10 @@ pub fn safe_identifier(value: &str) -> Result<String, String> {
         .chars()
         .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '.' || c == '-')
     {
-        return Err(format!("Identifier '{}' contains unsupported characters", value));
+        return Err(format!(
+            "Identifier '{}' contains unsupported characters",
+            value
+        ));
     }
     Ok(value.to_string())
 }

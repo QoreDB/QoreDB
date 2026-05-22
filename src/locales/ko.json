@@ -2722,6 +2722,7 @@
     "edit": "편집",
     "delete": "삭제",
     "run": {
+      "action": "실행",
       "dialogTitle": "계약 실행: {{name}}",
       "connectionMissing": "실행 전에 계약 대상에 연결하세요.",
       "starting": "시작 중…",

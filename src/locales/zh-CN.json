@@ -2722,6 +2722,7 @@
     "edit": "编辑",
     "delete": "删除",
     "run": {
+      "action": "运行",
       "dialogTitle": "运行契约：{{name}}",
       "connectionMissing": "运行前请先连接到契约目标。",
       "starting": "启动中…",

@@ -27,16 +27,17 @@ pub fn build_custom_sql(
 ) -> Result<RuleSql, SqlBuildError> {
     let trimmed = strip_trailing_semicolon(user_sql.trim());
     if trimmed.is_empty() {
-        return Err(SqlBuildError::Invalid("custom_sql must be non-empty".into()));
+        return Err(SqlBuildError::Invalid(
+            "custom_sql must be non-empty".into(),
+        ));
     }
 
     // Parse-and-validate: must be exactly one statement, and that statement
     // must be a Query (SELECT / WITH ... SELECT). Anything else — DROP,
     // UPDATE, multi-statement scripts — is rejected.
     let parser_dialect = parser_dialect_for(dialect);
-    let parsed = Parser::parse_sql(parser_dialect.as_ref(), trimmed).map_err(|e| {
-        SqlBuildError::Invalid(format!("custom_sql failed to parse: {e}"))
-    })?;
+    let parsed = Parser::parse_sql(parser_dialect.as_ref(), trimmed)
+        .map_err(|e| SqlBuildError::Invalid(format!("custom_sql failed to parse: {e}")))?;
     match parsed.as_slice() {
         [Statement::Query(_)] => {}
         [_only_one] => {
@@ -53,12 +54,10 @@ pub fn build_custom_sql(
 
     let metric_query = format!("SELECT count(*) AS violations FROM ({trimmed}) AS contract_sub");
     let samples_query = Some(match dialect {
-        Dialect::SqlServer => format!(
-            "SELECT TOP {sample_limit} * FROM ({trimmed}) AS contract_sub"
-        ),
-        _ => format!(
-            "SELECT * FROM ({trimmed}) AS contract_sub LIMIT {sample_limit}"
-        ),
+        Dialect::SqlServer => {
+            format!("SELECT TOP {sample_limit} * FROM ({trimmed}) AS contract_sub")
+        }
+        _ => format!("SELECT * FROM ({trimmed}) AS contract_sub LIMIT {sample_limit}"),
     });
     Ok(RuleSql {
         kind: RuleSqlKind::CustomViolations,
@@ -99,8 +98,12 @@ mod tests {
             10,
         )
         .unwrap();
-        assert!(r.metric_query.contains("SELECT count(*) AS violations FROM ("));
-        assert!(r.metric_query.contains("SELECT id FROM orders WHERE amount < 0"));
+        assert!(r
+            .metric_query
+            .contains("SELECT count(*) AS violations FROM ("));
+        assert!(r
+            .metric_query
+            .contains("SELECT id FROM orders WHERE amount < 0"));
         assert!(r.samples_query.unwrap().contains("LIMIT 10"));
     }
 
@@ -129,19 +132,13 @@ mod tests {
 
     #[test]
     fn rejects_multi_statement_with_destructive_first() {
-        let err = build_custom_sql(
-            Dialect::Postgres,
-            "DROP TABLE users; SELECT 1",
-            5,
-        )
-        .unwrap_err();
+        let err = build_custom_sql(Dialect::Postgres, "DROP TABLE users; SELECT 1", 5).unwrap_err();
         assert!(matches!(err, SqlBuildError::Invalid(_)));
     }
 
     #[test]
     fn rejects_multi_statement_select_then_select() {
-        let err =
-            build_custom_sql(Dialect::Postgres, "SELECT 1; SELECT 2", 5).unwrap_err();
+        let err = build_custom_sql(Dialect::Postgres, "SELECT 1; SELECT 2", 5).unwrap_err();
         assert!(matches!(err, SqlBuildError::Invalid(_)));
     }
 

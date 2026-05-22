@@ -2722,6 +2722,7 @@
     "edit": "Bearbeiten",
     "delete": "Löschen",
     "run": {
+      "action": "Ausführen",
       "dialogTitle": "Vertrag ausführen: {{name}}",
       "connectionMissing": "Verbinden Sie sich vor der Ausführung mit dem Vertragsziel.",
       "starting": "Wird gestartet…",

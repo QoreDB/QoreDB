@@ -2722,6 +2722,7 @@
     "edit": "Edit",
     "delete": "Delete",
     "run": {
+      "action": "Run",
       "dialogTitle": "Run contract: {{name}}",
       "connectionMissing": "Connect to the contract target before running.",
       "starting": "Starting…",

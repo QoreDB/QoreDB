@@ -14,7 +14,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { runContract, onContractRun, type ContractRun, type ContractRunEvent } from '@/lib/contracts';
+import {
+  type ContractRun,
+  type ContractRunEvent,
+  onContractRun,
+  runContract,
+} from '@/lib/contracts';
 
 import { ContractResultsView } from './ContractResultsView';
 
@@ -114,16 +119,12 @@ export function ContractRunDialog({
         <DialogHeader>
           <DialogTitle>{t('contracts.run.dialogTitle', { name: contractName })}</DialogTitle>
           <DialogDescription>
-            {sessionId
-              ? t('contracts.description')
-              : t('contracts.run.connectionMissing')}
+            {sessionId ? t('contracts.description') : t('contracts.run.connectionMissing')}
           </DialogDescription>
         </DialogHeader>
 
         {phase === 'idle' && (
-          <div className="py-6 text-sm text-muted-foreground">
-            {t('contracts.description')}
-          </div>
+          <div className="py-6 text-sm text-muted-foreground">{t('contracts.description')}</div>
         )}
 
         {phase === 'running' && (
@@ -175,7 +176,7 @@ export function ContractRunDialog({
             ) : (
               <>
                 <Play />
-                {t('contracts.run')}
+                {t('contracts.run.action')}
               </>
             )}
           </Button>

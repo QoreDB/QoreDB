@@ -104,7 +104,12 @@ pub fn list_contracts(workspace_root: &Path) -> Result<Vec<ContractMeta>, Storag
     let entries = match fs::read_dir(&dir) {
         Ok(e) => e,
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
-        Err(err) => return Err(StorageError::Io { path: dir, source: err }),
+        Err(err) => {
+            return Err(StorageError::Io {
+                path: dir,
+                source: err,
+            })
+        }
     };
 
     let mut out = Vec::new();
@@ -151,10 +156,7 @@ pub fn list_contracts(workspace_root: &Path) -> Result<Vec<ContractMeta>, Storag
 /// Reads the YAML source for a contract by name. Returns the raw bytes so
 /// the caller can show the user the on-disk content unmodified (important
 /// for the editor round-trip).
-pub fn load_contract_source(
-    workspace_root: &Path,
-    name: &str,
-) -> Result<String, StorageError> {
+pub fn load_contract_source(workspace_root: &Path, name: &str) -> Result<String, StorageError> {
     let path = contract_path(workspace_root, name)?;
     match fs::read_to_string(&path) {
         Ok(s) => Ok(s),
@@ -189,17 +191,54 @@ pub fn save_contract_source(
             .truncate(true)
             .open(&tmp)
             .map_err(io_err(tmp.clone()))?;
-        f.write_all(source.as_bytes()).map_err(io_err(tmp.clone()))?;
+        f.write_all(source.as_bytes())
+            .map_err(io_err(tmp.clone()))?;
         f.sync_all().map_err(io_err(tmp.clone()))?;
     }
     fs::rename(&tmp, &dest).map_err(io_err(dest.clone()))?;
     Ok(contract)
 }
 
+/// Deletes the contract YAML and its run history. The contract file must
+/// exist; a missing history file is treated as already deleted.
+pub fn delete_contract(workspace_root: &Path, name: &str) -> Result<(), StorageError> {
+    let contract = contract_path(workspace_root, name)?;
+    match fs::remove_file(&contract) {
+        Ok(()) => {}
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+            return Err(StorageError::NotFound(name.to_string()));
+        }
+        Err(err) => {
+            return Err(StorageError::Io {
+                path: contract,
+                source: err,
+            });
+        }
+    }
+
+    let history = history_path(workspace_root, name)?;
+    match fs::remove_file(&history) {
+        Ok(()) => {}
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => {}
+        Err(err) => {
+            return Err(StorageError::Io {
+                path: history,
+                source: err,
+            });
+        }
+    }
+
+    Ok(())
+}
+
 /// Appends a run to `<workspace>/contracts/.history/<name>.jsonl`. Rotates
 /// when the file exceeds `HISTORY_MAX_RUNS` lines: rewrites it with the most
 /// recent runs only.
-pub fn append_run(workspace_root: &Path, name: &str, run: &ContractRun) -> Result<(), StorageError> {
+pub fn append_run(
+    workspace_root: &Path,
+    name: &str,
+    run: &ContractRun,
+) -> Result<(), StorageError> {
     let path = history_path(workspace_root, name)?;
     let line = serde_json::to_string(run).map_err(|e| StorageError::Serialize(e.to_string()))?;
 
@@ -221,7 +260,12 @@ fn rotate_if_needed(path: &Path) -> Result<(), StorageError> {
         let f = match fs::File::open(path) {
             Ok(f) => f,
             Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(()),
-            Err(err) => return Err(StorageError::Io { path: path.into(), source: err }),
+            Err(err) => {
+                return Err(StorageError::Io {
+                    path: path.into(),
+                    source: err,
+                })
+            }
         };
         BufReader::new(f).lines().count()
     };
@@ -229,10 +273,7 @@ fn rotate_if_needed(path: &Path) -> Result<(), StorageError> {
         return Ok(());
     }
     let f = fs::File::open(path).map_err(io_err(path.to_path_buf()))?;
-    let lines: Vec<String> = BufReader::new(f)
-        .lines()
-        .map_while(Result::ok)
-        .collect();
+    let lines: Vec<String> = BufReader::new(f).lines().map_while(Result::ok).collect();
     let keep_from = lines.len().saturating_sub(HISTORY_MAX_RUNS);
     let tmp = path.with_extension("jsonl.tmp");
     {
@@ -243,7 +284,8 @@ fn rotate_if_needed(path: &Path) -> Result<(), StorageError> {
             .open(&tmp)
             .map_err(io_err(tmp.clone()))?;
         for line in &lines[keep_from..] {
-            out.write_all(line.as_bytes()).map_err(io_err(tmp.clone()))?;
+            out.write_all(line.as_bytes())
+                .map_err(io_err(tmp.clone()))?;
             out.write_all(b"\n").map_err(io_err(tmp.clone()))?;
         }
     }
@@ -331,6 +373,26 @@ mod tests {
     fn load_unknown_returns_not_found() {
         let tmp = TempDir::new().unwrap();
         let err = load_contract_source(tmp.path(), "nope").unwrap_err();
+        assert!(matches!(err, StorageError::NotFound(_)));
+    }
+
+    #[test]
+    fn delete_contract_removes_source_and_history() {
+        let tmp = TempDir::new().unwrap();
+        save_contract_source(tmp.path(), "orders", &sample_contract("orders")).unwrap();
+        append_run(tmp.path(), "orders", &sample_run("orders")).unwrap();
+
+        delete_contract(tmp.path(), "orders").unwrap();
+
+        let err = load_contract_source(tmp.path(), "orders").unwrap_err();
+        assert!(matches!(err, StorageError::NotFound(_)));
+        assert!(read_history(tmp.path(), "orders", None).unwrap().is_empty());
+    }
+
+    #[test]
+    fn delete_unknown_returns_not_found() {
+        let tmp = TempDir::new().unwrap();
+        let err = delete_contract(tmp.path(), "missing").unwrap_err();
         assert!(matches!(err, StorageError::NotFound(_)));
     }
 

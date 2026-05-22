@@ -246,7 +246,6 @@ pub fn run() {
 
     builder
         .invoke_handler(tauri::generate_handler![
-
             // Connection commands
             commands::connection::test_connection,
             commands::connection::test_saved_connection,
@@ -407,6 +406,8 @@ pub fn run() {
             commands::contracts::load_contract,
             #[cfg(feature = "pro")]
             commands::contracts::save_contract,
+            #[cfg(feature = "pro")]
+            commands::contracts::delete_contract,
             #[cfg(feature = "pro")]
             commands::contracts::run_contract,
             #[cfg(feature = "pro")]

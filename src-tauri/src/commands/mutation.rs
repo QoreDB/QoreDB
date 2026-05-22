@@ -391,7 +391,6 @@ pub async fn update_row(
                 safety_warning.as_deref(),
             );
 
-
             if changelog_store.should_capture(&table, &environment) {
                 let after_image = before_image
                     .as_ref()

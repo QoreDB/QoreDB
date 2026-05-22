@@ -3,7 +3,7 @@
 /**
  * Tauri command bindings for Data Contracts (Pro).
  *
- * Mirrors the 5 Rust commands in `src-tauri/src/commands/contracts.rs`.
+ * Mirrors the Rust commands in `src-tauri/src/commands/contracts.rs`.
  * The streaming `contract.run` event is consumed by `useContractRunEvents`.
  */
 
@@ -54,6 +54,10 @@ export async function saveContract(name: string, source: string): Promise<void> 
   await invoke('save_contract', { name, source });
 }
 
+export async function deleteContract(name: string): Promise<void> {
+  await invoke('delete_contract', { name });
+}
+
 export async function runContract(
   sessionId: string,
   source: string,
@@ -66,10 +70,7 @@ export async function runContract(
   });
 }
 
-export async function getContractHistory(
-  name: string,
-  limit?: number
-): Promise<ContractRun[]> {
+export async function getContractHistory(name: string, limit?: number): Promise<ContractRun[]> {
   return invoke('get_contract_history', { name, limit: limit ?? null });
 }
 

@@ -2,7 +2,7 @@
 
 //! `plugin.json` parsing and validation.
 
-use super::{PluginContributions, PluginManifest};
+use super::{PluginContributions, PluginManifest, RuntimeSpec};
 
 const CURRENT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -31,7 +31,42 @@ pub fn validate_manifest(m: &PluginManifest) -> Result<(), String> {
     if m.version.trim().is_empty() {
         return Err("Plugin version must not be empty".into());
     }
-    validate_contributions(&m.contributes)
+    validate_contributions(&m.contributes)?;
+    if let Some(runtime) = &m.runtime {
+        validate_runtime(runtime)?;
+    }
+    Ok(())
+}
+
+/// ABI version this build of QoreDB speaks. A plugin built against a newer
+/// ABI is rejected at validation time rather than misbehaving at run time.
+pub const CURRENT_ABI_VERSION: u32 = 1;
+
+/// Validates a plugin's executable-runtime descriptor.
+fn validate_runtime(r: &RuntimeSpec) -> Result<(), String> {
+    if r.abi_version != CURRENT_ABI_VERSION {
+        return Err(format!(
+            "Plugin runtime targets ABI version {} but this QoreDB speaks {}",
+            r.abi_version, CURRENT_ABI_VERSION
+        ));
+    }
+    let entry = r.entry.trim();
+    if entry.is_empty() {
+        return Err("Runtime entry must not be empty".into());
+    }
+    if !entry.ends_with(".wasm") {
+        return Err("Runtime entry must be a '.wasm' file".into());
+    }
+    // The entry is joined to the plugin folder — forbid any path navigation.
+    if entry.contains('/') || entry.contains('\\') || entry.contains("..") {
+        return Err("Runtime entry must be a bare filename".into());
+    }
+    if let Some(http) = &r.capabilities.http {
+        if http.allowed_hosts.is_empty() {
+            return Err("The 'http' capability requires a non-empty allowedHosts list".into());
+        }
+    }
+    Ok(())
 }
 
 fn validate_contributions(c: &PluginContributions) -> Result<(), String> {
@@ -205,5 +240,41 @@ mod tests {
         assert!(is_compatible(Some(">=0.0.1")));
         assert!(is_compatible(Some("not-a-version")));
         assert!(!is_compatible(Some(">=999.0.0")));
+    }
+
+    #[test]
+    fn parses_a_runtime_plugin() {
+        let json = r#"{
+            "id":"acme.linter","name":"Linter","version":"1.0.0",
+            "runtime":{"abiVersion":1,"entry":"plugin.wasm","hooks":["preExecute"]}
+        }"#;
+        let m = manifest(json).unwrap();
+        let runtime = m.runtime.expect("runtime block");
+        assert_eq!(runtime.entry, "plugin.wasm");
+        assert_eq!(runtime.hooks.len(), 1);
+    }
+
+    #[test]
+    fn declarative_plugin_has_no_runtime() {
+        let m = manifest(r#"{"id":"acme.pack","name":"Pack","version":"1.0.0"}"#).unwrap();
+        assert!(m.runtime.is_none());
+    }
+
+    #[test]
+    fn rejects_runtime_entry_with_path() {
+        let json = r#"{
+            "id":"acme.linter","name":"Linter","version":"1.0.0",
+            "runtime":{"abiVersion":1,"entry":"../evil.wasm"}
+        }"#;
+        assert!(manifest(json).unwrap_err().contains("bare filename"));
+    }
+
+    #[test]
+    fn rejects_unknown_abi_version() {
+        let json = r#"{
+            "id":"acme.linter","name":"Linter","version":"1.0.0",
+            "runtime":{"abiVersion":99,"entry":"plugin.wasm"}
+        }"#;
+        assert!(manifest(json).unwrap_err().contains("ABI version"));
     }
 }

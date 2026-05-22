@@ -20,9 +20,7 @@ pub fn build_foreign_key_integrity(
     let exists_sub = format!(
         "SELECT 1 FROM {ref_table_sql} ref WHERE ref.{ref_column_sql} = src.{source_column_sql}"
     );
-    let predicate = format!(
-        "(src.{source_column_sql} IS NOT NULL AND NOT EXISTS ({exists_sub}))"
-    );
+    let predicate = format!("(src.{source_column_sql} IS NOT NULL AND NOT EXISTS ({exists_sub}))");
     let metric_query = format!(
         "SELECT (SELECT count(*) FROM {source_table_sql} src WHERE {predicate}) AS violations, \
          (SELECT count(*) FROM {source_table_sql}) AS total"

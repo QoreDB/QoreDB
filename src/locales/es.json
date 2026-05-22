@@ -2722,6 +2722,7 @@
     "edit": "Editar",
     "delete": "Eliminar",
     "run": {
+      "action": "Ejecutar",
       "dialogTitle": "Ejecutar contrato: {{name}}",
       "connectionMissing": "Conéctate al destino del contrato antes de ejecutar.",
       "starting": "Iniciando…",

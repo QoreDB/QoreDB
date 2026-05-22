@@ -89,9 +89,7 @@ impl IntoResponse for ApiError {
             ApiError::Unauthorized => (StatusCode::UNAUTHORIZED, "unauthorized", None),
             ApiError::Forbidden => (StatusCode::FORBIDDEN, "forbidden", None),
             ApiError::BadRequest(m) => (StatusCode::BAD_REQUEST, "bad_request", Some(m)),
-            ApiError::TooManyRequests => {
-                (StatusCode::TOO_MANY_REQUESTS, "rate_limited", None)
-            }
+            ApiError::TooManyRequests => (StatusCode::TOO_MANY_REQUESTS, "rate_limited", None),
             ApiError::BadGateway(m) => (StatusCode::BAD_GATEWAY, "upstream", Some(m)),
             ApiError::Internal(m) => (StatusCode::INTERNAL_SERVER_ERROR, "internal", Some(m)),
         };
@@ -110,10 +108,7 @@ pub async fn handle_endpoint(
     Query(params): Query<HashMap<String, String>>,
     headers: HeaderMap,
 ) -> Result<Response, ApiError> {
-    let endpoint = state
-        .store
-        .get_by_name(&name)
-        .ok_or(ApiError::NotFound)?;
+    let endpoint = state.store.get_by_name(&name).ok_or(ApiError::NotFound)?;
 
     authenticate(&endpoint, &headers)?;
 
@@ -262,7 +257,9 @@ fn load_saved_config(
     let creds = storage
         .get_credentials(connection_id)
         .map_err(|e| e.to_string())?;
-    saved.to_connection_config(&creds).map_err(|e| e.to_string())
+    saved
+        .to_connection_config(&creds)
+        .map_err(|e| e.to_string())
 }
 
 async fn execute_query(
@@ -280,7 +277,10 @@ async fn execute_query(
         .map_err(|e| ApiError::Internal(e.sanitized_message()))
 }
 
-fn rows_to_json(columns: &[qore_core::types::ColumnInfo], rows: &[qore_core::types::Row]) -> Vec<JsonValue> {
+fn rows_to_json(
+    columns: &[qore_core::types::ColumnInfo],
+    rows: &[qore_core::types::Row],
+) -> Vec<JsonValue> {
     rows.iter()
         .map(|row| {
             let mut obj = serde_json::Map::with_capacity(columns.len());

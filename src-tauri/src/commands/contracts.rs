@@ -7,6 +7,7 @@
 //! const contracts = await invoke('list_contracts');
 //! const source = await invoke('load_contract', { name });
 //! await invoke('save_contract', { name, source });
+//! await invoke('delete_contract', { name });
 //! const run = await invoke('run_contract', { sessionId, source });
 //! window.listen('contract.run', (e) => …);
 //! const history = await invoke('get_contract_history', { name, limit: 20 });
@@ -75,6 +76,16 @@ pub async fn save_contract(
         .map_err(|e| e.to_string())
 }
 
+/// Deletes a contract YAML and its persisted run history.
+#[tauri::command]
+pub async fn delete_contract(
+    ws_manager: State<'_, SharedWorkspaceManager>,
+    name: String,
+) -> Result<(), String> {
+    let root = active_workspace_path(&ws_manager).await;
+    storage::delete_contract(&root, &name).map_err(|e| e.to_string())
+}
+
 /// Streams progress over the `contract.run` Tauri topic while it runs, then
 /// returns the aggregated [`ContractRun`]. The run is also appended to the
 /// contract's history JSONL.
@@ -120,7 +131,9 @@ pub async fn run_contract(
     )
     .await
     .map_err(|e| match e {
-        RunnerError::UnknownDialect(d) => format!("Driver '{d}' is not supported by Data Contracts"),
+        RunnerError::UnknownDialect(d) => {
+            format!("Driver '{d}' is not supported by Data Contracts")
+        }
     })?;
 
     if let Err(err) = storage::append_run(&root, &contract.name, &run) {

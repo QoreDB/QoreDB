@@ -2722,6 +2722,7 @@
     "edit": "編集",
     "delete": "削除",
     "run": {
+      "action": "実行",
       "dialogTitle": "契約を実行: {{name}}",
       "connectionMissing": "実行前に契約の対象に接続してください。",
       "starting": "開始中…",

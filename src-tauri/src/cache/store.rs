@@ -150,7 +150,9 @@ impl QueryCache {
     /// so all sessions of that connection see fresh data.
     pub fn invalidate_connection(&self, connection_id: &str) {
         let mut inner = self.inner.lock().unwrap();
-        inner.entries.retain(|_, e| e.connection_id != connection_id);
+        inner
+            .entries
+            .retain(|_, e| e.connection_id != connection_id);
         inner.total_bytes = inner.entries.values().map(|e| e.bytes).sum();
     }
 

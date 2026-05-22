@@ -26,6 +26,5 @@ pub mod types;
 pub use endpoints::EndpointStore;
 pub use server::ApiServer;
 pub use types::{
-    Endpoint, EndpointMeta, EndpointParam, EndpointParamType, InstantApiStatus,
-    QueryShape,
+    Endpoint, EndpointMeta, EndpointParam, EndpointParamType, InstantApiStatus, QueryShape,
 };

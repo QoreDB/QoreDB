@@ -10,7 +10,7 @@
 
 mod store;
 
-pub use store::QueryCache;
+pub use store::{CacheHit, QueryCache};
 
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;

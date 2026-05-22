@@ -1018,6 +1018,10 @@ export async function queryTable(
   success: boolean;
   result?: PaginatedQueryResult;
   error?: string;
+  /** True when the result was served from the query cache. */
+  cached?: boolean;
+  /** Age of the cached entry in milliseconds, when served from cache. */
+  cached_age_ms?: number;
 }> {
   return invoke('query_table', { sessionId, namespace, table, options, bypassCache });
 }

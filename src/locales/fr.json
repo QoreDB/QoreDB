@@ -7,7 +7,9 @@
     "ttl": "Durée de vie (secondes)",
     "maxEntries": "Entrées maximum",
     "stats": "{{entries}} entrées en cache · {{hitRate}} % de réussite",
-    "clear": "Vider le cache"
+    "clear": "Vider le cache",
+    "fromCache": "Mis en cache · il y a {{age}}",
+    "refresh": "Rafraîchir"
   },
   "plugins": {
     "title": "Extensions",

@@ -4,6 +4,7 @@ import { Check, Plus, Puzzle } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
+import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
 import { InstallPluginDialog } from '@/components/Plugins/InstallPluginDialog';
 import { PluginCard } from '@/components/Plugins/PluginCard';
 import { PluginDetailDialog } from '@/components/Plugins/PluginDetailDialog';
@@ -27,6 +28,7 @@ export function PluginsSection({ searchQuery }: PluginsSectionProps) {
     setBusyId(plugin.manifest.id);
     try {
       await setPluginEnabled(plugin.manifest.id, enabled);
+      if (enabled) AnalyticsService.capture('plugin_enabled');
       await refresh();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : String(err));
@@ -40,6 +42,7 @@ export function PluginsSection({ searchQuery }: PluginsSectionProps) {
     setBusyId(plugin.manifest.id);
     try {
       await removePlugin(plugin.manifest.id);
+      AnalyticsService.capture('plugin_removed');
       if (activeThemeId?.startsWith(`${plugin.manifest.id}::`)) {
         setActiveTheme(null);
       }

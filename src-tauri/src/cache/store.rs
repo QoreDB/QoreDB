@@ -23,6 +23,13 @@ struct Inner {
     misses: u64,
 }
 
+/// A fresh cache hit: the stored value and how long it has been cached.
+#[derive(Debug)]
+pub struct CacheHit {
+    pub value: serde_json::Value,
+    pub age_ms: u64,
+}
+
 /// Thread-safe LRU cache of read-only query results.
 pub struct QueryCache {
     inner: Mutex<Inner>,
@@ -60,7 +67,7 @@ impl QueryCache {
 
     /// Returns a cached value when present and still fresh. A stale entry is
     /// dropped on access.
-    pub fn get(&self, key: &str) -> Option<serde_json::Value> {
+    pub fn get(&self, key: &str) -> Option<CacheHit> {
         let mut inner = self.inner.lock().unwrap();
         if !inner.config.enabled {
             return None;
@@ -76,8 +83,9 @@ impl QueryCache {
             let entry = inner.entries.get_mut(key).expect("checked above");
             entry.last_access = now;
             let value = entry.value.clone();
+            let age_ms = now.duration_since(entry.inserted).as_millis() as u64;
             inner.hits += 1;
-            Some(value)
+            Some(CacheHit { value, age_ms })
         } else {
             inner.entries.remove(key);
             inner.misses += 1;
@@ -166,7 +174,7 @@ mod tests {
     fn stores_and_serves_a_fresh_entry() {
         let c = cache(60, 10);
         c.put("k1".into(), "s1".into(), val(1));
-        assert_eq!(c.get("k1"), Some(val(1)));
+        assert_eq!(c.get("k1").map(|h| h.value), Some(val(1)));
         assert_eq!(c.stats().hits, 1);
     }
 
@@ -174,7 +182,7 @@ mod tests {
     fn expired_entry_is_a_miss() {
         let c = cache(0, 10);
         c.put("k1".into(), "s1".into(), val(1));
-        assert_eq!(c.get("k1"), None);
+        assert!(c.get("k1").is_none());
         assert_eq!(c.stats().misses, 1);
         assert_eq!(c.stats().entries, 0);
     }

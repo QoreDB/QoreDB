@@ -5,6 +5,7 @@ import { FolderOpen } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
+import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -41,6 +42,12 @@ export function InstallPluginDialog({ open, onOpenChange, onInstalled }: Install
     setInstalling(true);
     try {
       const plugin = await installPlugin(folder);
+      const c = plugin.manifest.contributes;
+      const contributions: string[] = [];
+      if (c.snippets.length) contributions.push('snippets');
+      if (c.connectionTemplates.length) contributions.push('connectionTemplates');
+      if (c.themes.length) contributions.push('themes');
+      AnalyticsService.capture('plugin_installed', { contributions });
       toast.success(t('plugins.toast.installed', { name: plugin.manifest.name }));
       onInstalled();
       onOpenChange(false);

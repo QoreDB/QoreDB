@@ -88,7 +88,7 @@ QoreDB follows a solid baseline for a desktop database client: credentials are s
 3. Clarify and/or reduce local persistence of raw drafts in crash recovery.
 4. ~~Restrict custom share providers to `https` by default.~~ **Resolved (v0.1.28)** — HTTPS enforced with explicit loopback exception.
 5. Align governance documentation with actual runtime scope, or extend scope to browser endpoints.
-6. ~~Clarify audit retention/export semantics~~ **Resolved (v0.1.28)** — export reads from disk on demand. ~~tighten filesystem capability scope where possible.~~ Pending.
+6. ~~Clarify audit retention/export semantics~~ **Resolved (v0.1.28)** — export reads from disk on demand. ~~Tighten filesystem capability scope where possible.~~ **Resolved (v0.1.29)** — `fs:scope` now ships a positive allow-list (see "Resolved Since v0.1.29" above).
 7. Continue regular `pnpm audit`, `cargo audit`, and `cargo deny` checks in CI.
 
 ## Conclusion

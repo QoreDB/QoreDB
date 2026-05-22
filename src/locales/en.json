@@ -7,7 +7,9 @@
     "ttl": "Time to live (seconds)",
     "maxEntries": "Maximum entries",
     "stats": "{{entries}} entries cached · {{hitRate}}% hit rate",
-    "clear": "Clear cache"
+    "clear": "Clear cache",
+    "fromCache": "Cached · {{age}} ago",
+    "refresh": "Refresh"
   },
   "plugins": {
     "title": "Plugins",

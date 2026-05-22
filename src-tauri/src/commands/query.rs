@@ -1252,8 +1252,8 @@ pub async fn preview_table(
         effective_limit
     );
     if use_cache {
-        if let Some(cached) = query_cache.get(&cache_key) {
-            if let Ok(result) = serde_json::from_value::<QueryResult>(cached) {
+        if let Some(hit) = query_cache.get(&cache_key) {
+            if let Ok(result) = serde_json::from_value::<QueryResult>(hit.value) {
                 return Ok(QueryResponse {
                     success: true,
                     result: Some(result),
@@ -1342,6 +1342,12 @@ pub struct PaginatedQueryResponse {
     pub truncated: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub truncated_total: Option<u64>,
+    /// `Some(true)` when this result was served from the query cache.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cached: Option<bool>,
+    /// Age of the cached entry in milliseconds, when served from cache.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cached_age_ms: Option<u64>,
 }
 
 /// Queries table data with pagination, sorting, and filtering support
@@ -1382,14 +1388,16 @@ pub async fn query_table(
         serde_json::to_string(&options).unwrap_or_default()
     );
     if use_cache {
-        if let Some(cached) = query_cache.get(&cache_key) {
-            if let Ok(result) = serde_json::from_value::<PaginatedQueryResult>(cached) {
+        if let Some(hit) = query_cache.get(&cache_key) {
+            if let Ok(result) = serde_json::from_value::<PaginatedQueryResult>(hit.value) {
                 return Ok(PaginatedQueryResponse {
                     success: true,
                     result: Some(result),
                     error: None,
                     truncated: None,
                     truncated_total: None,
+                    cached: Some(true),
+                    cached_age_ms: Some(hit.age_ms),
                 });
             }
         }
@@ -1402,6 +1410,8 @@ pub async fn query_table(
             error: Some(msg),
             truncated: None,
             truncated_total: None,
+            cached: None,
+            cached_age_ms: None,
         });
     }
 
@@ -1414,6 +1424,8 @@ pub async fn query_table(
                 error: Some(e.sanitized_message()),
                 truncated: None,
                 truncated_total: None,
+                cached: None,
+                cached_age_ms: None,
             });
         }
     };
@@ -1437,6 +1449,8 @@ pub async fn query_table(
                 error: None,
                 truncated: None,
                 truncated_total: None,
+                cached: None,
+                cached_age_ms: None,
             })
         }
         Ok(Err(e)) => Ok(PaginatedQueryResponse {
@@ -1445,6 +1459,8 @@ pub async fn query_table(
             error: Some(e.sanitized_message()),
             truncated: None,
             truncated_total: None,
+            cached: None,
+            cached_age_ms: None,
         }),
         Err(timeout_msg) => Ok(PaginatedQueryResponse {
             success: false,
@@ -1452,6 +1468,8 @@ pub async fn query_table(
             error: Some(timeout_msg),
             truncated: None,
             truncated_total: None,
+            cached: None,
+            cached_age_ms: None,
         }),
     }
 }

@@ -77,6 +77,7 @@ import { DocumentEditorModal } from '../Editor/DocumentEditorModal';
 import { DangerConfirmDialog } from '../Guard/DangerConfirmDialog';
 import { ResultsViewer } from '../Results/ResultsViewer';
 import { IndexDialog } from '../Schema/IndexDialog';
+import { CacheBadge } from './CacheBadge';
 import { ContentBreadcrumb } from './ContentBreadcrumb';
 import { RowModal } from './RowModal';
 
@@ -297,8 +298,11 @@ export function TableBrowser({
     isFetchingMore,
     isComplete,
     error,
+    cached,
+    cachedAgeMs,
     fetchNextChunk,
     reload,
+    refresh,
   } = useInfiniteTableData({
     sessionId,
     namespace,
@@ -782,6 +786,9 @@ export function TableBrowser({
             {t('table.info')}
           </span>
         </button>
+        {activeTab === 'data' && cached && (
+          <CacheBadge ageMs={cachedAgeMs ?? 0} onRefresh={refresh} />
+        )}
       </div>
 
       {/* Content */}

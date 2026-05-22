@@ -7,7 +7,9 @@
     "ttl": "有効期間（秒）",
     "maxEntries": "最大エントリ数",
     "stats": "キャッシュ {{entries}} 件 · ヒット率 {{hitRate}}%",
-    "clear": "キャッシュをクリア"
+    "clear": "キャッシュをクリア",
+    "fromCache": "キャッシュ済み · {{age}}前",
+    "refresh": "更新"
   },
   "plugins": {
     "title": "プラグイン",

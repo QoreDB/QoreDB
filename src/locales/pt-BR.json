@@ -7,7 +7,9 @@
     "ttl": "Tempo de vida (segundos)",
     "maxEntries": "Máximo de entradas",
     "stats": "{{entries}} entradas em cache · {{hitRate}}% de acertos",
-    "clear": "Limpar cache"
+    "clear": "Limpar cache",
+    "fromCache": "Em cache · há {{age}}",
+    "refresh": "Atualizar"
   },
   "plugins": {
     "title": "Plugins",

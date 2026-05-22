@@ -7,7 +7,9 @@
     "ttl": "Tiempo de vida (segundos)",
     "maxEntries": "Entradas máximas",
     "stats": "{{entries}} entradas en caché · {{hitRate}} % de aciertos",
-    "clear": "Vaciar caché"
+    "clear": "Vaciar caché",
+    "fromCache": "En caché · hace {{age}}",
+    "refresh": "Actualizar"
   },
   "plugins": {
     "title": "Complementos",

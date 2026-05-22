@@ -7,7 +7,9 @@
     "ttl": "Lebensdauer (Sekunden)",
     "maxEntries": "Maximale Einträge",
     "stats": "{{entries}} Einträge zwischengespeichert · {{hitRate}} % Trefferquote",
-    "clear": "Cache leeren"
+    "clear": "Cache leeren",
+    "fromCache": "Zwischengespeichert · vor {{age}}",
+    "refresh": "Aktualisieren"
   },
   "plugins": {
     "title": "Plugins",

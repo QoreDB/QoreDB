@@ -190,6 +190,7 @@ function QueryCacheCard({ searchQuery }: { searchQuery?: string }) {
 
   async function clear() {
     await clearQueryCache().catch(() => {});
+    AnalyticsService.capture('query_cache_cleared');
     refreshStats();
   }
 

@@ -7,7 +7,9 @@
     "ttl": "수명(초)",
     "maxEntries": "최대 항목 수",
     "stats": "캐시 {{entries}}개 · 적중률 {{hitRate}}%",
-    "clear": "캐시 비우기"
+    "clear": "캐시 비우기",
+    "fromCache": "캐시됨 · {{age}} 전",
+    "refresh": "새로 고침"
   },
   "plugins": {
     "title": "플러그인",

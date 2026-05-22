@@ -135,6 +135,7 @@ pub async fn execute_query(
         query_cache,
         policy,
         interceptor,
+        plugin_host,
         license_tier,
     ) = {
         let state = state.lock().await;
@@ -145,6 +146,7 @@ pub async fn execute_query(
             Arc::clone(&state.query_cache),
             state.policy.clone(),
             Arc::clone(&state.interceptor),
+            Arc::clone(&state.plugin_host),
             state.license_manager.effective_status().tier,
         )
     };
@@ -417,6 +419,36 @@ pub async fn execute_query(
     } else {
         None
     };
+
+    // Executable plugins: run their pre-execute hooks. A plugin may block the
+    // query; a plugin that errors is logged and skipped, never failing it.
+    let plugin_decision = plugin_host.run_pre_execute(&crate::plugins::runtime::HookContext {
+        query: query.clone(),
+        driver_id: driver.driver_id().to_string(),
+        environment: format!("{:?}", interceptor_env),
+        operation_type: query
+            .trim_start()
+            .split_whitespace()
+            .next()
+            .unwrap_or("")
+            .to_uppercase(),
+        is_mutation: is_mutation_for_context,
+        is_dangerous: sql_analysis
+            .as_ref()
+            .map(|a| a.is_dangerous)
+            .unwrap_or(false),
+        read_only,
+    });
+    if let crate::plugins::runtime::Decision::Block { reason } = plugin_decision {
+        return Ok(QueryResponse {
+            success: false,
+            result: None,
+            error: Some(format!("Query blocked by plugin: {reason}")),
+            query_id: None,
+            truncated: None,
+            truncated_total: None,
+        });
+    }
 
     if let Some(limit) = policy.max_concurrent_queries {
         let active = query_manager.count_active().await;

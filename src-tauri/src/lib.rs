@@ -53,6 +53,7 @@ use engine::{DriverRegistry, QueryManager, SessionManager};
 use export::ExportPipeline;
 use interceptor::InterceptorPipeline;
 use license::LicenseManager;
+use plugins::runtime::PluginHost;
 use policy::SafetyPolicy;
 use ratelimit::QueryRateLimiter;
 use share::ShareManager;
@@ -69,6 +70,7 @@ pub struct AppState {
     pub query_manager: Arc<QueryManager>,
     pub query_rate_limiter: Arc<QueryRateLimiter>,
     pub query_cache: Arc<QueryCache>,
+    pub plugin_host: Arc<PluginHost>,
     pub interceptor: Arc<InterceptorPipeline>,
     pub export_pipeline: Arc<ExportPipeline>,
     pub share_manager: Arc<ShareManager>,
@@ -135,6 +137,10 @@ impl AppState {
             data_dir.join("time-travel"),
         ));
 
+        // Load executable plugins once at startup.
+        let plugin_host = Arc::new(PluginHost::new());
+        plugin_host.reload();
+
         Self {
             registry,
             session_manager,
@@ -143,6 +149,7 @@ impl AppState {
             query_manager,
             query_rate_limiter: Arc::new(QueryRateLimiter::with_defaults()),
             query_cache: Arc::new(QueryCache::new()),
+            plugin_host,
             interceptor,
             export_pipeline,
             share_manager,

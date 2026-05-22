@@ -10,6 +10,7 @@
 
 mod manifest;
 mod registry;
+pub mod runtime;
 
 use std::path::PathBuf;
 

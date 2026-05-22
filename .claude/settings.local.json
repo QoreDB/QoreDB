@@ -82,7 +82,8 @@
       "Bash(pnpm test *)",
       "Bash(awk *)",
       "Bash(git *)",
-      "Bash(cargo add *)"
+      "Bash(cargo add *)",
+      "Bash(ps -Ao pid,etime,command)"
     ]
   }
 }

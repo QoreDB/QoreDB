@@ -7,6 +7,12 @@
 //! be swapped in later without touching callers. Plugin code is always fuel-
 //! and time-bounded: a plugin can never block or crash QoreDB.
 
+mod manager;
+mod wasmi_host;
+
+pub use manager::PluginHost;
+pub use wasmi_host::WasmiRuntime;
+
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};

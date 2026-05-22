@@ -175,6 +175,7 @@ which = "6"
 
 # License verification
 ed25519-dalek = { version = "2", features = ["serde"] }
+wasmi = { version = "1.0.9", default-features = false, features = ["std"] }
 
 [target."cfg(not(any(target_os = \"android\", target_os = \"ios\")))".dependencies]
 tauri-plugin-updater = "2"

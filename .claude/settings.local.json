@@ -66,8 +66,6 @@
       "Bash(cargo build:*)",
       "Bash(gh run:*)",
       "Bash(rtk proxy *)",
-      "mcp__plugin_claude-mem_mcp-search__smart_search",
-      "mcp__plugin_claude-mem_mcp-search__smart_unfold",
       "Bash(rustup component *)",
       "Bash(rtk git *)",
       "Bash(rtk cargo *)",
@@ -80,15 +78,11 @@
       "Bash(kill %1)",
       "Bash(pkill -f \"until.*bbvezu4rm\")",
       "Bash(git mv *)",
-      "Bash(awk '/\"tabs\": \\\\{/,/^  \\\\}/' src/locales/en.json)",
-      "Bash(awk '/\"tabs\": \\\\{/,/^  \\\\}/' src/locales/fr.json)",
       "Bash(pnpm check *)",
       "Bash(pnpm test *)",
-      "Bash(awk '/^  \"contracts\": {/,/^  },/' /home/raphael/dev/perso/QoreDB/src/locales/en.json)",
-      "Bash(awk '/^## \\(Bloc|Rapport\\)/||/^### \\(🔴 Critique|Synthèse\\)/' /Users/raph/Documents/Travail/Personnel/Repositories/QoreDB/doc/audits/INTERNAL_AUDIT_2026-05.md)",
       "Bash(awk *)",
       "Bash(git *)",
-      "WebFetch(domain:www.qoredb.com)"
+      "Bash(cargo add *)"
     ]
   }
 }

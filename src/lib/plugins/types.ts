@@ -33,10 +33,41 @@ export interface ThemeContribution {
   dark: Record<string, string>;
 }
 
+/** Built-in renderers a viewer contribution may select. */
+export type ViewerRenderer = 'json-tree' | 'image' | 'map' | 'chart';
+
+/** What QoreDB matches a result column against to pick a viewer. At least
+ *  one of `columnType` / `namePattern` must be set. */
+export interface ViewerMatch {
+  columnType?: string;
+  /** Glob — `*` is the only wildcard. */
+  namePattern?: string;
+}
+
+/** Declarative cell renderer a plugin contributes. */
+export interface ResultViewerContribution {
+  id: string;
+  match: ViewerMatch;
+  renderer: ViewerRenderer;
+  /** Renderer-specific options, opaque to the registry. */
+  options?: Record<string, unknown>;
+}
+
+/** A user-invocable action a plugin contributes. The id surfaced by the
+ *  registry is namespaced (`<plugin-id>::<command-id>`); the runtime hook
+ *  receives the bare command id. */
+export interface CommandContribution {
+  id: string;
+  label: string;
+  description?: string;
+}
+
 export interface PluginContributions {
   snippets: SnippetContribution[];
   connectionTemplates: ConnectionTemplateContribution[];
   themes: ThemeContribution[];
+  resultViewers: ResultViewerContribution[];
+  commands: CommandContribution[];
 }
 
 /** Lifecycle hooks an executable plugin may subscribe to. */
@@ -98,4 +129,6 @@ export const EMPTY_CONTRIBUTIONS: PluginContributions = {
   snippets: [],
   connectionTemplates: [],
   themes: [],
+  resultViewers: [],
+  commands: [],
 };

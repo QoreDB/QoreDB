@@ -59,6 +59,15 @@ pub struct PostExecuteEnvelope {
     pub result: PostExecuteResult,
 }
 
+/// Envelope a `command` hook receives: the contributed command id and the
+/// JSON args the host forwarded.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CommandEnvelope {
+    pub id: String,
+    #[serde(default)]
+    pub args: serde_json::Value,
+}
+
 /// Verdict a `pre_execute` hook returns for a query.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
@@ -134,6 +143,32 @@ pub unsafe fn read_context(ptr: i32, len: i32) -> Option<HookContext> {
 pub unsafe fn read_post_envelope(ptr: i32, len: i32) -> Option<PostExecuteEnvelope> {
     let bytes = std::slice::from_raw_parts(ptr as *const u8, len.max(0) as usize);
     serde_json::from_slice(bytes).ok()
+}
+
+/// Decodes the `command` envelope (`{ id, args }`).
+///
+/// # Safety
+/// `ptr`/`len` must come from the host ABI and describe initialised bytes.
+pub unsafe fn read_command_envelope(ptr: i32, len: i32) -> Option<CommandEnvelope> {
+    let bytes = std::slice::from_raw_parts(ptr as *const u8, len.max(0) as usize);
+    serde_json::from_slice(bytes).ok()
+}
+
+/// Serialises a JSON value, leaks the bytes and packs `(ptr << 32 | len)`
+/// for the host to read back. Returns 0 for `null` to signal "no result".
+pub fn pack_value(value: &serde_json::Value) -> i64 {
+    if value.is_null() {
+        return 0;
+    }
+    let json = serde_json::to_vec(value).unwrap_or_default();
+    if json.is_empty() {
+        return 0;
+    }
+    let len = json.len() as i64;
+    let bytes = json.into_boxed_slice();
+    let ptr = bytes.as_ptr() as i64;
+    std::mem::forget(bytes);
+    (ptr << 32) | (len & 0xFFFF_FFFF)
 }
 
 /// Serialises `decision`, leaks the bytes and packs `(ptr << 32 | len)` for the
@@ -271,6 +306,26 @@ macro_rules! export_post_execute {
             if let Some(envelope) = $crate::read_post_envelope(ptr, len) {
                 $handler(envelope);
             }
+        }
+    };
+}
+
+/// Exports the host ABI for a typed
+/// `fn(CommandEnvelope) -> serde_json::Value` command handler.
+#[macro_export]
+macro_rules! export_command {
+    ($handler:path) => {
+        /// Host ABI: run the `command` hook.
+        ///
+        /// # Safety
+        /// Exported for the QoreDB host; `ptr`/`len` come from the host ABI.
+        #[no_mangle]
+        pub unsafe extern "C" fn command(ptr: i32, len: i32) -> i64 {
+            let result = match $crate::read_command_envelope(ptr, len) {
+                Some(envelope) => $handler(envelope),
+                None => serde_json::Value::Null,
+            };
+            $crate::pack_value(&result)
         }
     };
 }

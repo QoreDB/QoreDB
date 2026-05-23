@@ -190,4 +190,16 @@ pub trait PluginInstance: Send {
         result: &PostExecuteResult,
         payload: Option<Arc<QueryReadPayload>>,
     ) -> Result<(), PluginError>;
+
+    /// Runs the `command` hook with the contributed command id and a JSON
+    /// arg payload. Returns the JSON value the plugin produced. A module
+    /// that does not export `command` returns [`PluginError::Abi`] with a
+    /// "not exported" message — the host turns that into a user-facing
+    /// error rather than silently doing nothing (commands are explicit
+    /// user actions).
+    fn command(
+        &mut self,
+        command_id: &str,
+        args: &serde_json::Value,
+    ) -> Result<serde_json::Value, PluginError>;
 }

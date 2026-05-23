@@ -48,7 +48,11 @@ pub struct PluginManifest {
     pub runtime: Option<RuntimeSpec>,
 }
 
-/// The three declarative contribution kinds a plugin may provide.
+/// Declarative contribution kinds a plugin may provide. Snippets,
+/// connection templates and themes are pure data. `result_viewers` is also
+/// pure data but it tells the result grid which built-in renderer to use for
+/// matching columns. `commands` ride the executable runtime: clicking a
+/// command invokes the plugin's WASM `command` hook.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PluginContributions {
@@ -58,6 +62,10 @@ pub struct PluginContributions {
     pub connection_templates: Vec<ConnectionTemplateContribution>,
     #[serde(default)]
     pub themes: Vec<ThemeContribution>,
+    #[serde(default)]
+    pub result_viewers: Vec<ResultViewerContribution>,
+    #[serde(default)]
+    pub commands: Vec<CommandContribution>,
 }
 
 /// A reusable SQL snippet contributed by a plugin.
@@ -96,6 +104,55 @@ pub struct ThemeContribution {
     pub light: BTreeMap<String, String>,
     #[serde(default)]
     pub dark: BTreeMap<String, String>,
+}
+
+/// How a `resultViewers` contribution opts into rendering a column. At least
+/// one of the fields must be set, or the contribution is rejected.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ViewerMatch {
+    /// Matches the column's declared type (case-insensitive, e.g. `"jsonb"`).
+    #[serde(default)]
+    pub column_type: Option<String>,
+    /// Glob-like pattern against the column's name — `*` is the only wildcard.
+    #[serde(default)]
+    pub name_pattern: Option<String>,
+}
+
+/// The built-in renderers a viewer contribution may select. Hosted by
+/// QoreDB; the plugin only picks one and supplies static options.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ViewerRenderer {
+    JsonTree,
+    Image,
+    Map,
+    Chart,
+}
+
+/// A declarative cell renderer a plugin contributes. The plugin runs no code
+/// at render time — QoreDB looks up the matching contribution and hands the
+/// cell value to the picked renderer.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ResultViewerContribution {
+    pub id: String,
+    #[serde(rename = "match")]
+    pub match_on: ViewerMatch,
+    pub renderer: ViewerRenderer,
+    /// Renderer-specific options, passed through to the frontend as-is.
+    #[serde(default)]
+    pub options: serde_json::Value,
+}
+
+/// A user-invocable action a plugin contributes. Clicking the action calls
+/// the plugin's WASM `command` hook with the command id and the JSON args.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CommandContribution {
+    pub id: String,
+    pub label: String,
+    #[serde(default)]
+    pub description: Option<String>,
 }
 
 /// Executable-runtime descriptor. A plugin carrying this block ships a

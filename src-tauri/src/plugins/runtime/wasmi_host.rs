@@ -37,6 +37,7 @@ const WASM_PAGE_BYTES: usize = 64 * 1024;
 const ALLOC_EXPORT: &str = "qoredb_alloc";
 const PRE_EXECUTE_EXPORT: &str = "pre_execute";
 const POST_EXECUTE_EXPORT: &str = "post_execute";
+const COMMAND_EXPORT: &str = "command";
 
 /// The data the `Store` carries: the resource limiter (for `memory.grow`
 /// caps) and the host-services bundle host functions read from.
@@ -136,6 +137,39 @@ impl PluginInstance for WasmiInstance {
         hook.call(&mut store, (ptr, len))
             .map_err(|e| map_call_error(&store, e))?;
         Ok(())
+    }
+
+    fn command(
+        &mut self,
+        command_id: &str,
+        args: &serde_json::Value,
+    ) -> Result<serde_json::Value, PluginError> {
+        let envelope = serde_json::json!({ "id": command_id, "args": args });
+        let input = serde_json::to_vec(&envelope).map_err(|e| PluginError::Abi(e.to_string()))?;
+        let (mut store, instance) = build_store_and_instance(self, None)?;
+
+        let hook = instance
+            .get_typed_func::<(i32, i32), i64>(&store, COMMAND_EXPORT)
+            .map_err(|_| PluginError::Abi("plugin does not export the 'command' hook".into()))?;
+        let (ptr, len) = write_input(&mut store, &instance, &input)?;
+        let packed = hook
+            .call(&mut store, (ptr, len))
+            .map_err(|e| map_call_error(&store, e))?;
+
+        // A zero packed return means the plugin chose to produce no JSON;
+        // surface it as `null` to the caller.
+        if packed == 0 {
+            return Ok(serde_json::Value::Null);
+        }
+        let memory = instance
+            .get_memory(&store, "memory")
+            .ok_or_else(|| PluginError::Abi("plugin exports no memory".into()))?;
+        let (out_ptr, out_len) = unpack(packed);
+        let mut out = vec![0u8; out_len];
+        memory
+            .read(&store, out_ptr, &mut out)
+            .map_err(|e| PluginError::Abi(e.to_string()))?;
+        serde_json::from_slice(&out).map_err(|e| PluginError::Abi(e.to_string()))
     }
 }
 

@@ -52,7 +52,12 @@
       "capabilities": "Permisos",
       "editConsent": "Editar",
       "granted": "Concedido",
-      "notGranted": "Denegado"
+      "notGranted": "Denegado",
+      "viewers": "Visualizadores de resultados",
+      "commands": "Acciones",
+      "commandRun": "Ejecutar",
+      "commandRunning": "Ejecutando…",
+      "commandNoOutput": "(sin salida)"
     },
     "themes": {
       "title": "Temas de complementos",

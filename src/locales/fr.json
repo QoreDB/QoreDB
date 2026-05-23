@@ -52,7 +52,12 @@
       "capabilities": "Permissions",
       "editConsent": "Modifier",
       "granted": "Accordée",
-      "notGranted": "Refusée"
+      "notGranted": "Refusée",
+      "viewers": "Visualiseurs de résultats",
+      "commands": "Actions",
+      "commandRun": "Exécuter",
+      "commandRunning": "Exécution…",
+      "commandNoOutput": "(aucune sortie)"
     },
     "themes": {
       "title": "Thèmes d'extension",

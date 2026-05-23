@@ -52,7 +52,12 @@
       "capabilities": "Permissões",
       "editConsent": "Editar",
       "granted": "Concedida",
-      "notGranted": "Negada"
+      "notGranted": "Negada",
+      "viewers": "Visualizadores de resultados",
+      "commands": "Ações",
+      "commandRun": "Executar",
+      "commandRunning": "Executando…",
+      "commandNoOutput": "(sem saída)"
     },
     "themes": {
       "title": "Temas de plugins",

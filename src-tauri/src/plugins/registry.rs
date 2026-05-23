@@ -119,8 +119,8 @@ pub fn set_plugin_enabled(dir: &Path, plugin_id: &str, enabled: bool) -> Result<
     write_index(dir, &index)
 }
 
-/// Aggregates the contributions of every enabled, compatible plugin. Snippet,
-/// template and theme ids are namespaced by plugin id to avoid collisions.
+/// Aggregates the contributions of every enabled, compatible plugin. Every
+/// contributed id is namespaced by plugin id to avoid collisions.
 pub fn get_contributions(dir: &Path) -> PluginContributions {
     let mut merged = PluginContributions::default();
     for plugin in list_plugins(dir) {
@@ -139,6 +139,14 @@ pub fn get_contributions(dir: &Path) -> PluginContributions {
         for mut th in plugin.manifest.contributes.themes {
             th.id = format!("{pid}::{}", th.id);
             merged.themes.push(th);
+        }
+        for mut v in plugin.manifest.contributes.result_viewers {
+            v.id = format!("{pid}::{}", v.id);
+            merged.result_viewers.push(v);
+        }
+        for mut c in plugin.manifest.contributes.commands {
+            c.id = format!("{pid}::{}", c.id);
+            merged.commands.push(c);
         }
     }
     merged

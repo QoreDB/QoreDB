@@ -485,6 +485,7 @@ pub fn run() {
             commands::plugins::get_plugin_contributions,
             commands::plugins::get_plugin_consent,
             commands::plugins::set_plugin_consent,
+            commands::plugins::run_plugin_command,
             // Time-Travel commands
             commands::time_travel::get_table_timeline,
             commands::time_travel::get_row_history,

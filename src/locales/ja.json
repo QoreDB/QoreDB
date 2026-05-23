@@ -52,7 +52,12 @@
       "capabilities": "権限",
       "editConsent": "編集",
       "granted": "許可済み",
-      "notGranted": "拒否"
+      "notGranted": "拒否",
+      "viewers": "結果ビューワー",
+      "commands": "アクション",
+      "commandRun": "実行",
+      "commandRunning": "実行中…",
+      "commandNoOutput": "（出力なし）"
     },
     "themes": {
       "title": "プラグインテーマ",

@@ -35,6 +35,13 @@ pub fn validate_manifest(m: &PluginManifest) -> Result<(), String> {
     if let Some(runtime) = &m.runtime {
         validate_runtime(runtime)?;
     }
+    // A `command` contribution needs the executable runtime to fire the
+    // WASM `command` hook — without it the action would do nothing.
+    if !m.contributes.commands.is_empty() && m.runtime.is_none() {
+        return Err(
+            "Command contributions require a 'runtime' block to receive the command hook".into(),
+        );
+    }
     Ok(())
 }
 
@@ -98,6 +105,45 @@ fn validate_contributions(c: &PluginContributions) -> Result<(), String> {
                 ));
             }
             validate_css_value(&theme.id, key, value)?;
+        }
+    }
+    for viewer in &c.result_viewers {
+        if viewer.id.trim().is_empty() {
+            return Err("Result viewer contributions require a non-empty id".into());
+        }
+        // At least one match criterion — a viewer that matches nothing would
+        // never fire; one that matches everything would override every cell
+        // and is almost certainly a mistake.
+        let has_match = viewer.match_on.column_type.as_deref().is_some_and(|s| !s.trim().is_empty())
+            || viewer
+                .match_on
+                .name_pattern
+                .as_deref()
+                .is_some_and(|s| !s.trim().is_empty());
+        if !has_match {
+            return Err(format!(
+                "Result viewer '{}' must declare a 'columnType' or 'namePattern' match",
+                viewer.id
+            ));
+        }
+        // The frontend treats `*` as the only wildcard; reject anything that
+        // smells like a regex so we don't accidentally honour an unsafe pattern
+        // later.
+        if let Some(pat) = viewer.match_on.name_pattern.as_deref() {
+            if pat.contains(['/', '\\', '^', '$', '(', ')', '[', ']', '{', '}', '|']) {
+                return Err(format!(
+                    "Result viewer '{}' name pattern may only contain '*' wildcards",
+                    viewer.id
+                ));
+            }
+        }
+    }
+    for command in &c.commands {
+        if command.id.trim().is_empty() {
+            return Err("Command contributions require a non-empty id".into());
+        }
+        if command.label.trim().is_empty() {
+            return Err(format!("Command '{}' has an empty label", command.id));
         }
     }
     Ok(())
@@ -276,5 +322,71 @@ mod tests {
             "runtime":{"abiVersion":99,"entry":"plugin.wasm"}
         }"#;
         assert!(manifest(json).unwrap_err().contains("ABI version"));
+    }
+
+    #[test]
+    fn accepts_a_result_viewer() {
+        let json = r#"{
+            "id":"acme.geo","name":"Geo","version":"1.0.0",
+            "contributes":{"resultViewers":[
+                {"id":"jsonb","match":{"columnType":"jsonb"},"renderer":"json-tree"}
+            ]}
+        }"#;
+        let m = manifest(json).unwrap();
+        assert_eq!(m.contributes.result_viewers.len(), 1);
+    }
+
+    #[test]
+    fn rejects_viewer_with_no_match() {
+        let json = r#"{
+            "id":"acme.geo","name":"Geo","version":"1.0.0",
+            "contributes":{"resultViewers":[
+                {"id":"x","match":{},"renderer":"image"}
+            ]}
+        }"#;
+        assert!(manifest(json).unwrap_err().contains("match"));
+    }
+
+    #[test]
+    fn rejects_viewer_with_regex_pattern() {
+        let json = r#"{
+            "id":"acme.geo","name":"Geo","version":"1.0.0",
+            "contributes":{"resultViewers":[
+                {"id":"x","match":{"namePattern":"^geom_.*$"},"renderer":"map"}
+            ]}
+        }"#;
+        assert!(manifest(json).unwrap_err().contains("wildcards"));
+    }
+
+    #[test]
+    fn rejects_commands_without_a_runtime() {
+        let json = r#"{
+            "id":"acme.x","name":"X","version":"1.0.0",
+            "contributes":{"commands":[{"id":"go","label":"Go"}]}
+        }"#;
+        assert!(manifest(json)
+            .unwrap_err()
+            .contains("Command contributions require"));
+    }
+
+    #[test]
+    fn accepts_commands_with_a_runtime() {
+        let json = r#"{
+            "id":"acme.x","name":"X","version":"1.0.0",
+            "runtime":{"abiVersion":1,"entry":"plugin.wasm"},
+            "contributes":{"commands":[{"id":"go","label":"Go"}]}
+        }"#;
+        let m = manifest(json).unwrap();
+        assert_eq!(m.contributes.commands.len(), 1);
+    }
+
+    #[test]
+    fn rejects_command_with_empty_label() {
+        let json = r#"{
+            "id":"acme.x","name":"X","version":"1.0.0",
+            "runtime":{"abiVersion":1,"entry":"plugin.wasm"},
+            "contributes":{"commands":[{"id":"go","label":"  "}]}
+        }"#;
+        assert!(manifest(json).unwrap_err().contains("label"));
     }
 }

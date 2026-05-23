@@ -44,4 +44,32 @@ export async function setPluginConsent(
   return invoke('set_plugin_consent', { pluginId, grants });
 }
 
+/** Splits a namespaced contribution id (e.g. `acme.linter::lint-current`)
+ *  into its plugin id and bare contribution id. */
+export function splitContributionId(namespaced: string): { pluginId: string; localId: string } {
+  const idx = namespaced.indexOf('::');
+  if (idx < 0) {
+    return { pluginId: namespaced, localId: namespaced };
+  }
+  return {
+    pluginId: namespaced.slice(0, idx),
+    localId: namespaced.slice(idx + 2),
+  };
+}
+
+/** Invokes a contributed command. `namespacedId` is the id surfaced by the
+ *  registry; this helper splits it back into plugin id + bare command id. */
+export async function runPluginCommand(
+  namespacedId: string,
+  args?: unknown,
+): Promise<unknown> {
+  const { pluginId, localId } = splitContributionId(namespacedId);
+  return invoke('run_plugin_command', {
+    pluginId,
+    commandId: localId,
+    args: args ?? null,
+  });
+}
+
 export * from './types';
+export { findViewerFor } from './viewers';

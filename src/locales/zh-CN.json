@@ -52,7 +52,12 @@
       "capabilities": "权限",
       "editConsent": "编辑",
       "granted": "已授予",
-      "notGranted": "已拒绝"
+      "notGranted": "已拒绝",
+      "viewers": "结果查看器",
+      "commands": "操作",
+      "commandRun": "运行",
+      "commandRunning": "运行中…",
+      "commandNoOutput": "（无输出）"
     },
     "themes": {
       "title": "插件主题",

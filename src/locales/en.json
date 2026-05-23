@@ -52,7 +52,12 @@
       "capabilities": "Capabilities",
       "editConsent": "Edit",
       "granted": "Granted",
-      "notGranted": "Denied"
+      "notGranted": "Denied",
+      "viewers": "Result viewers",
+      "commands": "Commands",
+      "commandRun": "Run",
+      "commandRunning": "Running…",
+      "commandNoOutput": "(no output)"
     },
     "themes": {
       "title": "Plugin themes",

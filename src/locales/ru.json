@@ -52,7 +52,12 @@
       "capabilities": "Разрешения",
       "editConsent": "Изменить",
       "granted": "Предоставлено",
-      "notGranted": "Отклонено"
+      "notGranted": "Отклонено",
+      "viewers": "Просмотрщики результатов",
+      "commands": "Действия",
+      "commandRun": "Выполнить",
+      "commandRunning": "Выполнение…",
+      "commandNoOutput": "(нет вывода)"
     },
     "themes": {
       "title": "Темы плагинов",

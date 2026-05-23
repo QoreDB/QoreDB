@@ -109,6 +109,24 @@ pub async fn get_plugin_consent(plugin_id: String) -> Result<Vec<CapabilityKind>
     .await?
 }
 
+/// Invokes a contributed `command` on a plugin. The plugin id is the
+/// namespaced one returned by `get_plugin_contributions` (e.g.
+/// `acme.linter::lint-current`). Returns whatever JSON value the plugin
+/// produced.
+#[tauri::command]
+pub async fn run_plugin_command(
+    plugin_id: String,
+    command_id: String,
+    args: Option<serde_json::Value>,
+    state: State<'_, SharedState>,
+) -> Result<serde_json::Value, String> {
+    let host = plugin_host(&state).await;
+    let args = args.unwrap_or(serde_json::Value::Null);
+    tokio::task::spawn_blocking(move || host.run_command(&plugin_id, &command_id, &args))
+        .await
+        .map_err(|e| format!("Plugin task failed: {e}"))?
+}
+
 /// Overwrites the capabilities granted to a plugin. The runtime is reloaded
 /// so the new consent set takes effect on the next query.
 #[tauri::command]

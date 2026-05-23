@@ -156,6 +156,23 @@ impl PluginHost {
         }
     }
 
+    /// Invokes a contributed command on the matching plugin. Returns the
+    /// JSON value the plugin produced. Errors are surfaced to the caller —
+    /// commands are explicit user actions, so swallowing a failure would
+    /// leave the user wondering whether anything happened.
+    pub fn run_command(
+        &self,
+        plugin_id: &str,
+        command_id: &str,
+        args: &serde_json::Value,
+    ) -> Result<serde_json::Value, String> {
+        let mut instances = self.instances.lock().unwrap();
+        let instance = instances
+            .get_mut(plugin_id)
+            .ok_or_else(|| format!("Plugin '{plugin_id}' is not loaded"))?;
+        instance.command(command_id, args).map_err(|e| e.to_string())
+    }
+
     /// Number of currently loaded executable plugins.
     pub fn loaded_count(&self) -> usize {
         self.instances.lock().unwrap().len()

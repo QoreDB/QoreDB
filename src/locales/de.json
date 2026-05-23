@@ -52,7 +52,12 @@
       "capabilities": "Berechtigungen",
       "editConsent": "Bearbeiten",
       "granted": "Erteilt",
-      "notGranted": "Verweigert"
+      "notGranted": "Verweigert",
+      "viewers": "Ergebnis-Viewer",
+      "commands": "Aktionen",
+      "commandRun": "Ausführen",
+      "commandRunning": "Wird ausgeführt…",
+      "commandNoOutput": "(keine Ausgabe)"
     },
     "themes": {
       "title": "Plugin-Themen",

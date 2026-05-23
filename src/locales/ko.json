@@ -52,7 +52,12 @@
       "capabilities": "권한",
       "editConsent": "편집",
       "granted": "허용됨",
-      "notGranted": "거부됨"
+      "notGranted": "거부됨",
+      "viewers": "결과 뷰어",
+      "commands": "작업",
+      "commandRun": "실행",
+      "commandRunning": "실행 중…",
+      "commandNoOutput": "(출력 없음)"
     },
     "themes": {
       "title": "플러그인 테마",

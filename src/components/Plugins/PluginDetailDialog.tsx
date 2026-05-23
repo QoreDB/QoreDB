@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Pencil } from 'lucide-react';
+import { Pencil, Play } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -15,6 +16,7 @@ import {
   getPluginConsent,
   type InstalledPlugin,
   type PluginCapabilityKind,
+  runPluginCommand,
 } from '@/lib/plugins';
 import { ConsentDialog } from './ConsentDialog';
 
@@ -57,10 +59,34 @@ export function PluginDetailDialog({
 
   const { manifest } = plugin;
   const c = manifest.contributes;
-  const hasContributions = c.snippets.length + c.connectionTemplates.length + c.themes.length > 0;
+  const hasContributions =
+    c.snippets.length +
+      c.connectionTemplates.length +
+      c.themes.length +
+      c.commands.length +
+      c.resultViewers.length >
+    0;
 
   const requested = CAP_ORDER.filter(k => manifest.runtime?.capabilities?.[k]);
   const grantedSet = new Set(grants);
+  const [runningCommand, setRunningCommand] = useState<string | null>(null);
+  const [lastResult, setLastResult] = useState<{ id: string; output: string } | null>(null);
+
+  async function runCommand(commandId: string) {
+    if (!plugin) return;
+    setRunningCommand(commandId);
+    try {
+      // The contributes block holds bare ids; we already have the plugin id
+      // on hand, so call the namespaced id directly via the helper.
+      const value = await runPluginCommand(`${plugin.manifest.id}::${commandId}`);
+      const formatted = value == null ? '' : JSON.stringify(value, null, 2);
+      setLastResult({ id: commandId, output: formatted });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err));
+    } finally {
+      setRunningCommand(null);
+    }
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -203,6 +229,67 @@ export function PluginDetailDialog({
                   </li>
                 ))}
               </ul>
+            </section>
+          )}
+
+          {c.resultViewers.length > 0 && (
+            <section>
+              <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                {t('plugins.detail.viewers')}
+              </h4>
+              <ul className="space-y-1">
+                {c.resultViewers.map(v => (
+                  <li
+                    key={v.id}
+                    className="flex items-center justify-between rounded border border-border px-2 py-1 text-xs"
+                  >
+                    <span className="font-medium text-foreground">
+                      {v.match.columnType ?? v.match.namePattern ?? v.id}
+                    </span>
+                    <span className="font-mono text-muted-foreground">{v.renderer}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          {c.commands.length > 0 && (
+            <section>
+              <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                {t('plugins.detail.commands')}
+              </h4>
+              <ul className="space-y-1">
+                {c.commands.map(cmd => (
+                  <li
+                    key={cmd.id}
+                    className="flex items-start justify-between gap-2 rounded border border-border px-2 py-1.5"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-medium text-foreground">{cmd.label}</div>
+                      {cmd.description && (
+                        <div className="text-xs text-muted-foreground">{cmd.description}</div>
+                      )}
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 shrink-0 gap-1 px-2 text-xs"
+                      disabled={runningCommand !== null}
+                      onClick={() => runCommand(cmd.id)}
+                    >
+                      <Play size={11} />
+                      {runningCommand === cmd.id
+                        ? t('plugins.detail.commandRunning')
+                        : t('plugins.detail.commandRun')}
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+              {lastResult && (
+                <pre className="mt-2 max-h-40 overflow-auto rounded border border-border bg-muted/40 px-2 py-1 text-[10.5px] font-mono leading-tight text-foreground">
+                  {lastResult.output || t('plugins.detail.commandNoOutput')}
+                </pre>
+              )}
             </section>
           )}
         </div>

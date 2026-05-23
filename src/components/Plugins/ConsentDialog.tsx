@@ -61,7 +61,9 @@ function isRequested(caps: NonNullable<InstalledPlugin['manifest']['runtime']>['
   }
 }
 
-function requestedCaps(plugin: InstalledPlugin | null): PluginCapabilityKind[] {
+/** Capabilities a manifest actually asks for, in stable UI order. Exported
+ *  so callers can decide whether to even open the consent dialog. */
+export function requestedCaps(plugin: InstalledPlugin | null): PluginCapabilityKind[] {
   const caps = plugin?.manifest.runtime?.capabilities;
   if (!caps) return [];
   return ORDERED.filter(k => isRequested(caps, k));

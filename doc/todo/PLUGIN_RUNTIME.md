@@ -76,7 +76,10 @@ l'instanciation** — il n'y a pas de global à oublier.
 | `http` | Requêtes sortantes, **allow-list d'hôtes** | Exfiltration | Consentement + allow-list |
 | `fs` | Lire/écrire **dans le dossier du plugin uniquement** | Limité | Consentement |
 | `secrets` | Lire un secret nommé provisionné par l'utilisateur | Le secret lui-même | Consentement |
-| `queryExec` | Exécuter une nouvelle requête | **Élevé** (DROP…) | Consentement fort, désactivé par défaut |
+
+> `queryExec` (exécution de nouvelles requêtes par un plugin) est explicitement
+> rejeté à l'installation tant que la fonction hôte n'existe pas. Voir
+> `doc/todo/PLUGINS_HARDENING.md` (item F6).
 
 Double application : (1) la fonction hôte n'existe que si accordée ;
 (2) la fonction hôte **revalide ses arguments** côté Rust (l'allow-list `http`,
@@ -196,7 +199,7 @@ registre des `resultViewers`).
 | **2 — Capabilities** | Catalogue de fonctions hôte ; dialogue de consentement ; `log` / `notify` / `storage` / `queryRead` ; `postExecute` câblé à l'intercepteur. | L | Un plugin sans `queryRead` ne voit pas les lignes ; consentement requis à l'installation. |
 | **3 — Capabilities sensibles** | `http` (allow-list) ; `fs` (scopé au dossier du plugin) ; `secrets` ; SDK AssemblyScript. | M | Un `http` hors allow-list est refusé côté hôte ; `fs` ne sort pas du scope. |
 | **4 — UI déclarative** | `resultViewers` (map, json-tree, image, chart) ; `commands`. | M | Une colonne GeoJSON s'affiche sur une carte via un plugin. |
-| **5 — Distribution** | Signature des plugins ; registre/marketplace ; capability `queryExec` ; option `wasmtime`. | L+ | Vérification de signature ; installation depuis le registre. |
+| **5 — Distribution** | Signature des plugins ; registre/marketplace ; capability `queryExec` (réintroduction quand la fonction hôte sera câblée) ; option `wasmtime`. | L+ | Vérification de signature ; installation depuis le registre. |
 
 ## 12. Licence
 

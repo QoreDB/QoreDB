@@ -73,8 +73,8 @@ export interface PluginContributions {
 /** Lifecycle hooks an executable plugin may subscribe to. */
 export type PluginHookKind = 'preExecute' | 'postExecute';
 
-/** Capabilities a plugin manifest can request. `queryExec` parses but is
- *  not yet wired at runtime (Phase 5). */
+/** Capabilities a plugin manifest can request. Every value here is wired
+ *  end-to-end at runtime. */
 export type PluginCapabilityKind =
   | 'log'
   | 'notify'
@@ -92,8 +92,9 @@ export interface FsCapability {
   scope: 'pluginData';
 }
 
-/** Capability block a manifest declares. Phase 2 + Phase 3 are honoured at
- *  runtime; the `queryExec` field parses but currently grants nothing. */
+/** Capability block a manifest declares. Every field is honoured at runtime;
+ *  manifests declaring an unrecognised capability are rejected at install
+ *  time. */
 export interface PluginCapabilities {
   log?: boolean;
   notify?: boolean;
@@ -103,7 +104,6 @@ export interface PluginCapabilities {
   fs?: FsCapability;
   /** Names of secrets the plugin will ask the host to read. */
   secrets?: string[];
-  queryExec?: boolean;
 }
 
 /** Executable-runtime descriptor. Absent for purely declarative plugins. */

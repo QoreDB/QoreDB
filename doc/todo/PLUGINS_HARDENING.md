@@ -90,9 +90,11 @@ sur les notes.
 
 ## 2. Plan d'exécution
 
-### Phase 1 — Combler les écarts fonctionnels
+### Phase 1 — Combler les écarts fonctionnels — ✅ livrée
 
 > Toucher uniquement ce que la grille promet déjà. **Impact** : Fonctionnel 6.5 → 8.5 · Flexibilité 6 → 7.
+>
+> **Statut** : F1-F6 implémentés. Tests Rust : 220 passed (40 dans `plugins`, +1 nouveau test pour le rejet `queryExec`). TypeScript et Biome lint verts. Test E2E mini-plugin WASM reporté à la Phase 2 (item R2).
 
 | Item | Action | Critère d'acceptation |
 | --- | --- | --- |

@@ -38,6 +38,9 @@
       "connectionTemplates": "Modèles : {{count}}",
       "themes": "Thèmes : {{count}}"
     },
+    "connectionTemplatePicker": {
+      "title": "Modèles fournis par les plugins"
+    },
     "detail": {
       "requires": "Nécessite QoreDB {{version}}",
       "noContributions": "Cette extension n'apporte aucune contribution.",

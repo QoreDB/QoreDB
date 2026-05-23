@@ -208,9 +208,6 @@ pub struct PluginCapabilities {
     /// Read named secrets the user has provisioned for this plugin.
     #[serde(default)]
     pub secrets: Vec<String>,
-    /// Execute new queries. High-risk; off by default.
-    #[serde(default)]
-    pub query_exec: bool,
 }
 
 /// Outbound-HTTP capability: the hosts a plugin may reach.

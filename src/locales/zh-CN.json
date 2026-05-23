@@ -38,6 +38,9 @@
       "connectionTemplates": "模板：{{count}}",
       "themes": "主题：{{count}}"
     },
+    "connectionTemplatePicker": {
+      "title": "插件提供的模板"
+    },
     "detail": {
       "requires": "需要 QoreDB {{version}}",
       "noContributions": "此插件不提供任何内容。",

@@ -38,6 +38,9 @@
       "connectionTemplates": "Vorlagen: {{count}}",
       "themes": "Themen: {{count}}"
     },
+    "connectionTemplatePicker": {
+      "title": "Vorlagen aus Plugins"
+    },
     "detail": {
       "requires": "Erfordert QoreDB {{version}}",
       "noContributions": "Dieses Plugin trägt nichts bei.",

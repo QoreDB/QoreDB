@@ -38,6 +38,9 @@
       "connectionTemplates": "템플릿: {{count}}",
       "themes": "테마: {{count}}"
     },
+    "connectionTemplatePicker": {
+      "title": "플러그인 템플릿"
+    },
     "detail": {
       "requires": "QoreDB {{version}} 필요",
       "noContributions": "이 플러그인은 제공하는 항목이 없습니다.",

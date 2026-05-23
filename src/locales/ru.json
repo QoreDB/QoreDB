@@ -38,6 +38,9 @@
       "connectionTemplates": "Шаблоны: {{count}}",
       "themes": "Темы: {{count}}"
     },
+    "connectionTemplatePicker": {
+      "title": "Шаблоны из плагинов"
+    },
     "detail": {
       "requires": "Требуется QoreDB {{version}}",
       "noContributions": "Этот плагин ничего не добавляет.",

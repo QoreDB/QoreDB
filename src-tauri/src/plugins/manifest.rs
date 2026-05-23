@@ -8,10 +8,37 @@ const CURRENT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// Parses raw `plugin.json` content into a validated manifest.
 pub fn parse_manifest(raw: &str) -> Result<PluginManifest, String> {
+    // Pre-pass: serde would silently drop unknown capability fields, so we
+    // walk the raw JSON first to surface the ones we explicitly disallow.
+    reject_retired_capabilities(raw)?;
     let manifest: PluginManifest =
         serde_json::from_str(raw).map_err(|e| format!("Invalid plugin.json: {e}"))?;
     validate_manifest(&manifest)?;
     Ok(manifest)
+}
+
+/// Rejects manifests that declare capabilities we used to accept but no
+/// longer support. `queryExec` was wired through the type system but never
+/// reached the host functions; rather than ship a footgun that looks active,
+/// we refuse the manifest with an explicit message.
+fn reject_retired_capabilities(raw: &str) -> Result<(), String> {
+    let Ok(value) = serde_json::from_str::<serde_json::Value>(raw) else {
+        // Malformed JSON — let the typed parse below produce the real error.
+        return Ok(());
+    };
+    let caps = value
+        .get("runtime")
+        .and_then(|r| r.get("capabilities"));
+    if let Some(caps) = caps {
+        if caps.get("queryExec").is_some() {
+            return Err(
+                "Plugin capability 'queryExec' is not supported in this build. \
+                 Remove it from runtime.capabilities."
+                    .to_string(),
+            );
+        }
+    }
+    Ok(())
 }
 
 /// Validates a manifest's identifiers and contributions.
@@ -411,6 +438,17 @@ mod tests {
         }"#;
         let m = manifest(json).unwrap();
         assert_eq!(m.runtime.unwrap().capabilities.secrets.len(), 2);
+    }
+
+    #[test]
+    fn rejects_manifest_declaring_query_exec() {
+        let json = r#"{
+            "id":"acme.x","name":"X","version":"1.0.0",
+            "runtime":{"abiVersion":1,"entry":"plugin.wasm",
+                       "capabilities":{"queryExec":true}}
+        }"#;
+        let err = manifest(json).unwrap_err();
+        assert!(err.contains("queryExec"), "unexpected error: {err}");
     }
 
     #[test]

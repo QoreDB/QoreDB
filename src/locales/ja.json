@@ -38,6 +38,9 @@
       "connectionTemplates": "テンプレート: {{count}}",
       "themes": "テーマ: {{count}}"
     },
+    "connectionTemplatePicker": {
+      "title": "プラグインのテンプレート"
+    },
     "detail": {
       "requires": "QoreDB {{version}} が必要です",
       "noContributions": "このプラグインは何も提供しません。",

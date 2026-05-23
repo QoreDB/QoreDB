@@ -14,10 +14,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::plugins::{PluginCapabilities, PluginManifest};
 
-/// A capability a plugin may request. Phases 2 and 3 are wired; the
-/// Phase 5 `queryExec` capability is still declared-only — the manifest
-/// validates it, but the host function returns "denied" until the
-/// query-engine plumbing lands.
+/// A capability a plugin may request. Every variant here is fully wired
+/// through to a host function; manifests declaring an unrecognised capability
+/// are rejected at parse time (see [`crate::plugins::parse_manifest`]).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum CapabilityKind {
@@ -65,8 +64,7 @@ impl CapabilityKind {
 }
 
 /// The set of capabilities a manifest *requests*. Order is stable so the
-/// consent UI shows the same list every time. `queryExec` is intentionally
-/// not surfaced — it's declared but not yet wired (Phase 5).
+/// consent UI shows the same list every time.
 pub fn requested(caps: &PluginCapabilities) -> Vec<CapabilityKind> {
     let mut out = Vec::new();
     if caps.log {

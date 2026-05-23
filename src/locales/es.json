@@ -38,6 +38,9 @@
       "connectionTemplates": "Plantillas: {{count}}",
       "themes": "Temas: {{count}}"
     },
+    "connectionTemplatePicker": {
+      "title": "Plantillas de los plugins"
+    },
     "detail": {
       "requires": "Requiere QoreDB {{version}}",
       "noContributions": "Este complemento no aporta nada.",

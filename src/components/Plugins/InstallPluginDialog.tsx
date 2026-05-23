@@ -16,7 +16,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { installPlugin, type InstalledPlugin } from '@/lib/plugins';
-import { ConsentDialog } from './ConsentDialog';
+import { ConsentDialog, requestedCaps } from './ConsentDialog';
 
 interface InstallPluginDialogProps {
   open: boolean;
@@ -54,10 +54,10 @@ export function InstallPluginDialog({ open, onOpenChange, onInstalled }: Install
       AnalyticsService.capture('plugin_installed', { contributions });
       toast.success(t('plugins.toast.installed', { name: plugin.manifest.name }));
 
-      const caps = plugin.manifest.runtime?.capabilities;
-      const wantsConsent =
-        caps && (caps.log || caps.notify || caps.storage || caps.queryRead);
-      if (wantsConsent) {
+      // Open the consent dialog whenever the manifest asks for *any*
+      // capability — http/fs/secrets used to slip through the old hardcoded
+      // check and were silently denied.
+      if (requestedCaps(plugin).length > 0) {
         setPendingConsent(plugin);
         onOpenChange(false);
       } else {

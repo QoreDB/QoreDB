@@ -12,8 +12,8 @@ use std::sync::{Arc, Mutex};
 
 use super::{
     capabilities, storage, Budget, CapabilityKind, Decision, HookContext, InvocationServices,
-    NotifySender, PluginInstance, PluginRuntime, PluginStorage, PostExecuteResult,
-    QueryReadPayload, WasmiRuntime,
+    NotifyEvent, NotifyLevel, NotifySender, PluginInstance, PluginRuntime, PluginStorage,
+    PostExecuteResult, QueryReadPayload, WasmiRuntime,
 };
 use crate::plugins::{plugins_dir, registry};
 
@@ -135,14 +135,16 @@ impl PluginHost {
 
     /// Runs the `pre_execute` hook of every loaded plugin and aggregates the
     /// verdicts: any `Block` wins; otherwise the first `Warn`; else `Allow`.
+    /// A `Warn` is also surfaced to the user as a toast through the same
+    /// `plugin-notify` channel the `notify` capability uses.
     pub fn run_pre_execute(&self, context: &HookContext) -> Decision {
         let mut instances = self.instances.lock().unwrap();
-        let mut warning: Option<String> = None;
+        let mut warning: Option<(String, String)> = None;
         for (id, instance) in instances.iter_mut() {
             match instance.pre_execute(context) {
                 Ok(Decision::Allow) => {}
                 Ok(Decision::Warn { message }) => {
-                    warning.get_or_insert(message);
+                    warning.get_or_insert_with(|| (id.clone(), message));
                 }
                 Ok(Decision::Block { reason }) => return Decision::Block { reason },
                 Err(e) => {
@@ -150,9 +152,26 @@ impl PluginHost {
                 }
             }
         }
+        drop(instances);
         match warning {
-            Some(message) => Decision::Warn { message },
+            Some((plugin_id, message)) => {
+                self.emit_notify(NotifyEvent {
+                    plugin_id,
+                    level: NotifyLevel::Warning,
+                    message: message.clone(),
+                });
+                Decision::Warn { message }
+            }
             None => Decision::Allow,
+        }
+    }
+
+    /// Sends a notification through the `plugin-notify` channel. Silent no-op
+    /// when the bridge is not wired (early startup, headless tests).
+    fn emit_notify(&self, event: NotifyEvent) {
+        let sender = self.notify.lock().unwrap().clone();
+        if let Some(sender) = sender {
+            let _ = sender.send(event);
         }
     }
 

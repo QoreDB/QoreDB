@@ -598,16 +598,23 @@ pub async fn execute_query(
                     metrics::record_timeout();
 
                     let duration_ms = start_time.elapsed().as_micros() as f64 / 1000.0;
+                    let exec_result = QueryExecutionResult {
+                        success: false,
+                        error: Some(format!("Operation timed out after {}ms", timeout_value)),
+                        execution_time_ms: duration_ms,
+                        row_count: None,
+                    };
                     interceptor.post_execute(
                         &interceptor_context,
-                        &QueryExecutionResult {
-                            success: false,
-                            error: Some(format!("Operation timed out after {}ms", timeout_value)),
-                            execution_time_ms: duration_ms,
-                            row_count: None,
-                        },
+                        &exec_result,
                         false,
                         safety_warning.as_deref(),
+                    );
+                    dispatch_plugin_post_execute(
+                        &plugin_host,
+                        &interceptor_context,
+                        &exec_result,
+                        None,
                     );
 
                     dispatch_stream_event(
@@ -635,16 +642,25 @@ pub async fn execute_query(
 
         match result {
             Ok(_) => {
+                let exec_result = QueryExecutionResult {
+                    success: true,
+                    error: None,
+                    execution_time_ms: duration_ms,
+                    row_count: None,
+                };
                 interceptor.post_execute(
                     &interceptor_context,
-                    &QueryExecutionResult {
-                        success: true,
-                        error: None,
-                        execution_time_ms: duration_ms,
-                        row_count: None,
-                    },
+                    &exec_result,
                     false,
                     safety_warning.as_deref(),
+                );
+                // Streaming has no materialised QueryResult, so plugins with
+                // `queryRead` see the metadata but no row payload.
+                dispatch_plugin_post_execute(
+                    &plugin_host,
+                    &interceptor_context,
+                    &exec_result,
+                    None,
                 );
 
                 if is_mutation_for_context {
@@ -663,16 +679,23 @@ pub async fn execute_query(
                 })
             }
             Err(e) => {
+                let exec_result = QueryExecutionResult {
+                    success: false,
+                    error: Some(e.sanitized_message()),
+                    execution_time_ms: duration_ms,
+                    row_count: None,
+                };
                 interceptor.post_execute(
                     &interceptor_context,
-                    &QueryExecutionResult {
-                        success: false,
-                        error: Some(e.sanitized_message()),
-                        execution_time_ms: duration_ms,
-                        row_count: None,
-                    },
+                    &exec_result,
                     false,
                     safety_warning.as_deref(),
+                );
+                dispatch_plugin_post_execute(
+                    &plugin_host,
+                    &interceptor_context,
+                    &exec_result,
+                    None,
                 );
 
                 Ok(QueryResponse {
@@ -732,16 +755,23 @@ pub async fn execute_query(
                     metrics::record_timeout();
 
                     let duration_ms = start_time.elapsed().as_micros() as f64 / 1000.0;
+                    let exec_result = QueryExecutionResult {
+                        success: false,
+                        error: Some(format!("Operation timed out after {}ms", timeout_value)),
+                        execution_time_ms: duration_ms,
+                        row_count: None,
+                    };
                     interceptor.post_execute(
                         &interceptor_context,
-                        &QueryExecutionResult {
-                            success: false,
-                            error: Some(format!("Operation timed out after {}ms", timeout_value)),
-                            execution_time_ms: duration_ms,
-                            row_count: None,
-                        },
+                        &exec_result,
                         false,
                         safety_warning.as_deref(),
+                    );
+                    dispatch_plugin_post_execute(
+                        &plugin_host,
+                        &interceptor_context,
+                        &exec_result,
+                        None,
                     );
 
                     return Ok(QueryResponse {
@@ -819,16 +849,23 @@ pub async fn execute_query(
             Err(e) => {
                 metrics::record_query(duration_ms, false);
 
+                let exec_result = QueryExecutionResult {
+                    success: false,
+                    error: Some(e.sanitized_message()),
+                    execution_time_ms: duration_ms,
+                    row_count: None,
+                };
                 interceptor.post_execute(
                     &interceptor_context,
-                    &QueryExecutionResult {
-                        success: false,
-                        error: Some(e.sanitized_message()),
-                        execution_time_ms: duration_ms,
-                        row_count: None,
-                    },
+                    &exec_result,
                     false,
                     safety_warning.as_deref(),
+                );
+                dispatch_plugin_post_execute(
+                    &plugin_host,
+                    &interceptor_context,
+                    &exec_result,
+                    None,
                 );
 
                 Ok(QueryResponse {

@@ -13,7 +13,7 @@
   },
   "plugins": {
     "title": "プラグイン",
-    "description": "宣言型プラグインで QoreDB を拡張します — SQL スニペットパック、接続テンプレート、カラーテーマ。コードは実行されません。",
+    "description": "プラグインで QoreDB を拡張: SQL スニペットパック、接続テンプレート、カラーテーマ、またはサンドボックス化された実行可能フック。",
     "empty": "インストール済みのプラグインはありません。",
     "install": "プラグインをインストール",
     "installDialog": {
@@ -29,7 +29,9 @@
       "enable": "プラグインを有効化",
       "disable": "プラグインを無効化",
       "remove": "プラグインを削除",
-      "removeConfirm": "プラグイン「{{name}}」を削除しますか？"
+      "removeConfirm": "プラグイン「{{name}}」を削除しますか？",
+      "executable": "実行可能",
+      "executableTooltip": "このプラグインはサンドボックス化された WASM コードを厳格な CPU/メモリ制限下で実行します。"
     },
     "contributions": {
       "snippets": "スニペット: {{count}}",
@@ -41,7 +43,12 @@
       "noContributions": "このプラグインは何も提供しません。",
       "snippets": "SQL スニペット",
       "templates": "接続テンプレート",
-      "themes": "テーマ"
+      "themes": "テーマ",
+      "runtime": "実行可能ランタイム",
+      "runtimeExplanation": "このプラグインは QoreDB 内でサンドボックス化された WebAssembly コードを実行します。",
+      "runtimeEntry": "モジュール:",
+      "runtimeAbi": "ABI:",
+      "runtimeHooks": "フック:"
     },
     "themes": {
       "title": "プラグインテーマ",

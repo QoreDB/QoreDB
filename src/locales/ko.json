@@ -13,7 +13,7 @@
   },
   "plugins": {
     "title": "플러그인",
-    "description": "선언형 플러그인으로 QoreDB를 확장하세요 — SQL 스니펫 팩, 연결 템플릿, 색상 테마. 코드는 실행되지 않습니다.",
+    "description": "플러그인으로 QoreDB 확장: SQL 스니펫 팩, 연결 템플릿, 색상 테마 또는 샌드박스 실행 후크.",
     "empty": "설치된 플러그인이 없습니다.",
     "install": "플러그인 설치",
     "installDialog": {
@@ -29,7 +29,9 @@
       "enable": "플러그인 활성화",
       "disable": "플러그인 비활성화",
       "remove": "플러그인 제거",
-      "removeConfirm": "플러그인 \"{{name}}\"을(를) 제거할까요?"
+      "removeConfirm": "플러그인 \"{{name}}\"을(를) 제거할까요?",
+      "executable": "실행 가능",
+      "executableTooltip": "이 플러그인은 엄격한 CPU 및 메모리 예산 내에서 샌드박스 WASM 코드를 실행합니다."
     },
     "contributions": {
       "snippets": "스니펫: {{count}}",
@@ -41,7 +43,12 @@
       "noContributions": "이 플러그인은 제공하는 항목이 없습니다.",
       "snippets": "SQL 스니펫",
       "templates": "연결 템플릿",
-      "themes": "테마"
+      "themes": "테마",
+      "runtime": "실행 런타임",
+      "runtimeExplanation": "이 플러그인은 QoreDB 내에서 샌드박스 WebAssembly 코드를 실행합니다.",
+      "runtimeEntry": "모듈:",
+      "runtimeAbi": "ABI:",
+      "runtimeHooks": "후크:"
     },
     "themes": {
       "title": "플러그인 테마",

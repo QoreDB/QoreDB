@@ -211,3 +211,4 @@ pourraient relever du Premium (`BUSL-1.1`) — à trancher avant la phase 5.
 - Plugins « source de données » (un plugin comme driver) : envisageable mais
   hors de ce plan — surface de capability trop large, à spécifier séparément.
 - `wasmtime` : chemin d'upgrade derrière le trait, pas un objectif initial.
+ 

@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { AlertTriangle, Puzzle, Trash2 } from 'lucide-react';
+import { AlertTriangle, Puzzle, Shield, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
+import { Tooltip } from '@/components/ui/tooltip';
 import type { InstalledPlugin } from '@/lib/plugins';
 
 interface PluginCardProps {
@@ -41,6 +42,14 @@ export function PluginCard({ plugin, busy, onToggle, onRemove, onDetails }: Plug
             {manifest.name}
           </button>
           <span className="text-xs text-muted-foreground">v{manifest.version}</span>
+          {manifest.runtime && (
+            <Tooltip content={t('plugins.card.executableTooltip')}>
+              <span className="inline-flex items-center gap-1 rounded bg-warning/15 px-1.5 py-0.5 text-[10px] font-medium text-warning">
+                <Shield size={11} />
+                {t('plugins.card.executable')}
+              </span>
+            </Tooltip>
+          )}
           {!compatible && (
             <span className="inline-flex items-center gap-1 text-xs text-warning">
               <AlertTriangle size={12} />

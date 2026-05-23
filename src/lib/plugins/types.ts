@@ -3,8 +3,9 @@
 /**
  * Plugin system types — mirror of `src-tauri/src/plugins/mod.rs`.
  *
- * v0.1.29 ships declarative plugins only: a plugin contributes static data
- * (SQL snippet packs, connection templates, color themes). No code runs.
+ * v0.1.29 ships two flavours: declarative contributions (snippet packs,
+ * connection templates, themes) and optional executable runtimes that wire
+ * sandboxed WASM into the query lifecycle.
  */
 
 export interface SnippetContribution {
@@ -38,6 +39,17 @@ export interface PluginContributions {
   themes: ThemeContribution[];
 }
 
+/** Lifecycle hooks an executable plugin may subscribe to. */
+export type PluginHookKind = 'preExecute' | 'postExecute';
+
+/** Executable-runtime descriptor. Absent for purely declarative plugins. */
+export interface PluginRuntimeSpec {
+  abiVersion: number;
+  /** WASM module filename, relative to the plugin folder. */
+  entry: string;
+  hooks: PluginHookKind[];
+}
+
 export interface PluginManifest {
   id: string;
   name: string;
@@ -47,6 +59,8 @@ export interface PluginManifest {
   /** Optional QoreDB version requirement, e.g. ">=0.1.29". */
   qoredb?: string;
   contributes: PluginContributions;
+  /** Set when the plugin ships sandboxed WASM code. */
+  runtime?: PluginRuntimeSpec;
 }
 
 export interface InstalledPlugin {

@@ -43,7 +43,36 @@ export function PluginDetailDialog({ plugin, open, onOpenChange }: PluginDetailD
             </p>
           )}
 
-          {!hasContributions && (
+          {manifest.runtime && (
+            <section className="rounded-lg border border-warning/30 bg-warning/5 p-2.5">
+              <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-warning">
+                {t('plugins.detail.runtime')}
+              </h4>
+              <p className="text-xs text-muted-foreground">
+                {t('plugins.detail.runtimeExplanation')}
+              </p>
+              <dl className="mt-1.5 space-y-0.5 text-xs">
+                <div className="flex gap-1.5">
+                  <dt className="text-muted-foreground">{t('plugins.detail.runtimeEntry')}</dt>
+                  <dd className="font-mono text-foreground">{manifest.runtime.entry}</dd>
+                </div>
+                <div className="flex gap-1.5">
+                  <dt className="text-muted-foreground">{t('plugins.detail.runtimeAbi')}</dt>
+                  <dd className="text-foreground">v{manifest.runtime.abiVersion}</dd>
+                </div>
+                {manifest.runtime.hooks.length > 0 && (
+                  <div className="flex gap-1.5">
+                    <dt className="text-muted-foreground">{t('plugins.detail.runtimeHooks')}</dt>
+                    <dd className="font-mono text-foreground">
+                      {manifest.runtime.hooks.join(', ')}
+                    </dd>
+                  </div>
+                )}
+              </dl>
+            </section>
+          )}
+
+          {!hasContributions && !manifest.runtime && (
             <p className="text-xs text-muted-foreground">{t('plugins.detail.noContributions')}</p>
           )}
 

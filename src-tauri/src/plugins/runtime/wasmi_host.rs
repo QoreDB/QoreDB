@@ -16,14 +16,23 @@
 //!   at `[ptr, len)` and return a packed `(out_ptr << 32 | out_len)` pointing
 //!   at the JSON [`Decision`] it produced.
 
-use wasmi::{Engine, Linker, Module, Store};
+use wasmi::{Engine, Linker, Module, Store, StoreLimits, StoreLimitsBuilder};
 
 use super::{Budget, Decision, HookContext, PluginError, PluginInstance, PluginRuntime};
+
+/// A WASM page is 64 KiB — the unit `Budget::memory_pages` is denominated in.
+const WASM_PAGE_BYTES: usize = 64 * 1024;
 
 /// Allocator export the host calls to place input bytes into guest memory.
 const ALLOC_EXPORT: &str = "qoredb_alloc";
 /// `pre_execute` hook entry point.
 const PRE_EXECUTE_EXPORT: &str = "pre_execute";
+
+/// Per-invocation `Store` data: holds the resource limiter so a plugin
+/// cannot grow its linear memory past the host-imposed ceiling.
+struct StoreData {
+    limits: StoreLimits,
+}
 
 /// The `wasmi`-backed plugin runtime.
 pub struct WasmiRuntime;
@@ -65,13 +74,23 @@ impl PluginInstance for WasmiInstance {
     fn pre_execute(&mut self, context: &HookContext) -> Result<Decision, PluginError> {
         let input = serde_json::to_vec(context).map_err(|e| PluginError::Abi(e.to_string()))?;
 
-        let mut store = Store::new(&self.engine, ());
+        // `trap_on_grow_failure` makes a refused `memory.grow` trap (caught
+        // below) instead of silently returning -1 to the plugin — clearer
+        // signal that the budget was reached.
+        let memory_size_bytes = (self.budget.memory_pages as usize)
+            .saturating_mul(WASM_PAGE_BYTES);
+        let limits = StoreLimitsBuilder::new()
+            .memory_size(memory_size_bytes)
+            .trap_on_grow_failure(true)
+            .build();
+        let mut store = Store::new(&self.engine, StoreData { limits });
+        store.limiter(|data| &mut data.limits);
         store
             .set_fuel(self.budget.fuel)
             .map_err(|e| PluginError::Load(e.to_string()))?;
 
         // Phase 1 plugins are pure compute: no host functions are imported.
-        let linker: Linker<()> = Linker::new(&self.engine);
+        let linker: Linker<StoreData> = Linker::new(&self.engine);
         let instance = linker
             .instantiate_and_start(&mut store, &self.module)
             .map_err(|e| PluginError::Load(e.to_string()))?;
@@ -119,7 +138,7 @@ fn unpack(packed: i64) -> (usize, usize) {
 
 /// Classifies a failed `wasmi` call: an exhausted fuel budget becomes
 /// `BudgetExceeded`, anything else a `Trap`.
-fn map_call_error(store: &Store<()>, error: wasmi::Error) -> PluginError {
+fn map_call_error(store: &Store<StoreData>, error: wasmi::Error) -> PluginError {
     if store.get_fuel().map(|fuel| fuel == 0).unwrap_or(false) {
         PluginError::BudgetExceeded
     } else {

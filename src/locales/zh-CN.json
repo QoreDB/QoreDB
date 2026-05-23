@@ -13,7 +13,7 @@
   },
   "plugins": {
     "title": "插件",
-    "description": "使用声明式插件扩展 QoreDB — SQL 代码片段包、连接模板和配色主题。不执行任何代码。",
+    "description": "通过插件扩展 QoreDB：SQL 代码片段包、连接模板、配色主题，或沙盒化的可执行钩子。",
     "empty": "尚未安装任何插件。",
     "install": "安装插件",
     "installDialog": {
@@ -29,7 +29,9 @@
       "enable": "启用插件",
       "disable": "禁用插件",
       "remove": "移除插件",
-      "removeConfirm": "移除插件“{{name}}”？"
+      "removeConfirm": "移除插件“{{name}}”？",
+      "executable": "可执行",
+      "executableTooltip": "此插件在严格的 CPU 和内存预算下运行沙盒 WASM 代码。"
     },
     "contributions": {
       "snippets": "代码片段：{{count}}",
@@ -41,7 +43,12 @@
       "noContributions": "此插件不提供任何内容。",
       "snippets": "SQL 代码片段",
       "templates": "连接模板",
-      "themes": "主题"
+      "themes": "主题",
+      "runtime": "可执行运行时",
+      "runtimeExplanation": "此插件在 QoreDB 中运行沙盒 WebAssembly 代码。",
+      "runtimeEntry": "模块：",
+      "runtimeAbi": "ABI：",
+      "runtimeHooks": "钩子："
     },
     "themes": {
       "title": "插件主题",

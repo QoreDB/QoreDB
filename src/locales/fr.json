@@ -13,7 +13,7 @@
   },
   "plugins": {
     "title": "Extensions",
-    "description": "Étendez QoreDB avec des extensions déclaratives : packs de snippets SQL, modèles de connexion et thèmes de couleurs. Aucun code n'est exécuté.",
+    "description": "Étendez QoreDB avec des extensions : packs de snippets SQL, modèles de connexion, thèmes de couleurs ou hooks exécutables en bac à sable.",
     "empty": "Aucune extension installée pour le moment.",
     "install": "Installer une extension",
     "installDialog": {
@@ -29,7 +29,9 @@
       "enable": "Activer l'extension",
       "disable": "Désactiver l'extension",
       "remove": "Supprimer l'extension",
-      "removeConfirm": "Supprimer l'extension « {{name}} » ?"
+      "removeConfirm": "Supprimer l'extension « {{name}} » ?",
+      "executable": "Exécutable",
+      "executableTooltip": "Cette extension exécute du code WASM en bac à sable, dans un budget CPU et mémoire strict."
     },
     "contributions": {
       "snippets": "Snippets : {{count}}",
@@ -41,7 +43,12 @@
       "noContributions": "Cette extension n'apporte aucune contribution.",
       "snippets": "Snippets SQL",
       "templates": "Modèles de connexion",
-      "themes": "Thèmes"
+      "themes": "Thèmes",
+      "runtime": "Runtime exécutable",
+      "runtimeExplanation": "Cette extension exécute du code WebAssembly en bac à sable dans QoreDB.",
+      "runtimeEntry": "Module :",
+      "runtimeAbi": "ABI :",
+      "runtimeHooks": "Hooks :"
     },
     "themes": {
       "title": "Thèmes d'extension",

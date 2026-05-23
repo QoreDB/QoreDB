@@ -83,7 +83,9 @@
       "Bash(awk *)",
       "Bash(git *)",
       "Bash(cargo add *)",
-      "Bash(ps -Ao pid,etime,command)"
+      "Bash(ps -Ao pid,etime,command)",
+      "Bash(/usr/bin/find . *)",
+      "Bash(/usr/bin/find *)"
     ]
   }
 }

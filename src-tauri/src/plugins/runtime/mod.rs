@@ -13,8 +13,6 @@ mod wasmi_host;
 pub use manager::PluginHost;
 pub use wasmi_host::WasmiRuntime;
 
-use std::time::Duration;
-
 use serde::{Deserialize, Serialize};
 
 /// Decision a `preExecute` hook returns for a query.
@@ -44,14 +42,18 @@ pub struct HookContext {
 }
 
 /// Resource budget enforced on every single plugin invocation.
+///
+/// Fuel covers runaway execution (an infinite loop traps once exhausted).
+/// `memory_pages` caps how far a plugin can grow its linear memory, so a
+/// hostile `memory.grow` cannot push the host into swap or OOM. A wall-clock
+/// timeout is intentionally absent: `wasmi` has no cheap interruption
+/// primitive, and fuel already bounds invocation cost.
 #[derive(Debug, Clone, Copy)]
 pub struct Budget {
     /// Maximum WASM instructions (fuel) per invocation.
     pub fuel: u64,
     /// Maximum linear memory, in WASM pages of 64 KiB.
     pub memory_pages: u32,
-    /// Wall-clock ceiling per invocation.
-    pub timeout: Duration,
 }
 
 impl Default for Budget {
@@ -59,7 +61,6 @@ impl Default for Budget {
         Self {
             fuel: 50_000_000,
             memory_pages: 256, // 16 MiB
-            timeout: Duration::from_millis(100),
         }
     }
 }

@@ -13,7 +13,7 @@
   },
   "plugins": {
     "title": "Plugins",
-    "description": "Erweitern Sie QoreDB mit deklarativen Plugins — SQL-Snippet-Pakete, Verbindungsvorlagen und Farbthemen. Es wird kein Code ausgeführt.",
+    "description": "Erweitern Sie QoreDB mit Plugins: SQL-Snippet-Pakete, Verbindungsvorlagen, Farbthemen oder ausführbare Hooks in einer Sandbox.",
     "empty": "Noch keine Plugins installiert.",
     "install": "Plugin installieren",
     "installDialog": {
@@ -29,7 +29,9 @@
       "enable": "Plugin aktivieren",
       "disable": "Plugin deaktivieren",
       "remove": "Plugin entfernen",
-      "removeConfirm": "Plugin „{{name}}“ entfernen?"
+      "removeConfirm": "Plugin „{{name}}“ entfernen?",
+      "executable": "Ausführbar",
+      "executableTooltip": "Dieses Plugin führt WASM-Code in einer Sandbox mit strengem CPU- und Speicherbudget aus."
     },
     "contributions": {
       "snippets": "Snippets: {{count}}",
@@ -41,7 +43,12 @@
       "noContributions": "Dieses Plugin trägt nichts bei.",
       "snippets": "SQL-Snippets",
       "templates": "Verbindungsvorlagen",
-      "themes": "Themen"
+      "themes": "Themen",
+      "runtime": "Ausführbare Laufzeit",
+      "runtimeExplanation": "Dieses Plugin führt WebAssembly-Code in einer Sandbox innerhalb von QoreDB aus.",
+      "runtimeEntry": "Modul:",
+      "runtimeAbi": "ABI:",
+      "runtimeHooks": "Hooks:"
     },
     "themes": {
       "title": "Plugin-Themen",

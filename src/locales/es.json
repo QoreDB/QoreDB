@@ -13,7 +13,7 @@
   },
   "plugins": {
     "title": "Complementos",
-    "description": "Amplía QoreDB con complementos declarativos — paquetes de snippets SQL, plantillas de conexión y temas de color. No se ejecuta ningún código.",
+    "description": "Amplía QoreDB con complementos: paquetes de snippets SQL, plantillas de conexión, temas de color o hooks ejecutables en sandbox.",
     "empty": "Aún no hay complementos instalados.",
     "install": "Instalar complemento",
     "installDialog": {
@@ -29,7 +29,9 @@
       "enable": "Activar complemento",
       "disable": "Desactivar complemento",
       "remove": "Eliminar complemento",
-      "removeConfirm": "¿Eliminar el complemento «{{name}}»?"
+      "removeConfirm": "¿Eliminar el complemento «{{name}}»?",
+      "executable": "Ejecutable",
+      "executableTooltip": "Este complemento ejecuta código WASM en sandbox con un presupuesto estricto de CPU y memoria."
     },
     "contributions": {
       "snippets": "Snippets: {{count}}",
@@ -41,7 +43,12 @@
       "noContributions": "Este complemento no aporta nada.",
       "snippets": "Snippets SQL",
       "templates": "Plantillas de conexión",
-      "themes": "Temas"
+      "themes": "Temas",
+      "runtime": "Runtime ejecutable",
+      "runtimeExplanation": "Este complemento ejecuta código WebAssembly en sandbox dentro de QoreDB.",
+      "runtimeEntry": "Módulo:",
+      "runtimeAbi": "ABI:",
+      "runtimeHooks": "Hooks:"
     },
     "themes": {
       "title": "Temas de complementos",

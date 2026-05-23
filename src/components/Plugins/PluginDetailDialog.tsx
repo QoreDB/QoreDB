@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { Pencil } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
@@ -8,21 +11,56 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import type { InstalledPlugin } from '@/lib/plugins';
+import {
+  getPluginConsent,
+  type InstalledPlugin,
+  type PluginCapabilityKind,
+} from '@/lib/plugins';
+import { ConsentDialog } from './ConsentDialog';
 
 interface PluginDetailDialogProps {
   plugin: InstalledPlugin | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Notified when the user updates consent so the parent can refresh. */
+  onConsentChanged?: () => void;
 }
 
-export function PluginDetailDialog({ plugin, open, onOpenChange }: PluginDetailDialogProps) {
+const CAP_ORDER: PluginCapabilityKind[] = ['log', 'notify', 'storage', 'queryRead'];
+
+export function PluginDetailDialog({
+  plugin,
+  open,
+  onOpenChange,
+  onConsentChanged,
+}: PluginDetailDialogProps) {
   const { t } = useTranslation();
+  const [grants, setGrants] = useState<PluginCapabilityKind[]>([]);
+  const [editing, setEditing] = useState(false);
+
+  const refreshGrants = useCallback(async () => {
+    if (!plugin) return;
+    try {
+      setGrants(await getPluginConsent(plugin.manifest.id));
+    } catch {
+      setGrants([]);
+    }
+  }, [plugin]);
+
+  useEffect(() => {
+    if (open && plugin) {
+      refreshGrants();
+    }
+  }, [open, plugin, refreshGrants]);
+
   if (!plugin) return null;
 
   const { manifest } = plugin;
   const c = manifest.contributes;
   const hasContributions = c.snippets.length + c.connectionTemplates.length + c.themes.length > 0;
+
+  const requested = CAP_ORDER.filter(k => manifest.runtime?.capabilities?.[k]);
+  const grantedSet = new Set(grants);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -69,6 +107,49 @@ export function PluginDetailDialog({ plugin, open, onOpenChange }: PluginDetailD
                   </div>
                 )}
               </dl>
+            </section>
+          )}
+
+          {requested.length > 0 && (
+            <section>
+              <div className="mb-1 flex items-center justify-between">
+                <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  {t('plugins.detail.capabilities')}
+                </h4>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 gap-1 px-2 text-xs"
+                  onClick={() => setEditing(true)}
+                >
+                  <Pencil size={11} />
+                  {t('plugins.detail.editConsent')}
+                </Button>
+              </div>
+              <ul className="space-y-1">
+                {requested.map(cap => {
+                  const granted = grantedSet.has(cap);
+                  return (
+                    <li
+                      key={cap}
+                      className="flex items-center justify-between rounded border border-border px-2 py-1 text-xs"
+                    >
+                      <span className="font-medium text-foreground">
+                        {t(`plugins.consent.caps.${cap}.title`)}
+                      </span>
+                      <span
+                        className={
+                          granted
+                            ? 'text-success'
+                            : 'text-muted-foreground'
+                        }
+                      >
+                        {t(granted ? 'plugins.detail.granted' : 'plugins.detail.notGranted')}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
             </section>
           )}
 
@@ -126,6 +207,18 @@ export function PluginDetailDialog({ plugin, open, onOpenChange }: PluginDetailD
           )}
         </div>
       </DialogContent>
+
+      <ConsentDialog
+        plugin={editing ? plugin : null}
+        initialGrants={grants}
+        open={editing}
+        onOpenChange={setEditing}
+        onSaved={() => {
+          setEditing(false);
+          refreshGrants();
+          onConsentChanged?.();
+        }}
+      />
     </Dialog>
   );
 }

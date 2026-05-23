@@ -132,6 +132,7 @@ export function PluginsSection({ searchQuery }: PluginsSectionProps) {
         plugin={detail}
         open={detail !== null}
         onOpenChange={o => !o && setDetail(null)}
+        onConsentChanged={refresh}
       />
     </>
   );

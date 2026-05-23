@@ -48,7 +48,11 @@
       "runtimeExplanation": "Este plugin executa código WebAssembly em sandbox dentro do QoreDB.",
       "runtimeEntry": "Módulo:",
       "runtimeAbi": "ABI:",
-      "runtimeHooks": "Hooks:"
+      "runtimeHooks": "Hooks:",
+      "capabilities": "Permissões",
+      "editConsent": "Editar",
+      "granted": "Concedida",
+      "notGranted": "Negada"
     },
     "themes": {
       "title": "Temas de plugins",
@@ -59,6 +63,31 @@
     "toast": {
       "installed": "Plugin “{{name}}” instalado",
       "removed": "Plugin “{{name}}” removido"
+    },
+    "consent": {
+      "title": "Permissões solicitadas por {{name}}",
+      "description": "Este plugin executa código em sandbox e solicita as permissões abaixo. Conceda apenas o que confiar — pode revogar a qualquer momento.",
+      "denyAll": "Negar tudo",
+      "save": "Salvar permissões",
+      "saving": "Salvando…",
+      "caps": {
+        "log": {
+          "title": "Escrever no log",
+          "description": "Adicionar mensagens de diagnóstico ao log do QoreDB."
+        },
+        "notify": {
+          "title": "Mostrar notificações",
+          "description": "Exibir notificações toast dentro do app."
+        },
+        "storage": {
+          "title": "Armazenamento persistente",
+          "description": "Armazenar até 1 MB em um armazenamento chave-valor por plugin."
+        },
+        "queryRead": {
+          "title": "Ler resultados de consulta",
+          "description": "Ver linhas e colunas das consultas executadas. Pode incluir dados sensíveis."
+        }
+      }
     }
   },
   "home": {

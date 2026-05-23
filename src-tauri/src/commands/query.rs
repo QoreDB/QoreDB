@@ -24,8 +24,11 @@ use crate::engine::{
     },
     TableSchema,
 };
-use crate::interceptor::{Environment, QueryExecutionResult, SafetyAction};
+use crate::interceptor::{Environment, QueryContext, QueryExecutionResult, SafetyAction};
 use crate::metrics;
+use crate::plugins::runtime::{
+    HookContext as PluginHookContext, PluginHost, PostExecuteResult, QueryReadPayload,
+};
 use tauri::ipc::{Channel, InvokeResponseBody};
 
 const READ_ONLY_BLOCKED: &str = "Operation blocked: read-only mode";
@@ -36,6 +39,48 @@ const RATE_LIMIT_BLOCKED: &str =
     "Operation blocked: query rate limit exceeded — too many queries in a short time";
 const TRANSACTIONS_NOT_SUPPORTED: &str = "Transactions are not supported by this driver";
 const SAFETY_RULE_BLOCKED: &str = "Query blocked by safety rule";
+
+/// Serialised query payload handed to `postExecute` plugins that have been
+/// granted `queryRead`. Generous-but-bounded: rows beyond this size are dropped
+/// (the plugin sees `None`) rather than serialised at host expense.
+const QUERY_READ_MAX_PAYLOAD_BYTES: usize = 1024 * 1024;
+
+/// Builds a `queryRead` payload from a materialised query result. Returns
+/// `None` if serialisation fails or the JSON exceeds the budget.
+fn build_query_read_payload(result: &QueryResult) -> Option<Arc<QueryReadPayload>> {
+    let json = serde_json::to_string(result).ok()?;
+    if json.len() > QUERY_READ_MAX_PAYLOAD_BYTES {
+        return None;
+    }
+    Some(Arc::new(QueryReadPayload { json }))
+}
+
+/// Maps an interceptor context + execution result into the plugin runtime's
+/// types and runs every loaded plugin's `postExecute` hook. The plugin host
+/// swallows individual plugin errors, so this never propagates a failure.
+fn dispatch_plugin_post_execute(
+    plugin_host: &PluginHost,
+    interceptor_context: &QueryContext,
+    exec: &QueryExecutionResult,
+    payload: Option<Arc<QueryReadPayload>>,
+) {
+    let hook_ctx = PluginHookContext {
+        query: interceptor_context.query.clone(),
+        driver_id: interceptor_context.driver_id.clone(),
+        environment: format!("{:?}", interceptor_context.environment),
+        operation_type: format!("{:?}", interceptor_context.operation_type),
+        is_mutation: interceptor_context.is_mutation,
+        is_dangerous: interceptor_context.is_dangerous,
+        read_only: interceptor_context.read_only,
+    };
+    let post_result = PostExecuteResult {
+        success: exec.success,
+        execution_time_ms: exec.execution_time_ms as u64,
+        row_count: exec.row_count.map(|r| r.max(0) as u64),
+        error: exec.error.clone(),
+    };
+    plugin_host.run_post_execute(&hook_ctx, &post_result, payload);
+}
 
 fn is_mongo_mutation(query: &str) -> bool {
     matches!(
@@ -719,16 +764,23 @@ pub async fn execute_query(
                 result.execution_time_ms = duration_ms;
                 metrics::record_query(duration_ms, true);
 
+                let exec_result = QueryExecutionResult {
+                    success: true,
+                    error: None,
+                    execution_time_ms: duration_ms,
+                    row_count: result.affected_rows.map(|a| a as i64),
+                };
                 interceptor.post_execute(
                     &interceptor_context,
-                    &QueryExecutionResult {
-                        success: true,
-                        error: None,
-                        execution_time_ms: duration_ms,
-                        row_count: result.affected_rows.map(|a| a as i64),
-                    },
+                    &exec_result,
                     false,
                     safety_warning.as_deref(),
+                );
+                dispatch_plugin_post_execute(
+                    &plugin_host,
+                    &interceptor_context,
+                    &exec_result,
+                    build_query_read_payload(&result),
                 );
 
                 // A successful mutation through QoreDB stales this

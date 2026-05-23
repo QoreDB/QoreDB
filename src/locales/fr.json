@@ -48,7 +48,11 @@
       "runtimeExplanation": "Cette extension exécute du code WebAssembly en bac à sable dans QoreDB.",
       "runtimeEntry": "Module :",
       "runtimeAbi": "ABI :",
-      "runtimeHooks": "Hooks :"
+      "runtimeHooks": "Hooks :",
+      "capabilities": "Permissions",
+      "editConsent": "Modifier",
+      "granted": "Accordée",
+      "notGranted": "Refusée"
     },
     "themes": {
       "title": "Thèmes d'extension",
@@ -59,6 +63,31 @@
     "toast": {
       "installed": "Extension « {{name}} » installée",
       "removed": "Extension « {{name}} » supprimée"
+    },
+    "consent": {
+      "title": "Permissions demandées par {{name}}",
+      "description": "Cette extension exécute du code en bac à sable et demande les permissions ci-dessous. N'accorde que ce que tu lui fais confiance — révocable à tout moment.",
+      "denyAll": "Tout refuser",
+      "save": "Enregistrer",
+      "saving": "Enregistrement…",
+      "caps": {
+        "log": {
+          "title": "Écrire dans les logs",
+          "description": "Ajouter des messages de diagnostic au journal de QoreDB."
+        },
+        "notify": {
+          "title": "Afficher des notifications",
+          "description": "Faire apparaître des toasts dans l'app."
+        },
+        "storage": {
+          "title": "Stockage persistant",
+          "description": "Stocker jusqu'à 1 Mo dans un store clé-valeur dédié."
+        },
+        "queryRead": {
+          "title": "Lire les résultats de requête",
+          "description": "Voir les lignes et colonnes des requêtes exécutées. Peut contenir des données sensibles."
+        }
+      }
     }
   },
   "home": {

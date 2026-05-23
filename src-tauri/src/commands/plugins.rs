@@ -2,11 +2,12 @@
 
 //! Plugin system Tauri commands.
 
+use std::collections::BTreeSet;
 use std::sync::Arc;
 
 use tauri::State;
 
-use crate::plugins::runtime::PluginHost;
+use crate::plugins::runtime::{capabilities, CapabilityKind, PluginHost};
 use crate::plugins::{self, InstalledPlugin, PluginContributions};
 use crate::SharedState;
 
@@ -49,14 +50,16 @@ pub async fn install_plugin(
     Ok(plugin)
 }
 
-/// Removes an installed plugin. Reloads the executable runtime so its hooks
-/// stop firing right away.
+/// Removes an installed plugin and forgets any consent it had. Reloads the
+/// executable runtime so its hooks stop firing right away.
 #[tauri::command]
 pub async fn remove_plugin(
     plugin_id: String,
     state: State<'_, SharedState>,
 ) -> Result<(), String> {
+    let id_for_consent = plugin_id.clone();
     blocking(move || plugins::remove_plugin(&plugins::plugins_dir(), &plugin_id)).await??;
+    blocking(move || capabilities::forget(&plugins::plugins_dir(), &id_for_consent)).await??;
     let host = plugin_host(&state).await;
     blocking(move || host.reload()).await?;
     Ok(())
@@ -81,4 +84,58 @@ pub async fn set_plugin_enabled(
 #[tauri::command]
 pub async fn get_plugin_contributions() -> Result<PluginContributions, String> {
     blocking(|| plugins::get_contributions(&plugins::plugins_dir())).await
+}
+
+/// Returns the capabilities the user has granted to a plugin. Capabilities
+/// the manifest did not request are filtered out so a tampered consent file
+/// can never escalate access.
+#[tauri::command]
+pub async fn get_plugin_consent(plugin_id: String) -> Result<Vec<CapabilityKind>, String> {
+    blocking(move || {
+        let dir = plugins::plugins_dir();
+        let grants = capabilities::read_grants(&dir, &plugin_id);
+        let requested: BTreeSet<CapabilityKind> = plugins::list_plugins(&dir)
+            .into_iter()
+            .find(|p| p.manifest.id == plugin_id)
+            .map(|p| capabilities::requested_from_manifest(&p.manifest))
+            .unwrap_or_default()
+            .into_iter()
+            .collect();
+        Ok(grants
+            .into_iter()
+            .filter(|c| requested.contains(c))
+            .collect())
+    })
+    .await?
+}
+
+/// Overwrites the capabilities granted to a plugin. The runtime is reloaded
+/// so the new consent set takes effect on the next query.
+#[tauri::command]
+pub async fn set_plugin_consent(
+    plugin_id: String,
+    grants: Vec<CapabilityKind>,
+    state: State<'_, SharedState>,
+) -> Result<(), String> {
+    let id = plugin_id.clone();
+    blocking(move || {
+        let dir = plugins::plugins_dir();
+        // Filter to capabilities the manifest actually requests — granting
+        // more than was asked for would be a no-op anyway, but persisting
+        // junk muddies the consent record.
+        let requested: BTreeSet<CapabilityKind> = plugins::list_plugins(&dir)
+            .into_iter()
+            .find(|p| p.manifest.id == id)
+            .map(|p| capabilities::requested_from_manifest(&p.manifest))
+            .unwrap_or_default()
+            .into_iter()
+            .collect();
+        let filtered: BTreeSet<CapabilityKind> =
+            grants.into_iter().filter(|c| requested.contains(c)).collect();
+        capabilities::write_grants(&dir, &id, filtered)
+    })
+    .await??;
+    let host = plugin_host(&state).await;
+    blocking(move || host.reload()).await?;
+    Ok(())
 }

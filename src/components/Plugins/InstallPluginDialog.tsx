@@ -15,7 +15,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { installPlugin } from '@/lib/plugins';
+import { installPlugin, type InstalledPlugin } from '@/lib/plugins';
+import { ConsentDialog } from './ConsentDialog';
 
 interface InstallPluginDialogProps {
   open: boolean;
@@ -27,6 +28,9 @@ export function InstallPluginDialog({ open, onOpenChange, onInstalled }: Install
   const { t } = useTranslation();
   const [installing, setInstalling] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** Plugin that just installed and requests capabilities — chained into
+   *  the consent dialog so the user makes the trust call up front. */
+  const [pendingConsent, setPendingConsent] = useState<InstalledPlugin | null>(null);
 
   async function pickAndInstall() {
     setError(null);
@@ -49,8 +53,17 @@ export function InstallPluginDialog({ open, onOpenChange, onInstalled }: Install
       if (c.themes.length) contributions.push('themes');
       AnalyticsService.capture('plugin_installed', { contributions });
       toast.success(t('plugins.toast.installed', { name: plugin.manifest.name }));
-      onInstalled();
-      onOpenChange(false);
+
+      const caps = plugin.manifest.runtime?.capabilities;
+      const wantsConsent =
+        caps && (caps.log || caps.notify || caps.storage || caps.queryRead);
+      if (wantsConsent) {
+        setPendingConsent(plugin);
+        onOpenChange(false);
+      } else {
+        onInstalled();
+        onOpenChange(false);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -84,6 +97,21 @@ export function InstallPluginDialog({ open, onOpenChange, onInstalled }: Install
           </Button>
         </DialogFooter>
       </DialogContent>
+
+      <ConsentDialog
+        plugin={pendingConsent}
+        open={pendingConsent !== null}
+        onOpenChange={o => {
+          if (!o) {
+            setPendingConsent(null);
+            onInstalled();
+          }
+        }}
+        onSaved={() => {
+          setPendingConsent(null);
+          onInstalled();
+        }}
+      />
     </Dialog>
   );
 }

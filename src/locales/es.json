@@ -48,7 +48,11 @@
       "runtimeExplanation": "Este complemento ejecuta código WebAssembly en sandbox dentro de QoreDB.",
       "runtimeEntry": "Módulo:",
       "runtimeAbi": "ABI:",
-      "runtimeHooks": "Hooks:"
+      "runtimeHooks": "Hooks:",
+      "capabilities": "Permisos",
+      "editConsent": "Editar",
+      "granted": "Concedido",
+      "notGranted": "Denegado"
     },
     "themes": {
       "title": "Temas de complementos",
@@ -59,6 +63,31 @@
     "toast": {
       "installed": "Complemento «{{name}}» instalado",
       "removed": "Complemento «{{name}}» eliminado"
+    },
+    "consent": {
+      "title": "Permisos solicitados por {{name}}",
+      "description": "Este complemento ejecuta código en sandbox y solicita los siguientes permisos. Concede solo lo que confíes — puedes revocarlos en cualquier momento.",
+      "denyAll": "Denegar todo",
+      "save": "Guardar permisos",
+      "saving": "Guardando…",
+      "caps": {
+        "log": {
+          "title": "Escribir en el registro",
+          "description": "Añadir mensajes de diagnóstico al log de QoreDB."
+        },
+        "notify": {
+          "title": "Mostrar notificaciones",
+          "description": "Mostrar notificaciones tipo toast en la app."
+        },
+        "storage": {
+          "title": "Almacenamiento persistente",
+          "description": "Guardar hasta 1 MB en un almacén clave-valor por complemento."
+        },
+        "queryRead": {
+          "title": "Leer resultados de consultas",
+          "description": "Ver filas y columnas de las consultas ejecutadas. Puede incluir datos sensibles."
+        }
+      }
     }
   },
   "home": {

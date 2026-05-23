@@ -48,7 +48,11 @@
       "runtimeExplanation": "このプラグインは QoreDB 内でサンドボックス化された WebAssembly コードを実行します。",
       "runtimeEntry": "モジュール:",
       "runtimeAbi": "ABI:",
-      "runtimeHooks": "フック:"
+      "runtimeHooks": "フック:",
+      "capabilities": "権限",
+      "editConsent": "編集",
+      "granted": "許可済み",
+      "notGranted": "拒否"
     },
     "themes": {
       "title": "プラグインテーマ",
@@ -59,6 +63,31 @@
     "toast": {
       "installed": "プラグイン「{{name}}」をインストールしました",
       "removed": "プラグイン「{{name}}」を削除しました"
+    },
+    "consent": {
+      "title": "「{{name}}」が要求する権限",
+      "description": "このプラグインはサンドボックス内でコードを実行し、以下の権限を要求します。信頼できるものだけ許可してください — いつでも取り消せます。",
+      "denyAll": "すべて拒否",
+      "save": "権限を保存",
+      "saving": "保存中…",
+      "caps": {
+        "log": {
+          "title": "ログへの書き込み",
+          "description": "診断メッセージを QoreDB のログに追加します。"
+        },
+        "notify": {
+          "title": "通知の表示",
+          "description": "アプリ内にトースト通知を表示します。"
+        },
+        "storage": {
+          "title": "永続ストレージ",
+          "description": "プラグイン専用のキー値ストアに最大 1 MB を保存します。"
+        },
+        "queryRead": {
+          "title": "クエリ結果の読み取り",
+          "description": "直前のクエリの行と列を参照します。機密データを含む可能性があります。"
+        }
+      }
     }
   },
   "home": {

@@ -48,7 +48,11 @@
       "runtimeExplanation": "Dieses Plugin führt WebAssembly-Code in einer Sandbox innerhalb von QoreDB aus.",
       "runtimeEntry": "Modul:",
       "runtimeAbi": "ABI:",
-      "runtimeHooks": "Hooks:"
+      "runtimeHooks": "Hooks:",
+      "capabilities": "Berechtigungen",
+      "editConsent": "Bearbeiten",
+      "granted": "Erteilt",
+      "notGranted": "Verweigert"
     },
     "themes": {
       "title": "Plugin-Themen",
@@ -59,6 +63,31 @@
     "toast": {
       "installed": "Plugin „{{name}}“ installiert",
       "removed": "Plugin „{{name}}“ entfernt"
+    },
+    "consent": {
+      "title": "Von {{name}} angeforderte Berechtigungen",
+      "description": "Dieses Plugin führt sandboxed Code aus und fordert die folgenden Berechtigungen an. Erteilen Sie nur, was Sie ihm anvertrauen — jederzeit widerrufbar.",
+      "denyAll": "Alle ablehnen",
+      "save": "Berechtigungen speichern",
+      "saving": "Wird gespeichert…",
+      "caps": {
+        "log": {
+          "title": "In das Protokoll schreiben",
+          "description": "Diagnosemeldungen an das QoreDB-Log anhängen."
+        },
+        "notify": {
+          "title": "Benachrichtigungen anzeigen",
+          "description": "Toast-Benachrichtigungen in der App einblenden."
+        },
+        "storage": {
+          "title": "Persistenter Speicher",
+          "description": "Bis zu 1 MB in einem plugin-eigenen Schlüssel-Wert-Speicher ablegen."
+        },
+        "queryRead": {
+          "title": "Abfrageergebnisse lesen",
+          "description": "Zeilen und Spalten gerade ausgeführter Abfragen sehen. Kann sensible Daten enthalten."
+        }
+      }
     }
   },
   "home": {

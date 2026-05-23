@@ -48,7 +48,11 @@
       "runtimeExplanation": "此插件在 QoreDB 中运行沙盒 WebAssembly 代码。",
       "runtimeEntry": "模块：",
       "runtimeAbi": "ABI：",
-      "runtimeHooks": "钩子："
+      "runtimeHooks": "钩子：",
+      "capabilities": "权限",
+      "editConsent": "编辑",
+      "granted": "已授予",
+      "notGranted": "已拒绝"
     },
     "themes": {
       "title": "插件主题",
@@ -59,6 +63,31 @@
     "toast": {
       "installed": "已安装插件“{{name}}”",
       "removed": "已移除插件“{{name}}”"
+    },
+    "consent": {
+      "title": "{{name}} 请求的权限",
+      "description": "此插件在沙盒中运行代码并请求以下权限。仅授予你信任的项 — 可随时撤销。",
+      "denyAll": "全部拒绝",
+      "save": "保存权限",
+      "saving": "保存中…",
+      "caps": {
+        "log": {
+          "title": "写入日志",
+          "description": "向 QoreDB 日志追加诊断消息。"
+        },
+        "notify": {
+          "title": "显示通知",
+          "description": "在应用内显示 toast 通知。"
+        },
+        "storage": {
+          "title": "持久存储",
+          "description": "在插件专属键值存储中最多保存 1 MB。"
+        },
+        "queryRead": {
+          "title": "读取查询结果",
+          "description": "查看刚执行查询的行和列。可能包含敏感数据。"
+        }
+      }
     }
   },
   "home": {

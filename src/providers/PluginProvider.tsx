@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { listen } from '@tauri-apps/api/event';
 import {
   createContext,
   type ReactNode,
@@ -10,6 +11,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { toast } from 'sonner';
 import { useTheme } from '@/hooks/useTheme';
 import {
   EMPTY_CONTRIBUTIONS,
@@ -17,6 +19,7 @@ import {
   type InstalledPlugin,
   listPlugins,
   type PluginContributions,
+  type PluginNotifyEvent,
 } from '@/lib/plugins';
 
 const ACTIVE_THEME_KEY = 'qoredb_plugin_theme';
@@ -63,6 +66,26 @@ export function PluginProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  // Surface plugin-issued toasts. Backend emits `plugin-notify` whenever a
+  // plugin granted the `notify` capability calls the matching host function.
+  useEffect(() => {
+    const unlistenPromise = listen<PluginNotifyEvent>('plugin-notify', evt => {
+      const { level, message } = evt.payload;
+      const fn =
+        level === 'success'
+          ? toast.success
+          : level === 'warning'
+            ? toast.warning
+            : level === 'error'
+              ? toast.error
+              : toast.info;
+      fn(message);
+    });
+    return () => {
+      void unlistenPromise.then(unlisten => unlisten());
+    };
+  }, []);
 
   const setActiveTheme = useCallback((id: string | null) => {
     setActiveThemeIdState(id);

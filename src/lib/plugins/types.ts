@@ -42,12 +42,33 @@ export interface PluginContributions {
 /** Lifecycle hooks an executable plugin may subscribe to. */
 export type PluginHookKind = 'preExecute' | 'postExecute';
 
+/** Phase 2 capabilities a plugin manifest can request. */
+export type PluginCapabilityKind = 'log' | 'notify' | 'storage' | 'queryRead';
+
+/** Capability block a manifest declares — only the Phase 2 ones are honoured
+ *  at runtime yet; Phase 3 ones (http/fs/secrets/queryExec) parse but never
+ *  grant access. */
+export interface PluginCapabilities {
+  log?: boolean;
+  notify?: boolean;
+  storage?: boolean;
+  queryRead?: boolean;
+}
+
 /** Executable-runtime descriptor. Absent for purely declarative plugins. */
 export interface PluginRuntimeSpec {
   abiVersion: number;
   /** WASM module filename, relative to the plugin folder. */
   entry: string;
   hooks: PluginHookKind[];
+  capabilities?: PluginCapabilities;
+}
+
+/** Tauri event payload emitted when a plugin issues a `notify` call. */
+export interface PluginNotifyEvent {
+  pluginId: string;
+  level: 'info' | 'success' | 'warning' | 'error';
+  message: string;
 }
 
 export interface PluginManifest {

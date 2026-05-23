@@ -24,12 +24,13 @@ WebAssembly runtime for plugins that need to react to the query lifecycle.
 
 - A plugin is a folder with a `plugin.json` manifest, installed from **Settings → Plugins**.
 - **Declarative contributions**: **SQL snippet packs** (wired into the editor autocomplete), **connection templates**, and **color themes** (applied as `--q-*` design tokens).
-- **Executable runtime** (`wasmi`): a plugin may ship a `.wasm` module exposing a `preExecute` hook that returns `Allow` / `Warn` / `Block` for each query. Phase 1 hooks are pure compute (no capabilities granted — no network, filesystem, secrets, or query access).
+- **Executable runtime** (`wasmi`): a plugin may ship a `.wasm` module exposing a `preExecute` hook (returns `Allow` / `Warn` / `Block` per query) and/or a `postExecute` hook (observes outcome + optional row data).
+- **Capability model**: four host capabilities are gated by an install-time consent dialog and revocable from the plugin detail view — `log` (write to QoreDB's log), `notify` (toast in the app), `storage` (1 MB key-value store, per plugin), `queryRead` (read row data inside `postExecute`). Each is *requested* in the manifest and *granted* by the user; revoking turns the matching host call into a no-op without restart.
 - **Sandboxing**: every hook invocation runs in a fresh `Store` with a 50M-instruction fuel budget and a 16 MiB linear-memory ceiling. A runaway plugin traps without affecting the host; an errored plugin is logged and skipped, never failing the query.
-- **Author SDK**: `qoredb-plugin-sdk` (Rust crate) hides the host ABI behind a typed `fn(HookContext) -> Decision`. Dogfooded by the bundled **SQL Linter** sample plugin that blocks `UPDATE`/`DELETE` without a `WHERE` clause.
-- **UX**: executable plugins are flagged with a badge in **Settings → Plugins**, and the detail view surfaces the runtime entry, ABI version, and hooks the plugin subscribes to so users see the trust model before enabling.
+- **Author SDK**: `qoredb-plugin-sdk` (Rust crate) hides the host ABI behind typed `fn(HookContext) -> Decision` and `fn(PostExecuteEnvelope)`, plus helpers for every capability (`log`, `notify`, `storage_{get,set,delete}`, `query_read_json`). Dogfooded by the bundled **SQL Linter** sample plugin that blocks `UPDATE`/`DELETE` without a `WHERE` clause.
+- **UX**: executable plugins are flagged with a badge in **Settings → Plugins**, and the detail view surfaces the runtime entry, ABI version, hooks, and the granted/denied state of every capability the manifest requests.
 - Manifest validation: identifier rules, version compatibility (`qoredb` requirement), theme variables restricted to the `--q-*` namespace, runtime ABI version check, and entry-filename sandboxing (no path traversal).
-- Enable/disable per plugin, install/remove, detail view of contributions and runtime.
+- Enable/disable per plugin, install/remove, edit consent, detail view of contributions and runtime.
 
 ### Security hardening [Core]
 
@@ -45,8 +46,9 @@ WebAssembly runtime for plugins that need to react to the query lifecycle.
 
 - New module `src-tauri/src/cache/` (Core) — bounded LRU query result cache with TTL and per-session invalidation.
 - New module `src-tauri/src/ratelimit.rs` (Core) — per-session token-bucket rate limiter.
-- New module `src-tauri/src/plugins/` (Core) — manifest parsing/validation, plugin registry, and the `wasmi`-backed executable runtime.
+- New module `src-tauri/src/plugins/` (Core) — manifest parsing/validation, plugin registry, and the `wasmi`-backed executable runtime with capability gating + consent persistence + per-plugin storage backend.
 - New `plugins-dev/` workspace (outside `src-tauri`) — `qoredb-plugin-sdk` crate + the `qoredb.sql-linter` sample plugin built to `wasm32-unknown-unknown`.
+- Plugin-to-app bridge: a tokio task drains `NotifyEvent`s and emits the `plugin-notify` Tauri event so the webview can surface a `sonner` toast.
 - New commands: `get_cache_config` / `set_cache_config` / `clear_query_cache` / `get_cache_stats`, and `list_plugins` / `install_plugin` / `remove_plugin` / `set_plugin_enabled` / `get_plugin_contributions`.
 - New frontend modules `src/lib/plugins/` + `src/providers/PluginProvider.tsx` + `src/components/Plugins/`.
 - 23 new Rust unit tests (cache store, rate limiter, plugin manifest & registry).
@@ -55,7 +57,7 @@ WebAssembly runtime for plugins that need to react to the query lifecycle.
 ## ⚠️ Known limitations
 
 - **Query result cache** — covers the table-browse paths only; ad-hoc editor execution is never cached. Mutations made outside QoreDB are not observed — the TTL bounds that staleness.
-- **Plugin system** — Phase 1 of the executable runtime ships with declarative contributions; `preExecute` hooks are pure compute. Capabilities (`log`, `notify`, `storage`, `queryRead`, `http`, `fs`, `secrets`, `queryExec`), `postExecute` hooks, the AssemblyScript SDK, declarative UI contributions (`resultViewers`, `commands`) and signed-plugin distribution are tracked for later phases (see `doc/todo/PLUGIN_RUNTIME.md`). Plugins are installed from a local folder; no marketplace yet. Connection templates are surfaced in the plugin detail view; auto-fill into the new-connection form is planned for v0.1.30.
+- **Plugin system** — Phases 1–2 of the executable runtime ship together: declarative contributions, `preExecute`/`postExecute` hooks, the four Phase 2 capabilities (`log`, `notify`, `storage`, `queryRead`), and consent persistence. `queryRead` data is wired through the non-streamed success path of `execute_query` only (payload capped at 1 MiB); streaming paths and admin commands feed `postExecute` metadata without rows for now. Phase 3 capabilities (`http`, `fs`, `secrets`, `queryExec`), the AssemblyScript SDK, declarative UI contributions (`resultViewers`, `commands`) and signed-plugin distribution are tracked for later (see `doc/todo/PLUGIN_RUNTIME.md`). Plugins are installed from a local folder; no marketplace yet. Connection templates are surfaced in the plugin detail view; auto-fill into the new-connection form is planned for v0.1.30.
 - **Query rate limiting** — an anti-loop guardrail (generous fixed budget), not fine-grained throughput throttling; per session, disableable in Settings.
 
 ---

@@ -223,11 +223,38 @@ pub fn run() {
             }
 
             let state: tauri::State<SharedState> = app.state();
-            let session_manager = {
+            let (session_manager, plugin_host) = {
                 let app_state = state.blocking_lock();
-                Arc::clone(&app_state.session_manager)
+                (
+                    Arc::clone(&app_state.session_manager),
+                    Arc::clone(&app_state.plugin_host),
+                )
             };
             session_manager.start_health_monitor(app.handle().clone());
+
+            // Plugin notification bridge: plugins push `NotifyEvent`s through
+            // the sender; a tokio task drains them and forwards each to the
+            // webview as a `plugin-notify` Tauri event. Re-running reload()
+            // after wiring the sender ensures already-loaded plugin instances
+            // pick it up.
+            {
+                use tauri::Emitter;
+                let (tx, mut rx) =
+                    tokio::sync::mpsc::unbounded_channel::<plugins::runtime::NotifyEvent>();
+                plugin_host.set_notify_sender(tx);
+                plugin_host.reload();
+                let app_handle = app.handle().clone();
+                tokio::spawn(async move {
+                    while let Some(event) = rx.recv().await {
+                        if let Err(e) = app_handle.emit("plugin-notify", &event) {
+                            tracing::warn!(
+                                error = %e,
+                                "failed to emit plugin notify event"
+                            );
+                        }
+                    }
+                });
+            }
 
             let wr: tauri::State<workspace::write_registry::WriteRegistry> = app.state();
             workspace::watcher::start_workspace_watcher(
@@ -456,6 +483,8 @@ pub fn run() {
             commands::plugins::remove_plugin,
             commands::plugins::set_plugin_enabled,
             commands::plugins::get_plugin_contributions,
+            commands::plugins::get_plugin_consent,
+            commands::plugins::set_plugin_consent,
             // Time-Travel commands
             commands::time_travel::get_table_timeline,
             commands::time_travel::get_row_history,

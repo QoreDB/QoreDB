@@ -48,7 +48,11 @@
       "runtimeExplanation": "이 플러그인은 QoreDB 내에서 샌드박스 WebAssembly 코드를 실행합니다.",
       "runtimeEntry": "모듈:",
       "runtimeAbi": "ABI:",
-      "runtimeHooks": "후크:"
+      "runtimeHooks": "후크:",
+      "capabilities": "권한",
+      "editConsent": "편집",
+      "granted": "허용됨",
+      "notGranted": "거부됨"
     },
     "themes": {
       "title": "플러그인 테마",
@@ -59,6 +63,31 @@
     "toast": {
       "installed": "플러그인 \"{{name}}\"을(를) 설치했습니다",
       "removed": "플러그인 \"{{name}}\"을(를) 제거했습니다"
+    },
+    "consent": {
+      "title": "\"{{name}}\"이(가) 요청한 권한",
+      "description": "이 플러그인은 샌드박스에서 코드를 실행하며 아래 권한을 요청합니다. 신뢰하는 항목만 허용하세요 — 언제든지 취소할 수 있습니다.",
+      "denyAll": "모두 거부",
+      "save": "권한 저장",
+      "saving": "저장 중…",
+      "caps": {
+        "log": {
+          "title": "로그에 쓰기",
+          "description": "QoreDB 로그에 진단 메시지를 추가합니다."
+        },
+        "notify": {
+          "title": "알림 표시",
+          "description": "앱 내 토스트 알림을 표시합니다."
+        },
+        "storage": {
+          "title": "영속 저장소",
+          "description": "플러그인별 키-값 저장소에 최대 1 MB를 저장합니다."
+        },
+        "queryRead": {
+          "title": "쿼리 결과 읽기",
+          "description": "방금 실행된 쿼리의 행과 열을 봅니다. 민감한 데이터가 포함될 수 있습니다."
+        }
+      }
     }
   },
   "home": {

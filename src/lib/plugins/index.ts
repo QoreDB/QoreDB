@@ -3,7 +3,7 @@
 /** Tauri bindings for the declarative plugin system. */
 
 import { invoke } from '@tauri-apps/api/core';
-import type { InstalledPlugin, PluginContributions } from './types';
+import type { InstalledPlugin, PluginCapabilityKind, PluginContributions } from './types';
 
 /** Lists every installed plugin with its runtime state. */
 export async function listPlugins(): Promise<InstalledPlugin[]> {
@@ -28,6 +28,20 @@ export async function setPluginEnabled(pluginId: string, enabled: boolean): Prom
 /** Returns the aggregated contributions of all enabled, compatible plugins. */
 export async function getPluginContributions(): Promise<PluginContributions> {
   return invoke('get_plugin_contributions');
+}
+
+/** Returns the capabilities currently granted to a plugin. */
+export async function getPluginConsent(pluginId: string): Promise<PluginCapabilityKind[]> {
+  return invoke('get_plugin_consent', { pluginId });
+}
+
+/** Overwrites the capabilities granted to a plugin; the runtime reloads
+ *  so the new set takes effect immediately. */
+export async function setPluginConsent(
+  pluginId: string,
+  grants: PluginCapabilityKind[],
+): Promise<void> {
+  return invoke('set_plugin_consent', { pluginId, grants });
 }
 
 export * from './types';

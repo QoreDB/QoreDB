@@ -197,6 +197,18 @@ mod ffi {
         pub fn qoredb_kv_set(key_ptr: i32, key_len: i32, val_ptr: i32, val_len: i32) -> i32;
         pub fn qoredb_kv_del(key_ptr: i32, key_len: i32) -> i32;
         pub fn qoredb_query_read() -> i64;
+        pub fn qoredb_http_request(
+            method_ptr: i32,
+            method_len: i32,
+            url_ptr: i32,
+            url_len: i32,
+            body_ptr: i32,
+            body_len: i32,
+        ) -> i64;
+        pub fn qoredb_fs_read(path_ptr: i32, path_len: i32) -> i64;
+        pub fn qoredb_fs_write(path_ptr: i32, path_len: i32, data_ptr: i32, data_len: i32) -> i32;
+        pub fn qoredb_fs_delete(path_ptr: i32, path_len: i32) -> i32;
+        pub fn qoredb_secret_get(name_ptr: i32, name_len: i32) -> i64;
     }
 }
 
@@ -252,6 +264,81 @@ pub fn storage_delete(key: &str) -> bool {
 /// otherwise.
 pub fn query_read_json() -> Option<String> {
     let packed = unsafe { ffi::qoredb_query_read() };
+    if packed == 0 {
+        return None;
+    }
+    let (ptr, len) = unpack(packed);
+    let bytes = unsafe { std::slice::from_raw_parts(ptr as *const u8, len) };
+    String::from_utf8(bytes.to_vec()).ok()
+}
+
+/// Response from a plugin-issued HTTP request.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HttpResponse {
+    pub status: u16,
+    pub body: String,
+}
+
+/// Issues an HTTP request through the host. The URL must match the manifest's
+/// `allowedHosts` list, otherwise the host returns `None`. Body may be empty
+/// for `GET`/`DELETE`; pass it as-is for other methods.
+pub fn http_request(method: &str, url: &str, body: &str) -> Option<HttpResponse> {
+    let (mp, ml) = slice_parts(method);
+    let (up, ul) = slice_parts(url);
+    let (bp, bl) = slice_parts(body);
+    let packed = unsafe { ffi::qoredb_http_request(mp, ml, up, ul, bp, bl) };
+    if packed == 0 {
+        return None;
+    }
+    let (ptr, len) = unpack(packed);
+    let bytes = unsafe { std::slice::from_raw_parts(ptr as *const u8, len) };
+    serde_json::from_slice(bytes).ok()
+}
+
+/// Convenience: HTTP GET. Returns `None` when denied, the URL doesn't match
+/// the allow-list, or the request failed.
+pub fn http_get(url: &str) -> Option<HttpResponse> {
+    http_request("GET", url, "")
+}
+
+/// Convenience: HTTP POST with a body.
+pub fn http_post(url: &str, body: &str) -> Option<HttpResponse> {
+    http_request("POST", url, body)
+}
+
+/// Reads a file from the plugin's data directory. `path` is relative to that
+/// directory; absolute paths and `..` segments are rejected by the host.
+pub fn fs_read(path: &str) -> Option<Vec<u8>> {
+    let (pp, pl) = slice_parts(path);
+    let packed = unsafe { ffi::qoredb_fs_read(pp, pl) };
+    if packed == 0 {
+        return None;
+    }
+    let (ptr, len) = unpack(packed);
+    let bytes = unsafe { std::slice::from_raw_parts(ptr as *const u8, len) };
+    Some(bytes.to_vec())
+}
+
+/// Writes a file in the plugin's data directory. Returns `true` on success.
+pub fn fs_write(path: &str, contents: &[u8]) -> bool {
+    let (pp, pl) = slice_parts(path);
+    let data_ptr = contents.as_ptr() as i32;
+    let data_len = contents.len() as i32;
+    unsafe { ffi::qoredb_fs_write(pp, pl, data_ptr, data_len) == 0 }
+}
+
+/// Removes a file from the plugin's data directory.
+pub fn fs_delete(path: &str) -> bool {
+    let (pp, pl) = slice_parts(path);
+    unsafe { ffi::qoredb_fs_delete(pp, pl) == 0 }
+}
+
+/// Reads a secret the user has provisioned for this plugin. `name` must be
+/// declared in the manifest's `capabilities.secrets` list — anything else
+/// returns `None` even if the keyring holds an entry with that name.
+pub fn secret_get(name: &str) -> Option<String> {
+    let (np, nl) = slice_parts(name);
+    let packed = unsafe { ffi::qoredb_secret_get(np, nl) };
     if packed == 0 {
         return None;
     }

@@ -73,17 +73,37 @@ export interface PluginContributions {
 /** Lifecycle hooks an executable plugin may subscribe to. */
 export type PluginHookKind = 'preExecute' | 'postExecute';
 
-/** Phase 2 capabilities a plugin manifest can request. */
-export type PluginCapabilityKind = 'log' | 'notify' | 'storage' | 'queryRead';
+/** Capabilities a plugin manifest can request. `queryExec` parses but is
+ *  not yet wired at runtime (Phase 5). */
+export type PluginCapabilityKind =
+  | 'log'
+  | 'notify'
+  | 'storage'
+  | 'queryRead'
+  | 'http'
+  | 'fs'
+  | 'secrets';
 
-/** Capability block a manifest declares — only the Phase 2 ones are honoured
- *  at runtime yet; Phase 3 ones (http/fs/secrets/queryExec) parse but never
- *  grant access. */
+export interface HttpCapability {
+  allowedHosts: string[];
+}
+
+export interface FsCapability {
+  scope: 'pluginData';
+}
+
+/** Capability block a manifest declares. Phase 2 + Phase 3 are honoured at
+ *  runtime; the `queryExec` field parses but currently grants nothing. */
 export interface PluginCapabilities {
   log?: boolean;
   notify?: boolean;
   storage?: boolean;
   queryRead?: boolean;
+  http?: HttpCapability;
+  fs?: FsCapability;
+  /** Names of secrets the plugin will ask the host to read. */
+  secrets?: string[];
+  queryExec?: boolean;
 }
 
 /** Executable-runtime descriptor. Absent for purely declarative plugins. */

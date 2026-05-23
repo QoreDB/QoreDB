@@ -10,10 +10,12 @@
 pub mod capabilities;
 mod host_fns;
 mod manager;
+pub mod secrets;
 pub mod storage;
 mod wasmi_host;
 
 use std::collections::BTreeSet;
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
@@ -102,6 +104,16 @@ pub struct InvocationServices {
     /// Row data exposed to a hook when `queryRead` is granted. `None` outside
     /// `postExecute` invocations or when the capability is not granted.
     pub query_result: Option<Arc<QueryReadPayload>>,
+    /// Hosts the plugin is allowed to contact. Re-checked by the `http`
+    /// host fn against the URL the plugin passes — defence in depth.
+    pub http_allowed_hosts: Arc<Vec<String>>,
+    /// Directory the plugin's `fs` host fns are scoped to. Every requested
+    /// path is joined here and rejected if it escapes the directory.
+    pub fs_root: Option<PathBuf>,
+    /// Names of secrets the manifest requested. The `secrets` host fn rejects
+    /// reads for any name not in this list, so a tampered consent file can't
+    /// pull arbitrary secrets from the keyring.
+    pub secret_names: Arc<Vec<String>>,
 }
 
 /// The bundle a `queryRead`-capable hook can pull through the

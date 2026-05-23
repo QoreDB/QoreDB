@@ -14,9 +14,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::plugins::{PluginCapabilities, PluginManifest};
 
-/// One of the Phase 2 capabilities a plugin may request. Phase 3 capabilities
-/// (`http`, `fs`, `secrets`, `queryExec`) are still declared in the manifest
-/// but not yet honoured at runtime — they validate, but never grant access.
+/// A capability a plugin may request. Phases 2 and 3 are wired; the
+/// Phase 5 `queryExec` capability is still declared-only — the manifest
+/// validates it, but the host function returns "denied" until the
+/// query-engine plumbing lands.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum CapabilityKind {
@@ -28,6 +29,12 @@ pub enum CapabilityKind {
     Storage,
     /// Read row metadata and contents from the `postExecute` result.
     QueryRead,
+    /// Outbound HTTP requests, restricted to a manifest-declared allow-list.
+    Http,
+    /// Read/write within the plugin's own data directory.
+    Fs,
+    /// Read named secrets the user has provisioned for this plugin.
+    Secrets,
 }
 
 impl CapabilityKind {
@@ -38,21 +45,28 @@ impl CapabilityKind {
             CapabilityKind::Notify => "notify",
             CapabilityKind::Storage => "storage",
             CapabilityKind::QueryRead => "queryRead",
+            CapabilityKind::Http => "http",
+            CapabilityKind::Fs => "fs",
+            CapabilityKind::Secrets => "secrets",
         }
     }
 
-    /// Every Phase 2 capability in display order. Phase 3 capabilities are
-    /// intentionally absent.
-    pub const ALL: [CapabilityKind; 4] = [
+    /// Every capability in display order. The UI surfaces them in this exact
+    /// order so the user sees the same list every time.
+    pub const ALL: [CapabilityKind; 7] = [
         CapabilityKind::Log,
         CapabilityKind::Notify,
         CapabilityKind::Storage,
         CapabilityKind::QueryRead,
+        CapabilityKind::Http,
+        CapabilityKind::Fs,
+        CapabilityKind::Secrets,
     ];
 }
 
-/// The set of Phase 2 capabilities a manifest *requests*. Order is stable so
-/// the consent UI shows the same list every time.
+/// The set of capabilities a manifest *requests*. Order is stable so the
+/// consent UI shows the same list every time. `queryExec` is intentionally
+/// not surfaced — it's declared but not yet wired (Phase 5).
 pub fn requested(caps: &PluginCapabilities) -> Vec<CapabilityKind> {
     let mut out = Vec::new();
     if caps.log {
@@ -66,6 +80,15 @@ pub fn requested(caps: &PluginCapabilities) -> Vec<CapabilityKind> {
     }
     if caps.query_read {
         out.push(CapabilityKind::QueryRead);
+    }
+    if caps.http.is_some() {
+        out.push(CapabilityKind::Http);
+    }
+    if caps.fs.is_some() {
+        out.push(CapabilityKind::Fs);
+    }
+    if !caps.secrets.is_empty() {
+        out.push(CapabilityKind::Secrets);
     }
     out
 }
@@ -160,6 +183,9 @@ mod tests {
     fn capability_kinds_have_stable_ids() {
         assert_eq!(CapabilityKind::Log.as_str(), "log");
         assert_eq!(CapabilityKind::QueryRead.as_str(), "queryRead");
+        assert_eq!(CapabilityKind::Http.as_str(), "http");
+        assert_eq!(CapabilityKind::Fs.as_str(), "fs");
+        assert_eq!(CapabilityKind::Secrets.as_str(), "secrets");
     }
 
     #[test]
@@ -171,6 +197,37 @@ mod tests {
         assert!(r.contains(&CapabilityKind::Log));
         assert!(r.contains(&CapabilityKind::QueryRead));
         assert!(!r.contains(&CapabilityKind::Notify));
+    }
+
+    #[test]
+    fn requested_picks_up_http_when_hosts_present() {
+        let caps = PluginCapabilities {
+            http: Some(crate::plugins::HttpCapability {
+                allowed_hosts: vec!["api.example.com".into()],
+            }),
+            ..Default::default()
+        };
+        let r = requested(&caps);
+        assert!(r.contains(&CapabilityKind::Http));
+    }
+
+    #[test]
+    fn requested_picks_up_secrets_when_named() {
+        let caps = PluginCapabilities {
+            secrets: vec!["token".into()],
+            ..Default::default()
+        };
+        let r = requested(&caps);
+        assert!(r.contains(&CapabilityKind::Secrets));
+    }
+
+    #[test]
+    fn requested_ignores_empty_secrets_list() {
+        let caps = PluginCapabilities {
+            secrets: vec![],
+            ..Default::default()
+        };
+        assert!(!requested(&caps).contains(&CapabilityKind::Secrets));
     }
 
     #[test]

@@ -57,7 +57,9 @@
       "commands": "Commands",
       "commandRun": "Run",
       "commandRunning": "Running…",
-      "commandNoOutput": "(no output)"
+      "commandNoOutput": "(no output)",
+      "secrets": "Secrets",
+      "secretsDescription": "Provide values for the secrets the plugin declared in its manifest. Values are stored in the OS keyring and never leave this device."
     },
     "themes": {
       "title": "Plugin themes",
@@ -91,8 +93,31 @@
         "queryRead": {
           "title": "Read query results",
           "description": "See rows and columns from queries that just ran. May include sensitive data."
+        },
+        "http": {
+          "title": "Make HTTP requests",
+          "description": "Reach the specific hosts listed below. Other hosts are refused by the runtime."
+        },
+        "fs": {
+          "title": "Plugin data directory",
+          "description": "Read and write files in the plugin's own folder. Other locations are rejected."
+        },
+        "secrets": {
+          "title": "Read provisioned secrets",
+          "description": "Read named secrets you provision in the plugin's detail view."
         }
       }
+    },
+    "secrets": {
+      "saved": "Secret saved",
+      "removed": "Secret removed",
+      "provisioned": "Set",
+      "placeholder": "Enter value",
+      "replacePlaceholder": "Replace value",
+      "save": "Save",
+      "remove": "Remove secret",
+      "show": "Show value",
+      "hide": "Hide value"
     }
   },
   "home": {

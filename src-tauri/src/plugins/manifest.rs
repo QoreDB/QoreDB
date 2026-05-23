@@ -381,6 +381,39 @@ mod tests {
     }
 
     #[test]
+    fn rejects_http_with_empty_allow_list() {
+        let json = r#"{
+            "id":"acme.x","name":"X","version":"1.0.0",
+            "runtime":{"abiVersion":1,"entry":"plugin.wasm",
+                       "capabilities":{"http":{"allowedHosts":[]}}}
+        }"#;
+        assert!(manifest(json).unwrap_err().contains("allowedHosts"));
+    }
+
+    #[test]
+    fn accepts_http_with_an_allow_list() {
+        let json = r#"{
+            "id":"acme.x","name":"X","version":"1.0.0",
+            "runtime":{"abiVersion":1,"entry":"plugin.wasm",
+                       "capabilities":{"http":{"allowedHosts":["api.example.com"]}}}
+        }"#;
+        let m = manifest(json).unwrap();
+        let http = m.runtime.unwrap().capabilities.http.unwrap();
+        assert_eq!(http.allowed_hosts, vec!["api.example.com".to_string()]);
+    }
+
+    #[test]
+    fn accepts_secrets_list() {
+        let json = r#"{
+            "id":"acme.x","name":"X","version":"1.0.0",
+            "runtime":{"abiVersion":1,"entry":"plugin.wasm",
+                       "capabilities":{"secrets":["api-token","webhook-url"]}}
+        }"#;
+        let m = manifest(json).unwrap();
+        assert_eq!(m.runtime.unwrap().capabilities.secrets.len(), 2);
+    }
+
+    #[test]
     fn rejects_command_with_empty_label() {
         let json = r#"{
             "id":"acme.x","name":"X","version":"1.0.0",

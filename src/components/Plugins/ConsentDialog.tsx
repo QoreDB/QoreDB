@@ -32,12 +32,56 @@ interface ConsentDialogProps {
 }
 
 /** Capabilities a manifest can request, in stable UI order. */
-const ORDERED: PluginCapabilityKind[] = ['log', 'notify', 'storage', 'queryRead'];
+const ORDERED: PluginCapabilityKind[] = [
+  'log',
+  'notify',
+  'storage',
+  'queryRead',
+  'http',
+  'fs',
+  'secrets',
+];
+
+function isRequested(caps: NonNullable<InstalledPlugin['manifest']['runtime']>['capabilities'],
+  kind: PluginCapabilityKind,
+): boolean {
+  if (!caps) return false;
+  switch (kind) {
+    case 'log':
+    case 'notify':
+    case 'storage':
+    case 'queryRead':
+      return caps[kind] === true;
+    case 'http':
+      return Boolean(caps.http && caps.http.allowedHosts.length > 0);
+    case 'fs':
+      return Boolean(caps.fs);
+    case 'secrets':
+      return Boolean(caps.secrets && caps.secrets.length > 0);
+  }
+}
 
 function requestedCaps(plugin: InstalledPlugin | null): PluginCapabilityKind[] {
   const caps = plugin?.manifest.runtime?.capabilities;
   if (!caps) return [];
-  return ORDERED.filter(k => caps[k]);
+  return ORDERED.filter(k => isRequested(caps, k));
+}
+
+/** Manifest specifics surfaced below the generic description: hosts the
+ *  plugin will reach, secret names it will read, etc. */
+function capDetail(plugin: InstalledPlugin, cap: PluginCapabilityKind): string | null {
+  const caps = plugin.manifest.runtime?.capabilities;
+  if (!caps) return null;
+  switch (cap) {
+    case 'http':
+      return caps.http && caps.http.allowedHosts.length > 0
+        ? caps.http.allowedHosts.join(', ')
+        : null;
+    case 'secrets':
+      return caps.secrets && caps.secrets.length > 0 ? caps.secrets.join(', ') : null;
+    default:
+      return null;
+  }
 }
 
 export function ConsentDialog({
@@ -92,28 +136,36 @@ export function ConsentDialog({
         </DialogHeader>
 
         <ul className="space-y-2">
-          {requested.map(cap => (
-            <li
-              key={cap}
-              className="flex items-start gap-3 rounded-lg border border-border p-2.5"
-            >
-              <Checkbox
-                id={`cap-${cap}`}
-                checked={grants.has(cap)}
-                onCheckedChange={c => toggle(cap, c === true)}
-                disabled={saving}
-                className="mt-0.5"
-              />
-              <label htmlFor={`cap-${cap}`} className="min-w-0 flex-1 cursor-pointer">
-                <div className="text-sm font-medium text-foreground">
-                  {t(`plugins.consent.caps.${cap}.title`)}
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  {t(`plugins.consent.caps.${cap}.description`)}
-                </div>
-              </label>
-            </li>
-          ))}
+          {requested.map(cap => {
+            const detail = capDetail(plugin, cap);
+            return (
+              <li
+                key={cap}
+                className="flex items-start gap-3 rounded-lg border border-border p-2.5"
+              >
+                <Checkbox
+                  id={`cap-${cap}`}
+                  checked={grants.has(cap)}
+                  onCheckedChange={c => toggle(cap, c === true)}
+                  disabled={saving}
+                  className="mt-0.5"
+                />
+                <label htmlFor={`cap-${cap}`} className="min-w-0 flex-1 cursor-pointer">
+                  <div className="text-sm font-medium text-foreground">
+                    {t(`plugins.consent.caps.${cap}.title`)}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {t(`plugins.consent.caps.${cap}.description`)}
+                  </div>
+                  {detail && (
+                    <div className="mt-1 font-mono text-[10.5px] text-foreground/80">
+                      {detail}
+                    </div>
+                  )}
+                </label>
+              </li>
+            );
+          })}
         </ul>
 
         <DialogFooter>

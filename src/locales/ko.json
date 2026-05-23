@@ -57,7 +57,9 @@
       "commands": "작업",
       "commandRun": "실행",
       "commandRunning": "실행 중…",
-      "commandNoOutput": "(출력 없음)"
+      "commandNoOutput": "(출력 없음)",
+      "secrets": "비밀",
+      "secretsDescription": "플러그인이 매니페스트에 선언한 비밀의 값을 제공하세요. 값은 OS 키링에 저장되며 이 기기를 벗어나지 않습니다."
     },
     "themes": {
       "title": "플러그인 테마",
@@ -91,8 +93,31 @@
         "queryRead": {
           "title": "쿼리 결과 읽기",
           "description": "방금 실행된 쿼리의 행과 열을 봅니다. 민감한 데이터가 포함될 수 있습니다."
+        },
+        "http": {
+          "title": "HTTP 요청 전송",
+          "description": "아래 나열된 호스트에만 접근합니다. 다른 호스트는 런타임이 거부합니다."
+        },
+        "fs": {
+          "title": "플러그인 데이터 디렉터리",
+          "description": "플러그인 전용 폴더에서 파일을 읽고 씁니다. 다른 위치는 거부됩니다."
+        },
+        "secrets": {
+          "title": "프로비저닝된 비밀 읽기",
+          "description": "플러그인 상세에서 프로비저닝한 명명된 비밀을 읽습니다."
         }
       }
+    },
+    "secrets": {
+      "saved": "비밀이 저장되었습니다",
+      "removed": "비밀이 제거되었습니다",
+      "provisioned": "설정됨",
+      "placeholder": "값 입력",
+      "replacePlaceholder": "값 교체",
+      "save": "저장",
+      "remove": "비밀 제거",
+      "show": "값 표시",
+      "hide": "값 숨기기"
     }
   },
   "home": {

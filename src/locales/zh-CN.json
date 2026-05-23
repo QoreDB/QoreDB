@@ -57,7 +57,9 @@
       "commands": "操作",
       "commandRun": "运行",
       "commandRunning": "运行中…",
-      "commandNoOutput": "（无输出）"
+      "commandNoOutput": "（无输出）",
+      "secrets": "密钥",
+      "secretsDescription": "为插件在清单中声明的密钥提供值。值存储在操作系统钥匙串中，绝不离开本设备。"
     },
     "themes": {
       "title": "插件主题",
@@ -91,8 +93,31 @@
         "queryRead": {
           "title": "读取查询结果",
           "description": "查看刚执行查询的行和列。可能包含敏感数据。"
+        },
+        "http": {
+          "title": "发起 HTTP 请求",
+          "description": "仅可访问下方列出的主机。其他主机被运行时拒绝。"
+        },
+        "fs": {
+          "title": "插件数据目录",
+          "description": "在插件自有文件夹中读写文件。其他位置被拒绝。"
+        },
+        "secrets": {
+          "title": "读取已配置的密钥",
+          "description": "读取你在插件详情中配置的命名密钥。"
         }
       }
+    },
+    "secrets": {
+      "saved": "密钥已保存",
+      "removed": "密钥已移除",
+      "provisioned": "已设置",
+      "placeholder": "输入值",
+      "replacePlaceholder": "替换值",
+      "save": "保存",
+      "remove": "移除密钥",
+      "show": "显示值",
+      "hide": "隐藏值"
     }
   },
   "home": {

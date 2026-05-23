@@ -57,7 +57,9 @@
       "commands": "Aktionen",
       "commandRun": "Ausführen",
       "commandRunning": "Wird ausgeführt…",
-      "commandNoOutput": "(keine Ausgabe)"
+      "commandNoOutput": "(keine Ausgabe)",
+      "secrets": "Geheimnisse",
+      "secretsDescription": "Geben Sie Werte für die im Manifest deklarierten Geheimnisse an. Die Werte werden im Schlüsselbund des Betriebssystems gespeichert und verlassen dieses Gerät nicht."
     },
     "themes": {
       "title": "Plugin-Themen",
@@ -91,8 +93,31 @@
         "queryRead": {
           "title": "Abfrageergebnisse lesen",
           "description": "Zeilen und Spalten gerade ausgeführter Abfragen sehen. Kann sensible Daten enthalten."
+        },
+        "http": {
+          "title": "HTTP-Anfragen senden",
+          "description": "Nur die unten aufgeführten Hosts erreichen. Andere werden vom Runtime abgewiesen."
+        },
+        "fs": {
+          "title": "Plugin-Datenverzeichnis",
+          "description": "Dateien im plugin-eigenen Ordner lesen und schreiben. Andere Orte werden abgewiesen."
+        },
+        "secrets": {
+          "title": "Bereitgestellte Geheimnisse lesen",
+          "description": "Liest die im Plugin-Detail bereitgestellten benannten Geheimnisse."
         }
       }
+    },
+    "secrets": {
+      "saved": "Geheimnis gespeichert",
+      "removed": "Geheimnis entfernt",
+      "provisioned": "Gesetzt",
+      "placeholder": "Wert eingeben",
+      "replacePlaceholder": "Wert ersetzen",
+      "save": "Speichern",
+      "remove": "Geheimnis entfernen",
+      "show": "Wert anzeigen",
+      "hide": "Wert verbergen"
     }
   },
   "home": {

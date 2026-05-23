@@ -57,7 +57,9 @@
       "commands": "Ações",
       "commandRun": "Executar",
       "commandRunning": "Executando…",
-      "commandNoOutput": "(sem saída)"
+      "commandNoOutput": "(sem saída)",
+      "secrets": "Segredos",
+      "secretsDescription": "Forneça os valores dos segredos declarados pelo plugin no manifesto. Os valores são armazenados no chaveiro do SO e nunca saem deste dispositivo."
     },
     "themes": {
       "title": "Temas de plugins",
@@ -91,8 +93,31 @@
         "queryRead": {
           "title": "Ler resultados de consulta",
           "description": "Ver linhas e colunas das consultas executadas. Pode incluir dados sensíveis."
+        },
+        "http": {
+          "title": "Fazer requisições HTTP",
+          "description": "Contatar apenas os hosts listados. Outros são rejeitados pelo runtime."
+        },
+        "fs": {
+          "title": "Diretório de dados do plugin",
+          "description": "Ler e escrever arquivos na pasta própria do plugin. Outros locais são rejeitados."
+        },
+        "secrets": {
+          "title": "Ler segredos provisionados",
+          "description": "Lê segredos nomeados que você provisiona no detalhe do plugin."
         }
       }
+    },
+    "secrets": {
+      "saved": "Segredo salvo",
+      "removed": "Segredo removido",
+      "provisioned": "Definido",
+      "placeholder": "Inserir valor",
+      "replacePlaceholder": "Substituir valor",
+      "save": "Salvar",
+      "remove": "Remover segredo",
+      "show": "Exibir valor",
+      "hide": "Ocultar valor"
     }
   },
   "home": {

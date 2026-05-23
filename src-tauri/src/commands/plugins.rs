@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use tauri::State;
 
-use crate::plugins::runtime::{capabilities, CapabilityKind, PluginHost};
+use crate::plugins::runtime::{capabilities, secrets, CapabilityKind, PluginHost};
 use crate::plugins::{self, InstalledPlugin, PluginContributions};
 use crate::SharedState;
 
@@ -50,16 +50,31 @@ pub async fn install_plugin(
     Ok(plugin)
 }
 
-/// Removes an installed plugin and forgets any consent it had. Reloads the
-/// executable runtime so its hooks stop firing right away.
+/// Removes an installed plugin and forgets any consent + secrets it had.
+/// Reloads the executable runtime so its hooks stop firing right away.
 #[tauri::command]
 pub async fn remove_plugin(
     plugin_id: String,
     state: State<'_, SharedState>,
 ) -> Result<(), String> {
+    let dir = plugins::plugins_dir();
+    // Snapshot the manifest's declared secret names before the folder is
+    // deleted, so we know what to drop from the keyring after.
+    let id_for_secrets = plugin_id.clone();
+    let secret_names: Vec<String> = blocking(move || {
+        plugins::list_plugins(&dir)
+            .into_iter()
+            .find(|p| p.manifest.id == id_for_secrets)
+            .and_then(|p| p.manifest.runtime.map(|r| r.capabilities.secrets))
+            .unwrap_or_default()
+    })
+    .await?;
+
     let id_for_consent = plugin_id.clone();
+    let id_for_secret_cleanup = plugin_id.clone();
     blocking(move || plugins::remove_plugin(&plugins::plugins_dir(), &plugin_id)).await??;
     blocking(move || capabilities::forget(&plugins::plugins_dir(), &id_for_consent)).await??;
+    blocking(move || secrets::forget_all(&id_for_secret_cleanup, &secret_names)).await?;
     let host = plugin_host(&state).await;
     blocking(move || host.reload()).await?;
     Ok(())
@@ -107,6 +122,56 @@ pub async fn get_plugin_consent(plugin_id: String) -> Result<Vec<CapabilityKind>
             .collect())
     })
     .await?
+}
+
+/// Lists the names of secrets that have a value provisioned for a plugin.
+/// The values themselves never leave the backend.
+#[tauri::command]
+pub async fn list_provisioned_secrets(plugin_id: String) -> Result<Vec<String>, String> {
+    blocking(move || {
+        let dir = plugins::plugins_dir();
+        let names: Vec<String> = plugins::list_plugins(&dir)
+            .into_iter()
+            .find(|p| p.manifest.id == plugin_id)
+            .and_then(|p| p.manifest.runtime.map(|r| r.capabilities.secrets))
+            .unwrap_or_default();
+        names
+            .into_iter()
+            .filter(|n| secrets::read(&plugin_id, n).is_some())
+            .collect()
+    })
+    .await
+}
+
+/// Stores or replaces a secret's value for a plugin. The secret name must
+/// be declared in the plugin's manifest.
+#[tauri::command]
+pub async fn set_plugin_secret(
+    plugin_id: String,
+    name: String,
+    value: String,
+) -> Result<(), String> {
+    blocking(move || {
+        let dir = plugins::plugins_dir();
+        let names: Vec<String> = plugins::list_plugins(&dir)
+            .into_iter()
+            .find(|p| p.manifest.id == plugin_id)
+            .and_then(|p| p.manifest.runtime.map(|r| r.capabilities.secrets))
+            .unwrap_or_default();
+        if !names.iter().any(|n| n == &name) {
+            return Err(format!(
+                "Plugin '{plugin_id}' did not declare a secret named '{name}'"
+            ));
+        }
+        secrets::write(&plugin_id, &name, &value)
+    })
+    .await?
+}
+
+/// Deletes a single provisioned secret for a plugin.
+#[tauri::command]
+pub async fn delete_plugin_secret(plugin_id: String, name: String) -> Result<(), String> {
+    blocking(move || secrets::delete(&plugin_id, &name)).await?
 }
 
 /// Invokes a contributed `command` on a plugin. The plugin id is the

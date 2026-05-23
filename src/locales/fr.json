@@ -57,7 +57,9 @@
       "commands": "Actions",
       "commandRun": "Exécuter",
       "commandRunning": "Exécution…",
-      "commandNoOutput": "(aucune sortie)"
+      "commandNoOutput": "(aucune sortie)",
+      "secrets": "Secrets",
+      "secretsDescription": "Fournis les valeurs des secrets déclarés par le plugin dans son manifeste. Les valeurs sont stockées dans le trousseau de l'OS et ne quittent jamais cette machine."
     },
     "themes": {
       "title": "Thèmes d'extension",
@@ -91,8 +93,31 @@
         "queryRead": {
           "title": "Lire les résultats de requête",
           "description": "Voir les lignes et colonnes des requêtes exécutées. Peut contenir des données sensibles."
+        },
+        "http": {
+          "title": "Faire des requêtes HTTP",
+          "description": "Contacter uniquement les hôtes listés ci-dessous. Les autres sont refusés par le runtime."
+        },
+        "fs": {
+          "title": "Dossier de données du plugin",
+          "description": "Lire et écrire des fichiers dans le dossier propre au plugin. Autres emplacements refusés."
+        },
+        "secrets": {
+          "title": "Lire les secrets provisionnés",
+          "description": "Lire les secrets nommés que tu provisionnes dans le détail du plugin."
         }
       }
+    },
+    "secrets": {
+      "saved": "Secret enregistré",
+      "removed": "Secret supprimé",
+      "provisioned": "Défini",
+      "placeholder": "Saisir la valeur",
+      "replacePlaceholder": "Remplacer la valeur",
+      "save": "Enregistrer",
+      "remove": "Supprimer le secret",
+      "show": "Afficher la valeur",
+      "hide": "Masquer la valeur"
     }
   },
   "home": {

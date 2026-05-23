@@ -88,12 +88,29 @@ impl PluginHost {
                 consent.intersection(&requested).copied().collect();
 
             let storage_path = storage::storage_path(&dir, &plugin.dir_name);
+            // Phase 3 capability inputs — pulled from the manifest so host
+            // fns get a re-validated copy that consent tampering can't widen.
+            let http_allowed_hosts: Vec<String> = runtime_spec
+                .capabilities
+                .http
+                .as_ref()
+                .map(|h| h.allowed_hosts.clone())
+                .unwrap_or_default();
+            let fs_root = runtime_spec
+                .capabilities
+                .fs
+                .as_ref()
+                .map(|_| dir.join(&plugin.dir_name).join("data"));
+            let secret_names: Vec<String> = runtime_spec.capabilities.secrets.clone();
             let services = InvocationServices {
                 plugin_id: plugin.manifest.id.clone(),
                 consent: Arc::new(effective),
                 storage: Arc::new(PluginStorage::new(storage_path)),
                 notify: notify.clone(),
                 query_result: None,
+                http_allowed_hosts: Arc::new(http_allowed_hosts),
+                fs_root,
+                secret_names: Arc::new(secret_names),
             };
 
             match self.runtime.load(

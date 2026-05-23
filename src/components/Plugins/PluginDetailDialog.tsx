@@ -19,6 +19,7 @@ import {
   runPluginCommand,
 } from '@/lib/plugins';
 import { ConsentDialog } from './ConsentDialog';
+import { SecretsForm } from './SecretsForm';
 
 interface PluginDetailDialogProps {
   plugin: InstalledPlugin | null;
@@ -28,7 +29,35 @@ interface PluginDetailDialogProps {
   onConsentChanged?: () => void;
 }
 
-const CAP_ORDER: PluginCapabilityKind[] = ['log', 'notify', 'storage', 'queryRead'];
+const CAP_ORDER: PluginCapabilityKind[] = [
+  'log',
+  'notify',
+  'storage',
+  'queryRead',
+  'http',
+  'fs',
+  'secrets',
+];
+
+function isCapRequested(
+  caps: NonNullable<InstalledPlugin['manifest']['runtime']>['capabilities'],
+  kind: PluginCapabilityKind,
+): boolean {
+  if (!caps) return false;
+  switch (kind) {
+    case 'log':
+    case 'notify':
+    case 'storage':
+    case 'queryRead':
+      return caps[kind] === true;
+    case 'http':
+      return Boolean(caps.http && caps.http.allowedHosts.length > 0);
+    case 'fs':
+      return Boolean(caps.fs);
+    case 'secrets':
+      return Boolean(caps.secrets && caps.secrets.length > 0);
+  }
+}
 
 export function PluginDetailDialog({
   plugin,
@@ -67,7 +96,9 @@ export function PluginDetailDialog({
       c.resultViewers.length >
     0;
 
-  const requested = CAP_ORDER.filter(k => manifest.runtime?.capabilities?.[k]);
+  const requested = CAP_ORDER.filter(k =>
+    isCapRequested(manifest.runtime?.capabilities, k)
+  );
   const grantedSet = new Set(grants);
   const [runningCommand, setRunningCommand] = useState<string | null>(null);
   const [lastResult, setLastResult] = useState<{ id: string; output: string } | null>(null);
@@ -178,6 +209,8 @@ export function PluginDetailDialog({
               </ul>
             </section>
           )}
+
+          {grantedSet.has('secrets') && <SecretsForm plugin={plugin} />}
 
           {!hasContributions && !manifest.runtime && (
             <p className="text-xs text-muted-foreground">{t('plugins.detail.noContributions')}</p>

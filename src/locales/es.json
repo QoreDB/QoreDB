@@ -57,7 +57,9 @@
       "commands": "Acciones",
       "commandRun": "Ejecutar",
       "commandRunning": "Ejecutando…",
-      "commandNoOutput": "(sin salida)"
+      "commandNoOutput": "(sin salida)",
+      "secrets": "Secretos",
+      "secretsDescription": "Proporciona los valores de los secretos declarados por el complemento en su manifiesto. Los valores se almacenan en el llavero del SO y nunca salen de este dispositivo."
     },
     "themes": {
       "title": "Temas de complementos",
@@ -91,8 +93,31 @@
         "queryRead": {
           "title": "Leer resultados de consultas",
           "description": "Ver filas y columnas de las consultas ejecutadas. Puede incluir datos sensibles."
+        },
+        "http": {
+          "title": "Hacer peticiones HTTP",
+          "description": "Contactar solo los hosts listados. Otros son rechazados por el runtime."
+        },
+        "fs": {
+          "title": "Directorio de datos del complemento",
+          "description": "Leer y escribir archivos en la carpeta propia del complemento. Otros lugares son rechazados."
+        },
+        "secrets": {
+          "title": "Leer secretos provisionados",
+          "description": "Lee secretos nombrados que provisiones en el detalle del complemento."
         }
       }
+    },
+    "secrets": {
+      "saved": "Secreto guardado",
+      "removed": "Secreto eliminado",
+      "provisioned": "Definido",
+      "placeholder": "Introducir valor",
+      "replacePlaceholder": "Reemplazar valor",
+      "save": "Guardar",
+      "remove": "Eliminar secreto",
+      "show": "Mostrar valor",
+      "hide": "Ocultar valor"
     }
   },
   "home": {

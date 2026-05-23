@@ -57,7 +57,9 @@
       "commands": "アクション",
       "commandRun": "実行",
       "commandRunning": "実行中…",
-      "commandNoOutput": "（出力なし）"
+      "commandNoOutput": "（出力なし）",
+      "secrets": "シークレット",
+      "secretsDescription": "マニフェストでプラグインが宣言したシークレットの値を提供します。値は OS のキーチェーンに保存され、このデバイスから出ません。"
     },
     "themes": {
       "title": "プラグインテーマ",
@@ -91,8 +93,31 @@
         "queryRead": {
           "title": "クエリ結果の読み取り",
           "description": "直前のクエリの行と列を参照します。機密データを含む可能性があります。"
+        },
+        "http": {
+          "title": "HTTP リクエストの送信",
+          "description": "下に記載されたホストのみに接続できます。その他はランタイムが拒否します。"
+        },
+        "fs": {
+          "title": "プラグインのデータディレクトリ",
+          "description": "プラグイン専用フォルダーで読み書きします。他の場所は拒否されます。"
+        },
+        "secrets": {
+          "title": "プロビジョニング済みシークレットの読み取り",
+          "description": "プラグイン詳細でプロビジョニングした名前付きシークレットを読み取ります。"
         }
       }
+    },
+    "secrets": {
+      "saved": "シークレットを保存しました",
+      "removed": "シークレットを削除しました",
+      "provisioned": "設定済み",
+      "placeholder": "値を入力",
+      "replacePlaceholder": "値を置き換え",
+      "save": "保存",
+      "remove": "シークレットを削除",
+      "show": "値を表示",
+      "hide": "値を非表示"
     }
   },
   "home": {

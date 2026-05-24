@@ -126,6 +126,31 @@
       "hide": "Hide value"
     }
   },
+  "marketplaceSection": {
+    "title": "Marketplace",
+    "description": "Browse and install plugins from the public QoreDB marketplace. The host verifies every archive's sha256 against the registry before installing.",
+    "searchPlaceholder": "Search plugins…",
+    "filter": {
+      "all": "All",
+      "declarative": "Declarative",
+      "executable": "Executable"
+    },
+    "kind": {
+      "declarative": "Declarative",
+      "executable": "Executable"
+    },
+    "loading": "Loading the catalog…",
+    "empty": "No plugins match your filters.",
+    "error": "The marketplace is unreachable. Check your internet connection or try again.",
+    "install": "Install",
+    "installing": "Installing…",
+    "installed": "Installed",
+    "unsigned": "Unsigned",
+    "openOnWeb": "Open on the web",
+    "toast": {
+      "installed": "Plugin “{{name}}” installed"
+    }
+  },
   "home": {
     "noConnections": {
       "title": "No connections configured",
@@ -655,6 +680,7 @@
       "data": "Privacy",
       "shortcuts": "Keyboard Shortcuts",
       "plugins": "Plugins",
+      "marketplace": "Marketplace",
       "license": "License",
       "ai": "AI Assistant"
     },

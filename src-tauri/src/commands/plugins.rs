@@ -47,6 +47,35 @@ pub async fn install_plugin(
     Ok(plugin)
 }
 
+/// Installs a plugin from a remote archive URL — the marketplace path.
+///
+/// The flow mirrors the local-folder install but adds two checks up front:
+///
+/// 1. The downloaded bytes' sha256 must match `expected_sha256`. The expected
+///    digest comes from the marketplace registry's `index.json`; the host
+///    refuses to extract anything before this check passes, so a hostile mirror
+///    can't smuggle a different archive past the manifest validator.
+/// 2. The archive must be a flat zip with `plugin.json` at the root and no
+///    path traversal. The existing `install_plugin` flow then re-validates the
+///    manifest like for any other source folder.
+///
+/// `expected_sha256` may be passed as either the raw lowercase hex digest or
+/// the `sha256-<hex>` form the registry uses — both shapes are accepted.
+#[tauri::command]
+pub async fn install_plugin_from_url(
+    url: String,
+    expected_sha256: String,
+    state: State<'_, SharedState>,
+) -> Result<InstalledPlugin, String> {
+    let plugin = blocking(move || {
+        crate::plugins::install_from_archive_url(&plugins::plugins_dir(), &url, &expected_sha256)
+    })
+    .await??;
+    let host = plugin_host(&state).await;
+    blocking(move || host.reload()).await?;
+    Ok(plugin)
+}
+
 /// Removes a plugin and forgets its consent + secrets.
 #[tauri::command]
 pub async fn remove_plugin(

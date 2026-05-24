@@ -177,6 +177,11 @@ which = "6"
 ed25519-dalek = { version = "2", features = ["serde"] }
 wasmi = { version = "1.0.9", default-features = false, features = ["std"] }
 
+# Marketplace install: unzip downloaded plugin archives into a staging folder
+# before handing them to the existing install path. `deflate` is the only
+# compression method the registry's `build-index.mjs` produces.
+zip = { version = "2", default-features = false, features = ["deflate"] }
+
 [target."cfg(not(any(target_os = \"android\", target_os = \"ios\")))".dependencies]
 tauri-plugin-updater = "2"
 tauri-plugin-process = "2"

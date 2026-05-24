@@ -15,6 +15,18 @@ export async function installPlugin(sourcePath: string): Promise<InstalledPlugin
   return invoke('install_plugin', { sourcePath });
 }
 
+/** Installs a plugin from a remote marketplace archive. The host downloads
+ *  the bytes, verifies their sha256 against `expectedSha256`, extracts the
+ *  archive into a staging folder, then runs the same `install_plugin` flow
+ *  as a local install. `expectedSha256` may be either the raw lowercase hex
+ *  digest or the `sha256-<hex>` form the registry uses. */
+export async function installPluginFromUrl(
+  url: string,
+  expectedSha256: string,
+): Promise<InstalledPlugin> {
+  return invoke('install_plugin_from_url', { url, expectedSha256 });
+}
+
 /** Removes an installed plugin. */
 export async function removePlugin(pluginId: string): Promise<void> {
   return invoke('remove_plugin', { pluginId });

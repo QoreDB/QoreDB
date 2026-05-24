@@ -217,10 +217,18 @@ QoreDB's data directory; refresh the Plugins panel in-app to pick it up.
 
 ## Distribution
 
-There is **no registry** yet. Distribute plugins as a folder (tar, zip, git
-clone). The user installs them via the GUI or `qoredb-plugin install`. The
-`integrity` field is the only end-to-end binding between the manifest's
-identity and the bytes the host will run.
+QoreDB has a public marketplace at <https://qoredb.com/marketplace>, backed
+by the [`qoredb-plugins-registry`](https://github.com/qoredb/qoredb-plugins-registry)
+GitHub repo. Submit a plugin through the
+[submission form](https://qoredb.com/marketplace/submit) or by opening a PR
+against the registry; a maintainer reviews the manifest, the requested
+capabilities and the WASM integrity before it lands in the catalog.
+
+You can still distribute a plugin as a folder (tar, zip, git clone) — the
+user installs it via the GUI's **Install plugin** action or
+`qoredb-plugin install`. The `integrity` field remains the only end-to-end
+binding between the manifest's identity and the bytes the host will run, so
+sign your plugin either way.
 
 ## What's next
 

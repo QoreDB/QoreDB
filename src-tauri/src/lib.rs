@@ -478,6 +478,7 @@ pub fn run() {
             // Plugin system commands
             commands::plugins::list_plugins,
             commands::plugins::install_plugin,
+            commands::plugins::install_plugin_from_url,
             commands::plugins::remove_plugin,
             commands::plugins::set_plugin_enabled,
             commands::plugins::get_plugin_contributions,

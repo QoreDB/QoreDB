@@ -15,6 +15,16 @@ export type MarketplaceCapability =
   | 'fs'
   | 'secrets';
 
+export const PLUGIN_CATEGORIES = [
+  'safety',
+  'observability',
+  'productivity',
+  'theming',
+  'integrations',
+] as const;
+
+export type MarketplaceCategory = (typeof PLUGIN_CATEGORIES)[number];
+
 export interface MarketplaceRuntimeSummary {
   abiVersion: 1;
   entry: string;
@@ -40,6 +50,7 @@ export interface MarketplaceArchive {
 export interface MarketplaceVersion {
   version: string;
   qoredb: string | null;
+  category: MarketplaceCategory | null;
   kind: MarketplacePluginKind;
   runtime: MarketplaceRuntimeSummary | null;
   contributes: MarketplaceContributionSummary;
@@ -52,6 +63,7 @@ export interface MarketplacePlugin {
   name: string;
   author: string | null;
   description: string | null;
+  category: MarketplaceCategory | null;
   latestVersion: string;
   kind: MarketplacePluginKind;
   versions: MarketplaceVersion[];
@@ -80,9 +92,9 @@ export class MarketplaceError extends Error {
   }
 }
 
-/** Fetches the full catalog from `<showcase>/api/marketplace/plugins`. */
+/** Fetches the full catalog from `<showcase>/api/plugins`. */
 export async function fetchMarketplaceIndex(): Promise<MarketplaceIndex> {
-  const response = await fetch(`${baseUrl()}/api/marketplace/plugins`, {
+  const response = await fetch(`${baseUrl()}/api/plugins`, {
     headers: { Accept: 'application/json' },
   });
   if (!response.ok) {

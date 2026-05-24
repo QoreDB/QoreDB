@@ -22,6 +22,10 @@
       "type": "string",
       "description": "QoreDB version requirement. Currently honoured: '>=X.Y.Z' or a bare 'X.Y.Z'; anything else is treated as compatible."
     },
+    "category": {
+      "enum": ["safety", "observability", "productivity", "theming", "integrations"],
+      "description": "Optional category surfaced by the QoreDB marketplace to help users browse. The host itself ignores this field; it's consumed by the registry and the showcase."
+    },
     "runtime": { "$ref": "#/$defs/runtime" },
     "contributes": { "$ref": "#/$defs/contributes" }
   },

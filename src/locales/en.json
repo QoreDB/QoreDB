@@ -127,8 +127,8 @@
     }
   },
   "marketplaceSection": {
-    "title": "Marketplace",
-    "description": "Browse and install plugins from the public QoreDB marketplace. The host verifies every archive's sha256 against the registry before installing.",
+    "title": "Browse plugins",
+    "description": "Browse and install plugins from the public QoreDB registry. The host verifies every archive's sha256 against the catalog before installing.",
     "searchPlaceholder": "Search plugins…",
     "filter": {
       "all": "All",
@@ -680,7 +680,7 @@
       "data": "Privacy",
       "shortcuts": "Keyboard Shortcuts",
       "plugins": "Plugins",
-      "marketplace": "Marketplace",
+      "marketplace": "Browse",
       "license": "License",
       "ai": "AI Assistant"
     },

@@ -5,6 +5,7 @@
   "id": "qoredb.danger-guard",
   "name": "Danger Guard",
   "qoredb": ">=0.1.29",
+  "category": "safety",
   "runtime": {
     "abiVersion": 1,
     "capabilities": {

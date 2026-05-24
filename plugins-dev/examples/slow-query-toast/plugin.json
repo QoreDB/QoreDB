@@ -17,6 +17,7 @@
   "id": "qoredb.slow-query-toast",
   "name": "Slow Query Toast",
   "qoredb": ">=0.1.29",
+  "category": "observability",
   "runtime": {
     "abiVersion": 1,
     "capabilities": {

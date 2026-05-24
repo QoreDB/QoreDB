@@ -17,6 +17,7 @@
   "id": "qoredb.query-stats",
   "name": "Query Stats",
   "qoredb": ">=0.1.29",
+  "category": "observability",
   "runtime": {
     "abiVersion": 1,
     "capabilities": {

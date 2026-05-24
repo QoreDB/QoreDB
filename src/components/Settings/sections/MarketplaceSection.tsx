@@ -24,7 +24,7 @@ interface MarketplaceSectionProps {
 
 type KindFilter = 'all' | 'declarative' | 'executable';
 
-const MARKETPLACE_URL = 'https://qoredb.com/marketplace';
+const MARKETPLACE_URL = 'https://qoredb.com/plugins';
 
 export function MarketplaceSection({ searchQuery }: MarketplaceSectionProps) {
   const { t } = useTranslation();

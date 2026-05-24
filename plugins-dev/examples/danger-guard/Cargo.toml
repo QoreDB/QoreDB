@@ -1,0 +1,18 @@
+[package]
+name = "qoredb-danger-guard"
+version = "1.0.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "Blocks destructive SQL patterns (DROP/TRUNCATE) and warns on broad mutations in production-flagged environments."
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+qoredb-plugin-sdk = { path = "../../sdk" }
+
+[profile.release]
+opt-level = "s"
+lto = true
+strip = true
+panic = "abort"

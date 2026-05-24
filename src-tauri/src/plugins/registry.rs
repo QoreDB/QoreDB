@@ -28,17 +28,15 @@ fn write_index(dir: &Path, index: &EnabledIndex) -> Result<(), String> {
         .map_err(|e| format!("Failed to write plugin index: {e}"))
 }
 
-/// Suffix of the staging folder used by [`install_plugin`] while a new
-/// plugin is being copied. Skipped by [`list_plugins`] so a half-finished
-/// install never surfaces as a real plugin.
+/// Reserved suffixes [`install_plugin`] uses while swapping versions.
+/// [`list_plugins`] filters folders ending with these so an in-flight or
+/// crashed install never surfaces as a real plugin.
 const STAGING_SUFFIX: &str = ".qoredb-staging";
-
-/// Suffix of the rollback folder kept while [`install_plugin`] swaps in the
-/// new version. Cleared on success; restored on failure.
 const BACKUP_SUFFIX: &str = ".qoredb-backup";
 
-/// Lists every installed plugin with its runtime state. Invalid plugin folders
-/// are skipped — install-time validation is the gate for surfacing errors.
+/// Lists every installed plugin with its runtime state. Invalid plugin
+/// folders are skipped silently — install-time validation is what surfaces
+/// errors to the user.
 pub fn list_plugins(dir: &Path) -> Vec<InstalledPlugin> {
     let index = read_index(dir);
     let mut plugins = Vec::new();
@@ -51,7 +49,6 @@ pub fn list_plugins(dir: &Path) -> Vec<InstalledPlugin> {
         if !path.is_dir() {
             continue;
         }
-        // Skip leftovers from an in-flight install: those are not plugins.
         if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
             if name.ends_with(STAGING_SUFFIX) || name.ends_with(BACKUP_SUFFIX) {
                 continue;
@@ -85,15 +82,9 @@ pub fn list_plugins(dir: &Path) -> Vec<InstalledPlugin> {
     plugins
 }
 
-/// Installs (or updates) a plugin from a source folder containing a
-/// `plugin.json`.
-///
-/// The swap is **atomic from the caller's perspective**: the new version is
-/// copied into a staging folder, validated, then a same-filesystem rename
-/// swaps it into place. If anything fails between the rename of the previous
-/// version and the rename of the new one, the previous version is restored
-/// from the backup folder. The old plugin is therefore never lost on a
-/// botched copy or a disk-full mid-install.
+/// Installs (or updates) a plugin from a source folder. The swap goes
+/// through a staging folder + atomic rename, with a backup of the previous
+/// version restored on failure — the live plugin is never lost mid-install.
 pub fn install_plugin(dir: &Path, source: &str) -> Result<InstalledPlugin, String> {
     let source = Path::new(source);
     let raw = fs::read_to_string(source.join("plugin.json"))
@@ -104,8 +95,6 @@ pub fn install_plugin(dir: &Path, source: &str) -> Result<InstalledPlugin, Strin
     let staging = dir.join(format!("{}{STAGING_SUFFIX}", manifest.id));
     let backup = dir.join(format!("{}{BACKUP_SUFFIX}", manifest.id));
 
-    // Wipe any leftovers from a previous crashed install before reusing the
-    // staging / backup slots. We never inherit half-copied state.
     if staging.exists() {
         fs::remove_dir_all(&staging)
             .map_err(|e| format!("Failed to clean staging folder: {e}"))?;
@@ -115,15 +104,11 @@ pub fn install_plugin(dir: &Path, source: &str) -> Result<InstalledPlugin, Strin
             .map_err(|e| format!("Failed to clean backup folder: {e}"))?;
     }
 
-    // Copy the new version into the staging folder. Failures here leave the
-    // installed version (if any) untouched.
     if let Err(e) = copy_dir(source, &staging) {
         let _ = fs::remove_dir_all(&staging);
         return Err(e);
     }
 
-    // Move the previous version aside, swap the new one in, then drop the
-    // backup. Errors between the two renames roll back to the previous state.
     let had_previous = target.exists();
     if had_previous {
         if let Err(e) = fs::rename(&target, &backup) {
@@ -134,9 +119,6 @@ pub fn install_plugin(dir: &Path, source: &str) -> Result<InstalledPlugin, Strin
     if let Err(e) = fs::rename(&staging, &target) {
         let _ = fs::remove_dir_all(&staging);
         if had_previous {
-            // Best-effort restore: a failure here would only happen if the
-            // filesystem rejected a rename it had already accepted seconds
-            // earlier, so it's exceedingly rare.
             if let Err(restore_err) = fs::rename(&backup, &target) {
                 tracing::error!(
                     plugin = %manifest.id,
@@ -148,7 +130,6 @@ pub fn install_plugin(dir: &Path, source: &str) -> Result<InstalledPlugin, Strin
         return Err(format!("Failed to activate the new plugin: {e}"));
     }
     if had_previous {
-        // The new version is live; the backup is just disk weight now.
         let _ = fs::remove_dir_all(&backup);
     }
 
@@ -222,13 +203,11 @@ fn find_plugin(dir: &Path, plugin_id: &str) -> Result<InstalledPlugin, String> {
         .ok_or_else(|| format!("Plugin '{plugin_id}' is not installed"))
 }
 
-/// Generous bounds for a plugin install. A declarative plugin is a small JSON
-/// manifest plus maybe a readme; these caps stop a runaway or malicious source
-/// folder from filling the disk or recursing forever through a symlink.
+/// Caps preventing a runaway or malicious source folder from filling the
+/// disk or recursing through a symlink.
 const MAX_PLUGIN_BYTES: u64 = 8 * 1024 * 1024;
 const MAX_PLUGIN_FILES: usize = 256;
 
-/// Remaining install budget, decremented as files are copied.
 struct CopyBudget {
     bytes: u64,
     files: usize,
@@ -242,12 +221,27 @@ fn copy_dir(from: &Path, to: &Path) -> Result<(), String> {
     copy_dir_bounded(from, to, &mut budget)
 }
 
+/// Directory and file names skipped during install: build artefacts and VCS
+/// metadata that are never useful at runtime and would otherwise blow past
+/// the install budget on a freshly built source folder.
+fn is_skipped_entry(name: &str) -> bool {
+    matches!(
+        name,
+        "target" | "node_modules" | ".git" | ".cargo" | ".DS_Store" | "Cargo.lock"
+    )
+}
+
 fn copy_dir_bounded(from: &Path, to: &Path, budget: &mut CopyBudget) -> Result<(), String> {
     fs::create_dir_all(to).map_err(|e| format!("Failed to create plugin directory: {e}"))?;
     for entry in fs::read_dir(from).map_err(|e| e.to_string())?.flatten() {
         let path = entry.path();
-        // Never follow symlinks: one pointing to an ancestor would recurse
-        // forever, one pointing outside would copy unintended files.
+        if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+            if is_skipped_entry(name) {
+                continue;
+            }
+        }
+        // symlink_metadata, not metadata: a symlink to an ancestor would
+        // otherwise recurse forever.
         let meta = fs::symlink_metadata(&path).map_err(|e| e.to_string())?;
         if meta.file_type().is_symlink() {
             return Err(format!(
@@ -368,22 +362,46 @@ mod tests {
         let installed = install_plugin(&dir, source.to_str().unwrap()).unwrap();
         assert_eq!(installed.manifest.id, "acme.pack");
         assert!(dir.join("acme.pack").is_dir());
-        // No staging / backup left behind.
         assert!(!dir.join(format!("acme.pack{STAGING_SUFFIX}")).exists());
         assert!(!dir.join(format!("acme.pack{BACKUP_SUFFIX}")).exists());
         fs::remove_dir_all(&dir).ok();
     }
 
     #[test]
+    fn install_skips_build_artefact_directories() {
+        let dir = temp_dir("install_skip_artefacts");
+        let source = dir.join("src");
+        fs::create_dir_all(&source).unwrap();
+        fs::write(source.join("plugin.json"), SAMPLE).unwrap();
+        // Drop bulky artefact folders + lockfile that a `cargo build` would
+        // leave behind. None of them must end up in the installed copy.
+        let target = source.join("target");
+        fs::create_dir_all(target.join("release")).unwrap();
+        fs::write(target.join("release").join("huge.bin"), vec![0u8; 16 * 1024 * 1024]).unwrap();
+        fs::create_dir_all(source.join(".git")).unwrap();
+        fs::write(source.join(".git").join("HEAD"), b"ref: refs/heads/main").unwrap();
+        fs::write(source.join("Cargo.lock"), b"# lock").unwrap();
+
+        install_plugin(&dir, source.to_str().unwrap()).unwrap();
+        let installed = dir.join("acme.pack");
+        assert!(installed.join("plugin.json").exists());
+        assert!(!installed.join("target").exists(), "target/ must be skipped");
+        assert!(!installed.join(".git").exists(), ".git/ must be skipped");
+        assert!(
+            !installed.join("Cargo.lock").exists(),
+            "Cargo.lock must be skipped"
+        );
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
     fn install_overwrites_an_existing_plugin() {
         let dir = temp_dir("install_replace");
-        // Seed an "old" install with a marker file.
         let installed_dir = dir.join("acme.pack");
         fs::create_dir_all(&installed_dir).unwrap();
         fs::write(installed_dir.join("plugin.json"), SAMPLE).unwrap();
         fs::write(installed_dir.join("OLD"), b"v1").unwrap();
 
-        // Stage a new install without the marker.
         let source = write_source_plugin(&dir, "src", SAMPLE);
 
         install_plugin(&dir, source.to_str().unwrap()).unwrap();
@@ -395,14 +413,13 @@ mod tests {
     #[test]
     fn install_failure_leaves_previous_plugin_in_place() {
         let dir = temp_dir("install_rollback");
-        // Seed a previous install we expect to survive the failed update.
         let installed_dir = dir.join("acme.pack");
         fs::create_dir_all(&installed_dir).unwrap();
         fs::write(installed_dir.join("plugin.json"), SAMPLE).unwrap();
         fs::write(installed_dir.join("MARKER"), b"survivor").unwrap();
 
-        // Build a source folder that breaches the per-install file budget so
-        // `copy_dir` fails before the rename swap is attempted.
+        // Source that breaches the file budget so copy_dir fails before any
+        // rename happens.
         let source = dir.join("src");
         fs::create_dir_all(&source).unwrap();
         fs::write(source.join("plugin.json"), SAMPLE).unwrap();
@@ -417,9 +434,7 @@ mod tests {
             "unexpected error: {err}"
         );
 
-        // The previous plugin is still where it was and untouched.
         assert!(installed_dir.join("MARKER").exists());
-        // No leftover staging / backup folder.
         assert!(!dir.join(format!("acme.pack{STAGING_SUFFIX}")).exists());
         assert!(!dir.join(format!("acme.pack{BACKUP_SUFFIX}")).exists());
         fs::remove_dir_all(&dir).ok();
@@ -428,7 +443,6 @@ mod tests {
     #[test]
     fn install_cleans_stale_staging_and_backup_folders() {
         let dir = temp_dir("install_cleanup");
-        // Pre-existing leftovers from a crashed install.
         let staging = dir.join(format!("acme.pack{STAGING_SUFFIX}"));
         let backup = dir.join(format!("acme.pack{BACKUP_SUFFIX}"));
         fs::create_dir_all(&staging).unwrap();
@@ -448,8 +462,6 @@ mod tests {
     fn list_plugins_skips_staging_and_backup_folders() {
         let dir = temp_dir("list_skip");
         write_plugin(&dir, "acme.pack", SAMPLE);
-        // Leftover folders carrying a valid-looking plugin.json must not be
-        // surfaced as plugins.
         let staging = dir.join(format!("acme.pack{STAGING_SUFFIX}"));
         fs::create_dir_all(&staging).unwrap();
         fs::write(staging.join("plugin.json"), SAMPLE).unwrap();

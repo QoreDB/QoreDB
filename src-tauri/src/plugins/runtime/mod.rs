@@ -92,54 +92,38 @@ pub enum NotifyLevel {
 /// task that drains this channel and emits Tauri events to the webview.
 pub type NotifySender = UnboundedSender<NotifyEvent>;
 
-/// Per-invocation services exposed to host functions. Snapshotted at instance
-/// build time (consent, storage, notify, plugin id) and stashed inside the
-/// `wasmi::Store::data` so host functions can read them via `Caller::data()`.
+/// Per-invocation services snapshotted into the `Store::data` so host
+/// functions can read them via `Caller::data()`.
 #[derive(Clone)]
 pub struct InvocationServices {
     pub plugin_id: String,
     pub consent: Arc<BTreeSet<CapabilityKind>>,
     pub storage: Arc<PluginStorage>,
     pub notify: Option<NotifySender>,
-    /// Row data exposed to a hook when `queryRead` is granted. `None` outside
-    /// `postExecute` invocations or when the capability is not granted.
+    /// `None` outside `postExecute` or when `queryRead` isn't granted.
     pub query_result: Option<Arc<QueryReadPayload>>,
-    /// Hosts the plugin is allowed to contact. Re-checked by the `http`
-    /// host fn against the URL the plugin passes — defence in depth.
     pub http_allowed_hosts: Arc<Vec<String>>,
-    /// When false (default), the `http` host fn refuses any outbound request
-    /// that resolves to a loopback / private / link-local / cloud-metadata
-    /// address. Plugins that legitimately need internal-network access (an
-    /// on-premise data catalogue, a sidecar) flip this on in their manifest.
+    /// SSRF escape hatch: when false (default), private / loopback /
+    /// link-local / cloud-metadata addresses are refused even if the name
+    /// is on the allowlist.
     pub http_allow_private_networks: bool,
-    /// Directory the plugin's `fs` host fns are scoped to. Every requested
-    /// path is joined here and rejected if it escapes the directory.
     pub fs_root: Option<PathBuf>,
-    /// Names of secrets the manifest requested. The `secrets` host fn rejects
-    /// reads for any name not in this list, so a tampered consent file can't
-    /// pull arbitrary secrets from the keyring.
+    /// Read from the manifest; a tampered consent file can't widen this set.
     pub secret_names: Arc<Vec<String>>,
 }
 
-/// The bundle a `queryRead`-capable hook can pull through the
-/// `qoredb_query_read` host call. Kept as a JSON string so the host doesn't
-/// have to re-serialise on every fetch.
+/// JSON-serialised so the host doesn't re-serialise on every `queryRead` call.
 pub struct QueryReadPayload {
     pub json: String,
 }
 
-/// Resource budget enforced on every single plugin invocation.
-///
-/// Fuel covers runaway execution (an infinite loop traps once exhausted).
-/// `memory_pages` caps how far a plugin can grow its linear memory, so a
-/// hostile `memory.grow` cannot push the host into swap or OOM. A wall-clock
-/// timeout is intentionally absent: `wasmi` has no cheap interruption
-/// primitive, and fuel already bounds invocation cost.
+/// Per-invocation budget. No wall-clock here: `wasmi` has no cheap
+/// interruption primitive, fuel bounds invocation cost. Wall-clock timeouts
+/// live one level up, in [`PluginHost`].
 #[derive(Debug, Clone, Copy)]
 pub struct Budget {
-    /// Maximum WASM instructions (fuel) per invocation.
     pub fuel: u64,
-    /// Maximum linear memory, in WASM pages of 64 KiB.
+    /// 64 KiB per page.
     pub memory_pages: u32,
 }
 
@@ -147,22 +131,19 @@ impl Default for Budget {
     fn default() -> Self {
         Self {
             fuel: 50_000_000,
-            memory_pages: 256, // 16 MiB
+            memory_pages: 256,
         }
     }
 }
 
-/// Why a plugin invocation failed. None of these abort the host operation:
-/// the caller logs, disables the plugin and carries on.
+/// None of these abort the host operation — the caller logs and carries on.
 #[derive(Debug)]
 pub enum PluginError {
-    /// The WASM module could not be loaded or instantiated.
     Load(String),
-    /// The module trapped (panic, out-of-bounds access, `unreachable`).
+    /// Panic, out-of-bounds access, `unreachable`, …
     Trap(String),
-    /// The fuel, memory or time budget was exhausted.
     BudgetExceeded,
-    /// Data could not be marshalled across the host/guest ABI boundary.
+    /// Marshalling failure across the host/guest ABI boundary.
     Abi(String),
 }
 
@@ -179,10 +160,8 @@ impl std::fmt::Display for PluginError {
 
 impl std::error::Error for PluginError {}
 
-/// A sandboxed plugin runtime. One implementation today (`wasmi`); the trait
-/// keeps the door open to a JIT backend without changing callers.
+/// Abstraction over the WASM runtime. Today: `wasmi`.
 pub trait PluginRuntime: Send + Sync {
-    /// Loads a WASM module from raw bytes, ready to run hooks.
     fn load(
         &self,
         plugin_id: String,
@@ -192,15 +171,12 @@ pub trait PluginRuntime: Send + Sync {
     ) -> Result<Box<dyn PluginInstance>, PluginError>;
 }
 
-/// A loaded, runnable plugin instance. Not `Sync`; callers serialise access.
+/// Not `Sync`; callers serialise access through a per-plugin mutex.
 pub trait PluginInstance: Send {
-    /// Runs the `pre_execute` hook. A module that does not export it yields
-    /// [`Decision::Allow`].
+    /// A module that doesn't export `pre_execute` yields [`Decision::Allow`].
     fn pre_execute(&mut self, context: &HookContext) -> Result<Decision, PluginError>;
 
-    /// Runs the `post_execute` hook. A module that does not export it is a
-    /// no-op. `payload` carries row data; only handed in when the plugin has
-    /// been granted `queryRead`.
+    /// `payload` is only present when `queryRead` was granted.
     fn post_execute(
         &mut self,
         context: &HookContext,
@@ -208,12 +184,9 @@ pub trait PluginInstance: Send {
         payload: Option<Arc<QueryReadPayload>>,
     ) -> Result<(), PluginError>;
 
-    /// Runs the `command` hook with the contributed command id and a JSON
-    /// arg payload. Returns the JSON value the plugin produced. A module
-    /// that does not export `command` returns [`PluginError::Abi`] with a
-    /// "not exported" message — the host turns that into a user-facing
-    /// error rather than silently doing nothing (commands are explicit
-    /// user actions).
+    /// A module that doesn't export `command` returns [`PluginError::Abi`] —
+    /// commands are explicit user actions, so the host surfaces the failure
+    /// instead of silently no-oping.
     fn command(
         &mut self,
         command_id: &str,

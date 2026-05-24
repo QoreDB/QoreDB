@@ -232,11 +232,9 @@ pub fn run() {
             };
             session_manager.start_health_monitor(app.handle().clone());
 
-            // Plugin notification bridge: plugins push `NotifyEvent`s through
-            // the sender; a tokio task drains them and forwards each to the
-            // webview as a `plugin-notify` Tauri event. Re-running reload()
-            // after wiring the sender ensures already-loaded plugin instances
-            // pick it up.
+            // Plugin notification bridge: drains plugin-issued `NotifyEvent`s
+            // and forwards them to the webview as `plugin-notify`. The reload
+            // after the sender wiring picks it up in already-loaded instances.
             {
                 use tauri::Emitter;
                 let (tx, mut rx) =
@@ -244,7 +242,7 @@ pub fn run() {
                 plugin_host.set_notify_sender(tx);
                 plugin_host.reload();
                 let app_handle = app.handle().clone();
-                tokio::spawn(async move {
+                tauri::async_runtime::spawn(async move {
                     while let Some(event) = rx.recv().await {
                         if let Err(e) = app_handle.emit("plugin-notify", &event) {
                             tracing::warn!(

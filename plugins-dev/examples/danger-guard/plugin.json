@@ -1,0 +1,20 @@
+{
+  "$schema": "../../../plugin.schema.json",
+  "author": "QoreDB",
+  "description": "Blocks destructive DDL (DROP, TRUNCATE) and warns on UPDATE/DELETE without WHERE.",
+  "id": "qoredb.danger-guard",
+  "name": "Danger Guard",
+  "qoredb": ">=0.1.29",
+  "runtime": {
+    "abiVersion": 1,
+    "capabilities": {
+      "log": true
+    },
+    "entry": "qoredb_danger_guard.wasm",
+    "hooks": [
+      "preExecute"
+    ],
+    "integrity": "sha256-c3ca2dbc1fac9baa562788e47aa177e33b754e603eed39b434183e60ecd34ebd"
+  },
+  "version": "1.0.0"
+}

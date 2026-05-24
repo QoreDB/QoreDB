@@ -35,9 +35,8 @@ use super::{
 };
 use crate::plugins::{plugins_dir, registry, PluginContributions};
 
-/// Locks a `Mutex` and recovers from poisoning so a single panicked hook can
-/// never lock the whole `PluginHost` out. Poisoning is logged so it isn't
-/// silently swept under the rug.
+/// Locks a `Mutex`, recovering from poisoning. A panicked hook must not
+/// lock the host out for the rest of the session.
 fn lock_recover<'a, T>(mutex: &'a Mutex<T>, what: &'static str) -> MutexGuard<'a, T> {
     match mutex.lock() {
         Ok(guard) => guard,
@@ -48,24 +47,11 @@ fn lock_recover<'a, T>(mutex: &'a Mutex<T>, what: &'static str) -> MutexGuard<'a
     }
 }
 
-/// Consecutive hook failures after which a misbehaving plugin is unloaded
-/// for the rest of the session. The threshold is small on purpose: a plugin
-/// that traps once is unlucky, three times in a row is broken.
 const CIRCUIT_BREAKER_THRESHOLD: u32 = 3;
-
-/// Wall-clock budget for a `pre_execute` hook. Short on purpose: the hook is
-/// on the query critical path, and a typical linter completes in a fraction
-/// of a millisecond. Anything longer than half a second is almost certainly
-/// a wedged host fn — we'd rather treat the verdict as Allow than stall the
-/// user's query.
+/// `pre_execute` runs on the query critical path; treat anything past this
+/// as a wedged host fn and let the query proceed.
 const PRE_EXECUTE_TIMEOUT: Duration = Duration::from_millis(500);
-/// Wall-clock budget for a `post_execute` hook. More generous because it
-/// runs off the critical path (via [`PluginHost::schedule_post_execute`])
-/// and may legitimately do bookkeeping like POSTing to an audit endpoint.
 const POST_EXECUTE_TIMEOUT: Duration = Duration::from_secs(5);
-/// Maximum number of `post_execute` invocations that may be in flight at
-/// once. Once full, new schedules drop with a log line so a runaway plugin
-/// can't grow an unbounded task queue.
 const POST_EXECUTE_QUEUE_DEPTH: usize = 64;
 
 type SharedInstance = Arc<Mutex<Box<dyn PluginInstance>>>;
@@ -73,19 +59,14 @@ type SharedInstance = Arc<Mutex<Box<dyn PluginInstance>>>;
 /// Loads executable plugins and runs their hooks.
 pub struct PluginHost {
     runtime: Arc<dyn PluginRuntime>,
-    /// Sender end of the notification channel — the app drains it and emits
-    /// Tauri events. Cloned into each plugin instance's services.
     notify: Mutex<Option<NotifySender>>,
-    /// Loaded instances, each behind its own per-plugin mutex so distinct
-    /// plugins can run their hooks concurrently.
+    /// Per-plugin mutex so distinct plugins run their hooks concurrently.
     instances: Mutex<HashMap<String, SharedInstance>>,
-    /// Consecutive hook-failure count per plugin id. A plugin that crosses
-    /// [`CIRCUIT_BREAKER_THRESHOLD`] is unloaded; a success resets the count.
+    /// Consecutive hook-failure count per plugin id; reset on success,
+    /// triggers unload at [`CIRCUIT_BREAKER_THRESHOLD`].
     failures: Mutex<HashMap<String, u32>>,
-    /// Caps the number of background `post_execute` dispatches in flight.
     post_queue: Arc<Semaphore>,
-    /// Memoised aggregated contributions of every enabled, compatible
-    /// plugin. `None` means "rescan on next read"; `reload()` clears it.
+    /// `None` means "rescan on next read"; cleared by [`reload`].
     contributions_cache: Mutex<Option<Arc<PluginContributions>>>,
 }
 
@@ -101,25 +82,21 @@ impl PluginHost {
         }
     }
 
-    /// Installs the notification sender the runtime hands toast events to.
-    /// Called once at app startup, before the first reload that should be
-    /// able to surface notifications.
+    /// Wires the sender the runtime pushes toast events to. Must be set
+    /// before the reload that should be able to surface notifications.
     pub fn set_notify_sender(&self, sender: NotifySender) {
         *lock_recover(&self.notify, "notify") = Some(sender);
     }
 
     /// Rescans the plugins directory and (re)loads every enabled, compatible
-    /// executable plugin. Called at startup and whenever a plugin is added,
-    /// removed, enabled, disabled, or its consent changes.
+    /// executable plugin. Single invalidation point for the contributions
+    /// cache: install / remove / enable / disable / consent all funnel here.
     pub fn reload(&self) {
         let dir = plugins_dir();
         let notify = lock_recover(&self.notify, "notify").clone();
         let mut instances = lock_recover(&self.instances, "instances");
         instances.clear();
         lock_recover(&self.failures, "failures").clear();
-        // Drop the cached contribution snapshot — install / enable / disable
-        // / consent change all go through reload(), so this is the single
-        // invalidation point we need.
         *lock_recover(&self.contributions_cache, "contributions_cache") = None;
 
         for plugin in registry::list_plugins(&dir) {
@@ -143,11 +120,6 @@ impl PluginHost {
                 }
             };
 
-            // Integrity gate: if the manifest pinned a sha256 digest, the
-            // bytes we just read must match it. A mismatch means the .wasm
-            // was swapped or tampered with after publication — refuse to
-            // load it (a malicious plugin could still ship without an
-            // integrity field, but then the UI marks it "Unsigned").
             if let Some(expected) = runtime_spec.integrity.as_deref() {
                 if let Err(e) = verify_integrity(&wasm, expected) {
                     tracing::warn!(
@@ -159,12 +131,9 @@ impl PluginHost {
                 }
             }
 
-            // Build the host services for this plugin: snapshot consent,
-            // hand it the storage file under its own folder, share the
-            // notify sender (if any).
             let consent = capabilities::read_grants(&dir, &plugin.manifest.id);
-            // A plugin can never see a capability it did not request, even
-            // if the consent file got tampered with.
+            // A plugin never sees a capability it did not request, even when
+            // the on-disk consent file has been tampered with.
             let requested: BTreeSet<CapabilityKind> = capabilities::requested(
                 &runtime_spec.capabilities,
             )
@@ -174,8 +143,8 @@ impl PluginHost {
                 consent.intersection(&requested).copied().collect();
 
             let storage_path = storage::storage_path(&dir, &plugin.dir_name);
-            // Phase 3 capability inputs — pulled from the manifest so host
-            // fns get a re-validated copy that consent tampering can't widen.
+            // Read from the manifest, never from the consent file: a tampered
+            // consent record can't widen the network surface.
             let http_allowed_hosts: Vec<String> = runtime_spec
                 .capabilities
                 .http
@@ -229,14 +198,9 @@ impl PluginHost {
         }
     }
 
-    /// Runs the `pre_execute` hook of every loaded plugin and aggregates the
-    /// verdicts: any `Block` wins; otherwise the first `Warn`; else `Allow`.
-    /// A `Warn` is also surfaced to the user as a toast through the same
-    /// `plugin-notify` channel the `notify` capability uses.
-    ///
-    /// Each plugin's hook runs in `spawn_blocking` with a timeout, so a
-    /// wedged host fn cannot stall the caller forever — the verdict simply
-    /// falls back to "no opinion from this plugin" and the rest carry on.
+    /// Aggregates the `pre_execute` verdicts: any `Block` wins, otherwise
+    /// the first `Warn`, else `Allow`. A `Warn` also fires a toast on the
+    /// `plugin-notify` channel.
     pub async fn run_pre_execute(&self, context: HookContext) -> Decision {
         let snapshot = self.snapshot_instances();
         let mut warning: Option<(String, String)> = None;
@@ -283,9 +247,8 @@ impl PluginHost {
         }
     }
 
-    /// Runs the `post_execute` hook of every loaded plugin. `query_payload`
-    /// carries row data; it's only handed to plugins that have been granted
-    /// `queryRead`. Failures are logged; the host never propagates them.
+    /// Runs `post_execute` on every loaded plugin. `query_payload` is only
+    /// passed to plugins granted `queryRead`.
     pub async fn run_post_execute(
         &self,
         context: HookContext,
@@ -318,10 +281,8 @@ impl PluginHost {
         self.unload_tripped(tripped);
     }
 
-    /// Fires-and-forgets a `post_execute` dispatch on a background task. The
-    /// query path can return its response immediately; the plugin hooks run
-    /// off the critical path. A bounded semaphore caps the queue depth so a
-    /// slow plugin can't accumulate work indefinitely.
+    /// Fires `post_execute` on a background task and returns immediately.
+    /// The queue is bounded — overflow is dropped (and logged).
     pub fn schedule_post_execute(
         self: &Arc<Self>,
         context: HookContext,
@@ -345,10 +306,8 @@ impl PluginHost {
         });
     }
 
-    /// Invokes a contributed command on the matching plugin. Returns the
-    /// JSON value the plugin produced. Errors are surfaced to the caller —
-    /// commands are explicit user actions, so swallowing a failure would
-    /// leave the user wondering whether anything happened.
+    /// Invokes a contributed command on the matching plugin. Errors surface
+    /// to the caller — a command is an explicit user action.
     pub async fn run_command(
         &self,
         plugin_id: &str,
@@ -376,8 +335,7 @@ impl PluginHost {
         }
     }
 
-    /// Sends a notification through the `plugin-notify` channel. Silent no-op
-    /// when the bridge is not wired (early startup, headless tests).
+    /// No-op when the bridge is not wired (early startup, headless tests).
     fn emit_notify(&self, event: NotifyEvent) {
         let sender = lock_recover(&self.notify, "notify").clone();
         if let Some(sender) = sender {
@@ -385,9 +343,7 @@ impl PluginHost {
         }
     }
 
-    /// Increments the consecutive-failure counter for `plugin_id` and returns
-    /// `true` if the circuit breaker just tripped (caller must unload the
-    /// plugin and notify the user).
+    /// Returns `true` when the circuit breaker just tripped.
     fn record_failure(&self, plugin_id: &str) -> bool {
         let mut failures = lock_recover(&self.failures, "failures");
         let count = failures.entry(plugin_id.to_string()).or_insert(0);
@@ -395,16 +351,11 @@ impl PluginHost {
         *count >= CIRCUIT_BREAKER_THRESHOLD
     }
 
-    /// Resets the consecutive-failure counter — a successful hook means the
-    /// plugin is well-behaved again.
     fn record_success(&self, plugin_id: &str) {
         let mut failures = lock_recover(&self.failures, "failures");
         failures.remove(plugin_id);
     }
 
-    /// Removes the given plugins from the loaded set and emits the
-    /// circuit-breaker-tripped notification for each. Cheap when `tripped`
-    /// is empty (no lock taken).
     fn unload_tripped(&self, tripped: Vec<String>) {
         if tripped.is_empty() {
             return;
@@ -420,9 +371,6 @@ impl PluginHost {
         }
     }
 
-    /// Surfaces the circuit-breaker trip to the user. Goes out as a Warning
-    /// notification so the toast pipeline picks it up like a plugin's own
-    /// `notify`.
     fn notify_disabled(&self, plugin_id: &str) {
         tracing::warn!(
             plugin = plugin_id,
@@ -438,10 +386,8 @@ impl PluginHost {
         });
     }
 
-    /// Atomically copies the (id, instance) pairs out of the outer mutex so
-    /// the rest of a hook batch can run without holding it. Hooks then
-    /// contend only on each plugin's own inner mutex — different plugins
-    /// proceed in parallel.
+    /// Snapshots the (id, instance) pairs so hooks contend only on their
+    /// own inner mutex — different plugins run in parallel.
     fn snapshot_instances(&self) -> Vec<(String, SharedInstance)> {
         lock_recover(&self.instances, "instances")
             .iter()
@@ -449,15 +395,11 @@ impl PluginHost {
             .collect()
     }
 
-    /// Number of currently loaded executable plugins.
     pub fn loaded_count(&self) -> usize {
         lock_recover(&self.instances, "instances").len()
     }
 
-    /// Returns the aggregated contributions of every enabled, compatible
-    /// plugin. The result is memoised; the disk scan only runs after the
-    /// next `reload()`. Callers receive a cheap `Arc` clone, so frequent
-    /// frontend polls cost almost nothing.
+    /// Memoised; the disk rescan only runs after the next [`reload`].
     pub fn contributions(&self) -> Arc<PluginContributions> {
         {
             let cache = lock_recover(&self.contributions_cache, "contributions_cache");
@@ -465,12 +407,11 @@ impl PluginHost {
                 return Arc::clone(existing);
             }
         }
-        // Cache miss: compute outside the lock so a slow disk doesn't pin
-        // the mutex, then store.
+        // Compute outside the lock; a slow disk would otherwise pin it.
         let fresh = Arc::new(registry::get_contributions(&plugins_dir()));
         let mut cache = lock_recover(&self.contributions_cache, "contributions_cache");
-        // Another thread may have populated the cache while we computed; keep
-        // whichever value landed first — both reflect the same on-disk state.
+        // Lost the race: keep whichever Arc landed first, both reflect the
+        // same on-disk state.
         let result = cache.get_or_insert_with(|| Arc::clone(&fresh));
         Arc::clone(result)
     }
@@ -482,17 +423,13 @@ impl Default for PluginHost {
     }
 }
 
-/// Result of a single per-plugin hook attempt. `Ok(T)` carries the hook's
-/// own return; `Failed(reason)` covers timeout, join error, and the
-/// plugin's own `PluginError` — the caller treats all three the same way.
+/// `Failed` covers timeout, join error, and the plugin's own `PluginError` —
+/// callers handle them identically.
 enum HookOutcome<T> {
     Ok(T),
     Failed(String),
 }
 
-/// Compares a WASM module's actual SHA-256 against the manifest-declared
-/// `sha256-<hex>` digest. The format has already been validated at manifest
-/// parse time, so this only deals with the cryptographic comparison.
 fn verify_integrity(wasm: &[u8], expected: &str) -> Result<(), String> {
     use sha2::{Digest, Sha256};
     let Some(expected_hex) = expected.strip_prefix("sha256-") else {
@@ -502,8 +439,6 @@ fn verify_integrity(wasm: &[u8], expected: &str) -> Result<(), String> {
     hasher.update(wasm);
     let actual = hasher.finalize();
     let actual_hex = hex_encode(&actual);
-    // Constant-time compare isn't required (digest is public, the only thing
-    // the comparison protects is determinism); plain `==` is fine.
     if actual_hex.eq_ignore_ascii_case(expected_hex) {
         Ok(())
     } else {
@@ -513,8 +448,6 @@ fn verify_integrity(wasm: &[u8], expected: &str) -> Result<(), String> {
     }
 }
 
-/// Lowercase-hex encoding for a 32-byte SHA-256 digest. Avoids pulling in a
-/// `hex` crate for a single allocation site.
 fn hex_encode(bytes: &[u8]) -> String {
     const TABLE: &[u8; 16] = b"0123456789abcdef";
     let mut out = String::with_capacity(bytes.len() * 2);
@@ -526,8 +459,6 @@ fn hex_encode(bytes: &[u8]) -> String {
 }
 
 /// Runs `f` on `instance` through `spawn_blocking`, bounded by `duration`.
-/// Folds timeouts, panics and `PluginError`s into a single `HookOutcome` so
-/// the caller has a flat shape to match on.
 async fn run_with_timeout<T, F>(
     instance: SharedInstance,
     duration: Duration,

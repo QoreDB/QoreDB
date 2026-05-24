@@ -1,0 +1,33 @@
+{
+  "$schema": "../../../plugin.schema.json",
+  "author": "QoreDB",
+  "contributes": {
+    "commands": [
+      {
+        "id": "set-threshold",
+        "label": "Set slow-query threshold (ms)"
+      },
+      {
+        "id": "show-threshold",
+        "label": "Show slow-query threshold"
+      }
+    ]
+  },
+  "description": "Surfaces a toast when a query takes longer than the configured threshold (default 1000 ms).",
+  "id": "qoredb.slow-query-toast",
+  "name": "Slow Query Toast",
+  "qoredb": ">=0.1.29",
+  "runtime": {
+    "abiVersion": 1,
+    "capabilities": {
+      "notify": true,
+      "storage": true
+    },
+    "entry": "qoredb_slow_query_toast.wasm",
+    "hooks": [
+      "postExecute"
+    ],
+    "integrity": "sha256-0adde7bb2d320b597466cc65d9f4def72e922a82e2a6ce9934dd05d5aaeed326"
+  },
+  "version": "1.0.0"
+}

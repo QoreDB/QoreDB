@@ -40,13 +40,9 @@ const RATE_LIMIT_BLOCKED: &str =
 const TRANSACTIONS_NOT_SUPPORTED: &str = "Transactions are not supported by this driver";
 const SAFETY_RULE_BLOCKED: &str = "Query blocked by safety rule";
 
-/// Serialised query payload handed to `postExecute` plugins that have been
-/// granted `queryRead`. Generous-but-bounded: rows beyond this size are dropped
-/// (the plugin sees `None`) rather than serialised at host expense.
+/// Past this, the `queryRead` payload is dropped and the plugin sees `None`.
 const QUERY_READ_MAX_PAYLOAD_BYTES: usize = 1024 * 1024;
 
-/// Builds a `queryRead` payload from a materialised query result. Returns
-/// `None` if serialisation fails or the JSON exceeds the budget.
 fn build_query_read_payload(result: &QueryResult) -> Option<Arc<QueryReadPayload>> {
     let json = serde_json::to_string(result).ok()?;
     if json.len() > QUERY_READ_MAX_PAYLOAD_BYTES {
@@ -55,11 +51,8 @@ fn build_query_read_payload(result: &QueryResult) -> Option<Arc<QueryReadPayload
     Some(Arc::new(QueryReadPayload { json }))
 }
 
-/// Maps an interceptor context + execution result into the plugin runtime's
-/// types and schedules every loaded plugin's `postExecute` hook on a
-/// background task. The call returns immediately so the query response
-/// isn't held back by a slow plugin; the plugin host swallows individual
-/// plugin errors, so this never propagates a failure.
+/// Schedules `postExecute` off the query critical path. Never propagates
+/// individual plugin failures.
 fn dispatch_plugin_post_execute(
     plugin_host: &Arc<PluginHost>,
     interceptor_context: &QueryContext,
@@ -467,8 +460,6 @@ pub async fn execute_query(
         None
     };
 
-    // Executable plugins: run their pre-execute hooks. A plugin may block the
-    // query; a plugin that errors is logged and skipped, never failing it.
     let plugin_decision = plugin_host
         .run_pre_execute(crate::plugins::runtime::HookContext {
             query: query.clone(),
@@ -658,8 +649,7 @@ pub async fn execute_query(
                     false,
                     safety_warning.as_deref(),
                 );
-                // Streaming has no materialised QueryResult, so plugins with
-                // `queryRead` see the metadata but no row payload.
+                // No row payload on streaming — `queryRead` sees metadata only.
                 dispatch_plugin_post_execute(
                     &plugin_host,
                     &interceptor_context,

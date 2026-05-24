@@ -18,7 +18,7 @@ The fast, open-source database client built with Rust. Connect to **12 native dr
 
 <sub>5,000+ downloads · 12 database drivers · Two releases a month · Used in production by indie devs and startups.</sub>
 
-  <img src="docs/screenshots/query-screen.png" alt="QoreDB SQL editor and result grid" width="100%" />
+  <img src="doc/screenshots/query-screen.png" alt="QoreDB SQL editor and result grid" width="100%" />
 
 </div>
 
@@ -67,12 +67,12 @@ DBeaver, pgAdmin, phpMyAdmin do the job — but they feel slow, dated, and full 
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/screenshots/database-screen.png" alt="Database browser" /><br/><sub><b>Database browser</b> — multi-connection sidebar, table preview, breadcrumbs.</sub></td>
-    <td width="50%"><img src="docs/screenshots/query-screen.png" alt="SQL editor" /><br/><sub><b>SQL editor</b> — autocomplete, formatting, multi-statement execution, virtualized result grid.</sub></td>
+    <td width="50%"><img src="doc/screenshots/database-screen.png" alt="Database browser" /><br/><sub><b>Database browser</b> — multi-connection sidebar, table preview, breadcrumbs.</sub></td>
+    <td width="50%"><img src="doc/screenshots/query-screen.png" alt="SQL editor" /><br/><sub><b>SQL editor</b> — autocomplete, formatting, multi-statement execution, virtualized result grid.</sub></td>
   </tr>
   <tr>
-    <td width="50%"><img src="docs/screenshots/er-diagram-screen.png" alt="ER diagram" /><br/><sub><b>ER diagram</b> — interactive schema graph with isolate/focus workflows.</sub></td>
-    <td width="50%"><img src="docs/screenshots/table-screen.png" alt="Data grid" /><br/><sub><b>Data grid</b> — virtualization, column pinning, advanced filters, inline editing.</sub></td>
+    <td width="50%"><img src="doc/screenshots/er-diagram-screen.png" alt="ER diagram" /><br/><sub><b>ER diagram</b> — interactive schema graph with isolate/focus workflows.</sub></td>
+    <td width="50%"><img src="doc/screenshots/table-screen.png" alt="Data grid" /><br/><sub><b>Data grid</b> — virtualization, column pinning, advanced filters, inline editing.</sub></td>
   </tr>
 </table>
 

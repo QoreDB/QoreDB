@@ -6,10 +6,9 @@ use super::{PluginContributions, PluginManifest, RuntimeSpec};
 
 const CURRENT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
-/// Parses raw `plugin.json` content into a validated manifest.
 pub fn parse_manifest(raw: &str) -> Result<PluginManifest, String> {
-    // Pre-pass: serde would silently drop unknown capability fields, so we
-    // walk the raw JSON first to surface the ones we explicitly disallow.
+    // serde would silently drop unknown capability fields, so walk the raw
+    // JSON first to surface the ones we explicitly disallow.
     reject_retired_capabilities(raw)?;
     let manifest: PluginManifest =
         serde_json::from_str(raw).map_err(|e| format!("Invalid plugin.json: {e}"))?;
@@ -17,13 +16,8 @@ pub fn parse_manifest(raw: &str) -> Result<PluginManifest, String> {
     Ok(manifest)
 }
 
-/// Rejects manifests that declare capabilities we used to accept but no
-/// longer support. `queryExec` was wired through the type system but never
-/// reached the host functions; rather than ship a footgun that looks active,
-/// we refuse the manifest with an explicit message.
 fn reject_retired_capabilities(raw: &str) -> Result<(), String> {
     let Ok(value) = serde_json::from_str::<serde_json::Value>(raw) else {
-        // Malformed JSON — let the typed parse below produce the real error.
         return Ok(());
     };
     let caps = value
@@ -41,10 +35,6 @@ fn reject_retired_capabilities(raw: &str) -> Result<(), String> {
     Ok(())
 }
 
-/// Validates a manifest's identifiers and contributions.
-///
-/// Declarative plugins must not be able to inject anything beyond QoreDB's own
-/// design tokens, so theme variables are restricted to the `--q-*` namespace.
 pub fn validate_manifest(m: &PluginManifest) -> Result<(), String> {
     if !is_valid_id(&m.id) {
         return Err(format!(
@@ -62,8 +52,6 @@ pub fn validate_manifest(m: &PluginManifest) -> Result<(), String> {
     if let Some(runtime) = &m.runtime {
         validate_runtime(runtime)?;
     }
-    // A `command` contribution needs the executable runtime to fire the
-    // WASM `command` hook — without it the action would do nothing.
     if !m.contributes.commands.is_empty() && m.runtime.is_none() {
         return Err(
             "Command contributions require a 'runtime' block to receive the command hook".into(),
@@ -72,11 +60,8 @@ pub fn validate_manifest(m: &PluginManifest) -> Result<(), String> {
     Ok(())
 }
 
-/// ABI version this build of QoreDB speaks. A plugin built against a newer
-/// ABI is rejected at validation time rather than misbehaving at run time.
 pub const CURRENT_ABI_VERSION: u32 = 1;
 
-/// Validates a plugin's executable-runtime descriptor.
 fn validate_runtime(r: &RuntimeSpec) -> Result<(), String> {
     if r.abi_version != CURRENT_ABI_VERSION {
         return Err(format!(
@@ -91,7 +76,7 @@ fn validate_runtime(r: &RuntimeSpec) -> Result<(), String> {
     if !entry.ends_with(".wasm") {
         return Err("Runtime entry must be a '.wasm' file".into());
     }
-    // The entry is joined to the plugin folder — forbid any path navigation.
+    // The entry is joined to the plugin folder — no path navigation allowed.
     if entry.contains('/') || entry.contains('\\') || entry.contains("..") {
         return Err("Runtime entry must be a bare filename".into());
     }
@@ -106,9 +91,6 @@ fn validate_runtime(r: &RuntimeSpec) -> Result<(), String> {
     Ok(())
 }
 
-/// Accepts the subresource-integrity-style format `sha256-<64 lowercase hex>`.
-/// Any other shape is rejected at manifest parse time so a typo turns into a
-/// clear error rather than a silent "always fails to load".
 fn validate_integrity(value: &str) -> Result<(), String> {
     let Some(hex) = value.strip_prefix("sha256-") else {
         return Err(
@@ -198,16 +180,12 @@ fn validate_contributions(c: &PluginContributions) -> Result<(), String> {
     Ok(())
 }
 
-/// CSS fragments a declarative theme value must never contain. A theme only
-/// needs colours and sizes; these would let it fetch remote resources
-/// (`url(...)`) or pull in external stylesheets, leaking that the app ran.
-/// Themes are applied via `setProperty`, so this is defence in depth.
+/// Theme values may carry only colours and sizes — `url(...)`, `@import`
+/// and `javascript:` would let a theme phone home or run script.
 const FORBIDDEN_CSS: [&str; 4] = ["url(", "expression(", "javascript:", "@import"];
 
-/// Maximum length of a theme variable value (a colour or size literal).
 const MAX_CSS_VALUE_LEN: usize = 256;
 
-/// Rejects theme values that are over-long or carry active CSS.
 fn validate_css_value(theme_id: &str, key: &str, value: &str) -> Result<(), String> {
     if value.len() > MAX_CSS_VALUE_LEN {
         return Err(format!(
@@ -236,9 +214,8 @@ fn is_valid_id(id: &str) -> bool {
             .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || matches!(c, '.' | '-' | '_'))
 }
 
-/// Best-effort check of a plugin's `qoredb` version requirement against this
-/// build. Only `>=X.Y.Z` (or a bare `X.Y.Z`) is understood; anything else is
-/// treated as compatible so an unknown syntax never silently disables a plugin.
+/// Understands `>=X.Y.Z` and bare `X.Y.Z`. Unknown syntax counts as
+/// compatible so a typo doesn't silently disable a plugin.
 pub fn is_compatible(requirement: Option<&str>) -> bool {
     let Some(req) = requirement else {
         return true;

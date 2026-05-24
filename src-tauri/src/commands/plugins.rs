@@ -11,8 +11,7 @@ use crate::plugins::runtime::{capabilities, secrets, CapabilityKind, PluginHost}
 use crate::plugins::{self, InstalledPlugin, PluginContributions};
 use crate::SharedState;
 
-/// Runs a blocking filesystem operation off the async runtime so plugin I/O
-/// (folder scans, recursive copies) never stalls the Tauri event loop.
+/// Wraps blocking plugin I/O so it never stalls the Tauri event loop.
 async fn blocking<T, F>(f: F) -> Result<T, String>
 where
     F: FnOnce() -> T + Send + 'static,
@@ -23,8 +22,7 @@ where
         .map_err(|e| format!("Plugin task failed: {e}"))
 }
 
-/// Captures the executable-plugin host so a hot-reload picks up the change
-/// without holding the `AppState` lock across the blocking reload itself.
+/// Snapshots the host Arc so reload runs without holding the `AppState` lock.
 async fn plugin_host(state: &State<'_, SharedState>) -> Arc<PluginHost> {
     Arc::clone(&state.lock().await.plugin_host)
 }
@@ -35,9 +33,8 @@ pub async fn list_plugins() -> Result<Vec<InstalledPlugin>, String> {
     blocking(|| plugins::list_plugins(&plugins::plugins_dir())).await
 }
 
-/// Installs (or updates) a plugin from a local folder containing a
-/// `plugin.json` manifest. Reloads the executable runtime so a newly-installed
-/// WASM plugin's hooks take effect immediately.
+/// Installs (or updates) a plugin from a local folder and reloads the
+/// runtime so its hooks fire on the next query.
 #[tauri::command]
 pub async fn install_plugin(
     source_path: String,
@@ -50,16 +47,15 @@ pub async fn install_plugin(
     Ok(plugin)
 }
 
-/// Removes an installed plugin and forgets any consent + secrets it had.
-/// Reloads the executable runtime so its hooks stop firing right away.
+/// Removes a plugin and forgets its consent + secrets.
 #[tauri::command]
 pub async fn remove_plugin(
     plugin_id: String,
     state: State<'_, SharedState>,
 ) -> Result<(), String> {
     let dir = plugins::plugins_dir();
-    // Snapshot the manifest's declared secret names before the folder is
-    // deleted, so we know what to drop from the keyring after.
+    // Snapshot the secret names before the manifest folder is wiped — the
+    // keyring cleanup below needs them.
     let id_for_secrets = plugin_id.clone();
     let secret_names: Vec<String> = blocking(move || {
         plugins::list_plugins(&dir)
@@ -80,8 +76,7 @@ pub async fn remove_plugin(
     Ok(())
 }
 
-/// Enables or disables an installed plugin. Reloads the executable runtime so
-/// the change takes effect on the next query.
+/// Enables or disables a plugin; the next query sees the change.
 #[tauri::command]
 pub async fn set_plugin_enabled(
     plugin_id: String,
@@ -95,10 +90,8 @@ pub async fn set_plugin_enabled(
     Ok(())
 }
 
-/// Returns the aggregated contributions of all enabled, compatible plugins.
-/// Served from an in-memory cache that the plugin host invalidates on every
-/// install / remove / enable / disable / consent change, so the frontend
-/// can poll this freely without re-scanning the plugin folder each time.
+/// Aggregated contributions of every enabled, compatible plugin. Served
+/// from the host's in-memory cache; safe to poll.
 #[tauri::command]
 pub async fn get_plugin_contributions(
     state: State<'_, SharedState>,
@@ -107,9 +100,8 @@ pub async fn get_plugin_contributions(
     Ok((*host.contributions()).clone())
 }
 
-/// Returns the capabilities the user has granted to a plugin. Capabilities
-/// the manifest did not request are filtered out so a tampered consent file
-/// can never escalate access.
+/// Capabilities the user has granted to a plugin, intersected with what the
+/// manifest actually requests so a tampered consent file can't escalate.
 #[tauri::command]
 pub async fn get_plugin_consent(plugin_id: String) -> Result<Vec<CapabilityKind>, String> {
     blocking(move || {
@@ -130,8 +122,7 @@ pub async fn get_plugin_consent(plugin_id: String) -> Result<Vec<CapabilityKind>
     .await?
 }
 
-/// Lists the names of secrets that have a value provisioned for a plugin.
-/// The values themselves never leave the backend.
+/// Names of secrets that have a value in the keyring. Values stay backend-side.
 #[tauri::command]
 pub async fn list_provisioned_secrets(plugin_id: String) -> Result<Vec<String>, String> {
     blocking(move || {
@@ -149,8 +140,7 @@ pub async fn list_provisioned_secrets(plugin_id: String) -> Result<Vec<String>, 
     .await
 }
 
-/// Stores or replaces a secret's value for a plugin. The secret name must
-/// be declared in the plugin's manifest.
+/// Stores a secret in the keyring. The name must be declared in the manifest.
 #[tauri::command]
 pub async fn set_plugin_secret(
     plugin_id: String,
@@ -180,10 +170,8 @@ pub async fn delete_plugin_secret(plugin_id: String, name: String) -> Result<(),
     blocking(move || secrets::delete(&plugin_id, &name)).await?
 }
 
-/// Invokes a contributed `command` on a plugin. The plugin id is the
-/// namespaced one returned by `get_plugin_contributions` (e.g.
-/// `acme.linter::lint-current`). Returns whatever JSON value the plugin
-/// produced.
+/// Invokes a contributed command. `plugin_id` and `command_id` come from
+/// `get_plugin_contributions` (e.g. `acme.linter` + `lint-current`).
 #[tauri::command]
 pub async fn run_plugin_command(
     plugin_id: String,
@@ -196,8 +184,7 @@ pub async fn run_plugin_command(
     host.run_command(&plugin_id, &command_id, args).await
 }
 
-/// Overwrites the capabilities granted to a plugin. The runtime is reloaded
-/// so the new consent set takes effect on the next query.
+/// Overwrites the granted capabilities; the next query sees the change.
 #[tauri::command]
 pub async fn set_plugin_consent(
     plugin_id: String,
@@ -207,9 +194,8 @@ pub async fn set_plugin_consent(
     let id = plugin_id.clone();
     blocking(move || {
         let dir = plugins::plugins_dir();
-        // Filter to capabilities the manifest actually requests — granting
-        // more than was asked for would be a no-op anyway, but persisting
-        // junk muddies the consent record.
+        // Filter against the manifest so the persisted consent record only
+        // ever contains capabilities the plugin actually asked for.
         let requested: BTreeSet<CapabilityKind> = plugins::list_plugins(&dir)
             .into_iter()
             .find(|p| p.manifest.id == id)

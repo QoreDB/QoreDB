@@ -1,0 +1,33 @@
+{
+  "$schema": "../../../plugin.schema.json",
+  "author": "QoreDB",
+  "contributes": {
+    "commands": [
+      {
+        "id": "show-stats",
+        "label": "Show query stats"
+      },
+      {
+        "id": "reset-stats",
+        "label": "Reset query stats"
+      }
+    ]
+  },
+  "description": "Counts queries per driver and per operation type. Run the 'Show stats' command to see the totals.",
+  "id": "qoredb.query-stats",
+  "name": "Query Stats",
+  "qoredb": ">=0.1.29",
+  "runtime": {
+    "abiVersion": 1,
+    "capabilities": {
+      "log": true,
+      "storage": true
+    },
+    "entry": "qoredb_query_stats.wasm",
+    "hooks": [
+      "postExecute"
+    ],
+    "integrity": "sha256-5ad72e54cc1ff4f4c3cc782f78903ca8c5e5f777bc5bca3e75e7f6cc9fb0fd83"
+  },
+  "version": "1.0.0"
+}

@@ -2,32 +2,25 @@
 
 //! Host-function catalogue: the surface a WASM plugin sees.
 //!
-//! Every Phase 2 capability has its host function unconditionally registered,
-//! so any plugin can *import* it. The function then checks the per-invocation
-//! consent set (snapshotted into the `Store`) and either does the work or
-//! returns an error code. A revoked capability becomes a no-op; instantiation
-//! never fails because of a missing import.
+//! Every host function is unconditionally registered so a plugin can import
+//! it regardless of its manifest — capability enforcement happens at call
+//! time, not at instantiation. A revoked capability returns an error code;
+//! the plugin keeps running.
 
 use wasmi::{Caller, Linker};
 
 use super::wasmi_host::StoreData;
 use super::{CapabilityKind, NotifyEvent, NotifyLevel};
 
-/// ABI status codes. `Ok` = 0 is the no-news return; the negative codes are
-/// the only ones a plugin needs to branch on.
 pub const OK: i32 = 0;
 pub const ERR_DENIED: i32 = -1;
 pub const ERR_INVALID: i32 = -2;
 pub const ERR_QUOTA: i32 = -3;
 
-/// Memory budget for a single host call's string arguments — keeps a buggy
-/// plugin from asking the host to read its entire linear memory as a key.
 const MAX_STRING_ARG: usize = 64 * 1024;
 
-/// Returns `true` if the plugin has been granted `kind`. A refusal is logged
-/// at warn level so an attempt to use a non-granted capability leaves an
-/// audit trail — a plugin can still receive `ERR_DENIED` silently from its
-/// own perspective, but the host operator sees what happened.
+/// Capability check that doubles as audit trail: a refusal is logged so the
+/// operator sees what the plugin tried.
 fn has_capability(caller: &Caller<'_, StoreData>, kind: CapabilityKind) -> bool {
     if caller.data().services.consent.contains(&kind) {
         return true;
@@ -41,10 +34,6 @@ fn has_capability(caller: &Caller<'_, StoreData>, kind: CapabilityKind) -> bool 
     false
 }
 
-/// Registers every host function on the linker. Phase 2 plus the Phase 3
-/// `http` / `fs` / `secrets` surfaces; every function self-checks its
-/// capability at call time, so a plugin that didn't request a capability
-/// gets a denied error code instead of an instantiation failure.
 pub fn register(linker: &mut Linker<StoreData>) -> Result<(), wasmi::errors::LinkerError> {
     register_log(linker)?;
     register_notify(linker)?;
@@ -176,14 +165,8 @@ fn register_storage(linker: &mut Linker<StoreData>) -> Result<(), wasmi::errors:
         .map(|_| ())
 }
 
-/// HTTP timeout for plugin-issued requests — long enough for a real API
-/// call, short enough that a hanging server doesn't stall the hook.
 const HTTP_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
-/// Maximum response body a plugin can read back. Beyond this the request
-/// errors so a tiny plugin can't be tricked into reading a 1 GB blob.
 const HTTP_MAX_BODY_BYTES: usize = 1024 * 1024;
-/// Maximum size of a file the plugin can read or write through the `fs`
-/// capability.
 const FS_MAX_FILE_BYTES: usize = 4 * 1024 * 1024;
 
 fn register_http(linker: &mut Linker<StoreData>) -> Result<(), wasmi::errors::LinkerError> {
@@ -217,9 +200,8 @@ fn register_http(linker: &mut Linker<StoreData>) -> Result<(), wasmi::errors::Li
                     return 0;
                 };
 
-                // Re-validate the URL against the manifest's allow-list,
-                // *not* against whatever the consent record says — the
-                // allow-list is the contract the user saw at install time.
+                // Allow-list comes from the manifest, not the consent record
+                // — that's the contract the user saw at install time.
                 let parsed = match url::Url::parse(&url) {
                     Ok(u) => u,
                     Err(_) => return 0,
@@ -240,13 +222,9 @@ fn register_http(linker: &mut Linker<StoreData>) -> Result<(), wasmi::errors::Li
                     return 0;
                 }
 
-                // SSRF guard: refuse if any resolved IP is private / loopback
-                // / link-local / cloud-metadata. The allowlist by name isn't
-                // enough — an attacker who can influence DNS for
-                // `api.example.com` could otherwise point it at
-                // `169.254.169.254` and pivot through the plugin. Plugins
-                // that legitimately need internal-network access flip
-                // `allowPrivateNetworks: true` in their manifest.
+                // SSRF guard: a name-based allowlist alone lets an attacker
+                // who controls DNS for an allowed host pivot through the
+                // plugin into the user's internal network.
                 if !caller.data().services.http_allow_private_networks {
                     let port = parsed.port_or_known_default().unwrap_or(0);
                     let resolved: Vec<std::net::SocketAddr> = match std::net::ToSocketAddrs::to_socket_addrs(&(host, port)) {
@@ -277,9 +255,8 @@ fn register_http(linker: &mut Linker<StoreData>) -> Result<(), wasmi::errors::Li
                     }
                 }
 
-                // Synchronous blocking client — wasmi is sync and lives on
-                // `spawn_blocking` already, so an internal runtime is fine
-                // for the modest call frequency a plugin sees.
+                // Blocking client is fine: wasmi is sync and already runs
+                // through `spawn_blocking`.
                 let client = match reqwest::blocking::Client::builder()
                     .timeout(HTTP_TIMEOUT)
                     .build()
@@ -376,8 +353,8 @@ fn register_fs(linker: &mut Linker<StoreData>) -> Result<(), wasmi::errors::Link
             let Some(full) = scoped_fs_path(caller.data(), &path) else {
                 return ERR_INVALID;
             };
-            // Re-read the body now we know the path validates so we don't
-            // shuffle bytes across memory if the path was bogus.
+            // Read the body only after the path validates: a bogus path
+            // shouldn't trigger a large guest-memory copy.
             let Some(data) = read_bytes(&mut caller, data_ptr, data_len) else {
                 return ERR_INVALID;
             };
@@ -431,9 +408,8 @@ fn register_secrets(linker: &mut Linker<StoreData>) -> Result<(), wasmi::errors:
                 let Some(name) = read_string(&mut caller, name_ptr, name_len) else {
                     return 0;
                 };
-                // The plugin can only ask for secret names the manifest
-                // declared. Anything else is rejected even if the consent
-                // checkbox is on.
+                // Manifest-declared list, not consent: a tampered consent
+                // file can't widen the set of readable secret names.
                 if !caller
                     .data()
                     .services
@@ -457,13 +433,9 @@ fn register_secrets(linker: &mut Linker<StoreData>) -> Result<(), wasmi::errors:
         .map(|_| ())
 }
 
-/// Returns `true` if `ip` falls inside an address range a plugin's
-/// outbound HTTP must not reach by default. Covers IPv4 loopback / private
-/// RFC1918 / link-local / unspecified / broadcast / multicast, and the IPv6
-/// equivalents plus ULA `fc00::/7` and link-local `fe80::/10`. These are
-/// the ranges an SSRF pivot would target — host metadata services
-/// (`169.254.169.254`), internal databases on `10.x`, the host itself on
-/// `127.0.0.1`.
+/// SSRF-target ranges: IPv4 loopback / RFC1918 / link-local / unspecified
+/// / broadcast / multicast / CGNAT, and IPv6 loopback / ULA / link-local /
+/// IPv4-mapped (inheriting the v4 verdict).
 fn is_private_destination(ip: &std::net::IpAddr) -> bool {
     use std::net::IpAddr;
     match ip {
@@ -474,8 +446,7 @@ fn is_private_destination(ip: &std::net::IpAddr) -> bool {
                 || v4.is_unspecified()
                 || v4.is_broadcast()
                 || v4.is_multicast()
-                // CGNAT 100.64.0.0/10 — assigned to ISP-internal NAT, not
-                // user-facing; an external name should not resolve here.
+                // 100.64.0.0/10 — CGNAT.
                 || {
                     let o = v4.octets();
                     o[0] == 100 && (o[1] & 0b1100_0000) == 0b0100_0000
@@ -485,19 +456,15 @@ fn is_private_destination(ip: &std::net::IpAddr) -> bool {
             v6.is_loopback()
                 || v6.is_unspecified()
                 || v6.is_multicast()
-                // fc00::/7 — unique local addresses (the IPv6 equivalent of
-                // RFC1918).
-                || (v6.segments()[0] & 0xfe00) == 0xfc00
-                // fe80::/10 — link-local.
-                || (v6.segments()[0] & 0xffc0) == 0xfe80
-                // IPv4-mapped IPv6 — apply the IPv4 rules to the embedded v4.
+                || (v6.segments()[0] & 0xfe00) == 0xfc00 // fc00::/7 ULA
+                || (v6.segments()[0] & 0xffc0) == 0xfe80 // fe80::/10 link-local
                 || v6.to_ipv4_mapped().is_some_and(|v4| is_private_destination(&IpAddr::V4(v4)))
         }
     }
 }
 
-/// Joins `requested` to the plugin's `fs_root` and rejects any path that
-/// escapes the root via `..` segments or absolute components.
+/// Rejects absolute paths and any `..` components — the plugin must stay
+/// under its `fs_root`.
 fn scoped_fs_path(data: &StoreData, requested: &str) -> Option<std::path::PathBuf> {
     let root = data.services.fs_root.as_ref()?;
     let requested_path = std::path::Path::new(requested);
@@ -513,9 +480,8 @@ fn scoped_fs_path(data: &StoreData, requested: &str) -> Option<std::path::PathBu
     Some(root.join(requested_path))
 }
 
-/// Reads `len` bytes at `ptr` from the guest's memory. Unlike `read_string`
-/// this does not validate UTF-8 — used for `fs_write` where the body may be
-/// any byte payload.
+/// Like `read_string` but without UTF-8 validation — for binary payloads
+/// (`fs_write`).
 fn read_bytes(caller: &mut Caller<'_, StoreData>, ptr: i32, len: i32) -> Option<Vec<u8>> {
     if len < 0 || ptr < 0 {
         return None;
@@ -530,9 +496,9 @@ fn read_bytes(caller: &mut Caller<'_, StoreData>, ptr: i32, len: i32) -> Option<
     Some(buf)
 }
 
-/// `qoredb_query_read() -> i64`: returns a packed `(ptr, len)` pointing at
-/// the JSON payload of the current query result. 0 if the capability is not
-/// granted, the hook is not `postExecute`, or no payload is available.
+/// Returns a packed `(ptr, len)` for the current query-result JSON, or 0
+/// when the capability isn't granted, the hook isn't `postExecute`, or no
+/// payload is available.
 fn register_query_read(linker: &mut Linker<StoreData>) -> Result<(), wasmi::errors::LinkerError> {
     linker
         .func_wrap(
@@ -564,8 +530,7 @@ fn notify_level(raw: i32) -> NotifyLevel {
     }
 }
 
-/// Reads `len` bytes at `ptr` from the guest's `memory` export, decoded as
-/// UTF-8. Returns `None` on a bounds error, oversized input, or invalid UTF-8.
+/// Returns `None` on a bounds error, oversized input, or invalid UTF-8.
 fn read_string(caller: &mut Caller<'_, StoreData>, ptr: i32, len: i32) -> Option<String> {
     if len < 0 || ptr < 0 {
         return None;
@@ -580,8 +545,8 @@ fn read_string(caller: &mut Caller<'_, StoreData>, ptr: i32, len: i32) -> Option
     String::from_utf8(buf).ok()
 }
 
-/// Allocates `bytes.len()` bytes in the guest via its `qoredb_alloc` export
-/// and writes `bytes` there. Returns the `(ptr, len)` pair on success.
+/// Allocates `bytes.len()` bytes in the guest via `qoredb_alloc`, writes
+/// the payload there, and returns its `(ptr, len)`.
 fn write_into_guest(caller: &mut Caller<'_, StoreData>, bytes: &[u8]) -> Option<(i32, i32)> {
     let len = i32::try_from(bytes.len()).ok()?;
     let alloc = caller
@@ -609,9 +574,6 @@ mod tests {
 
     #[test]
     fn private_destinations_are_recognised() {
-        // Loopback, RFC1918, link-local, cloud metadata, CGNAT, IPv6 ULA,
-        // IPv6 link-local, IPv6 loopback — all the ranges an SSRF pivot
-        // would aim for.
         assert!(is_private_destination(&v4(127, 0, 0, 1)));
         assert!(is_private_destination(&v4(10, 0, 0, 1)));
         assert!(is_private_destination(&v4(172, 16, 0, 1)));
@@ -630,20 +592,17 @@ mod tests {
 
     #[test]
     fn public_destinations_are_allowed() {
-        // Pinned literals for stability — these public ranges must not be
-        // mistaken for private ones.
         assert!(!is_private_destination(&v4(8, 8, 8, 8)));
         assert!(!is_private_destination(&v4(1, 1, 1, 1)));
-        assert!(!is_private_destination(&v4(172, 32, 0, 1))); // outside 172.16/12
-        assert!(!is_private_destination(&v4(100, 128, 0, 1))); // first address after 100.64.0.0/10 CGNAT
+        assert!(!is_private_destination(&v4(172, 32, 0, 1)));
+        assert!(!is_private_destination(&v4(100, 128, 0, 1)));
         assert!(!is_private_destination(&IpAddr::V6(Ipv6Addr::new(
             0x2606, 0x4700, 0, 0, 0, 0, 0, 1
-        )))); // Cloudflare IPv6
+        ))));
     }
 
     #[test]
     fn ipv4_mapped_ipv6_addresses_inherit_the_ipv4_verdict() {
-        // ::ffff:127.0.0.1 must be treated like the v4 loopback it embeds.
         let mapped_loop = IpAddr::V6(Ipv4Addr::LOCALHOST.to_ipv6_mapped());
         assert!(is_private_destination(&mapped_loop));
         let mapped_public = IpAddr::V6(Ipv4Addr::new(8, 8, 8, 8).to_ipv6_mapped());

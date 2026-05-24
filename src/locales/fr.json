@@ -52,6 +52,8 @@
       "runtimeEntry": "Module :",
       "runtimeAbi": "ABI :",
       "runtimeHooks": "Hooks :",
+      "signed": "Signée",
+      "unsigned": "Non signée",
       "capabilities": "Permissions",
       "editConsent": "Modifier",
       "granted": "Accordée",
@@ -80,6 +82,7 @@
       "denyAll": "Tout refuser",
       "save": "Enregistrer",
       "saving": "Enregistrement…",
+      "privateNetworksWarning": "⚠ Cette extension demande à joindre des adresses internes (loopback, réseaux privés, métadonnées cloud).",
       "caps": {
         "log": {
           "title": "Écrire dans les logs",

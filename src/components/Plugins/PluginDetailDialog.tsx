@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Pencil, Play } from 'lucide-react';
+import { Pencil, Play, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -140,9 +140,25 @@ export function PluginDetailDialog({
 
           {manifest.runtime && (
             <section className="rounded-lg border border-warning/30 bg-warning/5 p-2.5">
-              <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-warning">
-                {t('plugins.detail.runtime')}
-              </h4>
+              <div className="mb-1 flex items-center justify-between">
+                <h4 className="text-xs font-semibold uppercase tracking-wide text-warning">
+                  {t('plugins.detail.runtime')}
+                </h4>
+                {manifest.runtime.integrity ? (
+                  <span
+                    className="inline-flex items-center gap-1 rounded-full bg-success/10 px-1.5 py-0.5 text-[10px] font-medium text-success"
+                    title={manifest.runtime.integrity}
+                  >
+                    <ShieldCheck size={11} />
+                    {t('plugins.detail.signed')}
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                    <ShieldAlert size={11} />
+                    {t('plugins.detail.unsigned')}
+                  </span>
+                )}
+              </div>
               <p className="text-xs text-muted-foreground">
                 {t('plugins.detail.runtimeExplanation')}
               </p>

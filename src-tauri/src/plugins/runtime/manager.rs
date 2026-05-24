@@ -143,6 +143,22 @@ impl PluginHost {
                 }
             };
 
+            // Integrity gate: if the manifest pinned a sha256 digest, the
+            // bytes we just read must match it. A mismatch means the .wasm
+            // was swapped or tampered with after publication — refuse to
+            // load it (a malicious plugin could still ship without an
+            // integrity field, but then the UI marks it "Unsigned").
+            if let Some(expected) = runtime_spec.integrity.as_deref() {
+                if let Err(e) = verify_integrity(&wasm, expected) {
+                    tracing::warn!(
+                        plugin = %plugin.manifest.id,
+                        error = %e,
+                        "plugin integrity check failed; refusing to load"
+                    );
+                    continue;
+                }
+            }
+
             // Build the host services for this plugin: snapshot consent,
             // hand it the storage file under its own folder, share the
             // notify sender (if any).
@@ -166,6 +182,12 @@ impl PluginHost {
                 .as_ref()
                 .map(|h| h.allowed_hosts.clone())
                 .unwrap_or_default();
+            let http_allow_private_networks = runtime_spec
+                .capabilities
+                .http
+                .as_ref()
+                .map(|h| h.allow_private_networks)
+                .unwrap_or(false);
             let fs_root = runtime_spec
                 .capabilities
                 .fs
@@ -179,6 +201,7 @@ impl PluginHost {
                 notify: notify.clone(),
                 query_result: None,
                 http_allowed_hosts: Arc::new(http_allowed_hosts),
+                http_allow_private_networks,
                 fs_root,
                 secret_names: Arc::new(secret_names),
             };
@@ -467,6 +490,41 @@ enum HookOutcome<T> {
     Failed(String),
 }
 
+/// Compares a WASM module's actual SHA-256 against the manifest-declared
+/// `sha256-<hex>` digest. The format has already been validated at manifest
+/// parse time, so this only deals with the cryptographic comparison.
+fn verify_integrity(wasm: &[u8], expected: &str) -> Result<(), String> {
+    use sha2::{Digest, Sha256};
+    let Some(expected_hex) = expected.strip_prefix("sha256-") else {
+        return Err(format!("malformed integrity '{expected}'"));
+    };
+    let mut hasher = Sha256::new();
+    hasher.update(wasm);
+    let actual = hasher.finalize();
+    let actual_hex = hex_encode(&actual);
+    // Constant-time compare isn't required (digest is public, the only thing
+    // the comparison protects is determinism); plain `==` is fine.
+    if actual_hex.eq_ignore_ascii_case(expected_hex) {
+        Ok(())
+    } else {
+        Err(format!(
+            "integrity mismatch: expected sha256-{expected_hex}, got sha256-{actual_hex}"
+        ))
+    }
+}
+
+/// Lowercase-hex encoding for a 32-byte SHA-256 digest. Avoids pulling in a
+/// `hex` crate for a single allocation site.
+fn hex_encode(bytes: &[u8]) -> String {
+    const TABLE: &[u8; 16] = b"0123456789abcdef";
+    let mut out = String::with_capacity(bytes.len() * 2);
+    for b in bytes {
+        out.push(TABLE[(b >> 4) as usize] as char);
+        out.push(TABLE[(b & 0x0f) as usize] as char);
+    }
+    out
+}
+
 /// Runs `f` on `instance` through `spawn_blocking`, bounded by `duration`.
 /// Folds timeouts, panics and `PluginError`s into a single `HookOutcome` so
 /// the caller has a flat shape to match on.
@@ -681,6 +739,20 @@ mod tests {
             elapsed < PRE_EXECUTE_TIMEOUT + Duration::from_millis(500),
             "run_pre_execute returned in {elapsed:?}, should have honoured the timeout"
         );
+    }
+
+    #[test]
+    fn verify_integrity_matches_a_known_digest() {
+        // sha256("hello") = 2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824
+        let expected = "sha256-2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824";
+        assert!(verify_integrity(b"hello", expected).is_ok());
+    }
+
+    #[test]
+    fn verify_integrity_rejects_a_tampered_payload() {
+        let expected = "sha256-2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824";
+        let err = verify_integrity(b"hello world", expected).unwrap_err();
+        assert!(err.contains("mismatch"), "unexpected error: {err}");
     }
 
     #[test]

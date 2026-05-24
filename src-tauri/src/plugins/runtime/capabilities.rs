@@ -202,6 +202,7 @@ mod tests {
         let caps = PluginCapabilities {
             http: Some(crate::plugins::HttpCapability {
                 allowed_hosts: vec!["api.example.com".into()],
+                allow_private_networks: false,
             }),
             ..Default::default()
         };

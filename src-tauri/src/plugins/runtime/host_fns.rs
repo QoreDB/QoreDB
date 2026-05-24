@@ -240,6 +240,43 @@ fn register_http(linker: &mut Linker<StoreData>) -> Result<(), wasmi::errors::Li
                     return 0;
                 }
 
+                // SSRF guard: refuse if any resolved IP is private / loopback
+                // / link-local / cloud-metadata. The allowlist by name isn't
+                // enough — an attacker who can influence DNS for
+                // `api.example.com` could otherwise point it at
+                // `169.254.169.254` and pivot through the plugin. Plugins
+                // that legitimately need internal-network access flip
+                // `allowPrivateNetworks: true` in their manifest.
+                if !caller.data().services.http_allow_private_networks {
+                    let port = parsed.port_or_known_default().unwrap_or(0);
+                    let resolved: Vec<std::net::SocketAddr> = match std::net::ToSocketAddrs::to_socket_addrs(&(host, port)) {
+                        Ok(iter) => iter.collect(),
+                        Err(_) => {
+                            tracing::warn!(
+                                target: "plugins",
+                                plugin = %caller.data().services.plugin_id,
+                                host = %host,
+                                "DNS resolution failed for plugin HTTP request"
+                            );
+                            return 0;
+                        }
+                    };
+                    if let Some(blocked) = resolved
+                        .iter()
+                        .map(|a| a.ip())
+                        .find(is_private_destination)
+                    {
+                        tracing::warn!(
+                            target: "plugins",
+                            plugin = %caller.data().services.plugin_id,
+                            host = %host,
+                            address = %blocked,
+                            "blocked plugin HTTP request to private / loopback / metadata address"
+                        );
+                        return 0;
+                    }
+                }
+
                 // Synchronous blocking client — wasmi is sync and lives on
                 // `spawn_blocking` already, so an internal runtime is fine
                 // for the modest call frequency a plugin sees.
@@ -420,6 +457,45 @@ fn register_secrets(linker: &mut Linker<StoreData>) -> Result<(), wasmi::errors:
         .map(|_| ())
 }
 
+/// Returns `true` if `ip` falls inside an address range a plugin's
+/// outbound HTTP must not reach by default. Covers IPv4 loopback / private
+/// RFC1918 / link-local / unspecified / broadcast / multicast, and the IPv6
+/// equivalents plus ULA `fc00::/7` and link-local `fe80::/10`. These are
+/// the ranges an SSRF pivot would target — host metadata services
+/// (`169.254.169.254`), internal databases on `10.x`, the host itself on
+/// `127.0.0.1`.
+fn is_private_destination(ip: &std::net::IpAddr) -> bool {
+    use std::net::IpAddr;
+    match ip {
+        IpAddr::V4(v4) => {
+            v4.is_loopback()
+                || v4.is_private()
+                || v4.is_link_local()
+                || v4.is_unspecified()
+                || v4.is_broadcast()
+                || v4.is_multicast()
+                // CGNAT 100.64.0.0/10 — assigned to ISP-internal NAT, not
+                // user-facing; an external name should not resolve here.
+                || {
+                    let o = v4.octets();
+                    o[0] == 100 && (o[1] & 0b1100_0000) == 0b0100_0000
+                }
+        }
+        IpAddr::V6(v6) => {
+            v6.is_loopback()
+                || v6.is_unspecified()
+                || v6.is_multicast()
+                // fc00::/7 — unique local addresses (the IPv6 equivalent of
+                // RFC1918).
+                || (v6.segments()[0] & 0xfe00) == 0xfc00
+                // fe80::/10 — link-local.
+                || (v6.segments()[0] & 0xffc0) == 0xfe80
+                // IPv4-mapped IPv6 — apply the IPv4 rules to the embedded v4.
+                || v6.to_ipv4_mapped().is_some_and(|v4| is_private_destination(&IpAddr::V4(v4)))
+        }
+    }
+}
+
 /// Joins `requested` to the plugin's `fs_root` and rejects any path that
 /// escapes the root via `..` segments or absolute components.
 fn scoped_fs_path(data: &StoreData, requested: &str) -> Option<std::path::PathBuf> {
@@ -520,4 +596,57 @@ fn write_into_guest(caller: &mut Caller<'_, StoreData>, bytes: &[u8]) -> Option<
 
 fn pack(ptr: i32, len: i32) -> i64 {
     ((ptr as i64) << 32) | (len as i64 & 0xFFFF_FFFF)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+
+    fn v4(a: u8, b: u8, c: u8, d: u8) -> IpAddr {
+        IpAddr::V4(Ipv4Addr::new(a, b, c, d))
+    }
+
+    #[test]
+    fn private_destinations_are_recognised() {
+        // Loopback, RFC1918, link-local, cloud metadata, CGNAT, IPv6 ULA,
+        // IPv6 link-local, IPv6 loopback — all the ranges an SSRF pivot
+        // would aim for.
+        assert!(is_private_destination(&v4(127, 0, 0, 1)));
+        assert!(is_private_destination(&v4(10, 0, 0, 1)));
+        assert!(is_private_destination(&v4(172, 16, 0, 1)));
+        assert!(is_private_destination(&v4(192, 168, 1, 1)));
+        assert!(is_private_destination(&v4(169, 254, 169, 254)));
+        assert!(is_private_destination(&v4(100, 64, 0, 1)));
+        assert!(is_private_destination(&v4(0, 0, 0, 0)));
+        assert!(is_private_destination(&IpAddr::V6(Ipv6Addr::LOCALHOST)));
+        assert!(is_private_destination(&IpAddr::V6(Ipv6Addr::new(
+            0xfc00, 0, 0, 0, 0, 0, 0, 1
+        ))));
+        assert!(is_private_destination(&IpAddr::V6(Ipv6Addr::new(
+            0xfe80, 0, 0, 0, 0, 0, 0, 1
+        ))));
+    }
+
+    #[test]
+    fn public_destinations_are_allowed() {
+        // Pinned literals for stability — these public ranges must not be
+        // mistaken for private ones.
+        assert!(!is_private_destination(&v4(8, 8, 8, 8)));
+        assert!(!is_private_destination(&v4(1, 1, 1, 1)));
+        assert!(!is_private_destination(&v4(172, 32, 0, 1))); // outside 172.16/12
+        assert!(!is_private_destination(&v4(100, 128, 0, 1))); // first address after 100.64.0.0/10 CGNAT
+        assert!(!is_private_destination(&IpAddr::V6(Ipv6Addr::new(
+            0x2606, 0x4700, 0, 0, 0, 0, 0, 1
+        )))); // Cloudflare IPv6
+    }
+
+    #[test]
+    fn ipv4_mapped_ipv6_addresses_inherit_the_ipv4_verdict() {
+        // ::ffff:127.0.0.1 must be treated like the v4 loopback it embeds.
+        let mapped_loop = IpAddr::V6(Ipv4Addr::LOCALHOST.to_ipv6_mapped());
+        assert!(is_private_destination(&mapped_loop));
+        let mapped_public = IpAddr::V6(Ipv4Addr::new(8, 8, 8, 8).to_ipv6_mapped());
+        assert!(!is_private_destination(&mapped_public));
+    }
 }

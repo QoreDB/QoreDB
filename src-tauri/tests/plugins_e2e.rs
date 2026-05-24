@@ -73,6 +73,7 @@ fn services(
         notify: None,
         query_result: None,
         http_allowed_hosts: Arc::new(http_hosts),
+        http_allow_private_networks: false,
         fs_root,
         secret_names: Arc::new(secrets),
     }
@@ -306,6 +307,7 @@ fn storage_capability_granted_persists_a_value() {
         notify: None,
         query_result: None,
         http_allowed_hosts: Arc::new(vec![]),
+        http_allow_private_networks: false,
         fs_root: None,
         secret_names: Arc::new(vec![]),
     };
@@ -375,6 +377,64 @@ fn http_probe_module() -> String {
         url_len = url.len(),
         packed = packed(DECISION_PTR, 16)
     )
+}
+
+/// Module that issues an HTTP request to a loopback IP literal — the
+/// allowlist accepts it (the host *string* matches) but the SSRF guard must
+/// refuse once it sees the address resolves into 127.0.0.0/8.
+fn http_loopback_probe_module() -> String {
+    let url = "http://127.0.0.1:9/";
+    format!(
+        r#"
+(module
+  (import "env" "qoredb_http_request" (func $http
+    (param i32 i32 i32 i32 i32 i32) (result i64)))
+  (memory (export "memory") 2)
+  (data (i32.const {DECISION_PTR}) "{{\"kind\":\"allow\"}}")
+  (data (i32.const 2000) "GET")
+  (data (i32.const 2048) "{url}")
+  (func (export "qoredb_alloc") (param i32) (result i32) i32.const {ALLOC_PTR})
+  (func (export "pre_execute") (param i32 i32) (result i64)
+    (drop (call $http
+      (i32.const 2000) (i32.const 3)
+      (i32.const 2048) (i32.const {url_len})
+      (i32.const 0) (i32.const 0)))
+    i64.const {packed}))
+"#,
+        url_len = url.len(),
+        packed = packed(DECISION_PTR, 16)
+    )
+}
+
+#[test]
+fn http_request_to_a_loopback_address_is_rejected_by_the_ssrf_guard() {
+    // The host *name* is on the allowlist, but the SSRF guard sees that it
+    // resolves into a loopback range and refuses. If the guard regressed,
+    // the call would reach reqwest, which would either connect locally or
+    // time out — either way, blow past the 100ms budget below.
+    let tmp = tempfile::tempdir().unwrap();
+    let wasm = compile(&http_loopback_probe_module());
+
+    let svc = services(
+        "test.ssrf",
+        &[CapabilityKind::Http],
+        &tmp.path().to_path_buf(),
+        None,
+        vec!["127.0.0.1".into()],
+        vec![],
+    );
+
+    let runtime = WasmiRuntime::new();
+    let mut instance = runtime
+        .load("test.ssrf".into(), &wasm, Budget::default(), svc)
+        .unwrap();
+    let start = std::time::Instant::now();
+    assert_eq!(instance.pre_execute(&ctx()).unwrap(), Decision::Allow);
+    assert!(
+        start.elapsed() < std::time::Duration::from_millis(500),
+        "SSRF guard must short-circuit; took {:?}",
+        start.elapsed()
+    );
 }
 
 #[test]

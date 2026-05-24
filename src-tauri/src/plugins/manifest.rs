@@ -474,6 +474,51 @@ mod tests {
     }
 
     #[test]
+    fn accepts_a_valid_integrity_hash() {
+        let json = r#"{
+            "id":"acme.x","name":"X","version":"1.0.0",
+            "runtime":{"abiVersion":1,"entry":"plugin.wasm",
+                       "integrity":"sha256-e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"}
+        }"#;
+        let m = manifest(json).unwrap();
+        assert_eq!(
+            m.runtime.unwrap().integrity.as_deref(),
+            Some("sha256-e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
+        );
+    }
+
+    #[test]
+    fn rejects_integrity_without_the_sha256_prefix() {
+        let json = r#"{
+            "id":"acme.x","name":"X","version":"1.0.0",
+            "runtime":{"abiVersion":1,"entry":"plugin.wasm",
+                       "integrity":"deadbeef"}
+        }"#;
+        assert!(manifest(json).unwrap_err().contains("sha256-"));
+    }
+
+    #[test]
+    fn rejects_integrity_with_wrong_hex_length() {
+        let json = r#"{
+            "id":"acme.x","name":"X","version":"1.0.0",
+            "runtime":{"abiVersion":1,"entry":"plugin.wasm",
+                       "integrity":"sha256-abc"}
+        }"#;
+        assert!(manifest(json).unwrap_err().contains("64"));
+    }
+
+    #[test]
+    fn rejects_integrity_with_uppercase_hex() {
+        // Lowercase enforced so manifests have a single canonical form.
+        let json = r#"{
+            "id":"acme.x","name":"X","version":"1.0.0",
+            "runtime":{"abiVersion":1,"entry":"plugin.wasm",
+                       "integrity":"sha256-E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"}
+        }"#;
+        assert!(manifest(json).unwrap_err().contains("lowercase"));
+    }
+
+    #[test]
     fn rejects_command_with_empty_label() {
         let json = r#"{
             "id":"acme.x","name":"X","version":"1.0.0",

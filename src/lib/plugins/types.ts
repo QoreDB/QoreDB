@@ -86,6 +86,10 @@ export type PluginCapabilityKind =
 
 export interface HttpCapability {
   allowedHosts: string[];
+  /** When true, the plugin may reach private / loopback / link-local /
+   *  cloud-metadata addresses. Off by default — flagged in the consent UI
+   *  when on. */
+  allowPrivateNetworks?: boolean;
 }
 
 export interface FsCapability {
@@ -113,6 +117,10 @@ export interface PluginRuntimeSpec {
   entry: string;
   hooks: PluginHookKind[];
   capabilities?: PluginCapabilities;
+  /** Optional `sha256-<64 hex>` digest of the WASM module. Plugins shipped
+   *  with this field refuse to load on mismatch — the UI surfaces them as
+   *  "Signed"; plugins without it are shown as "Unsigned". */
+  integrity?: string;
 }
 
 /** Tauri event payload emitted when a plugin issues a `notify` call. */

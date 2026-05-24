@@ -222,6 +222,13 @@ pub struct PluginCapabilities {
 pub struct HttpCapability {
     /// Hosts the plugin may contact. An empty list is rejected at validation.
     pub allowed_hosts: Vec<String>,
+    /// Opt-in escape hatch: when true, the plugin may resolve `allowed_hosts`
+    /// to private / loopback / link-local / cloud-metadata addresses. False
+    /// by default so an attacker who tricks DNS into pointing
+    /// `api.example.com` at `169.254.169.254` (or `10.0.0.1`) cannot use the
+    /// plugin as an SSRF jump host into the user's internal network.
+    #[serde(default)]
+    pub allow_private_networks: bool,
 }
 
 /// Filesystem capability, scoped so a plugin can never escape its own folder.

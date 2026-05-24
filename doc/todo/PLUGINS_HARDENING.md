@@ -137,16 +137,18 @@ sur les notes.
 | P3 ✅ | Verrou par plugin : `Mutex<HashMap<String, Arc<Mutex<Box<dyn PluginInstance>>>>>`. `snapshot_instances` clone les Arcs sous le verrou outer, le drop, puis chaque hook s'exécute dans `spawn_blocking` avec son propre verrou inner. | Plusieurs queries simultanées sur des plugins différents ne contendent plus sur un Mutex global. |
 | P4 ✅ | Cache mémoire `contributions_cache: Mutex<Option<Arc<PluginContributions>>>` sur `PluginHost`. `reload()` (point d'invalidation unique : install/remove/enable/disable/consent) le vide. `get_plugin_contributions` consomme désormais le cache. | Test `contributions_cache_is_shared_across_calls_and_cleared_on_reload`. Frontend lit les contributions sans I/O après le premier appel. |
 
-### Phase 4 — Sécurité avancée
+### Phase 4 — Sécurité avancée — ✅ livrée
 
 > **Impact** : Sécurité 7.5 → 9.5.
+>
+> **Statut** : S1, S2, S4 et audit ordre des checks livrés. Tests Rust : 60 unit dans `plugins` + 12 E2E.
 
 | Item | Action | Critère d'acceptation |
 | --- | --- | --- |
-| S1 | Après `parsed.host_str()`, résoudre via `tokio::net::lookup_host` et refuser : `127.0.0.0/8`, `10.0.0.0/8`, `172.16/12`, `192.168/16`, `169.254/16`, `::1`, `fc00::/7`, `fe80::/10`. Capability opt-in `http.allowPrivateNetworks: true` pour les cas légitimes (linter interne). | Plugin avec `allowedHosts: ["internal.test"]` qui résout en `10.x.x.x` est refusé. Toggle opt-in surfacé dans le ConsentDialog. |
-| S2 | Champ optionnel `runtime.integrity: "sha256-<hex>"` dans le manifeste. Vérif à `load()` ; refus si mismatch. Badge UI « Plugin signé / non signé ». | Modification du `.wasm` après publication = chargement refusé. |
-| S4 | `tracing::warn!(plugin=..., capability=...)` à chaque `ERR_DENIED` côté host. | Logs lisibles permettent de détecter un plugin malveillant. |
-| — | Audit ordre des checks dans `host_fns.rs` : la capability check doit toujours être la **première** instruction. | Audit documenté dans `doc/audits/`. |
+| S1 ✅ | Helper `is_private_destination(IpAddr)` (loopback / RFC1918 / link-local / cloud metadata 169.254 / CGNAT 100.64-127 / IPv6 ULA + link-local + mapped). Après le filtre allowlist d'hôtes dans `qoredb_http_request`, résolution sync via `ToSocketAddrs` puis refus si une IP retombe dans une plage interne. Manifest : `http.allowPrivateNetworks: true` est l'escape hatch. ConsentDialog surface un encart Warning quand le flag est demandé. | 3 tests unitaires (private / public / mapped) + 1 E2E (`http_request_to_a_loopback_address_is_rejected_by_the_ssrf_guard`). |
+| S2 ✅ | Champ `runtime.integrity: "sha256-<64 hex>"` ajouté à `RuntimeSpec`. Validé au parse manifest (préfixe + 64 hex lowercase). Vérifié à `reload()` via `sha2::Sha256` ; mismatch = refus de chargement + log warn. Badge UI `Signed / Unsigned` dans `PluginDetailDialog`. | 4 tests manifest (accept / no-prefix / wrong-length / uppercase) + 2 tests `verify_integrity` (match / tamper). |
+| S4 ✅ | Helper `has_capability(&Caller, CapabilityKind)` qui consigne `tracing::warn!(plugin=..., capability=...)` à chaque refus. Toutes les host fns refactorées pour l'utiliser. | Inspection par diff : la dénégation produit désormais une ligne de log lisible. |
+| Audit ✅ | Doc `doc/audits/PLUGIN_CAPABILITY_CHECKS.md` qui certifie que la vérification de capability est la **première** instruction de chaque host fn (11 host fns, table de conformité). | Doc livrée ; régression détectable au diff review. |
 
 ### Phase 5 — Performances ciblées
 

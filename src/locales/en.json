@@ -52,6 +52,8 @@
       "runtimeEntry": "Module:",
       "runtimeAbi": "ABI:",
       "runtimeHooks": "Hooks:",
+      "signed": "Signed",
+      "unsigned": "Unsigned",
       "capabilities": "Capabilities",
       "editConsent": "Edit",
       "granted": "Granted",
@@ -80,6 +82,7 @@
       "denyAll": "Deny all",
       "save": "Save permissions",
       "saving": "Saving…",
+      "privateNetworksWarning": "⚠ This plugin requests access to internal addresses (loopback, private networks, cloud metadata).",
       "caps": {
         "log": {
           "title": "Write to the log",

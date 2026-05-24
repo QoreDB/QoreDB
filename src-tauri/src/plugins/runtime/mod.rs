@@ -107,6 +107,11 @@ pub struct InvocationServices {
     /// Hosts the plugin is allowed to contact. Re-checked by the `http`
     /// host fn against the URL the plugin passes — defence in depth.
     pub http_allowed_hosts: Arc<Vec<String>>,
+    /// When false (default), the `http` host fn refuses any outbound request
+    /// that resolves to a loopback / private / link-local / cloud-metadata
+    /// address. Plugins that legitimately need internal-network access (an
+    /// on-premise data catalogue, a sidecar) flip this on in their manifest.
+    pub http_allow_private_networks: bool,
     /// Directory the plugin's `fs` host fns are scoped to. Every requested
     /// path is joined here and rejected if it escapes the directory.
     pub fs_root: Option<PathBuf>,

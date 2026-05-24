@@ -100,6 +100,28 @@ fn validate_runtime(r: &RuntimeSpec) -> Result<(), String> {
             return Err("The 'http' capability requires a non-empty allowedHosts list".into());
         }
     }
+    if let Some(integrity) = &r.integrity {
+        validate_integrity(integrity)?;
+    }
+    Ok(())
+}
+
+/// Accepts the subresource-integrity-style format `sha256-<64 lowercase hex>`.
+/// Any other shape is rejected at manifest parse time so a typo turns into a
+/// clear error rather than a silent "always fails to load".
+fn validate_integrity(value: &str) -> Result<(), String> {
+    let Some(hex) = value.strip_prefix("sha256-") else {
+        return Err(
+            "Runtime integrity must start with 'sha256-' followed by a 64-character hex digest"
+                .into(),
+        );
+    };
+    if hex.len() != 64 || !hex.chars().all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase()) {
+        return Err(
+            "Runtime integrity must be 'sha256-' followed by exactly 64 lowercase hex characters"
+                .into(),
+        );
+    }
     Ok(())
 }
 

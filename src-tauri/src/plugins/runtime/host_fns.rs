@@ -24,6 +24,23 @@ pub const ERR_QUOTA: i32 = -3;
 /// plugin from asking the host to read its entire linear memory as a key.
 const MAX_STRING_ARG: usize = 64 * 1024;
 
+/// Returns `true` if the plugin has been granted `kind`. A refusal is logged
+/// at warn level so an attempt to use a non-granted capability leaves an
+/// audit trail — a plugin can still receive `ERR_DENIED` silently from its
+/// own perspective, but the host operator sees what happened.
+fn has_capability(caller: &Caller<'_, StoreData>, kind: CapabilityKind) -> bool {
+    if caller.data().services.consent.contains(&kind) {
+        return true;
+    }
+    tracing::warn!(
+        target: "plugins",
+        plugin = %caller.data().services.plugin_id,
+        capability = ?kind,
+        "plugin attempted to use a capability it was not granted"
+    );
+    false
+}
+
 /// Registers every host function on the linker. Phase 2 plus the Phase 3
 /// `http` / `fs` / `secrets` surfaces; every function self-checks its
 /// capability at call time, so a plugin that didn't request a capability
@@ -45,12 +62,7 @@ fn register_log(linker: &mut Linker<StoreData>) -> Result<(), wasmi::errors::Lin
             "env",
             "qoredb_log",
             |mut caller: Caller<'_, StoreData>, level: i32, ptr: i32, len: i32| -> i32 {
-                if !caller
-                    .data()
-                    .services
-                    .consent
-                    .contains(&CapabilityKind::Log)
-                {
+                if !has_capability(&caller, CapabilityKind::Log) {
                     return ERR_DENIED;
                 }
                 let Some(msg) = read_string(&mut caller, ptr, len) else {
@@ -76,12 +88,7 @@ fn register_notify(linker: &mut Linker<StoreData>) -> Result<(), wasmi::errors::
             "env",
             "qoredb_notify",
             |mut caller: Caller<'_, StoreData>, level: i32, ptr: i32, len: i32| -> i32 {
-                if !caller
-                    .data()
-                    .services
-                    .consent
-                    .contains(&CapabilityKind::Notify)
-                {
+                if !has_capability(&caller, CapabilityKind::Notify) {
                     return ERR_DENIED;
                 }
                 let Some(msg) = read_string(&mut caller, ptr, len) else {
@@ -107,12 +114,7 @@ fn register_storage(linker: &mut Linker<StoreData>) -> Result<(), wasmi::errors:
         "env",
         "qoredb_kv_get",
         |mut caller: Caller<'_, StoreData>, key_ptr: i32, key_len: i32| -> i64 {
-            if !caller
-                .data()
-                .services
-                .consent
-                .contains(&CapabilityKind::Storage)
-            {
+            if !has_capability(&caller, CapabilityKind::Storage) {
                 return 0;
             }
             let Some(key) = read_string(&mut caller, key_ptr, key_len) else {
@@ -137,12 +139,7 @@ fn register_storage(linker: &mut Linker<StoreData>) -> Result<(), wasmi::errors:
          val_ptr: i32,
          val_len: i32|
          -> i32 {
-            if !caller
-                .data()
-                .services
-                .consent
-                .contains(&CapabilityKind::Storage)
-            {
+            if !has_capability(&caller, CapabilityKind::Storage) {
                 return ERR_DENIED;
             }
             let Some(key) = read_string(&mut caller, key_ptr, key_len) else {
@@ -164,12 +161,7 @@ fn register_storage(linker: &mut Linker<StoreData>) -> Result<(), wasmi::errors:
             "env",
             "qoredb_kv_del",
             |mut caller: Caller<'_, StoreData>, key_ptr: i32, key_len: i32| -> i32 {
-                if !caller
-                    .data()
-                    .services
-                    .consent
-                    .contains(&CapabilityKind::Storage)
-                {
+                if !has_capability(&caller, CapabilityKind::Storage) {
                     return ERR_DENIED;
                 }
                 let Some(key) = read_string(&mut caller, key_ptr, key_len) else {
@@ -207,12 +199,7 @@ fn register_http(linker: &mut Linker<StoreData>) -> Result<(), wasmi::errors::Li
              body_ptr: i32,
              body_len: i32|
              -> i64 {
-                if !caller
-                    .data()
-                    .services
-                    .consent
-                    .contains(&CapabilityKind::Http)
-                {
+                if !has_capability(&caller, CapabilityKind::Http) {
                     return 0;
                 }
                 let Some(method) = read_string(&mut caller, method_ptr, method_len) else {
@@ -308,12 +295,7 @@ fn register_fs(linker: &mut Linker<StoreData>) -> Result<(), wasmi::errors::Link
         "env",
         "qoredb_fs_read",
         |mut caller: Caller<'_, StoreData>, path_ptr: i32, path_len: i32| -> i64 {
-            if !caller
-                .data()
-                .services
-                .consent
-                .contains(&CapabilityKind::Fs)
-            {
+            if !has_capability(&caller, CapabilityKind::Fs) {
                 return 0;
             }
             let Some(path) = read_string(&mut caller, path_ptr, path_len) else {
@@ -345,12 +327,7 @@ fn register_fs(linker: &mut Linker<StoreData>) -> Result<(), wasmi::errors::Link
          data_ptr: i32,
          data_len: i32|
          -> i32 {
-            if !caller
-                .data()
-                .services
-                .consent
-                .contains(&CapabilityKind::Fs)
-            {
+            if !has_capability(&caller, CapabilityKind::Fs) {
                 return ERR_DENIED;
             }
             if data_len < 0 || (data_len as usize) > FS_MAX_FILE_BYTES {
@@ -384,12 +361,7 @@ fn register_fs(linker: &mut Linker<StoreData>) -> Result<(), wasmi::errors::Link
             "env",
             "qoredb_fs_delete",
             |mut caller: Caller<'_, StoreData>, path_ptr: i32, path_len: i32| -> i32 {
-                if !caller
-                    .data()
-                    .services
-                    .consent
-                    .contains(&CapabilityKind::Fs)
-                {
+                if !has_capability(&caller, CapabilityKind::Fs) {
                     return ERR_DENIED;
                 }
                 let Some(path) = read_string(&mut caller, path_ptr, path_len) else {
@@ -416,12 +388,7 @@ fn register_secrets(linker: &mut Linker<StoreData>) -> Result<(), wasmi::errors:
             "env",
             "qoredb_secret_get",
             |mut caller: Caller<'_, StoreData>, name_ptr: i32, name_len: i32| -> i64 {
-                if !caller
-                    .data()
-                    .services
-                    .consent
-                    .contains(&CapabilityKind::Secrets)
-                {
+                if !has_capability(&caller, CapabilityKind::Secrets) {
                     return 0;
                 }
                 let Some(name) = read_string(&mut caller, name_ptr, name_len) else {
@@ -496,12 +463,7 @@ fn register_query_read(linker: &mut Linker<StoreData>) -> Result<(), wasmi::erro
             "env",
             "qoredb_query_read",
             |mut caller: Caller<'_, StoreData>| -> i64 {
-                if !caller
-                    .data()
-                    .services
-                    .consent
-                    .contains(&CapabilityKind::QueryRead)
-                {
+                if !has_capability(&caller, CapabilityKind::QueryRead) {
                     return 0;
                 }
                 let Some(payload) = caller.data().services.query_result.clone() else {

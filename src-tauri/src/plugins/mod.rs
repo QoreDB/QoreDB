@@ -170,6 +170,12 @@ pub struct RuntimeSpec {
     /// Capabilities the plugin requests. Default: none.
     #[serde(default)]
     pub capabilities: PluginCapabilities,
+    /// Expected SHA-256 of the WASM module, in the form `sha256-<64 hex>`.
+    /// When present, the runtime refuses to load a module whose actual hash
+    /// differs — a tampered or swapped binary fails fast. Optional: plugins
+    /// without an integrity hash are surfaced as "Unsigned" in the UI.
+    #[serde(default)]
+    pub integrity: Option<String>,
 }
 
 /// A lifecycle hook a plugin's WASM module can subscribe to.

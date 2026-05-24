@@ -1,0 +1,199 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://qoredb.com/schemas/plugin.schema.json",
+  "title": "QoreDB plugin manifest",
+  "description": "Schema for a QoreDB plugin's plugin.json. Drives validation in the host and autocompletion in editors that honour $schema.",
+  "type": "object",
+  "required": ["id", "name", "version"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "id": {
+      "type": "string",
+      "description": "Reverse-DNS plugin identifier. Lowercase letters, digits, '.', '-' or '_'. Must start with a letter or digit.",
+      "pattern": "^[a-z0-9][a-z0-9._-]*$",
+      "examples": ["acme.audit", "yourcorp.sql-linter"]
+    },
+    "name": { "type": "string", "minLength": 1, "description": "Display name shown in QoreDB's plugins panel." },
+    "version": { "type": "string", "minLength": 1, "description": "Semver-like version of the plugin itself. Free-form; not enforced by the host." },
+    "author": { "type": "string" },
+    "description": { "type": "string" },
+    "qoredb": {
+      "type": "string",
+      "description": "QoreDB version requirement. Currently honoured: '>=X.Y.Z' or a bare 'X.Y.Z'; anything else is treated as compatible."
+    },
+    "runtime": { "$ref": "#/$defs/runtime" },
+    "contributes": { "$ref": "#/$defs/contributes" }
+  },
+  "$defs": {
+    "runtime": {
+      "type": "object",
+      "description": "Executable-runtime descriptor. Omit for declarative-only plugins.",
+      "required": ["abiVersion", "entry"],
+      "additionalProperties": false,
+      "properties": {
+        "abiVersion": {
+          "type": "integer",
+          "const": 1,
+          "description": "Host ABI version the plugin was built against. Current: 1."
+        },
+        "entry": {
+          "type": "string",
+          "pattern": "^[^/\\\\]+\\.wasm$",
+          "description": "WASM module filename, bare (no path separators)."
+        },
+        "integrity": {
+          "type": "string",
+          "pattern": "^sha256-[0-9a-f]{64}$",
+          "description": "sha256-<64 lowercase hex> digest of the .wasm bytes. When present, the host refuses to load a mismatched module."
+        },
+        "hooks": {
+          "type": "array",
+          "items": { "enum": ["preExecute", "postExecute"] },
+          "description": "Lifecycle hooks the plugin subscribes to."
+        },
+        "capabilities": { "$ref": "#/$defs/capabilities" }
+      }
+    },
+    "capabilities": {
+      "type": "object",
+      "description": "Host surfaces the WASM module wants. Every field defaults to off.",
+      "additionalProperties": false,
+      "properties": {
+        "log": { "type": "boolean", "description": "Write to the QoreDB tracing log." },
+        "notify": { "type": "boolean", "description": "Show toast notifications." },
+        "storage": { "type": "boolean", "description": "Read/write a per-plugin KV store." },
+        "queryRead": { "type": "boolean", "description": "Pull the rows of the current query result in postExecute." },
+        "http": {
+          "type": "object",
+          "required": ["allowedHosts"],
+          "additionalProperties": false,
+          "properties": {
+            "allowedHosts": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "type": "string", "minLength": 1 },
+              "description": "Hosts the plugin may contact. Empty array is rejected."
+            },
+            "allowPrivateNetworks": {
+              "type": "boolean",
+              "default": false,
+              "description": "Opt-in escape hatch: allow resolution to private / loopback / link-local / cloud-metadata addresses. Surfaced as a warning in the consent UI."
+            }
+          }
+        },
+        "fs": {
+          "type": "object",
+          "required": ["scope"],
+          "additionalProperties": false,
+          "properties": {
+            "scope": {
+              "enum": ["pluginData"],
+              "description": "Only 'pluginData' is supported: the plugin's own <plugin>/data/ directory."
+            }
+          }
+        },
+        "secrets": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "description": "Names of secrets the plugin will ask the host to read. The host filters to exactly these names."
+        }
+      }
+    },
+    "contributes": {
+      "type": "object",
+      "description": "Static data the plugin exposes to the rest of QoreDB.",
+      "additionalProperties": false,
+      "properties": {
+        "snippets": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "label", "template"],
+            "additionalProperties": false,
+            "properties": {
+              "id": { "type": "string", "minLength": 1 },
+              "label": { "type": "string", "minLength": 1 },
+              "description": { "type": "string" },
+              "template": { "type": "string", "minLength": 1 }
+            }
+          }
+        },
+        "connectionTemplates": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "name", "driver"],
+            "additionalProperties": false,
+            "properties": {
+              "id": { "type": "string", "minLength": 1 },
+              "name": { "type": "string", "minLength": 1 },
+              "description": { "type": "string" },
+              "driver": { "type": "string", "minLength": 1, "description": "Driver id, e.g. 'postgres', 'mysql'." },
+              "defaults": { "type": "object", "additionalProperties": true }
+            }
+          }
+        },
+        "themes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "name"],
+            "additionalProperties": false,
+            "properties": {
+              "id": { "type": "string", "minLength": 1 },
+              "name": { "type": "string", "minLength": 1 },
+              "description": { "type": "string" },
+              "light": {
+                "type": "object",
+                "description": "CSS variable values. Keys must start with '--q-'.",
+                "patternProperties": { "^--q-": { "type": "string" } },
+                "additionalProperties": false
+              },
+              "dark": {
+                "type": "object",
+                "patternProperties": { "^--q-": { "type": "string" } },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "resultViewers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "match", "renderer"],
+            "additionalProperties": false,
+            "properties": {
+              "id": { "type": "string", "minLength": 1 },
+              "match": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "columnType": { "type": "string", "description": "Case-insensitive column-type match, e.g. 'jsonb'." },
+                  "namePattern": { "type": "string", "description": "Column-name pattern; '*' is the only wildcard." }
+                }
+              },
+              "renderer": { "enum": ["json-tree", "image", "chart", "map"] },
+              "options": { "type": "object", "additionalProperties": true }
+            }
+          }
+        },
+        "commands": {
+          "type": "array",
+          "description": "User-invocable actions. Each one fires the plugin's 'command' hook; requires a runtime block.",
+          "items": {
+            "type": "object",
+            "required": ["id", "label"],
+            "additionalProperties": false,
+            "properties": {
+              "id": { "type": "string", "minLength": 1 },
+              "label": { "type": "string", "minLength": 1 },
+              "description": { "type": "string" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -159,18 +159,20 @@ sur les notes.
 | P1 | Migration `wasmi → wasmtime`. Le trait `PluginRuntime` est déjà conçu pour. Garder fuel + memory_size_bytes. | Bench preExecute sur un linter complexe : -90 % de temps CPU. |
 | P5 | Optionnel : pool d'instances chaudes (2 par plugin) avec reset de fuel. À jauger sur le bench post-wasmtime. | Si gain mesuré ≥ 30 %, mergé. Sinon, on s'arrête à P1. |
 
-### Phase 6 — DX, écosystème, gouvernance
+### Phase 6 — DX, écosystème, gouvernance — ✅ livrée (D4 reportée)
 
 > **Impact** : DX 6 → 8.5 · Distribution 3 → 6.
+>
+> **Statut** : D1, D2, D3, D5 (les deux volets) livrés. D4 (mock host pour tests côté plugin) reportée — l'implémentation propre demande un crate dédié sans dépendance circulaire avec `qoredb-plugin-sdk`, scope qui dépasse le périmètre Phase 6.
 
 | Item | Action | Critère d'acceptation |
 | --- | --- | --- |
-| D1 | Binaire `qoredb-plugin` dans `plugins-dev/cli/` : `new <id>` (scaffolding), `build` (cargo + sha256 + copy `.wasm`), `install <path>` (Tauri IPC). | `qoredb-plugin new acme.foo && cd acme.foo && qoredb-plugin build && qoredb-plugin install` fonctionne. |
-| D2 | Refonte `plugins-dev/README.md` : refléter http/fs/secrets/commands/result viewers, section debug. | Lecture du README permet d'écrire un plugin HTTP en partant de zéro. |
-| D3 | `plugins-dev/ABI.md` : spec exports requis, format packed i64, codes d'erreur. | Document de référence partageable. |
-| D4 | Crate `qoredb-plugin-sdk-test` : mock host pour `cargo test` côté plugin. | Le sql-linter peut tester son `check()` sans WASM. |
-| D5 (partiel) | Manifest schema JSON publié (`plugin.schema.json`). Référence dans le `$schema` du manifeste exemple. | Autocompletion VS Code. |
-| D5 | Trust model documenté (`doc/internals/PLUGIN_TRUST.md`) : badge « non signé », guide utilisateur. | Documentation visible dans le `PluginDetailDialog`. |
+| D1 ✅ | Binaire `qoredb-plugin` dans `plugins-dev/cli/` (clap + serde_json + sha2 + toml_edit + dirs). Sous-commandes `new <id>` (scaffold Cargo crate + plugin.json + lib.rs), `build` (cargo + copy WASM + maj sha256 dans `runtime.integrity`), `install` (copy vers `<app-data>/com.qoredb.app/plugins/`). | `qoredb-plugin new acme.foo` scaffolde un projet utilisable, testé en E2E manuel. |
+| D2 ✅ | Refonte complète de `plugins-dev/README.md` : quick start avec le CLI, doc capabilities (table http/fs/secrets/commands/result viewers), section debug, helpers SDK. | Lecture du README suffit pour écrire un plugin HTTP de zéro. |
+| D3 ✅ | `plugins-dev/ABI.md` : exports requis, format packed `i64`, codes d'erreur, host fns avec leurs signatures, ordre des checks, budgets, intégrité, ABI versioning. | Document de référence complet, partageable hors équipe. |
+| D4 ↩ | Crate `qoredb-plugin-sdk-test` : mock host pour `cargo test` côté plugin. | **Reporté** — demande un sous-projet à part avec mock des host fns par capability. |
+| D5a ✅ | `plugin.schema.json` au root du repo. Référencé via `$schema` dans `plugins-dev/examples/sql-linter/plugin.json` et dans le manifeste scaffoldé par le CLI. | Autocompletion VS Code active dès que `$schema` est référencé. |
+| D5b ✅ | `doc/internals/PLUGIN_TRUST.md` : modèle de menace, invariants enforced, choix consentement, sens du badge Signed/Unsigned, defense in depth, scope explicitement out. | Documentation lisible par un utilisateur final, complète. |
 
 ---
 

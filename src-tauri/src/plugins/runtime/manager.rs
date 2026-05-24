@@ -8,7 +8,7 @@
 //! that errors is logged and skipped — it can never block a query by failing.
 
 use std::collections::{BTreeSet, HashMap};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, MutexGuard};
 
 use super::{
     capabilities, storage, Budget, CapabilityKind, Decision, HookContext, InvocationServices,
@@ -16,6 +16,24 @@ use super::{
     PostExecuteResult, QueryReadPayload, WasmiRuntime,
 };
 use crate::plugins::{plugins_dir, registry};
+
+/// Locks a `Mutex` and recovers from poisoning so a single panicked hook can
+/// never lock the whole `PluginHost` out. Poisoning is logged so it isn't
+/// silently swept under the rug.
+fn lock_recover<'a, T>(mutex: &'a Mutex<T>, what: &'static str) -> MutexGuard<'a, T> {
+    match mutex.lock() {
+        Ok(guard) => guard,
+        Err(poisoned) => {
+            tracing::error!(target: "plugins", lock = what, "plugin host mutex was poisoned; recovering");
+            poisoned.into_inner()
+        }
+    }
+}
+
+/// Consecutive hook failures after which a misbehaving plugin is unloaded
+/// for the rest of the session. The threshold is small on purpose: a plugin
+/// that traps once is unlucky, three times in a row is broken.
+const CIRCUIT_BREAKER_THRESHOLD: u32 = 3;
 
 /// Loads executable plugins and runs their hooks.
 pub struct PluginHost {
@@ -25,6 +43,9 @@ pub struct PluginHost {
     notify: Mutex<Option<NotifySender>>,
     /// Loaded instances, keyed by plugin id.
     instances: Mutex<HashMap<String, Box<dyn PluginInstance>>>,
+    /// Consecutive hook-failure count per plugin id. A plugin that crosses
+    /// [`CIRCUIT_BREAKER_THRESHOLD`] is unloaded; a success resets the count.
+    failures: Mutex<HashMap<String, u32>>,
 }
 
 impl PluginHost {
@@ -33,6 +54,7 @@ impl PluginHost {
             runtime: Arc::new(WasmiRuntime::new()),
             notify: Mutex::new(None),
             instances: Mutex::new(HashMap::new()),
+            failures: Mutex::new(HashMap::new()),
         }
     }
 
@@ -40,7 +62,7 @@ impl PluginHost {
     /// Called once at app startup, before the first reload that should be
     /// able to surface notifications.
     pub fn set_notify_sender(&self, sender: NotifySender) {
-        *self.notify.lock().unwrap() = Some(sender);
+        *lock_recover(&self.notify, "notify") = Some(sender);
     }
 
     /// Rescans the plugins directory and (re)loads every enabled, compatible
@@ -48,9 +70,10 @@ impl PluginHost {
     /// removed, enabled, disabled, or its consent changes.
     pub fn reload(&self) {
         let dir = plugins_dir();
-        let notify = self.notify.lock().unwrap().clone();
-        let mut instances = self.instances.lock().unwrap();
+        let notify = lock_recover(&self.notify, "notify").clone();
+        let mut instances = lock_recover(&self.instances, "instances");
         instances.clear();
+        lock_recover(&self.failures, "failures").clear();
 
         for plugin in registry::list_plugins(&dir) {
             if !plugin.enabled || !plugin.compatible {
@@ -138,21 +161,37 @@ impl PluginHost {
     /// A `Warn` is also surfaced to the user as a toast through the same
     /// `plugin-notify` channel the `notify` capability uses.
     pub fn run_pre_execute(&self, context: &HookContext) -> Decision {
-        let mut instances = self.instances.lock().unwrap();
+        let mut instances = lock_recover(&self.instances, "instances");
         let mut warning: Option<(String, String)> = None;
+        let mut tripped: Vec<String> = Vec::new();
         for (id, instance) in instances.iter_mut() {
             match instance.pre_execute(context) {
-                Ok(Decision::Allow) => {}
+                Ok(Decision::Allow) => {
+                    self.record_success(id);
+                }
                 Ok(Decision::Warn { message }) => {
+                    self.record_success(id);
                     warning.get_or_insert_with(|| (id.clone(), message));
                 }
-                Ok(Decision::Block { reason }) => return Decision::Block { reason },
+                Ok(Decision::Block { reason }) => {
+                    self.record_success(id);
+                    return Decision::Block { reason };
+                }
                 Err(e) => {
                     tracing::warn!(plugin = %id, error = %e, "plugin pre_execute hook failed");
+                    if self.record_failure(id) {
+                        tripped.push(id.clone());
+                    }
                 }
             }
         }
+        for id in &tripped {
+            instances.remove(id);
+        }
         drop(instances);
+        for id in tripped {
+            self.notify_disabled(&id);
+        }
         match warning {
             Some((plugin_id, message)) => {
                 self.emit_notify(NotifyEvent {
@@ -169,10 +208,45 @@ impl PluginHost {
     /// Sends a notification through the `plugin-notify` channel. Silent no-op
     /// when the bridge is not wired (early startup, headless tests).
     fn emit_notify(&self, event: NotifyEvent) {
-        let sender = self.notify.lock().unwrap().clone();
+        let sender = lock_recover(&self.notify, "notify").clone();
         if let Some(sender) = sender {
             let _ = sender.send(event);
         }
+    }
+
+    /// Increments the consecutive-failure counter for `plugin_id` and returns
+    /// `true` if the circuit breaker just tripped (caller must unload the
+    /// plugin and notify the user).
+    fn record_failure(&self, plugin_id: &str) -> bool {
+        let mut failures = lock_recover(&self.failures, "failures");
+        let count = failures.entry(plugin_id.to_string()).or_insert(0);
+        *count += 1;
+        *count >= CIRCUIT_BREAKER_THRESHOLD
+    }
+
+    /// Resets the consecutive-failure counter — a successful hook means the
+    /// plugin is well-behaved again.
+    fn record_success(&self, plugin_id: &str) {
+        let mut failures = lock_recover(&self.failures, "failures");
+        failures.remove(plugin_id);
+    }
+
+    /// Surfaces the circuit-breaker trip to the user. Goes out as a Warning
+    /// notification so the toast pipeline picks it up like a plugin's own
+    /// `notify`.
+    fn notify_disabled(&self, plugin_id: &str) {
+        tracing::warn!(
+            plugin = plugin_id,
+            threshold = CIRCUIT_BREAKER_THRESHOLD,
+            "plugin unloaded after repeated hook failures"
+        );
+        self.emit_notify(NotifyEvent {
+            plugin_id: plugin_id.to_string(),
+            level: NotifyLevel::Warning,
+            message: format!(
+                "Plugin disabled after {CIRCUIT_BREAKER_THRESHOLD} consecutive errors"
+            ),
+        });
     }
 
     /// Runs the `post_execute` hook of every loaded plugin. `query_payload`
@@ -184,11 +258,25 @@ impl PluginHost {
         result: &PostExecuteResult,
         query_payload: Option<Arc<QueryReadPayload>>,
     ) {
-        let mut instances = self.instances.lock().unwrap();
+        let mut instances = lock_recover(&self.instances, "instances");
+        let mut tripped: Vec<String> = Vec::new();
         for (id, instance) in instances.iter_mut() {
-            if let Err(e) = instance.post_execute(context, result, query_payload.clone()) {
-                tracing::warn!(plugin = %id, error = %e, "plugin post_execute hook failed");
+            match instance.post_execute(context, result, query_payload.clone()) {
+                Ok(()) => self.record_success(id),
+                Err(e) => {
+                    tracing::warn!(plugin = %id, error = %e, "plugin post_execute hook failed");
+                    if self.record_failure(id) {
+                        tripped.push(id.clone());
+                    }
+                }
             }
+        }
+        for id in &tripped {
+            instances.remove(id);
+        }
+        drop(instances);
+        for id in tripped {
+            self.notify_disabled(&id);
         }
     }
 
@@ -202,7 +290,7 @@ impl PluginHost {
         command_id: &str,
         args: &serde_json::Value,
     ) -> Result<serde_json::Value, String> {
-        let mut instances = self.instances.lock().unwrap();
+        let mut instances = lock_recover(&self.instances, "instances");
         let instance = instances
             .get_mut(plugin_id)
             .ok_or_else(|| format!("Plugin '{plugin_id}' is not loaded"))?;
@@ -211,12 +299,166 @@ impl PluginHost {
 
     /// Number of currently loaded executable plugins.
     pub fn loaded_count(&self) -> usize {
-        self.instances.lock().unwrap().len()
+        lock_recover(&self.instances, "instances").len()
     }
 }
 
 impl Default for PluginHost {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::plugins::runtime::PluginError;
+    use std::sync::atomic::{AtomicU32, Ordering};
+    use std::sync::Arc as StdArc;
+    use tokio::sync::mpsc;
+
+    /// Stub plugin that returns the queued decisions / results in order. The
+    /// shared counter lets a test observe how many times each hook fired.
+    struct StubPlugin {
+        pre: Vec<Result<Decision, PluginError>>,
+        post: Vec<Result<(), PluginError>>,
+        pre_calls: StdArc<AtomicU32>,
+        post_calls: StdArc<AtomicU32>,
+    }
+
+    impl PluginInstance for StubPlugin {
+        fn pre_execute(&mut self, _context: &HookContext) -> Result<Decision, PluginError> {
+            self.pre_calls.fetch_add(1, Ordering::SeqCst);
+            if self.pre.is_empty() {
+                Ok(Decision::Allow)
+            } else {
+                self.pre.remove(0)
+            }
+        }
+
+        fn post_execute(
+            &mut self,
+            _context: &HookContext,
+            _result: &PostExecuteResult,
+            _payload: Option<Arc<QueryReadPayload>>,
+        ) -> Result<(), PluginError> {
+            self.post_calls.fetch_add(1, Ordering::SeqCst);
+            if self.post.is_empty() {
+                Ok(())
+            } else {
+                self.post.remove(0)
+            }
+        }
+
+        fn command(
+            &mut self,
+            _command_id: &str,
+            _args: &serde_json::Value,
+        ) -> Result<serde_json::Value, PluginError> {
+            Ok(serde_json::Value::Null)
+        }
+    }
+
+    fn ctx() -> HookContext {
+        HookContext {
+            query: String::new(),
+            driver_id: "postgres".into(),
+            environment: "test".into(),
+            operation_type: "select".into(),
+            is_mutation: false,
+            is_dangerous: false,
+            read_only: true,
+        }
+    }
+
+    fn post_ok() -> PostExecuteResult {
+        PostExecuteResult {
+            success: true,
+            execution_time_ms: 1,
+            row_count: None,
+            error: None,
+        }
+    }
+
+    fn insert(host: &PluginHost, id: &str, stub: StubPlugin) {
+        let mut instances = host.instances.lock().unwrap();
+        instances.insert(id.to_string(), Box::new(stub));
+    }
+
+    #[test]
+    fn circuit_breaker_unloads_plugin_after_repeated_pre_execute_failures() {
+        let host = PluginHost::new();
+        let (tx, mut rx) = mpsc::unbounded_channel();
+        host.set_notify_sender(tx);
+
+        let calls = StdArc::new(AtomicU32::new(0));
+        let stub = StubPlugin {
+            pre: (0..CIRCUIT_BREAKER_THRESHOLD as usize)
+                .map(|_| Err(PluginError::Trap("boom".into())))
+                .collect(),
+            post: vec![],
+            pre_calls: calls.clone(),
+            post_calls: StdArc::new(AtomicU32::new(0)),
+        };
+        insert(&host, "acme.bad", stub);
+
+        for _ in 0..CIRCUIT_BREAKER_THRESHOLD {
+            assert_eq!(host.run_pre_execute(&ctx()), Decision::Allow);
+        }
+        assert_eq!(host.loaded_count(), 0, "plugin should be unloaded");
+        assert_eq!(calls.load(Ordering::SeqCst), CIRCUIT_BREAKER_THRESHOLD);
+
+        // The trip emitted a Warning toast.
+        let event = rx.try_recv().expect("notify event was sent");
+        assert_eq!(event.plugin_id, "acme.bad");
+        assert_eq!(event.level, NotifyLevel::Warning);
+    }
+
+    #[test]
+    fn successful_hook_resets_the_failure_counter() {
+        let host = PluginHost::new();
+        let stub = StubPlugin {
+            pre: vec![
+                Err(PluginError::Trap("once".into())),
+                Err(PluginError::Trap("twice".into())),
+                Ok(Decision::Allow),
+                Err(PluginError::Trap("again".into())),
+                Err(PluginError::Trap("more".into())),
+            ],
+            post: vec![],
+            pre_calls: StdArc::new(AtomicU32::new(0)),
+            post_calls: StdArc::new(AtomicU32::new(0)),
+        };
+        insert(&host, "acme.flaky", stub);
+
+        // Two failures + a success — the success resets the counter.
+        host.run_pre_execute(&ctx());
+        host.run_pre_execute(&ctx());
+        host.run_pre_execute(&ctx());
+        assert_eq!(host.loaded_count(), 1);
+
+        // Two more failures alone are still below the threshold.
+        host.run_pre_execute(&ctx());
+        host.run_pre_execute(&ctx());
+        assert_eq!(host.loaded_count(), 1);
+    }
+
+    #[test]
+    fn circuit_breaker_unloads_plugin_after_repeated_post_execute_failures() {
+        let host = PluginHost::new();
+        let stub = StubPlugin {
+            pre: vec![],
+            post: (0..CIRCUIT_BREAKER_THRESHOLD as usize)
+                .map(|_| Err(PluginError::Trap("boom".into())))
+                .collect(),
+            pre_calls: StdArc::new(AtomicU32::new(0)),
+            post_calls: StdArc::new(AtomicU32::new(0)),
+        };
+        insert(&host, "acme.bad", stub);
+
+        for _ in 0..CIRCUIT_BREAKER_THRESHOLD {
+            host.run_post_execute(&ctx(), &post_ok(), None);
+        }
+        assert_eq!(host.loaded_count(), 0);
     }
 }

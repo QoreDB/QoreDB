@@ -28,6 +28,15 @@ fn write_index(dir: &Path, index: &EnabledIndex) -> Result<(), String> {
         .map_err(|e| format!("Failed to write plugin index: {e}"))
 }
 
+/// Suffix of the staging folder used by [`install_plugin`] while a new
+/// plugin is being copied. Skipped by [`list_plugins`] so a half-finished
+/// install never surfaces as a real plugin.
+const STAGING_SUFFIX: &str = ".qoredb-staging";
+
+/// Suffix of the rollback folder kept while [`install_plugin`] swaps in the
+/// new version. Cleared on success; restored on failure.
+const BACKUP_SUFFIX: &str = ".qoredb-backup";
+
 /// Lists every installed plugin with its runtime state. Invalid plugin folders
 /// are skipped — install-time validation is the gate for surfacing errors.
 pub fn list_plugins(dir: &Path) -> Vec<InstalledPlugin> {
@@ -41,6 +50,12 @@ pub fn list_plugins(dir: &Path) -> Vec<InstalledPlugin> {
         let path = entry.path();
         if !path.is_dir() {
             continue;
+        }
+        // Skip leftovers from an in-flight install: those are not plugins.
+        if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+            if name.ends_with(STAGING_SUFFIX) || name.ends_with(BACKUP_SUFFIX) {
+                continue;
+            }
         }
         let Ok(raw) = fs::read_to_string(path.join("plugin.json")) else {
             continue;
@@ -71,7 +86,14 @@ pub fn list_plugins(dir: &Path) -> Vec<InstalledPlugin> {
 }
 
 /// Installs (or updates) a plugin from a source folder containing a
-/// `plugin.json`. The folder is copied into `dir` under the plugin id.
+/// `plugin.json`.
+///
+/// The swap is **atomic from the caller's perspective**: the new version is
+/// copied into a staging folder, validated, then a same-filesystem rename
+/// swaps it into place. If anything fails between the rename of the previous
+/// version and the rename of the new one, the previous version is restored
+/// from the backup folder. The old plugin is therefore never lost on a
+/// botched copy or a disk-full mid-install.
 pub fn install_plugin(dir: &Path, source: &str) -> Result<InstalledPlugin, String> {
     let source = Path::new(source);
     let raw = fs::read_to_string(source.join("plugin.json"))
@@ -79,14 +101,55 @@ pub fn install_plugin(dir: &Path, source: &str) -> Result<InstalledPlugin, Strin
     let manifest = manifest::parse_manifest(&raw)?;
 
     let target = dir.join(&manifest.id);
-    if target.exists() {
-        fs::remove_dir_all(&target)
-            .map_err(|e| format!("Failed to replace existing plugin: {e}"))?;
+    let staging = dir.join(format!("{}{STAGING_SUFFIX}", manifest.id));
+    let backup = dir.join(format!("{}{BACKUP_SUFFIX}", manifest.id));
+
+    // Wipe any leftovers from a previous crashed install before reusing the
+    // staging / backup slots. We never inherit half-copied state.
+    if staging.exists() {
+        fs::remove_dir_all(&staging)
+            .map_err(|e| format!("Failed to clean staging folder: {e}"))?;
     }
-    if let Err(e) = copy_dir(source, &target) {
-        // Leave no half-copied folder behind on a rejected install.
-        let _ = fs::remove_dir_all(&target);
+    if backup.exists() {
+        fs::remove_dir_all(&backup)
+            .map_err(|e| format!("Failed to clean backup folder: {e}"))?;
+    }
+
+    // Copy the new version into the staging folder. Failures here leave the
+    // installed version (if any) untouched.
+    if let Err(e) = copy_dir(source, &staging) {
+        let _ = fs::remove_dir_all(&staging);
         return Err(e);
+    }
+
+    // Move the previous version aside, swap the new one in, then drop the
+    // backup. Errors between the two renames roll back to the previous state.
+    let had_previous = target.exists();
+    if had_previous {
+        if let Err(e) = fs::rename(&target, &backup) {
+            let _ = fs::remove_dir_all(&staging);
+            return Err(format!("Failed to back up the previous plugin: {e}"));
+        }
+    }
+    if let Err(e) = fs::rename(&staging, &target) {
+        let _ = fs::remove_dir_all(&staging);
+        if had_previous {
+            // Best-effort restore: a failure here would only happen if the
+            // filesystem rejected a rename it had already accepted seconds
+            // earlier, so it's exceedingly rare.
+            if let Err(restore_err) = fs::rename(&backup, &target) {
+                tracing::error!(
+                    plugin = %manifest.id,
+                    error = %restore_err,
+                    "failed to restore previous plugin after a botched install"
+                );
+            }
+        }
+        return Err(format!("Failed to activate the new plugin: {e}"));
+    }
+    if had_previous {
+        // The new version is live; the backup is just disk weight now.
+        let _ = fs::remove_dir_all(&backup);
     }
 
     let enabled = read_index(dir).get(&manifest.id).copied().unwrap_or(true);
@@ -286,6 +349,117 @@ mod tests {
         write_plugin(&dir, "acme.pack", SAMPLE);
         remove_plugin(&dir, "acme.pack").unwrap();
         assert!(list_plugins(&dir).is_empty());
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    /// Builds a source plugin folder a caller can hand to [`install_plugin`].
+    fn write_source_plugin(parent: &Path, name: &str, manifest_json: &str) -> PathBuf {
+        let source = parent.join(name);
+        fs::create_dir_all(&source).unwrap();
+        fs::write(source.join("plugin.json"), manifest_json).unwrap();
+        source
+    }
+
+    #[test]
+    fn install_creates_the_plugin_folder() {
+        let dir = temp_dir("install_fresh");
+        let source = write_source_plugin(&dir, "src", SAMPLE);
+
+        let installed = install_plugin(&dir, source.to_str().unwrap()).unwrap();
+        assert_eq!(installed.manifest.id, "acme.pack");
+        assert!(dir.join("acme.pack").is_dir());
+        // No staging / backup left behind.
+        assert!(!dir.join(format!("acme.pack{STAGING_SUFFIX}")).exists());
+        assert!(!dir.join(format!("acme.pack{BACKUP_SUFFIX}")).exists());
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn install_overwrites_an_existing_plugin() {
+        let dir = temp_dir("install_replace");
+        // Seed an "old" install with a marker file.
+        let installed_dir = dir.join("acme.pack");
+        fs::create_dir_all(&installed_dir).unwrap();
+        fs::write(installed_dir.join("plugin.json"), SAMPLE).unwrap();
+        fs::write(installed_dir.join("OLD"), b"v1").unwrap();
+
+        // Stage a new install without the marker.
+        let source = write_source_plugin(&dir, "src", SAMPLE);
+
+        install_plugin(&dir, source.to_str().unwrap()).unwrap();
+        assert!(!dir.join("acme.pack").join("OLD").exists());
+        assert!(!dir.join(format!("acme.pack{BACKUP_SUFFIX}")).exists());
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn install_failure_leaves_previous_plugin_in_place() {
+        let dir = temp_dir("install_rollback");
+        // Seed a previous install we expect to survive the failed update.
+        let installed_dir = dir.join("acme.pack");
+        fs::create_dir_all(&installed_dir).unwrap();
+        fs::write(installed_dir.join("plugin.json"), SAMPLE).unwrap();
+        fs::write(installed_dir.join("MARKER"), b"survivor").unwrap();
+
+        // Build a source folder that breaches the per-install file budget so
+        // `copy_dir` fails before the rename swap is attempted.
+        let source = dir.join("src");
+        fs::create_dir_all(&source).unwrap();
+        fs::write(source.join("plugin.json"), SAMPLE).unwrap();
+        for i in 0..(MAX_PLUGIN_FILES + 2) {
+            fs::write(source.join(format!("f{i}.txt")), b"x").unwrap();
+        }
+
+        let err = install_plugin(&dir, source.to_str().unwrap())
+            .expect_err("install should fail when the source breaks the budget");
+        assert!(
+            err.contains("too many files"),
+            "unexpected error: {err}"
+        );
+
+        // The previous plugin is still where it was and untouched.
+        assert!(installed_dir.join("MARKER").exists());
+        // No leftover staging / backup folder.
+        assert!(!dir.join(format!("acme.pack{STAGING_SUFFIX}")).exists());
+        assert!(!dir.join(format!("acme.pack{BACKUP_SUFFIX}")).exists());
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn install_cleans_stale_staging_and_backup_folders() {
+        let dir = temp_dir("install_cleanup");
+        // Pre-existing leftovers from a crashed install.
+        let staging = dir.join(format!("acme.pack{STAGING_SUFFIX}"));
+        let backup = dir.join(format!("acme.pack{BACKUP_SUFFIX}"));
+        fs::create_dir_all(&staging).unwrap();
+        fs::create_dir_all(&backup).unwrap();
+        fs::write(staging.join("leftover"), b"x").unwrap();
+
+        let source = write_source_plugin(&dir, "src", SAMPLE);
+        install_plugin(&dir, source.to_str().unwrap()).unwrap();
+
+        assert!(dir.join("acme.pack").is_dir());
+        assert!(!staging.exists());
+        assert!(!backup.exists());
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn list_plugins_skips_staging_and_backup_folders() {
+        let dir = temp_dir("list_skip");
+        write_plugin(&dir, "acme.pack", SAMPLE);
+        // Leftover folders carrying a valid-looking plugin.json must not be
+        // surfaced as plugins.
+        let staging = dir.join(format!("acme.pack{STAGING_SUFFIX}"));
+        fs::create_dir_all(&staging).unwrap();
+        fs::write(staging.join("plugin.json"), SAMPLE).unwrap();
+        let backup = dir.join(format!("acme.pack{BACKUP_SUFFIX}"));
+        fs::create_dir_all(&backup).unwrap();
+        fs::write(backup.join("plugin.json"), SAMPLE).unwrap();
+
+        let plugins = list_plugins(&dir);
+        assert_eq!(plugins.len(), 1);
+        assert_eq!(plugins[0].dir_name, "acme.pack");
         fs::remove_dir_all(&dir).ok();
     }
 }

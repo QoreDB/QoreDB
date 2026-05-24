@@ -243,3 +243,6 @@ codegen-units = 1
 
 [dev-dependencies]
 tempfile = "3.24.0"
+# Compile WebAssembly text fixtures inline for the plugin runtime E2E tests.
+# Pure-Rust, no external toolchain — no `rustup target add` required in CI.
+wat = "1.0"

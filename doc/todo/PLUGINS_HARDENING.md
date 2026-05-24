@@ -110,17 +110,19 @@ sur les notes.
 - `cargo test` : tests E2E avec mini-plugin WASM (préparé en Phase 2 item R2).
 - Vitest : `InstallPluginDialog` déclenche consent pour chaque capability.
 
-### Phase 2 — Robustesse de l'install et tests E2E
+### Phase 2 — Robustesse de l'install et tests E2E — ✅ livrée
 
 > **Impact** : Robustesse 6.5 → 9 · Maintenabilité 6.5 → 8.5.
+>
+> **Statut** : R1-R4 implémentés. Tests Rust : 48 dans `plugins` (lib) + 11 dans la nouvelle suite E2E `tests/plugins_e2e.rs`. Item « Tests UI (Vitest) » reporté : Vitest n'est pas installé dans le repo, l'introduction de l'infrastructure dépasse le scope de cette phase.
 
 | Item | Action | Critère d'acceptation |
 | --- | --- | --- |
-| R1 | Refonte de `install_plugin` : copier vers `<id>.tmp`, valider, `rename` atomique, déplacer l'ancien vers `<id>.bak` (purgeable sur l'install suivante). Rollback sur échec. | Test forçant une erreur en milieu de copie : l'ancien plugin reste en place. |
-| R2 | Fixture `tests/fixtures/echo-plugin/` : crate `cdylib` minimal qui exerce chaque hook + chaque host fn. Build du `.wasm` en `build.rs` ou step CI. Suite `tests/plugins_e2e.rs`. | Tests E2E : preExecute allow/warn/block, postExecute sur succès+erreur, HTTP refusé hors allowlist, FS refusé hors scope, storage quota, fuel exhaustion (skip), trap (skip). |
-| R3 | Remplacer `.unwrap()` sur `Mutex::lock()` par `match` + `tracing::error!` + fallback safe. | Empoisonnement d'un Mutex n'arrête plus tout le `PluginHost`. |
-| R4 | Compteur d'échecs par plugin ; au-delà de N traps consécutifs, désactiver temporairement le plugin et toaster « plugin désactivé après N erreurs ». | Test avec un plugin qui trap systématiquement : désactivation auto après 3 essais. |
-| — | Tests UI (Vitest) : `ConsentDialog` rend toutes les capabilities ; flow install → consent → enable. | Tests verts. |
+| R1 ✅ | Refonte de `install_plugin` : copie vers `<id>.qoredb-staging`, rename atomique, ancien déplacé en `<id>.qoredb-backup` purgé sur succès. Rollback sur échec. Nettoyage des leftovers au démarrage de chaque install. | 5 nouveaux tests dans `registry.rs` : fresh install, overwrite, rollback sur budget dépassé, cleanup de staging/backup stale, `list_plugins` ignore les leftovers. |
+| R2 ✅ | Suite `tests/plugins_e2e.rs` (11 tests) construite avec des modules WAT inline via le crate `wat` (dev-dep). Pas de toolchain `wasm32` requis. | E2E : preExecute allow/warn/block, module sans `pre_execute`, trap, fuel exhaustion, storage capability granted/denied, HTTP rejeté hors allowlist, FS rejeté hors scope, postExecute succès+erreur. |
+| R3 ✅ | Helper `lock_recover` qui consigne le poisoning via `tracing::error!` et récupère via `into_inner()`. Tous les `.lock().unwrap()` du `PluginHost` remplacés. | Empoisonnement d'un Mutex n'arrête plus le `PluginHost`. |
+| R4 ✅ | Compteur d'échecs par plugin (`failures: HashMap<String, u32>`). Au-delà de 3 erreurs consécutives, le plugin est retiré de `instances` et un toast `Warning` est émis. Succès remet le compteur à zéro. | 3 nouveaux tests unitaires dans `manager.rs` : circuit-breaker pre_execute, reset au succès, circuit-breaker post_execute. |
+| — | Tests UI (Vitest) | **Reporté** : Vitest pas dans le repo, à traiter dans une PR dédiée infra-tests. |
 
 ### Phase 3 — Sortir les hooks du chemin critique
 

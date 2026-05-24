@@ -56,10 +56,12 @@ fn build_query_read_payload(result: &QueryResult) -> Option<Arc<QueryReadPayload
 }
 
 /// Maps an interceptor context + execution result into the plugin runtime's
-/// types and runs every loaded plugin's `postExecute` hook. The plugin host
-/// swallows individual plugin errors, so this never propagates a failure.
+/// types and schedules every loaded plugin's `postExecute` hook on a
+/// background task. The call returns immediately so the query response
+/// isn't held back by a slow plugin; the plugin host swallows individual
+/// plugin errors, so this never propagates a failure.
 fn dispatch_plugin_post_execute(
-    plugin_host: &PluginHost,
+    plugin_host: &Arc<PluginHost>,
     interceptor_context: &QueryContext,
     exec: &QueryExecutionResult,
     payload: Option<Arc<QueryReadPayload>>,
@@ -79,7 +81,7 @@ fn dispatch_plugin_post_execute(
         row_count: exec.row_count.map(|r| r.max(0) as u64),
         error: exec.error.clone(),
     };
-    plugin_host.run_post_execute(&hook_ctx, &post_result, payload);
+    plugin_host.schedule_post_execute(hook_ctx, post_result, payload);
 }
 
 fn is_mongo_mutation(query: &str) -> bool {
@@ -467,23 +469,25 @@ pub async fn execute_query(
 
     // Executable plugins: run their pre-execute hooks. A plugin may block the
     // query; a plugin that errors is logged and skipped, never failing it.
-    let plugin_decision = plugin_host.run_pre_execute(&crate::plugins::runtime::HookContext {
-        query: query.clone(),
-        driver_id: driver.driver_id().to_string(),
-        environment: format!("{:?}", interceptor_env),
-        operation_type: query
-            .trim_start()
-            .split_whitespace()
-            .next()
-            .unwrap_or("")
-            .to_uppercase(),
-        is_mutation: is_mutation_for_context,
-        is_dangerous: sql_analysis
-            .as_ref()
-            .map(|a| a.is_dangerous)
-            .unwrap_or(false),
-        read_only,
-    });
+    let plugin_decision = plugin_host
+        .run_pre_execute(crate::plugins::runtime::HookContext {
+            query: query.clone(),
+            driver_id: driver.driver_id().to_string(),
+            environment: format!("{:?}", interceptor_env),
+            operation_type: query
+                .trim_start()
+                .split_whitespace()
+                .next()
+                .unwrap_or("")
+                .to_uppercase(),
+            is_mutation: is_mutation_for_context,
+            is_dangerous: sql_analysis
+                .as_ref()
+                .map(|a| a.is_dangerous)
+                .unwrap_or(false),
+            read_only,
+        })
+        .await;
     if let crate::plugins::runtime::Decision::Block { reason } = plugin_decision {
         return Ok(QueryResponse {
             success: false,

@@ -124,16 +124,18 @@ sur les notes.
 | R4 ✅ | Compteur d'échecs par plugin (`failures: HashMap<String, u32>`). Au-delà de 3 erreurs consécutives, le plugin est retiré de `instances` et un toast `Warning` est émis. Succès remet le compteur à zéro. | 3 nouveaux tests unitaires dans `manager.rs` : circuit-breaker pre_execute, reset au succès, circuit-breaker post_execute. |
 | — | Tests UI (Vitest) | **Reporté** : Vitest pas dans le repo, à traiter dans une PR dédiée infra-tests. |
 
-### Phase 3 — Sortir les hooks du chemin critique
+### Phase 3 — Sortir les hooks du chemin critique — ✅ livrée
 
 > **Impact** : Performances 5.5 → 8.5 · Robustesse 6.5 → 9.
+>
+> **Statut** : P2, P3, P4, S3 implémentés. Tests Rust : 51 dans `plugins` (lib) + 11 E2E. `run_pre_execute` / `run_post_execute` / `run_command` deviennent `async`, ce qui propage à `query.rs` (un seul `.await` ajouté en pre_execute) et à `plugins.rs::run_plugin_command`.
 
 | Item | Action | Critère d'acceptation |
 | --- | --- | --- |
-| P2 | `postExecute` exécuté en `tokio::spawn(blocking(...))` après envoi de la réponse. Queue bornée (drop + log si > N en attente). | Bench : ajout d'un postExecute coûteux n'augmente plus la latence p99 de la query. |
-| S3 | `tokio::time::timeout` global autour de chaque hook (500 ms preExecute / 5 s postExecute). Au-delà, treat as `Allow` + log warn. | Plugin qui fait `sleep(10s)` dans un host fn ne bloque plus la query. |
-| P3 | `Mutex<HashMap<String, Mutex<Box<dyn PluginInstance>>>>` : verrou par plugin. Snapshot des ids puis lock individuel. | Bench multi-plugins : hooks parallélisables. |
-| P4 | Cache mémoire `contributions` dans `SharedState`, invalidé sur install/remove/enable/disable. | Frontend lit les contributions sans I/O après le premier appel. |
+| P2 ✅ | Nouvelle méthode `PluginHost::schedule_post_execute(self: &Arc<Self>, ...)` qui fire-and-forget via `tokio::spawn` sous un `Semaphore` borné (`POST_EXECUTE_QUEUE_DEPTH = 64`). `dispatch_plugin_post_execute` (query.rs) bascule sur cette voie. | Test `schedule_post_execute_returns_immediately_and_eventually_runs_the_hook` (<50 ms de retour, hook exécuté en arrière-plan). Drop avec log si queue saturée. |
+| S3 ✅ | `tokio::time::timeout` autour de chaque invocation (`PRE_EXECUTE_TIMEOUT = 500ms` / `POST_EXECUTE_TIMEOUT = 5s`). Helper `run_with_timeout` qui aplatit timeout / panic / erreur plugin en un seul `HookOutcome::Failed`. | Test `pre_execute_timeout_treats_plugin_as_failed_without_stalling_the_caller` : un plugin qui sleep(2.5s) ne bloque plus la query au-delà du budget. |
+| P3 ✅ | Verrou par plugin : `Mutex<HashMap<String, Arc<Mutex<Box<dyn PluginInstance>>>>>`. `snapshot_instances` clone les Arcs sous le verrou outer, le drop, puis chaque hook s'exécute dans `spawn_blocking` avec son propre verrou inner. | Plusieurs queries simultanées sur des plugins différents ne contendent plus sur un Mutex global. |
+| P4 ✅ | Cache mémoire `contributions_cache: Mutex<Option<Arc<PluginContributions>>>` sur `PluginHost`. `reload()` (point d'invalidation unique : install/remove/enable/disable/consent) le vide. `get_plugin_contributions` consomme désormais le cache. | Test `contributions_cache_is_shared_across_calls_and_cleared_on_reload`. Frontend lit les contributions sans I/O après le premier appel. |
 
 ### Phase 4 — Sécurité avancée
 

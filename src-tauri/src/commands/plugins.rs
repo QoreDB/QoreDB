@@ -96,9 +96,15 @@ pub async fn set_plugin_enabled(
 }
 
 /// Returns the aggregated contributions of all enabled, compatible plugins.
+/// Served from an in-memory cache that the plugin host invalidates on every
+/// install / remove / enable / disable / consent change, so the frontend
+/// can poll this freely without re-scanning the plugin folder each time.
 #[tauri::command]
-pub async fn get_plugin_contributions() -> Result<PluginContributions, String> {
-    blocking(|| plugins::get_contributions(&plugins::plugins_dir())).await
+pub async fn get_plugin_contributions(
+    state: State<'_, SharedState>,
+) -> Result<PluginContributions, String> {
+    let host = plugin_host(&state).await;
+    Ok((*host.contributions()).clone())
 }
 
 /// Returns the capabilities the user has granted to a plugin. Capabilities
@@ -187,9 +193,7 @@ pub async fn run_plugin_command(
 ) -> Result<serde_json::Value, String> {
     let host = plugin_host(&state).await;
     let args = args.unwrap_or(serde_json::Value::Null);
-    tokio::task::spawn_blocking(move || host.run_command(&plugin_id, &command_id, &args))
-        .await
-        .map_err(|e| format!("Plugin task failed: {e}"))?
+    host.run_command(&plugin_id, &command_id, args).await
 }
 
 /// Overwrites the capabilities granted to a plugin. The runtime is reloaded

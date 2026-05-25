@@ -105,8 +105,8 @@ export function ConsentDialog({
 
   useEffect(() => {
     if (!open || !plugin) return;
-    setGrants(new Set(initialGrants ?? requested));
-  }, [open, plugin, initialGrants, requested]);
+    setGrants(new Set(initialGrants ?? requestedCaps(plugin)));
+  }, [open, plugin, initialGrants]);
 
   if (!plugin || requested.length === 0) return null;
 

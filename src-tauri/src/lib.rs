@@ -479,6 +479,7 @@ pub fn run() {
             commands::plugins::list_plugins,
             commands::plugins::install_plugin,
             commands::plugins::install_plugin_from_url,
+            commands::plugins::fetch_marketplace_index,
             commands::plugins::remove_plugin,
             commands::plugins::set_plugin_enabled,
             commands::plugins::get_plugin_contributions,

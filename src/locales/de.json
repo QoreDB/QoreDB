@@ -22,6 +22,10 @@
       "pickFolder": "Ordner wählen…",
       "installing": "Wird installiert…"
     },
+    "tabs": {
+      "installed": "Installiert",
+      "browse": "Durchsuchen"
+    },
     "card": {
       "version": "Version",
       "by": "von {{author}}",

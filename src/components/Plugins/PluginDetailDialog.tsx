@@ -68,6 +68,8 @@ export function PluginDetailDialog({
   const { t } = useTranslation();
   const [grants, setGrants] = useState<PluginCapabilityKind[]>([]);
   const [editing, setEditing] = useState(false);
+  const [runningCommand, setRunningCommand] = useState<string | null>(null);
+  const [lastResult, setLastResult] = useState<{ id: string; output: string } | null>(null);
 
   const refreshGrants = useCallback(async () => {
     if (!plugin) return;
@@ -100,8 +102,6 @@ export function PluginDetailDialog({
     isCapRequested(manifest.runtime?.capabilities, k)
   );
   const grantedSet = new Set(grants);
-  const [runningCommand, setRunningCommand] = useState<string | null>(null);
-  const [lastResult, setLastResult] = useState<{ id: string; output: string } | null>(null);
 
   async function runCommand(commandId: string) {
     if (!plugin) return;

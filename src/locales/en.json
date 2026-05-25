@@ -22,6 +22,10 @@
       "pickFolder": "Choose folder…",
       "installing": "Installing…"
     },
+    "tabs": {
+      "installed": "Installed",
+      "browse": "Browse"
+    },
     "card": {
       "version": "Version",
       "by": "by {{author}}",
@@ -680,7 +684,6 @@
       "data": "Privacy",
       "shortcuts": "Keyboard Shortcuts",
       "plugins": "Plugins",
-      "marketplace": "Browse",
       "license": "License",
       "ai": "AI Assistant"
     },

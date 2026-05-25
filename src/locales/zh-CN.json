@@ -22,6 +22,10 @@
       "pickFolder": "选择文件夹…",
       "installing": "正在安装…"
     },
+    "tabs": {
+      "installed": "已安装",
+      "browse": "目录"
+    },
     "card": {
       "version": "版本",
       "by": "作者：{{author}}",

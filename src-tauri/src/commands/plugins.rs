@@ -76,6 +76,16 @@ pub async fn install_plugin_from_url(
     Ok(plugin)
 }
 
+/// Fetches the marketplace catalog index. The webview can't reach
+/// `qoredb.com` directly because the CSP `connect-src` is locked down — and
+/// going through Rust also dodges the CORS pre-flight + redirect noise from
+/// the apex domain. Returns the raw JSON value; the frontend re-validates
+/// the schema (`registryVersion`, plugin shape) before using it.
+#[tauri::command]
+pub async fn fetch_marketplace_index(url: String) -> Result<serde_json::Value, String> {
+    blocking(move || plugins::fetch_index(&url)).await?
+}
+
 /// Removes a plugin and forgets its consent + secrets.
 #[tauri::command]
 pub async fn remove_plugin(

@@ -24,6 +24,64 @@ const MAX_ARCHIVE_BYTES: u64 = 8 * 1024 * 1024;
 const MAX_ARCHIVE_FILES: usize = 256;
 const HTTP_TIMEOUT_SECS: u64 = 30;
 
+/// Hard cap on the catalog index payload — a few hundred plugins fit
+/// comfortably; anything bigger is almost certainly a misconfigured mirror.
+const MAX_INDEX_BYTES: u64 = 2 * 1024 * 1024;
+
+/// Fetches the marketplace catalog index as opaque JSON. The webview's CSP
+/// blocks direct cross-origin fetches, so the index has to come through Rust.
+/// The response shape is validated by the frontend against
+/// `MarketplaceIndex`; this entry point only enforces transport-level
+/// constraints (https, size cap, timeout, JSON parse).
+pub fn fetch_index(url: &str) -> Result<serde_json::Value, String> {
+    if !url.starts_with("https://") {
+        return Err("Marketplace index URL must use https://".into());
+    }
+
+    let client = reqwest::blocking::Client::builder()
+        .timeout(Duration::from_secs(HTTP_TIMEOUT_SECS))
+        .user_agent(concat!("QoreDB/", env!("CARGO_PKG_VERSION"), " marketplace"))
+        .build()
+        .map_err(|e| format!("HTTP client init failed: {e}"))?;
+
+    let response = client
+        .get(url)
+        .header("Accept", "application/json")
+        .send()
+        .map_err(|e| format!("Could not reach the marketplace: {e}"))?;
+
+    if !response.status().is_success() {
+        return Err(format!(
+            "Marketplace responded with HTTP {}",
+            response.status()
+        ));
+    }
+
+    if let Some(content_length) = response.content_length() {
+        if content_length > MAX_INDEX_BYTES {
+            return Err(format!(
+                "Marketplace index exceeds the size limit ({} MiB).",
+                MAX_INDEX_BYTES / 1024 / 1024
+            ));
+        }
+    }
+
+    let mut reader = response.take(MAX_INDEX_BYTES + 1);
+    let mut bytes = Vec::with_capacity(32 * 1024);
+    reader
+        .read_to_end(&mut bytes)
+        .map_err(|e| format!("Could not read marketplace response: {e}"))?;
+    if bytes.len() as u64 > MAX_INDEX_BYTES {
+        return Err(format!(
+            "Marketplace index exceeds the size limit ({} MiB).",
+            MAX_INDEX_BYTES / 1024 / 1024
+        ));
+    }
+
+    serde_json::from_slice::<serde_json::Value>(&bytes)
+        .map_err(|e| format!("Marketplace returned invalid JSON: {e}"))
+}
+
 /// Public entry point: download, verify, extract, install.
 pub fn install_from_archive_url(
     plugins_dir: &Path,

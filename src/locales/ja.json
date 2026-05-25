@@ -22,6 +22,10 @@
       "pickFolder": "フォルダーを選択…",
       "installing": "インストール中…"
     },
+    "tabs": {
+      "installed": "インストール済み",
+      "browse": "カタログ"
+    },
     "card": {
       "version": "バージョン",
       "by": "作成者: {{author}}",

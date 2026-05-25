@@ -170,7 +170,7 @@ export function MarketplaceSection({ searchQuery }: MarketplaceSectionProps) {
                         <span className="font-mono text-xs text-muted-foreground">
                           {plugin.id}
                         </span>
-                        <Badge variant={plugin.kind === 'executable' ? 'default' : 'secondary'}>
+                        <Badge variant="outline" className="text-[10px]">
                           {t(`marketplaceSection.kind.${plugin.kind}`)}
                         </Badge>
                         {latest?.runtime?.integrity ? null : latest?.runtime ? (

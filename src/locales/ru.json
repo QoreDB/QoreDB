@@ -22,6 +22,10 @@
       "pickFolder": "Выбрать папку…",
       "installing": "Установка…"
     },
+    "tabs": {
+      "installed": "Установленные",
+      "browse": "Каталог"
+    },
     "card": {
       "version": "Версия",
       "by": "от {{author}}",

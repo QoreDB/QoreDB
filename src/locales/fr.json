@@ -22,6 +22,10 @@
       "pickFolder": "Choisir un dossier…",
       "installing": "Installation…"
     },
+    "tabs": {
+      "installed": "Installées",
+      "browse": "Catalogue"
+    },
     "card": {
       "version": "Version",
       "by": "par {{author}}",
@@ -680,7 +684,6 @@
       "data": "Confidentialité",
       "shortcuts": "Raccourcis clavier",
       "plugins": "Extensions",
-      "marketplace": "Parcourir",
       "license": "Licence",
       "ai": "Assistant IA"
     },

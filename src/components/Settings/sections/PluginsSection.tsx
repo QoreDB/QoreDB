@@ -12,12 +12,67 @@ import { Button } from '@/components/ui/button';
 import { type InstalledPlugin, removePlugin, setPluginEnabled } from '@/lib/plugins';
 import { usePlugins } from '@/providers/PluginProvider';
 import { SettingsCard } from '../SettingsCard';
+import { MarketplaceSection } from './MarketplaceSection';
+
+type PluginsTab = 'installed' | 'browse';
 
 interface PluginsSectionProps {
   searchQuery?: string;
 }
 
 export function PluginsSection({ searchQuery }: PluginsSectionProps) {
+  const { t } = useTranslation();
+  const [tab, setTab] = useState<PluginsTab>('installed');
+
+  if (searchQuery) {
+    return (
+      <>
+        <InstalledPluginsTab searchQuery={searchQuery} />
+        <MarketplaceSection searchQuery={searchQuery} />
+      </>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex gap-1 border-b border-border">
+        <TabButton active={tab === 'installed'} onClick={() => setTab('installed')}>
+          {t('plugins.tabs.installed')}
+        </TabButton>
+        <TabButton active={tab === 'browse'} onClick={() => setTab('browse')}>
+          {t('plugins.tabs.browse')}
+        </TabButton>
+      </div>
+      {tab === 'installed' ? <InstalledPluginsTab /> : <MarketplaceSection />}
+    </div>
+  );
+}
+
+function TabButton({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`relative -mb-px px-3 py-2 text-xs font-medium transition-colors ${
+        active
+          ? 'border-b-2 border-primary text-foreground'
+          : 'border-b-2 border-transparent text-muted-foreground hover:text-foreground'
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function InstalledPluginsTab({ searchQuery }: { searchQuery?: string }) {
   const { t } = useTranslation();
   const { plugins, contributions, activeThemeId, setActiveTheme, refresh } = usePlugins();
   const [installOpen, setInstallOpen] = useState(false);

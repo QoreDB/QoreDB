@@ -22,6 +22,10 @@
       "pickFolder": "폴더 선택…",
       "installing": "설치 중…"
     },
+    "tabs": {
+      "installed": "설치됨",
+      "browse": "둘러보기"
+    },
     "card": {
       "version": "버전",
       "by": "{{author}} 제작",

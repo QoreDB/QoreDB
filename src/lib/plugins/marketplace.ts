@@ -2,7 +2,14 @@
 
 /** Marketplace client — fetches the catalog from the QoreDB showcase API.
  *  The catalog shape mirrors the registry's `index.json` (see
- *  qoredb-plugins-registry/schema/registry-entry.schema.json). */
+ *  qoredb-plugins-registry/schema/registry-entry.schema.json).
+ *
+ *  The fetch goes through a Tauri command (Rust → reqwest) rather than the
+ *  webview's `fetch`. CSP `connect-src` is locked to localhost + telemetry,
+ *  and the apex `qoredb.com` redirects to `www.qoredb.com` without CORS
+ *  headers on the 307 — so a browser-side request would fail either way. */
+
+import { invoke } from '@tauri-apps/api/core';
 
 export type MarketplacePluginKind = 'declarative' | 'executable';
 export type MarketplaceHook = 'preExecute' | 'postExecute';
@@ -94,13 +101,14 @@ export class MarketplaceError extends Error {
 
 /** Fetches the full catalog from `<showcase>/api/plugins`. */
 export async function fetchMarketplaceIndex(): Promise<MarketplaceIndex> {
-  const response = await fetch(`${baseUrl()}/api/plugins`, {
-    headers: { Accept: 'application/json' },
-  });
-  if (!response.ok) {
-    throw new MarketplaceError(`Marketplace responded with HTTP ${response.status}`);
+  let json: MarketplaceIndex;
+  try {
+    json = await invoke<MarketplaceIndex>('fetch_marketplace_index', {
+      url: `${baseUrl()}/api/plugins`,
+    });
+  } catch (err) {
+    throw new MarketplaceError(err instanceof Error ? err.message : String(err));
   }
-  const json = (await response.json()) as MarketplaceIndex;
   if (json.registryVersion !== 1) {
     throw new MarketplaceError(`Unsupported registry version: ${json.registryVersion}`);
   }

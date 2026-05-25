@@ -15,7 +15,6 @@ import {
   GeneralSection,
   KeyboardShortcutsSection,
   LicenseSection,
-  MarketplaceSection,
   PluginsSection,
   SecuritySection,
 } from './sections';
@@ -113,8 +112,6 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
         return <KeyboardShortcutsSection searchQuery={searchQuery} />;
       case 'plugins':
         return <PluginsSection searchQuery={searchQuery} />;
-      case 'marketplace':
-        return <MarketplaceSection searchQuery={searchQuery} />;
       case 'license':
         return <LicenseSection searchQuery={searchQuery} />;
       case 'ai':

@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
 pub use manifest::{is_compatible, parse_manifest, validate_manifest};
-pub use marketplace::install_from_archive_url;
+pub use marketplace::{fetch_index, install_from_archive_url};
 pub use registry::{
     get_contributions, install_plugin, list_plugins, remove_plugin, set_plugin_enabled,
 };

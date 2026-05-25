@@ -22,6 +22,10 @@
       "pickFolder": "Escolher pasta…",
       "installing": "Instalando…"
     },
+    "tabs": {
+      "installed": "Instalados",
+      "browse": "Catálogo"
+    },
     "card": {
       "version": "Versão",
       "by": "por {{author}}",

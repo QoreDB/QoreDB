@@ -10,7 +10,6 @@ import {
   Puzzle,
   Shield,
   Sparkles,
-  Store,
 } from 'lucide-react';
 
 export type SettingsSectionId =
@@ -20,7 +19,6 @@ export type SettingsSectionId =
   | 'data'
   | 'shortcuts'
   | 'plugins'
-  | 'marketplace'
   | 'license'
   | 'ai';
 
@@ -119,18 +117,9 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
       'snippet',
       'template',
       'theme',
-      'extension',
       'thème',
       'modèle',
-    ],
-  },
-  {
-    id: 'marketplace',
-    labelKey: 'settings.sections.marketplace',
-    icon: Store,
-    keywords: [
       'marketplace',
-      'plugin marketplace',
       'install plugin',
       'discover',
       'browse',

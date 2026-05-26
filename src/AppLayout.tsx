@@ -68,6 +68,7 @@ import { useWebviewGuards } from './hooks/useWebviewGuards';
 import { Driver } from './lib/connection/drivers';
 import { openNotebookFromFile, setPendingNotebook } from './lib/notebook/notebookIO';
 import { notify } from './lib/notify';
+import { splitContributionId } from './lib/plugins';
 import type { HistoryEntry } from './lib/query/history';
 import type { QueryLibraryItem } from './lib/query/queryLibrary';
 import {
@@ -81,7 +82,6 @@ import {
   toggleZenMode,
   useModalStore,
 } from './lib/stores/modalStore';
-import { splitContributionId } from './lib/plugins';
 import {
   createDatabaseTab,
   createDiffTab,
@@ -556,8 +556,7 @@ export function AppLayout() {
         : []),
       ...contributions.commands.map(cmd => {
         const { pluginId } = splitContributionId(cmd.id);
-        const pluginName =
-          plugins.find(p => p.manifest.id === pluginId)?.manifest.name ?? pluginId;
+        const pluginName = plugins.find(p => p.manifest.id === pluginId)?.manifest.name ?? pluginId;
         return { id: cmd.id, label: `${pluginName}: ${cmd.label}` };
       }),
     ],

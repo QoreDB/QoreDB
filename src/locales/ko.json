@@ -127,6 +127,16 @@
       "hide": "값 숨기기"
     }
   },
+  "pluginOutput": {
+    "tabTitle": "플러그인 출력",
+    "empty": "아직 실행된 플러그인 명령이 없습니다",
+    "emptyHint": "명령 팔레트를 열고 플러그인 명령을 검색하세요",
+    "runsHeader": "기록",
+    "clearAll": "기록 지우기",
+    "runningCommand": "명령 실행 중…",
+    "error": "오류",
+    "noResult": "(결과 없음)"
+  },
   "home": {
     "noConnections": {
       "title": "구성된 연결이 없습니다",

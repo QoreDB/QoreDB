@@ -1,13 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import {
-  createContext,
-  type ReactNode,
-  useCallback,
-  useContext,
-  useMemo,
-  useState,
-} from 'react';
+import { createContext, type ReactNode, useCallback, useContext, useMemo, useState } from 'react';
 import { runPluginCommand, splitContributionId } from '@/lib/plugins';
 import { usePlugins } from './PluginProvider';
 
@@ -59,8 +52,7 @@ export function PluginOutputProvider({ children }: { children: ReactNode }) {
   const runCommand = useCallback(
     async (namespacedId: string) => {
       const { pluginId } = splitContributionId(namespacedId);
-      const pluginName =
-        plugins.find(p => p.manifest.id === pluginId)?.manifest.name ?? pluginId;
+      const pluginName = plugins.find(p => p.manifest.id === pluginId)?.manifest.name ?? pluginId;
       const commandLabel =
         contributions.commands.find(c => c.id === namespacedId)?.label ?? namespacedId;
       const { localId } = splitContributionId(namespacedId);
@@ -83,9 +75,7 @@ export function PluginOutputProvider({ children }: { children: ReactNode }) {
         const value = await runPluginCommand(namespacedId);
         setRuns(prev =>
           prev.map(r =>
-            r.id === runId
-              ? { ...r, status: 'ok', value, durationMs: Date.now() - startedAt }
-              : r
+            r.id === runId ? { ...r, status: 'ok', value, durationMs: Date.now() - startedAt } : r
           )
         );
       } catch (err) {

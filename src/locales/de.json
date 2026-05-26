@@ -127,6 +127,16 @@
       "hide": "Wert verbergen"
     }
   },
+  "pluginOutput": {
+    "tabTitle": "Plugin-Ausgabe",
+    "empty": "Es wurde noch kein Plugin-Befehl ausgeführt",
+    "emptyHint": "Öffnen Sie die Befehlspalette und suchen Sie nach einem Plugin-Befehl",
+    "runsHeader": "Verlauf",
+    "clearAll": "Verlauf löschen",
+    "runningCommand": "Befehl wird ausgeführt…",
+    "error": "Fehler",
+    "noResult": "(kein Ergebnis)"
+  },
   "home": {
     "noConnections": {
       "title": "Keine Verbindungen konfiguriert",

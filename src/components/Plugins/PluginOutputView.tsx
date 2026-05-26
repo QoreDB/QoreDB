@@ -4,7 +4,7 @@ import { AlertCircle, CheckCircle2, Loader2, Puzzle, Trash2 } from 'lucide-react
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
-import { usePluginOutput, type PluginRun } from '@/providers/PluginOutputProvider';
+import { type PluginRun, usePluginOutput } from '@/providers/PluginOutputProvider';
 
 /** Dedicated tab content that lists past plugin command runs and renders the
  *  selected run's payload. The list is the source of truth for selection;
@@ -46,14 +46,13 @@ export function PluginOutputView() {
             <Trash2 size={12} />
           </Button>
         </header>
-        <ul className="flex-1 overflow-y-auto" role="listbox">
+        <ul className="flex-1 overflow-y-auto">
           {runs.map(run => (
             <li key={run.id}>
               <button
                 type="button"
                 onClick={() => selectRun(run.id)}
-                role="option"
-                aria-selected={run.id === selected?.id}
+                aria-current={run.id === selected?.id ? 'true' : undefined}
                 className={`flex w-full flex-col gap-0.5 border-l-2 px-3 py-2 text-left text-sm transition-colors ${
                   run.id === selected?.id
                     ? 'border-l-primary bg-accent'

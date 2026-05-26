@@ -280,13 +280,18 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       projectId: projectId,
       connectionId: activeConnection.id,
       activeTabId,
-      tabs: tabs.map(tab => ({
-        id: tab.id,
-        type: tab.type,
-        title: tab.title,
-        namespace: tab.namespace,
-        tableName: tab.tableName,
-      })),
+      tabs: tabs.flatMap(tab => {
+        if (tab.type === 'plugin-output') return [];
+        return [
+          {
+            id: tab.id,
+            type: tab.type,
+            title: tab.title,
+            namespace: tab.namespace,
+            tableName: tab.tableName,
+          },
+        ];
+      }),
       queryDrafts: shouldSaveQueryDrafts() ? queryDrafts : {},
       tableBrowserTabs: { ...tableBrowserTabs },
       databaseBrowserTabs: { ...databaseBrowserTabs },

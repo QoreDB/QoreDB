@@ -127,6 +127,16 @@
       "hide": "隐藏值"
     }
   },
+  "pluginOutput": {
+    "tabTitle": "插件输出",
+    "empty": "尚未运行任何插件命令",
+    "emptyHint": "打开命令面板并搜索插件命令",
+    "runsHeader": "历史",
+    "clearAll": "清除历史",
+    "runningCommand": "正在运行命令…",
+    "error": "错误",
+    "noResult": "（无结果）"
+  },
   "home": {
     "noConnections": {
       "title": "未配置连接",

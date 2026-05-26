@@ -127,6 +127,16 @@
       "hide": "Ocultar valor"
     }
   },
+  "pluginOutput": {
+    "tabTitle": "Salida del plugin",
+    "empty": "Aún no se ha ejecutado ningún comando de plugin",
+    "emptyHint": "Abre la paleta de comandos y busca un comando de plugin",
+    "runsHeader": "Historial",
+    "clearAll": "Borrar historial",
+    "runningCommand": "Ejecutando comando…",
+    "error": "Error",
+    "noResult": "(sin resultado)"
+  },
   "home": {
     "noConnections": {
       "title": "No hay conexiones configuradas",

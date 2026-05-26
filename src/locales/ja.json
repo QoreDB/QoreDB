@@ -127,6 +127,16 @@
       "hide": "値を非表示"
     }
   },
+  "pluginOutput": {
+    "tabTitle": "プラグイン出力",
+    "empty": "プラグインコマンドはまだ実行されていません",
+    "emptyHint": "コマンドパレットを開いてプラグインコマンドを検索してください",
+    "runsHeader": "履歴",
+    "clearAll": "履歴をクリア",
+    "runningCommand": "コマンドを実行中…",
+    "error": "エラー",
+    "noResult": "（結果なし）"
+  },
   "home": {
     "noConnections": {
       "title": "接続が設定されていません",

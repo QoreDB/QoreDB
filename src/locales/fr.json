@@ -130,6 +130,16 @@
       "hide": "Masquer la valeur"
     }
   },
+  "pluginOutput": {
+    "tabTitle": "Sortie du plugin",
+    "empty": "Aucune commande de plugin n'a encore été exécutée",
+    "emptyHint": "Ouvre la palette de commandes et cherche une commande de plugin",
+    "runsHeader": "Historique",
+    "clearAll": "Effacer l'historique",
+    "runningCommand": "Exécution en cours…",
+    "error": "Erreur",
+    "noResult": "(aucun résultat)"
+  },
   "marketplaceSection": {
     "title": "Parcourir les plugins",
     "description": "Parcourez et installez des plugins depuis le registre public QoreDB. L'hôte vérifie le sha256 de chaque archive contre le catalogue avant l'installation.",

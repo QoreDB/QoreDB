@@ -8,6 +8,7 @@ import {
   GitCompare,
   History,
   Network,
+  Puzzle,
   Settings,
   Table,
 } from 'lucide-react';
@@ -33,6 +34,8 @@ export function getTabIcon(type: TabKind) {
       return <BookOpen size={14} />;
     case 'time-travel':
       return <History size={14} />;
+    case 'plugin-output':
+      return <Puzzle size={14} />;
   }
 }
 

@@ -51,6 +51,9 @@ const SettingsPage = lazy(() =>
 const SnapshotManager = lazy(() =>
   import('./components/Snapshot/SnapshotManager').then(m => ({ default: m.SnapshotManager }))
 );
+const PluginOutputView = lazy(() =>
+  import('./components/Plugins/PluginOutputView').then(m => ({ default: m.PluginOutputView }))
+);
 
 import { StatusBar } from './components/Status/StatusBar';
 import { TabBar } from './components/Tabs/TabBar';
@@ -78,11 +81,13 @@ import {
   toggleZenMode,
   useModalStore,
 } from './lib/stores/modalStore';
+import { splitContributionId } from './lib/plugins';
 import {
   createDatabaseTab,
   createDiffTab,
   createFederationTab,
   createNotebookTab,
+  createPluginOutputTab,
   createQueryTab,
   createSnapshotsTab,
   createTableTab,
@@ -109,6 +114,8 @@ import {
 } from './lib/tauri';
 import { getRoutineTemplate } from './lib/templates/routineTemplates';
 import { getEventTemplate, getTriggerTemplate } from './lib/templates/triggerTemplates';
+import { usePluginOutput } from './providers/PluginOutputProvider';
+import { usePlugins } from './providers/PluginProvider';
 import { useSessionContext } from './providers/SessionProvider';
 import { useTabContext } from './providers/TabProvider';
 import { useWorkspace } from './providers/WorkspaceProvider';
@@ -160,6 +167,8 @@ export function AppLayout() {
   } = useSessionContext();
 
   const { projectId } = useWorkspace();
+  const { plugins, contributions } = usePlugins();
+  const { runCommand: runPluginCommandHistoryAware } = usePluginOutput();
   const settingsOpen = useModalStore(s => s.settingsOpen);
   const sidebarVisible = useModalStore(s => s.sidebarVisible);
   const zenMode = useModalStore(s => s.zenMode);
@@ -545,14 +554,25 @@ export function AppLayout() {
             },
           ]
         : []),
+      ...contributions.commands.map(cmd => {
+        const { pluginId } = splitContributionId(cmd.id);
+        const pluginName =
+          plugins.find(p => p.manifest.id === pluginId)?.manifest.name ?? pluginId;
+        return { id: cmd.id, label: `${pluginName}: ${cmd.label}` };
+      }),
     ],
-    [activeTabId, activeTab?.type, sessionId, t]
+    [activeTabId, activeTab?.type, sessionId, t, contributions.commands, plugins]
   );
 
   const handleSearchSelect = useCallback(
     async (result: SearchResult) => {
       setSearchOpen(false);
       if (result.type === 'command') {
+        if (result.id.includes('::')) {
+          openTab(createPluginOutputTab(t('pluginOutput.tabTitle')));
+          void runPluginCommandHistoryAware(result.id);
+          return;
+        }
         switch (result.id) {
           case 'cmd_new_connection':
             setConnectionModalOpen(true);
@@ -687,6 +707,7 @@ export function AppLayout() {
       handleToggleSandbox,
       refreshSidebar,
       projectId,
+      runPluginCommandHistoryAware,
     ]
   );
 
@@ -1058,6 +1079,14 @@ function AppContent({
         onOpenSequenceSource={onOpenSequenceSource}
         onClose={() => onCloseTab(activeTab.id)}
       />
+    );
+  }
+
+  if (activeTab?.type === 'plugin-output') {
+    return (
+      <div className="flex-1 min-h-0 flex flex-col">
+        <PluginOutputView key={activeTab.id} />
+      </div>
     );
   }
 

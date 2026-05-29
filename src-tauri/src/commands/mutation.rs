@@ -72,6 +72,7 @@ pub async fn insert_row(
     let session_manager = Arc::clone(&state_guard.session_manager);
     let interceptor = Arc::clone(&state_guard.interceptor);
     let changelog_store = Arc::clone(&state_guard.changelog_store);
+    let query_cache = Arc::clone(&state_guard.query_cache);
     drop(state_guard);
 
     let session = parse_session_id(&session_id)?;
@@ -213,6 +214,9 @@ pub async fn insert_row(
                 table.clone(),
             );
 
+            if let Some(key) = session_manager.connection_key(session).await {
+                query_cache.invalidate_connection(&key);
+            }
             Ok(MutationResponse {
                 success: true,
                 result: Some(result),
@@ -262,6 +266,7 @@ pub async fn update_row(
     let session_manager = Arc::clone(&state_guard.session_manager);
     let interceptor = Arc::clone(&state_guard.interceptor);
     let changelog_store = Arc::clone(&state_guard.changelog_store);
+    let query_cache = Arc::clone(&state_guard.query_cache);
     drop(state_guard);
     let session = parse_session_id(&session_id)?;
 
@@ -386,7 +391,6 @@ pub async fn update_row(
                 safety_warning.as_deref(),
             );
 
-
             if changelog_store.should_capture(&table, &environment) {
                 let after_image = before_image
                     .as_ref()
@@ -414,6 +418,9 @@ pub async fn update_row(
                 table.clone(),
             );
 
+            if let Some(key) = session_manager.connection_key(session).await {
+                query_cache.invalidate_connection(&key);
+            }
             Ok(MutationResponse {
                 success: true,
                 result: Some(result),
@@ -462,6 +469,7 @@ pub async fn delete_row(
     let session_manager = Arc::clone(&state_guard.session_manager);
     let interceptor = Arc::clone(&state_guard.interceptor);
     let changelog_store = Arc::clone(&state_guard.changelog_store);
+    let query_cache = Arc::clone(&state_guard.query_cache);
     drop(state_guard);
     let session = parse_session_id(&session_id)?;
 
@@ -610,6 +618,9 @@ pub async fn delete_row(
                 table.clone(),
             );
 
+            if let Some(key) = session_manager.connection_key(session).await {
+                query_cache.invalidate_connection(&key);
+            }
             Ok(MutationResponse {
                 success: true,
                 result: Some(result),

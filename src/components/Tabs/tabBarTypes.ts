@@ -11,7 +11,8 @@ export type TabKind =
   | 'federation'
   | 'snapshots'
   | 'notebook'
-  | 'time-travel';
+  | 'time-travel'
+  | 'plugin-output';
 
 export interface TabItem {
   id: string;

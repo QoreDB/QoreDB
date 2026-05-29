@@ -440,8 +440,7 @@ pub async fn get_connection_credentials(
             success: false,
             password: None,
             error: Some(
-                "Vault session expired — re-unlock the vault to access credentials"
-                    .to_string(),
+                "Vault session expired — re-unlock the vault to access credentials".to_string(),
             ),
         });
     }

@@ -7,6 +7,7 @@ pub mod ai;
 #[cfg(feature = "pro")]
 pub mod api;
 pub mod backup;
+pub mod cache;
 pub mod commands;
 #[cfg(feature = "pro")]
 pub mod contracts;
@@ -19,7 +20,9 @@ pub mod license;
 pub mod metrics;
 pub mod observability;
 pub mod paths;
+pub mod plugins;
 pub mod policy;
+pub mod ratelimit;
 pub mod share;
 pub mod snapshots;
 pub mod time_travel;
@@ -31,6 +34,7 @@ use std::sync::Arc;
 use tauri::Manager;
 use tokio::sync::Mutex;
 
+use cache::QueryCache;
 use commands::workspace::SharedWorkspaceManager;
 use engine::drivers::clickhouse::ClickHouseDriver;
 use engine::drivers::cockroachdb::CockroachDbDriver;
@@ -49,7 +53,9 @@ use engine::{DriverRegistry, QueryManager, SessionManager};
 use export::ExportPipeline;
 use interceptor::InterceptorPipeline;
 use license::LicenseManager;
+use plugins::runtime::PluginHost;
 use policy::SafetyPolicy;
+use ratelimit::QueryRateLimiter;
 use share::ShareManager;
 use snapshots::SnapshotStore;
 use vault::{backend::KeyringProvider, VaultLock};
@@ -62,6 +68,9 @@ pub struct AppState {
     pub vault_lock: VaultLock,
     pub policy: SafetyPolicy,
     pub query_manager: Arc<QueryManager>,
+    pub query_rate_limiter: Arc<QueryRateLimiter>,
+    pub query_cache: Arc<QueryCache>,
+    pub plugin_host: Arc<PluginHost>,
     pub interceptor: Arc<InterceptorPipeline>,
     pub export_pipeline: Arc<ExportPipeline>,
     pub share_manager: Arc<ShareManager>,
@@ -128,12 +137,19 @@ impl AppState {
             data_dir.join("time-travel"),
         ));
 
+        // Load executable plugins once at startup.
+        let plugin_host = Arc::new(PluginHost::new());
+        plugin_host.reload();
+
         Self {
             registry,
             session_manager,
             vault_lock,
             policy,
             query_manager,
+            query_rate_limiter: Arc::new(QueryRateLimiter::with_defaults()),
+            query_cache: Arc::new(QueryCache::new()),
+            plugin_host,
             interceptor,
             export_pipeline,
             share_manager,
@@ -207,11 +223,36 @@ pub fn run() {
             }
 
             let state: tauri::State<SharedState> = app.state();
-            let session_manager = {
+            let (session_manager, plugin_host) = {
                 let app_state = state.blocking_lock();
-                Arc::clone(&app_state.session_manager)
+                (
+                    Arc::clone(&app_state.session_manager),
+                    Arc::clone(&app_state.plugin_host),
+                )
             };
             session_manager.start_health_monitor(app.handle().clone());
+
+            // Plugin notification bridge: drains plugin-issued `NotifyEvent`s
+            // and forwards them to the webview as `plugin-notify`. The reload
+            // after the sender wiring picks it up in already-loaded instances.
+            {
+                use tauri::Emitter;
+                let (tx, mut rx) =
+                    tokio::sync::mpsc::unbounded_channel::<plugins::runtime::NotifyEvent>();
+                plugin_host.set_notify_sender(tx);
+                plugin_host.reload();
+                let app_handle = app.handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    while let Some(event) = rx.recv().await {
+                        if let Err(e) = app_handle.emit("plugin-notify", &event) {
+                            tracing::warn!(
+                                error = %e,
+                                "failed to emit plugin notify event"
+                            );
+                        }
+                    }
+                });
+            }
 
             let wr: tauri::State<workspace::write_registry::WriteRegistry> = app.state();
             workspace::watcher::start_workspace_watcher(
@@ -237,7 +278,6 @@ pub fn run() {
 
     builder
         .invoke_handler(tauri::generate_handler![
-
             // Connection commands
             commands::connection::test_connection,
             commands::connection::test_saved_connection,
@@ -330,6 +370,11 @@ pub fn run() {
             // Governance commands
             commands::query::get_governance_limits,
             commands::query::update_governance_limits,
+            // Query result cache commands
+            commands::cache::get_cache_config,
+            commands::cache::set_cache_config,
+            commands::cache::clear_query_cache,
+            commands::cache::get_cache_stats,
             // Sandbox commands
             commands::sandbox::generate_migration_sql,
             commands::sandbox::apply_sandbox_changes,
@@ -394,6 +439,8 @@ pub fn run() {
             #[cfg(feature = "pro")]
             commands::contracts::save_contract,
             #[cfg(feature = "pro")]
+            commands::contracts::delete_contract,
+            #[cfg(feature = "pro")]
             commands::contracts::run_contract,
             #[cfg(feature = "pro")]
             commands::contracts::get_contract_history,
@@ -428,6 +475,20 @@ pub fn run() {
             // Workspace query library commands
             commands::workspace_queries::ws_get_query_library,
             commands::workspace_queries::ws_save_query_library,
+            // Plugin system commands
+            commands::plugins::list_plugins,
+            commands::plugins::install_plugin,
+            commands::plugins::install_plugin_from_url,
+            commands::plugins::fetch_marketplace_index,
+            commands::plugins::remove_plugin,
+            commands::plugins::set_plugin_enabled,
+            commands::plugins::get_plugin_contributions,
+            commands::plugins::get_plugin_consent,
+            commands::plugins::set_plugin_consent,
+            commands::plugins::run_plugin_command,
+            commands::plugins::list_provisioned_secrets,
+            commands::plugins::set_plugin_secret,
+            commands::plugins::delete_plugin_secret,
             // Time-Travel commands
             commands::time_travel::get_table_timeline,
             commands::time_travel::get_row_history,

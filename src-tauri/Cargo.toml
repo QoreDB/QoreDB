@@ -87,7 +87,7 @@ duckdb = { version = "1.4", features = ["bundled"] }
 
 [package]
 name = "qoredb"
-version = "0.1.28"
+version = "0.1.29"
 description = "Next gen DB Client"
 authors = ["Raphaël Plassart <raphael.plassart@gmail.com>"]
 edition = "2021"
@@ -175,6 +175,12 @@ which = "6"
 
 # License verification
 ed25519-dalek = { version = "2", features = ["serde"] }
+wasmi = { version = "1.0.9", default-features = false, features = ["std"] }
+
+# Marketplace install: unzip downloaded plugin archives into a staging folder
+# before handing them to the existing install path. `deflate` is the only
+# compression method the registry's `build-index.mjs` produces.
+zip = { version = "2", default-features = false, features = ["deflate"] }
 
 [target."cfg(not(any(target_os = \"android\", target_os = \"ios\")))".dependencies]
 tauri-plugin-updater = "2"
@@ -202,7 +208,7 @@ rcgen = { version = "0.13", optional = true, default-features = false, features 
 rustls = { version = "0.23", optional = true, default-features = false, features = ["aws_lc_rs"] }
 
 # Network clients (AI BYOK + temporary share uploads)
-reqwest = { version = "0.12", features = ["json", "stream", "multipart"] }
+reqwest = { version = "0.12", features = ["json", "stream", "multipart", "blocking"] }
 
 # SQL Server driver (TDS protocol)
 tiberius = { workspace = true }
@@ -242,3 +248,6 @@ codegen-units = 1
 
 [dev-dependencies]
 tempfile = "3.24.0"
+# Compile WebAssembly text fixtures inline for the plugin runtime E2E tests.
+# Pure-Rust, no external toolchain — no `rustup target add` required in CI.
+wat = "1.0"

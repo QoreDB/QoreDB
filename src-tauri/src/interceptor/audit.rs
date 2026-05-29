@@ -556,7 +556,18 @@ mod tests {
             .expect("fingerprint should be populated");
 
         let matched = store
-            .get_entries_from_disk(0, 0, None, None, None, None, None, None, Some(&target_fp), None)
+            .get_entries_from_disk(
+                0,
+                0,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                Some(&target_fp),
+                None,
+            )
             .unwrap();
 
         assert_eq!(

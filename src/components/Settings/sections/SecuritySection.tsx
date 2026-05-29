@@ -15,6 +15,7 @@ interface SecuritySectionProps {
 const DEFAULTS = {
   prod_require_confirmation: true,
   prod_block_dangerous_sql: false,
+  query_rate_limit_enabled: true,
 };
 
 export function SecuritySection({ searchQuery }: SecuritySectionProps) {
@@ -67,7 +68,8 @@ export function SecuritySection({ searchQuery }: SecuritySectionProps) {
   const isPolicyModified =
     policy &&
     (policy.prod_require_confirmation !== DEFAULTS.prod_require_confirmation ||
-      policy.prod_block_dangerous_sql !== DEFAULTS.prod_block_dangerous_sql);
+      policy.prod_block_dangerous_sql !== DEFAULTS.prod_block_dangerous_sql ||
+      (policy.query_rate_limit_enabled ?? true) !== DEFAULTS.query_rate_limit_enabled);
 
   return (
     <>
@@ -121,6 +123,29 @@ export function SecuritySection({ searchQuery }: SecuritySectionProps) {
               </span>
               <span className="block text-xs text-muted-foreground mt-0.5">
                 {t('settings.safetyPolicyBlockDangerousDescription')}
+              </span>
+            </span>
+          </label>
+
+          <label className="flex items-start gap-2.5 text-sm cursor-pointer">
+            <Checkbox
+              checked={policy?.query_rate_limit_enabled ?? true}
+              disabled={!policy || policySaving}
+              onCheckedChange={checked =>
+                policy &&
+                updatePolicy({
+                  ...policy,
+                  query_rate_limit_enabled: !!checked,
+                })
+              }
+              className="mt-0.5"
+            />
+            <span>
+              <span className="font-medium text-foreground">
+                {t('settings.safetyPolicyRateLimit')}
+              </span>
+              <span className="block text-xs text-muted-foreground mt-0.5">
+                {t('settings.safetyPolicyRateLimitDescription')}
               </span>
             </span>
           </label>

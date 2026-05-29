@@ -4,6 +4,7 @@ import {
   AlertCircle,
   BookmarkPlus,
   BookOpen,
+  Braces,
   Check,
   Database,
   Folder,
@@ -21,14 +22,16 @@ import {
   Square,
   WrapText,
 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
@@ -41,8 +44,10 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tooltip } from '@/components/ui/tooltip';
+import { splitContributionId } from '@/lib/plugins';
 import { createFederationTab } from '@/lib/tabs';
 import { cn } from '@/lib/utils';
+import { usePlugins } from '@/providers/PluginProvider';
 import { useTabActions } from '@/providers/TabProvider';
 import { getModifierKey } from '@/utils/platform';
 import type { ENVIRONMENT_CONFIG } from '../../lib/environment';
@@ -84,6 +89,7 @@ interface QueryPanelToolbarProps {
   onBeginTransaction?: () => void;
   onCommitTransaction?: () => void;
   onRollbackTransaction?: () => void;
+  onInsertSnippet?: (template: string) => void;
 }
 
 export function QueryPanelToolbar({
@@ -119,10 +125,34 @@ export function QueryPanelToolbar({
   onBeginTransaction,
   onCommitTransaction,
   onRollbackTransaction,
+  onInsertSnippet,
 }: QueryPanelToolbarProps) {
   const { t } = useTranslation();
   const { openTab } = useTabActions();
+  const { plugins, contributions } = usePlugins();
   const [templateSelectValue, setTemplateSelectValue] = useState<string | undefined>(undefined);
+
+  // Snippets contributed by enabled plugins, grouped by their owning plugin.
+  // Built-in snippets already surface in the editor's autocomplete; this menu
+  // makes the plugin-contributed ones discoverable without typing.
+  const snippetGroups = useMemo(() => {
+    const nameById = new Map(plugins.map(p => [p.manifest.id, p.manifest.name]));
+    const groups = new Map<string, typeof contributions.snippets>();
+    for (const s of contributions.snippets) {
+      const { pluginId } = splitContributionId(s.id);
+      const group = groups.get(pluginId);
+      if (group) group.push(s);
+      else groups.set(pluginId, [s]);
+    }
+    return [...groups.entries()].map(([id, snippets]) => ({
+      id,
+      name: nameById.get(id) ?? id,
+      snippets,
+    }));
+  }, [contributions.snippets, plugins]);
+
+  const showSnippets =
+    !isDocumentBased && Boolean(onInsertSnippet) && contributions.snippets.length > 0;
 
   // Live timer during query execution
   const [elapsedMs, setElapsedMs] = useState(0);
@@ -375,6 +405,42 @@ export function QueryPanelToolbar({
           <History size={16} />
         </Button>
       </Tooltip>
+
+      {showSnippets && (
+        <DropdownMenu>
+          <Tooltip content={t('query.snippetsTooltip')}>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 text-muted-foreground hover:text-foreground"
+                aria-label={t('query.snippets')}
+              >
+                <Braces size={16} />
+              </Button>
+            </DropdownMenuTrigger>
+          </Tooltip>
+          <DropdownMenuContent align="end" className="w-64">
+            {snippetGroups.map((group, index) => (
+              <DropdownMenuGroup key={group.id}>
+                {index > 0 && <DropdownMenuSeparator />}
+                <DropdownMenuLabel className="text-muted-foreground">
+                  {group.name}
+                </DropdownMenuLabel>
+                {group.snippets.map(s => (
+                  <DropdownMenuItem
+                    key={s.id}
+                    onClick={() => onInsertSnippet?.(s.template)}
+                    title={s.description || undefined}
+                  >
+                    <span className="truncate">{s.label}</span>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuGroup>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>

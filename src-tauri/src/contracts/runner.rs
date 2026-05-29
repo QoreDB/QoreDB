@@ -73,7 +73,10 @@ pub async fn run_contract(
             sink.emit(ContractRunEvent::Failed {
                 run_id: run_id.clone(),
                 contract_id: contract_id.clone(),
-                error: format!("driver {} is not supported by Data Contracts", driver.driver_id()),
+                error: format!(
+                    "driver {} is not supported by Data Contracts",
+                    driver.driver_id()
+                ),
             });
             return Err(RunnerError::UnknownDialect(driver.driver_id().to_string()));
         }
@@ -99,7 +102,8 @@ pub async fn run_contract(
             total: total_rules,
         });
 
-        let result = evaluate_rule(driver.as_ref(), session, &contract, rule, dialect, options).await;
+        let result =
+            evaluate_rule(driver.as_ref(), session, &contract, rule, dialect, options).await;
 
         sink.emit(ContractRunEvent::Progress {
             run_id: run_id.clone(),
@@ -183,9 +187,7 @@ async fn evaluate_rule(
                 metric: None,
                 samples: None,
                 duration_ms: started.elapsed().as_millis() as u64,
-                error: Some(format!(
-                    "{rule_type_str} is not supported on {driver_name}"
-                )),
+                error: Some(format!("{rule_type_str} is not supported on {driver_name}")),
             };
         }
         Err(err) => {
@@ -202,7 +204,10 @@ async fn evaluate_rule(
         }
     };
 
-    execute_rule_sql(driver, session, rule, &rule_id, &rule_type, sql, options, started).await
+    execute_rule_sql(
+        driver, session, rule, &rule_id, &rule_type, sql, options, started,
+    )
+    .await
 }
 
 async fn execute_rule_sql(
@@ -310,7 +315,11 @@ fn evaluate_status(
 ) -> (RuleStatus, Option<u64>, Option<f64>) {
     match metric {
         MetricOutput::Violations { violations, total } => {
-            let status = if violations == 0 { RuleStatus::Pass } else { RuleStatus::Fail };
+            let status = if violations == 0 {
+                RuleStatus::Pass
+            } else {
+                RuleStatus::Fail
+            };
             let pct = total
                 .filter(|t| *t > 0)
                 .map(|t| (t - violations) as f64 * 100.0 / t as f64);
@@ -549,10 +558,7 @@ mod tests {
         ) -> EngineResult<QueryResult> {
             Err(EngineError::not_supported("preview"))
         }
-        async fn get_creation_options(
-            &self,
-            _session: SessionId,
-        ) -> EngineResult<CreationOptions> {
+        async fn get_creation_options(&self, _session: SessionId) -> EngineResult<CreationOptions> {
             Ok(CreationOptions {
                 charsets: Vec::new(),
             })
@@ -574,7 +580,9 @@ mod tests {
                 data_type: "int".into(),
                 nullable: false,
             }],
-            rows: vec![Row { values: vec![value] }],
+            rows: vec![Row {
+                values: vec![value],
+            }],
             affected_rows: None,
             execution_time_ms: 0.0,
         }
@@ -603,7 +611,10 @@ mod tests {
     #[tokio::test]
     async fn run_passes_when_row_count_in_range() {
         let driver = Arc::new(MockDriver::new("postgres"));
-        driver.add("count(*) AS metric_value", single_row("metric_value", Value::Int(50)));
+        driver.add(
+            "count(*) AS metric_value",
+            single_row("metric_value", Value::Int(50)),
+        );
 
         let contract = Contract {
             name: "c1".into(),
@@ -641,7 +652,10 @@ mod tests {
     #[tokio::test]
     async fn run_fails_when_row_count_below_min() {
         let driver = Arc::new(MockDriver::new("postgres"));
-        driver.add("count(*) AS metric_value", single_row("metric_value", Value::Int(5)));
+        driver.add(
+            "count(*) AS metric_value",
+            single_row("metric_value", Value::Int(5)),
+        );
 
         let contract = Contract {
             name: "c1".into(),
@@ -676,7 +690,10 @@ mod tests {
     #[tokio::test]
     async fn run_collects_samples_on_failure() {
         let driver = Arc::new(MockDriver::new("postgres"));
-        driver.add(") AS violations,", two_col_row(Value::Int(3), Value::Int(100)));
+        driver.add(
+            ") AS violations,",
+            two_col_row(Value::Int(3), Value::Int(100)),
+        );
         driver.add(
             "SELECT * FROM",
             QueryResult {
@@ -878,7 +895,10 @@ mod tests {
     #[tokio::test]
     async fn run_emits_progress_for_every_rule() {
         let driver = Arc::new(MockDriver::new("postgres"));
-        driver.add("count(*) AS metric_value", single_row("metric_value", Value::Int(50)));
+        driver.add(
+            "count(*) AS metric_value",
+            single_row("metric_value", Value::Int(50)),
+        );
 
         let contract = Contract {
             name: "c1".into(),

@@ -66,7 +66,7 @@ function formatVariable(variable: NotebookVariable, raw: string): string | null 
 // supported dialect (NUL byte; LF / CR for some shells; U+2028 / U+2029
 // line/paragraph separators for JavaScript-aware tooling). Regular spaces
 // are preserved so legitimate "Foo Bar" text values still work.
-const SQL_QUOTE_STRIP_RE = new RegExp('[\\u0000\\r\\n\\u2028\\u2029]', 'g');
+const SQL_QUOTE_STRIP_RE = /[\u0000\r\n\u2028\u2029]/g;
 
 function sqlQuote(value: string): string {
   const sanitised = value.replace(SQL_QUOTE_STRIP_RE, '');

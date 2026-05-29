@@ -177,7 +177,12 @@ impl ApiServer {
 
     /// Sends the shutdown signal, then disconnects all cached sessions.
     pub async fn stop(&self) -> Result<(), ServerError> {
-        let running = self.inner.lock().await.take().ok_or(ServerError::NotRunning)?;
+        let running = self
+            .inner
+            .lock()
+            .await
+            .take()
+            .ok_or(ServerError::NotRunning)?;
         let _ = running.shutdown.send(());
 
         let mut sessions = self.sessions.lock().await;
@@ -206,14 +211,12 @@ async fn spawn_http(
     app: Router,
     shutdown_rx: oneshot::Receiver<()>,
 ) -> Result<SocketAddr, ServerError> {
-    let listener = TcpListener::bind(addr).await.map_err(|source| ServerError::Bind {
-        addr,
-        source,
-    })?;
-    let local_addr = listener.local_addr().map_err(|source| ServerError::Bind {
-        addr,
-        source,
-    })?;
+    let listener = TcpListener::bind(addr)
+        .await
+        .map_err(|source| ServerError::Bind { addr, source })?;
+    let local_addr = listener
+        .local_addr()
+        .map_err(|source| ServerError::Bind { addr, source })?;
 
     tokio::spawn(async move {
         let server = axum::serve(listener, app).with_graceful_shutdown(async {
@@ -235,12 +238,10 @@ async fn spawn_tls(
     shutdown_rx: oneshot::Receiver<()>,
 ) -> Result<SocketAddr, ServerError> {
     let bundle = generate_self_signed()?;
-    let tls_config = RustlsConfig::from_pem(
-        bundle.cert_pem.into_bytes(),
-        bundle.key_pem.into_bytes(),
-    )
-    .await
-    .map_err(|e| ServerError::TlsConfig(e.to_string()))?;
+    let tls_config =
+        RustlsConfig::from_pem(bundle.cert_pem.into_bytes(), bundle.key_pem.into_bytes())
+            .await
+            .map_err(|e| ServerError::TlsConfig(e.to_string()))?;
 
     let handle = axum_server::Handle::new();
     let bound = handle.clone();
@@ -265,9 +266,8 @@ async fn spawn_tls(
                 // shuts down the axum-server.
                 tokio::spawn(async move {
                     if shutdown_rx.await.is_ok() {
-                        handle_for_shutdown.graceful_shutdown(Some(
-                            std::time::Duration::from_secs(2),
-                        ));
+                        handle_for_shutdown
+                            .graceful_shutdown(Some(std::time::Duration::from_secs(2)));
                     }
                 });
                 actual

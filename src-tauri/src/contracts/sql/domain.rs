@@ -22,13 +22,23 @@ pub fn build_numeric_range(
 ) -> Result<RuleSql, SqlBuildError> {
     let mut parts = Vec::new();
     if let Some(mn) = min {
-        let lit = format_number(mn).ok_or_else(|| SqlBuildError::Invalid("min not finite".into()))?;
-        let op = if inclusive_min.unwrap_or(true) { "<" } else { "<=" };
+        let lit =
+            format_number(mn).ok_or_else(|| SqlBuildError::Invalid("min not finite".into()))?;
+        let op = if inclusive_min.unwrap_or(true) {
+            "<"
+        } else {
+            "<="
+        };
         parts.push(format!("{column_sql} {op} {lit}"));
     }
     if let Some(mx) = max {
-        let lit = format_number(mx).ok_or_else(|| SqlBuildError::Invalid("max not finite".into()))?;
-        let op = if inclusive_max.unwrap_or(true) { ">" } else { ">=" };
+        let lit =
+            format_number(mx).ok_or_else(|| SqlBuildError::Invalid("max not finite".into()))?;
+        let op = if inclusive_max.unwrap_or(true) {
+            ">"
+        } else {
+            ">="
+        };
         parts.push(format!("{column_sql} {op} {lit}"));
     }
     if parts.is_empty() {
@@ -36,11 +46,13 @@ pub fn build_numeric_range(
             "numeric_range requires at least one bound".into(),
         ));
     }
-    let predicate = format!(
-        "({column_sql} IS NOT NULL AND ({}))",
-        parts.join(" OR ")
-    );
-    Ok(violation_query(dialect, table_sql, &predicate, sample_limit))
+    let predicate = format!("({column_sql} IS NOT NULL AND ({}))", parts.join(" OR "));
+    Ok(violation_query(
+        dialect,
+        table_sql,
+        &predicate,
+        sample_limit,
+    ))
 }
 
 pub fn build_date_range(
@@ -61,9 +73,9 @@ pub fn build_date_range(
     }
     if let Some(age) = max_age {
         let (amount, unit) = split_duration(age)?;
-        let threshold = dialect
-            .now_minus_duration(amount, unit)
-            .ok_or_else(|| SqlBuildError::Invalid(format!("max_age unsupported on this dialect: {age}")))?;
+        let threshold = dialect.now_minus_duration(amount, unit).ok_or_else(|| {
+            SqlBuildError::Invalid(format!("max_age unsupported on this dialect: {age}"))
+        })?;
         parts.push(format!("{column_sql} < {threshold}"));
     }
     if parts.is_empty() {
@@ -71,11 +83,13 @@ pub fn build_date_range(
             "date_range requires at least one of min/max/max_age".into(),
         ));
     }
-    let predicate = format!(
-        "({column_sql} IS NOT NULL AND ({}))",
-        parts.join(" OR ")
-    );
-    Ok(violation_query(dialect, table_sql, &predicate, sample_limit))
+    let predicate = format!("({column_sql} IS NOT NULL AND ({}))", parts.join(" OR "));
+    Ok(violation_query(
+        dialect,
+        table_sql,
+        &predicate,
+        sample_limit,
+    ))
 }
 
 pub fn build_allowed_values(
@@ -86,13 +100,18 @@ pub fn build_allowed_values(
     sample_limit: u32,
 ) -> Result<RuleSql, SqlBuildError> {
     if values.is_empty() {
-        return Err(SqlBuildError::Invalid("allowed_values cannot be empty".into()));
+        return Err(SqlBuildError::Invalid(
+            "allowed_values cannot be empty".into(),
+        ));
     }
     let allow_null = values.iter().any(|v| matches!(v, AllowedValue::Null));
     let non_null: Vec<String> = values
         .iter()
         .filter(|v| !matches!(v, AllowedValue::Null))
-        .map(|v| format_allowed_value(dialect, v).ok_or_else(|| SqlBuildError::Invalid("invalid allowed value".into())))
+        .map(|v| {
+            format_allowed_value(dialect, v)
+                .ok_or_else(|| SqlBuildError::Invalid("invalid allowed value".into()))
+        })
         .collect::<Result<_, _>>()?;
 
     let predicate = match (non_null.is_empty(), allow_null) {
@@ -107,7 +126,12 @@ pub fn build_allowed_values(
             non_null.join(", ")
         ),
     };
-    Ok(violation_query(dialect, table_sql, &predicate, sample_limit))
+    Ok(violation_query(
+        dialect,
+        table_sql,
+        &predicate,
+        sample_limit,
+    ))
 }
 
 fn violation_query(
@@ -207,7 +231,9 @@ mod tests {
             10,
         )
         .unwrap();
-        assert!(r.metric_query.contains("\"status\" NOT IN ('pending', 'paid')"));
+        assert!(r
+            .metric_query
+            .contains("\"status\" NOT IN ('pending', 'paid')"));
         assert!(r.metric_query.contains("\"status\" IS NULL OR"));
     }
 
@@ -221,7 +247,9 @@ mod tests {
             10,
         )
         .unwrap();
-        assert!(r.metric_query.contains("\"status\" IS NOT NULL AND \"status\" NOT IN ('ok')"));
+        assert!(r
+            .metric_query
+            .contains("\"status\" IS NOT NULL AND \"status\" NOT IN ('ok')"));
     }
 
     #[test]

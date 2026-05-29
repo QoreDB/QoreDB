@@ -87,7 +87,10 @@ pub fn build_document(store: &Arc<EndpointStore>) -> Value {
             continue;
         };
         let path = format!("/api/{}", endpoint.name);
-        paths.insert(path, endpoint_path(&endpoint.name, endpoint.shape, &endpoint.params));
+        paths.insert(
+            path,
+            endpoint_path(&endpoint.name, endpoint.shape, &endpoint.params),
+        );
     }
 
     json!({

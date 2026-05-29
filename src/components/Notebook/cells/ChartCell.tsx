@@ -25,7 +25,15 @@ interface ChartCellProps {
   allCells: NotebookCellType[];
 }
 
-const COLORS = ['#6B5CFF', '#22C55E', '#F59E0B', '#3B82F6', '#EF4444', '#8B5CF6', '#EC4899'];
+const COLORS = [
+  'var(--color-accent)',
+  '#22C55E',
+  '#F59E0B',
+  '#3B82F6',
+  '#EF4444',
+  '#8B5CF6',
+  '#EC4899',
+];
 
 export function ChartCell({ cell, allCells }: ChartCellProps) {
   const { t } = useTranslation();

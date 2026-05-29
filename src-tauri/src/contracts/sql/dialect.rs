@@ -83,11 +83,19 @@ impl Dialect {
             }
             Dialect::DuckDb => {
                 let body = format!("regexp_matches({col_sql}, {pat})");
-                if negate { format!("(NOT {body})") } else { format!("({body})") }
+                if negate {
+                    format!("(NOT {body})")
+                } else {
+                    format!("({body})")
+                }
             }
             Dialect::ClickHouse => {
                 let body = format!("match({col_sql}, {pat})");
-                if negate { format!("({body} = 0)") } else { format!("({body} = 1)") }
+                if negate {
+                    format!("({body} = 0)")
+                } else {
+                    format!("({body} = 1)")
+                }
             }
             // SQLite REGEXP requires loading an extension; SQL Server has no
             // built-in regex. The runner surfaces this as 'skipped' with a
@@ -172,10 +180,19 @@ mod tests {
     #[test]
     fn from_driver_id_handles_aliases() {
         assert_eq!(Dialect::from_driver_id("postgres"), Some(Dialect::Postgres));
-        assert_eq!(Dialect::from_driver_id("PostgreSQL"), Some(Dialect::Postgres));
-        assert_eq!(Dialect::from_driver_id("cockroachdb"), Some(Dialect::Postgres));
+        assert_eq!(
+            Dialect::from_driver_id("PostgreSQL"),
+            Some(Dialect::Postgres)
+        );
+        assert_eq!(
+            Dialect::from_driver_id("cockroachdb"),
+            Some(Dialect::Postgres)
+        );
         assert_eq!(Dialect::from_driver_id("mariadb"), Some(Dialect::MySql));
-        assert_eq!(Dialect::from_driver_id("clickhouse"), Some(Dialect::ClickHouse));
+        assert_eq!(
+            Dialect::from_driver_id("clickhouse"),
+            Some(Dialect::ClickHouse)
+        );
         assert_eq!(Dialect::from_driver_id("mongodb"), None);
     }
 
@@ -209,26 +226,37 @@ mod tests {
             Dialect::SqlServer.qualified_table(Some("dbo"), "users"),
             "[dbo].[users]"
         );
-        assert_eq!(Dialect::Postgres.qualified_table(None, "users"), "\"users\"");
+        assert_eq!(
+            Dialect::Postgres.qualified_table(None, "users"),
+            "\"users\""
+        );
     }
 
     #[test]
     fn regex_predicate_unsupported_on_sqlite_and_mssql() {
         assert!(Dialect::Sqlite.regex_predicate("c", "^a$", false).is_none());
-        assert!(Dialect::SqlServer.regex_predicate("c", "^a$", false).is_none());
+        assert!(Dialect::SqlServer
+            .regex_predicate("c", "^a$", false)
+            .is_none());
     }
 
     #[test]
     fn regex_predicate_postgres() {
-        let p = Dialect::Postgres.regex_predicate("\"name\"", "^[A-Z]", false).unwrap();
+        let p = Dialect::Postgres
+            .regex_predicate("\"name\"", "^[A-Z]", false)
+            .unwrap();
         assert_eq!(p, "(\"name\" ~ '^[A-Z]')");
-        let n = Dialect::Postgres.regex_predicate("\"name\"", "^[A-Z]", true).unwrap();
+        let n = Dialect::Postgres
+            .regex_predicate("\"name\"", "^[A-Z]", true)
+            .unwrap();
         assert_eq!(n, "(\"name\" !~ '^[A-Z]')");
     }
 
     #[test]
     fn regex_predicate_clickhouse() {
-        let p = Dialect::ClickHouse.regex_predicate("`x`", "abc", false).unwrap();
+        let p = Dialect::ClickHouse
+            .regex_predicate("`x`", "abc", false)
+            .unwrap();
         assert!(p.contains("match(`x`, 'abc')"));
         assert!(p.ends_with("= 1)"));
     }

@@ -75,3 +75,13 @@ List of PostHog events emitted by the app.
 
 - `audit_exported` (properties: `format`, `entries_count`)
 - `audit_filtered_by_fingerprint`
+
+## Query result cache (v0.1.29)
+
+- `query_cache_cleared` — emitted when the user clears the query result cache from Settings. Cache hit rate is **not** tracked per hit (too verbose); it is read on demand via `get_cache_stats`.
+
+## Plugins (v0.1.29)
+
+- `plugin_installed` (properties: `contributions` — the contribution types the plugin provides, among `snippets`, `connectionTemplates`, `themes`)
+- `plugin_enabled` — emitted when a plugin is enabled (no event is emitted on disable)
+- `plugin_removed`

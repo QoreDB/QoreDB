@@ -4,6 +4,8 @@ import { AppLayout } from './AppLayout';
 import { AiPreferencesProvider } from './providers/AiPreferencesProvider';
 import { LicenseProvider } from './providers/LicenseProvider';
 import { ModalProvider } from './providers/ModalProvider';
+import { PluginOutputProvider } from './providers/PluginOutputProvider';
+import { PluginProvider } from './providers/PluginProvider';
 import { SessionProvider } from './providers/SessionProvider';
 import { ShortcutProvider } from './providers/ShortcutProvider';
 import { TabProvider } from './providers/TabProvider';
@@ -20,7 +22,11 @@ function App() {
             <WorkspaceProvider>
               <SessionProvider>
                 <ShortcutProvider>
-                  <AppLayout />
+                  <PluginProvider>
+                    <PluginOutputProvider>
+                      <AppLayout />
+                    </PluginOutputProvider>
+                  </PluginProvider>
                 </ShortcutProvider>
               </SessionProvider>
             </WorkspaceProvider>

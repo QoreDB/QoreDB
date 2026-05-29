@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 
-import { FileText, Pencil, Play, Plus, RefreshCw } from 'lucide-react';
+import { FileText, Pencil, Play, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -15,10 +15,11 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import {
-  listContracts,
-  loadContract,
   type ContractMeta,
   type ContractRun,
+  deleteContract,
+  listContracts,
+  loadContract,
 } from '@/lib/contracts';
 
 import { ContractEditor } from './ContractEditor';
@@ -34,10 +35,7 @@ interface Props {
   connectionId?: string | null;
 }
 
-type Mode =
-  | { kind: 'list' }
-  | { kind: 'new' }
-  | { kind: 'edit'; name: string; source: string };
+type Mode = { kind: 'list' } | { kind: 'new' } | { kind: 'edit'; name: string; source: string };
 
 export function ContractsPanel({ open, onClose, sessionId, connectionId }: Props) {
   const { t } = useTranslation();
@@ -94,6 +92,24 @@ export function ContractsPanel({ open, onClose, sessionId, connectionId }: Props
     }
   }
 
+  async function handleDelete(meta: ContractMeta) {
+    const ok = window.confirm(
+      `${t('contracts.confirm.deleteTitle', { name: meta.name })}\n\n${t(
+        'contracts.confirm.deleteBody'
+      )}`
+    );
+    if (!ok) return;
+
+    try {
+      await deleteContract(meta.name);
+      await refresh();
+    } catch (e) {
+      toast.error(t('contracts.errors.deleteFailed'), {
+        description: e instanceof Error ? e.message : String(e),
+      });
+    }
+  }
+
   function handleClose() {
     if ((mode.kind === 'new' || mode.kind === 'edit') && dirty) {
       const ok = window.confirm(t('contracts.unsavedChanges'));
@@ -125,6 +141,7 @@ export function ContractsPanel({ open, onClose, sessionId, connectionId }: Props
                 loading={loading}
                 onEdit={handleEdit}
                 onRun={handleRun}
+                onDelete={handleDelete}
                 onCreate={() => setMode({ kind: 'new' })}
               />
             </div>
@@ -192,7 +209,13 @@ interface Summary {
 }
 
 function summarize(contracts: ContractMeta[]): Summary {
-  const summary: Summary = { total: contracts.length, healthy: 0, failing: 0, warning: 0, unknown: 0 };
+  const summary: Summary = {
+    total: contracts.length,
+    healthy: 0,
+    failing: 0,
+    warning: 0,
+    unknown: 0,
+  };
   for (const c of contracts) {
     const lvl = deriveHealth(c.last_run);
     summary[lvl] += 1;
@@ -252,10 +275,18 @@ interface ContractListProps {
   loading: boolean;
   onEdit: (meta: ContractMeta) => void;
   onRun: (meta: ContractMeta) => void;
+  onDelete: (meta: ContractMeta) => void;
   onCreate: () => void;
 }
 
-function ContractList({ contracts, loading, onEdit, onRun, onCreate }: ContractListProps) {
+function ContractList({
+  contracts,
+  loading,
+  onEdit,
+  onRun,
+  onDelete,
+  onCreate,
+}: ContractListProps) {
   const { t } = useTranslation();
 
   if (!loading && contracts.length === 0) {
@@ -263,9 +294,7 @@ function ContractList({ contracts, loading, onEdit, onRun, onCreate }: ContractL
       <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center px-6 py-10 border border-dashed border-border rounded-md">
         <FileText size={28} className="text-muted-foreground/50" />
         <h3 className="text-sm font-medium">{t('contracts.empty.title')}</h3>
-        <p className="text-xs text-muted-foreground max-w-md">
-          {t('contracts.empty.description')}
-        </p>
+        <p className="text-xs text-muted-foreground max-w-md">{t('contracts.empty.description')}</p>
         <Button size="sm" onClick={onCreate} className="mt-2">
           <Plus size={14} />
           {t('contracts.empty.createFirst')}
@@ -287,7 +316,13 @@ function ContractList({ contracts, loading, onEdit, onRun, onCreate }: ContractL
         </thead>
         <tbody>
           {contracts.map(meta => (
-            <ContractRow key={meta.id} meta={meta} onEdit={onEdit} onRun={onRun} />
+            <ContractRow
+              key={meta.id}
+              meta={meta}
+              onEdit={onEdit}
+              onRun={onRun}
+              onDelete={onDelete}
+            />
           ))}
         </tbody>
       </table>
@@ -299,9 +334,10 @@ interface RowProps {
   meta: ContractMeta;
   onEdit: (meta: ContractMeta) => void;
   onRun: (meta: ContractMeta) => void;
+  onDelete: (meta: ContractMeta) => void;
 }
 
-function ContractRow({ meta, onEdit, onRun }: RowProps) {
+function ContractRow({ meta, onEdit, onRun, onDelete }: RowProps) {
   const { t } = useTranslation();
   return (
     <tr className="border-t border-border hover:bg-muted/30">
@@ -321,11 +357,33 @@ function ContractRow({ meta, onEdit, onRun }: RowProps) {
       </td>
       <td className="px-3 py-2 align-middle text-right">
         <div className="inline-flex items-center gap-1">
-          <Button variant="ghost" size="sm" onClick={() => onEdit(meta)}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onEdit(meta)}
+            aria-label={t('contracts.edit')}
+            title={t('contracts.edit')}
+          >
             <Pencil size={13} />
           </Button>
-          <Button variant="ghost" size="sm" onClick={() => onRun(meta)}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onRun(meta)}
+            aria-label={t('contracts.run.action')}
+            title={t('contracts.run.action')}
+          >
             <Play size={13} />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onDelete(meta)}
+            aria-label={t('contracts.delete')}
+            title={t('contracts.delete')}
+            className="text-muted-foreground hover:text-red-600 dark:hover:text-red-400"
+          >
+            <Trash2 size={13} />
           </Button>
         </div>
       </td>

@@ -38,6 +38,14 @@
     "fs:allow-write-file",
     {
       "identifier": "fs:scope",
+      "allow": [
+        { "path": "$APPCONFIG" },
+        { "path": "$APPCONFIG/**" },
+        { "path": "$APPDATA" },
+        { "path": "$APPDATA/**" },
+        { "path": "$APPLOCALDATA" },
+        { "path": "$APPLOCALDATA/**" }
+      ],
       "deny": [
         { "path": "$HOME/.ssh/**" },
         { "path": "$HOME/.aws/**" },

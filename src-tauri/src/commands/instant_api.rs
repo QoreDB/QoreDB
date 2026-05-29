@@ -27,9 +27,7 @@ use tokio::sync::Mutex as TokioMutex;
 use crate::api::auth::issue_token;
 use crate::api::endpoints::{EndpointStore, StoreError};
 use crate::api::server::{ApiServer, ServerError};
-use crate::api::types::{
-    Endpoint, EndpointMeta, EndpointParam, InstantApiStatus, QueryShape,
-};
+use crate::api::types::{Endpoint, EndpointMeta, EndpointParam, InstantApiStatus, QueryShape};
 use crate::commands::workspace::SharedWorkspaceManager;
 
 /// Pro-only shared state: the API server is created lazily on first

@@ -31,8 +31,14 @@ interface UseInfiniteTableDataReturn {
   isFetchingMore: boolean;
   isComplete: boolean;
   error: string | null;
+  /** True when the currently displayed data was served from the query cache. */
+  cached: boolean;
+  /** Age of the cached entry in milliseconds, when served from cache. */
+  cachedAgeMs: number | undefined;
   fetchNextChunk: () => void;
   reload: () => void;
+  /** Like reload(), but forces fresh data even when a valid cache entry exists. */
+  refresh: () => void;
 }
 
 export function useInfiniteTableData({
@@ -58,9 +64,15 @@ export function useInfiniteTableData({
   const [executionTimeMs, setExecutionTimeMs] = useState(0);
   const [totalTimeMs, setTotalTimeMs] = useState<number | undefined>(undefined);
 
+  // Cache status: captured from the first chunk only
+  const [cached, setCached] = useState(false);
+  const [cachedAgeMs, setCachedAgeMs] = useState<number | undefined>(undefined);
+
   const currentPageRef = useRef(1);
   const generationRef = useRef(0);
   const fetchingRef = useRef(false);
+  // Set by refresh() to make the next reload bypass the query cache.
+  const bypassCacheRef = useRef(false);
 
   const fetchNextChunk = useCallback(async () => {
     if (fetchingRef.current || isComplete || !enabled) return;
@@ -75,14 +87,20 @@ export function useInfiniteTableData({
     try {
       const startTime = isFirstChunk ? performance.now() : 0;
 
-      const result = await queryTable(sessionId, namespace, tableName, {
-        page,
-        page_size: chunkSize,
-        sort_column: sortColumn,
-        sort_direction: sortDirection,
-        search: searchTerm,
-        filters,
-      });
+      const result = await queryTable(
+        sessionId,
+        namespace,
+        tableName,
+        {
+          page,
+          page_size: chunkSize,
+          sort_column: sortColumn,
+          sort_direction: sortDirection,
+          search: searchTerm,
+          filters,
+        },
+        bypassCacheRef.current
+      );
 
       if (generationRef.current !== generation) return;
 
@@ -93,6 +111,8 @@ export function useInfiniteTableData({
           const endTime = performance.now();
           setExecutionTimeMs(paginated.result.execution_time_ms);
           setTotalTimeMs(endTime - startTime);
+          setCached(result.cached ?? false);
+          setCachedAgeMs(result.cached_age_ms);
         }
 
         setColumns(prev => {
@@ -157,6 +177,8 @@ export function useInfiniteTableData({
     setError(null);
     setExecutionTimeMs(0);
     setTotalTimeMs(undefined);
+    setCached(false);
+    setCachedAgeMs(undefined);
   }, []);
 
   // Reset when sort/search/filters change
@@ -177,6 +199,7 @@ export function useInfiniteTableData({
     filtersRef.current = filters;
 
     if (sortChanged || searchChanged || filtersChanged) {
+      bypassCacheRef.current = false;
       reset();
     }
   }, [sortColumn, sortDirection, searchTerm, filters, reset]);
@@ -190,6 +213,12 @@ export function useInfiniteTableData({
   }, [enabled, allRows.length, isComplete, fetchNextChunk]);
 
   const reload = useCallback(() => {
+    bypassCacheRef.current = false;
+    reset();
+  }, [reset]);
+
+  const refresh = useCallback(() => {
+    bypassCacheRef.current = true;
     reset();
   }, [reset]);
 
@@ -212,7 +241,10 @@ export function useInfiniteTableData({
     isFetchingMore,
     isComplete,
     error,
+    cached,
+    cachedAgeMs,
     fetchNextChunk,
     reload,
+    refresh,
   };
 }

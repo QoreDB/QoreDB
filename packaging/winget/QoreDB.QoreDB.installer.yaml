@@ -1,0 +1,25 @@
+# SPDX-License-Identifier: Apache-2.0
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.6.0.schema.json
+#
+# WinGet installer manifest for QoreDB.
+# Update PackageVersion and InstallerSha256 for each new release.
+#
+# Compute the SHA-256 of the EXE installer:
+#   Get-FileHash -Algorithm SHA256 QoreDB_<version>_x64-setup.exe
+
+PackageIdentifier: QoreDB.QoreDB
+PackageVersion: 0.1.28
+InstallerType: nullsoft
+Scope: user
+InstallModes:
+  - silent
+  - silentWithProgress
+UpgradeBehavior: install
+ReleaseDate: 2026-05-17
+ReleaseNotesUrl: https://github.com/QoreDB/QoreDB/releases/tag/v0.1.28
+Installers:
+  - Architecture: x64
+    InstallerUrl: https://github.com/QoreDB/QoreDB/releases/download/v0.1.28/QoreDB_0.1.28_x64-setup.exe
+    InstallerSha256: REPLACE_WITH_X64_EXE_SHA256
+ManifestType: installer
+ManifestVersion: 1.6.0

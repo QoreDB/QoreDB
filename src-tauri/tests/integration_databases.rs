@@ -264,8 +264,8 @@ async fn connect_redis() -> EngineResult<(Arc<RedisDriver>, SessionId, Connectio
     Ok((driver, session, config))
 }
 
-async fn connect_clickhouse(
-) -> EngineResult<(Arc<ClickHouseDriver>, SessionId, ConnectionConfig)> {
+async fn connect_clickhouse() -> EngineResult<(Arc<ClickHouseDriver>, SessionId, ConnectionConfig)>
+{
     let config = clickhouse_config();
     let driver = Arc::new(ClickHouseDriver::new());
     wait_for_connection(driver.as_ref(), &config).await?;
@@ -899,7 +899,11 @@ async fn clickhouse_e2e() -> EngineResult<()> {
     assert!(
         collections.collections.iter().any(|c| c.name == table),
         "table {table} not listed; got {:?}",
-        collections.collections.iter().map(|c| &c.name).collect::<Vec<_>>()
+        collections
+            .collections
+            .iter()
+            .map(|c| &c.name)
+            .collect::<Vec<_>>()
     );
 
     // describe_table exposes columns, types, and the primary-key column
@@ -938,11 +942,7 @@ async fn clickhouse_e2e() -> EngineResult<()> {
 
     // Cleanup.
     let _ = driver
-        .execute(
-            session,
-            &format!("DROP TABLE {db}.{table}"),
-            QueryId::new(),
-        )
+        .execute(session, &format!("DROP TABLE {db}.{table}"), QueryId::new())
         .await;
     driver.disconnect(session).await?;
     Ok(())

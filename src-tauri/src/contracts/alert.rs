@@ -165,11 +165,10 @@ fn collect_candidate_contracts(
             Ok(s) => s,
             Err(_) => continue,
         };
-        let contract =
-            match super::parser::parse_contract(&source, super::parser::Format::Auto) {
-                Ok(c) => c,
-                Err(_) => continue,
-            };
+        let contract = match super::parser::parse_contract(&source, super::parser::Format::Auto) {
+            Ok(c) => c,
+            Err(_) => continue,
+        };
         if contract.target.table != table {
             continue;
         }
@@ -216,9 +215,7 @@ fn compute_regressions(previous: Option<&ContractRun>, current: &ContractRun) ->
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::contracts::{
-        Contract, ContractRun, ContractTarget, Rule, RuleResult, RuleStatus,
-    };
+    use crate::contracts::{Contract, ContractRun, ContractTarget, Rule, RuleResult, RuleStatus};
 
     fn rule_result(id: &str, status: RuleStatus) -> RuleResult {
         RuleResult {
@@ -234,9 +231,18 @@ mod tests {
     }
 
     fn run_with(results: Vec<RuleResult>) -> ContractRun {
-        let pass = results.iter().filter(|r| matches!(r.status, RuleStatus::Pass)).count() as u32;
-        let fail = results.iter().filter(|r| matches!(r.status, RuleStatus::Fail)).count() as u32;
-        let err = results.iter().filter(|r| matches!(r.status, RuleStatus::Error)).count() as u32;
+        let pass = results
+            .iter()
+            .filter(|r| matches!(r.status, RuleStatus::Pass))
+            .count() as u32;
+        let fail = results
+            .iter()
+            .filter(|r| matches!(r.status, RuleStatus::Fail))
+            .count() as u32;
+        let err = results
+            .iter()
+            .filter(|r| matches!(r.status, RuleStatus::Error))
+            .count() as u32;
         ContractRun {
             contract_id: "c".into(),
             contract_name: "c".into(),
@@ -268,7 +274,10 @@ mod tests {
     fn regression_detected_when_pass_to_fail() {
         let prev = run_with(vec![rule_result("a", RuleStatus::Pass)]);
         let curr = run_with(vec![rule_result("a", RuleStatus::Fail)]);
-        assert_eq!(compute_regressions(Some(&prev), &curr), vec!["a".to_string()]);
+        assert_eq!(
+            compute_regressions(Some(&prev), &curr),
+            vec!["a".to_string()]
+        );
     }
 
     #[test]

@@ -102,8 +102,8 @@ pub async fn run_duckdb_backup(
     // dedicated blocking thread so we don't stall the tokio runtime, and so
     // cancellation is best-effort (we await on the join handle).
     let handle = task::spawn_blocking(move || -> Result<(), String> {
-        let conn = Connection::open(&db_path)
-            .map_err(|e| format!("DuckDB open({db_path}): {e}"))?;
+        let conn =
+            Connection::open(&db_path).map_err(|e| format!("DuckDB open({db_path}): {e}"))?;
         conn.execute_batch(&sql)
             .map_err(|e| format!("DuckDB EXPORT failed: {e}"))?;
         Ok(())
@@ -180,8 +180,8 @@ pub async fn run_duckdb_restore(
     let job_id_for_task = job_id.clone();
 
     let handle = task::spawn_blocking(move || -> Result<(), String> {
-        let conn = Connection::open(&db_path)
-            .map_err(|e| format!("DuckDB open({db_path}): {e}"))?;
+        let conn =
+            Connection::open(&db_path).map_err(|e| format!("DuckDB open({db_path}): {e}"))?;
         conn.execute_batch(&sql)
             .map_err(|e| format!("DuckDB IMPORT failed: {e}"))?;
         Ok(())

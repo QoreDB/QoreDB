@@ -6,14 +6,17 @@
  */
 
 import { Binary } from 'lucide-react';
-import { memo, type RefObject, useCallback, useState } from 'react';
+import { memo, type RefObject, useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { isBinaryType } from '@/lib/binaryUtils';
+import { findViewerFor } from '@/lib/plugins';
 import type { ForeignKey, Namespace, RelationFilter, Value } from '@/lib/tauri';
 import { cn } from '@/lib/utils';
+import { usePlugins } from '@/providers/PluginProvider';
 import { BlobViewer } from './BlobViewer';
 import { ForeignKeyPeekTooltip } from './ForeignKeyPeekTooltip';
 import type { PeekState } from './hooks/useForeignKeyPeek';
+import { PluginCellRenderer } from './PluginCellRenderer';
 import { formatValue, type RowData } from './utils/dataGridUtils';
 
 export interface EditableDataCellProps {
@@ -68,6 +71,17 @@ export const EditableDataCell = memo(function EditableDataCell({
   const formatted = formatValue(value, dataType);
   const isNull = value === null;
   const [blobViewerOpen, setBlobViewerOpen] = useState(false);
+  // Plugin-contributed cell viewers. The lookup is cheap (typically 0–2
+  // viewers) but memoise it on column identity so we don't redo it on every
+  // editing-state change.
+  const { contributions } = usePlugins();
+  const pluginViewer = useMemo(
+    () =>
+      contributions.resultViewers.length === 0
+        ? undefined
+        : findViewerFor({ name: columnId, columnType: dataType }, contributions.resultViewers),
+    [columnId, dataType, contributions.resultViewers]
+  );
 
   const handleBlobClick = useCallback(() => {
     if (isBinary && typeof value === 'string' && value.length > 0) {
@@ -140,6 +154,8 @@ export const EditableDataCell = memo(function EditableDataCell({
           className="w-full bg-background border border-accent/50 rounded px-1.5 py-0.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-accent/40"
           aria-label={t('grid.editCell')}
         />
+      ) : pluginViewer && !isNull ? (
+        <PluginCellRenderer viewer={pluginViewer} value={value} formatted={formatted} />
       ) : (
         <span
           className={cn(

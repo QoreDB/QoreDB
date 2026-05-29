@@ -11,7 +11,9 @@ pub fn build_unique(
     sample_limit: u32,
 ) -> Result<RuleSql, SqlBuildError> {
     if column_sqls.is_empty() {
-        return Err(SqlBuildError::Invalid("unique requires at least one column".into()));
+        return Err(SqlBuildError::Invalid(
+            "unique requires at least one column".into(),
+        ));
     }
     let group_by = column_sqls.join(", ");
     let metric_query = format!(
@@ -44,9 +46,8 @@ pub fn build_distinct_count(
     table_sql: &str,
     column_sql: &str,
 ) -> Result<RuleSql, SqlBuildError> {
-    let metric_query = format!(
-        "SELECT count(DISTINCT {column_sql}) AS metric_value FROM {table_sql}"
-    );
+    let metric_query =
+        format!("SELECT count(DISTINCT {column_sql}) AS metric_value FROM {table_sql}");
     Ok(RuleSql {
         kind: RuleSqlKind::SingleMetric,
         metric_query,
@@ -90,7 +91,9 @@ mod tests {
         )
         .unwrap();
         assert!(r.metric_query.contains("GROUP BY \"a\", \"b\""));
-        assert!(r.metric_query.contains("\"a\" IS NOT NULL AND \"b\" IS NOT NULL"));
+        assert!(r
+            .metric_query
+            .contains("\"a\" IS NOT NULL AND \"b\" IS NOT NULL"));
     }
 
     #[test]

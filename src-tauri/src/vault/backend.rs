@@ -30,9 +30,7 @@ impl From<CredentialError> for EngineError {
             CredentialError::AccessDenied(msg) => {
                 EngineError::auth_failed(format!("Keyring access denied: {msg}"))
             }
-            CredentialError::Other(msg) => {
-                EngineError::internal(format!("Keyring error: {msg}"))
-            }
+            CredentialError::Other(msg) => EngineError::internal(format!("Keyring error: {msg}")),
         }
     }
 }

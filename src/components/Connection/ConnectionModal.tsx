@@ -27,6 +27,7 @@ import {
 import { cn } from '@/lib/utils';
 import { AdvancedSection } from './connection-modal/AdvancedSection';
 import { BasicSection } from './connection-modal/BasicSection';
+import { ConnectionTemplatePicker } from './connection-modal/ConnectionTemplatePicker';
 import { DriverPicker } from './connection-modal/DriverPicker';
 import {
   buildConnectionConfig,
@@ -351,6 +352,13 @@ export function ConnectionModal({
                       onParseStatusChange={handleParseStatusChange}
                     />
                   </div>
+                )}
+
+                {!isEditMode && !formData.useUrl && (
+                  <ConnectionTemplatePicker
+                    driver={formData.driver}
+                    onApply={handleChange}
+                  />
                 )}
 
                 <BasicSection

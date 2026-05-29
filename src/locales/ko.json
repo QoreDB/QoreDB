@@ -1,4 +1,142 @@
 {
+  "cache": {
+    "title": "쿼리 결과 캐시",
+    "description": "최근 테이블 탐색 결과를 캐시하여 반복 탐색을 즉시 표시합니다.",
+    "enabledLabel": "쿼리 결과 캐시 활성화",
+    "enabledDescription": "캐시된 결과는 QoreDB로 데이터를 변경하면 무효화되며 아래 수명이 지나면 만료됩니다.",
+    "ttl": "수명(초)",
+    "maxEntries": "최대 항목 수",
+    "stats": "캐시 {{entries}}개 · 적중률 {{hitRate}}%",
+    "clear": "캐시 비우기",
+    "fromCache": "캐시에서 제공된 데이터({{age}} 전) · 클릭하여 새로 고침",
+    "refresh": "새로 고침"
+  },
+  "plugins": {
+    "title": "플러그인",
+    "description": "플러그인으로 QoreDB 확장: SQL 스니펫 팩, 연결 템플릿, 색상 테마 또는 샌드박스 실행 후크.",
+    "empty": "설치된 플러그인이 없습니다.",
+    "install": "플러그인 설치",
+    "installDialog": {
+      "title": "플러그인 설치",
+      "description": "plugin.json 매니페스트가 포함된 폴더를 선택하세요.",
+      "pickFolder": "폴더 선택…",
+      "installing": "설치 중…"
+    },
+    "tabs": {
+      "installed": "설치됨",
+      "browse": "둘러보기"
+    },
+    "card": {
+      "version": "버전",
+      "by": "{{author}} 제작",
+      "incompatible": "호환되지 않음",
+      "enable": "플러그인 활성화",
+      "disable": "플러그인 비활성화",
+      "remove": "플러그인 제거",
+      "removeConfirm": "플러그인 \"{{name}}\"을(를) 제거할까요?",
+      "executable": "실행 가능",
+      "executableTooltip": "이 플러그인은 엄격한 CPU 및 메모리 예산 내에서 샌드박스 WASM 코드를 실행합니다."
+    },
+    "contributions": {
+      "snippets": "스니펫: {{count}}",
+      "connectionTemplates": "템플릿: {{count}}",
+      "themes": "테마: {{count}}"
+    },
+    "connectionTemplatePicker": {
+      "title": "플러그인 템플릿"
+    },
+    "detail": {
+      "requires": "QoreDB {{version}} 필요",
+      "noContributions": "이 플러그인은 제공하는 항목이 없습니다.",
+      "snippets": "SQL 스니펫",
+      "templates": "연결 템플릿",
+      "themes": "테마",
+      "runtime": "실행 런타임",
+      "runtimeExplanation": "이 플러그인은 QoreDB 내에서 샌드박스 WebAssembly 코드를 실행합니다.",
+      "runtimeEntry": "모듈:",
+      "runtimeAbi": "ABI:",
+      "runtimeHooks": "후크:",
+      "capabilities": "권한",
+      "editConsent": "편집",
+      "granted": "허용됨",
+      "notGranted": "거부됨",
+      "viewers": "결과 뷰어",
+      "commands": "작업",
+      "commandRun": "실행",
+      "commandRunning": "실행 중…",
+      "commandNoOutput": "(출력 없음)",
+      "secrets": "비밀",
+      "secretsDescription": "플러그인이 매니페스트에 선언한 비밀의 값을 제공하세요. 값은 OS 키링에 저장되며 이 기기를 벗어나지 않습니다."
+    },
+    "themes": {
+      "title": "플러그인 테마",
+      "description": "활성화된 플러그인이 제공하는 색상 테마.",
+      "apply": "적용",
+      "active": "사용 중"
+    },
+    "toast": {
+      "installed": "플러그인 \"{{name}}\"을(를) 설치했습니다",
+      "removed": "플러그인 \"{{name}}\"을(를) 제거했습니다"
+    },
+    "consent": {
+      "title": "\"{{name}}\"이(가) 요청한 권한",
+      "description": "이 플러그인은 샌드박스에서 코드를 실행하며 아래 권한을 요청합니다. 신뢰하는 항목만 허용하세요 — 언제든지 취소할 수 있습니다.",
+      "denyAll": "모두 거부",
+      "save": "권한 저장",
+      "saving": "저장 중…",
+      "caps": {
+        "log": {
+          "title": "로그에 쓰기",
+          "description": "QoreDB 로그에 진단 메시지를 추가합니다."
+        },
+        "notify": {
+          "title": "알림 표시",
+          "description": "앱 내 토스트 알림을 표시합니다."
+        },
+        "storage": {
+          "title": "영속 저장소",
+          "description": "플러그인별 키-값 저장소에 최대 1 MB를 저장합니다."
+        },
+        "queryRead": {
+          "title": "쿼리 결과 읽기",
+          "description": "방금 실행된 쿼리의 행과 열을 봅니다. 민감한 데이터가 포함될 수 있습니다."
+        },
+        "http": {
+          "title": "HTTP 요청 전송",
+          "description": "아래 나열된 호스트에만 접근합니다. 다른 호스트는 런타임이 거부합니다."
+        },
+        "fs": {
+          "title": "플러그인 데이터 디렉터리",
+          "description": "플러그인 전용 폴더에서 파일을 읽고 씁니다. 다른 위치는 거부됩니다."
+        },
+        "secrets": {
+          "title": "프로비저닝된 비밀 읽기",
+          "description": "플러그인 상세에서 프로비저닝한 명명된 비밀을 읽습니다."
+        }
+      }
+    },
+    "secrets": {
+      "saved": "비밀이 저장되었습니다",
+      "removed": "비밀이 제거되었습니다",
+      "provisioned": "설정됨",
+      "placeholder": "값 입력",
+      "replacePlaceholder": "값 교체",
+      "save": "저장",
+      "remove": "비밀 제거",
+      "show": "값 표시",
+      "hide": "값 숨기기"
+    }
+  },
+  "pluginOutput": {
+    "tabTitle": "플러그인 출력",
+    "empty": "아직 실행된 플러그인 명령이 없습니다",
+    "emptyHint": "명령 팔레트를 열고 플러그인 명령을 검색하세요",
+    "runsHeader": "기록",
+    "clearAll": "기록 지우기",
+    "runningCommand": "명령 실행 중…",
+    "error": "오류",
+    "noResult": "(결과 없음)"
+  },
   "home": {
     "noConnections": {
       "title": "구성된 연결이 없습니다",
@@ -46,6 +184,7 @@
     "install": "설치 및 다시 시작",
     "installing": "업데이트 설치 중…",
     "installed": "업데이트가 설치되었습니다.",
+    "restart": "다시 시작",
     "restartRequired": "업데이트 적용을 완료하려면 QoreDB를 다시 시작하세요.",
     "installFailed": "업데이트 설치에 실패했습니다."
   },
@@ -112,10 +251,10 @@
       "deleteFail": "연결 삭제에 실패했습니다",
       "newQuery": "새 쿼리",
       "newNotebook": "새 노트북",
-      "credentialLoadFail": "연결 정보를 불러오지 못했습니다",
-      "testTitleSuccess": "{{name}} 연결 성공!",
       "backup": "데이터베이스 백업…",
-      "restore": "백업에서 복원…"
+      "restore": "백업에서 복원…",
+      "credentialLoadFail": "연결 정보를 불러오지 못했습니다",
+      "testTitleSuccess": "{{name}} 연결 성공!"
     },
     "url": {
       "useUrl": "URL/DSN으로 연결",
@@ -209,6 +348,7 @@
     "otherConnections": "기타 연결",
     "addToFavorites": "즐겨찾기에 추가",
     "removeFromFavorites": "즐겨찾기에서 제거",
+    "proTools": "Pro 도구",
     "auditLog": "감사 로그"
   },
   "search": {
@@ -488,6 +628,8 @@
     "safetyPolicyRequireConfirmationDescription": "프로덕션에서 파괴적인 SQL을 실행하기 전에 명시적인 확인을 요청합니다.",
     "safetyPolicyBlockDangerous": "프로덕션에서 위험한 SQL 차단",
     "safetyPolicyBlockDangerousDescription": "확인된 경우에도 프로덕션에서 파괴적인 SQL을 거부합니다.",
+    "safetyPolicyRateLimit": "연결당 쿼리 속도 제한",
+    "safetyPolicyRateLimitDescription": "연결의 쿼리 실행 속도를 제한하여 폭주하는 쿼리 루프를 중지합니다.",
     "safetyPolicyNote": "관리형 배포에서는 환경 변수로 이 설정을 재정의할 수 있습니다.",
     "safetyPolicyError": "안전 정책 설정을 불러오거나 저장할 수 없습니다.",
     "configBackup": "설정 백업",
@@ -521,8 +663,9 @@
       "general": "일반",
       "editor": "편집기",
       "security": "보안",
-      "data": "데이터 및 개인정보",
+      "data": "개인정보",
       "shortcuts": "키보드 단축키",
+      "plugins": "플러그인",
       "license": "라이선스",
       "ai": "AI 어시스턴트"
     },
@@ -539,6 +682,7 @@
       "installUpdate": "v{{version}} 설치",
       "installing": "설치 중...",
       "installed": "업데이트가 설치되었습니다 — 적용하려면 다시 시작하세요.",
+      "restart": "지금 다시 시작",
       "upToDate": "최신 버전입니다!"
     },
     "startup": {
@@ -551,6 +695,14 @@
     },
     "modified": "수정됨",
     "shortcuts": {
+      "title": "키보드 단축키",
+      "description": "바인딩을 클릭하여 새 키 조합을 기록합니다. Esc로 취소합니다.",
+      "recordHint": "단축키를 클릭하여 재할당합니다. 새 조합은 즉시 적용됩니다.",
+      "recording": "키를 누르세요…",
+      "errorSystemReserved": "OS에 의해 예약됨",
+      "conflictTooltip": "다른 단축키와 충돌",
+      "resetOne": "기본값으로 재설정",
+      "resetAll": "모두 재설정",
       "categoryNavigation": "탐색",
       "categoryEditor": "편집기",
       "categoryGeneral": "일반",
@@ -562,21 +714,18 @@
       "newQuery": "새 쿼리 탭",
       "runQuery": "쿼리 실행",
       "closeTab": "탭 닫기",
-      "escape": "오버레이 닫기 / 취소",
-      "title": "키보드 단축키",
-      "description": "바인딩을 클릭하여 새 키 조합을 기록합니다. Esc로 취소합니다.",
-      "recordHint": "단축키를 클릭하여 재할당합니다. 새 조합은 즉시 적용됩니다.",
-      "recording": "키를 누르세요…",
-      "errorSystemReserved": "OS에 의해 예약됨",
-      "conflictTooltip": "다른 단축키와 충돌",
-      "resetOne": "기본값으로 재설정",
-      "resetAll": "모두 재설정"
+      "escape": "오버레이 닫기 / 취소"
     },
     "tabs": {
       "title": "탭",
       "description": "탭 표시줄 동작을 구성합니다.",
       "groupByConnection": "연결별로 탭 그룹화",
       "groupByConnectionDescription": "연결 이름 아래에 접을 수 있는 그룹으로 탭을 표시합니다."
+    },
+    "onboarding": {
+      "title": "환영 투어",
+      "description": "환영 투어를 다시 재생하여 QoreDB의 기능, 개인정보 보호 모델, 무료 버전과 Pro의 차이를 다시 살펴보세요.",
+      "replay": "온보딩 다시 보기"
     },
     "backupTools": {
       "title": "백업 도구 경로",
@@ -681,6 +830,7 @@
     "format": "포맷",
     "explain": "실행 계획",
     "snippets": "스니펫",
+    "snippetsTooltip": "플러그인 스니펫 삽입",
     "keepResults": "결과 유지",
     "formatSql": "SQL 포맷",
     "results": "결과",
@@ -696,6 +846,23 @@
     "multiStatementNotice": "여러 문이 감지되었습니다 ({{count}}개). 마지막 결과만 표시됩니다.",
     "expandEditor": "편집기 확장",
     "collapseEditor": "편집기 축소",
+    "truncated": {
+      "title": "거버넌스 제한으로 결과가 잘렸습니다",
+      "description": "{{total}}개 행 중 {{shown}}개를 표시합니다. 메모리 및 UI 성능 보호를 위해 추가 행이 숨겨졌습니다.",
+      "rerun": "제한 없이 다시 실행"
+    },
+    "timedOut": {
+      "rerun": "시간 제한 없이 다시 실행"
+    },
+    "overrideLimits": {
+      "titleRows": "행 제한 없이 다시 실행하시겠습니까?",
+      "titleTimeout": "시간 제한 없이 다시 실행하시겠습니까?",
+      "descriptionRows": "환경 정책에서 적용한 행 제한이 이번 실행에 한해 무시됩니다. 결과가 잘리지 않습니다.",
+      "descriptionTimeout": "환경 정책에서 적용한 실행 시간 제한이 이번 실행에 한해 무시됩니다. 데이터베이스가 취소할 때까지 쿼리가 실행될 수 있습니다.",
+      "warning": "대용량 결과 집합은 메모리를 많이 소비하고 UI를 느리게 만들 수 있습니다. 장시간 실행되는 쿼리는 잠금을 유지하거나 데이터베이스 리소스를 소비할 수 있습니다.",
+      "confirm": "제한 없이 실행",
+      "toast": "거버넌스 제한 없이 쿼리 재실행 중"
+    },
     "time": {
       "exec": "실행",
       "transfer": "전송",
@@ -1041,6 +1208,8 @@
   "whatsNew": {
     "title": "새로운 기능",
     "titleWithVersion": "v{{version}}의 새로운 기능",
+    "subtitle": "마지막 세션 이후 변경된 내용을 빠르게 확인하세요.",
+    "dismiss": "확인",
     "tryIt": "사용해 보기",
     "markSeen": "닫기",
     "feature": "신규",
@@ -1204,7 +1373,8 @@
     "checkExpressionPlaceholder": "예: amount > 0",
     "previewPlaceholder": "테이블 이름과 컬럼을 하나 이상 입력하면 SQL 미리보기를 볼 수 있습니다.",
     "noColumns": "최소 한 개의 컬럼을 추가하세요.",
-    "warningsCount": "경고 {{count}}개"
+    "warningsCount": "경고 {{count}}개",
+    "warningsCount_other": "{{count}}개 경고"
   },
   "dropTable": {
     "title": "테이블 삭제",
@@ -1263,24 +1433,58 @@
     "jsonLabel": "JSON 문서"
   },
   "onboarding": {
+    "skip": "건너뛰기",
     "welcome": {
       "title": "QoreDB에 오신 것을 환영합니다",
       "subtitle": "현대적인 시대를 위한 유니버설 데이터베이스 클라이언트.",
+      "tagline": "12개 드라이버 · SQL + NoSQL · Rust 속도 · 로컬 우선",
       "next": "투어 시작"
     },
-    "concepts": {
-      "title": "왜 QoreDB인가요?",
-      "universalTitle": "유니버설 클라이언트",
-      "universalDesc": "SQL(Postgres, MySQL)과 NoSQL(MongoDB, Redis) 데이터베이스를 하나의 통합 인터페이스로 관리하세요.",
-      "localTitle": "로컬 우선",
-      "localDesc": "데이터는 사용자의 기기에 남습니다. 클라우드 중개자도, 침해적인 추적도 없습니다.",
-      "next": "계속"
+    "capabilities": {
+      "title": "QoreDB로 할 수 있는 것",
+      "subtitle": "데이터베이스 작업 전체를 하나의 앱으로 — 도구 전환 없이.",
+      "driversTitle": "12개 네이티브 드라이버",
+      "driversDesc": "PostgreSQL, MySQL, SQL Server, SQLite, DuckDB, CockroachDB, ClickHouse, MongoDB, Redis — 그 외 더 많은 드라이버를 지원합니다.",
+      "aiTitle": "AI 어시스턴트",
+      "aiDesc": "전체 스키마 컨텍스트를 활용해 SQL/MQL을 생성, 수정, 설명합니다. OpenAI, Anthropic 또는 로컬 Ollama 키를 직접 사용하세요.",
+      "notebooksTitle": "데이터베이스 노트북",
+      "notebooksDesc": "SQL, Markdown, 차트 셀과 셀 간 변수를 혼합합니다. Git으로 diff 가능한 .qnb 파일.",
+      "federationTitle": "크로스 데이터베이스 쿼리",
+      "federationDesc": "단일 SQL 문으로 PostgreSQL, MySQL, MongoDB 등 여러 데이터베이스의 테이블을 조인하세요."
+    },
+    "privacy": {
+      "title": "로컬 우선 · 기본 안전",
+      "subtitle": "프로덕션 데이터는 신중한 도구가 필요합니다. QoreDB의 보호 방식입니다.",
+      "vaultTitle": "OS 키체인에 저장된 자격 증명",
+      "vaultDesc": "비밀번호는 Argon2로 암호화되어 시스템 볼트에 저장됩니다 — 디스크에 평문으로 저장되지 않습니다.",
+      "guardsTitle": "프로덕션 안전 규칙",
+      "guardsDesc": "위험한 쿼리는 프로덕션에서 두 번 확인을 거쳐 실행됩니다. 토글 하나로 모든 연결을 읽기 전용 모드로 설정하세요.",
+      "sandboxTitle": "샌드박스 모드",
+      "sandboxDesc": "실제 데이터에 영향 없이 실제 연결에서 파괴적 쿼리를 테스트합니다. 모든 변경 사항이 자동으로 롤백됩니다.",
+      "localTitle": "내 기기 밖으로 나가지 않음",
+      "localDesc": "클라우드 동기화, 데이터 원격 분석, 원격 스키마 인덱싱 없음. 쿼리와 결과는 로컬에 유지됩니다."
+    },
+    "tiers": {
+      "title": "오픈 코어 — 무료 및 Pro",
+      "subtitle": "QoreDB는 오픈 소스입니다. Pro는 그 자체로 가치를 증명하는 워크로드를 위해 설계되었습니다.",
+      "freeLabel": "무료",
+      "freeFor": "개인 프로젝트 및 탐색",
+      "freeBullet1": "12개 데이터베이스 드라이버 전부",
+      "freeBullet2": "쿼리 편집기, 노트북, ER 다이어그램",
+      "freeBullet3": "직접 AI 키 사용",
+      "proLabel": "Pro",
+      "proFor": "전문적인 업무를 위해",
+      "proBullet1": "샌드박스 모드, 데이터 타임 트래블, 비주얼 diff",
+      "proBullet2": "고급 감사 로그, 프로파일링, 사용자 정의 안전 규칙",
+      "proBullet3": "데이터 계약, 즉시 Data API, 고급 내보내기",
+      "footnote": "Pro는 일회성 결제, 영구 라이선스입니다. 구독 없음."
     },
     "analytics": {
       "title": "개선에 도움을 주세요",
       "subtitle": "오픈소스 프로젝트입니다. 익명 사용 데이터는 기능 우선순위 결정과 버그 수정에 도움이 됩니다 — 설정에서 언제든지 변경할 수 있습니다.",
       "checkbox": "익명 사용 분석 공유 (권장)",
       "privacyHint": "충돌 보고서와 기능 사용 횟수만 수집합니다. 쿼리, 결과, 자격 증명은 절대 기기를 떠나지 않습니다.",
+      "guarantee": "이 설정과 관계없이 쿼리, 결과, 자격 증명은 절대 내 기기 밖으로 나가지 않습니다.",
       "finish": "시작하기"
     },
     "workspace": {
@@ -1395,6 +1599,12 @@
       "noEntries": "감사 로그 항목이 없습니다",
       "upgradeForFilters": "필터, 내보내기, 고급 통계를 사용하려면 Pro로 업그레이드하세요",
       "blockedBy": "차단 규칙: {{rule}}",
+      "fingerprintFilter": "지문",
+      "export": {
+        "label": "내보내기",
+        "format": "형식",
+        "fromDisk": "회전된 기록 포함"
+      },
       "filters": {
         "environment": "환경",
         "allEnvironments": "모든 환경",
@@ -1421,10 +1631,10 @@
         "database": "데이터베이스",
         "executionTime": "실행 시간",
         "rowCount": "행 수",
-        "blockedBy": "안전 규칙에 의해 차단됨",
-        "error": "오류",
         "fingerprint": "지문",
-        "filterByFingerprint": "이 지문으로 필터링"
+        "filterByFingerprint": "이 지문으로 필터링",
+        "blockedBy": "안전 규칙에 의해 차단됨",
+        "error": "오류"
       },
       "stats": {
         "total": "전체 쿼리",
@@ -1433,12 +1643,6 @@
         "success": "성공",
         "failed": "실패",
         "lastHour": "최근 1시간"
-      },
-      "fingerprintFilter": "지문",
-      "export": {
-        "label": "내보내기",
-        "format": "형식",
-        "fromDisk": "회전된 기록 포함"
       }
     },
     "profiling": {
@@ -1758,6 +1962,14 @@
   },
   "license": {
     "currentTier": "현재 티어",
+    "founderBadge": "창립 지지자",
+    "founderTooltip": "QoreDB의 초기 지지자가 되어 주셔서 감사합니다.",
+    "tierTagline": {
+      "core": "무료 — 개인 프로젝트 및 탐색",
+      "pro": "Pro — 전문적인 업무를 위해",
+      "team": "Team — 팀을 위한 공유 워크스페이스",
+      "enterprise": "Enterprise — 기업 수준의 통제"
+    },
     "activate": "활성화",
     "deactivate": "라이선스 비활성화",
     "deactivateConfirm": {
@@ -1776,7 +1988,120 @@
     "getPro": "QoreDB Pro 받기",
     "upgrade": {
       "description": "이 기능은 Pro 라이선스가 필요합니다.",
-      "hint": "설정에서 라이선스 키를 활성화하세요."
+      "hint": "설정에서 라이선스 키를 활성화하세요.",
+      "defaultTitle": "QoreDB Pro로 이 기능을 잠금 해제하세요",
+      "defaultDescription": "이 기능은 진지한 데이터베이스 작업을 위해 설계된 QoreDB Pro의 일부입니다.",
+      "unlock": "Pro 잠금 해제",
+      "learnMore": "자세히 알아보기",
+      "dismiss": "이 기능은 다시 묻지 않기",
+      "priceLine": "{{price}} — 영구, 구독 없음",
+      "features": {
+        "sandbox": {
+          "title": "샌드박스 모드",
+          "description": "실제 데이터에 영향 없이 실제 연결에서 파괴적 쿼리를 실행합니다.",
+          "bullet1": "모든 변경 사항 자동 롤백",
+          "bullet2": "스테이징에서 마이그레이션 안전하게 테스트",
+          "bullet3": "클릭 한 번으로 진입, 한 번으로 종료"
+        },
+        "visual_diff": {
+          "title": "비주얼 데이터 diff",
+          "description": "두 결과 집합을 열 수준 하이라이트와 함께 행 단위로 비교합니다.",
+          "bullet1": "나란히 보기 및 통합 보기",
+          "bullet2": "이름 변경 및 순서 변경 감지",
+          "bullet3": "diff를 SQL 또는 보고서로 내보내기"
+        },
+        "er_diagram": {
+          "title": "ER 다이어그램",
+          "description": "테이블, 외래 키, 관계를 인터랙티브 다이어그램으로 시각화합니다.",
+          "bullet1": "스키마 크기에 맞는 자동 레이아웃",
+          "bullet2": "클릭하여 테이블로 이동",
+          "bullet3": "PNG 또는 SVG로 내보내기"
+        },
+        "audit_advanced": {
+          "title": "고급 감사 로그",
+          "description": "워크스페이스 전체의 모든 쿼리, 변경, 연결을 추적합니다.",
+          "bullet1": "무제한 기록 (Core는 50개 항목 제한)",
+          "bullet2": "사용자, 드라이버, 심각도별 필터링",
+          "bullet3": "CSV 또는 JSON으로 내보내기"
+        },
+        "profiling": {
+          "title": "쿼리 프로파일링",
+          "description": "쿼리별 타이밍, 실행 계획, 리소스 힌트를 제공합니다.",
+          "bullet1": "EXPLAIN ANALYZE 나란히 보기",
+          "bullet2": "누락된 인덱스 감지",
+          "bullet3": "시간별 실행 결과 비교"
+        },
+        "ai": {
+          "title": "AI 어시스턴트",
+          "description": "전체 스키마 컨텍스트를 활용해 SQL/MQL을 생성, 수정, 설명합니다.",
+          "bullet1": "OpenAI, Anthropic 또는 로컬 Ollama",
+          "bullet2": "내 키, 내 데이터 — 직접 사용",
+          "bullet3": "실행 전 안전 검사"
+        },
+        "export_xlsx": {
+          "title": "Excel 내보내기",
+          "description": "결과를 서식이 적용된 네이티브 .xlsx 파일로 직접 내보냅니다.",
+          "bullet1": "다중 시트 내보내기",
+          "bullet2": "타입 인식 컬럼",
+          "bullet3": "대용량 결과 집합 스트리밍"
+        },
+        "export_parquet": {
+          "title": "Parquet 내보내기",
+          "description": "분석 파이프라인을 위한 컬럼형 Parquet으로 내보냅니다.",
+          "bullet1": "Snappy, gzip, zstd 압축",
+          "bullet2": "타입과 함께 스키마 보존",
+          "bullet3": "청크 단위 스트리밍"
+        },
+        "custom_safety_rules": {
+          "title": "사용자 정의 안전 규칙",
+          "description": "위험한 작업에 대한 사전 점검을 직접 정의합니다.",
+          "bullet1": "모든 연결에서 패턴 차단",
+          "bullet2": "환경별 규칙",
+          "bullet3": "워크스페이스 간 재사용 가능"
+        },
+        "query_library_advanced": {
+          "title": "고급 쿼리 라이브러리",
+          "description": "저장된 쿼리를 정리, 검색, 매개변수화합니다.",
+          "bullet1": "폴더, 태그, 스니펫",
+          "bullet2": "변수 및 프롬프트",
+          "bullet3": "팀 내 공유 가능"
+        },
+        "virtual_relations_auto_suggest": {
+          "title": "관계 자동 추천",
+          "description": "스키마에 선언되지 않은 외래 키를 자동으로 감지합니다.",
+          "bullet1": "테이블 간 휴리스틱 매칭",
+          "bullet2": "가상 관계로 확인 및 저장",
+          "bullet3": "ER 및 조인 워크플로우 향상"
+        },
+        "data_time_travel": {
+          "title": "데이터 타임 트래블",
+          "description": "테이블의 과거 상태를 조회, 비교, 복원합니다.",
+          "bullet1": "필요 시 스냅샷",
+          "bullet2": "특정 시점 탐색",
+          "bullet3": "행 또는 전체 테이블 복원"
+        },
+        "bulk_edit_unlimited": {
+          "title": "무제한 일괄 편집",
+          "description": "한 번에 수백 개의 행을 편집합니다 — Core는 5개 행 제한.",
+          "bullet1": "안전한 일괄 업데이트",
+          "bullet2": "커밋 전 미리보기",
+          "bullet3": "클릭 한 번으로 롤백"
+        },
+        "data_contracts": {
+          "title": "데이터 계약",
+          "description": "데이터베이스 전체에서 스키마 불변성을 정의하고 시행합니다.",
+          "bullet1": "변경 사항 조기 감지",
+          "bullet2": "연결 시마다 검사 실행",
+          "bullet3": "릴리스 간 버전 관리"
+        },
+        "instant_api": {
+          "title": "즉시 Data API",
+          "description": "로컬에서 모든 테이블을 REST 또는 GraphQL 엔드포인트로 노출합니다.",
+          "bullet1": "설정 불필요",
+          "bullet2": "기본 읽기 전용",
+          "bullet3": "프로토타입 및 데모에 적합"
+        }
+      }
     },
     "features": {
       "sandbox": "샌드박스 모드는 Pro 라이선스가 필요합니다.",
@@ -1792,6 +2117,69 @@
       "virtual_relations_auto_suggest": "가상 관계 자동 추천은 Pro 라이선스가 필요합니다.",
       "federation": "크로스 데이터베이스 페더레이션은 Pro 라이선스가 필요합니다."
     }
+  },
+  "proDiscovery": {
+    "sidebarEntry": "Pro 알아보기",
+    "title": "QoreDB Pro: 진지한 업무를 위해",
+    "subtitle": "무료는 개인 프로젝트 및 탐색에 적합합니다. Pro는 프로덕션 수준의 데이터베이스 작업에 필요한 기능을 잠금 해제합니다.",
+    "priceTitle": "일회성 결제, 평생 이용",
+    "alreadyHaveKey": "라이선스 키가 있습니다"
+  },
+  "proActivation": {
+    "title": "QoreDB Pro가 활성화되었습니다",
+    "description": "이 기기에서 Pro 기능을 사용할 수 있습니다.",
+    "statusLine": "라이선스가 확인되었습니다. 워크스페이스가 Pro 워크플로에 준비되었습니다.",
+    "starterTitle": "추천 시작 지점",
+    "starterDescription": "이 항목들은 먼저 살펴볼 곳일 뿐입니다. 아래의 모든 Pro 기능이 이제 잠금 해제되었습니다.",
+    "allFeaturesTitle": "모든 Pro 기능 잠금 해제됨",
+    "allFeaturesDescription": "라이선스에는 위의 주요 기능뿐 아니라 전체 Pro 기능 세트가 포함됩니다.",
+    "continue": "계속",
+    "viewTour": "Pro 둘러보기",
+    "backToSummary": "뒤로",
+    "previous": "이전",
+    "next": "다음",
+    "finish": "완료",
+    "benefits": {
+      "ai": {
+        "title": "AI 어시스턴트",
+        "description": "스키마 컨텍스트로 쿼리를 생성, 설명, 수정합니다."
+      },
+      "history": {
+        "title": "Time Travel 및 Diff",
+        "description": "이전 상태를 확인하고 결과를 비교하며 더 확신 있게 변경을 복구합니다."
+      },
+      "exports": {
+        "title": "전문가용 내보내기",
+        "description": "프로덕션 작업에서 XLSX, Parquet 및 고급 공유 흐름을 사용합니다."
+      }
+    },
+    "tour": {
+      "title": "시작할 세 곳",
+      "description": "처음에 유용한 Pro 도구를 짧게 둘러봅니다.",
+      "progress": "{{current}} / {{total}}",
+      "steps": [
+        {
+          "hint": "초안, 수정 또는 결과 설명이 필요할 때 사이드바에서 AI 어시스턴트를 여세요."
+        },
+        {
+          "hint": "복원하거나 내보내기 전에 Time Travel과 Visual Diff로 무엇이 바뀌었는지 확인하세요."
+        },
+        {
+          "hint": "제공자를 구성하면 내보내기와 공유 작업에서 Pro 형식 및 임시 링크를 사용할 수 있습니다."
+        }
+      ]
+    }
+  },
+  "usageBanner": {
+    "title": "QoreDB로 {{count}}개의 쿼리를 실행했습니다",
+    "description": "프로젝트를 지원하고 진지한 업무를 위해 설계된 Pro 기능을 잠금 해제하세요.",
+    "cta": "Pro 알아보기"
+  },
+  "newsletter": {
+    "title": "최신 소식 받기",
+    "description": "새 기능과 데이터베이스 팁이 담긴 짧은 이메일을 월 1회 보내드립니다. 클릭 한 번으로 구독 취소, 스팸 없음.",
+    "subscribe": "구독하기",
+    "dismiss": "괜찮습니다"
   },
   "ai": {
     "title": "AI 어시스턴트",
@@ -2418,6 +2806,7 @@
     "edit": "편집",
     "delete": "삭제",
     "run": {
+      "action": "실행",
       "dialogTitle": "계약 실행: {{name}}",
       "connectionMissing": "실행 전에 계약 대상에 연결하세요.",
       "starting": "시작 중…",
@@ -2515,6 +2904,7 @@
   "instantApi": {
     "title": "Instant Data API",
     "description": "저장된 쿼리를 로컬 읽기 전용 REST 엔드포인트로 노출합니다.",
+    "openPanel": "Instant Data API…",
     "close": "닫기",
     "newEndpoint": "새 엔드포인트",
     "endpointsLabel": "개의 엔드포인트",
@@ -2615,5 +3005,13 @@
     "start": "복원 시작",
     "completed": "복원이 성공적으로 완료되었습니다.",
     "duckdbHint": "이전에 EXPORT DATABASE 로 생성된 디렉터리를 선택하세요."
+  },
+  "pluginLauncher": {
+    "tooltip": "플러그인",
+    "themes": "테마",
+    "themeDefault": "기본 테마",
+    "active": "활성 플러그인",
+    "manage": "플러그인 관리…",
+    "runsInBackground": "백그라운드에서 실행됩니다"
   }
 }

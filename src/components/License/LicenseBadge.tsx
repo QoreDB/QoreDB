@@ -23,8 +23,7 @@ export function LicenseBadge({ tier, className }: LicenseBadgeProps) {
 
   return (
     <span
-      className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-xs font-medium ${className ?? ''}`}
-      style={{ color: '#6B5CFF', backgroundColor: 'rgba(107, 92, 255, 0.1)' }}
+      className={`inline-flex items-center rounded-md bg-accent/10 px-1.5 py-0.5 text-xs font-medium text-accent ${className ?? ''}`}
     >
       {TIER_LABELS[tier]}
     </span>

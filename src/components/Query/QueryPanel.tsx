@@ -7,6 +7,8 @@ import { AiAssistantPanel } from '@/components/AI/AiAssistantPanel';
 import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
 import { UI_EVENT_OPEN_HISTORY } from '@/lib/events/uiEvents';
 import { createNotebookTab } from '@/lib/tabs';
+import { recordQueryAndMaybeNotify } from '@/lib/usageBanner';
+import { useLicense } from '@/providers/LicenseProvider';
 import { useTabActions } from '@/providers/TabProvider';
 import { forceRefreshCache } from '../../hooks/useSchemaCache';
 import { useTourManager } from '../../hooks/useTourManager';
@@ -132,6 +134,7 @@ export function QueryPanel({
 }: QueryPanelProps) {
   const { t } = useTranslation();
   const { openTab } = useTabActions();
+  const { tier } = useLicense();
   const isDocument = isDocumentDatabase(dialect);
   const queryDialect = getQueryDialect(dialect);
   const defaultQuery = getDefaultQuery(isDocument);
@@ -174,7 +177,7 @@ export function QueryPanel({
       const timer = setTimeout(() => tourManager.startTour('first-query'), 800);
       return () => clearTimeout(timer);
     }
-  }, [sessionId, isActive]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [sessionId, isActive, tourManager.startTour, tourManager.shouldShowTour]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Transaction state
   const transactionState = useTransactionStore();
@@ -389,13 +392,10 @@ export function QueryPanel({
         const endTime = performance.now();
         const totalTime = endTime - startTime;
 
-        // Cancel any pending batched flush (the Channel handlers are garbage-
-        // collected automatically with the Channel itself, no explicit unlisten).
         cancelAnimationFrame(streamRafId);
 
         if (response.success) {
           let finalResult = response.result;
-          // If streaming, construct final result from accumulated data if not returned
           if (!finalResult && driverCapabilities?.streaming && kind === 'query' && !isDocument) {
             finalResult = {
               columns: streamingCols,
@@ -479,6 +479,7 @@ export function QueryPanel({
                 driver: dialect,
                 row_count: enrichedResult.rows.length,
               });
+              recordQueryAndMaybeNotify(tier, t);
               incrementTransactionStatements();
             }
 
@@ -576,6 +577,7 @@ export function QueryPanel({
       queryDialect,
       federationSources,
       federationAliasSet,
+      tier,
     ]
   );
 
@@ -976,6 +978,7 @@ export function QueryPanel({
         onBeginTransaction={handleBeginTransaction}
         onCommitTransaction={handleCommitTransaction}
         onRollbackTransaction={handleRollbackTransaction}
+        onInsertSnippet={template => sqlEditorRef.current?.insertSnippet(template)}
       />
 
       <div

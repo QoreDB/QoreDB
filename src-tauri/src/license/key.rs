@@ -37,6 +37,8 @@ pub struct LicensePayload {
     #[serde(default)]
     pub expires_at: Option<String>,
     pub payment_id: String,
+    #[serde(default)]
+    pub is_founder: bool,
 }
 
 /// Errors from license operations.
@@ -215,6 +217,7 @@ mod tests {
             issued_at: "2026-02-17T13:00:00.000Z".into(),
             expires_at: Some("2027-02-17T13:00:00.000Z".into()),
             payment_id: "pi_test_123".into(),
+            is_founder: false,
         };
 
         let key_str = create_test_license(&signing_key, &payload);
@@ -240,6 +243,7 @@ mod tests {
             issued_at: "2026-02-17T13:00:00.000Z".into(),
             expires_at: None,
             payment_id: "pi_perpetual".into(),
+            is_founder: false,
         };
 
         let key_str = create_test_license(&signing_key, &payload);
@@ -258,6 +262,7 @@ mod tests {
             issued_at: "2020-01-01T00:00:00.000Z".into(),
             expires_at: Some("2020-01-02T00:00:00.000Z".into()),
             payment_id: "pi_expired".into(),
+            is_founder: false,
         };
 
         let key_str = create_test_license(&signing_key, &payload);
@@ -278,6 +283,7 @@ mod tests {
             issued_at: "2026-02-17T13:00:00.000Z".into(),
             expires_at: None,
             payment_id: "pi_core".into(),
+            is_founder: false,
         };
 
         let key_str = create_test_license(&signing_key, &payload);
@@ -295,6 +301,7 @@ mod tests {
             issued_at: "2026-02-17T13:00:00.000Z".into(),
             expires_at: Some("2027-02-17T13:00:00.000Z".into()),
             payment_id: "pi_test".into(),
+            is_founder: false,
         };
 
         let key_str = create_test_license(&signing_key, &payload);

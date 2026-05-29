@@ -22,6 +22,7 @@ import {
   NotificationPanel,
   useHasUnseenChangelog,
 } from '@/components/Notification/NotificationPanel';
+import { PluginLauncher } from '@/components/Plugins/PluginLauncher';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -64,6 +65,7 @@ interface CustomTitlebarProps {
   onToggleReadOnly?: (next: boolean) => void;
   readOnly?: boolean;
   settingsOpen?: boolean;
+  onRunPluginCommand?: (namespacedId: string) => void;
 }
 
 export const CustomTitlebar = ({
@@ -82,6 +84,7 @@ export const CustomTitlebar = ({
   onOpenSchemaGenerator,
   onToggleZenMode,
   settingsOpen = false,
+  onRunPluginCommand,
 }: CustomTitlebarProps) => {
   const { t } = useTranslation();
   const [isMaximized, setIsMaximized] = useState(false);
@@ -232,6 +235,8 @@ export const CustomTitlebar = ({
 
         <div className="flex items-center gap-1">
           <UpdateButton />
+
+          {onRunPluginCommand && <PluginLauncher onRunCommand={onRunPluginCommand} />}
 
           <Button
             variant="ghost"

@@ -162,7 +162,7 @@ export function EndpointDialog({ open, onClose, onCreated }: Props) {
           <DialogDescription>{t('instantApi.endpoint.newDescription')}</DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto space-y-4 py-2 pr-1">
+        <div className="flex-1 space-y-4 py-2 pr-1">
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label htmlFor="ep-name">{t('instantApi.endpoint.nameLabel')}</Label>

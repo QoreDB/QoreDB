@@ -16,7 +16,9 @@ The fast, open-source database client built with Rust. Connect to **12 native dr
 
 [**Website**](https://qoredb.com) · [**Download**](https://qoredb.com/download) · [**Docs**](https://qoredb.com/docs) · [**Roadmap**](https://qoredb.com/roadmap) · [**Discord**](https://discord.gg/Yr6P3wuZDt)
 
-  <img src="docs/screenshots/query-screen.png" alt="QoreDB SQL editor and result grid" width="100%" />
+<sub>5,000+ downloads · 12 database drivers · Two releases a month · Used in production by indie devs and startups.</sub>
+
+  <img src="doc/screenshots/query-screen.png" alt="QoreDB SQL editor and result grid" width="100%" />
 
 </div>
 
@@ -65,12 +67,12 @@ DBeaver, pgAdmin, phpMyAdmin do the job — but they feel slow, dated, and full 
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/screenshots/database-screen.png" alt="Database browser" /><br/><sub><b>Database browser</b> — multi-connection sidebar, table preview, breadcrumbs.</sub></td>
-    <td width="50%"><img src="docs/screenshots/query-screen.png" alt="SQL editor" /><br/><sub><b>SQL editor</b> — autocomplete, formatting, multi-statement execution, virtualized result grid.</sub></td>
+    <td width="50%"><img src="doc/screenshots/database-screen.png" alt="Database browser" /><br/><sub><b>Database browser</b> — multi-connection sidebar, table preview, breadcrumbs.</sub></td>
+    <td width="50%"><img src="doc/screenshots/query-screen.png" alt="SQL editor" /><br/><sub><b>SQL editor</b> — autocomplete, formatting, multi-statement execution, virtualized result grid.</sub></td>
   </tr>
   <tr>
-    <td width="50%"><img src="docs/screenshots/er-diagram-screen.png" alt="ER diagram" /><br/><sub><b>ER diagram</b> — interactive schema graph with isolate/focus workflows.</sub></td>
-    <td width="50%"><img src="docs/screenshots/table-screen.png" alt="Data grid" /><br/><sub><b>Data grid</b> — virtualization, column pinning, advanced filters, inline editing.</sub></td>
+    <td width="50%"><img src="doc/screenshots/er-diagram-screen.png" alt="ER diagram" /><br/><sub><b>ER diagram</b> — interactive schema graph with isolate/focus workflows.</sub></td>
+    <td width="50%"><img src="doc/screenshots/table-screen.png" alt="Data grid" /><br/><sub><b>Data grid</b> — virtualization, column pinning, advanced filters, inline editing.</sub></td>
   </tr>
 </table>
 
@@ -109,6 +111,8 @@ DBeaver, pgAdmin, phpMyAdmin do the job — but they feel slow, dated, and full 
 - **Cross-database federation** — Query and join across active connections via DuckDB
 - **Sandbox mode** — Isolated local changes with migration generation
 - **Backup &amp; restore** — Visual wrappers around `pg_dump`, `mysqldump`, `mongodump` and `sqlite3 .dump`, with streaming logs, cancel mid-run and tool-path overrides
+- **Query result cache** — Recent table navigation served instantly from a local cache, auto-invalidated when you change data through QoreDB
+- **Plugin system** — Install declarative plugins contributing SQL snippet packs, connection templates and color themes — no code execution
 </details>
 
 <details>
@@ -143,6 +147,7 @@ DBeaver, pgAdmin, phpMyAdmin do the job — but they feel slow, dated, and full 
 - **SSH tunneling** — Native OpenSSH client with proxy jump support
 - **SQL Server Windows authentication** — NTLM (username/password) and SSPI/Kerberos (integrated, no credentials)
 - **Environment safety** — Dev/Staging/Prod guards, dangerous query detection, read-only mode
+- **Query rate limiting** — Per-connection guardrail against accidental runaway query loops, plus a filesystem capability allow-list
 - **Universal Query Interceptor** — Central hooks for safety, audit and profiling
 - **Audit logging** — Sensitive content redaction in logs, stable SHA-256 query fingerprint per entry, JSONL/CSV export from the full retained trail
 - **Connection resilience** — Automatic reconnection, health monitoring, smart keep-alive

@@ -20,9 +20,7 @@ use tokio::process::Command;
 use tokio::sync::oneshot;
 use uuid::Uuid;
 
-use super::args::{
-    build_backup_args, build_restore_args, BackupOptions, RestoreOptions,
-};
+use super::args::{build_backup_args, build_restore_args, BackupOptions, RestoreOptions};
 use super::tools::BackupTool;
 
 /// Registry of currently running jobs. Each entry holds the cancel sender for

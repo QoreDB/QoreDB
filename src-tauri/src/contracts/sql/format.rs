@@ -92,13 +92,16 @@ mod tests {
     #[test]
     fn regex_sqlite_unsupported() {
         let err = build_regex_match(Dialect::Sqlite, "\"t\"", "\"c\"", "x", 5).unwrap_err();
-        assert!(matches!(err, SqlBuildError::UnsupportedOnDialect("regex_match", _)));
+        assert!(matches!(
+            err,
+            SqlBuildError::UnsupportedOnDialect("regex_match", _)
+        ));
     }
 
     #[test]
     fn length_range_both_bounds() {
-        let r = build_length_range(Dialect::Postgres, "\"t\"", "\"c\"", Some(3), Some(50), 10)
-            .unwrap();
+        let r =
+            build_length_range(Dialect::Postgres, "\"t\"", "\"c\"", Some(3), Some(50), 10).unwrap();
         assert!(r.metric_query.contains("length(\"c\") < 3"));
         assert!(r.metric_query.contains("length(\"c\") > 50"));
     }

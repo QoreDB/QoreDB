@@ -37,7 +37,10 @@ impl ConfirmationTokenStore {
     /// entries on the fly.
     pub fn issue(&self, action: impl Into<String>) -> (String, u64) {
         let action = action.into();
-        let mut map = self.tokens.lock().expect("confirmation token mutex poisoned");
+        let mut map = self
+            .tokens
+            .lock()
+            .expect("confirmation token mutex poisoned");
         let now = Instant::now();
         map.retain(|_, e| e.expires_at > now);
 
@@ -55,7 +58,10 @@ impl ConfirmationTokenStore {
     /// Validates and consumes a token. Returns `Err` if the token is unknown,
     /// expired, or bound to a different action.
     pub fn consume(&self, action: &str, token: &str) -> Result<(), String> {
-        let mut map = self.tokens.lock().expect("confirmation token mutex poisoned");
+        let mut map = self
+            .tokens
+            .lock()
+            .expect("confirmation token mutex poisoned");
         let entry = map
             .remove(token)
             .ok_or_else(|| "Invalid or expired confirmation token".to_string())?;

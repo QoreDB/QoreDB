@@ -1,4 +1,170 @@
 {
+  "cache": {
+    "title": "Query result cache",
+    "description": "Cache recent table-browse results so repeated navigation is instant.",
+    "enabledLabel": "Enable query result cache",
+    "enabledDescription": "Cached results are invalidated when you change data through QoreDB, and expire after the time-to-live below.",
+    "ttl": "Time to live (seconds)",
+    "maxEntries": "Maximum entries",
+    "stats": "{{entries}} entries cached · {{hitRate}}% hit rate",
+    "clear": "Clear cache",
+    "fromCache": "Data served from cache ({{age}} old) · click to refresh",
+    "refresh": "Refresh"
+  },
+  "plugins": {
+    "title": "Plugins",
+    "description": "Extend QoreDB with plugins: SQL snippet packs, connection templates, color themes, or sandboxed executable hooks.",
+    "empty": "No plugins installed yet.",
+    "install": "Install plugin",
+    "installDialog": {
+      "title": "Install a plugin",
+      "description": "Select a folder containing a plugin.json manifest.",
+      "pickFolder": "Choose folder…",
+      "installing": "Installing…"
+    },
+    "tabs": {
+      "installed": "Installed",
+      "browse": "Browse"
+    },
+    "card": {
+      "version": "Version",
+      "by": "by {{author}}",
+      "incompatible": "Incompatible",
+      "enable": "Enable plugin",
+      "disable": "Disable plugin",
+      "remove": "Remove plugin",
+      "removeConfirm": "Remove the plugin “{{name}}”?",
+      "executable": "Executable",
+      "executableTooltip": "This plugin runs sandboxed WASM code under a strict CPU and memory budget."
+    },
+    "contributions": {
+      "snippets": "Snippets: {{count}}",
+      "connectionTemplates": "Templates: {{count}}",
+      "themes": "Themes: {{count}}"
+    },
+    "connectionTemplatePicker": {
+      "title": "Templates from plugins"
+    },
+    "detail": {
+      "requires": "Requires QoreDB {{version}}",
+      "noContributions": "This plugin contributes nothing.",
+      "snippets": "SQL snippets",
+      "templates": "Connection templates",
+      "themes": "Themes",
+      "runtime": "Executable runtime",
+      "runtimeExplanation": "This plugin runs sandboxed WebAssembly code inside QoreDB.",
+      "runtimeEntry": "Module:",
+      "runtimeAbi": "ABI:",
+      "runtimeHooks": "Hooks:",
+      "signed": "Signed",
+      "unsigned": "Unsigned",
+      "capabilities": "Capabilities",
+      "editConsent": "Edit",
+      "granted": "Granted",
+      "notGranted": "Denied",
+      "viewers": "Result viewers",
+      "commands": "Commands",
+      "commandRun": "Run",
+      "commandRunning": "Running…",
+      "commandNoOutput": "(no output)",
+      "secrets": "Secrets",
+      "secretsDescription": "Provide values for the secrets the plugin declared in its manifest. Values are stored in the OS keyring and never leave this device."
+    },
+    "themes": {
+      "title": "Plugin themes",
+      "description": "Color themes contributed by enabled plugins.",
+      "apply": "Apply",
+      "active": "Active"
+    },
+    "toast": {
+      "installed": "Plugin “{{name}}” installed",
+      "removed": "Plugin “{{name}}” removed"
+    },
+    "consent": {
+      "title": "Permissions requested by {{name}}",
+      "description": "This plugin runs sandboxed code and asks for the following capabilities. Grant only what you trust it with — you can revoke any of these later.",
+      "denyAll": "Deny all",
+      "save": "Save permissions",
+      "saving": "Saving…",
+      "privateNetworksWarning": "⚠ This plugin requests access to internal addresses (loopback, private networks, cloud metadata).",
+      "caps": {
+        "log": {
+          "title": "Write to the log",
+          "description": "Append diagnostic messages to QoreDB's log."
+        },
+        "notify": {
+          "title": "Show notifications",
+          "description": "Surface toast notifications inside the app."
+        },
+        "storage": {
+          "title": "Persistent storage",
+          "description": "Save up to 1 MB in a per-plugin key-value store."
+        },
+        "queryRead": {
+          "title": "Read query results",
+          "description": "See rows and columns from queries that just ran. May include sensitive data."
+        },
+        "http": {
+          "title": "Make HTTP requests",
+          "description": "Reach the specific hosts listed below. Other hosts are refused by the runtime."
+        },
+        "fs": {
+          "title": "Plugin data directory",
+          "description": "Read and write files in the plugin's own folder. Other locations are rejected."
+        },
+        "secrets": {
+          "title": "Read provisioned secrets",
+          "description": "Read named secrets you provision in the plugin's detail view."
+        }
+      }
+    },
+    "secrets": {
+      "saved": "Secret saved",
+      "removed": "Secret removed",
+      "provisioned": "Set",
+      "placeholder": "Enter value",
+      "replacePlaceholder": "Replace value",
+      "save": "Save",
+      "remove": "Remove secret",
+      "show": "Show value",
+      "hide": "Hide value"
+    }
+  },
+  "pluginOutput": {
+    "tabTitle": "Plugin Output",
+    "empty": "No plugin command has been run yet",
+    "emptyHint": "Open the command palette and search for a plugin command",
+    "runsHeader": "History",
+    "clearAll": "Clear history",
+    "runningCommand": "Running command…",
+    "error": "Error",
+    "noResult": "(no result)"
+  },
+  "marketplaceSection": {
+    "title": "Browse plugins",
+    "description": "Browse and install plugins from the public QoreDB registry. The host verifies every archive's sha256 against the catalog before installing.",
+    "searchPlaceholder": "Search plugins…",
+    "filter": {
+      "all": "All",
+      "declarative": "Declarative",
+      "executable": "Executable"
+    },
+    "kind": {
+      "declarative": "Declarative",
+      "executable": "Executable"
+    },
+    "loading": "Loading the catalog…",
+    "empty": "No plugins match your filters.",
+    "error": "The marketplace is unreachable. Check your internet connection or try again.",
+    "install": "Install",
+    "installing": "Installing…",
+    "installed": "Installed",
+    "unsigned": "Unsigned",
+    "openOnWeb": "Open on the web",
+    "toast": {
+      "installed": "Plugin “{{name}}” installed"
+    }
+  },
   "home": {
     "noConnections": {
       "title": "No connections configured",
@@ -210,6 +376,7 @@
     "otherConnections": "Other connections",
     "addToFavorites": "Add to favorites",
     "removeFromFavorites": "Remove from favorites",
+    "proTools": "Pro tools",
     "auditLog": "Audit Log"
   },
   "search": {
@@ -481,7 +648,7 @@
       },
       "devOverrideTitle": "Dev License Override",
       "devOverrideDescription": "Override license tier for development testing. Resets on app restart.",
-      "devOnly": "Development only — not available in production builds"
+      "devOnly": "Development only, not available in production builds"
     },
     "safetyPolicy": "Production Safety",
     "safetyPolicyDescription": "Control server-side guardrails for production queries.",
@@ -489,6 +656,8 @@
     "safetyPolicyRequireConfirmationDescription": "Ask for explicit confirmation before running destructive SQL in production.",
     "safetyPolicyBlockDangerous": "Block dangerous SQL in production",
     "safetyPolicyBlockDangerousDescription": "Reject destructive SQL in production even if confirmed.",
+    "safetyPolicyRateLimit": "Rate-limit queries per connection",
+    "safetyPolicyRateLimitDescription": "Stop runaway query loops by capping how fast queries can run on a connection.",
     "safetyPolicyNote": "Environment variables can override these settings in managed deployments.",
     "safetyPolicyError": "Unable to load or save safety policy settings.",
     "configBackup": "Config backup",
@@ -522,8 +691,9 @@
       "general": "General",
       "editor": "Editor",
       "security": "Security",
-      "data": "Data & Privacy",
+      "data": "Privacy",
       "shortcuts": "Keyboard Shortcuts",
+      "plugins": "Plugins",
       "license": "License",
       "ai": "AI Assistant"
     },
@@ -579,6 +749,11 @@
       "description": "Configure the behavior of the tab bar.",
       "groupByConnection": "Group tabs by connection",
       "groupByConnectionDescription": "Display tabs in collapsible groups under their connection name."
+    },
+    "onboarding": {
+      "title": "Welcome tour",
+      "description": "Replay the welcome tour to revisit what QoreDB does, the privacy model, and Free vs Pro.",
+      "replay": "Replay onboarding"
     },
     "backupTools": {
       "title": "Backup tool paths",
@@ -683,6 +858,7 @@
     "format": "Format",
     "explain": "Explain",
     "snippets": "Snippets",
+    "snippetsTooltip": "Insert a plugin snippet",
     "keepResults": "Keep results",
     "formatSql": "Format SQL",
     "results": "Results",
@@ -1058,8 +1234,10 @@
     }
   },
   "whatsNew": {
-    "title": "What's New",
+    "title": "What's new in QoreDB {{version}}",
     "titleWithVersion": "What's New in v{{version}}",
+    "subtitle": "A quick look at what changed since your last session.",
+    "dismiss": "Got it",
     "tryIt": "Try it",
     "markSeen": "Dismiss",
     "feature": "New",
@@ -1283,25 +1461,59 @@
     "jsonLabel": "JSON Document"
   },
   "onboarding": {
+    "skip": "Skip",
     "welcome": {
       "title": "Welcome to QoreDB",
-      "subtitle": "The universal database client for the modern era.",
-      "next": "Start Tour"
+      "subtitle": "A modern, local-first database client built for developers who want a tool they actually enjoy opening every morning.",
+      "tagline": "12 drivers · SQL + NoSQL · Rust-fast · Local-first",
+      "next": "Get started"
     },
-    "concepts": {
-      "title": "Why QoreDB?",
-      "universalTitle": "Universal Client",
-      "universalDesc": "Manage SQL (Postgres, MySQL) and NoSQL (MongoDB, Redis) databases in one unified interface.",
-      "localTitle": "Local-First",
-      "localDesc": "Your data stays on your machine. No cloud intermediaries, no intrusive tracking.",
-      "next": "Continue"
+    "capabilities": {
+      "title": "What you can do with QoreDB",
+      "subtitle": "One app for your whole database workflow — no juggling between tools.",
+      "driversTitle": "12 native drivers",
+      "driversDesc": "PostgreSQL, MySQL, SQL Server, SQLite, DuckDB, CockroachDB, ClickHouse, MongoDB, Redis — and more.",
+      "aiTitle": "AI assistant",
+      "aiDesc": "Generate, fix and explain SQL/MQL with full schema context. Bring your own OpenAI, Anthropic or local Ollama keys.",
+      "notebooksTitle": "Database notebooks",
+      "notebooksDesc": "Mix SQL, Markdown and chart cells with inter-cell variables. Git-diffable .qnb files.",
+      "federationTitle": "Cross-database queries",
+      "federationDesc": "Join tables across PostgreSQL, MySQL, MongoDB and more in a single SQL statement."
+    },
+    "privacy": {
+      "title": "Local-first and safe by default",
+      "subtitle": "Production data deserves a careful tool. Here's how QoreDB protects it.",
+      "vaultTitle": "Credentials in your OS keychain",
+      "vaultDesc": "Passwords are encrypted with Argon2 and stored in the system vault — never in plaintext on disk.",
+      "guardsTitle": "Production safety rules",
+      "guardsDesc": "Dangerous queries are detected and confirmed twice on prod. Read-only mode for any connection in one toggle.",
+      "sandboxTitle": "Sandbox mode",
+      "sandboxDesc": "Test destructive queries against a real connection without touching real data. Every change rolls back.",
+      "localTitle": "Nothing leaves your machine",
+      "localDesc": "No cloud sync, no telemetry of your data, no remote schema indexing. Your queries and results stay local."
+    },
+    "tiers": {
+      "title": "Open core — Free and Pro",
+      "subtitle": "QoreDB is open-source. Pro is for the workloads that pay for themselves.",
+      "freeLabel": "Free",
+      "freeFor": "Solo projects & exploration",
+      "freeBullet1": "All 12 database drivers",
+      "freeBullet2": "Query editor, notebooks, ER diagrams",
+      "freeBullet3": "Bring your own AI keys",
+      "proLabel": "Pro",
+      "proFor": "For your professional work",
+      "proBullet1": "Sandbox mode, data time travel, visual diff",
+      "proBullet2": "Advanced audit log, profiling, custom safety rules",
+      "proBullet3": "Data contracts, Instant Data API, advanced exports",
+      "footnote": "Pro is a one-time payment, perpetual licence. No subscription."
     },
     "analytics": {
-      "title": "Help us improve",
-      "subtitle": "We are an open-source project. Anonymous usage data helps us prioritize features and fix bugs — you can change this anytime in Settings.",
+      "title": "Help shape QoreDB",
+      "subtitle": "Anonymous usage data helps prioritise features and fix bugs faster. You can change this anytime in Settings.",
       "checkbox": "Share anonymous usage analytics (recommended)",
-      "privacyHint": "We only collect crash reports and feature-usage counts. No queries, results, or credentials ever leave your machine.",
-      "finish": "Get Started"
+      "privacyHint": "We only collect feature-usage counts and crash reports — never queries, results, schemas or credentials.",
+      "guarantee": "Your queries, results, and credentials never leave your machine — regardless of this setting.",
+      "finish": "Let's go"
     },
     "workspace": {
       "title": "Organize with workspaces",
@@ -1778,6 +1990,14 @@
   },
   "license": {
     "currentTier": "Current tier",
+    "founderBadge": "Founder",
+    "founderTooltip": "Thank you for being an early supporter of QoreDB.",
+    "tierTagline": {
+      "core": "Free — Solo projects & exploration",
+      "pro": "Pro — Built for your professional work",
+      "team": "Team — Shared workspaces for your team",
+      "enterprise": "Enterprise — Procurement-grade controls"
+    },
     "activate": "Activate",
     "deactivate": "Deactivate license",
     "deactivateConfirm": {
@@ -1796,7 +2016,120 @@
     "getPro": "Get QoreDB Pro",
     "upgrade": {
       "description": "This feature requires a Pro license.",
-      "hint": "Go to Settings to activate your license key."
+      "hint": "Go to Settings to activate your license key.",
+      "defaultTitle": "Unlock this feature with QoreDB Pro",
+      "defaultDescription": "This feature is part of QoreDB Pro — built for serious database work.",
+      "unlock": "Unlock Pro",
+      "learnMore": "Learn more",
+      "dismiss": "Don’t ask again for this feature",
+      "priceLine": "{{price}} — perpetual, no subscription",
+      "features": {
+        "sandbox": {
+          "title": "Sandbox mode",
+          "description": "Run destructive queries against a real connection without touching real data.",
+          "bullet1": "Auto-rollback every change",
+          "bullet2": "Try migrations safely on staging",
+          "bullet3": "One click to enter, one to exit"
+        },
+        "visual_diff": {
+          "title": "Visual data diff",
+          "description": "Compare any two result sets row by row, with column-level highlights.",
+          "bullet1": "Side-by-side and unified views",
+          "bullet2": "Detects renames and reorders",
+          "bullet3": "Export the diff as SQL or report"
+        },
+        "er_diagram": {
+          "title": "ER Diagram",
+          "description": "Visualize tables, foreign keys, and relations as an interactive diagram.",
+          "bullet1": "Auto-layout for any schema size",
+          "bullet2": "Click to jump to a table",
+          "bullet3": "Export as PNG or SVG"
+        },
+        "audit_advanced": {
+          "title": "Advanced audit log",
+          "description": "Track every query, mutation and connection across your workspace.",
+          "bullet1": "Unlimited history (Core caps at 50 entries)",
+          "bullet2": "Filter by user, driver, severity",
+          "bullet3": "Export to CSV or JSON"
+        },
+        "profiling": {
+          "title": "Query profiling",
+          "description": "Per-query timing, execution plan, and resource hints.",
+          "bullet1": "EXPLAIN ANALYZE side-by-side",
+          "bullet2": "Detect missing indexes",
+          "bullet3": "Compare runs over time"
+        },
+        "ai": {
+          "title": "AI assistant",
+          "description": "Generate, fix and explain SQL/MQL with full schema context.",
+          "bullet1": "OpenAI, Anthropic, or local Ollama",
+          "bullet2": "Your keys, your data — bring your own",
+          "bullet3": "Safety-checked before execution"
+        },
+        "export_xlsx": {
+          "title": "Excel export",
+          "description": "Export results directly to native .xlsx with formatting.",
+          "bullet1": "Multi-sheet exports",
+          "bullet2": "Type-aware columns",
+          "bullet3": "Streams large result sets"
+        },
+        "export_parquet": {
+          "title": "Parquet export",
+          "description": "Export to columnar Parquet for analytics pipelines.",
+          "bullet1": "Snappy, gzip, zstd compression",
+          "bullet2": "Schema preserved with types",
+          "bullet3": "Streams in chunks"
+        },
+        "custom_safety_rules": {
+          "title": "Custom safety rules",
+          "description": "Define your own pre-flight checks for risky operations.",
+          "bullet1": "Block patterns across all connections",
+          "bullet2": "Per-environment rules",
+          "bullet3": "Reusable across workspaces"
+        },
+        "query_library_advanced": {
+          "title": "Advanced query library",
+          "description": "Organize, search and parameterize your saved queries.",
+          "bullet1": "Folders, tags, snippets",
+          "bullet2": "Variables and prompts",
+          "bullet3": "Shareable inside your team"
+        },
+        "virtual_relations_auto_suggest": {
+          "title": "Auto-suggest relations",
+          "description": "Detect likely foreign keys when the schema doesn’t declare them.",
+          "bullet1": "Heuristic matching across tables",
+          "bullet2": "Confirm and persist as virtual",
+          "bullet3": "Boosts ER and join workflows"
+        },
+        "data_time_travel": {
+          "title": "Data time travel",
+          "description": "Inspect, diff and restore historical states of your tables.",
+          "bullet1": "Snapshot on demand",
+          "bullet2": "Point-in-time browsing",
+          "bullet3": "Restore rows or whole tables"
+        },
+        "bulk_edit_unlimited": {
+          "title": "Unlimited bulk edit",
+          "description": "Edit hundreds of rows in one batch — Core caps at 5 rows.",
+          "bullet1": "Batch updates safely",
+          "bullet2": "Preview before commit",
+          "bullet3": "Rollback in one click"
+        },
+        "data_contracts": {
+          "title": "Data contracts",
+          "description": "Define and enforce schema invariants across your databases.",
+          "bullet1": "Catch breaking changes early",
+          "bullet2": "Run checks on every connect",
+          "bullet3": "Versioned across releases"
+        },
+        "instant_api": {
+          "title": "Instant Data API",
+          "description": "Expose any table as a REST or GraphQL endpoint, locally.",
+          "bullet1": "Zero config",
+          "bullet2": "Read-only by default",
+          "bullet3": "Great for prototypes and demos"
+        }
+      }
     },
     "features": {
       "sandbox": "Sandbox mode requires a Pro license.",
@@ -1812,6 +2145,69 @@
       "virtual_relations_auto_suggest": "Auto-suggest virtual relations requires a Pro license.",
       "federation": "Cross-database federation requires a Pro license."
     }
+  },
+  "proDiscovery": {
+    "sidebarEntry": "Discover Pro",
+    "title": "QoreDB Pro: Built for serious work",
+    "subtitle": "Free is great for solo projects and exploration. Pro unlocks the features you need for production-grade database work.",
+    "priceTitle": "One-time payment, lifetime access",
+    "alreadyHaveKey": "I have a license key"
+  },
+  "proActivation": {
+    "title": "QoreDB Pro is active",
+    "description": "Your Pro features are now available on this device.",
+    "statusLine": "License verified. Your workspace is ready for Pro workflows.",
+    "starterTitle": "Suggested starting points",
+    "starterDescription": "These are only the first places to look. Every Pro feature below is now unlocked.",
+    "allFeaturesTitle": "All Pro features unlocked",
+    "allFeaturesDescription": "Your license includes the complete Pro feature set, not just the highlights above.",
+    "continue": "Continue",
+    "viewTour": "View Pro tour",
+    "backToSummary": "Back",
+    "previous": "Previous",
+    "next": "Next",
+    "finish": "Done",
+    "benefits": {
+      "ai": {
+        "title": "AI assistant",
+        "description": "Generate, explain and fix queries with schema-aware context."
+      },
+      "history": {
+        "title": "Time travel and diffs",
+        "description": "Inspect historical states, compare results and recover changes with more confidence."
+      },
+      "exports": {
+        "title": "Professional exports",
+        "description": "Use XLSX, Parquet and advanced sharing flows for production work."
+      }
+    },
+    "tour": {
+      "title": "Three places to start",
+      "description": "A short tour of the Pro tools that usually matter first.",
+      "progress": "{{current}} of {{total}}",
+      "steps": [
+        {
+          "hint": "Open the AI assistant from the sidebar when you need a first draft, a fix, or an explanation for a result set."
+        },
+        {
+          "hint": "Use Time Travel and Visual Diff when you want to understand how data changed before restoring or exporting anything."
+        },
+        {
+          "hint": "Export and sharing actions now include Pro formats and provider-based temporary links when configured."
+        }
+      ]
+    }
+  },
+  "usageBanner": {
+    "title": "You've run {{count}} queries with QoreDB",
+    "description": "Support the project and unlock the Pro features built for serious work.",
+    "cta": "Discover Pro"
+  },
+  "newsletter": {
+    "title": "Stay in the loop",
+    "description": "One short email per month with new features and database tips. Unsubscribe in one click, never any spam.",
+    "subscribe": "Subscribe",
+    "dismiss": "No thanks"
   },
   "ai": {
     "title": "AI Assistant",
@@ -2438,6 +2834,7 @@
     "edit": "Edit",
     "delete": "Delete",
     "run": {
+      "action": "Run",
       "dialogTitle": "Run contract: {{name}}",
       "connectionMissing": "Connect to the contract target before running.",
       "starting": "Starting…",
@@ -2535,6 +2932,7 @@
   "instantApi": {
     "title": "Instant Data API",
     "description": "Expose saved queries as read-only REST endpoints on localhost.",
+    "openPanel": "Instant Data API…",
     "close": "Close",
     "newEndpoint": "New endpoint",
     "endpointsLabel": "endpoint(s)",
@@ -2635,5 +3033,13 @@
     "start": "Start restore",
     "completed": "Restore completed successfully.",
     "duckdbHint": "Pick the directory previously produced by EXPORT DATABASE."
+  },
+  "pluginLauncher": {
+    "tooltip": "Plugins",
+    "themes": "Themes",
+    "themeDefault": "Default theme",
+    "active": "Active plugins",
+    "manage": "Manage plugins…",
+    "runsInBackground": "Runs in the background"
   }
 }

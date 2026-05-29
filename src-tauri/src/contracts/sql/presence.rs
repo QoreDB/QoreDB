@@ -57,9 +57,14 @@ mod tests {
     #[test]
     fn not_null_pct_postgres() {
         let r = build_not_null_pct(Dialect::Postgres, "\"orders\"", "\"email\"", 10).unwrap();
-        assert!(r.metric_query.contains("count(\"email\") * 100.0 / count(*)"));
+        assert!(r
+            .metric_query
+            .contains("count(\"email\") * 100.0 / count(*)"));
         assert!(r.metric_query.contains("FROM \"orders\""));
-        assert!(r.samples_query.unwrap().contains("WHERE \"email\" IS NULL LIMIT 10"));
+        assert!(r
+            .samples_query
+            .unwrap()
+            .contains("WHERE \"email\" IS NULL LIMIT 10"));
     }
 
     #[test]

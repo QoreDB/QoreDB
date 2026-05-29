@@ -4,6 +4,7 @@
 
 pub mod ai;
 pub mod backup;
+pub mod cache;
 pub mod confirmation;
 pub mod connection;
 pub mod connection_url;
@@ -23,6 +24,7 @@ pub mod logs;
 pub mod maintenance;
 pub mod metrics;
 pub mod mutation;
+pub mod plugins;
 pub mod policy;
 pub mod query;
 pub mod routines;

@@ -48,6 +48,7 @@ impl LicenseManager {
                 issued_at: None,
                 expires_at: None,
                 is_expired: false,
+                is_founder: false,
             };
         }
         self.cached_status.clone()
@@ -80,6 +81,7 @@ impl LicenseManager {
             issued_at: Some(payload.issued_at),
             expires_at: payload.expires_at,
             is_expired: false,
+            is_founder: payload.is_founder,
         };
         self.cached_status = status.clone();
         Ok(status)
@@ -113,6 +115,7 @@ impl LicenseManager {
                     issued_at: Some(payload.issued_at),
                     expires_at: payload.expires_at,
                     is_expired: false,
+                    is_founder: payload.is_founder,
                 };
             }
             Err(LicenseError::Expired) => {
@@ -126,6 +129,7 @@ impl LicenseManager {
                         issued_at: Some(payload.issued_at),
                         expires_at: payload.expires_at,
                         is_expired: true,
+                        is_founder: payload.is_founder,
                     };
                 }
             }

@@ -24,16 +24,58 @@ use crate::engine::{
     },
     TableSchema,
 };
-use crate::interceptor::{Environment, QueryExecutionResult, SafetyAction};
+use crate::interceptor::{Environment, QueryContext, QueryExecutionResult, SafetyAction};
 use crate::metrics;
+use crate::plugins::runtime::{
+    HookContext as PluginHookContext, PluginHost, PostExecuteResult, QueryReadPayload,
+};
 use tauri::ipc::{Channel, InvokeResponseBody};
 
 const READ_ONLY_BLOCKED: &str = "Operation blocked: read-only mode";
 const DANGEROUS_BLOCKED: &str = "Dangerous query blocked: confirmation required";
 const DANGEROUS_BLOCKED_POLICY: &str = "Dangerous query blocked by policy";
 const SQL_PARSE_BLOCKED: &str = "Operation blocked: SQL parser could not classify the query";
+const RATE_LIMIT_BLOCKED: &str =
+    "Operation blocked: query rate limit exceeded — too many queries in a short time";
 const TRANSACTIONS_NOT_SUPPORTED: &str = "Transactions are not supported by this driver";
 const SAFETY_RULE_BLOCKED: &str = "Query blocked by safety rule";
+
+/// Past this, the `queryRead` payload is dropped and the plugin sees `None`.
+const QUERY_READ_MAX_PAYLOAD_BYTES: usize = 1024 * 1024;
+
+fn build_query_read_payload(result: &QueryResult) -> Option<Arc<QueryReadPayload>> {
+    let json = serde_json::to_string(result).ok()?;
+    if json.len() > QUERY_READ_MAX_PAYLOAD_BYTES {
+        return None;
+    }
+    Some(Arc::new(QueryReadPayload { json }))
+}
+
+/// Schedules `postExecute` off the query critical path. Never propagates
+/// individual plugin failures.
+fn dispatch_plugin_post_execute(
+    plugin_host: &Arc<PluginHost>,
+    interceptor_context: &QueryContext,
+    exec: &QueryExecutionResult,
+    payload: Option<Arc<QueryReadPayload>>,
+) {
+    let hook_ctx = PluginHookContext {
+        query: interceptor_context.query.clone(),
+        driver_id: interceptor_context.driver_id.clone(),
+        environment: format!("{:?}", interceptor_context.environment),
+        operation_type: format!("{:?}", interceptor_context.operation_type),
+        is_mutation: interceptor_context.is_mutation,
+        is_dangerous: interceptor_context.is_dangerous,
+        read_only: interceptor_context.read_only,
+    };
+    let post_result = PostExecuteResult {
+        success: exec.success,
+        execution_time_ms: exec.execution_time_ms as u64,
+        row_count: exec.row_count.map(|r| r.max(0) as u64),
+        error: exec.error.clone(),
+    };
+    plugin_host.schedule_post_execute(hook_ctx, post_result, payload);
+}
 
 fn is_mongo_mutation(query: &str) -> bool {
     matches!(
@@ -126,13 +168,25 @@ pub async fn execute_query(
     on_stream: Channel<InvokeResponseBody>,
 ) -> Result<QueryResponse, String> {
     let requested_bypass = bypass_limits.unwrap_or(false);
-    let (session_manager, query_manager, policy, interceptor, license_tier) = {
+    let (
+        session_manager,
+        query_manager,
+        query_rate_limiter,
+        query_cache,
+        policy,
+        interceptor,
+        plugin_host,
+        license_tier,
+    ) = {
         let state = state.lock().await;
         (
             Arc::clone(&state.session_manager),
             Arc::clone(&state.query_manager),
+            Arc::clone(&state.query_rate_limiter),
+            Arc::clone(&state.query_cache),
             state.policy.clone(),
             Arc::clone(&state.interceptor),
+            Arc::clone(&state.plugin_host),
             state.license_manager.effective_status().tier,
         )
     };
@@ -164,6 +218,24 @@ pub async fn execute_query(
     };
 
     let session = parse_session_id(&session_id)?;
+
+    // Connection identity for query-cache invalidation: a mutation here
+    // stales cached reads across every session sharing this connection.
+    let connection_key = session_manager.connection_key(session).await;
+
+    // Anti-loop guardrail: cap the query rate per session so a runaway client
+    // loop cannot saturate the connection. Generous budget — never reached by
+    // human use. Skipped entirely when disabled in the safety policy.
+    if policy.query_rate_limit_enabled && !query_rate_limiter.try_acquire(&session_id) {
+        return Ok(QueryResponse {
+            success: false,
+            result: None,
+            error: Some(RATE_LIMIT_BLOCKED.to_string()),
+            query_id: None,
+            truncated: None,
+            truncated_total: None,
+        });
+    }
 
     let read_only = match session_manager.is_read_only(session).await {
         Ok(read_only) => read_only,
@@ -388,6 +460,36 @@ pub async fn execute_query(
         None
     };
 
+    let plugin_decision = plugin_host
+        .run_pre_execute(crate::plugins::runtime::HookContext {
+            query: query.clone(),
+            driver_id: driver.driver_id().to_string(),
+            environment: format!("{:?}", interceptor_env),
+            operation_type: query
+                .trim_start()
+                .split_whitespace()
+                .next()
+                .unwrap_or("")
+                .to_uppercase(),
+            is_mutation: is_mutation_for_context,
+            is_dangerous: sql_analysis
+                .as_ref()
+                .map(|a| a.is_dangerous)
+                .unwrap_or(false),
+            read_only,
+        })
+        .await;
+    if let crate::plugins::runtime::Decision::Block { reason } = plugin_decision {
+        return Ok(QueryResponse {
+            success: false,
+            result: None,
+            error: Some(format!("Query blocked by plugin: {reason}")),
+            query_id: None,
+            truncated: None,
+            truncated_total: None,
+        });
+    }
+
     if let Some(limit) = policy.max_concurrent_queries {
         let active = query_manager.count_active().await;
         if active >= limit as usize {
@@ -491,16 +593,23 @@ pub async fn execute_query(
                     metrics::record_timeout();
 
                     let duration_ms = start_time.elapsed().as_micros() as f64 / 1000.0;
+                    let exec_result = QueryExecutionResult {
+                        success: false,
+                        error: Some(format!("Operation timed out after {}ms", timeout_value)),
+                        execution_time_ms: duration_ms,
+                        row_count: None,
+                    };
                     interceptor.post_execute(
                         &interceptor_context,
-                        &QueryExecutionResult {
-                            success: false,
-                            error: Some(format!("Operation timed out after {}ms", timeout_value)),
-                            execution_time_ms: duration_ms,
-                            row_count: None,
-                        },
+                        &exec_result,
                         false,
                         safety_warning.as_deref(),
+                    );
+                    dispatch_plugin_post_execute(
+                        &plugin_host,
+                        &interceptor_context,
+                        &exec_result,
+                        None,
                     );
 
                     dispatch_stream_event(
@@ -528,17 +637,31 @@ pub async fn execute_query(
 
         match result {
             Ok(_) => {
+                let exec_result = QueryExecutionResult {
+                    success: true,
+                    error: None,
+                    execution_time_ms: duration_ms,
+                    row_count: None,
+                };
                 interceptor.post_execute(
                     &interceptor_context,
-                    &QueryExecutionResult {
-                        success: true,
-                        error: None,
-                        execution_time_ms: duration_ms,
-                        row_count: None,
-                    },
+                    &exec_result,
                     false,
                     safety_warning.as_deref(),
                 );
+                // No row payload on streaming — `queryRead` sees metadata only.
+                dispatch_plugin_post_execute(
+                    &plugin_host,
+                    &interceptor_context,
+                    &exec_result,
+                    None,
+                );
+
+                if is_mutation_for_context {
+                    if let Some(key) = &connection_key {
+                        query_cache.invalidate_connection(key);
+                    }
+                }
 
                 Ok(QueryResponse {
                     success: true,
@@ -550,16 +673,23 @@ pub async fn execute_query(
                 })
             }
             Err(e) => {
+                let exec_result = QueryExecutionResult {
+                    success: false,
+                    error: Some(e.sanitized_message()),
+                    execution_time_ms: duration_ms,
+                    row_count: None,
+                };
                 interceptor.post_execute(
                     &interceptor_context,
-                    &QueryExecutionResult {
-                        success: false,
-                        error: Some(e.sanitized_message()),
-                        execution_time_ms: duration_ms,
-                        row_count: None,
-                    },
+                    &exec_result,
                     false,
                     safety_warning.as_deref(),
+                );
+                dispatch_plugin_post_execute(
+                    &plugin_host,
+                    &interceptor_context,
+                    &exec_result,
+                    None,
                 );
 
                 Ok(QueryResponse {
@@ -619,16 +749,23 @@ pub async fn execute_query(
                     metrics::record_timeout();
 
                     let duration_ms = start_time.elapsed().as_micros() as f64 / 1000.0;
+                    let exec_result = QueryExecutionResult {
+                        success: false,
+                        error: Some(format!("Operation timed out after {}ms", timeout_value)),
+                        execution_time_ms: duration_ms,
+                        row_count: None,
+                    };
                     interceptor.post_execute(
                         &interceptor_context,
-                        &QueryExecutionResult {
-                            success: false,
-                            error: Some(format!("Operation timed out after {}ms", timeout_value)),
-                            execution_time_ms: duration_ms,
-                            row_count: None,
-                        },
+                        &exec_result,
                         false,
                         safety_warning.as_deref(),
+                    );
+                    dispatch_plugin_post_execute(
+                        &plugin_host,
+                        &interceptor_context,
+                        &exec_result,
+                        None,
                     );
 
                     return Ok(QueryResponse {
@@ -651,17 +788,32 @@ pub async fn execute_query(
                 result.execution_time_ms = duration_ms;
                 metrics::record_query(duration_ms, true);
 
+                let exec_result = QueryExecutionResult {
+                    success: true,
+                    error: None,
+                    execution_time_ms: duration_ms,
+                    row_count: result.affected_rows.map(|a| a as i64),
+                };
                 interceptor.post_execute(
                     &interceptor_context,
-                    &QueryExecutionResult {
-                        success: true,
-                        error: None,
-                        execution_time_ms: duration_ms,
-                        row_count: result.affected_rows.map(|a| a as i64),
-                    },
+                    &exec_result,
                     false,
                     safety_warning.as_deref(),
                 );
+                dispatch_plugin_post_execute(
+                    &plugin_host,
+                    &interceptor_context,
+                    &exec_result,
+                    build_query_read_payload(&result),
+                );
+
+                // A successful mutation through QoreDB stales this
+                // connection's cached read results.
+                if is_mutation_for_context {
+                    if let Some(key) = &connection_key {
+                        query_cache.invalidate_connection(key);
+                    }
+                }
 
                 // Governance: truncate results when max_result_rows is set
                 // (skipped when the caller explicitly opted into bypass_limits).
@@ -691,16 +843,23 @@ pub async fn execute_query(
             Err(e) => {
                 metrics::record_query(duration_ms, false);
 
+                let exec_result = QueryExecutionResult {
+                    success: false,
+                    error: Some(e.sanitized_message()),
+                    execution_time_ms: duration_ms,
+                    row_count: None,
+                };
                 interceptor.post_execute(
                     &interceptor_context,
-                    &QueryExecutionResult {
-                        success: false,
-                        error: Some(e.sanitized_message()),
-                        execution_time_ms: duration_ms,
-                        row_count: None,
-                    },
+                    &exec_result,
                     false,
                     safety_warning.as_deref(),
+                );
+                dispatch_plugin_post_execute(
+                    &plugin_host,
+                    &interceptor_context,
+                    &exec_result,
+                    None,
                 );
 
                 Ok(QueryResponse {
@@ -1190,18 +1349,47 @@ pub async fn preview_table(
     namespace: Namespace,
     table: String,
     limit: u32,
+    bypass_cache: Option<bool>,
 ) -> Result<QueryResponse, String> {
-    let (session_manager, query_manager, policy) = {
+    let (session_manager, query_manager, policy, query_cache) = {
         let state = state.lock().await;
         (
             Arc::clone(&state.session_manager),
             Arc::clone(&state.query_manager),
             state.policy.clone(),
+            Arc::clone(&state.query_cache),
         )
     };
     let session = parse_session_id(&session_id)?;
 
     let effective_limit = governance::clamp_rows(&policy, limit);
+
+    // Query result cache: serve repeated table previews instantly. Keyed by
+    // connection so a mutation on any session of it invalidates the entry.
+    let connection_key = session_manager.connection_key(session).await;
+    let use_cache = !bypass_cache.unwrap_or(false) && connection_key.is_some();
+    let cache_key = format!(
+        "preview\u{1}{}\u{1}{}\u{1}{}\u{1}{}\u{1}{}",
+        connection_key.as_deref().unwrap_or(""),
+        namespace.database,
+        namespace.schema.as_deref().unwrap_or(""),
+        table,
+        effective_limit
+    );
+    if use_cache {
+        if let Some(hit) = query_cache.get(&cache_key) {
+            if let Ok(result) = serde_json::from_str::<QueryResult>(&hit.value) {
+                return Ok(QueryResponse {
+                    success: true,
+                    result: Some(result),
+                    error: None,
+                    query_id: None,
+                    truncated: None,
+                    truncated_total: None,
+                });
+            }
+        }
+    }
 
     if let Err(msg) = governance::check_concurrent_limit(&policy, &query_manager).await {
         return Ok(QueryResponse {
@@ -1235,14 +1423,25 @@ pub async fn preview_table(
     .await;
 
     match result {
-        Ok(Ok(result)) => Ok(QueryResponse {
-            success: true,
-            result: Some(result),
-            error: None,
-            query_id: None,
-            truncated: None,
-            truncated_total: None,
-        }),
+        Ok(Ok(result)) => {
+            if use_cache {
+                if let Ok(json) = serde_json::to_string(&result) {
+                    query_cache.put(
+                        cache_key.clone(),
+                        connection_key.clone().unwrap_or_default(),
+                        json,
+                    );
+                }
+            }
+            Ok(QueryResponse {
+                success: true,
+                result: Some(result),
+                error: None,
+                query_id: None,
+                truncated: None,
+                truncated_total: None,
+            })
+        }
         Ok(Err(e)) => Ok(QueryResponse {
             success: false,
             result: None,
@@ -1272,6 +1471,12 @@ pub struct PaginatedQueryResponse {
     pub truncated: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub truncated_total: Option<u64>,
+    /// `Some(true)` when this result was served from the query cache.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cached: Option<bool>,
+    /// Age of the cached entry in milliseconds, when served from cache.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cached_age_ms: Option<u64>,
 }
 
 /// Queries table data with pagination, sorting, and filtering support
@@ -1282,13 +1487,15 @@ pub async fn query_table(
     namespace: Namespace,
     table: String,
     options: TableQueryOptions,
+    bypass_cache: Option<bool>,
 ) -> Result<PaginatedQueryResponse, String> {
-    let (session_manager, query_manager, policy) = {
+    let (session_manager, query_manager, policy, query_cache) = {
         let state = state.lock().await;
         (
             Arc::clone(&state.session_manager),
             Arc::clone(&state.query_manager),
             state.policy.clone(),
+            Arc::clone(&state.query_cache),
         )
     };
     let session = parse_session_id(&session_id)?;
@@ -1299,6 +1506,34 @@ pub async fn query_table(
         options.page_size = Some(options.page_size.unwrap_or(50).min(max_page));
     }
 
+    // Query result cache: serve repeated table navigation instantly. Keyed by
+    // connection so a mutation on any session of it invalidates the entry.
+    let connection_key = session_manager.connection_key(session).await;
+    let use_cache = !bypass_cache.unwrap_or(false) && connection_key.is_some();
+    let cache_key = format!(
+        "query\u{1}{}\u{1}{}\u{1}{}\u{1}{}\u{1}{}",
+        connection_key.as_deref().unwrap_or(""),
+        namespace.database,
+        namespace.schema.as_deref().unwrap_or(""),
+        table,
+        serde_json::to_string(&options).unwrap_or_default()
+    );
+    if use_cache {
+        if let Some(hit) = query_cache.get(&cache_key) {
+            if let Ok(result) = serde_json::from_str::<PaginatedQueryResult>(&hit.value) {
+                return Ok(PaginatedQueryResponse {
+                    success: true,
+                    result: Some(result),
+                    error: None,
+                    truncated: None,
+                    truncated_total: None,
+                    cached: Some(true),
+                    cached_age_ms: Some(hit.age_ms),
+                });
+            }
+        }
+    }
+
     if let Err(msg) = governance::check_concurrent_limit(&policy, &query_manager).await {
         return Ok(PaginatedQueryResponse {
             success: false,
@@ -1306,6 +1541,8 @@ pub async fn query_table(
             error: Some(msg),
             truncated: None,
             truncated_total: None,
+            cached: None,
+            cached_age_ms: None,
         });
     }
 
@@ -1318,6 +1555,8 @@ pub async fn query_table(
                 error: Some(e.sanitized_message()),
                 truncated: None,
                 truncated_total: None,
+                cached: None,
+                cached_age_ms: None,
             });
         }
     };
@@ -1329,19 +1568,34 @@ pub async fn query_table(
     .await;
 
     match result {
-        Ok(Ok(result)) => Ok(PaginatedQueryResponse {
-            success: true,
-            result: Some(result),
-            error: None,
-            truncated: None,
-            truncated_total: None,
-        }),
+        Ok(Ok(result)) => {
+            if use_cache {
+                if let Ok(json) = serde_json::to_string(&result) {
+                    query_cache.put(
+                        cache_key.clone(),
+                        connection_key.clone().unwrap_or_default(),
+                        json,
+                    );
+                }
+            }
+            Ok(PaginatedQueryResponse {
+                success: true,
+                result: Some(result),
+                error: None,
+                truncated: None,
+                truncated_total: None,
+                cached: None,
+                cached_age_ms: None,
+            })
+        }
         Ok(Err(e)) => Ok(PaginatedQueryResponse {
             success: false,
             result: None,
             error: Some(e.sanitized_message()),
             truncated: None,
             truncated_total: None,
+            cached: None,
+            cached_age_ms: None,
         }),
         Err(timeout_msg) => Ok(PaginatedQueryResponse {
             success: false,
@@ -1349,6 +1603,8 @@ pub async fn query_table(
             error: Some(timeout_msg),
             truncated: None,
             truncated_total: None,
+            cached: None,
+            cached_age_ms: None,
         }),
     }
 }

@@ -18,10 +18,15 @@ interface ModalState {
   contractsOpen: boolean;
   instantApiOpen: boolean;
   settingsOpen: boolean;
+  /** Section the settings page should open on. Null defaults to General. */
+  settingsSection: string | null;
   sidebarVisible: boolean;
   showOnboarding: boolean;
   cheatsheetOpen: boolean;
   zenMode: boolean;
+  proDiscoveryOpen: boolean;
+  whatsNewOpen: boolean;
+  newsletterPromptOpen: boolean;
   editConnection: SavedConnection | null;
   editPassword: string;
   backupConnection: SavedConnection | null;
@@ -38,10 +43,14 @@ let state: ModalState = {
   contractsOpen: false,
   instantApiOpen: false,
   settingsOpen: false,
+  settingsSection: null,
   sidebarVisible: true,
   showOnboarding: false,
   cheatsheetOpen: false,
   zenMode: false,
+  proDiscoveryOpen: false,
+  whatsNewOpen: false,
+  newsletterPromptOpen: false,
   editConnection: null,
   editPassword: '',
   backupConnection: null,
@@ -139,7 +148,27 @@ export function closeRestoreDialog() {
 }
 
 export function setSettingsOpen(open: boolean) {
-  updateState({ settingsOpen: open });
+  updateState({ settingsOpen: open, settingsSection: open ? state.settingsSection : null });
+}
+
+/** Opens the settings page directly on a given section. */
+export function openSettingsSection(section: string) {
+  updateState({ settingsOpen: true, settingsSection: section });
+}
+
+export function setProDiscoveryOpen(open: boolean) {
+  if (state.proDiscoveryOpen === open) return;
+  updateState({ proDiscoveryOpen: open });
+}
+
+export function setWhatsNewOpen(open: boolean) {
+  if (state.whatsNewOpen === open) return;
+  updateState({ whatsNewOpen: open });
+}
+
+export function setNewsletterPromptOpen(open: boolean) {
+  if (state.newsletterPromptOpen === open) return;
+  updateState({ newsletterPromptOpen: open });
 }
 
 export function setSidebarVisible(visible: boolean) {

@@ -64,8 +64,8 @@ impl EndpointStore {
                 path: path.clone(),
                 source: e,
             })?;
-            let parsed: StoreFile = serde_json::from_slice(&bytes)
-                .map_err(|e| StoreError::Serialize(e.to_string()))?;
+            let parsed: StoreFile =
+                serde_json::from_slice(&bytes).map_err(|e| StoreError::Serialize(e.to_string()))?;
             parsed
                 .endpoints
                 .into_iter()
@@ -300,9 +300,7 @@ mod tests {
             .unwrap();
         // updated_at is bumped on regenerate; sleep to guarantee a different rfc3339 value
         std::thread::sleep(std::time::Duration::from_millis(20));
-        let refreshed = store
-            .regenerate_token(&ep.id, "new-hash".into())
-            .unwrap();
+        let refreshed = store.regenerate_token(&ep.id, "new-hash".into()).unwrap();
         assert_eq!(refreshed.token_hash, "new-hash");
         assert_ne!(refreshed.updated_at, ep.updated_at);
         assert_eq!(refreshed.id, ep.id);

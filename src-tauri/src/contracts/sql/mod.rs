@@ -68,11 +68,15 @@ pub fn build_rule_sql(
             let col = dialect.quote_ident(column);
             presence::build_not_empty(dialect, &table_sql, &col, sample_limit)
         }
-        Rule::RegexMatch { column, pattern, .. } => {
+        Rule::RegexMatch {
+            column, pattern, ..
+        } => {
             let col = dialect.quote_ident(column);
             format::build_regex_match(dialect, &table_sql, &col, pattern, sample_limit)
         }
-        Rule::LengthRange { column, min, max, .. } => {
+        Rule::LengthRange {
+            column, min, max, ..
+        } => {
             let col = dialect.quote_ident(column);
             format::build_length_range(dialect, &table_sql, &col, *min, *max, sample_limit)
         }
@@ -130,7 +134,8 @@ pub fn build_rule_sql(
             column, references, ..
         } => {
             let src_col = dialect.quote_ident(column);
-            let ref_table = dialect.qualified_table(references.schema.as_deref(), &references.table);
+            let ref_table =
+                dialect.qualified_table(references.schema.as_deref(), &references.table);
             let ref_col = dialect.quote_ident(&references.column);
             referential::build_foreign_key_integrity(
                 dialect,
@@ -204,7 +209,9 @@ mod tests {
         };
         let sql = build_rule_sql(&rule, &target(), Dialect::Postgres, 5).unwrap();
         assert!(sql.metric_query.contains("\"public\".\"customers\""));
-        assert!(sql.metric_query.contains("ref.\"id\" = src.\"customer_id\""));
+        assert!(sql
+            .metric_query
+            .contains("ref.\"id\" = src.\"customer_id\""));
     }
 
     #[test]
@@ -246,7 +253,10 @@ mod tests {
             pattern: "^.+@.+$".into(),
         };
         let err = build_rule_sql(&rule, &target(), Dialect::Sqlite, 10).unwrap_err();
-        assert!(matches!(err, SqlBuildError::UnsupportedOnDialect("regex_match", _)));
+        assert!(matches!(
+            err,
+            SqlBuildError::UnsupportedOnDialect("regex_match", _)
+        ));
     }
 
     #[test]

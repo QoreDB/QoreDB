@@ -18,6 +18,7 @@ export interface LicenseStatus {
   issued_at: string | null;
   expires_at: string | null;
   is_expired: boolean;
+  is_founder: boolean;
 }
 
 export type ProFeature =

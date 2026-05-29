@@ -673,7 +673,10 @@ fn redact_entry(entry: &mut ChangelogEntry, sensitive: &[String]) {
     }
 }
 
-fn redact_map(map: &mut std::collections::HashMap<String, serde_json::Value>, sensitive: &[String]) {
+fn redact_map(
+    map: &mut std::collections::HashMap<String, serde_json::Value>,
+    sensitive: &[String],
+) {
     for (key, value) in map.iter_mut() {
         let lower = key.to_ascii_lowercase();
         if sensitive.iter().any(|s| lower.contains(s.as_str())) {
@@ -744,10 +747,7 @@ mod tests {
         let mut m = HashMap::new();
         m.insert("id".to_string(), serde_json::json!(1));
         m.insert("email".to_string(), serde_json::json!("a@b.com"));
-        m.insert(
-            "password_hash".to_string(),
-            serde_json::json!("$2b$12$..."),
-        );
+        m.insert("password_hash".to_string(), serde_json::json!("$2b$12$..."));
         m.insert("api_key".to_string(), serde_json::json!("sk-leak"));
         m.insert("name".to_string(), serde_json::json!("Alice"));
         let sensitive: Vec<String> = ["password", "api_key", "email"]
@@ -768,17 +768,8 @@ mod tests {
         let store = ChangelogStore::new(tmp.path().to_path_buf());
         let mut before = HashMap::new();
         before.insert("id".to_string(), serde_json::json!(1));
-        before.insert(
-            "password".to_string(),
-            serde_json::json!("hunter2"),
-        );
-        let entry = make_entry(
-            "users",
-            ChangeOperation::Delete,
-            pk(1),
-            Some(before),
-            None,
-        );
+        before.insert("password".to_string(), serde_json::json!("hunter2"));
+        let entry = make_entry("users", ChangeOperation::Delete, pk(1), Some(before), None);
         store.record(entry);
         // Read what was actually persisted
         let content = std::fs::read_to_string(tmp.path().join("changelog.jsonl")).unwrap();

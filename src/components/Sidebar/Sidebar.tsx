@@ -1,13 +1,21 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
-import { Database, Globe, Plus, Search, ShieldCheck } from 'lucide-react';
+import { ChevronUp, Database, Globe, Plus, Search, ShieldCheck, Sparkles } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
+import { FounderBadge } from '@/components/License/FounderBadge';
 import { LicenseBadge } from '@/components/License/LicenseBadge';
+import { ProDiscoveryPanel } from '@/components/License/ProDiscoveryPanel';
 import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { useTheme } from '@/hooks/useTheme';
 import {
   reconcileFavoriteConnectionIds,
@@ -21,6 +29,8 @@ import {
   setContractsOpen,
   setInstantApiOpen,
   setLogsOpen,
+  setProDiscoveryOpen,
+  setSettingsOpen,
   useModalStore,
 } from '@/lib/stores/modalStore';
 import { useLicense } from '@/providers/LicenseProvider';
@@ -106,12 +116,13 @@ export function Sidebar({
 
   const { t } = useTranslation();
   const { resolvedTheme } = useTheme();
-  const { tier } = useLicense();
+  const { tier, status } = useLicense();
   const { projectId } = useWorkspace();
   const logsOpen = useModalStore(s => s.logsOpen);
   const auditLogOpen = useModalStore(s => s.auditLogOpen);
   const contractsOpen = useModalStore(s => s.contractsOpen);
   const instantApiOpen = useModalStore(s => s.instantApiOpen);
+  const proDiscoveryOpen = useModalStore(s => s.proDiscoveryOpen);
   const backupConnection = useModalStore(s => s.backupConnection);
   const restoreConnection = useModalStore(s => s.restoreConnection);
 
@@ -324,6 +335,7 @@ export function Sidebar({
           />
           <span className="text-sm tracking-tight">QoreDB</span>
           <LicenseBadge tier={tier} />
+          {status.is_founder && <FounderBadge />}
         </button>
       </header>
 
@@ -392,23 +404,41 @@ export function Sidebar({
 
       <footer className="p-3 border-t border-border space-y-1">
         {tier !== 'core' && (
-          <Button
-            className="w-full justify-start text-muted-foreground hover:text-foreground hover:bg-muted"
-            variant="ghost"
-            onClick={() => setContractsOpen(true)}
-          >
-            <ShieldCheck size={16} className="mr-2" />
-            {t('contracts.openPanel')}
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                className="w-full justify-start text-muted-foreground hover:text-foreground hover:bg-muted"
+                variant="ghost"
+              >
+                <Sparkles size={16} className="mr-2 text-accent" />
+                <span className="flex-1 text-left">{t('sidebar.proTools')}</span>
+                <ChevronUp size={14} className="ml-auto text-muted-foreground/70" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              side="top"
+              align="start"
+              className="w-[var(--radix-dropdown-menu-trigger-width)]"
+            >
+              <DropdownMenuItem onClick={() => setContractsOpen(true)}>
+                <ShieldCheck size={16} />
+                {t('contracts.openPanel')}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setInstantApiOpen(true)}>
+                <Globe size={16} />
+                {t('instantApi.openPanel')}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         )}
-        {tier !== 'core' && (
+        {tier === 'core' && (
           <Button
             className="w-full justify-start text-muted-foreground hover:text-foreground hover:bg-muted"
             variant="ghost"
-            onClick={() => setInstantApiOpen(true)}
+            onClick={() => setProDiscoveryOpen(true)}
           >
-            <Globe size={16} className="mr-2" />
-            {t('instantApi.openPanel')}
+            <Sparkles size={16} className="mr-2 text-accent" />
+            {t('proDiscovery.sidebarEntry', 'Discover Pro')}
           </Button>
         )}
         <Button
@@ -429,10 +459,7 @@ export function Sidebar({
         sessionId={connectedSessionId}
         connectionId={connectedConnectionId}
       />
-      <InstantApiPanel
-        open={instantApiOpen}
-        onClose={() => setInstantApiOpen(false)}
-      />
+      <InstantApiPanel open={instantApiOpen} onClose={() => setInstantApiOpen(false)} />
       <BackupDialog
         connection={backupConnection}
         open={!!backupConnection}
@@ -442,6 +469,12 @@ export function Sidebar({
         connection={restoreConnection}
         open={!!restoreConnection}
         onClose={closeRestoreDialog}
+      />
+      <ProDiscoveryPanel
+        open={proDiscoveryOpen}
+        onClose={() => setProDiscoveryOpen(false)}
+        source="sidebar"
+        onActivate={() => setSettingsOpen(true)}
       />
     </aside>
   );

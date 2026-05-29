@@ -64,7 +64,10 @@ mod tests {
 
     #[test]
     fn escapes_single_quote() {
-        assert_eq!(escape_string_literal(Dialect::Postgres, "O'Brien"), "'O''Brien'");
+        assert_eq!(
+            escape_string_literal(Dialect::Postgres, "O'Brien"),
+            "'O''Brien'"
+        );
     }
 
     #[test]

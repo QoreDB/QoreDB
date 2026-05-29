@@ -72,7 +72,9 @@ fn validate(contract: &Contract) -> Result<(), ContractError> {
         )));
     }
     if contract.target.connection.is_empty() {
-        return Err(ContractError::Invalid("$.target.connection: required".into()));
+        return Err(ContractError::Invalid(
+            "$.target.connection: required".into(),
+        ));
     }
     if contract.target.table.is_empty() {
         return Err(ContractError::Invalid("$.target.table: required".into()));
@@ -126,10 +128,7 @@ fn validate_rule(rule: &Rule, path: &str, duration: &Regex) -> Result<(), Contra
         Rule::LengthRange { min, max, .. } => check_int_range(*min, *max, path)?,
         Rule::NumericRange { min, max, .. } => check_float_range(*min, *max, path)?,
         Rule::DateRange {
-            min,
-            max,
-            max_age,
-            ..
+            min, max, max_age, ..
         } => {
             if min.is_none() && max.is_none() && max_age.is_none() {
                 return Err(ContractError::Invalid(format!(
@@ -216,11 +215,7 @@ fn check_int_range(min: Option<i64>, max: Option<i64>, path: &str) -> Result<(),
     Ok(())
 }
 
-fn check_float_range(
-    min: Option<f64>,
-    max: Option<f64>,
-    path: &str,
-) -> Result<(), ContractError> {
+fn check_float_range(min: Option<f64>, max: Option<f64>, path: &str) -> Result<(), ContractError> {
     if min.is_none() && max.is_none() {
         return Err(ContractError::Invalid(format!(
             "{}: provide at least one of min, max",
@@ -229,12 +224,18 @@ fn check_float_range(
     }
     if let Some(v) = min {
         if !v.is_finite() {
-            return Err(ContractError::Invalid(format!("{}.min: must be finite", path)));
+            return Err(ContractError::Invalid(format!(
+                "{}.min: must be finite",
+                path
+            )));
         }
     }
     if let Some(v) = max {
         if !v.is_finite() {
-            return Err(ContractError::Invalid(format!("{}.max: must be finite", path)));
+            return Err(ContractError::Invalid(format!(
+                "{}.max: must be finite",
+                path
+            )));
         }
     }
     if let (Some(a), Some(b)) = (min, max) {
@@ -467,10 +468,7 @@ rules:
 
     #[test]
     fn extract_name_works() {
-        assert_eq!(
-            extract_name(VALID_YAML).as_deref(),
-            Some("orders_quality")
-        );
+        assert_eq!(extract_name(VALID_YAML).as_deref(), Some("orders_quality"));
         assert!(extract_name("garbage").is_none());
     }
 

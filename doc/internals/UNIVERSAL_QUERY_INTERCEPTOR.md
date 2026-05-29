@@ -240,6 +240,10 @@ let result = driver.execute(...).await;
 interceptor.post_execute(&context, &result, false, None);
 ```
 
+### Invalidation du cache de résultats
+
+Lorsqu'une mutation réussit, le handler de commande (`execute_query`, `insert_row`, `update_row`, `delete_row`) invalide le cache de résultats de lecture de la **session** courante via `QueryCache::invalidate_session`. Le cache (`preview_table` / `query_table`, voir `src-tauri/src/cache/`) reste ainsi cohérent pour toute modification effectuée à travers QoreDB ; les modifications externes ne sont pas observées et restent bornées par le TTL du cache.
+
 ---
 
 ## Configuration

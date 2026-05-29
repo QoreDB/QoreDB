@@ -16,11 +16,11 @@ use std::sync::Arc;
 use serde::Deserialize;
 use tauri::{AppHandle, Emitter, State};
 
+use crate::backup::runner::{ActiveBackups, EventSink};
 use crate::backup::{
     detect_tool, run_backup, run_duckdb_backup, run_duckdb_restore, run_restore, BackupEvent,
     BackupFormat, BackupJobOutcome, BackupOptions, BackupTool, BackupToolInfo, RestoreOptions,
 };
-use crate::backup::runner::{ActiveBackups, EventSink};
 
 /// Event topic emitted on every line of stdout/stderr and on completion.
 const BACKUP_EVENT: &str = "backup-progress";
@@ -88,10 +88,7 @@ fn validate_backup_tool_path(tool: BackupTool, path: &str) -> Result<PathBuf, St
     // Reject relative paths — an override is meant to point at a specific
     // installation, not a `$PATH` lookup.
     if !candidate.is_absolute() {
-        return Err(format!(
-            "Backup tool path must be absolute, got `{}`",
-            path
-        ));
+        return Err(format!("Backup tool path must be absolute, got `{}`", path));
     }
 
     // Resolve symlinks. This both catches `pg_dump -> /bin/sh` (the symlink
@@ -111,8 +108,7 @@ fn validate_backup_tool_path(tool: BackupTool, path: &str) -> Result<PathBuf, St
         .ok_or_else(|| format!("Backup tool path `{}` has no filename", path))?;
     let expected = tool.binary_name();
     let basename_lower = basename.to_ascii_lowercase();
-    let matches = basename_lower == expected
-        || basename_lower == format!("{}.exe", expected);
+    let matches = basename_lower == expected || basename_lower == format!("{}.exe", expected);
     if !matches {
         return Err(format!(
             "Backup tool path `{}` does not match expected binary `{}` (got `{}`)",
@@ -226,9 +222,10 @@ fn backup_tool_for_driver(driver: &str, format: BackupFormat) -> Result<BackupTo
 fn restore_tool_for_driver(driver: &str, format: BackupFormat) -> Result<BackupTool, String> {
     let driver_lower = driver.to_ascii_lowercase();
     match (driver_lower.as_str(), format) {
-        ("postgres" | "postgresql" | "supabase" | "neon" | "timescaledb" | "cockroachdb", BackupFormat::PostgresCustom) => {
-            Ok(BackupTool::PgRestore)
-        }
+        (
+            "postgres" | "postgresql" | "supabase" | "neon" | "timescaledb" | "cockroachdb",
+            BackupFormat::PostgresCustom,
+        ) => Ok(BackupTool::PgRestore),
         ("postgres" | "postgresql" | "supabase" | "neon" | "timescaledb" | "cockroachdb", _) => {
             Ok(BackupTool::Psql)
         }

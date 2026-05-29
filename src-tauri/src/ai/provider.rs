@@ -803,15 +803,16 @@ fn looks_like_query(candidate: &str) -> bool {
         "SELECT", "WITH", "INSERT", "UPDATE", "DELETE", "MERGE", "CREATE", "DROP", "ALTER",
         "TRUNCATE", "EXPLAIN", "SHOW", "DESCRIBE", "DESC", "VALUES", "CALL", "PRAGMA",
         // Mongo shell verbs that don't start with `db.` (rare but legal).
-        "USE",
-        // Redis commands.
-        "GET", "SET", "HGET", "HSET", "LPUSH", "RPUSH", "LRANGE", "SADD", "ZADD", "KEYS",
-        "SCAN", "DEL", "EXPIRE", "INCR", "DECR", "PING", "INFO",
+        "USE", // Redis commands.
+        "GET", "SET", "HGET", "HSET", "LPUSH", "RPUSH", "LRANGE", "SADD", "ZADD", "KEYS", "SCAN",
+        "DEL", "EXPIRE", "INCR", "DECR", "PING", "INFO",
     ];
-    let upper_head: String = text.chars().take(16).collect::<String>().to_ascii_uppercase();
-    ALLOWED_PREFIXES
-        .iter()
-        .any(|p| upper_head.starts_with(p))
+    let upper_head: String = text
+        .chars()
+        .take(16)
+        .collect::<String>()
+        .to_ascii_uppercase();
+    ALLOWED_PREFIXES.iter().any(|p| upper_head.starts_with(p))
 }
 
 #[cfg(test)]

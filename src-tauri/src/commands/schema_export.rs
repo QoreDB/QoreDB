@@ -431,21 +431,14 @@ fn resolve_export_path(requested: &str) -> Result<PathBuf, String> {
     }
     let candidate = PathBuf::from(trimmed);
     if !candidate.is_absolute() {
-        return Err(format!(
-            "Export path must be absolute, got `{}`",
-            trimmed
-        ));
+        return Err(format!("Export path must be absolute, got `{}`", trimmed));
     }
 
     let parent = candidate
         .parent()
         .ok_or_else(|| format!("Export path `{}` has no parent directory", trimmed))?;
-    let parent_canon = std::fs::canonicalize(parent).map_err(|e| {
-        format!(
-            "Parent directory of `{}` is not accessible: {}",
-            trimmed, e
-        )
-    })?;
+    let parent_canon = std::fs::canonicalize(parent)
+        .map_err(|e| format!("Parent directory of `{}` is not accessible: {}", trimmed, e))?;
 
     let roots = allowed_export_roots();
     if !roots.iter().any(|root| parent_canon.starts_with(root)) {

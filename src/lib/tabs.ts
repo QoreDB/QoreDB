@@ -15,7 +15,8 @@ export type TabType =
   | 'federation'
   | 'snapshots'
   | 'notebook'
-  | 'time-travel';
+  | 'time-travel'
+  | 'plugin-output';
 
 export interface DiffSource {
   type: 'query' | 'table' | 'snapshot';
@@ -144,6 +145,17 @@ export function createNotebookTab(title?: string, path?: string, initialQuery?: 
     title: title || 'Untitled Notebook',
     notebookPath: path,
     initialQuery,
+  };
+}
+
+/** Create the singleton plugin-output tab. The `useTabs` dedup logic (matches
+ *  on type + namespace + tableName + connectionId) folds repeat opens onto
+ *  the same tab, so callers can call this freely. */
+export function createPluginOutputTab(title: string): OpenTab {
+  return {
+    id: generateTabId(),
+    type: 'plugin-output',
+    title,
   };
 }
 

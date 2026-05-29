@@ -563,13 +563,20 @@ export function AppLayout() {
     [activeTabId, activeTab?.type, sessionId, t, contributions.commands, plugins]
   );
 
+  const handleRunPluginCommand = useCallback(
+    (namespacedId: string) => {
+      openTab(createPluginOutputTab(t('pluginOutput.tabTitle')));
+      void runPluginCommandHistoryAware(namespacedId);
+    },
+    [openTab, t, runPluginCommandHistoryAware]
+  );
+
   const handleSearchSelect = useCallback(
     async (result: SearchResult) => {
       setSearchOpen(false);
       if (result.type === 'command') {
         if (result.id.includes('::')) {
-          openTab(createPluginOutputTab(t('pluginOutput.tabTitle')));
-          void runPluginCommandHistoryAware(result.id);
+          handleRunPluginCommand(result.id);
           return;
         }
         switch (result.id) {
@@ -706,7 +713,7 @@ export function AppLayout() {
       handleToggleSandbox,
       refreshSidebar,
       projectId,
-      runPluginCommandHistoryAware,
+      handleRunPluginCommand,
     ]
   );
 
@@ -734,6 +741,7 @@ export function AppLayout() {
             onToggleSandbox={sessionId ? handleToggleSandbox : undefined}
             onToggleZenMode={toggleZenMode}
             readOnly={activeConnection?.read_only || false}
+            onRunPluginCommand={handleRunPluginCommand}
           />
         )}
 

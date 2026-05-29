@@ -830,6 +830,7 @@
     "format": "整形",
     "explain": "実行計画",
     "snippets": "スニペット",
+    "snippetsTooltip": "プラグインのスニペットを挿入",
     "keepResults": "結果を保持",
     "formatSql": "SQL を整形",
     "results": "結果",
@@ -3004,5 +3005,10 @@
     "start": "リストアを開始",
     "completed": "リストアが正常に完了しました。",
     "duckdbHint": "以前に EXPORT DATABASE で生成されたディレクトリを選択してください。"
+  },
+  "pluginLauncher": {
+    "tooltip": "プラグイン",
+    "themes": "テーマ",
+    "themeDefault": "デフォルトテーマ"
   }
 }

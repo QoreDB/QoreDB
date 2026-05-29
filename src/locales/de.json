@@ -830,6 +830,7 @@
     "format": "Formatieren",
     "explain": "Erklären",
     "snippets": "Vorlagen",
+    "snippetsTooltip": "Plugin-Snippet einfügen",
     "keepResults": "Ergebnisse behalten",
     "formatSql": "SQL formatieren",
     "results": "Ergebnisse",
@@ -3004,5 +3005,10 @@
     "start": "Wiederherstellung starten",
     "completed": "Wiederherstellung erfolgreich abgeschlossen.",
     "duckdbHint": "Wähle das Verzeichnis, das zuvor von EXPORT DATABASE erzeugt wurde."
+  },
+  "pluginLauncher": {
+    "tooltip": "Plugins",
+    "themes": "Themes",
+    "themeDefault": "Standard-Theme"
   }
 }

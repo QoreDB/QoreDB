@@ -830,6 +830,7 @@
     "format": "格式化",
     "explain": "执行计划",
     "snippets": "代码片段",
+    "snippetsTooltip": "插入插件代码片段",
     "keepResults": "保留结果",
     "formatSql": "格式化 SQL",
     "results": "结果",
@@ -3004,5 +3005,10 @@
     "start": "开始恢复",
     "completed": "恢复成功完成。",
     "duckdbHint": "请选择之前由 EXPORT DATABASE 生成的目录。"
+  },
+  "pluginLauncher": {
+    "tooltip": "插件",
+    "themes": "主题",
+    "themeDefault": "默认主题"
   }
 }

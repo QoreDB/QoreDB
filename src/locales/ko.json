@@ -830,6 +830,7 @@
     "format": "포맷",
     "explain": "실행 계획",
     "snippets": "스니펫",
+    "snippetsTooltip": "플러그인 스니펫 삽입",
     "keepResults": "결과 유지",
     "formatSql": "SQL 포맷",
     "results": "결과",
@@ -3004,5 +3005,10 @@
     "start": "복원 시작",
     "completed": "복원이 성공적으로 완료되었습니다.",
     "duckdbHint": "이전에 EXPORT DATABASE 로 생성된 디렉터리를 선택하세요."
+  },
+  "pluginLauncher": {
+    "tooltip": "플러그인",
+    "themes": "테마",
+    "themeDefault": "기본 테마"
   }
 }

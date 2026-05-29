@@ -830,6 +830,7 @@
     "format": "Форматировать",
     "explain": "Explain",
     "snippets": "Шаблоны",
+    "snippetsTooltip": "Вставить сниппет плагина",
     "keepResults": "Сохранять результаты",
     "formatSql": "Форматировать SQL",
     "results": "Результаты",
@@ -3004,5 +3005,10 @@
     "start": "Начать восстановление",
     "completed": "Восстановление успешно завершено.",
     "duckdbHint": "Выберите каталог, ранее созданный с помощью EXPORT DATABASE."
+  },
+  "pluginLauncher": {
+    "tooltip": "Плагины",
+    "themes": "Темы",
+    "themeDefault": "Тема по умолчанию"
   }
 }

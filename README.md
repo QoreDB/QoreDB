@@ -8,10 +8,10 @@
 The fast, open-source database client built with Rust. Connect to **12 native drivers** from a single, beautiful interface. Local-first: your data stays yours.
 
 [![License](https://img.shields.io/badge/license-Apache--2.0%20%2F%20BUSL--1.1-blue?style=flat-square)](LICENSE)
-[![Release](https://img.shields.io/github/v/release/QoreDB/QoreDB?style=flat-square&color=8b5cf6)](https://github.com/QoreDB/QoreDB/releases)
-[![Downloads](https://img.shields.io/github/downloads/QoreDB/QoreDB/total?style=flat-square&color=10b981)](https://github.com/QoreDB/QoreDB/releases)
-[![Stars](https://img.shields.io/github/stars/QoreDB/QoreDB?style=flat-square&color=facc15)](https://github.com/QoreDB/QoreDB/stargazers)
-[![Issues](https://img.shields.io/github/issues/QoreDB/QoreDB?style=flat-square)](https://github.com/QoreDB/QoreDB/issues)
+[![Release](https://img.shields.io/github/v/release/QoreDB/QoreDB?style=flat-square&color=8b5cf6&cacheSeconds=86400)](https://github.com/QoreDB/QoreDB/releases)
+[![Downloads](https://img.shields.io/github/downloads/QoreDB/QoreDB/total?style=flat-square&color=10b981&cacheSeconds=86400)](https://github.com/QoreDB/QoreDB/releases)
+[![Stars](https://img.shields.io/github/stars/QoreDB/QoreDB?style=flat-square&color=facc15&cacheSeconds=86400)](https://github.com/QoreDB/QoreDB/stargazers)
+[![Issues](https://img.shields.io/github/issues/QoreDB/QoreDB?style=flat-square&cacheSeconds=86400)](https://github.com/QoreDB/QoreDB/issues)
 [![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey?style=flat-square)](#installation)
 
 [**Website**](https://qoredb.com) · [**Download**](https://qoredb.com/download) · [**Docs**](https://qoredb.com/docs) · [**Roadmap**](https://qoredb.com/roadmap) · [**Discord**](https://discord.gg/Yr6P3wuZDt)

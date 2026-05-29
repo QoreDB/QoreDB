@@ -3009,6 +3009,9 @@
   "pluginLauncher": {
     "tooltip": "Complementos",
     "themes": "Temas",
-    "themeDefault": "Tema predeterminado"
+    "themeDefault": "Tema predeterminado",
+    "active": "Complementos activos",
+    "manage": "Gestionar complementos…",
+    "runsInBackground": "Se ejecuta en segundo plano"
   }
 }

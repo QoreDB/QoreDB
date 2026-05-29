@@ -4,6 +4,7 @@ import { X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
+import { getModalState } from '@/lib/stores/modalStore';
 import { getSafetyPolicy, type SafetyPolicy, setSafetyPolicy } from '@/lib/tauri';
 import { SettingsBreadcrumb } from './SettingsBreadcrumb';
 import { SettingsSearch } from './SettingsSearch';
@@ -30,7 +31,12 @@ interface SettingsPageProps {
 
 export function SettingsPage({ onClose }: SettingsPageProps) {
   const { t } = useTranslation();
-  const [activeSection, setActiveSection] = useState<SettingsSectionId>('general');
+  const [activeSection, setActiveSection] = useState<SettingsSectionId>(() => {
+    const requested = getModalState().settingsSection;
+    return SETTINGS_SECTIONS.some(s => s.id === requested)
+      ? (requested as SettingsSectionId)
+      : 'general';
+  });
   const [searchQuery, setSearchQuery] = useState('');
 
   const [policy, setPolicy] = useState<SafetyPolicy | null>(null);

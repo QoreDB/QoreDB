@@ -3009,6 +3009,9 @@
   "pluginLauncher": {
     "tooltip": "Плагины",
     "themes": "Темы",
-    "themeDefault": "Тема по умолчанию"
+    "themeDefault": "Тема по умолчанию",
+    "active": "Активные плагины",
+    "manage": "Управление плагинами…",
+    "runsInBackground": "Работает в фоновом режиме"
   }
 }

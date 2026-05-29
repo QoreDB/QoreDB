@@ -3009,6 +3009,9 @@
   "pluginLauncher": {
     "tooltip": "Plugins",
     "themes": "Temas",
-    "themeDefault": "Tema padrão"
+    "themeDefault": "Tema padrão",
+    "active": "Plugins ativos",
+    "manage": "Gerenciar plugins…",
+    "runsInBackground": "Executa em segundo plano"
   }
 }

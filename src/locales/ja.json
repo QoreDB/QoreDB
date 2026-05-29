@@ -3009,6 +3009,9 @@
   "pluginLauncher": {
     "tooltip": "プラグイン",
     "themes": "テーマ",
-    "themeDefault": "デフォルトテーマ"
+    "themeDefault": "デフォルトテーマ",
+    "active": "アクティブなプラグイン",
+    "manage": "プラグインを管理…",
+    "runsInBackground": "バックグラウンドで実行"
   }
 }

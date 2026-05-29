@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Check, Palette, Puzzle, Terminal } from 'lucide-react';
+import { Check, Palette, Puzzle, Settings2, Terminal, Zap } from 'lucide-react';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Tooltip } from '@/components/ui/tooltip';
 import { splitContributionId } from '@/lib/plugins';
+import { openSettingsSection } from '@/lib/stores/modalStore';
 import { usePlugins } from '@/providers/PluginProvider';
 
 interface PluginLauncherProps {
@@ -25,14 +26,16 @@ interface PluginLauncherProps {
 }
 
 /**
- * Always-visible entry point to enabled plugins: run their commands and
- * switch plugin themes from a single titlebar menu. Hidden when no plugin
- * contributes a command or a theme, so it never adds noise for users
- * without plugins.
+ * Always-visible home for installed plugins: see which ones are active, run
+ * their commands and switch plugin themes from a single titlebar menu. Hidden
+ * only when no plugin is enabled, so plugins that work silently through query
+ * hooks (and contribute no command or theme) are still visible here.
  */
 export function PluginLauncher({ onRunCommand }: PluginLauncherProps) {
   const { t } = useTranslation();
   const { plugins, contributions, activeThemeId, setActiveTheme } = usePlugins();
+
+  const activePlugins = useMemo(() => plugins.filter(p => p.enabled && p.compatible), [plugins]);
 
   const pluginName = useMemo(() => {
     const byId = new Map(plugins.map(p => [p.manifest.id, p.manifest.name]));
@@ -61,8 +64,9 @@ export function PluginLauncher({ onRunCommand }: PluginLauncherProps) {
     return [...groups.values()];
   }, [contributions.commands, pluginName]);
 
-  const { commands, themes } = contributions;
-  if (commands.length === 0 && themes.length === 0) return null;
+  if (activePlugins.length === 0) return null;
+
+  const { themes } = contributions;
 
   return (
     <DropdownMenu>
@@ -79,9 +83,27 @@ export function PluginLauncher({ onRunCommand }: PluginLauncherProps) {
         </DropdownMenuTrigger>
       </Tooltip>
       <DropdownMenuContent align="end" className="w-64">
-        {commandGroups.map((group, index) => (
+        <DropdownMenuLabel className="text-muted-foreground">
+          {t('pluginLauncher.active')}
+        </DropdownMenuLabel>
+        {activePlugins.map(p => (
+          <DropdownMenuItem
+            key={p.manifest.id}
+            onClick={() => openSettingsSection('plugins')}
+            className="gap-2"
+          >
+            <span className="flex-1 truncate">{p.manifest.name}</span>
+            {p.manifest.runtime && (
+              <Tooltip content={t('pluginLauncher.runsInBackground')}>
+                <Zap size={12} className="shrink-0 text-accent" />
+              </Tooltip>
+            )}
+          </DropdownMenuItem>
+        ))}
+
+        {commandGroups.map(group => (
           <DropdownMenuGroup key={group.id}>
-            {index > 0 && <DropdownMenuSeparator />}
+            <DropdownMenuSeparator />
             <DropdownMenuLabel className="flex items-center gap-1.5 text-muted-foreground">
               <Terminal size={12} />
               {group.name}
@@ -96,7 +118,7 @@ export function PluginLauncher({ onRunCommand }: PluginLauncherProps) {
 
         {themes.length > 0 && (
           <>
-            {commandGroups.length > 0 && <DropdownMenuSeparator />}
+            <DropdownMenuSeparator />
             <DropdownMenuLabel className="flex items-center gap-1.5 text-muted-foreground">
               <Palette size={12} />
               {t('pluginLauncher.themes')}
@@ -116,6 +138,12 @@ export function PluginLauncher({ onRunCommand }: PluginLauncherProps) {
             ))}
           </>
         )}
+
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => openSettingsSection('plugins')}>
+          <Settings2 size={14} />
+          {t('pluginLauncher.manage')}
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );

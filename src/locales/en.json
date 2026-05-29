@@ -3037,6 +3037,9 @@
   "pluginLauncher": {
     "tooltip": "Plugins",
     "themes": "Themes",
-    "themeDefault": "Default theme"
+    "themeDefault": "Default theme",
+    "active": "Active plugins",
+    "manage": "Manage plugins…",
+    "runsInBackground": "Runs in the background"
   }
 }

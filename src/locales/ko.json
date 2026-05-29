@@ -3009,6 +3009,9 @@
   "pluginLauncher": {
     "tooltip": "플러그인",
     "themes": "테마",
-    "themeDefault": "기본 테마"
+    "themeDefault": "기본 테마",
+    "active": "활성 플러그인",
+    "manage": "플러그인 관리…",
+    "runsInBackground": "백그라운드에서 실행됩니다"
   }
 }

@@ -3009,6 +3009,9 @@
   "pluginLauncher": {
     "tooltip": "插件",
     "themes": "主题",
-    "themeDefault": "默认主题"
+    "themeDefault": "默认主题",
+    "active": "已启用的插件",
+    "manage": "管理插件…",
+    "runsInBackground": "在后台运行"
   }
 }

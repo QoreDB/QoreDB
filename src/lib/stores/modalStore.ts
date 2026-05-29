@@ -18,6 +18,8 @@ interface ModalState {
   contractsOpen: boolean;
   instantApiOpen: boolean;
   settingsOpen: boolean;
+  /** Section the settings page should open on. Null defaults to General. */
+  settingsSection: string | null;
   sidebarVisible: boolean;
   showOnboarding: boolean;
   cheatsheetOpen: boolean;
@@ -41,6 +43,7 @@ let state: ModalState = {
   contractsOpen: false,
   instantApiOpen: false,
   settingsOpen: false,
+  settingsSection: null,
   sidebarVisible: true,
   showOnboarding: false,
   cheatsheetOpen: false,
@@ -145,7 +148,12 @@ export function closeRestoreDialog() {
 }
 
 export function setSettingsOpen(open: boolean) {
-  updateState({ settingsOpen: open });
+  updateState({ settingsOpen: open, settingsSection: open ? state.settingsSection : null });
+}
+
+/** Opens the settings page directly on a given section. */
+export function openSettingsSection(section: string) {
+  updateState({ settingsOpen: true, settingsSection: section });
 }
 
 export function setProDiscoveryOpen(open: boolean) {

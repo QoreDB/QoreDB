@@ -7,7 +7,6 @@ pub mod ai;
 #[cfg(feature = "pro")]
 pub mod api;
 pub mod backup;
-pub mod cache;
 pub mod commands;
 #[cfg(feature = "pro")]
 pub mod contracts;
@@ -17,18 +16,16 @@ pub mod export;
 pub mod federation;
 pub mod interceptor;
 pub mod license;
-pub mod metrics;
 pub mod observability;
-pub mod paths;
 pub mod plugins;
-pub mod policy;
-pub mod ratelimit;
 pub mod share;
 pub mod snapshots;
 pub mod time_travel;
 pub mod vault;
 pub mod virtual_relations;
 pub mod workspace;
+
+pub use qore_service::{cache, metrics, paths, policy, ratelimit};
 
 use std::sync::Arc;
 use tauri::Manager;

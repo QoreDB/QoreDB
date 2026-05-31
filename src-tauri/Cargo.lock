@@ -5477,6 +5477,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "qore-service"
+version = "0.1.0"
+dependencies = [
+ "dirs 5.0.1",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "qore-sql"
 version = "0.1.0"
 dependencies = [
@@ -5519,6 +5528,7 @@ dependencies = [
  "percent-encoding",
  "qore-core",
  "qore-drivers",
+ "qore-service",
  "qore-sql",
  "rand 0.8.6",
  "rcgen",

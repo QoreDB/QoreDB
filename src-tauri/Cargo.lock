@@ -5480,9 +5480,19 @@ dependencies = [
 name = "qore-service"
 version = "0.1.0"
 dependencies = [
+ "argon2",
  "dirs 5.0.1",
+ "keyring",
+ "parking_lot 0.12.5",
+ "qore-core",
+ "rand_core 0.6.4",
  "serde",
  "serde_json",
+ "tempfile",
+ "thiserror 2.0.17",
+ "tokio",
+ "tracing",
+ "uuid",
 ]
 
 [[package]]

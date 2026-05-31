@@ -6,8 +6,8 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::engine::error::{EngineError, EngineResult};
-use crate::engine::types::{ConnectionConfig, MssqlAuthMode, SshTunnelConfig};
+use qore_core::error::{EngineError, EngineResult};
+use qore_core::types::{ConnectionConfig, MssqlAuthMode, SshTunnelConfig};
 
 /// Environment classification for connections
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
@@ -103,7 +103,7 @@ pub struct ProxyInfo {
     pub connect_timeout_secs: u32,
 }
 
-use crate::observability::Sensitive;
+use crate::sensitive::Sensitive;
 
 /// Credentials stored in the vault (never serialized to frontend)
 #[derive(Debug, Clone)]
@@ -122,8 +122,8 @@ impl SavedConnection {
     ) -> EngineResult<ConnectionConfig> {
         let ssh_tunnel = match self.ssh_tunnel.as_ref() {
             Some(ssh) => {
-                use crate::engine::types::SshAuth;
-                use crate::engine::types::SshHostKeyPolicy;
+                use qore_core::types::SshAuth;
+                use qore_core::types::SshHostKeyPolicy;
 
                 let auth = match ssh.auth_type.as_str() {
                     "key" => {
@@ -185,7 +185,7 @@ impl SavedConnection {
 
         let proxy = match self.proxy.as_ref() {
             Some(proxy_info) => {
-                use crate::engine::types::{ProxyConfig, ProxyType};
+                use qore_core::types::{ProxyConfig, ProxyType};
 
                 let proxy_type = match proxy_info.proxy_type.as_str() {
                     "http_connect" => ProxyType::HttpConnect,
@@ -235,7 +235,7 @@ impl SavedConnection {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::engine::types::{SshAuth, SshHostKeyPolicy};
+    use qore_core::types::{SshAuth, SshHostKeyPolicy};
 
     fn base_connection(auth_type: &str, host_key_policy: &str) -> SavedConnection {
         SavedConnection {

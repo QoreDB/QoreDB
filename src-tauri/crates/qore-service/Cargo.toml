@@ -6,6 +6,24 @@ license = "Apache-2.0"
 description = "Surface-agnostic service layer for QorePlatform — Tauri-free business logic shared by every surface (desktop, CLI, MCP, server)"
 
 [dependencies]
+qore-core = { path = "../qore-core" }
 serde = { workspace = true }
 serde_json = { workspace = true }
+uuid = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
 dirs = "5"
+keyring = { version = "3", features = [
+    "apple-native",
+    "windows-native",
+    "sync-secret-service",
+] }
+argon2 = "0.5"
+# OsRng (used by the vault's Argon2 salt generation) is gated behind rand_core's
+# `getrandom` feature.
+rand_core = { version = "0.6", features = ["getrandom"] }
+parking_lot = "0.12"
+
+[dev-dependencies]
+tempfile = "3.24.0"

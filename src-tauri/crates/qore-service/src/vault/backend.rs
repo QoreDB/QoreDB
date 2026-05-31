@@ -6,7 +6,7 @@ use std::sync::Arc;
 use keyring::Entry;
 use parking_lot::Mutex;
 
-use crate::engine::error::{EngineError, EngineResult};
+use qore_core::error::{EngineError, EngineResult};
 
 /// Typed credential-storage error. Used by `has_credential` and
 /// `delete_credential` so callers can distinguish "entry missing" from a real

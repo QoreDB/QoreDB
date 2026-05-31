@@ -11,7 +11,7 @@ use argon2::{
     Algorithm, Argon2, Params, Version,
 };
 
-use crate::engine::error::{EngineError, EngineResult};
+use qore_core::error::{EngineError, EngineResult};
 use crate::vault::backend::CredentialProvider;
 
 const SERVICE_NAME: &str = "qoredb";

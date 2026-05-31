@@ -12,8 +12,8 @@ use std::fs;
 use std::path::PathBuf;
 use uuid::Uuid;
 
-use crate::engine::error::{EngineError, EngineResult};
-use crate::observability::Sensitive;
+use qore_core::error::{EngineError, EngineResult};
+use crate::sensitive::Sensitive;
 use crate::vault::credentials::{SavedConnection, StoredCredentials};
 
 const SERVICE_PREFIX: &str = "qoredb";

@@ -21,11 +21,10 @@ pub mod plugins;
 pub mod share;
 pub mod snapshots;
 pub mod time_travel;
-pub mod vault;
 pub mod virtual_relations;
 pub mod workspace;
 
-pub use qore_service::{cache, metrics, paths, policy, ratelimit};
+pub use qore_service::{cache, metrics, paths, policy, ratelimit, vault};
 
 use std::sync::Arc;
 use tauri::Manager;

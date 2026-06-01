@@ -96,7 +96,11 @@ C'est l'insight qui dé-risque le jalon : **le morceau réputé le plus dur (le 
 - `qore-service/src/error.rs` : `ServiceError { Engine(EngineError), Validation(String) }` + `sanitized()`.
 - `qore-service/src/connection.rs` : `normalize_config` / `normalize_environment` déplacés ; fonctions `test_connection` / `connect` / `disconnect` (validation + nettoyage rate-limiter). Les 5 commandes `commands/connection.rs` deviennent des wrappers fins. Garde-fou « direct connect désactivé en release » conservé côté commande (policy desktop).
 
-**À suivre** : le reste du data plane (`query`, `mutation`, `export`) sur le même modèle (fonctions libres + `ServiceError`), avec l'abstraction streaming via `qore_core::StreamSender` déjà disponible. Les getters triviaux (`driver`, `list_sessions`, `ping`…) ne sont **pas** wrappés (passthrough direct vers `session_manager`/`registry` — éviter les wrappers spéculatifs).
+**Fait aussi** : `query::describe_table` / `preview_table` / `query_table` (chemin de lecture, cache + governance) ; `governance` déplacé dans la crate.
+
+**`execute_query` — extraction du noyau sécurité (`query::preflight`)** : la partie *gating* (rate-limit, read-only, blocage prod dangereux, `sql_safety`, interceptor pre) est extraite — c'est la logique qu'une surface MCP/CLI **doit** partager (sinon elle contournerait les protections). Retournée via `Preflight { driver, context, environment, read_only, is_mutation, is_dangerous, is_sql_driver, connection_key, safety_warning }`. La commande appelle `preflight` puis garde l'**exécution + streaming Tauri + hooks plugins** (parties couplées, à extraire dans un passage vérifiable à l'exécution — `StreamSender` + callback plugins). Traduction fidèle ligne à ligne ; non vérifiable à l'exécution ici → **tester le chemin requête dans l'app**.
+
+**À suivre** : `mutation`, `export` (patron connu) ; finir `execute_query` (exécution/streaming/plugins). Getters triviaux non wrappés (passthrough — éviter le spéculatif).
 
 **Vérif** : `cargo check` vert, 96 tests, zéro warning.
 

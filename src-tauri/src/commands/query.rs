@@ -14,7 +14,7 @@ use uuid::Uuid;
 use qore_service::governance;
 use crate::commands::stream_msg::{dispatch_stream_event, StreamDispatcher};
 use crate::engine::{
-    mongo_safety, redis_safety, sql_safety,
+    sql_safety,
     traits::StreamEvent,
     types::{
         CollectionList, CollectionListOptions, CreationOptions, EventList, EventListOptions,
@@ -33,10 +33,6 @@ use tauri::ipc::{Channel, InvokeResponseBody};
 
 const READ_ONLY_BLOCKED: &str = "Operation blocked: read-only mode";
 const DANGEROUS_BLOCKED: &str = "Dangerous query blocked: confirmation required";
-const DANGEROUS_BLOCKED_POLICY: &str = "Dangerous query blocked by policy";
-const SQL_PARSE_BLOCKED: &str = "Operation blocked: SQL parser could not classify the query";
-const RATE_LIMIT_BLOCKED: &str =
-    "Operation blocked: query rate limit exceeded — too many queries in a short time";
 const TRANSACTIONS_NOT_SUPPORTED: &str = "Transactions are not supported by this driver";
 const SAFETY_RULE_BLOCKED: &str = "Query blocked by safety rule";
 
@@ -75,29 +71,6 @@ fn dispatch_plugin_post_execute(
         error: exec.error.clone(),
     };
     plugin_host.schedule_post_execute(hook_ctx, post_result, payload);
-}
-
-fn is_mongo_mutation(query: &str) -> bool {
-    matches!(
-        mongo_safety::classify(query),
-        mongo_safety::MongoQueryClass::Mutation | mongo_safety::MongoQueryClass::Unknown
-    )
-}
-
-fn is_redis_mutation(query: &str) -> bool {
-    matches!(
-        redis_safety::classify(query),
-        redis_safety::RedisQueryClass::Mutation
-            | redis_safety::RedisQueryClass::Dangerous
-            | redis_safety::RedisQueryClass::Unknown
-    )
-}
-
-fn is_redis_dangerous(query: &str) -> bool {
-    matches!(
-        redis_safety::classify(query),
-        redis_safety::RedisQueryClass::Dangerous
-    )
 }
 
 fn map_environment(env: &str) -> Environment {
@@ -219,246 +192,44 @@ pub async fn execute_query(
 
     let session = parse_session_id(&session_id)?;
 
-    // Connection identity for query-cache invalidation: a mutation here
-    // stales cached reads across every session sharing this connection.
-    let connection_key = session_manager.connection_key(session).await;
-
-    // Anti-loop guardrail: cap the query rate per session so a runaway client
-    // loop cannot saturate the connection. Generous budget — never reached by
-    // human use. Skipped entirely when disabled in the safety policy.
-    if policy.query_rate_limit_enabled && !query_rate_limiter.try_acquire(&session_id) {
-        return Ok(QueryResponse {
-            success: false,
-            result: None,
-            error: Some(RATE_LIMIT_BLOCKED.to_string()),
-            query_id: None,
-            truncated: None,
-            truncated_total: None,
-        });
-    }
-
-    let read_only = match session_manager.is_read_only(session).await {
-        Ok(read_only) => read_only,
-        Err(e) => {
-            return Ok(QueryResponse {
-                success: false,
-                result: None,
-                error: Some(e.sanitized_message()),
-                query_id: None,
-                truncated: None,
-                truncated_total: None,
-            });
-        }
-    };
-
-    let driver = match session_manager.get_driver(session).await {
-        Ok(d) => d,
-        Err(e) => {
-            return Ok(QueryResponse {
-                success: false,
-                result: None,
-                error: Some(e.sanitized_message()),
-                query_id: None,
-                truncated: None,
-                truncated_total: None,
-            });
-        }
-    };
-    tracing::Span::current().record("driver", field::display(driver.driver_id()));
-
-    let environment = match session_manager.get_environment(session).await {
-        Ok(value) => value,
-        Err(_) => "development".to_string(),
-    };
-    let interceptor_env = map_environment(&environment);
-    let is_production = matches!(interceptor_env, Environment::Production);
-
-    let acknowledged = acknowledged_dangerous.unwrap_or(false);
-    let is_mongo_driver = driver.driver_id().eq_ignore_ascii_case("mongodb");
-    let is_redis_driver = driver.driver_id().eq_ignore_ascii_case("redis");
-    let is_sql_driver = !is_mongo_driver && !is_redis_driver;
-    let sql_analysis = if is_sql_driver {
-        match sql_safety::analyze_sql(driver.driver_id(), &query) {
-            Ok(analysis) => Some(analysis),
-            Err(err) => {
-                if read_only {
-                    return Ok(QueryResponse {
-                        success: false,
-                        result: None,
-                        error: Some(format!("{SQL_PARSE_BLOCKED}: {err}")),
-                        query_id: None,
-                        truncated: None,
-                        truncated_total: None,
-                    });
-                }
-
-                if is_production {
-                    if policy.prod_block_dangerous_sql {
-                        return Ok(QueryResponse {
-                            success: false,
-                            result: None,
-                            error: Some(format!(
-                                "{DANGEROUS_BLOCKED_POLICY}: SQL parse error: {err}"
-                            )),
-                            query_id: None,
-                            truncated: None,
-                            truncated_total: None,
-                        });
-                    }
-
-                    if policy.prod_require_confirmation && !acknowledged {
-                        return Ok(QueryResponse {
-                            success: false,
-                            result: None,
-                            error: Some(format!("{DANGEROUS_BLOCKED}: SQL parse error: {err}")),
-                            query_id: None,
-                            truncated: None,
-                            truncated_total: None,
-                        });
-                    }
-                }
-
-                None
-            }
-        }
-    } else {
-        None
-    };
-
-    if read_only {
-        let is_mutation = if is_sql_driver {
-            sql_analysis
-                .as_ref()
-                .map(|analysis| analysis.is_mutation)
-                .unwrap_or(false)
-        } else if is_mongo_driver {
-            is_mongo_mutation(&query)
-        } else {
-            is_redis_mutation(&query)
-        };
-
-        if is_mutation {
-            return Ok(QueryResponse {
-                success: false,
-                result: None,
-                error: Some(READ_ONLY_BLOCKED.to_string()),
-                query_id: None,
-                truncated: None,
-                truncated_total: None,
-            });
-        }
-    }
-
-    if is_production {
-        let is_dangerous = if is_sql_driver {
-            sql_analysis
-                .as_ref()
-                .map(|analysis| analysis.is_dangerous)
-                .unwrap_or(false)
-        } else if is_redis_driver {
-            is_redis_dangerous(&query)
-        } else {
-            false
-        };
-
-        if is_dangerous {
-            if policy.prod_block_dangerous_sql {
-                return Ok(QueryResponse {
-                    success: false,
-                    result: None,
-                    error: Some(DANGEROUS_BLOCKED_POLICY.to_string()),
-                    query_id: None,
-                    truncated: None,
-                    truncated_total: None,
-                });
-            }
-
-            if policy.prod_require_confirmation && !acknowledged {
-                return Ok(QueryResponse {
-                    success: false,
-                    result: None,
-                    error: Some(DANGEROUS_BLOCKED.to_string()),
-                    query_id: None,
-                    truncated: None,
-                    truncated_total: None,
-                });
-            }
-        }
-    }
-
-    let is_mutation_for_context = if is_sql_driver {
-        sql_analysis
-            .as_ref()
-            .map(|a| a.is_mutation)
-            .unwrap_or(false)
-    } else if is_mongo_driver {
-        is_mongo_mutation(&query)
-    } else {
-        is_redis_mutation(&query)
-    };
-
-    let interceptor_context = interceptor.build_context(
+    let preflight = match qore_service::query::preflight(
+        &session_manager,
+        &query_rate_limiter,
+        &interceptor,
+        &policy,
+        session,
         &session_id,
         &query,
-        driver.driver_id(),
-        interceptor_env,
-        read_only,
-        acknowledged,
-        namespace.as_ref().map(|n| n.database.as_str()),
-        sql_analysis.as_ref(),
-        is_mutation_for_context,
-    );
-
-    let safety_result = interceptor.pre_execute(&interceptor_context);
-    if !safety_result.allowed {
-        interceptor.post_execute(
-            &interceptor_context,
-            &QueryExecutionResult {
+        namespace.as_ref(),
+        acknowledged_dangerous.unwrap_or(false),
+    )
+    .await
+    {
+        Ok(pf) => pf,
+        Err(msg) => {
+            return Ok(QueryResponse {
                 success: false,
-                error: safety_result.message.clone(),
-                execution_time_ms: 0.0,
-                row_count: None,
-            },
-            true,
-            safety_result.triggered_rule.as_deref(),
-        );
-
-        let error_msg = match safety_result.action {
-            SafetyAction::Block => {
-                format!(
-                    "{}: {}",
-                    SAFETY_RULE_BLOCKED,
-                    safety_result.message.unwrap_or_default()
-                )
-            }
-            SafetyAction::RequireConfirmation => {
-                format!(
-                    "{}: {}",
-                    DANGEROUS_BLOCKED,
-                    safety_result.message.unwrap_or_default()
-                )
-            }
-            SafetyAction::Warn => {
-                // Unreachable: Warn does not block execution.
-                "Warning triggered".to_string()
-            }
-        };
-
-        return Ok(QueryResponse {
-            success: false,
-            result: None,
-            error: Some(error_msg),
-            query_id: None,
-            truncated: None,
-            truncated_total: None,
-        });
-    }
-
-    let safety_warning = if matches!(safety_result.action, SafetyAction::Warn) {
-        safety_result.triggered_rule.clone()
-    } else {
-        None
+                result: None,
+                error: Some(msg),
+                query_id: None,
+                truncated: None,
+                truncated_total: None,
+            });
+        }
     };
+
+    let qore_service::query::Preflight {
+        driver,
+        context: interceptor_context,
+        environment: interceptor_env,
+        read_only,
+        is_mutation: is_mutation_for_context,
+        is_dangerous,
+        is_sql_driver,
+        connection_key,
+        safety_warning,
+    } = preflight;
+    tracing::Span::current().record("driver", field::display(driver.driver_id()));
 
     let plugin_decision = plugin_host
         .run_pre_execute(crate::plugins::runtime::HookContext {
@@ -472,10 +243,7 @@ pub async fn execute_query(
                 .unwrap_or("")
                 .to_uppercase(),
             is_mutation: is_mutation_for_context,
-            is_dangerous: sql_analysis
-                .as_ref()
-                .map(|a| a.is_dangerous)
-                .unwrap_or(false),
+            is_dangerous,
             read_only,
         })
         .await;
@@ -550,7 +318,7 @@ pub async fn execute_query(
             session = %session_id,
             query_id = %query_id_str,
             driver = %driver.driver_id(),
-            env = %environment,
+            env = ?interceptor_env,
             tier = ?license_tier,
             effective_timeout_ms = ?effective_timeout,
             "Governance limits bypassed for single query (Team+ override)"
@@ -1338,98 +1106,31 @@ pub async fn preview_table(
     };
     let session = parse_session_id(&session_id)?;
 
-    let effective_limit = governance::clamp_rows(&policy, limit);
-
-    // Query result cache: serve repeated table previews instantly. Keyed by
-    // connection so a mutation on any session of it invalidates the entry.
-    let connection_key = session_manager.connection_key(session).await;
-    let use_cache = !bypass_cache.unwrap_or(false) && connection_key.is_some();
-    let cache_key = format!(
-        "preview\u{1}{}\u{1}{}\u{1}{}\u{1}{}\u{1}{}",
-        connection_key.as_deref().unwrap_or(""),
-        namespace.database,
-        namespace.schema.as_deref().unwrap_or(""),
-        table,
-        effective_limit
-    );
-    if use_cache {
-        if let Some(hit) = query_cache.get(&cache_key) {
-            if let Ok(result) = serde_json::from_str::<QueryResult>(&hit.value) {
-                return Ok(QueryResponse {
-                    success: true,
-                    result: Some(result),
-                    error: None,
-                    query_id: None,
-                    truncated: None,
-                    truncated_total: None,
-                });
-            }
-        }
-    }
-
-    if let Err(msg) = governance::check_concurrent_limit(&policy, &query_manager).await {
-        return Ok(QueryResponse {
-            success: false,
-            result: None,
-            error: Some(msg),
-            query_id: None,
-            truncated: None,
-            truncated_total: None,
-        });
-    }
-
-    let driver = match session_manager.get_driver(session).await {
-        Ok(d) => d,
-        Err(e) => {
-            return Ok(QueryResponse {
-                success: false,
-                result: None,
-                error: Some(e.sanitized_message()),
-                query_id: None,
-                truncated: None,
-                truncated_total: None,
-            });
-        }
-    };
-
-    let result = governance::with_timeout(
+    match qore_service::query::preview_table(
+        &session_manager,
+        &query_manager,
+        &query_cache,
         &policy,
-        driver.preview_table(session, &namespace, &table, effective_limit),
+        session,
+        &namespace,
+        &table,
+        limit,
+        bypass_cache.unwrap_or(false),
     )
-    .await;
-
-    match result {
-        Ok(Ok(result)) => {
-            if use_cache {
-                if let Ok(json) = serde_json::to_string(&result) {
-                    query_cache.put(
-                        cache_key.clone(),
-                        connection_key.clone().unwrap_or_default(),
-                        json,
-                    );
-                }
-            }
-            Ok(QueryResponse {
-                success: true,
-                result: Some(result),
-                error: None,
-                query_id: None,
-                truncated: None,
-                truncated_total: None,
-            })
-        }
-        Ok(Err(e)) => Ok(QueryResponse {
-            success: false,
-            result: None,
-            error: Some(e.sanitized_message()),
+    .await
+    {
+        Ok(result) => Ok(QueryResponse {
+            success: true,
+            result: Some(result),
+            error: None,
             query_id: None,
             truncated: None,
             truncated_total: None,
         }),
-        Err(timeout_msg) => Ok(QueryResponse {
+        Err(e) => Ok(QueryResponse {
             success: false,
             result: None,
-            error: Some(timeout_msg),
+            error: Some(e.sanitized()),
             query_id: None,
             truncated: None,
             truncated_total: None,
@@ -1476,107 +1177,32 @@ pub async fn query_table(
     };
     let session = parse_session_id(&session_id)?;
 
-    let mut options = options;
-    if let Some(max_rows) = policy.max_result_rows {
-        let max_page = max_rows as u32;
-        options.page_size = Some(options.page_size.unwrap_or(50).min(max_page));
-    }
-
-    // Query result cache: serve repeated table navigation instantly. Keyed by
-    // connection so a mutation on any session of it invalidates the entry.
-    let connection_key = session_manager.connection_key(session).await;
-    let use_cache = !bypass_cache.unwrap_or(false) && connection_key.is_some();
-    let cache_key = format!(
-        "query\u{1}{}\u{1}{}\u{1}{}\u{1}{}\u{1}{}",
-        connection_key.as_deref().unwrap_or(""),
-        namespace.database,
-        namespace.schema.as_deref().unwrap_or(""),
-        table,
-        serde_json::to_string(&options).unwrap_or_default()
-    );
-    if use_cache {
-        if let Some(hit) = query_cache.get(&cache_key) {
-            if let Ok(result) = serde_json::from_str::<PaginatedQueryResult>(&hit.value) {
-                return Ok(PaginatedQueryResponse {
-                    success: true,
-                    result: Some(result),
-                    error: None,
-                    truncated: None,
-                    truncated_total: None,
-                    cached: Some(true),
-                    cached_age_ms: Some(hit.age_ms),
-                });
-            }
-        }
-    }
-
-    if let Err(msg) = governance::check_concurrent_limit(&policy, &query_manager).await {
-        return Ok(PaginatedQueryResponse {
-            success: false,
-            result: None,
-            error: Some(msg),
-            truncated: None,
-            truncated_total: None,
-            cached: None,
-            cached_age_ms: None,
-        });
-    }
-
-    let driver = match session_manager.get_driver(session).await {
-        Ok(d) => d,
-        Err(e) => {
-            return Ok(PaginatedQueryResponse {
-                success: false,
-                result: None,
-                error: Some(e.sanitized_message()),
-                truncated: None,
-                truncated_total: None,
-                cached: None,
-                cached_age_ms: None,
-            });
-        }
-    };
-
-    let result = governance::with_timeout(
+    match qore_service::query::query_table(
+        &session_manager,
+        &query_manager,
+        &query_cache,
         &policy,
-        driver.query_table(session, &namespace, &table, options),
+        session,
+        &namespace,
+        &table,
+        options,
+        bypass_cache.unwrap_or(false),
     )
-    .await;
-
-    match result {
-        Ok(Ok(result)) => {
-            if use_cache {
-                if let Ok(json) = serde_json::to_string(&result) {
-                    query_cache.put(
-                        cache_key.clone(),
-                        connection_key.clone().unwrap_or_default(),
-                        json,
-                    );
-                }
-            }
-            Ok(PaginatedQueryResponse {
-                success: true,
-                result: Some(result),
-                error: None,
-                truncated: None,
-                truncated_total: None,
-                cached: None,
-                cached_age_ms: None,
-            })
-        }
-        Ok(Err(e)) => Ok(PaginatedQueryResponse {
-            success: false,
-            result: None,
-            error: Some(e.sanitized_message()),
+    .await
+    {
+        Ok((result, cached_age_ms)) => Ok(PaginatedQueryResponse {
+            success: true,
+            result: Some(result),
+            error: None,
             truncated: None,
             truncated_total: None,
-            cached: None,
-            cached_age_ms: None,
+            cached: cached_age_ms.map(|_| true),
+            cached_age_ms,
         }),
-        Err(timeout_msg) => Ok(PaginatedQueryResponse {
+        Err(e) => Ok(PaginatedQueryResponse {
             success: false,
             result: None,
-            error: Some(timeout_msg),
+            error: Some(e.sanitized()),
             truncated: None,
             truncated_total: None,
             cached: None,

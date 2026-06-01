@@ -5,14 +5,14 @@ use qore_core::EngineError;
 #[derive(Debug)]
 pub enum ServiceError {
     Engine(EngineError),
-    Validation(String),
+    Message(String),
 }
 
 impl ServiceError {
     pub fn sanitized(&self) -> String {
         match self {
             ServiceError::Engine(e) => e.sanitized_message(),
-            ServiceError::Validation(msg) => msg.clone(),
+            ServiceError::Message(msg) => msg.clone(),
         }
     }
 }

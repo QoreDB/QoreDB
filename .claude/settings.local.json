@@ -88,7 +88,12 @@
       "Bash(/usr/bin/find *)",
       "Bash(sed -n '1,40p' src/commands/query.rs)",
       "Bash(sed -n '370,380p' crates/qore-core/src/traits.rs)",
-      "Bash(sed -n '65,80p' crates/qore-service/src/virtual_relations/store.rs)"
+      "Bash(sed -n '65,80p' crates/qore-service/src/virtual_relations/store.rs)",
+      "Bash(sed -n '222p;461p' query.rs)",
+      "Bash(sed -n '220,221p' query.rs)",
+      "Bash(sed -n '462,463p' query.rs)",
+      "Bash(sed -i '222,462d' query.rs)",
+      "Bash(sed -n '218,226p' query.rs)"
     ]
   }
 }

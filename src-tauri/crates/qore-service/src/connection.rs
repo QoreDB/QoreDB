@@ -10,7 +10,7 @@ pub async fn test_connection(
     session_manager: &SessionManager,
     config: ConnectionConfig,
 ) -> Result<(), ServiceError> {
-    let config = normalize_config(config).map_err(ServiceError::Validation)?;
+    let config = normalize_config(config).map_err(ServiceError::Message)?;
     session_manager.test_connection(&config).await?;
     Ok(())
 }
@@ -19,7 +19,7 @@ pub async fn connect(
     session_manager: &SessionManager,
     config: ConnectionConfig,
 ) -> Result<SessionId, ServiceError> {
-    let config = normalize_config(config).map_err(ServiceError::Validation)?;
+    let config = normalize_config(config).map_err(ServiceError::Message)?;
     Ok(session_manager.connect(config).await?)
 }
 

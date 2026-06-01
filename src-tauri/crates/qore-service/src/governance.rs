@@ -18,7 +18,7 @@ use std::time::Duration;
 
 use tokio::time::timeout;
 
-use crate::engine::QueryManager;
+use qore_drivers::query_manager::QueryManager;
 use crate::policy::SafetyPolicy;
 
 /// Clamp a requested row count against the policy's `max_result_rows`.

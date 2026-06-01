@@ -11,7 +11,7 @@ use tokio::time::{timeout, Duration};
 use tracing::{field, instrument};
 use uuid::Uuid;
 
-use crate::commands::governance;
+use qore_service::governance;
 use crate::commands::stream_msg::{dispatch_stream_event, StreamDispatcher};
 use crate::engine::{
     mongo_safety, redis_safety, sql_safety,
@@ -1294,49 +1294,25 @@ pub async fn describe_table(
     };
     let session = parse_session_id(&session_id)?;
 
-    let driver = match session_manager.get_driver(session).await {
-        Ok(d) => d,
-        Err(e) => {
-            return Ok(TableSchemaResponse {
-                success: false,
-                schema: None,
-                error: Some(e.sanitized_message()),
-            });
-        }
-    };
-
-    match driver.describe_table(session, &namespace, &table).await {
-        Ok(mut schema) => {
-            if let Some(ref conn_id) = connection_id {
-                let virtual_fks = vr_store.get_foreign_keys_for_table(
-                    conn_id,
-                    &namespace.database,
-                    namespace.schema.as_deref(),
-                    &table,
-                );
-                // Skip virtual FKs that duplicate real ones.
-                for vfk in virtual_fks {
-                    let is_duplicate = schema.foreign_keys.iter().any(|fk| {
-                        fk.column == vfk.column
-                            && fk.referenced_table == vfk.referenced_table
-                            && fk.referenced_column == vfk.referenced_column
-                    });
-                    if !is_duplicate {
-                        schema.foreign_keys.push(vfk);
-                    }
-                }
-            }
-
-            Ok(TableSchemaResponse {
-                success: true,
-                schema: Some(schema),
-                error: None,
-            })
-        }
+    match qore_service::query::describe_table(
+        &session_manager,
+        &vr_store,
+        session,
+        &namespace,
+        &table,
+        connection_id.as_deref(),
+    )
+    .await
+    {
+        Ok(schema) => Ok(TableSchemaResponse {
+            success: true,
+            schema: Some(schema),
+            error: None,
+        }),
         Err(e) => Ok(TableSchemaResponse {
             success: false,
             schema: None,
-            error: Some(e.sanitized_message()),
+            error: Some(e.sanitized()),
         }),
     }
 }

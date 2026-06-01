@@ -85,7 +85,10 @@
       "Bash(cargo add *)",
       "Bash(ps -Ao pid,etime,command)",
       "Bash(/usr/bin/find . *)",
-      "Bash(/usr/bin/find *)"
+      "Bash(/usr/bin/find *)",
+      "Bash(sed -n '1,40p' src/commands/query.rs)",
+      "Bash(sed -n '370,380p' crates/qore-core/src/traits.rs)",
+      "Bash(sed -n '65,80p' crates/qore-service/src/virtual_relations/store.rs)"
     ]
   }
 }

@@ -14,7 +14,6 @@ pub mod driver;
 pub mod export;
 pub mod federation;
 pub mod fulltext_search;
-pub mod governance;
 pub mod import;
 #[cfg(feature = "pro")]
 pub mod instant_api;

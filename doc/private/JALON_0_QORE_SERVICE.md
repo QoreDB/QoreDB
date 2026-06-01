@@ -88,22 +88,17 @@ C'est l'insight qui dé-risque le jalon : **le morceau réputé le plus dur (le 
 
 > `ServiceError` et `EventSink` ne sont **pas** créés à ce stade (aucun consommateur encore → code spéculatif). Ils arrivent à l'Étape 3, avec la première commande extraite.
 
-### Étape 3 — Groupe « no-lift » (extraction mécanique)
-Commandes à logique pure, sans événements : `cache`, `driver`, `license`, `policy` + `governance`, `snapshots`, `connection_url`, `interceptor`, `metrics`.
+### Étape 3 — Extraction des corps de commandes (en cours)
 
-**Travail** : déplacer le corps de chaque commande en `fn` de `qore-service` ; la commande Tauri ne garde que `lock + appel + map erreur`. Exemple :
-```rust
-// qore-service
-pub async fn list_drivers(ctx: &ServiceContext) -> Result<Vec<DriverInfo>, ServiceError> { … }
-// commands/driver.rs
-#[tauri::command]
-pub async fn list_drivers(state: State<'_, SharedState>) -> Result<Vec<DriverInfo>, String> {
-    let ctx = state.lock().await;
-    qore_service::list_drivers(&ctx).await.map_err(|e| e.sanitized())
-}
-```
+**Contrainte de verrouillage (importante)** : l'`AppState` desktop est derrière `Arc<Mutex<…>>`. Les commandes clonent les `Arc` (session_manager…) puis **relâchent le verrou AVANT** tout `await` réseau — il ne faut jamais tenir le mutex global pendant un `connect`/`query`. Donc l'orchestration s'extrait en **fonctions libres prenant les handles** (`fn connect(sm: &SessionManager, …)`), pas en méthodes `&self` sur le `ServiceContext` (qui forceraient à tenir le verrou pendant l'`await`). Les surfaces CLI/MCP/serveur, elles, possèdent un `ServiceContext` sans mutex et appellent `qore_service::connection::connect(&ctx.session_manager, …)`. Retirer le mutex global (→ `Arc<ServiceContext>` lock-free) est un chantier séparé, hors Jalon 0.
 
-**Vérif** : build + tests ; les onglets correspondants fonctionnent dans l'app.
+**Fait** :
+- `qore-service/src/error.rs` : `ServiceError { Engine(EngineError), Validation(String) }` + `sanitized()`.
+- `qore-service/src/connection.rs` : `normalize_config` / `normalize_environment` déplacés ; fonctions `test_connection` / `connect` / `disconnect` (validation + nettoyage rate-limiter). Les 5 commandes `commands/connection.rs` deviennent des wrappers fins. Garde-fou « direct connect désactivé en release » conservé côté commande (policy desktop).
+
+**À suivre** : le reste du data plane (`query`, `mutation`, `export`) sur le même modèle (fonctions libres + `ServiceError`), avec l'abstraction streaming via `qore_core::StreamSender` déjà disponible. Les getters triviaux (`driver`, `list_sessions`, `ping`…) ne sont **pas** wrappés (passthrough direct vers `session_manager`/`registry` — éviter les wrappers spéculatifs).
+
+**Vérif** : `cargo check` vert, 96 tests, zéro warning.
 
 ### Étape 4 — `connection` + `vault` (EventSink léger)
 **Travail** : extraire `connect / disconnect / test_connection / list_sessions` et les opérations vault. Le seul couplage est l'émission d'événements de **santé de connexion** → passe par `&dyn EventSink`. La commande construit un `TauriEventSink` et le passe.

@@ -1,11 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-//! `ServiceContext` — the data-plane state every QorePlatform surface needs to
-//! talk to databases: driver registry, sessions, query orchestration, safety,
-//! vault and licensing. The desktop `AppState` composes this with its own
-//! desktop-only services (plugins, backup, workspace…); CLI/MCP/server
-//! construct it directly.
-
 use std::sync::Arc;
 
 use qore_core::DriverRegistry;
@@ -63,7 +57,6 @@ impl ServiceContext {
         let policy = SafetyPolicy::load();
         let query_manager = Arc::new(QueryManager::new());
 
-        // Shared data-dir root for interceptor / virtual relations (B1-H4).
         let data_dir = crate::paths::app_data_dir();
         let interceptor = Arc::new(InterceptorPipeline::new(data_dir.join("interceptor")));
         let _ = interceptor.load_config();

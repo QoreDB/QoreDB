@@ -1,5 +1,4 @@
-// Injects the embedded license public key at compile time, mirroring the app's
-// build script: `key.rs` reads it via `env!("PUBLIC_KEY_BASE64")`.
+// Injects PUBLIC_KEY_BASE64 (read by license/key.rs via env!) at compile time.
 fn main() {
     let _ = dotenvy::from_path("../../../.env");
 

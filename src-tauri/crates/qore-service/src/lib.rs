@@ -4,7 +4,9 @@
 //! (desktop, CLI, MCP, server).
 
 pub mod cache;
+pub mod connection;
 pub mod context;
+pub mod error;
 pub mod interceptor;
 pub mod license;
 pub mod metrics;
@@ -16,3 +18,4 @@ pub mod vault;
 pub mod virtual_relations;
 
 pub use context::ServiceContext;
+pub use error::ServiceError;

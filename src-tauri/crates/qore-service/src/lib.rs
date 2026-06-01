@@ -4,9 +4,12 @@
 //! (desktop, CLI, MCP, server).
 
 pub mod cache;
+pub mod interceptor;
+pub mod license;
 pub mod metrics;
 pub mod paths;
 pub mod policy;
 pub mod ratelimit;
 pub mod sensitive;
 pub mod vault;
+pub mod virtual_relations;

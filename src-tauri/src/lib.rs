@@ -14,17 +14,16 @@ pub mod engine;
 pub mod export;
 #[cfg(feature = "pro")]
 pub mod federation;
-pub mod interceptor;
-pub mod license;
 pub mod observability;
 pub mod plugins;
 pub mod share;
 pub mod snapshots;
 pub mod time_travel;
-pub mod virtual_relations;
 pub mod workspace;
 
-pub use qore_service::{cache, metrics, paths, policy, ratelimit, vault};
+pub use qore_service::{
+    cache, interceptor, license, metrics, paths, policy, ratelimit, vault, virtual_relations,
+};
 
 use std::sync::Arc;
 use tauri::Manager;

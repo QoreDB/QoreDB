@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::RwLock;
 
-use crate::engine::types::ForeignKey;
+use qore_core::types::ForeignKey;
 
 use super::types::{VirtualRelation, VirtualRelationsConfig};
 

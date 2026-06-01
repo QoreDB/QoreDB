@@ -20,7 +20,7 @@ use super::types::{
     QueryContext, QueryExecutionResult, QueryOperationType, SafetyCheckResult, SafetyRule,
     SlowQueryEntry,
 };
-use crate::engine::sql_safety::SqlSafetyAnalysis;
+use qore_sql::safety::SqlSafetyAnalysis;
 
 /// The main interceptor pipeline
 pub struct InterceptorPipeline {

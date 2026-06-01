@@ -7,12 +7,19 @@ description = "Surface-agnostic service layer for QorePlatform — Tauri-free bu
 
 [dependencies]
 qore-core = { path = "../qore-core" }
+qore-sql = { path = "../qore-sql" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 uuid = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
+chrono = { workspace = true }
+base64 = { workspace = true }
+ed25519-dalek = { version = "2", features = ["serde"] }
+regex = "1"
+sha2 = "0.10"
+csv = "1"
 dirs = "5"
 keyring = { version = "3", features = [
     "apple-native",
@@ -24,6 +31,9 @@ argon2 = "0.5"
 # `getrandom` feature.
 rand_core = { version = "0.6", features = ["getrandom"] }
 parking_lot = "0.12"
+
+[build-dependencies]
+dotenvy = "0.15"
 
 [dev-dependencies]
 tempfile = "3.24.0"

@@ -5490,6 +5490,7 @@ dependencies = [
  "keyring",
  "parking_lot 0.12.5",
  "qore-core",
+ "qore-drivers",
  "qore-sql",
  "rand_core 0.6.4",
  "regex",

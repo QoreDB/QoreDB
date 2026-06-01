@@ -29,48 +29,21 @@ use std::sync::Arc;
 use tauri::Manager;
 use tokio::sync::Mutex;
 
-use cache::QueryCache;
 use commands::workspace::SharedWorkspaceManager;
-use engine::drivers::clickhouse::ClickHouseDriver;
-use engine::drivers::cockroachdb::CockroachDbDriver;
-use engine::drivers::duckdb::DuckDbDriver;
-use engine::drivers::mariadb::MariaDbDriver;
-use engine::drivers::mongodb::MongoDriver;
-use engine::drivers::mysql::MySqlDriver;
-use engine::drivers::neon::NeonDriver;
-use engine::drivers::postgres::PostgresDriver;
-use engine::drivers::redis::RedisDriver;
-use engine::drivers::sqlite::SqliteDriver;
-use engine::drivers::sqlserver::SqlServerDriver;
-use engine::drivers::supabase::SupabaseDriver;
-use engine::drivers::timescaledb::TimescaleDbDriver;
-use engine::{DriverRegistry, QueryManager, SessionManager};
 use export::ExportPipeline;
-use interceptor::InterceptorPipeline;
-use license::LicenseManager;
 use plugins::runtime::PluginHost;
-use policy::SafetyPolicy;
-use ratelimit::QueryRateLimiter;
+use qore_service::ServiceContext;
 use share::ShareManager;
 use snapshots::SnapshotStore;
-use vault::{backend::KeyringProvider, VaultLock};
-use virtual_relations::VirtualRelationStore;
+use vault::backend::KeyringProvider;
 
 pub type SharedState = Arc<Mutex<AppState>>;
+
 pub struct AppState {
-    pub registry: Arc<DriverRegistry>,
-    pub session_manager: Arc<SessionManager>,
-    pub vault_lock: VaultLock,
-    pub policy: SafetyPolicy,
-    pub query_manager: Arc<QueryManager>,
-    pub query_rate_limiter: Arc<QueryRateLimiter>,
-    pub query_cache: Arc<QueryCache>,
+    pub service: ServiceContext,
     pub plugin_host: Arc<PluginHost>,
-    pub interceptor: Arc<InterceptorPipeline>,
     pub export_pipeline: Arc<ExportPipeline>,
     pub share_manager: Arc<ShareManager>,
-    pub virtual_relations: Arc<VirtualRelationStore>,
-    pub license_manager: LicenseManager,
     #[cfg(feature = "pro")]
     pub ai_manager: Arc<ai::manager::AiManager>,
     pub changelog_store: Arc<time_travel::ChangelogStore>,
@@ -81,47 +54,14 @@ pub struct AppState {
 
 impl AppState {
     pub fn new() -> Self {
-        let mut registry = DriverRegistry::new();
+        let service = ServiceContext::new();
 
-        registry.register(Arc::new(PostgresDriver::new()));
-        registry.register(Arc::new(MySqlDriver::new()));
-        registry.register(Arc::new(MongoDriver::new()));
-        registry.register(Arc::new(RedisDriver::new()));
-        registry.register(Arc::new(SqliteDriver::new()));
-        registry.register(Arc::new(DuckDbDriver::new()));
-        registry.register(Arc::new(CockroachDbDriver::new()));
-        registry.register(Arc::new(SqlServerDriver::new()));
-        registry.register(Arc::new(MariaDbDriver::new()));
-        registry.register(Arc::new(SupabaseDriver::new()));
-        registry.register(Arc::new(NeonDriver::new()));
-        registry.register(Arc::new(TimescaleDbDriver::new()));
-        registry.register(Arc::new(ClickHouseDriver::new()));
-
-        let registry = Arc::new(registry);
-        let session_manager = Arc::new(SessionManager::new(Arc::clone(&registry)));
-        let mut vault_lock = VaultLock::new(Box::new(KeyringProvider::new()));
-        let policy = SafetyPolicy::load();
-        let query_manager = Arc::new(QueryManager::new());
-        let export_pipeline = Arc::new(ExportPipeline::new());
-
-        // Initialize interceptor with data directory. `paths::app_data_dir()`
-        // is the single source of truth shared with policy + logs (B1-H4).
         let data_dir = paths::app_data_dir();
-        let interceptor = Arc::new(InterceptorPipeline::new(data_dir.join("interceptor")));
-        let _ = interceptor.load_config();
-
-        let virtual_relations = Arc::new(VirtualRelationStore::new(
-            data_dir.join("virtual_relations"),
-        ));
+        let export_pipeline = Arc::new(ExportPipeline::new());
         let share_manager = Arc::new(ShareManager::new(
             data_dir.join("share"),
             Box::new(KeyringProvider::new()),
         ));
-
-        let _ = vault_lock.auto_unlock_if_no_password();
-
-        // Loads any stored key from the keyring on construction.
-        let license_manager = LicenseManager::new(Box::new(KeyringProvider::new()));
 
         #[cfg(feature = "pro")]
         let ai_manager = Arc::new(ai::manager::AiManager::new(
@@ -137,19 +77,10 @@ impl AppState {
         plugin_host.reload();
 
         Self {
-            registry,
-            session_manager,
-            vault_lock,
-            policy,
-            query_manager,
-            query_rate_limiter: Arc::new(QueryRateLimiter::with_defaults()),
-            query_cache: Arc::new(QueryCache::new()),
+            service,
             plugin_host,
-            interceptor,
             export_pipeline,
             share_manager,
-            virtual_relations,
-            license_manager,
             #[cfg(feature = "pro")]
             ai_manager,
             changelog_store,
@@ -166,21 +97,28 @@ impl Default for AppState {
     }
 }
 
+impl std::ops::Deref for AppState {
+    type Target = ServiceContext;
+    fn deref(&self) -> &ServiceContext {
+        &self.service
+    }
+}
+
+impl std::ops::DerefMut for AppState {
+    fn deref_mut(&mut self) -> &mut ServiceContext {
+        &mut self.service
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     observability::init_tracing();
     let state: SharedState = Arc::new(Mutex::new(AppState::new()));
 
-    // Initialize snapshot store (managed separately — no mutex needed).
-    // Re-uses the shared root from `paths::app_data_dir()`.
     let data_dir = paths::app_data_dir();
     let snapshot_store: commands::snapshots::SharedSnapshotStore =
         Arc::new(SnapshotStore::new(data_dir.join("snapshots")));
 
-    // Initialize workspace manager. Workspace config follows the OS config
-    // convention (XDG `$XDG_CONFIG_HOME` on Linux, `~/Library/Application
-    // Support` on macOS, `%APPDATA%` on Windows) so users can sync workspace
-    // metadata via tools that target the config dir specifically.
     let app_config_dir = dirs::config_dir()
         .unwrap_or_else(|| std::path::PathBuf::from("."))
         .join("com.qoredb.app");
@@ -192,9 +130,6 @@ pub fn run() {
     let (ws_path_tx, ws_path_rx) = tokio::sync::watch::channel::<Option<std::path::PathBuf>>(None);
     let watcher_path_sender: commands::workspace::WatcherPathSender = Arc::new(ws_path_tx);
 
-    // Pro: Instant Data API — endpoints store is created up-front so it
-    // survives across start/stop cycles; the server itself is spun up on
-    // demand by the `start_instant_api` command.
     #[cfg(feature = "pro")]
     let instant_api: commands::instant_api::SharedInstantApi = Arc::new(tokio::sync::Mutex::new(
         commands::instant_api::InstantApiState::new(data_dir.clone())
@@ -227,9 +162,6 @@ pub fn run() {
             };
             session_manager.start_health_monitor(app.handle().clone());
 
-            // Plugin notification bridge: drains plugin-issued `NotifyEvent`s
-            // and forwards them to the webview as `plugin-notify`. The reload
-            // after the sender wiring picks it up in already-loaded instances.
             {
                 use tauri::Emitter;
                 let (tx, mut rx) =

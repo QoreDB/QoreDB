@@ -65,35 +65,28 @@ C'est l'insight qui dé-risque le jalon : **le morceau réputé le plus dur (le 
 
 ## 4. Découpage en étapes (l'app compile à CHAQUE étape)
 
-### Étape 1 — Squelette de la crate + déplacement des modules purs
-**Travail** :
-- Créer `crates/qore-service` (header SPDX `Apache-2.0`, dépend de `qore-core`/`qore-drivers`/`qore-sql`).
-- **Déplacer** depuis `qoredb/src/` vers `qore-service/src/` les modules déjà Tauri-free : `interceptor/`, `policy.rs`, `ratelimit.rs`, `metrics.rs`, `cache.rs`, `vault/`, `license/`, `virtual_relations.rs`, `engine/sql_safety.rs`, `engine/query_manager.rs`, `export/` (sa logique pure), et `paths.rs` (dont dépend le vault).
-- Dans `qoredb/src/lib.rs`, **re-exporter** ces modules (`pub use qore_service::interceptor;` etc.) pour que les chemins existants `crate::interceptor::…` résolvent toujours → **zéro churn** dans les `commands/` à cette étape.
+### Étape 1 — Squelette de la crate + déplacement des modules purs ✅ FAIT
+**Réalisé** :
+- Crate `crates/qore-service` créée (deps : `qore-core`, `qore-sql`, `qore-drivers`, + `keyring`/`argon2`/`ed25519`/`sha2`/`csv`… selon les modules), avec son propre `build.rs` (injection de `PUBLIC_KEY_BASE64` pour `license/key.rs`).
+- Modules déplacés (`git mv`, historique préservé) : `paths`, `metrics`, `ratelimit`, `policy`, `cache`, `sensitive`, `vault`, `license`, `interceptor`, `virtual_relations`.
+- Imports `crate::engine::*` des modules déplacés redirigés vers les vrais crates (`qore_core::`, `qore_sql::safety::`) ; `crate::observability::Sensitive` → `crate::sensitive::Sensitive`.
+- `qoredb/src/lib.rs` re-exporte ces modules (`pub use qore_service::{…}`) → **zéro churn** dans `commands/`.
+- Note : `engine/sql_safety` et `engine/query_manager` n'étaient pas des fichiers app mais des re-exports de `qore-sql`/`qore-drivers` (façade `engine/mod.rs`) — rien à déplacer.
 
-**Vérif** : `cargo build` + `cargo test` verts. Aucune ligne de `commands/` modifiée.
+**Vérif** : `cargo check` app vert ; `cargo test -p qore-service` → 96 tests ; `cargo tree -i tauri` vide.
 
-### Étape 2 — `ServiceContext` + `EventSink` + `ServiceError`
-**Travail** :
-- Déplacer la struct `AppState` (lib.rs:64-85) dans `qore-service` sous le nom `ServiceContext` (alias `pub type AppState = ServiceContext;` côté app pour ne rien casser). Retirer du `ServiceContext` les champs purement Tauri/app (ex. `confirmation_tokens` peut rester côté app si lié à l'IPC — à arbitrer champ par champ).
-- Définir le trait d'événements discrets :
-  ```rust
-  // qore-service/src/events.rs
-  pub trait EventSink: Send + Sync + 'static {
-      fn emit(&self, topic: &str, payload: serde_json::Value);
-  }
-  pub struct NullSink;            // CLI/MCP par défaut
-  impl EventSink for NullSink { fn emit(&self, _: &str, _: serde_json::Value) {} }
-  ```
-- Définir l'erreur de service et sa conversion :
-  ```rust
-  // qore-service/src/error.rs
-  pub enum ServiceError { Engine(EngineError), Blocked(String), RateLimited, ReadOnly, NotFound, … }
-  impl ServiceError { pub fn sanitized(&self) -> String { … } }
-  ```
-- Côté app : `TauriEventSink { app: AppHandle }` impl `EventSink` (un seul endroit où `emit` Tauri est appelé pour les events discrets).
+### Étape 2 — `ServiceContext` (composition) ✅ FAIT
+**Décision de design** : `ServiceContext` est une struct **possédée et constructible seule** (`ServiceContext::new()`), pas un AppState déplacé. Raison : une surface CLI/MCP/serveur n'a pas d'`AppState` — elle veut instancier directement le strict nécessaire pour parler aux bases. Tout fusionner dans `qore-service` y ferait entrer des dépendances 100 % desktop (`wasmi`/plugins, spawn process/backup, file-watcher/workspace, jetons de confirmation Tauri). On **compose** plutôt : `ServiceContext` = data plane partagé ; l'`AppState` desktop l'embarque + ses services desktop.
 
-**Vérif** : build vert, desktop lancé manuellement (connexion + requête simple).
+**Réalisé** :
+- `qore-service/src/context.rs` : `ServiceContext` détient registry + 13 drivers, session_manager, query_manager, rate_limiter, cache, policy, interceptor, virtual_relations, vault_lock, license_manager. `ServiceContext::new()` reprend la construction correspondante de l'ex-`AppState::new()`.
+- L'app `AppState` devient `{ service: ServiceContext, plugin_host, export_pipeline, share_manager, ai_manager, changelog_store, backup_*, confirmation_tokens }`.
+- **Pont transitoire** : `impl Deref/DerefMut for AppState { Target = ServiceContext }` → les ~40 fichiers `commands/` accèdent toujours à `state.session_manager` / `state.policy` / … sans modification. Le pont sera retiré une fois toutes les commandes data-plane routées via `qore_service` (fin Étapes 3-5).
+- Un seul site corrigé : `commands/governance.rs` (`crate::QueryManager` → `crate::engine::QueryManager`).
+
+**Vérif** : `cargo check` vert, 96 tests, `qore-drivers` feature `tauri` **non** activée pour `qore-service` standalone.
+
+> `ServiceError` et `EventSink` ne sont **pas** créés à ce stade (aucun consommateur encore → code spéculatif). Ils arrivent à l'Étape 3, avec la première commande extraite.
 
 ### Étape 3 — Groupe « no-lift » (extraction mécanique)
 Commandes à logique pure, sans événements : `cache`, `driver`, `license`, `policy` + `governance`, `snapshots`, `connection_url`, `interceptor`, `metrics`.

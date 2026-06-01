@@ -8,6 +8,7 @@ description = "Surface-agnostic service layer for QorePlatform — Tauri-free bu
 [dependencies]
 qore-core = { path = "../qore-core" }
 qore-sql = { path = "../qore-sql" }
+qore-drivers = { path = "../qore-drivers" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 uuid = { workspace = true }
@@ -27,8 +28,6 @@ keyring = { version = "3", features = [
     "sync-secret-service",
 ] }
 argon2 = "0.5"
-# OsRng (used by the vault's Argon2 salt generation) is gated behind rand_core's
-# `getrandom` feature.
 rand_core = { version = "0.6", features = ["getrandom"] }
 parking_lot = "0.12"
 

@@ -18,8 +18,8 @@ use std::time::Duration;
 
 use tokio::time::timeout;
 
+use crate::engine::QueryManager;
 use crate::policy::SafetyPolicy;
-use crate::QueryManager;
 
 /// Clamp a requested row count against the policy's `max_result_rows`.
 /// Returns `requested` unchanged if no limit is set.

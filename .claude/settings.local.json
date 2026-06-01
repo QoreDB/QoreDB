@@ -93,7 +93,9 @@
       "Bash(sed -n '220,221p' query.rs)",
       "Bash(sed -n '462,463p' query.rs)",
       "Bash(sed -i '222,462d' query.rs)",
-      "Bash(sed -n '218,226p' query.rs)"
+      "Bash(sed -n '218,226p' query.rs)",
+      "Bash(sed -n '254,300p' mutation.rs)",
+      "Bash(sed -n '458,492p' mutation.rs)"
     ]
   }
 }

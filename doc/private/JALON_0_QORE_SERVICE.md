@@ -100,7 +100,17 @@ C'est l'insight qui dé-risque le jalon : **le morceau réputé le plus dur (le 
 
 **`execute_query` — extraction du noyau sécurité (`query::preflight`)** : la partie *gating* (rate-limit, read-only, blocage prod dangereux, `sql_safety`, interceptor pre) est extraite — c'est la logique qu'une surface MCP/CLI **doit** partager (sinon elle contournerait les protections). Retournée via `Preflight { driver, context, environment, read_only, is_mutation, is_dangerous, is_sql_driver, connection_key, safety_warning }`. La commande appelle `preflight` puis garde l'**exécution + streaming Tauri + hooks plugins** (parties couplées, à extraire dans un passage vérifiable à l'exécution — `StreamSender` + callback plugins). Traduction fidèle ligne à ligne ; non vérifiable à l'exécution ici → **tester le chemin requête dans l'app**.
 
-**À suivre** : `mutation`, `export` (patron connu) ; finir `execute_query` (exécution/streaming/plugins). Getters triviaux non wrappés (passthrough — éviter le spéculatif).
+**Fait aussi** : `mutation::preflight` — gate de sécurité (read-only, capability mutations, interceptor pre) **mutualisé** sur `insert_row`/`update_row`/`delete_row` (dédup + sécurité partagée). Les commandes gardent l'exécution + time-travel (Premium/app) + cache.
+
+**`export` non extrait (volontaire)** : `commands/export.rs` est déjà du pur glue Tauri (lock + `export_pipeline.start_export(window)`). Le couplage vit dans `ExportPipeline` (prend `window`) → relève de l'abstraction `EventSink` différée, pas d'un wrapper spéculatif.
+
+---
+
+## Inflexion : fin des extractions « patron simple »
+
+À ce stade, **tout le chemin de lecture + tous les gates de sécurité** sont dans `qore-service` (connection, query read, query preflight, mutation preflight, governance). Un MCP read-only (Jalon 1) a le nécessaire **avec les protections**.
+
+Le **reste** (exécution/streaming d'`execute_query`, `ExportPipeline`) partage une propriété : couplage intrinsèque Tauri (`Channel`/`window`) + desktop (`PluginHost`, time-travel). Il exige les deux abstractions différées — **`StreamSink`/`StreamSender`** pour le streaming et un **callback plugins** — ET une **vérification à l'exécution** (lancer l'app, requête réelle). C'est une phase distincte, plus risquée, à mener avec l'app qui tourne.
 
 **Vérif** : `cargo check` vert, 96 tests, zéro warning.
 

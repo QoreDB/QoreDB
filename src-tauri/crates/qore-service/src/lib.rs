@@ -11,6 +11,7 @@ pub mod governance;
 pub mod interceptor;
 pub mod license;
 pub mod metrics;
+pub mod mutation;
 pub mod paths;
 pub mod policy;
 pub mod query;

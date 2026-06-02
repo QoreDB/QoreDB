@@ -201,10 +201,13 @@ Chaque jalon a un livrable et un **critère de vérification** clair. Estimation
 **Estim.** : 5-8 j. *(C'est le jalon le plus risqué — il peut révéler des couplages cachés. À faire en premier, seul.)*
 **Plan d'implémentation détaillé** : voir `doc/private/JALON_0_QORE_SERVICE.md`.
 
-### Jalon 1 — MCP server *(première surface)*
+### Jalon 1 — MCP server *(première surface)* — MVP fonctionnel ✅
 **Livrable** : binaire `qore-mcp` exposant des tools (`list_connections`, `run_query`, `describe_schema`, `search`…), lecture seule par défaut, safety engine réutilisé.
 **Vérif** : un agent IA (Claude…) se connecte via MCP, interroge une base, et toute opération destructrice est bloquée.
 **Estim.** : 3-5 j.
+
+**Fait (MVP)** : crate `src-tauri/crates/qore-mcp` (Core/Apache-2.0, **tauri-free**, zéro warning). Transport **stdio**, SDK **rmcp 1.7**. Réutilise `qore-service` tel quel : `ServiceContext::new()` + `VaultStorage` (project `default`, dir `~/.config/com.rapha.qoredb`, override `QOREDB_CONFIG_DIR`) sur le **même keyring OS** que le desktop — pas de second système de credentials (le `VaultLock` est une barrière UI desktop, `get_credentials` lit le keyring directement, donc rien à déverrouiller côté serveur). 2 tools read-only : `list_connections`, `run_query` (force `config.read_only = true` → mutations bloquées par les gates existants `preflight`/`execute`). Cache de sessions par `connection_id`. Handshake MCP validé (`initialize` + `tools/list` renvoient les schémas corrects).
+**Reste** : tester `run_query` contre une connexion sauvegardée réelle ; ajouter `list_namespaces` / `describe_table` (déjà des free functions dans qore-service) ; README + enregistrement client (Claude Desktop/CLI) ; tests d'intégration.
 
 ### Jalon 2 — CLI / TUI
 **Livrable** : `qore` CLI scriptable (CI/CD, headless) + TUI (ratatui) pour usage interactif SSH.

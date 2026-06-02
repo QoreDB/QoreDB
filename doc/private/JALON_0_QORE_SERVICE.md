@@ -98,7 +98,9 @@ C'est l'insight qui dé-risque le jalon : **le morceau réputé le plus dur (le 
 
 **Fait aussi** : `query::describe_table` / `preview_table` / `query_table` (chemin de lecture, cache + governance) ; `governance` déplacé dans la crate.
 
-**`execute_query` — extraction du noyau sécurité (`query::preflight`)** : la partie *gating* (rate-limit, read-only, blocage prod dangereux, `sql_safety`, interceptor pre) est extraite — c'est la logique qu'une surface MCP/CLI **doit** partager (sinon elle contournerait les protections). Retournée via `Preflight { driver, context, environment, read_only, is_mutation, is_dangerous, is_sql_driver, connection_key, safety_warning }`. La commande appelle `preflight` puis garde l'**exécution + streaming Tauri + hooks plugins** (parties couplées, à extraire dans un passage vérifiable à l'exécution — `StreamSender` + callback plugins). Traduction fidèle ligne à ligne ; non vérifiable à l'exécution ici → **tester le chemin requête dans l'app**.
+**`execute_query` — extraction du noyau sécurité (`query::preflight`)** : la partie *gating* (rate-limit, read-only, blocage prod dangereux, `sql_safety`, interceptor pre) est extraite — c'est la logique qu'une surface MCP/CLI **doit** partager (sinon elle contournerait les protections). Retournée via `Preflight { driver, context, environment, read_only, is_mutation, is_dangerous, is_sql_driver, connection_key, safety_warning }`.
+
+**`execute_query` — extraction de l'exécution/streaming (`query::execute`)** : tout le noyau d'exécution est désormais dans `qore-service` — split multi-statement, timeout + cancel, interceptor `post_execute`, metrics, invalidation cache sur mutation, troncature `max_result_rows`, et le streaming. Découverte clé : **aucun nouvel `EventSink` nécessaire**. Le `qore_core::StreamSender` (mpsc) était déjà la frontière ; la commande crée le canal + spawn le `StreamDispatcher` (drain Tauri) et passe le `sender` à `execute`. Les hooks plugins (desktop) restent dans la commande via une closure `on_complete(&exec_result, Option<&QueryResult>)` appelée par `execute` à chaque branche terminale (avant troncature, comme avant). Retour : `ExecuteOutcome { success, result, error, truncated, truncated_total }`. Traduction fidèle ; sémantique du timeout-streaming inchangée (l'`Error` passe par le même mpsc au lieu d'un dispatch direct → ordonnancement identique voire meilleur). Non vérifié à l'exécution ici → **tester le chemin requête dans l'app**.
 
 **Fait aussi** : `mutation::preflight` — gate de sécurité (read-only, capability mutations, interceptor pre) **mutualisé** sur `insert_row`/`update_row`/`delete_row` (dédup + sécurité partagée). Les commandes gardent l'exécution + time-travel (Premium/app) + cache.
 
@@ -110,9 +112,11 @@ C'est l'insight qui dé-risque le jalon : **le morceau réputé le plus dur (le 
 
 À ce stade, **tout le chemin de lecture + tous les gates de sécurité** sont dans `qore-service` (connection, query read, query preflight, mutation preflight, governance). Un MCP read-only (Jalon 1) a le nécessaire **avec les protections**.
 
-Le **reste** (exécution/streaming d'`execute_query`, `ExportPipeline`) partage une propriété : couplage intrinsèque Tauri (`Channel`/`window`) + desktop (`PluginHost`, time-travel). Il exige les deux abstractions différées — **`StreamSink`/`StreamSender`** pour le streaming et un **callback plugins** — ET une **vérification à l'exécution** (lancer l'app, requête réelle). C'est une phase distincte, plus risquée, à mener avec l'app qui tourne.
+L'exécution/streaming d'`execute_query` est **faite** (cf. `query::execute` ci-dessus) — sans nouvelle abstraction : le `StreamSender` existant + une closure `on_complete` ont suffi. La crainte d'un `StreamSink`/callback-plugins à créer ne s'est pas matérialisée.
 
-**Vérif** : `cargo check` vert, 96 tests, zéro warning.
+**Reste** : `ExportPipeline` (events de progression couplés à la `window`). C'est le **seul** cas qui justifierait un `EventSink` — mais **aucun consommateur** ne le demande (MCP read-only n'exporte pas). Le construire maintenant serait spéculatif → **différé** jusqu'à un besoin réel (surface serveur/export distant). L'exécution `mutation` (insert/update/delete) garde aussi son corps dans la commande (time-travel Premium couplé) ; seul le `preflight` est mutualisé.
+
+**Vérif** : `cargo check -p qoredb` vert (app complète), 101 tests `qore-service`, zéro warning. Reste à valider à l'exécution dans l'app (chemin requête streaming + non-streaming, timeout, multi-statement).
 
 ### Étape 4 — `connection` + `vault` (EventSink léger)
 **Travail** : extraire `connect / disconnect / test_connection / list_sessions` et les opérations vault. Le seul couplage est l'émission d'événements de **santé de connexion** → passe par `&dyn EventSink`. La commande construit un `TauriEventSink` et le passe.
@@ -137,12 +141,10 @@ pub async fn execute_query(
 
 **Vérif (critique)** : requêtes streaming, gros résultats, annulation, timeout, multi-statement, read-only — tout testé dans le desktop. C'est l'étape qui peut révéler des couplages cachés.
 
-### Étape 6 — Smoke test headless + gel du reste
-**Travail** :
-- `crates/qore-service/examples/headless.rs` : `connect` (config en dur) → `execute_query` avec un `StreamSender` drainé en stdout → afficher les lignes. **Sans Tauri.**
-- Documenter la **recette** (les étapes 3-5) pour les groupes restés dans `commands/` (workspace, plugins, contracts, instant_api, time_travel, share, import, ai, federation), à extraire au fil des surfaces qui en auront besoin.
+### Étape 6 — Smoke test headless + gel du reste ✅
+**Fait** : `crates/qore-service/examples/headless.rs` : `ServiceContext::new()` → `connection::connect` (SQLite temp, config en dur) → `query::preflight` + `query::execute` avec un `StreamSender` drainé en stdout. **Zéro Tauri.** `cargo run -p qore-service --example headless` : connect OK, CREATE/INSERT (affected 0/3), `SELECT` **streamé** (`columns: 2`, `batch: 3 rows`, `done: 3 rows`). SQLite a `capabilities().streaming = true` → la branche streaming de `execute` est validée à l'exécution headless — la vérif runtime que le GUI ne pouvait pas fournir (crash wry upstream, sans rapport).
 
-**Vérif** : `cargo run --example headless` affiche des lignes d'une vraie BDD.
+**Reste (gel)** : documenter la recette (étapes 3-5) pour les groupes restés dans `commands/` (workspace, plugins, contracts, instant_api, time_travel, share, import, ai, federation), à extraire au fil des surfaces qui en auront besoin.
 
 ---
 

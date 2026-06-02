@@ -95,7 +95,10 @@
       "Bash(sed -i '222,462d' query.rs)",
       "Bash(sed -n '218,226p' query.rs)",
       "Bash(sed -n '254,300p' mutation.rs)",
-      "Bash(sed -n '458,492p' mutation.rs)"
+      "Bash(sed -n '458,492p' mutation.rs)",
+      "WebFetch(domain:rup12.net)",
+      "Bash(sed -n '195,212p' src/workspace/mod.rs)",
+      "Bash(sed -n '195,212p' src/workspace.rs)"
     ]
   }
 }

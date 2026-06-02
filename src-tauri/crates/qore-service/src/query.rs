@@ -3,8 +3,8 @@
 use std::sync::Arc;
 
 use qore_core::{
-    DataEngine, Namespace, PaginatedQueryResult, QueryResult, SessionId, TableQueryOptions,
-    TableSchema,
+    DataEngine, EngineError, Namespace, PaginatedQueryResult, QueryId, QueryResult, SessionId,
+    StreamEvent, StreamSender, TableQueryOptions, TableSchema,
 };
 use qore_drivers::query_manager::QueryManager;
 use qore_drivers::session_manager::SessionManager;
@@ -384,4 +384,254 @@ pub async fn preflight(
         connection_key,
         safety_warning,
     })
+}
+
+pub struct ExecuteOutcome {
+    pub success: bool,
+    pub result: Option<QueryResult>,
+    pub error: Option<String>,
+    pub truncated: Option<bool>,
+    pub truncated_total: Option<u64>,
+}
+
+#[allow(clippy::too_many_arguments)]
+pub async fn execute(
+    query_manager: &QueryManager,
+    query_cache: &QueryCache,
+    interceptor: &InterceptorPipeline,
+    policy: &SafetyPolicy,
+    driver: Arc<dyn DataEngine>,
+    context: &QueryContext,
+    session: SessionId,
+    namespace: Option<Namespace>,
+    query: &str,
+    query_id: QueryId,
+    is_mutation: bool,
+    connection_key: Option<&str>,
+    safety_warning: Option<&str>,
+    effective_timeout: Option<u64>,
+    bypass_limits: bool,
+    sql_statements: Option<Vec<String>>,
+    stream_sender: Option<StreamSender>,
+    mut on_complete: impl FnMut(&QueryExecutionResult, Option<&QueryResult>),
+) -> ExecuteOutcome {
+    use tokio::time::{timeout, Duration};
+
+    if let Some(sender) = stream_sender {
+        let error_sender = sender.clone();
+        let start_time = std::time::Instant::now();
+        let execution =
+            driver.execute_stream_in_namespace(session, namespace.clone(), query, query_id, sender);
+
+        let result = if let Some(timeout_value) = effective_timeout {
+            match timeout(Duration::from_millis(timeout_value), execution).await {
+                Ok(res) => res,
+                Err(_) => {
+                    let _ = driver.cancel(session, Some(query_id)).await;
+                    query_manager.finish(query_id).await;
+                    crate::metrics::record_timeout();
+
+                    let duration_ms = start_time.elapsed().as_micros() as f64 / 1000.0;
+                    let exec_result = QueryExecutionResult {
+                        success: false,
+                        error: Some(format!("Operation timed out after {}ms", timeout_value)),
+                        execution_time_ms: duration_ms,
+                        row_count: None,
+                    };
+                    interceptor.post_execute(context, &exec_result, false, safety_warning);
+                    on_complete(&exec_result, None);
+                    let _ = error_sender
+                        .send(StreamEvent::Error("Operation timed out".to_string()))
+                        .await;
+                    return ExecuteOutcome {
+                        success: false,
+                        result: None,
+                        error: Some(format!("Operation timed out after {}ms", timeout_value)),
+                        truncated: None,
+                        truncated_total: None,
+                    };
+                }
+            }
+        } else {
+            execution.await
+        };
+
+        let duration_ms = start_time.elapsed().as_micros() as f64 / 1000.0;
+        query_manager.finish(query_id).await;
+
+        return match result {
+            Ok(_) => {
+                let exec_result = QueryExecutionResult {
+                    success: true,
+                    error: None,
+                    execution_time_ms: duration_ms,
+                    row_count: None,
+                };
+                interceptor.post_execute(context, &exec_result, false, safety_warning);
+                on_complete(&exec_result, None);
+
+                if is_mutation {
+                    if let Some(key) = connection_key {
+                        query_cache.invalidate_connection(key);
+                    }
+                }
+
+                ExecuteOutcome {
+                    success: true,
+                    result: None,
+                    error: None,
+                    truncated: None,
+                    truncated_total: None,
+                }
+            }
+            Err(e) => {
+                let exec_result = QueryExecutionResult {
+                    success: false,
+                    error: Some(e.sanitized_message()),
+                    execution_time_ms: duration_ms,
+                    row_count: None,
+                };
+                interceptor.post_execute(context, &exec_result, false, safety_warning);
+                on_complete(&exec_result, None);
+
+                ExecuteOutcome {
+                    success: false,
+                    result: None,
+                    error: Some(e.sanitized_message()),
+                    truncated: None,
+                    truncated_total: None,
+                }
+            }
+        };
+    }
+
+    let start_time = std::time::Instant::now();
+    let execution = async {
+        if let Some(statements) = sql_statements {
+            let mut last_result = None;
+            let mut executed_count = 0usize;
+            for (idx, statement) in statements.iter().enumerate() {
+                match driver
+                    .execute_in_namespace(session, namespace.clone(), statement, query_id)
+                    .await
+                {
+                    Ok(result) => {
+                        executed_count += 1;
+                        last_result = Some(result);
+                    }
+                    Err(e) => {
+                        return Err(EngineError::execution_error(format!(
+                            "Statement {} failed after {} succeeded: {}",
+                            idx + 1,
+                            executed_count,
+                            e
+                        )));
+                    }
+                }
+            }
+            last_result.ok_or_else(|| EngineError::syntax_error("Empty SQL".to_string()))
+        } else {
+            driver
+                .execute_in_namespace(session, namespace.clone(), query, query_id)
+                .await
+        }
+    };
+
+    let result = if let Some(timeout_value) = effective_timeout {
+        match timeout(Duration::from_millis(timeout_value), execution).await {
+            Ok(res) => res,
+            Err(_) => {
+                let _ = driver.cancel(session, Some(query_id)).await;
+                query_manager.finish(query_id).await;
+                crate::metrics::record_timeout();
+
+                let duration_ms = start_time.elapsed().as_micros() as f64 / 1000.0;
+                let exec_result = QueryExecutionResult {
+                    success: false,
+                    error: Some(format!("Operation timed out after {}ms", timeout_value)),
+                    execution_time_ms: duration_ms,
+                    row_count: None,
+                };
+                interceptor.post_execute(context, &exec_result, false, safety_warning);
+                on_complete(&exec_result, None);
+                return ExecuteOutcome {
+                    success: false,
+                    result: None,
+                    error: Some(format!("Operation timed out after {}ms", timeout_value)),
+                    truncated: None,
+                    truncated_total: None,
+                };
+            }
+        }
+    } else {
+        execution.await
+    };
+
+    let duration_ms = start_time.elapsed().as_micros() as f64 / 1000.0;
+    let outcome = match result {
+        Ok(mut result) => {
+            result.execution_time_ms = duration_ms;
+            crate::metrics::record_query(duration_ms, true);
+
+            let exec_result = QueryExecutionResult {
+                success: true,
+                error: None,
+                execution_time_ms: duration_ms,
+                row_count: result.affected_rows.map(|a| a as i64),
+            };
+            interceptor.post_execute(context, &exec_result, false, safety_warning);
+            on_complete(&exec_result, Some(&result));
+
+            if is_mutation {
+                if let Some(key) = connection_key {
+                    query_cache.invalidate_connection(key);
+                }
+            }
+
+            let (truncated, truncated_total) = if bypass_limits {
+                (None, None)
+            } else if let Some(max_rows) = policy.max_result_rows {
+                if result.rows.len() as u64 > max_rows {
+                    let total = result.rows.len() as u64;
+                    result.rows.truncate(max_rows as usize);
+                    (Some(true), Some(total))
+                } else {
+                    (None, None)
+                }
+            } else {
+                (None, None)
+            };
+
+            ExecuteOutcome {
+                success: true,
+                result: Some(result),
+                error: None,
+                truncated,
+                truncated_total,
+            }
+        }
+        Err(e) => {
+            crate::metrics::record_query(duration_ms, false);
+
+            let exec_result = QueryExecutionResult {
+                success: false,
+                error: Some(e.sanitized_message()),
+                execution_time_ms: duration_ms,
+                row_count: None,
+            };
+            interceptor.post_execute(context, &exec_result, false, safety_warning);
+            on_complete(&exec_result, None);
+
+            ExecuteOutcome {
+                success: false,
+                result: None,
+                error: Some(e.sanitized_message()),
+                truncated: None,
+                truncated_total: None,
+            }
+        }
+    };
+
+    query_manager.finish(query_id).await;
+    outcome
 }

@@ -98,7 +98,8 @@
       "Bash(sed -n '458,492p' mutation.rs)",
       "WebFetch(domain:rup12.net)",
       "Bash(sed -n '195,212p' src/workspace/mod.rs)",
-      "Bash(sed -n '195,212p' src/workspace.rs)"
+      "Bash(sed -n '195,212p' src/workspace.rs)",
+      "Bash(timeout 20 ./target/debug/qore query conn_1774467278508 \"SELECT 1 AS n, 'hello' AS greeting\")"
     ]
   }
 }

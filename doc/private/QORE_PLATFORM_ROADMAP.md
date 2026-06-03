@@ -209,10 +209,13 @@ Chaque jalon a un livrable et un **critère de vérification** clair. Estimation
 **Fait (MVP)** : crate `src-tauri/crates/qore-mcp` (Core/Apache-2.0, **tauri-free**, zéro warning). Transport **stdio**, SDK **rmcp 1.7**. Réutilise `qore-service` tel quel : `ServiceContext::new()` + `VaultStorage` (project `default`, dir `~/.config/com.rapha.qoredb`, override `QOREDB_CONFIG_DIR`) sur le **même keyring OS** que le desktop — pas de second système de credentials (le `VaultLock` est une barrière UI desktop, `get_credentials` lit le keyring directement, donc rien à déverrouiller côté serveur). **5 tools read-only** : `list_connections`, `list_namespaces`, `list_tables`, `describe_table`, `run_query` (force `config.read_only = true` → mutations bloquées par les gates existants `preflight`/`execute`). Cache de sessions par `connection_id`. Handshake MCP validé (`initialize` + `tools/list` renvoient les 5 schémas corrects). README fourni (`crates/qore-mcp/README.md`) avec la commande d'enregistrement client.
 **Reste** : tester `run_query`/`list_*` contre une connexion sauvegardée réelle ; tests d'intégration ; éventuellement un tool `search`.
 
-### Jalon 2 — CLI / TUI
+### Jalon 2 — CLI / TUI — CLI MVP fonctionnel ✅ (TUI différé)
 **Livrable** : `qore` CLI scriptable (CI/CD, headless) + TUI (ratatui) pour usage interactif SSH.
 **Vérif** : exécuter une requête + export depuis le terminal contre les drivers principaux.
 **Estim.** : 5-8 j.
+
+**Fait (CLI MVP)** : crate `src-tauri/crates/qore-cli` (Core/Apache-2.0, tauri-free), binaire `qore`, parser **clap**, sortie **JSON** stdout (erreurs sur stderr + exit code). Réutilise le socle de `qore-mcp` (`ServiceContext` + `VaultStorage` même keyring/config que le desktop + `preflight`/`execute`). Commandes : `connections`, `query`, `tables`, `describe`. Respecte le `read_only` de la connexion (comme le desktop, pas de forçage) ; gates de sécurité existants appliqués. **Validé en réel** : `qore connections` liste les vraies connexions sauvegardées du vault ; `qore query` se connecte/échoue proprement (DB locale down → timeout pool 15 s sanitizé). README fourni. Le glue vault/connect/exec est dupliqué avec `qore-mcp` (~40 lignes, 2 copies) — à factoriser dans `qore-service` si une 3ᵉ surface arrive.
+**Reste** : `export` depuis le terminal ; TUI (ratatui) ; mutations avec confirmation interactive.
 
 ### Jalon 3 — Frontend transport-agnostique — split fait ✅ (interface Transport différée)
 **Livrable** : `tauri.ts` éclaté par domaine derrière l'interface `Transport` ; `TauriTransport` opérationnel ; `HttpTransport` en squelette.

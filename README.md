@@ -179,7 +179,7 @@ DBeaver, pgAdmin, phpMyAdmin do the job — but they feel slow, dated, and full 
 <details>
 <summary><b>Performance</b></summary>
 
-- ~25% faster on real workloads (Apple Silicon) thanks to per-column decoders, MessagePack streaming between Rust and the frontend, batch streaming, expanded LRU caches, `mimalloc` allocator and PGO release builds
+- ~25% faster on real workloads (Apple Silicon) thanks to per-column decoders, MessagePack streaming between Rust and the frontend, batch streaming, expanded LRU caches, and the `mimalloc` allocator
 - Lazy loading — heavy frontend modules load on demand for faster startup
 </details>
 

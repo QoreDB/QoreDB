@@ -49,7 +49,7 @@ Avant de proposer du neuf : une grande partie de la fondation existe déjà. Ce 
 | SSO / SAML / OIDC / SCIM | ❌ **Greenfield** | Zéro. Seul `src/api/auth.rs` fait du bearer token pour l'Instant API. |
 | Multi-utilisateur / comptes | ❌ **Greenfield** | Un seul workspace local, pas de compte ni de tenant. |
 | MCP server | ❌ **Greenfield** | Aucune intégration MCP. |
-| CLI / TUI | ❌ **Greenfield** | Seul bin existant : `qore-pgo-workload` (profiling headless). Pas de CLI utilisateur. |
+| CLI / TUI | ❌ **Greenfield** | Aucun binaire CLI utilisateur. |
 | Abstraction transport frontend | ❌ **Greenfield** | **148 appels `invoke()` directs** disséminés dans `src/` (pas seulement `tauri.ts`). Couplage Tauri profond. |
 
 **Lecture** : le backend est déjà à ~40 % « platform-ready » (moteur extrait, serveur HTTP, audit, tiers de licence, federation). Les chantiers réellement neufs sont l'**identité/RBAC/multi-utilisateur**, les **surfaces** (MCP, CLI), et le **découplage transport du frontend**. Les jalons ci-dessous référencent l'existant à étendre plutôt que de tout reconstruire.
@@ -206,18 +206,21 @@ Chaque jalon a un livrable et un **critère de vérification** clair. Estimation
 **Vérif** : un agent IA (Claude…) se connecte via MCP, interroge une base, et toute opération destructrice est bloquée.
 **Estim.** : 3-5 j.
 
-**Fait (MVP)** : crate `src-tauri/crates/qore-mcp` (Core/Apache-2.0, **tauri-free**, zéro warning). Transport **stdio**, SDK **rmcp 1.7**. Réutilise `qore-service` tel quel : `ServiceContext::new()` + `VaultStorage` (project `default`, dir `~/.config/com.rapha.qoredb`, override `QOREDB_CONFIG_DIR`) sur le **même keyring OS** que le desktop — pas de second système de credentials (le `VaultLock` est une barrière UI desktop, `get_credentials` lit le keyring directement, donc rien à déverrouiller côté serveur). 2 tools read-only : `list_connections`, `run_query` (force `config.read_only = true` → mutations bloquées par les gates existants `preflight`/`execute`). Cache de sessions par `connection_id`. Handshake MCP validé (`initialize` + `tools/list` renvoient les schémas corrects).
-**Reste** : tester `run_query` contre une connexion sauvegardée réelle ; ajouter `list_namespaces` / `describe_table` (déjà des free functions dans qore-service) ; README + enregistrement client (Claude Desktop/CLI) ; tests d'intégration.
+**Fait (MVP)** : crate `src-tauri/crates/qore-mcp` (Core/Apache-2.0, **tauri-free**, zéro warning). Transport **stdio**, SDK **rmcp 1.7**. Réutilise `qore-service` tel quel : `ServiceContext::new()` + `VaultStorage` (project `default`, dir `~/.config/com.rapha.qoredb`, override `QOREDB_CONFIG_DIR`) sur le **même keyring OS** que le desktop — pas de second système de credentials (le `VaultLock` est une barrière UI desktop, `get_credentials` lit le keyring directement, donc rien à déverrouiller côté serveur). **5 tools read-only** : `list_connections`, `list_namespaces`, `list_tables`, `describe_table`, `run_query` (force `config.read_only = true` → mutations bloquées par les gates existants `preflight`/`execute`). Cache de sessions par `connection_id`. Handshake MCP validé (`initialize` + `tools/list` renvoient les 5 schémas corrects). README fourni (`crates/qore-mcp/README.md`) avec la commande d'enregistrement client.
+**Reste** : tester `run_query`/`list_*` contre une connexion sauvegardée réelle ; tests d'intégration ; éventuellement un tool `search`.
 
 ### Jalon 2 — CLI / TUI
 **Livrable** : `qore` CLI scriptable (CI/CD, headless) + TUI (ratatui) pour usage interactif SSH.
 **Vérif** : exécuter une requête + export depuis le terminal contre les drivers principaux.
 **Estim.** : 5-8 j.
 
-### Jalon 3 — Frontend transport-agnostique
+### Jalon 3 — Frontend transport-agnostique — split fait ✅ (interface Transport différée)
 **Livrable** : `tauri.ts` éclaté par domaine derrière l'interface `Transport` ; `TauriTransport` opérationnel ; `HttpTransport` en squelette.
 **Vérif** : le desktop tourne inchangé via `TauriTransport` ; aucun fichier transport > 500 lignes.
 **Estim.** : 4-6 j.
+
+**Fait (split)** : `src/lib/tauri.ts` (2040 lignes) éclaté en **14 modules domaine** sous `src/lib/tauri/` (`connection`, `query`, `schema-objects`, `schema-browse`, `transactions`, `mutations`, `data-io`, `logs`, `sandbox`, `search`, `maintenance`, `snapshots`, `workspace`, `time-travel`) + `types.ts` (22 types core partagés). `tauri.ts` devient un **barrel** (`export *`) → les **119 fichiers consommateurs (`@/lib/tauri`) sont inchangés**. Chaque module < 500 lignes (max 432). Convention déjà en place (`backup.ts`, `interceptor.ts` cohabitaient déjà, laissés hors barrel). Vérif : `tsc --noEmit` clean, `biome check` clean, `pnpm build` (tsc + vite) OK.
+**Reste (Transport, différé — non spéculatif quand le web arrivera)** : introduire l'interface `Transport` + `TauriTransport`/`HttpTransport`. Note : **148 appels `invoke()` directs** sont disséminés hors `tauri.ts` dans `src/` — c'est le vrai périmètre de l'abstraction transport, à faire au Jalon 4 (web) où le besoin devient concret.
 
 ### Jalon 4 — `qore-server` v0 (mono-utilisateur, self-hosted)
 **Livrable** : **extension du serveur Instant API existant** (`src/api/`) vers un serveur full hébergeant `qore-service` + broker de sessions DB côté serveur + service du frontend web ; auth locale ; métadonnées en SQLite/Postgres ; docker-compose.

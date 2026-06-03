@@ -5,7 +5,7 @@
 
 ## Principes directeurs
 
-1. **Long terme > quickfix**. On privilégie les gains structurels (allocateur global, PGO, flags CPU baseline) aux micro-optimisations ponctuelles.
+1. **Long terme > quickfix**. On privilégie les gains structurels (allocateur global, flags CPU baseline) aux micro-optimisations ponctuelles.
 2. **Ne jamais compromettre sécurité ni stabilité**. Toute perf dont le gain < 5 % mais qui introduit du risque (cache global custom, unsafe indirects, dépendances avec historique d'UB non ciblé) est rejetée.
 3. **Mesurer avant/après**. Chaque item a un protocole de bench minimal. Les items sans baseline mesurable sont bloqués.
 4. **Portabilité des binaires distribués**. Les builds release doivent tourner sur la cible annoncée : on n'utilise **pas** `target-cpu=native` pour les artefacts distribués.
@@ -111,35 +111,11 @@
 
 ## Tier 2 — Gains structurels à coût modéré
 
-### 2.1 Profile-Guided Optimization (PGO) en CI release — **Livré (itération 1, Linux x86_64)**
-
-**Constat** : aucun des workflows `.github/workflows/*.yml` n'utilise PGO. Le build release est déjà agressif (`opt-level=3`, `lto="thin"`, `codegen-units=1`) mais on laisse 5–15 % de perf sur la table.
-
-**Mise en œuvre actuelle**
-- Workload headless : `src-tauri/crates/qore-pgo-workload/` — binaire opt-in qui pilote `SqliteDriver` via le trait `DataEngine`, insère 50 k lignes, lance 4 patterns de SELECT (full-scan, WHERE, GROUP BY, JOIN) sur 3 itérations, plus 4 workers parallèles. Sérialise chaque ligne en JSON et CSV pour exercer les hot paths d'export. Tourne en ~1,5 s en release. Aucune dépendance Tauri/WebKit (la feature `tauri` de `qore-drivers` n'est pas activée).
-- Workflow : `.github/workflows/pgo-release.yml` — déclenchable en `workflow_dispatch` ou via un tag `v*-pgo` (opt-in, pas branché sur le `release.yml` standard pour ne pas allonger les releases tant que le gain n'est pas validé). Pipeline : install `llvm-tools-preview` → build instrumenté du workload → run → `llvm-profdata merge` → `cargo clean` + build final `qoredb` avec `-Cprofile-use=…` + `-Cllvm-args=-pgo-warn-missing-function` → upload artefact + profil mergé.
-- Ciblé Linux x86_64 (`ubuntu-22.04`) pour cette première itération. macOS aarch64 + Windows seront ajoutés une fois le gain mesuré sur Linux.
-
-**Limites assumées de cette itération**
-- Coverage du workload : SQLite + sqlx + `qore-drivers::sqlite` + serde_json/csv. Les chemins Postgres/MySQL/Mongo ne sont pas profilés (les warnings `pgo-warn-missing-function` du build final le confirmeront — c'est volontaire, pas une régression). Étendre le workload à Postgres/MySQL via Docker est un follow-up évident si le gain mesuré sur SQLite est convaincant.
-- Le scénario reste minimaliste (50 k lignes, in-memory) : le PGO capture les hot paths *fréquentés*, pas un benchmark exhaustif. Acceptable — PGO veut de la couverture, pas du volume.
-
-**Bench attendu** : même scénario SQL que pour mimalloc, comparer avant/après PGO seul, puis avec mimalloc+PGO. À effectuer sur les artefacts du workflow opt-in.
-
-**Risque** : faible côté runtime (c'est du même Rust, juste mieux réordonné). Coût CI : +10–20 min par run. Acceptable puisque c'est opt-in.
-
-**Suite à instrumenter (ordre)** :
-1. Mesurer le gain sur le binaire produit par le workflow (latence streaming + export 100 k lignes JSON/CSV).
-2. Étendre le workload à Postgres/MySQL via Docker pour couvrir les drivers réseau.
-3. Ajouter macOS aarch64 + Windows à la matrice du workflow si le gain Linux est confirmé.
-
----
-
-### 2.2 `simd-json` ciblé sur JSONB Postgres + documents Mongo — **Reporté (scope trop limité)**
+### 2.1 `simd-json` ciblé sur JSONB Postgres + documents Mongo — **Reporté (scope trop limité)**
 
 **Constat initial** : l'audit proposait de remplacer serde_json partout — mauvaise idée (le frontend et de nombreux call-sites ne sont pas drop-in). On a donc cadré l'évaluation sur les seuls hot paths de parsing JSON entrant : valeurs `JSONB` Postgres (`postgres_utils.rs:657, 735`, via `sqlx::types::Json` → `serde_json::Value`) et documents/filtres Mongo (`drivers/mongodb.rs:159, 517, 679`, via `serde_json::from_str`). Pour Mongo, la conversion BSON→JSON principale (`bson::to_value` à `mongodb.rs:138`) n'est **pas** un parsing JSON et n'est pas concernée.
 
-**Bench réalisé** : `src-tauri/crates/qore-pgo-workload/benches/json_parse.rs` (criterion, 30 samples, payload JSONB-shape avec objets imbriqués + arrays). Mesures Apple M-series :
+**Bench historique réalisé** : Criterion, 30 samples, payload JSONB-shape avec objets imbriqués + arrays. Mesures Apple M-series :
 
 | Taille | `serde_json::from_slice` | `simd_json::serde::from_slice` (drop-in) | Gain | `simd_json::to_owned_value` (non drop-in) |
 |---|---|---|---|---|
@@ -154,11 +130,11 @@
 - On gagne un public BI / logs / payloads JSON volumineux (use case dominant JSON), où l'opt-in via feature flag deviendrait justifié.
 - `simd-json` publie une optim qui dépasse +40 % sur l'API serde drop-in, ou on refactorise `qore_core::Value::Json` (alors `to_owned_value` devient drop-in et son +50 % redevient pertinent sans coût caller).
 
-**Statut des artefacts** : le bench reste en place (`[[bench]] json_parse` dans `qore-pgo-workload`) pour pouvoir re-mesurer rapidement.
+**Statut des artefacts** : le bench dédié a été supprimé avec le workload PGO. Recréer un bench ciblé si ce sujet redevient prioritaire.
 
 ---
 
-### 2.3 `sccache` en CI + local — **Livré (CI uniquement)**
+### 2.2 `sccache` en CI + local — **Livré (CI uniquement)**
 
 **Constat** : `src-tauri/.cargo/config.toml:8-13` suggérait `sccache` en commentaire. Pas un gain runtime, mais divise les builds CI par 2–3 sur les runs récurrents.
 
@@ -168,7 +144,6 @@
 - Local : opt-in via `cargo install sccache --locked` + `export RUSTC_WRAPPER=sccache CARGO_INCREMENTAL=0`. Volontairement non activé dans `.cargo/config.toml` pour ne pas casser le build des contributeurs sans sccache. Voir le commentaire en tête du fichier.
 
 **Non instrumenté volontairement**
-- `pgo-release.yml` : les `RUSTFLAGS=-Cprofile-generate=…` puis `-Cprofile-use=…` invalideraient le cache à chaque run et peuvent interférer avec l'instrumentation `.profraw`.
 - `release.yml` : trop sensible (codesigning, notarization, MSIX) pour cette première itération. À évaluer après quelques runs CI où on aura validé l'effet de sccache.
 
 **Décision** : hors scope perf runtime mais accélère les itérations perf elles-mêmes (re-builds après `cargo clean` lors d'un changement de RUSTFLAGS, par exemple). Effet réel à mesurer sur les 2-3 prochains runs CI.
@@ -177,17 +152,17 @@
 
 ## Tier 3 — Optimisations dirigées par profil
 
-**Préambule** : Tier 1 et 2.1 ont été livrés sur des intuitions documentées (allocateur, baseline CPU, scratch buffer JSON, PGO). Avant d'attaquer une nouvelle vague de micro-optimisations, on a besoin d'un profil réel pour cibler — sinon on optimise à l'aveugle. C'est le rôle de 3.0, qui est **bloquant** pour 3.2-3.4. Seul 3.1 est suffisamment cadré (constat factuel sur `stream_msg.rs:50`) pour être livrable sans profil préalable.
+**Préambule** : Tier 1 a été livré sur des intuitions documentées (allocateur, baseline CPU, scratch buffer JSON). Avant d'attaquer une nouvelle vague de micro-optimisations, on a besoin d'un profil réel pour cibler — sinon on optimise à l'aveugle. C'est le rôle de 3.0, qui est **bloquant** pour 3.2-3.4. Seul 3.1 est suffisamment cadré (constat factuel sur `stream_msg.rs:50`) pour être livrable sans profil préalable.
 
-### 3.0 Profil de référence (samply / flamegraph) — **Livré (workload SQLite, 2026-04-26)**
+### 3.0 Profil de référence (samply / flamegraph) — **Livré (snapshot SQLite historique, 2026-04-26)**
 
-**Constat initial** : zéro profil capturé sur le workload PGO ou sur l'app réelle. Toutes les hypothèses Tier 3+ étaient non vérifiées.
+**Constat initial** : zéro profil capturé sur l'app réelle. Toutes les hypothèses Tier 3+ étaient non vérifiées.
 
 **Mise en œuvre**
 - Outil : `samply 0.13.1` (cargo install). Sortie compatible Firefox Profiler, pas de root.
 - Build : override env (`CARGO_PROFILE_RELEASE_DEBUG=line-tables-only`, `CARGO_PROFILE_RELEASE_STRIP=none`) — pas de modification du Cargo.toml release distribué. macOS : `dsymutil` à côté du binaire pour la symbolisation.
-- Capture sur le workload `qore-pgo-workload` (1,3 s, 50 k rows, 4 SELECT × 3 itérations, 4 workers parallèles). 67 513 samples à 4 kHz.
-- Documenté dans `doc/internals/PROFILES.md` (snapshot daté, méthodologie reproductible, top fonctions self-time + inclusive, lectures clés et items dérivés).
+- Capture historique sur un scénario SQLite headless (1,3 s, 50 k rows, 4 SELECT × 3 itérations, 4 workers parallèles). 67 513 samples à 4 kHz.
+- Le document de reproduction du scénario a été supprimé avec le workload dédié.
 - `.perf/` ajouté au gitignore (profils bruts pas versionnés).
 
 **Findings clés** (détails dans PROFILES.md)
@@ -199,9 +174,9 @@
 
 **Couverture / limites**
 - SQLite uniquement. Postgres/MySQL/MongoDB/SQLServer non profilés (workload sans réseau).
-- `JsonWriter` du module export non exercé (le workload utilise `serde_json::to_writer` direct, pas le writer optimisé en 1.4).
-- Streaming IPC frontend non exercé (workload headless).
-- TODO listés dans PROFILES.md : profil app Tauri réelle sur Postgres + Mongo, comparaison Linux x86_64.
+- `JsonWriter` du module export non exercé (le scénario utilisait `serde_json::to_writer` direct, pas le writer optimisé en 1.4).
+- Streaming IPC frontend non exercé (scénario headless).
+- TODO restant : profil app Tauri réelle sur Postgres + Mongo, comparaison Linux x86_64.
 
 **Bench** : pas de bench (c'est la fondation pour bencher la suite).
 
@@ -240,7 +215,7 @@ Chaque `try_get` qui échoue retourne une `sqlx::Error` qui contient un `format!
 4. Wirer dans `execute_stream` côté SQLite — au moment où on émet `StreamEvent::Columns`, on calcule aussi les décodeurs et on les passe à la boucle de batch.
 5. Idem pour MySQL (`mysql.rs:201` → `convert_row_with_decoders` déjà esquissé ligne 208, mais à vérifier qu'il est utilisé partout) et SQLServer.
 
-**Bench** : wall time du workload `qore-pgo-workload` avant/après. Le profil prédit -10 à -25 % wall time si on supprime le `format!()` du chemin chaud. À mesurer aussi : part `format_inner` dans le profil après fix (objectif : sortir du top 10 inclusive).
+**Bench** : wall time d'un scénario SQLite équivalent avant/après. Le profil prédit -10 à -25 % wall time si on supprime le `format!()` du chemin chaud. À mesurer aussi : part `format_inner` dans le profil après fix (objectif : sortir du top 10 inclusive).
 
 **Risque** : faible. Logique pure, pas de changement de wire format ni d'API publique. Tests existants côté Postgres servent de modèle pour valider l'équivalence.
 
@@ -336,7 +311,7 @@ Sans capturer un profil sur un dataset BI / logs réel avec ce profil d'usage, o
 - `compact_str::CompactString` à la place de `String` pour les `ColumnInfo.name` et `Value::Text` courtes (< 23 bytes inline). Profil typique : codes pays, statuts, UUIDs (36 chars → toujours heap), noms de colonnes (souvent < 20 chars → inline). Crate `compact_str = "0.8"`, ABI stable.
 - Étudier l'usage de `bumpalo` pour le scope d'un batch (allocations courtes de durée de vie identique, libérées en bloc à la fin du batch). Plus invasif, à reconsidérer plus tard.
 
-**Bench** : workload `qore-pgo-workload` post-3.A. Cible : ratio `mimalloc CPU / total CPU actif` sous 15 % (vs 32 % actuel).
+**Bench** : scénario SQLite équivalent post-3.A. Cible : ratio `mimalloc CPU / total CPU actif` sous 15 % (vs 32 % actuel).
 
 **Risque** : faible avec `CompactString` (drop-in pour la plupart des usages), moyen avec bumpalo (lifetimes).
 
@@ -381,7 +356,7 @@ Ces items sont listés pour que les futurs audits ne reviennent pas avec les mê
 | `zstd` local | — | Pas de cache persistant à compresser | **Refusé tant qu'il n'y a pas de cache** |
 | Prepared statement cache global | — | SQLx cache déjà par connexion. Cache global = lifecycle complexe (invalidation après `ALTER TABLE`, etc.) | **Refusé**, risque > gain |
 | `io_uring` via `tokio-uring`/`glommio` | « 2–3× I/O disque sur Linux » | Refactor async non trivial, Linux-only, pas de signal terrain que I/O disque est le goulot | **Refusé** par principe de portabilité |
-| BOLT post-link optimizer | — | PGO d'abord ; BOLT = tier 4 éventuel | **Reporté** |
+| BOLT post-link optimizer | — | Pas de signal runtime suffisant pour justifier la complexité post-link | **Reporté** |
 
 ---
 
@@ -394,9 +369,8 @@ Ces items sont listés pour que les futurs audits ne reviennent pas avec les mê
 5. **1.2** baseline `x86-64-v3` / `apple-m1` (30 min + validation artefacts release sur CI).
 6. **Pause bench** : mesurer gain cumulé items 1.1 + 1.2 + 1.4, poster les chiffres dans la PR.
 7. **2.3** ~~`sccache`~~ ✅ Activé sur ci.yml + build-core.yml + build-pro.yml via `mozilla-actions/sccache-action` + GHA Cache. Hors scope runtime.
-8. **2.1** ~~PGO en CI release~~ ✅ Workflow opt-in livré pour Linux x86_64. Mesurer gain sur les artefacts ; étendre à Postgres/MySQL et macOS/Windows ensuite.
-9. **2.2** ~~`simd-json` ciblé~~ ⏸ Reporté : gain mesuré (+20 à +27 % sur l'API drop-in) mais rayon d'effet limité aux seules colonnes JSON / documents Mongo, ne touche pas la majorité des requêtes. Bench conservé pour ré-évaluation si le profil utilisateur évolue (BI / logs JSON-heavy).
-10. **Bench cumulé Tier 1 + 2.1** (étape 6 répétée à mi-parcours, à ce stade c'est le bon moment).
+8. **2.1** ~~`simd-json` ciblé~~ ⏸ Reporté : gain mesuré (+20 à +27 % sur l'API drop-in) mais rayon d'effet limité aux seules colonnes JSON / documents Mongo, ne touche pas la majorité des requêtes.
+9. **Bench cumulé Tier 1** (étape 6 répétée à mi-parcours, à ce stade c'est le bon moment).
 11. **3.0** ✅ Workload SQLite profilé, snapshot 2026-04-26 dans `doc/internals/PROFILES.md`.
 12. **3.A** ✅ SqliteDecoder livré ; MySQL nettoyé ; Postgres déjà fait ; SQLServer non applicable (architecture déjà typée).
 13. **3.1** ✅ `StreamDispatcher` avec capacity hint dans `stream_msg.rs` ; sites de streaming dans `query.rs` et `federation.rs` refactorisés.

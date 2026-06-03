@@ -19,7 +19,7 @@ use schemars::JsonSchema;
 use serde::Deserialize;
 use tokio::sync::Mutex;
 
-use qore_core::SessionId;
+use qore_core::{CollectionListOptions, Namespace, SessionId};
 use qore_service::vault::backend::KeyringProvider;
 use qore_service::vault::VaultStorage;
 use qore_service::ServiceContext;
@@ -42,6 +42,46 @@ struct RunQueryReq {
     connection_id: String,
     #[schemars(description = "Read-only SQL/query to execute")]
     query: String,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+struct ConnReq {
+    #[schemars(description = "ID of the saved connection")]
+    connection_id: String,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+struct ListTablesReq {
+    #[schemars(description = "ID of the saved connection")]
+    connection_id: String,
+    #[schemars(description = "Database/namespace name")]
+    database: String,
+    #[schemars(description = "Schema name (optional, e.g. PostgreSQL schema)")]
+    #[serde(default)]
+    schema: Option<String>,
+    #[schemars(description = "Optional name filter")]
+    #[serde(default)]
+    search: Option<String>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+struct DescribeTableReq {
+    #[schemars(description = "ID of the saved connection")]
+    connection_id: String,
+    #[schemars(description = "Database/namespace name")]
+    database: String,
+    #[schemars(description = "Schema name (optional)")]
+    #[serde(default)]
+    schema: Option<String>,
+    #[schemars(description = "Table/collection name")]
+    table: String,
+}
+
+fn text_result(result: Result<String, String>) -> CallToolResult {
+    match result {
+        Ok(json) => CallToolResult::success(vec![Content::text(json)]),
+        Err(msg) => CallToolResult::error(vec![Content::text(msg)]),
+    }
 }
 
 #[tool_router]
@@ -132,6 +172,64 @@ impl QoreMcp {
         serde_json::to_string(&outcome.result).map_err(|e| e.to_string())
     }
 
+    async fn do_list_namespaces(&self, connection_id: &str) -> Result<String, String> {
+        let session = self.ensure_session(connection_id).await?;
+        let driver = self
+            .ctx
+            .session_manager
+            .get_driver(session)
+            .await
+            .map_err(|e| e.sanitized_message())?;
+        let namespaces = driver
+            .list_namespaces(session)
+            .await
+            .map_err(|e| e.sanitized_message())?;
+        serde_json::to_string(&namespaces).map_err(|e| e.to_string())
+    }
+
+    async fn do_list_tables(&self, req: &ListTablesReq) -> Result<String, String> {
+        let session = self.ensure_session(&req.connection_id).await?;
+        let driver = self
+            .ctx
+            .session_manager
+            .get_driver(session)
+            .await
+            .map_err(|e| e.sanitized_message())?;
+        let namespace = Namespace {
+            database: req.database.clone(),
+            schema: req.schema.clone(),
+        };
+        let options = CollectionListOptions {
+            search: req.search.clone(),
+            page: None,
+            page_size: None,
+        };
+        let list = driver
+            .list_collections(session, &namespace, options)
+            .await
+            .map_err(|e| e.sanitized_message())?;
+        serde_json::to_string(&list).map_err(|e| e.to_string())
+    }
+
+    async fn do_describe_table(&self, req: &DescribeTableReq) -> Result<String, String> {
+        let session = self.ensure_session(&req.connection_id).await?;
+        let namespace = Namespace {
+            database: req.database.clone(),
+            schema: req.schema.clone(),
+        };
+        let schema = qore_service::query::describe_table(
+            &self.ctx.session_manager,
+            &self.ctx.virtual_relations,
+            session,
+            &namespace,
+            &req.table,
+            None,
+        )
+        .await
+        .map_err(|e| e.sanitized())?;
+        serde_json::to_string(&schema).map_err(|e| e.to_string())
+    }
+
     #[tool(description = "List the saved database connections available to query")]
     async fn list_connections(&self) -> Result<CallToolResult, McpError> {
         let connections = self
@@ -164,10 +262,31 @@ impl QoreMcp {
         &self,
         Parameters(req): Parameters<RunQueryReq>,
     ) -> Result<CallToolResult, McpError> {
-        match self.do_run_query(&req).await {
-            Ok(json) => Ok(CallToolResult::success(vec![Content::text(json)])),
-            Err(msg) => Ok(CallToolResult::error(vec![Content::text(msg)])),
-        }
+        Ok(text_result(self.do_run_query(&req).await))
+    }
+
+    #[tool(description = "List databases/schemas (namespaces) for a saved connection")]
+    async fn list_namespaces(
+        &self,
+        Parameters(req): Parameters<ConnReq>,
+    ) -> Result<CallToolResult, McpError> {
+        Ok(text_result(self.do_list_namespaces(&req.connection_id).await))
+    }
+
+    #[tool(description = "List tables/collections in a namespace of a saved connection")]
+    async fn list_tables(
+        &self,
+        Parameters(req): Parameters<ListTablesReq>,
+    ) -> Result<CallToolResult, McpError> {
+        Ok(text_result(self.do_list_tables(&req).await))
+    }
+
+    #[tool(description = "Describe a table/collection schema (columns, keys) of a saved connection")]
+    async fn describe_table(
+        &self,
+        Parameters(req): Parameters<DescribeTableReq>,
+    ) -> Result<CallToolResult, McpError> {
+        Ok(text_result(self.do_describe_table(&req).await))
     }
 }
 

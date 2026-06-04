@@ -161,6 +161,54 @@ pub async fn get_plugin_consent(plugin_id: String) -> Result<Vec<CapabilityKind>
     .await?
 }
 
+/// Per-plugin runtime status for the Settings UI: whether the instance is
+/// live, its consecutive-failure count, and the capabilities effectively
+/// granted (consent ∩ manifest request). Only executable plugins are listed —
+/// a purely declarative plugin has no runtime state to report.
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PluginRuntimeStatus {
+    pub plugin_id: String,
+    pub loaded: bool,
+    pub failure_count: u32,
+    pub granted: Vec<CapabilityKind>,
+}
+
+/// Runtime status of every executable plugin. Lets the UI flag a plugin that
+/// is enabled but inert (no granted capability) or unloaded after repeated
+/// failures, instead of presenting it as simply "active".
+#[tauri::command]
+pub async fn get_plugin_statuses(
+    state: State<'_, SharedState>,
+) -> Result<Vec<PluginRuntimeStatus>, String> {
+    let host = plugin_host(&state).await;
+    blocking(move || {
+        let dir = plugins::plugins_dir();
+        plugins::list_plugins(&dir)
+            .into_iter()
+            .filter(|p| p.manifest.runtime.is_some())
+            .map(|p| {
+                let id = p.manifest.id.clone();
+                let requested: BTreeSet<CapabilityKind> =
+                    capabilities::requested_from_manifest(&p.manifest)
+                        .into_iter()
+                        .collect();
+                let granted: Vec<CapabilityKind> = capabilities::read_grants(&dir, &id)
+                    .into_iter()
+                    .filter(|c| requested.contains(c))
+                    .collect();
+                PluginRuntimeStatus {
+                    loaded: host.is_loaded(&id),
+                    failure_count: host.failure_count(&id),
+                    granted,
+                    plugin_id: id,
+                }
+            })
+            .collect()
+    })
+    .await
+}
+
 /// Names of secrets that have a value in the keyring. Values stay backend-side.
 #[tauri::command]
 pub async fn list_provisioned_secrets(plugin_id: String) -> Result<Vec<String>, String> {

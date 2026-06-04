@@ -35,7 +35,11 @@
       "remove": "플러그인 제거",
       "removeConfirm": "플러그인 \"{{name}}\"을(를) 제거할까요?",
       "executable": "실행 가능",
-      "executableTooltip": "이 플러그인은 엄격한 CPU 및 메모리 예산 내에서 샌드박스 WASM 코드를 실행합니다."
+      "executableTooltip": "이 플러그인은 엄격한 CPU 및 메모리 예산 내에서 샌드박스 WASM 코드를 실행합니다.",
+      "inert": "비활성 상태",
+      "inertTooltip": "활성화되었지만 권한이 부여되지 않아 아무 작업도 할 수 없습니다. 클릭하여 권한을 부여하세요.",
+      "disabledErrors": "중지됨",
+      "disabledErrorsTooltip": "반복된 오류로 언로드되었습니다. 문제를 해결한 후 다시 활성화하세요."
     },
     "contributions": {
       "snippets": "스니펫: {{count}}",
@@ -66,7 +70,10 @@
       "commandRunning": "실행 중…",
       "commandNoOutput": "(출력 없음)",
       "secrets": "비밀",
-      "secretsDescription": "플러그인이 매니페스트에 선언한 비밀의 값을 제공하세요. 값은 OS 키링에 저장되며 이 기기를 벗어나지 않습니다."
+      "secretsDescription": "플러그인이 매니페스트에 선언한 비밀의 값을 제공하세요. 값은 OS 키링에 저장되며 이 기기를 벗어나지 않습니다.",
+      "disabledErrorsBanner": "이 플러그인은 {{count}}회 연속 오류로 인해 비활성화되었습니다. 문제를 해결한 후 토글로 다시 활성화하세요.",
+      "inertBanner": "이 플러그인은 활성화되어 있지만 권한을 부여하지 않아 아직 아무 작업도 할 수 없습니다.",
+      "grantCta": "권한 부여"
     },
     "themes": {
       "title": "플러그인 테마",
@@ -76,7 +83,9 @@
     },
     "toast": {
       "installed": "플러그인 \"{{name}}\"을(를) 설치했습니다",
-      "removed": "플러그인 \"{{name}}\"을(를) 제거했습니다"
+      "removed": "플러그인 \"{{name}}\"을(를) 제거했습니다",
+      "disabledTitle": "{{name}}이(가) 반복된 오류로 중지되었습니다",
+      "disabledPendingConsent": "{{name}}이(가) 설치되었지만 비활성화 상태입니다. 권한을 부여하여 활성화하세요."
     },
     "consent": {
       "title": "\"{{name}}\"이(가) 요청한 권한",

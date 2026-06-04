@@ -35,7 +35,11 @@
       "remove": "Eliminar complemento",
       "removeConfirm": "¿Eliminar el complemento «{{name}}»?",
       "executable": "Ejecutable",
-      "executableTooltip": "Este complemento ejecuta código WASM en sandbox con un presupuesto estricto de CPU y memoria."
+      "executableTooltip": "Este complemento ejecuta código WASM en sandbox con un presupuesto estricto de CPU y memoria.",
+      "inert": "Inerte",
+      "inertTooltip": "Activado, pero sin permisos concedidos: no puede hacer nada. Haz clic para conceder.",
+      "disabledErrors": "Desactivado",
+      "disabledErrorsTooltip": "Descargado tras errores repetidos. Vuelve a activarlo cuando se resuelva el problema."
     },
     "contributions": {
       "snippets": "Snippets: {{count}}",
@@ -66,7 +70,10 @@
       "commandRunning": "Ejecutando…",
       "commandNoOutput": "(sin salida)",
       "secrets": "Secretos",
-      "secretsDescription": "Proporciona los valores de los secretos declarados por el complemento en su manifiesto. Los valores se almacenan en el llavero del SO y nunca salen de este dispositivo."
+      "secretsDescription": "Proporciona los valores de los secretos declarados por el complemento en su manifiesto. Los valores se almacenan en el llavero del SO y nunca salen de este dispositivo.",
+      "disabledErrorsBanner": "Este complemento se desactivó tras {{count}} errores consecutivos. Vuelve a activarlo con el interruptor cuando se resuelva el problema.",
+      "inertBanner": "Este complemento está activado pero no le has concedido ningún permiso, así que todavía no puede hacer nada.",
+      "grantCta": "Conceder permisos"
     },
     "themes": {
       "title": "Temas de complementos",
@@ -76,7 +83,9 @@
     },
     "toast": {
       "installed": "Complemento «{{name}}» instalado",
-      "removed": "Complemento «{{name}}» eliminado"
+      "removed": "Complemento «{{name}}» eliminado",
+      "disabledTitle": "{{name}} desactivado tras errores repetidos",
+      "disabledPendingConsent": "{{name}} se instaló pero quedó desactivado: concédele permisos para activarlo."
     },
     "consent": {
       "title": "Permisos solicitados por {{name}}",

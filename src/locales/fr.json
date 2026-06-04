@@ -35,7 +35,11 @@
       "remove": "Supprimer l'extension",
       "removeConfirm": "Supprimer l'extension « {{name}} » ?",
       "executable": "Exécutable",
-      "executableTooltip": "Cette extension exécute du code WASM en bac à sable, dans un budget CPU et mémoire strict."
+      "executableTooltip": "Cette extension exécute du code WASM en bac à sable, dans un budget CPU et mémoire strict.",
+      "inert": "Inerte",
+      "inertTooltip": "Activé, mais aucune permission accordée — il ne peut rien faire. Cliquez pour accorder.",
+      "disabledErrors": "Désactivé",
+      "disabledErrorsTooltip": "Déchargé après des erreurs répétées. Réactivez-le une fois le problème corrigé."
     },
     "contributions": {
       "snippets": "Snippets : {{count}}",
@@ -68,7 +72,10 @@
       "commandRunning": "Exécution…",
       "commandNoOutput": "(aucune sortie)",
       "secrets": "Secrets",
-      "secretsDescription": "Fournis les valeurs des secrets déclarés par le plugin dans son manifeste. Les valeurs sont stockées dans le trousseau de l'OS et ne quittent jamais cette machine."
+      "secretsDescription": "Fournis les valeurs des secrets déclarés par le plugin dans son manifeste. Les valeurs sont stockées dans le trousseau de l'OS et ne quittent jamais cette machine.",
+      "disabledErrorsBanner": "Ce plugin a été désactivé après {{count}} erreurs consécutives. Réactivez-le via l'interrupteur une fois le problème résolu.",
+      "inertBanner": "Ce plugin est activé mais vous ne lui avez accordé aucune permission : il ne peut donc rien faire pour l'instant.",
+      "grantCta": "Accorder les permissions"
     },
     "themes": {
       "title": "Thèmes d'extension",
@@ -78,7 +85,9 @@
     },
     "toast": {
       "installed": "Extension « {{name}} » installée",
-      "removed": "Extension « {{name}} » supprimée"
+      "removed": "Extension « {{name}} » supprimée",
+      "disabledTitle": "{{name}} désactivé après des erreurs répétées",
+      "disabledPendingConsent": "{{name}} a été installé mais laissé désactivé — accordez-lui des permissions pour l'activer."
     },
     "consent": {
       "title": "Permissions demandées par {{name}}",

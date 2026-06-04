@@ -90,6 +90,7 @@ fn register_notify(linker: &mut Linker<StoreData>) -> Result<(), wasmi::errors::
                     plugin_id: caller.data().services.plugin_id.clone(),
                     level: notify_level(level),
                     message: msg,
+                    code: None,
                 };
                 let _ = sender.send(event);
                 OK

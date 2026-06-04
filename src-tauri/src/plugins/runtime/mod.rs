@@ -76,6 +76,11 @@ pub struct NotifyEvent {
     pub plugin_id: String,
     pub level: NotifyLevel,
     pub message: String,
+    /// Lifecycle marker for host-generated notifications (e.g. `"disabled"`).
+    /// Lets the UI localize the toast instead of surfacing the raw English
+    /// string. Absent for plugin-issued `notify` calls.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub code: Option<String>,
 }
 
 /// Severity of a plugin-issued toast. Mirrors `sonner`'s four standard levels.

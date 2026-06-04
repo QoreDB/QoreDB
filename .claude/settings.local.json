@@ -74,7 +74,6 @@
       "Bash(samply --version)",
       "Bash(samply record *)",
       "Bash(/usr/bin/grep *)",
-      "Bash(dsymutil target/release/qore-pgo-workload)",
       "Bash(kill %1)",
       "Bash(pkill -f \"until.*bbvezu4rm\")",
       "Bash(git mv *)",
@@ -87,19 +86,9 @@
       "Bash(/usr/bin/find . *)",
       "Bash(/usr/bin/find *)",
       "Bash(sed -n '1,40p' src/commands/query.rs)",
-      "Bash(sed -n '370,380p' crates/qore-core/src/traits.rs)",
-      "Bash(sed -n '65,80p' crates/qore-service/src/virtual_relations/store.rs)",
-      "Bash(sed -n '222p;461p' query.rs)",
-      "Bash(sed -n '220,221p' query.rs)",
-      "Bash(sed -n '462,463p' query.rs)",
-      "Bash(sed -i '222,462d' query.rs)",
-      "Bash(sed -n '218,226p' query.rs)",
-      "Bash(sed -n '254,300p' mutation.rs)",
-      "Bash(sed -n '458,492p' mutation.rs)",
-      "WebFetch(domain:rup12.net)",
-      "Bash(sed -n '195,212p' src/workspace/mod.rs)",
       "Bash(sed -n '195,212p' src/workspace.rs)",
-      "Bash(timeout 20 ./target/debug/qore query conn_1774467278508 \"SELECT 1 AS n, 'hello' AS greeting\")"
+      "Bash(xargs -I{} git ls-tree -r --name-only {})",
+      "Bash(rustup target *)"
     ]
   }
 }

@@ -35,7 +35,11 @@
       "remove": "プラグインを削除",
       "removeConfirm": "プラグイン「{{name}}」を削除しますか？",
       "executable": "実行可能",
-      "executableTooltip": "このプラグインはサンドボックス化された WASM コードを厳格な CPU/メモリ制限下で実行します。"
+      "executableTooltip": "このプラグインはサンドボックス化された WASM コードを厳格な CPU/メモリ制限下で実行します。",
+      "inert": "無効状態",
+      "inertTooltip": "有効ですが権限が付与されていないため、何もできません。クリックして権限を付与してください。",
+      "disabledErrors": "停止",
+      "disabledErrorsTooltip": "繰り返しエラーが発生したため停止しました。問題を解決したら再度有効にしてください。"
     },
     "contributions": {
       "snippets": "スニペット: {{count}}",
@@ -66,7 +70,10 @@
       "commandRunning": "実行中…",
       "commandNoOutput": "（出力なし）",
       "secrets": "シークレット",
-      "secretsDescription": "マニフェストでプラグインが宣言したシークレットの値を提供します。値は OS のキーチェーンに保存され、このデバイスから出ません。"
+      "secretsDescription": "マニフェストでプラグインが宣言したシークレットの値を提供します。値は OS のキーチェーンに保存され、このデバイスから出ません。",
+      "disabledErrorsBanner": "このプラグインは連続 {{count}} 回のエラーのため停止しました。問題を解決したらトグルで再度有効にしてください。",
+      "inertBanner": "このプラグインは有効ですが、権限が付与されていないため、まだ何もできません。",
+      "grantCta": "権限を付与"
     },
     "themes": {
       "title": "プラグインテーマ",
@@ -76,7 +83,9 @@
     },
     "toast": {
       "installed": "プラグイン「{{name}}」をインストールしました",
-      "removed": "プラグイン「{{name}}」を削除しました"
+      "removed": "プラグイン「{{name}}」を削除しました",
+      "disabledTitle": "{{name}} は繰り返しエラーのため停止しました",
+      "disabledPendingConsent": "{{name}} はインストールされましたが無効のままです。有効にするには権限を付与してください。"
     },
     "consent": {
       "title": "「{{name}}」が要求する権限",

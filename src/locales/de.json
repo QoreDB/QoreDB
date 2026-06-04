@@ -35,7 +35,11 @@
       "remove": "Plugin entfernen",
       "removeConfirm": "Plugin „{{name}}“ entfernen?",
       "executable": "Ausführbar",
-      "executableTooltip": "Dieses Plugin führt WASM-Code in einer Sandbox mit strengem CPU- und Speicherbudget aus."
+      "executableTooltip": "Dieses Plugin führt WASM-Code in einer Sandbox mit strengem CPU- und Speicherbudget aus.",
+      "inert": "Inaktiv",
+      "inertTooltip": "Aktiviert, aber keine Berechtigung erteilt – das Plugin kann nichts tun. Zum Erteilen klicken.",
+      "disabledErrors": "Deaktiviert",
+      "disabledErrorsTooltip": "Nach wiederholten Fehlern entladen. Nach Behebung aus- und wieder einschalten."
     },
     "contributions": {
       "snippets": "Snippets: {{count}}",
@@ -66,7 +70,10 @@
       "commandRunning": "Wird ausgeführt…",
       "commandNoOutput": "(keine Ausgabe)",
       "secrets": "Geheimnisse",
-      "secretsDescription": "Geben Sie Werte für die im Manifest deklarierten Geheimnisse an. Die Werte werden im Schlüsselbund des Betriebssystems gespeichert und verlassen dieses Gerät nicht."
+      "secretsDescription": "Geben Sie Werte für die im Manifest deklarierten Geheimnisse an. Die Werte werden im Schlüsselbund des Betriebssystems gespeichert und verlassen dieses Gerät nicht.",
+      "disabledErrorsBanner": "Dieses Plugin wurde nach {{count}} aufeinanderfolgenden Fehlern deaktiviert. Aktivieren Sie es über den Schalter erneut, sobald das Problem behoben ist.",
+      "inertBanner": "Dieses Plugin ist aktiviert, aber Sie haben ihm keine Berechtigung erteilt, daher kann es noch nichts tun.",
+      "grantCta": "Berechtigungen erteilen"
     },
     "themes": {
       "title": "Plugin-Themen",
@@ -76,7 +83,9 @@
     },
     "toast": {
       "installed": "Plugin „{{name}}“ installiert",
-      "removed": "Plugin „{{name}}“ entfernt"
+      "removed": "Plugin „{{name}}“ entfernt",
+      "disabledTitle": "{{name}} nach wiederholten Fehlern deaktiviert",
+      "disabledPendingConsent": "{{name}} wurde installiert, aber deaktiviert gelassen – erteilen Sie Berechtigungen, um es zu aktivieren."
     },
     "consent": {
       "title": "Von {{name}} angeforderte Berechtigungen",

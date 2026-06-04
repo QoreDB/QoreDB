@@ -35,7 +35,11 @@
       "remove": "移除插件",
       "removeConfirm": "移除插件“{{name}}”？",
       "executable": "可执行",
-      "executableTooltip": "此插件在严格的 CPU 和内存预算下运行沙盒 WASM 代码。"
+      "executableTooltip": "此插件在严格的 CPU 和内存预算下运行沙盒 WASM 代码。",
+      "inert": "未激活",
+      "inertTooltip": "已启用，但未授予任何权限，无法执行任何操作。点击以授权。",
+      "disabledErrors": "已停用",
+      "disabledErrorsTooltip": "因反复出错已卸载。问题修复后请重新启用。"
     },
     "contributions": {
       "snippets": "代码片段：{{count}}",
@@ -66,7 +70,10 @@
       "commandRunning": "运行中…",
       "commandNoOutput": "（无输出）",
       "secrets": "密钥",
-      "secretsDescription": "为插件在清单中声明的密钥提供值。值存储在操作系统钥匙串中，绝不离开本设备。"
+      "secretsDescription": "为插件在清单中声明的密钥提供值。值存储在操作系统钥匙串中，绝不离开本设备。",
+      "disabledErrorsBanner": "该插件因连续 {{count}} 次出错已被停用。问题解决后请通过开关重新启用。",
+      "inertBanner": "该插件已启用，但你尚未授予任何权限，因此暂时无法执行任何操作。",
+      "grantCta": "授予权限"
     },
     "themes": {
       "title": "插件主题",
@@ -76,7 +83,9 @@
     },
     "toast": {
       "installed": "已安装插件“{{name}}”",
-      "removed": "已移除插件“{{name}}”"
+      "removed": "已移除插件“{{name}}”",
+      "disabledTitle": "{{name}} 因反复出错已停用",
+      "disabledPendingConsent": "{{name}} 已安装但保持停用状态——请授予权限以启用它。"
     },
     "consent": {
       "title": "{{name}} 请求的权限",

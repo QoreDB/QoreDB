@@ -35,7 +35,11 @@
       "remove": "Remover plugin",
       "removeConfirm": "Remover o plugin “{{name}}”?",
       "executable": "Executável",
-      "executableTooltip": "Este plugin executa código WASM em sandbox sob um orçamento estrito de CPU e memória."
+      "executableTooltip": "Este plugin executa código WASM em sandbox sob um orçamento estrito de CPU e memória.",
+      "inert": "Inerte",
+      "inertTooltip": "Ativado, mas sem permissão concedida — não pode fazer nada. Clique para conceder.",
+      "disabledErrors": "Desativado",
+      "disabledErrorsTooltip": "Descarregado após erros repetidos. Reative-o quando o problema for corrigido."
     },
     "contributions": {
       "snippets": "Snippets: {{count}}",
@@ -66,7 +70,10 @@
       "commandRunning": "Executando…",
       "commandNoOutput": "(sem saída)",
       "secrets": "Segredos",
-      "secretsDescription": "Forneça os valores dos segredos declarados pelo plugin no manifesto. Os valores são armazenados no chaveiro do SO e nunca saem deste dispositivo."
+      "secretsDescription": "Forneça os valores dos segredos declarados pelo plugin no manifesto. Os valores são armazenados no chaveiro do SO e nunca saem deste dispositivo.",
+      "disabledErrorsBanner": "Este plugin foi desativado após {{count}} erros consecutivos. Reative-o pelo botão quando o problema for resolvido.",
+      "inertBanner": "Este plugin está ativado, mas você não concedeu nenhuma permissão a ele, então ainda não pode fazer nada.",
+      "grantCta": "Conceder permissões"
     },
     "themes": {
       "title": "Temas de plugins",
@@ -76,7 +83,9 @@
     },
     "toast": {
       "installed": "Plugin “{{name}}” instalado",
-      "removed": "Plugin “{{name}}” removido"
+      "removed": "Plugin “{{name}}” removido",
+      "disabledTitle": "{{name}} desativado após erros repetidos",
+      "disabledPendingConsent": "{{name}} foi instalado, mas ficou desativado — conceda permissões para ativá-lo."
     },
     "consent": {
       "title": "Permissões solicitadas por {{name}}",

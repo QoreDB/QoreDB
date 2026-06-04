@@ -35,7 +35,11 @@
       "remove": "Remove plugin",
       "removeConfirm": "Remove the plugin “{{name}}”?",
       "executable": "Executable",
-      "executableTooltip": "This plugin runs sandboxed WASM code under a strict CPU and memory budget."
+      "executableTooltip": "This plugin runs sandboxed WASM code under a strict CPU and memory budget.",
+      "inert": "Inert",
+      "inertTooltip": "Enabled, but no permission granted — it can't do anything yet. Click to grant.",
+      "disabledErrors": "Disabled",
+      "disabledErrorsTooltip": "Unloaded after repeated errors. Toggle it off and on once the issue is fixed."
     },
     "contributions": {
       "snippets": "Snippets: {{count}}",
@@ -68,7 +72,10 @@
       "commandRunning": "Running…",
       "commandNoOutput": "(no output)",
       "secrets": "Secrets",
-      "secretsDescription": "Provide values for the secrets the plugin declared in its manifest. Values are stored in the OS keyring and never leave this device."
+      "secretsDescription": "Provide values for the secrets the plugin declared in its manifest. Values are stored in the OS keyring and never leave this device.",
+      "disabledErrorsBanner": "This plugin was disabled after {{count}} consecutive errors. Re-enable it from the toggle once the issue is resolved.",
+      "inertBanner": "This plugin is enabled but you haven't granted it any permission, so it can't do anything yet.",
+      "grantCta": "Grant permissions"
     },
     "themes": {
       "title": "Plugin themes",
@@ -78,7 +85,9 @@
     },
     "toast": {
       "installed": "Plugin “{{name}}” installed",
-      "removed": "Plugin “{{name}}” removed"
+      "removed": "Plugin “{{name}}” removed",
+      "disabledTitle": "{{name}} disabled after repeated errors",
+      "disabledPendingConsent": "{{name}} was installed but left disabled — grant it permissions to enable it."
     },
     "consent": {
       "title": "Permissions requested by {{name}}",

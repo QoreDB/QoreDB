@@ -411,6 +411,7 @@ pub fn run() {
             commands::plugins::set_plugin_enabled,
             commands::plugins::get_plugin_contributions,
             commands::plugins::get_plugin_consent,
+            commands::plugins::get_plugin_statuses,
             commands::plugins::set_plugin_consent,
             commands::plugins::run_plugin_command,
             commands::plugins::list_provisioned_secrets,

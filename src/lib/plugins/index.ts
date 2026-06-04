@@ -3,7 +3,12 @@
 /** Tauri bindings for the declarative plugin system. */
 
 import { invoke } from '@tauri-apps/api/core';
-import type { InstalledPlugin, PluginCapabilityKind, PluginContributions } from './types';
+import type {
+  InstalledPlugin,
+  PluginCapabilityKind,
+  PluginContributions,
+  PluginRuntimeStatus,
+} from './types';
 
 /** Lists every installed plugin with its runtime state. */
 export async function listPlugins(): Promise<InstalledPlugin[]> {
@@ -45,6 +50,12 @@ export async function getPluginContributions(): Promise<PluginContributions> {
 /** Returns the capabilities currently granted to a plugin. */
 export async function getPluginConsent(pluginId: string): Promise<PluginCapabilityKind[]> {
   return invoke('get_plugin_consent', { pluginId });
+}
+
+/** Returns the runtime status of every executable plugin (loaded, failure
+ *  count, effectively granted capabilities). */
+export async function getPluginStatuses(): Promise<PluginRuntimeStatus[]> {
+  return invoke('get_plugin_statuses');
 }
 
 /** Overwrites the capabilities granted to a plugin; the runtime reloads

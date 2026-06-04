@@ -21,17 +21,26 @@ import {
   type InstalledPlugin,
   listPlugins,
   type PluginContributions,
+  type PluginLogEntry,
+  type PluginLogEvent,
   type PluginNotifyEvent,
   type PluginRuntimeStatus,
 } from '@/lib/plugins';
 
 const ACTIVE_THEME_KEY = 'qoredb_plugin_theme';
+/** Per-plugin in-memory log ring. Keeps the detail view bounded; older lines
+ *  drop off the top. */
+const MAX_LOG_ENTRIES = 200;
 
 interface PluginContextValue {
   plugins: InstalledPlugin[];
   contributions: PluginContributions;
   /** Runtime status per executable plugin id (loaded, failures, grants). */
   statuses: Record<string, PluginRuntimeStatus>;
+  /** Recent log lines per plugin id, oldest first. Capped per plugin. */
+  logs: Record<string, PluginLogEntry[]>;
+  /** Drops the accumulated log lines for one plugin. */
+  clearLogs: (pluginId: string) => void;
   loading: boolean;
   activeThemeId: string | null;
   setActiveTheme: (id: string | null) => void;
@@ -50,11 +59,15 @@ export function PluginProvider({ children }: { children: ReactNode }) {
   const [plugins, setPlugins] = useState<InstalledPlugin[]>([]);
   const [contributions, setContributions] = useState<PluginContributions>(EMPTY_CONTRIBUTIONS);
   const [statuses, setStatuses] = useState<Record<string, PluginRuntimeStatus>>({});
+  const [logs, setLogs] = useState<Record<string, PluginLogEntry[]>>({});
   const [loading, setLoading] = useState(true);
   const [activeThemeId, setActiveThemeIdState] = useState<string | null>(() =>
     localStorage.getItem(ACTIVE_THEME_KEY)
   );
   const injectedKeys = useRef<string[]>([]);
+  // Monotonic id for log entries — a stable React key that timestamps can't
+  // guarantee (two lines can land in the same millisecond).
+  const logSeq = useRef(0);
   // The notify listener is mounted once; this ref keeps it reading the latest
   // plugin list when it needs to resolve an id to a display name.
   const pluginsRef = useRef<InstalledPlugin[]>([]);
@@ -119,6 +132,33 @@ export function PluginProvider({ children }: { children: ReactNode }) {
     };
   }, [t, refresh]);
 
+  // Accumulate plugin log lines (plugin `qoredb_log` calls + host lifecycle
+  // events). Unlike toasts these persist so the detail view can show them.
+  useEffect(() => {
+    const unlistenPromise = listen<PluginLogEvent>('plugin-log', evt => {
+      const { pluginId, level, message } = evt.payload;
+      setLogs(prev => {
+        logSeq.current += 1;
+        const entry: PluginLogEntry = { id: logSeq.current, level, message, time: Date.now() };
+        const next = [...(prev[pluginId] ?? []), entry];
+        if (next.length > MAX_LOG_ENTRIES) next.splice(0, next.length - MAX_LOG_ENTRIES);
+        return { ...prev, [pluginId]: next };
+      });
+    });
+    return () => {
+      void unlistenPromise.then(unlisten => unlisten());
+    };
+  }, []);
+
+  const clearLogs = useCallback((pluginId: string) => {
+    setLogs(prev => {
+      if (!prev[pluginId]) return prev;
+      const next = { ...prev };
+      delete next[pluginId];
+      return next;
+    });
+  }, []);
+
   const setActiveTheme = useCallback((id: string | null) => {
     setActiveThemeIdState(id);
     if (id) {
@@ -149,8 +189,28 @@ export function PluginProvider({ children }: { children: ReactNode }) {
   }, [activeThemeId, contributions.themes, resolvedTheme]);
 
   const value = useMemo<PluginContextValue>(
-    () => ({ plugins, contributions, statuses, loading, activeThemeId, setActiveTheme, refresh }),
-    [plugins, contributions, statuses, loading, activeThemeId, setActiveTheme, refresh]
+    () => ({
+      plugins,
+      contributions,
+      statuses,
+      logs,
+      clearLogs,
+      loading,
+      activeThemeId,
+      setActiveTheme,
+      refresh,
+    }),
+    [
+      plugins,
+      contributions,
+      statuses,
+      logs,
+      clearLogs,
+      loading,
+      activeThemeId,
+      setActiveTheme,
+      refresh,
+    ]
   );
 
   return <PluginContext.Provider value={value}>{children}</PluginContext.Provider>;

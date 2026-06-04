@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Ban, Pencil, Play, ShieldAlert, ShieldCheck, ZapOff } from 'lucide-react';
+import { Ban, Eraser, Pencil, Play, ShieldAlert, ShieldCheck, ZapOff } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -20,8 +20,16 @@ import {
   type PluginRuntimeStatus,
   runPluginCommand,
 } from '@/lib/plugins';
+import { usePlugins } from '@/providers/PluginProvider';
 import { ConsentDialog } from './ConsentDialog';
 import { SecretsForm } from './SecretsForm';
+
+const LOG_LEVEL_CLASS: Record<string, string> = {
+  error: 'text-destructive',
+  warning: 'text-warning',
+  success: 'text-success',
+  info: 'text-muted-foreground',
+};
 
 interface PluginDetailDialogProps {
   plugin: InstalledPlugin | null;
@@ -44,7 +52,7 @@ const CAP_ORDER: PluginCapabilityKind[] = [
 
 function isCapRequested(
   caps: NonNullable<InstalledPlugin['manifest']['runtime']>['capabilities'],
-  kind: PluginCapabilityKind,
+  kind: PluginCapabilityKind
 ): boolean {
   if (!caps) return false;
   switch (kind) {
@@ -70,6 +78,7 @@ export function PluginDetailDialog({
   onConsentChanged,
 }: PluginDetailDialogProps) {
   const { t } = useTranslation();
+  const { logs, clearLogs } = usePlugins();
   const [grants, setGrants] = useState<PluginCapabilityKind[]>([]);
   const [editing, setEditing] = useState(false);
   const [runningCommand, setRunningCommand] = useState<string | null>(null);
@@ -94,6 +103,7 @@ export function PluginDetailDialog({
 
   const { manifest } = plugin;
   const c = manifest.contributes;
+  const pluginLogs = logs[manifest.id] ?? [];
   const hasContributions =
     c.snippets.length +
       c.connectionTemplates.length +
@@ -102,9 +112,7 @@ export function PluginDetailDialog({
       c.resultViewers.length >
     0;
 
-  const requested = CAP_ORDER.filter(k =>
-    isCapRequested(manifest.runtime?.capabilities, k)
-  );
+  const requested = CAP_ORDER.filter(k => isCapRequested(manifest.runtime?.capabilities, k));
   const grantedSet = new Set(grants);
 
   const isInert =
@@ -146,7 +154,9 @@ export function PluginDetailDialog({
           {disabledByErrors && (
             <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-2.5 text-xs text-destructive">
               <Ban size={14} className="mt-0.5 shrink-0" />
-              <p>{t('plugins.detail.disabledErrorsBanner', { count: status?.failureCount ?? 0 })}</p>
+              <p>
+                {t('plugins.detail.disabledErrorsBanner', { count: status?.failureCount ?? 0 })}
+              </p>
             </div>
           )}
           {isInert && !disabledByErrors && (
@@ -245,13 +255,7 @@ export function PluginDetailDialog({
                       <span className="font-medium text-foreground">
                         {t(`plugins.consent.caps.${cap}.title`)}
                       </span>
-                      <span
-                        className={
-                          granted
-                            ? 'text-success'
-                            : 'text-muted-foreground'
-                        }
-                      >
+                      <span className={granted ? 'text-success' : 'text-muted-foreground'}>
                         {t(granted ? 'plugins.detail.granted' : 'plugins.detail.notGranted')}
                       </span>
                     </li>
@@ -373,6 +377,43 @@ export function PluginDetailDialog({
                 <pre className="mt-2 max-h-40 overflow-auto rounded border border-border bg-muted/40 px-2 py-1 text-[10.5px] font-mono leading-tight text-foreground">
                   {lastResult.output || t('plugins.detail.commandNoOutput')}
                 </pre>
+              )}
+            </section>
+          )}
+
+          {manifest.runtime && (
+            <section>
+              <div className="mb-1 flex items-center justify-between">
+                <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  {t('plugins.detail.logs')}
+                </h4>
+                {pluginLogs.length > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 gap-1 px-2 text-xs"
+                    onClick={() => clearLogs(manifest.id)}
+                  >
+                    <Eraser size={11} />
+                    {t('plugins.detail.logsClear')}
+                  </Button>
+                )}
+              </div>
+              {pluginLogs.length === 0 ? (
+                <p className="text-xs text-muted-foreground">{t('plugins.detail.logsEmpty')}</p>
+              ) : (
+                <ul className="max-h-40 space-y-0.5 overflow-auto rounded border border-border bg-muted/40 px-2 py-1 font-mono text-[10.5px] leading-tight">
+                  {pluginLogs.map(entry => (
+                    <li key={entry.id} className="flex gap-1.5">
+                      <span className="shrink-0 text-muted-foreground">
+                        {new Date(entry.time).toLocaleTimeString()}
+                      </span>
+                      <span className={`min-w-0 break-words ${LOG_LEVEL_CLASS[entry.level] ?? ''}`}>
+                        {entry.message}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
               )}
             </section>
           )}

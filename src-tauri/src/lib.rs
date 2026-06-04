@@ -167,6 +167,11 @@ pub fn run() {
                 let (tx, mut rx) =
                     tokio::sync::mpsc::unbounded_channel::<plugins::runtime::NotifyEvent>();
                 plugin_host.set_notify_sender(tx);
+                let (log_tx, mut log_rx) =
+                    tokio::sync::mpsc::unbounded_channel::<plugins::runtime::LogEvent>();
+                plugin_host.set_log_sender(log_tx);
+                // Sender wired before the reload so plugins loaded at startup
+                // carry the log channel into their host services.
                 plugin_host.reload();
                 let app_handle = app.handle().clone();
                 tauri::async_runtime::spawn(async move {
@@ -175,6 +180,17 @@ pub fn run() {
                             tracing::warn!(
                                 error = %e,
                                 "failed to emit plugin notify event"
+                            );
+                        }
+                    }
+                });
+                let log_handle = app.handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    while let Some(event) = log_rx.recv().await {
+                        if let Err(e) = log_handle.emit("plugin-log", &event) {
+                            tracing::warn!(
+                                error = %e,
+                                "failed to emit plugin log event"
                             );
                         }
                     }

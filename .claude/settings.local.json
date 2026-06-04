@@ -88,7 +88,8 @@
       "Bash(sed -n '1,40p' src/commands/query.rs)",
       "Bash(sed -n '195,212p' src/workspace.rs)",
       "Bash(xargs -I{} git ls-tree -r --name-only {})",
-      "Bash(rustup target *)"
+      "Bash(rustup target *)",
+      "Bash(xargs cat)"
     ]
   }
 }

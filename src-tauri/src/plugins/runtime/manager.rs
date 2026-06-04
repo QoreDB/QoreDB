@@ -30,8 +30,8 @@ use tokio::sync::Semaphore;
 
 use super::{
     capabilities, storage, Budget, CapabilityKind, Decision, HookContext, InvocationServices,
-    NotifyEvent, NotifyLevel, NotifySender, PluginInstance, PluginRuntime, PluginStorage,
-    PostExecuteResult, QueryReadPayload, WasmiRuntime,
+    LogEvent, LogSender, NotifyEvent, NotifyLevel, NotifySender, PluginInstance, PluginRuntime,
+    PluginStorage, PostExecuteResult, QueryReadPayload, WasmiRuntime,
 };
 use crate::plugins::{plugins_dir, registry, PluginContributions};
 
@@ -64,6 +64,7 @@ type SharedInstance = Arc<Mutex<Box<dyn PluginInstance>>>;
 pub struct PluginHost {
     runtime: Arc<dyn PluginRuntime>,
     notify: Mutex<Option<NotifySender>>,
+    log: Mutex<Option<LogSender>>,
     /// Per-plugin mutex so distinct plugins run their hooks concurrently.
     instances: Mutex<HashMap<String, SharedInstance>>,
     /// Consecutive hook-failure count per plugin id; reset on success,
@@ -79,6 +80,7 @@ impl PluginHost {
         Self {
             runtime: Arc::new(WasmiRuntime::new()),
             notify: Mutex::new(None),
+            log: Mutex::new(None),
             instances: Mutex::new(HashMap::new()),
             failures: Mutex::new(HashMap::new()),
             post_queue: Arc::new(Semaphore::new(POST_EXECUTE_QUEUE_DEPTH)),
@@ -92,12 +94,19 @@ impl PluginHost {
         *lock_recover(&self.notify, "notify") = Some(sender);
     }
 
+    /// Wires the sender lifecycle and plugin log lines are pushed to. Must be
+    /// set before the reload whose loads should appear in the log.
+    pub fn set_log_sender(&self, sender: LogSender) {
+        *lock_recover(&self.log, "log") = Some(sender);
+    }
+
     /// Rescans the plugins directory and (re)loads every enabled, compatible
     /// executable plugin. Single invalidation point for the contributions
     /// cache: install / remove / enable / disable / consent all funnel here.
     pub fn reload(&self) {
         let dir = plugins_dir();
         let notify = lock_recover(&self.notify, "notify").clone();
+        let log = lock_recover(&self.log, "log").clone();
         let mut instances = lock_recover(&self.instances, "instances");
         instances.clear();
         lock_recover(&self.failures, "failures").clear();
@@ -120,6 +129,12 @@ impl PluginHost {
                         error = %e,
                         "could not read plugin WASM module"
                     );
+                    emit_log(
+                        &log,
+                        &plugin.manifest.id,
+                        NotifyLevel::Error,
+                        format!("could not read module: {e}"),
+                    );
                     continue;
                 }
             };
@@ -130,6 +145,12 @@ impl PluginHost {
                         plugin = %plugin.manifest.id,
                         error = %e,
                         "plugin integrity check failed; refusing to load"
+                    );
+                    emit_log(
+                        &log,
+                        &plugin.manifest.id,
+                        NotifyLevel::Error,
+                        format!("integrity check failed: {e}"),
                     );
                     continue;
                 }
@@ -145,6 +166,8 @@ impl PluginHost {
             .collect();
             let effective: BTreeSet<CapabilityKind> =
                 consent.intersection(&requested).copied().collect();
+            let granted_count = effective.len();
+            let requested_count = requested.len();
 
             let storage_path = storage::storage_path(&dir, &plugin.dir_name);
             // Read from the manifest, never from the consent file: a tampered
@@ -172,6 +195,7 @@ impl PluginHost {
                 consent: Arc::new(effective),
                 storage: Arc::new(PluginStorage::new(storage_path)),
                 notify: notify.clone(),
+                log: log.clone(),
                 query_result: None,
                 http_allowed_hosts: Arc::new(http_allowed_hosts),
                 http_allow_private_networks,
@@ -190,12 +214,24 @@ impl PluginHost {
                         plugin.manifest.id.clone(),
                         Arc::new(Mutex::new(instance)),
                     );
+                    emit_log(
+                        &log,
+                        &plugin.manifest.id,
+                        NotifyLevel::Info,
+                        format!("loaded — {granted_count}/{requested_count} capabilities granted"),
+                    );
                 }
                 Err(e) => {
                     tracing::warn!(
                         plugin = %plugin.manifest.id,
                         error = %e,
                         "could not load plugin"
+                    );
+                    emit_log(
+                        &log,
+                        &plugin.manifest.id,
+                        NotifyLevel::Error,
+                        format!("failed to load: {e}"),
                     );
                 }
             }
@@ -395,6 +431,14 @@ impl PluginHost {
             reason = reason,
             "plugin unloaded after repeated hook failures"
         );
+        emit_log(
+            &lock_recover(&self.log, "log").clone(),
+            plugin_id,
+            NotifyLevel::Error,
+            format!(
+                "unloaded after {CIRCUIT_BREAKER_THRESHOLD} consecutive failures: {reason}"
+            ),
+        );
         self.emit_notify(NotifyEvent {
             plugin_id: plugin_id.to_string(),
             level: NotifyLevel::Warning,
@@ -460,6 +504,18 @@ impl Default for PluginHost {
 enum HookOutcome<T> {
     Ok(T),
     Failed(String),
+}
+
+/// Sends a log line if the channel is wired. Shared by `reload` (which holds a
+/// cloned sender) and the lifecycle paths. A no-op in headless tests.
+fn emit_log(sender: &Option<LogSender>, plugin_id: &str, level: NotifyLevel, message: String) {
+    if let Some(sender) = sender {
+        let _ = sender.send(LogEvent {
+            plugin_id: plugin_id.to_string(),
+            level,
+            message,
+        });
+    }
 }
 
 fn verify_integrity(wasm: &[u8], expected: &str) -> Result<(), String> {

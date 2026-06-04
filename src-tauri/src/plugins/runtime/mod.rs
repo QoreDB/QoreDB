@@ -97,6 +97,21 @@ pub enum NotifyLevel {
 /// task that drains this channel and emits Tauri events to the webview.
 pub type NotifySender = UnboundedSender<NotifyEvent>;
 
+/// A log line either emitted by a plugin (via `qoredb_log`) or produced by the
+/// host for a lifecycle event (load, capability refusal, circuit-breaker
+/// unload). Unlike [`NotifyEvent`] these are not toasts — the app accumulates
+/// them per plugin so the detail view can show what an extension is doing.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LogEvent {
+    pub plugin_id: String,
+    pub level: NotifyLevel,
+    pub message: String,
+}
+
+/// Sender end of the runtime → app log channel. Mirrors [`NotifySender`].
+pub type LogSender = UnboundedSender<LogEvent>;
+
 /// Per-invocation services snapshotted into the `Store::data` so host
 /// functions can read them via `Caller::data()`.
 #[derive(Clone)]
@@ -105,6 +120,9 @@ pub struct InvocationServices {
     pub consent: Arc<BTreeSet<CapabilityKind>>,
     pub storage: Arc<PluginStorage>,
     pub notify: Option<NotifySender>,
+    /// Channel for log lines (plugin `qoredb_log` calls and host-side
+    /// capability refusals). `None` in headless tests / early startup.
+    pub log: Option<LogSender>,
     /// `None` outside `postExecute` or when `queryRead` isn't granted.
     pub query_result: Option<Arc<QueryReadPayload>>,
     pub http_allowed_hosts: Arc<Vec<String>>,

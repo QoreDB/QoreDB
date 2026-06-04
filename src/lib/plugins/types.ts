@@ -133,6 +133,26 @@ export interface PluginNotifyEvent {
   code?: string;
 }
 
+/** Tauri event payload emitted on `plugin-log` — a log line from a plugin's
+ *  `qoredb_log` call or a host lifecycle event (load, capability refusal,
+ *  circuit-breaker unload). Mirror of `LogEvent` (Rust). */
+export interface PluginLogEvent {
+  pluginId: string;
+  level: 'info' | 'success' | 'warning' | 'error';
+  message: string;
+}
+
+/** A `plugin-log` entry as kept client-side, stamped with arrival time so the
+ *  detail view can show when each line landed. */
+export interface PluginLogEntry {
+  /** Monotonic client-side id; stable React key (timestamps can collide). */
+  id: number;
+  level: PluginLogEvent['level'];
+  message: string;
+  /** `Date.now()` when the entry was received. */
+  time: number;
+}
+
 /** Runtime status of an executable plugin, mirror of `PluginRuntimeStatus`
  *  (Rust). Powers the "inert" / "disabled after errors" badges. */
 export interface PluginRuntimeStatus {

@@ -3020,7 +3020,6 @@
   },
   "pluginLauncher": {
     "tooltip": "Plugins",
-    "themes": "Themes",
     "themeDefault": "Standard-Theme",
     "active": "Aktive Plugins",
     "manage": "Plugins verwalten…",

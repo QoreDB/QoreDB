@@ -3020,7 +3020,6 @@
   },
   "pluginLauncher": {
     "tooltip": "プラグイン",
-    "themes": "テーマ",
     "themeDefault": "デフォルトテーマ",
     "active": "アクティブなプラグイン",
     "manage": "プラグインを管理…",

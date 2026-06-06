@@ -3020,7 +3020,6 @@
   },
   "pluginLauncher": {
     "tooltip": "Complementos",
-    "themes": "Temas",
     "themeDefault": "Tema predeterminado",
     "active": "Complementos activos",
     "manage": "Gestionar complementos…",

@@ -90,7 +90,8 @@
       "Bash(xargs -I{} git ls-tree -r --name-only {})",
       "Bash(rustup target *)",
       "Bash(xargs cat)",
-      "Bash(wasm-objdump -x /home/raphael/dev/perso/qoredb-plugins-registry/plugins/qoredb.danger-guard/1.0.0/qoredb_danger_guard.wasm)"
+      "Bash(wasm-objdump -x /home/raphael/dev/perso/qoredb-plugins-registry/plugins/qoredb.danger-guard/1.0.0/qoredb_danger_guard.wasm)",
+      "Bash(cargo search *)"
     ]
   }
 }

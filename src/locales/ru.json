@@ -3020,7 +3020,6 @@
   },
   "pluginLauncher": {
     "tooltip": "Плагины",
-    "themes": "Темы",
     "themeDefault": "Тема по умолчанию",
     "active": "Активные плагины",
     "manage": "Управление плагинами…",

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { listen, type UnlistenFn } from '@/lib/transport';
+import { isWeb, listen, type UnlistenFn } from '@/lib/transport';
 import { check } from '@tauri-apps/plugin-updater';
 import {
   createContext,
@@ -192,6 +192,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   // Check for updates on startup
   useEffect(() => {
+    if (isWeb) return;
     if (!import.meta.env.PROD) return;
     if (!shouldCheckUpdatesOnStartup()) return;
 
@@ -349,11 +350,6 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setDriver(connection.driver as Driver);
       setActiveConnection(connection);
       setSettingsOpen(false);
-      // Recovery / restore flow → reset tabs to the provided bundle.
-      // Plain connection switch (no options.tabs) → preserve existing tabs so
-      // tabs from other connections stay visible (Tab Groups by Connection),
-      // and move the active tab to one belonging to the new connection (or
-      // null when there is none — UI falls back to the connection dashboard).
       if (options?.tabs !== undefined) {
         resetTabs({
           initialTabs: options.tabs,

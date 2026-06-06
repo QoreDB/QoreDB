@@ -36,23 +36,25 @@ Avant de proposer du neuf : une grande partie de la fondation existe déjà. Ce 
 | Brique proposée | État | Réalité du code |
 | --- | --- | --- |
 | Moteur découplé (`qore-core`, `qore-drivers`, `qore-query`) | ✅ **Acquis** | `DataEngine` (`crates/qore-core/src/traits.rs`), zéro Tauri. Workspace propre. |
-| Couche de service `qore-service` | ⚠️ **Partiel** | Le moteur est extrait, mais la **logique métier est encore inline dans `commands/`** (`commands/query.rs` ≈ 2320 lignes). C'est cette extraction-là qui reste à faire. |
+| Couche de service `qore-service` | ✅ **Acquis** | Extraction faite : `crates/qore-service` porte connexion, query (`preflight` + `execute` streaming inclus), mutation preflight, cache, policy, ratelimit, metrics, interceptor, license, vault, governance. `commands/query.rs` réduit à ≈ **1658 lignes** (bridge vers les free functions). |
 | Serveur HTTP | ✅ **Acquis (à étendre)** | **« Instant API »** (`src/api/`, axum + tower) : serveur local read-only, TLS auto-signé, auth bearer token, rate limiting, OpenAPI. `qore-server` se **greffe dessus**. |
-| Policy engine | ⚠️ **Partiel** | `src/policy.rs` : `SafetyPolicy` (confirmation prod, blocage SQL dangereux, limites durée/lignes/concurrence). Pas de masking colonne, pas d'ABAC. |
-| Rate limiting | ✅ **Acquis** | `src/ratelimit.rs` (token bucket par session) + `src/api/rate_limit.rs`. In-memory. |
-| Observability / metrics | ⚠️ **Partiel** | `src/observability.rs` (tracing + logs roulants), `src/metrics.rs` (compteurs in-memory). **Pas de Prometheus.** |
-| License tiers | ✅ **Acquis (à exploiter)** | `LicenseTier { Core, Pro, Team, Enterprise }` + vérif Ed25519 (`src/license/`). **Le tier `Enterprise` existe déjà** — il manque les features gated dessus et la notion de **sièges / licence serveur**. |
-| Audit log | ⚠️ **Partiel** | `src/interceptor/audit.rs` : JSONL append-only + rotation + ring buffer. **Pas de chaînage par hash** → la tamper-evidence est le travail neuf. |
-| Redaction / masking | ⚠️ **Partiel** | `src/interceptor/redaction.rs` (redaction des requêtes dans l'audit) + redaction PII du schéma avant envoi LLM. **Pas de masking des résultats** au niveau colonne. |
+| Policy engine | ⚠️ **Partiel** | `crates/qore-service/src/policy.rs` : `SafetyPolicy` (confirmation prod, blocage SQL dangereux, limites durée/lignes/concurrence). Pas de masking colonne, pas d'ABAC. |
+| Rate limiting | ✅ **Acquis** | `crates/qore-service/src/ratelimit.rs` (token bucket par session) + `src/api/rate_limit.rs`. In-memory. |
+| Observability / metrics | ⚠️ **Partiel** | `src/observability.rs` (tracing + logs roulants, resté dans l'app), `crates/qore-service/src/metrics.rs` (compteurs in-memory). **Pas de Prometheus.** |
+| License tiers | ✅ **Acquis (à exploiter)** | `LicenseTier { Core, Pro, Team, Enterprise }` + vérif Ed25519 (`crates/qore-service/src/license/`). **Le tier `Enterprise` existe déjà** — il manque les features gated dessus et la notion de **sièges / licence serveur**. |
+| Audit log | ⚠️ **Partiel** | `crates/qore-service/src/interceptor/audit.rs` : JSONL append-only + rotation + ring buffer. **Pas de chaînage par hash** → la tamper-evidence est le travail neuf. |
+| Redaction / masking | ⚠️ **Partiel** | `crates/qore-service/src/interceptor/redaction.rs` (redaction des requêtes dans l'audit) + redaction PII du schéma avant envoi LLM. **Pas de masking des résultats** au niveau colonne. |
 | Federation (cross-source) | ✅ **Acquis** | `src/federation/` : JOIN multi-connexions via DuckDB éphémère. Premium, complet. |
 | RBAC / rôles / permissions | ❌ **Greenfield** | Aucun concept de rôle. Accès par `SessionId` (UUID), pas par utilisateur. |
 | SSO / SAML / OIDC / SCIM | ❌ **Greenfield** | Zéro. Seul `src/api/auth.rs` fait du bearer token pour l'Instant API. |
 | Multi-utilisateur / comptes | ❌ **Greenfield** | Un seul workspace local, pas de compte ni de tenant. |
-| MCP server | ❌ **Greenfield** | Aucune intégration MCP. |
-| CLI / TUI | ❌ **Greenfield** | Aucun binaire CLI utilisateur. |
-| Abstraction transport frontend | ❌ **Greenfield** | **148 appels `invoke()` directs** disséminés dans `src/` (pas seulement `tauri.ts`). Couplage Tauri profond. |
+| MCP server | ✅ **Acquis** | `crates/qore-mcp` (rmcp 1.7, stdio, 5 outils read-only) sur le même vault. Lecture en Core. |
+| CLI / TUI | ⚠️ **Partiel** | CLI faite (`crates/qore-cli`, binaire `qore`, clap, sortie JSON). **TUI** (ratatui) pas encore. |
+| Abstraction transport frontend | ✅ **Acquis** | `src/lib/transport.ts` (`isWeb`, `invoke` Tauri/HTTP, `webExecuteQuery` SSE, shim `listen`). **27 fichiers** basculés vers le transport (le « 148 » comptait les *appels*, pas les imports). Boot navigateur vérifié headless. |
 
-**Lecture** : le backend est déjà à ~40 % « platform-ready » (moteur extrait, serveur HTTP, audit, tiers de licence, federation). Les chantiers réellement neufs sont l'**identité/RBAC/multi-utilisateur**, les **surfaces** (MCP, CLI), et le **découplage transport du frontend**. Les jalons ci-dessous référencent l'existant à étendre plutôt que de tout reconstruire.
+> ⚠️ Cette table était la photo de l'existant **avant** les Jalons 0-4. Elle a été **rafraîchie après le Jalon 4** : les lignes marquées ✅ (qore-service, MCP, CLI, transport) sont désormais faites ; les chemins pointent vers `crates/qore-service/` après extraction.
+
+**Lecture (post-Jalon 4)** : la fondation est désormais bien plus avancée — `qore-service` extrait, surfaces **MCP** et **CLI** livrées, **transport frontend** + `qore-server` v0 (bridge HTTP/SSE) en place, **boot navigateur vérifié**. Les chantiers réellement neufs restants sont l'**identité/RBAC/multi-utilisateur** et la **gouvernance** (audit hash-chain, masking colonne) — les **piliers enterprise (Jalons 5-7)**, plus le durcissement complet du boot web. Les jalons ci-dessous référencent l'existant à étendre plutôt que de tout reconstruire.
 
 ---
 
@@ -217,23 +219,24 @@ Chaque jalon a un livrable et un **critère de vérification** clair. Estimation
 **Fait (CLI MVP)** : crate `src-tauri/crates/qore-cli` (Core/Apache-2.0, tauri-free), binaire `qore`, parser **clap**, sortie **JSON** stdout (erreurs sur stderr + exit code). Réutilise le socle de `qore-mcp` (`ServiceContext` + `VaultStorage` même keyring/config que le desktop + `preflight`/`execute`). Commandes : `connections`, `query`, `tables`, `describe`. Respecte le `read_only` de la connexion (comme le desktop, pas de forçage) ; gates de sécurité existants appliqués. **Validé en réel** : `qore connections` liste les vraies connexions sauvegardées du vault ; `qore query` se connecte/échoue proprement (DB locale down → timeout pool 15 s sanitizé). README fourni. Le glue vault/connect/exec est dupliqué avec `qore-mcp` (~40 lignes, 2 copies) — à factoriser dans `qore-service` si une 3ᵉ surface arrive.
 **Reste** : `export` depuis le terminal ; TUI (ratatui) ; mutations avec confirmation interactive.
 
-### Jalon 3 — Frontend transport-agnostique — split fait ✅ (interface Transport différée)
+### Jalon 3 — Frontend transport-agnostique — split fait ✅ (interface Transport faite au Jalon 4)
 **Livrable** : `tauri.ts` éclaté par domaine derrière l'interface `Transport` ; `TauriTransport` opérationnel ; `HttpTransport` en squelette.
 **Vérif** : le desktop tourne inchangé via `TauriTransport` ; aucun fichier transport > 500 lignes.
 **Estim.** : 4-6 j.
 
 **Fait (split)** : `src/lib/tauri.ts` (2040 lignes) éclaté en **14 modules domaine** sous `src/lib/tauri/` (`connection`, `query`, `schema-objects`, `schema-browse`, `transactions`, `mutations`, `data-io`, `logs`, `sandbox`, `search`, `maintenance`, `snapshots`, `workspace`, `time-travel`) + `types.ts` (22 types core partagés). `tauri.ts` devient un **barrel** (`export *`) → les **119 fichiers consommateurs (`@/lib/tauri`) sont inchangés**. Chaque module < 500 lignes (max 432). Convention déjà en place (`backup.ts`, `interceptor.ts` cohabitaient déjà, laissés hors barrel). Vérif : `tsc --noEmit` clean, `biome check` clean, `pnpm build` (tsc + vite) OK.
-**Reste (Transport, différé — non spéculatif quand le web arrivera)** : introduire l'interface `Transport` + `TauriTransport`/`HttpTransport`. Note : **148 appels `invoke()` directs** sont disséminés hors `tauri.ts` dans `src/` — c'est le vrai périmètre de l'abstraction transport, à faire au Jalon 4 (web) où le besoin devient concret.
+**Transport — FAIT au Jalon 4** : `src/lib/transport.ts` introduit `isWeb` + `invoke` générique (Tauri en desktop / `POST /api/invoke` en web) + `webExecuteQuery` (SSE) + un shim `listen` (no-op web). **27 fichiers** basculés de `@tauri-apps/api/*` vers `@/lib/transport` (le « 148 » comptait les *appels*, pas les imports). Desktop inchangé (`TauriTransport` = appel direct). Boot navigateur vérifié headless.
 
 ### Jalon 4 — `qore-server` v0 (mono-utilisateur, self-hosted) — fondation faite ✅
 **Décision** : crate standalone `src-tauri/crates/qore-server` (BUSL-1.1, bin `qore-server`) — **pas** l'extension de l'Instant API (loopback-only, gated pro, couplé Tauri). Réutilise les patterns (auth bearer, TLS, rate-limit) mais découplé.
 **Fait (fondation, compilé + smoke-testé)** :
 - **Backend** : axum, host:port configurable, `/health` public, middleware auth bearer (compare const-time), CORS permissive. **Modèle session-id** (comme le desktop) : `SessionManager` = registre, pas de cache par connexion. Bridge générique `POST /api/invoke` (miroir des commandes Tauri : `list_saved_connections`, `connect_saved_connection`, `disconnect`, `list_namespaces`, `list_collections`, `describe_table`, `query_table`, `execute_query` bufferisé) + **SSE** `POST /api/stream/execute_query`. Service du SPA (`QORE_SERVER_WEB_DIR`) avec injection du token (`window.__QORE_TOKEN__`).
 - **Frontend** : `src/lib/transport.ts` (`isWeb` via `window.__QORE_WEB__`, `invoke` générique → Tauri en desktop / `fetch /api/invoke` en web, `webExecuteQuery` SSE). Les **26 imports `invoke`** basculés vers le transport ; `query.ts` branche le web.
-- **Vérif** : `cargo check` + `tsc --noEmit` clean. Smoke curl : health=ok, 401/200 auth, `list_saved_connections` renvoie le vrai vault, commande inconnue → 400.
+- **Vérif** : `cargo check` + `tsc --noEmit` + `pnpm build` clean. Smoke curl : health=ok, 401/200 auth, `list_saved_connections` renvoie le vrai vault, commande inconnue → 400.
+- **Boot navigateur VÉRIFIÉ** (Chrome headless via CDP, page servie par qore-server) : l'app **monte réellement** (0 exception, 0 warning), affiche les **vraies connexions chargées via le bridge** (`pulse`, `tcg nexus`, `supabase`, `Clickhouse`) + l'empty-state. Crash bloquant trouvé+corrigé : `CustomTitlebar` appelait `getCurrentWindow()` au niveau module → garde `isWeb`. Durcissements : shim `listen` no-op web (9 fichiers), `WorkspaceProvider` skip détection FS en web, `SessionProvider` skip updater en web.
 - **Stockage** : réutilise le keyring (comme mcp/cli). Limite assumée : pas headless/Docker (→ Point 5).
-**Reste (durcissement, non fait)** : **boot navigateur complet** — des dizaines de chemins de démarrage (thème, licence, plugins, workspace…) appellent `invoke` et supposent Tauri ; il faut soit les bridger côté serveur, soit les rendre tolérants en web. C'est le gros du 10-15 j. Aussi : TLS activable, `query_table`/cache/policy déjà bridgés mais commandes non-cœur à compléter au besoin.
-**Estim. restante** : ~8-12 j (durcissement boot web).
+**Reste (durcissement)** : valider le parcours **connexion → requête → résultat** complet dans le navigateur (nécessite une DB live) ; bridger/garder les fonctionnalités non-cœur encore en erreur en web ; TLS activable ; packaging Docker + provider credentials chiffré (Point 5).
+**Estim. restante** : ~6-10 j (durcissement boot web + flows secondaires).
 
 ### Jalon 5 — Identité & accès (SSO/SAML/SCIM + RBAC)
 **Livrable** : OIDC + SAML, SCIM, rôles/permissions fins.

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { invoke } from '@tauri-apps/api/core';
+import { invoke } from '@/lib/transport';
 import type { Namespace, QueryResult, Value } from './types';
 
 // ============================================

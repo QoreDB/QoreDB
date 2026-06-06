@@ -9,7 +9,7 @@
  *  and the apex `qoredb.com` redirects to `www.qoredb.com` without CORS
  *  headers on the 307 — so a browser-side request would fail either way. */
 
-import { invoke } from '@tauri-apps/api/core';
+import { invoke } from '@/lib/transport';
 
 export type MarketplacePluginKind = 'declarative' | 'executable';
 export type MarketplaceHook = 'preExecute' | 'postExecute';

@@ -2,7 +2,7 @@
 
 /** Tauri bindings for the declarative plugin system. */
 
-import { invoke } from '@tauri-apps/api/core';
+import { invoke } from '@/lib/transport';
 import type {
   InstalledPlugin,
   PluginCapabilityKind,

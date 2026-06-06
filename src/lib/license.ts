@@ -3,7 +3,7 @@
 /**
  * License types and Tauri bindings for the Open Core licensing system.
  */
-import { invoke } from '@tauri-apps/api/core';
+import { invoke } from '@/lib/transport';
 
 // ============================================
 // TYPES (mirror Rust enums in license/status.rs)

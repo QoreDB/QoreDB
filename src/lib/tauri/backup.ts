@@ -8,7 +8,7 @@
  * Use {@link listenBackupProgress} to consume them.
  */
 
-import { invoke } from '@tauri-apps/api/core';
+import { invoke } from '@/lib/transport';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 
 export type BackupTool =

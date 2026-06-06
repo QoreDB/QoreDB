@@ -225,10 +225,15 @@ Chaque jalon a un livrable et un **critère de vérification** clair. Estimation
 **Fait (split)** : `src/lib/tauri.ts` (2040 lignes) éclaté en **14 modules domaine** sous `src/lib/tauri/` (`connection`, `query`, `schema-objects`, `schema-browse`, `transactions`, `mutations`, `data-io`, `logs`, `sandbox`, `search`, `maintenance`, `snapshots`, `workspace`, `time-travel`) + `types.ts` (22 types core partagés). `tauri.ts` devient un **barrel** (`export *`) → les **119 fichiers consommateurs (`@/lib/tauri`) sont inchangés**. Chaque module < 500 lignes (max 432). Convention déjà en place (`backup.ts`, `interceptor.ts` cohabitaient déjà, laissés hors barrel). Vérif : `tsc --noEmit` clean, `biome check` clean, `pnpm build` (tsc + vite) OK.
 **Reste (Transport, différé — non spéculatif quand le web arrivera)** : introduire l'interface `Transport` + `TauriTransport`/`HttpTransport`. Note : **148 appels `invoke()` directs** sont disséminés hors `tauri.ts` dans `src/` — c'est le vrai périmètre de l'abstraction transport, à faire au Jalon 4 (web) où le besoin devient concret.
 
-### Jalon 4 — `qore-server` v0 (mono-utilisateur, self-hosted)
-**Livrable** : **extension du serveur Instant API existant** (`src/api/`) vers un serveur full hébergeant `qore-service` + broker de sessions DB côté serveur + service du frontend web ; auth locale ; métadonnées en SQLite/Postgres ; docker-compose.
-**Vérif** : se connecter depuis un navigateur, ouvrir une connexion DB, exécuter une requête, voir le résultat — parité avec le desktop sur les opérations cœur.
-**Estim.** : 10-15 j.
+### Jalon 4 — `qore-server` v0 (mono-utilisateur, self-hosted) — fondation faite ✅
+**Décision** : crate standalone `src-tauri/crates/qore-server` (BUSL-1.1, bin `qore-server`) — **pas** l'extension de l'Instant API (loopback-only, gated pro, couplé Tauri). Réutilise les patterns (auth bearer, TLS, rate-limit) mais découplé.
+**Fait (fondation, compilé + smoke-testé)** :
+- **Backend** : axum, host:port configurable, `/health` public, middleware auth bearer (compare const-time), CORS permissive. **Modèle session-id** (comme le desktop) : `SessionManager` = registre, pas de cache par connexion. Bridge générique `POST /api/invoke` (miroir des commandes Tauri : `list_saved_connections`, `connect_saved_connection`, `disconnect`, `list_namespaces`, `list_collections`, `describe_table`, `query_table`, `execute_query` bufferisé) + **SSE** `POST /api/stream/execute_query`. Service du SPA (`QORE_SERVER_WEB_DIR`) avec injection du token (`window.__QORE_TOKEN__`).
+- **Frontend** : `src/lib/transport.ts` (`isWeb` via `window.__QORE_WEB__`, `invoke` générique → Tauri en desktop / `fetch /api/invoke` en web, `webExecuteQuery` SSE). Les **26 imports `invoke`** basculés vers le transport ; `query.ts` branche le web.
+- **Vérif** : `cargo check` + `tsc --noEmit` clean. Smoke curl : health=ok, 401/200 auth, `list_saved_connections` renvoie le vrai vault, commande inconnue → 400.
+- **Stockage** : réutilise le keyring (comme mcp/cli). Limite assumée : pas headless/Docker (→ Point 5).
+**Reste (durcissement, non fait)** : **boot navigateur complet** — des dizaines de chemins de démarrage (thème, licence, plugins, workspace…) appellent `invoke` et supposent Tauri ; il faut soit les bridger côté serveur, soit les rendre tolérants en web. C'est le gros du 10-15 j. Aussi : TLS activable, `query_table`/cache/policy déjà bridgés mais commandes non-cœur à compléter au besoin.
+**Estim. restante** : ~8-12 j (durcissement boot web).
 
 ### Jalon 5 — Identité & accès (SSO/SAML/SCIM + RBAC)
 **Livrable** : OIDC + SAML, SCIM, rôles/permissions fins.

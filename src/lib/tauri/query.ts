@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { decode as msgpackDecode } from '@msgpack/msgpack';
-import { Channel, invoke } from '@tauri-apps/api/core';
+import { Channel } from '@tauri-apps/api/core';
+import { invoke, isWeb, webExecuteQuery } from '@/lib/transport';
 import type { ForeignKey } from './schema-browse';
 import type { CollectionList, ColumnInfo, Namespace, QueryResult, Row, Value } from './types';
 
@@ -81,6 +82,9 @@ export async function executeQuery(
   truncated?: boolean;
   truncated_total?: number;
 }> {
+  if (isWeb) {
+    return webExecuteQuery(sessionId, query, options);
+  }
   // The Rust command always expects an `on_stream` Channel — even for
   // non-streaming calls the arg is required. Create one with the caller's
   // handlers (empty object if none).

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+import { listen, type UnlistenFn } from '@/lib/transport';
 import { ChevronUp, Database, Globe, Plus, Search, ShieldCheck, Sparkles } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';

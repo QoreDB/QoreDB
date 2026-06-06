@@ -9,7 +9,7 @@
  */
 
 import { invoke } from '@/lib/transport';
-import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+import { listen, type UnlistenFn } from '@/lib/transport';
 
 export type BackupTool =
   | 'pg_dump'

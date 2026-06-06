@@ -8,7 +8,7 @@
  */
 
 import { invoke } from '@/lib/transport';
-import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+import { listen, type UnlistenFn } from '@/lib/transport';
 
 import type { Contract, ContractMeta, ContractRun, RuleResult } from './types';
 

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { listen } from '@tauri-apps/api/event';
+import { listen } from '@/lib/transport';
 import {
   createContext,
   type ReactNode,

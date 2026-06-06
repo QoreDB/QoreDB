@@ -1,8 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { invoke as tauriInvoke } from '@tauri-apps/api/core';
+import {
+  type Event as TauriEvent,
+  listen as tauriListen,
+  type UnlistenFn,
+} from '@tauri-apps/api/event';
 import type { QueryStreamHandlers } from './tauri/query';
 import type { Namespace, QueryResult } from './tauri/types';
+
+export type { UnlistenFn };
 
 interface WebGlobals {
   __QORE_WEB__?: boolean;
@@ -14,6 +21,16 @@ function globals(): WebGlobals {
 }
 
 export const isWeb = globals().__QORE_WEB__ === true;
+
+export function listen<T = unknown>(
+  event: string,
+  handler: (event: TauriEvent<T>) => void
+): Promise<UnlistenFn> {
+  if (!isWeb) {
+    return tauriListen<T>(event, handler);
+  }
+  return Promise.resolve(() => {});
+}
 
 function authHeaders(): Record<string, string> {
   return {

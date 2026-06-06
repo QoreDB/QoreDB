@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+import { listen, type UnlistenFn } from '@/lib/transport';
 import { check } from '@tauri-apps/plugin-updater';
 import {
   createContext,

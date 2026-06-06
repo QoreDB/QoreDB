@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: Apache-2.0
+[package]
+name = "qoredb-slow-query-toast"
+version = "1.0.0"
+edition = "2021"
+license = "Apache-2.0"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+qoredb-plugin-sdk = { path = "../qoredb-plugin-sdk" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

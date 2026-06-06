@@ -37,13 +37,13 @@ export const PluginCellRenderer = memo(function PluginCellRenderer({
     case 'image':
       return <ImageCell value={value} formatted={formatted} />;
     case 'chart':
-      return <ChartCell value={value} formatted={formatted} />;
+      return <ChartCell value={value} formatted={formatted} options={viewer.options} />;
     case 'color':
       return <ColorCell value={value} formatted={formatted} />;
     case 'boolean':
       return <BooleanCell value={value} formatted={formatted} />;
     case 'bytes':
-      return <BytesCell value={value} formatted={formatted} />;
+      return <BytesCell value={value} formatted={formatted} options={viewer.options} />;
     case 'map':
       return <MapFallbackCell formatted={formatted} />;
   }
@@ -123,12 +123,25 @@ function parseChartPayload(value: unknown): ParsedChart | null {
   return { type: payload.type, data: payload.data };
 }
 
-function ChartCell({ value, formatted }: { value: unknown; formatted: string }) {
+const CHART_KINDS: ChartKind[] = ['bar', 'line', 'area'];
+
+function ChartCell({
+  value,
+  formatted,
+  options,
+}: {
+  value: unknown;
+  formatted: string;
+  options?: Record<string, unknown>;
+}) {
   const payload = useMemo(() => parseChartPayload(value), [value]);
   if (!payload) {
     return <span className="block truncate text-muted-foreground">{formatted}</span>;
   }
-  const kind: ChartKind = payload.type ?? 'bar';
+  // Per-cell payload wins; the viewer's `options.type` sets the pack-wide
+  // default; bar is the final fallback.
+  const optionKind = CHART_KINDS.find(k => k === options?.type);
+  const kind: ChartKind = payload.type ?? optionKind ?? 'bar';
   // Infer the numeric key from the first row so plugins don't have to commit
   // to a specific field name. `name` is conventional for the X axis.
   const sample = payload.data[0];
@@ -221,24 +234,34 @@ function BooleanCell({ value, formatted }: { value: unknown; formatted: string }
 
 const BYTE_UNITS = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
 
-/** Humanizes a byte count (1024-based). Returns `null` for non-finite input. */
-function humanizeBytes(bytes: number): string | null {
+/** Humanizes a byte count. `step` is 1024 (binary) or 1000 (decimal). Returns
+ *  `null` for non-finite input. */
+function humanizeBytes(bytes: number, step: number): string | null {
   if (!Number.isFinite(bytes)) return null;
   const sign = bytes < 0 ? '-' : '';
   let n = Math.abs(bytes);
   let unit = 0;
-  while (n >= 1024 && unit < BYTE_UNITS.length - 1) {
-    n /= 1024;
+  while (n >= step && unit < BYTE_UNITS.length - 1) {
+    n /= step;
     unit += 1;
   }
   const rounded = unit === 0 ? n : Math.round(n * 100) / 100;
   return `${sign}${rounded} ${BYTE_UNITS[unit]}`;
 }
 
-function BytesCell({ value, formatted }: { value: unknown; formatted: string }) {
+function BytesCell({
+  value,
+  formatted,
+  options,
+}: {
+  value: unknown;
+  formatted: string;
+  options?: Record<string, unknown>;
+}) {
+  const step = options?.base === 'decimal' ? 1000 : 1024;
   const raw =
     typeof value === 'string' ? (value.trim() === '' ? null : Number(value.trim())) : value;
-  const size = typeof raw === 'number' ? humanizeBytes(raw) : null;
+  const size = typeof raw === 'number' ? humanizeBytes(raw, step) : null;
   if (size === null) {
     return <span className="block truncate text-muted-foreground">{formatted}</span>;
   }

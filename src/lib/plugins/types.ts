@@ -34,7 +34,14 @@ export interface ThemeContribution {
 }
 
 /** Built-in renderers a viewer contribution may select. */
-export type ViewerRenderer = 'json-tree' | 'image' | 'map' | 'chart';
+export type ViewerRenderer =
+  | 'json-tree'
+  | 'image'
+  | 'map'
+  | 'chart'
+  | 'color'
+  | 'boolean'
+  | 'bytes';
 
 /** What QoreDB matches a result column against to pick a viewer. At least
  *  one of `columnType` / `namePattern` must be set. */

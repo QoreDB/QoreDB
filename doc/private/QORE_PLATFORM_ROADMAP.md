@@ -234,14 +234,25 @@ Chaque jalon a un livrable et un **critère de vérification** clair. Estimation
 - **Frontend** : `src/lib/transport.ts` (`isWeb` via `window.__QORE_WEB__`, `invoke` générique → Tauri en desktop / `fetch /api/invoke` en web, `webExecuteQuery` SSE). Les **26 imports `invoke`** basculés vers le transport ; `query.ts` branche le web.
 - **Vérif** : `cargo check` + `tsc --noEmit` + `pnpm build` clean. Smoke curl : health=ok, 401/200 auth, `list_saved_connections` renvoie le vrai vault, commande inconnue → 400.
 - **Boot navigateur VÉRIFIÉ** (Chrome headless via CDP, page servie par qore-server) : l'app **monte réellement** (0 exception, 0 warning), affiche les **vraies connexions chargées via le bridge** (`pulse`, `tcg nexus`, `supabase`, `Clickhouse`) + l'empty-state. Crash bloquant trouvé+corrigé : `CustomTitlebar` appelait `getCurrentWindow()` au niveau module → garde `isWeb`. Durcissements : shim `listen` no-op web (9 fichiers), `WorkspaceProvider` skip détection FS en web, `SessionProvider` skip updater en web.
-- **Stockage** : réutilise le keyring (comme mcp/cli). Limite assumée : pas headless/Docker (→ Point 5).
-**Reste (durcissement)** : valider le parcours **connexion → requête → résultat** complet dans le navigateur (nécessite une DB live) ; bridger/garder les fonctionnalités non-cœur encore en erreur en web ; TLS activable ; packaging Docker + provider credentials chiffré (Point 5).
+- **Stockage** : keyring par défaut (comme mcp/cli) **+ provider fichier chiffré** (Point 5 ✅) pour headless/Docker — `EncryptedFileProvider` (XChaCha20Poly1305, clé dérivée Argon2id depuis `QORE_VAULT_KEY`), factory `vault::backend::default_provider()` choisie par env, 3 tests. **Packaging Docker** : `Dockerfile` multi-stage (SPA + binaire, runtime debian-slim, rustls → zéro OpenSSL système) + `docker-compose.server.yml` + `.dockerignore`, volume `/data`.
+**Durcissement web (en cours)** : liens externes web-aware — `openExternal` dans `transport.ts` (Tauri `openUrl` en desktop / `window.open` en web), 6 fichiers basculés (upgrade/pricing/activation/discovery/share/newsletter). Restent en erreur call-time en web : surface `dialog`+`fs` (pickers/FS — features secondaires, nécessite une UX web : download navigateur / `<input file>`) ; `updater`/`process` (no-op web, call-time seulement, pas bloquant boot).
+**Reste (durcissement)** : valider le parcours **connexion → requête → résultat** complet dans le navigateur (nécessite une DB live) ; TLS activable ; surface `dialog`/`fs` web. (Point 5 packaging Docker + provider chiffré ✅.)
 **Estim. restante** : ~6-10 j (durcissement boot web + flows secondaires).
 
 ### Jalon 5 — Identité & accès (SSO/SAML/SCIM + RBAC)
 **Livrable** : OIDC + SAML, SCIM, rôles/permissions fins.
 **Vérif** : login SSO via Keycloak de test ; un rôle restreint l'accès à une connexion ; SCIM provisionne et déprovisionne un utilisateur.
 **Estim.** : 10-15 j.
+
+**Slice 1 — Identité + RBAC local (backend) — FAIT ✅** (tout dans `qore-server`, BUSL-1.1) :
+- **Control plane SQLite** (`controlplane/store.rs`, sqlx) : tables `users / roles / user_roles / connection_grants`, schéma auto-créé sous `<config_dir>/control.db`, résolution des grants effectifs (write > read entre rôles), seed admin via `QORE_ADMIN_EMAIL`/`QORE_ADMIN_PASSWORD`.
+- **Auth** (`controlplane/auth.rs`) : hash/verify Argon2 + JWT HS256 (signé avec le token serveur, TTL 12 h). `POST /api/auth/login` (public) → JWT.
+- **Modèle** : `GrantLevel{read,write}`, `AuthContext{Admin|User{grants}}`. Middleware : token partagé → **Admin**, JWT valide → **User** (grants chargés du store), injecté en extension.
+- **Provisioning admin** : `POST /api/admin/users|roles|assign|grants`, `GET /api/admin/users` (gardés admin → 403 sinon).
+- **Enforcement RBAC sur le bridge** : `list_saved_connections` filtré aux connexions accordées ; `connect_saved_connection` refusé sans grant, **forcé read-only** si grant = `read` (réutilise le read-only moteur). Écriture bloquée ensuite par le moteur read-only.
+- **Vérif** : 3 tests unitaires (store) + smoke HTTP end-to-end (login admin/bob, 401 sans token, 401 mauvais mot de passe, 403 bob sur route admin, liste filtrée, connect non-accordé refusé, seed au boot). ⚠️ `cargo test` ne régénère pas l'exécutable runtime — refaire `cargo build -p qore-server` avant tout smoke.
+
+**Reste** : UI login frontend (le serveur n'injecte plus un token privilégié ; le web passe par l'écran de login quand le multi-utilisateur est actif), puis **OIDC/SSO** (Keycloak), puis **SCIM**, puis **SAML**.
 
 ### Jalon 6 — Gouvernance (audit + masking/PII + policy)
 **Livrable** : **ajout du chaînage par hash** à l'audit existant + export ; **masking des résultats** au niveau colonne (au-delà de la redaction de logs déjà présente) ; read-only prod serveur ; extension du `policy.rs` existant.

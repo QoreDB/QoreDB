@@ -88,7 +88,9 @@
       "Bash(rustup target *)",
       "Bash(xargs cat)",
       "Bash(cargo search *)",
-      "Bash(pnpm update *)"
+      "Bash(pnpm update *)",
+      "Bash(sed -n '40,50p' Cargo.toml)",
+      "Bash(sed -n '/\\\\[dependencies\\\\]/,/^\\\\[/p' crates/qore-server/Cargo.toml)"
     ]
   }
 }

@@ -2,6 +2,7 @@
 
 mod auth;
 mod config;
+mod controlplane;
 mod error;
 mod routes;
 mod session;
@@ -32,14 +33,13 @@ async fn serve_index(State(state): State<AppState>) -> Response {
         return StatusCode::NOT_FOUND.into_response();
     };
     match tokio::fs::read_to_string(dir.join("index.html")).await {
-        Ok(html) => Html(inject_token(&html, &state.config.token)).into_response(),
+        Ok(html) => Html(inject_web_flag(&html)).into_response(),
         Err(_) => StatusCode::NOT_FOUND.into_response(),
     }
 }
 
-fn inject_token(html: &str, token: &str) -> String {
-    let token_json = serde_json::to_string(token).unwrap_or_else(|_| "\"\"".to_string());
-    let script = format!("<script>window.__QORE_WEB__=true;window.__QORE_TOKEN__={token_json};</script>");
+fn inject_web_flag(html: &str) -> String {
+    let script = "<script>window.__QORE_WEB__=true;</script>";
     match html.find("</head>") {
         Some(pos) => format!("{}{}{}", &html[..pos], script, &html[pos..]),
         None => format!("{script}{html}"),
@@ -62,9 +62,19 @@ async fn main() {
     let addr = config.addr;
     let web_dir = config.web_dir.clone();
 
+    let control = match controlplane::ControlStore::open(&config.config_dir.join("control.db")).await
+    {
+        Ok(store) => store,
+        Err(e) => {
+            tracing::error!(error = %e, "failed to open control database");
+            std::process::exit(1);
+        }
+    };
+
     let state = AppState {
         ctx: Arc::new(ServiceContext::new()),
         config: Arc::new(config),
+        control,
     };
 
     let protected = routes::router().layer(middleware::from_fn_with_state(
@@ -74,6 +84,7 @@ async fn main() {
 
     let mut app = Router::new()
         .route("/health", get(health))
+        .merge(routes::public_router())
         .merge(protected);
 
     if let Some(dir) = web_dir {

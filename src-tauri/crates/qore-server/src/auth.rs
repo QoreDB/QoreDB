@@ -5,25 +5,41 @@ use axum::http::{header::AUTHORIZATION, StatusCode};
 use axum::middleware::Next;
 use axum::response::Response;
 
+use crate::controlplane::auth::verify_jwt;
+use crate::controlplane::AuthContext;
 use crate::state::AppState;
 
 pub async fn require_token(
     State(state): State<AppState>,
-    req: Request,
+    mut req: Request,
     next: Next,
 ) -> Result<Response, StatusCode> {
-    let provided = req
+    let token = req
         .headers()
         .get(AUTHORIZATION)
         .and_then(|v| v.to_str().ok())
-        .and_then(parse_bearer);
+        .and_then(parse_bearer)
+        .map(str::to_string);
 
-    match provided {
-        Some(token) if constant_time_eq(token.as_bytes(), state.config.token.as_bytes()) => {
-            Ok(next.run(req).await)
-        }
-        _ => Err(StatusCode::UNAUTHORIZED),
-    }
+    let Some(token) = token else {
+        return Err(StatusCode::UNAUTHORIZED);
+    };
+
+    let ctx = if constant_time_eq(token.as_bytes(), state.config.token.as_bytes()) {
+        AuthContext::Admin
+    } else if let Some(claims) = verify_jwt(&state.config.token, &token) {
+        let grants = state
+            .control
+            .user_grants(&claims.sub)
+            .await
+            .unwrap_or_default();
+        AuthContext::User { grants }
+    } else {
+        return Err(StatusCode::UNAUTHORIZED);
+    };
+
+    req.extensions_mut().insert(ctx);
+    Ok(next.run(req).await)
 }
 
 fn parse_bearer(header: &str) -> Option<&str> {

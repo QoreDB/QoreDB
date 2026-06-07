@@ -17,7 +17,7 @@ use crate::interceptor::InterceptorPipeline;
 use crate::license::LicenseManager;
 use crate::policy::SafetyPolicy;
 use crate::ratelimit::QueryRateLimiter;
-use crate::vault::backend::KeyringProvider;
+use crate::vault::backend::default_provider;
 use crate::vault::VaultLock;
 use crate::virtual_relations::VirtualRelationStore;
 
@@ -53,7 +53,7 @@ impl ServiceContext {
 
         let registry = Arc::new(registry);
         let session_manager = Arc::new(SessionManager::new(Arc::clone(&registry)));
-        let mut vault_lock = VaultLock::new(Box::new(KeyringProvider::new()));
+        let mut vault_lock = VaultLock::new(default_provider());
         let policy = SafetyPolicy::load();
         let query_manager = Arc::new(QueryManager::new());
 
@@ -64,7 +64,7 @@ impl ServiceContext {
             Arc::new(VirtualRelationStore::new(data_dir.join("virtual_relations")));
 
         let _ = vault_lock.auto_unlock_if_no_password();
-        let license_manager = LicenseManager::new(Box::new(KeyringProvider::new()));
+        let license_manager = LicenseManager::new(default_provider());
 
         Self {
             registry,

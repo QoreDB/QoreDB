@@ -1,13 +1,15 @@
 // SPDX-License-Identifier: BUSL-1.1
 
 use axum::extract::State;
-use axum::Json;
+use axum::{Extension, Json};
 use serde::Deserialize;
 use serde_json::{json, Value};
 
 use qore_core::{CollectionListOptions, Namespace, TableQueryOptions};
 
 use crate::config::QUERY_TIMEOUT_MS;
+use crate::controlplane::model::GrantLevel;
+use crate::controlplane::AuthContext;
 use crate::error::ApiError;
 use crate::session::{connect_saved, parse_session, storage};
 use crate::state::AppState;
@@ -21,14 +23,16 @@ pub struct InvokeRequest {
 
 pub async fn invoke(
     State(state): State<AppState>,
+    Extension(ctx): Extension<AuthContext>,
     Json(req): Json<InvokeRequest>,
 ) -> Result<Json<Value>, ApiError> {
     let args = req.args;
     match req.command.as_str() {
         "list_saved_connections" => {
-            let conns = storage(&state.config)
+            let mut conns = storage(&state.config)
                 .list_connections_full()
                 .map_err(|e| ApiError::internal(e.sanitized_message()))?;
+            conns.retain(|c| ctx.access(&c.id).is_some());
             serde_json::to_value(conns)
                 .map(Json)
                 .map_err(|e| ApiError::internal(e.to_string()))
@@ -36,10 +40,16 @@ pub async fn invoke(
 
         "connect_saved_connection" => {
             let connection_id = req_str(&args, "connectionId")?;
-            Ok(match connect_saved(&state, &connection_id).await {
-                Ok(sid) => Json(json!({ "success": true, "session_id": sid.0.to_string() })),
-                Err(e) => failure(e),
-            })
+            let Some(level) = ctx.access(&connection_id) else {
+                return Ok(failure("access denied for this connection"));
+            };
+            let force_read_only = level == GrantLevel::Read;
+            Ok(
+                match connect_saved(&state, &connection_id, force_read_only).await {
+                    Ok(sid) => Json(json!({ "success": true, "session_id": sid.0.to_string() })),
+                    Err(e) => failure(e),
+                },
+            )
         }
 
         "disconnect" => {

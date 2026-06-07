@@ -2,6 +2,7 @@
 
 pub mod backend;
 pub mod credentials;
+pub mod encrypted_file;
 pub mod lock;
 pub mod storage;
 

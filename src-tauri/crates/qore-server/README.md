@@ -20,12 +20,28 @@ carries it. The `SessionManager` is the registry — no per-connection cache.
 | `QORE_SERVER_PORT`   | `8088`             | Listen port.                                 |
 | `QORE_SERVER_TOKEN`  | _(generated)_      | Bearer token. If unset, one is generated and logged at startup. |
 | `QORE_SERVER_WEB_DIR`| _(none)_           | Path to the built frontend (`dist/`). When set, the SPA is served and the token is injected as `window.__QORE_TOKEN__`. |
-| `QOREDB_CONFIG_DIR`  | desktop config dir | Vault/config directory (same keyring as the desktop app). |
+| `QOREDB_CONFIG_DIR`  | desktop config dir | Connection metadata directory (`connections.json`).          |
+| `QORE_VAULT_KEY`     | _(none)_           | When set, credentials are stored in an **encrypted file** (XChaCha20Poly1305, key derived via Argon2id) instead of the OS keyring — required for headless/Docker. |
+| `QORE_VAULT_FILE`    | `<data_dir>/vault.enc` | Path of the encrypted credential file (used only when `QORE_VAULT_KEY` is set). |
 
-> The v0 reuses the desktop OS keyring for credentials (like `qore-mcp` /
-> `qore-cli`). This requires an OS secret service, so it does **not** work
-> headless/Docker yet — an encrypted-file credential provider comes with the
-> packaging step.
+> By default credentials use the OS keyring (like `qore-mcp` / `qore-cli`), which
+> needs an OS secret service and does **not** work headless. For Docker, set
+> `QORE_VAULT_KEY` (and optionally `QORE_VAULT_FILE`) to switch to the encrypted
+> file provider. Losing `QORE_VAULT_KEY` makes the stored credentials
+> unrecoverable.
+
+## Docker
+
+```bash
+export QORE_SERVER_TOKEN=$(openssl rand -hex 24)
+export QORE_VAULT_KEY=$(openssl rand -hex 32)
+docker compose -f docker-compose.server.yml up --build
+# open http://127.0.0.1:8088
+```
+
+The image (`Dockerfile` at the repo root) builds the SPA and the server, serves
+the frontend from `/app/web`, and persists `connections.json` + `vault.enc` to
+the `/data` volume. Credentials are encrypted with `QORE_VAULT_KEY`.
 
 ## API
 

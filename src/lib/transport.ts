@@ -6,6 +6,7 @@ import {
   listen as tauriListen,
   type UnlistenFn,
 } from '@tauri-apps/api/event';
+import { openUrl as tauriOpenUrl } from '@tauri-apps/plugin-opener';
 import type { QueryStreamHandlers } from './tauri/query';
 import type { Namespace, QueryResult } from './tauri/types';
 
@@ -13,7 +14,6 @@ export type { UnlistenFn };
 
 interface WebGlobals {
   __QORE_WEB__?: boolean;
-  __QORE_TOKEN__?: string;
 }
 
 function globals(): WebGlobals {
@@ -21,6 +21,29 @@ function globals(): WebGlobals {
 }
 
 export const isWeb = globals().__QORE_WEB__ === true;
+
+const TOKEN_STORAGE_KEY = 'qore_auth_token';
+
+function readStoredToken(): string {
+  if (typeof window === 'undefined') return '';
+  return window.sessionStorage?.getItem(TOKEN_STORAGE_KEY) ?? '';
+}
+
+let authToken = readStoredToken();
+
+export function setAuthToken(token: string | null): void {
+  authToken = token ?? '';
+  if (typeof window === 'undefined') return;
+  if (token) {
+    window.sessionStorage?.setItem(TOKEN_STORAGE_KEY, token);
+  } else {
+    window.sessionStorage?.removeItem(TOKEN_STORAGE_KEY);
+  }
+}
+
+export function isAuthenticated(): boolean {
+  return authToken !== '';
+}
 
 export function listen<T = unknown>(
   event: string,
@@ -32,11 +55,56 @@ export function listen<T = unknown>(
   return Promise.resolve(() => {});
 }
 
+export function openExternal(url: string): Promise<void> {
+  if (isWeb) {
+    window.open(url, '_blank', 'noopener,noreferrer');
+    return Promise.resolve();
+  }
+  return tauriOpenUrl(url);
+}
+
 function authHeaders(): Record<string, string> {
   return {
     'Content-Type': 'application/json',
-    Authorization: `Bearer ${globals().__QORE_TOKEN__ ?? ''}`,
+    Authorization: `Bearer ${authToken}`,
   };
+}
+
+export interface AuthStatus {
+  setupRequired: boolean;
+}
+
+export interface LoginResult {
+  token: string;
+  email: string;
+  isAdmin: boolean;
+}
+
+export async function webAuthStatus(): Promise<AuthStatus> {
+  const res = await fetch('/api/auth/status');
+  if (!res.ok) throw new Error(await errorMessage(res, 'auth/status'));
+  return (await res.json()) as AuthStatus;
+}
+
+export async function webRegister(email: string, password: string): Promise<void> {
+  const res = await fetch('/api/auth/register', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
+  if (!res.ok) throw new Error(await errorMessage(res, 'auth/register'));
+}
+
+export async function webLogin(email: string, password: string): Promise<LoginResult> {
+  const res = await fetch('/api/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
+  if (!res.ok) throw new Error(await errorMessage(res, 'auth/login'));
+  const result = (await res.json()) as LoginResult;
+  setAuthToken(result.token);
+  return result;
 }
 
 export async function invoke<T = unknown>(

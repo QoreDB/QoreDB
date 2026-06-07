@@ -53,6 +53,30 @@ pub trait CredentialProvider: Send + Sync {
     fn delete_credential(&self, service: &str, username: &str) -> Result<(), CredentialError>;
 }
 
+/// Builds the credential provider for the current deployment. Returns the OS
+/// keyring by default; when `QORE_VAULT_KEY` is set (headless/containerised
+/// deployments where no keyring exists), returns the encrypted-file provider
+/// instead. The file path is `QORE_VAULT_FILE` when set, otherwise
+/// `app_data_dir()/vault.enc`, so every call site resolves to the same file.
+pub fn default_provider() -> Box<dyn CredentialProvider> {
+    let Ok(passphrase) = std::env::var("QORE_VAULT_KEY") else {
+        return Box::new(KeyringProvider::new());
+    };
+    let path = std::env::var("QORE_VAULT_FILE")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| crate::paths::app_data_dir().join("vault.enc"));
+    match crate::vault::encrypted_file::EncryptedFileProvider::new(path, &passphrase) {
+        Ok(provider) => Box::new(provider),
+        Err(e) => {
+            tracing::error!(
+                "Encrypted vault init failed ({e}); falling back to OS keyring. \
+                 Set QORE_VAULT_KEY / QORE_VAULT_FILE correctly for headless use."
+            );
+            Box::new(KeyringProvider::new())
+        }
+    }
+}
+
 pub struct KeyringProvider;
 
 impl KeyringProvider {

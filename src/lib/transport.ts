@@ -72,6 +72,7 @@ function authHeaders(): Record<string, string> {
 
 export interface AuthStatus {
   setupRequired: boolean;
+  ssoEnabled: boolean;
 }
 
 export interface LoginResult {
@@ -105,6 +106,33 @@ export async function webLogin(email: string, password: string): Promise<LoginRe
   const result = (await res.json()) as LoginResult;
   setAuthToken(result.token);
   return result;
+}
+
+export function webSsoStart(): void {
+  if (typeof window !== 'undefined') {
+    window.location.href = '/api/auth/oidc/start';
+  }
+}
+
+/**
+ * Reads the `?sso_token` / `?sso_error` the OIDC callback appended, stores the
+ * token, and strips the params from the URL. Call once during web boot before
+ * gating on `isAuthenticated()`.
+ */
+export function consumeSsoRedirect(): { error?: string } {
+  if (typeof window === 'undefined') return {};
+  const params = new URLSearchParams(window.location.search);
+  const token = params.get('sso_token');
+  const error = params.get('sso_error');
+  if (!token && !error) return {};
+
+  if (token) setAuthToken(token);
+  params.delete('sso_token');
+  params.delete('sso_error');
+  const query = params.toString();
+  const url = window.location.pathname + (query ? `?${query}` : '') + window.location.hash;
+  window.history.replaceState({}, '', url);
+  return error ? { error } : {};
 }
 
 export async function invoke<T = unknown>(

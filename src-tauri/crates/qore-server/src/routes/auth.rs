@@ -63,5 +63,8 @@ pub async fn register(
 /// created (`setupRequired`) so the UI can route to register vs login.
 pub async fn status(State(state): State<AppState>) -> Result<Json<Value>, ApiError> {
     let count = state.control.count_users().await.map_err(ApiError::internal)?;
-    Ok(Json(json!({ "setupRequired": count == 0 })))
+    Ok(Json(json!({
+        "setupRequired": count == 0,
+        "ssoEnabled": state.oidc.is_some(),
+    })))
 }

@@ -3,6 +3,7 @@
 mod admin;
 mod auth;
 mod bridge;
+mod oidc;
 mod stream;
 
 use axum::routing::{get, post};
@@ -29,6 +30,8 @@ pub fn public_router() -> Router<AppState> {
         .route("/api/auth/status", get(auth::status))
         .route("/api/auth/register", post(auth::register))
         .route("/api/auth/login", post(auth::login))
+        .route("/api/auth/oidc/start", get(oidc::start))
+        .route("/api/auth/oidc/callback", get(oidc::callback))
 }
 
 async fn status() -> Json<serde_json::Value> {

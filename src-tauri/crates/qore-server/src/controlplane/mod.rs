@@ -2,7 +2,9 @@
 
 pub mod auth;
 pub mod model;
+pub mod oidc;
 pub mod store;
 
 pub use model::AuthContext;
+pub use oidc::{OidcConfig, OidcProvider};
 pub use store::ControlStore;

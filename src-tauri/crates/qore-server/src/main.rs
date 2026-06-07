@@ -71,10 +71,25 @@ async fn main() {
         }
     };
 
+    let oidc = match controlplane::OidcConfig::from_env() {
+        Some(cfg) => match controlplane::OidcProvider::discover(cfg).await {
+            Ok(provider) => {
+                tracing::info!("OIDC/SSO enabled");
+                Some(Arc::new(provider))
+            }
+            Err(e) => {
+                tracing::error!(error = %e, "OIDC discovery failed — SSO disabled");
+                None
+            }
+        },
+        None => None,
+    };
+
     let state = AppState {
         ctx: Arc::new(ServiceContext::new()),
         config: Arc::new(config),
         control,
+        oidc,
     };
 
     let protected = routes::router().layer(middleware::from_fn_with_state(

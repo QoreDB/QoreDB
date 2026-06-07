@@ -58,6 +58,19 @@ Web auth flow (public endpoints, no token required):
 
 RBAC: a user only sees and connects to the connections granted to its roles; a `read` grant forces the connection read-only. Admin provisioning: `POST /api/admin/{users,roles,assign,grants}`, `GET /api/admin/users` (admin only).
 
+### SSO / OIDC (optional)
+
+Set all four variables to enable OpenID Connect (Authorization Code + PKCE):
+
+| Variable | Description |
+| --- | --- |
+| `QORE_OIDC_ISSUER` | IdP issuer URL (e.g. `https://keycloak.example/realms/qore`). |
+| `QORE_OIDC_CLIENT_ID` | Registered client id. |
+| `QORE_OIDC_CLIENT_SECRET` | Client secret. |
+| `QORE_OIDC_REDIRECT_URI` | Must equal `<public-url>/api/auth/oidc/callback`. |
+
+Discovery runs at boot; if it fails the server still starts with SSO disabled. `GET /api/auth/status` reports `ssoEnabled`. Flow: `GET /api/auth/oidc/start` → 302 to the IdP; the IdP calls back `GET /api/auth/oidc/callback`, which validates the id_token against the IdP JWKS (signature, issuer, audience, expiry, nonce), **JIT-provisions** an unknown email as a non-admin user with no grants (an admin then assigns roles), mints the app JWT, and bounces the browser to `/?sso_token=<jwt>` (or `/?sso_error=<code>`).
+
 ## API
 
 - `GET  /health` — unauthenticated liveness probe.

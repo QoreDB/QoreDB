@@ -43,6 +43,21 @@ The image (`Dockerfile` at the repo root) builds the SPA and the server, serves
 the frontend from `/app/web`, and persists `connections.json` + `vault.enc` to
 the `/data` volume. Credentials are encrypted with `QORE_VAULT_KEY`.
 
+## Authentication
+
+Two principals reach the API:
+
+- **Admin token** — the shared `QORE_SERVER_TOKEN` (machine / break-glass / CI). Full access, never exposed to the browser.
+- **Users** — accounts in the control plane (`<config_dir>/control.db`), authenticated by JWT. Credentials are **never** seeded from the environment: the first admin is created through the bootstrap register flow.
+
+Web auth flow (public endpoints, no token required):
+
+- `GET  /api/auth/status` → `{ "setupRequired": bool }` — `true` while no user exists, so the UI routes to register vs login.
+- `POST /api/auth/register` `{ email, password }` — creates the **first admin**. Allowed only while the instance has zero users; returns `403` afterwards (further users come from `POST /api/admin/users`).
+- `POST /api/auth/login` `{ email, password }` → `{ token, email, isAdmin }`. The JWT is sent as `Authorization: Bearer <token>` on subsequent calls.
+
+RBAC: a user only sees and connects to the connections granted to its roles; a `read` grant forces the connection read-only. Admin provisioning: `POST /api/admin/{users,roles,assign,grants}`, `GET /api/admin/users` (admin only).
+
 ## API
 
 - `GET  /health` — unauthenticated liveness probe.

@@ -252,7 +252,9 @@ Chaque jalon a un livrable et un **critère de vérification** clair. Estimation
 - **Enforcement RBAC sur le bridge** : `list_saved_connections` filtré aux connexions accordées ; `connect_saved_connection` refusé sans grant, **forcé read-only** si grant = `read` (réutilise le read-only moteur). Écriture bloquée ensuite par le moteur read-only.
 - **Vérif** : 3 tests unitaires (store) + smoke HTTP end-to-end (login admin/bob, 401 sans token, 401 mauvais mot de passe, 403 bob sur route admin, liste filtrée, connect non-accordé refusé, seed au boot). ⚠️ `cargo test` ne régénère pas l'exécutable runtime — refaire `cargo build -p qore-server` avant tout smoke.
 
-**Reste** : UI login frontend (le serveur n'injecte plus un token privilégié ; le web passe par l'écran de login quand le multi-utilisateur est actif), puis **OIDC/SSO** (Keycloak), puis **SCIM**, puis **SAML**.
+**Slice 2 — Auth web (backend + plomberie) — FAIT ✅** : **jamais de credentials via env** (seed admin supprimé). Bootstrap par **register** : `POST /api/auth/register` autorisé seulement à 0 utilisateur (crée le 1er admin), fermé ensuite (403). `GET /api/auth/status` → `{setupRequired}` pour router register vs login. Le serveur **n'injecte plus de token** dans le HTML (seulement `window.__QORE_WEB__`) ; `QORE_SERVER_TOKEN` reste l'accès machine/admin hors-bande. Plomberie front `transport.ts` : store JWT (sessionStorage) + `setAuthToken`/`isAuthenticated`/`webAuthStatus`/`webRegister`/`webLogin`. Vérifié : smoke register→status→403→login→bridge admin, tsc clean. **Les écrans (prompt « setup », register, login) sont faits côté produit par l'utilisateur** — le backend + helpers sont prêts.
+
+**Reste Jalon 5** : **OIDC/SSO** (Keycloak) qui se branche sur le control store, puis **SCIM**, puis **SAML**.
 
 ### Jalon 6 — Gouvernance (audit + masking/PII + policy)
 **Livrable** : **ajout du chaînage par hash** à l'audit existant + export ; **masking des résultats** au niveau colonne (au-delà de la redaction de logs déjà présente) ; read-only prod serveur ; extension du `policy.rs` existant.

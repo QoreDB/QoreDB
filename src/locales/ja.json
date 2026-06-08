@@ -782,6 +782,7 @@
   },
   "tableMenu": {
     "open": "開く",
+    "newQuery": "新しいクエリ",
     "truncate": "テーブルをトランケート",
     "drop": "テーブルを削除",
     "truncateTitle": "テーブルをトランケート",

@@ -244,22 +244,21 @@ fn register_http(linker: &mut Linker<StoreData>) -> Result<(), wasmi::errors::Li
                 // plugin into the user's internal network.
                 if !caller.data().services.http_allow_private_networks {
                     let port = parsed.port_or_known_default().unwrap_or(0);
-                    let resolved: Vec<std::net::SocketAddr> = match std::net::ToSocketAddrs::to_socket_addrs(&(host, port)) {
-                        Ok(iter) => iter.collect(),
-                        Err(_) => {
-                            tracing::warn!(
-                                target: "plugins",
-                                plugin = %caller.data().services.plugin_id,
-                                host = %host,
-                                "DNS resolution failed for plugin HTTP request"
-                            );
-                            return 0;
-                        }
-                    };
-                    if let Some(blocked) = resolved
-                        .iter()
-                        .map(|a| a.ip())
-                        .find(is_private_destination)
+                    let resolved: Vec<std::net::SocketAddr> =
+                        match std::net::ToSocketAddrs::to_socket_addrs(&(host, port)) {
+                            Ok(iter) => iter.collect(),
+                            Err(_) => {
+                                tracing::warn!(
+                                    target: "plugins",
+                                    plugin = %caller.data().services.plugin_id,
+                                    host = %host,
+                                    "DNS resolution failed for plugin HTTP request"
+                                );
+                                return 0;
+                            }
+                        };
+                    if let Some(blocked) =
+                        resolved.iter().map(|a| a.ip()).find(is_private_destination)
                     {
                         tracing::warn!(
                             target: "plugins",
@@ -285,10 +284,7 @@ fn register_http(linker: &mut Linker<StoreData>) -> Result<(), wasmi::errors::Li
                     Ok(m) => m,
                     Err(_) => return 0,
                 };
-                let req = client
-                    .request(method_parsed, parsed)
-                    .body(body)
-                    .send();
+                let req = client.request(method_parsed, parsed).body(body).send();
                 let resp = match req {
                     Ok(r) => r,
                     Err(_) => return 0,

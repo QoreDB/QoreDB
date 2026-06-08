@@ -782,6 +782,7 @@
   },
   "tableMenu": {
     "open": "打开",
+    "newQuery": "新建查询",
     "truncate": "清空表",
     "drop": "删除表",
     "truncateTitle": "清空表",

@@ -32,7 +32,8 @@ pub async fn login(
         return Err(ApiError::unauthorized("invalid credentials"));
     }
 
-    let token = issue_jwt(&state.config.token, &user.id, &user.email).map_err(ApiError::internal)?;
+    let token =
+        issue_jwt(&state.config.token, &user.id, &user.email).map_err(ApiError::internal)?;
     Ok(Json(json!({
         "token": token,
         "email": user.email,
@@ -47,7 +48,11 @@ pub async fn register(
     State(state): State<AppState>,
     Json(req): Json<LoginRequest>,
 ) -> Result<Json<Value>, ApiError> {
-    let count = state.control.count_users().await.map_err(ApiError::internal)?;
+    let count = state
+        .control
+        .count_users()
+        .await
+        .map_err(ApiError::internal)?;
     if count > 0 {
         return Err(ApiError::forbidden("registration is closed"));
     }
@@ -56,13 +61,19 @@ pub async fn register(
         .create_user(&req.email, &req.password, true)
         .await
         .map_err(ApiError::bad_request)?;
-    Ok(Json(json!({ "email": user.email, "isAdmin": user.is_admin })))
+    Ok(Json(
+        json!({ "email": user.email, "isAdmin": user.is_admin }),
+    ))
 }
 
 /// Public setup probe: tells the web whether the first admin still needs to be
 /// created (`setupRequired`) so the UI can route to register vs login.
 pub async fn status(State(state): State<AppState>) -> Result<Json<Value>, ApiError> {
-    let count = state.control.count_users().await.map_err(ApiError::internal)?;
+    let count = state
+        .control
+        .count_users()
+        .await
+        .map_err(ApiError::internal)?;
     Ok(Json(json!({
         "setupRequired": count == 0,
         "ssoEnabled": state.oidc.is_some(),

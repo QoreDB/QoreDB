@@ -189,8 +189,11 @@ pub async fn query_table(
 
     let driver = session_manager.get_driver(session).await?;
 
-    match governance::with_timeout(policy, driver.query_table(session, namespace, table, options))
-        .await
+    match governance::with_timeout(
+        policy,
+        driver.query_table(session, namespace, table, options),
+    )
+    .await
     {
         Ok(Ok(result)) => {
             if use_cache {
@@ -265,7 +268,9 @@ pub async fn preflight(
                 }
                 if is_production {
                     if policy.prod_block_dangerous_sql {
-                        return Err(format!("{DANGEROUS_BLOCKED_POLICY}: SQL parse error: {err}"));
+                        return Err(format!(
+                            "{DANGEROUS_BLOCKED_POLICY}: SQL parse error: {err}"
+                        ));
                     }
                     if policy.prod_require_confirmation && !acknowledged {
                         return Err(format!("{DANGEROUS_BLOCKED}: SQL parse error: {err}"));
@@ -280,7 +285,10 @@ pub async fn preflight(
 
     if read_only {
         let is_mutation = if is_sql_driver {
-            sql_analysis.as_ref().map(|a| a.is_mutation).unwrap_or(false)
+            sql_analysis
+                .as_ref()
+                .map(|a| a.is_mutation)
+                .unwrap_or(false)
         } else if is_mongo_driver {
             is_mongo_mutation(query)
         } else {
@@ -313,7 +321,10 @@ pub async fn preflight(
     }
 
     let is_mutation = if is_sql_driver {
-        sql_analysis.as_ref().map(|a| a.is_mutation).unwrap_or(false)
+        sql_analysis
+            .as_ref()
+            .map(|a| a.is_mutation)
+            .unwrap_or(false)
     } else if is_mongo_driver {
         is_mongo_mutation(query)
     } else {
@@ -389,6 +400,9 @@ pub async fn preflight(
 pub struct ExecuteOutcome {
     pub success: bool,
     pub result: Option<QueryResult>,
+    /// Additional result sets when a multi-statement query is executed.
+    /// Empty for single-statement queries.
+    pub extra_results: Vec<QueryResult>,
     pub error: Option<String>,
     pub truncated: Option<bool>,
     pub truncated_total: Option<u64>,
@@ -446,6 +460,7 @@ pub async fn execute(
                     return ExecuteOutcome {
                         success: false,
                         result: None,
+                        extra_results: Vec::new(),
                         error: Some(format!("Operation timed out after {}ms", timeout_value)),
                         truncated: None,
                         truncated_total: None,
@@ -479,6 +494,7 @@ pub async fn execute(
                 ExecuteOutcome {
                     success: true,
                     result: None,
+                    extra_results: Vec::new(),
                     error: None,
                     truncated: None,
                     truncated_total: None,
@@ -497,6 +513,7 @@ pub async fn execute(
                 ExecuteOutcome {
                     success: false,
                     result: None,
+                    extra_results: Vec::new(),
                     error: Some(e.sanitized_message()),
                     truncated: None,
                     truncated_total: None,
@@ -508,32 +525,32 @@ pub async fn execute(
     let start_time = std::time::Instant::now();
     let execution = async {
         if let Some(statements) = sql_statements {
-            let mut last_result = None;
-            let mut executed_count = 0usize;
+            let mut results = Vec::with_capacity(statements.len());
             for (idx, statement) in statements.iter().enumerate() {
                 match driver
                     .execute_in_namespace(session, namespace.clone(), statement, query_id)
                     .await
                 {
-                    Ok(result) => {
-                        executed_count += 1;
-                        last_result = Some(result);
-                    }
+                    Ok(result) => results.push(result),
                     Err(e) => {
                         return Err(EngineError::execution_error(format!(
                             "Statement {} failed after {} succeeded: {}",
                             idx + 1,
-                            executed_count,
+                            results.len(),
                             e
                         )));
                     }
                 }
             }
-            last_result.ok_or_else(|| EngineError::syntax_error("Empty SQL".to_string()))
+            if results.is_empty() {
+                return Err(EngineError::syntax_error("Empty SQL".to_string()));
+            }
+            Ok(results)
         } else {
             driver
                 .execute_in_namespace(session, namespace.clone(), query, query_id)
                 .await
+                .map(|result| vec![result])
         }
     };
 
@@ -557,6 +574,7 @@ pub async fn execute(
                 return ExecuteOutcome {
                     success: false,
                     result: None,
+                    extra_results: Vec::new(),
                     error: Some(format!("Operation timed out after {}ms", timeout_value)),
                     truncated: None,
                     truncated_total: None,
@@ -568,19 +586,34 @@ pub async fn execute(
     };
 
     let duration_ms = start_time.elapsed().as_micros() as f64 / 1000.0;
+    let truncate_result = |r: &mut QueryResult| -> (Option<bool>, Option<u64>) {
+        if bypass_limits {
+            return (None, None);
+        }
+        if let Some(max_rows) = policy.max_result_rows {
+            if r.rows.len() as u64 > max_rows {
+                let total = r.rows.len() as u64;
+                r.rows.truncate(max_rows as usize);
+                return (Some(true), Some(total));
+            }
+        }
+        (None, None)
+    };
     let outcome = match result {
-        Ok(mut result) => {
-            result.execution_time_ms = duration_ms;
+        Ok(mut results) => {
             crate::metrics::record_query(duration_ms, true);
+
+            let mut primary = results.remove(0);
+            primary.execution_time_ms = duration_ms;
 
             let exec_result = QueryExecutionResult {
                 success: true,
                 error: None,
                 execution_time_ms: duration_ms,
-                row_count: result.affected_rows.map(|a| a as i64),
+                row_count: primary.affected_rows.map(|a| a as i64),
             };
             interceptor.post_execute(context, &exec_result, false, safety_warning);
-            on_complete(&exec_result, Some(&result));
+            on_complete(&exec_result, Some(&primary));
 
             if is_mutation {
                 if let Some(key) = connection_key {
@@ -588,23 +621,19 @@ pub async fn execute(
                 }
             }
 
-            let (truncated, truncated_total) = if bypass_limits {
-                (None, None)
-            } else if let Some(max_rows) = policy.max_result_rows {
-                if result.rows.len() as u64 > max_rows {
-                    let total = result.rows.len() as u64;
-                    result.rows.truncate(max_rows as usize);
-                    (Some(true), Some(total))
-                } else {
-                    (None, None)
-                }
-            } else {
-                (None, None)
-            };
+            let (truncated, truncated_total) = truncate_result(&mut primary);
+            let extra_results = results
+                .into_iter()
+                .map(|mut r| {
+                    let _ = truncate_result(&mut r);
+                    r
+                })
+                .collect();
 
             ExecuteOutcome {
                 success: true,
-                result: Some(result),
+                result: Some(primary),
+                extra_results,
                 error: None,
                 truncated,
                 truncated_total,
@@ -625,6 +654,7 @@ pub async fn execute(
             ExecuteOutcome {
                 success: false,
                 result: None,
+                extra_results: Vec::new(),
                 error: Some(e.sanitized_message()),
                 truncated: None,
                 truncated_total: None,

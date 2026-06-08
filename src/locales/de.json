@@ -782,6 +782,7 @@
   },
   "tableMenu": {
     "open": "Öffnen",
+    "newQuery": "Neue Abfrage",
     "truncate": "Tabelle leeren",
     "drop": "Tabelle löschen",
     "truncateTitle": "Tabelle leeren",

@@ -810,6 +810,7 @@
   },
   "tableMenu": {
     "open": "Open",
+    "newQuery": "New query",
     "truncate": "Truncate Table",
     "drop": "Drop Table",
     "truncateTitle": "Truncate Table",

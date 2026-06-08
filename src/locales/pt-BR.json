@@ -782,6 +782,7 @@
   },
   "tableMenu": {
     "open": "Abrir",
+    "newQuery": "Nova consulta",
     "truncate": "Truncar Tabela",
     "drop": "Excluir Tabela",
     "truncateTitle": "Truncar Tabela",

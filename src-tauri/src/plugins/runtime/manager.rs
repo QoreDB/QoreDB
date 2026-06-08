@@ -159,11 +159,10 @@ impl PluginHost {
             let consent = capabilities::read_grants(&dir, &plugin.manifest.id);
             // A plugin never sees a capability it did not request, even when
             // the on-disk consent file has been tampered with.
-            let requested: BTreeSet<CapabilityKind> = capabilities::requested(
-                &runtime_spec.capabilities,
-            )
-            .into_iter()
-            .collect();
+            let requested: BTreeSet<CapabilityKind> =
+                capabilities::requested(&runtime_spec.capabilities)
+                    .into_iter()
+                    .collect();
             let effective: BTreeSet<CapabilityKind> =
                 consent.intersection(&requested).copied().collect();
             let granted_count = effective.len();
@@ -210,10 +209,7 @@ impl PluginHost {
                 services,
             ) {
                 Ok(instance) => {
-                    instances.insert(
-                        plugin.manifest.id.clone(),
-                        Arc::new(Mutex::new(instance)),
-                    );
+                    instances.insert(plugin.manifest.id.clone(), Arc::new(Mutex::new(instance)));
                     emit_log(
                         &log,
                         &plugin.manifest.id,
@@ -362,8 +358,7 @@ impl PluginHost {
             let instances = lock_recover(&self.instances, "instances");
             instances.get(plugin_id).cloned()
         };
-        let instance =
-            instance.ok_or_else(|| format!("Plugin '{plugin_id}' is not loaded"))?;
+        let instance = instance.ok_or_else(|| format!("Plugin '{plugin_id}' is not loaded"))?;
         let command_id = command_id.to_string();
         let outcome = run_with_timeout(instance, COMMAND_TIMEOUT, move |guard| {
             guard.command(&command_id, &args)
@@ -435,9 +430,7 @@ impl PluginHost {
             &lock_recover(&self.log, "log").clone(),
             plugin_id,
             NotifyLevel::Error,
-            format!(
-                "unloaded after {CIRCUIT_BREAKER_THRESHOLD} consecutive failures: {reason}"
-            ),
+            format!("unloaded after {CIRCUIT_BREAKER_THRESHOLD} consecutive failures: {reason}"),
         );
         self.emit_notify(NotifyEvent {
             plugin_id: plugin_id.to_string(),

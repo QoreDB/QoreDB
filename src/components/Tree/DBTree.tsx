@@ -71,6 +71,7 @@ interface DBTreeProps {
   onDatabaseSelect?: (namespace: Namespace) => void;
   onCompareTable?: (collection: Collection) => void;
   onAiGenerateForTable?: (collection: Collection) => void;
+  onNewQueryForTable?: (collection: Collection) => void;
   onOpenRoutineSource?: (routine: Routine, namespace: Namespace) => void;
   onCreateRoutine?: (routineType: 'Function' | 'Procedure', namespace: Namespace) => void;
   onOpenTriggerSource?: (trigger: Trigger, namespace: Namespace) => void;
@@ -90,6 +91,7 @@ export function DBTree({
   onDatabaseSelect,
   onCompareTable,
   onAiGenerateForTable,
+  onNewQueryForTable,
   onOpenRoutineSource,
   onCreateRoutine,
   onOpenTriggerSource,
@@ -559,6 +561,7 @@ export function DBTree({
                             onOpen={() => handleTableClick(col)}
                             onCompareWith={onCompareTable}
                             onAiGenerate={onAiGenerateForTable}
+                            onNewQuery={onNewQueryForTable}
                           >
                             <button
                               type="button"
@@ -610,6 +613,7 @@ export function DBTree({
                             onOpen={() => handleTableClick(col)}
                             onCompareWith={onCompareTable}
                             onAiGenerate={onAiGenerateForTable}
+                            onNewQuery={onNewQueryForTable}
                           >
                             <button
                               type="button"
@@ -663,6 +667,7 @@ export function DBTree({
                             onOpen={() => handleTableClick(col)}
                             onCompareWith={onCompareTable}
                             onAiGenerate={onAiGenerateForTable}
+                            onNewQuery={onNewQueryForTable}
                           >
                             <button
                               type="button"

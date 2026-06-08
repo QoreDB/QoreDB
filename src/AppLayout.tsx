@@ -66,6 +66,7 @@ import { useTheme } from './hooks/useTheme';
 import { useTourManager } from './hooks/useTourManager';
 import { useWebviewGuards } from './hooks/useWebviewGuards';
 import { Driver } from './lib/connection/drivers';
+import { buildQualifiedTableName } from './lib/ddl';
 import { openNotebookFromFile, setPendingNotebook } from './lib/notebook/notebookIO';
 import { notify } from './lib/notify';
 import { splitContributionId } from './lib/plugins';
@@ -289,6 +290,20 @@ export function AppLayout() {
       openTab(tab);
     },
     [sessionId, openTab]
+  );
+
+  const handleNewQueryForTable = useCallback(
+    (collection: Collection) => {
+      if (!sessionId) return;
+      const d = driver as Driver;
+      const tableRef = buildQualifiedTableName(collection.namespace, collection.name, d);
+      const sql =
+        d === Driver.SqlServer
+          ? `SELECT TOP 100 * FROM ${tableRef};`
+          : `SELECT * FROM ${tableRef} LIMIT 100;`;
+      openTab(createQueryTab(sql, collection.namespace));
+    },
+    [sessionId, driver, openTab]
   );
 
   const handleOpenRoutineSource = useCallback(
@@ -765,6 +780,7 @@ export function AppLayout() {
                 onDatabaseSelect={handleDatabaseSelect}
                 onCompareTable={handleCompareTable}
                 onAiGenerateForTable={handleAiGenerateForTable}
+                onNewQueryForTable={handleNewQueryForTable}
                 onOpenRoutineSource={handleOpenRoutineSource}
                 onCreateRoutine={handleCreateRoutine}
                 onOpenTriggerSource={handleOpenTriggerSource}

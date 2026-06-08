@@ -429,13 +429,39 @@ export function QueryPanel({
               }
             }
 
+            // A multi-statement query returns one result set per statement.
+            const extraResults = isFederated
+              ? []
+              : ((response as { extra_results?: QueryResult[] }).extra_results ?? []);
+            // Best-effort per-tab labels: only when the local split matches the
+            // number of result sets returned by the backend.
+            const statementParts = queryToRun
+              .split(';')
+              .map(part => part.trim())
+              .filter(Boolean);
+            const labels =
+              statementParts.length === extraResults.length + 1 ? statementParts : null;
+
+            const extraEntries: QueryResultEntry[] = extraResults.map((res, i) => ({
+              id: `${queryId}#${i + 1}`,
+              kind,
+              query: labels ? labels[i + 1] : queryToRun,
+              result: { ...res, total_time_ms: totalTime } as QueryResult & {
+                total_time_ms: number;
+              },
+              executedAt: Date.now(),
+              totalTimeMs: totalTime,
+              executionTimeMs: res.execution_time_ms,
+              rowCount: res.rows.length,
+            }));
+
             setResults(prev => {
               const updated = [...prev];
               const index = updated.findIndex(e => e.id === queryId);
               const baseEntry: QueryResultEntry = {
                 id: queryId,
                 kind,
-                query: queryToRun,
+                query: labels ? labels[0] : queryToRun,
                 result: enrichedResult,
                 executedAt: Date.now(),
                 totalTimeMs: totalTime,
@@ -454,9 +480,13 @@ export function QueryPanel({
                 updated.push(baseEntry);
               }
 
-              if (!keepResults) return [updated[updated.length - 1]];
-              if (updated.length > 12) return updated.slice(updated.length - 12);
-              return updated;
+              // Drop any stale extra entries from a previous run of this query id.
+              const merged = updated.filter(e => !e.id.startsWith(`${queryId}#`));
+              merged.push(...extraEntries);
+
+              if (!keepResults) return [baseEntry, ...extraEntries];
+              if (merged.length > 12) return merged.slice(merged.length - 12);
+              return merged;
             });
 
             if (!driverCapabilities?.streaming || kind !== 'query' || isDocument) {

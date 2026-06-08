@@ -12,9 +12,9 @@ use std::fs;
 use std::path::PathBuf;
 use uuid::Uuid;
 
-use qore_core::error::{EngineError, EngineResult};
 use crate::sensitive::Sensitive;
 use crate::vault::credentials::{SavedConnection, StoredCredentials};
+use qore_core::error::{EngineError, EngineResult};
 
 const SERVICE_PREFIX: &str = "qoredb";
 const CONNECTIONS_FILE: &str = "connections.json";

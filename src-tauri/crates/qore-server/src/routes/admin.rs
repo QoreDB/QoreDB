@@ -45,7 +45,11 @@ pub async fn list_users(
     Extension(ctx): Extension<AuthContext>,
 ) -> Result<Json<Value>, ApiError> {
     require_admin(&ctx)?;
-    let users = state.control.list_users().await.map_err(ApiError::internal)?;
+    let users = state
+        .control
+        .list_users()
+        .await
+        .map_err(ApiError::internal)?;
     Ok(Json(json!(users)))
 }
 

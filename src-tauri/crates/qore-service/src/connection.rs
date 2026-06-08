@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use qore_core::{ConnectionConfig, SessionId, SshAuth};
+use qore_core::{ConnectionConfig, MssqlAuthMode, SessionId, SshAuth};
 use qore_drivers::session_manager::SessionManager;
 
 use crate::error::ServiceError;
@@ -59,10 +59,14 @@ pub fn normalize_config(mut config: ConnectionConfig) -> Result<ConnectionConfig
     let is_duckdb = config.driver == "duckdb";
     let is_redis = config.driver == "redis";
     let is_file_based = is_sqlite || is_duckdb;
+    // SQL Server "Windows (Integrated)" uses the current OS/AD session — no username.
+    let is_mssql_integrated =
+        config.driver == "sqlserver" && config.mssql_auth == Some(MssqlAuthMode::WindowsIntegrated);
 
-    // Username is required for SQL databases but optional for MongoDB, file-based DBs, and Redis.
+    // Username is required for SQL databases but optional for MongoDB, file-based DBs, Redis,
+    // and SQL Server integrated authentication.
     let username = config.username.trim();
-    if username.is_empty() && !is_mongodb && !is_file_based && !is_redis {
+    if username.is_empty() && !is_mongodb && !is_file_based && !is_redis && !is_mssql_integrated {
         return Err("Username is required".to_string());
     }
     config.username = username.to_string();

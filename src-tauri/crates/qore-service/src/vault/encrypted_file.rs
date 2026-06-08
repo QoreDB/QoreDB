@@ -49,7 +49,9 @@ pub struct EncryptedFileProvider {
 impl EncryptedFileProvider {
     pub fn new(path: PathBuf, passphrase: &str) -> EngineResult<Self> {
         if passphrase.is_empty() {
-            return Err(EngineError::validation("Vault passphrase must not be empty"));
+            return Err(EngineError::validation(
+                "Vault passphrase must not be empty",
+            ));
         }
 
         let salt = match read_file(&path)? {

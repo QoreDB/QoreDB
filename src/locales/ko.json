@@ -782,6 +782,7 @@
   },
   "tableMenu": {
     "open": "열기",
+    "newQuery": "새 쿼리",
     "truncate": "테이블 비우기",
     "drop": "테이블 삭제",
     "truncateTitle": "테이블 비우기",

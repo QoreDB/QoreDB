@@ -62,14 +62,14 @@ async fn main() {
     let addr = config.addr;
     let web_dir = config.web_dir.clone();
 
-    let control = match controlplane::ControlStore::open(&config.config_dir.join("control.db")).await
-    {
-        Ok(store) => store,
-        Err(e) => {
-            tracing::error!(error = %e, "failed to open control database");
-            std::process::exit(1);
-        }
-    };
+    let control =
+        match controlplane::ControlStore::open(&config.config_dir.join("control.db")).await {
+            Ok(store) => store,
+            Err(e) => {
+                tracing::error!(error = %e, "failed to open control database");
+                std::process::exit(1);
+            }
+        };
 
     let oidc = match controlplane::OidcConfig::from_env() {
         Some(cfg) => match controlplane::OidcProvider::discover(cfg).await {

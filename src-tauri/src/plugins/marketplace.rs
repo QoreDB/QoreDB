@@ -40,7 +40,11 @@ pub fn fetch_index(url: &str) -> Result<serde_json::Value, String> {
 
     let client = reqwest::blocking::Client::builder()
         .timeout(Duration::from_secs(HTTP_TIMEOUT_SECS))
-        .user_agent(concat!("QoreDB/", env!("CARGO_PKG_VERSION"), " marketplace"))
+        .user_agent(concat!(
+            "QoreDB/",
+            env!("CARGO_PKG_VERSION"),
+            " marketplace"
+        ))
         .build()
         .map_err(|e| format!("HTTP client init failed: {e}"))?;
 
@@ -141,7 +145,11 @@ fn download_archive(url: &str) -> Result<Vec<u8>, String> {
     // what makes the source untrusted-by-default safe.
     let client = reqwest::blocking::Client::builder()
         .timeout(Duration::from_secs(HTTP_TIMEOUT_SECS))
-        .user_agent(concat!("QoreDB/", env!("CARGO_PKG_VERSION"), " marketplace"))
+        .user_agent(concat!(
+            "QoreDB/",
+            env!("CARGO_PKG_VERSION"),
+            " marketplace"
+        ))
         .build()
         .map_err(|e| format!("HTTP client init failed: {e}"))?;
 

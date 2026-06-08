@@ -196,7 +196,6 @@ impl ControlStore {
         }
         Ok(grants)
     }
-
 }
 
 #[cfg(test)]

@@ -810,6 +810,7 @@
   },
   "tableMenu": {
     "open": "Ouvrir",
+    "newQuery": "Nouvelle requête",
     "truncate": "Vider la table",
     "drop": "Supprimer la table",
     "truncateTitle": "Vider la table",

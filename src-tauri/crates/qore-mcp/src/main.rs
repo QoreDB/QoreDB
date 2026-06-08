@@ -109,11 +109,15 @@ impl QoreMcp {
         }
 
         let storage = self.storage();
-        let saved = storage.get_connection(connection_id).map_err(|e| e.to_string())?;
+        let saved = storage
+            .get_connection(connection_id)
+            .map_err(|e| e.to_string())?;
         let creds = storage
             .get_credentials(connection_id)
             .map_err(|e| e.to_string())?;
-        let mut config = saved.to_connection_config(&creds).map_err(|e| e.to_string())?;
+        let mut config = saved
+            .to_connection_config(&creds)
+            .map_err(|e| e.to_string())?;
         config.read_only = true;
 
         let session = qore_service::connection::connect(&self.ctx.session_manager, config)
@@ -270,7 +274,9 @@ impl QoreMcp {
         &self,
         Parameters(req): Parameters<ConnReq>,
     ) -> Result<CallToolResult, McpError> {
-        Ok(text_result(self.do_list_namespaces(&req.connection_id).await))
+        Ok(text_result(
+            self.do_list_namespaces(&req.connection_id).await,
+        ))
     }
 
     #[tool(description = "List tables/collections in a namespace of a saved connection")]
@@ -281,7 +287,9 @@ impl QoreMcp {
         Ok(text_result(self.do_list_tables(&req).await))
     }
 
-    #[tool(description = "Describe a table/collection schema (columns, keys) of a saved connection")]
+    #[tool(
+        description = "Describe a table/collection schema (columns, keys) of a saved connection"
+    )]
     async fn describe_table(
         &self,
         Parameters(req): Parameters<DescribeTableReq>,

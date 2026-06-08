@@ -40,8 +40,8 @@ pub async fn install_plugin(
     source_path: String,
     state: State<'_, SharedState>,
 ) -> Result<InstalledPlugin, String> {
-    let plugin = blocking(move || plugins::install_plugin(&plugins::plugins_dir(), &source_path))
-        .await??;
+    let plugin =
+        blocking(move || plugins::install_plugin(&plugins::plugins_dir(), &source_path)).await??;
     let host = plugin_host(&state).await;
     blocking(move || host.reload()).await?;
     Ok(plugin)
@@ -88,10 +88,7 @@ pub async fn fetch_marketplace_index(url: String) -> Result<serde_json::Value, S
 
 /// Removes a plugin and forgets its consent + secrets.
 #[tauri::command]
-pub async fn remove_plugin(
-    plugin_id: String,
-    state: State<'_, SharedState>,
-) -> Result<(), String> {
+pub async fn remove_plugin(plugin_id: String, state: State<'_, SharedState>) -> Result<(), String> {
     let dir = plugins::plugins_dir();
     // Snapshot the secret names before the manifest folder is wiped — the
     // keyring cleanup below needs them.
@@ -290,8 +287,10 @@ pub async fn set_plugin_consent(
             .unwrap_or_default()
             .into_iter()
             .collect();
-        let filtered: BTreeSet<CapabilityKind> =
-            grants.into_iter().filter(|c| requested.contains(c)).collect();
+        let filtered: BTreeSet<CapabilityKind> = grants
+            .into_iter()
+            .filter(|c| requested.contains(c))
+            .collect();
         capabilities::write_grants(&dir, &id, filtered)
     })
     .await??;

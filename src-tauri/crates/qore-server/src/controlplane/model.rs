@@ -55,9 +55,7 @@ pub struct Role {
 #[derive(Clone)]
 pub enum AuthContext {
     Admin,
-    User {
-        grants: HashMap<String, GrantLevel>,
-    },
+    User { grants: HashMap<String, GrantLevel> },
 }
 
 impl AuthContext {

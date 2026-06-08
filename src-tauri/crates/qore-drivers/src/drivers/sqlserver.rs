@@ -45,10 +45,8 @@ use qore_core::types::{
 };
 use qore_sql::safety;
 
-
 type MssqlPool = Pool<ConnectionManager>;
 type MssqlClient = Client<Compat<TcpStream>>;
-
 
 pub struct SqlServerSession {
     pool: MssqlPool,
@@ -178,7 +176,6 @@ impl Default for SqlServerDriver {
     }
 }
 
-
 /// Convert a tiberius ColumnData to a QoreDB Value.
 fn convert_column_data(data: &ColumnData<'_>) -> Value {
     match data {
@@ -272,7 +269,6 @@ fn classify_error(msg: String) -> EngineError {
     }
 }
 
-
 #[async_trait]
 impl DataEngine for SqlServerDriver {
     fn driver_id(&self) -> &'static str {
@@ -282,7 +278,6 @@ impl DataEngine for SqlServerDriver {
     fn driver_name(&self) -> &'static str {
         "SQL Server"
     }
-
 
     async fn test_connection(&self, config: &ConnectionConfig) -> EngineResult<()> {
         let mut client = Self::connect_raw(config).await?;
@@ -344,7 +339,6 @@ impl DataEngine for SqlServerDriver {
             .map_err(|e| EngineError::connection_failed(format!("Ping failed: {e}")))?;
         Ok(())
     }
-
 
     async fn list_namespaces(&self, session: SessionId) -> EngineResult<Vec<Namespace>> {
         let mssql_session = self.get_session(session).await?;
@@ -700,7 +694,6 @@ impl DataEngine for SqlServerDriver {
         self.execute(session, &query, QueryId::new()).await
     }
 
-
     async fn list_routines(
         &self,
         session: SessionId,
@@ -931,7 +924,6 @@ impl DataEngine for SqlServerDriver {
             execution_time_ms: elapsed,
         })
     }
-
 
     async fn list_triggers(
         &self,
@@ -1208,7 +1200,6 @@ impl DataEngine for SqlServerDriver {
         })
     }
 
-
     async fn execute(
         &self,
         session: SessionId,
@@ -1317,7 +1308,6 @@ impl DataEngine for SqlServerDriver {
             result
         }
     }
-
 
     async fn query_table(
         &self,
@@ -1534,7 +1524,6 @@ impl DataEngine for SqlServerDriver {
         self.execute(session, &query, QueryId::new()).await
     }
 
-
     async fn create_database(
         &self,
         session: SessionId,
@@ -1573,7 +1562,6 @@ impl DataEngine for SqlServerDriver {
 
         Ok(())
     }
-
 
     async fn begin_transaction(&self, session: SessionId) -> EngineResult<()> {
         let mssql_session = self.get_session(session).await?;
@@ -1648,7 +1636,6 @@ impl DataEngine for SqlServerDriver {
     fn supports_transactions(&self) -> bool {
         true
     }
-
 
     async fn insert_row(
         &self,
@@ -1762,7 +1749,6 @@ impl DataEngine for SqlServerDriver {
         true
     }
 
-
     fn supports_streaming(&self) -> bool {
         true
     }
@@ -1813,7 +1799,6 @@ impl DataEngine for SqlServerDriver {
     fn cancel_support(&self) -> CancelSupport {
         CancelSupport::Driver
     }
-
 
     fn supports_maintenance(&self) -> bool {
         true
@@ -1905,7 +1890,6 @@ impl DataEngine for SqlServerDriver {
         })
     }
 }
-
 
 /// Execute a SELECT query on a connection and stream results via sender.
 async fn stream_select_results(
@@ -2065,7 +2049,6 @@ fn format_filter_value(value: &Value) -> String {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2112,7 +2095,7 @@ mod tests {
             pool_min_connections: None,
             proxy: None,
             mssql_auth: None,
-clickhouse_cluster: None,
+            clickhouse_cluster: None,
         }
     }
 

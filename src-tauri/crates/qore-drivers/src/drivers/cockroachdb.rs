@@ -53,7 +53,6 @@ impl DataEngine for CockroachDbDriver {
         "CockroachDB"
     }
 
-
     async fn test_connection(&self, config: &ConnectionConfig) -> EngineResult<()> {
         pg_compat::test_connection(&Self::conn_str(config)).await
     }
@@ -185,7 +184,6 @@ impl DataEngine for CockroachDbDriver {
         pg_compat::describe_table_core(&self.sessions, session, namespace, table, false).await
     }
 
-
     async fn execute(
         &self,
         session: SessionId,
@@ -260,7 +258,6 @@ impl DataEngine for CockroachDbDriver {
         .await
     }
 
-
     async fn preview_table(
         &self,
         session: SessionId,
@@ -307,7 +304,6 @@ impl DataEngine for CockroachDbDriver {
         .await
     }
 
-
     async fn cancel(&self, session: SessionId, query_id: Option<QueryId>) -> EngineResult<()> {
         pg_compat::cancel(&self.sessions, session, query_id).await
     }
@@ -315,7 +311,6 @@ impl DataEngine for CockroachDbDriver {
     fn cancel_support(&self) -> CancelSupport {
         pg_compat::cancel_support()
     }
-
 
     async fn begin_transaction(&self, session: SessionId) -> EngineResult<()> {
         pg_compat::begin_transaction(&self.sessions, session).await
@@ -332,7 +327,6 @@ impl DataEngine for CockroachDbDriver {
     fn supports_transactions(&self) -> bool {
         true
     }
-
 
     async fn insert_row(
         &self,
@@ -368,7 +362,6 @@ impl DataEngine for CockroachDbDriver {
     fn supports_mutations(&self) -> bool {
         true
     }
-
 
     fn supports_routines(&self) -> bool {
         true
@@ -421,7 +414,6 @@ impl DataEngine for CockroachDbDriver {
         .await
     }
 
-
     fn supports_triggers(&self) -> bool {
         true
     }
@@ -472,7 +464,6 @@ impl DataEngine for CockroachDbDriver {
         )
         .await
     }
-
 
     async fn create_database(
         &self,
@@ -577,7 +568,7 @@ mod tests {
             pool_min_connections: None,
             proxy: None,
             mssql_auth: None,
-clickhouse_cluster: None,
+            clickhouse_cluster: None,
         }
     }
 

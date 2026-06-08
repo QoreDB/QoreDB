@@ -187,7 +187,9 @@ pub async fn invoke(
 }
 
 async fn execute_query(state: &AppState, args: &Value) -> Json<Value> {
-    let session = match req_str(args, "sessionId").and_then(|s| parse_session(&s).map_err(ApiError::bad_request)) {
+    let session = match req_str(args, "sessionId")
+        .and_then(|s| parse_session(&s).map_err(ApiError::bad_request))
+    {
         Ok(s) => s,
         Err(_) => return failure("invalid session id"),
     };

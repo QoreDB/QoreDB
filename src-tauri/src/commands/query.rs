@@ -10,7 +10,6 @@ use tauri::State;
 use tracing::{field, instrument};
 use uuid::Uuid;
 
-use qore_service::governance;
 use crate::commands::stream_msg::StreamDispatcher;
 use crate::engine::{
     sql_safety,
@@ -27,6 +26,7 @@ use crate::metrics;
 use crate::plugins::runtime::{
     HookContext as PluginHookContext, PluginHost, PostExecuteResult, QueryReadPayload,
 };
+use qore_service::governance;
 use tauri::ipc::{Channel, InvokeResponseBody};
 
 const READ_ONLY_BLOCKED: &str = "Operation blocked: read-only mode";
@@ -84,6 +84,8 @@ fn map_environment(env: &str) -> Environment {
 pub struct QueryResponse {
     pub success: bool,
     pub result: Option<QueryResult>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub extra_results: Vec<QueryResult>,
     pub error: Option<String>,
     pub query_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -173,6 +175,7 @@ pub async fn execute_query(
                 "bypass_limits rejected: requires Team+ license"
             );
             return Ok(QueryResponse {
+                extra_results: Vec::new(),
                 success: false,
                 result: None,
                 error: Some(
@@ -206,6 +209,7 @@ pub async fn execute_query(
         Ok(pf) => pf,
         Err(msg) => {
             return Ok(QueryResponse {
+                extra_results: Vec::new(),
                 success: false,
                 result: None,
                 error: Some(msg),
@@ -247,6 +251,7 @@ pub async fn execute_query(
         .await;
     if let crate::plugins::runtime::Decision::Block { reason } = plugin_decision {
         return Ok(QueryResponse {
+            extra_results: Vec::new(),
             success: false,
             result: None,
             error: Some(format!("Query blocked by plugin: {reason}")),
@@ -260,6 +265,7 @@ pub async fn execute_query(
         let active = query_manager.count_active().await;
         if active >= limit as usize {
             return Ok(QueryResponse {
+                extra_results: Vec::new(),
                 success: false,
                 result: None,
                 error: Some(format!(
@@ -375,6 +381,7 @@ pub async fn execute_query(
     Ok(QueryResponse {
         success: outcome.success,
         result: outcome.result,
+        extra_results: outcome.extra_results,
         error: outcome.error,
         query_id: Some(query_id_str),
         truncated: outcome.truncated,
@@ -406,6 +413,7 @@ pub async fn cancel_query(
         Ok(d) => d,
         Err(e) => {
             return Ok(QueryResponse {
+                extra_results: Vec::new(),
                 success: false,
                 result: None,
                 error: Some(e.sanitized_message()),
@@ -425,6 +433,7 @@ pub async fn cancel_query(
             Some(qid) => qid,
             None => {
                 return Ok(QueryResponse {
+                    extra_results: Vec::new(),
                     success: false,
                     result: None,
                     error: Some("No active query found".to_string()),
@@ -441,6 +450,7 @@ pub async fn cancel_query(
         Ok(()) => {
             metrics::record_cancel();
             Ok(QueryResponse {
+                extra_results: Vec::new(),
                 success: true,
                 result: None,
                 error: None,
@@ -450,6 +460,7 @@ pub async fn cancel_query(
             })
         }
         Err(e) => Ok(QueryResponse {
+            extra_results: Vec::new(),
             success: false,
             result: None,
             error: Some(e.sanitized_message()),
@@ -856,6 +867,7 @@ pub async fn preview_table(
     .await
     {
         Ok(result) => Ok(QueryResponse {
+            extra_results: Vec::new(),
             success: true,
             result: Some(result),
             error: None,
@@ -864,6 +876,7 @@ pub async fn preview_table(
             truncated_total: None,
         }),
         Err(e) => Ok(QueryResponse {
+            extra_results: Vec::new(),
             success: false,
             result: None,
             error: Some(e.sanitized()),
@@ -975,6 +988,7 @@ pub async fn peek_foreign_key(
         || matches!(value, Value::Null)
     {
         return Ok(QueryResponse {
+            extra_results: Vec::new(),
             success: true,
             result: Some(QueryResult {
                 columns: Vec::new(),
@@ -991,6 +1005,7 @@ pub async fn peek_foreign_key(
 
     if let Err(msg) = governance::check_concurrent_limit(&policy, &query_manager).await {
         return Ok(QueryResponse {
+            extra_results: Vec::new(),
             success: false,
             result: None,
             error: Some(msg),
@@ -1004,6 +1019,7 @@ pub async fn peek_foreign_key(
         Ok(d) => d,
         Err(e) => {
             return Ok(QueryResponse {
+                extra_results: Vec::new(),
                 success: false,
                 result: None,
                 error: Some(e.sanitized_message()),
@@ -1022,6 +1038,7 @@ pub async fn peek_foreign_key(
 
     match result {
         Ok(Ok(result)) => Ok(QueryResponse {
+            extra_results: Vec::new(),
             success: true,
             result: Some(result),
             error: None,
@@ -1030,6 +1047,7 @@ pub async fn peek_foreign_key(
             truncated_total: None,
         }),
         Ok(Err(e)) => Ok(QueryResponse {
+            extra_results: Vec::new(),
             success: false,
             result: None,
             error: Some(e.sanitized_message()),
@@ -1038,6 +1056,7 @@ pub async fn peek_foreign_key(
             truncated_total: None,
         }),
         Err(timeout_msg) => Ok(QueryResponse {
+            extra_results: Vec::new(),
             success: false,
             result: None,
             error: Some(timeout_msg),
@@ -1069,6 +1088,7 @@ pub async fn create_database(
     let read_only = session_manager.is_read_only(session).await.unwrap_or(false);
     if read_only {
         return Ok(QueryResponse {
+            extra_results: Vec::new(),
             success: false,
             result: None,
             error: Some(READ_ONLY_BLOCKED.to_string()),
@@ -1082,6 +1102,7 @@ pub async fn create_database(
         Ok(d) => d,
         Err(e) => {
             return Ok(QueryResponse {
+                extra_results: Vec::new(),
                 success: false,
                 result: None,
                 error: Some(e.sanitized_message()),
@@ -1145,6 +1166,7 @@ pub async fn create_database(
         };
 
         return Ok(QueryResponse {
+            extra_results: Vec::new(),
             success: false,
             result: None,
             error: Some(error_msg),
@@ -1178,6 +1200,7 @@ pub async fn create_database(
                 safety_warning.as_deref(),
             );
             Ok(QueryResponse {
+                extra_results: Vec::new(),
                 success: true,
                 result: None,
                 error: None,
@@ -1200,6 +1223,7 @@ pub async fn create_database(
                 safety_warning.as_deref(),
             );
             Ok(QueryResponse {
+                extra_results: Vec::new(),
                 success: false,
                 result: None,
                 error: Some(e.sanitized_message()),
@@ -1231,6 +1255,7 @@ pub async fn drop_database(
     let read_only = session_manager.is_read_only(session).await.unwrap_or(false);
     if read_only {
         return Ok(QueryResponse {
+            extra_results: Vec::new(),
             success: false,
             result: None,
             error: Some(READ_ONLY_BLOCKED.to_string()),
@@ -1244,6 +1269,7 @@ pub async fn drop_database(
         Ok(d) => d,
         Err(e) => {
             return Ok(QueryResponse {
+                extra_results: Vec::new(),
                 success: false,
                 result: None,
                 error: Some(e.sanitized_message()),
@@ -1307,6 +1333,7 @@ pub async fn drop_database(
         };
 
         return Ok(QueryResponse {
+            extra_results: Vec::new(),
             success: false,
             result: None,
             error: Some(error_msg),
@@ -1338,6 +1365,7 @@ pub async fn drop_database(
                 safety_warning.as_deref(),
             );
             Ok(QueryResponse {
+                extra_results: Vec::new(),
                 success: true,
                 result: None,
                 error: None,
@@ -1360,6 +1388,7 @@ pub async fn drop_database(
                 safety_warning.as_deref(),
             );
             Ok(QueryResponse {
+                extra_results: Vec::new(),
                 success: false,
                 result: None,
                 error: Some(e.sanitized_message()),

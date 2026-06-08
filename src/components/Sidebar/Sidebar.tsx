@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { listen, type UnlistenFn } from '@/lib/transport';
 import { ChevronUp, Database, Globe, Plus, Search, ShieldCheck, Sparkles } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -33,6 +32,7 @@ import {
   setSettingsOpen,
   useModalStore,
 } from '@/lib/stores/modalStore';
+import { listen, type UnlistenFn } from '@/lib/transport';
 import { useLicense } from '@/providers/LicenseProvider';
 import { useWorkspace } from '@/providers/WorkspaceProvider';
 import {
@@ -69,6 +69,7 @@ interface SidebarProps {
   onDatabaseSelect?: (namespace: Namespace) => void;
   onCompareTable?: (collection: Collection) => void;
   onAiGenerateForTable?: (collection: Collection) => void;
+  onNewQueryForTable?: (collection: Collection) => void;
   onOpenRoutineSource?: (routine: Routine, namespace: Namespace) => void;
   onCreateRoutine?: (routineType: 'Function' | 'Procedure', namespace: Namespace) => void;
   onOpenTriggerSource?: (trigger: Trigger, namespace: Namespace) => void;
@@ -93,6 +94,7 @@ export function Sidebar({
   onDatabaseSelect,
   onCompareTable,
   onAiGenerateForTable,
+  onNewQueryForTable,
   onOpenRoutineSource,
   onCreateRoutine,
   onOpenTriggerSource,
@@ -298,6 +300,7 @@ export function Sidebar({
               onDatabaseSelect={onDatabaseSelect}
               onCompareTable={onCompareTable}
               onAiGenerateForTable={onAiGenerateForTable}
+              onNewQueryForTable={onNewQueryForTable}
               onOpenRoutineSource={onOpenRoutineSource}
               onCreateRoutine={onCreateRoutine}
               onOpenTriggerSource={onOpenTriggerSource}

@@ -135,20 +135,17 @@ mod tests {
             RedisQueryClass::Dangerous
         );
         assert_eq!(classify("SCRIPT FLUSH"), RedisQueryClass::Dangerous);
-        assert_eq!(
-            classify("EVAL \"return 1\" 0"),
-            RedisQueryClass::Dangerous
-        );
-        assert_eq!(
-            classify("EVALSHA abc123 0"),
-            RedisQueryClass::Dangerous
-        );
+        assert_eq!(classify("EVAL \"return 1\" 0"), RedisQueryClass::Dangerous);
+        assert_eq!(classify("EVALSHA abc123 0"), RedisQueryClass::Dangerous);
         assert_eq!(classify("FCALL myfunc 0"), RedisQueryClass::Dangerous);
         assert_eq!(
             classify("MIGRATE host 6379 key 0 5000"),
             RedisQueryClass::Dangerous
         );
-        assert_eq!(classify("MODULE LOAD /tmp/x.so"), RedisQueryClass::Dangerous);
+        assert_eq!(
+            classify("MODULE LOAD /tmp/x.so"),
+            RedisQueryClass::Dangerous
+        );
     }
 
     #[test]

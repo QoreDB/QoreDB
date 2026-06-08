@@ -77,6 +77,7 @@ export async function executeQuery(
 ): Promise<{
   success: boolean;
   result?: QueryResult;
+  extra_results?: QueryResult[];
   error?: string;
   query_id?: string;
   truncated?: boolean;

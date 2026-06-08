@@ -96,12 +96,10 @@ pub fn install_plugin(dir: &Path, source: &str) -> Result<InstalledPlugin, Strin
     let backup = dir.join(format!("{}{BACKUP_SUFFIX}", manifest.id));
 
     if staging.exists() {
-        fs::remove_dir_all(&staging)
-            .map_err(|e| format!("Failed to clean staging folder: {e}"))?;
+        fs::remove_dir_all(&staging).map_err(|e| format!("Failed to clean staging folder: {e}"))?;
     }
     if backup.exists() {
-        fs::remove_dir_all(&backup)
-            .map_err(|e| format!("Failed to clean backup folder: {e}"))?;
+        fs::remove_dir_all(&backup).map_err(|e| format!("Failed to clean backup folder: {e}"))?;
     }
 
     if let Err(e) = copy_dir(source, &staging) {
@@ -377,7 +375,11 @@ mod tests {
         // leave behind. None of them must end up in the installed copy.
         let target = source.join("target");
         fs::create_dir_all(target.join("release")).unwrap();
-        fs::write(target.join("release").join("huge.bin"), vec![0u8; 16 * 1024 * 1024]).unwrap();
+        fs::write(
+            target.join("release").join("huge.bin"),
+            vec![0u8; 16 * 1024 * 1024],
+        )
+        .unwrap();
         fs::create_dir_all(source.join(".git")).unwrap();
         fs::write(source.join(".git").join("HEAD"), b"ref: refs/heads/main").unwrap();
         fs::write(source.join("Cargo.lock"), b"# lock").unwrap();
@@ -385,7 +387,10 @@ mod tests {
         install_plugin(&dir, source.to_str().unwrap()).unwrap();
         let installed = dir.join("acme.pack");
         assert!(installed.join("plugin.json").exists());
-        assert!(!installed.join("target").exists(), "target/ must be skipped");
+        assert!(
+            !installed.join("target").exists(),
+            "target/ must be skipped"
+        );
         assert!(!installed.join(".git").exists(), ".git/ must be skipped");
         assert!(
             !installed.join("Cargo.lock").exists(),
@@ -429,10 +434,7 @@ mod tests {
 
         let err = install_plugin(&dir, source.to_str().unwrap())
             .expect_err("install should fail when the source breaks the budget");
-        assert!(
-            err.contains("too many files"),
-            "unexpected error: {err}"
-        );
+        assert!(err.contains("too many files"), "unexpected error: {err}");
 
         assert!(installed_dir.join("MARKER").exists());
         assert!(!dir.join(format!("acme.pack{STAGING_SUFFIX}")).exists());

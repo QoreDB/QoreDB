@@ -11,8 +11,8 @@ use qore_core::error::{EngineError, EngineResult};
 use qore_core::traits::DataEngine;
 use qore_core::types::{
     CancelSupport, CollectionList, CollectionListOptions, ConnectionConfig, Namespace,
-    PaginatedQueryResult, QueryId, QueryResult, RowData, SessionId, TableQueryOptions,
-    TableSchema, Value,
+    PaginatedQueryResult, QueryId, QueryResult, RowData, SessionId, TableQueryOptions, TableSchema,
+    Value,
 };
 use tokio::sync::{Mutex, RwLock};
 use uuid::Uuid;
@@ -442,7 +442,11 @@ fn quote_ident(raw: &str) -> String {
 }
 
 fn qualified_table(namespace: &Namespace, table: &str) -> String {
-    format!("{}.{}", quote_ident(&namespace.database), quote_ident(table))
+    format!(
+        "{}.{}",
+        quote_ident(&namespace.database),
+        quote_ident(table)
+    )
 }
 
 fn build_pk_predicate(pk_keys: &[&String], primary_key: &RowData) -> EngineResult<String> {

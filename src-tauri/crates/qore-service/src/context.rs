@@ -60,8 +60,9 @@ impl ServiceContext {
         let data_dir = crate::paths::app_data_dir();
         let interceptor = Arc::new(InterceptorPipeline::new(data_dir.join("interceptor")));
         let _ = interceptor.load_config();
-        let virtual_relations =
-            Arc::new(VirtualRelationStore::new(data_dir.join("virtual_relations")));
+        let virtual_relations = Arc::new(VirtualRelationStore::new(
+            data_dir.join("virtual_relations"),
+        ));
 
         let _ = vault_lock.auto_unlock_if_no_password();
         let license_manager = LicenseManager::new(default_provider());

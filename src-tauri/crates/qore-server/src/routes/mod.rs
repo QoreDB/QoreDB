@@ -17,7 +17,10 @@ pub fn router() -> Router<AppState> {
         .route("/api/status", get(status))
         .route("/api/invoke", post(bridge::invoke))
         .route("/api/stream/execute_query", post(stream::execute_query))
-        .route("/api/admin/users", get(admin::list_users).post(admin::create_user))
+        .route(
+            "/api/admin/users",
+            get(admin::list_users).post(admin::create_user),
+        )
         .route("/api/admin/roles", post(admin::create_role))
         .route("/api/admin/assign", post(admin::assign_role))
         .route("/api/admin/grants", post(admin::grant_connection))

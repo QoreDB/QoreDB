@@ -48,7 +48,11 @@ pub async fn callback(State(st): State<AppState>, Query(p): Query<CallbackParams
 
     let user = match st.control.find_user_by_email(&email).await {
         Ok(Some((user, _))) => user,
-        Ok(None) => match st.control.create_user(&email, &random_token(32), false).await {
+        Ok(None) => match st
+            .control
+            .create_user(&email, &random_token(32), false)
+            .await
+        {
             Ok(user) => user,
             Err(e) => {
                 tracing::error!(error = %e, "OIDC JIT provisioning failed");

@@ -35,18 +35,16 @@ pub fn parse_query_result(body: &str, execution_time_ms: f64) -> EngineResult<Qu
         });
     };
 
-    let names: Vec<String> = serde_json::from_str(names_line).map_err(|e| {
-        EngineError::execution_error(format!("Invalid ClickHouse names line: {e}"))
-    })?;
+    let names: Vec<String> = serde_json::from_str(names_line)
+        .map_err(|e| EngineError::execution_error(format!("Invalid ClickHouse names line: {e}")))?;
 
     let Some(types_line) = lines.next() else {
         return Err(EngineError::execution_error(
             "ClickHouse response missing type header",
         ));
     };
-    let types: Vec<String> = serde_json::from_str(types_line).map_err(|e| {
-        EngineError::execution_error(format!("Invalid ClickHouse types line: {e}"))
-    })?;
+    let types: Vec<String> = serde_json::from_str(types_line)
+        .map_err(|e| EngineError::execution_error(format!("Invalid ClickHouse types line: {e}")))?;
 
     if names.len() != types.len() {
         return Err(EngineError::execution_error(format!(
@@ -64,9 +62,8 @@ pub fn parse_query_result(body: &str, execution_time_ms: f64) -> EngineResult<Qu
 
     let mut rows = Vec::new();
     for line in lines {
-        let cells: Vec<JsonValue> = serde_json::from_str(line).map_err(|e| {
-            EngineError::execution_error(format!("Invalid ClickHouse row: {e}"))
-        })?;
+        let cells: Vec<JsonValue> = serde_json::from_str(line)
+            .map_err(|e| EngineError::execution_error(format!("Invalid ClickHouse row: {e}")))?;
         if cells.len() != types.len() {
             return Err(EngineError::execution_error(format!(
                 "ClickHouse row arity mismatch: {} vs {}",

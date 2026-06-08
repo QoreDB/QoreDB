@@ -447,8 +447,12 @@ impl DuckDbDanger {
     pub fn reason(self) -> &'static str {
         match self {
             DuckDbDanger::Install => "INSTALL is blocked (extensions can fetch remote code)",
-            DuckDbDanger::Load => "LOAD is blocked (loading extensions enables network/file egress)",
-            DuckDbDanger::Attach => "ATTACH is blocked (can mount arbitrary databases, including HTTP)",
+            DuckDbDanger::Load => {
+                "LOAD is blocked (loading extensions enables network/file egress)"
+            }
+            DuckDbDanger::Attach => {
+                "ATTACH is blocked (can mount arbitrary databases, including HTTP)"
+            }
             DuckDbDanger::CopyTo => "COPY ... TO is blocked (writes to arbitrary filesystem paths)",
             DuckDbDanger::EnableExternalAccess => {
                 "PRAGMA enable_external_access is blocked (toggles network/file egress)"
@@ -543,7 +547,9 @@ pub enum SqliteDanger {
 impl SqliteDanger {
     pub fn reason(self) -> &'static str {
         match self {
-            SqliteDanger::Attach => "ATTACH DATABASE is blocked (can mount arbitrary files outside the session policy)",
+            SqliteDanger::Attach => {
+                "ATTACH DATABASE is blocked (can mount arbitrary files outside the session policy)"
+            }
             SqliteDanger::WritableSchema => {
                 "PRAGMA writable_schema is blocked (allows direct edits to sqlite_master)"
             }
@@ -578,7 +584,9 @@ pub fn classify_sqlite_dangerous(sql: &str) -> Option<SqliteDanger> {
             Some(idx) => {
                 let before_dot = &rest[..idx];
                 if !before_dot.is_empty()
-                    && before_dot.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+                    && before_dot
+                        .chars()
+                        .all(|c| c.is_ascii_alphanumeric() || c == '_')
                 {
                     rest[idx + 1..].trim_start()
                 } else {
@@ -799,11 +807,9 @@ mod tests {
 
     #[test]
     fn clickhouse_split_respects_string_literals() {
-        let stmts = split_sql_statements(
-            "clickhouse",
-            "INSERT INTO t VALUES ('a;b', 'c'); SELECT 1;",
-        )
-        .expect("ok");
+        let stmts =
+            split_sql_statements("clickhouse", "INSERT INTO t VALUES ('a;b', 'c'); SELECT 1;")
+                .expect("ok");
         assert_eq!(stmts.len(), 2);
         assert!(stmts[0].contains("'a;b'"));
         assert!(stmts[1].to_ascii_uppercase().starts_with("SELECT"));
@@ -868,15 +874,9 @@ mod tests {
     #[test]
     fn duckdb_safe_statements_pass() {
         assert_eq!(classify_duckdb_dangerous("SELECT 1"), None);
-        assert_eq!(
-            classify_duckdb_dangerous("INSERT INTO t VALUES (1)"),
-            None
-        );
+        assert_eq!(classify_duckdb_dangerous("INSERT INTO t VALUES (1)"), None);
         // COPY FROM is the normal data import path — should not be blocked.
-        assert_eq!(
-            classify_duckdb_dangerous("COPY t FROM '/data/x.csv'"),
-            None
-        );
+        assert_eq!(classify_duckdb_dangerous("COPY t FROM '/data/x.csv'"), None);
         // PRAGMA other than enable_external_access is allowed (table_info,
         // database_size, etc. are common metadata helpers).
         assert_eq!(classify_duckdb_dangerous("PRAGMA database_size"), None);
@@ -927,7 +927,10 @@ mod tests {
         );
         // Other journal modes stay allowed.
         assert_eq!(classify_sqlite_dangerous("PRAGMA journal_mode = WAL"), None);
-        assert_eq!(classify_sqlite_dangerous("PRAGMA journal_mode = MEMORY"), None);
+        assert_eq!(
+            classify_sqlite_dangerous("PRAGMA journal_mode = MEMORY"),
+            None
+        );
     }
 
     #[test]
@@ -936,10 +939,7 @@ mod tests {
             classify_sqlite_dangerous("PRAGMA foreign_keys = OFF"),
             Some(SqliteDanger::ForeignKeysOff)
         );
-        assert_eq!(
-            classify_sqlite_dangerous("PRAGMA foreign_keys = ON"),
-            None
-        );
+        assert_eq!(classify_sqlite_dangerous("PRAGMA foreign_keys = ON"), None);
     }
 
     #[test]

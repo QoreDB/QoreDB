@@ -4,7 +4,7 @@
  * AI BYOK types and Tauri bindings.
  * Mirrors Rust types from src-tauri/src/ai/types.rs
  */
-import { invoke } from '@tauri-apps/api/core';
+import { invoke } from '@/lib/transport';
 import type { Namespace } from './tauri';
 
 // ============================================

@@ -66,6 +66,7 @@ import { useTheme } from './hooks/useTheme';
 import { useTourManager } from './hooks/useTourManager';
 import { useWebviewGuards } from './hooks/useWebviewGuards';
 import { Driver } from './lib/connection/drivers';
+import { buildQualifiedTableName } from './lib/ddl';
 import { openNotebookFromFile, setPendingNotebook } from './lib/notebook/notebookIO';
 import { notify } from './lib/notify';
 import { splitContributionId } from './lib/plugins';
@@ -124,7 +125,11 @@ export function AppLayout() {
   const { t } = useTranslation();
   const { resolvedTheme, toggleTheme } = useTheme();
   useWebviewGuards();
-  const { width: sidebarWidth, handleMouseDown: handleSidebarResizeStart } = useResizableSidebar();
+  const {
+    width: sidebarWidth,
+    handleMouseDown: handleSidebarResizeStart,
+    resetWidth: resetSidebarWidth,
+  } = useResizableSidebar();
   const tourManager = useTourManager();
 
   const {
@@ -289,6 +294,20 @@ export function AppLayout() {
       openTab(tab);
     },
     [sessionId, openTab]
+  );
+
+  const handleNewQueryForTable = useCallback(
+    (collection: Collection) => {
+      if (!sessionId) return;
+      const d = driver as Driver;
+      const tableRef = buildQualifiedTableName(collection.namespace, collection.name, d);
+      const sql =
+        d === Driver.SqlServer
+          ? `SELECT TOP 100 * FROM ${tableRef};`
+          : `SELECT * FROM ${tableRef} LIMIT 100;`;
+      openTab(createQueryTab(sql, collection.namespace));
+    },
+    [sessionId, driver, openTab]
   );
 
   const handleOpenRoutineSource = useCallback(
@@ -755,7 +774,7 @@ export function AppLayout() {
           )}
 
           {!zenMode && sidebarVisible && (
-            <aside aria-label={t('a11y.sidebar')}>
+            <aside aria-label={t('a11y.sidebar')} className="flex h-full shrink-0">
               <Sidebar
                 onNewConnection={() => setConnectionModalOpen(true)}
                 onConnected={handleConnected}
@@ -765,6 +784,7 @@ export function AppLayout() {
                 onDatabaseSelect={handleDatabaseSelect}
                 onCompareTable={handleCompareTable}
                 onAiGenerateForTable={handleAiGenerateForTable}
+                onNewQueryForTable={handleNewQueryForTable}
                 onOpenRoutineSource={handleOpenRoutineSource}
                 onCreateRoutine={handleCreateRoutine}
                 onOpenTriggerSource={handleOpenTriggerSource}
@@ -783,6 +803,7 @@ export function AppLayout() {
                 type="button"
                 aria-label="Resize sidebar"
                 onMouseDown={handleSidebarResizeStart}
+                onDoubleClick={resetSidebarWidth}
                 className="w-1 shrink-0 cursor-col-resize bg-transparent hover:bg-accent/50 active:bg-accent transition-colors border-0 p-0 outline-none"
               />
             </aside>

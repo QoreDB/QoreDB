@@ -8,8 +8,8 @@
  * Use {@link listenBackupProgress} to consume them.
  */
 
-import { invoke } from '@tauri-apps/api/core';
-import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+import { invoke } from '@/lib/transport';
+import { listen, type UnlistenFn } from '@/lib/transport';
 
 export type BackupTool =
   | 'pg_dump'

@@ -99,7 +99,15 @@ fn is_mutation(upper: &str) -> bool {
     let head = first_keyword(upper);
     if matches!(
         head.as_str(),
-        "INSERT" | "CREATE" | "ATTACH" | "RENAME" | "GRANT" | "REVOKE" | "SET" | "DELETE" | "UPDATE"
+        "INSERT"
+            | "CREATE"
+            | "ATTACH"
+            | "RENAME"
+            | "GRANT"
+            | "REVOKE"
+            | "SET"
+            | "DELETE"
+            | "UPDATE"
     ) {
         return true;
     }

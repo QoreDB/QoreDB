@@ -1,4 +1,21 @@
 {
+  "auth": {
+    "setupTitle": "Configurar esta instância",
+    "setupSubtitle": "Crie a conta de administrador para começar.",
+    "loginTitle": "Entrar",
+    "loginSubtitle": "Entre para acessar suas conexões.",
+    "email": "E-mail",
+    "password": "Senha",
+    "confirmPassword": "Confirmar senha",
+    "createAdmin": "Criar administrador",
+    "signIn": "Entrar",
+    "ssoButton": "Continuar com SSO",
+    "or": "ou",
+    "passwordMismatch": "As senhas não coincidem.",
+    "passwordTooShort": "A senha deve ter pelo menos 8 caracteres.",
+    "ssoFailed": "Falha ao entrar com SSO: {{error}}",
+    "submitting": "Aguarde…"
+  },
   "cache": {
     "title": "Cache de resultados",
     "description": "Armazena em cache os resultados de navegação recentes para que a navegação repetida seja instantânea.",
@@ -35,7 +52,11 @@
       "remove": "Remover plugin",
       "removeConfirm": "Remover o plugin “{{name}}”?",
       "executable": "Executável",
-      "executableTooltip": "Este plugin executa código WASM em sandbox sob um orçamento estrito de CPU e memória."
+      "executableTooltip": "Este plugin executa código WASM em sandbox sob um orçamento estrito de CPU e memória.",
+      "inert": "Inerte",
+      "inertTooltip": "Ativado, mas sem permissão concedida — não pode fazer nada. Clique para conceder.",
+      "disabledErrors": "Desativado",
+      "disabledErrorsTooltip": "Descarregado após erros repetidos. Reative-o quando o problema for corrigido."
     },
     "contributions": {
       "snippets": "Snippets: {{count}}",
@@ -65,8 +86,14 @@
       "commandRun": "Executar",
       "commandRunning": "Executando…",
       "commandNoOutput": "(sem saída)",
+      "logs": "Logs",
+      "logsEmpty": "Ainda não há linhas de log. Execute o plugin ou uma consulta para ver sua atividade.",
+      "logsClear": "Limpar",
       "secrets": "Segredos",
-      "secretsDescription": "Forneça os valores dos segredos declarados pelo plugin no manifesto. Os valores são armazenados no chaveiro do SO e nunca saem deste dispositivo."
+      "secretsDescription": "Forneça os valores dos segredos declarados pelo plugin no manifesto. Os valores são armazenados no chaveiro do SO e nunca saem deste dispositivo.",
+      "disabledErrorsBanner": "Este plugin foi desativado após {{count}} erros consecutivos. Reative-o pelo botão quando o problema for resolvido.",
+      "inertBanner": "Este plugin está ativado, mas você não concedeu nenhuma permissão a ele, então ainda não pode fazer nada.",
+      "grantCta": "Conceder permissões"
     },
     "themes": {
       "title": "Temas de plugins",
@@ -76,7 +103,9 @@
     },
     "toast": {
       "installed": "Plugin “{{name}}” instalado",
-      "removed": "Plugin “{{name}}” removido"
+      "removed": "Plugin “{{name}}” removido",
+      "disabledTitle": "{{name}} desativado após erros repetidos",
+      "disabledPendingConsent": "{{name}} foi instalado, mas ficou desativado — conceda permissões para ativá-lo."
     },
     "consent": {
       "title": "Permissões solicitadas por {{name}}",
@@ -272,8 +301,8 @@
       "authSql": "Login SQL",
       "authNtlm": "Windows (NTLM)",
       "authIntegrated": "Windows (Integrada)",
-      "ntlmHint": "Use DOMÍNIO\\usuário ou usuário@DOMÍNIO. Requer um cliente Windows — desativado em macOS/Linux por enquanto.",
-      "integratedHint": "Usa sua sessão atual do Windows/AD — nenhuma credencial necessária. Requer SSPI (Windows) ou um ticket Kerberos via kinit (macOS/Linux).",
+      "ntlmHint": "Apenas clientes Windows.",
+      "integratedHint": "Usa sua sessão atual do Windows, sem credenciais.",
       "ntlmUsernamePlaceholder": "DOMÍNIO\\usuário"
     },
     "ssh": {
@@ -753,6 +782,7 @@
   },
   "tableMenu": {
     "open": "Abrir",
+    "newQuery": "Nova consulta",
     "truncate": "Truncar Tabela",
     "drop": "Excluir Tabela",
     "truncateTitle": "Truncar Tabela",
@@ -3008,7 +3038,6 @@
   },
   "pluginLauncher": {
     "tooltip": "Plugins",
-    "themes": "Temas",
     "themeDefault": "Tema padrão",
     "active": "Plugins ativos",
     "manage": "Gerenciar plugins…",

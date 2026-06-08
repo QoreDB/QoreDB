@@ -43,7 +43,6 @@ use qore_core::types::{
 };
 use qore_sql::safety;
 
-
 /// Holds the connection state for a DuckDB session.
 pub struct DuckDbSession {
     /// The DuckDB connection, protected by a std Mutex (Connection is !Sync).
@@ -153,7 +152,6 @@ impl Default for DuckDbDriver {
         Self::new()
     }
 }
-
 
 /// Converts a QoreDB Value to a DuckDB Value for parameter binding.
 fn value_to_duckdb(value: &Value) -> DuckValue {
@@ -283,7 +281,6 @@ fn classify_error(msg: String) -> EngineError {
     }
 }
 
-
 #[async_trait]
 impl DataEngine for DuckDbDriver {
     fn driver_id(&self) -> &'static str {
@@ -347,7 +344,6 @@ impl DataEngine for DuckDbDriver {
         })
         .await
     }
-
 
     async fn list_namespaces(&self, session: SessionId) -> EngineResult<Vec<Namespace>> {
         let duck_session = self.get_session(session).await?;
@@ -646,7 +642,6 @@ impl DataEngine for DuckDbDriver {
         self.execute(session, &query, QueryId::new()).await
     }
 
-
     async fn execute(
         &self,
         session: SessionId,
@@ -809,7 +804,6 @@ impl DataEngine for DuckDbDriver {
         .await
         .map_err(|e| EngineError::internal(format!("DuckDB streaming task panicked: {e}")))?
     }
-
 
     async fn query_table(
         &self,
@@ -1105,7 +1099,6 @@ impl DataEngine for DuckDbDriver {
         .await
     }
 
-
     async fn create_database(
         &self,
         session: SessionId,
@@ -1136,7 +1129,6 @@ impl DataEngine for DuckDbDriver {
         })
         .await
     }
-
 
     async fn begin_transaction(&self, session: SessionId) -> EngineResult<()> {
         let duck_session = self.get_session(session).await?;
@@ -1210,7 +1202,6 @@ impl DataEngine for DuckDbDriver {
     fn supports_transactions(&self) -> bool {
         true
     }
-
 
     async fn insert_row(
         &self,
@@ -1416,7 +1407,6 @@ impl DataEngine for DuckDbDriver {
         true
     }
 
-
     fn supports_streaming(&self) -> bool {
         true
     }
@@ -1434,7 +1424,6 @@ impl DataEngine for DuckDbDriver {
     fn cancel_support(&self) -> CancelSupport {
         CancelSupport::None
     }
-
 
     fn supports_maintenance(&self) -> bool {
         true
@@ -1498,7 +1487,6 @@ impl DataEngine for DuckDbDriver {
     }
 }
 
-
 /// Extracts column names from a CREATE INDEX SQL statement.
 fn extract_index_columns(sql: Option<&str>) -> Vec<String> {
     let Some(sql) = sql else {
@@ -1519,7 +1507,6 @@ fn extract_index_columns(sql: Option<&str>) -> Vec<String> {
     }
     Vec::new()
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -1546,7 +1533,7 @@ mod tests {
             pool_min_connections: None,
             proxy: None,
             mssql_auth: None,
-clickhouse_cluster: None,
+            clickhouse_cluster: None,
         };
 
         let session_id = driver.connect(&config).await.unwrap();
@@ -1574,7 +1561,7 @@ clickhouse_cluster: None,
             pool_min_connections: None,
             proxy: None,
             mssql_auth: None,
-clickhouse_cluster: None,
+            clickhouse_cluster: None,
         };
 
         let session_id = driver.connect(&config).await.unwrap();
@@ -1630,7 +1617,7 @@ clickhouse_cluster: None,
             pool_min_connections: None,
             proxy: None,
             mssql_auth: None,
-clickhouse_cluster: None,
+            clickhouse_cluster: None,
         };
 
         let session_id = driver.connect(&config).await.unwrap();
@@ -1663,7 +1650,7 @@ clickhouse_cluster: None,
             pool_min_connections: None,
             proxy: None,
             mssql_auth: None,
-clickhouse_cluster: None,
+            clickhouse_cluster: None,
         };
 
         let session_id = driver.connect(&config).await.unwrap();

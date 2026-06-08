@@ -20,9 +20,7 @@ fn reject_retired_capabilities(raw: &str) -> Result<(), String> {
     let Ok(value) = serde_json::from_str::<serde_json::Value>(raw) else {
         return Ok(());
     };
-    let caps = value
-        .get("runtime")
-        .and_then(|r| r.get("capabilities"));
+    let caps = value.get("runtime").and_then(|r| r.get("capabilities"));
     if let Some(caps) = caps {
         if caps.get("queryExec").is_some() {
             return Err(
@@ -98,7 +96,11 @@ fn validate_integrity(value: &str) -> Result<(), String> {
                 .into(),
         );
     };
-    if hex.len() != 64 || !hex.chars().all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase()) {
+    if hex.len() != 64
+        || !hex
+            .chars()
+            .all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase())
+    {
         return Err(
             "Runtime integrity must be 'sha256-' followed by exactly 64 lowercase hex characters"
                 .into(),
@@ -145,7 +147,11 @@ fn validate_contributions(c: &PluginContributions) -> Result<(), String> {
         // At least one match criterion — a viewer that matches nothing would
         // never fire; one that matches everything would override every cell
         // and is almost certainly a mistake.
-        let has_match = viewer.match_on.column_type.as_deref().is_some_and(|s| !s.trim().is_empty())
+        let has_match = viewer
+            .match_on
+            .column_type
+            .as_deref()
+            .is_some_and(|s| !s.trim().is_empty())
             || viewer
                 .match_on
                 .name_pattern

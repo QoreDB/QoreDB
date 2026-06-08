@@ -8,6 +8,7 @@ import {
   Link2,
   Pencil,
   Sparkles,
+  Terminal,
   Trash2,
   Wrench,
 } from 'lucide-react';
@@ -53,6 +54,7 @@ interface TableContextMenuProps {
   onOpen: () => void;
   onCompareWith?: (collection: Collection) => void;
   onAiGenerate?: (collection: Collection) => void;
+  onNewQuery?: (collection: Collection) => void;
   onVirtualRelationChanged?: () => void;
   children: React.ReactNode;
 }
@@ -75,6 +77,7 @@ export function TableContextMenu({
   onOpen,
   onCompareWith,
   onAiGenerate,
+  onNewQuery,
   onVirtualRelationChanged,
   children,
 }: TableContextMenuProps) {
@@ -207,6 +210,13 @@ export function TableContextMenu({
             <Eye size={14} className="mr-2" />
             {t('tableMenu.open')}
           </ContextMenuItem>
+
+          {onNewQuery && (
+            <ContextMenuItem onClick={() => onNewQuery(collection)}>
+              <Terminal size={14} className="mr-2" />
+              {t('tableMenu.newQuery')}
+            </ContextMenuItem>
+          )}
 
           {onCompareWith && (
             <ContextMenuItem onClick={() => onCompareWith(collection)}>

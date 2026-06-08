@@ -1825,7 +1825,7 @@ Props drilling extrême. **Recommandation** : context dédié `AppContentProvide
    - `grep -L "SPDX-License-Identifier" $(find src -name '*.ts' -o -name '*.tsx')` → **0 fichier manquant**. ✅
    - Fichiers Pro frontend déclarés CLAUDE.md (AI, Contracts, Diff, Federation, TimeTravel, InstantApi, ERDiagram, ChartCell, ContractCell, diffUtils.ts, ai.ts, notebookInterCellRef.ts, useAiAssistant.ts, AiPreferencesProvider.tsx, AiSection.tsx) → **tous portent `BUSL-1.1`**. ✅
 2. **`cargo deny`** : warnings mineurs (`OpenSSL`, `Unicode-DFS-2016` allow-listés mais non rencontrés ; doublons `base64 0.21.7 + 0.22.1` via Tauri).
-3. **CI workflows** : 8 workflows actifs (`ci.yml`, `build-core.yml`, `build-pro.yml`, `build-msix.yml`, `release.yml`, `aur-publish.yml`, `discord-release.yml`, `pgo-release.yml`).
+3. **CI workflows** : 7 workflows actifs (`ci.yml`, `build-core.yml`, `build-pro.yml`, `build-msix.yml`, `release.yml`, `aur-publish.yml`, `discord-release.yml`).
 4. **Locales** : `en.json` et `fr.json` = 2414 lignes chacune (synchros). `de.json` et `es.json` = 2398 lignes (**16 lignes manquantes**). `ja`, `ko`, `ru`, `zh-CN`, `pt-BR` à recroiser.
 5. **Tests Rust** : `pnpm test:rust` lance `cargo test --manifest-path src-tauri/Cargo.toml`. Couverture LCOV disponible via `pnpm test:coverage`.
 
@@ -1887,7 +1887,7 @@ Cf `package.json:7`. Vérifier que le script gère bien les erreurs et n'altère
 
 **B11-Mi4 — `doc/release/RELEASE.md`** : process documenté. Vérifier que les étapes anti-régression (cf bloc 3 B3-C1 MariaDB SQLi) sont dans la checklist.
 
-**B11-Mi5 — `Cargo.toml` profile `pgo-release` (PGO workload crate présent)** : optimisation continue. Build PGO via `pgo-release.yml`. Bonne pratique.
+**B11-Mi5 — Build PGO retiré** : l'ancien workflow opt-in et son workload dédié ont été supprimés. À réintroduire uniquement avec un workload maintenu et mesuré.
 
 ### Synthèse Bloc 11
 
@@ -2004,4 +2004,3 @@ Cf `package.json:7`. Vérifier que le script gère bien les erreurs et n'altère
 ---
 
 _Fin du rapport — généré par audit interne 2026-05-16._
-

@@ -1,4 +1,21 @@
 {
+  "auth": {
+    "setupTitle": "Configurar esta instancia",
+    "setupSubtitle": "Crea la cuenta de administrador para empezar.",
+    "loginTitle": "Iniciar sesión",
+    "loginSubtitle": "Inicia sesión para acceder a tus conexiones.",
+    "email": "Correo electrónico",
+    "password": "Contraseña",
+    "confirmPassword": "Confirmar contraseña",
+    "createAdmin": "Crear administrador",
+    "signIn": "Iniciar sesión",
+    "ssoButton": "Continuar con SSO",
+    "or": "o",
+    "passwordMismatch": "Las contraseñas no coinciden.",
+    "passwordTooShort": "La contraseña debe tener al menos 8 caracteres.",
+    "ssoFailed": "Error al iniciar sesión con SSO: {{error}}",
+    "submitting": "Espera por favor…"
+  },
   "cache": {
     "title": "Caché de resultados",
     "description": "Almacena en caché los resultados de navegación recientes para que la navegación repetida sea instantánea.",
@@ -35,7 +52,11 @@
       "remove": "Eliminar complemento",
       "removeConfirm": "¿Eliminar el complemento «{{name}}»?",
       "executable": "Ejecutable",
-      "executableTooltip": "Este complemento ejecuta código WASM en sandbox con un presupuesto estricto de CPU y memoria."
+      "executableTooltip": "Este complemento ejecuta código WASM en sandbox con un presupuesto estricto de CPU y memoria.",
+      "inert": "Inerte",
+      "inertTooltip": "Activado, pero sin permisos concedidos: no puede hacer nada. Haz clic para conceder.",
+      "disabledErrors": "Desactivado",
+      "disabledErrorsTooltip": "Descargado tras errores repetidos. Vuelve a activarlo cuando se resuelva el problema."
     },
     "contributions": {
       "snippets": "Snippets: {{count}}",
@@ -65,8 +86,14 @@
       "commandRun": "Ejecutar",
       "commandRunning": "Ejecutando…",
       "commandNoOutput": "(sin salida)",
+      "logs": "Registros",
+      "logsEmpty": "Aún no hay líneas de registro. Ejecuta el plugin o una consulta para ver su actividad.",
+      "logsClear": "Borrar",
       "secrets": "Secretos",
-      "secretsDescription": "Proporciona los valores de los secretos declarados por el complemento en su manifiesto. Los valores se almacenan en el llavero del SO y nunca salen de este dispositivo."
+      "secretsDescription": "Proporciona los valores de los secretos declarados por el complemento en su manifiesto. Los valores se almacenan en el llavero del SO y nunca salen de este dispositivo.",
+      "disabledErrorsBanner": "Este complemento se desactivó tras {{count}} errores consecutivos. Vuelve a activarlo con el interruptor cuando se resuelva el problema.",
+      "inertBanner": "Este complemento está activado pero no le has concedido ningún permiso, así que todavía no puede hacer nada.",
+      "grantCta": "Conceder permisos"
     },
     "themes": {
       "title": "Temas de complementos",
@@ -76,7 +103,9 @@
     },
     "toast": {
       "installed": "Complemento «{{name}}» instalado",
-      "removed": "Complemento «{{name}}» eliminado"
+      "removed": "Complemento «{{name}}» eliminado",
+      "disabledTitle": "{{name}} desactivado tras errores repetidos",
+      "disabledPendingConsent": "{{name}} se instaló pero quedó desactivado: concédele permisos para activarlo."
     },
     "consent": {
       "title": "Permisos solicitados por {{name}}",
@@ -272,8 +301,8 @@
       "authSql": "Inicio de sesión SQL",
       "authNtlm": "Windows (NTLM)",
       "authIntegrated": "Windows (Integrada)",
-      "ntlmHint": "Usa DOMINIO\\usuario o usuario@DOMINIO. Requiere un cliente Windows — deshabilitado en macOS/Linux por el momento.",
-      "integratedHint": "Usa tu sesión actual de Windows/AD — no se requieren credenciales. Necesita SSPI (Windows) o un ticket Kerberos vía kinit (macOS/Linux).",
+      "ntlmHint": "Solo clientes Windows.",
+      "integratedHint": "Usa tu sesión actual de Windows, sin credenciales.",
       "ntlmUsernamePlaceholder": "DOMINIO\\usuario"
     },
     "ssh": {
@@ -753,6 +782,7 @@
   },
   "tableMenu": {
     "open": "Abrir",
+    "newQuery": "Nueva consulta",
     "truncate": "Truncar tabla",
     "drop": "Eliminar tabla",
     "truncateTitle": "Truncar tabla",
@@ -3008,7 +3038,6 @@
   },
   "pluginLauncher": {
     "tooltip": "Complementos",
-    "themes": "Temas",
     "themeDefault": "Tema predeterminado",
     "active": "Complementos activos",
     "manage": "Gestionar complementos…",

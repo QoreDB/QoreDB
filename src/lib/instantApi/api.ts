@@ -8,7 +8,7 @@
  * Pro license — the frontend gates UI entry points via `useLicense`.
  */
 
-import { invoke } from '@tauri-apps/api/core';
+import { invoke } from '@/lib/transport';
 
 import type {
   CreateEndpointResponse,

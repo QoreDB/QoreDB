@@ -37,7 +37,10 @@ impl ClickHouseClient {
         // Refuse Basic-auth over cleartext HTTP because the base64 header is trivial to sniff
         // (audit B4-C8). Cleartext is only allowed when there is no password to leak.
         let ssl_disabled = !config.ssl
-            && matches!(config.ssl_mode.as_deref(), None | Some("disable") | Some("allow"));
+            && matches!(
+                config.ssl_mode.as_deref(),
+                None | Some("disable") | Some("allow")
+            );
         if ssl_disabled && !config.password.is_empty() {
             return Err(EngineError::connection_failed(
                 "ClickHouse: refusing to send password over cleartext HTTP. \
@@ -384,9 +387,14 @@ mod tests {
 
     #[test]
     fn cluster_blank_string_is_ignored() {
-        let c =
-            ClickHouseClient::new(&cfg_with_cluster("localhost", 8123, false, None, Some("   ")))
-                .unwrap();
+        let c = ClickHouseClient::new(&cfg_with_cluster(
+            "localhost",
+            8123,
+            false,
+            None,
+            Some("   "),
+        ))
+        .unwrap();
         assert!(c.cluster().is_none());
     }
 }

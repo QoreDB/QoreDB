@@ -1,0 +1,19 @@
+# Self-hosted qore-server. Build: docker compose -f docker-compose.server.yml up --build
+# Set QORE_SERVER_TOKEN and QORE_VAULT_KEY in a .env file or the shell before running.
+services:
+  qore-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: qore-server
+    ports:
+      - '8088:8088'
+    environment:
+      - QORE_SERVER_TOKEN=${QORE_SERVER_TOKEN}
+      - QORE_VAULT_KEY=${QORE_VAULT_KEY}
+    volumes:
+      - qore-data:/data
+    restart: unless-stopped
+
+volumes:
+  qore-data:

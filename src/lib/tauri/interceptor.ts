@@ -7,7 +7,7 @@
  * All data is stored and processed in the backend for maximum security.
  */
 
-import { invoke } from '@tauri-apps/api/core';
+import { invoke } from '@/lib/transport';
 
 // ============================================
 // TYPES

@@ -1,0 +1,21 @@
+[package]
+name = "qore-mcp"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+
+[[bin]]
+name = "qore-mcp"
+path = "src/main.rs"
+
+[dependencies]
+qore-service = { path = "../qore-service" }
+qore-core = { path = "../qore-core" }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+dirs = "5"
+rmcp = { version = "1.7.0", features = ["server", "macros", "transport-io", "schemars"] }
+schemars = "1"

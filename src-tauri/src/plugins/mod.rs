@@ -130,6 +130,9 @@ pub enum ViewerRenderer {
     Image,
     Map,
     Chart,
+    Color,
+    Boolean,
+    Bytes,
 }
 
 /// A declarative cell renderer a plugin contributes. The plugin runs no code

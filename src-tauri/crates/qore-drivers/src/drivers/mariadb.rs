@@ -54,7 +54,6 @@ impl DataEngine for MariaDbDriver {
         "MariaDB"
     }
 
-
     async fn test_connection(&self, config: &ConnectionConfig) -> EngineResult<()> {
         self.inner.test_connection(config).await
     }
@@ -70,7 +69,6 @@ impl DataEngine for MariaDbDriver {
     async fn ping(&self, session: SessionId) -> EngineResult<()> {
         self.inner.ping(session).await
     }
-
 
     /// MariaDB-specific namespace filtering.
     /// Unlike MySQL, MariaDB may not have `performance_schema` or `sys` enabled by default.
@@ -97,7 +95,6 @@ impl DataEngine for MariaDbDriver {
         Ok(namespaces)
     }
 
-
     async fn list_collections(
         &self,
         session: SessionId,
@@ -108,7 +105,6 @@ impl DataEngine for MariaDbDriver {
             .list_collections(session, namespace, options)
             .await
     }
-
 
     fn supports_routines(&self) -> bool {
         true
@@ -149,7 +145,6 @@ impl DataEngine for MariaDbDriver {
             .await
     }
 
-
     fn supports_triggers(&self) -> bool {
         true
     }
@@ -186,7 +181,6 @@ impl DataEngine for MariaDbDriver {
             .await
     }
 
-
     fn supports_events(&self) -> bool {
         true
     }
@@ -219,7 +213,6 @@ impl DataEngine for MariaDbDriver {
     ) -> EngineResult<EventOperationResult> {
         self.inner.drop_event(session, namespace, event_name).await
     }
-
 
     fn supports_sequences(&self) -> bool {
         true
@@ -405,7 +398,6 @@ impl DataEngine for MariaDbDriver {
         })
     }
 
-
     async fn get_creation_options(&self, session: SessionId) -> EngineResult<CreationOptions> {
         self.inner.get_creation_options(session).await
     }
@@ -422,7 +414,6 @@ impl DataEngine for MariaDbDriver {
     async fn drop_database(&self, session: SessionId, name: &str) -> EngineResult<()> {
         self.inner.drop_database(session, name).await
     }
-
 
     async fn execute(
         &self,
@@ -470,7 +461,6 @@ impl DataEngine for MariaDbDriver {
             .await
     }
 
-
     async fn describe_table(
         &self,
         session: SessionId,
@@ -517,7 +507,6 @@ impl DataEngine for MariaDbDriver {
             .await
     }
 
-
     async fn cancel(&self, session: SessionId, query_id: Option<QueryId>) -> EngineResult<()> {
         self.inner.cancel(session, query_id).await
     }
@@ -525,7 +514,6 @@ impl DataEngine for MariaDbDriver {
     fn cancel_support(&self) -> CancelSupport {
         self.inner.cancel_support()
     }
-
 
     async fn begin_transaction(&self, session: SessionId) -> EngineResult<()> {
         self.inner.begin_transaction(session).await
@@ -550,7 +538,6 @@ impl DataEngine for MariaDbDriver {
     fn supports_explain(&self) -> bool {
         true
     }
-
 
     async fn insert_row(
         &self,
@@ -619,7 +606,6 @@ impl DataEngine for MariaDbDriver {
             .run_maintenance(session, namespace, table, request)
             .await
     }
-
 
     fn capabilities(&self) -> DriverCapabilities {
         DriverCapabilities {

@@ -1,4 +1,21 @@
 {
+  "auth": {
+    "setupTitle": "このインスタンスをセットアップ",
+    "setupSubtitle": "管理者アカウントを作成して開始します。",
+    "loginTitle": "ログイン",
+    "loginSubtitle": "ログインして接続にアクセスします。",
+    "email": "メールアドレス",
+    "password": "パスワード",
+    "confirmPassword": "パスワードの確認",
+    "createAdmin": "管理者を作成",
+    "signIn": "ログイン",
+    "ssoButton": "SSO で続行",
+    "or": "または",
+    "passwordMismatch": "パスワードが一致しません。",
+    "passwordTooShort": "パスワードは8文字以上で入力してください。",
+    "ssoFailed": "SSO ログインに失敗しました：{{error}}",
+    "submitting": "お待ちください…"
+  },
   "cache": {
     "title": "クエリ結果キャッシュ",
     "description": "最近のテーブル閲覧結果をキャッシュし、再ナビゲーションを瞬時に行います。",
@@ -35,7 +52,11 @@
       "remove": "プラグインを削除",
       "removeConfirm": "プラグイン「{{name}}」を削除しますか？",
       "executable": "実行可能",
-      "executableTooltip": "このプラグインはサンドボックス化された WASM コードを厳格な CPU/メモリ制限下で実行します。"
+      "executableTooltip": "このプラグインはサンドボックス化された WASM コードを厳格な CPU/メモリ制限下で実行します。",
+      "inert": "無効状態",
+      "inertTooltip": "有効ですが権限が付与されていないため、何もできません。クリックして権限を付与してください。",
+      "disabledErrors": "停止",
+      "disabledErrorsTooltip": "繰り返しエラーが発生したため停止しました。問題を解決したら再度有効にしてください。"
     },
     "contributions": {
       "snippets": "スニペット: {{count}}",
@@ -65,8 +86,14 @@
       "commandRun": "実行",
       "commandRunning": "実行中…",
       "commandNoOutput": "（出力なし）",
+      "logs": "ログ",
+      "logsEmpty": "まだログがありません。プラグインまたはクエリを実行すると活動が表示されます。",
+      "logsClear": "クリア",
       "secrets": "シークレット",
-      "secretsDescription": "マニフェストでプラグインが宣言したシークレットの値を提供します。値は OS のキーチェーンに保存され、このデバイスから出ません。"
+      "secretsDescription": "マニフェストでプラグインが宣言したシークレットの値を提供します。値は OS のキーチェーンに保存され、このデバイスから出ません。",
+      "disabledErrorsBanner": "このプラグインは連続 {{count}} 回のエラーのため停止しました。問題を解決したらトグルで再度有効にしてください。",
+      "inertBanner": "このプラグインは有効ですが、権限が付与されていないため、まだ何もできません。",
+      "grantCta": "権限を付与"
     },
     "themes": {
       "title": "プラグインテーマ",
@@ -76,7 +103,9 @@
     },
     "toast": {
       "installed": "プラグイン「{{name}}」をインストールしました",
-      "removed": "プラグイン「{{name}}」を削除しました"
+      "removed": "プラグイン「{{name}}」を削除しました",
+      "disabledTitle": "{{name}} は繰り返しエラーのため停止しました",
+      "disabledPendingConsent": "{{name}} はインストールされましたが無効のままです。有効にするには権限を付与してください。"
     },
     "consent": {
       "title": "「{{name}}」が要求する権限",
@@ -272,8 +301,8 @@
       "authSql": "SQL ログイン",
       "authNtlm": "Windows (NTLM)",
       "authIntegrated": "Windows (統合認証)",
-      "ntlmHint": "DOMAIN\\user または user@DOMAIN の形式で入力してください。Windows クライアントが必要です — 現在 macOS/Linux では無効です。",
-      "integratedHint": "現在の Windows/AD セッションを使用します — 資格情報は不要です。SSPI (Windows) または kinit による Kerberos チケット (macOS/Linux) が必要です。",
+      "ntlmHint": "Windows クライアントのみ。",
+      "integratedHint": "現在の Windows セッションを使用します。資格情報は不要です。",
       "ntlmUsernamePlaceholder": "DOMAIN\\user"
     },
     "ssh": {
@@ -753,6 +782,7 @@
   },
   "tableMenu": {
     "open": "開く",
+    "newQuery": "新しいクエリ",
     "truncate": "テーブルをトランケート",
     "drop": "テーブルを削除",
     "truncateTitle": "テーブルをトランケート",
@@ -3008,7 +3038,6 @@
   },
   "pluginLauncher": {
     "tooltip": "プラグイン",
-    "themes": "テーマ",
     "themeDefault": "デフォルトテーマ",
     "active": "アクティブなプラグイン",
     "manage": "プラグインを管理…",

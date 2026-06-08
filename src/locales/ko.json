@@ -1,4 +1,21 @@
 {
+  "auth": {
+    "setupTitle": "이 인스턴스 설정",
+    "setupSubtitle": "시작하려면 관리자 계정을 만드세요.",
+    "loginTitle": "로그인",
+    "loginSubtitle": "로그인하여 연결에 액세스하세요.",
+    "email": "이메일",
+    "password": "비밀번호",
+    "confirmPassword": "비밀번호 확인",
+    "createAdmin": "관리자 만들기",
+    "signIn": "로그인",
+    "ssoButton": "SSO로 계속",
+    "or": "또는",
+    "passwordMismatch": "비밀번호가 일치하지 않습니다.",
+    "passwordTooShort": "비밀번호는 8자 이상이어야 합니다.",
+    "ssoFailed": "SSO 로그인 실패: {{error}}",
+    "submitting": "잠시만 기다려 주세요…"
+  },
   "cache": {
     "title": "쿼리 결과 캐시",
     "description": "최근 테이블 탐색 결과를 캐시하여 반복 탐색을 즉시 표시합니다.",
@@ -35,7 +52,11 @@
       "remove": "플러그인 제거",
       "removeConfirm": "플러그인 \"{{name}}\"을(를) 제거할까요?",
       "executable": "실행 가능",
-      "executableTooltip": "이 플러그인은 엄격한 CPU 및 메모리 예산 내에서 샌드박스 WASM 코드를 실행합니다."
+      "executableTooltip": "이 플러그인은 엄격한 CPU 및 메모리 예산 내에서 샌드박스 WASM 코드를 실행합니다.",
+      "inert": "비활성 상태",
+      "inertTooltip": "활성화되었지만 권한이 부여되지 않아 아무 작업도 할 수 없습니다. 클릭하여 권한을 부여하세요.",
+      "disabledErrors": "중지됨",
+      "disabledErrorsTooltip": "반복된 오류로 언로드되었습니다. 문제를 해결한 후 다시 활성화하세요."
     },
     "contributions": {
       "snippets": "스니펫: {{count}}",
@@ -65,8 +86,14 @@
       "commandRun": "실행",
       "commandRunning": "실행 중…",
       "commandNoOutput": "(출력 없음)",
+      "logs": "로그",
+      "logsEmpty": "아직 로그가 없습니다. 플러그인이나 쿼리를 실행하면 활동이 표시됩니다.",
+      "logsClear": "지우기",
       "secrets": "비밀",
-      "secretsDescription": "플러그인이 매니페스트에 선언한 비밀의 값을 제공하세요. 값은 OS 키링에 저장되며 이 기기를 벗어나지 않습니다."
+      "secretsDescription": "플러그인이 매니페스트에 선언한 비밀의 값을 제공하세요. 값은 OS 키링에 저장되며 이 기기를 벗어나지 않습니다.",
+      "disabledErrorsBanner": "이 플러그인은 {{count}}회 연속 오류로 인해 비활성화되었습니다. 문제를 해결한 후 토글로 다시 활성화하세요.",
+      "inertBanner": "이 플러그인은 활성화되어 있지만 권한을 부여하지 않아 아직 아무 작업도 할 수 없습니다.",
+      "grantCta": "권한 부여"
     },
     "themes": {
       "title": "플러그인 테마",
@@ -76,7 +103,9 @@
     },
     "toast": {
       "installed": "플러그인 \"{{name}}\"을(를) 설치했습니다",
-      "removed": "플러그인 \"{{name}}\"을(를) 제거했습니다"
+      "removed": "플러그인 \"{{name}}\"을(를) 제거했습니다",
+      "disabledTitle": "{{name}}이(가) 반복된 오류로 중지되었습니다",
+      "disabledPendingConsent": "{{name}}이(가) 설치되었지만 비활성화 상태입니다. 권한을 부여하여 활성화하세요."
     },
     "consent": {
       "title": "\"{{name}}\"이(가) 요청한 권한",
@@ -272,8 +301,8 @@
       "authSql": "SQL 로그인",
       "authNtlm": "Windows (NTLM)",
       "authIntegrated": "Windows (통합 인증)",
-      "ntlmHint": "DOMAIN\\user 또는 user@DOMAIN 형식을 사용하세요. Windows 클라이언트가 필요하며 현재 macOS/Linux에서는 비활성화되어 있습니다.",
-      "integratedHint": "현재 Windows/AD 세션을 사용합니다 — 자격 증명이 필요하지 않습니다. SSPI(Windows) 또는 kinit을 통한 Kerberos 티켓(macOS/Linux)이 필요합니다.",
+      "ntlmHint": "Windows 클라이언트 전용.",
+      "integratedHint": "현재 Windows 세션을 사용하며 자격 증명이 필요하지 않습니다.",
       "ntlmUsernamePlaceholder": "DOMAIN\\user"
     },
     "ssh": {
@@ -753,6 +782,7 @@
   },
   "tableMenu": {
     "open": "열기",
+    "newQuery": "새 쿼리",
     "truncate": "테이블 비우기",
     "drop": "테이블 삭제",
     "truncateTitle": "테이블 비우기",
@@ -3008,7 +3038,6 @@
   },
   "pluginLauncher": {
     "tooltip": "플러그인",
-    "themes": "테마",
     "themeDefault": "기본 테마",
     "active": "활성 플러그인",
     "manage": "플러그인 관리…",

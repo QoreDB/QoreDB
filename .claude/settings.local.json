@@ -74,7 +74,6 @@
       "Bash(samply --version)",
       "Bash(samply record *)",
       "Bash(/usr/bin/grep *)",
-      "Bash(dsymutil target/release/qore-pgo-workload)",
       "Bash(kill %1)",
       "Bash(pkill -f \"until.*bbvezu4rm\")",
       "Bash(git mv *)",
@@ -85,7 +84,17 @@
       "Bash(cargo add *)",
       "Bash(ps -Ao pid,etime,command)",
       "Bash(/usr/bin/find . *)",
-      "Bash(/usr/bin/find *)"
+      "Bash(/usr/bin/find *)",
+      "Bash(rustup target *)",
+      "Bash(xargs cat)",
+      "Bash(cargo search *)",
+      "Bash(pnpm update *)",
+      "Bash(sed -n '40,50p' Cargo.toml)",
+      "mcp___hypothesi_tauri-mcp-server__read_logs",
+      "Bash(xdg-mime query *)",
+      "Bash(xdg-open ~/.config/com.qoredb.app)",
+      "Bash(pnpm --version)",
+      "Bash(pnpm store *)"
     ]
   }
 }

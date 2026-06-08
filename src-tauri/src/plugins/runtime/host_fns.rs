@@ -10,7 +10,7 @@
 use wasmi::{Caller, Linker};
 
 use super::wasmi_host::StoreData;
-use super::{CapabilityKind, NotifyEvent, NotifyLevel};
+use super::{CapabilityKind, LogEvent, NotifyEvent, NotifyLevel};
 
 pub const OK: i32 = 0;
 pub const ERR_DENIED: i32 = -1;
@@ -31,6 +31,15 @@ fn has_capability(caller: &Caller<'_, StoreData>, kind: CapabilityKind) -> bool 
         capability = ?kind,
         "plugin attempted to use a capability it was not granted"
     );
+    // Surface the refusal in the plugin's log too: a silently-denied
+    // capability is the usual reason an enabled plugin appears to "do nothing".
+    if let Some(log) = caller.data().services.log.clone() {
+        let _ = log.send(LogEvent {
+            plugin_id: caller.data().services.plugin_id.clone(),
+            level: NotifyLevel::Warning,
+            message: format!("capability '{}' denied — not granted", kind.as_str()),
+        });
+    }
     false
 }
 
@@ -65,6 +74,13 @@ fn register_log(linker: &mut Linker<StoreData>) -> Result<(), wasmi::errors::Lin
                     3 => tracing::error!(plugin = %plugin_id, "plugin: {msg}"),
                     _ => tracing::info!(plugin = %plugin_id, "plugin: {msg}"),
                 }
+                if let Some(sender) = caller.data().services.log.clone() {
+                    let _ = sender.send(LogEvent {
+                        plugin_id,
+                        level: log_level(level),
+                        message: msg,
+                    });
+                }
                 OK
             },
         )
@@ -90,6 +106,7 @@ fn register_notify(linker: &mut Linker<StoreData>) -> Result<(), wasmi::errors::
                     plugin_id: caller.data().services.plugin_id.clone(),
                     level: notify_level(level),
                     message: msg,
+                    code: None,
                 };
                 let _ = sender.send(event);
                 OK
@@ -227,22 +244,21 @@ fn register_http(linker: &mut Linker<StoreData>) -> Result<(), wasmi::errors::Li
                 // plugin into the user's internal network.
                 if !caller.data().services.http_allow_private_networks {
                     let port = parsed.port_or_known_default().unwrap_or(0);
-                    let resolved: Vec<std::net::SocketAddr> = match std::net::ToSocketAddrs::to_socket_addrs(&(host, port)) {
-                        Ok(iter) => iter.collect(),
-                        Err(_) => {
-                            tracing::warn!(
-                                target: "plugins",
-                                plugin = %caller.data().services.plugin_id,
-                                host = %host,
-                                "DNS resolution failed for plugin HTTP request"
-                            );
-                            return 0;
-                        }
-                    };
-                    if let Some(blocked) = resolved
-                        .iter()
-                        .map(|a| a.ip())
-                        .find(is_private_destination)
+                    let resolved: Vec<std::net::SocketAddr> =
+                        match std::net::ToSocketAddrs::to_socket_addrs(&(host, port)) {
+                            Ok(iter) => iter.collect(),
+                            Err(_) => {
+                                tracing::warn!(
+                                    target: "plugins",
+                                    plugin = %caller.data().services.plugin_id,
+                                    host = %host,
+                                    "DNS resolution failed for plugin HTTP request"
+                                );
+                                return 0;
+                            }
+                        };
+                    if let Some(blocked) =
+                        resolved.iter().map(|a| a.ip()).find(is_private_destination)
                     {
                         tracing::warn!(
                             target: "plugins",
@@ -268,10 +284,7 @@ fn register_http(linker: &mut Linker<StoreData>) -> Result<(), wasmi::errors::Li
                     Ok(m) => m,
                     Err(_) => return 0,
                 };
-                let req = client
-                    .request(method_parsed, parsed)
-                    .body(body)
-                    .send();
+                let req = client.request(method_parsed, parsed).body(body).send();
                 let resp = match req {
                     Ok(r) => r,
                     Err(_) => return 0,
@@ -524,6 +537,16 @@ fn notify_level(raw: i32) -> NotifyLevel {
     match raw {
         0 => NotifyLevel::Info,
         1 => NotifyLevel::Success,
+        2 => NotifyLevel::Warning,
+        3 => NotifyLevel::Error,
+        _ => NotifyLevel::Info,
+    }
+}
+
+/// `qoredb_log` levels (0 debug, 1 info, 2 warn, 3 error) folded onto the
+/// three severities the log view renders.
+fn log_level(raw: i32) -> NotifyLevel {
+    match raw {
         2 => NotifyLevel::Warning,
         3 => NotifyLevel::Error,
         _ => NotifyLevel::Info,

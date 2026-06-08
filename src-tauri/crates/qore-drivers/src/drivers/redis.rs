@@ -762,18 +762,16 @@ impl RedisDriver {
             redis::Value::Int(i) => Value::Int(*i),
             redis::Value::Double(f) => Value::Float(*f),
             redis::Value::Boolean(b) => Value::Bool(*b),
-            redis::Value::BulkString(bytes) => {
-                match String::from_utf8(bytes.clone()) {
-                    Ok(s) => {
-                        if let Ok(json) = serde_json::from_str::<serde_json::Value>(&s) {
-                            Value::Json(json)
-                        } else {
-                            Value::Text(s)
-                        }
+            redis::Value::BulkString(bytes) => match String::from_utf8(bytes.clone()) {
+                Ok(s) => {
+                    if let Ok(json) = serde_json::from_str::<serde_json::Value>(&s) {
+                        Value::Json(json)
+                    } else {
+                        Value::Text(s)
                     }
-                    Err(_) => Value::Bytes(bytes.clone()),
                 }
-            }
+                Err(_) => Value::Bytes(bytes.clone()),
+            },
             redis::Value::SimpleString(s) | redis::Value::VerbatimString { text: s, .. } => {
                 Value::Text(s.clone())
             }
@@ -1642,7 +1640,6 @@ impl DataEngine for RedisDriver {
         false
     }
 
-
     fn supports_mutations(&self) -> bool {
         true
     }
@@ -2008,7 +2005,7 @@ mod tests {
             pool_min_connections: None,
             proxy: None,
             mssql_auth: None,
-clickhouse_cluster: None,
+            clickhouse_cluster: None,
         };
 
         let conn_str = RedisDriver::build_connection_string(&config);
@@ -2034,7 +2031,7 @@ clickhouse_cluster: None,
             pool_min_connections: None,
             proxy: None,
             mssql_auth: None,
-clickhouse_cluster: None,
+            clickhouse_cluster: None,
         };
 
         let conn_str = RedisDriver::build_connection_string(&config);
@@ -2060,7 +2057,7 @@ clickhouse_cluster: None,
             pool_min_connections: None,
             proxy: None,
             mssql_auth: None,
-clickhouse_cluster: None,
+            clickhouse_cluster: None,
         };
 
         let conn_str = RedisDriver::build_connection_string(&config);

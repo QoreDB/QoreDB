@@ -10,7 +10,7 @@ import {
 } from '@codemirror/autocomplete';
 import { defaultKeymap } from '@codemirror/commands';
 import { keywordCompletionSource, MSSQL, MySQL, PostgreSQL, sql } from '@codemirror/lang-sql';
-import { EditorState } from '@codemirror/state';
+import { Compartment, EditorState } from '@codemirror/state';
 import { oneDark } from '@codemirror/theme-one-dark';
 import {
   EditorView,
@@ -20,11 +20,11 @@ import {
   placeholder,
 } from '@codemirror/view';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef } from 'react';
+import { usePlugins } from '@/providers/PluginProvider';
 import { useSchemaCache } from '../../hooks/useSchemaCache';
 import { useTheme } from '../../hooks/useTheme';
 import { Driver } from '../../lib/connection/drivers';
 import { SQL_SNIPPETS } from '../../lib/query/sqlSnippets';
-import { usePlugins } from '@/providers/PluginProvider';
 import type { Collection, Namespace } from '../../lib/tauri';
 
 interface SQLEditorProps {
@@ -71,6 +71,26 @@ function getTableKey(ns: Namespace, tableName: string): string {
   return `${ns.database}:${ns.schema || ''}:${tableName}`;
 }
 
+// Extract the statement around the cursor, delimited by top-level semicolons.
+// Heuristic (ignores semicolons in strings/comments) — enough for ad-hoc scratch buffers.
+function getStatementAround(doc: string, pos: number): string {
+  let start = 0;
+  let end = doc.length;
+  for (let i = pos - 1; i >= 0; i--) {
+    if (doc[i] === ';') {
+      start = i + 1;
+      break;
+    }
+  }
+  for (let i = pos; i < doc.length; i++) {
+    if (doc[i] === ';') {
+      end = i;
+      break;
+    }
+  }
+  return doc.slice(start, end);
+}
+
 export const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQLEditor(
   {
     value,
@@ -89,7 +109,8 @@ export const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQ
 ) {
   const editorRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
-  const initialValueRef = useRef(value);
+  const valueRef = useRef(value);
+  const editableCompartment = useMemo(() => new Compartment(), []);
   const onChangeRef = useRef(onChange);
   const onExecuteRef = useRef(onExecute);
   const onExecuteSelectionRef = useRef(onExecuteSelection);
@@ -382,10 +403,34 @@ export const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQ
 
           if (selection && onExecuteSelectionRef.current) {
             onExecuteSelectionRef.current(selection);
-          } else if (onExecuteRef.current) {
+            return true;
+          }
+
+          if (onExecuteSelectionRef.current) {
+            const statement = getStatementAround(
+              view.state.doc.toString(),
+              view.state.selection.main.head
+            );
+            if (statement.trim()) {
+              onExecuteSelectionRef.current(statement);
+              return true;
+            }
+          }
+
+          if (onExecuteRef.current) {
             onExecuteRef.current();
           }
           return true;
+        },
+      },
+      {
+        key: 'Mod-Shift-Enter',
+        run: () => {
+          if (onExecuteRef.current) {
+            onExecuteRef.current();
+            return true;
+          }
+          return false;
         },
       },
       {
@@ -423,10 +468,11 @@ export const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQ
       keymap.of(defaultKeymap),
       EditorView.updateListener.of(update => {
         if (update.docChanged) {
+          valueRef.current = update.state.doc.toString();
           onChangeRef.current(update.state.doc.toString());
         }
       }),
-      EditorView.editable.of(!readOnly),
+      editableCompartment.of(EditorView.editable.of(!readOnlyRef.current)),
     ];
 
     if (isDark) {
@@ -456,7 +502,7 @@ export const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQ
     );
 
     const state = EditorState.create({
-      doc: initialValueRef.current,
+      doc: valueRef.current,
       extensions,
     });
 
@@ -470,12 +516,23 @@ export const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQ
     return () => {
       view.destroy();
     };
-  }, [isDark, sqlDialect, readOnly, completionSource]);
+    // readOnly is reconfigured via editableCompartment below to avoid recreating
+    // the view (and wiping the buffer) on every execution.
+  }, [isDark, sqlDialect, completionSource, editableCompartment, placeholderProp]);
+
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view) return;
+    view.dispatch({
+      effects: editableCompartment.reconfigure(EditorView.editable.of(!readOnly)),
+    });
+  }, [readOnly, editableCompartment]);
 
   // Sync external value changes
   useEffect(() => {
     const view = viewRef.current;
     if (view && value !== view.state.doc.toString()) {
+      valueRef.current = value;
       view.dispatch({
         changes: {
           from: 0,

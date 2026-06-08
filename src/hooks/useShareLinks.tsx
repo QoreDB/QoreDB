@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { listen, type UnlistenFn } from '@tauri-apps/api/event';
-import { openUrl } from '@tauri-apps/plugin-opener';
 import { useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -28,6 +26,7 @@ import {
   toShareProviderConfig,
 } from '@/lib/share/shareSettings';
 import type { Namespace } from '@/lib/tauri';
+import { listen, openExternal, type UnlistenFn } from '@/lib/transport';
 
 type ActiveExport = {
   unlisten: UnlistenFn;
@@ -132,7 +131,7 @@ export function useShareLinks(sessionId?: string) {
         action: {
           label: t('share.open'),
           onClick: () => {
-            void openUrl(shareUrl);
+            void openExternal(shareUrl);
           },
         },
       });

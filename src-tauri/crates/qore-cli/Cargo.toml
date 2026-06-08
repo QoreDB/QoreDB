@@ -1,0 +1,17 @@
+[package]
+name = "qore-cli"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+
+[[bin]]
+name = "qore"
+path = "src/main.rs"
+
+[dependencies]
+qore-service = { path = "../qore-service" }
+qore-core = { path = "../qore-core" }
+tokio = { workspace = true }
+serde_json = { workspace = true }
+dirs = "5"
+clap = { version = "4.6.1", features = ["derive"] }

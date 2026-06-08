@@ -1,0 +1,39 @@
+[package]
+name = "qore-service"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "Surface-agnostic service layer for QorePlatform — Tauri-free business logic shared by every surface (desktop, CLI, MCP, server)"
+
+[dependencies]
+qore-core = { path = "../qore-core" }
+qore-sql = { path = "../qore-sql" }
+qore-drivers = { path = "../qore-drivers" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+chrono = { workspace = true }
+base64 = { workspace = true }
+ed25519-dalek = { version = "2", features = ["serde"] }
+regex = "1"
+sha2 = "0.10"
+csv = "1"
+dirs = "5"
+keyring = { version = "3", features = [
+    "apple-native",
+    "windows-native",
+    "sync-secret-service",
+] }
+argon2 = "0.5"
+chacha20poly1305 = "0.10"
+rand_core = { version = "0.6", features = ["getrandom"] }
+parking_lot = "0.12"
+
+[build-dependencies]
+dotenvy = "0.15"
+
+[dev-dependencies]
+tempfile = "3.24.0"

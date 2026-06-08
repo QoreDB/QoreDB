@@ -7,7 +7,7 @@
  * and client-side detection of federation syntax.
  */
 
-import { invoke } from '@tauri-apps/api/core';
+import { invoke } from '@/lib/transport';
 import { createStreamChannel, type QueryResult, type QueryStreamHandlers } from '../tauri';
 
 // ============================================

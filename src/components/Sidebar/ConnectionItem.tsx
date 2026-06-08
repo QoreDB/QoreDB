@@ -118,7 +118,7 @@ export function ConnectionItem({
           </div>
         </button>
 
-        <div className="absolute right-0 shrink-0 w-6 h-6 flex items-center justify-center opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
+        <div className="absolute right-2 inset-y-0 w-6 flex items-center justify-center opacity-0 pointer-events-none transition-opacity group-hover:opacity-100 group-hover:pointer-events-auto">
           <ConnectionMenu
             connection={connection}
             onEdit={onEdit}

@@ -41,10 +41,11 @@ import {
   setUpdateInstalling,
   useUpdateStore,
 } from '@/lib/stores/updateStore';
+import { isWeb } from '@/lib/transport';
 import { cn } from '@/lib/utils';
 import { getShortcut, isMacOS, isWindowsOS } from '@/utils/platform';
 
-const appWindow = getCurrentWindow();
+const appWindow = isWeb ? null : getCurrentWindow();
 
 interface CustomTitlebarProps {
   onOpenSearch?: () => void;
@@ -93,11 +94,13 @@ export const CustomTitlebar = ({
 
   useEffect(() => {
     if (isWindows) {
-      appWindow.setDecorations(false).catch(() => {});
+      appWindow?.setDecorations(false).catch(() => {});
     }
   }, [isWindows]);
 
   useEffect(() => {
+    if (!appWindow) return;
+
     const checkMaximized = async () => {
       const maximized = await appWindow.isMaximized();
       setIsMaximized(maximized);
@@ -130,9 +133,9 @@ export const CustomTitlebar = ({
     }
   };
 
-  const minimize = () => appWindow.minimize();
-  const toggleMaximize = () => appWindow.toggleMaximize();
-  const close = () => appWindow.close();
+  const minimize = () => appWindow?.minimize();
+  const toggleMaximize = () => appWindow?.toggleMaximize();
+  const close = () => appWindow?.close();
 
   return (
     <div
@@ -267,7 +270,7 @@ export const CustomTitlebar = ({
           <NotificationBell />
         </div>
 
-        {!isMac && (
+        {!isMac && !isWeb && (
           <div className="flex items-center h-10 -mr-2 ml-2 pl-2 border-l border-border/50">
             <WindowButton onClick={minimize}>
               <Minus className="w-4 h-4" />
@@ -526,9 +529,6 @@ const WindowButton = ({
   </button>
 );
 
-/**
- * UpdateButton - Persistent button shown when an app update is available
- */
 const UpdateButton = () => {
   const { t } = useTranslation();
   const { status, version, update } = useUpdateStore();
@@ -585,9 +585,6 @@ const UpdateButton = () => {
   );
 };
 
-/**
- * NotificationBell - Bell icon with popover panel and badge
- */
 const NotificationBell = () => {
   const { t } = useTranslation();
   const badgeCount = useNotificationBadge();

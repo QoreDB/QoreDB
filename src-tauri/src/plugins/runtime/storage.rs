@@ -79,8 +79,8 @@ impl PluginStorage {
     }
 
     fn persist(&self, state: &State) -> Result<(), StorageError> {
-        let raw = serde_json::to_string(&state.entries)
-            .map_err(|e| StorageError::Io(e.to_string()))?;
+        let raw =
+            serde_json::to_string(&state.entries).map_err(|e| StorageError::Io(e.to_string()))?;
         if let Some(parent) = self.path.parent() {
             std::fs::create_dir_all(parent).map_err(|e| StorageError::Io(e.to_string()))?;
         }
@@ -139,7 +139,10 @@ impl PluginStorage {
             .map_err(|_| StorageError::Io("storage lock poisoned".into()))?;
         self.ensure_loaded(&mut state);
         if let Some(previous) = state.entries.remove(key) {
-            state.bytes = state.bytes.saturating_sub(previous.len()).saturating_sub(key.len());
+            state.bytes = state
+                .bytes
+                .saturating_sub(previous.len())
+                .saturating_sub(key.len());
             self.persist(&state)
         } else {
             Ok(())

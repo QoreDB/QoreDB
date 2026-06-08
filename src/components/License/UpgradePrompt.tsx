@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { openUrl } from '@tauri-apps/plugin-opener';
 import type { LucideIcon } from 'lucide-react';
 import {
   BarChart3,
@@ -28,6 +27,7 @@ import type { ProFeature } from '@/lib/license';
 import { featureRequiredTier } from '@/lib/license';
 import { dismissPrompt, isPromptDismissed, trackProEvent } from '@/lib/licenseTracking';
 import { getCheckoutUrl, getPricingUrl } from '@/lib/pricing';
+import { openExternal } from '@/lib/transport';
 import { LicenseBadge } from './LicenseBadge';
 
 const ACCENT = 'var(--color-accent)';
@@ -112,12 +112,12 @@ export function UpgradePrompt({
 
   const handleUnlock = () => {
     trackProEvent('pro_upgrade_cta_clicked', { feature, source });
-    openUrl(getCheckoutUrl(feature));
+    openExternal(getCheckoutUrl(feature));
   };
 
   const handleLearnMore = () => {
     trackProEvent('pro_upgrade_learn_more_clicked', { feature, source });
-    openUrl(getPricingUrl(feature));
+    openExternal(getPricingUrl(feature));
   };
 
   const handleDismiss = () => {

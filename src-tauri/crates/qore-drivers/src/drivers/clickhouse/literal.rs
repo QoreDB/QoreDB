@@ -18,13 +18,23 @@ use qore_core::types::Value;
 pub fn format_literal(value: &Value) -> String {
     match value {
         Value::Null => "NULL".to_string(),
-        Value::Bool(b) => if *b { "1".to_string() } else { "0".to_string() },
+        Value::Bool(b) => {
+            if *b {
+                "1".to_string()
+            } else {
+                "0".to_string()
+            }
+        }
         Value::Int(i) => i.to_string(),
         Value::Float(f) => {
             if f.is_nan() {
                 "nan".to_string()
             } else if f.is_infinite() {
-                if *f > 0.0 { "inf".to_string() } else { "-inf".to_string() }
+                if *f > 0.0 {
+                    "inf".to_string()
+                } else {
+                    "-inf".to_string()
+                }
             } else {
                 f.to_string()
             }
@@ -101,7 +111,10 @@ mod tests {
             format_literal(&Value::Text("back\\slash".into())),
             "'back\\\\slash'"
         );
-        assert_eq!(format_literal(&Value::Text("line\nbreak".into())), "'line\\nbreak'");
+        assert_eq!(
+            format_literal(&Value::Text("line\nbreak".into())),
+            "'line\\nbreak'"
+        );
     }
 
     #[test]
@@ -114,11 +127,7 @@ mod tests {
 
     #[test]
     fn arrays_recurse() {
-        let v = Value::Array(vec![
-            Value::Int(1),
-            Value::Text("two".into()),
-            Value::Null,
-        ]);
+        let v = Value::Array(vec![Value::Int(1), Value::Text("two".into()), Value::Null]);
         assert_eq!(format_literal(&v), "[1, 'two', NULL]");
     }
 

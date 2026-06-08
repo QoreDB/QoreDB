@@ -34,7 +34,14 @@ export interface ThemeContribution {
 }
 
 /** Built-in renderers a viewer contribution may select. */
-export type ViewerRenderer = 'json-tree' | 'image' | 'map' | 'chart';
+export type ViewerRenderer =
+  | 'json-tree'
+  | 'image'
+  | 'map'
+  | 'chart'
+  | 'color'
+  | 'boolean'
+  | 'bytes';
 
 /** What QoreDB matches a result column against to pick a viewer. At least
  *  one of `columnType` / `namePattern` must be set. */
@@ -123,12 +130,52 @@ export interface PluginRuntimeSpec {
   integrity?: string;
 }
 
-/** Tauri event payload emitted when a plugin issues a `notify` call. */
+/** Tauri event payload emitted when a plugin issues a `notify` call, or when
+ *  the host reports a lifecycle change. `code` is set only for the latter
+ *  (e.g. `"disabled"`) so the UI can localize the toast. */
 export interface PluginNotifyEvent {
   pluginId: string;
   level: 'info' | 'success' | 'warning' | 'error';
   message: string;
+  code?: string;
 }
+
+/** Tauri event payload emitted on `plugin-log` — a log line from a plugin's
+ *  `qoredb_log` call or a host lifecycle event (load, capability refusal,
+ *  circuit-breaker unload). Mirror of `LogEvent` (Rust). */
+export interface PluginLogEvent {
+  pluginId: string;
+  level: 'info' | 'success' | 'warning' | 'error';
+  message: string;
+}
+
+/** A `plugin-log` entry as kept client-side, stamped with arrival time so the
+ *  detail view can show when each line landed. */
+export interface PluginLogEntry {
+  /** Monotonic client-side id; stable React key (timestamps can collide). */
+  id: number;
+  level: PluginLogEvent['level'];
+  message: string;
+  /** `Date.now()` when the entry was received. */
+  time: number;
+}
+
+/** Runtime status of an executable plugin, mirror of `PluginRuntimeStatus`
+ *  (Rust). Powers the "inert" / "disabled after errors" badges. */
+export interface PluginRuntimeStatus {
+  pluginId: string;
+  /** Whether a live WASM instance is loaded. `false` once the circuit
+   *  breaker has unloaded it. */
+  loaded: boolean;
+  /** Consecutive hook/command failures since the last success. */
+  failureCount: number;
+  /** Capabilities effectively granted (consent ∩ manifest request). */
+  granted: PluginCapabilityKind[];
+}
+
+/** Consecutive-failure count at which the runtime unloads a plugin. Mirrors
+ *  `CIRCUIT_BREAKER_THRESHOLD` in `manager.rs`. */
+export const PLUGIN_CIRCUIT_BREAKER_THRESHOLD = 3;
 
 export interface PluginManifest {
   id: string;

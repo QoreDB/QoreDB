@@ -73,6 +73,17 @@ impl PluginRuntime for WasmiRuntime {
         config.consume_fuel(true);
         let engine = Engine::new(&config);
         let module = Module::new(&engine, wasm).map_err(|e| PluginError::Load(e.to_string()))?;
+        // ABI guard: every hook and command passes input through guest memory,
+        // so a module that never exports the allocator can do nothing useful.
+        // Rejecting it here — rather than on the first hook call — keeps a
+        // stale or misbuilt plugin from tripping the circuit breaker (and
+        // spamming "disabled after errors" toasts) on every single query.
+        if !module
+            .exports()
+            .any(|e| e.name() == ALLOC_EXPORT && e.ty().func().is_some())
+        {
+            return Err(PluginError::Abi("plugin exports no allocator".into()));
+        }
         Ok(Box::new(WasmiInstance {
             engine,
             module,

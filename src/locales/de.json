@@ -1,4 +1,21 @@
 {
+  "auth": {
+    "setupTitle": "Diese Instanz einrichten",
+    "setupSubtitle": "Erstelle das Administratorkonto, um zu beginnen.",
+    "loginTitle": "Anmelden",
+    "loginSubtitle": "Melde dich an, um auf deine Verbindungen zuzugreifen.",
+    "email": "E-Mail",
+    "password": "Passwort",
+    "confirmPassword": "Passwort bestätigen",
+    "createAdmin": "Administrator erstellen",
+    "signIn": "Anmelden",
+    "ssoButton": "Mit SSO fortfahren",
+    "or": "oder",
+    "passwordMismatch": "Die Passwörter stimmen nicht überein.",
+    "passwordTooShort": "Das Passwort muss mindestens 8 Zeichen lang sein.",
+    "ssoFailed": "SSO-Anmeldung fehlgeschlagen: {{error}}",
+    "submitting": "Bitte warten…"
+  },
   "cache": {
     "title": "Abfrage-Ergebniscache",
     "description": "Speichert kürzliche Tabellenansichten zwischen, damit wiederholte Navigation sofort erfolgt.",
@@ -35,7 +52,11 @@
       "remove": "Plugin entfernen",
       "removeConfirm": "Plugin „{{name}}“ entfernen?",
       "executable": "Ausführbar",
-      "executableTooltip": "Dieses Plugin führt WASM-Code in einer Sandbox mit strengem CPU- und Speicherbudget aus."
+      "executableTooltip": "Dieses Plugin führt WASM-Code in einer Sandbox mit strengem CPU- und Speicherbudget aus.",
+      "inert": "Inaktiv",
+      "inertTooltip": "Aktiviert, aber keine Berechtigung erteilt – das Plugin kann nichts tun. Zum Erteilen klicken.",
+      "disabledErrors": "Deaktiviert",
+      "disabledErrorsTooltip": "Nach wiederholten Fehlern entladen. Nach Behebung aus- und wieder einschalten."
     },
     "contributions": {
       "snippets": "Snippets: {{count}}",
@@ -65,8 +86,14 @@
       "commandRun": "Ausführen",
       "commandRunning": "Wird ausgeführt…",
       "commandNoOutput": "(keine Ausgabe)",
+      "logs": "Protokoll",
+      "logsEmpty": "Noch keine Protokollzeilen. Führen Sie das Plugin oder eine Abfrage aus, um seine Aktivität zu sehen.",
+      "logsClear": "Leeren",
       "secrets": "Geheimnisse",
-      "secretsDescription": "Geben Sie Werte für die im Manifest deklarierten Geheimnisse an. Die Werte werden im Schlüsselbund des Betriebssystems gespeichert und verlassen dieses Gerät nicht."
+      "secretsDescription": "Geben Sie Werte für die im Manifest deklarierten Geheimnisse an. Die Werte werden im Schlüsselbund des Betriebssystems gespeichert und verlassen dieses Gerät nicht.",
+      "disabledErrorsBanner": "Dieses Plugin wurde nach {{count}} aufeinanderfolgenden Fehlern deaktiviert. Aktivieren Sie es über den Schalter erneut, sobald das Problem behoben ist.",
+      "inertBanner": "Dieses Plugin ist aktiviert, aber Sie haben ihm keine Berechtigung erteilt, daher kann es noch nichts tun.",
+      "grantCta": "Berechtigungen erteilen"
     },
     "themes": {
       "title": "Plugin-Themen",
@@ -76,7 +103,9 @@
     },
     "toast": {
       "installed": "Plugin „{{name}}“ installiert",
-      "removed": "Plugin „{{name}}“ entfernt"
+      "removed": "Plugin „{{name}}“ entfernt",
+      "disabledTitle": "{{name}} nach wiederholten Fehlern deaktiviert",
+      "disabledPendingConsent": "{{name}} wurde installiert, aber deaktiviert gelassen – erteilen Sie Berechtigungen, um es zu aktivieren."
     },
     "consent": {
       "title": "Von {{name}} angeforderte Berechtigungen",
@@ -272,8 +301,8 @@
       "authSql": "SQL-Anmeldung",
       "authNtlm": "Windows (NTLM)",
       "authIntegrated": "Windows (Integriert)",
-      "ntlmHint": "Verwenden Sie DOMÄNE\\benutzer oder benutzer@DOMÄNE. Erfordert einen Windows-Client — unter macOS/Linux vorübergehend deaktiviert.",
-      "integratedHint": "Verwendet Ihre aktuelle Windows/AD-Sitzung — keine Anmeldedaten erforderlich. Benötigt SSPI (Windows) oder ein Kerberos-Ticket via kinit (macOS/Linux).",
+      "ntlmHint": "Nur Windows-Clients.",
+      "integratedHint": "Verwendet Ihre aktuelle Windows-Sitzung, keine Anmeldedaten erforderlich.",
       "ntlmUsernamePlaceholder": "DOMÄNE\\benutzer"
     },
     "ssh": {
@@ -753,6 +782,7 @@
   },
   "tableMenu": {
     "open": "Öffnen",
+    "newQuery": "Neue Abfrage",
     "truncate": "Tabelle leeren",
     "drop": "Tabelle löschen",
     "truncateTitle": "Tabelle leeren",
@@ -3008,7 +3038,6 @@
   },
   "pluginLauncher": {
     "tooltip": "Plugins",
-    "themes": "Themes",
     "themeDefault": "Standard-Theme",
     "active": "Aktive Plugins",
     "manage": "Plugins verwalten…",

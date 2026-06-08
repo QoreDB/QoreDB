@@ -7,8 +7,8 @@
  * The streaming `contract.run` event is consumed by `useContractRunEvents`.
  */
 
-import { invoke } from '@tauri-apps/api/core';
-import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+import { invoke } from '@/lib/transport';
+import { listen, type UnlistenFn } from '@/lib/transport';
 
 import type { Contract, ContractMeta, ContractRun, RuleResult } from './types';
 

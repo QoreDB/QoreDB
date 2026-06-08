@@ -30,8 +30,8 @@ use tokio::sync::Semaphore;
 
 use super::{
     capabilities, storage, Budget, CapabilityKind, Decision, HookContext, InvocationServices,
-    NotifyEvent, NotifyLevel, NotifySender, PluginInstance, PluginRuntime, PluginStorage,
-    PostExecuteResult, QueryReadPayload, WasmiRuntime,
+    LogEvent, LogSender, NotifyEvent, NotifyLevel, NotifySender, PluginInstance, PluginRuntime,
+    PluginStorage, PostExecuteResult, QueryReadPayload, WasmiRuntime,
 };
 use crate::plugins::{plugins_dir, registry, PluginContributions};
 
@@ -52,6 +52,10 @@ const CIRCUIT_BREAKER_THRESHOLD: u32 = 3;
 /// as a wedged host fn and let the query proceed.
 const PRE_EXECUTE_TIMEOUT: Duration = Duration::from_millis(500);
 const POST_EXECUTE_TIMEOUT: Duration = Duration::from_secs(5);
+/// A command is an explicit user action, so it gets a wider budget than the
+/// query-path hooks — but still bounded so a wedged module can't pin a
+/// blocking thread forever.
+const COMMAND_TIMEOUT: Duration = Duration::from_secs(10);
 const POST_EXECUTE_QUEUE_DEPTH: usize = 64;
 
 type SharedInstance = Arc<Mutex<Box<dyn PluginInstance>>>;
@@ -60,6 +64,7 @@ type SharedInstance = Arc<Mutex<Box<dyn PluginInstance>>>;
 pub struct PluginHost {
     runtime: Arc<dyn PluginRuntime>,
     notify: Mutex<Option<NotifySender>>,
+    log: Mutex<Option<LogSender>>,
     /// Per-plugin mutex so distinct plugins run their hooks concurrently.
     instances: Mutex<HashMap<String, SharedInstance>>,
     /// Consecutive hook-failure count per plugin id; reset on success,
@@ -75,6 +80,7 @@ impl PluginHost {
         Self {
             runtime: Arc::new(WasmiRuntime::new()),
             notify: Mutex::new(None),
+            log: Mutex::new(None),
             instances: Mutex::new(HashMap::new()),
             failures: Mutex::new(HashMap::new()),
             post_queue: Arc::new(Semaphore::new(POST_EXECUTE_QUEUE_DEPTH)),
@@ -88,12 +94,19 @@ impl PluginHost {
         *lock_recover(&self.notify, "notify") = Some(sender);
     }
 
+    /// Wires the sender lifecycle and plugin log lines are pushed to. Must be
+    /// set before the reload whose loads should appear in the log.
+    pub fn set_log_sender(&self, sender: LogSender) {
+        *lock_recover(&self.log, "log") = Some(sender);
+    }
+
     /// Rescans the plugins directory and (re)loads every enabled, compatible
     /// executable plugin. Single invalidation point for the contributions
     /// cache: install / remove / enable / disable / consent all funnel here.
     pub fn reload(&self) {
         let dir = plugins_dir();
         let notify = lock_recover(&self.notify, "notify").clone();
+        let log = lock_recover(&self.log, "log").clone();
         let mut instances = lock_recover(&self.instances, "instances");
         instances.clear();
         lock_recover(&self.failures, "failures").clear();
@@ -116,6 +129,12 @@ impl PluginHost {
                         error = %e,
                         "could not read plugin WASM module"
                     );
+                    emit_log(
+                        &log,
+                        &plugin.manifest.id,
+                        NotifyLevel::Error,
+                        format!("could not read module: {e}"),
+                    );
                     continue;
                 }
             };
@@ -127,6 +146,12 @@ impl PluginHost {
                         error = %e,
                         "plugin integrity check failed; refusing to load"
                     );
+                    emit_log(
+                        &log,
+                        &plugin.manifest.id,
+                        NotifyLevel::Error,
+                        format!("integrity check failed: {e}"),
+                    );
                     continue;
                 }
             }
@@ -134,13 +159,14 @@ impl PluginHost {
             let consent = capabilities::read_grants(&dir, &plugin.manifest.id);
             // A plugin never sees a capability it did not request, even when
             // the on-disk consent file has been tampered with.
-            let requested: BTreeSet<CapabilityKind> = capabilities::requested(
-                &runtime_spec.capabilities,
-            )
-            .into_iter()
-            .collect();
+            let requested: BTreeSet<CapabilityKind> =
+                capabilities::requested(&runtime_spec.capabilities)
+                    .into_iter()
+                    .collect();
             let effective: BTreeSet<CapabilityKind> =
                 consent.intersection(&requested).copied().collect();
+            let granted_count = effective.len();
+            let requested_count = requested.len();
 
             let storage_path = storage::storage_path(&dir, &plugin.dir_name);
             // Read from the manifest, never from the consent file: a tampered
@@ -168,6 +194,7 @@ impl PluginHost {
                 consent: Arc::new(effective),
                 storage: Arc::new(PluginStorage::new(storage_path)),
                 notify: notify.clone(),
+                log: log.clone(),
                 query_result: None,
                 http_allowed_hosts: Arc::new(http_allowed_hosts),
                 http_allow_private_networks,
@@ -182,9 +209,12 @@ impl PluginHost {
                 services,
             ) {
                 Ok(instance) => {
-                    instances.insert(
-                        plugin.manifest.id.clone(),
-                        Arc::new(Mutex::new(instance)),
+                    instances.insert(plugin.manifest.id.clone(), Arc::new(Mutex::new(instance)));
+                    emit_log(
+                        &log,
+                        &plugin.manifest.id,
+                        NotifyLevel::Info,
+                        format!("loaded — {granted_count}/{requested_count} capabilities granted"),
                     );
                 }
                 Err(e) => {
@@ -192,6 +222,12 @@ impl PluginHost {
                         plugin = %plugin.manifest.id,
                         error = %e,
                         "could not load plugin"
+                    );
+                    emit_log(
+                        &log,
+                        &plugin.manifest.id,
+                        NotifyLevel::Error,
+                        format!("failed to load: {e}"),
                     );
                 }
             }
@@ -204,7 +240,7 @@ impl PluginHost {
     pub async fn run_pre_execute(&self, context: HookContext) -> Decision {
         let snapshot = self.snapshot_instances();
         let mut warning: Option<(String, String)> = None;
-        let mut tripped: Vec<String> = Vec::new();
+        let mut tripped: Vec<(String, String)> = Vec::new();
 
         for (id, instance) in snapshot {
             let outcome = run_with_timeout(instance, PRE_EXECUTE_TIMEOUT, {
@@ -227,7 +263,7 @@ impl PluginHost {
                 HookOutcome::Failed(reason) => {
                     tracing::warn!(plugin = %id, reason = %reason, "plugin pre_execute hook failed");
                     if self.record_failure(&id) {
-                        tripped.push(id.clone());
+                        tripped.push((id.clone(), reason));
                     }
                 }
             }
@@ -240,6 +276,7 @@ impl PluginHost {
                     plugin_id,
                     level: NotifyLevel::Warning,
                     message: message.clone(),
+                    code: None,
                 });
                 Decision::Warn { message }
             }
@@ -256,7 +293,7 @@ impl PluginHost {
         query_payload: Option<Arc<QueryReadPayload>>,
     ) {
         let snapshot = self.snapshot_instances();
-        let mut tripped: Vec<String> = Vec::new();
+        let mut tripped: Vec<(String, String)> = Vec::new();
 
         for (id, instance) in snapshot {
             let outcome = run_with_timeout(instance, POST_EXECUTE_TIMEOUT, {
@@ -272,7 +309,7 @@ impl PluginHost {
                 HookOutcome::Failed(reason) => {
                     tracing::warn!(plugin = %id, reason = %reason, "plugin post_execute hook failed");
                     if self.record_failure(&id) {
-                        tripped.push(id.clone());
+                        tripped.push((id.clone(), reason));
                     }
                 }
             }
@@ -307,7 +344,10 @@ impl PluginHost {
     }
 
     /// Invokes a contributed command on the matching plugin. Errors surface
-    /// to the caller — a command is an explicit user action.
+    /// to the caller — a command is an explicit user action. Bounded by
+    /// [`COMMAND_TIMEOUT`] and fed into the same circuit breaker as the hooks,
+    /// so a command that traps or wedges repeatedly unloads the plugin instead
+    /// of hanging a blocking thread on every click.
     pub async fn run_command(
         &self,
         plugin_id: &str,
@@ -318,20 +358,25 @@ impl PluginHost {
             let instances = lock_recover(&self.instances, "instances");
             instances.get(plugin_id).cloned()
         };
-        let instance =
-            instance.ok_or_else(|| format!("Plugin '{plugin_id}' is not loaded"))?;
+        let instance = instance.ok_or_else(|| format!("Plugin '{plugin_id}' is not loaded"))?;
         let command_id = command_id.to_string();
-        let task = tokio::task::spawn_blocking(move || {
-            let mut guard = match instance.lock() {
-                Ok(g) => g,
-                Err(p) => p.into_inner(),
-            };
+        let outcome = run_with_timeout(instance, COMMAND_TIMEOUT, move |guard| {
             guard.command(&command_id, &args)
-        });
-        match task.await {
-            Ok(Ok(value)) => Ok(value),
-            Ok(Err(e)) => Err(e.to_string()),
-            Err(join_err) => Err(format!("plugin command task failed: {join_err}")),
+        })
+        .await;
+
+        match outcome {
+            HookOutcome::Ok(value) => {
+                self.record_success(plugin_id);
+                Ok(value)
+            }
+            HookOutcome::Failed(reason) => {
+                tracing::warn!(plugin = %plugin_id, reason = %reason, "plugin command failed");
+                if self.record_failure(plugin_id) {
+                    self.unload_tripped(vec![(plugin_id.to_string(), reason.clone())]);
+                }
+                Err(reason)
+            }
         }
     }
 
@@ -356,33 +401,42 @@ impl PluginHost {
         failures.remove(plugin_id);
     }
 
-    fn unload_tripped(&self, tripped: Vec<String>) {
+    fn unload_tripped(&self, tripped: Vec<(String, String)>) {
         if tripped.is_empty() {
             return;
         }
         {
             let mut instances = lock_recover(&self.instances, "instances");
-            for id in &tripped {
+            for (id, _) in &tripped {
                 instances.remove(id);
             }
         }
-        for id in tripped {
-            self.notify_disabled(&id);
+        for (id, reason) in tripped {
+            self.notify_disabled(&id, &reason);
         }
     }
 
-    fn notify_disabled(&self, plugin_id: &str) {
+    /// Emits the lifecycle `"disabled"` notification. `message` carries the
+    /// raw failure reason; the UI localizes the headline from the `code` and
+    /// the plugin name and shows the reason as the toast description.
+    fn notify_disabled(&self, plugin_id: &str, reason: &str) {
         tracing::warn!(
             plugin = plugin_id,
             threshold = CIRCUIT_BREAKER_THRESHOLD,
+            reason = reason,
             "plugin unloaded after repeated hook failures"
+        );
+        emit_log(
+            &lock_recover(&self.log, "log").clone(),
+            plugin_id,
+            NotifyLevel::Error,
+            format!("unloaded after {CIRCUIT_BREAKER_THRESHOLD} consecutive failures: {reason}"),
         );
         self.emit_notify(NotifyEvent {
             plugin_id: plugin_id.to_string(),
             level: NotifyLevel::Warning,
-            message: format!(
-                "Plugin disabled after {CIRCUIT_BREAKER_THRESHOLD} consecutive errors"
-            ),
+            message: reason.to_string(),
+            code: Some("disabled".to_string()),
         });
     }
 
@@ -397,6 +451,21 @@ impl PluginHost {
 
     pub fn loaded_count(&self) -> usize {
         lock_recover(&self.instances, "instances").len()
+    }
+
+    /// Whether the plugin currently has a live instance. `false` once the
+    /// circuit breaker has unloaded it (until the next [`reload`]).
+    pub fn is_loaded(&self, plugin_id: &str) -> bool {
+        lock_recover(&self.instances, "instances").contains_key(plugin_id)
+    }
+
+    /// Consecutive hook/command failures recorded for a plugin since its last
+    /// success. Reaches [`CIRCUIT_BREAKER_THRESHOLD`] right before an unload.
+    pub fn failure_count(&self, plugin_id: &str) -> u32 {
+        lock_recover(&self.failures, "failures")
+            .get(plugin_id)
+            .copied()
+            .unwrap_or(0)
     }
 
     /// Memoised; the disk rescan only runs after the next [`reload`].
@@ -428,6 +497,18 @@ impl Default for PluginHost {
 enum HookOutcome<T> {
     Ok(T),
     Failed(String),
+}
+
+/// Sends a log line if the channel is wired. Shared by `reload` (which holds a
+/// cloned sender) and the lifecycle paths. A no-op in headless tests.
+fn emit_log(sender: &Option<LogSender>, plugin_id: &str, level: NotifyLevel, message: String) {
+    if let Some(sender) = sender {
+        let _ = sender.send(LogEvent {
+            plugin_id: plugin_id.to_string(),
+            level,
+            message,
+        });
+    }
 }
 
 fn verify_integrity(wasm: &[u8], expected: &str) -> Result<(), String> {

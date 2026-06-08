@@ -1,24 +1,56 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { AlertTriangle, Puzzle, Shield, Trash2 } from 'lucide-react';
+import { AlertTriangle, Ban, Puzzle, Shield, Trash2, ZapOff } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Tooltip } from '@/components/ui/tooltip';
-import type { InstalledPlugin } from '@/lib/plugins';
+import {
+  type InstalledPlugin,
+  PLUGIN_CIRCUIT_BREAKER_THRESHOLD,
+  type PluginRuntimeStatus,
+} from '@/lib/plugins';
+import { requestedCaps } from './ConsentDialog';
 
 interface PluginCardProps {
   plugin: InstalledPlugin;
+  status?: PluginRuntimeStatus;
   busy?: boolean;
   onToggle: (enabled: boolean) => void;
   onRemove: () => void;
   onDetails: () => void;
 }
 
-export function PluginCard({ plugin, busy, onToggle, onRemove, onDetails }: PluginCardProps) {
+export function PluginCard({
+  plugin,
+  status,
+  busy,
+  onToggle,
+  onRemove,
+  onDetails,
+}: PluginCardProps) {
   const { t } = useTranslation();
   const { manifest, enabled, compatible } = plugin;
   const c = manifest.contributes;
+
+  // An executable plugin that loaded fine but was granted no capability can't
+  // do anything at runtime — surface that instead of presenting it as active.
+  const isInert =
+    enabled &&
+    compatible &&
+    !!manifest.runtime &&
+    requestedCaps(plugin).length > 0 &&
+    !!status?.loaded &&
+    status.granted.length === 0;
+
+  // The circuit breaker unloaded it after repeated failures.
+  const disabledByErrors =
+    enabled &&
+    compatible &&
+    !!manifest.runtime &&
+    !!status &&
+    !status.loaded &&
+    status.failureCount >= PLUGIN_CIRCUIT_BREAKER_THRESHOLD;
 
   const badges = [
     c.snippets.length > 0 && t('plugins.contributions.snippets', { count: c.snippets.length }),
@@ -55,6 +87,26 @@ export function PluginCard({ plugin, busy, onToggle, onRemove, onDetails }: Plug
               <AlertTriangle size={12} />
               {t('plugins.card.incompatible')}
             </span>
+          )}
+          {disabledByErrors && (
+            <Tooltip content={t('plugins.card.disabledErrorsTooltip')}>
+              <span className="inline-flex items-center gap-1 rounded bg-destructive/15 px-1.5 py-0.5 text-[10px] font-medium text-destructive">
+                <Ban size={11} />
+                {t('plugins.card.disabledErrors')}
+              </span>
+            </Tooltip>
+          )}
+          {isInert && !disabledByErrors && (
+            <Tooltip content={t('plugins.card.inertTooltip')}>
+              <button
+                type="button"
+                onClick={onDetails}
+                className="inline-flex items-center gap-1 rounded bg-warning/15 px-1.5 py-0.5 text-[10px] font-medium text-warning hover:bg-warning/25"
+              >
+                <ZapOff size={11} />
+                {t('plugins.card.inert')}
+              </button>
+            </Tooltip>
           )}
         </div>
         {manifest.author && (

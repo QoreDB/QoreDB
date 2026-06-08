@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { openUrl } from '@tauri-apps/plugin-opener';
 import { ExternalLink } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { DangerConfirmDialog } from '@/components/Guard/DangerConfirmDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { openExternal } from '@/lib/transport';
 import { useLicense } from '@/providers/LicenseProvider';
 import { LicenseBadge } from './LicenseBadge';
 
@@ -137,7 +137,7 @@ export function LicenseActivation() {
             variant="link"
             size="sm"
             className="w-fit gap-1.5 px-0 text-xs text-accent"
-            onClick={() => openUrl('https://qoredb.com/pricing')}
+            onClick={() => openExternal('https://qoredb.com/pricing')}
           >
             <ExternalLink size={12} />
             {t('license.getPro')}

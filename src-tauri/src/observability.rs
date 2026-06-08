@@ -2,9 +2,7 @@
 
 //! Logging and observability helpers.
 
-pub mod sensitive;
-
-pub use sensitive::Sensitive;
+pub use qore_service::sensitive::{self, Sensitive};
 
 use std::fs;
 use std::path::{Path, PathBuf};

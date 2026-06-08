@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { openUrl } from '@tauri-apps/plugin-opener';
 import { ExternalLink, Mail } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { markNewsletterPromptSeen, NEWSLETTER_URL } from '@/lib/newsletter';
+import { openExternal } from '@/lib/transport';
 
 const ACCENT = 'var(--color-accent)';
 const ACCENT_BG_SOFT = 'color-mix(in srgb, var(--color-accent) 12%, transparent)';
@@ -22,7 +22,7 @@ export function NewsletterPromptModal({ open, onClose }: NewsletterPromptModalPr
   const handleSubscribe = () => {
     AnalyticsService.capture('newsletter_prompt_subscribe_clicked');
     markNewsletterPromptSeen();
-    openUrl(NEWSLETTER_URL);
+    openExternal(NEWSLETTER_URL);
     onClose();
   };
 

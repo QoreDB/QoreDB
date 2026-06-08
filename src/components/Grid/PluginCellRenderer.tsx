@@ -7,22 +7,17 @@
  *   - `json-tree`: pretty-print a JSON value.
  *   - `image`: render data-URLs and trusted https image URLs.
  *   - `chart`: tiny recharts visual for `{type, data}` payloads.
+ *   - `color`: swatch for hex / rgb(a) color strings.
+ *   - `boolean`: colored pill for boolean-ish values.
+ *   - `bytes`: humanized size for a numeric byte count.
  *   - `map`: explicit "renderer not available" fallback — QoreDB does not
  *     bundle a map library, so a viewer contributing `renderer: "map"` is
  *     parsed by the manifest but cannot draw a map here.
  */
 
-import { ImageOff, MapPinOff } from 'lucide-react';
+import { Check, ImageOff, MapPinOff, X } from 'lucide-react';
 import { memo, useMemo } from 'react';
-import {
-  Area,
-  AreaChart,
-  Bar,
-  BarChart,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-} from 'recharts';
+import { Area, AreaChart, Bar, BarChart, Line, LineChart, ResponsiveContainer } from 'recharts';
 import type { ResultViewerContribution } from '@/lib/plugins';
 
 interface PluginCellRendererProps {
@@ -42,7 +37,13 @@ export const PluginCellRenderer = memo(function PluginCellRenderer({
     case 'image':
       return <ImageCell value={value} formatted={formatted} />;
     case 'chart':
-      return <ChartCell value={value} formatted={formatted} />;
+      return <ChartCell value={value} formatted={formatted} options={viewer.options} />;
+    case 'color':
+      return <ColorCell value={value} formatted={formatted} />;
+    case 'boolean':
+      return <BooleanCell value={value} formatted={formatted} />;
+    case 'bytes':
+      return <BytesCell value={value} formatted={formatted} options={viewer.options} />;
     case 'map':
       return <MapFallbackCell formatted={formatted} />;
   }
@@ -88,12 +89,7 @@ function ImageCell({ value, formatted }: { value: unknown; formatted: string }) 
     );
   }
   return (
-    <img
-      src={value}
-      alt=""
-      className="max-h-16 max-w-full rounded object-contain"
-      loading="lazy"
-    />
+    <img src={value} alt="" className="max-h-16 max-w-full rounded object-contain" loading="lazy" />
   );
 }
 
@@ -127,12 +123,25 @@ function parseChartPayload(value: unknown): ParsedChart | null {
   return { type: payload.type, data: payload.data };
 }
 
-function ChartCell({ value, formatted }: { value: unknown; formatted: string }) {
+const CHART_KINDS: ChartKind[] = ['bar', 'line', 'area'];
+
+function ChartCell({
+  value,
+  formatted,
+  options,
+}: {
+  value: unknown;
+  formatted: string;
+  options?: Record<string, unknown>;
+}) {
   const payload = useMemo(() => parseChartPayload(value), [value]);
   if (!payload) {
     return <span className="block truncate text-muted-foreground">{formatted}</span>;
   }
-  const kind: ChartKind = payload.type ?? 'bar';
+  // Per-cell payload wins; the viewer's `options.type` sets the pack-wide
+  // default; bar is the final fallback.
+  const optionKind = CHART_KINDS.find(k => k === options?.type);
+  const kind: ChartKind = payload.type ?? optionKind ?? 'bar';
   // Infer the numeric key from the first row so plugins don't have to commit
   // to a specific field name. `name` is conventional for the X axis.
   const sample = payload.data[0];
@@ -169,6 +178,94 @@ function ChartCell({ value, formatted }: { value: unknown; formatted: string }) 
       </ResponsiveContainer>
     </div>
   );
+}
+
+/** Hex (`#rgb`, `#rrggbb`, `#rrggbbaa`) or `rgb()/rgba()`/`hsl()/hsla()`. */
+const COLOR_RE = /^(#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})|(?:rgb|hsl)a?\([^)]+\))$/i;
+
+function ColorCell({ value, formatted }: { value: unknown; formatted: string }) {
+  const color = typeof value === 'string' ? value.trim() : '';
+  if (!COLOR_RE.test(color)) {
+    return <span className="block truncate text-muted-foreground">{formatted}</span>;
+  }
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <span
+        className="inline-block size-3.5 shrink-0 rounded border border-border"
+        style={{ backgroundColor: color }}
+      />
+      <span className="font-mono text-foreground">{formatted}</span>
+    </span>
+  );
+}
+
+/** Truthy / falsy tokens accepted from string and numeric columns. */
+const TRUE_TOKENS = new Set(['true', 't', 'yes', 'y', 'on', '1']);
+const FALSE_TOKENS = new Set(['false', 'f', 'no', 'n', 'off', '0']);
+
+/** Coerces a cell value to a boolean, or `null` when it isn't boolean-ish. */
+function coerceBoolean(value: unknown): boolean | null {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return value === 1 ? true : value === 0 ? false : null;
+  if (typeof value === 'string') {
+    const token = value.trim().toLowerCase();
+    if (TRUE_TOKENS.has(token)) return true;
+    if (FALSE_TOKENS.has(token)) return false;
+  }
+  return null;
+}
+
+function BooleanCell({ value, formatted }: { value: unknown; formatted: string }) {
+  const bool = coerceBoolean(value);
+  if (bool === null) {
+    return <span className="block truncate text-muted-foreground">{formatted}</span>;
+  }
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10.5px] font-medium ${
+        bool ? 'bg-success/15 text-success' : 'bg-muted text-muted-foreground'
+      }`}
+    >
+      {bool ? <Check size={11} /> : <X size={11} />}
+      {formatted}
+    </span>
+  );
+}
+
+const BYTE_UNITS = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
+
+/** Humanizes a byte count. `step` is 1024 (binary) or 1000 (decimal). Returns
+ *  `null` for non-finite input. */
+function humanizeBytes(bytes: number, step: number): string | null {
+  if (!Number.isFinite(bytes)) return null;
+  const sign = bytes < 0 ? '-' : '';
+  let n = Math.abs(bytes);
+  let unit = 0;
+  while (n >= step && unit < BYTE_UNITS.length - 1) {
+    n /= step;
+    unit += 1;
+  }
+  const rounded = unit === 0 ? n : Math.round(n * 100) / 100;
+  return `${sign}${rounded} ${BYTE_UNITS[unit]}`;
+}
+
+function BytesCell({
+  value,
+  formatted,
+  options,
+}: {
+  value: unknown;
+  formatted: string;
+  options?: Record<string, unknown>;
+}) {
+  const step = options?.base === 'decimal' ? 1000 : 1024;
+  const raw =
+    typeof value === 'string' ? (value.trim() === '' ? null : Number(value.trim())) : value;
+  const size = typeof raw === 'number' ? humanizeBytes(raw, step) : null;
+  if (size === null) {
+    return <span className="block truncate text-muted-foreground">{formatted}</span>;
+  }
+  return <span className="font-mono tabular-nums text-foreground">{size}</span>;
 }
 
 function MapFallbackCell({ formatted }: { formatted: string }) {

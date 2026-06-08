@@ -4,7 +4,7 @@
 
 ---
 
-## ✅ Implémentés (POC)
+## ✅ Implémentés
 
 ### SQL Relationnel
 
@@ -12,24 +12,44 @@
 - [x] **MySQL** — Driver complet
 - [x] **MariaDB** — Via driver MySQL (compatible)
 - [x] **SQL Server** — Driver complet (connexion, requêtes, schémas, transactions, SSL, SSH)
+- [x] **SQLite** — Base locale, fichier unique
+- [x] **CockroachDB** — PostgreSQL-compatible, distribué
 
 ### SQL Analytique
 
 - [x] **DuckDB** — Analytics embarqué (OLAP), fichier local
+- [x] **ClickHouse** — Analytics OLAP _(v0.1.28)_
+
+### Time-Series
+
+- [x] **TimescaleDB** — Extension PostgreSQL
+
+### Cloud-Native / Serverless
+
+- [x] **Neon** — PostgreSQL serverless
+- [x] **Supabase** — PostgreSQL (API REST)
 
 ### NoSQL Document
 
 - [x] **MongoDB** — Driver complet (connexion, collections, find, aggregate)
 
+### NoSQL Key-Value
+
+- [x] **Redis** — Cache / store in-memory
+
 ---
 
-## 🔜 Prévus (V1 / V2)
+## 🔜 Prévus
+
+### Search / Analytics — 🎯 prochaine cible
+
+- [ ] **Elasticsearch** — Recherche full-text (REST/HTTP, Query DSL)
+- [ ] **OpenSearch** — Fork Elasticsearch (API quasi-identique, mutualisable)
+- [ ] **Apache Druid** — Real-time analytics
 
 ### SQL Relationnel
 
-- [x] **SQLite** — Base locale, fichier unique
 - [ ] **Oracle Database** — Enterprise
-- [x] **CockroachDB** — PostgreSQL-compatible, distribué
 
 ### NoSQL Document
 
@@ -38,8 +58,7 @@
 
 ### NoSQL Key-Value
 
-- [x] **Redis** — Cache / store in-memory
-- [ ] **Valkey** — Fork open-source de Redis
+- [ ] **Valkey** — Fork open-source de Redis (réutilise le driver Redis)
 - [ ] **Memcached** — Cache distribué
 - [ ] **Amazon DynamoDB** — Key-value AWS
 
@@ -58,22 +77,12 @@
 ### Time-Series
 
 - [ ] **InfluxDB** — Time-series natif
-- [ ] **TimescaleDB** — Extension PostgreSQL
 - [ ] **QuestDB** — Time-series haute performance
 - [ ] **Prometheus** — Métriques (read-only)
-
-### Search / Analytics
-
-- [ ] **Elasticsearch** — Recherche full-text
-- [ ] **OpenSearch** — Fork Elasticsearch
-- [x] **ClickHouse** — Analytics OLAP _(v0.1.28)_
-- [ ] **Apache Druid** — Real-time analytics
 
 ### Cloud-Native / Serverless
 
 - [ ] **PlanetScale** — MySQL serverless
-- [ ] **Neon** — PostgreSQL serverless
-- [ ] **Supabase** — PostgreSQL (API REST)
 - [ ] **Turso** — SQLite edge (libSQL)
 - [ ] **Cloudflare D1** — SQLite edge
 
@@ -136,10 +145,10 @@ pub trait DataEngine: Send + Sync {
 
 ## Priorités suggérées
 
-| Priorité | Database      | Raison                    |
-| -------- | ------------- | ------------------------- |
-| V1       | SQLite        | Local-first, dev workflow |
-| V1       | Redis         | Très populaire, simple    |
-| V2       | ClickHouse    | Analytics use case        |
-| V2       | Elasticsearch | Search use case           |
-| V3       | Neo4j         | Niche mais différenciant  |
+| Priorité | Database      | Raison                                         |
+| -------- | ------------- | ---------------------------------------------- |
+| Next     | Elasticsearch | Search use case, premier moteur full-text      |
+| Next     | OpenSearch    | Fork ES, API mutualisable avec Elasticsearch   |
+| +        | Valkey        | Fork Redis, réutilise le driver existant       |
+| +        | Oracle        | Angle enterprise (QorePlatform)                |
+| +        | Neo4j         | Niche mais différenciant (graphe / Cypher)     |

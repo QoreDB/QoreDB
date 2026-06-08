@@ -1,16 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Check, Palette, Puzzle, Settings2, Terminal, Zap } from 'lucide-react';
+import { Check, Puzzle, Settings2, Zap } from 'lucide-react';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Tooltip } from '@/components/ui/tooltip';
@@ -26,47 +28,32 @@ interface PluginLauncherProps {
 }
 
 /**
- * Always-visible home for installed plugins: see which ones are active, run
- * their commands and switch plugin themes from a single titlebar menu. Hidden
- * only when no plugin is enabled, so plugins that work silently through query
- * hooks (and contribute no command or theme) are still visible here.
+ * Always-visible home for installed plugins. The menu is organised by plugin:
+ * each active plugin owns a submenu that surfaces whatever it contributes —
+ * commands to run, themes to apply. This stays generic, so a plugin is never
+ * special-cased by what it happens to contribute; one that works silently
+ * through query hooks still shows up (and links to its settings).
  */
 export function PluginLauncher({ onRunCommand }: PluginLauncherProps) {
   const { t } = useTranslation();
   const { plugins, contributions, activeThemeId, setActiveTheme } = usePlugins();
 
-  const activePlugins = useMemo(() => plugins.filter(p => p.enabled && p.compatible), [plugins]);
+  // Each active plugin paired with the contributions it owns. Contribution ids
+  // are namespaced `<plugin-id>::<local-id>`, so origin is recovered by split.
+  const entries = useMemo(() => {
+    const active = plugins.filter(p => p.enabled && p.compatible);
+    return active.map(plugin => ({
+      plugin,
+      commands: contributions.commands.filter(
+        c => splitContributionId(c.id).pluginId === plugin.manifest.id
+      ),
+      themes: contributions.themes.filter(
+        th => splitContributionId(th.id).pluginId === plugin.manifest.id
+      ),
+    }));
+  }, [plugins, contributions.commands, contributions.themes]);
 
-  const pluginName = useMemo(() => {
-    const byId = new Map(plugins.map(p => [p.manifest.id, p.manifest.name]));
-    return (namespacedId: string) => {
-      const { pluginId } = splitContributionId(namespacedId);
-      return byId.get(pluginId) ?? pluginId;
-    };
-  }, [plugins]);
-
-  // Group commands by their owning plugin so each plugin gets its own
-  // labelled section in the menu.
-  const commandGroups = useMemo(() => {
-    const groups = new Map<
-      string,
-      { id: string; name: string; commands: typeof contributions.commands }
-    >();
-    for (const cmd of contributions.commands) {
-      const { pluginId } = splitContributionId(cmd.id);
-      const group = groups.get(pluginId);
-      if (group) {
-        group.commands.push(cmd);
-      } else {
-        groups.set(pluginId, { id: pluginId, name: pluginName(cmd.id), commands: [cmd] });
-      }
-    }
-    return [...groups.values()];
-  }, [contributions.commands, pluginName]);
-
-  if (activePlugins.length === 0) return null;
-
-  const { themes } = contributions;
+  if (entries.length === 0) return null;
 
   return (
     <DropdownMenu>
@@ -82,65 +69,72 @@ export function PluginLauncher({ onRunCommand }: PluginLauncherProps) {
           </Button>
         </DropdownMenuTrigger>
       </Tooltip>
-      <DropdownMenuContent align="end" className="w-64">
+      <DropdownMenuContent align="end" className="w-60">
         <DropdownMenuLabel className="text-muted-foreground">
           {t('pluginLauncher.active')}
         </DropdownMenuLabel>
-        {activePlugins.map(p => (
-          <DropdownMenuItem
-            key={p.manifest.id}
-            onClick={() => openSettingsSection('plugins')}
-            className="gap-2"
-          >
-            <span className="flex-1 truncate">{p.manifest.name}</span>
-            {p.manifest.runtime && (
-              <Tooltip content={t('pluginLauncher.runsInBackground')}>
-                <Zap size={12} className="shrink-0 text-accent" />
-              </Tooltip>
-            )}
-          </DropdownMenuItem>
-        ))}
 
-        {commandGroups.map(group => (
-          <DropdownMenuGroup key={group.id}>
-            <DropdownMenuSeparator />
-            <DropdownMenuLabel className="flex items-center gap-1.5 text-muted-foreground">
-              <Terminal size={12} />
-              {group.name}
-            </DropdownMenuLabel>
-            {group.commands.map(cmd => (
-              <DropdownMenuItem key={cmd.id} onClick={() => onRunCommand(cmd.id)}>
-                <span className="truncate">{cmd.label}</span>
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuGroup>
-        ))}
+        {entries.map(({ plugin, commands, themes }) => {
+          const runtimeBadge = plugin.manifest.runtime && (
+            <Tooltip content={t('pluginLauncher.runsInBackground')}>
+              <Zap size={12} className="shrink-0 text-accent" />
+            </Tooltip>
+          );
 
-        {themes.length > 0 && (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuLabel className="flex items-center gap-1.5 text-muted-foreground">
-              <Palette size={12} />
-              {t('pluginLauncher.themes')}
-            </DropdownMenuLabel>
-            <DropdownMenuItem onClick={() => setActiveTheme(null)}>
-              <span className="flex-1 truncate">{t('pluginLauncher.themeDefault')}</span>
-              {activeThemeId === null && <Check size={14} className="text-accent" />}
-            </DropdownMenuItem>
-            {themes.map(theme => (
+          // A plugin with nothing to surface still appears, linking to its
+          // settings — it isn't hidden just because it has no menu actions.
+          if (commands.length === 0 && themes.length === 0) {
+            return (
               <DropdownMenuItem
-                key={theme.id}
-                onClick={() => setActiveTheme(activeThemeId === theme.id ? null : theme.id)}
+                key={plugin.manifest.id}
+                onClick={() => openSettingsSection('plugins')}
+                className="gap-2"
               >
-                <span className="flex-1 truncate">{theme.name}</span>
-                {activeThemeId === theme.id && <Check size={14} className="text-accent" />}
+                <span className="flex-1 truncate">{plugin.manifest.name}</span>
+                {runtimeBadge}
               </DropdownMenuItem>
-            ))}
-          </>
-        )}
+            );
+          }
+
+          return (
+            <DropdownMenuSub key={plugin.manifest.id}>
+              <DropdownMenuSubTrigger className="gap-2">
+                <span className="flex-1 truncate">{plugin.manifest.name}</span>
+                {runtimeBadge}
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent className="w-56">
+                {commands.map(cmd => (
+                  <DropdownMenuItem key={cmd.id} onClick={() => onRunCommand(cmd.id)}>
+                    <span className="truncate">{cmd.label}</span>
+                  </DropdownMenuItem>
+                ))}
+
+                {themes.length > 0 && (
+                  <>
+                    {commands.length > 0 && <DropdownMenuSeparator />}
+                    <DropdownMenuItem onClick={() => setActiveTheme(null)} className="gap-2">
+                      <span className="flex-1 truncate">{t('pluginLauncher.themeDefault')}</span>
+                      {activeThemeId === null && <Check size={14} className="text-accent" />}
+                    </DropdownMenuItem>
+                    {themes.map(theme => (
+                      <DropdownMenuItem
+                        key={theme.id}
+                        onClick={() => setActiveTheme(activeThemeId === theme.id ? null : theme.id)}
+                        className="gap-2"
+                      >
+                        <span className="flex-1 truncate">{theme.name}</span>
+                        {activeThemeId === theme.id && <Check size={14} className="text-accent" />}
+                      </DropdownMenuItem>
+                    ))}
+                  </>
+                )}
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+          );
+        })}
 
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => openSettingsSection('plugins')}>
+        <DropdownMenuItem onClick={() => openSettingsSection('plugins')} className="gap-2">
           <Settings2 size={14} />
           {t('pluginLauncher.manage')}
         </DropdownMenuItem>

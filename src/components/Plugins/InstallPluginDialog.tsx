@@ -2,7 +2,7 @@
 
 import { open as openDialog } from '@tauri-apps/plugin-dialog';
 import { FolderOpen } from 'lucide-react';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
@@ -15,7 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { installPlugin, type InstalledPlugin } from '@/lib/plugins';
+import { installPlugin, type InstalledPlugin, setPluginEnabled } from '@/lib/plugins';
 import { ConsentDialog, requestedCaps } from './ConsentDialog';
 
 interface InstallPluginDialogProps {
@@ -31,6 +31,9 @@ export function InstallPluginDialog({ open, onOpenChange, onInstalled }: Install
   /** Plugin that just installed and requests capabilities — chained into
    *  the consent dialog so the user makes the trust call up front. */
   const [pendingConsent, setPendingConsent] = useState<InstalledPlugin | null>(null);
+  /** Set when the consent dialog closes via an explicit Save/Deny choice, so
+   *  a plain dismiss (Escape / click-away) is distinguishable. */
+  const consentDecidedRef = useRef(false);
 
   async function pickAndInstall() {
     setError(null);
@@ -58,6 +61,7 @@ export function InstallPluginDialog({ open, onOpenChange, onInstalled }: Install
       // capability — http/fs/secrets used to slip through the old hardcoded
       // check and were silently denied.
       if (requestedCaps(plugin).length > 0) {
+        consentDecidedRef.current = false;
         setPendingConsent(plugin);
         onOpenChange(false);
       } else {
@@ -102,12 +106,27 @@ export function InstallPluginDialog({ open, onOpenChange, onInstalled }: Install
         plugin={pendingConsent}
         open={pendingConsent !== null}
         onOpenChange={o => {
-          if (!o) {
-            setPendingConsent(null);
-            onInstalled();
+          if (o) return;
+          const plugin = pendingConsent;
+          // Dismissed without a Save/Deny choice: don't leave a permission-
+          // requesting plugin enabled-but-inert in silence. Disable it so the
+          // user makes the trust call deliberately from Settings.
+          if (plugin && !consentDecidedRef.current) {
+            void setPluginEnabled(plugin.manifest.id, false)
+              .then(() => {
+                toast.info(t('plugins.toast.disabledPendingConsent', { name: plugin.manifest.name }));
+              })
+              .finally(() => {
+                setPendingConsent(null);
+                onInstalled();
+              });
+            return;
           }
+          setPendingConsent(null);
+          onInstalled();
         }}
         onSaved={() => {
+          consentDecidedRef.current = true;
           setPendingConsent(null);
           onInstalled();
         }}

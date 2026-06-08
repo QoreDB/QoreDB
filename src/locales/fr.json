@@ -1,4 +1,21 @@
 {
+  "auth": {
+    "setupTitle": "Configurer cette instance",
+    "setupSubtitle": "Crée le compte administrateur pour commencer.",
+    "loginTitle": "Connexion",
+    "loginSubtitle": "Connecte-toi pour accéder à tes connexions.",
+    "email": "E-mail",
+    "password": "Mot de passe",
+    "confirmPassword": "Confirmer le mot de passe",
+    "createAdmin": "Créer l'administrateur",
+    "signIn": "Se connecter",
+    "ssoButton": "Continuer avec le SSO",
+    "or": "ou",
+    "passwordMismatch": "Les mots de passe ne correspondent pas.",
+    "passwordTooShort": "Le mot de passe doit comporter au moins 8 caractères.",
+    "ssoFailed": "Échec de la connexion SSO : {{error}}",
+    "submitting": "Veuillez patienter…"
+  },
   "cache": {
     "title": "Cache des résultats",
     "description": "Met en cache les résultats de navigation récents pour un affichage instantané.",
@@ -35,7 +52,11 @@
       "remove": "Supprimer l'extension",
       "removeConfirm": "Supprimer l'extension « {{name}} » ?",
       "executable": "Exécutable",
-      "executableTooltip": "Cette extension exécute du code WASM en bac à sable, dans un budget CPU et mémoire strict."
+      "executableTooltip": "Cette extension exécute du code WASM en bac à sable, dans un budget CPU et mémoire strict.",
+      "inert": "Inerte",
+      "inertTooltip": "Activé, mais aucune permission accordée — il ne peut rien faire. Cliquez pour accorder.",
+      "disabledErrors": "Désactivé",
+      "disabledErrorsTooltip": "Déchargé après des erreurs répétées. Réactivez-le une fois le problème corrigé."
     },
     "contributions": {
       "snippets": "Snippets : {{count}}",
@@ -67,8 +88,14 @@
       "commandRun": "Exécuter",
       "commandRunning": "Exécution…",
       "commandNoOutput": "(aucune sortie)",
+      "logs": "Journaux",
+      "logsEmpty": "Aucune ligne de journal pour l'instant. Lancez le plugin ou une requête pour voir son activité.",
+      "logsClear": "Effacer",
       "secrets": "Secrets",
-      "secretsDescription": "Fournis les valeurs des secrets déclarés par le plugin dans son manifeste. Les valeurs sont stockées dans le trousseau de l'OS et ne quittent jamais cette machine."
+      "secretsDescription": "Fournis les valeurs des secrets déclarés par le plugin dans son manifeste. Les valeurs sont stockées dans le trousseau de l'OS et ne quittent jamais cette machine.",
+      "disabledErrorsBanner": "Ce plugin a été désactivé après {{count}} erreurs consécutives. Réactivez-le via l'interrupteur une fois le problème résolu.",
+      "inertBanner": "Ce plugin est activé mais vous ne lui avez accordé aucune permission : il ne peut donc rien faire pour l'instant.",
+      "grantCta": "Accorder les permissions"
     },
     "themes": {
       "title": "Thèmes d'extension",
@@ -78,7 +105,9 @@
     },
     "toast": {
       "installed": "Extension « {{name}} » installée",
-      "removed": "Extension « {{name}} » supprimée"
+      "removed": "Extension « {{name}} » supprimée",
+      "disabledTitle": "{{name}} désactivé après des erreurs répétées",
+      "disabledPendingConsent": "{{name}} a été installé mais laissé désactivé — accordez-lui des permissions pour l'activer."
     },
     "consent": {
       "title": "Permissions demandées par {{name}}",
@@ -300,8 +329,8 @@
       "authSql": "Login SQL",
       "authNtlm": "Windows (NTLM)",
       "authIntegrated": "Windows (Intégrée)",
-      "ntlmHint": "Utilisez DOMAINE\\utilisateur ou utilisateur@DOMAINE. Requiert un client Windows — désactivé sur macOS/Linux pour le moment.",
-      "integratedHint": "Utilise votre session Windows/AD courante — aucun identifiant requis. Nécessite SSPI (Windows) ou un ticket Kerberos via kinit (macOS/Linux).",
+      "ntlmHint": "Clients Windows uniquement.",
+      "integratedHint": "Utilise votre session Windows courante, aucun identifiant requis.",
       "ntlmUsernamePlaceholder": "DOMAINE\\utilisateur"
     },
     "ssh": {
@@ -781,6 +810,7 @@
   },
   "tableMenu": {
     "open": "Ouvrir",
+    "newQuery": "Nouvelle requête",
     "truncate": "Vider la table",
     "drop": "Supprimer la table",
     "truncateTitle": "Vider la table",
@@ -3036,7 +3066,6 @@
   },
   "pluginLauncher": {
     "tooltip": "Extensions",
-    "themes": "Thèmes",
     "themeDefault": "Thème par défaut",
     "active": "Plugins actifs",
     "manage": "Gérer les plugins…",

@@ -74,7 +74,7 @@ function TabButton({
 
 function InstalledPluginsTab({ searchQuery }: { searchQuery?: string }) {
   const { t } = useTranslation();
-  const { plugins, contributions, activeThemeId, setActiveTheme, refresh } = usePlugins();
+  const { plugins, contributions, statuses, activeThemeId, setActiveTheme, refresh } = usePlugins();
   const [installOpen, setInstallOpen] = useState(false);
   const [detail, setDetail] = useState<InstalledPlugin | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -137,6 +137,7 @@ function InstalledPluginsTab({ searchQuery }: { searchQuery?: string }) {
                 <PluginCard
                   key={p.manifest.id}
                   plugin={p}
+                  status={statuses[p.manifest.id]}
                   busy={busyId === p.manifest.id}
                   onToggle={enabled => toggle(p, enabled)}
                   onRemove={() => remove(p)}
@@ -185,6 +186,7 @@ function InstalledPluginsTab({ searchQuery }: { searchQuery?: string }) {
       <InstallPluginDialog open={installOpen} onOpenChange={setInstallOpen} onInstalled={refresh} />
       <PluginDetailDialog
         plugin={detail}
+        status={detail ? statuses[detail.manifest.id] : undefined}
         open={detail !== null}
         onOpenChange={o => !o && setDetail(null)}
         onConsentChanged={refresh}

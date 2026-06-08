@@ -116,16 +116,14 @@ pub async fn list_tables(
                 Some(Value::Text(s)) => s,
                 _ => String::new(),
             };
-            let collection_type = if engine.starts_with("View")
-                || engine == "View"
-                || engine == "LiveView"
-            {
-                CollectionType::View
-            } else if engine == "MaterializedView" {
-                CollectionType::MaterializedView
-            } else {
-                CollectionType::Table
-            };
+            let collection_type =
+                if engine.starts_with("View") || engine == "View" || engine == "LiveView" {
+                    CollectionType::View
+                } else if engine == "MaterializedView" {
+                    CollectionType::MaterializedView
+                } else {
+                    CollectionType::Table
+                };
             Collection {
                 namespace: namespace.clone(),
                 name,
@@ -184,9 +182,7 @@ pub async fn describe_table(
         };
         let is_pk = matches!(it.next(), Some(Value::Int(i)) if i != 0)
             || matches!(it.next(), Some(Value::Bool(true)));
-        let nullable = raw_type
-            .to_ascii_uppercase()
-            .contains("NULLABLE(");
+        let nullable = raw_type.to_ascii_uppercase().contains("NULLABLE(");
         if is_pk {
             primary_key_cols.push(name.clone());
         }
@@ -203,23 +199,22 @@ pub async fn describe_table(
     // engines that track it: MergeTree family, etc.).
     let count_sql = "SELECT total_rows FROM system.tables \
          WHERE database = {db:String} AND name = {tbl:String}";
-    let row_count_estimate =
-        match parse_query_result(
-            &client
-                .fetch_json_with_params(count_sql, None, &params)
-                .await?,
-            0.0,
-        ) {
-            Ok(qr) => qr
-                .rows
-                .into_iter()
-                .next()
-                .and_then(|r| match r.values.into_iter().next() {
-                    Some(Value::Int(i)) if i >= 0 => Some(i as u64),
-                    _ => None,
-                }),
-            Err(_) => None,
-        };
+    let row_count_estimate = match parse_query_result(
+        &client
+            .fetch_json_with_params(count_sql, None, &params)
+            .await?,
+        0.0,
+    ) {
+        Ok(qr) => qr
+            .rows
+            .into_iter()
+            .next()
+            .and_then(|r| match r.values.into_iter().next() {
+                Some(Value::Int(i)) if i >= 0 => Some(i as u64),
+                _ => None,
+            }),
+        Err(_) => None,
+    };
 
     let primary_key = if primary_key_cols.is_empty() {
         None
@@ -278,7 +273,11 @@ async fn fetch_indexes(
             Some(Value::Text(s)) => s,
             _ => String::new(),
         };
-        let columns = if expr.is_empty() { Vec::new() } else { vec![expr] };
+        let columns = if expr.is_empty() {
+            Vec::new()
+        } else {
+            vec![expr]
+        };
 
         out.push(TableIndex {
             name,

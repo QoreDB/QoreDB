@@ -148,7 +148,7 @@ export function TabBar({
         )}
 
         {grouped ? (
-          <div className="flex items-center gap-1.5 flex-1 min-w-0">
+          <div className="flex items-center gap-1.5 min-w-0">
             {grouped.map(group => {
               const label = group.connectionId
                 ? resolveConnection?.(group.connectionId)
@@ -175,7 +175,7 @@ export function TabBar({
             axis="x"
             values={unpinnedTabs}
             onReorder={handleFlatReorder}
-            className="flex items-center gap-0 flex-1 min-w-0"
+            className="flex items-center gap-0 min-w-0"
             as="div"
           >
             {unpinnedTabs.map(tab => (

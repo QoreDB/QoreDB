@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { openUrl } from '@tauri-apps/plugin-opener';
 import type { LucideIcon } from 'lucide-react';
 import {
   BarChart3,
@@ -26,6 +25,7 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/compone
 import type { ProFeature } from '@/lib/license';
 import { trackProEvent } from '@/lib/licenseTracking';
 import { getCheckoutUrl, getPricingUrl } from '@/lib/pricing';
+import { openExternal } from '@/lib/transport';
 
 const ACCENT = 'var(--color-accent)';
 const ACCENT_BORDER = 'color-mix(in srgb, var(--color-accent) 20%, transparent)';
@@ -71,12 +71,12 @@ export function ProDiscoveryPanel({ open, onClose, source, onActivate }: ProDisc
 
   const handleUnlock = () => {
     trackProEvent('pro_upgrade_cta_clicked', { source: source ?? 'discovery_panel' });
-    openUrl(getCheckoutUrl());
+    openExternal(getCheckoutUrl());
   };
 
   const handleLearnMore = () => {
     trackProEvent('pro_upgrade_learn_more_clicked', { source: source ?? 'discovery_panel' });
-    openUrl(getPricingUrl());
+    openExternal(getPricingUrl());
   };
 
   const handleFeatureClick = (feature: ProFeature) => {
@@ -84,7 +84,7 @@ export function ProDiscoveryPanel({ open, onClose, source, onActivate }: ProDisc
       feature,
       source: source ?? 'discovery_panel',
     });
-    openUrl(getPricingUrl(feature));
+    openExternal(getPricingUrl(feature));
   };
 
   return (

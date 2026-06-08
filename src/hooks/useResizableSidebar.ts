@@ -53,6 +53,11 @@ export function useResizableSidebar() {
     [width]
   );
 
+  const resetWidth = useCallback(() => {
+    setWidth(DEFAULT_WIDTH);
+    saveWidth(DEFAULT_WIDTH);
+  }, [saveWidth]);
+
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (!isDragging.current) return;
@@ -89,5 +94,5 @@ export function useResizableSidebar() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  return { width, handleMouseDown };
+  return { width, handleMouseDown, resetWidth };
 }

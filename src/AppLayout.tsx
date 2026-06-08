@@ -125,7 +125,11 @@ export function AppLayout() {
   const { t } = useTranslation();
   const { resolvedTheme, toggleTheme } = useTheme();
   useWebviewGuards();
-  const { width: sidebarWidth, handleMouseDown: handleSidebarResizeStart } = useResizableSidebar();
+  const {
+    width: sidebarWidth,
+    handleMouseDown: handleSidebarResizeStart,
+    resetWidth: resetSidebarWidth,
+  } = useResizableSidebar();
   const tourManager = useTourManager();
 
   const {
@@ -770,7 +774,7 @@ export function AppLayout() {
           )}
 
           {!zenMode && sidebarVisible && (
-            <aside aria-label={t('a11y.sidebar')}>
+            <aside aria-label={t('a11y.sidebar')} className="flex h-full shrink-0">
               <Sidebar
                 onNewConnection={() => setConnectionModalOpen(true)}
                 onConnected={handleConnected}
@@ -799,6 +803,7 @@ export function AppLayout() {
                 type="button"
                 aria-label="Resize sidebar"
                 onMouseDown={handleSidebarResizeStart}
+                onDoubleClick={resetSidebarWidth}
                 className="w-1 shrink-0 cursor-col-resize bg-transparent hover:bg-accent/50 active:bg-accent transition-colors border-0 p-0 outline-none"
               />
             </aside>

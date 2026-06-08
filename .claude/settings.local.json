@@ -92,7 +92,9 @@
       "Bash(sed -n '40,50p' Cargo.toml)",
       "mcp___hypothesi_tauri-mcp-server__read_logs",
       "Bash(xdg-mime query *)",
-      "Bash(xdg-open ~/.config/com.qoredb.app)"
+      "Bash(xdg-open ~/.config/com.qoredb.app)",
+      "Bash(pnpm --version)",
+      "Bash(pnpm store *)"
     ]
   }
 }

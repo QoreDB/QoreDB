@@ -3,6 +3,7 @@
   "private": true,
   "version": "0.1.29",
   "type": "module",
+  "packageManager": "pnpm@11.3.0",
   "scripts": {
     "sync:version": "node scripts/sync-version.mjs",
     "prebuild": "pnpm sync:version",

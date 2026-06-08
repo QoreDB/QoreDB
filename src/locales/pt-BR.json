@@ -1,4 +1,21 @@
 {
+  "auth": {
+    "setupTitle": "Configurar esta instância",
+    "setupSubtitle": "Crie a conta de administrador para começar.",
+    "loginTitle": "Entrar",
+    "loginSubtitle": "Entre para acessar suas conexões.",
+    "email": "E-mail",
+    "password": "Senha",
+    "confirmPassword": "Confirmar senha",
+    "createAdmin": "Criar administrador",
+    "signIn": "Entrar",
+    "ssoButton": "Continuar com SSO",
+    "or": "ou",
+    "passwordMismatch": "As senhas não coincidem.",
+    "passwordTooShort": "A senha deve ter pelo menos 8 caracteres.",
+    "ssoFailed": "Falha ao entrar com SSO: {{error}}",
+    "submitting": "Aguarde…"
+  },
   "cache": {
     "title": "Cache de resultados",
     "description": "Armazena em cache os resultados de navegação recentes para que a navegação repetida seja instantânea.",

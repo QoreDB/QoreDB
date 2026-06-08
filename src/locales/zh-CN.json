@@ -1,4 +1,21 @@
 {
+  "auth": {
+    "setupTitle": "设置此实例",
+    "setupSubtitle": "创建管理员账户以开始使用。",
+    "loginTitle": "登录",
+    "loginSubtitle": "登录以访问您的连接。",
+    "email": "电子邮件",
+    "password": "密码",
+    "confirmPassword": "确认密码",
+    "createAdmin": "创建管理员",
+    "signIn": "登录",
+    "ssoButton": "使用 SSO 继续",
+    "or": "或",
+    "passwordMismatch": "两次输入的密码不一致。",
+    "passwordTooShort": "密码至少需要 8 个字符。",
+    "ssoFailed": "SSO 登录失败：{{error}}",
+    "submitting": "请稍候…"
+  },
   "cache": {
     "title": "查询结果缓存",
     "description": "缓存最近的表格浏览结果，使重复导航即时完成。",

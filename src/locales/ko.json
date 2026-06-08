@@ -1,4 +1,21 @@
 {
+  "auth": {
+    "setupTitle": "이 인스턴스 설정",
+    "setupSubtitle": "시작하려면 관리자 계정을 만드세요.",
+    "loginTitle": "로그인",
+    "loginSubtitle": "로그인하여 연결에 액세스하세요.",
+    "email": "이메일",
+    "password": "비밀번호",
+    "confirmPassword": "비밀번호 확인",
+    "createAdmin": "관리자 만들기",
+    "signIn": "로그인",
+    "ssoButton": "SSO로 계속",
+    "or": "또는",
+    "passwordMismatch": "비밀번호가 일치하지 않습니다.",
+    "passwordTooShort": "비밀번호는 8자 이상이어야 합니다.",
+    "ssoFailed": "SSO 로그인 실패: {{error}}",
+    "submitting": "잠시만 기다려 주세요…"
+  },
   "cache": {
     "title": "쿼리 결과 캐시",
     "description": "최근 테이블 탐색 결과를 캐시하여 반복 탐색을 즉시 표시합니다.",

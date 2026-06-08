@@ -1,4 +1,21 @@
 {
+  "auth": {
+    "setupTitle": "Set up this instance",
+    "setupSubtitle": "Create the administrator account to get started.",
+    "loginTitle": "Sign in",
+    "loginSubtitle": "Sign in to access your connections.",
+    "email": "Email",
+    "password": "Password",
+    "confirmPassword": "Confirm password",
+    "createAdmin": "Create administrator",
+    "signIn": "Sign in",
+    "ssoButton": "Continue with SSO",
+    "or": "or",
+    "passwordMismatch": "Passwords do not match.",
+    "passwordTooShort": "Password must be at least 8 characters.",
+    "ssoFailed": "SSO sign-in failed: {{error}}",
+    "submitting": "Please wait…"
+  },
   "cache": {
     "title": "Query result cache",
     "description": "Cache recent table-browse results so repeated navigation is instant.",

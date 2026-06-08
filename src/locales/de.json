@@ -301,8 +301,8 @@
       "authSql": "SQL-Anmeldung",
       "authNtlm": "Windows (NTLM)",
       "authIntegrated": "Windows (Integriert)",
-      "ntlmHint": "Verwenden Sie DOMÄNE\\benutzer oder benutzer@DOMÄNE. Erfordert einen Windows-Client — unter macOS/Linux vorübergehend deaktiviert.",
-      "integratedHint": "Verwendet Ihre aktuelle Windows/AD-Sitzung — keine Anmeldedaten erforderlich. Benötigt SSPI (Windows) oder ein Kerberos-Ticket via kinit (macOS/Linux).",
+      "ntlmHint": "Nur Windows-Clients.",
+      "integratedHint": "Verwendet Ihre aktuelle Windows-Sitzung, keine Anmeldedaten erforderlich.",
       "ntlmUsernamePlaceholder": "DOMÄNE\\benutzer"
     },
     "ssh": {

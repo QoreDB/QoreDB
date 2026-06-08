@@ -20,6 +20,30 @@ export interface ChangelogEntry {
  */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.1.30',
+    date: '2026-06-08',
+    items: [
+      {
+        title: 'Command-line access',
+        description:
+          'New qore CLI runs queries against your saved connections from scripts and CI, reusing the same vault and safety gates as the desktop app.',
+        type: 'feature',
+      },
+      {
+        title: 'MCP server',
+        description:
+          'Expose your connections to AI agents through a read-only MCP server, with destructive operations blocked at the source.',
+        type: 'feature',
+      },
+      {
+        title: 'Multi-statement queries',
+        description:
+          'Run several statements at once and browse each result set separately, with a new table context menu to open queries quickly.',
+        type: 'improvement',
+      },
+    ],
+  },
+  {
     version: '0.1.29',
     date: '2026-05-21',
     items: [

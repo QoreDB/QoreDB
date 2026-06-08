@@ -119,13 +119,6 @@ pub fn run() {
     let snapshot_store: commands::snapshots::SharedSnapshotStore =
         Arc::new(SnapshotStore::new(data_dir.join("snapshots")));
 
-    let app_config_dir = dirs::config_dir()
-        .unwrap_or_else(|| std::path::PathBuf::from("."))
-        .join("com.qoredb.app");
-    let workspace_manager: SharedWorkspaceManager = Arc::new(tokio::sync::Mutex::new(
-        workspace::WorkspaceManager::new(app_config_dir),
-    ));
-
     let write_registry = workspace::write_registry::WriteRegistry::new();
     let (ws_path_tx, ws_path_rx) = tokio::sync::watch::channel::<Option<std::path::PathBuf>>(None);
     let watcher_path_sender: commands::workspace::WatcherPathSender = Arc::new(ws_path_tx);
@@ -141,6 +134,15 @@ pub fn run() {
             #[cfg(desktop)]
             app.handle()
                 .plugin(tauri_plugin_updater::Builder::new().build())?;
+
+            let app_config_dir = app
+                .path()
+                .app_config_dir()
+                .unwrap_or_else(|_| std::path::PathBuf::from("."));
+            let workspace_manager: SharedWorkspaceManager = Arc::new(tokio::sync::Mutex::new(
+                workspace::WorkspaceManager::new(app_config_dir),
+            ));
+            app.manage(workspace_manager);
 
             #[cfg(target_os = "linux")]
             {
@@ -212,7 +214,6 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .manage(state)
         .manage(snapshot_store)
-        .manage(workspace_manager)
         .manage(write_registry)
         .manage(watcher_path_sender);
 

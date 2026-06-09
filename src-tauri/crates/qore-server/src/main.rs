@@ -103,9 +103,10 @@ async fn main() {
         .merge(protected);
 
     if let Some(dir) = web_dir {
-        app = app
-            .nest_service("/assets", ServeDir::new(dir.join("assets")))
-            .fallback(serve_index);
+        let serve_dir = ServeDir::new(&dir)
+            .append_index_html_on_directories(false)
+            .not_found_service(get(serve_index).with_state(state.clone()));
+        app = app.fallback_service(serve_dir);
     }
 
     let app = app.layer(CorsLayer::permissive()).with_state(state);

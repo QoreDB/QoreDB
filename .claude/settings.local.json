@@ -94,7 +94,10 @@
       "Bash(xdg-mime query *)",
       "Bash(xdg-open ~/.config/com.qoredb.app)",
       "Bash(pnpm --version)",
-      "Bash(pnpm store *)"
+      "Bash(pnpm store *)",
+      "Bash(corepack enable *)",
+      "Bash(corepack prepare *)",
+      "Bash(corepack pnpm *)"
     ]
   }
 }

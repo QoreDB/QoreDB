@@ -21,6 +21,10 @@ pub fn router() -> Router<AppState> {
             "/api/admin/users",
             get(admin::list_users).post(admin::create_user),
         )
+        .route(
+            "/api/admin/users/reset-password",
+            post(admin::reset_password),
+        )
         .route("/api/admin/roles", post(admin::create_role))
         .route("/api/admin/assign", post(admin::assign_role))
         .route("/api/admin/grants", post(admin::grant_connection))

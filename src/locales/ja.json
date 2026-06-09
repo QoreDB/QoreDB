@@ -14,7 +14,9 @@
     "passwordMismatch": "パスワードが一致しません。",
     "passwordTooShort": "パスワードは8文字以上で入力してください。",
     "ssoFailed": "SSO ログインに失敗しました：{{error}}",
-    "submitting": "お待ちください…"
+    "submitting": "お待ちください…",
+    "forgotPassword": "パスワードをお忘れですか？",
+    "forgotPasswordHelp": "パスワードを再設定するには管理者に連絡してください。"
   },
   "cache": {
     "title": "クエリ結果キャッシュ",
@@ -696,7 +698,8 @@
       "shortcuts": "キーボードショートカット",
       "plugins": "プラグイン",
       "license": "ライセンス",
-      "ai": "AI アシスタント"
+      "ai": "AI アシスタント",
+      "admin": "管理"
     },
     "search": {
       "placeholder": "設定を検索...",
@@ -765,6 +768,26 @@
       "overridden": "手動",
       "notFound": "PATH に見つかりません。",
       "empty": "ツールはまだ検出されていません。"
+    },
+    "admin": {
+      "usersTitle": "ユーザー",
+      "usersDescription": "このサーバーにログインできるアカウントを管理します。",
+      "loading": "ユーザーを読み込んでいます…",
+      "noUsers": "ユーザーがまだいません。",
+      "adminBadge": "管理者",
+      "resetPassword": "パスワードを再設定",
+      "newPassword": "新しいパスワード",
+      "apply": "適用",
+      "refresh": "更新",
+      "createTitle": "ユーザーを作成",
+      "createDescription": "新しいアカウントを追加します。一時パスワードをユーザーに伝えてください。",
+      "grantAdmin": "管理者権限を付与",
+      "createUser": "ユーザーを作成",
+      "userCreated": "ユーザーを作成しました。",
+      "createFailed": "ユーザーの作成に失敗しました",
+      "passwordReset": "{{email}} のパスワードを再設定しました。",
+      "resetFailed": "パスワードの再設定に失敗しました",
+      "loadFailed": "ユーザーの読み込みに失敗しました"
     }
   },
   "table": {

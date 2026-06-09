@@ -14,7 +14,9 @@
     "passwordMismatch": "Les mots de passe ne correspondent pas.",
     "passwordTooShort": "Le mot de passe doit comporter au moins 8 caractères.",
     "ssoFailed": "Échec de la connexion SSO : {{error}}",
-    "submitting": "Veuillez patienter…"
+    "submitting": "Veuillez patienter…",
+    "forgotPassword": "Mot de passe oublié ?",
+    "forgotPasswordHelp": "Contacte ton administrateur pour réinitialiser ton mot de passe."
   },
   "cache": {
     "title": "Cache des résultats",
@@ -724,7 +726,8 @@
       "shortcuts": "Raccourcis clavier",
       "plugins": "Extensions",
       "license": "Licence",
-      "ai": "Assistant IA"
+      "ai": "Assistant IA",
+      "admin": "Administration"
     },
     "search": {
       "placeholder": "Rechercher dans les paramètres...",
@@ -793,6 +796,26 @@
       "overridden": "Manuel",
       "notFound": "Introuvable dans le PATH.",
       "empty": "Aucun outil détecté pour l'instant."
+    },
+    "admin": {
+      "usersTitle": "Utilisateurs",
+      "usersDescription": "Gérer les comptes autorisés à se connecter à ce serveur.",
+      "loading": "Chargement des utilisateurs…",
+      "noUsers": "Aucun utilisateur pour le moment.",
+      "adminBadge": "Admin",
+      "resetPassword": "Réinitialiser le mot de passe",
+      "newPassword": "Nouveau mot de passe",
+      "apply": "Appliquer",
+      "refresh": "Actualiser",
+      "createTitle": "Créer un utilisateur",
+      "createDescription": "Ajouter un nouveau compte. Communique le mot de passe temporaire à l'utilisateur.",
+      "grantAdmin": "Accorder les droits administrateur",
+      "createUser": "Créer l'utilisateur",
+      "userCreated": "Utilisateur créé.",
+      "createFailed": "Échec de la création de l'utilisateur",
+      "passwordReset": "Mot de passe réinitialisé pour {{email}}.",
+      "resetFailed": "Échec de la réinitialisation du mot de passe",
+      "loadFailed": "Échec du chargement des utilisateurs"
     }
   },
   "table": {

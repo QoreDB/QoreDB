@@ -84,6 +84,21 @@ impl ControlStore {
         })
     }
 
+    /// Replace a user's password hash. Errors if no user matches the email.
+    pub async fn set_password(&self, email: &str, new_password: &str) -> Result<(), String> {
+        let hash = hash_password(new_password)?;
+        let result = sqlx::query("UPDATE users SET pw_hash = ? WHERE email = ?")
+            .bind(&hash)
+            .bind(email)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| e.to_string())?;
+        if result.rows_affected() == 0 {
+            return Err("user not found".to_string());
+        }
+        Ok(())
+    }
+
     pub async fn find_user_by_email(&self, email: &str) -> Result<Option<(User, String)>, String> {
         let row = sqlx::query("SELECT id, email, pw_hash, is_admin FROM users WHERE email = ?")
             .bind(email)

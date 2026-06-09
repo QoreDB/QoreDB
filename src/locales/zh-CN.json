@@ -14,7 +14,9 @@
     "passwordMismatch": "两次输入的密码不一致。",
     "passwordTooShort": "密码至少需要 8 个字符。",
     "ssoFailed": "SSO 登录失败：{{error}}",
-    "submitting": "请稍候…"
+    "submitting": "请稍候…",
+    "forgotPassword": "忘记密码？",
+    "forgotPasswordHelp": "请联系管理员重置您的密码。"
   },
   "cache": {
     "title": "查询结果缓存",
@@ -696,7 +698,8 @@
       "shortcuts": "键盘快捷键",
       "plugins": "插件",
       "license": "许可证",
-      "ai": "AI 助手"
+      "ai": "AI 助手",
+      "admin": "管理"
     },
     "search": {
       "placeholder": "搜索设置…",
@@ -765,6 +768,26 @@
       "overridden": "手动",
       "notFound": "在 PATH 中未找到。",
       "empty": "尚未检测到任何工具。"
+    },
+    "admin": {
+      "usersTitle": "用户",
+      "usersDescription": "管理可登录此服务器的账户。",
+      "loading": "正在加载用户…",
+      "noUsers": "暂无用户。",
+      "adminBadge": "管理员",
+      "resetPassword": "重置密码",
+      "newPassword": "新密码",
+      "apply": "应用",
+      "refresh": "刷新",
+      "createTitle": "创建用户",
+      "createDescription": "添加新账户。请将临时密码告知用户。",
+      "grantAdmin": "授予管理员权限",
+      "createUser": "创建用户",
+      "userCreated": "用户已创建。",
+      "createFailed": "创建用户失败",
+      "passwordReset": "已重置 {{email}} 的密码。",
+      "resetFailed": "重置密码失败",
+      "loadFailed": "加载用户失败"
     }
   },
   "table": {

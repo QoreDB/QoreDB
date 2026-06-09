@@ -55,19 +55,27 @@ pub struct Role {
 #[derive(Clone)]
 pub enum AuthContext {
     Admin,
-    User { grants: HashMap<String, GrantLevel> },
+    User {
+        is_admin: bool,
+        grants: HashMap<String, GrantLevel>,
+    },
 }
 
 impl AuthContext {
+    /// True for the shared admin token and for JWT users flagged `is_admin`.
     pub fn is_admin(&self) -> bool {
-        matches!(self, AuthContext::Admin)
+        matches!(
+            self,
+            AuthContext::Admin | AuthContext::User { is_admin: true, .. }
+        )
     }
 
     /// Effective access level for a connection, or `None` if not granted.
-    /// Admin always has `Write`.
+    /// Admins (shared token or JWT user) always have `Write`.
     pub fn access(&self, connection_id: &str) -> Option<GrantLevel> {
         match self {
             AuthContext::Admin => Some(GrantLevel::Write),
+            AuthContext::User { is_admin: true, .. } => Some(GrantLevel::Write),
             AuthContext::User { grants, .. } => grants.get(connection_id).copied(),
         }
     }
@@ -78,4 +86,6 @@ pub struct Claims {
     pub sub: String,
     pub email: String,
     pub exp: usize,
+    #[serde(default)]
+    pub is_admin: bool,
 }

@@ -14,7 +14,9 @@
     "passwordMismatch": "Las contraseñas no coinciden.",
     "passwordTooShort": "La contraseña debe tener al menos 8 caracteres.",
     "ssoFailed": "Error al iniciar sesión con SSO: {{error}}",
-    "submitting": "Espera por favor…"
+    "submitting": "Espera por favor…",
+    "forgotPassword": "¿Olvidaste tu contraseña?",
+    "forgotPasswordHelp": "Contacta con tu administrador para restablecer tu contraseña."
   },
   "cache": {
     "title": "Caché de resultados",
@@ -696,7 +698,8 @@
       "shortcuts": "Atajos de teclado",
       "plugins": "Complementos",
       "license": "Licencia",
-      "ai": "Asistente de IA"
+      "ai": "Asistente de IA",
+      "admin": "Administración"
     },
     "search": {
       "placeholder": "Buscar configuración...",
@@ -765,6 +768,26 @@
       "overridden": "Manual",
       "notFound": "No encontrado en PATH.",
       "empty": "Aún no se han detectado herramientas."
+    },
+    "admin": {
+      "usersTitle": "Usuarios",
+      "usersDescription": "Gestiona las cuentas que pueden iniciar sesión en este servidor.",
+      "loading": "Cargando usuarios…",
+      "noUsers": "Aún no hay usuarios.",
+      "adminBadge": "Admin",
+      "resetPassword": "Restablecer contraseña",
+      "newPassword": "Nueva contraseña",
+      "apply": "Aplicar",
+      "refresh": "Actualizar",
+      "createTitle": "Crear un usuario",
+      "createDescription": "Añade una cuenta nueva. Comparte la contraseña temporal con el usuario.",
+      "grantAdmin": "Conceder derechos de administrador",
+      "createUser": "Crear usuario",
+      "userCreated": "Usuario creado.",
+      "createFailed": "No se pudo crear el usuario",
+      "passwordReset": "Contraseña restablecida para {{email}}.",
+      "resetFailed": "No se pudo restablecer la contraseña",
+      "loadFailed": "No se pudieron cargar los usuarios"
     }
   },
   "table": {

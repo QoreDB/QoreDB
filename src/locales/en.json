@@ -14,7 +14,9 @@
     "passwordMismatch": "Passwords do not match.",
     "passwordTooShort": "Password must be at least 8 characters.",
     "ssoFailed": "SSO sign-in failed: {{error}}",
-    "submitting": "Please wait…"
+    "submitting": "Please wait…",
+    "forgotPassword": "Forgot password?",
+    "forgotPasswordHelp": "Contact your administrator to reset your password."
   },
   "cache": {
     "title": "Query result cache",
@@ -724,7 +726,8 @@
       "shortcuts": "Keyboard Shortcuts",
       "plugins": "Plugins",
       "license": "License",
-      "ai": "AI Assistant"
+      "ai": "AI Assistant",
+      "admin": "Administration"
     },
     "search": {
       "placeholder": "Search settings...",
@@ -793,6 +796,26 @@
       "overridden": "Manual",
       "notFound": "Not found in PATH.",
       "empty": "No tools detected yet."
+    },
+    "admin": {
+      "usersTitle": "Users",
+      "usersDescription": "Manage the accounts that can sign in to this server.",
+      "loading": "Loading users…",
+      "noUsers": "No users yet.",
+      "adminBadge": "Admin",
+      "resetPassword": "Reset password",
+      "newPassword": "New password",
+      "apply": "Apply",
+      "refresh": "Refresh",
+      "createTitle": "Create a user",
+      "createDescription": "Add a new account. Share the temporary password with the user.",
+      "grantAdmin": "Grant administrator rights",
+      "createUser": "Create user",
+      "userCreated": "User created.",
+      "createFailed": "Failed to create user",
+      "passwordReset": "Password reset for {{email}}.",
+      "resetFailed": "Failed to reset password",
+      "loadFailed": "Failed to load users"
     }
   },
   "table": {

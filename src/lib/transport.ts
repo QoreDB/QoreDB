@@ -45,6 +45,22 @@ export function isAuthenticated(): boolean {
   return authToken !== '';
 }
 
+/** Reads the `is_admin` claim from the current JWT payload (no verification). */
+function jwtIsAdmin(token: string): boolean {
+  try {
+    const payload = token.split('.')[1];
+    if (!payload) return false;
+    const json = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
+    return json?.is_admin === true;
+  } catch {
+    return false;
+  }
+}
+
+export function isWebAdmin(): boolean {
+  return authToken !== '' && jwtIsAdmin(authToken);
+}
+
 export function listen<T = unknown>(
   event: string,
   handler: (event: TauriEvent<T>) => void
@@ -112,6 +128,40 @@ export function webSsoStart(): void {
   if (typeof window !== 'undefined') {
     window.location.href = '/api/auth/oidc/start';
   }
+}
+
+export interface AdminUser {
+  id: string;
+  email: string;
+  is_admin: boolean;
+}
+
+export async function webListUsers(): Promise<AdminUser[]> {
+  const res = await fetch('/api/admin/users', { headers: authHeaders() });
+  if (!res.ok) throw new Error(await errorMessage(res, 'admin/users'));
+  return (await res.json()) as AdminUser[];
+}
+
+export async function webCreateUser(
+  email: string,
+  password: string,
+  isAdmin: boolean
+): Promise<void> {
+  const res = await fetch('/api/admin/users', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ email, password, is_admin: isAdmin }),
+  });
+  if (!res.ok) throw new Error(await errorMessage(res, 'admin/users'));
+}
+
+export async function webResetPassword(email: string, newPassword: string): Promise<void> {
+  const res = await fetch('/api/admin/users/reset-password', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ email, new_password: newPassword }),
+  });
+  if (!res.ok) throw new Error(await errorMessage(res, 'admin/reset-password'));
 }
 
 /**

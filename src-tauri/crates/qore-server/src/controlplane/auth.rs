@@ -29,7 +29,12 @@ pub fn verify_password(password: &str, hash: &str) -> bool {
     }
 }
 
-pub fn issue_jwt(secret: &str, user_id: &str, email: &str) -> Result<String, String> {
+pub fn issue_jwt(
+    secret: &str,
+    user_id: &str,
+    email: &str,
+    is_admin: bool,
+) -> Result<String, String> {
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_err(|e| e.to_string())?
@@ -38,6 +43,7 @@ pub fn issue_jwt(secret: &str, user_id: &str, email: &str) -> Result<String, Str
         sub: user_id.to_string(),
         email: email.to_string(),
         exp: now + TOKEN_TTL_SECS,
+        is_admin,
     };
     encode(
         &Header::default(),

@@ -14,7 +14,9 @@
     "passwordMismatch": "Die Passwörter stimmen nicht überein.",
     "passwordTooShort": "Das Passwort muss mindestens 8 Zeichen lang sein.",
     "ssoFailed": "SSO-Anmeldung fehlgeschlagen: {{error}}",
-    "submitting": "Bitte warten…"
+    "submitting": "Bitte warten…",
+    "forgotPassword": "Passwort vergessen?",
+    "forgotPasswordHelp": "Wende dich an deinen Administrator, um dein Passwort zurückzusetzen."
   },
   "cache": {
     "title": "Abfrage-Ergebniscache",
@@ -696,7 +698,8 @@
       "shortcuts": "Tastenkürzel",
       "plugins": "Plugins",
       "license": "Lizenz",
-      "ai": "KI-Assistent"
+      "ai": "KI-Assistent",
+      "admin": "Administration"
     },
     "search": {
       "placeholder": "Einstellungen suchen…",
@@ -765,6 +768,26 @@
       "overridden": "Manuell",
       "notFound": "Nicht im PATH gefunden.",
       "empty": "Noch keine Tools erkannt."
+    },
+    "admin": {
+      "usersTitle": "Benutzer",
+      "usersDescription": "Verwalte die Konten, die sich an diesem Server anmelden dürfen.",
+      "loading": "Benutzer werden geladen…",
+      "noUsers": "Noch keine Benutzer.",
+      "adminBadge": "Admin",
+      "resetPassword": "Passwort zurücksetzen",
+      "newPassword": "Neues Passwort",
+      "apply": "Anwenden",
+      "refresh": "Aktualisieren",
+      "createTitle": "Benutzer erstellen",
+      "createDescription": "Neues Konto hinzufügen. Teile das temporäre Passwort dem Benutzer mit.",
+      "grantAdmin": "Administratorrechte gewähren",
+      "createUser": "Benutzer erstellen",
+      "userCreated": "Benutzer erstellt.",
+      "createFailed": "Benutzer konnte nicht erstellt werden",
+      "passwordReset": "Passwort für {{email}} zurückgesetzt.",
+      "resetFailed": "Passwort konnte nicht zurückgesetzt werden",
+      "loadFailed": "Benutzer konnten nicht geladen werden"
     }
   },
   "table": {

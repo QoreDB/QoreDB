@@ -14,7 +14,9 @@
     "passwordMismatch": "As senhas não coincidem.",
     "passwordTooShort": "A senha deve ter pelo menos 8 caracteres.",
     "ssoFailed": "Falha ao entrar com SSO: {{error}}",
-    "submitting": "Aguarde…"
+    "submitting": "Aguarde…",
+    "forgotPassword": "Esqueceu a senha?",
+    "forgotPasswordHelp": "Entre em contato com seu administrador para redefinir sua senha."
   },
   "cache": {
     "title": "Cache de resultados",
@@ -696,7 +698,8 @@
       "shortcuts": "Atalhos de Teclado",
       "plugins": "Plugins",
       "license": "Licença",
-      "ai": "Assistente de IA"
+      "ai": "Assistente de IA",
+      "admin": "Administração"
     },
     "search": {
       "placeholder": "Pesquisar configurações...",
@@ -765,6 +768,26 @@
       "overridden": "Manual",
       "notFound": "Não encontrado no PATH.",
       "empty": "Nenhuma ferramenta detectada ainda."
+    },
+    "admin": {
+      "usersTitle": "Usuários",
+      "usersDescription": "Gerencie as contas que podem entrar neste servidor.",
+      "loading": "Carregando usuários…",
+      "noUsers": "Nenhum usuário ainda.",
+      "adminBadge": "Admin",
+      "resetPassword": "Redefinir senha",
+      "newPassword": "Nova senha",
+      "apply": "Aplicar",
+      "refresh": "Atualizar",
+      "createTitle": "Criar um usuário",
+      "createDescription": "Adicione uma nova conta. Compartilhe a senha temporária com o usuário.",
+      "grantAdmin": "Conceder direitos de administrador",
+      "createUser": "Criar usuário",
+      "userCreated": "Usuário criado.",
+      "createFailed": "Falha ao criar o usuário",
+      "passwordReset": "Senha redefinida para {{email}}.",
+      "resetFailed": "Falha ao redefinir a senha",
+      "loadFailed": "Falha ao carregar os usuários"
     }
   },
   "table": {

@@ -97,7 +97,13 @@
       "Bash(pnpm store *)",
       "Bash(corepack enable *)",
       "Bash(corepack prepare *)",
-      "Bash(corepack pnpm *)"
+      "Bash(corepack pnpm *)",
+      "Bash(CARGO_TARGET_DIR=/tmp/qore-e2e/target QORE_VAULT_FILE=/tmp/qore-e2e/config/vault.enc QORE_VAULT_KEY=e2e-test-key cargo run -q)",
+      "Bash(npm ls *)",
+      "Bash(mkdir -p /tmp/qore-e2e/browser)",
+      "Bash(npm init *)",
+      "Bash(npm install *)",
+      "Bash(QOREDB_CONFIG_DIR=/tmp/qore-e2e/config QORE_VAULT_KEY=e2e-test-key QORE_VAULT_FILE=/tmp/qore-e2e/config/vault.enc QORE_SERVER_WEB_DIR=/home/raphael/dev/perso/QoreDB/dist QORE_SERVER_PORT=8089 QORE_SERVER_TOKEN=e2e-machine-token ./src-tauri/target/debug/qore-server *)"
     ]
   }
 }

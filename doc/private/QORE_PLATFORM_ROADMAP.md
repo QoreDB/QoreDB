@@ -252,7 +252,9 @@ Chaque jalon a un livrable et un **critère de vérification** clair. Estimation
 - **Enforcement RBAC sur le bridge** : `list_saved_connections` filtré aux connexions accordées ; `connect_saved_connection` refusé sans grant, **forcé read-only** si grant = `read` (réutilise le read-only moteur). Écriture bloquée ensuite par le moteur read-only.
 - **Vérif** : 3 tests unitaires (store) + smoke HTTP end-to-end (login admin/bob, 401 sans token, 401 mauvais mot de passe, 403 bob sur route admin, liste filtrée, connect non-accordé refusé, seed au boot). ⚠️ `cargo test` ne régénère pas l'exécutable runtime — refaire `cargo build -p qore-server` avant tout smoke.
 
-**Slice 2 — Auth web (backend + plomberie) — FAIT ✅** : **jamais de credentials via env** (seed admin supprimé). Bootstrap par **register** : `POST /api/auth/register` autorisé seulement à 0 utilisateur (crée le 1er admin), fermé ensuite (403). `GET /api/auth/status` → `{setupRequired}` pour router register vs login. Le serveur **n'injecte plus de token** dans le HTML (seulement `window.__QORE_WEB__`) ; `QORE_SERVER_TOKEN` reste l'accès machine/admin hors-bande. Plomberie front `transport.ts` : store JWT (sessionStorage) + `setAuthToken`/`isAuthenticated`/`webAuthStatus`/`webRegister`/`webLogin`. Vérifié : smoke register→status→403→login→bridge admin, tsc clean. **Les écrans (prompt « setup », register, login) sont faits côté produit par l'utilisateur** — le backend + helpers sont prêts.
+**Slice 2 — Auth web (backend + plomberie) — FAIT ✅** : **jamais de credentials via env** (seed admin supprimé). Bootstrap par **register** : `POST /api/auth/register` autorisé seulement à 0 utilisateur (crée le 1er admin), fermé ensuite (403). `GET /api/auth/status` → `{setupRequired, ssoEnabled}` pour router register vs login. Le serveur **n'injecte plus de token** dans le HTML (seulement `window.__QORE_WEB__`) ; `QORE_SERVER_TOKEN` reste l'accès machine/admin hors-bande. Plomberie front `transport.ts` : store JWT (sessionStorage) + `setAuthToken`/`isAuthenticated`/`webAuthStatus`/`webRegister`/`webLogin`. Vérifié : smoke register→status→403→login→bridge admin, tsc clean.
+
+**Slice 4 — Écrans web d'auth (R2) — FAIT ✅** (frontend, Apache-2.0) : structure **« Gate direct »** (le visiteur arrive directement sur Register si 0 compte, sinon Login + bouton SSO ; pas de prompt oui/non). `src/components/Auth/AuthGate.tsx` — gate **web-only** (`isWeb`), enveloppe **tout l'arbre de providers** dans `App.tsx` (nécessaire : en web les providers appellent `invoke` au montage → 401 sans JWT). `src/components/Auth/AuthScreen.tsx` — carte centrée (logo, `LanguageSwitcher`, overlay plein écran) ; mode setup (email + password + confirm, validation locale ≥ 8 + match) chaîne `webRegister`→`webLogin` ; mode login (email + password) ; bouton SSO (« ou » + variant outline) seulement si `ssoEnabled`. Bloc i18n `auth` (15 clés) ajouté aux **9 locales**. Vérif : `tsc --noEmit` 0, `biome check` 0, `pnpm build` 0. **Non encore validé en navigateur live** (register→login→montage app contre une vraie DB).
 
 **Slice 3 — OIDC/SSO — FAIT ✅ (callback à valider sur Keycloak réel)** : flow **Authorization Code + PKCE** implémenté à la main sur `reqwest` (rustls, déjà compilé → ~zéro nouvelle dep) + `jsonwebtoken` (validation id_token via JWKS : signature, issuer, audience, exp, nonce). `controlplane/oidc.rs` : `OidcConfig::from_env` (4 vars `QORE_OIDC_*`, SSO optionnel), discovery `.well-known` au boot (échec → SSO désactivé, serveur démarre quand même), store PKCE/nonce keyé par `state` (TTL 10 min). Routes publiques `GET /api/auth/oidc/start` (302 IdP) et `/callback` → **JIT provisioning** (email inconnu → user non-admin sans grant, matché par email) → JWT app → redirect `/?sso_token=` (ou `/?sso_error=`). `status` expose `ssoEnabled`. Front `transport.ts` : `webSsoStart()` + `consumeSsoRedirect()` (lit `?sso_token`/`?sso_error`, stocke, nettoie l'URL). **Vérif** : smoke contre **Google réel** (discovery OK, `ssoEnabled:true`, `/oidc/start` → 302 avec response_type/client_id/redirect_uri/scope/state/nonce/**code_challenge S256** corrects) + cas non-configuré (400, `ssoEnabled:false`) ; tsc + build clean. Reste à valider le **callback** (échange + JWKS + JIT) sur un Keycloak de test.
 
@@ -267,6 +269,25 @@ Chaque jalon a un livrable et un **critère de vérification** clair. Estimation
 **Livrable** : licence offline serveur, abstraction secrets externes, signing + SBOM, mise à jour du threat model, observabilité.
 **Vérif** : déploiement air-gapped fonctionnel ; revue de sécurité passée ; SBOM généré ; releases signées.
 **Estim.** : continu, à étaler.
+
+---
+
+## 5 bis. Plan de releases (R1–R5)
+
+Les jalons §5 sont un séquencement *technique*. Pour la **livraison**, on regroupe par véhicule de distribution + audience. Deux cadences indépendantes coexistent :
+
+- **Desktop** garde sa cadence propre `v0.1.x` (déjà à 0.1.30) — inchangée. MCP/CLI voyagent avec elle.
+- **`qore-server`** obtient son **propre semver** (0.1 → 0.2 → 0.3 → 1.0), livré par Docker.
+
+| Release | Contenu | Tier / Licence | Bloquant critique | Statut |
+| --- | --- | --- | --- | --- |
+| **R1** | `qore-mcp` + `qore-cli` (lecture), embarqués dans une release desktop | Core / Apache-2.0 | — (déjà fait) | ✅ **Prête** (reste tests d'intégration réels) |
+| **R2** | `qore-server` **v0.1** self-hosted : web servi par le serveur + register/login + RBAC local + Docker | Enterprise / BUSL-1.1 | **écrans login** ✅ faits | 🟡 **Quasi-prête** — reste validation navigateur live + TLS |
+| **R3** | `qore-server` **v0.2** : SSO — OIDC validé sur Keycloak réel + SAML | Enterprise / BUSL-1.1 | callback OIDC + abstraction `IdentityProvider` | ⬜ Slice 3 OIDC backend fait, **callback à valider** ; SAML à faire |
+| **R4** | `qore-server` **v0.3** : SCIM (provisioning/déprovisioning) | Enterprise / BUSL-1.1 | mapping groupes→rôles, auth endpoint SCIM | ⬜ Greenfield |
+| **R5** | `qore-server` **v1.0 GA** : gouvernance (audit hash-chain, masking/PII, licence offline sièges, SBOM/signing, Prometheus) = **Jalons 6-7** | Enterprise / BUSL-1.1 | conformité enterprise (§4) | ⬜ Greenfield |
+
+**Chemin critique** : R2 est la première release monétisable du control plane. Son seul bloquant restant est la **validation bout-en-bout en navigateur** (register → login → connexion DB → requête → résultat) + l'**option TLS**. R1 peut sortir à tout moment.
 
 ---
 

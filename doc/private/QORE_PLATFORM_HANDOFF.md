@@ -37,19 +37,21 @@ Branche de travail : `fix/web-app`. Tout le code ci-dessous est **committé** (d
 - **Jalon 4** — `qore-server` v0 : bridge HTTP `POST /api/invoke` + SSE, sert le SPA, Docker (Dockerfile multi-stage + compose), provider vault chiffré (XChaCha20Poly1305/Argon2id) pour headless. Boot navigateur vérifié headless.
 - **Jalon 5 Slice 1** — Identité + RBAC local : control plane SQLite (`<config_dir>/control.db`), Argon2 + JWT HS256, grants (role,connexion,read/write), enforcement sur le bridge (filtre les connexions, force read-only si grant=read).
 - **Jalon 5 Slice 2** — Auth web backend : bootstrap par `POST /api/auth/register` (autorisé seulement à 0 user), `GET /api/auth/status` → `{setupRequired, ssoEnabled}`, plus aucun token injecté dans le HTML.
-- **Jalon 5 Slice 3** — OIDC/SSO backend : Authorization Code + PKCE à la main (reqwest rustls + jsonwebtoken/JWKS), JIT provisioning, redirect `/?sso_token=`. **Validé contre Google réel ; le callback reste à valider sur un Keycloak réel.**
-- **Jalon 5 Slice 4** — **Écrans web d'auth** (cette session) : `AuthGate` (web-only, enveloppe tout l'arbre de providers) + `AuthScreen` (setup/login/SSO), i18n 9 langues. tsc/biome/build = 0. **Non encore testé en navigateur live.**
+- **Jalon 5 Slice 3** — OIDC/SSO backend : Authorization Code + PKCE à la main (reqwest rustls + jsonwebtoken/JWKS), JIT provisioning, redirect `/?sso_token=`. **Validé contre Google réel ET callback complet validé sur Keycloak 26 réel** (login navigateur → échange code + JWKS → JIT → app montée, RBAC filtré).
+- **Jalon 5 Slice 4** — **Écrans web d'auth** : `AuthGate` (web-only, enveloppe tout l'arbre de providers) + `AuthScreen` (setup/login/SSO), i18n 9 langues. tsc/biome/build = 0.
+- **R2 bloquants levés** (cette session) — **parcours navigateur validé** (Chrome headless, Postgres live, HTTP + HTTPS) : register 1er admin → login → connexion → requête → grille de résultats via SSE. Corrections : `get_driver_info` bridgé, `webExecuteQuery` assemble le résultat sans stream handlers, `ServeDir::fallback` (le SPA partait en 404). **TLS** : `QORE_SERVER_TLS_CERT`/`QORE_SERVER_TLS_KEY` (rustls/aws-lc-rs, provider installé au boot ; config partielle → exit), README à jour.
 
 ## 5. Ce qu'il RESTE à faire (par priorité de release)
 
-### 🟡 R2 — `qore-server` v0.1 (première release monétisable, presque prête)
-1. **Valider le parcours bout-en-bout en navigateur** : `cargo build -p qore-server` → `pnpm build` → lancer le serveur avec `QORE_SERVER_WEB_DIR=./dist` → register 1er admin → login → connexion DB live → requête → résultat streamé. C'est LE bloquant restant de R2.
-2. **Option TLS** activable côté serveur.
-3. Surfaces web secondaires encore en erreur call-time : `dialog`/`fs` (pickers → download navigateur / `<input file>`). Secondaire, ne bloque pas le boot.
+### ✅ R2 — `qore-server` v0.1 (première release monétisable)
+1. ~~Valider le parcours bout-en-bout en navigateur~~ **FAIT ✅** (HTTP + HTTPS, voir §4).
+2. ~~Option TLS~~ **FAIT ✅**.
+3. Avant de tagger : re-smoke du packaging **Docker** (l'image n'a pas été re-buildée après les changements de cette session).
+4. Surfaces web secondaires encore en erreur call-time : `dialog`/`fs` (pickers → download navigateur / `<input file>`) ; commandes non bridgées tolérées par l'UI (`list_plugins`/`get_plugin_*`, `ai_get_provider_status`, `get_license_status`, `list_federation_sources`). Secondaire, ne bloque pas la release.
 
-### ⬜ R3 — SSO complet (server v0.2)
-4. **Valider le callback OIDC sur un Keycloak de test réel** (échange de code + JWKS + JIT). Le code existe, seul le chemin callback n'a jamais tourné contre un vrai IdP avec client secret.
-5. **SAML 2.0** : prévoir une abstraction `IdentityProvider` (OIDC et SAML derrière le même trait) avant de coder SAML.
+### 🟡 R3 — SSO complet (server v0.2)
+4. ~~Valider le callback OIDC sur un Keycloak de test réel~~ **FAIT ✅** (Keycloak 26, client confidentiel : login → échange code + JWKS + nonce → JIT `alice` non-admin → app montée).
+5. **SAML 2.0** : prévoir une abstraction `IdentityProvider` (OIDC et SAML derrière le même trait) avant de coder SAML. Choix de l'implémentation SAML (crate vs à la main) à discuter avec l'utilisateur.
 
 ### ⬜ R4 — SCIM (server v0.3)
 6. **SCIM 2.0** provisioning/déprovisioning. Décisions à remonter à l'utilisateur AVANT de coder : auth de l'endpoint SCIM (bearer token dédié ?), mapping groupes IdP → rôles QoreDB.

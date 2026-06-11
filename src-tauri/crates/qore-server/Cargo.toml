@@ -17,6 +17,8 @@ serde_json = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 axum = "0.7"
+axum-server = { version = "0.7", features = ["tls-rustls"] }
+rustls = { version = "0.23", default-features = false, features = ["aws_lc_rs"] }
 tower-http = { version = "0.6", features = ["cors", "fs"] }
 tokio-stream = "0.1"
 base64 = { workspace = true }

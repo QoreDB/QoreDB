@@ -71,6 +71,25 @@ pub async fn invoke(
             )
         }
 
+        "get_driver_info" => {
+            let session = match parse_session(&req_str(&args, "sessionId")?) {
+                Ok(s) => s,
+                Err(e) => return Ok(failure(e)),
+            };
+            let driver = match state.ctx.session_manager.get_driver(session).await {
+                Ok(d) => d,
+                Err(e) => return Ok(failure(e.sanitized_message())),
+            };
+            Ok(Json(json!({
+                "success": true,
+                "driver": {
+                    "id": driver.driver_id(),
+                    "name": driver.driver_name(),
+                    "capabilities": driver.capabilities(),
+                },
+            })))
+        }
+
         "list_namespaces" => {
             let session = match parse_session(&req_str(&args, "sessionId")?) {
                 Ok(s) => s,

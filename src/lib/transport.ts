@@ -8,7 +8,7 @@ import {
 } from '@tauri-apps/api/event';
 import { openUrl as tauriOpenUrl } from '@tauri-apps/plugin-opener';
 import type { QueryStreamHandlers } from './tauri/query';
-import type { Namespace, QueryResult } from './tauri/types';
+import type { ColumnInfo, Namespace, QueryResult, Row } from './tauri/types';
 
 export type { UnlistenFn };
 
@@ -223,7 +223,23 @@ export async function webExecuteQuery(
     bypassLimits?: boolean;
   }
 ): Promise<ExecuteQueryResult> {
-  const handlers = options?.streamHandlers ?? {};
+  let collected: { columns: ColumnInfo[]; rows: Row[] } | null = null;
+  let handlers = options?.streamHandlers;
+  if (!handlers) {
+    const acc = { columns: [] as ColumnInfo[], rows: [] as Row[] };
+    collected = acc;
+    handlers = {
+      onColumns: cols => {
+        acc.columns = cols;
+      },
+      onRow: row => {
+        acc.rows.push(row);
+      },
+      onRowBatch: batch => {
+        acc.rows.push(...batch);
+      },
+    };
+  }
   const res = await fetch('/api/stream/execute_query', {
     method: 'POST',
     headers: authHeaders(),
@@ -259,7 +275,20 @@ export async function webExecuteQuery(
     }
   }
 
-  return failure ? { success: false, error: failure } : { success: true };
+  if (failure) {
+    return { success: false, error: failure };
+  }
+  return {
+    success: true,
+    result: collected
+      ? {
+          columns: collected.columns,
+          rows: collected.rows,
+          execution_time_ms: 0,
+          total_time_ms: 0,
+        }
+      : undefined,
+  };
 }
 
 function dispatchEvent(

@@ -19,7 +19,9 @@ carries it. The `SessionManager` is the registry — no per-connection cache.
 | `QORE_SERVER_HOST`   | `127.0.0.1`        | Listen address. Set to `0.0.0.0` to expose.  |
 | `QORE_SERVER_PORT`   | `8088`             | Listen port.                                 |
 | `QORE_SERVER_TOKEN`  | _(generated)_      | Bearer token. If unset, one is generated and logged at startup. |
-| `QORE_SERVER_WEB_DIR`| _(none)_           | Path to the built frontend (`dist/`). When set, the SPA is served and the token is injected as `window.__QORE_TOKEN__`. |
+| `QORE_SERVER_WEB_DIR`| _(none)_           | Path to the built frontend (`dist/`). When set, the SPA is served (no token is injected — only the `window.__QORE_WEB__` flag). |
+| `QORE_SERVER_TLS_CERT` | _(none)_         | Path to a PEM certificate (full chain). Enables HTTPS; must be set together with `QORE_SERVER_TLS_KEY`. |
+| `QORE_SERVER_TLS_KEY`  | _(none)_         | Path to the PEM private key for the certificate. |
 | `QOREDB_CONFIG_DIR`  | desktop config dir | Connection metadata directory (`connections.json`).          |
 | `QORE_VAULT_KEY`     | _(none)_           | When set, credentials are stored in an **encrypted file** (XChaCha20Poly1305, key derived via Argon2id) instead of the OS keyring — required for headless/Docker. |
 | `QORE_VAULT_FILE`    | `<data_dir>/vault.enc` | Path of the encrypted credential file (used only when `QORE_VAULT_KEY` is set). |
@@ -77,9 +79,9 @@ Discovery runs at boot; if it fails the server still starts with SSO disabled. `
 - `GET  /api/status` — server status (auth).
 - `POST /api/invoke` — generic command bridge mirroring the desktop Tauri
   commands: `{ "command": "...", "args": { ... } }` (auth). Bridged: `list_saved_connections`,
-  `connect_saved_connection`, `disconnect`, `list_namespaces`, `list_collections`,
-  `describe_table`, `query_table`, `execute_query` (buffered). Unbridged commands
-  return `400`.
+  `connect_saved_connection`, `disconnect`, `get_driver_info`, `list_namespaces`,
+  `list_collections`, `describe_table`, `query_table`, `execute_query` (buffered).
+  Unbridged commands return `400`.
 - `POST /api/stream/execute_query` — streaming query as **SSE** (`columns` / `row`
   / `rows` / `error` / `done` events) (auth).
 
@@ -104,3 +106,19 @@ pnpm build
 QORE_SERVER_WEB_DIR=./dist cargo run -p qore-server
 # open http://127.0.0.1:8088
 ```
+
+## TLS
+
+Terminate TLS in the server by pointing it at a PEM certificate/key pair
+(rustls — no OpenSSL):
+
+```bash
+QORE_SERVER_TLS_CERT=/path/fullchain.pem \
+QORE_SERVER_TLS_KEY=/path/privkey.pem \
+cargo run -p qore-server
+# open https://127.0.0.1:8088
+```
+
+Setting only one of the two variables is a configuration error and the server
+exits at boot. Without them the server speaks plain HTTP (put it behind a
+TLS-terminating reverse proxy, or use these variables for direct exposure).

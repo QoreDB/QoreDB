@@ -10,6 +10,7 @@ import {
 } from '@/lib/ai';
 
 const STORAGE_KEY = 'qoredb_ai_provider';
+const SAMPLE_ROWS_STORAGE_KEY = 'qoredb_ai_sample_rows';
 
 export interface AiPreferencesContextValue {
   preferredProvider: AiProvider;
@@ -18,6 +19,8 @@ export interface AiPreferencesContextValue {
   isReady: boolean;
   refreshStatuses: () => Promise<void>;
   getConfig: () => AiConfig;
+  includeSampleRows: boolean;
+  setIncludeSampleRows: (enabled: boolean) => void;
 }
 
 const AiPreferencesContext = createContext<AiPreferencesContextValue | null>(null);
@@ -34,9 +37,20 @@ function loadSavedProvider(): AiProvider {
   return 'open_ai';
 }
 
+function loadSampleRowsPreference(): boolean {
+  try {
+    return localStorage.getItem(SAMPLE_ROWS_STORAGE_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
+
 export function AiPreferencesProvider({ children }: { children: ReactNode }) {
   const [preferredProvider, setPreferredProviderState] = useState<AiProvider>(loadSavedProvider);
   const [providerStatuses, setProviderStatuses] = useState<AiProviderStatus[]>([]);
+  const [includeSampleRows, setIncludeSampleRowsState] = useState<boolean>(
+    loadSampleRowsPreference
+  );
 
   const refreshStatuses = useCallback(async () => {
     try {
@@ -54,6 +68,11 @@ export function AiPreferencesProvider({ children }: { children: ReactNode }) {
   const setPreferredProvider = useCallback((p: AiProvider) => {
     setPreferredProviderState(p);
     localStorage.setItem(STORAGE_KEY, p);
+  }, []);
+
+  const setIncludeSampleRows = useCallback((enabled: boolean) => {
+    setIncludeSampleRowsState(enabled);
+    localStorage.setItem(SAMPLE_ROWS_STORAGE_KEY, String(enabled));
   }, []);
 
   const providerInfo = AI_PROVIDERS.find(p => p.id === preferredProvider);
@@ -75,6 +94,8 @@ export function AiPreferencesProvider({ children }: { children: ReactNode }) {
         isReady,
         refreshStatuses,
         getConfig,
+        includeSampleRows,
+        setIncludeSampleRows,
       }}
     >
       {children}

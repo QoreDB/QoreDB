@@ -1,16 +1,17 @@
 // SPDX-License-Identifier: BUSL-1.1
 
-import { Settings, Sparkles, X } from 'lucide-react';
+import { RotateCcw, Settings, Sparkles, X } from 'lucide-react';
 import { useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LicenseGate } from '@/components/License/LicenseGate';
 import { Button } from '@/components/ui/button';
 import { Tooltip } from '@/components/ui/tooltip';
 import { useAiAssistant } from '@/hooks/useAiAssistant';
+import type { EditorContext } from '@/lib/ai';
 import type { Namespace } from '@/lib/tauri';
 import { useAiPreferences } from '@/providers/AiPreferencesProvider';
+import { AiMessageThread } from './AiMessageThread';
 import { AiPromptInput } from './AiPromptInput';
-import { AiResponseDisplay } from './AiResponseDisplay';
 
 interface AiAssistantPanelProps {
   sessionId: string | null;
@@ -22,6 +23,7 @@ interface AiAssistantPanelProps {
   pendingFix?: { query: string; error: string } | null;
   onPendingFixConsumed?: () => void;
   tableContext?: string;
+  getEditorContext?: () => EditorContext | undefined;
 }
 
 export function AiAssistantPanel({
@@ -34,14 +36,17 @@ export function AiAssistantPanel({
   pendingFix,
   onPendingFixConsumed,
   tableContext,
+  getEditorContext,
 }: AiAssistantPanelProps) {
   const { t } = useTranslation();
-  const { getConfig, isReady } = useAiPreferences();
+  const { getConfig, isReady, includeSampleRows } = useAiPreferences();
 
   const assistant = useAiAssistant({
     sessionId,
     namespace,
     connectionId,
+    getEditorContext,
+    includeSampleRows,
   });
 
   // Auto-trigger fix_error when pendingFix arrives
@@ -76,6 +81,19 @@ export function AiAssistantPanel({
             <span className="text-xs font-medium">{t('ai.title')}</span>
           </div>
           <div className="flex items-center gap-1">
+            {assistant.items.length > 0 && (
+              <Tooltip content={t('ai.newConversation')}>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6"
+                  onClick={assistant.reset}
+                  disabled={assistant.loading}
+                >
+                  <RotateCcw size={12} />
+                </Button>
+              </Tooltip>
+            )}
             {onOpenSettings && (
               <Tooltip content={t('ai.configureProvider')}>
                 <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onOpenSettings}>
@@ -110,15 +128,8 @@ export function AiAssistantPanel({
             </div>
           )}
 
-          {/* Response */}
-          <AiResponseDisplay
-            response={assistant.response}
-            loading={assistant.loading}
-            generatedQuery={assistant.generatedQuery}
-            safetyAnalysis={assistant.safetyAnalysis}
-            error={assistant.error}
-            onInsertQuery={onInsertQuery}
-          />
+          {/* Conversation thread */}
+          <AiMessageThread items={assistant.items} onInsertQuery={onInsertQuery} />
         </div>
 
         {/* Prompt input at bottom */}

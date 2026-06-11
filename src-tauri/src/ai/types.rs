@@ -217,6 +217,54 @@ pub enum AiAction {
     FixError,
 }
 
+/// Role of a chat message
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum AiRole {
+    System,
+    User,
+    Assistant,
+}
+
+/// A single chat message exchanged with the LLM
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AiMessage {
+    pub role: AiRole,
+    pub content: String,
+}
+
+impl AiMessage {
+    pub fn system(content: impl Into<String>) -> Self {
+        Self {
+            role: AiRole::System,
+            content: content.into(),
+        }
+    }
+
+    pub fn user(content: impl Into<String>) -> Self {
+        Self {
+            role: AiRole::User,
+            content: content.into(),
+        }
+    }
+
+    pub fn assistant(content: impl Into<String>) -> Self {
+        Self {
+            role: AiRole::Assistant,
+            content: content.into(),
+        }
+    }
+}
+
+/// Editor state sent alongside a request so the assistant sees what the user sees
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct EditorContext {
+    pub current_query: Option<String>,
+    pub active_table: Option<String>,
+    pub last_error: Option<String>,
+    pub result_shape: Option<String>,
+}
+
 /// Request sent from frontend to backend
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AiRequest {
@@ -227,6 +275,15 @@ pub struct AiRequest {
     pub namespace: Option<Namespace>,
     pub connection_id: Option<String>,
     pub config: AiConfig,
+    /// Prior conversation turns (user/assistant), oldest first
+    #[serde(default)]
+    pub history: Vec<AiMessage>,
+    /// What the user currently sees in the query tab
+    #[serde(default)]
+    pub editor_context: Option<EditorContext>,
+    /// Opt-in: include redacted sample rows in the schema context
+    #[serde(default)]
+    pub include_sample_rows: bool,
     /// For FixError: the original query that failed
     pub original_query: Option<String>,
     /// For FixError: the error message

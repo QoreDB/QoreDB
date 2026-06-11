@@ -21,6 +21,20 @@ export type AiProvider =
 
 export type AiAction = 'generate_query' | 'explain_result' | 'summarize_schema' | 'fix_error';
 
+export type AiRole = 'system' | 'user' | 'assistant';
+
+export interface AiMessage {
+  role: AiRole;
+  content: string;
+}
+
+export interface EditorContext {
+  current_query?: string;
+  active_table?: string;
+  last_error?: string;
+  result_shape?: string;
+}
+
 export interface AiConfig {
   provider: AiProvider;
   model?: string;
@@ -37,6 +51,9 @@ export interface AiRequest {
   namespace?: Namespace;
   connection_id?: string;
   config: AiConfig;
+  history?: AiMessage[];
+  editor_context?: EditorContext;
+  include_sample_rows?: boolean;
   original_query?: string;
   error_context?: string;
   result_context?: string;

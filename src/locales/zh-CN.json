@@ -470,6 +470,21 @@
       "all": "所有文件夹",
       "none": "无文件夹",
       "unknown": "未知"
+    },
+    "variables": {
+      "promptTitle": "设置变量 — {{title}}",
+      "selectPlaceholder": "选择一个值",
+      "apply": "使用查询",
+      "detected": "检测到的变量",
+      "detectedHint": "为查询中使用的每个变量配置类型和默认值。",
+      "defaultPlaceholder": "默认值（可选）",
+      "optionsPlaceholder": "选项，以逗号分隔",
+      "type": {
+        "text": "文本",
+        "number": "数字",
+        "date": "日期",
+        "select": "下拉选择"
+      }
     }
   },
   "palette": {

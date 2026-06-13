@@ -20,6 +20,7 @@ UX / Interface,Onboarding,Frontend / Onboarding,Flow de bienvenue pour les nouve
 SQL Editor,Éditeur SQL,Frontend / Editor,Éditeur avec syntax highlighting et autocomplétion basique.,Terminé,P0,POC,3,Basé sur Monaco/CodeMirror.
 SQL Editor,Éditeur Mongo,Frontend / Editor,Éditeur spécifique pour requêtes JSON/BSON.,Terminé,P0,POC,3,Support syntaxe MongoDB.
 SQL Editor,Query Library,Frontend / Library,Bibliothèque de requêtes avec Dossiers - Tags - et Export/Import JSON.,Terminé,P1,V1,4,Feature avancée de partage et organisation.
+SQL Editor,Queries paramétrées,Frontend / Library,"Placeholders {{var}} / $var dans les queries sauvegardées avec inputs typés (texte, nombre, date, liste) saisis à l'exécution.",Terminé,P1,V3,3,Pro. Réutilise le moteur de variables des Notebooks (substitution anti-injection).
 SQL Editor,Formattage SQL,Frontend / Editor,Prettify automatique des requêtes SQL.,Terminé,P2,V1,2,Librairie sql-formatter.
 SQL Editor,Snippets,Frontend / Editor,Insertion rapide de fragments de code SQL.,Terminé,P2,V1,2,Productivité.
 SQL Editor,Historique Requêtes,Fullstack,Journal local persisté (localStorage) avec isolation par session.,Terminé,P1,POC,2,Stockage persistant 100 entrées.

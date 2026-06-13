@@ -470,6 +470,21 @@
       "all": "Todas las carpetas",
       "none": "Sin carpeta",
       "unknown": "Desconocido"
+    },
+    "variables": {
+      "promptTitle": "Definir variables — {{title}}",
+      "selectPlaceholder": "Selecciona un valor",
+      "apply": "Usar consulta",
+      "detected": "Variables detectadas",
+      "detectedHint": "Configura el tipo y el valor predeterminado de cada variable usada en la consulta.",
+      "defaultPlaceholder": "Valor predeterminado (opcional)",
+      "optionsPlaceholder": "Opciones, separadas por comas",
+      "type": {
+        "text": "Texto",
+        "number": "Número",
+        "date": "Fecha",
+        "select": "Lista"
+      }
     }
   },
   "palette": {

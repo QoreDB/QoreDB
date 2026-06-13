@@ -498,6 +498,21 @@
       "all": "Tous les dossiers",
       "none": "Sans dossier",
       "unknown": "Inconnu"
+    },
+    "variables": {
+      "promptTitle": "Définir les variables — {{title}}",
+      "selectPlaceholder": "Choisir une valeur",
+      "apply": "Utiliser la requête",
+      "detected": "Variables détectées",
+      "detectedHint": "Configurez le type et la valeur par défaut de chaque variable utilisée dans la requête.",
+      "defaultPlaceholder": "Valeur par défaut (optionnel)",
+      "optionsPlaceholder": "Options, séparées par des virgules",
+      "type": {
+        "text": "Texte",
+        "number": "Nombre",
+        "date": "Date",
+        "select": "Liste"
+      }
     }
   },
   "palette": {

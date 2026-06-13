@@ -28,7 +28,7 @@ Décisions validées par l'utilisateur (juin 2026) :
 **Total estimé** : ~13-18 j de dev effectif (prévoir buffer solo).
 
 - **Préalable non négociable** : commencer par **P0.1** — réaligner `v3.md` avec la réalité du code (§1). Plusieurs features y sont marquées « à faire » alors qu'elles sont livrées — dette documentaire qui fausse toute planification.
-- **Plateforme R2** (cadence propre, indépendant du desktop) : _à confirmer_ — tag `qore-server v0.1` après smoke test Docker (cf. §4).
+- **Plateforme R2** (cadence propre, indépendant du desktop) : ✅ **confirmé** — tag `qore-server v0.1` après smoke test Docker (cf. §4).
 
 ---
 

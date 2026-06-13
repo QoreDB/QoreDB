@@ -29,6 +29,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tooltip } from '@/components/ui/tooltip';
+import { extractVariableReferences } from '@/lib/notebook/notebookVariables';
 import {
   createFolder,
   deleteFolder,
@@ -44,6 +45,7 @@ import {
 } from '@/lib/query/queryLibrary';
 import { cn } from '@/lib/utils';
 import { useLicense } from '@/providers/LicenseProvider';
+import { QueryVariablesPrompt } from './QueryVariablesPrompt';
 
 interface QueryLibraryModalProps {
   isOpen: boolean;
@@ -77,6 +79,7 @@ export function QueryLibraryModal({ isOpen, onClose, onSelectQuery }: QueryLibra
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [redactOnExport, setRedactOnExport] = useState(true);
+  const [varPromptItem, setVarPromptItem] = useState<QueryLibraryItem | null>(null);
 
   const folderById = useMemo(() => {
     const map = new Map<string, QueryFolder>();
@@ -193,6 +196,15 @@ export function QueryLibraryModal({ isOpen, onClose, onSelectQuery }: QueryLibra
     reload();
   }
 
+  function handleUseItem(item: QueryLibraryItem) {
+    if (extractVariableReferences(item.query).length > 0) {
+      setVarPromptItem(item);
+      return;
+    }
+    onSelectQuery(item.query);
+    onClose();
+  }
+
   if (!isOpen) return null;
 
   if (!isFeatureEnabled('query_library_advanced')) {
@@ -212,241 +224,259 @@ export function QueryLibraryModal({ isOpen, onClose, onSelectQuery }: QueryLibra
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <button
-        type="button"
-        aria-label={t('common.close')}
-        className="absolute inset-0"
-        onMouseDown={onClose}
-      />
-      <div className="relative z-10 w-full max-w-3xl max-h-[85vh] bg-background border border-border rounded-lg shadow-xl flex flex-col overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-          <div className="flex items-center gap-2">
-            <Folder size={18} className="text-accent" />
-            <h2 className="font-semibold">{t('library.title')}</h2>
-            <span className="text-xs font-normal text-muted-foreground bg-muted px-1.5 py-0.5 rounded ml-2">
-              {items.length}
-            </span>
-          </div>
-          <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8">
-            <X size={16} />
-          </Button>
-        </div>
-
-        <div className="flex items-center gap-2 px-4 py-2 border-b border-border bg-muted/20">
-          <Select value={folderFilter} onValueChange={value => setFolderFilter(value)}>
-            <SelectTrigger className="w-48 h-8">
-              <SelectValue placeholder={t('library.folder.all')} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__all__">{t('library.folder.all')}</SelectItem>
-              <SelectItem value="__none__">{t('library.folder.none')}</SelectItem>
-              {folders.map(folder => (
-                <SelectItem key={folder.id} value={folder.id}>
-                  {folder.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Input
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder={t('library.searchPlaceholder')}
-            className="h-8"
-          />
-
-          <Input
-            value={tag}
-            onChange={e => setTag(e.target.value)}
-            placeholder={t('library.tagPlaceholder')}
-            className="h-8 w-40"
-          />
-
-          <div className="flex items-center gap-2">
-            <Checkbox
-              id="ql-fav-only"
-              checked={favoritesOnly}
-              onCheckedChange={checked => setFavoritesOnly(Boolean(checked))}
-            />
-            <Label htmlFor="ql-fav-only" className="text-xs text-muted-foreground select-none">
-              {t('library.favoritesOnly')}
-            </Label>
-          </div>
-
-          <div className="flex-1" />
-
-          <div className="flex items-center gap-2">
-            <Checkbox
-              id="ql-redact-export"
-              checked={redactOnExport}
-              onCheckedChange={checked => setRedactOnExport(Boolean(checked))}
-            />
-            <Label htmlFor="ql-redact-export" className="text-xs text-muted-foreground select-none">
-              {t('library.redactExport')}
-            </Label>
-          </div>
-
-          <Tooltip content={t('library.refresh')}>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={reload}
-              className="h-8 w-8"
-              aria-label={t('library.refresh')}
-            >
-              <RefreshCw size={14} />
-            </Button>
-          </Tooltip>
-
-          <Tooltip content={t('library.import')}>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleImport}
-              className="h-8 w-8"
-              aria-label={t('library.import')}
-            >
-              <Upload size={14} />
-            </Button>
-          </Tooltip>
-          <Tooltip content={t('library.export')}>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleExport}
-              className="h-8 w-8"
-              aria-label={t('library.export')}
-            >
-              <Download size={14} />
-            </Button>
-          </Tooltip>
-        </div>
-
-        <div className="flex items-center gap-2 px-4 py-2 border-b border-border">
-          <Input
-            value={newFolderName}
-            onChange={e => setNewFolderName(e.target.value)}
-            placeholder={t('library.newFolderPlaceholder')}
-            className="h-8 w-64"
-          />
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleCreateFolder}
-            disabled={!newFolderName.trim()}
-            className="h-8"
-          >
-            <FolderPlus size={14} className="mr-1" />
-            {t('library.createFolder')}
-          </Button>
-
-          <div className="flex-1" />
-
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleDeleteFolder}
-            disabled={folderFilter === '__all__' || folderFilter === '__none__'}
-            className={cn(
-              'h-8 text-xs text-muted-foreground hover:text-error',
-              (folderFilter === '__all__' || folderFilter === '__none__') && 'opacity-50'
-            )}
-            title={t('library.deleteFolder')}
-          >
-            <Trash2 size={14} className="mr-1" />
-            {t('library.deleteFolder')}
-          </Button>
-        </div>
-
-        <div className="flex-1 overflow-auto">
-          {items.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-48 text-muted-foreground">
-              <Folder size={32} className="mb-2 opacity-50" />
-              <p className="text-sm">{t('library.empty')}</p>
+    <>
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+        <button
+          type="button"
+          aria-label={t('common.close')}
+          className="absolute inset-0"
+          onMouseDown={onClose}
+        />
+        <div className="relative z-10 w-full max-w-3xl max-h-[85vh] bg-background border border-border rounded-lg shadow-xl flex flex-col overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+            <div className="flex items-center gap-2">
+              <Folder size={18} className="text-accent" />
+              <h2 className="font-semibold">{t('library.title')}</h2>
+              <span className="text-xs font-normal text-muted-foreground bg-muted px-1.5 py-0.5 rounded ml-2">
+                {items.length}
+              </span>
             </div>
-          ) : (
-            <div className="divide-y divide-border">
-              {items.map(item => (
-                <div
-                  key={item.id}
-                  className="group flex items-start gap-3 px-4 py-3 hover:bg-muted/30 transition-colors"
-                >
-                  <button
-                    type="button"
-                    className={cn(
-                      'mt-1 h-7 w-7 rounded-md flex items-center justify-center transition-colors',
-                      item.isFavorite
-                        ? 'text-yellow-500 hover:bg-muted'
-                        : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-                    )}
-                    onClick={() => handleToggleFavorite(item)}
-                    title={t('library.toggleFavorite')}
+            <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8">
+              <X size={16} />
+            </Button>
+          </div>
+
+          <div className="flex items-center gap-2 px-4 py-2 border-b border-border bg-muted/20">
+            <Select value={folderFilter} onValueChange={value => setFolderFilter(value)}>
+              <SelectTrigger className="w-48 h-8">
+                <SelectValue placeholder={t('library.folder.all')} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">{t('library.folder.all')}</SelectItem>
+                <SelectItem value="__none__">{t('library.folder.none')}</SelectItem>
+                {folders.map(folder => (
+                  <SelectItem key={folder.id} value={folder.id}>
+                    {folder.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder={t('library.searchPlaceholder')}
+              className="h-8"
+            />
+
+            <Input
+              value={tag}
+              onChange={e => setTag(e.target.value)}
+              placeholder={t('library.tagPlaceholder')}
+              className="h-8 w-40"
+            />
+
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="ql-fav-only"
+                checked={favoritesOnly}
+                onCheckedChange={checked => setFavoritesOnly(Boolean(checked))}
+              />
+              <Label htmlFor="ql-fav-only" className="text-xs text-muted-foreground select-none">
+                {t('library.favoritesOnly')}
+              </Label>
+            </div>
+
+            <div className="flex-1" />
+
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="ql-redact-export"
+                checked={redactOnExport}
+                onCheckedChange={checked => setRedactOnExport(Boolean(checked))}
+              />
+              <Label
+                htmlFor="ql-redact-export"
+                className="text-xs text-muted-foreground select-none"
+              >
+                {t('library.redactExport')}
+              </Label>
+            </div>
+
+            <Tooltip content={t('library.refresh')}>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={reload}
+                className="h-8 w-8"
+                aria-label={t('library.refresh')}
+              >
+                <RefreshCw size={14} />
+              </Button>
+            </Tooltip>
+
+            <Tooltip content={t('library.import')}>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleImport}
+                className="h-8 w-8"
+                aria-label={t('library.import')}
+              >
+                <Upload size={14} />
+              </Button>
+            </Tooltip>
+            <Tooltip content={t('library.export')}>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleExport}
+                className="h-8 w-8"
+                aria-label={t('library.export')}
+              >
+                <Download size={14} />
+              </Button>
+            </Tooltip>
+          </div>
+
+          <div className="flex items-center gap-2 px-4 py-2 border-b border-border">
+            <Input
+              value={newFolderName}
+              onChange={e => setNewFolderName(e.target.value)}
+              placeholder={t('library.newFolderPlaceholder')}
+              className="h-8 w-64"
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleCreateFolder}
+              disabled={!newFolderName.trim()}
+              className="h-8"
+            >
+              <FolderPlus size={14} className="mr-1" />
+              {t('library.createFolder')}
+            </Button>
+
+            <div className="flex-1" />
+
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleDeleteFolder}
+              disabled={folderFilter === '__all__' || folderFilter === '__none__'}
+              className={cn(
+                'h-8 text-xs text-muted-foreground hover:text-error',
+                (folderFilter === '__all__' || folderFilter === '__none__') && 'opacity-50'
+              )}
+              title={t('library.deleteFolder')}
+            >
+              <Trash2 size={14} className="mr-1" />
+              {t('library.deleteFolder')}
+            </Button>
+          </div>
+
+          <div className="flex-1 overflow-auto">
+            {items.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-48 text-muted-foreground">
+                <Folder size={32} className="mb-2 opacity-50" />
+                <p className="text-sm">{t('library.empty')}</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-border">
+                {items.map(item => (
+                  <div
+                    key={item.id}
+                    className="group flex items-start gap-3 px-4 py-3 hover:bg-muted/30 transition-colors"
                   >
-                    <Star size={14} className={item.isFavorite ? 'fill-current' : ''} />
-                  </button>
+                    <button
+                      type="button"
+                      className={cn(
+                        'mt-1 h-7 w-7 rounded-md flex items-center justify-center transition-colors',
+                        item.isFavorite
+                          ? 'text-yellow-500 hover:bg-muted'
+                          : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                      )}
+                      onClick={() => handleToggleFavorite(item)}
+                      title={t('library.toggleFavorite')}
+                    >
+                      <Star size={14} className={item.isFavorite ? 'fill-current' : ''} />
+                    </button>
 
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <div className="font-medium truncate">{item.title}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {formatTime(item.updatedAt)}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <div className="font-medium truncate">{item.title}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {formatTime(item.updatedAt)}
+                        </div>
+                        {item.folderId ? (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted border border-border text-muted-foreground">
+                            {folderById.get(item.folderId)?.name ?? t('library.folder.unknown')}
+                          </span>
+                        ) : null}
                       </div>
-                      {item.folderId ? (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted border border-border text-muted-foreground">
-                          {folderById.get(item.folderId)?.name ?? t('library.folder.unknown')}
-                        </span>
-                      ) : null}
+                      <pre className="mt-1 font-mono text-xs text-muted-foreground whitespace-pre-wrap break-all line-clamp-3">
+                        {item.query}
+                      </pre>
+                      {item.tags.length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-1">
+                          {item.tags.map(tagValue => (
+                            <button
+                              key={tagValue}
+                              type="button"
+                              className="text-[11px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border hover:text-foreground"
+                              onClick={() => setTag(tagValue)}
+                              title={t('library.filterByTag')}
+                            >
+                              {tagValue}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                    <pre className="mt-1 font-mono text-xs text-muted-foreground whitespace-pre-wrap break-all line-clamp-3">
-                      {item.query}
-                    </pre>
-                    {item.tags.length > 0 && (
-                      <div className="mt-2 flex flex-wrap gap-1">
-                        {item.tags.map(tagValue => (
-                          <button
-                            key={tagValue}
-                            type="button"
-                            className="text-[11px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border hover:text-foreground"
-                            onClick={() => setTag(tagValue)}
-                            title={t('library.filterByTag')}
-                          >
-                            {tagValue}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
 
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7"
-                      onClick={() => {
-                        onSelectQuery(item.query);
-                        onClose();
-                      }}
-                      title={t('library.useQuery')}
-                    >
-                      <Play size={14} />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 text-muted-foreground hover:text-error"
-                      onClick={() => handleDeleteItem(item)}
-                      title={t('library.deleteItem')}
-                    >
-                      <Trash2 size={14} />
-                    </Button>
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={() => handleUseItem(item)}
+                        title={t('library.useQuery')}
+                      >
+                        <Play size={14} />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-muted-foreground hover:text-error"
+                        onClick={() => handleDeleteItem(item)}
+                        title={t('library.deleteItem')}
+                      >
+                        <Trash2 size={14} />
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
-    </div>
+      {varPromptItem && (
+        <QueryVariablesPrompt
+          open={!!varPromptItem}
+          onOpenChange={open => {
+            if (!open) setVarPromptItem(null);
+          }}
+          title={varPromptItem.title}
+          query={varPromptItem.query}
+          variables={varPromptItem.variables}
+          onSubmit={resolved => {
+            onSelectQuery(resolved);
+            setVarPromptItem(null);
+            onClose();
+          }}
+        />
+      )}
+    </>
   );
 }

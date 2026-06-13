@@ -470,6 +470,21 @@
       "all": "모든 폴더",
       "none": "폴더 없음",
       "unknown": "알 수 없음"
+    },
+    "variables": {
+      "promptTitle": "변수 설정 — {{title}}",
+      "selectPlaceholder": "값 선택",
+      "apply": "쿼리 사용",
+      "detected": "감지된 변수",
+      "detectedHint": "쿼리에 사용된 각 변수의 유형과 기본값을 설정하세요.",
+      "defaultPlaceholder": "기본값 (선택 사항)",
+      "optionsPlaceholder": "옵션, 쉼표로 구분",
+      "type": {
+        "text": "텍스트",
+        "number": "숫자",
+        "date": "날짜",
+        "select": "선택"
+      }
     }
   },
   "palette": {

@@ -470,6 +470,21 @@
       "all": "すべてのフォルダ",
       "none": "フォルダなし",
       "unknown": "不明"
+    },
+    "variables": {
+      "promptTitle": "変数を設定 — {{title}}",
+      "selectPlaceholder": "値を選択",
+      "apply": "クエリを使用",
+      "detected": "検出された変数",
+      "detectedHint": "クエリで使用される各変数の型とデフォルト値を設定します。",
+      "defaultPlaceholder": "デフォルト値（任意）",
+      "optionsPlaceholder": "選択肢（カンマ区切り）",
+      "type": {
+        "text": "テキスト",
+        "number": "数値",
+        "date": "日付",
+        "select": "選択"
+      }
     }
   },
   "palette": {

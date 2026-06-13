@@ -470,6 +470,21 @@
       "all": "Todas as pastas",
       "none": "Sem pasta",
       "unknown": "Desconhecida"
+    },
+    "variables": {
+      "promptTitle": "Definir variáveis — {{title}}",
+      "selectPlaceholder": "Selecione um valor",
+      "apply": "Usar consulta",
+      "detected": "Variáveis detectadas",
+      "detectedHint": "Configure o tipo e o valor padrão de cada variável usada na consulta.",
+      "defaultPlaceholder": "Valor padrão (opcional)",
+      "optionsPlaceholder": "Opções, separadas por vírgulas",
+      "type": {
+        "text": "Texto",
+        "number": "Número",
+        "date": "Data",
+        "select": "Lista"
+      }
     }
   },
   "palette": {

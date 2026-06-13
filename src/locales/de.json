@@ -470,6 +470,21 @@
       "all": "Alle Ordner",
       "none": "Kein Ordner",
       "unknown": "Unbekannt"
+    },
+    "variables": {
+      "promptTitle": "Variablen festlegen — {{title}}",
+      "selectPlaceholder": "Wert auswählen",
+      "apply": "Abfrage verwenden",
+      "detected": "Erkannte Variablen",
+      "detectedHint": "Legen Sie Typ und Standardwert für jede in der Abfrage verwendete Variable fest.",
+      "defaultPlaceholder": "Standardwert (optional)",
+      "optionsPlaceholder": "Optionen, durch Kommas getrennt",
+      "type": {
+        "text": "Text",
+        "number": "Zahl",
+        "date": "Datum",
+        "select": "Auswahl"
+      }
     }
   },
   "palette": {

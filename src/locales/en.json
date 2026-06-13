@@ -498,6 +498,21 @@
       "all": "All folders",
       "none": "No folder",
       "unknown": "Unknown"
+    },
+    "variables": {
+      "promptTitle": "Set variables — {{title}}",
+      "selectPlaceholder": "Select a value",
+      "apply": "Use query",
+      "detected": "Detected variables",
+      "detectedHint": "Configure the type and default value for each placeholder used in the query.",
+      "defaultPlaceholder": "Default value (optional)",
+      "optionsPlaceholder": "Options, comma-separated",
+      "type": {
+        "text": "Text",
+        "number": "Number",
+        "date": "Date",
+        "select": "Select"
+      }
     }
   },
   "palette": {

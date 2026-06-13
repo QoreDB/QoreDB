@@ -2,7 +2,7 @@
 
 import { save } from '@tauri-apps/plugin-dialog';
 import { writeTextFile } from '@tauri-apps/plugin-fs';
-import { ClipboardCopy, Download, Loader2, Play, Sparkles } from 'lucide-react';
+import { ClipboardCopy, Download, Loader2, Play, Wand2 } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -119,7 +119,7 @@ export function DataGeneratorDialog({
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Sparkles size={16} className="text-accent" />
+            <Wand2 size={16} className="text-accent" />
             {t('dataGenerator.title', { table: tableName })}
           </DialogTitle>
         </DialogHeader>
@@ -141,7 +141,7 @@ export function DataGeneratorDialog({
               />
             </div>
             <Button onClick={handleGenerate} disabled={loading} className="gap-1.5">
-              {loading ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+              {loading ? <Loader2 size={14} className="animate-spin" /> : <Wand2 size={14} />}
               {t('dataGenerator.generate')}
             </Button>
           </div>

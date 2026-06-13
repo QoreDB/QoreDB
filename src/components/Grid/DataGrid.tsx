@@ -910,7 +910,6 @@ export function DataGrid({
         <DataGridHeader
           selectedCount={selectedCount}
           totalRows={totalRows}
-          result={result}
           canDelete={canDelete}
           deleteDisabled={deleteDisabled}
           isDeleting={isDeleting}
@@ -921,8 +920,6 @@ export function DataGrid({
           bulkEditDisabled={bulkEditDisabled}
           bulkEditRequiresPro={bulkEditRequiresPro}
           onBulkEdit={() => setBulkEditDialogOpen(true)}
-          canGenerateData={canGenerateData}
-          onGenerateData={() => setDataGenDialogOpen(true)}
         />
 
         <DataGridToolbar
@@ -941,6 +938,7 @@ export function DataGrid({
           aiExplanation={aiExplanation}
           aiExplainLoading={aiExplainLoading}
           onDismissAiExplanation={() => setAiExplanation(null)}
+          onGenerateData={canGenerateData ? () => setDataGenDialogOpen(true) : undefined}
         />
       </div>
 
@@ -981,9 +979,16 @@ export function DataGrid({
           totalRows={infiniteScrollTotalRows ?? 0}
           isFetchingMore={infiniteScrollIsFetchingMore ?? false}
           isComplete={infiniteScrollIsComplete ?? false}
+          execTimeMs={result?.execution_time_ms}
+          totalTimeMs={result?.total_time_ms}
         />
       ) : resolvedFooterMode === 'pagination' ? (
-        <DataGridPagination table={table} pagination={pagination} />
+        <DataGridPagination
+          table={table}
+          pagination={pagination}
+          execTimeMs={result?.execution_time_ms}
+          totalTimeMs={result?.total_time_ms}
+        />
       ) : null}
 
       {canStreamExport && exportQuery && (

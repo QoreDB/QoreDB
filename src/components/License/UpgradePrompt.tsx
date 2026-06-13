@@ -18,6 +18,7 @@ import {
   ShieldCheck,
   Sparkles,
   Table2,
+  Wand2,
   X,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -53,7 +54,7 @@ const FEATURE_ICONS: Record<ProFeature, LucideIcon> = {
   bulk_edit_unlimited: Table2,
   data_contracts: Braces,
   instant_api: Layers,
-  data_generator: Sparkles,
+  data_generator: Wand2,
 };
 
 const FEATURE_FALLBACK_ICON: LucideIcon = Bug;

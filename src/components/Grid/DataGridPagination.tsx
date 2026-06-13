@@ -11,16 +11,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { GridTimingInfo } from './GridTimingInfo';
 import type { RowData } from './utils/dataGridUtils';
 
 interface DataGridPaginationProps {
   table: Table<RowData>;
   pagination: PaginationState;
+  execTimeMs?: number;
+  totalTimeMs?: number;
 }
 
 const PAGE_SIZES = [25, 50, 100, 250];
 
-export function DataGridPagination({ table, pagination }: DataGridPaginationProps) {
+export function DataGridPagination({
+  table,
+  pagination,
+  execTimeMs,
+  totalTimeMs,
+}: DataGridPaginationProps) {
   const { t } = useTranslation();
 
   const totalRows = table.getFilteredRowModel().rows.length;
@@ -38,7 +46,7 @@ export function DataGridPagination({ table, pagination }: DataGridPaginationProp
             value={String(pagination.pageSize)}
             onValueChange={value => table.setPageSize(Number(value))}
           >
-            <SelectTrigger className="h-7 w-[74px] text-xs">
+            <SelectTrigger className="h-7 w-18.5 text-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -53,6 +61,7 @@ export function DataGridPagination({ table, pagination }: DataGridPaginationProp
         <span className="text-muted-foreground/70">
           {totalRows.toLocaleString()} {t('grid.totalRows')}
         </span>
+        <GridTimingInfo execTimeMs={execTimeMs} totalTimeMs={totalTimeMs} />
       </div>
 
       <div className="flex items-center gap-1">

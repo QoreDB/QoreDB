@@ -54,7 +54,7 @@ export interface UseNotebookReturn {
   isExecuting: boolean;
   executingCellId: string | null;
   // Cell operations
-  addCell: (type: CellType, afterCellId?: string) => void;
+  addCell: (type: CellType, afterCellId?: string, source?: string) => void;
   deleteCell: (cellId: string) => void;
   moveCellUp: (cellId: string) => void;
   moveCellDown: (cellId: string) => void;
@@ -190,8 +190,8 @@ export function useNotebook(options: UseNotebookOptions): UseNotebookReturn {
   // --- Cell CRUD ---
 
   const addCell = useCallback(
-    (type: CellType, afterCellId?: string) => {
-      const cell = createCell(type);
+    (type: CellType, afterCellId?: string, source?: string) => {
+      const cell = createCell(type, source);
       updateNotebook(nb => {
         const cells = [...nb.cells];
         if (afterCellId) {
@@ -479,8 +479,7 @@ export function useNotebook(options: UseNotebookOptions): UseNotebookReturn {
 
           const cell = notebookRef.current.cells.find(c => c.id === cellId);
           if (!cell) continue;
-          if (cell.type !== 'sql' && cell.type !== 'mongo' && cell.type !== 'contract')
-            continue;
+          if (cell.type !== 'sql' && cell.type !== 'mongo' && cell.type !== 'contract') continue;
           if (!cell.source.trim()) continue;
 
           try {

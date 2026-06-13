@@ -614,7 +614,11 @@
     "hideResults": "결과 숨기기",
     "showResults": "결과 표시",
     "editMarkdown": "편집",
-    "previewMarkdown": "미리보기"
+    "previewMarkdown": "미리보기",
+    "addCellAi": "AI 셀",
+    "aiPlaceholder": "쿼리를 자연어로 설명하세요…",
+    "aiGenerate": "SQL 생성",
+    "aiCellInserted": "아래에 SQL 셀을 삽입했습니다"
   },
   "settings": {
     "title": "설정",
@@ -1036,7 +1040,13 @@
     "updateError": "행 업데이트에 실패했습니다",
     "updateNoPrimaryKey": "인라인 편집에는 기본 키가 필요합니다",
     "pinColumnLeft": "왼쪽에 고정",
-    "unpinColumn": "컬럼 고정 해제"
+    "unpinColumn": "컬럼 고정 해제",
+    "nlFilter": {
+      "placeholder": "자연어로 필터링…",
+      "generate": "생성",
+      "apply": "필터 적용",
+      "empty": "이 요청에서 필터를 도출할 수 없습니다."
+    }
   },
   "export": {
     "dialogTitle": "스트리밍 내보내기",
@@ -3080,5 +3090,18 @@
     "active": "활성 플러그인",
     "manage": "플러그인 관리…",
     "runsInBackground": "백그라운드에서 실행됩니다"
+  },
+  "dataGenerator": {
+    "action": "데이터 생성",
+    "title": "데이터 생성 — {{table}}",
+    "rowCount": "행 수",
+    "generate": "생성",
+    "execute": "테이블에 삽입",
+    "export": ".sql 내보내기",
+    "copy": "복사",
+    "executed": "{{count}}개 행이 삽입되었습니다",
+    "exported": "SQL 스크립트를 내보냈습니다",
+    "exportError": "내보내기 실패",
+    "copied": "SQL이 복사되었습니다"
   }
 }

@@ -5,7 +5,7 @@
  * Displays row counts, timing info, load more controls, and delete button
  */
 
-import { Trash2 } from 'lucide-react';
+import { Sparkles, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import type { QueryResult } from '@/lib/tauri';
@@ -25,6 +25,8 @@ export interface DataGridHeaderProps {
   bulkEditDisabled: boolean;
   bulkEditRequiresPro: boolean;
   onBulkEdit: () => void;
+  canGenerateData?: boolean;
+  onGenerateData?: () => void;
 }
 
 export function DataGridHeader({
@@ -42,6 +44,8 @@ export function DataGridHeader({
   bulkEditDisabled,
   bulkEditRequiresPro,
   onBulkEdit,
+  canGenerateData,
+  onGenerateData,
 }: DataGridHeaderProps) {
   const { t } = useTranslation();
 
@@ -86,6 +90,18 @@ export function DataGridHeader({
           mutationsSupported={mutationsSupported}
           onClick={onBulkEdit}
         />
+      )}
+
+      {canGenerateData && onGenerateData && (
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-6 gap-1 px-2 text-xs"
+          onClick={onGenerateData}
+        >
+          <Sparkles size={12} />
+          {t('dataGenerator.action')}
+        </Button>
       )}
 
       {canDelete && (

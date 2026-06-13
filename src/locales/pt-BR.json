@@ -614,7 +614,11 @@
     "hideResults": "Ocultar resultados",
     "showResults": "Mostrar resultados",
     "editMarkdown": "Editar",
-    "previewMarkdown": "Pré-visualizar"
+    "previewMarkdown": "Pré-visualizar",
+    "addCellAi": "Célula de IA",
+    "aiPlaceholder": "Descreva a consulta em linguagem natural…",
+    "aiGenerate": "Gerar SQL",
+    "aiCellInserted": "Célula SQL inserida abaixo"
   },
   "settings": {
     "title": "Configurações",
@@ -1036,7 +1040,13 @@
     "updateError": "Falha ao atualizar linha",
     "updateNoPrimaryKey": "Edição inline requer uma chave primária",
     "pinColumnLeft": "Fixar à esquerda",
-    "unpinColumn": "Desafixar coluna"
+    "unpinColumn": "Desafixar coluna",
+    "nlFilter": {
+      "placeholder": "Filtrar em linguagem natural…",
+      "generate": "Gerar",
+      "apply": "Aplicar filtros",
+      "empty": "Nenhum filtro pôde ser derivado desta solicitação."
+    }
   },
   "export": {
     "dialogTitle": "Exportação em streaming",
@@ -3080,5 +3090,18 @@
     "active": "Plugins ativos",
     "manage": "Gerenciar plugins…",
     "runsInBackground": "Executa em segundo plano"
+  },
+  "dataGenerator": {
+    "action": "Gerar dados",
+    "title": "Gerar dados — {{table}}",
+    "rowCount": "Número de linhas",
+    "generate": "Gerar",
+    "execute": "Inserir na tabela",
+    "export": "Exportar .sql",
+    "copy": "Copiar",
+    "executed": "{{count}} linhas inseridas",
+    "exported": "Script SQL exportado",
+    "exportError": "Falha na exportação",
+    "copied": "SQL copiado"
   }
 }

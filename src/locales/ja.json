@@ -614,7 +614,11 @@
     "hideResults": "結果を非表示",
     "showResults": "結果を表示",
     "editMarkdown": "編集",
-    "previewMarkdown": "プレビュー"
+    "previewMarkdown": "プレビュー",
+    "addCellAi": "AIセル",
+    "aiPlaceholder": "クエリを自然言語で記述してください…",
+    "aiGenerate": "SQLを生成",
+    "aiCellInserted": "下にSQLセルを挿入しました"
   },
   "settings": {
     "title": "設定",
@@ -1036,7 +1040,13 @@
     "updateError": "行の更新に失敗しました",
     "updateNoPrimaryKey": "インライン編集には主キーが必要です",
     "pinColumnLeft": "左に固定",
-    "unpinColumn": "カラムの固定を解除"
+    "unpinColumn": "カラムの固定を解除",
+    "nlFilter": {
+      "placeholder": "自然言語でフィルタ…",
+      "generate": "生成",
+      "apply": "フィルタを適用",
+      "empty": "このリクエストからフィルタを導出できませんでした。"
+    }
   },
   "export": {
     "dialogTitle": "ストリーミングエクスポート",
@@ -3080,5 +3090,18 @@
     "active": "アクティブなプラグイン",
     "manage": "プラグインを管理…",
     "runsInBackground": "バックグラウンドで実行"
+  },
+  "dataGenerator": {
+    "action": "データを生成",
+    "title": "データを生成 — {{table}}",
+    "rowCount": "行数",
+    "generate": "生成",
+    "execute": "テーブルに挿入",
+    "export": ".sql をエクスポート",
+    "copy": "コピー",
+    "executed": "{{count}} 行を挿入しました",
+    "exported": "SQLスクリプトをエクスポートしました",
+    "exportError": "エクスポートに失敗しました",
+    "copied": "SQLをコピーしました"
   }
 }

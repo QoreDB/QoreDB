@@ -614,7 +614,11 @@
     "hideResults": "隐藏结果",
     "showResults": "显示结果",
     "editMarkdown": "编辑",
-    "previewMarkdown": "预览"
+    "previewMarkdown": "预览",
+    "addCellAi": "AI 单元格",
+    "aiPlaceholder": "用自然语言描述查询…",
+    "aiGenerate": "生成 SQL",
+    "aiCellInserted": "已在下方插入 SQL 单元格"
   },
   "settings": {
     "title": "设置",
@@ -1036,7 +1040,13 @@
     "updateError": "更新行失败",
     "updateNoPrimaryKey": "内联编辑需要主键",
     "pinColumnLeft": "固定到左侧",
-    "unpinColumn": "取消固定列"
+    "unpinColumn": "取消固定列",
+    "nlFilter": {
+      "placeholder": "用自然语言筛选…",
+      "generate": "生成",
+      "apply": "应用筛选",
+      "empty": "无法从该请求推导出筛选条件。"
+    }
   },
   "export": {
     "dialogTitle": "流式导出",
@@ -3080,5 +3090,18 @@
     "active": "已启用的插件",
     "manage": "管理插件…",
     "runsInBackground": "在后台运行"
+  },
+  "dataGenerator": {
+    "action": "生成数据",
+    "title": "生成数据 — {{table}}",
+    "rowCount": "行数",
+    "generate": "生成",
+    "execute": "插入到表",
+    "export": "导出 .sql",
+    "copy": "复制",
+    "executed": "已插入 {{count}} 行",
+    "exported": "已导出 SQL 脚本",
+    "exportError": "导出失败",
+    "copied": "已复制 SQL"
   }
 }

@@ -614,7 +614,11 @@
     "hideResults": "Ergebnisse ausblenden",
     "showResults": "Ergebnisse anzeigen",
     "editMarkdown": "Bearbeiten",
-    "previewMarkdown": "Vorschau"
+    "previewMarkdown": "Vorschau",
+    "addCellAi": "KI-Zelle",
+    "aiPlaceholder": "Beschreiben Sie die Abfrage in natürlicher Sprache…",
+    "aiGenerate": "SQL generieren",
+    "aiCellInserted": "SQL-Zelle unten eingefügt"
   },
   "settings": {
     "title": "Einstellungen",
@@ -1036,7 +1040,13 @@
     "updateError": "Zeile konnte nicht aktualisiert werden",
     "updateNoPrimaryKey": "Inline-Bearbeitung erfordert einen Primärschlüssel",
     "pinColumnLeft": "Links anheften",
-    "unpinColumn": "Spalte lösen"
+    "unpinColumn": "Spalte lösen",
+    "nlFilter": {
+      "placeholder": "In natürlicher Sprache filtern…",
+      "generate": "Generieren",
+      "apply": "Filter anwenden",
+      "empty": "Aus dieser Anfrage konnte kein Filter abgeleitet werden."
+    }
   },
   "export": {
     "dialogTitle": "Streaming-Export",
@@ -3080,5 +3090,18 @@
     "active": "Aktive Plugins",
     "manage": "Plugins verwalten…",
     "runsInBackground": "Läuft im Hintergrund"
+  },
+  "dataGenerator": {
+    "action": "Daten generieren",
+    "title": "Daten generieren — {{table}}",
+    "rowCount": "Anzahl der Zeilen",
+    "generate": "Generieren",
+    "execute": "In Tabelle einfügen",
+    "export": ".sql exportieren",
+    "copy": "Kopieren",
+    "executed": "{{count}} Zeilen eingefügt",
+    "exported": "SQL-Skript exportiert",
+    "exportError": "Export fehlgeschlagen",
+    "copied": "SQL kopiert"
   }
 }

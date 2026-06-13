@@ -53,6 +53,7 @@ const FEATURE_ICONS: Record<ProFeature, LucideIcon> = {
   bulk_edit_unlimited: Table2,
   data_contracts: Braces,
   instant_api: Layers,
+  data_generator: Sparkles,
 };
 
 const FEATURE_FALLBACK_ICON: LucideIcon = Bug;

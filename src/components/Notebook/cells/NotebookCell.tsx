@@ -12,6 +12,7 @@ import {
   Play,
   RefreshCw,
   ShieldCheck,
+  Sparkles,
   Square,
   Trash2,
   UnfoldVertical,
@@ -41,6 +42,7 @@ import type {
 } from '@/lib/notebook/notebookTypes';
 import type { Namespace } from '@/lib/tauri';
 import { cn } from '@/lib/utils';
+import { AiCell } from './AiCell';
 import { ChartCell } from './ChartCell';
 import { ContractCell } from './ContractCell';
 import { MarkdownCell } from './MarkdownCell';
@@ -67,6 +69,7 @@ interface NotebookCellProps {
   onConvertType?: () => void;
   onToggleCollapsed?: () => void;
   onRunFromHere?: () => void;
+  onInsertSqlBelow?: (source: string) => void;
 }
 
 const borderStateMap: Record<CellExecutionState, string> = {
@@ -86,6 +89,8 @@ const CellTypeIcon = ({ type }: { type: string }) => {
       return <FileText size={13} className="text-muted-foreground" />;
     case 'contract':
       return <ShieldCheck size={13} className="text-muted-foreground" />;
+    case 'ai':
+      return <Sparkles size={13} className="text-muted-foreground" />;
     default:
       return <Code size={13} className="text-muted-foreground" />;
   }
@@ -112,6 +117,7 @@ export function NotebookCell({
   onConvertType,
   onToggleCollapsed,
   onRunFromHere,
+  onInsertSqlBelow,
 }: NotebookCellProps) {
   const { t } = useTranslation();
   const [showSuccessBorder, setShowSuccessBorder] = useState(false);
@@ -130,8 +136,7 @@ export function NotebookCell({
       ? 'idle'
       : (cell.executionState ?? 'idle');
 
-  const isExecutable =
-    cell.type === 'sql' || cell.type === 'mongo' || cell.type === 'contract';
+  const isExecutable = cell.type === 'sql' || cell.type === 'mongo' || cell.type === 'contract';
   const isRunning = cell.executionState === 'running';
   const isCollapsed = cell.config?.collapsed;
 
@@ -200,14 +205,12 @@ export function NotebookCell({
           )}
           onClick={onFocus}
         >
-          {/* Drag handle - left edge, on hover */}
           <div className="absolute -left-0.5 top-0 bottom-0 flex items-center opacity-0 group-hover:opacity-60 transition-opacity z-10">
             <div className="cursor-grab active:cursor-grabbing p-0.5 text-muted-foreground">
               <GripVertical size={12} />
             </div>
           </div>
 
-          {/* Floating action bar - top right, on hover */}
           <div className="absolute top-1.5 right-1.5 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity z-10 bg-card/95 rounded-md border border-border/60 shadow-sm px-0.5 py-0.5">
             {isExecutable && !isRunning && (
               <Tooltip content={t('notebook.executeCell')} side="bottom">
@@ -240,7 +243,6 @@ export function NotebookCell({
               </Tooltip>
             )}
 
-            {/* More actions dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -298,16 +300,13 @@ export function NotebookCell({
             </DropdownMenu>
           </div>
 
-          {/* Running indicator - inline spinner */}
           {isRunning && (
             <div className="absolute top-2 right-2 z-20">
               <Loader2 size={14} className="animate-spin text-accent" />
             </div>
           )}
 
-          {/* Cell type indicator + content */}
           <div className="px-4 pt-2 pb-1">
-            {/* Cell type header */}
             <div className="flex items-center gap-1.5 mb-1.5">
               <CellTypeIcon type={cell.type} />
               <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
@@ -320,7 +319,6 @@ export function NotebookCell({
               )}
             </div>
 
-            {/* Cell content */}
             {isCollapsed ? (
               <div className="text-xs text-muted-foreground italic truncate py-1">
                 {cell.source.split('\n')[0] || t('notebook.cellEmpty')}
@@ -345,11 +343,19 @@ export function NotebookCell({
                   <ContractCell cell={cell} onSourceChange={onSourceChange} />
                 )}
                 {cell.type === 'chart' && allCells && <ChartCell cell={cell} allCells={allCells} />}
+                {cell.type === 'ai' && (
+                  <AiCell
+                    cell={cell}
+                    sessionId={sessionId}
+                    namespace={namespace}
+                    onSourceChange={onSourceChange}
+                    onInsertSqlBelow={onInsertSqlBelow}
+                  />
+                )}
               </>
             )}
           </div>
 
-          {/* Execution metadata footer */}
           {cell.executionTimeMs !== undefined &&
             cell.executionCount !== undefined &&
             cell.executionCount > 0 && (

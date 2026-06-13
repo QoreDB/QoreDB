@@ -642,7 +642,11 @@
     "hideResults": "Hide results",
     "showResults": "Show results",
     "editMarkdown": "Edit",
-    "previewMarkdown": "Preview"
+    "previewMarkdown": "Preview",
+    "addCellAi": "AI cell",
+    "aiPlaceholder": "Describe the query in natural language…",
+    "aiGenerate": "Generate SQL",
+    "aiCellInserted": "SQL cell inserted below"
   },
   "settings": {
     "title": "Settings",
@@ -1064,7 +1068,13 @@
     "updateError": "Failed to update row",
     "updateNoPrimaryKey": "Inline edit requires a primary key",
     "pinColumnLeft": "Pin to left",
-    "unpinColumn": "Unpin column"
+    "unpinColumn": "Unpin column",
+    "nlFilter": {
+      "placeholder": "Filter in natural language…",
+      "generate": "Generate",
+      "apply": "Apply filters",
+      "empty": "No filter could be derived from this request."
+    }
   },
   "export": {
     "dialogTitle": "Streaming export",
@@ -3108,5 +3118,18 @@
     "active": "Active plugins",
     "manage": "Manage plugins…",
     "runsInBackground": "Runs in the background"
+  },
+  "dataGenerator": {
+    "action": "Generate data",
+    "title": "Generate data — {{table}}",
+    "rowCount": "Number of rows",
+    "generate": "Generate",
+    "execute": "Insert into table",
+    "export": "Export .sql",
+    "copy": "Copy",
+    "executed": "{{count}} rows inserted",
+    "exported": "SQL script exported",
+    "exportError": "Export failed",
+    "copied": "SQL copied"
   }
 }

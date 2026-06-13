@@ -49,6 +49,7 @@ import type {
 import { useAiPreferences } from '@/providers/AiPreferencesProvider';
 import { useLicense } from '@/providers/LicenseProvider';
 import { BulkEditDialog } from './BulkEditDialog';
+import { DataGeneratorDialog } from './DataGeneratorDialog';
 import { DataGridColumnHeader } from './DataGridColumnHeader';
 import { DataGridHeader } from './DataGridHeader';
 import { DataGridPagination } from './DataGridPagination';
@@ -63,6 +64,7 @@ import { useDataGridDelete } from './hooks/useDataGridDelete';
 import { useDataGridExport } from './hooks/useDataGridExport';
 import { useForeignKeyPeek } from './hooks/useForeignKeyPeek';
 import { useInlineEdit } from './hooks/useInlineEdit';
+import { NaturalLanguageFilterBar } from './NaturalLanguageFilterBar';
 import { convertToRowData, formatValue, type RowData } from './utils/dataGridUtils';
 
 const EMPTY_OVERLAY_RESULT: OverlayResult = {
@@ -194,6 +196,7 @@ export function DataGrid({
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [showFilters, setShowFilters] = useState(false);
   const [bulkEditDialogOpen, setBulkEditDialogOpen] = useState(false);
+  const [dataGenDialogOpen, setDataGenDialogOpen] = useState(false);
   const isServerSideSorting = isServerSideMode;
 
   useEffect(() => {
@@ -787,6 +790,19 @@ export function DataGrid({
   const [aiExplanation, setAiExplanation] = useState<string | null>(null);
   const [aiExplainLoading, setAiExplainLoading] = useState(false);
   const canExplainWithAi = isFeatureEnabled('ai') && Boolean(sessionId) && aiReady;
+  const canNlFilter =
+    isFeatureEnabled('ai') &&
+    Boolean(sessionId) &&
+    aiReady &&
+    Boolean(tableName) &&
+    Boolean(onServerColumnFiltersChange);
+  const canGenerateData =
+    isFeatureEnabled('data_generator') &&
+    !readOnly &&
+    mutationsSupported &&
+    Boolean(sessionId) &&
+    Boolean(tableName) &&
+    Boolean(namespace);
 
   const handleExplainWithAi = useCallback(async () => {
     if (!sessionId || !result || aiExplainLoading) return;
@@ -905,6 +921,8 @@ export function DataGrid({
           bulkEditDisabled={bulkEditDisabled}
           bulkEditRequiresPro={bulkEditRequiresPro}
           onBulkEdit={() => setBulkEditDialogOpen(true)}
+          canGenerateData={canGenerateData}
+          onGenerateData={() => setDataGenDialogOpen(true)}
         />
 
         <DataGridToolbar
@@ -925,6 +943,15 @@ export function DataGrid({
           onDismissAiExplanation={() => setAiExplanation(null)}
         />
       </div>
+
+      {canNlFilter && sessionId && tableName && (
+        <NaturalLanguageFilterBar
+          sessionId={sessionId}
+          tableName={tableName}
+          namespace={namespace}
+          onApply={filters => onServerColumnFiltersChange?.(filters)}
+        />
+      )}
 
       <div
         ref={parentRef}
@@ -1014,6 +1041,18 @@ export function DataGrid({
           onRowsUpdated?.();
         }}
       />
+
+      {canGenerateData && sessionId && tableName && namespace && (
+        <DataGeneratorDialog
+          open={dataGenDialogOpen}
+          onOpenChange={setDataGenDialogOpen}
+          sessionId={sessionId}
+          namespace={namespace}
+          tableName={tableName}
+          driver={driver}
+          onExecuted={() => onRowsUpdated?.()}
+        />
+      )}
 
       {result && (
         <SaveSnapshotDialog

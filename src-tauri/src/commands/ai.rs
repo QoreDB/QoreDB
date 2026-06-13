@@ -85,6 +85,19 @@ pub async fn ai_get_provider_status(
     Err(PRO_REQUIRED.to_string())
 }
 
+#[cfg(not(feature = "pro"))]
+#[tauri::command]
+pub async fn ai_generate_filters(
+    _state: State<'_, SharedState>,
+    _session_id: String,
+    _table_name: String,
+    _prompt: String,
+    _config: serde_json::Value,
+    _namespace: Option<serde_json::Value>,
+) -> Result<Vec<serde_json::Value>, String> {
+    Err(PRO_REQUIRED.to_string())
+}
+
 // ─── Pro implementation ──────────────────────────────────────
 
 #[cfg(feature = "pro")]
@@ -105,7 +118,7 @@ use crate::ai::safety::validate_generated_query;
 #[cfg(feature = "pro")]
 use crate::ai::types::{AiAction, AiConfig, AiProvider, AiRequest, AiResponse, AiStreamChunk};
 #[cfg(feature = "pro")]
-use crate::engine::types::{Namespace, SessionId};
+use crate::engine::types::{ColumnFilter, Namespace, SessionId};
 
 #[cfg(feature = "pro")]
 fn parse_session_id(id: &str) -> Result<SessionId, String> {
@@ -250,6 +263,91 @@ pub async fn ai_summarize_schema(
         provider_used: config.provider,
         tokens_used: None,
     })
+}
+
+/// Non-streaming: translate a natural-language filter into structured column
+/// filters that the grid applies via `query_table` (values are parameterised
+/// downstream, so no raw SQL is interpolated). `today` is supplied by the
+/// caller so relative dates ("last week") resolve to absolute values.
+#[cfg(feature = "pro")]
+#[tauri::command]
+pub async fn ai_generate_filters(
+    state: State<'_, SharedState>,
+    session_id: String,
+    table_name: String,
+    prompt: String,
+    today: String,
+    config: AiConfig,
+    namespace: Option<Namespace>,
+) -> Result<Vec<ColumnFilter>, String> {
+    let (session_manager, ai_manager, virtual_relations) = {
+        let s = state.lock().await;
+        (
+            Arc::clone(&s.session_manager),
+            Arc::clone(&s.ai_manager),
+            Arc::clone(&s.virtual_relations),
+        )
+    };
+
+    let sid = parse_session_id(&session_id)?;
+    let driver = session_manager
+        .get_driver(sid)
+        .await
+        .map_err(|e| e.to_string())?;
+    let driver_id = driver.driver_id().to_string();
+
+    let ns = namespace.unwrap_or_else(|| Namespace::new("default"));
+
+    let schema_ctx = context::build_context(
+        &session_manager,
+        sid,
+        &ns,
+        &driver_id,
+        &virtual_relations,
+        None,
+        &prompt,
+    )
+    .await?;
+
+    let system_prompt = format!(
+        "You convert a natural-language filter request into a JSON array of column filters for the table `{table}`.\n\n\
+Schema:\n{schema}\n\n\
+Rules:\n\
+- Output ONLY a compact JSON array, no markdown fences, no prose.\n\
+- Each element is an object: {{\"column\": <exact column name>, \"operator\": <op>, \"value\": <scalar>}}.\n\
+- operator is one of: eq, neq, gt, gte, lt, lte, like, is_null, is_not_null, regex, text.\n\
+- For is_null / is_not_null set \"value\" to null.\n\
+- For like, put SQL wildcards (%) in the value.\n\
+- Multiple conditions are separate array elements; they are combined with AND.\n\
+- Use only column names that appear in the schema above. If nothing applies, return [].\n\
+- Today's date is {today}. Resolve relative dates (e.g. \"last week\") to absolute YYYY-MM-DD values using gte/lte.\n\
+- value must be a JSON string, number, boolean, or null — never an expression or function call.",
+        table = table_name,
+        schema = schema_ctx.schema_description,
+        today = today,
+    );
+
+    let content = collect_streamed_response(&ai_manager, &config, &system_prompt, &prompt).await?;
+
+    let json = extract_json_array(&content)
+        .ok_or_else(|| "AI did not return a JSON array of filters".to_string())?;
+    let filters: Vec<ColumnFilter> =
+        serde_json::from_str(json).map_err(|e| format!("Invalid filter JSON: {}", e))?;
+
+    Ok(filters)
+}
+
+/// Extracts the outermost JSON array from a model response, tolerating
+/// surrounding prose or ```json fences.
+#[cfg(feature = "pro")]
+fn extract_json_array(text: &str) -> Option<&str> {
+    let start = text.find('[')?;
+    let end = text.rfind(']')?;
+    if end > start {
+        Some(&text[start..=end])
+    } else {
+        None
+    }
 }
 
 /// Store an API key for a provider. The key shape is validated per-provider

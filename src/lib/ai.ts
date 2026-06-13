@@ -5,7 +5,7 @@
  * Mirrors Rust types from src-tauri/src/ai/types.rs
  */
 import { invoke } from '@/lib/transport';
-import type { Namespace } from './tauri';
+import type { ColumnFilter, Namespace } from './tauri';
 
 // ============================================
 // TYPES
@@ -206,6 +206,28 @@ export async function aiDeleteApiKey(provider: AiProvider): Promise<void> {
 /** Get status of all configured providers */
 export async function aiGetProviderStatus(): Promise<AiProviderStatus[]> {
   return invoke('ai_get_provider_status');
+}
+
+/**
+ * Translate a natural-language filter into structured column filters applied by
+ * the grid (non-streaming). `today` lets the model resolve relative dates.
+ */
+export async function aiGenerateFilters(
+  sessionId: string,
+  tableName: string,
+  prompt: string,
+  config: AiConfig,
+  namespace?: Namespace
+): Promise<ColumnFilter[]> {
+  const today = new Date().toISOString().slice(0, 10);
+  return invoke('ai_generate_filters', {
+    sessionId,
+    tableName,
+    prompt,
+    today,
+    config,
+    namespace,
+  });
 }
 
 // ============================================

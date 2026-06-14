@@ -310,6 +310,7 @@ pub async fn ai_generate_filters(
         &virtual_relations,
         None,
         &prompt,
+        false,
     )
     .await?;
 

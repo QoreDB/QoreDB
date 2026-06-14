@@ -742,6 +742,10 @@ pub struct TableColumn {
     pub default_value: Option<String>,
     /// Whether this column is part of the primary key
     pub is_primary_key: bool,
+    /// Whether the database fills this column itself (auto_increment / IDENTITY /
+    /// serial / SQLite rowid). Such columns must not receive a generated value.
+    #[serde(default)]
+    pub is_auto_increment: bool,
 }
 
 // ==================== Collection list ====================

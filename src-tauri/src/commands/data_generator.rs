@@ -138,6 +138,14 @@ pub async fn generate_seed_data(
 
     let mut warnings: Vec<String> = Vec::new();
 
+    // Columns constrained by a foreign key. These must never fall back to a
+    // generated value: an invented key would violate the constraint.
+    let fk_columns: std::collections::HashSet<&str> = schema
+        .foreign_keys
+        .iter()
+        .map(|fk| fk.column.as_str())
+        .collect();
+
     // Pre-fetch existing values for each foreign-key column so generated rows
     // reference real parents (drawn from a sample of the referenced table).
     let mut fk_values: HashMap<String, Vec<Value>> = HashMap::new();
@@ -188,10 +196,17 @@ pub async fn generate_seed_data(
                     None => Vec::new(),
                 };
                 if vals.is_empty() {
-                    warnings.push(format!(
-                        "Foreign key '{}' references '{}' which has no rows; generated values may violate the constraint.",
-                        col.name, fk.referenced_table
-                    ));
+                    if col.nullable {
+                        warnings.push(format!(
+                            "Foreign key '{}' references '{}' which has no rows; NULL will be used.",
+                            col.name, fk.referenced_table
+                        ));
+                    } else {
+                        warnings.push(format!(
+                            "Foreign key '{}' references '{}' which has no rows and is NOT NULL; no valid value can be generated for this column.",
+                            col.name, fk.referenced_table
+                        ));
+                    }
                 } else {
                     fk_values.insert(col.name.clone(), vals);
                 }
@@ -213,6 +228,10 @@ pub async fn generate_seed_data(
             for col in &target_columns {
                 let value = if let Some(candidates) = fk_values.get(&col.name) {
                     candidates.choose(&mut rng).cloned().unwrap_or(Value::Null)
+                } else if fk_columns.contains(col.name.as_str()) {
+                    // Foreign key with no parent rows to draw from: NULL is the
+                    // only value that cannot violate the constraint.
+                    Value::Null
                 } else {
                     generate_value(col, i, &mut rng)
                 };

@@ -7,11 +7,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Driver, getDriverMetadata } from '@/lib/connection/drivers';
+import { DEFAULT_PORTS, Driver, getDriverMetadata } from '@/lib/connection/drivers';
 import { ENVIRONMENT_CONFIG } from '@/lib/environment';
 import type { MssqlAuthMode } from '@/lib/tauri';
 import { cn } from '@/lib/utils';
+import { Field } from './Field';
 import { FileSection } from './FileSection';
+import { PasswordInput } from './PasswordInput';
 import type { ConnectionFormData } from './types';
 
 interface BasicSectionProps {
@@ -32,6 +34,7 @@ export function BasicSection({
   const usernameRequired = formData.driver !== Driver.Mongodb && formData.driver !== Driver.Redis;
   const isSqlServer = formData.driver === Driver.SqlServer;
   const isClickhouse = formData.driver === Driver.Clickhouse;
+  const isRedis = formData.driver === Driver.Redis;
   const driverMeta = getDriverMetadata(formData.driver);
   const isNtlm = isSqlServer && formData.mssqlAuthMode === 'windows_ntlm';
   const isIntegrated = isSqlServer && formData.mssqlAuthMode === 'windows_integrated';
@@ -43,14 +46,13 @@ export function BasicSection({
 
   return (
     <div className="rounded-md border border-border bg-background p-4 space-y-4">
-      <div className="space-y-2">
-        <Label>{t('connection.connectionName')}</Label>
+      <Field label={t('connection.connectionName')}>
         <Input
           placeholder="My Database"
           value={formData.name}
           onChange={e => onChange('name', e.target.value)}
         />
-      </div>
+      </Field>
 
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
@@ -123,37 +125,37 @@ export function BasicSection({
       {!hideConnectionFields && !isFileBased && (
         <>
           <div className="grid grid-cols-3 gap-4">
-            <div className="col-span-2 space-y-2">
-              <Label>
-                {t('connection.host')} <span className="text-error">*</span>
-              </Label>
+            <Field label={t('connection.host')} required className="col-span-2">
               <Input
                 placeholder="localhost"
                 value={formData.host}
                 onChange={e => onChange('host', e.target.value)}
               />
-            </div>
-            <div className="space-y-2">
-              <Label>{t('connection.port')}</Label>
+            </Field>
+            <Field label={t('connection.port')}>
               <Input
                 type="number"
-                value={formData.port}
-                onChange={e => onChange('port', parseInt(e.target.value, 10) || 0)}
+                min={1}
+                max={65535}
+                placeholder={String(DEFAULT_PORTS[formData.driver])}
+                value={formData.port || ''}
+                onChange={e =>
+                  onChange('port', e.target.value === '' ? 0 : parseInt(e.target.value, 10) || 0)
+                }
               />
-            </div>
+            </Field>
           </div>
 
-          <div className="space-y-2">
-            <Label>{t(driverMeta.databaseFieldLabel)}</Label>
+          <Field label={t(driverMeta.databaseFieldLabel)}>
             <Input
+              type={isRedis ? 'number' : 'text'}
+              min={isRedis ? 0 : undefined}
+              max={isRedis ? 15 : undefined}
               placeholder={formData.driver === Driver.Postgres ? 'postgres' : ''}
               value={formData.database}
               onChange={e => onChange('database', e.target.value)}
             />
-            {driverMeta.databaseFieldLabel === 'connection.databaseInitial' && (
-              <p className="text-xs text-muted-foreground">{t('connection.databaseInitialHint')}</p>
-            )}
-          </div>
+          </Field>
 
           {isSqlServer && (
             <div className="space-y-2">
@@ -192,42 +194,35 @@ export function BasicSection({
           )}
 
           {isClickhouse && (
-            <div className="space-y-2">
-              <Label>{t('connection.clickhouse.cluster')}</Label>
+            <Field
+              label={t('connection.clickhouse.cluster')}
+              hint={t('connection.clickhouse.clusterHint')}
+            >
               <Input
                 placeholder={t('connection.clickhouse.clusterPlaceholder')}
                 value={formData.clickhouseCluster}
                 onChange={e => onChange('clickhouseCluster', e.target.value)}
                 spellCheck={false}
               />
-              <p className="text-xs text-muted-foreground">
-                {t('connection.clickhouse.clusterHint')}
-              </p>
-            </div>
+            </Field>
           )}
 
           {!isIntegrated && (
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>
-                  {t('connection.username')}{' '}
-                  {usernameRequired && <span className="text-error">*</span>}
-                </Label>
+              <Field label={t('connection.username')} required={usernameRequired}>
                 <Input
                   placeholder={isNtlm ? t('connection.mssql.ntlmUsernamePlaceholder') : 'user'}
                   value={formData.username}
                   onChange={e => onChange('username', e.target.value)}
                 />
-              </div>
-              <div className="space-y-2">
-                <Label>{t('connection.password')}</Label>
-                <Input
-                  type="password"
+              </Field>
+              <Field label={t('connection.password')}>
+                <PasswordInput
                   placeholder="••••••••"
                   value={formData.password}
                   onChange={e => onChange('password', e.target.value)}
                 />
-              </div>
+              </Field>
             </div>
           )}
         </>

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ChevronDown, ChevronRight } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useId, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/button';
@@ -17,7 +17,11 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 
+import { Field } from './Field';
+import { PasswordInput } from './PasswordInput';
 import type { ConnectionFormData } from './types';
+
+const SMALL_LABEL = 'text-xs text-muted-foreground';
 
 function parseIntOr(value: string, fallback: number) {
   const n = parseInt(value, 10);
@@ -32,6 +36,7 @@ export function ProxySection(props: {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
+  const proxyTypeId = useId();
 
   const summary = useMemo(() => {
     if (!formData.useProxy) return '';
@@ -78,7 +83,7 @@ export function ProxySection(props: {
           {isOpen && (
             <div className="px-4 pb-4 space-y-4">
               <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground">
+                <Label htmlFor={proxyTypeId} className="text-xs text-muted-foreground">
                   {t('connection.proxy.type')}
                 </Label>
                 <Select
@@ -87,7 +92,7 @@ export function ProxySection(props: {
                     onChange('proxyType', value as ConnectionFormData['proxyType'])
                   }
                 >
-                  <SelectTrigger className="h-9 w-full">
+                  <SelectTrigger id={proxyTypeId} className="h-9 w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -98,26 +103,24 @@ export function ProxySection(props: {
               </div>
 
               <div className="grid grid-cols-3 gap-3">
-                <div className="col-span-2 space-y-2">
-                  <Label className="text-xs text-muted-foreground">
-                    {t('connection.proxy.host')}
-                  </Label>
+                <Field
+                  label={t('connection.proxy.host')}
+                  className="col-span-2"
+                  labelClassName={SMALL_LABEL}
+                >
                   <Input
                     placeholder="proxy.corp.local"
                     value={formData.proxyHost}
                     onChange={e => onChange('proxyHost', e.target.value)}
                   />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-xs text-muted-foreground">
-                    {t('connection.proxy.port')}
-                  </Label>
+                </Field>
+                <Field label={t('connection.proxy.port')} labelClassName={SMALL_LABEL}>
                   <Input
                     type="number"
                     value={formData.proxyPort}
                     onChange={e => onChange('proxyPort', parseIntOr(e.target.value, 1080))}
                   />
-                </div>
+                </Field>
               </div>
 
               <div className="rounded-md border border-border">
@@ -139,32 +142,25 @@ export function ProxySection(props: {
                 {showAuth && (
                   <div className="px-3 pb-3 space-y-3 border-t border-border">
                     <div className="grid grid-cols-2 gap-3 pt-3">
-                      <div className="space-y-2">
-                        <Label className="text-xs text-muted-foreground">
-                          {t('connection.proxy.username')}
-                        </Label>
+                      <Field label={t('connection.proxy.username')} labelClassName={SMALL_LABEL}>
                         <Input
                           placeholder={t('connection.proxy.usernameOptional')}
                           value={formData.proxyUsername}
                           onChange={e => onChange('proxyUsername', e.target.value)}
                         />
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-xs text-muted-foreground">
-                          {t('connection.proxy.password')}
-                        </Label>
-                        <Input
-                          type="password"
+                      </Field>
+                      <Field label={t('connection.proxy.password')} labelClassName={SMALL_LABEL}>
+                        <PasswordInput
                           placeholder={t('connection.proxy.passwordOptional')}
                           value={formData.proxyPassword}
                           onChange={e => onChange('proxyPassword', e.target.value)}
                         />
-                      </div>
+                      </Field>
                     </div>
-                    <div className="space-y-2">
-                      <Label className="text-xs text-muted-foreground">
-                        {t('connection.proxy.connectTimeoutSecs')}
-                      </Label>
+                    <Field
+                      label={t('connection.proxy.connectTimeoutSecs')}
+                      labelClassName={SMALL_LABEL}
+                    >
                       <Input
                         type="number"
                         min={1}
@@ -173,7 +169,7 @@ export function ProxySection(props: {
                           onChange('proxyConnectTimeoutSecs', parseIntOr(e.target.value, 10))
                         }
                       />
-                    </div>
+                    </Field>
                   </div>
                 )}
               </div>

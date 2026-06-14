@@ -223,7 +223,7 @@
     "selectDriver": "选择驱动",
     "configureConnection": "配置连接",
     "validationError": "请填写所有必填字段",
-    "driverSelected": "已选驱动",
+    "missingRequired": "继续前需填写：",
     "changeDriver": "更改…",
     "modalTitleNew": "新建连接",
     "modalTitleEdit": "编辑连接",
@@ -232,9 +232,10 @@
     "port": "端口",
     "username": "用户名",
     "password": "密码",
+    "showPassword": "显示密码",
+    "hidePassword": "隐藏密码",
     "database": "数据库",
     "databaseInitial": "初始数据库",
-    "databaseInitialHint": "表是从此数据库读取的，而不是上面的连接名称。",
     "databaseIndex": "数据库索引（0-15）",
     "filePath": "数据库文件",
     "filePathPlaceholder": "/path/to/database.db",
@@ -306,7 +307,8 @@
       "authIntegrated": "Windows (集成)",
       "ntlmHint": "仅限 Windows 客户端。",
       "integratedHint": "使用当前的 Windows 会话，无需凭据。",
-      "ntlmUsernamePlaceholder": "DOMAIN\\user"
+      "ntlmUsernamePlaceholder": "DOMAIN\\user",
+      "ntlmUsernameInvalid": "NTLM 用户名必须包含域 (DOMAIN\\user 或 user@domain)"
     },
     "ssh": {
       "enableTunnel": "使用 SSH 隧道",

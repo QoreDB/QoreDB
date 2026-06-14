@@ -223,7 +223,7 @@
     "selectDriver": "Treiber auswählen",
     "configureConnection": "Verbindung konfigurieren",
     "validationError": "Bitte füllen Sie alle Pflichtfelder aus",
-    "driverSelected": "Ausgewählter Treiber",
+    "missingRequired": "Zum Fortfahren erforderlich:",
     "changeDriver": "Ändern…",
     "modalTitleNew": "Neue Verbindung",
     "modalTitleEdit": "Verbindung bearbeiten",
@@ -232,9 +232,10 @@
     "port": "Port",
     "username": "Benutzername",
     "password": "Passwort",
+    "showPassword": "Passwort anzeigen",
+    "hidePassword": "Passwort verbergen",
     "database": "Datenbank",
     "databaseInitial": "Anfangsdatenbank",
-    "databaseInitialHint": "Tabellen werden aus dieser Datenbank gelesen, nicht aus dem Verbindungsnamen oben.",
     "databaseIndex": "Datenbankindex (0-15)",
     "filePath": "Datenbankdatei",
     "filePathPlaceholder": "/pfad/zur/datenbank.db",
@@ -306,7 +307,8 @@
       "authIntegrated": "Windows (Integriert)",
       "ntlmHint": "Nur Windows-Clients.",
       "integratedHint": "Verwendet Ihre aktuelle Windows-Sitzung, keine Anmeldedaten erforderlich.",
-      "ntlmUsernamePlaceholder": "DOMÄNE\\benutzer"
+      "ntlmUsernamePlaceholder": "DOMÄNE\\benutzer",
+      "ntlmUsernameInvalid": "NTLM-Benutzername muss eine Domäne enthalten (DOMÄNE\\Benutzer oder Benutzer@Domäne)"
     },
     "ssh": {
       "enableTunnel": "SSH-Tunnel verwenden",

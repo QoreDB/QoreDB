@@ -223,7 +223,7 @@
     "selectDriver": "Выберите драйвер",
     "configureConnection": "Настроить подключение",
     "validationError": "Заполните все обязательные поля",
-    "driverSelected": "Выбранный драйвер",
+    "missingRequired": "Требуется для продолжения:",
     "changeDriver": "Изменить…",
     "modalTitleNew": "Новое подключение",
     "modalTitleEdit": "Редактировать подключение",
@@ -232,9 +232,10 @@
     "port": "Порт",
     "username": "Имя пользователя",
     "password": "Пароль",
+    "showPassword": "Показать пароль",
+    "hidePassword": "Скрыть пароль",
     "database": "База данных",
     "databaseInitial": "Начальная база данных",
-    "databaseInitialHint": "Таблицы читаются из этой базы данных, а не из имени подключения выше.",
     "databaseIndex": "Индекс базы данных (0-15)",
     "filePath": "Файл базы данных",
     "filePathPlaceholder": "/путь/к/базе.db",
@@ -306,7 +307,8 @@
       "authIntegrated": "Windows (Интегрированная)",
       "ntlmHint": "Только клиенты Windows.",
       "integratedHint": "Использует текущую сессию Windows, учётные данные не требуются.",
-      "ntlmUsernamePlaceholder": "ДОМЕН\\пользователь"
+      "ntlmUsernamePlaceholder": "ДОМЕН\\пользователь",
+      "ntlmUsernameInvalid": "Имя NTLM должно содержать домен (DOMAIN\\user или user@domain)"
     },
     "ssh": {
       "enableTunnel": "Использовать SSH-туннель",

@@ -19,6 +19,8 @@ function mapDriverString(driver: string | undefined): Driver | undefined {
       return Driver.Postgres;
     case 'mysql':
       return Driver.Mysql;
+    case 'mariadb':
+      return Driver.Mariadb;
     case 'mongodb':
       return Driver.Mongodb;
     case 'redis':
@@ -26,6 +28,19 @@ function mapDriverString(driver: string | undefined): Driver | undefined {
     case 'sqlite':
     case 'sqlite3':
       return Driver.Sqlite;
+    case 'duckdb':
+      return Driver.Duckdb;
+    case 'sqlserver':
+    case 'mssql':
+      return Driver.SqlServer;
+    case 'cockroachdb':
+    case 'cockroach':
+      return Driver.Cockroachdb;
+    case 'timescaledb':
+    case 'timescale':
+      return Driver.Timescaledb;
+    case 'clickhouse':
+      return Driver.Clickhouse;
     default:
       return undefined;
   }
@@ -67,7 +82,6 @@ export function useConnectionForm(options: {
         sshPort: sshTunnel ? sshTunnel.port : 22,
         sshUsername: sshTunnel ? sshTunnel.username : '',
         sshKeyPath: sshTunnel ? sshTunnel.key_path || '' : '',
-        sshPassphrase: '',
         sshHostKeyPolicy: sshTunnel
           ? (sshTunnel.host_key_policy as ConnectionFormData['sshHostKeyPolicy'])
           : 'accept_new',

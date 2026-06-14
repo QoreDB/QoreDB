@@ -223,7 +223,7 @@
     "selectDriver": "드라이버 선택",
     "configureConnection": "연결 구성",
     "validationError": "모든 필수 항목을 입력해 주세요",
-    "driverSelected": "선택된 드라이버",
+    "missingRequired": "계속하려면 필수:",
     "changeDriver": "변경...",
     "modalTitleNew": "새 연결",
     "modalTitleEdit": "연결 편집",
@@ -232,9 +232,10 @@
     "port": "포트",
     "username": "사용자 이름",
     "password": "비밀번호",
+    "showPassword": "비밀번호 표시",
+    "hidePassword": "비밀번호 숨기기",
     "database": "데이터베이스",
     "databaseInitial": "초기 데이터베이스",
-    "databaseInitialHint": "테이블은 위의 연결 이름이 아니라 이 데이터베이스에서 읽어옵니다.",
     "databaseIndex": "데이터베이스 인덱스 (0-15)",
     "filePath": "데이터베이스 파일",
     "filePathPlaceholder": "/path/to/database.db",
@@ -306,7 +307,8 @@
       "authIntegrated": "Windows (통합 인증)",
       "ntlmHint": "Windows 클라이언트 전용.",
       "integratedHint": "현재 Windows 세션을 사용하며 자격 증명이 필요하지 않습니다.",
-      "ntlmUsernamePlaceholder": "DOMAIN\\user"
+      "ntlmUsernamePlaceholder": "DOMAIN\\user",
+      "ntlmUsernameInvalid": "NTLM 사용자 이름에는 도메인이 포함되어야 합니다 (DOMAIN\\user 또는 user@domain)"
     },
     "ssh": {
       "enableTunnel": "SSH 터널 사용",

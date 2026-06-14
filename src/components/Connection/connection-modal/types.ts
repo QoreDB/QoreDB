@@ -26,7 +26,6 @@ export interface ConnectionFormData {
   sshPort: number;
   sshUsername: string;
   sshKeyPath: string;
-  sshPassphrase: string;
   sshHostKeyPolicy: 'accept_new' | 'strict' | 'insecure_no_check';
   sshProxyJump: string;
   sshConnectTimeoutSecs: number;
@@ -67,7 +66,6 @@ export const initialConnectionFormData: ConnectionFormData = {
   sshPort: 22,
   sshUsername: '',
   sshKeyPath: '',
-  sshPassphrase: '',
   sshHostKeyPolicy: 'accept_new',
   sshProxyJump: '',
   sshConnectTimeoutSecs: 10,

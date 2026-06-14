@@ -251,7 +251,7 @@
     "selectDriver": "Sélectionner un moteur",
     "configureConnection": "Configurer la connexion",
     "validationError": "Veuillez remplir tous les champs requis",
-    "driverSelected": "Moteur sélectionné",
+    "missingRequired": "Requis pour continuer :",
     "changeDriver": "Modifier...",
     "modalTitleNew": "Nouvelle connexion",
     "modalTitleEdit": "Modifier la connexion",
@@ -260,6 +260,8 @@
     "port": "Port",
     "username": "Nom d'utilisateur",
     "password": "Mot de passe",
+    "showPassword": "Afficher le mot de passe",
+    "hidePassword": "Masquer le mot de passe",
     "database": "Base de données",
     "databaseInitial": "Base de données initiale",
     "databaseIndex": "Index de base (0-15)",
@@ -283,7 +285,7 @@
     "poolMin": "Min",
     "poolAcquireTimeout": "Acquisition (s)",
     "advanced": "Paramètres avancés",
-    "advancedHint": "SSL, DB, SSH…",
+    "advancedHint": "SSL, Pool, SSH…",
     "advancedHintUrlMode": "Pool, SSH…",
     "cancel": "Annuler",
     "test": "Tester",
@@ -333,7 +335,8 @@
       "authIntegrated": "Windows (Intégrée)",
       "ntlmHint": "Clients Windows uniquement.",
       "integratedHint": "Utilise votre session Windows courante, aucun identifiant requis.",
-      "ntlmUsernamePlaceholder": "DOMAINE\\utilisateur"
+      "ntlmUsernamePlaceholder": "DOMAINE\\utilisateur",
+      "ntlmUsernameInvalid": "Le nom NTLM doit inclure un domaine (DOMAINE\\utilisateur ou utilisateur@domaine)"
     },
     "ssh": {
       "enableTunnel": "Utiliser un tunnel SSH",

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Check, Link2, Loader2, X } from 'lucide-react';
-import { useCallback, useEffect, useId, useState } from 'react';
+import { type FormEvent, useCallback, useEffect, useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
@@ -33,6 +33,7 @@ import {
   buildConnectionConfig,
   buildSaveConnectionInput,
   buildSavedConnection,
+  getMissingRequirements,
 } from './connection-modal/mappers';
 import { UrlInput } from './connection-modal/UrlSection';
 import { useConnectionForm } from './connection-modal/useConnectionForm';
@@ -85,6 +86,7 @@ export function ConnectionModal({
   }, [isOpen, isEditMode]);
 
   const hideConnectionFields = formData.useUrl && urlParsed;
+  const missingRequirements = getMissingRequirements(formData);
 
   function handleDriverSelect(nextDriver: Parameters<typeof handleDriverChange>[0]) {
     handleDriverChange(nextDriver);
@@ -116,6 +118,16 @@ export function ConnectionModal({
     setUrlParsed(isParsed);
   }, []);
 
+  function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    if (!isValid || connecting || testing) return;
+    if (isEditMode) {
+      handleSaveOnly();
+    } else {
+      handleSaveAndConnect();
+    }
+  }
+
   async function handleTestConnection() {
     setTesting(true);
     setTestResult(null);
@@ -128,7 +140,6 @@ export function ConnectionModal({
 
       if (result.success) {
         setTestResult('success');
-        toast.success(t('connection.testSuccess'));
         AnalyticsService.capture('connection_tested_success', {
           source: 'modal',
           driver: formData.driver,
@@ -140,7 +151,6 @@ export function ConnectionModal({
         });
         setTestResult('error');
         setError(result.error || t('connection.testFail'));
-        toast.error(t('connection.testFail'), { description: result.error });
       }
     } catch (err) {
       AnalyticsService.capture('connection_tested_failed', {
@@ -150,7 +160,6 @@ export function ConnectionModal({
       setTestResult('error');
       const errorMsg = err instanceof Error ? err.message : t('common.error');
       setError(errorMsg);
-      toast.error(t('connection.testFail'), { description: errorMsg });
     } finally {
       setTesting(false);
     }
@@ -280,7 +289,7 @@ export function ConnectionModal({
             </div>
           </div>
         ) : (
-          <>
+          <form onSubmit={handleSubmit} className="contents">
             <ScrollArea className="max-h-[75vh]">
               <div className="grid gap-4 py-4">
                 {/* Driver Header with URL toggle */}
@@ -293,14 +302,9 @@ export function ConnectionModal({
                         className="w-full h-full object-contain"
                       />
                     </div>
-                    <div className="flex flex-col">
-                      <span className="text-sm font-semibold">
-                        {DRIVER_LABELS[formData.driver]}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        {t('connection.driverSelected')}
-                      </span>
-                    </div>
+                    <span className="text-sm font-semibold">
+                      {DRIVER_LABELS[formData.driver]}
+                    </span>
                   </div>
 
                   <div className="flex items-center gap-3">
@@ -384,14 +388,23 @@ export function ConnectionModal({
                     {t('connection.testSuccess')}
                   </div>
                 )}
+                {!error && missingRequirements.length > 0 && (
+                  <div className="p-3 rounded-md bg-muted/40 border border-border text-muted-foreground text-xs">
+                    {t('connection.missingRequired')}{' '}
+                    <span className="text-foreground">
+                      {missingRequirements.map(key => t(key)).join(', ')}
+                    </span>
+                  </div>
+                )}
               </div>
             </ScrollArea>
 
             <DialogFooter>
-              <Button variant="outline" onClick={requestClose}>
+              <Button type="button" variant="outline" onClick={requestClose}>
                 {t('connection.cancel')}
               </Button>
               <Button
+                type="button"
                 variant="secondary"
                 className="transition-all"
                 onClick={handleTestConnection}
@@ -400,23 +413,14 @@ export function ConnectionModal({
                 {testing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {t('connection.test')}
               </Button>
-              {isEditMode ? (
-                <div title={!isValid ? t('connection.validationError') : undefined}>
-                  <Button onClick={handleSaveOnly} disabled={!isValid || connecting}>
-                    {connecting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    {t('connection.saveChanges')}
-                  </Button>
-                </div>
-              ) : (
-                <div title={!isValid ? t('connection.validationError') : undefined}>
-                  <Button onClick={handleSaveAndConnect} disabled={!isValid || connecting}>
-                    {connecting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    {t('connection.saveConnect')}
-                  </Button>
-                </div>
-              )}
+              <div title={!isValid ? t('connection.validationError') : undefined}>
+                <Button type="submit" disabled={!isValid || connecting}>
+                  {connecting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {isEditMode ? t('connection.saveChanges') : t('connection.saveConnect')}
+                </Button>
+              </div>
             </DialogFooter>
-          </>
+          </form>
         )}
       </DialogContent>
     </Dialog>

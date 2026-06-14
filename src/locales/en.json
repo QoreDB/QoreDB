@@ -251,7 +251,7 @@
     "selectDriver": "Select a driver",
     "configureConnection": "Configure Connection",
     "validationError": "Please fill in all required fields",
-    "driverSelected": "Selected driver",
+    "missingRequired": "Required to continue:",
     "changeDriver": "Change...",
     "modalTitleNew": "New Connection",
     "modalTitleEdit": "Edit Connection",
@@ -260,9 +260,10 @@
     "port": "Port",
     "username": "Username",
     "password": "Password",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
     "database": "Database",
     "databaseInitial": "Initial Database",
-    "databaseInitialHint": "Tables are read from this database, not the connection name above.",
     "databaseIndex": "Database Index (0-15)",
     "filePath": "Database File",
     "filePathPlaceholder": "/path/to/database.db",
@@ -334,7 +335,8 @@
       "authIntegrated": "Windows (Integrated)",
       "ntlmHint": "Windows clients only.",
       "integratedHint": "Uses your current Windows session, no credentials needed.",
-      "ntlmUsernamePlaceholder": "DOMAIN\\user"
+      "ntlmUsernamePlaceholder": "DOMAIN\\user",
+      "ntlmUsernameInvalid": "NTLM username must include a domain (DOMAIN\\user or user@domain)"
     },
     "ssh": {
       "enableTunnel": "Use SSH Tunnel",

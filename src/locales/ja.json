@@ -223,7 +223,7 @@
     "selectDriver": "ドライバーを選択",
     "configureConnection": "接続を設定",
     "validationError": "必須項目をすべて入力してください",
-    "driverSelected": "選択されたドライバー",
+    "missingRequired": "続行するには必須:",
     "changeDriver": "変更...",
     "modalTitleNew": "新しい接続",
     "modalTitleEdit": "接続を編集",
@@ -232,9 +232,10 @@
     "port": "ポート",
     "username": "ユーザー名",
     "password": "パスワード",
+    "showPassword": "パスワードを表示",
+    "hidePassword": "パスワードを非表示",
     "database": "データベース",
     "databaseInitial": "初期データベース",
-    "databaseInitialHint": "テーブルは上の接続名ではなく、このデータベースから読み込まれます。",
     "databaseIndex": "データベースインデックス (0-15)",
     "filePath": "データベースファイル",
     "filePathPlaceholder": "/path/to/database.db",
@@ -306,7 +307,8 @@
       "authIntegrated": "Windows (統合認証)",
       "ntlmHint": "Windows クライアントのみ。",
       "integratedHint": "現在の Windows セッションを使用します。資格情報は不要です。",
-      "ntlmUsernamePlaceholder": "DOMAIN\\user"
+      "ntlmUsernamePlaceholder": "DOMAIN\\user",
+      "ntlmUsernameInvalid": "NTLM ユーザー名にはドメインが必要です (DOMAIN\\user または user@domain)"
     },
     "ssh": {
       "enableTunnel": "SSH トンネルを使用",

@@ -223,7 +223,7 @@
     "selectDriver": "Seleccionar un driver",
     "configureConnection": "Configurar conexión",
     "validationError": "Por favor completa todos los campos obligatorios",
-    "driverSelected": "Driver seleccionado",
+    "missingRequired": "Requerido para continuar:",
     "changeDriver": "Cambiar...",
     "modalTitleNew": "Nueva conexión",
     "modalTitleEdit": "Editar conexión",
@@ -232,9 +232,10 @@
     "port": "Puerto",
     "username": "Usuario",
     "password": "Contraseña",
+    "showPassword": "Mostrar contraseña",
+    "hidePassword": "Ocultar contraseña",
     "database": "Base de datos",
     "databaseInitial": "Base de datos inicial",
-    "databaseInitialHint": "Las tablas se leen de esta base de datos, no del nombre de conexión de arriba.",
     "databaseIndex": "Índice de base de datos (0-15)",
     "filePath": "Archivo de base de datos",
     "filePathPlaceholder": "/ruta/a/base_de_datos.db",
@@ -306,7 +307,8 @@
       "authIntegrated": "Windows (Integrada)",
       "ntlmHint": "Solo clientes Windows.",
       "integratedHint": "Usa tu sesión actual de Windows, sin credenciales.",
-      "ntlmUsernamePlaceholder": "DOMINIO\\usuario"
+      "ntlmUsernamePlaceholder": "DOMINIO\\usuario",
+      "ntlmUsernameInvalid": "El usuario NTLM debe incluir un dominio (DOMINIO\\usuario o usuario@dominio)"
     },
     "ssh": {
       "enableTunnel": "Usar túnel SSH",

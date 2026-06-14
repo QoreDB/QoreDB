@@ -116,7 +116,9 @@ use crate::ai::provider::extract_query_from_response;
 #[cfg(feature = "pro")]
 use crate::ai::safety::validate_generated_query;
 #[cfg(feature = "pro")]
-use crate::ai::types::{AiAction, AiConfig, AiProvider, AiRequest, AiResponse, AiStreamChunk};
+use crate::ai::types::{
+    AiAction, AiConfig, AiMessage, AiProvider, AiRequest, AiResponse, AiStreamChunk,
+};
 #[cfg(feature = "pro")]
 use crate::engine::types::{ColumnFilter, Namespace, SessionId};
 
@@ -185,6 +187,7 @@ pub async fn ai_explain_result(
         &virtual_relations,
         None,
         &query,
+        false,
     )
     .await?;
 
@@ -246,6 +249,7 @@ pub async fn ai_summarize_schema(
         &virtual_relations,
         None,
         "",
+        false,
     )
     .await?;
 
@@ -451,21 +455,16 @@ async fn collect_streamed_response(
     let (tx, mut rx) = tokio::sync::mpsc::channel::<AiStreamChunk>(64);
     let request_id = Uuid::new_v4().to_string();
 
-    let system_prompt = system_prompt.to_string();
-    let user_prompt = user_prompt.to_string();
+    let messages = vec![
+        AiMessage::system(system_prompt),
+        AiMessage::user(user_prompt),
+    ];
     let config_clone = config.clone();
     let rid = request_id.clone();
 
     tokio::spawn(async move {
         if let Err(e) = provider
-            .stream(
-                &api_key,
-                &system_prompt,
-                &user_prompt,
-                &config_clone,
-                tx.clone(),
-                rid.clone(),
-            )
+            .stream(&api_key, &messages, &config_clone, tx.clone(), rid.clone())
             .await
         {
             let _ = tx
@@ -533,6 +532,7 @@ async fn stream_ai_request(
         &virtual_relations,
         request.connection_id.as_deref(),
         &request.prompt,
+        request.include_sample_rows,
     )
     .await?;
 
@@ -550,8 +550,12 @@ async fn stream_ai_request(
 
     let request_id = request.request_id.clone();
     let config = request.config.clone();
-    let system_prompt = schema_ctx.system_prompt;
     let event_name = format!("ai_stream:{}", request_id);
+
+    let mut messages = Vec::with_capacity(request.history.len() + 2);
+    messages.push(AiMessage::system(schema_ctx.system_prompt));
+    messages.extend(context::clamp_history(&request.history));
+    messages.push(AiMessage::user(user_prompt));
 
     tokio::spawn(async move {
         let (tx, mut rx) = tokio::sync::mpsc::channel::<AiStreamChunk>(64);
@@ -559,9 +563,7 @@ async fn stream_ai_request(
         let event = event_name.clone();
 
         let provider_handle = tokio::spawn(async move {
-            provider
-                .stream(&api_key, &system_prompt, &user_prompt, &config, tx, rid)
-                .await
+            provider.stream(&api_key, &messages, &config, tx, rid).await
         });
 
         let mut full_response = String::new();
@@ -577,7 +579,7 @@ async fn stream_ai_request(
             Err(e) => Some(format!("Stream task panicked: {}", e)),
         };
 
-        let generated_query = extract_query_from_response(&full_response);
+        let generated_query = extract_query_from_response(&full_response, &driver_id);
         let safety_analysis = generated_query
             .as_ref()
             .map(|q| validate_generated_query(&driver_id, q));
@@ -599,7 +601,7 @@ async fn stream_ai_request(
 /// Build the user-facing prompt based on the action type
 #[cfg(feature = "pro")]
 fn build_user_prompt(request: &AiRequest) -> String {
-    match &request.action {
+    let base = match &request.action {
         AiAction::GenerateQuery => {
             format!(
                 "Generate a query for the following request:\n\n{}",
@@ -631,5 +633,14 @@ fn build_user_prompt(request: &AiRequest) -> String {
             )
         }
         AiAction::SummarizeSchema => request.prompt.clone(),
+    };
+
+    match request
+        .editor_context
+        .as_ref()
+        .and_then(context::format_editor_context)
+    {
+        Some(editor_block) => format!("{base}\n\n{editor_block}"),
+        None => base,
     }
 }

@@ -2,9 +2,10 @@
 
 import { AlertTriangle, ArrowDownToLine, ClipboardCopy, Loader2, ShieldAlert } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import Markdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import type { SafetyInfo } from '@/lib/ai';
 
 interface AiResponseDisplayProps {
@@ -46,15 +47,15 @@ export function AiResponseDisplay({
 
   return (
     <div className="flex flex-col gap-2">
-      {/* Streaming response text */}
-      <ScrollArea className="max-h-[300px]">
-        <div className="text-sm text-foreground whitespace-pre-wrap leading-relaxed p-2">
-          {response}
-          {loading && (
-            <Loader2 size={14} className="inline-block ml-1 animate-spin text-muted-foreground" />
-          )}
+      {/* Response text */}
+      <div className="text-sm leading-relaxed">
+        <div className="prose prose-sm dark:prose-invert max-w-none [&_pre]:whitespace-pre-wrap">
+          <Markdown remarkPlugins={[remarkGfm]}>{response}</Markdown>
         </div>
-      </ScrollArea>
+        {loading && (
+          <Loader2 size={14} className="inline-block ml-1 animate-spin text-muted-foreground" />
+        )}
+      </div>
 
       {/* Generated query block */}
       {generatedQuery && (

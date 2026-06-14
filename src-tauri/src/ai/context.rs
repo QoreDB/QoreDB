@@ -9,7 +9,10 @@ use std::sync::{Arc, OnceLock};
 use regex::Regex;
 use tracing::debug;
 
-use crate::engine::types::{CollectionListOptions, Namespace, SessionId, TableSchema};
+use crate::ai::types::{AiMessage, EditorContext};
+use crate::engine::types::{
+    CollectionListOptions, Namespace, QueryResult, SessionId, TableSchema, Value,
+};
 use crate::engine::SessionManager;
 use crate::virtual_relations::VirtualRelationStore;
 
@@ -54,6 +57,36 @@ pub struct SchemaContext {
 
 const MAX_TABLES: usize = 30;
 const MAX_SCHEMA_WORDS: usize = 4000;
+const MAX_SAMPLED_TABLES: usize = 5;
+const SAMPLE_ROW_LIMIT: u32 = 3;
+const SAMPLE_VALUE_MAX_CHARS: usize = 80;
+
+/// Bounds applied to the conversation history sent back to the LLM. Each
+/// assistant turn is already capped by `max_tokens` and each user turn by
+/// [`MAX_USER_PROMPT_CHARS`], so this is a second fence against unbounded
+/// context growth, not the primary one.
+pub const MAX_HISTORY_MESSAGES: usize = 20;
+pub const MAX_HISTORY_CHARS: usize = 24_000;
+
+/// Keep the most recent turns within the size budget; oldest dropped first.
+/// The most recent message is always kept.
+pub fn clamp_history(history: &[AiMessage]) -> Vec<AiMessage> {
+    let mut kept: Vec<AiMessage> = Vec::new();
+    let mut total_chars = 0usize;
+    for msg in history.iter().rev() {
+        if kept.len() >= MAX_HISTORY_MESSAGES {
+            break;
+        }
+        let len = msg.content.chars().count();
+        if !kept.is_empty() && total_chars + len > MAX_HISTORY_CHARS {
+            break;
+        }
+        total_chars += len;
+        kept.push(msg.clone());
+    }
+    kept.reverse();
+    kept
+}
 
 /// Determine the query dialect from a driver ID
 pub fn dialect_for_driver(driver_id: &str) -> QueryDialect {
@@ -67,7 +100,10 @@ pub fn dialect_for_driver(driver_id: &str) -> QueryDialect {
 /// Build the full schema context for an AI request.
 ///
 /// Fetches table/collection list and describes each (up to MAX_TABLES),
-/// prioritizing tables mentioned in the user prompt.
+/// prioritizing tables mentioned in the user prompt. When
+/// `include_sample_rows` is set (explicit user opt-in), up to
+/// [`SAMPLE_ROW_LIMIT`] redacted rows are appended for tables mentioned in
+/// the prompt.
 pub async fn build_context(
     session_manager: &Arc<SessionManager>,
     session_id: SessionId,
@@ -76,6 +112,7 @@ pub async fn build_context(
     virtual_relations: &Arc<VirtualRelationStore>,
     connection_id: Option<&str>,
     user_prompt: &str,
+    include_sample_rows: bool,
 ) -> Result<SchemaContext, String> {
     let dialect = dialect_for_driver(driver_id);
     let driver = session_manager
@@ -111,6 +148,7 @@ pub async fn build_context(
 
     let mut schema_parts: Vec<String> = Vec::new();
     let mut total_words = 0;
+    let mut sampled_tables = 0;
 
     for table_name in &table_names {
         if total_words > MAX_SCHEMA_WORDS {
@@ -149,6 +187,23 @@ pub async fn build_context(
                         .unwrap();
                     }
                     full_desc.push('\n');
+                }
+
+                if include_sample_rows
+                    && sampled_tables < MAX_SAMPLED_TABLES
+                    && prompt_lower.contains(&table_name.to_lowercase())
+                {
+                    match driver
+                        .preview_table(session_id, namespace, table_name, SAMPLE_ROW_LIMIT)
+                        .await
+                    {
+                        Ok(preview) if !preview.rows.is_empty() => {
+                            full_desc.push_str(&format_sample_rows(&preview));
+                            sampled_tables += 1;
+                        }
+                        Ok(_) => {}
+                        Err(e) => debug!("Failed to sample table {}: {}", table_name, e),
+                    }
                 }
 
                 total_words += full_desc.split_whitespace().count();
@@ -255,6 +310,100 @@ fn format_table_schema(table_name: &str, schema: &TableSchema, _driver_id: &str)
     out
 }
 
+/// Format sample rows for the schema context. Columns whose name matches the
+/// sensitive regex are skipped entirely — neither name nor value reaches the
+/// provider. Values are truncated so a single TEXT column can't blow up the
+/// prompt.
+fn format_sample_rows(result: &QueryResult) -> String {
+    let mut out = String::new();
+    out.push_str("  Sample rows:\n");
+    for row in &result.rows {
+        let pairs: Vec<String> = result
+            .columns
+            .iter()
+            .enumerate()
+            .filter(|(_, col)| !sensitive_column_regex().is_match(&col.name))
+            .map(|(i, col)| {
+                let value = row
+                    .values
+                    .get(i)
+                    .map(format_sample_value)
+                    .unwrap_or_else(|| "NULL".to_string());
+                format!("{}={}", col.name, value)
+            })
+            .collect();
+        writeln!(out, "    ({})", pairs.join(", ")).unwrap();
+    }
+    out
+}
+
+fn format_sample_value(value: &Value) -> String {
+    let raw = match value {
+        Value::Null => "NULL".to_string(),
+        Value::Bool(b) => b.to_string(),
+        Value::Int(i) => i.to_string(),
+        Value::Float(f) => f.to_string(),
+        Value::Text(s) => s.clone(),
+        Value::Bytes(b) => format!("<{} bytes>", b.len()),
+        Value::Json(v) => v.to_string(),
+        Value::Array(items) => format!("<array[{}]>", items.len()),
+    };
+    truncate_chars(&raw, SAMPLE_VALUE_MAX_CHARS)
+}
+
+const MAX_EDITOR_QUERY_CHARS: usize = 4_000;
+const MAX_EDITOR_FIELD_CHARS: usize = 1_000;
+
+/// Render the editor context block appended to the user prompt. Returns
+/// `None` when every field is empty.
+pub fn format_editor_context(ctx: &EditorContext) -> Option<String> {
+    let mut parts: Vec<String> = Vec::new();
+
+    if let Some(query) = non_empty(ctx.current_query.as_deref()) {
+        parts.push(format!(
+            "Query currently in the editor:\n```\n{}\n```",
+            truncate_chars(query, MAX_EDITOR_QUERY_CHARS)
+        ));
+    }
+    if let Some(table) = non_empty(ctx.active_table.as_deref()) {
+        parts.push(format!(
+            "Active table: {}",
+            truncate_chars(table, MAX_EDITOR_FIELD_CHARS)
+        ));
+    }
+    if let Some(error) = non_empty(ctx.last_error.as_deref()) {
+        parts.push(format!(
+            "Last error:\n{}",
+            truncate_chars(error, MAX_EDITOR_FIELD_CHARS)
+        ));
+    }
+    if let Some(shape) = non_empty(ctx.result_shape.as_deref()) {
+        parts.push(format!(
+            "Last result shape: {}",
+            truncate_chars(shape, MAX_EDITOR_FIELD_CHARS)
+        ));
+    }
+
+    if parts.is_empty() {
+        None
+    } else {
+        Some(format!("Current editor context:\n{}", parts.join("\n")))
+    }
+}
+
+fn non_empty(value: Option<&str>) -> Option<&str> {
+    value.map(str::trim).filter(|v| !v.is_empty())
+}
+
+fn truncate_chars(s: &str, max: usize) -> String {
+    if s.chars().count() <= max {
+        s.to_string()
+    } else {
+        let truncated: String = s.chars().take(max).collect();
+        format!("{}…", truncated)
+    }
+}
+
 /// Maximum length we accept for a user-supplied AI prompt. Longer prompts
 /// are rare for genuine queries; an attacker would use them to push the
 /// instruction-override below out of the model's effective context (cf.
@@ -351,7 +500,119 @@ Available key patterns:
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::engine::types::{ForeignKey, TableColumn, TableIndex};
+    use crate::engine::types::{ColumnInfo, ForeignKey, Row, TableColumn, TableIndex};
+
+    #[test]
+    fn clamp_history_keeps_recent_messages() {
+        let history: Vec<AiMessage> = (0..30)
+            .map(|i| {
+                if i % 2 == 0 {
+                    AiMessage::user(format!("question {i}"))
+                } else {
+                    AiMessage::assistant(format!("answer {i}"))
+                }
+            })
+            .collect();
+        let clamped = clamp_history(&history);
+        assert_eq!(clamped.len(), MAX_HISTORY_MESSAGES);
+        assert_eq!(clamped.last().unwrap().content, "answer 29");
+        assert_eq!(clamped.first().unwrap().content, "question 10");
+    }
+
+    #[test]
+    fn clamp_history_respects_char_budget() {
+        let big = "x".repeat(MAX_HISTORY_CHARS);
+        let history = vec![
+            AiMessage::user(big.clone()),
+            AiMessage::assistant("small answer"),
+            AiMessage::user("small question"),
+        ];
+        let clamped = clamp_history(&history);
+        assert_eq!(clamped.len(), 2);
+        assert_eq!(clamped[0].content, "small answer");
+        assert_eq!(clamped[1].content, "small question");
+    }
+
+    #[test]
+    fn clamp_history_always_keeps_most_recent() {
+        let history = vec![AiMessage::user("y".repeat(MAX_HISTORY_CHARS * 2))];
+        let clamped = clamp_history(&history);
+        assert_eq!(clamped.len(), 1);
+    }
+
+    #[test]
+    fn editor_context_formats_present_fields() {
+        let ctx = EditorContext {
+            current_query: Some("SELECT * FROM users".to_string()),
+            active_table: Some("users".to_string()),
+            last_error: None,
+            result_shape: Some("3 columns (id, name, age), 42 rows".to_string()),
+        };
+        let block = format_editor_context(&ctx).unwrap();
+        assert!(block.contains("SELECT * FROM users"));
+        assert!(block.contains("Active table: users"));
+        assert!(block.contains("Last result shape: 3 columns"));
+        assert!(!block.contains("Last error"));
+    }
+
+    #[test]
+    fn editor_context_empty_returns_none() {
+        assert!(format_editor_context(&EditorContext::default()).is_none());
+        let blank = EditorContext {
+            current_query: Some("   ".to_string()),
+            ..Default::default()
+        };
+        assert!(format_editor_context(&blank).is_none());
+    }
+
+    #[test]
+    fn editor_context_truncates_long_query() {
+        let ctx = EditorContext {
+            current_query: Some("a".repeat(MAX_EDITOR_QUERY_CHARS * 2)),
+            ..Default::default()
+        };
+        let block = format_editor_context(&ctx).unwrap();
+        assert!(block.chars().count() < MAX_EDITOR_QUERY_CHARS + 200);
+        assert!(block.contains('…'));
+    }
+
+    #[test]
+    fn sample_rows_skip_sensitive_columns_and_truncate() {
+        let result = QueryResult {
+            columns: vec![
+                ColumnInfo {
+                    name: "id".into(),
+                    data_type: "INT".into(),
+                    nullable: false,
+                },
+                ColumnInfo {
+                    name: "email".into(),
+                    data_type: "VARCHAR".into(),
+                    nullable: true,
+                },
+                ColumnInfo {
+                    name: "bio".into(),
+                    data_type: "TEXT".into(),
+                    nullable: true,
+                },
+            ],
+            rows: vec![Row {
+                values: vec![
+                    Value::Int(1),
+                    Value::Text("alice@example.com".to_string()),
+                    Value::Text("z".repeat(500)),
+                ],
+            }],
+            affected_rows: None,
+            execution_time_ms: 0.0,
+        };
+        let out = format_sample_rows(&result);
+        assert!(out.contains("id=1"));
+        assert!(!out.contains("alice@example.com"));
+        assert!(!out.contains("email"));
+        assert!(out.contains('…'));
+        assert!(!out.contains(&"z".repeat(SAMPLE_VALUE_MAX_CHARS + 2)));
+    }
 
     #[test]
     fn test_dialect_for_driver() {

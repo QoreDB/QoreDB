@@ -7,6 +7,7 @@ import { AiProviderSelector } from '@/components/AI/AiProviderSelector';
 import { LicenseGate } from '@/components/License/LicenseGate';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
 import { AI_PROVIDERS, type AiProvider, aiDeleteApiKey, aiSaveApiKey } from '@/lib/ai';
 import { useAiPreferences } from '@/providers/AiPreferencesProvider';
 import { SettingsCard } from '../SettingsCard';
@@ -144,8 +145,14 @@ function ProviderCard({
 
 export function AiSection({ searchQuery }: AiSectionProps) {
   const { t } = useTranslation();
-  const { preferredProvider, setPreferredProvider, providerStatuses, refreshStatuses } =
-    useAiPreferences();
+  const {
+    preferredProvider,
+    setPreferredProvider,
+    providerStatuses,
+    refreshStatuses,
+    includeSampleRows,
+    setIncludeSampleRows,
+  } = useAiPreferences();
 
   const providerHasKey = Object.fromEntries(
     AI_PROVIDERS.map(p => [
@@ -177,6 +184,14 @@ export function AiSection({ searchQuery }: AiSectionProps) {
             onProviderChange={setPreferredProvider}
             providerHasKey={providerHasKey}
           />
+        </SettingsCard>
+
+        <SettingsCard
+          title={t('ai.settings.sampleRows')}
+          description={t('ai.settings.sampleRowsDescription')}
+          searchQuery={searchQuery}
+        >
+          <Switch checked={includeSampleRows} onCheckedChange={setIncludeSampleRows} />
         </SettingsCard>
 
         <SettingsCard

@@ -8,7 +8,7 @@ use serde_json::{json, Value};
 use tokio::sync::mpsc;
 use tracing::debug;
 
-use super::types::{AiConfig, AiStreamChunk};
+use super::types::{AiConfig, AiMessage, AiRole, AiStreamChunk};
 
 /// Per-request timeout applied to every LLM HTTP client. Streaming SSE
 /// completions can legitimately take ~60 s for long answers, so we pick
@@ -42,12 +42,46 @@ pub trait AIProvider: Send + Sync {
     async fn stream(
         &self,
         api_key: &str,
-        system_prompt: &str,
-        user_prompt: &str,
+        messages: &[AiMessage],
         config: &AiConfig,
         sender: mpsc::Sender<AiStreamChunk>,
         request_id: String,
     ) -> Result<(), String>;
+}
+
+fn role_str(role: AiRole) -> &'static str {
+    match role {
+        AiRole::System => "system",
+        AiRole::User => "user",
+        AiRole::Assistant => "assistant",
+    }
+}
+
+/// Map messages to the OpenAI-style `messages` array (also used by Ollama).
+fn openai_style_messages(messages: &[AiMessage]) -> Value {
+    Value::Array(
+        messages
+            .iter()
+            .map(|m| json!({ "role": role_str(m.role), "content": m.content }))
+            .collect(),
+    )
+}
+
+/// Split messages into a combined system prompt and the user/assistant turns,
+/// for APIs where the system prompt travels outside the message list
+/// (Anthropic, Gemini).
+fn split_system(messages: &[AiMessage]) -> (String, Vec<&AiMessage>) {
+    let system = messages
+        .iter()
+        .filter(|m| m.role == AiRole::System)
+        .map(|m| m.content.as_str())
+        .collect::<Vec<_>>()
+        .join("\n\n");
+    let turns = messages
+        .iter()
+        .filter(|m| m.role != AiRole::System)
+        .collect();
+    (system, turns)
 }
 
 // ─── OpenAI ──────────────────────────────────────────────────
@@ -79,8 +113,7 @@ impl AIProvider for OpenAiProvider {
     async fn stream(
         &self,
         api_key: &str,
-        system_prompt: &str,
-        user_prompt: &str,
+        messages: &[AiMessage],
         config: &AiConfig,
         sender: mpsc::Sender<AiStreamChunk>,
         request_id: String,
@@ -91,10 +124,7 @@ impl AIProvider for OpenAiProvider {
 
         let body = json!({
             "model": model,
-            "messages": [
-                { "role": "system", "content": system_prompt },
-                { "role": "user", "content": user_prompt }
-            ],
+            "messages": openai_style_messages(messages),
             "max_tokens": max_tokens,
             "temperature": temperature,
             "stream": true
@@ -195,8 +225,7 @@ impl AIProvider for AnthropicProvider {
     async fn stream(
         &self,
         api_key: &str,
-        system_prompt: &str,
-        user_prompt: &str,
+        messages: &[AiMessage],
         config: &AiConfig,
         sender: mpsc::Sender<AiStreamChunk>,
         request_id: String,
@@ -205,12 +234,16 @@ impl AIProvider for AnthropicProvider {
         let max_tokens = config.effective_max_tokens();
         let temperature = config.effective_temperature();
 
+        let (system, turns) = split_system(messages);
+        let api_messages: Vec<Value> = turns
+            .iter()
+            .map(|m| json!({ "role": role_str(m.role), "content": m.content }))
+            .collect();
+
         let body = json!({
             "model": model,
-            "system": system_prompt,
-            "messages": [
-                { "role": "user", "content": user_prompt }
-            ],
+            "system": system,
+            "messages": api_messages,
             "max_tokens": max_tokens,
             "temperature": temperature,
             "stream": true
@@ -326,8 +359,7 @@ impl AIProvider for OllamaProvider {
     async fn stream(
         &self,
         _api_key: &str,
-        system_prompt: &str,
-        user_prompt: &str,
+        messages: &[AiMessage],
         config: &AiConfig,
         sender: mpsc::Sender<AiStreamChunk>,
         request_id: String,
@@ -339,10 +371,7 @@ impl AIProvider for OllamaProvider {
 
         let body = json!({
             "model": model,
-            "messages": [
-                { "role": "system", "content": system_prompt },
-                { "role": "user", "content": user_prompt }
-            ],
+            "messages": openai_style_messages(messages),
             "stream": true
         });
 
@@ -439,8 +468,7 @@ impl AIProvider for MistralAiProvider {
     async fn stream(
         &self,
         api_key: &str,
-        system_prompt: &str,
-        user_prompt: &str,
+        messages: &[AiMessage],
         config: &AiConfig,
         sender: mpsc::Sender<AiStreamChunk>,
         request_id: String,
@@ -449,8 +477,7 @@ impl AIProvider for MistralAiProvider {
             &self.client,
             "https://api.mistral.ai/v1/chat/completions",
             api_key,
-            system_prompt,
-            user_prompt,
+            messages,
             config,
             sender,
             request_id,
@@ -489,8 +516,7 @@ impl AIProvider for GoogleGeminiProvider {
     async fn stream(
         &self,
         api_key: &str,
-        system_prompt: &str,
-        user_prompt: &str,
+        messages: &[AiMessage],
         config: &AiConfig,
         sender: mpsc::Sender<AiStreamChunk>,
         request_id: String,
@@ -504,14 +530,23 @@ impl AIProvider for GoogleGeminiProvider {
             model
         );
 
+        let (system, turns) = split_system(messages);
+        let contents: Vec<Value> = turns
+            .iter()
+            .map(|m| {
+                let role = match m.role {
+                    AiRole::Assistant => "model",
+                    _ => "user",
+                };
+                json!({ "role": role, "parts": [{ "text": m.content }] })
+            })
+            .collect();
+
         let body = json!({
             "systemInstruction": {
-                "parts": [{ "text": system_prompt }]
+                "parts": [{ "text": system }]
             },
-            "contents": [{
-                "role": "user",
-                "parts": [{ "text": user_prompt }]
-            }],
+            "contents": contents,
             "generationConfig": {
                 "maxOutputTokens": max_tokens,
                 "temperature": temperature
@@ -610,8 +645,7 @@ impl AIProvider for DeepSeekProvider {
     async fn stream(
         &self,
         api_key: &str,
-        system_prompt: &str,
-        user_prompt: &str,
+        messages: &[AiMessage],
         config: &AiConfig,
         sender: mpsc::Sender<AiStreamChunk>,
         request_id: String,
@@ -620,8 +654,7 @@ impl AIProvider for DeepSeekProvider {
             &self.client,
             "https://api.deepseek.com/chat/completions",
             api_key,
-            system_prompt,
-            user_prompt,
+            messages,
             config,
             sender,
             request_id,
@@ -638,8 +671,7 @@ async fn stream_openai_compatible(
     client: &Client,
     url: &str,
     api_key: &str,
-    system_prompt: &str,
-    user_prompt: &str,
+    messages: &[AiMessage],
     config: &AiConfig,
     sender: mpsc::Sender<AiStreamChunk>,
     request_id: String,
@@ -651,10 +683,7 @@ async fn stream_openai_compatible(
 
     let body = json!({
         "model": model,
-        "messages": [
-            { "role": "system", "content": system_prompt },
-            { "role": "user", "content": user_prompt }
-        ],
+        "messages": openai_style_messages(messages),
         "max_tokens": max_tokens,
         "temperature": temperature,
         "stream": true
@@ -735,44 +764,65 @@ fn extract_api_error(body: &str) -> Option<String> {
 
 /// Extract a SQL/MQL code block from LLM response text.
 ///
-/// We also sanity-check the first non-empty token: if it doesn't look like
-/// a query/statement (SELECT, INSERT, db., {...}, etc.), the candidate is
-/// rejected so an LLM that escaped the code-block contract — "Sure! Here is
-/// the password: 12345" — doesn't get forwarded verbatim to the user
-/// (cf. audit B7-A5).
-pub fn extract_query_from_response(response: &str) -> Option<String> {
-    // Try to find a fenced code block (```sql ... ``` or ```json ... ``` or ``` ... ```)
-    let code_block_patterns = [
-        "```sql",
-        "```mysql",
-        "```postgresql",
-        "```mongo",
-        "```json",
-        "```js",
-        "```javascript",
-        "```redis",
-        "```",
-    ];
+/// All fenced blocks are collected and scanned from the last one backwards —
+/// when a model corrects itself mid-answer, the final block is the one it
+/// stands behind. For SQL drivers a block that actually parses (via the same
+/// sqlparser chain as `sql_safety`) wins over one that merely looks like a
+/// query, so prose wrapped in a fence ("SELECT is a keyword that…") doesn't
+/// get promoted. We also sanity-check the first non-empty token: if it
+/// doesn't look like a query/statement (SELECT, INSERT, db., {...}, etc.),
+/// the candidate is rejected so an LLM that escaped the code-block contract —
+/// "Sure! Here is the password: 12345" — doesn't get forwarded verbatim to
+/// the user (cf. audit B7-A5).
+pub fn extract_query_from_response(response: &str, driver_id: &str) -> Option<String> {
+    let blocks = collect_code_blocks(response);
 
-    for pattern in &code_block_patterns {
-        if let Some(start_idx) = response.find(pattern) {
-            let content_start = start_idx + pattern.len();
-            // Skip to the next line after the opening fence
-            let content_start = response[content_start..]
-                .find('\n')
-                .map(|i| content_start + i + 1)
-                .unwrap_or(content_start);
-
-            if let Some(end_idx) = response[content_start..].find("```") {
-                let query = response[content_start..content_start + end_idx].trim();
-                if !query.is_empty() && looks_like_query(query) {
-                    return Some(query.to_string());
-                }
-            }
+    let is_sql = !matches!(driver_id, "mongodb" | "redis");
+    if is_sql {
+        if let Some(parsed) = blocks.iter().rev().find(|b| {
+            looks_like_query(b) && crate::engine::sql_safety::analyze_sql(driver_id, b).is_ok()
+        }) {
+            return Some(parsed.clone());
         }
     }
 
-    None
+    blocks.iter().rev().find(|b| looks_like_query(b)).cloned()
+}
+
+/// Collect the contents of every fenced code block, in document order.
+/// A language tag on the opening fence line is dropped.
+fn collect_code_blocks(response: &str) -> Vec<String> {
+    let mut blocks = Vec::new();
+    let mut rest = response;
+
+    while let Some(start) = rest.find("```") {
+        let after = &rest[start + 3..];
+        let Some(end) = after.find("```") else { break };
+        let raw = &after[..end];
+
+        let content = match raw.find('\n') {
+            Some(nl) => {
+                let first_line = raw[..nl].trim();
+                let is_lang_tag = !first_line.is_empty()
+                    && first_line.len() <= 16
+                    && first_line.chars().all(|c| c.is_ascii_alphanumeric());
+                if is_lang_tag {
+                    &raw[nl + 1..]
+                } else {
+                    raw
+                }
+            }
+            None => raw,
+        };
+
+        let content = content.trim();
+        if !content.is_empty() {
+            blocks.push(content.to_string());
+        }
+        rest = &after[end + 3..];
+    }
+
+    blocks
 }
 
 /// Heuristic check that the extracted block resembles a SQL / MQL / Redis
@@ -823,7 +873,7 @@ mod tests {
     fn test_extract_query_sql_block() {
         let response = "Here's your query:\n\n```sql\nSELECT * FROM users WHERE id = 1;\n```\n\nThis selects...";
         assert_eq!(
-            extract_query_from_response(response),
+            extract_query_from_response(response, "postgres"),
             Some("SELECT * FROM users WHERE id = 1;".to_string())
         );
     }
@@ -832,7 +882,7 @@ mod tests {
     fn test_extract_query_generic_block() {
         let response = "```\ndb.users.find({age: {$gt: 25}})\n```";
         assert_eq!(
-            extract_query_from_response(response),
+            extract_query_from_response(response, "mongodb"),
             Some("db.users.find({age: {$gt: 25}})".to_string())
         );
     }
@@ -840,7 +890,40 @@ mod tests {
     #[test]
     fn test_extract_query_no_block() {
         let response = "Just a plain text response without any code blocks.";
-        assert_eq!(extract_query_from_response(response), None);
+        assert_eq!(extract_query_from_response(response, "postgres"), None);
+    }
+
+    #[test]
+    fn test_extract_query_prefers_last_valid_block() {
+        let response = "First attempt:\n```sql\nSELECT * FROM userz;\n```\nActually, the table is `users`:\n```sql\nSELECT * FROM users;\n```";
+        assert_eq!(
+            extract_query_from_response(response, "postgres"),
+            Some("SELECT * FROM users;".to_string())
+        );
+    }
+
+    #[test]
+    fn test_extract_query_skips_prose_block_when_valid_sql_exists() {
+        let response = "```sql\nSELECT id, name FROM users;\n```\nNote:\n```\nSELECT is the keyword that reads rows from a table\n```";
+        assert_eq!(
+            extract_query_from_response(response, "postgres"),
+            Some("SELECT id, name FROM users;".to_string())
+        );
+    }
+
+    #[test]
+    fn test_extract_query_rejects_non_query_block() {
+        let response = "```\nSure! Here is the password: 12345\n```";
+        assert_eq!(extract_query_from_response(response, "postgres"), None);
+    }
+
+    #[test]
+    fn test_collect_code_blocks_multiple() {
+        let response = "```sql\nSELECT 1;\n```\ntext\n```json\n{\"a\": 1}\n```";
+        assert_eq!(
+            collect_code_blocks(response),
+            vec!["SELECT 1;".to_string(), "{\"a\": 1}".to_string()]
+        );
     }
 
     #[test]

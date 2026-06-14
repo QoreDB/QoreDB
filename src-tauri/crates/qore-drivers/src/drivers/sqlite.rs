@@ -915,8 +915,6 @@ impl DataEngine for SqliteDriver {
             })
             .collect();
 
-        // A lone `INTEGER PRIMARY KEY` column is an alias for the rowid: SQLite
-        // assigns it automatically, so it must not receive a generated value.
         if pk_columns.len() == 1 {
             if let Some(col) = columns
                 .iter_mut()

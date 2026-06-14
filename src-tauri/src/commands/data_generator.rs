@@ -124,11 +124,13 @@ pub async fn generate_seed_data(
     .await
     .map_err(|e| e.sanitized())?;
 
-    // Columns the DB does not fill itself (skip serial/identity/now()-defaults).
+    // Columns the DB does not fill itself: skip those with a default
+    // (serial, now()…) and auto-increment / IDENTITY / rowid columns, which the
+    // database assigns and which may reject an explicit value.
     let target_columns: Vec<TableColumn> = schema
         .columns
         .iter()
-        .filter(|c| c.default_value.is_none())
+        .filter(|c| c.default_value.is_none() && !c.is_auto_increment)
         .cloned()
         .collect();
 

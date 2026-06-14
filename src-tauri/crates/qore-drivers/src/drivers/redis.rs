@@ -1308,7 +1308,7 @@ impl DataEngine for RedisDriver {
                 nullable: false,
                 default_value: None,
                 is_primary_key: false,
-            }],
+                is_auto_increment: false,            }],
             "hash" => vec![
                 TableColumn {
                     name: "field".into(),
@@ -1316,14 +1316,14 @@ impl DataEngine for RedisDriver {
                     nullable: false,
                     default_value: None,
                     is_primary_key: true,
-                },
+                    is_auto_increment: false,                },
                 TableColumn {
                     name: "value".into(),
                     data_type: "string".into(),
                     nullable: false,
                     default_value: None,
                     is_primary_key: false,
-                },
+                    is_auto_increment: false,                },
             ],
             "list" => vec![
                 TableColumn {
@@ -1332,14 +1332,14 @@ impl DataEngine for RedisDriver {
                     nullable: false,
                     default_value: None,
                     is_primary_key: true,
-                },
+                    is_auto_increment: false,                },
                 TableColumn {
                     name: "value".into(),
                     data_type: "string".into(),
                     nullable: false,
                     default_value: None,
                     is_primary_key: false,
-                },
+                    is_auto_increment: false,                },
             ],
             "set" => vec![TableColumn {
                 name: "member".into(),
@@ -1347,7 +1347,7 @@ impl DataEngine for RedisDriver {
                 nullable: false,
                 default_value: None,
                 is_primary_key: false,
-            }],
+                is_auto_increment: false,            }],
             "zset" => vec![
                 TableColumn {
                     name: "member".into(),
@@ -1355,14 +1355,14 @@ impl DataEngine for RedisDriver {
                     nullable: false,
                     default_value: None,
                     is_primary_key: false,
-                },
+                    is_auto_increment: false,                },
                 TableColumn {
                     name: "score".into(),
                     data_type: "float".into(),
                     nullable: false,
                     default_value: None,
                     is_primary_key: false,
-                },
+                    is_auto_increment: false,                },
             ],
             "stream" => vec![
                 TableColumn {
@@ -1371,14 +1371,14 @@ impl DataEngine for RedisDriver {
                     nullable: false,
                     default_value: None,
                     is_primary_key: true,
-                },
+                    is_auto_increment: false,                },
                 TableColumn {
                     name: "data".into(),
                     data_type: "json".into(),
                     nullable: false,
                     default_value: None,
                     is_primary_key: false,
-                },
+                    is_auto_increment: false,                },
             ],
             _ => vec![TableColumn {
                 name: "value".into(),
@@ -1386,7 +1386,7 @@ impl DataEngine for RedisDriver {
                 nullable: true,
                 default_value: None,
                 is_primary_key: false,
-            }],
+                is_auto_increment: false,            }],
         };
 
         let element_count: Option<u64> = match type_str.as_str() {

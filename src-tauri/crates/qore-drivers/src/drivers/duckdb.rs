@@ -507,7 +507,7 @@ impl DataEngine for DuckDbDriver {
                     nullable: is_nullable == "YES",
                     default_value,
                     is_primary_key: false,
-                });
+                    is_auto_increment: false,                });
             }
 
             let mut pk_columns: Vec<String> = Vec::new();

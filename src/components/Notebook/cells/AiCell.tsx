@@ -4,7 +4,7 @@ import { Loader2, Sparkles } from 'lucide-react';
 import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { AiResponseDisplay } from '@/components/AI/AiResponseDisplay';
+import { AiMessageThread } from '@/components/AI/AiMessageThread';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useAiAssistant } from '@/hooks/useAiAssistant';
@@ -93,12 +93,8 @@ export function AiCell({
         </div>
       )}
 
-      <AiResponseDisplay
-        response={assistant.response}
-        loading={assistant.loading}
-        generatedQuery={assistant.generatedQuery}
-        safetyAnalysis={assistant.safetyAnalysis}
-        error={assistant.error}
+      <AiMessageThread
+        items={assistant.items}
         onInsertQuery={onInsertSqlBelow ? handleInsert : undefined}
       />
     </div>

@@ -15,7 +15,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { Driver, getDriverMetadata } from '@/lib/connection/drivers';
+import { getDriverMetadata } from '@/lib/connection/drivers';
 import { cn } from '@/lib/utils';
 import { ProxySection } from './ProxySection';
 import { SshTunnelSection } from './SshTunnelSection';
@@ -67,17 +67,6 @@ export function AdvancedSection({
 
       {open && hasContent && (
         <div className="border-t border-border px-4 py-4 space-y-4">
-          {!hideUrlDerivedFields && (
-            <div className="space-y-2">
-              <Label>{t(driverMeta.databaseFieldLabel)}</Label>
-              <Input
-                placeholder={formData.driver === Driver.Postgres ? 'postgres' : ''}
-                value={formData.database}
-                onChange={e => onChange('database', e.target.value)}
-              />
-            </div>
-          )}
-
           {!hideUrlDerivedFields && (
             <div className="flex items-center justify-between rounded-md border border-border bg-background px-3 py-2">
               <Label className="text-sm">{t('connection.useSSL')}</Label>

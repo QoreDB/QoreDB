@@ -120,6 +120,7 @@ DBeaver, pgAdmin, phpMyAdmin do the job — but they feel slow, dated, and full 
 
 - **Data Contracts** — Declarative YAML assertions (12 rule types: NOT NULL %, regex, range, unique, FK integrity, custom SQL) executed as generated SQL, with a health dashboard, notebook cell and post-mutation alert hook _[Pro]_
 - **Instant Data API** — Expose saved queries as read-only REST endpoints on `127.0.0.1`, with Bearer auth, rate limiting, OpenAPI 3.1 generation and one-shot token regeneration _[Pro]_
+- **Data Generator** — Schema-aware test/seed data (types, constraints and foreign keys honored), realistic values, configurable volume, SQL preview then direct execution or `.sql` export _[Pro]_
 </details>
 
 <details>
@@ -129,6 +130,7 @@ DBeaver, pgAdmin, phpMyAdmin do the job — but they feel slow, dated, and full 
 - Parameterized variables (`$customer_id`, `{{date_from}}`) with typed inputs
 - Run All / Run From Here with stop-on-error
 - Inter-cell references and Chart cells (bar, line, pie, scatter) _[Pro]_
+- AI cells — natural-language prompts that generate an adjacent SQL cell _[Pro]_
 - Import from `.sql` / `.md`, export to Markdown or standalone HTML
 - `.qnb` file format, Git-diffable
 </details>
@@ -173,6 +175,7 @@ DBeaver, pgAdmin, phpMyAdmin do the job — but they feel slow, dated, and full 
 
 - Contextual query generation and error correction
 - Schema-aware suggestions
+- Natural-language DataGrid filters — describe a filter in plain language, preview the generated `WHERE` clause before applying
 - Bring your own key (OpenAI, Anthropic, …)
 </details>
 

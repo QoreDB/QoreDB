@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Driver } from '@/lib/connection/drivers';
+import { Driver, getDriverMetadata } from '@/lib/connection/drivers';
 import { ENVIRONMENT_CONFIG } from '@/lib/environment';
 import type { MssqlAuthMode } from '@/lib/tauri';
 import { cn } from '@/lib/utils';
@@ -32,6 +32,7 @@ export function BasicSection({
   const usernameRequired = formData.driver !== Driver.Mongodb && formData.driver !== Driver.Redis;
   const isSqlServer = formData.driver === Driver.SqlServer;
   const isClickhouse = formData.driver === Driver.Clickhouse;
+  const driverMeta = getDriverMetadata(formData.driver);
   const isNtlm = isSqlServer && formData.mssqlAuthMode === 'windows_ntlm';
   const isIntegrated = isSqlServer && formData.mssqlAuthMode === 'windows_integrated';
   const authModes: { value: MssqlAuthMode; label: string }[] = [
@@ -140,6 +141,18 @@ export function BasicSection({
                 onChange={e => onChange('port', parseInt(e.target.value, 10) || 0)}
               />
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>{t(driverMeta.databaseFieldLabel)}</Label>
+            <Input
+              placeholder={formData.driver === Driver.Postgres ? 'postgres' : ''}
+              value={formData.database}
+              onChange={e => onChange('database', e.target.value)}
+            />
+            {driverMeta.databaseFieldLabel === 'connection.databaseInitial' && (
+              <p className="text-xs text-muted-foreground">{t('connection.databaseInitialHint')}</p>
+            )}
           </div>
 
           {isSqlServer && (

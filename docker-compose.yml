@@ -97,9 +97,6 @@ services:
     environment:
       discovery.type: single-node
       ES_JAVA_OPTS: "-Xms512m -Xmx512m"
-      # Security disabled so integration tests connect over cleartext HTTP with
-      # auth_mode=none (the driver refuses Basic/ApiKey over cleartext). Enable
-      # xpack.security + TLS when testing the basic/api_key auth paths.
       xpack.security.enabled: "false"
     ports:
       - '9200:9200' # REST API
@@ -116,11 +113,10 @@ services:
     environment:
       discovery.type: single-node
       OPENSEARCH_JAVA_OPTS: "-Xms512m -Xmx512m"
-      # Same rationale as Elasticsearch: plugin disabled → plain HTTP for tests.
       DISABLE_SECURITY_PLUGIN: "true"
       DISABLE_INSTALL_DEMO_CONFIG: "true"
     ports:
-      - '9201:9200' # REST API (9201 on host to avoid clashing with Elasticsearch)
+      - '9201:9200'
     ulimits:
       memlock:
         soft: -1

@@ -62,6 +62,10 @@ pub struct SavedConnection {
     /// `None` for non-clustered installs (single-node behaviour).
     #[serde(default)]
     pub clickhouse_cluster: Option<String>,
+    /// Auth mode for search engines (Elasticsearch / OpenSearch):
+    /// `"none" | "basic" | "api_key" | "bearer"`. `None` on legacy connections.
+    #[serde(default)]
+    pub search_auth_mode: Option<String>,
     pub project_id: String,
 }
 
@@ -228,6 +232,7 @@ impl SavedConnection {
             proxy,
             mssql_auth: self.mssql_auth,
             clickhouse_cluster: self.clickhouse_cluster.clone(),
+            search_auth_mode: self.search_auth_mode.clone(),
         })
     }
 }
@@ -268,6 +273,7 @@ mod tests {
             proxy: None,
             mssql_auth: None,
             clickhouse_cluster: None,
+            search_auth_mode: None,
             project_id: "proj".to_string(),
         }
     }

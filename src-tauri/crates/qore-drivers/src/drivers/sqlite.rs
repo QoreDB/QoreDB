@@ -1709,6 +1709,7 @@ mod tests {
             proxy: None,
             mssql_auth: None,
             clickhouse_cluster: None,
+            search_auth_mode: None,
         };
 
         let session_id = driver.connect(&config).await.unwrap();
@@ -1737,6 +1738,7 @@ mod tests {
             proxy: None,
             mssql_auth: None,
             clickhouse_cluster: None,
+            search_auth_mode: None,
         };
 
         let session_id = driver.connect(&config).await.unwrap();
@@ -1795,6 +1797,7 @@ mod tests {
             proxy: None,
             mssql_auth: None,
             clickhouse_cluster: None,
+            search_auth_mode: None,
         };
 
         let session_id = driver.connect(&config).await.unwrap();
@@ -1860,6 +1863,7 @@ mod tests {
             proxy: None,
             mssql_auth: None,
             clickhouse_cluster: None,
+            search_auth_mode: None,
         };
 
         let session_id = driver.connect(&config).await.unwrap();

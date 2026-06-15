@@ -23,7 +23,11 @@ export interface ConnectionConfig {
   mssql_auth?: MssqlAuthMode;
   /** Distributed cluster name for ClickHouse DDL (`ON CLUSTER`). */
   clickhouse_cluster?: string;
+  /** Auth mode for Elasticsearch / OpenSearch: 'none' | 'basic' | 'api_key' | 'bearer'. */
+  search_auth_mode?: SearchAuthMode;
 }
+
+export type SearchAuthMode = 'none' | 'basic' | 'api_key' | 'bearer';
 
 export type ProxyType = 'http_connect' | 'socks5';
 
@@ -86,6 +90,8 @@ export interface SavedConnection {
   mssql_auth?: MssqlAuthMode;
   /** Distributed cluster name for ClickHouse DDL (`ON CLUSTER`). */
   clickhouse_cluster?: string;
+  /** Auth mode for Elasticsearch / OpenSearch. */
+  search_auth_mode?: SearchAuthMode;
   ssh_tunnel?: {
     host: string;
     port: number;

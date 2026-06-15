@@ -28,6 +28,11 @@ export function detectDriverFromDsn(dsn: string): DsnDetection | null {
     return { driver: Driver.Neon, hint: '*.neon.tech' };
   }
 
+  // Elastic Cloud endpoints / Cloud IDs.
+  if (/\.es\.[^/]*\.cloud\.es\.io/i.test(trimmed) || /\.aws\.elastic-cloud\.com/i.test(trimmed)) {
+    return { driver: Driver.Elasticsearch, hint: '*.cloud.es.io' };
+  }
+
   return null;
 }
 

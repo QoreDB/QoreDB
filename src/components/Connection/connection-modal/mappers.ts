@@ -5,6 +5,11 @@ import type { ConnectionConfig, Environment, SavedConnection } from '@/lib/tauri
 
 import type { ConnectionFormData } from './types';
 
+/** Search engines (Elasticsearch / OpenSearch) that carry a `search_auth_mode`. */
+function isSearchDriver(driver: Driver): boolean {
+  return driver === Driver.Elasticsearch || driver === Driver.OpenSearch;
+}
+
 export function buildConnectionConfig(formData: ConnectionFormData): ConnectionConfig {
   return {
     driver: formData.driver,
@@ -20,6 +25,7 @@ export function buildConnectionConfig(formData: ConnectionFormData): ConnectionC
       formData.driver === Driver.Clickhouse && formData.clickhouseCluster.trim().length > 0
         ? formData.clickhouseCluster.trim()
         : undefined,
+    search_auth_mode: isSearchDriver(formData.driver) ? formData.searchAuthMode : undefined,
     pool_max_connections: formData.poolMaxConnections,
     pool_min_connections: formData.poolMinConnections,
     pool_acquire_timeout_secs: formData.poolAcquireTimeoutSecs,
@@ -78,6 +84,7 @@ export function buildSavedConnection(
       formData.driver === Driver.Clickhouse && formData.clickhouseCluster.trim().length > 0
         ? formData.clickhouseCluster.trim()
         : undefined,
+    search_auth_mode: isSearchDriver(formData.driver) ? formData.searchAuthMode : undefined,
     pool_max_connections: formData.poolMaxConnections,
     pool_min_connections: formData.poolMinConnections,
     pool_acquire_timeout_secs: formData.poolAcquireTimeoutSecs,
@@ -154,8 +161,13 @@ export function buildSaveConnectionInput(
 export function getMissingRequirements(formData: ConnectionFormData): string[] {
   const missing: string[] = [];
 
-  // MongoDB and Redis often run without authentication in dev mode
-  const authRequired = formData.driver !== Driver.Mongodb && formData.driver !== Driver.Redis;
+  // MongoDB and Redis often run without authentication in dev mode.
+  // Search engines (ES/OS) only need a username in basic-auth mode.
+  const searchNeedsUser = isSearchDriver(formData.driver) && formData.searchAuthMode === 'basic';
+  const authRequired =
+    formData.driver !== Driver.Mongodb &&
+    formData.driver !== Driver.Redis &&
+    (!isSearchDriver(formData.driver) || searchNeedsUser);
   // SQLite and DuckDB are file-based: only the file path (stored in host) matters
   const isFileBased = formData.driver === Driver.Sqlite || formData.driver === Driver.Duckdb;
 

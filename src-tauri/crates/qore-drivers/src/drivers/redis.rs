@@ -2006,6 +2006,7 @@ mod tests {
             proxy: None,
             mssql_auth: None,
             clickhouse_cluster: None,
+            search_auth_mode: None,
         };
 
         let conn_str = RedisDriver::build_connection_string(&config);
@@ -2032,6 +2033,7 @@ mod tests {
             proxy: None,
             mssql_auth: None,
             clickhouse_cluster: None,
+            search_auth_mode: None,
         };
 
         let conn_str = RedisDriver::build_connection_string(&config);
@@ -2058,6 +2060,7 @@ mod tests {
             proxy: None,
             mssql_auth: None,
             clickhouse_cluster: None,
+            search_auth_mode: None,
         };
 
         let conn_str = RedisDriver::build_connection_string(&config);

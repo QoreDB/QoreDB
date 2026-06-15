@@ -5,9 +5,10 @@ use std::sync::Arc;
 use qore_core::DriverRegistry;
 use qore_drivers::drivers::{
     clickhouse::ClickHouseDriver, cockroachdb::CockroachDbDriver, duckdb::DuckDbDriver,
-    mariadb::MariaDbDriver, mongodb::MongoDriver, mysql::MySqlDriver, neon::NeonDriver,
-    postgres::PostgresDriver, redis::RedisDriver, sqlite::SqliteDriver, sqlserver::SqlServerDriver,
-    supabase::SupabaseDriver, timescaledb::TimescaleDbDriver,
+    elasticsearch::ElasticsearchDriver, mariadb::MariaDbDriver, mongodb::MongoDriver,
+    mysql::MySqlDriver, neon::NeonDriver, opensearch::OpenSearchDriver, postgres::PostgresDriver,
+    redis::RedisDriver, sqlite::SqliteDriver, sqlserver::SqlServerDriver, supabase::SupabaseDriver,
+    timescaledb::TimescaleDbDriver,
 };
 use qore_drivers::query_manager::QueryManager;
 use qore_drivers::session_manager::SessionManager;
@@ -50,6 +51,8 @@ impl ServiceContext {
         registry.register(Arc::new(NeonDriver::new()));
         registry.register(Arc::new(TimescaleDbDriver::new()));
         registry.register(Arc::new(ClickHouseDriver::new()));
+        registry.register(Arc::new(ElasticsearchDriver::new()));
+        registry.register(Arc::new(OpenSearchDriver::new()));
 
         let registry = Arc::new(registry);
         let session_manager = Arc::new(SessionManager::new(Arc::clone(&registry)));

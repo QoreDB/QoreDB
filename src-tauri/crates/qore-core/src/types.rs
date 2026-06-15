@@ -73,6 +73,11 @@ pub struct ConnectionConfig {
     /// propagate to every replica. `None` keeps the single-node behaviour.
     #[serde(default)]
     pub clickhouse_cluster: Option<String>,
+    /// Authentication mode for search engines (Elasticsearch / OpenSearch):
+    /// `"none" | "basic" | "api_key" | "bearer"`. The secret always transits
+    /// via `password` (already vault-encrypted). `None` defaults to `"none"`.
+    #[serde(default)]
+    pub search_auth_mode: Option<String>,
 }
 
 impl std::fmt::Debug for ConnectionConfig {
@@ -95,6 +100,7 @@ impl std::fmt::Debug for ConnectionConfig {
             .field("proxy", &self.proxy)
             .field("mssql_auth", &self.mssql_auth)
             .field("clickhouse_cluster", &self.clickhouse_cluster)
+            .field("search_auth_mode", &self.search_auth_mode)
             .finish()
     }
 }
@@ -354,6 +360,7 @@ mod tests {
             proxy: None,
             mssql_auth: None,
             clickhouse_cluster: None,
+            search_auth_mode: None,
         };
         let dbg = format!("{:?}", cfg);
         assert!(dbg.contains("[REDACTED]"), "expected redaction in {dbg}");

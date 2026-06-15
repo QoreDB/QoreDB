@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Driver } from '@/lib/connection/drivers';
-import type { Environment, MssqlAuthMode } from '@/lib/tauri';
+import type { Environment, MssqlAuthMode, SearchAuthMode } from '@/lib/tauri';
 
 export interface ConnectionFormData {
   name: string;
@@ -18,6 +18,8 @@ export interface ConnectionFormData {
   mssqlAuthMode: MssqlAuthMode;
   /** ClickHouse distributed cluster name. Empty string = no `ON CLUSTER`. */
   clickhouseCluster: string;
+  /** Auth mode for Elasticsearch / OpenSearch. */
+  searchAuthMode: SearchAuthMode;
   poolMaxConnections: number;
   poolMinConnections: number;
   poolAcquireTimeoutSecs: number;
@@ -58,6 +60,7 @@ export const initialConnectionFormData: ConnectionFormData = {
   sslMode: '',
   mssqlAuthMode: 'sql_password',
   clickhouseCluster: '',
+  searchAuthMode: 'none',
   poolMaxConnections: 5,
   poolMinConnections: 0,
   poolAcquireTimeoutSecs: 30,

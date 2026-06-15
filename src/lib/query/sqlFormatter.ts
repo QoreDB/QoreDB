@@ -17,6 +17,8 @@ const DIALECT_MAP: Record<Driver, SqlLanguage> = {
   [Driver.Neon]: 'postgresql',
   [Driver.Timescaledb]: 'postgresql',
   [Driver.Clickhouse]: 'sql',
+  [Driver.Elasticsearch]: 'sql',
+  [Driver.OpenSearch]: 'sql',
 };
 
 export function formatSql(query: string, driver: Driver): string {

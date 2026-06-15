@@ -1,10 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import type { QueryDialect } from '@/lib/connection/driverCapabilities';
 import { Driver } from '@/lib/connection/drivers';
 import { MONGO_TEMPLATES } from '../Editor/mongo-constants';
+import { SEARCH_DEFAULT_QUERY } from '../Editor/search-constants';
 
-export function getDefaultQuery(isDocumentBased: boolean): string {
-  return isDocumentBased ? MONGO_TEMPLATES.find : '';
+export function getDefaultQuery(dialect: QueryDialect): string {
+  if (dialect === 'search') return SEARCH_DEFAULT_QUERY;
+  if (dialect === 'document') return MONGO_TEMPLATES.find;
+  return '';
 }
 
 export function getCollectionFromQuery(query: string): string {

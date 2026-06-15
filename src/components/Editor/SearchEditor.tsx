@@ -18,8 +18,7 @@ import {
 import { defaultKeymap } from '@codemirror/commands';
 import { json } from '@codemirror/lang-json';
 import { type Diagnostic, linter } from '@codemirror/lint';
-import { RangeSetBuilder } from '@codemirror/state';
-import { EditorState } from '@codemirror/state';
+import { EditorState, RangeSetBuilder } from '@codemirror/state';
 import { oneDark } from '@codemirror/theme-one-dark';
 import {
   Decoration,
@@ -170,9 +169,7 @@ export function SearchEditor({
       },
     ]);
 
-    async function completionSource(
-      context: CompletionContext
-    ): Promise<CompletionResult | null> {
+    async function completionSource(context: CompletionContext): Promise<CompletionResult | null> {
       const line = context.state.doc.lineAt(context.pos);
       // Only complete on the method line (line 1).
       if (line.number !== 1) return null;

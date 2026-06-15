@@ -363,6 +363,16 @@
       "cluster": "クラスター名（任意）",
       "clusterPlaceholder": "例: shard_cluster",
       "clusterHint": "指定すると、DDL（CREATE/DROP DATABASE/TABLE）が ON CLUSTER 付きで実行され、全レプリカに伝播します。単一ノード構成では空のままにします。"
+    },
+    "search": {
+      "authMode": "認証",
+      "authNone": "なし",
+      "authBasic": "Basic",
+      "authApiKey": "APIキー",
+      "authBearer": "Bearer",
+      "apiKey": "APIキー",
+      "bearerToken": "Bearerトークン",
+      "tlsWarning": "TLSなしで認証情報が平文で送信されます。SSL/TLSを有効にしてください。"
     }
   },
   "sidebar": {
@@ -387,7 +397,17 @@
   },
   "search": {
     "placeholder": "コマンドまたは検索語を入力...",
-    "noResults": "結果が見つかりません。"
+    "noResults": "結果が見つかりません。",
+    "jsonError": "無効なJSON: {{message}}",
+    "templates": {
+      "matchAll": "検索 (全件)",
+      "match": "matchクエリ",
+      "termsAgg": "terms集計",
+      "createIndex": "インデックス作成",
+      "indexDoc": "ドキュメントをインデックス",
+      "bulk": "一括操作",
+      "catIndices": "インデックス一覧"
+    }
   },
   "fulltextSearch": {
     "title": "データベース内を検索",
@@ -1392,7 +1412,12 @@
     "noCollections": "テーブルなし",
     "noDocuments": "ドキュメントなし",
     "loadMore": "さらに読み込む",
-    "searchPlaceholder": "テーブルを検索..."
+    "searchPlaceholder": "テーブルを検索...",
+    "cluster": "クラスター",
+    "clusters": "クラスター",
+    "index": "インデックス",
+    "indexes": "インデックス",
+    "indexesHeader": "インデックス"
   },
   "createTable": {
     "title": "テーブルを作成",

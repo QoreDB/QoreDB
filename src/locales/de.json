@@ -363,6 +363,16 @@
       "cluster": "Cluster-Name (optional)",
       "clusterPlaceholder": "z. B. shard_cluster",
       "clusterHint": "Wenn gesetzt, werden DDL-Befehle (CREATE/DROP DATABASE/TABLE) mit ON CLUSTER abgesetzt und auf alle Replikate propagiert. Bei Single-Node-Installationen leer lassen."
+    },
+    "search": {
+      "authMode": "Authentifizierung",
+      "authNone": "Keine",
+      "authBasic": "Basic",
+      "authApiKey": "API-Schlüssel",
+      "authBearer": "Bearer",
+      "apiKey": "API-Schlüssel",
+      "bearerToken": "Bearer-Token",
+      "tlsWarning": "Anmeldedaten werden ohne TLS im Klartext gesendet. Aktivieren Sie SSL/TLS."
     }
   },
   "sidebar": {
@@ -387,7 +397,17 @@
   },
   "search": {
     "placeholder": "Befehl eingeben oder suchen…",
-    "noResults": "Keine Ergebnisse gefunden."
+    "noResults": "Keine Ergebnisse gefunden.",
+    "jsonError": "Ungültiges JSON: {{message}}",
+    "templates": {
+      "matchAll": "Suche (alle)",
+      "match": "Match-Abfrage",
+      "termsAgg": "Terms-Aggregation",
+      "createIndex": "Index erstellen",
+      "indexDoc": "Dokument indizieren",
+      "bulk": "Bulk-Operationen",
+      "catIndices": "Indizes auflisten"
+    }
   },
   "fulltextSearch": {
     "title": "In Datenbank suchen",
@@ -1392,7 +1412,12 @@
     "noCollections": "Keine Tabellen",
     "noDocuments": "Keine Dokumente",
     "loadMore": "Mehr laden",
-    "searchPlaceholder": "Tabellen suchen…"
+    "searchPlaceholder": "Tabellen suchen…",
+    "cluster": "Cluster",
+    "clusters": "Cluster",
+    "index": "Index",
+    "indexes": "Indizes",
+    "indexesHeader": "Indizes"
   },
   "createTable": {
     "title": "Tabelle erstellen",

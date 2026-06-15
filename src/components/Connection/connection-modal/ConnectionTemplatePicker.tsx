@@ -57,7 +57,8 @@ export function ConnectionTemplatePicker({ driver, onApply }: ConnectionTemplate
   const { t } = useTranslation();
   const { contributions } = usePlugins();
   const templates = useMemo(
-    () => contributions.connectionTemplates.filter(tpl => templateMatchesDriver(tpl.driver, driver)),
+    () =>
+      contributions.connectionTemplates.filter(tpl => templateMatchesDriver(tpl.driver, driver)),
     [contributions.connectionTemplates, driver]
   );
 

@@ -363,6 +363,16 @@
       "cluster": "Nome do cluster (opcional)",
       "clusterPlaceholder": "ex. shard_cluster",
       "clusterHint": "Quando definido, os comandos DDL (CREATE/DROP DATABASE/TABLE) são emitidos com ON CLUSTER para se propagar a todas as réplicas. Deixe vazio para instalações de um único nó."
+    },
+    "search": {
+      "authMode": "Autenticação",
+      "authNone": "Nenhuma",
+      "authBasic": "Básica",
+      "authApiKey": "Chave de API",
+      "authBearer": "Bearer",
+      "apiKey": "Chave de API",
+      "bearerToken": "Token Bearer",
+      "tlsWarning": "As credenciais são enviadas em texto puro sem TLS. Ative o SSL/TLS."
     }
   },
   "sidebar": {
@@ -387,7 +397,17 @@
   },
   "search": {
     "placeholder": "Digite um comando ou pesquise...",
-    "noResults": "Nenhum resultado encontrado."
+    "noResults": "Nenhum resultado encontrado.",
+    "jsonError": "JSON inválido: {{message}}",
+    "templates": {
+      "matchAll": "Busca (tudo)",
+      "match": "Consulta match",
+      "termsAgg": "Agregação terms",
+      "createIndex": "Criar índice",
+      "indexDoc": "Indexar um documento",
+      "bulk": "Operações bulk",
+      "catIndices": "Listar índices"
+    }
   },
   "fulltextSearch": {
     "title": "Pesquisar no Banco de Dados",
@@ -1392,7 +1412,12 @@
     "noCollections": "Nenhuma tabela",
     "noDocuments": "Nenhum documento",
     "loadMore": "Carregar mais",
-    "searchPlaceholder": "Pesquisar tabelas..."
+    "searchPlaceholder": "Pesquisar tabelas...",
+    "cluster": "Cluster",
+    "clusters": "Clusters",
+    "index": "Índice",
+    "indexes": "Índices",
+    "indexesHeader": "Índices"
   },
   "createTable": {
     "title": "Criar Tabela",

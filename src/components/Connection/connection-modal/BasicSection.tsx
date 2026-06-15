@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { DEFAULT_PORTS, Driver, getDriverMetadata } from '@/lib/connection/drivers';
 import { ENVIRONMENT_CONFIG } from '@/lib/environment';
-import type { MssqlAuthMode } from '@/lib/tauri';
+import type { MssqlAuthMode, SearchAuthMode } from '@/lib/tauri';
 import { cn } from '@/lib/utils';
 import { Field } from './Field';
 import { FileSection } from './FileSection';
@@ -35,6 +35,8 @@ export function BasicSection({
   const isSqlServer = formData.driver === Driver.SqlServer;
   const isClickhouse = formData.driver === Driver.Clickhouse;
   const isRedis = formData.driver === Driver.Redis;
+  const isSearch =
+    formData.driver === Driver.Elasticsearch || formData.driver === Driver.OpenSearch;
   const driverMeta = getDriverMetadata(formData.driver);
   const isNtlm = isSqlServer && formData.mssqlAuthMode === 'windows_ntlm';
   const isIntegrated = isSqlServer && formData.mssqlAuthMode === 'windows_integrated';
@@ -43,6 +45,18 @@ export function BasicSection({
     { value: 'windows_ntlm', label: t('connection.mssql.authNtlm') },
     { value: 'windows_integrated', label: t('connection.mssql.authIntegrated') },
   ];
+  const searchAuthModes: { value: SearchAuthMode; label: string }[] = [
+    { value: 'none', label: t('connection.search.authNone') },
+    { value: 'basic', label: t('connection.search.authBasic') },
+    { value: 'api_key', label: t('connection.search.authApiKey') },
+    { value: 'bearer', label: t('connection.search.authBearer') },
+  ];
+  const searchSecretLabel =
+    formData.searchAuthMode === 'api_key'
+      ? t('connection.search.apiKey')
+      : formData.searchAuthMode === 'bearer'
+        ? t('connection.search.bearerToken')
+        : t('connection.password');
 
   return (
     <div className="rounded-md border border-border bg-background p-4 space-y-4">
@@ -207,24 +221,79 @@ export function BasicSection({
             </Field>
           )}
 
-          {!isIntegrated && (
-            <div className="grid grid-cols-2 gap-4">
-              <Field label={t('connection.username')} required={usernameRequired}>
-                <Input
-                  placeholder={isNtlm ? t('connection.mssql.ntlmUsernamePlaceholder') : 'user'}
-                  value={formData.username}
-                  onChange={e => onChange('username', e.target.value)}
-                />
-              </Field>
-              <Field label={t('connection.password')}>
-                <PasswordInput
-                  placeholder="••••••••"
-                  value={formData.password}
-                  onChange={e => onChange('password', e.target.value)}
-                />
-              </Field>
+          {isSearch && (
+            <div className="space-y-2">
+              <Label>{t('connection.search.authMode')}</Label>
+              <div className="flex gap-2">
+                {searchAuthModes.map(({ value, label }) => {
+                  const isSelected = formData.searchAuthMode === value;
+                  return (
+                    <Button
+                      key={value}
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className={cn(
+                        'h-auto flex-1 px-3 py-2 rounded-md text-xs font-semibold border-2 transition-all',
+                        isSelected
+                          ? 'border-primary bg-primary/10 text-primary'
+                          : 'border-border bg-background hover:bg-muted text-muted-foreground'
+                      )}
+                      onClick={() => onChange('searchAuthMode', value)}
+                    >
+                      {label}
+                    </Button>
+                  );
+                })}
+              </div>
+              {formData.searchAuthMode !== 'none' && !formData.ssl && (
+                <p className="text-xs text-warning">{t('connection.search.tlsWarning')}</p>
+              )}
             </div>
           )}
+
+          {isSearch
+            ? formData.searchAuthMode !== 'none' && (
+                <div className="grid grid-cols-2 gap-4">
+                  {formData.searchAuthMode === 'basic' && (
+                    <Field label={t('connection.username')} required>
+                      <Input
+                        placeholder="elastic"
+                        value={formData.username}
+                        onChange={e => onChange('username', e.target.value)}
+                      />
+                    </Field>
+                  )}
+                  <Field
+                    label={searchSecretLabel}
+                    className={formData.searchAuthMode === 'basic' ? undefined : 'col-span-2'}
+                  >
+                    <PasswordInput
+                      placeholder="••••••••"
+                      value={formData.password}
+                      onChange={e => onChange('password', e.target.value)}
+                    />
+                  </Field>
+                </div>
+              )
+            : !isIntegrated && (
+                <div className="grid grid-cols-2 gap-4">
+                  <Field label={t('connection.username')} required={usernameRequired}>
+                    <Input
+                      placeholder={isNtlm ? t('connection.mssql.ntlmUsernamePlaceholder') : 'user'}
+                      value={formData.username}
+                      onChange={e => onChange('username', e.target.value)}
+                    />
+                  </Field>
+                  <Field label={t('connection.password')}>
+                    <PasswordInput
+                      placeholder="••••••••"
+                      value={formData.password}
+                      onChange={e => onChange('password', e.target.value)}
+                    />
+                  </Field>
+                </div>
+              )}
         </>
       )}
     </div>

@@ -363,6 +363,16 @@
       "cluster": "Имя кластера (опционально)",
       "clusterPlaceholder": "напр. shard_cluster",
       "clusterHint": "Если задано, DDL-команды (CREATE/DROP DATABASE/TABLE) выполняются с ON CLUSTER и распространяются на все реплики. Оставьте пустым для одно-узловых установок."
+    },
+    "search": {
+      "authMode": "Аутентификация",
+      "authNone": "Нет",
+      "authBasic": "Базовая",
+      "authApiKey": "API-ключ",
+      "authBearer": "Bearer",
+      "apiKey": "API-ключ",
+      "bearerToken": "Токен Bearer",
+      "tlsWarning": "Учётные данные передаются в открытом виде без TLS. Включите SSL/TLS."
     }
   },
   "sidebar": {
@@ -387,7 +397,17 @@
   },
   "search": {
     "placeholder": "Введите команду или выполните поиск…",
-    "noResults": "Результаты не найдены."
+    "noResults": "Результаты не найдены.",
+    "jsonError": "Недопустимый JSON: {{message}}",
+    "templates": {
+      "matchAll": "Поиск (все)",
+      "match": "Запрос match",
+      "termsAgg": "Агрегация terms",
+      "createIndex": "Создать индекс",
+      "indexDoc": "Индексировать документ",
+      "bulk": "Массовые операции",
+      "catIndices": "Список индексов"
+    }
   },
   "fulltextSearch": {
     "title": "Поиск по базе данных",
@@ -1392,7 +1412,12 @@
     "noCollections": "Нет таблиц",
     "noDocuments": "Нет документов",
     "loadMore": "Загрузить ещё",
-    "searchPlaceholder": "Поиск таблиц…"
+    "searchPlaceholder": "Поиск таблиц…",
+    "cluster": "Кластер",
+    "clusters": "Кластеры",
+    "index": "Индекс",
+    "indexes": "Индексы",
+    "indexesHeader": "Индексы"
   },
   "createTable": {
     "title": "Создать таблицу",

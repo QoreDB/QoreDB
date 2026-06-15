@@ -363,6 +363,16 @@
       "cluster": "集群名称（可选）",
       "clusterPlaceholder": "例如 shard_cluster",
       "clusterHint": "设置后，DDL 语句（CREATE/DROP DATABASE/TABLE）将带 ON CLUSTER 执行并传播到所有副本。单节点安装请留空。"
+    },
+    "search": {
+      "authMode": "认证",
+      "authNone": "无",
+      "authBasic": "Basic",
+      "authApiKey": "API 密钥",
+      "authBearer": "Bearer",
+      "apiKey": "API 密钥",
+      "bearerToken": "Bearer 令牌",
+      "tlsWarning": "未启用 TLS，凭据将以明文发送。请启用 SSL/TLS。"
     }
   },
   "sidebar": {
@@ -387,7 +397,17 @@
   },
   "search": {
     "placeholder": "输入命令或搜索…",
-    "noResults": "未找到结果。"
+    "noResults": "未找到结果。",
+    "jsonError": "无效的 JSON：{{message}}",
+    "templates": {
+      "matchAll": "搜索（全部）",
+      "match": "match 查询",
+      "termsAgg": "terms 聚合",
+      "createIndex": "创建索引",
+      "indexDoc": "索引文档",
+      "bulk": "批量操作",
+      "catIndices": "列出索引"
+    }
   },
   "fulltextSearch": {
     "title": "在数据库中搜索",
@@ -1392,7 +1412,12 @@
     "noCollections": "没有表",
     "noDocuments": "没有文档",
     "loadMore": "加载更多",
-    "searchPlaceholder": "搜索表…"
+    "searchPlaceholder": "搜索表…",
+    "cluster": "集群",
+    "clusters": "集群",
+    "index": "索引",
+    "indexes": "索引",
+    "indexesHeader": "索引"
   },
   "createTable": {
     "title": "创建表",

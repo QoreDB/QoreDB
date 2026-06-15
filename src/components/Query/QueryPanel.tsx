@@ -137,7 +137,8 @@ export function QueryPanel({
   const { tier } = useLicense();
   const isDocument = isDocumentDatabase(dialect);
   const queryDialect = getQueryDialect(dialect);
-  const defaultQuery = getDefaultQuery(isDocument);
+  const isSearch = queryDialect === 'search';
+  const defaultQuery = getDefaultQuery(queryDialect);
 
   const [query, setQuery] = useState(initialQuery || defaultQuery);
   const [results, setResults] = useState<QueryResultEntry[]>([]);
@@ -998,7 +999,7 @@ export function QueryPanel({
         onLibraryOpen={() => (onOpenLibrary ? onOpenLibrary() : setLibraryOpen(true))}
         onSaveToLibrary={handleSaveToLibrary}
         onTemplateSelect={handleTemplateSelect}
-        onFormat={handleFormat}
+        onFormat={isSearch ? undefined : handleFormat}
         onConvertToNotebook={handleConvertToNotebook}
         onAiToggle={handleAiToggle}
         aiPanelOpen={showAiPanel}

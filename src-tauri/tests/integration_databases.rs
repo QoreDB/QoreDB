@@ -79,6 +79,7 @@ fn postgres_config() -> ConnectionConfig {
         proxy: None,
         mssql_auth: None,
         clickhouse_cluster: None,
+        search_auth_mode: None,
     }
 }
 
@@ -101,6 +102,7 @@ fn mysql_config() -> ConnectionConfig {
         proxy: None,
         mssql_auth: None,
         clickhouse_cluster: None,
+        search_auth_mode: None,
     }
 }
 
@@ -123,6 +125,7 @@ fn mongo_config() -> ConnectionConfig {
         proxy: None,
         mssql_auth: None,
         clickhouse_cluster: None,
+        search_auth_mode: None,
     }
 }
 
@@ -147,6 +150,7 @@ fn clickhouse_config() -> ConnectionConfig {
         proxy: None,
         mssql_auth: None,
         clickhouse_cluster: None,
+        search_auth_mode: None,
     }
 }
 
@@ -169,6 +173,7 @@ fn redis_config() -> ConnectionConfig {
         proxy: None,
         mssql_auth: None,
         clickhouse_cluster: None,
+        search_auth_mode: None,
     }
 }
 

@@ -91,6 +91,43 @@ services:
     volumes:
       - clickhouse_data:/var/lib/clickhouse
 
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.4
+    container_name: qoredb-elasticsearch
+    environment:
+      discovery.type: single-node
+      ES_JAVA_OPTS: "-Xms512m -Xmx512m"
+      # Security disabled so integration tests connect over cleartext HTTP with
+      # auth_mode=none (the driver refuses Basic/ApiKey over cleartext). Enable
+      # xpack.security + TLS when testing the basic/api_key auth paths.
+      xpack.security.enabled: "false"
+    ports:
+      - '9200:9200' # REST API
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+
+  opensearch:
+    image: opensearchproject/opensearch:2.13.0
+    container_name: qoredb-opensearch
+    environment:
+      discovery.type: single-node
+      OPENSEARCH_JAVA_OPTS: "-Xms512m -Xmx512m"
+      # Same rationale as Elasticsearch: plugin disabled → plain HTTP for tests.
+      DISABLE_SECURITY_PLUGIN: "true"
+      DISABLE_INSTALL_DEMO_CONFIG: "true"
+    ports:
+      - '9201:9200' # REST API (9201 on host to avoid clashing with Elasticsearch)
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - opensearch_data:/usr/share/opensearch/data
+
 volumes:
   postgres_data:
   mysql_data:
@@ -98,3 +135,5 @@ volumes:
   redis_data:
   sqlserver_data:
   clickhouse_data:
+  elasticsearch_data:
+  opensearch_data:

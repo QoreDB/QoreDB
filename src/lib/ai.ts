@@ -5,7 +5,7 @@
  * Mirrors Rust types from src-tauri/src/ai/types.rs
  */
 import { invoke } from '@/lib/transport';
-import type { Namespace } from './tauri';
+import type { ColumnFilter, Namespace } from './tauri';
 
 // ============================================
 // TYPES
@@ -20,6 +20,20 @@ export type AiProvider =
   | 'ollama';
 
 export type AiAction = 'generate_query' | 'explain_result' | 'summarize_schema' | 'fix_error';
+
+export type AiRole = 'system' | 'user' | 'assistant';
+
+export interface AiMessage {
+  role: AiRole;
+  content: string;
+}
+
+export interface EditorContext {
+  current_query?: string;
+  active_table?: string;
+  last_error?: string;
+  result_shape?: string;
+}
 
 export interface AiConfig {
   provider: AiProvider;
@@ -37,6 +51,9 @@ export interface AiRequest {
   namespace?: Namespace;
   connection_id?: string;
   config: AiConfig;
+  history?: AiMessage[];
+  editor_context?: EditorContext;
+  include_sample_rows?: boolean;
   original_query?: string;
   error_context?: string;
   result_context?: string;
@@ -206,6 +223,28 @@ export async function aiDeleteApiKey(provider: AiProvider): Promise<void> {
 /** Get status of all configured providers */
 export async function aiGetProviderStatus(): Promise<AiProviderStatus[]> {
   return invoke('ai_get_provider_status');
+}
+
+/**
+ * Translate a natural-language filter into structured column filters applied by
+ * the grid (non-streaming). `today` lets the model resolve relative dates.
+ */
+export async function aiGenerateFilters(
+  sessionId: string,
+  tableName: string,
+  prompt: string,
+  config: AiConfig,
+  namespace?: Namespace
+): Promise<ColumnFilter[]> {
+  const today = new Date().toISOString().slice(0, 10);
+  return invoke('ai_generate_filters', {
+    sessionId,
+    tableName,
+    prompt,
+    today,
+    config,
+    namespace,
+  });
 }
 
 // ============================================

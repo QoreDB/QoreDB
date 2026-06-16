@@ -294,6 +294,8 @@ mod tests {
             proxy: None,
             mssql_auth: None,
             clickhouse_cluster: None,
+            search_auth_mode: None,
+            ssl_ca_cert: None,
             project_id: "ws_test".to_string(),
         }
     }

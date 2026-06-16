@@ -8,13 +8,11 @@
 import { Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
-import type { QueryResult } from '@/lib/tauri';
 import { BulkEditButton } from './BulkEditButton';
 
 export interface DataGridHeaderProps {
   selectedCount: number;
   totalRows: number;
-  result: QueryResult | null;
   canDelete: boolean;
   deleteDisabled: boolean;
   isDeleting: boolean;
@@ -30,8 +28,6 @@ export interface DataGridHeaderProps {
 export function DataGridHeader({
   selectedCount,
   totalRows,
-
-  result,
   canDelete,
   deleteDisabled,
   isDeleting,
@@ -50,31 +46,7 @@ export function DataGridHeader({
       {selectedCount > 0 ? (
         <span>{t('grid.rowsSelected', { count: selectedCount })}</span>
       ) : (
-        <div className="flex items-center gap-3">
-          <span>{t('grid.rowsTotal', { count: totalRows })}</span>
-
-          {result && typeof result.execution_time_ms === 'number' && (
-            <div className="flex items-center gap-2 border-l border-border pl-3 ml-1">
-              <span title={t('query.time.execTooltip')}>
-                {t('query.time.exec')}:{' '}
-                <span className="font-mono text-foreground font-medium">
-                  {result.execution_time_ms.toFixed(2)}ms
-                </span>
-              </span>
-              {result.total_time_ms !== undefined && (
-                <>
-                  <span className="text-border/50">|</span>
-                  <span title={t('query.time.totalTooltip')}>
-                    {t('query.time.total')}:{' '}
-                    <span className="font-mono text-foreground font-bold">
-                      {result.total_time_ms.toFixed(2)}ms
-                    </span>
-                  </span>
-                </>
-              )}
-            </div>
-          )}
-        </div>
+        <span>{t('grid.rowsTotal', { count: totalRows })}</span>
       )}
 
       {canBulkEdit && (

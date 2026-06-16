@@ -1308,6 +1308,7 @@ impl DataEngine for RedisDriver {
                 nullable: false,
                 default_value: None,
                 is_primary_key: false,
+                is_auto_increment: false,
             }],
             "hash" => vec![
                 TableColumn {
@@ -1316,6 +1317,7 @@ impl DataEngine for RedisDriver {
                     nullable: false,
                     default_value: None,
                     is_primary_key: true,
+                    is_auto_increment: false,
                 },
                 TableColumn {
                     name: "value".into(),
@@ -1323,6 +1325,7 @@ impl DataEngine for RedisDriver {
                     nullable: false,
                     default_value: None,
                     is_primary_key: false,
+                    is_auto_increment: false,
                 },
             ],
             "list" => vec![
@@ -1332,6 +1335,7 @@ impl DataEngine for RedisDriver {
                     nullable: false,
                     default_value: None,
                     is_primary_key: true,
+                    is_auto_increment: false,
                 },
                 TableColumn {
                     name: "value".into(),
@@ -1339,6 +1343,7 @@ impl DataEngine for RedisDriver {
                     nullable: false,
                     default_value: None,
                     is_primary_key: false,
+                    is_auto_increment: false,
                 },
             ],
             "set" => vec![TableColumn {
@@ -1347,6 +1352,7 @@ impl DataEngine for RedisDriver {
                 nullable: false,
                 default_value: None,
                 is_primary_key: false,
+                is_auto_increment: false,
             }],
             "zset" => vec![
                 TableColumn {
@@ -1355,6 +1361,7 @@ impl DataEngine for RedisDriver {
                     nullable: false,
                     default_value: None,
                     is_primary_key: false,
+                    is_auto_increment: false,
                 },
                 TableColumn {
                     name: "score".into(),
@@ -1362,6 +1369,7 @@ impl DataEngine for RedisDriver {
                     nullable: false,
                     default_value: None,
                     is_primary_key: false,
+                    is_auto_increment: false,
                 },
             ],
             "stream" => vec![
@@ -1371,6 +1379,7 @@ impl DataEngine for RedisDriver {
                     nullable: false,
                     default_value: None,
                     is_primary_key: true,
+                    is_auto_increment: false,
                 },
                 TableColumn {
                     name: "data".into(),
@@ -1378,6 +1387,7 @@ impl DataEngine for RedisDriver {
                     nullable: false,
                     default_value: None,
                     is_primary_key: false,
+                    is_auto_increment: false,
                 },
             ],
             _ => vec![TableColumn {
@@ -1386,6 +1396,7 @@ impl DataEngine for RedisDriver {
                 nullable: true,
                 default_value: None,
                 is_primary_key: false,
+                is_auto_increment: false,
             }],
         };
 
@@ -2006,6 +2017,8 @@ mod tests {
             proxy: None,
             mssql_auth: None,
             clickhouse_cluster: None,
+            search_auth_mode: None,
+            ssl_ca_cert: None,
         };
 
         let conn_str = RedisDriver::build_connection_string(&config);
@@ -2032,6 +2045,8 @@ mod tests {
             proxy: None,
             mssql_auth: None,
             clickhouse_cluster: None,
+            search_auth_mode: None,
+            ssl_ca_cert: None,
         };
 
         let conn_str = RedisDriver::build_connection_string(&config);
@@ -2058,6 +2073,8 @@ mod tests {
             proxy: None,
             mssql_auth: None,
             clickhouse_cluster: None,
+            search_auth_mode: None,
+            ssl_ca_cert: None,
         };
 
         let conn_str = RedisDriver::build_connection_string(&config);

@@ -23,13 +23,17 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
+import { extractVariableReferences } from '@/lib/notebook/notebookVariables';
 import {
   addItem,
   createFolder,
   listFolders,
   parseTags,
   type QueryFolder,
+  type QueryVariable,
 } from '@/lib/query/queryLibrary';
+
+const VARIABLE_TYPES: QueryVariable['type'][] = ['text', 'number', 'date', 'select'];
 
 interface SaveQueryDialogProps {
   open: boolean;
@@ -67,8 +71,10 @@ export function SaveQueryDialog({
   const [folderMode, setFolderMode] = useState<FolderMode>('existing');
   const [folderId, setFolderId] = useState<string | null>(defaultFolderId);
   const [newFolderName, setNewFolderName] = useState('');
+  const [variableDefs, setVariableDefs] = useState<Record<string, QueryVariable>>({});
 
   const parsedTags = useMemo(() => parseTags(tagsRaw), [tagsRaw]);
+  const detectedVars = useMemo(() => extractVariableReferences(initialQuery), [initialQuery]);
 
   useEffect(() => {
     if (!open) return;
@@ -79,7 +85,17 @@ export function SaveQueryDialog({
     setFolderMode('existing');
     setFolderId(defaultFolderId);
     setNewFolderName('');
-  }, [open, defaultFolderId, defaultTitle, initialQuery]);
+    setVariableDefs(
+      Object.fromEntries(detectedVars.map(name => [name, { name, type: 'text' } as QueryVariable]))
+    );
+  }, [open, defaultFolderId, defaultTitle, initialQuery, detectedVars]);
+
+  function updateVarDef(name: string, patch: Partial<QueryVariable>) {
+    setVariableDefs(prev => ({
+      ...prev,
+      [name]: { ...(prev[name] ?? { name, type: 'text' }), ...patch, name },
+    }));
+  }
 
   function close() {
     onOpenChange(false);
@@ -104,6 +120,7 @@ export function SaveQueryDialog({
         isFavorite,
         driver,
         database,
+        variables: detectedVars.length > 0 ? variableDefs : undefined,
       });
       toast.success(t('library.saved'));
       close();
@@ -208,6 +225,65 @@ export function SaveQueryDialog({
               {t('library.fields.favorite')}
             </Label>
           </div>
+
+          {detectedVars.length > 0 && (
+            <div className="grid gap-2">
+              <Label>{t('library.variables.detected')}</Label>
+              <p className="text-xs text-muted-foreground">{t('library.variables.detectedHint')}</p>
+              <div className="grid gap-3 rounded-md border border-border p-3">
+                {detectedVars.map(name => {
+                  const def = variableDefs[name] ?? { name, type: 'text' };
+                  return (
+                    <div key={name} className="grid gap-2">
+                      <div className="flex items-center gap-2">
+                        <code className="text-xs font-mono px-1.5 py-0.5 rounded bg-muted">
+                          {name}
+                        </code>
+                        <Select
+                          value={def.type}
+                          onValueChange={value =>
+                            updateVarDef(name, { type: value as QueryVariable['type'] })
+                          }
+                        >
+                          <SelectTrigger className="h-8 w-32">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {VARIABLE_TYPES.map(type => (
+                              <SelectItem key={type} value={type}>
+                                {t(`library.variables.type.${type}`)}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <Input
+                        className="h-8"
+                        value={def.defaultValue ?? ''}
+                        onChange={e => updateVarDef(name, { defaultValue: e.target.value })}
+                        placeholder={t('library.variables.defaultPlaceholder')}
+                      />
+                      {def.type === 'select' && (
+                        <Input
+                          className="h-8"
+                          value={(def.options ?? []).join(', ')}
+                          onChange={e =>
+                            updateVarDef(name, {
+                              options: e.target.value
+                                .split(',')
+                                .map(o => o.trim())
+                                .filter(Boolean),
+                            })
+                          }
+                          placeholder={t('library.variables.optionsPlaceholder')}
+                        />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
 
         <DialogFooter>

@@ -1734,30 +1734,32 @@ impl DataEngine for MySqlDriver {
 
         let database = &namespace.database;
         // CAST to CHAR — information_schema columns are BINARY by default.
-        let column_rows: Vec<(String, String, String, Option<String>, String)> = sqlx::query_as(
-            r#"
-            SELECT 
+        let column_rows: Vec<(String, String, String, Option<String>, String, String)> =
+            sqlx::query_as(
+                r#"
+            SELECT
                 CAST(c.COLUMN_NAME AS CHAR) AS column_name,
                 CAST(c.COLUMN_TYPE AS CHAR) AS column_type,
                 CAST(c.IS_NULLABLE AS CHAR) AS is_nullable,
                 CAST(c.COLUMN_DEFAULT AS CHAR) AS column_default,
-                CAST(c.COLUMN_KEY AS CHAR) AS column_key
+                CAST(c.COLUMN_KEY AS CHAR) AS column_key,
+                CAST(c.EXTRA AS CHAR) AS extra
             FROM information_schema.COLUMNS c
             WHERE c.TABLE_SCHEMA = ? AND c.TABLE_NAME = ?
             ORDER BY c.ORDINAL_POSITION
             "#,
-        )
-        .bind(database)
-        .bind(table)
-        .fetch_all(pool)
-        .await
-        .map_err(|e| EngineError::execution_error(e.to_string()))?;
+            )
+            .bind(database)
+            .bind(table)
+            .fetch_all(pool)
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
 
         let mut pk_columns: Vec<String> = Vec::new();
         let columns: Vec<TableColumn> = column_rows
             .into_iter()
             .map(
-                |(name, data_type, is_nullable, default_value, column_key)| {
+                |(name, data_type, is_nullable, default_value, column_key, extra)| {
                     let is_primary_key = column_key == "PRI";
                     if is_primary_key {
                         pk_columns.push(name.clone());
@@ -1768,6 +1770,7 @@ impl DataEngine for MySqlDriver {
                         nullable: is_nullable == "YES",
                         default_value,
                         is_primary_key,
+                        is_auto_increment: extra.to_lowercase().contains("auto_increment"),
                     }
                 },
             )

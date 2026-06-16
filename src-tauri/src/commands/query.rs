@@ -297,6 +297,14 @@ pub async fn execute_query(
             Ok(statements) if statements.len() > 1 => Some(statements),
             _ => None,
         }
+    } else if matches!(
+        driver.driver_id().to_ascii_lowercase().as_str(),
+        "elasticsearch" | "opensearch"
+    ) {
+        // Multi-request console: several `METHOD /path` blocks run sequentially,
+        // each producing its own result tab (via the shared multi-statement path).
+        let blocks = qore_drivers::drivers::search_compat::split_requests(&query);
+        (blocks.len() > 1).then_some(blocks)
     } else {
         None
     };

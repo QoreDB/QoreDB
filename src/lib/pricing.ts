@@ -31,6 +31,7 @@ const FEATURE_ANCHORS: Record<ProFeature, string> = {
   bulk_edit_unlimited: 'bulk-edit',
   data_contracts: 'contracts',
   instant_api: 'instant-api',
+  data_generator: 'data-generator',
 };
 
 function getSiteLocale(): string {

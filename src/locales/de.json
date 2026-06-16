@@ -14,7 +14,9 @@
     "passwordMismatch": "Die Passwörter stimmen nicht überein.",
     "passwordTooShort": "Das Passwort muss mindestens 8 Zeichen lang sein.",
     "ssoFailed": "SSO-Anmeldung fehlgeschlagen: {{error}}",
-    "submitting": "Bitte warten…"
+    "submitting": "Bitte warten…",
+    "forgotPassword": "Passwort vergessen?",
+    "forgotPasswordHelp": "Wende dich an deinen Administrator, um dein Passwort zurückzusetzen."
   },
   "cache": {
     "title": "Abfrage-Ergebniscache",
@@ -221,7 +223,7 @@
     "selectDriver": "Treiber auswählen",
     "configureConnection": "Verbindung konfigurieren",
     "validationError": "Bitte füllen Sie alle Pflichtfelder aus",
-    "driverSelected": "Ausgewählter Treiber",
+    "missingRequired": "Zum Fortfahren erforderlich:",
     "changeDriver": "Ändern…",
     "modalTitleNew": "Neue Verbindung",
     "modalTitleEdit": "Verbindung bearbeiten",
@@ -230,6 +232,8 @@
     "port": "Port",
     "username": "Benutzername",
     "password": "Passwort",
+    "showPassword": "Passwort anzeigen",
+    "hidePassword": "Passwort verbergen",
     "database": "Datenbank",
     "databaseInitial": "Anfangsdatenbank",
     "databaseIndex": "Datenbankindex (0-15)",
@@ -253,7 +257,7 @@
     "poolMin": "Min",
     "poolAcquireTimeout": "Timeout (s)",
     "advanced": "Erweiterte Einstellungen",
-    "advancedHint": "SSL, DB, SSH…",
+    "advancedHint": "SSL, Pool, SSH…",
     "advancedHintUrlMode": "Pool, SSH…",
     "cancel": "Abbrechen",
     "test": "Testen",
@@ -303,7 +307,8 @@
       "authIntegrated": "Windows (Integriert)",
       "ntlmHint": "Nur Windows-Clients.",
       "integratedHint": "Verwendet Ihre aktuelle Windows-Sitzung, keine Anmeldedaten erforderlich.",
-      "ntlmUsernamePlaceholder": "DOMÄNE\\benutzer"
+      "ntlmUsernamePlaceholder": "DOMÄNE\\benutzer",
+      "ntlmUsernameInvalid": "NTLM-Benutzername muss eine Domäne enthalten (DOMÄNE\\Benutzer oder Benutzer@Domäne)"
     },
     "ssh": {
       "enableTunnel": "SSH-Tunnel verwenden",
@@ -358,6 +363,18 @@
       "cluster": "Cluster-Name (optional)",
       "clusterPlaceholder": "z. B. shard_cluster",
       "clusterHint": "Wenn gesetzt, werden DDL-Befehle (CREATE/DROP DATABASE/TABLE) mit ON CLUSTER abgesetzt und auf alle Replikate propagiert. Bei Single-Node-Installationen leer lassen."
+    },
+    "search": {
+      "authMode": "Authentifizierung",
+      "authNone": "Keine",
+      "authBasic": "Basic",
+      "authApiKey": "API-Schlüssel",
+      "authBearer": "Bearer",
+      "apiKey": "API-Schlüssel",
+      "bearerToken": "Bearer-Token",
+      "tlsWarning": "Anmeldedaten werden ohne TLS im Klartext gesendet. Aktivieren Sie SSL/TLS.",
+      "caCert": "CA-Zertifikat",
+      "caCertHint": "Pfad zu einem PEM-CA-Zertifikat zur TLS-Überprüfung des Servers. Leer lassen, um den System-Truststore zu verwenden."
     }
   },
   "sidebar": {
@@ -382,7 +399,22 @@
   },
   "search": {
     "placeholder": "Befehl eingeben oder suchen…",
-    "noResults": "Keine Ergebnisse gefunden."
+    "noResults": "Keine Ergebnisse gefunden.",
+    "jsonError": "Ungültiges JSON: {{message}}",
+    "modeConsole": "Konsole",
+    "modeSql": "SQL",
+    "modeConsoleHint": "METHODE /pfad + JSON",
+    "modeSqlHint": "SQL (_sql)",
+    "sqlPlaceholder": "SELECT * FROM \"mein-index\" LIMIT 10",
+    "templates": {
+      "matchAll": "Suche (alle)",
+      "match": "Match-Abfrage",
+      "termsAgg": "Terms-Aggregation",
+      "createIndex": "Index erstellen",
+      "indexDoc": "Dokument indizieren",
+      "bulk": "Bulk-Operationen",
+      "catIndices": "Indizes auflisten"
+    }
   },
   "fulltextSearch": {
     "title": "In Datenbank suchen",
@@ -468,6 +500,21 @@
       "all": "Alle Ordner",
       "none": "Kein Ordner",
       "unknown": "Unbekannt"
+    },
+    "variables": {
+      "promptTitle": "Variablen festlegen — {{title}}",
+      "selectPlaceholder": "Wert auswählen",
+      "apply": "Abfrage verwenden",
+      "detected": "Erkannte Variablen",
+      "detectedHint": "Legen Sie Typ und Standardwert für jede in der Abfrage verwendete Variable fest.",
+      "defaultPlaceholder": "Standardwert (optional)",
+      "optionsPlaceholder": "Optionen, durch Kommas getrennt",
+      "type": {
+        "text": "Text",
+        "number": "Zahl",
+        "date": "Datum",
+        "select": "Auswahl"
+      }
     }
   },
   "palette": {
@@ -597,7 +644,11 @@
     "hideResults": "Ergebnisse ausblenden",
     "showResults": "Ergebnisse anzeigen",
     "editMarkdown": "Bearbeiten",
-    "previewMarkdown": "Vorschau"
+    "previewMarkdown": "Vorschau",
+    "addCellAi": "KI-Zelle",
+    "aiPlaceholder": "Beschreiben Sie die Abfrage in natürlicher Sprache…",
+    "aiGenerate": "SQL generieren",
+    "aiCellInserted": "SQL-Zelle unten eingefügt"
   },
   "settings": {
     "title": "Einstellungen",
@@ -696,7 +747,8 @@
       "shortcuts": "Tastenkürzel",
       "plugins": "Plugins",
       "license": "Lizenz",
-      "ai": "KI-Assistent"
+      "ai": "KI-Assistent",
+      "admin": "Administration"
     },
     "search": {
       "placeholder": "Einstellungen suchen…",
@@ -765,6 +817,26 @@
       "overridden": "Manuell",
       "notFound": "Nicht im PATH gefunden.",
       "empty": "Noch keine Tools erkannt."
+    },
+    "admin": {
+      "usersTitle": "Benutzer",
+      "usersDescription": "Verwalte die Konten, die sich an diesem Server anmelden dürfen.",
+      "loading": "Benutzer werden geladen…",
+      "noUsers": "Noch keine Benutzer.",
+      "adminBadge": "Admin",
+      "resetPassword": "Passwort zurücksetzen",
+      "newPassword": "Neues Passwort",
+      "apply": "Anwenden",
+      "refresh": "Aktualisieren",
+      "createTitle": "Benutzer erstellen",
+      "createDescription": "Neues Konto hinzufügen. Teile das temporäre Passwort dem Benutzer mit.",
+      "grantAdmin": "Administratorrechte gewähren",
+      "createUser": "Benutzer erstellen",
+      "userCreated": "Benutzer erstellt.",
+      "createFailed": "Benutzer konnte nicht erstellt werden",
+      "passwordReset": "Passwort für {{email}} zurückgesetzt.",
+      "resetFailed": "Passwort konnte nicht zurückgesetzt werden",
+      "loadFailed": "Benutzer konnten nicht geladen werden"
     }
   },
   "table": {
@@ -998,7 +1070,13 @@
     "updateError": "Zeile konnte nicht aktualisiert werden",
     "updateNoPrimaryKey": "Inline-Bearbeitung erfordert einen Primärschlüssel",
     "pinColumnLeft": "Links anheften",
-    "unpinColumn": "Spalte lösen"
+    "unpinColumn": "Spalte lösen",
+    "nlFilter": {
+      "placeholder": "In natürlicher Sprache filtern…",
+      "generate": "Generieren",
+      "apply": "Filter anwenden",
+      "empty": "Aus dieser Anfrage konnte kein Filter abgeleitet werden."
+    }
   },
   "export": {
     "dialogTitle": "Streaming-Export",
@@ -1341,7 +1419,12 @@
     "noCollections": "Keine Tabellen",
     "noDocuments": "Keine Dokumente",
     "loadMore": "Mehr laden",
-    "searchPlaceholder": "Tabellen suchen…"
+    "searchPlaceholder": "Tabellen suchen…",
+    "cluster": "Cluster",
+    "clusters": "Cluster",
+    "index": "Index",
+    "indexes": "Indizes",
+    "indexesHeader": "Indizes"
   },
   "createTable": {
     "title": "Tabelle erstellen",
@@ -3042,5 +3125,18 @@
     "active": "Aktive Plugins",
     "manage": "Plugins verwalten…",
     "runsInBackground": "Läuft im Hintergrund"
+  },
+  "dataGenerator": {
+    "action": "Daten generieren",
+    "title": "Daten generieren — {{table}}",
+    "rowCount": "Anzahl der Zeilen",
+    "generate": "Generieren",
+    "execute": "In Tabelle einfügen",
+    "export": ".sql exportieren",
+    "copy": "Kopieren",
+    "executed": "{{count}} Zeilen eingefügt",
+    "exported": "SQL-Skript exportiert",
+    "exportError": "Export fehlgeschlagen",
+    "copied": "SQL kopiert"
   }
 }

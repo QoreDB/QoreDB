@@ -10,6 +10,7 @@ import { SettingsBreadcrumb } from './SettingsBreadcrumb';
 import { SettingsSearch } from './SettingsSearch';
 import { SettingsSidebar } from './SettingsSidebar';
 import {
+  AdminSection,
   AiSection,
   DataSection,
   EditorSection,
@@ -20,8 +21,8 @@ import {
   SecuritySection,
 } from './sections';
 import {
+  availableSettingsSections,
   filterSectionsBySearch,
-  SETTINGS_SECTIONS,
   type SettingsSectionId,
 } from './settingsConfig';
 
@@ -31,11 +32,10 @@ interface SettingsPageProps {
 
 export function SettingsPage({ onClose }: SettingsPageProps) {
   const { t } = useTranslation();
+  const sections = availableSettingsSections();
   const [activeSection, setActiveSection] = useState<SettingsSectionId>(() => {
     const requested = getModalState().settingsSection;
-    return SETTINGS_SECTIONS.some(s => s.id === requested)
-      ? (requested as SettingsSectionId)
-      : 'general';
+    return sections.some(s => s.id === requested) ? (requested as SettingsSectionId) : 'general';
   });
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -70,9 +70,7 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
   }
 
   // Filter sections based on search
-  const visibleSections = searchQuery
-    ? filterSectionsBySearch(SETTINGS_SECTIONS, searchQuery)
-    : SETTINGS_SECTIONS;
+  const visibleSections = searchQuery ? filterSectionsBySearch(sections, searchQuery) : sections;
 
   useEffect(() => {
     if (searchQuery && visibleSections.length > 0) {
@@ -122,6 +120,8 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
         return <LicenseSection searchQuery={searchQuery} />;
       case 'ai':
         return <AiSection searchQuery={searchQuery} />;
+      case 'admin':
+        return <AdminSection searchQuery={searchQuery} />;
       default:
         return null;
     }

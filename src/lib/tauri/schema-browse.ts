@@ -100,6 +100,7 @@ export interface TableColumn {
   nullable: boolean;
   default_value?: string;
   is_primary_key: boolean;
+  is_auto_increment?: boolean;
 }
 
 export type CancelSupport = 'none' | 'best_effort' | 'driver';

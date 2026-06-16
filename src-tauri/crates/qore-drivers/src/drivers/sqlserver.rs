@@ -498,7 +498,8 @@ impl DataEngine for SqlServerDriver {
         let schema = namespace.schema.as_deref().unwrap_or("dbo");
 
         // Bind schema/table as `@P1`/`@P2` rather than interpolating — same defence as list_collections (audit B3-C2).
-        let col_sql = "SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE, COLUMN_DEFAULT \
+        let col_sql = "SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE, COLUMN_DEFAULT, \
+             COLUMNPROPERTY(OBJECT_ID(QUOTENAME(TABLE_SCHEMA) + '.' + QUOTENAME(TABLE_NAME)), COLUMN_NAME, 'IsIdentity') AS IS_IDENTITY \
              FROM INFORMATION_SCHEMA.COLUMNS \
              WHERE TABLE_SCHEMA = @P1 AND TABLE_NAME = @P2 \
              ORDER BY ORDINAL_POSITION";
@@ -518,12 +519,14 @@ impl DataEngine for SqlServerDriver {
                 let data_type: &str = row.get::<&str, _>(1).unwrap_or("");
                 let is_nullable: &str = row.get::<&str, _>(2).unwrap_or("YES");
                 let default_value: Option<&str> = row.get(3);
+                let is_identity: i32 = row.get(4).unwrap_or(0);
                 TableColumn {
                     name: name.to_string(),
                     data_type: data_type.to_string(),
                     nullable: is_nullable == "YES",
                     default_value: default_value.map(|s| s.to_string()),
                     is_primary_key: false,
+                    is_auto_increment: is_identity == 1,
                 }
             })
             .collect();
@@ -2096,6 +2099,8 @@ mod tests {
             proxy: None,
             mssql_auth: None,
             clickhouse_cluster: None,
+            search_auth_mode: None,
+            ssl_ca_cert: None,
         }
     }
 

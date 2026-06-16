@@ -14,7 +14,9 @@
     "passwordMismatch": "Las contraseñas no coinciden.",
     "passwordTooShort": "La contraseña debe tener al menos 8 caracteres.",
     "ssoFailed": "Error al iniciar sesión con SSO: {{error}}",
-    "submitting": "Espera por favor…"
+    "submitting": "Espera por favor…",
+    "forgotPassword": "¿Olvidaste tu contraseña?",
+    "forgotPasswordHelp": "Contacta con tu administrador para restablecer tu contraseña."
   },
   "cache": {
     "title": "Caché de resultados",
@@ -221,7 +223,7 @@
     "selectDriver": "Seleccionar un driver",
     "configureConnection": "Configurar conexión",
     "validationError": "Por favor completa todos los campos obligatorios",
-    "driverSelected": "Driver seleccionado",
+    "missingRequired": "Requerido para continuar:",
     "changeDriver": "Cambiar...",
     "modalTitleNew": "Nueva conexión",
     "modalTitleEdit": "Editar conexión",
@@ -230,6 +232,8 @@
     "port": "Puerto",
     "username": "Usuario",
     "password": "Contraseña",
+    "showPassword": "Mostrar contraseña",
+    "hidePassword": "Ocultar contraseña",
     "database": "Base de datos",
     "databaseInitial": "Base de datos inicial",
     "databaseIndex": "Índice de base de datos (0-15)",
@@ -253,7 +257,7 @@
     "poolMin": "Mín.",
     "poolAcquireTimeout": "Adquisición (s)",
     "advanced": "Configuración avanzada",
-    "advancedHint": "SSL, BD, SSH…",
+    "advancedHint": "SSL, Pool, SSH…",
     "advancedHintUrlMode": "Pool, SSH…",
     "cancel": "Cancelar",
     "test": "Probar",
@@ -303,7 +307,8 @@
       "authIntegrated": "Windows (Integrada)",
       "ntlmHint": "Solo clientes Windows.",
       "integratedHint": "Usa tu sesión actual de Windows, sin credenciales.",
-      "ntlmUsernamePlaceholder": "DOMINIO\\usuario"
+      "ntlmUsernamePlaceholder": "DOMINIO\\usuario",
+      "ntlmUsernameInvalid": "El usuario NTLM debe incluir un dominio (DOMINIO\\usuario o usuario@dominio)"
     },
     "ssh": {
       "enableTunnel": "Usar túnel SSH",
@@ -358,6 +363,18 @@
       "cluster": "Nombre del clúster (opcional)",
       "clusterPlaceholder": "p. ej. shard_cluster",
       "clusterHint": "Cuando se establece, las sentencias DDL (CREATE/DROP DATABASE/TABLE) se emiten con ON CLUSTER para propagarse a todas las réplicas. Déjalo vacío para instalaciones de un solo nodo."
+    },
+    "search": {
+      "authMode": "Autenticación",
+      "authNone": "Ninguna",
+      "authBasic": "Básica",
+      "authApiKey": "Clave API",
+      "authBearer": "Bearer",
+      "apiKey": "Clave API",
+      "bearerToken": "Token Bearer",
+      "tlsWarning": "Las credenciales se envían en texto plano sin TLS. Habilite SSL/TLS.",
+      "caCert": "Certificado CA",
+      "caCertHint": "Ruta a un certificado CA (PEM) para verificar el servidor por TLS. Déjelo vacío para usar el almacén de confianza del sistema."
     }
   },
   "sidebar": {
@@ -382,7 +399,22 @@
   },
   "search": {
     "placeholder": "Escribe un comando o busca...",
-    "noResults": "No se encontraron resultados."
+    "noResults": "No se encontraron resultados.",
+    "jsonError": "JSON no válido: {{message}}",
+    "modeConsole": "Consola",
+    "modeSql": "SQL",
+    "modeConsoleHint": "MÉTODO /ruta + JSON",
+    "modeSqlHint": "SQL (_sql)",
+    "sqlPlaceholder": "SELECT * FROM \"mi-indice\" LIMIT 10",
+    "templates": {
+      "matchAll": "Búsqueda (todo)",
+      "match": "Consulta match",
+      "termsAgg": "Agregación terms",
+      "createIndex": "Crear índice",
+      "indexDoc": "Indexar un documento",
+      "bulk": "Operaciones bulk",
+      "catIndices": "Listar índices"
+    }
   },
   "fulltextSearch": {
     "title": "Buscar en la base de datos",
@@ -468,6 +500,21 @@
       "all": "Todas las carpetas",
       "none": "Sin carpeta",
       "unknown": "Desconocido"
+    },
+    "variables": {
+      "promptTitle": "Definir variables — {{title}}",
+      "selectPlaceholder": "Selecciona un valor",
+      "apply": "Usar consulta",
+      "detected": "Variables detectadas",
+      "detectedHint": "Configura el tipo y el valor predeterminado de cada variable usada en la consulta.",
+      "defaultPlaceholder": "Valor predeterminado (opcional)",
+      "optionsPlaceholder": "Opciones, separadas por comas",
+      "type": {
+        "text": "Texto",
+        "number": "Número",
+        "date": "Fecha",
+        "select": "Lista"
+      }
     }
   },
   "palette": {
@@ -597,7 +644,11 @@
     "hideResults": "Ocultar resultados",
     "showResults": "Mostrar resultados",
     "editMarkdown": "Editar",
-    "previewMarkdown": "Vista previa"
+    "previewMarkdown": "Vista previa",
+    "addCellAi": "Celda IA",
+    "aiPlaceholder": "Describe la consulta en lenguaje natural…",
+    "aiGenerate": "Generar SQL",
+    "aiCellInserted": "Celda SQL insertada debajo"
   },
   "settings": {
     "title": "Configuración",
@@ -696,7 +747,8 @@
       "shortcuts": "Atajos de teclado",
       "plugins": "Complementos",
       "license": "Licencia",
-      "ai": "Asistente de IA"
+      "ai": "Asistente de IA",
+      "admin": "Administración"
     },
     "search": {
       "placeholder": "Buscar configuración...",
@@ -765,6 +817,26 @@
       "overridden": "Manual",
       "notFound": "No encontrado en PATH.",
       "empty": "Aún no se han detectado herramientas."
+    },
+    "admin": {
+      "usersTitle": "Usuarios",
+      "usersDescription": "Gestiona las cuentas que pueden iniciar sesión en este servidor.",
+      "loading": "Cargando usuarios…",
+      "noUsers": "Aún no hay usuarios.",
+      "adminBadge": "Admin",
+      "resetPassword": "Restablecer contraseña",
+      "newPassword": "Nueva contraseña",
+      "apply": "Aplicar",
+      "refresh": "Actualizar",
+      "createTitle": "Crear un usuario",
+      "createDescription": "Añade una cuenta nueva. Comparte la contraseña temporal con el usuario.",
+      "grantAdmin": "Conceder derechos de administrador",
+      "createUser": "Crear usuario",
+      "userCreated": "Usuario creado.",
+      "createFailed": "No se pudo crear el usuario",
+      "passwordReset": "Contraseña restablecida para {{email}}.",
+      "resetFailed": "No se pudo restablecer la contraseña",
+      "loadFailed": "No se pudieron cargar los usuarios"
     }
   },
   "table": {
@@ -998,7 +1070,13 @@
     "updateError": "Error al actualizar la fila",
     "updateNoPrimaryKey": "La edición en línea requiere una clave primaria",
     "pinColumnLeft": "Fijar a la izquierda",
-    "unpinColumn": "Desfijar columna"
+    "unpinColumn": "Desfijar columna",
+    "nlFilter": {
+      "placeholder": "Filtrar en lenguaje natural…",
+      "generate": "Generar",
+      "apply": "Aplicar filtros",
+      "empty": "No se pudo derivar ningún filtro de esta solicitud."
+    }
   },
   "export": {
     "dialogTitle": "Exportación en streaming",
@@ -1341,7 +1419,12 @@
     "noCollections": "Sin tablas",
     "noDocuments": "Sin documentos",
     "loadMore": "Cargar más",
-    "searchPlaceholder": "Buscar tablas..."
+    "searchPlaceholder": "Buscar tablas...",
+    "cluster": "Clúster",
+    "clusters": "Clústeres",
+    "index": "Índice",
+    "indexes": "Índices",
+    "indexesHeader": "Índices"
   },
   "createTable": {
     "title": "Crear tabla",
@@ -3042,5 +3125,18 @@
     "active": "Complementos activos",
     "manage": "Gestionar complementos…",
     "runsInBackground": "Se ejecuta en segundo plano"
+  },
+  "dataGenerator": {
+    "action": "Generar datos",
+    "title": "Generar datos — {{table}}",
+    "rowCount": "Número de filas",
+    "generate": "Generar",
+    "execute": "Insertar en la tabla",
+    "export": "Exportar .sql",
+    "copy": "Copiar",
+    "executed": "{{count}} filas insertadas",
+    "exported": "Script SQL exportado",
+    "exportError": "Error al exportar",
+    "copied": "SQL copiado"
   }
 }

@@ -26,7 +26,7 @@ interface NotebookCellListProps {
   onDeleteCell: (cellId: string) => void;
   onMoveCellUp: (cellId: string) => void;
   onMoveCellDown: (cellId: string) => void;
-  onAddCell: (type: CellType, afterCellId?: string) => void;
+  onAddCell: (type: CellType, afterCellId?: string, source?: string) => void;
   onCancelExecution?: () => void;
   onDuplicateCell?: (cellId: string) => void;
   onConvertCellType?: (cellId: string) => void;
@@ -100,6 +100,7 @@ function CellRenderer({ cell, allCells, index, total, props }: CellRendererProps
           props.onToggleCellCollapsed && (() => props.onToggleCellCollapsed?.(cell.id))
         }
         onRunFromHere={props.onExecuteFromHere && (() => props.onExecuteFromHere?.(cell.id))}
+        onInsertSqlBelow={source => props.onAddCell('sql', cell.id, source)}
       />
       <AddCellDivider afterCellId={cell.id} onAddCell={props.onAddCell} />
     </>

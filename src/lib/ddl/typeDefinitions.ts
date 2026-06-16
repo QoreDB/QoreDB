@@ -170,6 +170,8 @@ export const COLUMN_TYPES: Record<Driver, ColumnType[]> = {
   [Driver.Neon]: POSTGRES_TYPES,
   [Driver.Timescaledb]: POSTGRES_TYPES,
   [Driver.Clickhouse]: CLICKHOUSE_TYPES,
+  [Driver.Elasticsearch]: [],
+  [Driver.OpenSearch]: [],
 };
 
 export function getColumnTypes(driver: Driver): ColumnType[] {

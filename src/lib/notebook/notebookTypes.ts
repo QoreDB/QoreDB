@@ -27,7 +27,7 @@ export interface NotebookMetadata {
   };
 }
 
-export type CellType = 'sql' | 'mongo' | 'markdown' | 'chart' | 'contract';
+export type CellType = 'sql' | 'mongo' | 'markdown' | 'chart' | 'contract' | 'ai';
 
 export interface NotebookCell {
   id: string;

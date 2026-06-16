@@ -85,6 +85,19 @@ pub async fn ai_get_provider_status(
     Err(PRO_REQUIRED.to_string())
 }
 
+#[cfg(not(feature = "pro"))]
+#[tauri::command]
+pub async fn ai_generate_filters(
+    _state: State<'_, SharedState>,
+    _session_id: String,
+    _table_name: String,
+    _prompt: String,
+    _config: serde_json::Value,
+    _namespace: Option<serde_json::Value>,
+) -> Result<Vec<serde_json::Value>, String> {
+    Err(PRO_REQUIRED.to_string())
+}
+
 // ─── Pro implementation ──────────────────────────────────────
 
 #[cfg(feature = "pro")]
@@ -103,9 +116,11 @@ use crate::ai::provider::extract_query_from_response;
 #[cfg(feature = "pro")]
 use crate::ai::safety::validate_generated_query;
 #[cfg(feature = "pro")]
-use crate::ai::types::{AiAction, AiConfig, AiProvider, AiRequest, AiResponse, AiStreamChunk};
+use crate::ai::types::{
+    AiAction, AiConfig, AiMessage, AiProvider, AiRequest, AiResponse, AiStreamChunk,
+};
 #[cfg(feature = "pro")]
-use crate::engine::types::{Namespace, SessionId};
+use crate::engine::types::{ColumnFilter, Namespace, SessionId};
 
 #[cfg(feature = "pro")]
 fn parse_session_id(id: &str) -> Result<SessionId, String> {
@@ -172,6 +187,7 @@ pub async fn ai_explain_result(
         &virtual_relations,
         None,
         &query,
+        false,
     )
     .await?;
 
@@ -233,6 +249,7 @@ pub async fn ai_summarize_schema(
         &virtual_relations,
         None,
         "",
+        false,
     )
     .await?;
 
@@ -250,6 +267,92 @@ pub async fn ai_summarize_schema(
         provider_used: config.provider,
         tokens_used: None,
     })
+}
+
+/// Non-streaming: translate a natural-language filter into structured column
+/// filters that the grid applies via `query_table` (values are parameterised
+/// downstream, so no raw SQL is interpolated). `today` is supplied by the
+/// caller so relative dates ("last week") resolve to absolute values.
+#[cfg(feature = "pro")]
+#[tauri::command]
+pub async fn ai_generate_filters(
+    state: State<'_, SharedState>,
+    session_id: String,
+    table_name: String,
+    prompt: String,
+    today: String,
+    config: AiConfig,
+    namespace: Option<Namespace>,
+) -> Result<Vec<ColumnFilter>, String> {
+    let (session_manager, ai_manager, virtual_relations) = {
+        let s = state.lock().await;
+        (
+            Arc::clone(&s.session_manager),
+            Arc::clone(&s.ai_manager),
+            Arc::clone(&s.virtual_relations),
+        )
+    };
+
+    let sid = parse_session_id(&session_id)?;
+    let driver = session_manager
+        .get_driver(sid)
+        .await
+        .map_err(|e| e.to_string())?;
+    let driver_id = driver.driver_id().to_string();
+
+    let ns = namespace.unwrap_or_else(|| Namespace::new("default"));
+
+    let schema_ctx = context::build_context(
+        &session_manager,
+        sid,
+        &ns,
+        &driver_id,
+        &virtual_relations,
+        None,
+        &prompt,
+        false,
+    )
+    .await?;
+
+    let system_prompt = format!(
+        "You convert a natural-language filter request into a JSON array of column filters for the table `{table}`.\n\n\
+Schema:\n{schema}\n\n\
+Rules:\n\
+- Output ONLY a compact JSON array, no markdown fences, no prose.\n\
+- Each element is an object: {{\"column\": <exact column name>, \"operator\": <op>, \"value\": <scalar>}}.\n\
+- operator is one of: eq, neq, gt, gte, lt, lte, like, is_null, is_not_null, regex, text.\n\
+- For is_null / is_not_null set \"value\" to null.\n\
+- For like, put SQL wildcards (%) in the value.\n\
+- Multiple conditions are separate array elements; they are combined with AND.\n\
+- Use only column names that appear in the schema above. If nothing applies, return [].\n\
+- Today's date is {today}. Resolve relative dates (e.g. \"last week\") to absolute YYYY-MM-DD values using gte/lte.\n\
+- value must be a JSON string, number, boolean, or null — never an expression or function call.",
+        table = table_name,
+        schema = schema_ctx.schema_description,
+        today = today,
+    );
+
+    let content = collect_streamed_response(&ai_manager, &config, &system_prompt, &prompt).await?;
+
+    let json = extract_json_array(&content)
+        .ok_or_else(|| "AI did not return a JSON array of filters".to_string())?;
+    let filters: Vec<ColumnFilter> =
+        serde_json::from_str(json).map_err(|e| format!("Invalid filter JSON: {}", e))?;
+
+    Ok(filters)
+}
+
+/// Extracts the outermost JSON array from a model response, tolerating
+/// surrounding prose or ```json fences.
+#[cfg(feature = "pro")]
+fn extract_json_array(text: &str) -> Option<&str> {
+    let start = text.find('[')?;
+    let end = text.rfind(']')?;
+    if end > start {
+        Some(&text[start..=end])
+    } else {
+        None
+    }
 }
 
 /// Store an API key for a provider. The key shape is validated per-provider
@@ -353,21 +456,16 @@ async fn collect_streamed_response(
     let (tx, mut rx) = tokio::sync::mpsc::channel::<AiStreamChunk>(64);
     let request_id = Uuid::new_v4().to_string();
 
-    let system_prompt = system_prompt.to_string();
-    let user_prompt = user_prompt.to_string();
+    let messages = vec![
+        AiMessage::system(system_prompt),
+        AiMessage::user(user_prompt),
+    ];
     let config_clone = config.clone();
     let rid = request_id.clone();
 
     tokio::spawn(async move {
         if let Err(e) = provider
-            .stream(
-                &api_key,
-                &system_prompt,
-                &user_prompt,
-                &config_clone,
-                tx.clone(),
-                rid.clone(),
-            )
+            .stream(&api_key, &messages, &config_clone, tx.clone(), rid.clone())
             .await
         {
             let _ = tx
@@ -435,6 +533,7 @@ async fn stream_ai_request(
         &virtual_relations,
         request.connection_id.as_deref(),
         &request.prompt,
+        request.include_sample_rows,
     )
     .await?;
 
@@ -452,19 +551,22 @@ async fn stream_ai_request(
 
     let request_id = request.request_id.clone();
     let config = request.config.clone();
-    let system_prompt = schema_ctx.system_prompt;
     let event_name = format!("ai_stream:{}", request_id);
+
+    let mut messages = Vec::with_capacity(request.history.len() + 2);
+    messages.push(AiMessage::system(schema_ctx.system_prompt));
+    messages.extend(context::clamp_history(&request.history));
+    messages.push(AiMessage::user(user_prompt));
 
     tokio::spawn(async move {
         let (tx, mut rx) = tokio::sync::mpsc::channel::<AiStreamChunk>(64);
         let rid = request_id.clone();
         let event = event_name.clone();
 
-        let provider_handle = tokio::spawn(async move {
-            provider
-                .stream(&api_key, &system_prompt, &user_prompt, &config, tx, rid)
-                .await
-        });
+        let provider_handle =
+            tokio::spawn(
+                async move { provider.stream(&api_key, &messages, &config, tx, rid).await },
+            );
 
         let mut full_response = String::new();
         while let Some(chunk) = rx.recv().await {
@@ -479,7 +581,7 @@ async fn stream_ai_request(
             Err(e) => Some(format!("Stream task panicked: {}", e)),
         };
 
-        let generated_query = extract_query_from_response(&full_response);
+        let generated_query = extract_query_from_response(&full_response, &driver_id);
         let safety_analysis = generated_query
             .as_ref()
             .map(|q| validate_generated_query(&driver_id, q));
@@ -501,7 +603,7 @@ async fn stream_ai_request(
 /// Build the user-facing prompt based on the action type
 #[cfg(feature = "pro")]
 fn build_user_prompt(request: &AiRequest) -> String {
-    match &request.action {
+    let base = match &request.action {
         AiAction::GenerateQuery => {
             format!(
                 "Generate a query for the following request:\n\n{}",
@@ -533,5 +635,14 @@ fn build_user_prompt(request: &AiRequest) -> String {
             )
         }
         AiAction::SummarizeSchema => request.prompt.clone(),
+    };
+
+    match request
+        .editor_context
+        .as_ref()
+        .and_then(context::format_editor_context)
+    {
+        Some(editor_block) => format!("{base}\n\n{editor_block}"),
+        None => base,
     }
 }

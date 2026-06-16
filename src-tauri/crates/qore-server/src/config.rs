@@ -16,6 +16,8 @@ pub struct ServerConfig {
     pub token_generated: bool,
     pub config_dir: PathBuf,
     pub web_dir: Option<PathBuf>,
+    pub tls_cert: Option<PathBuf>,
+    pub tls_key: Option<PathBuf>,
 }
 
 impl ServerConfig {
@@ -36,6 +38,14 @@ impl ServerConfig {
             .ok()
             .filter(|s| !s.is_empty())
             .map(PathBuf::from);
+        let tls_cert = std::env::var("QORE_SERVER_TLS_CERT")
+            .ok()
+            .filter(|s| !s.is_empty())
+            .map(PathBuf::from);
+        let tls_key = std::env::var("QORE_SERVER_TLS_KEY")
+            .ok()
+            .filter(|s| !s.is_empty())
+            .map(PathBuf::from);
 
         Self {
             addr: SocketAddr::new(host, port),
@@ -43,6 +53,8 @@ impl ServerConfig {
             token_generated,
             config_dir: config_dir(),
             web_dir,
+            tls_cert,
+            tls_key,
         }
     }
 }

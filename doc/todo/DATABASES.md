@@ -37,14 +37,17 @@
 
 - [x] **Redis** — Cache / store in-memory
 
+### Search
+
+- [x] **Elasticsearch** — Recherche full-text (REST/HTTP, console Dev Tools, Query DSL)
+- [x] **OpenSearch** — Fork Elasticsearch (driver mutualisé `search_compat`)
+
 ---
 
 ## 🔜 Prévus
 
-### Search / Analytics — 🎯 prochaine cible
+### Search / Analytics
 
-- [ ] **Elasticsearch** — Recherche full-text (REST/HTTP, Query DSL)
-- [ ] **OpenSearch** — Fork Elasticsearch (API quasi-identique, mutualisable)
 - [ ] **Apache Druid** — Real-time analytics
 
 ### SQL Relationnel
@@ -116,6 +119,8 @@
 | ClickHouse     | ✅           | ⚠️          | ❌  | ✅      | ✅    | ✅       | MergeTree-family subset. Pas de FK enforcement (laissée syntaxique uniquement). INDEX … TYPE bloom_filter\|minmax\|set. (v0.1.28) |
 | MongoDB        | ❌           | ❌          | —  | —       | —     | —        | Pas de schéma rigide. Voir `CreateCollectionModal` (v0.3.x). |
 | Redis          | ❌           | ❌          | —  | —       | —     | —        | Pas applicable (KV store). |
+| Elasticsearch  | ❌           | ❌          | —  | —       | —     | —        | DDL visuel non applicable. Création d'index via la console (`PUT /index`). |
+| OpenSearch     | ❌           | ❌          | —  | —       | —     | —        | Idem Elasticsearch (driver mutualisé). |
 
 Légende : ✅ supporté · ⚠️ partiel ou avec limitations · ❌ non applicable
 
@@ -147,8 +152,6 @@ pub trait DataEngine: Send + Sync {
 
 | Priorité | Database      | Raison                                         |
 | -------- | ------------- | ---------------------------------------------- |
-| Next     | Elasticsearch | Search use case, premier moteur full-text      |
-| Next     | OpenSearch    | Fork ES, API mutualisable avec Elasticsearch   |
 | +        | Valkey        | Fork Redis, réutilise le driver existant       |
 | +        | Oracle        | Angle enterprise (QorePlatform)                |
 | +        | Neo4j         | Niche mais différenciant (graphe / Cypher)     |

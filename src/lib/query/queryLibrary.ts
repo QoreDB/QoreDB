@@ -1,8 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import type { NotebookVariable } from '../notebook/notebookTypes';
 import { redactQuery } from '../redaction';
 import { getWorkspaceState } from '../stores/workspaceStore';
 import { wsSaveQueryLibrary } from '../tauri';
+
+/**
+ * A parameter placeholder (`{{name}}` / `$name`) defined on a saved query.
+ * Reuses the notebook variable shape so substitution and the typed inputs are
+ * shared between notebooks and the query library.
+ */
+export type QueryVariable = NotebookVariable;
 
 export interface QueryFolder {
   id: string;
@@ -20,6 +28,7 @@ export interface QueryLibraryItem {
   isFavorite: boolean;
   driver?: string;
   database?: string;
+  variables?: Record<string, QueryVariable>;
   createdAt: number;
   updatedAt: number;
 }
@@ -222,6 +231,19 @@ export function listItems(options?: {
     .sort((a, b) => b.updatedAt - a.updatedAt);
 }
 
+/**
+ * Strips runtime-only values from variable definitions so the library only
+ * persists the typed schema (name, type, default, options, description).
+ */
+function sanitizeVariables(
+  variables?: Record<string, QueryVariable>
+): Record<string, QueryVariable> | undefined {
+  if (!variables) return undefined;
+  const entries = Object.entries(variables);
+  if (entries.length === 0) return undefined;
+  return Object.fromEntries(entries.map(([name, v]) => [name, { ...v, currentValue: undefined }]));
+}
+
 export function addItem(input: {
   title: string;
   query: string;
@@ -230,6 +252,7 @@ export function addItem(input: {
   isFavorite?: boolean;
   driver?: string;
   database?: string;
+  variables?: Record<string, QueryVariable>;
 }): QueryLibraryItem {
   const title = input.title.trim();
   const query = input.query;
@@ -248,6 +271,7 @@ export function addItem(input: {
     isFavorite: input.isFavorite ?? false,
     driver: input.driver,
     database: input.database,
+    variables: sanitizeVariables(input.variables),
     createdAt: now(),
     updatedAt: now(),
   };
@@ -263,7 +287,9 @@ export function addItem(input: {
 
 export function updateItem(
   id: string,
-  patch: Partial<Pick<QueryLibraryItem, 'title' | 'query' | 'folderId' | 'tags' | 'isFavorite'>>
+  patch: Partial<
+    Pick<QueryLibraryItem, 'title' | 'query' | 'folderId' | 'tags' | 'isFavorite' | 'variables'>
+  >
 ): QueryLibraryItem {
   const state = readState();
   const existing = state.items.find(i => i.id === id);
@@ -279,6 +305,8 @@ export function updateItem(
         ? Array.from(new Set(patch.tags.map(normalizeTag).filter(Boolean))).slice(0, 12)
         : existing.tags,
     isFavorite: patch.isFavorite !== undefined ? patch.isFavorite : existing.isFavorite,
+    variables:
+      patch.variables !== undefined ? sanitizeVariables(patch.variables) : existing.variables,
     updatedAt: now(),
   };
 
@@ -366,6 +394,7 @@ export function importLibrary(payload: QueryLibraryExportV1): {
       isFavorite: !!item.isFavorite,
       driver: item.driver,
       database: item.database,
+      variables: sanitizeVariables(item.variables),
       createdAt: now(),
       updatedAt: now(),
     });

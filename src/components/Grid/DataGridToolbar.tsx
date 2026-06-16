@@ -17,6 +17,7 @@ import {
   Loader2,
   Search,
   Sparkles,
+  Wand2,
   X,
 } from 'lucide-react';
 import type { RefObject } from 'react';
@@ -52,6 +53,7 @@ interface DataGridToolbarProps {
   aiExplanation?: string | null;
   aiExplainLoading?: boolean;
   onDismissAiExplanation?: () => void;
+  onGenerateData?: () => void;
 }
 
 export function DataGridToolbar({
@@ -70,6 +72,7 @@ export function DataGridToolbar({
   aiExplanation,
   aiExplainLoading,
   onDismissAiExplanation,
+  onGenerateData,
 }: DataGridToolbarProps) {
   const { t } = useTranslation();
 
@@ -146,7 +149,6 @@ export function DataGridToolbar({
             ))}
         </DropdownMenuContent>
       </DropdownMenu>
-      {/* Export Dropdown */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" size="sm" className="h-7 px-2 text-xs">
@@ -261,6 +263,18 @@ export function DataGridToolbar({
             </PopoverContent>
           )}
         </Popover>
+      )}
+      {onGenerateData && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7 gap-1 px-2 text-xs"
+          onClick={onGenerateData}
+          title={t('dataGenerator.action')}
+        >
+          <Wand2 size={14} />
+          <span>{t('dataGenerator.generate')}</span>
+        </Button>
       )}
     </div>
   );

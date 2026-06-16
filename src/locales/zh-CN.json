@@ -14,7 +14,9 @@
     "passwordMismatch": "两次输入的密码不一致。",
     "passwordTooShort": "密码至少需要 8 个字符。",
     "ssoFailed": "SSO 登录失败：{{error}}",
-    "submitting": "请稍候…"
+    "submitting": "请稍候…",
+    "forgotPassword": "忘记密码？",
+    "forgotPasswordHelp": "请联系管理员重置您的密码。"
   },
   "cache": {
     "title": "查询结果缓存",
@@ -221,7 +223,7 @@
     "selectDriver": "选择驱动",
     "configureConnection": "配置连接",
     "validationError": "请填写所有必填字段",
-    "driverSelected": "已选驱动",
+    "missingRequired": "继续前需填写：",
     "changeDriver": "更改…",
     "modalTitleNew": "新建连接",
     "modalTitleEdit": "编辑连接",
@@ -230,6 +232,8 @@
     "port": "端口",
     "username": "用户名",
     "password": "密码",
+    "showPassword": "显示密码",
+    "hidePassword": "隐藏密码",
     "database": "数据库",
     "databaseInitial": "初始数据库",
     "databaseIndex": "数据库索引（0-15）",
@@ -253,7 +257,7 @@
     "poolMin": "最小",
     "poolAcquireTimeout": "获取超时（秒）",
     "advanced": "高级设置",
-    "advancedHint": "SSL、数据库、SSH…",
+    "advancedHint": "SSL、连接池、SSH…",
     "advancedHintUrlMode": "连接池、SSH…",
     "cancel": "取消",
     "test": "测试",
@@ -303,7 +307,8 @@
       "authIntegrated": "Windows (集成)",
       "ntlmHint": "仅限 Windows 客户端。",
       "integratedHint": "使用当前的 Windows 会话，无需凭据。",
-      "ntlmUsernamePlaceholder": "DOMAIN\\user"
+      "ntlmUsernamePlaceholder": "DOMAIN\\user",
+      "ntlmUsernameInvalid": "NTLM 用户名必须包含域 (DOMAIN\\user 或 user@domain)"
     },
     "ssh": {
       "enableTunnel": "使用 SSH 隧道",
@@ -358,6 +363,18 @@
       "cluster": "集群名称（可选）",
       "clusterPlaceholder": "例如 shard_cluster",
       "clusterHint": "设置后，DDL 语句（CREATE/DROP DATABASE/TABLE）将带 ON CLUSTER 执行并传播到所有副本。单节点安装请留空。"
+    },
+    "search": {
+      "authMode": "认证",
+      "authNone": "无",
+      "authBasic": "Basic",
+      "authApiKey": "API 密钥",
+      "authBearer": "Bearer",
+      "apiKey": "API 密钥",
+      "bearerToken": "Bearer 令牌",
+      "tlsWarning": "未启用 TLS，凭据将以明文发送。请启用 SSL/TLS。",
+      "caCert": "CA 证书",
+      "caCertHint": "用于通过 TLS 验证服务器的 PEM CA 证书路径。留空则使用系统信任库。"
     }
   },
   "sidebar": {
@@ -382,7 +399,22 @@
   },
   "search": {
     "placeholder": "输入命令或搜索…",
-    "noResults": "未找到结果。"
+    "noResults": "未找到结果。",
+    "jsonError": "无效的 JSON：{{message}}",
+    "modeConsole": "控制台",
+    "modeSql": "SQL",
+    "modeConsoleHint": "方法 /路径 + JSON",
+    "modeSqlHint": "SQL (_sql)",
+    "sqlPlaceholder": "SELECT * FROM \"my-index\" LIMIT 10",
+    "templates": {
+      "matchAll": "搜索（全部）",
+      "match": "match 查询",
+      "termsAgg": "terms 聚合",
+      "createIndex": "创建索引",
+      "indexDoc": "索引文档",
+      "bulk": "批量操作",
+      "catIndices": "列出索引"
+    }
   },
   "fulltextSearch": {
     "title": "在数据库中搜索",
@@ -468,6 +500,21 @@
       "all": "所有文件夹",
       "none": "无文件夹",
       "unknown": "未知"
+    },
+    "variables": {
+      "promptTitle": "设置变量 — {{title}}",
+      "selectPlaceholder": "选择一个值",
+      "apply": "使用查询",
+      "detected": "检测到的变量",
+      "detectedHint": "为查询中使用的每个变量配置类型和默认值。",
+      "defaultPlaceholder": "默认值（可选）",
+      "optionsPlaceholder": "选项，以逗号分隔",
+      "type": {
+        "text": "文本",
+        "number": "数字",
+        "date": "日期",
+        "select": "下拉选择"
+      }
     }
   },
   "palette": {
@@ -597,7 +644,11 @@
     "hideResults": "隐藏结果",
     "showResults": "显示结果",
     "editMarkdown": "编辑",
-    "previewMarkdown": "预览"
+    "previewMarkdown": "预览",
+    "addCellAi": "AI 单元格",
+    "aiPlaceholder": "用自然语言描述查询…",
+    "aiGenerate": "生成 SQL",
+    "aiCellInserted": "已在下方插入 SQL 单元格"
   },
   "settings": {
     "title": "设置",
@@ -696,7 +747,8 @@
       "shortcuts": "键盘快捷键",
       "plugins": "插件",
       "license": "许可证",
-      "ai": "AI 助手"
+      "ai": "AI 助手",
+      "admin": "管理"
     },
     "search": {
       "placeholder": "搜索设置…",
@@ -765,6 +817,26 @@
       "overridden": "手动",
       "notFound": "在 PATH 中未找到。",
       "empty": "尚未检测到任何工具。"
+    },
+    "admin": {
+      "usersTitle": "用户",
+      "usersDescription": "管理可登录此服务器的账户。",
+      "loading": "正在加载用户…",
+      "noUsers": "暂无用户。",
+      "adminBadge": "管理员",
+      "resetPassword": "重置密码",
+      "newPassword": "新密码",
+      "apply": "应用",
+      "refresh": "刷新",
+      "createTitle": "创建用户",
+      "createDescription": "添加新账户。请将临时密码告知用户。",
+      "grantAdmin": "授予管理员权限",
+      "createUser": "创建用户",
+      "userCreated": "用户已创建。",
+      "createFailed": "创建用户失败",
+      "passwordReset": "已重置 {{email}} 的密码。",
+      "resetFailed": "重置密码失败",
+      "loadFailed": "加载用户失败"
     }
   },
   "table": {
@@ -998,7 +1070,13 @@
     "updateError": "更新行失败",
     "updateNoPrimaryKey": "内联编辑需要主键",
     "pinColumnLeft": "固定到左侧",
-    "unpinColumn": "取消固定列"
+    "unpinColumn": "取消固定列",
+    "nlFilter": {
+      "placeholder": "用自然语言筛选…",
+      "generate": "生成",
+      "apply": "应用筛选",
+      "empty": "无法从该请求推导出筛选条件。"
+    }
   },
   "export": {
     "dialogTitle": "流式导出",
@@ -1341,7 +1419,12 @@
     "noCollections": "没有表",
     "noDocuments": "没有文档",
     "loadMore": "加载更多",
-    "searchPlaceholder": "搜索表…"
+    "searchPlaceholder": "搜索表…",
+    "cluster": "集群",
+    "clusters": "集群",
+    "index": "索引",
+    "indexes": "索引",
+    "indexesHeader": "索引"
   },
   "createTable": {
     "title": "创建表",
@@ -3042,5 +3125,18 @@
     "active": "已启用的插件",
     "manage": "管理插件…",
     "runsInBackground": "在后台运行"
+  },
+  "dataGenerator": {
+    "action": "生成数据",
+    "title": "生成数据 — {{table}}",
+    "rowCount": "行数",
+    "generate": "生成",
+    "execute": "插入到表",
+    "export": "导出 .sql",
+    "copy": "复制",
+    "executed": "已插入 {{count}} 行",
+    "exported": "已导出 SQL 脚本",
+    "exportError": "导出失败",
+    "copied": "已复制 SQL"
   }
 }

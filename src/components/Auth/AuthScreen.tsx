@@ -24,6 +24,7 @@ export function AuthScreen({ status, ssoError, onAuthenticated }: AuthScreenProp
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [busy, setBusy] = useState(false);
+  const [showForgot, setShowForgot] = useState(false);
   const [error, setError] = useState<string | undefined>(
     ssoError ? t('auth.ssoFailed', { error: ssoError }) : undefined
   );
@@ -110,6 +111,23 @@ export function AuthScreen({ status, ssoError, onAuthenticated }: AuthScreenProp
                 autoComplete="new-password"
                 required
               />
+            </div>
+          )}
+
+          {!setup && (
+            <div className="-mt-2 flex flex-col items-end gap-1">
+              <button
+                type="button"
+                className="text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+                onClick={() => setShowForgot(v => !v)}
+              >
+                {t('auth.forgotPassword')}
+              </button>
+              {showForgot && (
+                <p className="text-xs text-muted-foreground text-right">
+                  {t('auth.forgotPasswordHelp')}
+                </p>
+              )}
             </div>
           )}
 

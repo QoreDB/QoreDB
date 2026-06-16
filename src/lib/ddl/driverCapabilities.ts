@@ -140,6 +140,8 @@ const CAPABILITIES: Record<Driver, DdlCapabilities> = {
   [Driver.Neon]: POSTGRES_CAPS,
   [Driver.Timescaledb]: POSTGRES_CAPS,
   [Driver.Clickhouse]: CLICKHOUSE_CAPS,
+  [Driver.Elasticsearch]: NO_DDL,
+  [Driver.OpenSearch]: NO_DDL,
 };
 
 export function getDdlCapabilities(driver: Driver): DdlCapabilities {

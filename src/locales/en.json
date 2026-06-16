@@ -14,7 +14,9 @@
     "passwordMismatch": "Passwords do not match.",
     "passwordTooShort": "Password must be at least 8 characters.",
     "ssoFailed": "SSO sign-in failed: {{error}}",
-    "submitting": "Please wait…"
+    "submitting": "Please wait…",
+    "forgotPassword": "Forgot password?",
+    "forgotPasswordHelp": "Contact your administrator to reset your password."
   },
   "cache": {
     "title": "Query result cache",
@@ -249,7 +251,7 @@
     "selectDriver": "Select a driver",
     "configureConnection": "Configure Connection",
     "validationError": "Please fill in all required fields",
-    "driverSelected": "Selected driver",
+    "missingRequired": "Required to continue:",
     "changeDriver": "Change...",
     "modalTitleNew": "New Connection",
     "modalTitleEdit": "Edit Connection",
@@ -258,6 +260,8 @@
     "port": "Port",
     "username": "Username",
     "password": "Password",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
     "database": "Database",
     "databaseInitial": "Initial Database",
     "databaseIndex": "Database Index (0-15)",
@@ -281,7 +285,7 @@
     "poolMin": "Min",
     "poolAcquireTimeout": "Acquire (s)",
     "advanced": "Advanced settings",
-    "advancedHint": "SSL, DB, SSH…",
+    "advancedHint": "SSL, Pool, SSH…",
     "advancedHintUrlMode": "Pool, SSH…",
     "cancel": "Cancel",
     "test": "Test",
@@ -331,7 +335,8 @@
       "authIntegrated": "Windows (Integrated)",
       "ntlmHint": "Windows clients only.",
       "integratedHint": "Uses your current Windows session, no credentials needed.",
-      "ntlmUsernamePlaceholder": "DOMAIN\\user"
+      "ntlmUsernamePlaceholder": "DOMAIN\\user",
+      "ntlmUsernameInvalid": "NTLM username must include a domain (DOMAIN\\user or user@domain)"
     },
     "ssh": {
       "enableTunnel": "Use SSH Tunnel",
@@ -386,6 +391,18 @@
       "cluster": "Cluster name (optional)",
       "clusterPlaceholder": "e.g. shard_cluster",
       "clusterHint": "When set, DDL statements (CREATE/DROP DATABASE/TABLE) are issued with ON CLUSTER to propagate to every replica. Leave empty for single-node installs."
+    },
+    "search": {
+      "authMode": "Authentication",
+      "authNone": "None",
+      "authBasic": "Basic",
+      "authApiKey": "API Key",
+      "authBearer": "Bearer",
+      "apiKey": "API key",
+      "bearerToken": "Bearer token",
+      "tlsWarning": "Credentials are sent in clear text without TLS. Enable SSL/TLS.",
+      "caCert": "CA certificate",
+      "caCertHint": "Path to a PEM CA certificate to verify the server over TLS. Leave empty to use the system trust store."
     }
   },
   "sidebar": {
@@ -410,7 +427,22 @@
   },
   "search": {
     "placeholder": "Type a command or search...",
-    "noResults": "No results found."
+    "noResults": "No results found.",
+    "jsonError": "Invalid JSON: {{message}}",
+    "modeConsole": "Console",
+    "modeSql": "SQL",
+    "modeConsoleHint": "METHOD /path + JSON",
+    "modeSqlHint": "SQL (_sql)",
+    "sqlPlaceholder": "SELECT * FROM \"my-index\" LIMIT 10",
+    "templates": {
+      "matchAll": "Search (match all)",
+      "match": "Match query",
+      "termsAgg": "Terms aggregation",
+      "createIndex": "Create index",
+      "indexDoc": "Index a document",
+      "bulk": "Bulk operations",
+      "catIndices": "List indices"
+    }
   },
   "fulltextSearch": {
     "title": "Search in Database",
@@ -496,6 +528,21 @@
       "all": "All folders",
       "none": "No folder",
       "unknown": "Unknown"
+    },
+    "variables": {
+      "promptTitle": "Set variables — {{title}}",
+      "selectPlaceholder": "Select a value",
+      "apply": "Use query",
+      "detected": "Detected variables",
+      "detectedHint": "Configure the type and default value for each placeholder used in the query.",
+      "defaultPlaceholder": "Default value (optional)",
+      "optionsPlaceholder": "Options, comma-separated",
+      "type": {
+        "text": "Text",
+        "number": "Number",
+        "date": "Date",
+        "select": "Select"
+      }
     }
   },
   "palette": {
@@ -625,7 +672,11 @@
     "hideResults": "Hide results",
     "showResults": "Show results",
     "editMarkdown": "Edit",
-    "previewMarkdown": "Preview"
+    "previewMarkdown": "Preview",
+    "addCellAi": "AI cell",
+    "aiPlaceholder": "Describe the query in natural language…",
+    "aiGenerate": "Generate SQL",
+    "aiCellInserted": "SQL cell inserted below"
   },
   "settings": {
     "title": "Settings",
@@ -724,7 +775,8 @@
       "shortcuts": "Keyboard Shortcuts",
       "plugins": "Plugins",
       "license": "License",
-      "ai": "AI Assistant"
+      "ai": "AI Assistant",
+      "admin": "Administration"
     },
     "search": {
       "placeholder": "Search settings...",
@@ -793,6 +845,26 @@
       "overridden": "Manual",
       "notFound": "Not found in PATH.",
       "empty": "No tools detected yet."
+    },
+    "admin": {
+      "usersTitle": "Users",
+      "usersDescription": "Manage the accounts that can sign in to this server.",
+      "loading": "Loading users…",
+      "noUsers": "No users yet.",
+      "adminBadge": "Admin",
+      "resetPassword": "Reset password",
+      "newPassword": "New password",
+      "apply": "Apply",
+      "refresh": "Refresh",
+      "createTitle": "Create a user",
+      "createDescription": "Add a new account. Share the temporary password with the user.",
+      "grantAdmin": "Grant administrator rights",
+      "createUser": "Create user",
+      "userCreated": "User created.",
+      "createFailed": "Failed to create user",
+      "passwordReset": "Password reset for {{email}}.",
+      "resetFailed": "Failed to reset password",
+      "loadFailed": "Failed to load users"
     }
   },
   "table": {
@@ -1026,7 +1098,13 @@
     "updateError": "Failed to update row",
     "updateNoPrimaryKey": "Inline edit requires a primary key",
     "pinColumnLeft": "Pin to left",
-    "unpinColumn": "Unpin column"
+    "unpinColumn": "Unpin column",
+    "nlFilter": {
+      "placeholder": "Filter in natural language…",
+      "generate": "Generate",
+      "apply": "Apply filters",
+      "empty": "No filter could be derived from this request."
+    }
   },
   "export": {
     "dialogTitle": "Streaming export",
@@ -1369,7 +1447,12 @@
     "noCollections": "No tables",
     "noDocuments": "No documents",
     "loadMore": "Load more",
-    "searchPlaceholder": "Search tables..."
+    "searchPlaceholder": "Search tables...",
+    "cluster": "Cluster",
+    "clusters": "Clusters",
+    "index": "Index",
+    "indexes": "Indexes",
+    "indexesHeader": "Indexes"
   },
   "createTable": {
     "title": "Create Table",
@@ -3070,5 +3153,18 @@
     "active": "Active plugins",
     "manage": "Manage plugins…",
     "runsInBackground": "Runs in the background"
+  },
+  "dataGenerator": {
+    "action": "Generate data",
+    "title": "Generate data — {{table}}",
+    "rowCount": "Number of rows",
+    "generate": "Generate",
+    "execute": "Insert into table",
+    "export": "Export .sql",
+    "copy": "Copy",
+    "executed": "{{count}} rows inserted",
+    "exported": "SQL script exported",
+    "exportError": "Export failed",
+    "copied": "SQL copied"
   }
 }

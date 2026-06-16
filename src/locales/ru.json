@@ -14,7 +14,9 @@
     "passwordMismatch": "Пароли не совпадают.",
     "passwordTooShort": "Пароль должен содержать не менее 8 символов.",
     "ssoFailed": "Ошибка входа через SSO: {{error}}",
-    "submitting": "Пожалуйста, подождите…"
+    "submitting": "Пожалуйста, подождите…",
+    "forgotPassword": "Забыли пароль?",
+    "forgotPasswordHelp": "Обратитесь к администратору, чтобы сбросить пароль."
   },
   "cache": {
     "title": "Кэш результатов запросов",
@@ -221,7 +223,7 @@
     "selectDriver": "Выберите драйвер",
     "configureConnection": "Настроить подключение",
     "validationError": "Заполните все обязательные поля",
-    "driverSelected": "Выбранный драйвер",
+    "missingRequired": "Требуется для продолжения:",
     "changeDriver": "Изменить…",
     "modalTitleNew": "Новое подключение",
     "modalTitleEdit": "Редактировать подключение",
@@ -230,6 +232,8 @@
     "port": "Порт",
     "username": "Имя пользователя",
     "password": "Пароль",
+    "showPassword": "Показать пароль",
+    "hidePassword": "Скрыть пароль",
     "database": "База данных",
     "databaseInitial": "Начальная база данных",
     "databaseIndex": "Индекс базы данных (0-15)",
@@ -253,7 +257,7 @@
     "poolMin": "Мин.",
     "poolAcquireTimeout": "Получение (с)",
     "advanced": "Расширенные настройки",
-    "advancedHint": "SSL, БД, SSH…",
+    "advancedHint": "SSL, пул, SSH…",
     "advancedHintUrlMode": "Пул, SSH…",
     "cancel": "Отмена",
     "test": "Тест",
@@ -303,7 +307,8 @@
       "authIntegrated": "Windows (Интегрированная)",
       "ntlmHint": "Только клиенты Windows.",
       "integratedHint": "Использует текущую сессию Windows, учётные данные не требуются.",
-      "ntlmUsernamePlaceholder": "ДОМЕН\\пользователь"
+      "ntlmUsernamePlaceholder": "ДОМЕН\\пользователь",
+      "ntlmUsernameInvalid": "Имя NTLM должно содержать домен (DOMAIN\\user или user@domain)"
     },
     "ssh": {
       "enableTunnel": "Использовать SSH-туннель",
@@ -358,6 +363,18 @@
       "cluster": "Имя кластера (опционально)",
       "clusterPlaceholder": "напр. shard_cluster",
       "clusterHint": "Если задано, DDL-команды (CREATE/DROP DATABASE/TABLE) выполняются с ON CLUSTER и распространяются на все реплики. Оставьте пустым для одно-узловых установок."
+    },
+    "search": {
+      "authMode": "Аутентификация",
+      "authNone": "Нет",
+      "authBasic": "Базовая",
+      "authApiKey": "API-ключ",
+      "authBearer": "Bearer",
+      "apiKey": "API-ключ",
+      "bearerToken": "Токен Bearer",
+      "tlsWarning": "Учётные данные передаются в открытом виде без TLS. Включите SSL/TLS.",
+      "caCert": "Сертификат ЦС",
+      "caCertHint": "Путь к CA-сертификату (PEM) для проверки сервера по TLS. Оставьте пустым, чтобы использовать системное хранилище доверия."
     }
   },
   "sidebar": {
@@ -382,7 +399,22 @@
   },
   "search": {
     "placeholder": "Введите команду или выполните поиск…",
-    "noResults": "Результаты не найдены."
+    "noResults": "Результаты не найдены.",
+    "jsonError": "Недопустимый JSON: {{message}}",
+    "modeConsole": "Консоль",
+    "modeSql": "SQL",
+    "modeConsoleHint": "МЕТОД /путь + JSON",
+    "modeSqlHint": "SQL (_sql)",
+    "sqlPlaceholder": "SELECT * FROM \"my-index\" LIMIT 10",
+    "templates": {
+      "matchAll": "Поиск (все)",
+      "match": "Запрос match",
+      "termsAgg": "Агрегация terms",
+      "createIndex": "Создать индекс",
+      "indexDoc": "Индексировать документ",
+      "bulk": "Массовые операции",
+      "catIndices": "Список индексов"
+    }
   },
   "fulltextSearch": {
     "title": "Поиск по базе данных",
@@ -468,6 +500,21 @@
       "all": "Все папки",
       "none": "Без папки",
       "unknown": "Неизвестно"
+    },
+    "variables": {
+      "promptTitle": "Задать переменные — {{title}}",
+      "selectPlaceholder": "Выберите значение",
+      "apply": "Использовать запрос",
+      "detected": "Обнаруженные переменные",
+      "detectedHint": "Задайте тип и значение по умолчанию для каждой переменной, используемой в запросе.",
+      "defaultPlaceholder": "Значение по умолчанию (необязательно)",
+      "optionsPlaceholder": "Варианты через запятую",
+      "type": {
+        "text": "Текст",
+        "number": "Число",
+        "date": "Дата",
+        "select": "Список"
+      }
     }
   },
   "palette": {
@@ -597,7 +644,11 @@
     "hideResults": "Скрыть результаты",
     "showResults": "Показать результаты",
     "editMarkdown": "Редактировать",
-    "previewMarkdown": "Предпросмотр"
+    "previewMarkdown": "Предпросмотр",
+    "addCellAi": "ИИ-ячейка",
+    "aiPlaceholder": "Опишите запрос на естественном языке…",
+    "aiGenerate": "Сгенерировать SQL",
+    "aiCellInserted": "SQL-ячейка вставлена ниже"
   },
   "settings": {
     "title": "Настройки",
@@ -696,7 +747,8 @@
       "shortcuts": "Сочетания клавиш",
       "plugins": "Плагины",
       "license": "Лицензия",
-      "ai": "AI-ассистент"
+      "ai": "AI-ассистент",
+      "admin": "Администрирование"
     },
     "search": {
       "placeholder": "Поиск по настройкам…",
@@ -765,6 +817,26 @@
       "overridden": "Вручную",
       "notFound": "Не найден в PATH.",
       "empty": "Инструменты ещё не обнаружены."
+    },
+    "admin": {
+      "usersTitle": "Пользователи",
+      "usersDescription": "Управление учётными записями, которые могут входить на этот сервер.",
+      "loading": "Загрузка пользователей…",
+      "noUsers": "Пользователей пока нет.",
+      "adminBadge": "Админ",
+      "resetPassword": "Сбросить пароль",
+      "newPassword": "Новый пароль",
+      "apply": "Применить",
+      "refresh": "Обновить",
+      "createTitle": "Создать пользователя",
+      "createDescription": "Добавьте новую учётную запись. Передайте временный пароль пользователю.",
+      "grantAdmin": "Предоставить права администратора",
+      "createUser": "Создать пользователя",
+      "userCreated": "Пользователь создан.",
+      "createFailed": "Не удалось создать пользователя",
+      "passwordReset": "Пароль для {{email}} сброшен.",
+      "resetFailed": "Не удалось сбросить пароль",
+      "loadFailed": "Не удалось загрузить пользователей"
     }
   },
   "table": {
@@ -998,7 +1070,13 @@
     "updateError": "Не удалось обновить строку",
     "updateNoPrimaryKey": "Для редактирования на месте требуется первичный ключ",
     "pinColumnLeft": "Закрепить слева",
-    "unpinColumn": "Открепить столбец"
+    "unpinColumn": "Открепить столбец",
+    "nlFilter": {
+      "placeholder": "Фильтровать на естественном языке…",
+      "generate": "Сгенерировать",
+      "apply": "Применить фильтры",
+      "empty": "Из этого запроса не удалось вывести фильтр."
+    }
   },
   "export": {
     "dialogTitle": "Потоковый экспорт",
@@ -1341,7 +1419,12 @@
     "noCollections": "Нет таблиц",
     "noDocuments": "Нет документов",
     "loadMore": "Загрузить ещё",
-    "searchPlaceholder": "Поиск таблиц…"
+    "searchPlaceholder": "Поиск таблиц…",
+    "cluster": "Кластер",
+    "clusters": "Кластеры",
+    "index": "Индекс",
+    "indexes": "Индексы",
+    "indexesHeader": "Индексы"
   },
   "createTable": {
     "title": "Создать таблицу",
@@ -3042,5 +3125,18 @@
     "active": "Активные плагины",
     "manage": "Управление плагинами…",
     "runsInBackground": "Работает в фоновом режиме"
+  },
+  "dataGenerator": {
+    "action": "Сгенерировать данные",
+    "title": "Генерация данных — {{table}}",
+    "rowCount": "Количество строк",
+    "generate": "Сгенерировать",
+    "execute": "Вставить в таблицу",
+    "export": "Экспорт .sql",
+    "copy": "Копировать",
+    "executed": "Вставлено строк: {{count}}",
+    "exported": "SQL-скрипт экспортирован",
+    "exportError": "Ошибка экспорта",
+    "copied": "SQL скопирован"
   }
 }

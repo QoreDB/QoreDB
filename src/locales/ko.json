@@ -14,7 +14,9 @@
     "passwordMismatch": "비밀번호가 일치하지 않습니다.",
     "passwordTooShort": "비밀번호는 8자 이상이어야 합니다.",
     "ssoFailed": "SSO 로그인 실패: {{error}}",
-    "submitting": "잠시만 기다려 주세요…"
+    "submitting": "잠시만 기다려 주세요…",
+    "forgotPassword": "비밀번호를 잊으셨나요?",
+    "forgotPasswordHelp": "비밀번호를 재설정하려면 관리자에게 문의하세요."
   },
   "cache": {
     "title": "쿼리 결과 캐시",
@@ -221,7 +223,7 @@
     "selectDriver": "드라이버 선택",
     "configureConnection": "연결 구성",
     "validationError": "모든 필수 항목을 입력해 주세요",
-    "driverSelected": "선택된 드라이버",
+    "missingRequired": "계속하려면 필수:",
     "changeDriver": "변경...",
     "modalTitleNew": "새 연결",
     "modalTitleEdit": "연결 편집",
@@ -230,6 +232,8 @@
     "port": "포트",
     "username": "사용자 이름",
     "password": "비밀번호",
+    "showPassword": "비밀번호 표시",
+    "hidePassword": "비밀번호 숨기기",
     "database": "데이터베이스",
     "databaseInitial": "초기 데이터베이스",
     "databaseIndex": "데이터베이스 인덱스 (0-15)",
@@ -253,7 +257,7 @@
     "poolMin": "최소",
     "poolAcquireTimeout": "획득 시간 (초)",
     "advanced": "고급 설정",
-    "advancedHint": "SSL, DB, SSH…",
+    "advancedHint": "SSL, Pool, SSH…",
     "advancedHintUrlMode": "풀, SSH…",
     "cancel": "취소",
     "test": "테스트",
@@ -303,7 +307,8 @@
       "authIntegrated": "Windows (통합 인증)",
       "ntlmHint": "Windows 클라이언트 전용.",
       "integratedHint": "현재 Windows 세션을 사용하며 자격 증명이 필요하지 않습니다.",
-      "ntlmUsernamePlaceholder": "DOMAIN\\user"
+      "ntlmUsernamePlaceholder": "DOMAIN\\user",
+      "ntlmUsernameInvalid": "NTLM 사용자 이름에는 도메인이 포함되어야 합니다 (DOMAIN\\user 또는 user@domain)"
     },
     "ssh": {
       "enableTunnel": "SSH 터널 사용",
@@ -358,6 +363,18 @@
       "cluster": "클러스터 이름 (선택)",
       "clusterPlaceholder": "예: shard_cluster",
       "clusterHint": "값을 설정하면 DDL(CREATE/DROP DATABASE/TABLE)이 ON CLUSTER 와 함께 실행되어 모든 복제본에 전파됩니다. 단일 노드 설치에서는 비워두세요."
+    },
+    "search": {
+      "authMode": "인증",
+      "authNone": "없음",
+      "authBasic": "Basic",
+      "authApiKey": "API 키",
+      "authBearer": "Bearer",
+      "apiKey": "API 키",
+      "bearerToken": "Bearer 토큰",
+      "tlsWarning": "TLS 없이 자격 증명이 평문으로 전송됩니다. SSL/TLS를 활성화하세요.",
+      "caCert": "CA 인증서",
+      "caCertHint": "TLS로 서버를 확인하기 위한 PEM CA 인증서 경로입니다. 비워두면 시스템 신뢰 저장소를 사용합니다."
     }
   },
   "sidebar": {
@@ -382,7 +399,22 @@
   },
   "search": {
     "placeholder": "명령어를 입력하거나 검색...",
-    "noResults": "결과를 찾을 수 없습니다."
+    "noResults": "결과를 찾을 수 없습니다.",
+    "jsonError": "잘못된 JSON: {{message}}",
+    "modeConsole": "콘솔",
+    "modeSql": "SQL",
+    "modeConsoleHint": "메서드 /경로 + JSON",
+    "modeSqlHint": "SQL (_sql)",
+    "sqlPlaceholder": "SELECT * FROM \"my-index\" LIMIT 10",
+    "templates": {
+      "matchAll": "검색 (전체)",
+      "match": "match 쿼리",
+      "termsAgg": "terms 집계",
+      "createIndex": "인덱스 생성",
+      "indexDoc": "문서 인덱싱",
+      "bulk": "대량 작업",
+      "catIndices": "인덱스 목록"
+    }
   },
   "fulltextSearch": {
     "title": "데이터베이스 검색",
@@ -468,6 +500,21 @@
       "all": "모든 폴더",
       "none": "폴더 없음",
       "unknown": "알 수 없음"
+    },
+    "variables": {
+      "promptTitle": "변수 설정 — {{title}}",
+      "selectPlaceholder": "값 선택",
+      "apply": "쿼리 사용",
+      "detected": "감지된 변수",
+      "detectedHint": "쿼리에 사용된 각 변수의 유형과 기본값을 설정하세요.",
+      "defaultPlaceholder": "기본값 (선택 사항)",
+      "optionsPlaceholder": "옵션, 쉼표로 구분",
+      "type": {
+        "text": "텍스트",
+        "number": "숫자",
+        "date": "날짜",
+        "select": "선택"
+      }
     }
   },
   "palette": {
@@ -597,7 +644,11 @@
     "hideResults": "결과 숨기기",
     "showResults": "결과 표시",
     "editMarkdown": "편집",
-    "previewMarkdown": "미리보기"
+    "previewMarkdown": "미리보기",
+    "addCellAi": "AI 셀",
+    "aiPlaceholder": "쿼리를 자연어로 설명하세요…",
+    "aiGenerate": "SQL 생성",
+    "aiCellInserted": "아래에 SQL 셀을 삽입했습니다"
   },
   "settings": {
     "title": "설정",
@@ -696,7 +747,8 @@
       "shortcuts": "키보드 단축키",
       "plugins": "플러그인",
       "license": "라이선스",
-      "ai": "AI 어시스턴트"
+      "ai": "AI 어시스턴트",
+      "admin": "관리"
     },
     "search": {
       "placeholder": "설정 검색...",
@@ -765,6 +817,26 @@
       "overridden": "수동",
       "notFound": "PATH에서 찾을 수 없음.",
       "empty": "감지된 도구가 아직 없습니다."
+    },
+    "admin": {
+      "usersTitle": "사용자",
+      "usersDescription": "이 서버에 로그인할 수 있는 계정을 관리합니다.",
+      "loading": "사용자를 불러오는 중…",
+      "noUsers": "아직 사용자가 없습니다.",
+      "adminBadge": "관리자",
+      "resetPassword": "비밀번호 재설정",
+      "newPassword": "새 비밀번호",
+      "apply": "적용",
+      "refresh": "새로고침",
+      "createTitle": "사용자 만들기",
+      "createDescription": "새 계정을 추가합니다. 임시 비밀번호를 사용자에게 전달하세요.",
+      "grantAdmin": "관리자 권한 부여",
+      "createUser": "사용자 만들기",
+      "userCreated": "사용자를 만들었습니다.",
+      "createFailed": "사용자 생성에 실패했습니다",
+      "passwordReset": "{{email}}의 비밀번호를 재설정했습니다.",
+      "resetFailed": "비밀번호 재설정에 실패했습니다",
+      "loadFailed": "사용자를 불러오지 못했습니다"
     }
   },
   "table": {
@@ -998,7 +1070,13 @@
     "updateError": "행 업데이트에 실패했습니다",
     "updateNoPrimaryKey": "인라인 편집에는 기본 키가 필요합니다",
     "pinColumnLeft": "왼쪽에 고정",
-    "unpinColumn": "컬럼 고정 해제"
+    "unpinColumn": "컬럼 고정 해제",
+    "nlFilter": {
+      "placeholder": "자연어로 필터링…",
+      "generate": "생성",
+      "apply": "필터 적용",
+      "empty": "이 요청에서 필터를 도출할 수 없습니다."
+    }
   },
   "export": {
     "dialogTitle": "스트리밍 내보내기",
@@ -1341,7 +1419,12 @@
     "noCollections": "테이블 없음",
     "noDocuments": "문서 없음",
     "loadMore": "더 보기",
-    "searchPlaceholder": "테이블 검색..."
+    "searchPlaceholder": "테이블 검색...",
+    "cluster": "클러스터",
+    "clusters": "클러스터",
+    "index": "인덱스",
+    "indexes": "인덱스",
+    "indexesHeader": "인덱스"
   },
   "createTable": {
     "title": "테이블 만들기",
@@ -3042,5 +3125,18 @@
     "active": "활성 플러그인",
     "manage": "플러그인 관리…",
     "runsInBackground": "백그라운드에서 실행됩니다"
+  },
+  "dataGenerator": {
+    "action": "데이터 생성",
+    "title": "데이터 생성 — {{table}}",
+    "rowCount": "행 수",
+    "generate": "생성",
+    "execute": "테이블에 삽입",
+    "export": ".sql 내보내기",
+    "copy": "복사",
+    "executed": "{{count}}개 행이 삽입되었습니다",
+    "exported": "SQL 스크립트를 내보냈습니다",
+    "exportError": "내보내기 실패",
+    "copied": "SQL이 복사되었습니다"
   }
 }

@@ -2,7 +2,7 @@
 
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
-import { SETTINGS_SECTIONS, type SettingsSectionId } from './settingsConfig';
+import { availableSettingsSections, type SettingsSectionId } from './settingsConfig';
 
 interface SettingsSidebarProps {
   activeSection: SettingsSectionId;
@@ -19,7 +19,7 @@ export function SettingsSidebar({
 
   return (
     <nav className="flex flex-col gap-0.5">
-      {SETTINGS_SECTIONS.map(section => {
+      {availableSettingsSections().map(section => {
         const Icon = section.icon;
         const isActive = activeSection === section.id;
         const isModified = modifiedSections.includes(section.id);

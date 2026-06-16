@@ -5,7 +5,7 @@
 FROM node:22-bookworm-slim AS web
 WORKDIR /app
 RUN corepack enable
-COPY package.json pnpm-lock.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile
 COPY . .
 RUN pnpm build
@@ -13,7 +13,7 @@ RUN pnpm build
 # --- Stage 2: build the server binary ---
 FROM rust:1-bookworm AS server
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    cmake clang pkg-config && rm -rf /var/lib/apt/lists/*
+    cmake clang pkg-config libdbus-1-dev && rm -rf /var/lib/apt/lists/*
 WORKDIR /build
 COPY src-tauri ./src-tauri
 RUN cargo build --release --manifest-path src-tauri/Cargo.toml -p qore-server
@@ -21,7 +21,7 @@ RUN cargo build --release --manifest-path src-tauri/Cargo.toml -p qore-server
 # --- Stage 3: runtime ---
 FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates libstdc++6 && rm -rf /var/lib/apt/lists/*
+    ca-certificates libstdc++6 libdbus-1-3 && rm -rf /var/lib/apt/lists/*
 RUN useradd --system --create-home --uid 10001 qore
 WORKDIR /app
 COPY --from=server /build/src-tauri/target/release/qore-server /usr/local/bin/qore-server

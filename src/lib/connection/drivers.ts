@@ -21,6 +21,8 @@ export enum Driver {
   Neon = 'neon',
   Timescaledb = 'timescaledb',
   Clickhouse = 'clickhouse',
+  Elasticsearch = 'elasticsearch',
+  OpenSearch = 'opensearch',
 }
 
 /** Query builder functions for driver-specific SQL/commands */
@@ -65,7 +67,13 @@ export interface IdentifierRules {
 }
 
 /** Data model paradigm for database drivers */
-export type DataModel = 'relational' | 'document' | 'key-value' | 'graph' | 'time-series';
+export type DataModel =
+  | 'relational'
+  | 'document'
+  | 'key-value'
+  | 'graph'
+  | 'time-series'
+  | 'search';
 
 export interface DriverMetadata {
   id: Driver;
@@ -603,6 +611,52 @@ export const DRIVERS: Record<Driver, DriverMetadata> = {
          WHERE schemaname = '${s}' AND relname = '${t}'`;
       },
     },
+  },
+  [Driver.Elasticsearch]: {
+    id: Driver.Elasticsearch,
+    label: 'Elasticsearch',
+    icon: 'elasticsearch.png',
+    defaultPort: 9200,
+    namespaceLabel: 'dbtree.cluster',
+    namespacePluralLabel: 'dbtree.clusters',
+    collectionLabel: 'dbtree.index',
+    collectionPluralLabel: 'dbtree.indexes',
+    treeRootLabel: 'dbtree.indexesHeader',
+    createAction: 'none',
+    databaseFieldLabel: 'connection.database',
+    supportsSchemas: false,
+    supportsSQL: false,
+    dataModel: 'search',
+    isDocumentBased: false,
+    identifier: {
+      quoteStart: '',
+      quoteEnd: '',
+      namespaceStrategy: 'database',
+    },
+    queries: {},
+  },
+  [Driver.OpenSearch]: {
+    id: Driver.OpenSearch,
+    label: 'OpenSearch',
+    icon: 'opensearch.png',
+    defaultPort: 9200,
+    namespaceLabel: 'dbtree.cluster',
+    namespacePluralLabel: 'dbtree.clusters',
+    collectionLabel: 'dbtree.index',
+    collectionPluralLabel: 'dbtree.indexes',
+    treeRootLabel: 'dbtree.indexesHeader',
+    createAction: 'none',
+    databaseFieldLabel: 'connection.database',
+    supportsSchemas: false,
+    supportsSQL: false,
+    dataModel: 'search',
+    isDocumentBased: false,
+    identifier: {
+      quoteStart: '',
+      quoteEnd: '',
+      namespaceStrategy: 'database',
+    },
+    queries: {},
   },
 };
 

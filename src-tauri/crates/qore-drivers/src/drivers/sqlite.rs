@@ -897,7 +897,7 @@ impl DataEngine for SqliteDriver {
                 .map_err(|e| EngineError::execution_error(e.to_string()))?;
 
         let mut pk_columns: Vec<String> = Vec::new();
-        let columns: Vec<TableColumn> = column_rows
+        let mut columns: Vec<TableColumn> = column_rows
             .into_iter()
             .map(|(_cid, name, data_type, notnull, dflt_value, pk)| {
                 let is_primary_key = pk > 0;
@@ -910,9 +910,19 @@ impl DataEngine for SqliteDriver {
                     nullable: notnull == 0,
                     default_value: dflt_value,
                     is_primary_key,
+                    is_auto_increment: false,
                 }
             })
             .collect();
+
+        if pk_columns.len() == 1 {
+            if let Some(col) = columns
+                .iter_mut()
+                .find(|c| c.is_primary_key && c.data_type.eq_ignore_ascii_case("integer"))
+            {
+                col.is_auto_increment = true;
+            }
+        }
 
         let fk_query = format!("PRAGMA foreign_key_list({})", table_ident);
         let fk_rows: Vec<(i64, i64, String, String, String, String, String, String)> =
@@ -1699,6 +1709,8 @@ mod tests {
             proxy: None,
             mssql_auth: None,
             clickhouse_cluster: None,
+            search_auth_mode: None,
+            ssl_ca_cert: None,
         };
 
         let session_id = driver.connect(&config).await.unwrap();
@@ -1727,6 +1739,8 @@ mod tests {
             proxy: None,
             mssql_auth: None,
             clickhouse_cluster: None,
+            search_auth_mode: None,
+            ssl_ca_cert: None,
         };
 
         let session_id = driver.connect(&config).await.unwrap();
@@ -1785,6 +1799,8 @@ mod tests {
             proxy: None,
             mssql_auth: None,
             clickhouse_cluster: None,
+            search_auth_mode: None,
+            ssl_ca_cert: None,
         };
 
         let session_id = driver.connect(&config).await.unwrap();
@@ -1850,6 +1866,8 @@ mod tests {
             proxy: None,
             mssql_auth: None,
             clickhouse_cluster: None,
+            search_auth_mode: None,
+            ssl_ca_cert: None,
         };
 
         let session_id = driver.connect(&config).await.unwrap();

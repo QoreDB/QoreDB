@@ -9,8 +9,10 @@ import {
   type LucideIcon,
   Puzzle,
   Shield,
+  ShieldCheck,
   Sparkles,
 } from 'lucide-react';
+import { isWeb, isWebAdmin } from '@/lib/transport';
 
 export type SettingsSectionId =
   | 'general'
@@ -20,7 +22,8 @@ export type SettingsSectionId =
   | 'shortcuts'
   | 'plugins'
   | 'license'
-  | 'ai';
+  | 'ai'
+  | 'admin';
 
 export interface SettingsSection {
   id: SettingsSectionId;
@@ -156,7 +159,34 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
       'assistant',
     ],
   },
+  {
+    id: 'admin',
+    labelKey: 'settings.sections.admin',
+    icon: ShieldCheck,
+    keywords: [
+      'admin',
+      'administration',
+      'users',
+      'user',
+      'utilisateur',
+      'utilisateurs',
+      'password',
+      'reset',
+      'mot de passe',
+      'réinitialiser',
+      'role',
+      'rôle',
+    ],
+  },
 ];
+
+/**
+ * Sections available in the current runtime. The `admin` section only exists in
+ * the web server build and only for users with admin rights.
+ */
+export function availableSettingsSections(): SettingsSection[] {
+  return SETTINGS_SECTIONS.filter(section => section.id !== 'admin' || (isWeb && isWebAdmin()));
+}
 
 export function getSectionById(id: SettingsSectionId): SettingsSection | undefined {
   return SETTINGS_SECTIONS.find(section => section.id === id);

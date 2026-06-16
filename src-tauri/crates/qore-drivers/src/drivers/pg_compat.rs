@@ -1148,9 +1148,10 @@ pub async fn describe_table_core(
     let schema = namespace.schema.as_deref().unwrap_or("public");
 
     // Columns
-    let column_rows: Vec<(String, String, String, Option<String>)> = sqlx::query_as(
+    let column_rows: Vec<(String, String, String, Option<String>, String)> = sqlx::query_as(
         r#"
-        SELECT column_name::text, data_type::text, is_nullable::text, column_default::text
+        SELECT column_name::text, data_type::text, is_nullable::text, column_default::text,
+               is_identity::text
         FROM information_schema.columns
         WHERE table_schema = $1 AND table_name = $2
         ORDER BY ordinal_position
@@ -1224,12 +1225,19 @@ pub async fn describe_table_core(
     let columns: Vec<TableColumn> = column_rows
         .into_iter()
         .map(
-            |(name, data_type, is_nullable, default_value)| TableColumn {
-                is_primary_key: pk_columns.contains(&name),
-                name,
-                data_type,
-                nullable: is_nullable == "YES",
-                default_value,
+            |(name, data_type, is_nullable, default_value, is_identity)| {
+                let is_auto_increment = is_identity == "YES"
+                    || default_value
+                        .as_deref()
+                        .is_some_and(|d| d.contains("nextval("));
+                TableColumn {
+                    is_primary_key: pk_columns.contains(&name),
+                    name,
+                    data_type,
+                    nullable: is_nullable == "YES",
+                    default_value,
+                    is_auto_increment,
+                }
             },
         )
         .collect();

@@ -32,7 +32,7 @@ DBeaver, pgAdmin, phpMyAdmin do the job — but they feel slow, dated, and full 
 |---|---|
 | ⚡ **Native performance** | Rust + Tauri. No Electron tax — small binary, instant startup, low memory. ~25% faster on real workloads than the previous baseline (Apple Silicon). |
 | 🔒 **Local-first & secure** | Credentials in your OS keychain (Argon2). Dev/Staging/Prod guards, dangerous query detection, read-only mode. Nothing leaves your machine by default. |
-| 🧩 **SQL + NoSQL, unified** | One UI for PostgreSQL, MySQL, SQL Server, SQLite, DuckDB, CockroachDB, MongoDB and Redis — plus first-class support for Supabase, Neon and TimescaleDB. |
+| 🧩 **SQL + NoSQL, unified** | One UI for PostgreSQL, MySQL, SQL Server, SQLite, DuckDB, CockroachDB, MongoDB, Redis, Elasticsearch and OpenSearch — plus first-class support for Supabase, Neon and TimescaleDB. |
 | 📓 **Notebooks built-in** | Executable SQL/Mongo + Markdown documents with parameters, charts and Git-diffable `.qnb` files. |
 | 🛡️ **Safety-first** | Universal Query Interceptor, audit logging, sandbox mode with migration generation. Production damage is harder to do by accident. |
 | 🤝 **Open core** | Apache 2.0 core, readable and auditable. Premium add-ons under BUSL-1.1 — never at the expense of the open-source experience. |
@@ -54,7 +54,9 @@ DBeaver, pgAdmin, phpMyAdmin do the job — but they feel slow, dated, and full 
   <img src="public/databases/supabase.png" alt="Supabase" height="40" />&nbsp;&nbsp;
   <img src="public/databases/neon.png" alt="Neon" height="40" />&nbsp;&nbsp;
   <img src="public/databases/timescaledb.png" alt="TimescaleDB" height="40" />&nbsp;&nbsp;
-  <img src="public/databases/clickhouse.png" alt="ClickHouse" height="40" />
+  <img src="public/databases/clickhouse.png" alt="ClickHouse" height="40" />&nbsp;&nbsp;
+  <img src="public/databases/elasticsearch.png" alt="Elasticsearch" height="40" />&nbsp;&nbsp;
+  <img src="public/databases/opensearch.png" alt="OpenSearch" height="40" />
 </div>
 
 <div align="center">
@@ -120,6 +122,7 @@ DBeaver, pgAdmin, phpMyAdmin do the job — but they feel slow, dated, and full 
 
 - **Data Contracts** — Declarative YAML assertions (12 rule types: NOT NULL %, regex, range, unique, FK integrity, custom SQL) executed as generated SQL, with a health dashboard, notebook cell and post-mutation alert hook _[Pro]_
 - **Instant Data API** — Expose saved queries as read-only REST endpoints on `127.0.0.1`, with Bearer auth, rate limiting, OpenAPI 3.1 generation and one-shot token regeneration _[Pro]_
+- **Data Generator** — Schema-aware test/seed data (types, constraints and foreign keys honored), realistic values, configurable volume, SQL preview then direct execution or `.sql` export _[Pro]_
 </details>
 
 <details>
@@ -129,6 +132,7 @@ DBeaver, pgAdmin, phpMyAdmin do the job — but they feel slow, dated, and full 
 - Parameterized variables (`$customer_id`, `{{date_from}}`) with typed inputs
 - Run All / Run From Here with stop-on-error
 - Inter-cell references and Chart cells (bar, line, pie, scatter) _[Pro]_
+- AI cells — natural-language prompts that generate an adjacent SQL cell _[Pro]_
 - Import from `.sql` / `.md`, export to Markdown or standalone HTML
 - `.qnb` file format, Git-diffable
 </details>
@@ -173,6 +177,7 @@ DBeaver, pgAdmin, phpMyAdmin do the job — but they feel slow, dated, and full 
 
 - Contextual query generation and error correction
 - Schema-aware suggestions
+- Natural-language DataGrid filters — describe a filter in plain language, preview the generated `WHERE` clause before applying
 - Bring your own key (OpenAI, Anthropic, …)
 </details>
 

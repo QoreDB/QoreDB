@@ -33,7 +33,10 @@ pub async fn require_token(
             .user_grants(&claims.sub)
             .await
             .unwrap_or_default();
-        AuthContext::User { grants }
+        AuthContext::User {
+            is_admin: claims.is_admin,
+            grants,
+        }
     } else {
         return Err(StatusCode::UNAUTHORIZED);
     };

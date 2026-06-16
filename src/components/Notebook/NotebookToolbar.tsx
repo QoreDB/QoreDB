@@ -14,6 +14,7 @@ import {
   Redo2,
   Save,
   ShieldCheck,
+  Sparkles,
   Square,
   Undo2,
   Upload,
@@ -108,6 +109,7 @@ export function NotebookToolbar({
   const { t } = useTranslation();
   const { isFeatureEnabled } = useLicense();
   const contractsEnabled = isFeatureEnabled('data_contracts');
+  const aiEnabled = isFeatureEnabled('ai');
   const [editingTitle, setEditingTitle] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -272,6 +274,12 @@ export function NotebookToolbar({
             <DropdownMenuItem onClick={() => onAddCell('contract')}>
               <ShieldCheck size={14} className="mr-2" />
               {t('contracts.title')}
+            </DropdownMenuItem>
+          )}
+          {aiEnabled && (
+            <DropdownMenuItem onClick={() => onAddCell('ai')}>
+              <Sparkles size={14} className="mr-2" />
+              {t('notebook.addCellAi')}
             </DropdownMenuItem>
           )}
         </DropdownMenuContent>

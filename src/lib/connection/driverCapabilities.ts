@@ -127,6 +127,22 @@ const DRIVER_SCHEMA_OBJECT_CAPABILITIES: Record<Driver, DriverSchemaObjectCapabi
     events: false,
     sequences: false,
   },
+  elasticsearch: {
+    routines: false,
+    functions: false,
+    procedures: false,
+    triggers: false,
+    events: false,
+    sequences: false,
+  },
+  opensearch: {
+    routines: false,
+    functions: false,
+    procedures: false,
+    triggers: false,
+    events: false,
+    sequences: false,
+  },
 };
 
 /**
@@ -155,12 +171,13 @@ export function getDataModel(driver: Driver | string): DataModel {
 /**
  * Type-safe query dialect derived from driver capabilities
  */
-export type QueryDialect = 'sql' | 'document';
+export type QueryDialect = 'sql' | 'document' | 'search';
 
 /**
  * Get the query dialect for a driver
  */
 export function getQueryDialect(driver: Driver | string): QueryDialect {
+  if (getDataModel(driver) === 'search') return 'search';
   return isDocumentDatabase(driver) ? 'document' : 'sql';
 }
 

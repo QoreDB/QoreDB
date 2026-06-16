@@ -65,7 +65,7 @@ pub async fn callback(State(st): State<AppState>, Query(p): Query<CallbackParams
         }
     };
 
-    match issue_jwt(&st.config.token, &user.id, &user.email) {
+    match issue_jwt(&st.config.token, &user.id, &user.email, user.is_admin) {
         Ok(token) => Redirect::to(&format!("/?sso_token={token}")).into_response(),
         Err(_) => Redirect::to("/?sso_error=server_error").into_response(),
     }

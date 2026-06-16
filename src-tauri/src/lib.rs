@@ -375,6 +375,8 @@ pub fn run() {
             commands::ai::ai_save_api_key,
             commands::ai::ai_delete_api_key,
             commands::ai::ai_get_provider_status,
+            commands::ai::ai_generate_filters,
+            commands::data_generator::generate_seed_data,
             // Data Contracts commands (Pro)
             #[cfg(feature = "pro")]
             commands::contracts::list_contracts,

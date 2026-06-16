@@ -14,7 +14,9 @@
     "passwordMismatch": "Les mots de passe ne correspondent pas.",
     "passwordTooShort": "Le mot de passe doit comporter au moins 8 caractères.",
     "ssoFailed": "Échec de la connexion SSO : {{error}}",
-    "submitting": "Veuillez patienter…"
+    "submitting": "Veuillez patienter…",
+    "forgotPassword": "Mot de passe oublié ?",
+    "forgotPasswordHelp": "Contacte ton administrateur pour réinitialiser ton mot de passe."
   },
   "cache": {
     "title": "Cache des résultats",
@@ -249,7 +251,7 @@
     "selectDriver": "Sélectionner un moteur",
     "configureConnection": "Configurer la connexion",
     "validationError": "Veuillez remplir tous les champs requis",
-    "driverSelected": "Moteur sélectionné",
+    "missingRequired": "Requis pour continuer :",
     "changeDriver": "Modifier...",
     "modalTitleNew": "Nouvelle connexion",
     "modalTitleEdit": "Modifier la connexion",
@@ -258,6 +260,8 @@
     "port": "Port",
     "username": "Nom d'utilisateur",
     "password": "Mot de passe",
+    "showPassword": "Afficher le mot de passe",
+    "hidePassword": "Masquer le mot de passe",
     "database": "Base de données",
     "databaseInitial": "Base de données initiale",
     "databaseIndex": "Index de base (0-15)",
@@ -281,7 +285,7 @@
     "poolMin": "Min",
     "poolAcquireTimeout": "Acquisition (s)",
     "advanced": "Paramètres avancés",
-    "advancedHint": "SSL, DB, SSH…",
+    "advancedHint": "SSL, Pool, SSH…",
     "advancedHintUrlMode": "Pool, SSH…",
     "cancel": "Annuler",
     "test": "Tester",
@@ -331,7 +335,8 @@
       "authIntegrated": "Windows (Intégrée)",
       "ntlmHint": "Clients Windows uniquement.",
       "integratedHint": "Utilise votre session Windows courante, aucun identifiant requis.",
-      "ntlmUsernamePlaceholder": "DOMAINE\\utilisateur"
+      "ntlmUsernamePlaceholder": "DOMAINE\\utilisateur",
+      "ntlmUsernameInvalid": "Le nom NTLM doit inclure un domaine (DOMAINE\\utilisateur ou utilisateur@domaine)"
     },
     "ssh": {
       "enableTunnel": "Utiliser un tunnel SSH",
@@ -386,6 +391,18 @@
       "cluster": "Nom du cluster (optionnel)",
       "clusterPlaceholder": "ex. shard_cluster",
       "clusterHint": "Quand renseigné, les DDL (CREATE/DROP DATABASE/TABLE) utilisent ON CLUSTER pour se propager à toutes les répliques. Laisser vide pour une installation mono-nœud."
+    },
+    "search": {
+      "authMode": "Authentification",
+      "authNone": "Aucune",
+      "authBasic": "Basique",
+      "authApiKey": "Clé API",
+      "authBearer": "Bearer",
+      "apiKey": "Clé API",
+      "bearerToken": "Jeton Bearer",
+      "tlsWarning": "Les identifiants sont envoyés en clair sans TLS. Activez SSL/TLS.",
+      "caCert": "Certificat CA",
+      "caCertHint": "Chemin vers un certificat CA (PEM) pour vérifier le serveur en TLS. Laissez vide pour utiliser le magasin de confiance système."
     }
   },
   "sidebar": {
@@ -410,7 +427,22 @@
   },
   "search": {
     "placeholder": "Tapez une commande ou recherchez...",
-    "noResults": "Aucun résultat trouvé."
+    "noResults": "Aucun résultat trouvé.",
+    "jsonError": "JSON invalide : {{message}}",
+    "modeConsole": "Console",
+    "modeSql": "SQL",
+    "modeConsoleHint": "MÉTHODE /chemin + JSON",
+    "modeSqlHint": "SQL (_sql)",
+    "sqlPlaceholder": "SELECT * FROM \"mon-index\" LIMIT 10",
+    "templates": {
+      "matchAll": "Recherche (tout)",
+      "match": "Requête match",
+      "termsAgg": "Agrégation terms",
+      "createIndex": "Créer un index",
+      "indexDoc": "Indexer un document",
+      "bulk": "Opérations bulk",
+      "catIndices": "Lister les index"
+    }
   },
   "fulltextSearch": {
     "title": "Rechercher dans la base",
@@ -496,6 +528,21 @@
       "all": "Tous les dossiers",
       "none": "Sans dossier",
       "unknown": "Inconnu"
+    },
+    "variables": {
+      "promptTitle": "Définir les variables — {{title}}",
+      "selectPlaceholder": "Choisir une valeur",
+      "apply": "Utiliser la requête",
+      "detected": "Variables détectées",
+      "detectedHint": "Configurez le type et la valeur par défaut de chaque variable utilisée dans la requête.",
+      "defaultPlaceholder": "Valeur par défaut (optionnel)",
+      "optionsPlaceholder": "Options, séparées par des virgules",
+      "type": {
+        "text": "Texte",
+        "number": "Nombre",
+        "date": "Date",
+        "select": "Liste"
+      }
     }
   },
   "palette": {
@@ -625,7 +672,11 @@
     "hideResults": "Masquer les résultats",
     "showResults": "Afficher les résultats",
     "editMarkdown": "Modifier",
-    "previewMarkdown": "Aperçu"
+    "previewMarkdown": "Aperçu",
+    "addCellAi": "Cellule IA",
+    "aiPlaceholder": "Décrivez la requête en langage naturel…",
+    "aiGenerate": "Générer le SQL",
+    "aiCellInserted": "Cellule SQL insérée en dessous"
   },
   "settings": {
     "title": "Paramètres",
@@ -724,7 +775,8 @@
       "shortcuts": "Raccourcis clavier",
       "plugins": "Extensions",
       "license": "Licence",
-      "ai": "Assistant IA"
+      "ai": "Assistant IA",
+      "admin": "Administration"
     },
     "search": {
       "placeholder": "Rechercher dans les paramètres...",
@@ -793,6 +845,26 @@
       "overridden": "Manuel",
       "notFound": "Introuvable dans le PATH.",
       "empty": "Aucun outil détecté pour l'instant."
+    },
+    "admin": {
+      "usersTitle": "Utilisateurs",
+      "usersDescription": "Gérer les comptes autorisés à se connecter à ce serveur.",
+      "loading": "Chargement des utilisateurs…",
+      "noUsers": "Aucun utilisateur pour le moment.",
+      "adminBadge": "Admin",
+      "resetPassword": "Réinitialiser le mot de passe",
+      "newPassword": "Nouveau mot de passe",
+      "apply": "Appliquer",
+      "refresh": "Actualiser",
+      "createTitle": "Créer un utilisateur",
+      "createDescription": "Ajouter un nouveau compte. Communique le mot de passe temporaire à l'utilisateur.",
+      "grantAdmin": "Accorder les droits administrateur",
+      "createUser": "Créer l'utilisateur",
+      "userCreated": "Utilisateur créé.",
+      "createFailed": "Échec de la création de l'utilisateur",
+      "passwordReset": "Mot de passe réinitialisé pour {{email}}.",
+      "resetFailed": "Échec de la réinitialisation du mot de passe",
+      "loadFailed": "Échec du chargement des utilisateurs"
     }
   },
   "table": {
@@ -1026,7 +1098,13 @@
     "updateError": "Échec de la modification de la ligne",
     "updateNoPrimaryKey": "L’édition inline nécessite une clé primaire",
     "pinColumnLeft": "Épingler à gauche",
-    "unpinColumn": "Détacher la colonne"
+    "unpinColumn": "Détacher la colonne",
+    "nlFilter": {
+      "placeholder": "Filtrer en langage naturel…",
+      "generate": "Générer",
+      "apply": "Appliquer les filtres",
+      "empty": "Aucun filtre n’a pu être déduit de cette demande."
+    }
   },
   "export": {
     "dialogTitle": "Export en continu",
@@ -1369,7 +1447,12 @@
     "noCollections": "Aucune table",
     "noDocuments": "Aucun document",
     "loadMore": "Charger plus",
-    "searchPlaceholder": "Rechercher des tables..."
+    "searchPlaceholder": "Rechercher des tables...",
+    "cluster": "Cluster",
+    "clusters": "Clusters",
+    "index": "Index",
+    "indexes": "Index",
+    "indexesHeader": "Index"
   },
   "createTable": {
     "title": "Créer une table",
@@ -3070,5 +3153,18 @@
     "active": "Plugins actifs",
     "manage": "Gérer les plugins…",
     "runsInBackground": "S’exécute en arrière-plan"
+  },
+  "dataGenerator": {
+    "action": "Générer des données",
+    "title": "Générer des données — {{table}}",
+    "rowCount": "Nombre de lignes",
+    "generate": "Générer",
+    "execute": "Insérer dans la table",
+    "export": "Exporter .sql",
+    "copy": "Copier",
+    "executed": "{{count}} lignes insérées",
+    "exported": "Script SQL exporté",
+    "exportError": "Échec de l’export",
+    "copied": "SQL copié"
   }
 }

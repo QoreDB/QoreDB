@@ -507,6 +507,7 @@ impl DataEngine for DuckDbDriver {
                     nullable: is_nullable == "YES",
                     default_value,
                     is_primary_key: false,
+                    is_auto_increment: false,
                 });
             }
 
@@ -1534,6 +1535,8 @@ mod tests {
             proxy: None,
             mssql_auth: None,
             clickhouse_cluster: None,
+            search_auth_mode: None,
+            ssl_ca_cert: None,
         };
 
         let session_id = driver.connect(&config).await.unwrap();
@@ -1562,6 +1565,8 @@ mod tests {
             proxy: None,
             mssql_auth: None,
             clickhouse_cluster: None,
+            search_auth_mode: None,
+            ssl_ca_cert: None,
         };
 
         let session_id = driver.connect(&config).await.unwrap();
@@ -1618,6 +1623,8 @@ mod tests {
             proxy: None,
             mssql_auth: None,
             clickhouse_cluster: None,
+            search_auth_mode: None,
+            ssl_ca_cert: None,
         };
 
         let session_id = driver.connect(&config).await.unwrap();
@@ -1651,6 +1658,8 @@ mod tests {
             proxy: None,
             mssql_auth: None,
             clickhouse_cluster: None,
+            search_auth_mode: None,
+            ssl_ca_cert: None,
         };
 
         let session_id = driver.connect(&config).await.unwrap();

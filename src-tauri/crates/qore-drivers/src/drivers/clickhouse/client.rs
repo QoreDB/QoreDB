@@ -318,6 +318,8 @@ mod tests {
             proxy: None,
             mssql_auth: None,
             clickhouse_cluster: cluster.map(|s| s.to_string()),
+            search_auth_mode: None,
+            ssl_ca_cert: None,
         }
     }
 

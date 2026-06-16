@@ -2,6 +2,7 @@
 
 import { open, save } from '@tauri-apps/plugin-dialog';
 import { Database, File, FolderOpen, Plus } from 'lucide-react';
+import { useId } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -44,6 +45,7 @@ const FILE_CONFIGS: Record<
 
 export function FileSection({ formData, onChange }: FileSectionProps) {
   const { t } = useTranslation();
+  const filePathId = useId();
 
   const isMemoryDb = formData.host === ':memory:';
   const fileConfig = FILE_CONFIGS[formData.driver] ?? FILE_CONFIGS[Driver.Sqlite];
@@ -103,13 +105,14 @@ export function FileSection({ formData, onChange }: FileSectionProps) {
   return (
     <div className="rounded-md border border-border bg-background p-4 space-y-4">
       <div className="space-y-2">
-        <Label className="flex items-center gap-2">
+        <Label htmlFor={filePathId} className="flex items-center gap-2">
           <File size={14} className="text-muted-foreground" />
           {t('connection.filePath')}
           <span className="text-error">*</span>
         </Label>
         <div className="flex gap-2">
           <Input
+            id={filePathId}
             placeholder={t('connection.filePathPlaceholder')}
             value={formData.host}
             readOnly={!isMemoryDb}

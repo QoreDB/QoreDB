@@ -5535,6 +5535,7 @@ version = "0.1.0"
 dependencies = [
  "argon2",
  "axum",
+ "axum-server",
  "base64 0.22.1",
  "dirs 5.0.1",
  "jsonwebtoken",
@@ -5542,6 +5543,7 @@ dependencies = [
  "qore-service",
  "rand 0.8.6",
  "reqwest 0.12.28",
+ "rustls",
  "serde",
  "serde_json",
  "sha2",
@@ -5599,7 +5601,7 @@ dependencies = [
 
 [[package]]
 name = "qoredb"
-version = "0.1.30"
+version = "0.1.31"
 dependencies = [
  "argon2",
  "arrow 54.3.1",

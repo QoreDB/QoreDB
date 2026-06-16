@@ -91,6 +91,39 @@ services:
     volumes:
       - clickhouse_data:/var/lib/clickhouse
 
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.4
+    container_name: qoredb-elasticsearch
+    environment:
+      discovery.type: single-node
+      ES_JAVA_OPTS: "-Xms512m -Xmx512m"
+      xpack.security.enabled: "false"
+    ports:
+      - '9200:9200' # REST API
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+
+  opensearch:
+    image: opensearchproject/opensearch:2.13.0
+    container_name: qoredb-opensearch
+    environment:
+      discovery.type: single-node
+      OPENSEARCH_JAVA_OPTS: "-Xms512m -Xmx512m"
+      DISABLE_SECURITY_PLUGIN: "true"
+      DISABLE_INSTALL_DEMO_CONFIG: "true"
+    ports:
+      - '9201:9200'
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - opensearch_data:/usr/share/opensearch/data
+
 volumes:
   postgres_data:
   mysql_data:
@@ -98,3 +131,5 @@ volumes:
   redis_data:
   sqlserver_data:
   clickhouse_data:
+  elasticsearch_data:
+  opensearch_data:

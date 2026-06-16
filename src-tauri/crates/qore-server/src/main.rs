@@ -15,6 +15,7 @@ use axum::http::StatusCode;
 use axum::response::{Html, IntoResponse, Response};
 use axum::routing::get;
 use axum::{middleware, Router};
+use axum_server::tls_rustls::RustlsConfig;
 use tokio::net::TcpListener;
 use tower_http::cors::CorsLayer;
 use tower_http::services::ServeDir;
@@ -61,6 +62,14 @@ async fn main() {
     }
     let addr = config.addr;
     let web_dir = config.web_dir.clone();
+    let tls = match (config.tls_cert.clone(), config.tls_key.clone()) {
+        (Some(cert), Some(key)) => Some((cert, key)),
+        (None, None) => None,
+        _ => {
+            tracing::error!("QORE_SERVER_TLS_CERT and QORE_SERVER_TLS_KEY must be set together");
+            std::process::exit(1);
+        }
+    };
 
     let control =
         match controlplane::ControlStore::open(&config.config_dir.join("control.db")).await {
@@ -103,12 +112,33 @@ async fn main() {
         .merge(protected);
 
     if let Some(dir) = web_dir {
-        app = app
-            .nest_service("/assets", ServeDir::new(dir.join("assets")))
-            .fallback(serve_index);
+        let serve_dir = ServeDir::new(&dir)
+            .append_index_html_on_directories(false)
+            .fallback(get(serve_index).with_state(state.clone()));
+        app = app.fallback_service(serve_dir);
     }
 
     let app = app.layer(CorsLayer::permissive()).with_state(state);
+
+    if let Some((cert, key)) = tls {
+        let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
+        let tls_config = match RustlsConfig::from_pem_file(&cert, &key).await {
+            Ok(c) => c,
+            Err(e) => {
+                tracing::error!(cert = %cert.display(), key = %key.display(), error = %e, "failed to load TLS certificate");
+                std::process::exit(1);
+            }
+        };
+        tracing::info!(%addr, "qore-server listening (https)");
+        if let Err(e) = axum_server::bind_rustls(addr, tls_config)
+            .serve(app.into_make_service())
+            .await
+        {
+            tracing::error!(error = %e, "server stopped with error");
+            std::process::exit(1);
+        }
+        return;
+    }
 
     let listener = match TcpListener::bind(addr).await {
         Ok(l) => l,

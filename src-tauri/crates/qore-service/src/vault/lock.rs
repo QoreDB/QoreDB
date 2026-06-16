@@ -175,12 +175,12 @@ impl VaultLock {
         self.is_unlocked
     }
 
-    /// `true` while the vault is unlocked **and** the last successful unlock
-    /// is within [`REAUTH_IDLE_TIMEOUT`]. Used by sensitive IPC commands to
-    /// require a fresh unlock after a stale session (B6-H3).
     pub fn is_fresh_authentication(&self) -> bool {
         if !self.is_unlocked {
             return false;
+        }
+        if !self.has_master_password().unwrap_or(false) {
+            return true;
         }
         match self.last_unlocked_at {
             Some(t) => t.elapsed() < REAUTH_IDLE_TIMEOUT,
@@ -201,19 +201,10 @@ impl VaultLock {
             .delete_password(&service, &key)
             .map_err(|e| EngineError::internal(format!("Failed to delete: {}", e)))?;
 
-        // No password = always unlocked; reset the freshness window so the
-        // re-auth check doesn't immediately reject the next sensitive call.
         self.mark_unlocked();
         Ok(())
     }
 
-    /// Auto-unlocks the vault when no master password is set. This is a
-    /// deliberate UX trade-off (no prompt on first launch) but it means a
-    /// fresh install ships with credentials decryptable by anyone with
-    /// session-level access to the OS account. We `tracing::warn!` so the
-    /// state is at least observable in logs — the proper fix is an
-    /// onboarding flow forcing master-password setup (cf. audit B5-C3,
-    /// tracked separately).
     pub fn auto_unlock_if_no_password(&mut self) -> EngineResult<()> {
         if !self.has_master_password()? {
             tracing::warn!(
@@ -363,5 +354,16 @@ mod tests {
         assert!(lock.is_fresh_authentication());
         lock.lock();
         assert!(!lock.is_fresh_authentication());
+    }
+
+    #[tokio::test]
+    async fn fresh_authentication_without_master_password_never_expires() {
+        let _guard = env_lock().lock().expect("env lock poisoned");
+        let mut lock = VaultLock::new(Box::new(MockProvider::new()));
+        // No master password → auto-unlock, and the idle timeout must not
+        // apply since there is no re-auth flow to recover from (B5-C3).
+        lock.auto_unlock_if_no_password().unwrap();
+        lock.last_unlocked_at = Some(Instant::now() - REAUTH_IDLE_TIMEOUT * 2);
+        assert!(lock.is_fresh_authentication());
     }
 }

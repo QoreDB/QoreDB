@@ -52,6 +52,39 @@ fn is_redis_dangerous(query: &str) -> bool {
     )
 }
 
+/// Read endpoints reachable via `POST` on Elasticsearch / OpenSearch. ES uses
+/// `POST` for searches, so the HTTP method alone cannot decide read vs write.
+const SEARCH_READ_ENDPOINTS: [&str; 13] = [
+    "_search",
+    "_count",
+    "_msearch",
+    "_mget",
+    "_analyze",
+    "_explain",
+    "_field_caps",
+    "_cat",
+    "_cluster",
+    "_validate",
+    "_render",
+    "_terms_enum",
+    "_sql",
+];
+
+/// Classifies an Elasticsearch / OpenSearch console command as a mutation.
+/// `GET`/`HEAD` are always reads; `POST` is a read only for known search
+/// endpoints; `PUT`/`DELETE` (and anything unexpected) are writes.
+fn is_search_mutation(query: &str) -> bool {
+    let first = query.trim_start().lines().next().unwrap_or("").trim();
+    let mut parts = first.split_whitespace();
+    let method = parts.next().unwrap_or("").to_ascii_uppercase();
+    let path = parts.next().unwrap_or("");
+    match method.as_str() {
+        "GET" | "HEAD" => false,
+        "POST" => !SEARCH_READ_ENDPOINTS.iter().any(|e| path.contains(e)),
+        _ => true,
+    }
+}
+
 fn map_environment(env: &str) -> Environment {
     match env {
         "production" => Environment::Production,
@@ -257,7 +290,11 @@ pub async fn preflight(
 
     let is_mongo_driver = driver.driver_id().eq_ignore_ascii_case("mongodb");
     let is_redis_driver = driver.driver_id().eq_ignore_ascii_case("redis");
-    let is_sql_driver = !is_mongo_driver && !is_redis_driver;
+    let is_search_driver = matches!(
+        driver.driver_id().to_ascii_lowercase().as_str(),
+        "elasticsearch" | "opensearch"
+    );
+    let is_sql_driver = !is_mongo_driver && !is_redis_driver && !is_search_driver;
 
     let sql_analysis = if is_sql_driver {
         match sql_safety::analyze_sql(driver.driver_id(), query) {
@@ -291,8 +328,10 @@ pub async fn preflight(
                 .unwrap_or(false)
         } else if is_mongo_driver {
             is_mongo_mutation(query)
-        } else {
+        } else if is_redis_driver {
             is_redis_mutation(query)
+        } else {
+            is_search_mutation(query)
         };
         if is_mutation {
             return Err(READ_ONLY_BLOCKED.to_string());
@@ -327,8 +366,10 @@ pub async fn preflight(
             .unwrap_or(false)
     } else if is_mongo_driver {
         is_mongo_mutation(query)
-    } else {
+    } else if is_redis_driver {
         is_redis_mutation(query)
+    } else {
+        is_search_mutation(query)
     };
 
     let is_dangerous = sql_analysis

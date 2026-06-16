@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Driver } from '@/lib/connection/drivers';
-import type { Environment, MssqlAuthMode } from '@/lib/tauri';
+import type { Environment, MssqlAuthMode, SearchAuthMode } from '@/lib/tauri';
 
 export interface ConnectionFormData {
   name: string;
@@ -18,6 +18,10 @@ export interface ConnectionFormData {
   mssqlAuthMode: MssqlAuthMode;
   /** ClickHouse distributed cluster name. Empty string = no `ON CLUSTER`. */
   clickhouseCluster: string;
+  /** Auth mode for Elasticsearch / OpenSearch. */
+  searchAuthMode: SearchAuthMode;
+  /** Path to a custom CA certificate (PEM) for TLS verification. */
+  sslCaCert: string;
   poolMaxConnections: number;
   poolMinConnections: number;
   poolAcquireTimeoutSecs: number;
@@ -26,7 +30,6 @@ export interface ConnectionFormData {
   sshPort: number;
   sshUsername: string;
   sshKeyPath: string;
-  sshPassphrase: string;
   sshHostKeyPolicy: 'accept_new' | 'strict' | 'insecure_no_check';
   sshProxyJump: string;
   sshConnectTimeoutSecs: number;
@@ -59,6 +62,8 @@ export const initialConnectionFormData: ConnectionFormData = {
   sslMode: '',
   mssqlAuthMode: 'sql_password',
   clickhouseCluster: '',
+  searchAuthMode: 'none',
+  sslCaCert: '',
   poolMaxConnections: 5,
   poolMinConnections: 0,
   poolAcquireTimeoutSecs: 30,
@@ -67,7 +72,6 @@ export const initialConnectionFormData: ConnectionFormData = {
   sshPort: 22,
   sshUsername: '',
   sshKeyPath: '',
-  sshPassphrase: '',
   sshHostKeyPolicy: 'accept_new',
   sshProxyJump: '',
   sshConnectTimeoutSecs: 10,

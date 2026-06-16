@@ -32,8 +32,8 @@ pub async fn login(
         return Err(ApiError::unauthorized("invalid credentials"));
     }
 
-    let token =
-        issue_jwt(&state.config.token, &user.id, &user.email).map_err(ApiError::internal)?;
+    let token = issue_jwt(&state.config.token, &user.id, &user.email, user.is_admin)
+        .map_err(ApiError::internal)?;
     Ok(Json(json!({
         "token": token,
         "email": user.email,

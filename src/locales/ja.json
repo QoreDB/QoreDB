@@ -14,7 +14,9 @@
     "passwordMismatch": "パスワードが一致しません。",
     "passwordTooShort": "パスワードは8文字以上で入力してください。",
     "ssoFailed": "SSO ログインに失敗しました：{{error}}",
-    "submitting": "お待ちください…"
+    "submitting": "お待ちください…",
+    "forgotPassword": "パスワードをお忘れですか？",
+    "forgotPasswordHelp": "パスワードを再設定するには管理者に連絡してください。"
   },
   "cache": {
     "title": "クエリ結果キャッシュ",
@@ -221,7 +223,7 @@
     "selectDriver": "ドライバーを選択",
     "configureConnection": "接続を設定",
     "validationError": "必須項目をすべて入力してください",
-    "driverSelected": "選択されたドライバー",
+    "missingRequired": "続行するには必須:",
     "changeDriver": "変更...",
     "modalTitleNew": "新しい接続",
     "modalTitleEdit": "接続を編集",
@@ -230,6 +232,8 @@
     "port": "ポート",
     "username": "ユーザー名",
     "password": "パスワード",
+    "showPassword": "パスワードを表示",
+    "hidePassword": "パスワードを非表示",
     "database": "データベース",
     "databaseInitial": "初期データベース",
     "databaseIndex": "データベースインデックス (0-15)",
@@ -253,7 +257,7 @@
     "poolMin": "最小",
     "poolAcquireTimeout": "取得タイムアウト (秒)",
     "advanced": "詳細設定",
-    "advancedHint": "SSL、DB、SSH…",
+    "advancedHint": "SSL、プール、SSH…",
     "advancedHintUrlMode": "プール、SSH…",
     "cancel": "キャンセル",
     "test": "テスト",
@@ -303,7 +307,8 @@
       "authIntegrated": "Windows (統合認証)",
       "ntlmHint": "Windows クライアントのみ。",
       "integratedHint": "現在の Windows セッションを使用します。資格情報は不要です。",
-      "ntlmUsernamePlaceholder": "DOMAIN\\user"
+      "ntlmUsernamePlaceholder": "DOMAIN\\user",
+      "ntlmUsernameInvalid": "NTLM ユーザー名にはドメインが必要です (DOMAIN\\user または user@domain)"
     },
     "ssh": {
       "enableTunnel": "SSH トンネルを使用",
@@ -358,6 +363,18 @@
       "cluster": "クラスター名（任意）",
       "clusterPlaceholder": "例: shard_cluster",
       "clusterHint": "指定すると、DDL（CREATE/DROP DATABASE/TABLE）が ON CLUSTER 付きで実行され、全レプリカに伝播します。単一ノード構成では空のままにします。"
+    },
+    "search": {
+      "authMode": "認証",
+      "authNone": "なし",
+      "authBasic": "Basic",
+      "authApiKey": "APIキー",
+      "authBearer": "Bearer",
+      "apiKey": "APIキー",
+      "bearerToken": "Bearerトークン",
+      "tlsWarning": "TLSなしで認証情報が平文で送信されます。SSL/TLSを有効にしてください。",
+      "caCert": "CA証明書",
+      "caCertHint": "TLSでサーバーを検証するためのPEM CA証明書のパス。空欄の場合はシステムのトラストストアを使用します。"
     }
   },
   "sidebar": {
@@ -382,7 +399,22 @@
   },
   "search": {
     "placeholder": "コマンドまたは検索語を入力...",
-    "noResults": "結果が見つかりません。"
+    "noResults": "結果が見つかりません。",
+    "jsonError": "無効なJSON: {{message}}",
+    "modeConsole": "コンソール",
+    "modeSql": "SQL",
+    "modeConsoleHint": "メソッド /パス + JSON",
+    "modeSqlHint": "SQL (_sql)",
+    "sqlPlaceholder": "SELECT * FROM \"my-index\" LIMIT 10",
+    "templates": {
+      "matchAll": "検索 (全件)",
+      "match": "matchクエリ",
+      "termsAgg": "terms集計",
+      "createIndex": "インデックス作成",
+      "indexDoc": "ドキュメントをインデックス",
+      "bulk": "一括操作",
+      "catIndices": "インデックス一覧"
+    }
   },
   "fulltextSearch": {
     "title": "データベース内を検索",
@@ -468,6 +500,21 @@
       "all": "すべてのフォルダ",
       "none": "フォルダなし",
       "unknown": "不明"
+    },
+    "variables": {
+      "promptTitle": "変数を設定 — {{title}}",
+      "selectPlaceholder": "値を選択",
+      "apply": "クエリを使用",
+      "detected": "検出された変数",
+      "detectedHint": "クエリで使用される各変数の型とデフォルト値を設定します。",
+      "defaultPlaceholder": "デフォルト値（任意）",
+      "optionsPlaceholder": "選択肢（カンマ区切り）",
+      "type": {
+        "text": "テキスト",
+        "number": "数値",
+        "date": "日付",
+        "select": "選択"
+      }
     }
   },
   "palette": {
@@ -597,7 +644,11 @@
     "hideResults": "結果を非表示",
     "showResults": "結果を表示",
     "editMarkdown": "編集",
-    "previewMarkdown": "プレビュー"
+    "previewMarkdown": "プレビュー",
+    "addCellAi": "AIセル",
+    "aiPlaceholder": "クエリを自然言語で記述してください…",
+    "aiGenerate": "SQLを生成",
+    "aiCellInserted": "下にSQLセルを挿入しました"
   },
   "settings": {
     "title": "設定",
@@ -696,7 +747,8 @@
       "shortcuts": "キーボードショートカット",
       "plugins": "プラグイン",
       "license": "ライセンス",
-      "ai": "AI アシスタント"
+      "ai": "AI アシスタント",
+      "admin": "管理"
     },
     "search": {
       "placeholder": "設定を検索...",
@@ -765,6 +817,26 @@
       "overridden": "手動",
       "notFound": "PATH に見つかりません。",
       "empty": "ツールはまだ検出されていません。"
+    },
+    "admin": {
+      "usersTitle": "ユーザー",
+      "usersDescription": "このサーバーにログインできるアカウントを管理します。",
+      "loading": "ユーザーを読み込んでいます…",
+      "noUsers": "ユーザーがまだいません。",
+      "adminBadge": "管理者",
+      "resetPassword": "パスワードを再設定",
+      "newPassword": "新しいパスワード",
+      "apply": "適用",
+      "refresh": "更新",
+      "createTitle": "ユーザーを作成",
+      "createDescription": "新しいアカウントを追加します。一時パスワードをユーザーに伝えてください。",
+      "grantAdmin": "管理者権限を付与",
+      "createUser": "ユーザーを作成",
+      "userCreated": "ユーザーを作成しました。",
+      "createFailed": "ユーザーの作成に失敗しました",
+      "passwordReset": "{{email}} のパスワードを再設定しました。",
+      "resetFailed": "パスワードの再設定に失敗しました",
+      "loadFailed": "ユーザーの読み込みに失敗しました"
     }
   },
   "table": {
@@ -998,7 +1070,13 @@
     "updateError": "行の更新に失敗しました",
     "updateNoPrimaryKey": "インライン編集には主キーが必要です",
     "pinColumnLeft": "左に固定",
-    "unpinColumn": "カラムの固定を解除"
+    "unpinColumn": "カラムの固定を解除",
+    "nlFilter": {
+      "placeholder": "自然言語でフィルタ…",
+      "generate": "生成",
+      "apply": "フィルタを適用",
+      "empty": "このリクエストからフィルタを導出できませんでした。"
+    }
   },
   "export": {
     "dialogTitle": "ストリーミングエクスポート",
@@ -1341,7 +1419,12 @@
     "noCollections": "テーブルなし",
     "noDocuments": "ドキュメントなし",
     "loadMore": "さらに読み込む",
-    "searchPlaceholder": "テーブルを検索..."
+    "searchPlaceholder": "テーブルを検索...",
+    "cluster": "クラスター",
+    "clusters": "クラスター",
+    "index": "インデックス",
+    "indexes": "インデックス",
+    "indexesHeader": "インデックス"
   },
   "createTable": {
     "title": "テーブルを作成",
@@ -3042,5 +3125,18 @@
     "active": "アクティブなプラグイン",
     "manage": "プラグインを管理…",
     "runsInBackground": "バックグラウンドで実行"
+  },
+  "dataGenerator": {
+    "action": "データを生成",
+    "title": "データを生成 — {{table}}",
+    "rowCount": "行数",
+    "generate": "生成",
+    "execute": "テーブルに挿入",
+    "export": ".sql をエクスポート",
+    "copy": "コピー",
+    "executed": "{{count}} 行を挿入しました",
+    "exported": "SQLスクリプトをエクスポートしました",
+    "exportError": "エクスポートに失敗しました",
+    "copied": "SQLをコピーしました"
   }
 }

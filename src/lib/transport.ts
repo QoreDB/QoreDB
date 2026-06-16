@@ -8,7 +8,7 @@ import {
 } from '@tauri-apps/api/event';
 import { openUrl as tauriOpenUrl } from '@tauri-apps/plugin-opener';
 import type { QueryStreamHandlers } from './tauri/query';
-import type { Namespace, QueryResult } from './tauri/types';
+import type { ColumnInfo, Namespace, QueryResult, Row } from './tauri/types';
 
 export type { UnlistenFn };
 
@@ -43,6 +43,22 @@ export function setAuthToken(token: string | null): void {
 
 export function isAuthenticated(): boolean {
   return authToken !== '';
+}
+
+/** Reads the `is_admin` claim from the current JWT payload (no verification). */
+function jwtIsAdmin(token: string): boolean {
+  try {
+    const payload = token.split('.')[1];
+    if (!payload) return false;
+    const json = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
+    return json?.is_admin === true;
+  } catch {
+    return false;
+  }
+}
+
+export function isWebAdmin(): boolean {
+  return authToken !== '' && jwtIsAdmin(authToken);
 }
 
 export function listen<T = unknown>(
@@ -114,6 +130,40 @@ export function webSsoStart(): void {
   }
 }
 
+export interface AdminUser {
+  id: string;
+  email: string;
+  is_admin: boolean;
+}
+
+export async function webListUsers(): Promise<AdminUser[]> {
+  const res = await fetch('/api/admin/users', { headers: authHeaders() });
+  if (!res.ok) throw new Error(await errorMessage(res, 'admin/users'));
+  return (await res.json()) as AdminUser[];
+}
+
+export async function webCreateUser(
+  email: string,
+  password: string,
+  isAdmin: boolean
+): Promise<void> {
+  const res = await fetch('/api/admin/users', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ email, password, is_admin: isAdmin }),
+  });
+  if (!res.ok) throw new Error(await errorMessage(res, 'admin/users'));
+}
+
+export async function webResetPassword(email: string, newPassword: string): Promise<void> {
+  const res = await fetch('/api/admin/users/reset-password', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ email, new_password: newPassword }),
+  });
+  if (!res.ok) throw new Error(await errorMessage(res, 'admin/reset-password'));
+}
+
 /**
  * Reads the `?sso_token` / `?sso_error` the OIDC callback appended, stores the
  * token, and strips the params from the URL. Call once during web boot before
@@ -173,7 +223,23 @@ export async function webExecuteQuery(
     bypassLimits?: boolean;
   }
 ): Promise<ExecuteQueryResult> {
-  const handlers = options?.streamHandlers ?? {};
+  let collected: { columns: ColumnInfo[]; rows: Row[] } | null = null;
+  let handlers = options?.streamHandlers;
+  if (!handlers) {
+    const acc = { columns: [] as ColumnInfo[], rows: [] as Row[] };
+    collected = acc;
+    handlers = {
+      onColumns: cols => {
+        acc.columns = cols;
+      },
+      onRow: row => {
+        acc.rows.push(row);
+      },
+      onRowBatch: batch => {
+        acc.rows.push(...batch);
+      },
+    };
+  }
   const res = await fetch('/api/stream/execute_query', {
     method: 'POST',
     headers: authHeaders(),
@@ -209,7 +275,20 @@ export async function webExecuteQuery(
     }
   }
 
-  return failure ? { success: false, error: failure } : { success: true };
+  if (failure) {
+    return { success: false, error: failure };
+  }
+  return {
+    success: true,
+    result: collected
+      ? {
+          columns: collected.columns,
+          rows: collected.rows,
+          execution_time_ms: 0,
+          total_time_ms: 0,
+        }
+      : undefined,
+  };
 }
 
 function dispatchEvent(

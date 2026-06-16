@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ChevronDown, ChevronRight } from 'lucide-react';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/button';
@@ -15,8 +15,9 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { Driver, getDriverMetadata } from '@/lib/connection/drivers';
+import { getDriverMetadata } from '@/lib/connection/drivers';
 import { cn } from '@/lib/utils';
+import { Field } from './Field';
 import { ProxySection } from './ProxySection';
 import { SshTunnelSection } from './SshTunnelSection';
 import type { ConnectionFormData } from './types';
@@ -34,14 +35,14 @@ export function AdvancedSection({
 }: AdvancedSectionProps) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
+  const sslId = useId();
+  const sslModeId = useId();
 
   const driverMeta = getDriverMetadata(formData.driver);
   const parseNumber = (value: string, fallback: number) => {
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : fallback;
   };
-
-  const hasContent = true;
 
   return (
     <div className="rounded-md border border-border bg-background">
@@ -65,23 +66,15 @@ export function AdvancedSection({
         </span>
       </Button>
 
-      {open && hasContent && (
+      {open && (
         <div className="border-t border-border px-4 py-4 space-y-4">
           {!hideUrlDerivedFields && (
-            <div className="space-y-2">
-              <Label>{t(driverMeta.databaseFieldLabel)}</Label>
-              <Input
-                placeholder={formData.driver === Driver.Postgres ? 'postgres' : ''}
-                value={formData.database}
-                onChange={e => onChange('database', e.target.value)}
-              />
-            </div>
-          )}
-
-          {!hideUrlDerivedFields && (
             <div className="flex items-center justify-between rounded-md border border-border bg-background px-3 py-2">
-              <Label className="text-sm">{t('connection.useSSL')}</Label>
+              <Label htmlFor={sslId} className="text-sm">
+                {t('connection.useSSL')}
+              </Label>
               <Switch
+                id={sslId}
                 checked={formData.ssl}
                 onCheckedChange={checked => onChange('ssl', checked)}
               />
@@ -90,12 +83,14 @@ export function AdvancedSection({
 
           {!hideUrlDerivedFields && formData.ssl && driverMeta.supportsSQL && (
             <div className="space-y-2">
-              <Label className="text-sm">{t('connection.sslMode')}</Label>
+              <Label htmlFor={sslModeId} className="text-sm">
+                {t('connection.sslMode')}
+              </Label>
               <Select
                 value={formData.sslMode || 'require'}
                 onValueChange={value => onChange('sslMode', value)}
               >
-                <SelectTrigger className="w-full">
+                <SelectTrigger id={sslModeId} className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -113,8 +108,11 @@ export function AdvancedSection({
             <div className="space-y-2">
               <Label>{t('connection.poolSettings')}</Label>
               <div className="grid grid-cols-3 gap-3">
-                <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">{t('connection.poolMax')}</Label>
+                <Field
+                  label={t('connection.poolMax')}
+                  className="space-y-1"
+                  labelClassName="text-xs text-muted-foreground"
+                >
                   <Input
                     type="number"
                     min={1}
@@ -127,9 +125,12 @@ export function AdvancedSection({
                       )
                     }
                   />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">{t('connection.poolMin')}</Label>
+                </Field>
+                <Field
+                  label={t('connection.poolMin')}
+                  className="space-y-1"
+                  labelClassName="text-xs text-muted-foreground"
+                >
                   <Input
                     type="number"
                     min={0}
@@ -142,11 +143,12 @@ export function AdvancedSection({
                       )
                     }
                   />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">
-                    {t('connection.poolAcquireTimeout')}
-                  </Label>
+                </Field>
+                <Field
+                  label={t('connection.poolAcquireTimeout')}
+                  className="space-y-1"
+                  labelClassName="text-xs text-muted-foreground"
+                >
                   <Input
                     type="number"
                     min={5}
@@ -159,7 +161,7 @@ export function AdvancedSection({
                       )
                     }
                   />
-                </div>
+                </Field>
               </div>
             </div>
           )}

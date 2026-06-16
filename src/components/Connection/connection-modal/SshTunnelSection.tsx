@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ChevronDown, ChevronRight, Info } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useId, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/button';
@@ -17,7 +17,10 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 
+import { Field } from './Field';
 import type { ConnectionFormData } from './types';
+
+const SMALL_LABEL = 'text-xs text-muted-foreground';
 
 function parseIntOr(value: string, fallback: number) {
   const n = parseInt(value, 10);
@@ -38,6 +41,7 @@ export function SshTunnelSection(props: {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const hostKeyPolicyId = useId();
 
   const summary = useMemo(() => {
     if (!formData.useSshTunnel) return '';
@@ -93,49 +97,41 @@ export function SshTunnelSection(props: {
           {isOpen && (
             <div className="px-4 pb-4 space-y-4">
               <div className="grid grid-cols-3 gap-3">
-                <div className="col-span-2 space-y-2">
-                  <Label className="text-xs text-muted-foreground">
-                    {t('connection.ssh.host')}
-                  </Label>
+                <Field
+                  label={t('connection.ssh.host')}
+                  className="col-span-2"
+                  labelClassName={SMALL_LABEL}
+                >
                   <Input
                     placeholder="bastion.example.com"
                     value={formData.sshHost}
                     onChange={e => onChange('sshHost', e.target.value)}
                   />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-xs text-muted-foreground">
-                    {t('connection.ssh.port')}
-                  </Label>
+                </Field>
+                <Field label={t('connection.ssh.port')} labelClassName={SMALL_LABEL}>
                   <Input
                     type="number"
                     value={formData.sshPort}
                     onChange={e => onChange('sshPort', parseIntOr(e.target.value, 22))}
                   />
-                </div>
+                </Field>
               </div>
 
-              <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground">
-                  {t('connection.ssh.username')}
-                </Label>
+              <Field label={t('connection.ssh.username')} labelClassName={SMALL_LABEL}>
                 <Input
                   placeholder="ssh_user"
                   value={formData.sshUsername}
                   onChange={e => onChange('sshUsername', e.target.value)}
                 />
-              </div>
+              </Field>
 
-              <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground">
-                  {t('connection.ssh.keyPath')}
-                </Label>
+              <Field label={t('connection.ssh.keyPath')} labelClassName={SMALL_LABEL}>
                 <Input
                   placeholder={t('connection.ssh.keyPathPlaceholder')}
                   value={formData.sshKeyPath}
                   onChange={e => onChange('sshKeyPath', e.target.value)}
                 />
-              </div>
+              </Field>
 
               <div className="flex items-start gap-2 rounded-md border border-border bg-muted/30 p-2">
                 <Info size={14} className="mt-0.5 shrink-0 text-muted-foreground" />
@@ -169,7 +165,7 @@ export function SshTunnelSection(props: {
                   <div className="px-3 pb-3 space-y-3 border-t border-border">
                     <div className="grid grid-cols-2 gap-3 pt-3">
                       <div className="space-y-2">
-                        <Label className="text-xs text-muted-foreground">
+                        <Label htmlFor={hostKeyPolicyId} className="text-xs text-muted-foreground">
                           {t('connection.ssh.hostKeyPolicy')}
                         </Label>
                         <Select
@@ -181,7 +177,7 @@ export function SshTunnelSection(props: {
                             )
                           }
                         >
-                          <SelectTrigger className="h-9 w-full">
+                          <SelectTrigger id={hostKeyPolicyId} className="h-9 w-full">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -197,23 +193,20 @@ export function SshTunnelSection(props: {
                           </SelectContent>
                         </Select>
                       </div>
-                      <div className="space-y-2">
-                        <Label className="text-xs text-muted-foreground">
-                          {t('connection.ssh.proxyJump')}
-                        </Label>
+                      <Field label={t('connection.ssh.proxyJump')} labelClassName={SMALL_LABEL}>
                         <Input
                           placeholder="user@bastion:22"
                           value={formData.sshProxyJump}
                           onChange={e => onChange('sshProxyJump', e.target.value)}
                         />
-                      </div>
+                      </Field>
                     </div>
 
                     <div className="grid grid-cols-3 gap-3">
-                      <div className="space-y-2">
-                        <Label className="text-xs text-muted-foreground">
-                          {t('connection.ssh.connectTimeoutSecs')}
-                        </Label>
+                      <Field
+                        label={t('connection.ssh.connectTimeoutSecs')}
+                        labelClassName={SMALL_LABEL}
+                      >
                         <Input
                           type="number"
                           min={1}
@@ -222,11 +215,11 @@ export function SshTunnelSection(props: {
                             onChange('sshConnectTimeoutSecs', parseIntOr(e.target.value, 10))
                           }
                         />
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-xs text-muted-foreground">
-                          {t('connection.ssh.keepaliveIntervalSecs')}
-                        </Label>
+                      </Field>
+                      <Field
+                        label={t('connection.ssh.keepaliveIntervalSecs')}
+                        labelClassName={SMALL_LABEL}
+                      >
                         <Input
                           type="number"
                           min={0}
@@ -235,11 +228,11 @@ export function SshTunnelSection(props: {
                             onChange('sshKeepaliveIntervalSecs', parseIntOr(e.target.value, 30))
                           }
                         />
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-xs text-muted-foreground">
-                          {t('connection.ssh.keepaliveCountMax')}
-                        </Label>
+                      </Field>
+                      <Field
+                        label={t('connection.ssh.keepaliveCountMax')}
+                        labelClassName={SMALL_LABEL}
+                      >
                         <Input
                           type="number"
                           min={0}
@@ -248,7 +241,7 @@ export function SshTunnelSection(props: {
                             onChange('sshKeepaliveCountMax', parseIntOr(e.target.value, 3))
                           }
                         />
-                      </div>
+                      </Field>
                     </div>
                   </div>
                 )}

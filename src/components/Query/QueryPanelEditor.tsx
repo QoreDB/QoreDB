@@ -5,9 +5,11 @@ import type { Ref } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Tooltip } from '@/components/ui/tooltip';
+import { getQueryDialect } from '../../lib/connection/driverCapabilities';
 import type { Driver } from '../../lib/connection/drivers';
 import type { Namespace } from '../../lib/tauri';
 import { MongoEditor } from '../Editor/MongoEditor';
+import { SearchConsole } from '../Editor/SearchConsole';
 import { SQLEditor, type SQLEditorHandle } from '../Editor/SQLEditor';
 
 interface QueryPanelEditorProps {
@@ -46,10 +48,25 @@ export function QueryPanelEditor({
   onToggleExpand,
 }: QueryPanelEditorProps) {
   const { t } = useTranslation();
+  const isSearch = getQueryDialect(dialect) === 'search';
 
   return (
     <div className="flex-1 min-h-0 border-b border-border relative group/editor">
-      {isDocumentBased ? (
+      {isSearch ? (
+        <SearchConsole
+          value={query}
+          onChange={onQueryChange}
+          onExecute={onExecute}
+          onExecuteSelection={onExecuteSelection}
+          onFormat={onFormat}
+          dialect={dialect}
+          loading={loading}
+          sessionId={sessionId}
+          connectionDatabase={connectionDatabase}
+          activeNamespace={activeNamespace}
+          sqlEditorRef={sqlEditorRef}
+        />
+      ) : isDocumentBased ? (
         <MongoEditor
           value={query}
           onChange={onQueryChange}

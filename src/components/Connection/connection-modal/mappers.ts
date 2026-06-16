@@ -5,10 +5,9 @@ import type { ConnectionConfig, Environment, SavedConnection } from '@/lib/tauri
 
 import type { ConnectionFormData } from './types';
 
-function getPathBasename(path: string): string {
-  const normalized = path.replace(/\\/g, '/');
-  const parts = normalized.split('/').filter(Boolean);
-  return parts.length ? parts[parts.length - 1] : path;
+/** Search engines (Elasticsearch / OpenSearch) that carry a `search_auth_mode`. */
+function isSearchDriver(driver: Driver): boolean {
+  return driver === Driver.Elasticsearch || driver === Driver.OpenSearch;
 }
 
 export function buildConnectionConfig(formData: ConnectionFormData): ConnectionConfig {
@@ -26,6 +25,8 @@ export function buildConnectionConfig(formData: ConnectionFormData): ConnectionC
       formData.driver === Driver.Clickhouse && formData.clickhouseCluster.trim().length > 0
         ? formData.clickhouseCluster.trim()
         : undefined,
+    search_auth_mode: isSearchDriver(formData.driver) ? formData.searchAuthMode : undefined,
+    ssl_ca_cert: formData.sslCaCert.trim() || undefined,
     pool_max_connections: formData.poolMaxConnections,
     pool_min_connections: formData.poolMinConnections,
     pool_acquire_timeout_secs: formData.poolAcquireTimeoutSecs,
@@ -84,6 +85,8 @@ export function buildSavedConnection(
       formData.driver === Driver.Clickhouse && formData.clickhouseCluster.trim().length > 0
         ? formData.clickhouseCluster.trim()
         : undefined,
+    search_auth_mode: isSearchDriver(formData.driver) ? formData.searchAuthMode : undefined,
+    ssl_ca_cert: formData.sslCaCert.trim() || undefined,
     pool_max_connections: formData.poolMaxConnections,
     pool_min_connections: formData.poolMinConnections,
     pool_acquire_timeout_secs: formData.poolAcquireTimeoutSecs,
@@ -152,54 +155,55 @@ export function buildSaveConnectionInput(
   };
 }
 
-export function getSshSummary(formData: ConnectionFormData): string {
-  if (!formData.useSshTunnel) return '';
-  const hostPart = formData.sshHost ? `${formData.sshHost}:${formData.sshPort || 22}` : '(host?)';
-  const userPart = formData.sshUsername ? `${formData.sshUsername}@` : '';
-  const keyPart = formData.sshKeyPath ? `key:${getPathBasename(formData.sshKeyPath)}` : 'key:?';
-  const policyPart = formData.sshHostKeyPolicy;
-  return `${userPart}${hostPart} · ${keyPart} · ${policyPart}`;
-}
+/**
+ * Returns the i18n keys of the requirements that are not yet satisfied.
+ * An empty array means the form is ready to test/save. Used both to gate the
+ * action buttons and to tell the user exactly what is missing.
+ */
+export function getMissingRequirements(formData: ConnectionFormData): string[] {
+  const missing: string[] = [];
 
-export function isConnectionFormValid(formData: ConnectionFormData): boolean {
-  // MongoDB and Redis often run without authentication in dev mode
-  const authRequired = formData.driver !== Driver.Mongodb && formData.driver !== Driver.Redis;
-  // SQLite and DuckDB are file-based and don't need host/username/password in the traditional sense
+  // MongoDB and Redis often run without authentication in dev mode.
+  // Search engines (ES/OS) only need a username in basic-auth mode.
+  const searchNeedsUser = isSearchDriver(formData.driver) && formData.searchAuthMode === 'basic';
+  const authRequired =
+    formData.driver !== Driver.Mongodb &&
+    formData.driver !== Driver.Redis &&
+    (!isSearchDriver(formData.driver) || searchNeedsUser);
+  // SQLite and DuckDB are file-based: only the file path (stored in host) matters
   const isFileBased = formData.driver === Driver.Sqlite || formData.driver === Driver.Duckdb;
 
   if (isFileBased) {
-    // File-based drivers only require a file path (stored in host field)
-    return Boolean(
-      formData.host &&
-        (!formData.useSshTunnel ||
-          (formData.sshHost && formData.sshUsername && formData.sshKeyPath))
-    );
+    if (!formData.host) missing.push('connection.filePath');
+  } else {
+    if (!formData.host) missing.push('connection.host');
+    if (!Number.isInteger(formData.port) || formData.port < 1 || formData.port > 65535) {
+      missing.push('connection.port');
+    }
+
+    const isMssqlIntegrated =
+      formData.driver === Driver.SqlServer && formData.mssqlAuthMode === 'windows_integrated';
+    if (authRequired && !isMssqlIntegrated && !formData.username) {
+      missing.push('connection.username');
+    }
+
+    const ntlmUsernameOk =
+      formData.driver !== Driver.SqlServer ||
+      formData.mssqlAuthMode !== 'windows_ntlm' ||
+      formData.username.includes('\\') ||
+      formData.username.includes('@');
+    if (!ntlmUsernameOk) missing.push('connection.mssql.ntlmUsernameInvalid');
   }
 
-  const ntlmUsernameOk =
-    formData.driver !== Driver.SqlServer ||
-    formData.mssqlAuthMode !== 'windows_ntlm' ||
-    formData.username.includes('\\') ||
-    formData.username.includes('@');
+  if (formData.useSshTunnel) {
+    if (!formData.sshHost) missing.push('connection.ssh.host');
+    if (!formData.sshUsername) missing.push('connection.ssh.username');
+    if (!formData.sshKeyPath) missing.push('connection.ssh.keyPath');
+  }
 
-  const isMssqlIntegrated =
-    formData.driver === Driver.SqlServer && formData.mssqlAuthMode === 'windows_integrated';
-
-  return Boolean(
-    formData.host &&
-      (formData.username || !authRequired || isMssqlIntegrated) &&
-      ntlmUsernameOk &&
-      (!formData.useSshTunnel || (formData.sshHost && formData.sshUsername && formData.sshKeyPath))
-  );
+  return missing;
 }
 
-export function normalizePortForDriver(driver: Driver): number {
-  if (driver === Driver.Postgres) return 5432;
-  if (driver === Driver.Mysql) return 3306;
-  if (driver === Driver.Mongodb) return 27017;
-  if (driver === Driver.Redis) return 6379;
-  if (driver === Driver.Sqlite) return 0;
-  if (driver === Driver.Duckdb) return 0;
-  if (driver === Driver.SqlServer) return 1433;
-  return 5432;
+export function isConnectionFormValid(formData: ConnectionFormData): boolean {
+  return getMissingRequirements(formData).length === 0;
 }

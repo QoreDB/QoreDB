@@ -116,6 +116,7 @@ mod tests {
                     nullable: false,
                     default_value: None,
                     is_primary_key: true,
+                    is_auto_increment: false,
                 },
                 TableColumn {
                     name: "name".to_string(),
@@ -123,6 +124,7 @@ mod tests {
                     nullable: true,
                     default_value: None,
                     is_primary_key: false,
+                    is_auto_increment: false,
                 },
             ],
             primary_key: Some(vec!["id".to_string()]),
@@ -154,6 +156,7 @@ mod tests {
                     nullable: false,
                     default_value: None,
                     is_primary_key: true,
+                    is_auto_increment: false,
                 },
                 TableColumn {
                     name: "user_id".to_string(),
@@ -161,6 +164,7 @@ mod tests {
                     nullable: false,
                     default_value: None,
                     is_primary_key: false,
+                    is_auto_increment: false,
                 },
             ],
             primary_key: Some(vec!["id".to_string()]),
@@ -204,6 +208,7 @@ mod tests {
                 nullable: false,
                 default_value: None,
                 is_primary_key: true,
+                is_auto_increment: false,
             }],
             primary_key: Some(vec!["id".to_string()]),
             foreign_keys: vec![ForeignKey {

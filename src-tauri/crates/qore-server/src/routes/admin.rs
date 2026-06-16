@@ -40,6 +40,26 @@ pub async fn create_user(
     Ok(Json(json!(user)))
 }
 
+#[derive(Deserialize)]
+pub struct ResetPasswordRequest {
+    email: String,
+    new_password: String,
+}
+
+pub async fn reset_password(
+    State(state): State<AppState>,
+    Extension(ctx): Extension<AuthContext>,
+    Json(req): Json<ResetPasswordRequest>,
+) -> Result<Json<Value>, ApiError> {
+    require_admin(&ctx)?;
+    state
+        .control
+        .set_password(&req.email, &req.new_password)
+        .await
+        .map_err(ApiError::bad_request)?;
+    Ok(Json(json!({ "ok": true })))
+}
+
 pub async fn list_users(
     State(state): State<AppState>,
     Extension(ctx): Extension<AuthContext>,

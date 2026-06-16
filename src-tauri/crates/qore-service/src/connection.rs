@@ -63,10 +63,21 @@ pub fn normalize_config(mut config: ConnectionConfig) -> Result<ConnectionConfig
     let is_mssql_integrated =
         config.driver == "sqlserver" && config.mssql_auth == Some(MssqlAuthMode::WindowsIntegrated);
 
+    // Search engines (Elasticsearch / OpenSearch) only need a username in
+    // basic-auth mode. None / api_key / bearer carry no username.
+    let is_search = config.driver == "elasticsearch" || config.driver == "opensearch";
+    let search_without_username = is_search && config.search_auth_mode.as_deref() != Some("basic");
+
     // Username is required for SQL databases but optional for MongoDB, file-based DBs, Redis,
-    // and SQL Server integrated authentication.
+    // SQL Server integrated authentication, and non-basic search auth.
     let username = config.username.trim();
-    if username.is_empty() && !is_mongodb && !is_file_based && !is_redis && !is_mssql_integrated {
+    if username.is_empty()
+        && !is_mongodb
+        && !is_file_based
+        && !is_redis
+        && !is_mssql_integrated
+        && !search_without_username
+    {
         return Err("Username is required".to_string());
     }
     config.username = username.to_string();

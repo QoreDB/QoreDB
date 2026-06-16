@@ -125,8 +125,15 @@ jobs:
 
       - name: Disable Windows Defender real-time monitoring
         if: matrix.platform == 'windows-2025'
+        continue-on-error: true
         shell: pwsh
-        run: Set-MpPreference -DisableRealtimeMonitoring $true
+        run: |
+          try {
+            Set-MpPreference -DisableRealtimeMonitoring $true -ErrorAction Stop
+            Write-Host "Real-time monitoring disabled."
+          } catch {
+            Write-Host "Could not disable Defender (non-fatal): $($_.Exception.Message)"
+          }
 
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0

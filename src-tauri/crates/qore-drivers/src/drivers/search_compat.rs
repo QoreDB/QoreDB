@@ -17,12 +17,13 @@ use std::time::{Duration, Instant};
 
 use base64::{engine::general_purpose::STANDARD, Engine};
 use qore_core::error::{EngineError, EngineResult};
+use qore_core::traits::{StreamEvent, StreamSender};
 use qore_core::types::{
-    Collection, CollectionList, CollectionListOptions, CollectionType, ColumnInfo, ConnectionConfig,
-    Namespace, PaginatedQueryResult, QueryResult, Row, RowData, SessionId, SortDirection,
-    TableColumn, TableQueryOptions, TableSchema, Value,
+    Collection, CollectionList, CollectionListOptions, CollectionType, ColumnInfo,
+    ConnectionConfig, Namespace, PaginatedQueryResult, QueryId, QueryResult, Row, RowData,
+    SessionId, SortDirection, TableColumn, TableQueryOptions, TableSchema, Value,
 };
-use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE};
+use reqwest::header::{HeaderMap, HeaderName, HeaderValue, AUTHORIZATION, CONTENT_TYPE};
 use reqwest::{Client as HttpClient, Method, Url};
 use serde_json::{json, Map as JsonMap, Value as Json};
 use tokio::sync::RwLock;
@@ -129,7 +130,9 @@ impl SearchSession {
                 .filter(|p| !p.is_empty())
             {
                 let pem = std::fs::read(path).map_err(|e| {
-                    EngineError::connection_failed(format!("Cannot read CA certificate '{path}': {e}"))
+                    EngineError::connection_failed(format!(
+                        "Cannot read CA certificate '{path}': {e}"
+                    ))
                 })?;
                 let cert = reqwest::Certificate::from_pem(&pem).map_err(|e| {
                     EngineError::connection_failed(format!("Invalid CA certificate: {e}"))
@@ -173,8 +176,26 @@ impl SearchSession {
         path: &str,
         body: Option<String>,
     ) -> EngineResult<Json> {
+        self.send(method, path, body, None).await
+    }
+
+    /// Like [`request`], but tags the request with an `X-Opaque-Id` header so a
+    /// later `cancel` can locate the running task via `_tasks`.
+    async fn send(
+        &self,
+        method: Method,
+        path: &str,
+        body: Option<String>,
+        opaque_id: Option<&str>,
+    ) -> EngineResult<Json> {
         let url = self.join(path)?;
         let mut req = self.http.request(method, url);
+
+        if let Some(id) = opaque_id {
+            if let Ok(value) = HeaderValue::from_str(id) {
+                req = req.header(HeaderName::from_static("x-opaque-id"), value);
+            }
+        }
 
         if let Some(b) = body {
             // `_bulk` requires NDJSON content type and a trailing newline.
@@ -235,7 +256,9 @@ pub async fn connect(
         .unwrap_or("cluster")
         .to_string();
     // Ping cluster health to confirm the node is actually serving requests.
-    session.request(Method::GET, "/_cluster/health", None).await?;
+    session
+        .request(Method::GET, "/_cluster/health", None)
+        .await?;
 
     let id = SessionId::new();
     map.write().await.insert(id, Arc::new(session));
@@ -424,7 +447,10 @@ fn flatten_properties(props: &JsonMap<String, Json>, prefix: &str, out: &mut Vec
         // Multi-fields: e.g. `title.keyword`.
         if let Some(fields) = spec.get("fields").and_then(|f| f.as_object()) {
             for (sub_name, sub_spec) in fields {
-                let sub_type = sub_spec.get("type").and_then(|t| t.as_str()).unwrap_or("keyword");
+                let sub_type = sub_spec
+                    .get("type")
+                    .and_then(|t| t.as_str())
+                    .unwrap_or("keyword");
                 out.push(make_column(&format!("{full}.{sub_name}"), sub_type));
             }
         }
@@ -444,8 +470,14 @@ fn make_column(name: &str, data_type: &str) -> TableColumn {
 
 // ==================== Query execution ====================
 
-pub async fn execute(map: &SessionMap, session: SessionId, query: &str) -> EngineResult<QueryResult> {
+pub async fn execute(
+    map: &SessionMap,
+    session: SessionId,
+    query: &str,
+    query_id: QueryId,
+) -> EngineResult<QueryResult> {
     let s = get(map, session).await?;
+    let opaque = query_id.0.to_string();
     let started = Instant::now();
 
     // SQL mode: a query that doesn't start with an HTTP method is treated as a
@@ -453,14 +485,19 @@ pub async fn execute(map: &SessionMap, session: SessionId, query: &str) -> Engin
     if let Some(sql) = sql_query(query) {
         let body = json!({ "query": sql }).to_string();
         let json = s
-            .request(Method::POST, s.flavor.sql_endpoint(), Some(body))
+            .send(
+                Method::POST,
+                s.flavor.sql_endpoint(),
+                Some(body),
+                Some(&opaque),
+            )
             .await?;
         let elapsed_ms = started.elapsed().as_micros() as f64 / 1000.0;
         return Ok(map_sql_response(&json, elapsed_ms));
     }
 
     let (method, path, body) = parse_console(query)?;
-    let json = s.request(method, &path, body).await?;
+    let json = s.send(method, &path, body, Some(&opaque)).await?;
     let elapsed_ms = started.elapsed().as_micros() as f64 / 1000.0;
     Ok(map_response(&json, elapsed_ms))
 }
@@ -482,6 +519,362 @@ fn sql_query(input: &str) -> Option<&str> {
         "GET" | "POST" | "PUT" | "DELETE" | "HEAD"
     );
     (!is_http).then_some(trimmed)
+}
+
+/// Splits a multi-request console buffer into individual console commands. A new
+/// command begins at each line starting with an HTTP method keyword, so JSON
+/// bodies containing blank lines are never split mid-request.
+pub fn split_requests(input: &str) -> Vec<String> {
+    let is_method_line = |line: &str| {
+        let mut parts = line.trim_start().split_whitespace();
+        matches!(
+            parts.next().unwrap_or("").to_ascii_uppercase().as_str(),
+            "GET" | "POST" | "PUT" | "DELETE" | "HEAD"
+        )
+    };
+
+    let mut blocks: Vec<String> = Vec::new();
+    let mut current = String::new();
+    for line in input.lines() {
+        if is_method_line(line) && !current.trim().is_empty() {
+            blocks.push(current.trim_end().to_string());
+            current = String::new();
+        }
+        current.push_str(line);
+        current.push('\n');
+    }
+    if !current.trim().is_empty() {
+        blocks.push(current.trim_end().to_string());
+    }
+    blocks
+}
+
+// ==================== Cancellation (best effort via _tasks) ====================
+
+pub async fn cancel(
+    map: &SessionMap,
+    session: SessionId,
+    query_id: Option<QueryId>,
+) -> EngineResult<()> {
+    let Some(qid) = query_id else {
+        return Ok(());
+    };
+    let s = get(map, session).await?;
+    let opaque = qid.0.to_string();
+
+    // Locate running search / SQL tasks tagged with our X-Opaque-Id, cancel them.
+    let tasks = match s
+        .request(Method::GET, "/_tasks?actions=*search*,*sql*&detailed", None)
+        .await
+    {
+        Ok(t) => t,
+        Err(_) => return Ok(()), // tasks API unavailable — nothing to do
+    };
+
+    for task_id in tasks_matching_opaque(&tasks, &opaque) {
+        let _ = s
+            .request(Method::POST, &format!("/_tasks/{task_id}/_cancel"), None)
+            .await;
+    }
+    Ok(())
+}
+
+/// Collects task ids (`node:num`) whose `X-Opaque-Id` header matches `opaque`.
+fn tasks_matching_opaque(tasks: &Json, opaque: &str) -> Vec<String> {
+    let mut ids = Vec::new();
+    let Some(nodes) = tasks.get("nodes").and_then(|n| n.as_object()) else {
+        return ids;
+    };
+    for node in nodes.values() {
+        let Some(node_tasks) = node.get("tasks").and_then(|t| t.as_object()) else {
+            continue;
+        };
+        for (task_id, task) in node_tasks {
+            if task
+                .pointer("/headers/X-Opaque-Id")
+                .and_then(|v| v.as_str())
+                == Some(opaque)
+            {
+                ids.push(task_id.clone());
+            }
+        }
+    }
+    ids
+}
+
+// ============ Streaming (search_after + PIT, SQL cursor, fallback) ============
+
+/// Page size for streamed search / SQL pagination.
+const STREAM_PAGE: u64 = 1000;
+
+/// A `_search` is streamed (PIT + search_after) only when its requested `size`
+/// exceeds this — i.e. it could not be served by a single request anyway
+/// (`index.max_result_window` defaults to 10 000). Smaller searches keep Dev
+/// Tools semantics and run once.
+const STREAM_SIZE_THRESHOLD: u64 = 10_000;
+
+pub async fn execute_stream(
+    map: &SessionMap,
+    session: SessionId,
+    query: &str,
+    query_id: QueryId,
+    sender: StreamSender,
+) -> EngineResult<()> {
+    let s = get(map, session).await?;
+    let opaque = query_id.0.to_string();
+
+    // SQL → cursor pagination.
+    if let Some(sql) = sql_query(query) {
+        return stream_sql(&s, sql, &opaque, &sender).await;
+    }
+
+    let (method, path, body) = parse_console(query)?;
+
+    // Only an explicit, large `_search` (size beyond the single-request window)
+    // is streamed via PIT + search_after. A plain `_search` keeps Dev Tools
+    // semantics (size-limited) and runs once, so we never flood the grid with a
+    // whole index from an ad-hoc query.
+    if matches!(method, Method::GET | Method::POST) {
+        if let Some((index, target)) = streamable_search(&path, body.as_deref()) {
+            return stream_search(&s, &index, body.as_deref(), target, &opaque, &sender).await;
+        }
+    }
+
+    // Everything else (cat, mapping, bulk, count, cluster, small searches…) →
+    // run once and emit as a one-shot stream.
+    let json = s.send(method, &path, body, Some(&opaque)).await?;
+    emit_result(&sender, map_response(&json, 0.0)).await
+}
+
+/// Emits a non-streamed result as a one-shot stream (columns + rows + done).
+async fn emit_result(sender: &StreamSender, result: QueryResult) -> EngineResult<()> {
+    let affected = result.affected_rows.unwrap_or(0);
+    let _ = sender.send(StreamEvent::Columns(result.columns)).await;
+    if !result.rows.is_empty() {
+        let _ = sender.send(StreamEvent::RowBatch(result.rows)).await;
+    }
+    let _ = sender.send(StreamEvent::Done(affected)).await;
+    Ok(())
+}
+
+/// Returns `(index, target_size)` when `path` is a streamable `/{index}/_search`
+/// on a concrete index, with no aggregations and an explicit `size` greater than
+/// [`STREAM_SIZE_THRESHOLD`]; otherwise `None`.
+fn streamable_search(path: &str, body: Option<&str>) -> Option<(String, u64)> {
+    let p = path.trim_start_matches('/');
+    let p = p.split('?').next().unwrap_or(p);
+    let segs: Vec<&str> = p.split('/').filter(|s| !s.is_empty()).collect();
+    if segs.len() != 2 || segs[1] != "_search" {
+        return None; // bare /_search, _msearch, _async_search, etc.
+    }
+    let index = segs[0];
+    if index.starts_with('_') {
+        return None;
+    }
+    let parsed: Json = serde_json::from_str(body?).ok()?;
+    if parsed.get("aggs").is_some() || parsed.get("aggregations").is_some() {
+        return None; // aggregations don't paginate by hits
+    }
+    let size = parsed.get("size").and_then(|v| v.as_u64())?;
+    if size <= STREAM_SIZE_THRESHOLD {
+        return None;
+    }
+    Some((index.to_string(), size))
+}
+
+async fn stream_search(
+    s: &SearchSession,
+    index: &str,
+    body: Option<&str>,
+    target: u64,
+    opaque: &str,
+    sender: &StreamSender,
+) -> EngineResult<()> {
+    let mut user: JsonMap<String, Json> = body
+        .and_then(|b| serde_json::from_str::<Json>(b).ok())
+        .and_then(|j| j.as_object().cloned())
+        .unwrap_or_default();
+
+    // Open a point-in-time for a consistent view across pages.
+    let pit = s
+        .send(
+            Method::POST,
+            &format!("/{index}/_pit?keep_alive=2m"),
+            None,
+            Some(opaque),
+        )
+        .await?;
+    let mut pit_id = pit
+        .get("id")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| EngineError::execution_error("PIT open returned no id"))?
+        .to_string();
+
+    // Deterministic sort: user sort (if any) + a `_shard_doc` tiebreaker (PIT).
+    let mut sort = user
+        .get("sort")
+        .and_then(|v| v.as_array().cloned())
+        .unwrap_or_default();
+    sort.push(json!({ "_shard_doc": "asc" }));
+    let query = user.remove("query").unwrap_or(json!({ "match_all": {} }));
+
+    let _ = sender.send(StreamEvent::Columns(hit_columns())).await;
+
+    let mut search_after: Option<Json> = None;
+    let mut total: u64 = 0;
+    let outcome: EngineResult<()> = loop {
+        let remaining = target.saturating_sub(total);
+        if remaining == 0 {
+            break Ok(());
+        }
+        let page = remaining.min(STREAM_PAGE);
+
+        let mut req = JsonMap::new();
+        req.insert("size".into(), json!(page));
+        req.insert("track_total_hits".into(), json!(false));
+        req.insert("query".into(), query.clone());
+        req.insert("sort".into(), Json::Array(sort.clone()));
+        req.insert("pit".into(), json!({ "id": pit_id, "keep_alive": "2m" }));
+        if let Some(after) = &search_after {
+            req.insert("search_after".into(), after.clone());
+        }
+
+        let resp = match s
+            .send(
+                Method::POST,
+                "/_search",
+                Some(Json::Object(req).to_string()),
+                Some(opaque),
+            )
+            .await
+        {
+            Ok(r) => r,
+            Err(e) => break Err(e),
+        };
+
+        if let Some(id) = resp.get("pit_id").and_then(|v| v.as_str()) {
+            pit_id = id.to_string();
+        }
+
+        let hits = resp
+            .pointer("/hits/hits")
+            .and_then(|v| v.as_array())
+            .cloned()
+            .unwrap_or_default();
+        let page_len = hits.len() as u64;
+        if hits.is_empty() {
+            break Ok(());
+        }
+        search_after = hits.last().and_then(|h| h.get("sort").cloned());
+
+        let batch: Vec<Row> = hits.iter().map(hit_to_row).collect();
+        total += batch.len() as u64;
+        if sender.send(StreamEvent::RowBatch(batch)).await.is_err() {
+            break Ok(()); // receiver gone (cancelled)
+        }
+        if page_len < page {
+            break Ok(()); // exhausted before reaching the target
+        }
+    };
+
+    // Best-effort PIT close.
+    let _ = s
+        .request(
+            Method::DELETE,
+            "/_pit",
+            Some(json!({ "id": pit_id }).to_string()),
+        )
+        .await;
+
+    match outcome {
+        Ok(()) => {
+            let _ = sender.send(StreamEvent::Done(total)).await;
+            Ok(())
+        }
+        Err(e) => {
+            let _ = sender.send(StreamEvent::Error(e.to_string())).await;
+            Err(e)
+        }
+    }
+}
+
+async fn stream_sql(
+    s: &SearchSession,
+    sql: &str,
+    opaque: &str,
+    sender: &StreamSender,
+) -> EngineResult<()> {
+    let endpoint = s.flavor.sql_endpoint();
+    let first = s
+        .send(
+            Method::POST,
+            endpoint,
+            Some(json!({ "query": sql, "fetch_size": STREAM_PAGE }).to_string()),
+            Some(opaque),
+        )
+        .await?;
+
+    // Columns are present only on the first page.
+    let head = map_sql_response(&first, 0.0);
+    let _ = sender.send(StreamEvent::Columns(head.columns)).await;
+
+    let mut total: u64 = 0;
+    let mut rows = head.rows;
+    let mut cursor = first
+        .get("cursor")
+        .and_then(|v| v.as_str())
+        .map(str::to_string);
+    loop {
+        if !rows.is_empty() {
+            total += rows.len() as u64;
+            if sender.send(StreamEvent::RowBatch(rows)).await.is_err() {
+                break;
+            }
+        }
+        let Some(c) = cursor.take() else { break };
+        let resp = s
+            .send(
+                Method::POST,
+                endpoint,
+                Some(json!({ "cursor": c }).to_string()),
+                Some(opaque),
+            )
+            .await?;
+        rows = sql_rows(&resp);
+        cursor = resp
+            .get("cursor")
+            .and_then(|v| v.as_str())
+            .map(str::to_string);
+        if rows.is_empty() && cursor.is_none() {
+            break;
+        }
+    }
+
+    let _ = sender.send(StreamEvent::Done(total)).await;
+    Ok(())
+}
+
+fn hit_columns() -> Vec<ColumnInfo> {
+    vec![
+        col("_id", "text"),
+        col("_index", "text"),
+        col("_score", "float"),
+        col("_source", "json"),
+    ]
+}
+
+fn hit_to_row(h: &Json) -> Row {
+    Row {
+        values: vec![
+            json_to_text_value(h.get("_id")),
+            json_to_text_value(h.get("_index")),
+            h.get("_score")
+                .and_then(|v| v.as_f64())
+                .map(Value::Float)
+                .unwrap_or(Value::Null),
+            Value::Json(h.get("_source").cloned().unwrap_or(Json::Null)),
+        ],
+    }
 }
 
 pub async fn preview_table(
@@ -799,22 +1192,37 @@ fn map_sql_response(json: &Json, elapsed_ms: f64) -> QueryResult {
         })
         .collect();
 
-    let rows: Vec<Row> = data
-        .iter()
+    QueryResult {
+        columns,
+        rows: sql_rows_from(data),
+        affected_rows: None,
+        execution_time_ms: elapsed_ms,
+    }
+}
+
+/// Maps the `rows`/`datarows` cell matrix of a SQL response into [`Row`]s.
+/// Used both for the first page and for cursor-continuation pages (which carry
+/// no `columns`).
+fn sql_rows(json: &Json) -> Vec<Row> {
+    let data = json
+        .get("rows")
+        .or_else(|| json.get("datarows"))
+        .and_then(|r| r.as_array());
+    match data {
+        Some(d) => sql_rows_from(d),
+        None => Vec::new(),
+    }
+}
+
+fn sql_rows_from(data: &[Json]) -> Vec<Row> {
+    data.iter()
         .map(|row| Row {
             values: row
                 .as_array()
                 .map(|cells| cells.iter().map(json_cell_to_value).collect())
                 .unwrap_or_default(),
         })
-        .collect();
-
-    QueryResult {
-        columns,
-        rows,
-        affected_rows: None,
-        execution_time_ms: elapsed_ms,
-    }
+        .collect()
 }
 
 /// Converts a SQL result cell into a typed [`Value`], preserving numbers and
@@ -943,8 +1351,9 @@ fn build_auth_header(config: &ConnectionConfig) -> EngineResult<Option<HeaderVal
 /// Builds the base URL, honouring an Elastic Cloud ID in `host` if present.
 fn build_base_url(config: &ConnectionConfig) -> EngineResult<Url> {
     if let Some(endpoint) = decode_cloud_id(&config.host) {
-        return Url::parse(&format!("{endpoint}/"))
-            .map_err(|e| EngineError::connection_failed(format!("Invalid Cloud ID endpoint: {e}")));
+        return Url::parse(&format!("{endpoint}/")).map_err(|e| {
+            EngineError::connection_failed(format!("Invalid Cloud ID endpoint: {e}"))
+        });
     }
 
     let scheme = if config.ssl { "https" } else { "http" };
@@ -1230,8 +1639,77 @@ mod tests {
     }
 
     #[test]
+    fn split_requests_splits_on_method_lines() {
+        let input = "GET /a/_search\n{\n  \"query\": {\n\n    \"match_all\": {}\n  }\n}\nPOST /b/_doc\n{\"x\":1}\nGET /_cat/indices";
+        let blocks = split_requests(input);
+        assert_eq!(blocks.len(), 3);
+        assert!(blocks[0].starts_with("GET /a/_search"));
+        // A blank line *inside* a JSON body must not split the request.
+        assert!(blocks[0].contains("match_all"));
+        assert!(blocks[1].starts_with("POST /b/_doc"));
+        assert!(blocks[2].starts_with("GET /_cat/indices"));
+    }
+
+    #[test]
+    fn split_requests_single_block() {
+        assert_eq!(split_requests("GET /_cat/indices").len(), 1);
+        assert_eq!(split_requests("SELECT * FROM books").len(), 1);
+    }
+
+    #[test]
+    fn streamable_search_detection() {
+        // Streamed only with an explicit large size.
+        assert_eq!(
+            streamable_search("/books/_search", Some("{\"size\": 50000}")),
+            Some(("books".to_string(), 50000))
+        );
+        assert_eq!(
+            streamable_search("/books/_search?pretty", Some("{\"size\":20000}")),
+            Some(("books".to_string(), 20000))
+        );
+        // Default / small / missing size keeps Dev Tools semantics (not streamed).
+        assert!(streamable_search("/books/_search", None).is_none());
+        assert!(streamable_search("/books/_search", Some("{\"query\":{}}")).is_none());
+        assert!(streamable_search("/books/_search", Some("{\"size\": 100}")).is_none());
+        // bare _search (all indices), msearch, aggregations are not streamed
+        assert!(streamable_search("/_search", Some("{\"size\":50000}")).is_none());
+        assert!(streamable_search("/books/_msearch", Some("{\"size\":50000}")).is_none());
+        assert!(streamable_search(
+            "/books/_search",
+            Some("{\"size\":50000,\"aggs\":{\"x\":{}}}")
+        )
+        .is_none());
+    }
+
+    #[test]
+    fn tasks_matching_opaque_filters_by_header() {
+        let tasks = serde_json::json!({
+            "nodes": {
+                "node1": { "tasks": {
+                    "node1:42": { "headers": { "X-Opaque-Id": "abc" } },
+                    "node1:43": { "headers": { "X-Opaque-Id": "other" } },
+                    "node1:44": {}
+                }}
+            }
+        });
+        let ids = tasks_matching_opaque(&tasks, "abc");
+        assert_eq!(ids, vec!["node1:42".to_string()]);
+    }
+
+    #[test]
+    fn sql_rows_reads_both_shapes() {
+        let es = serde_json::json!({ "rows": [[1, "a"], [2, "b"]], "cursor": "x" });
+        assert_eq!(sql_rows(&es).len(), 2);
+        let os = serde_json::json!({ "datarows": [["a"]], "schema": [] });
+        assert_eq!(sql_rows(&os).len(), 1);
+        let none = serde_json::json!({ "cursor": "x" });
+        assert!(sql_rows(&none).is_empty());
+    }
+
+    #[test]
     fn verify_flavor_distinguishes_products() {
-        let os = serde_json::json!({ "version": { "distribution": "opensearch", "number": "2.11.0" } });
+        let os =
+            serde_json::json!({ "version": { "distribution": "opensearch", "number": "2.11.0" } });
         let es = serde_json::json!({ "version": { "number": "8.12.0" } });
         assert!(verify_flavor(&os, SearchFlavor::OpenSearch).is_ok());
         assert!(verify_flavor(&os, SearchFlavor::Elasticsearch).is_err());

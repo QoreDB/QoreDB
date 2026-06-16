@@ -10,10 +10,11 @@ use async_trait::async_trait;
 
 use crate::drivers::search_compat::{self, SearchFlavor, SessionMap};
 use qore_core::error::{EngineError, EngineResult};
-use qore_core::traits::DataEngine;
+use qore_core::traits::{DataEngine, StreamSender};
 use qore_core::types::{
-    CollectionList, CollectionListOptions, ConnectionConfig, Namespace, PaginatedQueryResult,
-    QueryId, QueryResult, RowData, SessionId, TableQueryOptions, TableSchema, Value,
+    CancelSupport, CollectionList, CollectionListOptions, ConnectionConfig, Namespace,
+    PaginatedQueryResult, QueryId, QueryResult, RowData, SessionId, TableQueryOptions, TableSchema,
+    Value,
 };
 
 pub struct OpenSearchDriver {
@@ -88,9 +89,27 @@ impl DataEngine for OpenSearchDriver {
         &self,
         session: SessionId,
         query: &str,
-        _query_id: QueryId,
+        query_id: QueryId,
     ) -> EngineResult<QueryResult> {
-        search_compat::execute(&self.sessions, session, query).await
+        search_compat::execute(&self.sessions, session, query, query_id).await
+    }
+
+    async fn execute_stream(
+        &self,
+        session: SessionId,
+        query: &str,
+        query_id: QueryId,
+        sender: StreamSender,
+    ) -> EngineResult<()> {
+        search_compat::execute_stream(&self.sessions, session, query, query_id, sender).await
+    }
+
+    async fn cancel(&self, session: SessionId, query_id: Option<QueryId>) -> EngineResult<()> {
+        search_compat::cancel(&self.sessions, session, query_id).await
+    }
+
+    fn cancel_support(&self) -> CancelSupport {
+        CancelSupport::BestEffort
     }
 
     async fn preview_table(
@@ -170,7 +189,7 @@ impl DataEngine for OpenSearchDriver {
     }
 
     fn supports_streaming(&self) -> bool {
-        false
+        true
     }
 
     fn supports_ssh(&self) -> bool {

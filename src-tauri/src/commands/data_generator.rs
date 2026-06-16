@@ -39,7 +39,9 @@ const LAST_NAMES: &[&str] = &[
 const CITIES: &[&str] = &[
     "Paris", "Lyon", "Berlin", "Madrid", "Lisboa", "Roma", "Tokyo", "Seoul", "Austin", "Toronto",
 ];
-const COUNTRIES: &[&str] = &["France", "Germany", "Spain", "Portugal", "Italy", "Japan", "Canada"];
+const COUNTRIES: &[&str] = &[
+    "France", "Germany", "Spain", "Portugal", "Italy", "Japan", "Canada",
+];
 const WORDS: &[&str] = &[
     "alpha", "bravo", "lorem", "ipsum", "delta", "omega", "nova", "vertex", "quartz", "ember",
 ];
@@ -161,7 +163,10 @@ pub async fn generate_seed_data(
                 .referenced_database
                 .clone()
                 .unwrap_or_else(|| namespace.database.clone()),
-            schema: fk.referenced_schema.clone().or_else(|| namespace.schema.clone()),
+            schema: fk
+                .referenced_schema
+                .clone()
+                .or_else(|| namespace.schema.clone()),
         };
         let options = TableQueryOptions {
             page_size: Some(FK_SAMPLE_SIZE),
@@ -271,7 +276,11 @@ fn generate_value(col: &TableColumn, index: usize, rng: &mut impl Rng) -> Value 
             return Value::Text(pick(LAST_NAMES, rng));
         }
         if name.contains("name") {
-            return Value::Text(format!("{} {}", pick(FIRST_NAMES, rng), pick(LAST_NAMES, rng)));
+            return Value::Text(format!(
+                "{} {}",
+                pick(FIRST_NAMES, rng),
+                pick(LAST_NAMES, rng)
+            ));
         }
         if name.contains("phone") {
             return Value::Text(format!("+1{:010}", rng.gen_range(0u64..9_999_999_999)));

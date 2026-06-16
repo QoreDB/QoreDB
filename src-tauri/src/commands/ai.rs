@@ -563,9 +563,10 @@ async fn stream_ai_request(
         let rid = request_id.clone();
         let event = event_name.clone();
 
-        let provider_handle = tokio::spawn(async move {
-            provider.stream(&api_key, &messages, &config, tx, rid).await
-        });
+        let provider_handle =
+            tokio::spawn(
+                async move { provider.stream(&api_key, &messages, &config, tx, rid).await },
+            );
 
         let mut full_response = String::new();
         while let Some(chunk) = rx.recv().await {

@@ -66,8 +66,7 @@ pub fn normalize_config(mut config: ConnectionConfig) -> Result<ConnectionConfig
     // Search engines (Elasticsearch / OpenSearch) only need a username in
     // basic-auth mode. None / api_key / bearer carry no username.
     let is_search = config.driver == "elasticsearch" || config.driver == "opensearch";
-    let search_without_username =
-        is_search && config.search_auth_mode.as_deref() != Some("basic");
+    let search_without_username = is_search && config.search_auth_mode.as_deref() != Some("basic");
 
     // Username is required for SQL databases but optional for MongoDB, file-based DBs, Redis,
     // SQL Server integrated authentication, and non-basic search auth.

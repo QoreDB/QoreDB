@@ -146,8 +146,11 @@ Fait :
 - **Data streams** ✅ — listés via `GET /_data_stream` dans `list_collections`, à côté des indices et alias.
 - **CA cert custom** ✅ — champ `ssl_ca_cert` (chemin PEM) sur la connexion, chargé via `reqwest::Certificate::from_pem` quand TLS est actif. UI dans `BasicSection` (visible pour ES/OS avec SSL).
 
-Reste à faire :
+- **Annulation** ✅ — `cancel_support = BestEffort`. Chaque `execute`/`execute_stream` est tagué `X-Opaque-Id = query_id` ; `cancel()` retrouve les tâches correspondantes via `GET /_tasks` et les annule (`POST /_tasks/<id>/_cancel`). Le bouton d'annulation s'active automatiquement (capability remontée par le backend).
+- **Streaming** ✅ — `supports_streaming = true`.
+  - **SQL** : pagination par `cursor` (`fetch_size`), toutes les lignes sont streamées (sémantique `SELECT`).
+  - **`_search`** : streamé via **PIT + `search_after`** uniquement si un `size` explicite dépasse `STREAM_SIZE_THRESHOLD` (10 000, soit au-delà de `index.max_result_window`). Un `_search` ordinaire garde la sémantique Dev Tools (taille limitée) et s'exécute en une fois — on évite de déverser un index entier dans la grille.
+  - Toute autre commande console (cat, mapping, `_bulk`, count…) passe par un fallback « exécution unique » émis en un seul lot.
+- **Multi-requêtes console** ✅ — `split_requests()` découpe le buffer sur chaque ligne commençant par une méthode HTTP (robuste aux corps JSON contenant des lignes vides). Plusieurs blocs ⇒ exécution séquentielle réutilisant la machinerie multi-résultats (`extra_results`), un onglet par bloc.
 
-- Streaming (`search_after`/PIT) pour la pagination large.
-- Annulation (`_tasks/_cancel` via `X-Opaque-Id`).
-- Multi-requêtes console (plusieurs blocs séparés par une ligne vide).
+> Limitation connue : une **mutation** console exécutée via le canal de streaming affiche le toast « commande OK » plutôt que « N lignes affectées » (le nombre n'est pas reconstitué côté front). Le résultat JSON reste visible dans l'onglet.

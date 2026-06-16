@@ -192,11 +192,10 @@ pub async fn describe_table(
             nullable,
             default_value: default_expr,
             is_primary_key: is_pk,
-            is_auto_increment: false,        });
+            is_auto_increment: false,
+        });
     }
 
-    // Approximate row count via system.tables.total_rows (only populated for
-    // engines that track it: MergeTree family, etc.).
     let count_sql = "SELECT total_rows FROM system.tables \
          WHERE database = {db:String} AND name = {tbl:String}";
     let row_count_estimate = match parse_query_result(

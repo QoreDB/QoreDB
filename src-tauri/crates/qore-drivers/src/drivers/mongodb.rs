@@ -1811,7 +1811,8 @@ impl DataEngine for MongoDriver {
                 .into_iter()
                 .map(|(name, data_type)| TableColumn {
                     is_primary_key: name == "_id",
-                    is_auto_increment: false,                    name,
+                    is_auto_increment: false,
+                    name,
                     data_type,
                     nullable: true,
                     default_value: None,
@@ -1923,7 +1924,8 @@ impl DataEngine for MongoDriver {
             .into_iter()
             .map(|(name, data_type)| TableColumn {
                 is_primary_key: name == "_id",
-                is_auto_increment: false,                name,
+                is_auto_increment: false,
+                name,
                 data_type,
                 nullable: true,
                 default_value: None,

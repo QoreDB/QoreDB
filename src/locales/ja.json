@@ -372,7 +372,9 @@
       "authBearer": "Bearer",
       "apiKey": "APIキー",
       "bearerToken": "Bearerトークン",
-      "tlsWarning": "TLSなしで認証情報が平文で送信されます。SSL/TLSを有効にしてください。"
+      "tlsWarning": "TLSなしで認証情報が平文で送信されます。SSL/TLSを有効にしてください。",
+      "caCert": "CA証明書",
+      "caCertHint": "TLSでサーバーを検証するためのPEM CA証明書のパス。空欄の場合はシステムのトラストストアを使用します。"
     }
   },
   "sidebar": {
@@ -399,6 +401,11 @@
     "placeholder": "コマンドまたは検索語を入力...",
     "noResults": "結果が見つかりません。",
     "jsonError": "無効なJSON: {{message}}",
+    "modeConsole": "コンソール",
+    "modeSql": "SQL",
+    "modeConsoleHint": "Dev Tools: メソッド /パス + JSON ボディ",
+    "modeSqlHint": "SQL クエリ (_sql)",
+    "sqlPlaceholder": "SELECT * FROM \"my-index\" LIMIT 10",
     "templates": {
       "matchAll": "検索 (全件)",
       "match": "matchクエリ",

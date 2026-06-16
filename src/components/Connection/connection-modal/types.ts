@@ -20,6 +20,8 @@ export interface ConnectionFormData {
   clickhouseCluster: string;
   /** Auth mode for Elasticsearch / OpenSearch. */
   searchAuthMode: SearchAuthMode;
+  /** Path to a custom CA certificate (PEM) for TLS verification. */
+  sslCaCert: string;
   poolMaxConnections: number;
   poolMinConnections: number;
   poolAcquireTimeoutSecs: number;
@@ -61,6 +63,7 @@ export const initialConnectionFormData: ConnectionFormData = {
   mssqlAuthMode: 'sql_password',
   clickhouseCluster: '',
   searchAuthMode: 'none',
+  sslCaCert: '',
   poolMaxConnections: 5,
   poolMinConnections: 0,
   poolAcquireTimeoutSecs: 30,

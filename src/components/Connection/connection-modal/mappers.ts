@@ -26,6 +26,7 @@ export function buildConnectionConfig(formData: ConnectionFormData): ConnectionC
         ? formData.clickhouseCluster.trim()
         : undefined,
     search_auth_mode: isSearchDriver(formData.driver) ? formData.searchAuthMode : undefined,
+    ssl_ca_cert: formData.sslCaCert.trim() || undefined,
     pool_max_connections: formData.poolMaxConnections,
     pool_min_connections: formData.poolMinConnections,
     pool_acquire_timeout_secs: formData.poolAcquireTimeoutSecs,
@@ -85,6 +86,7 @@ export function buildSavedConnection(
         ? formData.clickhouseCluster.trim()
         : undefined,
     search_auth_mode: isSearchDriver(formData.driver) ? formData.searchAuthMode : undefined,
+    ssl_ca_cert: formData.sslCaCert.trim() || undefined,
     pool_max_connections: formData.poolMaxConnections,
     pool_min_connections: formData.poolMinConnections,
     pool_acquire_timeout_secs: formData.poolAcquireTimeoutSecs,

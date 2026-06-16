@@ -27,6 +27,9 @@ export const SEARCH_ENDPOINTS: SearchEndpoint[] = [
   { label: '_cat/health?format=json', detail: 'Cluster health' },
   { label: '_cluster/health', detail: 'Cluster health' },
   { label: '_cluster/stats', detail: 'Cluster statistics' },
+  { label: '_data_stream', detail: 'List data streams' },
+  { label: '_sql?format=json', detail: 'SQL query (Elasticsearch)' },
+  { label: '_plugins/_sql', detail: 'SQL query (OpenSearch)' },
 ];
 
 export interface SearchTemplate {

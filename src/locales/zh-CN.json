@@ -372,7 +372,9 @@
       "authBearer": "Bearer",
       "apiKey": "API 密钥",
       "bearerToken": "Bearer 令牌",
-      "tlsWarning": "未启用 TLS，凭据将以明文发送。请启用 SSL/TLS。"
+      "tlsWarning": "未启用 TLS，凭据将以明文发送。请启用 SSL/TLS。",
+      "caCert": "CA 证书",
+      "caCertHint": "用于通过 TLS 验证服务器的 PEM CA 证书路径。留空则使用系统信任库。"
     }
   },
   "sidebar": {
@@ -399,6 +401,11 @@
     "placeholder": "输入命令或搜索…",
     "noResults": "未找到结果。",
     "jsonError": "无效的 JSON：{{message}}",
+    "modeConsole": "控制台",
+    "modeSql": "SQL",
+    "modeConsoleHint": "Dev Tools：方法 /路径 + JSON 主体",
+    "modeSqlHint": "SQL 查询 (_sql)",
+    "sqlPlaceholder": "SELECT * FROM \"my-index\" LIMIT 10",
     "templates": {
       "matchAll": "搜索（全部）",
       "match": "match 查询",

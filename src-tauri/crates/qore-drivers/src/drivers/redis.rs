@@ -2007,6 +2007,7 @@ mod tests {
             mssql_auth: None,
             clickhouse_cluster: None,
             search_auth_mode: None,
+            ssl_ca_cert: None,
         };
 
         let conn_str = RedisDriver::build_connection_string(&config);
@@ -2034,6 +2035,7 @@ mod tests {
             mssql_auth: None,
             clickhouse_cluster: None,
             search_auth_mode: None,
+            ssl_ca_cert: None,
         };
 
         let conn_str = RedisDriver::build_connection_string(&config);
@@ -2061,6 +2063,7 @@ mod tests {
             mssql_auth: None,
             clickhouse_cluster: None,
             search_auth_mode: None,
+            ssl_ca_cert: None,
         };
 
         let conn_str = RedisDriver::build_connection_string(&config);

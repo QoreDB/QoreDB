@@ -80,6 +80,7 @@ fn postgres_config() -> ConnectionConfig {
         mssql_auth: None,
         clickhouse_cluster: None,
         search_auth_mode: None,
+        ssl_ca_cert: None,
     }
 }
 
@@ -103,6 +104,7 @@ fn mysql_config() -> ConnectionConfig {
         mssql_auth: None,
         clickhouse_cluster: None,
         search_auth_mode: None,
+        ssl_ca_cert: None,
     }
 }
 
@@ -126,6 +128,7 @@ fn mongo_config() -> ConnectionConfig {
         mssql_auth: None,
         clickhouse_cluster: None,
         search_auth_mode: None,
+        ssl_ca_cert: None,
     }
 }
 
@@ -151,6 +154,7 @@ fn clickhouse_config() -> ConnectionConfig {
         mssql_auth: None,
         clickhouse_cluster: None,
         search_auth_mode: None,
+        ssl_ca_cert: None,
     }
 }
 
@@ -174,6 +178,7 @@ fn redis_config() -> ConnectionConfig {
         mssql_auth: None,
         clickhouse_cluster: None,
         search_auth_mode: None,
+        ssl_ca_cert: None,
     }
 }
 

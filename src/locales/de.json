@@ -372,7 +372,9 @@
       "authBearer": "Bearer",
       "apiKey": "API-Schlüssel",
       "bearerToken": "Bearer-Token",
-      "tlsWarning": "Anmeldedaten werden ohne TLS im Klartext gesendet. Aktivieren Sie SSL/TLS."
+      "tlsWarning": "Anmeldedaten werden ohne TLS im Klartext gesendet. Aktivieren Sie SSL/TLS.",
+      "caCert": "CA-Zertifikat",
+      "caCertHint": "Pfad zu einem PEM-CA-Zertifikat zur TLS-Überprüfung des Servers. Leer lassen, um den System-Truststore zu verwenden."
     }
   },
   "sidebar": {
@@ -399,6 +401,11 @@
     "placeholder": "Befehl eingeben oder suchen…",
     "noResults": "Keine Ergebnisse gefunden.",
     "jsonError": "Ungültiges JSON: {{message}}",
+    "modeConsole": "Konsole",
+    "modeSql": "SQL",
+    "modeConsoleHint": "Dev Tools: METHODE /pfad + JSON-Body",
+    "modeSqlHint": "SQL-Abfrage (_sql)",
+    "sqlPlaceholder": "SELECT * FROM \"mein-index\" LIMIT 10",
     "templates": {
       "matchAll": "Suche (alle)",
       "match": "Match-Abfrage",

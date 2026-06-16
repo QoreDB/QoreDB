@@ -25,6 +25,8 @@ export interface ConnectionConfig {
   clickhouse_cluster?: string;
   /** Auth mode for Elasticsearch / OpenSearch: 'none' | 'basic' | 'api_key' | 'bearer'. */
   search_auth_mode?: SearchAuthMode;
+  /** Path to a custom CA certificate (PEM) for TLS verification. */
+  ssl_ca_cert?: string;
 }
 
 export type SearchAuthMode = 'none' | 'basic' | 'api_key' | 'bearer';
@@ -92,6 +94,8 @@ export interface SavedConnection {
   clickhouse_cluster?: string;
   /** Auth mode for Elasticsearch / OpenSearch. */
   search_auth_mode?: SearchAuthMode;
+  /** Path to a custom CA certificate (PEM) for TLS verification. */
+  ssl_ca_cert?: string;
   ssh_tunnel?: {
     host: string;
     port: number;

@@ -372,7 +372,9 @@
       "authBearer": "Bearer",
       "apiKey": "API 키",
       "bearerToken": "Bearer 토큰",
-      "tlsWarning": "TLS 없이 자격 증명이 평문으로 전송됩니다. SSL/TLS를 활성화하세요."
+      "tlsWarning": "TLS 없이 자격 증명이 평문으로 전송됩니다. SSL/TLS를 활성화하세요.",
+      "caCert": "CA 인증서",
+      "caCertHint": "TLS로 서버를 확인하기 위한 PEM CA 인증서 경로입니다. 비워두면 시스템 신뢰 저장소를 사용합니다."
     }
   },
   "sidebar": {
@@ -399,6 +401,11 @@
     "placeholder": "명령어를 입력하거나 검색...",
     "noResults": "결과를 찾을 수 없습니다.",
     "jsonError": "잘못된 JSON: {{message}}",
+    "modeConsole": "콘솔",
+    "modeSql": "SQL",
+    "modeConsoleHint": "Dev Tools: 메서드 /경로 + JSON 본문",
+    "modeSqlHint": "SQL 쿼리 (_sql)",
+    "sqlPlaceholder": "SELECT * FROM \"my-index\" LIMIT 10",
     "templates": {
       "matchAll": "검색 (전체)",
       "match": "match 쿼리",

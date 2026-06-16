@@ -66,6 +66,10 @@ pub struct SavedConnection {
     /// `"none" | "basic" | "api_key" | "bearer"`. `None` on legacy connections.
     #[serde(default)]
     pub search_auth_mode: Option<String>,
+    /// Path to a custom CA certificate (PEM) for TLS verification. `None` on
+    /// legacy connections.
+    #[serde(default)]
+    pub ssl_ca_cert: Option<String>,
     pub project_id: String,
 }
 
@@ -233,6 +237,7 @@ impl SavedConnection {
             mssql_auth: self.mssql_auth,
             clickhouse_cluster: self.clickhouse_cluster.clone(),
             search_auth_mode: self.search_auth_mode.clone(),
+            ssl_ca_cert: self.ssl_ca_cert.clone(),
         })
     }
 }
@@ -274,6 +279,7 @@ mod tests {
             mssql_auth: None,
             clickhouse_cluster: None,
             search_auth_mode: None,
+            ssl_ca_cert: None,
             project_id: "proj".to_string(),
         }
     }

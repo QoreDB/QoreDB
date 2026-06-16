@@ -372,7 +372,9 @@
       "authBearer": "Bearer",
       "apiKey": "Clave API",
       "bearerToken": "Token Bearer",
-      "tlsWarning": "Las credenciales se envían en texto plano sin TLS. Habilite SSL/TLS."
+      "tlsWarning": "Las credenciales se envían en texto plano sin TLS. Habilite SSL/TLS.",
+      "caCert": "Certificado CA",
+      "caCertHint": "Ruta a un certificado CA (PEM) para verificar el servidor por TLS. Déjelo vacío para usar el almacén de confianza del sistema."
     }
   },
   "sidebar": {
@@ -399,6 +401,11 @@
     "placeholder": "Escribe un comando o busca...",
     "noResults": "No se encontraron resultados.",
     "jsonError": "JSON no válido: {{message}}",
+    "modeConsole": "Consola",
+    "modeSql": "SQL",
+    "modeConsoleHint": "Dev Tools: MÉTODO /ruta + cuerpo JSON",
+    "modeSqlHint": "Consulta SQL (_sql)",
+    "sqlPlaceholder": "SELECT * FROM \"mi-indice\" LIMIT 10",
     "templates": {
       "matchAll": "Búsqueda (todo)",
       "match": "Consulta match",

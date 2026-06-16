@@ -252,6 +252,17 @@ export function BasicSection({
             </div>
           )}
 
+          {isSearch && formData.ssl && (
+            <Field label={t('connection.search.caCert')} hint={t('connection.search.caCertHint')}>
+              <Input
+                placeholder="/etc/ssl/certs/ca.pem"
+                value={formData.sslCaCert}
+                onChange={e => onChange('sslCaCert', e.target.value)}
+                spellCheck={false}
+              />
+            </Field>
+          )}
+
           {isSearch
             ? formData.searchAuthMode !== 'none' && (
                 <div className="grid grid-cols-2 gap-4">

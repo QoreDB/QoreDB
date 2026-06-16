@@ -139,4 +139,15 @@ SPDX `Apache-2.0` en tête de chaque nouveau `.rs`.
 6. **i18n + logos + docs** → vérif : 9 langues OK, logos affichés, `DATABASES.md`/`FEATURES.csv` à jour.
 
 ### Phase 2 (après le cœur)
-Mode SQL (`_sql`), streaming (`search_after`/PIT), annulation (`_tasks/_cancel`), multi-requêtes console, CA cert custom UI, data streams.
+
+Fait :
+
+- **Mode SQL** ✅ — toggle Console ⇄ SQL dans `SearchConsole`. Une requête qui ne commence pas par une méthode HTTP est envoyée à `_sql?format=json` (ES) / `_plugins/_sql` (OS). Réponses `columns`/`rows` (ES) et `schema`/`datarows` (OS) mappées en `QueryResult`.
+- **Data streams** ✅ — listés via `GET /_data_stream` dans `list_collections`, à côté des indices et alias.
+- **CA cert custom** ✅ — champ `ssl_ca_cert` (chemin PEM) sur la connexion, chargé via `reqwest::Certificate::from_pem` quand TLS est actif. UI dans `BasicSection` (visible pour ES/OS avec SSL).
+
+Reste à faire :
+
+- Streaming (`search_after`/PIT) pour la pagination large.
+- Annulation (`_tasks/_cancel` via `X-Opaque-Id`).
+- Multi-requêtes console (plusieurs blocs séparés par une ligne vide).

@@ -400,7 +400,9 @@
       "authBearer": "Bearer",
       "apiKey": "API key",
       "bearerToken": "Bearer token",
-      "tlsWarning": "Credentials are sent in clear text without TLS. Enable SSL/TLS."
+      "tlsWarning": "Credentials are sent in clear text without TLS. Enable SSL/TLS.",
+      "caCert": "CA certificate",
+      "caCertHint": "Path to a PEM CA certificate to verify the server over TLS. Leave empty to use the system trust store."
     }
   },
   "sidebar": {
@@ -427,6 +429,11 @@
     "placeholder": "Type a command or search...",
     "noResults": "No results found.",
     "jsonError": "Invalid JSON: {{message}}",
+    "modeConsole": "Console",
+    "modeSql": "SQL",
+    "modeConsoleHint": "Dev Tools: METHOD /path + JSON body",
+    "modeSqlHint": "SQL query (_sql)",
+    "sqlPlaceholder": "SELECT * FROM \"my-index\" LIMIT 10",
     "templates": {
       "matchAll": "Search (match all)",
       "match": "Match query",

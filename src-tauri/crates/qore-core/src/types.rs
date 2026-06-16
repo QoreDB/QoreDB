@@ -78,6 +78,11 @@ pub struct ConnectionConfig {
     /// via `password` (already vault-encrypted). `None` defaults to `"none"`.
     #[serde(default)]
     pub search_auth_mode: Option<String>,
+    /// Path to a custom CA certificate (PEM) used to verify the server's TLS
+    /// certificate. Currently honoured by the search drivers; `None` keeps the
+    /// system trust store.
+    #[serde(default)]
+    pub ssl_ca_cert: Option<String>,
 }
 
 impl std::fmt::Debug for ConnectionConfig {
@@ -101,6 +106,7 @@ impl std::fmt::Debug for ConnectionConfig {
             .field("mssql_auth", &self.mssql_auth)
             .field("clickhouse_cluster", &self.clickhouse_cluster)
             .field("search_auth_mode", &self.search_auth_mode)
+            .field("ssl_ca_cert", &self.ssl_ca_cert)
             .finish()
     }
 }
@@ -361,6 +367,7 @@ mod tests {
             mssql_auth: None,
             clickhouse_cluster: None,
             search_auth_mode: None,
+            ssl_ca_cert: None,
         };
         let dbg = format!("{:?}", cfg);
         assert!(dbg.contains("[REDACTED]"), "expected redaction in {dbg}");

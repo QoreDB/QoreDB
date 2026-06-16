@@ -9,7 +9,7 @@ import { getQueryDialect } from '../../lib/connection/driverCapabilities';
 import type { Driver } from '../../lib/connection/drivers';
 import type { Namespace } from '../../lib/tauri';
 import { MongoEditor } from '../Editor/MongoEditor';
-import { SearchEditor } from '../Editor/SearchEditor';
+import { SearchConsole } from '../Editor/SearchConsole';
 import { SQLEditor, type SQLEditorHandle } from '../Editor/SQLEditor';
 
 interface QueryPanelEditorProps {
@@ -53,13 +53,18 @@ export function QueryPanelEditor({
   return (
     <div className="flex-1 min-h-0 border-b border-border relative group/editor">
       {isSearch ? (
-        <SearchEditor
+        <SearchConsole
           value={query}
           onChange={onQueryChange}
           onExecute={onExecute}
-          readOnly={loading}
+          onExecuteSelection={onExecuteSelection}
+          onFormat={onFormat}
+          dialect={dialect}
+          loading={loading}
           sessionId={sessionId}
+          connectionDatabase={connectionDatabase}
           activeNamespace={activeNamespace}
+          sqlEditorRef={sqlEditorRef}
         />
       ) : isDocumentBased ? (
         <MongoEditor

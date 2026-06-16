@@ -372,7 +372,9 @@
       "authBearer": "Bearer",
       "apiKey": "API-ключ",
       "bearerToken": "Токен Bearer",
-      "tlsWarning": "Учётные данные передаются в открытом виде без TLS. Включите SSL/TLS."
+      "tlsWarning": "Учётные данные передаются в открытом виде без TLS. Включите SSL/TLS.",
+      "caCert": "Сертификат ЦС",
+      "caCertHint": "Путь к CA-сертификату (PEM) для проверки сервера по TLS. Оставьте пустым, чтобы использовать системное хранилище доверия."
     }
   },
   "sidebar": {
@@ -399,6 +401,11 @@
     "placeholder": "Введите команду или выполните поиск…",
     "noResults": "Результаты не найдены.",
     "jsonError": "Недопустимый JSON: {{message}}",
+    "modeConsole": "Консоль",
+    "modeSql": "SQL",
+    "modeConsoleHint": "Dev Tools: МЕТОД /путь + тело JSON",
+    "modeSqlHint": "SQL-запрос (_sql)",
+    "sqlPlaceholder": "SELECT * FROM \"my-index\" LIMIT 10",
     "templates": {
       "matchAll": "Поиск (все)",
       "match": "Запрос match",

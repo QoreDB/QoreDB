@@ -54,6 +54,15 @@ impl SearchFlavor {
             SearchFlavor::OpenSearch => "OpenSearch",
         }
     }
+
+    /// REST endpoint backing the SQL mode. Elasticsearch exposes `_sql`;
+    /// OpenSearch ships it behind the SQL plugin at `_plugins/_sql`.
+    fn sql_endpoint(self) -> &'static str {
+        match self {
+            SearchFlavor::Elasticsearch => "/_sql?format=json",
+            SearchFlavor::OpenSearch => "/_plugins/_sql",
+        }
+    }
 }
 
 /// A live connection to a search cluster. Owns one `reqwest::Client` so TLS and
@@ -109,6 +118,24 @@ impl SearchSession {
         // the UI surfaces a warning). Anything else keeps strict verification.
         if is_https && matches!(config.ssl_mode.as_deref(), Some("insecure")) {
             builder = builder.danger_accept_invalid_certs(true);
+        }
+
+        // Custom CA certificate (PEM) for clusters signed by an internal CA.
+        if is_https {
+            if let Some(path) = config
+                .ssl_ca_cert
+                .as_deref()
+                .map(str::trim)
+                .filter(|p| !p.is_empty())
+            {
+                let pem = std::fs::read(path).map_err(|e| {
+                    EngineError::connection_failed(format!("Cannot read CA certificate '{path}': {e}"))
+                })?;
+                let cert = reqwest::Certificate::from_pem(&pem).map_err(|e| {
+                    EngineError::connection_failed(format!("Invalid CA certificate: {e}"))
+                })?;
+                builder = builder.add_root_certificate(cert);
+            }
         }
 
         let http = builder.build().map_err(|e| {
@@ -297,7 +324,28 @@ pub async fn list_collections(
         }
     }
 
+    // Data streams (ES & OpenSearch). They are queryable like indices, so we
+    // expose them as tables. The `_data_stream` endpoint may be unavailable on
+    // older clusters — ignore failures rather than aborting the listing.
+    if let Ok(ds) = s.request(Method::GET, "/_data_stream", None).await {
+        if let Some(arr) = ds.get("data_streams").and_then(|v| v.as_array()) {
+            for obj in arr {
+                if let Some(name) = obj.get("name").and_then(|v| v.as_str()) {
+                    if name.starts_with('.') || !matches_search(name, &search) {
+                        continue;
+                    }
+                    collections.push(Collection {
+                        namespace: namespace.clone(),
+                        name: name.to_string(),
+                        collection_type: CollectionType::Table,
+                    });
+                }
+            }
+        }
+    }
+
     collections.sort_by(|a, b| a.name.cmp(&b.name));
+    collections.dedup_by(|a, b| a.name == b.name);
     let total = collections.len() as u32;
     Ok(CollectionList {
         collections,
@@ -398,11 +446,42 @@ fn make_column(name: &str, data_type: &str) -> TableColumn {
 
 pub async fn execute(map: &SessionMap, session: SessionId, query: &str) -> EngineResult<QueryResult> {
     let s = get(map, session).await?;
-    let (method, path, body) = parse_console(query)?;
     let started = Instant::now();
+
+    // SQL mode: a query that doesn't start with an HTTP method is treated as a
+    // SQL statement and sent to the `_sql` endpoint (ES) / SQL plugin (OS).
+    if let Some(sql) = sql_query(query) {
+        let body = json!({ "query": sql }).to_string();
+        let json = s
+            .request(Method::POST, s.flavor.sql_endpoint(), Some(body))
+            .await?;
+        let elapsed_ms = started.elapsed().as_micros() as f64 / 1000.0;
+        return Ok(map_sql_response(&json, elapsed_ms));
+    }
+
+    let (method, path, body) = parse_console(query)?;
     let json = s.request(method, &path, body).await?;
     let elapsed_ms = started.elapsed().as_micros() as f64 / 1000.0;
     Ok(map_response(&json, elapsed_ms))
+}
+
+/// Returns the trimmed query if it should run as SQL rather than a console
+/// command. Console commands always begin with an HTTP method keyword; anything
+/// else (`SELECT`, `SHOW`, `DESCRIBE`…) is SQL.
+fn sql_query(input: &str) -> Option<&str> {
+    let trimmed = input.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    let first = trimmed
+        .split(|c: char| c.is_whitespace())
+        .next()
+        .unwrap_or("");
+    let is_http = matches!(
+        first.to_ascii_uppercase().as_str(),
+        "GET" | "POST" | "PUT" | "DELETE" | "HEAD"
+    );
+    (!is_http).then_some(trimmed)
 }
 
 pub async fn preview_table(
@@ -691,6 +770,70 @@ fn mutation_result(json: &Json, affected: u64, elapsed_ms: f64) -> QueryResult {
         }],
         affected_rows: Some(affected),
         execution_time_ms: elapsed_ms,
+    }
+}
+
+/// Maps a SQL response into a tabular [`QueryResult`]. Elasticsearch returns
+/// `columns`/`rows`; OpenSearch's SQL plugin returns `schema`/`datarows`. Both
+/// shapes are accepted; anything else falls back to a raw JSON column.
+fn map_sql_response(json: &Json, elapsed_ms: f64) -> QueryResult {
+    let cols = json
+        .get("columns")
+        .or_else(|| json.get("schema"))
+        .and_then(|c| c.as_array());
+    let data = json
+        .get("rows")
+        .or_else(|| json.get("datarows"))
+        .and_then(|r| r.as_array());
+
+    let (Some(cols), Some(data)) = (cols, data) else {
+        return single_json_column("response", json.clone(), elapsed_ms);
+    };
+
+    let columns: Vec<ColumnInfo> = cols
+        .iter()
+        .map(|c| {
+            let name = c.get("name").and_then(|v| v.as_str()).unwrap_or("?");
+            let ty = c.get("type").and_then(|v| v.as_str()).unwrap_or("text");
+            col(name, ty)
+        })
+        .collect();
+
+    let rows: Vec<Row> = data
+        .iter()
+        .map(|row| Row {
+            values: row
+                .as_array()
+                .map(|cells| cells.iter().map(json_cell_to_value).collect())
+                .unwrap_or_default(),
+        })
+        .collect();
+
+    QueryResult {
+        columns,
+        rows,
+        affected_rows: None,
+        execution_time_ms: elapsed_ms,
+    }
+}
+
+/// Converts a SQL result cell into a typed [`Value`], preserving numbers and
+/// booleans (objects/arrays are kept as JSON).
+fn json_cell_to_value(v: &Json) -> Value {
+    match v {
+        Json::Null => Value::Null,
+        Json::Bool(b) => Value::Bool(*b),
+        Json::Number(n) => {
+            if let Some(i) = n.as_i64() {
+                Value::Int(i)
+            } else if let Some(f) = n.as_f64() {
+                Value::Float(f)
+            } else {
+                Value::Text(n.to_string())
+            }
+        }
+        Json::String(s) => Value::Text(s.clone()),
+        other => Value::Json(other.clone()),
     }
 }
 
@@ -1031,6 +1174,62 @@ mod tests {
     }
 
     #[test]
+    fn sql_query_detects_sql_vs_console() {
+        assert_eq!(
+            sql_query("SELECT * FROM books"),
+            Some("SELECT * FROM books")
+        );
+        assert_eq!(sql_query("  show tables  "), Some("show tables"));
+        assert!(sql_query("GET /_cat/indices").is_none());
+        assert!(sql_query("post /idx/_search").is_none());
+        assert!(sql_query("   ").is_none());
+    }
+
+    #[test]
+    fn sql_endpoint_per_flavor() {
+        assert_eq!(
+            SearchFlavor::Elasticsearch.sql_endpoint(),
+            "/_sql?format=json"
+        );
+        assert_eq!(SearchFlavor::OpenSearch.sql_endpoint(), "/_plugins/_sql");
+    }
+
+    #[test]
+    fn map_sql_response_elasticsearch_shape() {
+        let json = serde_json::json!({
+            "columns": [{ "name": "title", "type": "text" }, { "name": "year", "type": "long" }],
+            "rows": [["rust", 2010], ["go", 2009]]
+        });
+        let r = map_sql_response(&json, 1.0);
+        assert_eq!(r.columns.len(), 2);
+        assert_eq!(r.columns[0].name, "title");
+        assert_eq!(r.rows.len(), 2);
+        assert!(matches!(r.rows[0].values[1], Value::Int(2010)));
+    }
+
+    #[test]
+    fn map_sql_response_opensearch_shape() {
+        let json = serde_json::json!({
+            "schema": [{ "name": "title", "type": "text" }],
+            "datarows": [["opensearch"]],
+            "total": 1, "size": 1
+        });
+        let r = map_sql_response(&json, 1.0);
+        assert_eq!(r.columns.len(), 1);
+        assert_eq!(r.columns[0].name, "title");
+        assert_eq!(r.rows.len(), 1);
+        assert!(matches!(r.rows[0].values[0], Value::Text(_)));
+    }
+
+    #[test]
+    fn map_sql_response_unknown_shape_falls_back() {
+        let json = serde_json::json!({ "error": "boom" });
+        let r = map_sql_response(&json, 1.0);
+        assert_eq!(r.columns.len(), 1);
+        assert_eq!(r.columns[0].name, "response");
+    }
+
+    #[test]
     fn verify_flavor_distinguishes_products() {
         let os = serde_json::json!({ "version": { "distribution": "opensearch", "number": "2.11.0" } });
         let es = serde_json::json!({ "version": { "number": "8.12.0" } });
@@ -1131,6 +1330,7 @@ mod tests {
             mssql_auth: None,
             clickhouse_cluster: None,
             search_auth_mode: None,
+            ssl_ca_cert: None,
         }
     }
 }

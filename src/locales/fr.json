@@ -400,7 +400,9 @@
       "authBearer": "Bearer",
       "apiKey": "Clé API",
       "bearerToken": "Jeton Bearer",
-      "tlsWarning": "Les identifiants sont envoyés en clair sans TLS. Activez SSL/TLS."
+      "tlsWarning": "Les identifiants sont envoyés en clair sans TLS. Activez SSL/TLS.",
+      "caCert": "Certificat CA",
+      "caCertHint": "Chemin vers un certificat CA (PEM) pour vérifier le serveur en TLS. Laissez vide pour utiliser le magasin de confiance système."
     }
   },
   "sidebar": {
@@ -427,6 +429,11 @@
     "placeholder": "Tapez une commande ou recherchez...",
     "noResults": "Aucun résultat trouvé.",
     "jsonError": "JSON invalide : {{message}}",
+    "modeConsole": "Console",
+    "modeSql": "SQL",
+    "modeConsoleHint": "Dev Tools : MÉTHODE /chemin + corps JSON",
+    "modeSqlHint": "Requête SQL (_sql)",
+    "sqlPlaceholder": "SELECT * FROM \"mon-index\" LIMIT 10",
     "templates": {
       "matchAll": "Recherche (tout)",
       "match": "Requête match",

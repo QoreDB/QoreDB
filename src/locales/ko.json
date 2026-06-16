@@ -403,8 +403,8 @@
     "jsonError": "잘못된 JSON: {{message}}",
     "modeConsole": "콘솔",
     "modeSql": "SQL",
-    "modeConsoleHint": "Dev Tools: 메서드 /경로 + JSON 본문",
-    "modeSqlHint": "SQL 쿼리 (_sql)",
+    "modeConsoleHint": "메서드 /경로 + JSON",
+    "modeSqlHint": "SQL (_sql)",
     "sqlPlaceholder": "SELECT * FROM \"my-index\" LIMIT 10",
     "templates": {
       "matchAll": "검색 (전체)",

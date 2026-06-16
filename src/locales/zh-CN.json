@@ -403,8 +403,8 @@
     "jsonError": "无效的 JSON：{{message}}",
     "modeConsole": "控制台",
     "modeSql": "SQL",
-    "modeConsoleHint": "Dev Tools：方法 /路径 + JSON 主体",
-    "modeSqlHint": "SQL 查询 (_sql)",
+    "modeConsoleHint": "方法 /路径 + JSON",
+    "modeSqlHint": "SQL (_sql)",
     "sqlPlaceholder": "SELECT * FROM \"my-index\" LIMIT 10",
     "templates": {
       "matchAll": "搜索（全部）",

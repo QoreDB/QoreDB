@@ -403,8 +403,8 @@
     "jsonError": "Ungültiges JSON: {{message}}",
     "modeConsole": "Konsole",
     "modeSql": "SQL",
-    "modeConsoleHint": "Dev Tools: METHODE /pfad + JSON-Body",
-    "modeSqlHint": "SQL-Abfrage (_sql)",
+    "modeConsoleHint": "METHODE /pfad + JSON",
+    "modeSqlHint": "SQL (_sql)",
     "sqlPlaceholder": "SELECT * FROM \"mein-index\" LIMIT 10",
     "templates": {
       "matchAll": "Suche (alle)",

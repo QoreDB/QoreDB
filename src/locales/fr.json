@@ -431,8 +431,8 @@
     "jsonError": "JSON invalide : {{message}}",
     "modeConsole": "Console",
     "modeSql": "SQL",
-    "modeConsoleHint": "Dev Tools : MÉTHODE /chemin + corps JSON",
-    "modeSqlHint": "Requête SQL (_sql)",
+    "modeConsoleHint": "MÉTHODE /chemin + JSON",
+    "modeSqlHint": "SQL (_sql)",
     "sqlPlaceholder": "SELECT * FROM \"mon-index\" LIMIT 10",
     "templates": {
       "matchAll": "Recherche (tout)",

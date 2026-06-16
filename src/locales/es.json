@@ -403,8 +403,8 @@
     "jsonError": "JSON no válido: {{message}}",
     "modeConsole": "Consola",
     "modeSql": "SQL",
-    "modeConsoleHint": "Dev Tools: MÉTODO /ruta + cuerpo JSON",
-    "modeSqlHint": "Consulta SQL (_sql)",
+    "modeConsoleHint": "MÉTODO /ruta + JSON",
+    "modeSqlHint": "SQL (_sql)",
     "sqlPlaceholder": "SELECT * FROM \"mi-indice\" LIMIT 10",
     "templates": {
       "matchAll": "Búsqueda (todo)",

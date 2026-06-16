@@ -403,8 +403,8 @@
     "jsonError": "Недопустимый JSON: {{message}}",
     "modeConsole": "Консоль",
     "modeSql": "SQL",
-    "modeConsoleHint": "Dev Tools: МЕТОД /путь + тело JSON",
-    "modeSqlHint": "SQL-запрос (_sql)",
+    "modeConsoleHint": "МЕТОД /путь + JSON",
+    "modeSqlHint": "SQL (_sql)",
     "sqlPlaceholder": "SELECT * FROM \"my-index\" LIMIT 10",
     "templates": {
       "matchAll": "Поиск (все)",

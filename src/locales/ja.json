@@ -403,8 +403,8 @@
     "jsonError": "無効なJSON: {{message}}",
     "modeConsole": "コンソール",
     "modeSql": "SQL",
-    "modeConsoleHint": "Dev Tools: メソッド /パス + JSON ボディ",
-    "modeSqlHint": "SQL クエリ (_sql)",
+    "modeConsoleHint": "メソッド /パス + JSON",
+    "modeSqlHint": "SQL (_sql)",
     "sqlPlaceholder": "SELECT * FROM \"my-index\" LIMIT 10",
     "templates": {
       "matchAll": "検索 (全件)",

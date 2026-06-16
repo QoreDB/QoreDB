@@ -10,7 +10,7 @@ on:
 
 jobs:
   msix:
-    runs-on: windows-latest
+    runs-on: windows-2025
     permissions:
       contents: read
 

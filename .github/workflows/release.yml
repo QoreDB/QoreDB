@@ -85,7 +85,7 @@ jobs:
           - platform: 'ubuntu-22.04'
             args: ''
             target: ''
-          - platform: 'windows-2025'
+          - platform: 'windows-2022'
             args: ''
             target: ''
 
@@ -124,7 +124,7 @@ jobs:
         run: pnpm install
 
       - name: Disable Windows Defender real-time monitoring
-        if: matrix.platform == 'windows-2025'
+        if: matrix.platform == 'windows-2022'
         continue-on-error: true
         shell: pwsh
         run: |
@@ -162,7 +162,7 @@ jobs:
           args: ${{ matrix.args }} --features pro --verbose
 
       - name: Build MSIX (Windows only)
-        if: matrix.platform == 'windows-2025'
+        if: matrix.platform == 'windows-2022'
         shell: pwsh
         env:
           MSIX_CERT_BASE64: ${{ secrets.MSIX_CERT_BASE64 }}
@@ -346,7 +346,7 @@ jobs:
           $appinstaller | Set-Content $appinstallerPath -Encoding utf8
 
       - name: Upload MSIX to release
-        if: matrix.platform == 'windows-2025'
+        if: matrix.platform == 'windows-2022'
         uses: softprops/action-gh-release@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

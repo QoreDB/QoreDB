@@ -132,6 +132,26 @@ pub(crate) async fn build_schema_ddl(
     let mut output = String::new();
     let mut counts = SchemaDdlCounts::default();
 
+    // ========== EXTENSIONS & TYPES ==========
+    // Must precede the tables that reference them, or the dump fails to restore
+    // (e.g. `CREATE EXTENSION vector`, `CREATE TYPE … AS ENUM`).
+    if include_tables {
+        let prerequisites = driver
+            .export_prerequisite_ddl(session, namespace)
+            .await
+            .map_err(|e| e.to_string())?;
+        if !prerequisites.is_empty() {
+            output.push_str("-- ================================================\n");
+            output.push_str("-- EXTENSIONS & TYPES\n");
+            output.push_str("-- ================================================\n\n");
+            for stmt in &prerequisites {
+                output.push_str(stmt);
+                output.push('\n');
+            }
+            output.push('\n');
+        }
+    }
+
     // ========== TABLES ==========
     if include_tables && !tables.is_empty() {
         output.push_str("-- ================================================\n");
@@ -159,6 +179,28 @@ pub(crate) async fn build_schema_ddl(
                     ));
                 }
             }
+        }
+    }
+
+    // ========== INDEXES ==========
+    // Emitted from the driver (e.g. `pg_get_indexdef`) so engine-specific
+    // details survive: access method, operator class, partial/expression
+    // clauses. Drivers without an override return an empty list and keep their
+    // indexes inline in the `CREATE TABLE` above.
+    if include_tables && !tables.is_empty() {
+        let indexes = driver
+            .export_index_ddl(session, namespace)
+            .await
+            .map_err(|e| e.to_string())?;
+        if !indexes.is_empty() {
+            output.push_str("-- ================================================\n");
+            output.push_str("-- INDEXES\n");
+            output.push_str("-- ================================================\n\n");
+            for stmt in &indexes {
+                output.push_str(stmt);
+                output.push('\n');
+            }
+            output.push('\n');
         }
     }
 

@@ -1147,14 +1147,25 @@ pub async fn describe_table_core(
     let pool = &pg.pool;
     let schema = namespace.schema.as_deref().unwrap_or("public");
 
-    // Columns
+    // Columns. `data_type` comes from `format_type()` (the resolved, replayable
+    // type — e.g. `vector(512)`, `integer[]`, the enum name) rather than
+    // `information_schema.columns.data_type`, which collapses every custom or
+    // extension type to the literal `USER-DEFINED` and arrays to `ARRAY`.
+    // Nullability/default/identity stay sourced from `information_schema` to
+    // preserve existing behaviour.
     let column_rows: Vec<(String, String, String, Option<String>, String)> = sqlx::query_as(
         r#"
-        SELECT column_name::text, data_type::text, is_nullable::text, column_default::text,
-               is_identity::text
-        FROM information_schema.columns
-        WHERE table_schema = $1 AND table_name = $2
-        ORDER BY ordinal_position
+        SELECT c.column_name::text,
+               format_type(a.atttypid, a.atttypmod)::text AS data_type,
+               c.is_nullable::text,
+               c.column_default::text,
+               c.is_identity::text
+        FROM information_schema.columns c
+        JOIN pg_namespace n ON n.nspname = c.table_schema
+        JOIN pg_class rel ON rel.relname = c.table_name AND rel.relnamespace = n.oid
+        JOIN pg_attribute a ON a.attrelid = rel.oid AND a.attname = c.column_name
+        WHERE c.table_schema = $1 AND c.table_name = $2
+        ORDER BY c.ordinal_position
         "#,
     )
     .bind(schema)
@@ -1377,6 +1388,166 @@ pub async fn describe_table_core(
         row_count_estimate,
         indexes,
     })
+}
+
+/// Escapes a string for a single-quoted SQL literal (doubles embedded quotes).
+fn quote_literal(value: &str) -> String {
+    format!("'{}'", value.replace('\'', "''"))
+}
+
+/// `CREATE EXTENSION` + `CREATE TYPE … AS ENUM` statements that must precede the
+/// tables of a dump so custom/extension types resolve on restore. Extensions are
+/// database-wide; enum types are scoped to the exported schema.
+pub async fn export_prerequisite_ddl(
+    sessions: &SessionMap,
+    session: SessionId,
+    namespace: &Namespace,
+) -> EngineResult<Vec<String>> {
+    let pg = get_session(sessions, session).await?;
+    let pool = &pg.pool;
+    let schema = namespace.schema.as_deref().unwrap_or("public");
+
+    let mut statements = Vec::new();
+
+    // Extensions (skip the always-present `plpgsql`).
+    let extensions: Vec<(String, String)> = sqlx::query_as(
+        r#"
+        SELECT e.extname::text, n.nspname::text
+        FROM pg_extension e
+        JOIN pg_namespace n ON n.oid = e.extnamespace
+        WHERE e.extname <> 'plpgsql'
+        ORDER BY e.extname
+        "#,
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+    for (name, ext_schema) in extensions {
+        statements.push(format!(
+            "CREATE EXTENSION IF NOT EXISTS {} WITH SCHEMA {};",
+            quote_ident(&name),
+            quote_ident(&ext_schema)
+        ));
+    }
+
+    // Enum types in the exported schema.
+    let enums: Vec<(String, Vec<String>)> = sqlx::query_as(
+        r#"
+        SELECT t.typname::text,
+               array_agg(e.enumlabel::text ORDER BY e.enumsortorder)::text[]
+        FROM pg_type t
+        JOIN pg_enum e ON e.enumtypid = t.oid
+        JOIN pg_namespace n ON n.oid = t.typnamespace
+        WHERE n.nspname = $1
+        GROUP BY t.typname
+        ORDER BY t.typname
+        "#,
+    )
+    .bind(schema)
+    .fetch_all(pool)
+    .await
+    .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+    for (name, labels) in enums {
+        let values = labels
+            .iter()
+            .map(|l| quote_literal(l))
+            .collect::<Vec<_>>()
+            .join(", ");
+        statements.push(format!(
+            "CREATE TYPE {}.{} AS ENUM ({});",
+            quote_ident(schema),
+            quote_ident(&name),
+            values
+        ));
+    }
+
+    Ok(statements)
+}
+
+/// `CREATE INDEX` statements for a schema via `pg_get_indexdef`, which preserves
+/// the access method, operator class, and partial/expression clauses. Primary
+/// keys are excluded (emitted inline with the table).
+pub async fn export_index_ddl(
+    sessions: &SessionMap,
+    session: SessionId,
+    namespace: &Namespace,
+) -> EngineResult<Vec<String>> {
+    let pg = get_session(sessions, session).await?;
+    let pool = &pg.pool;
+    let schema = namespace.schema.as_deref().unwrap_or("public");
+
+    let rows: Vec<(String,)> = sqlx::query_as(
+        r#"
+        SELECT pg_get_indexdef(ix.indexrelid)::text
+        FROM pg_index ix
+        JOIN pg_class i ON i.oid = ix.indexrelid
+        JOIN pg_class t ON t.oid = ix.indrelid
+        JOIN pg_namespace n ON n.oid = t.relnamespace
+        WHERE n.nspname = $1 AND NOT ix.indisprimary
+        ORDER BY t.relname, i.relname
+        "#,
+    )
+    .bind(schema)
+    .fetch_all(pool)
+    .await
+    .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+    Ok(rows
+        .into_iter()
+        .map(|(def,)| if def.ends_with(';') { def } else { format!("{};", def) })
+        .collect())
+}
+
+/// Builds the data-export `SELECT`. Columns whose type collapses to
+/// `USER-DEFINED` in `information_schema` (enums, extension types like
+/// `vector`) are cast to `::text` so their canonical, restorable text form is
+/// emitted instead of a binary payload that would otherwise be lossily decoded.
+/// Falls back to `SELECT *` when no such column exists.
+pub async fn build_export_select(
+    sessions: &SessionMap,
+    session: SessionId,
+    namespace: &Namespace,
+    table: &str,
+    qualified: &str,
+) -> EngineResult<String> {
+    let pg = get_session(sessions, session).await?;
+    let pool = &pg.pool;
+    let schema = namespace.schema.as_deref().unwrap_or("public");
+
+    let columns: Vec<(String, String)> = sqlx::query_as(
+        r#"
+        SELECT column_name::text, data_type::text
+        FROM information_schema.columns
+        WHERE table_schema = $1 AND table_name = $2
+        ORDER BY ordinal_position
+        "#,
+    )
+    .bind(schema)
+    .bind(table)
+    .fetch_all(pool)
+    .await
+    .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+    if columns.is_empty() || !columns.iter().any(|(_, dt)| dt == "USER-DEFINED") {
+        return Ok(format!("SELECT * FROM {}", qualified));
+    }
+
+    let projection = columns
+        .iter()
+        .map(|(name, data_type)| {
+            let ident = quote_ident(name);
+            if data_type == "USER-DEFINED" {
+                format!("{0}::text AS {0}", ident)
+            } else {
+                ident
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(", ");
+
+    Ok(format!("SELECT {} FROM {}", projection, qualified))
 }
 
 // Namespaces & collections (default PG-compat implementation, matviews included)

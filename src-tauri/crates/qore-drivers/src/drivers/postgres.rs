@@ -198,6 +198,32 @@ impl DataEngine for PostgresDriver {
         pg_compat::describe_table_core(&self.sessions, session, namespace, table, true).await
     }
 
+    async fn export_prerequisite_ddl(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+    ) -> EngineResult<Vec<String>> {
+        pg_compat::export_prerequisite_ddl(&self.sessions, session, namespace).await
+    }
+
+    async fn export_index_ddl(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+    ) -> EngineResult<Vec<String>> {
+        pg_compat::export_index_ddl(&self.sessions, session, namespace).await
+    }
+
+    async fn build_export_select(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        table: &str,
+        qualified: &str,
+    ) -> EngineResult<String> {
+        pg_compat::build_export_select(&self.sessions, session, namespace, table, qualified).await
+    }
+
     async fn execute(
         &self,
         session: SessionId,

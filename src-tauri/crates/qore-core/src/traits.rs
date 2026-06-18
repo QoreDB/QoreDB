@@ -377,6 +377,49 @@ pub trait DataEngine: Send + Sync {
         table: &str,
     ) -> EngineResult<TableSchema>;
 
+    /// DDL statements that must run *before* the `CREATE TABLE`s of a full
+    /// schema dump (e.g. `CREATE EXTENSION`, `CREATE TYPE … AS ENUM`). Without
+    /// these the dump fails to restore for any table that uses a custom or
+    /// extension type. Default: none.
+    async fn export_prerequisite_ddl(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+    ) -> EngineResult<Vec<String>> {
+        let _ = (session, namespace);
+        Ok(Vec::new())
+    }
+
+    /// `CREATE INDEX` statements for a namespace, preserving engine-specific
+    /// details the generic DDL builder cannot reconstruct (access method,
+    /// operator class, partial/expression indexes). Excludes primary-key
+    /// indexes, which are emitted inline with the table. Default: none (the
+    /// generic builder emits indexes itself).
+    async fn export_index_ddl(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+    ) -> EngineResult<Vec<String>> {
+        let _ = (session, namespace);
+        Ok(Vec::new())
+    }
+
+    /// Builds the `SELECT` used to stream a table's rows for export. Drivers
+    /// override this to cast types that don't round-trip through the generic
+    /// value pipeline (e.g. Postgres extension types like `vector`) to their
+    /// canonical text form, so binary payloads are never lossily decoded.
+    /// `qualified` is the already-quoted, namespace-qualified table reference.
+    async fn build_export_select(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        table: &str,
+        qualified: &str,
+    ) -> EngineResult<String> {
+        let _ = (session, namespace, table);
+        Ok(format!("SELECT * FROM {}", qualified))
+    }
+
     /// Returns a preview of the table data (first N rows)
     async fn preview_table(
         &self,

@@ -81,6 +81,14 @@ pub fn generate_create_table_ddl(
     output.push_str(&parts.join(",\n"));
     output.push_str("\n);\n");
 
+    // Postgres indexes are emitted in a dedicated section from
+    // `pg_get_indexdef`, which preserves the access method and operator class
+    // (e.g. `USING hnsw (embedding vector_cosine_ops)`) that this generic
+    // reconstruction cannot express.
+    if dialect == SqlDialect::Postgres {
+        return output;
+    }
+
     for idx in &schema.indexes {
         if idx.is_primary {
             continue;
@@ -192,11 +200,47 @@ mod tests {
             schema: Some("public".to_string()),
         };
 
-        let ddl = generate_create_table_ddl(&schema, "orders", &namespace, SqlDialect::Postgres);
+        // MySQL: indexes are reconstructed inline by this generator. (Postgres
+        // indexes come from `pg_get_indexdef` in a dedicated export section.)
+        let ddl = generate_create_table_ddl(&schema, "orders", &namespace, SqlDialect::MySql);
 
-        assert!(ddl.contains("CONSTRAINT \"fk_user\" FOREIGN KEY"));
-        assert!(ddl.contains("REFERENCES \"public\".\"users\" (\"id\")"));
-        assert!(ddl.contains("CREATE INDEX \"idx_user_id\""));
+        assert!(ddl.contains("CONSTRAINT `fk_user` FOREIGN KEY"));
+        assert!(ddl.contains("REFERENCES `public`.`users` (`id`)"));
+        assert!(ddl.contains("CREATE INDEX `idx_user_id`"));
+    }
+
+    #[test]
+    fn test_postgres_skips_inline_indexes() {
+        let schema = TableSchema {
+            columns: vec![TableColumn {
+                name: "id".to_string(),
+                data_type: "integer".to_string(),
+                nullable: false,
+                default_value: None,
+                is_primary_key: true,
+                is_auto_increment: false,
+            }],
+            primary_key: Some(vec!["id".to_string()]),
+            foreign_keys: vec![],
+            row_count_estimate: None,
+            indexes: vec![TableIndex {
+                name: "idx_id".to_string(),
+                columns: vec!["id".to_string()],
+                is_unique: false,
+                is_primary: false,
+                index_type: None,
+            }],
+        };
+
+        let namespace = Namespace {
+            database: "testdb".to_string(),
+            schema: Some("public".to_string()),
+        };
+
+        let ddl = generate_create_table_ddl(&schema, "t", &namespace, SqlDialect::Postgres);
+
+        assert!(ddl.contains("CREATE TABLE"));
+        assert!(!ddl.contains("CREATE INDEX"));
     }
 
     #[test]

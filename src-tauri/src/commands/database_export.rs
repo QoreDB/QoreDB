@@ -435,7 +435,10 @@ async fn export_as_sql(
             )
             .await?;
 
-            let query = format!("SELECT * FROM {}", qualified);
+            let query = driver
+                .build_export_select(session, namespace, &table.name, &qualified)
+                .await
+                .unwrap_or_else(|_| format!("SELECT * FROM {}", qualified));
             let mut columns_sql: Option<String> = None;
             let mut columns: Vec<ColumnInfo> = Vec::new();
 
@@ -577,7 +580,10 @@ async fn export_as_zip(
                 .map_err(|e| format!("Failed to write data entry: {}", e))?;
 
             let qualified = dialect.qualified_table(namespace, &table.name);
-            let query = format!("SELECT * FROM {}", qualified);
+            let query = driver
+                .build_export_select(session, namespace, &table.name, &qualified)
+                .await
+                .unwrap_or_else(|_| format!("SELECT * FROM {}", qualified));
             let mut header_written = false;
             let mut columns: Vec<ColumnInfo> = Vec::new();
 

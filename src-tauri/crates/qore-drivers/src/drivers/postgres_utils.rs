@@ -506,7 +506,11 @@ pub(crate) fn extract_value(row: &PgRow, idx: usize, enum_labels: &EnumLabelMap)
             }
             if let Ok(bytes) = raw.as_bytes() {
                 if !bytes.is_empty() {
-                    return Value::Text(String::from_utf8_lossy(bytes).to_string());
+                    // Never lossily UTF-8 decode binary payloads: that replaces
+                    // every byte >= 0x80 with U+FFFD and silently destroys data
+                    // (e.g. pgvector / bytea). Keep the raw bytes so they
+                    // round-trip as a byte-safe literal instead.
+                    return Value::Bytes(bytes.to_vec());
                 }
             }
         }

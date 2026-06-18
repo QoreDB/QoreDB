@@ -5,10 +5,10 @@
 
 **One app for all your databases.**
 
-The fast, open-source database client built with Rust. Connect to **12 native drivers** from a single, beautiful interface. Local-first: your data stays yours.
+The fast, open-source database client built with Rust. Connect to **15 native drivers** from a single, beautiful interface. Local-first: your data stays yours.
 
 [![License](https://img.shields.io/badge/license-Apache--2.0%20%2F%20BUSL--1.1-blue?style=flat-square)](LICENSE)
-[![Release](https://img.shields.io/github/v/release/QoreDB/QoreDB?style=flat-square&color=8b5cf6&cacheSeconds=86400)](https://github.com/QoreDB/QoreDB/releases)
+[![Release](https://img.shields.io/github/v/release/QoreDB/QoreDB?include_prereleases&style=flat-square&color=8b5cf6&cacheSeconds=86400)](https://github.com/QoreDB/QoreDB/releases)
 [![Downloads](https://img.shields.io/github/downloads/QoreDB/QoreDB/total?style=flat-square&color=10b981&cacheSeconds=86400)](https://github.com/QoreDB/QoreDB/releases)
 [![Stars](https://img.shields.io/github/stars/QoreDB/QoreDB?style=flat-square&color=facc15&cacheSeconds=86400)](https://github.com/QoreDB/QoreDB/stargazers)
 [![Issues](https://img.shields.io/github/issues/QoreDB/QoreDB?style=flat-square&cacheSeconds=86400)](https://github.com/QoreDB/QoreDB/issues)
@@ -16,7 +16,7 @@ The fast, open-source database client built with Rust. Connect to **12 native dr
 
 [**Website**](https://qoredb.com) · [**Download**](https://qoredb.com/download) · [**Docs**](https://qoredb.com/docs) · [**Roadmap**](https://qoredb.com/roadmap) · [**Discord**](https://discord.gg/Yr6P3wuZDt)
 
-<sub>5,000+ downloads · 12 database drivers · Two releases a month · Used in production by indie devs and startups.</sub>
+<sub>8,000+ downloads · 15 database drivers · Two releases a month · Used in production by indie devs and startups.</sub>
 
   <img src="doc/screenshots/query-screen.png" alt="QoreDB SQL editor and result grid" width="100%" />
 
@@ -32,7 +32,7 @@ DBeaver, pgAdmin, phpMyAdmin do the job — but they feel slow, dated, and full 
 |---|---|
 | ⚡ **Native performance** | Rust + Tauri. No Electron tax — small binary, instant startup, low memory. ~25% faster on real workloads than the previous baseline (Apple Silicon). |
 | 🔒 **Local-first & secure** | Credentials in your OS keychain (Argon2). Dev/Staging/Prod guards, dangerous query detection, read-only mode. Nothing leaves your machine by default. |
-| 🧩 **SQL + NoSQL, unified** | One UI for PostgreSQL, MySQL, SQL Server, SQLite, DuckDB, CockroachDB, MongoDB, Redis, Elasticsearch and OpenSearch — plus first-class support for Supabase, Neon and TimescaleDB. |
+| 🧩 **SQL + NoSQL, unified** | One UI for PostgreSQL, MySQL, MariaDB, SQL Server, SQLite, DuckDB, CockroachDB, ClickHouse, MongoDB, Redis, Elasticsearch and OpenSearch — plus first-class support for Supabase, Neon and TimescaleDB. |
 | 📓 **Notebooks built-in** | Executable SQL/Mongo + Markdown documents with parameters, charts and Git-diffable `.qnb` files. |
 | 🛡️ **Safety-first** | Universal Query Interceptor, audit logging, sandbox mode with migration generation. Production damage is harder to do by accident. |
 | 🤝 **Open core** | Apache 2.0 core, readable and auditable. Premium add-ons under BUSL-1.1 — never at the expense of the open-source experience. |
@@ -195,7 +195,7 @@ DBeaver, pgAdmin, phpMyAdmin do the job — but they feel slow, dated, and full 
 | | **QoreDB** | DBeaver | TablePlus | pgAdmin |
 |---|---|---|---|---|
 | Open source core | ✅ Apache 2.0 | ⚪ Community | ❌ No | ✅ Yes |
-| Multi-database (SQL + NoSQL) | ✅ 12 drivers | ✅ Yes | ⚪ Limited | ❌ PG only |
+| Multi-database (SQL + NoSQL) | ✅ 15 drivers | ✅ Yes | ⚪ Limited | ❌ PG only |
 | Native performance | ✅ Rust/Tauri | ❌ Java/Swing | ✅ Native | ❌ Web-based |
 | Local-first / no cloud | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
 | Encrypted credential vault | ✅ Argon2 | ⚪ Basic | ✅ Keychain | ❌ No |

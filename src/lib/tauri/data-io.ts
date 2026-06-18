@@ -101,3 +101,69 @@ export async function exportSchema(
     options,
   });
 }
+
+// ============================================
+// FULL DATABASE EXPORT (schema + data)
+// ============================================
+
+export type DatabaseExportFormat = 'sql' | 'zip';
+
+export interface DatabaseExportOptions {
+  include_schema?: boolean;
+  include_data?: boolean;
+  schema?: SchemaExportOptions;
+  /** Restrict the export to these tables (undefined = every table). */
+  tables?: string[];
+}
+
+export interface DatabaseExportProgress {
+  export_id: string;
+  state: 'pending' | 'running' | 'completed' | 'cancelled' | 'failed';
+  current_table?: string | null;
+  tables_done: number;
+  tables_total: number;
+  rows_exported: number;
+  bytes_written: number;
+  elapsed_ms: number;
+  error?: string | null;
+}
+
+export interface DatabaseExportStartResponse {
+  export_id: string;
+}
+
+export interface DatabaseExportCancelResponse {
+  success: boolean;
+  export_id: string;
+  error?: string;
+}
+
+export async function exportDatabaseFull(
+  sessionId: string,
+  database: string,
+  schema: string | null | undefined,
+  filePath: string,
+  format: DatabaseExportFormat,
+  options: DatabaseExportOptions,
+  exportId?: string
+): Promise<DatabaseExportStartResponse> {
+  return invoke('export_database_full', {
+    sessionId,
+    database,
+    schema,
+    filePath,
+    format,
+    options,
+    exportId,
+  });
+}
+
+export async function cancelDatabaseExport(
+  exportId: string
+): Promise<DatabaseExportCancelResponse> {
+  return invoke('cancel_database_export', { exportId });
+}
+
+export function databaseExportProgressEvent(exportId: string): string {
+  return `db_export_progress:${exportId}`;
+}

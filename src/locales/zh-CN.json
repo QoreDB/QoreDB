@@ -2626,6 +2626,28 @@
     "noPath": "请选择输出文件",
     "menuItem": "导出架构"
   },
+  "databaseExport": {
+    "title": "导出数据库",
+    "description": "一次性导出整个数据库（架构 + 数据）。",
+    "menuItem": "导出数据库",
+    "outputFile": "输出文件",
+    "format": "格式",
+    "formatSql": "单个 SQL 文件 (.sql)",
+    "formatZip": "ZIP 压缩包 (.zip)",
+    "formatSqlHint": "可重放的转储：DDL + 按外键依赖排序的 INSERT 语句。",
+    "formatZipHint": "schema.sql 以及每个表一个 CSV 文件。适合大数据量。",
+    "include": "包含",
+    "includeSchema": "架构 (DDL)",
+    "includeData": "数据",
+    "export": "导出",
+    "preparing": "正在准备导出...",
+    "progress": "正在导出 {{current}}（{{done}}/{{total}} 个表，{{rows}} 行）",
+    "success": "数据库已导出（{{tables}} 个表，{{rows}} 行）",
+    "failed": "数据库导出失败",
+    "cancelled": "数据库导出已取消",
+    "noPath": "请选择输出文件",
+    "nothingSelected": "请至少选择架构或数据"
+  },
   "workspace": {
     "title": "工作区",
     "default": "默认工作区",

@@ -44,6 +44,7 @@ import {
   type Sequence,
   type Trigger,
 } from '../../lib/tauri';
+import { DatabaseExportDialog } from '../Export/DatabaseExportDialog';
 import { SchemaExportDialog } from '../Export/SchemaExportDialog';
 import { CreateTableModal } from '../Table/CreateTableModal';
 import { CreateDatabaseModal } from './CreateDatabaseModal';
@@ -129,6 +130,8 @@ export function DBTree({
   const [collapsedActiveNsKey, setCollapsedActiveNsKey] = useState<string | null>(null);
   const [schemaExportOpen, setSchemaExportOpen] = useState(false);
   const [schemaExportNamespace, setSchemaExportNamespace] = useState<Namespace | null>(null);
+  const [databaseExportOpen, setDatabaseExportOpen] = useState(false);
+  const [databaseExportNamespace, setDatabaseExportNamespace] = useState<Namespace | null>(null);
   const collectionsPageSize = 50;
 
   const driverMeta = getDriverMetadata(driver);
@@ -472,9 +475,14 @@ export function DBTree({
                 setSchemaExportNamespace(ns);
                 setSchemaExportOpen(true);
               }}
+              onExportDatabase={() => {
+                setDatabaseExportNamespace(ns);
+                setDatabaseExportOpen(true);
+              }}
               canCreateTable={driverMeta.supportsSQL && !connection?.read_only}
               canDelete={!connection?.read_only}
               canExportSchema={driverMeta.supportsSQL}
+              canExportDatabase={driverMeta.supportsSQL}
             >
               <button
                 type="button"
@@ -1140,6 +1148,18 @@ export function DBTree({
           supportsTriggers={schemaObjectCapabilities.triggers}
           supportsEvents={schemaObjectCapabilities.events}
           supportsSequences={schemaObjectCapabilities.sequences}
+        />
+      )}
+
+      {databaseExportNamespace && (
+        <DatabaseExportDialog
+          open={databaseExportOpen}
+          onOpenChange={open => {
+            setDatabaseExportOpen(open);
+            if (!open) setDatabaseExportNamespace(null);
+          }}
+          sessionId={sessionId}
+          namespace={databaseExportNamespace}
         />
       )}
     </div>

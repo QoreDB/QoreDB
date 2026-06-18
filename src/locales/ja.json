@@ -2626,6 +2626,28 @@
     "noPath": "出力ファイルを選択してください",
     "menuItem": "スキーマをエクスポート"
   },
+  "databaseExport": {
+    "title": "データベースをエクスポート",
+    "description": "データベース全体（スキーマ + データ）を一度の操作でエクスポートします。",
+    "menuItem": "データベースをエクスポート",
+    "outputFile": "出力ファイル",
+    "format": "形式",
+    "formatSql": "単一のSQLファイル (.sql)",
+    "formatZip": "ZIPアーカイブ (.zip)",
+    "formatSqlHint": "再実行可能なダンプ：DDL + 外部キー依存関係順に並べたINSERT文。",
+    "formatZipHint": "schema.sql とテーブルごとのCSVファイル。大量データに最適。",
+    "include": "含める",
+    "includeSchema": "スキーマ (DDL)",
+    "includeData": "データ",
+    "export": "エクスポート",
+    "preparing": "エクスポートを準備中...",
+    "progress": "{{current}} をエクスポート中（{{done}}/{{total}} テーブル、{{rows}} 行）",
+    "success": "データベースをエクスポートしました（{{tables}} テーブル、{{rows}} 行）",
+    "failed": "データベースのエクスポートに失敗しました",
+    "cancelled": "データベースのエクスポートをキャンセルしました",
+    "noPath": "出力ファイルを選択してください",
+    "nothingSelected": "スキーマまたはデータの少なくとも一方を選択してください"
+  },
   "workspace": {
     "title": "ワークスペース",
     "default": "デフォルトワークスペース",

@@ -110,6 +110,7 @@ DBeaver, pgAdmin, phpMyAdmin do the job — but they feel slow, dated, and full 
 - **CSV import** — Automatic separator/encoding detection, column mapping, preview before import
 - **Transaction management** — Toggle autocommit, explicit Commit/Rollback, active transaction indicator
 - **Export pipeline** — CSV, JSON, SQL, HTML, self-contained HTML (+ XLSX/Parquet in Pro)
+- **Full database export** — Schema + data in one pass: a replayable `.sql` file (INSERTs ordered by foreign-key dependency) or a `.zip` archive (`schema.sql` + one CSV per table), with streaming, progress and cancel
 - **Cross-database federation** — Query and join across active connections via DuckDB
 - **Sandbox mode** — Isolated local changes with migration generation
 - **Backup &amp; restore** — Visual wrappers around `pg_dump`, `mysqldump`, `mongodump` and `sqlite3 .dump`, with streaming logs, cancel mid-run and tool-path overrides

@@ -29,6 +29,7 @@ use std::sync::Arc;
 use tauri::Manager;
 use tokio::sync::Mutex;
 
+use commands::database_export::DatabaseExportManager;
 use commands::workspace::SharedWorkspaceManager;
 use export::ExportPipeline;
 use plugins::runtime::PluginHost;
@@ -43,6 +44,7 @@ pub struct AppState {
     pub service: ServiceContext,
     pub plugin_host: Arc<PluginHost>,
     pub export_pipeline: Arc<ExportPipeline>,
+    pub database_export_manager: Arc<DatabaseExportManager>,
     pub share_manager: Arc<ShareManager>,
     #[cfg(feature = "pro")]
     pub ai_manager: Arc<ai::manager::AiManager>,
@@ -58,6 +60,7 @@ impl AppState {
 
         let data_dir = paths::app_data_dir();
         let export_pipeline = Arc::new(ExportPipeline::new());
+        let database_export_manager = Arc::new(DatabaseExportManager::new());
         let share_manager = Arc::new(ShareManager::new(
             data_dir.join("share"),
             Box::new(KeyringProvider::new()),
@@ -80,6 +83,7 @@ impl AppState {
             service,
             plugin_host,
             export_pipeline,
+            database_export_manager,
             share_manager,
             #[cfg(feature = "pro")]
             ai_manager,
@@ -296,6 +300,9 @@ pub fn run() {
             commands::import::import_csv,
             // Schema export
             commands::schema_export::export_schema,
+            // Full database export
+            commands::database_export::export_database_full,
+            commands::database_export::cancel_database_export,
             // Metrics (dev-only)
             commands::metrics::get_metrics,
             // Vault commands

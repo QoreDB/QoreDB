@@ -11,6 +11,7 @@ pub mod connection_url;
 #[cfg(feature = "pro")]
 pub mod contracts;
 pub mod data_generator;
+pub mod database_export;
 pub mod driver;
 pub mod export;
 pub mod federation;

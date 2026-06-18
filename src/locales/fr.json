@@ -2654,6 +2654,28 @@
     "noPath": "Veuillez sélectionner un fichier de sortie",
     "menuItem": "Exporter le schéma"
   },
+  "databaseExport": {
+    "title": "Exporter la base",
+    "description": "Exporter toute la base (schéma + données) en une seule opération.",
+    "menuItem": "Exporter la base",
+    "outputFile": "Fichier de sortie",
+    "format": "Format",
+    "formatSql": "Fichier SQL unique (.sql)",
+    "formatZip": "Archive ZIP (.zip)",
+    "formatSqlHint": "Dump rejouable : DDL + instructions INSERT ordonnées par dépendance de clé étrangère.",
+    "formatZipHint": "schema.sql plus un fichier CSV par table. Idéal pour les gros volumes.",
+    "include": "Inclure",
+    "includeSchema": "Schéma (DDL)",
+    "includeData": "Données",
+    "export": "Exporter",
+    "preparing": "Préparation de l'export...",
+    "progress": "Export de {{current}} ({{done}}/{{total}} tables, {{rows}} lignes)",
+    "success": "Base exportée ({{tables}} tables, {{rows}} lignes)",
+    "failed": "Échec de l'export de la base",
+    "cancelled": "Export de la base annulé",
+    "noPath": "Veuillez sélectionner un fichier de sortie",
+    "nothingSelected": "Sélectionnez au moins le schéma ou les données"
+  },
   "workspace": {
     "title": "Espace de travail",
     "default": "Espace par défaut",

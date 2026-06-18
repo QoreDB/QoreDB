@@ -2626,6 +2626,28 @@
     "noPath": "출력 파일을 선택하세요",
     "menuItem": "스키마 내보내기"
   },
+  "databaseExport": {
+    "title": "데이터베이스 내보내기",
+    "description": "전체 데이터베이스(스키마 + 데이터)를 한 번에 내보냅니다.",
+    "menuItem": "데이터베이스 내보내기",
+    "outputFile": "출력 파일",
+    "format": "형식",
+    "formatSql": "단일 SQL 파일 (.sql)",
+    "formatZip": "ZIP 아카이브 (.zip)",
+    "formatSqlHint": "재실행 가능한 덤프: DDL + 외래 키 종속성 순으로 정렬된 INSERT 문.",
+    "formatZipHint": "schema.sql 및 테이블별 CSV 파일. 대용량 데이터에 적합.",
+    "include": "포함",
+    "includeSchema": "스키마 (DDL)",
+    "includeData": "데이터",
+    "export": "내보내기",
+    "preparing": "내보내기 준비 중...",
+    "progress": "{{current}} 내보내는 중 ({{done}}/{{total}} 테이블, {{rows}} 행)",
+    "success": "데이터베이스를 내보냈습니다 ({{tables}} 테이블, {{rows}} 행)",
+    "failed": "데이터베이스 내보내기 실패",
+    "cancelled": "데이터베이스 내보내기 취소됨",
+    "noPath": "출력 파일을 선택하세요",
+    "nothingSelected": "스키마 또는 데이터 중 하나 이상을 선택하세요"
+  },
   "workspace": {
     "title": "워크스페이스",
     "default": "기본 워크스페이스",

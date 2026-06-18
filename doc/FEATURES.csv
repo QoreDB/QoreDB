@@ -49,6 +49,7 @@ DDL / Management,Suppression Base de Données,Fullstack,Suppression de base de d
 DDL / Management,Création Base de Données,Fullstack,Création de base de données / schéma depuis l'interface.,Terminé,P1,V1,3,Support multi-driver.
 DDL / Management,Gestion Tables,Fullstack,Création et suppression de tables avec support types par driver.,Terminé,P1,V1,4,Interface graphique dédiée.
 Data Grid,Export Données,Fullstack,Export des résultats en CSV JSON SQL HTML XLSX et Parquet.,Terminé,P2,V2,3,Formats XLSX et Parquet réservés Pro.
+Data Tools,Export Base Complète,Fullstack / Export,"Export d'une base entière (schéma DDL + données) en une opération : fichier .sql rejouable (INSERT ordonnés par dépendance FK) ou archive .zip (schema.sql + un CSV par table).",Terminé,P1,V0.1.29,4,"Core / Apache-2.0. Commande export_database_full ; streaming + annulation + progrès ; drivers SQL (Postgres MySQL SQLite SQL Server)."
 Infra,Journal d'erreurs,Frontend / Shell,Panneau dédié pour visualiser les erreurs backend/frontend.,Terminé,P2,V1,2,Persistant.
 SQL Editor,Multi-statement Execution,Backend / Core,Séparation et comptage des statements SQL multiples avec notices de résultats.,Terminé,P1,V1,3,Exécution batch améliorée.
 Schema,ER Diagram,Frontend / Schema,Visualisation schéma relationnel avec isolation et visibilité colonnes.,Terminé,P1,V1,5,Diagramme entité-relation interactif.

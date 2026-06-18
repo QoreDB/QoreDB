@@ -2654,6 +2654,28 @@
     "noPath": "Please select an output file",
     "menuItem": "Export Schema"
   },
+  "databaseExport": {
+    "title": "Export Database",
+    "description": "Export the whole database (schema + data) in a single operation.",
+    "menuItem": "Export Database",
+    "outputFile": "Output file",
+    "format": "Format",
+    "formatSql": "Single SQL file (.sql)",
+    "formatZip": "ZIP archive (.zip)",
+    "formatSqlHint": "Replayable dump: DDL + INSERT statements ordered by foreign-key dependency.",
+    "formatZipHint": "schema.sql plus one CSV file per table. Best for large datasets.",
+    "include": "Include",
+    "includeSchema": "Schema (DDL)",
+    "includeData": "Data",
+    "export": "Export",
+    "preparing": "Preparing export...",
+    "progress": "Exporting {{current}} ({{done}}/{{total}} tables, {{rows}} rows)",
+    "success": "Database exported ({{tables}} tables, {{rows}} rows)",
+    "failed": "Database export failed",
+    "cancelled": "Database export cancelled",
+    "noPath": "Please select an output file",
+    "nothingSelected": "Select at least the schema or the data"
+  },
   "workspace": {
     "title": "Workspace",
     "default": "Default Workspace",

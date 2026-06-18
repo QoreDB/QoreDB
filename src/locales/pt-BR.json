@@ -2626,6 +2626,28 @@
     "noPath": "Selecione um arquivo de saída",
     "menuItem": "Exportar Esquema"
   },
+  "databaseExport": {
+    "title": "Exportar banco de dados",
+    "description": "Exporte todo o banco de dados (esquema + dados) em uma única operação.",
+    "menuItem": "Exportar banco de dados",
+    "outputFile": "Arquivo de saída",
+    "format": "Formato",
+    "formatSql": "Arquivo SQL único (.sql)",
+    "formatZip": "Arquivo ZIP (.zip)",
+    "formatSqlHint": "Dump reproduzível: DDL + instruções INSERT ordenadas por dependência de chave estrangeira.",
+    "formatZipHint": "schema.sql mais um arquivo CSV por tabela. Ideal para grandes volumes.",
+    "include": "Incluir",
+    "includeSchema": "Esquema (DDL)",
+    "includeData": "Dados",
+    "export": "Exportar",
+    "preparing": "Preparando exportação...",
+    "progress": "Exportando {{current}} ({{done}}/{{total}} tabelas, {{rows}} linhas)",
+    "success": "Banco de dados exportado ({{tables}} tabelas, {{rows}} linhas)",
+    "failed": "Falha ao exportar o banco de dados",
+    "cancelled": "Exportação do banco de dados cancelada",
+    "noPath": "Selecione um arquivo de saída",
+    "nothingSelected": "Selecione pelo menos o esquema ou os dados"
+  },
   "workspace": {
     "title": "Área de trabalho",
     "default": "Área padrão",

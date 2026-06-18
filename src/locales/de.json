@@ -2626,6 +2626,28 @@
     "noPath": "Bitte wählen Sie eine Ausgabedatei",
     "menuItem": "Schema exportieren"
   },
+  "databaseExport": {
+    "title": "Datenbank exportieren",
+    "description": "Die gesamte Datenbank (Schema + Daten) in einem Vorgang exportieren.",
+    "menuItem": "Datenbank exportieren",
+    "outputFile": "Ausgabedatei",
+    "format": "Format",
+    "formatSql": "Einzelne SQL-Datei (.sql)",
+    "formatZip": "ZIP-Archiv (.zip)",
+    "formatSqlHint": "Wiederabspielbarer Dump: DDL + INSERT-Anweisungen nach Fremdschlüssel-Abhängigkeit geordnet.",
+    "formatZipHint": "schema.sql plus eine CSV-Datei pro Tabelle. Ideal für große Datenmengen.",
+    "include": "Einschließen",
+    "includeSchema": "Schema (DDL)",
+    "includeData": "Daten",
+    "export": "Exportieren",
+    "preparing": "Export wird vorbereitet...",
+    "progress": "Exportiere {{current}} ({{done}}/{{total}} Tabellen, {{rows}} Zeilen)",
+    "success": "Datenbank exportiert ({{tables}} Tabellen, {{rows}} Zeilen)",
+    "failed": "Datenbankexport fehlgeschlagen",
+    "cancelled": "Datenbankexport abgebrochen",
+    "noPath": "Bitte wählen Sie eine Ausgabedatei",
+    "nothingSelected": "Wählen Sie mindestens das Schema oder die Daten"
+  },
   "workspace": {
     "title": "Arbeitsbereich",
     "default": "Standard-Arbeitsbereich",

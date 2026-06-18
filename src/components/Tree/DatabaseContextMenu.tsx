@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Database, Download, Plus, RefreshCw, Trash2 } from 'lucide-react';
+import { Database, Download, HardDriveDownload, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -18,9 +18,11 @@ interface DatabaseContextMenuProps {
   onCreateTable?: () => void;
   onDelete?: () => void;
   onExportSchema?: () => void;
+  onExportDatabase?: () => void;
   canCreateTable: boolean;
   canDelete: boolean;
   canExportSchema: boolean;
+  canExportDatabase: boolean;
   children: ReactNode;
 }
 
@@ -30,9 +32,11 @@ export function DatabaseContextMenu({
   onCreateTable,
   onDelete,
   onExportSchema,
+  onExportDatabase,
   canCreateTable,
   canDelete,
   canExportSchema,
+  canExportDatabase,
   children,
 }: DatabaseContextMenuProps) {
   const { t } = useTranslation();
@@ -56,6 +60,12 @@ export function DatabaseContextMenu({
               <Download size={14} />
               {t('schemaExport.menuItem')}
             </ContextMenuItem>
+            {canExportDatabase && onExportDatabase && (
+              <ContextMenuItem onSelect={onExportDatabase}>
+                <HardDriveDownload size={14} />
+                {t('databaseExport.menuItem')}
+              </ContextMenuItem>
+            )}
           </>
         )}
         {canCreateTable && onCreateTable && (

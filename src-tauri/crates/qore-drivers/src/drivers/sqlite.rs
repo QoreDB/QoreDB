@@ -1055,8 +1055,10 @@ impl DataEngine for SqliteDriver {
                         format!("{} <= ?", col_ident)
                     }
                     FilterOperator::Like => {
+                        // CAST to TEXT so substring search works on every column
+                        // type (numbers, booleans…), not just text columns.
                         bind_values.push(filter.value.clone());
-                        format!("{} LIKE ?", col_ident)
+                        format!("CAST({} AS TEXT) LIKE ?", col_ident)
                     }
                     FilterOperator::IsNull => format!("{} IS NULL", col_ident),
                     FilterOperator::IsNotNull => format!("{} IS NOT NULL", col_ident),

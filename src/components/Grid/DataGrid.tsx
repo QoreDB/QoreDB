@@ -5,6 +5,7 @@ import {
   type ColumnFiltersState,
   type ColumnPinningState,
   createColumnHelper,
+  type FilterFn,
   getCoreRowModel,
   getFilteredRowModel,
   getPaginationRowModel,
@@ -59,6 +60,7 @@ import { DataGridTableHeader } from './DataGridTableHeader';
 import { DataGridToolbar } from './DataGridToolbar';
 import { DeleteConfirmDialog } from './DeleteConfirmDialog';
 import { EditableDataCell } from './EditableDataCell';
+import type { GridColumnFilterValue } from './GridColumnFilter';
 import { useDataGridCopy } from './hooks/useDataGridCopy';
 import { useDataGridDelete } from './hooks/useDataGridDelete';
 import { useDataGridExport } from './hooks/useDataGridExport';
@@ -81,6 +83,27 @@ const EMPTY_OVERLAY_RESULT: OverlayResult = {
     deletedRows: 0,
     hiddenRows: 0,
   },
+};
+
+const columnFilterFn: FilterFn<RowData> = (row, columnId, raw) => {
+  const fv = raw as GridColumnFilterValue | undefined;
+  if (!fv || !fv.value) return true;
+  const cellStr = formatValue(row.getValue(columnId) as Value);
+  const needle = fv.value;
+  switch (fv.operator) {
+    case 'eq':
+      return cellStr.toLowerCase() === needle.toLowerCase();
+    case 'neq':
+      return cellStr.toLowerCase() !== needle.toLowerCase();
+    case 'regex':
+      try {
+        return new RegExp(needle, fv.regex_flags ?? '').test(cellStr);
+      } catch {
+        return true;
+      }
+    default:
+      return cellStr.toLowerCase().includes(needle.toLowerCase());
+  }
 };
 
 interface DataGridProps {
@@ -604,6 +627,7 @@ export function DataGrid({
           if (typeof a === 'number' && typeof b === 'number') return a - b;
           return String(a).localeCompare(String(b));
         },
+        filterFn: columnFilterFn,
       });
     });
 

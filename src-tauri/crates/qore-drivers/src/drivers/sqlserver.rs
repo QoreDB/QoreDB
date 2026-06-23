@@ -1358,7 +1358,13 @@ impl DataEngine for SqlServerDriver {
                         format!("{} <= {}", col, format_filter_value(&filter.value))
                     }
                     FilterOperator::Like => {
-                        format!("{} LIKE {}", col, format_filter_value(&filter.value))
+                        // CAST to NVARCHAR so substring search works on every column
+                        // type (numbers, booleans, dates…), not just text columns.
+                        format!(
+                            "CAST({} AS NVARCHAR(MAX)) LIKE {}",
+                            col,
+                            format_filter_value(&filter.value)
+                        )
                     }
                     FilterOperator::IsNull => format!("{} IS NULL", col),
                     FilterOperator::IsNotNull => format!("{} IS NOT NULL", col),

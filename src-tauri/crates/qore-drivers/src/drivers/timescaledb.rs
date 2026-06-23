@@ -13,7 +13,8 @@ use crate::drivers::pg_compat::{self, SessionMap};
 use qore_core::error::EngineResult;
 use qore_core::traits::{DataEngine, StreamSender};
 use qore_core::types::{
-    CancelSupport, CollectionList, CollectionListOptions, ConnectionConfig, ForeignKey, Namespace,
+    CancelSupport, CollectionList, CollectionListOptions, ConnectionConfig, ForeignKey,
+    MaintenanceOperationInfo, MaintenanceRequest, MaintenanceResult, Namespace,
     PaginatedQueryResult, QueryId, QueryResult, RoutineDefinition, RoutineList, RoutineListOptions,
     RoutineOperationResult, RoutineType, RowData, SessionId, TableQueryOptions, TableSchema,
     TriggerDefinition, TriggerList, TriggerListOptions, TriggerOperationResult, Value,
@@ -381,6 +382,29 @@ impl DataEngine for TimescaleDbDriver {
 
     async fn drop_database(&self, session: SessionId, name: &str) -> EngineResult<()> {
         pg_compat::drop_schema(&self.sessions, session, name, "TimescaleDB").await
+    }
+
+    fn supports_maintenance(&self) -> bool {
+        true
+    }
+
+    async fn list_maintenance_operations(
+        &self,
+        _session: SessionId,
+        _namespace: &Namespace,
+        _table: &str,
+    ) -> EngineResult<Vec<MaintenanceOperationInfo>> {
+        Ok(pg_compat::maintenance_operations())
+    }
+
+    async fn run_maintenance(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        table: &str,
+        request: &MaintenanceRequest,
+    ) -> EngineResult<MaintenanceResult> {
+        pg_compat::run_maintenance(&self.sessions, session, namespace, table, request).await
     }
 
     fn supports_streaming(&self) -> bool {

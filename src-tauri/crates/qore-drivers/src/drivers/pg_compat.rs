@@ -26,11 +26,12 @@ use qore_core::error::{EngineError, EngineResult};
 use qore_core::traits::{StreamEvent, StreamSender};
 use qore_core::types::{
     CancelSupport, Collection, CollectionList, CollectionListOptions, CollectionType, ColumnInfo,
-    ConnectionConfig, FilterOperator, ForeignKey, Namespace, PaginatedQueryResult, QueryId,
-    QueryResult, Routine, RoutineDefinition, RoutineList, RoutineListOptions,
-    RoutineOperationResult, RoutineType, RowData, SessionId, SortDirection, TableColumn,
-    TableIndex, TableQueryOptions, TableSchema, Trigger, TriggerDefinition, TriggerEvent,
-    TriggerList, TriggerListOptions, TriggerOperationResult, TriggerTiming, Value,
+    ConnectionConfig, FilterOperator, ForeignKey, MaintenanceMessage, MaintenanceMessageLevel,
+    MaintenanceOperationInfo, MaintenanceOperationType, MaintenanceRequest, MaintenanceResult,
+    Namespace, PaginatedQueryResult, QueryId, QueryResult, Routine, RoutineDefinition, RoutineList,
+    RoutineListOptions, RoutineOperationResult, RoutineType, RowData, SessionId, SortDirection,
+    TableColumn, TableIndex, TableQueryOptions, TableSchema, Trigger, TriggerDefinition,
+    TriggerEvent, TriggerList, TriggerListOptions, TriggerOperationResult, TriggerTiming, Value,
 };
 use qore_sql::safety;
 
@@ -107,6 +108,109 @@ pub async fn get_session(
 
 pub fn quote_ident(name: &str) -> String {
     format!("\"{}\"", name.replace('"', "\"\""))
+}
+
+// Maintenance
+//
+// Shared VACUUM / ANALYZE / REINDEX / CLUSTER support for full PostgreSQL
+// servers. CockroachDB only supports ANALYZE and keeps its own override.
+
+/// The maintenance operations supported by a full PostgreSQL server.
+pub fn maintenance_operations() -> Vec<MaintenanceOperationInfo> {
+    vec![
+        MaintenanceOperationInfo {
+            operation: MaintenanceOperationType::Vacuum,
+            is_heavy: false,
+            has_options: true,
+        },
+        MaintenanceOperationInfo {
+            operation: MaintenanceOperationType::Analyze,
+            is_heavy: false,
+            has_options: false,
+        },
+        MaintenanceOperationInfo {
+            operation: MaintenanceOperationType::Reindex,
+            is_heavy: true,
+            has_options: false,
+        },
+        MaintenanceOperationInfo {
+            operation: MaintenanceOperationType::Cluster,
+            is_heavy: true,
+            has_options: true,
+        },
+    ]
+}
+
+/// Runs a VACUUM / ANALYZE / REINDEX / CLUSTER operation on a table for any
+/// full PostgreSQL server (PostgreSQL, Neon, Supabase, TimescaleDB).
+pub async fn run_maintenance(
+    sessions: &SessionMap,
+    session: SessionId,
+    namespace: &Namespace,
+    table: &str,
+    request: &MaintenanceRequest,
+) -> EngineResult<MaintenanceResult> {
+    let pg = get_session(sessions, session).await?;
+    let schema = namespace.schema.as_deref().unwrap_or("public");
+    let qualified_table = format!("{}.{}", quote_ident(schema), quote_ident(table));
+
+    let sql = match request.operation {
+        MaintenanceOperationType::Vacuum => {
+            let full = if request.options.full.unwrap_or(false) {
+                "FULL "
+            } else {
+                ""
+            };
+            let analyze = if request.options.with_analyze.unwrap_or(false) {
+                "ANALYZE "
+            } else {
+                ""
+            };
+            let verbose = if request.options.verbose.unwrap_or(false) {
+                "VERBOSE "
+            } else {
+                ""
+            };
+            format!("VACUUM {full}{analyze}{verbose}{qualified_table}")
+        }
+        MaintenanceOperationType::Analyze => {
+            format!("ANALYZE {qualified_table}")
+        }
+        MaintenanceOperationType::Reindex => {
+            format!("REINDEX TABLE {qualified_table}")
+        }
+        MaintenanceOperationType::Cluster => {
+            if let Some(ref idx) = request.options.index_name {
+                format!("CLUSTER {qualified_table} USING {}", quote_ident(idx))
+            } else {
+                format!("CLUSTER {qualified_table}")
+            }
+        }
+        _ => {
+            return Err(EngineError::not_supported(
+                "Operation not supported for PostgreSQL",
+            ));
+        }
+    };
+
+    let start = Instant::now();
+    // VACUUM cannot run inside a transaction, so always run on the pool directly.
+    sqlx::query(&sql)
+        .execute(&pg.pool)
+        .await
+        .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+    let execution_time_ms = start.elapsed().as_micros() as f64 / 1000.0;
+
+    Ok(MaintenanceResult {
+        executed_command: sql,
+        messages: vec![MaintenanceMessage {
+            level: MaintenanceMessageLevel::Info,
+            text: "Operation completed successfully".into(),
+        }],
+        execution_time_ms,
+        success: true,
+    })
 }
 
 pub async fn apply_namespace_on_conn(

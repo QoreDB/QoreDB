@@ -137,6 +137,8 @@ export const ResultsViewer = memo(function ResultsViewer({
         infiniteScrollIsFetchingMore={infiniteScrollIsFetchingMore}
         infiniteScrollIsComplete={infiniteScrollIsComplete}
         onFetchMore={onFetchMore}
+        serverSearchTerm={serverSearchTerm}
+        onServerSearchChange={onServerSearchChange}
       />
     );
   }

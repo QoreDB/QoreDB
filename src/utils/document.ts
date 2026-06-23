@@ -17,13 +17,13 @@ export interface DocumentResultsProps {
   onRowsDeleted?: () => void;
   exportQuery?: string;
   exportNamespace?: Namespace;
-
-  // Infinite scroll props
   infiniteScrollTotalRows?: number;
   infiniteScrollLoadedRows?: number;
   infiniteScrollIsFetchingMore?: boolean;
   infiniteScrollIsComplete?: boolean;
   onFetchMore?: () => void;
+  serverSearchTerm?: string;
+  onServerSearchChange?: (search: string) => void;
 }
 
 export interface DocumentRowItemProps {

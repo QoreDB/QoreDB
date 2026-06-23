@@ -362,10 +362,6 @@ export function DataGrid({
     return new Set(primaryKey ?? []);
   }, [primaryKey]);
 
-  // Stable row identity: prefer primary key when fully defined so that sort,
-  // filter, and streaming batches don't unmount/remount existing rows. Falls
-  // back to row index for tables without a PK or rows with NULL PK values
-  // (e.g. sandbox-inserted rows pending an autoincrement).
   const getRowId = useMemo(() => {
     if (!primaryKey || primaryKey.length === 0) return undefined;
     return (row: RowData, index: number) => {
@@ -452,9 +448,6 @@ export function DataGrid({
     cancelInlineEdit();
   }, [cancelInlineEdit]);
 
-  // ── Stable refs for volatile values ──────────────────────────────────
-  // These let the cell render function read current values at render time
-  // without forcing a rebuild of all column definitions on every change.
   const peekCacheRef = useRef(peekCache);
   peekCacheRef.current = peekCache;
   const buildPeekKeyRef = useRef(buildPeekKey);
@@ -633,9 +626,6 @@ export function DataGrid({
 
     const leadingColumns = actionColumn ? [selectColumn, actionColumn] : [selectColumn];
     return [...leadingColumns, ...dataColumns];
-    // Deps deliberately exclude `result` (rows change on every streaming batch)
-    // and the *Ref objects (stable identities). Only column metadata and
-    // schema-derived sets should trigger column rebuild.
   }, [
     onRowClick,
     result?.columns,

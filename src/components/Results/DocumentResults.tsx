@@ -183,9 +183,11 @@ export function DocumentResults({
   infiniteScrollIsFetchingMore,
   infiniteScrollIsComplete,
   onFetchMore,
+  serverSearchTerm,
+  onServerSearchChange,
 }: DocumentResultsProps) {
   const { t } = useTranslation();
-  const [filter, setFilter] = useState('');
+  const [localFilter, setLocalFilter] = useState('');
   const [pendingDelete, setPendingDelete] = useState<DocumentRow | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteConfirmValue, setDeleteConfirmValue] = useState('');
@@ -203,6 +205,14 @@ export function DocumentResults({
 
   const isInfiniteScrollMode = infiniteScrollTotalRows !== undefined;
   const totalRows = isInfiniteScrollMode ? infiniteScrollTotalRows : result.rows.length;
+
+  // In infinite-scroll mode the backend searches the full collection, so the box
+  // drives the server search. Otherwise the whole result is in memory and we
+  // filter locally.
+  const searchValue = isInfiniteScrollMode ? (serverSearchTerm ?? '') : localFilter;
+  const setSearchValue = isInfiniteScrollMode
+    ? (onServerSearchChange ?? (() => {}))
+    : setLocalFilter;
 
   const documents = useMemo<DocumentRow[]>(() => {
     const renderRows = result.rows;
@@ -228,10 +238,13 @@ export function DocumentResults({
   }, [result]);
 
   const filteredDocs = useMemo(() => {
-    const query = filter.trim().toLowerCase();
+    // Server mode: the backend already returned the matching subset — never
+    // re-filter on the (incomplete) loaded rows.
+    if (isInfiniteScrollMode) return documents;
+    const query = localFilter.trim().toLowerCase();
     if (!query) return documents;
     return documents.filter(doc => doc.search.includes(query));
-  }, [documents, filter]);
+  }, [documents, localFilter, isInfiniteScrollMode]);
 
   const parentRef = useRef<HTMLDivElement>(null);
   const rowVirtualizer = useVirtualizer({
@@ -345,7 +358,12 @@ export function DocumentResults({
 
   const totalTimeMs = (result as { total_time_ms?: number }).total_time_ms;
 
-  if (filteredDocs.length === 0) {
+  const hasActiveSearch = searchValue.trim().length > 0;
+
+  // Only short-circuit when there is genuinely nothing to show. With an active
+  // search we keep the toolbar (and its search box) visible so the user can
+  // refine or clear it instead of being stuck on a bare "no results" screen.
+  if (filteredDocs.length === 0 && !hasActiveSearch) {
     return (
       <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
         {t('grid.noResults')}
@@ -410,8 +428,8 @@ export function DocumentResults({
               className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground"
             />
             <Input
-              value={filter}
-              onChange={event => setFilter(event.target.value)}
+              value={searchValue}
+              onChange={event => setSearchValue(event.target.value)}
               placeholder={t('grid.searchPlaceholder')}
               className="h-8 pl-7 text-xs"
             />
@@ -420,21 +438,27 @@ export function DocumentResults({
       </div>
 
       <div ref={parentRef} className="flex-1 min-h-0 overflow-auto rounded-md bg-background">
-        <div className="relative" style={{ height: `${rowVirtualizer.getTotalSize()}px` }}>
-          {rowVirtualizer.getVirtualItems().map(virtualRow => (
-            <DocumentRowItem
-              key={virtualRow.key}
-              virtualRow={virtualRow}
-              doc={filteredDocs[virtualRow.index]}
-              measureElement={rowVirtualizer.measureElement}
-              readOnly={readOnly}
-              t={t}
-              onCopy={handleCopy}
-              onEdit={onEditDocument || (() => {})}
-              onDelete={handleDeleteClick}
-            />
-          ))}
-        </div>
+        {filteredDocs.length === 0 ? (
+          <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+            {t('grid.noResults')}
+          </div>
+        ) : (
+          <div className="relative" style={{ height: `${rowVirtualizer.getTotalSize()}px` }}>
+            {rowVirtualizer.getVirtualItems().map(virtualRow => (
+              <DocumentRowItem
+                key={virtualRow.key}
+                virtualRow={virtualRow}
+                doc={filteredDocs[virtualRow.index]}
+                measureElement={rowVirtualizer.measureElement}
+                readOnly={readOnly}
+                t={t}
+                onCopy={handleCopy}
+                onEdit={onEditDocument || (() => {})}
+                onDelete={handleDeleteClick}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
       {isInfiniteScrollMode && (

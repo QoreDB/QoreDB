@@ -1013,8 +1013,11 @@ pub async fn query_table(
                     format!("{} <= ${}", col_ident, param_idx)
                 }
                 FilterOperator::Like => {
+                    // Cast to text so substring search works on every column type
+                    // (numbers, booleans, dates…), not just text columns. Mirrors
+                    // the global-search behavior below.
                     bind_values.push(filter.value.clone());
-                    format!("{} ILIKE ${}", col_ident, param_idx)
+                    format!("{}::text ILIKE ${}", col_ident, param_idx)
                 }
                 FilterOperator::IsNull => format!("{} IS NULL", col_ident),
                 FilterOperator::IsNotNull => format!("{} IS NOT NULL", col_ident),

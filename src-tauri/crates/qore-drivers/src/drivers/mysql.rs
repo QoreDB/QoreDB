@@ -1963,8 +1963,10 @@ impl DataEngine for MySqlDriver {
                         format!("{} <= ?", col_ident)
                     }
                     FilterOperator::Like => {
+                        // CAST to CHAR so substring search works on every column
+                        // type (numbers, booleans, dates…), not just text columns.
                         bind_values.push(filter.value.clone());
-                        format!("{} LIKE ?", col_ident)
+                        format!("CAST({} AS CHAR) LIKE ?", col_ident)
                     }
                     FilterOperator::IsNull => format!("{} IS NULL", col_ident),
                     FilterOperator::IsNotNull => format!("{} IS NOT NULL", col_ident),

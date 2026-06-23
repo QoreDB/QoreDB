@@ -2092,6 +2092,11 @@ impl DataEngine for MongoDriver {
         );
 
         let mut filter_doc = Document::new();
+        // `like` conditions are expressed via `$expr`/`$regexMatch` over a
+        // `$toString` of the field so they match any BSON type (numbers,
+        // booleans, dates…), not just string fields. Collected here and merged
+        // into a single `$and` so multiple `like` columns don't collide.
+        let mut like_exprs: Vec<Document> = Vec::new();
 
         if let Some(filters) = &options.filters {
             for filter in filters {
@@ -2134,12 +2139,21 @@ impl DataEngine for MongoDriver {
                     FilterOperator::Like => {
                         if let mongodb::bson::Bson::String(s) = &bson_value {
                             let pattern = s.replace('%', ".*").replace('_', ".");
-                            mongodb::bson::Bson::Document(
-                                doc! { "$regex": pattern, "$options": "i" },
-                            )
-                        } else {
-                            bson_value
+                            like_exprs.push(doc! {
+                                "$regexMatch": {
+                                    "input": {
+                                        "$ifNull": [
+                                            { "$toString": format!("${}", filter.column) },
+                                            "",
+                                        ],
+                                    },
+                                    "regex": pattern,
+                                    "options": "i",
+                                }
+                            });
+                            continue;
                         }
+                        bson_value
                     }
                     FilterOperator::IsNull => {
                         mongodb::bson::Bson::Document(doc! { "$eq": mongodb::bson::Bson::Null })
@@ -2164,6 +2178,14 @@ impl DataEngine for MongoDriver {
 
                 filter_doc.insert(&filter.column, condition);
             }
+        }
+
+        if !like_exprs.is_empty() {
+            let and_clauses: Vec<mongodb::bson::Bson> = like_exprs
+                .into_iter()
+                .map(|expr| mongodb::bson::Bson::Document(doc! { "$expr": expr }))
+                .collect();
+            filter_doc.insert("$and", and_clauses);
         }
 
         let mut tx_guard = mongo_session.transaction_session.lock().await;

@@ -864,8 +864,10 @@ impl DataEngine for DuckDbDriver {
                             format!("{} <= ?", col_ident)
                         }
                         FilterOperator::Like => {
+                            // CAST to VARCHAR so substring search works on every
+                            // column type (numbers, booleans, dates…), not just text.
                             bind_values.push(value_to_duckdb(&filter.value));
-                            format!("{} ILIKE ?", col_ident)
+                            format!("CAST({} AS VARCHAR) ILIKE ?", col_ident)
                         }
                         FilterOperator::IsNull => format!("{} IS NULL", col_ident),
                         FilterOperator::IsNotNull => format!("{} IS NOT NULL", col_ident),

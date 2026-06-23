@@ -7,8 +7,6 @@
 //! this file only contains PostgreSQL-specific overrides (materialized views
 //! in list_collections, full maintenance ops, connection string defaults).
 
-use std::time::Instant;
-
 use async_trait::async_trait;
 
 use crate::drivers::pg_compat::{self, SessionMap};
@@ -16,8 +14,7 @@ use qore_core::error::{EngineError, EngineResult};
 use qore_core::traits::{DataEngine, StreamSender};
 use qore_core::types::{
     CancelSupport, Collection, CollectionList, CollectionListOptions, CollectionType,
-    ConnectionConfig, ForeignKey, MaintenanceMessage, MaintenanceMessageLevel,
-    MaintenanceOperationInfo, MaintenanceOperationType, MaintenanceRequest, MaintenanceResult,
+    ConnectionConfig, ForeignKey, MaintenanceOperationInfo, MaintenanceRequest, MaintenanceResult,
     Namespace, PaginatedQueryResult, QueryId, QueryResult, RoutineDefinition, RoutineList,
     RoutineListOptions, RoutineOperationResult, RoutineType, RowData, SessionId, TableQueryOptions,
     TableSchema, TriggerDefinition, TriggerList, TriggerListOptions, TriggerOperationResult, Value,
@@ -503,28 +500,7 @@ impl DataEngine for PostgresDriver {
         _namespace: &Namespace,
         _table: &str,
     ) -> EngineResult<Vec<MaintenanceOperationInfo>> {
-        Ok(vec![
-            MaintenanceOperationInfo {
-                operation: MaintenanceOperationType::Vacuum,
-                is_heavy: false,
-                has_options: true,
-            },
-            MaintenanceOperationInfo {
-                operation: MaintenanceOperationType::Analyze,
-                is_heavy: false,
-                has_options: false,
-            },
-            MaintenanceOperationInfo {
-                operation: MaintenanceOperationType::Reindex,
-                is_heavy: true,
-                has_options: false,
-            },
-            MaintenanceOperationInfo {
-                operation: MaintenanceOperationType::Cluster,
-                is_heavy: true,
-                has_options: true,
-            },
-        ])
+        Ok(pg_compat::maintenance_operations())
     }
 
     async fn run_maintenance(
@@ -534,74 +510,7 @@ impl DataEngine for PostgresDriver {
         table: &str,
         request: &MaintenanceRequest,
     ) -> EngineResult<MaintenanceResult> {
-        let pg = pg_compat::get_session(&self.sessions, session).await?;
-        let schema = namespace.schema.as_deref().unwrap_or("public");
-        let qualified_table = format!(
-            "{}.{}",
-            pg_compat::quote_ident(schema),
-            pg_compat::quote_ident(table)
-        );
-
-        let sql = match request.operation {
-            MaintenanceOperationType::Vacuum => {
-                let full = if request.options.full.unwrap_or(false) {
-                    "FULL "
-                } else {
-                    ""
-                };
-                let analyze = if request.options.with_analyze.unwrap_or(false) {
-                    "ANALYZE "
-                } else {
-                    ""
-                };
-                let verbose = if request.options.verbose.unwrap_or(false) {
-                    "VERBOSE "
-                } else {
-                    ""
-                };
-                format!("VACUUM {full}{analyze}{verbose}{qualified_table}")
-            }
-            MaintenanceOperationType::Analyze => {
-                format!("ANALYZE {qualified_table}")
-            }
-            MaintenanceOperationType::Reindex => {
-                format!("REINDEX TABLE {qualified_table}")
-            }
-            MaintenanceOperationType::Cluster => {
-                if let Some(ref idx) = request.options.index_name {
-                    format!(
-                        "CLUSTER {qualified_table} USING {}",
-                        pg_compat::quote_ident(idx)
-                    )
-                } else {
-                    format!("CLUSTER {qualified_table}")
-                }
-            }
-            _ => {
-                return Err(EngineError::not_supported(
-                    "Operation not supported for PostgreSQL",
-                ));
-            }
-        };
-
-        let start = Instant::now();
-        // VACUUM cannot run inside a transaction, so always run on the pool directly.
-        sqlx::query(&sql)
-            .execute(&pg.pool)
-            .await
-            .map_err(|e| EngineError::execution_error(e.to_string()))?;
-
-        let execution_time_ms = start.elapsed().as_micros() as f64 / 1000.0;
-
-        Ok(MaintenanceResult {
-            executed_command: sql,
-            messages: vec![MaintenanceMessage {
-                level: MaintenanceMessageLevel::Info,
-                text: "Operation completed successfully".into(),
-            }],
-            execution_time_ms,
-            success: true,
-        })
+        pg_compat::run_maintenance(&self.sessions, session, namespace, table, request).await
     }
 
     fn supports_streaming(&self) -> bool {

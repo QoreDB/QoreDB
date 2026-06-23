@@ -56,6 +56,7 @@ interface PlanTreeNodeProps {
 }
 
 function PlanTreeNode({ node, maxCost, depth, defaultExpanded = false }: PlanTreeNodeProps) {
+  const { t } = useTranslation();
   const [expanded, setExpanded] = useState(defaultExpanded || depth < 3);
   const hasChildren = node.children.length > 0;
 
@@ -123,27 +124,33 @@ function PlanTreeNode({ node, maxCost, depth, defaultExpanded = false }: PlanTre
           {/* Metrics pills */}
           <div className="flex items-center gap-2 shrink-0">
             {node.totalCost !== undefined && (
-              <span className={cn('font-mono tabular-nums', costColor)} title="Total cost">
+              <span
+                className={cn('font-mono tabular-nums', costColor)}
+                title={t('query.explainPlan.totalCost')}
+              >
                 {formatCost(node.totalCost)}
               </span>
             )}
             {node.planRows !== undefined && (
-              <span className="font-mono tabular-nums text-muted-foreground" title="Estimated rows">
-                {formatNumber(node.planRows)} rows
+              <span
+                className="font-mono tabular-nums text-muted-foreground"
+                title={t('query.explainPlan.estimatedRows')}
+              >
+                {formatNumber(node.planRows)} {t('query.explainPlan.rows')}
               </span>
             )}
             {node.actualRows !== undefined && (
               <span
                 className="font-mono tabular-nums text-blue-500 dark:text-blue-400"
-                title="Actual rows"
+                title={t('query.explainPlan.actualRows')}
               >
-                ({formatNumber(node.actualRows)} actual)
+                ({formatNumber(node.actualRows)} {t('query.explainPlan.actual')})
               </span>
             )}
             {node.actualTotalTime !== undefined && (
               <span
                 className="font-mono tabular-nums text-muted-foreground"
-                title="Actual time (ms)"
+                title={t('query.explainPlan.actualTime')}
               >
                 {node.actualTotalTime.toFixed(2)}ms
               </span>
@@ -172,15 +179,21 @@ function PlanTreeNode({ node, maxCost, depth, defaultExpanded = false }: PlanTre
 // --- Detail row for extra properties ---
 
 function NodeDetails({ node, depth }: { node: PlanNode; depth: number }) {
+  const { t } = useTranslation();
   const details: Array<{ label: string; value: string }> = [];
 
-  if (node.filter) details.push({ label: 'Filter', value: node.filter });
-  if (node.sortKey?.length) details.push({ label: 'Sort Key', value: node.sortKey.join(', ') });
+  if (node.filter) details.push({ label: t('query.explainPlan.filter'), value: node.filter });
+  if (node.sortKey?.length)
+    details.push({ label: t('query.explainPlan.sortKey'), value: node.sortKey.join(', ') });
   if (node.startupCost !== undefined)
-    details.push({ label: 'Startup Cost', value: formatCost(node.startupCost) });
-  if (node.planWidth !== undefined) details.push({ label: 'Width', value: `${node.planWidth}` });
+    details.push({
+      label: t('query.explainPlan.startupCost'),
+      value: formatCost(node.startupCost),
+    });
+  if (node.planWidth !== undefined)
+    details.push({ label: t('query.explainPlan.width'), value: `${node.planWidth}` });
   if (node.actualLoops !== undefined && node.actualLoops > 1) {
-    details.push({ label: 'Loops', value: `${node.actualLoops}` });
+    details.push({ label: t('query.explainPlan.loops'), value: `${node.actualLoops}` });
   }
 
   // Extra properties

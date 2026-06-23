@@ -1409,6 +1409,7 @@
     "exportError": "Protokolle konnten nicht exportiert werden"
   },
   "dbtree": {
+    "emptyNamespaces": "Keine Datenbanken oder Schemas gefunden",
     "schemasHeader": "SCHEMAS",
     "databasesHeader": "DATENBANKEN",
     "schema": "Schema",

@@ -16,7 +16,7 @@ import {
   Table,
   Zap,
 } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -288,6 +288,12 @@ export function DBTree({
       if (collapsedActiveNsKey === key) {
         return;
       }
+      // Don't auto-expand a namespace that no longer exists (e.g. just deleted).
+      // Otherwise this fights the refresh effect — which resets expandedNs — and
+      // the two loop forever.
+      if (!namespaces.some(ns => getNsKey(ns) === key)) {
+        return;
+      }
       if (collapsedActiveNsKey && collapsedActiveNsKey !== key) {
         setCollapsedActiveNsKey(null);
       }
@@ -297,7 +303,7 @@ export function DBTree({
         refreshCollections(activeNamespace, 1, false);
       }
     }
-  }, [activeNamespace, collapsedActiveNsKey, expandedNs, refreshCollections]);
+  }, [activeNamespace, collapsedActiveNsKey, expandedNs, refreshCollections, namespaces]);
 
   const canLoadMore = collections.length > 0 && collections.length < collectionsTotal;
 
@@ -331,8 +337,14 @@ export function DBTree({
     loadNamespaces();
   }, [loadNamespaces]);
 
+  // React only to actual refreshTrigger bumps. Without this guard the effect
+  // also re-runs whenever `expandedNs` (which it mutates below) changes, causing
+  // repeated invalidate/refetch cycles and an infinite loop.
+  const prevRefreshTriggerRef = useRef(refreshTrigger);
   useEffect(() => {
     if (refreshTrigger === undefined) return;
+    if (prevRefreshTriggerRef.current === refreshTrigger) return;
+    prevRefreshTriggerRef.current = refreshTrigger;
     const refresh = async () => {
       invalidateNamespaces();
       const updated = await loadNamespaces();
@@ -451,6 +463,11 @@ export function DBTree({
           loadNamespaces();
         }}
       />
+      {namespaces.length === 0 && !schemaCache.loading && (
+        <div className="px-2 py-1 text-sm text-muted-foreground italic">
+          {t('dbtree.emptyNamespaces')}
+        </div>
+      )}
       {namespaces.map(ns => {
         const key = getNsKey(ns);
         const isExpanded = expandedNs === key;

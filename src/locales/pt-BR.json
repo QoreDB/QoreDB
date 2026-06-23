@@ -1409,6 +1409,7 @@
     "exportError": "Falha ao exportar logs"
   },
   "dbtree": {
+    "emptyNamespaces": "Nenhum banco de dados ou esquema encontrado",
     "schemasHeader": "ESQUEMAS",
     "databasesHeader": "BANCOS DE DADOS",
     "schema": "Esquema",

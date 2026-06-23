@@ -1409,6 +1409,7 @@
     "exportError": "导出日志失败"
   },
   "dbtree": {
+    "emptyNamespaces": "æªæ¾å°æ°æ®åºææ¶æ",
     "schemasHeader": "架构",
     "databasesHeader": "数据库",
     "schema": "架构",

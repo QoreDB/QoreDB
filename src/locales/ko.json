@@ -1409,6 +1409,7 @@
     "exportError": "로그 내보내기에 실패했습니다"
   },
   "dbtree": {
+    "emptyNamespaces": "ë°ì´í°ë² ì´ì¤ ëë ì¤í¤ë§ê° ììµëë¤",
     "schemasHeader": "스키마",
     "databasesHeader": "데이터베이스",
     "schema": "스키마",

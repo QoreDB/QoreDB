@@ -1437,6 +1437,7 @@
     "exportError": "Échec de l'export des logs"
   },
   "dbtree": {
+    "emptyNamespaces": "Aucune base de donnÃ©es ou schÃ©ma",
     "schemasHeader": "SCHÉMAS",
     "databasesHeader": "BASES DE DONNÉES",
     "schema": "Schéma",

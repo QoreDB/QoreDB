@@ -1409,6 +1409,7 @@
     "exportError": "Error al exportar los registros"
   },
   "dbtree": {
+    "emptyNamespaces": "No se encontraron bases de datos ni esquemas",
     "schemasHeader": "ESQUEMAS",
     "databasesHeader": "BASES DE DATOS",
     "schema": "Esquema",

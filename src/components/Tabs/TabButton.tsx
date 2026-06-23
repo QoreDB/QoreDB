@@ -69,7 +69,13 @@ export function TabButton({ tab, isActive, onSelect, onClose, onContextMenu }: T
               'absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 p-0.5 rounded-sm hover:bg-muted-foreground/20 text-muted-foreground transition-all shrink-0',
               'cursor-pointer'
             )}
-            onClick={() => onClose?.(tab.id)}
+            // Stop the pointer event from reaching the framer-motion Reorder.Item,
+            // which otherwise captures it for drag and swallows the button's click.
+            onPointerDown={e => e.stopPropagation()}
+            onClick={e => {
+              e.stopPropagation();
+              onClose?.(tab.id);
+            }}
             aria-label={t('tabs.close')}
           >
             <X size={12} />

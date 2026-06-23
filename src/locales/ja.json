@@ -1409,6 +1409,7 @@
     "exportError": "ログのエクスポートに失敗しました"
   },
   "dbtree": {
+    "emptyNamespaces": "ãã¼ã¿ãã¼ã¹ã¾ãã¯ã¹ã­ã¼ããè¦ã¤ããã¾ãã",
     "schemasHeader": "スキーマ",
     "databasesHeader": "データベース",
     "schema": "スキーマ",

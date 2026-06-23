@@ -1437,6 +1437,7 @@
     "exportError": "Failed to export logs"
   },
   "dbtree": {
+    "emptyNamespaces": "No databases or schemas found",
     "schemasHeader": "SCHEMAS",
     "databasesHeader": "DATABASES",
     "schema": "Schema",

@@ -13,12 +13,6 @@ ignore = [
   # rand unsoundness: only reachable if a custom logger calls rand::rng() and triggers reseed.
   # Transitive via sqlx-mysql (rsa) and tauri (phf); QoreDB defines no such logger.
   { id = "RUSTSEC-2026-0097", reason = "rand 0.8.x transitive dep, not exploitable in our context" },
-  # hickory-proto NSEC3 unbounded loop: transitive via mongodb 3.4.1 SRV resolution.
-  # No upstream fix; not reachable from untrusted DNS in our usage.
-  { id = "RUSTSEC-2026-0118", reason = "hickory-proto 0.25.x transitive via mongodb, no fix available" },
-  # hickory-proto O(n²) name encoding: fix in 0.26.1 but mongodb 3.4.1 pins 0.25.x.
-  # Triggered only when encoding attacker-controlled names; client-side MongoDB usage not affected.
-  { id = "RUSTSEC-2026-0119", reason = "hickory-proto 0.25.x transitive via mongodb, awaiting upstream bump" },
 ]
 
 [licenses]

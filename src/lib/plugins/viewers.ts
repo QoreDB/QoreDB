@@ -12,14 +12,14 @@ import type { ResultViewerContribution, ViewerMatch } from './types';
 /** Returns the first viewer whose `match` block matches the column. */
 export function findViewerFor(
   column: { name?: string | null; columnType?: string | null },
-  viewers: ResultViewerContribution[],
+  viewers: ResultViewerContribution[]
 ): ResultViewerContribution | undefined {
   return viewers.find(v => matches(v.match, column));
 }
 
 function matches(
   m: ViewerMatch,
-  column: { name?: string | null; columnType?: string | null },
+  column: { name?: string | null; columnType?: string | null }
 ): boolean {
   if (m.columnType && column.columnType) {
     if (m.columnType.toLowerCase() === column.columnType.toLowerCase()) {

@@ -43,11 +43,7 @@ export function MarketplaceSection({ searchQuery }: MarketplaceSectionProps) {
       const data = await fetchMarketplaceIndex();
       setIndex(data);
     } catch (err) {
-      setError(
-        err instanceof MarketplaceError || err instanceof Error
-          ? err.message
-          : String(err),
-      );
+      setError(err instanceof MarketplaceError || err instanceof Error ? err.message : String(err));
     } finally {
       setLoading(false);
     }
@@ -57,10 +53,7 @@ export function MarketplaceSection({ searchQuery }: MarketplaceSectionProps) {
     load();
   }, [load]);
 
-  const installedIds = useMemo(
-    () => new Set(installed.map(p => p.manifest.id)),
-    [installed],
-  );
+  const installedIds = useMemo(() => new Set(installed.map(p => p.manifest.id)), [installed]);
 
   const filtered = useMemo(() => {
     if (!index) return [];
@@ -123,12 +116,7 @@ export function MarketplaceSection({ searchQuery }: MarketplaceSectionProps) {
             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
           </Button>
           <Button size="sm" variant="outline" asChild>
-            <a
-              href={MARKETPLACE_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="gap-1.5"
-            >
+            <a href={MARKETPLACE_URL} target="_blank" rel="noopener noreferrer" className="gap-1.5">
               <ExternalLink size={14} />
               {t('marketplaceSection.openOnWeb')}
             </a>
@@ -157,19 +145,12 @@ export function MarketplaceSection({ searchQuery }: MarketplaceSectionProps) {
               const alreadyInstalled = installedIds.has(plugin.id);
               const isInstalling = installingId === plugin.id;
               return (
-                <div
-                  key={plugin.id}
-                  className="rounded-lg border border-border bg-card p-3"
-                >
+                <div key={plugin.id} className="rounded-lg border border-border bg-card p-3">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-sm font-medium text-foreground">
-                          {plugin.name}
-                        </span>
-                        <span className="font-mono text-xs text-muted-foreground">
-                          {plugin.id}
-                        </span>
+                        <span className="text-sm font-medium text-foreground">{plugin.name}</span>
+                        <span className="font-mono text-xs text-muted-foreground">{plugin.id}</span>
                         <Badge variant="outline" className="text-[10px]">
                           {t(`marketplaceSection.kind.${plugin.kind}`)}
                         </Badge>
@@ -178,9 +159,7 @@ export function MarketplaceSection({ searchQuery }: MarketplaceSectionProps) {
                         ) : null}
                       </div>
                       {plugin.description ? (
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          {plugin.description}
-                        </p>
+                        <p className="mt-1 text-xs text-muted-foreground">{plugin.description}</p>
                       ) : null}
                       {latest?.runtime ? (
                         <div className="mt-2 flex flex-wrap gap-1">
@@ -218,7 +197,11 @@ export function MarketplaceSection({ searchQuery }: MarketplaceSectionProps) {
                           ) : (
                             <Download size={14} />
                           )}
-                          {t(isInstalling ? 'marketplaceSection.installing' : 'marketplaceSection.install')}
+                          {t(
+                            isInstalling
+                              ? 'marketplaceSection.installing'
+                              : 'marketplaceSection.install'
+                          )}
                         </Button>
                       )}
                     </div>

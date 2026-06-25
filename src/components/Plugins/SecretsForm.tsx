@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { invoke } from '@/lib/transport';
 import { Check, Eye, EyeOff, Save, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -8,6 +7,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import type { InstalledPlugin } from '@/lib/plugins';
+import { invoke } from '@/lib/transport';
 
 interface SecretsFormProps {
   plugin: InstalledPlugin;
@@ -82,9 +82,7 @@ export function SecretsForm({ plugin }: SecretsFormProps) {
       <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         {t('plugins.detail.secrets')}
       </h4>
-      <p className="mb-2 text-xs text-muted-foreground">
-        {t('plugins.detail.secretsDescription')}
-      </p>
+      <p className="mb-2 text-xs text-muted-foreground">{t('plugins.detail.secretsDescription')}</p>
       <ul className="space-y-2">
         {names.map(name => {
           const isSet = provisioned.has(name);

@@ -309,7 +309,10 @@ pub async fn preflight(
                             "{DANGEROUS_BLOCKED_POLICY}: SQL parse error: {err}"
                         ));
                     }
-                    if policy.prod_require_confirmation && !acknowledged {
+                    // Fail closed in production: a query the parser cannot
+                    // classify could be a mutation, so require explicit
+                    // confirmation even when `prod_require_confirmation` is off.
+                    if !acknowledged {
                         return Err(format!("{DANGEROUS_BLOCKED}: SQL parse error: {err}"));
                     }
                 }

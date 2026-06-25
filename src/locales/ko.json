@@ -1604,7 +1604,7 @@
       "proBullet1": "샌드박스 모드, 데이터 타임 트래블, 비주얼 diff",
       "proBullet2": "고급 감사 로그, 프로파일링, 사용자 정의 안전 규칙",
       "proBullet3": "데이터 계약, 즉시 Data API, 고급 내보내기",
-      "footnote": "Pro는 일회성 결제, 영구 라이선스입니다. 구독 없음."
+      "footnote": "Pro는 일회성 결제, 영구 라이선스입니다. Team은 좌석당 구독입니다."
     },
     "analytics": {
       "title": "개선에 도움을 주세요",

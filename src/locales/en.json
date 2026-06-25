@@ -1632,7 +1632,7 @@
       "proBullet1": "Sandbox mode, data time travel, visual diff",
       "proBullet2": "Advanced audit log, profiling, custom safety rules",
       "proBullet3": "Data contracts, Instant Data API, advanced exports",
-      "footnote": "Pro is a one-time payment, perpetual licence. No subscription."
+      "footnote": "Pro is a one-time payment, perpetual licence. Team is a per-seat subscription."
     },
     "analytics": {
       "title": "Help shape QoreDB",

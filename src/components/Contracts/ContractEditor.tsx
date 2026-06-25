@@ -13,12 +13,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useTheme } from '@/hooks/useTheme';
-import {
-  parseContract,
-  ContractParseError,
-  saveContract,
-  type Contract,
-} from '@/lib/contracts';
+import { type Contract, ContractParseError, parseContract, saveContract } from '@/lib/contracts';
 import { cn } from '@/lib/utils';
 
 interface Props {
@@ -149,8 +144,7 @@ export function ContractEditor({
     name.trim().length > 0 &&
     validation.contract.name === name.trim();
 
-  const nameMismatch =
-    validation.status === 'valid' && validation.contract.name !== name.trim();
+  const nameMismatch = validation.status === 'valid' && validation.contract.name !== name.trim();
 
   async function handleSave() {
     if (validation.status !== 'valid') return;
@@ -237,9 +231,7 @@ function ValidationStatus({
     <span
       className="inline-flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400"
       title={
-        validation.status === 'invalid'
-          ? validation.error
-          : t('contracts.editor.nameMismatch')
+        validation.status === 'invalid' ? validation.error : t('contracts.editor.nameMismatch')
       }
     >
       <AlertTriangle size={14} />

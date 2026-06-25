@@ -81,7 +81,12 @@ export function importOverrides(json: string): void {
   const valid = {} as ShortcutOverrides;
   const knownIds = new Set(SHORTCUT_DEFINITIONS.map(d => d.id));
   for (const [id, chord] of Object.entries(parsed) as [ShortcutId, KeyChord][]) {
-    if (knownIds.has(id) && chord && Array.isArray(chord.modifiers) && typeof chord.key === 'string') {
+    if (
+      knownIds.has(id) &&
+      chord &&
+      Array.isArray(chord.modifiers) &&
+      typeof chord.key === 'string'
+    ) {
       valid[id] = chord;
     }
   }

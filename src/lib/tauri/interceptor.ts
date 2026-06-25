@@ -272,7 +272,7 @@ export async function getAuditStats(): Promise<AuditStats> {
 export async function clearAuditLog(): Promise<void> {
   const { token } = await invoke<{ token: string; expires_in_secs: number }>(
     'request_confirmation_token',
-    { action: 'clear_audit_log' },
+    { action: 'clear_audit_log' }
   );
   const result = await invoke<GenericResponse>('clear_audit_log', {
     confirmationToken: token,

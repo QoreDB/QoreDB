@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { listen } from '@/lib/transport';
 import {
   createContext,
   type ReactNode,
@@ -26,6 +25,7 @@ import {
   type PluginNotifyEvent,
   type PluginRuntimeStatus,
 } from '@/lib/plugins';
+import { listen } from '@/lib/transport';
 
 const ACTIVE_THEME_KEY = 'qoredb_plugin_theme';
 /** Per-plugin in-memory log ring. Keeps the detail view bounded; older lines

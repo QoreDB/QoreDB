@@ -9,7 +9,7 @@ import type { KeyChord, ShortcutId } from './types';
  * itself). Pairs appear on both sides.
  */
 export function detectConflicts(
-  bindings: Record<ShortcutId, KeyChord>,
+  bindings: Record<ShortcutId, KeyChord>
 ): Record<string, ShortcutId[]> {
   const bySignature = new Map<string, ShortcutId[]>();
 

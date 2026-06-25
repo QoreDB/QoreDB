@@ -2,8 +2,7 @@
 
 import type { ChordModifier, KeyChord } from './types';
 
-const IS_MAC =
-  typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(navigator.platform);
+const IS_MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(navigator.platform);
 
 const SYMBOL_MAC: Record<ChordModifier, string> = {
   mod: '⌘',

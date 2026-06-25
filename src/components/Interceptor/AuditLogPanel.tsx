@@ -164,13 +164,7 @@ interface StatsCardProps {
   onClick?: () => void;
 }
 
-function StatsCard({
-  label,
-  value,
-  color = 'text-foreground',
-  active,
-  onClick,
-}: StatsCardProps) {
+function StatsCard({ label, value, color = 'text-foreground', active, onClick }: StatsCardProps) {
   const baseClass = 'p-3 rounded-lg border text-left transition-colors';
   const stateClass = active
     ? 'bg-accent/10 border-accent/40 ring-1 ring-accent/30'
@@ -418,10 +412,7 @@ export function AuditLogPanel() {
             </SelectContent>
           </Select>
 
-          <Select
-            value={statusFilter}
-            onValueChange={v => updateStatus(v as typeof statusFilter)}
-          >
+          <Select value={statusFilter} onValueChange={v => updateStatus(v as typeof statusFilter)}>
             <SelectTrigger className="w-32">
               <SelectValue placeholder={t('interceptor.audit.filters.status')} />
             </SelectTrigger>

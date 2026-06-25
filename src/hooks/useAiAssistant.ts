@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 
-import { listen, type UnlistenFn } from '@/lib/transport';
 import { useCallback, useEffect, useRef, useState } from 'react';
-
 import {
   type AiAction,
   type AiConfig,
@@ -16,6 +14,7 @@ import {
   type SafetyInfo,
 } from '@/lib/ai';
 import type { Namespace } from '@/lib/tauri';
+import { listen, type UnlistenFn } from '@/lib/transport';
 
 export interface AiChatItem {
   id: string;

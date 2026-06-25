@@ -80,11 +80,7 @@ function parseJsonStrict(source: string): unknown {
   try {
     return JSON.parse(source);
   } catch (err) {
-    throw new ContractParseError(
-      `Invalid JSON: ${(err as Error).message}`,
-      '$',
-      err as Error,
-    );
+    throw new ContractParseError(`Invalid JSON: ${(err as Error).message}`, '$', err as Error);
   }
 }
 
@@ -92,11 +88,7 @@ function parseYamlStrict(source: string): unknown {
   try {
     return parseYaml(source, { prettyErrors: true });
   } catch (err) {
-    throw new ContractParseError(
-      `Invalid YAML: ${(err as Error).message}`,
-      '$',
-      err as Error,
-    );
+    throw new ContractParseError(`Invalid YAML: ${(err as Error).message}`, '$', err as Error);
   }
 }
 
@@ -107,7 +99,7 @@ function validateContract(raw: unknown): Contract {
   if (!IDENT_RE.test(name)) {
     throw new ContractParseError(
       'Must match [A-Za-z_][A-Za-z0-9_]* (used as filename + identifier).',
-      '$.name',
+      '$.name'
     );
   }
 
@@ -179,10 +171,7 @@ function validateRule(raw: unknown, path: string): Rule {
       try {
         new RegExp(pattern);
       } catch (err) {
-        throw new ContractParseError(
-          `Invalid regex: ${(err as Error).message}`,
-          `${path}.pattern`,
-        );
+        throw new ContractParseError(`Invalid regex: ${(err as Error).message}`, `${path}.pattern`);
       }
       return { ...base, type: 'regex_match', column, pattern };
     }
@@ -217,10 +206,7 @@ function validateRule(raw: unknown, path: string): Rule {
         throw new ContractParseError('Provide at least one of min, max, max_age.', path);
       }
       if (max_age !== undefined && !DURATION_RE.test(max_age)) {
-        throw new ContractParseError(
-          'Must be <number><ms|s|m|h|d>, e.g. "7d".',
-          `${path}.max_age`,
-        );
+        throw new ContractParseError('Must be <number><ms|s|m|h|d>, e.g. "7d".', `${path}.max_age`);
       }
       return { ...base, type: 'date_range', column, min, max, max_age };
     }
@@ -236,7 +222,7 @@ function validateRule(raw: unknown, path: string): Rule {
         if (t === 'string' || t === 'number' || t === 'boolean') return v as AllowedValue;
         throw new ContractParseError(
           'Only string/number/boolean/null allowed.',
-          `${path}.values[${i}]`,
+          `${path}.values[${i}]`
         );
       });
       return { ...base, type: 'allowed_values', column, values: checked };
@@ -367,7 +353,7 @@ function requireAtLeastOne(
   b: unknown,
   path: string,
   nameA: string,
-  nameB: string,
+  nameB: string
 ): void {
   if (a === undefined && b === undefined) {
     throw new ContractParseError(`Provide at least one of ${nameA}, ${nameB}.`, path);

@@ -1906,8 +1906,10 @@ impl DataEngine for MySqlDriver {
         limit: u32,
     ) -> EngineResult<QueryResult> {
         let query = format!(
-            "SELECT * FROM `{}`.`{}` LIMIT {}",
-            namespace.database, table, limit
+            "SELECT * FROM {}.{} LIMIT {}",
+            Self::quote_ident(&namespace.database),
+            Self::quote_ident(table),
+            limit
         );
         self.execute(session, &query, QueryId::new()).await
     }

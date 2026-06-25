@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { listContracts, type ContractMeta } from '@/lib/contracts';
+import { type ContractMeta, listContracts } from '@/lib/contracts';
 import type { NotebookCell } from '@/lib/notebook/notebookTypes';
 
 interface ContractCellProps {
@@ -97,9 +97,7 @@ export function ContractCell({ cell, onSourceChange }: ContractCellProps) {
             className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors py-0.5"
           >
             {showResults ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-            <span>
-              {showResults ? t('notebook.hideResults') : t('notebook.showResults')}
-            </span>
+            <span>{showResults ? t('notebook.hideResults') : t('notebook.showResults')}</span>
           </button>
           {showResults && <ContractResultsView run={cell.lastResult.contractRun} />}
         </div>

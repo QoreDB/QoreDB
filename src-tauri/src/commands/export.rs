@@ -26,15 +26,36 @@ pub async fn start_export(
     config: ExportConfig,
     export_id: Option<String>,
 ) -> Result<ExportStartResponse, String> {
-    let (session_manager, export_pipeline) = {
+    let (session_manager, export_pipeline, query_rate_limiter, interceptor, policy) = {
         let state = state.lock().await;
         (
             Arc::clone(&state.session_manager),
             Arc::clone(&state.export_pipeline),
+            Arc::clone(&state.query_rate_limiter),
+            Arc::clone(&state.interceptor),
+            state.policy.clone(),
         )
     };
 
     let session = parse_session_id(&session_id)?;
+
+    // Route the user-supplied export query through the same safety preflight as
+    // execute_query: read-only mode, production guards, dangerous-query and
+    // safety-rule checks. Without this, an export could run an arbitrary
+    // `DELETE … RETURNING *` on a read-only or production connection.
+    qore_service::query::preflight(
+        &session_manager,
+        &query_rate_limiter,
+        &interceptor,
+        &policy,
+        session,
+        &session_id,
+        &config.query,
+        config.namespace.as_ref(),
+        false,
+    )
+    .await?;
+
     let export_id = match export_id {
         Some(id) => parse_export_id(&id)?,
         None => Uuid::new_v4().to_string(),

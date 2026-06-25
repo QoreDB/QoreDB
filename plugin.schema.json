@@ -14,8 +14,16 @@
       "pattern": "^[a-z0-9][a-z0-9._-]*$",
       "examples": ["acme.audit", "yourcorp.sql-linter"]
     },
-    "name": { "type": "string", "minLength": 1, "description": "Display name shown in QoreDB's plugins panel." },
-    "version": { "type": "string", "minLength": 1, "description": "Semver-like version of the plugin itself. Free-form; not enforced by the host." },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Display name shown in QoreDB's plugins panel."
+    },
+    "version": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Semver-like version of the plugin itself. Free-form; not enforced by the host."
+    },
     "author": { "type": "string" },
     "description": { "type": "string" },
     "qoredb": {
@@ -67,7 +75,10 @@
         "log": { "type": "boolean", "description": "Write to the QoreDB tracing log." },
         "notify": { "type": "boolean", "description": "Show toast notifications." },
         "storage": { "type": "boolean", "description": "Read/write a per-plugin KV store." },
-        "queryRead": { "type": "boolean", "description": "Pull the rows of the current query result in postExecute." },
+        "queryRead": {
+          "type": "boolean",
+          "description": "Pull the rows of the current query result in postExecute."
+        },
         "http": {
           "type": "object",
           "required": ["allowedHosts"],
@@ -133,7 +144,11 @@
               "id": { "type": "string", "minLength": 1 },
               "name": { "type": "string", "minLength": 1 },
               "description": { "type": "string" },
-              "driver": { "type": "string", "minLength": 1, "description": "Driver id, e.g. 'postgres', 'mysql'." },
+              "driver": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Driver id, e.g. 'postgres', 'mysql'."
+              },
               "defaults": { "type": "object", "additionalProperties": true }
             }
           }
@@ -174,8 +189,14 @@
                 "type": "object",
                 "additionalProperties": false,
                 "properties": {
-                  "columnType": { "type": "string", "description": "Case-insensitive column-type match, e.g. 'jsonb'." },
-                  "namePattern": { "type": "string", "description": "Column-name pattern; '*' is the only wildcard." }
+                  "columnType": {
+                    "type": "string",
+                    "description": "Case-insensitive column-type match, e.g. 'jsonb'."
+                  },
+                  "namePattern": {
+                    "type": "string",
+                    "description": "Column-name pattern; '*' is the only wildcard."
+                  }
                 }
               },
               "renderer": { "enum": ["json-tree", "image", "chart", "map"] },

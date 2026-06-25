@@ -19,8 +19,25 @@ use crate::proxy::ProxyTunnel;
 use crate::ssh_tunnel::SshTunnel;
 use qore_core::error::{EngineError, EngineResult};
 use qore_core::traits::DataEngine;
-use qore_core::types::{ConnectionConfig, SessionId};
+use qore_core::types::{ConnectionConfig, SessionId, SshHostKeyPolicy};
 use qore_core::DriverRegistry;
+
+/// Rejects an insecure SSH host-key policy (`StrictHostKeyChecking=no`) when the
+/// connection targets a production environment.
+fn enforce_ssh_host_key_policy(config: &ConnectionConfig) -> EngineResult<()> {
+    if let Some(ssh) = &config.ssh_tunnel {
+        if config.environment.eq_ignore_ascii_case("production")
+            && matches!(ssh.host_key_policy, SshHostKeyPolicy::InsecureNoCheck)
+        {
+            return Err(EngineError::SshError {
+                message: "Insecure host key checking is not allowed for production connections. \
+                          Use 'strict' or 'accept_new' instead."
+                    .to_string(),
+            });
+        }
+    }
+    Ok(())
+}
 
 /// Connection health status for a single session.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -50,8 +67,6 @@ pub struct ActiveSession {
     pub consecutive_failures: u32,
 }
 
-/// Manages all active database sessions
-/// This is the SINGLE SOURCE OF TRUTH - pools are stored here, not in drivers.
 pub struct SessionManager {
     registry: Arc<DriverRegistry>,
     sessions: RwLock<HashMap<SessionId, ActiveSession>>,
@@ -64,10 +79,8 @@ impl SessionManager {
     const CONNECT_TIMEOUT_MS: u64 = 15000;
     const TEST_TIMEOUT_MS: u64 = 10000;
     const PING_TIMEOUT_MS: u64 = 5000;
-    /// Interval between health checks (seconds).
     #[cfg(feature = "tauri")]
     const HEALTH_CHECK_INTERVAL_SECS: u64 = 30;
-    /// Consecutive failures before attempting SSH tunnel reconnection.
     const RECONNECT_THRESHOLD: u32 = 2;
 
     pub fn new(registry: Arc<DriverRegistry>) -> Self {
@@ -89,6 +102,8 @@ impl SessionManager {
         )
     )]
     pub async fn test_connection(&self, config: &ConnectionConfig) -> EngineResult<()> {
+        enforce_ssh_host_key_policy(config)?;
+
         let driver = self
             .registry
             .get(&config.driver)
@@ -102,7 +117,6 @@ impl SessionManager {
                 tunneled_config.host = "127.0.0.1".to_string();
                 tunneled_config.port = proxy_tunnel.local_port();
 
-                // Chain proxy → SSH → DB when both are configured.
                 if let Some(ref ssh_config) = config.ssh_tunnel {
                     let tunnel =
                         SshTunnel::open(ssh_config, &tunneled_config.host, tunneled_config.port)
@@ -151,6 +165,8 @@ impl SessionManager {
         )
     )]
     pub async fn connect(&self, config: ConnectionConfig) -> EngineResult<SessionId> {
+        enforce_ssh_host_key_policy(&config)?;
+
         let driver = self
             .registry
             .get(&config.driver)
@@ -300,11 +316,6 @@ impl SessionManager {
     }
 
     /// Returns a stable identifier for the *connection* backing a session.
-    ///
-    /// Derived from the connection config (driver, host, port, user, database,
-    /// environment) so two sessions opened from the same connection share the
-    /// key. Caches keyed by it therefore invalidate consistently across every
-    /// session of that connection. The password is deliberately excluded.
     pub async fn connection_key(&self, session_id: SessionId) -> Option<String> {
         let sessions = self.sessions.read().await;
         sessions.get(&session_id).map(|s| {
@@ -400,6 +411,8 @@ impl SessionManager {
     /// Attempts to reconnect a broken SSH tunnel for a session.
     /// Returns the new tunnel on success.
     async fn reconnect_tunnel(config: &ConnectionConfig) -> EngineResult<SshTunnel> {
+        enforce_ssh_host_key_policy(config)?;
+
         let ssh_config = config
             .ssh_tunnel
             .as_ref()

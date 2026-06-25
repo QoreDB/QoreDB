@@ -3,6 +3,7 @@
 import { AlertTriangle, RotateCcw, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Button } from '@/components/ui/button';
 import { useShortcutBindings } from '@/hooks/useKeyboardShortcuts';
 import {
   type ChordModifier,
@@ -13,13 +14,12 @@ import {
   isSystemReserved,
   type KeyChord,
   normalizeKey,
-  setOverride,
   SHORTCUT_DEFINITIONS,
   type ShortcutCategory,
   type ShortcutDefinition,
   type ShortcutId,
+  setOverride,
 } from '@/lib/shortcuts';
-import { Button } from '@/components/ui/button';
 import { SettingsCard } from '../SettingsCard';
 
 interface KeyboardShortcutsSectionProps {
@@ -201,8 +201,7 @@ export function KeyboardShortcutsSection({ searchQuery }: KeyboardShortcutsSecti
             {defs.map(def => {
               const current = bindings[def.id];
               const conflictIds = conflicts[def.id];
-              const isOverridden =
-                JSON.stringify(current) !== JSON.stringify(def.defaultChord);
+              const isOverridden = JSON.stringify(current) !== JSON.stringify(def.defaultChord);
               return (
                 <div key={def.id} className="flex items-center justify-between py-1.5 text-sm">
                   <span className="text-foreground">{t(def.labelKey)}</span>

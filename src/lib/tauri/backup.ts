@@ -8,8 +8,7 @@
  * Use {@link listenBackupProgress} to consume them.
  */
 
-import { invoke } from '@/lib/transport';
-import { listen, type UnlistenFn } from '@/lib/transport';
+import { invoke, listen, type UnlistenFn } from '@/lib/transport';
 
 export type BackupTool =
   | 'pg_dump'

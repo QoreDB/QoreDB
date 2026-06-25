@@ -5,10 +5,6 @@
  */
 import { invoke } from '@/lib/transport';
 
-// ============================================
-// TYPES (mirror Rust enums in license/status.rs)
-// ============================================
-
 export type LicenseTier = 'core' | 'pro' | 'team' | 'enterprise';
 
 export interface LicenseStatus {
@@ -39,10 +35,6 @@ export type ProFeature =
   | 'data_contracts'
   | 'instant_api'
   | 'data_generator';
-
-// ============================================
-// TIER UTILITIES
-// ============================================
 
 const TIER_LEVELS: Record<LicenseTier, number> = {
   core: 0,
@@ -85,9 +77,25 @@ export function isFeatureEnabled(tier: LicenseTier, feature: ProFeature): boolea
   return tierIncludes(tier, featureRequiredTier(feature));
 }
 
-// ============================================
-// TAURI COMMANDS
-// ============================================
+export function licenseErrorKey(raw: unknown): string {
+  const msg = String(raw);
+  if (
+    msg.startsWith('INVALID_BASE64') ||
+    msg.startsWith('INVALID_JSON') ||
+    msg.startsWith('INVALID_FORMAT') ||
+    msg.startsWith('INVALID_SIGNATURE')
+  ) {
+    return 'license.errors.invalidKey';
+  }
+  if (msg.startsWith('EXPIRED_LICENSE')) return 'license.errors.expired';
+  if (msg.startsWith('UNSUPPORTED_TIER')) return 'license.errors.unsupportedTier';
+  if (msg.startsWith('Storage error')) return 'license.errors.storage';
+  if (msg.startsWith('NO_ACTIVE_SUBSCRIPTION')) return 'license.errors.noSubscription';
+  if (msg.startsWith('REFRESH_REQUEST_FAILED') || msg.startsWith('PORTAL_REQUEST_FAILED')) {
+    return 'license.errors.network';
+  }
+  return 'license.errors.generic';
+}
 
 export async function activateLicense(key: string): Promise<LicenseStatus> {
   return invoke('activate_license', { key });

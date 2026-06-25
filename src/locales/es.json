@@ -2117,6 +2117,15 @@
     "refresh": "Actualizar licencia",
     "manageBilling": "Gestionar facturación",
     "expiredBanner": "Tu licencia ha caducado — el acceso volvió a la versión gratuita. Haz clic en Actualizar para restaurarla.",
+    "errors": {
+      "invalidKey": "Clave de licencia no válida. Asegúrate de haberla copiado por completo.",
+      "expired": "Esta licencia ha caducado.",
+      "unsupportedTier": "Esta clave no corresponde a ningún plan de pago.",
+      "storage": "No se pudo guardar la licencia en este dispositivo.",
+      "noSubscription": "No se encontró ninguna suscripción activa para este correo.",
+      "network": "No se pudo conectar con el servidor. Inténtalo de nuevo más tarde.",
+      "generic": "Algo salió mal. Inténtalo de nuevo."
+    },
     "getPro": "Obtener QoreDB Pro",
     "upgrade": {
       "description": "Esta función requiere una licencia Pro.",

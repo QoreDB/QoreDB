@@ -2112,6 +2112,11 @@
     "issuedAt": "発行日",
     "expiresAt": "有効期限",
     "perpetual": "永久（有効期限なし）",
+    "seats": "シート",
+    "seatsCount": "{{count}} シート",
+    "refresh": "ライセンスを更新",
+    "manageBilling": "請求の管理",
+    "expiredBanner": "ライセンスの有効期限が切れました。アクセスは無料版に戻りました。更新をクリックして復元してください。",
     "getPro": "QoreDB Pro を取得",
     "upgrade": {
       "description": "この機能には Pro ライセンスが必要です。",

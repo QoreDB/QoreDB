@@ -2112,6 +2112,11 @@
     "issuedAt": "Ausgestellt am",
     "expiresAt": "Läuft ab am",
     "perpetual": "Unbefristet (kein Ablaufdatum)",
+    "seats": "Plätze",
+    "seatsCount": "{{count}} Plätze",
+    "refresh": "Lizenz aktualisieren",
+    "manageBilling": "Abrechnung verwalten",
+    "expiredBanner": "Ihre Lizenz ist abgelaufen — der Zugriff wurde auf die kostenlose Version zurückgesetzt. Klicken Sie auf Aktualisieren, um sie wiederherzustellen.",
     "getPro": "QoreDB Pro erwerben",
     "upgrade": {
       "description": "Diese Funktion erfordert eine Pro-Lizenz.",

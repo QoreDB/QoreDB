@@ -39,6 +39,8 @@ pub struct LicenseStatus {
     pub expires_at: Option<String>,
     pub is_expired: bool,
     #[serde(default)]
+    pub seats: Option<u32>,
+    #[serde(default)]
     pub is_founder: bool,
 }
 
@@ -51,6 +53,7 @@ impl Default for LicenseStatus {
             issued_at: None,
             expires_at: None,
             is_expired: false,
+            seats: None,
             is_founder: false,
         }
     }

@@ -363,6 +363,8 @@ pub fn run() {
             commands::license::activate_license,
             commands::license::get_license_status,
             commands::license::deactivate_license,
+            commands::license::refresh_license,
+            commands::license::get_billing_portal_url,
             commands::license::dev_set_license_tier,
             // Federation commands
             commands::federation::execute_federation_query,

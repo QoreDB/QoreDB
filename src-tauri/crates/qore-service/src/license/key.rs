@@ -38,6 +38,8 @@ pub struct LicensePayload {
     pub expires_at: Option<String>,
     pub payment_id: String,
     #[serde(default)]
+    pub seats: Option<u32>,
+    #[serde(default)]
     pub is_founder: bool,
 }
 
@@ -217,6 +219,7 @@ mod tests {
             issued_at: "2026-02-17T13:00:00.000Z".into(),
             expires_at: Some("2027-02-17T13:00:00.000Z".into()),
             payment_id: "pi_test_123".into(),
+            seats: None,
             is_founder: false,
         };
 
@@ -234,6 +237,27 @@ mod tests {
     }
 
     #[test]
+    fn team_license_decodes_seats() {
+        let (signing_key, pub_bytes) = dev_keypair();
+
+        let payload = LicensePayload {
+            email: "team-admin@acme.com".into(),
+            tier: LicenseTier::Team,
+            issued_at: "2026-06-01T00:00:00.000Z".into(),
+            expires_at: Some("2027-06-15T00:00:00.000Z".into()),
+            payment_id: "sub_team_123".into(),
+            seats: Some(5),
+            is_founder: false,
+        };
+
+        let key_str = create_test_license(&signing_key, &payload);
+        let result = verify_license_with_key(&key_str, &pub_bytes).unwrap();
+
+        assert_eq!(result.tier, LicenseTier::Team);
+        assert_eq!(result.seats, Some(5));
+    }
+
+    #[test]
     fn perpetual_license_no_expiration() {
         let (signing_key, pub_bytes) = dev_keypair();
 
@@ -243,6 +267,7 @@ mod tests {
             issued_at: "2026-02-17T13:00:00.000Z".into(),
             expires_at: None,
             payment_id: "pi_perpetual".into(),
+            seats: None,
             is_founder: false,
         };
 
@@ -262,6 +287,7 @@ mod tests {
             issued_at: "2020-01-01T00:00:00.000Z".into(),
             expires_at: Some("2020-01-02T00:00:00.000Z".into()),
             payment_id: "pi_expired".into(),
+            seats: None,
             is_founder: false,
         };
 
@@ -283,6 +309,7 @@ mod tests {
             issued_at: "2026-02-17T13:00:00.000Z".into(),
             expires_at: None,
             payment_id: "pi_core".into(),
+            seats: None,
             is_founder: false,
         };
 
@@ -301,6 +328,7 @@ mod tests {
             issued_at: "2026-02-17T13:00:00.000Z".into(),
             expires_at: Some("2027-02-17T13:00:00.000Z".into()),
             payment_id: "pi_test".into(),
+            seats: None,
             is_founder: false,
         };
 

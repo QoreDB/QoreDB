@@ -2112,6 +2112,11 @@
     "issuedAt": "签发日期",
     "expiresAt": "到期日期",
     "perpetual": "永久（无到期日）",
+    "seats": "席位",
+    "seatsCount": "{{count}} 个席位",
+    "refresh": "刷新许可证",
+    "manageBilling": "管理账单",
+    "expiredBanner": "您的许可证已过期——访问权限已恢复为免费版。点击刷新以恢复。",
     "getPro": "获取 QoreDB Pro",
     "upgrade": {
       "description": "此功能需要 Pro 许可证。",

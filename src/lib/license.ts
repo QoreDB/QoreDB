@@ -18,6 +18,7 @@ export interface LicenseStatus {
   issued_at: string | null;
   expires_at: string | null;
   is_expired: boolean;
+  seats: number | null;
   is_founder: boolean;
 }
 
@@ -98,6 +99,16 @@ export async function getLicenseStatus(): Promise<LicenseStatus> {
 
 export async function deactivateLicense(): Promise<void> {
   return invoke('deactivate_license');
+}
+
+/** Fetches the up-to-date key from the site and re-activates it (Team renewal/seat change). */
+export async function refreshLicense(): Promise<LicenseStatus> {
+  return invoke('refresh_license');
+}
+
+/** Returns a Stripe billing portal URL for the active license's email. */
+export async function getBillingPortalUrl(): Promise<string> {
+  return invoke('get_billing_portal_url');
 }
 
 /** Dev-only: override the license tier. Pass null to clear. */

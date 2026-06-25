@@ -7,8 +7,11 @@ import {
   isFeatureEnabled as checkFeature,
   deactivateLicense,
   devSetLicenseTier,
+  getBillingPortalUrl,
   getLicenseStatus,
+  refreshLicense,
 } from '@/lib/license';
+import { openExternal } from '@/lib/transport';
 
 export interface LicenseContextValue {
   status: LicenseStatus;
@@ -18,6 +21,8 @@ export interface LicenseContextValue {
   isFeatureEnabled: (feature: ProFeature) => boolean;
   activate: (key: string) => Promise<LicenseStatus>;
   deactivate: () => Promise<void>;
+  refresh: () => Promise<LicenseStatus>;
+  openBillingPortal: () => Promise<void>;
   dismissProActivation: () => void;
   /** Dev-only: override the tier. null to clear. */
   devSetTier: (tier: LicenseTier | null) => Promise<void>;
@@ -36,6 +41,7 @@ const DEFAULT_STATUS: LicenseStatus = {
   issued_at: null,
   expires_at: null,
   is_expired: false,
+  seats: null,
   is_founder: false,
 };
 
@@ -54,9 +60,7 @@ export function LicenseProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     getLicenseStatus()
       .then(setStatus)
-      .catch(() => {
-        // Silently fall back to Core on error
-      })
+      .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
 
@@ -82,6 +86,17 @@ export function LicenseProvider({ children }: { children: ReactNode }) {
     await deactivateLicense();
     setStatus(DEFAULT_STATUS);
     setProActivation(null);
+  }, []);
+
+  const refresh = useCallback(async (): Promise<LicenseStatus> => {
+    const result = await refreshLicense();
+    setStatus(result);
+    return result;
+  }, []);
+
+  const openBillingPortal = useCallback(async () => {
+    const url = await getBillingPortalUrl();
+    await openExternal(url);
   }, []);
 
   const devSetTier = useCallback(
@@ -124,6 +139,8 @@ export function LicenseProvider({ children }: { children: ReactNode }) {
         isFeatureEnabled: isEnabled,
         activate,
         deactivate,
+        refresh,
+        openBillingPortal,
         dismissProActivation,
         devSetTier,
       }}

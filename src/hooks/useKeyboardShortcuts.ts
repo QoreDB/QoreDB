@@ -12,6 +12,6 @@ export function useShortcutBindings() {
   return useSyncExternalStore(
     subscribeShortcutChanges,
     () => resolveBindings(),
-    () => resolveBindings(),
+    () => resolveBindings()
   );
 }

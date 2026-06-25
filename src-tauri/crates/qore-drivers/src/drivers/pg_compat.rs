@@ -1793,8 +1793,11 @@ pub async fn drop_routine(
     };
     let args_clause = arguments.unwrap_or("");
     let sql = format!(
-        "DROP {} \"{}\".\"{}\"({})",
-        type_keyword, schema, routine_name, args_clause
+        "DROP {} {}.{}({})",
+        type_keyword,
+        quote_ident(schema),
+        quote_ident(routine_name),
+        args_clause
     );
 
     let start = Instant::now();

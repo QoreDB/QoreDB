@@ -103,12 +103,13 @@ export function isFederationQuery(query: string, knownAliases: Set<string>): boo
   // Match 3-part identifiers: word.word.word
   // Excludes common false positives in strings/comments
   const pattern = /\b(\w+)\.(\w+)\.(\w+)\b/g;
-  let match;
-  while ((match = pattern.exec(query)) !== null) {
+  let match: RegExpExecArray | null = pattern.exec(query);
+  while (match !== null) {
     const candidate = match[1].toLowerCase();
     if (knownAliases.has(candidate)) {
       return true;
     }
+    match = pattern.exec(query);
   }
   return false;
 }

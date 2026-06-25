@@ -3,11 +3,7 @@
 import { type ReactNode, useEffect, useEffectEvent } from 'react';
 import { KeyboardCheatsheet } from '@/components/KeyboardCheatsheet';
 import { useShortcutBindings } from '@/hooks/useKeyboardShortcuts';
-import {
-  chordMatches,
-  SHORTCUT_DEFINITIONS,
-  type ShortcutId,
-} from '@/lib/shortcuts';
+import { chordMatches, SHORTCUT_DEFINITIONS, type ShortcutId } from '@/lib/shortcuts';
 import {
   getModalState,
   setCheatsheetOpen,
@@ -53,9 +49,7 @@ export function ShortcutProvider({ children }: { children: ReactNode }) {
     const inTextInput = isTextInputTarget(e.target);
 
     // Find the first definition whose chord matches the event.
-    const triggered = SHORTCUT_DEFINITIONS.find(def =>
-      chordMatches(e, bindings[def.id]),
-    );
+    const triggered = SHORTCUT_DEFINITIONS.find(def => chordMatches(e, bindings[def.id]));
     if (!triggered) return;
 
     if (inTextInput && !triggered.worksInTextInput && triggered.id !== 'escape') {

@@ -115,7 +115,9 @@ export function PluginCard({
           </p>
         )}
         {manifest.description && (
-          <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{manifest.description}</p>
+          <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
+            {manifest.description}
+          </p>
         )}
         {badges.length > 0 && (
           <div className="mt-1.5 flex flex-wrap gap-1">

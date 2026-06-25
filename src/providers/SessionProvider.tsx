@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { isWeb, listen, type UnlistenFn } from '@/lib/transport';
 import { check } from '@tauri-apps/plugin-updater';
 import {
   createContext,
@@ -40,6 +39,7 @@ import {
   listSavedConnections,
   type SavedConnection,
 } from '@/lib/tauri';
+import { isWeb, listen, type UnlistenFn } from '@/lib/transport';
 import { useTabContext } from './TabProvider';
 import { useWorkspace } from './WorkspaceProvider';
 

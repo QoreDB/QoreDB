@@ -14,11 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import {
-  type InstalledPlugin,
-  type PluginCapabilityKind,
-  setPluginConsent,
-} from '@/lib/plugins';
+import { type InstalledPlugin, type PluginCapabilityKind, setPluginConsent } from '@/lib/plugins';
 
 interface ConsentDialogProps {
   plugin: InstalledPlugin | null;
@@ -42,8 +38,9 @@ const ORDERED: PluginCapabilityKind[] = [
   'secrets',
 ];
 
-function isRequested(caps: NonNullable<InstalledPlugin['manifest']['runtime']>['capabilities'],
-  kind: PluginCapabilityKind,
+function isRequested(
+  caps: NonNullable<InstalledPlugin['manifest']['runtime']>['capabilities'],
+  kind: PluginCapabilityKind
 ): boolean {
   if (!caps) return false;
   switch (kind) {
@@ -88,7 +85,9 @@ function capDetail(plugin: InstalledPlugin, cap: PluginCapabilityKind): string |
 
 /** True when the manifest requests the SSRF escape hatch for this capability. */
 function wantsPrivateNetworks(plugin: InstalledPlugin, cap: PluginCapabilityKind): boolean {
-  return cap === 'http' && plugin.manifest.runtime?.capabilities?.http?.allowPrivateNetworks === true;
+  return (
+    cap === 'http' && plugin.manifest.runtime?.capabilities?.http?.allowPrivateNetworks === true
+  );
 }
 
 export function ConsentDialog({
@@ -165,9 +164,7 @@ export function ConsentDialog({
                     {t(`plugins.consent.caps.${cap}.description`)}
                   </div>
                   {detail && (
-                    <div className="mt-1 font-mono text-[10.5px] text-foreground/80">
-                      {detail}
-                    </div>
+                    <div className="mt-1 font-mono text-[10.5px] text-foreground/80">{detail}</div>
                   )}
                   {wantsPrivateNetworks(plugin, cap) && (
                     <div className="mt-1 rounded border border-warning/40 bg-warning/10 px-1.5 py-1 text-[10.5px] text-warning">

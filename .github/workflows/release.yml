@@ -121,18 +121,18 @@ jobs:
           cache: 'pnpm'
 
       - name: Install frontend dependencies
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
 
-      - name: Disable Windows Defender real-time monitoring
+      - name: Exclude build directory from Windows Defender
         if: matrix.platform == 'windows-2022'
         continue-on-error: true
         shell: pwsh
         run: |
           try {
-            Set-MpPreference -DisableRealtimeMonitoring $true -ErrorAction Stop
-            Write-Host "Real-time monitoring disabled."
+            Add-MpPreference -ExclusionPath "${{ github.workspace }}\src-tauri\target" -ErrorAction Stop
+            Write-Host "Added Defender exclusion for build directory."
           } catch {
-            Write-Host "Could not disable Defender (non-fatal): $($_.Exception.Message)"
+            Write-Host "Could not add Defender exclusion (non-fatal): $($_.Exception.Message)"
           }
 
       - name: Build Tauri app

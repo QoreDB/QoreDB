@@ -1,12 +1,19 @@
 // SPDX-License-Identifier: BUSL-1.1
 
-import { AlertCircle, CheckCircle2, ChevronDown, ChevronRight, MinusCircle, XCircle } from 'lucide-react';
+import {
+  AlertCircle,
+  CheckCircle2,
+  ChevronDown,
+  ChevronRight,
+  MinusCircle,
+  XCircle,
+} from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
 import type { ContractRun, RuleResult, RuleStatus, RuleType } from '@/lib/contracts';
+import { cn } from '@/lib/utils';
 
 interface Props {
   run: ContractRun;
@@ -48,9 +55,13 @@ export function ContractResultsView({ run }: Props) {
               <th className="px-3 py-2 text-left font-medium">{t('contracts.results.rule')}</th>
               <th className="px-3 py-2 text-left font-medium">{t('contracts.results.type')}</th>
               <th className="px-3 py-2 text-left font-medium">{t('contracts.results.status')}</th>
-              <th className="px-3 py-2 text-right font-medium">{t('contracts.results.violations')}</th>
+              <th className="px-3 py-2 text-right font-medium">
+                {t('contracts.results.violations')}
+              </th>
               <th className="px-3 py-2 text-right font-medium">{t('contracts.results.metric')}</th>
-              <th className="px-3 py-2 text-right font-medium">{t('contracts.results.duration')}</th>
+              <th className="px-3 py-2 text-right font-medium">
+                {t('contracts.results.duration')}
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -101,7 +112,15 @@ function SummaryRow({ pass, fail, error, skipped, durationMs }: SummaryRowProps)
   );
 }
 
-function Stat({ label, value, className }: { label: string; value: number | string; className?: string }) {
+function Stat({
+  label,
+  value,
+  className,
+}: {
+  label: string;
+  value: number | string;
+  className?: string;
+}) {
   return (
     <div
       className={cn(
@@ -125,10 +144,7 @@ function ResultRow({ result }: { result: RuleResult }) {
   return (
     <>
       <tr
-        className={cn(
-          'border-t border-border',
-          canExpand && 'cursor-pointer hover:bg-muted/30'
-        )}
+        className={cn('border-t border-border', canExpand && 'cursor-pointer hover:bg-muted/30')}
         onClick={() => canExpand && setExpanded(v => !v)}
       >
         <td className="px-3 py-2 align-middle">
@@ -142,7 +158,9 @@ function ResultRow({ result }: { result: RuleResult }) {
         </td>
         <td className="px-3 py-2 align-middle font-medium text-foreground">{result.id}</td>
         <td className="px-3 py-2 align-middle text-muted-foreground text-xs">
-          {t(`contracts.ruleType.${result.rule_type as RuleType}`, { defaultValue: result.rule_type })}
+          {t(`contracts.ruleType.${result.rule_type as RuleType}`, {
+            defaultValue: result.rule_type,
+          })}
         </td>
         <td className={cn('px-3 py-2 align-middle font-medium', STATUS_STYLES[result.status])}>
           <span className="inline-flex items-center gap-1.5">
@@ -232,7 +250,13 @@ function formatMetric(n: number): string {
   return n.toFixed(2);
 }
 
-export function ToggleSamplesButton({ expanded, onToggle }: { expanded: boolean; onToggle: () => void }) {
+export function ToggleSamplesButton({
+  expanded,
+  onToggle,
+}: {
+  expanded: boolean;
+  onToggle: () => void;
+}) {
   const { t } = useTranslation();
   return (
     <Button type="button" variant="ghost" size="sm" onClick={onToggle}>

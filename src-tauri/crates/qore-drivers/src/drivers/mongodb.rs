@@ -264,6 +264,17 @@ impl MongoDriver {
         escaped
     }
 
+    /// Restricts a user-supplied field name to a safe identifier charset before
+    /// it is interpolated into an aggregation expression (`$field`) or used as a
+    /// BSON key. Prevents operator/path injection (e.g. `$where`, `a.$op`).
+    /// Dotted paths for nested fields are allowed; everything else is rejected.
+    fn is_valid_field_name(name: &str) -> bool {
+        !name.is_empty()
+            && name
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '.')
+    }
+
     fn hello_supports_transactions(hello: &Document) -> bool {
         let has_set_name = matches!(hello.get("setName"), Some(Bson::String(_)));
         let is_mongos = matches!(hello.get("msg"), Some(Bson::String(msg)) if msg == "isdbgrid");
@@ -2123,6 +2134,16 @@ impl DataEngine for MongoDriver {
                     continue;
                 }
 
+                // The field name is interpolated into aggregation expressions
+                // (`$field`) and used as a BSON key below, so reject anything
+                // outside a safe identifier charset to prevent injection.
+                if !Self::is_valid_field_name(&filter.column) {
+                    return Err(EngineError::syntax_error(format!(
+                        "Invalid field name in filter: {}",
+                        filter.column
+                    )));
+                }
+
                 let condition = match filter.operator {
                     FilterOperator::Eq => bson_value,
                     FilterOperator::Neq => {
@@ -2138,7 +2159,11 @@ impl DataEngine for MongoDriver {
                     }
                     FilterOperator::Like => {
                         if let mongodb::bson::Bson::String(s) = &bson_value {
-                            let pattern = s.replace('%', ".*").replace('_', ".");
+                            // Escape regex metacharacters first so only the LIKE
+                            // wildcards (`%`, `_`) carry pattern meaning — avoids
+                            // ReDoS and over-matching from user-supplied input.
+                            let pattern =
+                                Self::escape_regex(s).replace('%', ".*").replace('_', ".");
                             like_exprs.push(doc! {
                                 "$regexMatch": {
                                     "input": {

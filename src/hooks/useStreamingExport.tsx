@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { listen, type UnlistenFn } from '@/lib/transport';
 import { useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -13,6 +12,7 @@ import {
   exportProgressEvent,
   startExport,
 } from '@/lib/export';
+import { listen, type UnlistenFn } from '@/lib/transport';
 
 type ActiveExport = {
   unlisten: UnlistenFn;

@@ -27,7 +27,7 @@ export async function installPlugin(sourcePath: string): Promise<InstalledPlugin
  *  digest or the `sha256-<hex>` form the registry uses. */
 export async function installPluginFromUrl(
   url: string,
-  expectedSha256: string,
+  expectedSha256: string
 ): Promise<InstalledPlugin> {
   return invoke('install_plugin_from_url', { url, expectedSha256 });
 }
@@ -62,7 +62,7 @@ export async function getPluginStatuses(): Promise<PluginRuntimeStatus[]> {
  *  so the new set takes effect immediately. */
 export async function setPluginConsent(
   pluginId: string,
-  grants: PluginCapabilityKind[],
+  grants: PluginCapabilityKind[]
 ): Promise<void> {
   return invoke('set_plugin_consent', { pluginId, grants });
 }
@@ -82,10 +82,7 @@ export function splitContributionId(namespaced: string): { pluginId: string; loc
 
 /** Invokes a contributed command. `namespacedId` is the id surfaced by the
  *  registry; this helper splits it back into plugin id + bare command id. */
-export async function runPluginCommand(
-  namespacedId: string,
-  args?: unknown,
-): Promise<unknown> {
+export async function runPluginCommand(namespacedId: string, args?: unknown): Promise<unknown> {
   const { pluginId, localId } = splitContributionId(namespacedId);
   return invoke('run_plugin_command', {
     pluginId,

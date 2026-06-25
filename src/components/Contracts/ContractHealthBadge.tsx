@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 
 import { useTranslation } from 'react-i18next';
-
-import { cn } from '@/lib/utils';
 import type { ContractRun } from '@/lib/contracts';
+import { cn } from '@/lib/utils';
 
 export type HealthLevel = 'healthy' | 'warning' | 'failing' | 'unknown';
 

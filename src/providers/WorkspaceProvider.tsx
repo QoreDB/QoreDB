@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { isWeb, listen, type UnlistenFn } from '@/lib/transport';
 import { createContext, type ReactNode, useCallback, useContext, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -25,6 +24,7 @@ import {
   type WorkspaceInfo,
   wsGetQueryLibrary,
 } from '@/lib/tauri';
+import { isWeb, listen, type UnlistenFn } from '@/lib/transport';
 
 const DISMISSED_WORKSPACE_KEY = 'qoredb_dismissed_workspaces';
 

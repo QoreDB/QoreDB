@@ -48,9 +48,8 @@ function loadSampleRowsPreference(): boolean {
 export function AiPreferencesProvider({ children }: { children: ReactNode }) {
   const [preferredProvider, setPreferredProviderState] = useState<AiProvider>(loadSavedProvider);
   const [providerStatuses, setProviderStatuses] = useState<AiProviderStatus[]>([]);
-  const [includeSampleRows, setIncludeSampleRowsState] = useState<boolean>(
-    loadSampleRowsPreference
-  );
+  const [includeSampleRows, setIncludeSampleRowsState] =
+    useState<boolean>(loadSampleRowsPreference);
 
   const refreshStatuses = useCallback(async () => {
     try {

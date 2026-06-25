@@ -15,7 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { installPlugin, type InstalledPlugin, setPluginEnabled } from '@/lib/plugins';
+import { type InstalledPlugin, installPlugin, setPluginEnabled } from '@/lib/plugins';
 import { ConsentDialog, requestedCaps } from './ConsentDialog';
 
 interface InstallPluginDialogProps {
@@ -114,7 +114,9 @@ export function InstallPluginDialog({ open, onOpenChange, onInstalled }: Install
           if (plugin && !consentDecidedRef.current) {
             void setPluginEnabled(plugin.manifest.id, false)
               .then(() => {
-                toast.info(t('plugins.toast.disabledPendingConsent', { name: plugin.manifest.name }));
+                toast.info(
+                  t('plugins.toast.disabledPendingConsent', { name: plugin.manifest.name })
+                );
               })
               .finally(() => {
                 setPendingConsent(null);

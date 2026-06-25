@@ -408,6 +408,18 @@ fn is_dangerous_statement(statement: &Statement) -> bool {
 }
 
 fn query_is_mutation(query: &Query) -> bool {
+    // A data-modifying CTE (`WITH x AS (UPDATE … RETURNING *) SELECT * FROM x`)
+    // keeps a SELECT on the surface but mutates rows inside `query.with`. The
+    // body alone classifies it as read-only, so inspect each CTE body too.
+    if let Some(with) = &query.with {
+        if with
+            .cte_tables
+            .iter()
+            .any(|cte| query_is_mutation(&cte.query))
+        {
+            return true;
+        }
+    }
     set_expr_is_mutation(&query.body)
 }
 
@@ -673,6 +685,30 @@ mod tests {
 
         assert!(!analysis.is_mutation);
         assert!(!analysis.is_dangerous);
+    }
+
+    #[test]
+    fn postgres_write_cte_is_mutation() {
+        // A data-modifying CTE keeps a SELECT on the surface; the classifier
+        // must still flag it as a mutation so read-only mode blocks it.
+        let analysis = analyze_sql(
+            "postgres",
+            "WITH x AS (UPDATE users SET name = 'x' WHERE id = 1 RETURNING *) SELECT * FROM x",
+        )
+        .expect("should parse");
+
+        assert!(analysis.is_mutation);
+    }
+
+    #[test]
+    fn postgres_delete_cte_is_mutation() {
+        let analysis = analyze_sql(
+            "postgres",
+            "WITH d AS (DELETE FROM users WHERE id = 1 RETURNING *) SELECT * FROM d",
+        )
+        .expect("should parse");
+
+        assert!(analysis.is_mutation);
     }
 
     #[test]

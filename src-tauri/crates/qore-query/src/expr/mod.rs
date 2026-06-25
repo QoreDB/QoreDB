@@ -256,10 +256,7 @@ pub fn cast(expr: impl crate::ident::IntoOperand, ty: SqlType) -> Expr {
     }
 }
 
-// ============================================================================
 // Aggregate function constructors
-// ============================================================================
-
 fn agg(func: AggFn, arg: impl crate::ident::IntoOperand, distinct: bool) -> Expr {
     Expr::Aggregate {
         func,

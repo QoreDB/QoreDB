@@ -762,7 +762,6 @@ pub struct TableColumn {
     pub is_auto_increment: bool,
 }
 
-// ==================== Collection list ====================
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct CollectionListOptions {
     pub search: Option<String>,
@@ -775,8 +774,6 @@ pub struct CollectionList {
     pub collections: Vec<Collection>,
     pub total_count: u32,
 }
-
-// ==================== Routines ====================
 
 /// Type of database routine
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -835,8 +832,6 @@ pub struct RoutineOperationResult {
     pub execution_time_ms: f64,
 }
 
-// ==================== Triggers ====================
-
 /// Timing of a database trigger
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum TriggerTiming {
@@ -882,8 +877,6 @@ pub struct TriggerList {
     pub total_count: u32,
 }
 
-// ==================== Events (MySQL) ====================
-
 /// Status of a MySQL scheduled event
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum EventStatus {
@@ -917,8 +910,6 @@ pub struct EventList {
     pub events: Vec<DatabaseEvent>,
     pub total_count: u32,
 }
-
-// ==================== Trigger definition & operation ====================
 
 /// Full trigger definition (CREATE statement) for viewing/editing
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -963,8 +954,6 @@ pub struct EventOperationResult {
     pub message: Option<String>,
     pub execution_time_ms: f64,
 }
-
-// ==================== Sequences (MariaDB) ====================
 
 /// Database sequence metadata (MariaDB 10.3+)
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1014,8 +1003,6 @@ pub struct SequenceOperationResult {
     pub execution_time_ms: f64,
 }
 
-// ==================== Database creation options ====================
-
 /// Information about a character set available for database creation
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CharsetInfo {
@@ -1037,8 +1024,6 @@ pub struct CollationInfo {
 pub struct CreationOptions {
     pub charsets: Vec<CharsetInfo>,
 }
-
-// ==================== Table query (pagination) ====================
 
 /// Sort direction for query results
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Default, PartialEq, Eq)]
@@ -1197,8 +1182,6 @@ impl PaginatedQueryResult {
         }
     }
 }
-
-// ==================== Maintenance ====================
 
 /// Type of maintenance operation available for a table
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

@@ -4,10 +4,6 @@ import { useSyncExternalStore } from 'react';
 import { UI_EVENT_OPEN_LOGS } from '../events/uiEvents';
 import type { SavedConnection } from '../tauri';
 
-// ============================================
-// STATE
-// ============================================
-
 interface ModalState {
   searchOpen: boolean;
   fulltextSearchOpen: boolean;
@@ -82,17 +78,10 @@ function subscribe(listener: () => void): () => void {
   return () => listeners.delete(listener);
 }
 
-// ============================================
-// READ (non-reactive, for use in event handlers)
-// ============================================
-
+/** Non-reactive read, for use in event handlers. */
 export function getModalState(): ModalState {
   return state;
 }
-
-// ============================================
-// SETTERS
-// ============================================
 
 export function setSearchOpen(open: boolean) {
   updateState({ searchOpen: open });
@@ -195,10 +184,6 @@ export function toggleZenMode() {
   updateState(currentState => ({ zenMode: !currentState.zenMode }));
 }
 
-// ============================================
-// COMPOSITE ACTIONS
-// ============================================
-
 export function handleEditConnection(connection: SavedConnection, password: string) {
   updateState({ editConnection: connection, editPassword: password, connectionModalOpen: true });
 }
@@ -211,16 +196,10 @@ export function toggleSidebar() {
   updateState(currentState => ({ sidebarVisible: !currentState.sidebarVisible }));
 }
 
-// ============================================
-// REACT HOOKS
-// ============================================
-
 /**
- * Subscribe to a specific slice of modal state.
- * The component only re-renders when the selected value changes.
- *
- * For primitives (boolean, string): works out of the box.
- * For objects: avoid inline selectors that return new objects each time.
+ * Subscribe to a specific slice of modal state. The component only re-renders
+ * when the selected value changes. For objects, avoid inline selectors that
+ * return a new object each time.
  */
 export function useModalStore<T>(selector: (state: ModalState) => T): T {
   return useSyncExternalStore(
@@ -229,10 +208,6 @@ export function useModalStore<T>(selector: (state: ModalState) => T): T {
     () => selector(state)
   );
 }
-
-// ============================================
-// GLOBAL EVENT LISTENERS
-// ============================================
 
 if (typeof window !== 'undefined') {
   window.addEventListener(UI_EVENT_OPEN_LOGS, () => setLogsOpen(true));

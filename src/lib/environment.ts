@@ -1,9 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-/**
- * Environment utilities for connection classification
- */
-
 export type Environment = 'development' | 'staging' | 'production';
 
 export interface EnvironmentConfig {
@@ -138,9 +134,6 @@ export function isMutationQuery(query: string, dialect: QueryDialect = 'sql'): b
   return tokenizeSql(query).some(token => SQL_MUTATION_KEYWORDS.has(token));
 }
 
-/**
- * Checks if a SQL query contains potentially dangerous patterns
- */
 export function isDangerousQuery(sql: string): boolean {
   return splitSqlStatements(sql).some(statement => {
     if (DANGEROUS_PATTERNS.some(pattern => pattern.test(statement))) {
@@ -164,9 +157,6 @@ export function countSqlStatements(sql: string): number {
   return splitSqlStatements(sql).length;
 }
 
-/**
- * Get a human-readable description of why a query is dangerous
- */
 export function getDangerousQueryReason(sql: string): string | null {
   for (const statement of splitSqlStatements(sql)) {
     if (/^\s*DROP\s+(TABLE|DATABASE|SCHEMA|INDEX|VIEW|FUNCTION|TRIGGER)\b/i.test(statement)) {

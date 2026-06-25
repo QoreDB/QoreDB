@@ -637,7 +637,6 @@ export function DataGrid({
     indexInfoMap,
   ]);
 
-  // Configure table
   const table = useReactTable({
     data,
     columns,
@@ -673,7 +672,6 @@ export function DataGrid({
 
   const { rows } = table.getRowModel();
 
-  // Delete hook
   const {
     isDeleting,
     deleteDialogOpen,
@@ -700,7 +698,6 @@ export function DataGrid({
     onRowsDeleted,
   });
 
-  // Virtual scrolling
   const rowVirtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => parentRef.current,
@@ -742,7 +739,6 @@ export function DataGrid({
     prevLoadedRows.current = infiniteScrollLoadedRows;
   }, [isInfiniteScrollMode, infiniteScrollLoadedRows]);
 
-  // Copy/export hooks
   const getSelectedRows = useCallback(() => table.getSelectedRowModel().rows, [table]);
 
   const { copyToClipboard, copied } = useDataGridCopy({
@@ -798,7 +794,6 @@ export function DataGrid({
     [exportQuery, namespace, startShareExport]
   );
 
-  // AI Explain Results
   const { isFeatureEnabled } = useLicense();
   const { getConfig, isReady: aiReady } = useAiPreferences();
   const [aiExplanation, setAiExplanation] = useState<string | null>(null);
@@ -833,7 +828,6 @@ export function DataGrid({
     }
   }, [sessionId, result, aiExplainLoading, exportQuery, getConfig, namespace]);
 
-  // Keyboard shortcuts
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       const target = e.target as HTMLElement | null;

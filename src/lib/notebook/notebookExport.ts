@@ -2,9 +2,6 @@
 
 import type { CellResult, QoreNotebook } from './notebookTypes';
 
-/**
- * Export a notebook to Markdown format.
- */
 export function exportToMarkdown(notebook: QoreNotebook, includeResults = false): string {
   const parts: string[] = [];
 
@@ -23,15 +20,12 @@ export function exportToMarkdown(notebook: QoreNotebook, includeResults = false)
         if (table) parts.push(table);
       }
     }
-    parts.push(''); // blank line separator
+    parts.push('');
   }
 
   return parts.join('\n').trim() + '\n';
 }
 
-/**
- * Export a notebook to standalone HTML.
- */
 export function exportToHtml(notebook: QoreNotebook, includeResults = false): string {
   const cellsHtml = notebook.cells
     .map(cell => {

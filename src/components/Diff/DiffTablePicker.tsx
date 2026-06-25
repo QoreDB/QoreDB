@@ -1,9 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 
 import { ChevronDown, Loader2, Search, Table2, X } from 'lucide-react';
-/**
- * DiffTablePicker - Searchable dropdown for selecting tables
- */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
@@ -37,7 +34,6 @@ export function DiffTablePicker({
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Load tables when opened
   useEffect(() => {
     if (!isOpen || !sessionId) return;
 
@@ -52,19 +48,16 @@ export function DiffTablePicker({
       .finally(() => setLoading(false));
   }, [isOpen, sessionId, namespace, search]);
 
-  // Reset selected index when search changes
   useEffect(() => {
     setSelectedIndex(0);
   }, []);
 
-  // Focus input when opened
   useEffect(() => {
     if (isOpen) {
       inputRef.current?.focus();
     }
   }, [isOpen]);
 
-  // Close on click outside
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
@@ -148,7 +141,6 @@ export function DiffTablePicker({
 
       {isOpen && (
         <div className="absolute z-50 mt-1 w-full bg-popover border border-border rounded-md shadow-lg overflow-hidden">
-          {/* Search input */}
           <div className="flex items-center px-3 py-2 border-b border-border">
             <Search size={14} className="text-muted-foreground mr-2" />
             <Input
@@ -163,7 +155,6 @@ export function DiffTablePicker({
             {loading && <Loader2 size={14} className="animate-spin text-muted-foreground" />}
           </div>
 
-          {/* Results list */}
           <div className="max-h-60 overflow-y-auto py-1">
             {tables.length === 0 && !loading ? (
               <div className="px-3 py-4 text-sm text-muted-foreground text-center">

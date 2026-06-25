@@ -91,8 +91,6 @@ pub fn redact_query_literals(query: &str) -> String {
     apply_custom_patterns(&redact_sql(query))
 }
 
-// ==================== SQL ====================
-
 fn redact_sql(query: &str) -> String {
     static PATTERNS: OnceLock<Vec<(Regex, &'static str)>> = OnceLock::new();
     let patterns = PATTERNS.get_or_init(|| {
@@ -118,8 +116,6 @@ fn redact_sql(query: &str) -> String {
     }
     result
 }
-
-// ==================== MongoDB ====================
 
 fn redact_mongo(query: &str) -> String {
     static FIELD_PATTERN: OnceLock<Regex> = OnceLock::new();
@@ -161,8 +157,6 @@ fn redact_mongo(query: &str) -> String {
         .into_owned();
     out
 }
-
-// ==================== Redis ====================
 
 fn redact_redis(query: &str) -> String {
     // Redis commands are line-oriented; redact per line to preserve multi-
@@ -305,8 +299,6 @@ mod tests {
         guard
     }
 
-    // ---------- SQL ----------
-
     #[test]
     fn sql_redact_string_literals() {
         let _guard = reset();
@@ -350,8 +342,6 @@ mod tests {
         let r = redact_query(q, "postgres");
         assert_eq!(r, q);
     }
-
-    // ---------- MongoDB ----------
 
     #[test]
     fn mongo_redact_password_field() {
@@ -401,8 +391,6 @@ mod tests {
         let r = redact_query(q, "mongodb");
         assert_eq!(r, q);
     }
-
-    // ---------- Redis ----------
 
     #[test]
     fn redis_redact_auth_single_arg() {
@@ -462,8 +450,6 @@ mod tests {
         // Non-credential clauses preserved
         assert!(r.contains("~*"));
     }
-
-    // ---------- Toggle & custom patterns ----------
 
     #[test]
     fn disabled_returns_input_unchanged() {

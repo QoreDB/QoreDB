@@ -455,7 +455,6 @@ pub trait DataEngine: Send + Sync {
         }
     }
 
-    // ==================== Transactions ====================
     // Default implementations return NotSupported.
 
     /// Begin a transaction for the session. Subsequent queries on this
@@ -511,7 +510,6 @@ pub trait DataEngine: Send + Sync {
         false
     }
 
-    // ==================== Mutations ====================
     // Default implementations return NotSupported.
 
     /// Insert a new row. Returns `QueryResult` with `affected_rows = 1`.
@@ -564,7 +562,6 @@ pub trait DataEngine: Send + Sync {
         false
     }
 
-    // ==================== Maintenance ====================
     // Default implementations return NotSupported or empty.
 
     /// Returns the list of maintenance operations available for this driver.

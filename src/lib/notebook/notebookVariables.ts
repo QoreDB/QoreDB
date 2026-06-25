@@ -74,18 +74,13 @@ function sqlQuote(value: string): string {
   return `'${sanitised.replace(/'/g, "''")}'`;
 }
 
-/**
- * Extract variable names referenced in a cell source.
- */
 export function extractVariableReferences(source: string): string[] {
   const names = new Set<string>();
 
-  // Match {{name}}
   for (const m of source.matchAll(/\{\{(\w+)\}\}/g)) {
     names.add(m[1]);
   }
 
-  // Match $name
   for (const m of source.matchAll(/(?<!\$)\$(\w+)/g)) {
     names.add(m[1]);
   }

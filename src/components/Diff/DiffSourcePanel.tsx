@@ -11,9 +11,6 @@ import {
   Server,
   Table2,
 } from 'lucide-react';
-/**
- * DiffSourcePanel - Panel for selecting a data source (table or query)
- */
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
@@ -102,7 +99,6 @@ export function DiffSourcePanel({
     [source.result]
   );
 
-  // Snapshot picker state
   const [snapshots, setSnapshots] = useState<SnapshotMeta[]>([]);
   const [snapshotsLoading, setSnapshotsLoading] = useState(false);
 
@@ -124,7 +120,6 @@ export function DiffSourcePanel({
 
   return (
     <div className="flex flex-col gap-3 p-4 border border-border rounded-lg bg-card">
-      {/* Header with label */}
       <div className="flex items-center justify-between">
         <span className="text-sm font-medium text-muted-foreground">{label}</span>
         <div className="flex items-center gap-2 text-xs">
@@ -143,7 +138,6 @@ export function DiffSourcePanel({
         </div>
       </div>
 
-      {/* Connection / namespace selection (hidden for snapshot mode) */}
       {source.mode !== 'snapshot' && (
         <div className="grid grid-cols-2 gap-2">
           <div className="flex flex-col gap-1">
@@ -209,7 +203,6 @@ export function DiffSourcePanel({
         </div>
       )}
 
-      {/* Mode tabs */}
       <div className="flex border border-border rounded-md overflow-hidden">
         <Button
           type="button"
@@ -261,7 +254,6 @@ export function DiffSourcePanel({
         </Button>
       </div>
 
-      {/* Source selector based on mode */}
       {source.mode === 'snapshot' ? (
         <Select
           value={source.snapshotId ?? ''}
@@ -341,7 +333,6 @@ export function DiffSourcePanel({
         </>
       )}
 
-      {/* Error display */}
       {(source.connectionError || source.error) && (
         <div className="flex items-start gap-2 text-sm text-destructive">
           <AlertCircle size={14} className="shrink-0 mt-0.5" />

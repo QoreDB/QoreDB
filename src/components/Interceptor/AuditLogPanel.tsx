@@ -1,11 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-/**
- * Audit Log Panel
- *
- * UI component for viewing and filtering the query audit log.
- * All data is fetched from the backend (Rust) for security.
- */
+// All data is fetched from the backend (Rust) for security.
 
 import type { TFunction } from 'i18next';
 import {
@@ -204,7 +199,6 @@ export function AuditLogPanel() {
     [t]
   );
 
-  // State
   const [entries, setEntries] = useState<AuditLogEntry[]>([]);
   const [stats, setStats] = useState<AuditStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -212,13 +206,11 @@ export function AuditLogPanel() {
   const [page, setPage] = useState(0);
   const [selectedEntry, setSelectedEntry] = useState<AuditLogEntry | null>(null);
 
-  // Filters
   const [search, setSearch] = useState('');
   const [environmentFilter, setEnvironmentFilter] = useState<Environment | 'all'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'success' | 'failed' | 'blocked'>('all');
   const [fingerprintFilter, setFingerprintFilter] = useState<string | null>(null);
 
-  // Load data from backend
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
@@ -267,7 +259,6 @@ export function AuditLogPanel() {
     loadData();
   }, [loadData]);
 
-  // Reset page when filters change
   const updateSearch = useCallback((value: string) => {
     setSearch(value);
     setPage(0);
@@ -327,7 +318,6 @@ export function AuditLogPanel() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-border">
         <h2 className="text-lg font-semibold">{t('interceptor.audit.title')}</h2>
         <div className="flex items-center gap-2">
@@ -384,7 +374,6 @@ export function AuditLogPanel() {
         </div>
       )}
 
-      {/* Filters — Pro only */}
       {isAdvanced ? (
         <div className="flex items-center gap-2 p-4 border-b border-border">
           <div className="relative flex-1">
@@ -468,7 +457,6 @@ export function AuditLogPanel() {
         </div>
       </ScrollArea>
 
-      {/* Pagination */}
       <div className="flex items-center justify-between p-4 border-t border-border">
         <p className="text-sm text-muted-foreground">
           {t('interceptor.audit.pagination', {

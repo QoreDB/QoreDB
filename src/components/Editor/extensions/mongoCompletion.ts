@@ -1,25 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
-/**
- * MongoDB autocomplete source for CodeMirror 6.
- *
- * Provides completions for:
- * - Collection names after `db.`
- * - Methods after `db.<collection>.`
- * - MongoDB operators after `$`
- * - Field names of the current collection inside object literals
- *
- * The collection at the cursor is inferred by scanning backward for
- * `db.<name>.<method>(` — matching the user-facing mongosh syntax.
- */
-
 import type { Completion, CompletionContext, CompletionResult } from '@codemirror/autocomplete';
 import type { useSchemaCache } from '../../../hooks/useSchemaCache';
 import type { Namespace } from '../../../lib/tauri';
 
 type SchemaCache = ReturnType<typeof useSchemaCache>;
 
-/** Collection-level query/mutation methods. */
 const METHODS: Completion[] = [
   { label: 'find', type: 'method', detail: 'filter, projection' },
   { label: 'findOne', type: 'method', detail: 'filter, projection' },
@@ -166,10 +152,6 @@ const ALL_OPERATORS: Completion[] = [
   ...toCompletions(AGGREGATION_EXPRESSIONS, 'function'),
 ];
 
-/**
- * Scans backward from `pos` for the nearest `db.<collection>.` pattern.
- * Returns the collection name or null if not found within `windowChars`.
- */
 function findCollectionAtCursor(text: string, pos: number, windowChars = 2048): string | null {
   const start = Math.max(0, pos - windowChars);
   const slice = text.slice(start, pos);
@@ -188,15 +170,6 @@ export interface MongoCompletionContext {
   getSchemaCache: () => SchemaCache;
 }
 
-/**
- * Builds the CodeMirror completion source for MongoDB editors.
- *
- * Strategy:
- *  - `db.` alone → propose collection names
- *  - `db.<name>.` → propose collection methods
- *  - token begins with `$` → propose MongoDB operators
- *  - otherwise → propose field names from the resolved collection
- */
 export function createMongoCompletionSource(ctx: MongoCompletionContext) {
   // In-memory per-editor cache of collection fields so we don't re-fetch
   // on every keystroke. The schema cache already TTLs but this avoids an

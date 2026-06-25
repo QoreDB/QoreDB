@@ -13,8 +13,6 @@ use crate::interceptor::{
     QueryOperationType, SafetyRule, SlowQueryEntry,
 };
 
-// ==================== Response Types ====================
-
 #[derive(Debug, Serialize)]
 pub struct InterceptorConfigResponse {
     pub success: bool,
@@ -70,8 +68,6 @@ pub struct ExportResponse {
     pub error: Option<String>,
 }
 
-// ==================== Configuration Commands ====================
-
 /// Gets the interceptor configuration
 #[tauri::command]
 pub async fn get_interceptor_config(
@@ -118,8 +114,6 @@ pub async fn update_interceptor_config(
         }),
     }
 }
-
-// ==================== Audit Commands ====================
 
 /// Filter parameters for audit log queries
 #[derive(Debug, Deserialize)]
@@ -273,8 +267,6 @@ pub async fn export_audit_log(
     })
 }
 
-// ==================== Profiling Commands (Pro only) ====================
-
 #[cfg(feature = "pro")]
 #[tauri::command]
 pub async fn get_profiling_metrics(
@@ -419,8 +411,6 @@ pub async fn export_profiling(
         error: Some("Query profiling requires QoreDB Pro".into()),
     })
 }
-
-// ==================== Safety Rules Commands ====================
 
 /// Gets all safety rules (built-in + custom)
 #[tauri::command]

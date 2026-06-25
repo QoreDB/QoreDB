@@ -25,9 +25,6 @@ interface EventContextMenuProps {
   children: React.ReactNode;
 }
 
-/**
- * Right-click context menu wrapper for MySQL scheduled event items.
- */
 export function EventContextMenu({
   event,
   sessionId,

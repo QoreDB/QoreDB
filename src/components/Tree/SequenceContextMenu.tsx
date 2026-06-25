@@ -25,9 +25,6 @@ interface SequenceContextMenuProps {
   children: React.ReactNode;
 }
 
-/**
- * Right-click context menu wrapper for MariaDB sequence items.
- */
 export function SequenceContextMenu({
   sequence,
   sessionId,

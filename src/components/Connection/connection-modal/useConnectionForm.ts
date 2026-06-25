@@ -7,9 +7,6 @@ import type { PartialConnectionConfig, SavedConnection } from '@/lib/tauri';
 import { isConnectionFormValid } from './mappers';
 import { type ConnectionFormData, initialConnectionFormData } from './types';
 
-/**
- * Maps a driver string from URL parsing to the Driver enum
- */
 function mapDriverString(driver: string | undefined): Driver | undefined {
   if (!driver) return undefined;
   const normalized = driver.toLowerCase();

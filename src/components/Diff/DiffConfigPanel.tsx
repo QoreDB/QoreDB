@@ -1,9 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 
 import { AlertTriangle, GitCompare, Key, Loader2, Sparkles, X } from 'lucide-react';
-/**
- * DiffConfigPanel - Configuration panel for key columns and compare action
- */
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
@@ -59,13 +56,11 @@ export function DiffConfigPanel({
   const [loadingPK, setLoadingPK] = useState(false);
   type DescribeTableResponse = Awaited<ReturnType<typeof describeTable>>;
 
-  // Common columns between left and right
   const commonColumns =
     leftColumns && rightColumns
       ? leftColumns.filter(lc => rightColumns.some(rc => rc.name === lc.name))
       : [];
 
-  // Auto-detect primary key
   useEffect(() => {
     if (!autoDetectPK) {
       setDetectedPK([]);
@@ -142,7 +137,6 @@ export function DiffConfigPanel({
 
   return (
     <div className="flex flex-col gap-4 p-4 border border-border rounded-lg bg-muted/30">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Key size={16} className="text-muted-foreground" />
@@ -156,7 +150,6 @@ export function DiffConfigPanel({
         )}
       </div>
 
-      {/* Auto-detect PK option */}
       <div className="flex items-center gap-2">
         <Checkbox
           id="auto-detect-pk"
@@ -189,7 +182,6 @@ export function DiffConfigPanel({
         )}
       </div>
 
-      {/* Column selection */}
       {commonColumns.length > 0 ? (
         <div className="flex flex-wrap gap-2">
           {commonColumns.map(col => {
@@ -231,7 +223,6 @@ export function DiffConfigPanel({
         </div>
       )}
 
-      {/* Compare button */}
       <Button
         onClick={onCompare}
         disabled={!canCompare || comparing}

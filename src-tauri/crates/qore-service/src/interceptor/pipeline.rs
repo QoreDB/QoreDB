@@ -127,8 +127,6 @@ impl InterceptorPipeline {
         self.save_config()
     }
 
-    // ==================== Pre-execution ====================
-
     /// Pre-execution check: validates query against safety rules
     pub fn pre_execute(&self, context: &QueryContext) -> SafetyCheckResult {
         self.safety.check(context)
@@ -215,8 +213,6 @@ impl InterceptorPipeline {
         }
     }
 
-    // ==================== Post-execution ====================
-
     /// Post-execution: record metrics and audit log
     pub fn post_execute(
         &self,
@@ -254,8 +250,6 @@ impl InterceptorPipeline {
 
         self.audit.log(entry);
     }
-
-    // ==================== Audit API ====================
 
     /// Get audit log entries
     #[allow(clippy::too_many_arguments)]
@@ -312,8 +306,6 @@ impl InterceptorPipeline {
             .map_err(|e| format!("Failed to read audit log: {}", e))
     }
 
-    // ==================== Profiling API ====================
-
     /// Get profiling metrics
     pub fn get_profiling_metrics(&self) -> ProfilingMetrics {
         self.profiling.get_metrics()
@@ -338,8 +330,6 @@ impl InterceptorPipeline {
     pub fn export_profiling(&self) -> String {
         self.profiling.export()
     }
-
-    // ==================== Safety API ====================
 
     /// Get all safety rules
     pub fn get_safety_rules(&self) -> Vec<SafetyRule> {

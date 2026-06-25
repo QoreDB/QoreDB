@@ -1,10 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-/**
- * Hook for foreign key peek functionality in DataGrid
- * Manages loading and caching of foreign key relationship previews
- */
-
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -41,9 +36,6 @@ export const MAX_PEEK_ROWS = 3;
 export const MAX_PEEK_COLUMNS = 6;
 const PEEK_QUERY_LIMIT = 6;
 
-/**
- * Serializes a value for use as a cache key
- */
 function serializePeekValue(value: Value): string {
   if (value === null) return 'null';
   if (typeof value === 'object') {
@@ -56,9 +48,6 @@ function serializePeekValue(value: Value): string {
   return String(value);
 }
 
-/**
- * Hook for managing foreign key peek tooltips
- */
 export function useForeignKeyPeek({
   sessionId,
   namespace,
@@ -68,7 +57,6 @@ export function useForeignKeyPeek({
   const [peekCache, setPeekCache] = useState<Map<string, PeekState>>(new Map());
   const peekRequests = useRef(new Set<string>());
 
-  // Build a map of column names to their foreign keys
   const foreignKeyMap = useMemo(() => {
     const map = new Map<string, ForeignKey[]>();
     if (!tableSchema?.foreign_keys?.length) return map;
@@ -81,7 +69,6 @@ export function useForeignKeyPeek({
     return map;
   }, [tableSchema]);
 
-  // Update the peek cache with a new state
   const updatePeekCache = useCallback((key: string, next: PeekState) => {
     setPeekCache(prev => {
       const updated = new Map(prev);
@@ -90,7 +77,6 @@ export function useForeignKeyPeek({
     });
   }, []);
 
-  // Resolve the namespace of a referenced table
   const resolveReferencedNamespace = useCallback(
     (foreignKey: ForeignKey): Namespace | null => {
       if (!namespace) return null;
@@ -101,7 +87,6 @@ export function useForeignKeyPeek({
     [namespace]
   );
 
-  // Get a display label for a foreign key relation
   const getRelationLabel = useCallback((foreignKey: ForeignKey): string => {
     if (foreignKey.referenced_database) {
       return `${foreignKey.referenced_database}.${foreignKey.referenced_table}`;
@@ -112,7 +97,6 @@ export function useForeignKeyPeek({
     return foreignKey.referenced_table;
   }, []);
 
-  // Build a unique cache key for a foreign key peek
   const buildPeekKey = useCallback(
     (foreignKey: ForeignKey, value: Value): string => {
       const nsKey = namespace ? `${namespace.database}:${namespace.schema ?? ''}` : 'unknown';
@@ -122,7 +106,6 @@ export function useForeignKeyPeek({
     [namespace]
   );
 
-  // Load a foreign key peek if not already cached
   const ensurePeekLoaded = useCallback(
     async (foreignKey: ForeignKey, value: Value) => {
       if (!sessionId || !namespace) return;

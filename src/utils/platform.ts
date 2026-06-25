@@ -47,11 +47,6 @@ export const getShortcut = (
     parts.push(options.symbol && isMac ? '⌥' : 'Alt');
   }
 
-  // If using symbols on Mac, we usually just append the key without separator involved for the last part if we want tight packing,
-  // but standard practice varies. Let's keep it simple: separated for text, tight or separated for symbols.
-  // For consistency with existing app style which seems to use "Cmd+T" or "⌘K", let's conform to the requested format.
-  // The existing app uses "Cmd+T" in text and "⌘K" in badges.
-
   if (options.symbol && isMac) {
     // ⌘K, ⌘⇧L
     return parts.join('') + key.toUpperCase();

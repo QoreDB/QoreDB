@@ -1,10 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-/**
- * Foreign key peek tooltip component
- * Displays a preview of related data when hovering over a foreign key cell
- */
-
 import { Link2, Loader2 } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';

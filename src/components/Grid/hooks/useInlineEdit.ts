@@ -1,10 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-/**
- * Hook for inline cell editing functionality in DataGrid
- * Manages editing state, validation, and update operations
- */
-
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -71,9 +66,6 @@ export interface UseInlineEditReturn {
   ) => Promise<void>;
 }
 
-/**
- * Hook for managing inline cell editing in the data grid
- */
 export function useInlineEdit({
   sessionId,
   namespace,
@@ -90,7 +82,6 @@ export function useInlineEdit({
   const { t } = useTranslation();
   const { getEditableValue, parseInputValue, valuesEqual } = useValueParsing();
 
-  // Editing state
   const [editingCell, setEditingCell] = useState<{ rowId: string; columnId: string } | null>(null);
   const [, setEditingValue] = useState('');
   const [, setEditingInitialValue] = useState('');
@@ -116,12 +107,10 @@ export function useInlineEdit({
   const editingInitialValueRef = useRef('');
   const editingOriginalValueRef = useRef<Value | undefined>(undefined);
 
-  // Computed values for edit availability
   const hasInlineEditContext = Boolean(sessionId && namespace && tableName);
   const hasPrimaryKey = Boolean(primaryKey && primaryKey.length > 0);
   const inlineEditAvailable = hasInlineEditContext && hasPrimaryKey;
 
-  // Focus input when editing starts
   useEffect(() => {
     if (!editingCell) return;
     requestAnimationFrame(() => {
@@ -130,7 +119,6 @@ export function useInlineEdit({
     });
   }, [editingCell]);
 
-  // Reset editing state
   const resetEditingState = useCallback(() => {
     setEditingCell(null);
     setEditingRow(null);
@@ -144,7 +132,6 @@ export function useInlineEdit({
     editingOriginalValueRef.current = undefined;
   }, []);
 
-  // Start editing a cell
   const startInlineEdit = useCallback(
     (row: RowData, rowId: string, columnId: string, currentValue: Value) => {
       skipCommitRef.current = false;
@@ -181,7 +168,6 @@ export function useInlineEdit({
     [hasInlineEditContext, hasPrimaryKey, readOnly, mutationsSupported, t, getEditableValue]
   );
 
-  // Perform the actual update operation
   const performInlineUpdate = useCallback(
     async (
       payload: { row: RowData; columnId: string; value: Value; originalValue: Value },
@@ -217,7 +203,6 @@ export function useInlineEdit({
         return;
       }
 
-      // Real update
       if (!sessionId) {
         toast.error(t('grid.updateNoPrimaryKey'));
         return;
@@ -260,7 +245,6 @@ export function useInlineEdit({
     ]
   );
 
-  // Commit the current edit
   const commitInlineEdit = useCallback(async () => {
     if (skipCommitRef.current) {
       skipCommitRef.current = false;
@@ -304,7 +288,6 @@ export function useInlineEdit({
     valuesEqual,
   ]);
 
-  // Cancel the current edit
   const cancelInlineEdit = useCallback(() => {
     skipCommitRef.current = true;
     resetEditingState();

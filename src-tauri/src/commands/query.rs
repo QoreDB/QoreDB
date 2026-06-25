@@ -1408,8 +1408,6 @@ pub async fn drop_database(
     }
 }
 
-// ==================== Creation Options Commands ====================
-
 /// Response wrapper for database creation options
 #[derive(Debug, Serialize)]
 pub struct CreationOptionsResponse {
@@ -1454,8 +1452,6 @@ pub async fn get_creation_options(
         }),
     }
 }
-
-// ==================== Transaction Commands ====================
 
 /// Response wrapper for transaction operations
 #[derive(Debug, Serialize)]

@@ -145,7 +145,6 @@ export function ResultsTable({ result, height = 400 }: ResultsTableProps) {
   );
 }
 
-/** Cell component for ResultsTable that handles binary values with BlobViewer. */
 function ResultsTableCell({
   value,
   dataType,

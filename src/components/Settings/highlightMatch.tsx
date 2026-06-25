@@ -1,8 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-/**
- * Highlight matching text in a string for search results
- */
 export function highlightMatch(text: string, query: string): React.ReactNode {
   if (!query.trim()) return text;
 

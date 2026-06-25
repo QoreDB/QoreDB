@@ -1,12 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-/**
- * ResultsViewer - Universal data display wrapper
- *
- * Routes to the appropriate viewer based on driver capabilities:
- * - DocumentResults for document-based databases (MongoDB, etc.)
- * - DataGrid for relational databases (PostgreSQL, MySQL, etc.)
- */
 import { memo } from 'react';
 import { isDocumentDatabase } from '@/lib/connection/driverCapabilities';
 import type { Driver } from '@/lib/connection/drivers';

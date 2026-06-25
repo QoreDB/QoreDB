@@ -1,20 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 /**
- * Notification Store
+ * Persistent notifications for the Bell panel.
  *
- * Reactive store for managing persistent notifications in the Bell panel.
- * Follows the pattern of sandboxStore.ts for reactive updates.
- *
- * Key distinction from toasts (Sonner):
- * - Notifications persist until dismissed
- * - Grouped by category
- * - Badge only for warnings/errors
+ * Unlike toasts (Sonner): these persist until dismissed, are grouped by
+ * category, and only warnings/errors contribute to the badge.
  */
-
-// ============================================
-// TYPES
-// ============================================
 
 export type NotificationLevel = 'info' | 'warning' | 'error' | 'success';
 export type NotificationCategory = 'system' | 'query' | 'security';
@@ -44,17 +35,9 @@ export interface Notification {
 
 export type NotificationListener = () => void;
 
-// ============================================
-// CONSTANTS
-// ============================================
-
 const STORAGE_KEY = 'qoredb_notifications';
 const MAX_NOTIFICATIONS = 50;
 const RETENTION_MS = 24 * 60 * 60 * 1000; // 24 hours
-
-// ============================================
-// STATE
-// ============================================
 
 let notifications: Notification[] = [];
 const listeners: Set<NotificationListener> = new Set();
@@ -69,10 +52,6 @@ function updateSnapshots(): void {
     n => !n.read && (n.level === 'warning' || n.level === 'error')
   ).length;
 }
-
-// ============================================
-// HELPERS
-// ============================================
 
 function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
@@ -103,38 +82,25 @@ function load(): void {
     if (data) {
       const parsed = JSON.parse(data) as Notification[];
       const cutoff = Date.now() - RETENTION_MS;
-      // Filter out expired notifications
       notifications = parsed.filter(n => n.timestamp > cutoff);
-      // Trim if over max
       if (notifications.length > MAX_NOTIFICATIONS) {
         notifications = notifications.slice(0, MAX_NOTIFICATIONS);
       }
-      persist(); // Save cleaned list
+      persist();
     }
   } catch {
     notifications = [];
   }
-  updateSnapshots(); // Initialize snapshots after load
+  updateSnapshots();
 }
 
-// Initialize on module load
 load();
 
-// ============================================
-// PUBLIC API
-// ============================================
-
-/**
- * Get all notifications, sorted by timestamp (newest first)
- * Returns a stable reference for useSyncExternalStore
- */
+/** Returns a stable reference for useSyncExternalStore. */
 export function getNotifications(): Notification[] {
   return cachedNotifications;
 }
 
-/**
- * Get notifications grouped by category
- */
 export function getNotificationsByCategory(): Record<NotificationCategory, Notification[]> {
   const grouped: Record<NotificationCategory, Notification[]> = {
     system: [],
@@ -149,25 +115,18 @@ export function getNotificationsByCategory(): Record<NotificationCategory, Notif
   return grouped;
 }
 
-/**
- * Get count of unread warnings and errors (for badge)
- * Returns a stable value for useSyncExternalStore
- */
+/** Returns a stable value for useSyncExternalStore. */
 export function getUnreadBadgeCount(): number {
   return cachedBadgeCount;
 }
 
-/**
- * Add a new notification
- */
 export function addNotification(
   input: Omit<Notification, 'id' | 'timestamp' | 'read'>
 ): Notification {
-  // Check for duplicate by dedupeKey
   if (input.dedupeKey) {
     const existing = notifications.find(n => n.dedupeKey === input.dedupeKey);
     if (existing) {
-      // Update timestamp to bring it to top, but don't create duplicate
+      // Bump to top instead of creating a duplicate
       existing.timestamp = Date.now();
       existing.read = false;
       persist();
@@ -183,10 +142,8 @@ export function addNotification(
     read: false,
   };
 
-  // Add to beginning (newest first)
   notifications.unshift(notification);
 
-  // Trim if over max
   if (notifications.length > MAX_NOTIFICATIONS) {
     notifications = notifications.slice(0, MAX_NOTIFICATIONS);
   }
@@ -197,9 +154,6 @@ export function addNotification(
   return notification;
 }
 
-/**
- * Mark a notification as read
- */
 export function markAsRead(id: string): void {
   const notification = notifications.find(n => n.id === id);
   if (notification && !notification.read) {
@@ -209,9 +163,6 @@ export function markAsRead(id: string): void {
   }
 }
 
-/**
- * Mark all notifications as read
- */
 export function markAllAsRead(): void {
   let changed = false;
   for (const n of notifications) {
@@ -226,9 +177,6 @@ export function markAllAsRead(): void {
   }
 }
 
-/**
- * Dismiss (remove) a notification
- */
 export function dismissNotification(id: string): void {
   const index = notifications.findIndex(n => n.id === id);
   if (index !== -1) {
@@ -238,9 +186,7 @@ export function dismissNotification(id: string): void {
   }
 }
 
-/**
- * Resolve notifications by dedupeKey (for auto-resolving notifications)
- */
+/** Removes a notification by dedupeKey, used when its condition clears. */
 export function resolveByKey(dedupeKey: string): void {
   const index = notifications.findIndex(n => n.dedupeKey === dedupeKey);
   if (index !== -1) {
@@ -250,9 +196,6 @@ export function resolveByKey(dedupeKey: string): void {
   }
 }
 
-/**
- * Clear all notifications
- */
 export function clearAllNotifications(): void {
   if (notifications.length > 0) {
     notifications = [];
@@ -261,9 +204,6 @@ export function clearAllNotifications(): void {
   }
 }
 
-/**
- * Subscribe to notification changes
- */
 export function subscribeNotifications(listener: NotificationListener): () => void {
   listeners.add(listener);
   return () => {
@@ -271,29 +211,15 @@ export function subscribeNotifications(listener: NotificationListener): () => vo
   };
 }
 
-// ============================================
-// REACT HOOK
-// ============================================
-
 import { useSyncExternalStore } from 'react';
 
-/**
- * React hook for subscribing to notifications
- */
 export function useNotifications(): Notification[] {
   return useSyncExternalStore(subscribeNotifications, getNotifications, getNotifications);
 }
 
-/**
- * React hook for badge count
- */
 export function useNotificationBadge(): number {
   return useSyncExternalStore(subscribeNotifications, getUnreadBadgeCount, getUnreadBadgeCount);
 }
-
-// ============================================
-// DEV HELPER (removed in production build)
-// ============================================
 
 if (import.meta.env.DEV) {
   (window as unknown as Record<string, unknown>).__addTestNotification = (

@@ -1,18 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 
-/**
- * Cross-Database Federation — Frontend bindings and utilities.
- *
- * Provides type-safe Tauri invocations for federation queries
- * and client-side detection of federation syntax.
- */
-
 import { invoke } from '@/lib/transport';
 import { createStreamChannel, type QueryResult, type QueryStreamHandlers } from '../tauri';
-
-// ============================================
-// TYPES
-// ============================================
 
 export interface FederationSource {
   alias: string;
@@ -52,13 +41,6 @@ export interface FederationQueryOptions {
   streamHandlers?: QueryStreamHandlers;
 }
 
-// ============================================
-// TAURI INVOCATIONS
-// ============================================
-
-/**
- * Executes a cross-database federation query.
- */
 export async function executeFederationQuery(
   query: string,
   aliasMap: Record<string, string>,
@@ -80,16 +62,9 @@ export async function executeFederationQuery(
   });
 }
 
-/**
- * Lists all active connections available as federation sources.
- */
 export async function listFederationSources(): Promise<FederationSource[]> {
   return invoke('list_federation_sources');
 }
-
-// ============================================
-// CLIENT-SIDE DETECTION
-// ============================================
 
 /**
  * Quick regex-based detection of whether a query contains cross-database
@@ -114,16 +89,10 @@ export function isFederationQuery(query: string, knownAliases: Set<string>): boo
   return false;
 }
 
-/**
- * Builds a Set of known aliases from federation sources.
- */
 export function buildAliasSet(sources: FederationSource[]): Set<string> {
   return new Set(sources.map(s => s.alias));
 }
 
-/**
- * Builds the alias -> sessionId map from federation sources.
- */
 export function buildAliasMap(sources: FederationSource[]): Record<string, string> {
   return Object.fromEntries(sources.map(s => [s.alias, s.session_id]));
 }

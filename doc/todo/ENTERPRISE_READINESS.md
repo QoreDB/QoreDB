@@ -4,7 +4,7 @@
 
 ---
 
-## 🧱 Architecture & Trust Model
+## Architecture & Trust Model
 
 | Domaine           | Action                                               | Statut | Notes                 |
 | ----------------- | ---------------------------------------------------- | ------ | --------------------- |
@@ -15,7 +15,7 @@
 
 ---
 
-## 🔐 Secrets & Credentials
+## Secrets & Credentials
 
 | Domaine   | Action                              | Statut | Notes          |
 | --------- | ----------------------------------- | ------ | -------------- |
@@ -26,7 +26,7 @@
 
 ---
 
-## 🏢 Directory Integration (Enterprise AD)
+## Directory Integration (Enterprise AD)
 
 | Domaine              | Action                                      | Statut | Notes                                                                            |
 | -------------------- | ------------------------------------------- | ------ | -------------------------------------------------------------------------------- |
@@ -42,7 +42,7 @@
 
 ---
 
-## 🧯 SQL / Query Safety
+## SQL / Query Safety
 
 | Domaine       | Action                                    | Statut | Notes             |
 | ------------- | ----------------------------------------- | ------ | ----------------- |
@@ -53,7 +53,7 @@
 
 ---
 
-## ⛔ Query Control & Reliability
+## Query Control & Reliability
 
 | Domaine        | Action                            | Statut | Notes             |
 | -------------- | --------------------------------- | ------ | ----------------- |
@@ -64,7 +64,7 @@
 
 ---
 
-## 👁️ Observabilité & Auditabilité
+## Observabilité & Auditabilité
 
 | Domaine     | Action                      | Statut | Notes        |
 | ----------- | --------------------------- | ------ | ------------ |
@@ -75,7 +75,7 @@
 
 ---
 
-## 🧪 Qualité & Supply Chain
+## Qualité & Supply Chain
 
 | Domaine      | Action                         | Statut | Notes              |
 | ------------ | ------------------------------ | ------ | ------------------ |
@@ -86,7 +86,7 @@
 
 ---
 
-## 🧠 IA & Données
+## IA & Données
 
 | Domaine      | Action                          | Statut | Notes                    |
 | ------------ | ------------------------------- | ------ | ------------------------ |
@@ -97,7 +97,7 @@
 
 ---
 
-## 🌍 GDPR / Privacy by Design
+## GDPR / Privacy by Design
 
 | Domaine   | Action                          | Statut | Notes                   |
 | --------- | ------------------------------- | ------ | ----------------------- |
@@ -108,7 +108,7 @@
 
 ---
 
-## 📄 Documentation & Posture Sécurité
+## Documentation & Posture Sécurité
 
 | Document               | Objectif                        | Statut |
 | ---------------------- | ------------------------------- | ------ |
@@ -120,7 +120,7 @@
 
 ---
 
-## 🏁 Release & Distribution
+## Release & Distribution
 
 | Domaine   | Action                   | Statut | Notes             |
 | --------- | ------------------------ | ------ | ----------------- |
@@ -130,7 +130,7 @@
 
 ---
 
-## 🧭 Positionnement Officiel (sans certif)
+## Positionnement Officiel (sans certif)
 
 | Élément                        | Statut |
 | ------------------------------ | ------ |

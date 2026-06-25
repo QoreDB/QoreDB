@@ -1,24 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 
 /**
- * Sandbox Overlay Utilities
- *
- * Functions to apply sandbox changes as an overlay on top of QueryResult data.
- * This provides a view of what the data would look like after applying changes.
+ * Apply sandbox changes as an overlay on top of QueryResult data, providing a
+ * view of what the data would look like after applying changes.
  */
 
 import type { Namespace, QueryResult, Row, RowData, TableSchema, Value } from '../tauri';
 import type { SandboxChange, SandboxDeleteDisplay, SandboxRowMetadata } from './sandboxTypes';
 
-/**
- * Result of applying sandbox overlay
- */
 export interface OverlayResult {
-  /** Modified query result with sandbox changes applied */
   result: QueryResult;
   /** Metadata for each row (keyed by row index in result) */
   rowMetadata: Map<number, SandboxRowMetadata>;
-  /** Statistics about the overlay */
   stats: {
     insertedRows: number;
     modifiedRows: number;
@@ -27,24 +20,15 @@ export interface OverlayResult {
   };
 }
 
-/**
- * Build a key to identify a row by its primary key values
- */
 function buildRowKey(row: Row, primaryKeyIndices: number[]): string {
   return primaryKeyIndices.map(i => JSON.stringify(row.values[i])).join('|');
 }
 
-/**
- * Build a key from a RowData object
- */
 function buildPkKey(pk: RowData | undefined, primaryKey: string[]): string {
   if (!pk?.columns) return '';
   return primaryKey.map(col => JSON.stringify(pk.columns[col])).join('|');
 }
 
-/**
- * Apply sandbox changes as an overlay on QueryResult
- */
 export function applyOverlay(
   result: QueryResult,
   changes: SandboxChange[],
@@ -60,7 +44,6 @@ export function applyOverlay(
   const primaryKey = pkOverride ?? schema?.primary_key ?? [];
   const columnNames = result.columns.map(c => c.name);
 
-  // Filter changes for this table
   const tableChanges = changes.filter(
     c =>
       c.tableName === tableName &&
@@ -68,12 +51,10 @@ export function applyOverlay(
       c.namespace.schema === namespace.schema
   );
 
-  // Separate by type
   const inserts = tableChanges.filter(c => c.type === 'insert');
   const updates = tableChanges.filter(c => c.type === 'update');
   const deletes = tableChanges.filter(c => c.type === 'delete');
 
-  // Build lookup maps
   const primaryKeyIndices = primaryKey.map(col => columnNames.indexOf(col)).filter(i => i >= 0);
   const hasValidPk = primaryKeyIndices.length > 0 && primaryKeyIndices.length === primaryKey.length;
 
@@ -92,7 +73,6 @@ export function applyOverlay(
     }
   }
 
-  // Process existing rows
   const newRows: Row[] = [];
   const rowMetadata = new Map<number, SandboxRowMetadata>();
   let hiddenCount = 0;
@@ -100,11 +80,10 @@ export function applyOverlay(
   for (const row of result.rows) {
     const rowKey = hasValidPk ? buildRowKey(row, primaryKeyIndices) : '';
 
-    // Check if deleted
     if (rowKey && deleteKeys.has(rowKey)) {
       if (deleteDisplay === 'hidden') {
         hiddenCount++;
-        continue; // Skip this row
+        continue;
       }
       // strikethrough: keep the row but mark it
       const metadata: SandboxRowMetadata = {
@@ -120,10 +99,8 @@ export function applyOverlay(
       continue;
     }
 
-    // Check if updated
     const updateChange = rowKey ? updateMap.get(rowKey) : undefined;
     if (updateChange?.newValues) {
-      // Apply updates to the row
       const newValues = [...row.values];
       const modifiedColumns = new Set<string>();
 
@@ -147,21 +124,18 @@ export function applyOverlay(
       continue;
     }
 
-    // Unchanged row
     newRows.push(row);
   }
 
-  // Add inserted rows at the beginning
   for (const insert of inserts) {
     if (!insert.newValues) continue;
 
-    // Build a row from the inserted values
     const values: Value[] = columnNames.map(col => insert.newValues?.[col] ?? null);
 
     // Insert at the beginning for visibility
     newRows.unshift({ values });
 
-    // Adjust all existing metadata indices
+    // Existing rows shifted by one, so bump every metadata index to match.
     const adjustedMetadata = new Map<number, SandboxRowMetadata>();
     for (const [idx, meta] of rowMetadata) {
       adjustedMetadata.set(idx + 1, meta);
@@ -196,9 +170,6 @@ export function applyOverlay(
   };
 }
 
-/**
- * Get metadata for a specific row
- */
 export function getRowMetadata(
   rowIndex: number,
   overlayResult: OverlayResult
@@ -206,9 +177,6 @@ export function getRowMetadata(
   return overlayResult.rowMetadata.get(rowIndex);
 }
 
-/**
- * Check if a cell is modified
- */
 export function isCellModified(
   rowIndex: number,
   columnName: string,
@@ -219,9 +187,7 @@ export function isCellModified(
   return metadata.modifiedColumns.has(columnName);
 }
 
-/**
- * Create empty overlay result for when sandbox is disabled
- */
+/** Empty overlay result for when sandbox is disabled. */
 export function emptyOverlayResult(result: QueryResult): OverlayResult {
   return {
     result,
@@ -235,9 +201,6 @@ export function emptyOverlayResult(result: QueryResult): OverlayResult {
   };
 }
 
-/**
- * Compute a diff summary for display
- */
 export interface ChangeDiff {
   column: string;
   oldValue: Value;

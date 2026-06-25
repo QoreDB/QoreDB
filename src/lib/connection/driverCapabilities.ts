@@ -1,18 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
-/**
- * Driver capability helpers for QoreDB
- *
- * This module provides semantic helper functions for checking driver capabilities,
- * enabling agnostic SQL/NoSQL UI decisions without hardcoding driver checks.
- */
-
 import { type DataModel, type Driver, getDriverMetadata } from './drivers';
 
-/**
- * Fine-grained schema object capabilities by driver.
- * Keep this centralized so all UI surfaces remain consistent.
- */
 export interface DriverSchemaObjectCapabilities {
   routines: boolean;
   functions: boolean;
@@ -145,46 +134,26 @@ const DRIVER_SCHEMA_OBJECT_CAPABILITIES: Record<Driver, DriverSchemaObjectCapabi
   },
 };
 
-/**
- * Check if the driver is document-based (flexible schema, documents as data units)
- * Use this for UI decisions around data display format and terminology
- */
 export function isDocumentDatabase(driver: Driver | string): boolean {
   return getDriverMetadata(driver).isDocumentBased;
 }
 
-/**
- * Check if the driver supports SQL queries
- * Use this for query editor mode, streaming support, EXPLAIN, etc.
- */
 export function isRelationalDatabase(driver: Driver | string): boolean {
   return getDriverMetadata(driver).supportsSQL;
 }
 
-/**
- * Get the data model paradigm for a driver
- */
 export function getDataModel(driver: Driver | string): DataModel {
   return getDriverMetadata(driver).dataModel;
 }
 
-/**
- * Type-safe query dialect derived from driver capabilities
- */
 export type QueryDialect = 'sql' | 'document' | 'search';
 
-/**
- * Get the query dialect for a driver
- */
 export function getQueryDialect(driver: Driver | string): QueryDialect {
   if (getDataModel(driver) === 'search') return 'search';
   return isDocumentDatabase(driver) ? 'document' : 'sql';
 }
 
-/**
- * Terminology mappings for driver-agnostic UI labels
- * These map to i18n keys for proper translation
- */
+/** Driver-agnostic UI labels. Values are i18n keys, not literal strings. */
 export interface DriverTerminology {
   /** Label for a single data record: 'row' vs 'document' */
   rowLabel: string;
@@ -200,9 +169,6 @@ export interface DriverTerminology {
   updateAction: string;
 }
 
-/**
- * Get terminology labels for a driver (returns i18n keys)
- */
 export function getTerminology(driver: Driver | string): DriverTerminology {
   const isDocument = isDocumentDatabase(driver);
   return {
@@ -215,9 +181,6 @@ export function getTerminology(driver: Driver | string): DriverTerminology {
   };
 }
 
-/**
- * Get supported schema objects for a driver.
- */
 export function getSchemaObjectCapabilities(
   driver: Driver | string
 ): DriverSchemaObjectCapabilities {

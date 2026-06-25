@@ -1,10 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-/**
- * Session Store
- *
- * Persists the current session state for restoring on app restart.
- */
+// Persists session state to localStorage so it can be restored on app restart.
 
 export interface SavedSession {
   sessionId: string;
@@ -21,9 +17,6 @@ export interface AppSession {
 
 const STORAGE_KEY = 'qoredb_session_state';
 
-/**
- * Get saved session state
- */
 export function getSessionState(): AppSession {
   try {
     const data = localStorage.getItem(STORAGE_KEY);
@@ -34,16 +27,10 @@ export function getSessionState(): AppSession {
   }
 }
 
-/**
- * Save session state
- */
 export function saveSessionState(state: AppSession): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
-/**
- * Add or update a session
- */
 export function saveSession(session: SavedSession): void {
   const state = getSessionState();
 
@@ -57,9 +44,6 @@ export function saveSession(session: SavedSession): void {
   saveSessionState(state);
 }
 
-/**
- * Remove a session
- */
 export function removeSession(sessionId: string): void {
   const state = getSessionState();
   state.sessions = state.sessions.filter(s => s.sessionId !== sessionId);
@@ -69,18 +53,12 @@ export function removeSession(sessionId: string): void {
   saveSessionState(state);
 }
 
-/**
- * Set the active session
- */
 export function setActiveSession(sessionId: string | null): void {
   const state = getSessionState();
   state.activeSessionId = sessionId;
   saveSessionState(state);
 }
 
-/**
- * Update session query
- */
 export function updateSessionQuery(sessionId: string, query: string): void {
   const state = getSessionState();
   const session = state.sessions.find(s => s.sessionId === sessionId);
@@ -91,9 +69,6 @@ export function updateSessionQuery(sessionId: string, query: string): void {
   }
 }
 
-/**
- * Clear all sessions
- */
 export function clearSessions(): void {
   localStorage.removeItem(STORAGE_KEY);
 }

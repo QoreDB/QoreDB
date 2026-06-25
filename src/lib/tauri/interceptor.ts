@@ -1,17 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
-/**
- * Interceptor Tauri API
- *
- * TypeScript bindings for the Rust Universal Query Interceptor.
- * All data is stored and processed in the backend for maximum security.
- */
+// TypeScript bindings for the Rust Universal Query Interceptor. All data is
+// stored and processed in the backend.
 
 import { invoke } from '@/lib/transport';
-
-// ============================================
-// TYPES
-// ============================================
 
 export type Environment = 'development' | 'staging' | 'production';
 
@@ -160,10 +152,6 @@ export interface AuditFilter {
   blocked?: boolean;
 }
 
-// ============================================
-// RESPONSE TYPES
-// ============================================
-
 interface InterceptorConfigResponse {
   success: boolean;
   config?: InterceptorConfig;
@@ -211,13 +199,6 @@ interface ExportResponse {
   error?: string;
 }
 
-// ============================================
-// CONFIGURATION API
-// ============================================
-
-/**
- * Get the current interceptor configuration
- */
 export async function getInterceptorConfig(): Promise<InterceptorConfig> {
   const result = await invoke<InterceptorConfigResponse>('get_interceptor_config');
   if (!result.success || !result.config) {
@@ -226,9 +207,6 @@ export async function getInterceptorConfig(): Promise<InterceptorConfig> {
   return result.config;
 }
 
-/**
- * Update the interceptor configuration
- */
 export async function updateInterceptorConfig(
   config: InterceptorConfig
 ): Promise<InterceptorConfig> {
@@ -239,13 +217,6 @@ export async function updateInterceptorConfig(
   return result.config;
 }
 
-// ============================================
-// AUDIT LOG API
-// ============================================
-
-/**
- * Get audit log entries with optional filtering
- */
 export async function getAuditEntries(filter: AuditFilter = {}): Promise<AuditLogEntry[]> {
   const result = await invoke<AuditEntriesResponse>('get_audit_entries', { filter });
   if (!result.success) {
@@ -254,9 +225,6 @@ export async function getAuditEntries(filter: AuditFilter = {}): Promise<AuditLo
   return result.entries;
 }
 
-/**
- * Get audit log statistics
- */
 export async function getAuditStats(): Promise<AuditStats> {
   const result = await invoke<AuditStatsResponse>('get_audit_stats');
   if (!result.success || !result.stats) {
@@ -303,13 +271,6 @@ export async function exportAuditLog(
   return result.data;
 }
 
-// ============================================
-// PROFILING API
-// ============================================
-
-/**
- * Get current profiling metrics
- */
 export async function getProfilingMetrics(): Promise<ProfilingMetrics> {
   const result = await invoke<ProfilingMetricsResponse>('get_profiling_metrics');
   if (!result.success || !result.metrics) {
@@ -318,9 +279,6 @@ export async function getProfilingMetrics(): Promise<ProfilingMetrics> {
   return result.metrics;
 }
 
-/**
- * Get slow query entries
- */
 export async function getSlowQueries(limit = 50, offset = 0): Promise<SlowQueryEntry[]> {
   const result = await invoke<SlowQueriesResponse>('get_slow_queries', { limit, offset });
   if (!result.success) {
@@ -329,9 +287,6 @@ export async function getSlowQueries(limit = 50, offset = 0): Promise<SlowQueryE
   return result.queries;
 }
 
-/**
- * Clear slow query entries
- */
 export async function clearSlowQueries(): Promise<void> {
   const result = await invoke<GenericResponse>('clear_slow_queries');
   if (!result.success) {
@@ -339,9 +294,6 @@ export async function clearSlowQueries(): Promise<void> {
   }
 }
 
-/**
- * Reset all profiling metrics
- */
 export async function resetProfilingMetrics(): Promise<void> {
   const result = await invoke<GenericResponse>('reset_profiling');
   if (!result.success) {
@@ -349,9 +301,6 @@ export async function resetProfilingMetrics(): Promise<void> {
   }
 }
 
-/**
- * Export profiling data as JSON string
- */
 export async function exportProfilingData(): Promise<string> {
   const result = await invoke<ExportResponse>('export_profiling');
   if (!result.success || !result.data) {
@@ -360,13 +309,6 @@ export async function exportProfilingData(): Promise<string> {
   return result.data;
 }
 
-// ============================================
-// SAFETY RULES API
-// ============================================
-
-/**
- * Get all safety rules (built-in + custom)
- */
 export async function getSafetyRules(): Promise<SafetyRule[]> {
   const result = await invoke<SafetyRulesResponse>('get_safety_rules');
   if (!result.success) {
@@ -375,9 +317,6 @@ export async function getSafetyRules(): Promise<SafetyRule[]> {
   return result.rules;
 }
 
-/**
- * Add a custom safety rule
- */
 export async function addSafetyRule(rule: SafetyRule): Promise<SafetyRule[]> {
   const result = await invoke<SafetyRulesResponse>('add_safety_rule', { rule });
   if (!result.success) {
@@ -386,9 +325,6 @@ export async function addSafetyRule(rule: SafetyRule): Promise<SafetyRule[]> {
   return result.rules;
 }
 
-/**
- * Update an existing safety rule
- */
 export async function updateSafetyRule(rule: SafetyRule): Promise<SafetyRule[]> {
   const result = await invoke<SafetyRulesResponse>('update_safety_rule', { rule });
   if (!result.success) {
@@ -397,9 +333,6 @@ export async function updateSafetyRule(rule: SafetyRule): Promise<SafetyRule[]> 
   return result.rules;
 }
 
-/**
- * Remove a custom safety rule
- */
 export async function removeSafetyRule(ruleId: string): Promise<SafetyRule[]> {
   const result = await invoke<SafetyRulesResponse>('remove_safety_rule', { ruleId });
   if (!result.success) {
@@ -408,13 +341,6 @@ export async function removeSafetyRule(ruleId: string): Promise<SafetyRule[]> {
   return result.rules;
 }
 
-// ============================================
-// UTILITY FUNCTIONS
-// ============================================
-
-/**
- * Format execution time for display
- */
 export function formatExecutionTime(ms: number): string {
   if (ms < 1) {
     return `${(ms * 1000).toFixed(0)}µs`;
@@ -425,9 +351,6 @@ export function formatExecutionTime(ms: number): string {
   }
 }
 
-/**
- * Get performance class based on execution time
- */
 export function getPerformanceClass(ms: number): 'fast' | 'normal' | 'slow' | 'critical' {
   if (ms < 100) return 'fast';
   if (ms < 500) return 'normal';
@@ -435,9 +358,6 @@ export function getPerformanceClass(ms: number): 'fast' | 'normal' | 'slow' | 'c
   return 'critical';
 }
 
-/**
- * Get color for performance class
- */
 export function getPerformanceColor(perfClass: 'fast' | 'normal' | 'slow' | 'critical'): string {
   switch (perfClass) {
     case 'fast':
@@ -451,26 +371,16 @@ export function getPerformanceColor(perfClass: 'fast' | 'normal' | 'slow' | 'cri
   }
 }
 
-// ============================================
-// QUERY GOVERNANCE API
-// ============================================
-
 export interface GovernanceLimits {
   max_query_duration_ms: number | null;
   max_result_rows: number | null;
   max_concurrent_queries: number | null;
 }
 
-/**
- * Get the current query governance limits
- */
 export async function getGovernanceLimits(): Promise<GovernanceLimits> {
   return await invoke<GovernanceLimits>('get_governance_limits');
 }
 
-/**
- * Update query governance limits
- */
 export async function updateGovernanceLimits(limits: GovernanceLimits): Promise<GovernanceLimits> {
   return await invoke<GovernanceLimits>('update_governance_limits', { limits });
 }

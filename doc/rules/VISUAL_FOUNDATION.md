@@ -1,18 +1,9 @@
-# **QoreDB — Visual Foundation v1**
+# QoreDB — Visual Foundation v1
 
-## 🎯 Objectif
+Objectif : une UI aussi lisible et dense que GitHub, aussi élégante que Stripe,
+pensée pour des outils data.
 
-Créer une UI qui est :
-
-- aussi lisible et dense que GitHub
-- aussi élégante et moderne que Stripe Sessions
-- mais pensée pour des **outils data**
-
----
-
-# 1️⃣ Palette de base
-
-### Base (neutres)
+## Palette de base (neutres)
 
 | Token        | Light     | Dark      | Usage           |
 | ------------ | --------- | --------- | --------------- |
@@ -24,11 +15,9 @@ Créer une UI qui est :
 | `--q-text-1` | `#5B6070` | `#9AA0AE` | Labels          |
 | `--q-text-2` | `#8A90A0` | `#6B7280` | Metadata        |
 
----
+## Accent
 
-# 2️⃣ Accent (Stripe-inspired)
-
-Un seul accent principal. Pas d’arc-en-ciel.
+Un seul accent principal, pas d'arc-en-ciel.
 
 | Token               | Light     | Dark                     | Usage                 |
 | ------------------- | --------- | ------------------------ | --------------------- |
@@ -36,9 +25,7 @@ Un seul accent principal. Pas d’arc-en-ciel.
 | `--q-accent-soft`   | `#E7E5FF` | `rgba(122,108,255,0.15)` | Surbrillance          |
 | `--q-accent-strong` | `#5847FF` | `#9A8CFF`                | Boutons               |
 
----
-
-# 3️⃣ États sémantiques
+## États sémantiques
 
 | Type    | Light     | Dark      | Usage       |
 | ------- | --------- | --------- | ----------- |
@@ -47,27 +34,14 @@ Un seul accent principal. Pas d’arc-en-ciel.
 | Error   | `#DC2626` | `#F87171` | Danger      |
 | Info    | `#3B82F6` | `#60A5FA` | Information |
 
-Ces couleurs **ne sont jamais décoratives**.
+Ces couleurs ne sont jamais décoratives.
 
----
-
-# 4️⃣ Typographie
-
-### UI
+## Typographie
 
 ```
 --q-font-ui: Inter, system-ui, -apple-system, Segoe UI, sans-serif;
-```
-
-### Code
-
-```
 --q-font-code: JetBrains Mono, Fira Code, monospace;
 ```
-
----
-
-## Échelle
 
 | Token         | Size | Usage         |
 | ------------- | ---- | ------------- |
@@ -80,14 +54,11 @@ Ces couleurs **ne sont jamais décoratives**.
 | `--q-h2`      | 32px | Page          |
 | `--q-h1`      | 40px | Hero          |
 
-Stripe influence = **fort contraste titres / corps**
-Primer influence = **lisibilité et rigueur**
+Fort contraste titres / corps, lisibilité et rigueur avant tout.
 
----
+## Spacing
 
-# 5️⃣ Spacing
-
-Base 4px.
+Base 4px, UI dense mais respirable.
 
 ```
 --q-1: 4px
@@ -100,11 +71,7 @@ Base 4px.
 --q-16: 64px
 ```
 
-UI dense mais respirable.
-
----
-
-# 6️⃣ Radius
+## Radius
 
 | Token      | Value | Usage   |
 | ---------- | ----- | ------- |
@@ -113,14 +80,11 @@ UI dense mais respirable.
 | `--q-r-lg` | 10px  | Cards   |
 | `--q-r-xl` | 16px  | Panels  |
 
-Pas de “pills” partout.
-Tout doit rester sérieux.
+Pas de « pills » partout : tout doit rester sérieux.
 
----
+## Shadows
 
-# 7️⃣ Shadows
-
-Subtiles, comme Stripe.
+Subtiles.
 
 ```
 --q-shadow-sm: 0 1px 2px rgba(0,0,0,0.04)
@@ -128,32 +92,7 @@ Subtiles, comme Stripe.
 --q-shadow-focus: 0 0 0 3px rgba(122,108,255,0.35)
 ```
 
----
+## Règles d'usage
 
-# 8️⃣ Comment tu dois t’en servir
-
-Quand tu codes QoreDB :
-
-- aucun `#fff`, `#000`, `16px`, `border-radius: 8px`
-- uniquement des tokens Qore
-- UI = neutre
-- Data = contrastée
-- Accent = rare et précis
-
----
-
-# 9️⃣ Ce que tu as maintenant
-
-Tu as :
-
-- une identité visuelle
-- une palette
-- une typographie
-- une grammaire
-
-Sans Figma.
-Sans bullshit.
-
-Tu peux maintenant faire une UI qui :
-
-> ressemble à un produit qui pourrait exister en 2026.
+- Aucune valeur en dur (`#fff`, `#000`, `16px`, `border-radius: 8px`) : uniquement des tokens Qore.
+- UI neutre, data contrastée, accent rare et précis.

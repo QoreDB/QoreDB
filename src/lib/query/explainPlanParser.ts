@@ -49,14 +49,10 @@ const KNOWN_PG_KEYS = new Set([
   'Plans',
 ]);
 
-/** Helper to read a key from a Record and cast it. */
 function get<T>(obj: Record<string, unknown>, key: string): T | undefined {
   return obj[key] as T | undefined;
 }
 
-/**
- * Extract the raw plan value from a QueryResult.
- */
 function extractPlanData(result: QueryResult): { json: unknown } | { text: string } | null {
   if (!result.rows.length) return null;
 
@@ -80,9 +76,6 @@ function extractPlanData(result: QueryResult): { json: unknown } | { text: strin
   return null;
 }
 
-/**
- * Parse a PostgreSQL JSON EXPLAIN plan node.
- */
 function parsePgNode(raw: Record<string, unknown>): PlanNode {
   const extra: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(raw)) {
@@ -114,9 +107,6 @@ function parsePgNode(raw: Record<string, unknown>): PlanNode {
   };
 }
 
-/**
- * Parse MySQL JSON EXPLAIN format.
- */
 function parseMysqlNode(raw: Record<string, unknown>, label?: string): PlanNode {
   const children: PlanNode[] = [];
   const extra: Record<string, unknown> = {};
@@ -209,9 +199,6 @@ function parseMysqlTable(raw: Record<string, unknown>): PlanNode {
   };
 }
 
-/**
- * Parse a QueryResult into a plan tree, or return the raw text.
- */
 export function parseExplainPlan(
   result: QueryResult
 ): { type: 'tree'; root: PlanNode; rootCost: number } | { type: 'text'; text: string } | null {
@@ -259,9 +246,6 @@ function computeMaxCost(node: PlanNode): number {
   return max;
 }
 
-/**
- * Get a text color class representing node cost relative to max.
- */
 export function getCostColor(cost: number | undefined, maxCost: number): string {
   if (cost === undefined || maxCost <= 0) return 'text-muted-foreground';
   const ratio = cost / maxCost;
@@ -272,9 +256,6 @@ export function getCostColor(cost: number | undefined, maxCost: number): string 
   return 'text-red-500';
 }
 
-/**
- * Get a background color class for the cost bar.
- */
 export function getCostBarColor(cost: number | undefined, maxCost: number): string {
   if (cost === undefined || maxCost <= 0) return 'bg-muted';
   const ratio = cost / maxCost;
@@ -285,9 +266,6 @@ export function getCostBarColor(cost: number | undefined, maxCost: number): stri
   return 'bg-red-500/25';
 }
 
-/**
- * Get the cost bar width percentage.
- */
 export function getCostBarWidth(cost: number | undefined, maxCost: number): number {
   if (cost === undefined || maxCost <= 0) return 0;
   return Math.max(2, Math.round((cost / maxCost) * 100));

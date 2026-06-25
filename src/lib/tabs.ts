@@ -1,10 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-/**
- * Tab system types for QoreDB
- * Defines the structure of open tabs for multi-table navigation
- */
-
 import type { Namespace, QueryResult, RelationFilter, SearchFilter } from './tauri';
 
 export type TabType =
@@ -56,12 +51,10 @@ export interface OpenTab {
   timeTravelTableName?: string;
 }
 
-/** Generate unique tab ID */
 export function generateTabId(): string {
   return `tab-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-/** Create a table tab */
 export function createTableTab(
   namespace: Namespace,
   tableName: string,
@@ -79,7 +72,6 @@ export function createTableTab(
   };
 }
 
-/** Create a database overview tab */
 export function createDatabaseTab(namespace: Namespace): OpenTab {
   const title = namespace.schema ? `${namespace.database}.${namespace.schema}` : namespace.database;
   return {
@@ -90,7 +82,6 @@ export function createDatabaseTab(namespace: Namespace): OpenTab {
   };
 }
 
-/** Create a query tab */
 export function createQueryTab(initialQuery?: string, namespace?: Namespace): OpenTab {
   return {
     id: generateTabId(),
@@ -101,7 +92,6 @@ export function createQueryTab(initialQuery?: string, namespace?: Namespace): Op
   };
 }
 
-/** Create a diff tab for comparing two data sources */
 export function createDiffTab(
   leftSource?: DiffSource,
   rightSource?: DiffSource,
@@ -118,7 +108,6 @@ export function createDiffTab(
   };
 }
 
-/** Create a federation workspace tab */
 export function createFederationTab(initialQuery?: string): OpenTab {
   return {
     id: generateTabId(),
@@ -128,7 +117,6 @@ export function createFederationTab(initialQuery?: string): OpenTab {
   };
 }
 
-/** Create a snapshots manager tab */
 export function createSnapshotsTab(): OpenTab {
   return {
     id: generateTabId(),
@@ -137,7 +125,6 @@ export function createSnapshotsTab(): OpenTab {
   };
 }
 
-/** Create a notebook tab */
 export function createNotebookTab(title?: string, path?: string, initialQuery?: string): OpenTab {
   return {
     id: generateTabId(),
@@ -159,7 +146,6 @@ export function createPluginOutputTab(title: string): OpenTab {
   };
 }
 
-/** Create a time-travel tab for viewing mutation history of a table */
 export function createTimeTravelTab(namespace: Namespace, tableName: string): OpenTab {
   return {
     id: generateTabId(),

@@ -1,8 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
 
-/**
- * Data diff utilities for comparing query results
- */
 import type { ColumnInfo, QueryResult, Row, Value } from './tauri';
 
 export type DiffRowStatus = 'unchanged' | 'added' | 'removed' | 'modified';
@@ -33,9 +30,6 @@ export interface DiffStats {
   total: number;
 }
 
-/**
- * Generate a unique key for a row based on specified key columns or all columns
- */
 function generateRowKey(row: Row, keyColumnIndexes: number[], fallbackIndex?: number): string {
   const validIndexes = keyColumnIndexes.filter(idx => idx >= 0);
   if (validIndexes.length === 0) {
@@ -48,9 +42,6 @@ function generateRowKey(row: Row, keyColumnIndexes: number[], fallbackIndex?: nu
   return validIndexes.map(idx => JSON.stringify(row.values[idx])).join('|');
 }
 
-/**
- * Compare two values for equality
- */
 function valuesEqual(a: Value, b: Value): boolean {
   if (a === b) return true;
   if (a === null || b === null) return false;
@@ -60,17 +51,11 @@ function valuesEqual(a: Value, b: Value): boolean {
   return false;
 }
 
-/**
- * Find common columns between two results
- */
 export function findCommonColumns(left: QueryResult, right: QueryResult): ColumnInfo[] {
   const leftColNames = new Set(left.columns.map(c => c.name));
   return right.columns.filter(c => leftColNames.has(c.name));
 }
 
-/**
- * Get column indexes for a list of column names
- */
 function getColumnIndexes(result: QueryResult, columnNames: string[]): number[] {
   return columnNames.map(name => result.columns.findIndex(c => c.name === name));
 }
@@ -86,12 +71,10 @@ export function compareResults(
   right: QueryResult,
   keyColumns?: string[]
 ): DiffResult {
-  // Determine common columns to compare
   const commonColumns = findCommonColumns(left, right);
   const hasCommonColumns = commonColumns.length > 0;
   const outputColumns = hasCommonColumns ? commonColumns : left.columns;
 
-  // Get column names for comparison
   const compareColumnNames = outputColumns.map(c => c.name);
   const leftIndexes = hasCommonColumns
     ? getColumnIndexes(left, compareColumnNames)
@@ -100,7 +83,6 @@ export function compareResults(
     ? getColumnIndexes(right, compareColumnNames)
     : outputColumns.map((_, index) => (index < right.columns.length ? index : -1));
 
-  // Determine key columns for row matching
   let leftKeyIndexes: number[];
   let rightKeyIndexes: number[];
 
@@ -113,7 +95,6 @@ export function compareResults(
     rightKeyIndexes = rightIndexes;
   }
 
-  // Build maps of rows by key
   const leftRowMap = new Map<string, { row: Row; index: number }>();
   const rightRowMap = new Map<string, { row: Row; index: number }>();
 
@@ -138,7 +119,6 @@ export function compareResults(
     total: 0,
   };
 
-  // Process left rows
   for (const [key, { row: leftRow }] of leftRowMap) {
     const rightEntry = rightRowMap.get(key);
 
@@ -161,7 +141,6 @@ export function compareResults(
       });
       stats.removed++;
     } else {
-      // Row in both - compare values
       processedRightKeys.add(key);
       const rightRow = rightEntry.row;
 
@@ -199,7 +178,7 @@ export function compareResults(
     }
   }
 
-  // Process right rows not in left = added
+  // Right rows not matched against left = added
   for (const [key, { row: rightRow }] of rightRowMap) {
     if (processedRightKeys.has(key)) continue;
 
@@ -240,26 +219,18 @@ export function compareResults(
   };
 }
 
-/**
- * Format a value for display in the diff view
- */
 export function formatDiffValue(value: Value): string {
   if (value === null) return 'NULL';
   if (typeof value === 'object') return JSON.stringify(value);
   return String(value);
 }
 
-/**
- * Export diff results as CSV
- */
 export function exportDiffAsCSV(diffResult: DiffResult): string {
   const { columns, rows } = diffResult;
 
-  // Header row
   const header = ['_status', ...columns.map(c => c.name)];
   const lines: string[] = [header.map(escapeCSV).join(',')];
 
-  // Data rows
   for (const row of rows) {
     const cells =
       row.status === 'removed'
@@ -281,9 +252,6 @@ export function exportDiffAsCSV(diffResult: DiffResult): string {
   return lines.join('\n');
 }
 
-/**
- * Escape a value for CSV
- */
 function escapeCSV(value: string): string {
   if (value.includes(',') || value.includes('"') || value.includes('\n')) {
     return `"${value.replace(/"/g, '""')}"`;
@@ -291,9 +259,6 @@ function escapeCSV(value: string): string {
   return value;
 }
 
-/**
- * Export diff results as JSON
- */
 export function exportDiffAsJSON(diffResult: DiffResult): string {
   const { columns, rows, stats } = diffResult;
 

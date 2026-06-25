@@ -1,8 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-/**
- * License types and Tauri bindings for the Open Core licensing system.
- */
 import { invoke } from '@/lib/transport';
 
 export type LicenseTier = 'core' | 'pro' | 'team' | 'enterprise';
@@ -62,17 +59,14 @@ const FEATURE_REQUIRED_TIER: Record<ProFeature, LicenseTier> = {
   data_generator: 'pro',
 };
 
-/** Returns true if `current` tier includes features of `required` tier. */
 export function tierIncludes(current: LicenseTier, required: LicenseTier): boolean {
   return TIER_LEVELS[current] >= TIER_LEVELS[required];
 }
 
-/** Returns the minimum tier needed for a given feature. */
 export function featureRequiredTier(feature: ProFeature): LicenseTier {
   return FEATURE_REQUIRED_TIER[feature];
 }
 
-/** Checks whether a feature is enabled for the given tier. */
 export function isFeatureEnabled(tier: LicenseTier, feature: ProFeature): boolean {
   return tierIncludes(tier, featureRequiredTier(feature));
 }
@@ -114,7 +108,6 @@ export async function refreshLicense(): Promise<LicenseStatus> {
   return invoke('refresh_license');
 }
 
-/** Returns a Stripe billing portal URL for the active license's email. */
 export async function getBillingPortalUrl(): Promise<string> {
   return invoke('get_billing_portal_url');
 }

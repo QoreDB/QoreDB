@@ -2145,6 +2145,15 @@
     "refresh": "Rafraîchir la licence",
     "manageBilling": "Gérer la facturation",
     "expiredBanner": "Votre licence a expiré — l'accès est repassé en version gratuite. Cliquez sur Rafraîchir pour la restaurer.",
+    "errors": {
+      "invalidKey": "Clé de licence invalide. Vérifiez que vous l'avez copiée en entier.",
+      "expired": "Cette licence a expiré.",
+      "unsupportedTier": "Cette clé ne correspond à aucune offre payante.",
+      "storage": "Impossible d'enregistrer la licence sur cet appareil.",
+      "noSubscription": "Aucun abonnement actif trouvé pour cette adresse e-mail.",
+      "network": "Impossible de joindre le serveur. Réessayez plus tard.",
+      "generic": "Une erreur est survenue. Réessayez."
+    },
     "getPro": "Obtenir QoreDB Pro",
     "upgrade": {
       "description": "Cette fonctionnalité nécessite une licence Pro.",

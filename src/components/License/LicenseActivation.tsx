@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { DangerConfirmDialog } from '@/components/Guard/DangerConfirmDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { licenseErrorKey } from '@/lib/license';
 import { openExternal } from '@/lib/transport';
 import { useLicense } from '@/providers/LicenseProvider';
 import { LicenseBadge } from './LicenseBadge';
@@ -42,7 +43,7 @@ export function LicenseActivation() {
       await activate(key.trim());
       setKey('');
     } catch (e) {
-      setError(String(e));
+      setError(t(licenseErrorKey(e)));
     } finally {
       setLoading(false);
     }
@@ -55,7 +56,7 @@ export function LicenseActivation() {
       await deactivate();
       setShowDeactivateConfirm(false);
     } catch (e) {
-      setError(String(e));
+      setError(t(licenseErrorKey(e)));
     } finally {
       setLoading(false);
     }
@@ -67,7 +68,7 @@ export function LicenseActivation() {
     try {
       await refresh();
     } catch (e) {
-      setError(String(e));
+      setError(t(licenseErrorKey(e)));
     } finally {
       setBusy(null);
     }
@@ -79,7 +80,7 @@ export function LicenseActivation() {
     try {
       await openBillingPortal();
     } catch (e) {
-      setError(String(e));
+      setError(t(licenseErrorKey(e)));
     } finally {
       setBusy(null);
     }

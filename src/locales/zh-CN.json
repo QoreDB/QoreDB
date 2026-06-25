@@ -2117,6 +2117,15 @@
     "refresh": "刷新许可证",
     "manageBilling": "管理账单",
     "expiredBanner": "您的许可证已过期——访问权限已恢复为免费版。点击刷新以恢复。",
+    "errors": {
+      "invalidKey": "许可证密钥无效。请确认已完整复制。",
+      "expired": "此许可证已过期。",
+      "unsupportedTier": "此密钥不对应任何付费方案。",
+      "storage": "无法在此设备上保存许可证。",
+      "noSubscription": "未找到此邮箱的有效订阅。",
+      "network": "无法连接到服务器。请稍后重试。",
+      "generic": "出现错误。请重试。"
+    },
     "getPro": "获取 QoreDB Pro",
     "upgrade": {
       "description": "此功能需要 Pro 许可证。",

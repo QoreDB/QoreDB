@@ -2117,6 +2117,15 @@
     "refresh": "Lizenz aktualisieren",
     "manageBilling": "Abrechnung verwalten",
     "expiredBanner": "Ihre Lizenz ist abgelaufen — der Zugriff wurde auf die kostenlose Version zurückgesetzt. Klicken Sie auf Aktualisieren, um sie wiederherzustellen.",
+    "errors": {
+      "invalidKey": "Ungültiger Lizenzschlüssel. Stellen Sie sicher, dass Sie ihn vollständig kopiert haben.",
+      "expired": "Diese Lizenz ist abgelaufen.",
+      "unsupportedTier": "Dieser Schlüssel entspricht keinem kostenpflichtigen Tarif.",
+      "storage": "Die Lizenz konnte auf diesem Gerät nicht gespeichert werden.",
+      "noSubscription": "Kein aktives Abonnement für diese E-Mail-Adresse gefunden.",
+      "network": "Server nicht erreichbar. Bitte versuchen Sie es später erneut.",
+      "generic": "Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut."
+    },
     "getPro": "QoreDB Pro erwerben",
     "upgrade": {
       "description": "Diese Funktion erfordert eine Pro-Lizenz.",

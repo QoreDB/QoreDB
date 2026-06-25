@@ -2145,6 +2145,15 @@
     "refresh": "Refresh license",
     "manageBilling": "Manage billing",
     "expiredBanner": "Your license has expired — your access reverted to Free. Click refresh to restore it.",
+    "errors": {
+      "invalidKey": "Invalid license key. Make sure you copied it in full.",
+      "expired": "This license has expired.",
+      "unsupportedTier": "This key doesn't match a paid plan.",
+      "storage": "Couldn't save the license on this device.",
+      "noSubscription": "No active subscription found for this email.",
+      "network": "Couldn't reach the server. Please try again later.",
+      "generic": "Something went wrong. Please try again."
+    },
     "getPro": "Get QoreDB Pro",
     "upgrade": {
       "description": "This feature requires a Pro license.",

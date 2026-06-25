@@ -6,10 +6,6 @@ import { invoke, isWeb, webExecuteQuery } from '@/lib/transport';
 import type { ForeignKey } from './schema-browse';
 import type { CollectionList, ColumnInfo, Namespace, QueryResult, Row, Value } from './types';
 
-// ============================================
-// QUERY COMMANDS
-// ============================================
-
 /**
  * Handlers for streaming query events. When provided to `executeQuery` with
  * `stream: true`, the wrapper creates a Tauri Channel, receives MessagePack-
@@ -125,10 +121,6 @@ export async function listCollections(
   return invoke('list_collections', { sessionId, namespace, search, page, page_size });
 }
 
-// ============================================
-// PAGINATION TYPES AND QUERY
-// ============================================
-
 export type SortDirection = 'asc' | 'desc';
 
 export type FilterOperator =
@@ -191,10 +183,6 @@ export async function queryTable(
 }> {
   return invoke('query_table', { sessionId, namespace, table, options, bypassCache });
 }
-
-// ============================================
-// QUERY RESULT CACHE
-// ============================================
 
 export interface CacheConfig {
   enabled: boolean;

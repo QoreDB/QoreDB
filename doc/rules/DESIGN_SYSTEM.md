@@ -1,4 +1,4 @@
-# **QoreDB — Design & Product DNA**
+# QoreDB — Design & Product DNA
 
 > This document defines the **visual, UX and product direction** of QoreDB.
 > It is the source of truth for all UI, UX and product decisions.
@@ -30,7 +30,7 @@ Not enterprise-bloated.
 
 QoreDB UI is based on two references:
 
-### 🧱 GitHub Primer — Structure
+### GitHub Primer — Structure
 
 We take from Primer:
 
@@ -44,7 +44,7 @@ Primer defines **how things work**.
 
 ---
 
-### 🎨 Stripe Sessions — Visual language
+### Stripe Sessions — Visual language
 
 We take from Stripe Sessions:
 

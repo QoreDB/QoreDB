@@ -1,11 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-/**
- * Error Log Store
- *
- * Captures and persists error logs for debugging purposes.
- */
-
 import { redactText } from '../redaction';
 import { shouldStoreErrorLogs } from './diagnosticsSettings';
 
@@ -29,9 +23,6 @@ function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
-/**
- * Get all error logs
- */
 export function getErrorLogs(): ErrorLogEntry[] {
   if (!shouldStoreErrorLogs()) {
     return inMemoryLogs;
@@ -45,9 +36,6 @@ export function getErrorLogs(): ErrorLogEntry[] {
   }
 }
 
-/**
- * Add a new error log entry
- */
 export function logError(
   source: string,
   message: string,
@@ -67,10 +55,8 @@ export function logError(
     sessionId,
   };
 
-  // Add to beginning
   logs.unshift(entry);
 
-  // Trim to max entries
   if (shouldStoreErrorLogs()) {
     if (logs.length > MAX_ENTRIES) {
       logs.splice(MAX_ENTRIES);
@@ -86,9 +72,6 @@ export function logError(
   return entry;
 }
 
-/**
- * Log convenience functions
- */
 export function logWarn(source: string, message: string, details?: string, sessionId?: string) {
   return logError(source, message, details, sessionId, 'warn');
 }
@@ -97,24 +80,15 @@ export function logInfo(source: string, message: string, details?: string, sessi
   return logError(source, message, details, sessionId, 'info');
 }
 
-/**
- * Clear all error logs
- */
 export function clearErrorLogs(): void {
   inMemoryLogs = [];
   localStorage.removeItem(STORAGE_KEY);
 }
 
-/**
- * Filter logs by level
- */
 export function getLogsByLevel(level: 'error' | 'warn' | 'info'): ErrorLogEntry[] {
   return getErrorLogs().filter(e => e.level === level);
 }
 
-/**
- * Search logs
- */
 export function searchLogs(query: string): ErrorLogEntry[] {
   const lowerQuery = query.toLowerCase();
   return getErrorLogs().filter(

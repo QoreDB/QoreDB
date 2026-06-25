@@ -7,10 +7,6 @@
 import { invoke } from '@/lib/transport';
 import type { ColumnFilter, Namespace } from './tauri';
 
-// ============================================
-// TYPES
-// ============================================
-
 export type AiProvider =
   | 'open_ai'
   | 'anthropic'
@@ -96,10 +92,6 @@ export interface AiProviderStatus {
   base_url?: string;
 }
 
-// ============================================
-// PROVIDER DISPLAY INFO
-// ============================================
-
 export interface AiProviderInfo {
   id: AiProvider;
   label: string;
@@ -176,16 +168,10 @@ export const AI_PROVIDERS: AiProviderInfo[] = [
   },
 ];
 
-// ============================================
-// TAURI COMMANDS
-// ============================================
-
-/** Start streaming AI query generation (response comes via events) */
 export async function aiGenerateQuery(request: AiRequest): Promise<void> {
   return invoke('ai_generate_query', { request });
 }
 
-/** Explain a query result (non-streaming) */
 export async function aiExplainResult(
   sessionId: string,
   query: string,
@@ -196,7 +182,6 @@ export async function aiExplainResult(
   return invoke('ai_explain_result', { sessionId, query, resultSummary, config, namespace });
 }
 
-/** Summarize the schema (non-streaming) */
 export async function aiSummarizeSchema(
   sessionId: string,
   config: AiConfig,
@@ -205,22 +190,18 @@ export async function aiSummarizeSchema(
   return invoke('ai_summarize_schema', { sessionId, config, namespace });
 }
 
-/** Start streaming AI error fix (response comes via events) */
 export async function aiFixError(request: AiRequest): Promise<void> {
   return invoke('ai_fix_error', { request });
 }
 
-/** Save an API key for a provider */
 export async function aiSaveApiKey(provider: AiProvider, key: string): Promise<void> {
   return invoke('ai_save_api_key', { provider, key });
 }
 
-/** Delete an API key for a provider */
 export async function aiDeleteApiKey(provider: AiProvider): Promise<void> {
   return invoke('ai_delete_api_key', { provider });
 }
 
-/** Get status of all configured providers */
 export async function aiGetProviderStatus(): Promise<AiProviderStatus[]> {
   return invoke('ai_get_provider_status');
 }
@@ -247,11 +228,6 @@ export async function aiGenerateFilters(
   });
 }
 
-// ============================================
-// EVENT HELPERS
-// ============================================
-
-/** Returns the Tauri event name for streaming AI responses */
 export function aiStreamEvent(requestId: string): string {
   return `ai_stream:${requestId}`;
 }

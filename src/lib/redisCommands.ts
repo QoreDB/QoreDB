@@ -17,13 +17,11 @@ export type RedisKeyType = 'string' | 'hash' | 'list' | 'set' | 'zset';
 
 export type ListSide = 'left' | 'right';
 
-/** Quote a value safely for use as a Redis command argument. */
 export function quoteRedisArg(value: string): string {
   const escaped = value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
   return `"${escaped}"`;
 }
 
-/** Build the argv of a Redis command as a single line. */
 function buildCommand(argv: string[]): string {
   return argv.join(' ');
 }

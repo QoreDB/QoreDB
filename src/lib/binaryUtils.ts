@@ -61,9 +61,6 @@ export function base64ToUint8Array(base64: string, maxBytes?: number): Uint8Arra
   return bytes;
 }
 
-/**
- * Estimates the byte size from a base64 string length.
- */
 export function estimateByteSizeFromBase64(base64: string): number {
   let padding = 0;
   if (base64.endsWith('==')) padding = 2;
@@ -71,9 +68,6 @@ export function estimateByteSizeFromBase64(base64: string): number {
   return Math.floor((base64.length * 3) / 4) - padding;
 }
 
-/**
- * Formats a byte count into a human-readable size string.
- */
 export function formatFileSize(bytes: number): string {
   if (bytes === 0) return '0 B';
   const units = ['B', 'KB', 'MB', 'GB'];
@@ -178,9 +172,7 @@ export function detectSvg(base64: string): boolean {
   }
 }
 
-/**
- * Decodes the base64 payload as UTF-8 text. Used for displaying SVG source.
- */
+/** Decodes the base64 payload as UTF-8 text (used for displaying SVG source). */
 export function decodeBase64AsText(base64: string): string {
   const bytes = base64ToUint8Array(base64);
   return new TextDecoder('utf-8', { fatal: false }).decode(bytes);

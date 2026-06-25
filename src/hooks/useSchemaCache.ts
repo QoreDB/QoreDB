@@ -1,13 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-/**
- * Schema Cache Hook
- *
- * Provides cached access to database schema information (namespaces, collections, table schemas).
- * Reduces redundant API calls and improves tree browsing performance.
- *
- * Cache is per-session and invalidated on DDL operations.
- */
+// Cache is per-session and invalidated on DDL operations.
 
 import { useCallback, useMemo, useState } from 'react';
 import {
@@ -20,10 +13,6 @@ import {
   type Routine,
   type TableSchema,
 } from '../lib/tauri';
-
-// ============================================
-// TYPES
-// ============================================
 
 interface NamespaceCache {
   namespaces: Namespace[];
@@ -51,10 +40,6 @@ interface SessionCache {
   tableSchemas: Map<string, TableSchemaCache>;
   routines: Map<string, RoutineCache>;
 }
-
-// ============================================
-// GLOBAL STORE (singleton per app)
-// ============================================
 
 const sessionCaches = new Map<string, SessionCache>();
 
@@ -86,10 +71,6 @@ function getNamespaceKey(ns: Namespace): string {
 function getTableKey(ns: Namespace, tableName: string): string {
   return `${ns.database}:${ns.schema || ''}:${tableName}`;
 }
-
-// ============================================
-// CACHE INVALIDATION (exported for DDL operations)
-// ============================================
 
 /**
  * Invalidate the entire cache for a session (used on disconnect)
@@ -158,25 +139,18 @@ export function forceRefreshCache(sessionId: string): void {
   }
 }
 
-// ============================================
-// HOOK
-// ============================================
-
 interface UseSchemaCache {
-  // Cached data fetchers
   getNamespaces: () => Promise<Namespace[]>;
   getCollections: (ns: Namespace) => Promise<Collection[]>;
   getTableSchema: (ns: Namespace, tableName: string) => Promise<TableSchema | null>;
   getRoutines: (ns: Namespace) => Promise<Routine[]>;
 
-  // Invalidation helpers (for use after DDL)
   invalidateNamespaces: () => void;
   invalidateCollections: (ns: Namespace) => void;
   invalidateTable: (ns: Namespace, tableName: string) => void;
   invalidateRoutines: (ns: Namespace) => void;
   forceRefresh: () => void;
 
-  // Loading states
   loading: boolean;
 }
 
@@ -186,7 +160,6 @@ export function useSchemaCache(sessionId: string, connectionId?: string): UseSch
   const cache = useMemo(() => getOrCreateSessionCache(sessionId), [sessionId]);
 
   const getNamespaces = useCallback(async (): Promise<Namespace[]> => {
-    // Check cache first
     if (cache.namespaces && !isExpired(cache.namespaces.timestamp)) {
       return cache.namespaces.namespaces;
     }
@@ -214,7 +187,6 @@ export function useSchemaCache(sessionId: string, connectionId?: string): UseSch
     async (ns: Namespace): Promise<Collection[]> => {
       const key = getNamespaceKey(ns);
 
-      // Check cache first
       const cached = cache.collections.get(key);
       if (cached && !isExpired(cached.timestamp)) {
         return cached.collections;
@@ -242,7 +214,6 @@ export function useSchemaCache(sessionId: string, connectionId?: string): UseSch
     async (ns: Namespace, tableName: string): Promise<TableSchema | null> => {
       const key = getTableKey(ns, tableName);
 
-      // Check cache first
       const cached = cache.tableSchemas.get(key);
       if (cached && !isExpired(cached.timestamp)) {
         return cached.schema;
@@ -270,7 +241,6 @@ export function useSchemaCache(sessionId: string, connectionId?: string): UseSch
     async (ns: Namespace): Promise<Routine[]> => {
       const key = getNamespaceKey(ns);
 
-      // Check cache first
       const cached = cache.routines.get(key);
       if (cached && !isExpired(cached.timestamp)) {
         return cached.routines;

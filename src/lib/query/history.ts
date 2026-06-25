@@ -1,11 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-/**
- * Query History Store
- *
- * Persists query history to localStorage with session isolation.
- */
-
 import { shouldStoreHistory } from '../diagnostics/diagnosticsSettings';
 import { redactQuery, redactText } from '../redaction';
 import { getWorkspaceState } from '../stores/workspaceStore';
@@ -39,9 +33,6 @@ function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
-/**
- * Get all history entries
- */
 export function getHistory(): HistoryEntry[] {
   if (!shouldStoreHistory()) {
     return inMemoryHistory;
@@ -55,9 +46,6 @@ export function getHistory(): HistoryEntry[] {
   }
 }
 
-/**
- * Add a new entry to history
- */
 export function addToHistory(entry: Omit<HistoryEntry, 'id'>): HistoryEntry {
   const history = getHistory();
 
@@ -68,11 +56,9 @@ export function addToHistory(entry: Omit<HistoryEntry, 'id'>): HistoryEntry {
     error: entry.error ? redactText(entry.error) : undefined,
   };
 
-  // Add to beginning
   history.unshift(newEntry);
 
   if (shouldStoreHistory()) {
-    // Trim to max entries
     if (history.length > MAX_ENTRIES) {
       history.splice(MAX_ENTRIES);
     }
@@ -88,32 +74,20 @@ export function addToHistory(entry: Omit<HistoryEntry, 'id'>): HistoryEntry {
   return newEntry;
 }
 
-/**
- * Get history entries for a specific session
- */
 export function getSessionHistory(sessionId: string): HistoryEntry[] {
   return getHistory().filter(e => e.sessionId === sessionId);
 }
 
-/**
- * Search history entries
- */
 export function searchHistory(query: string): HistoryEntry[] {
   const lowerQuery = query.toLowerCase();
   return getHistory().filter(e => e.query.toLowerCase().includes(lowerQuery));
 }
 
-/**
- * Clear all history
- */
 export function clearHistory(): void {
   inMemoryHistory = [];
   localStorage.removeItem(STORAGE_KEY);
 }
 
-/**
- * Remove a specific entry
- */
 export function removeFromHistory(id: string): void {
   const history = getHistory().filter(e => e.id !== id);
   if (shouldStoreHistory()) {
@@ -123,9 +97,6 @@ export function removeFromHistory(id: string): void {
   }
 }
 
-/**
- * Mark entry as favorite (moves to separate storage)
- */
 export function toggleFavorite(id: string): boolean {
   if (!shouldStoreHistory()) {
     return false;
@@ -134,12 +105,10 @@ export function toggleFavorite(id: string): boolean {
   const isFavorite = favorites.some(f => f.id === id);
 
   if (isFavorite) {
-    // Remove from favorites
     const newFavorites = favorites.filter(f => f.id !== id);
     localStorage.setItem(getFavoritesStorageKey(), JSON.stringify(newFavorites));
     return false;
   } else {
-    // Add to favorites
     const entry = getHistory().find(e => e.id === id);
     if (entry) {
       favorites.unshift({
@@ -152,9 +121,6 @@ export function toggleFavorite(id: string): boolean {
   }
 }
 
-/**
- * Get favorite queries
- */
 export function getFavorites(): HistoryEntry[] {
   if (!shouldStoreHistory()) {
     return [];
@@ -168,9 +134,6 @@ export function getFavorites(): HistoryEntry[] {
   }
 }
 
-/**
- * Check if an entry is a favorite
- */
 export function isFavorite(id: string): boolean {
   if (!shouldStoreHistory()) {
     return false;

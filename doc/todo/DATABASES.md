@@ -4,7 +4,7 @@
 
 ---
 
-## ✅ Implémentés
+## Implémentés
 
 ### SQL Relationnel
 
@@ -44,7 +44,7 @@
 
 ---
 
-## 🔜 Prévus
+## Prévus
 
 ### Search / Analytics
 
@@ -96,7 +96,7 @@
 
 ---
 
-## 🚫 Non prévus (hors scope)
+## Non prévus (hors scope)
 
 - [ ] **Mainframe (DB2 z/OS, IMS)** — Trop niche
 - [ ] **Legacy (Sybase, Informix)** — Marché très réduit

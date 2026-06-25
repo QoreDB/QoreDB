@@ -1,12 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-/**
- * Driver definitions and metadata for QoreDB
- *
- * This module provides semantic information about each database driver,
- * enabling the UI to adapt terminology and behavior per database type.
- */
-
 export enum Driver {
   Postgres = 'postgres',
   Mysql = 'mysql',
@@ -25,17 +18,11 @@ export enum Driver {
   OpenSearch = 'opensearch',
 }
 
-/** Query builder functions for driver-specific SQL/commands */
 export interface DriverQueryBuilders {
-  /** Query to get database/schema total size */
   databaseSizeQuery?: (schemaOrDb: string) => string;
-  /** Query to get table size and row count */
   tableSizeQuery?: (schemaOrDb: string, tableName: string) => string;
-  /** Query to get index count for a database/schema */
   indexCountQuery?: (schemaOrDb: string) => string;
-  /** Query to get table indexes */
   tableIndexesQuery?: (tableName: string) => string;
-  /** Query to get maintenance info (vacuum, analyze) */
   maintenanceQuery?: (schemaOrDb: string, tableName: string) => string;
 }
 
@@ -660,7 +647,6 @@ export const DRIVERS: Record<Driver, DriverMetadata> = {
   },
 };
 
-// Helper to get driver metadata with fallback
 export function getDriverMetadata(driver: Driver | string): DriverMetadata {
   return DRIVERS[driver as Driver] ?? DRIVERS[Driver.Postgres];
 }

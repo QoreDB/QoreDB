@@ -2140,6 +2140,11 @@
     "issuedAt": "Émise le",
     "expiresAt": "Expire le",
     "perpetual": "Perpétuelle (sans expiration)",
+    "seats": "Sièges",
+    "seatsCount": "{{count}} sièges",
+    "refresh": "Rafraîchir la licence",
+    "manageBilling": "Gérer la facturation",
+    "expiredBanner": "Votre licence a expiré — l'accès est repassé en version gratuite. Cliquez sur Rafraîchir pour la restaurer.",
     "getPro": "Obtenir QoreDB Pro",
     "upgrade": {
       "description": "Cette fonctionnalité nécessite une licence Pro.",

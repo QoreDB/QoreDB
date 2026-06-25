@@ -48,6 +48,7 @@ impl LicenseManager {
                 issued_at: None,
                 expires_at: None,
                 is_expired: false,
+                seats: None,
                 is_founder: false,
             };
         }
@@ -81,6 +82,7 @@ impl LicenseManager {
             issued_at: Some(payload.issued_at),
             expires_at: payload.expires_at,
             is_expired: false,
+            seats: payload.seats,
             is_founder: payload.is_founder,
         };
         self.cached_status = status.clone();
@@ -115,6 +117,7 @@ impl LicenseManager {
                     issued_at: Some(payload.issued_at),
                     expires_at: payload.expires_at,
                     is_expired: false,
+                    seats: payload.seats,
                     is_founder: payload.is_founder,
                 };
             }
@@ -129,6 +132,7 @@ impl LicenseManager {
                         issued_at: Some(payload.issued_at),
                         expires_at: payload.expires_at,
                         is_expired: true,
+                        seats: payload.seats,
                         is_founder: payload.is_founder,
                     };
                 }

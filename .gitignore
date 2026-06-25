@@ -30,7 +30,7 @@ dist-ssr
 # Local dev SSH assets
 dev/ssh/
 
-# doc/private/
+doc/private/
 
 # Generated SBOMs (build artifacts)
 sbom-*.cdx.json

@@ -167,6 +167,18 @@ impl WorkspaceConnectionStore {
         fs::write(&file_path, content).map_err(|e| {
             EngineError::internal(format!("Failed to write connection file: {}", e))
         })?;
+        // Connection metadata (host, username, ssh.key_path) is sensitive — keep
+        // it readable only by the current user.
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            if let Err(e) = fs::set_permissions(&file_path, fs::Permissions::from_mode(0o600)) {
+                tracing::warn!(
+                    "Failed to restrict permissions on {}: {e}",
+                    file_path.display()
+                );
+            }
+        }
 
         let creds_json = serde_json::to_string(&CredsJson {
             db_password: credentials.db_password.expose().clone(),

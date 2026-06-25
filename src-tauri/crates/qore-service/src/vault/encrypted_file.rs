@@ -223,7 +223,12 @@ fn write_file(path: &PathBuf, file: &VaultFile) -> EngineResult<()> {
 #[cfg(unix)]
 fn restrict_permissions(path: &PathBuf) {
     use std::os::unix::fs::PermissionsExt;
-    let _ = std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600));
+    if let Err(e) = std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600)) {
+        tracing::warn!(
+            "Failed to restrict vault file permissions to 0600 ({}): {e}",
+            path.display()
+        );
+    }
 }
 
 #[cfg(not(unix))]

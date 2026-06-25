@@ -172,15 +172,22 @@ export async function webResetPassword(email: string, newPassword: string): Prom
 export function consumeSsoRedirect(): { error?: string } {
   if (typeof window === 'undefined') return {};
   const params = new URLSearchParams(window.location.search);
-  const token = params.get('sso_token');
+  // The token arrives in the URL fragment (never sent in the Referer header or
+  // written to server logs); the non-sensitive error code stays in the query.
+  const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+  const token = hashParams.get('sso_token');
   const error = params.get('sso_error');
   if (!token && !error) return {};
 
   if (token) setAuthToken(token);
-  params.delete('sso_token');
   params.delete('sso_error');
+  hashParams.delete('sso_token');
   const query = params.toString();
-  const url = window.location.pathname + (query ? `?${query}` : '') + window.location.hash;
+  const remainingHash = hashParams.toString();
+  const url =
+    window.location.pathname +
+    (query ? `?${query}` : '') +
+    (remainingHash ? `#${remainingHash}` : '');
   window.history.replaceState({}, '', url);
   return error ? { error } : {};
 }

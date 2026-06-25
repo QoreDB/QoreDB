@@ -635,7 +635,9 @@ export function AppLayout() {
                   setPendingNotebook(nbResult.path, nbResult.notebook);
                   openTab(createNotebookTab(nbResult.notebook.metadata.title, nbResult.path));
                 }
-              } catch {}
+              } catch (err) {
+                console.error('Failed to open notebook from file:', err);
+              }
             }
             return;
           case 'cmd_convert_to_notebook':

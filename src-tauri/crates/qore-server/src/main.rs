@@ -58,7 +58,14 @@ async fn main() {
 
     let config = ServerConfig::from_env();
     if config.token_generated {
-        tracing::warn!(token = %config.token, "QORE_SERVER_TOKEN not set — using generated token");
+        // Never write the full bearer token to logs (they may be shipped to
+        // aggregators). Show only a short prefix for correlation and direct the
+        // operator to set QORE_SERVER_TOKEN explicitly for a known value.
+        let token_prefix: String = config.token.chars().take(8).collect();
+        tracing::warn!(
+            token_prefix = %token_prefix,
+            "QORE_SERVER_TOKEN not set — using a randomly generated token (prefix shown). Set QORE_SERVER_TOKEN to use a known value."
+        );
     }
     let addr = config.addr;
     let web_dir = config.web_dir.clone();

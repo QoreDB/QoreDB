@@ -590,3 +590,75 @@ impl SessionManager {
         });
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use qore_core::types::{SshAuth, SshTunnelConfig};
+
+    fn config_with(environment: &str, ssh: Option<SshTunnelConfig>) -> ConnectionConfig {
+        ConnectionConfig {
+            driver: "postgres".into(),
+            host: "db.example.com".into(),
+            port: 5432,
+            username: "u".into(),
+            password: String::new(),
+            database: Some("app".into()),
+            ssl: false,
+            ssl_mode: None,
+            environment: environment.into(),
+            read_only: false,
+            pool_max_connections: None,
+            pool_min_connections: None,
+            pool_acquire_timeout_secs: None,
+            ssh_tunnel: ssh,
+            proxy: None,
+            mssql_auth: None,
+            clickhouse_cluster: None,
+            search_auth_mode: None,
+            ssl_ca_cert: None,
+        }
+    }
+
+    fn ssh_with(policy: SshHostKeyPolicy) -> SshTunnelConfig {
+        SshTunnelConfig {
+            host: "bastion.example.com".into(),
+            port: 22,
+            username: "tunnel".into(),
+            auth: SshAuth::Key {
+                private_key_path: "id_ed25519".into(),
+                passphrase: None,
+            },
+            host_key_policy: policy,
+            known_hosts_path: None,
+            proxy_jump: None,
+            connect_timeout_secs: 10,
+            keepalive_interval_secs: 15,
+            keepalive_count_max: 3,
+        }
+    }
+
+    #[test]
+    fn rejects_insecure_host_key_in_production() {
+        let config = config_with("production", Some(ssh_with(SshHostKeyPolicy::InsecureNoCheck)));
+        assert!(enforce_ssh_host_key_policy(&config).is_err());
+    }
+
+    #[test]
+    fn allows_insecure_host_key_outside_production() {
+        let config = config_with("development", Some(ssh_with(SshHostKeyPolicy::InsecureNoCheck)));
+        assert!(enforce_ssh_host_key_policy(&config).is_ok());
+    }
+
+    #[test]
+    fn allows_strict_host_key_in_production() {
+        let config = config_with("production", Some(ssh_with(SshHostKeyPolicy::Strict)));
+        assert!(enforce_ssh_host_key_policy(&config).is_ok());
+    }
+
+    #[test]
+    fn allows_production_without_ssh_tunnel() {
+        let config = config_with("production", None);
+        assert!(enforce_ssh_host_key_policy(&config).is_ok());
+    }
+}

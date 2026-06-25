@@ -66,7 +66,9 @@ pub async fn callback(State(st): State<AppState>, Query(p): Query<CallbackParams
     };
 
     match issue_jwt(&st.config.token, &user.id, &user.email, user.is_admin) {
-        Ok(token) => Redirect::to(&format!("/?sso_token={token}")).into_response(),
+        // Pass the JWT in the URL fragment, not the query string: fragments are
+        // never sent in the Referer header nor written to server access logs.
+        Ok(token) => Redirect::to(&format!("/#sso_token={token}")).into_response(),
         Err(_) => Redirect::to("/?sso_error=server_error").into_response(),
     }
 }

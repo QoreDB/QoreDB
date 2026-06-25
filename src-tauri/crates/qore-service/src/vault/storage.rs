@@ -87,6 +87,15 @@ impl VaultStorage {
         fs::write(&path, content).map_err(|e| {
             EngineError::internal(format!("Failed to write connections file: {}", e))
         })?;
+        // Connection metadata (host, username, ssh.key_path) is sensitive — keep
+        // it readable only by the current user.
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            if let Err(e) = fs::set_permissions(&path, fs::Permissions::from_mode(0o600)) {
+                tracing::warn!("Failed to restrict permissions on {}: {e}", path.display());
+            }
+        }
 
         Ok(())
     }

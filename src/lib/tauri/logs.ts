@@ -9,10 +9,6 @@ import type {
   VaultStatus,
 } from './types';
 
-// ============================================
-// LOGS
-// ============================================
-
 export async function exportLogs(): Promise<{
   success: boolean;
   filename?: string;
@@ -36,8 +32,6 @@ export async function getMetrics(): Promise<{
 }> {
   return invoke('get_metrics');
 }
-
-// ============================================
 
 export async function getVaultStatus(): Promise<VaultStatus> {
   return invoke('get_vault_status');

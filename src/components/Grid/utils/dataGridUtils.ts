@@ -1,9 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-/**
- * DataGrid utility functions
- */
-
 import { estimateByteSizeFromBase64, formatFileSize, isBinaryType } from '@/lib/binaryUtils';
 import type { QueryResult, Value } from '@/lib/tauri';
 
@@ -95,9 +91,6 @@ export function convertToRowData(result: QueryResult): RowData[] {
   });
 }
 
-/**
- * Escape a value for CSV format
- */
 export function escapeCSV(value: string): string {
   if (value.includes(',') || value.includes('"') || value.includes('\n')) {
     return `"${value.replace(/"/g, '""')}"`;

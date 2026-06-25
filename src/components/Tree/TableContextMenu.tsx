@@ -61,10 +61,6 @@ interface TableContextMenuProps {
 
 type DangerAction = 'drop' | 'truncate' | null;
 
-/**
- * Right-click context menu wrapper for table items.
- * Wraps children and provides native context menu on right-click.
- */
 export function TableContextMenu({
   collection,
   sessionId,
@@ -134,7 +130,6 @@ export function TableContextMenu({
       });
 
       if (result.success) {
-        // Invalidate cache before refresh
         invalidateCollectionsCache(sessionId, collection.namespace);
         invalidateTableSchemaCache(sessionId, collection.namespace, tableName);
         notify.success(t('dropTable.success', { name: tableName }));
@@ -282,7 +277,6 @@ export function TableContextMenu({
         </ContextMenuContent>
       </ContextMenu>
 
-      {/* Drop Table Confirmation */}
       <DangerConfirmDialog
         open={dangerAction === 'drop'}
         onOpenChange={open => !open && setDangerAction(null)}
@@ -294,7 +288,6 @@ export function TableContextMenu({
         onConfirm={handleDropTable}
       />
 
-      {/* Truncate Table Confirmation */}
       <DangerConfirmDialog
         open={dangerAction === 'truncate'}
         onOpenChange={open => !open && setDangerAction(null)}
@@ -307,7 +300,6 @@ export function TableContextMenu({
         onConfirm={handleTruncateTable}
       />
 
-      {/* Maintenance Dialog */}
       <MaintenanceDialog
         open={maintenanceOpen}
         onOpenChange={setMaintenanceOpen}
@@ -318,7 +310,6 @@ export function TableContextMenu({
         readOnly={readOnly}
       />
 
-      {/* CSV Import Dialog */}
       {!isDocument && (
         <CSVImportDialog
           open={importOpen}
@@ -333,7 +324,6 @@ export function TableContextMenu({
         />
       )}
 
-      {/* Alter Table Modal */}
       {!isDocument && (
         <AlterTableModal
           isOpen={alterOpen}
@@ -356,7 +346,6 @@ export function TableContextMenu({
         />
       )}
 
-      {/* Virtual Relation Dialog */}
       {connectionId && (
         <VirtualRelationDialog
           open={vrDialogOpen}

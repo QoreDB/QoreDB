@@ -234,8 +234,6 @@ impl SearchSession {
     }
 }
 
-// ==================== Connection lifecycle ====================
-
 pub async fn test_connection(config: &ConnectionConfig, flavor: SearchFlavor) -> EngineResult<()> {
     let session = SearchSession::new(config, flavor)?;
     let root = session.request(Method::GET, "/", None).await?;
@@ -283,8 +281,6 @@ async fn get(map: &SessionMap, session: SessionId) -> EngineResult<Arc<SearchSes
         .cloned()
         .ok_or_else(|| EngineError::session_not_found(session.0.to_string()))
 }
-
-// ==================== Schema / catalog ====================
 
 pub async fn list_namespaces(map: &SessionMap, session: SessionId) -> EngineResult<Vec<Namespace>> {
     let s = get(map, session).await?;
@@ -468,8 +464,6 @@ fn make_column(name: &str, data_type: &str) -> TableColumn {
     }
 }
 
-// ==================== Query execution ====================
-
 pub async fn execute(
     map: &SessionMap,
     session: SessionId,
@@ -549,8 +543,6 @@ pub fn split_requests(input: &str) -> Vec<String> {
     blocks
 }
 
-// ==================== Cancellation (best effort via _tasks) ====================
-
 pub async fn cancel(
     map: &SessionMap,
     session: SessionId,
@@ -601,8 +593,6 @@ fn tasks_matching_opaque(tasks: &Json, opaque: &str) -> Vec<String> {
     }
     ids
 }
-
-// ============ Streaming (search_after + PIT, SQL cursor, fallback) ============
 
 /// Page size for streamed search / SQL pagination.
 const STREAM_PAGE: u64 = 1000;
@@ -938,8 +928,6 @@ pub async fn query_table(
     Ok(PaginatedQueryResult::new(result, total, page, page_size))
 }
 
-// ==================== Mutations (document CRUD via the grid) ====================
-
 pub async fn insert_row(
     map: &SessionMap,
     session: SessionId,
@@ -1034,8 +1022,6 @@ fn document_from_rowdata(data: &RowData) -> Json {
     }
     Json::Object(obj)
 }
-
-// ==================== Response mapping ====================
 
 /// Maps an arbitrary search response into a tabular [`QueryResult`] by
 /// inspecting its shape (see the spec's response-mapping table).
@@ -1264,8 +1250,6 @@ fn col(name: &str, data_type: &str) -> ColumnInfo {
     }
 }
 
-// ==================== Console parsing ====================
-
 /// Parses a Dev Tools console block: first line `METHOD /path`, the rest is an
 /// optional JSON / NDJSON body.
 pub fn parse_console(input: &str) -> EngineResult<(Method, String, Option<String>)> {
@@ -1316,8 +1300,6 @@ pub fn parse_console(input: &str) -> EngineResult<(Method, String, Option<String
 
     Ok((method, path, body))
 }
-
-// ==================== Auth & URL building ====================
 
 fn auth_mode(config: &ConnectionConfig) -> &str {
     config
@@ -1393,8 +1375,6 @@ fn decode_cloud_id(raw: &str) -> Option<String> {
     Some(format!("https://{es_uuid}.{host_name}:{port}"))
 }
 
-// ==================== Flavor & error helpers ====================
-
 /// Verifies the server matches the expected flavor. OpenSearch advertises
 /// `version.distribution == "opensearch"`; Elasticsearch never does.
 fn verify_flavor(root: &Json, flavor: SearchFlavor) -> EngineResult<()> {
@@ -1430,8 +1410,6 @@ fn format_search_error(status: u16, json: &Json, raw: &str) -> String {
     }
     format!("Search {status}: {}", raw.trim())
 }
-
-// ==================== Value <-> JSON conversions ====================
 
 fn json_to_text_value(v: Option<&Json>) -> Value {
     match v {

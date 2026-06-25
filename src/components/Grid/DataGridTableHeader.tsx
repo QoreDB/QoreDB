@@ -2,10 +2,6 @@
 /** biome-ignore-all lint/a11y/useKeyWithClickEvents: header cells handle resize and context-menu pointer interactions */
 /** biome-ignore-all lint/a11y/noStaticElementInteractions: header cells intentionally support mouse-only grid interactions */
 
-/**
- * Table header component for DataGrid with resizable columns, filters, and column pinning
- */
-
 import { flexRender, type Header, type Table } from '@tanstack/react-table';
 import { Pin, PinOff } from 'lucide-react';
 import { useTranslation } from 'react-i18next';

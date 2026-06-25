@@ -32,8 +32,6 @@ fn parse_session_id(id: &str) -> Result<SessionId, String> {
     Ok(SessionId(uuid))
 }
 
-// ==================== Types ====================
-
 #[derive(Debug, Deserialize)]
 pub struct CsvImportConfig {
     pub delimiter: Option<String>,
@@ -60,8 +58,6 @@ pub struct ImportResponse {
     pub errors: Vec<String>,
     pub execution_time_ms: f64,
 }
-
-// ==================== Delimiter Detection ====================
 
 /// Detects the most likely delimiter by checking consistency across sample lines.
 fn detect_delimiter(sample: &str) -> u8 {
@@ -117,8 +113,6 @@ fn parse_delimiter(s: &str) -> u8 {
         _ => b',',
     }
 }
-
-// ==================== Preview Command ====================
 
 #[tauri::command]
 #[instrument(skip_all, fields(file_path = %file_path))]
@@ -198,8 +192,6 @@ pub async fn preview_csv(
         total_lines,
     })
 }
-
-// ==================== Import Command ====================
 
 #[tauri::command]
 #[instrument(

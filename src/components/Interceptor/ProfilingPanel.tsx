@@ -1,11 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-/**
- * Profiling Panel
- *
- * UI component for viewing query performance metrics and slow queries.
- * All data is fetched from the backend (Rust) for security.
- */
+// All data is fetched from the backend (Rust) for security.
 
 import {
   Activity,
@@ -263,7 +258,6 @@ export function ProfilingPanel() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-border">
         <h2 className="text-lg font-semibold">{t('interceptor.profiling.title')}</h2>
         <div className="flex items-center gap-2">
@@ -282,7 +276,6 @@ export function ProfilingPanel() {
         </div>
       </div>
 
-      {/* Tabs */}
       <div className="flex gap-1 p-2 border-b border-border">
         <button
           type="button"
@@ -306,11 +299,9 @@ export function ProfilingPanel() {
         </button>
       </div>
 
-      {/* Content */}
       <ScrollArea className="flex-1">
         {activeTab === 'overview' ? (
           <div className="p-4 space-y-6">
-            {/* Key Metrics */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <MetricCard
                 label={t('interceptor.profiling.metrics.totalQueries')}
@@ -336,7 +327,6 @@ export function ProfilingPanel() {
               />
             </div>
 
-            {/* Latency Percentiles */}
             <div className="space-y-3">
               <h3 className="text-sm font-medium">{t('interceptor.profiling.latency.title')}</h3>
               <div className="space-y-3">
@@ -363,13 +353,11 @@ export function ProfilingPanel() {
               </div>
             </div>
 
-            {/* Operations Breakdown */}
             <div className="space-y-3">
               <h3 className="text-sm font-medium">{t('interceptor.profiling.operations.title')}</h3>
               <OperationChart data={metrics.by_operation_type} />
             </div>
 
-            {/* Environment Breakdown */}
             <div className="space-y-3">
               <h3 className="text-sm font-medium">
                 {t('interceptor.profiling.environments.title')}
@@ -384,7 +372,6 @@ export function ProfilingPanel() {
               </div>
             </div>
 
-            {/* Period Info */}
             <div className="text-xs text-muted-foreground text-center pt-4 border-t border-border">
               {t('interceptor.profiling.period', {
                 date: new Date(metrics.period_start).toLocaleString(),

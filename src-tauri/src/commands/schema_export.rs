@@ -116,7 +116,6 @@ pub async fn export_schema(
     output.push_str(&format!("-- Date: {}\n", now));
     output.push_str("-- ================================================\n\n");
 
-    // ========== TABLES ==========
     if include_tables {
         let collections = driver
             .list_collections(
@@ -174,7 +173,6 @@ pub async fn export_schema(
         }
     }
 
-    // ========== ROUTINES ==========
     if include_routines && driver.supports_routines() {
         let routines = driver
             .list_routines(
@@ -235,7 +233,6 @@ pub async fn export_schema(
         }
     }
 
-    // ========== TRIGGERS ==========
     if include_triggers && driver.supports_triggers() {
         let triggers = driver
             .list_triggers(
@@ -283,7 +280,6 @@ pub async fn export_schema(
         }
     }
 
-    // ========== EVENTS ==========
     if include_events && driver.supports_events() {
         let events_list_options = crate::engine::types::EventListOptions {
             search: None,
@@ -326,7 +322,6 @@ pub async fn export_schema(
         }
     }
 
-    // ========== SEQUENCES ==========
     if include_sequences && driver.supports_sequences() {
         let sequences = driver
             .list_sequences(

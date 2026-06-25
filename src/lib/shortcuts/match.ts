@@ -2,7 +2,6 @@
 
 import type { ChordModifier, KeyChord } from './types';
 
-/** Return true if `event` triggers `chord`. */
 export function chordMatches(event: KeyboardEvent, chord: KeyChord): boolean {
   const wantsMod = chord.modifiers.includes('mod');
   const wantsCtrl = chord.modifiers.includes('ctrl');

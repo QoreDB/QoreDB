@@ -1,8 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
 
-/**
- * useDiffSources - Hook for managing diff sources state and execution
- */
 import { type MutableRefObject, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { compareResults, type DiffResult, findCommonColumns } from '@/lib/diffUtils';
 import type { DiffSource } from '@/lib/tabs';
@@ -142,26 +139,21 @@ export interface UseDiffSourcesOptions {
 }
 
 export interface UseDiffSourcesReturn {
-  // Source states
   leftSource: DiffSourceState;
   rightSource: DiffSourceState;
 
-  // Connection + namespace
   setLeftConnection: (connection: SavedConnection | null) => Promise<void>;
   setRightConnection: (connection: SavedConnection | null) => Promise<void>;
   setLeftNamespace: (namespace: Namespace | null) => void;
   setRightNamespace: (namespace: Namespace | null) => void;
 
-  // Source setters
   updateLeftSource: (updates: Partial<DiffSourceState>) => void;
   updateRightSource: (updates: Partial<DiffSourceState>) => void;
 
-  // Execution
   executeLeft: () => Promise<void>;
   executeRight: () => Promise<void>;
   executeBoth: () => Promise<void>;
 
-  // Comparison
   keyColumns: string[];
   setKeyColumns: (columns: string[]) => void;
   compare: () => void;
@@ -172,12 +164,10 @@ export interface UseDiffSourcesReturn {
   compareBlockedReason: 'missingResults' | null;
   compareWarning: 'noCommonColumns' | 'trivialCommonColumns' | null;
 
-  // Actions
   swap: () => void;
   refresh: () => Promise<void>;
   reset: () => void;
 
-  // Derived state
   canCompare: boolean;
   hasResults: boolean;
 }
@@ -662,7 +652,6 @@ export function useDiffSources({
     executeRight,
   ]);
 
-  // Auto-load snapshot data when snapshot source is set
   useEffect(() => {
     if (
       leftSource.mode !== 'snapshot' ||

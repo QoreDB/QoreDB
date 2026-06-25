@@ -1,11 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-/**
- * Safety Rule Editor
- *
- * Modal component for creating and editing custom safety rules
- */
-
 import { X } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -60,7 +54,6 @@ export function SafetyRuleEditor({ rule, onSave, onCancel }: SafetyRuleEditorPro
   const [pattern, setPattern] = useState(rule?.pattern || '');
   const [patternError, setPatternError] = useState<string | null>(null);
 
-  // Validate regex pattern
   const validatePattern = useCallback((value: string) => {
     if (!value.trim()) {
       setPatternError(null);
@@ -127,12 +120,9 @@ export function SafetyRuleEditor({ rule, onSave, onCancel }: SafetyRuleEditorPro
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* Backdrop */}
       <div className="absolute inset-0 bg-black/50" onClick={onCancel} />
 
-      {/* Modal */}
       <div className="relative bg-background rounded-lg shadow-xl border border-border w-full max-w-lg mx-4 max-h-[90vh] overflow-hidden flex flex-col">
-        {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-border">
           <h2 className="text-lg font-semibold">
             {isEditing ? t('interceptor.safety.editRule') : t('interceptor.safety.addRule')}
@@ -146,9 +136,7 @@ export function SafetyRuleEditor({ rule, onSave, onCancel }: SafetyRuleEditorPro
           </button>
         </div>
 
-        {/* Content */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {/* Name */}
           <div className="space-y-2">
             <Label htmlFor="rule-name">{t('interceptor.safety.ruleFields.name')}</Label>
             <Input
@@ -159,7 +147,6 @@ export function SafetyRuleEditor({ rule, onSave, onCancel }: SafetyRuleEditorPro
             />
           </div>
 
-          {/* Description */}
           <div className="space-y-2">
             <Label htmlFor="rule-description">
               {t('interceptor.safety.ruleFields.description')}
@@ -172,7 +159,6 @@ export function SafetyRuleEditor({ rule, onSave, onCancel }: SafetyRuleEditorPro
             />
           </div>
 
-          {/* Enabled */}
           <div className="flex items-center gap-2">
             <Checkbox
               id="rule-enabled"
@@ -182,7 +168,6 @@ export function SafetyRuleEditor({ rule, onSave, onCancel }: SafetyRuleEditorPro
             <Label htmlFor="rule-enabled">{t('interceptor.safety.ruleFields.enabled')}</Label>
           </div>
 
-          {/* Environments */}
           <div className="space-y-2">
             <Label>{t('interceptor.safety.ruleFields.environments')}</Label>
             <div className="flex flex-wrap gap-3">
@@ -198,7 +183,6 @@ export function SafetyRuleEditor({ rule, onSave, onCancel }: SafetyRuleEditorPro
             </div>
           </div>
 
-          {/* Operations */}
           <div className="space-y-2">
             <Label>{t('interceptor.safety.ruleFields.operations')}</Label>
             <p className="text-xs text-muted-foreground">Leave empty to match all operations</p>
@@ -215,7 +199,6 @@ export function SafetyRuleEditor({ rule, onSave, onCancel }: SafetyRuleEditorPro
             </div>
           </div>
 
-          {/* Action */}
           <div className="space-y-2">
             <Label>{t('interceptor.safety.ruleFields.action')}</Label>
             <Select value={action} onValueChange={v => setAction(v as SafetyRule['action'])}>
@@ -232,7 +215,6 @@ export function SafetyRuleEditor({ rule, onSave, onCancel }: SafetyRuleEditorPro
             </Select>
           </div>
 
-          {/* Pattern */}
           <div className="space-y-2">
             <Label htmlFor="rule-pattern">{t('interceptor.safety.ruleFields.pattern')}</Label>
             <p className="text-xs text-muted-foreground">Optional regex to match query text</p>
@@ -247,7 +229,6 @@ export function SafetyRuleEditor({ rule, onSave, onCancel }: SafetyRuleEditorPro
           </div>
         </div>
 
-        {/* Footer */}
         <div className="flex items-center justify-end gap-2 p-4 border-t border-border">
           <Button variant="outline" onClick={onCancel}>
             {t('common.cancel')}

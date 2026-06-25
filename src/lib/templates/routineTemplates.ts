@@ -3,9 +3,6 @@
 import { Driver } from '../connection/drivers';
 import type { Namespace, RoutineType } from '../tauri';
 
-/**
- * Returns a driver-specific SQL template for creating a new routine.
- */
 export function getRoutineTemplate(
   driver: Driver,
   routineType: RoutineType,

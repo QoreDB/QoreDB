@@ -97,7 +97,6 @@ const SYNC_DEBOUNCE_MS = 1000;
 function writeState(next: QueryLibraryState): void {
   localStorage.setItem(getStorageKey(), JSON.stringify(next));
 
-  // Debounced async sync to workspace file
   const { activeWorkspace } = getWorkspaceState();
   if (activeWorkspace && activeWorkspace.source !== 'default') {
     if (syncTimer) clearTimeout(syncTimer);

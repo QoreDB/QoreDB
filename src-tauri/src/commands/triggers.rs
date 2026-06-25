@@ -35,8 +35,6 @@ fn parse_session_id(id: &str) -> Result<SessionId, String> {
     Ok(SessionId(uuid))
 }
 
-// ==================== Trigger Responses ====================
-
 #[derive(Debug, Serialize)]
 pub struct TriggerDefinitionResponse {
     pub success: bool,
@@ -58,8 +56,6 @@ pub struct TriggerToggleResponse {
     pub error: Option<String>,
 }
 
-// ==================== Event Responses ====================
-
 #[derive(Debug, Serialize)]
 pub struct EventDefinitionResponse {
     pub success: bool,
@@ -73,8 +69,6 @@ pub struct EventDropResponse {
     pub result: Option<EventOperationResult>,
     pub error: Option<String>,
 }
-
-// ==================== Trigger Commands ====================
 
 /// Gets the full definition (CREATE statement) of a trigger
 #[tauri::command]
@@ -351,8 +345,6 @@ pub async fn toggle_trigger(
         }),
     }
 }
-
-// ==================== Event Commands ====================
 
 /// Gets the full definition (CREATE statement) of a scheduled event
 #[tauri::command]

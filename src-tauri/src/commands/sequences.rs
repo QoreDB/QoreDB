@@ -31,8 +31,6 @@ fn parse_session_id(id: &str) -> Result<SessionId, String> {
     Ok(SessionId(uuid))
 }
 
-// ==================== Sequence Responses ====================
-
 #[derive(Debug, Serialize)]
 pub struct SequenceDefinitionResponse {
     pub success: bool,
@@ -46,8 +44,6 @@ pub struct SequenceDropResponse {
     pub result: Option<SequenceOperationResult>,
     pub error: Option<String>,
 }
-
-// ==================== Sequence Commands ====================
 
 /// Gets the full definition (CREATE statement) of a sequence
 #[tauri::command]

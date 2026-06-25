@@ -1,9 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-/**
- * Virtualized table body component for DataGrid
- */
-
 import { type Cell, flexRender, type Row } from '@tanstack/react-table';
 import type { Virtualizer } from '@tanstack/react-virtual';
 import { useTranslation } from 'react-i18next';

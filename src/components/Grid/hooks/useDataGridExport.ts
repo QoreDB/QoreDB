@@ -1,9 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-/**
- * Hook for file export functionality in DataGrid
- */
-
 import type { Row } from '@tanstack/react-table';
 import { save } from '@tauri-apps/plugin-dialog';
 import { writeTextFile } from '@tauri-apps/plugin-fs';

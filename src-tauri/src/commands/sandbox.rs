@@ -34,7 +34,6 @@ pub struct FailedChange {
     pub error: String,
 }
 
-// ==================== Implementation ====================
 // Always compiled. Core mode enforces a 5-change batch limit (covers
 // Bulk Edit and other batched mutation flows). The Sandbox UI itself is
 // still Pro-gated, so Core users only reach this limit through Bulk Edit.

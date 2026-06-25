@@ -1,10 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-/**
- * Column header component for DataGrid
- * Displays column name with primary key/foreign key/index/unique indicators and sort controls
- */
-
 import type { Column } from '@tanstack/react-table';
 import { ArrowDown, ArrowUp, ArrowUpDown, Fingerprint, KeyRound, Link2, Zap } from 'lucide-react';
 import { useTranslation } from 'react-i18next';

@@ -9,11 +9,7 @@ interface MainLayoutProps {
   sidebar?: ReactNode;
 }
 
-/**
- * Main layout component.
- * Note: Currently App.tsx manages the layout directly.
- * This component is kept for potential future use.
- */
+// Unused: App.tsx manages the layout directly. Kept for potential future use.
 export function MainLayout({ children, sidebar }: MainLayoutProps) {
   return (
     <div className="layout">

@@ -24,9 +24,6 @@ function formatDate(iso: string | null): string {
   }
 }
 
-/**
- * License activation/deactivation UI for Settings page.
- */
 export function LicenseActivation() {
   const { t } = useTranslation();
   const { status, activate, deactivate, refresh, openBillingPortal } = useLicense();
@@ -95,7 +92,6 @@ export function LicenseActivation() {
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Current status */}
       <div className="flex flex-col gap-1">
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium text-[var(--color-text-primary)]">
@@ -113,7 +109,6 @@ export function LicenseActivation() {
         {tagline && <p className="text-xs text-[var(--color-text-secondary)]">{tagline}</p>}
       </div>
 
-      {/* License details */}
       {hasLicenseInfo && (
         <div className="flex flex-col gap-1 rounded-md border border-[var(--color-border)] p-3 text-xs">
           {status.email && (
@@ -174,7 +169,6 @@ export function LicenseActivation() {
         </div>
       )}
 
-      {/* Activation form */}
       {!isActive && (
         <>
           <div className="flex gap-2">
@@ -200,7 +194,6 @@ export function LicenseActivation() {
         </>
       )}
 
-      {/* Team management: refresh key + Stripe billing portal */}
       {isActive && isTeam && (
         <div className="flex flex-wrap gap-2">
           <Button
@@ -226,7 +219,6 @@ export function LicenseActivation() {
         </div>
       )}
 
-      {/* Deactivation */}
       {isActive && (
         <>
           <Button

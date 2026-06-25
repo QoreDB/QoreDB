@@ -94,7 +94,6 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         return;
       }
       try {
-        // Try to detect a workspace from CWD
         const detected = await detectWorkspace();
 
         if (cancelled) return;
@@ -122,7 +121,6 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
           if (!cancelled) setActiveWorkspace(active, pid);
         }
 
-        // Load recent workspaces
         const recents = await listRecentWorkspaces();
         if (!cancelled) setRecentWorkspaces(recents);
       } catch (err) {

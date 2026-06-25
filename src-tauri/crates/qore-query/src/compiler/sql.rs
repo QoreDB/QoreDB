@@ -136,10 +136,7 @@ impl Ctx {
         Ok(())
     }
 
-    // ------------------------------------------------------------------
     // Literals & placeholders
-    // ------------------------------------------------------------------
-
     /// `NaN`/`±Infinity` have no portable SQL representation: MySQL
     /// rejects them, Postgres accepts them only in specific contexts,
     /// and comparisons with `NaN` yield undefined semantics. We refuse
@@ -173,10 +170,7 @@ impl Ctx {
         self.ops.quote_ident(out, &c.name);
     }
 
-    // ------------------------------------------------------------------
     // Expression walker
-    // ------------------------------------------------------------------
-
     fn write_expr(&mut self, out: &mut String, expr: &Expr, depth: u32) -> QueryResult<()> {
         if depth >= MAX_AST_DEPTH {
             return Err(QueryError::AstTooDeep(MAX_AST_DEPTH));
@@ -436,10 +430,7 @@ impl Ctx {
         Ok(())
     }
 
-    // ------------------------------------------------------------------
     // SELECT list, JOINs, ORDER BY, LIMIT/OFFSET
-    // ------------------------------------------------------------------
-
     fn write_select_list(
         &mut self,
         out: &mut String,

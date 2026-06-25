@@ -1,11 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-/**
- * Interceptor Settings Panel
- *
- * UI component for configuring the Universal Query Interceptor.
- * All data is stored and processed in the backend (Rust) for security.
- */
+// All config is stored and processed in the backend (Rust) for security.
 
 import {
   Activity,
@@ -122,7 +117,6 @@ export function InterceptorSettingsPanel() {
     [t]
   );
 
-  // Load configuration from backend
   const loadConfig = useCallback(async () => {
     try {
       setLoading(true);
@@ -146,7 +140,6 @@ export function InterceptorSettingsPanel() {
     loadConfig();
   }, [loadConfig]);
 
-  // Update config helper
   const updateConfig = useCallback(
     async (updates: Partial<InterceptorConfig>) => {
       if (!config) return;
@@ -161,7 +154,6 @@ export function InterceptorSettingsPanel() {
     [config]
   );
 
-  // Governance update helper
   const updateGovernance = useCallback(
     async (updates: Partial<GovernanceLimits>) => {
       if (!governance) return;
@@ -176,7 +168,6 @@ export function InterceptorSettingsPanel() {
     [governance]
   );
 
-  // Safety rule handlers
   const handleRuleSave = useCallback(
     async (rule: SafetyRule) => {
       try {
@@ -243,13 +234,11 @@ export function InterceptorSettingsPanel() {
     );
   }
 
-  // Separate built-in and custom rules
   const builtinRules = rules.filter(r => r.builtin);
   const customRules = rules.filter(r => !r.builtin);
 
   return (
     <div className="space-y-4">
-      {/* Audit Logging */}
       <Section
         title={t('interceptor.audit.title')}
         description={t('interceptor.audit.description')}
@@ -283,7 +272,6 @@ export function InterceptorSettingsPanel() {
         </SettingRow>
       </Section>
 
-      {/* Profiling (Pro) */}
       <LicenseGate feature="profiling">
         <Section
           title={t('interceptor.profiling.title')}
@@ -340,7 +328,6 @@ export function InterceptorSettingsPanel() {
         </Section>
       </LicenseGate>
 
-      {/* Query Governance */}
       {governance && (
         <Section
           title={t('interceptor.governance.title')}
@@ -407,7 +394,6 @@ export function InterceptorSettingsPanel() {
         </Section>
       )}
 
-      {/* Safety */}
       <Section
         title={t('interceptor.safety.title')}
         description={t('interceptor.safety.description')}
@@ -423,7 +409,6 @@ export function InterceptorSettingsPanel() {
           />
         </SettingRow>
 
-        {/* Built-in Rules */}
         <div className="pt-4 border-t border-border">
           <Label className="text-sm font-medium mb-3 block">
             {t('interceptor.safety.builtinRules')}
@@ -459,7 +444,6 @@ export function InterceptorSettingsPanel() {
           </div>
         </div>
 
-        {/* Custom Rules (Pro) */}
         <LicenseGate feature="custom_safety_rules">
           <div className="pt-4 border-t border-border">
             <div className="flex items-center justify-between mb-3">
@@ -525,7 +509,6 @@ export function InterceptorSettingsPanel() {
         </LicenseGate>
       </Section>
 
-      {/* Rule Editor Modal */}
       {showRuleEditor && (
         <SafetyRuleEditor
           rule={editingRule}

@@ -84,7 +84,6 @@ export function consumePendingNotebook(path: string): QoreNotebook | null {
   return nb ?? null;
 }
 
-/** Auto-save draft to localStorage */
 export function saveDraft(tabId: string, notebook: QoreNotebook): void {
   try {
     localStorage.setItem(`qnb_draft_${tabId}`, JSON.stringify(notebook));

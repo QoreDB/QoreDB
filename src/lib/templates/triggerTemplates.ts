@@ -3,9 +3,6 @@
 import { Driver } from '../connection/drivers';
 import type { Namespace } from '../tauri';
 
-/**
- * Returns a driver-specific SQL template for creating a new trigger.
- */
 export function getTriggerTemplate(driver: Driver, namespace: Namespace): string {
   switch (driver) {
     case Driver.Postgres:
@@ -19,9 +16,6 @@ export function getTriggerTemplate(driver: Driver, namespace: Namespace): string
   }
 }
 
-/**
- * Returns a driver-specific SQL template for creating a new MySQL event.
- */
 export function getEventTemplate(namespace: Namespace): string {
   return mysqlCreateEvent(namespace);
 }

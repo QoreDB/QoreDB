@@ -3,10 +3,6 @@
 import { invoke } from '@/lib/transport';
 import type { Namespace, QueryResult, Value } from './types';
 
-// ============================================
-// DATABASE CREATION OPTIONS
-// ============================================
-
 export interface CollationInfo {
   name: string;
   is_default: boolean;
@@ -53,10 +49,6 @@ export async function dropDatabase(
 }> {
   return invoke('drop_database', { sessionId, name, acknowledgedDangerous });
 }
-
-// ============================================
-// TABLE BROWSING
-// ============================================
 
 export interface ForeignKey {
   column: string;
@@ -149,10 +141,6 @@ export async function previewTable(
   return invoke('preview_table', { sessionId, namespace, table, limit, bypassCache });
 }
 
-// ============================================
-// VIRTUAL RELATIONS
-// ============================================
-
 export interface VirtualRelation {
   id: string;
   source_database: string;
@@ -194,10 +182,6 @@ export async function deleteVirtualRelation(
 ): Promise<{ success: boolean; error?: string }> {
   return invoke('delete_virtual_relation', { connectionId, relationId });
 }
-
-// ============================================
-// DRIVER METADATA
-// ============================================
 
 export async function getDriverInfo(sessionId: string): Promise<{
   success: boolean;

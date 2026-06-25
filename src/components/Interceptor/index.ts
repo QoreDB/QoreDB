@@ -1,11 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-/**
- * Interceptor Components
- *
- * UI components for the Universal Query Interceptor system
- */
-
 export { AuditLogModal } from './AuditLogModal';
 export { AuditLogPanel } from './AuditLogPanel';
 export { InterceptorSettingsPanel } from './InterceptorSettingsPanel';

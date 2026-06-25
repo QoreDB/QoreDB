@@ -1,11 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
 
-/**
- * DataDiffViewer - Visual comparison of two data sources
- *
- * Allows comparing two query results or table contents side by side,
- * highlighting differences like a Git diff viewer.
- */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { UI_EVENT_CONNECTIONS_CHANGED } from '@/lib/events/uiEvents';
@@ -152,7 +146,6 @@ export function DataDiffViewer({
     return null;
   }, [compareBlockedReason]);
 
-  // UI state
   const [filter, setFilter] = useState<DiffFilter>('all');
   const [showUnchanged, setShowUnchanged] = useState(true);
 
@@ -205,18 +198,15 @@ export function DataDiffViewer({
     t,
   ]);
 
-  // Filter rows based on current filter and showUnchanged setting
   const filteredRows = useMemo(() => {
     if (!diffResult) return [];
 
     let rows = diffResult.rows;
 
-    // Filter by status
     if (filter !== 'all') {
       rows = rows.filter(r => r.status === filter);
     }
 
-    // Filter out unchanged if not showing
     if (!showUnchanged && filter === 'all') {
       rows = rows.filter(r => r.status !== 'unchanged');
     }
@@ -224,13 +214,11 @@ export function DataDiffViewer({
     return rows;
   }, [diffResult, filter, showUnchanged]);
 
-  // Get columns from results for config panel
   const leftColumns = leftSource.result?.columns;
   const rightColumns = rightSource.result?.columns;
 
   return (
     <div className="flex flex-col h-full bg-background">
-      {/* Toolbar */}
       <DiffToolbar
         onSwap={swap}
         onRefresh={refresh}
@@ -239,7 +227,6 @@ export function DataDiffViewer({
         canRefresh={hasResults}
       />
 
-      {/* Source panels */}
       <div className="grid grid-cols-2 gap-4 p-4 border-b border-border">
         <DiffSourcePanel
           label={t('diff.leftSource')}
@@ -263,7 +250,6 @@ export function DataDiffViewer({
         />
       </div>
 
-      {/* Config panel */}
       <div className="px-4 py-3 border-b border-border">
         <DiffConfigPanel
           leftColumns={leftColumns}
@@ -284,7 +270,6 @@ export function DataDiffViewer({
         />
       </div>
 
-      {/* Stats bar - only show when there's a diff result */}
       {diffResult && (
         <DiffStatsBar
           stats={diffResult.stats}
@@ -295,7 +280,6 @@ export function DataDiffViewer({
         />
       )}
 
-      {/* Results grid */}
       <div className="flex-1 overflow-hidden">
         <DiffResultsGrid diffResult={diffResult} filteredRows={filteredRows} />
       </div>

@@ -25,9 +25,6 @@ interface RoutineContextMenuProps {
   children: React.ReactNode;
 }
 
-/**
- * Right-click context menu wrapper for routine items (functions/procedures).
- */
 export function RoutineContextMenu({
   routine,
   sessionId,

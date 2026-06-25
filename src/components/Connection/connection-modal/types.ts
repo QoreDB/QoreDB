@@ -35,7 +35,6 @@ export interface ConnectionFormData {
   sshConnectTimeoutSecs: number;
   sshKeepaliveIntervalSecs: number;
   sshKeepaliveCountMax: number;
-  // Proxy fields
   useProxy: boolean;
   proxyType: 'http_connect' | 'socks5';
   proxyHost: string;
@@ -43,7 +42,6 @@ export interface ConnectionFormData {
   proxyUsername: string;
   proxyPassword: string;
   proxyConnectTimeoutSecs: number;
-  // URL mode fields
   useUrl: boolean;
   connectionUrl: string;
 }
@@ -77,7 +75,6 @@ export const initialConnectionFormData: ConnectionFormData = {
   sshConnectTimeoutSecs: 10,
   sshKeepaliveIntervalSecs: 30,
   sshKeepaliveCountMax: 3,
-  // Proxy defaults
   useProxy: false,
   proxyType: 'socks5',
   proxyHost: '',
@@ -85,7 +82,6 @@ export const initialConnectionFormData: ConnectionFormData = {
   proxyUsername: '',
   proxyPassword: '',
   proxyConnectTimeoutSecs: 10,
-  // URL mode defaults
   useUrl: false,
   connectionUrl: '',
 };

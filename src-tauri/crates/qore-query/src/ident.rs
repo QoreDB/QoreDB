@@ -236,10 +236,7 @@ pub(crate) fn escape_like_pattern(s: &str, out: &mut String) {
     }
 }
 
-// ============================================================================
 // IntoOperand — accepts literals, column refs, or raw expressions
-// ============================================================================
-
 /// Anything that can serve as the right-hand side of a comparison:
 /// a literal (any scalar type), another [`Column`], or a pre-built
 /// [`Expr`]. Enables `col("u").id().eq(col("o").user_id())` for JOIN

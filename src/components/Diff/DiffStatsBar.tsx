@@ -1,9 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 
 import { ArrowLeftRight, CheckCircle2, Eye, EyeOff, MinusCircle, PlusCircle } from 'lucide-react';
-/**
- * DiffStatsBar - Statistics bar with counters and filters
- */
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import {
@@ -37,7 +34,6 @@ export function DiffStatsBar({
 
   return (
     <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-muted/20">
-      {/* Stats counters */}
       <div className="flex items-center gap-4 text-sm">
         <StatCounter
           icon={<PlusCircle size={14} />}
@@ -73,7 +69,6 @@ export function DiffStatsBar({
         />
       </div>
 
-      {/* Filters */}
       <div className="flex items-center gap-2">
         <Select value={filter} onValueChange={v => onFilterChange(v as DiffFilter)}>
           <SelectTrigger className="w-36 h-8 text-sm">

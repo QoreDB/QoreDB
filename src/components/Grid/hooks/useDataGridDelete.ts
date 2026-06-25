@@ -1,10 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-/**
- * Hook for row deletion functionality in DataGrid
- * Manages delete operations with confirmation dialogs
- */
-
 import type { Table } from '@tanstack/react-table';
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -50,9 +45,6 @@ export interface UseDataGridDeleteReturn {
   }[];
 }
 
-/**
- * Hook for managing row deletion in the data grid
- */
 export function useDataGridDelete({
   table,
   sessionId,
@@ -74,14 +66,12 @@ export function useDataGridDelete({
   const selectedRows = table.getSelectedRowModel().rows;
   const selectedCount = selectedRows.length;
 
-  // Computed values
   const canDelete = Boolean(
     sessionId && namespace && tableName && primaryKey && primaryKey.length > 0 && selectedCount > 0
   );
   const deleteDisabled = selectedCount === 0 || isDeleting || readOnly || !mutationsSupported;
   const deleteRequiresConfirm = environment === 'production';
 
-  // Preview rows for delete confirmation dialog
   const previewRows = selectedRows.slice(0, 10).map((row, index) => {
     const values =
       primaryKey?.map(pk => ({
@@ -95,7 +85,6 @@ export function useDataGridDelete({
     };
   });
 
-  // Perform the actual delete operation
   const performDelete = useCallback(
     async (acknowledgedDangerous = false) => {
       if (!namespace || !tableName || !primaryKey || primaryKey.length === 0) return;
@@ -129,7 +118,6 @@ export function useDataGridDelete({
 
           if (missingPk) continue;
 
-          // Capture all values for oldValues
           for (const [key, val] of Object.entries(row.original)) {
             oldValues[key] = val;
           }
@@ -140,7 +128,6 @@ export function useDataGridDelete({
         return;
       }
 
-      // Real deletion
       if (!sessionId) return;
 
       setIsDeleting(true);
@@ -209,7 +196,6 @@ export function useDataGridDelete({
     ]
   );
 
-  // Handle delete button click (open confirmation dialog)
   const handleDelete = useCallback(() => {
     const rowsToDelete = table.getSelectedRowModel().rows;
     if (rowsToDelete.length === 0) return;

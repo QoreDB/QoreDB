@@ -3,8 +3,6 @@
 import type { ContractRun } from '../contracts';
 import type { ColumnInfo, Namespace, Row } from '../tauri';
 
-// --- File format types (serialized to .qnb) ---
-
 export interface QoreNotebook {
   version: 1;
   metadata: NotebookMetadata;
@@ -82,8 +80,6 @@ export interface NotebookVariable {
   options?: string[];
   currentValue?: string;
 }
-
-// --- Factory helpers ---
 
 export function createEmptyNotebook(title?: string): QoreNotebook {
   return {

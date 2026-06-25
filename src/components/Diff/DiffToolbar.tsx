@@ -9,9 +9,6 @@ import {
   GitCompare,
   RefreshCw,
 } from 'lucide-react';
-/**
- * DiffToolbar - Toolbar with swap, export, and refresh actions
- */
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
@@ -94,13 +91,11 @@ export function DiffToolbar({
 
   return (
     <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/30">
-      {/* Title */}
       <div className="flex items-center gap-2">
         <GitCompare size={20} className="text-muted-foreground" />
         <h2 className="font-medium">{t('diff.title')}</h2>
       </div>
 
-      {/* Actions */}
       <div className="flex items-center gap-2">
         <Button variant="ghost" size="sm" onClick={onSwap} disabled={!canSwap}>
           <ArrowLeftRight size={16} className="mr-1.5" />
@@ -144,9 +139,6 @@ export function DiffToolbar({
   );
 }
 
-/**
- * Download content as a file
- */
 async function downloadFile(content: string, filename: string, mimeType: string) {
   const blob = new Blob([content], { type: mimeType });
   const url = URL.createObjectURL(blob);

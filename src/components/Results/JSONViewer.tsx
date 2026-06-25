@@ -3,7 +3,6 @@
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { type KeyboardEvent, useState } from 'react';
 
-/** Handles Enter/Space as click for keyboard accessibility */
 function handleToggleKeyDown(e: KeyboardEvent, toggle: () => void) {
   if (e.key === 'Enter' || e.key === ' ') {
     e.preventDefault();

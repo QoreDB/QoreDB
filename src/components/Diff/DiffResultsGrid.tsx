@@ -2,9 +2,6 @@
 
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { ArrowLeftRight, CheckCircle2, GitCompare, MinusCircle, PlusCircle } from 'lucide-react';
-/**
- * DiffResultsGrid - Virtualized grid for displaying diff results
- */
 import { useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -57,16 +54,13 @@ export function DiffResultsGrid({ diffResult, filteredRows }: DiffResultsGridPro
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      {/* Header */}
       <div
         className="flex items-center bg-muted/50 border-b border-border shrink-0"
         style={{ height: HEADER_HEIGHT }}
       >
-        {/* Status column */}
         <div className="w-10 shrink-0 flex items-center justify-center border-r border-border">
           <span className="sr-only">Status</span>
         </div>
-        {/* Data columns */}
         {columns.map((col, i) => (
           <div
             key={i}
@@ -78,7 +72,6 @@ export function DiffResultsGrid({ diffResult, filteredRows }: DiffResultsGridPro
         ))}
       </div>
 
-      {/* Virtualized rows */}
       <div ref={parentRef} className="flex-1 overflow-auto">
         <div
           style={{
@@ -124,12 +117,10 @@ function DiffRowComponent({ row, style }: DiffRowComponentProps) {
       className={cn('flex items-center border-b border-border transition-colors', rowClassName)}
       style={style}
     >
-      {/* Status icon */}
       <div className="w-10 shrink-0 flex items-center justify-center border-r border-border">
         {statusIcon}
       </div>
 
-      {/* Cells */}
       {row.status === 'removed'
         ? row.leftCells.map((cell, colIdx) => (
             <DiffCell

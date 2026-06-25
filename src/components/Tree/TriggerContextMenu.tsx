@@ -27,9 +27,6 @@ interface TriggerContextMenuProps {
   children: React.ReactNode;
 }
 
-/**
- * Right-click context menu wrapper for trigger items.
- */
 export function TriggerContextMenu({
   trigger,
   sessionId,

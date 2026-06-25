@@ -27,7 +27,6 @@ const FORMAT_LABEL: Record<AuditExportFormat, string> = {
 };
 
 interface AuditExportMenuProps {
-  /** Disabled while loading or unavailable. */
   disabled?: boolean;
 }
 

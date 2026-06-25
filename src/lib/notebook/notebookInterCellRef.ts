@@ -32,10 +32,6 @@ export function resolveInterCellReferences(source: string, cells: NotebookCell[]
   });
 }
 
-/**
- * Find inter-cell references in a source string.
- * Returns list of {label, column} pairs.
- */
 export function findInterCellReferences(source: string): Array<{ label: string; column: string }> {
   const refs: Array<{ label: string; column: string }> = [];
   for (const m of source.matchAll(/\$(\w+)\.(\w+)/g)) {

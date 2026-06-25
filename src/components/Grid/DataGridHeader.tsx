@@ -1,10 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-/**
- * Header bar component for DataGrid
- * Displays row counts, timing info, load more controls, and delete button
- */
-
 import { Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';

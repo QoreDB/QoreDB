@@ -42,7 +42,6 @@ interface BlobViewerProps {
   onOpenChange: (open: boolean) => void;
   /** Base64-encoded binary value */
   value: string;
-  /** Column name for display */
   columnName: string;
   /** Database column type (e.g., "bytea", "blob", "varbinary(255)") */
   dataType: string;

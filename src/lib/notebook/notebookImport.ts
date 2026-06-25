@@ -29,7 +29,6 @@ export function importFromMarkdown(content: string, title?: string): QoreNoteboo
 
   for (const line of lines) {
     if (!inCodeBlock && /^```(?:sql|mongo)?\s*$/i.test(line)) {
-      // Flush markdown buffer
       if (currentMarkdown.trim()) {
         cells.push(createCell('markdown', currentMarkdown.trim()));
         currentMarkdown = '';
@@ -37,7 +36,6 @@ export function importFromMarkdown(content: string, title?: string): QoreNoteboo
       inCodeBlock = true;
       codeContent = '';
     } else if (inCodeBlock && line.startsWith('```')) {
-      // End code block → SQL cell
       cells.push(createCell('sql', codeContent.trim()));
       inCodeBlock = false;
       codeContent = '';
@@ -48,7 +46,6 @@ export function importFromMarkdown(content: string, title?: string): QoreNoteboo
     }
   }
 
-  // Flush remaining
   if (inCodeBlock && codeContent.trim()) {
     cells.push(createCell('sql', codeContent.trim()));
   }
@@ -60,9 +57,6 @@ export function importFromMarkdown(content: string, title?: string): QoreNoteboo
   return nb;
 }
 
-/**
- * Split SQL by semicolons, respecting quoted strings.
- */
 function splitSqlStatements(sql: string): string[] {
   const statements: string[] = [];
   let current = '';

@@ -93,9 +93,6 @@ export function SandboxIndicator({
   );
 }
 
-/**
- * A border indicator wrapper that adds a colored border when sandbox is active
- */
 interface SandboxBorderProps {
   sessionId: string | null;
   environment?: Environment;

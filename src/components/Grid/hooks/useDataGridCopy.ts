@@ -1,9 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-/**
- * Hook for clipboard copy functionality in DataGrid
- */
-
 import type { Row } from '@tanstack/react-table';
 import { useCallback, useState } from 'react';
 import type { QueryResult } from '@/lib/tauri';

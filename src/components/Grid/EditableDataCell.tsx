@@ -1,10 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-/**
- * Editable data cell component for DataGrid
- * Handles cell display, inline editing, and foreign key peek tooltips
- */
-
 import { Binary } from 'lucide-react';
 import { memo, type RefObject, useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -71,9 +66,6 @@ export const EditableDataCell = memo(function EditableDataCell({
   const formatted = formatValue(value, dataType);
   const isNull = value === null;
   const [blobViewerOpen, setBlobViewerOpen] = useState(false);
-  // Plugin-contributed cell viewers. The lookup is cheap (typically 0–2
-  // viewers) but memoise it on column identity so we don't redo it on every
-  // editing-state change.
   const { contributions } = usePlugins();
   const pluginViewer = useMemo(
     () =>

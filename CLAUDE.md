@@ -246,4 +246,22 @@ Applique l'internationalisation de manière systématique via `src/lib/i18n.ts`.
 Pour les traductions, pense à toutes les langues, et écris dans un français clair et concis (avec les accents).
 Utilise les composants UI de `src/components/ui/` autant que possible pour garantir la cohérence visuelle.
 Quand tu ajoutes une nouvelle fonctionnalité, pense à la documentation associée (README, doc/FEATURES.csv) et à la licence (header SPDX).
-Commente le code avec parcimonie, les commentaires doivent seulement etre utiles à la compréhension du code, pas des réflexions internes.
+
+### Commentaires de code (anti-bruit)
+
+Un commentaire ne doit exister que s'il explique un **pourquoi** non évident : rationale, gotcha, raison de sécurité, contournement, invariant, comportement surprenant. Le code lisible se passe de commentaire.
+
+À proscrire :
+
+- JSDoc/commentaire qui reformule le nom du symbole : `/** Save sandbox state */` au-dessus de `saveSandboxState()`.
+- Labels de section : `// Storage keys`, `// Helpers`, `// === TYPES ===`.
+- En-têtes de fichier verbeux qui répètent le nom du fichier ou ajoutent de la méta (`Pattern follows X conventions`). Au plus une ligne `//` si le rôle du module n'est pas évident.
+- Paraphrase de la ligne suivante : `// increment i`, `// Sort results`, `// Add to beginning`.
+
+À garder : le header SPDX (obligatoire), les directives (`biome-ignore`, `@ts-expect-error`), et les commentaires qui documentent une intention non lisible dans le code.
+
+Test : si tu peux supprimer le commentaire sans qu'un lecteur perde une information qu'il n'aurait pas devinée en lisant le code, supprime-le.
+
+### Style de documentation (doc/, README)
+
+Écris une doc sobre, sans marqueurs « généré par IA » : pas d'emoji dans les titres, pas de titres en gras (`# **Titre**`), pas d'artefacts d'export (`1\.`, `\+`), pas de superlatifs marketing ni de phrases qui s'adressent à un agent (« Ce que tu as maintenant… »). Quand une spec est livrée ou une version sortie, déplace le doc dans `doc/archive/` plutôt que de le laisser traîner comme s'il était actif.

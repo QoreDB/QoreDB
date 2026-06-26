@@ -264,7 +264,7 @@ export function AppLayout() {
   }, [sessionId, openTab, t, activeTab?.namespace]);
 
   const handleCompareTable = useCallback(
-    (collection: Collection) => {
+    (collection: Collection, targetConnectionId?: string) => {
       if (!sessionId) return;
       const leftSource = {
         type: 'table' as const,
@@ -273,10 +273,19 @@ export function AppLayout() {
         tableName: collection.name,
         connectionId: activeConnection?.id,
       };
+      const rightSource = targetConnectionId
+        ? {
+            type: 'table' as const,
+            label: collection.name,
+            namespace: collection.namespace,
+            tableName: collection.name,
+            connectionId: targetConnectionId,
+          }
+        : undefined;
       openTab(
         createDiffTab(
           leftSource,
-          undefined,
+          rightSource,
           `${t('diff.title')}: ${collection.name}`,
           collection.namespace
         )

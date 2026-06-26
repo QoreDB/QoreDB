@@ -2043,6 +2043,8 @@
     "waitingForBoth": "Загрузите данные с обеих сторон, чтобы увидеть различия",
     "noDifferences": "Различий не обнаружено",
     "compareTable": "Сравнить с…",
+    "compareManual": "Настроить вручную…",
+    "compareNoConnections": "Нет других подключений",
     "compareQuery": "Сравнить с результатом запроса",
     "connection": "Подключение",
     "namespace": "База данных / схема",

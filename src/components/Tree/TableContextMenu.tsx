@@ -12,7 +12,7 @@ import {
   Trash2,
   Wrench,
 } from 'lucide-react';
-import { useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { DangerConfirmDialog } from '@/components/Guard/DangerConfirmDialog';
@@ -23,13 +23,18 @@ import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
+  ContextMenuLabel,
   ContextMenuSeparator,
+  ContextMenuSub,
+  ContextMenuSubContent,
+  ContextMenuSubTrigger,
   ContextMenuTrigger,
 } from '@/components/ui/context-menu';
 import { VirtualRelationDialog } from '@/components/VirtualRelations/VirtualRelationDialog';
 import { buildDropTableSQL, buildTruncateTableSQL } from '@/lib/ddl';
 import { emitTableChange } from '@/lib/events/tableEvents';
 import { removeTableVisit } from '@/lib/tableInsights';
+import { useWorkspace } from '@/providers/WorkspaceProvider';
 import { invalidateCollectionsCache, invalidateTableSchemaCache } from '../../hooks/useSchemaCache';
 import { isDocumentDatabase } from '../../lib/connection/driverCapabilities';
 import type { Driver } from '../../lib/connection/drivers';
@@ -39,6 +44,8 @@ import {
   describeTable,
   type Environment,
   executeQuery,
+  listSavedConnections,
+  type SavedConnection,
   type TableColumn,
 } from '../../lib/tauri';
 
@@ -52,7 +59,7 @@ interface TableContextMenuProps {
   rowCountEstimate?: number;
   onRefresh: () => void;
   onOpen: () => void;
-  onCompareWith?: (collection: Collection) => void;
+  onCompareWith?: (collection: Collection, targetConnectionId?: string) => void;
   onAiGenerate?: (collection: Collection) => void;
   onNewQuery?: (collection: Collection) => void;
   onVirtualRelationChanged?: () => void;
@@ -60,6 +67,87 @@ interface TableContextMenuProps {
 }
 
 type DangerAction = 'drop' | 'truncate' | null;
+
+const ENVIRONMENT_ORDER: Environment[] = ['production', 'staging', 'development'];
+
+function CompareTargets({
+  driver,
+  currentConnectionId,
+  onSelect,
+}: {
+  driver: Driver;
+  currentConnectionId?: string;
+  onSelect: (connectionId: string) => void;
+}) {
+  const { t } = useTranslation();
+  const { projectId } = useWorkspace();
+  const [connections, setConnections] = useState<SavedConnection[] | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    listSavedConnections(projectId)
+      .then(saved => {
+        if (!cancelled) setConnections(saved);
+      })
+      .catch(() => {
+        if (!cancelled) setConnections([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId]);
+
+  if (connections === null) {
+    return (
+      <>
+        <ContextMenuSeparator />
+        <ContextMenuLabel className="text-muted-foreground font-normal">
+          {t('common.loading')}
+        </ContextMenuLabel>
+      </>
+    );
+  }
+
+  const targets = connections.filter(
+    conn => conn.id !== currentConnectionId && conn.driver === driver
+  );
+
+  if (targets.length === 0) {
+    return (
+      <>
+        <ContextMenuSeparator />
+        <ContextMenuLabel className="text-muted-foreground font-normal">
+          {t('diff.compareNoConnections')}
+        </ContextMenuLabel>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <ContextMenuSeparator />
+      {ENVIRONMENT_ORDER.map(env => {
+        const group = targets.filter(conn => conn.environment === env);
+        if (group.length === 0) return null;
+        return (
+          <Fragment key={env}>
+            <ContextMenuLabel className="text-[10px] uppercase text-muted-foreground">
+              {t(`environment.${env}`)}
+            </ContextMenuLabel>
+            {group.map(conn => (
+              <ContextMenuItem key={conn.id} onClick={() => onSelect(conn.id)}>
+                <span className="truncate">{conn.name}</span>
+                {conn.read_only && (
+                  <span className="ml-auto text-[10px] uppercase text-muted-foreground">RO</span>
+                )}
+              </ContextMenuItem>
+            ))}
+          </Fragment>
+        );
+      })}
+    </>
+  );
+}
 
 export function TableContextMenu({
   collection,
@@ -214,10 +302,22 @@ export function TableContextMenu({
           )}
 
           {onCompareWith && (
-            <ContextMenuItem onClick={() => onCompareWith(collection)}>
-              <GitCompare size={14} className="mr-2" />
-              {t('diff.compareTable')}
-            </ContextMenuItem>
+            <ContextMenuSub>
+              <ContextMenuSubTrigger>
+                <GitCompare size={14} className="mr-2" />
+                {t('diff.compareTable')}
+              </ContextMenuSubTrigger>
+              <ContextMenuSubContent className="w-56">
+                <ContextMenuItem onClick={() => onCompareWith(collection)}>
+                  {t('diff.compareManual')}
+                </ContextMenuItem>
+                <CompareTargets
+                  driver={driver}
+                  currentConnectionId={connectionId}
+                  onSelect={connectionId => onCompareWith(collection, connectionId)}
+                />
+              </ContextMenuSubContent>
+            </ContextMenuSub>
           )}
 
           {connectionId && (

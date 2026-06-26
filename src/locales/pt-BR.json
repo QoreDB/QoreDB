@@ -2043,6 +2043,8 @@
     "waitingForBoth": "Carregue dados em ambos os lados para ver a comparação",
     "noDifferences": "Nenhuma diferença encontrada",
     "compareTable": "Comparar com...",
+    "compareManual": "Configurar manualmente…",
+    "compareNoConnections": "Nenhuma outra conexão",
     "compareQuery": "Comparar com resultado de consulta",
     "connection": "Conexão",
     "namespace": "Banco de dados / esquema",

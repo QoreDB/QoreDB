@@ -3,10 +3,6 @@
 import { invoke } from '@/lib/transport';
 import type { Namespace, Value } from './types';
 
-// ============================================
-// FULL-TEXT SEARCH
-// ============================================
-
 export interface FulltextMatch {
   namespace: Namespace;
   table_name: string;

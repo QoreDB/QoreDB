@@ -3,10 +3,6 @@
 import { useSyncExternalStore } from 'react';
 import type { RecentWorkspace, WorkspaceInfo } from '../tauri';
 
-// ============================================
-// STATE
-// ============================================
-
 interface WorkspaceState {
   activeWorkspace: WorkspaceInfo | null;
   recentWorkspaces: RecentWorkspace[];
@@ -45,17 +41,9 @@ function subscribe(listener: () => void): () => void {
   return () => listeners.delete(listener);
 }
 
-// ============================================
-// READ (non-reactive)
-// ============================================
-
 export function getWorkspaceState(): WorkspaceState {
   return state;
 }
-
-// ============================================
-// SETTERS
-// ============================================
 
 export function setActiveWorkspace(workspace: WorkspaceInfo | null, projectId: string) {
   updateState({ activeWorkspace: workspace, projectId, isLoading: false });
@@ -68,10 +56,6 @@ export function setRecentWorkspaces(recents: RecentWorkspace[]) {
 export function setWorkspaceLoading(loading: boolean) {
   updateState({ isLoading: loading });
 }
-
-// ============================================
-// REACT HOOK
-// ============================================
 
 export function useWorkspaceStore<T>(selector: (state: WorkspaceState) => T): T {
   return useSyncExternalStore(

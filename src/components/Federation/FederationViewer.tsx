@@ -25,10 +25,6 @@ import { QueryPanelResults, type QueryResultEntry } from '../Query/QueryPanelRes
 import { FederationEmptyState } from './FederationEmptyState';
 import { FederationSourceBar } from './FederationSourceBar';
 
-// ============================================
-// SMART INSERT — Query context analysis
-// ============================================
-
 type InsertAction = 'select-from' | 'join' | 'left-join' | 'comma' | 'where' | 'raw';
 
 interface InsertOption {
@@ -103,10 +99,6 @@ function buildInsertText(action: InsertAction, tablePath: string, query: string)
       return tablePath;
   }
 }
-
-// ============================================
-// COMPONENT
-// ============================================
 
 interface FederationViewerProps {
   activeConnection?: SavedConnection | null;

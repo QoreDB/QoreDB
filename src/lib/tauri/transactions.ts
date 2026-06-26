@@ -2,10 +2,6 @@
 
 import { invoke } from '@/lib/transport';
 
-// ============================================
-// TRANSACTIONS
-// ============================================
-
 export async function beginTransaction(sessionId: string): Promise<{
   success: boolean;
   error?: string;

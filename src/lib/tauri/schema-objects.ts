@@ -3,10 +3,6 @@
 import { invoke } from '@/lib/transport';
 import type { Namespace } from './types';
 
-// ============================================
-// ROUTINES (Functions/Procedures)
-// ============================================
-
 export type RoutineType = 'Function' | 'Procedure';
 
 export interface Routine {
@@ -44,10 +40,6 @@ export async function listRoutines(
     routine_type: routineType,
   });
 }
-
-// ============================================
-// ROUTINE DEFINITION & OPERATIONS
-// ============================================
 
 export interface RoutineDefinition {
   name: string;
@@ -111,10 +103,6 @@ export async function dropRoutine(
     acknowledgedDangerous,
   });
 }
-
-// ============================================
-// TRIGGERS
-// ============================================
 
 export type TriggerTiming = 'Before' | 'After' | 'InsteadOf';
 export type TriggerEvent = 'Insert' | 'Update' | 'Delete' | 'Truncate';
@@ -234,10 +222,6 @@ export async function toggleTrigger(
   });
 }
 
-// ============================================
-// EVENTS (MySQL scheduled tasks)
-// ============================================
-
 export type EventStatus = 'Enabled' | 'Disabled' | 'SlavesideDisabled';
 
 export interface DatabaseEvent {
@@ -325,10 +309,6 @@ export async function dropEvent(
     acknowledgedDangerous,
   });
 }
-
-// ============================================
-// SEQUENCES (MariaDB 10.3+)
-// ============================================
 
 export interface Sequence {
   namespace: Namespace;

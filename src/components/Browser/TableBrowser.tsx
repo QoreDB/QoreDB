@@ -1048,8 +1048,6 @@ function StructureTable({ schema }: StructureTableProps) {
   );
 }
 
-// ==================== Table Info Panel ====================
-
 interface TableStats {
   sizeBytes?: number;
   sizeFormatted?: string;

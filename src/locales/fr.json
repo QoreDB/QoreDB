@@ -2071,6 +2071,8 @@
     "waitingForBoth": "Chargez des données des deux côtés pour voir le diff",
     "noDifferences": "Aucune différence trouvée",
     "compareTable": "Comparer avec...",
+    "compareManual": "Configurer manuellement…",
+    "compareNoConnections": "Aucune autre connexion",
     "compareQuery": "Comparer avec un résultat de requête",
     "connection": "Connexion",
     "namespace": "Base / schéma",

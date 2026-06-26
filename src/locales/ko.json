@@ -2043,6 +2043,8 @@
     "waitingForBoth": "비교를 보려면 양쪽에 데이터를 로드하세요",
     "noDifferences": "차이점이 없습니다",
     "compareTable": "비교할 대상...",
+    "compareManual": "수동으로 설정…",
+    "compareNoConnections": "다른 연결 없음",
     "compareQuery": "쿼리 결과와 비교",
     "connection": "연결",
     "namespace": "데이터베이스 / 스키마",

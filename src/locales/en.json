@@ -2071,6 +2071,8 @@
     "waitingForBoth": "Load data on both sides to see the diff",
     "noDifferences": "No differences found",
     "compareTable": "Compare with...",
+    "compareManual": "Configure manually…",
+    "compareNoConnections": "No other connection",
     "compareQuery": "Compare with query result",
     "connection": "Connection",
     "namespace": "Database / schema",

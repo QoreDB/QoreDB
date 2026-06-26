@@ -2043,6 +2043,8 @@
     "waitingForBoth": "在两侧加载数据以查看对比",
     "noDifferences": "未发现差异",
     "compareTable": "与……比较",
+    "compareManual": "手动配置…",
+    "compareNoConnections": "没有其他连接",
     "compareQuery": "与查询结果比较",
     "connection": "连接",
     "namespace": "数据库/架构",

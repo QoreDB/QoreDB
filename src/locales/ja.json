@@ -2043,6 +2043,8 @@
     "waitingForBoth": "両側にデータを読み込むと差分が表示されます",
     "noDifferences": "差分が見つかりません",
     "compareTable": "比較対象...",
+    "compareManual": "手動で設定…",
+    "compareNoConnections": "他の接続がありません",
     "compareQuery": "クエリ結果と比較",
     "connection": "接続",
     "namespace": "データベース / スキーマ",

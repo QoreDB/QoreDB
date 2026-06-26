@@ -21,8 +21,6 @@ use super::path_to_string;
 use super::args::{BackupFormat, BackupMode, BackupOptions, RestoreOptions};
 use super::runner::{ActiveBackups, BackupEvent, BackupJobOutcome, EventSink};
 
-/// Format chosen for the DuckDB export. Defaults to PARQUET — the most
-/// space- and type-efficient option, which is also the DuckDB documented default.
 fn export_format(opts: &BackupOptions) -> &'static str {
     match opts.format {
         BackupFormat::Sql => "CSV",
@@ -99,9 +97,6 @@ pub async fn run_duckdb_backup(
     active.register_cancel(job_id.clone(), cancel_tx);
     let job_id_for_task = job_id.clone();
 
-    // DuckDB's connection / execute_batch are synchronous. Run them on a
-    // dedicated blocking thread so we don't stall the tokio runtime, and so
-    // cancellation is best-effort (we await on the join handle).
     let handle = task::spawn_blocking(move || -> Result<(), String> {
         let conn =
             Connection::open(&db_path).map_err(|e| format!("DuckDB open({db_path}): {e}"))?;
@@ -140,8 +135,6 @@ pub async fn run_duckdb_backup(
     })
 }
 
-/// Symmetric to [`run_duckdb_backup`] — `IMPORT DATABASE 'dir'` reads back the
-/// directory produced by `EXPORT DATABASE`.
 pub async fn run_duckdb_restore(
     opts: RestoreOptions,
     sink: Arc<dyn EventSink>,
@@ -224,9 +217,6 @@ fn escape_sql_literal(s: &str) -> String {
     s.replace('\'', "''")
 }
 
-/// The path is user-picked through the OS file dialog, but we still refuse
-/// embedded newlines / control bytes that have no legitimate place in a path
-/// literal and would only show up via direct frontend tampering.
 fn is_safe_export_path(s: &str) -> bool {
     !s.chars().any(|c| c.is_control())
 }
@@ -234,6 +224,7 @@ fn is_safe_export_path(s: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::PathBuf;
 
     #[test]
     fn escape_sql_literal_doubles_quotes() {

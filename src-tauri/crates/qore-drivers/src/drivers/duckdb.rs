@@ -535,7 +535,9 @@ impl DataEngine for DuckDbDriver {
             if let Ok(mut fk_stmt) = conn.prepare(
                 "SELECT \
                      unnest(constraint_column_names) as from_col, \
-                     unnest(constraint_column_names) as ref_col \
+                     unnest(referenced_column_names) as ref_col, \
+                     referenced_table, \
+                     constraint_name \
                  FROM duckdb_constraints() \
                  WHERE schema_name = ?1 AND table_name = ?2 \
                  AND constraint_type = 'FOREIGN KEY'",
@@ -543,17 +545,19 @@ impl DataEngine for DuckDbDriver {
                 if let Ok(fk_rows) = fk_stmt.query_map([&schema_name, &table], |row| {
                     let from_col: String = row.get(0)?;
                     let ref_col: String = row.get(1)?;
-                    Ok((from_col, ref_col))
+                    let ref_table: String = row.get(2)?;
+                    let constraint_name: Option<String> = row.get(3)?;
+                    Ok((from_col, ref_col, ref_table, constraint_name))
                 }) {
                     for row in fk_rows {
-                        if let Ok((from_col, ref_col)) = row {
+                        if let Ok((from_col, ref_col, ref_table, constraint_name)) = row {
                             foreign_keys.push(ForeignKey {
                                 column: from_col,
-                                referenced_table: String::new(),
+                                referenced_table: ref_table,
                                 referenced_column: ref_col,
                                 referenced_schema: Some(schema_name.clone()),
                                 referenced_database: None,
-                                constraint_name: None,
+                                constraint_name,
                                 is_virtual: false,
                             });
                         }

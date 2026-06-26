@@ -180,8 +180,7 @@ pub async fn describe_table(
             Some(Value::Text(s)) if !s.is_empty() => Some(s),
             _ => None,
         };
-        let is_pk = matches!(it.next(), Some(Value::Int(i)) if i != 0)
-            || matches!(it.next(), Some(Value::Bool(true)));
+        let is_pk = matches!(it.next(), Some(Value::Int(i)) if i != 0);
         let nullable = raw_type.to_ascii_uppercase().contains("NULLABLE(");
         if is_pk {
             primary_key_cols.push(name.clone());

@@ -44,7 +44,7 @@ pub struct BackupOptions {
     pub host: String,
     pub port: u16,
     pub username: Option<String>,
-    /// Sent via env (`PGPASSWORD`, `MYSQL_PWD`) — never logged.
+    /// Sent via env (`PGPASSWORD`, `MYSQL_PWD`) or `--password` (Mongo) — never logged.
     pub password: Option<String>,
     pub database: Option<String>,
     /// Empty = dump everything. Each entry must be a bare identifier.
@@ -211,28 +211,21 @@ fn build_mongo_dump_args(
         let user = safe_arg_value(user, "Username")?;
         args.push(format!("--username={}", user));
         args.push("--authenticationDatabase=admin".into());
+        if let Some(pass) = opts.password.as_ref().filter(|p| !p.is_empty()) {
+            args.push(format!("--password={}", pass));
+        }
     }
 
     if let Some(db) = opts.database.as_ref().filter(|d| !d.is_empty()) {
         args.push(format!("--db={}", safe_identifier(db)?));
     }
 
-    let env = opts
-        .password
-        .as_ref()
-        .filter(|p| !p.is_empty())
-        .map(|p| ("MONGODB_PASSWORD".to_string(), p.clone()))
-        .into_iter()
-        .collect();
-
-    Ok((args, env))
+    Ok((args, Vec::new()))
 }
 
 fn build_sqlite_dump_args(
     opts: &BackupOptions,
 ) -> Result<(Vec<String>, Vec<(String, String)>), String> {
-    // sqlite3 file.db ".dump" > output.sql
-    // We capture stdout in the runner; the path here is the DB file.
     let db_file = opts
         .database
         .as_ref()
@@ -360,21 +353,16 @@ fn build_mongo_restore_args(
         let user = safe_arg_value(user, "Username")?;
         args.push(format!("--username={}", user));
         args.push("--authenticationDatabase=admin".into());
+        if let Some(pass) = opts.password.as_ref().filter(|p| !p.is_empty()) {
+            args.push(format!("--password={}", pass));
+        }
     }
 
     if let Some(db) = opts.database.as_ref().filter(|d| !d.is_empty()) {
         args.push(format!("--db={}", safe_identifier(db)?));
     }
 
-    let env = opts
-        .password
-        .as_ref()
-        .filter(|p| !p.is_empty())
-        .map(|p| ("MONGODB_PASSWORD".to_string(), p.clone()))
-        .into_iter()
-        .collect();
-
-    Ok((args, env))
+    Ok((args, Vec::new()))
 }
 
 fn build_sqlite_restore_args(
@@ -541,5 +529,36 @@ mod tests {
         o.database = Some("/tmp/foo.db".into());
         let err = build_sqlite_dump_args(&o).unwrap_err();
         assert!(err.contains("data-only"));
+    }
+
+    #[test]
+    fn mongo_dump_passes_password_on_cli_not_env() {
+        let mut o = opts();
+        o.driver = "mongodb".into();
+        o.format = BackupFormat::MongoArchive;
+        o.port = 27017;
+        o.output_path = PathBuf::from("/tmp/dump.archive");
+        let (args, env) = build_mongo_dump_args(&o).unwrap();
+        assert!(args.iter().any(|a| a == "--username=admin"));
+        assert!(args.iter().any(|a| a == "--password=hunter2"));
+        assert!(args.iter().any(|a| a == "--authenticationDatabase=admin"));
+        assert!(env.is_empty());
+    }
+
+    #[test]
+    fn mongo_restore_passes_password_on_cli_not_env() {
+        let o = RestoreOptions {
+            driver: "mongodb".into(),
+            host: "localhost".into(),
+            port: 27017,
+            username: Some("admin".into()),
+            password: Some("hunter2".into()),
+            database: Some("orders".into()),
+            input_path: PathBuf::from("/tmp/dump.archive"),
+            format: BackupFormat::MongoArchive,
+        };
+        let (args, env) = build_mongo_restore_args(&o).unwrap();
+        assert!(args.iter().any(|a| a == "--password=hunter2"));
+        assert!(env.is_empty());
     }
 }

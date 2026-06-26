@@ -165,7 +165,7 @@ pub async fn ai_explain_result(
     let driver = session_manager
         .get_driver(sid)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| e.sanitized_message())?;
     let driver_id = driver.driver_id().to_string();
 
     let ns = namespace.unwrap_or_else(|| Namespace::new("default"));
@@ -226,7 +226,7 @@ pub async fn ai_summarize_schema(
     let driver = session_manager
         .get_driver(sid)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| e.sanitized_message())?;
     let driver_id = driver.driver_id().to_string();
 
     let ns = namespace.unwrap_or_else(|| Namespace::new("default"));
@@ -287,7 +287,7 @@ pub async fn ai_generate_filters(
     let driver = session_manager
         .get_driver(sid)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| e.sanitized_message())?;
     let driver_id = driver.driver_id().to_string();
 
     let ns = namespace.unwrap_or_else(|| Namespace::new("default"));
@@ -503,7 +503,7 @@ async fn stream_ai_request(
     let driver = session_manager
         .get_driver(sid)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| e.sanitized_message())?;
     let driver_id = driver.driver_id().to_string();
 
     let ns = request

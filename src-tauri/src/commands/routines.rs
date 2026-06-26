@@ -76,7 +76,7 @@ pub async fn get_routine_definition(
     let driver = session_manager
         .get_driver(session)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| e.sanitized_message())?;
 
     if !driver.supports_routines() {
         return Ok(RoutineDefinitionResponse {
@@ -102,7 +102,7 @@ pub async fn get_routine_definition(
         Err(e) => Ok(RoutineDefinitionResponse {
             success: false,
             definition: None,
-            error: Some(e.to_string()),
+            error: Some(e.sanitized_message()),
         }),
     }
 }
@@ -135,7 +135,7 @@ pub async fn drop_routine(
     let read_only = session_manager
         .is_read_only(session)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| e.sanitized_message())?;
     if read_only {
         return Ok(RoutineDropResponse {
             success: false,
@@ -147,7 +147,7 @@ pub async fn drop_routine(
     let driver = session_manager
         .get_driver(session)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| e.sanitized_message())?;
 
     if !driver.supports_routines() {
         return Ok(RoutineDropResponse {
@@ -259,7 +259,7 @@ pub async fn drop_routine(
                 &interceptor_context,
                 &QueryExecutionResult {
                     success: false,
-                    error: Some(e.to_string()),
+                    error: Some(e.sanitized_message()),
                     execution_time_ms: 0.0,
                     row_count: None,
                 },
@@ -269,7 +269,7 @@ pub async fn drop_routine(
             Ok(RoutineDropResponse {
                 success: false,
                 result: None,
-                error: Some(e.to_string()),
+                error: Some(e.sanitized_message()),
             })
         }
     }

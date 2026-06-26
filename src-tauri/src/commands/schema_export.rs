@@ -65,7 +65,7 @@ pub async fn export_schema(
     let driver = session_manager
         .get_driver(session)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| e.sanitized_message())?;
 
     let driver_id = driver.driver_id();
     let dialect = SqlDialect::from_driver_id(driver_id);
@@ -126,7 +126,7 @@ pub async fn export_schema(
                 },
             )
             .await
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| e.sanitized_message())?;
 
         let tables: Vec<_> = collections
             .collections
@@ -184,7 +184,7 @@ pub async fn export_schema(
                 },
             )
             .await
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| e.sanitized_message())?;
 
         if !routines.routines.is_empty() {
             output.push_str("-- ================================================\n");
@@ -243,7 +243,7 @@ pub async fn export_schema(
                 },
             )
             .await
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| e.sanitized_message())?;
 
         if !triggers.triggers.is_empty() {
             output.push_str("-- ================================================\n");
@@ -288,7 +288,7 @@ pub async fn export_schema(
         let events = driver
             .list_events(session, &namespace, events_list_options)
             .await
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| e.sanitized_message())?;
 
         if !events.events.is_empty() {
             output.push_str("-- ================================================\n");
@@ -332,7 +332,7 @@ pub async fn export_schema(
                 },
             )
             .await
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| e.sanitized_message())?;
 
         if !sequences.sequences.is_empty() {
             output.push_str("-- ================================================\n");

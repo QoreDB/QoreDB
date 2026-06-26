@@ -66,7 +66,7 @@ pub async fn list_maintenance_operations(
     let driver = session_manager
         .get_driver(session)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| e.sanitized_message())?;
 
     if !driver.capabilities().maintenance {
         return Ok(MaintenanceListResponse {
@@ -121,7 +121,7 @@ pub async fn run_maintenance(
     let read_only = session_manager
         .is_read_only(session)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| e.sanitized_message())?;
     if read_only {
         return Ok(MaintenanceRunResponse {
             success: false,
@@ -133,7 +133,7 @@ pub async fn run_maintenance(
     let driver = session_manager
         .get_driver(session)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| e.sanitized_message())?;
 
     if !driver.capabilities().maintenance {
         return Ok(MaintenanceRunResponse {

@@ -146,39 +146,7 @@ pub struct TimeTravelConfig {
 }
 
 fn default_sensitive_columns() -> Vec<String> {
-    [
-        "password",
-        "passwd",
-        "pwd",
-        "password_hash",
-        "secret",
-        "api_key",
-        "access_token",
-        "refresh_token",
-        "auth_token",
-        "token",
-        "ssn",
-        "social_security",
-        "tax_id",
-        "cc_number",
-        "card_number",
-        "credit_card",
-        "cvv",
-        "cvc",
-        "iban",
-        "email",
-        "phone",
-        "address",
-        "postal_code",
-        "zip",
-        "birth_date",
-        "date_of_birth",
-        "dob",
-        "salary",
-    ]
-    .into_iter()
-    .map(String::from)
-    .collect()
+    crate::redaction::default_sensitive_columns()
 }
 
 impl Default for TimeTravelConfig {

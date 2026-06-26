@@ -165,7 +165,7 @@ pub async fn execute_federation_query(
         let meta = handle
             .await
             .map_err(|e| format!("Federation task panicked: {e}"))?
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| e.sanitized_message())?;
 
         Ok(FederationQueryResponse {
             success: true,
@@ -186,7 +186,7 @@ pub async fn execute_federation_query(
             Err(e) => Ok(FederationQueryResponse {
                 success: false,
                 result: None,
-                error: Some(e.to_string()),
+                error: Some(e.sanitized_message()),
                 query_id: Some(query_id),
                 federation: None,
             }),

@@ -218,7 +218,7 @@ pub async fn import_csv(
     let read_only = session_manager
         .is_read_only(session)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| e.sanitized_message())?;
     if read_only {
         return Ok(ImportResponse {
             success: false,
@@ -232,7 +232,7 @@ pub async fn import_csv(
     let driver = session_manager
         .get_driver(session)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| e.sanitized_message())?;
 
     if !driver.capabilities().mutations {
         return Ok(ImportResponse {

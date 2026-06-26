@@ -57,7 +57,7 @@ pub async fn get_driver_info(
         Err(e) => Ok(DriverInfoResponse {
             success: false,
             driver: None,
-            error: Some(e.to_string()),
+            error: Some(e.sanitized_message()),
         }),
     }
 }

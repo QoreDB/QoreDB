@@ -68,7 +68,7 @@ pub async fn create_workspace(
         Err(e) => Ok(WorkspaceResponse {
             success: false,
             workspace: None,
-            error: Some(e.to_string()),
+            error: Some(e.sanitized_message()),
         }),
     }
 }
@@ -92,7 +92,7 @@ pub async fn open_workspace(
         Err(e) => Ok(WorkspaceResponse {
             success: false,
             workspace: None,
-            error: Some(e.to_string()),
+            error: Some(e.sanitized_message()),
         }),
     }
 }
@@ -116,7 +116,7 @@ pub async fn switch_workspace(
         Err(e) => Ok(WorkspaceResponse {
             success: false,
             workspace: None,
-            error: Some(e.to_string()),
+            error: Some(e.sanitized_message()),
         }),
     }
 }
@@ -136,7 +136,7 @@ pub async fn rename_workspace(
         Err(e) => Ok(WorkspaceResponse {
             success: false,
             workspace: None,
-            error: Some(e.to_string()),
+            error: Some(e.sanitized_message()),
         }),
     }
 }
@@ -192,7 +192,7 @@ pub async fn import_default_connections(
 
     let connections = default_vault
         .list_connections_full()
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| e.sanitized_message())?;
 
     let ws_store = WorkspaceConnectionStore::new(
         ws.path.join("connections"),

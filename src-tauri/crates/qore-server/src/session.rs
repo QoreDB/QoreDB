@@ -36,7 +36,7 @@ pub async fn connect_saved(
         .map_err(|e| e.sanitized_message())?;
     let config = saved
         .to_connection_config(&creds)
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| e.sanitized_message())?;
     qore_service::connection::connect(&state.ctx.session_manager, config)
         .await
         .map_err(|e| e.sanitized())

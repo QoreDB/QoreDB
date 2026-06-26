@@ -162,7 +162,7 @@ impl WorkspaceConnectionStore {
 
         let file_path = self.connection_file(&connection.id)?;
         self.register_write(&file_path);
-        fs::write(&file_path, content).map_err(|e| {
+        crate::atomic_write::write_atomic(&file_path, content.as_bytes()).map_err(|e| {
             EngineError::internal(format!("Failed to write connection file: {}", e))
         })?;
         // Connection metadata (host, username, ssh.key_path) is sensitive — keep

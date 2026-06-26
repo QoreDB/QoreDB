@@ -6,6 +6,7 @@
 pub mod ai;
 #[cfg(feature = "pro")]
 pub mod api;
+pub mod atomic_write;
 pub mod backup;
 pub mod commands;
 #[cfg(feature = "pro")]
@@ -16,6 +17,7 @@ pub mod export;
 pub mod federation;
 pub mod observability;
 pub mod plugins;
+pub mod redaction;
 pub mod share;
 pub mod snapshots;
 pub mod time_travel;

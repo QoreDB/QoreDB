@@ -89,7 +89,7 @@ pub async fn get_trigger_definition(
     let driver = session_manager
         .get_driver(session)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| e.sanitized_message())?;
 
     if !driver.supports_triggers() {
         return Ok(TriggerDefinitionResponse {
@@ -113,7 +113,7 @@ pub async fn get_trigger_definition(
         Err(e) => Ok(TriggerDefinitionResponse {
             success: false,
             definition: None,
-            error: Some(e.to_string()),
+            error: Some(e.sanitized_message()),
         }),
     }
 }
@@ -145,7 +145,7 @@ pub async fn drop_trigger(
     let read_only = session_manager
         .is_read_only(session)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| e.sanitized_message())?;
     if read_only {
         return Ok(TriggerDropResponse {
             success: false,
@@ -157,7 +157,7 @@ pub async fn drop_trigger(
     let driver = session_manager
         .get_driver(session)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| e.sanitized_message())?;
 
     if !driver.supports_triggers() {
         return Ok(TriggerDropResponse {
@@ -262,7 +262,7 @@ pub async fn drop_trigger(
                 &interceptor_context,
                 &QueryExecutionResult {
                     success: false,
-                    error: Some(e.to_string()),
+                    error: Some(e.sanitized_message()),
                     execution_time_ms: 0.0,
                     row_count: None,
                 },
@@ -272,7 +272,7 @@ pub async fn drop_trigger(
             Ok(TriggerDropResponse {
                 success: false,
                 result: None,
-                error: Some(e.to_string()),
+                error: Some(e.sanitized_message()),
             })
         }
     }
@@ -301,7 +301,7 @@ pub async fn toggle_trigger(
     let read_only = session_manager
         .is_read_only(session)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| e.sanitized_message())?;
     if read_only {
         return Ok(TriggerToggleResponse {
             success: false,
@@ -313,7 +313,7 @@ pub async fn toggle_trigger(
     let driver = session_manager
         .get_driver(session)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| e.sanitized_message())?;
 
     if !driver.supports_triggers() {
         return Ok(TriggerToggleResponse {
@@ -337,7 +337,7 @@ pub async fn toggle_trigger(
         Err(e) => Ok(TriggerToggleResponse {
             success: false,
             result: None,
-            error: Some(e.to_string()),
+            error: Some(e.sanitized_message()),
         }),
     }
 }
@@ -363,7 +363,7 @@ pub async fn get_event_definition(
     let driver = session_manager
         .get_driver(session)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| e.sanitized_message())?;
 
     if !driver.supports_events() {
         return Ok(EventDefinitionResponse {
@@ -387,7 +387,7 @@ pub async fn get_event_definition(
         Err(e) => Ok(EventDefinitionResponse {
             success: false,
             definition: None,
-            error: Some(e.to_string()),
+            error: Some(e.sanitized_message()),
         }),
     }
 }
@@ -418,7 +418,7 @@ pub async fn drop_event(
     let read_only = session_manager
         .is_read_only(session)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| e.sanitized_message())?;
     if read_only {
         return Ok(EventDropResponse {
             success: false,
@@ -430,7 +430,7 @@ pub async fn drop_event(
     let driver = session_manager
         .get_driver(session)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| e.sanitized_message())?;
 
     if !driver.supports_events() {
         return Ok(EventDropResponse {
@@ -532,7 +532,7 @@ pub async fn drop_event(
                 &interceptor_context,
                 &QueryExecutionResult {
                     success: false,
-                    error: Some(e.to_string()),
+                    error: Some(e.sanitized_message()),
                     execution_time_ms: 0.0,
                     row_count: None,
                 },
@@ -542,7 +542,7 @@ pub async fn drop_event(
             Ok(EventDropResponse {
                 success: false,
                 result: None,
-                error: Some(e.to_string()),
+                error: Some(e.sanitized_message()),
             })
         }
     }

@@ -64,7 +64,7 @@ pub async fn get_sequence_definition(
     let driver = session_manager
         .get_driver(session)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| e.sanitized_message())?;
 
     if !driver.supports_sequences() {
         return Ok(SequenceDefinitionResponse {
@@ -88,7 +88,7 @@ pub async fn get_sequence_definition(
         Err(e) => Ok(SequenceDefinitionResponse {
             success: false,
             definition: None,
-            error: Some(e.to_string()),
+            error: Some(e.sanitized_message()),
         }),
     }
 }
@@ -119,7 +119,7 @@ pub async fn drop_sequence(
     let read_only = session_manager
         .is_read_only(session)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| e.sanitized_message())?;
     if read_only {
         return Ok(SequenceDropResponse {
             success: false,
@@ -131,7 +131,7 @@ pub async fn drop_sequence(
     let driver = session_manager
         .get_driver(session)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| e.sanitized_message())?;
 
     if !driver.supports_sequences() {
         return Ok(SequenceDropResponse {
@@ -236,7 +236,7 @@ pub async fn drop_sequence(
                 &interceptor_context,
                 &QueryExecutionResult {
                     success: false,
-                    error: Some(e.to_string()),
+                    error: Some(e.sanitized_message()),
                     execution_time_ms: 0.0,
                     row_count: None,
                 },
@@ -246,7 +246,7 @@ pub async fn drop_sequence(
             Ok(SequenceDropResponse {
                 success: false,
                 result: None,
-                error: Some(e.to_string()),
+                error: Some(e.sanitized_message()),
             })
         }
     }

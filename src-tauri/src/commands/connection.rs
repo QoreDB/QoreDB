@@ -34,7 +34,7 @@ fn load_saved_connection_config(
     let storage = VaultStorage::new(project_id, storage_dir, Box::new(KeyringProvider::new()));
     let saved = storage
         .get_connection(connection_id)
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| e.sanitized_message())?;
 
     if saved.project_id != project_id {
         return Err("Connection project mismatch".to_string());
@@ -42,11 +42,11 @@ fn load_saved_connection_config(
 
     let creds = storage
         .get_credentials(connection_id)
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| e.sanitized_message())?;
 
     saved
         .to_connection_config(&creds)
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.sanitized_message())
 }
 
 /// Like `load_saved_connection_config` but also returns the saved connection name.
@@ -58,7 +58,7 @@ fn load_saved_connection_config_with_name(
     let storage = VaultStorage::new(project_id, storage_dir, Box::new(KeyringProvider::new()));
     let saved = storage
         .get_connection(connection_id)
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| e.sanitized_message())?;
 
     if saved.project_id != project_id {
         return Err("Connection project mismatch".to_string());
@@ -67,11 +67,11 @@ fn load_saved_connection_config_with_name(
     let name = saved.name.clone();
     let creds = storage
         .get_credentials(connection_id)
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| e.sanitized_message())?;
 
     let config = saved
         .to_connection_config(&creds)
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| e.sanitized_message())?;
     Ok((config, name))
 }
 

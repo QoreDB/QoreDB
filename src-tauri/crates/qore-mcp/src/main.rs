@@ -111,13 +111,13 @@ impl QoreMcp {
         let storage = self.storage();
         let saved = storage
             .get_connection(connection_id)
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| e.sanitized_message())?;
         let creds = storage
             .get_credentials(connection_id)
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| e.sanitized_message())?;
         let mut config = saved
             .to_connection_config(&creds)
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| e.sanitized_message())?;
         config.read_only = true;
 
         let session = qore_service::connection::connect(&self.ctx.session_manager, config)
@@ -239,7 +239,7 @@ impl QoreMcp {
         let connections = self
             .storage()
             .list_connections_full()
-            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+            .map_err(|e| McpError::internal_error(e.sanitized_message(), None))?;
 
         let summary: Vec<_> = connections
             .into_iter()

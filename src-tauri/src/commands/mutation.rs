@@ -150,7 +150,7 @@ pub async fn insert_row(
                 &interceptor_context,
                 &QueryExecutionResult {
                     success: false,
-                    error: Some(e.to_string()),
+                    error: Some(e.sanitized_message()),
                     execution_time_ms: duration_ms,
                     row_count: None,
                 },
@@ -160,7 +160,7 @@ pub async fn insert_row(
             Ok(MutationResponse {
                 success: false,
                 result: None,
-                error: Some(e.to_string()),
+                error: Some(e.sanitized_message()),
             })
         }
     }
@@ -292,7 +292,7 @@ pub async fn update_row(
                 &interceptor_context,
                 &QueryExecutionResult {
                     success: false,
-                    error: Some(e.to_string()),
+                    error: Some(e.sanitized_message()),
                     execution_time_ms: duration_ms,
                     row_count: None,
                 },
@@ -302,7 +302,7 @@ pub async fn update_row(
             Ok(MutationResponse {
                 success: false,
                 result: None,
-                error: Some(e.to_string()),
+                error: Some(e.sanitized_message()),
             })
         }
     }
@@ -430,7 +430,7 @@ pub async fn delete_row(
                 &interceptor_context,
                 &QueryExecutionResult {
                     success: false,
-                    error: Some(e.to_string()),
+                    error: Some(e.sanitized_message()),
                     execution_time_ms: duration_ms,
                     row_count: None,
                 },
@@ -440,7 +440,7 @@ pub async fn delete_row(
             Ok(MutationResponse {
                 success: false,
                 result: None,
-                error: Some(e.to_string()),
+                error: Some(e.sanitized_message()),
             })
         }
     }
@@ -460,7 +460,7 @@ pub async fn supports_mutations(
     let driver = session_manager
         .get_driver(session)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| e.sanitized_message())?;
 
     Ok(driver.capabilities().mutations)
 }

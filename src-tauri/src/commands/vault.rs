@@ -122,7 +122,7 @@ pub async fn get_vault_status(
     let has_master_password = state
         .vault_lock
         .has_master_password()
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| e.sanitized_message())?;
 
     Ok(VaultStatusResponse {
         is_locked: state.vault_lock.is_locked(),
@@ -305,13 +305,13 @@ pub async fn list_saved_connections(
     drop(state);
 
     if let Some(ws_store) = get_workspace_store(&ws_manager).await {
-        return ws_store.list_connections().map_err(|e| e.to_string());
+        return ws_store.list_connections().map_err(|e| e.sanitized_message());
     }
 
     let storage_dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
     let storage = VaultStorage::new(&project_id, storage_dir, Box::new(KeyringProvider::new()));
 
-    storage.list_connections_full().map_err(|e| e.to_string())
+    storage.list_connections_full().map_err(|e| e.sanitized_message())
 }
 
 #[tauri::command]

@@ -7,8 +7,7 @@
 //! persisted.
 
 use std::collections::HashMap;
-use std::fs::{self, OpenOptions};
-use std::io::Write;
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::RwLock;
 
@@ -163,26 +162,7 @@ impl EndpointStore {
         endpoints.sort_by(|a, b| a.name.cmp(&b.name));
         let bytes = serde_json::to_vec_pretty(&StoreFile { endpoints })
             .map_err(|e| StoreError::Serialize(e.to_string()))?;
-        let tmp = self.path.with_extension("json.tmp");
-        let mut f = OpenOptions::new()
-            .create(true)
-            .write(true)
-            .truncate(true)
-            .open(&tmp)
-            .map_err(|e| StoreError::Io {
-                path: tmp.clone(),
-                source: e,
-            })?;
-        f.write_all(&bytes).map_err(|e| StoreError::Io {
-            path: tmp.clone(),
-            source: e,
-        })?;
-        f.sync_all().map_err(|e| StoreError::Io {
-            path: tmp.clone(),
-            source: e,
-        })?;
-        drop(f);
-        fs::rename(&tmp, &self.path).map_err(|e| StoreError::Io {
+        crate::atomic_write::write_atomic(&self.path, &bytes).map_err(|e| StoreError::Io {
             path: self.path.clone(),
             source: e,
         })

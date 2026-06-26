@@ -41,7 +41,7 @@ pub async fn preflight(
     let read_only = session_manager
         .is_read_only(session)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| e.sanitized_message())?;
     if read_only {
         return Err(READ_ONLY_BLOCKED.to_string());
     }
@@ -49,7 +49,7 @@ pub async fn preflight(
     let driver = session_manager
         .get_driver(session)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| e.sanitized_message())?;
     if !driver.capabilities().mutations {
         return Err(MUTATIONS_NOT_SUPPORTED.to_string());
     }

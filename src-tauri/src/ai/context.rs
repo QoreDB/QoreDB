@@ -4,9 +4,8 @@
 //! adapted to the database dialect (SQL, MQL, Redis).
 
 use std::fmt::Write;
-use std::sync::{Arc, OnceLock};
+use std::sync::Arc;
 
-use regex::Regex;
 use tracing::debug;
 
 use crate::ai::types::{AiMessage, EditorContext};
@@ -16,24 +15,14 @@ use crate::engine::types::{
 use crate::engine::SessionManager;
 use crate::virtual_relations::VirtualRelationStore;
 
-/// Column names that look like they hold PII or secrets. These are redacted to
-/// `<redacted>` before the schema is sent to any LLM provider so that
-/// Anthropic/OpenAI/Google never see semantic hints like a column named
-/// `password_hash` or `social_security_number`. The column itself remains
-/// referenced (so the model knows the table has *some* column at that
-/// position) but its name is hidden.
-fn sensitive_column_regex() -> &'static Regex {
-    static REGEX: OnceLock<Regex> = OnceLock::new();
-    REGEX.get_or_init(|| {
-        Regex::new(
-            r"(?i)(^|_)(password|passwd|pwd|secret|api[_-]?key|access[_-]?token|refresh[_-]?token|token|ssn|social[_-]?security|tax[_-]?id|cc[_-]?(number|num)|credit[_-]?card|card[_-]?number|cvv|cvc|iban|bic|swift|email|e[_-]?mail|phone|mobile|address|postal[_-]?code|zip|birth[_-]?date|dob|date[_-]?of[_-]?birth|salary|income)(_|$)",
-        )
-        .expect("sensitive_column_regex is a valid pattern")
-    })
-}
-
+/// Redacts column names that look like they hold PII or secrets to `<redacted>`
+/// before the schema is sent to any LLM provider, so the model never sees a
+/// semantic hint like a column named `password_hash`. The column stays
+/// referenced (the model knows a column exists at that position) but its name is
+/// hidden. Detection is shared with Time-Travel via [`crate::redaction`] so the
+/// two redactors can't drift.
 fn redact_column_name(name: &str) -> String {
-    if sensitive_column_regex().is_match(name) {
+    if crate::redaction::is_sensitive_column(name) {
         "<redacted>".to_string()
     } else {
         name.to_string()
@@ -118,7 +107,7 @@ pub async fn build_context(
     let driver = session_manager
         .get_driver(session_id)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| e.sanitized_message())?;
 
     let options = CollectionListOptions {
         search: None,
@@ -128,7 +117,7 @@ pub async fn build_context(
     let collection_list = driver
         .list_collections(session_id, namespace, options)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| e.sanitized_message())?;
 
     let mut table_names: Vec<String> = collection_list
         .collections
@@ -245,8 +234,8 @@ pub async fn build_context(
 
 /// Format a single table's schema into a compact text description.
 ///
-/// Column names matching [`sensitive_column_regex`] are redacted to
-/// `<redacted>` so PII-shaped identifiers don't leak to the LLM provider
+/// Column names matching [`crate::redaction::is_sensitive_column`] are redacted
+/// to `<redacted>` so PII-shaped identifiers don't leak to the LLM provider
 /// (cf. audit B7-C2). Default values are redacted in the same conditions, in
 /// case they encode a fixed secret.
 fn format_table_schema(table_name: &str, schema: &TableSchema, _driver_id: &str) -> String {
@@ -254,7 +243,7 @@ fn format_table_schema(table_name: &str, schema: &TableSchema, _driver_id: &str)
     writeln!(out, "- {}", table_name).unwrap();
 
     for col in &schema.columns {
-        let is_sensitive = sensitive_column_regex().is_match(&col.name);
+        let is_sensitive = crate::redaction::is_sensitive_column(&col.name);
         let display_name = if is_sensitive {
             "<redacted>".to_string()
         } else {
@@ -310,10 +299,10 @@ fn format_table_schema(table_name: &str, schema: &TableSchema, _driver_id: &str)
     out
 }
 
-/// Format sample rows for the schema context. Columns whose name matches the
-/// sensitive regex are skipped entirely — neither name nor value reaches the
-/// provider. Values are truncated so a single TEXT column can't blow up the
-/// prompt.
+/// Format sample rows for the schema context. Columns flagged by
+/// [`crate::redaction::is_sensitive_column`] are skipped entirely — neither name
+/// nor value reaches the provider. Values are truncated so a single TEXT column
+/// can't blow up the prompt.
 fn format_sample_rows(result: &QueryResult) -> String {
     let mut out = String::new();
     out.push_str("  Sample rows:\n");
@@ -322,7 +311,7 @@ fn format_sample_rows(result: &QueryResult) -> String {
             .columns
             .iter()
             .enumerate()
-            .filter(|(_, col)| !sensitive_column_regex().is_match(&col.name))
+            .filter(|(_, col)| !crate::redaction::is_sensitive_column(&col.name))
             .map(|(i, col)| {
                 let value = row
                     .values
@@ -739,45 +728,6 @@ mod tests {
         // Index columns are also redacted (still includes the index NAME though)
         assert!(out.contains("idx_users_email"));
         assert!(out.contains("(<redacted>)"));
-    }
-
-    #[test]
-    fn sensitive_regex_matches_common_variants() {
-        let re = sensitive_column_regex();
-        for name in [
-            "password",
-            "user_password",
-            "password_hash",
-            "passwd",
-            "pwd",
-            "api_key",
-            "apiKey", // case-insensitive
-            "access_token",
-            "refresh_token",
-            "auth_token",
-            "credit_card",
-            "card_number",
-            "ssn",
-            "social_security",
-            "tax_id",
-            "cvv",
-            "iban",
-            "email",
-            "user_email",
-            "phone",
-            "phone_number",
-            "address",
-            "postal_code",
-            "zip_code",
-            "birth_date",
-            "date_of_birth",
-            "salary",
-        ] {
-            assert!(re.is_match(name), "expected to match: {name}");
-        }
-        for benign in ["id", "name", "created_at", "username", "first_name"] {
-            assert!(!re.is_match(benign), "should not match: {benign}");
-        }
     }
 
     #[test]

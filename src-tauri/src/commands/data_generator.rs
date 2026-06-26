@@ -109,7 +109,7 @@ pub async fn generate_seed_data(
     let driver = session_manager
         .get_driver(session)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| e.sanitized_message())?;
     let dialect = SqlDialect::from_driver_id(driver.driver_id()).ok_or_else(|| {
         "The Data Generator only supports SQL databases (Postgres, MySQL/MariaDB, SQLite, SQL Server)."
             .to_string()

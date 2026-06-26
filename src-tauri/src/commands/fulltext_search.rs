@@ -210,7 +210,7 @@ pub async fn fulltext_search(
         Ok(d) => d,
         Err(e) => {
             return Ok(error_response(
-                &e.to_string(),
+                &e.sanitized_message(),
                 start_time.elapsed().as_secs_f64() * 1000.0,
             ));
         }
@@ -464,7 +464,7 @@ pub async fn fulltext_search(
                         matches: vec![],
                         method,
                         timed_out: false,
-                        error: Some(e.to_string()),
+                        error: Some(e.sanitized_message()),
                     }
                 }
                 Err(_) => {

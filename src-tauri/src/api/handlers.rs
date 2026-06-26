@@ -250,16 +250,16 @@ fn load_saved_config(
     );
     let saved = storage
         .get_connection(connection_id)
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| e.sanitized_message())?;
     if saved.project_id != project_id {
         return Err("Connection project mismatch".to_string());
     }
     let creds = storage
         .get_credentials(connection_id)
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| e.sanitized_message())?;
     saved
         .to_connection_config(&creds)
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.sanitized_message())
 }
 
 async fn execute_query(

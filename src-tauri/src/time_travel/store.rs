@@ -118,7 +118,8 @@ impl ChangelogStore {
         let config = self.config.read().clone();
         match serde_json::to_string_pretty(&config) {
             Ok(json) => {
-                if let Err(e) = fs::write(&self.config_path, json) {
+                if let Err(e) = crate::atomic_write::write_atomic(&self.config_path, json.as_bytes())
+                {
                     error!("Failed to write time-travel config: {}", e);
                 }
             }
@@ -513,7 +514,7 @@ impl ChangelogStore {
             let mut entries = self.entries.write();
             entries.clear();
         }
-        if let Err(e) = fs::write(&self.log_path, "") {
+        if let Err(e) = crate::atomic_write::write_atomic(&self.log_path, b"") {
             error!("Failed to clear changelog file: {}", e);
         }
         self.file_line_count.store(0, Ordering::Relaxed);

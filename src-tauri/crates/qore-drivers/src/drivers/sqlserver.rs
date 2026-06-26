@@ -712,12 +712,11 @@ impl DataEngine for SqlServerDriver {
             None => None,
         };
 
-        let mut count_sql = format!(
-            "SELECT COUNT(*) FROM INFORMATION_SCHEMA.ROUTINES WHERE ROUTINE_SCHEMA = '{}'",
-            schema.replace('\'', "''")
+        let mut count_sql = String::from(
+            "SELECT COUNT(*) FROM INFORMATION_SCHEMA.ROUTINES WHERE ROUTINE_SCHEMA = @P1",
         );
         if search_pattern.is_some() {
-            count_sql.push_str(" AND ROUTINE_NAME LIKE @P1");
+            count_sql.push_str(" AND ROUTINE_NAME LIKE @P2");
         }
         if let Some(tf) = type_filter {
             count_sql.push_str(&format!(" AND ROUTINE_TYPE = '{}'", tf));
@@ -725,7 +724,7 @@ impl DataEngine for SqlServerDriver {
 
         let count_result = if let Some(ref pattern) = search_pattern {
             let stream = conn
-                .query(&count_sql, &[pattern])
+                .query(&count_sql, &[&schema, pattern])
                 .await
                 .map_err(|e| EngineError::execution_error(e.to_string()))?;
             stream
@@ -734,7 +733,7 @@ impl DataEngine for SqlServerDriver {
                 .map_err(|e| EngineError::execution_error(e.to_string()))?
         } else {
             let stream = conn
-                .simple_query(&count_sql)
+                .query(&count_sql, &[&schema])
                 .await
                 .map_err(|e| EngineError::execution_error(e.to_string()))?;
             stream
@@ -745,13 +744,12 @@ impl DataEngine for SqlServerDriver {
 
         let total_count: i32 = count_result.first().and_then(|r| r.get(0)).unwrap_or(0);
 
-        let mut data_sql = format!(
+        let mut data_sql = String::from(
             "SELECT ROUTINE_NAME, ROUTINE_TYPE, DATA_TYPE, ROUTINE_BODY \
-             FROM INFORMATION_SCHEMA.ROUTINES WHERE ROUTINE_SCHEMA = '{}'",
-            schema.replace('\'', "''")
+             FROM INFORMATION_SCHEMA.ROUTINES WHERE ROUTINE_SCHEMA = @P1",
         );
         if search_pattern.is_some() {
-            data_sql.push_str(" AND ROUTINE_NAME LIKE @P1");
+            data_sql.push_str(" AND ROUTINE_NAME LIKE @P2");
         }
         if let Some(tf) = type_filter {
             data_sql.push_str(&format!(" AND ROUTINE_TYPE = '{}'", tf));
@@ -768,7 +766,7 @@ impl DataEngine for SqlServerDriver {
 
         let data_rows = if let Some(ref pattern) = search_pattern {
             let stream = conn
-                .query(&data_sql, &[pattern])
+                .query(&data_sql, &[&schema, pattern])
                 .await
                 .map_err(|e| EngineError::execution_error(e.to_string()))?;
             stream
@@ -777,7 +775,7 @@ impl DataEngine for SqlServerDriver {
                 .map_err(|e| EngineError::execution_error(e.to_string()))?
         } else {
             let stream = conn
-                .simple_query(&data_sql)
+                .query(&data_sql, &[&schema])
                 .await
                 .map_err(|e| EngineError::execution_error(e.to_string()))?;
             stream
@@ -832,19 +830,13 @@ impl DataEngine for SqlServerDriver {
         })?;
         let schema = namespace.schema.as_deref().unwrap_or("dbo");
 
-        let sql = format!(
-            "SELECT OBJECT_DEFINITION(OBJECT_ID('[{}].[{}]')) AS definition, \
+        let sql = "SELECT OBJECT_DEFINITION(OBJECT_ID(QUOTENAME(@P1) + '.' + QUOTENAME(@P2))) AS definition, \
              r.DATA_TYPE, r.ROUTINE_BODY \
              FROM INFORMATION_SCHEMA.ROUTINES r \
-             WHERE r.ROUTINE_SCHEMA = '{}' AND r.ROUTINE_NAME = '{}'",
-            schema.replace('\'', "''"),
-            routine_name.replace('\'', "''"),
-            schema.replace('\'', "''"),
-            routine_name.replace('\'', "''"),
-        );
+             WHERE r.ROUTINE_SCHEMA = @P1 AND r.ROUTINE_NAME = @P2";
 
         let stream = conn
-            .simple_query(&sql)
+            .query(sql, &[&schema, &routine_name])
             .await
             .map_err(|e| EngineError::execution_error(e.to_string()))?;
         let rows = stream
@@ -936,8 +928,7 @@ impl DataEngine for SqlServerDriver {
         })?;
         let schema = namespace.schema.as_deref().unwrap_or("dbo");
 
-        let sql = format!(
-            "SELECT t.name AS trigger_name, \
+        let sql = "SELECT t.name AS trigger_name, \
                     OBJECT_NAME(t.parent_id) AS table_name, \
                     te.type_desc AS event_type, \
                     CASE WHEN t.is_instead_of_trigger = 1 THEN 'INSTEAD_OF' ELSE 'AFTER' END AS timing \
@@ -945,13 +936,11 @@ impl DataEngine for SqlServerDriver {
              JOIN sys.trigger_events te ON t.object_id = te.object_id \
              JOIN sys.objects o ON t.parent_id = o.object_id \
              JOIN sys.schemas s ON o.schema_id = s.schema_id \
-             WHERE s.name = '{}' \
-             ORDER BY t.name",
-            schema.replace('\'', "''")
-        );
+             WHERE s.name = @P1 \
+             ORDER BY t.name";
 
         let stream = conn
-            .simple_query(&sql)
+            .query(sql, &[&schema])
             .await
             .map_err(|e| EngineError::execution_error(e.to_string()))?;
         let rows = stream
@@ -1033,8 +1022,7 @@ impl DataEngine for SqlServerDriver {
         })?;
         let schema = namespace.schema.as_deref().unwrap_or("dbo");
 
-        let meta_sql = format!(
-            "SELECT t.name AS trigger_name, \
+        let meta_sql = "SELECT t.name AS trigger_name, \
                     OBJECT_NAME(t.parent_id) AS table_name, \
                     te.type_desc AS event_type, \
                     CASE WHEN t.is_instead_of_trigger = 1 THEN 'INSTEAD_OF' ELSE 'AFTER' END AS timing, \
@@ -1043,14 +1031,11 @@ impl DataEngine for SqlServerDriver {
              JOIN sys.trigger_events te ON t.object_id = te.object_id \
              JOIN sys.objects o ON t.parent_id = o.object_id \
              JOIN sys.schemas s ON o.schema_id = s.schema_id \
-             WHERE s.name = '{}' AND t.name = '{}' \
-             ORDER BY te.type_desc",
-            schema.replace('\'', "''"),
-            trigger_name.replace('\'', "''")
-        );
+             WHERE s.name = @P1 AND t.name = @P2 \
+             ORDER BY te.type_desc";
 
         let stream = conn
-            .simple_query(&meta_sql)
+            .query(meta_sql, &[&schema, &trigger_name])
             .await
             .map_err(|e| EngineError::execution_error(e.to_string()))?;
         let rows = stream
@@ -1090,13 +1075,9 @@ impl DataEngine for SqlServerDriver {
             events.push(TriggerEvent::Insert);
         }
 
-        let def_sql = format!(
-            "SELECT OBJECT_DEFINITION(OBJECT_ID('{}.{}'))",
-            schema.replace('\'', "''"),
-            trigger_name.replace('\'', "''")
-        );
+        let def_sql = "SELECT OBJECT_DEFINITION(OBJECT_ID(QUOTENAME(@P1) + '.' + QUOTENAME(@P2)))";
         let def_stream = conn
-            .simple_query(&def_sql)
+            .query(def_sql, &[&schema, &trigger_name])
             .await
             .map_err(|e| EngineError::execution_error(e.to_string()))?;
         let def_rows = def_stream
@@ -1399,13 +1380,9 @@ impl DataEngine for SqlServerDriver {
 
         if let Some(ref search_term) = options.search {
             if !search_term.trim().is_empty() {
-                let search_sql = format!(
-                    "SELECT COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS \
-                     WHERE TABLE_SCHEMA = '{}' AND TABLE_NAME = '{}'",
-                    schema.replace('\'', "''"),
-                    table.replace('\'', "''")
-                );
-                if let Ok(stream) = conn.simple_query(&search_sql).await {
+                let search_sql = "SELECT COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS \
+                     WHERE TABLE_SCHEMA = @P1 AND TABLE_NAME = @P2";
+                if let Ok(stream) = conn.query(search_sql, &[&schema, &table]).await {
                     if let Ok(col_rows) = stream.into_first_result().await {
                         let mut search_clauses: Vec<String> = Vec::new();
                         let escaped = search_term.replace('\'', "''");

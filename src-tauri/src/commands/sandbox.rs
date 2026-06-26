@@ -141,7 +141,7 @@ mod sandbox_impl {
         if session_manager
             .is_read_only(session)
             .await
-            .map_err(|e| e.to_string())?
+            .map_err(|e| e.sanitized_message())?
         {
             return Ok(ApplySandboxResponse {
                 success: false,
@@ -154,7 +154,7 @@ mod sandbox_impl {
         let driver = session_manager
             .get_driver(session)
             .await
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| e.sanitized_message())?;
 
         if !driver.capabilities().mutations {
             return Ok(ApplySandboxResponse {
@@ -299,7 +299,7 @@ mod sandbox_impl {
                 let result = driver
                     .insert_row(session, &change.namespace, &change.table_name, &data)
                     .await
-                    .map_err(|e| e.to_string())?;
+                    .map_err(|e| e.sanitized_message())?;
                 if matches!(result.affected_rows, Some(0)) {
                     return Err("Insert affected 0 rows (possible conflict)".to_string());
                 }
@@ -320,7 +320,7 @@ mod sandbox_impl {
                 let result = driver
                     .update_row(session, &change.namespace, &change.table_name, pk, &data)
                     .await
-                    .map_err(|e| e.to_string())?;
+                    .map_err(|e| e.sanitized_message())?;
                 if matches!(result.affected_rows, Some(0)) {
                     return Err("Update affected 0 rows (possible conflict)".to_string());
                 }
@@ -334,7 +334,7 @@ mod sandbox_impl {
                 let result = driver
                     .delete_row(session, &change.namespace, &change.table_name, pk)
                     .await
-                    .map_err(|e| e.to_string())?;
+                    .map_err(|e| e.sanitized_message())?;
                 if matches!(result.affected_rows, Some(0)) {
                     return Err("Delete affected 0 rows (possible conflict)".to_string());
                 }

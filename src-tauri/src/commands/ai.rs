@@ -114,13 +114,9 @@ use crate::ai::types::{
     AiAction, AiConfig, AiMessage, AiProvider, AiRequest, AiResponse, AiStreamChunk,
 };
 #[cfg(feature = "pro")]
-use crate::engine::types::{ColumnFilter, Namespace, SessionId};
-
+use crate::engine::types::{ColumnFilter, Namespace};
 #[cfg(feature = "pro")]
-fn parse_session_id(id: &str) -> Result<SessionId, String> {
-    let uuid = Uuid::parse_str(id).map_err(|e| format!("Invalid session ID: {}", e))?;
-    Ok(SessionId(uuid))
-}
+use super::parse_session_id;
 
 #[cfg(feature = "pro")]
 #[tauri::command]

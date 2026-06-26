@@ -6,9 +6,9 @@ use serde::Serialize;
 use std::sync::Arc;
 use tauri::{AppHandle, State};
 use tracing::instrument;
-use uuid::Uuid;
 
-use crate::engine::types::{Namespace, QueryResult, RowData, SessionId};
+use super::parse_session_id;
+use crate::engine::types::{Namespace, QueryResult, RowData};
 use crate::interceptor::QueryExecutionResult;
 use crate::time_travel::capture::{
     build_changelog_entry, fetch_row_by_pk, merge_before_with_data, rowdata_to_json_map,
@@ -28,11 +28,6 @@ pub struct MutationResponse {
     pub success: bool,
     pub result: Option<QueryResult>,
     pub error: Option<String>,
-}
-
-fn parse_session_id(id: &str) -> Result<SessionId, String> {
-    let uuid = Uuid::parse_str(id).map_err(|e| format!("Invalid session ID: {}", e))?;
-    Ok(SessionId(uuid))
 }
 
 #[tauri::command]

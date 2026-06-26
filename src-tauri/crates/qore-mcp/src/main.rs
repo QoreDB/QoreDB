@@ -22,10 +22,8 @@ use tokio::sync::Mutex;
 use qore_core::{CollectionListOptions, Namespace, SessionId};
 use qore_service::vault::backend::KeyringProvider;
 use qore_service::vault::VaultStorage;
+use qore_service::paths::{config_dir, PROJECT_ID, QUERY_TIMEOUT_MS};
 use qore_service::ServiceContext;
-
-const PROJECT_ID: &str = "default";
-const QUERY_TIMEOUT_MS: u64 = 30_000;
 
 #[derive(Clone)]
 struct QoreMcp {
@@ -321,15 +319,6 @@ impl ServerHandler for QoreMcp {
     ) -> Result<InitializeResult, McpError> {
         Ok(self.get_info())
     }
-}
-
-fn config_dir() -> PathBuf {
-    if let Ok(dir) = std::env::var("QOREDB_CONFIG_DIR") {
-        return PathBuf::from(dir);
-    }
-    dirs::config_dir()
-        .unwrap_or_else(|| PathBuf::from("."))
-        .join("com.rapha.qoredb")
 }
 
 #[tokio::main]

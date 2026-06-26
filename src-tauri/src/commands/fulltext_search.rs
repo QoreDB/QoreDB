@@ -23,6 +23,8 @@ use crate::engine::fulltext_strategy::{
 };
 use crate::engine::types::{CollectionListOptions, CollectionType, Namespace, QueryId, Value};
 
+use super::parse_session_id;
+
 /// Maximum number of tables to search in parallel
 const MAX_PARALLEL_TABLES: usize = 5;
 
@@ -77,11 +79,6 @@ pub struct FulltextSearchOptions {
     pub max_parallel: Option<usize>,
     /// Enable streaming of results (emit events as results come in)
     pub stream_results: Option<bool>,
-}
-
-fn parse_session_id(id: &str) -> Result<crate::engine::types::SessionId, String> {
-    let uuid = uuid::Uuid::parse_str(id).map_err(|e| format!("Invalid session ID: {}", e))?;
-    Ok(crate::engine::types::SessionId(uuid))
 }
 
 fn is_text_type(data_type: &str) -> bool {

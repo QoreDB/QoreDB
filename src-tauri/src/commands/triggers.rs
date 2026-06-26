@@ -6,32 +6,19 @@ use serde::Serialize;
 use std::sync::Arc;
 use tauri::State;
 use tracing::instrument;
-use uuid::Uuid;
 
+use super::parse_session_id;
 use crate::engine::types::{
-    EventDefinition, EventOperationResult, Namespace, SessionId, TriggerDefinition,
+    EventDefinition, EventOperationResult, Namespace, TriggerDefinition,
     TriggerOperationResult,
 };
-use crate::interceptor::{Environment, QueryExecutionResult, SafetyAction};
+use crate::interceptor::{map_environment, QueryExecutionResult, SafetyAction};
 
 const READ_ONLY_BLOCKED: &str = "Operation blocked: read-only mode";
 const TRIGGERS_NOT_SUPPORTED: &str = "Trigger operations are not supported by this driver";
 const EVENTS_NOT_SUPPORTED: &str = "Event operations are not supported by this driver";
 const DANGEROUS_BLOCKED: &str = "Dangerous query blocked: confirmation required";
 const SAFETY_RULE_BLOCKED: &str = "Query blocked by safety rule";
-
-fn map_environment(env: &str) -> Environment {
-    match env {
-        "production" => Environment::Production,
-        "staging" => Environment::Staging,
-        _ => Environment::Development,
-    }
-}
-
-fn parse_session_id(id: &str) -> Result<SessionId, String> {
-    let uuid = Uuid::parse_str(id).map_err(|e| format!("Invalid session ID: {}", e))?;
-    Ok(SessionId(uuid))
-}
 
 #[derive(Debug, Serialize)]
 pub struct TriggerDefinitionResponse {

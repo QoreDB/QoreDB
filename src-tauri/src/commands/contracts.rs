@@ -18,7 +18,6 @@
 use std::sync::Arc;
 
 use tauri::{AppHandle, Emitter, State};
-use uuid::Uuid;
 
 use crate::commands::workspace::SharedWorkspaceManager;
 use crate::contracts::events::{ContractEventSink, ContractRunEvent, CONTRACT_RUN_EVENT};
@@ -26,12 +25,8 @@ use crate::contracts::parser::{parse_contract, Format};
 use crate::contracts::runner::{run_contract as run_contract_inner, RunOptions, RunnerError};
 use crate::contracts::storage;
 use crate::contracts::{ContractMeta, ContractRun};
-use qore_core::types::SessionId;
 
-fn parse_session_id(id: &str) -> Result<SessionId, String> {
-    let uuid = Uuid::parse_str(id).map_err(|e| format!("Invalid session ID: {}", e))?;
-    Ok(SessionId(uuid))
-}
+use super::parse_session_id;
 
 /// Lock the workspace manager and clone the active `.qoredb/` path.
 async fn active_workspace_path(

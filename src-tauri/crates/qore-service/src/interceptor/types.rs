@@ -18,6 +18,18 @@ pub enum Environment {
     Production,
 }
 
+/// Maps a free-form environment label (as stored on a connection) to the
+/// [`Environment`] enum; unknown values fall back to `Development`. Shared by
+/// the query/mutation pipelines and every command that builds an interceptor
+/// context (cf. dédup D3).
+pub fn map_environment(env: &str) -> Environment {
+    match env {
+        "production" => Environment::Production,
+        "staging" => Environment::Staging,
+        _ => Environment::Development,
+    }
+}
+
 /// Query operation type for classification
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]

@@ -5,13 +5,8 @@ use std::sync::Arc;
 use tauri::State;
 use uuid::Uuid;
 
-use crate::engine::types::SessionId;
+use super::parse_session_id;
 use crate::export::types::{ExportCancelResponse, ExportConfig, ExportStartResponse};
-
-fn parse_session_id(id: &str) -> Result<SessionId, String> {
-    let uuid = Uuid::parse_str(id).map_err(|e| format!("Invalid session ID: {}", e))?;
-    Ok(SessionId(uuid))
-}
 
 fn parse_export_id(id: &str) -> Result<String, String> {
     Uuid::parse_str(id).map_err(|e| format!("Invalid export ID: {}", e))?;

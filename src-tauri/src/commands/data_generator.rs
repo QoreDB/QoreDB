@@ -18,7 +18,8 @@ use uuid::Uuid;
 
 use qore_sql::generator::SqlDialect;
 
-use crate::engine::types::{Namespace, SessionId, TableColumn, TableQueryOptions, Value};
+use super::parse_session_id;
+use crate::engine::types::{Namespace, TableColumn, TableQueryOptions, Value};
 
 /// Rows per `INSERT` statement. SQLite caps a multi-row VALUES list at 500, so
 /// we chunk to stay portable across the supported dialects.
@@ -55,11 +56,6 @@ pub struct SeedDataResult {
     pub row_count: usize,
     /// Non-fatal notices (e.g. a foreign-key target with no rows to draw from).
     pub warnings: Vec<String>,
-}
-
-fn parse_session_id(id: &str) -> Result<SessionId, String> {
-    let uuid = Uuid::parse_str(id).map_err(|e| format!("Invalid session ID: {}", e))?;
-    Ok(SessionId(uuid))
 }
 
 #[cfg(feature = "pro")]

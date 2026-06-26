@@ -384,29 +384,11 @@ fn row_to_json(columns: &[&str], row: &Row) -> serde_json::Value {
         let v = row
             .values
             .get(i)
-            .map(value_to_json)
+            .map(Value::to_json)
             .unwrap_or(serde_json::Value::Null);
         map.insert((*col).to_string(), v);
     }
     serde_json::Value::Object(map)
-}
-
-fn value_to_json(v: &Value) -> serde_json::Value {
-    match v {
-        Value::Null => serde_json::Value::Null,
-        Value::Bool(b) => serde_json::Value::Bool(*b),
-        Value::Int(i) => serde_json::Value::from(*i),
-        Value::Float(f) => serde_json::Number::from_f64(*f)
-            .map(serde_json::Value::Number)
-            .unwrap_or(serde_json::Value::Null),
-        Value::Text(s) => serde_json::Value::String(s.clone()),
-        Value::Bytes(b) => {
-            use base64::Engine as _;
-            serde_json::Value::String(base64::engine::general_purpose::STANDARD.encode(b))
-        }
-        Value::Json(j) => j.clone(),
-        Value::Array(arr) => serde_json::Value::Array(arr.iter().map(value_to_json).collect()),
-    }
 }
 
 fn value_as_u64(v: &Value) -> Option<u64> {

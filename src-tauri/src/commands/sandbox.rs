@@ -59,12 +59,8 @@ mod sandbox_impl {
     use crate::time_travel::ChangeOperation;
     use std::sync::Arc;
     use tracing::instrument;
-    use uuid::Uuid;
 
-    fn parse_session_id(id: &str) -> Result<SessionId, String> {
-        let uuid = Uuid::parse_str(id).map_err(|e| format!("Invalid session ID: {}", e))?;
-        Ok(SessionId(uuid))
-    }
+    use crate::commands::parse_session_id;
 
     #[tauri::command]
     #[instrument(skip(state, changes), fields(session_id = %session_id))]

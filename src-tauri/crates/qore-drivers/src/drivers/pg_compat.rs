@@ -384,7 +384,7 @@ pub async fn execute_in_namespace(
         apply_namespace_on_conn(&mut conn, &namespace, query, false).await?;
 
         let result = if returns_rows {
-            exec_rows_on_poolconn(&mut conn, &pg.pool, query, start).await?
+            exec_rows_on_conn(&mut conn, &pg.pool, query, start).await?
         } else {
             let r = sqlx::query(query)
                 .execute(&mut *conn)
@@ -408,28 +408,6 @@ pub async fn execute_in_namespace(
 
 /// Execute a SELECT on a transaction-owned connection
 async fn exec_rows_on_conn(
-    conn: &mut PoolConnection<Postgres>,
-    pool: &PgPool,
-    query: &str,
-    start: Instant,
-) -> EngineResult<QueryResult> {
-    let pg_rows: Vec<PgRow> = sqlx::query(query)
-        .fetch_all(&mut **conn)
-        .await
-        .map_err(|e| {
-            let msg = e.to_string();
-            if msg.contains("syntax") {
-                EngineError::syntax_error(msg)
-            } else {
-                EngineError::execution_error(msg)
-            }
-        })?;
-
-    rows_to_result(pg_rows, pool, start).await
-}
-
-/// Execute a SELECT on a pool-acquired connection
-async fn exec_rows_on_poolconn(
     conn: &mut PoolConnection<Postgres>,
     pool: &PgPool,
     query: &str,

@@ -16,16 +16,11 @@ use super::{InstalledPlugin, PluginContributions};
 type EnabledIndex = BTreeMap<String, bool>;
 
 fn read_index(dir: &Path) -> EnabledIndex {
-    fs::read_to_string(dir.join("index.json"))
-        .ok()
-        .and_then(|raw| serde_json::from_str(&raw).ok())
-        .unwrap_or_default()
+    super::read_json_index(&dir.join("index.json"))
 }
 
 fn write_index(dir: &Path, index: &EnabledIndex) -> Result<(), String> {
-    let raw = serde_json::to_string_pretty(index).map_err(|e| e.to_string())?;
-    crate::paths::atomic_write(&dir.join("index.json"), raw.as_bytes())
-        .map_err(|e| format!("Failed to write plugin index: {e}"))
+    super::write_json_index(&dir.join("index.json"), index, "plugin index")
 }
 
 /// Reserved suffixes [`install_plugin`] uses while swapping versions.

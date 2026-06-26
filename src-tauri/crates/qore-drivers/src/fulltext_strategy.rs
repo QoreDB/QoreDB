@@ -226,6 +226,110 @@ pub trait FulltextSearchStrategy: Send + Sync {
     ) -> String;
 }
 
+// Shared dialect helpers
+
+/// Identifier quoting for dialects that delimit with double quotes (PostgreSQL, SQLite).
+fn quote_identifier_double_quote(name: &str) -> String {
+    format!("\"{}\"", name.replace('"', "\"\""))
+}
+
+/// LIKE escaping for dialects that use backslash as the escape character (PostgreSQL, MySQL).
+fn escape_like_pattern_backslash(term: &str) -> String {
+    term.replace('\\', "\\\\")
+        .replace('%', "\\%")
+        .replace('_', "\\_")
+        .replace('\'', "''")
+}
+
+/// Group `(index_name, column_name, index_type)` rows by index name.
+/// `default_index_type` is used when the index_type column is not textual.
+fn parse_fulltext_index_rows(
+    rows: &[Vec<Value>],
+    default_index_type: &str,
+) -> Vec<FulltextIndexInfo> {
+    let mut indexes: HashMap<String, FulltextIndexInfo> = HashMap::new();
+
+    for row in rows {
+        if row.len() >= 3 {
+            let index_name = match &row[0] {
+                Value::Text(s) => s.clone(),
+                _ => continue,
+            };
+            let column_name = match &row[1] {
+                Value::Text(s) => s.clone(),
+                _ => continue,
+            };
+            let index_type = match &row[2] {
+                Value::Text(s) => s.clone(),
+                _ => default_index_type.to_string(),
+            };
+
+            indexes
+                .entry(index_name.clone())
+                .or_insert_with(|| FulltextIndexInfo {
+                    index_name,
+                    columns: Vec::new(),
+                    index_type,
+                })
+                .columns
+                .push(column_name);
+        }
+    }
+
+    indexes.into_values().collect()
+}
+
+/// Build a capability over text columns from detected indexes.
+/// When `allow_hybrid` is set, a partially-indexed table recommends `Hybrid`
+/// (PostgreSQL); otherwise any index recommends `NativeFulltext`.
+fn build_text_search_capability(
+    text_columns: &[String],
+    detected_indexes: &[FulltextIndexInfo],
+    estimated_rows: Option<u64>,
+    allow_hybrid: bool,
+) -> TableSearchCapability {
+    let indexed_columns: HashMap<String, String> = detected_indexes
+        .iter()
+        .flat_map(|idx| {
+            idx.columns
+                .iter()
+                .map(|col| (col.clone(), idx.index_name.clone()))
+        })
+        .collect();
+
+    let searchable_columns: Vec<ColumnSearchInfo> = text_columns
+        .iter()
+        .map(|name| {
+            let index_info = indexed_columns.get(name);
+            ColumnSearchInfo {
+                name: name.clone(),
+                data_type: "text".to_string(),
+                has_fulltext_index: index_info.is_some(),
+                fulltext_index_name: index_info.cloned(),
+            }
+        })
+        .collect();
+
+    let has_any_fulltext = searchable_columns.iter().any(|c| c.has_fulltext_index);
+
+    let recommended_method = if has_any_fulltext {
+        if allow_hybrid && !searchable_columns.iter().all(|c| c.has_fulltext_index) {
+            SearchMethod::Hybrid
+        } else {
+            SearchMethod::NativeFulltext
+        }
+    } else {
+        SearchMethod::PatternMatch
+    };
+
+    TableSearchCapability {
+        searchable_columns,
+        recommended_method,
+        estimated_rows,
+        has_any_fulltext_index: has_any_fulltext,
+    }
+}
+
 // PostgreSQL strategy
 
 pub struct PostgresSearchStrategy;
@@ -233,17 +337,6 @@ pub struct PostgresSearchStrategy;
 impl PostgresSearchStrategy {
     pub fn new() -> Self {
         Self
-    }
-
-    fn quote_identifier(name: &str) -> String {
-        format!("\"{}\"", name.replace('"', "\"\""))
-    }
-
-    fn escape_like_pattern(term: &str) -> String {
-        term.replace('\\', "\\\\")
-            .replace('%', "\\%")
-            .replace('_', "\\_")
-            .replace('\'', "''")
     }
 
     fn escape_tsquery(term: &str) -> String {
@@ -337,36 +430,7 @@ impl FulltextSearchStrategy for PostgresSearchStrategy {
         rows: &[Vec<Value>],
         _columns: &[String],
     ) -> Vec<FulltextIndexInfo> {
-        let mut indexes: HashMap<String, FulltextIndexInfo> = HashMap::new();
-
-        for row in rows {
-            if row.len() >= 3 {
-                let index_name = match &row[0] {
-                    Value::Text(s) => s.clone(),
-                    _ => continue,
-                };
-                let column_name = match &row[1] {
-                    Value::Text(s) => s.clone(),
-                    _ => continue,
-                };
-                let index_type = match &row[2] {
-                    Value::Text(s) => s.clone(),
-                    _ => "gin".to_string(),
-                };
-
-                indexes
-                    .entry(index_name.clone())
-                    .or_insert_with(|| FulltextIndexInfo {
-                        index_name,
-                        columns: Vec::new(),
-                        index_type,
-                    })
-                    .columns
-                    .push(column_name);
-            }
-        }
-
-        indexes.into_values().collect()
+        parse_fulltext_index_rows(rows, "gin")
     }
 
     fn build_capability(
@@ -375,46 +439,7 @@ impl FulltextSearchStrategy for PostgresSearchStrategy {
         detected_indexes: &[FulltextIndexInfo],
         estimated_rows: Option<u64>,
     ) -> TableSearchCapability {
-        let indexed_columns: HashMap<String, String> = detected_indexes
-            .iter()
-            .flat_map(|idx| {
-                idx.columns
-                    .iter()
-                    .map(|col| (col.clone(), idx.index_name.clone()))
-            })
-            .collect();
-
-        let searchable_columns: Vec<ColumnSearchInfo> = text_columns
-            .iter()
-            .map(|name| {
-                let index_info = indexed_columns.get(name);
-                ColumnSearchInfo {
-                    name: name.clone(),
-                    data_type: "text".to_string(),
-                    has_fulltext_index: index_info.is_some(),
-                    fulltext_index_name: index_info.cloned(),
-                }
-            })
-            .collect();
-
-        let has_any_fulltext = searchable_columns.iter().any(|c| c.has_fulltext_index);
-
-        let recommended_method = if has_any_fulltext {
-            if searchable_columns.iter().all(|c| c.has_fulltext_index) {
-                SearchMethod::NativeFulltext
-            } else {
-                SearchMethod::Hybrid
-            }
-        } else {
-            SearchMethod::PatternMatch
-        };
-
-        TableSearchCapability {
-            searchable_columns,
-            recommended_method,
-            estimated_rows,
-            has_any_fulltext_index: has_any_fulltext,
-        }
+        build_text_search_capability(text_columns, detected_indexes, estimated_rows, true)
     }
 
     fn build_search_query(
@@ -442,7 +467,7 @@ impl FulltextSearchStrategy for PostgresSearchStrategy {
 
             // Wrap columns in to_tsvector so the predicate works even when the column type isn't tsvector.
             for col in &fulltext_cols {
-                let quoted = Self::quote_identifier(&col.name);
+                let quoted = quote_identifier_double_quote(&col.name);
                 let tsquery = Self::escape_tsquery(&options.search_term);
                 conditions.push(format!(
                     "to_tsvector('simple', COALESCE({}::text, '')) @@ to_tsquery('simple', {})",
@@ -451,9 +476,9 @@ impl FulltextSearchStrategy for PostgresSearchStrategy {
             }
 
             if !pattern_cols.is_empty() {
-                let pattern = format!("%{}%", Self::escape_like_pattern(&options.search_term));
+                let pattern = format!("%{}%", escape_like_pattern_backslash(&options.search_term));
                 for col in &pattern_cols {
-                    let quoted = Self::quote_identifier(col);
+                    let quoted = quote_identifier_double_quote(col);
                     if options.case_sensitive {
                         conditions.push(format!("{}::text LIKE '{}'", quoted, pattern));
                     } else {
@@ -465,11 +490,11 @@ impl FulltextSearchStrategy for PostgresSearchStrategy {
             let full_table = if let Some(schema) = &namespace.schema {
                 format!(
                     "{}.{}",
-                    Self::quote_identifier(schema),
-                    Self::quote_identifier(table_name)
+                    quote_identifier_double_quote(schema),
+                    quote_identifier_double_quote(table_name)
                 )
             } else {
-                Self::quote_identifier(table_name)
+                quote_identifier_double_quote(table_name)
             };
 
             let query = format!(
@@ -506,12 +531,12 @@ impl FulltextSearchStrategy for PostgresSearchStrategy {
         columns: &[String],
         options: &TableSearchOptions,
     ) -> String {
-        let pattern = format!("%{}%", Self::escape_like_pattern(&options.search_term));
+        let pattern = format!("%{}%", escape_like_pattern_backslash(&options.search_term));
 
         let conditions: Vec<String> = columns
             .iter()
             .map(|col| {
-                let quoted = Self::quote_identifier(col);
+                let quoted = quote_identifier_double_quote(col);
                 if options.case_sensitive {
                     format!("{}::text LIKE '{}'", quoted, pattern)
                 } else {
@@ -523,11 +548,11 @@ impl FulltextSearchStrategy for PostgresSearchStrategy {
         let full_table = if let Some(schema) = &namespace.schema {
             format!(
                 "{}.{}",
-                Self::quote_identifier(schema),
-                Self::quote_identifier(table_name)
+                quote_identifier_double_quote(schema),
+                quote_identifier_double_quote(table_name)
             )
         } else {
-            Self::quote_identifier(table_name)
+            quote_identifier_double_quote(table_name)
         };
 
         format!(
@@ -550,13 +575,6 @@ impl MySqlSearchStrategy {
 
     fn quote_identifier(name: &str) -> String {
         format!("`{}`", name.replace('`', "``"))
-    }
-
-    fn escape_like_pattern(term: &str) -> String {
-        term.replace('\\', "\\\\")
-            .replace('%', "\\%")
-            .replace('_', "\\_")
-            .replace('\'', "''")
     }
 
     fn escape_fulltext(term: &str) -> String {
@@ -615,36 +633,7 @@ impl FulltextSearchStrategy for MySqlSearchStrategy {
         rows: &[Vec<Value>],
         _columns: &[String],
     ) -> Vec<FulltextIndexInfo> {
-        let mut indexes: HashMap<String, FulltextIndexInfo> = HashMap::new();
-
-        for row in rows {
-            if row.len() >= 3 {
-                let index_name = match &row[0] {
-                    Value::Text(s) => s.clone(),
-                    _ => continue,
-                };
-                let column_name = match &row[1] {
-                    Value::Text(s) => s.clone(),
-                    _ => continue,
-                };
-                let index_type = match &row[2] {
-                    Value::Text(s) => s.clone(),
-                    _ => "FULLTEXT".to_string(),
-                };
-
-                indexes
-                    .entry(index_name.clone())
-                    .or_insert_with(|| FulltextIndexInfo {
-                        index_name,
-                        columns: Vec::new(),
-                        index_type,
-                    })
-                    .columns
-                    .push(column_name);
-            }
-        }
-
-        indexes.into_values().collect()
+        parse_fulltext_index_rows(rows, "FULLTEXT")
     }
 
     fn build_capability(
@@ -653,42 +642,7 @@ impl FulltextSearchStrategy for MySqlSearchStrategy {
         detected_indexes: &[FulltextIndexInfo],
         estimated_rows: Option<u64>,
     ) -> TableSearchCapability {
-        let indexed_columns: HashMap<String, String> = detected_indexes
-            .iter()
-            .flat_map(|idx| {
-                idx.columns
-                    .iter()
-                    .map(|col| (col.clone(), idx.index_name.clone()))
-            })
-            .collect();
-
-        let searchable_columns: Vec<ColumnSearchInfo> = text_columns
-            .iter()
-            .map(|name| {
-                let index_info = indexed_columns.get(name);
-                ColumnSearchInfo {
-                    name: name.clone(),
-                    data_type: "text".to_string(),
-                    has_fulltext_index: index_info.is_some(),
-                    fulltext_index_name: index_info.cloned(),
-                }
-            })
-            .collect();
-
-        let has_any_fulltext = searchable_columns.iter().any(|c| c.has_fulltext_index);
-
-        let recommended_method = if has_any_fulltext {
-            SearchMethod::NativeFulltext
-        } else {
-            SearchMethod::PatternMatch
-        };
-
-        TableSearchCapability {
-            searchable_columns,
-            recommended_method,
-            estimated_rows,
-            has_any_fulltext_index: has_any_fulltext,
-        }
+        build_text_search_capability(text_columns, detected_indexes, estimated_rows, false)
     }
 
     fn build_search_query(
@@ -740,7 +694,7 @@ impl FulltextSearchStrategy for MySqlSearchStrategy {
                 .collect();
 
             if !pattern_cols.is_empty() {
-                let pattern = format!("%{}%", Self::escape_like_pattern(&options.search_term));
+                let pattern = format!("%{}%", escape_like_pattern_backslash(&options.search_term));
                 for col in &pattern_cols {
                     let quoted = Self::quote_identifier(&col.name);
                     conditions.push(format!("{} LIKE '{}'", quoted, pattern));
@@ -787,7 +741,7 @@ impl FulltextSearchStrategy for MySqlSearchStrategy {
         columns: &[String],
         options: &TableSearchOptions,
     ) -> String {
-        let pattern = format!("%{}%", Self::escape_like_pattern(&options.search_term));
+        let pattern = format!("%{}%", escape_like_pattern_backslash(&options.search_term));
 
         let conditions: Vec<String> = columns
             .iter()
@@ -823,10 +777,6 @@ pub struct SqliteSearchStrategy;
 impl SqliteSearchStrategy {
     pub fn new() -> Self {
         Self
-    }
-
-    fn quote_identifier(name: &str) -> String {
-        format!("\"{}\"", name.replace('"', "\"\""))
     }
 
     fn escape_sql_literal(term: &str) -> String {
@@ -911,36 +861,7 @@ impl FulltextSearchStrategy for SqliteSearchStrategy {
         rows: &[Vec<Value>],
         _columns: &[String],
     ) -> Vec<FulltextIndexInfo> {
-        let mut indexes: HashMap<String, FulltextIndexInfo> = HashMap::new();
-
-        for row in rows {
-            if row.len() >= 3 {
-                let index_name = match &row[0] {
-                    Value::Text(s) => s.clone(),
-                    _ => continue,
-                };
-                let column_name = match &row[1] {
-                    Value::Text(s) => s.clone(),
-                    _ => continue,
-                };
-                let index_type = match &row[2] {
-                    Value::Text(s) => s.clone(),
-                    _ => "fts".to_string(),
-                };
-
-                indexes
-                    .entry(index_name.clone())
-                    .or_insert_with(|| FulltextIndexInfo {
-                        index_name,
-                        columns: Vec::new(),
-                        index_type,
-                    })
-                    .columns
-                    .push(column_name);
-            }
-        }
-
-        indexes.into_values().collect()
+        parse_fulltext_index_rows(rows, "fts")
     }
 
     fn build_capability(
@@ -949,42 +870,7 @@ impl FulltextSearchStrategy for SqliteSearchStrategy {
         detected_indexes: &[FulltextIndexInfo],
         estimated_rows: Option<u64>,
     ) -> TableSearchCapability {
-        let indexed_columns: HashMap<String, String> = detected_indexes
-            .iter()
-            .flat_map(|idx| {
-                idx.columns
-                    .iter()
-                    .map(|col| (col.clone(), idx.index_name.clone()))
-            })
-            .collect();
-
-        let searchable_columns: Vec<ColumnSearchInfo> = text_columns
-            .iter()
-            .map(|name| {
-                let index_info = indexed_columns.get(name);
-                ColumnSearchInfo {
-                    name: name.clone(),
-                    data_type: "text".to_string(),
-                    has_fulltext_index: index_info.is_some(),
-                    fulltext_index_name: index_info.cloned(),
-                }
-            })
-            .collect();
-
-        let has_any_fulltext = searchable_columns.iter().any(|c| c.has_fulltext_index);
-
-        let recommended_method = if has_any_fulltext {
-            SearchMethod::NativeFulltext
-        } else {
-            SearchMethod::PatternMatch
-        };
-
-        TableSearchCapability {
-            searchable_columns,
-            recommended_method,
-            estimated_rows,
-            has_any_fulltext_index: has_any_fulltext,
-        }
+        build_text_search_capability(text_columns, detected_indexes, estimated_rows, false)
     }
 
     fn build_search_query(
@@ -1026,7 +912,7 @@ impl FulltextSearchStrategy for SqliteSearchStrategy {
                     );
                 }
 
-                let base_table = Self::quote_identifier(table_name);
+                let base_table = quote_identifier_double_quote(table_name);
                 let base_alias = "t";
                 let fts_alias = "fts";
                 let mut conditions = Vec::new();
@@ -1042,7 +928,7 @@ impl FulltextSearchStrategy for SqliteSearchStrategy {
                     let term = Self::escape_sql_literal(&options.search_term);
                     for col in &pattern_cols {
                         let col_ref =
-                            format!("{}.{}", base_alias, Self::quote_identifier(&col.name));
+                            format!("{}.{}", base_alias, quote_identifier_double_quote(&col.name));
                         let clause = if options.case_sensitive {
                             format!("instr(CAST({} AS TEXT), '{}') > 0", col_ref, term)
                         } else {
@@ -1063,7 +949,7 @@ impl FulltextSearchStrategy for SqliteSearchStrategy {
                         base_alias, base_table, base_alias, where_sql, options.max_results
                     )
                 } else {
-                    let fts_table = Self::quote_identifier(&fts_table);
+                    let fts_table = quote_identifier_double_quote(&fts_table);
                     format!(
                         "SELECT {}.* FROM {} {} JOIN {} {} ON {}.rowid = {}.rowid WHERE {} LIMIT {}",
                         base_alias,
@@ -1111,7 +997,7 @@ impl FulltextSearchStrategy for SqliteSearchStrategy {
         let conditions: Vec<String> = columns
             .iter()
             .map(|col| {
-                let quoted = Self::quote_identifier(col);
+                let quoted = quote_identifier_double_quote(col);
                 if options.case_sensitive {
                     format!("instr(CAST({} AS TEXT), '{}') > 0", quoted, term)
                 } else {
@@ -1123,7 +1009,7 @@ impl FulltextSearchStrategy for SqliteSearchStrategy {
             })
             .collect();
 
-        let table = Self::quote_identifier(table_name);
+        let table = quote_identifier_double_quote(table_name);
 
         format!(
             "SELECT * FROM {} WHERE {} LIMIT {}",
@@ -1350,36 +1236,7 @@ impl FulltextSearchStrategy for SqlServerSearchStrategy {
         rows: &[Vec<Value>],
         _columns: &[String],
     ) -> Vec<FulltextIndexInfo> {
-        let mut indexes: HashMap<String, FulltextIndexInfo> = HashMap::new();
-
-        for row in rows {
-            if row.len() >= 3 {
-                let index_name = match &row[0] {
-                    Value::Text(s) => s.clone(),
-                    _ => continue,
-                };
-                let column_name = match &row[1] {
-                    Value::Text(s) => s.clone(),
-                    _ => continue,
-                };
-                let index_type = match &row[2] {
-                    Value::Text(s) => s.clone(),
-                    _ => "FULLTEXT".to_string(),
-                };
-
-                indexes
-                    .entry(index_name.clone())
-                    .or_insert_with(|| FulltextIndexInfo {
-                        index_name,
-                        columns: Vec::new(),
-                        index_type,
-                    })
-                    .columns
-                    .push(column_name);
-            }
-        }
-
-        indexes.into_values().collect()
+        parse_fulltext_index_rows(rows, "FULLTEXT")
     }
 
     fn build_capability(
@@ -1388,42 +1245,7 @@ impl FulltextSearchStrategy for SqlServerSearchStrategy {
         detected_indexes: &[FulltextIndexInfo],
         estimated_rows: Option<u64>,
     ) -> TableSearchCapability {
-        let indexed_columns: HashMap<String, String> = detected_indexes
-            .iter()
-            .flat_map(|idx| {
-                idx.columns
-                    .iter()
-                    .map(|col| (col.clone(), idx.index_name.clone()))
-            })
-            .collect();
-
-        let searchable_columns: Vec<ColumnSearchInfo> = text_columns
-            .iter()
-            .map(|name| {
-                let index_info = indexed_columns.get(name);
-                ColumnSearchInfo {
-                    name: name.clone(),
-                    data_type: "text".to_string(),
-                    has_fulltext_index: index_info.is_some(),
-                    fulltext_index_name: index_info.cloned(),
-                }
-            })
-            .collect();
-
-        let has_any_fulltext = searchable_columns.iter().any(|c| c.has_fulltext_index);
-
-        let recommended_method = if has_any_fulltext {
-            SearchMethod::NativeFulltext
-        } else {
-            SearchMethod::PatternMatch
-        };
-
-        TableSearchCapability {
-            searchable_columns,
-            recommended_method,
-            estimated_rows,
-            has_any_fulltext_index: has_any_fulltext,
-        }
+        build_text_search_capability(text_columns, detected_indexes, estimated_rows, false)
     }
 
     fn build_search_query(
@@ -1514,10 +1336,7 @@ mod tests {
 
     #[test]
     fn test_mysql_escape_like() {
-        assert_eq!(
-            MySqlSearchStrategy::escape_like_pattern("test_user"),
-            "test\\_user"
-        );
+        assert_eq!(escape_like_pattern_backslash("test_user"), "test\\_user");
     }
 
     #[test]

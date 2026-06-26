@@ -8,6 +8,7 @@ use crate::engine::sql_generator::SqlDialect;
 use crate::engine::types::{ColumnInfo, Namespace, Row};
 use crate::export::types::ExportFormat;
 
+mod counting;
 pub mod csv;
 pub mod html;
 pub mod json;

@@ -29,6 +29,25 @@ pub fn plugins_dir() -> PathBuf {
     crate::paths::app_data_dir().join("plugins")
 }
 
+pub(crate) fn read_json_index<T: Default + serde::de::DeserializeOwned>(
+    path: &std::path::Path,
+) -> T {
+    std::fs::read_to_string(path)
+        .ok()
+        .and_then(|raw| serde_json::from_str(&raw).ok())
+        .unwrap_or_default()
+}
+
+pub(crate) fn write_json_index<T: serde::Serialize>(
+    path: &std::path::Path,
+    index: &T,
+    what: &str,
+) -> Result<(), String> {
+    let raw = serde_json::to_string_pretty(index).map_err(|e| e.to_string())?;
+    crate::paths::atomic_write(path, raw.as_bytes())
+        .map_err(|e| format!("Failed to write {what}: {e}"))
+}
+
 /// A parsed `plugin.json` manifest.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

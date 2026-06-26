@@ -5,11 +5,10 @@
 
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 use tauri::State;
 use tracing::instrument;
 
-use super::parse_session_id;
+use super::{parse_session_id, SharedStateExt};
 use crate::engine::schema_export::generate_create_table_ddl;
 use crate::engine::sql_generator::SqlDialect;
 use crate::engine::types::{
@@ -51,10 +50,7 @@ pub async fn export_schema(
     file_path: String,
     options: SchemaExportOptions,
 ) -> Result<ExportSchemaResponse, String> {
-    let session_manager = {
-        let state = state.lock().await;
-        Arc::clone(&state.session_manager)
-    };
+    let session_manager = state.session_manager().await;
     let session = parse_session_id(&session_id)?;
 
     let driver = session_manager

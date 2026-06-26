@@ -2,14 +2,14 @@
 
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use tokio::fs::File;
-use tokio::io::{AsyncWriteExt, BufWriter};
+use tokio::io::BufWriter;
 
 use crate::engine::types::{ColumnInfo, Row, Value};
+use crate::export::writers::counting::CountingWriter;
 use crate::export::writers::ExportWriter;
 
 pub struct JsonWriter {
-    writer: BufWriter<File>,
-    bytes_written: u64,
+    writer: CountingWriter,
     started: bool,
     rows_written: u64,
     scratch: Vec<u8>,
@@ -18,26 +18,16 @@ pub struct JsonWriter {
 impl JsonWriter {
     pub fn new(writer: BufWriter<File>) -> Self {
         Self {
-            writer,
-            bytes_written: 0,
+            writer: CountingWriter::new(writer),
             started: false,
             rows_written: 0,
             scratch: Vec::with_capacity(1024),
         }
     }
 
-    async fn write_bytes(&mut self, bytes: &[u8]) -> Result<(), String> {
-        self.writer
-            .write_all(bytes)
-            .await
-            .map_err(|e| e.to_string())?;
-        self.bytes_written += bytes.len() as u64;
-        Ok(())
-    }
-
     async fn ensure_started(&mut self) -> Result<(), String> {
         if !self.started {
-            self.write_bytes(b"[\n").await?;
+            self.writer.write_bytes(b"[\n").await?;
             self.started = true;
         }
         Ok(())
@@ -79,39 +69,35 @@ impl ExportWriter for JsonWriter {
         let json = serde_json::Value::Object(obj);
 
         if self.rows_written > 0 {
-            self.write_bytes(b",\n").await?;
+            self.writer.write_bytes(b",\n").await?;
         }
 
         self.scratch.clear();
         serde_json::to_writer(&mut self.scratch, &json).map_err(|e| e.to_string())?;
-        self.writer
-            .write_all(&self.scratch)
-            .await
-            .map_err(|e| e.to_string())?;
-        self.bytes_written += self.scratch.len() as u64;
+        self.writer.write_bytes(&self.scratch).await?;
 
         self.rows_written += 1;
         Ok(())
     }
 
     async fn flush(&mut self) -> Result<(), String> {
-        self.writer.flush().await.map_err(|e| e.to_string())
+        self.writer.flush().await
     }
 
     async fn finish(&mut self) -> Result<(), String> {
         if !self.started {
-            self.write_bytes(b"[]\n").await?;
+            self.writer.write_bytes(b"[]\n").await?;
             return self.flush().await;
         }
 
         if self.rows_written > 0 {
-            self.write_bytes(b"\n").await?;
+            self.writer.write_bytes(b"\n").await?;
         }
-        self.write_bytes(b"]\n").await?;
+        self.writer.write_bytes(b"]\n").await?;
         self.flush().await
     }
 
     fn bytes_written(&self) -> u64 {
-        self.bytes_written
+        self.writer.bytes_written()
     }
 }

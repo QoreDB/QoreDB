@@ -10,6 +10,7 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
+use super::path_to_string;
 use super::tools::BackupTool;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -413,12 +414,6 @@ pub fn safe_identifier(value: &str) -> Result<String, String> {
         ));
     }
     Ok(value.to_string())
-}
-
-fn path_to_string(path: &std::path::Path) -> Result<String, String> {
-    path.to_str()
-        .map(str::to_string)
-        .ok_or_else(|| format!("Path {:?} is not valid UTF-8", path))
 }
 
 #[cfg(test)]

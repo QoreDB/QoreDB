@@ -8,7 +8,7 @@ use tauri::State;
 use tracing::{field, instrument};
 use uuid::Uuid;
 
-use super::parse_session_id;
+use super::{parse_session_id, SharedStateExt};
 use crate::commands::stream_msg::StreamDispatcher;
 use crate::engine::{
     sql_safety,
@@ -464,10 +464,7 @@ pub async fn list_namespaces(
     state: State<'_, crate::SharedState>,
     session_id: String,
 ) -> Result<NamespacesResponse, String> {
-    let session_manager = {
-        let state = state.lock().await;
-        Arc::clone(&state.session_manager)
-    };
+    let session_manager = state.session_manager().await;
     let session = parse_session_id(&session_id)?;
 
     let driver = match session_manager.get_driver(session).await {
@@ -504,10 +501,7 @@ pub async fn list_collections(
     page: Option<u32>,
     page_size: Option<u32>,
 ) -> Result<CollectionsResponse, String> {
-    let session_manager = {
-        let state = state.lock().await;
-        Arc::clone(&state.session_manager)
-    };
+    let session_manager = state.session_manager().await;
     let session = parse_session_id(&session_id)?;
 
     let driver = match session_manager.get_driver(session).await {
@@ -558,10 +552,7 @@ pub async fn list_routines(
     page_size: Option<u32>,
     routine_type: Option<String>,
 ) -> Result<RoutinesResponse, String> {
-    let session_manager = {
-        let state = state.lock().await;
-        Arc::clone(&state.session_manager)
-    };
+    let session_manager = state.session_manager().await;
     let session = parse_session_id(&session_id)?;
 
     let driver = match session_manager.get_driver(session).await {
@@ -618,10 +609,7 @@ pub async fn list_triggers(
     page: Option<u32>,
     page_size: Option<u32>,
 ) -> Result<TriggersResponse, String> {
-    let session_manager = {
-        let state = state.lock().await;
-        Arc::clone(&state.session_manager)
-    };
+    let session_manager = state.session_manager().await;
     let session = parse_session_id(&session_id)?;
 
     let driver = match session_manager.get_driver(session).await {
@@ -672,10 +660,7 @@ pub async fn list_events(
     page: Option<u32>,
     page_size: Option<u32>,
 ) -> Result<EventsResponse, String> {
-    let session_manager = {
-        let state = state.lock().await;
-        Arc::clone(&state.session_manager)
-    };
+    let session_manager = state.session_manager().await;
     let session = parse_session_id(&session_id)?;
 
     let driver = match session_manager.get_driver(session).await {
@@ -726,10 +711,7 @@ pub async fn list_sequences(
     page: Option<u32>,
     page_size: Option<u32>,
 ) -> Result<SequencesResponse, String> {
-    let session_manager = {
-        let state = state.lock().await;
-        Arc::clone(&state.session_manager)
-    };
+    let session_manager = state.session_manager().await;
     let session = parse_session_id(&session_id)?;
 
     let driver = match session_manager.get_driver(session).await {
@@ -1384,10 +1366,7 @@ pub async fn get_creation_options(
     state: State<'_, crate::SharedState>,
     session_id: String,
 ) -> Result<CreationOptionsResponse, String> {
-    let session_manager = {
-        let state = state.lock().await;
-        Arc::clone(&state.session_manager)
-    };
+    let session_manager = state.session_manager().await;
     let session = parse_session_id(&session_id)?;
 
     let driver = match session_manager.get_driver(session).await {
@@ -1436,10 +1415,7 @@ pub async fn begin_transaction(
     state: State<'_, crate::SharedState>,
     session_id: String,
 ) -> Result<TransactionResponse, String> {
-    let session_manager = {
-        let state = state.lock().await;
-        Arc::clone(&state.session_manager)
-    };
+    let session_manager = state.session_manager().await;
     let session = parse_session_id(&session_id)?;
 
     let driver = match session_manager.get_driver(session).await {
@@ -1479,10 +1455,7 @@ pub async fn commit_transaction(
     state: State<'_, crate::SharedState>,
     session_id: String,
 ) -> Result<TransactionResponse, String> {
-    let session_manager = {
-        let state = state.lock().await;
-        Arc::clone(&state.session_manager)
-    };
+    let session_manager = state.session_manager().await;
     let session = parse_session_id(&session_id)?;
 
     let driver = match session_manager.get_driver(session).await {
@@ -1522,10 +1495,7 @@ pub async fn rollback_transaction(
     state: State<'_, crate::SharedState>,
     session_id: String,
 ) -> Result<TransactionResponse, String> {
-    let session_manager = {
-        let state = state.lock().await;
-        Arc::clone(&state.session_manager)
-    };
+    let session_manager = state.session_manager().await;
     let session = parse_session_id(&session_id)?;
 
     let driver = match session_manager.get_driver(session).await {
@@ -1562,10 +1532,7 @@ pub async fn supports_transactions(
     state: State<'_, crate::SharedState>,
     session_id: String,
 ) -> Result<TransactionSupportResponse, String> {
-    let session_manager = {
-        let state = state.lock().await;
-        Arc::clone(&state.session_manager)
-    };
+    let session_manager = state.session_manager().await;
     let session = parse_session_id(&session_id)?;
 
     let driver = match session_manager.get_driver(session).await {

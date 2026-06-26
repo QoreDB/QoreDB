@@ -7,7 +7,7 @@ use std::sync::Arc;
 use tauri::State;
 use tracing::instrument;
 
-use super::parse_session_id;
+use super::{parse_session_id, SharedStateExt};
 use crate::engine::types::{
     EventDefinition, EventOperationResult, Namespace, TriggerDefinition,
     TriggerOperationResult,
@@ -67,10 +67,7 @@ pub async fn get_trigger_definition(
     schema: Option<String>,
     trigger_name: String,
 ) -> Result<TriggerDefinitionResponse, String> {
-    let session_manager = {
-        let state = state.lock().await;
-        Arc::clone(&state.session_manager)
-    };
+    let session_manager = state.session_manager().await;
     let session = parse_session_id(&session_id)?;
 
     let driver = session_manager
@@ -279,10 +276,7 @@ pub async fn toggle_trigger(
     table_name: String,
     enable: bool,
 ) -> Result<TriggerToggleResponse, String> {
-    let session_manager = {
-        let state = state.lock().await;
-        Arc::clone(&state.session_manager)
-    };
+    let session_manager = state.session_manager().await;
     let session = parse_session_id(&session_id)?;
 
     let read_only = session_manager
@@ -341,10 +335,7 @@ pub async fn get_event_definition(
     schema: Option<String>,
     event_name: String,
 ) -> Result<EventDefinitionResponse, String> {
-    let session_manager = {
-        let state = state.lock().await;
-        Arc::clone(&state.session_manager)
-    };
+    let session_manager = state.session_manager().await;
     let session = parse_session_id(&session_id)?;
 
     let driver = session_manager

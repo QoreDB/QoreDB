@@ -9,6 +9,7 @@ use tauri::{AppHandle, Manager, State};
 use tracing::instrument;
 use uuid::Uuid;
 
+use super::SharedStateExt;
 use crate::engine::types::ConnectionConfig;
 use crate::vault::backend::KeyringProvider;
 use crate::vault::VaultStorage;
@@ -90,10 +91,7 @@ pub async fn test_connection(
     state: State<'_, crate::SharedState>,
     config: ConnectionConfig,
 ) -> Result<ConnectionResponse, String> {
-    let session_manager = {
-        let state = state.lock().await;
-        Arc::clone(&state.session_manager)
-    };
+    let session_manager = state.session_manager().await;
 
     match qore_service::connection::test_connection(&session_manager, config).await {
         Ok(()) => Ok(ConnectionResponse {
@@ -179,10 +177,7 @@ pub async fn connect(
         });
     }
 
-    let session_manager = {
-        let state = state.lock().await;
-        Arc::clone(&state.session_manager)
-    };
+    let session_manager = state.session_manager().await;
 
     match qore_service::connection::connect(&session_manager, config).await {
         Ok(session_id) => Ok(ConnectionResponse {
@@ -291,10 +286,7 @@ pub async fn disconnect(
 pub async fn list_sessions(
     state: State<'_, crate::SharedState>,
 ) -> Result<Vec<SessionListItem>, String> {
-    let session_manager = {
-        let state = state.lock().await;
-        Arc::clone(&state.session_manager)
-    };
+    let session_manager = state.session_manager().await;
 
     let sessions = session_manager.list_sessions().await;
 
@@ -313,10 +305,7 @@ pub async fn check_connection_health(
     state: State<'_, crate::SharedState>,
     session_id: String,
 ) -> Result<String, String> {
-    let session_manager = {
-        let state = state.lock().await;
-        Arc::clone(&state.session_manager)
-    };
+    let session_manager = state.session_manager().await;
 
     let uuid = Uuid::parse_str(&session_id).map_err(|e| format!("Invalid session ID: {}", e))?;
     let sid = crate::engine::types::SessionId(uuid);

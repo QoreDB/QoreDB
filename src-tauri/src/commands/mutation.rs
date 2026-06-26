@@ -7,7 +7,7 @@ use std::sync::Arc;
 use tauri::{AppHandle, State};
 use tracing::instrument;
 
-use super::parse_session_id;
+use super::{parse_session_id, SharedStateExt};
 use crate::engine::types::{Namespace, QueryResult, RowData};
 use crate::interceptor::QueryExecutionResult;
 use crate::time_travel::capture::{
@@ -446,10 +446,7 @@ pub async fn supports_mutations(
     state: State<'_, crate::SharedState>,
     session_id: String,
 ) -> Result<bool, String> {
-    let session_manager = {
-        let state = state.lock().await;
-        Arc::clone(&state.session_manager)
-    };
+    let session_manager = state.session_manager().await;
     let session = parse_session_id(&session_id)?;
 
     let driver = session_manager

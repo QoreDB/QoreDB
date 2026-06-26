@@ -28,6 +28,50 @@ const HTTP_TIMEOUT_SECS: u64 = 30;
 /// comfortably; anything bigger is almost certainly a misconfigured mirror.
 const MAX_INDEX_BYTES: u64 = 2 * 1024 * 1024;
 
+fn build_client() -> Result<reqwest::blocking::Client, String> {
+    reqwest::blocking::Client::builder()
+        .timeout(Duration::from_secs(HTTP_TIMEOUT_SECS))
+        .user_agent(concat!(
+            "QoreDB/",
+            env!("CARGO_PKG_VERSION"),
+            " marketplace"
+        ))
+        .build()
+        .map_err(|e| format!("HTTP client init failed: {e}"))
+}
+
+/// Reads a response body capped at `max` bytes. The `content_length` check
+/// fails fast on an advertised oversize body; the `take(max + 1)` guard means a
+/// `Content-Length`-less response can't drain memory by streaming a huge body.
+fn read_capped(
+    response: reqwest::blocking::Response,
+    max: u64,
+    too_large: &str,
+    read_failed: &str,
+) -> Result<Vec<u8>, String> {
+    if let Some(content_length) = response.content_length() {
+        if content_length > max {
+            return Err(format!(
+                "{too_large} exceeds the size limit ({} MiB).",
+                max / 1024 / 1024
+            ));
+        }
+    }
+
+    let mut reader = response.take(max + 1);
+    let mut bytes = Vec::with_capacity(64 * 1024);
+    reader
+        .read_to_end(&mut bytes)
+        .map_err(|e| format!("Could not read {read_failed}: {e}"))?;
+    if bytes.len() as u64 > max {
+        return Err(format!(
+            "{too_large} exceeds the size limit ({} MiB).",
+            max / 1024 / 1024
+        ));
+    }
+    Ok(bytes)
+}
+
 /// Fetches the marketplace catalog index as opaque JSON. The webview's CSP
 /// blocks direct cross-origin fetches, so the index has to come through Rust.
 /// The response shape is validated by the frontend against
@@ -38,15 +82,7 @@ pub fn fetch_index(url: &str) -> Result<serde_json::Value, String> {
         return Err("Marketplace index URL must use https://".into());
     }
 
-    let client = reqwest::blocking::Client::builder()
-        .timeout(Duration::from_secs(HTTP_TIMEOUT_SECS))
-        .user_agent(concat!(
-            "QoreDB/",
-            env!("CARGO_PKG_VERSION"),
-            " marketplace"
-        ))
-        .build()
-        .map_err(|e| format!("HTTP client init failed: {e}"))?;
+    let client = build_client()?;
 
     let response = client
         .get(url)
@@ -61,26 +97,12 @@ pub fn fetch_index(url: &str) -> Result<serde_json::Value, String> {
         ));
     }
 
-    if let Some(content_length) = response.content_length() {
-        if content_length > MAX_INDEX_BYTES {
-            return Err(format!(
-                "Marketplace index exceeds the size limit ({} MiB).",
-                MAX_INDEX_BYTES / 1024 / 1024
-            ));
-        }
-    }
-
-    let mut reader = response.take(MAX_INDEX_BYTES + 1);
-    let mut bytes = Vec::with_capacity(32 * 1024);
-    reader
-        .read_to_end(&mut bytes)
-        .map_err(|e| format!("Could not read marketplace response: {e}"))?;
-    if bytes.len() as u64 > MAX_INDEX_BYTES {
-        return Err(format!(
-            "Marketplace index exceeds the size limit ({} MiB).",
-            MAX_INDEX_BYTES / 1024 / 1024
-        ));
-    }
+    let bytes = read_capped(
+        response,
+        MAX_INDEX_BYTES,
+        "Marketplace index",
+        "marketplace response",
+    )?;
 
     serde_json::from_slice::<serde_json::Value>(&bytes)
         .map_err(|e| format!("Marketplace returned invalid JSON: {e}"))
@@ -143,15 +165,7 @@ fn download_archive(url: &str) -> Result<Vec<u8>, String> {
     // The marketplace serves archives from `raw.githubusercontent.com`. The
     // host doesn't enforce a hostname allow-list — the sha256 check below is
     // what makes the source untrusted-by-default safe.
-    let client = reqwest::blocking::Client::builder()
-        .timeout(Duration::from_secs(HTTP_TIMEOUT_SECS))
-        .user_agent(concat!(
-            "QoreDB/",
-            env!("CARGO_PKG_VERSION"),
-            " marketplace"
-        ))
-        .build()
-        .map_err(|e| format!("HTTP client init failed: {e}"))?;
+    let client = build_client()?;
 
     let response = client
         .get(url)
@@ -165,29 +179,12 @@ fn download_archive(url: &str) -> Result<Vec<u8>, String> {
         ));
     }
 
-    if let Some(content_length) = response.content_length() {
-        if content_length > MAX_ARCHIVE_BYTES {
-            return Err(format!(
-                "Plugin archive exceeds the size limit ({} MiB).",
-                MAX_ARCHIVE_BYTES / 1024 / 1024
-            ));
-        }
-    }
-
-    // Read with a tight upper bound so a `Content-Length`-less response
-    // can't drain memory by streaming a huge archive.
-    let mut reader = response.take(MAX_ARCHIVE_BYTES + 1);
-    let mut bytes = Vec::with_capacity(64 * 1024);
-    reader
-        .read_to_end(&mut bytes)
-        .map_err(|e| format!("Could not read the plugin archive: {e}"))?;
-    if bytes.len() as u64 > MAX_ARCHIVE_BYTES {
-        return Err(format!(
-            "Plugin archive exceeds the size limit ({} MiB).",
-            MAX_ARCHIVE_BYTES / 1024 / 1024
-        ));
-    }
-    Ok(bytes)
+    read_capped(
+        response,
+        MAX_ARCHIVE_BYTES,
+        "Plugin archive",
+        "the plugin archive",
+    )
 }
 
 fn verify_sha256(bytes: &[u8], expected: &[u8; 32]) -> Result<(), String> {

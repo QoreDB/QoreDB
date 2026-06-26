@@ -2,14 +2,14 @@
 
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use tokio::fs::File;
-use tokio::io::{AsyncWriteExt, BufWriter};
+use tokio::io::BufWriter;
 
 use crate::engine::types::{ColumnInfo, Row, Value};
+use crate::export::writers::counting::CountingWriter;
 use crate::export::writers::ExportWriter;
 
 pub struct HtmlWriter {
-    writer: BufWriter<File>,
-    bytes_written: u64,
+    writer: CountingWriter,
     header_written: bool,
     rows_written: u64,
 }
@@ -17,20 +17,10 @@ pub struct HtmlWriter {
 impl HtmlWriter {
     pub fn new(writer: BufWriter<File>) -> Self {
         Self {
-            writer,
-            bytes_written: 0,
+            writer: CountingWriter::new(writer),
             header_written: false,
             rows_written: 0,
         }
-    }
-
-    async fn write_bytes(&mut self, bytes: &[u8]) -> Result<(), String> {
-        self.writer
-            .write_all(bytes)
-            .await
-            .map_err(|e| e.to_string())?;
-        self.bytes_written += bytes.len() as u64;
-        Ok(())
     }
 
     fn value_to_json(value: &Value) -> serde_json::Value {
@@ -116,7 +106,7 @@ var DATA=[
 "#
         );
 
-        self.write_bytes(header.as_bytes()).await?;
+        self.writer.write_bytes(header.as_bytes()).await?;
         self.header_written = true;
         Ok(())
     }
@@ -131,20 +121,21 @@ var DATA=[
         let serialized = serde_json::to_string(&arr).map_err(|e| e.to_string())?;
 
         if self.rows_written > 0 {
-            self.write_bytes(b",\n").await?;
+            self.writer.write_bytes(b",\n").await?;
         }
-        self.write_bytes(serialized.as_bytes()).await?;
+        self.writer.write_bytes(serialized.as_bytes()).await?;
         self.rows_written += 1;
         Ok(())
     }
 
     async fn flush(&mut self) -> Result<(), String> {
-        self.writer.flush().await.map_err(|e| e.to_string())
+        self.writer.flush().await
     }
 
     async fn finish(&mut self) -> Result<(), String> {
         if !self.header_written {
-            self.write_bytes(b"<!DOCTYPE html><html><body><p>No data.</p></body></html>")
+            self.writer
+                .write_bytes(b"<!DOCTYPE html><html><body><p>No data.</p></body></html>")
                 .await?;
             return self.flush().await;
         }
@@ -166,11 +157,11 @@ renderHead();applyFilters();
 </body>
 </html>"#;
 
-        self.write_bytes(footer.as_bytes()).await?;
+        self.writer.write_bytes(footer.as_bytes()).await?;
         self.flush().await
     }
 
     fn bytes_written(&self) -> u64 {
-        self.bytes_written
+        self.writer.bytes_written()
     }
 }

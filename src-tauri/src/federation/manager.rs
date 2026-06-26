@@ -100,42 +100,12 @@ async fn execute_federation_inner(
     let row_limit = options.row_limit_per_source;
 
     let plan = build_plan(sql, alias_map, row_limit, false)?;
-    let (source_results, fetch_results) = fetch_all_sources(&plan, session_manager).await?;
-
-    // MongoDB results arrive as one `document` column; flatten to per-key columns.
-    let source_results: Vec<QueryResult> = source_results
-        .into_iter()
-        .zip(plan.sources.iter())
-        .map(|(result, source)| {
-            if source.driver_id == "mongodb" {
-                flatten_mongo_documents(result)
-            } else {
-                result
-            }
-        })
-        .collect();
-
-    let duckdb_start = Instant::now();
-    let engine = DuckDbEngine::new()?;
-
-    for (source, result) in plan.sources.iter().zip(source_results.iter()) {
-        engine.create_temp_table(&source.table_ref.local_alias, &result.columns)?;
-        engine.insert_batch(&source.table_ref.local_alias, &result.rows, &result.columns)?;
-    }
+    let (engine, fetch_results, duckdb_start) = prepare_duckdb(&plan, session_manager).await?;
 
     let query_result = engine.execute_query(&plan.duckdb_query)?;
     let duckdb_time_ms = duckdb_start.elapsed().as_secs_f64() * 1000.0;
 
-    let warnings: Vec<String> = fetch_results
-        .iter()
-        .filter(|r| r.row_limit_hit)
-        .map(|r| {
-            format!(
-                "Source '{}.{}' returned the maximum {} rows. Results may be incomplete.",
-                r.alias, r.table, r.row_count
-            )
-        })
-        .collect();
+    let warnings = build_row_limit_warnings(&fetch_results);
 
     let metadata = FederationMetadata {
         source_results: fetch_results,
@@ -158,9 +128,57 @@ async fn execute_federation_stream_inner(
     let row_limit = options.row_limit_per_source;
 
     let plan = build_plan(sql, alias_map, row_limit, true)?;
-    let (source_results, fetch_results) = fetch_all_sources(&plan, session_manager).await?;
+    let (engine, fetch_results, duckdb_start) = prepare_duckdb(&plan, session_manager).await?;
 
-    // MongoDB results arrive as one `document` column; flatten to per-key columns.
+    // DuckDB statement/row handles are not Send: execute sync, then stream out.
+    let (columns, rows) = engine.execute_query_for_stream(&plan.duckdb_query)?;
+    let duckdb_time_ms = duckdb_start.elapsed().as_secs_f64() * 1000.0;
+
+    let _ = sender.send(StreamEvent::Columns(columns)).await;
+    let row_count = rows.len() as u64;
+    for row in rows {
+        if sender.send(StreamEvent::Row(row)).await.is_err() {
+            break; // receiver dropped (cancelled)
+        }
+    }
+    let _ = sender.send(StreamEvent::Done(row_count)).await;
+
+    let warnings = build_row_limit_warnings(&fetch_results);
+
+    Ok(FederationMetadata {
+        source_results: fetch_results,
+        duckdb_time_ms,
+        total_time_ms: 0.0,
+        warnings,
+    })
+}
+
+/// Row-limit warnings for any sources that hit their per-source cap. Shared by
+/// the batch and streaming paths (cf. dédup D28).
+fn build_row_limit_warnings(fetch_results: &[SourceFetchResult]) -> Vec<String> {
+    fetch_results
+        .iter()
+        .filter(|r| r.row_limit_hit)
+        .map(|r| {
+            format!(
+                "Source '{}.{}' returned the maximum {} rows. Results may be incomplete.",
+                r.alias, r.table, r.row_count
+            )
+        })
+        .collect()
+}
+
+/// Fetches every source, flattens MongoDB documents to per-key columns, and
+/// loads the results into a fresh in-memory DuckDB engine. Shared setup for the
+/// batch and streaming execution paths (cf. dédup D28). The returned `Instant`
+/// is captured after the source fetch (mirroring the original timing) so the
+/// caller's `duckdb_time_ms` still covers load + query only.
+async fn prepare_duckdb(
+    plan: &FederationPlan,
+    session_manager: &Arc<SessionManager>,
+) -> EngineResult<(DuckDbEngine, Vec<SourceFetchResult>, Instant)> {
+    let (source_results, fetch_results) = fetch_all_sources(plan, session_manager).await?;
+
     let source_results: Vec<QueryResult> = source_results
         .into_iter()
         .zip(plan.sources.iter())
@@ -181,36 +199,7 @@ async fn execute_federation_stream_inner(
         engine.insert_batch(&source.table_ref.local_alias, &result.rows, &result.columns)?;
     }
 
-    // DuckDB statement/row handles are not Send: execute sync, then stream out.
-    let (columns, rows) = engine.execute_query_for_stream(&plan.duckdb_query)?;
-    let duckdb_time_ms = duckdb_start.elapsed().as_secs_f64() * 1000.0;
-
-    let _ = sender.send(StreamEvent::Columns(columns)).await;
-    let row_count = rows.len() as u64;
-    for row in rows {
-        if sender.send(StreamEvent::Row(row)).await.is_err() {
-            break; // receiver dropped (cancelled)
-        }
-    }
-    let _ = sender.send(StreamEvent::Done(row_count)).await;
-
-    let warnings: Vec<String> = fetch_results
-        .iter()
-        .filter(|r| r.row_limit_hit)
-        .map(|r| {
-            format!(
-                "Source '{}.{}' returned the maximum {} rows. Results may be incomplete.",
-                r.alias, r.table, r.row_count
-            )
-        })
-        .collect();
-
-    Ok(FederationMetadata {
-        source_results: fetch_results,
-        duckdb_time_ms,
-        total_time_ms: 0.0,
-        warnings,
-    })
+    Ok((engine, fetch_results, duckdb_start))
 }
 
 /// Fetches data from all sources in parallel using tokio::spawn.

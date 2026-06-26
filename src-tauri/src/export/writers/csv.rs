@@ -2,41 +2,25 @@
 
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use tokio::fs::File;
-use tokio::io::{AsyncWriteExt, BufWriter};
+use tokio::io::BufWriter;
 
 use crate::engine::types::{ColumnInfo, Row, Value};
+use crate::export::writers::counting::CountingWriter;
 use crate::export::writers::ExportWriter;
 
 pub struct CsvWriter {
-    writer: BufWriter<File>,
+    writer: CountingWriter,
     include_headers: bool,
     header_written: bool,
-    bytes_written: u64,
 }
 
 impl CsvWriter {
     pub fn new(writer: BufWriter<File>, include_headers: bool) -> Self {
         Self {
-            writer,
+            writer: CountingWriter::new(writer),
             include_headers,
             header_written: false,
-            bytes_written: 0,
         }
-    }
-
-    async fn write_bytes(&mut self, bytes: &[u8]) -> Result<(), String> {
-        self.writer
-            .write_all(bytes)
-            .await
-            .map_err(|e| e.to_string())?;
-        self.bytes_written += bytes.len() as u64;
-        Ok(())
-    }
-
-    async fn write_line(&mut self, line: &str) -> Result<(), String> {
-        self.write_bytes(line.as_bytes()).await?;
-        self.write_bytes(b"\n").await?;
-        Ok(())
     }
 
     fn escape_csv(value: &str) -> String {
@@ -78,7 +62,7 @@ impl ExportWriter for CsvWriter {
             .collect::<Vec<_>>()
             .join(",");
 
-        self.write_line(&header).await?;
+        self.writer.write_line(&header).await?;
         self.header_written = true;
         Ok(())
     }
@@ -96,11 +80,11 @@ impl ExportWriter for CsvWriter {
         }
 
         let line = fields.join(",");
-        self.write_line(&line).await
+        self.writer.write_line(&line).await
     }
 
     async fn flush(&mut self) -> Result<(), String> {
-        self.writer.flush().await.map_err(|e| e.to_string())
+        self.writer.flush().await
     }
 
     async fn finish(&mut self) -> Result<(), String> {
@@ -108,6 +92,6 @@ impl ExportWriter for CsvWriter {
     }
 
     fn bytes_written(&self) -> u64 {
-        self.bytes_written
+        self.writer.bytes_written()
     }
 }

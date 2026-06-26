@@ -23,7 +23,7 @@ use crate::engine::fulltext_strategy::{
 };
 use crate::engine::types::{CollectionListOptions, CollectionType, Namespace, QueryId, Value};
 
-use super::parse_session_id;
+use super::{parse_session_id, SharedStateExt};
 
 /// Maximum number of tables to search in parallel
 const MAX_PARALLEL_TABLES: usize = 5;
@@ -196,10 +196,7 @@ pub async fn fulltext_search(
     let max_parallel = opts.max_parallel.unwrap_or(MAX_PARALLEL_TABLES).min(10);
     let stream_results = opts.stream_results.unwrap_or(false);
 
-    let session_manager = {
-        let state = state.lock().await;
-        Arc::clone(&state.session_manager)
-    };
+    let session_manager = state.session_manager().await;
 
     let session = parse_session_id(&session_id)?;
 

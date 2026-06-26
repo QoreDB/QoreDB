@@ -24,3 +24,11 @@ pub use args::{BackupFormat, BackupMode, BackupOptions, RestoreOptions};
 pub use duckdb_native::{run_duckdb_backup, run_duckdb_restore};
 pub use runner::{run_backup, run_restore, BackupEvent, BackupJob, BackupJobOutcome};
 pub use tools::{detect_tool, BackupTool, BackupToolInfo, BackupToolPaths};
+
+/// Render a path as a UTF-8 `String`, erroring on non-UTF-8 (shared by the
+/// arg builders and the native DuckDB runner — cf. dédup D29).
+pub(crate) fn path_to_string(path: &std::path::Path) -> Result<String, String> {
+    path.to_str()
+        .map(str::to_string)
+        .ok_or_else(|| format!("Path {:?} is not valid UTF-8", path))
+}

@@ -7,7 +7,7 @@ use std::sync::Arc;
 use tauri::State;
 use tracing::instrument;
 
-use super::parse_session_id;
+use super::{parse_session_id, SharedStateExt};
 use crate::engine::types::{
     MaintenanceOperationInfo, MaintenanceRequest, MaintenanceResult, Namespace,
 };
@@ -44,10 +44,7 @@ pub async fn list_maintenance_operations(
     schema: Option<String>,
     table: String,
 ) -> Result<MaintenanceListResponse, String> {
-    let session_manager = {
-        let state = state.lock().await;
-        Arc::clone(&state.session_manager)
-    };
+    let session_manager = state.session_manager().await;
     let session = parse_session_id(&session_id)?;
 
     let driver = session_manager

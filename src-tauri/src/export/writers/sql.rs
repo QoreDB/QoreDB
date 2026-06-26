@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use tokio::fs::File;
-use tokio::io::{AsyncWriteExt, BufWriter};
+use tokio::io::BufWriter;
 
 use crate::engine::sql_generator::SqlDialect;
 use crate::engine::types::{ColumnInfo, Namespace, Row, Value};
+use crate::export::writers::counting::CountingWriter;
 use crate::export::writers::ExportWriter;
 
 pub struct SqlInsertWriter {
-    writer: BufWriter<File>,
-    bytes_written: u64,
+    writer: CountingWriter,
     dialect: SqlDialect,
     namespace: Option<Namespace>,
     table_name: String,
@@ -24,8 +24,7 @@ impl SqlInsertWriter {
         table_name: String,
     ) -> Self {
         Self {
-            writer,
-            bytes_written: 0,
+            writer: CountingWriter::new(writer),
             dialect,
             namespace,
             table_name,
@@ -39,21 +38,6 @@ impl SqlInsertWriter {
         } else {
             self.dialect.quote_ident(&self.table_name)
         }
-    }
-
-    async fn write_bytes(&mut self, bytes: &[u8]) -> Result<(), String> {
-        self.writer
-            .write_all(bytes)
-            .await
-            .map_err(|e| e.to_string())?;
-        self.bytes_written += bytes.len() as u64;
-        Ok(())
-    }
-
-    async fn write_line(&mut self, line: &str) -> Result<(), String> {
-        self.write_bytes(line.as_bytes()).await?;
-        self.write_bytes(b"\n").await?;
-        Ok(())
     }
 
     fn ensure_columns(&mut self, columns: &[ColumnInfo]) {
@@ -100,11 +84,11 @@ impl ExportWriter for SqlInsertWriter {
             values.join(", ")
         );
 
-        self.write_line(&insert).await
+        self.writer.write_line(&insert).await
     }
 
     async fn flush(&mut self) -> Result<(), String> {
-        self.writer.flush().await.map_err(|e| e.to_string())
+        self.writer.flush().await
     }
 
     async fn finish(&mut self) -> Result<(), String> {
@@ -112,6 +96,6 @@ impl ExportWriter for SqlInsertWriter {
     }
 
     fn bytes_written(&self) -> u64 {
-        self.bytes_written
+        self.writer.bytes_written()
     }
 }

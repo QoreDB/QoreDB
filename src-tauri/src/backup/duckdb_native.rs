@@ -9,13 +9,14 @@
 //! contains `schema.sql`, `load.sql`, and one file per table), so the
 //! file-picker on the frontend must allow directory selection.
 
-use std::path::PathBuf;
 use std::sync::Arc;
 
 use duckdb::Connection;
 use tokio::sync::oneshot;
 use tokio::task;
 use uuid::Uuid;
+
+use super::path_to_string;
 
 use super::args::{BackupFormat, BackupMode, BackupOptions, RestoreOptions};
 use super::runner::{ActiveBackups, BackupEvent, BackupJobOutcome, EventSink};
@@ -215,12 +216,6 @@ pub async fn run_duckdb_restore(
         success,
         exit_code: if success { Some(0) } else { None },
     })
-}
-
-fn path_to_string(path: &PathBuf) -> Result<String, String> {
-    path.to_str()
-        .map(str::to_owned)
-        .ok_or_else(|| format!("Path {path:?} is not valid UTF-8"))
 }
 
 /// Escapes single quotes for inclusion in a DuckDB SQL string literal.

@@ -110,16 +110,11 @@ fn consent_file(dir: &Path) -> std::path::PathBuf {
 }
 
 fn read_index(dir: &Path) -> ConsentIndex {
-    std::fs::read_to_string(consent_file(dir))
-        .ok()
-        .and_then(|raw| serde_json::from_str(&raw).ok())
-        .unwrap_or_default()
+    crate::plugins::read_json_index(&consent_file(dir))
 }
 
 fn write_index(dir: &Path, index: &ConsentIndex) -> Result<(), String> {
-    let raw = serde_json::to_string_pretty(index).map_err(|e| e.to_string())?;
-    crate::paths::atomic_write(&consent_file(dir), raw.as_bytes())
-        .map_err(|e| format!("Failed to write plugin consent: {e}"))
+    crate::plugins::write_json_index(&consent_file(dir), index, "plugin consent")
 }
 
 /// Reads the capabilities a user has granted to a plugin.

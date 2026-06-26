@@ -6,6 +6,7 @@ use serde::Serialize;
 use std::sync::Arc;
 use tauri::State;
 
+use super::SharedStateExt;
 use crate::engine::types::DriverInfo;
 
 #[derive(Debug, Serialize)]
@@ -27,10 +28,7 @@ pub async fn get_driver_info(
     state: State<'_, crate::SharedState>,
     session_id: String,
 ) -> Result<DriverInfoResponse, String> {
-    let session_manager = {
-        let state = state.lock().await;
-        Arc::clone(&state.session_manager)
-    };
+    let session_manager = state.session_manager().await;
 
     let session_uuid = match uuid::Uuid::parse_str(&session_id) {
         Ok(uuid) => uuid,

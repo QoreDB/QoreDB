@@ -79,86 +79,12 @@ impl ConnectionUrlParser for PostgresUrlParser {
     }
 
     fn parse(&self, url: &Url) -> ParseResult<PartialConnectionConfig> {
-        let host = url.host_str().filter(|h| !h.is_empty()).map(String::from);
-
-        if host.is_none() {
-            return Err(ParseError::new(
-                ParseErrorCode::MissingHost,
-                "PostgreSQL URL must specify a host",
-            ));
-        }
-
-        let port = url.port().or(Some(self.default_port()));
-
-        let username = if url.username().is_empty() {
-            None
-        } else {
-            Some(percent_decode(url.username()).map_err(|_| {
-                ParseError::new(ParseErrorCode::InvalidUtf8, "Invalid username encoding")
-            })?)
-        };
-
-        let password = url
-            .password()
-            .map(percent_decode)
-            .transpose()
-            .map_err(|_| {
-                ParseError::new(ParseErrorCode::InvalidUtf8, "Invalid password encoding")
-            })?;
-
-        let database = url
-            .path()
-            .strip_prefix('/')
-            .filter(|db| !db.is_empty())
-            .map(|db| {
-                percent_decode(db).map_err(|_| {
-                    ParseError::new(
-                        ParseErrorCode::InvalidUtf8,
-                        "Invalid database name encoding",
-                    )
-                })
-            })
-            .transpose()?;
-
-        let mut options = HashMap::new();
-        let mut ssl_explicit = None;
-        let mut ssl_mode_seen = false;
-        let mut ssl_implied = false;
-
-        for (key, value) in url.query_pairs() {
-            let key_str = key.as_ref();
-            let key_lower = key_str.to_ascii_lowercase();
-            let value_str = value.as_ref();
-
-            if key_lower == "sslmode" {
-                // PostgreSQL sslmode values: disable | allow | prefer | require | verify-ca | verify-full
-                ssl_explicit = Some(!value_str.eq_ignore_ascii_case("disable"));
-                ssl_mode_seen = true;
-            } else if key_lower == "ssl" && !ssl_mode_seen {
-                if let Some(parsed) = parse_bool_param(value_str) {
-                    ssl_explicit = Some(parsed);
-                }
-            }
-
-            if is_ssl_query_key(&key_lower) {
-                ssl_implied = true;
-            }
-
-            options.insert(key.into_owned(), value.into_owned());
-        }
-
-        let ssl = ssl_explicit.or(ssl_implied.then_some(true));
-
-        Ok(PartialConnectionConfig {
-            driver: Some(self.driver_id().to_string()),
-            host,
-            port,
-            username,
-            password,
-            database,
-            ssl,
-            options,
-        })
+        parse_postgres_style(
+            url,
+            self.driver_id(),
+            self.default_port(),
+            "PostgreSQL URL must specify a host",
+        )
     }
 }
 
@@ -178,86 +104,22 @@ impl ConnectionUrlParser for MySqlUrlParser {
     }
 
     fn parse(&self, url: &Url) -> ParseResult<PartialConnectionConfig> {
-        let host = url.host_str().filter(|h| !h.is_empty()).map(String::from);
-
-        if host.is_none() {
-            return Err(ParseError::new(
-                ParseErrorCode::MissingHost,
-                "MySQL URL must specify a host",
-            ));
-        }
-
-        let port = url.port().or(Some(self.default_port()));
-
-        let username = if url.username().is_empty() {
-            None
-        } else {
-            Some(percent_decode(url.username()).map_err(|_| {
-                ParseError::new(ParseErrorCode::InvalidUtf8, "Invalid username encoding")
-            })?)
-        };
-
-        let password = url
-            .password()
-            .map(percent_decode)
-            .transpose()
-            .map_err(|_| {
-                ParseError::new(ParseErrorCode::InvalidUtf8, "Invalid password encoding")
-            })?;
-
-        let database = url
-            .path()
-            .strip_prefix('/')
-            .filter(|db| !db.is_empty())
-            .map(|db| {
-                percent_decode(db).map_err(|_| {
-                    ParseError::new(
-                        ParseErrorCode::InvalidUtf8,
-                        "Invalid database name encoding",
-                    )
-                })
-            })
-            .transpose()?;
-
+        let base = extract_base(
+            url,
+            "MySQL URL must specify a host",
+            self.default_port(),
+            true,
+        )?;
         let mut options = HashMap::new();
-        let mut ssl_explicit = None;
-        let mut ssl_mode_seen = false;
-        let mut ssl_implied = false;
-
-        for (key, value) in url.query_pairs() {
-            let key_str = key.as_ref();
-            let key_lower = key_str.to_ascii_lowercase();
-            let value_str = value.as_ref();
-
-            if key_lower == "ssl-mode" || key_lower == "sslmode" {
-                // MySQL ssl-mode values: DISABLED | PREFERRED | REQUIRED | VERIFY_CA | VERIFY_IDENTITY
-                ssl_explicit = Some(!value_str.eq_ignore_ascii_case("disabled"));
-                ssl_mode_seen = true;
-            } else if (key_lower == "ssl" || key_lower == "usessl") && !ssl_mode_seen {
-                if let Some(parsed) = parse_bool_param(value_str) {
-                    ssl_explicit = Some(parsed);
-                }
-            }
-
-            if is_ssl_query_key(&key_lower) {
-                ssl_implied = true;
-            }
-
-            options.insert(key.into_owned(), value.into_owned());
-        }
-
-        let ssl = ssl_explicit.or(ssl_implied.then_some(true));
-
-        Ok(PartialConnectionConfig {
-            driver: Some(self.driver_id().to_string()),
-            host,
-            port,
-            username,
-            password,
-            database,
-            ssl,
-            options,
-        })
+        // MySQL ssl-mode values: DISABLED | PREFERRED | REQUIRED | VERIFY_CA | VERIFY_IDENTITY
+        let ssl = extract_ssl_from_query(
+            url,
+            &mut options,
+            &["ssl-mode", "sslmode"],
+            "disabled",
+            &["ssl", "usessl"],
+        );
+        Ok(base.into_config(self.driver_id(), ssl, options))
     }
 }
 
@@ -279,53 +141,17 @@ impl ConnectionUrlParser for MongoDbUrlParser {
     fn parse(&self, url: &Url) -> ParseResult<PartialConnectionConfig> {
         let is_srv = url.scheme() == "mongodb+srv";
 
-        let host = url.host_str().filter(|h| !h.is_empty()).map(String::from);
-
-        if host.is_none() {
-            return Err(ParseError::new(
-                ParseErrorCode::MissingHost,
-                "MongoDB URL must specify a host",
-            ));
-        }
+        let mut base = extract_base(
+            url,
+            "MongoDB URL must specify a host",
+            self.default_port(),
+            true,
+        )?;
 
         // SRV records resolve their own port via DNS.
-        let port = if is_srv {
-            None
-        } else {
-            url.port().or(Some(self.default_port()))
-        };
-
-        let username = if url.username().is_empty() {
-            None
-        } else {
-            Some(percent_decode(url.username()).map_err(|_| {
-                ParseError::new(ParseErrorCode::InvalidUtf8, "Invalid username encoding")
-            })?)
-        };
-
-        let password = url
-            .password()
-            .map(percent_decode)
-            .transpose()
-            .map_err(|_| {
-                ParseError::new(ParseErrorCode::InvalidUtf8, "Invalid password encoding")
-            })?;
-
-        // Database is the path; `authSource` query param can override the
-        // auth DB without changing the working database.
-        let database = url
-            .path()
-            .strip_prefix('/')
-            .filter(|db| !db.is_empty())
-            .map(|db| {
-                percent_decode(db).map_err(|_| {
-                    ParseError::new(
-                        ParseErrorCode::InvalidUtf8,
-                        "Invalid database name encoding",
-                    )
-                })
-            })
-            .transpose()?;
+        if is_srv {
+            base.port = None;
+        }
 
         let mut options = HashMap::new();
         // SRV scheme implies TLS by default.
@@ -375,16 +201,7 @@ impl ConnectionUrlParser for MongoDbUrlParser {
             },
         };
 
-        Ok(PartialConnectionConfig {
-            driver: Some(self.driver_id().to_string()),
-            host,
-            port,
-            username,
-            password,
-            database,
-            ssl,
-            options,
-        })
+        Ok(base.into_config(self.driver_id(), ssl, options))
     }
 }
 
@@ -406,57 +223,20 @@ impl ConnectionUrlParser for RedisUrlParser {
     fn parse(&self, url: &Url) -> ParseResult<PartialConnectionConfig> {
         let is_tls = url.scheme() == "rediss";
 
-        let host = url.host_str().filter(|h| !h.is_empty()).map(String::from);
-
-        if host.is_none() {
-            return Err(ParseError::new(
-                ParseErrorCode::MissingHost,
-                "Redis URL must specify a host",
-            ));
-        }
-
-        let port = url.port().or(Some(self.default_port()));
-
-        let username = if url.username().is_empty() {
-            None
-        } else {
-            Some(percent_decode(url.username()).map_err(|_| {
-                ParseError::new(ParseErrorCode::InvalidUtf8, "Invalid username encoding")
-            })?)
-        };
-
-        let password = url
-            .password()
-            .map(percent_decode)
-            .transpose()
-            .map_err(|_| {
-                ParseError::new(ParseErrorCode::InvalidUtf8, "Invalid password encoding")
-            })?;
-
-        // Redis path is a numeric DB index (e.g. /0, /2).
-        let database = url
-            .path()
-            .strip_prefix('/')
-            .filter(|db| !db.is_empty())
-            .map(String::from);
+        // Redis path is a numeric DB index (e.g. /0, /2), kept verbatim.
+        let base = extract_base(
+            url,
+            "Redis URL must specify a host",
+            self.default_port(),
+            false,
+        )?;
 
         let mut options = HashMap::new();
         for (key, value) in url.query_pairs() {
             options.insert(key.into_owned(), value.into_owned());
         }
 
-        let ssl = Some(is_tls);
-
-        Ok(PartialConnectionConfig {
-            driver: Some(self.driver_id().to_string()),
-            host,
-            port,
-            username,
-            password,
-            database,
-            ssl,
-            options,
-        })
+        Ok(base.into_config(self.driver_id(), Some(is_tls), options))
     }
 }
 
@@ -476,46 +256,12 @@ impl ConnectionUrlParser for SqlServerUrlParser {
     }
 
     fn parse(&self, url: &Url) -> ParseResult<PartialConnectionConfig> {
-        let host = url.host_str().filter(|h| !h.is_empty()).map(String::from);
-
-        if host.is_none() {
-            return Err(ParseError::new(
-                ParseErrorCode::MissingHost,
-                "SQL Server URL must specify a host",
-            ));
-        }
-
-        let port = url.port().or(Some(self.default_port()));
-
-        let username = if url.username().is_empty() {
-            None
-        } else {
-            Some(percent_decode(url.username()).map_err(|_| {
-                ParseError::new(ParseErrorCode::InvalidUtf8, "Invalid username encoding")
-            })?)
-        };
-
-        let password = url
-            .password()
-            .map(percent_decode)
-            .transpose()
-            .map_err(|_| {
-                ParseError::new(ParseErrorCode::InvalidUtf8, "Invalid password encoding")
-            })?;
-
-        let database = url
-            .path()
-            .strip_prefix('/')
-            .filter(|db| !db.is_empty())
-            .map(|db| {
-                percent_decode(db).map_err(|_| {
-                    ParseError::new(
-                        ParseErrorCode::InvalidUtf8,
-                        "Invalid database name encoding",
-                    )
-                })
-            })
-            .transpose()?;
+        let base = extract_base(
+            url,
+            "SQL Server URL must specify a host",
+            self.default_port(),
+            true,
+        )?;
 
         let mut options = HashMap::new();
         let mut ssl_explicit = None;
@@ -533,16 +279,7 @@ impl ConnectionUrlParser for SqlServerUrlParser {
             options.insert(key.into_owned(), value.into_owned());
         }
 
-        Ok(PartialConnectionConfig {
-            driver: Some(self.driver_id().to_string()),
-            host,
-            port,
-            username,
-            password,
-            database,
-            ssl: ssl_explicit,
-            options,
-        })
+        Ok(base.into_config(self.driver_id(), ssl_explicit, options))
     }
 }
 
@@ -562,85 +299,12 @@ impl ConnectionUrlParser for CockroachDbUrlParser {
     }
 
     fn parse(&self, url: &Url) -> ParseResult<PartialConnectionConfig> {
-        let host = url.host_str().filter(|h| !h.is_empty()).map(String::from);
-
-        if host.is_none() {
-            return Err(ParseError::new(
-                ParseErrorCode::MissingHost,
-                "CockroachDB URL must specify a host",
-            ));
-        }
-
-        let port = url.port().or(Some(self.default_port()));
-
-        let username = if url.username().is_empty() {
-            None
-        } else {
-            Some(percent_decode(url.username()).map_err(|_| {
-                ParseError::new(ParseErrorCode::InvalidUtf8, "Invalid username encoding")
-            })?)
-        };
-
-        let password = url
-            .password()
-            .map(percent_decode)
-            .transpose()
-            .map_err(|_| {
-                ParseError::new(ParseErrorCode::InvalidUtf8, "Invalid password encoding")
-            })?;
-
-        let database = url
-            .path()
-            .strip_prefix('/')
-            .filter(|db| !db.is_empty())
-            .map(|db| {
-                percent_decode(db).map_err(|_| {
-                    ParseError::new(
-                        ParseErrorCode::InvalidUtf8,
-                        "Invalid database name encoding",
-                    )
-                })
-            })
-            .transpose()?;
-
-        let mut options = HashMap::new();
-        let mut ssl_explicit = None;
-        let mut ssl_mode_seen = false;
-        let mut ssl_implied = false;
-
-        for (key, value) in url.query_pairs() {
-            let key_str = key.as_ref();
-            let key_lower = key_str.to_ascii_lowercase();
-            let value_str = value.as_ref();
-
-            if key_lower == "sslmode" {
-                ssl_explicit = Some(!value_str.eq_ignore_ascii_case("disable"));
-                ssl_mode_seen = true;
-            } else if key_lower == "ssl" && !ssl_mode_seen {
-                if let Some(parsed) = parse_bool_param(value_str) {
-                    ssl_explicit = Some(parsed);
-                }
-            }
-
-            if is_ssl_query_key(&key_lower) {
-                ssl_implied = true;
-            }
-
-            options.insert(key.into_owned(), value.into_owned());
-        }
-
-        let ssl = ssl_explicit.or(ssl_implied.then_some(true));
-
-        Ok(PartialConnectionConfig {
-            driver: Some(self.driver_id().to_string()),
-            host,
-            port,
-            username,
-            password,
-            database,
-            ssl,
-            options,
-        })
+        parse_postgres_style(
+            url,
+            self.driver_id(),
+            self.default_port(),
+            "CockroachDB URL must specify a host",
+        )
     }
 }
 
@@ -725,6 +389,148 @@ fn parse_bool_param(value: &str) -> Option<bool> {
 
 fn is_ssl_query_key(lower_key: &str) -> bool {
     lower_key.starts_with("ssl") || lower_key.starts_with("tls")
+}
+
+struct BaseConfig {
+    host: Option<String>,
+    port: Option<u16>,
+    username: Option<String>,
+    password: Option<String>,
+    database: Option<String>,
+}
+
+impl BaseConfig {
+    fn into_config(
+        self,
+        driver_id: &str,
+        ssl: Option<bool>,
+        options: HashMap<String, String>,
+    ) -> PartialConnectionConfig {
+        PartialConnectionConfig {
+            driver: Some(driver_id.to_string()),
+            host: self.host,
+            port: self.port,
+            username: self.username,
+            password: self.password,
+            database: self.database,
+            ssl,
+            options,
+        }
+    }
+}
+
+fn extract_base(
+    url: &Url,
+    missing_host_msg: &str,
+    default_port: u16,
+    decode_database: bool,
+) -> ParseResult<BaseConfig> {
+    let host = url.host_str().filter(|h| !h.is_empty()).map(String::from);
+
+    if host.is_none() {
+        return Err(ParseError::new(ParseErrorCode::MissingHost, missing_host_msg));
+    }
+
+    let port = url.port().or(Some(default_port));
+
+    let username = if url.username().is_empty() {
+        None
+    } else {
+        Some(percent_decode(url.username()).map_err(|_| {
+            ParseError::new(ParseErrorCode::InvalidUtf8, "Invalid username encoding")
+        })?)
+    };
+
+    let password = url
+        .password()
+        .map(percent_decode)
+        .transpose()
+        .map_err(|_| {
+            ParseError::new(ParseErrorCode::InvalidUtf8, "Invalid password encoding")
+        })?;
+
+    let database = if decode_database {
+        url.path()
+            .strip_prefix('/')
+            .filter(|db| !db.is_empty())
+            .map(|db| {
+                percent_decode(db).map_err(|_| {
+                    ParseError::new(
+                        ParseErrorCode::InvalidUtf8,
+                        "Invalid database name encoding",
+                    )
+                })
+            })
+            .transpose()?
+    } else {
+        url.path()
+            .strip_prefix('/')
+            .filter(|db| !db.is_empty())
+            .map(String::from)
+    };
+
+    Ok(BaseConfig {
+        host,
+        port,
+        username,
+        password,
+        database,
+    })
+}
+
+/// Extracts SSL state from the query string for the PostgreSQL-style drivers
+/// (Postgres, MySQL, CockroachDB). `mode_keys` set `ssl_explicit` from a
+/// "mode" parameter (true unless equal to `disable_value`), `bool_keys` set it
+/// from a boolean parameter only when no mode key was seen, and any `ssl*`/
+/// `tls*` key implies SSL. Every pair is also inserted into `options`.
+fn extract_ssl_from_query(
+    url: &Url,
+    options: &mut HashMap<String, String>,
+    mode_keys: &[&str],
+    disable_value: &str,
+    bool_keys: &[&str],
+) -> Option<bool> {
+    let mut ssl_explicit = None;
+    let mut ssl_mode_seen = false;
+    let mut ssl_implied = false;
+
+    for (key, value) in url.query_pairs() {
+        let key_lower = key.as_ref().to_ascii_lowercase();
+        let value_str = value.as_ref();
+
+        if mode_keys.contains(&key_lower.as_str()) {
+            ssl_explicit = Some(!value_str.eq_ignore_ascii_case(disable_value));
+            ssl_mode_seen = true;
+        } else if bool_keys.contains(&key_lower.as_str()) && !ssl_mode_seen {
+            if let Some(parsed) = parse_bool_param(value_str) {
+                ssl_explicit = Some(parsed);
+            }
+        }
+
+        if is_ssl_query_key(&key_lower) {
+            ssl_implied = true;
+        }
+
+        options.insert(key.into_owned(), value.into_owned());
+    }
+
+    ssl_explicit.or(ssl_implied.then_some(true))
+}
+
+/// Shared parsing for PostgreSQL-compatible wire protocols (PostgreSQL,
+/// CockroachDB): identical host/port/credentials/database extraction and
+/// `sslmode`/`ssl` handling, differing only by driver id, default port and
+/// the missing-host message.
+fn parse_postgres_style(
+    url: &Url,
+    driver_id: &str,
+    default_port: u16,
+    missing_host_msg: &str,
+) -> ParseResult<PartialConnectionConfig> {
+    let base = extract_base(url, missing_host_msg, default_port, true)?;
+    let mut options = HashMap::new();
+    let ssl = extract_ssl_from_query(url, &mut options, &["sslmode"], "disable", &["ssl"]);
+    Ok(base.into_config(driver_id, ssl, options))
 }
 
 /// Parse a connection URL into a partial configuration. Main entry point.

@@ -1670,8 +1670,99 @@ impl DataEngine for MongoDriver {
                                 });
                             }
                             // Read ops fall through to the generic `find` execution path below.
-                            "find" | "findone" | "count" | "countdocuments"
-                            | "distinct" => {}
+                            "find" | "findone" => {}
+                            "count" | "countdocuments" => {
+                                let (database, collection_name, filter) =
+                                    Self::parse_query(&query)?;
+                                let col = client
+                                    .database(&database)
+                                    .collection::<Document>(&collection_name);
+
+                                let mut tx_guard =
+                                    mongo_session.transaction_session.lock().await;
+                                let count = if let Some(txn) = tx_guard.as_mut() {
+                                    col.count_documents(filter)
+                                        .session(&mut *txn)
+                                        .await
+                                        .map_err(|e| {
+                                            EngineError::execution_error(e.to_string())
+                                        })?
+                                } else {
+                                    drop(tx_guard);
+                                    col.count_documents(filter).await.map_err(|e| {
+                                        EngineError::execution_error(e.to_string())
+                                    })?
+                                };
+
+                                let execution_time_ms =
+                                    start.elapsed().as_micros() as f64 / 1000.0;
+                                return Ok(QueryResult {
+                                    columns: vec![ColumnInfo {
+                                        name: "count".into(),
+                                        data_type: "int".into(),
+                                        nullable: false,
+                                    }],
+                                    rows: vec![QRow {
+                                        values: vec![Value::Int(count as i64)],
+                                    }],
+                                    affected_rows: None,
+                                    execution_time_ms,
+                                });
+                            }
+                            "distinct" => {
+                                let (database, collection_name, filter) =
+                                    Self::parse_query(&query)?;
+                                let field = parsed
+                                    .get("field")
+                                    .or_else(|| parsed.get("key"))
+                                    .and_then(|v| v.as_str())
+                                    .ok_or_else(|| {
+                                        EngineError::syntax_error(
+                                            "distinct requires a 'field' naming the column to read distinct values from",
+                                        )
+                                    })?;
+                                let col = client
+                                    .database(&database)
+                                    .collection::<Document>(&collection_name);
+
+                                let mut tx_guard =
+                                    mongo_session.transaction_session.lock().await;
+                                let values = if let Some(txn) = tx_guard.as_mut() {
+                                    col.distinct(field, filter)
+                                        .session(&mut *txn)
+                                        .await
+                                        .map_err(|e| {
+                                            EngineError::execution_error(e.to_string())
+                                        })?
+                                } else {
+                                    drop(tx_guard);
+                                    col.distinct(field, filter).await.map_err(|e| {
+                                        EngineError::execution_error(e.to_string())
+                                    })?
+                                };
+
+                                let execution_time_ms =
+                                    start.elapsed().as_micros() as f64 / 1000.0;
+                                let rows: Vec<QRow> = values
+                                    .into_iter()
+                                    .map(|b| QRow {
+                                        values: vec![Value::Json(
+                                            serde_json::to_value(&b)
+                                                .unwrap_or(serde_json::Value::Null),
+                                        )],
+                                    })
+                                    .collect();
+                                return Ok(QueryResult {
+                                    columns: vec![ColumnInfo {
+                                        name: field.into(),
+                                        data_type: "json".into(),
+                                        nullable: true,
+                                    }],
+                                    rows,
+                                    affected_rows: None,
+                                    execution_time_ms,
+                                });
+                            }
                             _ => {
                                 return Err(EngineError::syntax_error(format!(
                                     "Unsupported operation: '{}'. Supported: find, insert_one, insert_many, update_one, update_many, delete_one, delete_many, create_collection, drop_collection, drop_database",

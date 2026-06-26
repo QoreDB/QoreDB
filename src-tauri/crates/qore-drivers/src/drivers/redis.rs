@@ -302,64 +302,6 @@ impl RedisDriver {
         })
     }
 
-    async fn read_hash(
-        conn: &mut redis::aio::MultiplexedConnection,
-        key: &str,
-    ) -> EngineResult<QueryResult> {
-        let start = Instant::now();
-        let fields: redis::Value = redis::cmd("HGETALL")
-            .arg(key)
-            .query_async(conn)
-            .await
-            .map_err(|e| EngineError::execution_error(e.to_string()))?;
-
-        let columns = vec![
-            ColumnInfo {
-                name: "field".into(),
-                data_type: "string".into(),
-                nullable: false,
-            },
-            ColumnInfo {
-                name: "value".into(),
-                data_type: "string".into(),
-                nullable: false,
-            },
-        ];
-
-        let rows: Vec<QRow> = match fields {
-            redis::Value::Array(pairs) => {
-                let mut out = Vec::new();
-                let mut iter = pairs.iter();
-                while let (Some(field), Some(value)) = (iter.next(), iter.next()) {
-                    out.push(QRow {
-                        values: vec![
-                            Value::Text(Self::redis_value_to_string(field)),
-                            Self::redis_value_to_value(value),
-                        ],
-                    });
-                }
-                out
-            }
-            redis::Value::Map(pairs) => pairs
-                .iter()
-                .map(|(field, value)| QRow {
-                    values: vec![
-                        Value::Text(Self::redis_value_to_string(field)),
-                        Self::redis_value_to_value(value),
-                    ],
-                })
-                .collect(),
-            _ => Vec::new(),
-        };
-
-        Ok(QueryResult {
-            columns,
-            rows,
-            affected_rows: None,
-            execution_time_ms: start.elapsed().as_micros() as f64 / 1000.0,
-        })
-    }
-
     async fn read_hash_page(
         conn: &mut redis::aio::MultiplexedConnection,
         key: &str,
@@ -445,47 +387,6 @@ impl RedisDriver {
                         Value::Int((offset as usize + i) as i64),
                         Self::redis_value_to_value(value),
                     ],
-                })
-                .collect(),
-            _ => Vec::new(),
-        };
-
-        Ok(QueryResult {
-            columns,
-            rows,
-            affected_rows: None,
-            execution_time_ms: start.elapsed().as_micros() as f64 / 1000.0,
-        })
-    }
-
-    async fn read_set(
-        conn: &mut redis::aio::MultiplexedConnection,
-        key: &str,
-    ) -> EngineResult<QueryResult> {
-        let start = Instant::now();
-        let members: redis::Value = redis::cmd("SMEMBERS")
-            .arg(key)
-            .query_async(conn)
-            .await
-            .map_err(|e| EngineError::execution_error(e.to_string()))?;
-
-        let columns = vec![ColumnInfo {
-            name: "member".into(),
-            data_type: "string".into(),
-            nullable: false,
-        }];
-
-        let rows: Vec<QRow> = match members {
-            redis::Value::Array(items) => items
-                .iter()
-                .map(|member| QRow {
-                    values: vec![Self::redis_value_to_value(member)],
-                })
-                .collect(),
-            redis::Value::Set(items) => items
-                .iter()
-                .map(|member| QRow {
-                    values: vec![Self::redis_value_to_value(member)],
                 })
                 .collect(),
             _ => Vec::new(),
@@ -1470,9 +1371,43 @@ impl DataEngine for RedisDriver {
 
         match type_str.as_str() {
             "string" => Self::read_string(&mut conn, key).await,
-            "hash" => Self::read_hash(&mut conn, key).await,
+            "hash" => {
+                let start = Instant::now();
+                let rows =
+                    Self::read_hash_page(&mut conn, key, 0, limit as usize).await?;
+                Ok(QueryResult {
+                    columns: vec![
+                        ColumnInfo {
+                            name: "field".into(),
+                            data_type: "string".into(),
+                            nullable: false,
+                        },
+                        ColumnInfo {
+                            name: "value".into(),
+                            data_type: "string".into(),
+                            nullable: false,
+                        },
+                    ],
+                    rows,
+                    affected_rows: None,
+                    execution_time_ms: start.elapsed().as_micros() as f64 / 1000.0,
+                })
+            }
             "list" => Self::read_list(&mut conn, key, 0, limit as i64).await,
-            "set" => Self::read_set(&mut conn, key).await,
+            "set" => {
+                let start = Instant::now();
+                let rows = Self::read_set_page(&mut conn, key, 0, limit as usize).await?;
+                Ok(QueryResult {
+                    columns: vec![ColumnInfo {
+                        name: "member".into(),
+                        data_type: "string".into(),
+                        nullable: false,
+                    }],
+                    rows,
+                    affected_rows: None,
+                    execution_time_ms: start.elapsed().as_micros() as f64 / 1000.0,
+                })
+            }
             "zset" => Self::read_zset(&mut conn, key, 0, limit as i64).await,
             "stream" => Self::read_stream(&mut conn, key, 0, limit as usize).await,
             "none" => Err(EngineError::execution_error(format!(

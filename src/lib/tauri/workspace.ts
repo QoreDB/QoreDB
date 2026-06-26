@@ -2,10 +2,6 @@
 
 import { invoke } from '@/lib/transport';
 
-// ============================================
-// WORKSPACE COMMANDS
-// ============================================
-
 export type WorkspaceSource = 'detected' | 'manual' | 'default';
 
 export interface WorkspaceManifest {
@@ -71,10 +67,6 @@ export async function renameWorkspace(newName: string): Promise<WorkspaceRespons
 export async function listRecentWorkspaces(): Promise<RecentWorkspace[]> {
   return invoke('list_recent_workspaces');
 }
-
-// ============================================
-// WORKSPACE QUERY LIBRARY
-// ============================================
 
 export interface WorkspaceQueryLibrary {
   version: number;

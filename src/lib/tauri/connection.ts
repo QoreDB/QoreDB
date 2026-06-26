@@ -9,10 +9,6 @@ import type {
   SessionListItem,
 } from './types';
 
-// ============================================
-// CONNECTION URL PARSING
-// ============================================
-
 export type ParseErrorCode =
   | 'invalid_url'
   | 'unsupported_scheme'
@@ -45,10 +41,6 @@ export async function parseConnectionUrl(url: string): Promise<ParseConnectionUr
 export async function getSupportedUrlSchemes(): Promise<string[]> {
   return invoke('get_supported_url_schemes');
 }
-
-// ============================================
-// CONNECTION COMMANDS
-// ============================================
 
 export async function testConnection(config: ConnectionConfig): Promise<ConnectionResponse> {
   return invoke('test_connection', { config });
@@ -90,10 +82,6 @@ export interface ConnectionHealthEvent {
   session_id: string;
   health: ConnectionHealth;
 }
-
-// ============================================
-// POLICY COMMANDS
-// ============================================
 
 export async function getSafetyPolicy(): Promise<SafetyPolicyResponse> {
   return invoke('get_safety_policy');

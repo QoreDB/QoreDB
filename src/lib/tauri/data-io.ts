@@ -2,10 +2,6 @@
 
 import { invoke } from '@/lib/transport';
 
-// ============================================
-// CSV IMPORT
-// ============================================
-
 export interface CsvPreviewResponse {
   detected_delimiter: string;
   headers: string[];
@@ -62,10 +58,6 @@ export async function importCsv(
     acknowledgedDangerous,
   });
 }
-
-// ============================================
-// SCHEMA EXPORT
-// ============================================
 
 export interface SchemaExportOptions {
   include_tables?: boolean;

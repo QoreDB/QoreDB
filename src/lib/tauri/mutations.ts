@@ -3,10 +3,6 @@
 import { invoke } from '@/lib/transport';
 import type { QueryResult, Value } from './types';
 
-// ============================================
-// MUTATIONS
-// ============================================
-
 export interface RowData {
   columns: Record<string, Value>;
 }

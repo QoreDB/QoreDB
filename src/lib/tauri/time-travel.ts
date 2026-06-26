@@ -3,10 +3,6 @@
 import { invoke } from '@/lib/transport';
 import type { Namespace } from './types';
 
-// ============================================
-// DATA TIME-TRAVEL
-// ============================================
-
 export interface TimelineEvent {
   timestamp: string;
   operation: 'insert' | 'update' | 'delete';

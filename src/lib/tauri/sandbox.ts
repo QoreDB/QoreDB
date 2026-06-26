@@ -4,10 +4,6 @@ import { invoke } from '@/lib/transport';
 import type { RowData } from './mutations';
 import type { Namespace, Value } from './types';
 
-// ============================================
-// SANDBOX COMMANDS
-// ============================================
-
 export type SandboxChangeType = 'insert' | 'update' | 'delete';
 
 export interface SandboxChangeDto {

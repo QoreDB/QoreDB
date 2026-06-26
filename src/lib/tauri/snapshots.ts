@@ -3,10 +3,6 @@
 import { invoke } from '@/lib/transport';
 import type { ColumnInfo, Namespace, QueryResult } from './types';
 
-// ============================================
-// SNAPSHOT COMMANDS
-// ============================================
-
 export interface SnapshotMeta {
   id: string;
   name: string;

@@ -2,10 +2,6 @@
 
 import { invoke } from '@/lib/transport';
 
-// ============================================
-// MAINTENANCE OPERATIONS
-// ============================================
-
 export type MaintenanceOperationType =
   | 'vacuum'
   | 'analyze'

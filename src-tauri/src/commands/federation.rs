@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
 
-//! Cross-Database Federation Tauri Commands
-//!
 //! Commands for executing federated queries across multiple database connections.
 //! Federation is a Pro feature — Core builds return an explicit error.
 
@@ -11,8 +9,6 @@ use serde::Serialize;
 use tauri::State;
 
 use crate::SharedState;
-
-// ─── Core stubs (compiled when pro feature is disabled) ──────
 
 #[cfg(not(feature = "pro"))]
 const PRO_REQUIRED: &str = "Cross-database federation requires a Pro license.";
@@ -38,8 +34,6 @@ pub async fn list_federation_sources(
     Err(PRO_REQUIRED.to_string())
 }
 
-// ─── Response types (always compiled) ────────────────────────
-
 /// Response for federation queries. Extends QueryResponse with federation metadata.
 #[derive(Debug, Serialize)]
 pub struct FederationQueryResponse {
@@ -50,7 +44,6 @@ pub struct FederationQueryResponse {
     pub federation: Option<FederationMeta>,
 }
 
-/// Metadata about the federation execution, serialized for the frontend.
 #[derive(Debug, Serialize)]
 pub struct FederationMeta {
     pub source_results: Vec<SourceFetchInfo>,
@@ -59,7 +52,6 @@ pub struct FederationMeta {
     pub warnings: Vec<String>,
 }
 
-/// Per-source fetch info for the frontend.
 #[derive(Debug, Serialize)]
 pub struct SourceFetchInfo {
     pub alias: String,
@@ -68,8 +60,6 @@ pub struct SourceFetchInfo {
     pub fetch_time_ms: f64,
     pub row_limit_hit: bool,
 }
-
-// ─── Pro implementation ──────────────────────────────────────
 
 #[cfg(feature = "pro")]
 use std::sync::Arc;
@@ -204,7 +194,6 @@ pub async fn execute_federation_query(
     }
 }
 
-/// Lists all active connections available as federation sources.
 #[cfg(feature = "pro")]
 #[tauri::command]
 pub async fn list_federation_sources(
@@ -234,8 +223,6 @@ pub async fn list_federation_sources(
 
     Ok(sources)
 }
-
-// ─── Helper functions ────────────────────────────────────────
 
 #[cfg(feature = "pro")]
 async fn resolve_alias_map(

@@ -33,7 +33,6 @@ pub fn set_redaction_enabled(enabled: bool) {
     *redaction_enabled_lock().write() = enabled;
 }
 
-/// Whether redaction is currently enabled.
 pub fn is_redaction_enabled() -> bool {
     *redaction_enabled_lock().read()
 }

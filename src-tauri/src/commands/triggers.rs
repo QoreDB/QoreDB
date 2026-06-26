@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-//! Trigger & Event Management Tauri Commands
-//!
 //! Commands for viewing definitions, dropping, and toggling database triggers and events.
 
 use serde::Serialize;
@@ -70,7 +68,6 @@ pub struct EventDropResponse {
     pub error: Option<String>,
 }
 
-/// Gets the full definition (CREATE statement) of a trigger
 #[tauri::command]
 #[instrument(
     skip(state),
@@ -281,7 +278,6 @@ pub async fn drop_trigger(
     }
 }
 
-/// Enables or disables a trigger
 #[tauri::command]
 #[instrument(
     skip(state),
@@ -346,7 +342,6 @@ pub async fn toggle_trigger(
     }
 }
 
-/// Gets the full definition (CREATE statement) of a scheduled event
 #[tauri::command]
 #[instrument(
     skip(state),

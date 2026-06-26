@@ -28,7 +28,6 @@ pub async fn get_safety_policy(
     })
 }
 
-/// Updates the stored safety policy.
 #[tauri::command]
 pub async fn set_safety_policy(
     state: State<'_, SharedState>,

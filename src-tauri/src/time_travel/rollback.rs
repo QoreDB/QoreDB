@@ -196,8 +196,6 @@ pub fn generate_rollback_statements(entries: &[ChangelogEntry], driver_id: &str)
     }
 }
 
-// ─── SQL Formatting ────────────────────────────────────────────────────────
-
 /// Identifier quoting strategy per driver.
 struct Quoter {
     left: &'static str,
@@ -311,8 +309,6 @@ fn format_value_short(value: &serde_json::Value) -> String {
 fn is_binary_value(value: &serde_json::Value) -> bool {
     matches!(value, serde_json::Value::String(s) if s.starts_with("<binary ") && s.ends_with(" bytes>"))
 }
-
-// ─── Tests ─────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
 mod tests {

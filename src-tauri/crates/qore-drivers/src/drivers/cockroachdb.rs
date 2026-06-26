@@ -20,7 +20,6 @@ use qore_core::types::{
     TableSchema, TriggerDefinition, TriggerList, TriggerListOptions, TriggerOperationResult, Value,
 };
 
-/// CockroachDB driver implementation
 pub struct CockroachDbDriver {
     sessions: SessionMap,
 }

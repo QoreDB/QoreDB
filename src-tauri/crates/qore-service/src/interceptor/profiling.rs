@@ -19,22 +19,17 @@ const MAX_EXECUTION_TIMES: usize = 10000;
 
 /// Profiling store with performance metrics
 pub struct ProfilingStore {
-    /// Current metrics
     metrics: RwLock<ProfilingMetrics>,
     /// Execution times for percentile calculation (insertion order)
     execution_times: RwLock<VecDeque<f64>>,
-    /// Slow query entries
     slow_queries: RwLock<VecDeque<SlowQueryEntry>>,
     /// Slow query threshold in milliseconds
     slow_threshold_ms: RwLock<u64>,
-    /// Maximum slow queries to retain
     max_slow_queries: RwLock<usize>,
-    /// Whether profiling is enabled
     enabled: RwLock<bool>,
 }
 
 impl ProfilingStore {
-    /// Creates a new profiling store
     pub fn new(slow_threshold_ms: u64, max_slow_queries: usize) -> Self {
         Self {
             metrics: RwLock::new(ProfilingMetrics::new()),
@@ -46,24 +41,20 @@ impl ProfilingStore {
         }
     }
 
-    /// Enable or disable profiling
     pub fn set_enabled(&self, enabled: bool) {
         *self.enabled.write() = enabled;
         info!("Profiling {}", if enabled { "enabled" } else { "disabled" });
     }
 
-    /// Check if profiling is enabled
     pub fn is_enabled(&self) -> bool {
         *self.enabled.read()
     }
 
-    /// Set the slow query threshold
     pub fn set_slow_threshold(&self, threshold_ms: u64) {
         *self.slow_threshold_ms.write() = threshold_ms;
         info!("Slow query threshold set to {}ms", threshold_ms);
     }
 
-    /// Set max slow queries to retain
     pub fn set_max_slow_queries(&self, max_slow_queries: usize) {
         *self.max_slow_queries.write() = max_slow_queries;
         let mut slow_queries = self.slow_queries.write();
@@ -72,12 +63,10 @@ impl ProfilingStore {
         }
     }
 
-    /// Get the slow query threshold
     pub fn get_slow_threshold(&self) -> u64 {
         *self.slow_threshold_ms.read()
     }
 
-    /// Record a query execution
     pub fn record(
         &self,
         execution_time_ms: f64,
@@ -160,7 +149,6 @@ impl ProfilingStore {
         }
     }
 
-    /// Record a slow query
     fn record_slow_query(
         &self,
         query: &str,
@@ -193,7 +181,6 @@ impl ProfilingStore {
         debug!("Recorded slow query: {}ms", execution_time_ms);
     }
 
-    /// Update percentile calculations
     fn update_percentiles(&self) {
         let times = self.execution_times.read();
         if times.is_empty() {
@@ -214,7 +201,6 @@ impl ProfilingStore {
         metrics.p99_execution_time_ms = sorted.get(p99_idx).copied().unwrap_or(0.0);
     }
 
-    /// Get current profiling metrics
     pub fn get_metrics(&self) -> ProfilingMetrics {
         self.update_percentiles();
 
@@ -222,7 +208,6 @@ impl ProfilingStore {
         metrics.clone()
     }
 
-    /// Get slow query entries
     pub fn get_slow_queries(&self, limit: usize, offset: usize) -> Vec<SlowQueryEntry> {
         let slow_queries = self.slow_queries.read();
         slow_queries
@@ -234,13 +219,11 @@ impl ProfilingStore {
             .collect()
     }
 
-    /// Clear slow query entries
     pub fn clear_slow_queries(&self) {
         self.slow_queries.write().clear();
         info!("Slow queries cleared");
     }
 
-    /// Reset all profiling metrics
     pub fn reset(&self) {
         *self.metrics.write() = ProfilingMetrics::new();
         self.execution_times.write().clear();

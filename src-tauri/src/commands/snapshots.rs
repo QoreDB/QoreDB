@@ -7,7 +7,6 @@ use tracing::instrument;
 use crate::engine::types::{Namespace, QueryResult};
 use crate::snapshots::{SnapshotMeta, SnapshotStore};
 
-/// Shared snapshot store state
 pub type SharedSnapshotStore = std::sync::Arc<SnapshotStore>;
 
 #[derive(Debug, Serialize, Deserialize)]

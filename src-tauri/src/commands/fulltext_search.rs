@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-//! Full-text Search Tauri Commands
-//!
 //! Provides global search functionality across all tables and columns in a database.
 //! Uses driver-specific optimized strategies with automatic fallback.
 //!
@@ -31,7 +29,6 @@ const MAX_PARALLEL_TABLES: usize = 5;
 /// Default timeout per table search (milliseconds)
 const DEFAULT_TABLE_TIMEOUT_MS: u64 = 5000;
 
-/// A single match found during full-text search
 #[derive(Debug, Clone, Serialize)]
 pub struct FulltextMatch {
     pub namespace: Namespace,
@@ -41,7 +38,6 @@ pub struct FulltextMatch {
     pub row_preview: Vec<(String, Value)>,
 }
 
-/// Statistics about the search execution
 #[derive(Debug, Clone, Serialize)]
 pub struct SearchStats {
     pub native_fulltext_count: u32,
@@ -50,7 +46,6 @@ pub struct SearchStats {
     pub error_count: u32,
 }
 
-/// Response for full-text search
 #[derive(Debug, Serialize)]
 pub struct FulltextSearchResponse {
     pub success: bool,
@@ -63,7 +58,6 @@ pub struct FulltextSearchResponse {
     pub stats: SearchStats,
 }
 
-/// Progressive search event for streaming results
 #[derive(Debug, Clone, Serialize)]
 pub struct SearchProgressEvent {
     pub tables_searched: u32,
@@ -72,7 +66,6 @@ pub struct SearchProgressEvent {
     pub current_table: Option<String>,
 }
 
-/// Options for full-text search
 #[derive(Debug, Clone, Default, serde::Deserialize)]
 pub struct FulltextSearchOptions {
     pub max_results_per_table: Option<u32>,
@@ -169,7 +162,6 @@ fn value_contains(value: &Value, search_term: &str, case_sensitive: bool) -> boo
     }
 }
 
-/// Result of searching a single table
 struct TableSearchResult {
     matches: Vec<FulltextMatch>,
     method: SearchMethod,
@@ -177,7 +169,6 @@ struct TableSearchResult {
     error: Option<String>,
 }
 
-/// Performs a full-text search across all tables and columns in the database
 #[tauri::command]
 #[instrument(skip(state, app_handle), fields(session_id = %session_id, search_term_len = search_term.len()))]
 pub async fn fulltext_search(
@@ -572,7 +563,6 @@ pub async fn fulltext_search(
     })
 }
 
-/// Detect full-text indexes for a table.
 async fn detect_fulltext_indexes(
     driver: &Arc<dyn crate::engine::traits::DataEngine>,
     session: crate::engine::types::SessionId,

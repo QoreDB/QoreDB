@@ -58,7 +58,6 @@ impl SqliteSession {
     }
 }
 
-/// SQLite driver implementation
 pub struct SqliteDriver {
     sessions: Arc<RwLock<HashMap<SessionId, Arc<SqliteSession>>>>,
 }
@@ -127,7 +126,6 @@ impl SqliteDriver {
             .busy_timeout(std::time::Duration::from_secs(30))
     }
 
-    /// Helper to bind a Value to a SQLite query
     fn bind_param<'q>(
         query: sqlx::query::Query<'q, Sqlite, sqlx::sqlite::SqliteArguments<'q>>,
         value: &'q Value,
@@ -169,7 +167,6 @@ impl SqliteDriver {
         decoded.unwrap_or(Value::Null)
     }
 
-    /// Gets column info from a SqliteRow
     fn get_column_info(row: &SqliteRow) -> Vec<ColumnInfo> {
         row.columns()
             .iter()
@@ -180,7 +177,6 @@ impl SqliteDriver {
             })
             .collect()
     }
-    /// Validates the SQLite connection path
     fn validate_path(path: &str) -> EngineResult<()> {
         let path = path.trim();
 

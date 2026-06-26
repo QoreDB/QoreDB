@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-//! Workspace Query Library Commands
-//!
 //! Read/write the query library stored in `.qoredb/queries/library.json`.
 
 use serde::{Deserialize, Serialize};

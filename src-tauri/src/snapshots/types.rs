@@ -35,7 +35,6 @@ pub struct Snapshot {
 }
 
 impl Snapshot {
-    /// Convert the snapshot data into a QueryResult for display or diff
     pub fn to_query_result(&self) -> QueryResult {
         QueryResult {
             columns: self.meta.columns.clone(),

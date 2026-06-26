@@ -129,7 +129,6 @@ impl MySqlDriver {
             .ok_or_else(|| EngineError::session_not_found(session.0.to_string()))
     }
 
-    /// Binds a `Value` to a MySQL query.
     fn bind_param<'q>(
         query: sqlx::query::Query<'q, MySql, sqlx::mysql::MySqlArguments>,
         value: &'q Value,

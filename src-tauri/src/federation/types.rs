@@ -15,7 +15,6 @@ pub struct FederatedTableRef {
     pub connection_alias: String,
     /// The namespace (database + optional schema)
     pub namespace: Namespace,
-    /// Table name
     pub table: String,
     /// Local alias used in the DuckDB rewritten query (e.g., "__fed_users_0")
     pub local_alias: String,
@@ -24,7 +23,6 @@ pub struct FederatedTableRef {
 /// Source fetch plan for a single federated table.
 #[derive(Debug, Clone)]
 pub struct SourceFetchPlan {
-    /// The federated table reference
     pub table_ref: FederatedTableRef,
     /// Session ID of the connection to fetch from
     pub session_id: SessionId,
@@ -96,7 +94,6 @@ pub struct FederationSource {
 pub struct SourceFetchResult {
     /// Connection alias
     pub alias: String,
-    /// Table name
     pub table: String,
     /// Number of rows fetched
     pub row_count: u64,

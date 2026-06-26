@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-//! CSV Import Tauri Commands
-//!
 //! Commands for previewing and importing CSV files into database tables.
 
 use serde::{Deserialize, Serialize};

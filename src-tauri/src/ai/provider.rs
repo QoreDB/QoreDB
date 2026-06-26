@@ -32,8 +32,6 @@ fn build_provider_client() -> Client {
         })
 }
 
-// ─── Trait ───────────────────────────────────────────────────
-
 #[async_trait]
 pub trait AIProvider: Send + Sync {
     fn provider_id(&self) -> &'static str;
@@ -83,8 +81,6 @@ fn split_system(messages: &[AiMessage]) -> (String, Vec<&AiMessage>) {
         .collect();
     (system, turns)
 }
-
-// ─── OpenAI ──────────────────────────────────────────────────
 
 pub struct OpenAiProvider {
     client: Client,
@@ -195,8 +191,6 @@ impl AIProvider for OpenAiProvider {
         Ok(())
     }
 }
-
-// ─── Anthropic ───────────────────────────────────────────────
 
 pub struct AnthropicProvider {
     client: Client,
@@ -330,8 +324,6 @@ impl AIProvider for AnthropicProvider {
     }
 }
 
-// ─── Ollama ──────────────────────────────────────────────────
-
 pub struct OllamaProvider {
     client: Client,
 }
@@ -439,8 +431,6 @@ impl AIProvider for OllamaProvider {
     }
 }
 
-// ─── Mistral AI (OpenAI-compatible) ─────────────────────────
-
 pub struct MistralAiProvider {
     client: Client,
 }
@@ -486,8 +476,6 @@ impl AIProvider for MistralAiProvider {
         .await
     }
 }
-
-// ─── Google Gemini ──────────────────────────────────────────
 
 pub struct GoogleGeminiProvider {
     client: Client,
@@ -616,8 +604,6 @@ impl AIProvider for GoogleGeminiProvider {
     }
 }
 
-// ─── DeepSeek (OpenAI-compatible) ───────────────────────────
-
 pub struct DeepSeekProvider {
     client: Client,
 }
@@ -663,8 +649,6 @@ impl AIProvider for DeepSeekProvider {
         .await
     }
 }
-
-// ─── Helpers ─────────────────────────────────────────────────
 
 /// Shared streaming implementation for OpenAI-compatible APIs (Mistral, DeepSeek, etc.)
 async fn stream_openai_compatible(

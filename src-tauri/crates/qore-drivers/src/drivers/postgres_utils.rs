@@ -306,7 +306,6 @@ pub(crate) fn build_decoders(columns: &[PgColumn]) -> Vec<PgDecoder> {
         .collect()
 }
 
-/// Extracts a value from a PgRow at the given index
 pub(crate) fn extract_value(row: &PgRow, idx: usize, enum_labels: &EnumLabelMap) -> Value {
     if let Ok(v) = row.try_get::<Option<i64>, _>(idx) {
         return v.map(Value::Int).unwrap_or(Value::Null);
@@ -514,7 +513,6 @@ pub(crate) fn extract_value(row: &PgRow, idx: usize, enum_labels: &EnumLabelMap)
     Value::Null
 }
 
-/// Gets column info from a PgRow
 pub(crate) fn get_column_info(row: &PgRow) -> Vec<ColumnInfo> {
     row.columns()
         .iter()

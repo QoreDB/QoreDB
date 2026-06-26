@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-//! Mutation Tauri Commands
-//!
 //! Commands for executing insert, update, and delete operations.
 
 use serde::Serialize;
@@ -25,7 +23,6 @@ fn format_table_ref(database: &str, schema: &Option<String>, table: &str) -> Str
     }
 }
 
-/// Response wrapper for mutation results
 #[derive(Debug, Serialize)]
 pub struct MutationResponse {
     pub success: bool,
@@ -33,13 +30,11 @@ pub struct MutationResponse {
     pub error: Option<String>,
 }
 
-/// Parses a session ID string into SessionId
 fn parse_session_id(id: &str) -> Result<SessionId, String> {
     let uuid = Uuid::parse_str(id).map_err(|e| format!("Invalid session ID: {}", e))?;
     Ok(SessionId(uuid))
 }
 
-/// Inserts a row into a table
 #[tauri::command]
 #[instrument(
     skip(state, data),
@@ -171,7 +166,6 @@ pub async fn insert_row(
     }
 }
 
-/// Updates a row in a table
 #[tauri::command]
 #[instrument(
     skip(state, primary_key, data),
@@ -314,7 +308,6 @@ pub async fn update_row(
     }
 }
 
-/// Deletes a row from a table
 #[tauri::command]
 #[instrument(
     skip(state, primary_key),
@@ -453,7 +446,6 @@ pub async fn delete_row(
     }
 }
 
-/// Checks if the driver supports mutations
 #[tauri::command]
 pub async fn supports_mutations(
     state: State<'_, crate::SharedState>,

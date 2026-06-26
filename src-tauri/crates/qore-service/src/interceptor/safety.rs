@@ -14,7 +14,6 @@ use super::types::{
     SafetyCheckResult, SafetyRule,
 };
 
-/// Built-in safety rules
 fn get_builtin_rules() -> Vec<SafetyRule> {
     vec![
         SafetyRule {
@@ -92,16 +91,12 @@ fn get_builtin_rules() -> Vec<SafetyRule> {
 pub struct SafetyEngine {
     /// Built-in rules (always present, can be disabled)
     builtin_rules: RwLock<Vec<SafetyRule>>,
-    /// Custom user-defined rules
     custom_rules: RwLock<Vec<SafetyRule>>,
-    /// Whether safety checking is enabled
     enabled: RwLock<bool>,
-    /// Compiled regex patterns cache
     pattern_cache: RwLock<std::collections::HashMap<String, Regex>>,
 }
 
 impl SafetyEngine {
-    /// Creates a new safety engine
     pub fn new() -> Self {
         Self {
             builtin_rules: RwLock::new(get_builtin_rules()),
@@ -111,7 +106,6 @@ impl SafetyEngine {
         }
     }
 
-    /// Load custom rules
     pub fn load_rules(&self, rules: Vec<SafetyRule>) {
         let mut custom = self.custom_rules.write();
         *custom = rules.into_iter().filter(|r| !r.builtin).collect();
@@ -131,7 +125,6 @@ impl SafetyEngine {
         }
     }
 
-    /// Add a custom rule
     pub fn add_rule(&self, rule: SafetyRule) -> Result<(), String> {
         if rule.builtin {
             return Err("Cannot add built-in rules".to_string());
@@ -156,7 +149,6 @@ impl SafetyEngine {
         Ok(())
     }
 
-    /// Update a rule
     pub fn update_rule(&self, rule: SafetyRule) -> Result<(), String> {
         if let Some(ref pattern) = rule.pattern {
             if let Err(e) = Regex::new(pattern) {
@@ -185,7 +177,6 @@ impl SafetyEngine {
         }
     }
 
-    /// Remove a custom rule
     pub fn remove_rule(&self, rule_id: &str) -> Result<(), String> {
         let mut custom = self.custom_rules.write();
         let initial_len = custom.len();
@@ -211,7 +202,6 @@ impl SafetyEngine {
         all_rules
     }
 
-    /// Enable or disable safety checking
     pub fn set_enabled(&self, enabled: bool) {
         *self.enabled.write() = enabled;
         info!(
@@ -220,7 +210,6 @@ impl SafetyEngine {
         );
     }
 
-    /// Check if safety checking is enabled
     pub fn is_enabled(&self) -> bool {
         *self.enabled.read()
     }
@@ -250,7 +239,6 @@ impl SafetyEngine {
         SafetyCheckResult::allowed()
     }
 
-    /// Check a single rule against the query context
     fn check_rule(&self, rule: &SafetyRule, context: &QueryContext) -> Option<SafetyCheckResult> {
         if !rule.environments.contains(&context.environment) {
             return None;
@@ -282,7 +270,6 @@ impl SafetyEngine {
         })
     }
 
-    /// Check if query matches a regex pattern
     fn matches_pattern(&self, pattern: &str, query: &str) -> bool {
         {
             let cache = self.pattern_cache.read();

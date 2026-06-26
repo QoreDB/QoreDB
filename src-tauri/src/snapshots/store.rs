@@ -38,7 +38,6 @@ impl SnapshotStore {
         Ok(path)
     }
 
-    /// Save a new snapshot from a query result
     pub fn save(
         &self,
         name: String,
@@ -131,7 +130,6 @@ impl SnapshotStore {
         Ok(snapshot)
     }
 
-    /// Delete a snapshot by ID
     pub fn delete(&self, snapshot_id: &str) -> Result<(), String> {
         let path = self.file_path(snapshot_id)?;
         if !path.exists() {
@@ -140,7 +138,6 @@ impl SnapshotStore {
         std::fs::remove_file(&path).map_err(|e| format!("Failed to delete snapshot: {}", e))
     }
 
-    /// Rename a snapshot
     pub fn rename(&self, snapshot_id: &str, new_name: String) -> Result<SnapshotMeta, String> {
         let path = self.file_path(snapshot_id)?;
         if !path.exists() {
@@ -164,7 +161,6 @@ impl SnapshotStore {
         Ok(snapshot.meta)
     }
 
-    /// Update description of a snapshot
     pub fn update_description(
         &self,
         snapshot_id: &str,

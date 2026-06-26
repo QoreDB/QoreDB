@@ -47,13 +47,11 @@ use qore_sql::safety;
 pub struct DuckDbSession {
     /// The DuckDB connection, protected by a std Mutex (Connection is !Sync).
     conn: std::sync::Mutex<Connection>,
-    /// Whether a transaction is currently active.
     transaction_active: AtomicBool,
     /// The file path to the database (or ":memory:").
     pub db_path: String,
 }
 
-/// DuckDB driver implementation.
 pub struct DuckDbDriver {
     sessions: Arc<RwLock<HashMap<SessionId, Arc<DuckDbSession>>>>,
 }
@@ -77,7 +75,6 @@ impl DuckDbDriver {
         format!("\"{}\"", name.replace('"', "\"\""))
     }
 
-    /// Opens a DuckDB connection from a config.
     fn open_connection(config: &ConnectionConfig) -> EngineResult<Connection> {
         let path = config.host.trim();
 
@@ -95,7 +92,6 @@ impl DuckDbDriver {
         }
     }
 
-    /// Validates the DuckDB file path.
     fn validate_path(path: &str) -> EngineResult<()> {
         let path = path.trim();
 
@@ -167,7 +163,6 @@ fn value_to_duckdb(value: &Value) -> DuckValue {
     }
 }
 
-/// Extracts a value from a DuckDB row and converts it to a QoreDB Value.
 fn duckdb_value_to_qoredb(row: &::duckdb::Row<'_>, idx: usize) -> Value {
     if let Ok(v) = row.get::<_, Option<i64>>(idx) {
         return match v {

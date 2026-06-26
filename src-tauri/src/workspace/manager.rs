@@ -18,7 +18,6 @@ const MAX_RECENT_WORKSPACES: usize = 10;
 
 const GITIGNORE_CONTENT: &str = "# Secrets are never stored in .qoredb, but just in case:\n*.key\n*.pem\n\n# Local cache\n.cache/\n";
 
-/// FNV-1a 64-bit hash
 fn fnv1a_hash(data: &[u8]) -> u64 {
     const FNV_OFFSET_BASIS: u64 = 0xcbf29ce484222325;
     const FNV_PRIME: u64 = 0x100000001b3;
@@ -49,7 +48,6 @@ impl WorkspaceManager {
         }
     }
 
-    /// Returns the active workspace.
     pub fn active(&self) -> &WorkspaceInfo {
         &self.active
     }
@@ -93,14 +91,12 @@ impl WorkspaceManager {
         Ok(info)
     }
 
-    /// Switches back to the default workspace.
     pub fn switch_to_default(&mut self) -> WorkspaceInfo {
         let info = Self::make_default_workspace(&self.app_config_dir);
         self.active = info.clone();
         info
     }
 
-    /// Renames the active workspace.
     pub fn rename_workspace(&mut self, new_name: &str) -> EngineResult<WorkspaceInfo> {
         if self.active.source == WorkspaceSource::Default {
             return Err(EngineError::internal("Cannot rename the default workspace"));
@@ -190,7 +186,6 @@ impl WorkspaceManager {
         Ok(info)
     }
 
-    /// Lists recently opened workspaces.
     pub fn list_recent(&self) -> Vec<RecentWorkspace> {
         let path = self.app_config_dir.join(RECENT_WORKSPACES_FILE);
         if !path.exists() {
@@ -202,8 +197,6 @@ impl WorkspaceManager {
             Err(_) => Vec::new(),
         }
     }
-
-    // ── Private ──────────────────────────────────────────────
 
     fn make_default_workspace(app_config_dir: &Path) -> WorkspaceInfo {
         WorkspaceInfo {

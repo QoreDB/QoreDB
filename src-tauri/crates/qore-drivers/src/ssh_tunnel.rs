@@ -68,7 +68,6 @@ impl SshTunnel {
         format!("127.0.0.1:{}", self.local_port())
     }
 
-    /// Closes the tunnel
     pub async fn close(&mut self) -> EngineResult<()> {
         let mut handle = self.handle.lock().await;
         handle.close().await

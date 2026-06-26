@@ -255,7 +255,6 @@ impl SessionManager {
         }
     }
 
-    /// Disconnects a session
     #[instrument(skip(self), fields(session_id = %session_id.0))]
     pub async fn disconnect(&self, session_id: SessionId) -> EngineResult<()> {
         let mut session = {
@@ -288,7 +287,6 @@ impl SessionManager {
         Ok(())
     }
 
-    /// Gets a driver for an existing session
     pub async fn get_driver(&self, session_id: SessionId) -> EngineResult<Arc<dyn DataEngine>> {
         let sessions = self.sessions.read().await;
         let session = sessions
@@ -300,7 +298,6 @@ impl SessionManager {
             .ok_or_else(|| EngineError::driver_not_found(&session.driver_id))
     }
 
-    /// Lists all active sessions
     pub async fn list_sessions(&self) -> Vec<(SessionId, String)> {
         let sessions = self.sessions.read().await;
         sessions
@@ -309,7 +306,6 @@ impl SessionManager {
             .collect()
     }
 
-    /// Gets session info
     pub async fn get_session_info(&self, session_id: SessionId) -> Option<String> {
         let sessions = self.sessions.read().await;
         sessions.get(&session_id).map(|s| s.display_name.clone())
@@ -332,7 +328,6 @@ impl SessionManager {
         })
     }
 
-    /// Updates the display name for an active session.
     pub async fn set_display_name(&self, session_id: SessionId, name: String) {
         let mut sessions = self.sessions.write().await;
         if let Some(session) = sessions.get_mut(&session_id) {
@@ -340,7 +335,6 @@ impl SessionManager {
         }
     }
 
-    /// Checks if the session is read-only
     pub async fn is_read_only(&self, session_id: SessionId) -> EngineResult<bool> {
         let sessions = self.sessions.read().await;
         let session = sessions
@@ -350,7 +344,6 @@ impl SessionManager {
         Ok(session.config.read_only)
     }
 
-    /// Checks if the session is a production environment
     pub async fn is_production(&self, session_id: SessionId) -> EngineResult<bool> {
         let sessions = self.sessions.read().await;
         let session = sessions
@@ -370,13 +363,11 @@ impl SessionManager {
         Ok(session.config.environment.clone())
     }
 
-    /// Checks if a session exists
     pub async fn session_exists(&self, session_id: SessionId) -> bool {
         let sessions = self.sessions.read().await;
         sessions.contains_key(&session_id)
     }
 
-    /// Returns the current health for a session.
     pub async fn get_health(&self, session_id: SessionId) -> EngineResult<ConnectionHealth> {
         let sessions = self.sessions.read().await;
         let session = sessions

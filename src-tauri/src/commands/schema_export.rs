@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-//! Schema Export Tauri Command
-//!
 //! Exports the full DDL schema (tables, routines, triggers, events)
 //! of a database to a .sql file.
 

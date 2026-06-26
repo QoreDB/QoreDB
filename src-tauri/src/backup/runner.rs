@@ -44,8 +44,7 @@ impl ActiveBackups {
         self.inner.lock().remove(job_id);
     }
 
-    /// Public registration entry point for the in-process DuckDB runner —
-    /// mirrors what the spawn-based path uses internally.
+    /// Public registration entry point for the in-process DuckDB runner
     pub fn register_cancel(&self, job_id: String, sender: oneshot::Sender<()>) {
         self.register(job_id, sender);
     }

@@ -22,11 +22,8 @@ use super::types::{AuditLogEntry, Environment, QueryOperationType};
 pub struct AuditStore {
     /// In-memory cache of recent entries
     entries: RwLock<VecDeque<AuditLogEntry>>,
-    /// Path to the audit log file
     log_path: PathBuf,
-    /// Maximum entries to retain in file
     max_entries: RwLock<usize>,
-    /// Whether audit logging is enabled
     enabled: RwLock<bool>,
     /// Tracked line count for the audit file (avoids O(n) recount)
     file_line_count: AtomicUsize,
@@ -55,7 +52,6 @@ impl AuditStore {
         store
     }
 
-    /// Load recent entries from file into memory
     fn load_recent_entries(&self) {
         if !self.log_path.exists() {
             return;
@@ -87,7 +83,6 @@ impl AuditStore {
         }
     }
 
-    /// Enable or disable audit logging
     pub fn set_enabled(&self, enabled: bool) {
         *self.enabled.write() = enabled;
         info!(
@@ -96,7 +91,6 @@ impl AuditStore {
         );
     }
 
-    /// Update max audit entries
     pub fn set_max_entries(&self, max_entries: usize) {
         *self.max_entries.write() = max_entries;
         let mut entries = self.entries.write();
@@ -132,7 +126,6 @@ impl AuditStore {
         self.maybe_rotate();
     }
 
-    /// Append entry to log file
     fn append_to_file(&self, entry: &AuditLogEntry) -> std::io::Result<()> {
         let file = OpenOptions::new()
             .create(true)
@@ -202,7 +195,6 @@ impl AuditStore {
         Ok(skip)
     }
 
-    /// Get recent audit log entries
     pub fn get_entries(
         &self,
         limit: usize,
@@ -334,7 +326,6 @@ impl AuditStore {
         Ok(result)
     }
 
-    /// Get audit log statistics
     pub fn get_stats(&self) -> AuditStats {
         let entries = self.entries.read();
         let now = Utc::now();
@@ -374,7 +365,6 @@ impl AuditStore {
         stats
     }
 
-    /// Clear all audit log entries
     pub fn clear(&self) {
         self.entries.write().clear();
 

@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-//! Sequence Management Tauri Commands
-//!
 //! Commands for viewing definitions and dropping database sequences (MariaDB 10.3+).
 
 use serde::Serialize;
@@ -45,7 +43,6 @@ pub struct SequenceDropResponse {
     pub error: Option<String>,
 }
 
-/// Gets the full definition (CREATE statement) of a sequence
 #[tauri::command]
 #[instrument(
     skip(state),

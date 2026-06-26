@@ -31,7 +31,6 @@ impl WriteRegistry {
         Self { inner: arc }
     }
 
-    /// Returns a reference to the inner Arc for sharing.
     pub fn inner_arc(&self) -> &Arc<Mutex<HashSet<PathBuf>>> {
         &self.inner
     }
@@ -41,7 +40,6 @@ impl WriteRegistry {
         self.inner.lock().insert(path);
     }
 
-    /// Remove a path from the registry.
     pub fn unregister(&self, path: &PathBuf) {
         self.inner.lock().remove(path);
     }

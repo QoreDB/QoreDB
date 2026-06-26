@@ -68,17 +68,12 @@ pub enum SafetyAction {
 /// A custom safety rule for blocking or warning on certain queries
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SafetyRule {
-    /// Unique identifier
     pub id: String,
-    /// Human-readable name
     pub name: String,
-    /// Description of what this rule does
     #[serde(default)]
     pub description: String,
-    /// Whether the rule is currently active
     #[serde(default = "default_true")]
     pub enabled: bool,
-    /// Environments where this rule applies
     pub environments: Vec<Environment>,
     /// Operation types this rule applies to (empty = all)
     #[serde(default)]
@@ -97,18 +92,12 @@ fn default_true() -> bool {
     true
 }
 
-/// Result of a safety check
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SafetyCheckResult {
-    /// Whether the query is allowed to proceed
     pub allowed: bool,
-    /// The action that should be taken
     pub action: SafetyAction,
-    /// Rule that triggered (if any)
     pub triggered_rule: Option<String>,
-    /// Human-readable message
     pub message: Option<String>,
-    /// Whether confirmation is required
     pub requires_confirmation: bool,
 }
 
@@ -154,29 +143,19 @@ impl SafetyCheckResult {
     }
 }
 
-/// An entry in the audit log
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AuditLogEntry {
-    /// Unique identifier
     pub id: String,
-    /// Timestamp of the event
     pub timestamp: DateTime<Utc>,
-    /// Session ID that executed the query
     pub session_id: String,
-    /// The query that was executed
     pub query: String,
     /// Truncated query for display (first N chars)
     pub query_preview: String,
-    /// Environment where query was executed
     pub environment: Environment,
-    /// Type of operation
     pub operation_type: QueryOperationType,
-    /// Database/schema name
     #[serde(default)]
     pub database: Option<String>,
-    /// Whether the query succeeded
     pub success: bool,
-    /// Error message if failed
     #[serde(default)]
     pub error: Option<String>,
     /// Execution time in milliseconds
@@ -184,10 +163,8 @@ pub struct AuditLogEntry {
     /// Number of rows affected/returned
     #[serde(default)]
     pub row_count: Option<i64>,
-    /// Whether the query was blocked by safety rules
     #[serde(default)]
     pub blocked: bool,
-    /// Safety rule that blocked/warned (if any)
     #[serde(default)]
     pub safety_rule: Option<String>,
     /// Driver ID (postgres, mysql, etc.)
@@ -241,13 +218,9 @@ impl AuditLogEntry {
 /// Profiling metrics for query performance
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ProfilingMetrics {
-    /// Total number of queries
     pub total_queries: u64,
-    /// Number of successful queries
     pub successful_queries: u64,
-    /// Number of failed queries
     pub failed_queries: u64,
-    /// Number of blocked queries
     pub blocked_queries: u64,
     /// Total execution time in milliseconds
     pub total_execution_time_ms: f64,
@@ -265,11 +238,8 @@ pub struct ProfilingMetrics {
     pub p99_execution_time_ms: f64,
     /// Number of slow queries (above threshold)
     pub slow_query_count: u64,
-    /// Queries by operation type
     pub by_operation_type: std::collections::HashMap<String, u64>,
-    /// Queries by environment
     pub by_environment: std::collections::HashMap<String, u64>,
-    /// Start of the profiling period
     pub period_start: DateTime<Utc>,
 }
 
@@ -286,51 +256,36 @@ impl ProfilingMetrics {
 /// A slow query entry for detailed analysis
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SlowQueryEntry {
-    /// Unique identifier
     pub id: String,
-    /// Timestamp
     pub timestamp: DateTime<Utc>,
-    /// The query
     pub query: String,
     /// Execution time in milliseconds
     pub execution_time_ms: f64,
-    /// Environment
     pub environment: Environment,
-    /// Database name
     #[serde(default)]
     pub database: Option<String>,
-    /// Number of rows
     #[serde(default)]
     pub row_count: Option<i64>,
-    /// Driver ID
     pub driver_id: String,
 }
 
-/// Configuration for the interceptor
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InterceptorConfig {
-    /// Whether audit logging is enabled
     #[serde(default = "default_true")]
     pub audit_enabled: bool,
-    /// Whether profiling is enabled
     #[serde(default = "default_true")]
     pub profiling_enabled: bool,
-    /// Whether safety rules are enabled
     #[serde(default = "default_true")]
     pub safety_enabled: bool,
     /// Threshold for slow query detection (milliseconds)
     #[serde(default = "default_slow_threshold")]
     pub slow_query_threshold_ms: u64,
-    /// Maximum number of audit log entries to retain
     #[serde(default = "default_max_audit_entries")]
     pub max_audit_entries: usize,
-    /// Maximum number of slow query entries to retain
     #[serde(default = "default_max_slow_queries")]
     pub max_slow_queries: usize,
-    /// Custom safety rules
     #[serde(default)]
     pub safety_rules: Vec<SafetyRule>,
-    /// Built-in rule enabled overrides
     #[serde(default)]
     pub builtin_rule_overrides: Vec<BuiltinRuleOverride>,
     /// Whether sensitive-literal redaction is applied before persistence
@@ -381,34 +336,24 @@ impl Default for InterceptorConfig {
 /// Query context passed through the interceptor pipeline
 #[derive(Debug, Clone)]
 pub struct QueryContext {
-    /// Session ID
     pub session_id: String,
-    /// The query being executed
     pub query: String,
-    /// Environment
     pub environment: Environment,
-    /// Driver ID
     pub driver_id: String,
-    /// Database/schema name
     pub database: Option<String>,
-    /// Detected operation type
     pub operation_type: QueryOperationType,
-    /// Whether the query is a mutation
     pub is_mutation: bool,
     /// Whether the query is dangerous (DDL, etc.)
     pub is_dangerous: bool,
     /// Whether user has acknowledged dangerous query
     pub acknowledged: bool,
-    /// Whether connection is read-only
     pub read_only: bool,
 }
 
 /// Result of query execution for post-processing
 #[derive(Debug, Clone)]
 pub struct QueryExecutionResult {
-    /// Whether execution succeeded
     pub success: bool,
-    /// Error message if failed
     pub error: Option<String>,
     /// Execution time in milliseconds
     pub execution_time_ms: f64,

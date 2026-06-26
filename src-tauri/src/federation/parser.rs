@@ -148,8 +148,6 @@ pub fn build_dotted_name(parts: &[String]) -> String {
         .join(".")
 }
 
-// --- AST Walking ---
-
 /// Extracts all table references from a statement as (parts, optional_alias) pairs.
 /// Walks the AST manually to find all table references in FROM/JOIN clauses.
 fn extract_table_refs(statement: &Statement) -> Vec<(Vec<String>, Option<String>)> {

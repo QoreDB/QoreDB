@@ -9,14 +9,12 @@ use tauri::State;
 use crate::cache::{CacheConfig, CacheStats};
 use crate::SharedState;
 
-/// Returns the current cache configuration.
 #[tauri::command]
 pub async fn get_cache_config(state: State<'_, SharedState>) -> Result<CacheConfig, String> {
     let cache = Arc::clone(&state.lock().await.query_cache);
     Ok(cache.config())
 }
 
-/// Persists and applies a new cache configuration.
 #[tauri::command]
 pub async fn set_cache_config(
     state: State<'_, SharedState>,
@@ -29,7 +27,6 @@ pub async fn set_cache_config(
     Ok(cache.config())
 }
 
-/// Empties the query result cache.
 #[tauri::command]
 pub async fn clear_query_cache(state: State<'_, SharedState>) -> Result<(), String> {
     let cache = Arc::clone(&state.lock().await.query_cache);
@@ -37,7 +34,6 @@ pub async fn clear_query_cache(state: State<'_, SharedState>) -> Result<(), Stri
     Ok(())
 }
 
-/// Returns runtime cache counters.
 #[tauri::command]
 pub async fn get_cache_stats(state: State<'_, SharedState>) -> Result<CacheStats, String> {
     let cache = Arc::clone(&state.lock().await.query_cache);

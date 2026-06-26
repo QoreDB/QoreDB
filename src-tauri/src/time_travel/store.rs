@@ -61,8 +61,6 @@ impl ChangelogStore {
         store
     }
 
-    // ─── Configuration ─────────────────────────────────────────────────
-
     pub fn get_config(&self) -> TimeTravelConfig {
         self.config.read().clone()
     }
@@ -127,8 +125,6 @@ impl ChangelogStore {
             Err(e) => error!("Failed to serialize time-travel config: {}", e),
         }
     }
-
-    // ─── Recording ─────────────────────────────────────────────────────
 
     /// Record a changelog entry. Best-effort: never blocks the caller on failure.
     pub fn record(&self, mut entry: ChangelogEntry) {
@@ -209,8 +205,6 @@ impl ChangelogStore {
         }
     }
 
-    // ─── Rotation ──────────────────────────────────────────────────────
-
     fn maybe_rotate(&self) {
         let line_count = self.file_line_count.load(Ordering::Relaxed);
         let max_entries = self.config.read().max_entries;
@@ -254,8 +248,6 @@ impl ChangelogStore {
         fs::rename(&temp_path, &self.log_path)?;
         Ok(skip)
     }
-
-    // ─── Querying ──────────────────────────────────────────────────────
 
     /// Get timeline events for a table, ordered by timestamp DESC.
     pub fn get_timeline(
@@ -333,7 +325,6 @@ impl ChangelogStore {
             .collect()
     }
 
-    /// Get a single entry by ID.
     pub fn get_entry(&self, entry_id: &uuid::Uuid) -> Option<ChangelogEntry> {
         let entries = self.entries.read();
         entries.iter().find(|e| e.id == *entry_id).cloned()
@@ -504,8 +495,6 @@ impl ChangelogStore {
         }
     }
 
-    // ─── Maintenance ───────────────────────────────────────────────────
-
     /// Clear all changelog entries for a specific table.
     pub fn clear_table(&self, namespace: &Namespace, table_name: &str) {
         {
@@ -519,7 +508,6 @@ impl ChangelogStore {
         );
     }
 
-    /// Clear all changelog entries.
     pub fn clear_all(&self) {
         {
             let mut entries = self.entries.write();
@@ -562,8 +550,6 @@ impl ChangelogStore {
         let entries = self.get_entries(filter);
         serde_json::to_string_pretty(&entries).unwrap_or_else(|_| "[]".to_string())
     }
-
-    // ─── Helpers ───────────────────────────────────────────────────────
 
     fn matches_table(
         &self,
@@ -646,8 +632,6 @@ impl ChangelogStore {
         }
     }
 }
-
-// ─── Free functions ────────────────────────────────────────────────────────
 
 /// Check if two primary key maps match.
 fn pk_matches(

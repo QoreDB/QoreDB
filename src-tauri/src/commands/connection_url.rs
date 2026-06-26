@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-//! Connection URL Parsing Commands
-//!
 //! Tauri commands for parsing database connection URLs into normalized configuration.
 
 use serde::{Deserialize, Serialize};
@@ -10,7 +8,6 @@ use tracing::instrument;
 
 use crate::engine::connection_url::{parse_connection_url, ParseErrorCode};
 
-/// Response from parsing a connection URL
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ParseConnectionUrlResponse {
     pub success: bool,
@@ -22,7 +19,6 @@ pub struct ParseConnectionUrlResponse {
     pub error_code: Option<ParseErrorCode>,
 }
 
-/// DTO for partial connection configuration
 /// Matches the frontend's expected format
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PartialConnectionConfigDto {
@@ -103,7 +99,6 @@ pub fn parse_url(url: String) -> ParseConnectionUrlResponse {
     }
 }
 
-/// Get the list of supported URL schemes
 #[tauri::command]
 pub fn get_supported_url_schemes() -> Vec<String> {
     vec![

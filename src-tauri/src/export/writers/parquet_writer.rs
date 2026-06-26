@@ -38,7 +38,6 @@ impl ParquetExportWriter {
         }
     }
 
-    /// Map database type string to Arrow DataType.
     fn map_data_type(db_type: &str) -> DataType {
         let lower = db_type.to_lowercase();
         if lower.contains("bool") {

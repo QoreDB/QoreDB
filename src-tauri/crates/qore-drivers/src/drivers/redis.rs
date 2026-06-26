@@ -37,7 +37,6 @@ pub struct RedisSession {
     pub environment: String,
 }
 
-/// Redis driver implementation
 pub struct RedisDriver {
     sessions: Arc<RwLock<HashMap<SessionId, Arc<RedisSession>>>>,
     active_queries: Arc<Mutex<HashMap<QueryId, (SessionId, AbortHandle)>>>,
@@ -51,7 +50,6 @@ impl RedisDriver {
         }
     }
 
-    /// Builds a Redis connection URL from config
     fn build_connection_string(config: &ConnectionConfig) -> String {
         let scheme = if config.ssl { "rediss" } else { "redis" };
         let db = config
@@ -253,7 +251,6 @@ impl RedisDriver {
         Ok(Self::format_execute_result(value, execution_time_ms))
     }
 
-    /// Gets the Redis type of a key
     async fn key_type(
         conn: &mut redis::aio::MultiplexedConnection,
         key: &str,
@@ -276,7 +273,6 @@ impl RedisDriver {
         Ok(ttl)
     }
 
-    /// Reads string key value
     async fn read_string(
         conn: &mut redis::aio::MultiplexedConnection,
         key: &str,
@@ -306,7 +302,6 @@ impl RedisDriver {
         })
     }
 
-    /// Reads hash key value
     async fn read_hash(
         conn: &mut redis::aio::MultiplexedConnection,
         key: &str,
@@ -412,7 +407,6 @@ impl RedisDriver {
         Ok(rows)
     }
 
-    /// Reads list key value
     async fn read_list(
         conn: &mut redis::aio::MultiplexedConnection,
         key: &str,
@@ -464,7 +458,6 @@ impl RedisDriver {
         })
     }
 
-    /// Reads set key value
     async fn read_set(
         conn: &mut redis::aio::MultiplexedConnection,
         key: &str,
@@ -553,7 +546,6 @@ impl RedisDriver {
         Ok(rows)
     }
 
-    /// Reads sorted set key value
     async fn read_zset(
         conn: &mut redis::aio::MultiplexedConnection,
         key: &str,
@@ -616,7 +608,6 @@ impl RedisDriver {
         })
     }
 
-    /// Reads stream entries
     async fn read_stream(
         conn: &mut redis::aio::MultiplexedConnection,
         key: &str,

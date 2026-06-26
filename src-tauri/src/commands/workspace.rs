@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-//! Workspace Tauri Commands
-//!
 //! Commands for managing workspace lifecycle: detection, creation, switching.
 
 use serde::Serialize;
@@ -21,7 +19,6 @@ pub struct WorkspaceResponse {
     pub error: Option<String>,
 }
 
-/// Detects a workspace from the current working directory.
 #[tauri::command]
 pub async fn detect_workspace(
     ws_manager: State<'_, SharedWorkspaceManager>,
@@ -35,7 +32,6 @@ pub async fn detect_workspace(
     Ok(result)
 }
 
-/// Returns the currently active workspace.
 #[tauri::command]
 pub async fn get_active_workspace(
     ws_manager: State<'_, SharedWorkspaceManager>,
@@ -44,7 +40,6 @@ pub async fn get_active_workspace(
     Ok(mgr.active().clone())
 }
 
-/// Returns the project ID of the active workspace.
 #[tauri::command]
 pub async fn get_workspace_project_id(
     ws_manager: State<'_, SharedWorkspaceManager>,
@@ -53,7 +48,6 @@ pub async fn get_workspace_project_id(
     Ok(mgr.project_id())
 }
 
-/// Creates a new workspace at the given project directory.
 #[tauri::command]
 pub async fn create_workspace(
     ws_manager: State<'_, SharedWorkspaceManager>,
@@ -79,7 +73,6 @@ pub async fn create_workspace(
     }
 }
 
-/// Opens an existing workspace at the given `.qoredb/` path.
 #[tauri::command]
 pub async fn open_workspace(
     ws_manager: State<'_, SharedWorkspaceManager>,
@@ -104,7 +97,6 @@ pub async fn open_workspace(
     }
 }
 
-/// Switches to an existing workspace.
 #[tauri::command]
 pub async fn switch_workspace(
     ws_manager: State<'_, SharedWorkspaceManager>,
@@ -129,7 +121,6 @@ pub async fn switch_workspace(
     }
 }
 
-/// Renames the active workspace.
 #[tauri::command]
 pub async fn rename_workspace(
     ws_manager: State<'_, SharedWorkspaceManager>,
@@ -150,7 +141,6 @@ pub async fn rename_workspace(
     }
 }
 
-/// Switches back to the default workspace.
 #[tauri::command]
 pub async fn switch_to_default_workspace(
     ws_manager: State<'_, SharedWorkspaceManager>,
@@ -161,7 +151,6 @@ pub async fn switch_to_default_workspace(
     Ok(mgr.switch_to_default())
 }
 
-/// Lists recently opened workspaces.
 #[tauri::command]
 pub async fn list_recent_workspaces(
     ws_manager: State<'_, SharedWorkspaceManager>,

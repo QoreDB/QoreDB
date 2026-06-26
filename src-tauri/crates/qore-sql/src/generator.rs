@@ -227,7 +227,6 @@ impl SqlDialect {
     }
 }
 
-/// Generate an INSERT statement.
 pub fn generate_insert(
     dialect: SqlDialect,
     namespace: &Namespace,
@@ -257,7 +256,6 @@ pub fn generate_insert(
     )
 }
 
-/// Generate an UPDATE statement.
 pub fn generate_update(
     dialect: SqlDialect,
     namespace: &Namespace,
@@ -302,7 +300,6 @@ pub fn generate_update(
     ))
 }
 
-/// Generate a DELETE statement.
 pub fn generate_delete(
     dialect: SqlDialect,
     namespace: &Namespace,

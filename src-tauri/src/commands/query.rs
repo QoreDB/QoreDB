@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-//! Query Tauri Commands
-//!
 //! Commands for executing queries and exploring database schema.
 
 use serde::{Deserialize, Serialize};
@@ -79,7 +77,6 @@ fn map_environment(env: &str) -> Environment {
     }
 }
 
-/// Response wrapper for query results
 #[derive(Debug, Serialize)]
 pub struct QueryResponse {
     pub success: bool,
@@ -94,7 +91,6 @@ pub struct QueryResponse {
     pub truncated_total: Option<u64>,
 }
 
-/// Response wrapper for namespace listing
 #[derive(Debug, Serialize)]
 pub struct NamespacesResponse {
     pub success: bool,
@@ -102,7 +98,6 @@ pub struct NamespacesResponse {
     pub error: Option<String>,
 }
 
-/// Response wrapper for collection listing
 #[derive(Debug, Serialize)]
 pub struct CollectionsResponse {
     pub success: bool,
@@ -110,13 +105,11 @@ pub struct CollectionsResponse {
     pub error: Option<String>,
 }
 
-/// Parses a session ID string into SessionId
 fn parse_session_id(id: &str) -> Result<SessionId, String> {
     let uuid = Uuid::parse_str(id).map_err(|e| format!("Invalid session ID: {}", e))?;
     Ok(SessionId(uuid))
 }
 
-/// Executes a query on the given session
 #[tauri::command]
 #[instrument(
     skip(state, query, on_stream),
@@ -397,7 +390,6 @@ pub async fn execute_query(
     })
 }
 
-/// Cancels a running query
 #[tauri::command]
 #[instrument(
     skip(state),
@@ -479,7 +471,6 @@ pub async fn cancel_query(
     }
 }
 
-/// Lists all namespaces (databases/schemas) for a session
 #[tauri::command]
 pub async fn list_namespaces(
     state: State<'_, crate::SharedState>,
@@ -516,7 +507,6 @@ pub async fn list_namespaces(
     }
 }
 
-/// Lists all collections (tables/views) in a namespace
 #[tauri::command]
 pub async fn list_collections(
     state: State<'_, crate::SharedState>,
@@ -563,7 +553,6 @@ pub async fn list_collections(
     }
 }
 
-/// Response wrapper for routine listing
 #[derive(Debug, Serialize)]
 pub struct RoutinesResponse {
     pub success: bool,
@@ -571,7 +560,6 @@ pub struct RoutinesResponse {
     pub error: Option<String>,
 }
 
-/// Lists all routines (functions/procedures) in a namespace
 #[tauri::command]
 pub async fn list_routines(
     state: State<'_, crate::SharedState>,
@@ -626,7 +614,6 @@ pub async fn list_routines(
     }
 }
 
-/// Response wrapper for trigger listing
 #[derive(Debug, Serialize)]
 pub struct TriggersResponse {
     pub success: bool,
@@ -634,7 +621,6 @@ pub struct TriggersResponse {
     pub error: Option<String>,
 }
 
-/// Lists all triggers in a namespace
 #[tauri::command]
 pub async fn list_triggers(
     state: State<'_, crate::SharedState>,
@@ -681,7 +667,6 @@ pub async fn list_triggers(
     }
 }
 
-/// Response wrapper for event listing
 #[derive(Debug, Serialize)]
 pub struct EventsResponse {
     pub success: bool,
@@ -736,7 +721,6 @@ pub async fn list_events(
     }
 }
 
-/// Response wrapper for sequence listing
 #[derive(Debug, Serialize)]
 pub struct SequencesResponse {
     pub success: bool,
@@ -791,7 +775,6 @@ pub async fn list_sequences(
     }
 }
 
-/// Response wrapper for table schema
 #[derive(Debug, Serialize)]
 pub struct TableSchemaResponse {
     pub success: bool,
@@ -799,7 +782,6 @@ pub struct TableSchemaResponse {
     pub error: Option<String>,
 }
 
-/// Gets the schema of a table/collection
 #[tauri::command]
 pub async fn describe_table(
     state: State<'_, crate::SharedState>,
@@ -840,7 +822,6 @@ pub async fn describe_table(
     }
 }
 
-/// Gets a preview of table data (first N rows)
 #[tauri::command]
 pub async fn preview_table(
     state: State<'_, crate::SharedState>,
@@ -895,7 +876,6 @@ pub async fn preview_table(
     }
 }
 
-/// Response wrapper for paginated table queries
 #[derive(Debug, Serialize)]
 pub struct PaginatedQueryResponse {
     pub success: bool,
@@ -913,7 +893,6 @@ pub struct PaginatedQueryResponse {
     pub cached_age_ms: Option<u64>,
 }
 
-/// Queries table data with pagination, sorting, and filtering support
 #[tauri::command]
 pub async fn query_table(
     state: State<'_, crate::SharedState>,
@@ -968,7 +947,6 @@ pub async fn query_table(
     }
 }
 
-/// Fetches a related row based on a foreign key value
 #[tauri::command]
 pub async fn peek_foreign_key(
     state: State<'_, crate::SharedState>,
@@ -1075,7 +1053,6 @@ pub async fn peek_foreign_key(
     }
 }
 
-/// Creates a new database (or schema)
 #[tauri::command]
 pub async fn create_database(
     state: State<'_, crate::SharedState>,
@@ -1243,7 +1220,6 @@ pub async fn create_database(
     }
 }
 
-/// Drops an existing database (or schema)
 #[tauri::command]
 pub async fn drop_database(
     state: State<'_, crate::SharedState>,
@@ -1408,7 +1384,6 @@ pub async fn drop_database(
     }
 }
 
-/// Response wrapper for database creation options
 #[derive(Debug, Serialize)]
 pub struct CreationOptionsResponse {
     pub success: bool,
@@ -1416,7 +1391,6 @@ pub struct CreationOptionsResponse {
     pub error: Option<String>,
 }
 
-/// Returns the creation options (charsets, collations) available for the driver
 #[tauri::command]
 pub async fn get_creation_options(
     state: State<'_, crate::SharedState>,
@@ -1453,14 +1427,12 @@ pub async fn get_creation_options(
     }
 }
 
-/// Response wrapper for transaction operations
 #[derive(Debug, Serialize)]
 pub struct TransactionResponse {
     pub success: bool,
     pub error: Option<String>,
 }
 
-/// Response for transaction support check
 #[derive(Debug, Serialize)]
 pub struct TransactionSupportResponse {
     pub supported: bool,
@@ -1597,7 +1569,6 @@ pub async fn rollback_transaction(
     }
 }
 
-/// Checks if the driver for the given session supports transactions
 #[tauri::command]
 pub async fn supports_transactions(
     state: State<'_, crate::SharedState>,
@@ -1620,8 +1591,6 @@ pub async fn supports_transactions(
         supported: driver.supports_transactions_for_session(session).await,
     })
 }
-
-// --- Query Governance ---
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct GovernanceLimits {

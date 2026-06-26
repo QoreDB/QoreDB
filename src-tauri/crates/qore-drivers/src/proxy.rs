@@ -146,7 +146,6 @@ impl ProxyTunnel {
         self.local_port
     }
 
-    /// Closes the proxy tunnel.
     pub async fn close(&mut self) -> EngineResult<()> {
         self.shutdown.notify_one();
         Ok(())

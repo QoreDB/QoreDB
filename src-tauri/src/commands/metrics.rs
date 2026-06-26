@@ -6,7 +6,6 @@ use serde::Serialize;
 
 use crate::metrics;
 
-/// Response wrapper for metrics snapshot
 #[derive(Debug, Serialize)]
 pub struct MetricsResponse {
     pub success: bool,

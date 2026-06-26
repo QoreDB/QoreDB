@@ -146,7 +146,6 @@ pub fn value_to_json_pub(value: &Value) -> serde_json::Value {
     value_to_json(value)
 }
 
-/// Convert a Value enum to serde_json::Value.
 fn value_to_json(value: &Value) -> serde_json::Value {
     match value {
         Value::Null => serde_json::Value::Null,

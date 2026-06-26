@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-//! Sandbox Tauri Commands
-//!
 //! Commands for generating migration SQL and applying sandbox changes.
 //! Sandbox is a Pro feature — Core builds return an explicit error.
 
@@ -10,7 +8,6 @@ use tauri::State;
 
 use crate::engine::sql_generator::SandboxChangeDto;
 
-/// Response for migration script generation
 #[derive(Debug, Serialize)]
 pub struct MigrationScriptResponse {
     pub success: bool,
@@ -18,7 +15,6 @@ pub struct MigrationScriptResponse {
     pub error: Option<String>,
 }
 
-/// Response for applying sandbox changes
 #[derive(Debug, Serialize)]
 pub struct ApplySandboxResponse {
     pub success: bool,
@@ -27,7 +23,6 @@ pub struct ApplySandboxResponse {
     pub failed_changes: Vec<FailedChange>,
 }
 
-/// Information about a failed change
 #[derive(Debug, Serialize)]
 pub struct FailedChange {
     pub index: usize,

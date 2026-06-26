@@ -59,7 +59,6 @@ impl MongoSession {
     }
 }
 
-/// MongoDB driver implementation
 pub struct MongoDriver {
     sessions: Arc<RwLock<HashMap<SessionId, Arc<MongoSession>>>>,
     active_queries: Arc<Mutex<HashMap<QueryId, (SessionId, AbortHandle)>>>,
@@ -117,7 +116,6 @@ impl MongoDriver {
             .ok_or_else(|| EngineError::session_not_found(session.0.to_string()))
     }
 
-    /// Builds a connection string from config
     fn build_connection_string(config: &ConnectionConfig) -> String {
         use percent_encoding::{utf8_percent_encode, NON_ALPHANUMERIC};
 

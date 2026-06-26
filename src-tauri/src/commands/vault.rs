@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-//! Vault Tauri Commands
-//!
 //! Commands for managing saved connections and vault lock.
 
 use serde::{Deserialize, Serialize};
@@ -36,14 +34,12 @@ async fn get_workspace_store(
     ))
 }
 
-/// Response for vault operations
 #[derive(Debug, Serialize)]
 pub struct VaultResponse {
     pub success: bool,
     pub error: Option<String>,
 }
 
-/// Response for duplicating a saved connection
 #[derive(Debug, Serialize)]
 pub struct DuplicateConnectionResponse {
     pub success: bool,
@@ -51,14 +47,12 @@ pub struct DuplicateConnectionResponse {
     pub error: Option<String>,
 }
 
-/// Response for checking vault status
 #[derive(Debug, Serialize)]
 pub struct VaultStatusResponse {
     pub is_locked: bool,
     pub has_master_password: bool,
 }
 
-/// Input for saving a connection
 #[derive(Debug, Deserialize)]
 pub struct SaveConnectionInput {
     pub id: String,
@@ -119,7 +113,6 @@ pub struct ProxyInput {
     pub connect_timeout_secs: u32,
 }
 
-/// Checks the vault lock status
 #[tauri::command]
 pub async fn get_vault_status(
     state: State<'_, SharedState>,
@@ -137,7 +130,6 @@ pub async fn get_vault_status(
     })
 }
 
-/// Sets up a master password for the vault
 #[tauri::command]
 pub async fn setup_master_password(
     state: State<'_, SharedState>,
@@ -157,7 +149,6 @@ pub async fn setup_master_password(
     }
 }
 
-/// Unlocks the vault with the master password
 #[tauri::command]
 pub async fn unlock_vault(
     state: State<'_, SharedState>,
@@ -181,7 +172,6 @@ pub async fn unlock_vault(
     }
 }
 
-/// Locks the vault
 #[tauri::command]
 pub async fn lock_vault(state: State<'_, SharedState>) -> Result<VaultResponse, String> {
     let mut state = state.lock().await;
@@ -193,7 +183,6 @@ pub async fn lock_vault(state: State<'_, SharedState>) -> Result<VaultResponse, 
     })
 }
 
-/// Saves a connection to the vault
 #[tauri::command]
 pub async fn save_connection(
     app: AppHandle,
@@ -325,7 +314,6 @@ pub async fn list_saved_connections(
     storage.list_connections_full().map_err(|e| e.to_string())
 }
 
-/// Deletes a saved connection
 #[tauri::command]
 pub async fn delete_saved_connection(
     app: AppHandle,
@@ -412,7 +400,6 @@ pub async fn duplicate_saved_connection(
     }
 }
 
-/// Response for getting credentials
 #[derive(Debug, Serialize)]
 pub struct CredentialsResponse {
     pub success: bool,
@@ -420,7 +407,6 @@ pub struct CredentialsResponse {
     pub error: Option<String>,
 }
 
-/// Gets the password for a saved connection
 #[tauri::command]
 pub async fn get_connection_credentials(
     app: AppHandle,

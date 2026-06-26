@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-//! Interceptor Tauri Commands
-//!
 //! Commands for managing the Universal Query Interceptor system.
 
 use serde::{Deserialize, Serialize};
@@ -68,7 +66,6 @@ pub struct ExportResponse {
     pub error: Option<String>,
 }
 
-/// Gets the interceptor configuration
 #[tauri::command]
 pub async fn get_interceptor_config(
     state: State<'_, crate::SharedState>,
@@ -87,7 +84,6 @@ pub async fn get_interceptor_config(
     })
 }
 
-/// Updates the interceptor configuration
 #[tauri::command]
 pub async fn update_interceptor_config(
     state: State<'_, crate::SharedState>,
@@ -115,7 +111,6 @@ pub async fn update_interceptor_config(
     }
 }
 
-/// Filter parameters for audit log queries
 #[derive(Debug, Deserialize)]
 pub struct AuditFilter {
     pub limit: Option<usize>,
@@ -130,7 +125,6 @@ pub struct AuditFilter {
     pub blocked: Option<bool>,
 }
 
-/// Gets audit log entries with optional filtering
 /// Core: limited to 50 entries, no advanced filters. Pro: unlimited.
 #[tauri::command]
 pub async fn get_audit_entries(
@@ -173,7 +167,6 @@ pub async fn get_audit_entries(
     })
 }
 
-/// Gets audit log statistics
 #[tauri::command]
 pub async fn get_audit_stats(
     state: State<'_, crate::SharedState>,

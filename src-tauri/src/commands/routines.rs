@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-//! Routine Management Tauri Commands
-//!
 //! Commands for viewing definitions and dropping database routines (functions/procedures).
 
 use serde::Serialize;
@@ -41,7 +39,6 @@ fn parse_routine_type(s: &str) -> Result<RoutineType, String> {
     }
 }
 
-/// Response wrapper for getting a routine definition
 #[derive(Debug, Serialize)]
 pub struct RoutineDefinitionResponse {
     pub success: bool,
@@ -49,7 +46,6 @@ pub struct RoutineDefinitionResponse {
     pub error: Option<String>,
 }
 
-/// Response wrapper for dropping a routine
 #[derive(Debug, Serialize)]
 pub struct RoutineDropResponse {
     pub success: bool,
@@ -57,7 +53,6 @@ pub struct RoutineDropResponse {
     pub error: Option<String>,
 }
 
-/// Gets the full definition (CREATE statement) of a routine
 #[tauri::command]
 #[instrument(
     skip(state),

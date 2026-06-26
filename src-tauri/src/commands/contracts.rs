@@ -28,7 +28,6 @@ use crate::contracts::storage;
 use crate::contracts::{ContractMeta, ContractRun};
 use qore_core::types::SessionId;
 
-/// Resolves a session id string into a typed [`SessionId`].
 fn parse_session_id(id: &str) -> Result<SessionId, String> {
     let uuid = Uuid::parse_str(id).map_err(|e| format!("Invalid session ID: {}", e))?;
     Ok(SessionId(uuid))
@@ -42,7 +41,6 @@ async fn active_workspace_path(
     mgr.active().path.clone()
 }
 
-/// Index every contract YAML under the active workspace.
 #[tauri::command]
 pub async fn list_contracts(
     ws_manager: State<'_, SharedWorkspaceManager>,

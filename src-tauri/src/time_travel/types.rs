@@ -12,8 +12,6 @@ use uuid::Uuid;
 
 use crate::engine::types::Namespace;
 
-// ─── Changelog Entry ───────────────────────────────────────────────────────
-
 /// A single row-level change record.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChangelogEntry {
@@ -27,9 +25,7 @@ pub struct ChangelogEntry {
     pub driver_id: String,
     /// Namespace (database + optional schema)
     pub namespace: Namespace,
-    /// Table name
     pub table_name: String,
-    /// Operation type
     pub operation: ChangeOperation,
     /// Primary key columns and their values
     pub primary_key: HashMap<String, serde_json::Value>,
@@ -64,14 +60,11 @@ impl std::fmt::Display for ChangeOperation {
     }
 }
 
-// ─── Timeline ──────────────────────────────────────────────────────────────
-
 /// An aggregated timeline event (groups changelog entries by timestamp bucket).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TimelineEvent {
     /// Timestamp of the event
     pub timestamp: DateTime<Utc>,
-    /// Operation type
     pub operation: ChangeOperation,
     /// Number of rows affected
     pub row_count: usize,
@@ -85,16 +78,12 @@ pub struct TimelineEvent {
     pub entry_id: Uuid,
 }
 
-// ─── Temporal Diff ─────────────────────────────────────────────────────────
-
 /// Result of comparing a table between two points in time.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TemporalDiff {
-    /// Column names
     pub columns: Vec<String>,
     /// Rows with their change status
     pub rows: Vec<TemporalDiffRow>,
-    /// Statistics
     pub stats: TemporalDiffStats,
 }
 
@@ -130,8 +119,6 @@ pub struct TemporalDiffStats {
     pub removed: usize,
     pub total_changes: usize,
 }
-
-// ─── Configuration ─────────────────────────────────────────────────────────
 
 /// Configuration for the Time-Travel feature.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -207,8 +194,6 @@ impl Default for TimeTravelConfig {
         }
     }
 }
-
-// ─── Filters ───────────────────────────────────────────────────────────────
 
 /// Filters for querying the changelog.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]

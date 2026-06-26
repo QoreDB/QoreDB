@@ -1,13 +1,9 @@
 // SPDX-License-Identifier: BUSL-1.1
 
-//! Data Time-Travel Tauri Commands
-//!
 //! API surface for the Time-Travel feature: timeline, diff, rollback, config.
 
 #[cfg(not(feature = "pro"))]
 const PRO_REQUIRED: &str = "Data Time-Travel requires a Pro license.";
-
-// ─── Pro stubs (non-pro builds) ────────────────────────────────────────────
 
 #[cfg(not(feature = "pro"))]
 pub mod stubs {
@@ -124,8 +120,6 @@ pub mod stubs {
     }
 }
 
-// ─── Pro implementation ────────────────────────────────────────────────────
-
 #[cfg(feature = "pro")]
 pub mod pro {
     use std::collections::HashMap;
@@ -142,8 +136,6 @@ pub mod pro {
     use crate::time_travel::types::{
         ChangelogEntry, ChangelogFilter, TemporalDiff, TimeTravelConfig, TimelineEvent,
     };
-
-    // ─── Response types ────────────────────────────────────────────────
 
     #[derive(Serialize)]
     pub struct TimelineResponse {
@@ -196,8 +188,6 @@ pub mod pro {
         pub success: bool,
         pub error: Option<String>,
     }
-
-    // ─── Timeline commands ─────────────────────────────────────────────
 
     #[tauri::command]
     #[instrument(skip(state))]
@@ -274,8 +264,6 @@ pub mod pro {
         })
     }
 
-    // ─── Diff commands ─────────────────────────────────────────────────
-
     #[tauri::command]
     #[instrument(skip(state))]
     pub async fn compute_temporal_diff(
@@ -339,8 +327,6 @@ pub mod pro {
             error: None,
         })
     }
-
-    // ─── Rollback commands ─────────────────────────────────────────────
 
     #[tauri::command]
     #[instrument(skip(state))]
@@ -421,8 +407,6 @@ pub mod pro {
         })
     }
 
-    // ─── Config commands ───────────────────────────────────────────────
-
     #[tauri::command]
     pub async fn get_time_travel_config(
         state: State<'_, crate::SharedState>,
@@ -457,8 +441,6 @@ pub mod pro {
             error: None,
         })
     }
-
-    // ─── Maintenance commands ──────────────────────────────────────────
 
     /// Requires a one-shot confirmation token from
     /// `request_confirmation_token("clear_table_changelog")`.
@@ -533,8 +515,6 @@ pub mod pro {
         Ok(changelog_store.export(&filter))
     }
 }
-
-// ─── Re-exports (so lib.rs can reference commands uniformly) ───────────────
 
 #[cfg(feature = "pro")]
 pub use pro::*;

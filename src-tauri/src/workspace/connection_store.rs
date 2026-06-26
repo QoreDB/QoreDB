@@ -101,7 +101,6 @@ impl WorkspaceConnectionStore {
         format!("creds_{}", connection_id)
     }
 
-    /// Lists all connections from the workspace directory.
     pub fn list_connections(&self) -> EngineResult<Vec<SavedConnection>> {
         if !self.connections_dir.exists() {
             return Ok(Vec::new());
@@ -139,7 +138,6 @@ impl WorkspaceConnectionStore {
         Ok(connections)
     }
 
-    /// Gets a specific connection by ID.
     pub fn get_connection(&self, connection_id: &str) -> EngineResult<SavedConnection> {
         let path = self.connection_file(connection_id)?;
         let content = fs::read_to_string(&path)

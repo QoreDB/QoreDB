@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-//! Maintenance Tauri Commands
-//!
 //! Commands for running table maintenance operations (vacuum, analyze, optimize, etc.)
 
 use serde::Serialize;
@@ -33,7 +31,6 @@ fn parse_session_id(id: &str) -> Result<SessionId, String> {
     Ok(SessionId(uuid))
 }
 
-/// Response wrapper for listing maintenance operations
 #[derive(Debug, Serialize)]
 pub struct MaintenanceListResponse {
     pub success: bool,
@@ -41,7 +38,6 @@ pub struct MaintenanceListResponse {
     pub error: Option<String>,
 }
 
-/// Response wrapper for running a maintenance operation
 #[derive(Debug, Serialize)]
 pub struct MaintenanceRunResponse {
     pub success: bool,
@@ -49,7 +45,6 @@ pub struct MaintenanceRunResponse {
     pub error: Option<String>,
 }
 
-/// Lists available maintenance operations for a table
 #[tauri::command]
 #[instrument(
     skip(state),
@@ -100,7 +95,6 @@ pub async fn list_maintenance_operations(
     }
 }
 
-/// Runs a maintenance operation on a table
 #[tauri::command]
 #[instrument(
     skip(state, request),

@@ -20,7 +20,6 @@ use qore_core::types::{
     TableSchema, TriggerDefinition, TriggerList, TriggerListOptions, TriggerOperationResult, Value,
 };
 
-/// PostgreSQL driver implementation
 pub struct PostgresDriver {
     sessions: SessionMap,
 }

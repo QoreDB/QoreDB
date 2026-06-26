@@ -1,15 +1,11 @@
 // SPDX-License-Identifier: BUSL-1.1
 
-//! AI Assistant Tauri Commands
-//!
 //! Commands for AI-powered query generation, explanation, and schema summarization.
 //! AI is a Pro feature — Core builds return an explicit error.
 
 use tauri::State;
 
 use crate::SharedState;
-
-// ─── Core stubs (compiled when pro feature is disabled) ──────
 
 #[cfg(not(feature = "pro"))]
 const PRO_REQUIRED: &str = "AI Assistant requires a Pro license.";
@@ -98,8 +94,6 @@ pub async fn ai_generate_filters(
     Err(PRO_REQUIRED.to_string())
 }
 
-// ─── Pro implementation ──────────────────────────────────────
-
 #[cfg(feature = "pro")]
 use std::sync::Arc;
 
@@ -128,7 +122,6 @@ fn parse_session_id(id: &str) -> Result<SessionId, String> {
     Ok(SessionId(uuid))
 }
 
-/// Streaming: generate a query from a natural language prompt
 #[cfg(feature = "pro")]
 #[tauri::command]
 pub async fn ai_generate_query(
@@ -139,7 +132,6 @@ pub async fn ai_generate_query(
     stream_ai_request(state, window, request).await
 }
 
-/// Streaming: fix a SQL/MQL error
 #[cfg(feature = "pro")]
 #[tauri::command]
 pub async fn ai_fix_error(
@@ -150,7 +142,6 @@ pub async fn ai_fix_error(
     stream_ai_request(state, window, request).await
 }
 
-/// Non-streaming: explain a query result
 #[cfg(feature = "pro")]
 #[tauri::command]
 pub async fn ai_explain_result(
@@ -214,7 +205,6 @@ pub async fn ai_explain_result(
     })
 }
 
-/// Non-streaming: summarize the schema of the active connection
 #[cfg(feature = "pro")]
 #[tauri::command]
 pub async fn ai_summarize_schema(
@@ -406,7 +396,6 @@ fn validate_api_key_shape(provider: &AiProvider, key: &str) -> Result<(), String
     Ok(())
 }
 
-/// Delete an API key for a provider
 #[cfg(feature = "pro")]
 #[tauri::command]
 pub async fn ai_delete_api_key(
@@ -420,7 +409,6 @@ pub async fn ai_delete_api_key(
     ai_manager.delete_api_key(&provider)
 }
 
-/// List all providers with their configuration status
 #[cfg(feature = "pro")]
 #[tauri::command]
 pub async fn ai_get_provider_status(
@@ -432,8 +420,6 @@ pub async fn ai_get_provider_status(
     };
     Ok(ai_manager.list_configured_providers())
 }
-
-// ─── Internal helpers (Pro only) ─────────────────────────────
 
 /// Collect the full response from a streamed AI request (used for non-streaming commands)
 #[cfg(feature = "pro")]
@@ -600,7 +586,6 @@ async fn stream_ai_request(
     Ok(())
 }
 
-/// Build the user-facing prompt based on the action type
 #[cfg(feature = "pro")]
 fn build_user_prompt(request: &AiRequest) -> String {
     let base = match &request.action {

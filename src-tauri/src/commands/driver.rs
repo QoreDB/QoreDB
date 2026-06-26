@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-//! Driver metadata Tauri commands
-//!
 //! Exposes driver capabilities to the frontend so it can adapt features safely.
 
 use serde::Serialize;
@@ -10,7 +8,6 @@ use tauri::State;
 
 use crate::engine::types::DriverInfo;
 
-/// Response wrapper for a single driver lookup.
 #[derive(Debug, Serialize)]
 pub struct DriverInfoResponse {
     pub success: bool,
@@ -18,7 +15,6 @@ pub struct DriverInfoResponse {
     pub error: Option<String>,
 }
 
-/// Response wrapper for listing all drivers.
 #[derive(Debug, Serialize)]
 pub struct DriverListResponse {
     pub success: bool,
@@ -26,7 +22,6 @@ pub struct DriverListResponse {
     pub error: Option<String>,
 }
 
-/// Returns the driver info for a given session.
 #[tauri::command]
 pub async fn get_driver_info(
     state: State<'_, crate::SharedState>,
@@ -67,7 +62,6 @@ pub async fn get_driver_info(
     }
 }
 
-/// Lists all registered drivers with their capabilities.
 #[tauri::command]
 pub async fn list_drivers(
     state: State<'_, crate::SharedState>,

@@ -84,7 +84,6 @@ impl SqlServerDriver {
         format!("[{}]", name.replace(']', "]]"))
     }
 
-    /// Build a tiberius Config from a ConnectionConfig.
     fn build_config(config: &ConnectionConfig) -> EngineResult<Config> {
         let mut tib_config = Config::new();
         tib_config.host(&config.host);
@@ -151,7 +150,6 @@ impl SqlServerDriver {
         Ok(client)
     }
 
-    /// Create a bb8 connection pool.
     async fn create_pool(config: &ConnectionConfig) -> EngineResult<MssqlPool> {
         let tib_config = Self::build_config(config)?;
         let mgr = ConnectionManager::new(tib_config);
@@ -176,7 +174,6 @@ impl Default for SqlServerDriver {
     }
 }
 
-/// Convert a tiberius ColumnData to a QoreDB Value.
 fn convert_column_data(data: &ColumnData<'_>) -> Value {
     match data {
         ColumnData::Bit(Some(b)) => Value::Bool(*b),
@@ -247,7 +244,6 @@ fn convert_row(row: &tiberius::Row) -> QRow {
     QRow { values }
 }
 
-/// Extract column info from tiberius result metadata.
 fn get_column_info(columns: &[tiberius::Column]) -> Vec<ColumnInfo> {
     columns
         .iter()
@@ -1900,7 +1896,6 @@ impl DataEngine for SqlServerDriver {
     }
 }
 
-/// Execute a SELECT query on a connection and stream results via sender.
 async fn stream_select_results(
     conn: &mut MssqlClient,
     query: &str,
@@ -1950,7 +1945,6 @@ async fn stream_select_results(
     Ok(())
 }
 
-/// Execute a SELECT query and return a QueryResult.
 async fn execute_select(
     conn: &mut MssqlClient,
     sql: &str,

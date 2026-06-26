@@ -22,22 +22,15 @@ use super::types::{
 };
 use qore_sql::safety::SqlSafetyAnalysis;
 
-/// The main interceptor pipeline
 pub struct InterceptorPipeline {
-    /// Audit log store
     audit: Arc<AuditStore>,
-    /// Profiling metrics store
     profiling: Arc<ProfilingStore>,
-    /// Safety rules engine
     safety: Arc<SafetyEngine>,
-    /// Configuration
     config: RwLock<InterceptorConfig>,
-    /// Data directory for persistence
     data_dir: PathBuf,
 }
 
 impl InterceptorPipeline {
-    /// Creates a new interceptor pipeline
     pub fn new(data_dir: PathBuf) -> Self {
         let config = InterceptorConfig::default();
 
@@ -61,7 +54,6 @@ impl InterceptorPipeline {
         }
     }
 
-    /// Load configuration from file
     pub fn load_config(&self) -> Result<(), String> {
         let config_path = self.data_dir.join("interceptor.json");
 
@@ -82,7 +74,6 @@ impl InterceptorPipeline {
         Ok(())
     }
 
-    /// Save configuration to file
     pub fn save_config(&self) -> Result<(), String> {
         let config_path = self.data_dir.join("interceptor.json");
 
@@ -97,7 +88,6 @@ impl InterceptorPipeline {
         Ok(())
     }
 
-    /// Apply configuration
     fn apply_config(&self, config: InterceptorConfig) {
         self.audit.set_enabled(config.audit_enabled);
         self.audit.set_max_entries(config.max_audit_entries);
@@ -116,12 +106,10 @@ impl InterceptorPipeline {
         *self.config.write() = config;
     }
 
-    /// Get current configuration
     pub fn get_config(&self) -> InterceptorConfig {
         self.config.read().clone()
     }
 
-    /// Update configuration
     pub fn update_config(&self, config: InterceptorConfig) -> Result<(), String> {
         self.apply_config(config);
         self.save_config()
@@ -168,7 +156,6 @@ impl InterceptorPipeline {
         }
     }
 
-    /// Classify SQL operation type from query
     fn classify_sql_operation(&self, query: &str) -> QueryOperationType {
         let query_upper = query.trim().to_uppercase();
         let first_word = query_upper.split_whitespace().next().unwrap_or("");
@@ -251,7 +238,6 @@ impl InterceptorPipeline {
         self.audit.log(entry);
     }
 
-    /// Get audit log entries
     #[allow(clippy::too_many_arguments)]
     pub fn get_audit_entries(
         &self,
@@ -278,12 +264,10 @@ impl InterceptorPipeline {
         )
     }
 
-    /// Get audit statistics
     pub fn get_audit_stats(&self) -> AuditStats {
         self.audit.get_stats()
     }
 
-    /// Clear audit log
     pub fn clear_audit(&self) {
         self.audit.clear();
     }
@@ -306,37 +290,30 @@ impl InterceptorPipeline {
             .map_err(|e| format!("Failed to read audit log: {}", e))
     }
 
-    /// Get profiling metrics
     pub fn get_profiling_metrics(&self) -> ProfilingMetrics {
         self.profiling.get_metrics()
     }
 
-    /// Get slow queries
     pub fn get_slow_queries(&self, limit: usize, offset: usize) -> Vec<SlowQueryEntry> {
         self.profiling.get_slow_queries(limit, offset)
     }
 
-    /// Clear slow queries
     pub fn clear_slow_queries(&self) {
         self.profiling.clear_slow_queries();
     }
 
-    /// Reset profiling metrics
     pub fn reset_profiling(&self) {
         self.profiling.reset();
     }
 
-    /// Export profiling data
     pub fn export_profiling(&self) -> String {
         self.profiling.export()
     }
 
-    /// Get all safety rules
     pub fn get_safety_rules(&self) -> Vec<SafetyRule> {
         self.safety.get_rules()
     }
 
-    /// Add a custom safety rule
     pub fn add_safety_rule(&self, rule: SafetyRule) -> Result<(), String> {
         self.safety.add_rule(rule.clone())?;
 
@@ -347,7 +324,6 @@ impl InterceptorPipeline {
         self.save_config()
     }
 
-    /// Update a safety rule
     pub fn update_safety_rule(&self, rule: SafetyRule) -> Result<(), String> {
         self.safety.update_rule(rule.clone())?;
 
@@ -362,7 +338,6 @@ impl InterceptorPipeline {
         self.save_config()
     }
 
-    /// Remove a safety rule
     pub fn remove_safety_rule(&self, rule_id: &str) -> Result<(), String> {
         self.safety.remove_rule(rule_id)?;
 

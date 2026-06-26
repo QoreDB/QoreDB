@@ -54,7 +54,6 @@ fn classify_path(path: &Path, workspace_root: &Path) -> Option<&'static str> {
     }
 }
 
-/// Map a category to its Tauri event name.
 fn category_event_name(category: &str) -> &'static str {
     match category {
         "connections" => EVENT_WS_FS_CONNECTIONS,

@@ -153,7 +153,6 @@ pub fn remove_plugin(dir: &Path, plugin_id: &str) -> Result<(), String> {
     write_index(dir, &index)
 }
 
-/// Enables or disables a plugin.
 pub fn set_plugin_enabled(dir: &Path, plugin_id: &str, enabled: bool) -> Result<(), String> {
     find_plugin(dir, plugin_id)?;
     let mut index = read_index(dir);

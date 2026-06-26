@@ -7,28 +7,15 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tauri::State;
 use tracing::instrument;
-use uuid::Uuid;
 
-use crate::engine::types::{Namespace, RowData, SessionId, Value};
-use crate::interceptor::{Environment, QueryExecutionResult, SafetyAction};
+use super::parse_session_id;
+use crate::engine::types::{Namespace, RowData, Value};
+use crate::interceptor::{map_environment, QueryExecutionResult, SafetyAction};
 
 const READ_ONLY_BLOCKED: &str = "Operation blocked: read-only mode";
 const MUTATIONS_NOT_SUPPORTED: &str = "Mutations are not supported by this driver";
 const DANGEROUS_BLOCKED: &str = "Dangerous query blocked: confirmation required";
 const SAFETY_RULE_BLOCKED: &str = "Query blocked by safety rule";
-
-fn map_environment(env: &str) -> Environment {
-    match env {
-        "production" => Environment::Production,
-        "staging" => Environment::Staging,
-        _ => Environment::Development,
-    }
-}
-
-fn parse_session_id(id: &str) -> Result<SessionId, String> {
-    let uuid = Uuid::parse_str(id).map_err(|e| format!("Invalid session ID: {}", e))?;
-    Ok(SessionId(uuid))
-}
 
 #[derive(Debug, Deserialize)]
 pub struct CsvImportConfig {

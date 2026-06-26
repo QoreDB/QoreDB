@@ -6,21 +6,13 @@ use qore_core::{DataEngine, SessionId};
 use qore_drivers::session_manager::SessionManager;
 
 use crate::interceptor::{
-    Environment, InterceptorPipeline, QueryContext, QueryExecutionResult, SafetyAction,
+    map_environment, InterceptorPipeline, QueryContext, QueryExecutionResult, SafetyAction,
 };
 
 const READ_ONLY_BLOCKED: &str = "Operation blocked: read-only mode";
 const MUTATIONS_NOT_SUPPORTED: &str = "Mutations are not supported by this driver";
 const DANGEROUS_BLOCKED: &str = "Dangerous query blocked: confirmation required";
 const SAFETY_RULE_BLOCKED: &str = "Query blocked by safety rule";
-
-fn map_environment(env: &str) -> Environment {
-    match env {
-        "production" => Environment::Production,
-        "staging" => Environment::Staging,
-        _ => Environment::Development,
-    }
-}
 
 pub struct MutationPreflight {
     pub driver: Arc<dyn DataEngine>,

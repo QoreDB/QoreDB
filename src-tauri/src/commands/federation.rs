@@ -75,19 +75,13 @@ use crate::commands::stream_msg::StreamDispatcher;
 #[cfg(feature = "pro")]
 use crate::engine::traits::StreamEvent;
 #[cfg(feature = "pro")]
-use crate::engine::types::SessionId;
+use super::parse_session_id;
 #[cfg(feature = "pro")]
 use crate::federation::manager;
 #[cfg(feature = "pro")]
 use crate::federation::types::{
     AliasEntry, ConnectionAliasMap, FederationQueryOptions, FederationSource,
 };
-
-#[cfg(feature = "pro")]
-fn parse_session_id(id: &str) -> Result<SessionId, String> {
-    let uuid = Uuid::parse_str(id).map_err(|e| format!("Invalid session ID: {e}"))?;
-    Ok(SessionId(uuid))
-}
 
 /// Executes a cross-database federation query.
 ///

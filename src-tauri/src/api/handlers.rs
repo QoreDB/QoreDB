@@ -33,7 +33,7 @@ use serde::Serialize;
 use serde_json::{json, Value as JsonValue};
 use tokio::sync::Mutex;
 
-use qore_core::types::{QueryId, SessionId, Value};
+use qore_core::types::{QueryId, SessionId};
 use qore_drivers::session_manager::SessionManager;
 use qore_sql::safety as sql_safety;
 
@@ -285,18 +285,11 @@ fn rows_to_json(
         .map(|row| {
             let mut obj = serde_json::Map::with_capacity(columns.len());
             for (col, val) in columns.iter().zip(row.values.iter()) {
-                obj.insert(col.name.to_string(), value_to_json(val));
+                obj.insert(col.name.to_string(), val.to_json());
             }
             JsonValue::Object(obj)
         })
         .collect()
-}
-
-fn value_to_json(v: &Value) -> JsonValue {
-    // `Value` is `#[serde(untagged)]`, so direct serialization yields the
-    // expected JSON wire form (null / bool / number / string / array /
-    // object) without manual matching.
-    serde_json::to_value(v).unwrap_or(JsonValue::Null)
 }
 
 fn build_response(endpoint: &Endpoint, rows: Vec<JsonValue>) -> Response {

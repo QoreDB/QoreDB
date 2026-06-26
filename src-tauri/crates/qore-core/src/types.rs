@@ -495,6 +495,15 @@ impl Value {
             _ => None,
         }
     }
+
+    /// Canonical conversion to `serde_json::Value`. Relies on the `#[serde(untagged)]`
+    /// wire form: bytes become base64 strings, non-finite floats become `null`,
+    /// nested `Json`/`Array` pass through. Use this instead of re-implementing the
+    /// match at each call site (cf. dédup D8). Contexts that need a different
+    /// shape (e.g. a `<binary N bytes>` placeholder) keep their own mapping.
+    pub fn to_json(&self) -> serde_json::Value {
+        serde_json::to_value(self).unwrap_or(serde_json::Value::Null)
+    }
 }
 
 impl From<bool> for Value {

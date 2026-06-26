@@ -48,6 +48,26 @@ pub fn safety_policy_file() -> PathBuf {
     app_data_dir().join("config.json")
 }
 
+/// Config directory for the headless entry points (CLI, MCP, server). Resolves
+/// to the same location the desktop app stores its vault, so every front-end
+/// shares one credential store. Honors `QOREDB_CONFIG_DIR` as an override
+/// (tests, custom installs); otherwise the OS config dir under the Tauri bundle
+/// identifier. Distinct from [`app_data_dir`], which holds policy/logs/cache.
+pub fn config_dir() -> PathBuf {
+    if let Ok(dir) = std::env::var("QOREDB_CONFIG_DIR") {
+        return PathBuf::from(dir);
+    }
+    dirs::config_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join("com.rapha.qoredb")
+}
+
+/// Vault project id used by the headless entry points.
+pub const PROJECT_ID: &str = "default";
+
+/// Default per-query timeout (ms) for the headless entry points.
+pub const QUERY_TIMEOUT_MS: u64 = 30_000;
+
 /// Writes `contents` to `path` atomically: data is written to a sibling temp
 /// file first, then a rename swaps it in. A crash mid-write therefore leaves
 /// the previous file intact instead of a truncated, unparseable one.

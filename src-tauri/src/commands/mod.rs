@@ -40,3 +40,12 @@ pub mod vault;
 pub mod virtual_relations;
 pub mod workspace;
 pub mod workspace_queries;
+
+use crate::engine::types::SessionId;
+
+/// Parse l'identifiant de session fourni par le frontend en [`SessionId`].
+/// Helper unique partagé par tous les modules de commandes (cf. dédup D1).
+pub(crate) fn parse_session_id(id: &str) -> Result<SessionId, String> {
+    let uuid = uuid::Uuid::parse_str(id).map_err(|e| format!("Invalid session ID: {}", e))?;
+    Ok(SessionId(uuid))
+}

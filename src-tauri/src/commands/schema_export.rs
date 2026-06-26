@@ -8,19 +8,14 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tauri::State;
 use tracing::instrument;
-use uuid::Uuid;
 
+use super::parse_session_id;
 use crate::engine::schema_export::generate_create_table_ddl;
 use crate::engine::sql_generator::SqlDialect;
 use crate::engine::types::{
     CollectionListOptions, CollectionType, Namespace, RoutineListOptions, SequenceListOptions,
-    SessionId, TriggerListOptions,
+    TriggerListOptions,
 };
-
-fn parse_session_id(id: &str) -> Result<SessionId, String> {
-    let uuid = Uuid::parse_str(id).map_err(|e| format!("Invalid session ID: {}", e))?;
-    Ok(SessionId(uuid))
-}
 
 #[derive(Debug, Deserialize)]
 pub struct SchemaExportOptions {

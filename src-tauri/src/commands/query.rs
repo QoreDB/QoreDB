@@ -8,18 +8,19 @@ use tauri::State;
 use tracing::{field, instrument};
 use uuid::Uuid;
 
+use super::parse_session_id;
 use crate::commands::stream_msg::StreamDispatcher;
 use crate::engine::{
     sql_safety,
     types::{
         CollectionList, CollectionListOptions, CreationOptions, EventList, EventListOptions,
         ForeignKey, Namespace, PaginatedQueryResult, QueryId, QueryResult, RoutineList,
-        RoutineListOptions, RoutineType, SequenceList, SequenceListOptions, SessionId,
+        RoutineListOptions, RoutineType, SequenceList, SequenceListOptions,
         TableQueryOptions, TriggerList, TriggerListOptions, Value,
     },
     TableSchema,
 };
-use crate::interceptor::{Environment, QueryContext, QueryExecutionResult, SafetyAction};
+use crate::interceptor::{map_environment, QueryContext, QueryExecutionResult, SafetyAction};
 use crate::metrics;
 use crate::plugins::runtime::{
     HookContext as PluginHookContext, PluginHost, PostExecuteResult, QueryReadPayload,
@@ -69,14 +70,6 @@ fn dispatch_plugin_post_execute(
     plugin_host.schedule_post_execute(hook_ctx, post_result, payload);
 }
 
-fn map_environment(env: &str) -> Environment {
-    match env {
-        "production" => Environment::Production,
-        "staging" => Environment::Staging,
-        _ => Environment::Development,
-    }
-}
-
 #[derive(Debug, Serialize)]
 pub struct QueryResponse {
     pub success: bool,
@@ -103,11 +96,6 @@ pub struct CollectionsResponse {
     pub success: bool,
     pub data: Option<CollectionList>,
     pub error: Option<String>,
-}
-
-fn parse_session_id(id: &str) -> Result<SessionId, String> {
-    let uuid = Uuid::parse_str(id).map_err(|e| format!("Invalid session ID: {}", e))?;
-    Ok(SessionId(uuid))
 }
 
 #[tauri::command]

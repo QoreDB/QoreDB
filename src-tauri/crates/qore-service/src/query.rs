@@ -15,7 +15,8 @@ use crate::cache::QueryCache;
 use crate::error::ServiceError;
 use crate::governance;
 use crate::interceptor::{
-    Environment, InterceptorPipeline, QueryContext, QueryExecutionResult, SafetyAction,
+    map_environment, Environment, InterceptorPipeline, QueryContext, QueryExecutionResult,
+    SafetyAction,
 };
 use crate::policy::SafetyPolicy;
 use crate::ratelimit::QueryRateLimiter;
@@ -82,14 +83,6 @@ fn is_search_mutation(query: &str) -> bool {
         "GET" | "HEAD" => false,
         "POST" => !SEARCH_READ_ENDPOINTS.iter().any(|e| path.contains(e)),
         _ => true,
-    }
-}
-
-fn map_environment(env: &str) -> Environment {
-    match env {
-        "production" => Environment::Production,
-        "staging" => Environment::Staging,
-        _ => Environment::Development,
     }
 }
 

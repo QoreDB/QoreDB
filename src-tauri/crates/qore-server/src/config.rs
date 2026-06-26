@@ -7,8 +7,7 @@ use base64::Engine as _;
 use rand::RngCore;
 
 pub const DEFAULT_PORT: u16 = 8088;
-pub const PROJECT_ID: &str = "default";
-pub const QUERY_TIMEOUT_MS: u64 = 30_000;
+pub use qore_service::paths::{PROJECT_ID, QUERY_TIMEOUT_MS};
 
 pub struct ServerConfig {
     pub addr: SocketAddr,
@@ -51,7 +50,7 @@ impl ServerConfig {
             addr: SocketAddr::new(host, port),
             token,
             token_generated,
-            config_dir: config_dir(),
+            config_dir: qore_service::paths::config_dir(),
             web_dir,
             tls_cert,
             tls_key,
@@ -66,11 +65,3 @@ fn generate_token() -> String {
     format!("qsrv-{raw}")
 }
 
-fn config_dir() -> PathBuf {
-    if let Ok(dir) = std::env::var("QOREDB_CONFIG_DIR") {
-        return PathBuf::from(dir);
-    }
-    dirs::config_dir()
-        .unwrap_or_else(|| PathBuf::from("."))
-        .join("com.rapha.qoredb")
-}

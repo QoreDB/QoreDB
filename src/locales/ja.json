@@ -937,6 +937,15 @@
     "formatSql": "SQL を整形",
     "results": "結果",
     "explainNoPlan": "実行計画がありません。",
+    "indexSuggestions": {
+      "title": "インデックスの提案",
+      "reason": {
+        "seqScan": "{{table}} のシーケンシャルスキャン",
+        "fullTableScan": "{{table}} のフルテーブルスキャン"
+      },
+      "cost": "コスト {{value}}",
+      "copy": "SQL をコピー"
+    },
     "explainPlan": {
       "totalCost": "総コスト",
       "estimatedRows": "推定行数",

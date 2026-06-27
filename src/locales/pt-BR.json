@@ -930,13 +930,22 @@
     "running": "Executando...",
     "stop": "Parar",
     "format": "Formatar",
-    "explain": "Explain",
+    "explain": "Plano de execução",
     "snippets": "Snippets",
     "snippetsTooltip": "Inserir um snippet de plugin",
     "keepResults": "Manter resultados",
     "formatSql": "Formatar SQL",
     "results": "Resultados",
     "explainNoPlan": "Nenhum plano de execução disponível.",
+    "indexSuggestions": {
+      "title": "Sugestões de índice",
+      "reason": {
+        "seqScan": "Varredura sequencial em {{table}}",
+        "fullTableScan": "Varredura completa da tabela em {{table}}"
+      },
+      "cost": "custo {{value}}",
+      "copy": "Copiar SQL"
+    },
     "explainPlan": {
       "totalCost": "Custo total",
       "estimatedRows": "Linhas estimadas",

@@ -3,6 +3,7 @@
 import { AlertCircle, CheckCircle2, Clock, Info, Scissors, Sparkles, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
+import type { Driver } from '@/lib/connection/drivers';
 import { cn } from '@/lib/utils';
 import { countSqlStatements } from '../../lib/environment';
 import type { Environment, Namespace, QueryResult, Value } from '../../lib/tauri';
@@ -37,6 +38,7 @@ interface QueryPanelResultsProps {
   environment: Environment;
   readOnly: boolean;
   query: string;
+  dialect?: Driver;
   activeNamespace?: Namespace | null;
   onSelectResult: (resultId: string) => void;
   onCloseResult: (resultId: string) => void;
@@ -57,6 +59,7 @@ export function QueryPanelResults({
   environment,
   readOnly,
   query,
+  dialect,
   activeNamespace,
   onSelectResult,
   onCloseResult,
@@ -190,7 +193,7 @@ export function QueryPanelResults({
               </div>
             </div>
           ) : activeResult.kind === 'explain' && activeResult.result ? (
-            <ExplainPlanView result={activeResult.result} />
+            <ExplainPlanView result={activeResult.result} dialect={dialect} />
           ) : activeResult.result ? (
             isDocumentBased ? (
               <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">

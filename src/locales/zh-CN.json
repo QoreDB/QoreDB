@@ -937,6 +937,15 @@
     "formatSql": "格式化 SQL",
     "results": "结果",
     "explainNoPlan": "没有可用的执行计划。",
+    "indexSuggestions": {
+      "title": "索引建议",
+      "reason": {
+        "seqScan": "对 {{table}} 的顺序扫描",
+        "fullTableScan": "对 {{table}} 的全表扫描"
+      },
+      "cost": "成本 {{value}}",
+      "copy": "复制 SQL"
+    },
     "explainPlan": {
       "totalCost": "总成本",
       "estimatedRows": "预估行数",

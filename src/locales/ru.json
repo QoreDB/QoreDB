@@ -930,13 +930,22 @@
     "running": "Выполнение…",
     "stop": "Остановить",
     "format": "Форматировать",
-    "explain": "Explain",
+    "explain": "План выполнения",
     "snippets": "Шаблоны",
     "snippetsTooltip": "Вставить сниппет плагина",
     "keepResults": "Сохранять результаты",
     "formatSql": "Форматировать SQL",
     "results": "Результаты",
     "explainNoPlan": "План выполнения недоступен.",
+    "indexSuggestions": {
+      "title": "Рекомендации по индексам",
+      "reason": {
+        "seqScan": "Последовательное сканирование {{table}}",
+        "fullTableScan": "Полное сканирование таблицы {{table}}"
+      },
+      "cost": "стоимость {{value}}",
+      "copy": "Копировать SQL"
+    },
     "explainPlan": {
       "totalCost": "Общая стоимость",
       "estimatedRows": "Оценка строк",

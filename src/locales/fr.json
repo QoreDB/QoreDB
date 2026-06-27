@@ -2367,6 +2367,7 @@
     "generateForTable": "Générer avec l'IA",
     "generateForTableHint": "Générer une requête pour la table \"{{table}}\"...",
     "explainResults": "Expliquer les résultats",
+    "summarizeResults": "Résumer",
     "explaining": "Analyse des résultats...",
     "defaultProvider": "Fournisseur par défaut",
     "defaultProviderDescription": "Sélectionnez votre fournisseur IA préféré.",

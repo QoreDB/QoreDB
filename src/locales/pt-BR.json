@@ -2339,6 +2339,7 @@
     "generateForTable": "Gerar consulta com IA",
     "generateForTableHint": "Gerar uma consulta para a tabela \"{{table}}\"...",
     "explainResults": "Explicar resultados",
+    "summarizeResults": "Resumir",
     "explaining": "Analisando resultados...",
     "defaultProvider": "Provedor padrão",
     "defaultProviderDescription": "Selecione seu provedor de IA preferido.",

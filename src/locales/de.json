@@ -2339,6 +2339,7 @@
     "generateForTable": "Abfrage mit KI generieren",
     "generateForTableHint": "Abfrage für die Tabelle \"{{table}}\" generieren…",
     "explainResults": "Ergebnisse erklären",
+    "summarizeResults": "Zusammenfassen",
     "explaining": "Ergebnisse werden analysiert…",
     "defaultProvider": "Standardanbieter",
     "defaultProviderDescription": "Wählen Sie Ihren bevorzugten KI-Anbieter.",

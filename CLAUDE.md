@@ -191,6 +191,7 @@ Les fichiers suivants sont actuellement marqués Premium (`BUSL-1.1`), regroupé
 
 - `src/components/Notebook/cells/ChartCell.tsx`
 - `src/components/Notebook/cells/ContractCell.tsx`
+- `src/components/Notebook/results/CellResultSummary.tsx`
 - `src/lib/notebook/notebookInterCellRef.ts`
 
 #### Schema avancé

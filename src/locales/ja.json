@@ -2339,6 +2339,7 @@
     "generateForTable": "AI でクエリを生成",
     "generateForTableHint": "「{{table}}」テーブルのクエリを生成...",
     "explainResults": "結果を説明",
+    "summarizeResults": "要約",
     "explaining": "結果を分析中...",
     "defaultProvider": "デフォルトプロバイダー",
     "defaultProviderDescription": "優先する AI プロバイダーを選択してください。",

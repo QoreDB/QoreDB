@@ -18,6 +18,7 @@ import {
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LicenseBadge } from '@/components/License/LicenseBadge';
+import { confirmDialog } from '@/lib/stores/confirmStore';
 import { useLicense } from '@/providers/LicenseProvider';
 import {
   type AuditFilter,
@@ -275,7 +276,7 @@ export function AuditLogPanel() {
   }, []);
 
   const handleClear = useCallback(async () => {
-    if (window.confirm(t('interceptor.audit.clearConfirm'))) {
+    if (await confirmDialog({ description: t('interceptor.audit.clearConfirm') })) {
       try {
         await clearAuditLog();
         loadData();

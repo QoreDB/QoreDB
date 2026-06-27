@@ -4,7 +4,6 @@ import { FileText, Pencil, Play, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -21,6 +20,7 @@ import {
   listContracts,
   loadContract,
 } from '@/lib/contracts';
+import { confirmDialog } from '@/lib/stores/confirmStore';
 
 import { ContractEditor } from './ContractEditor';
 import { ContractHealthBadge, deriveHealth } from './ContractHealthBadge';
@@ -93,11 +93,10 @@ export function ContractsPanel({ open, onClose, sessionId, connectionId }: Props
   }
 
   async function handleDelete(meta: ContractMeta) {
-    const ok = window.confirm(
-      `${t('contracts.confirm.deleteTitle', { name: meta.name })}\n\n${t(
-        'contracts.confirm.deleteBody'
-      )}`
-    );
+    const ok = await confirmDialog({
+      title: t('contracts.confirm.deleteTitle', { name: meta.name }),
+      description: t('contracts.confirm.deleteBody'),
+    });
     if (!ok) return;
 
     try {
@@ -110,9 +109,9 @@ export function ContractsPanel({ open, onClose, sessionId, connectionId }: Props
     }
   }
 
-  function handleClose() {
+  async function handleClose() {
     if ((mode.kind === 'new' || mode.kind === 'edit') && dirty) {
-      const ok = window.confirm(t('contracts.unsavedChanges'));
+      const ok = await confirmDialog({ description: t('contracts.unsavedChanges') });
       if (!ok) return;
     }
     onClose();

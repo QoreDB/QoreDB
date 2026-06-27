@@ -15,6 +15,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { confirmDialog } from '@/lib/stores/confirmStore';
 import { cn } from '@/lib/utils';
 import {
   clearHistory,
@@ -77,8 +78,8 @@ export function QueryHistory({ isOpen, onClose, onSelectQuery, sessionId }: Quer
     loadEntries();
   }
 
-  function handleClearAll() {
-    if (confirm(t('history.clearConfirm'))) {
+  async function handleClearAll() {
+    if (await confirmDialog({ description: t('history.clearConfirm') })) {
       clearHistory();
       loadEntries();
     }

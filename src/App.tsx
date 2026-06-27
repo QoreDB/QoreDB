@@ -2,6 +2,7 @@
 
 import { AppLayout } from './AppLayout';
 import { AuthGate } from './components/Auth/AuthGate';
+import { ConfirmHost } from './components/Guard/ConfirmHost';
 import { AiPreferencesProvider } from './providers/AiPreferencesProvider';
 import { LicenseProvider } from './providers/LicenseProvider';
 import { ModalProvider } from './providers/ModalProvider';
@@ -27,6 +28,7 @@ function App() {
                     <PluginProvider>
                       <PluginOutputProvider>
                         <AppLayout />
+                        <ConfirmHost />
                       </PluginOutputProvider>
                     </PluginProvider>
                   </ShortcutProvider>

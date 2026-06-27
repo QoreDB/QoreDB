@@ -26,6 +26,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
+import { confirmDialog } from '@/lib/stores/confirmStore';
 import { cn } from '@/lib/utils';
 import { clearErrorLogs, type ErrorLogEntry, getErrorLogs } from '../../lib/diagnostics/errorLog';
 import { exportLogs } from '../../lib/tauri';
@@ -54,8 +55,8 @@ export function ErrorLogPanel({ isOpen, onClose }: ErrorLogPanelProps) {
     }
   }, [isOpen, loadLogs]);
 
-  function handleClear() {
-    if (confirm(t('logs.clearConfirm'))) {
+  async function handleClear() {
+    if (await confirmDialog({ description: t('logs.clearConfirm') })) {
       clearErrorLogs();
       loadLogs();
     }

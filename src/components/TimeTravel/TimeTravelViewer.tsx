@@ -13,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { confirmDialog } from '@/lib/stores/confirmStore';
 import { createQueryTab } from '@/lib/tabs';
 import type { ChangelogEntry, Namespace, RollbackSqlResponse, TimelineEvent } from '@/lib/tauri';
 import {
@@ -139,7 +140,7 @@ export function TimeTravelViewer({
 
   const handleClear = async () => {
     if (!namespace || !tableName) return;
-    if (!window.confirm(t('timeTravel.toolbar.clearConfirm'))) return;
+    if (!(await confirmDialog({ description: t('timeTravel.toolbar.clearConfirm') }))) return;
     await clearTableChangelog(namespace.database, namespace.schema ?? null, tableName).catch(
       () => {}
     );

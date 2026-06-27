@@ -194,6 +194,8 @@ export function AppLayout() {
     setBeforeCloseTab((tabId: string) => {
       const tab = tabs.find(t => t.id === tabId);
       if (tab?.type === 'notebook' && tab.notebookDirty) {
+        // Synchronous guard: setBeforeCloseTab expects a boolean return, so the
+        // promisified confirmDialog can't replace this native confirm.
         return window.confirm(t('notebook.unsavedChanges'));
       }
       return true;
@@ -460,6 +462,8 @@ export function AppLayout() {
     if (isActive) {
       const prefs = getSandboxPreferences();
       if (prefs.confirmOnDiscard && hasPendingChanges(sessionId)) {
+        // Three-way flow (cancel / discard / keep changes), not a single yes/no —
+        // kept on native confirm rather than the single-question confirmDialog.
         const confirmExit = window.confirm(
           `${t('sandbox.confirmDeactivate.title')}\n\n${t('sandbox.confirmDeactivate.message')}`
         );

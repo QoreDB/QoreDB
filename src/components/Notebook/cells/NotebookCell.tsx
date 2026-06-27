@@ -40,6 +40,7 @@ import type {
   CellExecutionState,
   NotebookCell as NotebookCellType,
 } from '@/lib/notebook/notebookTypes';
+import { confirmDialog } from '@/lib/stores/confirmStore';
 import type { Namespace } from '@/lib/tauri';
 import { cn } from '@/lib/utils';
 import { AiCell } from './AiCell';
@@ -140,9 +141,9 @@ export function NotebookCell({
   const isRunning = cell.executionState === 'running';
   const isCollapsed = cell.config?.collapsed;
 
-  const handleDelete = useCallback(() => {
+  const handleDelete = useCallback(async () => {
     if (cell.source.trim()) {
-      if (!window.confirm(t('notebook.deleteCellConfirm'))) return;
+      if (!(await confirmDialog({ description: t('notebook.deleteCellConfirm') }))) return;
     }
     onDelete();
   }, [cell.source, onDelete, t]);

@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { confirmDialog } from '@/lib/stores/confirmStore';
 import {
   clearSlowQueries,
   type Environment,
@@ -208,7 +209,7 @@ export function ProfilingPanel() {
   }, [loadData]);
 
   const handleReset = useCallback(async () => {
-    if (window.confirm(t('interceptor.profiling.resetConfirm'))) {
+    if (await confirmDialog({ description: t('interceptor.profiling.resetConfirm') })) {
       try {
         await Promise.all([resetProfilingMetrics(), clearSlowQueries()]);
         loadData();

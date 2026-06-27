@@ -32,6 +32,7 @@ const FEATURE_ANCHORS: Record<ProFeature, string> = {
   data_contracts: 'contracts',
   instant_api: 'instant-api',
   data_generator: 'data-generator',
+  index_suggestions: 'index-suggestions',
 };
 
 function getSiteLocale(): string {

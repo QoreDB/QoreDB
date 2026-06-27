@@ -3,6 +3,7 @@
 import { ChevronDown, ChevronRight, Database, GitBranch, Search, Table2 } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import type { Driver } from '@/lib/connection/drivers';
 import {
   getCostBarColor,
   getCostBarWidth,
@@ -12,12 +13,14 @@ import {
 } from '@/lib/query/explainPlanParser';
 import type { QueryResult } from '@/lib/tauri';
 import { cn } from '@/lib/utils';
+import { IndexSuggestions } from './IndexSuggestions';
 
 interface ExplainPlanViewProps {
   result: QueryResult;
+  dialect?: Driver;
 }
 
-export function ExplainPlanView({ result }: ExplainPlanViewProps) {
+export function ExplainPlanView({ result, dialect }: ExplainPlanViewProps) {
   const { t } = useTranslation();
   const plan = useMemo(() => parseExplainPlan(result), [result]);
 
@@ -39,6 +42,7 @@ export function ExplainPlanView({ result }: ExplainPlanViewProps) {
 
   return (
     <div className="flex-1 overflow-auto p-3">
+      <IndexSuggestions root={plan.root} dialect={dialect} />
       <div className="space-y-0.5">
         <PlanTreeNode node={plan.root} maxCost={plan.rootCost} depth={0} defaultExpanded />
       </div>

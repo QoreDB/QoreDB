@@ -13,6 +13,7 @@ import {
   History,
   Layers,
   Library,
+  Lightbulb,
   Link2,
   Network,
   ShieldCheck,
@@ -55,6 +56,7 @@ const FEATURE_ICONS: Record<ProFeature, LucideIcon> = {
   data_contracts: Braces,
   instant_api: Layers,
   data_generator: Wand2,
+  index_suggestions: Lightbulb,
 };
 
 const FEATURE_FALLBACK_ICON: LucideIcon = Bug;

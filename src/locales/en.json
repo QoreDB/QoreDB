@@ -965,6 +965,15 @@
     "formatSql": "Format SQL",
     "results": "Results",
     "explainNoPlan": "No explain plan available.",
+    "indexSuggestions": {
+      "title": "Index suggestions",
+      "reason": {
+        "seqScan": "Sequential scan on {{table}}",
+        "fullTableScan": "Full table scan on {{table}}"
+      },
+      "cost": "cost {{value}}",
+      "copy": "Copy SQL"
+    },
     "explainPlan": {
       "totalCost": "Total cost",
       "estimatedRows": "Estimated rows",

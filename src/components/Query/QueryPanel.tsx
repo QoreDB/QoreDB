@@ -1081,6 +1081,7 @@ export function QueryPanel({
           environment={environment}
           readOnly={readOnly}
           query={query}
+          dialect={dialect}
           activeNamespace={activeNamespace}
           onSelectResult={setActiveResultId}
           onCloseResult={(resultId: string) => {

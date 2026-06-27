@@ -937,6 +937,15 @@
     "formatSql": "SQL 포맷",
     "results": "결과",
     "explainNoPlan": "사용 가능한 실행 계획이 없습니다.",
+    "indexSuggestions": {
+      "title": "인덱스 제안",
+      "reason": {
+        "seqScan": "{{table}}의 순차 스캔",
+        "fullTableScan": "{{table}}의 전체 테이블 스캔"
+      },
+      "cost": "비용 {{value}}",
+      "copy": "SQL 복사"
+    },
     "explainPlan": {
       "totalCost": "총 비용",
       "estimatedRows": "예상 행 수",

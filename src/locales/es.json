@@ -937,6 +937,15 @@
     "formatSql": "Formatear SQL",
     "results": "Resultados",
     "explainNoPlan": "No hay plan de ejecución disponible.",
+    "indexSuggestions": {
+      "title": "Sugerencias de índice",
+      "reason": {
+        "seqScan": "Escaneo secuencial en {{table}}",
+        "fullTableScan": "Escaneo completo de tabla en {{table}}"
+      },
+      "cost": "coste {{value}}",
+      "copy": "Copiar SQL"
+    },
     "explainPlan": {
       "totalCost": "Coste total",
       "estimatedRows": "Filas estimadas",

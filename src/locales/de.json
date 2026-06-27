@@ -937,6 +937,15 @@
     "formatSql": "SQL formatieren",
     "results": "Ergebnisse",
     "explainNoPlan": "Kein Ausführungsplan verfügbar.",
+    "indexSuggestions": {
+      "title": "Indexvorschläge",
+      "reason": {
+        "seqScan": "Sequentieller Scan auf {{table}}",
+        "fullTableScan": "Vollständiger Tabellenscan auf {{table}}"
+      },
+      "cost": "Kosten {{value}}",
+      "copy": "SQL kopieren"
+    },
     "explainPlan": {
       "totalCost": "Gesamtkosten",
       "estimatedRows": "Geschätzte Zeilen",

@@ -207,6 +207,11 @@ Les fichiers suivants sont actuellement marqués Premium (`BUSL-1.1`), regroupé
 
 - `src-tauri/src/interceptor/profiling.rs`
 
+#### Suggestions d'index
+
+- `src/lib/query/indexSuggestions.ts`
+- `src/components/Results/IndexSuggestions.tsx`
+
 Tout le reste est Core par défaut (`Apache-2.0`), sauf décision explicite contraire.
 
 ### Quand tu crées/déplaces un fichier

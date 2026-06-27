@@ -2339,6 +2339,7 @@
     "generateForTable": "AI로 쿼리 생성",
     "generateForTableHint": "\"{{table}}\" 테이블에 대한 쿼리 생성...",
     "explainResults": "결과 설명",
+    "summarizeResults": "요약",
     "explaining": "결과 분석 중...",
     "defaultProvider": "기본 제공자",
     "defaultProviderDescription": "선호하는 AI 제공자를 선택하세요.",

@@ -196,6 +196,7 @@ export function TabBar({
         <Tooltip content={t('tabs.newQuery', { modifier: getModifierKey() })}>
           <button
             type="button"
+            aria-label={t('tabs.newQuery', { modifier: getModifierKey() })}
             className="flex items-center justify-center w-8 h-8 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--q-accent)]"
             onClick={onNew}
           >

@@ -2367,6 +2367,7 @@
     "generateForTable": "Generate query with AI",
     "generateForTableHint": "Generate a query for the \"{{table}}\" table...",
     "explainResults": "Explain results",
+    "summarizeResults": "Summarize",
     "explaining": "Analyzing results...",
     "defaultProvider": "Default provider",
     "defaultProviderDescription": "Select your preferred AI provider.",

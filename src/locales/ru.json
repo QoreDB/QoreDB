@@ -2339,6 +2339,7 @@
     "generateForTable": "Сгенерировать запрос с AI",
     "generateForTableHint": "Сгенерировать запрос для таблицы \"{{table}}\"…",
     "explainResults": "Объяснить результаты",
+    "summarizeResults": "Резюмировать",
     "explaining": "Анализ результатов…",
     "defaultProvider": "Провайдер по умолчанию",
     "defaultProviderDescription": "Выберите предпочтительного AI-провайдера.",

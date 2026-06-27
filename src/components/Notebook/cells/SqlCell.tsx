@@ -7,6 +7,7 @@ import { SQLEditor } from '@/components/Editor/SQLEditor';
 import type { Driver } from '@/lib/connection/drivers';
 import type { NotebookCell } from '@/lib/notebook/notebookTypes';
 import type { Namespace } from '@/lib/tauri';
+import { CellResultSummary } from '../results/CellResultSummary';
 import { CellResultViewer } from '../results/CellResultViewer';
 
 const DEFAULT_VISIBLE_ROWS = 5;
@@ -75,10 +76,18 @@ export function SqlCell({
             )}
           </button>
           {showResults && cell.lastResult && (
-            <CellResultViewer
-              result={cell.lastResult}
-              maxRows={cell.config?.maxRows ?? DEFAULT_VISIBLE_ROWS}
-            />
+            <>
+              <CellResultViewer
+                result={cell.lastResult}
+                maxRows={cell.config?.maxRows ?? DEFAULT_VISIBLE_ROWS}
+              />
+              <CellResultSummary
+                result={cell.lastResult}
+                query={cell.source}
+                sessionId={sessionId}
+                namespace={namespace}
+              />
+            </>
           )}
         </div>
       )}

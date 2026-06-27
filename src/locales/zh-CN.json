@@ -2339,6 +2339,7 @@
     "generateForTable": "用 AI 生成查询",
     "generateForTableHint": "为“{{table}}”表生成查询…",
     "explainResults": "解释结果",
+    "summarizeResults": "总结",
     "explaining": "正在分析结果…",
     "defaultProvider": "默认提供商",
     "defaultProviderDescription": "选择您首选的 AI 提供商。",

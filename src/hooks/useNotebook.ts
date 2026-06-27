@@ -5,6 +5,7 @@ import { readTextFile, writeTextFile } from '@tauri-apps/plugin-fs';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
+import { confirmDialog } from '@/lib/stores/confirmStore';
 import type { Driver } from '../lib/connection/drivers';
 import { loadContract, runContract } from '../lib/contracts';
 import { exportToHtml, exportToMarkdown } from '../lib/notebook/notebookExport';
@@ -698,7 +699,7 @@ export function useNotebook(options: UseNotebookOptions): UseNotebookReturn {
   const openFromFile = useCallback(async () => {
     try {
       if (isDirty) {
-        const confirmed = window.confirm(t('notebook.unsavedChanges'));
+        const confirmed = await confirmDialog({ description: t('notebook.unsavedChanges') });
         if (!confirmed) return;
       }
       const result = await openNotebookFromFile();

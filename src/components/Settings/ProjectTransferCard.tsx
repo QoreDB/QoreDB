@@ -15,6 +15,7 @@ import {
   importProjectExportV1,
   isProjectExportV1,
 } from '@/lib/share/projectTransfer';
+import { confirmDialog } from '@/lib/stores/confirmStore';
 import { SettingsCard } from './SettingsCard';
 
 interface ProjectTransferCardProps {
@@ -62,7 +63,7 @@ export function ProjectTransferCard({ projectId }: ProjectTransferCardProps) {
   }
 
   async function handleImport() {
-    if (!confirm(t('settings.projectImportConfirm'))) return;
+    if (!(await confirmDialog({ description: t('settings.projectImportConfirm') }))) return;
 
     setImporting(true);
     try {

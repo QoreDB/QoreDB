@@ -16,6 +16,7 @@ import {
   buildConfigBackupV1,
   isConfigBackupV1,
 } from '@/lib/share/configBackup';
+import { confirmDialog } from '@/lib/stores/confirmStore';
 import type { SafetyPolicy } from '@/lib/tauri';
 import { SettingsCard } from './SettingsCard';
 
@@ -66,7 +67,7 @@ export function ConfigBackupCard({
   }
 
   async function handleImport() {
-    if (!confirm(t('settings.configBackupImportConfirm'))) return;
+    if (!(await confirmDialog({ description: t('settings.configBackupImportConfirm') }))) return;
 
     setImporting(true);
     try {

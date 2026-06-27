@@ -10,6 +10,7 @@ import { PluginCard } from '@/components/Plugins/PluginCard';
 import { PluginDetailDialog } from '@/components/Plugins/PluginDetailDialog';
 import { Button } from '@/components/ui/button';
 import { type InstalledPlugin, removePlugin, setPluginEnabled } from '@/lib/plugins';
+import { confirmDialog } from '@/lib/stores/confirmStore';
 import { usePlugins } from '@/providers/PluginProvider';
 import { SettingsCard } from '../SettingsCard';
 import { MarketplaceSection } from './MarketplaceSection';
@@ -93,7 +94,12 @@ function InstalledPluginsTab({ searchQuery }: { searchQuery?: string }) {
   }
 
   async function remove(plugin: InstalledPlugin) {
-    if (!window.confirm(t('plugins.card.removeConfirm', { name: plugin.manifest.name }))) return;
+    if (
+      !(await confirmDialog({
+        description: t('plugins.card.removeConfirm', { name: plugin.manifest.name }),
+      }))
+    )
+      return;
     setBusyId(plugin.manifest.id);
     try {
       await removePlugin(plugin.manifest.id);

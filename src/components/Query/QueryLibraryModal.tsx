@@ -43,6 +43,7 @@ import {
   type QueryLibraryItem,
   updateItem,
 } from '@/lib/query/queryLibrary';
+import { confirmDialog } from '@/lib/stores/confirmStore';
 import { cn } from '@/lib/utils';
 import { useLicense } from '@/providers/LicenseProvider';
 import { QueryVariablesPrompt } from './QueryVariablesPrompt';
@@ -128,10 +129,15 @@ export function QueryLibraryModal({ isOpen, onClose, onSelectQuery }: QueryLibra
     }
   }
 
-  function handleDeleteFolder() {
+  async function handleDeleteFolder() {
     if (folderFilter === '__all__' || folderFilter === '__none__') return;
     const folderName = folderById.get(folderFilter)?.name ?? '';
-    if (!confirm(t('library.deleteFolderConfirm', { name: folderName }))) return;
+    if (
+      !(await confirmDialog({
+        description: t('library.deleteFolderConfirm', { name: folderName }),
+      }))
+    )
+      return;
     deleteFolder(folderFilter);
     setFolderFilter('__all__');
     reload();
@@ -190,8 +196,11 @@ export function QueryLibraryModal({ isOpen, onClose, onSelectQuery }: QueryLibra
     }
   }
 
-  function handleDeleteItem(item: QueryLibraryItem) {
-    if (!confirm(t('library.deleteItemConfirm', { title: item.title }))) return;
+  async function handleDeleteItem(item: QueryLibraryItem) {
+    if (
+      !(await confirmDialog({ description: t('library.deleteItemConfirm', { title: item.title }) }))
+    )
+      return;
     deleteItem(item.id);
     reload();
   }

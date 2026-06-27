@@ -14,7 +14,6 @@ import {
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -35,6 +34,7 @@ import {
   startInstantApi,
   stopInstantApi,
 } from '@/lib/instantApi';
+import { confirmDialog } from '@/lib/stores/confirmStore';
 
 import { EndpointDialog } from './EndpointDialog';
 import { EndpointTokenDialog } from './EndpointTokenDialog';
@@ -95,7 +95,9 @@ export function InstantApiPanel({ open, onClose }: Props) {
   }
 
   async function handleDelete(meta: EndpointMeta) {
-    const ok = window.confirm(t('instantApi.confirmDelete', { name: meta.name }));
+    const ok = await confirmDialog({
+      description: t('instantApi.confirmDelete', { name: meta.name }),
+    });
     if (!ok) return;
     try {
       await deleteEndpoint(meta.id);
@@ -108,7 +110,9 @@ export function InstantApiPanel({ open, onClose }: Props) {
   }
 
   async function handleRegenerate(meta: EndpointMeta) {
-    const ok = window.confirm(t('instantApi.regenerateConfirm', { name: meta.name }));
+    const ok = await confirmDialog({
+      description: t('instantApi.regenerateConfirm', { name: meta.name }),
+    });
     if (!ok) return;
     try {
       const response = await regenerateEndpointToken(meta.id);

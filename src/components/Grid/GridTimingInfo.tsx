@@ -13,17 +13,16 @@ export function GridTimingInfo({ execTimeMs, totalTimeMs }: GridTimingInfoProps)
   if (typeof execTimeMs !== 'number') return null;
 
   return (
-    <span className="flex items-center gap-2 text-xs text-muted-foreground">
+    <span className="flex items-center gap-1.5 text-xs text-muted-foreground/70">
       <span title={t('query.time.execTooltip')}>
-        {t('query.time.exec')}:{' '}
-        <span className="font-mono font-medium text-foreground">{execTimeMs.toFixed(2)}ms</span>
+        {t('query.time.exec')}: <span className="font-mono">{execTimeMs.toFixed(2)}ms</span>
       </span>
       {totalTimeMs !== undefined && (
         <>
           <span className="text-border/50">|</span>
           <span title={t('query.time.totalTooltip')}>
             {t('query.time.total')}:{' '}
-            <span className="font-mono font-bold text-foreground">{totalTimeMs.toFixed(2)}ms</span>
+            <span className="font-mono font-medium">{totalTimeMs.toFixed(2)}ms</span>
           </span>
         </>
       )}

@@ -4,6 +4,7 @@ import { Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { BulkEditButton } from './BulkEditButton';
+import { GridTimingInfo } from './GridTimingInfo';
 
 export interface DataGridHeaderProps {
   selectedCount: number;
@@ -18,6 +19,8 @@ export interface DataGridHeaderProps {
   bulkEditDisabled: boolean;
   bulkEditRequiresPro: boolean;
   onBulkEdit: () => void;
+  execTimeMs?: number;
+  totalTimeMs?: number;
 }
 
 export function DataGridHeader({
@@ -33,6 +36,8 @@ export function DataGridHeader({
   bulkEditDisabled,
   bulkEditRequiresPro,
   onBulkEdit,
+  execTimeMs,
+  totalTimeMs,
 }: DataGridHeaderProps) {
   const { t } = useTranslation();
 
@@ -43,6 +48,8 @@ export function DataGridHeader({
       ) : (
         <span>{t('grid.rowsTotal', { count: totalRows })}</span>
       )}
+
+      {selectedCount === 0 && <GridTimingInfo execTimeMs={execTimeMs} totalTimeMs={totalTimeMs} />}
 
       {canBulkEdit && (
         <BulkEditButton

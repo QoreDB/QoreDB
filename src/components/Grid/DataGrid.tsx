@@ -928,6 +928,8 @@ export function DataGrid({
           bulkEditDisabled={bulkEditDisabled}
           bulkEditRequiresPro={bulkEditRequiresPro}
           onBulkEdit={() => setBulkEditDialogOpen(true)}
+          execTimeMs={result?.execution_time_ms}
+          totalTimeMs={result?.total_time_ms}
         />
 
         <DataGridToolbar
@@ -987,16 +989,9 @@ export function DataGrid({
           totalRows={infiniteScrollTotalRows ?? 0}
           isFetchingMore={infiniteScrollIsFetchingMore ?? false}
           isComplete={infiniteScrollIsComplete ?? false}
-          execTimeMs={result?.execution_time_ms}
-          totalTimeMs={result?.total_time_ms}
         />
       ) : resolvedFooterMode === 'pagination' ? (
-        <DataGridPagination
-          table={table}
-          pagination={pagination}
-          execTimeMs={result?.execution_time_ms}
-          totalTimeMs={result?.total_time_ms}
-        />
+        <DataGridPagination table={table} pagination={pagination} />
       ) : null}
 
       {canStreamExport && exportQuery && (

@@ -2,15 +2,12 @@
 
 import { Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { GridTimingInfo } from './GridTimingInfo';
 
 interface DataGridStatusBarProps {
   loadedRows: number;
   totalRows: number;
   isFetchingMore: boolean;
   isComplete: boolean;
-  execTimeMs?: number;
-  totalTimeMs?: number;
 }
 
 export function DataGridStatusBar({
@@ -18,8 +15,6 @@ export function DataGridStatusBar({
   totalRows,
   isFetchingMore,
   isComplete,
-  execTimeMs,
-  totalTimeMs,
 }: DataGridStatusBarProps) {
   const { t } = useTranslation();
   const percentage = totalRows > 0 ? Math.round((loadedRows / totalRows) * 100) : 100;
@@ -51,7 +46,6 @@ export function DataGridStatusBar({
             {t('grid.infiniteScroll.loading')}
           </span>
         )}
-        <GridTimingInfo execTimeMs={execTimeMs} totalTimeMs={totalTimeMs} />
       </div>
     </div>
   );

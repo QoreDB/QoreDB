@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import { countSqlStatements } from '../../lib/environment';
 import type { Environment, Namespace, QueryResult, Value } from '../../lib/tauri';
 import { DataGrid } from '../Grid/DataGrid';
+import { GridTimingInfo } from '../Grid/GridTimingInfo';
 import { DocumentResults } from '../Results/DocumentResults';
 import { ExplainPlanView } from '../Results/ExplainPlanView';
 import { getCollectionFromQuery } from './queryPanelUtils';
@@ -214,17 +215,27 @@ export function QueryPanelResults({
               </div>
             ) : (
               <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden p-2">
-                <DataGrid
-                  result={activeResult.result}
-                  sessionId={sessionId || undefined}
-                  namespace={exportNamespace}
-                  connectionName={connectionName}
-                  connectionDatabase={connectionDatabase}
-                  environment={environment}
-                  readOnly={readOnly}
-                  exportQuery={activeResult.query}
-                  footerMode="none"
-                />
+                <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+                  <DataGrid
+                    result={activeResult.result}
+                    sessionId={sessionId || undefined}
+                    namespace={exportNamespace}
+                    connectionName={connectionName}
+                    connectionDatabase={connectionDatabase}
+                    environment={environment}
+                    readOnly={readOnly}
+                    exportQuery={activeResult.query}
+                    footerMode="none"
+                  />
+                </div>
+                {activeResult.executionTimeMs !== undefined && (
+                  <div className="flex shrink-0 items-center justify-end px-2 pt-1">
+                    <GridTimingInfo
+                      execTimeMs={activeResult.executionTimeMs}
+                      totalTimeMs={activeResult.totalTimeMs}
+                    />
+                  </div>
+                )}
               </div>
             )
           ) : (

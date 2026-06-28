@@ -277,4 +277,32 @@ mod tests {
         assert!(info.nullable);
         assert_eq!(info.data_type.as_str(), "String");
     }
+
+    // Slicing in `unwrap_modifiers`/`original_inside` is only sound because
+    // `to_ascii_uppercase` preserves byte length and the paren guards keep the
+    // bounds on ASCII boundaries. This pins that invariant: a truncated or
+    // unbalanced declaration must classify gracefully, never panic.
+    #[test]
+    fn malformed_types_do_not_panic() {
+        for decl in [
+            "",
+            "(",
+            ")",
+            "Array(",
+            "Array()",
+            "Array(Int32",
+            "Nullable(",
+            "Nullable(Int32",
+            "LowCardinality(",
+            "LowCardinality(Nullable(",
+            "Map(",
+            "Tuple(",
+            "Décimal(10, 2)",
+        ] {
+            let _ = unwrap_modifiers(decl);
+            let _ = json_to_value(decl, &json!("x"));
+            let _ = json_to_value(decl, &json!([1, 2]));
+            let _ = build_column_info("c", decl);
+        }
+    }
 }

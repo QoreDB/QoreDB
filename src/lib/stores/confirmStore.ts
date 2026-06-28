@@ -28,10 +28,6 @@ function subscribe(listener: () => void): () => void {
   return () => listeners.delete(listener);
 }
 
-/**
- * Promisified replacement for window.confirm() backed by the design-system
- * DangerConfirmDialog. Resolves true on confirm, false on cancel/dismiss.
- */
 export function confirmDialog(options: ConfirmOptions): Promise<boolean> {
   // A new request while one is pending dismisses the previous as cancelled.
   resolver?.(false);

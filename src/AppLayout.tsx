@@ -9,6 +9,7 @@ import {
   UI_EVENT_OPEN_HISTORY,
   UI_EVENT_OPEN_LOGS,
   UI_EVENT_REFRESH_TABLE,
+  UI_EVENT_TOGGLE_SANDBOX,
 } from '@/lib/events/uiEvents';
 import {
   activateSandbox,
@@ -480,6 +481,11 @@ export function AppLayout() {
     if (activeConnection?.environment === 'production')
       notify.warning(t('sandbox.envWarningProduction'));
   }, [activeConnection?.environment, sessionId, t]);
+
+  useEffect(() => {
+    window.addEventListener(UI_EVENT_TOGGLE_SANDBOX, handleToggleSandbox);
+    return () => window.removeEventListener(UI_EVENT_TOGGLE_SANDBOX, handleToggleSandbox);
+  }, [handleToggleSandbox]);
 
   const paletteFeatures = useMemo(
     () =>

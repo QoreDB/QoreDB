@@ -1402,6 +1402,7 @@
     "convertToNotebook": "Convertir en Notebook",
     "fulltextSearch": "Recherche plein texte",
     "refreshData": "Actualiser la table",
+    "toggleSandbox": "Basculer le mode Sandbox",
     "pressToClose": "Appuyez sur ? ou Échap pour fermer",
     "exitZenMode": "Quitter le mode Zen"
   },

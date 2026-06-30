@@ -1374,6 +1374,7 @@
     "convertToNotebook": "ノートブックに変換",
     "fulltextSearch": "全文検索",
     "refreshData": "テーブルを更新",
+    "toggleSandbox": "サンドボックスモードの切り替え",
     "pressToClose": "? または Esc で閉じる",
     "exitZenMode": "Zen モードを終了"
   },

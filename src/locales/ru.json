@@ -1374,6 +1374,7 @@
     "convertToNotebook": "Преобразовать в блокнот",
     "fulltextSearch": "Полнотекстовый поиск",
     "refreshData": "Обновить таблицу",
+    "toggleSandbox": "Переключить режим Sandbox",
     "pressToClose": "Нажмите ? или Esc для закрытия",
     "exitZenMode": "Выйти из режима фокусировки"
   },

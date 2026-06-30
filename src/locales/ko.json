@@ -1374,6 +1374,7 @@
     "convertToNotebook": "노트북으로 변환",
     "fulltextSearch": "전체 텍스트 검색",
     "refreshData": "테이블 새로고침",
+    "toggleSandbox": "샌드박스 모드 전환",
     "pressToClose": "? 또는 Esc를 눌러 닫기",
     "exitZenMode": "집중 모드 종료"
   },

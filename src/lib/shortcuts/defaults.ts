@@ -43,6 +43,13 @@ export const SHORTCUT_DEFINITIONS: ShortcutDefinition[] = [
     worksInTextInput: true,
   },
   {
+    id: 'toggleSandbox',
+    category: 'general',
+    labelKey: 'cheatsheet.toggleSandbox',
+    defaultChord: { modifiers: ['mod', 'shift'], key: 's' },
+    worksInTextInput: true,
+  },
+  {
     id: 'newQuery',
     category: 'tabs',
     labelKey: 'cheatsheet.newQuery',

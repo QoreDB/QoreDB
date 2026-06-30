@@ -33,7 +33,8 @@ export type ShortcutId =
   | 'convertToNotebook'
   | 'openLibrary'
   | 'fulltextSearch'
-  | 'refreshData';
+  | 'refreshData'
+  | 'toggleSandbox';
 
 export interface ShortcutDefinition {
   id: ShortcutId;

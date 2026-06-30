@@ -115,7 +115,9 @@
       "Bash(docker exec *)",
       "Bash(rtk grep *)",
       "Bash(which convert *)",
-      "Bash(convert \"/home/raphael/Images/Copies d'écran/Capture d'écran_20260630_140732.png\" -crop 600x40+70+55 +repage -resize 400% tabs_zoom.png)"
+      "Bash(convert \"/home/raphael/Images/Copies d'écran/Capture d'écran_20260630_140732.png\" -crop 600x40+70+55 +repage -resize 400% tabs_zoom.png)",
+      "Bash(rg -rn \"useUiEvent|UI_EVENT_REFRESH_TABLE\" src/)",
+      "Bash(rg -rln \"useUiEvent\" src/)"
     ]
   }
 }

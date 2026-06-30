@@ -9,7 +9,6 @@ import {
   Lock,
   RefreshCw,
   Server,
-  Shield,
   WifiOff,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -121,19 +120,17 @@ export function StatusBar({ sessionId, connection, connectionHealth = 'healthy' 
 
             <SandboxIndicator sessionId={sessionId} environment={environment} />
 
-            <span
-              className={`flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide rounded-full border ${
-                environment === 'production' ? 'animate-pulse shadow-sm' : ''
-              }`}
-              style={{
-                backgroundColor: environment === 'production' ? envConfig.color : envConfig.bgSoft,
-                color: environment === 'production' ? '#ffffff' : envConfig.color,
-                borderColor: envConfig.color,
-              }}
-            >
-              <Shield size={11} />
-              {envConfig.labelShort}
-            </span>
+            {environment !== 'development' && (
+              <span
+                className="px-1.5 py-0.5 text-[10px] font-bold rounded"
+                style={{
+                  backgroundColor: envConfig.bgSoft,
+                  color: envConfig.color,
+                }}
+              >
+                {envConfig.labelShort}
+              </span>
+            )}
 
             {connection?.read_only && (
               <span className="flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide rounded-full border-2 border-warning bg-warning/20 text-warning">

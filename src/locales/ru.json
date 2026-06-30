@@ -1373,6 +1373,7 @@
     "openLibrary": "Открыть библиотеку",
     "convertToNotebook": "Преобразовать в блокнот",
     "fulltextSearch": "Полнотекстовый поиск",
+    "refreshData": "Обновить таблицу",
     "pressToClose": "Нажмите ? или Esc для закрытия",
     "exitZenMode": "Выйти из режима фокусировки"
   },

@@ -1373,6 +1373,7 @@
     "openLibrary": "Abrir biblioteca",
     "convertToNotebook": "Convertir a Notebook",
     "fulltextSearch": "Búsqueda de texto completo",
+    "refreshData": "Actualizar tabla",
     "pressToClose": "Presiona ? o Esc para cerrar",
     "exitZenMode": "Salir del modo Zen"
   },

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Database, Download, Plus, RefreshCw, Trash2 } from 'lucide-react';
+import { Database, Download, Plus, RefreshCw, Trash2, Upload } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -18,9 +18,12 @@ interface DatabaseContextMenuProps {
   onCreateTable?: () => void;
   onDelete?: () => void;
   onExportSchema?: () => void;
+  onBackup?: () => void;
+  onRestore?: () => void;
   canCreateTable: boolean;
   canDelete: boolean;
   canExportSchema: boolean;
+  canBackup: boolean;
   children: ReactNode;
 }
 
@@ -30,9 +33,12 @@ export function DatabaseContextMenu({
   onCreateTable,
   onDelete,
   onExportSchema,
+  onBackup,
+  onRestore,
   canCreateTable,
   canDelete,
   canExportSchema,
+  canBackup,
   children,
 }: DatabaseContextMenuProps) {
   const { t } = useTranslation();
@@ -55,6 +61,19 @@ export function DatabaseContextMenu({
             <ContextMenuItem onSelect={onExportSchema}>
               <Download size={14} />
               {t('schemaExport.menuItem')}
+            </ContextMenuItem>
+          </>
+        )}
+        {canBackup && onBackup && onRestore && (
+          <>
+            <ContextMenuSeparator />
+            <ContextMenuItem onSelect={onBackup}>
+              <Download size={14} />
+              {t('connection.menu.backup')}
+            </ContextMenuItem>
+            <ContextMenuItem onSelect={onRestore}>
+              <Upload size={14} />
+              {t('connection.menu.restore')}
             </ContextMenuItem>
           </>
         )}

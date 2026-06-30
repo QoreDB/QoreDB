@@ -12,6 +12,7 @@ import {
   List,
   Loader2,
   Plus,
+  RefreshCw,
   Table,
   Trash2,
   X,
@@ -405,14 +406,15 @@ export function TableBrowser({
     [schemaCache, t]
   );
 
+  const handleRefreshData = useCallback(() => {
+    schemaCache.forceRefresh();
+    refresh();
+  }, [schemaCache, refresh]);
+
   useEffect(() => {
-    const handler = () => {
-      schemaCache.forceRefresh();
-      reload();
-    };
-    window.addEventListener(UI_EVENT_REFRESH_TABLE, handler);
-    return () => window.removeEventListener(UI_EVENT_REFRESH_TABLE, handler);
-  }, [reload, schemaCache]);
+    window.addEventListener(UI_EVENT_REFRESH_TABLE, handleRefreshData);
+    return () => window.removeEventListener(UI_EVENT_REFRESH_TABLE, handleRefreshData);
+  }, [handleRefreshData]);
 
   useEffect(() => {
     return onTableChange(event => {
@@ -786,9 +788,21 @@ export function TableBrowser({
             {t('table.info')}
           </span>
         </button>
-        {activeTab === 'data' && cached && (
-          <CacheBadge ageMs={cachedAgeMs ?? 0} onRefresh={refresh} />
-        )}
+        <div className="ml-auto flex items-center gap-1">
+          {activeTab === 'data' && cached ? (
+            <CacheBadge ageMs={cachedAgeMs ?? 0} onRefresh={handleRefreshData} />
+          ) : (
+            <button
+              type="button"
+              onClick={handleRefreshData}
+              aria-label={t('titlebar.menu.data.refresh')}
+              title={t('titlebar.menu.data.refresh')}
+              className="flex items-center justify-center rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <RefreshCw size={14} className={cn(loading && 'animate-spin')} />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Content */}

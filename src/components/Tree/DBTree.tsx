@@ -22,6 +22,8 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { emitTableChange } from '@/lib/events/tableEvents';
+import { openBackupDialog, openRestoreDialog } from '@/lib/stores/modalStore';
+import { DATABASE_NODE_BACKUP_DRIVERS } from '@/lib/tauri/backup';
 import { cn } from '@/lib/utils';
 import { useSchemaCache } from '../../hooks/useSchemaCache';
 import {
@@ -134,6 +136,7 @@ export function DBTree({
   const driverMeta = getDriverMetadata(driver);
   const terminology = getTerminology(driver);
   const schemaObjectCapabilities = getSchemaObjectCapabilities(driver);
+  const canBackupDatabase = !!connection && DATABASE_NODE_BACKUP_DRIVERS.has(driver.toLowerCase());
 
   const sessionId = connectionId;
   const { getNamespaces, invalidateNamespaces } = schemaCache;
@@ -489,9 +492,12 @@ export function DBTree({
                 setSchemaExportNamespace(ns);
                 setSchemaExportOpen(true);
               }}
+              onBackup={connection ? () => openBackupDialog(connection, ns.database) : undefined}
+              onRestore={connection ? () => openRestoreDialog(connection, ns.database) : undefined}
               canCreateTable={driverMeta.supportsSQL && !connection?.read_only}
               canDelete={!connection?.read_only}
               canExportSchema={driverMeta.supportsSQL}
+              canBackup={canBackupDatabase}
             >
               <button
                 type="button"

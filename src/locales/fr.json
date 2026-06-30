@@ -1401,6 +1401,7 @@
     "openLibrary": "Ouvrir la bibliothèque",
     "convertToNotebook": "Convertir en Notebook",
     "fulltextSearch": "Recherche plein texte",
+    "refreshData": "Actualiser la table",
     "pressToClose": "Appuyez sur ? ou Échap pour fermer",
     "exitZenMode": "Quitter le mode Zen"
   },

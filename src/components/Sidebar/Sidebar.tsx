@@ -125,8 +125,8 @@ export function Sidebar({
   const contractsOpen = useModalStore(s => s.contractsOpen);
   const instantApiOpen = useModalStore(s => s.instantApiOpen);
   const proDiscoveryOpen = useModalStore(s => s.proDiscoveryOpen);
-  const backupConnection = useModalStore(s => s.backupConnection);
-  const restoreConnection = useModalStore(s => s.restoreConnection);
+  const backupTarget = useModalStore(s => s.backupTarget);
+  const restoreTarget = useModalStore(s => s.restoreTarget);
 
   const loadConnections = useCallback(async () => {
     try {
@@ -364,7 +364,7 @@ export function Sidebar({
                 value={searchFilter}
                 onChange={e => setSearchFilter(e.target.value)}
                 placeholder={t('sidebar.filterConnections')}
-                className="w-full h-7 pl-8 pr-2 text-xs rounded-md border border-border bg-background text-foreground placeholder:text-muted-foreground/50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--q-accent)]"
+                className="w-full h-7 pl-8 pr-2 text-xs rounded-md border border-border bg-background text-foreground placeholder:text-muted-foreground/50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-(--q-accent)"
               />
             </div>
           </div>
@@ -421,7 +421,7 @@ export function Sidebar({
             <DropdownMenuContent
               side="top"
               align="start"
-              className="w-[var(--radix-dropdown-menu-trigger-width)]"
+              className="w-(--radix-dropdown-menu-trigger-width)"
             >
               <DropdownMenuItem onClick={() => setContractsOpen(true)}>
                 <ShieldCheck size={16} />
@@ -464,13 +464,15 @@ export function Sidebar({
       />
       <InstantApiPanel open={instantApiOpen} onClose={() => setInstantApiOpen(false)} />
       <BackupDialog
-        connection={backupConnection}
-        open={!!backupConnection}
+        connection={backupTarget?.connection ?? null}
+        database={backupTarget?.database ?? null}
+        open={!!backupTarget}
         onClose={closeBackupDialog}
       />
       <RestoreDialog
-        connection={restoreConnection}
-        open={!!restoreConnection}
+        connection={restoreTarget?.connection ?? null}
+        database={restoreTarget?.database ?? null}
+        open={!!restoreTarget}
         onClose={closeRestoreDialog}
       />
       <ProDiscoveryPanel

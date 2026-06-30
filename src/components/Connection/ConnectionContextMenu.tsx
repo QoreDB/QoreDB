@@ -30,22 +30,9 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { openBackupDialog, openRestoreDialog } from '@/lib/stores/modalStore';
+import { CONNECTION_BACKUP_DRIVERS } from '@/lib/tauri/backup';
 import type { SavedConnection } from '../../lib/tauri';
 import { useConnectionActions } from './useConnectionActions';
-
-const BACKUP_SUPPORTED_DRIVERS = new Set([
-  'postgres',
-  'postgresql',
-  'mysql',
-  'mariadb',
-  'mongodb',
-  'sqlite',
-  'duckdb',
-  'supabase',
-  'neon',
-  'timescaledb',
-  'cockroachdb',
-]);
 
 interface ConnectionContextMenuProps {
   connection: SavedConnection;
@@ -120,7 +107,7 @@ export function ConnectionContextMenu({
               {isFavorite ? t('sidebar.removeFromFavorites') : t('sidebar.addToFavorites')}
             </ContextMenuItem>
           )}
-          {BACKUP_SUPPORTED_DRIVERS.has(connection.driver.toLowerCase()) && (
+          {CONNECTION_BACKUP_DRIVERS.has(connection.driver.toLowerCase()) && (
             <>
               <ContextMenuItem onSelect={() => openBackupDialog(connection)}>
                 <Download size={14} />

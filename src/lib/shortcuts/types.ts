@@ -32,7 +32,8 @@ export type ShortcutId =
   | 'newConnection'
   | 'convertToNotebook'
   | 'openLibrary'
-  | 'fulltextSearch';
+  | 'fulltextSearch'
+  | 'refreshData';
 
 export interface ShortcutDefinition {
   id: ShortcutId;

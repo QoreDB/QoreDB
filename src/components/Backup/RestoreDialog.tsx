@@ -33,6 +33,7 @@ import {
 
 interface RestoreDialogProps {
   connection: SavedConnection | null;
+  database: string | null;
   open: boolean;
   onClose: () => void;
 }
@@ -55,7 +56,7 @@ function defaultExtensionsForDriver(driver: string): string[] {
   return ['sql'];
 }
 
-export function RestoreDialog({ connection, open: isOpen, onClose }: RestoreDialogProps) {
+export function RestoreDialog({ connection, database, open: isOpen, onClose }: RestoreDialogProps) {
   const { t } = useTranslation();
   const [format, setFormat] = useState<BackupFormat>('sql');
   const [password, setPassword] = useState('');
@@ -91,7 +92,10 @@ export function RestoreDialog({ connection, open: isOpen, onClose }: RestoreDial
   const driver = connection?.driver ?? 'postgres';
   const isPostgres = PG_DRIVERS.has(driver);
   const isDuckdb = driver === 'duckdb';
-  const expectedDb = connection?.database ?? '';
+  const expectedDb = database ?? '';
+  // File-based engines store a path in `database`, unfit for a title.
+  const titleName =
+    driver === 'sqlite' || isDuckdb ? connection?.name : (database ?? connection?.name);
   // Confirmation only required when actually targeting a named database
   const requiresConfirm = !!expectedDb;
   const confirmOk = !requiresConfirm || confirmDb.trim() === expectedDb;
@@ -124,7 +128,7 @@ export function RestoreDialog({ connection, open: isOpen, onClose }: RestoreDial
       port: connection.port,
       username: connection.username || null,
       password: password || null,
-      database: connection.database ?? null,
+      database: database ?? null,
       input_path: inputPath,
       format,
     };
@@ -158,7 +162,7 @@ export function RestoreDialog({ connection, open: isOpen, onClose }: RestoreDial
       setCancelling(false);
       setError(e instanceof Error ? e.message : String(e));
     }
-  }, [connection, confirmOk, driver, format, inputPath, password, t]);
+  }, [connection, database, confirmOk, driver, format, inputPath, password, t]);
 
   const handleCancel = useCallback(async () => {
     if (!jobId || cancelling) return;
@@ -177,7 +181,7 @@ export function RestoreDialog({ connection, open: isOpen, onClose }: RestoreDial
     <Dialog open={isOpen} onOpenChange={o => !o && onClose()}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>{t('restore.dialogTitle', { name: connection.name })}</DialogTitle>
+          <DialogTitle>{t('restore.dialogTitle', { name: titleName })}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 py-2">

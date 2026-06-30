@@ -25,6 +25,28 @@ export type BackupMode = 'full' | 'schema_only' | 'data_only';
 
 export type BackupFormat = 'sql' | 'postgres_custom' | 'mongo_archive';
 
+/**
+ * Drivers where a connection maps to a single database (PostgreSQL family +
+ * file-based engines). Backup/restore lives on the connection itself: the tree
+ * only exposes schemas of that one database, never sibling databases.
+ */
+export const CONNECTION_BACKUP_DRIVERS = new Set([
+  'postgres',
+  'postgresql',
+  'supabase',
+  'neon',
+  'timescaledb',
+  'cockroachdb',
+  'sqlite',
+  'duckdb',
+]);
+
+/**
+ * Drivers whose tree lists real sibling databases. Backup/restore lives on the
+ * database node so each action targets exactly the database it sits under.
+ */
+export const DATABASE_NODE_BACKUP_DRIVERS = new Set(['mysql', 'mariadb', 'mongodb']);
+
 export interface BackupToolInfo {
   tool: BackupTool;
   binary_name: string;

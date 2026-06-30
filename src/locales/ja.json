@@ -1373,6 +1373,7 @@
     "openLibrary": "ライブラリを開く",
     "convertToNotebook": "ノートブックに変換",
     "fulltextSearch": "全文検索",
+    "refreshData": "テーブルを更新",
     "pressToClose": "? または Esc で閉じる",
     "exitZenMode": "Zen モードを終了"
   },

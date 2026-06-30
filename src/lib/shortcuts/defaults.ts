@@ -36,6 +36,13 @@ export const SHORTCUT_DEFINITIONS: ShortcutDefinition[] = [
     defaultChord: { modifiers: [], key: 'Escape' },
   },
   {
+    id: 'refreshData',
+    category: 'general',
+    labelKey: 'cheatsheet.refreshData',
+    defaultChord: { modifiers: ['mod'], key: 'r' },
+    worksInTextInput: true,
+  },
+  {
     id: 'newQuery',
     category: 'tabs',
     labelKey: 'cheatsheet.newQuery',

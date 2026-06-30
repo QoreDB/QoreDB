@@ -35,6 +35,7 @@ import {
 
 interface BackupDialogProps {
   connection: SavedConnection | null;
+  database: string | null;
   open: boolean;
   onClose: () => void;
 }
@@ -56,7 +57,7 @@ function defaultExtension(driver: string, format: BackupFormat): string {
   return 'sql';
 }
 
-export function BackupDialog({ connection, open, onClose }: BackupDialogProps) {
+export function BackupDialog({ connection, database, open, onClose }: BackupDialogProps) {
   const { t } = useTranslation();
   const [mode, setMode] = useState<BackupMode>('full');
   const [format, setFormat] = useState<BackupFormat>('sql');
@@ -95,6 +96,9 @@ export function BackupDialog({ connection, open, onClose }: BackupDialogProps) {
   const driver = connection?.driver ?? 'postgres';
   const isPostgres = PG_DRIVERS.has(driver);
   const isDuckdb = driver === 'duckdb';
+  // File-based engines store a path in `database`, unfit for a title.
+  const titleName =
+    driver === 'sqlite' || isDuckdb ? connection?.name : (database ?? connection?.name);
 
   const pickOutput = useCallback(async () => {
     if (!connection) return;
@@ -105,13 +109,13 @@ export function BackupDialog({ connection, open, onClose }: BackupDialogProps) {
       return;
     }
     const ext = defaultExtension(driver, format);
-    const suggested = `${connection.name}-${new Date().toISOString().slice(0, 10)}.${ext}`;
+    const suggested = `${database ?? connection.name}-${new Date().toISOString().slice(0, 10)}.${ext}`;
     const chosen = await save({
       defaultPath: suggested,
       filters: [{ name: ext.toUpperCase(), extensions: [ext] }],
     });
     if (chosen) setOutputPath(chosen);
-  }, [connection, driver, format, isDuckdb]);
+  }, [connection, database, driver, format, isDuckdb]);
 
   const handleStart = useCallback(async () => {
     if (!connection || !outputPath) return;
@@ -133,7 +137,7 @@ export function BackupDialog({ connection, open, onClose }: BackupDialogProps) {
       port: connection.port,
       username: connection.username || null,
       password: password || null,
-      database: connection.database ?? null,
+      database: database ?? null,
       tables,
       output_path: outputPath,
     };
@@ -170,7 +174,7 @@ export function BackupDialog({ connection, open, onClose }: BackupDialogProps) {
       setCancelling(false);
       setError(e instanceof Error ? e.message : String(e));
     }
-  }, [connection, driver, format, mode, outputPath, password, tablesRaw, t]);
+  }, [connection, database, driver, format, mode, outputPath, password, tablesRaw, t]);
 
   const handleCancel = useCallback(async () => {
     if (!jobId || cancelling) return;
@@ -189,7 +193,7 @@ export function BackupDialog({ connection, open, onClose }: BackupDialogProps) {
     <Dialog open={open} onOpenChange={o => !o && onClose()}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>{t('backup.dialogTitle', { name: connection.name })}</DialogTitle>
+          <DialogTitle>{t('backup.dialogTitle', { name: titleName })}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 py-2">

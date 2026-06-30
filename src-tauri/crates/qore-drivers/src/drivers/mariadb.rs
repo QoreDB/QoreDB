@@ -17,6 +17,7 @@ use qore_core::types::{
     CancelSupport, CollectionList, CollectionListOptions, ConnectionConfig, CreationOptions,
     DriverCapabilities, EventDefinition, EventList, EventListOptions, EventOperationResult,
     ForeignKey, MaintenanceOperationInfo, MaintenanceRequest, MaintenanceResult, Namespace,
+    TruncateAllResult,
     PaginatedQueryResult, QueryId, QueryResult, RoutineDefinition, RoutineList, RoutineListOptions,
     RoutineOperationResult, RoutineType, RowData, Sequence, SequenceDefinition, SequenceList,
     SequenceListOptions, SequenceOperationResult, SessionId, TableQueryOptions, TableSchema,
@@ -605,6 +606,18 @@ impl DataEngine for MariaDbDriver {
         self.inner
             .run_maintenance(session, namespace, table, request)
             .await
+    }
+
+    fn supports_truncate_all(&self) -> bool {
+        self.inner.supports_truncate_all()
+    }
+
+    async fn truncate_all(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+    ) -> EngineResult<TruncateAllResult> {
+        self.inner.truncate_all(session, namespace).await
     }
 
     fn capabilities(&self) -> DriverCapabilities {

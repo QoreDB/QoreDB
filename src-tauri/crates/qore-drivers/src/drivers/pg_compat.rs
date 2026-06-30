@@ -31,7 +31,8 @@ use qore_core::types::{
     Namespace, PaginatedQueryResult, QueryId, QueryResult, Routine, RoutineDefinition, RoutineList,
     RoutineListOptions, RoutineOperationResult, RoutineType, RowData, SessionId, SortDirection,
     TableColumn, TableIndex, TableQueryOptions, TableSchema, Trigger, TriggerDefinition,
-    TriggerEvent, TriggerList, TriggerListOptions, TriggerOperationResult, TriggerTiming, Value,
+    TriggerEvent, TriggerList, TriggerListOptions, TriggerOperationResult, TriggerTiming,
+    TruncateAllResult, Value,
 };
 use qore_sql::safety;
 
@@ -207,6 +208,86 @@ pub async fn run_maintenance(
         messages: vec![MaintenanceMessage {
             level: MaintenanceMessageLevel::Info,
             text: "Operation completed successfully".into(),
+        }],
+        execution_time_ms,
+        success: true,
+    })
+}
+
+/// Truncates all base tables in a namespace. When `namespace.schema` is set,
+/// only that schema is truncated; otherwise every user schema in the database
+/// is truncated. A single `TRUNCATE ... RESTART IDENTITY CASCADE` lets the
+/// engine resolve foreign-key dependencies.
+pub async fn truncate_all(
+    sessions: &SessionMap,
+    session: SessionId,
+    namespace: &Namespace,
+    driver_label: &str,
+) -> EngineResult<TruncateAllResult> {
+    let pg = get_session(sessions, session).await?;
+
+    let tables: Vec<(String, String)> = if let Some(schema) = namespace.schema.as_deref() {
+        sqlx::query_as::<_, (String, String)>(
+            "SELECT table_schema, table_name FROM information_schema.tables \
+             WHERE table_schema = $1 AND table_type = 'BASE TABLE' \
+             ORDER BY table_name",
+        )
+        .bind(schema)
+        .fetch_all(&pg.pool)
+        .await
+    } else {
+        sqlx::query_as::<_, (String, String)>(
+            "SELECT table_schema, table_name FROM information_schema.tables \
+             WHERE table_type = 'BASE TABLE' \
+             AND table_schema NOT IN ('pg_catalog', 'information_schema') \
+             AND table_schema NOT LIKE 'pg_toast%' \
+             ORDER BY table_schema, table_name",
+        )
+        .fetch_all(&pg.pool)
+        .await
+    }
+    .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+    if tables.is_empty() {
+        return Ok(TruncateAllResult {
+            executed_command: String::new(),
+            truncated_tables: Vec::new(),
+            messages: vec![MaintenanceMessage {
+                level: MaintenanceMessageLevel::Info,
+                text: "No tables to truncate".into(),
+            }],
+            execution_time_ms: 0.0,
+            success: true,
+        });
+    }
+
+    let qualified: Vec<String> = tables
+        .iter()
+        .map(|(schema, table)| format!("{}.{}", quote_ident(schema), quote_ident(table)))
+        .collect();
+    let truncated_tables: Vec<String> = tables
+        .iter()
+        .map(|(schema, table)| format!("{schema}.{table}"))
+        .collect();
+    let sql = format!(
+        "TRUNCATE TABLE {} RESTART IDENTITY CASCADE",
+        qualified.join(", ")
+    );
+
+    let start = Instant::now();
+    sqlx::query(&sql).execute(&pg.pool).await.map_err(|e| {
+        tracing::error!("{}: Failed to truncate all tables: {}", driver_label, e);
+        EngineError::execution_error(e.to_string())
+    })?;
+    let execution_time_ms = start.elapsed().as_micros() as f64 / 1000.0;
+
+    let count = truncated_tables.len();
+    Ok(TruncateAllResult {
+        executed_command: sql,
+        truncated_tables,
+        messages: vec![MaintenanceMessage {
+            level: MaintenanceMessageLevel::Info,
+            text: format!("Truncated {count} table(s)"),
         }],
         execution_time_ms,
         success: true,

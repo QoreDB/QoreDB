@@ -118,7 +118,8 @@ impl ChangelogStore {
         let config = self.config.read().clone();
         match serde_json::to_string_pretty(&config) {
             Ok(json) => {
-                if let Err(e) = crate::atomic_write::write_atomic(&self.config_path, json.as_bytes())
+                if let Err(e) =
+                    crate::atomic_write::write_atomic(&self.config_path, json.as_bytes())
                 {
                     error!("Failed to write time-travel config: {}", e);
                 }

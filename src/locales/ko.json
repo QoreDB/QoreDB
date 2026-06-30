@@ -1441,6 +1441,7 @@
     "keys": "키",
     "open": "열기",
     "refresh": "새로고침",
+    "tools": "데이터베이스 도구",
     "noCollections": "테이블 없음",
     "noDocuments": "문서 없음",
     "loadMore": "더 보기",
@@ -1520,6 +1521,15 @@
     "confirmProduction": "프로덕션 환경입니다. 확인하려면 테이블 이름을 입력하세요:",
     "success": "테이블 \"{{name}}\"이(가) 성공적으로 삭제되었습니다",
     "failed": "테이블 삭제에 실패했습니다"
+  },
+  "truncateAll": {
+    "menuItem": "모든 테이블 비우기",
+    "menuItemDocument": "모든 컬렉션 비우기",
+    "description": "\"{{name}}\"의 모든 테이블의 전체 행이 삭제됩니다. 이 작업은 취소할 수 없습니다.",
+    "descriptionDocument": "\"{{name}}\"의 모든 컬렉션이 비워집니다. 이 작업은 취소할 수 없습니다.",
+    "confirm": "비우기",
+    "success": "{{count}}개 비움",
+    "failed": "비우기 실패"
   },
   "dropDatabase": {
     "menuItem": "데이터베이스 삭제",

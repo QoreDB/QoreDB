@@ -26,7 +26,9 @@ import { logError } from '../../lib/diagnostics/errorLog';
 import {
   ENVIRONMENT_CONFIG,
   getDangerousQueryTarget,
+  getDropDatabaseDocumentTarget,
   isDangerousQuery,
+  isDropDatabaseDocumentQuery,
   isDropDatabaseQuery,
   isMutationQuery,
 } from '../../lib/environment';
@@ -620,11 +622,15 @@ export function QueryPanel({
         return;
       }
 
-      const isDangerous = !isDocument && isDangerousQuery(queryToRun);
+      const isDocumentDropDatabase = isDocument && isDropDatabaseDocumentQuery(queryToRun);
+      const isDangerous = (!isDocument && isDangerousQuery(queryToRun)) || isDocumentDropDatabase;
       if (isDangerous) {
         const fallbackLabel = (connectionDatabase || connectionName || 'PROD').trim() || 'PROD';
-        const target = getDangerousQueryTarget(queryToRun);
-        const isDropDatabase = !isDocument && isDropDatabaseQuery(queryToRun);
+        const target = isDocumentDropDatabase
+          ? (getDropDatabaseDocumentTarget(queryToRun) ?? activeNamespace?.database ?? null)
+          : getDangerousQueryTarget(queryToRun);
+        const isDropDatabase =
+          isDocumentDropDatabase || (!isDocument && isDropDatabaseQuery(queryToRun));
         const requiresTyping = environment === 'production' || isDropDatabase;
         const warningInfoParts = [];
         if (target) {
@@ -659,6 +665,7 @@ export function QueryPanel({
       connectionDatabase,
       connectionName,
       queryDialect,
+      activeNamespace,
     ]
   );
 

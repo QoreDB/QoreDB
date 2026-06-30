@@ -15,6 +15,7 @@ use qore_core::traits::{DataEngine, StreamSender};
 use qore_core::types::{
     CancelSupport, Collection, CollectionList, CollectionListOptions, CollectionType,
     ConnectionConfig, ForeignKey, MaintenanceOperationInfo, MaintenanceRequest, MaintenanceResult,
+    TruncateAllResult,
     Namespace, PaginatedQueryResult, QueryId, QueryResult, RoutineDefinition, RoutineList,
     RoutineListOptions, RoutineOperationResult, RoutineType, RowData, SessionId, TableQueryOptions,
     TableSchema, TriggerDefinition, TriggerList, TriggerListOptions, TriggerOperationResult, Value,
@@ -510,6 +511,18 @@ impl DataEngine for PostgresDriver {
         request: &MaintenanceRequest,
     ) -> EngineResult<MaintenanceResult> {
         pg_compat::run_maintenance(&self.sessions, session, namespace, table, request).await
+    }
+
+    fn supports_truncate_all(&self) -> bool {
+        true
+    }
+
+    async fn truncate_all(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+    ) -> EngineResult<TruncateAllResult> {
+        pg_compat::truncate_all(&self.sessions, session, namespace, "Postgres").await
     }
 
     fn supports_streaming(&self) -> bool {

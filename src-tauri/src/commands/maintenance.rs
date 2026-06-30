@@ -9,12 +9,13 @@ use tracing::instrument;
 
 use super::{parse_session_id, SharedStateExt};
 use crate::engine::types::{
-    MaintenanceOperationInfo, MaintenanceRequest, MaintenanceResult, Namespace,
+    MaintenanceOperationInfo, MaintenanceRequest, MaintenanceResult, Namespace, TruncateAllResult,
 };
 use crate::interceptor::{map_environment, QueryExecutionResult, SafetyAction};
 
 const READ_ONLY_BLOCKED: &str = "Operation blocked: read-only mode";
 const MAINTENANCE_NOT_SUPPORTED: &str = "Maintenance operations are not supported by this driver";
+const TRUNCATE_ALL_NOT_SUPPORTED: &str = "Truncate all is not supported by this driver";
 const DANGEROUS_BLOCKED: &str = "Dangerous query blocked: confirmation required";
 const SAFETY_RULE_BLOCKED: &str = "Query blocked by safety rule";
 
@@ -29,6 +30,13 @@ pub struct MaintenanceListResponse {
 pub struct MaintenanceRunResponse {
     pub success: bool,
     pub result: Option<MaintenanceResult>,
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct TruncateAllResponse {
+    pub success: bool,
+    pub result: Option<TruncateAllResult>,
     pub error: Option<String>,
 }
 
@@ -233,6 +241,156 @@ pub async fn run_maintenance(
                 safety_warning.as_deref(),
             );
             Ok(MaintenanceRunResponse {
+                success: false,
+                result: None,
+                error: Some(e.sanitized_message()),
+            })
+        }
+    }
+}
+
+#[tauri::command]
+#[instrument(skip(state), fields(session_id = %session_id, database = %database, schema = ?schema))]
+pub async fn truncate_all(
+    state: State<'_, crate::SharedState>,
+    session_id: String,
+    database: String,
+    schema: Option<String>,
+    acknowledged_dangerous: Option<bool>,
+) -> Result<TruncateAllResponse, String> {
+    let (session_manager, interceptor) = {
+        let state = state.lock().await;
+        (
+            Arc::clone(&state.session_manager),
+            Arc::clone(&state.interceptor),
+        )
+    };
+    let session = parse_session_id(&session_id)?;
+
+    let read_only = session_manager
+        .is_read_only(session)
+        .await
+        .map_err(|e| e.sanitized_message())?;
+    if read_only {
+        return Ok(TruncateAllResponse {
+            success: false,
+            result: None,
+            error: Some(READ_ONLY_BLOCKED.to_string()),
+        });
+    }
+
+    let driver = session_manager
+        .get_driver(session)
+        .await
+        .map_err(|e| e.sanitized_message())?;
+
+    if !driver.supports_truncate_all() {
+        return Ok(TruncateAllResponse {
+            success: false,
+            result: None,
+            error: Some(TRUNCATE_ALL_NOT_SUPPORTED.to_string()),
+        });
+    }
+
+    let environment = session_manager
+        .get_environment(session)
+        .await
+        .unwrap_or_else(|_| "development".to_string());
+    let interceptor_env = map_environment(&environment);
+
+    let query_preview = format!("TRUNCATE ALL TABLES IN {database}");
+    let acknowledged = acknowledged_dangerous.unwrap_or(false);
+    let interceptor_context = interceptor.build_context(
+        &session_id,
+        &query_preview,
+        driver.driver_id(),
+        interceptor_env,
+        read_only,
+        acknowledged,
+        Some(&database),
+        None,
+        true,
+    );
+
+    let safety_result = interceptor.pre_execute(&interceptor_context);
+    if !safety_result.allowed {
+        interceptor.post_execute(
+            &interceptor_context,
+            &QueryExecutionResult {
+                success: false,
+                error: safety_result.message.clone(),
+                execution_time_ms: 0.0,
+                row_count: None,
+            },
+            true,
+            safety_result.triggered_rule.as_deref(),
+        );
+
+        let error_msg = match safety_result.action {
+            SafetyAction::Block => {
+                format!(
+                    "{}: {}",
+                    SAFETY_RULE_BLOCKED,
+                    safety_result.message.unwrap_or_default()
+                )
+            }
+            SafetyAction::RequireConfirmation => {
+                format!(
+                    "{}: {}",
+                    DANGEROUS_BLOCKED,
+                    safety_result.message.unwrap_or_default()
+                )
+            }
+            SafetyAction::Warn => "Warning triggered".to_string(),
+        };
+
+        return Ok(TruncateAllResponse {
+            success: false,
+            result: None,
+            error: Some(error_msg),
+        });
+    }
+
+    let safety_warning = if matches!(safety_result.action, SafetyAction::Warn) {
+        safety_result.triggered_rule.clone()
+    } else {
+        None
+    };
+
+    let namespace = Namespace { database, schema };
+
+    match driver.truncate_all(session, &namespace).await {
+        Ok(result) => {
+            interceptor.post_execute(
+                &interceptor_context,
+                &QueryExecutionResult {
+                    success: result.success,
+                    error: None,
+                    execution_time_ms: result.execution_time_ms,
+                    row_count: None,
+                },
+                false,
+                safety_warning.as_deref(),
+            );
+            Ok(TruncateAllResponse {
+                success: true,
+                result: Some(result),
+                error: None,
+            })
+        }
+        Err(e) => {
+            interceptor.post_execute(
+                &interceptor_context,
+                &QueryExecutionResult {
+                    success: false,
+                    error: Some(e.sanitized_message()),
+                    execution_time_ms: 0.0,
+                    row_count: None,
+                },
+                false,
+                safety_warning.as_deref(),
+            );
+            Ok(TruncateAllResponse {
                 success: false,
                 result: None,
                 error: Some(e.sanitized_message()),

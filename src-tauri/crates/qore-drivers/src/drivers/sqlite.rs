@@ -35,6 +35,7 @@ use qore_core::types::{
     CancelSupport, Collection, CollectionList, CollectionListOptions, CollectionType, ColumnInfo,
     ConnectionConfig, FilterOperator, ForeignKey, MaintenanceMessage, MaintenanceMessageLevel,
     MaintenanceOperationInfo, MaintenanceOperationType, MaintenanceRequest, MaintenanceResult,
+    TruncateAllResult,
     Namespace, PaginatedQueryResult, QueryId, QueryResult, Row as QRow, RowData, SessionId,
     SortDirection, TableColumn, TableIndex, TableQueryOptions, TableSchema, Trigger, TriggerEvent,
     TriggerList, TriggerListOptions, TriggerOperationResult, TriggerTiming, Value,
@@ -1676,6 +1677,92 @@ impl DataEngine for SqliteDriver {
             })
         }
     }
+
+    fn supports_truncate_all(&self) -> bool {
+        true
+    }
+
+    async fn truncate_all(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+    ) -> EngineResult<TruncateAllResult> {
+        let _ = namespace;
+        let sqlite_session = self.get_session(session).await?;
+
+        let tables: Vec<String> = sqlx::query_scalar::<_, String>(
+            "SELECT name FROM sqlite_master \
+             WHERE type = 'table' AND name NOT LIKE 'sqlite_%' \
+             ORDER BY name",
+        )
+        .fetch_all(&sqlite_session.pool)
+        .await
+        .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        if tables.is_empty() {
+            return Ok(TruncateAllResult {
+                executed_command: String::new(),
+                truncated_tables: Vec::new(),
+                messages: vec![MaintenanceMessage {
+                    level: MaintenanceMessageLevel::Info,
+                    text: "No tables to truncate".into(),
+                }],
+                execution_time_ms: 0.0,
+                success: true,
+            });
+        }
+
+        // PRAGMA foreign_keys is connection-scoped and ignored inside a
+        // transaction, so disable it on a dedicated connection before deleting.
+        let mut conn = sqlite_session
+            .pool
+            .acquire()
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        sqlx::query("PRAGMA foreign_keys = OFF")
+            .execute(&mut *conn)
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        let start = Instant::now();
+        let mut executed = Vec::with_capacity(tables.len());
+        for table in &tables {
+            let stmt = format!("DELETE FROM {}", Self::quote_ident(table));
+            if let Err(e) = sqlx::query(&stmt).execute(&mut *conn).await {
+                let _ = sqlx::query("PRAGMA foreign_keys = ON")
+                    .execute(&mut *conn)
+                    .await;
+                return Err(EngineError::execution_error(e.to_string()));
+            }
+            executed.push(stmt);
+        }
+
+        // Reset AUTOINCREMENT counters; best-effort (the table only exists when
+        // an AUTOINCREMENT column has been used).
+        let _ = sqlx::query("DELETE FROM sqlite_sequence")
+            .execute(&mut *conn)
+            .await;
+
+        sqlx::query("PRAGMA foreign_keys = ON")
+            .execute(&mut *conn)
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        let execution_time_ms = start.elapsed().as_micros() as f64 / 1000.0;
+        let count = tables.len();
+
+        Ok(TruncateAllResult {
+            executed_command: executed.join(";\n"),
+            truncated_tables: tables,
+            messages: vec![MaintenanceMessage {
+                level: MaintenanceMessageLevel::Info,
+                text: format!("Truncated {count} table(s)"),
+            }],
+            execution_time_ms,
+            success: true,
+        })
+    }
 }
 
 #[cfg(test)]
@@ -1771,6 +1858,88 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(result.rows.len(), 1);
+
+        driver.disconnect(session_id).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_truncate_all() {
+        let driver = SqliteDriver::new();
+        let dir = tempdir().unwrap();
+        let db_path = dir.path().join("truncate.db");
+
+        let config = ConnectionConfig {
+            driver: "sqlite".to_string(),
+            host: db_path.to_string_lossy().to_string(),
+            port: 0,
+            username: String::new(),
+            password: String::new(),
+            database: None,
+            ssl: false,
+            ssl_mode: None,
+            environment: "development".to_string(),
+            read_only: false,
+            ssh_tunnel: None,
+            pool_acquire_timeout_secs: None,
+            pool_max_connections: None,
+            pool_min_connections: None,
+            proxy: None,
+            mssql_auth: None,
+            clickhouse_cluster: None,
+            search_auth_mode: None,
+            ssl_ca_cert: None,
+        };
+
+        let session_id = driver.connect(&config).await.unwrap();
+
+        driver
+            .execute(
+                session_id,
+                "CREATE TABLE parent (id INTEGER PRIMARY KEY)",
+                QueryId::new(),
+            )
+            .await
+            .unwrap();
+        driver
+            .execute(
+                session_id,
+                "CREATE TABLE child (id INTEGER PRIMARY KEY, parent_id INTEGER REFERENCES parent(id))",
+                QueryId::new(),
+            )
+            .await
+            .unwrap();
+        driver
+            .execute(
+                session_id,
+                "INSERT INTO parent (id) VALUES (1)",
+                QueryId::new(),
+            )
+            .await
+            .unwrap();
+        driver
+            .execute(
+                session_id,
+                "INSERT INTO child (id, parent_id) VALUES (1, 1)",
+                QueryId::new(),
+            )
+            .await
+            .unwrap();
+
+        let namespace = Namespace::new("main");
+        let result = driver.truncate_all(session_id, &namespace).await.unwrap();
+        assert!(result.success);
+        assert_eq!(result.truncated_tables.len(), 2);
+
+        let parent = driver
+            .execute(session_id, "SELECT * FROM parent", QueryId::new())
+            .await
+            .unwrap();
+        assert_eq!(parent.rows.len(), 0);
+        let child = driver
+            .execute(session_id, "SELECT * FROM child", QueryId::new())
+            .await
+            .unwrap();
+        assert_eq!(child.rows.len(), 0);
 
         driver.disconnect(session_id).await.unwrap();
     }

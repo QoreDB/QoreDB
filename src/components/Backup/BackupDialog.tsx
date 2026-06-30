@@ -210,7 +210,6 @@ export function BackupDialog({ connection, database, open, onClose }: BackupDial
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="full">{t('backup.modeFull')}</SelectItem>
-                  <SelectItem value="schema_only">{t('backup.modeSchemaOnly')}</SelectItem>
                   <SelectItem value="data_only">{t('backup.modeDataOnly')}</SelectItem>
                 </SelectContent>
               </Select>

@@ -271,6 +271,9 @@ export function Sidebar({
       <div key={connection.id}>
         <ConnectionItem
           connection={connection}
+          sessionId={
+            connectedConnectionId === connection.id ? (connectedSessionId ?? undefined) : undefined
+          }
           isSelected={selectedId === connection.id}
           isExpanded={expandedId === connection.id}
           isConnected={connectedConnectionId === connection.id}

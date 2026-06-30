@@ -1273,3 +1273,18 @@ pub struct MaintenanceResult {
     /// Whether the operation succeeded
     pub success: bool,
 }
+
+/// Result of a "truncate all tables" operation
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TruncateAllResult {
+    /// The command(s) that were executed
+    pub executed_command: String,
+    /// Names of the tables that were truncated
+    pub truncated_tables: Vec<String>,
+    /// Status messages returned by the database
+    pub messages: Vec<MaintenanceMessage>,
+    /// Execution time in milliseconds
+    pub execution_time_ms: f64,
+    /// Whether the operation succeeded
+    pub success: bool,
+}

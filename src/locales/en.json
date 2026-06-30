@@ -1469,6 +1469,7 @@
     "keys": "Keys",
     "open": "Open",
     "refresh": "Refresh",
+    "tools": "Database tools",
     "noCollections": "No tables",
     "noDocuments": "No documents",
     "loadMore": "Load more",
@@ -1548,6 +1549,15 @@
     "confirmProduction": "You are in PRODUCTION. Type the table name to confirm:",
     "success": "Table \"{{name}}\" dropped successfully",
     "failed": "Failed to drop table"
+  },
+  "truncateAll": {
+    "menuItem": "Truncate all tables",
+    "menuItemDocument": "Empty all collections",
+    "description": "All rows in every table of \"{{name}}\" will be deleted. This action cannot be undone.",
+    "descriptionDocument": "All collections in \"{{name}}\" will be emptied. This action cannot be undone.",
+    "confirm": "Truncate",
+    "success": "Emptied {{count}} item(s)",
+    "failed": "Failed to truncate"
   },
   "dropDatabase": {
     "menuItem": "Delete Database",

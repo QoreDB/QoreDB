@@ -1441,6 +1441,7 @@
     "keys": "キー",
     "open": "開く",
     "refresh": "更新",
+    "tools": "データベースツール",
     "noCollections": "テーブルなし",
     "noDocuments": "ドキュメントなし",
     "loadMore": "さらに読み込む",
@@ -1520,6 +1521,15 @@
     "confirmProduction": "本番環境です。確認のためテーブル名を入力してください:",
     "success": "テーブル「{{name}}」を削除しました",
     "failed": "テーブルの削除に失敗しました"
+  },
+  "truncateAll": {
+    "menuItem": "すべてのテーブルを空にする",
+    "menuItemDocument": "すべてのコレクションを空にする",
+    "description": "「{{name}}」のすべてのテーブルの全行が削除されます。この操作は取り消せません。",
+    "descriptionDocument": "「{{name}}」のすべてのコレクションが空になります。この操作は取り消せません。",
+    "confirm": "空にする",
+    "success": "{{count}} 件を空にしました",
+    "failed": "空にできませんでした"
   },
   "dropDatabase": {
     "menuItem": "データベースを削除",

@@ -267,6 +267,7 @@ pub fn run() {
             // Maintenance commands
             commands::maintenance::list_maintenance_operations,
             commands::maintenance::run_maintenance,
+            commands::maintenance::truncate_all,
             // Routine management commands
             commands::routines::get_routine_definition,
             commands::routines::drop_routine,
@@ -296,6 +297,7 @@ pub fn run() {
             // Import
             commands::import::preview_csv,
             commands::import::import_csv,
+            commands::import::import_sql,
             // Schema export
             commands::schema_export::export_schema,
             // Metrics (dev-only)

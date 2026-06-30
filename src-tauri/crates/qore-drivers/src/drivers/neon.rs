@@ -14,7 +14,7 @@ use qore_core::error::EngineResult;
 use qore_core::traits::{DataEngine, StreamSender};
 use qore_core::types::{
     CancelSupport, CollectionList, CollectionListOptions, ConnectionConfig, ForeignKey,
-    MaintenanceOperationInfo, MaintenanceRequest, MaintenanceResult, Namespace,
+    MaintenanceOperationInfo, MaintenanceRequest, MaintenanceResult, Namespace, TruncateAllResult,
     PaginatedQueryResult, QueryId, QueryResult, RoutineDefinition, RoutineList, RoutineListOptions,
     RoutineOperationResult, RoutineType, RowData, SessionId, TableQueryOptions, TableSchema,
     TriggerDefinition, TriggerList, TriggerListOptions, TriggerOperationResult, Value,
@@ -405,6 +405,18 @@ impl DataEngine for NeonDriver {
         request: &MaintenanceRequest,
     ) -> EngineResult<MaintenanceResult> {
         pg_compat::run_maintenance(&self.sessions, session, namespace, table, request).await
+    }
+
+    fn supports_truncate_all(&self) -> bool {
+        true
+    }
+
+    async fn truncate_all(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+    ) -> EngineResult<TruncateAllResult> {
+        pg_compat::truncate_all(&self.sessions, session, namespace, "Neon").await
     }
 
     fn supports_streaming(&self) -> bool {

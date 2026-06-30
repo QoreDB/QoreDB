@@ -1441,6 +1441,7 @@
     "keys": "键",
     "open": "打开",
     "refresh": "刷新",
+    "tools": "数据库工具",
     "noCollections": "没有表",
     "noDocuments": "没有文档",
     "loadMore": "加载更多",
@@ -1520,6 +1521,15 @@
     "confirmProduction": "您正处于生产环境。输入表名以确认：",
     "success": "表“{{name}}”已成功删除",
     "failed": "删除表失败"
+  },
+  "truncateAll": {
+    "menuItem": "清空所有表",
+    "menuItemDocument": "清空所有集合",
+    "description": "“{{name}}”中所有表的全部行都将被删除。此操作无法撤销。",
+    "descriptionDocument": "“{{name}}”中的所有集合都将被清空。此操作无法撤销。",
+    "confirm": "清空",
+    "success": "已清空 {{count}} 项",
+    "failed": "清空失败"
   },
   "dropDatabase": {
     "menuItem": "删除数据库",

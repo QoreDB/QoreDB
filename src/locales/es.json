@@ -1441,6 +1441,7 @@
     "keys": "Claves",
     "open": "Abrir",
     "refresh": "Actualizar",
+    "tools": "Herramientas de la base de datos",
     "noCollections": "Sin tablas",
     "noDocuments": "Sin documentos",
     "loadMore": "Cargar más",
@@ -1520,6 +1521,15 @@
     "confirmProduction": "Estás en PRODUCCIÓN. Escribe el nombre de la tabla para confirmar:",
     "success": "Tabla \"{{name}}\" eliminada exitosamente",
     "failed": "Error al eliminar la tabla"
+  },
+  "truncateAll": {
+    "menuItem": "Vaciar todas las tablas",
+    "menuItemDocument": "Vaciar todas las colecciones",
+    "description": "Se eliminarán todas las filas de todas las tablas de «{{name}}». Esta acción no se puede deshacer.",
+    "descriptionDocument": "Se vaciarán todas las colecciones de «{{name}}». Esta acción no se puede deshacer.",
+    "confirm": "Vaciar",
+    "success": "{{count}} elemento(s) vaciado(s)",
+    "failed": "Error al vaciar"
   },
   "dropDatabase": {
     "menuItem": "Eliminar base de datos",

@@ -1441,6 +1441,7 @@
     "keys": "Chaves",
     "open": "Abrir",
     "refresh": "Atualizar",
+    "tools": "Ferramentas do banco de dados",
     "noCollections": "Nenhuma tabela",
     "noDocuments": "Nenhum documento",
     "loadMore": "Carregar mais",
@@ -1520,6 +1521,15 @@
     "confirmProduction": "Você está em PRODUÇÃO. Digite o nome da tabela para confirmar:",
     "success": "Tabela \"{{name}}\" excluída com sucesso",
     "failed": "Falha ao excluir tabela"
+  },
+  "truncateAll": {
+    "menuItem": "Esvaziar todas as tabelas",
+    "menuItemDocument": "Esvaziar todas as coleções",
+    "description": "Todas as linhas de todas as tabelas de \"{{name}}\" serão excluídas. Esta ação não pode ser desfeita.",
+    "descriptionDocument": "Todas as coleções de \"{{name}}\" serão esvaziadas. Esta ação não pode ser desfeita.",
+    "confirm": "Esvaziar",
+    "success": "{{count}} item(ns) esvaziado(s)",
+    "failed": "Falha ao esvaziar"
   },
   "dropDatabase": {
     "menuItem": "Excluir Banco de Dados",

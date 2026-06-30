@@ -27,7 +27,7 @@ use qore_core::types::{
     CollectionType, ColumnInfo, ConnectionConfig, CreationOptions, DatabaseEvent, EventDefinition,
     EventList, EventListOptions, EventOperationResult, EventStatus, FilterOperator, ForeignKey,
     MaintenanceMessage, MaintenanceMessageLevel, MaintenanceOperationInfo,
-    MaintenanceOperationType, MaintenanceRequest, MaintenanceResult, Namespace,
+    MaintenanceOperationType, MaintenanceRequest, MaintenanceResult, Namespace, TruncateAllResult,
     PaginatedQueryResult, QueryId, QueryResult, Routine, RoutineDefinition, RoutineList,
     RoutineListOptions, RoutineOperationResult, RoutineType, Row as QRow, RowData, SessionId,
     SortDirection, TableColumn, TableIndex, TableQueryOptions, TableSchema, Trigger,
@@ -2673,6 +2673,86 @@ impl DataEngine for MySqlDriver {
             messages,
             execution_time_ms,
             success,
+        })
+    }
+
+    fn supports_truncate_all(&self) -> bool {
+        true
+    }
+
+    async fn truncate_all(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+    ) -> EngineResult<TruncateAllResult> {
+        let mysql_session = self.get_session(session).await?;
+
+        let tables: Vec<String> = sqlx::query_scalar::<_, String>(
+            "SELECT CAST(TABLE_NAME AS CHAR) FROM information_schema.TABLES \
+             WHERE TABLE_SCHEMA = ? AND TABLE_TYPE = 'BASE TABLE' \
+             ORDER BY TABLE_NAME",
+        )
+        .bind(&namespace.database)
+        .fetch_all(&mysql_session.pool)
+        .await
+        .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        if tables.is_empty() {
+            return Ok(TruncateAllResult {
+                executed_command: String::new(),
+                truncated_tables: Vec::new(),
+                messages: vec![MaintenanceMessage {
+                    level: MaintenanceMessageLevel::Info,
+                    text: "No tables to truncate".into(),
+                }],
+                execution_time_ms: 0.0,
+                success: true,
+            });
+        }
+
+        // FOREIGN_KEY_CHECKS is session-scoped, so every statement must run on
+        // the same connection for the relaxation to span all the truncates.
+        let mut conn = mysql_session
+            .pool
+            .acquire()
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        conn.execute(sqlx::raw_sql("SET FOREIGN_KEY_CHECKS=0"))
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        let start = Instant::now();
+        let mut executed = Vec::with_capacity(tables.len());
+        for table in &tables {
+            let stmt = format!(
+                "TRUNCATE TABLE {}.{}",
+                Self::quote_ident(&namespace.database),
+                Self::quote_ident(table)
+            );
+            if let Err(e) = conn.execute(sqlx::raw_sql(&stmt)).await {
+                let _ = conn.execute(sqlx::raw_sql("SET FOREIGN_KEY_CHECKS=1")).await;
+                return Err(EngineError::execution_error(e.to_string()));
+            }
+            executed.push(stmt);
+        }
+
+        conn.execute(sqlx::raw_sql("SET FOREIGN_KEY_CHECKS=1"))
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        let execution_time_ms = start.elapsed().as_micros() as f64 / 1000.0;
+        let count = tables.len();
+
+        Ok(TruncateAllResult {
+            executed_command: executed.join(";\n"),
+            truncated_tables: tables,
+            messages: vec![MaintenanceMessage {
+                level: MaintenanceMessageLevel::Info,
+                text: format!("Truncated {count} table(s)"),
+            }],
+            execution_time_ms,
+            success: true,
         })
     }
 }

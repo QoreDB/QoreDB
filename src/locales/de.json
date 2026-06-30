@@ -1441,6 +1441,7 @@
     "keys": "Schlüssel",
     "open": "Öffnen",
     "refresh": "Aktualisieren",
+    "tools": "Datenbank-Tools",
     "noCollections": "Keine Tabellen",
     "noDocuments": "Keine Dokumente",
     "loadMore": "Mehr laden",
@@ -1520,6 +1521,15 @@
     "confirmProduction": "Sie befinden sich in der PRODUKTION. Geben Sie den Tabellennamen zur Bestätigung ein:",
     "success": "Tabelle \"{{name}}\" erfolgreich gelöscht",
     "failed": "Tabelle konnte nicht gelöscht werden"
+  },
+  "truncateAll": {
+    "menuItem": "Alle Tabellen leeren",
+    "menuItemDocument": "Alle Collections leeren",
+    "description": "Alle Zeilen in allen Tabellen von „{{name}}“ werden gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.",
+    "descriptionDocument": "Alle Collections in „{{name}}“ werden geleert. Diese Aktion kann nicht rückgängig gemacht werden.",
+    "confirm": "Leeren",
+    "success": "{{count}} Element(e) geleert",
+    "failed": "Leeren fehlgeschlagen"
   },
   "dropDatabase": {
     "menuItem": "Datenbank löschen",

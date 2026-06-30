@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Database, Download, Plus, RefreshCw, Trash2, Upload } from 'lucide-react';
+import { Database, Download, Eraser, Plus, RefreshCw, Trash2, Upload, Wrench } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -9,6 +9,9 @@ import {
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuSeparator,
+  ContextMenuSub,
+  ContextMenuSubContent,
+  ContextMenuSubTrigger,
   ContextMenuTrigger,
 } from '@/components/ui/context-menu';
 
@@ -20,10 +23,13 @@ interface DatabaseContextMenuProps {
   onExportSchema?: () => void;
   onBackup?: () => void;
   onRestore?: () => void;
+  onTruncateAll?: () => void;
   canCreateTable: boolean;
   canDelete: boolean;
   canExportSchema: boolean;
   canBackup: boolean;
+  canTruncateAll: boolean;
+  isDocument?: boolean;
   children: ReactNode;
 }
 
@@ -35,10 +41,13 @@ export function DatabaseContextMenu({
   onExportSchema,
   onBackup,
   onRestore,
+  onTruncateAll,
   canCreateTable,
   canDelete,
   canExportSchema,
   canBackup,
+  canTruncateAll,
+  isDocument,
   children,
 }: DatabaseContextMenuProps) {
   const { t } = useTranslation();
@@ -55,27 +64,43 @@ export function DatabaseContextMenu({
           <RefreshCw size={14} />
           {t('dbtree.refresh')}
         </ContextMenuItem>
-        {canExportSchema && onExportSchema && (
+        {canBackup && onBackup && onRestore ? (
           <>
             <ContextMenuSeparator />
-            <ContextMenuItem onSelect={onExportSchema}>
-              <Download size={14} />
-              {t('schemaExport.menuItem')}
-            </ContextMenuItem>
+            <ContextMenuSub>
+              <ContextMenuSubTrigger>
+                <Wrench size={14} />
+                {t('dbtree.tools')}
+              </ContextMenuSubTrigger>
+              <ContextMenuSubContent className="w-48">
+                {canExportSchema && onExportSchema && (
+                  <ContextMenuItem onSelect={onExportSchema}>
+                    <Download size={14} />
+                    {t('schemaExport.menuItem')}
+                  </ContextMenuItem>
+                )}
+                <ContextMenuItem onSelect={onBackup}>
+                  <Download size={14} />
+                  {t('connection.menu.backup')}
+                </ContextMenuItem>
+                <ContextMenuItem onSelect={onRestore}>
+                  <Upload size={14} />
+                  {t('connection.menu.restore')}
+                </ContextMenuItem>
+              </ContextMenuSubContent>
+            </ContextMenuSub>
           </>
-        )}
-        {canBackup && onBackup && onRestore && (
-          <>
-            <ContextMenuSeparator />
-            <ContextMenuItem onSelect={onBackup}>
-              <Download size={14} />
-              {t('connection.menu.backup')}
-            </ContextMenuItem>
-            <ContextMenuItem onSelect={onRestore}>
-              <Upload size={14} />
-              {t('connection.menu.restore')}
-            </ContextMenuItem>
-          </>
+        ) : (
+          canExportSchema &&
+          onExportSchema && (
+            <>
+              <ContextMenuSeparator />
+              <ContextMenuItem onSelect={onExportSchema}>
+                <Download size={14} />
+                {t('schemaExport.menuItem')}
+              </ContextMenuItem>
+            </>
+          )
         )}
         {canCreateTable && onCreateTable && (
           <>
@@ -86,17 +111,24 @@ export function DatabaseContextMenu({
             </ContextMenuItem>
           </>
         )}
+        {((canTruncateAll && onTruncateAll) || (canDelete && onDelete)) && <ContextMenuSeparator />}
+        {canTruncateAll && onTruncateAll && (
+          <ContextMenuItem
+            onSelect={onTruncateAll}
+            className="text-destructive focus:text-destructive focus:bg-destructive/10"
+          >
+            <Eraser size={14} />
+            {t(isDocument ? 'truncateAll.menuItemDocument' : 'truncateAll.menuItem')}
+          </ContextMenuItem>
+        )}
         {canDelete && onDelete && (
-          <>
-            <ContextMenuSeparator />
-            <ContextMenuItem
-              onSelect={onDelete}
-              className="text-destructive focus:text-destructive focus:bg-destructive/10"
-            >
-              <Trash2 size={14} />
-              {t('dropDatabase.menuItem')}
-            </ContextMenuItem>
-          </>
+          <ContextMenuItem
+            onSelect={onDelete}
+            className="text-destructive focus:text-destructive focus:bg-destructive/10"
+          >
+            <Trash2 size={14} />
+            {t('dropDatabase.menuItem')}
+          </ContextMenuItem>
         )}
       </ContextMenuContent>
     </ContextMenu>

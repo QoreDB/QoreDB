@@ -84,3 +84,40 @@ export async function runMaintenance(
     acknowledgedDangerous,
   });
 }
+
+export interface TruncateAllResult {
+  executed_command: string;
+  truncated_tables: string[];
+  messages: MaintenanceMessage[];
+  execution_time_ms: number;
+  success: boolean;
+}
+
+/**
+ * Drivers whose backend implements `truncate_all`. Used to gate the
+ * "empty all tables" menu entry so it never shows where it would error.
+ */
+export const TRUNCATE_ALL_DRIVERS = new Set([
+  'postgres',
+  'postgresql',
+  'supabase',
+  'neon',
+  'timescaledb',
+  'mysql',
+  'mariadb',
+  'sqlite',
+  'mongodb',
+]);
+
+export async function truncateAll(
+  sessionId: string,
+  database: string,
+  schema: string | null | undefined,
+  acknowledgedDangerous?: boolean
+): Promise<{
+  success: boolean;
+  result?: TruncateAllResult;
+  error?: string;
+}> {
+  return invoke('truncate_all', { sessionId, database, schema, acknowledgedDangerous });
+}

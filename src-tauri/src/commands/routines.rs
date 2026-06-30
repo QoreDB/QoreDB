@@ -8,9 +8,7 @@ use tauri::State;
 use tracing::instrument;
 
 use super::{parse_session_id, SharedStateExt};
-use crate::engine::types::{
-    Namespace, RoutineDefinition, RoutineOperationResult, RoutineType,
-};
+use crate::engine::types::{Namespace, RoutineDefinition, RoutineOperationResult, RoutineType};
 use crate::interceptor::{map_environment, QueryExecutionResult, SafetyAction};
 
 const READ_ONLY_BLOCKED: &str = "Operation blocked: read-only mode";

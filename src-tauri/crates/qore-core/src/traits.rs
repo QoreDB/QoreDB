@@ -15,7 +15,7 @@ use crate::types::{
     RoutineList, RoutineListOptions, RoutineOperationResult, RoutineType, Row, RowData,
     SequenceDefinition, SequenceList, SequenceListOptions, SequenceOperationResult, SessionId,
     TableQueryOptions, TableSchema, TriggerDefinition, TriggerList, TriggerListOptions,
-    TriggerOperationResult, Value,
+    TriggerOperationResult, TruncateAllResult, Value,
 };
 
 /// Events emitted during query streaming
@@ -594,5 +594,23 @@ pub trait DataEngine: Send + Sync {
     /// Check if the driver supports maintenance operations.
     fn supports_maintenance(&self) -> bool {
         false
+    }
+
+    /// Check if the driver supports truncating all tables in a namespace.
+    fn supports_truncate_all(&self) -> bool {
+        false
+    }
+
+    /// Truncates (empties) all base tables in a namespace.
+    /// Default returns NotSupported.
+    async fn truncate_all(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+    ) -> EngineResult<TruncateAllResult> {
+        let _ = (session, namespace);
+        Err(EngineError::not_supported(
+            "Truncate all is not supported by this driver",
+        ))
     }
 }

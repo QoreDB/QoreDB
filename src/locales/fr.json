@@ -1469,6 +1469,7 @@
     "keys": "Clés",
     "open": "Ouvrir",
     "refresh": "Actualiser",
+    "tools": "Outils de la base",
     "noCollections": "Aucune table",
     "noDocuments": "Aucun document",
     "loadMore": "Charger plus",
@@ -1548,6 +1549,15 @@
     "confirmProduction": "Vous êtes en PRODUCTION. Tapez le nom de la table pour confirmer :",
     "success": "Table \"{{name}}\" supprimée avec succès",
     "failed": "Échec de la suppression de la table"
+  },
+  "truncateAll": {
+    "menuItem": "Vider toutes les tables",
+    "menuItemDocument": "Vider toutes les collections",
+    "description": "Toutes les lignes de toutes les tables de « {{name}} » seront supprimées. Cette action est irréversible.",
+    "descriptionDocument": "Toutes les collections de « {{name}} » seront vidées. Cette action est irréversible.",
+    "confirm": "Vider",
+    "success": "Vidage terminé ({{count}})",
+    "failed": "Échec du vidage"
   },
   "dropDatabase": {
     "menuItem": "Supprimer la base",

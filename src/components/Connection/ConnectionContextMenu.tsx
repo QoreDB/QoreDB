@@ -4,22 +4,28 @@ import {
   BookOpen,
   Copy,
   Download,
+  Eraser,
   Loader2,
   Pencil,
   Star,
   Terminal,
   Trash2,
   Upload,
+  Wrench,
   Zap,
 } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuSeparator,
+  ContextMenuSub,
+  ContextMenuSubContent,
+  ContextMenuSubTrigger,
   ContextMenuTrigger,
 } from '@/components/ui/context-menu';
 import {
@@ -31,11 +37,14 @@ import {
 } from '@/components/ui/dialog';
 import { openBackupDialog, openRestoreDialog } from '@/lib/stores/modalStore';
 import { CONNECTION_BACKUP_DRIVERS } from '@/lib/tauri/backup';
+import { TRUNCATE_ALL_DRIVERS, truncateAll } from '@/lib/tauri/maintenance';
 import type { SavedConnection } from '../../lib/tauri';
+import { DangerConfirmDialog } from '../Guard/DangerConfirmDialog';
 import { useConnectionActions } from './useConnectionActions';
 
 interface ConnectionContextMenuProps {
   connection: SavedConnection;
+  sessionId?: string;
   onEdit: (connection: SavedConnection, password: string) => void;
   onDeleted: () => void;
   isFavorite?: boolean;
@@ -48,6 +57,7 @@ interface ConnectionContextMenuProps {
 
 export function ConnectionContextMenu({
   connection,
+  sessionId,
   onEdit,
   onDeleted,
   isFavorite,
@@ -59,6 +69,8 @@ export function ConnectionContextMenu({
 }: ConnectionContextMenuProps) {
   const { t } = useTranslation();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [truncateOpen, setTruncateOpen] = useState(false);
+  const [truncateLoading, setTruncateLoading] = useState(false);
   const { testing, deleting, duplicating, handleTest, handleEdit, handleDelete, handleDuplicate } =
     useConnectionActions({
       connection,
@@ -66,6 +78,34 @@ export function ConnectionContextMenu({
       onDeleted,
       onAfterAction: () => setShowDeleteConfirm(false),
     });
+
+  const driverId = connection.driver.toLowerCase();
+  const canTruncateAll =
+    !!isConnected &&
+    !!sessionId &&
+    !connection.read_only &&
+    CONNECTION_BACKUP_DRIVERS.has(driverId) &&
+    TRUNCATE_ALL_DRIVERS.has(driverId);
+
+  async function handleTruncateAll() {
+    if (!sessionId) return;
+    setTruncateLoading(true);
+    try {
+      const result = await truncateAll(sessionId, connection.database ?? '', null, true);
+      if (result.success) {
+        toast.success(
+          t('truncateAll.success', { count: result.result?.truncated_tables.length ?? 0 })
+        );
+        setTruncateOpen(false);
+      } else {
+        toast.error(result.error || t('truncateAll.failed'));
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err));
+    } finally {
+      setTruncateLoading(false);
+    }
+  }
 
   return (
     <>
@@ -109,17 +149,38 @@ export function ConnectionContextMenu({
           )}
           {CONNECTION_BACKUP_DRIVERS.has(connection.driver.toLowerCase()) && (
             <>
-              <ContextMenuItem onSelect={() => openBackupDialog(connection)}>
-                <Download size={14} />
-                {t('connection.menu.backup')}
-              </ContextMenuItem>
-              <ContextMenuItem onSelect={() => openRestoreDialog(connection)}>
-                <Upload size={14} />
-                {t('connection.menu.restore')}
-              </ContextMenuItem>
+              <ContextMenuSeparator />
+              <ContextMenuSub>
+                <ContextMenuSubTrigger>
+                  <Wrench size={14} />
+                  {t('dbtree.tools')}
+                </ContextMenuSubTrigger>
+                <ContextMenuSubContent className="w-48">
+                  <ContextMenuItem onSelect={() => openBackupDialog(connection)}>
+                    <Download size={14} />
+                    {t('connection.menu.backup')}
+                  </ContextMenuItem>
+                  <ContextMenuItem onSelect={() => openRestoreDialog(connection)}>
+                    <Upload size={14} />
+                    {t('connection.menu.restore')}
+                  </ContextMenuItem>
+                </ContextMenuSubContent>
+              </ContextMenuSub>
             </>
           )}
           <ContextMenuSeparator />
+          {canTruncateAll && (
+            <ContextMenuItem
+              onSelect={e => {
+                e.preventDefault();
+                setTruncateOpen(true);
+              }}
+              className="text-destructive focus:text-destructive focus:bg-destructive/10"
+            >
+              <Eraser size={14} />
+              {t('truncateAll.menuItem')}
+            </ContextMenuItem>
+          )}
           <ContextMenuItem
             variant="destructive"
             onSelect={e => {
@@ -163,6 +224,19 @@ export function ConnectionContextMenu({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <DangerConfirmDialog
+        open={truncateOpen}
+        onOpenChange={setTruncateOpen}
+        title={t('truncateAll.menuItem')}
+        description={t('truncateAll.description', {
+          name: connection.database || connection.name,
+        })}
+        confirmationLabel={connection.database || connection.name}
+        confirmLabel={t('truncateAll.confirm')}
+        loading={truncateLoading}
+        onConfirm={handleTruncateAll}
+      />
     </>
   );
 }

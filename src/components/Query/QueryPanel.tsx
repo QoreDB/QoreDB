@@ -219,15 +219,6 @@ export function QueryPanel({
   const collectionName = getCollectionFromQuery(query);
 
   useEffect(() => {
-    if (initialQuery) {
-      setQuery(initialQuery);
-      setResults([]);
-      setActiveResultId(null);
-      setPanelError(null);
-    }
-  }, [initialQuery]);
-
-  useEffect(() => {
     onQueryDraftChange?.(query);
   }, [query, onQueryDraftChange]);
 
@@ -262,11 +253,8 @@ export function QueryPanel({
       );
 
       try {
-        // Build streaming handlers upfront — the Tauri Channel created inside
-        // executeQuery dispatches MessagePack-decoded events directly here.
         let streamHandlers: QueryStreamHandlers | undefined;
         if (isStreamingActive) {
-          // Accumulate rows per animation frame to avoid O(N²) state copies.
           const rowBuffer: Row[] = [];
           let flushScheduled = false;
 

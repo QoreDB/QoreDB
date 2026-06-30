@@ -111,7 +111,8 @@
       "Bash(wait)",
       "Bash(bash /tmp/qore-e2e/kc-setup.sh)",
       "Bash(QOREDB_CONFIG_DIR=/tmp/qore-e2e/config QORE_VAULT_KEY=e2e-test-key QORE_VAULT_FILE=/tmp/qore-e2e/config/vault.enc QORE_SERVER_WEB_DIR=/home/raphael/dev/perso/QoreDB/dist QORE_SERVER_PORT=8089 QORE_SERVER_TOKEN=e2e-machine-token QORE_OIDC_ISSUER=http://127.0.0.1:8081/realms/qore QORE_OIDC_CLIENT_ID=qore-server QORE_OIDC_CLIENT_SECRET=qore-e2e-secret QORE_OIDC_REDIRECT_URI=http://127.0.0.1:8089/api/auth/oidc/callback ./src-tauri/target/debug/qore-server *)",
-      "Bash(docker rm *)"
+      "Bash(docker rm *)",
+      "Bash(docker exec *)"
     ]
   }
 }

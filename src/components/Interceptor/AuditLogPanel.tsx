@@ -208,7 +208,13 @@ export function AuditLogPanel() {
   const [selectedEntry, setSelectedEntry] = useState<AuditLogEntry | null>(null);
 
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [environmentFilter, setEnvironmentFilter] = useState<Environment | 'all'>('all');
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(timer);
+  }, [search]);
   const [statusFilter, setStatusFilter] = useState<'all' | 'success' | 'failed' | 'blocked'>('all');
   const [fingerprintFilter, setFingerprintFilter] = useState<string | null>(null);
 
@@ -226,8 +232,8 @@ export function AuditLogPanel() {
         filter.environment = environmentFilter;
       }
 
-      if (search.trim()) {
-        filter.search = search.trim();
+      if (debouncedSearch.trim()) {
+        filter.search = debouncedSearch.trim();
       }
 
       if (statusFilter === 'success') {
@@ -254,7 +260,7 @@ export function AuditLogPanel() {
     } finally {
       setLoading(false);
     }
-  }, [page, search, environmentFilter, statusFilter, fingerprintFilter]);
+  }, [page, debouncedSearch, environmentFilter, statusFilter, fingerprintFilter]);
 
   useEffect(() => {
     loadData();

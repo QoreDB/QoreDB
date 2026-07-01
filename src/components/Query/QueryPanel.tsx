@@ -170,7 +170,9 @@ export function QueryPanel({
   const [editorHeight, setEditorHeight] = useState(loadEditorHeight);
   const [editorExpanded, setEditorExpanded] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  const resizeDragRef = useRef({ active: false, startY: 0, startHeight: 0 });
+  const editorPaneRef = useRef<HTMLDivElement>(null);
+  const resizeDragRef = useRef({ active: false, startY: 0, startHeight: 0, expanded: false });
+  const latestEditorHeight = useRef(editorHeight);
   const prevEditorHeightRef = useRef(DEFAULT_EDITOR_HEIGHT);
 
   // Feature tour trigger
@@ -830,11 +832,17 @@ export function QueryPanel({
   const handleResizeMouseDown = useCallback(
     (e: React.MouseEvent) => {
       e.preventDefault();
-      resizeDragRef.current = { active: true, startY: e.clientY, startHeight: editorHeight };
+      resizeDragRef.current = {
+        active: true,
+        startY: e.clientY,
+        startHeight: editorHeight,
+        expanded: editorExpanded,
+      };
+      latestEditorHeight.current = editorHeight;
       document.body.style.userSelect = 'none';
       document.body.style.cursor = 'row-resize';
     },
-    [editorHeight]
+    [editorHeight, editorExpanded]
   );
 
   useEffect(() => {
@@ -848,7 +856,13 @@ export function QueryPanel({
         Math.max(resizeDragRef.current.startHeight + delta, MIN_EDITOR_HEIGHT),
         maxHeight
       );
-      setEditorHeight(newHeight);
+      latestEditorHeight.current = newHeight;
+      // Resize via the DOM during the drag so we don't re-render QueryPanel on
+      // every mousemove; commit to state on mouseup. Skip while expanded, where
+      // the flex layout ignores the height anyway.
+      if (!resizeDragRef.current.expanded && editorPaneRef.current) {
+        editorPaneRef.current.style.height = `${newHeight}px`;
+      }
     };
 
     const handleMouseUp = () => {
@@ -856,14 +870,12 @@ export function QueryPanel({
       resizeDragRef.current.active = false;
       document.body.style.userSelect = '';
       document.body.style.cursor = '';
-      setEditorHeight(h => {
-        try {
-          localStorage.setItem(EDITOR_HEIGHT_KEY, String(h));
-        } catch {
-          // ignore
-        }
-        return h;
-      });
+      setEditorHeight(latestEditorHeight.current);
+      try {
+        localStorage.setItem(EDITOR_HEIGHT_KEY, String(latestEditorHeight.current));
+      } catch {
+        // ignore
+      }
     };
 
     document.addEventListener('mousemove', handleMouseMove);
@@ -1016,6 +1028,7 @@ export function QueryPanel({
       />
 
       <div
+        ref={editorPaneRef}
         data-tour="query-editor"
         className={
           editorExpanded

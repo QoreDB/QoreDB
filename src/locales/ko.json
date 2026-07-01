@@ -1531,6 +1531,22 @@
     "success": "{{count}}개 비움",
     "failed": "비우기 실패"
   },
+  "importSql": {
+    "menuItem": "SQL 파일 가져오기…",
+    "dialogTitle": "SQL 가져오기 — {{name}}",
+    "warning": "파일의 문장이 \"{{name}}\"에 그대로 실행됩니다. 가져오기 전에 내용을 확인하세요.",
+    "inputPath": "SQL 파일",
+    "inputPathPlaceholder": ".sql 파일 선택…",
+    "stopOnError": "첫 오류에서 중지",
+    "stopOnErrorHint": "끄면 가져오기가 계속되며 모든 오류를 요약합니다.",
+    "total": "문장 {{count}}개",
+    "executed": "{{count}}개 실행됨",
+    "failedCount": "{{count}}개 실패",
+    "completed": "가져오기 완료",
+    "run": "실행",
+    "running": "실행 중…",
+    "runAnother": "다른 파일 가져오기"
+  },
   "dropDatabase": {
     "menuItem": "데이터베이스 삭제",
     "title": "데이터베이스 삭제",

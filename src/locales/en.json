@@ -1559,6 +1559,22 @@
     "success": "Emptied {{count}} item(s)",
     "failed": "Failed to truncate"
   },
+  "importSql": {
+    "menuItem": "Import SQL file…",
+    "dialogTitle": "Import SQL — {{name}}",
+    "warning": "The statements in this file will run as-is against \"{{name}}\". Review its contents before importing.",
+    "inputPath": "SQL file",
+    "inputPathPlaceholder": "Select a .sql file…",
+    "stopOnError": "Stop on first error",
+    "stopOnErrorHint": "When off, the import continues and reports every error.",
+    "total": "{{count}} statement(s)",
+    "executed": "{{count}} executed",
+    "failedCount": "{{count}} failed",
+    "completed": "Import complete",
+    "run": "Run",
+    "running": "Running…",
+    "runAnother": "Import another file"
+  },
   "dropDatabase": {
     "menuItem": "Delete Database",
     "title": "Delete Database",

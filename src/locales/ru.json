@@ -1531,6 +1531,22 @@
     "success": "Очищено: {{count}}",
     "failed": "Не удалось очистить"
   },
+  "importSql": {
+    "menuItem": "Импорт SQL-файла…",
+    "dialogTitle": "Импорт SQL — {{name}}",
+    "warning": "Инструкции из файла будут выполнены как есть в «{{name}}». Проверьте содержимое перед импортом.",
+    "inputPath": "SQL-файл",
+    "inputPathPlaceholder": "Выбрать файл .sql…",
+    "stopOnError": "Остановиться на первой ошибке",
+    "stopOnErrorHint": "Если выключено, импорт продолжится и покажет все ошибки.",
+    "total": "инструкций: {{count}}",
+    "executed": "выполнено: {{count}}",
+    "failedCount": "с ошибкой: {{count}}",
+    "completed": "Импорт завершён",
+    "run": "Выполнить",
+    "running": "Выполнение…",
+    "runAnother": "Импортировать другой файл"
+  },
   "dropDatabase": {
     "menuItem": "Удалить базу данных",
     "title": "Удалить базу данных",

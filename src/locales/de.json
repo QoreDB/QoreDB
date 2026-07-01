@@ -1531,6 +1531,22 @@
     "success": "{{count}} Element(e) geleert",
     "failed": "Leeren fehlgeschlagen"
   },
+  "importSql": {
+    "menuItem": "SQL-Datei importieren…",
+    "dialogTitle": "SQL importieren – {{name}}",
+    "warning": "Die Anweisungen der Datei werden unverändert auf „{{name}}“ ausgeführt. Prüfe den Inhalt vor dem Import.",
+    "inputPath": "SQL-Datei",
+    "inputPathPlaceholder": "Eine .sql-Datei auswählen…",
+    "stopOnError": "Beim ersten Fehler anhalten",
+    "stopOnErrorHint": "Wenn deaktiviert, läuft der Import weiter und meldet alle Fehler.",
+    "total": "{{count}} Anweisung(en)",
+    "executed": "{{count}} ausgeführt",
+    "failedCount": "{{count}} fehlgeschlagen",
+    "completed": "Import abgeschlossen",
+    "run": "Ausführen",
+    "running": "Wird ausgeführt…",
+    "runAnother": "Weitere Datei importieren"
+  },
   "dropDatabase": {
     "menuItem": "Datenbank löschen",
     "title": "Datenbank löschen",

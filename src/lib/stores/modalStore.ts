@@ -27,11 +27,19 @@ interface ModalState {
   editPassword: string;
   backupTarget: BackupTarget | null;
   restoreTarget: BackupTarget | null;
+  importSqlTarget: ImportSqlTarget | null;
 }
 
 export interface BackupTarget {
   connection: SavedConnection;
   database: string | null;
+}
+
+export interface ImportSqlTarget {
+  sessionId: string;
+  database: string;
+  schema: string | null;
+  label: string;
 }
 
 let state: ModalState = {
@@ -56,6 +64,7 @@ let state: ModalState = {
   editPassword: '',
   backupTarget: null,
   restoreTarget: null,
+  importSqlTarget: null,
 };
 
 const listeners = new Set<() => void>();
@@ -139,6 +148,14 @@ export function openRestoreDialog(connection: SavedConnection, database?: string
 
 export function closeRestoreDialog() {
   updateState({ restoreTarget: null });
+}
+
+export function openImportSqlDialog(target: ImportSqlTarget) {
+  updateState({ importSqlTarget: target });
+}
+
+export function closeImportSqlDialog() {
+  updateState({ importSqlTarget: null });
 }
 
 export function setSettingsOpen(open: boolean) {

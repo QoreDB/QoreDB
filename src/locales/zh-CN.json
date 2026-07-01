@@ -1531,6 +1531,22 @@
     "success": "已清空 {{count}} 项",
     "failed": "清空失败"
   },
+  "importSql": {
+    "menuItem": "导入 SQL 文件…",
+    "dialogTitle": "导入 SQL — {{name}}",
+    "warning": "文件中的语句将原样在“{{name}}”上执行。导入前请检查其内容。",
+    "inputPath": "SQL 文件",
+    "inputPathPlaceholder": "选择 .sql 文件…",
+    "stopOnError": "遇到首个错误时停止",
+    "stopOnErrorHint": "关闭时，导入将继续并汇总所有错误。",
+    "total": "{{count}} 条语句",
+    "executed": "已执行 {{count}} 条",
+    "failedCount": "失败 {{count}} 条",
+    "completed": "导入完成",
+    "run": "执行",
+    "running": "执行中…",
+    "runAnother": "导入其他文件"
+  },
   "dropDatabase": {
     "menuItem": "删除数据库",
     "title": "删除数据库",

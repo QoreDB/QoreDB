@@ -59,6 +59,39 @@ export async function importCsv(
   });
 }
 
+export interface ImportSqlError {
+  statement_index: number;
+  message: string;
+  statement_preview: string;
+}
+
+export interface ImportSqlResponse {
+  success: boolean;
+  total_statements: number;
+  executed: number;
+  failed: number;
+  errors: ImportSqlError[];
+  error?: string | null;
+}
+
+export async function importSql(
+  sessionId: string,
+  database: string,
+  schema: string | null | undefined,
+  filePath: string,
+  stopOnError: boolean,
+  acknowledgedDangerous?: boolean
+): Promise<ImportSqlResponse> {
+  return invoke('import_sql', {
+    sessionId,
+    database,
+    schema,
+    filePath,
+    stopOnError,
+    acknowledgedDangerous,
+  });
+}
+
 export interface SchemaExportOptions {
   include_tables?: boolean;
   include_routines?: boolean;

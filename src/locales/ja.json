@@ -1531,6 +1531,22 @@
     "success": "{{count}} 件を空にしました",
     "failed": "空にできませんでした"
   },
+  "importSql": {
+    "menuItem": "SQLファイルをインポート…",
+    "dialogTitle": "SQLをインポート — {{name}}",
+    "warning": "ファイル内のステートメントは「{{name}}」に対してそのまま実行されます。インポート前に内容を確認してください。",
+    "inputPath": "SQLファイル",
+    "inputPathPlaceholder": ".sqlファイルを選択…",
+    "stopOnError": "最初のエラーで停止",
+    "stopOnErrorHint": "オフの場合、インポートは続行され、すべてのエラーがまとめられます。",
+    "total": "{{count}} 件のステートメント",
+    "executed": "{{count}} 件実行",
+    "failedCount": "{{count}} 件失敗",
+    "completed": "インポート完了",
+    "run": "実行",
+    "running": "実行中…",
+    "runAnother": "別のファイルをインポート"
+  },
   "dropDatabase": {
     "menuItem": "データベースを削除",
     "title": "データベースを削除",

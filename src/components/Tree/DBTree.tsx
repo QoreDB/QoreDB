@@ -22,7 +22,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { emitTableChange } from '@/lib/events/tableEvents';
-import { openBackupDialog, openRestoreDialog } from '@/lib/stores/modalStore';
+import { openBackupDialog, openImportSqlDialog, openRestoreDialog } from '@/lib/stores/modalStore';
 import { DATABASE_NODE_BACKUP_DRIVERS } from '@/lib/tauri/backup';
 import { TRUNCATE_ALL_DRIVERS, truncateAll } from '@/lib/tauri/maintenance';
 import { cn } from '@/lib/utils';
@@ -500,6 +500,14 @@ export function DBTree({
               }}
               onBackup={connection ? () => openBackupDialog(connection, ns.database) : undefined}
               onRestore={connection ? () => openRestoreDialog(connection, ns.database) : undefined}
+              onImportSql={() =>
+                openImportSqlDialog({
+                  sessionId,
+                  database: ns.database,
+                  schema: ns.schema ?? null,
+                  label: ns.schema ? `${ns.database}.${ns.schema}` : ns.database,
+                })
+              }
               onTruncateAll={() => {
                 setTruncateTargetNamespace(ns);
                 setTruncateModalOpen(true);
@@ -508,6 +516,7 @@ export function DBTree({
               canDelete={!connection?.read_only}
               canExportSchema={driverMeta.supportsSQL}
               canBackup={canBackupDatabase}
+              canImportSql={canBackupDatabase && driverMeta.supportsSQL && !connection?.read_only}
               canTruncateAll={
                 canBackupDatabase &&
                 TRUNCATE_ALL_DRIVERS.has(driver.toLowerCase()) &&

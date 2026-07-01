@@ -1559,6 +1559,22 @@
     "success": "Vidage terminé ({{count}})",
     "failed": "Échec du vidage"
   },
+  "importSql": {
+    "menuItem": "Importer un fichier SQL…",
+    "dialogTitle": "Importer du SQL — {{name}}",
+    "warning": "Les instructions du fichier seront exécutées telles quelles sur « {{name}} ». Vérifie leur contenu avant de lancer l'import.",
+    "inputPath": "Fichier SQL",
+    "inputPathPlaceholder": "Sélectionner un fichier .sql…",
+    "stopOnError": "Arrêter à la première erreur",
+    "stopOnErrorHint": "Si désactivé, l'import continue et récapitule toutes les erreurs.",
+    "total": "{{count}} instruction(s)",
+    "executed": "{{count}} exécutée(s)",
+    "failedCount": "{{count}} échouée(s)",
+    "completed": "Import terminé",
+    "run": "Exécuter",
+    "running": "Exécution…",
+    "runAnother": "Importer un autre fichier"
+  },
   "dropDatabase": {
     "menuItem": "Supprimer la base",
     "title": "Supprimer la base de données",

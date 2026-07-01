@@ -5,6 +5,7 @@ import {
   Copy,
   Download,
   Eraser,
+  FileCode,
   Loader2,
   Pencil,
   Star,
@@ -35,7 +36,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { openBackupDialog, openRestoreDialog } from '@/lib/stores/modalStore';
+import { openBackupDialog, openImportSqlDialog, openRestoreDialog } from '@/lib/stores/modalStore';
 import { CONNECTION_BACKUP_DRIVERS } from '@/lib/tauri/backup';
 import { TRUNCATE_ALL_DRIVERS, truncateAll } from '@/lib/tauri/maintenance';
 import type { SavedConnection } from '../../lib/tauri';
@@ -86,6 +87,11 @@ export function ConnectionContextMenu({
     !connection.read_only &&
     CONNECTION_BACKUP_DRIVERS.has(driverId) &&
     TRUNCATE_ALL_DRIVERS.has(driverId);
+  const canImportSql =
+    !!isConnected &&
+    !!sessionId &&
+    !connection.read_only &&
+    CONNECTION_BACKUP_DRIVERS.has(driverId);
 
   async function handleTruncateAll() {
     if (!sessionId) return;
@@ -164,6 +170,21 @@ export function ConnectionContextMenu({
                     <Upload size={14} />
                     {t('connection.menu.restore')}
                   </ContextMenuItem>
+                  {canImportSql && sessionId && (
+                    <ContextMenuItem
+                      onSelect={() =>
+                        openImportSqlDialog({
+                          sessionId,
+                          database: connection.database ?? '',
+                          schema: null,
+                          label: connection.database || connection.name,
+                        })
+                      }
+                    >
+                      <FileCode size={14} />
+                      {t('importSql.menuItem')}
+                    </ContextMenuItem>
+                  )}
                 </ContextMenuSubContent>
               </ContextMenuSub>
             </>

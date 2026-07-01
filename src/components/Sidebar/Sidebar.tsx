@@ -23,6 +23,7 @@ import {
 import { UI_EVENT_CONNECTIONS_CHANGED } from '@/lib/events/uiEvents';
 import {
   closeBackupDialog,
+  closeImportSqlDialog,
   closeRestoreDialog,
   setAuditLogOpen,
   setContractsOpen,
@@ -47,7 +48,7 @@ import {
   type Sequence,
   type Trigger,
 } from '../../lib/tauri';
-import { BackupDialog, RestoreDialog } from '../Backup';
+import { BackupDialog, ImportSqlDialog, RestoreDialog } from '../Backup';
 import { ContractsPanel } from '../Contracts';
 import { InstantApiPanel } from '../InstantApi';
 import { AuditLogModal } from '../Interceptor';
@@ -127,6 +128,7 @@ export function Sidebar({
   const proDiscoveryOpen = useModalStore(s => s.proDiscoveryOpen);
   const backupTarget = useModalStore(s => s.backupTarget);
   const restoreTarget = useModalStore(s => s.restoreTarget);
+  const importSqlTarget = useModalStore(s => s.importSqlTarget);
 
   const loadConnections = useCallback(async () => {
     try {
@@ -477,6 +479,11 @@ export function Sidebar({
         database={restoreTarget?.database ?? null}
         open={!!restoreTarget}
         onClose={closeRestoreDialog}
+      />
+      <ImportSqlDialog
+        target={importSqlTarget}
+        open={!!importSqlTarget}
+        onClose={closeImportSqlDialog}
       />
       <ProDiscoveryPanel
         open={proDiscoveryOpen}

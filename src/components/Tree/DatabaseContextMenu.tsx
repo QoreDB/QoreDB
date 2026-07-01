@@ -1,6 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Database, Download, Eraser, Plus, RefreshCw, Trash2, Upload, Wrench } from 'lucide-react';
+import {
+  Database,
+  Download,
+  Eraser,
+  FileCode,
+  Plus,
+  RefreshCw,
+  Trash2,
+  Upload,
+  Wrench,
+} from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -23,11 +33,13 @@ interface DatabaseContextMenuProps {
   onExportSchema?: () => void;
   onBackup?: () => void;
   onRestore?: () => void;
+  onImportSql?: () => void;
   onTruncateAll?: () => void;
   canCreateTable: boolean;
   canDelete: boolean;
   canExportSchema: boolean;
   canBackup: boolean;
+  canImportSql: boolean;
   canTruncateAll: boolean;
   isDocument?: boolean;
   children: ReactNode;
@@ -41,11 +53,13 @@ export function DatabaseContextMenu({
   onExportSchema,
   onBackup,
   onRestore,
+  onImportSql,
   onTruncateAll,
   canCreateTable,
   canDelete,
   canExportSchema,
   canBackup,
+  canImportSql,
   canTruncateAll,
   isDocument,
   children,
@@ -87,6 +101,12 @@ export function DatabaseContextMenu({
                   <Upload size={14} />
                   {t('connection.menu.restore')}
                 </ContextMenuItem>
+                {canImportSql && onImportSql && (
+                  <ContextMenuItem onSelect={onImportSql}>
+                    <FileCode size={14} />
+                    {t('importSql.menuItem')}
+                  </ContextMenuItem>
+                )}
               </ContextMenuSubContent>
             </ContextMenuSub>
           </>

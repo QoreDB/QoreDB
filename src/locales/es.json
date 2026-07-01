@@ -1531,6 +1531,22 @@
     "success": "{{count}} elemento(s) vaciado(s)",
     "failed": "Error al vaciar"
   },
+  "importSql": {
+    "menuItem": "Importar archivo SQL…",
+    "dialogTitle": "Importar SQL — {{name}}",
+    "warning": "Las instrucciones del archivo se ejecutarán tal cual en «{{name}}». Revisa su contenido antes de importar.",
+    "inputPath": "Archivo SQL",
+    "inputPathPlaceholder": "Seleccionar un archivo .sql…",
+    "stopOnError": "Detener en el primer error",
+    "stopOnErrorHint": "Si se desactiva, la importación continúa y resume todos los errores.",
+    "total": "{{count}} instrucción(es)",
+    "executed": "{{count}} ejecutada(s)",
+    "failedCount": "{{count}} fallida(s)",
+    "completed": "Importación completada",
+    "run": "Ejecutar",
+    "running": "Ejecutando…",
+    "runAnother": "Importar otro archivo"
+  },
   "dropDatabase": {
     "menuItem": "Eliminar base de datos",
     "title": "Eliminar base de datos",

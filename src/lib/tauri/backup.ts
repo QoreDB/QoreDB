@@ -103,12 +103,20 @@ export async function setBackupToolPath(tool: BackupTool, path: string): Promise
   await invoke<void>('set_backup_tool_path', { tool, path });
 }
 
-export async function startBackup(options: BackupOptions): Promise<BackupJobOutcome> {
-  return invoke<BackupJobOutcome>('start_backup', { options });
+export async function startBackup(
+  options: BackupOptions,
+  connectionId?: string,
+  projectId?: string
+): Promise<BackupJobOutcome> {
+  return invoke<BackupJobOutcome>('start_backup', { options, connectionId, projectId });
 }
 
-export async function startRestore(options: RestoreOptions): Promise<BackupJobOutcome> {
-  return invoke<BackupJobOutcome>('start_restore', { options });
+export async function startRestore(
+  options: RestoreOptions,
+  connectionId?: string,
+  projectId?: string
+): Promise<BackupJobOutcome> {
+  return invoke<BackupJobOutcome>('start_restore', { options, connectionId, projectId });
 }
 
 /**

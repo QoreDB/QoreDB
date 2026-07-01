@@ -2962,7 +2962,7 @@
     "modeDataOnly": "Solo datos",
     "format": "Formato",
     "password": "Contraseña",
-    "passwordPlaceholder": "Requerido por la herramienta",
+    "passwordPlaceholder": "Dejar vacío para usar la contraseña guardada",
     "tablesOptional": "Tablas (opcional)",
     "tablesPlaceholder": "Separadas por comas; vacío = todas",
     "outputPath": "Archivo de salida",

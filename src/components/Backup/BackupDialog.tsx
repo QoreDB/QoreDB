@@ -155,7 +155,7 @@ export function BackupDialog({ connection, database, open, onClose }: BackupDial
         }
       });
 
-      const outcome = await startBackup(options);
+      const outcome = await startBackup(options, connection.id, connection.project_id);
       if (unlistenAll) unlistenAll();
 
       const finalUnlisten = await listenBackupProgress(outcome.job_id, () => {});

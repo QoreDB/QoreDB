@@ -117,7 +117,7 @@ export function ConnectionContextMenu({
     <>
       <ContextMenu>
         <ContextMenuTrigger asChild>{children}</ContextMenuTrigger>
-        <ContextMenuContent className="w-48">
+        <ContextMenuContent className="min-w-52">
           {isConnected && (onNewQuery || onNewNotebook) && (
             <>
               {onNewQuery && (
@@ -161,7 +161,7 @@ export function ConnectionContextMenu({
                   <Wrench size={14} />
                   {t('dbtree.tools')}
                 </ContextMenuSubTrigger>
-                <ContextMenuSubContent className="w-48">
+                <ContextMenuSubContent className="min-w-52">
                   <ContextMenuItem onSelect={() => openBackupDialog(connection)}>
                     <Download size={14} />
                     {t('connection.menu.backup')}

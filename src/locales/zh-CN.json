@@ -2962,7 +2962,7 @@
     "modeDataOnly": "仅数据",
     "format": "格式",
     "password": "密码",
-    "passwordPlaceholder": "导出工具需要",
+    "passwordPlaceholder": "留空则使用已保存的密码",
     "tablesOptional": "表（可选）",
     "tablesPlaceholder": "逗号分隔；为空 = 全部",
     "outputPath": "输出文件",

@@ -2962,7 +2962,7 @@
     "modeDataOnly": "데이터만",
     "format": "형식",
     "password": "비밀번호",
-    "passwordPlaceholder": "덤프 도구에 필요",
+    "passwordPlaceholder": "비워두면 저장된 비밀번호 사용",
     "tablesOptional": "테이블(선택)",
     "tablesPlaceholder": "쉼표로 구분, 비어 있음 = 전체",
     "outputPath": "출력 파일",

@@ -2990,7 +2990,7 @@
     "modeDataOnly": "Données seules",
     "format": "Format",
     "password": "Mot de passe",
-    "passwordPlaceholder": "Requis par l'outil de dump",
+    "passwordPlaceholder": "Laisser vide pour le mot de passe enregistré",
     "tablesOptional": "Tables (optionnel)",
     "tablesPlaceholder": "Séparées par virgules ; vide = toutes",
     "outputPath": "Fichier de sortie",

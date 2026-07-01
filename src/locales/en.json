@@ -2990,7 +2990,7 @@
     "modeDataOnly": "Data only",
     "format": "Format",
     "password": "Password",
-    "passwordPlaceholder": "Required by the dump tool",
+    "passwordPlaceholder": "Leave empty to use the saved password",
     "tablesOptional": "Tables (optional)",
     "tablesPlaceholder": "Comma-separated; empty = all tables",
     "outputPath": "Output file",

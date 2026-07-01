@@ -2962,7 +2962,7 @@
     "modeDataOnly": "Nur Daten",
     "format": "Format",
     "password": "Passwort",
-    "passwordPlaceholder": "Vom Dump-Tool benötigt",
+    "passwordPlaceholder": "Leer lassen, um das gespeicherte Passwort zu verwenden",
     "tablesOptional": "Tabellen (optional)",
     "tablesPlaceholder": "Komma-getrennt; leer = alle",
     "outputPath": "Ausgabedatei",

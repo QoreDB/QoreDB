@@ -2962,7 +2962,7 @@
     "modeDataOnly": "Только данные",
     "format": "Формат",
     "password": "Пароль",
-    "passwordPlaceholder": "Требуется утилитой дампа",
+    "passwordPlaceholder": "Оставьте пустым, чтобы использовать сохранённый пароль",
     "tablesOptional": "Таблицы (опционально)",
     "tablesPlaceholder": "Через запятую; пусто = все",
     "outputPath": "Файл вывода",

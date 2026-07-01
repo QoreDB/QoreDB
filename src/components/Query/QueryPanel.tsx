@@ -220,9 +220,17 @@ export function QueryPanel({
   const [docOriginalId, setDocOriginalId] = useState<Value | undefined>(undefined);
   const collectionName = getCollectionFromQuery(query);
 
+  const onQueryDraftChangeRef = useRef(onQueryDraftChange);
+  onQueryDraftChangeRef.current = onQueryDraftChange;
+  const queryRef = useRef(query);
+  queryRef.current = query;
+
   useEffect(() => {
-    onQueryDraftChange?.(query);
-  }, [query, onQueryDraftChange]);
+    const handle = setTimeout(() => onQueryDraftChangeRef.current?.(query), 300);
+    return () => clearTimeout(handle);
+  }, [query]);
+
+  useEffect(() => () => onQueryDraftChangeRef.current?.(queryRef.current), []);
 
   const envConfig = ENVIRONMENT_CONFIG[environment];
 

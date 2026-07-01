@@ -2962,7 +2962,7 @@
     "modeDataOnly": "Apenas dados",
     "format": "Formato",
     "password": "Senha",
-    "passwordPlaceholder": "Necessária para a ferramenta",
+    "passwordPlaceholder": "Deixe vazio para usar a senha salva",
     "tablesOptional": "Tabelas (opcional)",
     "tablesPlaceholder": "Separadas por vírgulas; vazio = todas",
     "outputPath": "Arquivo de saída",

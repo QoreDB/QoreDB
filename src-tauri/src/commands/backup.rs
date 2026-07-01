@@ -14,13 +14,15 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use serde::Deserialize;
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::backup::runner::{ActiveBackups, EventSink};
 use crate::backup::{
     detect_tool, run_backup, run_duckdb_backup, run_duckdb_restore, run_restore, BackupEvent,
     BackupFormat, BackupJobOutcome, BackupOptions, BackupTool, BackupToolInfo, RestoreOptions,
 };
+use crate::vault::backend::KeyringProvider;
+use crate::vault::VaultStorage;
 
 /// Event topic emitted on every line of stdout/stderr and on completion.
 const BACKUP_EVENT: &str = "backup-progress";
@@ -124,6 +126,37 @@ pub struct StartBackupArgs {
     pub options: BackupOptions,
 }
 
+/// Resolves the stored database password from the vault for a saved connection,
+/// mirroring how `connect_saved_connection` obtains credentials. The plaintext
+/// stays in the backend and is handed straight to the CLI subprocess. Best-effort:
+/// returns `None` when the vault is locked or the credential can't be read, so a
+/// manually-entered password can still take over.
+fn resolve_saved_password(
+    app: &AppHandle,
+    project_id: &str,
+    connection_id: &str,
+) -> Option<String> {
+    let storage_dir = app.path().app_config_dir().ok()?;
+    let storage = VaultStorage::new(project_id, storage_dir, Box::new(KeyringProvider::new()));
+    let creds = storage.get_credentials(connection_id).ok()?;
+    Some(creds.db_password.expose().clone())
+}
+
+/// Fills `options.password` from the vault when the caller left it empty and
+/// supplied the saved-connection coordinates.
+fn fill_password_from_vault(
+    app: &AppHandle,
+    password: &mut Option<String>,
+    connection_id: Option<String>,
+    project_id: Option<String>,
+) {
+    if password.as_deref().unwrap_or("").is_empty() {
+        if let (Some(cid), Some(pid)) = (connection_id, project_id) {
+            *password = resolve_saved_password(app, &pid, &cid);
+        }
+    }
+}
+
 /// Spawn the right binary for the given driver, stream events, return the
 /// final outcome. DuckDB short-circuits to the in-process runner since it
 /// ships `EXPORT DATABASE` natively and needs no external binary.
@@ -131,8 +164,12 @@ pub struct StartBackupArgs {
 pub async fn start_backup(
     app: AppHandle,
     state: State<'_, crate::SharedState>,
-    options: BackupOptions,
+    mut options: BackupOptions,
+    connection_id: Option<String>,
+    project_id: Option<String>,
 ) -> Result<BackupJobOutcome, String> {
+    fill_password_from_vault(&app, &mut options.password, connection_id, project_id);
+
     let (overrides, active) = {
         let state = state.lock().await;
         (
@@ -165,8 +202,12 @@ pub async fn start_backup(
 pub async fn start_restore(
     app: AppHandle,
     state: State<'_, crate::SharedState>,
-    options: RestoreOptions,
+    mut options: RestoreOptions,
+    connection_id: Option<String>,
+    project_id: Option<String>,
 ) -> Result<BackupJobOutcome, String> {
+    fill_password_from_vault(&app, &mut options.password, connection_id, project_id);
+
     let (overrides, active) = {
         let state = state.lock().await;
         (

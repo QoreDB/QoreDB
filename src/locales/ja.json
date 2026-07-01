@@ -2962,7 +2962,7 @@
     "modeDataOnly": "データのみ",
     "format": "フォーマット",
     "password": "パスワード",
-    "passwordPlaceholder": "ダンプツールに必要",
+    "passwordPlaceholder": "空欄で保存済みのパスワードを使用",
     "tablesOptional": "テーブル（オプション）",
     "tablesPlaceholder": "カンマ区切り。空 = 全て",
     "outputPath": "出力ファイル",

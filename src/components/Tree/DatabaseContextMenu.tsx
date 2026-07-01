@@ -69,7 +69,7 @@ export function DatabaseContextMenu({
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>{children}</ContextMenuTrigger>
-      <ContextMenuContent className="w-48">
+      <ContextMenuContent className="min-w-52">
         <ContextMenuItem onSelect={onOpen}>
           <Database size={14} />
           {t('dbtree.open')}
@@ -86,7 +86,7 @@ export function DatabaseContextMenu({
                 <Wrench size={14} />
                 {t('dbtree.tools')}
               </ContextMenuSubTrigger>
-              <ContextMenuSubContent className="w-48">
+              <ContextMenuSubContent className="min-w-52">
                 {canExportSchema && onExportSchema && (
                   <ContextMenuItem onSelect={onExportSchema}>
                     <Download size={14} />

@@ -146,7 +146,7 @@ export function RestoreDialog({ connection, database, open: isOpen, onClose }: R
         }
       });
 
-      const outcome = await startRestore(options);
+      const outcome = await startRestore(options, connection.id, connection.project_id);
       if (unlistenAll) unlistenAll();
 
       setPhase('done');

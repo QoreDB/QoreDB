@@ -128,6 +128,7 @@ export function AppLayout() {
   useWebviewGuards();
   const {
     width: sidebarWidth,
+    sidebarRef,
     handleMouseDown: handleSidebarResizeStart,
     resetWidth: resetSidebarWidth,
   } = useResizableSidebar();
@@ -203,7 +204,6 @@ export function AppLayout() {
     });
   }, [tabs, setBeforeCloseTab, t]);
 
-  // --- Action handlers ---
   const handleTableSelect = useCallback(
     (ns: Namespace, tableName: string, rf?: RelationFilter, sf?: SearchFilter) => {
       AnalyticsService.capture('resource_opened', {
@@ -257,7 +257,6 @@ export function AppLayout() {
         openTab(createNotebookTab(nbResult.notebook.metadata.title, nbResult.path));
       }
     } catch {
-      /* dialog cancelled or invalid file */
     }
   }, [sessionId, openTab]);
 
@@ -463,8 +462,6 @@ export function AppLayout() {
     if (isActive) {
       const prefs = getSandboxPreferences();
       if (prefs.confirmOnDiscard && hasPendingChanges(sessionId)) {
-        // Three-way flow (cancel / discard / keep changes), not a single yes/no —
-        // kept on native confirm rather than the single-question confirmDialog.
         const confirmExit = window.confirm(
           `${t('sandbox.confirmDeactivate.title')}\n\n${t('sandbox.confirmDeactivate.message')}`
         );
@@ -797,6 +794,7 @@ export function AppLayout() {
           {!zenMode && sidebarVisible && (
             <aside aria-label={t('a11y.sidebar')} className="flex h-full shrink-0">
               <Sidebar
+                ref={sidebarRef}
                 onNewConnection={() => setConnectionModalOpen(true)}
                 onConnected={handleConnected}
                 connectedSessionId={sessionId}

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ChevronUp, Database, Globe, Plus, Search, ShieldCheck, Sparkles } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { forwardRef, useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { FounderBadge } from '@/components/License/FounderBadge';
@@ -86,30 +86,33 @@ interface SidebarProps {
   style?: React.CSSProperties;
 }
 
-export function Sidebar({
-  onNewConnection,
-  onConnected,
-  connectedSessionId,
-  connectedConnectionId,
-  onTableSelect,
-  onDatabaseSelect,
-  onCompareTable,
-  onAiGenerateForTable,
-  onNewQueryForTable,
-  onOpenRoutineSource,
-  onCreateRoutine,
-  onOpenTriggerSource,
-  onCreateTrigger,
-  onOpenEventSource,
-  onCreateEvent,
-  onOpenSequenceSource,
-  onEditConnection,
-  onNewQuery,
-  onNewNotebook,
-  schemaRefreshTrigger,
-  activeNamespace,
-  style,
-}: SidebarProps) {
+export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
+  {
+    onNewConnection,
+    onConnected,
+    connectedSessionId,
+    connectedConnectionId,
+    onTableSelect,
+    onDatabaseSelect,
+    onCompareTable,
+    onAiGenerateForTable,
+    onNewQueryForTable,
+    onOpenRoutineSource,
+    onCreateRoutine,
+    onOpenTriggerSource,
+    onCreateTrigger,
+    onOpenEventSource,
+    onCreateEvent,
+    onOpenSequenceSource,
+    onEditConnection,
+    onNewQuery,
+    onNewNotebook,
+    schemaRefreshTrigger,
+    activeNamespace,
+    style,
+  }: SidebarProps,
+  ref
+) {
   const [connections, setConnections] = useState<SavedConnection[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -324,6 +327,7 @@ export function Sidebar({
 
   return (
     <aside
+      ref={ref}
       className="h-full flex flex-col border-r border-border bg-muted/30"
       style={style}
       data-allow-webview-shortcuts
@@ -493,4 +497,4 @@ export function Sidebar({
       />
     </aside>
   );
-}
+});

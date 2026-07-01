@@ -505,7 +505,13 @@ export function DatabaseBrowser({
   const [luaModalOpen, setLuaModalOpen] = useState(false);
   const [schemaExportOpen, setSchemaExportOpen] = useState(false);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [page, setPage] = useState(1);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(timer);
+  }, [search]);
 
   const tableVisits = useMemo(
     () => getNamespaceTableVisits(stableNamespace, connectionId, OVERVIEW_COLLECTION_LIMIT),
@@ -535,7 +541,7 @@ export function DatabaseBrowser({
     namespace: stableNamespace,
     page,
     schemaObjectCapabilities,
-    search,
+    search: debouncedSearch,
     sessionId,
   });
 

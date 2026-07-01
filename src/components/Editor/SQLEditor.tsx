@@ -52,6 +52,7 @@ interface SchemaState {
   defaultNamespace: Namespace | null;
   tablesByNamespace: Map<string, Collection[]>;
   columnsByTable: Map<string, string[]>;
+  tableCompletionsByNamespace: Map<string, Completion[]>;
 }
 
 function createSchemaState(): SchemaState {
@@ -60,6 +61,7 @@ function createSchemaState(): SchemaState {
     defaultNamespace: null,
     tablesByNamespace: new Map(),
     columnsByTable: new Map(),
+    tableCompletionsByNamespace: new Map(),
   };
 }
 
@@ -303,25 +305,29 @@ export const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQ
 
       const defaultNs = schemaStateRef.current.defaultNamespace;
       if (defaultNs) {
-        const tables = await loadTablesForNamespace(defaultNs);
-        const shouldQualify =
-          dialect === Driver.Mysql &&
-          ((!!connectionDatabase && connectionDatabase !== defaultNs.database) ||
-            (!connectionDatabase && !!defaultNs.database));
-        const qualifyTable = (tableName: string) => {
-          if (!shouldQualify) return tableName;
-          const dbName = defaultNs.database.replace(/`/g, '``');
-          const table = tableName.replace(/`/g, '``');
-          return `\`${dbName}\`.\`${table}\``;
-        };
-        tableOptions.push(
-          ...tables.map(table => ({
+        const nsKey = getNamespaceKey(defaultNs);
+        let cachedTableCompletions = schemaStateRef.current.tableCompletionsByNamespace.get(nsKey);
+        if (!cachedTableCompletions) {
+          const tables = await loadTablesForNamespace(defaultNs);
+          const shouldQualify =
+            dialect === Driver.Mysql &&
+            ((!!connectionDatabase && connectionDatabase !== defaultNs.database) ||
+              (!connectionDatabase && !!defaultNs.database));
+          const qualifyTable = (tableName: string) => {
+            if (!shouldQualify) return tableName;
+            const dbName = defaultNs.database.replace(/`/g, '``');
+            const table = tableName.replace(/`/g, '``');
+            return `\`${dbName}\`.\`${table}\``;
+          };
+          cachedTableCompletions = tables.map(table => ({
             label: table.name,
             type: table.collection_type === 'View' ? 'view' : 'table',
             detail: defaultNs.schema ? defaultNs.schema : defaultNs.database,
             apply: qualifyTable(table.name),
-          }))
-        );
+          }));
+          schemaStateRef.current.tableCompletionsByNamespace.set(nsKey, cachedTableCompletions);
+        }
+        tableOptions.push(...cachedTableCompletions);
       }
 
       const keywordResult = await keywordSource(context);

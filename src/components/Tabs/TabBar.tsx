@@ -18,7 +18,6 @@ export type { TabItem } from './tabBarTypes';
 interface TabBarProps {
   tabs?: TabItem[];
   activeId?: string;
-  /** Lookup connection metadata for header rendering when grouping is on. */
   resolveConnection?: ConnectionLabelLookup;
   onSelect?: (id: string) => void;
   onClose?: (id: string) => void;
@@ -112,97 +111,103 @@ export function TabBar({
 
   return (
     <>
-      <div
-        ref={containerRef}
-        className="flex items-center w-full bg-background border-b border-border h-10 select-none pl-1 gap-0 overflow-x-auto overflow-y-hidden no-scrollbar"
-        role="tablist"
-        aria-label={t('a11y.tabBar')}
-        onClick={closeContextMenu}
-        onKeyDown={e => {
-          if (e.key === 'Escape') closeContextMenu();
-        }}
-      >
-        {pinnedTabs.length > 0 && (
-          <Reorder.Group
-            axis="x"
-            values={pinnedTabs}
-            onReorder={handlePinnedReorder}
-            className="flex items-center gap-0"
-            as="div"
-          >
-            {pinnedTabs.map(tab => (
-              <TabButton
-                key={tab.id}
-                tab={tab}
-                isActive={activeId === tab.id}
-                onSelect={onSelect}
-                onClose={onClose}
-                onContextMenu={handleContextMenu}
-              />
-            ))}
-          </Reorder.Group>
-        )}
-
-        {pinnedTabs.length > 0 && unpinnedTabs.length > 0 && (
-          <div className="h-5 w-px bg-border/60 mx-0.5 shrink-0" />
-        )}
-
-        {grouped ? (
-          <div className="flex items-center gap-1.5 min-w-0">
-            {grouped.map(group => {
-              const label = group.connectionId
-                ? resolveConnection?.(group.connectionId)
-                : undefined;
-              return (
-                <TabGroup
-                  key={group.groupId}
-                  groupId={group.groupId}
-                  label={label}
-                  tabs={group.tabs}
-                  activeId={activeId}
-                  collapsed={!!collapsedGroups[group.groupId]}
-                  onToggleCollapsed={handleToggleCollapsed}
+      <div className="flex items-center w-full bg-background border-b border-border h-10 select-none">
+        <div
+          ref={containerRef}
+          className="flex items-center flex-1 min-w-0 h-full pl-1 gap-0 overflow-x-auto overflow-y-hidden no-scrollbar"
+          role="tablist"
+          aria-label={t('a11y.tabBar')}
+          onClick={closeContextMenu}
+          onKeyDown={e => {
+            if (e.key === 'Escape') closeContextMenu();
+          }}
+        >
+          {pinnedTabs.length > 0 && (
+            <Reorder.Group
+              axis="x"
+              values={pinnedTabs}
+              onReorder={handlePinnedReorder}
+              className="flex items-center gap-0"
+              as="div"
+            >
+              {pinnedTabs.map(tab => (
+                <TabButton
+                  key={tab.id}
+                  tab={tab}
+                  isActive={activeId === tab.id}
                   onSelect={onSelect}
                   onClose={onClose}
-                  onReorder={handleGroupReorder}
                   onContextMenu={handleContextMenu}
                 />
-              );
-            })}
-          </div>
-        ) : (
-          <Reorder.Group
-            axis="x"
-            values={unpinnedTabs}
-            onReorder={handleFlatReorder}
-            className="flex items-center gap-0 min-w-0"
-            as="div"
-          >
-            {unpinnedTabs.map(tab => (
-              <TabButton
-                key={tab.id}
-                tab={tab}
-                isActive={activeId === tab.id}
-                onSelect={onSelect}
-                onClose={onClose}
-                onContextMenu={handleContextMenu}
-              />
-            ))}
-          </Reorder.Group>
-        )}
+              ))}
+            </Reorder.Group>
+          )}
 
-        {tabs.length > 5 && <TabListDropdown tabs={tabs} activeId={activeId} onSelect={onSelect} />}
+          {pinnedTabs.length > 0 && unpinnedTabs.length > 0 && (
+            <div className="h-5 w-px bg-border/60 mx-0.5 shrink-0" />
+          )}
 
-        <Tooltip content={t('tabs.newQuery', { modifier: getModifierKey() })}>
-          <button
-            type="button"
-            aria-label={t('tabs.newQuery', { modifier: getModifierKey() })}
-            className="flex items-center justify-center w-8 h-8 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--q-accent)]"
-            onClick={onNew}
-          >
-            <Plus size={16} />
-          </button>
-        </Tooltip>
+          {grouped ? (
+            <div className="flex items-center gap-1.5 min-w-0">
+              {grouped.map(group => {
+                const label = group.connectionId
+                  ? resolveConnection?.(group.connectionId)
+                  : undefined;
+                return (
+                  <TabGroup
+                    key={group.groupId}
+                    groupId={group.groupId}
+                    label={label}
+                    tabs={group.tabs}
+                    activeId={activeId}
+                    collapsed={!!collapsedGroups[group.groupId]}
+                    onToggleCollapsed={handleToggleCollapsed}
+                    onSelect={onSelect}
+                    onClose={onClose}
+                    onReorder={handleGroupReorder}
+                    onContextMenu={handleContextMenu}
+                  />
+                );
+              })}
+            </div>
+          ) : (
+            <Reorder.Group
+              axis="x"
+              values={unpinnedTabs}
+              onReorder={handleFlatReorder}
+              className="flex items-center gap-0 min-w-0"
+              as="div"
+            >
+              {unpinnedTabs.map(tab => (
+                <TabButton
+                  key={tab.id}
+                  tab={tab}
+                  isActive={activeId === tab.id}
+                  onSelect={onSelect}
+                  onClose={onClose}
+                  onContextMenu={handleContextMenu}
+                />
+              ))}
+            </Reorder.Group>
+          )}
+        </div>
+
+        <div className="flex items-center shrink-0 gap-0.5 h-full px-1 border-l border-border/60">
+          {tabs.length > 5 && (
+            <TabListDropdown tabs={tabs} activeId={activeId} onSelect={onSelect} />
+          )}
+
+          <Tooltip content={t('tabs.newQuery', { modifier: getModifierKey() })}>
+            <button
+              type="button"
+              aria-label={t('tabs.newQuery', { modifier: getModifierKey() })}
+              className="flex items-center justify-center w-8 h-8 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--q-accent)]"
+              onClick={onNew}
+            >
+              <Plus size={16} />
+            </button>
+          </Tooltip>
+        </div>
       </div>
 
       {contextMenu && (

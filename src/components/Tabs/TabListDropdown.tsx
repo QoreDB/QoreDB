@@ -42,16 +42,12 @@ export function TabListDropdown({ tabs, activeId, onSelect }: TabListDropdownPro
             onSelect={() => onSelect?.(tab.id)}
             className={cn(
               'gap-2 py-1.5 text-xs',
-              activeId === tab.id
-                ? 'bg-muted font-medium text-foreground'
-                : 'text-muted-foreground'
+              activeId === tab.id ? 'bg-muted font-medium text-foreground' : 'text-muted-foreground'
             )}
           >
             <span className="shrink-0 opacity-70">{getTabIcon(tab.type)}</span>
             <span className="truncate">{tab.title}</span>
-            {tab.pinned && (
-              <Pin className="ml-auto size-2.5 shrink-0 text-muted-foreground/50" />
-            )}
+            {tab.pinned && <Pin className="ml-auto size-2.5 shrink-0 text-muted-foreground/50" />}
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>

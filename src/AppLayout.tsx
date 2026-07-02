@@ -256,8 +256,7 @@ export function AppLayout() {
         setPendingNotebook(nbResult.path, nbResult.notebook);
         openTab(createNotebookTab(nbResult.notebook.metadata.title, nbResult.path));
       }
-    } catch {
-    }
+    } catch {}
   }, [sessionId, openTab]);
 
   const handleOpenDiff = useCallback(() => {

@@ -113,7 +113,8 @@
       "Bash(which convert *)",
       "Bash(rg -rn \"useUiEvent|UI_EVENT_REFRESH_TABLE\" src/)",
       "Bash(rg -rln \"useUiEvent\" src/)",
-      "Bash(rg -n \"chordMatches\" src/lib/shortcuts/*.ts)"
+      "Bash(rg -n \"chordMatches\" src/lib/shortcuts/*.ts)",
+      "Bash(pnpm format *)"
     ]
   }
 }

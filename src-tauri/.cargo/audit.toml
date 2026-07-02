@@ -36,4 +36,10 @@ ignore = [
     # Fix in hickory-proto 0.26.1, but mongodb 3.4.1 pins 0.25.x. Awaiting mongodb upstream bump.
     # Only triggered when encoding attacker-controlled DNS names; not applicable to client-side MongoDB usage.
     "RUSTSEC-2026-0119",
+
+    # quick-xml 0.39.4 - quadratic runtime when checking a start tag for duplicate attribute names.
+    # Fix in quick-xml 0.41.0, but plist 1.9.0 (latest) pins quick-xml ^0.39.2. Awaiting plist upstream bump.
+    # Transitive via tauri (tauri-build -> tauri-utils -> plist); only parses build-time/bundle .plist files,
+    # never untrusted runtime XML. Not exploitable in our context.
+    "RUSTSEC-2026-0194",
 ]

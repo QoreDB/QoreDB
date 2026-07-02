@@ -114,7 +114,12 @@
       "Bash(rg -rn \"useUiEvent|UI_EVENT_REFRESH_TABLE\" src/)",
       "Bash(rg -rln \"useUiEvent\" src/)",
       "Bash(rg -n \"chordMatches\" src/lib/shortcuts/*.ts)",
-      "Bash(pnpm format *)"
+      "Bash(pnpm format *)",
+      "Bash(find . -name \"audit.toml\" -not -path \"*/node_modules/*\")",
+      "Bash(ls -la src-tauri/.cargo/)",
+      "Bash(ls -la .cargo/)",
+      "Bash(find . -name \"deny.toml\" -not -path \"*/node_modules/*\")",
+      "Bash(grep -rln \"cargo audit\" .github/)"
     ]
   }
 }

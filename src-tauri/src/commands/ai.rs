@@ -104,6 +104,8 @@ use tauri::Emitter;
 use uuid::Uuid;
 
 #[cfg(feature = "pro")]
+use super::parse_session_id;
+#[cfg(feature = "pro")]
 use crate::ai::context;
 #[cfg(feature = "pro")]
 use crate::ai::provider::extract_query_from_response;
@@ -115,8 +117,6 @@ use crate::ai::types::{
 };
 #[cfg(feature = "pro")]
 use crate::engine::types::{ColumnFilter, Namespace};
-#[cfg(feature = "pro")]
-use super::parse_session_id;
 
 #[cfg(feature = "pro")]
 #[tauri::command]

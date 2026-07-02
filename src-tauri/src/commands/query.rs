@@ -15,8 +15,8 @@ use crate::engine::{
     types::{
         CollectionList, CollectionListOptions, CreationOptions, EventList, EventListOptions,
         ForeignKey, Namespace, PaginatedQueryResult, QueryId, QueryResult, RoutineList,
-        RoutineListOptions, RoutineType, SequenceList, SequenceListOptions,
-        TableQueryOptions, TriggerList, TriggerListOptions, Value,
+        RoutineListOptions, RoutineType, SequenceList, SequenceListOptions, TableQueryOptions,
+        TriggerList, TriggerListOptions, Value,
     },
     TableSchema,
 };

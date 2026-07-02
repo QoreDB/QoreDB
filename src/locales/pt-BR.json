@@ -1373,6 +1373,8 @@
     "openLibrary": "Abrir biblioteca",
     "convertToNotebook": "Converter para Notebook",
     "fulltextSearch": "Pesquisa em texto completo",
+    "refreshData": "Atualizar tabela",
+    "toggleSandbox": "Alternar Modo Sandbox",
     "pressToClose": "Pressione ? ou Esc para fechar",
     "exitZenMode": "Sair do Modo Zen"
   },
@@ -1439,6 +1441,7 @@
     "keys": "Chaves",
     "open": "Abrir",
     "refresh": "Atualizar",
+    "tools": "Ferramentas do banco de dados",
     "noCollections": "Nenhuma tabela",
     "noDocuments": "Nenhum documento",
     "loadMore": "Carregar mais",
@@ -1518,6 +1521,31 @@
     "confirmProduction": "Você está em PRODUÇÃO. Digite o nome da tabela para confirmar:",
     "success": "Tabela \"{{name}}\" excluída com sucesso",
     "failed": "Falha ao excluir tabela"
+  },
+  "truncateAll": {
+    "menuItem": "Esvaziar todas as tabelas",
+    "menuItemDocument": "Esvaziar todas as coleções",
+    "description": "Todas as linhas de todas as tabelas de \"{{name}}\" serão excluídas. Esta ação não pode ser desfeita.",
+    "descriptionDocument": "Todas as coleções de \"{{name}}\" serão esvaziadas. Esta ação não pode ser desfeita.",
+    "confirm": "Esvaziar",
+    "success": "{{count}} item(ns) esvaziado(s)",
+    "failed": "Falha ao esvaziar"
+  },
+  "importSql": {
+    "menuItem": "Importar arquivo SQL…",
+    "dialogTitle": "Importar SQL — {{name}}",
+    "warning": "As instruções do arquivo serão executadas como estão em \"{{name}}\". Revise o conteúdo antes de importar.",
+    "inputPath": "Arquivo SQL",
+    "inputPathPlaceholder": "Selecionar um arquivo .sql…",
+    "stopOnError": "Parar no primeiro erro",
+    "stopOnErrorHint": "Quando desativado, a importação continua e resume todos os erros.",
+    "total": "{{count}} instrução(ões)",
+    "executed": "{{count}} executada(s)",
+    "failedCount": "{{count}} com falha",
+    "completed": "Importação concluída",
+    "run": "Executar",
+    "running": "Executando…",
+    "runAnother": "Importar outro arquivo"
   },
   "dropDatabase": {
     "menuItem": "Excluir Banco de Dados",
@@ -2934,7 +2962,7 @@
     "modeDataOnly": "Apenas dados",
     "format": "Formato",
     "password": "Senha",
-    "passwordPlaceholder": "Necessária para a ferramenta",
+    "passwordPlaceholder": "Deixe vazio para usar a senha salva",
     "tablesOptional": "Tabelas (opcional)",
     "tablesPlaceholder": "Separadas por vírgulas; vazio = todas",
     "outputPath": "Arquivo de saída",

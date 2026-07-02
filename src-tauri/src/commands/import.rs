@@ -9,7 +9,8 @@ use tauri::State;
 use tracing::instrument;
 
 use super::parse_session_id;
-use crate::engine::types::{Namespace, RowData, Value};
+use crate::engine::sql_safety::split_sql_statements;
+use crate::engine::types::{Namespace, QueryId, RowData, Value};
 use crate::interceptor::{map_environment, QueryExecutionResult, SafetyAction};
 
 const READ_ONLY_BLOCKED: &str = "Operation blocked: read-only mode";
@@ -500,4 +501,188 @@ fn csv_field_to_value(field: &str, null_string: &str) -> Value {
     }
 
     Value::Text(field.to_string())
+}
+
+#[derive(Debug, Serialize)]
+pub struct ImportSqlError {
+    pub statement_index: usize,
+    pub message: String,
+    pub statement_preview: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ImportSqlResponse {
+    pub success: bool,
+    pub total_statements: usize,
+    pub executed: usize,
+    pub failed: usize,
+    pub errors: Vec<ImportSqlError>,
+    pub error: Option<String>,
+}
+
+const IMPORT_SQL_MAX_BYTES: u64 = 100 * 1024 * 1024;
+
+#[tauri::command]
+#[instrument(skip(state), fields(session_id = %session_id, database = %database))]
+pub async fn import_sql(
+    state: State<'_, crate::SharedState>,
+    session_id: String,
+    database: String,
+    schema: Option<String>,
+    file_path: String,
+    stop_on_error: Option<bool>,
+    acknowledged_dangerous: Option<bool>,
+) -> Result<ImportSqlResponse, String> {
+    let empty = |error: Option<String>| ImportSqlResponse {
+        success: false,
+        total_statements: 0,
+        executed: 0,
+        failed: 0,
+        errors: Vec::new(),
+        error,
+    };
+
+    let (session_manager, interceptor) = {
+        let state = state.lock().await;
+        (
+            Arc::clone(&state.session_manager),
+            Arc::clone(&state.interceptor),
+        )
+    };
+    let session = parse_session_id(&session_id)?;
+
+    let read_only = session_manager
+        .is_read_only(session)
+        .await
+        .map_err(|e| e.sanitized_message())?;
+    if read_only {
+        return Ok(empty(Some(READ_ONLY_BLOCKED.to_string())));
+    }
+
+    let driver = session_manager
+        .get_driver(session)
+        .await
+        .map_err(|e| e.sanitized_message())?;
+
+    match std::fs::metadata(&file_path) {
+        Ok(meta) if meta.len() > IMPORT_SQL_MAX_BYTES => {
+            return Ok(empty(Some("SQL file too large (max 100 MB)".to_string())));
+        }
+        Ok(_) => {}
+        Err(e) => return Ok(empty(Some(format!("Cannot read file: {e}")))),
+    }
+
+    let sql = match std::fs::read_to_string(&file_path) {
+        Ok(s) => s,
+        Err(e) => return Ok(empty(Some(format!("Cannot read file: {e}")))),
+    };
+
+    let statements = match split_sql_statements(driver.driver_id(), &sql) {
+        Ok(s) => s,
+        Err(e) => return Ok(empty(Some(e))),
+    };
+
+    let environment = session_manager
+        .get_environment(session)
+        .await
+        .unwrap_or_else(|_| "development".to_string());
+    let interceptor_env = map_environment(&environment);
+    let query_preview = format!("IMPORT SQL ({} statements)", statements.len());
+    let acknowledged = acknowledged_dangerous.unwrap_or(false);
+    let interceptor_context = interceptor.build_context(
+        &session_id,
+        &query_preview,
+        driver.driver_id(),
+        interceptor_env,
+        read_only,
+        acknowledged,
+        Some(&database),
+        None,
+        true,
+    );
+
+    let safety_result = interceptor.pre_execute(&interceptor_context);
+    if !safety_result.allowed {
+        interceptor.post_execute(
+            &interceptor_context,
+            &QueryExecutionResult {
+                success: false,
+                error: safety_result.message.clone(),
+                execution_time_ms: 0.0,
+                row_count: None,
+            },
+            true,
+            safety_result.triggered_rule.as_deref(),
+        );
+        let error_msg = match safety_result.action {
+            SafetyAction::Block => format!(
+                "{}: {}",
+                SAFETY_RULE_BLOCKED,
+                safety_result.message.unwrap_or_default()
+            ),
+            SafetyAction::RequireConfirmation => format!(
+                "{}: {}",
+                DANGEROUS_BLOCKED,
+                safety_result.message.unwrap_or_default()
+            ),
+            SafetyAction::Warn => "Warning triggered".to_string(),
+        };
+        return Ok(ImportSqlResponse {
+            total_statements: statements.len(),
+            error: Some(error_msg),
+            ..empty(None)
+        });
+    }
+
+    let stop = stop_on_error.unwrap_or(true);
+    let namespace = Namespace { database, schema };
+    let total = statements.len();
+    let mut executed = 0usize;
+    let mut errors: Vec<ImportSqlError> = Vec::new();
+
+    for (idx, stmt) in statements.iter().enumerate() {
+        let trimmed = stmt.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        match driver
+            .execute_in_namespace(session, Some(namespace.clone()), trimmed, QueryId::new())
+            .await
+        {
+            Ok(_) => executed += 1,
+            Err(e) => {
+                errors.push(ImportSqlError {
+                    statement_index: idx,
+                    message: e.sanitized_message(),
+                    statement_preview: trimmed.chars().take(120).collect(),
+                });
+                if stop {
+                    break;
+                }
+            }
+        }
+    }
+
+    let failed = errors.len();
+    let success = failed == 0;
+    interceptor.post_execute(
+        &interceptor_context,
+        &QueryExecutionResult {
+            success,
+            error: errors.first().map(|e| e.message.clone()),
+            execution_time_ms: 0.0,
+            row_count: None,
+        },
+        false,
+        None,
+    );
+
+    Ok(ImportSqlResponse {
+        success,
+        total_statements: total,
+        executed,
+        failed,
+        errors,
+        error: None,
+    })
 }

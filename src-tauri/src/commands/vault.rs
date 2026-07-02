@@ -305,13 +305,17 @@ pub async fn list_saved_connections(
     drop(state);
 
     if let Some(ws_store) = get_workspace_store(&ws_manager).await {
-        return ws_store.list_connections().map_err(|e| e.sanitized_message());
+        return ws_store
+            .list_connections()
+            .map_err(|e| e.sanitized_message());
     }
 
     let storage_dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
     let storage = VaultStorage::new(&project_id, storage_dir, Box::new(KeyringProvider::new()));
 
-    storage.list_connections_full().map_err(|e| e.sanitized_message())
+    storage
+        .list_connections_full()
+        .map_err(|e| e.sanitized_message())
 }
 
 #[tauri::command]

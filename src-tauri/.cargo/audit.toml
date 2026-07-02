@@ -36,4 +36,21 @@ ignore = [
     # Fix in hickory-proto 0.26.1, but mongodb 3.4.1 pins 0.25.x. Awaiting mongodb upstream bump.
     # Only triggered when encoding attacker-controlled DNS names; not applicable to client-side MongoDB usage.
     "RUSTSEC-2026-0119",
+
+    # quick-xml 0.39.4 - quadratic runtime when checking a start tag for duplicate attribute names.
+    # Fix in quick-xml 0.41.0, but plist 1.9.0 (latest) pins quick-xml ^0.39.2. Awaiting plist upstream bump.
+    # Transitive via tauri (tauri-build -> tauri-utils -> plist); only parses build-time/bundle .plist files,
+    # never untrusted runtime XML. Not exploitable in our context.
+    "RUSTSEC-2026-0194",
+
+    # quick-xml 0.39.4 - unbounded namespace-declaration allocation in NsReader (memory-exhaustion DoS).
+    # Fix in quick-xml 0.41.0, but plist 1.9.0 (latest) pins quick-xml ^0.39.2. Awaiting plist upstream bump.
+    # Transitive via tauri (tauri-build -> tauri-utils -> plist); only parses build-time/bundle .plist files,
+    # never untrusted runtime XML. Not exploitable in our context.
+    "RUSTSEC-2026-0195",
+
+    # ansi_term 0.12.1 - unmaintained.
+    # Transitive via tiberius (MSSQL driver) -> libgssapi -> bindgen -> clap 2.x, build-dependency only.
+    # No runtime impact; awaiting tiberius dependency modernization.
+    "RUSTSEC-2021-0139",
 ]

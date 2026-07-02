@@ -10,6 +10,7 @@ import { ConnectionMenu } from '../Connection/ConnectionMenu';
 
 interface ConnectionItemProps {
   connection: SavedConnection;
+  sessionId?: string;
   isSelected: boolean;
   isExpanded: boolean;
   isConnected?: boolean;
@@ -25,6 +26,7 @@ interface ConnectionItemProps {
 
 export function ConnectionItem({
   connection,
+  sessionId,
   isSelected,
   isExpanded,
   isConnected,
@@ -45,6 +47,7 @@ export function ConnectionItem({
   return (
     <ConnectionContextMenu
       connection={connection}
+      sessionId={sessionId}
       onEdit={onEdit}
       onDeleted={onDeleted}
       isFavorite={isFavorite}

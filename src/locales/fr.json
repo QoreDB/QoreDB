@@ -1401,6 +1401,8 @@
     "openLibrary": "Ouvrir la bibliothèque",
     "convertToNotebook": "Convertir en Notebook",
     "fulltextSearch": "Recherche plein texte",
+    "refreshData": "Actualiser la table",
+    "toggleSandbox": "Basculer le mode Sandbox",
     "pressToClose": "Appuyez sur ? ou Échap pour fermer",
     "exitZenMode": "Quitter le mode Zen"
   },
@@ -1467,6 +1469,7 @@
     "keys": "Clés",
     "open": "Ouvrir",
     "refresh": "Actualiser",
+    "tools": "Outils de la base",
     "noCollections": "Aucune table",
     "noDocuments": "Aucun document",
     "loadMore": "Charger plus",
@@ -1546,6 +1549,31 @@
     "confirmProduction": "Vous êtes en PRODUCTION. Tapez le nom de la table pour confirmer :",
     "success": "Table \"{{name}}\" supprimée avec succès",
     "failed": "Échec de la suppression de la table"
+  },
+  "truncateAll": {
+    "menuItem": "Vider toutes les tables",
+    "menuItemDocument": "Vider toutes les collections",
+    "description": "Toutes les lignes de toutes les tables de « {{name}} » seront supprimées. Cette action est irréversible.",
+    "descriptionDocument": "Toutes les collections de « {{name}} » seront vidées. Cette action est irréversible.",
+    "confirm": "Vider",
+    "success": "Vidage terminé ({{count}})",
+    "failed": "Échec du vidage"
+  },
+  "importSql": {
+    "menuItem": "Importer un fichier SQL…",
+    "dialogTitle": "Importer du SQL — {{name}}",
+    "warning": "Les instructions du fichier seront exécutées telles quelles sur « {{name}} ». Vérifie leur contenu avant de lancer l'import.",
+    "inputPath": "Fichier SQL",
+    "inputPathPlaceholder": "Sélectionner un fichier .sql…",
+    "stopOnError": "Arrêter à la première erreur",
+    "stopOnErrorHint": "Si désactivé, l'import continue et récapitule toutes les erreurs.",
+    "total": "{{count}} instruction(s)",
+    "executed": "{{count}} exécutée(s)",
+    "failedCount": "{{count}} échouée(s)",
+    "completed": "Import terminé",
+    "run": "Exécuter",
+    "running": "Exécution…",
+    "runAnother": "Importer un autre fichier"
   },
   "dropDatabase": {
     "menuItem": "Supprimer la base",
@@ -2962,7 +2990,7 @@
     "modeDataOnly": "Données seules",
     "format": "Format",
     "password": "Mot de passe",
-    "passwordPlaceholder": "Requis par l'outil de dump",
+    "passwordPlaceholder": "Laisser vide pour le mot de passe enregistré",
     "tablesOptional": "Tables (optionnel)",
     "tablesPlaceholder": "Séparées par virgules ; vide = toutes",
     "outputPath": "Fichier de sortie",

@@ -25,6 +25,28 @@ export type BackupMode = 'full' | 'schema_only' | 'data_only';
 
 export type BackupFormat = 'sql' | 'postgres_custom' | 'mongo_archive';
 
+/**
+ * Drivers where a connection maps to a single database (PostgreSQL family +
+ * file-based engines). Backup/restore lives on the connection itself: the tree
+ * only exposes schemas of that one database, never sibling databases.
+ */
+export const CONNECTION_BACKUP_DRIVERS = new Set([
+  'postgres',
+  'postgresql',
+  'supabase',
+  'neon',
+  'timescaledb',
+  'cockroachdb',
+  'sqlite',
+  'duckdb',
+]);
+
+/**
+ * Drivers whose tree lists real sibling databases. Backup/restore lives on the
+ * database node so each action targets exactly the database it sits under.
+ */
+export const DATABASE_NODE_BACKUP_DRIVERS = new Set(['mysql', 'mariadb', 'mongodb']);
+
 export interface BackupToolInfo {
   tool: BackupTool;
   binary_name: string;
@@ -81,12 +103,20 @@ export async function setBackupToolPath(tool: BackupTool, path: string): Promise
   await invoke<void>('set_backup_tool_path', { tool, path });
 }
 
-export async function startBackup(options: BackupOptions): Promise<BackupJobOutcome> {
-  return invoke<BackupJobOutcome>('start_backup', { options });
+export async function startBackup(
+  options: BackupOptions,
+  connectionId?: string,
+  projectId?: string
+): Promise<BackupJobOutcome> {
+  return invoke<BackupJobOutcome>('start_backup', { options, connectionId, projectId });
 }
 
-export async function startRestore(options: RestoreOptions): Promise<BackupJobOutcome> {
-  return invoke<BackupJobOutcome>('start_restore', { options });
+export async function startRestore(
+  options: RestoreOptions,
+  connectionId?: string,
+  projectId?: string
+): Promise<BackupJobOutcome> {
+  return invoke<BackupJobOutcome>('start_restore', { options, connectionId, projectId });
 }
 
 /**

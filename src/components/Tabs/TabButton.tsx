@@ -23,7 +23,7 @@ export function TabButton({ tab, isActive, onSelect, onClose, onContextMenu }: T
       value={tab}
       layout="position"
       transition={{ duration: 0.15 }}
-      className="group relative mt-1.25"
+      className="group relative mt-1.25 list-none"
       style={{ cursor: 'grab' }}
       whileDrag={{ cursor: 'grabbing', scale: 1.02, zIndex: 50 }}
     >
@@ -34,7 +34,7 @@ export function TabButton({ tab, isActive, onSelect, onClose, onContextMenu }: T
         aria-controls={`tabpanel-${tab.id}`}
         id={`tab-${tab.id}`}
         className={cn(
-          'flex items-center gap-2 py-1.5 h-8.5 text-xs rounded-t-md border-t border-x border-transparent transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--q-accent)] focus-visible:ring-inset',
+          'flex items-center gap-2 py-1.5 h-8.5 text-xs rounded-t-md border-t border-x border-transparent transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-(--q-accent) focus-visible:ring-inset',
           tab.pinned ? 'pl-2 pr-2 min-w-9 max-w-9' : 'pl-3 pr-8 min-w-35 max-w-50',
           isActive
             ? 'bg-background text-foreground font-medium border-border -mb-px shadow-sm z-10'
@@ -69,8 +69,6 @@ export function TabButton({ tab, isActive, onSelect, onClose, onContextMenu }: T
               'absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 p-0.5 rounded-sm hover:bg-muted-foreground/20 text-muted-foreground transition-all shrink-0',
               'cursor-pointer'
             )}
-            // Stop the pointer event from reaching the framer-motion Reorder.Item,
-            // which otherwise captures it for drag and swallows the button's click.
             onPointerDown={e => e.stopPropagation()}
             onClick={e => {
               e.stopPropagation();

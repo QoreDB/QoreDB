@@ -9,6 +9,7 @@ import {
   UI_EVENT_OPEN_HISTORY,
   UI_EVENT_OPEN_LOGS,
   UI_EVENT_REFRESH_TABLE,
+  UI_EVENT_TOGGLE_SANDBOX,
 } from '@/lib/events/uiEvents';
 import {
   activateSandbox,
@@ -127,6 +128,7 @@ export function AppLayout() {
   useWebviewGuards();
   const {
     width: sidebarWidth,
+    sidebarRef,
     handleMouseDown: handleSidebarResizeStart,
     resetWidth: resetSidebarWidth,
   } = useResizableSidebar();
@@ -202,7 +204,6 @@ export function AppLayout() {
     });
   }, [tabs, setBeforeCloseTab, t]);
 
-  // --- Action handlers ---
   const handleTableSelect = useCallback(
     (ns: Namespace, tableName: string, rf?: RelationFilter, sf?: SearchFilter) => {
       AnalyticsService.capture('resource_opened', {
@@ -255,9 +256,7 @@ export function AppLayout() {
         setPendingNotebook(nbResult.path, nbResult.notebook);
         openTab(createNotebookTab(nbResult.notebook.metadata.title, nbResult.path));
       }
-    } catch {
-      /* dialog cancelled or invalid file */
-    }
+    } catch {}
   }, [sessionId, openTab]);
 
   const handleOpenDiff = useCallback(() => {
@@ -462,8 +461,6 @@ export function AppLayout() {
     if (isActive) {
       const prefs = getSandboxPreferences();
       if (prefs.confirmOnDiscard && hasPendingChanges(sessionId)) {
-        // Three-way flow (cancel / discard / keep changes), not a single yes/no —
-        // kept on native confirm rather than the single-question confirmDialog.
         const confirmExit = window.confirm(
           `${t('sandbox.confirmDeactivate.title')}\n\n${t('sandbox.confirmDeactivate.message')}`
         );
@@ -480,6 +477,11 @@ export function AppLayout() {
     if (activeConnection?.environment === 'production')
       notify.warning(t('sandbox.envWarningProduction'));
   }, [activeConnection?.environment, sessionId, t]);
+
+  useEffect(() => {
+    window.addEventListener(UI_EVENT_TOGGLE_SANDBOX, handleToggleSandbox);
+    return () => window.removeEventListener(UI_EVENT_TOGGLE_SANDBOX, handleToggleSandbox);
+  }, [handleToggleSandbox]);
 
   const paletteFeatures = useMemo(
     () =>
@@ -791,6 +793,7 @@ export function AppLayout() {
           {!zenMode && sidebarVisible && (
             <aside aria-label={t('a11y.sidebar')} className="flex h-full shrink-0">
               <Sidebar
+                ref={sidebarRef}
                 onNewConnection={() => setConnectionModalOpen(true)}
                 onConnected={handleConnected}
                 connectedSessionId={sessionId}

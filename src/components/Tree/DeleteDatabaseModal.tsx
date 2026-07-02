@@ -21,7 +21,6 @@ interface DeleteDatabaseModalProps {
   onClose: () => void;
   sessionId: string;
   namespace: Namespace;
-  driver: string;
   environment: string;
   onDeleted: () => void;
 }
@@ -31,7 +30,6 @@ export function DeleteDatabaseModal({
   onClose,
   sessionId,
   namespace,
-  driver,
   environment,
   onDeleted,
 }: DeleteDatabaseModalProps) {
@@ -40,8 +38,7 @@ export function DeleteDatabaseModal({
   const [confirmText, setConfirmText] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Determine what we're deleting based on driver
-  const isSchema = driver === 'postgres';
+  const isSchema = !!namespace.schema;
   const displayName = namespace.schema
     ? `${namespace.database}.${namespace.schema}`
     : namespace.database;

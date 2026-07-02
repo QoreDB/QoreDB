@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ChevronUp, Database, Globe, Plus, Search, ShieldCheck, Sparkles } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { forwardRef, useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { FounderBadge } from '@/components/License/FounderBadge';
@@ -23,6 +23,7 @@ import {
 import { UI_EVENT_CONNECTIONS_CHANGED } from '@/lib/events/uiEvents';
 import {
   closeBackupDialog,
+  closeImportSqlDialog,
   closeRestoreDialog,
   setAuditLogOpen,
   setContractsOpen,
@@ -47,7 +48,7 @@ import {
   type Sequence,
   type Trigger,
 } from '../../lib/tauri';
-import { BackupDialog, RestoreDialog } from '../Backup';
+import { BackupDialog, ImportSqlDialog, RestoreDialog } from '../Backup';
 import { ContractsPanel } from '../Contracts';
 import { InstantApiPanel } from '../InstantApi';
 import { AuditLogModal } from '../Interceptor';
@@ -85,30 +86,33 @@ interface SidebarProps {
   style?: React.CSSProperties;
 }
 
-export function Sidebar({
-  onNewConnection,
-  onConnected,
-  connectedSessionId,
-  connectedConnectionId,
-  onTableSelect,
-  onDatabaseSelect,
-  onCompareTable,
-  onAiGenerateForTable,
-  onNewQueryForTable,
-  onOpenRoutineSource,
-  onCreateRoutine,
-  onOpenTriggerSource,
-  onCreateTrigger,
-  onOpenEventSource,
-  onCreateEvent,
-  onOpenSequenceSource,
-  onEditConnection,
-  onNewQuery,
-  onNewNotebook,
-  schemaRefreshTrigger,
-  activeNamespace,
-  style,
-}: SidebarProps) {
+export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
+  {
+    onNewConnection,
+    onConnected,
+    connectedSessionId,
+    connectedConnectionId,
+    onTableSelect,
+    onDatabaseSelect,
+    onCompareTable,
+    onAiGenerateForTable,
+    onNewQueryForTable,
+    onOpenRoutineSource,
+    onCreateRoutine,
+    onOpenTriggerSource,
+    onCreateTrigger,
+    onOpenEventSource,
+    onCreateEvent,
+    onOpenSequenceSource,
+    onEditConnection,
+    onNewQuery,
+    onNewNotebook,
+    schemaRefreshTrigger,
+    activeNamespace,
+    style,
+  }: SidebarProps,
+  ref
+) {
   const [connections, setConnections] = useState<SavedConnection[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -125,8 +129,9 @@ export function Sidebar({
   const contractsOpen = useModalStore(s => s.contractsOpen);
   const instantApiOpen = useModalStore(s => s.instantApiOpen);
   const proDiscoveryOpen = useModalStore(s => s.proDiscoveryOpen);
-  const backupConnection = useModalStore(s => s.backupConnection);
-  const restoreConnection = useModalStore(s => s.restoreConnection);
+  const backupTarget = useModalStore(s => s.backupTarget);
+  const restoreTarget = useModalStore(s => s.restoreTarget);
+  const importSqlTarget = useModalStore(s => s.importSqlTarget);
 
   const loadConnections = useCallback(async () => {
     try {
@@ -271,6 +276,9 @@ export function Sidebar({
       <div key={connection.id}>
         <ConnectionItem
           connection={connection}
+          sessionId={
+            connectedConnectionId === connection.id ? (connectedSessionId ?? undefined) : undefined
+          }
           isSelected={selectedId === connection.id}
           isExpanded={expandedId === connection.id}
           isConnected={connectedConnectionId === connection.id}
@@ -319,6 +327,7 @@ export function Sidebar({
 
   return (
     <aside
+      ref={ref}
       className="h-full flex flex-col border-r border-border bg-muted/30"
       style={style}
       data-allow-webview-shortcuts
@@ -364,7 +373,7 @@ export function Sidebar({
                 value={searchFilter}
                 onChange={e => setSearchFilter(e.target.value)}
                 placeholder={t('sidebar.filterConnections')}
-                className="w-full h-7 pl-8 pr-2 text-xs rounded-md border border-border bg-background text-foreground placeholder:text-muted-foreground/50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--q-accent)]"
+                className="w-full h-7 pl-8 pr-2 text-xs rounded-md border border-border bg-background text-foreground placeholder:text-muted-foreground/50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-(--q-accent)"
               />
             </div>
           </div>
@@ -421,7 +430,7 @@ export function Sidebar({
             <DropdownMenuContent
               side="top"
               align="start"
-              className="w-[var(--radix-dropdown-menu-trigger-width)]"
+              className="w-(--radix-dropdown-menu-trigger-width)"
             >
               <DropdownMenuItem onClick={() => setContractsOpen(true)}>
                 <ShieldCheck size={16} />
@@ -464,14 +473,21 @@ export function Sidebar({
       />
       <InstantApiPanel open={instantApiOpen} onClose={() => setInstantApiOpen(false)} />
       <BackupDialog
-        connection={backupConnection}
-        open={!!backupConnection}
+        connection={backupTarget?.connection ?? null}
+        database={backupTarget?.database ?? null}
+        open={!!backupTarget}
         onClose={closeBackupDialog}
       />
       <RestoreDialog
-        connection={restoreConnection}
-        open={!!restoreConnection}
+        connection={restoreTarget?.connection ?? null}
+        database={restoreTarget?.database ?? null}
+        open={!!restoreTarget}
         onClose={closeRestoreDialog}
+      />
+      <ImportSqlDialog
+        target={importSqlTarget}
+        open={!!importSqlTarget}
+        onClose={closeImportSqlDialog}
       />
       <ProDiscoveryPanel
         open={proDiscoveryOpen}
@@ -481,4 +497,4 @@ export function Sidebar({
       />
     </aside>
   );
-}
+});

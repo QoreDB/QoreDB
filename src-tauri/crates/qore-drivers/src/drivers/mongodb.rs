@@ -39,6 +39,7 @@ use qore_core::types::{
     CancelSupport, Collection, CollectionList, CollectionListOptions, CollectionType, ColumnInfo,
     ConnectionConfig, FilterOperator, MaintenanceMessage, MaintenanceMessageLevel,
     MaintenanceOperationInfo, MaintenanceOperationType, MaintenanceRequest, MaintenanceResult,
+    TruncateAllResult,
     Namespace, PaginatedQueryResult, QueryId, QueryResult, Row as QRow, SessionId, SortDirection,
     TableColumn, TableIndex, TableQueryOptions, TableSchema, Value,
 };
@@ -2811,6 +2812,70 @@ impl DataEngine for MongoDriver {
             messages,
             execution_time_ms,
             success,
+        })
+    }
+
+    fn supports_truncate_all(&self) -> bool {
+        true
+    }
+
+    async fn truncate_all(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+    ) -> EngineResult<TruncateAllResult> {
+        let mongo_session = self.get_session(session).await?;
+        let db = mongo_session.client.database(&namespace.database);
+
+        let names = db
+            .list_collection_names()
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        if names.is_empty() {
+            return Ok(TruncateAllResult {
+                executed_command: String::new(),
+                truncated_tables: Vec::new(),
+                messages: vec![MaintenanceMessage {
+                    level: MaintenanceMessageLevel::Info,
+                    text: "No collections to truncate".into(),
+                }],
+                execution_time_ms: 0.0,
+                success: true,
+            });
+        }
+
+        let start = Instant::now();
+        let mut tx_guard = mongo_session.transaction_session.lock().await;
+        let mut truncated = Vec::with_capacity(names.len());
+        for name in &names {
+            let col = db.collection::<Document>(name.as_str());
+            if let Some(txn) = tx_guard.as_mut() {
+                col.delete_many(Document::new())
+                    .session(&mut *txn)
+                    .await
+                    .map_err(|e| EngineError::execution_error(e.to_string()))?;
+            } else {
+                col.delete_many(Document::new())
+                    .await
+                    .map_err(|e| EngineError::execution_error(e.to_string()))?;
+            }
+            truncated.push(name.clone());
+        }
+        drop(tx_guard);
+
+        let execution_time_ms = start.elapsed().as_micros() as f64 / 1000.0;
+        let count = truncated.len();
+
+        Ok(TruncateAllResult {
+            executed_command: format!("delete_many({{}}) x {count}"),
+            truncated_tables: truncated,
+            messages: vec![MaintenanceMessage {
+                level: MaintenanceMessageLevel::Info,
+                text: format!("Emptied {count} collection(s)"),
+            }],
+            execution_time_ms,
+            success: true,
         })
     }
 }

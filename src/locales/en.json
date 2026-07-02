@@ -1401,6 +1401,8 @@
     "openLibrary": "Open library",
     "convertToNotebook": "Convert to Notebook",
     "fulltextSearch": "Full-text search",
+    "refreshData": "Refresh table",
+    "toggleSandbox": "Toggle Sandbox Mode",
     "pressToClose": "Press ? or Esc to close",
     "exitZenMode": "Exit Zen Mode"
   },
@@ -1467,6 +1469,7 @@
     "keys": "Keys",
     "open": "Open",
     "refresh": "Refresh",
+    "tools": "Database tools",
     "noCollections": "No tables",
     "noDocuments": "No documents",
     "loadMore": "Load more",
@@ -1546,6 +1549,31 @@
     "confirmProduction": "You are in PRODUCTION. Type the table name to confirm:",
     "success": "Table \"{{name}}\" dropped successfully",
     "failed": "Failed to drop table"
+  },
+  "truncateAll": {
+    "menuItem": "Truncate all tables",
+    "menuItemDocument": "Empty all collections",
+    "description": "All rows in every table of \"{{name}}\" will be deleted. This action cannot be undone.",
+    "descriptionDocument": "All collections in \"{{name}}\" will be emptied. This action cannot be undone.",
+    "confirm": "Truncate",
+    "success": "Emptied {{count}} item(s)",
+    "failed": "Failed to truncate"
+  },
+  "importSql": {
+    "menuItem": "Import SQL file…",
+    "dialogTitle": "Import SQL — {{name}}",
+    "warning": "The statements in this file will run as-is against \"{{name}}\". Review its contents before importing.",
+    "inputPath": "SQL file",
+    "inputPathPlaceholder": "Select a .sql file…",
+    "stopOnError": "Stop on first error",
+    "stopOnErrorHint": "When off, the import continues and reports every error.",
+    "total": "{{count}} statement(s)",
+    "executed": "{{count}} executed",
+    "failedCount": "{{count}} failed",
+    "completed": "Import complete",
+    "run": "Run",
+    "running": "Running…",
+    "runAnother": "Import another file"
   },
   "dropDatabase": {
     "menuItem": "Delete Database",
@@ -2962,7 +2990,7 @@
     "modeDataOnly": "Data only",
     "format": "Format",
     "password": "Password",
-    "passwordPlaceholder": "Required by the dump tool",
+    "passwordPlaceholder": "Leave empty to use the saved password",
     "tablesOptional": "Tables (optional)",
     "tablesPlaceholder": "Comma-separated; empty = all tables",
     "outputPath": "Output file",

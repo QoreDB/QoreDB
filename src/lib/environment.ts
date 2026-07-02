@@ -150,7 +150,18 @@ export function isDangerousQuery(sql: string): boolean {
 }
 
 export function isDropDatabaseQuery(sql: string): boolean {
-  return splitSqlStatements(sql).some(statement => /^\s*DROP\s+DATABASE\b/i.test(statement));
+  return splitSqlStatements(sql).some(statement =>
+    /^\s*DROP\s+(?:DATABASE|SCHEMA)\b/i.test(statement)
+  );
+}
+
+export function isDropDatabaseDocumentQuery(query: string): boolean {
+  return /\.dropDatabase\s*\(/i.test(query) || /"operation"\s*:\s*"drop_database"/i.test(query);
+}
+
+export function getDropDatabaseDocumentTarget(query: string): string | null {
+  const match = query.match(/"database"\s*:\s*"([^"]+)"/i);
+  return match?.[1] ?? null;
 }
 
 export function countSqlStatements(sql: string): number {

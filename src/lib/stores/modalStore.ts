@@ -25,8 +25,21 @@ interface ModalState {
   newsletterPromptOpen: boolean;
   editConnection: SavedConnection | null;
   editPassword: string;
-  backupConnection: SavedConnection | null;
-  restoreConnection: SavedConnection | null;
+  backupTarget: BackupTarget | null;
+  restoreTarget: BackupTarget | null;
+  importSqlTarget: ImportSqlTarget | null;
+}
+
+export interface BackupTarget {
+  connection: SavedConnection;
+  database: string | null;
+}
+
+export interface ImportSqlTarget {
+  sessionId: string;
+  database: string;
+  schema: string | null;
+  label: string;
 }
 
 let state: ModalState = {
@@ -49,8 +62,9 @@ let state: ModalState = {
   newsletterPromptOpen: false,
   editConnection: null,
   editPassword: '',
-  backupConnection: null,
-  restoreConnection: null,
+  backupTarget: null,
+  restoreTarget: null,
+  importSqlTarget: null,
 };
 
 const listeners = new Set<() => void>();
@@ -120,20 +134,28 @@ export function setInstantApiOpen(open: boolean) {
   updateState({ instantApiOpen: open });
 }
 
-export function openBackupDialog(connection: SavedConnection) {
-  updateState({ backupConnection: connection });
+export function openBackupDialog(connection: SavedConnection, database?: string | null) {
+  updateState({ backupTarget: { connection, database: database ?? connection.database ?? null } });
 }
 
 export function closeBackupDialog() {
-  updateState({ backupConnection: null });
+  updateState({ backupTarget: null });
 }
 
-export function openRestoreDialog(connection: SavedConnection) {
-  updateState({ restoreConnection: connection });
+export function openRestoreDialog(connection: SavedConnection, database?: string | null) {
+  updateState({ restoreTarget: { connection, database: database ?? connection.database ?? null } });
 }
 
 export function closeRestoreDialog() {
-  updateState({ restoreConnection: null });
+  updateState({ restoreTarget: null });
+}
+
+export function openImportSqlDialog(target: ImportSqlTarget) {
+  updateState({ importSqlTarget: target });
+}
+
+export function closeImportSqlDialog() {
+  updateState({ importSqlTarget: null });
 }
 
 export function setSettingsOpen(open: boolean) {

@@ -9,8 +9,7 @@ use tracing::instrument;
 
 use super::{parse_session_id, SharedStateExt};
 use crate::engine::types::{
-    EventDefinition, EventOperationResult, Namespace, TriggerDefinition,
-    TriggerOperationResult,
+    EventDefinition, EventOperationResult, Namespace, TriggerDefinition, TriggerOperationResult,
 };
 use crate::interceptor::{map_environment, QueryExecutionResult, SafetyAction};
 

@@ -26,7 +26,9 @@ import { logError } from '../../lib/diagnostics/errorLog';
 import {
   ENVIRONMENT_CONFIG,
   getDangerousQueryTarget,
+  getDropDatabaseDocumentTarget,
   isDangerousQuery,
+  isDropDatabaseDocumentQuery,
   isDropDatabaseQuery,
   isMutationQuery,
 } from '../../lib/environment';
@@ -168,7 +170,9 @@ export function QueryPanel({
   const [editorHeight, setEditorHeight] = useState(loadEditorHeight);
   const [editorExpanded, setEditorExpanded] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  const resizeDragRef = useRef({ active: false, startY: 0, startHeight: 0 });
+  const editorPaneRef = useRef<HTMLDivElement>(null);
+  const resizeDragRef = useRef({ active: false, startY: 0, startHeight: 0, expanded: false });
+  const latestEditorHeight = useRef(editorHeight);
   const prevEditorHeightRef = useRef(DEFAULT_EDITOR_HEIGHT);
 
   // Feature tour trigger
@@ -218,18 +222,17 @@ export function QueryPanel({
   const [docOriginalId, setDocOriginalId] = useState<Value | undefined>(undefined);
   const collectionName = getCollectionFromQuery(query);
 
-  useEffect(() => {
-    if (initialQuery) {
-      setQuery(initialQuery);
-      setResults([]);
-      setActiveResultId(null);
-      setPanelError(null);
-    }
-  }, [initialQuery]);
+  const onQueryDraftChangeRef = useRef(onQueryDraftChange);
+  onQueryDraftChangeRef.current = onQueryDraftChange;
+  const queryRef = useRef(query);
+  queryRef.current = query;
 
   useEffect(() => {
-    onQueryDraftChange?.(query);
-  }, [query, onQueryDraftChange]);
+    const handle = setTimeout(() => onQueryDraftChangeRef.current?.(query), 300);
+    return () => clearTimeout(handle);
+  }, [query]);
+
+  useEffect(() => () => onQueryDraftChangeRef.current?.(queryRef.current), []);
 
   const envConfig = ENVIRONMENT_CONFIG[environment];
 
@@ -262,11 +265,8 @@ export function QueryPanel({
       );
 
       try {
-        // Build streaming handlers upfront — the Tauri Channel created inside
-        // executeQuery dispatches MessagePack-decoded events directly here.
         let streamHandlers: QueryStreamHandlers | undefined;
         if (isStreamingActive) {
-          // Accumulate rows per animation frame to avoid O(N²) state copies.
           const rowBuffer: Row[] = [];
           let flushScheduled = false;
 
@@ -632,11 +632,15 @@ export function QueryPanel({
         return;
       }
 
-      const isDangerous = !isDocument && isDangerousQuery(queryToRun);
+      const isDocumentDropDatabase = isDocument && isDropDatabaseDocumentQuery(queryToRun);
+      const isDangerous = (!isDocument && isDangerousQuery(queryToRun)) || isDocumentDropDatabase;
       if (isDangerous) {
         const fallbackLabel = (connectionDatabase || connectionName || 'PROD').trim() || 'PROD';
-        const target = getDangerousQueryTarget(queryToRun);
-        const isDropDatabase = !isDocument && isDropDatabaseQuery(queryToRun);
+        const target = isDocumentDropDatabase
+          ? (getDropDatabaseDocumentTarget(queryToRun) ?? activeNamespace?.database ?? null)
+          : getDangerousQueryTarget(queryToRun);
+        const isDropDatabase =
+          isDocumentDropDatabase || (!isDocument && isDropDatabaseQuery(queryToRun));
         const requiresTyping = environment === 'production' || isDropDatabase;
         const warningInfoParts = [];
         if (target) {
@@ -671,6 +675,7 @@ export function QueryPanel({
       connectionDatabase,
       connectionName,
       queryDialect,
+      activeNamespace,
     ]
   );
 
@@ -827,11 +832,17 @@ export function QueryPanel({
   const handleResizeMouseDown = useCallback(
     (e: React.MouseEvent) => {
       e.preventDefault();
-      resizeDragRef.current = { active: true, startY: e.clientY, startHeight: editorHeight };
+      resizeDragRef.current = {
+        active: true,
+        startY: e.clientY,
+        startHeight: editorHeight,
+        expanded: editorExpanded,
+      };
+      latestEditorHeight.current = editorHeight;
       document.body.style.userSelect = 'none';
       document.body.style.cursor = 'row-resize';
     },
-    [editorHeight]
+    [editorHeight, editorExpanded]
   );
 
   useEffect(() => {
@@ -845,7 +856,13 @@ export function QueryPanel({
         Math.max(resizeDragRef.current.startHeight + delta, MIN_EDITOR_HEIGHT),
         maxHeight
       );
-      setEditorHeight(newHeight);
+      latestEditorHeight.current = newHeight;
+      // Resize via the DOM during the drag so we don't re-render QueryPanel on
+      // every mousemove; commit to state on mouseup. Skip while expanded, where
+      // the flex layout ignores the height anyway.
+      if (!resizeDragRef.current.expanded && editorPaneRef.current) {
+        editorPaneRef.current.style.height = `${newHeight}px`;
+      }
     };
 
     const handleMouseUp = () => {
@@ -853,14 +870,12 @@ export function QueryPanel({
       resizeDragRef.current.active = false;
       document.body.style.userSelect = '';
       document.body.style.cursor = '';
-      setEditorHeight(h => {
-        try {
-          localStorage.setItem(EDITOR_HEIGHT_KEY, String(h));
-        } catch {
-          // ignore
-        }
-        return h;
-      });
+      setEditorHeight(latestEditorHeight.current);
+      try {
+        localStorage.setItem(EDITOR_HEIGHT_KEY, String(latestEditorHeight.current));
+      } catch {
+        // ignore
+      }
     };
 
     document.addEventListener('mousemove', handleMouseMove);
@@ -1013,6 +1028,7 @@ export function QueryPanel({
       />
 
       <div
+        ref={editorPaneRef}
         data-tour="query-editor"
         className={
           editorExpanded

@@ -214,32 +214,33 @@ export function DocumentResults({
     ? (onServerSearchChange ?? (() => {}))
     : setLocalFilter;
 
+  const rowCacheRef = useRef(new WeakMap<object, DocumentRow>());
   const documents = useMemo<DocumentRow[]>(() => {
-    const renderRows = result.rows;
-    return renderRows.map(row => {
+    const cache = rowCacheRef.current;
+    return result.rows.map(row => {
+      const cached = cache.get(row);
+      if (cached) return cached;
       const doc = normalizeDocument(result, row.values);
       const json = JSON.stringify(doc ?? null, null, 2);
-      const search = json.toLowerCase();
       const idRaw =
         doc && typeof doc === 'object' && !Array.isArray(doc)
           ? (doc as Record<string, unknown>)._id
           : undefined;
-      const idValue = coerceIdValue(idRaw);
-      const idLabel = formatIdLabel(idRaw);
-
-      return {
+      const built: DocumentRow = {
         doc,
-        idValue,
-        idLabel,
+        idValue: coerceIdValue(idRaw),
+        idLabel: formatIdLabel(idRaw),
         json,
-        search,
+        // `search` only feeds local filtering; the backend filters in
+        // infinite-scroll mode, so skip the full lowercased copy there.
+        search: isInfiniteScrollMode ? '' : json.toLowerCase(),
       };
+      cache.set(row, built);
+      return built;
     });
-  }, [result]);
+  }, [result, isInfiniteScrollMode]);
 
   const filteredDocs = useMemo(() => {
-    // Server mode: the backend already returned the matching subset — never
-    // re-filter on the (incomplete) loaded rows.
     if (isInfiniteScrollMode) return documents;
     const query = localFilter.trim().toLowerCase();
     if (!query) return documents;

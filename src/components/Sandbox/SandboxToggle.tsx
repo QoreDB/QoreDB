@@ -83,21 +83,6 @@ export function SandboxToggle({
     }
   }, [isActive, sessionId, onToggle, environment, t, sandboxUnlocked]);
 
-  // Keyboard shortcut: Ctrl+Shift+S
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 's') {
-        e.preventDefault();
-        if (!disabled && sandboxUnlocked) {
-          handleToggle();
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [disabled, handleToggle, sandboxUnlocked]);
-
   const handleConfirmDeactivate = useCallback(
     (clearChanges: boolean) => {
       setShowConfirm(false);

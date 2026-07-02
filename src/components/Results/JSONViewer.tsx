@@ -3,6 +3,8 @@
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { type KeyboardEvent, useState } from 'react';
 
+const CHILD_LIMIT = 100;
+
 function handleToggleKeyDown(e: KeyboardEvent, toggle: () => void) {
   if (e.key === 'Enter' || e.key === ' ') {
     e.preventDefault();
@@ -34,8 +36,10 @@ interface JSONNodeProps {
 
 function JSONNode({ value, keyName, depth, initialExpanded, maxDepth }: JSONNodeProps) {
   const [expanded, setExpanded] = useState(initialExpanded && depth < 2);
+  const [childLimit, setChildLimit] = useState(CHILD_LIMIT);
 
   const indent = { paddingLeft: `${depth * 1.25}rem` };
+  const childIndent = { paddingLeft: `${(depth + 1) * 1.25}rem` };
 
   if (value === null) {
     return (
@@ -107,7 +111,7 @@ function JSONNode({ value, keyName, depth, initialExpanded, maxDepth }: JSONNode
         </div>
         {expanded && (
           <div className="flex flex-col">
-            {value.map((item, i) => (
+            {value.slice(0, childLimit).map((item, i) => (
               <JSONNode
                 key={i}
                 value={item}
@@ -116,6 +120,16 @@ function JSONNode({ value, keyName, depth, initialExpanded, maxDepth }: JSONNode
                 maxDepth={maxDepth}
               />
             ))}
+            {value.length > childLimit && (
+              <button
+                type="button"
+                onClick={() => setChildLimit(c => c + CHILD_LIMIT)}
+                className="flex text-left text-muted-foreground hover:text-foreground italic"
+                style={childIndent}
+              >
+                … {value.length - childLimit} more
+              </button>
+            )}
             <div className="flex" style={indent}>
               <span className="ml-5 text-foreground">]</span>
             </div>
@@ -165,7 +179,7 @@ function JSONNode({ value, keyName, depth, initialExpanded, maxDepth }: JSONNode
         </div>
         {expanded && (
           <div className="flex flex-col">
-            {entries.map(([k, v]) => (
+            {entries.slice(0, childLimit).map(([k, v]) => (
               <JSONNode
                 key={k}
                 keyName={k}
@@ -175,6 +189,16 @@ function JSONNode({ value, keyName, depth, initialExpanded, maxDepth }: JSONNode
                 maxDepth={maxDepth}
               />
             ))}
+            {entries.length > childLimit && (
+              <button
+                type="button"
+                onClick={() => setChildLimit(c => c + CHILD_LIMIT)}
+                className="flex text-left text-muted-foreground hover:text-foreground italic"
+                style={childIndent}
+              >
+                … {entries.length - childLimit} more
+              </button>
+            )}
             <div className="flex" style={indent}>
               <span className="ml-5 text-foreground">{'}'}</span>
             </div>

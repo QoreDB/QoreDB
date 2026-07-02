@@ -18,7 +18,7 @@ import {
 } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { CheckCircle2, Pencil } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StreamingExportDialog } from '@/components/Export/StreamingExportDialog';
 import { DangerConfirmDialog } from '@/components/Guard/DangerConfirmDialog';
@@ -210,6 +210,10 @@ export function DataGrid({
   const setGlobalFilter = isServerSideMode
     ? (onServerSearchChange ?? noopServerSearchChange)
     : setInternalGlobalFilter;
+  // Filtering the full in-memory result runs on the deferred value so typing in
+  // the filter box stays responsive on large result sets; the input itself is
+  // still controlled by the immediate `globalFilter`.
+  const deferredGlobalFilter = useDeferredValue(globalFilter);
 
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
   const [columnPinning, setColumnPinning] = useState<ColumnPinningState>({
@@ -644,7 +648,7 @@ export function DataGrid({
       sorting,
       rowSelection,
       ...(isInfiniteScrollMode ? {} : { pagination }),
-      globalFilter,
+      globalFilter: deferredGlobalFilter,
       columnVisibility,
       columnPinning,
       columnFilters,

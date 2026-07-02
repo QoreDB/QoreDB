@@ -1373,6 +1373,8 @@
     "openLibrary": "라이브러리 열기",
     "convertToNotebook": "노트북으로 변환",
     "fulltextSearch": "전체 텍스트 검색",
+    "refreshData": "테이블 새로고침",
+    "toggleSandbox": "샌드박스 모드 전환",
     "pressToClose": "? 또는 Esc를 눌러 닫기",
     "exitZenMode": "집중 모드 종료"
   },
@@ -1439,6 +1441,7 @@
     "keys": "키",
     "open": "열기",
     "refresh": "새로고침",
+    "tools": "데이터베이스 도구",
     "noCollections": "테이블 없음",
     "noDocuments": "문서 없음",
     "loadMore": "더 보기",
@@ -1518,6 +1521,31 @@
     "confirmProduction": "프로덕션 환경입니다. 확인하려면 테이블 이름을 입력하세요:",
     "success": "테이블 \"{{name}}\"이(가) 성공적으로 삭제되었습니다",
     "failed": "테이블 삭제에 실패했습니다"
+  },
+  "truncateAll": {
+    "menuItem": "모든 테이블 비우기",
+    "menuItemDocument": "모든 컬렉션 비우기",
+    "description": "\"{{name}}\"의 모든 테이블의 전체 행이 삭제됩니다. 이 작업은 취소할 수 없습니다.",
+    "descriptionDocument": "\"{{name}}\"의 모든 컬렉션이 비워집니다. 이 작업은 취소할 수 없습니다.",
+    "confirm": "비우기",
+    "success": "{{count}}개 비움",
+    "failed": "비우기 실패"
+  },
+  "importSql": {
+    "menuItem": "SQL 파일 가져오기…",
+    "dialogTitle": "SQL 가져오기 — {{name}}",
+    "warning": "파일의 문장이 \"{{name}}\"에 그대로 실행됩니다. 가져오기 전에 내용을 확인하세요.",
+    "inputPath": "SQL 파일",
+    "inputPathPlaceholder": ".sql 파일 선택…",
+    "stopOnError": "첫 오류에서 중지",
+    "stopOnErrorHint": "끄면 가져오기가 계속되며 모든 오류를 요약합니다.",
+    "total": "문장 {{count}}개",
+    "executed": "{{count}}개 실행됨",
+    "failedCount": "{{count}}개 실패",
+    "completed": "가져오기 완료",
+    "run": "실행",
+    "running": "실행 중…",
+    "runAnother": "다른 파일 가져오기"
   },
   "dropDatabase": {
     "menuItem": "데이터베이스 삭제",
@@ -2934,7 +2962,7 @@
     "modeDataOnly": "데이터만",
     "format": "형식",
     "password": "비밀번호",
-    "passwordPlaceholder": "덤프 도구에 필요",
+    "passwordPlaceholder": "비워두면 저장된 비밀번호 사용",
     "tablesOptional": "테이블(선택)",
     "tablesPlaceholder": "쉼표로 구분, 비어 있음 = 전체",
     "outputPath": "출력 파일",

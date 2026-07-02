@@ -22,11 +22,15 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { emitTableChange } from '@/lib/events/tableEvents';
+import { openBackupDialog, openImportSqlDialog, openRestoreDialog } from '@/lib/stores/modalStore';
+import { DATABASE_NODE_BACKUP_DRIVERS } from '@/lib/tauri/backup';
+import { TRUNCATE_ALL_DRIVERS, truncateAll } from '@/lib/tauri/maintenance';
 import { cn } from '@/lib/utils';
 import { useSchemaCache } from '../../hooks/useSchemaCache';
 import {
   getSchemaObjectCapabilities,
   getTerminology,
+  isDocumentDatabase,
 } from '../../lib/connection/driverCapabilities';
 import { type Driver, getDriverMetadata } from '../../lib/connection/drivers';
 import {
@@ -45,6 +49,7 @@ import {
   type Trigger,
 } from '../../lib/tauri';
 import { SchemaExportDialog } from '../Export/SchemaExportDialog';
+import { DangerConfirmDialog } from '../Guard/DangerConfirmDialog';
 import { CreateTableModal } from '../Table/CreateTableModal';
 import { CreateDatabaseModal } from './CreateDatabaseModal';
 import { DatabaseContextMenu } from './DatabaseContextMenu';
@@ -124,6 +129,9 @@ export function DBTree({
   const [createTableNamespace, setCreateTableNamespace] = useState<Namespace | null>(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deleteTargetNamespace, setDeleteTargetNamespace] = useState<Namespace | null>(null);
+  const [truncateModalOpen, setTruncateModalOpen] = useState(false);
+  const [truncateTargetNamespace, setTruncateTargetNamespace] = useState<Namespace | null>(null);
+  const [truncateLoading, setTruncateLoading] = useState(false);
   const [search, setSearch] = useState('');
   const [searchValue, setSearchValue] = useState('');
   const [collapsedActiveNsKey, setCollapsedActiveNsKey] = useState<string | null>(null);
@@ -134,6 +142,7 @@ export function DBTree({
   const driverMeta = getDriverMetadata(driver);
   const terminology = getTerminology(driver);
   const schemaObjectCapabilities = getSchemaObjectCapabilities(driver);
+  const canBackupDatabase = !!connection && DATABASE_NODE_BACKUP_DRIVERS.has(driver.toLowerCase());
 
   const sessionId = connectionId;
   const { getNamespaces, invalidateNamespaces } = schemaCache;
@@ -489,9 +498,31 @@ export function DBTree({
                 setSchemaExportNamespace(ns);
                 setSchemaExportOpen(true);
               }}
+              onBackup={connection ? () => openBackupDialog(connection, ns.database) : undefined}
+              onRestore={connection ? () => openRestoreDialog(connection, ns.database) : undefined}
+              onImportSql={() =>
+                openImportSqlDialog({
+                  sessionId,
+                  database: ns.database,
+                  schema: ns.schema ?? null,
+                  label: ns.schema ? `${ns.database}.${ns.schema}` : ns.database,
+                })
+              }
+              onTruncateAll={() => {
+                setTruncateTargetNamespace(ns);
+                setTruncateModalOpen(true);
+              }}
               canCreateTable={driverMeta.supportsSQL && !connection?.read_only}
               canDelete={!connection?.read_only}
               canExportSchema={driverMeta.supportsSQL}
+              canBackup={canBackupDatabase}
+              canImportSql={canBackupDatabase && driverMeta.supportsSQL && !connection?.read_only}
+              canTruncateAll={
+                canBackupDatabase &&
+                TRUNCATE_ALL_DRIVERS.has(driver.toLowerCase()) &&
+                !connection?.read_only
+              }
+              isDocument={isDocumentDatabase(driver)}
             >
               <button
                 type="button"
@@ -1128,7 +1159,6 @@ export function DBTree({
           }}
           sessionId={sessionId}
           namespace={deleteTargetNamespace}
-          driver={driver}
           environment={connection?.environment || 'development'}
           onDeleted={() => {
             schemaCache.invalidateNamespaces();
@@ -1139,6 +1169,51 @@ export function DBTree({
               setExpandedNamespace(null);
               setCollections([]);
               setCollectionsTotal(0);
+            }
+          }}
+        />
+      )}
+
+      {truncateTargetNamespace && (
+        <DangerConfirmDialog
+          open={truncateModalOpen}
+          onOpenChange={open => {
+            setTruncateModalOpen(open);
+            if (!open) setTruncateTargetNamespace(null);
+          }}
+          title={t(
+            isDocumentDatabase(driver) ? 'truncateAll.menuItemDocument' : 'truncateAll.menuItem'
+          )}
+          description={t(
+            isDocumentDatabase(driver)
+              ? 'truncateAll.descriptionDocument'
+              : 'truncateAll.description',
+            { name: truncateTargetNamespace.schema || truncateTargetNamespace.database }
+          )}
+          confirmationLabel={truncateTargetNamespace.schema || truncateTargetNamespace.database}
+          confirmLabel={t('truncateAll.confirm')}
+          loading={truncateLoading}
+          onConfirm={async () => {
+            const target = truncateTargetNamespace;
+            setTruncateLoading(true);
+            try {
+              const result = await truncateAll(sessionId, target.database, target.schema, true);
+              if (result.success) {
+                toast.success(
+                  t('truncateAll.success', { count: result.result?.truncated_tables.length ?? 0 })
+                );
+                setTruncateModalOpen(false);
+                setTruncateTargetNamespace(null);
+                if (expandedNamespace && getNsKey(expandedNamespace) === getNsKey(target)) {
+                  refreshCollections(target);
+                }
+              } else {
+                toast.error(result.error || t('truncateAll.failed'));
+              }
+            } catch (err) {
+              toast.error(err instanceof Error ? err.message : String(err));
+            } finally {
+              setTruncateLoading(false);
             }
           }}
         />

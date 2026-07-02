@@ -1373,6 +1373,8 @@
     "openLibrary": "Bibliothek öffnen",
     "convertToNotebook": "In Notebook umwandeln",
     "fulltextSearch": "Volltextsuche",
+    "refreshData": "Tabelle aktualisieren",
+    "toggleSandbox": "Sandbox-Modus umschalten",
     "pressToClose": "Drücken Sie ? oder Esc zum Schließen",
     "exitZenMode": "Zen-Modus beenden"
   },
@@ -1439,6 +1441,7 @@
     "keys": "Schlüssel",
     "open": "Öffnen",
     "refresh": "Aktualisieren",
+    "tools": "Datenbank-Tools",
     "noCollections": "Keine Tabellen",
     "noDocuments": "Keine Dokumente",
     "loadMore": "Mehr laden",
@@ -1518,6 +1521,31 @@
     "confirmProduction": "Sie befinden sich in der PRODUKTION. Geben Sie den Tabellennamen zur Bestätigung ein:",
     "success": "Tabelle \"{{name}}\" erfolgreich gelöscht",
     "failed": "Tabelle konnte nicht gelöscht werden"
+  },
+  "truncateAll": {
+    "menuItem": "Alle Tabellen leeren",
+    "menuItemDocument": "Alle Collections leeren",
+    "description": "Alle Zeilen in allen Tabellen von „{{name}}“ werden gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.",
+    "descriptionDocument": "Alle Collections in „{{name}}“ werden geleert. Diese Aktion kann nicht rückgängig gemacht werden.",
+    "confirm": "Leeren",
+    "success": "{{count}} Element(e) geleert",
+    "failed": "Leeren fehlgeschlagen"
+  },
+  "importSql": {
+    "menuItem": "SQL-Datei importieren…",
+    "dialogTitle": "SQL importieren – {{name}}",
+    "warning": "Die Anweisungen der Datei werden unverändert auf „{{name}}“ ausgeführt. Prüfe den Inhalt vor dem Import.",
+    "inputPath": "SQL-Datei",
+    "inputPathPlaceholder": "Eine .sql-Datei auswählen…",
+    "stopOnError": "Beim ersten Fehler anhalten",
+    "stopOnErrorHint": "Wenn deaktiviert, läuft der Import weiter und meldet alle Fehler.",
+    "total": "{{count}} Anweisung(en)",
+    "executed": "{{count}} ausgeführt",
+    "failedCount": "{{count}} fehlgeschlagen",
+    "completed": "Import abgeschlossen",
+    "run": "Ausführen",
+    "running": "Wird ausgeführt…",
+    "runAnother": "Weitere Datei importieren"
   },
   "dropDatabase": {
     "menuItem": "Datenbank löschen",
@@ -2934,7 +2962,7 @@
     "modeDataOnly": "Nur Daten",
     "format": "Format",
     "password": "Passwort",
-    "passwordPlaceholder": "Vom Dump-Tool benötigt",
+    "passwordPlaceholder": "Leer lassen, um das gespeicherte Passwort zu verwenden",
     "tablesOptional": "Tabellen (optional)",
     "tablesPlaceholder": "Komma-getrennt; leer = alle",
     "outputPath": "Ausgabedatei",

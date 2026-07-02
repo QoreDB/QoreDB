@@ -29,9 +29,11 @@ function loadWidth(): number {
 
 export function useResizableSidebar() {
   const [width, setWidth] = useState(loadWidth);
+  const sidebarRef = useRef<HTMLElement>(null);
   const isDragging = useRef(false);
   const startX = useRef(0);
   const startWidth = useRef(0);
+  const latestWidth = useRef(width);
 
   const saveWidth = useCallback((w: number) => {
     try {
@@ -47,6 +49,7 @@ export function useResizableSidebar() {
       isDragging.current = true;
       startX.current = e.clientX;
       startWidth.current = width;
+      latestWidth.current = width;
       document.body.style.userSelect = 'none';
       document.body.style.cursor = 'col-resize';
     },
@@ -63,7 +66,14 @@ export function useResizableSidebar() {
       if (!isDragging.current) return;
       const delta = e.clientX - startX.current;
       const newWidth = clampWidth(startWidth.current + delta);
-      setWidth(newWidth);
+      latestWidth.current = newWidth;
+      // Write the DOM directly during the drag so we don't re-render the whole
+      // sidebar tree (and the app root) on every mousemove; commit on mouseup.
+      const el = sidebarRef.current;
+      if (el) {
+        el.style.width = `${newWidth}px`;
+        el.style.minWidth = `${newWidth}px`;
+      }
     };
 
     const handleMouseUp = () => {
@@ -71,10 +81,8 @@ export function useResizableSidebar() {
       isDragging.current = false;
       document.body.style.userSelect = '';
       document.body.style.cursor = '';
-      setWidth(w => {
-        saveWidth(w);
-        return w;
-      });
+      setWidth(latestWidth.current);
+      saveWidth(latestWidth.current);
     };
 
     document.addEventListener('mousemove', handleMouseMove);
@@ -94,5 +102,5 @@ export function useResizableSidebar() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  return { width, handleMouseDown, resetWidth };
+  return { width, sidebarRef, handleMouseDown, resetWidth };
 }

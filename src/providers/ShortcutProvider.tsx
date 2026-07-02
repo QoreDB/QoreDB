@@ -3,6 +3,11 @@
 import { type ReactNode, useEffect, useEffectEvent } from 'react';
 import { KeyboardCheatsheet } from '@/components/KeyboardCheatsheet';
 import { useShortcutBindings } from '@/hooks/useKeyboardShortcuts';
+import {
+  emitUiEvent,
+  UI_EVENT_REFRESH_TABLE,
+  UI_EVENT_TOGGLE_SANDBOX,
+} from '@/lib/events/uiEvents';
 import { chordMatches, SHORTCUT_DEFINITIONS, type ShortcutId } from '@/lib/shortcuts';
 import {
   getModalState,
@@ -43,7 +48,6 @@ export function ShortcutProvider({ children }: { children: ReactNode }) {
       modal.auditLogOpen;
 
     // Block window-level shortcuts while a dialog overlay is open.
-    // Escape is handled by Radix Dialog itself.
     if (isOverlayOpen) return;
 
     const inTextInput = isTextInputTarget(e.target);
@@ -105,6 +109,12 @@ export function ShortcutProvider({ children }: { children: ReactNode }) {
         break;
       case 'fulltextSearch':
         if (sessionId) setFulltextSearchOpen(true);
+        break;
+      case 'refreshData':
+        if (activeTab?.type === 'table') emitUiEvent(UI_EVENT_REFRESH_TABLE);
+        break;
+      case 'toggleSandbox':
+        if (sessionId) emitUiEvent(UI_EVENT_TOGGLE_SANDBOX);
         break;
     }
   }

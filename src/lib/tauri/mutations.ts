@@ -62,6 +62,24 @@ export async function deleteRow(
   });
 }
 
+export async function deleteRows(
+  sessionId: string,
+  database: string,
+  schema: string | null | undefined,
+  table: string,
+  primaryKeys: RowData[],
+  acknowledgedDangerous?: boolean
+): Promise<MutationResponse> {
+  return invoke('delete_rows', {
+    sessionId,
+    database,
+    schema,
+    table,
+    primaryKeys,
+    acknowledgedDangerous,
+  });
+}
+
 export async function supportsMutations(sessionId: string): Promise<boolean> {
   return invoke('supports_mutations', { sessionId });
 }

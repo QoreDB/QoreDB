@@ -263,6 +263,7 @@ pub fn run() {
             commands::mutation::insert_row,
             commands::mutation::update_row,
             commands::mutation::delete_row,
+            commands::mutation::delete_rows,
             commands::mutation::supports_mutations,
             // Maintenance commands
             commands::maintenance::list_maintenance_operations,

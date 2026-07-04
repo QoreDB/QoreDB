@@ -119,7 +119,10 @@
       "Bash(ls -la src-tauri/.cargo/)",
       "Bash(ls -la .cargo/)",
       "Bash(find . -name \"deny.toml\" -not -path \"*/node_modules/*\")",
-      "Bash(grep -rln \"cargo audit\" .github/)"
+      "Bash(grep -rln \"cargo audit\" .github/)",
+      "Bash(xargs rg -l \"pub trait\")",
+      "Bash(jobs -l)",
+      "Bash(ps -o etime= -p 333650)"
     ]
   }
 }

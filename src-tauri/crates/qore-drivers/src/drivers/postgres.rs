@@ -370,6 +370,16 @@ impl DataEngine for PostgresDriver {
         pg_compat::delete_row(&self.sessions, session, namespace, table, primary_key).await
     }
 
+    async fn delete_rows(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        table: &str,
+        primary_keys: &[RowData],
+    ) -> EngineResult<QueryResult> {
+        pg_compat::delete_rows(&self.sessions, session, namespace, table, primary_keys).await
+    }
+
     fn supports_mutations(&self) -> bool {
         true
     }

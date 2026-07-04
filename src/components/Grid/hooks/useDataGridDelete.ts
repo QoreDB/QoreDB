@@ -5,7 +5,7 @@ import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import {
-  deleteRow,
+  deleteRows,
   type Environment,
   type Namespace,
   type RowData as TauriRowData,
@@ -131,7 +131,8 @@ export function useDataGridDelete({
       if (!sessionId) return;
 
       setIsDeleting(true);
-      let successCount = 0;
+
+      const pks: TauriRowData[] = [];
       let failCount = 0;
 
       for (const row of rowsToDelete) {
@@ -151,22 +152,27 @@ export function useDataGridDelete({
           continue;
         }
 
+        pks.push(pkData);
+      }
+
+      let successCount = 0;
+      if (pks.length > 0) {
         try {
-          const res = await deleteRow(
+          const res = await deleteRows(
             sessionId,
             namespace.database,
             namespace.schema,
             tableName,
-            pkData,
+            pks,
             acknowledgedDangerous
           );
           if (res.success) {
-            successCount++;
+            successCount = pks.length;
           } else {
-            failCount++;
+            failCount += pks.length;
           }
         } catch {
-          failCount++;
+          failCount += pks.length;
         }
       }
 

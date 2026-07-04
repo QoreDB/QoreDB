@@ -557,6 +557,26 @@ pub trait DataEngine: Send + Sync {
         ))
     }
 
+    /// Delete multiple rows identified by their primary keys. `affected_rows`
+    /// reports the total number of rows deleted.
+    ///
+    /// The default loops over [`DataEngine::delete_row`]; SQL drivers override
+    /// this with a single batched statement to avoid one round-trip per row.
+    async fn delete_rows(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        table: &str,
+        primary_keys: &[RowData],
+    ) -> EngineResult<QueryResult> {
+        let mut total = 0u64;
+        for primary_key in primary_keys {
+            let result = self.delete_row(session, namespace, table, primary_key).await?;
+            total += result.affected_rows.unwrap_or(0);
+        }
+        Ok(QueryResult::with_affected_rows(total, 0.0))
+    }
+
     /// Check if the driver supports CRUD mutations.
     fn supports_mutations(&self) -> bool {
         false

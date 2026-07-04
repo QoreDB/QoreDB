@@ -1557,6 +1557,81 @@ impl DataEngine for SqliteDriver {
         ))
     }
 
+    async fn delete_rows(
+        &self,
+        session: SessionId,
+        _namespace: &Namespace,
+        table: &str,
+        primary_keys: &[RowData],
+    ) -> EngineResult<QueryResult> {
+        if primary_keys.is_empty() {
+            return Ok(QueryResult::with_affected_rows(0, 0.0));
+        }
+
+        let sqlite_session = self.get_session(session).await?;
+
+        let mut pk_keys: Vec<&String> = primary_keys[0].columns.keys().collect();
+        pk_keys.sort();
+        if pk_keys.is_empty() {
+            return Err(EngineError::execution_error(
+                "Primary key required for delete operations".to_string(),
+            ));
+        }
+
+        let table_name = Self::quote_ident(table);
+        let start = Instant::now();
+        // SQLite defaults to 999 bound parameters per statement; stay under it.
+        let chunk_size = (900 / pk_keys.len()).clamp(1, 900);
+        let mut total = 0u64;
+        let mut tx_guard = sqlite_session.transaction_conn.lock().await;
+
+        for chunk in primary_keys.chunks(chunk_size) {
+            let where_sql = if pk_keys.len() == 1 {
+                let placeholders = vec!["?"; chunk.len()].join(", ");
+                format!("{} IN ({})", Self::quote_ident(pk_keys[0]), placeholders)
+            } else {
+                let cond = pk_keys
+                    .iter()
+                    .map(|k| format!("{}=?", Self::quote_ident(k)))
+                    .collect::<Vec<_>>()
+                    .join(" AND ");
+                chunk
+                    .iter()
+                    .map(|_| format!("({})", cond))
+                    .collect::<Vec<_>>()
+                    .join(" OR ")
+            };
+
+            let sql = format!("DELETE FROM {} WHERE {}", table_name, where_sql);
+
+            let mut query = sqlx::query(&sql);
+            for pk in chunk {
+                for k in &pk_keys {
+                    let value = pk.columns.get(*k).ok_or_else(|| {
+                        EngineError::execution_error(format!(
+                            "Missing primary key column '{}' in delete batch",
+                            k
+                        ))
+                    })?;
+                    query = Self::bind_param(query, value);
+                }
+            }
+
+            let result = if let Some(ref mut conn) = *tx_guard {
+                query.execute(&mut **conn).await
+            } else {
+                query.execute(&sqlite_session.pool).await
+            };
+            let result = result.map_err(|e| EngineError::execution_error(e.to_string()))?;
+            total += result.rows_affected();
+        }
+
+        Ok(QueryResult::with_affected_rows(
+            total,
+            start.elapsed().as_micros() as f64 / 1000.0,
+        ))
+    }
+
     fn supports_mutations(&self) -> bool {
         true
     }
@@ -2064,6 +2139,139 @@ mod tests {
         assert_eq!(result.rows.len(), 2);
         assert!(matches!(&result.rows[0].values[0], Value::Text(s) if s == "hello"));
         assert!(matches!(&result.rows[1].values[0], Value::Int(42)));
+
+        driver.disconnect(session_id).await.unwrap();
+    }
+
+    fn file_config(host: String) -> ConnectionConfig {
+        ConnectionConfig {
+            driver: "sqlite".to_string(),
+            host,
+            port: 0,
+            username: String::new(),
+            password: String::new(),
+            database: None,
+            ssl: false,
+            ssl_mode: None,
+            environment: "development".to_string(),
+            read_only: false,
+            ssh_tunnel: None,
+            pool_acquire_timeout_secs: None,
+            pool_max_connections: None,
+            pool_min_connections: None,
+            proxy: None,
+            mssql_auth: None,
+            clickhouse_cluster: None,
+            search_auth_mode: None,
+            ssl_ca_cert: None,
+        }
+    }
+
+    fn pk(cols: &[(&str, Value)]) -> RowData {
+        RowData {
+            columns: cols.iter().map(|(k, v)| (k.to_string(), v.clone())).collect(),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_delete_rows_batch_single_pk() {
+        let driver = SqliteDriver::new();
+        let dir = tempdir().unwrap();
+        let db_path = dir.path().join("delete_rows.db");
+        let session_id = driver
+            .connect(&file_config(db_path.to_string_lossy().to_string()))
+            .await
+            .unwrap();
+
+        driver
+            .execute(
+                session_id,
+                "CREATE TABLE items (id INTEGER PRIMARY KEY, name TEXT)",
+                QueryId::new(),
+            )
+            .await
+            .unwrap();
+        for i in 1..=5 {
+            driver
+                .execute(
+                    session_id,
+                    &format!("INSERT INTO items (id, name) VALUES ({}, 'n{}')", i, i),
+                    QueryId::new(),
+                )
+                .await
+                .unwrap();
+        }
+
+        let ns = Namespace {
+            database: "main".to_string(),
+            schema: None,
+        };
+        let pks = vec![
+            pk(&[("id", Value::Int(2))]),
+            pk(&[("id", Value::Int(4))]),
+            pk(&[("id", Value::Int(5))]),
+        ];
+        let result = driver.delete_rows(session_id, &ns, "items", &pks).await.unwrap();
+        assert_eq!(result.affected_rows, Some(3));
+
+        let remaining = driver
+            .execute(session_id, "SELECT id FROM items ORDER BY id", QueryId::new())
+            .await
+            .unwrap();
+        assert_eq!(remaining.rows.len(), 2);
+        assert!(matches!(&remaining.rows[0].values[0], Value::Int(1)));
+        assert!(matches!(&remaining.rows[1].values[0], Value::Int(3)));
+
+        driver.disconnect(session_id).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_delete_rows_batch_composite_pk() {
+        let driver = SqliteDriver::new();
+        let dir = tempdir().unwrap();
+        let db_path = dir.path().join("delete_rows_composite.db");
+        let session_id = driver
+            .connect(&file_config(db_path.to_string_lossy().to_string()))
+            .await
+            .unwrap();
+
+        driver
+            .execute(
+                session_id,
+                "CREATE TABLE pair (a INTEGER, b INTEGER, PRIMARY KEY (a, b))",
+                QueryId::new(),
+            )
+            .await
+            .unwrap();
+        for (a, b) in [(1, 1), (1, 2), (2, 1)] {
+            driver
+                .execute(
+                    session_id,
+                    &format!("INSERT INTO pair (a, b) VALUES ({}, {})", a, b),
+                    QueryId::new(),
+                )
+                .await
+                .unwrap();
+        }
+
+        let ns = Namespace {
+            database: "main".to_string(),
+            schema: None,
+        };
+        let pks = vec![
+            pk(&[("a", Value::Int(1)), ("b", Value::Int(2))]),
+            pk(&[("a", Value::Int(2)), ("b", Value::Int(1))]),
+        ];
+        let result = driver.delete_rows(session_id, &ns, "pair", &pks).await.unwrap();
+        assert_eq!(result.affected_rows, Some(2));
+
+        let remaining = driver
+            .execute(session_id, "SELECT a, b FROM pair", QueryId::new())
+            .await
+            .unwrap();
+        assert_eq!(remaining.rows.len(), 1);
+        assert!(matches!(&remaining.rows[0].values[0], Value::Int(1)));
+        assert!(matches!(&remaining.rows[0].values[1], Value::Int(1)));
 
         driver.disconnect(session_id).await.unwrap();
     }

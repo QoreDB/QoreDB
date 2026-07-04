@@ -575,6 +575,18 @@ impl DataEngine for MariaDbDriver {
             .await
     }
 
+    async fn delete_rows(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        table: &str,
+        primary_keys: &[RowData],
+    ) -> EngineResult<QueryResult> {
+        self.inner
+            .delete_rows(session, namespace, table, primary_keys)
+            .await
+    }
+
     fn supports_mutations(&self) -> bool {
         true
     }

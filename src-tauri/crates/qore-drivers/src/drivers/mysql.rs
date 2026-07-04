@@ -2555,6 +2555,85 @@ impl DataEngine for MySqlDriver {
         ))
     }
 
+    async fn delete_rows(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        table: &str,
+        primary_keys: &[RowData],
+    ) -> EngineResult<QueryResult> {
+        if primary_keys.is_empty() {
+            return Ok(QueryResult::with_affected_rows(0, 0.0));
+        }
+
+        let mysql_session = self.get_session(session).await?;
+
+        let mut pk_keys: Vec<&String> = primary_keys[0].columns.keys().collect();
+        pk_keys.sort();
+        if pk_keys.is_empty() {
+            return Err(EngineError::execution_error(
+                "Primary key required for delete operations".to_string(),
+            ));
+        }
+
+        let table_name = format!(
+            "`{}`.`{}`",
+            namespace.database.replace("`", "``"),
+            table.replace("`", "``")
+        );
+
+        let start = Instant::now();
+        let chunk_size = (60000 / pk_keys.len()).clamp(1, 1000);
+        let mut total = 0u64;
+        let mut tx_guard = mysql_session.transaction_conn.lock().await;
+
+        for chunk in primary_keys.chunks(chunk_size) {
+            let where_sql = if pk_keys.len() == 1 {
+                let placeholders = vec!["?"; chunk.len()].join(", ");
+                format!("`{}` IN ({})", pk_keys[0].replace("`", "``"), placeholders)
+            } else {
+                let cond = pk_keys
+                    .iter()
+                    .map(|k| format!("`{}`=?", k.replace("`", "``")))
+                    .collect::<Vec<_>>()
+                    .join(" AND ");
+                chunk
+                    .iter()
+                    .map(|_| format!("({})", cond))
+                    .collect::<Vec<_>>()
+                    .join(" OR ")
+            };
+
+            let sql = format!("DELETE FROM {} WHERE {}", table_name, where_sql);
+
+            let mut query = sqlx::query(&sql);
+            for pk in chunk {
+                for k in &pk_keys {
+                    let value = pk.columns.get(*k).ok_or_else(|| {
+                        EngineError::execution_error(format!(
+                            "Missing primary key column '{}' in delete batch",
+                            k
+                        ))
+                    })?;
+                    query = Self::bind_param(query, value);
+                }
+            }
+
+            let result = if let Some(ref mut conn) = *tx_guard {
+                query.execute(&mut **conn).await
+            } else {
+                query.execute(&mysql_session.pool).await
+            };
+            let result = result.map_err(|e| EngineError::execution_error(e.to_string()))?;
+            total += result.rows_affected();
+        }
+
+        Ok(QueryResult::with_affected_rows(
+            total,
+            start.elapsed().as_micros() as f64 / 1000.0,
+        ))
+    }
+
     fn supports_mutations(&self) -> bool {
         true
     }

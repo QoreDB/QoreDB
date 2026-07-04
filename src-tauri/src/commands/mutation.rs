@@ -442,6 +442,160 @@ pub async fn delete_row(
 }
 
 #[tauri::command]
+#[instrument(
+    skip(state, primary_keys),
+    fields(session_id = %session_id, database = %database, schema = ?schema, table = %table, count = primary_keys.len())
+)]
+pub async fn delete_rows(
+    app: AppHandle,
+    state: State<'_, crate::SharedState>,
+    session_id: String,
+    database: String,
+    schema: Option<String>,
+    table: String,
+    primary_keys: Vec<RowData>,
+    acknowledged_dangerous: Option<bool>,
+) -> Result<MutationResponse, String> {
+    if primary_keys.is_empty() {
+        return Ok(MutationResponse {
+            success: true,
+            result: Some(QueryResult::with_affected_rows(0, 0.0)),
+            error: None,
+        });
+    }
+
+    let state_guard = state.lock().await;
+    let session_manager = Arc::clone(&state_guard.session_manager);
+    let interceptor = Arc::clone(&state_guard.interceptor);
+    let changelog_store = Arc::clone(&state_guard.changelog_store);
+    let query_cache = Arc::clone(&state_guard.query_cache);
+    drop(state_guard);
+    let session = parse_session_id(&session_id)?;
+
+    let query_preview = format!(
+        "DELETE FROM {} WHERE ... ({} rows)",
+        format_table_ref(&database, &schema, &table),
+        primary_keys.len()
+    );
+
+    let preflight = match qore_service::mutation::preflight(
+        &session_manager,
+        &interceptor,
+        session,
+        &session_id,
+        &query_preview,
+        &database,
+        acknowledged_dangerous.unwrap_or(false),
+    )
+    .await
+    {
+        Ok(pf) => pf,
+        Err(msg) => {
+            return Ok(MutationResponse {
+                success: false,
+                result: None,
+                error: Some(msg),
+            });
+        }
+    };
+    let qore_service::mutation::MutationPreflight {
+        driver,
+        context: interceptor_context,
+        environment,
+        safety_warning,
+    } = preflight;
+
+    let namespace = Namespace { database, schema };
+
+    // Time-Travel: capture before-images per row prior to the batch deletion.
+    let capture = changelog_store.should_capture(&table, &environment);
+    let before_images = if capture {
+        let mut images = Vec::with_capacity(primary_keys.len());
+        for pk in &primary_keys {
+            images.push(fetch_row_by_pk(&driver, session, &namespace, &table, pk).await);
+        }
+        images
+    } else {
+        Vec::new()
+    };
+
+    let start_time = std::time::Instant::now();
+    match driver
+        .delete_rows(session, &namespace, &table, &primary_keys)
+        .await
+    {
+        Ok(mut result) => {
+            result.execution_time_ms = start_time.elapsed().as_micros() as f64 / 1000.0;
+            interceptor.post_execute(
+                &interceptor_context,
+                &QueryExecutionResult {
+                    success: true,
+                    error: None,
+                    execution_time_ms: result.execution_time_ms,
+                    row_count: result.affected_rows.map(|a| a as i64),
+                },
+                false,
+                safety_warning.as_deref(),
+            );
+
+            if capture {
+                for (pk, before_image) in primary_keys.iter().zip(before_images) {
+                    let entry = build_changelog_entry(
+                        &session_id,
+                        driver.driver_id(),
+                        &namespace,
+                        &table,
+                        ChangeOperation::Delete,
+                        pk,
+                        before_image,
+                        None,
+                        None,
+                        &environment,
+                    );
+                    changelog_store.record(entry);
+                }
+            }
+
+            #[cfg(feature = "pro")]
+            crate::contracts::alert::schedule_post_mutation_check(
+                app.clone(),
+                session,
+                namespace.schema.clone(),
+                table.clone(),
+            );
+
+            if let Some(key) = session_manager.connection_key(session).await {
+                query_cache.invalidate_connection(&key);
+            }
+            Ok(MutationResponse {
+                success: true,
+                result: Some(result),
+                error: None,
+            })
+        }
+        Err(e) => {
+            let duration_ms = start_time.elapsed().as_micros() as f64 / 1000.0;
+            interceptor.post_execute(
+                &interceptor_context,
+                &QueryExecutionResult {
+                    success: false,
+                    error: Some(e.sanitized_message()),
+                    execution_time_ms: duration_ms,
+                    row_count: None,
+                },
+                false,
+                safety_warning.as_deref(),
+            );
+            Ok(MutationResponse {
+                success: false,
+                result: None,
+                error: Some(e.sanitized_message()),
+            })
+        }
+    }
+}
+
+#[tauri::command]
 pub async fn supports_mutations(
     state: State<'_, crate::SharedState>,
     session_id: String,

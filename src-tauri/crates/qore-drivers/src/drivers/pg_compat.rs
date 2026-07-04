@@ -973,6 +973,100 @@ pub async fn delete_row(
     ))
 }
 
+pub async fn delete_rows(
+    sessions: &SessionMap,
+    session: SessionId,
+    namespace: &Namespace,
+    table: &str,
+    primary_keys: &[RowData],
+) -> EngineResult<QueryResult> {
+    if primary_keys.is_empty() {
+        return Ok(QueryResult::with_affected_rows(0, 0.0));
+    }
+
+    let pg = get_session(sessions, session).await?;
+
+    let mut pk_keys: Vec<&String> = primary_keys[0].columns.keys().collect();
+    pk_keys.sort();
+    if pk_keys.is_empty() {
+        return Err(EngineError::execution_error(
+            "Primary key required for delete operations".to_string(),
+        ));
+    }
+
+    let table_name = qualified_table_name(namespace, table);
+    let start = Instant::now();
+
+    // Cap rows per statement to stay under Postgres' 65535 bind-parameter limit.
+    let chunk_size = (60000 / pk_keys.len()).clamp(1, 1000);
+
+    let mut total = 0u64;
+    let mut tx_guard = pg.transaction_conn.lock().await;
+
+    for chunk in primary_keys.chunks(chunk_size) {
+        let mut idx = 1;
+        let where_sql = if pk_keys.len() == 1 {
+            let placeholders: Vec<String> = chunk
+                .iter()
+                .map(|_| {
+                    let p = format!("${}", idx);
+                    idx += 1;
+                    p
+                })
+                .collect();
+            format!(
+                "{} IN ({})",
+                quote_ident(pk_keys[0]),
+                placeholders.join(", ")
+            )
+        } else {
+            let groups: Vec<String> = chunk
+                .iter()
+                .map(|_| {
+                    let conds: Vec<String> = pk_keys
+                        .iter()
+                        .map(|k| {
+                            let c = format!("{}=${}", quote_ident(k), idx);
+                            idx += 1;
+                            c
+                        })
+                        .collect();
+                    format!("({})", conds.join(" AND "))
+                })
+                .collect();
+            groups.join(" OR ")
+        };
+
+        let sql = format!("DELETE FROM {} WHERE {}", table_name, where_sql);
+
+        let mut query = sqlx::query(&sql);
+        for pk in chunk {
+            for k in &pk_keys {
+                let value = pk.columns.get(*k).ok_or_else(|| {
+                    EngineError::execution_error(format!(
+                        "Missing primary key column '{}' in delete batch",
+                        k
+                    ))
+                })?;
+                query = bind_param(query, value);
+            }
+        }
+
+        let result = if let Some(ref mut conn) = *tx_guard {
+            query.execute(&mut **conn).await
+        } else {
+            query.execute(&pg.pool).await
+        };
+        let result = result.map_err(|e| EngineError::execution_error(e.to_string()))?;
+        total += result.rows_affected();
+    }
+
+    Ok(QueryResult::with_affected_rows(
+        total,
+        start.elapsed().as_micros() as f64 / 1000.0,
+    ))
+}
+
 // Peek FK
 
 pub async fn peek_foreign_key(

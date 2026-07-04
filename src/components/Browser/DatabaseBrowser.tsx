@@ -77,6 +77,7 @@ import { CreateTableModal } from '../Table/CreateTableModal';
 import { EventContextMenu } from '../Tree/EventContextMenu';
 import { RoutineContextMenu } from '../Tree/RoutineContextMenu';
 import { SequenceContextMenu } from '../Tree/SequenceContextMenu';
+import { TableContextMenu } from '../Tree/TableContextMenu';
 import { TriggerContextMenu } from '../Tree/TriggerContextMenu';
 import { ContentBreadcrumb } from './ContentBreadcrumb';
 import { StatCard } from './StatCard';
@@ -670,13 +671,19 @@ export function DatabaseBrowser({
     case 'overview':
       content = (
         <OverviewTabContent
+          connectionId={connectionId}
+          driver={driver}
+          environment={environment}
           formatVisitTime={formatVisitTime}
           loading={loading}
           error={error}
           namespace={stableNamespace}
+          onRefresh={refreshData}
           onTableSelect={onTableSelect}
           onViewAll={() => handleTabChange('tables')}
           overviewPreviewItems={overviewPreviewItems}
+          readOnly={readOnly}
+          sessionId={sessionId}
           stats={stats}
           terminology={terminology}
           totalCount={totalCount}
@@ -687,18 +694,24 @@ export function DatabaseBrowser({
       content = (
         <TablesTabContent
           collections={collections}
+          connectionId={connectionId}
+          driver={driver}
+          environment={environment}
           error={error}
           loading={loading}
           namespace={stableNamespace}
           onNextPage={() => setPage(currentPage => currentPage + 1)}
           onPreviousPage={() => setPage(currentPage => Math.max(1, currentPage - 1))}
+          onRefresh={refreshData}
           onSearchChange={value => {
             setSearch(value);
             setPage(1);
           }}
           onTableSelect={onTableSelect}
           page={page}
+          readOnly={readOnly}
           search={search}
+          sessionId={sessionId}
           totalCount={totalCount}
         />
       );
@@ -1046,26 +1059,38 @@ function DatabaseBrowserTabBar({
 }
 
 interface OverviewTabContentProps {
+  connectionId?: string;
+  driver: Driver;
+  environment: Environment;
   error: string | null;
   formatVisitTime: (timestamp: number) => string;
   loading: boolean;
   namespace: Namespace;
+  onRefresh: () => void;
   onTableSelect: DatabaseBrowserProps['onTableSelect'];
   onViewAll: () => void;
   overviewPreviewItems: OverviewPreviewItem[];
+  readOnly: boolean;
+  sessionId: string;
   stats: DatabaseStats;
   terminology: DriverTerminology;
   totalCount: number;
 }
 
 function OverviewTabContent({
+  connectionId,
+  driver,
+  environment,
   error,
   formatVisitTime,
   loading,
   namespace,
+  onRefresh,
   onTableSelect,
   onViewAll,
   overviewPreviewItems,
+  readOnly,
+  sessionId,
   stats,
   terminology,
   totalCount,
@@ -1123,10 +1148,16 @@ function OverviewTabContent({
             {overviewPreviewItems.map(item => (
               <OverviewPreviewRow
                 key={item.name}
+                connectionId={connectionId}
+                driver={driver}
+                environment={environment}
                 formatVisitTime={formatVisitTime}
                 item={item}
                 namespace={namespace}
+                onRefresh={onRefresh}
                 onTableSelect={onTableSelect}
+                readOnly={readOnly}
+                sessionId={sessionId}
               />
             ))}
 
@@ -1147,43 +1178,72 @@ function OverviewTabContent({
 }
 
 function OverviewPreviewRow({
+  connectionId,
+  driver,
+  environment,
   formatVisitTime,
   item,
   namespace,
+  onRefresh,
   onTableSelect,
+  readOnly,
+  sessionId,
 }: {
+  connectionId?: string;
+  driver: Driver;
+  environment: Environment;
   formatVisitTime: (timestamp: number) => string;
   item: OverviewPreviewItem;
   namespace: Namespace;
+  onRefresh: () => void;
   onTableSelect: DatabaseBrowserProps['onTableSelect'];
+  readOnly: boolean;
+  sessionId: string;
 }) {
+  const collection: Collection = {
+    namespace,
+    name: item.name,
+    collection_type: item.collectionType ?? 'Table',
+  };
+
   return (
-    <button
-      type="button"
-      className="flex items-center justify-between w-full px-3 py-2.5 hover:bg-muted/50 transition-colors text-left"
-      onClick={() => onTableSelect(namespace, item.name)}
+    <TableContextMenu
+      collection={collection}
+      sessionId={sessionId}
+      connectionId={connectionId}
+      driver={driver}
+      environment={environment}
+      readOnly={readOnly}
+      onRefresh={onRefresh}
+      onOpen={() => onTableSelect(namespace, item.name)}
     >
-      <div className="min-w-0 flex flex-1 items-center gap-2.5">
-        <CollectionTypeIcon collectionType={item.collectionType} size={14} />
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1.5">
-            <span className="font-mono text-sm truncate">{item.name}</span>
-            {isViewCollection(item.collectionType) && (
-              <span className="text-xs text-muted-foreground shrink-0">(view)</span>
+      <button
+        type="button"
+        className="flex items-center justify-between w-full px-3 py-2.5 hover:bg-muted/50 transition-colors text-left"
+        onClick={() => onTableSelect(namespace, item.name)}
+      >
+        <div className="min-w-0 flex flex-1 items-center gap-2.5">
+          <CollectionTypeIcon collectionType={item.collectionType} size={14} />
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5">
+              <span className="font-mono text-sm truncate">{item.name}</span>
+              {isViewCollection(item.collectionType) && (
+                <span className="text-xs text-muted-foreground shrink-0">(view)</span>
+              )}
+            </div>
+            {item.personalized && item.lastVisitedAt && (
+              <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                {formatVisitTime(item.lastVisitedAt)}
+              </p>
             )}
           </div>
-          {item.personalized && item.lastVisitedAt && (
-            <p className="text-xs text-muted-foreground mt-0.5 truncate">
-              {formatVisitTime(item.lastVisitedAt)}
-            </p>
-          )}
         </div>
-      </div>
 
-      {item.personalized && item.visitCount && <VisitFrequencyDots count={item.visitCount} />}
+        {item.personalized && item.visitCount && <VisitFrequencyDots count={item.visitCount} />}
 
-      <ChevronRight size={14} className="ml-2 shrink-0 text-muted-foreground" />
-    </button>
+        <ChevronRight size={14} className="ml-2 shrink-0 text-muted-foreground" />
+      </button>
+    </TableContextMenu>
   );
 }
 
@@ -1206,29 +1266,41 @@ function VisitFrequencyDots({ count }: { count: number }) {
 
 interface TablesTabContentProps {
   collections: Collection[];
+  connectionId?: string;
+  driver: Driver;
+  environment: Environment;
   error: string | null;
   loading: boolean;
   namespace: Namespace;
   onNextPage: () => void;
   onPreviousPage: () => void;
+  onRefresh: () => void;
   onSearchChange: (value: string) => void;
   onTableSelect: DatabaseBrowserProps['onTableSelect'];
   page: number;
+  readOnly: boolean;
   search: string;
+  sessionId: string;
   totalCount: number;
 }
 
 function TablesTabContent({
   collections,
+  connectionId,
+  driver,
+  environment,
   error,
   loading,
   namespace,
   onNextPage,
   onPreviousPage,
+  onRefresh,
   onSearchChange,
   onTableSelect,
   page,
+  readOnly,
   search,
+  sessionId,
   totalCount,
 }: TablesTabContentProps) {
   const { t } = useTranslation();
@@ -1256,23 +1328,34 @@ function TablesTabContent({
           />
         ) : (
           collections.map(collection => (
-            <button
-              type="button"
+            <TableContextMenu
               key={collection.name}
-              className="flex items-center justify-between w-full px-4 py-3 hover:bg-muted/50 transition-colors text-left"
-              onClick={() => onTableSelect(namespace, collection.name)}
+              collection={collection}
+              sessionId={sessionId}
+              connectionId={connectionId}
+              driver={driver}
+              environment={environment}
+              readOnly={readOnly}
+              onRefresh={onRefresh}
+              onOpen={() => onTableSelect(namespace, collection.name)}
             >
-              <div className="flex items-center gap-3">
-                <CollectionTypeIcon collectionType={collection.collection_type} size={16} />
-                <div>
-                  <span className="font-mono text-sm">{collection.name}</span>
-                  {isViewCollection(collection.collection_type) && (
-                    <span className="ml-2 text-xs text-muted-foreground">(view)</span>
-                  )}
+              <button
+                type="button"
+                className="flex items-center justify-between w-full px-4 py-3 hover:bg-muted/50 transition-colors text-left"
+                onClick={() => onTableSelect(namespace, collection.name)}
+              >
+                <div className="flex items-center gap-3">
+                  <CollectionTypeIcon collectionType={collection.collection_type} size={16} />
+                  <div>
+                    <span className="font-mono text-sm">{collection.name}</span>
+                    {isViewCollection(collection.collection_type) && (
+                      <span className="ml-2 text-xs text-muted-foreground">(view)</span>
+                    )}
+                  </div>
                 </div>
-              </div>
-              <ChevronRight size={16} className="text-muted-foreground" />
-            </button>
+                <ChevronRight size={16} className="text-muted-foreground" />
+              </button>
+            </TableContextMenu>
           ))
         )}
       </ListSurface>

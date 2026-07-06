@@ -122,7 +122,8 @@
       "Bash(grep -rln \"cargo audit\" .github/)",
       "Bash(xargs rg -l \"pub trait\")",
       "Bash(jobs -l)",
-      "Bash(ps -o etime= -p 333650)"
+      "Bash(ps -o etime= -p 333650)",
+      "WebFetch(domain:www.qoredb.com)"
     ]
   }
 }

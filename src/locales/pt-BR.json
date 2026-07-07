@@ -416,6 +416,33 @@
       "catIndices": "Listar índices"
     }
   },
+  "semantic": {
+    "section": "Esquema (semântica)",
+    "sensitive": "Sensível",
+    "states": {
+      "disabled": "A busca semântica está desativada",
+      "ollama_missing": "Ollama não detectado — a busca semântica requer um modelo local",
+      "model_missing": "Modelo de embeddings ausente — baixe-o para ativar a busca",
+      "index_empty": "Nenhum índice para esta conexão — crie-o nas configurações",
+      "building": "Construindo o índice…",
+      "openSettings": "Abrir configurações"
+    },
+    "settings": {
+      "title": "Busca semântica de esquema",
+      "description": "Encontre tabelas e colunas pelo significado, 100% local via Ollama.",
+      "enable": "Ativar busca semântica",
+      "model": "Modelo de embeddings",
+      "ollamaDetected": "Ollama detectado",
+      "ollamaNotDetected": "Ollama não detectado",
+      "installHint": "Instale o Ollama e volte a esta página:",
+      "pullHint": "Execute: ollama pull {{model}}",
+      "objects": "{{total}} objetos indexados",
+      "reindex": "Reconstruir índice",
+      "reindexDone": "Índice reconstruído ({{total}} objetos)",
+      "reindexFailed": "Falha ao reconstruir o índice",
+      "modelChangedReindex": "Modelo alterado — reconstrua o índice para aplicá-lo."
+    }
+  },
   "fulltextSearch": {
     "title": "Pesquisar no Banco de Dados",
     "placeholder": "Pesquisar em todas as tabelas e colunas...",
@@ -574,6 +601,10 @@
     "aiAssistant": {
       "name": "Assistente de IA",
       "description": "Gere e corrija consultas SQL usando linguagem natural"
+    },
+    "semanticSearch": {
+      "name": "Busca semântica de esquema",
+      "description": "Pergunte onde os dados estão em linguagem natural (Cmd+K)"
     }
   },
   "notebook": {

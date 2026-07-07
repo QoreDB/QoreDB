@@ -16,6 +16,7 @@ import {
   Lightbulb,
   Link2,
   Network,
+  Search,
   ShieldCheck,
   Sparkles,
   Table2,
@@ -57,6 +58,7 @@ const FEATURE_ICONS: Record<ProFeature, LucideIcon> = {
   instant_api: Layers,
   data_generator: Wand2,
   index_suggestions: Lightbulb,
+  semantic_search: Search,
 };
 
 const FEATURE_FALLBACK_ICON: LucideIcon = Bug;

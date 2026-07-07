@@ -416,6 +416,33 @@
       "catIndices": "列出索引"
     }
   },
+  "semantic": {
+    "section": "架构（语义）",
+    "sensitive": "敏感",
+    "states": {
+      "disabled": "语义搜索已禁用",
+      "ollama_missing": "未检测到 Ollama — 语义搜索需要本地模型",
+      "model_missing": "缺少嵌入模型 — 请下载以启用语义搜索",
+      "index_empty": "此连接尚无索引 — 请在设置中构建",
+      "building": "正在构建索引…",
+      "openSettings": "打开设置"
+    },
+    "settings": {
+      "title": "语义架构搜索",
+      "description": "按含义查找表和列，完全本地运行（Ollama）。",
+      "enable": "启用语义搜索",
+      "model": "嵌入模型",
+      "ollamaDetected": "已检测到 Ollama",
+      "ollamaNotDetected": "未检测到 Ollama",
+      "installHint": "请安装 Ollama，然后返回此页面：",
+      "pullHint": "运行：ollama pull {{model}}",
+      "objects": "已索引 {{total}} 个对象",
+      "reindex": "重建索引",
+      "reindexDone": "索引已重建（{{total}} 个对象）",
+      "reindexFailed": "索引重建失败",
+      "modelChangedReindex": "模型已更改 — 请重建索引以应用。"
+    }
+  },
   "fulltextSearch": {
     "title": "在数据库中搜索",
     "placeholder": "在所有表和列中搜索…",
@@ -574,6 +601,10 @@
     "aiAssistant": {
       "name": "AI 助手",
       "description": "使用自然语言生成和修复 SQL 查询"
+    },
+    "semanticSearch": {
+      "name": "语义架构搜索",
+      "description": "用自然语言询问数据的位置（Cmd+K）"
     }
   },
   "notebook": {

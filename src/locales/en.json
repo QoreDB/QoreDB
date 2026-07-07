@@ -444,6 +444,33 @@
       "catIndices": "List indices"
     }
   },
+  "semantic": {
+    "section": "Schema (semantic)",
+    "sensitive": "Sensitive",
+    "states": {
+      "disabled": "Semantic search is disabled",
+      "ollama_missing": "Ollama not detected — semantic search needs a local model",
+      "model_missing": "Embedding model missing — pull it to enable semantic search",
+      "index_empty": "No index for this connection yet — build it in Settings",
+      "building": "Building the index…",
+      "openSettings": "Open Settings"
+    },
+    "settings": {
+      "title": "Semantic schema search",
+      "description": "Find tables and columns by meaning, fully local via Ollama.",
+      "enable": "Enable semantic search",
+      "model": "Embedding model",
+      "ollamaDetected": "Ollama detected",
+      "ollamaNotDetected": "Ollama not detected",
+      "installHint": "Install Ollama, then come back to this page:",
+      "pullHint": "Run: ollama pull {{model}}",
+      "objects": "{{total}} objects indexed",
+      "reindex": "Rebuild index",
+      "reindexDone": "Index rebuilt ({{total}} objects)",
+      "reindexFailed": "Index rebuild failed",
+      "modelChangedReindex": "Model changed — rebuild the index to apply it."
+    }
+  },
   "fulltextSearch": {
     "title": "Search in Database",
     "placeholder": "Search in all tables and columns...",
@@ -602,6 +629,10 @@
     "aiAssistant": {
       "name": "AI Assistant",
       "description": "Generate and fix SQL queries using natural language"
+    },
+    "semanticSearch": {
+      "name": "Semantic Schema Search",
+      "description": "Ask where data lives in natural language (Cmd+K)"
     }
   },
   "notebook": {

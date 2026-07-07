@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Command, Compass, Database, FileCode, Folder, Search, Star } from 'lucide-react';
+import { Command, Compass, Database, FileCode, Folder, Search, Star, Table2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useSemanticSearch } from '@/hooks/useSemanticSearch';
+import type { SemanticHit } from '@/lib/semantic';
 import { cn } from '@/lib/utils';
 import { useWorkspace } from '@/providers/WorkspaceProvider';
 import { getFavorites, type HistoryEntry, searchHistory } from '../../lib/query/history';
@@ -30,12 +32,12 @@ export interface CommandItem {
 }
 
 export interface SearchResult {
-  type: 'command' | 'connection' | 'query' | 'favorite' | 'library' | 'feature';
+  type: 'command' | 'connection' | 'query' | 'favorite' | 'library' | 'feature' | 'schema';
   id: string;
   label: string;
   sublabel?: string;
   shortcut?: string;
-  data?: SavedConnection | HistoryEntry | QueryLibraryItem;
+  data?: SavedConnection | HistoryEntry | QueryLibraryItem | SemanticHit;
 }
 
 const TIP_KEYS = [
@@ -64,6 +66,11 @@ export function GlobalSearch({
   const [libraryFolders, setLibraryFolders] = useState<QueryFolder[]>([]);
   const [tipIndex, setTipIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const semanticResults = useSemanticSearch(query, isOpen);
+  const displayResults = useMemo(
+    () => [...results, ...semanticResults],
+    [results, semanticResults]
+  );
 
   const buildDefaultResults = useCallback((): SearchResult[] => {
     const items: SearchResult[] = commands.map(cmd => ({
@@ -111,19 +118,19 @@ export function GlobalSearch({
         onClose();
       } else if (e.key === 'ArrowDown') {
         e.preventDefault();
-        setSelectedIndex(i => Math.min(i + 1, results.length - 1));
+        setSelectedIndex(i => Math.min(i + 1, displayResults.length - 1));
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
         setSelectedIndex(i => Math.max(i - 1, 0));
-      } else if (e.key === 'Enter' && results[selectedIndex]) {
-        onSelect?.(results[selectedIndex]);
+      } else if (e.key === 'Enter' && displayResults[selectedIndex]) {
+        onSelect?.(displayResults[selectedIndex]);
         onClose();
       }
     }
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, results, selectedIndex, onClose, onSelect]);
+  }, [isOpen, displayResults, selectedIndex, onClose, onSelect]);
 
   const handleSearch = useCallback(
     (value: string) => {
@@ -267,16 +274,18 @@ export function GlobalSearch({
   const resultSections = useMemo(() => {
     const sections: { index: number; label: string }[] = [];
     let lastType: string | null = null;
-    results.forEach((result, i) => {
+    displayResults.forEach((result, i) => {
       if (result.type !== lastType) {
         if (result.type === 'feature') {
           sections.push({ index: i, label: t('palette.featuresSection') });
+        } else if (result.type === 'schema') {
+          sections.push({ index: i, label: t('semantic.section') });
         }
         lastType = result.type;
       }
     });
     return sections;
-  }, [results, t]);
+  }, [displayResults, t]);
 
   const sectionHeaderAt = useMemo(() => {
     const map = new Map<number, string>();
@@ -311,9 +320,9 @@ export function GlobalSearch({
           />
         </div>
 
-        {results.length > 0 ? (
+        {displayResults.length > 0 ? (
           <div className="max-h-80 overflow-y-auto py-1">
-            {results.map((result, i) => (
+            {displayResults.map((result, i) => (
               <div key={result.id}>
                 {sectionHeaderAt.has(i) && (
                   <div className="px-4 pt-3 pb-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
@@ -344,6 +353,8 @@ export function GlobalSearch({
                       <Command size={16} />
                     ) : result.type === 'feature' ? (
                       <Compass size={16} />
+                    ) : result.type === 'schema' ? (
+                      <Table2 size={16} />
                     ) : result.type === 'connection' ? (
                       <Database size={16} />
                     ) : result.type === 'favorite' ? (

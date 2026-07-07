@@ -114,6 +114,7 @@ import {
   type Sequence,
   type Trigger,
 } from './lib/tauri';
+import type { SemanticHit } from './lib/semantic';
 import { getRoutineTemplate } from './lib/templates/routineTemplates';
 import { getEventTemplate, getTriggerTemplate } from './lib/templates/triggerTemplates';
 import { usePluginOutput } from './providers/PluginOutputProvider';
@@ -532,6 +533,11 @@ export function AppLayout() {
               label: t('features.virtualRelations.name'),
               sublabel: t('features.virtualRelations.description'),
             },
+            {
+              id: 'feat_semantic',
+              label: t('features.semanticSearch.name'),
+              sublabel: t('features.semanticSearch.description'),
+            },
           ]
         : [],
     [sessionId, t]
@@ -704,6 +710,15 @@ export function AppLayout() {
           openTab(createQueryTab(item.query));
           setSettingsOpen(false);
         }
+      } else if (result.type === 'schema') {
+        if (result.id === 'sem_setup') {
+          setSettingsOpen(true);
+          return;
+        }
+        const hit = result.data as SemanticHit;
+        if (hit?.table && sessionId) {
+          handleTableSelect({ database: hit.database, schema: hit.schema ?? undefined }, hit.table);
+        }
       } else if (result.type === 'feature') {
         switch (result.id) {
           case 'feat_notebook':
@@ -725,6 +740,7 @@ export function AppLayout() {
             if (sessionId) setFulltextSearchOpen(true);
             return;
           case 'feat_ai':
+          case 'feat_semantic':
             setSettingsOpen(true);
             return;
           case 'feat_er':
@@ -747,6 +763,7 @@ export function AppLayout() {
       handleConnected,
       handleOpenDiff,
       handleToggleSandbox,
+      handleTableSelect,
       refreshSidebar,
       projectId,
       handleRunPluginCommand,

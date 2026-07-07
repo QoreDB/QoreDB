@@ -18,6 +18,8 @@ pub mod federation;
 pub mod observability;
 pub mod plugins;
 pub mod redaction;
+#[cfg(feature = "pro")]
+pub mod semantic;
 pub mod share;
 pub mod snapshots;
 pub mod time_travel;
@@ -48,6 +50,8 @@ pub struct AppState {
     pub share_manager: Arc<ShareManager>,
     #[cfg(feature = "pro")]
     pub ai_manager: Arc<ai::manager::AiManager>,
+    #[cfg(feature = "pro")]
+    pub semantic: Arc<semantic::SemanticService>,
     pub changelog_store: Arc<time_travel::ChangelogStore>,
     pub backup_tool_paths: Arc<backup::BackupToolPaths>,
     pub active_backups: Arc<backup::runner::ActiveBackups>,
@@ -85,6 +89,8 @@ impl AppState {
             share_manager,
             #[cfg(feature = "pro")]
             ai_manager,
+            #[cfg(feature = "pro")]
+            semantic: Arc::new(semantic::SemanticService::new()),
             changelog_store,
             backup_tool_paths: Arc::new(backup::BackupToolPaths::new()),
             active_backups: Arc::new(backup::runner::ActiveBackups::new()),
@@ -383,6 +389,10 @@ pub fn run() {
             commands::ai::ai_delete_api_key,
             commands::ai::ai_get_provider_status,
             commands::ai::ai_generate_filters,
+            commands::semantic::semantic_status,
+            commands::semantic::semantic_set_config,
+            commands::semantic::semantic_reindex,
+            commands::semantic::semantic_search,
             commands::data_generator::generate_seed_data,
             // Data Contracts commands (Pro)
             #[cfg(feature = "pro")]

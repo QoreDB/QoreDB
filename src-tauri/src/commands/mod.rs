@@ -30,6 +30,7 @@ pub mod query;
 pub mod routines;
 pub mod sandbox;
 pub mod schema_export;
+pub mod semantic;
 pub mod sequences;
 pub mod share;
 pub mod snapshots;

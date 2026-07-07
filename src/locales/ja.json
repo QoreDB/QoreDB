@@ -416,6 +416,33 @@
       "catIndices": "インデックス一覧"
     }
   },
+  "semantic": {
+    "section": "スキーマ（セマンティック）",
+    "sensitive": "機密",
+    "states": {
+      "disabled": "セマンティック検索は無効です",
+      "ollama_missing": "Ollama が検出されません — セマンティック検索にはローカルモデルが必要です",
+      "model_missing": "埋め込みモデルがありません — ダウンロードして検索を有効にしてください",
+      "index_empty": "この接続のインデックスがありません — 設定で作成してください",
+      "building": "インデックスを構築中…",
+      "openSettings": "設定を開く"
+    },
+    "settings": {
+      "title": "セマンティックスキーマ検索",
+      "description": "意味からテーブルと列を検索。Ollama で完全ローカル。",
+      "enable": "セマンティック検索を有効にする",
+      "model": "埋め込みモデル",
+      "ollamaDetected": "Ollama を検出しました",
+      "ollamaNotDetected": "Ollama が検出されません",
+      "installHint": "Ollama をインストールして、このページに戻ってください：",
+      "pullHint": "実行：ollama pull {{model}}",
+      "objects": "{{total}} 件のオブジェクトをインデックス済み",
+      "reindex": "インデックスを再構築",
+      "reindexDone": "インデックスを再構築しました（{{total}} 件）",
+      "reindexFailed": "インデックスの再構築に失敗しました",
+      "modelChangedReindex": "モデルが変更されました — 適用するにはインデックスを再構築してください。"
+    }
+  },
   "fulltextSearch": {
     "title": "データベース内を検索",
     "placeholder": "すべてのテーブルとカラムを検索...",
@@ -574,6 +601,10 @@
     "aiAssistant": {
       "name": "AI アシスタント",
       "description": "自然言語で SQL クエリを生成・修正します"
+    },
+    "semanticSearch": {
+      "name": "セマンティックスキーマ検索",
+      "description": "自然言語でデータの場所を検索（Cmd+K）"
     }
   },
   "notebook": {

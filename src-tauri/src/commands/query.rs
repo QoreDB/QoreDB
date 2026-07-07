@@ -100,7 +100,7 @@ pub struct CollectionsResponse {
 
 #[tauri::command]
 #[instrument(
-    skip(state, query, on_stream),
+    skip(state, ws_manager, query, on_stream),
     fields(
         session_id = %session_id,
         query_id = ?query_id,
@@ -111,6 +111,7 @@ pub struct CollectionsResponse {
 pub async fn execute_query(
     state: State<'_, crate::SharedState>,
     window: tauri::Window,
+    ws_manager: State<'_, super::workspace::SharedWorkspaceManager>,
     session_id: String,
     query: String,
     namespace: Option<Namespace>,
@@ -340,9 +341,46 @@ pub async fn execute_query(
 
     let plugin_ctx = interceptor_context.clone();
     let plugin_host_for_complete = Arc::clone(&plugin_host);
+    #[cfg(feature = "pro")]
+    let semantic_refresh_ctx = {
+        let semantic = {
+            let state = state.lock().await;
+            Arc::clone(&state.semantic)
+        };
+        let project_id = ws_manager.lock().await.project_id();
+        (
+            semantic,
+            Arc::clone(&session_manager),
+            connection_key.clone(),
+            project_id,
+        )
+    };
+    #[cfg(not(feature = "pro"))]
+    let _ = &ws_manager;
     let on_complete = move |exec: &QueryExecutionResult, result: Option<&QueryResult>| {
         let payload = result.and_then(build_query_read_payload);
         dispatch_plugin_post_execute(&plugin_host_for_complete, &plugin_ctx, exec, payload);
+        #[cfg(feature = "pro")]
+        {
+            use crate::interceptor::QueryOperationType as Op;
+            if exec.success
+                && matches!(
+                    plugin_ctx.operation_type,
+                    Op::Create | Op::Alter | Op::Drop | Op::Truncate
+                )
+            {
+                let (semantic, session_manager, connection_key, project_id) =
+                    &semantic_refresh_ctx;
+                if let Some(key) = connection_key.clone() {
+                    semantic.schedule_refresh(
+                        Arc::clone(session_manager),
+                        session,
+                        key,
+                        project_id.clone(),
+                    );
+                }
+            }
+        }
     };
 
     let outcome = qore_service::query::execute(

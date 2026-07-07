@@ -157,6 +157,10 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
       'intelligence',
       'artificielle',
       'assistant',
+      'semantic',
+      'embedding',
+      'sémantique',
+      'recherche',
     ],
   },
   {

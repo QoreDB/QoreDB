@@ -416,6 +416,33 @@
       "catIndices": "Listar índices"
     }
   },
+  "semantic": {
+    "section": "Esquema (semántica)",
+    "sensitive": "Sensible",
+    "states": {
+      "disabled": "La búsqueda semántica está desactivada",
+      "ollama_missing": "Ollama no detectado — la búsqueda semántica requiere un modelo local",
+      "model_missing": "Falta el modelo de embeddings — descárguelo para activar la búsqueda",
+      "index_empty": "Sin índice para esta conexión — créelo en los ajustes",
+      "building": "Construyendo el índice…",
+      "openSettings": "Abrir ajustes"
+    },
+    "settings": {
+      "title": "Búsqueda semántica de esquema",
+      "description": "Encuentre tablas y columnas por su significado, 100 % local vía Ollama.",
+      "enable": "Activar la búsqueda semántica",
+      "model": "Modelo de embeddings",
+      "ollamaDetected": "Ollama detectado",
+      "ollamaNotDetected": "Ollama no detectado",
+      "installHint": "Instale Ollama y vuelva a esta página:",
+      "pullHint": "Ejecute: ollama pull {{model}}",
+      "objects": "{{total}} objetos indexados",
+      "reindex": "Reconstruir el índice",
+      "reindexDone": "Índice reconstruido ({{total}} objetos)",
+      "reindexFailed": "Error al reconstruir el índice",
+      "modelChangedReindex": "Modelo modificado — reconstruya el índice para aplicarlo."
+    }
+  },
   "fulltextSearch": {
     "title": "Buscar en la base de datos",
     "placeholder": "Buscar en todas las tablas y columnas...",
@@ -574,6 +601,10 @@
     "aiAssistant": {
       "name": "Asistente de IA",
       "description": "Genera y corrige consultas SQL usando lenguaje natural"
+    },
+    "semanticSearch": {
+      "name": "Búsqueda semántica de esquema",
+      "description": "Pregunte dónde viven los datos en lenguaje natural (Cmd+K)"
     }
   },
   "notebook": {

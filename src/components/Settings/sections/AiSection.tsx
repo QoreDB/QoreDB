@@ -11,6 +11,7 @@ import { Switch } from '@/components/ui/switch';
 import { AI_PROVIDERS, type AiProvider, aiDeleteApiKey, aiSaveApiKey } from '@/lib/ai';
 import { useAiPreferences } from '@/providers/AiPreferencesProvider';
 import { SettingsCard } from '../SettingsCard';
+import { SemanticSearchCard } from './SemanticSearchCard';
 
 interface AiSectionProps {
   searchQuery?: string;
@@ -211,6 +212,8 @@ export function AiSection({ searchQuery }: AiSectionProps) {
             ))}
           </div>
         </SettingsCard>
+
+        <SemanticSearchCard searchQuery={searchQuery} />
       </div>
     </LicenseGate>
   );

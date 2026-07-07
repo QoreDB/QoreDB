@@ -416,6 +416,33 @@
       "catIndices": "Indizes auflisten"
     }
   },
+  "semantic": {
+    "section": "Schema (semantisch)",
+    "sensitive": "Sensibel",
+    "states": {
+      "disabled": "Semantische Suche ist deaktiviert",
+      "ollama_missing": "Ollama nicht erkannt — semantische Suche benötigt ein lokales Modell",
+      "model_missing": "Embedding-Modell fehlt — laden Sie es herunter, um die Suche zu aktivieren",
+      "index_empty": "Noch kein Index für diese Verbindung — in den Einstellungen erstellen",
+      "building": "Index wird erstellt…",
+      "openSettings": "Einstellungen öffnen"
+    },
+    "settings": {
+      "title": "Semantische Schemasuche",
+      "description": "Tabellen und Spalten nach Bedeutung finden, vollständig lokal über Ollama.",
+      "enable": "Semantische Suche aktivieren",
+      "model": "Embedding-Modell",
+      "ollamaDetected": "Ollama erkannt",
+      "ollamaNotDetected": "Ollama nicht erkannt",
+      "installHint": "Installieren Sie Ollama und kehren Sie dann hierher zurück:",
+      "pullHint": "Ausführen: ollama pull {{model}}",
+      "objects": "{{total}} Objekte indexiert",
+      "reindex": "Index neu erstellen",
+      "reindexDone": "Index neu erstellt ({{total}} Objekte)",
+      "reindexFailed": "Neuaufbau des Index fehlgeschlagen",
+      "modelChangedReindex": "Modell geändert — erstellen Sie den Index neu, um es anzuwenden."
+    }
+  },
   "fulltextSearch": {
     "title": "In Datenbank suchen",
     "placeholder": "In allen Tabellen und Spalten suchen…",
@@ -574,6 +601,10 @@
     "aiAssistant": {
       "name": "KI-Assistent",
       "description": "SQL-Abfragen mit natürlicher Sprache generieren und korrigieren"
+    },
+    "semanticSearch": {
+      "name": "Semantische Schemasuche",
+      "description": "Fragen Sie in natürlicher Sprache, wo Daten liegen (Cmd+K)"
     }
   },
   "notebook": {

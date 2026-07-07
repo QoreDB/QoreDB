@@ -416,6 +416,33 @@
       "catIndices": "인덱스 목록"
     }
   },
+  "semantic": {
+    "section": "스키마(시맨틱)",
+    "sensitive": "민감",
+    "states": {
+      "disabled": "시맨틱 검색이 비활성화되어 있습니다",
+      "ollama_missing": "Ollama가 감지되지 않음 — 시맨틱 검색에는 로컬 모델이 필요합니다",
+      "model_missing": "임베딩 모델 없음 — 다운로드하여 검색을 활성화하세요",
+      "index_empty": "이 연결에 대한 인덱스가 없습니다 — 설정에서 생성하세요",
+      "building": "인덱스 구축 중…",
+      "openSettings": "설정 열기"
+    },
+    "settings": {
+      "title": "시맨틱 스키마 검색",
+      "description": "의미로 테이블과 열을 찾습니다. Ollama로 완전 로컬 실행.",
+      "enable": "시맨틱 검색 활성화",
+      "model": "임베딩 모델",
+      "ollamaDetected": "Ollama 감지됨",
+      "ollamaNotDetected": "Ollama가 감지되지 않음",
+      "installHint": "Ollama를 설치한 후 이 페이지로 돌아오세요:",
+      "pullHint": "실행: ollama pull {{model}}",
+      "objects": "{{total}}개 객체 인덱싱됨",
+      "reindex": "인덱스 재구축",
+      "reindexDone": "인덱스 재구축 완료({{total}}개 객체)",
+      "reindexFailed": "인덱스 재구축 실패",
+      "modelChangedReindex": "모델이 변경되었습니다 — 적용하려면 인덱스를 재구축하세요."
+    }
+  },
   "fulltextSearch": {
     "title": "데이터베이스 검색",
     "placeholder": "모든 테이블과 컬럼에서 검색...",
@@ -574,6 +601,10 @@
     "aiAssistant": {
       "name": "AI 어시스턴트",
       "description": "자연어를 사용하여 SQL 쿼리를 생성하고 수정"
+    },
+    "semanticSearch": {
+      "name": "시맨틱 스키마 검색",
+      "description": "자연어로 데이터 위치를 검색하세요 (Cmd+K)"
     }
   },
   "notebook": {

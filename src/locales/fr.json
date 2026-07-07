@@ -444,6 +444,33 @@
       "catIndices": "Lister les index"
     }
   },
+  "semantic": {
+    "section": "Schéma (sémantique)",
+    "sensitive": "Sensible",
+    "states": {
+      "disabled": "La recherche sémantique est désactivée",
+      "ollama_missing": "Ollama non détecté — la recherche sémantique nécessite un modèle local",
+      "model_missing": "Modèle d'embedding manquant — téléchargez-le pour activer la recherche",
+      "index_empty": "Aucun index pour cette connexion — construisez-le dans les réglages",
+      "building": "Construction de l'index…",
+      "openSettings": "Ouvrir les réglages"
+    },
+    "settings": {
+      "title": "Recherche sémantique de schéma",
+      "description": "Trouvez tables et colonnes par le sens, 100 % local via Ollama.",
+      "enable": "Activer la recherche sémantique",
+      "model": "Modèle d'embedding",
+      "ollamaDetected": "Ollama détecté",
+      "ollamaNotDetected": "Ollama non détecté",
+      "installHint": "Installez Ollama, puis revenez sur cette page :",
+      "pullHint": "Exécutez : ollama pull {{model}}",
+      "objects": "{{total}} objets indexés",
+      "reindex": "Reconstruire l'index",
+      "reindexDone": "Index reconstruit ({{total}} objets)",
+      "reindexFailed": "Échec de la reconstruction de l'index",
+      "modelChangedReindex": "Modèle modifié — reconstruisez l'index pour l'appliquer."
+    }
+  },
   "fulltextSearch": {
     "title": "Rechercher dans la base",
     "placeholder": "Rechercher dans toutes les tables et colonnes...",
@@ -602,6 +629,10 @@
     "aiAssistant": {
       "name": "Assistant IA",
       "description": "Générez et corrigez des requêtes SQL en langage naturel"
+    },
+    "semanticSearch": {
+      "name": "Recherche sémantique de schéma",
+      "description": "Demandez où vivent les données en langage naturel (Cmd+K)"
     }
   },
   "notebook": {

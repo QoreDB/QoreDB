@@ -1,12 +1,10 @@
-// import { cn } from "@/lib/utils"; //
+// SPDX-License-Identifier: Apache-2.0
 import { cva, type VariantProps } from 'class-variance-authority';
 import { type HTMLMotionProps, motion } from 'framer-motion';
 import React from 'react';
+import { cn } from '@/lib/utils';
 
-const cn = (cls: string) => cls; // Mock implementation
-
-// 1. Define Variants using CVA
-// Guide: Use semantic names (primary, destructive) over colors (blue, red)
+// Use semantic names (primary, destructive) over colors (blue, red)
 const componentVariants = cva(
   'inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50',
   {
@@ -31,16 +29,13 @@ const componentVariants = cva(
   }
 );
 
-// 2. Define Props Interface
-// Combine HTML props, Motion props, and Variant props
 export interface ComponentProps
   extends Omit<HTMLMotionProps<'div'>, 'className'>, // Use "button" or "span" as needed
     VariantProps<typeof componentVariants> {
-  className?: string; // Explicitly add className back
+  className?: string;
   children?: React.ReactNode;
 }
 
-// 3. Create Component
 const Component = React.forwardRef<HTMLDivElement, ComponentProps>(
   ({ className, variant, size, children, ...props }, ref) => {
     return (

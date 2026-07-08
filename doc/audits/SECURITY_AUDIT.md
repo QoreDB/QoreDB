@@ -1,96 +1,205 @@
 # Security Audit Report
 
-**Date:** April 5, 2026
-**Project:** QoreDB
+> **Status:** Reviewed, targeted refresh
+> **Original date:** 2026-04-05
+> **Last reviewed:** 2026-07-08
+> **Code baseline:** `c65885d6c9032f1f8825e194fde85f8b38bfd1a1`
+> **Review depth:** Targeted refresh of previously documented findings; not a
+> full external penetration test.
+> **Project:** QoreDB
 
 ## Executive Summary
 
-QoreDB follows a solid baseline for a desktop database client: credentials are stored via the OS keyring, the Tauri CSP is configured, and the critical execution path is largely implemented in Rust. The main remaining risks are now less about classic web issues and more about consistency and defense in depth:
+QoreDB's current security posture is materially better than the April 2026
+snapshot. The highest-risk items from the previous version of this audit have
+been addressed: raw audit/profiling persistence is redacted, specialized
+database-create/drop commands now enforce read-only mode, custom share providers
+reject non-localhost plaintext HTTP, filesystem access is positively scoped, and
+browser/table endpoints now use shared governance helpers for row limits,
+concurrency checks, and timeouts.
 
-- raw query text is persisted by the interceptor audit/profiling pipeline
-- read-only guarantees are not uniformly enforced across every specialized command path
-- crash recovery stores raw drafts in `localStorage`
-- custom share providers currently allow plaintext `http`
-- governance limits are enforced on `execute_query` but not uniformly on table-browser endpoints
+The main remaining risk is local persistence of user work state. Crash recovery
+has a TTL and a query-draft opt-out, but the default still stores raw query
+drafts in `localStorage` for recovery. This is a reasonable product trade-off
+for a local-first desktop app, but it should be presented as an explicit privacy
+choice and should be covered by the GDPR audit refresh.
+
+## Targeted Review Evidence
+
+Commands and checks used during the 2026-07-08 refresh:
+
+- `rg "dangerouslySetInnerHTML|eval\\(|new Function" src src-tauri` returned no
+  matches.
+- `rg "localStorage|sessionStorage" src src-tauri` confirmed continued local
+  persistence usage, including crash recovery, query history, notebook drafts,
+  diagnostics, UI preferences, and session tokens.
+- `rg "is_read_only|redact_query|validate_share_url" src-tauri/src src-tauri/crates`
+  confirmed current code references for read-only gates, redaction, and share
+  URL validation.
+
+No compiling test suite was completed during this refresh pass.
 
 ## Findings
 
 ### 1. Tauri Configuration
 
-- **Resolved Since January 22, 2026: CSP is configured**
+- **Resolved: CSP is configured**
   - **Location:** `src-tauri/tauri.conf.json`
-  - **Current state:** The app now defines a CSP with explicit `default-src`, `script-src`, `style-src`, `img-src`, `font-src`, and `connect-src` allowlists.
-  - **Assessment:** This closes the previously documented `csp: null` issue and materially improves resistance to webview content injection.
+  - **Current state:** The app defines a CSP with explicit `default-src`,
+    `script-src`, `style-src`, `img-src`, `font-src`, and `connect-src`
+    allowlists.
+  - **Residual note:** `style-src 'unsafe-inline'` remains present, which is a
+    common Tauri/React compromise but should not be expanded casually.
+    `connect-src` currently includes Tauri IPC/localhost endpoints and PostHog
+    hosts.
+  - **Assessment:** No active finding.
 
-- **Resolved Since v0.1.29: Filesystem permissions scoped to an allow-list**
+- **Resolved: Filesystem permissions are positively scoped**
   - **Location:** `src-tauri/capabilities/default.json`
-  - **Finding:** The frontend previously had broad write access through `fs:allow-write-text-file` and `fs:allow-write-file`, mitigated only by a deny-list of sensitive locations (`.ssh`, `.aws`, `.kube`, history files, `/etc`, `/root`, …) with no positive allow-list.
-  - **Current state (v0.1.29):** `fs:scope` now ships a positive **allow-list** (`$APPCONFIG`, `$APPDATA`, `$APPLOCALDATA` and their subtrees); the sensitive-path deny-list is retained as defence in depth (a denied path is rejected even within an allowed parent). A path-by-path audit confirmed every frontend write (exports, notebooks, blob downloads, config/project transfer, log saves) goes through the system file dialog — and Tauri 2 grants the fs plugin runtime scope for dialog-selected paths — so no regression results from the switch.
-  - **Assessment:** This closes the item deferred from v0.1.28 and bounds the blast radius of any future frontend compromise to QoreDB's own directories plus paths the user explicitly picks.
+  - **Current state:** `fs:scope` allows `$APPCONFIG`, `$APPDATA`,
+    `$APPLOCALDATA` and their subtrees, with a deny-list for sensitive paths as
+    defense in depth.
+  - **Residual note:** `opener:allow-open-path` permits opening broader
+    user-facing locations such as home, documents, downloads, and desktop. This
+    is not equivalent to filesystem read/write permission, but it should remain
+    intentionally reviewed if opener usage grows.
+  - **Assessment:** Previous broad-write concern is closed.
 
 ### 2. Backend Safety Enforcement
 
-- **High Risk: Read-only mode is not enforced uniformly**
+- **Resolved: Read-only mode covers specialized mutation commands**
+  - **Locations:** `src-tauri/src/commands/query.rs`,
+    `src-tauri/src/commands/import.rs`, `src-tauri/src/commands/maintenance.rs`,
+    `src-tauri/src/commands/routines.rs`, `src-tauri/src/commands/sequences.rs`,
+    `src-tauri/src/commands/triggers.rs`,
+    `src-tauri/crates/qore-service/src/mutation.rs`,
+    `src-tauri/crates/qore-service/src/query.rs`
+  - **Current state:** `create_database` and `drop_database` now return
+    `Operation blocked: read-only mode` before driver dispatch. Import,
+    mutation, maintenance, routines, triggers, sequences, sandbox, and service
+    query paths also check read-only mode.
+  - **Assessment:** The previous high-risk finding is closed. Future mutating
+    commands should use the same hard gate before side effects.
+
+- **Resolved: Governance limits cover browse endpoints**
+  - **Locations:** `src-tauri/crates/qore-service/src/governance.rs`,
+    `src-tauri/crates/qore-service/src/query.rs`,
+    `src-tauri/src/commands/query.rs`
+  - **Current state:** `preview_table` clamps requested rows via
+    `governance::clamp_rows`, checks concurrent-query limits, and runs the
+    driver future through `governance::with_timeout`. `query_table` clamps page
+    size, checks concurrency, and applies timeout. `peek_foreign_key` clamps the
+    tooltip limit, checks concurrency, and applies timeout.
+  - **Residual note:** Cached table-browse responses can return before
+    concurrency/timeout checks, which is acceptable because no driver work is
+    started. Cache correctness and invalidation belong to cache-specific audits.
+  - **Assessment:** The previous medium-risk finding is closed.
+
+- **Managed risk: Governance bypass is privileged and capped**
   - **Location:** `src-tauri/src/commands/query.rs`
-  - **Finding:** `execute_query` blocks mutations in read-only mode, but specialized commands such as `create_database` and `drop_database` read the flag without rejecting the operation.
-  - **Implication:** The repository documents read-only as a backend guarantee, but that guarantee is currently incomplete outside the main query path.
-  - **Recommendation:** Apply the same hard block used by `execute_query`, `mutation`, `maintenance`, `routines`, `triggers`, and `sequences` to every mutating command.
+  - **Current state:** `bypass_limits=true` is rejected unless the effective
+    license tier includes Team. Even with bypass granted, query execution keeps
+    an absolute timeout cap of 1 hour.
+  - **Assessment:** No active finding, but this path should remain covered by
+    regression tests because it intentionally weakens normal guardrails.
 
-- **Medium Risk: Governance limits do not cover all data-access paths**
-  - **Location:** `src-tauri/src/commands/query.rs`
-  - **Finding:** timeout, concurrent-query, and row-truncation safeguards are applied to `execute_query`, but not to `preview_table`, `query_table`, or `peek_foreign_key`.
-  - **Implication:** Large browser-driven reads can bypass limits that users may believe are global.
-  - **Recommendation:** Either extend governance to those commands or narrow the documentation so the scope is explicit.
+### 3. Query Redaction and Observability
 
-- **Resolved Since May 9, 2026: Raw queries are redacted before persistence**
-  - **Location:** `src-tauri/src/interceptor/redaction.rs`, `src-tauri/src/interceptor/types.rs`
-  - **Current state:** `AuditLogEntry::new` runs `redact_query` (driver-aware: SQL string literals + connection URIs, MongoDB sensitive fields, Redis `AUTH`/`CONFIG SET`/`EVAL` arguments). The same path also computes a stable fingerprint to enable grouping without exposing literals.
+- **Resolved: Raw queries are redacted before audit persistence**
+  - **Locations:** `src-tauri/crates/qore-service/src/interceptor/types.rs`,
+    `src-tauri/crates/qore-service/src/interceptor/redaction.rs`
+  - **Current state:** `AuditLogEntry::new` calls `redact_query` before storing
+    `query` and `query_preview`, then computes a stable fingerprint from the
+    redacted form.
+  - **Assessment:** Previous raw audit persistence finding is closed.
 
-- **Resolved Since May 9, 2026: Custom share providers require HTTPS**
-  - **Location:** `src-tauri/src/share/manager.rs` (`validate_provider_config`, `validate_share_url`)
-  - **Current state:** Upload URLs and returned share URLs are rejected unless they use `https://`, with an explicit loopback exception (`localhost`, `127.0.0.1`, `::1`) for local development.
+- **Resolved: Slow-query profiling stores redacted queries**
+  - **Location:** `src-tauri/crates/qore-service/src/interceptor/profiling.rs`
+  - **Current state:** `record_slow_query` calls `redact_query` before adding
+    slow-query entries.
+  - **Residual note:** Profiling percentiles are recomputed from bounded
+    in-memory samples and should be treated as operational indicators, not
+    authoritative historical analytics.
+  - **Assessment:** Redaction concern is closed; metrics caveat remains low
+    risk/documentation only.
 
-### 3. Frontend and Local Persistence
+- **Resolved: Audit export can read retained disk history**
+  - **Location:** `src-tauri/crates/qore-service/src/interceptor/audit.rs`
+  - **Current state:** `get_entries_from_disk` exists and tests cover reading
+    all disk entries even when the in-memory cache is truncated.
+  - **Assessment:** Previous export-retention concern is closed.
 
-- **Medium Risk: Crash recovery stores raw drafts in localStorage**
-  - **Location:** `src/providers/SessionProvider.tsx`, `src/lib/crashRecovery.ts`
-  - **Finding:** query drafts are saved automatically for recovery and are not redacted.
-  - **Implication:** sensitive ad hoc queries can persist on disk even when query history/error-log retention is disabled.
-  - **Recommendation:** add a dedicated opt-in/opt-out, retention window, or redaction strategy for recovery snapshots.
+### 4. Frontend and Local Persistence
+
+- **Medium Risk: Crash recovery stores raw query drafts by default**
+  - **Locations:** `src/lib/diagnostics/crashRecovery.ts`,
+    `src/lib/diagnostics/crashRecoverySettings.ts`,
+    `src/providers/SessionProvider.tsx`
+  - **Current state:** Recovery snapshots are stored in `localStorage` under
+    `qoredb_crash_recovery`. Snapshots include tab metadata and, when
+    `saveQueryDrafts` is enabled, raw query drafts. The default is
+    `saveQueryDrafts: true` with `ttlHours: 24`; stale snapshots are discarded
+    during normalization.
+  - **Implication:** Sensitive ad hoc queries can remain on disk after a crash
+    even when query history persistence is disabled.
+  - **Recommendation:** Make the privacy trade-off explicit in settings and
+    onboarding copy, consider defaulting query-draft recovery off for production
+    connections, or redact query drafts before persistence.
+
+- **Low Risk: Notebook drafts also persist locally**
+  - **Location:** `src/lib/notebook/notebookIO.ts`
+  - **Current state:** Notebook drafts are saved under `qnb_draft_<tabId>` in
+    `localStorage`.
+  - **Implication:** Notebook SQL/markdown can contain sensitive information and
+    is not covered by the crash-recovery TTL.
+  - **Recommendation:** Include notebook drafts in the GDPR/local persistence
+    inventory and provide a clear cleanup path.
 
 - **Low Risk: Query history and error logs are safer than recovery state**
-  - **Location:** `src/lib/history.ts`, `src/lib/errorLog.ts`
-  - **Finding:** history and error logs are gated by diagnostics settings and are redacted before persistence.
-  - **Assessment:** this is a good baseline, but it currently does not extend to crash recovery or interceptor storage.
+  - **Locations:** `src/lib/query/history.ts`,
+    `src/lib/diagnostics/errorLog.ts`,
+    `src/lib/diagnostics/diagnosticsSettings.ts`
+  - **Current state:** Query history persists only when diagnostics settings
+    allow it; persisted query text is redacted. Error logs redact messages and
+    details before storage.
+  - **Assessment:** This is an acceptable baseline. The remaining issue is
+    consistency: recovery and notebook drafts are less privacy-preserving than
+    history/error-log persistence.
 
-### 4. Observability Reliability
+### 5. Sharing
 
-- **Resolved Since May 9, 2026: Audit export now reads the full retained trail from disk**
-  - **Location:** `src-tauri/src/interceptor/audit.rs` (`get_entries_from_disk`, `export_format`), `src-tauri/src/interceptor/export.rs`
-  - **Current state:** `export_audit_log` accepts a `format` (`json` / `jsonl` / `csv`) and a `from_disk` flag. When `from_disk = true`, the rotated `audit.jsonl` is streamed in full — no longer bounded by the in-memory cache. The cache stays available for fast browsing, the export reflects retention.
+- **Resolved: Custom share providers require HTTPS except loopback**
+  - **Location:** `src-tauri/src/share/manager.rs`
+  - **Current state:** Upload URLs and returned share URLs must use `https://`
+    unless the host is loopback (`localhost`, `127.0.0.1`, `::1`, `[::1]`).
+  - **Assessment:** Previous plaintext share-provider finding is closed.
 
-- **Low Risk: Profiling percentiles should be treated as indicative**
-  - **Location:** `src-tauri/src/interceptor/profiling.rs`
-  - **Finding:** percentiles are computed from a bounded in-memory sample of execution times.
-  - **Implication:** percentiles are useful operational signals, but should not be treated as authoritative historical analytics.
-  - **Recommendation:** document that metrics are bounded-window telemetry.
+### 6. Frontend Code Injection Surface
 
-### 5. Frontend Security
-
-- **Code Quality**
-  - **Finding:** No usage of `dangerouslySetInnerHTML`, `eval()`, or `new Function()` was found in the source code.
-  - **Finding:** The application uses a backend-first Tauri invoke model for critical operations.
+- **No active finding**
+  - **Evidence:** No `dangerouslySetInnerHTML`, `eval(`, or `new Function`
+    matches were found under `src` or `src-tauri`.
+  - **Assessment:** The app continues to rely on backend-first Tauri commands
+    for critical operations.
 
 ## Recommendations
 
-1. ~~Enforce read-only mode uniformly across all mutating commands, including specialized DDL helpers.~~ **Resolved (v0.1.28)** — `mutation`, `maintenance`, `routines`, `triggers` (incl. `toggle_trigger` and `drop_event`), `sequences`, `create_database`, `drop_database` all gate on `is_read_only` before dispatching to the driver.
-2. ~~Redact query text before writing audit entries and slow-query entries.~~ **Resolved (v0.1.28)** — `AuditLogEntry::new` redacts before persistence; fingerprint computed from the redacted form.
-3. Clarify and/or reduce local persistence of raw drafts in crash recovery.
-4. ~~Restrict custom share providers to `https` by default.~~ **Resolved (v0.1.28)** — HTTPS enforced with explicit loopback exception.
-5. Align governance documentation with actual runtime scope, or extend scope to browser endpoints.
-6. ~~Clarify audit retention/export semantics~~ **Resolved (v0.1.28)** — export reads from disk on demand. ~~Tighten filesystem capability scope where possible.~~ **Resolved (v0.1.29)** — `fs:scope` now ships a positive allow-list (see "Resolved Since v0.1.29" above).
-7. Continue regular `pnpm audit`, `cargo audit`, and `cargo deny` checks in CI.
+1. Treat crash recovery and notebook drafts as the next security/privacy work
+   item: document the behavior, add clearer user controls, and consider
+   redaction or production-connection defaults.
+2. Keep new mutating Tauri commands behind read-only checks before driver calls.
+3. Keep all new data-access endpoints wired to `governance::clamp_rows`,
+   `governance::check_concurrent_limit`, and `governance::with_timeout`.
+4. Add targeted regression tests around `bypass_limits` license gating and the
+   1-hour absolute timeout cap.
+5. Continue regular dependency checks with `pnpm audit`, `cargo audit`, and
+   `cargo deny check` in CI.
 
 ## Conclusion
 
-The CSP issue documented in the January 22, 2026 audit is no longer present. QoreDB is now better described as security-aware but still carrying several local-data-handling and policy-consistency gaps that should be addressed before the documentation can claim uniform protection across all execution paths.
+The April 2026 audit's most serious active findings are now resolved. QoreDB is
+best described as security-aware with a strong backend enforcement baseline and
+one clear remaining local-privacy gap: raw recovery/draft persistence. The next
+deep audit should focus less on classic web injection and more on local data
+lifecycle, user-visible privacy controls, and regression tests for safety
+invariants.

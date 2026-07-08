@@ -418,6 +418,7 @@
   },
   "semantic": {
     "section": "架构（语义）",
+    "fulltextSuggestion": "在找它存储的位置吗？",
     "sensitive": "敏感",
     "states": {
       "disabled": "语义搜索已禁用",

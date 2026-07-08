@@ -418,6 +418,7 @@
   },
   "semantic": {
     "section": "Esquema (semântica)",
+    "fulltextSuggestion": "Procurando onde isso é armazenado?",
     "sensitive": "Sensível",
     "states": {
       "disabled": "A busca semântica está desativada",

@@ -1,11 +1,11 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import type { SearchResult } from '@/components/Search/GlobalSearch';
 import { type SemanticSearchState, semanticSearch } from '@/lib/semantic';
 import { useLicense } from '@/providers/LicenseProvider';
 import { useSessionContext } from '@/providers/SessionProvider';
-import type { SearchResult } from '@/components/Search/GlobalSearch';
 
 const DEBOUNCE_MS = 300;
 const MIN_QUERY_LENGTH = 3;

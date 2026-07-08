@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 
 //! DuckDB-backed vector store for schema embeddings. Exact cosine scan via the
 //! core `list_cosine_similarity` function — no VSS extension, no network.

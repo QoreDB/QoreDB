@@ -418,6 +418,7 @@
   },
   "semantic": {
     "section": "Esquema (semántica)",
+    "fulltextSuggestion": "¿Buscas dónde se almacena?",
     "sensitive": "Sensible",
     "states": {
       "disabled": "La búsqueda semántica está desactivada",

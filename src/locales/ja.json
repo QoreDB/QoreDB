@@ -418,6 +418,7 @@
   },
   "semantic": {
     "section": "スキーマ（セマンティック）",
+    "fulltextSuggestion": "データの保存場所をお探しですか？",
     "sensitive": "機密",
     "states": {
       "disabled": "セマンティック検索は無効です",

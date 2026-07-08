@@ -1,83 +1,28 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 
-//! Commands for local semantic schema search. Pro feature — Core builds
-//! return an explicit error.
+//! Commands for local semantic schema search.
 
-use tauri::State;
-
-use crate::SharedState;
-
-#[cfg(not(feature = "pro"))]
-const PRO_REQUIRED: &str = "Semantic search requires a Pro license.";
-
-#[cfg(not(feature = "pro"))]
-#[tauri::command]
-pub async fn semantic_status(
-    _state: State<'_, SharedState>,
-    _session_id: Option<String>,
-) -> Result<serde_json::Value, String> {
-    Err(PRO_REQUIRED.to_string())
-}
-
-#[cfg(not(feature = "pro"))]
-#[tauri::command]
-pub async fn semantic_set_config(
-    _state: State<'_, SharedState>,
-    _config: serde_json::Value,
-) -> Result<serde_json::Value, String> {
-    Err(PRO_REQUIRED.to_string())
-}
-
-#[cfg(not(feature = "pro"))]
-#[tauri::command]
-pub async fn semantic_reindex(
-    _state: State<'_, SharedState>,
-    _session_id: String,
-) -> Result<serde_json::Value, String> {
-    Err(PRO_REQUIRED.to_string())
-}
-
-#[cfg(not(feature = "pro"))]
-#[tauri::command]
-pub async fn semantic_search(
-    _state: State<'_, SharedState>,
-    _session_id: String,
-    _query: String,
-    _limit: Option<u32>,
-) -> Result<serde_json::Value, String> {
-    Err(PRO_REQUIRED.to_string())
-}
-
-#[cfg(feature = "pro")]
 use std::sync::Arc;
 
-#[cfg(feature = "pro")]
 use serde::Serialize;
+use tauri::State;
 
-#[cfg(feature = "pro")]
 use super::parse_session_id;
-#[cfg(feature = "pro")]
 use super::workspace::SharedWorkspaceManager;
-#[cfg(feature = "pro")]
 use crate::engine::SessionManager;
-#[cfg(feature = "pro")]
 use crate::semantic::ollama::OllamaEmbedder;
-#[cfg(feature = "pro")]
 use crate::semantic::store::SemanticHit;
-#[cfg(feature = "pro")]
 use crate::semantic::{IndexSummary, SemanticConfig};
+use crate::SharedState;
 
-#[cfg(feature = "pro")]
 const DEFAULT_SEARCH_LIMIT: u32 = 8;
 
-#[cfg(feature = "pro")]
 #[derive(Serialize)]
 pub struct IndexInfo {
     pub objects: u64,
     pub building: bool,
 }
 
-#[cfg(feature = "pro")]
 #[derive(Serialize)]
 pub struct SemanticStatusResponse {
     pub enabled: bool,
@@ -89,7 +34,6 @@ pub struct SemanticStatusResponse {
     pub index: Option<IndexInfo>,
 }
 
-#[cfg(feature = "pro")]
 #[derive(Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SemanticSearchStatus {
@@ -101,7 +45,6 @@ pub enum SemanticSearchStatus {
     Building,
 }
 
-#[cfg(feature = "pro")]
 #[derive(Serialize)]
 pub struct SemanticSearchResponse {
     pub status: SemanticSearchStatus,
@@ -110,7 +53,6 @@ pub struct SemanticSearchResponse {
     pub error: Option<String>,
 }
 
-#[cfg(feature = "pro")]
 async fn resolve_connection_key(
     session_manager: &Arc<SessionManager>,
     session_id: &str,
@@ -123,7 +65,6 @@ async fn resolve_connection_key(
     Ok((sid, key))
 }
 
-#[cfg(feature = "pro")]
 #[tauri::command]
 pub async fn semantic_status(
     state: State<'_, SharedState>,
@@ -163,7 +104,6 @@ pub async fn semantic_status(
     })
 }
 
-#[cfg(feature = "pro")]
 #[tauri::command]
 pub async fn semantic_set_config(
     state: State<'_, SharedState>,
@@ -186,7 +126,6 @@ pub async fn semantic_set_config(
     })
 }
 
-#[cfg(feature = "pro")]
 #[tauri::command]
 pub async fn semantic_reindex(
     state: State<'_, SharedState>,
@@ -204,7 +143,6 @@ pub async fn semantic_reindex(
         .await
 }
 
-#[cfg(feature = "pro")]
 #[tauri::command]
 pub async fn semantic_search(
     state: State<'_, SharedState>,

@@ -418,6 +418,7 @@
   },
   "semantic": {
     "section": "스키마(시맨틱)",
+    "fulltextSuggestion": "저장 위치를 찾고 계신가요?",
     "sensitive": "민감",
     "states": {
       "disabled": "시맨틱 검색이 비활성화되어 있습니다",

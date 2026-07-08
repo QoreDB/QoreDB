@@ -173,48 +173,50 @@ export function AiSection({ searchQuery }: AiSectionProps) {
   };
 
   return (
-    <LicenseGate feature="ai">
-      <div className="space-y-6">
-        <SettingsCard
-          title={t('ai.defaultProvider')}
-          description={t('ai.defaultProviderDescription')}
-          searchQuery={searchQuery}
-        >
-          <AiProviderSelector
-            provider={preferredProvider}
-            onProviderChange={setPreferredProvider}
-            providerHasKey={providerHasKey}
-          />
-        </SettingsCard>
+    <div className="space-y-6">
+      <LicenseGate feature="ai">
+        <div className="space-y-6">
+          <SettingsCard
+            title={t('ai.defaultProvider')}
+            description={t('ai.defaultProviderDescription')}
+            searchQuery={searchQuery}
+          >
+            <AiProviderSelector
+              provider={preferredProvider}
+              onProviderChange={setPreferredProvider}
+              providerHasKey={providerHasKey}
+            />
+          </SettingsCard>
 
-        <SettingsCard
-          title={t('ai.settings.sampleRows')}
-          description={t('ai.settings.sampleRowsDescription')}
-          searchQuery={searchQuery}
-        >
-          <Switch checked={includeSampleRows} onCheckedChange={setIncludeSampleRows} />
-        </SettingsCard>
+          <SettingsCard
+            title={t('ai.settings.sampleRows')}
+            description={t('ai.settings.sampleRowsDescription')}
+            searchQuery={searchQuery}
+          >
+            <Switch checked={includeSampleRows} onCheckedChange={setIncludeSampleRows} />
+          </SettingsCard>
 
-        <SettingsCard
-          title={t('ai.settings.title')}
-          description={t('ai.settings.description')}
-          searchQuery={searchQuery}
-        >
-          <div className="space-y-3">
-            {AI_PROVIDERS.map(provider => (
-              <ProviderCard
-                key={provider.id}
-                provider={provider}
-                hasKey={providerHasKey[provider.id]}
-                onSave={handleSave}
-                onDelete={handleDelete}
-              />
-            ))}
-          </div>
-        </SettingsCard>
+          <SettingsCard
+            title={t('ai.settings.title')}
+            description={t('ai.settings.description')}
+            searchQuery={searchQuery}
+          >
+            <div className="space-y-3">
+              {AI_PROVIDERS.map(provider => (
+                <ProviderCard
+                  key={provider.id}
+                  provider={provider}
+                  hasKey={providerHasKey[provider.id]}
+                  onSave={handleSave}
+                  onDelete={handleDelete}
+                />
+              ))}
+            </div>
+          </SettingsCard>
+        </div>
+      </LicenseGate>
 
-        <SemanticSearchCard searchQuery={searchQuery} />
-      </div>
-    </LicenseGate>
+      <SemanticSearchCard searchQuery={searchQuery} />
+    </div>
   );
 }

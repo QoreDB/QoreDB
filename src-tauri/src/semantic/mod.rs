@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 
 //! Local semantic schema search: Ollama embeddings persisted in DuckDB.
 
@@ -87,7 +87,10 @@ impl Drop for BuildingGuard<'_> {
 
 impl SemanticService {
     pub fn new() -> Self {
-        let data_dir = crate::paths::app_data_dir().join("semantic");
+        Self::with_dir(crate::paths::app_data_dir().join("semantic"))
+    }
+
+    fn with_dir(data_dir: PathBuf) -> Self {
         let config_path = data_dir.join("config.json");
         let config = std::fs::read_to_string(&config_path)
             .ok()
@@ -134,7 +137,13 @@ impl SemanticService {
         }
         let safe_id: String = project_id
             .chars()
-            .map(|c| if c.is_ascii_alphanumeric() || c == '_' || c == '-' { c } else { '_' })
+            .map(|c| {
+                if c.is_ascii_alphanumeric() || c == '_' || c == '-' {
+                    c
+                } else {
+                    '_'
+                }
+            })
             .collect();
         let store = Arc::new(SemanticStore::open(
             &self.data_dir.join(format!("{safe_id}.duckdb")),
@@ -312,5 +321,140 @@ impl SemanticService {
 impl Default for SemanticService {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod e2e_tests {
+    use super::*;
+    use crate::engine::drivers::postgres::PostgresDriver;
+    use crate::engine::types::{ConnectionConfig, QueryId};
+    use crate::engine::DriverRegistry;
+
+    fn pg_config() -> ConnectionConfig {
+        let env = |key: &str, default: &str| std::env::var(key).unwrap_or_else(|_| default.into());
+        ConnectionConfig {
+            driver: "postgres".to_string(),
+            host: env("QOREDB_TEST_PG_HOST", "127.0.0.1"),
+            port: env("QOREDB_TEST_PG_PORT", "54321").parse().unwrap_or(54321),
+            username: env("QOREDB_TEST_PG_USER", "qoredb"),
+            password: env("QOREDB_TEST_PG_PASSWORD", "qoredb_test"),
+            database: Some(env("QOREDB_TEST_PG_DB", "testdb")),
+            ssl: false,
+            ssl_mode: None,
+            environment: "development".to_string(),
+            read_only: false,
+            ssh_tunnel: None,
+            pool_acquire_timeout_secs: None,
+            pool_max_connections: None,
+            pool_min_connections: None,
+            proxy: None,
+            mssql_auth: None,
+            clickhouse_cluster: None,
+            search_auth_mode: None,
+            ssl_ca_cert: None,
+        }
+    }
+
+    async fn exec(sm: &Arc<SessionManager>, session: SessionId, sql: &str) {
+        let driver = sm.get_driver(session).await.expect("driver");
+        driver
+            .execute(session, sql, QueryId::new())
+            .await
+            .map_err(|e| e.sanitized_message())
+            .expect(sql);
+    }
+
+    #[tokio::test]
+    #[ignore = "requires docker postgres (127.0.0.1:54321) and a local Ollama with nomic-embed-text pulled"]
+    async fn full_pipeline_indexes_searches_refreshes_and_persists() {
+        let mut registry = DriverRegistry::new();
+        registry.register(Arc::new(PostgresDriver::new()));
+        let sm = Arc::new(SessionManager::new(Arc::new(registry)));
+        let session = sm.connect(pg_config()).await.expect("postgres connect");
+        let key = sm.connection_key(session).await.expect("connection key");
+
+        exec(&sm, session, "DROP TABLE IF EXISTS sem_orders").await;
+        exec(&sm, session, "DROP TABLE IF EXISTS sem_customers").await;
+        exec(
+            &sm,
+            session,
+            "CREATE TABLE sem_customers (id SERIAL PRIMARY KEY, email VARCHAR(255) NOT NULL, full_name VARCHAR(255))",
+        )
+        .await;
+        exec(
+            &sm,
+            session,
+            "CREATE TABLE sem_orders (id SERIAL PRIMARY KEY, customer_id INTEGER NOT NULL REFERENCES sem_customers(id), total NUMERIC(10,2))",
+        )
+        .await;
+
+        let dir = tempfile::tempdir().expect("tempdir");
+        let service = SemanticService::with_dir(dir.path().join("semantic"));
+        service.set_config(SemanticConfig {
+            enabled: true,
+            base_url: None,
+            model: DEFAULT_MODEL.to_string(),
+        });
+
+        let summary = service
+            .refresh(&sm, session, &key, "e2e")
+            .await
+            .expect("initial refresh");
+        assert!(summary.total > 0);
+        assert_eq!(summary.embedded, summary.total);
+
+        let hits = service
+            .search(&key, "e2e", "où est stocké l'email client ?", 5)
+            .await
+            .expect("semantic search");
+        assert!(
+            hits.iter()
+                .take(3)
+                .any(|h| h.column.as_deref() == Some("email")),
+            "expected an email column in top hits: {hits:?}"
+        );
+
+        exec(
+            &sm,
+            session,
+            "ALTER TABLE sem_customers ADD COLUMN loyalty_tier TEXT",
+        )
+        .await;
+        let summary = service
+            .refresh(&sm, session, &key, "e2e")
+            .await
+            .expect("refresh after DDL");
+        assert!(
+            summary.embedded >= 1 && summary.embedded < summary.total,
+            "expected an incremental refresh: {summary:?}"
+        );
+        let hits = service
+            .search(&key, "e2e", "customer loyalty level", 5)
+            .await
+            .expect("search after DDL");
+        assert!(
+            hits.iter()
+                .take(3)
+                .any(|h| h.column.as_deref() == Some("loyalty_tier")),
+            "expected loyalty_tier in top hits: {hits:?}"
+        );
+
+        exec(&sm, session, "DROP TABLE sem_orders").await;
+        exec(&sm, session, "DROP TABLE sem_customers").await;
+
+        drop(service);
+        let reopened = SemanticService::with_dir(dir.path().join("semantic"));
+        assert!(reopened.config().enabled);
+        let hits = reopened
+            .search(&key, "e2e", "where is the customer email stored?", 5)
+            .await
+            .expect("search after reopen");
+        assert!(
+            hits.iter()
+                .take(3)
+                .any(|h| h.column.as_deref() == Some("email")),
+            "expected the persisted index to answer after reopen: {hits:?}"
+        );
     }
 }

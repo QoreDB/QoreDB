@@ -341,7 +341,6 @@ pub async fn execute_query(
 
     let plugin_ctx = interceptor_context.clone();
     let plugin_host_for_complete = Arc::clone(&plugin_host);
-    #[cfg(feature = "pro")]
     let semantic_refresh_ctx = {
         let semantic = {
             let state = state.lock().await;
@@ -355,12 +354,9 @@ pub async fn execute_query(
             project_id,
         )
     };
-    #[cfg(not(feature = "pro"))]
-    let _ = &ws_manager;
     let on_complete = move |exec: &QueryExecutionResult, result: Option<&QueryResult>| {
         let payload = result.and_then(build_query_read_payload);
         dispatch_plugin_post_execute(&plugin_host_for_complete, &plugin_ctx, exec, payload);
-        #[cfg(feature = "pro")]
         {
             use crate::interceptor::QueryOperationType as Op;
             if exec.success

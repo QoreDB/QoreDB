@@ -11,7 +11,7 @@
 
 use futures::stream::{self, StreamExt};
 use serde::Serialize;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::time::Duration;
 use tauri::{AppHandle, Emitter, State};
@@ -22,7 +22,9 @@ use crate::engine::fulltext_strategy::{
     get_capability_cache, get_search_strategy, FulltextIndexInfo, SearchMethod, TableSearchOptions,
 };
 use crate::engine::types::{CollectionListOptions, CollectionType, Namespace, QueryId, Value};
+use crate::engine::SessionManager;
 
+use super::workspace::SharedWorkspaceManager;
 use super::{parse_session_id, SharedStateExt};
 
 /// Maximum number of tables to search in parallel
@@ -167,10 +169,11 @@ struct TableSearchResult {
 }
 
 #[tauri::command]
-#[instrument(skip(state, app_handle), fields(session_id = %session_id, search_term_len = search_term.len()))]
+#[instrument(skip(state, app_handle, ws_manager), fields(session_id = %session_id, search_term_len = search_term.len()))]
 pub async fn fulltext_search(
     state: State<'_, crate::SharedState>,
     app_handle: AppHandle,
+    ws_manager: State<'_, SharedWorkspaceManager>,
     session_id: String,
     search_term: String,
     options: Option<FulltextSearchOptions>,
@@ -291,6 +294,12 @@ pub async fn fulltext_search(
         }
     }
 
+    let semantic_order =
+        semantic_table_order(&state, &ws_manager, &session_manager, session, search_term).await;
+    if let Some(order) = &semantic_order {
+        tables_to_search.sort_by_key(|(ns, table, _)| semantic_rank(order, ns, table));
+    }
+
     let total_tables = tables_to_search.len() as u32;
 
     if total_tables == 0 {
@@ -331,7 +340,7 @@ pub async fn fulltext_search(
     let tables_searched_counter_ref = &tables_searched_counter;
     let matches_found_counter_ref = &matches_found_counter;
 
-    let results: Vec<TableSearchResult> = stream::iter(tables_to_search)
+    let mut results: Vec<TableSearchResult> = stream::iter(tables_to_search)
         .map(|(namespace, table_name, text_columns)| async move {
             let text_column_set: HashSet<String> =
                 text_columns.iter().map(|c| c.to_lowercase()).collect();
@@ -493,6 +502,15 @@ pub async fn fulltext_search(
         .collect()
         .await;
 
+    if let Some(order) = &semantic_order {
+        results.sort_by_key(|r| {
+            r.matches
+                .first()
+                .map(|m| semantic_rank(order, &m.namespace, &m.table_name))
+                .unwrap_or(usize::MAX)
+        });
+    }
+
     let mut all_matches: Vec<FulltextMatch> = Vec::new();
     let mut stats = SearchStats {
         native_fulltext_count: 0,
@@ -591,6 +609,67 @@ async fn detect_fulltext_indexes(
         .collect();
 
     strategy.parse_index_detection_result(&rows, &columns)
+}
+
+fn semantic_table_key(database: &str, schema: Option<&str>, table: &str) -> String {
+    format!(
+        "{}|{}|{}",
+        database.to_lowercase(),
+        schema.unwrap_or("").to_lowercase(),
+        table.to_lowercase()
+    )
+}
+
+fn semantic_rank(order: &HashMap<String, usize>, namespace: &Namespace, table: &str) -> usize {
+    order
+        .get(&semantic_table_key(
+            &namespace.database,
+            namespace.schema.as_deref(),
+            table,
+        ))
+        .copied()
+        .unwrap_or(usize::MAX)
+}
+
+/// Ranks tables by semantic proximity to the search term, when an index is
+/// available. Only ever reorders the scan — a missing or failing index must
+/// never exclude a table from the search.
+async fn semantic_table_order(
+    state: &State<'_, crate::SharedState>,
+    ws_manager: &State<'_, SharedWorkspaceManager>,
+    session_manager: &Arc<SessionManager>,
+    session: crate::engine::types::SessionId,
+    search_term: &str,
+) -> Option<HashMap<String, usize>> {
+    let service = {
+        let s = state.lock().await;
+        Arc::clone(&s.semantic)
+    };
+    let config = service.config();
+    if !config.enabled {
+        return None;
+    }
+    let connection_key = session_manager.connection_key(session).await?;
+    let project_id = ws_manager.lock().await.project_id();
+    let store = service.store_for(&project_id).ok()?;
+    if store.count(&connection_key, &config.model).await.ok()? == 0 {
+        return None;
+    }
+    let hits = service
+        .search(&connection_key, &project_id, search_term, 50)
+        .await
+        .ok()?;
+    let mut order = HashMap::new();
+    for hit in &hits {
+        let key = semantic_table_key(&hit.database, hit.schema.as_deref(), &hit.table);
+        let next = order.len();
+        order.entry(key).or_insert(next);
+    }
+    if order.is_empty() {
+        None
+    } else {
+        Some(order)
+    }
 }
 
 fn empty_response(error: &str) -> FulltextSearchResponse {

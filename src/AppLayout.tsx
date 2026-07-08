@@ -73,6 +73,7 @@ import { notify } from './lib/notify';
 import { splitContributionId } from './lib/plugins';
 import type { HistoryEntry } from './lib/query/history';
 import type { QueryLibraryItem } from './lib/query/queryLibrary';
+import type { SemanticHit } from './lib/semantic';
 import {
   handleEditConnection,
   setConnectionModalOpen,
@@ -114,7 +115,6 @@ import {
   type Sequence,
   type Trigger,
 } from './lib/tauri';
-import type { SemanticHit } from './lib/semantic';
 import { getRoutineTemplate } from './lib/templates/routineTemplates';
 import { getEventTemplate, getTriggerTemplate } from './lib/templates/triggerTemplates';
 import { usePluginOutput } from './providers/PluginOutputProvider';
@@ -197,8 +197,6 @@ export function AppLayout() {
     setBeforeCloseTab((tabId: string) => {
       const tab = tabs.find(t => t.id === tabId);
       if (tab?.type === 'notebook' && tab.notebookDirty) {
-        // Synchronous guard: setBeforeCloseTab expects a boolean return, so the
-        // promisified confirmDialog can't replace this native confirm.
         return window.confirm(t('notebook.unsavedChanges'));
       }
       return true;
@@ -978,8 +976,6 @@ export function AppLayout() {
     </>
   );
 }
-
-// --- AppContent: main content area based on active tab ---
 
 interface AppContentProps {
   sessionId: string | null;

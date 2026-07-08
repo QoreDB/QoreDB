@@ -3,6 +3,7 @@
 import { AlertCircle, ChevronRight, Database, Loader2, Search, Table2, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { type SemanticHit, semanticSearch } from '@/lib/semantic';
 import { cn } from '@/lib/utils';
 import {
   type FulltextMatch,
@@ -74,9 +75,11 @@ export function FulltextSearchPanel({
   const [caseSensitive, setCaseSensitive] = useState(false);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<FulltextSearchResponse | null>(null);
+  const [semanticSuggestions, setSemanticSuggestions] = useState<SemanticHit[]>([]);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchSeq = useRef(0);
 
   // Focus input when opened
   useEffect(() => {
@@ -84,6 +87,7 @@ export function FulltextSearchPanel({
       inputRef.current?.focus();
       setQuery('');
       setResult(null);
+      setSemanticSuggestions([]);
       setExpandedGroups(new Set());
     }
   }, [isOpen]);
@@ -105,10 +109,13 @@ export function FulltextSearchPanel({
     async (searchTerm: string) => {
       if (!sessionId || searchTerm.trim().length < 2) {
         setResult(null);
+        setSemanticSuggestions([]);
         return;
       }
 
+      const seq = ++searchSeq.current;
       setLoading(true);
+      setSemanticSuggestions([]);
       try {
         const response = await fulltextSearch(sessionId, searchTerm, {
           case_sensitive: caseSensitive,
@@ -124,6 +131,15 @@ export function FulltextSearchPanel({
               groups.map(g => `${g.namespace.database}:${g.namespace.schema ?? ''}:${g.tableName}`)
             )
           );
+        } else if (response.success) {
+          try {
+            const semantic = await semanticSearch(sessionId, searchTerm, 3);
+            if (seq === searchSeq.current && semantic.status === 'ready') {
+              setSemanticSuggestions(semantic.results);
+            }
+          } catch {
+            // No semantic index available — the empty state stays as-is.
+          }
         }
       } catch (err) {
         setResult({
@@ -269,6 +285,33 @@ export function FulltextSearchPanel({
               <p className="text-xs mt-1">
                 {t('fulltextSearch.searchedTables', { count: result.tables_searched })}
               </p>
+              {semanticSuggestions.length > 0 && (
+                <div className="mt-6 w-full max-w-md px-4">
+                  <p className="text-xs font-medium mb-2">{t('semantic.fulltextSuggestion')}</p>
+                  <div className="space-y-1">
+                    {semanticSuggestions.map(hit => (
+                      <button
+                        key={hit.object_id}
+                        type="button"
+                        className="w-full flex items-center gap-2 px-3 py-2 rounded-md border border-border hover:bg-muted/50 transition-colors text-left"
+                        onClick={() => {
+                          onNavigateToTable?.(
+                            { database: hit.database, schema: hit.schema ?? undefined },
+                            hit.table
+                          );
+                          onClose();
+                        }}
+                      >
+                        <Table2 className="w-4 h-4 shrink-0 text-primary" />
+                        <span className="text-sm text-foreground truncate">
+                          {hit.column ? `${hit.table}.${hit.column}` : hit.table}
+                        </span>
+                        <span className="text-xs truncate flex-1">{hit.document}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           ) : groupedMatches.length > 0 ? (
             <div className="py-2">

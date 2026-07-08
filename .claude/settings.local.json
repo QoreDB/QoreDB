@@ -123,7 +123,9 @@
       "Bash(xargs rg -l \"pub trait\")",
       "Bash(jobs -l)",
       "Bash(ps -o etime= -p 333650)",
-      "WebFetch(domain:www.qoredb.com)"
+      "WebFetch(domain:www.qoredb.com)",
+      "Bash(ollama list *)",
+      "Bash(ollama pull *)"
     ]
   }
 }

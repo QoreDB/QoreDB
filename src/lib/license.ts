@@ -60,7 +60,7 @@ const FEATURE_REQUIRED_TIER: Record<ProFeature, LicenseTier> = {
   instant_api: 'pro',
   data_generator: 'pro',
   index_suggestions: 'pro',
-  semantic_search: 'pro',
+  semantic_search: 'core',
 };
 
 export function tierIncludes(current: LicenseTier, required: LicenseTier): boolean {

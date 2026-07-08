@@ -446,6 +446,7 @@
   },
   "semantic": {
     "section": "Schéma (sémantique)",
+    "fulltextSuggestion": "Vous cherchiez où c'est stocké ?",
     "sensitive": "Sensible",
     "states": {
       "disabled": "La recherche sémantique est désactivée",

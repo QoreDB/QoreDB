@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 
 //! Ollama embedding client. The chat-oriented `OllamaProvider` only speaks
 //! `/api/chat`; this client targets `/api/embed` and `/api/tags`.

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 
 //! Builds the embedding corpus from schema metadata. Column names are kept
 //! as-is (they are what users search for; nothing leaves localhost) — the

@@ -418,6 +418,7 @@
   },
   "semantic": {
     "section": "Схема (семантика)",
+    "fulltextSuggestion": "Ищете, где это хранится?",
     "sensitive": "Конфиденциально",
     "states": {
       "disabled": "Семантический поиск отключён",

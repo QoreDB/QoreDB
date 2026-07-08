@@ -1,198 +1,267 @@
-# OWASP Top 10 — Alignment Assessment
+# OWASP Top 10:2025 Alignment Assessment
 
-> **Statut :** Self-assessment
-> **Date :** 2026-03-23
-> **Projet :** QoreDB — Desktop database client (Tauri 2 / Rust / React)
-> **Référence :** OWASP Top 10:2021
+> **Status:** Reviewed, targeted refresh
+> **Original date:** 2026-03-23
+> **Last reviewed:** 2026-07-08
+> **Code baseline:** `c802bae783865b0d8d71d27aad2bf0620cd3c1e3`
+> **Review depth:** Targeted revalidation and remapping from OWASP Top 10:2021 to OWASP Top 10:2025; not a penetration test.
+> **Project:** QoreDB, a local-first desktop database client built with Tauri 2, Rust, and React.
+> **Reference:** OWASP Top 10:2025, https://owasp.org/Top10/2025/0x00_2025-Introduction/
 
-QoreDB est une application desktop, pas un service web. Certaines vulnérabilités OWASP s'appliquent directement (injection, composants vulnérables), d'autres sont adaptées au contexte desktop/Tauri.
+## Executive Summary
 
----
+QoreDB is a desktop application rather than an internet-facing web service, so
+this assessment adapts OWASP web-application categories to the Tauri, local
+storage, plugin-runtime, database-client, and release-supply-chain surfaces.
 
-## A01:2021 — Broken Access Control
+The core architecture remains strong: backend Rust commands are the authority
+for policy decisions, credentials are stored in the OS keyring or an encrypted
+vault fallback, plugin host functions enforce declared capabilities, Tauri CSP
+and filesystem scopes are configured, and release workflows publish SBOMs and
+SHA-256 checksums.
 
-**Risque :** Accès non autorisé à des fonctions ou données.
+The main change since the previous 2021-based document is the OWASP 2025
+category model. SSRF is now treated under Broken Access Control, supply-chain
+risk is elevated to A03, and Exceptional Conditions is a new explicit category.
 
-| Controle | Implémentation | Fichier |
-|----------|---------------|---------|
-| Backend = source of truth | Le frontend ne peut pas bypasser les politiques backend | `src-tauri/src/commands/` |
-| Read-only mode | Enforced côté Rust, pas côté UI | `src-tauri/src/engine/sql_safety.rs` |
-| Environment classification | Production → restrictions automatiques | `src-tauri/src/policy.rs` |
-| Capability system | Drivers déclarent leurs capacités (mutations, transactions, etc.) | `src-tauri/src/engine/traits.rs` |
+The current risk posture is not all green, but the blocking dependency advisory
+found during this refresh was fixed in the same pass. `crossbeam-epoch` was
+updated from `0.9.18` to `0.9.20` in `src-tauri/Cargo.lock`, resolving
+`RUSTSEC-2026-0204`. `pnpm audit --audit-level=high`, `cargo audit`,
+`cargo deny check advisories licenses sources`, and `cargo deny check bans`
+now exit successfully on 2026-07-08. RustSec still reports allowed warnings
+for unmaintained/unsound transitive crates, and `cargo deny` reports duplicate
+crate versions, so A03 remains a monitored supply-chain area rather than a
+blanket "no risk" claim.
 
-**Statut : ✅ Mitigé**
+## Evidence Checked
 
----
+| Evidence | Result |
+| --- | --- |
+| `src-tauri/tauri.conf.json` | CSP restricts scripts to `self`; updater is active and configured with a public key. |
+| `src-tauri/capabilities/default.json` | Filesystem scope is limited to app config/data/local data; sensitive home paths and system paths are denied. The opener scope is broader and remains a review item. |
+| `.github/workflows/ci.yml` | Runs `pnpm audit --audit-level=high`, `cargo audit`, and `cargo deny check`. |
+| `.github/workflows/release.yml` | Generates Rust and frontend CycloneDX SBOMs and SHA-256 checksums for release assets. |
+| `src-tauri/deny.toml` | Denies unknown registries and unknown git dependencies; tracks advisory exceptions with reasons. |
+| `rg "dangerouslySetInnerHTML\|eval\\(\|new Function\|innerHTML\|document.write" src src-tauri` | No app `eval`, `new Function`, `document.write`, or `dangerouslySetInnerHTML` hits. Only the generated HTML export writer uses `innerHTML`, with escaping helpers. |
+| `pnpm audit --audit-level=high` | Passed: no known npm vulnerabilities found. |
+| `cargo audit` | Passed after updating `crossbeam-epoch` to `0.9.20`; 21 allowed warnings remain for unmaintained/unsound transitive crates. |
+| `cargo deny check advisories licenses sources` | Passed after the same lockfile update; warnings remain for unmatched license allowances and a stale ignored advisory entry. |
+| `cargo deny check bans` | Passed; duplicate crate-version warnings remain. |
 
-## A02:2021 — Cryptographic Failures
+## A01:2025 - Broken Access Control
 
-**Risque :** Données sensibles exposées en clair ou chiffrées de manière inadéquate.
+**Applicability:** High. QoreDB exposes privileged local backend commands,
+database mutation operations, workspace metadata, plugin host functions, and
+network destinations selected by the user or by plugins.
 
-| Controle | Implémentation | Fichier |
-|----------|---------------|---------|
-| Credentials dans OS Keychain | Pas de fichiers plats, chiffrement natif OS | `src-tauri/src/vault/storage.rs` |
-| Master Password Argon2 | Hashing robuste avec sel | `src-tauri/src/vault/lock.rs` |
-| `Sensitive<T>` wrapper | Redaction automatique dans logs/serialization | `src-tauri/src/observability/sensitive.rs` |
-| License verification Ed25519 | Signatures cryptographiques | `src-tauri/src/license/key.rs` |
-| TLS pour connexions DB | SQLx + Rustls, `rediss://` pour Redis | `src-tauri/Cargo.toml` (tls-rustls) |
+| Control | Evidence | Status |
+| --- | --- | --- |
+| Backend-side policy authority | `READ_ONLY_BLOCKED` checks are present across query, import, maintenance, routines, sequences, and triggers commands. | Mitigated |
+| Limits bypass is gated backend-side | `execute_query` treats `bypass_limits=true` as a privileged request and rejects it without the required license tier. | Mitigated |
+| Plugin capabilities are enforced in host functions | `has_capability` gates log, notify, storage, HTTP, filesystem, secrets, and query-read host functions. | Mitigated |
+| Plugin private-network access is constrained | `is_private_destination` detects loopback, RFC1918, link-local, CGNAT, unspecified, and IPv6 private destinations; private access requires manifest opt-in. | Mitigated |
+| Tauri filesystem access is scoped | App config/data/local data are allowed; common sensitive paths are denied. | Mitigated |
+| Opener access | `opener:allow-open-path` allows broad user locations including home, documents, downloads, and desktop. This may be acceptable for a desktop export/open workflow, but it is broader than the filesystem scope and should stay explicitly justified. | Review item |
 
-**Statut : ✅ Mitigé**
+**Conclusion:** Mostly mitigated for the desktop threat model. Keep regression
+tests focused on backend gates, because frontend/UI-only restrictions are not
+sufficient in a Tauri application.
 
----
+## A02:2025 - Security Misconfiguration
 
-## A03:2021 — Injection
+**Applicability:** High. Misconfiguration is a central risk for desktop
+capabilities, CSP, filesystem access, telemetry, updater behavior, and plugin
+runtime controls.
 
-**Risque :** Injection SQL, commande, ou script.
+| Control | Evidence | Status |
+| --- | --- | --- |
+| CSP | `script-src 'self'`; image and font sources are explicit; `connect-src` allows IPC/Tauri localhost and PostHog endpoints. | Mitigated |
+| Inline styles | `style-src 'self' 'unsafe-inline'` is enabled. This is common in React/Tauri stacks but weaker than nonce/hash-based style policies. | Accepted caveat |
+| Filesystem deny list | Sensitive home files and system directories are denied in Tauri fs scope. | Mitigated |
+| Telemetry boundary | PostHog endpoints are visible in CSP; GDPR audit documents telemetry consent expectations. | Needs consent verification |
+| Plugin runtime limits | Wasm runtime uses fuel and store limits. | Mitigated |
 
-| Controle | Implémentation | Fichier |
-|----------|---------------|---------|
-| Parameterized queries | INSERT/UPDATE/DELETE utilisent des requêtes paramétrées | Tous les drivers dans `src-tauri/src/engine/drivers/` |
-| SQL classification AST | `sqlparser` pour analyser les requêtes (pas d'heuristiques) | `src-tauri/src/engine/sql_safety.rs` |
-| Dangerous query blocking | DROP, TRUNCATE, ALTER, DELETE/UPDATE sans WHERE bloqués en prod | `src-tauri/src/engine/sql_safety.rs` |
-| Pas de `eval()` | Aucun usage de `eval()`, `new Function()`, ou `dangerouslySetInnerHTML` | Audit frontend (Jan 2026) |
-| CSP strict | `default-src 'self'; script-src 'self'` | `src-tauri/tauri.conf.json` |
+**Conclusion:** Configuration is materially better than the original audit
+baseline, but the broad opener scope and inline styles should remain known
+desktop tradeoffs rather than disappearing from the audit.
 
-**Note :** `execute_query` exécute du SQL brut par design (c'est un client DB). La mitigation repose sur la classification et le blocage, pas sur la prévention de l'exécution.
+## A03:2025 - Software Supply Chain Failures
 
-**Statut : ✅ Mitigé**
+**Applicability:** High. OWASP 2025 expands this category beyond vulnerable
+components to dependency, build, and distribution trust.
 
----
+| Control | Evidence | Status |
+| --- | --- | --- |
+| npm advisory scanning | `pnpm audit --audit-level=high` passed on 2026-07-08. | Mitigated |
+| Rust advisory scanning | `cargo audit` passed after updating `crossbeam-epoch` from `0.9.18` to `0.9.20`. | Mitigated with warnings |
+| Policy scanning | `cargo deny check advisories licenses sources` and `cargo deny check bans` passed after the update. | Mitigated with warnings |
+| Lockfiles | `pnpm-lock.yaml` and `src-tauri/Cargo.lock` are present. | Mitigated |
+| Registry/source policy | `src-tauri/deny.toml` denies unknown registries and unknown git sources. | Mitigated |
+| SBOM | Release workflow generates CycloneDX SBOMs for Rust and frontend dependencies. | Mitigated |
+| Release integrity | Release workflow generates SHA-256 checksums; updater is configured with a public key. | Mitigated |
 
-## A04:2021 — Insecure Design
+**Finding A03-1, resolved during refresh:** `crossbeam-epoch 0.9.18` was
+affected by `RUSTSEC-2026-0204`. It was upgraded to `0.9.20` with
+`cargo update -p crossbeam-epoch --precise 0.9.20`.
 
-**Risque :** Failles architecturales fondamentales.
+**Monitoring item A03-2:** `cargo audit` still prints allowed warnings for
+unmaintained/unsound transitive crates, and `cargo deny check bans` prints
+duplicate-version warnings. These are not currently failing checks, but they
+should be reviewed periodically because they represent dependency health debt.
 
-| Controle | Implémentation | Fichier |
-|----------|---------------|---------|
-| Threat model documenté | 4 menaces identifiées et mitigées | `doc/security/THREAT_MODEL.md` |
-| Trust boundaries | Frontend / Backend / Vault séparés | Architecture Tauri |
-| Security audit | Audit professionnel (Jan 2026) | `doc/audits/SECURITY_AUDIT.md` |
-| Privacy by Design | GDPR audit, telemetry opt-in, local-first | `doc/audits/GDPR_AUDIT.md` |
+**Conclusion:** Supply-chain controls are present and currently pass after the
+lockfile update. This category should remain high-attention because the warning
+set is non-empty and the Rust desktop stack includes large transitive trees.
 
-**Statut : ✅ Mitigé**
+## A04:2025 - Cryptographic Failures
 
----
+**Applicability:** High. QoreDB stores database credentials, API keys, plugin
+secrets, license material, local workspace metadata, and optional diagnostics.
 
-## A05:2021 — Security Misconfiguration
+| Control | Evidence | Status |
+| --- | --- | --- |
+| Credential storage | Workspace connection credentials and plugin secrets are stored in the OS keyring. | Mitigated |
+| Headless fallback | Server README documents encrypted-file vault fallback using XChaCha20Poly1305 and Argon2id when `QORE_VAULT_KEY` is set. | Mitigated |
+| Master password | Vault lock uses hardened Argon2id parameters and tracks failed attempts. | Mitigated |
+| Sensitive values in logs | `Sensitive<T>` wrappers and query redaction helpers exist in service code. | Mitigated |
+| Local non-secret persistence | Crash recovery, notebook drafts, and app-local metadata may contain operational data and are not all protected like vault secrets. | Open privacy/security caveat |
 
-**Risque :** Configuration par défaut insécure.
+**Conclusion:** Secrets are handled with appropriate cryptographic primitives
+for the desktop model. The remaining risk is not credential encryption; it is
+inventorying and purging local non-secret data that may still be sensitive.
 
-| Controle | Implémentation | Fichier |
-|----------|---------------|---------|
-| CSP configuré | Strict CSP (corrigé depuis audit Jan 2026) | `src-tauri/tauri.conf.json` |
-| Telemetry off par défaut | Opt-in explicite requis | `src/lib/analytics.ts` |
-| AI désactivée par défaut | Consentement explicite | `src/components/AI/` |
-| Production safety par défaut | Dangerous queries bloquées en prod | `src-tauri/src/policy.rs` |
+## A05:2025 - Injection
 
-**Statut : ✅ Mitigé**
+**Applicability:** High. QoreDB intentionally executes user-supplied database
+queries and also renders query results, exports data, and runs plugin code.
 
----
+| Control | Evidence | Status |
+| --- | --- | --- |
+| SQL safety classification | SQL safety logic uses parser-based classification in `qore-sql`. | Mitigated |
+| Dangerous operation blocking | Backend commands block read-only mutations and dangerous operations in relevant paths. | Mitigated |
+| Query redaction | Driver-aware redaction tests cover SQL, MongoDB-like strings, and Redis secret-bearing commands. | Mitigated |
+| Frontend script sinks | No app `eval`, `new Function`, `document.write`, or `dangerouslySetInnerHTML` hits were found. | Mitigated |
+| Exported HTML writer | `src-tauri/src/export/writers/html.rs` uses `innerHTML` in the generated artifact. The writer also defines escaping helpers; keep regression tests around generated HTML escaping. | Review item |
 
-## A06:2021 — Vulnerable and Outdated Components
+**Conclusion:** Injection is mitigated for application code and database
+command governance, with one export-specific review item because generated HTML
+uses dynamic HTML rendering by design.
 
-**Risque :** Dépendances avec des vulnérabilités connues.
+## A06:2025 - Insecure Design
 
-| Controle | Implémentation | Fichier |
-|----------|---------------|---------|
-| `cargo-audit` | Scan vulnérabilités Rust dans CI | `.github/workflows/ci.yml` |
-| `pnpm audit` | Scan vulnérabilités npm dans CI | `.github/workflows/ci.yml` |
-| `cargo-deny` | Licences + advisories + sources bloquants | `src-tauri/deny.toml` |
-| SBOM CycloneDX | Bill of Materials publié avec chaque release | `.github/workflows/release.yml` |
-| Checksums SHA-256 | Intégrité des binaires vérifiable | `.github/workflows/release.yml` |
+**Applicability:** High. The design must account for local-first operation,
+highly privileged database credentials, plugins, optional AI/telemetry, and
+enterprise release expectations.
 
-**Statut : ✅ Mitigé**
+| Control | Evidence | Status |
+| --- | --- | --- |
+| Threat modeling | `doc/security/THREAT_MODEL.md` exists and is referenced by other audits. | Mitigated |
+| Local-first privacy boundary | GDPR audit documents the local-data model and retention gaps. | Partially mitigated |
+| Plugin trust model | Plugin capability audit covers host-function gating, private-network handling, secrets, and integrity. | Mitigated |
+| Safety-by-default for mutations | Read-only blocking and dangerous-query controls exist in backend paths. | Mitigated |
+| Local data lifecycle | A unified inventory/purge UX for local diagnostics, drafts, and recovery data is still missing. | Open |
 
----
+**Conclusion:** The architecture is intentionally defensive, but local data
+lifecycle design needs to be completed so privacy and incident-response controls
+are discoverable by users rather than only implicit in storage locations.
 
-## A07:2021 — Identification and Authentication Failures
+## A07:2025 - Authentication Failures
 
-**Risque :** Authentification faible ou contournable.
+**Applicability:** Medium. QoreDB is primarily a single-user desktop
+application, but it still authenticates to vaults, database servers, optional
+local API endpoints, and enterprise workflows.
 
-| Controle | Implémentation | Fichier |
-|----------|---------------|---------|
-| Master Password | Argon2 hashing, tentatives non limitées (app locale) | `src-tauri/src/vault/lock.rs` |
-| OS-level auth | TouchID / Windows Hello / mot de passe OS pour accéder au Keychain | OS natif via `keyring` |
-| SSH auth | Support clé + password, host key verification | `src-tauri/src/vault/credentials.rs` |
+| Control | Evidence | Status |
+| --- | --- | --- |
+| Vault authentication | Master password hashing uses Argon2id; fresh-authentication checks protect sensitive vault operations. | Mitigated |
+| OS authentication boundary | OS keyring integration delegates secret access to platform credential storage. | Mitigated |
+| API tokens | Local API token storage uses Argon2 hashes and constant-time verification. | Mitigated |
+| Multi-user identity | QoreDB does not provide a cloud identity plane; this is by design for local-first desktop use. | Not applicable |
 
-**Note :** QoreDB est une app locale single-user. L'authentification protège contre l'accès physique non autorisé, pas contre des attaquants réseau.
+**Conclusion:** Authentication controls are appropriate for a local desktop
+product. Do not market this as multi-user enterprise identity without adding a
+separate identity and authorization model.
 
-**Statut : ✅ Mitigé** (contexte desktop)
+## A08:2025 - Software or Data Integrity Failures
 
----
+**Applicability:** High. This includes updater integrity, release artifacts,
+plugin Wasm integrity, and persisted workspace data.
 
-## A08:2021 — Software and Data Integrity Failures
+| Control | Evidence | Status |
+| --- | --- | --- |
+| Updater integrity | Tauri updater is active and configured with a public key. | Mitigated |
+| Release integrity | Release workflow produces SHA-256 checksums and SBOM artifacts. | Mitigated |
+| Platform signing | Windows MSIX signing is present when signing secrets are available; release workflows include signing steps. | Mitigated with CI-secret dependency |
+| Plugin Wasm integrity | Plugin manager verifies expected digests before loading Wasm. | Mitigated |
+| Plugin trust semantics | A matching digest proves integrity of a known artifact, not that the plugin author or registry is trusted. | Review item |
 
-**Risque :** Code ou données modifiés sans vérification.
+**Conclusion:** Integrity controls are solid, but documentation should keep
+separating artifact integrity from author trust and marketplace governance.
 
-| Controle | Implémentation | Fichier |
-|----------|---------------|---------|
-| Builds signés | Code signing macOS + Windows MSIX | `.github/workflows/release.yml` |
-| Checksums SHA-256 | Publiés avec chaque release | Job `cleanup-sig` dans release.yml |
-| Auto-updater sécurisé | Signatures Tauri vérifiées avant installation | `src-tauri/tauri.conf.json` (pubkey) |
-| SBOM | Traçabilité des dépendances | Job `sbom` dans release.yml |
-| Supply chain deny | Registries inconnus bloqués | `src-tauri/deny.toml` |
+## A09:2025 - Security Logging and Alerting Failures
 
-**Statut : ✅ Mitigé**
+**Applicability:** Medium. A desktop app cannot rely on centralized monitoring
+by default, but it must expose enough local evidence for troubleshooting and
+incident response.
 
----
+| Control | Evidence | Status |
+| --- | --- | --- |
+| Structured logs | Rust service code uses structured logging and typed errors. | Mitigated |
+| Query redaction | Interceptor redaction prevents obvious credential leakage in logged queries. | Mitigated |
+| Exportable diagnostics | Existing audits reference log export and diagnostics flows. | Mitigated with privacy caveat |
+| Alerting | There is no central alerting plane, and that is expected for a local desktop app. | Not applicable |
+| Retention transparency | GDPR audit keeps local retention and purge controls open. | Open |
 
-## A09:2021 — Security Logging and Monitoring Failures
+**Conclusion:** Logging is useful for support and local incident review.
+Privacy-safe retention and purge controls should be the next improvement rather
+than adding centralized alerting by default.
 
-**Risque :** Incidents non détectés par manque de logs.
+## A10:2025 - Mishandling of Exceptional Conditions
 
-| Controle | Implémentation | Fichier |
-|----------|---------------|---------|
-| Structured logging | `tracing` framework, JSON, rotation journalière | `src-tauri/src/observability.rs` |
-| Corrélation | `session_id` + `query_id` dans chaque log | `src-tauri/src/engine/session_manager.rs` |
-| Panic hooks | Crashs capturés et loggés | `src-tauri/src/observability.rs` |
-| Log export | One-click depuis l'UI | Commande Tauri `collect_logs` |
-| Redaction | `Sensitive<T>` empêche les credentials dans les logs | `src-tauri/src/observability/sensitive.rs` |
-| Retention | 7 jours avec cleanup automatique | `src-tauri/src/observability.rs` |
+**Applicability:** High. OWASP 2025 adds this category for failing open,
+improper error handling, abnormal states, parsing failures, and logical
+edge-case behavior.
 
-**Statut : ✅ Mitigé**
+| Control | Evidence | Status |
+| --- | --- | --- |
+| Vault failure behavior | Keyring and encrypted-file vault errors are mapped into typed credential errors. | Mitigated |
+| Plugin runtime failure behavior | Host functions return explicit denials and runtime limits are configured. | Mitigated |
+| Query limits | Even privileged `bypass_limits` keeps an absolute timeout cap. | Mitigated |
+| Share URL validation | Share manager validates provider config and outbound share URLs. | Mitigated |
+| Export rendering edge cases | Generated HTML uses escaping helpers but should keep explicit regression tests for malformed and hostile cell values. | Review item |
+| Local recovery parse failures | Crash recovery and draft persistence should fail closed and expose purge controls. | Open |
 
----
+**Conclusion:** Exceptional-condition handling is generally defensive, but this
+category should drive more regression tests around malformed local state,
+generated exports, plugin denial paths, and partial failures.
 
-## A10:2021 — Server-Side Request Forgery (SSRF)
+## Summary
 
-**Risque :** L'application fait des requêtes vers des URLs contrôlées par l'attaquant.
+| OWASP 2025 category | Current status | Main reason |
+| --- | --- | --- |
+| A01 Broken Access Control | Mostly mitigated | Backend policy checks, plugin capability gates, filesystem scoping; opener scope remains broad. |
+| A02 Security Misconfiguration | Mostly mitigated | CSP and Tauri scopes are configured; inline styles and opener paths are accepted caveats. |
+| A03 Software Supply Chain Failures | Mostly mitigated | Blocking advisory fixed; audit/deny checks pass, with remaining dependency-health warnings. |
+| A04 Cryptographic Failures | Mostly mitigated | OS keyring, encrypted vault fallback, Argon2id, sensitive-value wrappers; non-secret local data remains a caveat. |
+| A05 Injection | Mostly mitigated | Parser-based SQL safety, backend blocking, no app script sinks; exported HTML needs regression coverage. |
+| A06 Insecure Design | Partially mitigated | Defensive architecture exists; local data lifecycle UX remains unfinished. |
+| A07 Authentication Failures | Mitigated for desktop scope | Argon2id vault lock, OS keyring, local API token hashes. |
+| A08 Software or Data Integrity Failures | Mostly mitigated | Updater key, release checksums, SBOMs, plugin digest verification. |
+| A09 Security Logging and Alerting Failures | Partially mitigated | Local logging and redaction exist; retention and user-facing purge controls remain open. |
+| A10 Mishandling of Exceptional Conditions | Partially mitigated | Many failure paths are typed/bounded; malformed local state and export edge cases need regression focus. |
 
-| Controle | Implémentation | Fichier |
-|----------|---------------|---------|
-| Pas de proxy HTTP | QoreDB ne fait pas de requêtes HTTP au nom de l'utilisateur (sauf AI opt-in) | N/A |
-| Connexions DB directes | L'utilisateur fournit explicitement host/port/credentials | `src-tauri/src/vault/credentials.rs` |
-| AI provider validation | URLs des providers AI validées (OpenAI, Anthropic, local) | `src-tauri/src/ai/provider.rs` |
-| CSP connect-src | Limité à `ipc:`, `localhost`, `*.posthog.com` | `src-tauri/tauri.conf.json` |
+## Recommended Follow-Ups
 
-**Statut : ✅ Mitigé** (surface d'attaque SSRF minimale pour une app desktop)
-
----
-
-## Résumé
-
-| Vulnérabilité OWASP | Statut | Controle principal |
-|---------------------|--------|-------------------|
-| A01 — Broken Access Control | ✅ | Backend authority, read-only mode, environment policy |
-| A02 — Cryptographic Failures | ✅ | OS Keychain, Argon2, Sensitive<T>, TLS |
-| A03 — Injection | ✅ | Parameterized queries, AST SQL classification, CSP |
-| A04 — Insecure Design | ✅ | Threat model, security audit, trust boundaries |
-| A05 — Security Misconfiguration | ✅ | CSP strict, secure defaults (telemetry off, AI off) |
-| A06 — Vulnerable Components | ✅ | cargo-audit, pnpm audit, cargo-deny, SBOM |
-| A07 — Auth Failures | ✅ | Argon2, OS Keychain, SSH key verification |
-| A08 — Integrity Failures | ✅ | Code signing, checksums, SBOM, supply chain deny |
-| A09 — Logging Failures | ✅ | Structured logging, correlation, redaction, export |
-| A10 — SSRF | ✅ | Pas de proxy HTTP, CSP connect-src restrictif |
-
----
-
-## Gaps identifiés
-
-| Gap | Priorité | Plan |
-|-----|----------|------|
-| Rate limiting sur les requêtes DB | Moyenne | Max rows/duration configurable (prévu) |
-| Session timeout / auto-lock | Moyenne | Prochaine itération |
-| Audit trail dédié pour les mutations | Basse | L'intercepteur capture les mutations dans les logs généraux |
-
----
-
-_Self-assessment généré le 2026-03-23. À mettre à jour lors de changements architecturaux majeurs._
+1. Periodically review the remaining `cargo audit` warnings and duplicate crate
+   versions reported by `cargo deny check bans`.
+2. Add regression tests for generated HTML export escaping and malformed cell
+   values.
+3. Add regression tests for backend governance bypass attempts, especially
+   `bypass_limits`, read-only mode, and plugin capability denial paths.
+4. Tighten or document the broad Tauri opener scope for `$HOME`, documents,
+   downloads, and desktop paths.
+5. Build a user-facing local data lifecycle view covering diagnostics,
+   crash-recovery files, notebook drafts, analytics identity, and purge actions.
+6. Keep supply-chain evidence in this audit tied to actual command output, not
+   only CI workflow intent.

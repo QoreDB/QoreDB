@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 use serde::Serialize;
 use crate::SharedState;
 
@@ -14,7 +15,7 @@ pub async fn template_command(
     input: String,
 ) -> Result<TemplateResponse, String> {
     // let state = state.lock().await;
-    
+
     Ok(TemplateResponse {
         success: true,
         data: Some(format!("Processed: {}", input)),

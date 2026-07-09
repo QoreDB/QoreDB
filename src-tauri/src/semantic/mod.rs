@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
-//! Local semantic schema search: Ollama embeddings persisted in DuckDB.
+//! Local semantic schema search: indexing pipeline and app-side service.
+//! The shared substrate (Ollama embedder, DuckDB store, config) lives in
+//! `qore_service::semantic` so the MCP server reads the same index.
 
 pub mod indexer;
-pub mod ollama;
-pub mod store;
+
+pub use qore_service::semantic::{ollama, store, SemanticConfig, DEFAULT_BASE_URL, DEFAULT_MODEL};
 
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
@@ -12,49 +14,16 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use parking_lot::RwLock;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use tracing::{debug, warn};
 
 use crate::engine::types::{Namespace, SessionId};
 use crate::engine::SessionManager;
-use ollama::OllamaEmbedder;
-use store::{IndexedObject, SemanticStore};
-
-pub const DEFAULT_MODEL: &str = "nomic-embed-text";
-pub const DEFAULT_BASE_URL: &str = "http://localhost:11434";
+use qore_service::semantic::ollama::OllamaEmbedder;
+use qore_service::semantic::store::{IndexedObject, SemanticStore};
 
 const REFRESH_DEBOUNCE: Duration = Duration::from_secs(3);
 const RANK_SEARCH_LIMIT: u32 = 50;
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SemanticConfig {
-    #[serde(default)]
-    pub enabled: bool,
-    #[serde(default)]
-    pub base_url: Option<String>,
-    #[serde(default = "default_model")]
-    pub model: String,
-}
-
-fn default_model() -> String {
-    DEFAULT_MODEL.to_string()
-}
-
-impl Default for SemanticConfig {
-    fn default() -> Self {
-        Self {
-            enabled: false,
-            base_url: None,
-            model: default_model(),
-        }
-    }
-}
-
-impl SemanticConfig {
-    pub fn effective_base_url(&self) -> &str {
-        self.base_url.as_deref().unwrap_or(DEFAULT_BASE_URL)
-    }
-}
 
 #[derive(Debug, Clone, Serialize)]
 pub struct IndexSummary {
@@ -88,15 +57,12 @@ impl Drop for BuildingGuard<'_> {
 
 impl SemanticService {
     pub fn new() -> Self {
-        Self::with_dir(crate::paths::app_data_dir().join("semantic"))
+        Self::with_dir(qore_service::semantic::semantic_dir())
     }
 
     fn with_dir(data_dir: PathBuf) -> Self {
         let config_path = data_dir.join("config.json");
-        let config = std::fs::read_to_string(&config_path)
-            .ok()
-            .and_then(|content| serde_json::from_str(&content).ok())
-            .unwrap_or_default();
+        let config = SemanticConfig::load(&config_path);
         Self {
             data_dir,
             config_path,

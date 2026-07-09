@@ -89,7 +89,7 @@ dotenvy = "0.15"
 qore-core = { path = "crates/qore-core" }
 qore-sql = { path = "crates/qore-sql" }
 qore-drivers = { path = "crates/qore-drivers", features = ["tauri"] }
-qore-service = { path = "crates/qore-service" }
+qore-service = { path = "crates/qore-service", features = ["semantic"] }
 
 tauri = { version = "2", features = ["image-png"] }
 tauri-plugin-opener = "2"

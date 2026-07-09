@@ -31,6 +31,11 @@ argon2 = "0.5"
 chacha20poly1305 = "0.10"
 rand_core = { version = "0.6", features = ["getrandom"] }
 parking_lot = "0.12"
+duckdb = { workspace = true, optional = true }
+reqwest = { version = "0.12", features = ["json"], optional = true }
+
+[features]
+semantic = ["dep:duckdb", "dep:reqwest"]
 
 [build-dependencies]
 dotenvy = "0.15"

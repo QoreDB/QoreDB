@@ -9,7 +9,9 @@ name = "qore-mcp"
 path = "src/main.rs"
 
 [dependencies]
-qore-service = { path = "../qore-service" }
+qore-service = { path = "../qore-service", features = ["semantic"] }
+qore-sql = { path = "../qore-sql" }
+qore-drivers = { path = "../qore-drivers" }
 qore-core = { path = "../qore-core" }
 tokio = { workspace = true }
 serde = { workspace = true }

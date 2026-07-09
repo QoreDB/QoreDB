@@ -2,15 +2,24 @@
 
 //! DuckDB-backed vector store for schema embeddings. Exact cosine scan via the
 //! core `list_cosine_similarity` function — no VSS extension, no network.
+//!
+//! Connections are opened per operation (reads in read-only mode) so the app
+//! and the MCP server can share the index file across processes: DuckDB allows
+//! either one writer or multiple readers, never both. In-process operations
+//! stay serialized by `op_lock`; cross-process lock conflicts are retried.
 
 use std::collections::HashMap;
-use std::path::Path;
-use std::sync::{Arc, Mutex};
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
+use std::time::Duration;
 
-use duckdb::{params, Connection};
+use duckdb::{params, AccessMode, Config, Connection};
 use serde::Serialize;
 
 pub const MIN_SCORE: f32 = 0.35;
+
+const LOCK_RETRIES: u32 = 10;
+const LOCK_RETRY_DELAY: Duration = Duration::from_millis(150);
 
 #[derive(Debug, Clone)]
 pub struct IndexedObject {
@@ -39,8 +48,11 @@ pub struct SemanticHit {
     pub score: f32,
 }
 
+#[derive(Debug)]
 pub struct SemanticStore {
-    conn: Mutex<Connection>,
+    path: PathBuf,
+    read_only: bool,
+    op_lock: tokio::sync::Mutex<()>,
 }
 
 const SCHEMA_SQL: &str = "
@@ -70,14 +82,43 @@ fn embedding_to_text(embedding: &[f32]) -> String {
     format!("{embedding:?}")
 }
 
+fn is_lock_error(msg: &str) -> bool {
+    msg.to_lowercase().contains("lock")
+}
+
+fn open_conn(path: &Path, read_only: bool) -> Result<Connection, String> {
+    let mut last_err = String::new();
+    for attempt in 0..LOCK_RETRIES {
+        if attempt > 0 {
+            std::thread::sleep(LOCK_RETRY_DELAY);
+        }
+        let result = if read_only {
+            Config::default()
+                .access_mode(AccessMode::ReadOnly)
+                .map_err(|e| e.to_string())
+                .and_then(|cfg| Connection::open_with_flags(path, cfg).map_err(|e| e.to_string()))
+        } else {
+            Connection::open(path).map_err(|e| e.to_string())
+        };
+        match result {
+            Ok(conn) => return Ok(conn),
+            Err(e) if is_lock_error(&e) => last_err = e,
+            Err(e) => return Err(format!("Failed to open semantic index: {e}")),
+        }
+    }
+    Err(format!(
+        "Semantic index is locked by another process: {last_err}"
+    ))
+}
+
 impl SemanticStore {
+    /// Open (creating if needed) an index for read-write use.
     pub fn open(path: &Path) -> Result<Self, String> {
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)
                 .map_err(|e| format!("Failed to create semantic index directory: {e}"))?;
         }
-        let conn = Connection::open(path)
-            .map_err(|e| format!("Failed to open semantic index: {e}"))?;
+        let conn = open_conn(path, false)?;
         conn.execute_batch(SCHEMA_SQL)
             .map_err(|e| format!("Failed to initialize semantic index: {e}"))?;
         conn.query_row(
@@ -87,21 +128,40 @@ impl SemanticStore {
         )
         .map_err(|e| format!("Bundled DuckDB lacks list_cosine_similarity: {e}"))?;
         Ok(Self {
-            conn: Mutex::new(conn),
+            path: path.to_path_buf(),
+            read_only: false,
+            op_lock: tokio::sync::Mutex::new(()),
         })
     }
 
-    async fn with_conn<F, R>(self: &Arc<Self>, f: F) -> Result<R, String>
+    /// Open an existing index for read-only use (MCP server). Never creates
+    /// the file: a missing index means the app has not built one yet.
+    pub fn open_read_only(path: &Path) -> Result<Self, String> {
+        if !path.is_file() {
+            return Err(
+                "No semantic index found — build it from the QoreDB app first (Settings > Semantic search)"
+                    .to_string(),
+            );
+        }
+        Ok(Self {
+            path: path.to_path_buf(),
+            read_only: true,
+            op_lock: tokio::sync::Mutex::new(()),
+        })
+    }
+
+    async fn with_conn<F, R>(self: &Arc<Self>, write: bool, f: F) -> Result<R, String>
     where
         F: FnOnce(&Connection) -> Result<R, String> + Send + 'static,
         R: Send + 'static,
     {
-        let store = Arc::clone(self);
+        if write && self.read_only {
+            return Err("Semantic index is opened read-only".to_string());
+        }
+        let _guard = self.op_lock.lock().await;
+        let path = self.path.clone();
         tokio::task::spawn_blocking(move || {
-            let conn = store
-                .conn
-                .lock()
-                .map_err(|e| format!("Failed to lock semantic index: {e}"))?;
+            let conn = open_conn(&path, !write)?;
             f(&conn)
         })
         .await
@@ -113,7 +173,7 @@ impl SemanticStore {
         connection_key: &str,
     ) -> Result<HashMap<String, String>, String> {
         let key = connection_key.to_string();
-        self.with_conn(move |conn| {
+        self.with_conn(false, move |conn| {
             let mut stmt = conn
                 .prepare("SELECT object_id, fingerprint FROM schema_objects WHERE connection_key = ?")
                 .map_err(|e| e.to_string())?;
@@ -141,7 +201,7 @@ impl SemanticStore {
     ) -> Result<(), String> {
         let key = connection_key.to_string();
         let model = model.to_string();
-        self.with_conn(move |conn| {
+        self.with_conn(true, move |conn| {
             let tx = conn.unchecked_transaction().map_err(|e| e.to_string())?;
             tx.execute(
                 "DELETE FROM schema_objects WHERE connection_key = ? AND model != ?",
@@ -205,7 +265,7 @@ impl SemanticStore {
         let model = model.to_string();
         let dim = query_vec.len() as i64;
         let vec_text = embedding_to_text(query_vec);
-        self.with_conn(move |conn| {
+        self.with_conn(false, move |conn| {
             let mut stmt = conn
                 .prepare(
                     "SELECT object_id, kind, database_name, schema_name, table_name, column_name,
@@ -247,7 +307,7 @@ impl SemanticStore {
     pub async fn count(self: &Arc<Self>, connection_key: &str, model: &str) -> Result<u64, String> {
         let key = connection_key.to_string();
         let model = model.to_string();
-        self.with_conn(move |conn| {
+        self.with_conn(false, move |conn| {
             conn.query_row(
                 "SELECT count(*) FROM schema_objects WHERE connection_key = ? AND model = ?",
                 params![key, model],
@@ -394,5 +454,39 @@ mod tests {
         let fps = store.fingerprints("conn1").await.unwrap();
         assert_eq!(fps.get("a").map(String::as_str), Some("fp-a2"));
         assert_eq!(store.count("conn1", "m").await.unwrap(), 1);
+    }
+
+    #[tokio::test]
+    async fn read_only_store_searches_but_rejects_writes() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("index.duckdb");
+        let writer = Arc::new(SemanticStore::open(&path).unwrap());
+        writer
+            .apply(
+                "conn1",
+                "m",
+                vec![object("a", "customers", None, vec![1.0, 0.0])],
+                vec![],
+            )
+            .await
+            .unwrap();
+
+        let reader = Arc::new(SemanticStore::open_read_only(&path).unwrap());
+        let hits = reader.search("conn1", "m", &[1.0, 0.0], 10).await.unwrap();
+        assert_eq!(hits.len(), 1);
+        assert_eq!(reader.count("conn1", "m").await.unwrap(), 1);
+
+        let err = reader
+            .apply("conn1", "m", vec![], vec!["a".to_string()])
+            .await
+            .unwrap_err();
+        assert!(err.contains("read-only"), "{err}");
+    }
+
+    #[tokio::test]
+    async fn read_only_open_fails_cleanly_on_missing_index() {
+        let dir = tempfile::tempdir().unwrap();
+        let err = SemanticStore::open_read_only(&dir.path().join("absent.duckdb")).unwrap_err();
+        assert!(err.contains("No semantic index"), "{err}");
     }
 }

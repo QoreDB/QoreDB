@@ -16,6 +16,8 @@ pub mod paths;
 pub mod policy;
 pub mod query;
 pub mod ratelimit;
+#[cfg(feature = "semantic")]
+pub mod semantic;
 pub mod sensitive;
 pub mod vault;
 pub mod virtual_relations;

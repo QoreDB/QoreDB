@@ -22,6 +22,39 @@ use qore_core::traits::DataEngine;
 use qore_core::types::{ConnectionConfig, SessionId, SshHostKeyPolicy};
 use qore_core::DriverRegistry;
 
+/// Stable identifier for a connection, independent of any live session — the
+/// key under which the semantic index stores a connection's schema objects.
+/// Every surface (app, MCP) must derive it the same way to share the index.
+pub fn connection_key_parts(
+    driver: &str,
+    host: &str,
+    port: u16,
+    username: &str,
+    database: Option<&str>,
+    environment: &str,
+) -> String {
+    format!(
+        "{}|{}|{}|{}|{}|{}",
+        driver,
+        host,
+        port,
+        username,
+        database.unwrap_or(""),
+        environment,
+    )
+}
+
+pub fn connection_key_of(config: &ConnectionConfig) -> String {
+    connection_key_parts(
+        &config.driver,
+        &config.host,
+        config.port,
+        &config.username,
+        config.database.as_deref(),
+        &config.environment,
+    )
+}
+
 /// Rejects an insecure SSH host-key policy (`StrictHostKeyChecking=no`) when the
 /// connection targets a production environment.
 fn enforce_ssh_host_key_policy(config: &ConnectionConfig) -> EngineResult<()> {
@@ -314,18 +347,9 @@ impl SessionManager {
     /// Returns a stable identifier for the *connection* backing a session.
     pub async fn connection_key(&self, session_id: SessionId) -> Option<String> {
         let sessions = self.sessions.read().await;
-        sessions.get(&session_id).map(|s| {
-            let c = &s.config;
-            format!(
-                "{}|{}|{}|{}|{}|{}",
-                c.driver,
-                c.host,
-                c.port,
-                c.username,
-                c.database.as_deref().unwrap_or(""),
-                c.environment,
-            )
-        })
+        sessions
+            .get(&session_id)
+            .map(|s| connection_key_of(&s.config))
     }
 
     pub async fn set_display_name(&self, session_id: SessionId, name: String) {

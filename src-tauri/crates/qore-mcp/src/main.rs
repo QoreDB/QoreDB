@@ -20,9 +20,12 @@ use serde::Deserialize;
 use tokio::sync::Mutex;
 
 use qore_core::{CollectionListOptions, Namespace, SessionId};
+use qore_service::paths::{config_dir, PROJECT_ID, QUERY_TIMEOUT_MS};
+use qore_service::semantic::ollama::OllamaEmbedder;
+use qore_service::semantic::store::SemanticStore;
+use qore_service::semantic::{semantic_dir, SemanticConfig};
 use qore_service::vault::backend::KeyringProvider;
 use qore_service::vault::VaultStorage;
-use qore_service::paths::{config_dir, PROJECT_ID, QUERY_TIMEOUT_MS};
 use qore_service::ServiceContext;
 
 #[derive(Clone)]
@@ -73,6 +76,43 @@ struct DescribeTableReq {
     schema: Option<String>,
     #[schemars(description = "Table/collection name")]
     table: String,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+struct SemanticSearchReq {
+    #[schemars(description = "ID of the saved connection whose schema to search")]
+    connection_id: String,
+    #[schemars(
+        description = "Natural-language description of the data you are looking for, e.g. 'where is the customer email stored?'"
+    )]
+    query: String,
+    #[schemars(description = "Maximum number of results (default 8, max 50)")]
+    #[serde(default)]
+    limit: Option<u32>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+struct ExplainQueryReq {
+    #[schemars(description = "ID of the saved connection")]
+    connection_id: String,
+    #[schemars(
+        description = "SQL to classify and explain. Mutations are classified but never executed."
+    )]
+    sql: String,
+}
+
+const SEMANTIC_DEFAULT_LIMIT: u32 = 8;
+const SEMANTIC_MAX_LIMIT: u32 = 50;
+
+/// EXPLAIN prefix per driver dialect. `None` means the plan step is skipped
+/// (unknown or non-SQL dialect) and only the safety classification is returned.
+fn explain_prefix(driver: &str) -> Option<&'static str> {
+    match driver {
+        "sqlite" => Some("EXPLAIN QUERY PLAN "),
+        "postgres" | "neon" | "supabase" | "timescaledb" | "cockroachdb" | "mysql" | "mariadb"
+        | "duckdb" | "clickhouse" => Some("EXPLAIN "),
+        _ => None,
+    }
 }
 
 fn text_result(result: Result<String, String>) -> CallToolResult {
@@ -232,6 +272,102 @@ impl QoreMcp {
         serde_json::to_string(&schema).map_err(|e| e.to_string())
     }
 
+    /// Key under which the app's semantic index stores this connection's
+    /// schema objects. Derived from the saved connection alone: no session,
+    /// no keyring access.
+    fn semantic_connection_key(&self, connection_id: &str) -> Result<String, String> {
+        let saved = self
+            .storage()
+            .get_connection(connection_id)
+            .map_err(|e| e.sanitized_message())?;
+        Ok(qore_drivers::connection_key_parts(
+            &saved.driver,
+            &saved.host,
+            saved.port,
+            &saved.username,
+            saved.database.as_deref(),
+            saved.environment.as_str(),
+        ))
+    }
+
+    async fn do_semantic_search(&self, req: &SemanticSearchReq) -> Result<String, String> {
+        let key = self.semantic_connection_key(&req.connection_id)?;
+        let dir = semantic_dir();
+        let config = SemanticConfig::load(&dir.join("config.json"));
+        if !config.enabled {
+            return Err(
+                "Semantic search is disabled — enable it in the QoreDB app (Settings > AI > Semantic search)"
+                    .to_string(),
+            );
+        }
+        let store = Arc::new(SemanticStore::open_read_only(
+            &dir.join(format!("{PROJECT_ID}.duckdb")),
+        )?);
+        if store.count(&key, &config.model).await? == 0 {
+            return Err(
+                "No semantic index for this connection — open it in the QoreDB app and build the index first"
+                    .to_string(),
+            );
+        }
+        let vector = OllamaEmbedder::new(&config).embed_query(&req.query).await?;
+        let limit = req
+            .limit
+            .unwrap_or(SEMANTIC_DEFAULT_LIMIT)
+            .min(SEMANTIC_MAX_LIMIT);
+        let hits = store.search(&key, &config.model, &vector, limit).await?;
+        serde_json::to_string(&hits).map_err(|e| e.to_string())
+    }
+
+    async fn do_explain_query(&self, req: &ExplainQueryReq) -> Result<String, String> {
+        let saved = self
+            .storage()
+            .get_connection(&req.connection_id)
+            .map_err(|e| e.sanitized_message())?;
+        let analysis = qore_sql::safety::analyze_sql(&saved.driver, &req.sql)?;
+
+        let mut response = serde_json::json!({
+            "driver": saved.driver,
+            "is_mutation": analysis.is_mutation,
+            "is_dangerous": analysis.is_dangerous,
+            "plan": serde_json::Value::Null,
+        });
+
+        if analysis.is_mutation || analysis.is_dangerous {
+            response["note"] = serde_json::json!(
+                "Classified as a mutation or dangerous statement — plan skipped, this gateway is read-only."
+            );
+            return serde_json::to_string(&response).map_err(|e| e.to_string());
+        }
+
+        let Some(prefix) = explain_prefix(&saved.driver) else {
+            response["note"] = serde_json::json!(format!(
+                "Explain plans are not supported for driver '{}' — classification only.",
+                saved.driver
+            ));
+            return serde_json::to_string(&response).map_err(|e| e.to_string());
+        };
+
+        // A pre-prefixed statement could smuggle EXPLAIN ANALYZE, which
+        // *executes* the underlying query — always add the prefix ourselves.
+        let trimmed = req.sql.trim_start();
+        if trimmed.to_lowercase().starts_with("explain") {
+            return Err(
+                "Pass the statement without EXPLAIN — explain_query adds the right prefix itself"
+                    .to_string(),
+            );
+        }
+        let explain_sql = format!("{prefix}{trimmed}");
+        let plan_json = self
+            .do_run_query(&RunQueryReq {
+                connection_id: req.connection_id.clone(),
+                query: explain_sql,
+            })
+            .await?;
+        response["plan"] =
+            serde_json::from_str(&plan_json).map_err(|e| format!("Invalid plan payload: {e}"))?;
+        serde_json::to_string(&response).map_err(|e| e.to_string())
+    }
+
     #[tool(description = "List the saved database connections available to query")]
     async fn list_connections(&self) -> Result<CallToolResult, McpError> {
         let connections = self
@@ -294,6 +430,30 @@ impl QoreMcp {
     ) -> Result<CallToolResult, McpError> {
         Ok(text_result(self.do_describe_table(&req).await))
     }
+
+    #[tool(
+        description = "Find tables/columns by meaning, not by name: searches the local semantic \
+                       schema index built by the QoreDB app. Use this first when you don't know \
+                       the schema. 100% local (Ollama embeddings), nothing leaves the machine."
+    )]
+    async fn semantic_search(
+        &self,
+        Parameters(req): Parameters<SemanticSearchReq>,
+    ) -> Result<CallToolResult, McpError> {
+        Ok(text_result(self.do_semantic_search(&req).await))
+    }
+
+    #[tool(
+        description = "Classify a SQL statement (mutation? dangerous?) and, for read statements, \
+                       return the database's EXPLAIN plan. Use it to self-check SQL before run_query. \
+                       Mutations are never executed."
+    )]
+    async fn explain_query(
+        &self,
+        Parameters(req): Parameters<ExplainQueryReq>,
+    ) -> Result<CallToolResult, McpError> {
+        Ok(text_result(self.do_explain_query(&req).await))
+    }
 }
 
 #[tool_handler]
@@ -306,6 +466,9 @@ impl ServerHandler for QoreMcp {
         info.instructions = Some(
             "QoreDB read-only data access. Tools:\n\
              - list_connections: discover saved connections.\n\
+             - semantic_search: find tables/columns by meaning when you don't know the schema.\n\
+             - list_namespaces / list_tables / describe_table: browse the schema.\n\
+             - explain_query: classify SQL safety and get the EXPLAIN plan before running it.\n\
              - run_query: execute a read-only query on a connection."
                 .to_string(),
         );

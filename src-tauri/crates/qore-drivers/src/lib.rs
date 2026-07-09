@@ -20,4 +20,4 @@ pub mod ssh_tunnel;
 
 // Re-exports for convenience
 pub use query_manager::QueryManager;
-pub use session_manager::SessionManager;
+pub use session_manager::{connection_key_of, connection_key_parts, SessionManager};

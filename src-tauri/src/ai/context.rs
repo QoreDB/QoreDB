@@ -86,13 +86,33 @@ pub fn dialect_for_driver(driver_id: &str) -> QueryDialect {
     }
 }
 
+/// Order tables for context inclusion: tables named in the prompt first,
+/// then semantic relevance order, then the catalog order (stable sort).
+fn prioritize_tables(table_names: &mut [String], prompt_lower: &str, semantic_tables: &[String]) {
+    let semantic_rank: std::collections::HashMap<&str, usize> = semantic_tables
+        .iter()
+        .enumerate()
+        .map(|(i, t)| (t.as_str(), i))
+        .collect();
+    table_names.sort_by_key(|name| {
+        let mentioned = prompt_lower.contains(&name.to_lowercase());
+        let rank = semantic_rank
+            .get(name.as_str())
+            .copied()
+            .unwrap_or(usize::MAX);
+        (std::cmp::Reverse(mentioned), rank)
+    });
+}
+
 /// Build the full schema context for an AI request.
 ///
 /// Fetches table/collection list and describes each (up to MAX_TABLES),
-/// prioritizing tables mentioned in the user prompt. When
+/// prioritizing tables mentioned in the user prompt, then tables ranked by
+/// the local semantic index (`semantic_tables`, may be empty). When
 /// `include_sample_rows` is set (explicit user opt-in), up to
 /// [`SAMPLE_ROW_LIMIT`] redacted rows are appended for tables mentioned in
 /// the prompt.
+#[allow(clippy::too_many_arguments)]
 pub async fn build_context(
     session_manager: &Arc<SessionManager>,
     session_id: SessionId,
@@ -102,6 +122,7 @@ pub async fn build_context(
     connection_id: Option<&str>,
     user_prompt: &str,
     include_sample_rows: bool,
+    semantic_tables: &[String],
 ) -> Result<SchemaContext, String> {
     let dialect = dialect_for_driver(driver_id);
     let driver = session_manager
@@ -125,13 +146,8 @@ pub async fn build_context(
         .map(|c| c.name.clone())
         .collect();
 
-    // Prioritize tables mentioned in the user prompt.
     let prompt_lower = user_prompt.to_lowercase();
-    table_names.sort_by(|a, b| {
-        let a_mentioned = prompt_lower.contains(&a.to_lowercase());
-        let b_mentioned = prompt_lower.contains(&b.to_lowercase());
-        b_mentioned.cmp(&a_mentioned)
-    });
+    prioritize_tables(&mut table_names, &prompt_lower, semantic_tables);
 
     table_names.truncate(MAX_TABLES);
 
@@ -601,6 +617,27 @@ mod tests {
         assert!(!out.contains("email"));
         assert!(out.contains('…'));
         assert!(!out.contains(&"z".repeat(SAMPLE_VALUE_MAX_CHARS + 2)));
+    }
+
+    #[test]
+    fn prioritize_tables_orders_mentioned_then_semantic_then_catalog() {
+        let mut tables: Vec<String> = ["logs", "orders", "customers", "invoices"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+        let semantic: Vec<String> = vec!["invoices".to_string(), "orders".to_string()];
+        prioritize_tables(&mut tables, "total per customers", &semantic);
+        assert_eq!(tables, ["customers", "invoices", "orders", "logs"]);
+    }
+
+    #[test]
+    fn prioritize_tables_without_semantic_keeps_legacy_order() {
+        let mut tables: Vec<String> = ["logs", "orders", "customers", "invoices"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+        prioritize_tables(&mut tables, "total per customers", &[]);
+        assert_eq!(tables, ["customers", "logs", "orders", "invoices"]);
     }
 
     #[test]

@@ -15,7 +15,7 @@ use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, warn};
 
-use crate::engine::types::SessionId;
+use crate::engine::types::{Namespace, SessionId};
 use crate::engine::SessionManager;
 use ollama::OllamaEmbedder;
 use store::{IndexedObject, SemanticStore};
@@ -24,6 +24,7 @@ pub const DEFAULT_MODEL: &str = "nomic-embed-text";
 pub const DEFAULT_BASE_URL: &str = "http://localhost:11434";
 
 const REFRESH_DEBOUNCE: Duration = Duration::from_secs(3);
+const RANK_SEARCH_LIMIT: u32 = 50;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SemanticConfig {
@@ -264,6 +265,61 @@ impl SemanticService {
             .await
     }
 
+    /// Tables of `namespace` ranked by semantic relevance to `prompt`, for
+    /// AI schema-context prioritization. Fail-open: any unavailability
+    /// (disabled, empty index, Ollama down) yields an empty list so the
+    /// caller falls back to its non-semantic ordering.
+    pub async fn rank_tables_for_prompt(
+        &self,
+        connection_key: &str,
+        project_id: &str,
+        namespace: &Namespace,
+        prompt: &str,
+    ) -> Vec<String> {
+        match self
+            .try_rank_tables(connection_key, project_id, namespace, prompt)
+            .await
+        {
+            Ok(tables) => tables,
+            Err(e) => {
+                debug!("Semantic table ranking skipped: {e}");
+                Vec::new()
+            }
+        }
+    }
+
+    async fn try_rank_tables(
+        &self,
+        connection_key: &str,
+        project_id: &str,
+        namespace: &Namespace,
+        prompt: &str,
+    ) -> Result<Vec<String>, String> {
+        let config = self.config();
+        if !config.enabled || prompt.trim().is_empty() || self.is_building(connection_key) {
+            return Ok(Vec::new());
+        }
+        let store = self.store_for(project_id)?;
+        if store.count(connection_key, &config.model).await? == 0 {
+            return Ok(Vec::new());
+        }
+        let hits = self
+            .search(connection_key, project_id, prompt, RANK_SEARCH_LIMIT)
+            .await?;
+        let mut tables = Vec::new();
+        for hit in hits {
+            if hit.database != namespace.database
+                || hit.schema.as_deref() != namespace.schema.as_deref()
+            {
+                continue;
+            }
+            if !tables.contains(&hit.table) {
+                tables.push(hit.table);
+            }
+        }
+        Ok(tables)
+    }
+
     pub fn schedule_refresh(
         self: &Arc<Self>,
         session_manager: Arc<SessionManager>,
@@ -414,6 +470,26 @@ mod e2e_tests {
                 .any(|h| h.column.as_deref() == Some("email")),
             "expected an email column in top hits: {hits:?}"
         );
+
+        let ns = Namespace {
+            database: pg_config().database.expect("test db"),
+            schema: Some("public".to_string()),
+        };
+        let ranked = service
+            .rank_tables_for_prompt(&key, "e2e", &ns, "où est stocké l'email client ?")
+            .await;
+        assert!(
+            ranked
+                .iter()
+                .take(3)
+                .any(|t| t == "sem_customers"),
+            "expected sem_customers in top ranked tables: {ranked:?}"
+        );
+        let wrong_ns = Namespace::new("no_such_database");
+        assert!(service
+            .rank_tables_for_prompt(&key, "e2e", &wrong_ns, "email")
+            .await
+            .is_empty());
 
         exec(
             &sm,

@@ -125,7 +125,8 @@
       "Bash(ps -o etime= -p 333650)",
       "WebFetch(domain:www.qoredb.com)",
       "Bash(ollama list *)",
-      "Bash(ollama pull *)"
+      "Bash(ollama pull *)",
+      "Bash(docker compose *)"
     ]
   }
 }

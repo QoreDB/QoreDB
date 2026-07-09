@@ -106,6 +106,8 @@ use uuid::Uuid;
 #[cfg(feature = "pro")]
 use super::parse_session_id;
 #[cfg(feature = "pro")]
+use super::workspace::SharedWorkspaceManager;
+#[cfg(feature = "pro")]
 use crate::ai::context;
 #[cfg(feature = "pro")]
 use crate::ai::provider::extract_query_from_response;
@@ -122,20 +124,22 @@ use crate::engine::types::{ColumnFilter, Namespace};
 #[tauri::command]
 pub async fn ai_generate_query(
     state: State<'_, SharedState>,
+    ws_manager: State<'_, SharedWorkspaceManager>,
     window: tauri::Window,
     request: AiRequest,
 ) -> Result<(), String> {
-    stream_ai_request(state, window, request).await
+    stream_ai_request(state, ws_manager, window, request).await
 }
 
 #[cfg(feature = "pro")]
 #[tauri::command]
 pub async fn ai_fix_error(
     state: State<'_, SharedState>,
+    ws_manager: State<'_, SharedWorkspaceManager>,
     window: tauri::Window,
     request: AiRequest,
 ) -> Result<(), String> {
-    stream_ai_request(state, window, request).await
+    stream_ai_request(state, ws_manager, window, request).await
 }
 
 #[cfg(feature = "pro")]
@@ -175,6 +179,7 @@ pub async fn ai_explain_result(
         None,
         &query,
         false,
+        &[],
     )
     .await?;
 
@@ -236,6 +241,7 @@ pub async fn ai_summarize_schema(
         None,
         "",
         false,
+        &[],
     )
     .await?;
 
@@ -297,6 +303,7 @@ pub async fn ai_generate_filters(
         None,
         &prompt,
         false,
+        &[],
     )
     .await?;
 
@@ -478,6 +485,7 @@ async fn collect_streamed_response(
 #[cfg(feature = "pro")]
 async fn stream_ai_request(
     state: State<'_, SharedState>,
+    ws_manager: State<'_, SharedWorkspaceManager>,
     window: tauri::Window,
     request: AiRequest,
 ) -> Result<(), String> {
@@ -486,12 +494,13 @@ async fn stream_ai_request(
     // instructions" injection (cf. audit B7-A4).
     context::validate_user_prompt(&request.prompt)?;
 
-    let (session_manager, ai_manager, virtual_relations) = {
+    let (session_manager, ai_manager, virtual_relations, semantic) = {
         let s = state.lock().await;
         (
             Arc::clone(&s.session_manager),
             Arc::clone(&s.ai_manager),
             Arc::clone(&s.virtual_relations),
+            Arc::clone(&s.semantic),
         )
     };
 
@@ -507,6 +516,16 @@ async fn stream_ai_request(
         .clone()
         .unwrap_or_else(|| Namespace::new("default"));
 
+    let semantic_tables = match session_manager.connection_key(sid).await {
+        Some(key) => {
+            let project_id = ws_manager.lock().await.project_id();
+            semantic
+                .rank_tables_for_prompt(&key, &project_id, &ns, &request.prompt)
+                .await
+        }
+        None => Vec::new(),
+    };
+
     let schema_ctx = context::build_context(
         &session_manager,
         sid,
@@ -516,6 +535,7 @@ async fn stream_ai_request(
         request.connection_id.as_deref(),
         &request.prompt,
         request.include_sample_rows,
+        &semantic_tables,
     )
     .await?;
 

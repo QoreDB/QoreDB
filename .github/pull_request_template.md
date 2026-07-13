@@ -6,7 +6,7 @@ Please include a summary of the changes and the related issue.
 
 ## Related Issue
 
-Closes # ?
+Closes #
 
 ## Type of Change
 
@@ -19,6 +19,10 @@ Closes # ?
 - [ ] Documentation
 
 ## Tests
+
+<!-- 
+Please describe the tests you added or ran to verify your changes, e.g. unit tests, manual testing steps, etc.
+-->
 
 ## Description of AI Usage
 

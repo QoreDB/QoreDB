@@ -13,10 +13,11 @@ The fast, open-source database client built with Rust. Connect to **15 native dr
 [![Stars](https://img.shields.io/github/stars/QoreDB/QoreDB?style=flat-square&color=facc15&cacheSeconds=86400)](https://github.com/QoreDB/QoreDB/stargazers)
 [![Issues](https://img.shields.io/github/issues/QoreDB/QoreDB?style=flat-square&cacheSeconds=86400)](https://github.com/QoreDB/QoreDB/issues)
 [![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey?style=flat-square)](#installation)
+[![Discord](https://img.shields.io/discord/1464700642030518357?label=Discord&logo=discord&logoColor=white&color=5865F2&style=flat-square)](https://discord.gg/Yr6P3wuZDt)
 
 [**Website**](https://qoredb.com) · [**Download**](https://qoredb.com/download) · [**Docs**](https://qoredb.com/docs) · [**Roadmap**](https://qoredb.com/roadmap) · [**Discord**](https://discord.gg/Yr6P3wuZDt)
 
-<sub>8,000+ downloads · 15 database drivers · Two releases a month · Used in production by indie devs and startups.</sub>
+<sub>10,000+ downloads · 15 database drivers · Two releases a month · Used in production by indie devs and startups.</sub>
 
   <img src="doc/screenshots/query-screen.png" alt="QoreDB SQL editor and result grid" width="100%" />
 

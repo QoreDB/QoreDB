@@ -16,8 +16,7 @@ jobs:
             const release = context.payload.release;
             const body = release.body.substring(0, 1500);
 
-            // ID numérique du rôle "New releases" (Discord → Paramètres du serveur → Rôles → Copier l'ID)
-            const RELEASES_ROLE_ID = "TON_ROLE_ID";
+            const RELEASES_ROLE_ID = "1526495374288752741";
 
             const footer = "\n\n---\nQuestions or bugs? [Join the Discord](https://discord.gg/Yr6P3wuZDt) or open an issue.";
 

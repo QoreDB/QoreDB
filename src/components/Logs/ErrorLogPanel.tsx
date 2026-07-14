@@ -2,12 +2,14 @@
 
 import { save } from '@tauri-apps/plugin-dialog';
 import { writeTextFile } from '@tauri-apps/plugin-fs';
+import { openPath } from '@tauri-apps/plugin-opener';
 import {
   AlertCircle,
   AlertTriangle,
   Bug,
   ChevronDown,
   Download,
+  FolderOpen,
   Info,
   RefreshCw,
   Search,
@@ -29,7 +31,7 @@ import { Input } from '@/components/ui/input';
 import { confirmDialog } from '@/lib/stores/confirmStore';
 import { cn } from '@/lib/utils';
 import { clearErrorLogs, type ErrorLogEntry, getErrorLogs } from '../../lib/diagnostics/errorLog';
-import { exportLogs } from '../../lib/tauri';
+import { exportLogs, getLogsDirectory } from '../../lib/tauri';
 
 interface ErrorLogPanelProps {
   isOpen: boolean;
@@ -163,6 +165,16 @@ export function ErrorLogPanel({ isOpen, onClose }: ErrorLogPanelProps) {
     }
   }
 
+  async function handleOpenLogsFolder() {
+    try {
+      await openPath(await getLogsDirectory());
+    } catch (err) {
+      toast.error(t('logs.openFolderError'), {
+        description: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogContent
@@ -219,6 +231,16 @@ export function ErrorLogPanel({ isOpen, onClose }: ErrorLogPanelProps) {
           <Button
             variant="ghost"
             size="icon"
+            onClick={handleOpenLogsFolder}
+            className="h-8 w-8 shrink-0"
+            title={t('logs.openFolder')}
+          >
+            <FolderOpen size={14} />
+          </Button>
+
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={loadLogs}
             className="h-8 w-8 shrink-0"
             title={t('logs.refresh')}
@@ -267,6 +289,17 @@ export function ErrorLogPanel({ isOpen, onClose }: ErrorLogPanelProps) {
             <div className="flex flex-col items-center justify-center h-48 text-muted-foreground">
               <Bug size={32} className="mb-2 opacity-50" />
               <p className="text-sm">{t('logs.noLogs')}</p>
+              <p className="mt-1 max-w-sm text-center text-xs">{t('logs.noLogsHint')}</p>
+              <div className="mt-3 flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={handleOpenLogsFolder}>
+                  <FolderOpen size={14} />
+                  {t('logs.openFolder')}
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleExportDiagnostic}>
+                  <Stethoscope size={14} />
+                  {t('logs.exportDiagnostic')}
+                </Button>
+              </div>
             </div>
           ) : (
             <div className="divide-y divide-border">

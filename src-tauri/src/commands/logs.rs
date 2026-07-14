@@ -35,6 +35,11 @@ pub async fn export_logs() -> Result<LogsExportResponse, String> {
     }
 }
 
+#[tauri::command]
+pub fn get_logs_directory() -> String {
+    observability::log_directory_string()
+}
+
 #[derive(Debug, serde::Deserialize)]
 pub struct FrontendLogEntry {
     pub level: String,

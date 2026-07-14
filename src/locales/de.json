@@ -2552,6 +2552,24 @@
     "loadingSource": "Quellcode wird geladen…",
     "sourceLoadError": "Quellcode der Sequenz konnte nicht geladen werden"
   },
+  "migrations": {
+    "title": "Migrationen",
+    "description": "Versionierte Schema-Migrationen, geteilt über Git.",
+    "openManager": "Migrationen",
+    "newPlaceholder": "Name der Migration",
+    "create": "Neu",
+    "empty": "Noch keine Migrationen",
+    "requiresWorkspace": "Migrationen erfordern einen Arbeitsbereich",
+    "requiresWorkspaceHint": "Öffnen oder erstellen Sie einen .qoredb-Arbeitsbereich, um darin versionierte Migrationsdateien zu speichern.",
+    "upLabel": "Up",
+    "downLabel": "Down",
+    "selectHint": "Wählen Sie eine Migration zur Ansicht aus.",
+    "refresh": "Aktualisieren",
+    "delete": "Löschen",
+    "deleteConfirm": "Migration „{{name}}“ löschen? Die Datei wird von der Festplatte entfernt.",
+    "created": "Migration erstellt",
+    "deleted": "Migration gelöscht"
+  },
   "snapshots": {
     "title": "Snapshots",
     "save": "Als Snapshot speichern",

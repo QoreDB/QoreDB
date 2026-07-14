@@ -130,9 +130,8 @@ interface DatabaseStats {
 interface OverviewPreviewItem {
   name: string;
   collectionType?: Collection['collection_type'];
-  visitCount?: number;
   lastVisitedAt?: number;
-  personalized: boolean;
+  recent: boolean;
 }
 
 interface BrowserTabDefinition {
@@ -203,7 +202,7 @@ function buildOverviewPreviewItems(
     return collections.slice(0, OVERVIEW_COLLECTION_LIMIT).map(collection => ({
       name: collection.name,
       collectionType: collection.collection_type,
-      personalized: false,
+      recent: false,
     }));
   }
 
@@ -214,9 +213,8 @@ function buildOverviewPreviewItems(
   return tableVisits.map(visit => ({
     name: visit.tableName,
     collectionType: collectionTypesByName.get(visit.tableName),
-    visitCount: visit.visitCount,
     lastVisitedAt: visit.lastVisitedAt,
-    personalized: true,
+    recent: true,
   }));
 }
 
@@ -674,6 +672,14 @@ export function DatabaseBrowser({
           loading={loading}
           error={error}
           namespace={stableNamespace}
+          onCreateTable={
+            driverMeta.supportsSQL && !readOnly ? () => setCreateTableOpen(true) : undefined
+          }
+          onOpenQuery={
+            driverMeta.supportsSQL && onOpenQueryTab
+              ? () => onOpenQueryTab(stableNamespace)
+              : undefined
+          }
           onTableSelect={onTableSelect}
           onViewAll={() => handleTabChange('tables')}
           overviewPreviewItems={overviewPreviewItems}
@@ -1050,6 +1056,8 @@ interface OverviewTabContentProps {
   formatVisitTime: (timestamp: number) => string;
   loading: boolean;
   namespace: Namespace;
+  onCreateTable?: () => void;
+  onOpenQuery?: () => void;
   onTableSelect: DatabaseBrowserProps['onTableSelect'];
   onViewAll: () => void;
   overviewPreviewItems: OverviewPreviewItem[];
@@ -1063,6 +1071,8 @@ function OverviewTabContent({
   formatVisitTime,
   loading,
   namespace,
+  onCreateTable,
+  onOpenQuery,
   onTableSelect,
   onViewAll,
   overviewPreviewItems,
@@ -1106,41 +1116,88 @@ function OverviewTabContent({
         )}
       </div>
 
-      <div className="space-y-2">
-        <h3 className="text-sm font-medium text-foreground">
-          {t(terminology.tablePluralLabel)}
-          <span className="ml-1.5 text-muted-foreground font-normal">
-            ({overviewPreviewItems.length})
-          </span>
-        </h3>
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(16rem,1fr)] items-start">
+        <section className="space-y-2">
+          <h3 className="text-sm font-medium text-foreground">
+            {overviewPreviewItems.some(item => item.recent)
+              ? t('databaseBrowser.recentTables')
+              : t(terminology.tablePluralLabel)}
+            <span className="ml-1.5 text-muted-foreground font-normal">
+              (
+              {overviewPreviewItems.some(item => item.recent)
+                ? overviewPreviewItems.length
+                : totalCount}
+              )
+            </span>
+          </h3>
 
-        {overviewPreviewItems.length === 0 ? (
-          <div className="text-sm text-muted-foreground italic p-4 text-center border border-dashed border-border rounded-md">
-            {t('databaseBrowser.noTables')}
-          </div>
-        ) : (
-          <div className="border border-border rounded-md divide-y divide-border">
-            {overviewPreviewItems.map(item => (
-              <OverviewPreviewRow
-                key={item.name}
-                formatVisitTime={formatVisitTime}
-                item={item}
-                namespace={namespace}
-                onTableSelect={onTableSelect}
+          {overviewPreviewItems.length === 0 ? (
+            <div className="flex min-h-44 flex-col items-center justify-center gap-3 rounded-md border border-dashed border-border p-6 text-center">
+              <div className="flex h-9 w-9 items-center justify-center rounded-md bg-muted text-muted-foreground">
+                <Table size={17} />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-foreground">
+                  {t('databaseBrowser.noTables')}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {t('databaseBrowser.emptyHint')}
+                </p>
+              </div>
+              {onCreateTable && (
+                <Button size="sm" onClick={onCreateTable} className="h-8 gap-1.5 text-xs">
+                  <Plus size={14} />
+                  {t('databaseBrowser.createFirstTable')}
+                </Button>
+              )}
+            </div>
+          ) : (
+            <div className="border border-border rounded-md divide-y divide-border overflow-hidden">
+              {overviewPreviewItems.map(item => (
+                <OverviewPreviewRow
+                  key={item.name}
+                  formatVisitTime={formatVisitTime}
+                  item={item}
+                  namespace={namespace}
+                  onTableSelect={onTableSelect}
+                />
+              ))}
+
+              {totalCount > overviewPreviewItems.length && (
+                <button
+                  type="button"
+                  className="w-full px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+                  onClick={onViewAll}
+                >
+                  {t('databaseBrowser.viewAll', { count: totalCount })}
+                </button>
+              )}
+            </div>
+          )}
+        </section>
+
+        <section className="rounded-md border border-border bg-muted/15 p-3">
+          <h3 className="mb-2 text-sm font-medium text-foreground">
+            {t('databaseBrowser.quickActions')}
+          </h3>
+          <div className="space-y-1">
+            <OverviewAction
+              icon={Table}
+              label={t('databaseBrowser.browseTables')}
+              onClick={onViewAll}
+            />
+            {onOpenQuery && (
+              <OverviewAction
+                icon={TerminalSquare}
+                label={t('databaseBrowser.openEditor')}
+                onClick={onOpenQuery}
               />
-            ))}
-
-            {totalCount > overviewPreviewItems.length && (
-              <button
-                type="button"
-                className="w-full px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
-                onClick={onViewAll}
-              >
-                {t('databaseBrowser.viewAll', { count: totalCount })}
-              </button>
+            )}
+            {onCreateTable && (
+              <OverviewAction icon={Plus} label={t('createTable.title')} onClick={onCreateTable} />
             )}
           </div>
-        )}
+        </section>
       </div>
     </div>
   );
@@ -1172,7 +1229,7 @@ function OverviewPreviewRow({
               <span className="text-xs text-muted-foreground shrink-0">(view)</span>
             )}
           </div>
-          {item.personalized && item.lastVisitedAt && (
+          {item.recent && item.lastVisitedAt && (
             <p className="text-xs text-muted-foreground mt-0.5 truncate">
               {formatVisitTime(item.lastVisitedAt)}
             </p>
@@ -1180,27 +1237,30 @@ function OverviewPreviewRow({
         </div>
       </div>
 
-      {item.personalized && item.visitCount && <VisitFrequencyDots count={item.visitCount} />}
-
       <ChevronRight size={14} className="ml-2 shrink-0 text-muted-foreground" />
     </button>
   );
 }
 
-const VISIT_FREQUENCY_MAX_DOTS = 5;
-
-function VisitFrequencyDots({ count }: { count: number }) {
-  const filled = Math.min(Math.ceil(count / 3), VISIT_FREQUENCY_MAX_DOTS);
-
+function OverviewAction({
+  icon: Icon,
+  label,
+  onClick,
+}: {
+  icon: LucideIcon;
+  label: string;
+  onClick: () => void;
+}) {
   return (
-    <div className="flex items-center gap-0.5 ml-2 shrink-0" title={`${count} visits`}>
-      {Array.from({ length: VISIT_FREQUENCY_MAX_DOTS }, (_, i) => (
-        <span
-          key={`dot-${i.toString()}`}
-          className={cn('block w-1.5 h-1.5 rounded-full', i < filled ? 'bg-accent' : 'bg-border')}
-        />
-      ))}
-    </div>
+    <button
+      type="button"
+      className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm text-foreground transition-colors hover:bg-muted"
+      onClick={onClick}
+    >
+      <Icon size={14} className="shrink-0 text-muted-foreground" />
+      <span>{label}</span>
+      <ChevronRight size={13} className="ml-auto shrink-0 opacity-60" />
+    </button>
   );
 }
 

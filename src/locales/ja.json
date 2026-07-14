@@ -2552,6 +2552,24 @@
     "loadingSource": "ソースを読み込み中...",
     "sourceLoadError": "シーケンスのソースの読み込みに失敗しました"
   },
+  "migrations": {
+    "title": "マイグレーション",
+    "description": "バージョン管理されたスキーマのマイグレーション。Git で共有します。",
+    "openManager": "マイグレーション",
+    "newPlaceholder": "マイグレーション名",
+    "create": "新規",
+    "empty": "マイグレーションはまだありません",
+    "requiresWorkspace": "マイグレーションにはワークスペースが必要です",
+    "requiresWorkspaceHint": "バージョン管理されたマイグレーションファイルを保存するには、.qoredb ワークスペースを開くか作成してください。",
+    "upLabel": "Up",
+    "downLabel": "Down",
+    "selectHint": "表示するマイグレーションを選択してください。",
+    "refresh": "更新",
+    "delete": "削除",
+    "deleteConfirm": "マイグレーション「{{name}}」を削除しますか？ファイルがディスクから削除されます。",
+    "created": "マイグレーションを作成しました",
+    "deleted": "マイグレーションを削除しました"
+  },
   "snapshots": {
     "title": "スナップショット",
     "save": "スナップショットとして保存",

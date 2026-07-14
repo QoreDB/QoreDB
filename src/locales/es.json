@@ -2552,6 +2552,24 @@
     "loadingSource": "Cargando código fuente...",
     "sourceLoadError": "Error al cargar el código fuente de la secuencia"
   },
+  "migrations": {
+    "title": "Migraciones",
+    "description": "Migraciones de esquema versionadas, compartidas por Git.",
+    "openManager": "Migraciones",
+    "newPlaceholder": "Nombre de la migración",
+    "create": "Nueva",
+    "empty": "Aún no hay migraciones",
+    "requiresWorkspace": "Las migraciones requieren un espacio de trabajo",
+    "requiresWorkspaceHint": "Abre o crea un espacio de trabajo .qoredb para almacenar en él los archivos de migración versionados.",
+    "upLabel": "Up",
+    "downLabel": "Down",
+    "selectHint": "Selecciona una migración para verla.",
+    "refresh": "Actualizar",
+    "delete": "Eliminar",
+    "deleteConfirm": "¿Eliminar la migración «{{name}}»? Esto elimina el archivo del disco.",
+    "created": "Migración creada",
+    "deleted": "Migración eliminada"
+  },
   "snapshots": {
     "title": "Capturas",
     "save": "Guardar como captura",

@@ -18,6 +18,10 @@ export async function exportLogs(): Promise<{
   return invoke('export_logs');
 }
 
+export async function getLogsDirectory(): Promise<string> {
+  return invoke('get_logs_directory');
+}
+
 export async function getMetrics(): Promise<{
   success: boolean;
   metrics?: {

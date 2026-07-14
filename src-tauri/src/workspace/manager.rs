@@ -139,6 +139,7 @@ impl WorkspaceManager {
             qoredb_dir.join("queries"),
             qoredb_dir.join("contracts"),
             qoredb_dir.join("context"),
+            qoredb_dir.join("migrations"),
         ];
 
         for dir in &dirs {
@@ -306,6 +307,7 @@ mod tests {
         assert!(info.path.join(".gitignore").exists());
         assert!(info.path.join("connections").is_dir());
         assert!(info.path.join("notebooks").is_dir());
+        assert!(info.path.join("migrations").is_dir());
         assert!(info.path.join("queries/library.json").exists());
 
         assert!(mgr.project_id().starts_with("ws_"));

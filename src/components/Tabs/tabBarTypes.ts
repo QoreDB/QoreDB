@@ -12,6 +12,7 @@ export type TabKind =
   | 'snapshots'
   | 'notebook'
   | 'time-travel'
+  | 'migrations'
   | 'plugin-output';
 
 export interface TabItem {

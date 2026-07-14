@@ -2552,6 +2552,24 @@
     "loadingSource": "正在加载源码…",
     "sourceLoadError": "加载序列源码失败"
   },
+  "migrations": {
+    "title": "迁移",
+    "description": "版本化的架构迁移，通过 Git 共享。",
+    "openManager": "迁移",
+    "newPlaceholder": "迁移名称",
+    "create": "新建",
+    "empty": "暂无迁移",
+    "requiresWorkspace": "迁移需要工作区",
+    "requiresWorkspaceHint": "打开或创建 .qoredb 工作区，以在其中存储版本化的迁移文件。",
+    "upLabel": "Up",
+    "downLabel": "Down",
+    "selectHint": "选择一个迁移以查看。",
+    "refresh": "刷新",
+    "delete": "删除",
+    "deleteConfirm": "删除迁移“{{name}}”？这会从磁盘中移除该文件。",
+    "created": "迁移已创建",
+    "deleted": "迁移已删除"
+  },
   "snapshots": {
     "title": "快照",
     "save": "保存为快照",

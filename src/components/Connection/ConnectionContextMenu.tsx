@@ -7,6 +7,7 @@ import {
   Eraser,
   FileCode,
   Loader2,
+  LogOut,
   Pencil,
   Star,
   Terminal,
@@ -53,6 +54,7 @@ interface ConnectionContextMenuProps {
   onNewQuery?: () => void;
   onNewNotebook?: () => void;
   isConnected?: boolean;
+  onDisconnect?: () => void;
   children: ReactNode;
 }
 
@@ -66,6 +68,7 @@ export function ConnectionContextMenu({
   onNewQuery,
   onNewNotebook,
   isConnected,
+  onDisconnect,
   children,
 }: ConnectionContextMenuProps) {
   const { t } = useTranslation();
@@ -118,7 +121,7 @@ export function ConnectionContextMenu({
       <ContextMenu>
         <ContextMenuTrigger asChild>{children}</ContextMenuTrigger>
         <ContextMenuContent className="min-w-52">
-          {isConnected && (onNewQuery || onNewNotebook) && (
+          {isConnected && (onNewQuery || onNewNotebook || onDisconnect) && (
             <>
               {onNewQuery && (
                 <ContextMenuItem onSelect={() => onNewQuery()}>
@@ -130,6 +133,12 @@ export function ConnectionContextMenu({
                 <ContextMenuItem onSelect={() => onNewNotebook()}>
                   <BookOpen size={14} />
                   {t('connection.menu.newNotebook')}
+                </ContextMenuItem>
+              )}
+              {onDisconnect && (
+                <ContextMenuItem onSelect={onDisconnect}>
+                  <LogOut size={14} />
+                  {t('connection.menu.disconnect')}
                 </ContextMenuItem>
               )}
               <ContextMenuSeparator />

@@ -52,6 +52,9 @@ const SettingsPage = lazy(() =>
 const SnapshotManager = lazy(() =>
   import('./components/Snapshot/SnapshotManager').then(m => ({ default: m.SnapshotManager }))
 );
+const MigrationsPanel = lazy(() =>
+  import('./components/Migrations/MigrationsPanel').then(m => ({ default: m.MigrationsPanel }))
+);
 const PluginOutputView = lazy(() =>
   import('./components/Plugins/PluginOutputView').then(m => ({ default: m.PluginOutputView }))
 );
@@ -88,6 +91,7 @@ import {
   createDatabaseTab,
   createDiffTab,
   createFederationTab,
+  createMigrationsTab,
   createNotebookTab,
   createPluginOutputTab,
   createQueryTab,
@@ -168,6 +172,7 @@ export function AppLayout() {
     handleRestoreSession,
     handleConnectionSaved,
     switchToConnection,
+    disconnectActiveConnection,
     refreshSidebar,
     triggerSchemaRefresh,
     scheduleRecoverySave,
@@ -203,6 +208,33 @@ export function AppLayout() {
       return true;
     });
   }, [tabs, setBeforeCloseTab, t]);
+
+  const handleCloseTab = useCallback(
+    async (tabId: string) => {
+      const tab = tabs.find(candidate => candidate.id === tabId);
+      const closed = await closeTab(tabId);
+      if (!closed || !tab?.connectionId || tab.connectionId !== activeConnection?.id) return;
+
+      const hasOtherTabForSession = tabs.some(
+        candidate => candidate.id !== tabId && candidate.connectionId === tab.connectionId
+      );
+      if (hasOtherTabForSession) return;
+
+      const remainingTabs = tabs.filter(candidate => candidate.id !== tabId);
+      const closedIndex = tabs.findIndex(candidate => candidate.id === tabId);
+      const nextActiveTab = remainingTabs[closedIndex] ?? remainingTabs[closedIndex - 1];
+      if (nextActiveTab?.connectionId && nextActiveTab.connectionId !== tab.connectionId) return;
+
+      await disconnectActiveConnection();
+    },
+    [activeConnection?.id, closeTab, disconnectActiveConnection, tabs]
+  );
+
+  const handleDisconnect = useCallback(() => {
+    void disconnectActiveConnection().then(disconnected => {
+      if (disconnected) notify.info(t('status.disconnected'));
+    });
+  }, [disconnectActiveConnection, t]);
 
   const handleTableSelect = useCallback(
     (ns: Namespace, tableName: string, rf?: RelationFilter, sf?: SearchFilter) => {
@@ -573,6 +605,7 @@ export function AppLayout() {
           ]
         : []),
       { id: 'cmd_open_snapshots', label: t('snapshots.openManager') },
+      { id: 'cmd_open_migrations', label: t('migrations.openManager') },
       {
         id: 'cmd_open_settings',
         label: t('palette.openSettings'),
@@ -636,6 +669,9 @@ export function AppLayout() {
           case 'cmd_open_snapshots':
             openTab(createSnapshotsTab());
             return;
+          case 'cmd_open_migrations':
+            openTab(createMigrationsTab());
+            return;
           case 'cmd_open_federation':
             if (sessionId) openTab(createFederationTab());
             return;
@@ -670,7 +706,7 @@ export function AppLayout() {
             toggleTheme();
             return;
           case 'cmd_close_tab':
-            if (activeTabId) closeTab(activeTabId);
+            if (activeTabId) void handleCloseTab(activeTabId);
             return;
         }
       }
@@ -739,7 +775,7 @@ export function AppLayout() {
       openTab,
       toggleTheme,
       activeTabId,
-      closeTab,
+      handleCloseTab,
       activeTab?.namespace,
       activeTab?.type,
       activeTab?.id,
@@ -813,6 +849,7 @@ export function AppLayout() {
                 onEditConnection={handleEditConnection}
                 onNewQuery={handleNewQuery}
                 onNewNotebook={handleNewNotebook}
+                onDisconnect={handleDisconnect}
                 schemaRefreshTrigger={schemaRefreshTrigger}
                 activeNamespace={activeTab?.namespace}
                 style={{ width: sidebarWidth, minWidth: sidebarWidth }}
@@ -854,7 +891,7 @@ export function AppLayout() {
                           : undefined;
                       }}
                       onSelect={handleTabSelect}
-                      onClose={closeTab}
+                      onClose={handleCloseTab}
                       onNew={handleNewQuery}
                       onReorder={reordered =>
                         reorderTabs(
@@ -902,7 +939,7 @@ export function AppLayout() {
                     onOpenSearch={() => setSearchOpen(true)}
                     onOpenConnectionModal={() => setConnectionModalOpen(true)}
                     onSchemaChange={triggerSchemaRefresh}
-                    onCloseTab={closeTab}
+                    onCloseTab={handleCloseTab}
                     onOpenTab={openTab}
                     onUpdateQueryDraft={updateQueryDraft}
                     onUpdateTabNamespace={updateTabNamespace}
@@ -1132,6 +1169,14 @@ function AppContent({
     return (
       <div className="flex-1 min-h-0 flex flex-col">
         <PluginOutputView key={activeTab.id} />
+      </div>
+    );
+  }
+
+  if (activeTab?.type === 'migrations') {
+    return (
+      <div className="flex-1 min-h-0 flex flex-col">
+        <MigrationsPanel key={activeTab.id} />
       </div>
     );
   }

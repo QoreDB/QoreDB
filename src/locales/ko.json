@@ -2552,6 +2552,24 @@
     "loadingSource": "소스 로딩 중...",
     "sourceLoadError": "시퀀스 소스를 불러오지 못했습니다"
   },
+  "migrations": {
+    "title": "마이그레이션",
+    "description": "버전 관리되는 스키마 마이그레이션. Git으로 공유됩니다.",
+    "openManager": "마이그레이션",
+    "newPlaceholder": "마이그레이션 이름",
+    "create": "새로 만들기",
+    "empty": "아직 마이그레이션이 없습니다",
+    "requiresWorkspace": "마이그레이션에는 작업 공간이 필요합니다",
+    "requiresWorkspaceHint": "버전 관리되는 마이그레이션 파일을 저장하려면 .qoredb 작업 공간을 열거나 만드세요.",
+    "upLabel": "Up",
+    "downLabel": "Down",
+    "selectHint": "마이그레이션을 선택하여 확인하세요.",
+    "refresh": "새로고침",
+    "delete": "삭제",
+    "deleteConfirm": "마이그레이션 \"{{name}}\"을(를) 삭제하시겠습니까? 파일이 디스크에서 제거됩니다.",
+    "created": "마이그레이션이 생성되었습니다",
+    "deleted": "마이그레이션이 삭제되었습니다"
+  },
   "snapshots": {
     "title": "스냅샷",
     "save": "스냅샷으로 저장",

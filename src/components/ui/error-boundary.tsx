@@ -2,6 +2,7 @@
 
 import { AlertTriangle, RotateCcw } from 'lucide-react';
 import { Component, type ErrorInfo, type ReactNode } from 'react';
+import { logger } from '@/lib/diagnostics/logger';
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -24,7 +25,10 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    console.error('[ErrorBoundary]', error, info.componentStack);
+    logger.error(
+      `Panel error: ${error.message}\nComponent stack: ${info.componentStack ?? 'unknown'}`,
+      error
+    );
   }
 
   handleReset = () => {

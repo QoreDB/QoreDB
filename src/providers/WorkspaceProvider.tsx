@@ -4,6 +4,7 @@ import { createContext, type ReactNode, useCallback, useContext, useEffect } fro
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { emitUiEvent, UI_EVENT_WORKSPACE_CHANGED } from '@/lib/events/uiEvents';
+import { loadMigrations } from '@/lib/migrations/migrationsStore';
 import { loadWorkspaceLibrary } from '@/lib/query/queryLibrary';
 import {
   setActiveWorkspace,
@@ -143,6 +144,14 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     // Reload query library when .qoredb/queries/ changes externally
     listen('workspace_fs:queries', () => {
       if (!cancelled) syncWorkspaceLibrary();
+    }).then(fn => {
+      if (cancelled) fn();
+      else unlisteners.push(fn);
+    });
+
+    // Reload migrations when .qoredb/migrations/ changes externally
+    listen('workspace_fs:migrations', () => {
+      if (!cancelled) void loadMigrations();
     }).then(fn => {
       if (cancelled) fn();
       else unlisteners.push(fn);

@@ -282,6 +282,7 @@ pub fn run() {
             commands::sequences::drop_sequence,
             // Logs
             commands::logs::export_logs,
+            commands::logs::get_logs_directory,
             commands::logs::log_frontend_message,
             // Export
             commands::export::start_export,
@@ -427,6 +428,11 @@ pub fn run() {
             // Workspace query library commands
             commands::workspace_queries::ws_get_query_library,
             commands::workspace_queries::ws_save_query_library,
+            // Workspace migration file commands
+            commands::workspace_migrations::ws_list_migrations,
+            commands::workspace_migrations::ws_read_migration,
+            commands::workspace_migrations::ws_write_migration,
+            commands::workspace_migrations::ws_delete_migration,
             // Plugin system commands
             commands::plugins::list_plugins,
             commands::plugins::install_plugin,
@@ -455,6 +461,11 @@ pub fn run() {
             commands::time_travel::clear_all_changelog,
             commands::time_travel::export_changelog,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|_app_handle, event| {
+            if matches!(event, tauri::RunEvent::Exit) {
+                observability::mark_clean_shutdown();
+            }
+        });
 }

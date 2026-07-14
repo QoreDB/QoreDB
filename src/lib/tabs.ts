@@ -11,6 +11,7 @@ export type TabType =
   | 'snapshots'
   | 'notebook'
   | 'time-travel'
+  | 'migrations'
   | 'plugin-output';
 
 export interface DiffSource {
@@ -143,6 +144,14 @@ export function createPluginOutputTab(title: string): OpenTab {
     id: generateTabId(),
     type: 'plugin-output',
     title,
+  };
+}
+
+export function createMigrationsTab(): OpenTab {
+  return {
+    id: generateTabId(),
+    type: 'migrations',
+    title: 'Migrations',
   };
 }
 

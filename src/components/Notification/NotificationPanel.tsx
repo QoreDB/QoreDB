@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Bell, History, Sparkles, Trash2, Wrench, Zap } from 'lucide-react';
-import { useCallback, useState, useSyncExternalStore } from 'react';
+import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import {
@@ -13,61 +13,18 @@ import {
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { CHANGELOG, type ChangelogItem } from '@/data/changelog';
+import { markVersionSeen, useUnseenChangelog } from '@/hooks/useWhatsNew';
 import {
   clearAllNotifications,
   getNotificationsByCategory,
   type NotificationCategory,
   useNotifications,
 } from '@/lib/stores/notificationStore';
-import { APP_VERSION } from '@/lib/version';
 import { NotificationItem } from './NotificationItem';
 
+export { useHasUnseenChangelog } from '@/hooks/useWhatsNew';
+
 const categoryOrder: NotificationCategory[] = ['system', 'query', 'security'];
-const LAST_SEEN_VERSION_KEY = 'qoredb_last_seen_version';
-
-// Changelog seen state — reactive via useSyncExternalStore
-const changelogListeners = new Set<() => void>();
-let changelogSnapshot = computeChangelogSnapshot();
-
-function computeChangelogSnapshot(): { version: string; items: ChangelogItem[] } | null {
-  const lastSeen = localStorage.getItem(LAST_SEEN_VERSION_KEY);
-  if (lastSeen === APP_VERSION) return null;
-  const entry = CHANGELOG[0];
-  if (!entry) return null;
-  return entry;
-}
-
-function notifyChangelogListeners() {
-  changelogSnapshot = computeChangelogSnapshot();
-  changelogListeners.forEach(l => l());
-}
-
-function subscribeChangelog(listener: () => void): () => void {
-  changelogListeners.add(listener);
-  return () => changelogListeners.delete(listener);
-}
-
-function getChangelogSnapshot() {
-  return changelogSnapshot;
-}
-
-export function markChangelogSeen() {
-  localStorage.setItem(LAST_SEEN_VERSION_KEY, APP_VERSION);
-  notifyChangelogListeners();
-}
-
-export function useHasUnseenChangelog(): boolean {
-  const snapshot = useSyncExternalStore(
-    subscribeChangelog,
-    getChangelogSnapshot,
-    getChangelogSnapshot
-  );
-  return snapshot !== null;
-}
-
-function useUnseenChangelog() {
-  return useSyncExternalStore(subscribeChangelog, getChangelogSnapshot, getChangelogSnapshot);
-}
 
 const typeIcons: Record<ChangelogItem['type'], typeof Sparkles> = {
   feature: Sparkles,
@@ -91,8 +48,8 @@ export function NotificationPanel() {
   const unseenChangelog = useUnseenChangelog();
 
   const handleDismissChangelog = useCallback(() => {
-    markChangelogSeen();
-  }, []);
+    if (unseenChangelog) markVersionSeen(unseenChangelog.version);
+  }, [unseenChangelog]);
 
   return (
     <div className="w-80">

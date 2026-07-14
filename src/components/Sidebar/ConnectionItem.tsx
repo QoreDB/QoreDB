@@ -22,6 +22,7 @@ interface ConnectionItemProps {
   onDeleted: () => void;
   onNewQuery?: () => void;
   onNewNotebook?: () => void;
+  onDisconnect?: () => void;
 }
 
 export function ConnectionItem({
@@ -38,6 +39,7 @@ export function ConnectionItem({
   onDeleted,
   onNewQuery,
   onNewNotebook,
+  onDisconnect,
 }: ConnectionItemProps) {
   const driver = connection.driver as Driver;
   const iconSrc = `/databases/${DRIVER_ICONS[driver]}`;
@@ -55,6 +57,7 @@ export function ConnectionItem({
       onNewQuery={onNewQuery}
       onNewNotebook={onNewNotebook}
       isConnected={isConnected}
+      onDisconnect={onDisconnect}
     >
       <div
         className={cn(
@@ -131,6 +134,7 @@ export function ConnectionItem({
             onNewQuery={onNewQuery}
             onNewNotebook={onNewNotebook}
             isConnected={isConnected}
+            onDisconnect={onDisconnect}
           />
         </div>
       </div>

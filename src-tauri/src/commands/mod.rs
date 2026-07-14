@@ -39,6 +39,7 @@ pub mod triggers;
 pub mod vault;
 pub mod virtual_relations;
 pub mod workspace;
+pub mod workspace_migrations;
 pub mod workspace_queries;
 
 use std::sync::Arc;

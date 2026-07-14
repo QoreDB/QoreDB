@@ -23,6 +23,7 @@ pub mod license;
 pub mod logs;
 pub mod maintenance;
 pub mod metrics;
+pub mod migrations;
 pub mod mutation;
 pub mod plugins;
 pub mod policy;

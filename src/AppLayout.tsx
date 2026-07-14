@@ -1176,7 +1176,14 @@ function AppContent({
   if (activeTab?.type === 'migrations') {
     return (
       <div className="flex-1 min-h-0 flex flex-col">
-        <MigrationsPanel key={activeTab.id} />
+        <MigrationsPanel
+          key={activeTab.id}
+          sessionId={sessionId ?? undefined}
+          database={activeConnection?.database}
+          driver={driver}
+          environment={activeConnection?.environment}
+          readOnly={activeConnection?.read_only}
+        />
       </div>
     );
   }

@@ -433,6 +433,9 @@ pub fn run() {
             commands::workspace_migrations::ws_read_migration,
             commands::workspace_migrations::ws_write_migration,
             commands::workspace_migrations::ws_delete_migration,
+            // Migration runner commands
+            commands::migrations::apply_migration,
+            commands::migrations::get_migration_status,
             // Plugin system commands
             commands::plugins::list_plugins,
             commands::plugins::install_plugin,

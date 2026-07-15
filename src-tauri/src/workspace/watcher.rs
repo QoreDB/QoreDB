@@ -11,7 +11,6 @@ use serde::Serialize;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
-use tauri::Emitter;
 use tokio::sync::{mpsc, watch};
 use tokio::time::Instant;
 
@@ -262,7 +261,7 @@ pub fn start_workspace_watcher(
                             category: category.clone(),
                             changed_files: files.into_iter().collect(),
                         };
-                        let _ = app_handle.emit(event_name, &payload);
+                        crate::emit_gate::emit_gated(&app_handle, event_name, &payload);
                         tracing::debug!("Emitted {} with {} files", event_name, payload.changed_files.len());
                     }
                 }

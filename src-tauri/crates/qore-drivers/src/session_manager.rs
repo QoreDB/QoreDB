@@ -575,7 +575,7 @@ impl SessionManager {
                 interval.tick().await;
                 let events = manager.run_health_check().await;
                 for event in events {
-                    let _ = app_handle.emit(EVENT_CONNECTION_HEALTH, &event);
+                    let _ = app_handle.emit_to("main", EVENT_CONNECTION_HEALTH, &event);
                 }
             }
         });
@@ -631,13 +631,19 @@ mod tests {
 
     #[test]
     fn rejects_insecure_host_key_in_production() {
-        let config = config_with("production", Some(ssh_with(SshHostKeyPolicy::InsecureNoCheck)));
+        let config = config_with(
+            "production",
+            Some(ssh_with(SshHostKeyPolicy::InsecureNoCheck)),
+        );
         assert!(enforce_ssh_host_key_policy(&config).is_err());
     }
 
     #[test]
     fn allows_insecure_host_key_outside_production() {
-        let config = config_with("development", Some(ssh_with(SshHostKeyPolicy::InsecureNoCheck)));
+        let config = config_with(
+            "development",
+            Some(ssh_with(SshHostKeyPolicy::InsecureNoCheck)),
+        );
         assert!(enforce_ssh_host_key_policy(&config).is_ok());
     }
 

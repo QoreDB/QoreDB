@@ -1,17 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
-//! Serializes background event emission with the webview lifecycle.
-//!
-//! In `tauri-runtime-wry`, `emit()` becomes an `eval()` on the target webview,
-//! processed by `handle_webview_message` which borrows the runtime's `windows`
-//! map. If a background task emits while a webview is being created or reloaded
-//! (e.g. a Vite HMR full reload in dev, or startup), that borrow can collide
-//! with the mutable borrow held during creation and panic with
-//! `RefCell already mutably borrowed`. See tauri-apps/tauri#8177, #9775, #10987.
-//!
-//! The gate holds events until the frontend signals it has mounted, then flushes
-//! them, and targets the `main` window instead of broadcasting to every webview
-//! (fewer concurrent evals = smaller collision window).
+//! Holds background events until the frontend is mounted, then flushes them,
+//! and targets `main` instead of broadcasting. Emitting into a webview that is
+//! mid-create/reload can hit a reentrant borrow in tauri-runtime-wry and panic
+//! (`RefCell already mutably borrowed`; tauri-apps/tauri#8177).
 
 use std::collections::VecDeque;
 use std::sync::Mutex;
@@ -22,7 +14,6 @@ use tauri::{AppHandle, Emitter, Manager};
 
 const MAIN_WINDOW: &str = "main";
 
-/// Bounded so a frontend that never signals ready can't grow this unbounded.
 /// Overflow drops the oldest event.
 const MAX_BUFFERED: usize = 512;
 
@@ -46,9 +37,7 @@ impl EmitGate {
     }
 
     fn emit<S: Serialize>(&self, app: &AppHandle, event: &str, payload: &S) {
-        // Decide + buffer under the lock so a concurrent `open_and_flush`
-        // can't slip between the ready check and the push (which would strand
-        // the event in the buffer until the next flush).
+        // Check + buffer under one lock so a concurrent flush can't strand the event.
         let ready = {
             let mut inner = self.inner.lock().unwrap();
             if inner.ready {
@@ -90,8 +79,7 @@ impl Default for EmitGate {
     }
 }
 
-/// Emit through the gate if one is managed, otherwise fall back to a direct
-/// `main`-targeted emit (keeps callers working even before the gate is managed).
+/// Falls back to a direct `main`-targeted emit if the gate isn't managed yet.
 pub fn emit_gated<S: Serialize>(app: &AppHandle, event: &str, payload: &S) {
     match app.try_state::<EmitGate>() {
         Some(gate) => gate.emit(app, event, payload),
@@ -101,8 +89,7 @@ pub fn emit_gated<S: Serialize>(app: &AppHandle, event: &str, payload: &S) {
     }
 }
 
-/// The frontend calls this on mount (`ready = true`) and, best-effort, before a
-/// reload (`ready = false`). Opening flushes any events buffered during startup.
+/// Frontend calls this on mount (true) and, best-effort, before reload (false).
 #[tauri::command]
 pub fn set_frontend_ready(ready: bool, app: AppHandle, gate: tauri::State<'_, EmitGate>) {
     if ready {

@@ -7,6 +7,7 @@ export type TabType =
   | 'table'
   | 'database'
   | 'diff'
+  | 'schema-diff'
   | 'federation'
   | 'snapshots'
   | 'notebook'
@@ -41,6 +42,9 @@ export interface OpenTab {
   // Diff-specific
   diffLeftSource?: DiffSource;
   diffRightSource?: DiffSource;
+  // Schema-diff-specific (two connections compared structurally)
+  schemaDiffLeftConnectionId?: string;
+  schemaDiffRightConnectionId?: string;
   // AI-specific
   showAiPanel?: boolean;
   aiTableContext?: string;
@@ -106,6 +110,23 @@ export function createDiffTab(
     namespace: namespace ?? leftSource?.namespace ?? rightSource?.namespace,
     diffLeftSource: leftSource,
     diffRightSource: rightSource,
+  };
+}
+
+export function createSchemaDiffTab(
+  leftConnectionId: string,
+  rightConnectionId: string,
+  namespace?: Namespace,
+  title?: string
+): OpenTab {
+  return {
+    id: generateTabId(),
+    type: 'schema-diff',
+    title: title ?? 'Schema Diff',
+    namespace,
+    connectionId: leftConnectionId,
+    schemaDiffLeftConnectionId: leftConnectionId,
+    schemaDiffRightConnectionId: rightConnectionId,
   };
 }
 

@@ -3,13 +3,14 @@
 //! Commands for managing database connections.
 
 use serde::Serialize;
-use std::path::PathBuf;
 use std::sync::Arc;
 use tauri::{AppHandle, Manager, State};
 use tracing::instrument;
 use uuid::Uuid;
 
 use super::SharedStateExt;
+use crate::commands::vault::get_workspace_store;
+use crate::commands::workspace::SharedWorkspaceManager;
 use crate::engine::types::ConnectionConfig;
 use crate::vault::backend::KeyringProvider;
 use crate::vault::VaultStorage;
@@ -27,35 +28,33 @@ pub struct SessionListItem {
     pub display_name: String,
 }
 
-fn load_saved_connection_config(
+/// Resolves a saved connection to a ready-to-use config plus its display name.
+///
+/// File-based workspaces keep connections in their own `.qoredb/connections/`
+/// directory, so isolation is by directory and the flat-vault `project_id` guard
+/// does not apply there. The default workspace shares a single `connections.json`
+/// across projects, so that branch still enforces the guard.
+async fn resolve_saved_connection(
+    app: &AppHandle,
+    ws_manager: &State<'_, SharedWorkspaceManager>,
     project_id: &str,
     connection_id: &str,
-    storage_dir: PathBuf,
-) -> Result<ConnectionConfig, String> {
-    let storage = VaultStorage::new(project_id, storage_dir, Box::new(KeyringProvider::new()));
-    let saved = storage
-        .get_connection(connection_id)
-        .map_err(|e| e.sanitized_message())?;
-
-    if saved.project_id != project_id {
-        return Err("Connection project mismatch".to_string());
+) -> Result<(ConnectionConfig, String), String> {
+    if let Some(ws_store) = get_workspace_store(ws_manager).await {
+        let saved = ws_store
+            .get_connection(connection_id)
+            .map_err(|e| e.sanitized_message())?;
+        let creds = ws_store
+            .get_credentials(connection_id)
+            .map_err(|e| e.sanitized_message())?;
+        let name = saved.name.clone();
+        let config = saved
+            .to_connection_config(&creds)
+            .map_err(|e| e.sanitized_message())?;
+        return Ok((config, name));
     }
 
-    let creds = storage
-        .get_credentials(connection_id)
-        .map_err(|e| e.sanitized_message())?;
-
-    saved
-        .to_connection_config(&creds)
-        .map_err(|e| e.sanitized_message())
-}
-
-/// Like `load_saved_connection_config` but also returns the saved connection name.
-fn load_saved_connection_config_with_name(
-    project_id: &str,
-    connection_id: &str,
-    storage_dir: PathBuf,
-) -> Result<(ConnectionConfig, String), String> {
+    let storage_dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
     let storage = VaultStorage::new(project_id, storage_dir, Box::new(KeyringProvider::new()));
     let saved = storage
         .get_connection(connection_id)
@@ -108,10 +107,11 @@ pub async fn test_connection(
 }
 
 #[tauri::command]
-#[instrument(skip(app, state), fields(project_id = %project_id, connection_id = %connection_id))]
+#[instrument(skip(app, state, ws_manager), fields(project_id = %project_id, connection_id = %connection_id))]
 pub async fn test_saved_connection(
     app: AppHandle,
     state: State<'_, crate::SharedState>,
+    ws_manager: State<'_, SharedWorkspaceManager>,
     project_id: String,
     connection_id: String,
 ) -> Result<ConnectionResponse, String> {
@@ -127,10 +127,9 @@ pub async fn test_saved_connection(
         Arc::clone(&state.session_manager)
     };
 
-    let storage_dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
-
-    let config = match load_saved_connection_config(&project_id, &connection_id, storage_dir) {
-        Ok(cfg) => cfg,
+    let config = match resolve_saved_connection(&app, &ws_manager, &project_id, &connection_id).await
+    {
+        Ok((cfg, _name)) => cfg,
         Err(e) => {
             return Ok(ConnectionResponse {
                 success: false,
@@ -194,10 +193,11 @@ pub async fn connect(
 }
 
 #[tauri::command]
-#[instrument(skip(app, state), fields(project_id = %project_id, connection_id = %connection_id))]
+#[instrument(skip(app, state, ws_manager), fields(project_id = %project_id, connection_id = %connection_id))]
 pub async fn connect_saved_connection(
     app: AppHandle,
     state: State<'_, crate::SharedState>,
+    ws_manager: State<'_, SharedWorkspaceManager>,
     project_id: String,
     connection_id: String,
 ) -> Result<ConnectionResponse, String> {
@@ -213,10 +213,8 @@ pub async fn connect_saved_connection(
         Arc::clone(&state.session_manager)
     };
 
-    let storage_dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
-
     let (config, connection_name) =
-        match load_saved_connection_config_with_name(&project_id, &connection_id, storage_dir) {
+        match resolve_saved_connection(&app, &ws_manager, &project_id, &connection_id).await {
             Ok(pair) => pair,
             Err(e) => {
                 return Ok(ConnectionResponse {

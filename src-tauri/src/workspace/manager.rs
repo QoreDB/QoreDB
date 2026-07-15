@@ -16,7 +16,7 @@ const WORKSPACE_MANIFEST_FILE: &str = "workspace.json";
 const RECENT_WORKSPACES_FILE: &str = "recent_workspaces.json";
 const MAX_RECENT_WORKSPACES: usize = 10;
 
-const GITIGNORE_CONTENT: &str = "# Secrets are never stored in .qoredb, but just in case:\n*.key\n*.pem\n\n# Local cache\n.cache/\n";
+const GITIGNORE_CONTENT: &str = "# Secrets are never stored in .qoredb, but just in case:\n*.key\n*.pem\n\n# Local cache\n.cache/\n\n# Schema baselines are a local drift reference, not a shared artifact\nbaselines/\n";
 
 fn fnv1a_hash(data: &[u8]) -> u64 {
     const FNV_OFFSET_BASIS: u64 = 0xcbf29ce484222325;
@@ -140,6 +140,7 @@ impl WorkspaceManager {
             qoredb_dir.join("contracts"),
             qoredb_dir.join("context"),
             qoredb_dir.join("migrations"),
+            qoredb_dir.join("baselines"),
         ];
 
         for dir in &dirs {
@@ -308,6 +309,7 @@ mod tests {
         assert!(info.path.join("connections").is_dir());
         assert!(info.path.join("notebooks").is_dir());
         assert!(info.path.join("migrations").is_dir());
+        assert!(info.path.join("baselines").is_dir());
         assert!(info.path.join("queries/library.json").exists());
 
         assert!(mgr.project_id().starts_with("ws_"));

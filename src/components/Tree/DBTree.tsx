@@ -75,6 +75,7 @@ interface DBTreeProps {
   ) => void;
   onDatabaseSelect?: (namespace: Namespace) => void;
   onCompareTable?: (collection: Collection) => void;
+  onSchemaDiff?: (collection: Collection, targetConnectionId: string) => void;
   onAiGenerateForTable?: (collection: Collection) => void;
   onNewQueryForTable?: (collection: Collection) => void;
   onOpenRoutineSource?: (routine: Routine, namespace: Namespace) => void;
@@ -95,6 +96,7 @@ export function DBTree({
   onTableSelect,
   onDatabaseSelect,
   onCompareTable,
+  onSchemaDiff,
   onAiGenerateForTable,
   onNewQueryForTable,
   onOpenRoutineSource,
@@ -608,6 +610,7 @@ export function DBTree({
                             onRefresh={() => refreshCollections(col.namespace)}
                             onOpen={() => handleTableClick(col)}
                             onCompareWith={onCompareTable}
+                            onSchemaDiff={onSchemaDiff}
                             onAiGenerate={onAiGenerateForTable}
                             onNewQuery={onNewQueryForTable}
                           >
@@ -660,6 +663,7 @@ export function DBTree({
                             onRefresh={() => refreshCollections(col.namespace)}
                             onOpen={() => handleTableClick(col)}
                             onCompareWith={onCompareTable}
+                            onSchemaDiff={onSchemaDiff}
                             onAiGenerate={onAiGenerateForTable}
                             onNewQuery={onNewQueryForTable}
                           >
@@ -714,6 +718,7 @@ export function DBTree({
                             onRefresh={() => refreshCollections(col.namespace)}
                             onOpen={() => handleTableClick(col)}
                             onCompareWith={onCompareTable}
+                            onSchemaDiff={onSchemaDiff}
                             onAiGenerate={onAiGenerateForTable}
                             onNewQuery={onNewQueryForTable}
                           >

@@ -35,6 +35,9 @@ import { Sidebar } from './components/Sidebar/Sidebar';
 const DataDiffViewer = lazy(() =>
   import('./components/Diff/DataDiffViewer').then(m => ({ default: m.DataDiffViewer }))
 );
+const SchemaDiffViewer = lazy(() =>
+  import('./components/Migrations/SchemaDiffViewer').then(m => ({ default: m.SchemaDiffViewer }))
+);
 const TimeTravelViewer = lazy(() =>
   import('./components/TimeTravel/TimeTravelViewer').then(m => ({
     default: m.TimeTravelViewer,
@@ -95,6 +98,7 @@ import {
   createNotebookTab,
   createPluginOutputTab,
   createQueryTab,
+  createSchemaDiffTab,
   createSnapshotsTab,
   createTableTab,
   createTimeTravelTab,
@@ -325,6 +329,21 @@ export function AppLayout() {
       );
     },
     [sessionId, openTab, t, activeConnection?.id]
+  );
+
+  const handleSchemaDiff = useCallback(
+    (collection: Collection, targetConnectionId: string) => {
+      if (!activeConnection?.id) return;
+      openTab(
+        createSchemaDiffTab(
+          activeConnection.id,
+          targetConnectionId,
+          collection.namespace,
+          `${t('schemaDiff.title')}: ${collection.name}`
+        )
+      );
+    },
+    [openTab, t, activeConnection?.id]
   );
 
   const handleAiGenerateForTable = useCallback(
@@ -837,6 +856,7 @@ export function AppLayout() {
                 onTableSelect={handleTableSelect}
                 onDatabaseSelect={handleDatabaseSelect}
                 onCompareTable={handleCompareTable}
+                onSchemaDiff={handleSchemaDiff}
                 onAiGenerateForTable={handleAiGenerateForTable}
                 onNewQueryForTable={handleNewQueryForTable}
                 onOpenRoutineSource={handleOpenRoutineSource}
@@ -1179,6 +1199,7 @@ function AppContent({
         <MigrationsPanel
           key={activeTab.id}
           sessionId={sessionId ?? undefined}
+          connectionId={activeConnection?.id}
           database={activeConnection?.database}
           driver={driver}
           environment={activeConnection?.environment}
@@ -1279,6 +1300,25 @@ function AppContent({
             namespace={activeTab.namespace}
             leftSource={activeTab.diffLeftSource}
             rightSource={activeTab.diffRightSource}
+          />
+        </LicenseGate>
+      </div>
+    );
+  }
+
+  if (
+    activeTab?.type === 'schema-diff' &&
+    activeTab.schemaDiffLeftConnectionId &&
+    activeTab.schemaDiffRightConnectionId
+  ) {
+    return (
+      <div className="flex-1 min-h-0 flex flex-col">
+        <LicenseGate feature="schema_diff">
+          <SchemaDiffViewer
+            key={activeTab.id}
+            leftConnectionId={activeTab.schemaDiffLeftConnectionId}
+            rightConnectionId={activeTab.schemaDiffRightConnectionId}
+            namespace={activeTab.namespace}
           />
         </LicenseGate>
       </div>

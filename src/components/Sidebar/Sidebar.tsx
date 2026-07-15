@@ -69,6 +69,7 @@ interface SidebarProps {
   ) => void;
   onDatabaseSelect?: (namespace: Namespace) => void;
   onCompareTable?: (collection: Collection) => void;
+  onSchemaDiff?: (collection: Collection, targetConnectionId: string) => void;
   onAiGenerateForTable?: (collection: Collection) => void;
   onNewQueryForTable?: (collection: Collection) => void;
   onOpenRoutineSource?: (routine: Routine, namespace: Namespace) => void;
@@ -96,6 +97,7 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
     onTableSelect,
     onDatabaseSelect,
     onCompareTable,
+    onSchemaDiff,
     onAiGenerateForTable,
     onNewQueryForTable,
     onOpenRoutineSource,
@@ -310,6 +312,7 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
               onTableSelect={onTableSelect}
               onDatabaseSelect={onDatabaseSelect}
               onCompareTable={onCompareTable}
+              onSchemaDiff={onSchemaDiff}
               onAiGenerateForTable={onAiGenerateForTable}
               onNewQueryForTable={onNewQueryForTable}
               onOpenRoutineSource={onOpenRoutineSource}

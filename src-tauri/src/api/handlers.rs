@@ -58,6 +58,10 @@ pub struct ApiState {
     pub project_id: String,
     /// Vault storage directory captured at server start.
     pub storage_dir: PathBuf,
+    /// Connections directory of the active file-based workspace, if any.
+    /// When set, saved connections are read from the workspace store instead
+    /// of the flat vault. `None` for the default workspace.
+    pub workspace_connections_dir: Option<PathBuf>,
     /// Server start instant — read by `/health` to compute uptime.
     pub started_at: Arc<Instant>,
 }
@@ -218,8 +222,13 @@ async fn resolve_session(state: &ApiState, connection_id: &str) -> Result<Sessio
         state.sessions.lock().await.remove(connection_id);
     }
 
-    let config = load_saved_config(&state.project_id, connection_id, &state.storage_dir)
-        .map_err(ApiError::BadGateway)?;
+    let config = load_saved_config(
+        &state.project_id,
+        state.workspace_connections_dir.as_deref(),
+        connection_id,
+        &state.storage_dir,
+    )
+    .map_err(ApiError::BadGateway)?;
 
     let session_id = state
         .session_manager
@@ -237,10 +246,33 @@ async fn resolve_session(state: &ApiState, connection_id: &str) -> Result<Sessio
 
 fn load_saved_config(
     project_id: &str,
+    workspace_connections_dir: Option<&std::path::Path>,
     connection_id: &str,
     storage_dir: &PathBuf,
 ) -> Result<qore_core::types::ConnectionConfig, String> {
     use crate::vault::backend::KeyringProvider;
+
+    // File-based workspaces keep connections in their own directory; isolation
+    // is by directory, so the flat-vault project_id guard does not apply.
+    if let Some(dir) = workspace_connections_dir {
+        use crate::workspace::connection_store::WorkspaceConnectionStore;
+
+        let store = WorkspaceConnectionStore::new(
+            dir.to_path_buf(),
+            format!("qoredb_{}", project_id),
+            Box::new(KeyringProvider::new()),
+        );
+        let saved = store
+            .get_connection(connection_id)
+            .map_err(|e| e.sanitized_message())?;
+        let creds = store
+            .get_credentials(connection_id)
+            .map_err(|e| e.sanitized_message())?;
+        return saved
+            .to_connection_config(&creds)
+            .map_err(|e| e.sanitized_message());
+    }
+
     use crate::vault::VaultStorage;
 
     let storage = VaultStorage::new(

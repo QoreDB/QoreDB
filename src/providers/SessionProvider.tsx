@@ -286,7 +286,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       connectionId: activeConnection.id,
       activeTabId,
       tabs: tabs.flatMap(tab => {
-        if (tab.type === 'plugin-output') return [];
+        // schema-diff tabs hold two connection ids that aren't persisted here, so
+        // they can't be meaningfully restored — treat them as transient like plugin-output.
+        if (tab.type === 'plugin-output' || tab.type === 'schema-diff') return [];
         return [
           {
             id: tab.id,

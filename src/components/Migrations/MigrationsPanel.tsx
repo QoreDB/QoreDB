@@ -2,18 +2,26 @@
 
 import {
   AlertTriangle,
+  Camera,
   FileCode,
   Loader2,
   Play,
   Plus,
   RefreshCw,
+  ScanSearch,
   Trash2,
   Undo2,
+  Wand2,
+  X,
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { UpgradePrompt } from '@/components/License/UpgradePrompt';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import type { Driver } from '@/lib/connection/drivers';
+import { loadBaselineFile, saveBaseline, useBaseline } from '@/lib/migrations/baselineStore';
+import { NON_TX_DDL_DRIVERS, SCHEMA_MIGRATION_DRIVERS } from '@/lib/migrations/drivers';
 import { loadMigrations, useMigrationsStore } from '@/lib/migrations/migrationsStore';
 import {
   buildMigrationFilename,
@@ -22,6 +30,8 @@ import {
   serializeMigration,
   slugify,
 } from '@/lib/migrations/parse';
+import { compareSnapshots, type SchemaDelta } from '@/lib/migrations/schemaCompare';
+import { captureSnapshot, generateMigration } from '@/lib/migrations/schemaDiff';
 import { notify } from '@/lib/notify';
 import { confirmDialog } from '@/lib/stores/confirmStore';
 import {
@@ -34,35 +44,22 @@ import {
   wsWriteMigration,
 } from '@/lib/tauri';
 import { cn } from '@/lib/utils';
+import { useLicense } from '@/providers/LicenseProvider';
 import { useWorkspace } from '@/providers/WorkspaceProvider';
+import { SchemaDeltaView } from './SchemaDeltaView';
 
 interface MigrationsPanelProps {
   sessionId?: string;
+  connectionId?: string;
   database?: string;
   driver?: string;
   environment?: string;
   readOnly?: boolean;
 }
 
-// Drivers whose raw-SQL DDL the runner can apply. Excludes document/KV/search
-// stores and ClickHouse (non-standard transactions/DDL).
-const MIGRATION_DRIVERS = new Set([
-  'postgres',
-  'cockroachdb',
-  'mysql',
-  'mariadb',
-  'sqlite',
-  'duckdb',
-  'sqlserver',
-  'timescaledb',
-  'supabase',
-  'neon',
-]);
-// DDL auto-commits here, so a failed migration can't be fully rolled back.
-const NON_TX_DDL_DRIVERS = new Set(['mysql', 'mariadb']);
-
 export function MigrationsPanel({
   sessionId,
+  connectionId,
   database,
   driver,
   environment,
@@ -70,6 +67,7 @@ export function MigrationsPanel({
 }: MigrationsPanelProps) {
   const { t } = useTranslation();
   const { activeWorkspace, projectId } = useWorkspace();
+  const { isFeatureEnabled } = useLicense();
   const migrations = useMigrationsStore(s => s.migrations);
   const isLoading = useMigrationsStore(s => s.isLoading);
 
@@ -79,15 +77,29 @@ export function MigrationsPanel({
   const [detail, setDetail] = useState<{ up: string; down: string } | null>(null);
   const [statusByVersion, setStatusByVersion] = useState<Record<string, MigrationStatusEntry>>({});
   const [applying, setApplying] = useState<string | null>(null);
+  const [capturing, setCapturing] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [checkingDrift, setCheckingDrift] = useState(false);
+  const [driftReport, setDriftReport] = useState<SchemaDelta | null>(null);
 
   const isDefault = activeWorkspace == null || activeWorkspace.source === 'default';
-  const driverSupported = driver != null && MIGRATION_DRIVERS.has(driver);
+  const driverSupported = driver != null && SCHEMA_MIGRATION_DRIVERS.has(driver);
   const canApply = !!sessionId && driverSupported && !readOnly;
+  // Schema-diff generation only writes migration files, so read-only is fine.
+  // Baselines/drift need a workspace-stable connection id to persist under.
+  const schemaDiffAvailable = !!sessionId && !!connectionId && driverSupported;
+  const hasSchemaDiff = isFeatureEnabled('schema_diff');
+  const canGenerate = schemaDiffAvailable && hasSchemaDiff;
+  const baseline = useBaseline(connectionId ?? null, database);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: `projectId` is intentional — reload migrations when switching between file-based workspaces (isDefault stays false)
   useEffect(() => {
     if (!isDefault) void loadMigrations();
   }, [isDefault, projectId]);
+
+  useEffect(() => {
+    if (connectionId) void loadBaselineFile(connectionId);
+  }, [connectionId]);
 
   const refreshStatus = useCallback(async () => {
     if (!sessionId) {
@@ -202,6 +214,98 @@ export function MigrationsPanel({
     [sessionId, database, environment, refreshStatus, t]
   );
 
+  const handleCaptureBaseline = useCallback(async () => {
+    if (!sessionId || !connectionId || !driverSupported) return;
+    setCapturing(true);
+    try {
+      const { snapshot, failedTables } = await captureSnapshot(
+        sessionId,
+        driver as Driver,
+        database
+      );
+      await saveBaseline(connectionId, database, snapshot);
+      if (failedTables.length > 0) {
+        notify.warning(t('migrations.captureIncomplete', { count: failedTables.length }));
+      } else {
+        notify.success(t('migrations.baselineCaptured'));
+      }
+    } catch (err) {
+      notify.error(t('common.unknownError'), err);
+    } finally {
+      setCapturing(false);
+    }
+  }, [sessionId, connectionId, driverSupported, driver, database, t]);
+
+  const handleGenerate = useCallback(async () => {
+    if (!sessionId || !connectionId || !driverSupported || !baseline) return;
+    setGenerating(true);
+    try {
+      const { snapshot: live, failedTables } = await captureSnapshot(
+        sessionId,
+        driver as Driver,
+        database
+      );
+      // An incomplete capture would make missing tables look dropped and emit
+      // destructive DROP statements — refuse to generate from a partial snapshot.
+      if (failedTables.length > 0) {
+        notify.error(t('migrations.generateIncomplete', { count: failedTables.length }));
+        return;
+      }
+      const result = generateMigration(baseline, live, driver as Driver);
+      if (result.isEmpty) {
+        notify.info(t('migrations.noChanges'));
+        return;
+      }
+      const filename = buildMigrationFilename(
+        nextVersion(migrations ?? []),
+        slugify('schema_changes')
+      );
+      const ok = await wsWriteMigration(filename, serializeMigration(result.up, result.down));
+      if (!ok) {
+        notify.error(t('migrations.requiresWorkspace'));
+        return;
+      }
+      await loadMigrations();
+      setSelected(filename);
+      setDriftReport(null);
+      // Adopt the live schema as the new baseline so the same delta isn't re-emitted.
+      await saveBaseline(connectionId, database, live);
+      if (result.hasIrreversible) {
+        notify.warning(t('migrations.generatedIrreversible'));
+      } else {
+        notify.success(t('migrations.generated'));
+      }
+    } catch (err) {
+      notify.error(t('common.unknownError'), err);
+    } finally {
+      setGenerating(false);
+    }
+  }, [sessionId, connectionId, driverSupported, driver, database, baseline, migrations, t]);
+
+  const handleCheckDrift = useCallback(async () => {
+    if (!sessionId || !driverSupported || !baseline) return;
+    setCheckingDrift(true);
+    try {
+      const { snapshot: live, failedTables } = await captureSnapshot(
+        sessionId,
+        driver as Driver,
+        database
+      );
+      if (failedTables.length > 0) {
+        notify.warning(t('migrations.captureIncomplete', { count: failedTables.length }));
+      }
+      // Skip tables that failed to describe so a transient failure isn't reported as a drop.
+      const delta = compareSnapshots(baseline, live, { ignoreKeys: new Set(failedTables) });
+      setSelected(null);
+      setDriftReport(delta);
+      if (!delta.hasChanges) notify.success(t('migrations.driftNone'));
+    } catch (err) {
+      notify.error(t('common.unknownError'), err);
+    } finally {
+      setCheckingDrift(false);
+    }
+  }, [sessionId, driverSupported, driver, database, baseline, t]);
+
   if (isDefault) {
     return (
       <div className="flex-1 min-h-0 flex flex-col items-center justify-center gap-2 p-8 text-center">
@@ -246,6 +350,52 @@ export function MigrationsPanel({
           {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
           {t('migrations.create')}
         </Button>
+        {canGenerate && (
+          <div className="flex items-center gap-1 pl-1 ml-1 border-l border-border">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void handleCaptureBaseline()}
+              disabled={capturing}
+              title={t('migrations.captureBaselineHint')}
+            >
+              {capturing ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Camera className="w-4 h-4" />
+              )}
+              {baseline ? t('migrations.recaptureBaseline') : t('migrations.captureBaseline')}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void handleGenerate()}
+              disabled={!baseline || generating}
+              title={t('migrations.generateHint')}
+            >
+              {generating ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Wand2 className="w-4 h-4" />
+              )}
+              {t('migrations.generate')}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void handleCheckDrift()}
+              disabled={!baseline || checkingDrift}
+              title={t('migrations.driftCheckHint')}
+            >
+              {checkingDrift ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <ScanSearch className="w-4 h-4" />
+              )}
+              {t('migrations.driftCheck')}
+            </Button>
+          </div>
+        )}
         <Button
           variant="ghost"
           size="sm"
@@ -258,6 +408,27 @@ export function MigrationsPanel({
           <RefreshCw className={cn('w-4 h-4', isLoading && 'animate-spin')} />
         </Button>
       </div>
+
+      {schemaDiffAvailable && !hasSchemaDiff && (
+        <div className="px-4 py-2 border-b border-border">
+          <UpgradePrompt
+            feature="schema_diff"
+            variant="compact"
+            source="migrations"
+            hideIfDismissed
+          />
+        </div>
+      )}
+
+      {canGenerate && baseline && (
+        <div className="flex items-center gap-2 px-4 py-2 text-xs bg-muted/40 text-muted-foreground border-b border-border">
+          <Camera className="w-3.5 h-3.5 shrink-0" />
+          {t('migrations.baselineInfo', {
+            time: new Date(baseline.capturedAt).toLocaleTimeString(),
+            count: Object.keys(baseline.tables).length,
+          })}
+        </div>
+      )}
 
       {canApply && NON_TX_DDL_DRIVERS.has(driver ?? '') && (
         <div className="flex items-center gap-2 px-4 py-2 text-xs bg-amber-500/10 text-amber-700 dark:text-amber-400 border-b border-border">
@@ -287,7 +458,10 @@ export function MigrationsPanel({
                 >
                   <button
                     type="button"
-                    onClick={() => setSelected(m.filename)}
+                    onClick={() => {
+                      setSelected(m.filename);
+                      setDriftReport(null);
+                    }}
                     className="flex-1 min-w-0 text-left px-3 py-2 flex items-center gap-2 hover:bg-muted/50"
                   >
                     <span className="font-mono text-xs text-muted-foreground">{m.version}</span>
@@ -331,7 +505,22 @@ export function MigrationsPanel({
         </div>
 
         <div className="flex-1 min-w-0 overflow-y-auto p-4">
-          {detail == null ? (
+          {driftReport ? (
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold">{t('migrations.driftTitle')}</h3>
+                <button
+                  type="button"
+                  onClick={() => setDriftReport(null)}
+                  title={t('migrations.close')}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <SchemaDeltaView delta={driftReport} />
+            </div>
+          ) : detail == null ? (
             <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
               {t('migrations.selectHint')}
             </div>

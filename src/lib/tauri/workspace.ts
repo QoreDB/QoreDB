@@ -111,3 +111,18 @@ export async function wsWriteMigration(filename: string, content: string): Promi
 export async function wsDeleteMigration(filename: string): Promise<boolean> {
   return invoke('ws_delete_migration', { filename });
 }
+
+/** Reads a connection's raw baseline file. Null if the workspace is the default or none exists. */
+export async function wsReadBaseline(connectionId: string): Promise<string | null> {
+  return invoke('ws_read_baseline', { connectionId });
+}
+
+/** Writes a connection's baseline file. False if the workspace is the default. */
+export async function wsWriteBaseline(connectionId: string, content: string): Promise<boolean> {
+  return invoke('ws_write_baseline', { connectionId, content });
+}
+
+/** Deletes a connection's baseline file. False if the workspace is the default or absent. */
+export async function wsDeleteBaseline(connectionId: string): Promise<boolean> {
+  return invoke('ws_delete_baseline', { connectionId });
+}

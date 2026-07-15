@@ -8,6 +8,7 @@ export type TabKind =
   | 'database'
   | 'settings'
   | 'diff'
+  | 'schema-diff'
   | 'federation'
   | 'snapshots'
   | 'notebook'

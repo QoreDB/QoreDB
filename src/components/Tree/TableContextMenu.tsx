@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import {
+  Columns3,
   Eraser,
   Eye,
   FileUp,
@@ -38,6 +39,7 @@ import { useWorkspace } from '@/providers/WorkspaceProvider';
 import { invalidateCollectionsCache, invalidateTableSchemaCache } from '../../hooks/useSchemaCache';
 import { isDocumentDatabase } from '../../lib/connection/driverCapabilities';
 import type { Driver } from '../../lib/connection/drivers';
+import { SCHEMA_MIGRATION_DRIVERS } from '../../lib/migrations/drivers';
 import { notify } from '../../lib/notify';
 import {
   type Collection,
@@ -60,6 +62,7 @@ interface TableContextMenuProps {
   onRefresh: () => void;
   onOpen: () => void;
   onCompareWith?: (collection: Collection, targetConnectionId?: string) => void;
+  onSchemaDiff?: (collection: Collection, targetConnectionId: string) => void;
   onAiGenerate?: (collection: Collection) => void;
   onNewQuery?: (collection: Collection) => void;
   onVirtualRelationChanged?: () => void;
@@ -160,6 +163,7 @@ export function TableContextMenu({
   onRefresh,
   onOpen,
   onCompareWith,
+  onSchemaDiff,
   onAiGenerate,
   onNewQuery,
   onVirtualRelationChanged,
@@ -315,6 +319,22 @@ export function TableContextMenu({
                   driver={driver}
                   currentConnectionId={connectionId}
                   onSelect={connectionId => onCompareWith(collection, connectionId)}
+                />
+              </ContextMenuSubContent>
+            </ContextMenuSub>
+          )}
+
+          {onSchemaDiff && SCHEMA_MIGRATION_DRIVERS.has(driver) && (
+            <ContextMenuSub>
+              <ContextMenuSubTrigger>
+                <Columns3 size={14} className="mr-2" />
+                {t('schemaDiff.compareSchema')}
+              </ContextMenuSubTrigger>
+              <ContextMenuSubContent className="w-56">
+                <CompareTargets
+                  driver={driver}
+                  currentConnectionId={connectionId}
+                  onSelect={connectionId => onSchemaDiff(collection, connectionId)}
                 />
               </ContextMenuSubContent>
             </ContextMenuSub>

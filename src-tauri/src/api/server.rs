@@ -73,6 +73,7 @@ pub struct ApiServer {
     sessions: Arc<Mutex<HashMap<String, qore_core::types::SessionId>>>,
     project_id: String,
     storage_dir: PathBuf,
+    workspace_connections_dir: Option<PathBuf>,
 }
 
 impl ApiServer {
@@ -81,6 +82,7 @@ impl ApiServer {
         session_manager: Arc<SessionManager>,
         project_id: String,
         storage_dir: PathBuf,
+        workspace_connections_dir: Option<PathBuf>,
     ) -> Self {
         Self {
             inner: Mutex::new(None),
@@ -90,6 +92,7 @@ impl ApiServer {
             sessions: Arc::new(Mutex::new(HashMap::new())),
             project_id,
             storage_dir,
+            workspace_connections_dir,
         }
     }
 
@@ -150,6 +153,7 @@ impl ApiServer {
             sessions: Arc::clone(&self.sessions),
             project_id: self.project_id.clone(),
             storage_dir: self.storage_dir.clone(),
+            workspace_connections_dir: self.workspace_connections_dir.clone(),
             started_at: Arc::clone(&started_at),
         };
 
@@ -310,6 +314,7 @@ mod tests {
             mock_session_manager(),
             "test".into(),
             tmp.path().to_path_buf(),
+            None,
         );
         let addr = server.start(Some(0)).await.unwrap();
         assert!(addr.ip().is_loopback());
@@ -327,6 +332,7 @@ mod tests {
             mock_session_manager(),
             "test".into(),
             tmp.path().to_path_buf(),
+            None,
         );
         server.start(Some(0)).await.unwrap();
         let err = server.start(Some(0)).await.unwrap_err();
@@ -342,6 +348,7 @@ mod tests {
             mock_session_manager(),
             "test".into(),
             tmp.path().to_path_buf(),
+            None,
         );
         let err = server.stop().await.unwrap_err();
         assert!(matches!(err, ServerError::NotRunning));

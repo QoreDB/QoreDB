@@ -436,6 +436,10 @@ pub fn run() {
             // Migration runner commands
             commands::migrations::apply_migration,
             commands::migrations::get_migration_status,
+            // Schema baseline commands (drift reference)
+            commands::workspace_baselines::ws_read_baseline,
+            commands::workspace_baselines::ws_write_baseline,
+            commands::workspace_baselines::ws_delete_baseline,
             // Plugin system commands
             commands::plugins::list_plugins,
             commands::plugins::install_plugin,

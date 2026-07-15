@@ -194,9 +194,10 @@ pub async fn import_default_connections(
         .list_connections_full()
         .map_err(|e| e.sanitized_message())?;
 
+    let project_id = mgr.project_id();
     let ws_store = WorkspaceConnectionStore::new(
         ws.path.join("connections"),
-        format!("qoredb_{}", mgr.project_id()),
+        format!("qoredb_{}", project_id),
         Box::new(KeyringProvider::new()),
     );
 
@@ -207,7 +208,11 @@ pub async fn import_default_connections(
             Ok(c) => c,
             Err(_) => continue,
         };
-        if ws_store.save_connection(conn, &creds).is_ok() {
+        // Re-tag the connection with the target workspace so later lookups
+        // (connect, backup) don't reject it as a foreign project.
+        let mut conn = conn.clone();
+        conn.project_id = project_id.clone();
+        if ws_store.save_connection(&conn, &creds).is_ok() {
             imported += 1;
         }
     }

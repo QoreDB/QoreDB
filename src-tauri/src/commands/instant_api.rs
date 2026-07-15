@@ -70,9 +70,15 @@ pub async fn start_instant_api(
     port: Option<u16>,
     tls: Option<bool>,
 ) -> Result<InstantApiStatus, String> {
-    let project_id = {
+    let (project_id, workspace_connections_dir) = {
         let mgr = ws_manager.lock().await;
-        mgr.project_id()
+        let ws = mgr.active();
+        let dir = if ws.source == crate::workspace::WorkspaceSource::Default {
+            None
+        } else {
+            Some(ws.path.join("connections"))
+        };
+        (mgr.project_id(), dir)
     };
     let storage_dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
     let session_manager = {
@@ -90,6 +96,7 @@ pub async fn start_instant_api(
         session_manager,
         project_id,
         storage_dir,
+        workspace_connections_dir,
     ));
     server
         .start_with_tls(port, tls.unwrap_or(false))

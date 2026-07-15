@@ -1090,9 +1090,21 @@ function OverviewTabContent({
     return <ErrorBanner message={error} />;
   }
 
+  // Column count must match the number of visible cards (size and index are
+  // optional) so the row fills the full width and its right edge lines up with
+  // the content grid below.
+  const visibleStatCount =
+    1 + (stats.sizeFormatted ? 1 : 0) + (stats.indexCount !== undefined ? 1 : 0);
+  const statGridClass =
+    visibleStatCount >= 3
+      ? 'md:grid-cols-3'
+      : visibleStatCount === 2
+        ? 'md:grid-cols-2'
+        : 'md:grid-cols-1';
+
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className={`grid grid-cols-2 ${statGridClass} gap-4`}>
         {stats.sizeFormatted && (
           <StatCard
             icon={<HardDrive size={16} />}

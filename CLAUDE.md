@@ -219,6 +219,15 @@ The following files are currently marked Premium (`BUSL-1.1`), grouped by module
 - `src/lib/query/indexSuggestions.ts`
 - `src/components/Results/IndexSuggestions.tsx`
 
+#### Schema Diff (Migrations generation, drift, Prod↔Staging)
+
+- `src/lib/migrations/schemaDiff.ts`
+- `src/lib/migrations/schemaCompare.ts`
+- `src/lib/migrations/baselineStore.ts`
+- `src/components/Migrations/SchemaDeltaView.tsx`
+- `src/components/Migrations/SchemaDiffViewer.tsx`
+- `src-tauri/src/commands/workspace_baselines.rs`
+
 Everything else is Core by default (`Apache-2.0`), unless explicitly decided otherwise.
 
 ### When you create/move a file

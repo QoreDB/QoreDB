@@ -228,7 +228,7 @@ pub async fn connect_saved_connection(
     match qore_service::connection::connect(&session_manager, config).await {
         Ok(session_id) => {
             session_manager
-                .set_display_name(session_id, connection_name)
+                .set_saved_connection_identity(session_id, connection_id.clone(), connection_name)
                 .await;
             Ok(ConnectionResponse {
                 success: true,

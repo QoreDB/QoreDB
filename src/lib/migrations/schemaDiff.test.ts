@@ -81,6 +81,30 @@ describe('generateMigration', () => {
     expect(res.warnings.map(w => w.code)).toContain('sqlite.alterColumnUnsupported');
   });
 
+  it('refuses a SQLite table mixing expressible and inexpressible changes', () => {
+    // ADD COLUMN works on SQLite; changing a column's type does not. Emitting
+    // only the half that compiles would ship a silently incomplete migration.
+    const before = snap(
+      { [KEY]: def({ columns: [col('id', { type: 'integer' })] }) },
+      Driver.Sqlite
+    );
+    const after = snap(
+      { [KEY]: def({ columns: [col('id', { type: 'text' }), col('email', { type: 'text' })] }) },
+      Driver.Sqlite
+    );
+    const res = generateMigration(before, after, Driver.Sqlite);
+
+    expect(res.up).toContain('ADD COLUMN');
+    expect(res.isEmpty).toBe(false);
+    expect(res.unexpressed.map(o => o.kind)).toEqual(['change_type']);
+  });
+
+  it('reports no unexpressed ops when the dialect covers everything', () => {
+    const before = snap({ [KEY]: def({ columns: [col('id', { type: 'integer' })] }) });
+    const after = snap({ [KEY]: def({ columns: [col('id', { type: 'bigint' })] }) });
+    expect(generateMigration(before, after, Driver.Postgres).unexpressed).toEqual([]);
+  });
+
   it('normalizes motherduck to the duckdb dialect', () => {
     const before = snap({ [KEY]: def({ columns: [col('id')] }) }, Driver.Motherduck);
     const after = snap({ [KEY]: def({ columns: [col('id'), col('n')] }) }, Driver.Motherduck);

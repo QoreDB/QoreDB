@@ -3,7 +3,9 @@
 import { invoke } from '@/lib/transport';
 
 export type MigrationDirection = 'up' | 'down';
-export type MigrationRunStatus = 'applied' | 'pending' | 'rolled_back';
+/** `failed` means a run died part-way and the driver could not undo it, so the
+ *  schema is neither migrated nor untouched. */
+export type MigrationRunStatus = 'applied' | 'pending' | 'rolled_back' | 'failed';
 
 export interface MigrationStatusEntry {
   version: string;
@@ -24,8 +26,10 @@ export type MigrationBlockReason =
   | 'checksum_mismatch'
   | 'concurrent_apply'
   | 'duplicate_version'
+  | 'malformed_version'
   | 'unsplittable_script'
-  | 'safety_blocked';
+  | 'safety_blocked'
+  | 'partially_applied';
 
 export interface ApplyMigrationResponse {
   success: boolean;

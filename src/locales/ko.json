@@ -2638,7 +2638,10 @@
     "forceApply": "강제 실행",
     "duplicateVersion": "중복된 버전",
     "malformed": "잘못된 파일 이름",
-    "pkLabel": "기본 키"
+    "pkLabel": "기본 키",
+    "statusFailed": "실패",
+    "partiallyApplied": "마이그레이션이 부분적으로 적용됨",
+    "partiallyAppliedWarning": "이 드라이버는 DDL을 암시적으로 커밋하므로 이미 실행된 문을 되돌릴 수 없습니다. 강제하기 전에 스키마를 확인하세요."
   },
   "snapshots": {
     "title": "스냅샷",

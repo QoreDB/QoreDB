@@ -9,9 +9,9 @@
 //! Design notes:
 //! - **Best-effort** : never blocks the mutation. Failures are logged and
 //!   swallowed.
-//! - **Same dialect only** : we filter contracts by `target.table` and (when
-//!   present) `target.schema`. The connection match is enforced implicitly
-//!   because we run on the session that just performed the mutation.
+//! - **Exact connection** : candidates must match the saved connection id (or
+//!   its display name for compatibility with early contract files), plus
+//!   `target.table` and the optional `target.schema`.
 //! - **Samples off** : `collect_samples: false` to avoid extra round-trips.
 //!   The Contracts panel can still gather samples on explicit runs.
 //! - **No event flood** : the per-rule progress events are suppressed by
@@ -68,12 +68,19 @@ async fn run_check(
     schema: Option<String>,
     table: String,
 ) -> Result<(), String> {
-    let (session_manager, connection_id) = resolve_session(&app, session_id).await?;
+    let (session_manager, connection_id, connection_name) =
+        resolve_session(&app, session_id).await?;
     let Some(workspace_root) = resolve_workspace_root(&app).await else {
         return Ok(());
     };
 
-    let candidates = collect_candidate_contracts(&workspace_root, &table, schema.as_deref());
+    let candidates = collect_candidate_contracts(
+        &workspace_root,
+        &connection_id,
+        &connection_name,
+        &table,
+        schema.as_deref(),
+    );
     if candidates.is_empty() {
         return Ok(());
     }
@@ -129,16 +136,18 @@ async fn run_check(
 async fn resolve_session(
     app: &AppHandle,
     session_id: SessionId,
-) -> Result<(Arc<SessionManager>, String), String> {
+) -> Result<(Arc<SessionManager>, String, String), String> {
     let state = app.state::<crate::SharedState>();
     let guard = state.lock().await;
     let session_manager = Arc::clone(&guard.session_manager);
     drop(guard);
-    let connection_id = session_manager
-        .get_session_info(session_id)
+    let (connection_id, connection_name) = session_manager
+        .get_saved_connection_identity(session_id)
         .await
-        .unwrap_or_else(|| session_id.0.to_string());
-    Ok((session_manager, connection_id))
+        .ok_or_else(|| {
+            "contract alert skipped: session is not associated with a saved connection".to_string()
+        })?;
+    Ok((session_manager, connection_id, connection_name))
 }
 
 async fn resolve_workspace_root(app: &AppHandle) -> Option<PathBuf> {
@@ -152,6 +161,8 @@ async fn resolve_workspace_root(app: &AppHandle) -> Option<PathBuf> {
 /// and schema, mirroring how SQL identifiers are emitted by `sql::dialect`.
 fn collect_candidate_contracts(
     workspace_root: &std::path::Path,
+    connection_id: &str,
+    connection_name: &str,
     table: &str,
     schema: Option<&str>,
 ) -> Vec<(String, Contract)> {
@@ -169,6 +180,11 @@ fn collect_candidate_contracts(
             Ok(c) => c,
             Err(_) => continue,
         };
+        if contract.target.connection != connection_id
+            && contract.target.connection != connection_name
+        {
+            continue;
+        }
         if contract.target.table != table {
             continue;
         }
@@ -333,20 +349,35 @@ rules:
     type: not_empty
     column: id
 "#;
+        let yaml_d = r#"name: d
+version: 1
+target:
+  connection: other_connection
+  schema: public
+  table: orders
+rules:
+  - id: r1
+    type: not_empty
+    column: id
+"#;
         storage::save_contract_source(tmp.path(), "a", yaml_a).unwrap();
         storage::save_contract_source(tmp.path(), "b", yaml_b).unwrap();
         storage::save_contract_source(tmp.path(), "c", yaml_c).unwrap();
+        storage::save_contract_source(tmp.path(), "d", yaml_d).unwrap();
 
-        let matches = collect_candidate_contracts(tmp.path(), "orders", Some("public"));
+        let matches =
+            collect_candidate_contracts(tmp.path(), "c", "Connection C", "orders", Some("public"));
         let names: Vec<_> = matches.iter().map(|(n, _)| n.clone()).collect();
         assert_eq!(names, vec!["a".to_string()]);
 
-        let matches_no_schema = collect_candidate_contracts(tmp.path(), "orders", None);
+        let matches_no_schema =
+            collect_candidate_contracts(tmp.path(), "c", "Connection C", "orders", None);
         let names: Vec<_> = matches_no_schema.iter().map(|(n, _)| n.clone()).collect();
         // When no schema filter, both a (schema=public) and b (schema=analytics) match.
         assert!(names.contains(&"a".to_string()));
         assert!(names.contains(&"b".to_string()));
         assert!(!names.contains(&"c".to_string()));
+        assert!(!names.contains(&"d".to_string()));
 
         // Reference unused-import guard
         let _ = ContractTarget {

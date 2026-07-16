@@ -10,7 +10,7 @@ use std::sync::{Arc, Mutex, OnceLock};
 use qore_core::{DataEngine, SessionId};
 use qore_service::interceptor::{
     map_environment, Environment, InterceptorPipeline, QueryContext, QueryExecutionResult,
-    SafetyAction,
+    QueryOperationType, SafetyAction,
 };
 use qore_service::policy::SafetyPolicy;
 use serde::Serialize;
@@ -43,8 +43,11 @@ pub enum MigrationBlockReason {
     ChecksumMismatch,
     ConcurrentApply,
     DuplicateVersion,
+    MalformedVersion,
     UnsplittableScript,
     SafetyBlocked,
+    /// A run died part-way and the driver could not undo it.
+    PartiallyApplied,
 }
 
 #[derive(Debug, Serialize)]
@@ -128,6 +131,26 @@ fn is_sqlserver(driver_id: &str) -> bool {
     matches!(driver_id, "sqlserver" | "mssql")
 }
 
+/// Whether DDL participates in transactions. `DataEngine::supports_transactions`
+/// answers a different question — MySQL reports `true` for DML but commits DDL
+/// implicitly, so a `ROLLBACK` after a failed `ALTER` undoes nothing.
+fn has_transactional_ddl(driver_id: &str) -> bool {
+    !matches!(driver_id, "mysql" | "mariadb")
+}
+
+/// Whether a statement implicitly commits on the non-transactional-DDL drivers.
+fn is_ddl(op: QueryOperationType) -> bool {
+    matches!(
+        op,
+        QueryOperationType::Create
+            | QueryOperationType::Alter
+            | QueryOperationType::Drop
+            | QueryOperationType::Truncate
+            | QueryOperationType::Grant
+            | QueryOperationType::Revoke
+    )
+}
+
 /// DDL to create the history table if absent. Portable across the SQL drivers
 /// except SQL Server, which lacks `CREATE TABLE IF NOT EXISTS`.
 fn history_table_ddl(driver_id: &str) -> String {
@@ -136,13 +159,13 @@ fn history_table_ddl(driver_id: &str) -> String {
             "IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = '{HISTORY_TABLE}') \
              CREATE TABLE {HISTORY_TABLE} (version NVARCHAR(255) PRIMARY KEY, name NVARCHAR(MAX) NOT NULL, \
              checksum NVARCHAR(255) NOT NULL, applied_at NVARCHAR(64) NOT NULL, applied_by NVARCHAR(255), \
-             execution_ms BIGINT, rolled_back_at NVARCHAR(64))"
+             execution_ms BIGINT, rolled_back_at NVARCHAR(64), failed_at NVARCHAR(64))"
         )
     } else {
         format!(
             "CREATE TABLE IF NOT EXISTS {HISTORY_TABLE} (version VARCHAR(255) PRIMARY KEY, name TEXT NOT NULL, \
              checksum TEXT NOT NULL, applied_at VARCHAR(64) NOT NULL, applied_by TEXT, \
-             execution_ms BIGINT, rolled_back_at VARCHAR(64))"
+             execution_ms BIGINT, rolled_back_at VARCHAR(64), failed_at VARCHAR(64))"
         )
     }
 }
@@ -153,11 +176,30 @@ pub(crate) struct HistoryRow {
     pub checksum: String,
     pub applied_at: Option<String>,
     pub rolled_back_at: Option<String>,
+    /// Set when a run failed and the driver could not roll it back, so the
+    /// schema is in an unknown half-migrated state.
+    pub failed_at: Option<String>,
+}
+
+/// The three states a recorded migration can be in. `failed` wins over
+/// `rolled_back`: a rollback that died part-way sets both, and the unknown
+/// schema state is what matters.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum HistoryState {
+    Applied,
+    RolledBack,
+    Failed,
 }
 
 impl HistoryRow {
-    fn is_applied(&self) -> bool {
-        self.rolled_back_at.is_none()
+    pub(crate) fn state(&self) -> HistoryState {
+        if self.failed_at.is_some() {
+            HistoryState::Failed
+        } else if self.rolled_back_at.is_some() {
+            HistoryState::RolledBack
+        } else {
+            HistoryState::Applied
+        }
     }
 }
 
@@ -189,48 +231,54 @@ pub(crate) fn check_guard(
         overridable,
     };
 
-    match (is_up, row) {
-        (true, None) => Ok(()),
-        (true, Some(r)) if r.is_applied() => {
-            if checksum_ok {
-                Err(GuardRefusal {
-                    reason: MigrationBlockReason::AlreadyApplied,
-                    message: "This migration is already applied.".to_string(),
-                    overridable: false,
-                })
-            } else {
-                // Forcing would re-run an edited `up` over a schema it no longer
-                // describes. A new migration is the only safe repair.
-                Err(drift(false))
-            }
-        }
-        (true, Some(_)) => {
-            // Rolled back: re-applying is legitimate.
-            if checksum_ok || force {
-                Ok(())
-            } else {
-                Err(drift(true))
-            }
-        }
-        (false, None) => Err(GuardRefusal {
-            reason: MigrationBlockReason::NotApplied,
-            message: "This migration was never applied, so there is nothing to roll back."
+    let Some(row) = row else {
+        return if is_up {
+            Ok(())
+        } else {
+            Err(GuardRefusal {
+                reason: MigrationBlockReason::NotApplied,
+                message: "This migration was never applied, so there is nothing to roll back."
+                    .to_string(),
+                overridable: false,
+            })
+        };
+    };
+
+    match (row.state(), is_up) {
+        // A run died part-way on a driver that could not roll it back, so the
+        // schema is in an unknown state. Neither direction is safe until a human
+        // has looked; forcing declares the database cleaned up by hand.
+        (HistoryState::Failed, _) if !force => Err(GuardRefusal {
+            reason: MigrationBlockReason::PartiallyApplied,
+            message: "A previous run of this migration failed part-way and could not be rolled \
+                      back, so the schema state is unknown. Inspect the database, fix it by \
+                      hand, then force to proceed."
                 .to_string(),
+            overridable: true,
+        }),
+        (HistoryState::Failed, _) => Ok(()),
+
+        (HistoryState::Applied, true) if checksum_ok => Err(GuardRefusal {
+            reason: MigrationBlockReason::AlreadyApplied,
+            message: "This migration is already applied.".to_string(),
             overridable: false,
         }),
-        (false, Some(r)) if !r.is_applied() => Err(GuardRefusal {
+        // Forcing would re-run an edited `up` over a schema it no longer
+        // describes. A new migration is the only safe repair.
+        (HistoryState::Applied, true) => Err(drift(false)),
+
+        (HistoryState::Applied, false) if checksum_ok || force => Ok(()),
+        // The `down` on disk may not undo what the `up` actually did.
+        (HistoryState::Applied, false) => Err(drift(true)),
+
+        // Rolled back: re-applying is legitimate.
+        (HistoryState::RolledBack, true) if checksum_ok || force => Ok(()),
+        (HistoryState::RolledBack, true) => Err(drift(true)),
+        (HistoryState::RolledBack, false) => Err(GuardRefusal {
             reason: MigrationBlockReason::AlreadyRolledBack,
             message: "This migration is already rolled back.".to_string(),
             overridable: false,
         }),
-        (false, Some(_)) => {
-            if checksum_ok || force {
-                Ok(())
-            } else {
-                // The `down` on disk may not undo what the `up` actually did.
-                Err(drift(true))
-            }
-        }
     }
 }
 
@@ -303,7 +351,7 @@ async fn read_history_row(
     version: &str,
 ) -> Result<Option<HistoryRow>, String> {
     let sql = format!(
-        "SELECT checksum, applied_at, rolled_back_at FROM {HISTORY_TABLE} WHERE version = {}",
+        "SELECT checksum, applied_at, rolled_back_at, failed_at FROM {HISTORY_TABLE} WHERE version = {}",
         sql_str(version)
     );
     let result = driver
@@ -317,6 +365,7 @@ async fn read_history_row(
             checksum: cell(0).unwrap_or_default(),
             applied_at: cell(1),
             rolled_back_at: cell(2),
+            failed_at: cell(3),
         }
     }))
 }
@@ -463,7 +512,13 @@ pub(crate) async fn run_migration(run: MigrationRun<'_>) -> ApplyMigrationRespon
         return blocked(refusal.reason, refusal.message, refusal.overridable);
     }
 
-    let supports_tx = driver.supports_transactions_for_session(run.session).await;
+    // A transaction only protects this run if the driver can also roll DDL back.
+    // MySQL reports transaction support but commits DDL implicitly, so wrapping a
+    // DDL migration in BEGIN/ROLLBACK would undo nothing while looking like it did.
+    let has_ddl = planned.iter().any(|(_, _, ctx, _)| is_ddl(ctx.operation_type));
+    let supports_tx = driver.supports_transactions_for_session(run.session).await
+        && (has_transactional_ddl(&driver_id) || !has_ddl);
+
     if supports_tx {
         if let Err(e) = driver.begin_transaction(run.session).await {
             return fail(format!(
@@ -502,18 +557,28 @@ pub(crate) async fn run_migration(run: MigrationRun<'_>) -> ApplyMigrationRespon
                     warn.as_deref(),
                 );
                 if supports_tx {
+                    // The claim and every statement so far go away together.
                     let _ = driver.rollback(run.session).await;
                 } else {
-                    // No transaction to undo the claim — compensate explicitly so
-                    // a failed migration doesn't stay marked as applied.
+                    // Nothing can undo what already ran. Deleting the claim would
+                    // report "pending" over a half-migrated schema, so record the
+                    // failure instead and let a human resolve it.
                     let _ = driver
-                        .execute(run.session, &unclaim_sql(&run), QueryId::new())
+                        .execute(run.session, &mark_failed_sql(run.version, &now), QueryId::new())
                         .await;
                 }
                 return ApplyMigrationResponse {
                     success: false,
                     execution_ms: started.elapsed().as_millis() as u64,
-                    error: Some(msg),
+                    error: Some(if supports_tx {
+                        msg
+                    } else {
+                        format!(
+                            "{msg}\n\nThis driver commits DDL implicitly, so the statements that \
+                             already ran could not be undone. The migration is marked as failed: \
+                             check the schema before retrying."
+                        )
+                    }),
                     failed_statement: Some(index - 1),
                     blocked_reason: None,
                     overridable: false,
@@ -558,18 +623,14 @@ pub(crate) async fn run_migration(run: MigrationRun<'_>) -> ApplyMigrationRespon
     }
 }
 
-fn unclaim_sql(run: &MigrationRun<'_>) -> String {
-    if run.is_up {
-        format!(
-            "DELETE FROM {HISTORY_TABLE} WHERE version = {}",
-            sql_str(run.version)
-        )
-    } else {
-        format!(
-            "UPDATE {HISTORY_TABLE} SET rolled_back_at = NULL WHERE version = {}",
-            sql_str(run.version)
-        )
-    }
+/// Marks a run that could not be undone. The schema is neither migrated nor
+/// untouched, and saying either would be a lie.
+fn mark_failed_sql(version: &str, now: &str) -> String {
+    format!(
+        "UPDATE {HISTORY_TABLE} SET failed_at = {} WHERE version = {}",
+        sql_str(now),
+        sql_str(version)
+    )
 }
 
 /// Writes the history row before the script runs. A lost race surfaces as a
@@ -588,9 +649,11 @@ async fn claim(
     };
 
     if run.is_up {
-        // A rolled-back row is being re-applied: clear it so the insert can claim.
+        // Clear a row the guard already cleared us to reuse — rolled back, or
+        // failed and force-retried — so the insert can claim it.
         let del = format!(
-            "DELETE FROM {HISTORY_TABLE} WHERE version = {} AND rolled_back_at IS NOT NULL",
+            "DELETE FROM {HISTORY_TABLE} WHERE version = {} \
+             AND (rolled_back_at IS NOT NULL OR failed_at IS NOT NULL)",
             sql_str(run.version)
         );
         if let Err(e) = driver.execute(run.session, &del, QueryId::new()).await {
@@ -602,8 +665,8 @@ async fn claim(
         }
 
         let ins = format!(
-            "INSERT INTO {HISTORY_TABLE} (version, name, checksum, applied_at, applied_by, execution_ms, rolled_back_at) \
-             VALUES ({}, {}, {}, {}, {}, 0, NULL)",
+            "INSERT INTO {HISTORY_TABLE} (version, name, checksum, applied_at, applied_by, execution_ms, rolled_back_at, failed_at) \
+             VALUES ({}, {}, {}, {}, {}, 0, NULL, NULL)",
             sql_str(run.version),
             sql_str(run.name),
             sql_str(&checksum_v2(run.file_content)),
@@ -621,8 +684,10 @@ async fn claim(
         return Ok(());
     }
 
+    // Matches an applied row, or a failed one the guard cleared us to retry.
     let upd = format!(
-        "UPDATE {HISTORY_TABLE} SET rolled_back_at = {} WHERE version = {} AND rolled_back_at IS NULL",
+        "UPDATE {HISTORY_TABLE} SET rolled_back_at = {}, failed_at = NULL WHERE version = {} \
+         AND (rolled_back_at IS NULL OR failed_at IS NOT NULL)",
         sql_str(now),
         sql_str(run.version)
     );
@@ -678,17 +743,25 @@ pub async fn apply_migration(
 
     let summary = summarize(&filename);
 
-    // Two files sharing a version would share one history row, so neither's
-    // state could be tracked. Refuse before touching the database.
-    if lint_migrations(&siblings)
-        .iter()
-        .any(|issue| issue.affects_duplicate(&filename))
-    {
+    // The version prefix is the history table's primary key. A duplicate means
+    // two files share one row; a malformed name means the version — and so the
+    // ordering — is meaningless. Refuse before touching the database.
+    let issues = lint_migrations(&siblings);
+    if issues.iter().any(|i| i.affects_duplicate(&filename)) {
         return Ok(blocked(
             MigrationBlockReason::DuplicateVersion,
             format!(
                 "Version {} is used by more than one migration file. Renumber them before applying.",
                 summary.version
+            ),
+            false,
+        ));
+    }
+    if issues.iter().any(|i| i.affects_malformed(&filename)) {
+        return Ok(blocked(
+            MigrationBlockReason::MalformedVersion,
+            format!(
+                "`{filename}` must be named `<version>_<name>.sql`, e.g. 0001_create_users.sql."
             ),
             false,
         ));
@@ -824,10 +897,11 @@ pub async fn get_migration_status(
         .await
         .map_err(|e| e.sanitized_message())?;
 
-    // version -> (checksum, applied_at, rolled_back_at). Absent table => empty.
-    let history: HashMap<String, (String, Option<String>, Option<String>)> = {
-        let query =
-            format!("SELECT version, checksum, applied_at, rolled_back_at FROM {HISTORY_TABLE}");
+    // Absent table => nothing applied yet.
+    let history: HashMap<String, HistoryRow> = {
+        let query = format!(
+            "SELECT version, checksum, applied_at, rolled_back_at, failed_at FROM {HISTORY_TABLE}"
+        );
         match driver.execute(session, &query, QueryId::new()).await {
             Ok(result) => result
                 .rows
@@ -835,10 +909,15 @@ pub async fn get_migration_status(
                 .filter_map(|row| {
                     let cell = |i: usize| row.values.get(i).and_then(|v| v.as_text());
                     let version = cell(0)?.to_string();
-                    let cs = cell(1).unwrap_or("").to_string();
-                    let applied_at = cell(2).map(|s| s.to_string());
-                    let rolled_back = cell(3).map(|s| s.to_string());
-                    Some((version, (cs, applied_at, rolled_back)))
+                    Some((
+                        version,
+                        HistoryRow {
+                            checksum: cell(1).unwrap_or("").to_string(),
+                            applied_at: cell(2).map(|s| s.to_string()),
+                            rolled_back_at: cell(3).map(|s| s.to_string()),
+                            failed_at: cell(4).map(|s| s.to_string()),
+                        },
+                    ))
                 })
                 .collect(),
             Err(_) => HashMap::new(),
@@ -852,15 +931,21 @@ pub async fn get_migration_status(
             let duplicate_version = issues.iter().any(|i| i.affects_duplicate(filename));
             let malformed = issues.iter().any(|i| i.affects_malformed(filename));
             match history.get(&summary.version) {
-                Some((stored_checksum, applied_at, rolled_back)) => {
-                    let applied = rolled_back.is_none();
+                Some(row) => {
+                    let state = row.state();
                     MigrationStatusEntry {
                         version: summary.version,
                         name: summary.name,
                         filename: filename.clone(),
-                        status: if applied { "applied" } else { "rolled_back" }.to_string(),
-                        applied_at: applied_at.clone(),
-                        checksum_mismatch: applied && !checksum_matches(stored_checksum, content),
+                        status: match state {
+                            HistoryState::Applied => "applied",
+                            HistoryState::RolledBack => "rolled_back",
+                            HistoryState::Failed => "failed",
+                        }
+                        .to_string(),
+                        applied_at: row.applied_at.clone(),
+                        checksum_mismatch: state == HistoryState::Applied
+                            && !checksum_matches(&row.checksum, content),
                         duplicate_version,
                         malformed,
                     }
@@ -895,6 +980,14 @@ mod tests {
             checksum: checksum.to_string(),
             applied_at: Some("2026-01-01T00:00:00Z".to_string()),
             rolled_back_at: rolled_back.map(String::from),
+            failed_at: None,
+        }
+    }
+
+    fn failed_row(checksum: &str) -> HistoryRow {
+        HistoryRow {
+            failed_at: Some("2026-01-02T00:00:00Z".to_string()),
+            ..row(checksum, None)
         }
     }
 
@@ -906,19 +999,24 @@ mod tests {
         }
     }
 
-    /// A `SELECT checksum, applied_at, rolled_back_at` result for one migration.
-    fn history_result(checksum: &str, rolled_back: Option<&str>) -> QueryResult {
+    fn history_columns() -> Vec<ColumnInfo> {
+        vec![
+            text_col("checksum"),
+            text_col("applied_at"),
+            text_col("rolled_back_at"),
+            text_col("failed_at"),
+        ]
+    }
+
+    fn history_result(checksum: &str, rolled_back: Option<&str>, failed: Option<&str>) -> QueryResult {
         QueryResult {
-            columns: vec![
-                text_col("checksum"),
-                text_col("applied_at"),
-                text_col("rolled_back_at"),
-            ],
+            columns: history_columns(),
             rows: vec![Row {
                 values: vec![
                     Value::Text(checksum.into()),
                     Value::Text("2026-01-01T00:00:00Z".into()),
                     rolled_back.map_or(Value::Null, |s| Value::Text(s.into())),
+                    failed.map_or(Value::Null, |s| Value::Text(s.into())),
                 ],
             }],
             affected_rows: None,
@@ -928,11 +1026,7 @@ mod tests {
 
     fn empty_history() -> QueryResult {
         QueryResult {
-            columns: vec![
-                text_col("checksum"),
-                text_col("applied_at"),
-                text_col("rolled_back_at"),
-            ],
+            columns: history_columns(),
             rows: Vec::new(),
             affected_rows: None,
             execution_time_ms: 0.0,
@@ -1020,7 +1114,7 @@ mod tests {
     #[tokio::test]
     async fn up_already_applied_is_refused_without_touching_the_database() {
         let driver = Arc::new(MockDriver::new("postgres").with_transactions(true));
-        driver.add("SELECT checksum", history_result(&checksum_v2(FILE), None));
+        driver.add("SELECT checksum", history_result(&checksum_v2(FILE), None, None));
         driver.set_default(empty_result());
 
         let d = Arc::clone(&driver);
@@ -1084,27 +1178,113 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn failed_statement_without_transactions_compensates_the_claim() {
-        let driver = Arc::new(MockDriver::new("mysql"));
+    async fn mysql_ddl_migration_runs_without_a_transaction() {
+        // The real MySQL driver reports transaction support, but DDL commits
+        // implicitly — wrapping it in BEGIN/ROLLBACK would only look safe.
+        let driver = Arc::new(MockDriver::new("mysql").with_transactions(true));
         driver.add("SELECT checksum", empty_history());
         driver.set_default(empty_result());
+
+        let d = Arc::clone(&driver);
+        let resp = run_migration(run(
+            &harness(),
+            d,
+            true,
+            "CREATE TABLE a (id int);",
+            Environment::Development,
+        ))
+        .await;
+
+        assert!(resp.success, "{:?}", resp.error);
+        assert!(!driver.call_log().contains(&DriverCall::Begin));
+    }
+
+    #[tokio::test]
+    async fn mysql_dml_only_migration_still_uses_a_transaction() {
+        // DML rolls back fine on MySQL; only DDL forfeits the transaction.
+        let driver = Arc::new(MockDriver::new("mysql").with_transactions(true));
+        driver.add("SELECT checksum", empty_history());
+        driver.set_default(empty_result());
+
+        let d = Arc::clone(&driver);
+        let resp = run_migration(run(
+            &harness(),
+            d,
+            true,
+            "INSERT INTO a VALUES (1);",
+            Environment::Development,
+        ))
+        .await;
+
+        assert!(resp.success, "{:?}", resp.error);
+        assert!(driver.call_log().contains(&DriverCall::Begin));
+    }
+
+    #[tokio::test]
+    async fn failed_mysql_ddl_marks_the_migration_failed_not_pending() {
+        let driver = Arc::new(MockDriver::new("mysql").with_transactions(true));
+        driver.add("SELECT checksum", empty_history());
+        driver.set_default(empty_result());
+        // History DDL, SELECT, DELETE claim, INSERT claim, then statement 1.
         driver.fail_nth_execute(4, "boom");
 
         let d = Arc::clone(&driver);
-        let resp = run_migration(run(&harness(), d, true, "CREATE TABLE a (id int);", Environment::Development)).await;
+        let resp = run_migration(run(
+            &harness(),
+            d,
+            true,
+            "CREATE TABLE a (id int);",
+            Environment::Development,
+        ))
+        .await;
 
         assert!(!resp.success);
-        // Without a transaction, the claim must be undone explicitly or the
-        // migration would stay marked applied after a failure.
-        assert!(executed(&driver)
-            .iter()
-            .any(|q| q.contains("DELETE FROM qoredb_migrations")));
+        let ran = executed(&driver);
+        // The statements that already ran cannot be undone, so claiming the
+        // migration is pending would be a lie about the schema.
+        assert!(
+            ran.iter().any(|q| q.contains("SET failed_at")),
+            "expected a failure marker, got {ran:?}"
+        );
+        // The claim's own DELETE is conditional (it only clears a rolled-back or
+        // previously-failed row). An unconditional one would erase the record and
+        // report the half-migrated schema as pending.
+        assert!(
+            !ran.iter()
+                .any(|q| q.starts_with("DELETE") && !q.contains("failed_at IS NOT NULL")),
+            "the claim must not be erased after a failure: {ran:?}"
+        );
+        assert!(resp.error.expect("error").contains("commits DDL implicitly"));
+    }
+
+    #[tokio::test]
+    async fn a_failed_migration_is_refused_until_forced() {
+        let driver = Arc::new(MockDriver::new("mysql").with_transactions(true));
+        driver.add(
+            "SELECT checksum",
+            history_result(&checksum_v2(FILE), None, Some("2026-01-02T00:00:00Z")),
+        );
+        driver.set_default(empty_result());
+
+        let d = Arc::clone(&driver);
+        let resp = run_migration(run(
+            &harness(),
+            d,
+            true,
+            "CREATE TABLE t (id int);",
+            Environment::Development,
+        ))
+        .await;
+
+        assert_eq!(resp.blocked_reason, Some(MigrationBlockReason::PartiallyApplied));
+        assert!(resp.overridable);
+        assert!(!executed(&driver).iter().any(|q| q.contains("CREATE TABLE t (id int)")));
     }
 
     #[tokio::test]
     async fn down_claim_with_zero_affected_rows_aborts_before_the_script() {
         let driver = Arc::new(MockDriver::new("postgres").with_transactions(true));
-        driver.add("SELECT checksum", history_result(&checksum_v2(FILE), None));
+        driver.add("SELECT checksum", history_result(&checksum_v2(FILE), None, None));
         driver.add("UPDATE qoredb_migrations SET rolled_back_at", affected_result(0));
         driver.set_default(empty_result());
 
@@ -1401,6 +1581,43 @@ mod tests {
     fn guard_force_does_not_bypass_not_applied() {
         let e = check_guard(false, None, true, true).err().expect("refused");
         assert_eq!(e.reason, MigrationBlockReason::NotApplied);
+    }
+
+    #[test]
+    fn guard_refuses_both_directions_on_a_failed_row() {
+        let r = failed_row(&checksum_v2(FILE));
+        for is_up in [true, false] {
+            let e = check_guard(is_up, Some(&r), true, false).err().expect("refused");
+            assert_eq!(e.reason, MigrationBlockReason::PartiallyApplied);
+            assert!(e.overridable);
+        }
+    }
+
+    #[test]
+    fn guard_force_clears_a_failed_row_in_both_directions() {
+        let r = failed_row(&checksum_v2(FILE));
+        assert!(check_guard(true, Some(&r), true, true).is_ok());
+        assert!(check_guard(false, Some(&r), true, true).is_ok());
+    }
+
+    #[test]
+    fn failed_wins_over_rolled_back() {
+        // A rollback that died part-way sets both; the unknown schema state is
+        // what the user needs to hear about.
+        let r = HistoryRow {
+            rolled_back_at: Some("2026-01-03T00:00:00Z".to_string()),
+            ..failed_row("c")
+        };
+        assert_eq!(r.state(), HistoryState::Failed);
+    }
+
+    #[test]
+    fn ddl_transactionality_is_not_transaction_support() {
+        assert!(!has_transactional_ddl("mysql"));
+        assert!(!has_transactional_ddl("mariadb"));
+        assert!(has_transactional_ddl("postgres"));
+        assert!(has_transactional_ddl("sqlite"));
+        assert!(has_transactional_ddl("sqlserver"));
     }
 
     #[test]

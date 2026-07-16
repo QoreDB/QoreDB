@@ -2638,7 +2638,10 @@
     "forceApply": "強制実行",
     "duplicateVersion": "バージョンの重複",
     "malformed": "無効なファイル名",
-    "pkLabel": "主キー"
+    "pkLabel": "主キー",
+    "statusFailed": "失敗",
+    "partiallyApplied": "マイグレーションが部分的に適用されました",
+    "partiallyAppliedWarning": "このドライバーは DDL を暗黙的にコミットするため、実行済みのステートメントは取り消せませんでした。強制する前にスキーマを確認してください。"
   },
   "snapshots": {
     "title": "スナップショット",

@@ -2638,7 +2638,10 @@
     "forceApply": "Forçar",
     "duplicateVersion": "Versão duplicada",
     "malformed": "Nome de arquivo inválido",
-    "pkLabel": "PK"
+    "pkLabel": "PK",
+    "statusFailed": "Falhou",
+    "partiallyApplied": "Migração parcialmente aplicada",
+    "partiallyAppliedWarning": "Este driver confirma o DDL implicitamente, então as instruções já executadas não puderam ser desfeitas. Verifique o esquema antes de forçar."
   },
   "snapshots": {
     "title": "Snapshots",

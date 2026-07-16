@@ -246,13 +246,17 @@ export function MigrationsPanel({
       try {
         let res = await applyMigration(sessionId, filename, direction, database ?? '', true);
 
-        // The backend refused because the file drifted since it was applied.
-        // That's a judgement call, so surface it and let the user decide.
-        if (!res.success && res.blocked_reason === 'checksum_mismatch' && res.overridable) {
+        // Some refusals are judgement calls rather than errors: the file drifted,
+        // or a previous run died and left the schema in an unknown state. Surface
+        // the reason and let the user decide.
+        if (!res.success && res.overridable) {
+          const partial = res.blocked_reason === 'partially_applied';
           const forced = await confirmDialog({
-            title: t('migrations.checksumMismatch'),
+            title: partial ? t('migrations.partiallyApplied') : t('migrations.checksumMismatch'),
             description: res.error ?? t('migrations.checksumForceConfirm', { name: filename }),
-            warningInfo: t('migrations.checksumForceWarning'),
+            warningInfo: partial
+              ? t('migrations.partiallyAppliedWarning')
+              : t('migrations.checksumForceWarning'),
             confirmLabel: t('migrations.forceApply'),
           });
           if (!forced) return;
@@ -630,7 +634,7 @@ export function MigrationsPanel({
                   size="sm"
                   variant="outline"
                   onClick={() => void handleSave()}
-                  disabled={!isDirty || saving || readOnly}
+                  disabled={!isDirty || saving}
                 >
                   {saving ? (
                     <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
@@ -644,6 +648,8 @@ export function MigrationsPanel({
                 <div className="text-xs font-semibold uppercase text-muted-foreground mb-1">
                   {t('migrations.upLabel')}
                 </div>
+                {/* `readOnly` guards the connection, not the workspace: editing a
+                    local migration file writes no SQL anywhere. */}
                 <div className="h-56 rounded border border-border overflow-hidden">
                   <SQLEditor
                     value={draft.up}
@@ -651,7 +657,6 @@ export function MigrationsPanel({
                     dialect={driver as Driver}
                     sessionId={sessionId}
                     connectionDatabase={database}
-                    readOnly={readOnly}
                     placeholder={t('migrations.upPlaceholder')}
                   />
                 </div>
@@ -667,7 +672,6 @@ export function MigrationsPanel({
                     dialect={driver as Driver}
                     sessionId={sessionId}
                     connectionDatabase={database}
-                    readOnly={readOnly}
                     placeholder={t('migrations.downPlaceholder')}
                   />
                 </div>
@@ -686,11 +690,13 @@ function StatusBadge({ status }: { status: MigrationStatusEntry['status'] }) {
     applied: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400',
     pending: 'bg-muted text-muted-foreground',
     rolled_back: 'bg-amber-500/15 text-amber-700 dark:text-amber-400',
+    failed: 'bg-destructive/15 text-destructive',
   };
   const labels: Record<MigrationStatusEntry['status'], string> = {
     applied: t('migrations.statusApplied'),
     pending: t('migrations.statusPending'),
     rolled_back: t('migrations.statusRolledBack'),
+    failed: t('migrations.statusFailed'),
   };
   return (
     <span className={cn('shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium', styles[status])}>

@@ -2677,7 +2677,10 @@
     "forceApply": "Force",
     "duplicateVersion": "Duplicate version",
     "malformed": "Invalid filename",
-    "pkLabel": "PK"
+    "pkLabel": "PK",
+    "statusFailed": "Failed",
+    "partiallyApplied": "Migration partially applied",
+    "partiallyAppliedWarning": "This driver commits DDL implicitly, so the statements that already ran could not be undone. Check the schema before forcing."
   },
   "snapshots": {
     "title": "Snapshots",

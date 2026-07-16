@@ -24,8 +24,10 @@ describe('quoteIdentifier', () => {
     expect(quoteIdentifier('we`ird', Driver.Mysql)).toBe('`we``ird`');
   });
 
-  it('escapes both bracket characters on sql server', () => {
+  it('escapes only the closing bracket on sql server', () => {
+    // `]` is what ends the identifier; `[` inside it is an ordinary character,
+    // so doubling it would corrupt the name.
     expect(quoteIdentifier('a]b', Driver.SqlServer)).toBe('[a]]b]');
-    expect(quoteIdentifier('a[b', Driver.SqlServer)).toBe('[a[[b]');
+    expect(quoteIdentifier('a[b', Driver.SqlServer)).toBe('[a[b]');
   });
 });

@@ -71,7 +71,11 @@ struct SplitDialect {
     bracket_ident: bool,
     go_batch: bool,
     backslash_escape: bool,
+    /// Postgres `E'…'`: backslash escapes, opt-in per literal.
+    e_strings: bool,
     hash_comment: bool,
+    /// MySQL needs whitespace after `--`; `SELECT 1--2` is arithmetic, not a comment.
+    dash_comment_needs_space: bool,
     nested_block_comments: bool,
 }
 
@@ -82,12 +86,15 @@ fn dialect_for(driver_id: &str) -> SplitDialect {
         bracket_ident: false,
         go_batch: false,
         backslash_escape: false,
+        e_strings: false,
         hash_comment: false,
+        dash_comment_needs_space: false,
         nested_block_comments: false,
     };
     match driver_id.to_ascii_lowercase().as_str() {
         "postgres" | "cockroachdb" | "timescaledb" | "supabase" | "neon" => SplitDialect {
             dollar_quoting: true,
+            e_strings: true,
             nested_block_comments: true,
             ..base
         },
@@ -95,6 +102,7 @@ fn dialect_for(driver_id: &str) -> SplitDialect {
             backtick_ident: true,
             backslash_escape: true,
             hash_comment: true,
+            dash_comment_needs_space: true,
             ..base
         },
         "sqlite" => SplitDialect {
@@ -111,15 +119,37 @@ fn dialect_for(driver_id: &str) -> SplitDialect {
     }
 }
 
+/// True when `--` at `i` opens a comment for this dialect.
+fn is_dash_comment(bytes: &[u8], i: usize, d: SplitDialect) -> bool {
+    if !(bytes[i] == b'-' && bytes.get(i + 1) == Some(&b'-')) {
+        return false;
+    }
+    if !d.dash_comment_needs_space {
+        return true;
+    }
+    bytes.get(i + 2).is_none_or(|c| c.is_ascii_whitespace())
+}
+
+/// True when the `'` at `i` opens a Postgres `E'…'` literal, where backslash
+/// escapes apply. The `E` must not be the tail of a longer identifier.
+fn is_e_string(bytes: &[u8], i: usize) -> bool {
+    i > 0
+        && (bytes[i - 1] | 0x20) == b'e'
+        && (i < 2 || !(bytes[i - 2].is_ascii_alphanumeric() || bytes[i - 2] == b'_'))
+}
+
 /// Skips past an opaque region (string, comment, quoted identifier, dollar-quote)
 /// starting at `i`. Returns the next offset, or `None` when `i` opens nothing.
 fn skip_opaque(bytes: &[u8], i: usize, d: SplitDialect) -> Result<Option<usize>, SplitError> {
     let len = bytes.len();
     match bytes[i] {
-        b'-' if i + 1 < len && bytes[i + 1] == b'-' => Ok(Some(skip_to_eol(bytes, i))),
+        b'-' if is_dash_comment(bytes, i, d) => Ok(Some(skip_to_eol(bytes, i))),
         b'#' if d.hash_comment => Ok(Some(skip_to_eol(bytes, i))),
         b'/' if i + 1 < len && bytes[i + 1] == b'*' => skip_block_comment(bytes, i, d).map(Some),
-        b'\'' => skip_quoted(bytes, i, b'\'', d.backslash_escape).map(Some),
+        b'\'' => {
+            let escapes = d.backslash_escape || (d.e_strings && is_e_string(bytes, i));
+            skip_quoted(bytes, i, b'\'', escapes).map(Some)
+        }
         b'"' => skip_quoted(bytes, i, b'"', false).map(Some),
         b'`' if d.backtick_ident => skip_quoted(bytes, i, b'`', false).map(Some),
         b'[' if d.bracket_ident => skip_bracket(bytes, i).map(Some),
@@ -281,13 +311,13 @@ fn match_go(bytes: &[u8], i: usize) -> Result<Option<usize>, SplitError> {
     if i + 1 >= len || bytes[i + 1] | 0x20 != b'o' {
         return Ok(None);
     }
-    let mut j = i + 2;
+    let j = i + 2;
     // `GO` must stand alone: `GONE` is an identifier, not a separator.
     if j < len && !bytes[j].is_ascii_whitespace() {
         return Ok(None);
     }
     let mut k = j;
-    while k < len && (bytes[k] == b' ' || bytes[k] == b'\t') {
+    while k < len && (bytes[k] == b' ' || bytes[k] == b'\t' || bytes[k] == b'\r') {
         k += 1;
     }
     if k < len && bytes[k].is_ascii_digit() {
@@ -298,10 +328,12 @@ fn match_go(bytes: &[u8], i: usize) -> Result<Option<usize>, SplitError> {
              silently differ from the script. Repeat the statements explicitly.",
         ));
     }
-    while j < len && bytes[j] != b'\n' {
-        j += 1;
+    // Anything else on the line means this isn't a batch separator. Leave it in
+    // the statement rather than swallowing the rest of the line.
+    if k < len && bytes[k] != b'\n' {
+        return Ok(None);
     }
-    Ok(Some(j))
+    Ok(Some(k))
 }
 
 fn scan_go_batches(sql: &str, d: SplitDialect) -> Result<Vec<Range<usize>>, SplitError> {
@@ -667,6 +699,74 @@ mod tests {
             err("sqlserver", "SELECT 1\nGO 5\n").code,
             SplitErrorCode::UnsupportedGoCount
         );
+    }
+
+    #[test]
+    fn sqlserver_go_followed_by_junk_is_not_a_separator() {
+        // Treating it as GO would silently delete `garbage` from the script;
+        // leaving it in lets the server reject it with a real error.
+        assert_eq!(
+            split("sqlserver", "SELECT 1\nGO garbage\n"),
+            vec!["SELECT 1\nGO garbage"]
+        );
+    }
+
+    #[test]
+    fn sqlserver_go_tolerates_crlf() {
+        assert_eq!(
+            split("sqlserver", "SELECT 1\r\nGO\r\nSELECT 2\r\n"),
+            vec!["SELECT 1", "SELECT 2"]
+        );
+    }
+
+    #[test]
+    fn postgres_e_string_honours_backslash_escapes() {
+        // In `E'…'` the `\'` is an escaped quote, so the `;` stays inside.
+        assert_eq!(
+            split("postgres", r"SELECT E'a\'; b';"),
+            vec![r"SELECT E'a\'; b'"]
+        );
+    }
+
+    #[test]
+    fn postgres_plain_string_does_not_honour_backslash_escapes() {
+        assert_eq!(
+            split("postgres", r"SELECT 'a\'; SELECT 2;"),
+            vec![r"SELECT 'a\'", "SELECT 2"]
+        );
+    }
+
+    #[test]
+    fn postgres_identifier_ending_in_e_does_not_open_an_e_string() {
+        // `value` ends in `e`, but `value'…'` is not an E-string.
+        assert_eq!(
+            split("postgres", r"SELECT value'a\'; SELECT 2;"),
+            vec![r"SELECT value'a\'", "SELECT 2"]
+        );
+    }
+
+    #[test]
+    fn mysql_dash_dash_without_space_is_not_a_comment() {
+        // MySQL reads `1--2` as `1 - (-2)`; treating it as a comment would eat
+        // the rest of the line, including the separator.
+        assert_eq!(
+            split("mysql", "SELECT 1--2;\nSELECT 3;"),
+            vec!["SELECT 1--2", "SELECT 3"]
+        );
+    }
+
+    #[test]
+    fn mysql_dash_dash_with_space_is_a_comment() {
+        assert_eq!(
+            split("mysql", "SELECT 1 -- a; b\n;SELECT 2;"),
+            vec!["SELECT 1 -- a; b", "SELECT 2"]
+        );
+    }
+
+    #[test]
+    fn postgres_dash_dash_without_space_is_a_comment() {
+        // Postgres has no such rule; the dialects genuinely differ.
+        assert_eq!(split("postgres", "SELECT 1--2;\nSELECT 3;"), vec!["SELECT 1--2;\nSELECT 3"]);
     }
 
     #[test]

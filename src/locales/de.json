@@ -2638,7 +2638,10 @@
     "forceApply": "Erzwingen",
     "duplicateVersion": "Doppelte Version",
     "malformed": "Ungültiger Dateiname",
-    "pkLabel": "PK"
+    "pkLabel": "PK",
+    "statusFailed": "Fehlgeschlagen",
+    "partiallyApplied": "Migration teilweise angewendet",
+    "partiallyAppliedWarning": "Dieser Treiber committet DDL implizit, daher konnten die bereits ausgeführten Anweisungen nicht rückgängig gemacht werden. Prüfen Sie das Schema, bevor Sie erzwingen."
   },
   "snapshots": {
     "title": "Snapshots",

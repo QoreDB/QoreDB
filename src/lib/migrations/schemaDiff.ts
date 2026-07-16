@@ -274,10 +274,11 @@ export function generateMigration(
     const upSql = buildAlterTableSQL(a, ops, d);
     up.push(joinStatements(upSql.statements));
     warnings.push(...upSql.warnings);
-    // Real differences the dialect can't express. Without this the migration
-    // would come out empty and read as "no changes".
-    if (upSql.statements.length === 0) {
-      unexpressed.push(...ops);
+    // Check each operation on its own: a table can mix expressible and
+    // inexpressible changes (SQLite ADD COLUMN + type change), and emitting only
+    // the half that compiles would silently ship an incomplete migration.
+    for (const op of ops) {
+      if (buildAlterTableSQL(a, [op], d).statements.length === 0) unexpressed.push(op);
     }
 
     const { reversible, irreversible } = invertOps(b, a);

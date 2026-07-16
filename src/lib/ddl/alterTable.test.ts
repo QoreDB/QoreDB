@@ -150,6 +150,30 @@ describe('primary key SQL', () => {
   });
 });
 
+describe('index SQL', () => {
+  const t = table({ indexes: [idx()] });
+
+  it('scopes the drop to the table on sql server', () => {
+    // T-SQL index names are scoped to their table, so a bare DROP INDEX fails.
+    const res = buildAlterTableSQL(
+      t,
+      [{ kind: 'drop_index', name: 'idx_email' }],
+      Driver.SqlServer
+    );
+    expect(res.statements).toEqual(['DROP INDEX [idx_email] ON [public].[users];']);
+  });
+
+  it('scopes the drop to the table on mysql', () => {
+    const res = buildAlterTableSQL(t, [{ kind: 'drop_index', name: 'idx_email' }], Driver.Mysql);
+    expect(res.statements).toEqual(['DROP INDEX `idx_email` ON `app`.`users`;']);
+  });
+
+  it('drops by name alone on postgres', () => {
+    const res = buildAlterTableSQL(t, [{ kind: 'drop_index', name: 'idx_email' }], Driver.Postgres);
+    expect(res.statements).toEqual(['DROP INDEX "idx_email";']);
+  });
+});
+
 describe('indexes', () => {
   it('emits no op for an identical index', () => {
     const before = table({ indexes: [idx()] });
@@ -215,6 +239,58 @@ describe('foreign keys', () => {
       'drop_foreign_key',
       'add_foreign_key',
     ]);
+  });
+});
+
+describe('operation order', () => {
+  const kinds = (ops: ReturnType<typeof diffTableDefinitions>) => ops.map(o => o.kind);
+
+  it('drops dependent objects before the column they cover', () => {
+    // Dropping the column first is either refused for dependency reasons, or
+    // takes the index with it and makes the later DROP INDEX fail.
+    const before = table({
+      columns: [col('id', { isPrimaryKey: true }), col('email')],
+      primaryKeyName: 'users_pkey',
+      indexes: [idx({ name: 'idx_email', columns: ['email'] })],
+      foreignKeys: [fk({ columns: ['email'] })],
+    });
+    const after = table({
+      columns: [col('id', { isPrimaryKey: true })],
+      primaryKeyName: 'users_pkey',
+    });
+    const ops = kinds(diffTableDefinitions(before, after));
+
+    const dropCol = ops.indexOf('drop_column');
+    expect(ops.indexOf('drop_index')).toBeLessThan(dropCol);
+    expect(ops.indexOf('drop_foreign_key')).toBeLessThan(dropCol);
+  });
+
+  it('creates a column before the index that covers it', () => {
+    const before = table({ columns: [col('id')] });
+    const after = table({
+      columns: [col('id'), col('email', { type: 'text' })],
+      indexes: [idx({ columns: ['email'] })],
+    });
+    const ops = kinds(diffTableDefinitions(before, after));
+    expect(ops.indexOf('add_column')).toBeLessThan(ops.indexOf('add_index'));
+  });
+
+  it('renames a column before changing it', () => {
+    const before = table({ columns: [col('mail', { type: 'text' })] });
+    const after = table({ columns: [col('email', { type: 'varchar' })] });
+    const ops = kinds(
+      diffTableDefinitions(before, after, { columnRenames: [{ from: 'mail', to: 'email' }] })
+    );
+    expect(ops.indexOf('rename_column')).toBeLessThan(ops.indexOf('change_type'));
+  });
+
+  it('renames the table last, since every other statement uses the old name', () => {
+    const before = table({ columns: [col('id')] });
+    const after = table({ tableName: 'people', columns: [col('id'), col('name')] });
+    const ops = kinds(
+      diffTableDefinitions(before, after, { tableRename: { from: 'users', to: 'people' } })
+    );
+    expect(ops[ops.length - 1]).toBe('rename_table');
   });
 });
 

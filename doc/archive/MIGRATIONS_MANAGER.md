@@ -1,5 +1,16 @@
 # Migrations Manager — spec de la prochaine release
 
+> Livrée en `v0.1.34`, à deux exceptions près, reportées faute d'être nécessaires au flux principal :
+>
+> - **Timeline des migrations** (Phase 4) : le panneau affiche une liste avec badges de statut
+>   (appliquée / en attente / annulée / échouée), pas un historique chronologique.
+> - **« Ajouter à une migration » depuis le Sandbox** (§ Levée d'ambiguïté) : `MigrationPreview`
+>   sait toujours seulement copier, télécharger ou appliquer son script DML.
+>
+> Ajouts non prévus par la spec, imposés par un audit : état `failed` dans la table d'historique
+> pour les drivers dont le DDL n'est pas transactionnel, et splitter SQL dédié préservant le texte
+> original (`qore-sql/src/migration_split.rs`).
+
 Cible : desktop `v0.1.34` (cadence `v0.1.x`). Thème : cycle de vie du schéma.
 Approche retenue : hybride — socle de migrations par fichiers SQL versionnés (façon dbmate/Flyway), plus une couche légère de schema-diff pour générer les migrations et comparer les environnements.
 

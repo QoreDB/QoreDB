@@ -2638,7 +2638,10 @@
     "forceApply": "强制执行",
     "duplicateVersion": "版本重复",
     "malformed": "文件名无效",
-    "pkLabel": "主键"
+    "pkLabel": "主键",
+    "statusFailed": "失败",
+    "partiallyApplied": "迁移部分应用",
+    "partiallyAppliedWarning": "此驱动会隐式提交 DDL，因此已执行的语句无法撤销。强制执行前请检查架构。"
   },
   "snapshots": {
     "title": "快照",

@@ -60,6 +60,9 @@ pub struct ActiveSession {
     pub driver_id: String,
     pub config: ConnectionConfig,
     pub display_name: String,
+    /// Stable id of the saved connection that opened this session. Direct
+    /// debug connections leave this unset.
+    pub saved_connection_id: Option<String>,
     pub tunnel: Option<SshTunnel>,
     pub proxy_tunnel: Option<ProxyTunnel>,
     pub health: ConnectionHealth,
@@ -230,6 +233,7 @@ impl SessionManager {
                 driver_id: config.driver.clone(),
                 config,
                 display_name,
+                saved_connection_id: None,
                 tunnel,
                 proxy_tunnel,
                 health: ConnectionHealth::Healthy,
@@ -311,6 +315,21 @@ impl SessionManager {
         sessions.get(&session_id).map(|s| s.display_name.clone())
     }
 
+    /// Returns the stable saved-connection id and current display name for a
+    /// session. `None` means the session came from a direct/debug connection
+    /// and cannot be matched safely to workspace-scoped features.
+    pub async fn get_saved_connection_identity(
+        &self,
+        session_id: SessionId,
+    ) -> Option<(String, String)> {
+        let sessions = self.sessions.read().await;
+        let session = sessions.get(&session_id)?;
+        Some((
+            session.saved_connection_id.clone()?,
+            session.display_name.clone(),
+        ))
+    }
+
     /// Returns a stable identifier for the *connection* backing a session.
     pub async fn connection_key(&self, session_id: SessionId) -> Option<String> {
         let sessions = self.sessions.read().await;
@@ -332,6 +351,22 @@ impl SessionManager {
         let mut sessions = self.sessions.write().await;
         if let Some(session) = sessions.get_mut(&session_id) {
             session.display_name = name;
+        }
+    }
+
+    /// Associates a newly-opened session with its saved connection. Keeping
+    /// this identity in the session manager prevents callers from spoofing a
+    /// connection id when executing workspace-scoped operations.
+    pub async fn set_saved_connection_identity(
+        &self,
+        session_id: SessionId,
+        connection_id: String,
+        display_name: String,
+    ) {
+        let mut sessions = self.sessions.write().await;
+        if let Some(session) = sessions.get_mut(&session_id) {
+            session.saved_connection_id = Some(connection_id);
+            session.display_name = display_name;
         }
     }
 
